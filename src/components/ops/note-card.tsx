@@ -40,7 +40,7 @@ export function NoteCard({
   const wasEdited = note.updatedAt && note.updatedAt > note.createdAt;
 
   return (
-    <div className="group bg-glass glass-surface border border-border rounded-[3px] mb-3">
+    <div className="group bg-glass glass-surface border border-border rounded-panel mb-3">
       {/* Header: avatar + name + time + actions */}
       <div className="px-4 pt-3 flex items-center gap-2.5">
         <UserAvatar
@@ -99,7 +99,7 @@ export function NoteCard({
             <button
               key={i}
               onClick={() => onPhotoClick?.(att.markedUpUrl ?? att.url)}
-              className="group/photo relative overflow-hidden rounded-[3px]"
+              className="group/photo relative overflow-hidden rounded-panel"
             >
               <img
                 src={att.markedUpUrl ?? att.url}

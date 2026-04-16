@@ -113,7 +113,7 @@ function ClientSelector({
               disabled={isLoadingClients}
             />
             {showDropdown && !isLoadingClients && (
-              <div className="absolute z-10 left-0 right-0 top-full mt-[4px] bg-glass glass-surface border border-border rounded-lg shadow-floating max-h-[200px] overflow-y-auto">
+              <div className="absolute z-10 left-0 right-0 top-full mt-[4px] bg-glass glass-surface border border-border rounded-lg max-h-[200px] overflow-y-auto">
                 {filteredClients.length === 0 ? (
                   <div className="px-1.5 py-1 text-left">
                     <p className="font-mohave text-body-sm text-text-3">

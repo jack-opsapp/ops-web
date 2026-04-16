@@ -135,7 +135,7 @@ function TaskTypeDropdown({
         </button>
 
         {open && (
-          <div className="absolute z-[60] left-0 right-0 top-full mt-[4px] bg-[rgba(13,13,13,0.9)] backdrop-blur-xl border border-[rgba(255,255,255,0.08)] rounded-sm shadow-floating max-h-[200px] overflow-y-auto">
+          <div className="absolute z-[60] left-0 right-0 top-full mt-[4px] bg-[rgba(13,13,13,0.9)] backdrop-blur-xl border border-[rgba(255,255,255,0.08)] rounded-sm max-h-[200px] overflow-y-auto">
             {taskTypes.length === 0 ? (
               <div className="px-1.5 py-1">
                 <p className="font-mohave text-body-sm text-text-3">
@@ -229,7 +229,7 @@ function StatusDropdown({
         </button>
 
         {open && (
-          <div className="absolute z-[60] left-0 right-0 top-full mt-[4px] bg-[rgba(13,13,13,0.9)] backdrop-blur-xl border border-[rgba(255,255,255,0.08)] rounded-sm shadow-floating max-h-[200px] overflow-y-auto">
+          <div className="absolute z-[60] left-0 right-0 top-full mt-[4px] bg-[rgba(13,13,13,0.9)] backdrop-blur-xl border border-[rgba(255,255,255,0.08)] rounded-sm max-h-[200px] overflow-y-auto">
             {Object.values(TaskStatus).map((s) => (
               <button
                 key={s}
@@ -340,7 +340,7 @@ function TeamMemberDropdown({
         </button>
 
         {open && (
-          <div className="absolute z-[60] left-0 right-0 top-full mt-[4px] bg-[rgba(13,13,13,0.9)] backdrop-blur-xl border border-[rgba(255,255,255,0.08)] rounded-sm shadow-floating max-h-[240px] overflow-y-auto">
+          <div className="absolute z-[60] left-0 right-0 top-full mt-[4px] bg-[rgba(13,13,13,0.9)] backdrop-blur-xl border border-[rgba(255,255,255,0.08)] rounded-sm max-h-[240px] overflow-y-auto">
             {members.length === 0 ? (
               <div className="px-1.5 py-1">
                 <p className="font-mohave text-body-sm text-text-3">

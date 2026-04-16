@@ -527,7 +527,7 @@ export function CalendarScheduler({
 
       {/* Conflict warning banner */}
       {detectedConflicts.length > 0 && (
-        <div className="bg-financial-overdue/10 border border-financial-overdue/20 rounded-[3px] p-3 mt-2" role="alert">
+        <div className="bg-financial-overdue/10 border border-financial-overdue/20 rounded-panel p-3 mt-2" role="alert">
           {detectedConflicts.map((c, i) => (
             <div key={i} className="flex items-start gap-2 mb-1 last:mb-0">
               <AlertTriangle className="w-[14px] h-[14px] text-financial-overdue shrink-0 mt-[2px]" />

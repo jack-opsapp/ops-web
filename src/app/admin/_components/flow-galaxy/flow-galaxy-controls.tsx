@@ -31,7 +31,7 @@ export function FlowGalaxyControls({
   return (
     <div className="flex items-center justify-between px-6 py-3 border-b border-white/[0.08]">
       {/* Galaxy segmented picker */}
-      <div className="flex items-center gap-0 border border-white/[0.08] rounded-[3px] overflow-hidden">
+      <div className="flex items-center gap-0 border border-white/[0.08] rounded-panel overflow-hidden">
         {GALAXY_OPTIONS.map(opt => (
           <button
             key={opt.id}
@@ -58,7 +58,7 @@ export function FlowGalaxyControls({
           <select
             value={params.device}
             onChange={(e) => onChange({ ...params, device: e.target.value })}
-            className="bg-transparent border border-white/[0.08] rounded-[3px] px-2 py-1 font-mohave text-[11px] uppercase text-[#E5E5E5] outline-none cursor-pointer"
+            className="bg-transparent border border-white/[0.08] rounded-panel px-2 py-1 font-mohave text-[11px] uppercase text-[#E5E5E5] outline-none cursor-pointer"
           >
             {DEVICE_OPTIONS.map(d => (
               <option key={d} value={d} className="bg-black">
@@ -69,7 +69,7 @@ export function FlowGalaxyControls({
         </div>
 
         {/* Period filter */}
-        <div className="flex items-center gap-0 border border-white/[0.08] rounded-[3px] overflow-hidden">
+        <div className="flex items-center gap-0 border border-white/[0.08] rounded-panel overflow-hidden">
           {PERIOD_OPTIONS.map(opt => (
             <button
               key={opt.value}

@@ -178,7 +178,7 @@ function TaskRow({
   return (
     <div
       className={cn(
-        "group flex items-center gap-3.5 px-4 py-3 rounded-[3px]",
+        "group flex items-center gap-3.5 px-4 py-3 rounded-panel",
         "bg-glass glass-surface border border-border",
         "hover:border-[rgba(255,255,255,0.3)] transition-all",
         isDone && "opacity-60",
@@ -337,7 +337,7 @@ function TaskListSkeleton() {
       {Array.from({ length: 4 }).map((_, i) => (
         <div
           key={i}
-          className="h-[52px] bg-glass glass-surface border border-border rounded-[3px] flex items-center gap-3.5 px-4"
+          className="h-[52px] bg-glass glass-surface border border-border rounded-panel flex items-center gap-3.5 px-4"
         >
           <div className="w-[3px] h-8 bg-fill-neutral-dim rounded-[1px]" />
           <div className="flex-1">
@@ -572,7 +572,7 @@ function TaskList({ projectId, companyId, className }: TaskListProps) {
           <button
             onClick={() => setViewMode("list")}
             className={cn(
-              "font-mohave text-body-sm rounded-[3px] px-3 py-1.5 transition-colors",
+              "font-mohave text-body-sm rounded-panel px-3 py-1.5 transition-colors",
               viewMode === "list"
                 ? "bg-glass glass-surface border border-border text-text"
                 : "border border-border-subtle text-text-3 hover:text-text-2"
@@ -585,7 +585,7 @@ function TaskList({ projectId, companyId, className }: TaskListProps) {
               <TooltipTrigger asChild>
                 <button
                   disabled
-                  className="font-mohave text-body-sm rounded-[3px] px-3 py-1.5 border border-border-subtle text-text-mute cursor-not-allowed"
+                  className="font-mohave text-body-sm rounded-panel px-3 py-1.5 border border-border-subtle text-text-mute cursor-not-allowed"
                 >
                   {t("taskList.calendar")}
                 </button>
@@ -604,7 +604,7 @@ function TaskList({ projectId, companyId, className }: TaskListProps) {
             <PopoverTrigger asChild>
               <button
                 onClick={() => setShowCreateForm(true)}
-                className="bg-ops-accent text-white font-mohave text-body-sm rounded-[3px] px-4 py-1.5 hover:opacity-90 transition-opacity"
+                className="bg-ops-accent text-white font-mohave text-body-sm rounded-panel px-4 py-1.5 hover:opacity-90 transition-opacity"
               >
                 + {t("taskList.addTask")}
               </button>

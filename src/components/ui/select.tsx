@@ -72,7 +72,7 @@ const SelectContent = React.forwardRef<
       ref={ref}
       className={cn(
         "relative z-[60] max-h-[300px] min-w-[8rem] overflow-hidden",
-        "bg-glass glass-surface backdrop-blur-xl border border-[rgba(255,255,255,0.2)] rounded shadow-floating",
+        "bg-glass glass-surface backdrop-blur-xl border border-[rgba(255,255,255,0.2)] rounded",
         "data-[state=open]:animate-scale-in",
         position === "popper" &&
           "data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1",

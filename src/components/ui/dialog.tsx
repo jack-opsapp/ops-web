@@ -36,7 +36,7 @@ const DialogContent = React.forwardRef<
       className={cn(
         "fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2",
         "w-full max-w-[540px] max-h-[85vh] overflow-y-auto",
-        "bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2] border border-[rgba(255,255,255,0.08)] rounded-sm",
+        "glass-dense",
         "p-3",
         "data-[state=open]:animate-scale-in",
         "focus:outline-none",

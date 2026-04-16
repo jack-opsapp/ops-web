@@ -229,7 +229,7 @@ export function FloatingActionButton() {
                   exit="exit"
                   onClick={() => handleAction(action)}
                   className={cn(
-                    "relative flex items-center gap-2 pl-2 pr-3 py-2 rounded-[4px]",
+                    "relative flex items-center gap-2 pl-2 pr-3 py-2 rounded-panel",
                     "bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2]",
                     "border border-[rgba(255,255,255,0.08)]",
                     "hover:border-[rgba(255,255,255,0.15)] hover:bg-[rgba(255,255,255,0.05)]",
@@ -272,7 +272,7 @@ export function FloatingActionButton() {
                   exit="exit"
                   onClick={() => setShowAddDropdown((prev) => !prev)}
                   className={cn(
-                    "flex items-center gap-2 pl-2 pr-3 py-2 rounded-[4px]",
+                    "flex items-center gap-2 pl-2 pr-3 py-2 rounded-panel",
                     "border border-dashed border-[rgba(255,255,255,0.08)]",
                     "hover:border-[rgba(255,255,255,0.15)]",
                     "transition-colors duration-150 whitespace-nowrap"
@@ -294,7 +294,7 @@ export function FloatingActionButton() {
                     exit={{ opacity: 0, y: -8 }}
                     transition={{ duration: 0.15 }}
                     className={cn(
-                      "absolute top-0 right-full mr-2 flex flex-col gap-1 p-1 rounded-[4px]",
+                      "absolute top-0 right-full mr-2 flex flex-col gap-1 p-1 rounded-panel",
                       "bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2]",
                       "border border-[rgba(255,255,255,0.08)]"
                     )}
@@ -306,7 +306,7 @@ export function FloatingActionButton() {
                         key={action.id}
                         onClick={() => addAction(action.id)}
                         className={cn(
-                          "flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-[4px]",
+                          "flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-panel",
                           "hover:bg-[rgba(255,255,255,0.05)]",
                           "transition-colors duration-150 whitespace-nowrap"
                         )}

@@ -57,7 +57,7 @@ export function UnifiedReplyBar({
           <button
             onClick={() => setShowChannelPicker((prev) => !prev)}
             className={cn(
-              "flex items-center gap-1.5 px-2 py-1 rounded-[3px] font-kosugi text-micro uppercase tracking-wider cursor-pointer transition-colors",
+              "flex items-center gap-1.5 px-2 py-1 rounded-panel font-kosugi text-micro uppercase tracking-wider cursor-pointer transition-colors",
               channel === "portal"
                 ? "bg-ops-accent-muted text-ops-accent"
                 : "bg-surface-input text-text-3"
@@ -73,7 +73,7 @@ export function UnifiedReplyBar({
           </button>
 
           {showChannelPicker && (
-            <div className="absolute bottom-full left-0 mb-1 bg-glass glass-surface backdrop-blur-[20px] saturate-[1.2] border border-border-subtle rounded-[3px] overflow-hidden z-20">
+            <div className="absolute bottom-full left-0 mb-1 bg-glass glass-surface backdrop-blur-[20px] saturate-[1.2] border border-border-subtle rounded-panel overflow-hidden z-20">
               {hasPortalMessages && (
                 <button
                   onClick={() => {
@@ -114,18 +114,18 @@ export function UnifiedReplyBar({
           onKeyDown={handleKeyDown}
           placeholder={t("reply.placeholder")}
           disabled={isSending}
-          className="flex-1 bg-surface-input border border-border-subtle rounded-[3px] px-3 py-2 font-mohave text-body-sm text-text placeholder:text-text-3 outline-none disabled:opacity-50"
+          className="flex-1 bg-surface-input border border-border-subtle rounded-panel px-3 py-2 font-mohave text-body-sm text-text placeholder:text-text-3 outline-none disabled:opacity-50"
         />
 
         {/* Attach + Send */}
         <div className="flex items-center gap-1 shrink-0">
-          <button className="w-[28px] h-[28px] flex items-center justify-center rounded-[3px] text-text-mute hover:text-text-2 transition-colors">
+          <button className="w-[28px] h-[28px] flex items-center justify-center rounded-panel text-text-mute hover:text-text-2 transition-colors">
             <Paperclip className="w-[14px] h-[14px]" />
           </button>
           <button
             onClick={handleSend}
             disabled={isSending || !message.trim()}
-            className="bg-ops-accent text-white px-3.5 py-1.5 rounded-[3px] font-kosugi text-micro uppercase tracking-[0.3px] hover:bg-ops-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="bg-ops-accent text-white px-3.5 py-1.5 rounded-panel font-kosugi text-micro uppercase tracking-[0.3px] hover:bg-ops-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {t("reply.send")}
           </button>

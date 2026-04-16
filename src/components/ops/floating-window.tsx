@@ -63,8 +63,7 @@ export function FloatingWindow({ window: win, children }: FloatingWindowProps) {
   return (
     <div
       className={cn(
-        "fixed bg-[rgba(13,13,13,0.95)] backdrop-blur-xl",
-        "border border-[rgba(255,255,255,0.2)] rounded-lg shadow-floating",
+        "fixed glass-dense",
         "flex flex-col overflow-hidden",
         isDragging && "select-none"
       )}

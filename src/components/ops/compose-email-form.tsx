@@ -68,7 +68,7 @@ function LinkInsertPopover({
         value={url}
         onChange={(e) => setUrl(e.target.value)}
         placeholder={t("toolbar.link.url")}
-        className="w-full px-2 py-1 rounded-[3px] bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] font-mohave text-body-sm text-text placeholder:text-text-mute outline-none focus:border-[rgba(89,119,148,0.4)]"
+        className="w-full px-2 py-1 rounded-panel bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] font-mohave text-body-sm text-text placeholder:text-text-mute outline-none focus:border-[rgba(89,119,148,0.4)]"
         autoFocus
       />
       <input
@@ -76,7 +76,7 @@ function LinkInsertPopover({
         value={text}
         onChange={(e) => setText(e.target.value)}
         placeholder={t("toolbar.link.text")}
-        className="w-full px-2 py-1 rounded-[3px] bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] font-mohave text-body-sm text-text placeholder:text-text-mute outline-none focus:border-[rgba(89,119,148,0.4)]"
+        className="w-full px-2 py-1 rounded-panel bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] font-mohave text-body-sm text-text placeholder:text-text-mute outline-none focus:border-[rgba(89,119,148,0.4)]"
       />
       <div className="flex items-center gap-1 pt-0.5">
         <button
@@ -84,13 +84,13 @@ function LinkInsertPopover({
             if (url) onInsert(url, text || url);
           }}
           disabled={!url}
-          className="px-2 py-0.5 rounded-[3px] bg-[rgba(255,255,255,0.08)] font-kosugi text-[10px] text-text uppercase tracking-wider hover:bg-[rgba(255,255,255,0.12)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="px-2 py-0.5 rounded-panel bg-[rgba(255,255,255,0.08)] font-kosugi text-[10px] text-text uppercase tracking-wider hover:bg-[rgba(255,255,255,0.12)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
           {t("toolbar.link.insert")}
         </button>
         <button
           onClick={onCancel}
-          className="px-2 py-0.5 rounded-[3px] font-kosugi text-[10px] text-text-3 uppercase tracking-wider hover:text-text-2 transition-colors"
+          className="px-2 py-0.5 rounded-panel font-kosugi text-[10px] text-text-3 uppercase tracking-wider hover:text-text-2 transition-colors"
         >
           {t("toolbar.link.cancel")}
         </button>
@@ -661,10 +661,10 @@ export function ComposeEmailForm({
 
       {/* Toolbar */}
       <div className="shrink-0 px-3 py-1 flex items-center gap-0.5 border-b border-[rgba(255,255,255,0.04)]">
-        <button onClick={handleBold} title={t("toolbar.bold")} className="p-1 rounded-[3px] text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.04)] transition-colors">
+        <button onClick={handleBold} title={t("toolbar.bold")} className="p-1 rounded-panel text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.04)] transition-colors">
           <Bold className="w-[14px] h-[14px]" />
         </button>
-        <button onClick={handleItalic} title={t("toolbar.italic")} className="p-1 rounded-[3px] text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.04)] transition-colors">
+        <button onClick={handleItalic} title={t("toolbar.italic")} className="p-1 rounded-panel text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.04)] transition-colors">
           <Italic className="w-[14px] h-[14px]" />
         </button>
         <div className="relative">
@@ -672,7 +672,7 @@ export function ComposeEmailForm({
             onClick={() => setShowLinkPopover(!showLinkPopover)}
             title={t("toolbar.link")}
             className={cn(
-              "p-1 rounded-[3px] text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.04)] transition-colors",
+              "p-1 rounded-panel text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.04)] transition-colors",
               showLinkPopover && "bg-[rgba(255,255,255,0.06)] text-text"
             )}
           >
@@ -694,7 +694,7 @@ export function ComposeEmailForm({
           disabled={isGeneratingDraft || !effectiveConnectionId}
           title={t("toolbar.aiDraft.tooltip")}
           className={cn(
-            "flex items-center gap-1 px-1.5 py-0.5 rounded-[3px] font-kosugi text-[10px] uppercase tracking-wider transition-colors",
+            "flex items-center gap-1 px-1.5 py-0.5 rounded-panel font-kosugi text-[10px] uppercase tracking-wider transition-colors",
             isGeneratingDraft
               ? "text-[#597794] bg-[rgba(89,119,148,0.1)]"
               : "text-text-3 hover:text-[#597794] hover:bg-[rgba(89,119,148,0.08)]",
@@ -714,7 +714,7 @@ export function ComposeEmailForm({
           <button
             onClick={() => setShowTemplatePicker(!showTemplatePicker)}
             className={cn(
-              "flex items-center gap-1 px-1.5 py-0.5 rounded-[3px] font-kosugi text-[10px] text-text-3 uppercase tracking-wider hover:text-text-2 hover:bg-[rgba(255,255,255,0.04)] transition-colors",
+              "flex items-center gap-1 px-1.5 py-0.5 rounded-panel font-kosugi text-[10px] text-text-3 uppercase tracking-wider hover:text-text-2 hover:bg-[rgba(255,255,255,0.04)] transition-colors",
               showTemplatePicker && "bg-[rgba(255,255,255,0.06)] text-text-2"
             )}
           >
@@ -734,7 +734,7 @@ export function ComposeEmailForm({
 
       {/* AI Draft Banner */}
       {aiState.isAIDraft && (
-        <div className="shrink-0 mx-3 mt-1.5 px-2 py-1 rounded-[3px] bg-[rgba(89,119,148,0.06)] border border-[rgba(89,119,148,0.12)] flex items-center gap-1.5">
+        <div className="shrink-0 mx-3 mt-1.5 px-2 py-1 rounded-panel bg-[rgba(89,119,148,0.06)] border border-[rgba(89,119,148,0.12)] flex items-center gap-1.5">
           <Sparkles className="w-[12px] h-[12px] text-[#597794] shrink-0" />
           <div className="flex-1 min-w-0">
             <span className="font-mohave text-caption-sm text-[#597794]">
@@ -771,7 +771,7 @@ export function ComposeEmailForm({
 
       {/* Unresolved merge fields warning */}
       {hasUnresolvedFields(body) && (
-        <div className="shrink-0 mx-3 px-2 py-1 rounded-[3px] bg-[rgba(196,168,104,0.08)] border border-[rgba(196,168,104,0.15)] flex items-center gap-1.5">
+        <div className="shrink-0 mx-3 px-2 py-1 rounded-panel bg-[rgba(196,168,104,0.08)] border border-[rgba(196,168,104,0.15)] flex items-center gap-1.5">
           <AlertTriangle className="w-[12px] h-[12px] text-[#C4A868] shrink-0" />
           <span className="font-mohave text-caption-sm text-[#C4A868]">
             {t("mergeField.unresolved")}
@@ -803,7 +803,7 @@ export function ComposeEmailForm({
         <Button
           onClick={handleSend}
           disabled={isSending || !effectiveConnectionId || !to.trim()}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-text-primary text-[#0A0A0A] font-kosugi text-[11px] uppercase tracking-wider rounded-[3px] hover:bg-text-secondary disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-text-primary text-[#0A0A0A] font-kosugi text-[11px] uppercase tracking-wider rounded-panel hover:bg-text-secondary disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
           <Send className="w-[12px] h-[12px]" />
           {isSending ? t("send.sending") : t("send")}
@@ -823,13 +823,13 @@ export function ComposeEmailForm({
             <div className="flex items-center gap-1 pt-1">
               <button
                 onClick={handleDiscard}
-                className="px-2.5 py-1 rounded-[3px] bg-[rgba(147,50,26,0.2)] border border-[rgba(147,50,26,0.3)] font-kosugi text-[10px] text-[#93321A] uppercase tracking-wider hover:bg-[rgba(147,50,26,0.3)] transition-colors"
+                className="px-2.5 py-1 rounded-panel bg-[rgba(147,50,26,0.2)] border border-[rgba(147,50,26,0.3)] font-kosugi text-[10px] text-[#93321A] uppercase tracking-wider hover:bg-[rgba(147,50,26,0.3)] transition-colors"
               >
                 {t("discard.confirm.yes")}
               </button>
               <button
                 onClick={() => setShowDiscardConfirm(false)}
-                className="px-2.5 py-1 rounded-[3px] font-kosugi text-[10px] text-text-3 uppercase tracking-wider hover:text-text-2 transition-colors"
+                className="px-2.5 py-1 rounded-panel font-kosugi text-[10px] text-text-3 uppercase tracking-wider hover:text-text-2 transition-colors"
               >
                 {t("discard.confirm.no")}
               </button>
@@ -854,13 +854,13 @@ export function ComposeEmailForm({
                   applyTemplate(showReplaceConfirm);
                   setShowReplaceConfirm(null);
                 }}
-                className="px-2.5 py-1 rounded-[3px] bg-[rgba(255,255,255,0.08)] font-kosugi text-[10px] text-text uppercase tracking-wider hover:bg-[rgba(255,255,255,0.12)] transition-colors"
+                className="px-2.5 py-1 rounded-panel bg-[rgba(255,255,255,0.08)] font-kosugi text-[10px] text-text uppercase tracking-wider hover:bg-[rgba(255,255,255,0.12)] transition-colors"
               >
                 {t("template.replace.confirm")}
               </button>
               <button
                 onClick={() => setShowReplaceConfirm(null)}
-                className="px-2.5 py-1 rounded-[3px] font-kosugi text-[10px] text-text-3 uppercase tracking-wider hover:text-text-2 transition-colors"
+                className="px-2.5 py-1 rounded-panel font-kosugi text-[10px] text-text-3 uppercase tracking-wider hover:text-text-2 transition-colors"
               >
                 {t("template.replace.cancel")}
               </button>
@@ -885,13 +885,13 @@ export function ComposeEmailForm({
                   setShowAiReplaceConfirm(false);
                   applyAiDraft();
                 }}
-                className="px-2.5 py-1 rounded-[3px] bg-[rgba(89,119,148,0.15)] border border-[rgba(89,119,148,0.25)] font-kosugi text-[10px] text-[#597794] uppercase tracking-wider hover:bg-[rgba(89,119,148,0.25)] transition-colors"
+                className="px-2.5 py-1 rounded-panel bg-[rgba(89,119,148,0.15)] border border-[rgba(89,119,148,0.25)] font-kosugi text-[10px] text-[#597794] uppercase tracking-wider hover:bg-[rgba(89,119,148,0.25)] transition-colors"
               >
                 {t("aiDraft.replace.confirm")}
               </button>
               <button
                 onClick={() => setShowAiReplaceConfirm(false)}
-                className="px-2.5 py-1 rounded-[3px] font-kosugi text-[10px] text-text-3 uppercase tracking-wider hover:text-text-2 transition-colors"
+                className="px-2.5 py-1 rounded-panel font-kosugi text-[10px] text-text-3 uppercase tracking-wider hover:text-text-2 transition-colors"
               >
                 {t("aiDraft.replace.cancel")}
               </button>

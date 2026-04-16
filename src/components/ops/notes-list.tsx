@@ -70,7 +70,7 @@ export function NotesList({
         {[1, 2, 3].map((i) => (
           <div
             key={i}
-            className="h-24 animate-pulse rounded-[3px] bg-white/5"
+            className="h-24 animate-pulse rounded-panel bg-white/5"
           />
         ))}
       </div>
@@ -114,7 +114,7 @@ export function NotesList({
           placeholder={t("notesFeed.searchPlaceholder")}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="font-mohave text-body-sm bg-glass glass-surface border border-border rounded-[3px] px-3 py-1.5 text-text placeholder:text-text-mute w-[200px] outline-none focus:border-[rgba(255,255,255,0.3)]"
+          className="font-mohave text-body-sm bg-glass glass-surface border border-border rounded-panel px-3 py-1.5 text-text placeholder:text-text-mute w-[200px] outline-none focus:border-[rgba(255,255,255,0.3)]"
         />
       </div>
 

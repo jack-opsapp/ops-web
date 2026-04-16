@@ -132,7 +132,7 @@ export function TaskMaterialsSection({ taskId, inventoryDeducted }: Props) {
                   value={row.inventoryItemId}
                   onChange={(e) => updateRow(idx, { inventoryItemId: e.target.value })}
                   disabled={locked}
-                  className="px-[6px] py-[4px] rounded-[3px] font-mohave text-[11px] text-white disabled:opacity-60"
+                  className="px-[6px] py-[4px] rounded-panel font-mohave text-[11px] text-white disabled:opacity-60"
                   style={{
                     backgroundColor: "#141414",
                     border: "1px solid rgba(255,255,255,0.10)",
@@ -156,7 +156,7 @@ export function TaskMaterialsSection({ taskId, inventoryDeducted }: Props) {
                     updateRow(idx, { quantity: parseFloat(e.target.value) || 0 })
                   }
                   disabled={locked}
-                  className="px-[6px] py-[4px] rounded-[3px] text-right font-mono text-[11px] text-white disabled:opacity-60"
+                  className="px-[6px] py-[4px] rounded-panel text-right font-mono text-[11px] text-white disabled:opacity-60"
                   style={{
                     backgroundColor: "#141414",
                     border: "1px solid rgba(255,255,255,0.10)",
@@ -168,7 +168,7 @@ export function TaskMaterialsSection({ taskId, inventoryDeducted }: Props) {
                     updateRow(idx, { source: e.target.value as MaterialSource })
                   }
                   disabled={locked}
-                  className="px-[4px] py-[4px] rounded-[3px] font-kosugi text-[9px] uppercase text-[#999999] disabled:opacity-60"
+                  className="px-[4px] py-[4px] rounded-panel font-kosugi text-[9px] uppercase text-[#999999] disabled:opacity-60"
                   style={{
                     backgroundColor: "#141414",
                     border: "1px solid rgba(255,255,255,0.10)",
@@ -205,7 +205,7 @@ export function TaskMaterialsSection({ taskId, inventoryDeducted }: Props) {
             <button
               onClick={handleSave}
               disabled={setMaterials.isPending}
-              className="px-[8px] py-[4px] rounded-[3px] font-kosugi text-[10px] uppercase tracking-[0.08em] text-white transition-colors"
+              className="px-[8px] py-[4px] rounded-panel font-kosugi text-[10px] uppercase tracking-[0.08em] text-white transition-colors"
               style={{
                 backgroundColor: "#597794",
                 border: "1px solid rgba(255,255,255,0.10)",

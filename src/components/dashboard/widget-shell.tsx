@@ -142,10 +142,10 @@ export function WidgetShell({
       {/* Frosted backdrop — blocks map bleed-through for all real widgets */}
       {!isSpacer && (
         <div
-          className="absolute inset-0 rounded-[6px] bg-glass border border-glass-border"
+          className="absolute inset-0 rounded-panel bg-glass border border-glass-border"
           style={{
-            backdropFilter: "blur(20px) saturate(1.2)",
-            WebkitBackdropFilter: "blur(20px) saturate(1.2)",
+            backdropFilter: "blur(28px) saturate(1.3)",
+            WebkitBackdropFilter: "blur(28px) saturate(1.3)",
           }}
         />
       )}

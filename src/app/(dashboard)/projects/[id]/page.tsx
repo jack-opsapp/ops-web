@@ -174,7 +174,7 @@ function DetailSkeleton() {
           {/* Metric tiles */}
           <div className="grid grid-cols-2 gap-2">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="bg-glass glass-surface border border-border-subtle rounded-[3px] p-2.5 space-y-1">
+              <div key={i} className="bg-glass glass-surface border border-border-subtle rounded-panel p-2.5 space-y-1">
                 <div className="h-[9px] bg-fill-neutral-dim rounded w-[40px]" />
                 <div className="h-[20px] bg-fill-neutral-dim rounded w-[50px]" />
               </div>
@@ -231,7 +231,7 @@ function DetailError({ message, onRetry, onBack }: { message: string; onRetry: (
 function SidebarSection({ label, onEdit, children }: { label: string; onEdit?: () => void; children: React.ReactNode }) {
   const { t } = useDictionary("projects");
   return (
-    <div className="group/section p-2.5 -m-2.5 rounded-[3px] border border-transparent hover:border-border transition-colors">
+    <div className="group/section p-2.5 -m-2.5 rounded-panel border border-transparent hover:border-border transition-colors">
       <div className="flex items-center justify-between mb-2">
         <span className="font-kosugi text-[10px] uppercase tracking-[0.5px] text-text-3">{label}</span>
         {onEdit && (
@@ -247,7 +247,7 @@ function SidebarSection({ label, onEdit, children }: { label: string; onEdit?: (
 
 function MetricTile({ label, value, colorClass = "text-text" }: { label: string; value: string; colorClass?: string }) {
   return (
-    <div className="bg-glass glass-surface border border-border-subtle rounded-[3px] p-2.5">
+    <div className="bg-glass glass-surface border border-border-subtle rounded-panel p-2.5">
       <span className="font-kosugi text-[9px] uppercase tracking-[0.3px] text-text-3 block">{label}</span>
       <span className={cn("font-mohave text-heading font-semibold block mt-0.5", colorClass)}>{value}</span>
     </div>
@@ -494,10 +494,10 @@ function ProjectSidebar({ project, tasks }: { project: Project; tasks: ProjectTa
                 value={clientSearch}
                 onChange={(e) => setClientSearch(e.target.value)}
                 placeholder={t("sidebar.searchClients")}
-                className="w-full font-mohave text-body-sm bg-glass glass-surface border border-border rounded-[3px] pl-7 pr-2.5 py-1.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] placeholder:text-text-mute"
+                className="w-full font-mohave text-body-sm bg-glass glass-surface border border-border rounded-panel pl-7 pr-2.5 py-1.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] placeholder:text-text-mute"
               />
             </div>
-            <div className="mt-1 max-h-[180px] overflow-y-auto bg-glass glass-surface border border-border rounded-[3px]">
+            <div className="mt-1 max-h-[180px] overflow-y-auto bg-glass glass-surface border border-border rounded-panel">
               {resolvedClient && (
                 <button
                   onClick={handleClearClient}
@@ -570,7 +570,7 @@ function ProjectSidebar({ project, tasks }: { project: Project; tasks: ProjectTa
                 if (e.key === "Enter") handleLocationSave();
                 if (e.key === "Escape") handleLocationCancel();
               }}
-              className="w-full font-mohave text-body-sm bg-glass glass-surface border border-border rounded-[3px] px-2.5 py-1.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] placeholder:text-text-mute"
+              className="w-full font-mohave text-body-sm bg-glass glass-surface border border-border rounded-panel px-2.5 py-1.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] placeholder:text-text-mute"
             />
             <div className="flex items-center gap-1.5">
               <button
@@ -902,7 +902,7 @@ function FinancialTab({ project }: { project: Project }) {
   return (
     <div className="space-y-3">
       {/* Budget Health Bar */}
-      <div className="bg-glass glass-surface border border-border rounded-[3px] p-4 mb-3">
+      <div className="bg-glass glass-surface border border-border rounded-panel p-4 mb-3">
         <span className="font-kosugi text-[10px] uppercase tracking-[0.3px] text-text-3 block mb-2">
           {t("financial.budgetOverview")}
         </span>

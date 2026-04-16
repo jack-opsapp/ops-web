@@ -176,7 +176,7 @@ function MessageBubble({
               <button
                 key={url}
                 onClick={(e) => { e.stopPropagation(); onImageClick(url); }}
-                className="w-10 h-10 rounded-[3px] overflow-hidden border border-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.20)] transition-colors shrink-0"
+                className="w-10 h-10 rounded-panel overflow-hidden border border-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.20)] transition-colors shrink-0"
               >
                 <img
                   src={url}
@@ -226,7 +226,7 @@ function ThreadPicker({
           key={thread.id}
           onClick={() => onSelect(thread.id)}
           className={cn(
-            "shrink-0 px-2 py-1 rounded-[3px] font-mohave text-[11px] transition-colors max-w-[180px] truncate",
+            "shrink-0 px-2 py-1 rounded-panel font-mohave text-[11px] transition-colors max-w-[180px] truncate",
             thread.id === activeId
               ? "bg-[rgba(255,255,255,0.08)] text-text"
               : "text-text-mute hover:text-text-3 hover:bg-[rgba(255,255,255,0.03)]"

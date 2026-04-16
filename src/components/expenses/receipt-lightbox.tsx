@@ -67,7 +67,7 @@ export function ReceiptLightbox({ imageUrl, onClose }: ReceiptLightboxProps) {
       <motion.img
         src={imageUrl}
         alt="Receipt"
-        className="max-h-[90vh] max-w-[90vw] rounded-[3px] object-contain"
+        className="max-h-[90vh] max-w-[90vw] rounded-panel object-contain"
         variants={imageVariants}
         initial="initial"
         animate="animate"

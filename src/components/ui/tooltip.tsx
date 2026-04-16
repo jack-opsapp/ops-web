@@ -16,7 +16,7 @@ const TooltipContent = React.forwardRef<
       sideOffset={sideOffset}
       className={cn(
         "z-50 overflow-hidden",
-        "bg-glass glass-surface backdrop-blur-xl border border-[rgba(255,255,255,0.2)] rounded shadow-floating",
+        "glass-dense",
         "px-1.5 py-[6px]",
         "font-mohave text-caption-sm text-text",
         "animate-scale-in",

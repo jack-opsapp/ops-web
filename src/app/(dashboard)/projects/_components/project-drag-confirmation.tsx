@@ -58,7 +58,7 @@ export function ProjectDragConfirmation({
         <div className="flex items-center justify-end gap-2">
           <button
             onClick={onCancel}
-            className="px-4 py-2 rounded-[3px] font-mohave text-body-sm text-text-2 hover:text-text hover:bg-[rgba(255,255,255,0.06)] transition-colors duration-150"
+            className="px-4 py-2 rounded-panel font-mohave text-body-sm text-text-2 hover:text-text hover:bg-[rgba(255,255,255,0.06)] transition-colors duration-150"
           >
             Cancel
           </button>
@@ -67,7 +67,7 @@ export function ProjectDragConfirmation({
               if (dontShowAgain) setFirstDragConfirmed();
               onConfirm();
             }}
-            className="px-4 py-2 rounded-[3px] font-mohave text-body-sm text-text bg-[rgba(89,119,148,0.2)] hover:bg-[rgba(89,119,148,0.3)] border border-[rgba(89,119,148,0.3)] transition-colors duration-150"
+            className="px-4 py-2 rounded-panel font-mohave text-body-sm text-text bg-[rgba(89,119,148,0.2)] hover:bg-[rgba(89,119,148,0.3)] border border-[rgba(89,119,148,0.3)] transition-colors duration-150"
           >
             {t("drag.confirmAction")}
           </button>

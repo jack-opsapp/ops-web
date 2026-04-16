@@ -163,7 +163,7 @@ export function DetailPopoverPhotosTab({
           <button
             key={`${photo.url}-${idx}`}
             onClick={() => setLightboxIndex(idx)}
-            className="group relative aspect-square rounded-[3px] overflow-hidden border border-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.20)] transition-colors"
+            className="group relative aspect-square rounded-panel overflow-hidden border border-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.20)] transition-colors"
           >
             <img
               src={photo.url}

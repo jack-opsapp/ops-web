@@ -45,7 +45,7 @@ function AttachmentImage({
 
   if (error) {
     return (
-      <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-[3px] bg-glass glass-surface border border-border-subtle">
+      <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-panel bg-glass glass-surface border border-border-subtle">
         <ImageIcon className="w-3.5 h-3.5 text-text-mute" />
         <span className="font-mohave text-caption-sm text-text-mute truncate">
           {attachment.filename}
@@ -61,7 +61,7 @@ function AttachmentImage({
     <>
       <button
         onClick={() => setExpanded(true)}
-        className="block rounded-[3px] overflow-hidden border border-border-subtle hover:border-ops-accent/30 transition-colors cursor-pointer"
+        className="block rounded-panel overflow-hidden border border-border-subtle hover:border-ops-accent/30 transition-colors cursor-pointer"
       >
         {!loaded && (
           <div className="w-[200px] h-[120px] bg-glass glass-surface animate-pulse flex items-center justify-center">
@@ -88,7 +88,7 @@ function AttachmentImage({
         >
           <button
             onClick={(e) => { e.stopPropagation(); setExpanded(false); }}
-            className="absolute top-6 right-6 flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] border border-border-subtle bg-glass glass-surface text-text-2 font-kosugi text-micro uppercase tracking-wider hover:bg-surface-input hover:text-text transition-colors cursor-pointer"
+            className="absolute top-6 right-6 flex items-center gap-1.5 px-3 py-1.5 rounded-panel border border-border-subtle bg-glass glass-surface text-text-2 font-kosugi text-micro uppercase tracking-wider hover:bg-surface-input hover:text-text transition-colors cursor-pointer"
           >
             <X className="w-3.5 h-3.5" />
             Close
@@ -96,7 +96,7 @@ function AttachmentImage({
           <img
             src={src}
             alt={attachment.filename}
-            className="max-w-full max-h-full object-contain rounded-[3px]"
+            className="max-w-full max-h-full object-contain rounded-panel"
             onClick={(e) => e.stopPropagation()}
           />
         </div>,

@@ -270,11 +270,11 @@ export function ContextPanel({
                   {conversation.displayName}
                 </p>
                 <div className="space-y-1">
-                  <button className="flex items-center gap-1.5 w-full px-2.5 py-2 rounded-[3px] border border-border-subtle bg-surface-input hover:bg-glass glass-surface transition-colors">
+                  <button className="flex items-center gap-1.5 w-full px-2.5 py-2 rounded-panel border border-border-subtle bg-surface-input hover:bg-glass glass-surface transition-colors">
                     <UserPlus className="w-[12px] h-[12px] text-text-3" />
                     <span className="font-kosugi text-micro text-text-2 uppercase">{t("unmatched.createClient")}</span>
                   </button>
-                  <button className="flex items-center gap-1.5 w-full px-2.5 py-2 rounded-[3px] border border-border-subtle bg-surface-input hover:bg-glass glass-surface transition-colors">
+                  <button className="flex items-center gap-1.5 w-full px-2.5 py-2 rounded-panel border border-border-subtle bg-surface-input hover:bg-glass glass-surface transition-colors">
                     <Link className="w-[12px] h-[12px] text-text-3" />
                     <span className="font-kosugi text-micro text-text-2 uppercase">{t("unmatched.linkToClient")}</span>
                   </button>
@@ -325,7 +325,7 @@ export function ContextPanel({
                           {contacts.map((c, i) => (
                             <div
                               key={c.email || i}
-                              className="flex items-center gap-2 px-2 py-1.5 rounded-[3px] hover:bg-surface-input transition-colors"
+                              className="flex items-center gap-2 px-2 py-1.5 rounded-panel hover:bg-surface-input transition-colors"
                             >
                               <div className="w-[24px] h-[24px] rounded-full bg-glass glass-surface border border-border-subtle flex items-center justify-center shrink-0">
                                 <Users className="w-[10px] h-[10px] text-text-mute" />
@@ -383,7 +383,7 @@ export function ContextPanel({
                             <button
                               key={p.id}
                               onClick={() => router.push(`/projects/${p.id}`)}
-                              className="flex items-center gap-1.5 w-full px-2 py-1.5 rounded-[3px] hover:bg-surface-input transition-colors text-left"
+                              className="flex items-center gap-1.5 w-full px-2 py-1.5 rounded-panel hover:bg-surface-input transition-colors text-left"
                             >
                               <FolderKanban className="w-[11px] h-[11px] text-text-mute shrink-0" />
                               <span className="font-mohave text-body-sm text-text-2 truncate flex-1">
@@ -409,7 +409,7 @@ export function ContextPanel({
                             <button
                               key={e.id}
                               onClick={() => router.push(`/estimates/${e.id}`)}
-                              className="flex items-center gap-1.5 w-full px-2 py-1.5 rounded-[3px] hover:bg-surface-input transition-colors text-left"
+                              className="flex items-center gap-1.5 w-full px-2 py-1.5 rounded-panel hover:bg-surface-input transition-colors text-left"
                             >
                               <FileText className="w-[11px] h-[11px] text-text-mute shrink-0" />
                               <span className="font-mohave text-body-sm text-text-2 truncate flex-1">
@@ -435,7 +435,7 @@ export function ContextPanel({
                             <button
                               key={inv.id}
                               onClick={() => router.push(`/invoices/${inv.id}`)}
-                              className="flex items-center gap-1.5 w-full px-2 py-1.5 rounded-[3px] hover:bg-surface-input transition-colors text-left"
+                              className="flex items-center gap-1.5 w-full px-2 py-1.5 rounded-panel hover:bg-surface-input transition-colors text-left"
                             >
                               <Receipt className="w-[11px] h-[11px] text-text-mute shrink-0" />
                               <span className="font-mohave text-body-sm text-text-2 truncate flex-1">
@@ -454,7 +454,7 @@ export function ContextPanel({
                     <div className="pt-2 border-t border-border-subtle">
                       <button
                         onClick={() => router.push(`/clients/${conversation?.clientId}`)}
-                        className="flex items-center gap-1.5 w-full px-2.5 py-2 rounded-[3px] border border-border-subtle bg-surface-input hover:bg-glass glass-surface transition-colors"
+                        className="flex items-center gap-1.5 w-full px-2.5 py-2 rounded-panel border border-border-subtle bg-surface-input hover:bg-glass glass-surface transition-colors"
                       >
                         <ExternalLink className="w-[11px] h-[11px] text-text-3" />
                         <span className="font-kosugi text-micro text-text-2 uppercase">
@@ -487,7 +487,7 @@ function ImageThumbnail({
   const src = `/api/integrations/email/attachment?companyId=${companyId}&messageId=${image.messageId}&attachmentId=${encodeURIComponent(image.attachmentId)}&mimeType=${encodeURIComponent(image.mimeType)}`;
 
   return (
-    <div className="group relative aspect-square rounded-[3px] overflow-hidden border border-border-subtle bg-glass glass-surface">
+    <div className="group relative aspect-square rounded-panel overflow-hidden border border-border-subtle bg-glass glass-surface">
       <img
         src={src}
         alt={image.filename}

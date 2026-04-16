@@ -72,7 +72,7 @@ export function FlowGalaxyOverlay({
       }}
     >
       <div
-        className="overflow-y-auto scrollbar-hide rounded-[3px] p-4"
+        className="overflow-y-auto scrollbar-hide rounded-panel p-4"
         style={{
           background: 'rgba(10,10,10,0.70)',
           backdropFilter: 'blur(20px) saturate(1.2)',

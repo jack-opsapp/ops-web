@@ -89,7 +89,7 @@ export function ThreadSelector({
         <button
           onClick={() => setDropdownOpen(!dropdownOpen)}
           className={cn(
-            "flex items-center gap-1.5 px-2.5 py-[5px] rounded-[3px] border max-w-[220px]",
+            "flex items-center gap-1.5 px-2.5 py-[5px] rounded-panel border max-w-[220px]",
             "bg-glass glass-surface backdrop-blur-[20px] saturate-[1.2]",
             "border-border-subtle text-text-2",
             "hover:bg-surface-input transition-colors cursor-pointer"
@@ -107,7 +107,7 @@ export function ThreadSelector({
         </button>
 
         {dropdownOpen && (
-          <div className="absolute top-full left-0 mt-1 z-[1000] min-w-[240px] max-w-[320px] py-1 rounded-[3px] border border-border-subtle bg-[rgba(10,10,10,0.90)] backdrop-blur-[20px] saturate-[1.2]">
+          <div className="absolute top-full left-0 mt-1 z-[1000] min-w-[240px] max-w-[320px] py-1 rounded-panel border border-border-subtle bg-[rgba(10,10,10,0.90)] backdrop-blur-[20px] saturate-[1.2]">
             {threads.map((thread) => {
               const isActive = thread.threadId === selectedThreadId;
               return (

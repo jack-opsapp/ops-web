@@ -345,7 +345,7 @@ export default function MapPage() {
           className={cn(
             "absolute bottom-10 left-2 z-[1000]",
             "bg-glass glass-surface backdrop-blur-xl border border-[rgba(255,255,255,0.2)] rounded-[5px]",
-            "p-1 shadow-floating"
+            "p-1"
           )}
         >
           <div className="font-kosugi text-[9px] text-text-mute uppercase tracking-widest mb-[4px]">

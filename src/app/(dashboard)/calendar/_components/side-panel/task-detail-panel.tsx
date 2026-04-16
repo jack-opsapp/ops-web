@@ -63,7 +63,7 @@ function DarkSelect({
     <div ref={ref} className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full text-left px-[10px] py-[6px] rounded-[3px] text-[12px] font-kosugi text-white"
+        className="w-full text-left px-[10px] py-[6px] rounded-panel text-[12px] font-kosugi text-white"
         style={{
           backgroundColor: "#141414",
           border: "1px solid rgba(255,255,255,0.10)",
@@ -73,7 +73,7 @@ function DarkSelect({
       </button>
       {isOpen && (
         <div
-          className="absolute top-full left-0 right-0 z-10 mt-[2px] rounded-[3px] overflow-hidden"
+          className="absolute top-full left-0 right-0 z-10 mt-[2px] rounded-panel overflow-hidden"
           style={{
             backgroundColor: "rgba(10,10,10,0.95)",
             backdropFilter: "blur(20px) saturate(1.2)",
@@ -608,7 +608,7 @@ export function TaskDetailPanel() {
                 </button>
                 {showTeamAdd && availableTeamMembers.length > 0 && (
                   <div
-                    className="absolute top-full left-0 z-10 mt-[4px] w-[200px] max-h-[160px] overflow-y-auto rounded-[3px]"
+                    className="absolute top-full left-0 z-10 mt-[4px] w-[200px] max-h-[160px] overflow-y-auto rounded-panel"
                     style={{
                       backgroundColor: "rgba(10,10,10,0.95)",
                       backdropFilter: "blur(20px) saturate(1.2)",
@@ -646,7 +646,7 @@ export function TaskDetailPanel() {
                       : ""
                   }
                   onChange={(e) => handleStartDateChange(e.target.value)}
-                  className="flex-1 px-[8px] py-[4px] rounded-[3px] text-[12px] font-mono text-white outline-none"
+                  className="flex-1 px-[8px] py-[4px] rounded-panel text-[12px] font-mono text-white outline-none"
                   style={{
                     backgroundColor: "#141414",
                     border: "1px solid rgba(255,255,255,0.10)",
@@ -660,7 +660,7 @@ export function TaskDetailPanel() {
                     endDate ? format(endDate, "yyyy-MM-dd'T'HH:mm") : ""
                   }
                   onChange={(e) => handleEndDateChange(e.target.value)}
-                  className="flex-1 px-[8px] py-[4px] rounded-[3px] text-[12px] font-mono text-white outline-none"
+                  className="flex-1 px-[8px] py-[4px] rounded-panel text-[12px] font-mono text-white outline-none"
                   style={{
                     backgroundColor: "#141414",
                     border: "1px solid rgba(255,255,255,0.10)",
@@ -752,7 +752,7 @@ export function TaskDetailPanel() {
               onBlur={handleNotesBlur}
               rows={3}
               placeholder="Add notes..."
-              className="w-full px-[8px] py-[6px] rounded-[3px] text-[12px] text-white placeholder-[#666666] outline-none resize-none"
+              className="w-full px-[8px] py-[6px] rounded-panel text-[12px] text-white placeholder-[#666666] outline-none resize-none"
               style={{
                 backgroundColor: "#141414",
                 border: "1px solid rgba(255,255,255,0.10)",
@@ -776,7 +776,7 @@ export function TaskDetailPanel() {
           <div className="flex gap-[6px] mb-[10px]">
             <button
               onClick={() => handlePush(1)}
-              className="flex-1 px-[8px] py-[6px] rounded-[3px] font-kosugi text-[10px] uppercase text-white transition-colors hover:bg-[rgba(255,255,255,0.05)]"
+              className="flex-1 px-[8px] py-[6px] rounded-panel font-kosugi text-[10px] uppercase text-white transition-colors hover:bg-[rgba(255,255,255,0.05)]"
               style={{
                 backgroundColor: "#141414",
                 border: "1px solid rgba(255,255,255,0.10)",
@@ -786,7 +786,7 @@ export function TaskDetailPanel() {
             </button>
             <button
               onClick={() => handlePush(7)}
-              className="flex-1 px-[8px] py-[6px] rounded-[3px] font-kosugi text-[10px] uppercase text-white transition-colors hover:bg-[rgba(255,255,255,0.05)]"
+              className="flex-1 px-[8px] py-[6px] rounded-panel font-kosugi text-[10px] uppercase text-white transition-colors hover:bg-[rgba(255,255,255,0.05)]"
               style={{
                 backgroundColor: "#141414",
                 border: "1px solid rgba(255,255,255,0.10)",
@@ -796,7 +796,7 @@ export function TaskDetailPanel() {
             </button>
             <button
               onClick={handleCascade}
-              className="flex-1 px-[8px] py-[6px] rounded-[3px] font-kosugi text-[10px] uppercase text-white transition-colors hover:bg-[rgba(255,255,255,0.05)] flex items-center justify-center gap-[4px]"
+              className="flex-1 px-[8px] py-[6px] rounded-panel font-kosugi text-[10px] uppercase text-white transition-colors hover:bg-[rgba(255,255,255,0.05)] flex items-center justify-center gap-[4px]"
               style={{
                 backgroundColor: "#141414",
                 border: "1px solid rgba(255,255,255,0.10)",
@@ -816,13 +816,13 @@ export function TaskDetailPanel() {
               <button
                 onClick={handleDelete}
                 disabled={deleteTask.isPending}
-                className="px-[10px] py-[4px] rounded-[3px] font-kosugi text-[10px] uppercase text-white bg-red-600 hover:bg-red-500 transition-colors disabled:opacity-50"
+                className="px-[10px] py-[4px] rounded-panel font-kosugi text-[10px] uppercase text-white bg-red-600 hover:bg-red-500 transition-colors disabled:opacity-50"
               >
                 {deleteTask.isPending ? "Deleting..." : "Yes, Delete"}
               </button>
               <button
                 onClick={() => setShowDeleteConfirm(false)}
-                className="px-[10px] py-[4px] rounded-[3px] font-kosugi text-[10px] uppercase text-[#999999] hover:text-white transition-colors"
+                className="px-[10px] py-[4px] rounded-panel font-kosugi text-[10px] uppercase text-[#999999] hover:text-white transition-colors"
                 style={{ border: "1px solid rgba(255,255,255,0.10)" }}
               >
                 Cancel

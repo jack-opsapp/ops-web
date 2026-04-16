@@ -123,7 +123,7 @@ export const ProjectCardExpanded = memo(function ProjectCardExpanded({
       >
         <button
           onClick={(e) => { e.stopPropagation(); onOpenDetail(); }}
-          className="flex items-center gap-1 px-2 py-1 rounded-[3px] text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.06)] transition-colors duration-150"
+          className="flex items-center gap-1 px-2 py-1 rounded-panel text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.06)] transition-colors duration-150"
         >
           <ExternalLink className="w-3 h-3" />
           <span className="font-kosugi text-micro">{t("actions.openDetail")}</span>
@@ -132,7 +132,7 @@ export const ProjectCardExpanded = memo(function ProjectCardExpanded({
         {canCreateTasks && (
           <button
             onClick={(e) => { e.stopPropagation(); onAddTask(); }}
-            className="flex items-center gap-1 px-2 py-1 rounded-[3px] text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.06)] transition-colors duration-150"
+            className="flex items-center gap-1 px-2 py-1 rounded-panel text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.06)] transition-colors duration-150"
           >
             <Plus className="w-3 h-3" />
             <span className="font-kosugi text-micro">{t("actions.addTask")}</span>
@@ -142,7 +142,7 @@ export const ProjectCardExpanded = memo(function ProjectCardExpanded({
         {canRecordPayment && (
           <button
             onClick={(e) => { e.stopPropagation(); onRecordPayment(); }}
-            className="flex items-center gap-1 px-2 py-1 rounded-[3px] text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.06)] transition-colors duration-150"
+            className="flex items-center gap-1 px-2 py-1 rounded-panel text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.06)] transition-colors duration-150"
           >
             <Receipt className="w-3 h-3" />
             <span className="font-kosugi text-micro">{t("actions.recordPayment")}</span>
@@ -152,7 +152,7 @@ export const ProjectCardExpanded = memo(function ProjectCardExpanded({
         {canManage && (
           <button
             onClick={(e) => { e.stopPropagation(); onArchive(); }}
-            className="flex items-center gap-1 px-2 py-1 rounded-[3px] text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.06)] transition-colors duration-150"
+            className="flex items-center gap-1 px-2 py-1 rounded-panel text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.06)] transition-colors duration-150"
           >
             <Archive className="w-3 h-3" />
             <span className="font-kosugi text-micro">{t("actions.archive")}</span>

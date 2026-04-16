@@ -39,7 +39,7 @@ export function DuplicatePairCard({
   const idB = entityB.id as string;
 
   return (
-    <div className="rounded-[3px] border border-white/8 bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2] p-4">
+    <div className="rounded-panel border border-white/8 bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2] p-4">
       {/* Header: confidence + signals */}
       <div className="mb-3 flex flex-wrap items-center gap-1.5">
         <span
@@ -72,21 +72,21 @@ export function DuplicatePairCard({
         <button
           onClick={() => onMerge(reviewId, idA)}
           disabled={isMerging}
-          className="flex-1 rounded-[3px] border border-white/8 bg-white/5 px-3 py-2 font-mohave text-[13px] text-white/80 transition-colors duration-150 hover:bg-white/10 disabled:opacity-40"
+          className="flex-1 rounded-panel border border-white/8 bg-white/5 px-3 py-2 font-mohave text-[13px] text-white/80 transition-colors duration-150 hover:bg-white/10 disabled:opacity-40"
         >
           ← {t("card.mergeLeft")}
         </button>
         <button
           onClick={() => onMerge(reviewId, idB)}
           disabled={isMerging}
-          className="flex-1 rounded-[3px] border border-white/8 bg-white/5 px-3 py-2 font-mohave text-[13px] text-white/80 transition-colors duration-150 hover:bg-white/10 disabled:opacity-40"
+          className="flex-1 rounded-panel border border-white/8 bg-white/5 px-3 py-2 font-mohave text-[13px] text-white/80 transition-colors duration-150 hover:bg-white/10 disabled:opacity-40"
         >
           {t("card.mergeRight")} →
         </button>
         <button
           onClick={() => onDismiss(reviewId)}
           disabled={isMerging}
-          className="rounded-[3px] border border-white/8 bg-white/5 px-3 py-2 font-mohave text-[13px] text-white/40 transition-colors duration-150 hover:bg-white/10 hover:text-white/60 disabled:opacity-40"
+          className="rounded-panel border border-white/8 bg-white/5 px-3 py-2 font-mohave text-[13px] text-white/40 transition-colors duration-150 hover:bg-white/10 hover:text-white/60 disabled:opacity-40"
         >
           {t("card.dismiss")}
         </button>

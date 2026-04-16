@@ -10,7 +10,7 @@ export function FlowGalaxyLegend() {
   return (
     <div className="absolute bottom-4 right-4 z-20">
       <div
-        className="rounded-[3px] overflow-hidden"
+        className="rounded-panel overflow-hidden"
         style={{
           background: 'rgba(10,10,10,0.60)',
           backdropFilter: 'blur(12px) saturate(1.2)',

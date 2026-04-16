@@ -638,7 +638,7 @@ export function DuplicateClusterCard({
           return (
             <div
               key={entity.id}
-              className={`relative min-w-0 rounded-[3px] border bg-white/[0.03] p-3 transition-colors duration-300 ${
+              className={`relative min-w-0 rounded-panel border bg-white/[0.03] p-3 transition-colors duration-300 ${
                 isDuplicate
                   ? "border-[#93321A]/30"
                   : "border-[#A5B368]/30"
@@ -673,7 +673,7 @@ export function DuplicateClusterCard({
           type="button"
           onClick={handleMerge}
           disabled={isMerging}
-          className="flex-1 rounded-[3px] bg-ops-accent/20 px-4 py-2.5 font-mohave text-[14px] font-medium text-[#597794] transition-colors duration-150 hover:bg-ops-accent/30 disabled:opacity-40"
+          className="flex-1 rounded-panel bg-ops-accent/20 px-4 py-2.5 font-mohave text-[14px] font-medium text-[#597794] transition-colors duration-150 hover:bg-ops-accent/30 disabled:opacity-40"
         >
           {isMerging ? t("merging") : t("card.merge")}
         </button>
@@ -681,7 +681,7 @@ export function DuplicateClusterCard({
           type="button"
           onClick={handleDismiss}
           disabled={isMerging}
-          className="rounded-[3px] border border-white/8 bg-white/5 px-4 py-2.5 font-mohave text-[14px] text-white/40 transition-colors duration-150 hover:bg-white/10 hover:text-white/60 disabled:opacity-40"
+          className="rounded-panel border border-white/8 bg-white/5 px-4 py-2.5 font-mohave text-[14px] text-white/40 transition-colors duration-150 hover:bg-white/10 hover:text-white/60 disabled:opacity-40"
         >
           {t("card.dismiss")}
         </button>

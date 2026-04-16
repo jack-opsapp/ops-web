@@ -99,7 +99,7 @@ function ProjectSelector({
               prefixIcon={<Search className="w-[16px] h-[16px]" />}
             />
             {showDropdown && (
-              <div className="absolute z-10 left-0 right-0 top-full mt-[4px] bg-[rgba(13,13,13,0.9)] backdrop-blur-xl border border-[rgba(255,255,255,0.08)] rounded-sm shadow-floating max-h-[240px] overflow-y-auto">
+              <div className="absolute z-10 left-0 right-0 top-full mt-[4px] bg-[rgba(13,13,13,0.9)] backdrop-blur-xl border border-[rgba(255,255,255,0.08)] rounded-sm max-h-[240px] overflow-y-auto">
                 {filtered.length === 0 && !search.trim() ? (
                   <div className="px-1.5 py-1 text-left">
                     <p className="font-mohave text-body-sm text-text-3">

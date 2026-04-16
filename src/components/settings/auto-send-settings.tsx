@@ -267,7 +267,7 @@ export function AutoSendSettings({ connectionId }: AutoSendSettingsProps) {
           {/* Auto-send suggestion */}
           {stats.suggestAutoSend && !effectiveSettings.enabled && (
             <div className="mt-2.5 pt-2 border-t border-[rgba(255,255,255,0.04)]">
-              <div className="flex items-center gap-2 px-2 py-1.5 rounded-[3px] bg-[rgba(89,119,148,0.06)] border border-[rgba(89,119,148,0.12)]">
+              <div className="flex items-center gap-2 px-2 py-1.5 rounded-panel bg-[rgba(89,119,148,0.06)] border border-[rgba(89,119,148,0.12)]">
                 <Sparkles className="w-[12px] h-[12px] text-[#597794] shrink-0" />
                 <span className="font-mohave text-caption-sm text-[#597794] flex-1">
                   {t("stats.suggestAutoSend")
@@ -347,7 +347,7 @@ export function AutoSendSettings({ connectionId }: AutoSendSettingsProps) {
                     onChange={(e) =>
                       handleSave({ businessHoursStart: e.target.value })
                     }
-                    className="px-1.5 py-0.5 rounded-[3px] bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] font-mohave text-caption-sm text-text outline-none focus:border-[rgba(89,119,148,0.4)]"
+                    className="px-1.5 py-0.5 rounded-panel bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] font-mohave text-caption-sm text-text outline-none focus:border-[rgba(89,119,148,0.4)]"
                   />
                 </div>
                 <span className="text-text-mute">&ndash;</span>
@@ -361,7 +361,7 @@ export function AutoSendSettings({ connectionId }: AutoSendSettingsProps) {
                     onChange={(e) =>
                       handleSave({ businessHoursEnd: e.target.value })
                     }
-                    className="px-1.5 py-0.5 rounded-[3px] bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] font-mohave text-caption-sm text-text outline-none focus:border-[rgba(89,119,148,0.4)]"
+                    className="px-1.5 py-0.5 rounded-panel bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] font-mohave text-caption-sm text-text outline-none focus:border-[rgba(89,119,148,0.4)]"
                   />
                 </div>
               </div>
@@ -375,7 +375,7 @@ export function AutoSendSettings({ connectionId }: AutoSendSettingsProps) {
               <select
                 value={effectiveSettings.timezone}
                 onChange={(e) => handleSave({ timezone: e.target.value })}
-                className="w-full px-1.5 py-1 rounded-[3px] bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] font-mohave text-caption-sm text-text outline-none focus:border-[rgba(89,119,148,0.4)] appearance-none"
+                className="w-full px-1.5 py-1 rounded-panel bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] font-mohave text-caption-sm text-text outline-none focus:border-[rgba(89,119,148,0.4)] appearance-none"
               >
                 {TIMEZONES.map((tz) => (
                   <option key={tz} value={tz}>
@@ -411,7 +411,7 @@ export function AutoSendSettings({ connectionId }: AutoSendSettingsProps) {
                         ),
                       })
                     }
-                    className="w-[52px] px-1.5 py-0.5 rounded-[3px] bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] font-mohave text-caption-sm text-text outline-none text-center focus:border-[rgba(89,119,148,0.4)]"
+                    className="w-[52px] px-1.5 py-0.5 rounded-panel bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] font-mohave text-caption-sm text-text outline-none text-center focus:border-[rgba(89,119,148,0.4)]"
                   />
                 </div>
                 <span className="text-text-mute">&ndash;</span>
@@ -432,7 +432,7 @@ export function AutoSendSettings({ connectionId }: AutoSendSettingsProps) {
                         ),
                       })
                     }
-                    className="w-[52px] px-1.5 py-0.5 rounded-[3px] bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] font-mohave text-caption-sm text-text outline-none text-center focus:border-[rgba(89,119,148,0.4)]"
+                    className="w-[52px] px-1.5 py-0.5 rounded-panel bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] font-mohave text-caption-sm text-text outline-none text-center focus:border-[rgba(89,119,148,0.4)]"
                   />
                 </div>
                 <span className="font-mohave text-caption-sm text-text-mute">

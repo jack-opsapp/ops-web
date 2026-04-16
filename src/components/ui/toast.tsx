@@ -14,7 +14,7 @@ function Toaster({ className, ...props }: ToasterProps) {
         classNames: {
           toast: cn(
             "group toast",
-            "bg-glass glass-surface border border-border rounded shadow-floating",
+            "glass-dense",
             "font-mohave text-body-sm text-text",
             "p-2 gap-1"
           ),

@@ -306,7 +306,7 @@ export function EmailCategoryAutonomy({
               {isLearning &&
                 (cat.level === "auto_draft" || cat.level === "auto_send") && (
                   <div className="px-3 pb-1.5">
-                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-[3px] bg-[rgba(255,255,255,0.02)]">
+                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-panel bg-[rgba(255,255,255,0.02)]">
                       <Sparkles className="w-[10px] h-[10px] text-text-mute" />
                       <span className="font-mohave text-[11px] text-text-mute">
                         {t("category.minEmails").replace(

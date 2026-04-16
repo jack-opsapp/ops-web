@@ -93,7 +93,7 @@ function DrawerTaskCard({
         {...listeners}
         {...attributes}
         className={cn(
-          "flex items-start gap-[8px] px-[10px] py-[8px] rounded-[3px] cursor-grab transition-all duration-100",
+          "flex items-start gap-[8px] px-[10px] py-[8px] rounded-panel cursor-grab transition-all duration-100",
           isDragging && "opacity-40"
         )}
         style={{
@@ -347,7 +347,7 @@ export function ProjectDrawerPanel() {
         >
           {/* Auto-schedule button */}
           <button
-            className="w-full flex items-center justify-center gap-[6px] px-[12px] py-[8px] rounded-[3px] font-kosugi text-[10px] uppercase transition-colors"
+            className="w-full flex items-center justify-center gap-[6px] px-[12px] py-[8px] rounded-panel font-kosugi text-[10px] uppercase transition-colors"
             style={{
               color: "#597794",
               border: "1px solid #597794",
@@ -384,7 +384,7 @@ export function ProjectDrawerPanel() {
                 }}
                 placeholder="Task name..."
                 autoFocus
-                className="w-full px-[10px] py-[6px] rounded-[3px] font-kosugi text-[11px] text-white placeholder:text-[#555555] focus:outline-none"
+                className="w-full px-[10px] py-[6px] rounded-panel font-kosugi text-[11px] text-white placeholder:text-[#555555] focus:outline-none"
                 style={{
                   backgroundColor: "#141414",
                   border: "1px solid rgba(255,255,255,0.15)",
@@ -394,7 +394,7 @@ export function ProjectDrawerPanel() {
                 <button
                   onClick={handleAddTask}
                   disabled={!newTaskTitle.trim() || createTask.isPending}
-                  className="flex-1 px-[8px] py-[5px] rounded-[3px] font-kosugi text-[10px] uppercase text-white transition-colors disabled:opacity-40"
+                  className="flex-1 px-[8px] py-[5px] rounded-panel font-kosugi text-[10px] uppercase text-white transition-colors disabled:opacity-40"
                   style={{
                     backgroundColor: "rgba(255,255,255,0.08)",
                     border: "1px solid rgba(255,255,255,0.10)",
@@ -407,7 +407,7 @@ export function ProjectDrawerPanel() {
                     setIsAddingTask(false);
                     setNewTaskTitle("");
                   }}
-                  className="px-[8px] py-[5px] rounded-[3px] font-kosugi text-[10px] uppercase transition-colors"
+                  className="px-[8px] py-[5px] rounded-panel font-kosugi text-[10px] uppercase transition-colors"
                   style={{
                     color: "#999999",
                     border: "1px solid rgba(255,255,255,0.08)",
@@ -420,7 +420,7 @@ export function ProjectDrawerPanel() {
           ) : (
             <button
               onClick={() => setIsAddingTask(true)}
-              className="w-full flex items-center justify-center gap-[6px] px-[12px] py-[8px] rounded-[3px] font-kosugi text-[10px] uppercase transition-colors"
+              className="w-full flex items-center justify-center gap-[6px] px-[12px] py-[8px] rounded-panel font-kosugi text-[10px] uppercase transition-colors"
               style={{
                 color: "#999999",
                 border: "1px solid rgba(255,255,255,0.08)",

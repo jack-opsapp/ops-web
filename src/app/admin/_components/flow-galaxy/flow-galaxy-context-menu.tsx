@@ -42,7 +42,7 @@ export function FlowGalaxyContextMenu({ state, onClose }: FlowGalaxyContextMenuP
       }}
     >
       <div
-        className="rounded-[3px] py-1 overflow-hidden"
+        className="rounded-panel py-1 overflow-hidden"
         style={{
           background: 'rgba(10,10,10,0.80)',
           backdropFilter: 'blur(20px) saturate(1.2)',

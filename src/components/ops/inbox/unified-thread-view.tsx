@@ -314,7 +314,7 @@ export function UnifiedThreadView({
   const MessageSkeleton = () => (
     <div className="flex justify-start">
       <div className="max-w-[65%] animate-pulse">
-        <div className="bg-surface-input rounded-[3px] px-3 py-2.5 space-y-1.5">
+        <div className="bg-surface-input rounded-panel px-3 py-2.5 space-y-1.5">
           <div className="h-[14px] w-[200px] rounded bg-surface-input" />
           <div className="h-[14px] w-[150px] rounded bg-border-subtle" />
         </div>
@@ -351,7 +351,7 @@ export function UnifiedThreadView({
 
         <div className="flex items-center gap-1.5 shrink-0">
           {conversation.type === "unmatched" && (
-            <button className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-[3px] border border-border-subtle bg-surface-input text-text-3 font-kosugi text-micro uppercase tracking-wider hover:bg-glass glass-surface transition-colors">
+            <button className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-panel border border-border-subtle bg-surface-input text-text-3 font-kosugi text-micro uppercase tracking-wider hover:bg-glass glass-surface transition-colors">
               <LinkIcon className="w-3.5 h-3.5" />
               {t("unmatched.linkToClient")}
             </button>
@@ -359,7 +359,7 @@ export function UnifiedThreadView({
           <button
             onClick={onToggleContext}
             className={cn(
-              "flex items-center gap-1.5 px-2.5 py-1.5 rounded-[3px] border font-kosugi text-micro uppercase tracking-wider transition-colors",
+              "flex items-center gap-1.5 px-2.5 py-1.5 rounded-panel border font-kosugi text-micro uppercase tracking-wider transition-colors",
               contextOpen
                 ? "bg-ops-accent-muted text-ops-accent border-ops-accent/20"
                 : "bg-surface-input text-text-3 border-border-subtle hover:bg-glass glass-surface"
@@ -394,7 +394,7 @@ export function UnifiedThreadView({
           {conversation.type === "unmatched" && (
             <button
               className={cn(
-                "flex items-center gap-1.5 px-2.5 py-[5px] rounded-[3px] border shrink-0",
+                "flex items-center gap-1.5 px-2.5 py-[5px] rounded-panel border shrink-0",
                 "border-ops-accent/30 bg-ops-accent-muted/20 text-ops-accent",
                 "hover:bg-ops-accent-muted/40 transition-colors duration-150 cursor-pointer"
               )}
