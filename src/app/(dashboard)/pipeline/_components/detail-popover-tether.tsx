@@ -92,7 +92,7 @@ export const DetailPopoverTether = memo(function DetailPopoverTether({
         y2 = popover.position.y + popover.size.height / 2;
       }
 
-      lines.push({ x1, y1, x2, y2, color: popover.stageColor ?? "#597794" });
+      lines.push({ x1, y1, x2, y2, color: popover.stageColor ?? "#6F94B0" });
     }
 
     // Update SVG DOM directly for performance (avoid React re-renders during rAF)

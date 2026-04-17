@@ -174,7 +174,7 @@ export function ConfirmPipelineStep({
         <Button
           onClick={onBack}
           variant="ghost"
-          className="font-kosugi text-[10px] tracking-[0.1em] uppercase text-[#666]"
+          className="font-kosugi text-micro tracking-[0.1em] uppercase text-[#666]"
         >
           ← {t("confirm.backToTriage")}
         </Button>
@@ -188,7 +188,7 @@ export function ConfirmPipelineStep({
     <div className="flex flex-col" style={{ maxHeight: "calc(85vh - 180px)" }}>
       {/* Header */}
       <div className="flex-shrink-0 mb-4">
-        <h3 className="font-kosugi text-[10px] tracking-[0.15em] uppercase text-[#999]">
+        <h3 className="font-kosugi text-micro tracking-[0.15em] uppercase text-[#999]">
           {t("confirm.title")}
         </h3>
         <p className="font-mohave text-[12px] text-[#666] mt-1">
@@ -224,7 +224,7 @@ export function ConfirmPipelineStep({
                     style={{ background: config.color, borderRadius: 1 }}
                   />
                   <span
-                    className="font-kosugi text-[9px] tracking-[0.15em] uppercase"
+                    className="font-kosugi text-micro tracking-[0.15em] uppercase"
                     style={{ color: config.color }}
                   >
                     {config.label}
@@ -296,13 +296,13 @@ export function ConfirmPipelineStep({
                   className="w-2 h-2"
                   style={{ background: "#444", borderRadius: 1, opacity: 0.6 }}
                 />
-                <span className="font-kosugi text-[9px] tracking-[0.15em] uppercase text-[#555]">
+                <span className="font-kosugi text-micro tracking-[0.15em] uppercase text-[#555]">
                   Discarded
                 </span>
                 <span className="font-mohave text-[11px] text-[#444]">
                   ({discardedLeads.length})
                 </span>
-                <span className="font-mohave text-[10px] text-[#444] ml-1">
+                <span className="font-mohave text-micro text-[#444] ml-1">
                   — won&apos;t be imported
                 </span>
                 <ChevronDown
@@ -354,7 +354,7 @@ export function ConfirmPipelineStep({
                               // Re-enable the lead and set its stage
                               onStageChange(lead.id, e.target.value);
                             }}
-                            className="font-mohave text-[11px] bg-transparent border border-white/[0.06] px-1.5 py-0.5 outline-none focus:border-[#597794] flex-shrink-0 text-[#555]"
+                            className="font-mohave text-[11px] bg-transparent border border-white/[0.06] px-1.5 py-0.5 outline-none focus:border-[#6F94B0] flex-shrink-0 text-[#555]"
                             style={{ borderRadius: 4 }}
                           >
                             <option value="discarded" className="bg-[#1a1a1a]">
@@ -415,14 +415,14 @@ export function ConfirmPipelineStep({
         <div className="flex items-center justify-between">
           <button
             onClick={onBack}
-            className="font-kosugi text-[10px] tracking-[0.1em] uppercase text-[#666] hover:text-[#999] transition-colors"
+            className="font-kosugi text-micro tracking-[0.1em] uppercase text-[#666] hover:text-[#999] transition-colors"
           >
             ← {t("confirm.back")}
           </button>
           <button
             onClick={onImport}
             disabled={counts.importTotal === 0}
-            className="font-kosugi text-[10px] tracking-[0.1em] uppercase border border-[#597794] text-[#597794] hover:bg-ops-accent hover:text-white px-4 py-1.5 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+            className="font-kosugi text-micro tracking-[0.1em] uppercase border border-[#6F94B0] text-[#6F94B0] hover:bg-ops-accent hover:text-white px-4 py-1.5 transition-colors disabled:opacity-30 disabled:pointer-events-none"
             style={{ borderRadius: 3 }}
           >
             {t("confirm.import")} {counts.importTotal}
@@ -475,7 +475,7 @@ function LeadRow({
         <select
           value={effectiveStage}
           onChange={(e) => onStageChange(e.target.value)}
-          className="font-mohave text-[11px] bg-transparent border border-white/10 px-1.5 py-0.5 outline-none focus:border-[#597794] flex-shrink-0"
+          className="font-mohave text-[11px] bg-transparent border border-white/10 px-1.5 py-0.5 outline-none focus:border-[#6F94B0] flex-shrink-0"
           style={{
             borderRadius: 4,
             color: STAGE_CONFIG[effectiveStage]?.color || "#999",
@@ -538,7 +538,7 @@ function InlineEditableName({
           if (e.key === "Escape") { setDraft(value); setEditing(false); }
           e.stopPropagation();
         }}
-        className="font-mohave text-[13px] text-white bg-transparent border-b border-[#597794] outline-none w-full truncate"
+        className="font-mohave text-[13px] text-white bg-transparent border-b border-[#6F94B0] outline-none w-full truncate"
         style={{ borderRadius: 0 }}
       />
     );
@@ -547,7 +547,7 @@ function InlineEditableName({
   return (
     <button
       onClick={() => setEditing(true)}
-      className="font-mohave text-[13px] text-white text-left hover:text-[#597794] transition-colors cursor-text truncate block w-full"
+      className="font-mohave text-[13px] text-white text-left hover:text-[#6F94B0] transition-colors cursor-text truncate block w-full"
       title="Click to edit"
     >
       {value}

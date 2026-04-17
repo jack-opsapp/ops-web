@@ -62,13 +62,13 @@ function LinkInsertPopover({
   const [text, setText] = useState("");
 
   return (
-    <div className="absolute top-full left-0 mt-1 z-10 p-2 rounded-[4px] bg-[rgba(10,10,10,0.85)] backdrop-blur-[20px] backdrop-saturate-[1.2] border border-[rgba(255,255,255,0.08)] space-y-1.5 min-w-[240px]">
+    <div className="absolute top-full left-0 mt-1 z-10 p-2 rounded-[4px] bg-[var(--surface-glass-dense)] backdrop-blur-[20px] backdrop-saturate-[1.2] border border-[rgba(255,255,255,0.08)] space-y-1.5 min-w-[240px]">
       <input
         type="url"
         value={url}
         onChange={(e) => setUrl(e.target.value)}
         placeholder={t("toolbar.link.url")}
-        className="w-full px-2 py-1 rounded-panel bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] font-mohave text-body-sm text-text placeholder:text-text-mute outline-none focus:border-[rgba(89,119,148,0.4)]"
+        className="w-full px-2 py-1 rounded-panel bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] font-mohave text-body-sm text-text placeholder:text-text-mute outline-none focus:border-[rgba(111, 148, 176,0.4)]"
         autoFocus
       />
       <input
@@ -76,7 +76,7 @@ function LinkInsertPopover({
         value={text}
         onChange={(e) => setText(e.target.value)}
         placeholder={t("toolbar.link.text")}
-        className="w-full px-2 py-1 rounded-panel bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] font-mohave text-body-sm text-text placeholder:text-text-mute outline-none focus:border-[rgba(89,119,148,0.4)]"
+        className="w-full px-2 py-1 rounded-panel bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] font-mohave text-body-sm text-text placeholder:text-text-mute outline-none focus:border-[rgba(111, 148, 176,0.4)]"
       />
       <div className="flex items-center gap-1 pt-0.5">
         <button
@@ -84,13 +84,13 @@ function LinkInsertPopover({
             if (url) onInsert(url, text || url);
           }}
           disabled={!url}
-          className="px-2 py-0.5 rounded-panel bg-[rgba(255,255,255,0.08)] font-kosugi text-[10px] text-text uppercase tracking-wider hover:bg-[rgba(255,255,255,0.12)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="px-2 py-0.5 rounded-panel bg-[rgba(255,255,255,0.08)] font-kosugi text-micro text-text uppercase tracking-wider hover:bg-[rgba(255,255,255,0.12)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
           {t("toolbar.link.insert")}
         </button>
         <button
           onClick={onCancel}
-          className="px-2 py-0.5 rounded-panel font-kosugi text-[10px] text-text-3 uppercase tracking-wider hover:text-text-2 transition-colors"
+          className="px-2 py-0.5 rounded-panel font-kosugi text-micro text-text-3 uppercase tracking-wider hover:text-text-2 transition-colors"
         >
           {t("toolbar.link.cancel")}
         </button>
@@ -125,7 +125,7 @@ function TemplatePicker({
 
   if (templates.length === 0) {
     return (
-      <div className="absolute top-full right-0 mt-1 z-10 p-3 rounded-[4px] bg-[rgba(10,10,10,0.85)] backdrop-blur-[20px] backdrop-saturate-[1.2] border border-[rgba(255,255,255,0.08)] min-w-[220px]">
+      <div className="absolute top-full right-0 mt-1 z-10 p-3 rounded-[4px] bg-[var(--surface-glass-dense)] backdrop-blur-[20px] backdrop-saturate-[1.2] border border-[rgba(255,255,255,0.08)] min-w-[220px]">
         <p className="font-mohave text-body-sm text-text-mute">
           {t("template.none")}
         </p>
@@ -135,13 +135,13 @@ function TemplatePicker({
 
   return (
     <div
-      className="absolute top-full right-0 mt-1 z-10 rounded-[4px] bg-[rgba(10,10,10,0.85)] backdrop-blur-[20px] backdrop-saturate-[1.2] border border-[rgba(255,255,255,0.08)] min-w-[260px] max-h-[300px] overflow-y-auto scrollbar-hide"
+      className="absolute top-full right-0 mt-1 z-10 rounded-[4px] bg-[var(--surface-glass-dense)] backdrop-blur-[20px] backdrop-saturate-[1.2] border border-[rgba(255,255,255,0.08)] min-w-[260px] max-h-[300px] overflow-y-auto scrollbar-hide"
       onMouseDown={(e) => e.preventDefault()}
     >
       {Array.from(grouped.entries()).map(([category, items]) => (
         <div key={category}>
-          <div className="px-2.5 py-1 sticky top-0 bg-[rgba(10,10,10,0.95)]">
-            <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider">
+          <div className="px-2.5 py-1 sticky top-0 bg-[var(--surface-glass-dense)]">
+            <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
               {tTemplates(`category.${category}`)}
             </span>
           </div>
@@ -547,7 +547,7 @@ export function ComposeEmailForm({
       <div className="shrink-0 px-3 py-1.5 space-y-0 border-b border-[rgba(255,255,255,0.04)]">
         {/* From */}
         <div className="flex items-center gap-2 py-1">
-          <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider w-[32px] shrink-0">
+          <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider w-[32px] shrink-0">
             {t("from")}
           </span>
           {activeConnections.length === 0 ? (
@@ -568,7 +568,7 @@ export function ComposeEmailForm({
                 <ChevronDown className="w-[12px] h-[12px] text-text-mute" />
               </button>
               {showSenderDropdown && (
-                <div className="absolute top-full left-0 mt-1 z-10 rounded-[4px] bg-[rgba(10,10,10,0.85)] backdrop-blur-[20px] backdrop-saturate-[1.2] border border-[rgba(255,255,255,0.08)] min-w-[260px]">
+                <div className="absolute top-full left-0 mt-1 z-10 rounded-[4px] bg-[var(--surface-glass-dense)] backdrop-blur-[20px] backdrop-saturate-[1.2] border border-[rgba(255,255,255,0.08)] min-w-[260px]">
                   {activeConnections.map((conn: EmailConnection) => (
                     <button
                       key={conn.id}
@@ -585,7 +585,7 @@ export function ComposeEmailForm({
                       <span className="font-mohave text-body-sm text-text block truncate">
                         {conn.email}
                       </span>
-                      <span className="font-kosugi text-[10px] text-text-mute uppercase">
+                      <span className="font-kosugi text-micro text-text-mute uppercase">
                         {conn.provider}
                       </span>
                     </button>
@@ -598,7 +598,7 @@ export function ComposeEmailForm({
 
         {/* To */}
         <div className="flex items-center gap-2 py-1">
-          <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider w-[32px] shrink-0">
+          <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider w-[32px] shrink-0">
             {t("to")}
           </span>
           <input
@@ -612,7 +612,7 @@ export function ComposeEmailForm({
           {!showCc && (
             <button
               onClick={() => setShowCc(true)}
-              className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider hover:text-text-3 transition-colors"
+              className="font-kosugi text-micro text-text-mute uppercase tracking-wider hover:text-text-3 transition-colors"
             >
               {t("cc.show")}
             </button>
@@ -622,7 +622,7 @@ export function ComposeEmailForm({
         {/* CC */}
         {showCc && (
           <div className="flex items-center gap-2 py-1">
-            <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider w-[32px] shrink-0">
+            <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider w-[32px] shrink-0">
               {t("cc")}
             </span>
             <input
@@ -637,7 +637,7 @@ export function ComposeEmailForm({
                 setShowCc(false);
                 setCc("");
               }}
-              className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider hover:text-text-3 transition-colors"
+              className="font-kosugi text-micro text-text-mute uppercase tracking-wider hover:text-text-3 transition-colors"
             >
               {t("cc.hide")}
             </button>
@@ -646,7 +646,7 @@ export function ComposeEmailForm({
 
         {/* Subject */}
         <div className="flex items-center gap-2 py-1">
-          <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider w-[32px] shrink-0">
+          <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider w-[32px] shrink-0">
             {t("subject")}
           </span>
           <input
@@ -694,10 +694,10 @@ export function ComposeEmailForm({
           disabled={isGeneratingDraft || !effectiveConnectionId}
           title={t("toolbar.aiDraft.tooltip")}
           className={cn(
-            "flex items-center gap-1 px-1.5 py-0.5 rounded-panel font-kosugi text-[10px] uppercase tracking-wider transition-colors",
+            "flex items-center gap-1 px-1.5 py-0.5 rounded-panel font-kosugi text-micro uppercase tracking-wider transition-colors",
             isGeneratingDraft
-              ? "text-[#597794] bg-[rgba(89,119,148,0.1)]"
-              : "text-text-3 hover:text-[#597794] hover:bg-[rgba(89,119,148,0.08)]",
+              ? "text-[#6F94B0] bg-[rgba(111, 148, 176,0.1)]"
+              : "text-text-3 hover:text-[#6F94B0] hover:bg-[rgba(111, 148, 176,0.08)]",
             !effectiveConnectionId && "opacity-40 cursor-not-allowed"
           )}
         >
@@ -714,7 +714,7 @@ export function ComposeEmailForm({
           <button
             onClick={() => setShowTemplatePicker(!showTemplatePicker)}
             className={cn(
-              "flex items-center gap-1 px-1.5 py-0.5 rounded-panel font-kosugi text-[10px] text-text-3 uppercase tracking-wider hover:text-text-2 hover:bg-[rgba(255,255,255,0.04)] transition-colors",
+              "flex items-center gap-1 px-1.5 py-0.5 rounded-panel font-kosugi text-micro text-text-3 uppercase tracking-wider hover:text-text-2 hover:bg-[rgba(255,255,255,0.04)] transition-colors",
               showTemplatePicker && "bg-[rgba(255,255,255,0.06)] text-text-2"
             )}
           >
@@ -734,10 +734,10 @@ export function ComposeEmailForm({
 
       {/* AI Draft Banner */}
       {aiState.isAIDraft && (
-        <div className="shrink-0 mx-3 mt-1.5 px-2 py-1 rounded-panel bg-[rgba(89,119,148,0.06)] border border-[rgba(89,119,148,0.12)] flex items-center gap-1.5">
-          <Sparkles className="w-[12px] h-[12px] text-[#597794] shrink-0" />
+        <div className="shrink-0 mx-3 mt-1.5 px-2 py-1 rounded-panel bg-[rgba(111, 148, 176,0.06)] border border-[rgba(111, 148, 176,0.12)] flex items-center gap-1.5">
+          <Sparkles className="w-[12px] h-[12px] text-[#6F94B0] shrink-0" />
           <div className="flex-1 min-w-0">
-            <span className="font-mohave text-caption-sm text-[#597794]">
+            <span className="font-mohave text-caption-sm text-[#6F94B0]">
               {aiState.sources.includes("auto_draft")
                 ? t("aiDraft.banner.auto")
                 : t("aiDraft.banner")}
@@ -750,7 +750,7 @@ export function ComposeEmailForm({
           </div>
           <button
             onClick={clearAiDraft}
-            className="font-kosugi text-[9px] text-text-mute uppercase tracking-wider hover:text-text-3 transition-colors shrink-0"
+            className="font-kosugi text-micro text-text-mute uppercase tracking-wider hover:text-text-3 transition-colors shrink-0"
           >
             {t("aiDraft.banner.discard")}
           </button>
@@ -782,7 +782,7 @@ export function ComposeEmailForm({
       {/* Quoted Message (Reply mode) */}
       {mode === "reply" && composeData?.quotedMessage && (
         <div className="shrink-0 mx-3 mt-1 px-2.5 py-2 rounded-[4px] bg-[rgba(255,255,255,0.02)] border-l-2 border-[rgba(255,255,255,0.08)] max-h-[120px] overflow-y-auto scrollbar-hide">
-          <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider block mb-1">
+          <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider block mb-1">
             {t("quotedMessage")}
           </span>
           <p className="font-mohave text-caption-sm text-text-mute whitespace-pre-wrap leading-relaxed">
@@ -795,7 +795,7 @@ export function ComposeEmailForm({
       <div className="shrink-0 px-3 py-2 border-t border-[rgba(255,255,255,0.06)] flex items-center justify-between">
         <button
           onClick={handleClose}
-          className="font-kosugi text-[10px] text-text-3 uppercase tracking-wider hover:text-text-2 transition-colors"
+          className="font-kosugi text-micro text-text-3 uppercase tracking-wider hover:text-text-2 transition-colors"
         >
           {t("discard")}
         </button>
@@ -813,7 +813,7 @@ export function ComposeEmailForm({
       {/* Discard Confirmation Overlay */}
       {showDiscardConfirm && (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-[rgba(0,0,0,0.4)] backdrop-blur-sm rounded-sm">
-          <div className="p-3 rounded-[4px] bg-[rgba(10,10,10,0.90)] backdrop-blur-[20px] border border-[rgba(255,255,255,0.08)] max-w-[280px] space-y-2">
+          <div className="p-3 rounded-[4px] bg-[var(--surface-glass-dense)] backdrop-blur-[20px] border border-[rgba(255,255,255,0.08)] max-w-[280px] space-y-2">
             <p className="font-mohave text-body text-text font-semibold">
               {t("discard.confirm.title")}
             </p>
@@ -823,13 +823,13 @@ export function ComposeEmailForm({
             <div className="flex items-center gap-1 pt-1">
               <button
                 onClick={handleDiscard}
-                className="px-2.5 py-1 rounded-panel bg-[rgba(147,50,26,0.2)] border border-[rgba(147,50,26,0.3)] font-kosugi text-[10px] text-[#93321A] uppercase tracking-wider hover:bg-[rgba(147,50,26,0.3)] transition-colors"
+                className="px-2.5 py-1 rounded-panel bg-[rgba(147,50,26,0.2)] border border-[rgba(147,50,26,0.3)] font-kosugi text-micro text-[#93321A] uppercase tracking-wider hover:bg-[rgba(147,50,26,0.3)] transition-colors"
               >
                 {t("discard.confirm.yes")}
               </button>
               <button
                 onClick={() => setShowDiscardConfirm(false)}
-                className="px-2.5 py-1 rounded-panel font-kosugi text-[10px] text-text-3 uppercase tracking-wider hover:text-text-2 transition-colors"
+                className="px-2.5 py-1 rounded-panel font-kosugi text-micro text-text-3 uppercase tracking-wider hover:text-text-2 transition-colors"
               >
                 {t("discard.confirm.no")}
               </button>
@@ -841,7 +841,7 @@ export function ComposeEmailForm({
       {/* Template Replace Confirmation Overlay */}
       {showReplaceConfirm && (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-[rgba(0,0,0,0.4)] backdrop-blur-sm rounded-sm">
-          <div className="p-3 rounded-[4px] bg-[rgba(10,10,10,0.90)] backdrop-blur-[20px] border border-[rgba(255,255,255,0.08)] max-w-[280px] space-y-2">
+          <div className="p-3 rounded-[4px] bg-[var(--surface-glass-dense)] backdrop-blur-[20px] border border-[rgba(255,255,255,0.08)] max-w-[280px] space-y-2">
             <p className="font-mohave text-body text-text font-semibold">
               {t("template.replace.title")}
             </p>
@@ -854,13 +854,13 @@ export function ComposeEmailForm({
                   applyTemplate(showReplaceConfirm);
                   setShowReplaceConfirm(null);
                 }}
-                className="px-2.5 py-1 rounded-panel bg-[rgba(255,255,255,0.08)] font-kosugi text-[10px] text-text uppercase tracking-wider hover:bg-[rgba(255,255,255,0.12)] transition-colors"
+                className="px-2.5 py-1 rounded-panel bg-[rgba(255,255,255,0.08)] font-kosugi text-micro text-text uppercase tracking-wider hover:bg-[rgba(255,255,255,0.12)] transition-colors"
               >
                 {t("template.replace.confirm")}
               </button>
               <button
                 onClick={() => setShowReplaceConfirm(null)}
-                className="px-2.5 py-1 rounded-panel font-kosugi text-[10px] text-text-3 uppercase tracking-wider hover:text-text-2 transition-colors"
+                className="px-2.5 py-1 rounded-panel font-kosugi text-micro text-text-3 uppercase tracking-wider hover:text-text-2 transition-colors"
               >
                 {t("template.replace.cancel")}
               </button>
@@ -872,7 +872,7 @@ export function ComposeEmailForm({
       {/* AI Draft Replace Confirmation Overlay */}
       {showAiReplaceConfirm && (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-[rgba(0,0,0,0.4)] backdrop-blur-sm rounded-sm">
-          <div className="p-3 rounded-[4px] bg-[rgba(10,10,10,0.90)] backdrop-blur-[20px] border border-[rgba(255,255,255,0.08)] max-w-[280px] space-y-2">
+          <div className="p-3 rounded-[4px] bg-[var(--surface-glass-dense)] backdrop-blur-[20px] border border-[rgba(255,255,255,0.08)] max-w-[280px] space-y-2">
             <p className="font-mohave text-body text-text font-semibold">
               {t("aiDraft.replace.title")}
             </p>
@@ -885,13 +885,13 @@ export function ComposeEmailForm({
                   setShowAiReplaceConfirm(false);
                   applyAiDraft();
                 }}
-                className="px-2.5 py-1 rounded-panel bg-[rgba(89,119,148,0.15)] border border-[rgba(89,119,148,0.25)] font-kosugi text-[10px] text-[#597794] uppercase tracking-wider hover:bg-[rgba(89,119,148,0.25)] transition-colors"
+                className="px-2.5 py-1 rounded-panel bg-[rgba(111, 148, 176,0.15)] border border-[rgba(111, 148, 176,0.25)] font-kosugi text-micro text-[#6F94B0] uppercase tracking-wider hover:bg-[rgba(111, 148, 176,0.25)] transition-colors"
               >
                 {t("aiDraft.replace.confirm")}
               </button>
               <button
                 onClick={() => setShowAiReplaceConfirm(false)}
-                className="px-2.5 py-1 rounded-panel font-kosugi text-[10px] text-text-3 uppercase tracking-wider hover:text-text-2 transition-colors"
+                className="px-2.5 py-1 rounded-panel font-kosugi text-micro text-text-3 uppercase tracking-wider hover:text-text-2 transition-colors"
               >
                 {t("aiDraft.replace.cancel")}
               </button>

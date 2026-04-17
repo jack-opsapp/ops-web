@@ -214,7 +214,7 @@ export function ImportProgress({
                   </span>
                 ) : (
                   <span className="flex items-center gap-1.5">
-                    <Loader2 size={13} className="animate-spin text-[#597794]" />
+                    <Loader2 size={13} className="animate-spin text-[#6F94B0]" />
                     {message}
                   </span>
                 )}
@@ -241,8 +241,8 @@ export function ImportProgress({
                   style={{ borderRadius: 3 }}
                 >
                   <div className="flex items-center gap-2 mb-2">
-                    <Icon size={14} className="text-[#597794]" />
-                    <span className="font-kosugi text-[10px] uppercase tracking-wider text-[#666]">
+                    <Icon size={14} className="text-[#6F94B0]" />
+                    <span className="font-kosugi text-micro uppercase tracking-wider text-[#666]">
                       {stat.label}
                     </span>
                   </div>

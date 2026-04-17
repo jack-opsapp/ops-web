@@ -151,11 +151,11 @@ export function TriggerSheet({
             )}
           </div>
           <SheetDescription className="flex items-center gap-2 mt-1">
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full font-mohave text-[10px] uppercase border border-[#597794]/30 text-[#597794] bg-ops-accent/10">
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full font-mohave text-micro uppercase border border-[#597794]/30 text-[#597794] bg-ops-accent/10">
               {trigger.schedule}
             </span>
             {trigger.cronJobName && (
-              <span className={`font-kosugi text-[10px] ${isActive ? "text-[#9DB582]" : "text-[#6B6B6B]"}`}>
+              <span className={`font-kosugi text-micro ${isActive ? "text-[#9DB582]" : "text-[#6B6B6B]"}`}>
                 {isActive ? "Active" : "Paused"}
               </span>
             )}
@@ -244,7 +244,7 @@ export function TriggerSheet({
               {/* Preview error (shown inline) */}
               {previewError && !previewOpen && (
                 <div className="mb-2 rounded p-2.5 bg-[#93321A]/10">
-                  <p className="font-mohave text-[10px] uppercase mb-0.5 text-[#93321A]">
+                  <p className="font-mohave text-micro uppercase mb-0.5 text-[#93321A]">
                     Preview Error
                   </p>
                   <pre className="font-mono text-[11px] text-[#A0A0A0] whitespace-pre-wrap overflow-auto max-h-20">
@@ -265,7 +265,7 @@ export function TriggerSheet({
               {/* Run result */}
               {runResult && (
                 <div className={`mb-3 rounded p-2.5 ${runResult.success ? "bg-[#9DB582]/10" : "bg-[#93321A]/10"}`}>
-                  <p className={`font-mohave text-[10px] uppercase mb-0.5 ${runResult.success ? "text-[#9DB582]" : "text-[#93321A]"}`}>
+                  <p className={`font-mohave text-micro uppercase mb-0.5 ${runResult.success ? "text-[#9DB582]" : "text-[#93321A]"}`}>
                     {runResult.success ? "Success" : "Error"}
                   </p>
                   <pre className="font-mono text-[11px] text-[#A0A0A0] whitespace-pre-wrap overflow-auto max-h-32">
@@ -300,7 +300,7 @@ export function TriggerSheet({
                   {/* Test result */}
                   {testResult && (
                     <div className={`rounded p-2.5 ${testResult.success ? "bg-[#9DB582]/10" : "bg-[#93321A]/10"}`}>
-                      <p className={`font-mohave text-[10px] uppercase mb-0.5 ${testResult.success ? "text-[#9DB582]" : "text-[#93321A]"}`}>
+                      <p className={`font-mohave text-micro uppercase mb-0.5 ${testResult.success ? "text-[#9DB582]" : "text-[#93321A]"}`}>
                         {testResult.success ? "Test Sent" : "Error"}
                       </p>
                       <pre className="font-mono text-[11px] text-[#A0A0A0] whitespace-pre-wrap overflow-auto max-h-20">

@@ -208,7 +208,7 @@ export default function AgentQueuePage() {
       className={cn(
         "min-h-[56px] px-3 rounded-[4px] font-mohave text-[12px] uppercase transition-colors whitespace-nowrap flex items-center",
         active
-          ? "bg-[rgba(89,119,148,0.15)] text-[#597794]"
+          ? "bg-[rgba(111, 148, 176,0.15)] text-[#6F94B0]"
           : "bg-[rgba(255,255,255,0.03)] text-text-3 hover:text-text-2 hover:bg-[rgba(255,255,255,0.06)]"
       )}
     >
@@ -339,7 +339,7 @@ export default function AgentQueuePage() {
 
       {/* ── Sticky Batch Action Bar (z-1500 floating-ui) ───────────────── */}
       {selectedIds.size > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 z-[1500] border-t border-[rgba(255,255,255,0.08)] bg-[rgba(10,10,10,0.90)] backdrop-blur-[24px] saturate-[1.3]">
+        <div className="fixed bottom-0 left-0 right-0 z-[1500] border-t border-[rgba(255,255,255,0.08)] bg-[var(--surface-glass-dense)] backdrop-blur-[24px] saturate-[1.3]">
           <div className="flex items-center justify-between gap-4 px-6 py-3 max-w-screen-xl mx-auto">
             <span className="font-kosugi text-[13px] text-text-2">
               [{selectedIds.size} {t("batch.selected")}]
@@ -348,7 +348,7 @@ export default function AgentQueuePage() {
               <button
                 onClick={handleBulkApprove}
                 disabled={bulkApproveMutation.isPending}
-                className="min-h-[56px] px-6 rounded-[4px] bg-[rgba(89,119,148,0.15)] text-[#597794] font-mohave text-body-sm uppercase hover:bg-[rgba(89,119,148,0.25)] transition-colors disabled:opacity-50"
+                className="min-h-[56px] px-6 rounded-[4px] bg-[rgba(111, 148, 176,0.15)] text-[#6F94B0] font-mohave text-body-sm uppercase hover:bg-[rgba(111, 148, 176,0.25)] transition-colors disabled:opacity-50"
               >
                 {t("action.bulkApprove")}
               </button>

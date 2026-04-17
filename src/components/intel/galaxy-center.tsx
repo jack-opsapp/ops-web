@@ -57,7 +57,7 @@ function getCenterGlowTexture(): THREE.Texture {
 // ---------------------------------------------------------------------------
 
 const CENTER_SIZE = 0.7; // Slightly larger than entity nodes (0.5)
-const CENTER_COLOR = "#597794";
+const CENTER_COLOR = "#6F94B0";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -116,7 +116,7 @@ export function GalaxyCenterNode({ companyName }: GalaxyCenterNodeProps) {
         <div
           className="text-left whitespace-nowrap"
           style={{
-            background: "radial-gradient(ellipse, rgba(10,10,10,0.7) 0%, transparent 70%)",
+            background: "radial-gradient(ellipse, var(--surface-glass) 0%, transparent 70%)",
             padding: "8px 16px",
             opacity: 0.9,
           }}
@@ -124,7 +124,7 @@ export function GalaxyCenterNode({ companyName }: GalaxyCenterNodeProps) {
           <div className="font-mohave text-xs text-white leading-tight">
             {companyName}
           </div>
-          <div className="font-kosugi text-[9px] uppercase tracking-wider text-[#597794] mt-0.5">
+          <div className="font-kosugi text-micro uppercase tracking-wider text-[#6F94B0] mt-0.5">
             your network
           </div>
         </div>

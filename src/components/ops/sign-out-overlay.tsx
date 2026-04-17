@@ -125,12 +125,12 @@ export function SignOutOverlay() {
             >
               {/* Label row */}
               <div className="flex items-center justify-between mb-1.5">
-                <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-[0.15em]">
+                <span className="font-kosugi text-micro text-text-mute uppercase tracking-[0.15em]">
                   {line.label}
                 </span>
                 <span
-                  className="font-kosugi text-[9px] uppercase tracking-[0.1em] transition-colors duration-200"
-                  style={{ color: complete ? "rgba(89, 119, 148, 0.8)" : "rgba(255,255,255,0.15)" }}
+                  className="font-kosugi text-micro uppercase tracking-[0.1em] transition-colors duration-200"
+                  style={{ color: complete ? "rgba(111, 148, 176, 0.8)" : "rgba(255,255,255,0.15)" }}
                 >
                   {complete ? "DONE" : `${Math.round(progress * 100)}%`}
                 </span>
@@ -143,8 +143,8 @@ export function SignOutOverlay() {
                   style={{
                     width: `${progress * 100}%`,
                     backgroundColor: complete
-                      ? "rgba(89, 119, 148, 0.6)"
-                      : "rgba(89, 119, 148, 0.35)",
+                      ? "rgba(111, 148, 176, 0.6)"
+                      : "rgba(111, 148, 176, 0.35)",
                     transition: "background-color 200ms ease",
                   }}
                 />
@@ -155,7 +155,7 @@ export function SignOutOverlay() {
       </div>
 
       {/* Timestamp */}
-      <p className="font-kosugi text-[9px] text-[rgba(255,255,255,0.08)] uppercase tracking-[0.2em] mt-10 select-none">
+      <p className="font-kosugi text-micro text-[rgba(255,255,255,0.08)] uppercase tracking-[0.2em] mt-10 select-none">
         [{new Date().toISOString().split("T")[0]}]
       </p>
     </div>

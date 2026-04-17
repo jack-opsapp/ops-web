@@ -14,7 +14,7 @@ export function BriefingHeroClient({ briefing }: { briefing: AdBriefing | null }
     <div className="border border-white/[0.08] rounded-lg bg-white/[0.02] p-6">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h2 className="font-kosugi text-[10px] uppercase tracking-wider text-[#6B6B6B]">
+          <h2 className="font-kosugi text-micro uppercase tracking-wider text-[#6B6B6B]">
             Latest Intelligence Briefing
           </h2>
           {briefing && (

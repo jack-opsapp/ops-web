@@ -53,8 +53,8 @@ export function SpreadsheetCellStatus({ status, canEdit, onCommit }: Spreadsheet
         <div
           className="absolute top-full left-0 mt-1 z-[1000] min-w-[140px] p-1 rounded-[4px]"
           style={{
-            background: "rgba(10,10,10,0.95)",
-            backdropFilter: "blur(20px) saturate(1.2)",
+            background: "var(--surface-glass-dense)",
+            backdropFilter: "blur(28px) saturate(1.3)",
             border: "1px solid rgba(255,255,255,0.10)",
           }}
         >

@@ -142,9 +142,9 @@ export function NotificationModal() {
               exit="exit"
               className="w-full max-w-[480px] max-h-[70vh] flex flex-col rounded-sm pointer-events-auto outline-none"
               style={{
-                background: "rgba(10, 10, 10, 0.70)",
-                backdropFilter: "blur(20px) saturate(1.2)",
-                WebkitBackdropFilter: "blur(20px) saturate(1.2)",
+                background: "var(--surface-glass)",
+                backdropFilter: "blur(28px) saturate(1.3)",
+                WebkitBackdropFilter: "blur(28px) saturate(1.3)",
                 border: "1px solid rgba(255, 255, 255, 0.08)",
               }}
             >
@@ -157,7 +157,7 @@ export function NotificationModal() {
                 {hasDismissible && (
                   <button
                     onClick={handleDismissAll}
-                    className="font-kosugi text-[10px] uppercase tracking-wider text-text-mute hover:text-text-2 transition-colors duration-150"
+                    className="font-kosugi text-micro uppercase tracking-wider text-text-mute hover:text-text-2 transition-colors duration-150"
                   >
                     {t("notifications.dismissAll")}
                   </button>
@@ -190,7 +190,7 @@ export function NotificationModal() {
                     <div key={group.label}>
                       {/* Group label */}
                       <div className="px-[12px] pt-[10px] pb-[4px]">
-                        <span className="font-kosugi text-[10px] uppercase tracking-widest text-text-3">
+                        <span className="font-kosugi text-micro uppercase tracking-widest text-text-3">
                           {group.label}
                         </span>
                       </div>

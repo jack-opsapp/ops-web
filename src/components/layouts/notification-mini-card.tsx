@@ -81,12 +81,12 @@ export function NotificationMiniCard({
       className="shrink-0 flex items-center gap-[6px] h-[40px] px-[8px] rounded-[4px] snap-start w-max max-w-[240px]"
       style={{
         cursor: notification.actionUrl || isDuplicateReview ? "pointer" : "default",
-        background: "rgba(10, 10, 10, 0.70)",
-        backdropFilter: "blur(20px) saturate(1.2)",
-        WebkitBackdropFilter: "blur(20px) saturate(1.2)",
+        background: "var(--surface-glass)",
+        backdropFilter: "blur(28px) saturate(1.3)",
+        WebkitBackdropFilter: "blur(28px) saturate(1.3)",
         border: "1px solid rgba(255, 255, 255, 0.08)",
         borderLeft: notification.persistent
-          ? "2px solid var(--ops-accent, #597794)"
+          ? "2px solid var(--ops-accent, #6F94B0)"
           : "1px solid rgba(255, 255, 255, 0.08)",
       }}
     >
@@ -97,7 +97,7 @@ export function NotificationMiniCard({
 
       {/* Action label (visual indicator only — whole card is clickable) */}
       {hasAction && (
-        <span className="shrink-0 font-kosugi text-[9px] uppercase tracking-wider text-ops-accent">
+        <span className="shrink-0 font-kosugi text-micro uppercase tracking-wider text-ops-accent">
           {isDuplicateReview ? "Review" : displayActionLabel}
         </span>
       )}

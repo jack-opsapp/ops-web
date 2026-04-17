@@ -163,7 +163,7 @@ function MemberActions({
               {/* Role section — only visible with team.assign_roles */}
               {canAssignRoles && (
                 <div className="px-1.5 py-[6px] border-b border-[rgba(255,255,255,0.04)]">
-                  <p className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider mb-[4px]">{t("team.role")}</p>
+                  <p className="font-kosugi text-micro text-text-mute uppercase tracking-wider mb-[4px]">{t("team.role")}</p>
                   {ROLES.map((role) => (
                     <button
                       key={role.id}
@@ -350,10 +350,10 @@ function PendingInvitesCard() {
                       {inv.email ?? inv.phone ?? "—"}
                     </p>
                     <div className="flex items-center gap-[6px]">
-                      <span className="font-kosugi text-[9px] text-text-mute">
+                      <span className="font-kosugi text-micro text-text-mute">
                         {t("team.pendingInvitesSent")} {formatSentDate(inv.createdAt)}
                       </span>
-                      <span className="font-kosugi text-[9px] text-text-mute">
+                      <span className="font-kosugi text-micro text-text-mute">
                         {t("team.pendingInvitesExpires")} {formatRelativeDate(inv.expiresAt)}
                       </span>
                     </div>
@@ -372,7 +372,7 @@ function PendingInvitesCard() {
                         inv.roleName ? "text-text-2" : "text-text-mute"
                       )}
                     >
-                      <span className="font-kosugi text-[10px] uppercase tracking-wider">
+                      <span className="font-kosugi text-micro uppercase tracking-wider">
                         {inv.roleName ?? t("team.pendingInvitesNoRole")}
                       </span>
                       <ChevronDown className="w-[10px] h-[10px]" />
@@ -383,7 +383,7 @@ function PendingInvitesCard() {
                         <div className="fixed inset-0 z-30" onClick={() => setRoleMenuOpen(null)} />
                         <div className="absolute right-0 top-full mt-[4px] z-50 min-w-[160px] bg-glass glass-surface border border-border rounded-lg shadow-lg overflow-hidden">
                           <div className="px-1.5 py-[6px]">
-                            <p className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider mb-[4px]">
+                            <p className="font-kosugi text-micro text-text-mute uppercase tracking-wider mb-[4px]">
                               {t("team.pendingInvitesChangeRole")}
                             </p>
                             {/* None / unassigned option */}
@@ -630,19 +630,19 @@ export function TeamTab() {
                         <div className="flex items-center gap-[6px]">
                           <p className="font-mohave text-body text-text">{fullName}</p>
                           {isCurrentUser && (
-                            <span className="font-kosugi text-[9px] text-text-mute uppercase tracking-wider">
+                            <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
                               {t("team.you")}
                             </span>
                           )}
                         </div>
-                        <p className="font-mono text-[10px] text-text-mute">
+                        <p className="font-mono text-micro text-text-mute">
                           {member.email ?? "No email"}
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-[6px]">
                       {isSeated && (
-                        <span className="font-kosugi text-[9px] text-ops-accent bg-ops-accent-muted px-[6px] py-[2px] rounded-full">
+                        <span className="font-kosugi text-micro text-ops-accent bg-ops-accent-muted px-[6px] py-[2px] rounded-full">
                           {t("team.seated")}
                         </span>
                       )}
@@ -656,7 +656,7 @@ export function TeamTab() {
                               {member.isCompanyAdmin && (
                                 <Shield className="w-[14px] h-[14px] text-ops-amber" />
                               )}
-                              <span className="font-kosugi text-[10px] text-text-3 uppercase tracking-wider">
+                              <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider">
                                 {member.isCompanyAdmin ? t("team.roleAdmin") : member.role || t("team.roleCrew")}
                               </span>
                             </Link>
@@ -710,13 +710,13 @@ export function TeamTab() {
                       />
                       <div>
                         <p className="font-mohave text-body text-text-3">{fullName}</p>
-                        <p className="font-mono text-[10px] text-text-mute">
+                        <p className="font-mono text-micro text-text-mute">
                           {member.email ?? "No email"}
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-[6px]">
-                      <span className="font-kosugi text-[9px] text-ops-error bg-ops-error-muted px-[6px] py-[2px] rounded-full">
+                      <span className="font-kosugi text-micro text-ops-error bg-ops-error-muted px-[6px] py-[2px] rounded-full">
                         Inactive
                       </span>
                       <MemberActions

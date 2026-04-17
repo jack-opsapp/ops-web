@@ -98,7 +98,7 @@ function mapOpportunityFromDb(row: Record<string, unknown>): Opportunity {
     // AI analysis
     aiSummary: (row.ai_summary as string) ?? null,
     aiStageConfidence: row.ai_stage_confidence != null ? Number(row.ai_stage_confidence) : null,
-    aiStageSignals: (row.ai_stage_signals as string) ?? null,
+    aiStageSignals: (row.ai_stage_signals as string[]) ?? null,
     detectedValue: row.detected_value != null ? Number(row.detected_value) : null,
 
     // Quote delivery

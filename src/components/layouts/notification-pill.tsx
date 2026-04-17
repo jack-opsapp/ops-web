@@ -26,7 +26,7 @@ export function NotificationPill({ persistent, layoutId }: NotificationPillProps
       style={{
         width: 6,
         backgroundColor: persistent
-          ? "var(--ops-accent, #597794)"
+          ? "var(--ops-accent, #6F94B0)"
           : "rgba(255, 255, 255, 0.20)",
       }}
     />

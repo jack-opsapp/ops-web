@@ -66,7 +66,7 @@ interface Star {
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const ACCENT = { r: 89, g: 119, b: 148 }; // #597794 — answered
+const ACCENT = { r: 111, g: 148, b: 176 }; // #6F94B0 — answered
 const AMBER = { r: 196, g: 168, b: 104 }; // #C4A868 — unanswered
 const BLUE_BURST = { r: 120, g: 170, b: 220 }; // burst color
 const STAR_COUNT = 1000;
@@ -1239,7 +1239,7 @@ export function SetupStarfield({
             transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
             className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none"
           >
-            <div className="px-6 py-4 rounded-sm bg-[rgba(10,10,10,0.85)] backdrop-blur-[20px] backdrop-saturate-[1.2] border border-[rgba(89,119,148,0.3)] text-center">
+            <div className="px-6 py-4 rounded-sm bg-[var(--surface-glass-dense)] backdrop-blur-[20px] backdrop-saturate-[1.2] border border-[rgba(111, 148, 176,0.3)] text-center">
               <p className="font-mohave text-body text-text">
                 Dashboard unlocked
               </p>
@@ -1263,7 +1263,7 @@ export function SetupStarfield({
               type="button"
               className={`w-4 h-[2px] rounded-full transition-colors duration-300 cursor-pointer hover:scale-y-[2] ${
                 starfieldAnswers[q.id] != null
-                  ? "bg-ops-accent shadow-[0_0_6px_rgba(65,115,148,0.4)]"
+                  ? "bg-text"
                   : "bg-white/10 hover:bg-white/25"
               }`}
               onClick={(e) => {
@@ -1274,7 +1274,7 @@ export function SetupStarfield({
             />
           ))}
         </div>
-        <p className="font-kosugi text-[10px] text-text-mute text-center mt-2">
+        <p className="font-kosugi text-micro text-text-mute text-center mt-2">
           {answeredCount}/{visibleQuestions.length} answered
           {answeredCount < minRequired &&
             ` · ${minRequired - answeredCount} more needed`}

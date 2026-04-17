@@ -209,7 +209,7 @@ export function InvoiceDetailPanel({
               <h3 className="font-mohave text-body text-text uppercase">
                 {displayName}
               </h3>
-              <p className="font-kosugi text-[10px] text-text-3 uppercase tracking-wider">
+              <p className="font-kosugi text-micro text-text-3 uppercase tracking-wider">
                 {batch.batchNumber} · {periodDisplay}
               </p>
             </div>
@@ -217,7 +217,7 @@ export function InvoiceDetailPanel({
 
           {/* Status pill */}
           <span
-            className="px-1.5 py-0.5 rounded-full font-kosugi text-[10px] uppercase tracking-wider"
+            className="px-1.5 py-0.5 rounded-full font-kosugi text-micro uppercase tracking-wider"
             style={{
               backgroundColor: `${statusColor}22`,
               color: statusColor,
@@ -230,7 +230,7 @@ export function InvoiceDetailPanel({
         {/* Metrics row */}
         <div className="flex gap-4">
           <div>
-            <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider block">
+            <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider block">
               TOTAL
             </span>
             <span className="font-mono text-data text-text">
@@ -238,7 +238,7 @@ export function InvoiceDetailPanel({
             </span>
           </div>
           <div>
-            <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider block">
+            <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider block">
               EXPENSES
             </span>
             <span className="font-mono text-data text-text">
@@ -247,7 +247,7 @@ export function InvoiceDetailPanel({
           </div>
           {flagCount > 0 && (
             <div>
-              <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider block">
+              <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider block">
                 FLAGGED
               </span>
               <span className="font-mono text-data text-[#C4A868] flex items-center gap-1">
@@ -284,7 +284,7 @@ export function InvoiceDetailPanel({
               {/* Remove all flags text link */}
               <button
                 onClick={handleRemoveAllFlags}
-                className="font-kosugi text-[10px] text-text-3 hover:text-text-2 uppercase tracking-wider transition-colors"
+                className="font-kosugi text-micro text-text-3 hover:text-text-2 uppercase tracking-wider transition-colors"
               >
                 REMOVE ALL FLAGS
               </button>

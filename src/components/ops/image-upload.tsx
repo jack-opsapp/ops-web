@@ -119,7 +119,7 @@ export function ImageUpload({
         ) : (
           <div className="flex flex-col items-center gap-[4px] text-text-mute group-hover:text-text-3 transition-colors">
             <Upload className="w-[20px] h-[20px]" />
-            <span className="font-kosugi text-[10px]">Upload</span>
+            <span className="font-kosugi text-micro">Upload</span>
           </div>
         )}
         <input
@@ -133,7 +133,7 @@ export function ImageUpload({
       {error && (
         <div className="flex items-center gap-[4px] text-ops-error">
           <AlertCircle className="w-[12px] h-[12px]" />
-          <span className="font-kosugi text-[10px]">{error.message}</span>
+          <span className="font-kosugi text-micro">{error.message}</span>
         </div>
       )}
     </div>
@@ -225,7 +225,7 @@ export function MultiImageUpload({
             ) : (
               <>
                 <ImageIcon className="w-[18px] h-[18px]" />
-                <span className="font-kosugi text-[9px]">Add</span>
+                <span className="font-kosugi text-micro">Add</span>
               </>
             )}
           </button>
@@ -234,7 +234,7 @@ export function MultiImageUpload({
       {error && (
         <div className="flex items-center gap-[4px] text-ops-error">
           <AlertCircle className="w-[12px] h-[12px]" />
-          <span className="font-kosugi text-[10px]">{error.message}</span>
+          <span className="font-kosugi text-micro">{error.message}</span>
         </div>
       )}
       <input

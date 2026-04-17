@@ -235,7 +235,7 @@ function LeadCard({
       {/* Action */}
       <button
         onClick={() => onCreateLead(prefill)}
-        className="w-full flex items-center justify-center gap-2 py-1.5 rounded-sm bg-ops-accent/15 hover:bg-ops-accent/25 text-[#597794] text-xs font-medium transition-colors font-kosugi"
+        className="w-full flex items-center justify-center gap-2 py-1.5 rounded-sm bg-ops-accent/15 hover:bg-ops-accent/25 text-[#6F94B0] text-xs font-medium transition-colors font-kosugi"
       >
         <UserPlus className="h-3 w-3" />
         Create Lead
@@ -326,7 +326,7 @@ function DomainGroupSection({
           <span className="font-mohave text-xs font-semibold text-[#E5E5E5] uppercase tracking-wide truncate group-hover:text-white transition-colors">
             @{group.domain}
           </span>
-          <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[rgba(255,255,255,0.08)] px-1 font-kosugi text-[9px] font-bold text-[#999] shrink-0">
+          <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[rgba(255,255,255,0.08)] px-1 font-kosugi text-micro font-bold text-[#999] shrink-0">
             {group.totalCount}
           </span>
         </button>
@@ -336,7 +336,7 @@ function DomainGroupSection({
           onClick={() => onBlockDomain(group.domain)}
           disabled={isBlocking}
           className={cn(
-            "flex items-center gap-1 rounded-sm px-2 py-1 font-kosugi text-[10px] transition-colors shrink-0",
+            "flex items-center gap-1 rounded-sm px-2 py-1 font-kosugi text-micro transition-colors shrink-0",
             isThisDomainBlocking
               ? "text-[#555]"
               : "text-[#93321A] hover:text-[#b5432a] hover:bg-[rgba(147,50,26,0.10)]"
@@ -447,7 +447,7 @@ export function InboxLeadsQueue({
               Inbox Leads
             </h3>
             {leads.length > 0 && (
-              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-ops-accent text-[9px] font-bold text-white">
+              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-ops-accent text-micro font-bold text-white">
                 {leads.length > 9 ? "9+" : leads.length}
               </span>
             )}
@@ -458,7 +458,7 @@ export function InboxLeadsQueue({
             {reviewCount > 0 && (
               <button
                 onClick={() => setReviewPanelOpen(true)}
-                className="flex items-center gap-1.5 rounded-sm px-2 py-1 font-kosugi text-[10px] uppercase tracking-wider text-[#C4A868] hover:bg-[rgba(196,168,104,0.10)] transition-colors"
+                className="flex items-center gap-1.5 rounded-sm px-2 py-1 font-kosugi text-micro uppercase tracking-wider text-[#C4A868] hover:bg-[rgba(196,168,104,0.10)] transition-colors"
               >
                 <AlertTriangle className="h-3 w-3" />
                 Review ({reviewCount})
@@ -481,7 +481,7 @@ export function InboxLeadsQueue({
         {/* Content */}
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-5 w-5 animate-spin text-[#597794]" />
+            <Loader2 className="h-5 w-5 animate-spin text-[#6F94B0]" />
           </div>
         ) : leads.length === 0 ? (
           <div className="rounded-sm border border-dashed border-[rgba(255,255,255,0.10)] py-8 flex flex-col items-center gap-2">

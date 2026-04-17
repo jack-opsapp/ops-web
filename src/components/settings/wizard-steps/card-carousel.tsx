@@ -220,9 +220,9 @@ export function CardCarousel<T>({
   // Shared card surface style
   const cardSurface = {
     borderRadius: 4,
-    background: "rgba(10, 10, 10, 0.70)",
-    backdropFilter: "blur(20px) saturate(1.2)",
-    WebkitBackdropFilter: "blur(20px) saturate(1.2)",
+    background: "var(--surface-glass)",
+    backdropFilter: "blur(28px) saturate(1.3)",
+    WebkitBackdropFilter: "blur(28px) saturate(1.3)",
   };
 
   return (
@@ -274,7 +274,7 @@ export function CardCarousel<T>({
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ delay: 0.12, duration: 0.2 }}
-                      className="absolute top-2.5 right-3 font-kosugi text-[9px] tracking-[0.1em] uppercase"
+                      className="absolute top-2.5 right-3 font-kosugi text-micro tracking-[0.1em] uppercase"
                       style={{ color: d.color }}
                     >
                       {isDefault ? `AGENT: ${d.label}` : `SELECTED: ${d.label}`}
@@ -336,7 +336,7 @@ export function CardCarousel<T>({
           {onBack && (
             <button
               onClick={onBack}
-              className="font-kosugi text-[10px] tracking-[0.1em] uppercase text-[#666] hover:text-[#999] transition-colors"
+              className="font-kosugi text-micro tracking-[0.1em] uppercase text-[#666] hover:text-[#999] transition-colors"
             >
               ← {t("confirm.back")}
             </button>
@@ -347,7 +347,7 @@ export function CardCarousel<T>({
         </div>
         <button
           onClick={onComplete}
-          className="font-kosugi text-[10px] tracking-[0.1em] uppercase text-[#666] hover:text-[#999] transition-colors"
+          className="font-kosugi text-micro tracking-[0.1em] uppercase text-[#666] hover:text-[#999] transition-colors"
         >
           {skipLabel || t("skipToNext")} →
         </button>

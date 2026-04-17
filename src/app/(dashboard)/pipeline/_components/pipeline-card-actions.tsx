@@ -316,9 +316,9 @@ function PortaledDropdown({
         left: pos.x,
         top: pos.y,
         transform: "translateY(-100%)",
-        background: "rgba(10, 10, 10, 0.90)",
-        backdropFilter: "blur(20px) saturate(1.2)",
-        WebkitBackdropFilter: "blur(20px) saturate(1.2)",
+        background: "var(--surface-glass-dense)",
+        backdropFilter: "blur(28px) saturate(1.3)",
+        WebkitBackdropFilter: "blur(28px) saturate(1.3)",
         border: "1px solid rgba(255, 255, 255, 0.10)",
       }}
       onClick={(e) => e.stopPropagation()}

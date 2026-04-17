@@ -132,7 +132,7 @@ function StatBox({
 function BarChart({
   data,
   maxValue,
-  accentColor = "#597794",
+  accentColor = "#6F94B0",
   barLabel,
 }: {
   data: Array<{ label: string; value: number; isProjected?: boolean }>;
@@ -168,7 +168,7 @@ function BarChart({
                 title={barLabel ? barLabel(d.value) : `${d.value}`}
               />
             </div>
-            <span className="font-kosugi text-[9px] text-text-3 truncate w-full text-center">
+            <span className="font-kosugi text-micro text-text-3 truncate w-full text-center">
               {d.label}
             </span>
           </div>
@@ -209,13 +209,13 @@ function ProjectionBar({
         {expectedPct > 0 && (
           <div
             className="h-full rounded-l-[2px]"
-            style={{ width: `${expectedPct}%`, backgroundColor: "#597794" }}
+            style={{ width: `${expectedPct}%`, backgroundColor: "#6F94B0" }}
           />
         )}
         {pipelinePct > 0 && (
           <div
             className="h-full"
-            style={{ width: `${pipelinePct}%`, backgroundColor: "#59779466" }}
+            style={{ width: `${pipelinePct}%`, backgroundColor: "#6F94B066" }}
           />
         )}
       </div>
@@ -234,10 +234,10 @@ function HeatmapCell({ month, index }: { month: string; index: number }) {
     <div className="flex flex-col items-center gap-1">
       <div
         className="w-full aspect-square rounded-[2px] border border-[rgba(255,255,255,0.06)]"
-        style={{ backgroundColor: `rgba(89, 119, 148, ${alpha})` }}
+        style={{ backgroundColor: `rgba(111, 148, 176, ${alpha})` }}
         title={`${month}: ${index}%`}
       />
-      <span className="font-kosugi text-[9px] text-text-3">{month}</span>
+      <span className="font-kosugi text-micro text-text-3">{month}</span>
     </div>
   );
 }
@@ -428,12 +428,12 @@ export function FinancialInsightCard({ data, t, inline }: FinancialInsightCardPr
           {/* Legend */}
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-1">
-              <div className="w-[8px] h-[8px] rounded-[1px]" style={{ backgroundColor: "#597794" }} />
-              <span className="font-kosugi text-[10px] text-text-3">{t("financial.revenue.actual")}</span>
+              <div className="w-[8px] h-[8px] rounded-[1px]" style={{ backgroundColor: "#6F94B0" }} />
+              <span className="font-kosugi text-micro text-text-3">{t("financial.revenue.actual")}</span>
             </div>
             <div className="flex items-center gap-1">
-              <div className="w-[8px] h-[8px] rounded-[1px]" style={{ backgroundColor: "#59779466" }} />
-              <span className="font-kosugi text-[10px] text-text-3">{t("financial.revenue.projected")}</span>
+              <div className="w-[8px] h-[8px] rounded-[1px]" style={{ backgroundColor: "#6F94B066" }} />
+              <span className="font-kosugi text-micro text-text-3">{t("financial.revenue.projected")}</span>
             </div>
           </div>
         </div>
@@ -477,12 +477,12 @@ export function FinancialInsightCard({ data, t, inline }: FinancialInsightCardPr
           {/* Projection legend */}
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-1">
-              <div className="w-[8px] h-[8px] rounded-[1px]" style={{ backgroundColor: "#597794" }} />
-              <span className="font-kosugi text-[10px] text-text-3">{t("financial.cashflow.expected")}</span>
+              <div className="w-[8px] h-[8px] rounded-[1px]" style={{ backgroundColor: "#6F94B0" }} />
+              <span className="font-kosugi text-micro text-text-3">{t("financial.cashflow.expected")}</span>
             </div>
             <div className="flex items-center gap-1">
-              <div className="w-[8px] h-[8px] rounded-[1px]" style={{ backgroundColor: "#59779466" }} />
-              <span className="font-kosugi text-[10px] text-text-3">{t("financial.cashflow.pipeline")}</span>
+              <div className="w-[8px] h-[8px] rounded-[1px]" style={{ backgroundColor: "#6F94B066" }} />
+              <span className="font-kosugi text-micro text-text-3">{t("financial.cashflow.pipeline")}</span>
             </div>
           </div>
         </div>

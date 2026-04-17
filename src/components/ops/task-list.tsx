@@ -217,7 +217,7 @@ function TaskRow({
               />
             ))}
             {assignedMembers.length > 3 && (
-              <span className="font-mono text-[10px] text-text-3 pl-[4px]">
+              <span className="font-mono text-micro text-text-3 pl-[4px]">
                 +{assignedMembers.length - 3}
               </span>
             )}

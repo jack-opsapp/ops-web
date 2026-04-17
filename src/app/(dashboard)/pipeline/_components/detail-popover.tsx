@@ -253,7 +253,7 @@ export const DetailPopover = memo(function DetailPopover({
               className="flex items-center gap-1 text-text-3 hover:text-ops-accent transition-colors shrink-0"
             >
               <Phone className="w-2.5 h-2.5" />
-              <span className="font-kosugi text-[10px] whitespace-nowrap">
+              <span className="font-kosugi text-micro whitespace-nowrap">
                 {opportunity.contactPhone}
               </span>
             </a>
@@ -267,13 +267,13 @@ export const DetailPopover = memo(function DetailPopover({
               className="flex items-center gap-1 text-text-3 hover:text-ops-accent transition-colors min-w-0"
             >
               <Mail className="w-2.5 h-2.5 shrink-0" />
-              <span className="font-kosugi text-[10px] truncate">
+              <span className="font-kosugi text-micro truncate">
                 {opportunity.contactEmail}
               </span>
             </a>
           )}
           {!opportunity.contactPhone && !opportunity.contactEmail && (
-            <span className="font-kosugi text-[10px] text-text-mute">
+            <span className="font-kosugi text-micro text-text-mute">
               {t("detail.noContact")}
             </span>
           )}
@@ -282,12 +282,12 @@ export const DetailPopover = memo(function DetailPopover({
         {/* Row 2: stage + days + overflow */}
         <div className="flex items-center gap-1.5" ref={stageMenuRef}>
           <span
-            className="font-kosugi text-[9px] uppercase tracking-wide"
+            className="font-kosugi text-micro uppercase tracking-wide"
             style={{ color: stageColor }}
           >
             {stageName}
           </span>
-          <span className="font-kosugi text-[9px] text-text-mute">
+          <span className="font-kosugi text-micro text-text-mute">
             · {daysInStage}{t("detail.daysInStage")}
           </span>
           {canManage && active && (
@@ -300,7 +300,7 @@ export const DetailPopover = memo(function DetailPopover({
               </button>
 
               {showStageMenu && (
-                <div className="absolute top-full right-0 mt-1 z-50 min-w-[150px] bg-[rgba(10,10,10,0.95)] backdrop-blur-xl border border-[rgba(255,255,255,0.10)] rounded-[4px] p-1">
+                <div className="absolute top-full right-0 mt-1 z-50 min-w-[150px] bg-[var(--surface-glass-dense)] backdrop-blur-xl border border-[rgba(255,255,255,0.10)] rounded-[4px] p-1">
                   <button
                     onClick={() => { setShowStageMenu(false); onAdvanceStage(); }}
                     className="flex items-center gap-2 w-full px-2 py-1.5 font-mohave text-[11px] text-text-2 hover:bg-[rgba(255,255,255,0.06)] rounded-[2px] transition-colors"
@@ -345,7 +345,7 @@ export const DetailPopover = memo(function DetailPopover({
 
         {/* Summary */}
         {opportunity.aiSummary && (
-          <p className="font-kosugi text-[10px] text-text-mute leading-[1.6] mt-1.5">
+          <p className="font-kosugi text-micro text-text-mute leading-[1.6] mt-1.5">
             {opportunity.aiSummary}
           </p>
         )}

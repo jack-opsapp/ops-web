@@ -92,7 +92,7 @@ function CrewPicker({
                     selected ? "bg-ops-accent border-ops-accent" : "border-border"
                   )}
                 >
-                  {selected && <span className="text-[10px] text-white font-bold">✓</span>}
+                  {selected && <span className="text-micro text-white font-bold">✓</span>}
                 </div>
                 {name}
               </button>
@@ -254,7 +254,7 @@ function TaskTemplatesSection({ taskType }: { taskType: TaskType }) {
                     {template.title}
                   </button>
                   {template.estimatedHours != null && (
-                    <span className="flex items-center gap-[2px] font-mono text-[10px] text-text-mute shrink-0">
+                    <span className="flex items-center gap-[2px] font-mono text-micro text-text-mute shrink-0">
                       <Clock className="w-[10px] h-[10px]" />
                       {template.estimatedHours}h
                     </span>
@@ -337,7 +337,7 @@ function TaskTypeCard({ taskType }: { taskType: TaskType }) {
         />
         <h4 className="font-mohave text-body text-text flex-1">{taskType.display}</h4>
         {taskType.isDefault && (
-          <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider">
+          <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
             {t("taskTypes.default")}
           </span>
         )}

@@ -74,9 +74,9 @@ export function ReviewStep({
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
           transition={{ delay: 0.1, duration: 0.4, ease: EASE_SMOOTH }}
-          className="w-[48px] h-[48px] rounded-full bg-[rgba(89,119,148,0.15)] flex items-center justify-center mb-[16px]"
+          className="w-[48px] h-[48px] rounded-full bg-[rgba(111, 148, 176,0.15)] flex items-center justify-center mb-[16px]"
         >
-          <Check className="w-[24px] h-[24px] text-[#597794]" />
+          <Check className="w-[24px] h-[24px] text-[#6F94B0]" />
         </motion.div>
         <p className="font-mohave text-body text-text">
           {t("wizard.review.success")}
@@ -131,7 +131,7 @@ export function ReviewStep({
       {/* Mini dependency timeline */}
       {hasDependencies && dependencyTimeline && dependencyTimeline.length > 1 && (
         <div className="mb-[24px]">
-          <span className="font-kosugi text-[9px] text-text-mute uppercase tracking-widest mb-[6px] block">
+          <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest mb-[6px] block">
             {t("wizard.review.depOrder")}
           </span>
           <div className="flex items-center gap-[4px] flex-wrap">
@@ -142,17 +142,17 @@ export function ReviewStep({
                     className="w-[8px] h-[8px] rounded-sm shrink-0"
                     style={{ backgroundColor: item.color }}
                   />
-                  <span className="font-kosugi text-[10px] text-text-2 whitespace-nowrap">
+                  <span className="font-kosugi text-micro text-text-2 whitespace-nowrap">
                     {item.name}
                   </span>
                   {item.overlapPercent > 0 && (
-                    <span className="font-mono text-[9px] text-text-mute">
+                    <span className="font-mono text-micro text-text-mute">
                       {item.overlapPercent}%
                     </span>
                   )}
                 </div>
                 {i < dependencyTimeline.length - 1 && (
-                  <span className="text-text-mute text-[10px]">&rarr;</span>
+                  <span className="text-text-mute text-micro">&rarr;</span>
                 )}
               </div>
             ))}

@@ -27,7 +27,7 @@ export function markdownToEmailHtml(markdown: string): string {
     /\[([^\]]+)\]\(([^)]+)\)/g,
     (_, text, url) => {
       const safe = /^https?:\/\//i.test(url) ? url : "#";
-      return `<a href="${safe}" style="color:#597794;text-decoration:underline;">${text}</a>`;
+      return `<a href="${safe}" style="color:#6F94B0;text-decoration:underline;">${text}</a>`;
     }
   );
 

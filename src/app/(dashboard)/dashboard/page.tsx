@@ -117,7 +117,7 @@ function PlaceholderWidget({ typeId, label }: { typeId: string; label: string })
     <div className="h-full rounded-lg bg-glass glass-surface border border-border p-2 flex flex-col items-center justify-center">
       <span className="font-mono text-micro text-text-mute uppercase">{typeId}</span>
       <span className="font-mohave text-body-sm text-text-3 mt-[4px]">{label}</span>
-      <span className="font-mono text-[9px] text-text-mute mt-1">{t("widgets.comingSoon")}</span>
+      <span className="font-mono text-micro text-text-mute mt-1">{t("widgets.comingSoon")}</span>
     </div>
   );
 }
@@ -696,11 +696,11 @@ export default function DashboardPage() {
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: DRAG_GRABBED_SCALE, opacity: 0.95 }}
           transition={SPRING_REORDER}
-          className="w-[160px] h-[120px] rounded-lg ring-2 ring-ops-accent bg-[rgba(10,10,10,0.95)] backdrop-blur-xl border border-ops-accent/30 p-[10px] flex flex-col items-center justify-center pointer-events-none"
+          className="w-[160px] h-[120px] rounded-lg ring-2 ring-ops-accent bg-[var(--surface-glass-dense)] backdrop-blur-xl border border-ops-accent/30 p-[10px] flex flex-col items-center justify-center pointer-events-none"
           style={{ boxShadow: DRAG_GRABBED_SHADOW }}
         >
           <span className="font-mohave text-[13px] text-text">{entry.label}</span>
-          <span className="font-mono text-[9px] text-text-mute mt-[2px]">{entry.description}</span>
+          <span className="font-mono text-micro text-text-mute mt-[2px]">{entry.description}</span>
         </motion.div>
       );
     }
@@ -812,7 +812,7 @@ export default function DashboardPage() {
         {isCustomizing && !trayOpen && (
           <button
             onClick={() => setTrayOpen(true)}
-            className="fixed bottom-4 left-1/2 -translate-x-1/2 z-30 px-4 py-2 rounded-full bg-[rgba(10,10,10,0.9)] backdrop-blur-xl border border-border text-text-2 font-mohave text-body-sm hover:text-text hover:border-border-medium transition-all duration-200 shadow-[0_4px_16px_rgba(0,0,0,0.4)] pointer-events-auto"
+            className="fixed bottom-4 left-1/2 -translate-x-1/2 z-30 px-4 py-2 rounded-full glass-dense text-text-2 font-mohave text-body-sm hover:text-text hover:border-border-medium transition-all duration-200 pointer-events-auto"
           >
             {t("widgets.openTray")}
           </button>

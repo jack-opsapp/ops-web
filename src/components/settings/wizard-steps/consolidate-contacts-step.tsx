@@ -78,7 +78,7 @@ export function ConsolidateContactsStep({
     () => ({
       "1": (item: CarouselItem<ConsolidationGroup>): CarouselDecision => {
         updateGroup(item.id, { decision: "confirm" });
-        return { label: "CONFIRMED", color: "#597794" };
+        return { label: "CONFIRMED", color: "#6F94B0" };
       },
       "2": (item: CarouselItem<ConsolidationGroup>): CarouselDecision => {
         updateGroup(item.id, { decision: "merge" });
@@ -153,7 +153,7 @@ export function ConsolidateContactsStep({
 
             {/* Contacts list */}
             <div className="space-y-1.5">
-              <span className="font-kosugi text-[9px] tracking-[0.12em] uppercase text-[#777]">
+              <span className="font-kosugi text-micro tracking-[0.12em] uppercase text-[#777]">
                 {t("consolidate.contacts")}
               </span>
               {group.contacts.map((contact) => {
@@ -195,7 +195,7 @@ export function ConsolidateContactsStep({
 
             {/* Leads list with editable titles */}
             <div className="space-y-1.5">
-              <span className="font-kosugi text-[9px] tracking-[0.12em] uppercase text-[#777]">
+              <span className="font-kosugi text-micro tracking-[0.12em] uppercase text-[#777]">
                 {t("consolidate.leads")} ({group.leads.length})
               </span>
               {group.leads.map((gl, i) => {
@@ -220,7 +220,7 @@ export function ConsolidateContactsStep({
                         }}
                       />
                     </div>
-                    <p className="font-mohave text-[10px] text-[#555] ml-4">
+                    <p className="font-mohave text-micro text-[#555] ml-4">
                       {t("consolidate.via")} {group.contacts.find((c) => c.email === gl.primaryContactEmail)?.name || gl.primaryContactEmail} · {gl.correspondenceCount} {t("emails")}
                     </p>
                     {fullLead && (
@@ -237,36 +237,36 @@ export function ConsolidateContactsStep({
             {focused && <div className="flex items-center gap-1.5 pt-3 pb-1 sticky bottom-0 -mx-4 px-2 -mb-4">
               <button
                 onClick={() => triggerAction("1")}
-                className="flex-1 py-1.5 font-kosugi text-[10px] tracking-[0.1em] uppercase border transition-colors"
+                className="flex-1 py-1.5 font-kosugi text-micro tracking-[0.1em] uppercase border transition-colors"
                 style={{
                   borderRadius: 4,
-                  borderColor: highlightedKey === "1" ? "#597794" : "rgba(89, 119, 148, 0.3)",
-                  color: "#597794",
-                  background: highlightedKey === "1" ? "rgb(18, 24, 30)" : "rgba(10, 10, 10, 0.90)",
+                  borderColor: highlightedKey === "1" ? "#6F94B0" : "rgba(111, 148, 176, 0.3)",
+                  color: "#6F94B0",
+                  background: highlightedKey === "1" ? "rgb(18, 24, 30)" : "var(--surface-glass-dense)",
                 }}
               >
                 1: SAVE AS {group.leads.length} LEAD{group.leads.length !== 1 ? "S" : ""}
               </button>
               <button
                 onClick={() => triggerAction("2")}
-                className="flex-1 py-1.5 font-kosugi text-[10px] tracking-[0.1em] uppercase border transition-colors"
+                className="flex-1 py-1.5 font-kosugi text-micro tracking-[0.1em] uppercase border transition-colors"
                 style={{
                   borderRadius: 4,
                   borderColor: highlightedKey === "2" ? "#C4A868" : "rgba(196, 168, 104, 0.3)",
                   color: "#C4A868",
-                  background: highlightedKey === "2" ? "rgb(28, 24, 16)" : "rgba(10, 10, 10, 0.90)",
+                  background: highlightedKey === "2" ? "rgb(28, 24, 16)" : "var(--surface-glass-dense)",
                 }}
               >
                 2: {t("consolidate.mergeIntoOne")}
               </button>
               <button
                 onClick={() => triggerAction("3")}
-                className="py-1.5 px-2.5 font-kosugi text-[10px] tracking-[0.1em] uppercase border transition-colors flex-shrink-0"
+                className="py-1.5 px-2.5 font-kosugi text-micro tracking-[0.1em] uppercase border transition-colors flex-shrink-0"
                 style={{
                   borderRadius: 4,
                   borderColor: highlightedKey === "3" ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.08)",
                   color: "#555",
-                  background: highlightedKey === "3" ? "rgb(16, 16, 16)" : "rgba(10, 10, 10, 0.90)",
+                  background: highlightedKey === "3" ? "rgb(16, 16, 16)" : "var(--surface-glass-dense)",
                 }}
               >
                 3: {t("filter.discard")}
@@ -321,7 +321,7 @@ function EditableCompanyName({
           }
           e.stopPropagation(); // prevent carousel keyboard capture
         }}
-        className="font-mohave text-[18px] text-white bg-transparent border-b border-[#597794] outline-none w-full py-0"
+        className="font-mohave text-[18px] text-white bg-transparent border-b border-[#6F94B0] outline-none w-full py-0"
         style={{ borderRadius: 0 }}
       />
     );
@@ -330,7 +330,7 @@ function EditableCompanyName({
   return (
     <button
       onClick={() => setEditing(true)}
-      className="font-mohave text-[18px] text-white text-left hover:text-[#597794] transition-colors cursor-text"
+      className="font-mohave text-[18px] text-white text-left hover:text-[#6F94B0] transition-colors cursor-text"
       title="Click to edit company name"
     >
       {value}
@@ -378,7 +378,7 @@ function EditableTitle({
           e.stopPropagation();
         }}
         placeholder={placeholder}
-        className="font-mohave text-[11px] text-white bg-transparent border-b border-[#597794]/50 outline-none flex-1 py-0"
+        className="font-mohave text-[11px] text-white bg-transparent border-b border-[#6F94B0]/50 outline-none flex-1 py-0"
         style={{ borderRadius: 0 }}
       />
     );

@@ -58,17 +58,17 @@ export function CascadeConfirmBar() {
             >
               <path
                 d="M7 1L13 12H1L7 1Z"
-                stroke="#597794"
+                stroke="#6F94B0"
                 strokeWidth="1.2"
                 strokeLinejoin="round"
               />
               <path
                 d="M7 5.5V8"
-                stroke="#597794"
+                stroke="#6F94B0"
                 strokeWidth="1.2"
                 strokeLinecap="round"
               />
-              <circle cx="7" cy="10" r="0.6" fill="#597794" />
+              <circle cx="7" cy="10" r="0.6" fill="#6F94B0" />
             </svg>
             <span
               className="font-mohave text-[13px] leading-tight truncate"
@@ -83,10 +83,10 @@ export function CascadeConfirmBar() {
             {/* Apply button */}
             <button
               onClick={handleApply}
-              className="font-kosugi text-[10px] uppercase tracking-wider leading-tight cursor-pointer"
+              className="font-kosugi text-micro uppercase tracking-wider leading-tight cursor-pointer"
               style={{
                 padding: "5px 12px",
-                background: "#597794",
+                background: "#6F94B0",
                 color: "#FFFFFF",
                 border: "none",
                 borderRadius: 3,
@@ -98,7 +98,7 @@ export function CascadeConfirmBar() {
             {/* Cancel button — ghost / border-only */}
             <button
               onClick={handleCancel}
-              className="font-kosugi text-[10px] uppercase tracking-wider leading-tight cursor-pointer"
+              className="font-kosugi text-micro uppercase tracking-wider leading-tight cursor-pointer"
               style={{
                 padding: "5px 12px",
                 background: "transparent",

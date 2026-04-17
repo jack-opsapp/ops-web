@@ -368,7 +368,7 @@ export function PipelineCard({
                     <a
                       href={`tel:${opportunity.contactPhone}`}
                       onClick={(e) => e.stopPropagation()}
-                      className="flex items-center gap-[4px] font-kosugi text-micro text-[#597794] hover:text-text transition-colors"
+                      className="flex items-center gap-[4px] font-kosugi text-micro text-[#6F94B0] hover:text-text transition-colors"
                     >
                       <Phone className="w-[12px] h-[12px]" />
                       {opportunity.contactPhone}
@@ -378,7 +378,7 @@ export function PipelineCard({
                     <a
                       href={`mailto:${opportunity.contactEmail}`}
                       onClick={(e) => e.stopPropagation()}
-                      className="flex items-center gap-[4px] font-kosugi text-micro text-[#597794] hover:text-text transition-colors"
+                      className="flex items-center gap-[4px] font-kosugi text-micro text-[#6F94B0] hover:text-text transition-colors"
                     >
                       <Mail className="w-[12px] h-[12px]" />
                       {opportunity.contactEmail}
@@ -457,7 +457,7 @@ export function PipelineCard({
                     e.stopPropagation();
                     onOpenDetail();
                   }}
-                  className="font-mohave text-body-sm text-[#597794] hover:text-text transition-colors cursor-pointer"
+                  className="font-mohave text-body-sm text-[#6F94B0] hover:text-text transition-colors cursor-pointer"
                 >
                   {t("card.viewDetails")}
                 </button>

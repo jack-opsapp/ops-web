@@ -13,7 +13,7 @@ export function MarketPulse({ themes }: { themes: SentimentTheme[] }) {
 
   return (
     <div>
-      <h2 className="font-kosugi text-[10px] uppercase tracking-wider text-[#6B6B6B] mb-4">
+      <h2 className="font-kosugi text-micro uppercase tracking-wider text-[#6B6B6B] mb-4">
         Market Pulse
       </h2>
       <div className="space-y-4">
@@ -36,7 +36,7 @@ export function MarketPulse({ themes }: { themes: SentimentTheme[] }) {
             )}
             <div className="flex items-center gap-2">
               {theme.sources.map((src, si) => (
-                <span key={si} className="font-kosugi text-[10px] text-[#444444] bg-white/[0.04] px-1.5 py-0.5 rounded">
+                <span key={si} className="font-kosugi text-micro text-[#444444] bg-white/[0.04] px-1.5 py-0.5 rounded">
                   {src}
                 </span>
               ))}

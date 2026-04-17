@@ -74,11 +74,11 @@ export function ConfirmSourcesStep({
         >
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 flex items-center justify-center bg-ops-accent/10 border border-[#597794]/30" style={{ borderRadius: 2 }}>
-                <Mail size={14} className="text-[#597794]" />
+              <div className="w-8 h-8 flex items-center justify-center bg-ops-accent/10 border border-[#6F94B0]/30" style={{ borderRadius: 2 }}>
+                <Mail size={14} className="text-[#6F94B0]" />
               </div>
               <div>
-                <p className="font-kosugi text-[9px] tracking-[0.15em] uppercase text-[#597794]">
+                <p className="font-kosugi text-micro tracking-[0.15em] uppercase text-[#6F94B0]">
                   Estimate Pattern Detected
                 </p>
                 {editingPattern ? (
@@ -86,7 +86,7 @@ export function ConfirmSourcesStep({
                     <input
                       value={patternDraft}
                       onChange={(e) => setPatternDraft(e.target.value)}
-                      className="font-mohave text-[14px] text-white bg-transparent border-b border-white/20 focus:border-[#597794] outline-none py-0.5 w-[280px]"
+                      className="font-mohave text-[14px] text-white bg-transparent border-b border-white/20 focus:border-[#6F94B0] outline-none py-0.5 w-[280px]"
                       autoFocus
                     />
                     <button
@@ -107,7 +107,7 @@ export function ConfirmSourcesStep({
                     </span>
                   </p>
                 )}
-                <p className="font-mohave text-[10px] text-[#555] mt-0.5">
+                <p className="font-mohave text-micro text-[#555] mt-0.5">
                   This is the subject line you use when sending estimates to clients. We&apos;ll use it to identify your pipeline conversations.
                 </p>
               </div>
@@ -152,12 +152,12 @@ export function ConfirmSourcesStep({
                 <p className="font-mohave text-[11px] text-[#666]">
                   {source.count} email{source.count !== 1 ? "s" : ""} found
                 </p>
-                <p className="font-mohave text-[10px] text-[#555] mt-0.5">
+                <p className="font-mohave text-micro text-[#555] mt-0.5">
                   {SOURCE_DESCRIPTIONS[source.type]}
                 </p>
               </div>
               {source.enabled ? (
-                <ToggleRight className="w-[28px] h-[28px] text-[#597794] shrink-0" />
+                <ToggleRight className="w-[28px] h-[28px] text-[#6F94B0] shrink-0" />
               ) : (
                 <ToggleLeft className="w-[28px] h-[28px] text-[#555] shrink-0" />
               )}

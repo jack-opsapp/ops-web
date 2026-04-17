@@ -211,7 +211,7 @@ export function ScheduleOverview() {
         <div className="px-4 border-t border-[rgba(255,255,255,0.06)]">
           <a
             href="/agent/queue"
-            className="flex items-center gap-1.5 font-kosugi text-[11px] text-[#597794] hover:text-[#7B9AB8] transition-colors min-h-[56px]"
+            className="flex items-center gap-1.5 font-kosugi text-[11px] text-[#6F94B0] hover:text-[#7B9AB8] transition-colors min-h-[56px]"
           >
             <ExternalLink className="w-[12px] h-[12px]" />
             {t("dashboard.viewQueue")}

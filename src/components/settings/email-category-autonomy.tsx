@@ -197,7 +197,7 @@ export function EmailCategoryAutonomy({
         <span className="font-mohave text-body-sm text-text-2 font-medium uppercase tracking-wide">
           {t("category.title")}
         </span>
-        <p className="font-kosugi text-[10px] text-text-mute mt-0.5">
+        <p className="font-kosugi text-micro text-text-mute mt-0.5">
           [{t("category.description")}]
         </p>
       </div>
@@ -233,7 +233,7 @@ export function EmailCategoryAutonomy({
                   <span className="font-mohave text-body-sm text-text block truncate">
                     {t(`category.${cat.profileType}`)}
                   </span>
-                  <span className="font-kosugi text-[9px] text-text-mute uppercase tracking-wider">
+                  <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
                     {isLearning
                       ? t("category.learning")
                       : t("category.emailCount").replace(
@@ -255,7 +255,7 @@ export function EmailCategoryAutonomy({
                     }
                     disabled={isSaving}
                     className={cn(
-                      "appearance-none pl-2 pr-6 py-1 rounded-[4px] bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] font-mohave text-caption-sm text-text-2 outline-none focus:border-[rgba(89,119,148,0.4)] transition-colors cursor-pointer min-w-[130px]",
+                      "appearance-none pl-2 pr-6 py-1 rounded-[4px] bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] font-mohave text-caption-sm text-text-2 outline-none focus:border-[rgba(111, 148, 176,0.4)] transition-colors cursor-pointer min-w-[130px]",
                       isSaving && "opacity-50"
                     )}
                   >
@@ -286,13 +286,13 @@ export function EmailCategoryAutonomy({
                           onClick={() =>
                             applyLevelChange(cat.profileType, "auto_send")
                           }
-                          className="font-kosugi text-[9px] text-[#C4A868] uppercase tracking-wider hover:text-text transition-colors"
+                          className="font-kosugi text-micro text-[#C4A868] uppercase tracking-wider hover:text-text transition-colors"
                         >
                           {t("confirm")}
                         </button>
                         <button
                           onClick={() => setShowAutoSendWarning(null)}
-                          className="font-kosugi text-[9px] text-text-mute uppercase tracking-wider hover:text-text-3 transition-colors"
+                          className="font-kosugi text-micro text-text-mute uppercase tracking-wider hover:text-text-3 transition-colors"
                         >
                           {t("cancel")}
                         </button>

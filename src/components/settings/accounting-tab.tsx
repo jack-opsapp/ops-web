@@ -189,7 +189,7 @@ function SyncHistoryCard() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className="font-mohave text-body-sm text-text capitalize">{entry.provider}</span>
-                      <span className="font-kosugi text-[10px] text-text-mute">
+                      <span className="font-kosugi text-micro text-text-mute">
                         {new Date(entry.timestamp).toLocaleString()}
                       </span>
                     </div>

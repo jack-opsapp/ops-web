@@ -45,7 +45,7 @@ export function ExpenseFilters({
         >
           NEEDS REVIEW
           {reviewCount > 0 && (
-            <span className="font-kosugi text-[10px] bg-[rgba(129,149,181,0.2)] text-[#8195B5] px-1.5 py-0.5 rounded-full">
+            <span className="font-kosugi text-micro bg-[rgba(129,149,181,0.2)] text-[#8195B5] px-1.5 py-0.5 rounded-full">
               {reviewCount}
             </span>
           )}

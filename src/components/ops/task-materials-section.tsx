@@ -108,15 +108,15 @@ export function TaskMaterialsSection({ taskId, inventoryDeducted }: Props) {
   return (
     <div className="space-y-[6px]">
       {locked && (
-        <span className="block font-kosugi text-[9px] uppercase tracking-[0.08em] text-[#999999]">
+        <span className="block font-kosugi text-micro uppercase tracking-[0.08em] text-[#999999]">
           [deducted — reopen task to edit]
         </span>
       )}
 
       {isLoading ? (
-        <span className="font-kosugi text-[10px] text-[#666666]">loading...</span>
+        <span className="font-kosugi text-micro text-[#666666]">loading...</span>
       ) : rows.length === 0 ? (
-        <span className="font-kosugi text-[10px] uppercase text-[#666666]">
+        <span className="font-kosugi text-micro uppercase text-[#666666]">
           [no materials]
         </span>
       ) : (
@@ -168,7 +168,7 @@ export function TaskMaterialsSection({ taskId, inventoryDeducted }: Props) {
                     updateRow(idx, { source: e.target.value as MaterialSource })
                   }
                   disabled={locked}
-                  className="px-[4px] py-[4px] rounded-panel font-kosugi text-[9px] uppercase text-[#999999] disabled:opacity-60"
+                  className="px-[4px] py-[4px] rounded-panel font-kosugi text-micro uppercase text-[#999999] disabled:opacity-60"
                   style={{
                     backgroundColor: "#141414",
                     border: "1px solid rgba(255,255,255,0.10)",
@@ -196,7 +196,7 @@ export function TaskMaterialsSection({ taskId, inventoryDeducted }: Props) {
           <button
             onClick={addRow}
             disabled={activeInventory.length === 0}
-            className="flex items-center gap-[4px] font-kosugi text-[10px] uppercase tracking-[0.08em] text-[#999999] hover:text-white transition-colors disabled:opacity-40"
+            className="flex items-center gap-[4px] font-kosugi text-micro uppercase tracking-[0.08em] text-[#999999] hover:text-white transition-colors disabled:opacity-40"
           >
             <Plus className="w-[11px] h-[11px]" />
             Add material
@@ -205,9 +205,9 @@ export function TaskMaterialsSection({ taskId, inventoryDeducted }: Props) {
             <button
               onClick={handleSave}
               disabled={setMaterials.isPending}
-              className="px-[8px] py-[4px] rounded-panel font-kosugi text-[10px] uppercase tracking-[0.08em] text-white transition-colors"
+              className="px-[8px] py-[4px] rounded-panel font-kosugi text-micro uppercase tracking-[0.08em] text-white transition-colors"
               style={{
-                backgroundColor: "#597794",
+                backgroundColor: "#6F94B0",
                 border: "1px solid rgba(255,255,255,0.10)",
               }}
             >

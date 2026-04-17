@@ -159,10 +159,10 @@ export function NotificationRail() {
               exit={{ opacity: 0, x: -4 }}
               transition={{ duration: 0.15, ease: EASE_SMOOTH }}
               onClick={openModal}
-              className="shrink-0 flex items-center gap-[5px] h-[40px] px-[10px] rounded-[4px] border border-[rgba(89,119,148,0.3)] hover:border-[rgba(89,119,148,0.5)] bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)] transition-colors duration-150 whitespace-nowrap"
+              className="shrink-0 flex items-center gap-[5px] h-[40px] px-[10px] rounded-[4px] border border-[rgba(111, 148, 176,0.3)] hover:border-[rgba(111, 148, 176,0.5)] bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)] transition-colors duration-150 whitespace-nowrap"
             >
               <span className="font-mono text-[11px] text-ops-accent">{count}</span>
-              <span className="font-kosugi text-[9px] uppercase tracking-[0.08em] text-text-2">{t("notifications.viewAll")}</span>
+              <span className="font-kosugi text-micro uppercase tracking-[0.08em] text-text-2">{t("notifications.viewAll")}</span>
             </motion.button>
 
             {/* Left arrow */}
@@ -225,9 +225,9 @@ export function NotificationRail() {
             {/* Count button — styled, bespoke */}
             <motion.button
               key="count-btn"
-              className="shrink-0 w-[40px] h-[40px] flex items-center justify-center rounded-[4px] border border-[rgba(255,255,255,0.06)] hover:border-[rgba(89,119,148,0.4)] bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)] font-mono text-[12px] text-text-2 hover:text-ops-accent transition-all duration-150 cursor-pointer"
+              className="shrink-0 w-[40px] h-[40px] flex items-center justify-center rounded-[4px] border border-[rgba(255,255,255,0.06)] hover:border-[rgba(111, 148, 176,0.4)] bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)] font-mono text-[12px] text-text-2 hover:text-ops-accent transition-all duration-150 cursor-pointer"
               style={{
-                background: countHovered ? "rgba(89, 119, 148, 0.08)" : "transparent",
+                background: countHovered ? "rgba(111, 148, 176, 0.08)" : "transparent",
               }}
               onClick={expandRail}
               onMouseEnter={() => setCountHovered(true)}
@@ -253,12 +253,12 @@ export function NotificationRail() {
                     onClick={() => handlePreviewClick(n)}
                     className="shrink-0 h-[40px] rounded-[4px] cursor-pointer overflow-hidden"
                     style={{
-                      background: "rgba(10, 10, 10, 0.70)",
-                      backdropFilter: "blur(20px) saturate(1.2)",
-                      WebkitBackdropFilter: "blur(20px) saturate(1.2)",
+                      background: "var(--surface-glass)",
+                      backdropFilter: "blur(28px) saturate(1.3)",
+                      WebkitBackdropFilter: "blur(28px) saturate(1.3)",
                       border: "1px solid rgba(255, 255, 255, 0.08)",
                       borderLeft: n.persistent
-                        ? "2px solid var(--ops-accent, #597794)"
+                        ? "2px solid var(--ops-accent, #6F94B0)"
                         : "1px solid rgba(255, 255, 255, 0.08)",
                     }}
                   >
@@ -267,7 +267,7 @@ export function NotificationRail() {
                         {n.title}
                       </span>
                       {n.actionLabel && (
-                        <span className="font-kosugi text-[8px] uppercase tracking-wider text-ops-accent shrink-0">
+                        <span className="font-kosugi text-micro uppercase tracking-wider text-ops-accent shrink-0">
                           {n.actionLabel}
                         </span>
                       )}
@@ -292,7 +292,7 @@ export function NotificationRail() {
               })}
 
               {overflowCount > 0 && (
-                <span className="font-mono text-[9px] text-text-mute ml-[2px]">
+                <span className="font-mono text-micro text-text-mute ml-[2px]">
                   +{overflowCount}
                 </span>
               )}

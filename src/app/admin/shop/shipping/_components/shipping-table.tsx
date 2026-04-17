@@ -185,7 +185,7 @@ export function ShippingTable({ methods }: ShippingTableProps) {
           </p>
           <div className="grid grid-cols-4 gap-3 mb-3">
             <div>
-              <label className="block font-kosugi text-[10px] uppercase tracking-widest text-[#6B6B6B] mb-1">Name</label>
+              <label className="block font-kosugi text-micro uppercase tracking-widest text-[#6B6B6B] mb-1">Name</label>
               <input
                 type="text"
                 value={newName}
@@ -195,7 +195,7 @@ export function ShippingTable({ methods }: ShippingTableProps) {
               />
             </div>
             <div>
-              <label className="block font-kosugi text-[10px] uppercase tracking-widest text-[#6B6B6B] mb-1">Description</label>
+              <label className="block font-kosugi text-micro uppercase tracking-widest text-[#6B6B6B] mb-1">Description</label>
               <input
                 type="text"
                 value={newDesc}
@@ -204,7 +204,7 @@ export function ShippingTable({ methods }: ShippingTableProps) {
               />
             </div>
             <div>
-              <label className="block font-kosugi text-[10px] uppercase tracking-widest text-[#6B6B6B] mb-1">Price ($)</label>
+              <label className="block font-kosugi text-micro uppercase tracking-widest text-[#6B6B6B] mb-1">Price ($)</label>
               <input
                 type="number"
                 step="0.01"
@@ -214,7 +214,7 @@ export function ShippingTable({ methods }: ShippingTableProps) {
               />
             </div>
             <div>
-              <label className="block font-kosugi text-[10px] uppercase tracking-widest text-[#6B6B6B] mb-1">Free Above ($)</label>
+              <label className="block font-kosugi text-micro uppercase tracking-widest text-[#6B6B6B] mb-1">Free Above ($)</label>
               <input
                 type="number"
                 step="0.01"

@@ -55,9 +55,9 @@ export function BetaRequestsDrawer({
             transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
             className="fixed top-0 right-0 bottom-0 w-[440px] z-50 border-l border-white/[0.08] overflow-y-auto"
             style={{
-              background: "rgba(10, 10, 10, 0.92)",
-              backdropFilter: "blur(20px) saturate(1.2)",
-              WebkitBackdropFilter: "blur(20px) saturate(1.2)",
+              background: "var(--surface-glass-dense)",
+              backdropFilter: "blur(28px) saturate(1.3)",
+              WebkitBackdropFilter: "blur(28px) saturate(1.3)",
             }}
           >
             {/* Header */}
@@ -118,7 +118,7 @@ export function BetaRequestsDrawer({
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
                         <span
-                          className={`font-mohave text-[10px] uppercase tracking-widest ${
+                          className={`font-mohave text-micro uppercase tracking-widest ${
                             req.status === "pending"
                               ? "text-[#C4A868]"
                               : req.status === "approved"
@@ -140,19 +140,19 @@ export function BetaRequestsDrawer({
                       <div className="border-t border-white/[0.06] px-4 py-4 space-y-3">
                         <div className="grid grid-cols-2 gap-3 text-[12px]">
                           <div>
-                            <span className="font-mohave text-[10px] uppercase tracking-widest text-[#6B6B6B]">
+                            <span className="font-mohave text-micro uppercase tracking-widest text-[#6B6B6B]">
                               Email
                             </span>
                             <p className="font-kosugi text-[#A0A0A0]">{req.user_email}</p>
                           </div>
                           <div>
-                            <span className="font-mohave text-[10px] uppercase tracking-widest text-[#6B6B6B]">
+                            <span className="font-mohave text-micro uppercase tracking-widest text-[#6B6B6B]">
                               Company
                             </span>
                             <p className="font-kosugi text-[#A0A0A0]">{req.company_name}</p>
                           </div>
                           <div>
-                            <span className="font-mohave text-[10px] uppercase tracking-widest text-[#6B6B6B]">
+                            <span className="font-mohave text-micro uppercase tracking-widest text-[#6B6B6B]">
                               Feature
                             </span>
                             <p className="font-kosugi text-[#A0A0A0]">
@@ -160,7 +160,7 @@ export function BetaRequestsDrawer({
                             </p>
                           </div>
                           <div>
-                            <span className="font-mohave text-[10px] uppercase tracking-widest text-[#6B6B6B]">
+                            <span className="font-mohave text-micro uppercase tracking-widest text-[#6B6B6B]">
                               Requested
                             </span>
                             <p className="font-kosugi text-[#A0A0A0]">
@@ -172,7 +172,7 @@ export function BetaRequestsDrawer({
                         {req.status === "pending" && (
                           <>
                             <div>
-                              <label className="block font-mohave text-[10px] uppercase tracking-widest text-[#6B6B6B] mb-1">
+                              <label className="block font-mohave text-micro uppercase tracking-widest text-[#6B6B6B] mb-1">
                                 Notes (optional)
                               </label>
                               <textarea
@@ -202,7 +202,7 @@ export function BetaRequestsDrawer({
 
                         {req.admin_notes && (
                           <div>
-                            <span className="font-mohave text-[10px] uppercase tracking-widest text-[#6B6B6B]">
+                            <span className="font-mohave text-micro uppercase tracking-widest text-[#6B6B6B]">
                               Admin Notes
                             </span>
                             <p className="font-kosugi text-[12px] text-[#A0A0A0]">

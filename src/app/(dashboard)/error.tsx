@@ -65,7 +65,7 @@ export default function DashboardError({
                 {error.message}
               </p>
               {error.digest && (
-                <p className="font-mono text-[10px] text-text-mute mt-1">
+                <p className="font-mono text-micro text-text-mute mt-1">
                   DIGEST: {error.digest}
                 </p>
               )}
@@ -104,7 +104,7 @@ export default function DashboardError({
             height={9}
             className="select-none"
           />
-          <span className="font-mono text-[10px] text-text-mute select-none">
+          <span className="font-mono text-micro text-text-mute select-none">
             ERROR BOUNDARY
           </span>
         </div>

@@ -138,14 +138,14 @@ function DrawerTaskCard({
           </span>
           {dateRange ? (
             <span
-              className="font-kosugi text-[10px] text-left"
+              className="font-kosugi text-micro text-left"
               style={{ color: "#999999", lineHeight: "1.4" }}
             >
               {dateRange}
             </span>
           ) : (
             <span
-              className="font-kosugi text-[10px] flex items-center gap-[3px] text-left"
+              className="font-kosugi text-micro flex items-center gap-[3px] text-left"
               style={{ color: "#999999", lineHeight: "1.4" }}
             >
               <Ban className="w-[9px] h-[9px]" style={{ color: "#666666" }} />
@@ -289,7 +289,7 @@ export function ProjectDrawerPanel() {
           {/* Status badge */}
           {project?.status && (
             <span
-              className="inline-block font-kosugi text-[9px] uppercase px-[8px] py-[3px] rounded-[2px] text-left"
+              className="inline-block font-kosugi text-micro uppercase px-[8px] py-[3px] rounded-[2px] text-left"
               style={{
                 color: statusColor,
                 backgroundColor: `${statusColor}1F`,
@@ -306,7 +306,7 @@ export function ProjectDrawerPanel() {
         <div className="flex-1 overflow-y-auto min-h-0 px-[12px] py-[12px]">
           {/* Section label */}
           <p
-            className="font-kosugi text-[10px] uppercase text-left mb-[8px] px-[4px]"
+            className="font-kosugi text-micro uppercase text-left mb-[8px] px-[4px]"
             style={{
               color: "#999999",
               letterSpacing: "0.08em",
@@ -347,17 +347,17 @@ export function ProjectDrawerPanel() {
         >
           {/* Auto-schedule button */}
           <button
-            className="w-full flex items-center justify-center gap-[6px] px-[12px] py-[8px] rounded-panel font-kosugi text-[10px] uppercase transition-colors"
+            className="w-full flex items-center justify-center gap-[6px] px-[12px] py-[8px] rounded-panel font-kosugi text-micro uppercase transition-colors"
             style={{
-              color: "#597794",
-              border: "1px solid #597794",
+              color: "#6F94B0",
+              border: "1px solid #6F94B0",
               backgroundColor: "transparent",
               letterSpacing: "0.06em",
               lineHeight: "1.4",
             }}
             onMouseEnter={(e) => {
               (e.currentTarget as HTMLElement).style.backgroundColor =
-                "rgba(89,119,148,0.08)";
+                "rgba(111, 148, 176,0.08)";
             }}
             onMouseLeave={(e) => {
               (e.currentTarget as HTMLElement).style.backgroundColor =
@@ -394,7 +394,7 @@ export function ProjectDrawerPanel() {
                 <button
                   onClick={handleAddTask}
                   disabled={!newTaskTitle.trim() || createTask.isPending}
-                  className="flex-1 px-[8px] py-[5px] rounded-panel font-kosugi text-[10px] uppercase text-white transition-colors disabled:opacity-40"
+                  className="flex-1 px-[8px] py-[5px] rounded-panel font-kosugi text-micro uppercase text-white transition-colors disabled:opacity-40"
                   style={{
                     backgroundColor: "rgba(255,255,255,0.08)",
                     border: "1px solid rgba(255,255,255,0.10)",
@@ -407,7 +407,7 @@ export function ProjectDrawerPanel() {
                     setIsAddingTask(false);
                     setNewTaskTitle("");
                   }}
-                  className="px-[8px] py-[5px] rounded-panel font-kosugi text-[10px] uppercase transition-colors"
+                  className="px-[8px] py-[5px] rounded-panel font-kosugi text-micro uppercase transition-colors"
                   style={{
                     color: "#999999",
                     border: "1px solid rgba(255,255,255,0.08)",
@@ -420,7 +420,7 @@ export function ProjectDrawerPanel() {
           ) : (
             <button
               onClick={() => setIsAddingTask(true)}
-              className="w-full flex items-center justify-center gap-[6px] px-[12px] py-[8px] rounded-panel font-kosugi text-[10px] uppercase transition-colors"
+              className="w-full flex items-center justify-center gap-[6px] px-[12px] py-[8px] rounded-panel font-kosugi text-micro uppercase transition-colors"
               style={{
                 color: "#999999",
                 border: "1px solid rgba(255,255,255,0.08)",

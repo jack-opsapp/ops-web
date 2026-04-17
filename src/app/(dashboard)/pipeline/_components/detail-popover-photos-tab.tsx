@@ -172,7 +172,7 @@ export function DetailPopoverPhotosTab({
               loading="lazy"
             />
             <div className="absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-center pb-0.5">
-              <span className="font-mono text-[8px] text-white/70">
+              <span className="font-mono text-micro text-white/70">
                 {photo.source}
               </span>
             </div>

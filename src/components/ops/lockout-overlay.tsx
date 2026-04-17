@@ -272,7 +272,7 @@ function CompactPricingCard({ tier }: { tier: Exclude<SubscriptionTier, "trial">
     >
       {display.popular && (
         <div className="absolute -top-[10px] left-1/2 -translate-x-1/2">
-          <span className="font-kosugi text-[9px] uppercase tracking-[0.2em] bg-ops-amber text-text-inverse px-1.5 py-0.5 rounded-sm whitespace-nowrap">
+          <span className="font-kosugi text-micro uppercase tracking-[0.2em] bg-ops-amber text-text-inverse px-1.5 py-0.5 rounded-sm whitespace-nowrap">
             {t("locked.mostPopular")}
           </span>
         </div>
@@ -293,7 +293,7 @@ function CompactPricingCard({ tier }: { tier: Exclude<SubscriptionTier, "trial">
       </div>
 
       <div className={cn(
-        "inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[10px] font-mono mb-1.5 w-fit",
+        "inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-micro font-mono mb-1.5 w-fit",
         display.badgeClass
       )}>
         {config.maxSeats} {t("locked.seatsIncluded")}
@@ -368,7 +368,7 @@ function FooterLinks({ showDifferentAccount }: { showDifferentAccount?: boolean 
       </a>
       {showDifferentAccount && (
         <>
-          <span className="text-text-mute text-[10px]">|</span>
+          <span className="text-text-mute text-micro">|</span>
           <a
             href="/login"
             className="font-mohave text-caption-sm text-text-3 hover:text-text-2 underline underline-offset-4 transition-colors"
@@ -453,8 +453,8 @@ export function LockoutOverlay() {
             key="lockout-card"
             className="w-full max-w-[520px] mx-4 rounded-[4px] p-6 md:p-8 overflow-y-auto max-h-[90vh]"
             style={{
-              background: "rgba(10, 10, 10, 0.70)",
-              backdropFilter: "blur(20px) saturate(1.2)",
+              background: "var(--surface-glass)",
+              backdropFilter: "blur(28px) saturate(1.3)",
               border: "1px solid rgba(255, 255, 255, 0.08)",
             }}
             variants={cardVariants}
@@ -481,7 +481,7 @@ export function LockoutOverlay() {
                 {/* Divider */}
                 <div className="flex items-center gap-2 my-4">
                   <div className="flex-1 h-px bg-white/[0.06]" />
-                  <span className="font-kosugi text-[10px] uppercase tracking-[0.3em] text-text-3">
+                  <span className="font-kosugi text-micro uppercase tracking-[0.3em] text-text-3">
                     {t("lockout.expiredAdmin.selectPlan")}
                   </span>
                   <div className="flex-1 h-px bg-white/[0.06]" />
@@ -500,7 +500,7 @@ export function LockoutOverlay() {
 
                 <FooterLinks />
 
-                <p className="font-mono text-[9px] text-text-mute tracking-wider mt-2 opacity-40">
+                <p className="font-mono text-micro text-text-mute tracking-wider mt-2 opacity-40">
                   {t("lockout.expiredAdmin.sysMessage")}
                 </p>
               </>
@@ -536,7 +536,7 @@ export function LockoutOverlay() {
 
                 <FooterLinks showDifferentAccount />
 
-                <p className="font-mono text-[9px] text-text-mute tracking-wider mt-2 opacity-40">
+                <p className="font-mono text-micro text-text-mute tracking-wider mt-2 opacity-40">
                   {t("lockout.expiredMember.sysMessage")}
                 </p>
               </>
@@ -566,7 +566,7 @@ export function LockoutOverlay() {
 
                 <FooterLinks />
 
-                <p className="font-mono text-[9px] text-text-mute tracking-wider mt-2 opacity-40">
+                <p className="font-mono text-micro text-text-mute tracking-wider mt-2 opacity-40">
                   {t("lockout.unseatedAdmin.sysMessage")}
                 </p>
               </>
@@ -602,7 +602,7 @@ export function LockoutOverlay() {
 
                 <FooterLinks showDifferentAccount />
 
-                <p className="font-mono text-[9px] text-text-mute tracking-wider mt-2 opacity-40">
+                <p className="font-mono text-micro text-text-mute tracking-wider mt-2 opacity-40">
                   {t("lockout.unseated.sysMessage")}
                 </p>
               </>

@@ -124,8 +124,8 @@ export function FinancialSettingsTab() {
           disabled={!dirty || saving}
           className="flex items-center gap-2 px-4 min-h-[56px] rounded-[8px] border font-mohave text-[14px] uppercase tracking-wider transition-colors duration-150"
           style={{
-            backgroundColor: dirty ? "#597794" : "transparent",
-            borderColor: dirty ? "#597794" : "rgba(255,255,255,0.08)",
+            backgroundColor: dirty ? "#6F94B0" : "transparent",
+            borderColor: dirty ? "#6F94B0" : "rgba(255,255,255,0.08)",
             color: dirty ? "#fff" : "var(--text-tertiary)",
             opacity: saving ? 0.6 : 1,
             cursor: dirty && !saving ? "pointer" : "default",
@@ -152,8 +152,8 @@ export function FinancialSettingsTab() {
             onClick={() => update({ enabled: !settings.enabled })}
             className="relative w-[44px] h-[24px] rounded-full border transition-colors duration-150"
             style={{
-              backgroundColor: settings.enabled ? "#597794" : "rgba(255,255,255,0.06)",
-              borderColor: settings.enabled ? "#597794" : "rgba(255,255,255,0.12)",
+              backgroundColor: settings.enabled ? "#6F94B0" : "rgba(255,255,255,0.06)",
+              borderColor: settings.enabled ? "#6F94B0" : "rgba(255,255,255,0.12)",
             }}
           >
             <span
@@ -285,7 +285,7 @@ function ThresholdInput({
             const v = Math.max(min, Math.min(max, Number(e.target.value) || min));
             onChange(v);
           }}
-          className="w-[72px] h-[56px] px-3 rounded-[4px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] font-mono text-[13px] text-text text-right outline-none focus:border-[#597794] transition-colors duration-150"
+          className="w-[72px] h-[56px] px-3 rounded-[4px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] font-mono text-[13px] text-text text-right outline-none focus:border-[#6F94B0] transition-colors duration-150"
         />
         <span className="font-kosugi text-[11px] text-text-3 min-w-[60px]">
           {suffix}

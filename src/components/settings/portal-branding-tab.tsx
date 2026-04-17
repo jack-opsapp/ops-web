@@ -562,7 +562,7 @@ export function PortalBrandingTab() {
           {/* Suggested colors from logo */}
           {suggestedColors.length > 0 && (
             <div className="space-y-1">
-              <p className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider">
+              <p className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
                 Suggested from your logo
               </p>
               <div className="flex gap-1.5">
@@ -616,7 +616,7 @@ export function PortalBrandingTab() {
                   className="w-[32px] h-[32px] rounded-lg border border-[rgba(255,255,255,0.15)]"
                   style={{ backgroundColor: color.hex }}
                 />
-                <span className="font-kosugi text-[10px] text-text-3 leading-tight">
+                <span className="font-kosugi text-micro text-text-3 leading-tight">
                   {color.name}
                 </span>
                 {accentColor === color.hex && (
@@ -646,7 +646,7 @@ export function PortalBrandingTab() {
               className="w-[140px] font-mono"
               error={!isValidHex && accentColor.length > 0 ? t("portalBranding.invalidColor") : undefined}
             />
-            <span className="font-kosugi text-[10px] text-text-mute">
+            <span className="font-kosugi text-micro text-text-mute">
               Custom
             </span>
           </div>

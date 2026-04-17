@@ -107,7 +107,7 @@ export function ProductBomEditor({ productId, productUnit, className }: ProductB
         <p className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
           Materials / BOM
         </p>
-        <p className="font-kosugi text-[10px] text-text-mute">
+        <p className="font-kosugi text-micro text-text-mute">
           [add inventory items first to define a material recipe]
         </p>
       </div>
@@ -120,15 +120,15 @@ export function ProductBomEditor({ productId, productUnit, className }: ProductB
         <p className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
           Materials / BOM
         </p>
-        <span className="font-kosugi text-[10px] text-text-mute">
+        <span className="font-kosugi text-micro text-text-mute">
           [per 1 {productUnit ?? "unit"}]
         </span>
       </div>
 
       {isLoading ? (
-        <p className="font-kosugi text-[10px] text-text-mute">loading...</p>
+        <p className="font-kosugi text-micro text-text-mute">loading...</p>
       ) : rows.length === 0 ? (
-        <p className="font-kosugi text-[10px] text-text-mute">
+        <p className="font-kosugi text-micro text-text-mute">
           [no materials — this product does not deduct inventory]
         </p>
       ) : (

@@ -240,7 +240,7 @@ export function TopBar() {
               <div
                 className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-[6px] rounded-[4px] whitespace-nowrap pointer-events-none animate-fade-in"
                 style={{
-                  background: "rgba(10, 10, 10, 0.90)",
+                  background: "var(--surface-glass-dense)",
                   backdropFilter: "blur(12px) saturate(1.2)",
                   WebkitBackdropFilter: "blur(12px) saturate(1.2)",
                   border: "1px solid rgba(255, 255, 255, 0.1)",
@@ -276,7 +276,7 @@ export function TopBar() {
           <Search className="w-[16px] h-[16px] shrink-0" />
           <span className="font-mohave text-body-sm hidden sm:inline">{t("search.placeholder")}</span>
           {showShortcutHints && (
-            <kbd className="ml-auto font-mono text-[10px] text-text-mute bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] rounded px-[5px] py-[1px] hidden sm:inline">
+            <kbd className="ml-auto font-mono text-micro text-text-mute bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] rounded px-[5px] py-[1px] hidden sm:inline">
               {t("search.shortcut")}
             </kbd>
           )}

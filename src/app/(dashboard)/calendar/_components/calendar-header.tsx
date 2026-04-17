@@ -146,15 +146,15 @@ export function CalendarHeader({ t }: CalendarHeaderProps) {
           onClick={() => {
             console.log("[AutoSchedule] Triggered — hook will be wired in cleanup task");
           }}
-          className="relative flex items-center gap-[5px] px-[10px] py-[6px] rounded-panel font-kosugi text-[10px] uppercase tracking-wider transition-colors"
+          className="relative flex items-center gap-[5px] px-[10px] py-[6px] rounded-panel font-kosugi text-micro uppercase tracking-wider transition-colors"
           style={{
-            color: "#597794",
-            border: "1px solid rgba(89,119,148,0.30)",
+            color: "#6F94B0",
+            border: "1px solid rgba(111, 148, 176,0.30)",
             backgroundColor: "transparent",
           }}
           onMouseEnter={(e) => {
             (e.currentTarget as HTMLElement).style.backgroundColor =
-              "rgba(89,119,148,0.08)";
+              "rgba(111, 148, 176,0.08)";
           }}
           onMouseLeave={(e) => {
             (e.currentTarget as HTMLElement).style.backgroundColor =
@@ -165,13 +165,13 @@ export function CalendarHeader({ t }: CalendarHeaderProps) {
           AUTO-SCHEDULE
           {unscheduledCount > 0 && (
             <span
-              className="flex items-center justify-center rounded-full font-mono text-[9px] leading-none"
+              className="flex items-center justify-center rounded-full font-mono text-micro leading-none"
               style={{
                 minWidth: 16,
                 height: 16,
                 padding: "0 4px",
-                backgroundColor: "rgba(89,119,148,0.20)",
-                color: "#597794",
+                backgroundColor: "rgba(111, 148, 176,0.20)",
+                color: "#6F94B0",
               }}
             >
               {unscheduledCount}
@@ -181,13 +181,13 @@ export function CalendarHeader({ t }: CalendarHeaderProps) {
 
         {/* Keyboard hints */}
         <div className="hidden xl:flex items-center gap-[3px] ml-[4px]">
-          <kbd className="font-mono text-[9px] text-text-mute bg-glass glass-surface px-[5px] py-[2px] rounded-sm border border-border-subtle">
+          <kbd className="font-mono text-micro text-text-mute bg-glass glass-surface px-[5px] py-[2px] rounded-sm border border-border-subtle">
             T
           </kbd>
-          <kbd className="font-mono text-[9px] text-text-mute bg-glass glass-surface px-[5px] py-[2px] rounded-sm border border-border-subtle">
+          <kbd className="font-mono text-micro text-text-mute bg-glass glass-surface px-[5px] py-[2px] rounded-sm border border-border-subtle">
             M
           </kbd>
-          <kbd className="font-mono text-[9px] text-text-mute bg-glass glass-surface px-[5px] py-[2px] rounded-sm border border-border-subtle">
+          <kbd className="font-mono text-micro text-text-mute bg-glass glass-surface px-[5px] py-[2px] rounded-sm border border-border-subtle">
             D
           </kbd>
         </div>

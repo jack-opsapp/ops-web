@@ -54,7 +54,7 @@ export function SpreadsheetCellDate({ value, canEdit, onCommit }: SpreadsheetCel
           if (e.key === "Escape") { setEditing(false); }
           if (e.key === "Enter") commit((e.target as HTMLInputElement).value);
         }}
-        className="w-full px-1 py-0.5 bg-[rgba(255,255,255,0.06)] border border-[rgba(89,119,148,0.3)] rounded-sm font-mono text-data-sm text-text focus:outline-none [color-scheme:dark]"
+        className="w-full px-1 py-0.5 bg-[rgba(255,255,255,0.06)] border border-[rgba(111, 148, 176,0.3)] rounded-sm font-mono text-data-sm text-text focus:outline-none [color-scheme:dark]"
       />
     );
   }

@@ -49,9 +49,9 @@ function EventTooltip({ event }: { event: InternalCalendarEvent }) {
         left: 0,
         minWidth: 180,
         maxWidth: 240,
-        background: "rgba(10, 10, 10, 0.70)",
-        backdropFilter: "blur(20px) saturate(1.2)",
-        WebkitBackdropFilter: "blur(20px) saturate(1.2)",
+        background: "var(--surface-glass)",
+        backdropFilter: "blur(28px) saturate(1.3)",
+        WebkitBackdropFilter: "blur(28px) saturate(1.3)",
         border: "1px solid rgba(255, 255, 255, 0.08)",
         borderRadius: 3,
         padding: "8px 10px",
@@ -78,7 +78,7 @@ function EventTooltip({ event }: { event: InternalCalendarEvent }) {
           style={{ background: colors.border }}
         />
         <span
-          className="font-kosugi text-[10px] uppercase tracking-wider leading-tight"
+          className="font-kosugi text-micro uppercase tracking-wider leading-tight"
           style={{ color: colors.text }}
         >
           {event.taskType.toUpperCase()}
@@ -87,7 +87,7 @@ function EventTooltip({ event }: { event: InternalCalendarEvent }) {
 
       {/* Date range */}
       <div
-        className="font-kosugi text-[10px] uppercase tracking-wider leading-tight mt-[3px]"
+        className="font-kosugi text-micro uppercase tracking-wider leading-tight mt-[3px]"
         style={{ color: "#999999" }}
       >
         {dateRangeStr}

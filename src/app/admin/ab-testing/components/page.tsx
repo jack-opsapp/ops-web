@@ -199,7 +199,7 @@ export default function ComponentPreviewPage() {
                 <span className="font-mohave text-sm uppercase tracking-wider text-[#E5E5E5]">
                   {section.label}
                 </span>
-                <span className={`text-[10px] font-mono px-2 py-0.5 rounded ${
+                <span className={`text-micro font-mono px-2 py-0.5 rounded ${
                   section.snapBehavior === 'full-viewport'
                     ? 'text-blue-400 bg-blue-400/10'
                     : 'text-amber-400 bg-amber-400/10'
@@ -220,7 +220,7 @@ export default function ComponentPreviewPage() {
             <div className="flex items-start gap-8">
               {/* Wireframe preview */}
               <div className="flex-shrink-0 w-[280px] h-[400px] bg-black/60 rounded-lg border border-white/10 overflow-hidden relative">
-                <div className="absolute top-2 left-2 text-[9px] font-mono text-white/30 uppercase">
+                <div className="absolute top-2 left-2 text-micro font-mono text-white/30 uppercase">
                   {selected.type} preview
                 </div>
                 <div className="w-full h-full flex items-center justify-center p-4">
@@ -280,7 +280,7 @@ export default function ComponentPreviewPage() {
                     </h4>
                     <div className="flex gap-2">
                       {selected.usedIn.map((u) => (
-                        <span key={u} className="text-[10px] font-mono text-white/40 bg-white/5 px-2 py-1 rounded">
+                        <span key={u} className="text-micro font-mono text-white/40 bg-white/5 px-2 py-1 rounded">
                           {u}
                         </span>
                       ))}

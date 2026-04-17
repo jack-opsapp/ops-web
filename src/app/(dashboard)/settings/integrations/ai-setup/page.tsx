@@ -162,9 +162,9 @@ function EmailScanSection({ onComplete, onSkip }: { onComplete: () => void; onSk
 
       {scanning && progress ? (
         <div className="space-y-1.5">
-          <div className="flex items-center gap-1.5 px-2 py-1.5 rounded border border-[rgba(89,119,148,0.2)] bg-[rgba(89,119,148,0.06)]">
-            <Loader2 className="w-[12px] h-[12px] text-[#597794] animate-spin shrink-0" />
-            <span className="font-mohave text-body-sm text-[#597794]">
+          <div className="flex items-center gap-1.5 px-2 py-1.5 rounded border border-[rgba(111, 148, 176,0.2)] bg-[rgba(111, 148, 176,0.06)]">
+            <Loader2 className="w-[12px] h-[12px] text-[#6F94B0] animate-spin shrink-0" />
+            <span className="font-mohave text-body-sm text-[#6F94B0]">
               {t("emailScan.progress")
                 .replace("{processed}", String(progress.processed))
                 .replace("{total}", String(progress.total))}
@@ -186,9 +186,9 @@ function EmailScanSection({ onComplete, onSkip }: { onComplete: () => void; onSk
           )}
         </div>
       ) : scanning ? (
-        <div className="flex items-center gap-1.5 px-2 py-1.5 rounded border border-[rgba(89,119,148,0.2)] bg-[rgba(89,119,148,0.06)]">
-          <Loader2 className="w-[12px] h-[12px] text-[#597794] animate-spin shrink-0" />
-          <span className="font-mohave text-body-sm text-[#597794]">
+        <div className="flex items-center gap-1.5 px-2 py-1.5 rounded border border-[rgba(111, 148, 176,0.2)] bg-[rgba(111, 148, 176,0.06)]">
+          <Loader2 className="w-[12px] h-[12px] text-[#6F94B0] animate-spin shrink-0" />
+          <span className="font-mohave text-body-sm text-[#6F94B0]">
             {t("emailScan.scanning")}
           </span>
         </div>
@@ -200,7 +200,7 @@ function EmailScanSection({ onComplete, onSkip }: { onComplete: () => void; onSk
             onClick={startScan}
             className="flex items-center gap-1.5 px-3 py-2 rounded-md bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] hover:bg-[rgba(255,255,255,0.1)] text-text font-mohave text-body-sm transition-colors"
           >
-            <Mail className="w-[14px] h-[14px] text-[#597794]" />
+            <Mail className="w-[14px] h-[14px] text-[#6F94B0]" />
             {t("emailScan.start")}
           </button>
           <button
@@ -324,7 +324,7 @@ export default function AiSetupPage() {
           <ChevronLeft className="w-[18px] h-[18px]" />
         </button>
         <div className="flex items-center gap-1.5">
-          <Brain className="w-[18px] h-[18px] text-[#597794]" />
+          <Brain className="w-[18px] h-[18px] text-[#6F94B0]" />
           <h1 className="font-mohave text-title font-semibold uppercase tracking-wide text-text">
             {t("page.title")}
           </h1>

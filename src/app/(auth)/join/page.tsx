@@ -355,7 +355,7 @@ export default function JoinPage() {
               Join {invite.companyName}
             </h1>
             {industries.length > 0 && (
-              <p className="font-kosugi text-[10px] text-text-3 uppercase tracking-wider mt-1">
+              <p className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
                 {industries.slice(0, 3).join(" / ")}
               </p>
             )}
@@ -383,7 +383,7 @@ export default function JoinPage() {
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <span className="font-kosugi text-[9px] text-text-3">
+                    <span className="font-kosugi text-micro text-text-3">
                       {getInitials(m.firstName, m.lastName)}
                     </span>
                   )}
@@ -391,13 +391,13 @@ export default function JoinPage() {
               ))}
               {extraCount > 0 && (
                 <div className="w-[28px] h-[28px] rounded-full border-2 border-background bg-[rgba(255,255,255,0.06)] flex items-center justify-center">
-                  <span className="font-kosugi text-[9px] text-text-mute">
+                  <span className="font-kosugi text-micro text-text-mute">
                     +{extraCount}
                   </span>
                 </div>
               )}
             </div>
-            <span className="font-kosugi text-[10px] text-text-2">
+            <span className="font-kosugi text-micro text-text-2">
               {teamSize} {teamSize === 1 ? "member" : "members"}
             </span>
           </div>
@@ -408,7 +408,7 @@ export default function JoinPage() {
         </p>
 
         {invite.roleName && (
-          <span className="inline-block font-kosugi text-[10px] text-ops-accent bg-ops-accent-muted px-2 py-1 rounded-sm uppercase tracking-wider">
+          <span className="inline-block font-kosugi text-micro text-ops-accent bg-ops-accent-muted px-2 py-1 rounded-sm uppercase tracking-wider">
             You&apos;ll join as {invite.roleName}
           </span>
         )}
@@ -466,7 +466,7 @@ export default function JoinPage() {
         {/* Divider */}
         <div className="flex items-center gap-2 py-1">
           <div className="flex-1 h-px bg-[rgba(255,255,255,0.08)]" />
-          <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider">
+          <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
             or
           </span>
           <div className="flex-1 h-px bg-[rgba(255,255,255,0.08)]" />

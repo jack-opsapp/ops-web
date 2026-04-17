@@ -43,7 +43,7 @@ export function DuplicatePairCard({
       {/* Header: confidence + signals */}
       <div className="mb-3 flex flex-wrap items-center gap-1.5">
         <span
-          className={`rounded-[2px] px-2 py-0.5 font-kosugi text-[10px] uppercase tracking-wider ${
+          className={`rounded-[2px] px-2 py-0.5 font-kosugi text-micro uppercase tracking-wider ${
             confidence === "high"
               ? "bg-red-500/20 text-red-400"
               : "bg-amber-500/20 text-amber-400"
@@ -54,7 +54,7 @@ export function DuplicatePairCard({
         {signals.map((s, i) => (
           <span
             key={i}
-            className="rounded-[2px] bg-white/5 px-2 py-0.5 font-kosugi text-[10px] text-white/50"
+            className="rounded-[2px] bg-white/5 px-2 py-0.5 font-kosugi text-micro text-white/50"
           >
             {t(`signals.${s.type}`) || s.type}
           </span>
@@ -127,7 +127,7 @@ function FieldRow({
 }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <span className="font-kosugi text-[10px] uppercase tracking-wider text-white/30">
+      <span className="font-kosugi text-micro uppercase tracking-wider text-white/30">
         {label}
       </span>
       <span

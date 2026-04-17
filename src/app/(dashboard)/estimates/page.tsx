@@ -72,7 +72,7 @@ function StatusBadgeEstimate({ status }: { status: EstimateStatus }) {
   const color = ESTIMATE_STATUS_COLORS[status] ?? "#9CA3AF";
   return (
     <span
-      className="inline-flex items-center gap-[4px] px-[6px] py-[2px] rounded font-kosugi text-[10px] uppercase tracking-wider"
+      className="inline-flex items-center gap-[4px] px-[6px] py-[2px] rounded font-kosugi text-micro uppercase tracking-wider"
       style={{ backgroundColor: `${color}20`, color }}
     >
       <span

@@ -108,7 +108,7 @@ export default function PinPage() {
             className={cn(
               "w-[18px] h-[18px] rounded-full border-2 transition-all duration-200",
               i < pin.length
-                ? "bg-ops-accent border-ops-accent shadow-glow-accent scale-110"
+                ? "bg-ops-accent border-ops-accent scale-110"
                 : "bg-transparent border-border-medium"
             )}
           />
@@ -156,7 +156,7 @@ export default function PinPage() {
                 "h-[64px] rounded flex items-center justify-center",
                 "bg-glass glass-surface border border-border-subtle",
                 "font-mohave text-[28px] text-text",
-                "hover:bg-fill-neutral-dim hover:border-border-medium hover:shadow-glow-accent",
+                "hover:bg-fill-neutral-dim hover:border-border-medium",
                 "transition-all duration-150 active:scale-95",
                 "disabled:opacity-50 disabled:pointer-events-none"
               )}

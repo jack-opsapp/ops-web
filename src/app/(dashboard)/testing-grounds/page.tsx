@@ -90,7 +90,7 @@ export default function TestingGroundsPage() {
             Reset
           </button>
         </div>
-        <p className="font-mono text-[10px] text-text-mute">
+        <p className="font-mono text-micro text-text-mute">
           {answeredCount}/{STARFIELD_QUESTIONS.length} questions answered
         </p>
       </div>
@@ -110,7 +110,7 @@ export default function TestingGroundsPage() {
         />
         {/* Controls overlay */}
         <div className="absolute top-4 right-4 z-10 flex gap-2">
-          <span className="font-mono text-[10px] text-text-mute self-center mr-2">
+          <span className="font-mono text-micro text-text-mute self-center mr-2">
             {answeredCount}/{STARFIELD_QUESTIONS.length} answered
           </span>
           {answeredCount >= 4 && (

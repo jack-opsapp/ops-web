@@ -89,7 +89,7 @@ export function TimelineRow({
           <span className="font-mohave font-semibold text-[13px] text-text truncate leading-tight">
             {fullName}
           </span>
-          <span className="font-kosugi text-[10px] uppercase tracking-wider text-text-2 leading-tight">
+          <span className="font-kosugi text-micro uppercase tracking-wider text-text-2 leading-tight">
             {roleLabel}
           </span>
         </div>
@@ -110,7 +110,7 @@ export function TimelineRow({
                   idx < daysShown - 1
                     ? "1px solid rgba(255,255,255,0.05)"
                     : "none",
-                background: today ? "rgba(89,119,148,0.08)" : "transparent",
+                background: today ? "rgba(111, 148, 176,0.08)" : "transparent",
               }}
             />
           );

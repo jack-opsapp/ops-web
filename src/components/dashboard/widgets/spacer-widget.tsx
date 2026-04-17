@@ -96,10 +96,10 @@ function ResizeHandle({
           animate={{
             scale: isDragging ? 1.3 : 1,
             backgroundColor: isDragging
-              ? "rgba(89, 119, 148, 0.5)"
+              ? "rgba(111, 148, 176, 0.5)"
               : "rgba(255, 255, 255, 0.1)",
           }}
-          whileHover={{ scale: 1.2, backgroundColor: "rgba(89, 119, 148, 0.4)" }}
+          whileHover={{ scale: 1.2, backgroundColor: "rgba(111, 148, 176, 0.4)" }}
           transition={HANDLE_SPRING}
           className="w-[10px] h-[10px] rounded-sm"
         >
@@ -110,16 +110,16 @@ function ResizeHandle({
           animate={{
             scale: isDragging ? 1.15 : 1,
             backgroundColor: isDragging
-              ? "rgba(89, 119, 148, 0.35)"
+              ? "rgba(111, 148, 176, 0.35)"
               : "rgba(255, 255, 255, 0.06)",
             boxShadow: isDragging
-              ? "0 0 12px rgba(89, 119, 148, 0.3)"
+              ? "0 0 12px rgba(111, 148, 176, 0.3)"
               : "0 0 0px transparent",
           }}
           whileHover={{
             scale: 1.1,
-            backgroundColor: "rgba(89, 119, 148, 0.25)",
-            boxShadow: "0 0 8px rgba(89, 119, 148, 0.2)",
+            backgroundColor: "rgba(111, 148, 176, 0.25)",
+            boxShadow: "0 0 8px rgba(111, 148, 176, 0.2)",
           }}
           transition={HANDLE_SPRING}
           className={`flex items-center justify-center rounded-sm ${
@@ -127,8 +127,8 @@ function ResizeHandle({
           }`}
         >
           <motion.div
-            animate={{ color: isDragging ? "#597794" : "rgba(255,255,255,0.25)" }}
-            whileHover={{ color: "#597794" }}
+            animate={{ color: isDragging ? "#6F94B0" : "rgba(255,255,255,0.25)" }}
+            whileHover={{ color: "#6F94B0" }}
             transition={{ duration: 0.15 }}
           >
             {isHorizontal ? (
@@ -249,7 +249,7 @@ export function SpacerWidget({
         className="absolute inset-0 rounded-md border border-dashed"
         style={{
           borderColor: draggingEdge
-            ? "rgba(89, 119, 148, 0.5)"
+            ? "rgba(111, 148, 176, 0.5)"
             : "rgba(255, 255, 255, 0.1)",
           transition: "border-color 0.2s ease",
         }}
@@ -265,7 +265,7 @@ export function SpacerWidget({
             transition={{ duration: 0.15 }}
             className="absolute inset-0 rounded-md pointer-events-none"
             style={{
-              boxShadow: "inset 0 0 20px rgba(89, 119, 148, 0.1), 0 0 12px rgba(89, 119, 148, 0.08)",
+              boxShadow: "inset 0 0 20px rgba(111, 148, 176, 0.1), 0 0 12px rgba(111, 148, 176, 0.08)",
             }}
           />
         )}
@@ -278,7 +278,7 @@ export function SpacerWidget({
           initial={{ opacity: 0, scale: 0.8, y: 4 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           transition={LABEL_SPRING}
-          className="font-kosugi text-[10px] text-text-mute tracking-wider uppercase select-none"
+          className="font-kosugi text-micro text-text-mute tracking-wider uppercase select-none"
         >
           {colSpan} &times; {rowSpan}
         </motion.span>

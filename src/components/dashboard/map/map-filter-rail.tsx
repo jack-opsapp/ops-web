@@ -81,12 +81,12 @@ export function MapFilterRail() {
       <div
         className={cn(
           "flex items-center gap-1.5 px-2 py-[4px] mb-[-1px] ml-[8px]",
-          "rounded-t-sm border border-b-0 border-[rgba(255,255,255,0.10)]",
-          "bg-[rgba(18,18,18,0.85)] backdrop-blur-[20px] [-webkit-backdrop-filter:blur(20px)_saturate(1.2)]"
+          "rounded-t-[10px] border border-b-0 border-[rgba(255,255,255,0.09)]",
+          "bg-[rgba(18,18,20,0.78)] backdrop-blur-[28px] [-webkit-backdrop-filter:blur(28px)_saturate(1.3)]"
         )}
       >
         <Map className="w-[12px] h-[12px] text-text-mute" />
-        <span className="font-kosugi text-[9px] text-text-mute tracking-wider uppercase select-none">
+        <span className="font-kosugi text-micro text-text-mute tracking-wider uppercase select-none">
           MAP
         </span>
       </div>
@@ -95,8 +95,7 @@ export function MapFilterRail() {
       <div
         className={cn(
           "flex items-center gap-1 py-1.5 px-2",
-          "rounded-sm border border-[rgba(255,255,255,0.08)]",
-          "bg-glass glass-surface backdrop-blur-[20px] [-webkit-backdrop-filter:blur(20px)_saturate(1.2)]"
+          "glass-surface"
         )}
       >
 
@@ -127,7 +126,7 @@ export function MapFilterRail() {
               />
             )}
             <Icon className="w-[14px] h-[14px] shrink-0 relative z-[1]" />
-            <span className="font-kosugi text-[9px] tracking-wider whitespace-nowrap relative z-[1]">
+            <span className="font-kosugi text-micro tracking-wider whitespace-nowrap relative z-[1]">
               {f.label}
             </span>
           </button>
@@ -149,7 +148,7 @@ export function MapFilterRail() {
             title="CREW"
           >
             <Users className="w-[14px] h-[14px] shrink-0" />
-            <span className="font-kosugi text-[9px] tracking-wider whitespace-nowrap">
+            <span className="font-kosugi text-micro tracking-wider whitespace-nowrap">
               CREW
             </span>
           </button>

@@ -130,7 +130,7 @@
   }
 
   * {
-    border-color: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.10);
   }
 
   html {
@@ -139,7 +139,7 @@
 
   body {
     background-color: #000000;
-    @apply text-text-primary font-mohave antialiased;
+    @apply text-text font-mohave antialiased;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -265,7 +265,7 @@
 
   /* === Form Input === */
   .ops-input {
-    @apply w-full text-text-primary font-mohave text-body
+    @apply w-full text-text font-mohave text-body
            px-1.5 py-1.5 rounded-[5px]
            transition-all duration-150
            placeholder:text-text-3;
@@ -279,20 +279,20 @@
 
   /* === Monospace Data Display === */
   .data-display {
-    @apply font-mono text-data text-text-primary tracking-wide;
+    @apply font-mono text-data text-text tracking-wide;
   }
   .data-display-lg {
-    @apply font-mono text-data-lg text-text-primary tracking-wider;
+    @apply font-mono text-data-lg text-text tracking-wider;
   }
 
   /* === Section Header === */
   .section-header {
-    @apply font-kosugi text-caption-bold text-text-secondary uppercase tracking-widest;
+    @apply font-kosugi text-caption-bold text-text-2 uppercase tracking-widest;
   }
 
   /* === Separator with Label === */
   .separator-label {
-    @apply flex items-center gap-2 text-text-tertiary;
+    @apply flex items-center gap-2 text-text-3;
   }
   .separator-label::before,
   .separator-label::after {

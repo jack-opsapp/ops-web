@@ -58,9 +58,9 @@ function SpatialDealTray({
             width: 280,
             top: 56,
             zIndex: 500,
-            background: "rgba(10, 10, 10, 0.70)",
-            backdropFilter: "blur(20px) saturate(1.2)",
-            WebkitBackdropFilter: "blur(20px) saturate(1.2)",
+            background: "var(--surface-glass)",
+            backdropFilter: "blur(28px) saturate(1.3)",
+            WebkitBackdropFilter: "blur(28px) saturate(1.3)",
             borderLeft: "1px solid rgba(255, 255, 255, 0.08)",
           }}
           initial="hidden"

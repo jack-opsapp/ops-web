@@ -41,7 +41,7 @@ export function PhaseCGatePrompt({ onRequestAccess }: PhaseCGatePromptProps) {
       <div
         className="relative max-w-[380px] w-full mx-6 px-8 py-7"
         style={{
-          background: "rgba(10, 10, 10, 0.90)",
+          background: "var(--surface-glass-dense)",
           backdropFilter: "blur(24px) saturate(1.2)",
           WebkitBackdropFilter: "blur(24px) saturate(1.2)",
           border: "1px solid rgba(255, 255, 255, 0.08)",
@@ -59,7 +59,7 @@ export function PhaseCGatePrompt({ onRequestAccess }: PhaseCGatePromptProps) {
 
         {/* Content */}
         <div className="text-left space-y-4">
-          <div className="font-kosugi text-[11px] uppercase tracking-wider text-[#597794]">
+          <div className="font-kosugi text-[11px] uppercase tracking-wider text-[#6F94B0]">
             {t("gate.title")}
           </div>
 
@@ -73,11 +73,11 @@ export function PhaseCGatePrompt({ onRequestAccess }: PhaseCGatePromptProps) {
 
           <button
             onClick={handleRequest}
-            className="font-kosugi text-[10px] uppercase tracking-wider px-4 py-2 rounded-[2px] transition-colors"
+            className="font-kosugi text-micro uppercase tracking-wider px-4 py-2 rounded-[2px] transition-colors"
             style={{
-              background: "rgba(89, 119, 148, 0.2)",
-              border: "1px solid rgba(89, 119, 148, 0.4)",
-              color: "#597794",
+              background: "rgba(111, 148, 176, 0.2)",
+              border: "1px solid rgba(111, 148, 176, 0.4)",
+              color: "#6F94B0",
             }}
           >
             {t("gate.cta")}

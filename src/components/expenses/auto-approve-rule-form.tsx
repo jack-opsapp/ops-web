@@ -74,7 +74,7 @@ export function AutoApproveRuleForm({ onClose }: AutoApproveRuleFormProps) {
     <div className="border border-border rounded p-3 space-y-3 bg-[rgba(255,255,255,0.02)]">
       {/* Rule type picker */}
       <div>
-        <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider block mb-1.5">
+        <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider block mb-1.5">
           {t("expenses.ruleType")}
         </span>
         <div className="flex gap-2">
@@ -83,14 +83,14 @@ export function AutoApproveRuleForm({ onClose }: AutoApproveRuleFormProps) {
             className={cn(
               "flex-1 px-3 py-2 rounded border text-left transition-all",
               ruleType === AutoApproveRuleType.Invoice
-                ? "border-[#597794] bg-[rgba(89,119,148,0.08)]"
+                ? "border-[#6F94B0] bg-[rgba(111, 148, 176,0.08)]"
                 : "border-border hover:border-[rgba(255,255,255,0.20)]"
             )}
           >
             <span className="font-mohave text-body-sm text-text uppercase block">
               {t("expenses.ruleTypeInvoice")}
             </span>
-            <span className="font-kosugi text-[10px] text-text-mute">
+            <span className="font-kosugi text-micro text-text-mute">
               {t("expenses.ruleTypeInvoiceDesc")}
             </span>
           </button>
@@ -99,14 +99,14 @@ export function AutoApproveRuleForm({ onClose }: AutoApproveRuleFormProps) {
             className={cn(
               "flex-1 px-3 py-2 rounded border text-left transition-all",
               ruleType === AutoApproveRuleType.LineItem
-                ? "border-[#597794] bg-[rgba(89,119,148,0.08)]"
+                ? "border-[#6F94B0] bg-[rgba(111, 148, 176,0.08)]"
                 : "border-border hover:border-[rgba(255,255,255,0.20)]"
             )}
           >
             <span className="font-mohave text-body-sm text-text uppercase block">
               {t("expenses.ruleTypeLineItem")}
             </span>
-            <span className="font-kosugi text-[10px] text-text-mute">
+            <span className="font-kosugi text-micro text-text-mute">
               {t("expenses.ruleTypeLineItemDesc")}
             </span>
           </button>
@@ -115,7 +115,7 @@ export function AutoApproveRuleForm({ onClose }: AutoApproveRuleFormProps) {
 
       {/* Threshold amount */}
       <div>
-        <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider block mb-1.5">
+        <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider block mb-1.5">
           {t("expenses.threshold")}
         </span>
         <div className="flex items-center gap-1">
@@ -134,7 +134,7 @@ export function AutoApproveRuleForm({ onClose }: AutoApproveRuleFormProps) {
 
       {/* Member assignment */}
       <div>
-        <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider block mb-1.5">
+        <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider block mb-1.5">
           {t("expenses.members")}
         </span>
 
@@ -179,7 +179,7 @@ export function AutoApproveRuleForm({ onClose }: AutoApproveRuleFormProps) {
               </label>
             ))}
             {teamMembers.length === 0 && (
-              <span className="font-kosugi text-[10px] text-text-mute">
+              <span className="font-kosugi text-micro text-text-mute">
                 No team members found
               </span>
             )}

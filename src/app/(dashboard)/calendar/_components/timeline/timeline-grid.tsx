@@ -99,7 +99,7 @@ function DroppableTimelineRow({
         (rowRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
       }}
       style={{
-        outline: isOver ? "1px solid rgba(89,119,148,0.4)" : "none",
+        outline: isOver ? "1px solid rgba(111, 148, 176,0.4)" : "none",
         outlineOffset: -1,
       }}
     >
@@ -156,16 +156,16 @@ function CurrentTimeIndicator({
       {/* Time label */}
       <div
         className="sticky top-0 -translate-x-1/2 z-30 px-[6px] py-[2px] rounded-b-sm"
-        style={{ background: "#597794", width: "fit-content" }}
+        style={{ background: "#6F94B0", width: "fit-content" }}
       >
-        <span className="font-mohave text-[10px] font-semibold text-white whitespace-nowrap leading-none tracking-wide">
+        <span className="font-mohave text-micro font-semibold text-white whitespace-nowrap leading-none tracking-wide">
           {timeLabel}
         </span>
       </div>
       {/* Vertical line */}
       <div
         className="absolute top-0 bottom-0"
-        style={{ width: 2, background: "#597794" }}
+        style={{ width: 2, background: "#6F94B0" }}
       />
     </div>
   );

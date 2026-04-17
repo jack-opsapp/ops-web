@@ -131,7 +131,7 @@ function MonthDayCell({
         borderRight: "1px solid rgba(255,255,255,0.10)",
         opacity: isCurrentMonth ? 1 : 0.3,
         backgroundColor: isOver
-          ? "rgba(89, 119, 148, 0.08)"
+          ? "rgba(111, 148, 176, 0.08)"
           : isWeekend && isCurrentMonth
             ? "rgba(255,255,255,0.02)"
             : undefined,
@@ -151,7 +151,7 @@ function MonthDayCell({
             width: 22,
             height: 22,
             borderRadius: isCurrentDay ? "50%" : "2px",
-            backgroundColor: isCurrentDay ? "rgba(89,119,148,0.15)" : "transparent",
+            backgroundColor: isCurrentDay ? "rgba(111, 148, 176,0.15)" : "transparent",
             color: isCurrentDay ? "#FFFFFF" : "#999999",
             border: "none",
           }}
@@ -199,7 +199,7 @@ function MonthDayCell({
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
-            border: "1px solid rgba(89, 119, 148, 0.3)",
+            border: "1px solid rgba(111, 148, 176, 0.3)",
             borderRadius: 2,
             zIndex: 4,
           }}
@@ -208,7 +208,7 @@ function MonthDayCell({
 
       {/* Hover border */}
       <div
-        className="absolute inset-0 border border-transparent group-hover:border-[rgba(89,119,148,0.2)] pointer-events-none transition-colors duration-150"
+        className="absolute inset-0 border border-transparent group-hover:border-[rgba(111, 148, 176,0.2)] pointer-events-none transition-colors duration-150"
         style={{ borderRadius: 2, zIndex: 3 }}
       />
     </div>

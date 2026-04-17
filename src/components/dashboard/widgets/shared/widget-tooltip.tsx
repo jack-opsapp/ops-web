@@ -73,9 +73,9 @@ export function WidgetTooltip({
         left: `${viewportX}px`,
         top: resolvedAnchor === "above" ? `${viewportY - 8}px` : `${viewportY + 8}px`,
         transform: "translateX(-50%) translateY(-100%)",
-        background: "rgba(10, 10, 10, 0.90)",
-        backdropFilter: "blur(20px) saturate(1.2)",
-        WebkitBackdropFilter: "blur(20px) saturate(1.2)",
+        background: "var(--surface-glass-dense)",
+        backdropFilter: "blur(28px) saturate(1.3)",
+        WebkitBackdropFilter: "blur(28px) saturate(1.3)",
         border: "1px solid rgba(255, 255, 255, 0.12)",
       }}
     >
@@ -104,13 +104,13 @@ export function TooltipRow({
     <div className="flex items-center justify-between gap-3 min-w-[120px]">
       <div className="flex items-center gap-1">
         {color && <span className="w-[6px] h-[6px] rounded-full shrink-0" style={{ backgroundColor: color }} />}
-        <span className="font-kosugi text-[9px] text-text-3 uppercase tracking-wider whitespace-nowrap">{label}</span>
+        <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider whitespace-nowrap">{label}</span>
       </div>
       <div className="flex items-center gap-1">
         <span className="font-mono text-[11px] text-text font-medium">{value}</span>
         {delta && (
           <span className={cn(
-            "font-mono text-[9px]",
+            "font-mono text-micro",
             delta.direction === "up" && "text-status-success",
             delta.direction === "down" && "text-ops-error",
             delta.direction === "neutral" && "text-text-3"

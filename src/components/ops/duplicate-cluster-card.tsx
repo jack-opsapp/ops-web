@@ -153,7 +153,7 @@ function FieldPill({
   if (editing) {
     return (
       <div className="flex flex-col gap-0.5">
-        <span className="font-kosugi text-[9px] uppercase tracking-wider text-white/25">
+        <span className="font-kosugi text-micro uppercase tracking-wider text-white/25">
           {label}
         </span>
         <input
@@ -183,7 +183,7 @@ function FieldPill({
   if (!value) {
     return (
       <div className="flex flex-col gap-0.5">
-        <span className="font-kosugi text-[9px] uppercase tracking-wider text-white/25">
+        <span className="font-kosugi text-micro uppercase tracking-wider text-white/25">
           {label}
         </span>
         <button
@@ -201,7 +201,7 @@ function FieldPill({
 
   return (
     <div className="flex flex-col gap-0.5">
-      <span className="font-kosugi text-[9px] uppercase tracking-wider text-white/25">
+      <span className="font-kosugi text-micro uppercase tracking-wider text-white/25">
         {label}
       </span>
       <div
@@ -281,7 +281,7 @@ function EditableTitle({
             setEditing(false);
           }
         }}
-        className="w-full rounded-[2px] border border-[#597794]/30 bg-white/[0.04] px-1 py-0.5 font-mohave text-[15px] font-medium text-white/90 outline-none"
+        className="w-full rounded-[2px] border border-[#6F94B0]/30 bg-white/[0.04] px-1 py-0.5 font-mohave text-[15px] font-medium text-white/90 outline-none"
       />
     );
   }
@@ -374,7 +374,7 @@ function InteractiveEntityCard({
           if (!dateRange) return null;
           return (
             <div key={ro.field} className="flex flex-col gap-0.5">
-              <span className="font-kosugi text-[9px] uppercase tracking-wider text-white/25">
+              <span className="font-kosugi text-micro uppercase tracking-wider text-white/25">
                 {t(ro.label) || ro.field}
               </span>
               <span className="font-mohave text-[13px] leading-tight text-white/50">
@@ -388,7 +388,7 @@ function InteractiveEntityCard({
         if (!formatted) return null;
         return (
           <div key={ro.field} className="flex flex-col gap-0.5">
-            <span className="font-kosugi text-[9px] uppercase tracking-wider text-white/25">
+            <span className="font-kosugi text-micro uppercase tracking-wider text-white/25">
               {t(ro.label) || ro.field}
             </span>
             <span className="font-mohave text-[13px] leading-tight text-white/50">
@@ -609,7 +609,7 @@ export function DuplicateClusterCard({
       {/* Signal badges */}
       <div className="flex flex-wrap items-center gap-1.5">
         <span
-          className={`rounded-[2px] px-2 py-0.5 font-kosugi text-[10px] uppercase tracking-wider ${
+          className={`rounded-[2px] px-2 py-0.5 font-kosugi text-micro uppercase tracking-wider ${
             cluster.confidence === "high"
               ? "bg-red-500/20 text-red-400"
               : "bg-amber-500/20 text-amber-400"
@@ -620,7 +620,7 @@ export function DuplicateClusterCard({
         {cluster.signals.map((s, i) => (
           <span
             key={i}
-            className="rounded-[2px] bg-white/5 px-2 py-0.5 font-kosugi text-[10px] text-white/40"
+            className="rounded-[2px] bg-white/5 px-2 py-0.5 font-kosugi text-micro text-white/40"
           >
             {t(`signals.${s.type}`) || s.type}
           </span>
@@ -646,7 +646,7 @@ export function DuplicateClusterCard({
             >
               {/* Status badge — top right */}
               <span
-                className={`absolute right-2 top-2 rounded-[2px] px-[6px] py-[1px] font-kosugi text-[8px] uppercase tracking-wider transition-colors duration-300 ${
+                className={`absolute right-2 top-2 rounded-[2px] px-[6px] py-[1px] font-kosugi text-micro uppercase tracking-wider transition-colors duration-300 ${
                   isDuplicate
                     ? "bg-[#93321A]/15 text-[#93321A]"
                     : "bg-[#A5B368]/15 text-[#A5B368]"
@@ -673,7 +673,7 @@ export function DuplicateClusterCard({
           type="button"
           onClick={handleMerge}
           disabled={isMerging}
-          className="flex-1 rounded-panel bg-ops-accent/20 px-4 py-2.5 font-mohave text-[14px] font-medium text-[#597794] transition-colors duration-150 hover:bg-ops-accent/30 disabled:opacity-40"
+          className="flex-1 rounded-panel bg-ops-accent/20 px-4 py-2.5 font-mohave text-[14px] font-medium text-[#6F94B0] transition-colors duration-150 hover:bg-ops-accent/30 disabled:opacity-40"
         >
           {isMerging ? t("merging") : t("card.merge")}
         </button>

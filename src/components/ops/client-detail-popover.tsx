@@ -233,23 +233,23 @@ const ClientDetailPopoverInstance = memo(function ClientDetailPopoverInstance({
           {client?.email ? (
             <div className="flex items-center gap-1 text-text-3 min-w-0">
               <Mail className="w-2.5 h-2.5 shrink-0" />
-              <span className="font-kosugi text-[10px] truncate">
+              <span className="font-kosugi text-micro truncate">
                 {client.email}
               </span>
             </div>
           ) : (
-            <span className="font-kosugi text-[10px] text-text-mute">
+            <span className="font-kosugi text-micro text-text-mute">
               No email
             </span>
           )}
           {client?.phoneNumber && (
             <>
-              <span className="font-kosugi text-[9px] text-text-mute">
+              <span className="font-kosugi text-micro text-text-mute">
                 ·
               </span>
               <div className="flex items-center gap-1 text-text-3 min-w-0">
                 <Phone className="w-2.5 h-2.5 shrink-0" />
-                <span className="font-kosugi text-[10px] truncate">
+                <span className="font-kosugi text-micro truncate">
                   {client.phoneNumber}
                 </span>
               </div>

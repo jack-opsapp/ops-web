@@ -237,7 +237,7 @@ export function EngagementContent({
                           <span
                             className="font-mohave text-[13px] px-1.5 py-0.5 rounded"
                             style={{
-                              backgroundColor: `rgba(89, 119, 148, ${(pct / 100) * 0.5})`,
+                              backgroundColor: `rgba(111, 148, 176, ${(pct / 100) * 0.5})`,
                               color: pct > 0 ? "#E5E5E5" : "#6B6B6B",
                             }}
                           >

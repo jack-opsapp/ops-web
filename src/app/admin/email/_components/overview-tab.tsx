@@ -147,7 +147,7 @@ export function OverviewTab({ stats, engagement }: OverviewTabProps) {
                     <span className="font-mohave text-[12px] uppercase tracking-wider text-[#A0A0A0]">
                       {type}
                     </span>
-                    <span className="font-kosugi text-[10px] text-[#6B6B6B]">
+                    <span className="font-kosugi text-micro text-[#6B6B6B]">
                       ({emails.length})
                     </span>
                   </div>
@@ -163,14 +163,14 @@ export function OverviewTab({ stats, engagement }: OverviewTabProps) {
                         <span className="font-kosugi text-[11px] text-[#6B6B6B] flex-1 truncate">
                           {email.subject}
                         </span>
-                        <span className={`font-mohave text-[10px] uppercase flex-shrink-0 ${
+                        <span className={`font-mohave text-micro uppercase flex-shrink-0 ${
                           email.status === "sent" || email.status === "delivered"
                             ? "text-[#9DB582]"
                             : "text-[#93321A]"
                         }`}>
                           {email.status}
                         </span>
-                        <span className="font-kosugi text-[10px] text-[#6B6B6B] flex-shrink-0 w-16 text-right">
+                        <span className="font-kosugi text-micro text-[#6B6B6B] flex-shrink-0 w-16 text-right">
                           {new Date(email.sent_at).toLocaleTimeString("en-US", {
                             hour: "numeric",
                             minute: "2-digit",

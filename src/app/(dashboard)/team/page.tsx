@@ -150,7 +150,7 @@ const roleStyleConfig: Record<
     icon: Shield,
     color: "text-ops-accent",
     bg: "bg-ops-accent-muted",
-    borderColor: "border-l-[#597794]",
+    borderColor: "border-l-[#6F94B0]",
   },
   operator: {
     icon: Shield,
@@ -191,7 +191,7 @@ function RoleBadge({ role, t }: { role: Role; t: (key: string) => string }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-[4px] px-1 py-[3px] rounded-sm font-kosugi text-[10px] uppercase tracking-wider",
+        "inline-flex items-center gap-[4px] px-1 py-[3px] rounded-sm font-kosugi text-micro uppercase tracking-wider",
         config.color,
         config.bg
       )}
@@ -220,7 +220,7 @@ function RoleSelector({
       <div className="fixed inset-0 z-40" onClick={onClose} />
       <div className="absolute right-0 top-full mt-[4px] w-[200px] bg-glass glass-surface backdrop-blur-xl border border-[rgba(255,255,255,0.2)] rounded z-50 animate-scale-in overflow-hidden">
         <div className="px-1.5 py-[6px] border-b border-border-subtle">
-          <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-widest">
+          <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
             {t("team.changeRole")}
           </span>
         </div>
@@ -439,7 +439,7 @@ function TeamMemberCard({
         {/* Last active */}
         <div className="flex items-center gap-[6px] mt-1.5 pt-1 border-t border-border-subtle">
           <Clock className="w-[12px] h-[12px] text-text-mute" />
-          <span className="font-mono text-[10px] text-text-mute">
+          <span className="font-mono text-micro text-text-mute">
             {formatLastActive(member.lastActive)}
           </span>
         </div>
@@ -643,7 +643,7 @@ export default function TeamPage() {
                 <h2 className="font-kosugi text-caption-bold text-ops-amber uppercase tracking-widest">
                   {t("team.sections.admins")}
                 </h2>
-                <Badge variant="warning" className="text-[10px] px-[6px] py-[1px]">
+                <Badge variant="warning" className="text-micro px-[6px] py-[1px]">
                   {admins.length}
                 </Badge>
               </div>
@@ -670,7 +670,7 @@ export default function TeamPage() {
                 <h2 className="font-kosugi text-caption-bold text-ops-accent uppercase tracking-widest">
                   {t("team.sections.office")}
                 </h2>
-                <Badge variant="info" className="text-[10px] px-[6px] py-[1px]">
+                <Badge variant="info" className="text-micro px-[6px] py-[1px]">
                   {office.length}
                 </Badge>
               </div>
@@ -697,7 +697,7 @@ export default function TeamPage() {
                 <h2 className="font-kosugi text-caption-bold text-ops-accent uppercase tracking-widest">
                   {t("team.sections.operators")}
                 </h2>
-                <Badge variant="info" className="text-[10px] px-[6px] py-[1px]">
+                <Badge variant="info" className="text-micro px-[6px] py-[1px]">
                   {operators.length}
                 </Badge>
               </div>
@@ -724,7 +724,7 @@ export default function TeamPage() {
                 <h2 className="font-kosugi text-caption-bold text-text-2 uppercase tracking-widest">
                   {t("team.sections.crew")}
                 </h2>
-                <Badge variant="info" className="text-[10px] px-[6px] py-[1px] opacity-60">
+                <Badge variant="info" className="text-micro px-[6px] py-[1px] opacity-60">
                   {crew.length}
                 </Badge>
               </div>
@@ -751,7 +751,7 @@ export default function TeamPage() {
                 <h2 className="font-kosugi text-caption-bold text-text-mute uppercase tracking-widest">
                   {t("team.sections.unassigned")}
                 </h2>
-                <Badge variant="info" className="text-[10px] px-[6px] py-[1px] opacity-40">
+                <Badge variant="info" className="text-micro px-[6px] py-[1px] opacity-40">
                   {unassigned.length}
                 </Badge>
               </div>

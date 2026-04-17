@@ -51,7 +51,7 @@ function SortableImage({
     >
       <Image src={url} alt="" fill className="object-cover" sizes="96px" />
       {index === 0 && (
-        <span className="absolute top-1 left-1 px-1.5 py-0.5 bg-ops-accent/80 rounded-sm font-kosugi text-[8px] uppercase tracking-widest text-white">
+        <span className="absolute top-1 left-1 px-1.5 py-0.5 bg-ops-accent/80 rounded-sm font-kosugi text-micro uppercase tracking-widest text-white">
           Primary
         </span>
       )}

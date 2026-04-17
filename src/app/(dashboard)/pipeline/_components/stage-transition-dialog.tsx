@@ -70,7 +70,7 @@ function WonContent({
       <div className="space-y-2 py-2">
         {/* Final deal value */}
         <div className="space-y-0.5">
-          <label className="font-kosugi text-[10px] text-text-2 uppercase tracking-widest">
+          <label className="font-kosugi text-micro text-text-2 uppercase tracking-widest">
             {t("transition.finalValue")}
           </label>
           <div className="relative">
@@ -90,7 +90,7 @@ function WonContent({
                 "w-full bg-surface-input text-text font-mono text-body",
                 "pl-4 pr-1.5 py-1.5 rounded-lg border border-border",
                 "placeholder:text-text-3",
-                "focus:border-[rgba(255,255,255,0.20)] focus:outline-none focus:shadow-glow-accent"
+                "focus:border-[rgba(255,255,255,0.20)] focus:outline-none"
               )}
             />
           </div>
@@ -107,7 +107,7 @@ function WonContent({
           <span className="font-kosugi text-[11px] text-text-2 group-hover:text-text transition-colors">
             {t("transition.convertToProject")}
           </span>
-          <span className="font-kosugi text-[9px] text-text-mute">{t("transition.comingSoon")}</span>
+          <span className="font-kosugi text-micro text-text-mute">{t("transition.comingSoon")}</span>
         </label>
       </div>
 
@@ -161,7 +161,7 @@ function LostContent({
       <div className="space-y-2 py-2">
         {/* Loss reason */}
         <div className="space-y-0.5">
-          <label className="font-kosugi text-[10px] text-text-2 uppercase tracking-widest">
+          <label className="font-kosugi text-micro text-text-2 uppercase tracking-widest">
             {t("transition.reason")}
           </label>
           <select
@@ -186,7 +186,7 @@ function LostContent({
 
         {/* Notes */}
         <div className="space-y-0.5">
-          <label className="font-kosugi text-[10px] text-text-2 uppercase tracking-widest">
+          <label className="font-kosugi text-micro text-text-2 uppercase tracking-widest">
             {t("transition.notes")}
           </label>
           <textarea

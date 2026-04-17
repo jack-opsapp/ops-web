@@ -410,7 +410,7 @@ export function LineItemQuestionEditor({
                       {question.questionText}
                     </p>
                     {question.isRequired && (
-                      <span className="shrink-0 font-kosugi text-[9px] text-ops-accent bg-ops-accent-muted px-[6px] py-[1px] rounded-full uppercase tracking-wider">
+                      <span className="shrink-0 font-kosugi text-micro text-ops-accent bg-ops-accent-muted px-[6px] py-[1px] rounded-full uppercase tracking-wider">
                         Required
                       </span>
                     )}
@@ -418,11 +418,11 @@ export function LineItemQuestionEditor({
 
                   <div className="flex items-center gap-[6px] mt-[2px]">
                     <typeConfig.icon className="w-[11px] h-[11px] text-text-mute" />
-                    <span className="font-kosugi text-[10px] text-text-mute">
+                    <span className="font-kosugi text-micro text-text-mute">
                       {typeConfig.label}
                     </span>
                     {question.options.length > 0 && (
-                      <span className="font-kosugi text-[10px] text-text-mute">
+                      <span className="font-kosugi text-micro text-text-mute">
                         -- {question.options.length} option{question.options.length !== 1 ? "s" : ""}
                       </span>
                     )}
@@ -434,7 +434,7 @@ export function LineItemQuestionEditor({
                       {question.options.slice(0, 6).map((opt, i) => (
                         <span
                           key={i}
-                          className="inline-flex items-center gap-[3px] px-[6px] py-[1px] rounded bg-fill-neutral-dim text-[10px] text-text-3 font-kosugi border border-[rgba(255,255,255,0.06)]"
+                          className="inline-flex items-center gap-[3px] px-[6px] py-[1px] rounded bg-fill-neutral-dim text-micro text-text-3 font-kosugi border border-[rgba(255,255,255,0.06)]"
                         >
                           {question.answerType === "color" && (
                             <span
@@ -448,7 +448,7 @@ export function LineItemQuestionEditor({
                         </span>
                       ))}
                       {question.options.length > 6 && (
-                        <span className="text-[10px] text-text-mute font-kosugi">
+                        <span className="text-micro text-text-mute font-kosugi">
                           +{question.options.length - 6} more
                         </span>
                       )}

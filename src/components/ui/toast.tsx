@@ -31,10 +31,10 @@ function Toaster({ className, ...props }: ToasterProps) {
             "hover:text-text hover:bg-fill-neutral-dim"
           ),
           closeButton: "text-text-3 hover:text-text",
-          success: "border-status-success/30 shadow-[0_0_12px_rgba(74,222,128,0.15)]",
-          error: "border-ops-error/30 shadow-glow-error",
-          info: "border-ops-accent/30 shadow-glow-accent",
-          warning: "border-ops-amber/30 shadow-glow-amber",
+          success: "border-status-success/30",
+          error: "border-ops-error/30",
+          info: "border-ops-accent/30",
+          warning: "border-ops-amber/30",
         },
       }}
       {...props}

@@ -144,7 +144,7 @@ function BatchRow({
             <div className="w-[6px] h-[6px] rounded-full shrink-0" style={{ backgroundColor: dotColor }} />
           ) : (
             <div className="w-[20px] h-[20px] rounded-full shrink-0 bg-fill-neutral-dim flex items-center justify-center">
-              <span className="font-kosugi text-[8px] text-text-3 uppercase">
+              <span className="font-kosugi text-micro text-text-3 uppercase">
                 {submitterName.slice(0, 2)}
               </span>
             </div>
@@ -477,7 +477,7 @@ export function ExpenseReviewListPopover() {
               <span className="font-mono text-[20px] font-bold text-text leading-none">
                 {formatCompactCurrency(totalPending)}
               </span>
-              <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider ml-1">
+              <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider ml-1">
                 pending
               </span>
             </div>
@@ -485,7 +485,7 @@ export function ExpenseReviewListPopover() {
               <span className="font-mono text-[14px] font-bold leading-none" style={{ color: WT.success }}>
                 {formatCompactCurrency(totalApproved)}
               </span>
-              <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider ml-1">
+              <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider ml-1">
                 approved
               </span>
             </div>
@@ -498,7 +498,7 @@ export function ExpenseReviewListPopover() {
             <button
               onClick={() => setSelectedPeriod("all")}
               className={cn(
-                "px-2 py-0.5 rounded-sm font-kosugi text-[10px] uppercase tracking-wider transition-colors shrink-0",
+                "px-2 py-0.5 rounded-sm font-kosugi text-micro uppercase tracking-wider transition-colors shrink-0",
                 selectedPeriod === "all"
                   ? "bg-ops-accent/15 text-ops-accent border border-ops-accent/30"
                   : "text-text-mute hover:text-text-2 border border-transparent"
@@ -511,7 +511,7 @@ export function ExpenseReviewListPopover() {
                 key={key}
                 onClick={() => setSelectedPeriod(key)}
                 className={cn(
-                  "px-2 py-0.5 rounded-sm font-kosugi text-[10px] uppercase tracking-wider transition-colors shrink-0",
+                  "px-2 py-0.5 rounded-sm font-kosugi text-micro uppercase tracking-wider transition-colors shrink-0",
                   selectedPeriod === key
                     ? "bg-ops-accent/15 text-ops-accent border border-ops-accent/30"
                     : "text-text-mute hover:text-text-2 border border-transparent"
@@ -542,7 +542,7 @@ export function ExpenseReviewListPopover() {
               )}
             </button>
           ))}
-          <span className="ml-auto pr-3 font-mono text-[10px] text-text-mute">
+          <span className="ml-auto pr-3 font-mono text-micro text-text-mute">
             {displayBatches.length} {displayBatches.length === 1 ? "batch" : "batches"}
           </span>
         </div>

@@ -176,7 +176,7 @@ export function LifecycleSettingsTab() {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="flex items-center gap-2 min-h-[56px] px-4 rounded-[4px] bg-[rgba(89,119,148,0.15)] text-[#597794] font-mohave text-body-sm uppercase hover:bg-[rgba(89,119,148,0.25)] transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 min-h-[56px] px-4 rounded-[4px] bg-[rgba(111, 148, 176,0.15)] text-[#6F94B0] font-mohave text-body-sm uppercase hover:bg-[rgba(111, 148, 176,0.25)] transition-colors disabled:opacity-50"
           >
             {saving ? (
               <Loader2 className="w-[14px] h-[14px] animate-spin" />
@@ -205,7 +205,7 @@ export function LifecycleSettingsTab() {
               }
               className={`min-h-[56px] px-4 rounded-[4px] font-mohave text-body-sm uppercase transition-colors ${
                 config.status_update_frequency_days === opt.value
-                  ? "bg-[rgba(89,119,148,0.15)] text-[#597794] border border-[#597794]"
+                  ? "bg-[rgba(111, 148, 176,0.15)] text-[#6F94B0] border border-[#6F94B0]"
                   : "bg-[rgba(255,255,255,0.03)] text-text-2 border border-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.16)]"
               }`}
             >

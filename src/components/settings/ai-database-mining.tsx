@@ -147,7 +147,7 @@ export function AiDatabaseMining({ onComplete }: AiDatabaseMiningProps) {
           onClick={startMining}
           className="flex items-center gap-1.5 px-3 py-2 rounded-md bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] hover:bg-[rgba(255,255,255,0.1)] text-text font-mohave text-body-sm transition-colors"
         >
-          <Database className="w-[14px] h-[14px] text-[#597794]" />
+          <Database className="w-[14px] h-[14px] text-[#6F94B0]" />
           {t("mining.start")}
         </button>
       </div>
@@ -160,7 +160,7 @@ export function AiDatabaseMining({ onComplete }: AiDatabaseMiningProps) {
     return (
       <div className="space-y-2">
         <div className="flex items-center gap-1.5">
-          <Loader2 className="w-[16px] h-[16px] text-[#597794] animate-spin" />
+          <Loader2 className="w-[16px] h-[16px] text-[#6F94B0] animate-spin" />
           <span className="font-mohave text-body font-medium uppercase tracking-wide text-text">
             {t("mining.title")}
           </span>
@@ -168,9 +168,9 @@ export function AiDatabaseMining({ onComplete }: AiDatabaseMiningProps) {
 
         <div className="space-y-1.5">
           {/* Current step */}
-          <div className="flex items-center gap-1.5 px-2 py-1.5 rounded border border-[rgba(89,119,148,0.2)] bg-[rgba(89,119,148,0.06)]">
-            <Loader2 className="w-[12px] h-[12px] text-[#597794] animate-spin shrink-0" />
-            <span className="font-mohave text-body-sm text-[#597794]">
+          <div className="flex items-center gap-1.5 px-2 py-1.5 rounded border border-[rgba(111, 148, 176,0.2)] bg-[rgba(111, 148, 176,0.06)]">
+            <Loader2 className="w-[12px] h-[12px] text-[#6F94B0] animate-spin shrink-0" />
+            <span className="font-mohave text-body-sm text-[#6F94B0]">
               {currentStep}
             </span>
           </div>
@@ -235,7 +235,7 @@ export function AiDatabaseMining({ onComplete }: AiDatabaseMiningProps) {
           <div className="px-2 py-1.5 rounded border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.03)]">
             <div className="flex items-center gap-1 mb-[2px]">
               <DollarSign className="w-[11px] h-[11px] text-text-mute" />
-              <span className="font-kosugi text-[9px] text-text-mute uppercase tracking-wider">
+              <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
                 {t("mining.pricingFacts")}
               </span>
             </div>
@@ -246,7 +246,7 @@ export function AiDatabaseMining({ onComplete }: AiDatabaseMiningProps) {
           <div className="px-2 py-1.5 rounded border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.03)]">
             <div className="flex items-center gap-1 mb-[2px]">
               <Users className="w-[11px] h-[11px] text-text-mute" />
-              <span className="font-kosugi text-[9px] text-text-mute uppercase tracking-wider">
+              <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
                 {t("mining.clientRelationships")}
               </span>
             </div>
@@ -257,7 +257,7 @@ export function AiDatabaseMining({ onComplete }: AiDatabaseMiningProps) {
           <div className="px-2 py-1.5 rounded border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.03)]">
             <div className="flex items-center gap-1 mb-[2px]">
               <TrendingUp className="w-[11px] h-[11px] text-text-mute" />
-              <span className="font-kosugi text-[9px] text-text-mute uppercase tracking-wider">
+              <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
                 {t("mining.seasonalPatterns")}
               </span>
             </div>
@@ -270,7 +270,7 @@ export function AiDatabaseMining({ onComplete }: AiDatabaseMiningProps) {
 
       {stats && stats.errors.length > 0 && (
         <div className="px-2 py-1 rounded border border-[rgba(196,168,104,0.2)] bg-[rgba(196,168,104,0.06)]">
-          <span className="font-kosugi text-[10px] text-[#C4A868]">
+          <span className="font-kosugi text-micro text-[#C4A868]">
             {stats.errors.length} warning{stats.errors.length !== 1 ? "s" : ""} during mining
           </span>
         </div>

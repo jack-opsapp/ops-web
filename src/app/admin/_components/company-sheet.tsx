@@ -303,7 +303,7 @@ function TeamTab({ users }: { users: CompanyData["usersWithAuth"] }) {
                   {u.first_name} {u.last_name}
                 </span>
                 <span
-                  className="inline-flex items-center px-2 py-0.5 rounded-full font-mohave text-[10px] uppercase border"
+                  className="inline-flex items-center px-2 py-0.5 rounded-full font-mohave text-micro uppercase border"
                   style={{ color: roleColor, borderColor: roleColor, backgroundColor: `${roleColor}1f` }}
                 >
                   {u.role}

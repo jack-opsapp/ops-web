@@ -292,7 +292,7 @@ function NeedsReviewCard({
       {/* Header */}
       <div className="flex items-start gap-2">
         <div className="h-7 w-7 rounded-full bg-ops-accent/15 flex items-center justify-center shrink-0 mt-0.5">
-          <Mail className="h-3.5 w-3.5 text-[#597794]" />
+          <Mail className="h-3.5 w-3.5 text-[#6F94B0]" />
         </div>
         <div className="min-w-0 flex-1">
           <p className="font-mohave text-sm font-medium text-[#E5E5E5] truncate">
@@ -304,7 +304,7 @@ function NeedsReviewCard({
             </p>
           )}
         </div>
-        <span className="font-kosugi text-[10px] text-[#555] uppercase tracking-wider shrink-0">
+        <span className="font-kosugi text-micro text-[#555] uppercase tracking-wider shrink-0">
           {formatDate(item.createdAt)}
         </span>
       </div>
@@ -320,7 +320,7 @@ function NeedsReviewCard({
       <div className="flex items-center gap-2 rounded-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.06)] px-3 py-2">
         <AlertTriangle className="h-3.5 w-3.5 text-[#C4A868] shrink-0" />
         <div className="min-w-0 flex-1">
-          <p className="font-kosugi text-[10px] text-[#C4A868] uppercase tracking-wider">
+          <p className="font-kosugi text-micro text-[#C4A868] uppercase tracking-wider">
             {confidenceLabel(item.matchConfidence)}
           </p>
           {item.suggestedClientName && (
@@ -396,7 +396,7 @@ function UnmatchedCard({
             </p>
           )}
         </div>
-        <span className="font-kosugi text-[10px] text-[#555] uppercase tracking-wider shrink-0">
+        <span className="font-kosugi text-micro text-[#555] uppercase tracking-wider shrink-0">
           {formatDate(item.createdAt)}
         </span>
       </div>
@@ -470,7 +470,7 @@ function MatchedCard({ item, onViewClient }: { item: ReviewItem; onViewClient?: 
             </p>
           )}
         </div>
-        <span className="font-kosugi text-[10px] text-[#555] uppercase tracking-wider shrink-0">
+        <span className="font-kosugi text-micro text-[#555] uppercase tracking-wider shrink-0">
           {formatDate(item.createdAt)}
         </span>
       </div>
@@ -480,7 +480,7 @@ function MatchedCard({ item, onViewClient }: { item: ReviewItem; onViewClient?: 
         <div className="flex items-center gap-2 rounded-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.06)] px-3 py-2">
           <Link2 className="h-3.5 w-3.5 text-[#9DB582] shrink-0" />
           <div className="min-w-0 flex-1">
-            <p className="font-kosugi text-[10px] text-[#9DB582] uppercase tracking-wider">
+            <p className="font-kosugi text-micro text-[#9DB582] uppercase tracking-wider">
               {confidenceLabel(item.matchConfidence)}
             </p>
             <p className="font-mohave text-sm text-[#E5E5E5] truncate mt-0.5">
@@ -490,7 +490,7 @@ function MatchedCard({ item, onViewClient }: { item: ReviewItem; onViewClient?: 
           {item.clientId && onViewClient && (
             <button
               onClick={() => onViewClient(item.clientId!)}
-              className="shrink-0 font-kosugi text-[10px] text-[#597794] hover:text-[#7a9ab8] uppercase tracking-wider transition-colors"
+              className="shrink-0 font-kosugi text-micro text-[#6F94B0] hover:text-[#7a9ab8] uppercase tracking-wider transition-colors"
             >
               View Client
             </button>
@@ -623,9 +623,9 @@ export function EmailReviewPanel({
             key="email-review-backdrop"
             className="fixed inset-0 z-50"
             style={{
-              backgroundColor: "rgba(10, 10, 10, 0.70)",
-              backdropFilter: "blur(20px) saturate(1.2)",
-              WebkitBackdropFilter: "blur(20px) saturate(1.2)",
+              backgroundColor: "var(--surface-glass)",
+              backdropFilter: "blur(28px) saturate(1.3)",
+              WebkitBackdropFilter: "blur(28px) saturate(1.3)",
             }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -674,7 +674,7 @@ export function EmailReviewPanel({
                     {tab.count > 0 && (
                       <span
                         className={cn(
-                          "flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[9px] font-bold",
+                          "flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-micro font-bold",
                           activeTab === tab.key
                             ? "bg-ops-accent text-white"
                             : "bg-[rgba(255,255,255,0.08)] text-[#999]"
@@ -692,7 +692,7 @@ export function EmailReviewPanel({
             <div className="flex-1 overflow-y-auto px-5 py-4">
               {isLoading ? (
                 <div className="flex items-center justify-center py-16">
-                  <Loader2 className="h-5 w-5 animate-spin text-[#597794]" />
+                  <Loader2 className="h-5 w-5 animate-spin text-[#6F94B0]" />
                 </div>
               ) : currentItems.length === 0 ? (
                 <EmptyState tab={activeTab} />
@@ -741,7 +741,7 @@ export function EmailReviewPanel({
 
             {/* ── Footer summary ────────────────────────────────────── */}
             <div className="shrink-0 border-t border-[rgba(255,255,255,0.10)] px-5 py-3">
-              <p className="font-kosugi text-[10px] text-[#555] uppercase tracking-wider">
+              <p className="font-kosugi text-micro text-[#555] uppercase tracking-wider">
                 {allItems.length} total
                 {needsReview.length > 0 &&
                   ` \u00b7 ${needsReview.length} need review`}

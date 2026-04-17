@@ -254,7 +254,7 @@ export function CreateSiteVisitModal({
                     )}
                   >
                     <span
-                      className="w-[20px] h-[20px] rounded-full flex items-center justify-center text-[9px] font-mohave text-white shrink-0"
+                      className="w-[20px] h-[20px] rounded-full flex items-center justify-center text-micro font-mohave text-white shrink-0"
                       style={{ backgroundColor: member.userColor ?? "#59779F" }}
                     >
                       {selected ? (

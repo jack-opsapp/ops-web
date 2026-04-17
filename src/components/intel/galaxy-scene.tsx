@@ -293,7 +293,7 @@ export function GalaxyScene() {
       {/* Loading state */}
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <span className="font-kosugi text-[10px] uppercase tracking-wider text-[#999] animate-pulse">
+          <span className="font-kosugi text-micro uppercase tracking-wider text-[#999] animate-pulse">
             [ LOADING INTEL ]
           </span>
         </div>
@@ -393,14 +393,14 @@ export function GalaxyScene() {
           <div
             className="pointer-events-auto text-left max-w-[260px] px-6 py-5 space-y-3"
             style={{
-              background: "rgba(10, 10, 10, 0.80)",
-              backdropFilter: "blur(20px) saturate(1.2)",
-              WebkitBackdropFilter: "blur(20px) saturate(1.2)",
+              background: "var(--surface-glass-dense)",
+              backdropFilter: "blur(28px) saturate(1.3)",
+              WebkitBackdropFilter: "blur(28px) saturate(1.3)",
               border: "1px solid rgba(255, 255, 255, 0.08)",
               borderRadius: "3px",
             }}
           >
-            <div className="font-kosugi text-[10px] uppercase tracking-wider text-[#597794]">
+            <div className="font-kosugi text-micro uppercase tracking-wider text-[#6F94B0]">
               [ INTEL ]
             </div>
             <div className="font-mohave text-sm text-white leading-relaxed">
@@ -408,11 +408,11 @@ export function GalaxyScene() {
             </div>
             <a
               href="/settings"
-              className="inline-block font-kosugi text-[10px] uppercase tracking-wider px-3 py-1.5 rounded-[2px] transition-colors"
+              className="inline-block font-kosugi text-micro uppercase tracking-wider px-3 py-1.5 rounded-[2px] transition-colors"
               style={{
-                background: "rgba(89, 119, 148, 0.15)",
-                border: "1px solid rgba(89, 119, 148, 0.3)",
-                color: "#597794",
+                background: "rgba(111, 148, 176, 0.15)",
+                border: "1px solid rgba(111, 148, 176, 0.3)",
+                color: "#6F94B0",
               }}
             >
               {t("empty.connectEmail")}
@@ -451,9 +451,9 @@ function FocusedEntityInfo({
     <div
       className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-4 px-4 py-2.5"
       style={{
-        background: "rgba(10, 10, 10, 0.70)",
-        backdropFilter: "blur(20px) saturate(1.2)",
-        WebkitBackdropFilter: "blur(20px) saturate(1.2)",
+        background: "var(--surface-glass)",
+        backdropFilter: "blur(28px) saturate(1.3)",
+        WebkitBackdropFilter: "blur(28px) saturate(1.3)",
         border: "1px solid rgba(255, 255, 255, 0.08)",
         borderRadius: "3px",
       }}
@@ -463,7 +463,7 @@ function FocusedEntityInfo({
         <div className="font-mohave text-sm text-white leading-tight">
           {client.name}
         </div>
-        <div className="font-kosugi text-[8px] uppercase tracking-wider text-[#666]">
+        <div className="font-kosugi text-micro uppercase tracking-wider text-[#666]">
           {client.email || client.phone || client.address || "client"}
         </div>
       </div>
@@ -476,7 +476,7 @@ function FocusedEntityInfo({
             <div className="font-mohave text-sm text-white leading-tight">
               {project.name}
             </div>
-            <div className="font-kosugi text-[8px] uppercase tracking-wider text-[#666]">
+            <div className="font-kosugi text-micro uppercase tracking-wider text-[#666]">
               {typeof project.properties.status === "string" ? project.properties.status : "project"}
               {typeof project.properties.address === "string" && (
                 <span className="ml-2 text-[#555]">{project.properties.address}</span>

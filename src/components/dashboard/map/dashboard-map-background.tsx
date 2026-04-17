@@ -434,7 +434,7 @@ export function DashboardMapBackground() {
           margin: 0;
         }
         .ops-map-popup .leaflet-popup-tip {
-          background: rgba(10, 10, 10, 0.85);
+          background: var(--surface-glass-dense);
           border: 1px solid rgba(255, 255, 255, 0.08);
         }
         .leaflet-control-zoom {

@@ -13,7 +13,7 @@ export function ActionItems({ items }: { items: ActionItem[] }) {
 
   return (
     <div>
-      <h2 className="font-kosugi text-[10px] uppercase tracking-wider text-[#6B6B6B] mb-4">
+      <h2 className="font-kosugi text-micro uppercase tracking-wider text-[#6B6B6B] mb-4">
         Action Items
       </h2>
       <div className="space-y-2">

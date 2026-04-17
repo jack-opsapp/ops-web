@@ -10,14 +10,14 @@ import { useEffect, useState } from "react";
 
 const COLORS = {
   bg: "#000000",
-  cardBg: "rgba(13, 13, 13, 0.6)",
-  border: "rgba(255, 255, 255, 0.2)",
+  cardBg: "rgba(18, 18, 20, 0.78)",
+  border: "rgba(255, 255, 255, 0.09)",
   borderSubtle: "rgba(255, 255, 255, 0.05)",
-  textPrimary: "#E5E5E5",
-  textTertiary: "#777777",
-  textDisabled: "#555555",
-  accent: "#417394",
-  accentHover: "#4d83a6",
+  textPrimary: "#EDEDED",
+  textTertiary: "#8A8A8A",
+  textDisabled: "#6A6A6A",
+  accent: "#6F94B0",
+  accentHover: "#82a8c4",
   error: "#93321A",
   errorMuted: "rgba(147, 50, 26, 0.15)",
   errorBorder: "rgba(147, 50, 26, 0.2)",
@@ -134,10 +134,10 @@ export default function GlobalError({
               width: "100%",
               marginTop: "24px",
               background: COLORS.cardBg,
-              backdropFilter: "blur(20px)",
-              WebkitBackdropFilter: "blur(20px)",
+              backdropFilter: "blur(28px) saturate(1.3)",
+              WebkitBackdropFilter: "blur(28px) saturate(1.3)",
               border: `1px solid ${COLORS.border}`,
-              borderRadius: "8px",
+              borderRadius: "10px",
               overflow: "hidden",
             }}
           >
@@ -203,7 +203,7 @@ export default function GlobalError({
                     style={{
                       margin: "8px 0 0 0",
                       fontFamily: FONTS.mono,
-                      fontSize: "10px",
+                      fontSize: "11px",
                       color: COLORS.textDisabled,
                     }}
                   >
@@ -276,7 +276,7 @@ export default function GlobalError({
             <span
               style={{
                 fontFamily: FONTS.mono,
-                fontSize: "10px",
+                fontSize: "11px",
                 color: COLORS.textDisabled,
               }}
             >

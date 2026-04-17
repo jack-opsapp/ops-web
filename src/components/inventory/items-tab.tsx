@@ -478,7 +478,7 @@ export function ItemsTab({ showCreateForm, onCreateFormOpen, onCreateFormClose }
                           {item.name}
                         </span>
                         {item.description && (
-                          <span className="font-kosugi text-[10px] text-text-mute truncate block max-w-[300px]">
+                          <span className="font-kosugi text-micro text-text-mute truncate block max-w-[300px]">
                             {item.description}
                           </span>
                         )}
@@ -501,7 +501,7 @@ export function ItemsTab({ showCreateForm, onCreateFormOpen, onCreateFormClose }
                     <td className="px-2 py-1.5 hidden md:table-cell">
                       <div className="flex flex-wrap gap-1">
                         {tagIds.length === 0 ? (
-                          <span className="font-kosugi text-[10px] text-text-mute">
+                          <span className="font-kosugi text-micro text-text-mute">
                             —
                           </span>
                         ) : (
@@ -515,7 +515,7 @@ export function ItemsTab({ showCreateForm, onCreateFormOpen, onCreateFormClose }
                                   "inline-flex items-center",
                                   "px-1 py-[1px] rounded-sm",
                                   "bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)]",
-                                  "font-mohave text-[10px] text-text-2 uppercase tracking-wider"
+                                  "font-mohave text-micro text-text-2 uppercase tracking-wider"
                                 )}
                               >
                                 {tagName}

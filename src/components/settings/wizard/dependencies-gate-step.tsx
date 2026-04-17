@@ -34,7 +34,7 @@ export function DependenciesGateStep({ onYes, onNo }: DependenciesGateStepProps)
         <button
           type="button"
           onClick={onYes}
-          className="flex items-center gap-[8px] px-[20px] py-[10px] rounded border border-[rgba(255,255,255,0.08)] bg-[rgba(89,119,148,0.12)] hover:bg-[rgba(89,119,148,0.2)] text-text font-mohave text-body-sm transition-colors"
+          className="flex items-center gap-[8px] px-[20px] py-[10px] rounded border border-[rgba(255,255,255,0.08)] bg-[rgba(111, 148, 176,0.12)] hover:bg-[rgba(111, 148, 176,0.2)] text-text font-mohave text-body-sm transition-colors"
         >
           {t("wizard.dependencies.yes")}
           <ArrowRight className="w-[14px] h-[14px]" />

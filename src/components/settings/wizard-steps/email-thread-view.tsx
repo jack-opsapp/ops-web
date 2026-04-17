@@ -265,14 +265,14 @@ export function EmailThreadView({
                   <div key={thread.threadId} className={ti > 0 ? "mt-2 pt-2 border-t border-white/[0.06]" : ""}>
                     {/* Thread label */}
                     <div className="flex items-center justify-between mb-1.5">
-                      <span className="font-kosugi text-[9px] tracking-[0.1em] uppercase text-[#555]">
+                      <span className="font-kosugi text-micro tracking-[0.1em] uppercase text-[#555]">
                         Thread {ti + 1} · {threadExcerpts.length} emails
                       </span>
                       <a
                         href={thread.gmailUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-1 font-mohave text-[11px] text-[#597794] hover:text-[#6A88A5] transition-colors"
+                        className="flex items-center gap-1 font-mohave text-[11px] text-[#6F94B0] hover:text-[#6A88A5] transition-colors"
                         onClick={(e) => e.stopPropagation()}
                       >
                         Gmail
@@ -298,7 +298,7 @@ export function EmailThreadView({
             {!showAll && hiddenCount > 0 && (
               <button
                 onClick={() => setShowAll(true)}
-                className="font-mohave text-[12px] text-[#597794] hover:text-[#6A88A5] transition-colors"
+                className="font-mohave text-[12px] text-[#6F94B0] hover:text-[#6A88A5] transition-colors"
               >
                 {t("thread.showOlder")} ({hiddenCount} {t("thread.more")})
               </button>
@@ -309,7 +309,7 @@ export function EmailThreadView({
                 href={gmailUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1 font-mohave text-[12px] text-[#597794] hover:text-[#6A88A5] transition-colors"
+                className="flex items-center gap-1 font-mohave text-[12px] text-[#6F94B0] hover:text-[#6A88A5] transition-colors"
               >
                 {t("thread.viewInGmail")}
                 <ExternalLink size={10} />
@@ -342,7 +342,7 @@ function ExcerptRow({
     >
       <span
         className="font-mohave text-[13px] flex-shrink-0 mt-0.5 select-none"
-        style={{ color: excerpt.direction === "inbound" ? "#597794" : "#777" }}
+        style={{ color: excerpt.direction === "inbound" ? "#6F94B0" : "#777" }}
       >
         {excerpt.direction === "inbound" ? "←" : "→"}
       </span>

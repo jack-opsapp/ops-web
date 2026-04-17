@@ -51,7 +51,7 @@ function computeTriageDefault(lead: AnalyzedLead): TriageDecision {
 const DECISION_COLORS: Record<TriageDecision, string> = {
   won: "#9DB582",
   lost: "#6B7280",
-  active: "#597794",
+  active: "#6F94B0",
   discard: "#444",
 };
 
@@ -274,7 +274,7 @@ export function TriageStep({
                   color: DECISION_COLORS[defaultDecision],
                 }}
               >
-                <span className="font-kosugi text-[9px] tracking-[0.1em] uppercase whitespace-nowrap">
+                <span className="font-kosugi text-micro tracking-[0.1em] uppercase whitespace-nowrap">
                   {t("triage.agentSuggests")}: {DECISION_LABELS[defaultDecision]}
                 </span>
               </div>
@@ -301,54 +301,54 @@ export function TriageStep({
             {focused && <div className="flex items-center gap-1.5 pt-3 pb-1 sticky bottom-0 -mx-4 px-2 -mb-4">
               <button
                 onClick={() => triggerAction("1")}
-                className="flex-1 py-1.5 font-kosugi text-[10px] tracking-[0.1em] uppercase border transition-colors flex items-center justify-center gap-1.5"
+                className="flex-1 py-1.5 font-kosugi text-micro tracking-[0.1em] uppercase border transition-colors flex items-center justify-center gap-1.5"
                 style={{
                   borderRadius: 4,
                   borderColor: highlightedKey === "1" ? "#9DB582" : "rgba(157, 181, 130, 0.3)",
                   color: "#9DB582",
-                  background: highlightedKey === "1" ? "rgb(20, 26, 18)" : "rgba(10, 10, 10, 0.90)",
+                  background: highlightedKey === "1" ? "rgb(20, 26, 18)" : "var(--surface-glass-dense)",
                 }}
               >
-                <kbd className="inline-flex items-center justify-center w-[16px] h-[16px] rounded-[2px] border border-current text-[9px] font-mono leading-none opacity-60">1</kbd>
+                <kbd className="inline-flex items-center justify-center w-[16px] h-[16px] rounded-[2px] border border-current text-micro font-mono leading-none opacity-60">1</kbd>
                 {t("triage.won")}
               </button>
               <button
                 onClick={() => triggerAction("2")}
-                className="flex-1 py-1.5 font-kosugi text-[10px] tracking-[0.1em] uppercase border transition-colors flex items-center justify-center gap-1.5"
+                className="flex-1 py-1.5 font-kosugi text-micro tracking-[0.1em] uppercase border transition-colors flex items-center justify-center gap-1.5"
                 style={{
                   borderRadius: 4,
                   borderColor: highlightedKey === "2" ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.1)",
                   color: highlightedKey === "2" ? "#aaa" : "#888",
-                  background: highlightedKey === "2" ? "rgba(255, 255, 255, 0.08)" : "rgba(10, 10, 10, 0.90)",
+                  background: highlightedKey === "2" ? "rgba(255, 255, 255, 0.08)" : "var(--surface-glass-dense)",
                 }}
               >
-                <kbd className="inline-flex items-center justify-center w-[16px] h-[16px] rounded-[2px] border border-current text-[9px] font-mono leading-none opacity-60">2</kbd>
+                <kbd className="inline-flex items-center justify-center w-[16px] h-[16px] rounded-[2px] border border-current text-micro font-mono leading-none opacity-60">2</kbd>
                 {t("triage.lost")}
               </button>
               <button
                 onClick={() => triggerAction("3")}
-                className="flex-1 py-1.5 font-kosugi text-[10px] tracking-[0.1em] uppercase border transition-colors flex items-center justify-center gap-1.5"
+                className="flex-1 py-1.5 font-kosugi text-micro tracking-[0.1em] uppercase border transition-colors flex items-center justify-center gap-1.5"
                 style={{
                   borderRadius: 4,
-                  borderColor: highlightedKey === "3" ? "#597794" : "rgba(89, 119, 148, 0.3)",
-                  color: "#597794",
-                  background: highlightedKey === "3" ? "rgb(18, 24, 30)" : "rgba(10, 10, 10, 0.90)",
+                  borderColor: highlightedKey === "3" ? "#6F94B0" : "rgba(111, 148, 176, 0.3)",
+                  color: "#6F94B0",
+                  background: highlightedKey === "3" ? "rgb(18, 24, 30)" : "var(--surface-glass-dense)",
                 }}
               >
-                <kbd className="inline-flex items-center justify-center w-[16px] h-[16px] rounded-[2px] border border-current text-[9px] font-mono leading-none opacity-60">3</kbd>
+                <kbd className="inline-flex items-center justify-center w-[16px] h-[16px] rounded-[2px] border border-current text-micro font-mono leading-none opacity-60">3</kbd>
                 {t("triage.active")}
               </button>
               <button
                 onClick={() => triggerAction("4")}
-                className="py-1.5 px-2.5 font-kosugi text-[10px] tracking-[0.1em] uppercase border transition-colors flex-shrink-0 flex items-center justify-center gap-1.5"
+                className="py-1.5 px-2.5 font-kosugi text-micro tracking-[0.1em] uppercase border transition-colors flex-shrink-0 flex items-center justify-center gap-1.5"
                 style={{
                   borderRadius: 4,
                   borderColor: highlightedKey === "4" ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.08)",
                   color: highlightedKey === "4" ? "#888" : "#555",
-                  background: highlightedKey === "4" ? "rgba(255, 255, 255, 0.06)" : "rgba(10, 10, 10, 0.90)",
+                  background: highlightedKey === "4" ? "rgba(255, 255, 255, 0.06)" : "var(--surface-glass-dense)",
                 }}
               >
-                <kbd className="inline-flex items-center justify-center w-[16px] h-[16px] rounded-[2px] border border-current text-[9px] font-mono leading-none opacity-60">4</kbd>
+                <kbd className="inline-flex items-center justify-center w-[16px] h-[16px] rounded-[2px] border border-current text-micro font-mono leading-none opacity-60">4</kbd>
                 {t("triage.discard")}
               </button>
             </div>}
@@ -407,7 +407,7 @@ function InlineEditableText({
           }
           e.stopPropagation();
         }}
-        className={`${className} bg-transparent border-b border-[#597794] outline-none w-full`}
+        className={`${className} bg-transparent border-b border-[#6F94B0] outline-none w-full`}
         style={{ borderRadius: 0 }}
       />
     );
@@ -416,7 +416,7 @@ function InlineEditableText({
   return (
     <button
       onClick={() => setEditing(true)}
-      className={`${className} text-left hover:text-[#597794] transition-colors cursor-text block`}
+      className={`${className} text-left hover:text-[#6F94B0] transition-colors cursor-text block`}
       title="Click to edit"
     >
       {value}

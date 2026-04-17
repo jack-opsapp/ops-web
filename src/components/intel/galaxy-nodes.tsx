@@ -359,7 +359,7 @@ function HoverLabel({ nodes }: { nodes: PositionedNode[] }) {
       <div
         className="text-left whitespace-nowrap"
         style={{
-          background: "radial-gradient(ellipse, rgba(10,10,10,0.7) 0%, transparent 70%)",
+          background: "radial-gradient(ellipse, var(--surface-glass) 0%, transparent 70%)",
           padding: "8px 16px",
         }}
       >
@@ -367,11 +367,11 @@ function HoverLabel({ nodes }: { nodes: PositionedNode[] }) {
           {hoveredNode.label}
         </div>
         {hoveredNode.sublabel && (
-          <div className="font-mohave text-[10px] text-[#999] leading-tight mt-0.5">
+          <div className="font-mohave text-micro text-[#999] leading-tight mt-0.5">
             {hoveredNode.sublabel}
           </div>
         )}
-        <div className="font-kosugi text-[8px] uppercase tracking-wider text-[#666] mt-0.5">
+        <div className="font-kosugi text-micro uppercase tracking-wider text-[#666] mt-0.5">
           {hoveredNode.nodeType}
         </div>
       </div>

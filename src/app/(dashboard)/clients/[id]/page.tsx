@@ -616,7 +616,7 @@ export default function ClientDetailPage() {
                   <Users className="w-[14px] h-[14px] text-text-3" />
                   <CardTitle>{t("detail.subClients")}</CardTitle>
                   {subClients.length > 0 && (
-                    <Badge variant="info" className="text-[10px] px-[6px] py-[1px]">
+                    <Badge variant="info" className="text-micro px-[6px] py-[1px]">
                       {subClients.length}
                     </Badge>
                   )}
@@ -682,7 +682,7 @@ export default function ClientDetailPage() {
                               {sc.name}
                             </p>
                             {sc.title && (
-                              <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider">
+                              <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
                                 {sc.title}
                               </span>
                             )}
@@ -694,7 +694,7 @@ export default function ClientDetailPage() {
                           {sc.phoneNumber && (
                             <a
                               href={`tel:${sc.phoneNumber}`}
-                              className="font-mono text-[10px] text-text-3 hover:text-ops-accent transition-colors"
+                              className="font-mono text-micro text-text-3 hover:text-ops-accent transition-colors"
                             >
                               {sc.phoneNumber}
                             </a>
@@ -702,7 +702,7 @@ export default function ClientDetailPage() {
                           {sc.email && (
                             <a
                               href={`mailto:${sc.email}`}
-                              className="font-mono text-[10px] text-ops-accent hover:underline truncate max-w-[140px]"
+                              className="font-mono text-micro text-ops-accent hover:underline truncate max-w-[140px]"
                             >
                               {sc.email}
                             </a>
@@ -736,7 +736,7 @@ export default function ClientDetailPage() {
                   <FolderKanban className="w-[14px] h-[14px] text-text-3" />
                   <CardTitle>{t("detail.activeProjects")}</CardTitle>
                   {activeProjects.length > 0 && (
-                    <Badge variant="info" className="text-[10px] px-[6px] py-[1px]">
+                    <Badge variant="info" className="text-micro px-[6px] py-[1px]">
                       {activeProjects.length}
                     </Badge>
                   )}
@@ -775,12 +775,12 @@ export default function ClientDetailPage() {
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
                           {project.teamMemberIds && project.teamMemberIds.length > 0 && (
-                            <span className="font-mono text-[10px] text-text-mute">
+                            <span className="font-mono text-micro text-text-mute">
                               {project.teamMemberIds.length} crew
                             </span>
                           )}
                           {project.startDate && (
-                            <span className="font-mono text-[10px] text-text-mute">
+                            <span className="font-mono text-micro text-text-mute">
                               {new Date(project.startDate).toLocaleDateString(getDateLocale(locale), {
                                 month: "short",
                                 day: "numeric",
@@ -807,7 +807,7 @@ export default function ClientDetailPage() {
                 <div className="flex items-center gap-[6px]">
                   <FolderKanban className="w-[14px] h-[14px] text-text-mute" />
                   <CardTitle className="text-text-3">{t("detail.completedProjects")}</CardTitle>
-                  <Badge variant="info" className="text-[10px] px-[6px] py-[1px] opacity-60">
+                  <Badge variant="info" className="text-micro px-[6px] py-[1px] opacity-60">
                     {completedProjects.length}
                   </Badge>
                 </div>

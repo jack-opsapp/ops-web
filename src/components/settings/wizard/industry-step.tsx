@@ -70,7 +70,7 @@ export function IndustryStep({ onNext }: IndustryStepProps) {
           <button
             type="button"
             onClick={() => onNext(company.industries)}
-            className="flex items-center gap-[8px] px-[20px] py-[10px] rounded border border-[rgba(255,255,255,0.08)] bg-[rgba(89,119,148,0.12)] hover:bg-[rgba(89,119,148,0.2)] text-text font-mohave text-body-sm transition-colors"
+            className="flex items-center gap-[8px] px-[20px] py-[10px] rounded border border-[rgba(255,255,255,0.08)] bg-[rgba(111, 148, 176,0.12)] hover:bg-[rgba(111, 148, 176,0.2)] text-text font-mohave text-body-sm transition-colors"
           >
             {t("wizard.industry.confirm")}
             <ArrowRight className="w-[14px] h-[14px]" />
@@ -111,8 +111,8 @@ export function IndustryStep({ onNext }: IndustryStepProps) {
         <div
           className="flex items-center gap-[8px] px-[12px] py-[8px] rounded border border-[rgba(255,255,255,0.08)]"
           style={{
-            background: "rgba(10, 10, 10, 0.70)",
-            backdropFilter: "blur(20px) saturate(1.2)",
+            background: "var(--surface-glass)",
+            backdropFilter: "blur(28px) saturate(1.3)",
           }}
         >
           <Search className="w-[14px] h-[14px] text-text-mute flex-shrink-0" />
@@ -134,7 +134,7 @@ export function IndustryStep({ onNext }: IndustryStepProps) {
               key={industry}
               type="button"
               onClick={() => removeTag(industry)}
-              className="flex items-center gap-[4px] px-[8px] py-[3px] rounded border border-[rgba(89,119,148,0.3)] bg-[rgba(89,119,148,0.12)] text-text font-kosugi text-[11px] transition-colors hover:bg-[rgba(89,119,148,0.2)]"
+              className="flex items-center gap-[4px] px-[8px] py-[3px] rounded border border-[rgba(111, 148, 176,0.3)] bg-[rgba(111, 148, 176,0.12)] text-text font-kosugi text-[11px] transition-colors hover:bg-[rgba(111, 148, 176,0.2)]"
             >
               {industry}
               <X className="w-[10px] h-[10px] text-text-2" />
@@ -147,8 +147,8 @@ export function IndustryStep({ onNext }: IndustryStepProps) {
       <div
         className="w-full max-w-[400px] max-h-[240px] overflow-y-auto scrollbar-hide rounded border border-[rgba(255,255,255,0.08)] mb-[24px]"
         style={{
-          background: "rgba(10, 10, 10, 0.70)",
-          backdropFilter: "blur(20px) saturate(1.2)",
+          background: "var(--surface-glass)",
+          backdropFilter: "blur(28px) saturate(1.3)",
         }}
       >
         {filtered.map((industry) => {
@@ -163,7 +163,7 @@ export function IndustryStep({ onNext }: IndustryStepProps) {
               <div
                 className={`w-[16px] h-[16px] rounded-[2px] border flex items-center justify-center flex-shrink-0 transition-colors ${
                   isSelected
-                    ? "border-[#597794] bg-[rgba(89,119,148,0.2)]"
+                    ? "border-[#6F94B0] bg-[rgba(111, 148, 176,0.2)]"
                     : "border-[rgba(255,255,255,0.12)] bg-transparent"
                 }`}
               >
@@ -177,7 +177,7 @@ export function IndustryStep({ onNext }: IndustryStepProps) {
                   >
                     <path
                       d="M2 5L4.2 7.5L8 2.5"
-                      stroke="#597794"
+                      stroke="#6F94B0"
                       strokeWidth="1.5"
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -209,7 +209,7 @@ export function IndustryStep({ onNext }: IndustryStepProps) {
         type="button"
         disabled={selected.length === 0}
         onClick={() => onNext(selected)}
-        className="flex items-center gap-[8px] px-[20px] py-[10px] rounded border border-[rgba(255,255,255,0.08)] bg-[rgba(89,119,148,0.12)] hover:bg-[rgba(89,119,148,0.2)] text-text font-mohave text-body-sm transition-colors disabled:opacity-40 disabled:pointer-events-none"
+        className="flex items-center gap-[8px] px-[20px] py-[10px] rounded border border-[rgba(255,255,255,0.08)] bg-[rgba(111, 148, 176,0.12)] hover:bg-[rgba(111, 148, 176,0.2)] text-text font-mohave text-body-sm transition-colors disabled:opacity-40 disabled:pointer-events-none"
       >
         {t("wizard.industry.continue")}
         <ArrowRight className="w-[14px] h-[14px]" />

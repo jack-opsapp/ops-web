@@ -21,7 +21,7 @@
  *   - Mohave UPPERCASE label
  *   - Kosugi [bracket] caption below
  *   - Borders-only — no shadows
- *   - Accent (#597794) ONLY on the primary tentative state (the most important
+ *   - Accent (#6F94B0) ONLY on the primary tentative state (the most important
  *     action on the task sheet when unconfirmed)
  *   - Transitions use opacity + color only; reduced motion respected via 0ms.
  */
@@ -231,19 +231,19 @@ export function ConfirmScheduleButton({
       disabled={busy}
       className={cn(
         "flex items-center gap-3 min-h-[56px] px-4 rounded-[8px]",
-        "border border-[#597794]",
-        "bg-[rgba(89,119,148,0.08)]",
+        "border border-[#6F94B0]",
+        "bg-[rgba(111, 148, 176,0.08)]",
         "transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]",
-        "hover:bg-[rgba(89,119,148,0.14)]",
+        "hover:bg-[rgba(111, 148, 176,0.14)]",
         "disabled:opacity-50 disabled:cursor-not-allowed",
         "motion-reduce:transition-none",
         className
       )}
     >
       {busy ? (
-        <Loader2 className="w-[16px] h-[16px] text-[#597794] motion-reduce:animate-none animate-spin" />
+        <Loader2 className="w-[16px] h-[16px] text-[#6F94B0] motion-reduce:animate-none animate-spin" />
       ) : (
-        <Circle className="w-[16px] h-[16px] text-[#597794]" />
+        <Circle className="w-[16px] h-[16px] text-[#6F94B0]" />
       )}
       <span className="flex flex-col items-start leading-tight">
         <span className="font-mohave text-[14px] text-text uppercase tracking-[0.04em]">

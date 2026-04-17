@@ -111,7 +111,7 @@ function TemplateFormModal({
         <div className="space-y-3 py-2">
           {/* Name */}
           <div className="space-y-1">
-            <label className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider">
+            <label className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
               {t("field.name")}
             </label>
             <input
@@ -119,14 +119,14 @@ function TemplateFormModal({
               value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
               placeholder={t("field.name.placeholder")}
-              className="w-full px-2.5 py-1.5 rounded-panel bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] font-mohave text-body-sm text-text placeholder:text-text-mute outline-none focus:border-[rgba(89,119,148,0.4)] transition-colors"
+              className="w-full px-2.5 py-1.5 rounded-panel bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] font-mohave text-body-sm text-text placeholder:text-text-mute outline-none focus:border-[rgba(111, 148, 176,0.4)] transition-colors"
               autoFocus
             />
           </div>
 
           {/* Category */}
           <div className="space-y-1">
-            <label className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider">
+            <label className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
               {t("field.category")}
             </label>
             <div className="flex flex-wrap gap-1">
@@ -135,9 +135,9 @@ function TemplateFormModal({
                   key={cat}
                   onClick={() => setForm((f) => ({ ...f, category: cat }))}
                   className={cn(
-                    "px-2 py-0.5 rounded-panel font-kosugi text-[10px] uppercase tracking-wider transition-colors",
+                    "px-2 py-0.5 rounded-panel font-kosugi text-micro uppercase tracking-wider transition-colors",
                     form.category === cat
-                      ? "bg-[rgba(89,119,148,0.15)] text-[#597794] border border-[rgba(89,119,148,0.3)]"
+                      ? "bg-[rgba(111, 148, 176,0.15)] text-[#6F94B0] border border-[rgba(111, 148, 176,0.3)]"
                       : "bg-[rgba(255,255,255,0.04)] text-text-3 border border-[rgba(255,255,255,0.06)] hover:text-text-2"
                   )}
                 >
@@ -149,7 +149,7 @@ function TemplateFormModal({
 
           {/* Subject */}
           <div className="space-y-1">
-            <label className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider">
+            <label className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
               {t("field.subject")}
             </label>
             <input
@@ -157,13 +157,13 @@ function TemplateFormModal({
               value={form.subject}
               onChange={(e) => setForm((f) => ({ ...f, subject: e.target.value }))}
               placeholder={t("field.subject.placeholder")}
-              className="w-full px-2.5 py-1.5 rounded-panel bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] font-mohave text-body-sm text-text placeholder:text-text-mute outline-none focus:border-[rgba(89,119,148,0.4)] transition-colors"
+              className="w-full px-2.5 py-1.5 rounded-panel bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] font-mohave text-body-sm text-text placeholder:text-text-mute outline-none focus:border-[rgba(111, 148, 176,0.4)] transition-colors"
             />
           </div>
 
           {/* Body */}
           <div className="space-y-1">
-            <label className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider">
+            <label className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
               {t("field.body")}
             </label>
             <textarea
@@ -171,13 +171,13 @@ function TemplateFormModal({
               onChange={(e) => setForm((f) => ({ ...f, body: e.target.value }))}
               placeholder={t("field.body.placeholder")}
               rows={6}
-              className="w-full px-2.5 py-1.5 rounded-panel bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] font-mohave text-body-sm text-text placeholder:text-text-mute outline-none focus:border-[rgba(89,119,148,0.4)] transition-colors resize-none leading-relaxed"
+              className="w-full px-2.5 py-1.5 rounded-panel bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] font-mohave text-body-sm text-text placeholder:text-text-mute outline-none focus:border-[rgba(111, 148, 176,0.4)] transition-colors resize-none leading-relaxed"
             />
           </div>
 
           {/* Merge Fields Reference */}
           <div className="px-2.5 py-2 rounded-panel bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.04)]">
-            <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider block mb-1">
+            <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider block mb-1">
               {t("mergeFields.title")}
             </span>
             <div className="space-y-0.5">
@@ -204,7 +204,7 @@ function TemplateFormModal({
         <DialogFooter>
           <button
             onClick={() => onOpenChange(false)}
-            className="px-3 py-1.5 font-kosugi text-[10px] text-text-3 uppercase tracking-wider hover:text-text-2 transition-colors"
+            className="px-3 py-1.5 font-kosugi text-micro text-text-3 uppercase tracking-wider hover:text-text-2 transition-colors"
           >
             {t("cancel")}
           </button>
@@ -248,13 +248,13 @@ function DeleteConfirmModal({
         <DialogFooter>
           <button
             onClick={() => onOpenChange(false)}
-            className="px-3 py-1.5 font-kosugi text-[10px] text-text-3 uppercase tracking-wider hover:text-text-2 transition-colors"
+            className="px-3 py-1.5 font-kosugi text-micro text-text-3 uppercase tracking-wider hover:text-text-2 transition-colors"
           >
             {t("cancel")}
           </button>
           <button
             onClick={onConfirm}
-            className="px-3 py-1.5 rounded-panel bg-[rgba(147,50,26,0.2)] border border-[rgba(147,50,26,0.3)] font-kosugi text-[10px] text-[#93321A] uppercase tracking-wider hover:bg-[rgba(147,50,26,0.3)] transition-colors"
+            className="px-3 py-1.5 rounded-panel bg-[rgba(147,50,26,0.2)] border border-[rgba(147,50,26,0.3)] font-kosugi text-micro text-[#93321A] uppercase tracking-wider hover:bg-[rgba(147,50,26,0.3)] transition-colors"
           >
             {t("delete.confirm.yes")}
           </button>
@@ -306,7 +306,7 @@ export function EmailTemplatesTab() {
         </div>
         <button
           onClick={() => setShowCreateModal(true)}
-          className="flex items-center gap-1.5 px-2.5 py-1 rounded-panel bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.08)] font-kosugi text-[10px] text-text-2 uppercase tracking-wider hover:bg-[rgba(255,255,255,0.1)] hover:text-text transition-colors"
+          className="flex items-center gap-1.5 px-2.5 py-1 rounded-panel bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.08)] font-kosugi text-micro text-text-2 uppercase tracking-wider hover:bg-[rgba(255,255,255,0.1)] hover:text-text transition-colors"
         >
           <Plus className="w-[12px] h-[12px]" />
           {t("create")}
@@ -345,7 +345,7 @@ export function EmailTemplatesTab() {
           (category) => (
             <div key={category}>
               <div className="mb-1.5">
-                <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider">
+                <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
                   {t(`category.${category}`)}
                 </span>
               </div>

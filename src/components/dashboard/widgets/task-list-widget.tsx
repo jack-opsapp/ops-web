@@ -164,7 +164,7 @@ export function TaskListWidget({
           <span className="font-mono text-data-sm font-bold text-text-2">
             {heroCounts.unscheduled}
           </span>
-          <span className="font-kosugi text-[8px] text-text-mute uppercase tracking-wider">
+          <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
             {t("taskList.unscheduledCount") ?? "Unscheduled"}
           </span>
         </div>
@@ -173,7 +173,7 @@ export function TaskListWidget({
           <span className="font-mono text-data-sm font-bold" style={{ color: WT.accent }}>
             {heroCounts.today}
           </span>
-          <span className="font-kosugi text-[8px] text-text-mute uppercase tracking-wider">
+          <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
             {t("taskList.todayCount") ?? "Today"}
           </span>
         </div>
@@ -182,7 +182,7 @@ export function TaskListWidget({
           <span className="font-mono text-data-sm font-bold" style={{ color: heroCounts.overdue > 0 ? WT.error : "var(--text-disabled)" }}>
             {heroCounts.overdue}
           </span>
-          <span className="font-kosugi text-[8px] text-text-mute uppercase tracking-wider">
+          <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
             {t("taskList.overdueCount") ?? "Overdue"}
           </span>
         </div>
@@ -291,7 +291,7 @@ export function TaskListWidget({
           {/* Overdue section */}
           {showDetail(size) && overdueTasks.length > 0 && (
             <div className="mt-2 pt-2 border-t border-border-subtle">
-              <span className="font-kosugi text-[10px] text-text-3 uppercase tracking-widest block mb-1" style={{ color: WT.error }}>
+              <span className="font-kosugi text-micro text-text-3 uppercase tracking-widest block mb-1" style={{ color: WT.error }}>
                 {t("taskList.overdue") ?? "Overdue"}
               </span>
               <AnimatePresence>

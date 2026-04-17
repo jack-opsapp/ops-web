@@ -415,7 +415,7 @@ export interface Opportunity {
   // AI analysis
   aiSummary: string | null;
   aiStageConfidence: number | null;
-  aiStageSignals: string | null;
+  aiStageSignals: string[] | null;
   detectedValue: number | null;
 
   // Denormalized for performance

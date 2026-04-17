@@ -223,7 +223,7 @@ function TeamMemberSelector({
             >
               <div
                 className={cn(
-                  "w-[20px] h-[20px] rounded-full flex items-center justify-center text-[10px]",
+                  "w-[20px] h-[20px] rounded-full flex items-center justify-center text-micro",
                   isSelected
                     ? "bg-ops-accent text-white"
                     : "bg-fill-neutral-dim text-text-3"

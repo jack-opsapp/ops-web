@@ -183,7 +183,7 @@ export function ScheduleTab() {
               className="w-2.5 h-2.5 rounded-full"
               style={{ backgroundColor: SEGMENT_COLORS[key] }}
             />
-            <span className="font-kosugi text-[10px] text-[#6B6B6B]">{label}</span>
+            <span className="font-kosugi text-micro text-[#6B6B6B]">{label}</span>
           </div>
         ))}
       </div>
@@ -195,7 +195,7 @@ export function ScheduleTab() {
           {DAY_HEADERS.map((d) => (
             <div
               key={d}
-              className="py-2 text-center font-mohave text-[10px] uppercase tracking-wider text-[#6B6B6B]"
+              className="py-2 text-center font-mohave text-micro uppercase tracking-wider text-[#6B6B6B]"
             >
               {d}
             </div>
@@ -239,7 +239,7 @@ export function ScheduleTab() {
                     {Object.entries(segments).map(([segment, count]) => (
                       <span
                         key={segment}
-                        className={`inline-flex items-center justify-center min-w-[18px] h-[16px] px-1 rounded-full font-kosugi text-[9px] text-white ${
+                        className={`inline-flex items-center justify-center min-w-[18px] h-[16px] px-1 rounded-full font-kosugi text-micro text-white ${
                           future ? "opacity-30" : ""
                         }`}
                         style={{ backgroundColor: SEGMENT_COLORS[segment] ?? "#6B6B6B" }}
@@ -297,7 +297,7 @@ export function ScheduleTab() {
                     <span className="font-mohave text-[12px] uppercase tracking-wider text-[#A0A0A0]">
                       {type}
                     </span>
-                    <span className="font-kosugi text-[10px] text-[#6B6B6B]">
+                    <span className="font-kosugi text-micro text-[#6B6B6B]">
                       ({emails.length})
                     </span>
                   </div>
@@ -313,14 +313,14 @@ export function ScheduleTab() {
                         <span className="font-kosugi text-[11px] text-[#6B6B6B] flex-1 truncate">
                           {email.subject}
                         </span>
-                        <span className={`font-mohave text-[10px] uppercase flex-shrink-0 ${
+                        <span className={`font-mohave text-micro uppercase flex-shrink-0 ${
                           email.status === "sent" || email.status === "delivered"
                             ? "text-[#9DB582]"
                             : "text-[#93321A]"
                         }`}>
                           {email.status}
                         </span>
-                        <span className="font-kosugi text-[10px] text-[#6B6B6B] flex-shrink-0 w-16 text-right">
+                        <span className="font-kosugi text-micro text-[#6B6B6B] flex-shrink-0 w-16 text-right">
                           {new Date(email.sent_at).toLocaleTimeString("en-US", {
                             hour: "numeric",
                             minute: "2-digit",

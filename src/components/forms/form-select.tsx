@@ -70,7 +70,7 @@ function FormSelect<T extends FieldValues = FieldValues>({
             <SelectTrigger
               id={fieldId}
               className={cn(
-                errorMessage && "border-ops-error focus:border-ops-error focus:shadow-glow-error",
+                errorMessage && "border-ops-error focus:border-ops-error",
                 className
               )}
               aria-invalid={errorMessage ? "true" : undefined}

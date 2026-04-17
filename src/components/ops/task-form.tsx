@@ -317,7 +317,7 @@ function TeamMemberDropdown({
                   .map((m) => (
                     <span
                       key={m.id}
-                      className="w-[20px] h-[20px] rounded-full flex items-center justify-center text-[9px] font-mohave text-white border border-background-input"
+                      className="w-[20px] h-[20px] rounded-full flex items-center justify-center text-micro font-mohave text-white border border-background-input"
                       style={{
                         backgroundColor: m.userColor ?? "#59779F",
                       }}
@@ -363,7 +363,7 @@ function TeamMemberDropdown({
                   >
                     {/* Avatar */}
                     <span
-                      className="w-[24px] h-[24px] rounded-full flex items-center justify-center text-[10px] font-mohave text-white shrink-0"
+                      className="w-[24px] h-[24px] rounded-full flex items-center justify-center text-micro font-mohave text-white shrink-0"
                       style={{
                         backgroundColor: member.userColor ?? "#59779F",
                       }}

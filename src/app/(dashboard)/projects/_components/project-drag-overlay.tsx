@@ -63,7 +63,7 @@ export function ProjectDragOverlay({
           <div
             className="absolute -top-2 -right-2 flex items-center justify-center"
             style={{
-              background: "rgba(10,10,10,0.8)",
+              background: "var(--surface-glass-dense)",
               border: "1px solid rgba(255,255,255,0.15)",
               borderRadius: 10,
               padding: "2px 8px",

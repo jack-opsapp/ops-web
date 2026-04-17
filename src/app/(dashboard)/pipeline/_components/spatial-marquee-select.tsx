@@ -32,8 +32,8 @@ export function SpatialMarqueeSelect(_props: SpatialMarqueeSelectProps) {
         top: y,
         width,
         height,
-        border: "1px solid rgba(89, 119, 148, 0.5)",
-        background: "rgba(89, 119, 148, 0.08)",
+        border: "1px solid rgba(111, 148, 176, 0.5)",
+        background: "rgba(111, 148, 176, 0.08)",
         borderRadius: 2,
         zIndex: 100,
       }}

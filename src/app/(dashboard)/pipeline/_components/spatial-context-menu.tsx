@@ -150,9 +150,9 @@ export function SpatialContextMenu({
           <div
             className="rounded-[4px] overflow-hidden"
             style={{
-              background: "rgba(10, 10, 10, 0.70)",
-              backdropFilter: "blur(20px) saturate(1.2)",
-              WebkitBackdropFilter: "blur(20px) saturate(1.2)",
+              background: "var(--surface-glass)",
+              backdropFilter: "blur(28px) saturate(1.3)",
+              WebkitBackdropFilter: "blur(28px) saturate(1.3)",
               border: "1px solid rgba(255, 255, 255, 0.08)",
               width: contextMenu.type === "selection" ? 220 : 180,
             }}
@@ -256,9 +256,9 @@ export function SpatialContextMenu({
                     <div
                       className="absolute left-full top-0 ml-1 rounded-[4px] overflow-hidden"
                       style={{
-                        background: "rgba(10, 10, 10, 0.70)",
-                        backdropFilter: "blur(20px) saturate(1.2)",
-                        WebkitBackdropFilter: "blur(20px) saturate(1.2)",
+                        background: "var(--surface-glass)",
+                        backdropFilter: "blur(28px) saturate(1.3)",
+                        WebkitBackdropFilter: "blur(28px) saturate(1.3)",
                         border: "1px solid rgba(255, 255, 255, 0.08)",
                         width: 180,
                       }}

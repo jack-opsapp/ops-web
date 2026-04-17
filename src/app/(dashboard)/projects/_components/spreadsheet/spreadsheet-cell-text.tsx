@@ -48,7 +48,7 @@ export function SpreadsheetCellText({ value, canEdit, onCommit }: SpreadsheetCel
           if (e.key === "Escape") cancel();
           if (e.key === "Tab") { e.preventDefault(); commit(); }
         }}
-        className="w-full px-1 py-0.5 bg-[rgba(255,255,255,0.06)] border border-[rgba(89,119,148,0.3)] rounded-sm font-mohave text-body-sm text-text focus:outline-none"
+        className="w-full px-1 py-0.5 bg-[rgba(255,255,255,0.06)] border border-[rgba(111, 148, 176,0.3)] rounded-sm font-mohave text-body-sm text-text focus:outline-none"
       />
     );
   }

@@ -42,7 +42,7 @@ const LEFT_NODE = { nx: 0.25, ny: 0.45 };
 const RIGHT_NODE = { nx: 0.75, ny: 0.45 };
 
 const NEUTRAL = { r: 160, g: 160, b: 160 };
-const BLUE = { r: 89, g: 119, b: 148 }; // #597794
+const BLUE = { r: 89, g: 119, b: 148 }; // #6F94B0
 const AMBER = { r: 196, g: 168, b: 104 }; // #C4A868
 
 const REDUCED_MOTION =

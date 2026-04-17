@@ -164,7 +164,7 @@ export function ProjectDetailModal({ project, open, onOpenChange }: ProjectDetai
                         <p className="font-mohave text-body-sm text-text">
                           {getUserFullName(member)}
                         </p>
-                        <span className="font-kosugi text-[10px] text-text-3 uppercase tracking-wider">
+                        <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider">
                           {member.role}
                         </span>
                       </div>

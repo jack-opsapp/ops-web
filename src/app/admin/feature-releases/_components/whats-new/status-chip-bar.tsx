@@ -21,7 +21,7 @@ export function StatusChipBar({ currentStatus, onStatusChange, disabled }: Statu
               if (!disabled && !isActive) onStatusChange(opt.value);
             }}
             disabled={disabled || isActive}
-            className={`px-2 py-0.5 rounded font-mohave text-[10px] uppercase tracking-wider transition-colors ${
+            className={`px-2 py-0.5 rounded font-mohave text-micro uppercase tracking-wider transition-colors ${
               isActive
                 ? "text-white"
                 : "bg-white/[0.04] text-[#6B6B6B] hover:bg-white/[0.08] hover:text-[#A0A0A0]"

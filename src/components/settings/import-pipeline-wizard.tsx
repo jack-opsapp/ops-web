@@ -769,8 +769,8 @@ export function ImportPipelineWizard({
         className="fixed bottom-4 right-4 z-[100] flex items-center gap-3 px-4 py-3 border border-white/10 cursor-pointer"
         style={{
           background: 'rgba(13, 13, 13, 0.9)',
-          backdropFilter: 'blur(20px) saturate(1.2)',
-          WebkitBackdropFilter: 'blur(20px) saturate(1.2)',
+          backdropFilter: 'blur(28px) saturate(1.3)',
+          WebkitBackdropFilter: 'blur(28px) saturate(1.3)',
           borderRadius: 4,
           minWidth: 280,
         }}
@@ -811,7 +811,7 @@ export function ImportPipelineWizard({
                     animate={{ opacity: 0.5 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.3, ease: EASE }}
-                    className="font-mohave text-[11px] text-[#597794] mb-1 truncate"
+                    className="font-mohave text-[11px] text-[#6F94B0] mb-1 truncate"
                   >
                     Found: {bgVisibleName}
                   </motion.p>
@@ -874,7 +874,7 @@ export function ImportPipelineWizard({
             <h2 className="font-mohave text-lg font-semibold text-white">
               Import Your Pipeline
             </h2>
-            <p className="font-kosugi text-[10px] tracking-[0.15em] uppercase text-[#999]">
+            <p className="font-kosugi text-micro tracking-[0.15em] uppercase text-[#999]">
               {STEP_KEY_MAP[step].toUpperCase()}{step === 4 ? ` · ${SUB_STEP_KEY_MAP[reviewSubStep]}` : ""}
             </p>
           </div>
@@ -932,7 +932,7 @@ export function ImportPipelineWizard({
                   </p>
                   <button
                     onClick={() => goTo(1)}
-                    className="font-kosugi text-[10px] tracking-[0.1em] uppercase text-[#597794] hover:text-white transition-colors"
+                    className="font-kosugi text-micro tracking-[0.1em] uppercase text-[#6F94B0] hover:text-white transition-colors"
                   >
                     ← Back to Connect
                   </button>
@@ -1175,7 +1175,7 @@ export function ImportPipelineWizard({
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setShowCloseConfirm(false)}
-                  className="flex-1 py-2 font-kosugi text-[10px] tracking-[0.1em] uppercase border border-white/10 text-[#999] hover:text-white transition-colors"
+                  className="flex-1 py-2 font-kosugi text-micro tracking-[0.1em] uppercase border border-white/10 text-[#999] hover:text-white transition-colors"
                   style={{ borderRadius: 4 }}
                 >
                   CONTINUE
@@ -1187,7 +1187,7 @@ export function ImportPipelineWizard({
                     invalidateConnections();
                     onOpenChange(false);
                   }}
-                  className="flex-1 py-2 font-kosugi text-[10px] tracking-[0.1em] uppercase bg-ops-accent hover:bg-[#6A88A5] text-white transition-colors"
+                  className="flex-1 py-2 font-kosugi text-micro tracking-[0.1em] uppercase bg-ops-accent hover:bg-[#6A88A5] text-white transition-colors"
                   style={{ borderRadius: 4 }}
                 >
                   CLOSE & SAVE

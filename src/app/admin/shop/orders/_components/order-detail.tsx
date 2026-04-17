@@ -222,7 +222,7 @@ export function OrderDetail({ order }: OrderDetailProps) {
           </p>
           <div className="grid grid-cols-2 gap-4 mb-3">
             <div>
-              <label className="block font-kosugi text-[10px] uppercase tracking-widest text-[#6B6B6B] mb-1">
+              <label className="block font-kosugi text-micro uppercase tracking-widest text-[#6B6B6B] mb-1">
                 Tracking Number *
               </label>
               <input
@@ -233,7 +233,7 @@ export function OrderDetail({ order }: OrderDetailProps) {
               />
             </div>
             <div>
-              <label className="block font-kosugi text-[10px] uppercase tracking-widest text-[#6B6B6B] mb-1">
+              <label className="block font-kosugi text-micro uppercase tracking-widest text-[#6B6B6B] mb-1">
                 Tracking URL
               </label>
               <input

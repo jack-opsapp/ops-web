@@ -490,7 +490,7 @@ export default function SettingsPage() {
                           {i > 0 && (
                             <span
                               className={cn(
-                                "text-text-mute text-[8px] mx-[2px] select-none",
+                                "text-text-mute text-micro mx-[2px] select-none",
                                 "transition-opacity duration-200",
                                 isActive ? "opacity-60" : "opacity-0"
                               )}

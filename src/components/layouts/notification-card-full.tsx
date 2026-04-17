@@ -101,7 +101,7 @@ export function NotificationCardFull({
       style={{
         cursor: notification.actionUrl || isDuplicateReview ? "pointer" : "default",
         borderLeft: notification.persistent
-          ? "2px solid var(--ops-accent, #597794)"
+          ? "2px solid #B5B5B5"
           : undefined,
       }}
     >
@@ -124,7 +124,7 @@ export function NotificationCardFull({
         <span className="font-mohave text-body-sm text-text text-left flex-1">
           {displayTitle}
         </span>
-        <span className="font-mono text-[10px] text-text-mute shrink-0">
+        <span className="font-mono text-micro text-text-mute shrink-0">
           {formatTimestamp(notification.createdAt)}
         </span>
       </div>
@@ -138,7 +138,7 @@ export function NotificationCardFull({
 
       {/* Row 3: Action label (visual indicator — whole card is clickable) */}
       {(isDuplicateReview || (displayActionLabel && notification.actionUrl)) && (
-        <span className="font-kosugi text-[10px] uppercase tracking-wider text-ops-accent inline-block mt-[4px]">
+        <span className="font-kosugi text-micro uppercase tracking-wider text-text-2 inline-block mt-[4px]">
           {isDuplicateReview ? "REVIEW" : displayActionLabel}
         </span>
       )}

@@ -141,7 +141,7 @@ export function InlineEditor() {
         width: rect.width,
         height: rect.height,
         background: "transparent",
-        border: "1px solid rgba(89, 119, 148, 0.5)",
+        border: "1px solid rgba(111, 148, 176, 0.5)",
         borderRadius: 3,
         color: "#FFFFFF",
         fontFamily: "var(--font-mohave), sans-serif",

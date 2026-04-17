@@ -146,7 +146,7 @@ export function PreviewStep({
                     <div className="flex items-center gap-1.5">
                       {item.name}
                       {isDuplicate && (
-                        <Badge variant="warning" className="text-[10px]">
+                        <Badge variant="warning" className="text-micro">
                           DUP
                         </Badge>
                       )}

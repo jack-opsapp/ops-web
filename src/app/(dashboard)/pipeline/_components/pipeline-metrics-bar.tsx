@@ -107,7 +107,7 @@ function StageDistributionBar({ stages }: { stages: StageDistData[] }) {
 
             {/* Tooltip */}
             <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-[6px] opacity-0 group-hover/seg:opacity-100 transition-opacity duration-150 pointer-events-none z-10">
-              <div className="bg-[rgba(10,10,10,0.90)] backdrop-blur-[12px] border border-[rgba(255,255,255,0.1)] rounded-[4px] px-[8px] py-[4px] whitespace-nowrap flex items-center gap-[6px]">
+              <div className="bg-[var(--surface-glass-dense)] backdrop-blur-[12px] border border-[rgba(255,255,255,0.1)] rounded-[4px] px-[8px] py-[4px] whitespace-nowrap flex items-center gap-[6px]">
                 <span
                   className="w-[5px] h-[5px] rounded-full shrink-0"
                   style={{ backgroundColor: s.color }}

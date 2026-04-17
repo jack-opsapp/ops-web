@@ -106,7 +106,7 @@ export function InventoryTab() {
                   <div className="flex items-center gap-2">
                     <span className="font-mohave text-body text-text">{unit.display}</span>
                     {unit.isDefault && (
-                      <span className="font-kosugi text-[10px] text-ops-accent bg-ops-accent-muted px-1.5 py-0.5 rounded">
+                      <span className="font-kosugi text-micro text-ops-accent bg-ops-accent-muted px-1.5 py-0.5 rounded">
                         {t("inventory.default")}
                       </span>
                     )}

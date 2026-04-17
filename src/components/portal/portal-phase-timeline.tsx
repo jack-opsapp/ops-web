@@ -198,7 +198,7 @@ export function PortalPhaseTimeline({ tasks }: PortalPhaseTimelineProps) {
                     </span>
                     {phase.status === "in_progress" && (
                       <span
-                        className="shrink-0 text-[10px] px-2 py-0.5 rounded-full font-medium uppercase tracking-wider"
+                        className="shrink-0 text-micro px-2 py-0.5 rounded-full font-medium uppercase tracking-wider"
                         style={{
                           backgroundColor: `color-mix(in srgb, var(--portal-accent) 15%, transparent)`,
                           color: "var(--portal-accent)",

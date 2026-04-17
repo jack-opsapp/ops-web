@@ -1283,7 +1283,9 @@ export const SyncEngine = {
               updates.stage = sr.newStage;
               updates.stage_entered_at = new Date().toISOString();
               updates.ai_stage_confidence = 1.0;
-              updates.ai_stage_signals = sr.terminalFlag || "ai_evaluated";
+              // ai_stage_signals is text[] — wrap the signal in an array so
+              // Postgres doesn't reject the write with a type error.
+              updates.ai_stage_signals = [sr.terminalFlag || "ai_evaluated"];
               result.stageChanges++;
             }
 

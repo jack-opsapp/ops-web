@@ -209,7 +209,7 @@ export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete
   }, [jobId, pollCallback]);
 
   // Progress bar color — green when complete, accent during analysis
-  const barColor = isComplete ? "#9DB582" : "#597794";
+  const barColor = isComplete ? "#9DB582" : "#6F94B0";
   const percentText = isComplete
     ? `${leadCount} lead${leadCount !== 1 ? "s" : ""} found`
     : `${Math.round(displayProgress)}% complete`;
@@ -256,7 +256,7 @@ export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete
                       animate={{ opacity: 0.5 }}
                       exit={{ opacity: 0 }}
                       transition={{ duration: 0.4, ease: EASE }}
-                      className="font-mohave text-[11px] text-[#597794]"
+                      className="font-mohave text-[11px] text-[#6F94B0]"
                     >
                       {visibleName}
                     </motion.span>
@@ -302,19 +302,19 @@ export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete
                       borderColor: isStageCompleted
                         ? "rgba(157,181,130,0.5)"
                         : isCurrent
-                          ? "rgba(89,119,148,0.5)"
+                          ? "rgba(111, 148, 176,0.5)"
                           : "rgba(255,255,255,0.08)",
                       background: isStageCompleted
                         ? "rgba(157,181,130,0.1)"
                         : isCurrent
-                          ? "rgba(89,119,148,0.1)"
+                          ? "rgba(111, 148, 176,0.1)"
                           : "transparent",
                     }}
                   >
                     {isStageCompleted ? (
                       <CheckCircle size={14} className="text-[#9DB582]" />
                     ) : isCurrent ? (
-                      <div className="w-3 h-3 border-2 border-[#597794]/40 border-t-[#597794] rounded-full animate-spin" />
+                      <div className="w-3 h-3 border-2 border-[#6F94B0]/40 border-t-[#6F94B0] rounded-full animate-spin" />
                     ) : (
                       <Icon size={14} className="text-[#666]" />
                     )}
@@ -331,7 +331,7 @@ export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete
                     <motion.span
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
-                      className="font-mohave text-[11px] text-[#597794] ml-auto"
+                      className="font-mohave text-[11px] text-[#6F94B0] ml-auto"
                     >
                       {message}
                     </motion.span>

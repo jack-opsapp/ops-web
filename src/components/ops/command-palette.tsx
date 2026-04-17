@@ -598,28 +598,28 @@ export function CommandPalette() {
       <div className="flex items-center justify-between px-2 py-1 border-t border-border text-text-mute">
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-[4px]">
-            <kbd className="font-mono text-[10px] px-[4px] py-[1px] rounded bg-fill-neutral-dim border border-border-subtle">
+            <kbd className="font-mono text-micro px-[4px] py-[1px] rounded bg-fill-neutral-dim border border-border-subtle">
               &uarr;
             </kbd>
-            <kbd className="font-mono text-[10px] px-[4px] py-[1px] rounded bg-fill-neutral-dim border border-border-subtle">
+            <kbd className="font-mono text-micro px-[4px] py-[1px] rounded bg-fill-neutral-dim border border-border-subtle">
               &darr;
             </kbd>
-            <span className="font-kosugi text-[10px]">Navigate</span>
+            <span className="font-kosugi text-micro">Navigate</span>
           </div>
           <div className="flex items-center gap-[4px]">
-            <kbd className="font-mono text-[10px] px-[4px] py-[1px] rounded bg-fill-neutral-dim border border-border-subtle">
+            <kbd className="font-mono text-micro px-[4px] py-[1px] rounded bg-fill-neutral-dim border border-border-subtle">
               &crarr;
             </kbd>
-            <span className="font-kosugi text-[10px]">Select</span>
+            <span className="font-kosugi text-micro">Select</span>
           </div>
           <div className="flex items-center gap-[4px]">
-            <kbd className="font-mono text-[10px] px-[6px] py-[1px] rounded bg-fill-neutral-dim border border-border-subtle">
+            <kbd className="font-mono text-micro px-[6px] py-[1px] rounded bg-fill-neutral-dim border border-border-subtle">
               Esc
             </kbd>
-            <span className="font-kosugi text-[10px]">Close</span>
+            <span className="font-kosugi text-micro">Close</span>
           </div>
         </div>
-        <span className="font-mono text-[10px] text-ops-accent">OPS v1.0</span>
+        <span className="font-mono text-micro text-ops-accent">OPS v1.0</span>
       </div>
     </CommandDialog>
   );

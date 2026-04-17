@@ -336,7 +336,7 @@ export function TimelineTaskBlock({
           border: `1px ${isGhost ? "dashed" : "solid"} rgba(${rgbStr}, ${isHovered ? 0.5 : 0.3})`,
           borderLeft: "none",
           borderRadius: "0 3px 3px 0",
-          outline: isSelected ? "1px solid #597794" : "none",
+          outline: isSelected ? "1px solid #6F94B0" : "none",
           outlineOffset: isSelected ? 0 : undefined,
         }}
       >
@@ -371,7 +371,7 @@ export function TimelineTaskBlock({
           {/* Right: task type badge */}
           {!isNarrow && (
             <div
-              className="shrink-0 flex items-center px-[5px] py-[1px] font-kosugi text-[9px] uppercase tracking-wider leading-tight"
+              className="shrink-0 flex items-center px-[5px] py-[1px] font-kosugi text-micro uppercase tracking-wider leading-tight"
               style={{
                 color: textColor,
                 background: `rgba(${rgbStr}, 0.12)`,
@@ -400,9 +400,9 @@ export function TimelineTaskBlock({
               left: 0,
               minWidth: 200,
               maxWidth: 280,
-              background: "rgba(10, 10, 10, 0.70)",
-              backdropFilter: "blur(20px) saturate(1.2)",
-              WebkitBackdropFilter: "blur(20px) saturate(1.2)",
+              background: "var(--surface-glass)",
+              backdropFilter: "blur(28px) saturate(1.3)",
+              WebkitBackdropFilter: "blur(28px) saturate(1.3)",
               border: "1px solid rgba(255, 255, 255, 0.08)",
               borderRadius: 3,
               padding: "8px 10px",
@@ -419,7 +419,7 @@ export function TimelineTaskBlock({
             {/* Client */}
             {clientName && (
               <div
-                className="font-kosugi text-[10px] uppercase tracking-wider leading-tight mt-[2px] truncate"
+                className="font-kosugi text-micro uppercase tracking-wider leading-tight mt-[2px] truncate"
                 style={{ color: "#999999" }}
               >
                 {clientName}
@@ -442,7 +442,7 @@ export function TimelineTaskBlock({
                 style={{ background: borderColor }}
               />
               <span
-                className="font-kosugi text-[10px] uppercase tracking-wider leading-tight"
+                className="font-kosugi text-micro uppercase tracking-wider leading-tight"
                 style={{ color: textColor }}
               >
                 {taskTypeLabel}
@@ -452,7 +452,7 @@ export function TimelineTaskBlock({
             {/* Team members */}
             {event.teamMemberIds.length > 0 && (
               <div
-                className="font-kosugi text-[10px] uppercase tracking-wider leading-tight mt-[3px]"
+                className="font-kosugi text-micro uppercase tracking-wider leading-tight mt-[3px]"
                 style={{ color: "#999999" }}
               >
                 {event.teamMemberIds.length}{" "}
@@ -464,7 +464,7 @@ export function TimelineTaskBlock({
 
             {/* Date range */}
             <div
-              className="font-kosugi text-[10px] uppercase tracking-wider leading-tight mt-[3px]"
+              className="font-kosugi text-micro uppercase tracking-wider leading-tight mt-[3px]"
               style={{ color: "#999999" }}
             >
               {dateRangeStr}

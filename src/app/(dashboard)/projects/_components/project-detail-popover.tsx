@@ -268,12 +268,12 @@ const ProjectDetailPopoverInstance = memo(function ProjectDetailPopoverInstance(
           {project?.address ? (
             <div className="flex items-center gap-1 text-text-3 min-w-0">
               <MapPin className="w-2.5 h-2.5 shrink-0" />
-              <span className="font-kosugi text-[10px] truncate">
+              <span className="font-kosugi text-micro truncate">
                 {project.address}
               </span>
             </div>
           ) : (
-            <span className="font-kosugi text-[10px] text-text-mute">
+            <span className="font-kosugi text-micro text-text-mute">
               {t("detail.noAddress")}
             </span>
           )}
@@ -282,12 +282,12 @@ const ProjectDetailPopoverInstance = memo(function ProjectDetailPopoverInstance(
         {/* Row 2: status + days + overflow */}
         <div className="flex items-center gap-1.5" ref={overflowMenuRef}>
           <span
-            className="font-kosugi text-[9px] uppercase tracking-wide"
+            className="font-kosugi text-micro uppercase tracking-wide"
             style={{ color: statusColor }}
           >
             {statusName}
           </span>
-          <span className="font-kosugi text-[9px] text-text-mute">
+          <span className="font-kosugi text-micro text-text-mute">
             · {daysInStatus}d
           </span>
           {canManage && (
@@ -300,7 +300,7 @@ const ProjectDetailPopoverInstance = memo(function ProjectDetailPopoverInstance(
               </button>
 
               {showOverflowMenu && (
-                <div className="absolute top-full right-0 mt-1 z-50 min-w-[150px] bg-[rgba(10,10,10,0.95)] backdrop-blur-xl border border-[rgba(255,255,255,0.10)] rounded-[4px] p-1">
+                <div className="absolute top-full right-0 mt-1 z-50 min-w-[150px] bg-[var(--surface-glass-dense)] backdrop-blur-xl border border-[rgba(255,255,255,0.10)] rounded-[4px] p-1">
                   {canCreateTasks && (
                     <button
                       onClick={() => {

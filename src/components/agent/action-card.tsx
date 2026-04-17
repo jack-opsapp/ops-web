@@ -917,7 +917,7 @@ export const ActionCard = memo(function ActionCard({
                 "w-[20px] h-[20px] rounded-[2px] border transition-colors",
                 // Fix 21: checkbox is the ONE accent element (selection indicator)
                 selected
-                  ? "bg-ops-accent border-[#597794]"
+                  ? "bg-ops-accent border-[#6F94B0]"
                   : "border-[rgba(255,255,255,0.12)] hover:border-[rgba(255,255,255,0.24)]"
               )}
             >
@@ -1180,7 +1180,7 @@ export const ActionCard = memo(function ActionCard({
               </div>
               <div className="flex items-center gap-1">
                 <Route className="w-[12px] h-[12px] text-text-3" />
-                <span className="font-kosugi text-[11px] text-[#597794]">
+                <span className="font-kosugi text-[11px] text-[#6F94B0]">
                   -{optimizeData.distance_saved_km} km
                 </span>
               </div>
@@ -1288,8 +1288,8 @@ export const ActionCard = memo(function ActionCard({
                 </span>
               </div>
               <div className="flex items-center gap-1">
-                <BellPlus className="w-[12px] h-[12px] text-[#597794]" />
-                <span className="font-kosugi text-[11px] text-[#597794] uppercase">
+                <BellPlus className="w-[12px] h-[12px] text-[#6F94B0]" />
+                <span className="font-kosugi text-[11px] text-[#6F94B0] uppercase">
                   {tComms("label.tomorrow")}
                 </span>
               </div>
@@ -1340,7 +1340,7 @@ export const ActionCard = memo(function ActionCard({
                   )}
                 </span>
                 <ArrowRight className="w-[10px] h-[10px] text-text-3" />
-                <span className="font-mono text-[11px] text-[#597794]">
+                <span className="font-mono text-[11px] text-[#6F94B0]">
                   {rescheduleRequestData.requested_date
                     ? formatDateTime(
                         rescheduleRequestData.requested_date,
@@ -1424,7 +1424,7 @@ export const ActionCard = memo(function ActionCard({
             <div className="flex items-center gap-1">
               <button
                 onClick={handleApproveWithEdits}
-                className="min-h-[56px] px-4 rounded-[4px] bg-[rgba(89,119,148,0.15)] text-[#597794] font-mohave text-body-sm uppercase hover:bg-[rgba(89,119,148,0.25)] transition-colors"
+                className="min-h-[56px] px-4 rounded-[4px] bg-[rgba(111, 148, 176,0.15)] text-[#6F94B0] font-mohave text-body-sm uppercase hover:bg-[rgba(111, 148, 176,0.25)] transition-colors"
               >
                 {isFinancialInsight ? t("financial.action.acknowledge") : t("action.approve")}
               </button>
@@ -1447,7 +1447,7 @@ export const ActionCard = memo(function ActionCard({
                 action.status === "failed" && "bg-[rgba(147,50,26,0.10)] text-[#93321A]",
                 action.status === "expired" && "bg-[rgba(255,255,255,0.04)] text-text-3",
                 action.status === "cancelled" && "bg-[rgba(255,255,255,0.04)] text-text-3",
-                action.status === "approved" && "bg-[rgba(89,119,148,0.15)] text-[#597794]"
+                action.status === "approved" && "bg-[rgba(111, 148, 176,0.15)] text-[#6F94B0]"
               )}
             >
               [{t(`filter.${action.status}`)}]
@@ -1509,17 +1509,17 @@ export const ActionCard = memo(function ActionCard({
                                 <span className="font-mohave text-body-sm block truncate">
                                   {member.name}
                                 </span>
-                                <span className="font-kosugi text-[10px] text-text-3 block">
+                                <span className="font-kosugi text-micro text-text-3 block">
                                   {member.scheduledTaskCount != null
                                     ? `${member.scheduledTaskCount} ${t("task.tasks")}`
                                     : member.role}
                                 </span>
                               </div>
                               {member.id === selectedMemberId && (
-                                <Check className="w-[14px] h-[14px] text-[#597794] shrink-0" />
+                                <Check className="w-[14px] h-[14px] text-[#6F94B0] shrink-0" />
                               )}
                               {member.hasConflicts && member.id !== selectedMemberId && (
-                                <span className="font-kosugi text-[10px] text-[#C4A868] shrink-0">
+                                <span className="font-kosugi text-micro text-[#C4A868] shrink-0">
                                   {t("task.busy")}
                                 </span>
                               )}
@@ -1574,7 +1574,7 @@ export const ActionCard = memo(function ActionCard({
                       {editingDates ? (
                         <div className="flex items-center gap-2 flex-wrap">
                           <div>
-                            <label className="font-kosugi text-[10px] text-text-3 block mb-0.5">
+                            <label className="font-kosugi text-micro text-text-3 block mb-0.5">
                               {t("task.startDate")}
                             </label>
                             {/* Fix 7 + Fix 21: 56dp date input, neutral focus */}
@@ -1586,7 +1586,7 @@ export const ActionCard = memo(function ActionCard({
                             />
                           </div>
                           <div>
-                            <label className="font-kosugi text-[10px] text-text-3 block mb-0.5">
+                            <label className="font-kosugi text-micro text-text-3 block mb-0.5">
                               {t("task.endDate")}
                             </label>
                             <input
@@ -1714,14 +1714,14 @@ export const ActionCard = memo(function ActionCard({
                                 <span className="font-mohave text-body-sm block truncate">
                                   {member.name}
                                 </span>
-                                <span className="font-kosugi text-[10px] text-text-3 block">
+                                <span className="font-kosugi text-micro text-text-3 block">
                                   {member.scheduledTaskCount != null
                                     ? `${member.scheduledTaskCount} ${t("task.tasks")}`
                                     : member.role}
                                 </span>
                               </div>
                               {member.id === reassignMemberId && (
-                                <Check className="w-[14px] h-[14px] text-[#597794] shrink-0" />
+                                <Check className="w-[14px] h-[14px] text-[#6F94B0] shrink-0" />
                               )}
                             </button>
                           ))}
@@ -1764,7 +1764,7 @@ export const ActionCard = memo(function ActionCard({
                       {editingDates ? (
                         <div className="flex items-center gap-2 flex-wrap">
                           <div>
-                            <label className="font-kosugi text-[10px] text-text-3 block mb-0.5">
+                            <label className="font-kosugi text-micro text-text-3 block mb-0.5">
                               {t("task.startDate")}
                             </label>
                             <input
@@ -1775,7 +1775,7 @@ export const ActionCard = memo(function ActionCard({
                             />
                           </div>
                           <div>
-                            <label className="font-kosugi text-[10px] text-text-3 block mb-0.5">
+                            <label className="font-kosugi text-micro text-text-3 block mb-0.5">
                               {t("task.endDate")}
                             </label>
                             <input
@@ -1911,10 +1911,10 @@ export const ActionCard = memo(function ActionCard({
                       <div className="rounded-[4px] border border-[rgba(255,255,255,0.06)] overflow-hidden">
                         {/* Header */}
                         <div className="grid grid-cols-[1fr_60px_80px_80px] gap-2 px-3 py-1.5 bg-[rgba(255,255,255,0.02)] border-b border-[rgba(255,255,255,0.06)]">
-                          <span className="font-kosugi text-[10px] text-text-3 uppercase">{t("invoice.item")}</span>
-                          <span className="font-kosugi text-[10px] text-text-3 uppercase text-right">{t("invoice.qty")}</span>
-                          <span className="font-kosugi text-[10px] text-text-3 uppercase text-right">{t("invoice.unitPrice")}</span>
-                          <span className="font-kosugi text-[10px] text-text-3 uppercase text-right">{t("invoice.lineTotal")}</span>
+                          <span className="font-kosugi text-micro text-text-3 uppercase">{t("invoice.item")}</span>
+                          <span className="font-kosugi text-micro text-text-3 uppercase text-right">{t("invoice.qty")}</span>
+                          <span className="font-kosugi text-micro text-text-3 uppercase text-right">{t("invoice.unitPrice")}</span>
+                          <span className="font-kosugi text-micro text-text-3 uppercase text-right">{t("invoice.lineTotal")}</span>
                         </div>
 
                         {/* Rows */}
@@ -2321,7 +2321,7 @@ export const ActionCard = memo(function ActionCard({
                         </span>
                         <div className="flex items-center gap-6 flex-wrap px-3 py-2.5 rounded-[4px] bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)]">
                           <div>
-                            <span className="font-kosugi text-[10px] text-text-3 block">
+                            <span className="font-kosugi text-micro text-text-3 block">
                               {t("reminder.onTimeRate")}
                             </span>
                             <span className="font-mono text-[13px] text-text">
@@ -2330,7 +2330,7 @@ export const ActionCard = memo(function ActionCard({
                           </div>
                           {reminderData.payment_summary.avg_days_to_pay != null && (
                             <div>
-                              <span className="font-kosugi text-[10px] text-text-3 block">
+                              <span className="font-kosugi text-micro text-text-3 block">
                                 {t("reminder.avgDays")}
                               </span>
                               <span className="font-mono text-[13px] text-text">
@@ -2339,7 +2339,7 @@ export const ActionCard = memo(function ActionCard({
                             </div>
                           )}
                           <div>
-                            <span className="font-kosugi text-[10px] text-text-3 block">
+                            <span className="font-kosugi text-micro text-text-3 block">
                               {t("health.overdueCount")}
                             </span>
                             <span className="font-mono text-[13px] text-[#C4A868]">
@@ -2410,7 +2410,7 @@ export const ActionCard = memo(function ActionCard({
                             <div key={stop.task_id} className="flex items-start gap-2">
                               <div className="flex flex-col items-center">
                                 <div className="w-[20px] h-[20px] rounded-full border border-[rgba(255,255,255,0.12)] flex items-center justify-center shrink-0">
-                                  <span className="font-mono text-[10px] text-text-3">{idx + 1}</span>
+                                  <span className="font-mono text-micro text-text-3">{idx + 1}</span>
                                 </div>
                                 {idx < optimizeData.current_order.length - 1 && (
                                   <div className="w-[1px] h-[16px] bg-[rgba(255,255,255,0.08)]" />
@@ -2421,7 +2421,7 @@ export const ActionCard = memo(function ActionCard({
                                   {stop.task_title}
                                 </span>
                                 {stop.address && (
-                                  <span className="font-kosugi text-[10px] text-text-3 block truncate">
+                                  <span className="font-kosugi text-micro text-text-3 block truncate">
                                     {stop.address}
                                   </span>
                                 )}
@@ -2429,7 +2429,7 @@ export const ActionCard = memo(function ActionCard({
                             </div>
                           ))}
                         </div>
-                        <span className="font-kosugi text-[10px] text-text-3 mt-2 block">
+                        <span className="font-kosugi text-micro text-text-3 mt-2 block">
                           {optimizeData.current_distance_km} km
                         </span>
                       </div>
@@ -2444,7 +2444,7 @@ export const ActionCard = memo(function ActionCard({
                             <div key={stop.task_id} className="flex items-start gap-2">
                               <div className="flex flex-col items-center">
                                 <div className="w-[20px] h-[20px] rounded-full border border-[rgba(255,255,255,0.24)] flex items-center justify-center shrink-0">
-                                  <span className="font-mono text-[10px] text-text">{idx + 1}</span>
+                                  <span className="font-mono text-micro text-text">{idx + 1}</span>
                                 </div>
                                 {idx < optimizeData.suggested_order.length - 1 && (
                                   <div className="w-[1px] h-[16px] bg-[rgba(255,255,255,0.16)]" />
@@ -2455,7 +2455,7 @@ export const ActionCard = memo(function ActionCard({
                                   {stop.task_title}
                                 </span>
                                 {stop.address && (
-                                  <span className="font-kosugi text-[10px] text-text-3 block truncate">
+                                  <span className="font-kosugi text-micro text-text-3 block truncate">
                                     {stop.address}
                                   </span>
                                 )}
@@ -2463,7 +2463,7 @@ export const ActionCard = memo(function ActionCard({
                             </div>
                           ))}
                         </div>
-                        <span className="font-kosugi text-[10px] text-text-2 mt-2 block">
+                        <span className="font-kosugi text-micro text-text-2 mt-2 block">
                           {optimizeData.suggested_distance_km} km (−{optimizeData.distance_saved_km} km)
                         </span>
                       </div>
@@ -2495,7 +2495,7 @@ export const ActionCard = memo(function ActionCard({
                                 <span className="font-mohave text-[12px] text-text block truncate">
                                   {task.task_title}
                                 </span>
-                                <span className="font-kosugi text-[10px] text-text-3">
+                                <span className="font-kosugi text-micro text-text-3">
                                   {task.project_name} · {formatDateRange(task.start_date, task.end_date, locale)}
                                 </span>
                               </div>
@@ -2504,7 +2504,7 @@ export const ActionCard = memo(function ActionCard({
                         </div>
                         {rescheduleData.suggested_resolution && (
                           <div className="mt-2 px-2 py-2 rounded-[4px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)]">
-                            <span className="font-kosugi text-[10px] text-text-3 block mb-1">
+                            <span className="font-kosugi text-micro text-text-3 block mb-1">
                               [{tSched("conflict.resolution")}]
                             </span>
                             <span className="font-kosugi text-[12px] text-text-2">
@@ -2571,14 +2571,14 @@ export const ActionCard = memo(function ActionCard({
                                 >
                                   <div className="min-w-0">
                                     <span className="font-mohave text-body-sm block truncate">{member.name}</span>
-                                    <span className="font-kosugi text-[10px] text-text-3 block">
+                                    <span className="font-kosugi text-micro text-text-3 block">
                                       {member.scheduledTaskCount != null
                                         ? `${member.scheduledTaskCount} ${t("task.tasks")}`
                                         : member.role}
                                     </span>
                                   </div>
                                   {member.id === rescheduleMemberId && (
-                                    <Check className="w-[14px] h-[14px] text-[#597794] shrink-0" />
+                                    <Check className="w-[14px] h-[14px] text-[#6F94B0] shrink-0" />
                                   )}
                                 </button>
                               ))}
@@ -2627,18 +2627,18 @@ export const ActionCard = memo(function ActionCard({
                                     <span className="font-mohave text-[12px] text-text block truncate">
                                       {task.task_title}
                                     </span>
-                                    <span className="font-kosugi text-[10px] text-text-3">
+                                    <span className="font-kosugi text-micro text-text-3">
                                       {task.project_name}
                                     </span>
                                   </div>
                                   <div className="text-right shrink-0">
                                     {task.current_start_date && (
-                                      <span className="font-kosugi text-[10px] text-text-3 block">
+                                      <span className="font-kosugi text-micro text-text-3 block">
                                         {formatDateRange(task.current_start_date, task.current_end_date, locale)}
                                       </span>
                                     )}
                                     {task.proposed_start_date && (
-                                      <span className="font-kosugi text-[10px] text-text-2 block">
+                                      <span className="font-kosugi text-micro text-text-2 block">
                                         → {formatDateRange(task.proposed_start_date, task.proposed_end_date, locale)}
                                       </span>
                                     )}
@@ -2801,8 +2801,8 @@ export const ActionCard = memo(function ActionCard({
                   >
                     {/* TOMORROW badge */}
                     <div className="flex items-center gap-2">
-                      <BellPlus className="w-[14px] h-[14px] text-[#597794]" />
-                      <span className="font-mohave text-[14px] text-[#597794] uppercase tracking-wider">
+                      <BellPlus className="w-[14px] h-[14px] text-[#6F94B0]" />
+                      <span className="font-mohave text-[14px] text-[#6F94B0] uppercase tracking-wider">
                         {tComms("label.tomorrow")} — {formatDateTime(
                           dayBeforeData.scheduled_date,
                           dayBeforeData.scheduled_time,
@@ -2952,7 +2952,7 @@ export const ActionCard = memo(function ActionCard({
                           )}
                         </span>
                         <ArrowRight className="w-[12px] h-[12px] text-text-3" />
-                        <span className="font-mono text-[11px] text-[#597794]">
+                        <span className="font-mono text-[11px] text-[#6F94B0]">
                           {rescheduleRequestData.requested_date
                             ? formatDateTime(
                                 rescheduleRequestData.requested_date,
@@ -2986,7 +2986,7 @@ export const ActionCard = memo(function ActionCard({
                                 className={cn(
                                   "w-full text-left px-3 py-2 rounded-[4px] flex items-center gap-3 transition-colors min-h-[56px]",
                                   isSelected
-                                    ? "bg-[rgba(89,119,148,0.12)] border border-[rgba(89,119,148,0.5)]"
+                                    ? "bg-[rgba(111, 148, 176,0.12)] border border-[rgba(111, 148, 176,0.5)]"
                                     : "bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.04)]"
                                 )}
                               >
@@ -2995,7 +2995,7 @@ export const ActionCard = memo(function ActionCard({
                                   className={cn(
                                     "w-[16px] h-[16px] rounded-full border-2 shrink-0 flex items-center justify-center",
                                     isSelected
-                                      ? "border-[#597794]"
+                                      ? "border-[#6F94B0]"
                                       : "border-[rgba(255,255,255,0.2)]"
                                   )}
                                 >
@@ -3015,7 +3015,7 @@ export const ActionCard = memo(function ActionCard({
                                       {alt.team_member_name}
                                     </span>
                                   )}
-                                  <span className="font-kosugi text-[10px] text-text-3 mt-0.5 block">
+                                  <span className="font-kosugi text-micro text-text-3 mt-0.5 block">
                                     {interpolate(
                                       tComms(`reasoning.${alt.reasoning.type}`),
                                       alt.reasoning.params

@@ -185,7 +185,7 @@ export default function ProductsPage() {
                         {product.name}
                       </span>
                       {product.description && (
-                        <span className="font-kosugi text-[10px] text-text-mute truncate block max-w-[300px]">
+                        <span className="font-kosugi text-micro text-text-mute truncate block max-w-[300px]">
                           {product.description}
                         </span>
                       )}
@@ -241,7 +241,7 @@ export default function ProductsPage() {
                   <td className="px-2 py-1.5 text-center hidden sm:table-cell">
                     <span
                       className={cn(
-                        "font-kosugi text-[10px] uppercase tracking-wider px-1 py-0.5 rounded",
+                        "font-kosugi text-micro uppercase tracking-wider px-1 py-0.5 rounded",
                         product.isTaxable
                           ? "bg-[rgba(157,181,130,0.15)] text-status-success"
                           : "bg-[rgba(156,163,175,0.1)] text-text-mute"
@@ -499,7 +499,7 @@ function ProductFormModal({
                 </option>
               ))}
             </select>
-            <p className="font-kosugi text-[10px] text-text-mute">
+            <p className="font-kosugi text-micro text-text-mute">
               {t("products.taskTypeHelp")}
             </p>
           </div>
@@ -529,7 +529,7 @@ function ProductFormModal({
           {/* Margin display */}
           {margin !== null && (
             <div className="bg-[rgba(255,255,255,0.02)] border border-border rounded p-1.5">
-              <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider">
+              <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
                 {t("products.margin")}:{" "}
               </span>
               <span className="font-mono text-data-sm text-status-success">

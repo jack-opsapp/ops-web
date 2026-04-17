@@ -153,11 +153,11 @@ function AnalysisProgressBanner({ jobId, wizardOpen, onComplete, onClick }: Anal
           <span className="font-mohave text-body-sm text-[#9DB582] block">
             Analysis complete — {leadCount} lead{leadCount !== 1 ? "s" : ""} found
           </span>
-          <span className="font-kosugi text-[10px] text-text-mute">
+          <span className="font-kosugi text-micro text-text-mute">
             {totalScanned} emails scanned
           </span>
         </div>
-        <span className="font-mohave text-[12px] text-[#597794] shrink-0">
+        <span className="font-mohave text-[12px] text-[#6F94B0] shrink-0">
           Review Leads
         </span>
       </button>
@@ -175,11 +175,11 @@ function AnalysisProgressBanner({ jobId, wizardOpen, onComplete, onClick }: Anal
           <span className="font-mohave text-body-sm text-[#FF6B4A] block">
             Analysis failed
           </span>
-          <span className="font-kosugi text-[10px] text-text-mute">
+          <span className="font-kosugi text-micro text-text-mute">
             {message}
           </span>
         </div>
-        <span className="font-mohave text-[12px] text-[#597794] shrink-0">
+        <span className="font-mohave text-[12px] text-[#6F94B0] shrink-0">
           Retry
         </span>
       </button>
@@ -190,12 +190,12 @@ function AnalysisProgressBanner({ jobId, wizardOpen, onComplete, onClick }: Anal
   return (
     <button
       onClick={onClick}
-      className="w-full flex items-center gap-[8px] px-2 py-1.5 rounded border border-[#597794]/30 bg-ops-accent/08 hover:bg-ops-accent/12 transition-colors text-left"
+      className="w-full flex items-center gap-[8px] px-2 py-1.5 rounded border border-[#6F94B0]/30 bg-ops-accent/08 hover:bg-ops-accent/12 transition-colors text-left"
     >
-      <Search className="w-[16px] h-[16px] text-[#597794] shrink-0" />
+      <Search className="w-[16px] h-[16px] text-[#6F94B0] shrink-0" />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <span className="font-mohave text-body-sm text-[#597794] block">
+          <span className="font-mohave text-body-sm text-[#6F94B0] block">
             Analyzing your inbox...
           </span>
           <span className="font-mohave text-[11px] text-[#666]">
@@ -339,7 +339,7 @@ export function IntegrationsTab() {
           <div className="flex items-center justify-between">
             <CardTitle>{t("integrations.companyGmail")}</CardTitle>
             {companyConnections.length > 0 && (
-              <span className="inline-flex items-center gap-[4px] px-1 py-[3px] rounded-sm font-kosugi text-[10px] uppercase tracking-wider bg-[rgba(107,143,113,0.15)] text-[#6B8F71]">
+              <span className="inline-flex items-center gap-[4px] px-1 py-[3px] rounded-sm font-kosugi text-micro uppercase tracking-wider bg-[rgba(107,143,113,0.15)] text-[#6B8F71]">
                 <Check className="w-[12px] h-[12px]" />
                 {t("integrations.connected")}
               </span>
@@ -369,7 +369,7 @@ export function IntegrationsTab() {
                       <span className="font-mono text-data-sm text-[#6B8F71] block truncate">
                         {conn.email}
                       </span>
-                      <span className="font-kosugi text-[10px] text-text-mute">
+                      <span className="font-kosugi text-micro text-text-mute">
                         {t("integrations.lastSynced")} {formatTimeAgo(conn.lastSyncedAt)}
                       </span>
                     </div>
@@ -413,7 +413,7 @@ export function IntegrationsTab() {
                 <span className="font-mohave text-body text-ops-accent block">
                   Analysis in progress...
                 </span>
-                <span className="font-kosugi text-[10px] text-text-mute">
+                <span className="font-kosugi text-micro text-text-mute">
                   Click to view progress
                 </span>
               </div>
@@ -428,7 +428,7 @@ export function IntegrationsTab() {
                 <span className="font-mohave text-body text-ops-accent block">
                   Import Your Pipeline
                 </span>
-                <span className="font-kosugi text-[10px] text-text-mute">
+                <span className="font-kosugi text-micro text-text-mute">
                   Connect your email and automatically import leads into your pipeline
                 </span>
               </div>
@@ -518,7 +518,7 @@ export function IntegrationsTab() {
                     <span className="font-mohave text-body text-[#9DB582] block">
                       Import complete — activate sync
                     </span>
-                    <span className="font-kosugi text-[10px] text-text-mute">
+                    <span className="font-kosugi text-micro text-text-mute">
                       Your leads are in the pipeline. Finish setup to enable ongoing sync.
                     </span>
                   </div>
@@ -531,7 +531,7 @@ export function IntegrationsTab() {
                       <span className="font-mohave text-body-sm text-amber-600 dark:text-amber-400 block">
                         Pipeline import not configured
                       </span>
-                      <span className="font-kosugi text-[10px] text-text-mute">
+                      <span className="font-kosugi text-micro text-text-mute">
                         Run the import wizard to discover leads in your inbox and activate ongoing sync.
                       </span>
                     </div>
@@ -546,7 +546,7 @@ export function IntegrationsTab() {
                       <span className="font-mohave text-body text-ops-accent block">
                         Import Your Pipeline
                       </span>
-                      <span className="font-kosugi text-[10px] text-text-mute">
+                      <span className="font-kosugi text-micro text-text-mute">
                         Automatically discover leads, classify with AI, and import into your pipeline
                       </span>
                     </div>
@@ -567,7 +567,7 @@ export function IntegrationsTab() {
                   </span>
                   <button
                     onClick={() => openWizard()}
-                    className="ml-auto font-kosugi text-[10px] text-text-mute/50 hover:text-text-mute transition-colors"
+                    className="ml-auto font-kosugi text-micro text-text-mute/50 hover:text-text-mute transition-colors"
                   >
                     re-scan
                   </button>
@@ -603,14 +603,14 @@ export function IntegrationsTab() {
                                   ? `Importing... ${job.processed}/${job.totalEmails} emails`
                                   : `Failed${job.error ? `: ${job.error}` : ""}`}
                             </span>
-                            <span className="font-kosugi text-[10px] text-text-mute">
+                            <span className="font-kosugi text-micro text-text-mute">
                               {formatTimeAgo(new Date(job.createdAt))}
                             </span>
                           </div>
                         </div>
                         <span
                           className={cn(
-                            "px-[6px] py-[2px] rounded-sm font-kosugi text-[9px] uppercase tracking-wider shrink-0",
+                            "px-[6px] py-[2px] rounded-sm font-kosugi text-micro uppercase tracking-wider shrink-0",
                             job.status === "completed" && "bg-[rgba(107,143,113,0.15)] text-[#6B8F71]",
                             job.status === "running" && "bg-ops-accent/15 text-ops-accent",
                             job.status === "failed" && "bg-ops-error/15 text-ops-error",
@@ -669,7 +669,7 @@ function AiSetupCard() {
         <div className="flex items-center justify-between">
           <CardTitle>
             <div className="flex items-center gap-[6px]">
-              <Brain className="w-[16px] h-[16px] text-[#597794]" />
+              <Brain className="w-[16px] h-[16px] text-[#6F94B0]" />
               {t("nav.cardTitle")}
             </div>
           </CardTitle>
@@ -678,14 +678,14 @@ function AiSetupCard() {
       <CardContent>
         <button
           onClick={() => router.push("/settings/integrations/ai-setup")}
-          className="w-full flex items-center gap-[8px] px-2 py-2 rounded border border-[rgba(89,119,148,0.2)] bg-[rgba(89,119,148,0.06)] hover:bg-[rgba(89,119,148,0.12)] hover:border-[rgba(89,119,148,0.3)] transition-colors text-left"
+          className="w-full flex items-center gap-[8px] px-2 py-2 rounded border border-[rgba(111, 148, 176,0.2)] bg-[rgba(111, 148, 176,0.06)] hover:bg-[rgba(111, 148, 176,0.12)] hover:border-[rgba(111, 148, 176,0.3)] transition-colors text-left"
         >
-          <Brain className="w-[18px] h-[18px] text-[#597794] shrink-0" />
+          <Brain className="w-[18px] h-[18px] text-[#6F94B0] shrink-0" />
           <div className="flex-1 min-w-0">
-            <span className="font-mohave text-body text-[#597794] block">
+            <span className="font-mohave text-body text-[#6F94B0] block">
               {t("nav.cardAction")}
             </span>
-            <span className="font-kosugi text-[10px] text-text-mute">
+            <span className="font-kosugi text-micro text-text-mute">
               {t("nav.cardDesc")}
             </span>
           </div>

@@ -63,7 +63,7 @@ export const QueueStatsRibbon = memo(function QueueStatsRibbon({
             className={cn(
               "font-mohave text-[24px] leading-tight mt-1 block",
               isLoading && "animate-pulse",
-              cell.accent ? "text-[#597794]" : "text-text"
+              cell.accent ? "text-[#6F94B0]" : "text-text"
             )}
           >
             {isLoading ? "--" : cell.value}

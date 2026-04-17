@@ -334,7 +334,7 @@ function LoginForm() {
                       setResetSent(false);
                       setError(null);
                     }}
-                    className="font-kosugi text-[10px] text-text-mute hover:text-ops-accent transition-colors"
+                    className="font-kosugi text-micro text-text-mute hover:text-ops-accent transition-colors"
                   >
                     {t("login.forgotPassword")}
                   </button>
@@ -365,7 +365,7 @@ function LoginForm() {
                         setShowForgotPassword(false);
                         setResetSent(false);
                       }}
-                      className="font-kosugi text-[10px] text-ops-accent hover:text-ops-accent-hover transition-colors mt-2"
+                      className="font-kosugi text-micro text-ops-accent hover:text-ops-accent-hover transition-colors mt-2"
                     >
                       {t("login.backToSignIn")}
                     </button>
@@ -399,7 +399,7 @@ function LoginForm() {
                         setShowForgotPassword(false);
                         setError(null);
                       }}
-                      className="w-full text-center font-kosugi text-[10px] text-text-mute hover:text-text-3 transition-colors"
+                      className="w-full text-center font-kosugi text-micro text-text-mute hover:text-text-3 transition-colors"
                     >
                       {t("login.backToSignIn")}
                     </button>

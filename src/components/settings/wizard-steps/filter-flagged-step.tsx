@@ -87,7 +87,7 @@ export function FilterFlaggedStep({
     () => ({
       "1": (item: CarouselItem<AnalyzedLead>): CarouselDecision => {
         setLeadFilterDecision(item.id, true);
-        return { label: "IMPORT", color: "#597794" };
+        return { label: "IMPORT", color: "#6F94B0" };
       },
       "2": (item: CarouselItem<AnalyzedLead>): CarouselDecision => {
         setLeadFilterDecision(item.id, false);
@@ -119,7 +119,7 @@ export function FilterFlaggedStep({
             {/* Flag badge */}
             <div className="flex items-center gap-2">
               <Icon size={14} className="text-[#C4A868] flex-shrink-0" />
-              <span className="font-kosugi text-[10px] tracking-[0.12em] uppercase text-[#C4A868]">
+              <span className="font-kosugi text-micro tracking-[0.12em] uppercase text-[#C4A868]">
                 {t(`filter.reason.${reason}`)}
               </span>
             </div>
@@ -162,9 +162,9 @@ export function FilterFlaggedStep({
                 className="flex-1 py-2.5 font-kosugi text-[11px] tracking-[0.1em] uppercase border transition-colors"
                 style={{
                   borderRadius: 4,
-                  borderColor: highlightedKey === "1" ? "#597794" : "rgba(89, 119, 148, 0.3)",
-                  color: "#597794",
-                  background: highlightedKey === "1" ? "rgb(18, 24, 30)" : "rgba(10, 10, 10, 0.90)",
+                  borderColor: highlightedKey === "1" ? "#6F94B0" : "rgba(111, 148, 176, 0.3)",
+                  color: "#6F94B0",
+                  background: highlightedKey === "1" ? "rgb(18, 24, 30)" : "var(--surface-glass-dense)",
                 }}
               >
                 1: {t("filter.import")}
@@ -176,7 +176,7 @@ export function FilterFlaggedStep({
                   borderRadius: 4,
                   borderColor: highlightedKey === "2" ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.1)",
                   color: "#888",
-                  background: highlightedKey === "2" ? "rgb(16, 16, 16)" : "rgba(10, 10, 10, 0.90)",
+                  background: highlightedKey === "2" ? "rgb(16, 16, 16)" : "var(--surface-glass-dense)",
                 }}
               >
                 2: {t("filter.discard")}

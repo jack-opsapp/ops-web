@@ -407,7 +407,7 @@ export function FlowGalaxyCanvas({
             const gsy = cy + (galaxy.centerY - cam.y) * cam.zoom;
             const glowR = 120 * cam.zoom;
             const g = ctx.createRadialGradient(gsx, gsy, 0, gsx, gsy, glowR);
-            g.addColorStop(0, `rgba(89,119,148,${0.08 * labelAlpha})`);
+            g.addColorStop(0, `rgba(111, 148, 176,${0.08 * labelAlpha})`);
             g.addColorStop(1, 'transparent');
             ctx.fillStyle = g;
             ctx.fillRect(gsx - glowR, gsy - glowR, glowR * 2, glowR * 2);
@@ -537,7 +537,7 @@ export function FlowGalaxyCanvas({
             const badgeY = Math.round(sy - screenR - 4);
 
             // Background pill
-            ctx.fillStyle = 'rgba(10,10,10,0.85)';
+            ctx.fillStyle = 'var(--surface-glass-dense)';
             const pillW = 110;
             const pillH = 52;
             ctx.beginPath();
@@ -552,7 +552,7 @@ export function FlowGalaxyCanvas({
             ctx.font = '11px Mohave, sans-serif';
             ctx.fillStyle = '#E5E5E5';
             ctx.fillText(`${tm.reached} / ${Math.round(tm.reachedPct)}%`, badgeX + 8, badgeY + 15);
-            ctx.fillStyle = 'rgba(89,119,148,1)';
+            ctx.fillStyle = 'rgba(111, 148, 176,1)';
             ctx.fillText(`${tm.converted} / ${Math.round(tm.convertedPct)}%`, badgeX + 8, badgeY + 29);
             ctx.fillStyle = 'rgba(147,65,55,1)';
             ctx.fillText(`${tm.droppedOff} / ${Math.round(tm.droppedOffPct)}%`, badgeX + 8, badgeY + 43);
@@ -581,7 +581,7 @@ export function FlowGalaxyCanvas({
             const labelH = 18;
 
             // Background pill
-            ctx.fillStyle = 'rgba(10,10,10,0.80)';
+            ctx.fillStyle = 'var(--surface-glass-dense)';
             ctx.beginPath();
             ctx.roundRect(lsx - labelW / 2, lsy - labelH / 2, labelW, labelH, 2);
             ctx.fill();

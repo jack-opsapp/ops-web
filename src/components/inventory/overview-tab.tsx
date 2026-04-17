@@ -213,7 +213,7 @@ export function OverviewTab({
               {summary.total}
             </span>
             {deltaText && (
-              <span className="font-kosugi text-[10px] text-text-mute block mt-1">
+              <span className="font-kosugi text-micro text-text-mute block mt-1">
                 {deltaText}
               </span>
             )}
@@ -303,7 +303,7 @@ export function OverviewTab({
                         {item.quantity}
                       </span>
                       {unitDisplay && (
-                        <span className="font-kosugi text-[10px] text-text-mute ml-1">
+                        <span className="font-kosugi text-micro text-text-mute ml-1">
                           {unitDisplay}
                         </span>
                       )}
@@ -324,14 +324,14 @@ export function OverviewTab({
                           return (
                             <span
                               key={tagId}
-                              className="font-kosugi text-[10px] text-text-mute bg-[rgba(255,255,255,0.05)] px-1 py-0.5 rounded"
+                              className="font-kosugi text-micro text-text-mute bg-[rgba(255,255,255,0.05)] px-1 py-0.5 rounded"
                             >
                               {tag.name}
                             </span>
                           );
                         })}
                         {tagIds.length === 0 && (
-                          <span className="font-kosugi text-[10px] text-text-mute">
+                          <span className="font-kosugi text-micro text-text-mute">
                             ---
                           </span>
                         )}
@@ -381,7 +381,7 @@ export function OverviewTab({
                     {okCount > 0 && (
                       <span className="inline-flex items-center gap-1">
                         <span className="w-[6px] h-[6px] rounded-full bg-status-success" />
-                        <span className="font-kosugi text-[10px] text-text-mute">
+                        <span className="font-kosugi text-micro text-text-mute">
                           {okCount} ok
                         </span>
                       </span>
@@ -389,7 +389,7 @@ export function OverviewTab({
                     {warningCount > 0 && (
                       <span className="inline-flex items-center gap-1">
                         <span className="w-[6px] h-[6px] rounded-full bg-status-warning" />
-                        <span className="font-kosugi text-[10px] text-text-mute">
+                        <span className="font-kosugi text-micro text-text-mute">
                           {warningCount} low
                         </span>
                       </span>
@@ -397,13 +397,13 @@ export function OverviewTab({
                     {criticalCount > 0 && (
                       <span className="inline-flex items-center gap-1">
                         <span className="w-[6px] h-[6px] rounded-full bg-status-error" />
-                        <span className="font-kosugi text-[10px] text-text-mute">
+                        <span className="font-kosugi text-micro text-text-mute">
                           {criticalCount} critical
                         </span>
                       </span>
                     )}
                     {itemCount === 0 && (
-                      <span className="font-kosugi text-[10px] text-text-mute">
+                      <span className="font-kosugi text-micro text-text-mute">
                         No items
                       </span>
                     )}

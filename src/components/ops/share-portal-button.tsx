@@ -159,7 +159,7 @@ export function SharePortalButton({
             {/* Context info */}
             {context && (context.estimateId || context.invoiceId || context.projectId) && (
               <div className="px-1.5 py-1 rounded bg-[rgba(255,255,255,0.03)] border border-border-subtle">
-                <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider">
+                <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
                   Linked to:
                 </span>
                 <div className="flex items-center gap-1 mt-[2px]">

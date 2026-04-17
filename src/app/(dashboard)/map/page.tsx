@@ -103,12 +103,12 @@ function ProjectListItem({
               </button>
             )}
           </div>
-          <p className="font-kosugi text-[10px] text-text-3 truncate">
+          <p className="font-kosugi text-micro text-text-3 truncate">
             {project.address || t("map.noAddress")}
           </p>
           <div className="flex items-center gap-1 mt-[2px]">
             <span
-              className="font-mono text-[9px] px-[4px] py-[1px] rounded"
+              className="font-mono text-micro px-[4px] py-[1px] rounded"
               style={{
                 color: statusColor,
                 backgroundColor: `${statusColor}15`,
@@ -117,7 +117,7 @@ function ProjectListItem({
               {project.status}
             </span>
             {!hasLocation && (
-              <span className="font-mono text-[9px] text-text-mute">{t("map.noGps")}</span>
+              <span className="font-mono text-micro text-text-mute">{t("map.noGps")}</span>
             )}
           </div>
         </div>
@@ -202,7 +202,7 @@ export default function MapPage() {
               <span className="font-mohave text-body font-medium text-text uppercase tracking-wider">{t("map.projects")}</span>
             </div>
             <div className="flex items-center gap-[6px]">
-              <span className="font-mono text-[10px] text-text-mute">
+              <span className="font-mono text-micro text-text-mute">
                 {mappableCount}/{filteredProjects.length} {t("map.pinned")}
               </span>
             </div>
@@ -248,7 +248,7 @@ export default function MapPage() {
                   key={filter.value}
                   onClick={() => setStatusFilter(filter.value)}
                   className={cn(
-                    "flex items-center gap-[3px] px-[6px] py-[2px] rounded text-[10px] font-mono transition-colors",
+                    "flex items-center gap-[3px] px-[6px] py-[2px] rounded text-micro font-mono transition-colors",
                     isActive
                       ? "bg-ops-accent/20 text-ops-accent border border-ops-accent/30"
                       : "bg-fill-neutral-dim text-text-mute border border-transparent hover:text-text-3"
@@ -272,7 +272,7 @@ export default function MapPage() {
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-6">
               <Loader2 className="w-[20px] h-[20px] text-ops-accent animate-spin" />
-              <span className="font-mono text-[10px] text-text-mute mt-1">
+              <span className="font-mono text-micro text-text-mute mt-1">
                 {t("map.loadingProjects")}
               </span>
             </div>
@@ -282,7 +282,7 @@ export default function MapPage() {
               <span className="font-mohave text-body-sm text-text-3">
                 {t("map.noProjectsFound")}
               </span>
-              <span className="font-kosugi text-[10px] text-text-mute">
+              <span className="font-kosugi text-micro text-text-mute">
                 {searchQuery ? t("map.tryDifferentSearch") : t("map.createProjectPrompt")}
               </span>
             </div>
@@ -303,10 +303,10 @@ export default function MapPage() {
           <div className="flex items-center gap-1">
             <div className="flex items-center gap-[3px]">
               <span className="w-[4px] h-[4px] rounded-full bg-[#6B8F71]" />
-              <span className="font-mono text-[9px] text-text-mute">{t("map.live")}</span>
+              <span className="font-mono text-micro text-text-mute">{t("map.live")}</span>
             </div>
           </div>
-          <span className="font-mono text-[9px] text-text-mute">
+          <span className="font-mono text-micro text-text-mute">
             {projects.length} {t("map.totalProjects")}
           </span>
         </div>
@@ -328,8 +328,7 @@ export default function MapPage() {
             "w-[36px] h-[36px] rounded-lg",
             "bg-glass glass-surface/90 backdrop-blur border border-border",
             "flex items-center justify-center",
-            "text-text-3 hover:text-text transition-colors",
-            "shadow-floating"
+            "text-text-3 hover:text-text transition-colors"
           )}
           title={showSidebar ? t("map.hideSidebar") : t("map.showSidebar")}
         >
@@ -348,7 +347,7 @@ export default function MapPage() {
             "p-1"
           )}
         >
-          <div className="font-kosugi text-[9px] text-text-mute uppercase tracking-widest mb-[4px]">
+          <div className="font-kosugi text-micro text-text-mute uppercase tracking-widest mb-[4px]">
             {t("map.status")}
           </div>
           <div className="space-y-[3px]">
@@ -364,7 +363,7 @@ export default function MapPage() {
                   className="w-[6px] h-[6px] rounded-full"
                   style={{ backgroundColor: PROJECT_STATUS_COLORS[status] }}
                 />
-                <span className="font-mono text-[9px] text-text-3">{status}</span>
+                <span className="font-mono text-micro text-text-3">{status}</span>
               </div>
             ))}
           </div>

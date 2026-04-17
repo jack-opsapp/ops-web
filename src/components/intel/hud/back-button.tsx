@@ -16,15 +16,15 @@ export function BackButton() {
       onClick={focusBack}
       className="flex items-center gap-2 px-3 py-2 transition-colors group"
       style={{
-        background: "rgba(10, 10, 10, 0.70)",
-        backdropFilter: "blur(20px) saturate(1.2)",
-        WebkitBackdropFilter: "blur(20px) saturate(1.2)",
+        background: "var(--surface-glass)",
+        backdropFilter: "blur(28px) saturate(1.3)",
+        WebkitBackdropFilter: "blur(28px) saturate(1.3)",
         border: "1px solid rgba(255, 255, 255, 0.08)",
         borderRadius: "3px",
       }}
     >
       <ArrowLeft className="w-3.5 h-3.5 text-[#999] group-hover:text-white transition-colors" />
-      <span className="font-kosugi text-[9px] uppercase tracking-wider text-[#999] group-hover:text-white transition-colors">
+      <span className="font-kosugi text-micro uppercase tracking-wider text-[#999] group-hover:text-white transition-colors">
         {t("nav.back")}
       </span>
     </button>

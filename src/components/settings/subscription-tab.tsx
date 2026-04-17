@@ -249,7 +249,7 @@ function PlanCard({
                 {info.displayName}
               </h4>
               {isCurrent && (
-                <span className="font-kosugi text-[9px] text-ops-accent bg-ops-accent-muted px-[6px] py-[2px] rounded-full uppercase tracking-wider shrink-0">
+                <span className="font-kosugi text-micro text-ops-accent bg-ops-accent-muted px-[6px] py-[2px] rounded-full uppercase tracking-wider shrink-0">
                   {t("subscription.currentBadge")}
                 </span>
               )}
@@ -264,7 +264,7 @@ function PlanCard({
             ${info.monthlyPrice}{t("subscription.perMonth")}
           </p>
           {info.annualPrice > 0 && (
-            <p className="font-kosugi text-[10px] text-text-mute">
+            <p className="font-kosugi text-micro text-text-mute">
               ${info.annualPrice}{t("subscription.perYear")}
             </p>
           )}
@@ -371,7 +371,7 @@ export function SubscriptionTab() {
             {/* Plan header */}
             <div className="flex items-center justify-between">
               <div>
-                <span className="font-kosugi text-[10px] text-text-3 uppercase tracking-widest">
+                <span className="font-kosugi text-micro text-text-3 uppercase tracking-widest">
                   {t("subscription.currentPlan")}
                 </span>
                 <h3 className="font-mohave text-heading text-text">
@@ -399,7 +399,7 @@ export function SubscriptionTab() {
             {/* Seat usage */}
             <div className="pt-1.5 border-t border-[rgba(255,255,255,0.06)]">
               <div className="flex items-center justify-between mb-1">
-                <span className="font-kosugi text-[10px] text-text-3 uppercase tracking-wider">
+                <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider">
                   {t("subscription.seatUsage")}
                 </span>
                 <span className="font-mono text-data-sm text-text">
@@ -412,14 +412,14 @@ export function SubscriptionTab() {
                   style={{ width: `${seatPercentage}%` }}
                 />
               </div>
-              <p className="font-kosugi text-[10px] text-text-mute mt-[4px]">
+              <p className="font-kosugi text-micro text-text-mute mt-[4px]">
                 {seatsRemaining} {t("subscription.seatsRemaining")}
               </p>
             </div>
 
             {/* Features */}
             <div className="pt-1.5 border-t border-[rgba(255,255,255,0.06)]">
-              <span className="font-kosugi text-[10px] text-text-3 uppercase tracking-wider">
+              <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider">
                 {t("subscription.planFeatures")}
               </span>
               <div className="space-y-[6px] mt-1">

@@ -43,8 +43,8 @@ export function SpreadsheetBulkBar({
     <div
       className="flex items-center gap-2 px-3 py-1.5 rounded-[4px] border border-border-subtle"
       style={{
-        background: "rgba(10, 10, 10, 0.70)",
-        backdropFilter: "blur(20px) saturate(1.2)",
+        background: "var(--surface-glass)",
+        backdropFilter: "blur(28px) saturate(1.3)",
       }}
     >
       <span className="font-mono text-data-sm text-ops-accent">
@@ -64,8 +64,8 @@ export function SpreadsheetBulkBar({
               <div
                 className="absolute top-full left-0 mt-1 z-[1000] min-w-[140px] p-1 rounded-[4px]"
                 style={{
-                  background: "rgba(10,10,10,0.95)",
-                  backdropFilter: "blur(20px) saturate(1.2)",
+                  background: "var(--surface-glass-dense)",
+                  backdropFilter: "blur(28px) saturate(1.3)",
                   border: "1px solid rgba(255,255,255,0.10)",
                 }}
               >

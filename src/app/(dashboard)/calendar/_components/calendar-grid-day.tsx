@@ -78,11 +78,11 @@ export function CalendarGridDay({
             </span>
             {dayIsToday && (
               <span
-                className="font-kosugi text-[9px] uppercase tracking-wider leading-tight"
+                className="font-kosugi text-micro uppercase tracking-wider leading-tight"
                 style={{
-                  color: "#597794",
-                  background: "rgba(89,119,148,0.15)",
-                  border: "1px solid rgba(89,119,148,0.30)",
+                  color: "#6F94B0",
+                  background: "rgba(111, 148, 176,0.15)",
+                  border: "1px solid rgba(111, 148, 176,0.30)",
                   borderRadius: 2,
                   padding: "2px 6px",
                 }}

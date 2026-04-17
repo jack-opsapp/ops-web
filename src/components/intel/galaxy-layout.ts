@@ -58,7 +58,7 @@ export interface HierarchicalLayoutConfig {
 // ---------------------------------------------------------------------------
 
 export const CLUSTER_COLORS: Record<string, string> = {
-  voice: "#597794",
+  voice: "#6F94B0",
   internal: "#8E8E93",
   client: "#8195B5",
   project: "#B58289",

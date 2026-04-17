@@ -16,10 +16,10 @@ const SelectTrigger = React.forwardRef<
     className={cn(
       "flex h-7 w-full items-center justify-between gap-1",
       "bg-surface-input text-text font-mohave text-body",
-      "px-1.5 py-1.5 rounded-sm",
-      "border border-border",
+      "px-1.5 py-1.5 rounded-[5px]",
+      "border border-[rgba(255,255,255,0.10)]",
       "transition-all duration-150",
-      "focus:border-[rgba(255,255,255,0.20)] focus:outline-none focus:shadow-glow-accent",
+      "focus:border-[rgba(255,255,255,0.20)] focus:outline-none",
       "disabled:cursor-not-allowed disabled:opacity-40",
       "placeholder:text-text-3",
       "[&>span]:truncate",
@@ -72,7 +72,7 @@ const SelectContent = React.forwardRef<
       ref={ref}
       className={cn(
         "relative z-[60] max-h-[300px] min-w-[8rem] overflow-hidden",
-        "bg-glass glass-surface backdrop-blur-xl border border-[rgba(255,255,255,0.2)] rounded",
+        "glass-dense",
         "data-[state=open]:animate-scale-in",
         position === "popper" &&
           "data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1",
@@ -120,7 +120,7 @@ const SelectItem = React.forwardRef<
     ref={ref}
     className={cn(
       "relative flex w-full cursor-pointer select-none items-center",
-      "rounded-sm py-[6px] pl-4 pr-1",
+      "rounded-[4px] py-[6px] pl-4 pr-1",
       "text-body-sm text-text font-mohave",
       "outline-none transition-colors duration-100",
       "focus:bg-fill-neutral-dim focus:text-text",
@@ -131,7 +131,7 @@ const SelectItem = React.forwardRef<
   >
     <span className="absolute left-1 flex h-[14px] w-[14px] items-center justify-center">
       <SelectPrimitive.ItemIndicator>
-        <Check className="h-[14px] w-[14px] text-ops-accent" />
+        <Check className="h-[14px] w-[14px] text-text" />
       </SelectPrimitive.ItemIndicator>
     </span>
     <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>

@@ -16,7 +16,7 @@ export function MetricsToggle({ isVisible, onToggle }: MetricsToggleProps) {
     >
       {isVisible ? "✕" : (
         <>
-          <span className="text-[8px]">▼</span>
+          <span className="text-micro">▼</span>
           <span>Metrics</span>
         </>
       )}

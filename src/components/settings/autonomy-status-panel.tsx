@@ -215,7 +215,7 @@ export function AutonomyStatusPanel({ connectionId }: AutonomyStatusPanelProps) 
       <div className="px-3 py-2.5 rounded-[8px] bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)]">
         {/* Header */}
         <div className="flex items-center gap-2 mb-2">
-          <CurrentIcon className="w-[14px] h-[14px] text-[#597794]" />
+          <CurrentIcon className="w-[14px] h-[14px] text-[#6F94B0]" />
           <span className="font-mohave text-body-sm text-text-2 font-medium uppercase tracking-wide">
             {t("status.title")}
           </span>
@@ -254,7 +254,7 @@ export function AutonomyStatusPanel({ connectionId }: AutonomyStatusPanelProps) 
                 className={cn("h-full rounded-full", !prefersReducedMotion && "transition-all duration-500")}
                 style={{
                   width: `${progressPercent}%`,
-                  backgroundColor: "#597794",
+                  backgroundColor: "#6F94B0",
                 }}
               />
             </div>
@@ -267,7 +267,7 @@ export function AutonomyStatusPanel({ connectionId }: AutonomyStatusPanelProps) 
         {/* What's next */}
         {nextLevelConfig && (
           <div className="pt-2 border-t border-[rgba(255,255,255,0.04)]">
-            <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider block mb-0.5">
+            <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider block mb-0.5">
               {t("status.whatsNext")}
             </span>
             <div className="flex items-start gap-1.5">
@@ -284,7 +284,7 @@ export function AutonomyStatusPanel({ connectionId }: AutonomyStatusPanelProps) 
       <div className="px-3 py-2.5 rounded-[8px] bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)]">
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
-            <Zap className="w-[14px] h-[14px] text-[#597794]" />
+            <Zap className="w-[14px] h-[14px] text-[#6F94B0]" />
             <span className="font-mohave text-body-sm text-text-2 font-medium uppercase tracking-wide">
               {t("autoDraft.title")}
             </span>
@@ -324,7 +324,7 @@ export function AutonomyStatusPanel({ connectionId }: AutonomyStatusPanelProps) 
         </p>
 
         {data.confidence <= 0.75 && (
-          <p className="font-kosugi text-[10px] text-text-mute mt-1">
+          <p className="font-kosugi text-micro text-text-mute mt-1">
             [{t("autoDraft.requiresConfidence")}]
           </p>
         )}

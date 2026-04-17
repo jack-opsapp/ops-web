@@ -118,7 +118,7 @@ function renderPreviewContent(typeId: WidgetTypeId, size: WidgetSize): ReactNode
     default:
       return (
         <div className="h-full rounded-lg bg-glass glass-surface border border-border p-2 flex items-center justify-center">
-          <span className="font-mono text-[9px] text-text-mute">{typeId}</span>
+          <span className="font-mono text-micro text-text-mute">{typeId}</span>
         </div>
       );
   }
@@ -171,7 +171,7 @@ export function WidgetPreview({ typeId }: WidgetPreviewProps) {
                   setPreviewSize(s);
                 }}
                 className={cn(
-                  "px-[6px] py-[1px] rounded-sm font-mono text-[8px] border transition-all duration-150",
+                  "px-[6px] py-[1px] rounded-sm font-mono text-micro border transition-all duration-150",
                   isSelected
                     ? "bg-ops-accent-muted border-ops-accent text-text"
                     : "border-transparent text-text-mute hover:text-text-2"

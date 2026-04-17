@@ -99,12 +99,12 @@ function FormRadioGroup<T extends FieldValues = FieldValues>({
                         "transition-all duration-150",
                         "flex items-center justify-center",
                         isSelected
-                          ? "border-ops-accent shadow-glow-accent"
-                          : "border-border-medium group-hover:border-ops-accent/50"
+                          ? "border-text"
+                          : "border-border-medium group-hover:border-[rgba(255,255,255,0.28)]"
                       )}
                     >
                       {isSelected && (
-                        <div className="h-[8px] w-[8px] rounded-full bg-ops-accent" />
+                        <div className="h-[8px] w-[8px] rounded-full bg-text" />
                       )}
                     </div>
                   </div>

@@ -503,7 +503,7 @@ function ImageThumbnail({
             className="flex items-center gap-1 w-full px-1.5 py-1 rounded-[2px] bg-glass glass-surface/90 border border-border-subtle text-text-2 hover:text-ops-accent transition-colors cursor-pointer"
           >
             <ArrowRight className="w-[10px] h-[10px] shrink-0" />
-            <span className="font-kosugi text-[9px] uppercase tracking-wider truncate">
+            <span className="font-kosugi text-micro uppercase tracking-wider truncate">
               Go to thread
             </span>
           </button>

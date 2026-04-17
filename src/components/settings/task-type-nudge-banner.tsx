@@ -27,7 +27,7 @@ export function TaskTypeNudgeBanner({ variant = "inline" }: TaskTypeNudgeBannerP
   }
 
   return (
-    <div className="flex items-center gap-2 px-3 py-[8px] rounded-md bg-[rgba(89,119,148,0.08)] border border-[rgba(89,119,148,0.15)]">
+    <div className="flex items-center gap-2 px-3 py-[8px] rounded-md bg-[rgba(111, 148, 176,0.08)] border border-[rgba(111, 148, 176,0.15)]">
       <p className="flex-1 font-mohave text-body-sm text-text-2">
         {t("wizard.nudge.message")}
       </p>

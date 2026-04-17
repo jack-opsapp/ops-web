@@ -285,7 +285,7 @@ export function InviteModal({
                   )}
                 </button>
               </div>
-              <p className="font-kosugi text-[10px] text-text-mute">
+              <p className="font-kosugi text-micro text-text-mute">
                 {t("team.companyCodeHint")}
               </p>
             </div>
@@ -363,7 +363,7 @@ export function InviteModal({
                 className="flex-1 min-w-[120px] bg-transparent outline-none font-mohave text-body-sm text-text placeholder:text-text-mute"
               />
             </div>
-            <p className="font-kosugi text-[10px] text-text-mute mt-[4px]">
+            <p className="font-kosugi text-micro text-text-mute mt-[4px]">
               {t("team.multiInviteHint")}
             </p>
           </div>
@@ -392,11 +392,11 @@ export function InviteModal({
             </div>
             {/* Role description */}
             {selectedRole?.description ? (
-              <p className="font-kosugi text-[10px] text-text-3 mt-[2px]">
+              <p className="font-kosugi text-micro text-text-3 mt-[2px]">
                 {selectedRole.description}
               </p>
             ) : (
-              <p className="font-kosugi text-[10px] text-text-mute">
+              <p className="font-kosugi text-micro text-text-mute">
                 {t("team.roleAssignHint")}
               </p>
             )}
@@ -425,7 +425,7 @@ export function InviteModal({
             )}
             {t("team.sendInvite")}
             {entries.length > 0 && (
-              <span className="bg-[rgba(255,255,255,0.15)] px-[6px] py-[1px] rounded-full text-[10px]">
+              <span className="bg-[rgba(255,255,255,0.15)] px-[6px] py-[1px] rounded-full text-micro">
                 {entries.length}
               </span>
             )}

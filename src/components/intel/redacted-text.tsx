@@ -19,7 +19,7 @@ export function RedactedText({ children, className }: RedactedTextProps) {
             className="inline-block rounded-[1px] mx-0.5 relative overflow-hidden"
             style={{
               background: "#1a1a1a",
-              boxShadow: "0 0 8px rgba(89, 119, 148, 0.3)",
+              boxShadow: "0 0 8px rgba(111, 148, 176, 0.3)",
               width: `${part.length * 0.5}em`,
               height: "1em",
               verticalAlign: "middle",

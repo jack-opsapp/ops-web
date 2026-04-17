@@ -258,7 +258,7 @@ export function ExpenseSettingsTab() {
                 {/* Rule type pill */}
                 <span
                   className={cn(
-                    "px-1.5 py-0.5 rounded font-kosugi text-[10px] uppercase tracking-wider",
+                    "px-1.5 py-0.5 rounded font-kosugi text-micro uppercase tracking-wider",
                     rule.ruleType === AutoApproveRuleType.Invoice
                       ? "bg-[rgba(129,149,181,0.15)] text-[#8195B5]"
                       : "bg-[rgba(196,168,104,0.15)] text-[#C4A868]"
@@ -278,7 +278,7 @@ export function ExpenseSettingsTab() {
                 </span>
 
                 {/* Members */}
-                <span className="font-kosugi text-[10px] text-text-3 uppercase tracking-wider">
+                <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider">
                   {rule.appliesToAll
                     ? t("expenses.allMembers")
                     : `${rule.members.length} ${t("expenses.members").toLowerCase()}`}

@@ -47,7 +47,7 @@ export function MapPreferencesTab() {
               onTouchEnd={() => toast.success(`${t("map.toast.zoomSet")} ${mapDefaultZoom}x`)}
               className="w-full accent-ops-accent"
             />
-            <div className="flex justify-between font-kosugi text-[10px] text-text-mute">
+            <div className="flex justify-between font-kosugi text-micro text-text-mute">
               <span>{t("map.zoomOut")}</span>
               <span>{t("map.zoomIn")}</span>
             </div>

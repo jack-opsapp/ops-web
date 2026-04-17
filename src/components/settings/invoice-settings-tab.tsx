@@ -174,7 +174,7 @@ export function InvoiceSettingsTab() {
           className={`
             flex items-center gap-2 px-4 rounded-[4px] font-mohave text-body-sm uppercase transition-colors min-h-[56px]
             ${dirty
-              ? "bg-[rgba(89,119,148,0.15)] text-[#597794] hover:bg-[rgba(89,119,148,0.25)]"
+              ? "bg-[rgba(111, 148, 176,0.15)] text-[#6F94B0] hover:bg-[rgba(111, 148, 176,0.25)]"
               : "bg-[rgba(255,255,255,0.03)] text-text-mute cursor-not-allowed"
             }
           `}
@@ -204,7 +204,7 @@ export function InvoiceSettingsTab() {
               className={`
                 px-4 rounded-[4px] font-mohave text-body-sm transition-colors min-h-[56px]
                 ${config.default_payment_terms === opt.value
-                  ? "bg-[rgba(89,119,148,0.15)] text-[#597794] border border-[#597794]"
+                  ? "bg-[rgba(111, 148, 176,0.15)] text-[#6F94B0] border border-[#6F94B0]"
                   : "bg-[rgba(255,255,255,0.03)] text-text-2 border border-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.16)]"
                 }
               `}
@@ -366,7 +366,7 @@ export function InvoiceSettingsTab() {
                     className={`
                       w-[56px] rounded-[4px] font-mono text-body-sm transition-colors min-h-[56px]
                       ${reminder.max_reminders === n
-                        ? "bg-[rgba(89,119,148,0.15)] text-[#597794] border border-[#597794]"
+                        ? "bg-[rgba(111, 148, 176,0.15)] text-[#6F94B0] border border-[#6F94B0]"
                         : "bg-[rgba(255,255,255,0.03)] text-text-2 border border-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.16)]"
                       }
                     `}
@@ -454,7 +454,7 @@ function ToggleSetting({
           className={`
             w-[44px] h-[24px] rounded-[12px] transition-colors motion-reduce:transition-none relative
             ${checked
-              ? "bg-[rgba(89,119,148,0.4)]"
+              ? "bg-[rgba(111, 148, 176,0.4)]"
               : "bg-[rgba(255,255,255,0.08)]"
             }
           `}

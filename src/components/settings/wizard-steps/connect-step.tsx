@@ -106,7 +106,8 @@ export function ConnectStep({ companyId }: ConnectStepProps) {
         variants={staggerItem}
         className="font-mohave text-[11px] text-[#666] mt-5"
       >
-        You&apos;ll be redirected to authorize access. OPS reads email metadata to find your leads.
+        You&apos;ll be redirected to authorize. OPS requests full mailbox
+        access to find leads, label threads, and draft replies on your behalf.
       </motion.p>
     </motion.div>
   );

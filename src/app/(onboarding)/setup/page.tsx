@@ -535,7 +535,7 @@ export default function SetupPage() {
                 transition={{ duration: 0.8, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
                 className="pointer-events-auto flex flex-col items-center gap-4 px-10 py-8 rounded-sm"
                 style={{
-                  background: "rgba(10, 10, 10, 0.80)",
+                  background: "var(--surface-glass-dense)",
                   backdropFilter: "blur(24px) saturate(1.2)",
                   border: "1px solid rgba(255, 255, 255, 0.08)",
                 }}
@@ -548,20 +548,20 @@ export default function SetupPage() {
                   aria-label="Launch your personalized dashboard"
                   className="group relative px-10 py-4 rounded-sm font-mohave text-[22px] uppercase tracking-[0.15em] text-text transition-all duration-300 overflow-hidden"
                   style={{
-                    background: "rgba(89, 119, 148, 0.12)",
-                    border: "1px solid rgba(89, 119, 148, 0.4)",
-                    boxShadow: "0 0 40px rgba(89, 119, 148, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.05)",
+                    background: "rgba(111, 148, 176, 0.12)",
+                    border: "1px solid rgba(111, 148, 176, 0.4)",
+                    boxShadow: "0 0 40px rgba(111, 148, 176, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.05)",
                   }}
                 >
                   <span className="relative z-10">LAUNCH</span>
                   <div
                     className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
                     style={{
-                      background: "linear-gradient(135deg, rgba(89, 119, 148, 0.15), rgba(89, 119, 148, 0.05))",
+                      background: "linear-gradient(135deg, rgba(111, 148, 176, 0.15), rgba(111, 148, 176, 0.05))",
                     }}
                   />
                 </button>
-                <p className="font-kosugi text-[10px] text-text-mute uppercase tracking-[0.1em]">
+                <p className="font-kosugi text-micro text-text-mute uppercase tracking-[0.1em]">
                   Your dashboard is ready
                 </p>
               </motion.div>

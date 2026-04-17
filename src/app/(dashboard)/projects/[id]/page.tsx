@@ -233,7 +233,7 @@ function SidebarSection({ label, onEdit, children }: { label: string; onEdit?: (
   return (
     <div className="group/section p-2.5 -m-2.5 rounded-panel border border-transparent hover:border-border transition-colors">
       <div className="flex items-center justify-between mb-2">
-        <span className="font-kosugi text-[10px] uppercase tracking-[0.5px] text-text-3">{label}</span>
+        <span className="font-kosugi text-micro uppercase tracking-[0.5px] text-text-3">{label}</span>
         {onEdit && (
           <button onClick={onEdit} className="opacity-0 group-hover/section:opacity-100 transition-opacity text-ops-accent text-[11px] border border-ops-accent/30 rounded-[2px] px-2 py-0.5 hover:bg-ops-accent/10">
             {t("sidebar.edit")}
@@ -248,7 +248,7 @@ function SidebarSection({ label, onEdit, children }: { label: string; onEdit?: (
 function MetricTile({ label, value, colorClass = "text-text" }: { label: string; value: string; colorClass?: string }) {
   return (
     <div className="bg-glass glass-surface border border-border-subtle rounded-panel p-2.5">
-      <span className="font-kosugi text-[9px] uppercase tracking-[0.3px] text-text-3 block">{label}</span>
+      <span className="font-kosugi text-micro uppercase tracking-[0.3px] text-text-3 block">{label}</span>
       <span className={cn("font-mohave text-heading font-semibold block mt-0.5", colorClass)}>{value}</span>
     </div>
   );
@@ -631,7 +631,7 @@ function ProjectSidebar({ project, tasks }: { project: Project; tasks: ProjectTa
                     <p className="font-mohave text-body-sm text-text truncate">
                       {getUserFullName(member)}
                     </p>
-                    <span className="font-kosugi text-[10px] text-text-mute truncate block">
+                    <span className="font-kosugi text-micro text-text-mute truncate block">
                       {typeNames || t("sidebar.noTasksAssigned")}
                     </span>
                   </div>
@@ -672,7 +672,7 @@ function ProjectSidebar({ project, tasks }: { project: Project; tasks: ProjectTa
           </div>
         </div>
         {durationDays !== null && (
-          <p className="font-kosugi text-[10px] text-text-mute mt-1">
+          <p className="font-kosugi text-micro text-text-mute mt-1">
             {durationDays} {t("sidebar.durationDays")}
           </p>
         )}
@@ -903,7 +903,7 @@ function FinancialTab({ project }: { project: Project }) {
     <div className="space-y-3">
       {/* Budget Health Bar */}
       <div className="bg-glass glass-surface border border-border rounded-panel p-4 mb-3">
-        <span className="font-kosugi text-[10px] uppercase tracking-[0.3px] text-text-3 block mb-2">
+        <span className="font-kosugi text-micro uppercase tracking-[0.3px] text-text-3 block mb-2">
           {t("financial.budgetOverview")}
         </span>
         <div className="h-2 rounded-[2px] bg-[rgba(255,255,255,0.06)] overflow-hidden flex">
@@ -924,11 +924,11 @@ function FinancialTab({ project }: { project: Project }) {
         <div className="flex items-center gap-4 mt-2">
           <div className="flex items-center gap-1.5">
             <div className="w-2 h-2 rounded-full bg-financial-profit" />
-            <span className="font-kosugi text-[9px] text-text-mute uppercase">{t("financial.paid")}</span>
+            <span className="font-kosugi text-micro text-text-mute uppercase">{t("financial.paid")}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <div className="w-2 h-2 rounded-full bg-financial-receivables" />
-            <span className="font-kosugi text-[9px] text-text-mute uppercase">{t("financial.outstanding")}</span>
+            <span className="font-kosugi text-micro text-text-mute uppercase">{t("financial.outstanding")}</span>
           </div>
         </div>
       </div>
@@ -936,7 +936,7 @@ function FinancialTab({ project }: { project: Project }) {
       {/* Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
         <Card className="p-2 space-y-0.5">
-          <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider">
+          <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
             {t("financial.estimated")}
           </span>
           <span className="font-mono text-data-lg text-text block">
@@ -944,7 +944,7 @@ function FinancialTab({ project }: { project: Project }) {
           </span>
         </Card>
         <Card className="p-2 space-y-0.5">
-          <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider">
+          <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
             {t("financial.invoiced")}
           </span>
           <span className="font-mono text-data-lg text-financial-revenue block">
@@ -952,7 +952,7 @@ function FinancialTab({ project }: { project: Project }) {
           </span>
         </Card>
         <Card className="p-2 space-y-0.5">
-          <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider">
+          <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
             {t("financial.paid")}
           </span>
           <span className="font-mono text-data-lg text-financial-profit block">
@@ -960,7 +960,7 @@ function FinancialTab({ project }: { project: Project }) {
           </span>
         </Card>
         <Card className="p-2 space-y-0.5">
-          <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider">
+          <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
             {t("financial.outstanding")}
           </span>
           <span className="font-mono text-data-lg text-financial-receivables block">
@@ -1002,7 +1002,7 @@ function FinancialTab({ project }: { project: Project }) {
                     {est.estimateNumber}
                   </span>
                   <span
-                    className="font-kosugi text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-full"
+                    className="font-kosugi text-micro uppercase tracking-wider px-1.5 py-0.5 rounded-full"
                     style={{
                       backgroundColor: `${ESTIMATE_STATUS_COLORS[est.status]}20`,
                       color: ESTIMATE_STATUS_COLORS[est.status],
@@ -1016,7 +1016,7 @@ function FinancialTab({ project }: { project: Project }) {
                     {formatCurrency(est.total)}
                   </span>
                   {est.issueDate && (
-                    <span className="font-mono text-[10px] text-text-mute">
+                    <span className="font-mono text-micro text-text-mute">
                       {new Date(est.issueDate).toLocaleDateString(getDateLocale(locale), {
                         month: "short",
                         day: "numeric",
@@ -1063,7 +1063,7 @@ function FinancialTab({ project }: { project: Project }) {
                     {inv.invoiceNumber}
                   </span>
                   <span
-                    className="font-kosugi text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-full"
+                    className="font-kosugi text-micro uppercase tracking-wider px-1.5 py-0.5 rounded-full"
                     style={{
                       backgroundColor: `${INVOICE_STATUS_COLORS[inv.status]}20`,
                       color: INVOICE_STATUS_COLORS[inv.status],
@@ -1078,13 +1078,13 @@ function FinancialTab({ project }: { project: Project }) {
                       {formatCurrency(inv.total)}
                     </span>
                     {inv.balanceDue > 0 && inv.balanceDue !== inv.total && (
-                      <span className="font-mono text-[10px] text-financial-receivables">
+                      <span className="font-mono text-micro text-financial-receivables">
                         {formatCurrency(inv.balanceDue)} {t("financial.due")}
                       </span>
                     )}
                   </div>
                   {inv.dueDate && (
-                    <span className="font-mono text-[10px] text-text-mute">
+                    <span className="font-mono text-micro text-text-mute">
                       {new Date(inv.dueDate).toLocaleDateString(getDateLocale(locale), {
                         month: "short",
                         day: "numeric",

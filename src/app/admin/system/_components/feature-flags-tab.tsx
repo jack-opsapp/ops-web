@@ -410,7 +410,7 @@ function UserPermissionRow({
             title={`Remove "${p}"`}
           >
             {p}
-            <span className="text-[10px] opacity-50 group-hover:opacity-100">×</span>
+            <span className="text-micro opacity-50 group-hover:opacity-100">×</span>
           </button>
         ))}
 

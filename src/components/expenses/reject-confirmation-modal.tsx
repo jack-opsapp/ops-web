@@ -159,7 +159,7 @@ export function RejectConfirmationModal({
                   {/* Unflag button */}
                   <button
                     type="button"
-                    className="font-kosugi text-[10px] text-text-3 hover:text-text-2 uppercase text-left self-start transition-colors duration-150"
+                    className="font-kosugi text-micro text-text-3 hover:text-text-2 uppercase text-left self-start transition-colors duration-150"
                     onClick={() => onUnflag(expense.id)}
                   >
                     UNFLAG

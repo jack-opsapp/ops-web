@@ -349,7 +349,7 @@ function FlagCard({
         <div className="px-6 pb-4 flex flex-wrap gap-3 items-start">
           {flag.routes.length > 0 && (
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="font-mohave text-[10px] uppercase tracking-widest text-[#6B6B6B]">Routes:</span>
+              <span className="font-mohave text-micro uppercase tracking-widest text-[#6B6B6B]">Routes:</span>
               {flag.routes.map((r) => (
                 <span
                   key={r}
@@ -362,7 +362,7 @@ function FlagCard({
           )}
           {flag.permissions.length > 0 && (
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="font-mohave text-[10px] uppercase tracking-widest text-[#6B6B6B]">Permissions:</span>
+              <span className="font-mohave text-micro uppercase tracking-widest text-[#6B6B6B]">Permissions:</span>
               {flag.permissions.map((p) => (
                 <span
                   key={p}
@@ -379,7 +379,7 @@ function FlagCard({
             title="Edit routes & permissions"
           >
             <Edit2 className="w-3 h-3" />
-            <span className="font-mohave text-[10px] uppercase tracking-widest">Edit</span>
+            <span className="font-mohave text-micro uppercase tracking-widest">Edit</span>
           </button>
         </div>
       )}
@@ -393,7 +393,7 @@ function FlagCard({
             className="flex items-center gap-1 text-[#597794] hover:text-[#8195B5] transition-colors"
           >
             <Plus className="w-3 h-3" />
-            <span className="font-mohave text-[10px] uppercase tracking-widest">Define</span>
+            <span className="font-mohave text-micro uppercase tracking-widest">Define</span>
           </button>
         </div>
       )}
@@ -641,7 +641,7 @@ function PermissionPicker({
               </span>
               <div className="flex items-center gap-2">
                 {cat.modules.flatMap((m) => m.actions).filter((a) => selected.includes(a.id)).length > 0 && (
-                  <span className="font-mono text-[10px] text-[#9DB582]">
+                  <span className="font-mono text-micro text-[#9DB582]">
                     {cat.modules.flatMap((m) => m.actions).filter((a) => selected.includes(a.id)).length} selected
                   </span>
                 )}
@@ -657,7 +657,7 @@ function PermissionPicker({
             {(expandedCat === cat.id || search) && cat.modules.map((mod) => (
               <div key={mod.id}>
                 <div className="px-3 py-1.5 bg-white/[0.01]">
-                  <span className="font-mohave text-[10px] uppercase tracking-widest text-[#6B6B6B]">
+                  <span className="font-mohave text-micro uppercase tracking-widest text-[#6B6B6B]">
                     {mod.label}
                   </span>
                 </div>
@@ -675,7 +675,7 @@ function PermissionPicker({
                       }`}>
                         {action.label}
                       </span>
-                      <span className="font-mono text-[10px] text-[#6B6B6B] ml-2">{action.id}</span>
+                      <span className="font-mono text-micro text-[#6B6B6B] ml-2">{action.id}</span>
                     </div>
                     <div
                       className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${
@@ -821,7 +821,7 @@ function NewFlagForm({
               </div>
               <div>
                 <label className="block font-mohave text-[11px] uppercase tracking-widest text-[#6B6B6B] mb-1.5">
-                  Slug <span className="normal-case text-[10px]">(auto-generated)</span>
+                  Slug <span className="normal-case text-micro">(auto-generated)</span>
                 </label>
                 <input
                   type="text"
@@ -837,7 +837,7 @@ function NewFlagForm({
             </div>
             <div>
               <label className="block font-mohave text-[11px] uppercase tracking-widest text-[#6B6B6B] mb-1.5">
-                Description <span className="normal-case text-[10px]">(optional)</span>
+                Description <span className="normal-case text-micro">(optional)</span>
               </label>
               <input
                 type="text"

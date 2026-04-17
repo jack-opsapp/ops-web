@@ -10,6 +10,8 @@ import { requireSupabase } from "@/lib/supabase/helpers";
 import {
   ProviderApiError,
   ProviderAuthError,
+  ProviderScopeError,
+  SyncTokenExpiredError,
   type EmailProviderInterface,
   type ImageAttachmentMeta,
   type NormalizedEmail,
@@ -21,6 +23,62 @@ import {
 
 const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
 const SCOPES = ["Mail.Read", "Mail.ReadWrite", "Mail.Send"];
+
+/**
+ * Inspect a Graph error response and throw a typed error so sync-engine can
+ * decide whether to mark the connection needs_reconnect, re-seed the delta
+ * link, or surface the error to the caller.
+ *
+ * Graph errors are shaped as { error: { code, message, innerError? } }. Codes
+ * we care about:
+ *   - InvalidAuthenticationToken / 401         → auth (token revoked)
+ *   - Authorization_RequestDenied / 403        → scope (consent missing)
+ *   - syncStateNotFound / syncStateInvalid     → delta link expired (re-seed)
+ *   - 410 Gone on /delta                       → also re-seed
+ */
+function throwForGraphError(
+  status: number,
+  bodyText: string,
+  context: string
+): never {
+  let parsed: { error?: { code?: string; message?: string } } | null = null;
+  try {
+    parsed = JSON.parse(bodyText);
+  } catch {
+    // Non-JSON body — fall through with raw text in the message.
+  }
+  const code = parsed?.error?.code ?? "";
+  const message =
+    parsed?.error?.message ?? bodyText ?? `M365 ${context} failed (${status})`;
+
+  if (status === 401 || code === "InvalidAuthenticationToken") {
+    throw new ProviderAuthError(`M365 ${context}: ${message}`, status);
+  }
+
+  if (
+    status === 403 &&
+    (code === "Authorization_RequestDenied" ||
+      code === "ErrorAccessDenied" ||
+      /scope|permission|consent/i.test(message))
+  ) {
+    throw new ProviderScopeError(
+      `M365 ${context}: ${message}`,
+      status,
+      SCOPES.join(" ")
+    );
+  }
+
+  if (
+    (status === 410 ||
+      code === "syncStateNotFound" ||
+      code === "syncStateInvalid") &&
+    context.includes("delta")
+  ) {
+    throw new SyncTokenExpiredError(`M365 ${context}: ${message}`, status);
+  }
+
+  throw new ProviderApiError(`M365 ${context}: ${message}`, status, parsed ?? bodyText);
+}
 
 export class Microsoft365Provider implements EmailProviderInterface {
   readonly providerType = "microsoft365" as const;
@@ -109,7 +167,8 @@ export class Microsoft365Provider implements EmailProviderInterface {
 
   private async graphFetch(
     path: string,
-    options?: RequestInit
+    options?: RequestInit,
+    context?: string
   ): Promise<Record<string, unknown>> {
     const token = await this.getToken();
     const url = path.startsWith("http") ? path : `${GRAPH_BASE}${path}`;
@@ -123,8 +182,11 @@ export class Microsoft365Provider implements EmailProviderInterface {
     });
 
     if (!res.ok) {
-      const err = await res.text();
-      throw new Error(`Graph API error ${res.status}: ${err}`);
+      // Throw typed errors so sync-engine can mark the connection
+      // needs_reconnect on auth/scope failures and re-seed on
+      // expired delta links. Defaults to ProviderApiError.
+      const body = await res.text().catch(() => "");
+      throwForGraphError(res.status, body, context ?? path);
     }
     return res.json();
   }
@@ -167,7 +229,9 @@ export class Microsoft365Provider implements EmailProviderInterface {
     let nextDeltaLink: string | null = null;
 
     for (let page = 0; page < MAX_PAGES && currentUrl; page++) {
-      const data = await this.graphFetch(currentUrl);
+      // Tag context as "delta" so throwForGraphError can map syncStateNotFound
+      // / syncStateInvalid responses to SyncTokenExpiredError for re-seed.
+      const data = await this.graphFetch(currentUrl, undefined, "delta");
       const value = (data.value as Array<Record<string, unknown>>) || [];
       for (const msg of value) {
         emails.push(this.normalizeM365Message(msg));
@@ -501,7 +565,9 @@ export class Microsoft365Provider implements EmailProviderInterface {
 
   /**
    * Send a draft message. Graph API returns 202 with no body,
-   * so we bypass graphFetch to avoid json parse errors.
+   * so we bypass graphFetch to avoid json parse errors. Errors are still
+   * routed through the typed-error classifier so an auth failure during
+   * send marks the connection needs_reconnect.
    */
   private async graphSend(messageId: string): Promise<void> {
     const token = await this.getToken();
@@ -513,8 +579,8 @@ export class Microsoft365Provider implements EmailProviderInterface {
       }
     );
     if (!res.ok) {
-      const err = await res.text();
-      throw new Error(`M365 send failed: ${res.status} ${err}`);
+      const body = await res.text().catch(() => "");
+      throwForGraphError(res.status, body, "messages/send");
     }
   }
 

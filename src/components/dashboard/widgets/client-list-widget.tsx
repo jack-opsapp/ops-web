@@ -360,7 +360,7 @@ export function ClientListWidget({ size, config }: ClientListWidgetProps) {
                         {formatCompactCurrency(revenue)}
                       </span>
                     )}
-                    <span className="font-mono text-[9px] text-status-warning">
+                    <span className="font-mono text-micro text-status-warning">
                       {formatCompactCurrency(outstanding)} {t("clientList.due") ?? "due"}
                     </span>
                   </div>

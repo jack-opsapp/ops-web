@@ -75,8 +75,8 @@ function DarkSelect({
         <div
           className="absolute top-full left-0 right-0 z-10 mt-[2px] rounded-panel overflow-hidden"
           style={{
-            backgroundColor: "rgba(10,10,10,0.95)",
-            backdropFilter: "blur(20px) saturate(1.2)",
+            backgroundColor: "var(--surface-glass-dense)",
+            backdropFilter: "blur(28px) saturate(1.3)",
             border: "1px solid rgba(255,255,255,0.10)",
           }}
         >
@@ -103,7 +103,7 @@ function DarkSelect({
 
 function SectionLabel({ children }: { children: string }) {
   return (
-    <span className="font-kosugi text-[10px] uppercase tracking-[0.08em] text-[#999999] block mb-[6px]">
+    <span className="font-kosugi text-micro uppercase tracking-[0.08em] text-[#999999] block mb-[6px]">
       {children}
     </span>
   );
@@ -129,10 +129,10 @@ function TeamPill({
         border: "1px solid rgba(255,255,255,0.10)",
       }}
     >
-      <span className="font-kosugi text-[9px] uppercase text-[#999999]">
+      <span className="font-kosugi text-micro uppercase text-[#999999]">
         {initials}
       </span>
-      <span className="font-kosugi text-[10px] uppercase">{name}</span>
+      <span className="font-kosugi text-micro uppercase">{name}</span>
       <button
         onClick={onRemove}
         className="ml-[2px] text-[#999999] hover:text-white transition-colors"
@@ -202,7 +202,7 @@ export function TaskDetailPanel() {
   }, [task, taskType]);
 
   const taskColor = useMemo(() => {
-    return taskType?.color ?? task?.taskColor ?? "#597794";
+    return taskType?.color ?? task?.taskColor ?? "#6F94B0";
   }, [taskType, task]);
 
   // Dependencies
@@ -292,7 +292,7 @@ export function TaskDetailPanel() {
           id: selectedTaskId,
           data: {
             taskTypeId: newTaskTypeId,
-            taskColor: newType?.color ?? task?.taskColor ?? "#597794",
+            taskColor: newType?.color ?? task?.taskColor ?? "#6F94B0",
           },
         },
         {
@@ -533,7 +533,7 @@ export function TaskDetailPanel() {
             </div>
             {taskType && (
               <span
-                className="inline-block font-kosugi text-[9px] uppercase tracking-[0.08em] px-[6px] py-[2px] rounded-[2px] ml-[16px]"
+                className="inline-block font-kosugi text-micro uppercase tracking-[0.08em] px-[6px] py-[2px] rounded-[2px] ml-[16px]"
                 style={{
                   backgroundColor: `${taskColor}20`,
                   color: taskColor,
@@ -591,14 +591,14 @@ export function TaskDetailPanel() {
                 />
               ))}
               {teamMembers.length === 0 && !showTeamAdd && (
-                <span className="font-kosugi text-[10px] uppercase text-[#999999]">
+                <span className="font-kosugi text-micro uppercase text-[#999999]">
                   No team assigned
                 </span>
               )}
               <div className="relative">
                 <button
                   onClick={() => setShowTeamAdd(!showTeamAdd)}
-                  className="inline-flex items-center gap-[2px] px-[8px] py-[3px] rounded-full text-[10px] font-kosugi uppercase text-[#999999] hover:text-white transition-colors"
+                  className="inline-flex items-center gap-[2px] px-[8px] py-[3px] rounded-full text-micro font-kosugi uppercase text-[#999999] hover:text-white transition-colors"
                   style={{
                     border: "1px solid rgba(255,255,255,0.10)",
                   }}
@@ -610,8 +610,8 @@ export function TaskDetailPanel() {
                   <div
                     className="absolute top-full left-0 z-10 mt-[4px] w-[200px] max-h-[160px] overflow-y-auto rounded-panel"
                     style={{
-                      backgroundColor: "rgba(10,10,10,0.95)",
-                      backdropFilter: "blur(20px) saturate(1.2)",
+                      backgroundColor: "var(--surface-glass-dense)",
+                      backdropFilter: "blur(28px) saturate(1.3)",
                       border: "1px solid rgba(255,255,255,0.10)",
                     }}
                   >
@@ -669,7 +669,7 @@ export function TaskDetailPanel() {
                 />
               </div>
               {durationLabel && (
-                <span className="font-kosugi text-[10px] uppercase text-[#999999]">
+                <span className="font-kosugi text-micro uppercase text-[#999999]">
                   Duration: {durationLabel}
                 </span>
               )}
@@ -684,7 +684,7 @@ export function TaskDetailPanel() {
             <SectionLabel>DEPENDENCIES</SectionLabel>
             {dependencies.predecessors.length === 0 &&
             dependencies.successors.length === 0 ? (
-              <span className="font-kosugi text-[10px] uppercase text-[#999999]">
+              <span className="font-kosugi text-micro uppercase text-[#999999]">
                 None
               </span>
             ) : (
@@ -768,15 +768,15 @@ export function TaskDetailPanel() {
         <div
           className="sticky bottom-0 px-[16px] py-[12px] shrink-0"
           style={{
-            backgroundColor: "rgba(10,10,10,0.70)",
-            backdropFilter: "blur(20px) saturate(1.2)",
+            backgroundColor: "var(--surface-glass)",
+            backdropFilter: "blur(28px) saturate(1.3)",
             borderTop: "1px solid rgba(255,255,255,0.10)",
           }}
         >
           <div className="flex gap-[6px] mb-[10px]">
             <button
               onClick={() => handlePush(1)}
-              className="flex-1 px-[8px] py-[6px] rounded-panel font-kosugi text-[10px] uppercase text-white transition-colors hover:bg-[rgba(255,255,255,0.05)]"
+              className="flex-1 px-[8px] py-[6px] rounded-panel font-kosugi text-micro uppercase text-white transition-colors hover:bg-[rgba(255,255,255,0.05)]"
               style={{
                 backgroundColor: "#141414",
                 border: "1px solid rgba(255,255,255,0.10)",
@@ -786,7 +786,7 @@ export function TaskDetailPanel() {
             </button>
             <button
               onClick={() => handlePush(7)}
-              className="flex-1 px-[8px] py-[6px] rounded-panel font-kosugi text-[10px] uppercase text-white transition-colors hover:bg-[rgba(255,255,255,0.05)]"
+              className="flex-1 px-[8px] py-[6px] rounded-panel font-kosugi text-micro uppercase text-white transition-colors hover:bg-[rgba(255,255,255,0.05)]"
               style={{
                 backgroundColor: "#141414",
                 border: "1px solid rgba(255,255,255,0.10)",
@@ -796,7 +796,7 @@ export function TaskDetailPanel() {
             </button>
             <button
               onClick={handleCascade}
-              className="flex-1 px-[8px] py-[6px] rounded-panel font-kosugi text-[10px] uppercase text-white transition-colors hover:bg-[rgba(255,255,255,0.05)] flex items-center justify-center gap-[4px]"
+              className="flex-1 px-[8px] py-[6px] rounded-panel font-kosugi text-micro uppercase text-white transition-colors hover:bg-[rgba(255,255,255,0.05)] flex items-center justify-center gap-[4px]"
               style={{
                 backgroundColor: "#141414",
                 border: "1px solid rgba(255,255,255,0.10)",
@@ -810,19 +810,19 @@ export function TaskDetailPanel() {
           {/* Delete */}
           {showDeleteConfirm ? (
             <div className="flex items-center gap-[8px]">
-              <span className="font-kosugi text-[10px] uppercase text-red-400">
+              <span className="font-kosugi text-micro uppercase text-red-400">
                 Are you sure?
               </span>
               <button
                 onClick={handleDelete}
                 disabled={deleteTask.isPending}
-                className="px-[10px] py-[4px] rounded-panel font-kosugi text-[10px] uppercase text-white bg-red-600 hover:bg-red-500 transition-colors disabled:opacity-50"
+                className="px-[10px] py-[4px] rounded-panel font-kosugi text-micro uppercase text-white bg-red-600 hover:bg-red-500 transition-colors disabled:opacity-50"
               >
                 {deleteTask.isPending ? "Deleting..." : "Yes, Delete"}
               </button>
               <button
                 onClick={() => setShowDeleteConfirm(false)}
-                className="px-[10px] py-[4px] rounded-panel font-kosugi text-[10px] uppercase text-[#999999] hover:text-white transition-colors"
+                className="px-[10px] py-[4px] rounded-panel font-kosugi text-micro uppercase text-[#999999] hover:text-white transition-colors"
                 style={{ border: "1px solid rgba(255,255,255,0.10)" }}
               >
                 Cancel
@@ -831,7 +831,7 @@ export function TaskDetailPanel() {
           ) : (
             <button
               onClick={() => setShowDeleteConfirm(true)}
-              className="w-full text-left font-kosugi text-[10px] uppercase text-red-400 hover:text-red-300 transition-colors flex items-center gap-[4px] py-[4px]"
+              className="w-full text-left font-kosugi text-micro uppercase text-red-400 hover:text-red-300 transition-colors flex items-center gap-[4px] py-[4px]"
             >
               <Trash2 className="w-[12px] h-[12px]" />
               Delete Task

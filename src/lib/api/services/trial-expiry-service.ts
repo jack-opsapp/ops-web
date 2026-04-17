@@ -365,7 +365,7 @@ export const TrialExpiryService = {
     const timezone = detectCompanyTimezone(company.latitude, company.longitude);
     const trialEndDisplay = formatTrialEndDisplay(trialEnd, timezone);
     const subscribeUrl = getSubscribeUrl();
-    const accentColor = company.default_project_color ?? "#597794";
+    const accentColor = company.default_project_color ?? "#6F94B0";
     const logoUrl = company.logo_url;
 
     const remaining = daysRemainingUntil(trialEnd, now);

@@ -171,7 +171,7 @@ export default async function AcquisitionPage() {
         {data.adsSummary && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <p className="font-kosugi text-[10px] uppercase tracking-wider text-[#6B6B6B]">
+              <p className="font-kosugi text-micro uppercase tracking-wider text-[#6B6B6B]">
                 Paid Acquisition
               </p>
               <Link

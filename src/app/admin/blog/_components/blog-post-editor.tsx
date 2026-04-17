@@ -491,7 +491,7 @@ function ThumbnailUploader({
             <span className="font-mohave text-[11px] uppercase tracking-wider text-[#6B6B6B]">
               {uploading ? "Uploading..." : "Drop image or click to upload"}
             </span>
-            <span className="font-kosugi text-[10px] text-[#6B6B6B]/60 mt-1">
+            <span className="font-kosugi text-micro text-[#6B6B6B]/60 mt-1">
               JPEG, PNG, WebP — max 10MB
             </span>
           </div>

@@ -149,7 +149,7 @@ export async function fetchInvoiceMetrics(companyId: string): Promise<MetricColu
       formatType: "currency",
       breakdown: `${formatMetricCurrency(revenue)} paid across ${invoices.length} invoices`,
       trend: trend(currRevenue, prevRevenue),
-      viz: { type: "sparkline", data: revenueTrend, color: "#597794" },
+      viz: { type: "sparkline", data: revenueTrend, color: "#6F94B0" },
     },
     {
       label: "Past Due",
@@ -180,7 +180,7 @@ export async function fetchInvoiceMetrics(companyId: string): Promise<MetricColu
       value: avgDaysToPay,
       formatType: "days",
       breakdown: `across ${paidInvoices.length} paid invoices (90d)`,
-      viz: last7Paid.length > 0 ? { type: "bars", data: last7Paid, color: "#597794" } : undefined,
+      viz: last7Paid.length > 0 ? { type: "bars", data: last7Paid, color: "#6F94B0" } : undefined,
     },
   ];
 }
@@ -252,7 +252,7 @@ export async function fetchProjectMetrics(companyId: string): Promise<MetricColu
       value: active.length,
       formatType: "count",
       breakdown: `${active.length} in rfq/estimated/accepted/in_progress`,
-      viz: { type: "sparkline", data: activeTrend, color: "#597794" },
+      viz: { type: "sparkline", data: activeTrend, color: "#6F94B0" },
     },
     {
       label: "Total Value",
@@ -282,7 +282,7 @@ export async function fetchProjectMetrics(companyId: string): Promise<MetricColu
       value: avgDuration,
       formatType: "days",
       breakdown: `across ${recentCompleted.length} completed (90d)`,
-      viz: last7Durations.length > 0 ? { type: "bars", data: last7Durations, color: "#597794" } : undefined,
+      viz: last7Durations.length > 0 ? { type: "bars", data: last7Durations, color: "#6F94B0" } : undefined,
     },
   ];
 }
@@ -355,14 +355,14 @@ export async function fetchPipelineMetrics(companyId: string): Promise<MetricCol
       value: openStages.length,
       formatType: "count",
       breakdown: `${openStages.length} open (excl. won/lost)`,
-      viz: { type: "sparkline", data: countTrend, color: "#597794" },
+      viz: { type: "sparkline", data: countTrend, color: "#6F94B0" },
     },
     {
       label: "Avg Deal",
       value: avgDeal,
       formatType: "currency",
       breakdown: `${formatMetricCurrency(pipelineValue)} ÷ ${openStages.length} opportunities`,
-      viz: last7Deals.length > 0 ? { type: "bars", data: last7Deals, color: "#597794" } : undefined,
+      viz: last7Deals.length > 0 ? { type: "bars", data: last7Deals, color: "#6F94B0" } : undefined,
     },
     {
       label: "Velocity",
@@ -370,7 +370,7 @@ export async function fetchPipelineMetrics(companyId: string): Promise<MetricCol
       formatType: "days",
       breakdown: `avg across ${transitions.length} transitions`,
       trend: avgVelocity > 0 ? { direction: "down", value: `${Math.round(avgVelocity)}d`, sentiment: "positive" } : undefined,
-      viz: stageDurations.some((d) => d > 0) ? { type: "bars", data: stageDurations, color: "#597794" } : undefined,
+      viz: stageDurations.some((d) => d > 0) ? { type: "bars", data: stageDurations, color: "#6F94B0" } : undefined,
     },
   ];
 }
@@ -445,14 +445,14 @@ export async function fetchEstimateMetrics(companyId: string): Promise<MetricCol
       value: sentThisMonth,
       formatType: "count",
       breakdown: `${sentThisMonth} since ${monthStart.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`,
-      viz: { type: "sparkline", data: sentTrend, color: "#597794" },
+      viz: { type: "sparkline", data: sentTrend, color: "#6F94B0" },
     },
     {
       label: "Avg Estimate",
       value: avgEstimate,
       formatType: "currency",
       breakdown: `across ${nonDraft.length} non-draft (90d)`,
-      viz: last7Sent.length > 0 ? { type: "bars", data: last7Sent, color: "#597794" } : undefined,
+      viz: last7Sent.length > 0 ? { type: "bars", data: last7Sent, color: "#6F94B0" } : undefined,
     },
     {
       label: "Convert Rate",

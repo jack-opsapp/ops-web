@@ -167,11 +167,11 @@ export function AssignRoleModal({
             ))}
           </div>
           {selectedRole?.description ? (
-            <p className="font-kosugi text-[10px] text-text-3 mt-[4px]">
+            <p className="font-kosugi text-micro text-text-3 mt-[4px]">
               {selectedRole.description}
             </p>
           ) : (
-            <p className="font-kosugi text-[10px] text-text-mute mt-[4px]">
+            <p className="font-kosugi text-micro text-text-mute mt-[4px]">
               The role {firstName} receives when active on jobs.
             </p>
           )}

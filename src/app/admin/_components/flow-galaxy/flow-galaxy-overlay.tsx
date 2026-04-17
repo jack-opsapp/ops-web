@@ -74,8 +74,8 @@ export function FlowGalaxyOverlay({
       <div
         className="overflow-y-auto scrollbar-hide rounded-panel p-4"
         style={{
-          background: 'rgba(10,10,10,0.70)',
-          backdropFilter: 'blur(20px) saturate(1.2)',
+          background: 'var(--surface-glass)',
+          backdropFilter: 'blur(28px) saturate(1.3)',
           border: '1px solid rgba(255,255,255,0.08)',
           maxHeight: maxH,
         }}
@@ -106,7 +106,7 @@ export function FlowGalaxyOverlay({
             <svg width="248" height="50" viewBox="0 0 248 50" className="w-full">
               <defs>
                 <linearGradient id={`grad-${node.id}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="rgba(89,119,148,0.15)" />
+                  <stop offset="0%" stopColor="rgba(111, 148, 176,0.15)" />
                   <stop offset="100%" stopColor="transparent" />
                 </linearGradient>
               </defs>
@@ -118,13 +118,13 @@ export function FlowGalaxyOverlay({
 
         {/* Device toggle */}
         <div className="flex items-center gap-2 mb-3">
-          <span className="font-kosugi text-[10px] uppercase text-[#6B6B6B]">Device</span>
+          <span className="font-kosugi text-micro uppercase text-[#6B6B6B]">Device</span>
           <div className="flex gap-0 border border-white/[0.08] rounded-[2px] overflow-hidden">
             {['all', 'mobile', 'desktop', 'tablet'].map(d => (
               <button
                 key={d}
                 onClick={() => onDeviceFilterChange(d)}
-                className={`px-2 py-0.5 font-kosugi text-[9px] uppercase transition-colors
+                className={`px-2 py-0.5 font-kosugi text-micro uppercase transition-colors
                   ${deviceFilter === d ? 'bg-ops-accent/20 text-[#E5E5E5]' : 'text-[#6B6B6B] hover:text-[#A0A0A0]'}
                 `}
               >
@@ -152,13 +152,13 @@ export function FlowGalaxyOverlay({
         {/* Click breakdown */}
         {node.clickBreakdown.length > 0 && (
           <div className="border-t border-white/[0.05] pt-3 mb-3">
-            <p className="font-kosugi text-[10px] uppercase text-[#6B6B6B] tracking-wider mb-2">
+            <p className="font-kosugi text-micro uppercase text-[#6B6B6B] tracking-wider mb-2">
               Click Breakdown
             </p>
             <div className="space-y-1">
               {node.clickBreakdown.slice(0, 6).map(cb => (
                 <div key={cb.elementId} className="flex items-center justify-between">
-                  <span className="font-kosugi text-[10px] text-[#A0A0A0] truncate flex-1 mr-2">
+                  <span className="font-kosugi text-micro text-[#A0A0A0] truncate flex-1 mr-2">
                     {cb.elementId.replace(/-/g, ' ')}
                   </span>
                   <span className="font-mohave text-[11px] text-[#E5E5E5]">{cb.count}</span>
@@ -171,13 +171,13 @@ export function FlowGalaxyOverlay({
         {/* Device breakdown */}
         {node.deviceBreakdown.length > 0 && (
           <div className="border-t border-white/[0.05] pt-3 mb-3">
-            <p className="font-kosugi text-[10px] uppercase text-[#6B6B6B] tracking-wider mb-2">
+            <p className="font-kosugi text-micro uppercase text-[#6B6B6B] tracking-wider mb-2">
               Devices
             </p>
             <div className="space-y-1">
               {node.deviceBreakdown.map(db => (
                 <div key={db.device} className="flex items-center justify-between">
-                  <span className="font-kosugi text-[10px] text-[#A0A0A0]">{db.device}</span>
+                  <span className="font-kosugi text-micro text-[#A0A0A0]">{db.device}</span>
                   <span className="font-mohave text-[11px] text-[#E5E5E5]">{db.count}</span>
                 </div>
               ))}
@@ -189,13 +189,13 @@ export function FlowGalaxyOverlay({
         <div className="flex gap-2 border-t border-white/[0.05] pt-3">
           <button
             onClick={() => onTraceDownstream(node.id)}
-            className="flex-1 py-1.5 border border-[#597794]/30 rounded-[2px] font-mohave text-[10px] uppercase tracking-wider text-[#597794] hover:bg-ops-accent/10 transition-colors"
+            className="flex-1 py-1.5 border border-[#597794]/30 rounded-[2px] font-mohave text-micro uppercase tracking-wider text-[#597794] hover:bg-ops-accent/10 transition-colors"
           >
             Trace Flow ↓
           </button>
           <button
             onClick={() => onTraceUpstream(node.id)}
-            className="flex-1 py-1.5 border border-[#597794]/30 rounded-[2px] font-mohave text-[10px] uppercase tracking-wider text-[#597794] hover:bg-ops-accent/10 transition-colors"
+            className="flex-1 py-1.5 border border-[#597794]/30 rounded-[2px] font-mohave text-micro uppercase tracking-wider text-[#597794] hover:bg-ops-accent/10 transition-colors"
           >
             Trace Upstream ↑
           </button>

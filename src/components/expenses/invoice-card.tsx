@@ -58,7 +58,7 @@ export function InvoiceCard({ batch, isSelected, onClick }: InvoiceCardProps) {
         "transition-colors duration-150",
         // States
         isSelected
-          ? "border-[#597794] bg-[rgba(89,119,148,0.06)]"
+          ? "border-[#6F94B0] bg-[rgba(111, 148, 176,0.06)]"
           : "border-border hover:border-[rgba(255,255,255,0.30)] cursor-pointer"
       )}
     >

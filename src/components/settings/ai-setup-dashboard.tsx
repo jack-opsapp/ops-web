@@ -210,7 +210,7 @@ export function AiSetupDashboard({
     <div className="space-y-4">
       {/* Title */}
       <div className="flex items-center gap-1.5">
-        <Brain className="w-[16px] h-[16px] text-[#597794]" />
+        <Brain className="w-[16px] h-[16px] text-[#6F94B0]" />
         <span className="font-mohave text-body font-medium uppercase tracking-wide text-text">
           {t("dashboard.title")}
         </span>
@@ -250,7 +250,7 @@ export function AiSetupDashboard({
             >
               <div className="flex items-center gap-1 mb-[2px]">
                 <stat.icon className="w-[10px] h-[10px] text-text-mute" />
-                <span className="font-kosugi text-[9px] text-text-mute uppercase tracking-wider">
+                <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
                   {stat.label}
                 </span>
               </div>
@@ -307,7 +307,7 @@ export function AiSetupDashboard({
                     style={{ backgroundColor: color }}
                   />
                   <span
-                    className="font-kosugi text-[10px] uppercase tracking-wider"
+                    className="font-kosugi text-micro uppercase tracking-wider"
                     style={{ color }}
                   >
                     {readinessLabel[level]}
@@ -370,7 +370,7 @@ export function AiSetupDashboard({
                 key={i}
                 className="flex items-start gap-1.5 px-2 py-1 rounded border border-[rgba(255,255,255,0.04)] bg-[rgba(255,255,255,0.02)]"
               >
-                <ChevronRight className="w-[12px] h-[12px] text-[#597794] mt-[2px] shrink-0" />
+                <ChevronRight className="w-[12px] h-[12px] text-[#6F94B0] mt-[2px] shrink-0" />
                 <span className="font-mohave text-[13px] text-text-2">
                   {step}
                 </span>

@@ -160,7 +160,7 @@ export function createStackedProjectPin(
           </div>
           <span style="
             position: absolute; top: -4px; right: -8px;
-            background: rgba(10,10,10,0.9);
+            background: var(--surface-glass-dense);
             border: 1px solid rgba(255,255,255,0.2);
             border-radius: 50%;
             width: 16px; height: 16px;
@@ -207,7 +207,7 @@ export function createTaskPinIcon(
           width: 20px; height: 20px;
           border: 2.5px solid ${color};
           border-radius: 50%;
-          background: rgba(10,10,10,0.8);
+          background: var(--surface-glass-dense);
           box-shadow: 0 0 8px ${color}33;
           transition: transform 0.15s ease;
         ">
@@ -299,7 +299,7 @@ export function createGroupedTaskPinIcon(
             width: 20px; height: 20px;
             border: 2.5px solid ${primaryColor};
             border-radius: 50%;
-            background: rgba(10,10,10,0.8);
+            background: var(--surface-glass-dense);
             box-shadow: 0 0 8px ${primaryColor}33;
             transition: transform 0.15s ease;
           ">
@@ -312,7 +312,7 @@ export function createGroupedTaskPinIcon(
           </div>
           <span style="
             position: absolute; top: -4px; right: -8px;
-            background: rgba(10,10,10,0.9);
+            background: var(--surface-glass-dense);
             border: 1px solid rgba(255,255,255,0.2);
             border-radius: 50%;
             width: 14px; height: 14px;

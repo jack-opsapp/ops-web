@@ -281,7 +281,7 @@ export function AccountTypeScreen() {
                   style={{ animationDelay: "200ms" }}
                 >
                   <div className="flex items-center gap-2 mb-2">
-                    <label className="font-kosugi text-[10px] text-text-3 uppercase tracking-widest">
+                    <label className="font-kosugi text-micro text-text-3 uppercase tracking-widest">
                       crew code
                     </label>
                     <button
@@ -367,7 +367,7 @@ export function AccountTypeScreen() {
                         <p className="font-mohave text-[14px] font-semibold text-text">
                           {companyPreview.name}
                         </p>
-                        <p className="font-kosugi text-[10px] text-text-3">
+                        <p className="font-kosugi text-micro text-text-3">
                           [you&apos;ll join as unassigned until a role is set]
                         </p>
                       </div>

@@ -121,7 +121,7 @@ export function DependencyBar({
 
         {/* Overlap percentage label */}
         {!isLast && overlapPercent > 0 && (
-          <span className="font-mono text-[9px] text-text-mute pr-[8px] shrink-0">
+          <span className="font-mono text-micro text-text-mute pr-[8px] shrink-0">
             {overlapPercent}% {t("wizard.timeline.overlap")}
           </span>
         )}

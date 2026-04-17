@@ -488,7 +488,7 @@ export function ActionRequiredWidget({
                     <span className="font-mono text-data-sm font-bold" style={{ color: count > 0 ? config.color : "var(--text-disabled)" }}>
                       {count}
                     </span>
-                    <span className="font-kosugi text-[8px] text-text-mute uppercase tracking-wider text-center leading-tight">
+                    <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider text-center leading-tight">
                       {t(config.labelKey) ?? type}
                     </span>
                   </div>

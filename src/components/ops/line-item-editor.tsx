@@ -226,7 +226,7 @@ export function LineItemEditor({
                     onChange={(e) => {
                       if (e.target.value) selectProduct(item.id, e.target.value);
                     }}
-                    className="w-full bg-transparent border border-border rounded px-1 py-0.5 font-kosugi text-[10px] text-text-3"
+                    className="w-full bg-transparent border border-border rounded px-1 py-0.5 font-kosugi text-micro text-text-3"
                   >
                     <option value="">Select product/service...</option>
                     {products.map((p) => (
@@ -337,7 +337,7 @@ export function LineItemEditor({
                   >
                     <HelpCircle className="w-[14px] h-[14px]" />
                     {questionsByLineItem?.[item.id]?.length ? (
-                      <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-ops-accent rounded-full text-[8px] text-white flex items-center justify-center leading-none">
+                      <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-ops-accent rounded-full text-micro text-white flex items-center justify-center leading-none">
                         {questionsByLineItem[item.id].length}
                       </span>
                     ) : null}
@@ -360,7 +360,7 @@ export function LineItemEditor({
             {expanded && item.productId && (
               <div className="border-t border-border pt-1.5 pb-1 pl-[22px] pr-1">
                 {isTempId ? (
-                  <p className="font-kosugi text-[10px] text-text-mute">
+                  <p className="font-kosugi text-micro text-text-mute">
                     [save estimate to override materials on this line item]
                   </p>
                 ) : (

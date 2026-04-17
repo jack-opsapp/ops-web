@@ -51,7 +51,7 @@ export function AdminSidebar() {
           entry.type === "section" ? (
             <div
               key={`section-${i}`}
-              className="px-6 pt-5 pb-1 font-mohave text-[10px] uppercase tracking-[0.18em] text-[#4A4A4A]"
+              className="px-6 pt-5 pb-1 font-mohave text-micro uppercase tracking-[0.18em] text-[#4A4A4A]"
             >
               {entry.label}
             </div>

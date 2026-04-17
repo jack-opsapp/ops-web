@@ -251,11 +251,11 @@ const InvoiceDetailPopoverInstance = memo(function InvoiceDetailPopoverInstance(
         {/* Row 1: Client name */}
         <div className="flex items-center gap-2 min-w-0">
           {clientName ? (
-            <span className="font-kosugi text-[10px] text-text-3 truncate">
+            <span className="font-kosugi text-micro text-text-3 truncate">
               {clientName}
             </span>
           ) : (
-            <span className="font-kosugi text-[10px] text-text-mute">
+            <span className="font-kosugi text-micro text-text-mute">
               No client
             </span>
           )}
@@ -264,7 +264,7 @@ const InvoiceDetailPopoverInstance = memo(function InvoiceDetailPopoverInstance(
         {/* Row 2: Status + days since issued */}
         <div className="flex items-center gap-1.5">
           <span
-            className="font-kosugi text-[9px] uppercase tracking-wide"
+            className="font-kosugi text-micro uppercase tracking-wide"
             style={{ color: statusColor }}
           >
             {invoice
@@ -272,7 +272,7 @@ const InvoiceDetailPopoverInstance = memo(function InvoiceDetailPopoverInstance(
               : state.title}
           </span>
           {invoice && (
-            <span className="font-kosugi text-[9px] text-text-mute">
+            <span className="font-kosugi text-micro text-text-mute">
               · {getDaysSinceIssued(invoice)}d
             </span>
           )}
@@ -503,7 +503,7 @@ function LineItemRow({ item }: { item: LineItem }) {
         <span className="font-mohave text-body-sm text-text truncate">
           {item.name}
         </span>
-        <span className="font-mono text-[10px] text-text-mute">
+        <span className="font-mono text-micro text-text-mute">
           {item.quantity} x {formatCurrency(item.unitPrice)}
         </span>
       </div>
@@ -566,7 +566,7 @@ function PaymentRow({ payment }: { payment: Payment }) {
         </span>
       )}
       {payment.referenceNumber && (
-        <span className="font-mono text-[10px] text-text-mute">
+        <span className="font-mono text-micro text-text-mute">
           {payment.referenceNumber}
         </span>
       )}

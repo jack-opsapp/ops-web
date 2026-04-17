@@ -168,7 +168,7 @@ async function getPlatformBreakdown(
   }
 
   const colors: Record<string, string> = {
-    ios: "#597794",
+    ios: "#6F94B0",
     android: "#9DB582",
     web: "#C4A868",
   };

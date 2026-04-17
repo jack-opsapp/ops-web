@@ -166,7 +166,7 @@ function ConnectionCard({
         {/* Status indicator */}
         <div
           className={cn(
-            "flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-kosugi uppercase tracking-wider",
+            "flex items-center gap-1 px-1.5 py-0.5 rounded-full text-micro font-kosugi uppercase tracking-wider",
             isConnected
               ? "bg-[rgba(157,181,130,0.15)] text-status-success"
               : "bg-[rgba(156,163,175,0.1)] text-text-3"
@@ -190,7 +190,7 @@ function ConnectionCard({
       {isConnected && connection && (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1 border-t border-border">
           <div>
-            <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider block">
+            <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider block">
               {t("integrations.lastSynced")}
             </span>
             <span className="font-mono text-data-sm text-text-2">
@@ -205,7 +205,7 @@ function ConnectionCard({
             </span>
           </div>
           <div>
-            <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider block">
+            <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider block">
               {t("integrations.autoSync")}
             </span>
             <span className="font-mono text-data-sm text-text-2">
@@ -213,7 +213,7 @@ function ConnectionCard({
             </span>
           </div>
           <div>
-            <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider block">
+            <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider block">
               {t("integrations.realmId")}
             </span>
             <span className="font-mono text-data-sm text-text-2 truncate block">
@@ -285,7 +285,7 @@ function SyncHistoryRow({
       <span className="font-kosugi text-caption-sm text-text-2 uppercase flex-1 truncate">
         {entry.provider} — {entry.status}
       </span>
-      <span className="font-mono text-[10px] text-text-mute shrink-0">
+      <span className="font-mono text-micro text-text-mute shrink-0">
         {new Date(entry.timestamp).toLocaleDateString(getDateLocale(locale), {
           month: "short",
           day: "numeric",
@@ -294,7 +294,7 @@ function SyncHistoryRow({
         })}
       </span>
       {entry.details && (
-        <span className="font-kosugi text-[10px] text-text-mute truncate max-w-[200px]">
+        <span className="font-kosugi text-micro text-text-mute truncate max-w-[200px]">
           {entry.details}
         </span>
       )}
@@ -565,7 +565,7 @@ export default function AccountingPage() {
                       className="flex items-center justify-between px-1.5 py-1 rounded hover:bg-[rgba(255,255,255,0.02)]"
                     >
                       <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="font-mono text-[10px] text-text-mute w-[16px] text-right shrink-0">
+                        <span className="font-mono text-micro text-text-mute w-[16px] text-right shrink-0">
                           {idx + 1}.
                         </span>
                         <span className="font-kosugi text-caption text-text-2 truncate">
@@ -576,7 +576,7 @@ export default function AccountingPage() {
                         <span className="font-mono text-data-sm text-text">
                           {formatCurrency(client.total)}
                         </span>
-                        <span className="font-mono text-[10px] text-text-mute">
+                        <span className="font-mono text-micro text-text-mute">
                           ({t("topClients.paid").replace("{amount}", formatCurrency(client.paid))})
                         </span>
                       </div>
@@ -603,11 +603,11 @@ export default function AccountingPage() {
                     key={status}
                     className="flex flex-col gap-0.5 p-1.5 rounded bg-[rgba(255,255,255,0.02)] border border-border"
                   >
-                    <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider">
+                    <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
                       {status}
                     </span>
                     <span className="font-mono text-data text-text">{count}</span>
-                    <span className="font-mono text-[10px] text-text-3">
+                    <span className="font-mono text-micro text-text-3">
                       {formatCurrency(total)}
                     </span>
                   </div>
@@ -688,7 +688,7 @@ export default function AccountingPage() {
             <div className="space-y-1">
               <div className="flex items-start gap-1.5">
                 <div className="w-[20px] h-[20px] rounded-full bg-[rgba(44,160,28,0.1)] flex items-center justify-center shrink-0 mt-0.5">
-                  <span className="font-mono text-[10px] text-status-success">1</span>
+                  <span className="font-mono text-micro text-status-success">1</span>
                 </div>
                 <p className="font-kosugi text-caption-sm text-text-2">
                   <strong className="text-text">{t("integrations.outbound")}</strong> {t("integrations.outboundDesc")}
@@ -696,7 +696,7 @@ export default function AccountingPage() {
               </div>
               <div className="flex items-start gap-1.5">
                 <div className="w-[20px] h-[20px] rounded-full bg-[rgba(129,149,181,0.1)] flex items-center justify-center shrink-0 mt-0.5">
-                  <span className="font-mono text-[10px] text-[#8195B5]">2</span>
+                  <span className="font-mono text-micro text-[#8195B5]">2</span>
                 </div>
                 <p className="font-kosugi text-caption-sm text-text-2">
                   <strong className="text-text">{t("integrations.inbound")}</strong> {t("integrations.inboundDesc")}
@@ -704,7 +704,7 @@ export default function AccountingPage() {
               </div>
               <div className="flex items-start gap-1.5">
                 <div className="w-[20px] h-[20px] rounded-full bg-[rgba(196,168,104,0.1)] flex items-center justify-center shrink-0 mt-0.5">
-                  <span className="font-mono text-[10px] text-[#C4A868]">3</span>
+                  <span className="font-mono text-micro text-[#C4A868]">3</span>
                 </div>
                 <p className="font-kosugi text-caption-sm text-text-2">
                   <strong className="text-text">{t("integrations.conflicts")}</strong> {t("integrations.conflictsDesc")}

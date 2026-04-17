@@ -40,7 +40,7 @@ export function AnalyticsSection({ analytics }: { analytics: LearnCourseAnalytic
                     className="absolute inset-y-0 left-0 rounded"
                     style={{
                       width: `${(lp.started_count / maxStarted) * 100}%`,
-                      backgroundColor: "rgba(89, 119, 148, 0.25)",
+                      backgroundColor: "rgba(111, 148, 176, 0.25)",
                     }}
                   />
                   {/* Completed bar */}
@@ -57,12 +57,12 @@ export function AnalyticsSection({ analytics }: { analytics: LearnCourseAnalytic
                 </span>
               </div>
             ))}
-            <div className="flex gap-4 pt-2 font-kosugi text-[10px] text-[#6B6B6B]">
+            <div className="flex gap-4 pt-2 font-kosugi text-micro text-[#6B6B6B]">
               <span className="flex items-center gap-1.5">
                 <span className="inline-block w-3 h-2 rounded" style={{ backgroundColor: "#597794" }} /> Completed
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="inline-block w-3 h-2 rounded" style={{ backgroundColor: "rgba(89, 119, 148, 0.25)" }} /> Started
+                <span className="inline-block w-3 h-2 rounded" style={{ backgroundColor: "rgba(111, 148, 176, 0.25)" }} /> Started
               </span>
             </div>
           </div>

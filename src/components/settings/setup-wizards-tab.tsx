@@ -36,14 +36,14 @@ export function SetupWizardsTab() {
           {isComplete ? (
             <>
               <CheckCircle className="w-[14px] h-[14px] text-ops-success" />
-              <span className="font-mono text-[10px] text-text-mute">
+              <span className="font-mono text-micro text-text-mute">
                 {activeCount} {t("setup.taskTypes.configured")}
               </span>
             </>
           ) : (
             <>
               <Circle className="w-[14px] h-[14px] text-text-mute" />
-              <span className="font-mono text-[10px] text-text-mute">
+              <span className="font-mono text-micro text-text-mute">
                 {t("setup.taskTypes.notStarted")}
               </span>
             </>

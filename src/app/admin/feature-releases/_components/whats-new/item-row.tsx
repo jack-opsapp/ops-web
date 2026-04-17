@@ -138,14 +138,14 @@ export function ItemRow({
         >
           <GripVertical className="w-4 h-4" />
         </button>
-        <span className="font-mono text-[10px] text-[#6B6B6B] w-12 truncate flex-shrink-0">
+        <span className="font-mono text-micro text-[#6B6B6B] w-12 truncate flex-shrink-0">
           {item.icon}
         </span>
         <span className="font-kosugi text-[13px] text-[#E5E5E5] truncate">
           {item.title}
         </span>
         {item.feature_flag_slug && (
-          <span className="ml-1 font-mono text-[10px] text-[#597794] bg-ops-accent/10 px-1.5 py-0.5 rounded flex-shrink-0">
+          <span className="ml-1 font-mono text-micro text-[#597794] bg-ops-accent/10 px-1.5 py-0.5 rounded flex-shrink-0">
             {item.feature_flag_slug}
           </span>
         )}

@@ -32,8 +32,7 @@ export function BulkActionBar({
       className={cn(
         "fixed bottom-4 left-1/2 -translate-x-1/2 z-50",
         "flex items-center gap-1.5 px-2 py-1",
-        "bg-glass glass-surface/95 backdrop-blur-lg border border-ops-accent/30 rounded-xl",
-        "shadow-[0_0_20px_rgba(65,115,148,0.2)]",
+        "glass-dense",
         "animate-slide-up"
       )}
     >

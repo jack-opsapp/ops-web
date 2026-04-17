@@ -20,14 +20,14 @@ const TIER_DISPLAY: Record<Exclude<SubscriptionTier, "trial">, {
     icon: <Zap className="w-[20px] h-[20px]" />,
     accentClass: "text-ops-accent",
     borderClass: "border-ops-accent/20 hover:border-ops-accent/40",
-    glowClass: "hover:shadow-glow-accent",
+    glowClass: "",
     badgeClass: "bg-ops-accent/10 text-ops-accent",
   },
   team: {
     icon: <Crown className="w-[20px] h-[20px]" />,
     accentClass: "text-ops-amber",
     borderClass: "border-ops-amber/30 hover:border-ops-amber/50",
-    glowClass: "hover:shadow-glow-amber",
+    glowClass: "",
     badgeClass: "bg-ops-amber/10 text-ops-amber",
     popular: true,
   },
@@ -62,7 +62,7 @@ function PricingCard({ tier }: { tier: Exclude<SubscriptionTier, "trial"> }) {
       {/* Popular badge */}
       {display.popular && (
         <div className="absolute -top-[12px] left-1/2 -translate-x-1/2">
-          <span className="font-kosugi text-[10px] uppercase tracking-[0.2em] bg-ops-amber text-text-inverse px-1.5 py-0.5 rounded-sm">
+          <span className="font-kosugi text-micro uppercase tracking-[0.2em] bg-ops-amber text-text-inverse px-1.5 py-0.5 rounded-sm">
             {t("locked.mostPopular")}
           </span>
         </div>
@@ -187,7 +187,7 @@ export default function LockedPage() {
         </div>
 
         {/* System fingerprint for defense-tech aesthetic */}
-        <p className="font-mono text-[10px] text-text-mute tracking-wider mt-2 opacity-40">
+        <p className="font-mono text-micro text-text-mute tracking-wider mt-2 opacity-40">
           {t("locked.sysMessage")}
         </p>
       </div>

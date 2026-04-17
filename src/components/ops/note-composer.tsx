@@ -134,7 +134,7 @@ export function NoteComposer({
               </button>
               {att.caption && (
                 <div className="absolute bottom-0 left-0 right-0 rounded-b-lg bg-black/70 px-1 py-0.5">
-                  <span className="text-[10px] text-[#E5E5E5] line-clamp-1">
+                  <span className="text-micro text-[#E5E5E5] line-clamp-1">
                     {att.caption}
                   </span>
                 </div>

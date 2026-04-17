@@ -63,7 +63,7 @@ export function PortalNav({ hasUnread, projectHref }: PortalNavProps) {
               }}
             >
               <item.icon className="w-5 h-5" />
-              <span className="text-[10px] font-medium">{item.label}</span>
+              <span className="text-micro font-medium">{item.label}</span>
               {item.key === "messages" && hasUnread && (
                 <span
                   className="absolute top-0 right-2 w-2 h-2 rounded-full"

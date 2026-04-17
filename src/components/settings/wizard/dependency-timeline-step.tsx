@@ -115,7 +115,7 @@ export function DependencyTimelineStep({
       <button
         type="button"
         onClick={onDone}
-        className="self-end px-[20px] py-[10px] rounded border border-[rgba(255,255,255,0.08)] bg-[rgba(89,119,148,0.12)] hover:bg-[rgba(89,119,148,0.2)] text-text font-mohave text-body-sm transition-colors"
+        className="self-end px-[20px] py-[10px] rounded border border-[rgba(255,255,255,0.08)] bg-[rgba(111, 148, 176,0.12)] hover:bg-[rgba(111, 148, 176,0.2)] text-text font-mohave text-body-sm transition-colors"
       >
         {t("wizard.timeline.done")}
       </button>

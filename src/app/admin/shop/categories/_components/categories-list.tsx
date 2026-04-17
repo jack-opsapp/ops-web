@@ -99,7 +99,7 @@ function SortableCategory({
       ) : (
         <>
           <span className="flex-1 font-mohave text-[13px] text-[#E5E5E5]">{category.name}</span>
-          <span className="px-2 py-0.5 bg-white/[0.05] rounded-sm font-kosugi text-[10px] uppercase tracking-widest text-[#6B6B6B]">
+          <span className="px-2 py-0.5 bg-white/[0.05] rounded-sm font-kosugi text-micro uppercase tracking-widest text-[#6B6B6B]">
             {category.slug}
           </span>
           <button

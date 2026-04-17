@@ -211,7 +211,7 @@ export function ProductEditor({ product, categories, options: initialOptions, va
           </p>
 
           <div>
-            <label className="block font-kosugi text-[10px] uppercase tracking-widest text-[#6B6B6B] mb-1">
+            <label className="block font-kosugi text-micro uppercase tracking-widest text-[#6B6B6B] mb-1">
               Name
             </label>
             <input
@@ -223,7 +223,7 @@ export function ProductEditor({ product, categories, options: initialOptions, va
           </div>
 
           <div>
-            <label className="block font-kosugi text-[10px] uppercase tracking-widest text-[#6B6B6B] mb-1">
+            <label className="block font-kosugi text-micro uppercase tracking-widest text-[#6B6B6B] mb-1">
               Slug
             </label>
             <input
@@ -235,7 +235,7 @@ export function ProductEditor({ product, categories, options: initialOptions, va
           </div>
 
           <div>
-            <label className="block font-kosugi text-[10px] uppercase tracking-widest text-[#6B6B6B] mb-1">
+            <label className="block font-kosugi text-micro uppercase tracking-widest text-[#6B6B6B] mb-1">
               Description
             </label>
             <textarea
@@ -247,7 +247,7 @@ export function ProductEditor({ product, categories, options: initialOptions, va
           </div>
 
           <div>
-            <label className="block font-kosugi text-[10px] uppercase tracking-widest text-[#6B6B6B] mb-1">
+            <label className="block font-kosugi text-micro uppercase tracking-widest text-[#6B6B6B] mb-1">
               Category
             </label>
             <select
@@ -263,7 +263,7 @@ export function ProductEditor({ product, categories, options: initialOptions, va
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block font-kosugi text-[10px] uppercase tracking-widest text-[#6B6B6B] mb-1">
+              <label className="block font-kosugi text-micro uppercase tracking-widest text-[#6B6B6B] mb-1">
                 Base Price ($)
               </label>
               <input
@@ -275,7 +275,7 @@ export function ProductEditor({ product, categories, options: initialOptions, va
               />
             </div>
             <div>
-              <label className="block font-kosugi text-[10px] uppercase tracking-widest text-[#6B6B6B] mb-1">
+              <label className="block font-kosugi text-micro uppercase tracking-widest text-[#6B6B6B] mb-1">
                 Tax Code
               </label>
               <input
@@ -290,11 +290,11 @@ export function ProductEditor({ product, categories, options: initialOptions, va
           <div className="flex items-center gap-6">
             <label className="flex items-center gap-2 cursor-pointer">
               <Switch checked={isFeatured} onCheckedChange={setIsFeatured} />
-              <span className="font-kosugi text-[10px] uppercase tracking-widest text-[#6B6B6B]">Featured</span>
+              <span className="font-kosugi text-micro uppercase tracking-widest text-[#6B6B6B]">Featured</span>
             </label>
             <label className="flex items-center gap-2 cursor-pointer">
               <Switch checked={isActive} onCheckedChange={setIsActive} />
-              <span className="font-kosugi text-[10px] uppercase tracking-widest text-[#6B6B6B]">Active</span>
+              <span className="font-kosugi text-micro uppercase tracking-widest text-[#6B6B6B]">Active</span>
             </label>
           </div>
         </div>

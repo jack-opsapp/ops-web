@@ -208,7 +208,7 @@ function IndustryDropdown({
       )}
 
       {open && (
-        <div className="absolute z-50 mt-1 w-full bg-[rgba(10,10,10,0.85)] backdrop-blur-[20px] backdrop-saturate-[1.2] border border-[rgba(255,255,255,0.08)] rounded-sm overflow-hidden">
+        <div className="absolute z-50 mt-1 w-full bg-[var(--surface-glass-dense)] backdrop-blur-[20px] backdrop-saturate-[1.2] border border-[rgba(255,255,255,0.08)] rounded-sm overflow-hidden">
           {/* Search */}
           <div className="p-1.5 border-b border-[rgba(255,255,255,0.08)]">
             <div className="relative">

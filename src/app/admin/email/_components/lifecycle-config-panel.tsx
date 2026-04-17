@@ -131,7 +131,7 @@ export function LifecycleConfigPanel() {
                               <span className="ml-2 inline-block w-3 h-3 border border-[#597794] border-t-transparent rounded-full animate-spin align-middle" />
                             )}
                           </p>
-                          <p className="font-kosugi text-[10px] text-[#6B6B6B] truncate">
+                          <p className="font-kosugi text-micro text-[#6B6B6B] truncate">
                             {meta.audience}
                           </p>
                         </div>
@@ -156,7 +156,7 @@ export function LifecycleConfigPanel() {
                               patchRow(meta.key, { max_days: v })
                             }
                           />
-                          <span className="font-kosugi text-[10px] text-[#4A4A4A]">
+                          <span className="font-kosugi text-micro text-[#4A4A4A]">
                             days
                           </span>
                         </div>
@@ -164,7 +164,7 @@ export function LifecycleConfigPanel() {
 
                       {/* Error */}
                       {saveError && (
-                        <p className="mt-1 ml-[56px] font-kosugi text-[10px] text-[#93321A]">
+                        <p className="mt-1 ml-[56px] font-kosugi text-micro text-[#93321A]">
                           {saveError}
                         </p>
                       )}
@@ -213,7 +213,7 @@ function DayInput({
 
   return (
     <div className="flex items-center gap-1.5">
-      <span className="font-kosugi text-[10px] text-[#6B6B6B]">{label}</span>
+      <span className="font-kosugi text-micro text-[#6B6B6B]">{label}</span>
       <input
         type="number"
         min={0}

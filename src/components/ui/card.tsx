@@ -11,7 +11,7 @@ const cardVariants = cva("rounded-panel p-2 transition-all duration-150", {
         "glass-surface cursor-pointer",
         "hover:border-[rgba(255,255,255,0.18)] hover:bg-[rgba(255,255,255,0.05)]",
       ],
-      accent: "glass-surface border-l-4 border-l-ops-accent",
+      accent: "glass-surface border-l-4 border-l-text-2",
       ghost: "bg-transparent border-transparent",
     },
   },

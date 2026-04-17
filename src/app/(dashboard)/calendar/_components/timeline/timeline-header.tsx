@@ -35,7 +35,7 @@ export function TimelineHeader({ startDate, daysShown }: TimelineHeaderProps) {
           borderRight: "1px solid rgba(255,255,255,0.10)",
         }}
       >
-        <span className="font-kosugi text-[10px] uppercase tracking-wider text-text-2">
+        <span className="font-kosugi text-micro uppercase tracking-wider text-text-2">
           Team
         </span>
       </div>
@@ -53,11 +53,11 @@ export function TimelineHeader({ startDate, daysShown }: TimelineHeaderProps) {
               style={{
                 flex: "1 0 0",
                 minWidth: TIMELINE_DAY_MIN_WIDTH,
-                background: today ? "rgba(89,119,148,0.08)" : "transparent",
+                background: today ? "rgba(111, 148, 176,0.08)" : "transparent",
                 opacity: weekend ? 0.5 : 1,
               }}
             >
-              <span className="font-kosugi text-[10px] uppercase tracking-wider text-text-2">
+              <span className="font-kosugi text-micro uppercase tracking-wider text-text-2">
                 {format(day, "EEE")}
               </span>
               <span className="font-mohave font-semibold text-[16px] leading-tight text-text">

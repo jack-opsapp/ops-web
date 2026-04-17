@@ -49,7 +49,7 @@ export function FocusedNodeLabel({ clients, entities }: FocusedNodeLabelProps) {
         <div
           className="text-left whitespace-nowrap px-4 py-2.5"
           style={{
-            background: "rgba(10, 10, 10, 0.75)",
+            background: "var(--surface-glass-dense)",
             backdropFilter: "blur(16px) saturate(1.2)",
             WebkitBackdropFilter: "blur(16px) saturate(1.2)",
             border: "1px solid rgba(255, 255, 255, 0.08)",
@@ -60,16 +60,16 @@ export function FocusedNodeLabel({ clients, entities }: FocusedNodeLabelProps) {
             {client.name}
           </div>
           {client.email && (
-            <div className="font-mohave text-[10px] text-[#999] leading-tight mt-0.5">
+            <div className="font-mohave text-micro text-[#999] leading-tight mt-0.5">
               {client.email}
             </div>
           )}
           {client.address && (
-            <div className="font-mohave text-[10px] text-[#666] leading-tight mt-0.5">
+            <div className="font-mohave text-micro text-[#666] leading-tight mt-0.5">
               {client.address}
             </div>
           )}
-          <div className="font-kosugi text-[8px] uppercase tracking-wider text-[#597794] mt-1">
+          <div className="font-kosugi text-micro uppercase tracking-wider text-[#6F94B0] mt-1">
             {client.mostActiveProjectStatus}
           </div>
         </div>
@@ -86,7 +86,7 @@ export function FocusedNodeLabel({ clients, entities }: FocusedNodeLabelProps) {
           <div
             className="text-left whitespace-nowrap px-4 py-2.5"
             style={{
-              background: "rgba(10, 10, 10, 0.75)",
+              background: "var(--surface-glass-dense)",
               backdropFilter: "blur(16px) saturate(1.2)",
               WebkitBackdropFilter: "blur(16px) saturate(1.2)",
               border: "1px solid rgba(255, 255, 255, 0.08)",
@@ -97,12 +97,12 @@ export function FocusedNodeLabel({ clients, entities }: FocusedNodeLabelProps) {
               {project.name}
             </div>
             {typeof project.properties.address === "string" && (
-              <div className="font-mohave text-[10px] text-[#999] leading-tight mt-0.5">
+              <div className="font-mohave text-micro text-[#999] leading-tight mt-0.5">
                 {project.properties.address}
               </div>
             )}
             {typeof project.properties.status === "string" && (
-              <div className="font-kosugi text-[8px] uppercase tracking-wider text-[#597794] mt-1">
+              <div className="font-kosugi text-micro uppercase tracking-wider text-[#6F94B0] mt-1">
                 {project.properties.status}
               </div>
             )}

@@ -59,15 +59,15 @@ export function WidgetTrayCard({ typeId, index, instanceCount }: WidgetTrayCardP
       <div className="flex items-center justify-between mt-[4px]">
         {isAdded ? (
           <div className="flex items-center gap-[4px]">
-            <span className="font-mono text-[8px] text-text-mute">{t("tray.card.added")}</span>
+            <span className="font-mono text-micro text-text-mute">{t("tray.card.added")}</span>
             {entry.allowMultiple && instanceCount > 1 && (
-              <span className="font-mono text-[8px] px-[3px] py-[1px] rounded bg-[rgba(255,255,255,0.06)] text-text-mute">
+              <span className="font-mono text-micro px-[3px] py-[1px] rounded bg-[rgba(255,255,255,0.06)] text-text-mute">
                 {instanceCount}x
               </span>
             )}
           </div>
         ) : (
-          <span className="font-mono text-[8px] text-text-mute">{t("tray.card.dragHint")}</span>
+          <span className="font-mono text-micro text-text-mute">{t("tray.card.dragHint")}</span>
         )}
 
         {canAddMore && (

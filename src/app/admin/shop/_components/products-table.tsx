@@ -236,7 +236,7 @@ export function ProductsTable({ products, categories, lowStockCount }: ProductsT
                   </Link>
                 </td>
                 <td className="px-4 py-3">
-                  <span className="px-2 py-0.5 bg-white/[0.05] rounded-sm font-kosugi text-[10px] uppercase tracking-widest text-[#6B6B6B]">
+                  <span className="px-2 py-0.5 bg-white/[0.05] rounded-sm font-kosugi text-micro uppercase tracking-widest text-[#6B6B6B]">
                     {p.categoryName}
                   </span>
                 </td>
@@ -254,11 +254,11 @@ export function ProductsTable({ products, categories, lowStockCount }: ProductsT
                 </td>
                 <td className="px-4 py-3">
                   {p.archivedAt ? (
-                    <span className="px-2 py-0.5 bg-white/[0.05] rounded-sm font-kosugi text-[10px] uppercase tracking-widest text-[#6B6B6B]">
+                    <span className="px-2 py-0.5 bg-white/[0.05] rounded-sm font-kosugi text-micro uppercase tracking-widest text-[#6B6B6B]">
                       Archived
                     </span>
                   ) : (
-                    <span className="px-2 py-0.5 bg-ops-accent/20 rounded-sm font-kosugi text-[10px] uppercase tracking-widest text-[#597794]">
+                    <span className="px-2 py-0.5 bg-ops-accent/20 rounded-sm font-kosugi text-micro uppercase tracking-widest text-[#597794]">
                       Active
                     </span>
                   )}

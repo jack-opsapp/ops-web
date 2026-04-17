@@ -52,11 +52,11 @@ export function StepperRail({
                 style={{ borderRadius: 2 }}
               >
                 {isCompleted ? (
-                  <Check size={10} className="text-[#597794]" />
+                  <Check size={10} className="text-[#6F94B0]" />
                 ) : isCurrent ? (
                   <div
                     className="w-2 h-2"
-                    style={{ background: "#597794", borderRadius: 1 }}
+                    style={{ background: "#6F94B0", borderRadius: 1 }}
                   />
                 ) : (
                   <div
@@ -68,12 +68,12 @@ export function StepperRail({
 
               {/* Label */}
               <span
-                className="font-kosugi text-[9px] tracking-[0.15em] uppercase"
+                className="font-kosugi text-micro tracking-[0.15em] uppercase"
                 style={{
                   color: isCurrent
                     ? "#E5E5E5"
                     : isPast
-                      ? "#597794"
+                      ? "#6F94B0"
                       : isFuture
                         ? "#444"
                         : "#666",
@@ -106,12 +106,12 @@ export function StepperRail({
                     >
                       <div className="w-2.5 h-2.5 flex items-center justify-center flex-shrink-0">
                         {isSubCompleted ? (
-                          <Check size={8} className="text-[#597794]" />
+                          <Check size={8} className="text-[#6F94B0]" />
                         ) : isSubCurrent ? (
                           <div
                             className="w-1.5 h-1.5"
                             style={{
-                              background: "#597794",
+                              background: "#6F94B0",
                               borderRadius: 1,
                             }}
                           />
@@ -123,12 +123,12 @@ export function StepperRail({
                         )}
                       </div>
                       <span
-                        className="font-kosugi text-[8px] tracking-[0.12em] uppercase"
+                        className="font-kosugi text-micro tracking-[0.12em] uppercase"
                         style={{
                           color: isSubCurrent
                             ? "#E5E5E5"
                             : isSubCompleted
-                              ? "#597794"
+                              ? "#6F94B0"
                               : "#444",
                         }}
                       >

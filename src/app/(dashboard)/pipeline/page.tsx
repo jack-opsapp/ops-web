@@ -1404,9 +1404,9 @@ export default function PipelinePage() {
         {/* Banners */}
         <div className="pointer-events-auto flex flex-col gap-1 px-3">
           {gmailConnections.length === 0 && !gmailBannerDismissed && (
-            <div className="flex items-center gap-2 px-2 py-1.5 rounded-[4px] bg-[rgba(65,115,148,0.08)] border border-[rgba(89,119,148,0.2)] animate-fade-in">
-              <div className="w-[32px] h-[32px] rounded bg-[rgba(89,119,148,0.15)] flex items-center justify-center shrink-0">
-                <Mail className="w-[16px] h-[16px] text-[#597794]" />
+            <div className="flex items-center gap-2 px-2 py-1.5 rounded-[4px] bg-[rgba(65,115,148,0.08)] border border-[rgba(111, 148, 176,0.2)] animate-fade-in">
+              <div className="w-[32px] h-[32px] rounded bg-[rgba(111, 148, 176,0.15)] flex items-center justify-center shrink-0">
+                <Mail className="w-[16px] h-[16px] text-[#6F94B0]" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-mohave text-body text-text">
@@ -1451,9 +1451,9 @@ export default function PipelinePage() {
             />
           )}
           {moveStage.isPending && (
-            <div className="flex items-center gap-1.5 px-2 py-1 rounded-[4px] bg-[rgba(89,119,148,0.12)] border border-[rgba(89,119,148,0.25)]">
-              <Loader2 className="w-[14px] h-[14px] text-[#597794] animate-spin" />
-              <span className="font-kosugi text-[11px] text-[#597794]">
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded-[4px] bg-[rgba(111, 148, 176,0.12)] border border-[rgba(111, 148, 176,0.25)]">
+              <Loader2 className="w-[14px] h-[14px] text-[#6F94B0] animate-spin" />
+              <span className="font-kosugi text-[11px] text-[#6F94B0]">
                 {t("column.updating")}
               </span>
             </div>

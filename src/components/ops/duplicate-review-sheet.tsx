@@ -133,10 +133,10 @@ export function DuplicateReviewSheet() {
               {/* Progress bar + counter */}
               <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between">
-                  <span className="font-kosugi text-[10px] uppercase tracking-wider text-white/40">
+                  <span className="font-kosugi text-micro uppercase tracking-wider text-white/40">
                     {currentIndex + 1} / {total}
                   </span>
-                  <span className="font-kosugi text-[10px] uppercase tracking-wider text-white/30">
+                  <span className="font-kosugi text-micro uppercase tracking-wider text-white/30">
                     {counts}
                   </span>
                 </div>
@@ -149,7 +149,7 @@ export function DuplicateReviewSheet() {
               </div>
 
               {/* Entity type label */}
-              <span className="font-kosugi text-[10px] uppercase tracking-wider text-white/30">
+              <span className="font-kosugi text-micro uppercase tracking-wider text-white/30">
                 {t(`tabs.${current.entityType}s` as `tabs.${string}`) || current.entityType}
               </span>
 

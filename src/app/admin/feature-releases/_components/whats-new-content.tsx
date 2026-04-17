@@ -329,7 +329,7 @@ export function WhatsNewContent() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      <span className={`font-mohave text-[10px] uppercase tracking-widest ${
+                      <span className={`font-mohave text-micro uppercase tracking-widest ${
                         req.status === "pending" ? "text-[#C4A868]" :
                         req.status === "approved" ? "text-[#9DB582]" : "text-[#93321A]"
                       }`}>
@@ -343,19 +343,19 @@ export function WhatsNewContent() {
                     <div className="border-t border-white/[0.06] px-4 py-4 space-y-3">
                       <div className="grid grid-cols-2 gap-3 text-[12px]">
                         <div>
-                          <span className="font-mohave text-[10px] uppercase tracking-widest text-[#6B6B6B]">Email</span>
+                          <span className="font-mohave text-micro uppercase tracking-widest text-[#6B6B6B]">Email</span>
                           <p className="font-kosugi text-[#A0A0A0]">{req.user_email}</p>
                         </div>
                         <div>
-                          <span className="font-mohave text-[10px] uppercase tracking-widest text-[#6B6B6B]">Company</span>
+                          <span className="font-mohave text-micro uppercase tracking-widest text-[#6B6B6B]">Company</span>
                           <p className="font-kosugi text-[#A0A0A0]">{req.company_name}</p>
                         </div>
                         <div>
-                          <span className="font-mohave text-[10px] uppercase tracking-widest text-[#6B6B6B]">Feature</span>
+                          <span className="font-mohave text-micro uppercase tracking-widest text-[#6B6B6B]">Feature</span>
                           <p className="font-kosugi text-[#A0A0A0]">{req.whats_new_items?.title ?? "—"}</p>
                         </div>
                         <div>
-                          <span className="font-mohave text-[10px] uppercase tracking-widest text-[#6B6B6B]">Requested</span>
+                          <span className="font-mohave text-micro uppercase tracking-widest text-[#6B6B6B]">Requested</span>
                           <p className="font-kosugi text-[#A0A0A0]">{new Date(req.requested_at).toLocaleDateString()}</p>
                         </div>
                       </div>
@@ -363,7 +363,7 @@ export function WhatsNewContent() {
                       {req.status === "pending" && (
                         <>
                           <div>
-                            <label className="block font-mohave text-[10px] uppercase tracking-widest text-[#6B6B6B] mb-1">
+                            <label className="block font-mohave text-micro uppercase tracking-widest text-[#6B6B6B] mb-1">
                               Notes (optional)
                             </label>
                             <textarea
@@ -393,7 +393,7 @@ export function WhatsNewContent() {
 
                       {req.admin_notes && (
                         <div>
-                          <span className="font-mohave text-[10px] uppercase tracking-widest text-[#6B6B6B]">Admin Notes</span>
+                          <span className="font-mohave text-micro uppercase tracking-widest text-[#6B6B6B]">Admin Notes</span>
                           <p className="font-kosugi text-[12px] text-[#A0A0A0]">{req.admin_notes}</p>
                         </div>
                       )}
@@ -571,16 +571,16 @@ function ItemRow({
   return (
     <div className={`flex items-center justify-between px-6 py-2.5 border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors ${!item.is_active ? "opacity-50" : ""}`}>
       <div className="flex items-center gap-3 min-w-0">
-        <span className="font-mono text-[10px] text-[#6B6B6B] w-16 truncate flex-shrink-0">{item.icon}</span>
+        <span className="font-mono text-micro text-[#6B6B6B] w-16 truncate flex-shrink-0">{item.icon}</span>
         <div className="min-w-0">
           <span className="font-kosugi text-[13px] text-[#E5E5E5]">{item.title}</span>
           {item.feature_flag_slug && (
-            <span className="ml-2 font-mono text-[10px] text-[#597794] bg-ops-accent/10 px-1.5 py-0.5 rounded">{item.feature_flag_slug}</span>
+            <span className="ml-2 font-mono text-micro text-[#597794] bg-ops-accent/10 px-1.5 py-0.5 rounded">{item.feature_flag_slug}</span>
           )}
         </div>
       </div>
       <div className="flex items-center gap-3 flex-shrink-0">
-        <span className="font-mohave text-[10px] uppercase tracking-widest" style={{ color: statusOption?.color ?? "#6B6B6B" }}>
+        <span className="font-mohave text-micro uppercase tracking-widest" style={{ color: statusOption?.color ?? "#6B6B6B" }}>
           {statusOption?.label ?? item.status}
         </span>
         <button onClick={() => onUpdate(item.id, { is_active: !item.is_active })} className="text-[#6B6B6B] hover:text-[#E5E5E5] transition-colors">

@@ -80,7 +80,7 @@ export function ConversationItem({
             </span>
             <div className="flex items-center gap-1 shrink-0">
               {hasAutoDraft && (
-                <Sparkles className="w-[14px] h-[14px] text-[#597794]" />
+                <Sparkles className="w-[14px] h-[14px] text-[#6F94B0]" />
               )}
               <span className="font-kosugi text-micro text-text-mute">
                 {formatRelativeTime(conversation.lastMessageAt)}

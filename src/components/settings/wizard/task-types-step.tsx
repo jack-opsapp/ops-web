@@ -197,7 +197,7 @@ export function TaskTypesStep({
           <div key={group.industry}>
             {/* Industry header — only show if multiple industries selected */}
             {industries.length > 1 && (
-              <span className="font-kosugi text-[9px] text-text-mute uppercase tracking-widest mb-[6px] block">
+              <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest mb-[6px] block">
                 {group.industry}
               </span>
             )}
@@ -257,7 +257,7 @@ export function TaskTypesStep({
           type="button"
           onClick={handleContinue}
           disabled={enabledCount === 0}
-          className="flex items-center gap-[8px] px-[20px] py-[10px] rounded border border-[rgba(255,255,255,0.08)] bg-[rgba(89,119,148,0.12)] hover:bg-[rgba(89,119,148,0.2)] text-text font-mohave text-body-sm transition-colors disabled:opacity-50"
+          className="flex items-center gap-[8px] px-[20px] py-[10px] rounded border border-[rgba(255,255,255,0.08)] bg-[rgba(111, 148, 176,0.12)] hover:bg-[rgba(111, 148, 176,0.2)] text-text font-mohave text-body-sm transition-colors disabled:opacity-50"
         >
           {t("wizard.taskTypes.continue")}
           <ArrowRight className="w-[14px] h-[14px]" />
@@ -325,9 +325,9 @@ function TaskTypeCard({
       }}
       className="relative rounded border border-[rgba(255,255,255,0.08)] px-[10px] py-[8px]"
       style={{
-        background: "rgba(10, 10, 10, 0.70)",
-        backdropFilter: "blur(20px) saturate(1.2)",
-        WebkitBackdropFilter: "blur(20px) saturate(1.2)",
+        background: "var(--surface-glass)",
+        backdropFilter: "blur(28px) saturate(1.3)",
+        WebkitBackdropFilter: "blur(28px) saturate(1.3)",
       }}
     >
       {/* Main row */}
@@ -339,10 +339,10 @@ function TaskTypeCard({
           className="relative w-[16px] h-[16px] rounded-sm border shrink-0 transition-colors"
           style={{
             borderColor: enabled
-              ? "rgba(89, 119, 148, 0.6)"
+              ? "rgba(111, 148, 176, 0.6)"
               : "rgba(255, 255, 255, 0.12)",
             backgroundColor: enabled
-              ? "rgba(89, 119, 148, 0.25)"
+              ? "rgba(111, 148, 176, 0.25)"
               : "transparent",
           }}
           aria-label={`Toggle ${name}`}
@@ -354,7 +354,7 @@ function TaskTypeCard({
               exit={{ scale: 0 }}
               transition={{ duration: 0.15, ease: EASE_SMOOTH }}
               className="absolute inset-[3px] rounded-[1px]"
-              style={{ backgroundColor: "#597794" }}
+              style={{ backgroundColor: "#6F94B0" }}
             />
           )}
         </button>
@@ -406,12 +406,12 @@ function TaskTypeCard({
         {/* Badges */}
         <div className="flex items-center gap-[6px] shrink-0">
           {hoursLabel && (
-            <span className="font-mono text-[10px] text-text-mute whitespace-nowrap">
+            <span className="font-mono text-micro text-text-mute whitespace-nowrap">
               {hoursLabel}
             </span>
           )}
           {alsoIn.length > 0 && (
-            <span className="font-kosugi text-[9px] text-text-mute whitespace-nowrap">
+            <span className="font-kosugi text-micro text-text-mute whitespace-nowrap">
               {t("wizard.taskTypes.alsoIn").replace("{industries}", alsoIn.join(", "))}
             </span>
           )}

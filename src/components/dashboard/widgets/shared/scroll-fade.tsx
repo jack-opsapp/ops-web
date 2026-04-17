@@ -48,7 +48,7 @@ export function ScrollFade({ children, className, onScroll }: ScrollFadeProps) {
           showTop ? "opacity-100" : "opacity-0"
         )}
         style={{
-          background: "linear-gradient(to bottom, rgba(10, 10, 10, 0.95), transparent)",
+          background: "linear-gradient(to bottom, var(--surface-glass-dense), transparent)",
         }}
       />
 
@@ -68,7 +68,7 @@ export function ScrollFade({ children, className, onScroll }: ScrollFadeProps) {
           showBottom ? "opacity-100" : "opacity-0"
         )}
         style={{
-          background: "linear-gradient(to top, rgba(10, 10, 10, 0.95), transparent)",
+          background: "linear-gradient(to top, var(--surface-glass-dense), transparent)",
         }}
       />
     </div>

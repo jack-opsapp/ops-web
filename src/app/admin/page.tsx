@@ -49,7 +49,7 @@ async function fetchOverviewData() {
 function KpiItem({ label, value, href, accent }: { label: string; value: string | number; href?: string; accent?: boolean }) {
   const inner = (
     <span className={`flex items-center gap-2 ${href ? 'hover:text-[#A0A0A0] cursor-pointer' : ''} transition-colors`}>
-      <span className="font-kosugi text-[10px] uppercase tracking-wider text-[#6B6B6B]">{label}</span>
+      <span className="font-kosugi text-micro uppercase tracking-wider text-[#6B6B6B]">{label}</span>
       <span className={`font-mohave text-[15px] font-semibold ${accent ? 'text-[#C4A868]' : 'text-[#E5E5E5]'}`}>{value}</span>
     </span>
   );

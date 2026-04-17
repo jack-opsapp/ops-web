@@ -80,7 +80,7 @@ export function ProjectContextMenu({
         left: contextMenu.x,
         top: contextMenu.y,
         background: "rgba(18,18,18,0.95)",
-        backdropFilter: "blur(20px) saturate(1.2)",
+        backdropFilter: "blur(28px) saturate(1.3)",
         border: "1px solid rgba(255,255,255,0.08)",
         boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
       }}
@@ -127,7 +127,7 @@ export function ProjectContextMenu({
             className="absolute left-full top-0 min-w-[140px] py-1 rounded-[4px] hidden group-hover:block"
             style={{
               background: "rgba(18,18,18,0.95)",
-              backdropFilter: "blur(20px) saturate(1.2)",
+              backdropFilter: "blur(28px) saturate(1.3)",
               border: "1px solid rgba(255,255,255,0.08)",
               boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
               marginLeft: 2,
@@ -204,7 +204,7 @@ function MenuItem({
       {icon}
       <span className="font-mohave text-body-sm flex-1">{label}</span>
       {hasSubmenu && (
-        <span className="text-text-mute text-[10px]">▸</span>
+        <span className="text-text-mute text-micro">▸</span>
       )}
     </button>
   );

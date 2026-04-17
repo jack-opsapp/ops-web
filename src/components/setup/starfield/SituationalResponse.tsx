@@ -24,7 +24,7 @@ interface SituationalResponseProps {
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
-const ACCENT = { r: 89, g: 119, b: 148 }; // #597794
+const ACCENT = { r: 89, g: 119, b: 148 }; // #6F94B0
 const GREY = { r: 100, g: 100, b: 100 };
 
 const HIT_RADIUS = 60;

@@ -408,11 +408,11 @@ export function DocumentTemplatesTab() {
                     <p className="font-mohave text-body text-text truncate">
                       {tmpl.name}
                     </p>
-                    <span className="font-kosugi text-[10px] text-text-3 px-1 py-0.5 rounded bg-fill-neutral-dim shrink-0 uppercase">
+                    <span className="font-kosugi text-micro text-text-3 px-1 py-0.5 rounded bg-fill-neutral-dim shrink-0 uppercase">
                       {tmpl.documentType}
                     </span>
                     {tmpl.isDefault && (
-                      <span className="font-kosugi text-[10px] text-ops-accent px-1 py-0.5 rounded bg-ops-accent-muted shrink-0">
+                      <span className="font-kosugi text-micro text-ops-accent px-1 py-0.5 rounded bg-ops-accent-muted shrink-0">
                         {t("templates.default")}
                       </span>
                     )}

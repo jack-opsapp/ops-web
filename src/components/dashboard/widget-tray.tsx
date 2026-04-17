@@ -285,7 +285,7 @@ export function WidgetTray({ open, onClose, onDone, onCancel }: WidgetTrayProps)
               className="flex items-center gap-[6px] ml-auto mr-3"
               onPointerDown={(e) => e.stopPropagation()}
             >
-              <span className="font-kosugi text-[9px] text-text-mute uppercase tracking-wider select-none">
+              <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider select-none">
                 {t("tray.gap")}
               </span>
               <div className="flex items-center rounded-[4px] border border-[rgba(255,255,255,0.1)] bg-[rgba(10,10,10,0.5)] backdrop-blur-sm overflow-hidden">
@@ -296,7 +296,7 @@ export function WidgetTray({ open, onClose, onDone, onCancel }: WidgetTrayProps)
                       key={gapId}
                       onClick={() => setWidgetGap(gapId)}
                       className={cn(
-                        "px-[8px] py-[4px] font-mono text-[10px] transition-all duration-150 border-r border-[rgba(255,255,255,0.06)] last:border-r-0",
+                        "px-[8px] py-[4px] font-mono text-micro transition-all duration-150 border-r border-[rgba(255,255,255,0.06)] last:border-r-0",
                         isActive
                           ? "bg-ops-accent-muted text-ops-accent"
                           : "text-text-mute hover:text-text-2"
@@ -337,14 +337,14 @@ export function WidgetTray({ open, onClose, onDone, onCancel }: WidgetTrayProps)
             animate="visible"
             exit="exit"
             onAnimationStart={handleAnimationStart}
-            className="fixed bottom-0 right-0 z-40 flex flex-col rounded-t-xl shadow-[0_-8px_32px_rgba(0,0,0,0.6)]"
+            className="fixed bottom-0 right-0 z-40 flex flex-col rounded-t-[12px]"
             style={{
               left: sidebarWidth,
               height: displayHeight,
-              background: "rgba(10, 10, 10, 0.70)",
-              backdropFilter: "blur(20px) saturate(1.2)",
-              WebkitBackdropFilter: "blur(20px) saturate(1.2)",
-              borderTop: "1px solid rgba(255, 255, 255, 0.08)",
+              background: "var(--surface-glass-dense)",
+              backdropFilter: "blur(28px) saturate(1.3)",
+              WebkitBackdropFilter: "blur(28px) saturate(1.3)",
+              borderTop: "1px solid var(--glass-border)",
               transition: "left 0.2s ease-out",
             }}
           >
@@ -364,7 +364,7 @@ export function WidgetTray({ open, onClose, onDone, onCancel }: WidgetTrayProps)
                 <h2 className="font-mohave text-body-lg text-text font-medium">
                   {t("tray.title")}
                 </h2>
-                <span className="font-mono text-[10px] text-text-mute">
+                <span className="font-mono text-micro text-text-mute">
                   {totalActiveCount} {t("tray.active")}
                 </span>
               </div>
@@ -404,10 +404,10 @@ export function WidgetTray({ open, onClose, onDone, onCancel }: WidgetTrayProps)
                       <div key={category}>
                         {/* Category label */}
                         <div className="flex items-center gap-[6px] mb-[6px]">
-                          <span className="font-kosugi text-[10px] text-text-3 uppercase tracking-widest">
+                          <span className="font-kosugi text-micro text-text-3 uppercase tracking-widest">
                             {CATEGORY_LABELS[category]}
                           </span>
-                          <span className="font-mono text-[9px] text-text-mute">
+                          <span className="font-mono text-micro text-text-mute">
                             {available.length + inUse.length}
                           </span>
                         </div>
@@ -430,10 +430,10 @@ export function WidgetTray({ open, onClose, onDone, onCancel }: WidgetTrayProps)
                         {inUse.length > 0 && (
                           <>
                             <div className="flex items-center gap-[6px] mb-[4px] mt-[2px]">
-                              <span className="font-kosugi text-[9px] text-text-mute uppercase tracking-widest">
+                              <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
                                 {t("tray.alreadyInUse")}
                               </span>
-                              <span className="font-mono text-[8px] text-text-mute">
+                              <span className="font-mono text-micro text-text-mute">
                                 {inUse.length}
                               </span>
                             </div>

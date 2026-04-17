@@ -252,7 +252,7 @@ export const SpreadsheetRow = memo(function SpreadsheetRow({
               </div>
             ))}
             {overflow > 0 && (
-              <span className="ml-0.5 font-mono text-[10px] text-text-3">+{overflow}</span>
+              <span className="ml-0.5 font-mono text-micro text-text-3">+{overflow}</span>
             )}
           </div>
         );
@@ -278,7 +278,7 @@ export const SpreadsheetRow = memo(function SpreadsheetRow({
                 </div>
               ))}
               {overflow > 0 && (
-                <span className="ml-0.5 font-mono text-[10px] text-text-3">+{overflow}</span>
+                <span className="ml-0.5 font-mono text-micro text-text-3">+{overflow}</span>
               )}
             </button>
 
@@ -286,8 +286,8 @@ export const SpreadsheetRow = memo(function SpreadsheetRow({
               <div
                 className="absolute top-full left-0 mt-1 z-[1000] p-2 rounded-[4px] grid grid-cols-3 gap-1.5 max-w-[240px]"
                 style={{
-                  background: "rgba(10,10,10,0.95)",
-                  backdropFilter: "blur(20px) saturate(1.2)",
+                  background: "var(--surface-glass-dense)",
+                  backdropFilter: "blur(28px) saturate(1.3)",
                   border: "1px solid rgba(255,255,255,0.10)",
                 }}
               >
@@ -338,7 +338,7 @@ export const SpreadsheetRow = memo(function SpreadsheetRow({
 
       case "pipeline":
         return project.opportunityId ? (
-          <span className="inline-flex px-1.5 py-0.5 rounded-sm bg-[rgba(255,255,255,0.06)] border border-border-subtle font-kosugi text-[9px] text-text-3 uppercase tracking-wider">
+          <span className="inline-flex px-1.5 py-0.5 rounded-sm bg-[rgba(255,255,255,0.06)] border border-border-subtle font-kosugi text-micro text-text-3 uppercase tracking-wider">
             Linked
           </span>
         ) : (

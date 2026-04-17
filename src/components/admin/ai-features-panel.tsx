@@ -170,7 +170,7 @@ export function AIFeaturesPanel() {
               placeholder="Search companies..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-glass glass-surface border border-white/10 rounded px-3 py-2 text-sm font-mohave text-white placeholder:text-[#999] focus:outline-none focus:border-[#597794]"
+              className="w-full bg-glass glass-surface border border-white/10 rounded px-3 py-2 text-sm font-mohave text-white placeholder:text-[#999] focus:outline-none focus:border-[#6F94B0]"
             />
           </div>
 
@@ -197,7 +197,7 @@ export function AIFeaturesPanel() {
                   </div>
                   <div className="flex gap-2 mt-1">
                     <span
-                      className={`inline-block px-1.5 py-0.5 text-[10px] font-kosugi uppercase tracking-wider rounded ${
+                      className={`inline-block px-1.5 py-0.5 text-micro font-kosugi uppercase tracking-wider rounded ${
                         c.aiEmailReview.enabled
                           ? "bg-[#9DB582]/15 text-[#9DB582]"
                           : "bg-white/5 text-[#999]"
@@ -207,7 +207,7 @@ export function AIFeaturesPanel() {
                       {c.aiEmailReview.enabled ? "ON" : "OFF"}
                     </span>
                     <span
-                      className={`inline-block px-1.5 py-0.5 text-[10px] font-kosugi uppercase tracking-wider rounded ${
+                      className={`inline-block px-1.5 py-0.5 text-micro font-kosugi uppercase tracking-wider rounded ${
                         c.phaseC.enabled
                           ? "bg-[#9DB582]/15 text-[#9DB582]"
                           : "bg-white/5 text-[#999]"
@@ -308,7 +308,7 @@ export function AIFeaturesPanel() {
 
               {/* Memory stats */}
               <div className="space-y-2">
-                <div className="font-kosugi text-[10px] uppercase tracking-wider text-[#999]">
+                <div className="font-kosugi text-micro uppercase tracking-wider text-[#999]">
                   [ MEMORY STATS ]
                 </div>
                 <div className="grid grid-cols-3 gap-2">
@@ -341,7 +341,7 @@ export function AIFeaturesPanel() {
                 {/* Entity breakdown */}
                 {Object.keys(selectedCompany.memory.entitiesByType).length > 0 && (
                   <div className="mt-2">
-                    <div className="font-kosugi text-[10px] uppercase tracking-wider text-[#999] mb-1">
+                    <div className="font-kosugi text-micro uppercase tracking-wider text-[#999] mb-1">
                       [ ENTITIES ]
                     </div>
                     <div className="px-2 py-1.5 rounded bg-glass glass-surface border border-white/5">
@@ -358,7 +358,7 @@ export function AIFeaturesPanel() {
                 {/* Fact categories (top 5) */}
                 {Object.keys(selectedCompany.memory.factsByCategory).length > 0 && (
                   <div className="mt-2">
-                    <div className="font-kosugi text-[10px] uppercase tracking-wider text-[#999] mb-1">
+                    <div className="font-kosugi text-micro uppercase tracking-wider text-[#999] mb-1">
                       [ TOP FACT CATEGORIES ]
                     </div>
                     <div className="px-2 py-1.5 rounded bg-glass glass-surface border border-white/5">
@@ -376,7 +376,7 @@ export function AIFeaturesPanel() {
                 {/* Writing profiles by type */}
                 {selectedCompany.memory.writingProfiles.length > 0 && (
                   <div className="mt-2 space-y-1">
-                    <div className="font-kosugi text-[10px] uppercase tracking-wider text-[#999]">
+                    <div className="font-kosugi text-micro uppercase tracking-wider text-[#999]">
                       [ WRITING PROFILES ]
                     </div>
                     {selectedCompany.memory.writingProfiles.map((wp) => (
@@ -391,7 +391,7 @@ export function AIFeaturesPanel() {
                           <span className="font-mohave text-xs text-[#999]">
                             {wp.emailsAnalyzed} emails
                           </span>
-                          <span className="font-mohave text-[10px] text-[#666]">
+                          <span className="font-mohave text-micro text-[#666]">
                             {wp.updatedAt ? new Date(wp.updatedAt).toLocaleDateString() : ''}
                           </span>
                         </div>

@@ -48,7 +48,7 @@ function LoadingOverlay({ message, className }: LoadingOverlayProps) {
             )}
           />
         </div>
-        <div className="absolute inset-0 rounded-full shadow-glow-accent-lg animate-pulse-live" />
+        <div className="absolute inset-0 rounded-full animate-pulse-live" />
       </div>
 
       {message && (

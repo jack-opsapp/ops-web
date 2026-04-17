@@ -183,8 +183,8 @@ export const SpatialCard = memo(function SpatialCard({
         )}
         style={{
           background: "rgba(13,13,13,0.6)",
-          backdropFilter: "blur(20px) saturate(1.2)",
-          WebkitBackdropFilter: "blur(20px) saturate(1.2)",
+          backdropFilter: "blur(28px) saturate(1.3)",
+          WebkitBackdropFilter: "blur(28px) saturate(1.3)",
           borderTop: cardEdgeBorder,
           borderRight: cardEdgeBorder,
           borderBottom: cardEdgeBorder,

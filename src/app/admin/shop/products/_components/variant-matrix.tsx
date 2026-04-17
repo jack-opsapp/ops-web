@@ -239,7 +239,7 @@ function BulkSetButton({
           setOpen(false);
           setValue("");
         }}
-        className="px-2 py-1 bg-ops-accent rounded-sm font-kosugi text-[9px] uppercase text-white"
+        className="px-2 py-1 bg-ops-accent rounded-sm font-kosugi text-micro uppercase text-white"
       >
         Set
       </button>
@@ -247,7 +247,7 @@ function BulkSetButton({
   ) : (
     <button
       onClick={() => setOpen(true)}
-      className="font-kosugi text-[10px] uppercase tracking-widest text-[#6B6B6B] hover:text-[#E5E5E5] transition-colors"
+      className="font-kosugi text-micro uppercase tracking-widest text-[#6B6B6B] hover:text-[#E5E5E5] transition-colors"
     >
       {label}
     </button>

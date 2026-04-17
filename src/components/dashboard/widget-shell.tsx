@@ -200,8 +200,8 @@ export function WidgetShell({
             transition={{ duration: 0.2, ease: EASE_SMOOTH }}
             className="absolute top-[6px] right-[6px] z-10 flex items-center gap-[4px] rounded-md px-[3px] py-[2px] pointer-events-auto bg-glass-dense border border-glass-border"
             style={{
-              backdropFilter: "blur(20px) saturate(1.2)",
-              WebkitBackdropFilter: "blur(20px) saturate(1.2)",
+              backdropFilter: "blur(28px) saturate(1.3)",
+              WebkitBackdropFilter: "blur(28px) saturate(1.3)",
             }}
             onPointerDown={(e) => e.stopPropagation()}
           >
@@ -214,7 +214,7 @@ export function WidgetShell({
                     key={s}
                     onClick={() => updateWidgetInstance(instanceId, { size: s })}
                     className={cn(
-                      "px-[8px] py-[2px] rounded-sm font-mono text-[10px] border transition-all duration-150",
+                      "px-[8px] py-[2px] rounded-sm font-mono text-micro border transition-all duration-150",
                       isSelected
                         ? "bg-ops-accent-muted border-ops-accent text-text"
                         : "border-transparent text-text-mute"

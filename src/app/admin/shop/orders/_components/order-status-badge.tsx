@@ -12,7 +12,7 @@ const STATUS_STYLES: Record<string, string> = {
 export function OrderStatusBadge({ status }: { status: string }) {
   return (
     <span
-      className={`px-2 py-0.5 rounded-sm font-kosugi text-[10px] uppercase tracking-widest ${STATUS_STYLES[status] ?? STATUS_STYLES.pending}`}
+      className={`px-2 py-0.5 rounded-sm font-kosugi text-micro uppercase tracking-widest ${STATUS_STYLES[status] ?? STATUS_STYLES.pending}`}
     >
       {status}
     </span>

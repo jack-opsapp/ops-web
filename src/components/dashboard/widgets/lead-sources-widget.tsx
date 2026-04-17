@@ -214,7 +214,7 @@ function MultiLineTrendChart({
         {/* Y-axis labels (HTML — not stretched) */}
         <div className="flex flex-col justify-between shrink-0 pr-1" style={{ width: `${yLabelWidth}px`, height: `${chartHeight}px` }}>
           {yLabels.slice().reverse().map((val) => (
-            <span key={val} className="font-mono text-[9px] text-text-mute text-right leading-none">
+            <span key={val} className="font-mono text-micro text-text-mute text-right leading-none">
               {val}
             </span>
           ))}
@@ -305,7 +305,7 @@ function MultiLineTrendChart({
             {labels.map((label, i) => (
               <span
                 key={i}
-                className="font-kosugi text-[9px] text-text-mute uppercase tracking-wider"
+                className="font-kosugi text-micro text-text-mute uppercase tracking-wider"
                 style={{ width: i === 0 ? "auto" : i === labels.length - 1 ? "auto" : undefined, textAlign: i === 0 ? "left" : i === labels.length - 1 ? "right" : "center", flex: i === 0 || i === labels.length - 1 ? "0 0 auto" : "1" }}
               >
                 {label}
@@ -632,10 +632,10 @@ export function LeadSourcesWidget({
                     className="w-[5px] h-[5px] rounded-full shrink-0"
                     style={{ backgroundColor: BAR_COLORS[i % BAR_COLORS.length] }}
                   />
-                  <span className="font-mohave text-[10px] text-text-2 truncate">
+                  <span className="font-mohave text-micro text-text-2 truncate">
                     {s.label}
                   </span>
-                  <span className="font-mono text-[9px] text-text-3 shrink-0">
+                  <span className="font-mono text-micro text-text-3 shrink-0">
                     {s.count}
                   </span>
                 </div>
@@ -808,7 +808,7 @@ export function LeadSourcesWidget({
             anchor="above"
           >
             <div className="mb-1">
-              <span className="font-kosugi text-[9px] text-text-mute uppercase tracking-wider">
+              <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
                 {monthLabels[crosshair.monthIndex] ?? ""}
               </span>
             </div>

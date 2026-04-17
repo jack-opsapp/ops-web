@@ -245,7 +245,7 @@ export function DetailPopoverNextSteps({
               {remaining.length > 0 && (
                 <button
                   onClick={() => setExpanded((prev) => !prev)}
-                  className="font-mono text-[9px] text-text-mute hover:text-text-3 px-1 transition-colors"
+                  className="font-mono text-micro text-text-mute hover:text-text-3 px-1 transition-colors"
                 >
                   +{remaining.length} {t("detail.moreFollowUps")}
                 </button>
@@ -263,7 +263,7 @@ export function DetailPopoverNextSteps({
                   />
                   <span
                     className={cn(
-                      "font-kosugi text-[10px] flex-1 min-w-0 truncate",
+                      "font-kosugi text-micro flex-1 min-w-0 truncate",
                       COLOR_MAP[signal.color]
                     )}
                   >

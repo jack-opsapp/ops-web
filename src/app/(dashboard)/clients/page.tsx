@@ -97,7 +97,7 @@ function ClientCard({ client, onClick, t }: { client: ClientListItem; onClick: (
             {client.company && (
               <div className="flex items-center gap-[4px]">
                 <Building2 className="w-[11px] h-[11px] text-text-mute shrink-0" />
-                <p className="font-kosugi text-[10px] text-text-3 truncate">
+                <p className="font-kosugi text-micro text-text-3 truncate">
                   {client.company}
                 </p>
               </div>
@@ -146,7 +146,7 @@ function ClientCard({ client, onClick, t }: { client: ClientListItem; onClick: (
               className="flex items-center gap-[3px] text-text-3 hover:text-ops-accent transition-colors"
             >
               <Users className="w-[12px] h-[12px]" />
-              <span className="font-mono text-[10px]">{client.subClients.length}</span>
+              <span className="font-mono text-micro">{client.subClients.length}</span>
               {expanded ? (
                 <ChevronDown className="w-[12px] h-[12px]" />
               ) : (
@@ -163,7 +163,7 @@ function ClientCard({ client, onClick, t }: { client: ClientListItem; onClick: (
           className="border-t border-border-subtle bg-fill-neutral-dim/50 px-2 py-1.5 space-y-1 animate-slide-up"
           onClick={(e) => e.stopPropagation()}
         >
-          <span className="font-kosugi text-[9px] text-text-mute uppercase tracking-widest">
+          <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
             {t("card.subClients")}
           </span>
           {client.subClients.map((sc) => (
@@ -172,7 +172,7 @@ function ClientCard({ client, onClick, t }: { client: ClientListItem; onClick: (
                 <p className="font-mohave text-body-sm text-text-2 truncate">
                   {sc.name}
                   {sc.title && (
-                    <span className="text-text-mute ml-[6px] font-kosugi text-[10px]">
+                    <span className="text-text-mute ml-[6px] font-kosugi text-micro">
                       {sc.title}
                     </span>
                   )}
@@ -180,7 +180,7 @@ function ClientCard({ client, onClick, t }: { client: ClientListItem; onClick: (
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
                 {sc.phone && (
-                  <span className="font-mono text-[10px] text-text-mute">{sc.phone}</span>
+                  <span className="font-mono text-micro text-text-mute">{sc.phone}</span>
                 )}
               </div>
             </div>
@@ -218,7 +218,7 @@ function ClientTableRow({
               {client.name}
             </span>
             {client.company && (
-              <span className="font-kosugi text-[10px] text-text-mute block truncate">
+              <span className="font-kosugi text-micro text-text-mute block truncate">
                 {client.company}
               </span>
             )}
@@ -252,7 +252,7 @@ function ClientTableRow({
       {/* Sub-Clients */}
       <td className="px-1.5 py-1 text-center hidden sm:table-cell">
         {client.subClients.length > 0 ? (
-          <Badge variant="info" className="text-[10px] px-[6px] py-[1px]">
+          <Badge variant="info" className="text-micro px-[6px] py-[1px]">
             {client.subClients.length}
           </Badge>
         ) : (

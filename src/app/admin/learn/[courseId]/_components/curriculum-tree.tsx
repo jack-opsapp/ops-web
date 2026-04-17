@@ -61,13 +61,13 @@ export function CurriculumTree({ modules }: { modules: LearnModuleDetail[] }) {
                       {lesson.content_blocks.map((cb, i) => (
                         <span
                           key={i}
-                          className="px-1.5 py-0.5 rounded font-kosugi text-[9px] uppercase bg-white/[0.05] text-[#6B6B6B]"
+                          className="px-1.5 py-0.5 rounded font-kosugi text-micro uppercase bg-white/[0.05] text-[#6B6B6B]"
                         >
                           {cb.type}
                         </span>
                       ))}
                     </div>
-                    <span className="font-kosugi text-[10px] uppercase text-[#6B6B6B] shrink-0">
+                    <span className="font-kosugi text-micro uppercase text-[#6B6B6B] shrink-0">
                       Lesson
                     </span>
                   </div>
@@ -83,7 +83,7 @@ export function CurriculumTree({ modules }: { modules: LearnModuleDetail[] }) {
                         {assessment.title}
                       </span>
                       <span
-                        className="font-kosugi text-[10px] uppercase"
+                        className="font-kosugi text-micro uppercase"
                         style={{ color: ASSESSMENT_TYPE_COLORS[assessment.type] ?? "#6B6B6B" }}
                       >
                         {assessment.type}
@@ -98,7 +98,7 @@ export function CurriculumTree({ modules }: { modules: LearnModuleDetail[] }) {
                       </span>
                     </div>
                     <span
-                      className="font-kosugi text-[10px] uppercase shrink-0"
+                      className="font-kosugi text-micro uppercase shrink-0"
                       style={{ color: ASSESSMENT_TYPE_COLORS[assessment.type] ?? "#6B6B6B" }}
                     >
                       Assessment

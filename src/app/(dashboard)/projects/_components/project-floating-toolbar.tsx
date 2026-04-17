@@ -165,7 +165,7 @@ export function ProjectFloatingToolbar({
               onSearchChange("");
             }
           }}
-          className="w-[160px] px-2 py-[3px] rounded-sm font-mohave text-[12px] text-text bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.08)] placeholder:text-text-mute focus:outline-none focus:border-[rgba(89,119,148,0.3)]"
+          className="w-[160px] px-2 py-[3px] rounded-sm font-mohave text-[12px] text-text bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.08)] placeholder:text-text-mute focus:outline-none focus:border-[rgba(111, 148, 176,0.3)]"
         />
       )}
 
@@ -189,13 +189,13 @@ export function ProjectFloatingToolbar({
           <div
             className="absolute top-full left-0 mt-1 z-50 min-w-[200px] p-2 rounded-[4px] space-y-2"
             style={{
-              background: "rgba(10,10,10,0.95)",
-              backdropFilter: "blur(20px) saturate(1.2)",
+              background: "var(--surface-glass-dense)",
+              backdropFilter: "blur(28px) saturate(1.3)",
               border: "1px solid rgba(255,255,255,0.10)",
             }}
           >
             <div>
-              <span className="font-kosugi text-[9px] uppercase tracking-widest text-text-mute">
+              <span className="font-kosugi text-micro uppercase tracking-widest text-text-mute">
                 {t("toolbar.allMembers")}
               </span>
               <select
@@ -210,7 +210,7 @@ export function ProjectFloatingToolbar({
               </select>
             </div>
             <div>
-              <span className="font-kosugi text-[9px] uppercase tracking-widest text-text-mute">
+              <span className="font-kosugi text-micro uppercase tracking-widest text-text-mute">
                 {t("toolbar.allClients")}
               </span>
               <select
@@ -282,8 +282,8 @@ export function ProjectFloatingToolbar({
               <div
                 className="absolute top-full left-0 mt-1 z-50 min-w-[120px] p-1 rounded-[4px]"
                 style={{
-                  background: "rgba(10,10,10,0.95)",
-                  backdropFilter: "blur(20px) saturate(1.2)",
+                  background: "var(--surface-glass-dense)",
+                  backdropFilter: "blur(28px) saturate(1.3)",
                   border: "1px solid rgba(255,255,255,0.10)",
                 }}
               >
@@ -328,8 +328,8 @@ export function ProjectFloatingToolbar({
                   <div
                     className="absolute top-full left-0 mt-1 z-50 min-w-[140px] p-1 rounded-[4px]"
                     style={{
-                      background: "rgba(10,10,10,0.95)",
-                      backdropFilter: "blur(20px) saturate(1.2)",
+                      background: "var(--surface-glass-dense)",
+                      backdropFilter: "blur(28px) saturate(1.3)",
                       border: "1px solid rgba(255,255,255,0.10)",
                     }}
                   >

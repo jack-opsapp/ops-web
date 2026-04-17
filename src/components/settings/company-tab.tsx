@@ -318,7 +318,7 @@ export function CompanyTab() {
                   )}
                 </button>
               </div>
-              <p className="font-kosugi text-[10px] text-text-mute">
+              <p className="font-kosugi text-micro text-text-mute">
                 {t("company.companyCodeHint")}
               </p>
             </div>

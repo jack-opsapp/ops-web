@@ -192,7 +192,7 @@ export function FloatingActionButton() {
             className="fixed inset-0 z-[94]"
             style={{
               background:
-                "linear-gradient(to left, rgba(10,10,10,0.85), transparent)",
+                "linear-gradient(to left, var(--surface-glass-dense), transparent)",
             }}
             variants={fabOverlayVariants}
             initial="hidden"

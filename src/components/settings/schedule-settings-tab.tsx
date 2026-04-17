@@ -155,8 +155,8 @@ export function ScheduleSettingsTab() {
           disabled={!dirty || saving}
           className="flex items-center gap-2 px-4 min-h-[56px] rounded-[8px] border font-mohave text-[14px] uppercase tracking-wider transition-colors duration-150"
           style={{
-            backgroundColor: dirty ? "#597794" : "transparent",
-            borderColor: dirty ? "#597794" : "rgba(255,255,255,0.08)",
+            backgroundColor: dirty ? "#6F94B0" : "transparent",
+            borderColor: dirty ? "#6F94B0" : "rgba(255,255,255,0.08)",
             color: dirty ? "#fff" : "var(--text-tertiary)",
             opacity: saving ? 0.6 : 1,
             cursor: dirty && !saving ? "pointer" : "default",
@@ -378,8 +378,8 @@ function ToggleSwitch({
       onClick={() => onChange(!checked)}
       className="relative w-[44px] h-[24px] rounded-full border transition-colors duration-150 shrink-0"
       style={{
-        backgroundColor: checked ? "#597794" : "rgba(255,255,255,0.06)",
-        borderColor: checked ? "#597794" : "rgba(255,255,255,0.12)",
+        backgroundColor: checked ? "#6F94B0" : "rgba(255,255,255,0.06)",
+        borderColor: checked ? "#6F94B0" : "rgba(255,255,255,0.12)",
       }}
     >
       <span

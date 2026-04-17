@@ -316,7 +316,7 @@ export function TriggersTab() {
                       <h3 className="font-mohave text-[14px] text-[#E5E5E5] uppercase">
                         {trigger.label}
                       </h3>
-                      <span className="font-kosugi text-[10px] text-[#6B6B6B]">
+                      <span className="font-kosugi text-micro text-[#6B6B6B]">
                         [{trigger.schedule}]
                       </span>
                     </div>

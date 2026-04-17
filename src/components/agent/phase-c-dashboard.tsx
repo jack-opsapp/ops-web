@@ -277,10 +277,10 @@ const DomainCard = memo(function DomainCard({
       <div className="font-mohave text-[20px] text-text leading-none">
         {primary}
       </div>
-      <div className="font-kosugi text-[10px] text-text-3 mt-1">
+      <div className="font-kosugi text-micro text-text-3 mt-1">
         {primaryLabel}
       </div>
-      <div className="font-kosugi text-[10px] text-text-3 mt-0.5">
+      <div className="font-kosugi text-micro text-text-3 mt-0.5">
         {secondary}
       </div>
     </Link>
@@ -299,7 +299,7 @@ function MilestoneChip({
       className={cn(
         "flex items-center gap-1.5 px-2 py-1 rounded-[4px] border min-h-[32px]",
         reached
-          ? "border-[rgba(89,119,148,0.5)] bg-[rgba(89,119,148,0.08)] text-[#597794]"
+          ? "border-[rgba(111, 148, 176,0.5)] bg-[rgba(111, 148, 176,0.08)] text-[#6F94B0]"
           : "border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] text-text-3"
       )}
     >
@@ -316,7 +316,7 @@ function MilestoneChip({
 function SubDetail({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <span className="font-kosugi text-[10px] text-text-3 uppercase block">
+      <span className="font-kosugi text-micro text-text-3 uppercase block">
         [{label}]
       </span>
       <span className="font-mono text-[12px] text-text">{value}</span>

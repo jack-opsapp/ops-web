@@ -426,7 +426,7 @@ export function ItemFormDialog({
                         >
                           {tag.name}
                           {tag.type === "new" && (
-                            <span className="text-ops-accent text-[10px] ml-0.5">
+                            <span className="text-ops-accent text-micro ml-0.5">
                               NEW
                             </span>
                           )}

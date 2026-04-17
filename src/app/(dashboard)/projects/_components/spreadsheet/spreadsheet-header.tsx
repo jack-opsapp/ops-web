@@ -72,8 +72,8 @@ export function SpreadsheetHeader({
                     <div
                       className="absolute top-full left-0 mt-1 z-[1000] min-w-[180px] max-h-[320px] overflow-y-auto p-1 rounded-[4px]"
                       style={{
-                        background: "rgba(10,10,10,0.95)",
-                        backdropFilter: "blur(20px) saturate(1.2)",
+                        background: "var(--surface-glass-dense)",
+                        backdropFilter: "blur(28px) saturate(1.3)",
                         border: "1px solid rgba(255,255,255,0.10)",
                       }}
                     >
@@ -102,7 +102,7 @@ export function SpreadsheetHeader({
                                 ? "border-ops-accent bg-ops-accent-muted/30"
                                 : "border-border-subtle"
                             )}>
-                              {isChecked && <span className="text-[9px] text-ops-accent">✓</span>}
+                              {isChecked && <span className="text-micro text-ops-accent">✓</span>}
                             </span>
                             <span className="font-mohave text-body-sm">
                               {t(`spreadsheet.columns.${tc.header}`)}

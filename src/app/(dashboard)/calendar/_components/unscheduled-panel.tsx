@@ -56,19 +56,19 @@ export function UnscheduledPanel() {
         <motion.span
           animate={{ rotate: isExpanded ? 90 : 0 }}
           transition={SPRING}
-          className="text-[#999] text-[10px] leading-none"
+          className="text-[#999] text-micro leading-none"
         >
           &#x25B8;
         </motion.span>
 
         {/* Label */}
-        <span className="font-kosugi text-[10px] text-[#999] uppercase tracking-[0.12em]">
+        <span className="font-kosugi text-micro text-[#999] uppercase tracking-[0.12em]">
           {count} unscheduled task{count !== 1 ? "s" : ""}
         </span>
 
         {/* Count badge */}
         {count > 0 && (
-          <span className="font-kosugi text-[9px] text-[#597794] bg-ops-accent/20 px-[6px] py-[1px] rounded-sm ml-auto">
+          <span className="font-kosugi text-micro text-[#6F94B0] bg-ops-accent/20 px-[6px] py-[1px] rounded-sm ml-auto">
             {count}
           </span>
         )}
@@ -88,7 +88,7 @@ export function UnscheduledPanel() {
               {count === 0 ? (
                 /* ── Empty state ── */
                 <div className="h-[80px] flex items-center">
-                  <span className="font-kosugi text-[10px] uppercase tracking-[0.12em] text-white/30">
+                  <span className="font-kosugi text-micro uppercase tracking-[0.12em] text-white/30">
                     All tasks scheduled
                   </span>
                 </div>
@@ -104,7 +104,7 @@ export function UnscheduledPanel() {
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         placeholder="Search..."
-                        className="w-full pl-[26px] pr-2 py-[5px] bg-black border border-white/10 rounded-sm font-kosugi text-[10px] text-white uppercase placeholder:text-[#999] placeholder:normal-case focus:outline-none focus:border-[#597794]/40 transition-colors"
+                        className="w-full pl-[26px] pr-2 py-[5px] bg-black border border-white/10 rounded-sm font-kosugi text-micro text-white uppercase placeholder:text-[#999] placeholder:normal-case focus:outline-none focus:border-[#6F94B0]/40 transition-colors"
                       />
                     </div>
                   )}
@@ -116,7 +116,7 @@ export function UnscheduledPanel() {
                     ))}
                     {unscheduledTasks.length === 0 && search && (
                       <div className="flex items-center h-[80px]">
-                        <span className="font-kosugi text-[10px] uppercase tracking-[0.12em] text-white/30">
+                        <span className="font-kosugi text-micro uppercase tracking-[0.12em] text-white/30">
                           No matching tasks
                         </span>
                       </div>
@@ -145,7 +145,7 @@ function UnscheduledTaskCard({ task }: { task: ProjectTask }) {
     ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
     : undefined;
 
-  const taskColor = task.taskColor || "#597794";
+  const taskColor = task.taskColor || "#6F94B0";
   const projectName = task.project?.title || "Untitled Project";
   const taskTypeLabel = task.taskType?.display || "Task";
 
@@ -178,7 +178,7 @@ function UnscheduledTaskCard({ task }: { task: ProjectTask }) {
         <span className="font-mohave font-semibold text-[12px] text-white uppercase truncate leading-tight">
           {projectName}
         </span>
-        <span className="font-kosugi text-[9px] text-[#999] uppercase tracking-[0.08em] truncate mt-0.5">
+        <span className="font-kosugi text-micro text-[#999] uppercase tracking-[0.08em] truncate mt-0.5">
           {taskTypeLabel}
         </span>
       </div>

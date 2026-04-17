@@ -68,9 +68,9 @@ export function SearchPill({ entities }: SearchPillProps) {
     <div
       className="flex items-center gap-2 px-3 py-2"
       style={{
-        background: "rgba(10, 10, 10, 0.70)",
-        backdropFilter: "blur(20px) saturate(1.2)",
-        WebkitBackdropFilter: "blur(20px) saturate(1.2)",
+        background: "var(--surface-glass)",
+        backdropFilter: "blur(28px) saturate(1.3)",
+        WebkitBackdropFilter: "blur(28px) saturate(1.3)",
         border: "1px solid rgba(255, 255, 255, 0.08)",
         borderRadius: "3px",
       }}

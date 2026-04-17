@@ -20,7 +20,7 @@ const SectionHeader = React.forwardRef<HTMLDivElement, SectionHeaderProps>(
           {title}
         </h2>
         {count !== undefined && (
-          <Badge variant="info" className="text-[10px] px-[6px] py-[1px]">
+          <Badge variant="info" className="text-micro px-[6px] py-[1px]">
             {count}
           </Badge>
         )}

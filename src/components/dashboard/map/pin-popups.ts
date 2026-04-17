@@ -13,8 +13,8 @@ export const POPUP_OPTIONS = {
 export function projectPopupHtml(project: Project): string {
   const statusColor = PROJECT_STATUS_COLORS[project.status] || "#8195B5";
   return `<div style="
-    background: rgba(10,10,10,0.85);
-    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    background: var(--surface-glass-dense);
+    backdrop-filter: blur(28px) saturate(1.3); -webkit-backdrop-filter: blur(28px) saturate(1.3);
     color: #E5E5E5; padding: 10px 12px;
     border-radius: 4px; font-family: 'Mohave', sans-serif;
     min-width: 180px; border: 1px solid rgba(255,255,255,0.08);
@@ -56,8 +56,8 @@ export function groupedProjectPopupHtml(projects: Project[]): string {
   const address = projects[0]?.address || "No address";
 
   return `<div style="
-    background: rgba(10,10,10,0.85);
-    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    background: var(--surface-glass-dense);
+    backdrop-filter: blur(28px) saturate(1.3); -webkit-backdrop-filter: blur(28px) saturate(1.3);
     color: #E5E5E5; padding: 10px 12px;
     border-radius: 4px; font-family: 'Mohave', sans-serif;
     min-width: 180px; border: 1px solid rgba(255,255,255,0.08);
@@ -91,8 +91,8 @@ export function taskPopupHtml(
       : "";
 
   return `<div style="
-    background: rgba(10,10,10,0.85);
-    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    background: var(--surface-glass-dense);
+    backdrop-filter: blur(28px) saturate(1.3); -webkit-backdrop-filter: blur(28px) saturate(1.3);
     color: #E5E5E5; padding: 10px 12px;
     border-radius: 4px; font-family: 'Mohave', sans-serif;
     min-width: 160px; border: 1px solid rgba(255,255,255,0.08);
@@ -147,8 +147,8 @@ export function groupedTaskPopupHtml(
       : "";
 
   return `<div style="
-    background: rgba(10,10,10,0.85);
-    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    background: var(--surface-glass-dense);
+    backdrop-filter: blur(28px) saturate(1.3); -webkit-backdrop-filter: blur(28px) saturate(1.3);
     color: #E5E5E5; padding: 10px 12px;
     border-radius: 4px; font-family: 'Mohave', sans-serif;
     min-width: 180px; border: 1px solid rgba(255,255,255,0.08);
@@ -197,8 +197,8 @@ export function crewPopupHtml(
     : "";
 
   return `<div style="
-    background: rgba(10,10,10,0.85);
-    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    background: var(--surface-glass-dense);
+    backdrop-filter: blur(28px) saturate(1.3); -webkit-backdrop-filter: blur(28px) saturate(1.3);
     color: #E5E5E5; padding: 10px 12px;
     border-radius: 4px; font-family: 'Mohave', sans-serif;
     min-width: 140px; border: 1px solid rgba(255,255,255,0.08);

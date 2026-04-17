@@ -115,7 +115,7 @@ function MessageBubble({ message }: { message: ThreadMessage }) {
         {message.hasAttachments && message.attachmentCount > 0 && (
           <span className="flex items-center gap-0.5 shrink-0">
             <Paperclip className="w-[11px] h-[11px] text-text-mute" />
-            <span className="font-kosugi text-[10px] text-text-mute">
+            <span className="font-kosugi text-micro text-text-mute">
               {message.attachmentCount}
             </span>
           </span>
@@ -130,7 +130,7 @@ function MessageBubble({ message }: { message: ThreadMessage }) {
       {/* Recipients (if outbound) */}
       {isOutbound && message.toEmails.length > 0 && (
         <div className="flex items-center gap-1 mb-2">
-          <span className="font-kosugi text-[10px] text-text-mute uppercase">To:</span>
+          <span className="font-kosugi text-micro text-text-mute uppercase">To:</span>
           <span className="font-mohave text-body-sm text-text-mute truncate">
             {message.toEmails.join(", ")}
           </span>
@@ -140,7 +140,7 @@ function MessageBubble({ message }: { message: ThreadMessage }) {
       {/* CC */}
       {message.ccEmails.length > 0 && (
         <div className="flex items-center gap-1 mb-2">
-          <span className="font-kosugi text-[10px] text-text-mute uppercase">Cc:</span>
+          <span className="font-kosugi text-micro text-text-mute uppercase">Cc:</span>
           <span className="font-mohave text-body-sm text-text-mute truncate">
             {message.ccEmails.join(", ")}
           </span>
@@ -201,7 +201,7 @@ function AllMailMessageBubble({
       {/* Recipients */}
       {message.to.length > 0 && (
         <div className="flex items-center gap-1 mb-2">
-          <span className="font-kosugi text-[10px] text-text-mute uppercase">To:</span>
+          <span className="font-kosugi text-micro text-text-mute uppercase">To:</span>
           <span className="font-mohave text-body-sm text-text-mute truncate">
             {message.to.join(", ")}
           </span>
@@ -209,7 +209,7 @@ function AllMailMessageBubble({
       )}
       {message.cc.length > 0 && (
         <div className="flex items-center gap-1 mb-2">
-          <span className="font-kosugi text-[10px] text-text-mute uppercase">Cc:</span>
+          <span className="font-kosugi text-micro text-text-mute uppercase">Cc:</span>
           <span className="font-mohave text-body-sm text-text-mute truncate">
             {message.cc.join(", ")}
           </span>
@@ -377,10 +377,10 @@ export function ThreadView({
 
       {/* AI Summary Banner */}
       {source === "pipeline" && aiSummary && (
-        <div className="shrink-0 mx-3 mt-2 px-3 py-2 rounded-[4px] bg-[rgba(89,119,148,0.08)] border border-[rgba(89,119,148,0.15)]">
+        <div className="shrink-0 mx-3 mt-2 px-3 py-2 rounded-[4px] bg-[rgba(111, 148, 176,0.08)] border border-[rgba(111, 148, 176,0.15)]">
           <div className="flex items-center gap-1.5 mb-1">
-            <Sparkles className="w-[12px] h-[12px] text-[#597794]" />
-            <span className="font-kosugi text-[10px] text-[#597794] uppercase tracking-wider">
+            <Sparkles className="w-[12px] h-[12px] text-[#6F94B0]" />
+            <span className="font-kosugi text-micro text-[#6F94B0] uppercase tracking-wider">
               {t("thread.aiSummary")}
             </span>
           </div>

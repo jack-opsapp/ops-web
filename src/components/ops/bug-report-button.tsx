@@ -264,15 +264,15 @@ export function BugReportButton() {
             }
             className="absolute bottom-[44px] left-0 w-[320px] rounded-sm overflow-hidden"
             style={{
-              background: "rgba(10, 10, 10, 0.70)",
-              backdropFilter: "blur(20px) saturate(1.2)",
-              WebkitBackdropFilter: "blur(20px) saturate(1.2)",
+              background: "var(--surface-glass)",
+              backdropFilter: "blur(28px) saturate(1.3)",
+              WebkitBackdropFilter: "blur(28px) saturate(1.3)",
               border: "1px solid rgba(255, 255, 255, 0.08)",
             }}
           >
             {/* Header */}
             <div className="flex items-center justify-between px-3 py-2.5 border-b border-[rgba(255,255,255,0.08)]">
-              <span className="font-kosugi text-[10px] uppercase tracking-wider text-text-2">
+              <span className="font-kosugi text-micro uppercase tracking-wider text-text-2">
                 {t("bugReport.title")}
               </span>
               <button
@@ -296,7 +296,7 @@ export function BugReportButton() {
                 <>
                   {/* Title input */}
                   <div>
-                    <label className="font-kosugi text-[9px] uppercase tracking-wider text-text-3 mb-1 block">
+                    <label className="font-kosugi text-micro uppercase tracking-wider text-text-3 mb-1 block">
                       {t("bugReport.whatHappened")}
                     </label>
                     <input
@@ -323,7 +323,7 @@ export function BugReportButton() {
 
                   {/* Description textarea */}
                   <div>
-                    <label className="font-kosugi text-[9px] uppercase tracking-wider text-text-3 mb-1 block">
+                    <label className="font-kosugi text-micro uppercase tracking-wider text-text-3 mb-1 block">
                       {t("bugReport.details")}
                     </label>
                     <textarea
@@ -343,7 +343,7 @@ export function BugReportButton() {
 
                   {/* Auto-captured context */}
                   <div className="space-y-1.5">
-                    <p className="font-kosugi text-[9px] text-text-mute tracking-wider">
+                    <p className="font-kosugi text-micro text-text-mute tracking-wider">
                       {t("bugReport.autoCapture")}
                     </p>
                     {screenshotBlob && (
@@ -359,7 +359,7 @@ export function BugReportButton() {
                       >
                         <span
                           className={cn(
-                            "font-kosugi text-[9px] tracking-wider uppercase text-left",
+                            "font-kosugi text-micro tracking-wider uppercase text-left",
                             includeScreenshot ? "text-ops-accent" : "text-text-mute"
                           )}
                         >
@@ -392,7 +392,7 @@ export function BugReportButton() {
                   {formState === "error" && errorMessage && (
                     <div className="flex items-start gap-1.5 px-2 py-1.5 rounded-sm border border-[rgba(220,80,80,0.3)] bg-[rgba(220,80,80,0.08)]">
                       <AlertCircle className="w-3 h-3 text-[#E57373] mt-[2px] flex-shrink-0" />
-                      <p className="font-kosugi text-[9px] tracking-wider text-[#E57373] break-words">
+                      <p className="font-kosugi text-micro tracking-wider text-[#E57373] break-words">
                         {errorMessage}
                       </p>
                     </div>
@@ -404,7 +404,7 @@ export function BugReportButton() {
                     disabled={!title.trim() || formState === "submitting"}
                     className={cn(
                       "w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-sm",
-                      "font-kosugi text-[10px] uppercase tracking-wider",
+                      "font-kosugi text-micro uppercase tracking-wider",
                       "transition-all duration-150",
                       title.trim() && formState !== "submitting"
                         ? "bg-ops-accent/20 text-ops-accent border border-ops-accent/30 hover:bg-ops-accent/30"
@@ -440,8 +440,7 @@ export function BugReportButton() {
         }
         className={cn(
           "flex items-center gap-1.5 px-2 py-1.5 rounded-sm",
-          "bg-glass glass-surface backdrop-blur-[20px] [-webkit-backdrop-filter:blur(20px)_saturate(1.2)]",
-          "border border-[rgba(255,255,255,0.08)]",
+          "glass-surface",
           "hover:border-[rgba(255,255,255,0.15)]",
           "transition-colors duration-150",
           open && "border-ops-accent/30",
@@ -454,7 +453,7 @@ export function BugReportButton() {
         ) : (
           <Bug className="w-[13px] h-[13px] text-text-mute" />
         )}
-        <span className="font-kosugi text-[9px] text-text-mute tracking-wider uppercase select-none">
+        <span className="font-kosugi text-micro text-text-mute tracking-wider uppercase select-none">
           {t("bugReport.label")}
         </span>
       </motion.button>

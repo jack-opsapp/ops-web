@@ -131,23 +131,30 @@ function NavItemButton({
       }}
       title={tooltipText}
       className={cn(
-        "group relative flex items-center w-full h-[36px] rounded-[2px] transition-colors duration-150",
+        "group relative flex items-center w-full h-[36px] rounded-[6px] transition-colors duration-150",
         isCollapsed ? "justify-center px-0" : "gap-1.5 px-1.5",
         item.gated
           ? "text-text-mute opacity-50 cursor-pointer hover:opacity-70"
           : [
               "text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.04)]",
-              isActive && "text-ops-accent bg-[rgba(89,119,148,0.10)]",
+              isActive && "text-text",
             ]
       )}
     >
+      {/* Active indicator — 2px text-2 bar (no accent per spec) */}
+      {isActive && !item.gated && (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute left-0 top-[6px] bottom-[6px] w-[2px] bg-text-2 rounded-[1px]"
+        />
+      )}
       <item.icon
         className={cn(
           "shrink-0 w-[20px] h-[20px] transition-colors",
           item.gated
             ? "text-text-mute"
             : isActive
-              ? "text-ops-accent"
+              ? "text-text"
               : "text-text-3 group-hover:text-text-2"
         )}
       />
@@ -159,7 +166,7 @@ function NavItemButton({
         <span
           className={cn(
             "inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-full",
-            "font-kosugi text-[10px] leading-none bg-ops-accent text-white",
+            "font-kosugi text-micro leading-none bg-fill-neutral text-text",
             isCollapsed && "absolute top-0 right-0"
           )}
         >
@@ -361,7 +368,7 @@ export function Sidebar() {
           />
           <span
             className={cn(
-              "font-mono text-[10px] text-text-mute select-none transition-opacity duration-200",
+              "font-mono text-micro text-text-mute select-none transition-opacity duration-200",
               effectiveCollapsed ? "opacity-0 w-0 overflow-hidden" : "opacity-100 delay-150"
             )}
           >

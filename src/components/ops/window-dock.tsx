@@ -49,7 +49,7 @@ export function WindowDock() {
         >
           <div
             className="w-[6px] h-[6px] rounded-[2px] shrink-0"
-            style={{ backgroundColor: p.stageColor ?? "#597794" }}
+            style={{ backgroundColor: p.stageColor ?? "#6F94B0" }}
           />
           <span className="font-mohave text-[11px] text-text-2 uppercase tracking-wider truncate max-w-[120px]">
             {p.title}

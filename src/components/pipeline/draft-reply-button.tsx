@@ -91,7 +91,7 @@ export function DraftReplyButton({
     <>
       <button
         onClick={generateDraft}
-        className="flex items-center gap-1 px-2 py-1 text-[11px] font-kosugi uppercase tracking-wider text-[#597794] hover:text-white hover:bg-ops-accent/10 rounded transition-colors"
+        className="flex items-center gap-1 px-2 py-1 text-[11px] font-kosugi uppercase tracking-wider text-[#6F94B0] hover:text-white hover:bg-ops-accent/10 rounded transition-colors"
         title="Generate AI draft reply"
       >
         <Sparkles className="w-3 h-3" />
@@ -119,12 +119,12 @@ export function DraftReplyButton({
               {/* Header */}
               <div className="flex items-center justify-between p-4 border-b border-white/10">
                 <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-[#597794]" />
+                  <Sparkles className="w-4 h-4 text-[#6F94B0]" />
                   <span className="font-mohave text-sm font-semibold text-white">
                     Draft Reply
                   </span>
                   {draftResult && (
-                    <span className="px-1.5 py-0.5 text-[10px] font-kosugi uppercase tracking-wider rounded bg-ops-accent/15 text-[#597794]">
+                    <span className="px-1.5 py-0.5 text-micro font-kosugi uppercase tracking-wider rounded bg-ops-accent/15 text-[#6F94B0]">
                       {(draftResult.confidence * 100).toFixed(0)}% confidence
                     </span>
                   )}
@@ -150,7 +150,7 @@ export function DraftReplyButton({
                           ease: "linear",
                         }}
                       >
-                        <Sparkles className="w-4 h-4 text-[#597794]" />
+                        <Sparkles className="w-4 h-4 text-[#6F94B0]" />
                       </motion.div>
                       <span className="font-mohave text-sm">
                         Generating draft...
@@ -168,13 +168,13 @@ export function DraftReplyButton({
                     {/* Sources */}
                     {draftResult.sources.length > 0 && (
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="font-kosugi text-[10px] uppercase tracking-wider text-[#999]">
+                        <span className="font-kosugi text-micro uppercase tracking-wider text-[#999]">
                           Sources:
                         </span>
                         {draftResult.sources.map((s) => (
                           <span
                             key={s}
-                            className="px-1.5 py-0.5 text-[10px] font-kosugi uppercase tracking-wider rounded bg-white/5 text-[#999] border border-white/5"
+                            className="px-1.5 py-0.5 text-micro font-kosugi uppercase tracking-wider rounded bg-white/5 text-[#999] border border-white/5"
                           >
                             {s.replace("_", " ")}
                           </span>

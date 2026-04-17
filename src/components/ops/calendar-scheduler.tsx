@@ -414,7 +414,7 @@ export function CalendarScheduler({
       >
         {/* Start */}
         <div className="flex-1 min-w-0">
-          <p className="font-kosugi text-[10px] text-text-2 uppercase tracking-widest leading-none mb-[2px]">
+          <p className="font-kosugi text-micro text-text-2 uppercase tracking-widest leading-none mb-[2px]">
             Start
           </p>
           <p
@@ -441,7 +441,7 @@ export function CalendarScheduler({
 
         {/* End */}
         <div className="flex-1 min-w-0">
-          <p className="font-kosugi text-[10px] text-text-2 uppercase tracking-widest leading-none mb-[2px]">
+          <p className="font-kosugi text-micro text-text-2 uppercase tracking-widest leading-none mb-[2px]">
             End
           </p>
           <p
@@ -458,7 +458,7 @@ export function CalendarScheduler({
 
         {/* Duration */}
         <div className="text-right shrink-0 ml-1">
-          <p className="font-kosugi text-[10px] text-text-2 uppercase tracking-widest leading-none mb-[2px]">
+          <p className="font-kosugi text-micro text-text-2 uppercase tracking-widest leading-none mb-[2px]">
             Duration
           </p>
           <p
@@ -502,7 +502,7 @@ export function CalendarScheduler({
           {WEEKDAY_LABELS.map((lbl, i) => (
             <div
               key={i}
-              className="text-center font-kosugi text-[10px] text-text-2 uppercase tracking-widest py-[4px]"
+              className="text-center font-kosugi text-micro text-text-2 uppercase tracking-widest py-[4px]"
             >
               {lbl}
             </div>

@@ -86,8 +86,8 @@ export function OptionCard({
         "transition-colors duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
         "motion-reduce:transition-none",
         selected
-          ? "border-l-[#597794] border-t-[rgba(255,255,255,0.12)] border-r-[rgba(255,255,255,0.12)] border-b-[rgba(255,255,255,0.12)] bg-[rgba(89,119,148,0.08)]"
-          : "border-l-transparent border-t-[rgba(255,255,255,0.08)] border-r-[rgba(255,255,255,0.08)] border-b-[rgba(255,255,255,0.08)] bg-glass glass-surface hover:border-l-[rgba(89,119,148,0.4)]",
+          ? "border-l-[#6F94B0] border-t-[rgba(255,255,255,0.12)] border-r-[rgba(255,255,255,0.12)] border-b-[rgba(255,255,255,0.12)] bg-[rgba(111, 148, 176,0.08)]"
+          : "border-l-transparent border-t-[rgba(255,255,255,0.08)] border-r-[rgba(255,255,255,0.08)] border-b-[rgba(255,255,255,0.08)] bg-glass glass-surface hover:border-l-[rgba(111, 148, 176,0.4)]",
         (locked || disabled) && "opacity-50 cursor-not-allowed"
       )}
     >
@@ -103,12 +103,12 @@ export function OptionCard({
               {title}
             </span>
             {recommended && (
-              <span className="font-kosugi text-[10px] uppercase tracking-[0.1em] text-[#597794]">
+              <span className="font-kosugi text-micro uppercase tracking-[0.1em] text-[#6F94B0]">
                 [{t("common.recommended")}]
               </span>
             )}
             {locked && (
-              <span className="font-kosugi text-[10px] uppercase tracking-[0.1em] text-text-3 flex items-center gap-1">
+              <span className="font-kosugi text-micro uppercase tracking-[0.1em] text-text-3 flex items-center gap-1">
                 <Lock className="w-[10px] h-[10px]" />
                 [{t("common.locked")}]
               </span>
@@ -124,7 +124,7 @@ export function OptionCard({
           )}
         </div>
         {selected && (
-          <Check className="w-[16px] h-[16px] text-[#597794] shrink-0 mt-0.5" />
+          <Check className="w-[16px] h-[16px] text-[#6F94B0] shrink-0 mt-0.5" />
         )}
       </div>
     </button>
@@ -245,7 +245,7 @@ export function PreviewPanel({
 }) {
   return (
     <div className="p-4 rounded-[8px] border border-[rgba(255,255,255,0.06)] bg-[rgba(10,10,10,0.50)]">
-      <div className="font-kosugi text-[10px] text-text-3 uppercase tracking-[0.12em] mb-2">
+      <div className="font-kosugi text-micro text-text-3 uppercase tracking-[0.12em] mb-2">
         [{label}]
       </div>
       <div className="font-mono text-[12px] text-text-2 whitespace-pre-wrap leading-relaxed">
@@ -284,7 +284,7 @@ export function StepDropdown<T extends string | number>({
           "w-full min-h-[56px] px-3 rounded-[4px]",
           "border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)]",
           "font-mohave text-[14px] text-text uppercase tracking-[0.04em]",
-          "outline-none focus:border-[#597794] transition-colors",
+          "outline-none focus:border-[#6F94B0] transition-colors",
           "motion-reduce:transition-none"
         )}
       >

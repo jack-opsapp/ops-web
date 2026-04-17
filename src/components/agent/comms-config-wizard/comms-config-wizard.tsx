@@ -412,7 +412,7 @@ export function CommsConfigWizard() {
               onClick={handleNext}
               className={cn(
                 "flex items-center gap-2 min-h-[56px] px-5 rounded-[8px]",
-                "border border-[#597794] bg-ops-accent",
+                "border border-[#6F94B0] bg-ops-accent",
                 "font-mohave text-[14px] text-text uppercase tracking-[0.04em]",
                 "transition-colors duration-150 motion-reduce:transition-none",
                 "hover:bg-[#6A8AA8] hover:border-[#6A8AA8]"
@@ -455,7 +455,7 @@ function ProgressBar({ step }: { step: number }) {
                 />
                 <span
                   className={cn(
-                    "font-kosugi text-[9px] tracking-[0.1em]",
+                    "font-kosugi text-micro tracking-[0.1em]",
                     current ? "text-text" : "text-text-3"
                   )}
                 >
@@ -526,7 +526,7 @@ function StepWelcome({ t, onBegin }: { t: T; onBegin: () => void }) {
           onClick={onBegin}
           className={cn(
             "flex items-center gap-2 min-h-[56px] px-6 rounded-[8px]",
-            "border border-[#597794] bg-ops-accent",
+            "border border-[#6F94B0] bg-ops-accent",
             "font-mohave text-[14px] text-text uppercase tracking-[0.04em]",
             "transition-colors duration-150 motion-reduce:transition-none",
             "hover:bg-[#6A8AA8] hover:border-[#6A8AA8]"
@@ -1031,7 +1031,7 @@ function StepInvoiceCover({
                 onChange={(e) =>
                   onChange({ threshold: Math.max(0, Number(e.target.value) || 0) })
                 }
-                className="flex-1 min-h-[48px] px-3 rounded-[4px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] font-mono text-[14px] text-text outline-none focus:border-[#597794] transition-colors motion-reduce:transition-none"
+                className="flex-1 min-h-[48px] px-3 rounded-[4px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] font-mono text-[14px] text-text outline-none focus:border-[#6F94B0] transition-colors motion-reduce:transition-none"
               />
             </div>
             <div className="font-kosugi text-[11px] text-text-3 mt-2">
@@ -1356,7 +1356,7 @@ function StepSummary({
           disabled={saving}
           className={cn(
             "flex-1 flex items-center justify-center gap-2 min-h-[56px] px-5 rounded-[8px]",
-            "border border-[#597794] bg-ops-accent",
+            "border border-[#6F94B0] bg-ops-accent",
             "font-mohave text-[14px] text-text uppercase tracking-[0.04em]",
             "transition-colors duration-150 motion-reduce:transition-none",
             "hover:bg-[#6A8AA8] hover:border-[#6A8AA8]",

@@ -179,7 +179,7 @@ export function ImportStep({ items, onDone }: ImportStepProps) {
             Importing... {progress} of {total}
           </p>
           <div className="w-full max-w-md">
-            <Progress value={progressPct} glow />
+            <Progress value={progressPct} />
           </div>
           <p className="font-mohave text-caption-sm text-text-3">
             Please do not close this page

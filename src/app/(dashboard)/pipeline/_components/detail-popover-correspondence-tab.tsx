@@ -132,7 +132,7 @@ function MessageBubble({
         className={cn(
           "rounded-[4px] px-2.5 py-2",
           isOut
-            ? "bg-[rgba(89,119,148,0.08)] border border-[rgba(89,119,148,0.12)]"
+            ? "bg-[rgba(111, 148, 176,0.08)] border border-[rgba(111, 148, 176,0.12)]"
             : "bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)]"
         )}
       >
@@ -153,7 +153,7 @@ function MessageBubble({
           >
             {isOut ? t("detail.you") : senderName(msg.fromEmail)}
           </span>
-          <span className="font-mono text-[9px] text-text-mute ml-auto shrink-0">
+          <span className="font-mono text-micro text-text-mute ml-auto shrink-0">
             {formatMessageTime(ts, locale)}
           </span>
         </div>
@@ -187,7 +187,7 @@ function MessageBubble({
               </button>
             ))}
             {images.length > 4 && (
-              <span className="font-mono text-[9px] text-text-mute self-center ml-0.5">
+              <span className="font-mono text-micro text-text-mute self-center ml-0.5">
                 +{images.length - 4}
               </span>
             )}
@@ -198,7 +198,7 @@ function MessageBubble({
         {files.length > 0 && (
           <div className="flex items-center gap-1 mt-1.5">
             <Paperclip className="w-3 h-3 text-text-mute" />
-            <span className="font-mono text-[9px] text-text-mute">
+            <span className="font-mono text-micro text-text-mute">
               {files.length} file{files.length > 1 ? "s" : ""}
             </span>
           </div>
@@ -233,7 +233,7 @@ function ThreadPicker({
           )}
         >
           {thread.subject}
-          <span className="font-mono text-[9px] text-text-mute ml-1">
+          <span className="font-mono text-micro text-text-mute ml-1">
             {thread.messages.length}
           </span>
         </button>
@@ -291,7 +291,7 @@ export function DetailPopoverCorrespondenceTab({
             className="flex items-center gap-2 py-2"
           >
             <div className="flex-1 border-t border-[rgba(255,255,255,0.05)]" />
-            <span className="font-mono text-[9px] text-text-mute uppercase shrink-0">
+            <span className="font-mono text-micro text-text-mute uppercase shrink-0">
               {dateSeparatorLabel(d, locale)}
             </span>
             <div className="flex-1 border-t border-[rgba(255,255,255,0.05)]" />

@@ -38,12 +38,12 @@ function FilterSection({
         onClick={() => setOpen(!open)}
         className="w-full flex items-center justify-between px-3 py-2 hover:bg-fill-neutral-dim/30 transition-colors"
       >
-        <span className="font-kosugi text-[10px] text-text-3 uppercase tracking-[0.12em]">
+        <span className="font-kosugi text-micro text-text-3 uppercase tracking-[0.12em]">
           {title}
         </span>
         <div className="flex items-center gap-1.5">
           {count > 0 && (
-            <span className="font-mono text-[9px] text-ops-accent bg-ops-accent-muted/20 px-[6px] py-[1px] rounded-sm">
+            <span className="font-mono text-micro text-ops-accent bg-ops-accent-muted/20 px-[6px] py-[1px] rounded-sm">
               {count}
             </span>
           )}
@@ -113,7 +113,7 @@ function FilterCheckbox({
       )}
       {!avatar && (
         <div className="w-[18px] h-[18px] rounded-full bg-fill-neutral-dim shrink-0 flex items-center justify-center">
-          <span className="font-mono text-[8px] text-text-mute">
+          <span className="font-mono text-micro text-text-mute">
             {label.charAt(0).toUpperCase()}
           </span>
         </div>
@@ -123,7 +123,7 @@ function FilterCheckbox({
           {label}
         </span>
         {sublabel && (
-          <span className="font-mono text-[9px] text-text-mute truncate">
+          <span className="font-mono text-micro text-text-mute truncate">
             {sublabel}
           </span>
         )}
@@ -217,7 +217,7 @@ export function FilterSidebar() {
           {totalActiveFilters > 0 && (
             <button
               onClick={clearFilters}
-              className="font-kosugi text-[9px] text-ops-accent uppercase tracking-wider hover:text-ops-accent/80 transition-colors"
+              className="font-kosugi text-micro text-ops-accent uppercase tracking-wider hover:text-ops-accent/80 transition-colors"
             >
               {t("filter.clearAll")}
             </button>
@@ -251,7 +251,7 @@ export function FilterSidebar() {
               />
             ))}
             {teamMembers.length === 0 && (
-              <span className="font-mono text-[10px] text-text-mute py-1">
+              <span className="font-mono text-micro text-text-mute py-1">
                 {t("filter.noTeamMembers")}
               </span>
             )}
@@ -305,7 +305,7 @@ export function FilterSidebar() {
               />
             ))}
             {projects.length === 0 && (
-              <span className="font-mono text-[10px] text-text-mute py-1">
+              <span className="font-mono text-micro text-text-mute py-1">
                 {projectSearch ? t("filter.noMatchingProjects") : t("filter.noProjects")}
               </span>
             )}

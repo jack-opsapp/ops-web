@@ -439,7 +439,7 @@ export function WhatsNewContent() {
           <Flag className="w-3.5 h-3.5" />
           <span className="font-mohave text-[11px] uppercase tracking-wider">Beta Requests</span>
           {pendingCount > 0 && (
-            <span className="px-1.5 py-0.5 bg-[#C4A868]/20 text-[#C4A868] text-[10px] font-mohave rounded">
+            <span className="px-1.5 py-0.5 bg-[#C4A868]/20 text-[#C4A868] text-micro font-mohave rounded">
               {pendingCount}
             </span>
           )}

@@ -201,7 +201,7 @@ export function AutoSendSettings({ connectionId }: AutoSendSettingsProps) {
       {stats && stats.totalSent > 0 && (
         <div className="px-3 py-2.5 rounded-[4px] bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)]">
           <div className="flex items-center gap-2 mb-2">
-            <TrendingUp className="w-[14px] h-[14px] text-[#597794]" />
+            <TrendingUp className="w-[14px] h-[14px] text-[#6F94B0]" />
             <span className="font-mohave text-body-sm text-text-2 font-medium">
               {t("stats.title")}
             </span>
@@ -239,13 +239,13 @@ export function AutoSendSettings({ connectionId }: AutoSendSettingsProps) {
           {/* Common Changes */}
           {stats.commonChanges.length > 0 && (
             <div className="mt-2.5 pt-2 border-t border-[rgba(255,255,255,0.04)]">
-              <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider block mb-1">
+              <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider block mb-1">
                 {t("stats.commonChanges")}
               </span>
               <div className="space-y-0.5">
                 {stats.commonChanges.slice(0, 3).map((change, i) => (
                   <div key={i} className="flex items-center gap-1.5 text-[11px]">
-                    <span className="font-kosugi text-[9px] text-text-mute uppercase tracking-wider w-[50px] shrink-0">
+                    <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider w-[50px] shrink-0">
                       {t(`stats.change.${change.type}`)}
                     </span>
                     <span className="font-mohave text-text-mute line-through truncate">
@@ -267,16 +267,16 @@ export function AutoSendSettings({ connectionId }: AutoSendSettingsProps) {
           {/* Auto-send suggestion */}
           {stats.suggestAutoSend && !effectiveSettings.enabled && (
             <div className="mt-2.5 pt-2 border-t border-[rgba(255,255,255,0.04)]">
-              <div className="flex items-center gap-2 px-2 py-1.5 rounded-panel bg-[rgba(89,119,148,0.06)] border border-[rgba(89,119,148,0.12)]">
-                <Sparkles className="w-[12px] h-[12px] text-[#597794] shrink-0" />
-                <span className="font-mohave text-caption-sm text-[#597794] flex-1">
+              <div className="flex items-center gap-2 px-2 py-1.5 rounded-panel bg-[rgba(111, 148, 176,0.06)] border border-[rgba(111, 148, 176,0.12)]">
+                <Sparkles className="w-[12px] h-[12px] text-[#6F94B0] shrink-0" />
+                <span className="font-mohave text-caption-sm text-[#6F94B0] flex-1">
                   {t("stats.suggestAutoSend")
                     .replace("{{rate}}", String((stats.approvalRate * 100).toFixed(0)))}
                 </span>
                 <button
                   onClick={handleToggle}
                   disabled={saving}
-                  className="font-kosugi text-[9px] text-[#597794] uppercase tracking-wider hover:text-text transition-colors shrink-0"
+                  className="font-kosugi text-micro text-[#6F94B0] uppercase tracking-wider hover:text-text transition-colors shrink-0"
                 >
                   {t("stats.suggestAutoSend.enable")}
                 </button>
@@ -290,7 +290,7 @@ export function AutoSendSettings({ connectionId }: AutoSendSettingsProps) {
       <div className="px-3 py-2.5 rounded-[4px] bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)]">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-[14px] h-[14px] text-[#597794]" />
+            <Sparkles className="w-[14px] h-[14px] text-[#6F94B0]" />
             <span className="font-mohave text-body-sm text-text-2 font-medium">
               {t("autoSend.title")}
             </span>
@@ -333,7 +333,7 @@ export function AutoSendSettings({ connectionId }: AutoSendSettingsProps) {
           <div className="space-y-2.5 pt-2 border-t border-[rgba(255,255,255,0.04)]">
             {/* Business Hours */}
             <div>
-              <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider block mb-1">
+              <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider block mb-1">
                 {t("autoSend.businessHours")}
               </span>
               <div className="flex items-center gap-2">
@@ -347,7 +347,7 @@ export function AutoSendSettings({ connectionId }: AutoSendSettingsProps) {
                     onChange={(e) =>
                       handleSave({ businessHoursStart: e.target.value })
                     }
-                    className="px-1.5 py-0.5 rounded-panel bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] font-mohave text-caption-sm text-text outline-none focus:border-[rgba(89,119,148,0.4)]"
+                    className="px-1.5 py-0.5 rounded-panel bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] font-mohave text-caption-sm text-text outline-none focus:border-[rgba(111, 148, 176,0.4)]"
                   />
                 </div>
                 <span className="text-text-mute">&ndash;</span>
@@ -361,7 +361,7 @@ export function AutoSendSettings({ connectionId }: AutoSendSettingsProps) {
                     onChange={(e) =>
                       handleSave({ businessHoursEnd: e.target.value })
                     }
-                    className="px-1.5 py-0.5 rounded-panel bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] font-mohave text-caption-sm text-text outline-none focus:border-[rgba(89,119,148,0.4)]"
+                    className="px-1.5 py-0.5 rounded-panel bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] font-mohave text-caption-sm text-text outline-none focus:border-[rgba(111, 148, 176,0.4)]"
                   />
                 </div>
               </div>
@@ -369,13 +369,13 @@ export function AutoSendSettings({ connectionId }: AutoSendSettingsProps) {
 
             {/* Timezone */}
             <div>
-              <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider block mb-1">
+              <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider block mb-1">
                 {t("autoSend.timezone")}
               </span>
               <select
                 value={effectiveSettings.timezone}
                 onChange={(e) => handleSave({ timezone: e.target.value })}
-                className="w-full px-1.5 py-1 rounded-panel bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] font-mohave text-caption-sm text-text outline-none focus:border-[rgba(89,119,148,0.4)] appearance-none"
+                className="w-full px-1.5 py-1 rounded-panel bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] font-mohave text-caption-sm text-text outline-none focus:border-[rgba(111, 148, 176,0.4)] appearance-none"
               >
                 {TIMEZONES.map((tz) => (
                   <option key={tz} value={tz}>
@@ -387,7 +387,7 @@ export function AutoSendSettings({ connectionId }: AutoSendSettingsProps) {
 
             {/* Delay Range */}
             <div>
-              <span className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider block mb-0.5">
+              <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider block mb-0.5">
                 {t("autoSend.delay")}
               </span>
               <span className="font-mohave text-[11px] text-text-mute block mb-1">
@@ -411,7 +411,7 @@ export function AutoSendSettings({ connectionId }: AutoSendSettingsProps) {
                         ),
                       })
                     }
-                    className="w-[52px] px-1.5 py-0.5 rounded-panel bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] font-mohave text-caption-sm text-text outline-none text-center focus:border-[rgba(89,119,148,0.4)]"
+                    className="w-[52px] px-1.5 py-0.5 rounded-panel bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] font-mohave text-caption-sm text-text outline-none text-center focus:border-[rgba(111, 148, 176,0.4)]"
                   />
                 </div>
                 <span className="text-text-mute">&ndash;</span>
@@ -432,7 +432,7 @@ export function AutoSendSettings({ connectionId }: AutoSendSettingsProps) {
                         ),
                       })
                     }
-                    className="w-[52px] px-1.5 py-0.5 rounded-panel bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] font-mohave text-caption-sm text-text outline-none text-center focus:border-[rgba(89,119,148,0.4)]"
+                    className="w-[52px] px-1.5 py-0.5 rounded-panel bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] font-mohave text-caption-sm text-text outline-none text-center focus:border-[rgba(111, 148, 176,0.4)]"
                   />
                 </div>
                 <span className="font-mohave text-caption-sm text-text-mute">

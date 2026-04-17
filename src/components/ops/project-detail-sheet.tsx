@@ -59,7 +59,7 @@ export function ProjectDetailSheet({ projectId, open, onOpenChange }: ProjectDet
               <div className="flex items-center gap-1.5">
                 <SheetTitle className="truncate">{project.title}</SheetTitle>
                 <span
-                  className="shrink-0 px-[8px] py-[2px] rounded-full font-kosugi text-[10px] uppercase tracking-wider"
+                  className="shrink-0 px-[8px] py-[2px] rounded-full font-kosugi text-micro uppercase tracking-wider"
                   style={{ backgroundColor: `${statusColor}20`, color: statusColor }}
                 >
                   {project.status.replace(/_/g, " ")}
@@ -116,26 +116,26 @@ export function ProjectDetailSheet({ projectId, open, onOpenChange }: ProjectDet
                 <div className="bg-fill-neutral-dim rounded-lg p-1.5 text-center">
                   <ClipboardList className="w-[16px] h-[16px] text-ops-accent mx-auto mb-[4px]" />
                   <p className="font-mono text-body text-text">{completedTasks}/{totalTasks}</p>
-                  <p className="font-kosugi text-[10px] text-text-mute">Tasks</p>
+                  <p className="font-kosugi text-micro text-text-mute">Tasks</p>
                 </div>
                 <div className="bg-fill-neutral-dim rounded-lg p-1.5 text-center">
                   <Users className="w-[16px] h-[16px] text-ops-accent mx-auto mb-[4px]" />
                   <p className="font-mono text-body text-text">{project.teamMemberIds?.length ?? 0}</p>
-                  <p className="font-kosugi text-[10px] text-text-mute">Team</p>
+                  <p className="font-kosugi text-micro text-text-mute">Team</p>
                 </div>
                 <div className="bg-fill-neutral-dim rounded-lg p-1.5 text-center">
                   <CalendarDays className="w-[16px] h-[16px] text-ops-accent mx-auto mb-[4px]" />
                   <p className="font-mono text-body text-text">
                     {project.duration ? `${project.duration}d` : "—"}
                   </p>
-                  <p className="font-kosugi text-[10px] text-text-mute">Duration</p>
+                  <p className="font-kosugi text-micro text-text-mute">Duration</p>
                 </div>
               </div>
 
               {/* Notes */}
               {project.notes && (
                 <div className="pt-1.5 border-t border-border-subtle">
-                  <p className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider mb-[4px]">Notes</p>
+                  <p className="font-kosugi text-micro text-text-mute uppercase tracking-wider mb-[4px]">Notes</p>
                   <p className="font-mohave text-body-sm text-text-2 whitespace-pre-wrap line-clamp-4">
                     {project.notes}
                   </p>
@@ -145,7 +145,7 @@ export function ProjectDetailSheet({ projectId, open, onOpenChange }: ProjectDet
               {/* Tasks preview */}
               {tasks && tasks.length > 0 && (
                 <div className="pt-1.5 border-t border-border-subtle">
-                  <p className="font-kosugi text-[10px] text-text-mute uppercase tracking-wider mb-[6px]">Tasks</p>
+                  <p className="font-kosugi text-micro text-text-mute uppercase tracking-wider mb-[6px]">Tasks</p>
                   <div className="space-y-[4px]">
                     {tasks.slice(0, 5).map((task) => (
                       <div
@@ -159,13 +159,13 @@ export function ProjectDetailSheet({ projectId, open, onOpenChange }: ProjectDet
                         <span className="font-mohave text-body-sm text-text truncate">
                           {task.customTitle || "Untitled"}
                         </span>
-                        <span className="ml-auto font-kosugi text-[10px] text-text-mute shrink-0">
+                        <span className="ml-auto font-kosugi text-micro text-text-mute shrink-0">
                           {task.status}
                         </span>
                       </div>
                     ))}
                     {tasks.length > 5 && (
-                      <p className="font-kosugi text-[10px] text-text-mute text-center py-[4px]">
+                      <p className="font-kosugi text-micro text-text-mute text-center py-[4px]">
                         +{tasks.length - 5} more
                       </p>
                     )}

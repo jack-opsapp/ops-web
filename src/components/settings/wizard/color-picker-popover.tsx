@@ -90,14 +90,14 @@ export function ColorPickerPopover({
       style={{
         top: position.top,
         left: position.left,
-        background: "rgba(10, 10, 10, 0.85)",
-        backdropFilter: "blur(20px) saturate(1.2)",
-        WebkitBackdropFilter: "blur(20px) saturate(1.2)",
+        background: "var(--surface-glass-dense)",
+        backdropFilter: "blur(28px) saturate(1.3)",
+        WebkitBackdropFilter: "blur(28px) saturate(1.3)",
       }}
     >
       {grouped.map(({ family, label, colors }) => (
         <div key={family} className="mb-[8px] last:mb-0">
-          <span className="font-kosugi text-[9px] text-text-mute uppercase tracking-widest mb-[4px] block">
+          <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest mb-[4px] block">
             {label}
           </span>
           <div className="flex flex-wrap gap-[6px]">

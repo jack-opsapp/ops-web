@@ -70,7 +70,7 @@ function PaymentMethodCard({ method, onRemove, isRemoving }: { method: PaymentMe
       </div>
       <div className="flex items-center gap-1">
         {method.isDefault && (
-          <span className="font-kosugi text-[9px] text-ops-accent bg-ops-accent-muted px-[6px] py-[2px] rounded-full uppercase tracking-wider">
+          <span className="font-kosugi text-micro text-ops-accent bg-ops-accent-muted px-[6px] py-[2px] rounded-full uppercase tracking-wider">
             {t("billing.defaultBadge")}
           </span>
         )}
@@ -191,7 +191,7 @@ function InvoiceStatusBadge({ status }: { status: string | null }) {
   };
 
   return (
-    <span className={`font-kosugi text-[9px] uppercase tracking-wider px-[6px] py-[2px] rounded-full ${className}`}>
+    <span className={`font-kosugi text-micro uppercase tracking-wider px-[6px] py-[2px] rounded-full ${className}`}>
       {statusLabels[s] ?? s}
     </span>
   );
@@ -314,7 +314,7 @@ export function BillingTab() {
                       <p className="font-mohave text-body-sm text-text">
                         {invoice.number ?? "Invoice"}
                       </p>
-                      <p className="font-kosugi text-[10px] text-text-mute">
+                      <p className="font-kosugi text-micro text-text-mute">
                         {invoice.date
                           ? new Date(invoice.date).toLocaleDateString(getDateLocale(locale), {
                               month: "short",

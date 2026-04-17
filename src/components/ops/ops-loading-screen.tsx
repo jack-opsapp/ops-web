@@ -89,7 +89,7 @@ export function OpsLoadingScreen({
         {!prefersReducedMotion && (
           <path
             d={LOGO_PATHS[0]}
-            stroke="#597794"
+            stroke="#6F94B0"
             strokeWidth={1.5}
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -105,7 +105,7 @@ export function OpsLoadingScreen({
       {showText && (
         <span
           className={cn(
-            "font-kosugi text-[10px] uppercase tracking-[0.3em] text-text-mute",
+            "font-kosugi text-micro uppercase tracking-[0.3em] text-text-mute",
             !prefersReducedMotion && "ops-loading-text"
           )}
         >

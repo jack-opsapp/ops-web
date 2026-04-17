@@ -107,12 +107,12 @@ export function LineItemMaterialsSection({ lineItemId, productId, quantity }: Pr
   };
 
   if (loadingOverrides || loadingBom) {
-    return <p className="font-kosugi text-[10px] text-text-mute">loading...</p>;
+    return <p className="font-kosugi text-micro text-text-mute">loading...</p>;
   }
 
   if (rows.length === 0) {
     return (
-      <p className="font-kosugi text-[10px] text-text-mute">
+      <p className="font-kosugi text-micro text-text-mute">
         [no BOM defined — edit product to add materials]
       </p>
     );
@@ -121,7 +121,7 @@ export function LineItemMaterialsSection({ lineItemId, productId, quantity }: Pr
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
-        <span className="font-kosugi text-[10px] uppercase tracking-widest text-text-3">
+        <span className="font-kosugi text-micro uppercase tracking-widest text-text-3">
           Materials {isUsingDefaults ? "[product defaults]" : "[overridden]"}
         </span>
         {!isUsingDefaults && !dirty && (
@@ -129,7 +129,7 @@ export function LineItemMaterialsSection({ lineItemId, productId, quantity }: Pr
             variant="ghost"
             size="sm"
             onClick={handleRevert}
-            className="h-6 text-[10px] text-text-3"
+            className="h-6 text-micro text-text-3"
           >
             Revert to defaults
           </Button>
@@ -162,7 +162,7 @@ export function LineItemMaterialsSection({ lineItemId, productId, quantity }: Pr
                 onChange={(e) =>
                   updateRow(idx, { source: e.target.value as MaterialSource })
                 }
-                className="bg-fill-neutral-dim border border-border rounded px-1 py-1 font-kosugi text-[10px] uppercase text-text-2 h-7"
+                className="bg-fill-neutral-dim border border-border rounded px-1 py-1 font-kosugi text-micro uppercase text-text-2 h-7"
               >
                 <option value="stock">stock</option>
                 <option value="order">order</option>

@@ -418,7 +418,7 @@ function BugReportsTab({ reports }: { reports: BugReportRow[] }) {
                     <td className="px-2 py-3 font-kosugi text-[11px] text-[#6B6B6B] max-w-[160px] truncate">
                       {r.reporter_name || r.reporter_email || "—"}
                       {r.company_name && (
-                        <div className="text-[10px] text-[#4A4A4A]">{r.company_name}</div>
+                        <div className="text-micro text-[#4A4A4A]">{r.company_name}</div>
                       )}
                     </td>
                     <td className="px-2 py-3 font-kosugi text-[11px] text-[#6B6B6B] whitespace-nowrap">
@@ -559,7 +559,7 @@ function BugReportDetail({ report }: { report: BugReportRow }) {
 
         {report.custom_metadata && Object.keys(report.custom_metadata).length > 0 && (
           <DetailSection label="METADATA">
-            <pre className="font-mono text-[10px] text-[#6B6B6B] whitespace-pre-wrap max-h-40 overflow-y-auto">
+            <pre className="font-mono text-micro text-[#6B6B6B] whitespace-pre-wrap max-h-40 overflow-y-auto">
               {JSON.stringify(report.custom_metadata, null, 2)}
             </pre>
           </DetailSection>
@@ -594,7 +594,7 @@ function BugReportDetail({ report }: { report: BugReportRow }) {
 function DetailSection({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <p className="font-kosugi text-[10px] uppercase tracking-wider text-[#6B6B6B] mb-2">
+      <p className="font-kosugi text-micro uppercase tracking-wider text-[#6B6B6B] mb-2">
         {label}
       </p>
       {children}
