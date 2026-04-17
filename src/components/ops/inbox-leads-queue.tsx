@@ -447,7 +447,7 @@ export function InboxLeadsQueue({
               Inbox Leads
             </h3>
             {leads.length > 0 && (
-              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-ops-accent text-micro font-bold text-white">
+              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-text-2 text-micro font-bold text-background">
                 {leads.length > 9 ? "9+" : leads.length}
               </span>
             )}

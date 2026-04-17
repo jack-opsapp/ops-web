@@ -332,12 +332,12 @@ export function LineItemEditor({
                 {onEditQuestions && (
                   <button
                     onClick={() => onEditQuestions(item.id)}
-                    className="relative p-[4px] rounded text-text-mute hover:text-ops-accent hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+                    className="relative p-[4px] rounded text-text-mute hover:text-text hover:bg-[rgba(255,255,255,0.08)] transition-colors"
                     title="Edit questions"
                   >
                     <HelpCircle className="w-[14px] h-[14px]" />
                     {questionsByLineItem?.[item.id]?.length ? (
-                      <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-ops-accent rounded-full text-micro text-white flex items-center justify-center leading-none">
+                      <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-text-2 rounded-full text-micro text-background flex items-center justify-center leading-none">
                         {questionsByLineItem[item.id].length}
                       </span>
                     ) : null}

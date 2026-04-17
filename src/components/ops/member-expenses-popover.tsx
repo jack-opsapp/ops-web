@@ -252,7 +252,7 @@ const MemberExpensesPopoverInstance = memo(function MemberExpensesPopoverInstanc
             router.push("/accounting");
             closePopover(state.id);
           }}
-          className="flex items-center gap-1 font-mohave text-[11px] text-text-mute hover:text-ops-accent transition-colors"
+          className="flex items-center gap-1 font-mohave text-[11px] text-text-mute hover:text-text transition-colors"
         >
           {t("expenseTracker.viewAll") ?? "View Expenses"}
           <ArrowUpRight className="w-[10px] h-[10px]" />

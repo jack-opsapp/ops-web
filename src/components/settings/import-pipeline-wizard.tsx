@@ -1214,16 +1214,3 @@ export function ImportPipelineWizard({
     </>
   );
 }
- );
-}
-;
-}
-;
-}
-
-;
-}
-;
-}
-;
-}

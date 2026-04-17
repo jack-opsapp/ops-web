@@ -286,5 +286,3 @@ export function AiDatabaseMining({ onComplete }: AiDatabaseMiningProps) {
     </div>
   );
 }
-;
-}

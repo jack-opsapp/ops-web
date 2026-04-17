@@ -25,7 +25,7 @@ function LoadingOverlay({ message, className }: LoadingOverlayProps) {
         <div
           className={cn(
             "absolute top-0 left-0 h-full w-1/3 rounded-full",
-            "bg-gradient-to-r from-transparent via-ops-accent to-transparent",
+            "bg-gradient-to-r from-transparent via-text-2 to-transparent",
             "animate-[scan-line-x_1.5s_ease-in-out_infinite]"
           )}
         />
@@ -43,7 +43,7 @@ function LoadingOverlay({ message, className }: LoadingOverlayProps) {
           <div
             className={cn(
               "h-[40px] w-[40px] rounded-full",
-              "border-2 border-transparent border-t-ops-accent",
+              "border-2 border-transparent border-t-text-2",
               "animate-spin"
             )}
           />

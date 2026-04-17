@@ -76,7 +76,7 @@ function TaskRow({
         className={cn(
           "mt-0.5 h-5 w-5 rounded border shrink-0 flex items-center justify-center transition-colors",
           selected
-            ? "bg-ops-accent border-[#417394]"
+            ? "bg-text-2 border-[rgba(255,255,255,0.30)]"
             : "border-[#444] bg-transparent"
         )}
       >

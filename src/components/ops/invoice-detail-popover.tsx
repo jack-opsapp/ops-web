@@ -294,7 +294,7 @@ const InvoiceDetailPopoverInstance = memo(function InvoiceDetailPopoverInstance(
           >
             {tab.label}
             {tab.id === state.activeTab && (
-              <div className="absolute bottom-0 left-3 right-3 h-[2px] bg-ops-accent" />
+              <div className="absolute bottom-0 left-3 right-3 h-[2px] bg-text-2" />
             )}
           </button>
         ))}

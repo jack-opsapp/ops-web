@@ -55,7 +55,7 @@ export function AssignRoleModalSeatBanner({
               </button>
               <Link
                 href="/settings?tab=subscription"
-                className="font-kosugi text-micro uppercase tracking-wider text-ops-accent hover:text-ops-accent-hover transition-colors inline-flex items-center gap-1"
+                className="font-kosugi text-micro uppercase tracking-wider text-text-2 hover:text-text transition-colors inline-flex items-center gap-1"
               >
                 Upgrade plan
                 <ArrowRight className="w-[12px] h-[12px]" />

@@ -225,7 +225,7 @@ function TeamMemberSelector({
                 className={cn(
                   "w-[20px] h-[20px] rounded-full flex items-center justify-center text-micro",
                   isSelected
-                    ? "bg-ops-accent text-white"
+                    ? "bg-text-2 text-background"
                     : "bg-fill-neutral-dim text-text-3"
                 )}
               >

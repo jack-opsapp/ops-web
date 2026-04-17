@@ -523,7 +523,3 @@ export function TaskTypesTab() {
     </div>
   );
 }
-;
-}
-;
-}

@@ -193,7 +193,7 @@ function ExpenseRow({
               if (flagComment.trim()) onFlagSubmit(expense.id, flagComment.trim());
             }}
             disabled={!flagComment.trim()}
-            className="w-5 h-5 flex items-center justify-center rounded-[2px] text-text-mute hover:text-ops-accent disabled:opacity-30 transition-colors"
+            className="w-5 h-5 flex items-center justify-center rounded-[4px] text-text-mute hover:text-text disabled:opacity-30 transition-colors"
           >
             <Check className="w-3 h-3" />
           </button>
@@ -638,7 +638,7 @@ const ExpenseBatchPopoverInstance = memo(function ExpenseBatchPopoverInstance({
           >
             {t(tab.labelKey) ?? tab.label}
             {tab.id === state.activeTab && (
-              <div className="absolute bottom-0 left-3 right-3 h-[2px] bg-ops-accent" />
+              <div className="absolute bottom-0 left-3 right-3 h-[2px] bg-text-2" />
             )}
           </button>
         ))}

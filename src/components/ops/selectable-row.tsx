@@ -62,7 +62,7 @@ export function SelectableRow({
     <div
       className={cn(
         "group relative flex items-center transition-all duration-150",
-        isChecked && "bg-ops-accent/[0.06]",
+        isChecked && "bg-[rgba(255,255,255,0.04)]",
         className
       )}
       onClick={handleRowClick}
@@ -91,9 +91,9 @@ export function SelectableRow({
       {/* Content */}
       <div className="flex-1 min-w-0">{children}</div>
 
-      {/* Selected left border accent */}
+      {/* Selected left indicator — unified pattern (2px text-2 bar) */}
       {isChecked && (
-        <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-ops-accent rounded-r" />
+        <div className="absolute left-0 top-[8px] bottom-[8px] w-[2px] bg-text-2 rounded-[1px]" />
       )}
     </div>
   );

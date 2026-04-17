@@ -56,7 +56,7 @@ export function InviteModalSeatBanner({
             </p>
             <Link
               href="/settings?tab=subscription"
-              className="font-kosugi text-micro uppercase tracking-wider text-ops-accent hover:text-ops-accent-hover transition-colors inline-flex items-center gap-1 mt-2"
+              className="font-kosugi text-micro uppercase tracking-wider text-text-2 hover:text-text transition-colors inline-flex items-center gap-1 mt-2"
             >
               Upgrade plan
               <ArrowRight className="w-[12px] h-[12px]" />

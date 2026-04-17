@@ -124,12 +124,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Find the connection for this email
+    // Find the connection for this email. ilike tolerates any case variance
+    // between Gmail's /userinfo response (which we stored) and the value
+    // Pub/Sub echoes back in the notification.
     const supabase = getServiceRoleClient();
     const { data: connections } = await supabase
       .from("email_connections")
       .select("id, last_synced_at")
-      .eq("email", email)
+      .ilike("email", email)
       .eq("provider", "gmail")
       .eq("status", "active");
 

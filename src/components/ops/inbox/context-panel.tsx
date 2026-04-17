@@ -336,7 +336,7 @@ export function ContextPanel({
                                 </p>
                                 <div className="flex items-center gap-1.5">
                                   {c.title && (
-                                    <span className="font-kosugi text-micro text-ops-accent uppercase tracking-wider">
+                                    <span className="font-kosugi text-micro text-text-2 uppercase tracking-wider">
                                       {c.title}
                                     </span>
                                   )}
@@ -500,7 +500,7 @@ function ImageThumbnail({
         <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-end p-1.5">
           <button
             onClick={() => onGoToThread(image.threadId)}
-            className="flex items-center gap-1 w-full px-1.5 py-1 rounded-[2px] bg-glass glass-surface/90 border border-border-subtle text-text-2 hover:text-ops-accent transition-colors cursor-pointer"
+            className="flex items-center gap-1 w-full px-1.5 py-1 rounded-[4px] bg-glass glass-surface/90 border border-border-subtle text-text-2 hover:text-text transition-colors cursor-pointer"
           >
             <ArrowRight className="w-[10px] h-[10px] shrink-0" />
             <span className="font-kosugi text-micro uppercase tracking-wider truncate">

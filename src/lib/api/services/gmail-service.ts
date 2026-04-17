@@ -1,9 +1,17 @@
 /**
  * OPS Web - Gmail Service
  *
- * Manages Gmail OAuth connections and email syncing.
- * Stores tokens in Supabase email_connections table.
- * Syncs inbox using Gmail History API to auto-log Activities.
+ * Thin wrapper around the email_connections table for the Settings UI:
+ * connection list, update, delete, and the inbox-leads review queue. All
+ * sync execution now lives in SyncEngine (which the cron, manual-sync
+ * route, and webhooks call) — this file stays around because the UI hooks
+ * still reach for `GmailService.getInboxLeads` / `ignoreInboxLead` /
+ * `getConnections` / `updateConnection` / `deleteConnection`.
+ *
+ * The legacy `syncInbox` method (plus its _processMessage / _getClientEmail
+ * helpers) and the 3-tier `EmailMatchingService` (v1) it depended on were
+ * removed — no callers remained after the email-sync pipeline rebuild
+ * migrated every sync path to SyncEngine + EmailMatchingServiceV2.
  */
 
 import { requireSupabase, parseDate, parseDateRequired } from "@/lib/supabase/helpers";
@@ -13,10 +21,7 @@ import type {
   UpdateGmailConnection,
   GmailSyncFilters,
 } from "@/lib/types/pipeline";
-import { ActivityType, OpportunityStage, DEFAULT_SYNC_FILTERS } from "@/lib/types/pipeline";
-import { OpportunityService } from "./opportunity-service";
-import { EmailFilterService } from "./email-filter-service";
-import { EmailMatchingService } from "./email-matching-service";
+import { DEFAULT_SYNC_FILTERS } from "@/lib/types/pipeline";
 
 // ─── Database ↔ TypeScript Mapping ────────────────────────────────────────────
 
@@ -38,65 +43,6 @@ function mapFromDb(row: Record<string, unknown>): GmailConnection {
     createdAt: parseDateRequired(row.created_at),
     updatedAt: parseDateRequired(row.updated_at),
   };
-}
-
-// ─── Gmail API response types ─────────────────────────────────────────────────
-
-interface GmailMessage {
-  id: string;
-  threadId: string;
-  payload?: {
-    headers?: Array<{ name: string; value: string }>;
-    parts?: Array<{ mimeType: string; body: { data?: string } }>;
-    body?: { data?: string };
-  };
-  snippet?: string;
-  labelIds?: string[];
-}
-
-interface GmailHistoryResponse {
-  history?: Array<{
-    messagesAdded?: Array<{ message: { id: string; threadId: string } }>;
-  }>;
-  nextPageToken?: string;
-  historyId?: string;
-}
-
-// ─── Token refresh helper ─────────────────────────────────────────────────────
-
-async function refreshAccessToken(connection: GmailConnection): Promise<string> {
-  const response = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      client_id: process.env.GOOGLE_GMAIL_CLIENT_ID!,
-      client_secret: process.env.GOOGLE_GMAIL_CLIENT_SECRET!,
-      refresh_token: connection.refreshToken,
-      grant_type: "refresh_token",
-    }),
-  });
-
-  const json = await response.json();
-  if (!json.access_token) throw new Error("Failed to refresh Gmail access token");
-
-  // Persist updated token
-  const supabase = requireSupabase();
-  await supabase
-    .from("email_connections")
-    .update({
-      access_token: json.access_token,
-      expires_at: new Date(Date.now() + json.expires_in * 1000).toISOString(),
-    })
-    .eq("id", connection.id);
-
-  return json.access_token as string;
-}
-
-async function getValidToken(connection: GmailConnection): Promise<string> {
-  if (connection.expiresAt > new Date(Date.now() + 60_000)) {
-    return connection.accessToken;
-  }
-  return refreshAccessToken(connection);
 }
 
 // ─── Service ──────────────────────────────────────────────────────────────────
@@ -181,246 +127,6 @@ export const GmailService = {
       .eq("id", id);
 
     if (error) throw new Error(`Failed to delete Gmail connection: ${error.message}`);
-  },
-
-  /**
-   * Sync inbox for a single connection using Gmail History API.
-   * Uses noise filtering and 3-tier matching to auto-log Activities.
-   * Returns stats on activities created and matching outcomes.
-   */
-  async syncInbox(connectionId: string): Promise<{
-    activitiesCreated: number;
-    matched: number;
-    needsReview: number;
-    newLeads: number;
-  }> {
-    const supabase = requireSupabase();
-    const stats = { activitiesCreated: 0, matched: 0, needsReview: 0, newLeads: 0 };
-
-    // Load connection
-    const { data: connRow, error: connError } = await supabase
-      .from("email_connections")
-      .select("*")
-      .eq("id", connectionId)
-      .single();
-
-    if (connError) throw new Error(`Connection not found: ${connError.message}`);
-    const connection = mapFromDb(connRow);
-
-    if (!connection.syncEnabled) return stats;
-
-    const token = await getValidToken(connection);
-
-    // Parse sync_filters from the connection row (JSONB column)
-    const syncFilters: GmailSyncFilters =
-      connRow.sync_filters && typeof connRow.sync_filters === "object"
-        ? (connRow.sync_filters as GmailSyncFilters)
-        : DEFAULT_SYNC_FILTERS;
-
-    // Build blocklist from presets + user filters
-    const blocklist = await EmailFilterService.buildBlocklist(syncFilters);
-
-    // First sync: fetch current historyId from Gmail profile as a baseline,
-    // store it, and return 0 activities. Subsequent syncs use incremental history.
-    if (!connection.historyId) {
-      const profileResp = await fetch(
-        "https://gmail.googleapis.com/gmail/v1/users/me/profile",
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      const profile = await profileResp.json() as { historyId?: string };
-      if (profile.historyId) {
-        await supabase
-          .from("email_connections")
-          .update({ history_id: profile.historyId, last_synced_at: new Date().toISOString() })
-          .eq("id", connectionId);
-      }
-      return stats;
-    }
-
-    // Fetch history since last sync
-    const url = `https://gmail.googleapis.com/gmail/v1/users/me/history?historyTypes=messageAdded&startHistoryId=${connection.historyId}`;
-
-    const historyResp = await fetch(url, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const history: GmailHistoryResponse = await historyResp.json();
-
-    const newHistoryId = history.historyId;
-
-    const messageIds: string[] = [];
-    for (const h of history.history ?? []) {
-      for (const added of h.messagesAdded ?? []) {
-        messageIds.push(added.message.id);
-      }
-    }
-
-    // Process each message with noise filtering and 3-tier matching
-    for (const msgId of messageIds) {
-      try {
-        const result = await this._processMessage(
-          msgId,
-          token,
-          connection.companyId,
-          syncFilters,
-          blocklist,
-          supabase,
-        );
-        if (result) {
-          stats.activitiesCreated++;
-          if (result.matched) stats.matched++;
-          if (result.needsReview) stats.needsReview++;
-          if (result.newLead) stats.newLeads++;
-        }
-      } catch {
-        // Skip individual message failures
-      }
-    }
-
-    // Update historyId and lastSyncedAt
-    if (newHistoryId) {
-      await supabase
-        .from("email_connections")
-        .update({
-          history_id: newHistoryId,
-          last_synced_at: new Date().toISOString(),
-        })
-        .eq("id", connectionId);
-    }
-
-    return stats;
-  },
-
-  /**
-   * Process a single Gmail message: dedup, filter noise, match, create activity.
-   * Returns null if skipped, or an object describing the outcome.
-   */
-  async _processMessage(
-    msgId: string,
-    token: string,
-    companyId: string,
-    syncFilters: GmailSyncFilters,
-    blocklist: { domains: Set<string>; keywords: string[] },
-    supabase: ReturnType<typeof requireSupabase>,
-  ): Promise<{ matched: boolean; needsReview: boolean; newLead: boolean } | null> {
-    // Dedup: check if we already have this message
-    const { data: existing } = await supabase
-      .from("activities")
-      .select("id")
-      .eq("email_message_id", msgId)
-      .limit(1);
-
-    if ((existing ?? []).length > 0) return null;
-
-    // Fetch message metadata
-    const msgResp = await fetch(
-      `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msgId}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Subject`,
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-    const msg: GmailMessage = await msgResp.json();
-
-    const headers = msg.payload?.headers ?? [];
-    const from = headers.find((h) => h.name === "From")?.value ?? "";
-    const to = headers.find((h) => h.name === "To")?.value ?? "";
-    const subject = headers.find((h) => h.name === "Subject")?.value ?? "(no subject)";
-    const threadId = msg.threadId;
-
-    // Extract email address from "Name <email>" format
-    const fromEmail = (from.match(/<(.+?)>/) ?? [, from])[1]?.toLowerCase() ?? "";
-
-    // Noise filter: skip automated/marketing emails
-    if (EmailFilterService.shouldFilter(fromEmail, subject, blocklist, syncFilters, msg.labelIds, msg.snippet)) {
-      return null;
-    }
-
-    // 3-tier matching via EmailMatchingService
-    const matchResult = await EmailMatchingService.matchEmail(
-      companyId,
-      from,
-      to,
-      msg.snippet ?? "",
-      threadId ?? null,
-    );
-
-    const clientId = matchResult.clientId;
-
-    // Determine direction: if we have a matched client, it's inbound (from client);
-    // unmatched emails default to inbound (new inquiry from unknown sender)
-    const direction: "inbound" | "outbound" = clientId
-      ? (matchResult.confidence !== "unmatched" ? "inbound" : "outbound")
-      : "inbound";
-
-    // Find open opportunity for matched client
-    let opportunityId: string | null = null;
-    if (clientId) {
-      const opps = await OpportunityService.fetchOpportunities(companyId, {
-        clientId,
-        stages: [
-          OpportunityStage.NewLead,
-          OpportunityStage.Qualifying,
-          OpportunityStage.Quoting,
-          OpportunityStage.Quoted,
-          OpportunityStage.FollowUp,
-          OpportunityStage.Negotiation,
-        ],
-      });
-      opportunityId = opps[0]?.id ?? null;
-    }
-
-    // Create activity
-    const activity = await OpportunityService.createActivity({
-      companyId,
-      opportunityId,
-      clientId,
-      estimateId: null,
-      invoiceId: null,
-      projectId: null,
-      siteVisitId: null,
-      type: ActivityType.Email,
-      subject,
-      content: msg.snippet ?? null,
-      outcome: null,
-      direction,
-      durationMinutes: null,
-      attachments: [],
-      emailThreadId: threadId,
-      emailMessageId: msgId,
-      isRead: !!clientId, // Unmatched emails are unread (show in inbox leads)
-      fromEmail: fromEmail || null,
-      createdBy: null,
-    });
-
-    // Update matching metadata columns (not in TypeScript Activity type yet)
-    await supabase
-      .from("activities")
-      .update({
-        match_confidence: matchResult.confidence,
-        match_needs_review: matchResult.needsReview,
-        suggested_client_id: matchResult.suggestedClientId,
-      })
-      .eq("id", activity.id);
-
-    const isMatched = matchResult.confidence !== "unmatched";
-    const isNewLead = !clientId && matchResult.confidence === "unmatched";
-
-    return {
-      matched: isMatched,
-      needsReview: matchResult.needsReview,
-      newLead: isNewLead,
-    };
-  },
-
-  /**
-   * Get a client's email address by client ID.
-   */
-  async _getClientEmail(clientId: string): Promise<string | null> {
-    const supabase = requireSupabase();
-    const { data } = await supabase
-      .from("clients")
-      .select("email")
-      .eq("id", clientId)
-      .single();
-
-    return (data?.email as string) ?? null;
   },
 
   /**

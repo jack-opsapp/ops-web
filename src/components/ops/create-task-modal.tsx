@@ -154,8 +154,8 @@ function ProjectSelector({
                     }}
                     className="w-full flex items-center gap-[6px] px-1.5 py-1 text-left hover:bg-[rgba(255,255,255,0.05)] transition-colors"
                   >
-                    <Plus className="w-[14px] h-[14px] text-ops-accent shrink-0" />
-                    <span className="font-mohave text-body-sm text-ops-accent">
+                    <Plus className="w-[14px] h-[14px] text-text-2 shrink-0" />
+                    <span className="font-mohave text-body-sm text-text">
                       Create new project{search.trim() ? `: "${search.trim()}"` : ""}
                     </span>
                   </button>

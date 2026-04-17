@@ -209,7 +209,7 @@ function UploadButton({
       <button
         onClick={() => setShowMenu(!showMenu)}
         disabled={uploading}
-        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[rgba(255,255,255,0.08)] hover:bg-ops-accent/30 text-[#8BB8D4] text-sm font-medium transition-colors"
+        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[rgba(255,255,255,0.08)] hover:bg-[rgba(255,255,255,0.12)] text-text-2 text-sm font-medium transition-colors"
       >
         {uploading ? (
           <Loader2 className="h-4 w-4 animate-spin" />

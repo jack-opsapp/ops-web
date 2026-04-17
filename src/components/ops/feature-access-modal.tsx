@@ -229,7 +229,7 @@ export function FeatureAccessModal({
           {/* ─── Already Requested ─── */}
           {!success && alreadyRequested && (
             <div className="flex flex-col items-center gap-2 py-4">
-              <CheckCircle2 className="w-[40px] h-[40px] text-ops-accent" />
+              <CheckCircle2 className="w-[40px] h-[40px] text-status-success" />
               <p className="font-mohave text-body text-text text-center">
                 {"You've already requested access to"} {featureLabel}.
               </p>

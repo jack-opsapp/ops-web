@@ -212,7 +212,7 @@ function QuestionForm({ initial, onSubmit, onCancel, submitLabel }: QuestionForm
     (!hasOptions || options.length > 0);
 
   return (
-    <div className="space-y-1.5 p-1.5 rounded border border-ops-accent bg-[rgba(65,115,148,0.06)]">
+    <div className="space-y-1.5 p-1.5 rounded border border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.04)]">
       {/* Question text */}
       <Input
         label="Question"
@@ -261,7 +261,7 @@ function QuestionForm({ initial, onSubmit, onCancel, submitLabel }: QuestionForm
           onClick={() => setIsRequired(!isRequired)}
           className={cn(
             "w-[40px] h-[22px] rounded-full transition-colors relative",
-            isRequired ? "bg-ops-accent" : "bg-fill-neutral-dim"
+            isRequired ? "bg-text-2" : "bg-fill-neutral-dim"
           )}
         >
           <span
@@ -410,7 +410,7 @@ export function LineItemQuestionEditor({
                       {question.questionText}
                     </p>
                     {question.isRequired && (
-                      <span className="shrink-0 font-kosugi text-micro text-ops-accent bg-[rgba(255,255,255,0.08)] px-[6px] py-[1px] rounded-full uppercase tracking-wider">
+                      <span className="shrink-0 font-kosugi text-micro text-text bg-[rgba(255,255,255,0.08)] px-[6px] py-[1px] rounded-full uppercase tracking-wider">
                         Required
                       </span>
                     )}
@@ -461,7 +461,7 @@ export function LineItemQuestionEditor({
                   <button
                     type="button"
                     onClick={() => setEditingId(question.id)}
-                    className="p-[4px] rounded text-text-mute hover:text-ops-accent hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+                    className="p-[4px] rounded text-text-mute hover:text-text hover:bg-[rgba(255,255,255,0.08)] transition-colors"
                     title="Edit question"
                   >
                     <Pencil className="w-[13px] h-[13px]" />

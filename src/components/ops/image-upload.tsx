@@ -100,7 +100,7 @@ export function ImageUpload({
             />
             {isUploading && (
               <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                <Loader2 className="w-[24px] h-[24px] text-ops-accent animate-spin" />
+                <Loader2 className="w-[24px] h-[24px] text-text-2 animate-spin" />
               </div>
             )}
             {!isUploading && (

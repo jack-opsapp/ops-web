@@ -82,7 +82,7 @@ export function UnifiedReplyBar({
                   }}
                   className="flex items-center gap-1.5 px-3 py-2 w-full text-left hover:bg-surface-input transition-colors"
                 >
-                  <MessageSquareText className="w-3.5 h-3.5 text-ops-accent" />
+                  <MessageSquareText className="w-3.5 h-3.5 text-text-2" />
                   <span className="font-kosugi text-micro text-text-2 uppercase">
                     {t("reply.viaPortal")}
                   </span>

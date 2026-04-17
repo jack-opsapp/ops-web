@@ -273,7 +273,7 @@ const ClientDetailPopoverInstance = memo(function ClientDetailPopoverInstance({
           >
             {tab.label}
             {tab.id === state.activeTab && (
-              <div className="absolute bottom-0 left-3 right-3 h-[2px] bg-ops-accent" />
+              <div className="absolute bottom-0 left-3 right-3 h-[2px] bg-text-2" />
             )}
           </button>
         ))}
@@ -361,7 +361,7 @@ function ClientOverviewTab({
             <Mail className="w-3 h-3 text-text-3 shrink-0" />
             <a
               href={`mailto:${client.email}`}
-              className="font-mohave text-body-sm text-text hover:text-ops-accent transition-colors"
+              className="font-mohave text-body-sm text-text hover:text-text-2 transition-colors"
             >
               {client.email}
             </a>
@@ -379,7 +379,7 @@ function ClientOverviewTab({
             <Phone className="w-3 h-3 text-text-3 shrink-0" />
             <a
               href={`tel:${client.phoneNumber}`}
-              className="font-mohave text-body-sm text-text hover:text-ops-accent transition-colors"
+              className="font-mohave text-body-sm text-text hover:text-text-2 transition-colors"
             >
               {client.phoneNumber}
             </a>

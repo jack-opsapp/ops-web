@@ -17,12 +17,12 @@ export function ChannelDivider({ channel, subject }: ChannelDividerProps) {
       {isEmail ? (
         <Mail className="w-3 h-3 text-text-mute shrink-0" />
       ) : (
-        <MessageSquareText className="w-3 h-3 text-ops-accent shrink-0" />
+        <MessageSquareText className="w-3 h-3 text-text-2 shrink-0" />
       )}
       <span
         className={cn(
           "font-kosugi text-micro uppercase tracking-wider shrink-0",
-          isEmail ? "text-text-mute" : "text-ops-accent"
+          isEmail ? "text-text-mute" : "text-text-2"
         )}
       >
         {isEmail ? "EMAIL" : "PORTAL"}

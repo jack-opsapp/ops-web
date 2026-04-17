@@ -65,9 +65,6 @@ export { resolveCrewStatus } from "./crew-location-service";
 
 export { EmailFilterService } from "./email-filter-service";
 
-export { EmailMatchingService } from "./email-matching-service";
-export type { MatchResult } from "./email-matching-service";
-
 export { EmailService } from "./email-service";
 
 export { PatternDetectionService } from "./pattern-detection-service";

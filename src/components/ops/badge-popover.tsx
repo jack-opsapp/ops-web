@@ -81,7 +81,7 @@ export function MiniCalendarPopover({
             setOpen(false);
             onEditFullTask();
           }}
-          className="font-mohave text-caption-sm text-ops-accent hover:underline mt-2 block"
+          className="font-mohave text-caption-sm text-text-2 hover:text-text hover:underline mt-2 block"
         >
           {t("taskForm.editFullTask")} &rarr;
         </button>
@@ -153,7 +153,7 @@ export function MiniTeamPickerPopover({
                   {getUserFullName(member)}
                 </span>
                 {isSelected && (
-                  <Check className="w-[14px] h-[14px] text-ops-accent shrink-0" />
+                  <Check className="w-[14px] h-[14px] text-text-2 shrink-0" />
                 )}
               </button>
             );
@@ -164,7 +164,7 @@ export function MiniTeamPickerPopover({
             setOpen(false);
             onEditFullTask();
           }}
-          className="font-mohave text-caption-sm text-ops-accent hover:underline mt-2 block"
+          className="font-mohave text-caption-sm text-text-2 hover:text-text hover:underline mt-2 block"
         >
           {t("taskForm.editFullTask")} &rarr;
         </button>

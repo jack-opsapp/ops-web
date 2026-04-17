@@ -340,7 +340,3 @@ export function AutonomyStatusPanel({ connectionId }: AutonomyStatusPanelProps) 
     </div>
   );
 }
-;
-}
-;
-}

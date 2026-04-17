@@ -395,7 +395,7 @@ export function UnifiedThreadView({
             <button
               className={cn(
                 "flex items-center gap-1.5 px-2.5 py-[5px] rounded-panel border shrink-0",
-                "border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.08)]/20 text-ops-accent",
+                "border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.08)] text-text",
                 "hover:bg-[rgba(255,255,255,0.08)]/40 transition-colors duration-150 cursor-pointer"
               )}
             >

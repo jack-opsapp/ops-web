@@ -622,5 +622,3 @@ export function AiIntakeInterview({ onComplete }: AiIntakeInterviewProps) {
     </div>
   );
 }
-;
-}

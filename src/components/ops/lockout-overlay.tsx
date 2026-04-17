@@ -237,9 +237,9 @@ const TIER_DISPLAY: Record<Exclude<SubscriptionTier, "trial">, {
 }> = {
   starter: {
     icon: <Zap className="w-[16px] h-[16px]" />,
-    accentClass: "text-ops-accent",
+    accentClass: "text-text",
     borderClass: "border-[rgba(255,255,255,0.12)] hover:border-[rgba(255,255,255,0.18)]",
-    badgeClass: "bg-[rgba(255,255,255,0.05)] text-ops-accent",
+    badgeClass: "bg-[rgba(255,255,255,0.05)] text-text",
   },
   team: {
     icon: <Crown className="w-[16px] h-[16px]" />,
@@ -361,7 +361,7 @@ function FooterLinks({ showDifferentAccount }: { showDifferentAccount?: boolean 
     <div className="flex items-center gap-2 mt-3 pt-3 border-t border-white/[0.06]">
       <a
         href="mailto:support@opsapp.co"
-        className="inline-flex items-center gap-0.5 font-mohave text-caption-sm text-ops-accent hover:text-ops-accent-hover underline underline-offset-4 transition-colors"
+        className="inline-flex items-center gap-0.5 font-mohave text-caption-sm text-text-2 hover:text-text underline underline-offset-4 transition-colors"
       >
         <Headphones className="w-[12px] h-[12px]" />
         {t("lockout.contactSupport")}

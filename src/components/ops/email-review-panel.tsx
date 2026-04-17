@@ -676,8 +676,8 @@ export function EmailReviewPanel({
                         className={cn(
                           "flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-micro font-bold",
                           activeTab === tab.key
-                            ? "bg-ops-accent text-white"
-                            : "bg-[rgba(255,255,255,0.08)] text-[#999]"
+                            ? "bg-text-2 text-background"
+                            : "bg-[rgba(255,255,255,0.08)] text-text-3"
                         )}
                       >
                         {tab.count > 99 ? "99+" : tab.count}

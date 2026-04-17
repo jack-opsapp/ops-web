@@ -283,9 +283,3 @@ export function EmailFilterBuilder({
     </div>
   );
 }
-
-}
-
-}
-
-}

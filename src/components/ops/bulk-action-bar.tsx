@@ -39,7 +39,7 @@ export function BulkActionBar({
       {/* Count badge */}
       <div className="flex items-center gap-[6px] pr-1.5 border-r border-border">
         <div className="w-[24px] h-[24px] rounded-lg bg-[rgba(255,255,255,0.08)] flex items-center justify-center">
-          <span className="font-mono text-data-sm text-ops-accent">
+          <span className="font-mono text-data-sm text-text">
             {count}
           </span>
         </div>

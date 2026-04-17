@@ -619,7 +619,7 @@ export function CommandPalette() {
             <span className="font-kosugi text-micro">Close</span>
           </div>
         </div>
-        <span className="font-mono text-micro text-ops-accent">OPS v1.0</span>
+        <span className="font-mono text-micro text-text-mute">OPS v1.0</span>
       </div>
     </CommandDialog>
   );

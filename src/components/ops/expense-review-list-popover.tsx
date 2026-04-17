@@ -224,7 +224,7 @@ function BatchRow({
           <button
             onClick={() => onQuickReject(batch.id)}
             disabled={!rejectNote.trim()}
-            className="w-5 h-5 flex items-center justify-center rounded-[2px] text-text-mute hover:text-ops-accent disabled:opacity-30 transition-colors"
+            className="w-5 h-5 flex items-center justify-center rounded-[4px] text-text-mute hover:text-text disabled:opacity-30 transition-colors"
           >
             <Send className="w-3 h-3" />
           </button>
@@ -500,7 +500,7 @@ export function ExpenseReviewListPopover() {
               className={cn(
                 "px-2 py-0.5 rounded-sm font-kosugi text-micro uppercase tracking-wider transition-colors shrink-0",
                 selectedPeriod === "all"
-                  ? "bg-[rgba(255,255,255,0.06)] text-ops-accent border border-[rgba(255,255,255,0.15)]"
+                  ? "bg-[rgba(255,255,255,0.08)] text-text border border-[rgba(255,255,255,0.18)]"
                   : "text-text-mute hover:text-text-2 border border-transparent"
               )}
             >
@@ -513,7 +513,7 @@ export function ExpenseReviewListPopover() {
                 className={cn(
                   "px-2 py-0.5 rounded-sm font-kosugi text-micro uppercase tracking-wider transition-colors shrink-0",
                   selectedPeriod === key
-                    ? "bg-[rgba(255,255,255,0.06)] text-ops-accent border border-[rgba(255,255,255,0.15)]"
+                    ? "bg-[rgba(255,255,255,0.08)] text-text border border-[rgba(255,255,255,0.18)]"
                     : "text-text-mute hover:text-text-2 border border-transparent"
                 )}
               >
@@ -538,7 +538,7 @@ export function ExpenseReviewListPopover() {
             >
               {tab.label}
               {tab.id === activeTab && (
-                <span className="absolute bottom-0 left-3 right-3 h-[2px] bg-ops-accent" />
+                <span className="absolute bottom-0 left-3 right-3 h-[2px] bg-text-2" />
               )}
             </button>
           ))}

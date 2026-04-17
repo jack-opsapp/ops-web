@@ -86,7 +86,7 @@ export function ProjectDetailModal({ project, open, onOpenChange }: ProjectDetai
                     <InfoRow
                       label="Email"
                       value={
-                        <a href={`mailto:${resolvedClient.email}`} className="text-ops-accent hover:underline">
+                        <a href={`mailto:${resolvedClient.email}`} className="text-text-2 hover:text-text hover:underline">
                           {resolvedClient.email}
                         </a>
                       }
@@ -97,7 +97,7 @@ export function ProjectDetailModal({ project, open, onOpenChange }: ProjectDetai
                     <InfoRow
                       label="Phone"
                       value={
-                        <a href={`tel:${resolvedClient.phoneNumber}`} className="text-text hover:text-ops-accent">
+                        <a href={`tel:${resolvedClient.phoneNumber}`} className="text-text hover:text-text-2">
                           {resolvedClient.phoneNumber}
                         </a>
                       }
@@ -123,7 +123,7 @@ export function ProjectDetailModal({ project, open, onOpenChange }: ProjectDetai
               {project.address ? (
                 <>
                   <div className="flex items-start gap-1">
-                    <MapPin className="w-[16px] h-[16px] text-ops-accent shrink-0 mt-[2px]" />
+                    <MapPin className="w-[16px] h-[16px] text-text-2 shrink-0 mt-[2px]" />
                     <p className="font-mohave text-body text-text">{project.address}</p>
                   </div>
                   {mapQuery && (
@@ -131,7 +131,7 @@ export function ProjectDetailModal({ project, open, onOpenChange }: ProjectDetai
                       href={mapQuery}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-[6px] mt-1 font-mohave text-body-sm text-ops-accent hover:underline"
+                      className="inline-flex items-center gap-[6px] mt-1 font-mohave text-body-sm text-text-2 hover:text-text hover:underline"
                     >
                       <ExternalLink className="w-[14px] h-[14px]" />
                       Open in Google Maps
