@@ -235,7 +235,7 @@ function SidebarSection({ label, onEdit, children }: { label: string; onEdit?: (
       <div className="flex items-center justify-between mb-2">
         <span className="font-kosugi text-micro uppercase tracking-[0.5px] text-text-3">{label}</span>
         {onEdit && (
-          <button onClick={onEdit} className="opacity-0 group-hover/section:opacity-100 transition-opacity text-ops-accent text-[11px] border border-[rgba(255,255,255,0.15)] rounded-[2px] px-2 py-0.5 hover:bg-[rgba(255,255,255,0.05)]">
+          <button onClick={onEdit} className="opacity-0 group-hover/section:opacity-100 transition-opacity text-text-2 hover:text-text text-[11px] border border-[rgba(255,255,255,0.15)] rounded-[5px] px-2 py-0.5 hover:bg-[rgba(255,255,255,0.05)]">
             {t("sidebar.edit")}
           </button>
         )}
@@ -444,9 +444,9 @@ function ProjectSidebar({ project, tasks }: { project: Project; tasks: ProjectTa
               {completedTasks.length}/{activeTasks.length}
             </span>
           </div>
-          <div className="h-1.5 rounded-[2px] bg-[rgba(255,255,255,0.06)] overflow-hidden">
+          <div className="h-1.5 rounded-bar bg-fill-neutral-dim overflow-hidden">
             <div
-              className="h-full bg-ops-accent transition-all duration-300"
+              className="h-full bg-text-2 transition-all duration-300"
               style={{ width: `${progressPercent}%` }}
             />
           </div>
@@ -511,13 +511,13 @@ function ProjectSidebar({ project, tasks }: { project: Project; tasks: ProjectTa
                   key={c.id}
                   onClick={() => handleClientSelect(c)}
                   className={cn(
-                    "w-full text-left px-2.5 py-1.5 font-mohave text-body-sm hover:bg-[rgba(255,255,255,0.04)] transition-colors flex items-center justify-between cursor-pointer",
-                    c.id === project.clientId ? "text-ops-accent" : "text-text"
+                    "w-full text-left px-2.5 py-1.5 font-mohave text-body-sm hover:bg-[rgba(255,255,255,0.04)] transition-colors flex items-center justify-between cursor-pointer text-text",
+                    c.id === project.clientId && "bg-[rgba(255,255,255,0.04)]"
                   )}
                 >
                   <span className="truncate">{c.name}</span>
                   {c.id === project.clientId && (
-                    <Check className="w-[12px] h-[12px] text-ops-accent shrink-0" />
+                    <Check className="w-[12px] h-[12px] text-text-2 shrink-0" />
                   )}
                 </button>
               ))}
@@ -534,7 +534,7 @@ function ProjectSidebar({ project, tasks }: { project: Project; tasks: ProjectTa
             {resolvedClient.email && (
               <a
                 href={`mailto:${resolvedClient.email}`}
-                className="font-mohave text-body-sm text-ops-accent hover:underline block truncate"
+                className="font-mohave text-body-sm text-text-2 hover:text-text hover:underline block truncate"
               >
                 {resolvedClient.email}
               </a>
@@ -542,7 +542,7 @@ function ProjectSidebar({ project, tasks }: { project: Project; tasks: ProjectTa
             {resolvedClient.phoneNumber && (
               <a
                 href={`tel:${resolvedClient.phoneNumber}`}
-                className="font-mono text-data-sm text-text-2 hover:text-ops-accent block"
+                className="font-mono text-data-sm text-text-2 hover:text-text block"
               >
                 {resolvedClient.phoneNumber}
               </a>
@@ -576,13 +576,13 @@ function ProjectSidebar({ project, tasks }: { project: Project; tasks: ProjectTa
               <button
                 onClick={handleLocationSave}
                 disabled={updateProjectMutation.isPending}
-                className="font-mohave text-[11px] bg-ops-accent text-white rounded-[2px] px-2.5 py-1 hover:opacity-90 transition-opacity disabled:opacity-50 cursor-pointer"
+                className="font-mohave text-[11px] bg-[rgba(255,255,255,0.07)] text-text border border-[rgba(255,255,255,0.10)] rounded-[5px] px-2.5 py-1 hover:bg-[rgba(255,255,255,0.10)] transition-colors disabled:opacity-50 cursor-pointer"
               >
                 {t("sidebar.save")}
               </button>
               <button
                 onClick={handleLocationCancel}
-                className="font-mohave text-[11px] text-text-3 border border-border rounded-[2px] px-2.5 py-1 hover:text-text-2 transition-colors cursor-pointer"
+                className="font-mohave text-[11px] text-text-3 border border-border rounded-[5px] px-2.5 py-1 hover:text-text-2 transition-colors cursor-pointer"
               >
                 {t("sidebar.cancel")}
               </button>
@@ -591,7 +591,7 @@ function ProjectSidebar({ project, tasks }: { project: Project; tasks: ProjectTa
         ) : project.address ? (
           <div className="space-y-1">
             <div className="flex items-start gap-1.5">
-              <MapPin className="w-[14px] h-[14px] text-ops-accent shrink-0 mt-[2px]" />
+              <MapPin className="w-[14px] h-[14px] text-text-2 shrink-0 mt-[2px]" />
               <p className="font-mohave text-body-sm text-text">{project.address}</p>
             </div>
             {mapQuery && (
@@ -599,7 +599,7 @@ function ProjectSidebar({ project, tasks }: { project: Project; tasks: ProjectTa
                 href={mapQuery}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 font-mohave text-body-sm text-ops-accent hover:underline"
+                className="inline-flex items-center gap-1 font-mohave text-body-sm text-text-2 hover:text-text hover:underline"
               >
                 {t("sidebar.openMaps")}
                 <ExternalLink className="w-[12px] h-[12px]" />
@@ -1288,7 +1288,7 @@ export default function ProjectDetailPage() {
       <div className="flex items-center gap-2 px-6 pt-3 pb-1 min-w-0">
         <button
           onClick={() => router.push("/projects")}
-          className="font-mohave text-body text-ops-accent hover:underline shrink-0 cursor-pointer"
+          className="font-mohave text-body text-text-2 hover:text-text hover:underline shrink-0 cursor-pointer"
         >
           {t("title")}
         </button>
@@ -1308,7 +1308,7 @@ export default function ProjectDetailPage() {
                 <DropdownMenuItem
                   key={s}
                   onClick={() => handleStatusChange(s)}
-                  className={cn("gap-2 font-mohave", project.status === s && "text-ops-accent")}
+                  className={cn("gap-2 font-mohave", project.status === s && "bg-[rgba(255,255,255,0.04)]")}
                 >
                   <StatusBadge status={statusToKey(s)} />
                 </DropdownMenuItem>
