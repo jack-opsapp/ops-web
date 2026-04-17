@@ -32,7 +32,7 @@ const ProjectMap = dynamic(
     loading: () => (
       <div className="w-full h-full flex items-center justify-center bg-glass glass-surface">
         <div className="flex flex-col items-center gap-1">
-          <Loader2 className="w-[24px] h-[24px] text-ops-accent animate-spin" />
+          <Loader2 className="w-[24px] h-[24px] text-text-2 animate-spin" />
           <span className="font-mono text-[11px] text-text-mute tracking-wider">
             LOADING MAP ENGINE...
           </span>
@@ -96,7 +96,7 @@ function ProjectListItem({
             {(hasLocation || project.address) && (
               <button
                 onClick={openInMaps}
-                className="text-text-mute hover:text-ops-accent transition-colors shrink-0"
+                className="text-text-mute hover:text-text transition-colors shrink-0"
                 title={t("map.openInGoogleMaps")}
               >
                 <ExternalLink className="w-[12px] h-[12px]" />
@@ -198,7 +198,7 @@ export default function MapPage() {
         <div className="p-1.5 border-b border-border space-y-1">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-[6px]">
-              <MapPin className="w-[16px] h-[16px] text-ops-accent" />
+              <MapPin className="w-[16px] h-[16px] text-text-2" />
               <span className="font-mohave text-body font-medium text-text uppercase tracking-wider">{t("map.projects")}</span>
             </div>
             <div className="flex items-center gap-[6px]">
@@ -250,7 +250,7 @@ export default function MapPage() {
                   className={cn(
                     "flex items-center gap-[3px] px-[6px] py-[2px] rounded text-micro font-mono transition-colors",
                     isActive
-                      ? "bg-[rgba(255,255,255,0.08)] text-ops-accent border border-[rgba(255,255,255,0.15)]"
+                      ? "bg-[rgba(255,255,255,0.08)] text-text border border-[rgba(255,255,255,0.18)]"
                       : "bg-fill-neutral-dim text-text-mute border border-transparent hover:text-text-3"
                   )}
                 >
@@ -271,7 +271,7 @@ export default function MapPage() {
         <div className="flex-1 overflow-y-auto p-1 space-y-[4px]">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-6">
-              <Loader2 className="w-[20px] h-[20px] text-ops-accent animate-spin" />
+              <Loader2 className="w-[20px] h-[20px] text-text-2 animate-spin" />
               <span className="font-mono text-micro text-text-mute mt-1">
                 {t("map.loadingProjects")}
               </span>
@@ -372,4 +372,14 @@ export default function MapPage() {
       </div>
     </div>
   );
+}
+
+  );
+}
+ );
+}
+;
+}
+}
+;
 }

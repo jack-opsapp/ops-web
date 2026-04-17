@@ -51,7 +51,7 @@ export function ProjectDetailSheet({ projectId, open, onOpenChange }: ProjectDet
         <SheetHeader>
           {isLoading ? (
             <div className="flex items-center gap-1.5">
-              <Loader2 className="w-[16px] h-[16px] text-ops-accent animate-spin" />
+              <Loader2 className="w-[16px] h-[16px] text-text-2 animate-spin" />
               <SheetTitle>Loading...</SheetTitle>
             </div>
           ) : project ? (
@@ -75,7 +75,7 @@ export function ProjectDetailSheet({ projectId, open, onOpenChange }: ProjectDet
         <SheetBody>
           {isLoading ? (
             <div className="flex items-center justify-center py-6">
-              <Loader2 className="w-[24px] h-[24px] text-ops-accent animate-spin" />
+              <Loader2 className="w-[24px] h-[24px] text-text-2 animate-spin" />
             </div>
           ) : project ? (
             <div className="space-y-3">
@@ -114,17 +114,17 @@ export function ProjectDetailSheet({ projectId, open, onOpenChange }: ProjectDet
               {/* Stats row */}
               <div className="grid grid-cols-3 gap-1.5 pt-1">
                 <div className="bg-fill-neutral-dim rounded-lg p-1.5 text-center">
-                  <ClipboardList className="w-[16px] h-[16px] text-ops-accent mx-auto mb-[4px]" />
+                  <ClipboardList className="w-[16px] h-[16px] text-text-2 mx-auto mb-[4px]" />
                   <p className="font-mono text-body text-text">{completedTasks}/{totalTasks}</p>
                   <p className="font-kosugi text-micro text-text-mute">Tasks</p>
                 </div>
                 <div className="bg-fill-neutral-dim rounded-lg p-1.5 text-center">
-                  <Users className="w-[16px] h-[16px] text-ops-accent mx-auto mb-[4px]" />
+                  <Users className="w-[16px] h-[16px] text-text-2 mx-auto mb-[4px]" />
                   <p className="font-mono text-body text-text">{project.teamMemberIds?.length ?? 0}</p>
                   <p className="font-kosugi text-micro text-text-mute">Team</p>
                 </div>
                 <div className="bg-fill-neutral-dim rounded-lg p-1.5 text-center">
-                  <CalendarDays className="w-[16px] h-[16px] text-ops-accent mx-auto mb-[4px]" />
+                  <CalendarDays className="w-[16px] h-[16px] text-text-2 mx-auto mb-[4px]" />
                   <p className="font-mono text-body text-text">
                     {project.duration ? `${project.duration}d` : "—"}
                   </p>

@@ -382,7 +382,7 @@ export function CalendarScheduler({
               <span className="font-mohave text-body text-text">
                 {formatDisplayDate(selectedEnd)}
               </span>
-              <span className="font-mohave text-body-sm text-ops-accent ml-auto">
+              <span className="font-mohave text-body-sm text-text ml-auto">
                 {daysBetween(selectedStart, selectedEnd)}d
               </span>
             </div>
@@ -435,7 +435,7 @@ export function CalendarScheduler({
         <ChevronRight
           className={cn(
             "w-[14px] h-[14px] shrink-0 mx-1",
-            hasSelection ? "text-ops-accent" : "text-text-3"
+            hasSelection ? "text-text-2" : "text-text-3"
           )}
         />
 
@@ -464,7 +464,7 @@ export function CalendarScheduler({
           <p
             className={cn(
               "font-mohave text-body-sm leading-tight",
-              hasSelection ? "text-ops-accent" : "text-text-3"
+              hasSelection ? "text-text" : "text-text-3"
             )}
           >
             {hasSelection && selectedStart && selectedEnd
@@ -481,7 +481,7 @@ export function CalendarScheduler({
           <button
             type="button"
             onClick={prevMonth}
-            className="p-[4px] text-ops-accent hover:text-ops-accent-hover transition-colors"
+            className="p-[4px] text-text-2 hover:text-text transition-colors"
           >
             <ChevronLeft className="w-[16px] h-[16px]" />
           </button>
@@ -491,7 +491,7 @@ export function CalendarScheduler({
           <button
             type="button"
             onClick={nextMonth}
-            className="p-[4px] text-ops-accent hover:text-ops-accent-hover transition-colors"
+            className="p-[4px] text-text-2 hover:text-text transition-colors"
           >
             <ChevronRight className="w-[16px] h-[16px]" />
           </button>
@@ -611,9 +611,9 @@ function DayCell({
         blocked && "opacity-30 pointer-events-none"
       )}
     >
-      {/* Today accent background */}
+      {/* Today highlight background */}
       {today && (
-        <div className="absolute inset-[2px] rounded-sm bg-ops-accent" />
+        <div className="absolute inset-[2px] rounded-[4px] bg-[rgba(255,255,255,0.08)]" />
       )}
 
       {/* Selection border — mirrors iOS SchedulerDayCell */}

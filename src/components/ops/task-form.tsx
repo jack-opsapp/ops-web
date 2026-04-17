@@ -111,7 +111,7 @@ function TaskTypeDropdown({
             "bg-surface-input border rounded-sm",
             "px-1.5 py-1.5",
             "font-mohave text-body transition-all duration-150",
-            open ? "border-ops-accent" : error ? "border-status-error" : "border-border",
+            open ? "border-[rgba(255,255,255,0.20)]" : error ? "border-status-error" : "border-border",
             "focus:border-[rgba(255,255,255,0.20)] focus:outline-none"
           )}
         >
@@ -166,7 +166,7 @@ function TaskTypeDropdown({
                   />
                   {tt.display}
                   {value === tt.id && (
-                    <Check className="w-[14px] h-[14px] text-ops-accent ml-auto shrink-0" />
+                    <Check className="w-[14px] h-[14px] text-text-2 ml-auto shrink-0" />
                   )}
                 </button>
               ))
@@ -209,7 +209,7 @@ function StatusDropdown({
             "bg-surface-input border border-border rounded-sm",
             "px-1.5 py-1.5",
             "font-mohave text-body transition-all duration-150",
-            open && "border-ops-accent",
+            open && "border-[rgba(255,255,255,0.20)]",
             "focus:border-[rgba(255,255,255,0.20)] focus:outline-none"
           )}
         >
@@ -251,7 +251,7 @@ function StatusDropdown({
                 />
                 {s}
                 {value === s && (
-                  <Check className="w-[14px] h-[14px] text-ops-accent ml-auto shrink-0" />
+                  <Check className="w-[14px] h-[14px] text-text-2 ml-auto shrink-0" />
                 )}
               </button>
             ))}
@@ -300,7 +300,7 @@ function TeamMemberDropdown({
             "bg-surface-input border border-border rounded-sm",
             "px-1.5 py-1.5",
             "font-mohave text-body transition-all duration-150",
-            open && "border-ops-accent",
+            open && "border-[rgba(255,255,255,0.20)]",
             "focus:border-[rgba(255,255,255,0.20)] focus:outline-none",
             count > 0 ? "text-text" : "text-text-3"
           )}
@@ -381,7 +381,7 @@ function TeamMemberDropdown({
                     </span>
                     {/* Checkmark */}
                     {isSelected && (
-                      <Check className="w-[14px] h-[14px] text-ops-accent shrink-0" />
+                      <Check className="w-[14px] h-[14px] text-text-2 shrink-0" />
                     )}
                   </button>
                 );
@@ -473,7 +473,7 @@ function DependencySection({
         <button
           type="button"
           onClick={() => setShowOverride(true)}
-          className="text-ops-accent text-caption-sm cursor-pointer hover:underline self-start mt-0.5"
+          className="text-text-2 hover:text-text text-caption-sm cursor-pointer hover:underline self-start mt-0.5"
         >
           {t("taskForm.override")}
         </button>
@@ -485,7 +485,7 @@ function DependencySection({
             onOverridesChange(null);
             setShowOverride(false);
           }}
-          className="text-ops-accent text-caption-sm cursor-pointer hover:underline self-start mt-0.5"
+          className="text-text-2 hover:text-text text-caption-sm cursor-pointer hover:underline self-start mt-0.5"
         >
           {t("taskForm.resetDefaults")}
         </button>
@@ -713,3 +713,4 @@ TaskForm.displayName = "TaskForm";
 
 export { TaskForm, taskFormSchema };
 export type { TaskFormValues };
+ };
