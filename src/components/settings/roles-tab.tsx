@@ -260,7 +260,7 @@ function PaletteCategoryHeader({
         <button
           type="button"
           onClick={onBulkAdd}
-          className="flex items-center gap-[2px] font-kosugi text-micro text-text-mute hover:text-ops-accent transition-colors shrink-0"
+          className="flex items-center gap-[2px] font-kosugi text-micro text-text-mute hover:text-text transition-colors shrink-0"
         >
           <Plus className="w-[10px] h-[10px]" />
           {t("roles.bulkAddCategory")}
@@ -425,7 +425,7 @@ function TierModuleCard({
 
       {/* Custom badge for non-standard tier mapping */}
       {isCustom && (
-        <span className="font-mono text-micro text-ops-accent bg-[rgba(255,255,255,0.08)] px-[4px] py-[1px] rounded-sm shrink-0">
+        <span className="font-mono text-micro text-text bg-[rgba(255,255,255,0.08)] px-[4px] py-[1px] rounded-[4px] shrink-0">
           {t("roles.customPermissions")}
         </span>
       )}
@@ -533,7 +533,7 @@ function TierColumn({
         className={cn(
           "flex-1 border border-border border-t-0 rounded-b p-1 space-y-[4px] min-h-[160px] transition-colors duration-150",
           isOver
-            ? cn("border-ops-accent", TIER_ACTIVE_BG[tier])
+            ? cn("border-[rgba(255,255,255,0.30)]", TIER_ACTIVE_BG[tier])
             : "bg-[rgba(10,10,10,0.5)]"
         )}
       >
@@ -764,7 +764,7 @@ function PermissionBoard({
       {/* Drag overlay */}
       <DragOverlay>
         {activeDragInfo ? (
-          <div className="opacity-80 scale-105 shadow-lg px-[10px] py-[6px] bg-glass glass-surface border border-ops-accent rounded font-kosugi text-[11px] text-text">
+          <div className="opacity-80 scale-105 shadow-lg px-[10px] py-[6px] bg-glass glass-surface border border-[rgba(255,255,255,0.30)] rounded font-kosugi text-[11px] text-text">
             {activeDragInfo.label}
             {activeDragInfo.type === "category" && (
               <span className="ml-[6px] font-mono text-micro text-text-mute">
@@ -1319,7 +1319,7 @@ function RoleEditor({
   if (permLoading || !role) {
     return (
       <div className="flex items-center justify-center py-4">
-        <Loader2 className="w-[20px] h-[20px] text-ops-accent animate-spin" />
+        <Loader2 className="w-[20px] h-[20px] text-text-2 animate-spin" />
       </div>
     );
   }
@@ -1539,8 +1539,8 @@ function RoleEditor({
                       onClick={() => handleAssignMember(member.id)}
                       className="w-full flex items-center gap-1 px-1 py-[6px] rounded font-mohave text-body-sm text-text-2 hover:text-text hover:bg-[rgba(255,255,255,0.04)] transition-colors"
                     >
-                      <div className="w-[24px] h-[24px] rounded-full flex items-center justify-center shrink-0 border border-ops-accent">
-                        <span className="font-mohave text-micro text-ops-accent">
+                      <div className="w-[24px] h-[24px] rounded-full flex items-center justify-center shrink-0 border border-[rgba(255,255,255,0.18)]">
+                        <span className="font-mohave text-micro text-text-2">
                           {getInitials(getUserFullName(member))}
                         </span>
                       </div>
@@ -1566,8 +1566,8 @@ function RoleEditor({
                       className="flex items-center justify-between py-[8px] border-b border-[rgba(255,255,255,0.04)] last:border-0"
                     >
                       <div className="flex items-center gap-1.5">
-                        <div className="w-[28px] h-[28px] rounded-full flex items-center justify-center border border-ops-accent">
-                          <span className="font-mohave text-micro text-ops-accent">
+                        <div className="w-[28px] h-[28px] rounded-full flex items-center justify-center border border-[rgba(255,255,255,0.18)]">
+                          <span className="font-mohave text-micro text-text-2">
                             {getInitials(fullName)}
                           </span>
                         </div>
@@ -1658,7 +1658,7 @@ function MemberDragCard({
       )}
     >
       <div
-        className="w-[28px] h-[28px] rounded-full flex items-center justify-center shrink-0 border-2 border-ops-accent overflow-hidden"
+        className="w-[28px] h-[28px] rounded-full flex items-center justify-center shrink-0 border-2 border-[rgba(255,255,255,0.18)] overflow-hidden"
         style={userColor ? { borderColor: userColor } : undefined}
       >
         {profileImageURL ? (
@@ -1671,7 +1671,7 @@ function MemberDragCard({
           />
         ) : (
           <span
-            className="font-mohave text-micro text-ops-accent"
+            className="font-mohave text-micro text-text-2"
             style={userColor ? { color: userColor } : undefined}
           >
             {initials}
@@ -1729,7 +1729,7 @@ function RoleAssignmentColumn({
         className={cn(
           "flex-1 border border-border border-t-0 rounded-b p-1 space-y-[4px] min-h-[120px] transition-colors duration-150",
           isOver
-            ? "bg-[rgba(111, 148, 176,0.08)] border-ops-accent"
+            ? "bg-[rgba(255,255,255,0.05)] border-[rgba(255,255,255,0.30)]"
             : "bg-[rgba(10,10,10,0.5)]"
         )}
       >
@@ -1904,7 +1904,7 @@ function RolesAssignmentBoard({
         {/* Drag overlay */}
         <DragOverlay>
           {activeMember ? (
-            <div className="opacity-80 scale-105 shadow-lg px-[10px] py-[6px] bg-glass glass-surface border border-ops-accent rounded font-mohave text-[11px] text-text">
+            <div className="opacity-80 scale-105 shadow-lg px-[10px] py-[6px] bg-glass glass-surface border border-[rgba(255,255,255,0.30)] rounded font-mohave text-[11px] text-text">
               {activeMember.name}
             </div>
           ) : null}
@@ -2241,7 +2241,7 @@ export function RolesTab() {
 
           {isLoading ? (
             <div className="flex items-center justify-center py-4">
-              <Loader2 className="w-[20px] h-[20px] text-ops-accent animate-spin" />
+              <Loader2 className="w-[20px] h-[20px] text-text-2 animate-spin" />
             </div>
           ) : listMode === "board" ? (
             <RolesAssignmentBoard

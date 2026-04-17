@@ -865,9 +865,9 @@ export function EmailSetupWizard({
                     <div
                       className={`h-full transition-all duration-500 ease-out ${
                         isComplete
-                          ? "bg-ops-accent"
+                          ? "bg-text-2"
                           : isActive
-                            ? "bg-ops-accent/50"
+                            ? "bg-fill-neutral"
                             : "bg-border-subtle"
                       }`}
                     />
@@ -876,11 +876,11 @@ export function EmailSetupWizard({
                   {/* Step label */}
                   <div className="flex items-center gap-[4px] px-[4px]">
                     <div
-                      className={`w-[20px] h-[20px] rounded-sm flex items-center justify-center transition-all duration-300 ${
+                      className={`w-[20px] h-[20px] rounded-[4px] flex items-center justify-center transition-all duration-300 ${
                         isComplete
-                          ? "bg-[rgba(255,255,255,0.08)] text-ops-accent"
+                          ? "bg-[rgba(255,255,255,0.08)] text-text"
                           : isActive
-                            ? "bg-[rgba(255,255,255,0.05)] text-ops-accent"
+                            ? "bg-[rgba(255,255,255,0.05)] text-text"
                             : "bg-transparent text-text-mute"
                       }`}
                     >
@@ -895,7 +895,7 @@ export function EmailSetupWizard({
                         isActive
                           ? "text-text"
                           : isComplete
-                            ? "text-ops-accent"
+                            ? "text-text-2"
                             : "text-text-mute"
                       }`}
                     >
@@ -1158,7 +1158,7 @@ function StepConnect({
             className="w-full flex items-center gap-2 px-2 py-2 border border-border rounded hover:border-[rgba(255,255,255,0.18)] transition-colors group text-left"
           >
             <div className="w-[40px] h-[40px] rounded bg-[rgba(255,255,255,0.05)] flex items-center justify-center shrink-0 group-hover:bg-[rgba(255,255,255,0.06)] transition-colors">
-              <Mail className="w-[20px] h-[20px] text-ops-accent" />
+              <Mail className="w-[20px] h-[20px] text-text-2" />
             </div>
             <div className="flex-1 min-w-0">
               <span className="font-mohave text-body text-text block">
@@ -1168,7 +1168,7 @@ function StepConnect({
                 Shared inbox for your whole team
               </span>
             </div>
-            <ExternalLink className="w-[16px] h-[16px] text-text-mute group-hover:text-ops-accent transition-colors shrink-0" />
+            <ExternalLink className="w-[16px] h-[16px] text-text-mute group-hover:text-text transition-colors shrink-0" />
           </button>
 
           <button
@@ -1259,8 +1259,8 @@ function StepHowItWorks() {
             className="p-1.5 rounded border border-border-subtle hover:border-border transition-colors"
           >
             <div className="flex items-center gap-[6px] mb-[6px]">
-              <div className="w-[24px] h-[24px] rounded-sm bg-[rgba(255,255,255,0.05)] flex items-center justify-center">
-                <f.icon className="w-[13px] h-[13px] text-ops-accent" />
+              <div className="w-[24px] h-[24px] rounded-[4px] bg-[rgba(255,255,255,0.05)] flex items-center justify-center">
+                <f.icon className="w-[13px] h-[13px] text-text-2" />
               </div>
               <span className="font-mohave text-body-sm text-text font-medium text-left">
                 {f.title}
@@ -1280,7 +1280,7 @@ function StepHowItWorks() {
       >
         {[
           { label: "Email arrives", color: "text-text-2" },
-          { label: "Filtered", color: "text-ops-accent" },
+          { label: "Filtered", color: "text-text-2" },
           { label: "Matched", color: "text-[#9DB582]" },
           { label: "Pipeline", color: "text-[#C4A868]" },
         ].map((step, i) => (
@@ -1344,7 +1344,7 @@ function StepScan({
         <motion.div variants={staggerItem} className="flex flex-col items-start gap-1.5">
           {connectionEmail && (
             <div className="flex items-center gap-[6px] px-1.5 py-[6px] rounded bg-glass glass-surface border border-border-subtle w-full">
-              <Mail className="w-[14px] h-[14px] text-ops-accent shrink-0" />
+              <Mail className="w-[14px] h-[14px] text-text-2 shrink-0" />
               <span className="font-mono text-data-sm text-text-2 truncate">
                 {connectionEmail}
               </span>
@@ -1362,8 +1362,8 @@ function StepScan({
           className="flex flex-col items-center gap-2 py-4"
         >
           <div className="relative w-[48px] h-[48px]">
-            <Loader2 className="w-[48px] h-[48px] text-ops-accent/30 animate-spin" />
-            <Search className="absolute inset-0 m-auto w-[20px] h-[20px] text-ops-accent" />
+            <Loader2 className="w-[48px] h-[48px] text-text-mute/40 animate-spin" />
+            <Search className="absolute inset-0 m-auto w-[20px] h-[20px] text-text-2" />
           </div>
 
           <span className="font-mohave text-body-sm text-text">
@@ -1371,16 +1371,16 @@ function StepScan({
           </span>
 
           {connectionEmail && (
-            <span className="font-mono text-[11px] text-ops-accent">
+            <span className="font-mono text-[11px] text-text-2">
               {connectionEmail}
             </span>
           )}
 
           {/* Progress bar */}
           <div className="w-full max-w-[320px] space-y-1">
-            <div className="w-full h-[6px] bg-border-subtle rounded-full overflow-hidden">
+            <div className="w-full h-[6px] bg-fill-neutral-dim rounded-bar overflow-hidden">
               <div
-                className="h-full bg-ops-accent rounded-full transition-all duration-700 ease-out"
+                className="h-full bg-text-2 rounded-bar transition-all duration-700 ease-out"
                 style={{ width: `${stageToPercent(scanProgress.stage, scanProgress.current, scanProgress.total)}%` }}
               />
             </div>
@@ -1424,9 +1424,9 @@ function StepScan({
                     }`}
                   >
                     {isDone ? (
-                      <Check className="w-[8px] h-[8px] text-ops-accent" />
+                      <Check className="w-[8px] h-[8px] text-text" />
                     ) : isActive ? (
-                      <Loader2 className="w-[8px] h-[8px] text-ops-accent animate-spin" />
+                      <Loader2 className="w-[8px] h-[8px] text-text animate-spin" />
                     ) : (
                       <div className="w-[4px] h-[4px] rounded-full bg-text-disabled/30" />
                     )}
@@ -1434,7 +1434,7 @@ function StepScan({
                   <span
                     className={`font-kosugi text-micro ${
                       isDone
-                        ? "text-ops-accent"
+                        ? "text-text"
                         : isActive
                           ? "text-text-2"
                           : "text-text-mute/40"
@@ -1458,8 +1458,8 @@ function StepScan({
           {/* Connection email badge */}
           {connectionEmail && (
             <motion.div variants={staggerItem} className="flex items-center gap-[6px]">
-              <Mail className="w-[12px] h-[12px] text-ops-accent" />
-              <span className="font-mono text-micro text-ops-accent">{connectionEmail}</span>
+              <Mail className="w-[12px] h-[12px] text-text-2" />
+              <span className="font-mono text-micro text-text-2">{connectionEmail}</span>
             </motion.div>
           )}
 
@@ -1799,7 +1799,7 @@ function StepFilters({
               <div
                 className={`w-[36px] h-[20px] rounded-full relative transition-colors ${
                   filters.usePresetBlocklist
-                    ? "bg-ops-accent"
+                    ? "bg-text-2"
                     : "bg-text-disabled/30"
                 }`}
               >
@@ -1938,7 +1938,7 @@ function StepFilters({
                 variant="ghost"
                 size="sm"
                 onClick={() => setShowBuilder(true)}
-                className="gap-[4px] font-kosugi text-[11px] text-text-mute hover:text-ops-accent"
+                className="gap-[4px] font-kosugi text-[11px] text-text-mute hover:text-text"
               >
                 <Plus className="w-[12px] h-[12px]" />
                 Add custom filter rules
@@ -1987,7 +1987,7 @@ function StepFilters({
               onClick={() => setStarfieldCollapsed(false)}
               className="shrink-0 flex items-center gap-[6px] px-2 py-1 rounded border border-border-subtle bg-glass glass-surface hover:bg-fill-neutral-dim transition-colors text-left"
             >
-              <BarChart3 className="w-[12px] h-[12px] text-ops-accent shrink-0" />
+              <BarChart3 className="w-[12px] h-[12px] text-text-2 shrink-0" />
               <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
                 Show filter pipeline
               </span>
@@ -2352,7 +2352,7 @@ function StepReview({
         </div>
         {companyCount > 0 && (
           <div className="px-1.5 py-1 rounded border border-border-subtle text-left">
-            <span className="font-mono text-data-lg text-ops-accent block">
+            <span className="font-mono text-data-lg text-text block">
               {companyCount}
             </span>
             <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
@@ -2435,14 +2435,14 @@ function StepReview({
                         }}
                       >
                         <div
-                          className={`w-[18px] h-[18px] rounded-sm border-2 flex items-center justify-center cursor-pointer transition-all ${
+                          className={`w-[18px] h-[18px] rounded-[4px] border-2 flex items-center justify-center cursor-pointer transition-all ${
                             contact.excluded
                               ? "border-text-disabled/30 bg-transparent"
-                              : "border-ops-accent bg-[rgba(255,255,255,0.05)]"
+                              : "border-[rgba(255,255,255,0.30)] bg-[rgba(255,255,255,0.05)]"
                           }`}
                         >
                           {!contact.excluded && (
-                            <Check className="w-[10px] h-[10px] text-ops-accent" />
+                            <Check className="w-[10px] h-[10px] text-text" />
                           )}
                         </div>
                       </div>
@@ -2452,13 +2452,13 @@ function StepReview({
                         <div className="flex items-center gap-[6px]">
                           {/* Company group icon */}
                           {contact.isCompanyGroup && (
-                            <Building2 className="w-[12px] h-[12px] text-ops-accent shrink-0" />
+                            <Building2 className="w-[12px] h-[12px] text-text-2 shrink-0" />
                           )}
 
                           {editingName === contact.key ? (
                             <input
                               autoFocus
-                              className="font-mohave text-body-sm text-text bg-transparent border-b border-ops-accent outline-none px-0 py-0 w-[180px]"
+                              className="font-mohave text-body-sm text-text bg-transparent border-b border-[rgba(255,255,255,0.30)] outline-none px-0 py-0 w-[180px]"
                               defaultValue={contact.name}
                               onClick={(e) => e.stopPropagation()}
                               onBlur={(e) => {
@@ -2486,7 +2486,7 @@ function StepReview({
                                   e.stopPropagation();
                                   setEditingName(contact.key);
                                 }}
-                                className="opacity-0 group-hover:opacity-100 hover:!opacity-100 text-text-mute hover:text-ops-accent transition-all p-[2px]"
+                                className="opacity-0 group-hover:opacity-100 hover:!opacity-100 text-text-mute hover:text-text transition-all p-[2px]"
                                 style={{ opacity: isExpanded ? 1 : undefined }}
                               >
                                 <Pencil className="w-[10px] h-[10px]" />
@@ -2713,9 +2713,9 @@ function StepImport({
                 setCustomDate("");
               }}
               disabled={importStarted}
-              className={`px-1.5 py-[6px] rounded border font-kosugi text-[11px] transition-all ${
+              className={`px-1.5 py-[6px] rounded-[5px] border font-kosugi text-[11px] transition-all ${
                 !useCustom && importDays === p.days
-                  ? "border-ops-accent bg-[rgba(255,255,255,0.05)] text-ops-accent"
+                  ? "border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.08)] text-text"
                   : "border-border-subtle text-text-2 hover:border-border"
               }`}
             >
@@ -2725,9 +2725,9 @@ function StepImport({
           <button
             onClick={() => setUseCustom(true)}
             disabled={importStarted}
-            className={`px-1.5 py-[6px] rounded border font-kosugi text-[11px] transition-all ${
+            className={`px-1.5 py-[6px] rounded-[5px] border font-kosugi text-[11px] transition-all ${
               useCustom
-                ? "border-ops-accent bg-[rgba(255,255,255,0.05)] text-ops-accent"
+                ? "border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.08)] text-text"
                 : "border-border-subtle text-text-2 hover:border-border"
             }`}
           >
@@ -2798,8 +2798,8 @@ function StepImport({
           animate={{ opacity: 1 }}
           className="flex items-center gap-[8px] px-1.5 py-1 rounded bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.12)]"
         >
-          <Loader2 className="w-[16px] h-[16px] text-ops-accent animate-spin" />
-          <span className="font-mohave text-body-sm text-ops-accent text-left">
+          <Loader2 className="w-[16px] h-[16px] text-text-2 animate-spin" />
+          <span className="font-mohave text-body-sm text-text-2 text-left">
             Import in progress. You can close this wizard — it runs in the
             background.
           </span>

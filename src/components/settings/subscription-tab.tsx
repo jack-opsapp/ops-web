@@ -173,7 +173,7 @@ function UpgradeModal({
           <div className="space-y-[6px] py-1">
             {features.map((f) => (
               <div key={f} className="flex items-center gap-[6px]">
-                <Check className="w-[12px] h-[12px] text-ops-accent shrink-0" />
+                <Check className="w-[12px] h-[12px] text-text-2 shrink-0" />
                 <span className="font-kosugi text-[11px] text-text-2">
                   {f}
                 </span>
@@ -227,7 +227,7 @@ function PlanCard({
       className={cn(
         "border rounded transition-all duration-200",
         isCurrent
-          ? "border-ops-accent bg-[rgba(111, 148, 176,0.06)]"
+          ? "border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.04)]"
           : "border-border hover:border-[rgba(255,255,255,0.15)]"
       )}
     >
@@ -249,7 +249,7 @@ function PlanCard({
                 {info.displayName}
               </h4>
               {isCurrent && (
-                <span className="font-kosugi text-micro text-ops-accent bg-[rgba(255,255,255,0.08)] px-[6px] py-[2px] rounded-full uppercase tracking-wider shrink-0">
+                <span className="font-kosugi text-micro text-text bg-[rgba(255,255,255,0.08)] px-[6px] py-[2px] rounded-full uppercase tracking-wider shrink-0">
                   {t("subscription.currentBadge")}
                 </span>
               )}
@@ -277,7 +277,7 @@ function PlanCard({
           <div className="space-y-[6px] py-1.5">
             {features.map((f) => (
               <div key={f} className="flex items-center gap-[6px]">
-                <Check className="w-[12px] h-[12px] text-ops-accent shrink-0" />
+                <Check className="w-[12px] h-[12px] text-text-2 shrink-0" />
                 <span className="font-kosugi text-[11px] text-text-2">
                   {f}
                 </span>
@@ -314,7 +314,7 @@ export function SubscriptionTab() {
   if (isCompanyLoading && !company) {
     return (
       <div className="flex items-center justify-center py-8">
-        <Loader2 className="w-[24px] h-[24px] text-ops-accent animate-spin" />
+        <Loader2 className="w-[24px] h-[24px] text-text-2 animate-spin" />
       </div>
     );
   }
@@ -377,7 +377,7 @@ export function SubscriptionTab() {
                 <h3 className="font-mohave text-heading text-text">
                   {planInfo.displayName}
                 </h3>
-                <p className="font-mono text-data text-ops-accent">
+                <p className="font-mono text-data text-text">
                   {priceDisplay}
                 </p>
                 {isTrial && trialDaysRemaining > 0 && (
@@ -392,7 +392,7 @@ export function SubscriptionTab() {
                 )}
               </div>
               <div className="w-[48px] h-[48px] rounded-lg bg-[rgba(255,255,255,0.08)] flex items-center justify-center">
-                <Shield className="w-[24px] h-[24px] text-ops-accent" />
+                <Shield className="w-[24px] h-[24px] text-text-2" />
               </div>
             </div>
 
@@ -408,7 +408,7 @@ export function SubscriptionTab() {
               </div>
               <div className="h-[6px] bg-fill-neutral-dim rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-ops-accent rounded-full transition-all duration-300"
+                  className="h-full bg-text-2 rounded-full transition-all duration-300"
                   style={{ width: `${seatPercentage}%` }}
                 />
               </div>
@@ -425,7 +425,7 @@ export function SubscriptionTab() {
               <div className="space-y-[6px] mt-1">
                 {features.map((feature) => (
                   <div key={feature} className="flex items-center gap-[6px]">
-                    <Check className="w-[14px] h-[14px] text-ops-accent shrink-0" />
+                    <Check className="w-[14px] h-[14px] text-text-2 shrink-0" />
                     <span className="font-kosugi text-[11px] text-text-2">
                       {feature}
                     </span>

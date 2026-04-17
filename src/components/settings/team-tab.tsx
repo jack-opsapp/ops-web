@@ -174,7 +174,7 @@ function MemberActions({
                       className={cn(
                         "w-full text-left px-1 py-[4px] rounded font-mohave text-body-sm transition-colors",
                         member.role === role.id
-                          ? "text-ops-accent bg-[rgba(255,255,255,0.08)]"
+                          ? "text-text bg-[rgba(255,255,255,0.08)]"
                           : "text-text-2 hover:text-text hover:bg-fill-neutral-dim"
                       )}
                     >
@@ -327,7 +327,7 @@ function PendingInvitesCard() {
       <CardContent>
         {isLoading ? (
           <div className="flex items-center justify-center py-4">
-            <Loader2 className="w-[20px] h-[20px] text-ops-accent animate-spin" />
+            <Loader2 className="w-[20px] h-[20px] text-text-2 animate-spin" />
           </div>
         ) : (
           <div className="space-y-0">
@@ -392,7 +392,7 @@ function PendingInvitesCard() {
                               className={cn(
                                 "w-full text-left px-1 py-[4px] rounded font-mohave text-body-sm transition-colors",
                                 !inv.roleId
-                                  ? "text-ops-accent bg-[rgba(255,255,255,0.08)]"
+                                  ? "text-text bg-[rgba(255,255,255,0.08)]"
                                   : "text-text-2 hover:text-text hover:bg-fill-neutral-dim"
                               )}
                             >
@@ -405,7 +405,7 @@ function PendingInvitesCard() {
                                 className={cn(
                                   "w-full text-left px-1 py-[4px] rounded font-mohave text-body-sm transition-colors",
                                   inv.roleId === role.id
-                                    ? "text-ops-accent bg-[rgba(255,255,255,0.08)]"
+                                    ? "text-text bg-[rgba(255,255,255,0.08)]"
                                     : "text-text-2 hover:text-text hover:bg-fill-neutral-dim"
                                 )}
                               >
@@ -484,14 +484,14 @@ export function TeamTab() {
       el.scrollIntoView({ behavior: "smooth", block: "start" });
       el.classList.add(
         "ring-2",
-        "ring-ops-accent",
+        "ring-[rgba(255,255,255,0.30)]",
         "ring-offset-2",
         "ring-offset-background"
       );
       window.setTimeout(() => {
         el.classList.remove(
           "ring-2",
-          "ring-ops-accent",
+          "ring-[rgba(255,255,255,0.30)]",
           "ring-offset-2",
           "ring-offset-background"
         );
@@ -530,7 +530,7 @@ export function TeamTab() {
             <div
               className={cn(
                 "h-full rounded-full transition-all",
-                seatsFull ? "bg-ops-error" : "bg-ops-accent"
+                seatsFull ? "bg-ops-error" : "bg-text-2"
               )}
               style={{ width: `${Math.min(100, Math.round((seatedCount / maxSeats) * 100))}%` }}
             />
@@ -559,7 +559,7 @@ export function TeamTab() {
               </div>
               <Link
                 href="/settings?tab=subscription"
-                className="font-mohave text-body-sm text-ops-accent hover:text-ops-accent-hover transition-colors"
+                className="font-mohave text-body-sm text-text-2 hover:text-text transition-colors"
               >
                 {t("team.upgradePlan")}
               </Link>
@@ -588,7 +588,7 @@ export function TeamTab() {
         <CardContent>
           {isLoading ? (
             <div className="flex items-center justify-center py-4">
-              <Loader2 className="w-[20px] h-[20px] text-ops-accent animate-spin" />
+              <Loader2 className="w-[20px] h-[20px] text-text-2 animate-spin" />
             </div>
           ) : activeMembers.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-4 gap-1.5">
@@ -642,7 +642,7 @@ export function TeamTab() {
                     </div>
                     <div className="flex items-center gap-[6px]">
                       {isSeated && (
-                        <span className="font-kosugi text-micro text-ops-accent bg-[rgba(255,255,255,0.08)] px-[6px] py-[2px] rounded-full">
+                        <span className="font-kosugi text-micro text-text bg-[rgba(255,255,255,0.08)] px-[6px] py-[2px] rounded-full">
                           {t("team.seated")}
                         </span>
                       )}
