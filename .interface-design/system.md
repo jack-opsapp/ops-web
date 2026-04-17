@@ -115,6 +115,42 @@ All numerical contexts: `font-feature-settings: "tnum" 1, "zero" 1` (tabular num
 
 ---
 
+## Logo & Brand
+
+### The Mark
+The OPS mark is two interlocking chamfered brackets with subtle isometric extrusion. Monochrome only. Never apply color, gradient, shadow, or glow. Use `<OpsMark>` from `@/components/brand` — it renders inline SVG with `fill="currentColor"` so color inherits from CSS `color`.
+
+### Lockups
+`<OpsLockup orientation="horizontal">` — mark + "OPS" (Cake Mono, outlined paths) inline. Natural aspect ~1.59:1. Use for: sidebar footer, auth hero, blog header, portal watermark, email headers.
+`<OpsLockup orientation="vertical">` — mark above "OPS". 1:1 square. Use for: loading gates, onboarding welcome screens.
+
+### Clear Space & Minimum Size
+- Clear space around the mark: at least 25% of the mark's height on all sides. No other element (text, border, icon) may enter this buffer.
+- Minimum display size: 16px (mark), 24px tall (horizontal lockup), 48px tall (vertical lockup). Below these thresholds the extrusion detail collapses.
+
+### Typography Boundary: Cake Mono = Brand-Only
+
+**Cake Mono is a brand typeface, not a product typeface.** It appears ONLY in:
+- The logo lockups (`<OpsLockup>`)
+- The iOS / Android app icon
+- Marketing hero wordmarks (`ops-site/`)
+- Social share images (OG, Twitter card)
+
+**Never in product UI.** No button labels, body text, headers, data, or navigation in Cake Mono. Product typography is Mohave + Kosugi + JetBrains Mono. Code review must reject any `font-family: "Cake Mono"` declaration outside `src/components/brand/` and the explicit brand surfaces listed above.
+
+### Color Treatment
+- On dark backgrounds (product chrome, dashboard): mark in `text` (#EDEDED) via CSS `color` inherited through `currentColor`.
+- On light backgrounds (invoices, printed docs, light-mode emails): mark in `#000000`.
+- Never tint with accent, earth tones, or any non-monochrome color.
+
+### Accessibility
+Every usage carries a `title` prop that resolves to "OPS" (default) OR explicit `title=""` for purely decorative instances where surrounding text already identifies the brand. Avoid stacking `aria-label` on a wrapper with the SVG's own title — use one or the other.
+
+### Deprecated
+Bebas Neue (removed 2026-04-17). Any new `font-family: "Bebas Neue"` declaration fails review.
+
+---
+
 ## Border Radius
 
 | Element | Value | Tailwind |

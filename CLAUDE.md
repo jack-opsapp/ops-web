@@ -14,8 +14,16 @@ Supplements the root `OPS LTD./CLAUDE.md`. Read both.
 
 ## Fonts
 
+**Product UI (allowed everywhere):**
 - **Mohave** — headings, body text, UI labels (`font-mohave`)
 - **Kosugi** — captions, section labels, uppercase metadata (`font-kosugi`)
+- **JetBrains Mono** — numerical data, timestamps, metadata values (`font-mono`)
+
+**Brand-only (forbidden in product UI):**
+- **Cake Mono** — appears solely inside `<OpsLockup>`, the app icon, and marketing hero wordmarks. The lockup SVGs outline the Cake Mono glyphs as paths — no font file is loaded into the product bundle. Never declare `font-family: "Cake Mono"` in any component under `src/`.
+
+**Deprecated (removed 2026-04-17):**
+- Bebas Neue — do not reintroduce.
 
 ## Design System
 
