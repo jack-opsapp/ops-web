@@ -22,6 +22,18 @@ export const metadata: Metadata = {
   ],
   authors: [{ name: "OPS" }],
   creator: "OPS",
+  manifest: "/manifest.json",
+  openGraph: {
+    type: "website",
+    siteName: "OPS",
+    title: { default: "OPS", template: "%s | OPS" },
+    description: "Operations software for trades.",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: { default: "OPS", template: "%s | OPS" },
+    description: "Operations software for trades.",
+  },
 };
 
 export const viewport: Viewport = {
