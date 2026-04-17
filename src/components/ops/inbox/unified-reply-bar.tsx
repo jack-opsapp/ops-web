@@ -59,7 +59,7 @@ export function UnifiedReplyBar({
             className={cn(
               "flex items-center gap-1.5 px-2 py-1 rounded-panel font-kosugi text-micro uppercase tracking-wider cursor-pointer transition-colors",
               channel === "portal"
-                ? "bg-ops-accent-muted text-ops-accent"
+                ? "bg-[rgba(255,255,255,0.08)] text-text"
                 : "bg-surface-input text-text-3"
             )}
           >

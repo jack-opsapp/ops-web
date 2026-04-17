@@ -216,7 +216,7 @@ export function WidgetShell({
                     className={cn(
                       "px-[8px] py-[2px] rounded-sm font-mono text-micro border transition-all duration-150",
                       isSelected
-                        ? "bg-ops-accent-muted border-ops-accent text-text"
+                        ? "bg-[rgba(255,255,255,0.08)] border-[rgba(255,255,255,0.18)] text-text"
                         : "border-transparent text-text-mute"
                     )}
                   >

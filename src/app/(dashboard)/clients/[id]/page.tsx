@@ -87,7 +87,7 @@ function AddSubClientForm({
   }
 
   return (
-    <div className="border border-ops-accent/30 rounded-lg p-1.5 space-y-1 bg-fill-neutral-dim/30 animate-slide-up">
+    <div className="border border-[rgba(255,255,255,0.15)] rounded-lg p-1.5 space-y-1 bg-fill-neutral-dim/30 animate-slide-up">
       <div className="grid grid-cols-2 gap-1">
         <Input
           placeholder="Name *"
@@ -544,7 +544,7 @@ export default function ClientDetailPage() {
                           if (addr) setEditAddress(addr);
                         }}
                         disabled={locating}
-                        className="flex items-center justify-center w-[28px] shrink-0 rounded border border-border bg-surface-input text-text-3 hover:text-ops-accent hover:border-ops-accent transition-colors duration-150 disabled:opacity-40"
+                        className="flex items-center justify-center w-[28px] shrink-0 rounded border border-border bg-surface-input text-text-3 hover:text-ops-accent hover:border-[rgba(255,255,255,0.18)] transition-colors duration-150 disabled:opacity-40"
                         title="Use my location"
                       >
                         {locating ? (
@@ -765,7 +765,7 @@ export default function ClientDetailPage() {
                       <div
                         key={project.id}
                         onClick={() => router.push(`/projects/${project.id}?fromClient=${clientId}`)}
-                        className="flex items-center justify-between px-1.5 py-1 rounded border border-border-subtle hover:border-ops-accent/50 hover:bg-fill-neutral-dim cursor-pointer transition-all group"
+                        className="flex items-center justify-between px-1.5 py-1 rounded border border-border-subtle hover:border-[rgba(255,255,255,0.20)] hover:bg-fill-neutral-dim cursor-pointer transition-all group"
                       >
                         <div className="flex items-center gap-1 min-w-0">
                           <FolderKanban className="w-[16px] h-[16px] text-text-3 shrink-0" />
@@ -820,7 +820,7 @@ export default function ClientDetailPage() {
                       <div
                         key={project.id}
                         onClick={() => router.push(`/projects/${project.id}?fromClient=${clientId}`)}
-                        className="flex items-center justify-between px-1.5 py-1 rounded border border-border-subtle hover:border-ops-accent/30 hover:bg-fill-neutral-dim cursor-pointer transition-all opacity-70 hover:opacity-100"
+                        className="flex items-center justify-between px-1.5 py-1 rounded border border-border-subtle hover:border-[rgba(255,255,255,0.15)] hover:bg-fill-neutral-dim cursor-pointer transition-all opacity-70 hover:opacity-100"
                       >
                         <div className="flex items-center gap-1 min-w-0">
                           <FolderKanban className="w-[16px] h-[16px] text-text-mute shrink-0" />

@@ -291,7 +291,7 @@ function NeedsReviewCard({
     <div className="rounded-sm border border-[rgba(255,255,255,0.10)] bg-black p-4 space-y-3">
       {/* Header */}
       <div className="flex items-start gap-2">
-        <div className="h-7 w-7 rounded-full bg-ops-accent/15 flex items-center justify-center shrink-0 mt-0.5">
+        <div className="h-7 w-7 rounded-full bg-[rgba(255,255,255,0.06)] flex items-center justify-center shrink-0 mt-0.5">
           <Mail className="h-3.5 w-3.5 text-[#6F94B0]" />
         </div>
         <div className="min-w-0 flex-1">

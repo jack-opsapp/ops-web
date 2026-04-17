@@ -425,7 +425,7 @@ function PipelineInlineActions({
                 className={cn(
                   "font-kosugi text-micro uppercase tracking-wider px-2 py-[2px] rounded-sm transition-colors",
                   composeText.trim() && !sending
-                    ? "text-ops-accent hover:bg-ops-accent/15"
+                    ? "text-ops-accent hover:bg-[rgba(255,255,255,0.06)]"
                     : "text-text-mute cursor-not-allowed"
                 )}
               >

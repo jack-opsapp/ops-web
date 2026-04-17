@@ -10,7 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride, requireSupabase } from "@/lib/supabase/helpers";
 import { EmailFilterService } from "@/lib/api/services/email-filter-service";
-import { EmailMatchingService } from "@/lib/api/services/email-matching-service";
+import { EmailMatchingServiceV2 } from "@/lib/api/services/email-matching-service-v2";
 import { ClientService } from "@/lib/api/services/client-service";
 import { OpportunityService } from "@/lib/api/services/opportunity-service";
 import {
@@ -323,12 +323,14 @@ export async function POST(request: NextRequest) {
 
           if (contact.isCompanyGroup && contact.subContacts?.length) {
             // ── Company group: create company client + sub-clients ──────
-            // Check if company client already exists by domain-based email match
+            // Check if company client already exists. ilike so a mixed-case
+            // stored email ("John@Example.com") still matches the incoming
+            // lowercased address.
             const { data: existingClients } = await supabase
               .from("clients")
               .select("id")
               .eq("company_id", companyId)
-              .eq("email", contact.fromEmail.toLowerCase())
+              .ilike("email", contact.fromEmail.toLowerCase())
               .is("deleted_at", null)
               .limit(1);
 
@@ -352,7 +354,7 @@ export async function POST(request: NextRequest) {
                   .from("sub_clients")
                   .select("id")
                   .eq("client_id", clientId)
-                  .eq("email", sub.fromEmail.toLowerCase())
+                  .ilike("email", sub.fromEmail.toLowerCase())
                   .is("deleted_at", null)
                   .limit(1);
 
@@ -379,11 +381,12 @@ export async function POST(request: NextRequest) {
             }
           } else {
             // ── Individual contact ──────────────────────────────────────
+            // ilike so mixed-case stored emails still match.
             const { data: existingClients } = await supabase
               .from("clients")
               .select("id")
               .eq("company_id", companyId)
-              .eq("email", contact.fromEmail.toLowerCase())
+              .ilike("email", contact.fromEmail.toLowerCase())
               .is("deleted_at", null)
               .limit(1);
 
@@ -562,18 +565,29 @@ async function processMessage(
     return null;
   }
 
-  // 3-tier matching via EmailMatchingService
-  const matchResult = await EmailMatchingService.matchEmail(
+  // 5-tier matching via EmailMatchingServiceV2. V2 handles exact, domain,
+  // name, and thread-CC tiers and is consistent with what sync-engine uses
+  // for real-time sync — historical-import stays in parity instead of
+  // running the deprecated 3-tier matcher that relied on phone signatures
+  // from body text (often missing / unreliable).
+  //
+  // Extract a sender-name hint from "Name <email>" for the name tier.
+  const fromNameMatch = from.match(/^"?([^"<]+)"?\s*</);
+  const fromName = fromNameMatch ? fromNameMatch[1].trim() : "";
+  const matchResult = await EmailMatchingServiceV2.match(
     companyId,
-    from,
-    to,
-    msg.snippet ?? "",
-    threadId ?? null
+    fromEmail,
+    {
+      threadId: threadId ?? undefined,
+      name: fromName,
+    }
   );
 
   const clientId = matchResult.clientId;
 
-  // Determine direction
+  // Determine direction. V2's `confidence: 'unmatched'` is the only signal
+  // that this is a brand-new sender we couldn't place — treat those as
+  // inbound because they must have arrived from an external address.
   const direction: "inbound" | "outbound" = clientId
     ? matchResult.confidence !== "unmatched"
       ? "inbound"
@@ -620,7 +634,8 @@ async function processMessage(
     createdBy: null,
   });
 
-  // Update matching metadata columns
+  // Update matching metadata columns. V2 returns `suggestedClientId`
+  // camelCase — map to snake_case for the DB column.
   await supabase
     .from("activities")
     .update({

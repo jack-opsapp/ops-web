@@ -57,7 +57,7 @@ function IndustryPicker({
               type="button"
               disabled={disabled}
               onClick={() => toggle(ind)}
-              className="flex items-center gap-[4px] px-[8px] py-[3px] rounded-sm border border-ops-accent/40 bg-ops-accent/12 text-ops-accent font-mohave text-caption transition-colors hover:bg-ops-accent/20 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex items-center gap-[4px] px-[8px] py-[3px] rounded-sm border border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.05)] text-ops-accent font-mohave text-caption transition-colors hover:bg-[rgba(255,255,255,0.08)] disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {ind}
               <X className="w-[10px] h-[10px]" />
@@ -97,7 +97,7 @@ function IndustryPicker({
                 className={cn(
                   "px-[8px] py-[3px] rounded-sm font-mohave text-caption transition-colors border disabled:opacity-40 disabled:cursor-not-allowed",
                   isSelected
-                    ? "bg-ops-accent/20 border-ops-accent text-ops-accent"
+                    ? "bg-[rgba(255,255,255,0.08)] border-[rgba(255,255,255,0.18)] text-text"
                     : "bg-transparent border-border text-text-3 hover:text-text-2 hover:border-[rgba(255,255,255,0.18)]"
                 )}
               >
@@ -337,7 +337,7 @@ export function CompanyTab() {
                   if (addr) setCompanyAddress(addr);
                 }}
                 disabled={locating}
-                className="flex items-center justify-center w-[36px] shrink-0 rounded border border-border bg-surface-input text-text-3 hover:text-ops-accent hover:border-ops-accent transition-colors duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="flex items-center justify-center w-[36px] shrink-0 rounded border border-border bg-surface-input text-text-3 hover:text-ops-accent hover:border-[rgba(255,255,255,0.18)] transition-colors duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
                 title="Use my location"
                 aria-label="Auto-fill address from current location"
               >
@@ -401,7 +401,7 @@ export function CompanyTab() {
                     className={cn(
                       "flex-1 px-2 py-[6px] rounded-sm font-mohave text-body-sm transition-colors border disabled:opacity-40 disabled:cursor-not-allowed",
                       companySize === opt
-                        ? "bg-ops-accent/20 border-ops-accent text-ops-accent"
+                        ? "bg-[rgba(255,255,255,0.08)] border-[rgba(255,255,255,0.18)] text-text"
                         : "bg-transparent border-border text-text-3 hover:text-text-2"
                     )}
                   >
@@ -431,7 +431,7 @@ export function CompanyTab() {
                     className={cn(
                       "flex-1 px-2 py-[6px] rounded-sm font-mohave text-body-sm transition-colors border disabled:opacity-40 disabled:cursor-not-allowed",
                       companyAge === opt.value
-                        ? "bg-ops-accent/20 border-ops-accent text-ops-accent"
+                        ? "bg-[rgba(255,255,255,0.08)] border-[rgba(255,255,255,0.18)] text-text"
                         : "bg-transparent border-border text-text-3 hover:text-text-2"
                     )}
                   >

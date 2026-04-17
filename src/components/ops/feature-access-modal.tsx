@@ -289,7 +289,7 @@ export function FeatureAccessModal({
                         className={cn(
                           "px-2 py-0.5 rounded-sm text-caption font-mohave transition-colors border",
                           industries.includes(ind)
-                            ? "bg-ops-accent/20 border-ops-accent text-ops-accent"
+                            ? "bg-[rgba(255,255,255,0.08)] border-[rgba(255,255,255,0.18)] text-text"
                             : "bg-transparent border-border text-text-3 hover:text-text-2 hover:border-text-tertiary"
                         )}
                       >
@@ -313,7 +313,7 @@ export function FeatureAccessModal({
                         className={cn(
                           "flex-1 px-2 py-1 rounded-sm text-caption font-mohave transition-colors border",
                           companySize === opt
-                            ? "bg-ops-accent/20 border-ops-accent text-ops-accent"
+                            ? "bg-[rgba(255,255,255,0.08)] border-[rgba(255,255,255,0.18)] text-text"
                             : "bg-transparent border-border text-text-3 hover:text-text-2"
                         )}
                       >
@@ -337,7 +337,7 @@ export function FeatureAccessModal({
                         className={cn(
                           "px-2 py-1 rounded-sm text-caption font-mohave transition-colors border",
                           companyAge === opt
-                            ? "bg-ops-accent/20 border-ops-accent text-ops-accent"
+                            ? "bg-[rgba(255,255,255,0.08)] border-[rgba(255,255,255,0.18)] text-text"
                             : "bg-transparent border-border text-text-3 hover:text-text-2"
                         )}
                       >

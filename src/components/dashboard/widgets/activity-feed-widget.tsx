@@ -85,6 +85,17 @@ function useRecentActivities(companyId: string | undefined) {
         emailMessageId: (row.email_message_id as string) ?? null,
         isRead: (row.is_read as boolean) ?? true,
         fromEmail: (row.from_email as string) ?? null,
+        // Email-extended fields — widget doesn't display them but the
+        // Activity type requires them.
+        toEmails: (row.to_emails as string[]) ?? [],
+        ccEmails: (row.cc_emails as string[]) ?? [],
+        bodyText: (row.body_text as string) ?? null,
+        hasAttachments: (row.has_attachments as boolean) ?? false,
+        attachmentCount:
+          row.attachment_count != null ? Number(row.attachment_count) : 0,
+        matchConfidence: (row.match_confidence as string) ?? null,
+        matchNeedsReview: (row.match_needs_review as boolean) ?? false,
+        suggestedClientId: (row.suggested_client_id as string) ?? null,
         createdBy: (row.created_by as string) ?? null,
         createdAt: parseDateRequired(row.created_at),
       }));

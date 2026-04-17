@@ -25,7 +25,7 @@ export default function LockedLayout({
       }}
     >
       {/* Ambient glow effects */}
-      <div className="absolute top-[15%] left-[10%] w-[400px] h-[400px] bg-ops-accent/5 rounded-full blur-[150px] pointer-events-none" />
+      <div className="absolute top-[15%] left-[10%] w-[400px] h-[400px] bg-[rgba(255,255,255,0.03)] rounded-full blur-[150px] pointer-events-none" />
       <div className="absolute bottom-[15%] right-[10%] w-[300px] h-[300px] bg-ops-amber/5 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute top-[50%] left-[50%] w-[250px] h-[250px] bg-ops-error/3 rounded-full blur-[100px] pointer-events-none -translate-x-1/2 -translate-y-1/2" />
 

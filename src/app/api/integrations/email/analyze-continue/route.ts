@@ -25,6 +25,7 @@ import { PUBLIC_EMAIL_DOMAINS } from "@/lib/types/pipeline";
 import type { AnalyzedLead } from "@/lib/types/email-import";
 import type { DeepExtractionInput } from "@/lib/api/services/email-ai-classifier";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { getAppUrl } from "@/lib/utils/app-url";
 
 export const maxDuration = 800; // Pro plan max
 
@@ -919,7 +920,7 @@ async function runPhaseB(
 
   // ─── 11. Chain to Phase C — background data indexing ──────────────────────
   // Phase C checks its own feature gate — always chain regardless
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+  const baseUrl = getAppUrl();
   fetch(`${baseUrl}/api/integrations/email/analyze-memory`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

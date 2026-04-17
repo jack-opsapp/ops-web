@@ -40,7 +40,7 @@ function LanguageCard() {
               className={cn(
                 "flex-1 px-3 py-2 rounded border text-center font-mohave text-body transition-all",
                 locale === opt.id
-                  ? "bg-ops-accent-muted border-ops-accent text-text"
+                  ? "bg-[rgba(255,255,255,0.08)] border-[rgba(255,255,255,0.18)] text-text"
                   : "bg-surface-input border-border text-text-2 hover:border-border-medium"
               )}
             >
@@ -277,7 +277,7 @@ export function PreferencesTab() {
                 className={cn(
                   "w-full flex items-center justify-between px-1.5 py-1 rounded border transition-all",
                   dashboardLayout === layout.id
-                    ? "bg-ops-accent-muted border-ops-accent"
+                    ? "bg-[rgba(255,255,255,0.08)] border-[rgba(255,255,255,0.18)]"
                     : "bg-surface-input border-border hover:border-border-medium"
                 )}
               >
@@ -312,7 +312,7 @@ export function PreferencesTab() {
                 className={cn(
                   "w-full flex items-center justify-between px-1.5 py-1 rounded border transition-all",
                   schedulingType === type.id
-                    ? "bg-ops-accent-muted border-ops-accent"
+                    ? "bg-[rgba(255,255,255,0.08)] border-[rgba(255,255,255,0.18)]"
                     : "bg-surface-input border-border hover:border-border-medium"
                 )}
               >

@@ -696,7 +696,7 @@ export default function DashboardPage() {
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: DRAG_GRABBED_SCALE, opacity: 0.95 }}
           transition={SPRING_REORDER}
-          className="w-[160px] h-[120px] rounded-lg ring-2 ring-ops-accent bg-[var(--surface-glass-dense)] backdrop-blur-xl border border-ops-accent/30 p-[10px] flex flex-col items-center justify-center pointer-events-none"
+          className="w-[160px] h-[120px] rounded-lg ring-2 ring-ops-accent bg-[var(--surface-glass-dense)] backdrop-blur-xl border border-[rgba(255,255,255,0.15)] p-[10px] flex flex-col items-center justify-center pointer-events-none"
           style={{ boxShadow: DRAG_GRABBED_SHADOW }}
         >
           <span className="font-mohave text-[13px] text-text">{entry.label}</span>

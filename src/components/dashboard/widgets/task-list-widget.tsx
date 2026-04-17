@@ -408,7 +408,7 @@ function TaskRow({
               ? "bg-status-success border-status-success"
               : isCompleted
                 ? "bg-status-success/30 border-status-success/50"
-                : "border-border-medium hover:border-ops-accent hover:bg-ops-accent/10"
+                : "border-border-medium hover:border-[rgba(255,255,255,0.18)] hover:bg-[rgba(255,255,255,0.05)]"
           )}
           title={t("taskList.completeTask")}
         >

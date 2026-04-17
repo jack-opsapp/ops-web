@@ -206,6 +206,12 @@ function mapOpportunityToDb(
 
 /**
  * Convert a snake_case database row into a camelCase Activity object.
+ *
+ * Reads the email-extended columns (to_emails, cc_emails, body_text,
+ * has_attachments, attachment_count, match_confidence, match_needs_review,
+ * suggested_client_id) that the sync-engine writes directly. Without them,
+ * the inbox-leads review queue can't drive its needs-review pill and the
+ * activity-detail UI can't show thread bodies.
  */
 function mapActivityFromDb(row: Record<string, unknown>): Activity {
   return {
@@ -230,6 +236,16 @@ function mapActivityFromDb(row: Record<string, unknown>): Activity {
     isRead: (row.is_read as boolean) ?? true,
     fromEmail: (row.from_email as string) ?? null,
 
+    // Email-extended
+    toEmails: (row.to_emails as string[]) ?? [],
+    ccEmails: (row.cc_emails as string[]) ?? [],
+    bodyText: (row.body_text as string) ?? null,
+    hasAttachments: (row.has_attachments as boolean) ?? false,
+    attachmentCount: row.attachment_count != null ? Number(row.attachment_count) : 0,
+    matchConfidence: (row.match_confidence as string) ?? null,
+    matchNeedsReview: (row.match_needs_review as boolean) ?? false,
+    suggestedClientId: (row.suggested_client_id as string) ?? null,
+
     createdBy: (row.created_by as string) ?? null,
     createdAt: parseDateRequired(row.created_at),
   };
@@ -237,6 +253,10 @@ function mapActivityFromDb(row: Record<string, unknown>): Activity {
 
 /**
  * Convert a camelCase CreateActivity payload into a snake_case database row.
+ *
+ * Writes email-extended columns when present so OpportunityService.createActivity
+ * stays in parity with the direct INSERTs that sync-engine does. Defaults
+ * are array-empty / false / 0 so non-email activities don't need to set them.
  */
 function mapActivityToDb(data: CreateActivity): Record<string, unknown> {
   return {
@@ -259,6 +279,14 @@ function mapActivityToDb(data: CreateActivity): Record<string, unknown> {
     is_read: data.isRead ?? true,
     from_email: data.fromEmail,
     created_by: data.createdBy,
+    to_emails: data.toEmails ?? [],
+    cc_emails: data.ccEmails ?? [],
+    body_text: data.bodyText ?? null,
+    has_attachments: data.hasAttachments ?? false,
+    attachment_count: data.attachmentCount ?? 0,
+    match_confidence: data.matchConfidence ?? null,
+    match_needs_review: data.matchNeedsReview ?? false,
+    suggested_client_id: data.suggestedClientId ?? null,
   };
 }
 

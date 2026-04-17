@@ -82,7 +82,7 @@ export function ImageUpload({
           sizeClasses[size],
           "relative rounded-lg border-2 border-dashed border-border",
           "flex items-center justify-center overflow-hidden cursor-pointer",
-          "hover:border-ops-accent transition-colors group",
+          "hover:border-[rgba(255,255,255,0.18)] transition-colors group",
           isUploading && "pointer-events-none",
           error && "border-ops-error"
         )}
@@ -215,7 +215,7 @@ export function MultiImageUpload({
             className={cn(
               "w-[80px] h-[80px] rounded-lg border-2 border-dashed border-border",
               "flex flex-col items-center justify-center gap-[2px]",
-              "text-text-mute hover:text-text-3 hover:border-ops-accent",
+              "text-text-mute hover:text-text-3 hover:border-[rgba(255,255,255,0.18)]",
               "transition-colors cursor-pointer",
               isUploading && "pointer-events-none"
             )}

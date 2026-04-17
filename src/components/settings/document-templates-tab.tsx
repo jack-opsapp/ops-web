@@ -400,7 +400,7 @@ export function DocumentTemplatesTab() {
                   className={cn(
                     "w-full flex items-center justify-between px-1.5 py-1 rounded border transition-all text-left",
                     selectedId === tmpl.id
-                      ? "bg-ops-accent-muted border-ops-accent"
+                      ? "bg-[rgba(255,255,255,0.08)] border-[rgba(255,255,255,0.18)]"
                       : "bg-surface-input border-border hover:border-border-medium"
                   )}
                 >
@@ -412,7 +412,7 @@ export function DocumentTemplatesTab() {
                       {tmpl.documentType}
                     </span>
                     {tmpl.isDefault && (
-                      <span className="font-kosugi text-micro text-ops-accent px-1 py-0.5 rounded bg-ops-accent-muted shrink-0">
+                      <span className="font-kosugi text-micro text-ops-accent px-1 py-0.5 rounded bg-[rgba(255,255,255,0.08)] shrink-0">
                         {t("templates.default")}
                       </span>
                     )}
@@ -455,7 +455,7 @@ export function DocumentTemplatesTab() {
                       className={cn(
                         "flex-1 py-[8px] rounded border transition-all font-mohave text-body-sm text-center",
                         documentType === opt.id
-                          ? "bg-ops-accent-muted border-ops-accent text-ops-accent"
+                          ? "bg-[rgba(255,255,255,0.08)] text-text border-[rgba(255,255,255,0.18)]"
                           : "bg-surface-input border-border text-text-2 hover:border-border-medium"
                       )}
                     >
@@ -613,7 +613,7 @@ export function DocumentTemplatesTab() {
                         className={cn(
                           "flex-1 py-[8px] rounded border transition-all font-mohave text-body-sm text-center",
                           templateChoice === tmpl.id
-                            ? "bg-ops-accent-muted border-ops-accent text-ops-accent"
+                            ? "bg-[rgba(255,255,255,0.08)] text-text border-[rgba(255,255,255,0.18)]"
                             : "bg-surface-input border-border text-text-2 hover:border-border-medium"
                         )}
                       >
@@ -647,7 +647,7 @@ export function DocumentTemplatesTab() {
                         className={cn(
                           "flex items-center justify-center gap-[6px] py-[8px] rounded border transition-all",
                           themeMode === mode.id
-                            ? "bg-ops-accent-muted border-ops-accent"
+                            ? "bg-[rgba(255,255,255,0.08)] border-[rgba(255,255,255,0.18)]"
                             : "bg-surface-input border-border hover:border-border-medium"
                         )}
                       >

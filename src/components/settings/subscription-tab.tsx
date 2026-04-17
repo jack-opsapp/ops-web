@@ -144,7 +144,7 @@ function UpgradeModal({
                 className={cn(
                   "px-3 py-1 rounded font-mohave text-body-sm transition-all",
                   period === p
-                    ? "bg-ops-accent-muted text-ops-accent"
+                    ? "bg-[rgba(255,255,255,0.08)] text-text"
                     : "text-text-3 hover:text-text-2"
                 )}
               >
@@ -227,7 +227,7 @@ function PlanCard({
       className={cn(
         "border rounded transition-all duration-200",
         isCurrent
-          ? "border-ops-accent bg-[rgba(89,119,159,0.06)]"
+          ? "border-ops-accent bg-[rgba(111, 148, 176,0.06)]"
           : "border-border hover:border-[rgba(255,255,255,0.15)]"
       )}
     >
@@ -249,7 +249,7 @@ function PlanCard({
                 {info.displayName}
               </h4>
               {isCurrent && (
-                <span className="font-kosugi text-micro text-ops-accent bg-ops-accent-muted px-[6px] py-[2px] rounded-full uppercase tracking-wider shrink-0">
+                <span className="font-kosugi text-micro text-ops-accent bg-[rgba(255,255,255,0.08)] px-[6px] py-[2px] rounded-full uppercase tracking-wider shrink-0">
                   {t("subscription.currentBadge")}
                 </span>
               )}
@@ -391,7 +391,7 @@ export function SubscriptionTab() {
                   </p>
                 )}
               </div>
-              <div className="w-[48px] h-[48px] rounded-lg bg-ops-accent-muted flex items-center justify-center">
+              <div className="w-[48px] h-[48px] rounded-lg bg-[rgba(255,255,255,0.08)] flex items-center justify-center">
                 <Shield className="w-[24px] h-[24px] text-ops-accent" />
               </div>
             </div>

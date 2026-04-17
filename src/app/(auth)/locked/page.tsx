@@ -19,9 +19,9 @@ const TIER_DISPLAY: Record<Exclude<SubscriptionTier, "trial">, {
   starter: {
     icon: <Zap className="w-[20px] h-[20px]" />,
     accentClass: "text-ops-accent",
-    borderClass: "border-ops-accent/20 hover:border-ops-accent/40",
+    borderClass: "border-[rgba(255,255,255,0.12)] hover:border-[rgba(255,255,255,0.18)]",
     glowClass: "",
-    badgeClass: "bg-ops-accent/10 text-ops-accent",
+    badgeClass: "bg-[rgba(255,255,255,0.05)] text-ops-accent",
   },
   team: {
     icon: <Crown className="w-[20px] h-[20px]" />,

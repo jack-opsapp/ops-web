@@ -7,8 +7,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
-
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
+import { getAppUrl } from "@/lib/utils/app-url";
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -19,19 +18,19 @@ export async function GET(request: NextRequest) {
   // Handle user denial
   if (error) {
     return NextResponse.redirect(
-      `${BASE_URL}/settings?tab=integrations&status=error&message=${encodeURIComponent(error)}`
+      `${getAppUrl()}/settings?tab=integrations&status=error&message=${encodeURIComponent(error)}`
     );
   }
 
   if (!code || !stateParam) {
     return NextResponse.redirect(
-      `${BASE_URL}/settings?tab=integrations&status=error&message=missing_params`
+      `${getAppUrl()}/settings?tab=integrations&status=error&message=missing_params`
     );
   }
 
   if (!process.env.MICROSOFT_CLIENT_ID || !process.env.MICROSOFT_CLIENT_SECRET) {
     return NextResponse.redirect(
-      `${BASE_URL}/settings?tab=integrations&status=error&message=not_configured`
+      `${getAppUrl()}/settings?tab=integrations&status=error&message=not_configured`
     );
   }
 
@@ -50,7 +49,7 @@ export async function GET(request: NextRequest) {
           client_id: process.env.MICROSOFT_CLIENT_ID!,
           client_secret: process.env.MICROSOFT_CLIENT_SECRET!,
           code,
-          redirect_uri: `${BASE_URL}/api/integrations/microsoft365/callback`,
+          redirect_uri: `${getAppUrl()}/api/integrations/microsoft365/callback`,
           grant_type: "authorization_code",
           // Full mail access — must match the scope requested in
           // microsoft365/route.ts so the exchange succeeds without
@@ -64,7 +63,7 @@ export async function GET(request: NextRequest) {
       const errorData = await tokenRes.text();
       console.error("[M365 OAuth] Token exchange failed:", tokenRes.status, errorData);
       return NextResponse.redirect(
-        `${BASE_URL}/settings?tab=integrations&status=error&message=token_exchange_failed`
+        `${getAppUrl()}/settings?tab=integrations&status=error&message=token_exchange_failed`
       );
     }
 
@@ -107,17 +106,17 @@ export async function GET(request: NextRequest) {
     if (insertError) {
       console.error("[M365 OAuth] Failed to store tokens:", insertError.message);
       return NextResponse.redirect(
-        `${BASE_URL}/settings?tab=integrations&status=error&message=storage_failed`
+        `${getAppUrl()}/settings?tab=integrations&status=error&message=storage_failed`
       );
     }
 
     return NextResponse.redirect(
-      `${BASE_URL}/settings?tab=integrations&status=connected&provider=microsoft365&firstConnect=true`
+      `${getAppUrl()}/settings?tab=integrations&status=connected&provider=microsoft365&firstConnect=true`
     );
   } catch (err) {
     console.error("[M365 OAuth] Callback error:", err);
     return NextResponse.redirect(
-      `${BASE_URL}/settings?tab=integrations&status=error&message=unexpected_error`
+      `${getAppUrl()}/settings?tab=integrations&status=error&message=unexpected_error`
     );
   }
 }

@@ -99,7 +99,7 @@ export function SpreadsheetHeader({
                             <span className={cn(
                               "w-3.5 h-3.5 rounded-sm border flex items-center justify-center flex-shrink-0",
                               isChecked
-                                ? "border-ops-accent bg-ops-accent-muted/30"
+                                ? "border-ops-accent bg-[rgba(255,255,255,0.08)]/30"
                                 : "border-border-subtle"
                             )}>
                               {isChecked && <span className="text-micro text-ops-accent">✓</span>}

@@ -48,7 +48,7 @@ export const TASK_TYPE_COLORS: Record<string, TaskTypeColors> = {
     text: "#BDB0D8",
   },
   quote: {
-    bg: "rgba(89, 119, 159, 0.25)",
+    bg: "rgba(111, 148, 176, 0.25)",
     border: "#59779F",
     text: "#A8C0D8",
   },

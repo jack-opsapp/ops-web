@@ -34,22 +34,29 @@ export function ConversationItem({
   const hasUnread = conversation.unreadCount > 0;
 
   const channelBadge = conversation.lastMessageChannel === "portal"
-    ? { label: "PORTAL", accent: true }
+    ? { label: "PORTAL", variant: "neutral" as const }
     : isUnmatched
-      ? { label: "UNMATCHED", accent: false, warning: true }
-      : { label: "EMAIL", accent: false };
+      ? { label: "UNMATCHED", variant: "tan" as const }
+      : { label: "EMAIL", variant: "neutral" as const };
 
   return (
     <button
       onClick={onClick}
       className={cn(
-        "w-full text-left px-2.5 py-2.5 border-l-2 cursor-pointer transition-colors",
+        "relative w-full text-left px-2.5 py-2.5 rounded-[6px] cursor-pointer transition-colors duration-150",
         isActive
-          ? "border-l-ops-accent bg-ops-accent-muted"
-          : "border-l-transparent hover:bg-surface-input",
-        !hasUnread && !isActive && "opacity-50"
+          ? "bg-[rgba(255,255,255,0.04)]"
+          : "hover:bg-[rgba(255,255,255,0.04)]",
+        !hasUnread && !isActive && "opacity-60"
       )}
     >
+      {/* Active indicator — 2px text-2 bar (unified selection pattern) */}
+      {isActive && (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute left-0 top-[8px] bottom-[8px] w-[2px] bg-text-2 rounded-[1px]"
+        />
+      )}
       <div className="flex items-start gap-1.5">
         {/* Avatar */}
         <div
@@ -59,7 +66,7 @@ export function ConversationItem({
             isUnmatched
               ? "bg-ops-amber-muted text-ops-amber"
               : isActive
-                ? "bg-ops-accent-muted text-ops-accent"
+                ? "bg-[rgba(255,255,255,0.08)] text-text"
                 : "bg-surface-input text-text-mute"
           )}
         >
@@ -72,21 +79,21 @@ export function ConversationItem({
             <span
               className={cn(
                 "font-mohave text-body-sm truncate",
-                isUnmatched ? "italic text-text-3" : "text-text",
-                hasUnread && "font-semibold"
+                isUnmatched ? "italic text-text-3" : isActive ? "text-text" : "text-text-2",
+                hasUnread && "font-semibold text-text"
               )}
             >
               {conversation.displayName}
             </span>
             <div className="flex items-center gap-1 shrink-0">
               {hasAutoDraft && (
-                <Sparkles className="w-[14px] h-[14px] text-[#6F94B0]" />
+                <Sparkles className="w-[14px] h-[14px] text-text-2" />
               )}
               <span className="font-kosugi text-micro text-text-mute">
                 {formatRelativeTime(conversation.lastMessageAt)}
               </span>
               {hasUnread && (
-                <span className="inline-flex items-center justify-center min-w-[14px] h-[14px] px-1 rounded-full bg-ops-accent text-white font-kosugi text-micro leading-none">
+                <span className="inline-flex items-center justify-center min-w-[14px] h-[14px] px-1 rounded-full bg-fill-neutral text-text font-kosugi text-micro leading-none">
                   {conversation.unreadCount > 99 ? "99+" : conversation.unreadCount}
                 </span>
               )}
@@ -104,12 +111,10 @@ export function ConversationItem({
           <div className="flex items-center gap-1.5 mt-1">
             <span
               className={cn(
-                "px-1.5 py-0.5 rounded-[2px] font-kosugi text-micro shrink-0",
-                channelBadge.accent
-                  ? "bg-ops-accent-muted text-ops-accent"
-                  : channelBadge.warning
-                    ? "bg-ops-amber-muted text-ops-amber"
-                    : "bg-surface-input text-text-mute"
+                "px-1.5 py-0.5 rounded-chip font-kosugi text-micro shrink-0 border",
+                channelBadge.variant === "tan"
+                  ? "bg-ops-amber-muted text-ops-amber border-[rgba(196,168,104,0.28)]"
+                  : "bg-[rgba(255,255,255,0.05)] text-text-2 border-[rgba(255,255,255,0.10)]"
               )}
             >
               {channelBadge.label}

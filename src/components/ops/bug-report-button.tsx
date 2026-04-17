@@ -353,7 +353,7 @@ export function BugReportButton() {
                         className={cn(
                           "w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-sm border transition-colors",
                           includeScreenshot
-                            ? "border-ops-accent/30 bg-ops-accent/10"
+                            ? "border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.05)]"
                             : "border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)]"
                         )}
                       >
@@ -407,7 +407,7 @@ export function BugReportButton() {
                       "font-kosugi text-micro uppercase tracking-wider",
                       "transition-all duration-150",
                       title.trim() && formState !== "submitting"
-                        ? "bg-ops-accent/20 text-ops-accent border border-ops-accent/30 hover:bg-ops-accent/30"
+                        ? "bg-[rgba(255,255,255,0.08)] text-ops-accent border border-[rgba(255,255,255,0.15)] hover:bg-ops-accent/30"
                         : "bg-[rgba(255,255,255,0.04)] text-text-mute border border-[rgba(255,255,255,0.06)] cursor-not-allowed"
                     )}
                   >
@@ -439,11 +439,11 @@ export function BugReportButton() {
             : { duration: 0.3, ease: [0.22, 1, 0.36, 1] }
         }
         className={cn(
-          "flex items-center gap-1.5 px-2 py-1.5 rounded-sm",
+          "flex items-center gap-1.5 px-2 py-1.5 rounded-[5px]",
           "glass-surface",
-          "hover:border-[rgba(255,255,255,0.15)]",
+          "hover:border-[rgba(255,255,255,0.18)]",
           "transition-colors duration-150",
-          open && "border-ops-accent/30",
+          open && "!border-[rgba(255,255,255,0.20)]",
           capturingScreenshot && "opacity-60 cursor-wait"
         )}
         title={t("bugReport.title")}

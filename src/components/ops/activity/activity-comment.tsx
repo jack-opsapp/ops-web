@@ -109,7 +109,7 @@ function AddCommentInput({
       "flex items-start gap-2 transition-opacity",
       focused ? "opacity-100" : "opacity-60 hover:opacity-80"
     )}>
-      <div className="h-6 w-6 rounded-full bg-ops-accent/20 flex items-center justify-center text-[#417394] text-xs shrink-0 mt-0.5">
+      <div className="h-6 w-6 rounded-full bg-[rgba(255,255,255,0.08)] flex items-center justify-center text-[#417394] text-xs shrink-0 mt-0.5">
         {userId.slice(0, 1).toUpperCase()}
       </div>
       <div className="flex-1 relative">

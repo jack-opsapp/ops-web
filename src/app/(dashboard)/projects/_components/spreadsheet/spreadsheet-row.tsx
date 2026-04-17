@@ -297,7 +297,7 @@ export const SpreadsheetRow = memo(function SpreadsheetRow({
                     href={url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block w-[68px] h-[68px] rounded-[2px] overflow-hidden border border-border-subtle hover:border-ops-accent/40 transition-colors"
+                    className="block w-[68px] h-[68px] rounded-[2px] overflow-hidden border border-border-subtle hover:border-[rgba(255,255,255,0.18)] transition-colors"
                   >
                     <img src={url} alt="" className="w-full h-full object-cover" />
                   </a>
@@ -378,7 +378,7 @@ export const SpreadsheetRow = memo(function SpreadsheetRow({
       className={cn(
         "border-b border-border-subtle transition-colors duration-100",
         "hover:bg-fill-neutral-dim/50",
-        isSelected && "bg-ops-accent-muted",
+        isSelected && "bg-[rgba(255,255,255,0.08)]",
         isArchived && "opacity-50",
       )}
       style={{ borderLeft: `3px solid ${statusColor}` }}

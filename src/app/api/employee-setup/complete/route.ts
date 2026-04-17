@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyAuthToken } from "@/lib/firebase/admin-verify";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { PRESET_ROLE_IDS } from "@/lib/types/permissions";
+import { getAppUrl } from "@/lib/utils/app-url";
 
 export async function POST(req: NextRequest) {
   try {
@@ -85,8 +86,7 @@ export async function POST(req: NextRequest) {
 
       // Fire notifications to admins
       try {
-        const appUrl =
-          process.env.NEXT_PUBLIC_APP_URL ?? "https://app.opsapp.co";
+        const appUrl = getAppUrl();
         await fetch(`${appUrl}/api/notifications/role-needed`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },

@@ -313,7 +313,7 @@ function EstimateRow({
       disabled={sendState !== "idle"}
       className={cn(
         "shrink-0 flex items-center gap-0.5 px-1.5 py-[2px] rounded transition-all duration-200",
-        "text-text-2 hover:text-ops-accent hover:bg-ops-accent/10",
+        "text-text-2 hover:text-ops-accent hover:bg-[rgba(255,255,255,0.05)]",
         sendState === "sent" && "text-status-success"
       )}
       title={t("estimatesOverview.sendEstimate")}

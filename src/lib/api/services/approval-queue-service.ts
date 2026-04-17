@@ -35,6 +35,7 @@ import type {
 } from "@/lib/types/approval-queue";
 import { ProjectStatus, TaskStatus } from "@/lib/types/models";
 import { InvoiceStatus, DiscountType } from "@/lib/types/pipeline";
+import { getAppUrl } from "@/lib/utils/app-url";
 
 // ─── Database ↔ TypeScript Mapping ────────────────────────────────────────────
 
@@ -323,8 +324,7 @@ async function executeSendStatusEmail(
   const data = action.actionData as unknown as SendStatusEmailActionData;
 
   // Send via the internal email send endpoint (same pattern as auto-send)
-  const appUrl =
-    process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const appUrl = getAppUrl();
   const cronSecret = process.env.CRON_SECRET;
 
   const sendResponse = await fetch(`${appUrl}/api/integrations/email/send`, {
@@ -698,8 +698,7 @@ async function executeSendInvoiceEmail(
   const data = action.actionData as unknown as SendInvoiceEmailActionData;
 
   // Send via the internal email send endpoint (same pattern as status emails)
-  const appUrl =
-    process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const appUrl = getAppUrl();
   const cronSecret = process.env.CRON_SECRET;
 
   const sendResponse = await fetch(`${appUrl}/api/integrations/email/send`, {
@@ -774,8 +773,7 @@ async function executeSendPaymentReminder(
     throw new Error("No email connection configured — cannot send payment reminder");
   }
 
-  const appUrl =
-    process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const appUrl = getAppUrl();
   const cronSecret = process.env.CRON_SECRET;
 
   const sendResponse = await fetch(`${appUrl}/api/integrations/email/send`, {
@@ -1192,7 +1190,7 @@ async function sendClientCommsEmail(params: {
   opportunityId?: string | null;
 }): Promise<{ messageId: string | null }> {
   const supabase = requireSupabase();
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const appUrl = getAppUrl();
   const cronSecret = process.env.CRON_SECRET;
 
   if (!params.connectionId) {

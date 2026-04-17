@@ -6,8 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
+import { getAppUrl } from "@/lib/utils/app-url";
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -40,7 +39,7 @@ export async function GET(request: NextRequest) {
   authUrl.searchParams.set("response_type", "code");
   authUrl.searchParams.set(
     "redirect_uri",
-    `${BASE_URL}/api/integrations/microsoft365/callback`
+    `${getAppUrl()}/api/integrations/microsoft365/callback`
   );
   // Full mail access: read, modify, and send. Matches the provider's
   // SCOPES constant so refresh_token requests don't drift from the

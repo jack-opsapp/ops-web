@@ -61,7 +61,7 @@ function AttachmentImage({
     <>
       <button
         onClick={() => setExpanded(true)}
-        className="block rounded-panel overflow-hidden border border-border-subtle hover:border-ops-accent/30 transition-colors cursor-pointer"
+        className="block rounded-panel overflow-hidden border border-border-subtle hover:border-[rgba(255,255,255,0.15)] transition-colors cursor-pointer"
       >
         {!loaded && (
           <div className="w-[200px] h-[120px] bg-glass glass-surface animate-pulse flex items-center justify-center">
@@ -125,7 +125,7 @@ export function MessageBubble({ message, showTimestamp = true }: MessageBubblePr
           className={cn(
             "px-3 py-2.5",
             isOutbound
-              ? "bg-ops-accent-muted rounded-[3px_3px_1px_3px]"
+              ? "bg-[rgba(255,255,255,0.08)] rounded-[3px_3px_1px_3px]"
               : "bg-surface-input rounded-[3px_3px_3px_1px]"
           )}
         >

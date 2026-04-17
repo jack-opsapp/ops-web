@@ -70,7 +70,7 @@ function getBadgeClasses(status: ExpenseBatchStatus): string {
       return "text-status-success bg-status-success/15 border-status-success/30";
     case ExpenseBatchStatus.PendingReview:
     case ExpenseBatchStatus.Submitted:
-      return "text-ops-accent bg-ops-accent/15 border-ops-accent/30";
+      return "text-ops-accent bg-[rgba(255,255,255,0.06)] border-[rgba(255,255,255,0.15)]";
     case ExpenseBatchStatus.PartiallyApproved:
       return "text-ops-amber bg-ops-amber/15 border-ops-amber/30";
     case ExpenseBatchStatus.Rejected:
@@ -346,7 +346,7 @@ export function MyExpensesWidget({
             <span className="font-mono px-1 py-[1px] rounded-sm uppercase tracking-normal border shrink-0 whitespace-nowrap text-status-success bg-status-success/15 border-status-success/30" style={{ fontSize: "9px", lineHeight: "1.3" }}>
               {stats.approved} {t("myExpenses.approved") ?? "approved"}
             </span>
-            <span className="font-mono px-1 py-[1px] rounded-sm uppercase tracking-normal border shrink-0 whitespace-nowrap text-ops-accent bg-ops-accent/15 border-ops-accent/30" style={{ fontSize: "9px", lineHeight: "1.3" }}>
+            <span className="font-mono px-1 py-[1px] rounded-sm uppercase tracking-normal border shrink-0 whitespace-nowrap text-ops-accent bg-[rgba(255,255,255,0.06)] border-[rgba(255,255,255,0.15)]" style={{ fontSize: "9px", lineHeight: "1.3" }}>
               {stats.pending} {t("myExpenses.pending") ?? "pending"}
             </span>
             {stats.revision > 0 && (

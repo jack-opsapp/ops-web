@@ -117,7 +117,7 @@ export function MapFilterRail() {
             {isActive && (
               <motion.div
                 layoutId="map-filter-active"
-                className="absolute inset-0 rounded bg-ops-accent/20"
+                className="absolute inset-0 rounded bg-[rgba(255,255,255,0.08)]"
                 transition={{
                   type: "spring",
                   stiffness: 400,

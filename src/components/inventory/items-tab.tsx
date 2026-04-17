@@ -459,7 +459,7 @@ export function ItemsTab({ showCreateForm, onCreateFormOpen, onCreateFormClose }
                     key={item.id}
                     className={cn(
                       "border-b border-border last:border-b-0 hover:bg-[rgba(255,255,255,0.02)] transition-colors",
-                      isSelected && "bg-ops-accent-muted"
+                      isSelected && "bg-[rgba(255,255,255,0.08)]"
                     )}
                   >
                     {/* Checkbox */}

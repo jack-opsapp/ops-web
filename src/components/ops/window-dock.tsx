@@ -23,7 +23,7 @@ export function WindowDock() {
       {minimizedWindows.map((win) => (
         <div
           key={win.id}
-          className="flex items-center gap-[6px] px-1.5 py-[6px] rounded-full bg-[rgba(13,13,13,0.9)] backdrop-blur-xl border border-[rgba(255,255,255,0.2)] cursor-pointer hover:border-ops-accent transition-all"
+          className="flex items-center gap-[6px] px-1.5 py-[6px] rounded-full bg-[rgba(13,13,13,0.9)] backdrop-blur-xl border border-[rgba(255,255,255,0.2)] cursor-pointer hover:border-[rgba(255,255,255,0.18)] transition-all"
           onClick={() => restoreWindow(win.id)}
         >
           <span className="font-mohave text-[11px] text-text-2 uppercase tracking-wider">
@@ -44,7 +44,7 @@ export function WindowDock() {
       {minimizedPopovers.map((p) => (
         <div
           key={`popover-${p.id}`}
-          className="flex items-center gap-[6px] px-1.5 py-[6px] rounded-full bg-[rgba(13,13,13,0.9)] backdrop-blur-xl border border-[rgba(255,255,255,0.2)] cursor-pointer hover:border-ops-accent transition-all"
+          className="flex items-center gap-[6px] px-1.5 py-[6px] rounded-full bg-[rgba(13,13,13,0.9)] backdrop-blur-xl border border-[rgba(255,255,255,0.2)] cursor-pointer hover:border-[rgba(255,255,255,0.18)] transition-all"
           onClick={() => restorePopover(p.id)}
         >
           <div

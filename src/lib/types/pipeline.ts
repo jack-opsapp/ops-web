@@ -747,6 +747,19 @@ export interface Activity {
   isRead: boolean;
   fromEmail: string | null;
 
+  // Email-extended fields. Populated by sync-engine when the activity is an
+  // email; null for other activity types. The inbox-leads UI uses
+  // matchNeedsReview + suggestedClientId to drive the review queue, and
+  // bodyText/attachments for the full-thread viewer.
+  toEmails: string[];
+  ccEmails: string[];
+  bodyText: string | null;
+  hasAttachments: boolean;
+  attachmentCount: number;
+  matchConfidence: string | null;
+  matchNeedsReview: boolean;
+  suggestedClientId: string | null;
+
   createdBy: string | null;
   createdAt: Date;
 
@@ -1126,7 +1139,25 @@ export type CreatePaymentMilestone = Omit<
 
 export type CreateActivity = Omit<
   Activity,
-  "id" | "createdAt" | "opportunity" | "client" | "projectId" | "siteVisitId" | "attachments" | "emailThreadId" | "emailMessageId" | "isRead" | "fromEmail"
+  | "id"
+  | "createdAt"
+  | "opportunity"
+  | "client"
+  | "projectId"
+  | "siteVisitId"
+  | "attachments"
+  | "emailThreadId"
+  | "emailMessageId"
+  | "isRead"
+  | "fromEmail"
+  | "toEmails"
+  | "ccEmails"
+  | "bodyText"
+  | "hasAttachments"
+  | "attachmentCount"
+  | "matchConfidence"
+  | "matchNeedsReview"
+  | "suggestedClientId"
 > & {
   projectId?: string | null;
   siteVisitId?: string | null;
@@ -1135,6 +1166,16 @@ export type CreateActivity = Omit<
   emailMessageId?: string | null;
   isRead?: boolean;
   fromEmail?: string | null;
+  // Email-extended fields — optional so non-email activities don't need
+  // to set them. Defaults applied in mapActivityToDb.
+  toEmails?: string[];
+  ccEmails?: string[];
+  bodyText?: string | null;
+  hasAttachments?: boolean;
+  attachmentCount?: number;
+  matchConfidence?: string | null;
+  matchNeedsReview?: boolean;
+  suggestedClientId?: string | null;
 };
 
 export type CreateFollowUp = Omit<

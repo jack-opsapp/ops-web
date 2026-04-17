@@ -298,7 +298,7 @@ export function WidgetTray({ open, onClose, onDone, onCancel }: WidgetTrayProps)
                       className={cn(
                         "px-[8px] py-[4px] font-mono text-micro transition-all duration-150 border-r border-[rgba(255,255,255,0.06)] last:border-r-0",
                         isActive
-                          ? "bg-ops-accent-muted text-ops-accent"
+                          ? "bg-[rgba(255,255,255,0.08)] text-text"
                           : "text-text-mute hover:text-text-2"
                       )}
                       title={`${WIDGET_GAP_VALUES[gapId]}px`}

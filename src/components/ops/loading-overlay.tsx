@@ -36,7 +36,7 @@ function LoadingOverlay({ message, className }: LoadingOverlayProps) {
         <div
           className={cn(
             "h-[64px] w-[64px] rounded-full",
-            "border border-ops-accent/30",
+            "border border-[rgba(255,255,255,0.15)]",
             "flex items-center justify-center"
           )}
         >

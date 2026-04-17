@@ -174,7 +174,7 @@ function MemberActions({
                       className={cn(
                         "w-full text-left px-1 py-[4px] rounded font-mohave text-body-sm transition-colors",
                         member.role === role.id
-                          ? "text-ops-accent bg-ops-accent-muted"
+                          ? "text-ops-accent bg-[rgba(255,255,255,0.08)]"
                           : "text-text-2 hover:text-text hover:bg-fill-neutral-dim"
                       )}
                     >
@@ -392,7 +392,7 @@ function PendingInvitesCard() {
                               className={cn(
                                 "w-full text-left px-1 py-[4px] rounded font-mohave text-body-sm transition-colors",
                                 !inv.roleId
-                                  ? "text-ops-accent bg-ops-accent-muted"
+                                  ? "text-ops-accent bg-[rgba(255,255,255,0.08)]"
                                   : "text-text-2 hover:text-text hover:bg-fill-neutral-dim"
                               )}
                             >
@@ -405,7 +405,7 @@ function PendingInvitesCard() {
                                 className={cn(
                                   "w-full text-left px-1 py-[4px] rounded font-mohave text-body-sm transition-colors",
                                   inv.roleId === role.id
-                                    ? "text-ops-accent bg-ops-accent-muted"
+                                    ? "text-ops-accent bg-[rgba(255,255,255,0.08)]"
                                     : "text-text-2 hover:text-text hover:bg-fill-neutral-dim"
                                 )}
                               >
@@ -642,7 +642,7 @@ export function TeamTab() {
                     </div>
                     <div className="flex items-center gap-[6px]">
                       {isSeated && (
-                        <span className="font-kosugi text-micro text-ops-accent bg-ops-accent-muted px-[6px] py-[2px] rounded-full">
+                        <span className="font-kosugi text-micro text-ops-accent bg-[rgba(255,255,255,0.08)] px-[6px] py-[2px] rounded-full">
                           {t("team.seated")}
                         </span>
                       )}

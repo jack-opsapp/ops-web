@@ -235,7 +235,7 @@ function SidebarSection({ label, onEdit, children }: { label: string; onEdit?: (
       <div className="flex items-center justify-between mb-2">
         <span className="font-kosugi text-micro uppercase tracking-[0.5px] text-text-3">{label}</span>
         {onEdit && (
-          <button onClick={onEdit} className="opacity-0 group-hover/section:opacity-100 transition-opacity text-ops-accent text-[11px] border border-ops-accent/30 rounded-[2px] px-2 py-0.5 hover:bg-ops-accent/10">
+          <button onClick={onEdit} className="opacity-0 group-hover/section:opacity-100 transition-opacity text-ops-accent text-[11px] border border-[rgba(255,255,255,0.15)] rounded-[2px] px-2 py-0.5 hover:bg-[rgba(255,255,255,0.05)]">
             {t("sidebar.edit")}
           </button>
         )}
@@ -1328,7 +1328,7 @@ export default function ProjectDetailPage() {
               className={cn(
                 "px-5 py-3 font-mohave text-body-sm cursor-pointer transition-colors",
                 activeTab === tab
-                  ? "text-text border-b-2 border-ops-accent font-medium"
+                  ? "text-text border-b-2 border-text-2 font-medium"
                   : "text-text-3 hover:text-text-2"
               )}
             >

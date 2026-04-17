@@ -364,7 +364,7 @@ export default function InvoicesPage() {
                       <button
                         onClick={() => handleDownloadPdf(invoice.id)}
                         disabled={generatingPdfId === invoice.id}
-                        className="p-[4px] rounded text-text-3 hover:text-ops-accent hover:bg-ops-accent-muted transition-colors disabled:opacity-50"
+                        className="p-[4px] rounded text-text-3 hover:text-ops-accent hover:bg-[rgba(255,255,255,0.08)] transition-colors disabled:opacity-50"
                         title={t("invoices.actions.downloadPdf")}
                       >
                         {generatingPdfId === invoice.id ? (
@@ -376,7 +376,7 @@ export default function InvoicesPage() {
                       {invoice.status === InvoiceStatus.Draft && can("invoices.send") && (
                         <button
                           onClick={() => sendInvoice.mutate(invoice.id)}
-                          className="p-[4px] rounded text-text-3 hover:text-ops-accent hover:bg-ops-accent-muted transition-colors"
+                          className="p-[4px] rounded text-text-3 hover:text-ops-accent hover:bg-[rgba(255,255,255,0.08)] transition-colors"
                           title={t("invoices.actions.send")}
                         >
                           <Send className="w-[14px] h-[14px]" />

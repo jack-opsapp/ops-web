@@ -100,7 +100,7 @@ function TaskRow({
           return (
             <span
               key={memberId}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-ops-accent/20 text-[#8BB8D4]"
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-[rgba(255,255,255,0.08)] text-[#8BB8D4]"
             >
               {member.firstName}
               <button

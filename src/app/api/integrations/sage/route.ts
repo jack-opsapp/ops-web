@@ -7,13 +7,13 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
+import { getAppUrl } from "@/lib/utils/app-url";
 import crypto from "crypto";
 
 const SAGE_CLIENT_ID = process.env.SAGE_CLIENT_ID?.trim();
 const SAGE_CLIENT_SECRET = process.env.SAGE_CLIENT_SECRET?.trim();
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL?.trim() ?? "http://localhost:3000";
 const SAGE_REDIRECT_URI =
-  process.env.SAGE_REDIRECT_URI?.trim() ?? `${BASE_URL}/api/integrations/sage/callback`;
+  process.env.SAGE_REDIRECT_URI?.trim() ?? `${getAppUrl()}/api/integrations/sage/callback`;
 
 const SAGE_AUTH_URL =
   "https://www.sageone.com/oauth2/auth/central?filter=apiv3.1";

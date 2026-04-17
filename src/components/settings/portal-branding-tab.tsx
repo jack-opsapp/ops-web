@@ -672,7 +672,7 @@ export function PortalBrandingTab() {
                 className={cn(
                   "w-full flex items-center justify-between px-1.5 py-1 rounded border transition-all text-left disabled:opacity-40 disabled:cursor-not-allowed",
                   template === tmpl.id
-                    ? "bg-ops-accent-muted border-ops-accent"
+                    ? "bg-[rgba(255,255,255,0.08)] border-[rgba(255,255,255,0.18)]"
                     : "bg-surface-input border-border hover:border-border-medium"
                 )}
               >
@@ -713,7 +713,7 @@ export function PortalBrandingTab() {
                 className={cn(
                   "flex flex-col items-center gap-[6px] py-1.5 rounded border transition-all disabled:opacity-40 disabled:cursor-not-allowed",
                   themeMode === mode.id
-                    ? "bg-ops-accent-muted border-ops-accent"
+                    ? "bg-[rgba(255,255,255,0.08)] border-[rgba(255,255,255,0.18)]"
                     : "bg-surface-input border-border hover:border-border-medium"
                 )}
               >
@@ -800,7 +800,7 @@ export function PortalBrandingTab() {
                     className={cn(
                       "px-2 py-1 text-[11px] font-kosugi transition-all border-r last:border-r-0 border-border disabled:opacity-40 disabled:cursor-not-allowed",
                       state === opt.value
-                        ? "bg-ops-accent-muted text-ops-accent"
+                        ? "bg-[rgba(255,255,255,0.08)] text-text"
                         : "bg-surface-input text-text-3 hover:text-text-2"
                     )}
                   >

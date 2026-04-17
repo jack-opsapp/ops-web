@@ -8,8 +8,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
-
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
+import { getAppUrl } from "@/lib/utils/app-url";
 
 export async function POST(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -49,7 +48,7 @@ export async function POST(request: NextRequest) {
         if (Date.now() - lastSync.getTime() < 30_000) continue;
       }
 
-      fetch(`${BASE_URL}/api/integrations/email/manual-sync`, {
+      fetch(`${getAppUrl()}/api/integrations/email/manual-sync`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

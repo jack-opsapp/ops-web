@@ -12,10 +12,10 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
+import { getAppUrl } from "@/lib/utils/app-url";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_GMAIL_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_GMAIL_CLIENT_SECRET;
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
 
 interface OAuthState {
   companyId: string;
@@ -60,19 +60,19 @@ export async function GET(request: NextRequest) {
   // Handle user denial
   if (error) {
     return NextResponse.redirect(
-      `${BASE_URL}/settings?tab=integrations&status=error&message=${encodeURIComponent(error)}`
+      `${getAppUrl()}/settings?tab=integrations&status=error&message=${encodeURIComponent(error)}`
     );
   }
 
   if (!code || !rawState) {
     return NextResponse.redirect(
-      `${BASE_URL}/settings?tab=integrations&status=error&message=missing_params`
+      `${getAppUrl()}/settings?tab=integrations&status=error&message=missing_params`
     );
   }
 
   if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
     return NextResponse.redirect(
-      `${BASE_URL}/settings?tab=integrations&status=error&message=not_configured`
+      `${getAppUrl()}/settings?tab=integrations&status=error&message=not_configured`
     );
   }
 
@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
   if (!state) {
     console.error("[Gmail OAuth] Failed to decode state:", rawState);
     return NextResponse.redirect(
-      `${BASE_URL}/settings?tab=integrations&status=error&message=invalid_state`
+      `${getAppUrl()}/settings?tab=integrations&status=error&message=invalid_state`
     );
   }
 
@@ -91,7 +91,7 @@ export async function GET(request: NextRequest) {
   if (state.type === "individual" && !state.userId) {
     console.error("[Gmail OAuth] Individual connection missing userId");
     return NextResponse.redirect(
-      `${BASE_URL}/settings?tab=integrations&status=error&message=missing_user_id`
+      `${getAppUrl()}/settings?tab=integrations&status=error&message=missing_user_id`
     );
   }
 
@@ -104,7 +104,7 @@ export async function GET(request: NextRequest) {
         code,
         client_id: GOOGLE_CLIENT_ID,
         client_secret: GOOGLE_CLIENT_SECRET,
-        redirect_uri: `${BASE_URL}/api/integrations/gmail/callback`,
+        redirect_uri: `${getAppUrl()}/api/integrations/gmail/callback`,
         grant_type: "authorization_code",
       }),
     });
@@ -114,14 +114,14 @@ export async function GET(request: NextRequest) {
       console.error("[Gmail OAuth] Token exchange failed");
       console.error("[Gmail OAuth] Status:", tokenResponse.status);
       console.error("[Gmail OAuth] Response:", errorData);
-      console.error("[Gmail OAuth] Redirect URI used:", `${BASE_URL}/api/integrations/gmail/callback`);
+      console.error("[Gmail OAuth] Redirect URI used:", `${getAppUrl()}/api/integrations/gmail/callback`);
       try {
         const parsed = JSON.parse(errorData);
         console.error("[Gmail OAuth] Error code:", parsed.error);
         console.error("[Gmail OAuth] Error description:", parsed.error_description);
       } catch { /* not JSON */ }
       return NextResponse.redirect(
-        `${BASE_URL}/settings?tab=integrations&status=error&message=token_exchange_failed`
+        `${getAppUrl()}/settings?tab=integrations&status=error&message=token_exchange_failed`
       );
     }
 
@@ -169,17 +169,17 @@ export async function GET(request: NextRequest) {
     if (upsertError) {
       console.error("Failed to store Gmail tokens:", upsertError.message);
       return NextResponse.redirect(
-        `${BASE_URL}/settings?tab=integrations&status=error&message=storage_failed`
+        `${getAppUrl()}/settings?tab=integrations&status=error&message=storage_failed`
       );
     }
 
     return NextResponse.redirect(
-      `${BASE_URL}/settings?tab=integrations&status=connected&firstConnect=true`
+      `${getAppUrl()}/settings?tab=integrations&status=connected&firstConnect=true`
     );
   } catch (err) {
     console.error("Gmail OAuth callback error:", err);
     return NextResponse.redirect(
-      `${BASE_URL}/settings?tab=integrations&status=error&message=unexpected_error`
+      `${getAppUrl()}/settings?tab=integrations&status=error&message=unexpected_error`
     );
   }
 }

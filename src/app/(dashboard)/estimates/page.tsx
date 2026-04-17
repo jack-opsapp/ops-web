@@ -347,7 +347,7 @@ export default function EstimatesPage() {
                       <button
                         onClick={() => handleDownloadPdf(estimate.id)}
                         disabled={generatingPdfId === estimate.id}
-                        className="p-[4px] rounded text-text-3 hover:text-ops-accent hover:bg-ops-accent-muted transition-colors disabled:opacity-50"
+                        className="p-[4px] rounded text-text-3 hover:text-ops-accent hover:bg-[rgba(255,255,255,0.08)] transition-colors disabled:opacity-50"
                         title={t("estimates.actions.downloadPdf")}
                       >
                         {generatingPdfId === estimate.id ? (
@@ -359,7 +359,7 @@ export default function EstimatesPage() {
                       {estimate.status === EstimateStatus.Draft && can("estimates.send") && (
                         <button
                           onClick={() => setSendingEstimate(estimate)}
-                          className="p-[4px] rounded text-text-3 hover:text-ops-accent hover:bg-ops-accent-muted transition-colors"
+                          className="p-[4px] rounded text-text-3 hover:text-ops-accent hover:bg-[rgba(255,255,255,0.08)] transition-colors"
                           title={t("estimates.actions.send")}
                         >
                           <Send className="w-[14px] h-[14px]" />

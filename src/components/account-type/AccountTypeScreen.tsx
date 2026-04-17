@@ -340,7 +340,7 @@ export function AccountTypeScreen() {
                     <button
                       onClick={validateCode}
                       disabled={codeLoading || !crewCode.trim()}
-                      className="px-5 py-3 bg-ops-accent/15 border border-ops-accent/30 rounded font-mohave text-[14px] font-semibold text-ops-accent uppercase tracking-wide transition-colors hover:bg-ops-accent/25 hover:border-ops-accent/50 disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="px-5 py-3 bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.15)] rounded font-mohave text-[14px] font-semibold text-ops-accent uppercase tracking-wide transition-colors hover:bg-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.20)] disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       {codeLoading ? "..." : "JOIN"}
                     </button>
@@ -354,8 +354,8 @@ export function AccountTypeScreen() {
 
                   {/* Company preview */}
                   {companyPreview && (
-                    <div className="mt-3 p-3 bg-ops-accent/5 border border-ops-accent/15 rounded flex items-center gap-3 animate-fade-in">
-                      <div className="w-9 h-9 rounded-md bg-ops-accent/20 flex items-center justify-center font-mohave font-bold text-[14px] text-ops-accent shrink-0">
+                    <div className="mt-3 p-3 bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.10)] rounded flex items-center gap-3 animate-fade-in">
+                      <div className="w-9 h-9 rounded-md bg-[rgba(255,255,255,0.08)] flex items-center justify-center font-mohave font-bold text-[14px] text-ops-accent shrink-0">
                         {companyPreview.name
                           .split(" ")
                           .map((w) => w[0])

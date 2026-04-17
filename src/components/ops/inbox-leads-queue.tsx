@@ -235,7 +235,7 @@ function LeadCard({
       {/* Action */}
       <button
         onClick={() => onCreateLead(prefill)}
-        className="w-full flex items-center justify-center gap-2 py-1.5 rounded-sm bg-ops-accent/15 hover:bg-ops-accent/25 text-[#6F94B0] text-xs font-medium transition-colors font-kosugi"
+        className="w-full flex items-center justify-center gap-2 py-1.5 rounded-sm bg-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.08)] text-[#6F94B0] text-xs font-medium transition-colors font-kosugi"
       >
         <UserPlus className="h-3 w-3" />
         Create Lead

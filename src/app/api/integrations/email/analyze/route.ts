@@ -39,6 +39,7 @@ import type { EmailConnection } from "@/lib/types/email-connection";
 import type { AnalyzedLead } from "@/lib/types/email-import";
 import type { NormalizedEmail } from "@/lib/api/services/email-provider";
 import type { TriageInput } from "@/lib/api/services/email-ai-classifier";
+import { getAppUrl } from "@/lib/utils/app-url";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 // Uses OPENAI_API_KEY_IMPORT — initial inbox scan.
@@ -694,7 +695,7 @@ async function runPhaseA(
   }).eq("id", jobId);
 
   // Chain to Phase B — a separate function invocation with its own 800s budget
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+  const baseUrl = getAppUrl();
   await fetch(`${baseUrl}/api/integrations/email/analyze-continue`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

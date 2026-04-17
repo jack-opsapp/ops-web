@@ -82,7 +82,7 @@ function CrewPicker({
                 className={cn(
                   "w-full flex items-center gap-1 px-1.5 py-[8px] text-left font-mohave text-body-sm transition-colors",
                   selected
-                    ? "bg-ops-accent-muted text-ops-accent"
+                    ? "bg-[rgba(255,255,255,0.08)] text-text"
                     : "text-text hover:bg-[rgba(255,255,255,0.04)]"
                 )}
               >

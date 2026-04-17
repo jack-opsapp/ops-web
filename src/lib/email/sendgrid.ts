@@ -9,6 +9,7 @@
 
 import sgMail from "@sendgrid/mail";
 
+import { getAppUrl } from "@/lib/utils/app-url";
 import { magicLinkTemplate } from "./templates/magic-link";
 import { estimateReadyTemplate } from "./templates/estimate-ready";
 import { questionsReminderTemplate } from "./templates/questions-reminder";
@@ -50,7 +51,7 @@ export async function sendMagicLink(params: {
 }): Promise<void> {
   ensureInitialized();
 
-  const portalUrl = `${process.env.NEXT_PUBLIC_APP_URL}/portal/${params.token}`;
+  const portalUrl = `${getAppUrl()}/portal/${params.token}`;
   const html = magicLinkTemplate({
     companyName: params.companyName,
     portalUrl,
@@ -333,7 +334,7 @@ export async function sendBlogNewsletter(params: {
     unique.push({ email: lower, first_name: r.first_name });
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://opsapp.co";
+  const appUrl = getAppUrl();
   const postUrl = `${appUrl}/blog/${params.post.slug}`;
   const subject = params.post.title;
   const bodyContent = params.post.email_content ?? params.post.content;

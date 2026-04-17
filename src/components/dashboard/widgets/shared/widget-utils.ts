@@ -82,8 +82,8 @@ const INVOICE_STATUS_COLORS: Record<string, StatusColors> = {
   },
   [InvoiceStatus.Sent]: {
     text: "text-ops-accent",
-    bg: "bg-ops-accent/15",
-    border: "border-ops-accent/30",
+    bg: "bg-[rgba(255,255,255,0.06)]",
+    border: "border-[rgba(255,255,255,0.15)]",
   },
   [InvoiceStatus.AwaitingPayment]: {
     text: "text-ops-amber",
@@ -125,8 +125,8 @@ const ESTIMATE_STATUS_COLORS: Record<string, StatusColors> = {
   },
   [EstimateStatus.Sent]: {
     text: "text-ops-accent",
-    bg: "bg-ops-accent/15",
-    border: "border-ops-accent/30",
+    bg: "bg-[rgba(255,255,255,0.06)]",
+    border: "border-[rgba(255,255,255,0.15)]",
   },
   [EstimateStatus.Viewed]: {
     text: "text-ops-amber",
@@ -229,13 +229,13 @@ const PROJECT_STATUS_COLORS: Record<string, StatusColors> = {
 const OPPORTUNITY_STAGE_COLORS: Record<string, StatusColors> = {
   [OpportunityStage.NewLead]: {
     text: "text-ops-accent",
-    bg: "bg-ops-accent/15",
-    border: "border-ops-accent/30",
+    bg: "bg-[rgba(255,255,255,0.06)]",
+    border: "border-[rgba(255,255,255,0.15)]",
   },
   [OpportunityStage.Qualifying]: {
     text: "text-ops-accent",
-    bg: "bg-ops-accent/15",
-    border: "border-ops-accent/30",
+    bg: "bg-[rgba(255,255,255,0.06)]",
+    border: "border-[rgba(255,255,255,0.15)]",
   },
   [OpportunityStage.Quoting]: {
     text: "text-ops-amber",

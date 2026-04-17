@@ -3,6 +3,7 @@
  * Dark theme, dense, scannable. Act on it or click through.
  */
 import type { AdBriefing } from "@/lib/admin/briefing-types";
+import { getAppUrl } from "@/lib/utils/app-url";
 
 function formatDelta(value: number): string {
   const pct = (value * 100).toFixed(1);
@@ -16,7 +17,7 @@ function priorityColor(p: string): string {
 export function adsBriefingTemplate(briefing: AdBriefing): string {
   const perf = briefing.performance_data;
   const actions = briefing.action_items.slice(0, 3);
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://app.opsapp.co";
+  const appUrl = getAppUrl();
 
   return `
 <!DOCTYPE html>

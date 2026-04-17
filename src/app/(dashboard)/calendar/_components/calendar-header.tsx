@@ -125,7 +125,7 @@ export function CalendarHeader({ t }: CalendarHeaderProps) {
           onClick={toggleFilterSidebar}
           className={cn(
             "hidden md:flex",
-            isFilterSidebarOpen && "text-ops-accent bg-ops-accent-muted/20"
+            isFilterSidebarOpen && "text-ops-accent bg-[rgba(255,255,255,0.08)]/20"
           )}
           title="Toggle filters"
         >

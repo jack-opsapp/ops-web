@@ -90,7 +90,7 @@ export function WidgetGrid({
                 transition={SPRING_REORDER}
                 className={cn(
                   COL_SPAN_CLASSES[ghostSize],
-                  "rounded-md flex items-center justify-center bg-ops-accent/5"
+                  "rounded-md flex items-center justify-center bg-[rgba(255,255,255,0.03)]"
                 )}
                 style={{ minHeight: 140 }}
               >

@@ -249,7 +249,7 @@ export function CreateSiteVisitModal({
                       "flex items-center gap-[6px] px-1.5 py-[6px] rounded-sm border transition-all",
                       "font-mohave text-body-sm",
                       selected
-                        ? "bg-ops-accent-muted border-ops-accent text-text"
+                        ? "bg-[rgba(255,255,255,0.08)] border-[rgba(255,255,255,0.18)] text-text"
                         : "bg-surface-input border-border text-text-3 hover:text-text-2 hover:border-border-medium"
                     )}
                   >

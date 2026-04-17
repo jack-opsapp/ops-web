@@ -53,7 +53,7 @@ export function ChannelFilterBar({ active, onChange }: ChannelFilterProps) {
             className={cn(
               "flex items-center gap-[5px] px-[8px] py-[5px] rounded-sm transition-colors duration-150 cursor-pointer",
               active === seg.value
-                ? "text-ops-accent bg-ops-accent-muted/20"
+                ? "text-ops-accent bg-[rgba(255,255,255,0.08)]/20"
                 : "text-text-3 hover:text-text hover:bg-surface-input"
             )}
           >

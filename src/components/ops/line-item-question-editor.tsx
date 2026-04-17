@@ -410,7 +410,7 @@ export function LineItemQuestionEditor({
                       {question.questionText}
                     </p>
                     {question.isRequired && (
-                      <span className="shrink-0 font-kosugi text-micro text-ops-accent bg-ops-accent-muted px-[6px] py-[1px] rounded-full uppercase tracking-wider">
+                      <span className="shrink-0 font-kosugi text-micro text-ops-accent bg-[rgba(255,255,255,0.08)] px-[6px] py-[1px] rounded-full uppercase tracking-wider">
                         Required
                       </span>
                     )}
@@ -461,7 +461,7 @@ export function LineItemQuestionEditor({
                   <button
                     type="button"
                     onClick={() => setEditingId(question.id)}
-                    className="p-[4px] rounded text-text-mute hover:text-ops-accent hover:bg-ops-accent-muted transition-colors"
+                    className="p-[4px] rounded text-text-mute hover:text-ops-accent hover:bg-[rgba(255,255,255,0.08)] transition-colors"
                     title="Edit question"
                   >
                     <Pencil className="w-[13px] h-[13px]" />

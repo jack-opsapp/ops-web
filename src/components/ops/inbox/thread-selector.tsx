@@ -89,10 +89,9 @@ export function ThreadSelector({
         <button
           onClick={() => setDropdownOpen(!dropdownOpen)}
           className={cn(
-            "flex items-center gap-1.5 px-2.5 py-[5px] rounded-panel border max-w-[220px]",
-            "bg-glass glass-surface backdrop-blur-[20px] saturate-[1.2]",
-            "border-border-subtle text-text-2",
-            "hover:bg-surface-input transition-colors cursor-pointer"
+            "flex items-center gap-1.5 px-2.5 py-[5px] rounded-[5px] max-w-[220px]",
+            "glass-surface text-text-2",
+            "hover:bg-[rgba(255,255,255,0.04)] hover:text-text transition-colors cursor-pointer"
           )}
         >
           <span className="font-mohave text-caption-sm truncate">
@@ -107,7 +106,7 @@ export function ThreadSelector({
         </button>
 
         {dropdownOpen && (
-          <div className="absolute top-full left-0 mt-1 z-[1000] min-w-[240px] max-w-[320px] py-1 rounded-panel border border-border-subtle bg-[var(--surface-glass-dense)] backdrop-blur-[20px] saturate-[1.2]">
+          <div className="absolute top-full left-0 mt-1 z-[1000] min-w-[240px] max-w-[320px] py-1 glass-dense">
             {threads.map((thread) => {
               const isActive = thread.threadId === selectedThreadId;
               return (
@@ -118,13 +117,19 @@ export function ThreadSelector({
                     setDropdownOpen(false);
                   }}
                   className={cn(
-                    "w-full flex items-center gap-2 px-3 py-2 text-left transition-colors cursor-pointer",
+                    "relative w-full flex items-center gap-2 px-3 py-2 text-left transition-colors duration-150 cursor-pointer rounded-[6px]",
                     isActive
-                      ? "bg-ops-accent-muted/20 text-ops-accent"
-                      : "text-text-2 hover:bg-surface-input"
+                      ? "bg-[rgba(255,255,255,0.04)] text-text"
+                      : "text-text-3 hover:text-text-2 hover:bg-[rgba(255,255,255,0.04)]"
                   )}
                 >
-                  {isActive && <Check className="w-3 h-3 shrink-0" />}
+                  {isActive && (
+                    <span
+                      aria-hidden="true"
+                      className="pointer-events-none absolute left-0 top-[8px] bottom-[8px] w-[2px] bg-text-2 rounded-[1px]"
+                    />
+                  )}
+                  {isActive && <Check className="w-3 h-3 shrink-0 text-text" />}
                   <span className={cn("font-mohave text-caption-sm truncate", !isActive && "ml-5")}>
                     {truncateSubject(thread.subject, 40)}
                   </span>
@@ -143,7 +148,7 @@ export function ThreadSelector({
     <div ref={containerRef} className="overflow-hidden">
       <div
         ref={tabsRef}
-        className="inline-flex items-center gap-[8px] px-[6px] rounded-[4px] border border-border-subtle bg-glass glass-surface backdrop-blur-[20px] saturate-[1.2] whitespace-nowrap"
+        className="inline-flex items-center gap-[8px] px-[6px] py-[2px] glass-surface whitespace-nowrap"
       >
         {threads.map((thread, i) => {
           const isActive = thread.threadId === selectedThreadId;
@@ -153,10 +158,10 @@ export function ThreadSelector({
               <button
                 onClick={() => onSelect(thread.threadId)}
                 className={cn(
-                  "px-[8px] py-[5px] rounded-sm transition-colors duration-150 cursor-pointer",
+                  "relative px-[8px] py-[5px] rounded-[5px] transition-colors duration-150 cursor-pointer",
                   isActive
-                    ? "text-ops-accent bg-ops-accent-muted/20"
-                    : "text-text-3 hover:text-text hover:bg-surface-input"
+                    ? "text-text bg-[rgba(255,255,255,0.08)] border border-[rgba(255,255,255,0.18)]"
+                    : "text-text-3 hover:text-text-2 hover:bg-[rgba(255,255,255,0.04)] border border-transparent"
                 )}
               >
                 <span className="font-mohave text-caption-sm">

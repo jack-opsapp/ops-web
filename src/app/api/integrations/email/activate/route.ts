@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
 import { EmailService } from "@/lib/api/services/email-service";
+import { getAppUrl } from "@/lib/utils/app-url";
 import type { ActivationPayload } from "@/lib/types/email-import";
 
 export const maxDuration = 300;
@@ -59,7 +60,7 @@ export async function POST(request: NextRequest) {
     let webhookSubscriptionId: string | null = null;
     let webhookExpiresAt: Date | null = null;
     try {
-      const webhookUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/api/integrations/email/webhook/${connection.provider}`;
+      const webhookUrl = `${getAppUrl()}/api/integrations/email/webhook/${connection.provider}`;
       const webhook = await provider.setupWebhook(webhookUrl);
       webhookSubscriptionId = webhook.subscriptionId;
       // Guard against invalid date from provider response

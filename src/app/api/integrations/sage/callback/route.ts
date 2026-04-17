@@ -7,12 +7,12 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
+import { getAppUrl } from "@/lib/utils/app-url";
 
 const SAGE_CLIENT_ID = process.env.SAGE_CLIENT_ID;
 const SAGE_CLIENT_SECRET = process.env.SAGE_CLIENT_SECRET;
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
 const SAGE_REDIRECT_URI =
-  process.env.SAGE_REDIRECT_URI ?? `${BASE_URL}/api/integrations/sage/callback`;
+  process.env.SAGE_REDIRECT_URI ?? `${getAppUrl()}/api/integrations/sage/callback`;
 
 const SAGE_TOKEN_URL = "https://oauth.accounting.sage.com/token";
 
@@ -25,19 +25,19 @@ export async function GET(request: NextRequest) {
   // Handle user denial
   if (error) {
     return NextResponse.redirect(
-      `${BASE_URL}/accounting?status=error&message=${encodeURIComponent(error)}`
+      `${getAppUrl()}/accounting?status=error&message=${encodeURIComponent(error)}`
     );
   }
 
   if (!code || !state) {
     return NextResponse.redirect(
-      `${BASE_URL}/accounting?status=error&message=missing_params`
+      `${getAppUrl()}/accounting?status=error&message=missing_params`
     );
   }
 
   if (!SAGE_CLIENT_ID || !SAGE_CLIENT_SECRET) {
     return NextResponse.redirect(
-      `${BASE_URL}/accounting?status=error&message=not_configured`
+      `${getAppUrl()}/accounting?status=error&message=not_configured`
     );
   }
 
@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
   const colonIdx = state.indexOf(":");
   if (colonIdx < 1) {
     return NextResponse.redirect(
-      `${BASE_URL}/accounting?status=error&message=invalid_state`
+      `${getAppUrl()}/accounting?status=error&message=invalid_state`
     );
   }
   const companyId = state.substring(0, colonIdx);
@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
 
   if (!existing || existing.webhook_verifier_token !== state) {
     return NextResponse.redirect(
-      `${BASE_URL}/accounting?status=error&message=csrf_mismatch`
+      `${getAppUrl()}/accounting?status=error&message=csrf_mismatch`
     );
   }
 
@@ -87,7 +87,7 @@ export async function GET(request: NextRequest) {
       const errorData = await tokenResponse.text();
       console.error("Sage token exchange failed:", errorData);
       return NextResponse.redirect(
-        `${BASE_URL}/accounting?status=error&message=token_exchange_failed`
+        `${getAppUrl()}/accounting?status=error&message=token_exchange_failed`
       );
     }
 
@@ -116,17 +116,17 @@ export async function GET(request: NextRequest) {
     if (upsertError) {
       console.error("Failed to store Sage tokens:", upsertError.message);
       return NextResponse.redirect(
-        `${BASE_URL}/accounting?status=error&message=storage_failed`
+        `${getAppUrl()}/accounting?status=error&message=storage_failed`
       );
     }
 
     return NextResponse.redirect(
-      `${BASE_URL}/accounting?connected=sage`
+      `${getAppUrl()}/accounting?connected=sage`
     );
   } catch (err) {
     console.error("Sage OAuth callback error:", err);
     return NextResponse.redirect(
-      `${BASE_URL}/accounting?status=error&message=unexpected_error`
+      `${getAppUrl()}/accounting?status=error&message=unexpected_error`
     );
   }
 }

@@ -91,7 +91,7 @@ export function DraftReplyButton({
     <>
       <button
         onClick={generateDraft}
-        className="flex items-center gap-1 px-2 py-1 text-[11px] font-kosugi uppercase tracking-wider text-[#6F94B0] hover:text-white hover:bg-ops-accent/10 rounded transition-colors"
+        className="flex items-center gap-1 px-2 py-1 text-[11px] font-kosugi uppercase tracking-wider text-[#6F94B0] hover:text-white hover:bg-[rgba(255,255,255,0.05)] rounded transition-colors"
         title="Generate AI draft reply"
       >
         <Sparkles className="w-3 h-3" />
@@ -124,7 +124,7 @@ export function DraftReplyButton({
                     Draft Reply
                   </span>
                   {draftResult && (
-                    <span className="px-1.5 py-0.5 text-micro font-kosugi uppercase tracking-wider rounded bg-ops-accent/15 text-[#6F94B0]">
+                    <span className="px-1.5 py-0.5 text-micro font-kosugi uppercase tracking-wider rounded bg-[rgba(255,255,255,0.06)] text-[#6F94B0]">
                       {(draftResult.confidence * 100).toFixed(0)}% confidence
                     </span>
                   )}

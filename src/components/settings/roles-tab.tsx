@@ -425,7 +425,7 @@ function TierModuleCard({
 
       {/* Custom badge for non-standard tier mapping */}
       {isCustom && (
-        <span className="font-mono text-micro text-ops-accent bg-ops-accent-muted px-[4px] py-[1px] rounded-sm shrink-0">
+        <span className="font-mono text-micro text-ops-accent bg-[rgba(255,255,255,0.08)] px-[4px] py-[1px] rounded-sm shrink-0">
           {t("roles.customPermissions")}
         </span>
       )}
@@ -445,7 +445,7 @@ function TierModuleCard({
                 "first:rounded-l last:rounded-r",
                 "disabled:opacity-40 disabled:cursor-not-allowed",
                 currentScope === scope
-                  ? "bg-ops-accent-muted text-ops-accent border-ops-accent"
+                  ? "bg-[rgba(255,255,255,0.08)] text-text border-[rgba(255,255,255,0.18)]"
                   : "bg-transparent text-text-mute border-border hover:text-text-3"
               )}
             >
@@ -870,7 +870,7 @@ function MobilePermissionEditor({
                         "first:rounded-l last:rounded-r",
                         "disabled:opacity-40 disabled:cursor-not-allowed",
                         displayTier === tier
-                          ? "bg-ops-accent-muted text-ops-accent border-ops-accent"
+                          ? "bg-[rgba(255,255,255,0.08)] text-text border-[rgba(255,255,255,0.18)]"
                           : "bg-transparent text-text-mute border-border hover:text-text-3"
                       )}
                     >
@@ -958,7 +958,7 @@ function DataScopeCard({
                           "first:rounded-l last:rounded-r",
                           "disabled:opacity-40 disabled:cursor-not-allowed",
                           currentScope === scope
-                            ? "bg-ops-accent-muted text-ops-accent border-ops-accent"
+                            ? "bg-[rgba(255,255,255,0.08)] text-text border-[rgba(255,255,255,0.18)]"
                             : "bg-transparent text-text-mute border-border hover:text-text-3"
                         )}
                       >
@@ -1404,7 +1404,7 @@ function RoleEditor({
                     "px-[8px] py-[3px] font-kosugi text-micro uppercase tracking-wider",
                     "border transition-colors duration-150 rounded-l",
                     permViewMode === "board"
-                      ? "bg-ops-accent-muted text-ops-accent border-ops-accent"
+                      ? "bg-[rgba(255,255,255,0.08)] text-text border-[rgba(255,255,255,0.18)]"
                       : "bg-transparent text-text-mute border-border hover:text-text-3"
                   )}
                 >
@@ -1417,7 +1417,7 @@ function RoleEditor({
                     "px-[8px] py-[3px] font-kosugi text-micro uppercase tracking-wider",
                     "border transition-colors duration-150 rounded-r",
                     permViewMode === "list"
-                      ? "bg-ops-accent-muted text-ops-accent border-ops-accent"
+                      ? "bg-[rgba(255,255,255,0.08)] text-text border-[rgba(255,255,255,0.18)]"
                       : "bg-transparent text-text-mute border-border hover:text-text-3"
                   )}
                 >
@@ -1729,7 +1729,7 @@ function RoleAssignmentColumn({
         className={cn(
           "flex-1 border border-border border-t-0 rounded-b p-1 space-y-[4px] min-h-[120px] transition-colors duration-150",
           isOver
-            ? "bg-[rgba(89,119,159,0.08)] border-ops-accent"
+            ? "bg-[rgba(111, 148, 176,0.08)] border-ops-accent"
             : "bg-[rgba(10,10,10,0.5)]"
         )}
       >
@@ -2165,7 +2165,7 @@ export function RolesTab() {
                   className={cn(
                     "p-[5px] border transition-colors duration-150 rounded-l",
                     listMode === "rows"
-                      ? "bg-ops-accent-muted text-ops-accent border-ops-accent"
+                      ? "bg-[rgba(255,255,255,0.08)] text-text border-[rgba(255,255,255,0.18)]"
                       : "bg-transparent text-text-mute border-border hover:text-text-3"
                   )}
                 >
@@ -2178,7 +2178,7 @@ export function RolesTab() {
                   className={cn(
                     "p-[5px] border transition-colors duration-150 rounded-r",
                     listMode === "board"
-                      ? "bg-ops-accent-muted text-ops-accent border-ops-accent"
+                      ? "bg-[rgba(255,255,255,0.08)] text-text border-[rgba(255,255,255,0.18)]"
                       : "bg-transparent text-text-mute border-border hover:text-text-3"
                   )}
                 >

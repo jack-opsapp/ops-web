@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { roleNeededTemplate } from "@/lib/email/templates/role-needed";
 import sgMail from "@sendgrid/mail";
+import { getAppUrl } from "@/lib/utils/app-url";
 
 export async function POST(req: NextRequest) {
   try {
@@ -79,8 +80,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, notified: 0 });
     }
 
-    const appUrl =
-      process.env.NEXT_PUBLIC_APP_URL ?? "https://app.opsapp.co";
+    const appUrl = getAppUrl();
     const assignUrl = `${appUrl}/settings?tab=team`;
 
     // 1. In-app notifications

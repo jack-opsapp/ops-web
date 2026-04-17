@@ -308,7 +308,7 @@ export function InviteModal({
                 className={cn(
                   "flex items-center gap-[6px] px-1.5 py-[8px] rounded border font-mohave text-body-sm transition-all",
                   inviteMode === mode.id
-                    ? "bg-ops-accent-muted border-ops-accent text-ops-accent"
+                    ? "bg-[rgba(255,255,255,0.08)] text-text border-[rgba(255,255,255,0.18)]"
                     : "bg-surface-input border-border text-text-3 hover:text-text-2"
                 )}
               >
@@ -382,7 +382,7 @@ export function InviteModal({
                   className={cn(
                     "px-1.5 py-[6px] rounded border font-mohave text-body-sm transition-all",
                     selectedRoleId === role.id
-                      ? "bg-ops-accent-muted border-ops-accent text-ops-accent"
+                      ? "bg-[rgba(255,255,255,0.08)] text-text border-[rgba(255,255,255,0.18)]"
                       : "bg-surface-input border-border text-text-3 hover:text-text-2"
                   )}
                 >

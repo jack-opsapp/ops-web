@@ -409,7 +409,7 @@ export function CalendarScheduler({
         className={cn(
           "flex items-center px-1.5 py-1",
           "bg-glass glass-surface border rounded-sm transition-all duration-150",
-          hasSelection ? "border-ops-accent/30" : "border-border"
+          hasSelection ? "border-[rgba(255,255,255,0.15)]" : "border-border"
         )}
       >
         {/* Start */}

@@ -42,7 +42,7 @@ export function SubscriptionBanner({ subscription }: SubscriptionBannerProps) {
       "flex items-center gap-1.5 px-2 py-1 text-body-sm font-mohave",
       variant === "error" && "bg-ops-error/20 text-red-300 border-b border-ops-error/30",
       variant === "warning" && "bg-amber-900/20 text-amber-300 border-b border-amber-700/30",
-      variant === "info" && "bg-ops-accent/10 text-ops-accent border-b border-ops-accent/20",
+      variant === "info" && "bg-[rgba(255,255,255,0.05)] text-ops-accent border-b border-[rgba(255,255,255,0.12)]",
     )}>
       <Icon className="w-[16px] h-[16px] shrink-0" />
       <span className="flex-1">{message}</span>

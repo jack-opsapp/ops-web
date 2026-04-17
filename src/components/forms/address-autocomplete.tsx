@@ -98,7 +98,7 @@ function AddressAutocomplete<T extends FieldValues = FieldValues>({
           className={cn(
             "flex items-center justify-center w-[36px] shrink-0 rounded",
             "border border-border bg-surface-input",
-            "text-text-3 hover:text-ops-accent hover:border-ops-accent",
+            "text-text-3 hover:text-ops-accent hover:border-[rgba(255,255,255,0.18)]",
             "transition-colors duration-150",
             "disabled:opacity-40 disabled:cursor-not-allowed"
           )}

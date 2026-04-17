@@ -332,7 +332,7 @@ export function UnifiedThreadView({
               "w-[32px] h-[32px] rounded-full flex items-center justify-center shrink-0 font-kosugi text-caption-sm font-semibold",
               conversation.type === "unmatched"
                 ? "bg-ops-amber-muted text-ops-amber"
-                : "bg-ops-accent-muted text-ops-accent"
+                : "bg-[rgba(255,255,255,0.08)] text-text"
             )}
           >
             {conversation.avatarInitials}
@@ -361,7 +361,7 @@ export function UnifiedThreadView({
             className={cn(
               "flex items-center gap-1.5 px-2.5 py-1.5 rounded-panel border font-kosugi text-micro uppercase tracking-wider transition-colors",
               contextOpen
-                ? "bg-ops-accent-muted text-ops-accent border-ops-accent/20"
+                ? "bg-[rgba(255,255,255,0.08)] text-text border-[rgba(255,255,255,0.18)]/20"
                 : "bg-surface-input text-text-3 border-border-subtle hover:bg-glass glass-surface"
             )}
           >
@@ -395,8 +395,8 @@ export function UnifiedThreadView({
             <button
               className={cn(
                 "flex items-center gap-1.5 px-2.5 py-[5px] rounded-panel border shrink-0",
-                "border-ops-accent/30 bg-ops-accent-muted/20 text-ops-accent",
-                "hover:bg-ops-accent-muted/40 transition-colors duration-150 cursor-pointer"
+                "border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.08)]/20 text-ops-accent",
+                "hover:bg-[rgba(255,255,255,0.08)]/40 transition-colors duration-150 cursor-pointer"
               )}
             >
               <Plus className="w-3 h-3" />

@@ -190,7 +190,7 @@ function AnalysisProgressBanner({ jobId, wizardOpen, onComplete, onClick }: Anal
   return (
     <button
       onClick={onClick}
-      className="w-full flex items-center gap-[8px] px-2 py-1.5 rounded border border-[#6F94B0]/30 bg-ops-accent/08 hover:bg-ops-accent/12 transition-colors text-left"
+      className="w-full flex items-center gap-[8px] px-2 py-1.5 rounded border border-[#6F94B0]/30 bg-ops-accent/08 hover:bg-[rgba(255,255,255,0.05)] transition-colors text-left"
     >
       <Search className="w-[16px] h-[16px] text-[#6F94B0] shrink-0" />
       <div className="flex-1 min-w-0">
@@ -404,10 +404,10 @@ export function IntegrationsTab() {
           ) : activeJobId && !wizardDone ? (
             <button
               onClick={() => openWizard()}
-              className="w-full flex items-center gap-[8px] px-2 py-2 rounded border border-ops-accent/30 bg-ops-accent/5 hover:bg-ops-accent/10 hover:border-ops-accent/50 transition-colors text-left"
+              className="w-full flex items-center gap-[8px] px-2 py-2 rounded border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.05)] hover:border-[rgba(255,255,255,0.20)] transition-colors text-left"
             >
               <div className="relative w-[18px] h-[18px] shrink-0">
-                <div className="w-full h-full border-2 border-ops-accent/30 border-t-ops-accent rounded-full animate-spin" />
+                <div className="w-full h-full border-2 border-[rgba(255,255,255,0.15)] border-t-ops-accent rounded-full animate-spin" />
               </div>
               <div className="flex-1 min-w-0">
                 <span className="font-mohave text-body text-ops-accent block">
@@ -421,7 +421,7 @@ export function IntegrationsTab() {
           ) : !wizardDone ? (
             <button
               onClick={() => openWizard()}
-              className="w-full flex items-center gap-[8px] px-2 py-2 rounded border border-ops-accent/30 bg-ops-accent/5 hover:bg-ops-accent/10 hover:border-ops-accent/50 transition-colors text-left"
+              className="w-full flex items-center gap-[8px] px-2 py-2 rounded border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.05)] hover:border-[rgba(255,255,255,0.20)] transition-colors text-left"
             >
               <Mail className="w-[18px] h-[18px] text-ops-accent shrink-0" />
               <div className="flex-1 min-w-0">
@@ -539,7 +539,7 @@ export function IntegrationsTab() {
 
                   <button
                     onClick={() => openWizard()}
-                    className="w-full flex items-center gap-[8px] px-2 py-2 rounded border border-ops-accent/30 bg-ops-accent/5 hover:bg-ops-accent/10 hover:border-ops-accent/50 transition-colors text-left"
+                    className="w-full flex items-center gap-[8px] px-2 py-2 rounded border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.05)] hover:border-[rgba(255,255,255,0.20)] transition-colors text-left"
                   >
                     <Mail className="w-[18px] h-[18px] text-ops-accent shrink-0" />
                     <div className="flex-1 min-w-0">
@@ -612,7 +612,7 @@ export function IntegrationsTab() {
                           className={cn(
                             "px-[6px] py-[2px] rounded-sm font-kosugi text-micro uppercase tracking-wider shrink-0",
                             job.status === "completed" && "bg-[rgba(107,143,113,0.15)] text-[#6B8F71]",
-                            job.status === "running" && "bg-ops-accent/15 text-ops-accent",
+                            job.status === "running" && "bg-[rgba(255,255,255,0.06)] text-ops-accent",
                             job.status === "failed" && "bg-ops-error/15 text-ops-error",
                           )}
                         >

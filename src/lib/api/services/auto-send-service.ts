@@ -14,6 +14,59 @@
 import { requireSupabase } from "@/lib/supabase/helpers";
 import { AdminFeatureOverrideService } from "./admin-feature-override-service";
 import { AIDraftService } from "./ai-draft-service";
+import { getAppUrl } from "@/lib/utils/app-url";
+import { getSubscriptionInfo } from "@/lib/subscription";
+import type { Company, SubscriptionPlan, SubscriptionStatus } from "@/lib/types/models";
+
+/**
+ * Resolve the subscription-gate fields for a company using the same
+ * snake_case → camelCase mapping the cron uses. Shared here so the
+ * auto-send cron can gate per-pending without duplicating the mapper.
+ */
+type CompanySubscriptionFields = Pick<
+  Company,
+  | "subscriptionPlan"
+  | "subscriptionStatus"
+  | "trialEndDate"
+  | "seatedEmployeeIds"
+  | "adminIds"
+  | "maxSeats"
+>;
+
+async function isCompanySubscriptionActive(
+  companyId: string
+): Promise<boolean> {
+  const supabase = requireSupabase();
+  const { data, error } = await supabase
+    .from("companies")
+    .select(
+      "subscription_plan, subscription_status, trial_end_date, seated_employee_ids, admin_ids, max_seats"
+    )
+    .eq("id", companyId)
+    .single();
+
+  if (error || !data) {
+    // Fail closed — never auto-send when we can't verify subscription.
+    console.error(
+      `[auto-send] Subscription lookup failed for company ${companyId}:`,
+      error
+    );
+    return false;
+  }
+
+  const fields: CompanySubscriptionFields = {
+    subscriptionPlan: (data.subscription_plan as SubscriptionPlan) ?? null,
+    subscriptionStatus: (data.subscription_status as SubscriptionStatus) ?? null,
+    trialEndDate: data.trial_end_date
+      ? new Date(data.trial_end_date as string)
+      : null,
+    seatedEmployeeIds: (data.seated_employee_ids as string[]) ?? [],
+    adminIds: (data.admin_ids as string[]) ?? [],
+    maxSeats: (data.max_seats as number) ?? 10,
+  };
+
+  return getSubscriptionInfo(fields).isActive;
+}
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -429,6 +482,23 @@ export const AutoSendService = {
       const pending = mapPendingFromDb(row);
 
       try {
+        // Subscription gate — never auto-send for a company whose
+        // subscription has lapsed. Checked per-pending so a mid-batch
+        // cancellation (Stripe failure, manual downgrade) stops remaining
+        // sends immediately. Fails closed on lookup error.
+        const subActive = await isCompanySubscriptionActive(pending.companyId);
+        if (!subActive) {
+          await supabase
+            .from("pending_auto_sends")
+            .update({
+              status: "cancelled",
+              cancelled_at: now,
+              error: "Subscription inactive",
+            })
+            .eq("id", pending.id);
+          continue;
+        }
+
         // Verify connection is still active and auto-send still enabled
         const { enabled } = await this.isEnabled(
           pending.companyId,
@@ -458,7 +528,7 @@ export const AutoSendService = {
 
         // Send via the email send endpoint (internal call — use CRON_SECRET for auth)
         const sendResponse = await fetch(
-          `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/integrations/email/send`,
+          `${getAppUrl()}/api/integrations/email/send`,
           {
             method: "POST",
             headers: {

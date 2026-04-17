@@ -20,7 +20,10 @@ import type {
   EmailConnection,
   SyncProfile,
 } from "@/lib/types/email-connection";
-import type { GmailSyncFilters } from "@/lib/types/pipeline";
+import {
+  PIPELINE_STAGES_DEFAULT,
+  type GmailSyncFilters,
+} from "@/lib/types/pipeline";
 import {
   ProviderAuthError,
   ProviderScopeError,
@@ -54,6 +57,46 @@ function matchesPattern(email: NormalizedEmail, profile: SyncProfile): boolean {
 function extractSenderEmail(from: string): string {
   const match = from.match(/<([^>]+)>/);
   return (match ? match[1] : from).toLowerCase().trim();
+}
+
+/**
+ * Resolve the per-company `auto_follow_up_days` for a given stage.
+ *
+ * Reads pipeline_stage_configs (per-company override) first, falling back
+ * to PIPELINE_STAGES_DEFAULT and finally to 5 so terminal stages
+ * (won/lost/discarded) never trigger auto-follow-ups. Cached per sync
+ * cycle via a caller-supplied Map to avoid an N+1 lookup per email.
+ */
+async function resolveAutoFollowUpDays(
+  companyId: string,
+  stageSlug: string,
+  cache: Map<string, number>
+): Promise<number> {
+  const cacheKey = `${companyId}:${stageSlug}`;
+  const cached = cache.get(cacheKey);
+  if (cached !== undefined) return cached;
+
+  const supabase = requireSupabase();
+  const { data } = await supabase
+    .from("pipeline_stage_configs")
+    .select("auto_follow_up_days")
+    .eq("company_id", companyId)
+    .eq("slug", stageSlug)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (data?.auto_follow_up_days != null) {
+    const value = Number(data.auto_follow_up_days);
+    cache.set(cacheKey, value);
+    return value;
+  }
+
+  const defaultConfig = PIPELINE_STAGES_DEFAULT.find((s) => s.slug === stageSlug);
+  // null on terminal stages (won/lost/discarded) — return a large value so
+  // StageEvaluator treats it as "never stale," not "stale in 0 days."
+  const resolved = defaultConfig?.autoFollowUpDays ?? 365;
+  cache.set(cacheKey, resolved);
+  return resolved;
 }
 
 function emptyResult(): SyncCycleResult {
@@ -232,82 +275,79 @@ async function updateCorrespondenceCounts(
   opportunityId: string,
   direction: "inbound" | "outbound",
   date: Date,
+  companyId: string,
+  followUpDaysCache: Map<string, number>,
   result: SyncCycleResult
 ): Promise<void> {
   const supabase = requireSupabase();
 
-  const { data: opp } = await supabase
-    .from("opportunities")
-    .select(
-      "correspondence_count, outbound_count, inbound_count, stage, stage_manually_set, last_inbound_at, last_outbound_at"
-    )
-    .eq("id", opportunityId)
-    .single();
-
-  if (!opp) return;
-
-  const dateIso = date.toISOString();
-  const newCorrespondenceCount = (opp.correspondence_count || 0) + 1;
-  const newInboundCount = direction === "inbound" ? (opp.inbound_count || 0) + 1 : (opp.inbound_count || 0);
-  const newOutboundCount = direction === "outbound" ? (opp.outbound_count || 0) + 1 : (opp.outbound_count || 0);
-
-  const updates: Record<string, unknown> = {
-    correspondence_count: newCorrespondenceCount,
-    inbound_count: newInboundCount,
-    outbound_count: newOutboundCount,
-    last_message_direction: direction === "inbound" ? "in" : "out",
-    last_activity_at: dateIso,
-  };
-
-  if (direction === "inbound") {
-    // Only update timestamp if this email is newer than the existing one
-    const existingInbound = opp.last_inbound_at ? new Date(opp.last_inbound_at) : null;
-    if (!existingInbound || date > existingInbound) {
-      updates.last_inbound_at = dateIso;
+  // Atomic increment via RPC so two concurrent syncs can't both read
+  // count=5, both write count=6 (instead of 7). The function also
+  // clears stage_manually_set on inbound (situation evolved, AI may
+  // re-evaluate) and only advances last_inbound_at / last_outbound_at
+  // if the new date is strictly newer.
+  const { data: updated, error: rpcError } = await supabase.rpc(
+    "increment_opportunity_correspondence",
+    {
+      p_opportunity_id: opportunityId,
+      p_is_inbound: direction === "inbound",
+      p_email_date: date.toISOString(),
     }
-    // New inbound email clears manual stage lock — situation has evolved,
-    // AI should be allowed to re-evaluate the stage
-    if (opp.stage_manually_set) {
-      updates.stage_manually_set = false;
-    }
-  } else {
-    const existingOutbound = opp.last_outbound_at ? new Date(opp.last_outbound_at) : null;
-    if (!existingOutbound || date > existingOutbound) {
-      updates.last_outbound_at = dateIso;
-    }
+  );
+
+  if (rpcError || !updated) {
+    console.error(
+      `[sync-engine] Atomic count increment failed for ${opportunityId}:`,
+      rpcError
+    );
+    return;
   }
 
-  // Evaluate stage — but respect manual overrides
-  if (!opp.stage_manually_set) {
+  // RPC returns a single-row table — Supabase shapes that as an array.
+  const row = Array.isArray(updated) ? updated[0] : updated;
+  if (!row) return;
+
+  const newCorrespondenceCount = Number(row.correspondence_count ?? 0);
+  const newInboundCount = Number(row.inbound_count ?? 0);
+  const newOutboundCount = Number(row.outbound_count ?? 0);
+  const currentStage = row.stage as string;
+  const stageManuallySet = Boolean(row.stage_manually_set);
+  const lastInboundAt = row.last_inbound_at
+    ? new Date(row.last_inbound_at as string)
+    : null;
+  const lastOutboundAt = row.last_outbound_at
+    ? new Date(row.last_outbound_at as string)
+    : null;
+
+  // Evaluate stage — respect manual overrides.
+  if (!stageManuallySet) {
+    const autoFollowUpDays = await resolveAutoFollowUpDays(
+      companyId,
+      currentStage,
+      followUpDaysCache
+    );
     const evaluation = StageEvaluator.evaluate({
       outboundCount: newOutboundCount,
       inboundCount: newInboundCount,
       totalMessages: newCorrespondenceCount,
       lastMessageDirection: direction === "inbound" ? "in" : "out",
-      lastInboundAt:
-        direction === "inbound"
-          ? date
-          : opp.last_inbound_at
-            ? new Date(opp.last_inbound_at)
-            : null,
-      lastOutboundAt:
-        direction === "outbound"
-          ? date
-          : opp.last_outbound_at
-            ? new Date(opp.last_outbound_at)
-            : null,
-      currentStage: opp.stage,
-      autoFollowUpDays: 5,
+      lastInboundAt,
+      lastOutboundAt,
+      currentStage,
+      autoFollowUpDays,
     });
 
     if (evaluation.changed) {
-      updates.stage = evaluation.stage;
-      updates.stage_entered_at = new Date().toISOString();
+      await supabase
+        .from("opportunities")
+        .update({
+          stage: evaluation.stage,
+          stage_entered_at: new Date().toISOString(),
+        })
+        .eq("id", opportunityId);
       result.stageChanges++;
     }
   }
-
-  await supabase.from("opportunities").update(updates).eq("id", opportunityId);
 }
 
 async function applyLabel(
@@ -479,6 +519,7 @@ async function processInboundEmail(
   email: NormalizedEmail,
   connection: EmailConnection,
   profile: SyncProfile,
+  followUpDaysCache: Map<string, number>,
   result: SyncCycleResult
 ): Promise<boolean> {
   const supabase = requireSupabase();
@@ -511,6 +552,8 @@ async function processInboundEmail(
       threadLink[0].opportunity_id,
       "inbound",
       email.date,
+      connection.companyId,
+      followUpDaysCache,
       result
     );
     await applyLabel(email.threadId, connection, result);
@@ -598,7 +641,14 @@ async function processInboundEmail(
       );
       await linkThread(oppId, email.threadId, connection.id);
       await createActivity(email, connection, oppId, "inbound");
-      await updateCorrespondenceCounts(oppId, "inbound", email.date, result);
+      await updateCorrespondenceCounts(
+        oppId,
+        "inbound",
+        email.date,
+        connection.companyId,
+        followUpDaysCache,
+        result
+      );
       await applyLabel(email.threadId, connection, result);
       result.matched++;
       result.activitiesCreated++;
@@ -634,6 +684,7 @@ async function processSentEmail(
   email: NormalizedEmail,
   connection: EmailConnection,
   profile: SyncProfile,
+  followUpDaysCache: Map<string, number>,
   result: SyncCycleResult
 ): Promise<void> {
   const supabase = requireSupabase();
@@ -666,6 +717,8 @@ async function processSentEmail(
       threadLink[0].opportunity_id,
       "outbound",
       email.date,
+      connection.companyId,
+      followUpDaysCache,
       result
     );
     result.activitiesCreated++;
@@ -742,7 +795,14 @@ async function processSentEmail(
         );
         await linkThread(oppId, email.threadId, connection.id);
         await createActivity(email, connection, oppId, "outbound");
-        await updateCorrespondenceCounts(oppId, "outbound", email.date, result);
+        await updateCorrespondenceCounts(
+          oppId,
+          "outbound",
+          email.date,
+          connection.companyId,
+          followUpDaysCache,
+          result
+        );
         result.matched++;
         result.activitiesCreated++;
         threadLinkedByThisEmail = true;
@@ -1034,6 +1094,11 @@ export const SyncEngine = {
     const profile = connection.syncFilters as SyncProfile;
     const result = emptyResult();
 
+    // Per-cycle cache so each stage lookup against pipeline_stage_configs
+    // runs at most once per connection sync — dozens of emails may touch
+    // the same stage within a single invocation.
+    const followUpDaysCache = new Map<string, number>();
+
     try {
       // ── Step 0: Bootstrap sync token if missing ─────────────────────────
       //
@@ -1065,17 +1130,29 @@ export const SyncEngine = {
 
       // Step 1: Fetch new emails since last sync (inbox + sent)
       //
+      // `includeSentMail` defaults to true but the user can disable it in
+      // their sync filters — previously the flag was defined in types but
+      // never consulted, so turning it off silently did nothing. When
+      // disabled we skip the Sent-folder fetch (and the downstream
+      // processSentEmail loop below operates on an empty array, which
+      // means no outbound-triggered thread linking and no writing-profile
+      // learning from outbound mail).
+      //
       // Wrapped in a re-seed recovery: if either side reports
       // SyncTokenExpiredError, re-fetch the mailbox's current historyId
       // from /profile, persist it, and return empty. The next cron tick
       // will pick up from the new baseline.
+      const includeSentMail = profile.includeSentMail !== false;
       let inboxResult: SyncResult;
       let sentResult: SyncResult;
       try {
-        [inboxResult, sentResult] = await Promise.all([
+        const fetches: [Promise<SyncResult>, Promise<SyncResult>] = [
           provider.fetchNewEmailsSince(syncToken),
-          provider.fetchSentEmailsSince(syncToken),
-        ]);
+          includeSentMail
+            ? provider.fetchSentEmailsSince(syncToken)
+            : Promise.resolve({ emails: [], nextSyncToken: syncToken }),
+        ];
+        [inboxResult, sentResult] = await Promise.all(fetches);
       } catch (err) {
         if (err instanceof SyncTokenExpiredError) {
           console.warn(
@@ -1144,13 +1221,13 @@ export const SyncEngine = {
       // Step 2-4: Process inbound emails, collect unmatched for AI review
       const unmatchedEmails: NormalizedEmail[] = [];
       for (const email of inboxEmails) {
-        const unmatched = await processInboundEmail(email, connection, profile, result);
+        const unmatched = await processInboundEmail(email, connection, profile, followUpDaysCache, result);
         if (unmatched) unmatchedEmails.push(email);
       }
 
       // Step 3: Process sent emails (sent folder safety net)
       for (const email of sentEmails) {
-        await processSentEmail(email, connection, profile, result);
+        await processSentEmail(email, connection, profile, followUpDaysCache, result);
       }
 
       // Step 5: AI classification for unmatched emails (feature-gated)
@@ -1336,26 +1413,36 @@ export const SyncEngine = {
    * Sweep all active opportunities for stale follow-up detection.
    * Called by the cron independently of new email arrival — catches leads
    * that go quiet (no new emails trigger the per-email evaluator).
+   *
+   * Resolves autoFollowUpDays per-company per-stage from
+   * pipeline_stage_configs, cached for the duration of the sweep.
    */
   async sweepStaleLeads(): Promise<number> {
     const supabase = requireSupabase();
     let stageChanges = 0;
 
-    // Find all active opportunities with outbound as last direction
-    // that haven't had activity in >5 days and aren't already in follow_up/terminal
+    // Select company_id too so we can resolve the per-company autoFollowUpDays
+    // from pipeline_stage_configs.
     const { data: staleOpps } = await supabase
       .from("opportunities")
       .select(
-        "id, stage, stage_manually_set, correspondence_count, outbound_count, inbound_count, last_inbound_at, last_outbound_at, last_message_direction"
+        "id, company_id, stage, stage_manually_set, correspondence_count, outbound_count, inbound_count, last_inbound_at, last_outbound_at, last_message_direction"
       )
       .eq("last_message_direction", "out")
       .not("stage", "in", '("won","lost","follow_up")')
       .is("deleted_at", null)
       .not("last_outbound_at", "is", null);
 
+    const cache = new Map<string, number>();
+
     for (const opp of staleOpps ?? []) {
-      // Respect manual overrides — don't auto-move manually-set stages
       if (opp.stage_manually_set) continue;
+
+      const autoFollowUpDays = await resolveAutoFollowUpDays(
+        opp.company_id as string,
+        opp.stage as string,
+        cache
+      );
 
       const evaluation = StageEvaluator.evaluate({
         outboundCount: opp.outbound_count || 0,
@@ -1369,7 +1456,7 @@ export const SyncEngine = {
           ? new Date(opp.last_outbound_at)
           : null,
         currentStage: opp.stage,
-        autoFollowUpDays: 5,
+        autoFollowUpDays,
       });
 
       if (evaluation.changed) {

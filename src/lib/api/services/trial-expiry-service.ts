@@ -28,6 +28,7 @@ import {
   detectCompanyTimezone,
   formatTrialEndDisplay,
 } from "@/lib/utils/company-timezone";
+import { getAppUrl } from "@/lib/utils/app-url";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -144,8 +145,7 @@ function getPromoCodes(type: TrialNotificationType): PromoCodePair | null {
 }
 
 function getSubscribeUrl(): string {
-  const base = process.env.NEXT_PUBLIC_APP_URL ?? "https://app.opsapp.co";
-  return `${base}/settings?tab=subscription`;
+  return `${getAppUrl()}/settings?tab=subscription`;
 }
 
 function isDiscountType(type: TrialNotificationType): boolean {

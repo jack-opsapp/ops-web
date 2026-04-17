@@ -43,7 +43,7 @@ function FilterSection({
         </span>
         <div className="flex items-center gap-1.5">
           {count > 0 && (
-            <span className="font-mono text-micro text-ops-accent bg-ops-accent-muted/20 px-[6px] py-[1px] rounded-sm">
+            <span className="font-mono text-micro text-ops-accent bg-[rgba(255,255,255,0.08)]/20 px-[6px] py-[1px] rounded-sm">
               {count}
             </span>
           )}

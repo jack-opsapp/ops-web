@@ -80,7 +80,7 @@ function ProjectListItem({
         "w-full text-left px-1.5 py-1 rounded-lg transition-all duration-150",
         "border border-transparent",
         "hover:bg-fill-neutral-dim",
-        isSelected && "bg-fill-neutral-dim border-ops-accent/30 shadow-[inset_2px_0_0_0_#417394]"
+        isSelected && "bg-fill-neutral-dim border-[rgba(255,255,255,0.15)] shadow-[inset_2px_0_0_0_#417394]"
       )}
     >
       <div className="flex items-start gap-1">
@@ -250,7 +250,7 @@ export default function MapPage() {
                   className={cn(
                     "flex items-center gap-[3px] px-[6px] py-[2px] rounded text-micro font-mono transition-colors",
                     isActive
-                      ? "bg-ops-accent/20 text-ops-accent border border-ops-accent/30"
+                      ? "bg-[rgba(255,255,255,0.08)] text-ops-accent border border-[rgba(255,255,255,0.15)]"
                       : "bg-fill-neutral-dim text-text-mute border border-transparent hover:text-text-3"
                   )}
                 >

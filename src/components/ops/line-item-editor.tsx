@@ -332,7 +332,7 @@ export function LineItemEditor({
                 {onEditQuestions && (
                   <button
                     onClick={() => onEditQuestions(item.id)}
-                    className="relative p-[4px] rounded text-text-mute hover:text-ops-accent hover:bg-ops-accent-muted transition-colors"
+                    className="relative p-[4px] rounded text-text-mute hover:text-ops-accent hover:bg-[rgba(255,255,255,0.08)] transition-colors"
                     title="Edit questions"
                   >
                     <HelpCircle className="w-[14px] h-[14px]" />

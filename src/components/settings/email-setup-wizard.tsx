@@ -878,9 +878,9 @@ export function EmailSetupWizard({
                     <div
                       className={`w-[20px] h-[20px] rounded-sm flex items-center justify-center transition-all duration-300 ${
                         isComplete
-                          ? "bg-ops-accent/20 text-ops-accent"
+                          ? "bg-[rgba(255,255,255,0.08)] text-ops-accent"
                           : isActive
-                            ? "bg-ops-accent/10 text-ops-accent"
+                            ? "bg-[rgba(255,255,255,0.05)] text-ops-accent"
                             : "bg-transparent text-text-mute"
                       }`}
                     >
@@ -1155,9 +1155,9 @@ function StepConnect({
               });
               window.location.href = `/api/integrations/gmail?${params}`;
             }}
-            className="w-full flex items-center gap-2 px-2 py-2 border border-border rounded hover:border-ops-accent/40 transition-colors group text-left"
+            className="w-full flex items-center gap-2 px-2 py-2 border border-border rounded hover:border-[rgba(255,255,255,0.18)] transition-colors group text-left"
           >
-            <div className="w-[40px] h-[40px] rounded bg-ops-accent/10 flex items-center justify-center shrink-0 group-hover:bg-ops-accent/15 transition-colors">
+            <div className="w-[40px] h-[40px] rounded bg-[rgba(255,255,255,0.05)] flex items-center justify-center shrink-0 group-hover:bg-[rgba(255,255,255,0.06)] transition-colors">
               <Mail className="w-[20px] h-[20px] text-ops-accent" />
             </div>
             <div className="flex-1 min-w-0">
@@ -1259,7 +1259,7 @@ function StepHowItWorks() {
             className="p-1.5 rounded border border-border-subtle hover:border-border transition-colors"
           >
             <div className="flex items-center gap-[6px] mb-[6px]">
-              <div className="w-[24px] h-[24px] rounded-sm bg-ops-accent/10 flex items-center justify-center">
+              <div className="w-[24px] h-[24px] rounded-sm bg-[rgba(255,255,255,0.05)] flex items-center justify-center">
                 <f.icon className="w-[13px] h-[13px] text-ops-accent" />
               </div>
               <span className="font-mohave text-body-sm text-text font-medium text-left">
@@ -1417,9 +1417,9 @@ function StepScan({
                   <div
                     className={`w-[14px] h-[14px] rounded-full flex items-center justify-center ${
                       isDone
-                        ? "bg-ops-accent/20"
+                        ? "bg-[rgba(255,255,255,0.08)]"
                         : isActive
-                          ? "bg-ops-accent/10"
+                          ? "bg-[rgba(255,255,255,0.05)]"
                           : "bg-border-subtle"
                     }`}
                   >
@@ -2438,7 +2438,7 @@ function StepReview({
                           className={`w-[18px] h-[18px] rounded-sm border-2 flex items-center justify-center cursor-pointer transition-all ${
                             contact.excluded
                               ? "border-text-disabled/30 bg-transparent"
-                              : "border-ops-accent bg-ops-accent/10"
+                              : "border-ops-accent bg-[rgba(255,255,255,0.05)]"
                           }`}
                         >
                           {!contact.excluded && (
@@ -2715,7 +2715,7 @@ function StepImport({
               disabled={importStarted}
               className={`px-1.5 py-[6px] rounded border font-kosugi text-[11px] transition-all ${
                 !useCustom && importDays === p.days
-                  ? "border-ops-accent bg-ops-accent/10 text-ops-accent"
+                  ? "border-ops-accent bg-[rgba(255,255,255,0.05)] text-ops-accent"
                   : "border-border-subtle text-text-2 hover:border-border"
               }`}
             >
@@ -2727,7 +2727,7 @@ function StepImport({
             disabled={importStarted}
             className={`px-1.5 py-[6px] rounded border font-kosugi text-[11px] transition-all ${
               useCustom
-                ? "border-ops-accent bg-ops-accent/10 text-ops-accent"
+                ? "border-ops-accent bg-[rgba(255,255,255,0.05)] text-ops-accent"
                 : "border-border-subtle text-text-2 hover:border-border"
             }`}
           >
@@ -2796,7 +2796,7 @@ function StepImport({
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="flex items-center gap-[8px] px-1.5 py-1 rounded bg-ops-accent/10 border border-ops-accent/20"
+          className="flex items-center gap-[8px] px-1.5 py-1 rounded bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.12)]"
         >
           <Loader2 className="w-[16px] h-[16px] text-ops-accent animate-spin" />
           <span className="font-mohave text-body-sm text-ops-accent text-left">

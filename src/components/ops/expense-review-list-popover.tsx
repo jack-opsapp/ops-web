@@ -500,7 +500,7 @@ export function ExpenseReviewListPopover() {
               className={cn(
                 "px-2 py-0.5 rounded-sm font-kosugi text-micro uppercase tracking-wider transition-colors shrink-0",
                 selectedPeriod === "all"
-                  ? "bg-ops-accent/15 text-ops-accent border border-ops-accent/30"
+                  ? "bg-[rgba(255,255,255,0.06)] text-ops-accent border border-[rgba(255,255,255,0.15)]"
                   : "text-text-mute hover:text-text-2 border border-transparent"
               )}
             >
@@ -513,7 +513,7 @@ export function ExpenseReviewListPopover() {
                 className={cn(
                   "px-2 py-0.5 rounded-sm font-kosugi text-micro uppercase tracking-wider transition-colors shrink-0",
                   selectedPeriod === key
-                    ? "bg-ops-accent/15 text-ops-accent border border-ops-accent/30"
+                    ? "bg-[rgba(255,255,255,0.06)] text-ops-accent border border-[rgba(255,255,255,0.15)]"
                     : "text-text-mute hover:text-text-2 border border-transparent"
                 )}
               >

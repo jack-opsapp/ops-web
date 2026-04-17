@@ -16,9 +16,9 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { getAppUrl } from "@/lib/utils/app-url";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_GMAIL_CLIENT_ID;
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const redirectUri = `${BASE_URL}/api/integrations/gmail/callback`;
+  const redirectUri = `${getAppUrl()}/api/integrations/gmail/callback`;
 
   // Encode full OAuth context into state. Google returns this verbatim on
   // the callback. Using base64 JSON so we can carry structured data through

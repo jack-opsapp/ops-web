@@ -70,7 +70,7 @@ function PaymentMethodCard({ method, onRemove, isRemoving }: { method: PaymentMe
       </div>
       <div className="flex items-center gap-1">
         {method.isDefault && (
-          <span className="font-kosugi text-micro text-ops-accent bg-ops-accent-muted px-[6px] py-[2px] rounded-full uppercase tracking-wider">
+          <span className="font-kosugi text-micro text-ops-accent bg-[rgba(255,255,255,0.08)] px-[6px] py-[2px] rounded-full uppercase tracking-wider">
             {t("billing.defaultBadge")}
           </span>
         )}

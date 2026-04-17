@@ -149,13 +149,13 @@ const roleStyleConfig: Record<
   office: {
     icon: Shield,
     color: "text-ops-accent",
-    bg: "bg-ops-accent-muted",
+    bg: "bg-[rgba(255,255,255,0.08)]",
     borderColor: "border-l-[#6F94B0]",
   },
   operator: {
     icon: Shield,
     color: "text-ops-accent",
-    bg: "bg-ops-accent-muted",
+    bg: "bg-[rgba(255,255,255,0.08)]",
     borderColor: "border-l-[#417394]",
   },
   crew: {
@@ -238,7 +238,7 @@ function RoleSelector({
               className={cn(
                 "flex items-center gap-1 w-full px-1.5 py-[8px] transition-colors font-mohave text-body-sm",
                 isActive
-                  ? "bg-ops-accent-muted text-ops-accent"
+                  ? "bg-[rgba(255,255,255,0.08)] text-text"
                   : "text-text-2 hover:text-text-2 hover:bg-fill-neutral-dim"
               )}
             >
@@ -305,7 +305,7 @@ function TeamMemberCard({
             <div
               className={cn(
                 "w-[48px] h-[48px] rounded-full flex items-center justify-center shrink-0",
-                isInactive ? "bg-fill-neutral-dim" : "bg-ops-accent-muted"
+                isInactive ? "bg-fill-neutral-dim" : "bg-[rgba(255,255,255,0.08)]"
               )}
               style={
                 member.userColor && !isInactive

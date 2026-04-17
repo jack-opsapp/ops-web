@@ -7,12 +7,12 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
+import { getAppUrl } from "@/lib/utils/app-url";
 
 const QB_CLIENT_ID = process.env.QB_CLIENT_ID;
 const QB_CLIENT_SECRET = process.env.QB_CLIENT_SECRET;
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
 const QB_REDIRECT_URI =
-  process.env.QB_REDIRECT_URI ?? `${BASE_URL}/api/integrations/quickbooks/callback`;
+  process.env.QB_REDIRECT_URI ?? `${getAppUrl()}/api/integrations/quickbooks/callback`;
 
 const INTUIT_TOKEN_URL =
   "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer";
@@ -27,19 +27,19 @@ export async function GET(request: NextRequest) {
   // Handle user denial
   if (error) {
     return NextResponse.redirect(
-      `${BASE_URL}/accounting?status=error&message=${encodeURIComponent(error)}`
+      `${getAppUrl()}/accounting?status=error&message=${encodeURIComponent(error)}`
     );
   }
 
   if (!code || !state || !realmId) {
     return NextResponse.redirect(
-      `${BASE_URL}/accounting?status=error&message=missing_params`
+      `${getAppUrl()}/accounting?status=error&message=missing_params`
     );
   }
 
   if (!QB_CLIENT_ID || !QB_CLIENT_SECRET) {
     return NextResponse.redirect(
-      `${BASE_URL}/accounting?status=error&message=not_configured`
+      `${getAppUrl()}/accounting?status=error&message=not_configured`
     );
   }
 
@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
   const colonIdx = state.indexOf(":");
   if (colonIdx < 1) {
     return NextResponse.redirect(
-      `${BASE_URL}/accounting?status=error&message=invalid_state`
+      `${getAppUrl()}/accounting?status=error&message=invalid_state`
     );
   }
   const companyId = state.substring(0, colonIdx);
@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
 
   if (!existing || existing.webhook_verifier_token !== state) {
     return NextResponse.redirect(
-      `${BASE_URL}/accounting?status=error&message=csrf_mismatch`
+      `${getAppUrl()}/accounting?status=error&message=csrf_mismatch`
     );
   }
 
@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
       const errorData = await tokenResponse.text();
       console.error("QB token exchange failed:", errorData);
       return NextResponse.redirect(
-        `${BASE_URL}/accounting?status=error&message=token_exchange_failed`
+        `${getAppUrl()}/accounting?status=error&message=token_exchange_failed`
       );
     }
 
@@ -119,17 +119,17 @@ export async function GET(request: NextRequest) {
     if (upsertError) {
       console.error("Failed to store QB tokens:", upsertError.message);
       return NextResponse.redirect(
-        `${BASE_URL}/accounting?status=error&message=storage_failed`
+        `${getAppUrl()}/accounting?status=error&message=storage_failed`
       );
     }
 
     return NextResponse.redirect(
-      `${BASE_URL}/accounting?connected=quickbooks`
+      `${getAppUrl()}/accounting?connected=quickbooks`
     );
   } catch (err) {
     console.error("QuickBooks OAuth callback error:", err);
     return NextResponse.redirect(
-      `${BASE_URL}/accounting?status=error&message=unexpected_error`
+      `${getAppUrl()}/accounting?status=error&message=unexpected_error`
     );
   }
 }

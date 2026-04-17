@@ -230,9 +230,8 @@ export function FloatingActionButton() {
                   onClick={() => handleAction(action)}
                   className={cn(
                     "relative flex items-center gap-2 pl-2 pr-3 py-2 rounded-panel",
-                    "bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2]",
-                    "border border-[rgba(255,255,255,0.08)]",
-                    "hover:border-[rgba(255,255,255,0.15)] hover:bg-[rgba(255,255,255,0.05)]",
+                    "glass-surface",
+                    "hover:bg-[rgba(255,255,255,0.04)]",
                     "transition-colors duration-150 whitespace-nowrap"
                   )}
                   whileHover={prefersReducedMotion ? undefined : { scale: 1.02 }}
@@ -250,13 +249,13 @@ export function FloatingActionButton() {
                         e.stopPropagation();
                         removeAction(action.id);
                       }}
-                      className="absolute -top-1.5 -left-1.5 w-3 h-3 rounded-full bg-[#93321A] flex items-center justify-center cursor-pointer"
+                      className="absolute -top-1.5 -left-1.5 w-3 h-3 rounded-full bg-ops-error flex items-center justify-center cursor-pointer"
                     >
-                      <Minus className="w-2 h-2 text-white" />
+                      <Minus className="w-2 h-2 text-text" />
                     </motion.div>
                   )}
-                  <action.icon className="w-4 h-4 text-[#E5E5E5] shrink-0" />
-                  <span className="font-mohave text-[14px] font-light text-[#E5E5E5]">
+                  <action.icon className="w-4 h-4 text-text shrink-0" />
+                  <span className="font-mohave text-body-sm text-text">
                     {action.label}
                   </span>
                 </motion.button>
@@ -273,13 +272,13 @@ export function FloatingActionButton() {
                   onClick={() => setShowAddDropdown((prev) => !prev)}
                   className={cn(
                     "flex items-center gap-2 pl-2 pr-3 py-2 rounded-panel",
-                    "border border-dashed border-[rgba(255,255,255,0.08)]",
-                    "hover:border-[rgba(255,255,255,0.15)]",
+                    "border border-dashed border-[rgba(255,255,255,0.10)]",
+                    "hover:border-[rgba(255,255,255,0.18)]",
                     "transition-colors duration-150 whitespace-nowrap"
                   )}
                 >
-                  <Plus className="w-4 h-4 text-[#999999] shrink-0" />
-                  <span className="font-mohave text-[14px] font-light text-[#999999]">
+                  <Plus className="w-4 h-4 text-text-3 shrink-0" />
+                  <span className="font-mohave text-body-sm text-text-3">
                     Add Action
                   </span>
                 </motion.button>
@@ -294,9 +293,8 @@ export function FloatingActionButton() {
                     exit={{ opacity: 0, y: -8 }}
                     transition={{ duration: 0.15 }}
                     className={cn(
-                      "absolute top-0 right-full mr-2 flex flex-col gap-1 p-1 rounded-panel",
-                      "bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2]",
-                      "border border-[rgba(255,255,255,0.08)]"
+                      "absolute top-0 right-full mr-2 flex flex-col gap-1 p-1 rounded-modal",
+                      "glass-dense"
                     )}
                   >
                     {ALL_ACTIONS.filter(
@@ -306,13 +304,14 @@ export function FloatingActionButton() {
                         key={action.id}
                         onClick={() => addAction(action.id)}
                         className={cn(
-                          "flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-panel",
-                          "hover:bg-[rgba(255,255,255,0.05)]",
-                          "transition-colors duration-150 whitespace-nowrap"
+                          "flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-[6px]",
+                          "hover:bg-[rgba(255,255,255,0.04)]",
+                          "transition-colors duration-150 whitespace-nowrap",
+                          "text-text-3 hover:text-text"
                         )}
                       >
-                        <action.icon className="w-4 h-4 text-[#999999] shrink-0" />
-                        <span className="font-mohave text-[14px] font-light text-[#999999]">
+                        <action.icon className="w-4 h-4 shrink-0" />
+                        <span className="font-mohave text-body-sm">
                           {action.label}
                         </span>
                       </button>
@@ -333,16 +332,15 @@ export function FloatingActionButton() {
           onPointerCancel={cancelLongPress}
           className={cn(
             "w-[52px] h-[52px] rounded-full flex items-center justify-center",
-            "bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2]",
-            "border-2 border-[rgba(255,255,255,0.20)]",
-            "hover:border-[rgba(255,255,255,0.30)]",
+            "glass-surface !border-2 !border-[rgba(255,255,255,0.20)]",
+            "hover:!border-[rgba(255,255,255,0.30)]",
             "transition-colors duration-150"
           )}
           animate={{ rotate: open || editMode ? 225 : 0 }}
           transition={prefersReducedMotion ? { duration: 0 } : SPRING_FAB}
           title="Quick actions"
         >
-          <Plus className="w-5 h-5 text-[#E5E5E5]" />
+          <Plus className="w-5 h-5 text-text" />
         </motion.button>
       </div>
 

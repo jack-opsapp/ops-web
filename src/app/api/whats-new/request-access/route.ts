@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { sendBetaAccessRequest } from "@/lib/email/sendgrid";
+import { getAppUrl } from "@/lib/utils/app-url";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -86,7 +87,7 @@ export async function POST(req: NextRequest) {
       companyIndustries: company_industries ?? [],
       featureTitle,
       featureDescription,
-      adminUrl: `${process.env.NEXT_PUBLIC_APP_URL}/admin/feature-releases`,
+      adminUrl: `${getAppUrl()}/admin/feature-releases`,
     });
 
     return NextResponse.json({ success: true, request_id: request.id });

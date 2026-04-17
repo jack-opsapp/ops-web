@@ -121,7 +121,7 @@ export function ExpenseSettingsTab() {
                 className={cn(
                   "flex-1 px-3 py-2 rounded border text-center font-mohave text-body transition-all disabled:opacity-40 disabled:cursor-not-allowed",
                   reviewFrequency === freq.id
-                    ? "bg-ops-accent-muted border-ops-accent text-text"
+                    ? "bg-[rgba(255,255,255,0.08)] border-[rgba(255,255,255,0.18)] text-text"
                     : "bg-surface-input border-border text-text-2 hover:border-border-medium"
                 )}
               >

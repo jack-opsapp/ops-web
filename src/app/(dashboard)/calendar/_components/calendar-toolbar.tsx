@@ -101,7 +101,7 @@ export function CalendarToolbar({ events, t }: CalendarToolbarProps) {
             <button
               key={filter.label}
               onClick={filter.onRemove}
-              className="flex items-center gap-[4px] px-[8px] py-[2px] rounded-sm bg-ops-accent-muted/20 border border-ops-accent/20 text-ops-accent font-kosugi text-micro uppercase tracking-wider hover:bg-ops-accent-muted/30 transition-colors"
+              className="flex items-center gap-[4px] px-[8px] py-[2px] rounded-sm bg-[rgba(255,255,255,0.08)]/20 border border-[rgba(255,255,255,0.12)] text-ops-accent font-kosugi text-micro uppercase tracking-wider hover:bg-[rgba(255,255,255,0.08)]/30 transition-colors"
             >
               {filter.label}
               <X className="w-[10px] h-[10px]" />
