@@ -153,7 +153,7 @@ function FieldPill({
   if (editing) {
     return (
       <div className="flex flex-col gap-0.5">
-        <span className="font-kosugi text-micro uppercase tracking-wider text-white/25">
+        <span className="font-mono text-micro uppercase tracking-wider text-white/25">
           {label}
         </span>
         <input
@@ -183,7 +183,7 @@ function FieldPill({
   if (!value) {
     return (
       <div className="flex flex-col gap-0.5">
-        <span className="font-kosugi text-micro uppercase tracking-wider text-white/25">
+        <span className="font-mono text-micro uppercase tracking-wider text-white/25">
           {label}
         </span>
         <button
@@ -201,7 +201,7 @@ function FieldPill({
 
   return (
     <div className="flex flex-col gap-0.5">
-      <span className="font-kosugi text-micro uppercase tracking-wider text-white/25">
+      <span className="font-mono text-micro uppercase tracking-wider text-white/25">
         {label}
       </span>
       <div
@@ -374,7 +374,7 @@ function InteractiveEntityCard({
           if (!dateRange) return null;
           return (
             <div key={ro.field} className="flex flex-col gap-0.5">
-              <span className="font-kosugi text-micro uppercase tracking-wider text-white/25">
+              <span className="font-mono text-micro uppercase tracking-wider text-white/25">
                 {t(ro.label) || ro.field}
               </span>
               <span className="font-mohave text-[13px] leading-tight text-white/50">
@@ -388,7 +388,7 @@ function InteractiveEntityCard({
         if (!formatted) return null;
         return (
           <div key={ro.field} className="flex flex-col gap-0.5">
-            <span className="font-kosugi text-micro uppercase tracking-wider text-white/25">
+            <span className="font-mono text-micro uppercase tracking-wider text-white/25">
               {t(ro.label) || ro.field}
             </span>
             <span className="font-mohave text-[13px] leading-tight text-white/50">
@@ -609,7 +609,7 @@ export function DuplicateClusterCard({
       {/* Signal badges */}
       <div className="flex flex-wrap items-center gap-1.5">
         <span
-          className={`rounded-[2px] px-2 py-0.5 font-kosugi text-micro uppercase tracking-wider ${
+          className={`rounded-[2px] px-2 py-0.5 font-mono text-micro uppercase tracking-wider ${
             cluster.confidence === "high"
               ? "bg-red-500/20 text-red-400"
               : "bg-amber-500/20 text-amber-400"
@@ -620,7 +620,7 @@ export function DuplicateClusterCard({
         {cluster.signals.map((s, i) => (
           <span
             key={i}
-            className="rounded-[2px] bg-white/5 px-2 py-0.5 font-kosugi text-micro text-white/40"
+            className="rounded-[2px] bg-white/5 px-2 py-0.5 font-mono text-micro text-white/40"
           >
             {t(`signals.${s.type}`) || s.type}
           </span>
@@ -646,7 +646,7 @@ export function DuplicateClusterCard({
             >
               {/* Status badge — top right */}
               <span
-                className={`absolute right-2 top-2 rounded-[2px] px-[6px] py-[1px] font-kosugi text-micro uppercase tracking-wider transition-colors duration-300 ${
+                className={`absolute right-2 top-2 rounded-[2px] px-[6px] py-[1px] font-mono text-micro uppercase tracking-wider transition-colors duration-300 ${
                   isDuplicate
                     ? "bg-[#93321A]/15 text-[#93321A]"
                     : "bg-[#A5B368]/15 text-[#A5B368]"

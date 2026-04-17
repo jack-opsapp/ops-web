@@ -103,7 +103,7 @@ function WelcomeContent() {
             href={appStoreUrl}
             target="_blank"
             rel="noopener"
-            className="bg-ops-accent hover:bg-ops-accent-hover text-text font-kosugi text-button uppercase tracking-wider rounded-sm px-6 py-3 w-full inline-flex items-center justify-center gap-2 transition-colors"
+            className="bg-ops-accent hover:bg-ops-accent-hover text-text font-mono text-button uppercase tracking-wider rounded-sm px-6 py-3 w-full inline-flex items-center justify-center gap-2 transition-colors"
             animate={pulseOn ? { opacity: [0.6, 1] } : undefined}
             transition={{ duration: 0.4, ease: EASE_SMOOTH }}
           >
@@ -112,7 +112,7 @@ function WelcomeContent() {
           </motion.a>
           <Link
             href="/employee-setup?fromInvite=1"
-            className="font-kosugi text-micro uppercase tracking-wider text-text-3 hover:text-text-2 transition-colors text-center inline-flex items-center justify-center gap-1"
+            className="font-mono text-micro uppercase tracking-wider text-text-3 hover:text-text-2 transition-colors text-center inline-flex items-center justify-center gap-1"
           >
             Continue on web
             <ArrowRight className="w-[12px] h-[12px]" />

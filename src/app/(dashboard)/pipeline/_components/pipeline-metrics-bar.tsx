@@ -201,7 +201,7 @@ function WinRateRing({ rate }: { rate: number }) {
           {rate}%
         </text>
       </svg>
-      <span className="font-kosugi text-[11px] text-text-3 uppercase tracking-[0.12em]">
+      <span className="font-mono text-[11px] text-text-3 uppercase tracking-[0.12em]">
         WIN RATE
       </span>
     </div>
@@ -382,7 +382,7 @@ export function PipelineMetricsBar({
               />
             )}
           </span>
-          <span className="font-kosugi text-[11px] text-text-3 uppercase tracking-[0.12em] mt-[2px]">
+          <span className="font-mono text-[11px] text-text-3 uppercase tracking-[0.12em] mt-[2px]">
             {t("metrics.pipelineValue")}
           </span>
         </div>
@@ -410,7 +410,7 @@ export function PipelineMetricsBar({
                 </span>
               </div>
             ))}
-            <span className="font-kosugi text-[11px] text-text-mute uppercase tracking-[0.08em] ml-auto hidden sm:inline">
+            <span className="font-mono text-[11px] text-text-mute uppercase tracking-[0.08em] ml-auto hidden sm:inline">
               {metrics.activeCount} {t("metrics.active").toLowerCase()}
             </span>
           </div>
@@ -467,7 +467,7 @@ export function PipelineMetricsBar({
             </div>
           )}
           <div className="flex items-center gap-[2px] mt-[2px]">
-            <span className="font-kosugi text-[11px] text-text-3 uppercase tracking-[0.12em]">
+            <span className="font-mono text-[11px] text-text-3 uppercase tracking-[0.12em]">
               {t("metrics.won")}
             </span>
             <ChevronDown
@@ -523,7 +523,7 @@ export function PipelineMetricsBar({
             </div>
           )}
           <div className="flex items-center gap-[2px] mt-[2px]">
-            <span className="font-kosugi text-[11px] text-text-3 uppercase tracking-[0.12em]">
+            <span className="font-mono text-[11px] text-text-3 uppercase tracking-[0.12em]">
               LOST
             </span>
             <ChevronDown
@@ -564,7 +564,7 @@ export function PipelineMetricsBar({
             </span>
           </div>
           <div className="flex items-center gap-[2px] mt-[2px]">
-            <span className="font-kosugi text-[11px] text-text-3 uppercase tracking-[0.12em]">
+            <span className="font-mono text-[11px] text-text-3 uppercase tracking-[0.12em]">
               {t("metrics.discarded")}
             </span>
             <ChevronDown

@@ -63,7 +63,7 @@ export function AppearanceTab() {
               </button>
             ))}
           </div>
-          <p className="font-kosugi text-[11px] text-text-mute mt-1">
+          <p className="font-mono text-[11px] text-text-mute mt-1">
             {t("appearance.lightComingSoonDesc")}
           </p>
         </CardContent>
@@ -144,7 +144,7 @@ export function AppearanceTab() {
           <div className="flex items-center justify-between">
             <div>
               <p className="font-mohave text-body text-text">{t("appearance.compact")}</p>
-              <p className="font-kosugi text-[11px] text-text-3">
+              <p className="font-mono text-[11px] text-text-3">
                 {t("appearance.compactDesc")}
               </p>
             </div>

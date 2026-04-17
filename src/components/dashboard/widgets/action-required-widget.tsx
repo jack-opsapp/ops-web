@@ -256,7 +256,7 @@ export function ActionRequiredWidget({
     return (
       <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
+          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
             {t("actionRequired.title") ?? "Action Required"}
           </span>
           <WidgetSkeleton variant="list" />
@@ -270,7 +270,7 @@ export function ActionRequiredWidget({
     return (
       <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
-          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider">
+          <span className="font-mono text-micro text-text-3 uppercase tracking-wider">
             {t("actionRequired.title") ?? "Action Required"}
           </span>
           <WidgetEmptyState
@@ -321,7 +321,7 @@ export function ActionRequiredWidget({
               </div>
             </PopoverContent>
           </Popover>
-          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
+          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
             {t("actionRequired.title") ?? "Action Required"}
           </span>
           <WidgetTrendContext
@@ -352,7 +352,7 @@ export function ActionRequiredWidget({
             </button>
           </div>
           {/* Row 2: Title */}
-          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
+          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
             {t("actionRequired.title") ?? "Action Required"}
           </span>
           {/* Row 3: Health indicator */}
@@ -376,7 +376,7 @@ export function ActionRequiredWidget({
                   </PopoverTrigger>
                   <PopoverContent align="start" side="bottom" collisionPadding={8} className="w-auto p-1 min-w-[200px] max-w-[280px]">
                     <div className="px-2 py-1 border-b border-border-subtle mb-1">
-                      <span className="font-kosugi text-micro text-text-mute uppercase">
+                      <span className="font-mono text-micro text-text-mute uppercase">
                         {t(config.labelKey) ?? type}
                       </span>
                     </div>
@@ -465,7 +465,7 @@ export function ActionRequiredWidget({
       <div className="h-full flex flex-col p-3">
         {/* Header */}
         <div className="flex items-center justify-between mb-2">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
+          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
             {t("actionRequired.title") ?? "Action Required"}
           </span>
           <span
@@ -488,7 +488,7 @@ export function ActionRequiredWidget({
                     <span className="font-mono text-data-sm font-bold" style={{ color: count > 0 ? config.color : "var(--text-disabled)" }}>
                       {count}
                     </span>
-                    <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider text-center leading-tight">
+                    <span className="font-mono text-micro text-text-mute uppercase tracking-wider text-center leading-tight">
                       {t(config.labelKey) ?? type}
                     </span>
                   </div>

@@ -62,7 +62,7 @@ export function ConversationItem({
         <div
           className={cn(
             "w-[28px] h-[28px] rounded-full flex items-center justify-center shrink-0",
-            "font-kosugi text-caption-sm font-semibold",
+            "font-mono text-caption-sm font-semibold",
             isUnmatched
               ? "bg-ops-amber-muted text-ops-amber"
               : isActive
@@ -89,11 +89,11 @@ export function ConversationItem({
               {hasAutoDraft && (
                 <Sparkles className="w-[14px] h-[14px] text-text-2" />
               )}
-              <span className="font-kosugi text-micro text-text-mute">
+              <span className="font-mono text-micro text-text-mute">
                 {formatRelativeTime(conversation.lastMessageAt)}
               </span>
               {hasUnread && (
-                <span className="inline-flex items-center justify-center min-w-[14px] h-[14px] px-1 rounded-full bg-fill-neutral text-text font-kosugi text-micro leading-none">
+                <span className="inline-flex items-center justify-center min-w-[14px] h-[14px] px-1 rounded-full bg-fill-neutral text-text font-mono text-micro leading-none">
                   {conversation.unreadCount > 99 ? "99+" : conversation.unreadCount}
                 </span>
               )}
@@ -102,7 +102,7 @@ export function ConversationItem({
 
           {/* Project name */}
           {conversation.projectName && (
-            <span className="font-kosugi text-micro text-text-mute uppercase block mt-0.5 truncate">
+            <span className="font-mono text-micro text-text-mute uppercase block mt-0.5 truncate">
               {conversation.projectName}
             </span>
           )}
@@ -111,7 +111,7 @@ export function ConversationItem({
           <div className="flex items-center gap-1.5 mt-1">
             <span
               className={cn(
-                "px-1.5 py-0.5 rounded-chip font-kosugi text-micro shrink-0 border",
+                "px-1.5 py-0.5 rounded-chip font-mono text-micro shrink-0 border",
                 channelBadge.variant === "tan"
                   ? "bg-ops-amber-muted text-ops-amber border-[rgba(196,168,104,0.28)]"
                   : "bg-[rgba(255,255,255,0.05)] text-text-2 border-[rgba(255,255,255,0.10)]"

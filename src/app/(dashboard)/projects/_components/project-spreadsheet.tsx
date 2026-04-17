@@ -358,7 +358,7 @@ export function ProjectSpreadsheet({
 
       {/* Footer */}
       <div className="px-2 py-1 flex justify-end">
-        <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
+        <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
           {t("spreadsheet.footer.showing")
             .replace("{count}", String(displayProjects.length))
             .replace("{total}", String(totalCount))}

@@ -157,7 +157,7 @@ function ConnectionCard({
             <h3 className="font-mohave text-body text-text uppercase">
               {t(i18nKeys.name)}
             </h3>
-            <p className="font-kosugi text-caption-sm text-text-3 mt-0.5">
+            <p className="font-mono text-caption-sm text-text-3 mt-0.5">
               {t(i18nKeys.description)}
             </p>
           </div>
@@ -166,7 +166,7 @@ function ConnectionCard({
         {/* Status indicator */}
         <div
           className={cn(
-            "flex items-center gap-1 px-1.5 py-0.5 rounded-full text-micro font-kosugi uppercase tracking-wider",
+            "flex items-center gap-1 px-1.5 py-0.5 rounded-full text-micro font-mono uppercase tracking-wider",
             isConnected
               ? "bg-[rgba(157,181,130,0.15)] text-status-success"
               : "bg-[rgba(156,163,175,0.1)] text-text-3"
@@ -190,7 +190,7 @@ function ConnectionCard({
       {isConnected && connection && (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1 border-t border-border">
           <div>
-            <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider block">
+            <span className="font-mono text-micro text-text-mute uppercase tracking-wider block">
               {t("integrations.lastSynced")}
             </span>
             <span className="font-mono text-data-sm text-text-2">
@@ -205,7 +205,7 @@ function ConnectionCard({
             </span>
           </div>
           <div>
-            <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider block">
+            <span className="font-mono text-micro text-text-mute uppercase tracking-wider block">
               {t("integrations.autoSync")}
             </span>
             <span className="font-mono text-data-sm text-text-2">
@@ -213,7 +213,7 @@ function ConnectionCard({
             </span>
           </div>
           <div>
-            <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider block">
+            <span className="font-mono text-micro text-text-mute uppercase tracking-wider block">
               {t("integrations.realmId")}
             </span>
             <span className="font-mono text-data-sm text-text-2 truncate block">
@@ -282,7 +282,7 @@ function SyncHistoryRow({
   return (
     <div className="flex items-center gap-2 px-1.5 py-1 rounded hover:bg-[rgba(255,255,255,0.02)]">
       {statusIcon}
-      <span className="font-kosugi text-caption-sm text-text-2 uppercase flex-1 truncate">
+      <span className="font-mono text-caption-sm text-text-2 uppercase flex-1 truncate">
         {entry.provider} — {entry.status}
       </span>
       <span className="font-mono text-micro text-text-mute shrink-0">
@@ -294,7 +294,7 @@ function SyncHistoryRow({
         })}
       </span>
       {entry.details && (
-        <span className="font-kosugi text-micro text-text-mute truncate max-w-[200px]">
+        <span className="font-mono text-micro text-text-mute truncate max-w-[200px]">
           {entry.details}
         </span>
       )}
@@ -320,7 +320,7 @@ function AgingBar({
   return (
     <div className="space-y-0.5">
       <div className="flex justify-between">
-        <span className="font-kosugi text-caption-sm text-text-3 uppercase tracking-wider">
+        <span className="font-mono text-caption-sm text-text-3 uppercase tracking-wider">
           {label}
         </span>
         <span className="font-mono text-data-sm text-text-2">
@@ -554,7 +554,7 @@ export default function AccountingPage() {
                 {t("topClients.title")}
               </h2>
               {topClients.length === 0 ? (
-                <p className="font-kosugi text-caption-sm text-text-mute py-3 text-center">
+                <p className="font-mono text-caption-sm text-text-mute py-3 text-center">
                   {t("topClients.noData")}
                 </p>
               ) : (
@@ -568,7 +568,7 @@ export default function AccountingPage() {
                         <span className="font-mono text-micro text-text-mute w-[16px] text-right shrink-0">
                           {idx + 1}.
                         </span>
-                        <span className="font-kosugi text-caption text-text-2 truncate">
+                        <span className="font-mono text-caption text-text-2 truncate">
                           {client.name}
                         </span>
                       </div>
@@ -603,7 +603,7 @@ export default function AccountingPage() {
                     key={status}
                     className="flex flex-col gap-0.5 p-1.5 rounded bg-[rgba(255,255,255,0.02)] border border-border"
                   >
-                    <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
+                    <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
                       {status}
                     </span>
                     <span className="font-mono text-data text-text">{count}</span>
@@ -668,7 +668,7 @@ export default function AccountingPage() {
                 <Loader2 className="w-[20px] h-[20px] text-text-mute animate-spin" />
               </div>
             ) : syncHistory.length === 0 ? (
-              <p className="font-kosugi text-caption-sm text-text-mute py-4 text-center">
+              <p className="font-mono text-caption-sm text-text-mute py-4 text-center">
                 {t("integrations.noSyncHistory")}
               </p>
             ) : (
@@ -690,7 +690,7 @@ export default function AccountingPage() {
                 <div className="w-[20px] h-[20px] rounded-full bg-[rgba(44,160,28,0.1)] flex items-center justify-center shrink-0 mt-0.5">
                   <span className="font-mono text-micro text-status-success">1</span>
                 </div>
-                <p className="font-kosugi text-caption-sm text-text-2">
+                <p className="font-mono text-caption-sm text-text-2">
                   <strong className="text-text">{t("integrations.outbound")}</strong> {t("integrations.outboundDesc")}
                 </p>
               </div>
@@ -698,7 +698,7 @@ export default function AccountingPage() {
                 <div className="w-[20px] h-[20px] rounded-full bg-[rgba(129,149,181,0.1)] flex items-center justify-center shrink-0 mt-0.5">
                   <span className="font-mono text-micro text-[#8195B5]">2</span>
                 </div>
-                <p className="font-kosugi text-caption-sm text-text-2">
+                <p className="font-mono text-caption-sm text-text-2">
                   <strong className="text-text">{t("integrations.inbound")}</strong> {t("integrations.inboundDesc")}
                 </p>
               </div>
@@ -706,7 +706,7 @@ export default function AccountingPage() {
                 <div className="w-[20px] h-[20px] rounded-full bg-[rgba(196,168,104,0.1)] flex items-center justify-center shrink-0 mt-0.5">
                   <span className="font-mono text-micro text-[#C4A868]">3</span>
                 </div>
-                <p className="font-kosugi text-caption-sm text-text-2">
+                <p className="font-mono text-caption-sm text-text-2">
                   <strong className="text-text">{t("integrations.conflicts")}</strong> {t("integrations.conflictsDesc")}
                 </p>
               </div>

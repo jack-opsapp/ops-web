@@ -38,7 +38,7 @@ const MetricCard = React.forwardRef<HTMLDivElement, MetricCardProps>(
       >
         {/* Header row: label + icon */}
         <div className="flex items-center justify-between">
-          <span className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
+          <span className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">
             {label}
           </span>
           {icon && (

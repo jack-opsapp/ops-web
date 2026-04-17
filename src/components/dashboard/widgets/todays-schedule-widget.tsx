@@ -96,7 +96,7 @@ export function TodaysScheduleWidget({
     return (
       <Card className="h-full">
         <CardHeader className="pb-1 pt-2 px-3">
-          <CardTitle className="font-kosugi text-micro uppercase tracking-wider text-text-3">
+          <CardTitle className="font-mono text-micro uppercase tracking-wider text-text-3">
             {t("todaysSchedule.title") ?? "Schedule"}
           </CardTitle>
         </CardHeader>
@@ -117,7 +117,7 @@ export function TodaysScheduleWidget({
             <span className="font-mono text-display font-bold text-text-mute leading-none">
               0
             </span>
-            <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
+            <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
               {t("todaysSchedule.title") ?? "Schedule"}
             </span>
             <WidgetTrendContext variant="snapshot" label={t("trend.today") ?? "Today"} />
@@ -129,7 +129,7 @@ export function TodaysScheduleWidget({
     return (
       <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
-          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider">
+          <span className="font-mono text-micro text-text-3 uppercase tracking-wider">
             {t("todaysSchedule.title") ?? "Schedule"}
           </span>
           <div className="flex-1 flex flex-col justify-center">
@@ -153,7 +153,7 @@ export function TodaysScheduleWidget({
           <span className="font-mono text-display font-bold leading-none text-text">
             {schedule.todayEvents.length}
           </span>
-          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
+          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
             {t("todaysSchedule.title") ?? "Schedule"}
           </span>
           <WidgetTrendContext variant="snapshot" label={t("trend.today") ?? "Today"} />
@@ -180,7 +180,7 @@ export function TodaysScheduleWidget({
             </button>
           </div>
           {/* Row 2: Title */}
-          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
+          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
             {t("todaysSchedule.title") ?? "Schedule"}
           </span>
           {/* Row 3: Next event preview */}
@@ -214,7 +214,7 @@ export function TodaysScheduleWidget({
       <div className="h-full flex flex-col p-3">
         {/* HEADER */}
         <div className="flex items-center justify-between mb-2">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
+          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
             {t("todaysSchedule.title") ?? "Schedule"}
           </span>
           <span className="font-mono text-micro text-text-3">{schedule.todayEvents.length} today</span>
@@ -259,7 +259,7 @@ export function TodaysScheduleWidget({
             {/* Tomorrow preview (lg only) */}
             {showActions(size) && schedule.tomorrowEvents.length > 0 && (
               <div className="mt-2 pt-2 border-t border-border-subtle">
-                <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
+                <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
                   {t("todaysSchedule.tomorrow") ?? "Tomorrow"}
                 </span>
                 <div className="flex flex-col mt-1">

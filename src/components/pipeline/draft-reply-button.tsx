@@ -91,7 +91,7 @@ export function DraftReplyButton({
     <>
       <button
         onClick={generateDraft}
-        className="flex items-center gap-1 px-2 py-1 text-[11px] font-kosugi uppercase tracking-wider text-[#6F94B0] hover:text-white hover:bg-[rgba(255,255,255,0.05)] rounded transition-colors"
+        className="flex items-center gap-1 px-2 py-1 text-[11px] font-mono uppercase tracking-wider text-[#6F94B0] hover:text-white hover:bg-[rgba(255,255,255,0.05)] rounded transition-colors"
         title="Generate AI draft reply"
       >
         <Sparkles className="w-3 h-3" />
@@ -124,7 +124,7 @@ export function DraftReplyButton({
                     Draft Reply
                   </span>
                   {draftResult && (
-                    <span className="px-1.5 py-0.5 text-micro font-kosugi uppercase tracking-wider rounded bg-[rgba(255,255,255,0.06)] text-[#6F94B0]">
+                    <span className="px-1.5 py-0.5 text-micro font-mono uppercase tracking-wider rounded bg-[rgba(255,255,255,0.06)] text-[#6F94B0]">
                       {(draftResult.confidence * 100).toFixed(0)}% confidence
                     </span>
                   )}
@@ -168,13 +168,13 @@ export function DraftReplyButton({
                     {/* Sources */}
                     {draftResult.sources.length > 0 && (
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="font-kosugi text-micro uppercase tracking-wider text-[#999]">
+                        <span className="font-mono text-micro uppercase tracking-wider text-[#999]">
                           Sources:
                         </span>
                         {draftResult.sources.map((s) => (
                           <span
                             key={s}
-                            className="px-1.5 py-0.5 text-micro font-kosugi uppercase tracking-wider rounded bg-white/5 text-[#999] border border-white/5"
+                            className="px-1.5 py-0.5 text-micro font-mono uppercase tracking-wider rounded bg-white/5 text-[#999] border border-white/5"
                           >
                             {s.replace("_", " ")}
                           </span>
@@ -194,7 +194,7 @@ export function DraftReplyButton({
                 <div className="flex items-center justify-end gap-2 p-4 border-t border-white/10">
                   <button
                     onClick={copyDraft}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-kosugi uppercase tracking-wider rounded border border-white/10 text-white hover:bg-white/5 transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono uppercase tracking-wider rounded border border-white/10 text-white hover:bg-white/5 transition-colors"
                   >
                     {copied ? (
                       <>

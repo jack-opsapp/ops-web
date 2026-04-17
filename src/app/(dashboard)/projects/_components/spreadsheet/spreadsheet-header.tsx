@@ -124,7 +124,7 @@ export function SpreadsheetHeader({
               key={col.id}
               className={cn(
                 "px-1.5 py-1.5 text-left whitespace-nowrap",
-                "font-kosugi text-caption-sm text-text-3 uppercase tracking-widest",
+                "font-mono text-caption-sm text-text-3 uppercase tracking-widest",
                 col.sortable && "cursor-pointer select-none hover:text-text-2 transition-colors"
               )}
               style={{ width: col.width, minWidth: col.id === "title" ? col.width : undefined }}

@@ -98,7 +98,7 @@ export function BetaRequestsDrawer({
             {/* Request list */}
             <div className="p-4 space-y-2">
               {filtered.length === 0 ? (
-                <p className="font-kosugi text-[12px] text-[#6B6B6B] py-8 text-center">
+                <p className="font-mono text-[12px] text-[#6B6B6B] py-8 text-center">
                   No {filter === "all" ? "" : filter} requests.
                 </p>
               ) : (
@@ -112,7 +112,7 @@ export function BetaRequestsDrawer({
                         <div className="font-mohave text-[13px] text-[#E5E5E5] truncate">
                           {req.user_name}
                         </div>
-                        <div className="font-kosugi text-[11px] text-[#6B6B6B] truncate">
+                        <div className="font-mono text-[11px] text-[#6B6B6B] truncate">
                           {req.company_name} · {req.whats_new_items?.title ?? "Unknown"}
                         </div>
                       </div>
@@ -143,19 +143,19 @@ export function BetaRequestsDrawer({
                             <span className="font-mohave text-micro uppercase tracking-widest text-[#6B6B6B]">
                               Email
                             </span>
-                            <p className="font-kosugi text-[#A0A0A0]">{req.user_email}</p>
+                            <p className="font-mono text-[#A0A0A0]">{req.user_email}</p>
                           </div>
                           <div>
                             <span className="font-mohave text-micro uppercase tracking-widest text-[#6B6B6B]">
                               Company
                             </span>
-                            <p className="font-kosugi text-[#A0A0A0]">{req.company_name}</p>
+                            <p className="font-mono text-[#A0A0A0]">{req.company_name}</p>
                           </div>
                           <div>
                             <span className="font-mohave text-micro uppercase tracking-widest text-[#6B6B6B]">
                               Feature
                             </span>
-                            <p className="font-kosugi text-[#A0A0A0]">
+                            <p className="font-mono text-[#A0A0A0]">
                               {req.whats_new_items?.title ?? "—"}
                             </p>
                           </div>
@@ -163,7 +163,7 @@ export function BetaRequestsDrawer({
                             <span className="font-mohave text-micro uppercase tracking-widest text-[#6B6B6B]">
                               Requested
                             </span>
-                            <p className="font-kosugi text-[#A0A0A0]">
+                            <p className="font-mono text-[#A0A0A0]">
                               {new Date(req.requested_at).toLocaleDateString()}
                             </p>
                           </div>
@@ -180,7 +180,7 @@ export function BetaRequestsDrawer({
                                 onChange={(e) => setNote(req.id, e.target.value)}
                                 placeholder="Add notes for the email..."
                                 rows={2}
-                                className="w-full bg-white/[0.05] border border-white/[0.08] rounded px-3 py-2 font-kosugi text-[12px] text-[#E5E5E5] placeholder:text-[#6B6B6B] outline-none focus:border-[#597794]/50 resize-none"
+                                className="w-full bg-white/[0.05] border border-white/[0.08] rounded px-3 py-2 font-mono text-[12px] text-[#E5E5E5] placeholder:text-[#6B6B6B] outline-none focus:border-[#597794]/50 resize-none"
                               />
                             </div>
                             <div className="flex gap-2">
@@ -205,7 +205,7 @@ export function BetaRequestsDrawer({
                             <span className="font-mohave text-micro uppercase tracking-widest text-[#6B6B6B]">
                               Admin Notes
                             </span>
-                            <p className="font-kosugi text-[12px] text-[#A0A0A0]">
+                            <p className="font-mono text-[12px] text-[#A0A0A0]">
                               {req.admin_notes}
                             </p>
                           </div>

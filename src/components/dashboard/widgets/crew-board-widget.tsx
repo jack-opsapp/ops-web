@@ -136,7 +136,7 @@ export function CrewBoardWidget({
     return (
       <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
+          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
             {t("crewBoard.title") ?? "Crew"}
           </span>
           <WidgetSkeleton variant="list" />
@@ -150,7 +150,7 @@ export function CrewBoardWidget({
     return (
       <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
-          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider">
+          <span className="font-mono text-micro text-text-3 uppercase tracking-wider">
             {t("crewBoard.title") ?? "Crew"}
           </span>
           <WidgetEmptyState
@@ -173,7 +173,7 @@ export function CrewBoardWidget({
           >
             {animatedUtilization}%
           </span>
-          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
+          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
             {t("crewBoard.title") ?? "Crew"}
           </span>
           <WidgetTrendContext variant="snapshot" label={t("trend.today") ?? "Today"} />
@@ -198,10 +198,10 @@ export function CrewBoardWidget({
               <ArrowUpRight className="w-2.5 h-2.5 text-text-mute" />
             </button>
           </div>
-          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
+          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
             {t("crewBoard.title") ?? "Crew"}
           </span>
-          <span className="font-kosugi text-micro text-text-mute uppercase mt-0.5">
+          <span className="font-mono text-micro text-text-mute uppercase mt-0.5">
             {t("crewBoard.utilization") ?? "Utilization"} · {crewData.members.length} {t("crewBoard.members") ?? "members"}
           </span>
         </div>
@@ -221,7 +221,7 @@ export function CrewBoardWidget({
       <div className="h-full flex flex-col p-3">
         {/* Header */}
         <div className="flex items-center justify-between mb-2">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
+          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
             {t("crewBoard.title") ?? "Crew"}
           </span>
           <span className="font-mono text-micro text-text-3" style={{ color: avgColor }}>

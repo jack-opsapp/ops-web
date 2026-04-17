@@ -56,7 +56,7 @@ export const QueueStatsRibbon = memo(function QueueStatsRibbon({
             "bg-glass glass-surface backdrop-blur-[20px] saturate-[1.2]"
           )}
         >
-          <span className="font-kosugi text-[11px] text-text-3 uppercase block">
+          <span className="font-mono text-[11px] text-text-3 uppercase block">
             [{cell.label}]
           </span>
           <span

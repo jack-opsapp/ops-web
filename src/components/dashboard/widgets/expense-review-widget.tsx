@@ -203,7 +203,7 @@ export function ExpenseReviewWidget({
           <span className={`font-mono ${count.toString().length > 4 ? "text-data-lg" : "text-display"} font-bold leading-none ${count > 0 ? "text-text" : "text-text-mute"}`}>
             {count}
           </span>
-          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
+          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
             {t("expenseReview.pendingReview") ?? "Pending Review"}
           </span>
           {overdueCount > 0 && (
@@ -237,7 +237,7 @@ export function ExpenseReviewWidget({
               <ArrowUpRight className="w-[14px] h-[14px]" />
             </button>
           </div>
-          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
+          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
             {t("expenseReview.title") ?? "Expense Review"}
           </span>
           {count > 0 ? (
@@ -263,7 +263,7 @@ export function ExpenseReviewWidget({
       <div className="h-full flex flex-col p-3">
         {/* Header */}
         <div className="flex items-center justify-between mb-1">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
+          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
             {t("expenseReview.title") ?? "Expense Review"}
           </span>
         </div>
@@ -300,7 +300,7 @@ export function ExpenseReviewWidget({
                 const complianceColor = complianceColorToken === "error" ? WT.error : complianceColorToken === "warning" ? WT.warning : null;
 
                 const secondary = requireReceipt && missingReceipts > 0 ? (
-                  <span className="font-kosugi text-micro text-text-mute truncate">
+                  <span className="font-mono text-micro text-text-mute truncate">
                     {batch.batchNumber} · <span style={{ color: complianceColor ?? undefined }}>{missingReceipts}/{totalExpenses} {t("expenseReview.missingReceipts") ?? "missing receipts"}</span>
                   </span>
                 ) : batch.batchNumber;
@@ -379,7 +379,7 @@ export function ExpenseReviewWidget({
               {/* Approved section — LG only */}
               {showActions(size) && approvedBatches.length > 0 && (
                 <div className="mt-2 pt-2 border-t border-border-subtle">
-                  <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider mb-1 block">
+                  <span className="font-mono text-micro text-text-mute uppercase tracking-wider mb-1 block">
                     Approved
                   </span>
                   {approvedBatches.map((batch, i) => {
@@ -406,7 +406,7 @@ export function ExpenseReviewWidget({
               {/* Rejected section — LG only */}
               {showActions(size) && rejectedBatches.length > 0 && (
                 <div className="mt-2 pt-2 border-t border-border-subtle">
-                  <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider mb-1 block">
+                  <span className="font-mono text-micro text-text-mute uppercase tracking-wider mb-1 block">
                     Rejected
                   </span>
                   {rejectedBatches.map((batch, i) => {
@@ -443,7 +443,7 @@ export function ExpenseReviewWidget({
         {/* Footer */}
         <button
           onClick={() => openReviewList()}
-          className="mt-auto pt-2 font-kosugi text-micro text-text-3 uppercase tracking-wider hover:text-text-2 transition-colors text-left"
+          className="mt-auto pt-2 font-mono text-micro text-text-3 uppercase tracking-wider hover:text-text-2 transition-colors text-left"
         >
           {t("expenseReview.viewAll") ?? "View All"}
         </button>

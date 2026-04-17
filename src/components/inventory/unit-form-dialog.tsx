@@ -56,7 +56,7 @@ export function UnitFormDialog({ open, onOpenChange }: UnitFormDialogProps) {
         <div className="space-y-3 mt-2">
           {/* Display name */}
           <div className="space-y-0.5">
-            <label className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
+            <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">
               Display Name *
             </label>
             <Input

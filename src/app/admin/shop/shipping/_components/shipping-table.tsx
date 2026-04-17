@@ -117,7 +117,7 @@ export function ShippingTable({ methods }: ShippingTableProps) {
             {["Name", "Description", "Price", "Free Threshold", "Active", ""].map((label) => (
               <th
                 key={label}
-                className="px-4 py-3 text-left font-kosugi text-[11px] uppercase tracking-widest text-[#6B6B6B]"
+                className="px-4 py-3 text-left font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B]"
               >
                 {label}
               </th>
@@ -180,12 +180,12 @@ export function ShippingTable({ methods }: ShippingTableProps) {
 
       {adding ? (
         <div className="mt-4 border border-white/[0.08] rounded-sm p-4">
-          <p className="font-kosugi text-[11px] uppercase tracking-widest text-[#6B6B6B] mb-3">
+          <p className="font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B] mb-3">
             New Shipping Method
           </p>
           <div className="grid grid-cols-4 gap-3 mb-3">
             <div>
-              <label className="block font-kosugi text-micro uppercase tracking-widest text-[#6B6B6B] mb-1">Name</label>
+              <label className="block font-mono text-micro uppercase tracking-widest text-[#6B6B6B] mb-1">Name</label>
               <input
                 type="text"
                 value={newName}
@@ -195,7 +195,7 @@ export function ShippingTable({ methods }: ShippingTableProps) {
               />
             </div>
             <div>
-              <label className="block font-kosugi text-micro uppercase tracking-widest text-[#6B6B6B] mb-1">Description</label>
+              <label className="block font-mono text-micro uppercase tracking-widest text-[#6B6B6B] mb-1">Description</label>
               <input
                 type="text"
                 value={newDesc}
@@ -204,7 +204,7 @@ export function ShippingTable({ methods }: ShippingTableProps) {
               />
             </div>
             <div>
-              <label className="block font-kosugi text-micro uppercase tracking-widest text-[#6B6B6B] mb-1">Price ($)</label>
+              <label className="block font-mono text-micro uppercase tracking-widest text-[#6B6B6B] mb-1">Price ($)</label>
               <input
                 type="number"
                 step="0.01"
@@ -214,7 +214,7 @@ export function ShippingTable({ methods }: ShippingTableProps) {
               />
             </div>
             <div>
-              <label className="block font-kosugi text-micro uppercase tracking-widest text-[#6B6B6B] mb-1">Free Above ($)</label>
+              <label className="block font-mono text-micro uppercase tracking-widest text-[#6B6B6B] mb-1">Free Above ($)</label>
               <input
                 type="number"
                 step="0.01"
@@ -229,13 +229,13 @@ export function ShippingTable({ methods }: ShippingTableProps) {
             <button
               onClick={addMethod}
               disabled={!newName.trim()}
-              className="px-4 py-1.5 bg-ops-accent rounded-sm font-kosugi text-[11px] uppercase tracking-widest text-white hover:bg-ops-accent/80 transition-colors disabled:opacity-50"
+              className="px-4 py-1.5 bg-ops-accent rounded-sm font-mono text-[11px] uppercase tracking-widest text-white hover:bg-ops-accent/80 transition-colors disabled:opacity-50"
             >
               Add
             </button>
             <button
               onClick={() => setAdding(false)}
-              className="px-3 py-1.5 font-kosugi text-[11px] uppercase tracking-widest text-[#6B6B6B]"
+              className="px-3 py-1.5 font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B]"
             >
               Cancel
             </button>
@@ -244,7 +244,7 @@ export function ShippingTable({ methods }: ShippingTableProps) {
       ) : (
         <button
           onClick={() => setAdding(true)}
-          className="mt-4 flex items-center gap-1.5 font-kosugi text-[11px] uppercase tracking-widest text-[#6B6B6B] hover:text-[#E5E5E5] transition-colors"
+          className="mt-4 flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B] hover:text-[#E5E5E5] transition-colors"
         >
           <Plus size={14} /> Add Shipping Method
         </button>

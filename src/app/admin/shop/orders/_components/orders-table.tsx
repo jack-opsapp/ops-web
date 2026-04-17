@@ -66,7 +66,7 @@ export function OrdersTable({ orders, orderItemCounts }: OrdersTableProps) {
             <button
               key={s}
               onClick={() => setStatusFilter(s)}
-              className={`px-2.5 py-2 font-kosugi text-micro uppercase tracking-widest transition-colors ${
+              className={`px-2.5 py-2 font-mono text-micro uppercase tracking-widest transition-colors ${
                 statusFilter === s
                   ? "bg-white/[0.08] text-[#E5E5E5]"
                   : "text-[#6B6B6B] hover:text-[#A0A0A0]"
@@ -93,7 +93,7 @@ export function OrdersTable({ orders, orderItemCounts }: OrdersTableProps) {
             ] as [string, SortKey | "", string][]).map(([label, key, width]) => (
               <th
                 key={label}
-                className={`${width} px-4 py-3 text-left font-kosugi text-[11px] uppercase tracking-widest text-[#6B6B6B] ${
+                className={`${width} px-4 py-3 text-left font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B] ${
                   key ? "cursor-pointer select-none hover:text-[#A0A0A0] transition-colors" : ""
                 }`}
                 onClick={() => key && toggleSort(key as SortKey)}

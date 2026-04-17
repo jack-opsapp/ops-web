@@ -214,7 +214,7 @@ function DetailError({ message, onRetry, onBack }: { message: string; onRetry: (
         <AlertCircle className="w-[32px] h-[32px] text-ops-error" />
       </div>
       <h3 className="font-mohave text-heading text-text">{t("detail.failedToLoad")}</h3>
-      <p className="font-kosugi text-caption text-text-3 mt-0.5 max-w-[300px]">{message}</p>
+      <p className="font-mono text-caption text-text-3 mt-0.5 max-w-[300px]">{message}</p>
       <div className="flex gap-1 mt-3">
         <Button variant="ghost" onClick={onBack}>{t("detail.goBack")}</Button>
         <Button variant="secondary" className="gap-[6px]" onClick={onRetry}>
@@ -233,7 +233,7 @@ function SidebarSection({ label, onEdit, children }: { label: string; onEdit?: (
   return (
     <div className="group/section p-2.5 -m-2.5 rounded-panel border border-transparent hover:border-border transition-colors">
       <div className="flex items-center justify-between mb-2">
-        <span className="font-kosugi text-micro uppercase tracking-[0.5px] text-text-3">{label}</span>
+        <span className="font-mono text-micro uppercase tracking-[0.5px] text-text-3">{label}</span>
         {onEdit && (
           <button onClick={onEdit} className="opacity-0 group-hover/section:opacity-100 transition-opacity text-text-2 hover:text-text text-[11px] border border-[rgba(255,255,255,0.15)] rounded-[5px] px-2 py-0.5 hover:bg-[rgba(255,255,255,0.05)]">
             {t("sidebar.edit")}
@@ -248,7 +248,7 @@ function SidebarSection({ label, onEdit, children }: { label: string; onEdit?: (
 function MetricTile({ label, value, colorClass = "text-text" }: { label: string; value: string; colorClass?: string }) {
   return (
     <div className="bg-glass glass-surface border border-border-subtle rounded-panel p-2.5">
-      <span className="font-kosugi text-micro uppercase tracking-[0.3px] text-text-3 block">{label}</span>
+      <span className="font-mono text-micro uppercase tracking-[0.3px] text-text-3 block">{label}</span>
       <span className={cn("font-mohave text-heading font-semibold block mt-0.5", colorClass)}>{value}</span>
     </div>
   );
@@ -631,7 +631,7 @@ function ProjectSidebar({ project, tasks }: { project: Project; tasks: ProjectTa
                     <p className="font-mohave text-body-sm text-text truncate">
                       {getUserFullName(member)}
                     </p>
-                    <span className="font-kosugi text-micro text-text-mute truncate block">
+                    <span className="font-mono text-micro text-text-mute truncate block">
                       {typeNames || t("sidebar.noTasksAssigned")}
                     </span>
                   </div>
@@ -672,7 +672,7 @@ function ProjectSidebar({ project, tasks }: { project: Project; tasks: ProjectTa
           </div>
         </div>
         {durationDays !== null && (
-          <p className="font-kosugi text-micro text-text-mute mt-1">
+          <p className="font-mono text-micro text-text-mute mt-1">
             {durationDays} {t("sidebar.durationDays")}
           </p>
         )}
@@ -903,7 +903,7 @@ function FinancialTab({ project }: { project: Project }) {
     <div className="space-y-3">
       {/* Budget Health Bar */}
       <div className="bg-glass glass-surface border border-border rounded-panel p-4 mb-3">
-        <span className="font-kosugi text-micro uppercase tracking-[0.3px] text-text-3 block mb-2">
+        <span className="font-mono text-micro uppercase tracking-[0.3px] text-text-3 block mb-2">
           {t("financial.budgetOverview")}
         </span>
         <div className="h-2 rounded-[2px] bg-[rgba(255,255,255,0.06)] overflow-hidden flex">
@@ -924,11 +924,11 @@ function FinancialTab({ project }: { project: Project }) {
         <div className="flex items-center gap-4 mt-2">
           <div className="flex items-center gap-1.5">
             <div className="w-2 h-2 rounded-full bg-financial-profit" />
-            <span className="font-kosugi text-micro text-text-mute uppercase">{t("financial.paid")}</span>
+            <span className="font-mono text-micro text-text-mute uppercase">{t("financial.paid")}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <div className="w-2 h-2 rounded-full bg-financial-receivables" />
-            <span className="font-kosugi text-micro text-text-mute uppercase">{t("financial.outstanding")}</span>
+            <span className="font-mono text-micro text-text-mute uppercase">{t("financial.outstanding")}</span>
           </div>
         </div>
       </div>
@@ -936,7 +936,7 @@ function FinancialTab({ project }: { project: Project }) {
       {/* Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
         <Card className="p-2 space-y-0.5">
-          <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
+          <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
             {t("financial.estimated")}
           </span>
           <span className="font-mono text-data-lg text-text block">
@@ -944,7 +944,7 @@ function FinancialTab({ project }: { project: Project }) {
           </span>
         </Card>
         <Card className="p-2 space-y-0.5">
-          <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
+          <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
             {t("financial.invoiced")}
           </span>
           <span className="font-mono text-data-lg text-financial-revenue block">
@@ -952,7 +952,7 @@ function FinancialTab({ project }: { project: Project }) {
           </span>
         </Card>
         <Card className="p-2 space-y-0.5">
-          <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
+          <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
             {t("financial.paid")}
           </span>
           <span className="font-mono text-data-lg text-financial-profit block">
@@ -960,7 +960,7 @@ function FinancialTab({ project }: { project: Project }) {
           </span>
         </Card>
         <Card className="p-2 space-y-0.5">
-          <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
+          <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
             {t("financial.outstanding")}
           </span>
           <span className="font-mono text-data-lg text-financial-receivables block">
@@ -1002,7 +1002,7 @@ function FinancialTab({ project }: { project: Project }) {
                     {est.estimateNumber}
                   </span>
                   <span
-                    className="font-kosugi text-micro uppercase tracking-wider px-1.5 py-0.5 rounded-full"
+                    className="font-mono text-micro uppercase tracking-wider px-1.5 py-0.5 rounded-full"
                     style={{
                       backgroundColor: `${ESTIMATE_STATUS_COLORS[est.status]}20`,
                       color: ESTIMATE_STATUS_COLORS[est.status],
@@ -1063,7 +1063,7 @@ function FinancialTab({ project }: { project: Project }) {
                     {inv.invoiceNumber}
                   </span>
                   <span
-                    className="font-kosugi text-micro uppercase tracking-wider px-1.5 py-0.5 rounded-full"
+                    className="font-mono text-micro uppercase tracking-wider px-1.5 py-0.5 rounded-full"
                     style={{
                       backgroundColor: `${INVOICE_STATUS_COLORS[inv.status]}20`,
                       color: INVOICE_STATUS_COLORS[inv.status],
@@ -1264,7 +1264,7 @@ export default function ProjectDetailPage() {
     return (
       <div className="flex flex-col items-center justify-center h-[calc(100vh-120px)] gap-3">
         <span className="font-mohave text-[64px] text-text-mute leading-none">404</span>
-        <p className="font-kosugi text-caption-sm text-text-3 uppercase tracking-wider">
+        <p className="font-mono text-caption-sm text-text-3 uppercase tracking-wider">
           {t("detail.notFound") ?? "Project not found"}
         </p>
       </div>
@@ -1440,7 +1440,7 @@ export default function ProjectDetailPage() {
               className="fixed right-0 top-0 bottom-0 w-[280px] bg-background border-l border-border p-5 overflow-y-auto z-50 lg:hidden"
             >
               <div className="flex items-center justify-between mb-4">
-                <span className="font-kosugi text-caption-sm uppercase tracking-widest text-text-3">
+                <span className="font-mono text-caption-sm uppercase tracking-widest text-text-3">
                   {t("sidebar.projectInfo")}
                 </span>
                 <button

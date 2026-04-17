@@ -27,7 +27,7 @@ export function RecentSignups({ companies }: { companies: Signup[] }) {
           </span>
           <div className="flex items-center gap-3">
             <PlanBadge plan={company.subscription_plan ?? "trial"} />
-            <span className="font-kosugi text-[12px] text-[#6B6B6B]">
+            <span className="font-mono text-[12px] text-[#6B6B6B]">
               [{new Date(company.created_at).toLocaleDateString()}]
             </span>
           </div>

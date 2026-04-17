@@ -60,7 +60,7 @@ function ProviderCard({ provider, label }: { provider: AccountingProvider; label
         <div className="flex items-center justify-between">
           <CardTitle>{label}</CardTitle>
           {isConnected && (
-            <span className="flex items-center gap-1 text-green-400 font-kosugi text-[11px]">
+            <span className="flex items-center gap-1 text-green-400 font-mono text-[11px]">
               <CheckCircle2 className="w-[14px] h-[14px]" />
               {t("integrations.connected")}
             </span>
@@ -71,7 +71,7 @@ function ProviderCard({ provider, label }: { provider: AccountingProvider; label
         {isConnected ? (
           <>
             {connection?.lastSyncAt && (
-              <div className="flex items-center gap-1.5 text-text-3 font-kosugi text-[11px]">
+              <div className="flex items-center gap-1.5 text-text-3 font-mono text-[11px]">
                 <Clock className="w-[12px] h-[12px]" />
                 {t("integrations.lastSynced")} {new Date(connection.lastSyncAt).toLocaleString()}
               </div>
@@ -80,7 +80,7 @@ function ProviderCard({ provider, label }: { provider: AccountingProvider; label
             <div className="flex items-center justify-between py-[6px]">
               <div>
                 <p className="font-mohave text-body text-text">{t("accounting.syncEnabled")}</p>
-                <p className="font-kosugi text-[11px] text-text-mute">{t("accounting.syncEnabledDesc")}</p>
+                <p className="font-mono text-[11px] text-text-mute">{t("accounting.syncEnabledDesc")}</p>
               </div>
               <button
                 onClick={() => {
@@ -178,7 +178,7 @@ function SyncHistoryCard() {
             <Loader2 className="w-[20px] h-[20px] text-text-2 animate-spin" />
           </div>
         ) : !history || history.length === 0 ? (
-          <p className="font-kosugi text-[11px] text-text-mute">{t("accounting.noSyncHistory")}</p>
+          <p className="font-mono text-[11px] text-text-mute">{t("accounting.noSyncHistory")}</p>
         ) : (
           <div className="space-y-1.5 max-h-[300px] overflow-y-auto">
             {history.map((entry) => {
@@ -189,12 +189,12 @@ function SyncHistoryCard() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className="font-mohave text-body-sm text-text capitalize">{entry.provider}</span>
-                      <span className="font-kosugi text-micro text-text-mute">
+                      <span className="font-mono text-micro text-text-mute">
                         {new Date(entry.timestamp).toLocaleString()}
                       </span>
                     </div>
                     {entry.details && (
-                      <p className="font-kosugi text-[11px] text-text-3 truncate">{entry.details}</p>
+                      <p className="font-mono text-[11px] text-text-3 truncate">{entry.details}</p>
                     )}
                   </div>
                 </div>

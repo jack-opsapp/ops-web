@@ -403,7 +403,7 @@ function PipelineInlineActions({
               onChange={(e) => setComposeText(e.target.value)}
             />
             <div className="flex items-center justify-between mt-1">
-              <span className="font-kosugi text-micro text-text-mute">
+              <span className="font-mono text-micro text-text-mute">
                 {t("pipelineList.mergeHint") ??
                   "Use {{client_name}}, {{project_title}}"}
               </span>
@@ -423,7 +423,7 @@ function PipelineInlineActions({
                 }}
                 disabled={!composeText.trim() || sending}
                 className={cn(
-                  "font-kosugi text-micro uppercase tracking-wider px-2 py-[2px] rounded-sm transition-colors",
+                  "font-mono text-micro uppercase tracking-wider px-2 py-[2px] rounded-sm transition-colors",
                   composeText.trim() && !sending
                     ? "text-text hover:bg-[rgba(255,255,255,0.08)]"
                     : "text-text-mute cursor-not-allowed"
@@ -496,7 +496,7 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
               <ArrowUpRight className="w-[14px] h-[14px]" />
             </button>
           </div>
-          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
+          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
             {t(FILTER_LABEL_KEYS[filter])}
           </span>
           {!isLoading && rawOpportunities && (
@@ -544,7 +544,7 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
       <Card className="h-full p-0" ref={ref}>
         <div className="h-full flex flex-col p-3">
           <div className="flex items-center justify-between mb-1">
-            <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
+            <span className="font-mono text-micro uppercase tracking-wider text-text-3">
               {t(FILTER_LABEL_KEYS[filter])}
             </span>
             <span className="font-mono text-micro text-text-3">
@@ -588,7 +588,7 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
                           className="w-[8px] h-[8px] rounded-sm shrink-0"
                           style={{ backgroundColor: group.color }}
                         />
-                        <span className="font-kosugi text-micro uppercase tracking-widest text-text-2">
+                        <span className="font-mono text-micro uppercase tracking-widest text-text-2">
                           {group.label}
                         </span>
                         <span className="font-mono text-micro text-text-mute ml-auto">
@@ -658,7 +658,7 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
     <Card className="h-full p-0" ref={ref}>
       <div className="h-full flex flex-col p-3">
         <div className="flex items-center justify-between mb-1">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
+          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
             {t(FILTER_LABEL_KEYS[filter])}
           </span>
           <span className="font-mono text-micro text-text-3">

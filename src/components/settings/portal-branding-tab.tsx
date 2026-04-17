@@ -511,7 +511,7 @@ export function PortalBrandingTab() {
             ))}
           </div>
         </div>
-        <p className="font-kosugi text-[11px] text-text-mute mt-1.5">
+        <p className="font-mono text-[11px] text-text-mute mt-1.5">
           Live preview of your client portal. Changes update instantly.
         </p>
       </CardContent>
@@ -537,14 +537,14 @@ export function PortalBrandingTab() {
                   alt="Company logo"
                   className="max-h-[40px] max-w-[120px] object-contain"
                 />
-                <span className="font-kosugi text-[11px] text-text-mute">
+                <span className="font-mono text-[11px] text-text-mute">
                   Using your company logo
                 </span>
               </>
             ) : (
               <div className="flex items-center gap-1.5">
                 <Building2 className="w-[20px] h-[20px] text-text-mute" />
-                <span className="font-kosugi text-[11px] text-text-mute">
+                <span className="font-mono text-[11px] text-text-mute">
                   No company logo set — upload one in Company Details
                 </span>
               </div>
@@ -562,7 +562,7 @@ export function PortalBrandingTab() {
           {/* Suggested colors from logo */}
           {suggestedColors.length > 0 && (
             <div className="space-y-1">
-              <p className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
+              <p className="font-mono text-micro text-text-mute uppercase tracking-wider">
                 Suggested from your logo
               </p>
               <div className="flex gap-1.5">
@@ -616,7 +616,7 @@ export function PortalBrandingTab() {
                   className="w-[32px] h-[32px] rounded-lg border border-[rgba(255,255,255,0.15)]"
                   style={{ backgroundColor: color.hex }}
                 />
-                <span className="font-kosugi text-micro text-text-3 leading-tight">
+                <span className="font-mono text-micro text-text-3 leading-tight">
                   {color.name}
                 </span>
                 {accentColor === color.hex && (
@@ -646,7 +646,7 @@ export function PortalBrandingTab() {
               className="w-[140px] font-mono"
               error={!isValidHex && accentColor.length > 0 ? t("portalBranding.invalidColor") : undefined}
             />
-            <span className="font-kosugi text-micro text-text-mute">
+            <span className="font-mono text-micro text-text-mute">
               Custom
             </span>
           </div>
@@ -678,7 +678,7 @@ export function PortalBrandingTab() {
               >
                 <div>
                   <p className="font-mohave text-body text-text">{t(tmpl.labelKey)}</p>
-                  <p className="font-kosugi text-[11px] text-text-3">{t(tmpl.descKey)}</p>
+                  <p className="font-mono text-[11px] text-text-3">{t(tmpl.descKey)}</p>
                 </div>
                 {template === tmpl.id && (
                   <div className="w-[20px] h-[20px] rounded-full bg-text-2 flex items-center justify-center shrink-0 ml-1">
@@ -734,7 +734,7 @@ export function PortalBrandingTab() {
               </button>
             ))}
           </div>
-          <p className="font-kosugi text-[11px] text-text-mute mt-1">
+          <p className="font-mono text-[11px] text-text-mute mt-1">
             {t("portalBranding.themeHelper")}
           </p>
         </CardContent>
@@ -767,7 +767,7 @@ export function PortalBrandingTab() {
           <CardTitle>{t("portalBranding.visibilityTitle")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-1">
-          <p className="font-kosugi text-[11px] text-text-mute mb-2">
+          <p className="font-mono text-[11px] text-text-mute mb-2">
             {t("portalBranding.visibilityDesc")}
           </p>
 
@@ -798,7 +798,7 @@ export function PortalBrandingTab() {
                       markDirty();
                     }}
                     className={cn(
-                      "px-2 py-1 text-[11px] font-kosugi transition-all border-r last:border-r-0 border-border disabled:opacity-40 disabled:cursor-not-allowed",
+                      "px-2 py-1 text-[11px] font-mono transition-all border-r last:border-r-0 border-border disabled:opacity-40 disabled:cursor-not-allowed",
                       state === opt.value
                         ? "bg-[rgba(255,255,255,0.08)] text-text"
                         : "bg-surface-input text-text-3 hover:text-text-2"
@@ -820,7 +820,7 @@ export function PortalBrandingTab() {
 
       {/* ── Actions ───────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between pt-1">
-        <p className="font-kosugi text-[11px] text-text-mute">
+        <p className="font-mono text-[11px] text-text-mute">
           {isDirty
             ? t("portalBranding.unsavedChanges")
             : t("portalBranding.allSaved")}

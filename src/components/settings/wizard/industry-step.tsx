@@ -134,7 +134,7 @@ export function IndustryStep({ onNext }: IndustryStepProps) {
               key={industry}
               type="button"
               onClick={() => removeTag(industry)}
-              className="flex items-center gap-[4px] px-[8px] py-[3px] rounded border border-[rgba(111, 148, 176,0.3)] bg-[rgba(111, 148, 176,0.12)] text-text font-kosugi text-[11px] transition-colors hover:bg-[rgba(111, 148, 176,0.2)]"
+              className="flex items-center gap-[4px] px-[8px] py-[3px] rounded border border-[rgba(111, 148, 176,0.3)] bg-[rgba(111, 148, 176,0.12)] text-text font-mono text-[11px] transition-colors hover:bg-[rgba(111, 148, 176,0.2)]"
             >
               {industry}
               <X className="w-[10px] h-[10px] text-text-2" />
@@ -197,7 +197,7 @@ export function IndustryStep({ onNext }: IndustryStepProps) {
         })}
         {filtered.length === 0 && (
           <div className="px-[12px] py-[16px] text-center">
-            <span className="font-kosugi text-[11px] text-text-mute">
+            <span className="font-mono text-[11px] text-text-mute">
               No trades found
             </span>
           </div>

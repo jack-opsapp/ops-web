@@ -72,7 +72,7 @@ function StatusBadgeEstimate({ status }: { status: EstimateStatus }) {
   const color = ESTIMATE_STATUS_COLORS[status] ?? "#9CA3AF";
   return (
     <span
-      className="inline-flex items-center gap-[4px] px-[6px] py-[2px] rounded font-kosugi text-micro uppercase tracking-wider"
+      className="inline-flex items-center gap-[4px] px-[6px] py-[2px] rounded font-mono text-micro uppercase tracking-wider"
       style={{ backgroundColor: `${color}20`, color }}
     >
       <span
@@ -224,7 +224,7 @@ export default function EstimatesPage() {
 
       {/* Header */}
       <div className="flex items-center justify-between">
-        <span className="font-kosugi text-caption-sm text-text-3">
+        <span className="font-mono text-caption-sm text-text-3">
           {filtered.length} estimate{filtered.length !== 1 ? "s" : ""}
         </span>
       </div>
@@ -259,7 +259,7 @@ export default function EstimatesPage() {
           <h3 className="font-mohave text-heading text-text">
             {searchQuery || filterStatus !== "all" ? t("estimates.empty.noMatch") : t("estimates.empty.none")}
           </h3>
-          <p className="font-kosugi text-caption text-text-3 mt-0.5">
+          <p className="font-mono text-caption text-text-3 mt-0.5">
             {searchQuery || filterStatus !== "all"
               ? t("estimates.empty.noMatch")
               : t("estimates.empty.helper")}
@@ -276,28 +276,28 @@ export default function EstimatesPage() {
           <table className="w-full min-w-[700px]">
             <thead>
               <tr className="border-b border-border">
-                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
+                <th className="px-1.5 py-1 text-left font-mono text-caption-sm text-text-3 uppercase tracking-widest">
                   {t("estimates.table.number")}
                 </th>
-                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
+                <th className="px-1.5 py-1 text-left font-mono text-caption-sm text-text-3 uppercase tracking-widest">
                   {t("estimates.table.client")}
                 </th>
-                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-3 uppercase tracking-widest hidden md:table-cell">
+                <th className="px-1.5 py-1 text-left font-mono text-caption-sm text-text-3 uppercase tracking-widest hidden md:table-cell">
                   {t("estimates.table.project")}
                 </th>
-                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-3 uppercase tracking-widest hidden sm:table-cell">
+                <th className="px-1.5 py-1 text-left font-mono text-caption-sm text-text-3 uppercase tracking-widest hidden sm:table-cell">
                   {t("estimates.table.date")}
                 </th>
-                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-3 uppercase tracking-widest hidden lg:table-cell">
+                <th className="px-1.5 py-1 text-left font-mono text-caption-sm text-text-3 uppercase tracking-widest hidden lg:table-cell">
                   {t("estimates.table.expiry")}
                 </th>
-                <th className="px-1.5 py-1 text-right font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
+                <th className="px-1.5 py-1 text-right font-mono text-caption-sm text-text-3 uppercase tracking-widest">
                   {t("estimates.table.total")}
                 </th>
-                <th className="px-1.5 py-1 text-center font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
+                <th className="px-1.5 py-1 text-center font-mono text-caption-sm text-text-3 uppercase tracking-widest">
                   {t("estimates.table.status")}
                 </th>
-                <th className="px-1.5 py-1 text-right font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
+                <th className="px-1.5 py-1 text-right font-mono text-caption-sm text-text-3 uppercase tracking-widest">
                   {t("estimates.table.actions")}
                 </th>
               </tr>
@@ -652,7 +652,7 @@ function EstimateFormModal({
           {/* Client + Project */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div className="space-y-0.5">
-              <label className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
+              <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">
                 {t("estimates.form.client")}
               </label>
               <select
@@ -667,7 +667,7 @@ function EstimateFormModal({
               </select>
             </div>
             <div className="space-y-0.5">
-              <label className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
+              <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">
                 {t("estimates.form.project")}
               </label>
               <select
@@ -686,7 +686,7 @@ function EstimateFormModal({
           {/* Dates */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div className="space-y-0.5">
-              <label className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
+              <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">
                 {t("estimates.form.date")}
               </label>
               <Input
@@ -696,7 +696,7 @@ function EstimateFormModal({
               />
             </div>
             <div className="space-y-0.5">
-              <label className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
+              <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">
                 {t("estimates.form.validUntil")}
               </label>
               <Input
@@ -709,7 +709,7 @@ function EstimateFormModal({
 
           {/* Line Items */}
           <div className="space-y-0.5">
-            <label className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
+            <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">
               {t("estimates.form.lineItems")}
             </label>
             <LineItemEditor
@@ -722,7 +722,7 @@ function EstimateFormModal({
           {/* Notes */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div className="space-y-0.5">
-              <label className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
+              <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">
                 {t("estimates.form.notes")}
               </label>
               <Textarea
@@ -733,7 +733,7 @@ function EstimateFormModal({
               />
             </div>
             <div className="space-y-0.5">
-              <label className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
+              <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">
                 {t("estimates.form.internalNotes")}
               </label>
               <Textarea
@@ -747,7 +747,7 @@ function EstimateFormModal({
 
           {/* T&C */}
           <div className="space-y-0.5">
-            <label className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
+            <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">
               {t("estimates.form.terms")}
             </label>
             <Textarea

@@ -128,7 +128,7 @@ export default function ProductsPage() {
       {/* Table */}
       {isLoading ? (
         <div className="flex items-center justify-center py-8">
-          <span className="font-kosugi text-caption text-text-mute">{t("products.loading")}</span>
+          <span className="font-mono text-caption text-text-mute">{t("products.loading")}</span>
         </div>
       ) : filtered.length === 0 ? (
         <EmptyState
@@ -146,28 +146,28 @@ export default function ProductsPage() {
           <table className="w-full min-w-[600px]">
             <thead>
               <tr className="border-b border-border bg-[rgba(255,255,255,0.02)]">
-                <th className="text-left px-2 py-1.5 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
+                <th className="text-left px-2 py-1.5 font-mono text-caption-sm text-text-3 uppercase tracking-widest">
                   {t("products.colName")}
                 </th>
-                <th className="text-left px-2 py-1.5 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest hidden sm:table-cell">
+                <th className="text-left px-2 py-1.5 font-mono text-caption-sm text-text-3 uppercase tracking-widest hidden sm:table-cell">
                   {t("products.colUnit")}
                 </th>
-                <th className="text-left px-2 py-1.5 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest hidden md:table-cell">
+                <th className="text-left px-2 py-1.5 font-mono text-caption-sm text-text-3 uppercase tracking-widest hidden md:table-cell">
                   {t("products.colCategory")}
                 </th>
-                <th className="text-left px-2 py-1.5 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest hidden lg:table-cell">
+                <th className="text-left px-2 py-1.5 font-mono text-caption-sm text-text-3 uppercase tracking-widest hidden lg:table-cell">
                   {t("products.colTaskType")}
                 </th>
-                <th className="text-right px-2 py-1.5 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
+                <th className="text-right px-2 py-1.5 font-mono text-caption-sm text-text-3 uppercase tracking-widest">
                   {t("products.colPrice")}
                 </th>
-                <th className="text-right px-2 py-1.5 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest hidden md:table-cell">
+                <th className="text-right px-2 py-1.5 font-mono text-caption-sm text-text-3 uppercase tracking-widest hidden md:table-cell">
                   {t("products.colCost")}
                 </th>
-                <th className="text-center px-2 py-1.5 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest hidden sm:table-cell">
+                <th className="text-center px-2 py-1.5 font-mono text-caption-sm text-text-3 uppercase tracking-widest hidden sm:table-cell">
                   {t("products.colTaxable")}
                 </th>
-                <th className="text-right px-2 py-1.5 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest w-[80px]">
+                <th className="text-right px-2 py-1.5 font-mono text-caption-sm text-text-3 uppercase tracking-widest w-[80px]">
                   {t("products.colActions")}
                 </th>
               </tr>
@@ -185,7 +185,7 @@ export default function ProductsPage() {
                         {product.name}
                       </span>
                       {product.description && (
-                        <span className="font-kosugi text-micro text-text-mute truncate block max-w-[300px]">
+                        <span className="font-mono text-micro text-text-mute truncate block max-w-[300px]">
                           {product.description}
                         </span>
                       )}
@@ -194,14 +194,14 @@ export default function ProductsPage() {
 
                   {/* Unit */}
                   <td className="px-2 py-1.5 hidden sm:table-cell">
-                    <span className="font-kosugi text-caption-sm text-text-2 uppercase">
+                    <span className="font-mono text-caption-sm text-text-2 uppercase">
                       {product.unit}
                     </span>
                   </td>
 
                   {/* Category */}
                   <td className="px-2 py-1.5 hidden md:table-cell">
-                    <span className="font-kosugi text-caption-sm text-text-3">
+                    <span className="font-mono text-caption-sm text-text-3">
                       {product.category || "—"}
                     </span>
                   </td>
@@ -214,12 +214,12 @@ export default function ProductsPage() {
                           className="w-[8px] h-[8px] rounded-full"
                           style={{ backgroundColor: taskTypeMap.get(product.taskTypeId)!.color }}
                         />
-                        <span className="font-kosugi text-caption-sm text-text-2">
+                        <span className="font-mono text-caption-sm text-text-2">
                           {taskTypeMap.get(product.taskTypeId)!.display}
                         </span>
                       </span>
                     ) : (
-                      <span className="font-kosugi text-caption-sm text-text-mute">—</span>
+                      <span className="font-mono text-caption-sm text-text-mute">—</span>
                     )}
                   </td>
 
@@ -241,7 +241,7 @@ export default function ProductsPage() {
                   <td className="px-2 py-1.5 text-center hidden sm:table-cell">
                     <span
                       className={cn(
-                        "font-kosugi text-micro uppercase tracking-wider px-1 py-0.5 rounded",
+                        "font-mono text-micro uppercase tracking-wider px-1 py-0.5 rounded",
                         product.isTaxable
                           ? "bg-[rgba(157,181,130,0.15)] text-status-success"
                           : "bg-[rgba(156,163,175,0.1)] text-text-mute"
@@ -403,7 +403,7 @@ function ProductFormModal({
         <div className="space-y-3 mt-2">
           {/* Name */}
           <div className="space-y-0.5">
-            <label className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
+            <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">
               {t("products.labelName")} *
             </label>
             <Input
@@ -415,7 +415,7 @@ function ProductFormModal({
 
           {/* Description */}
           <div className="space-y-0.5">
-            <label className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
+            <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">
               {t("products.labelDescription")}
             </label>
             <Textarea
@@ -429,7 +429,7 @@ function ProductFormModal({
           {/* Price / Cost */}
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-0.5">
-              <label className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
+              <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">
                 {t("products.labelDefaultPrice")} *
               </label>
               <Input
@@ -441,7 +441,7 @@ function ProductFormModal({
               />
             </div>
             <div className="space-y-0.5">
-              <label className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
+              <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">
                 {t("products.labelUnitCost")}
               </label>
               <Input
@@ -457,7 +457,7 @@ function ProductFormModal({
           {/* Unit / Category */}
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-0.5">
-              <label className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
+              <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">
                 {t("products.labelUnit")}
               </label>
               <select
@@ -471,7 +471,7 @@ function ProductFormModal({
               </select>
             </div>
             <div className="space-y-0.5">
-              <label className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
+              <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">
                 {t("products.labelCategory")}
               </label>
               <Input
@@ -484,7 +484,7 @@ function ProductFormModal({
 
           {/* Task Type */}
           <div className="space-y-0.5">
-            <label className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
+            <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">
               {t("products.labelTaskType")}
             </label>
             <select
@@ -499,7 +499,7 @@ function ProductFormModal({
                 </option>
               ))}
             </select>
-            <p className="font-kosugi text-micro text-text-mute">
+            <p className="font-mono text-micro text-text-mute">
               {t("products.taskTypeHelp")}
             </p>
           </div>
@@ -513,7 +513,7 @@ function ProductFormModal({
                 onChange={(e) => setIsTaxable(e.target.checked)}
                 className="rounded border-border"
               />
-              <span className="font-kosugi text-caption text-text-2">{t("products.taxable")}</span>
+              <span className="font-mono text-caption text-text-2">{t("products.taxable")}</span>
             </label>
             <label className="flex items-center gap-1.5 cursor-pointer">
               <input
@@ -522,14 +522,14 @@ function ProductFormModal({
                 onChange={(e) => setIsActive(e.target.checked)}
                 className="rounded border-border"
               />
-              <span className="font-kosugi text-caption text-text-2">{t("products.activeLabel")}</span>
+              <span className="font-mono text-caption text-text-2">{t("products.activeLabel")}</span>
             </label>
           </div>
 
           {/* Margin display */}
           {margin !== null && (
             <div className="bg-[rgba(255,255,255,0.02)] border border-border rounded p-1.5">
-              <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
+              <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
                 {t("products.margin")}:{" "}
               </span>
               <span className="font-mono text-data-sm text-status-success">

@@ -58,7 +58,7 @@ function ProjectSelector({
 
   return (
     <div className="flex flex-col gap-0.5">
-      <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
+      <label className="font-mono text-caption-sm text-text-2 uppercase tracking-widest">
         Project
       </label>
       <div className="relative">
@@ -261,7 +261,7 @@ export function CreateTaskForm({ onSuccess, onCancel }: CreateTaskFormProps) {
         />
 
         {!projectId && (
-          <p className="font-kosugi text-[11px] text-text-mute">
+          <p className="font-mono text-[11px] text-text-mute">
             Select a project to create a task for.
           </p>
         )}

@@ -227,7 +227,7 @@ function LeadCard({
 
       {/* Snippet */}
       {lead.snippet && (
-        <p className="font-kosugi text-xs text-[#999] line-clamp-2 leading-relaxed">
+        <p className="font-mono text-xs text-[#999] line-clamp-2 leading-relaxed">
           {lead.snippet}
         </p>
       )}
@@ -235,7 +235,7 @@ function LeadCard({
       {/* Action */}
       <button
         onClick={() => onCreateLead(prefill)}
-        className="w-full flex items-center justify-center gap-2 py-1.5 rounded-sm bg-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.08)] text-[#6F94B0] text-xs font-medium transition-colors font-kosugi"
+        className="w-full flex items-center justify-center gap-2 py-1.5 rounded-sm bg-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.08)] text-[#6F94B0] text-xs font-medium transition-colors font-mono"
       >
         <UserPlus className="h-3 w-3" />
         Create Lead
@@ -263,13 +263,13 @@ function SenderGroupSection({
     <div className="space-y-1.5">
       {/* Sender count header */}
       {count > 1 && (
-        <p className="font-kosugi text-[11px] text-[#999] px-1">
+        <p className="font-mono text-[11px] text-[#999] px-1">
           {count} {count === 1 ? "email" : "emails"} from{" "}
           <span className="text-[#E5E5E5]">{senderGroup.email}</span>
         </p>
       )}
       {count === 1 && (
-        <p className="font-kosugi text-[11px] text-[#999] px-1">
+        <p className="font-mono text-[11px] text-[#999] px-1">
           <span className="text-[#E5E5E5]">{senderGroup.email}</span>
         </p>
       )}
@@ -326,7 +326,7 @@ function DomainGroupSection({
           <span className="font-cakemono text-xs font-light text-[#E5E5E5] uppercase tracking-wide truncate group-hover:text-white transition-colors">
             @{group.domain}
           </span>
-          <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[rgba(255,255,255,0.08)] px-1 font-kosugi text-micro font-bold text-[#999] shrink-0">
+          <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[rgba(255,255,255,0.08)] px-1 font-mono text-micro font-bold text-[#999] shrink-0">
             {group.totalCount}
           </span>
         </button>
@@ -336,7 +336,7 @@ function DomainGroupSection({
           onClick={() => onBlockDomain(group.domain)}
           disabled={isBlocking}
           className={cn(
-            "flex items-center gap-1 rounded-sm px-2 py-1 font-kosugi text-micro transition-colors shrink-0",
+            "flex items-center gap-1 rounded-sm px-2 py-1 font-mono text-micro transition-colors shrink-0",
             isThisDomainBlocking
               ? "text-[#555]"
               : "text-[#93321A] hover:text-[#b5432a] hover:bg-[rgba(147,50,26,0.10)]"
@@ -458,7 +458,7 @@ export function InboxLeadsQueue({
             {reviewCount > 0 && (
               <button
                 onClick={() => setReviewPanelOpen(true)}
-                className="flex items-center gap-1.5 rounded-sm px-2 py-1 font-kosugi text-micro uppercase tracking-wider text-[#C4A868] hover:bg-[rgba(196,168,104,0.10)] transition-colors"
+                className="flex items-center gap-1.5 rounded-sm px-2 py-1 font-mono text-micro uppercase tracking-wider text-[#C4A868] hover:bg-[rgba(196,168,104,0.10)] transition-colors"
               >
                 <AlertTriangle className="h-3 w-3" />
                 Review ({reviewCount})
@@ -486,10 +486,10 @@ export function InboxLeadsQueue({
         ) : leads.length === 0 ? (
           <div className="rounded-sm border border-dashed border-[rgba(255,255,255,0.10)] py-8 flex flex-col items-center gap-2">
             <Inbox className="h-7 w-7 text-[#333]" />
-            <p className="font-kosugi text-sm text-[#555]">
+            <p className="font-mono text-sm text-[#555]">
               No new inbox leads
             </p>
-            <p className="font-kosugi text-xs text-[#444]">
+            <p className="font-mono text-xs text-[#444]">
               Unmatched emails from synced Gmail accounts appear here
             </p>
           </div>

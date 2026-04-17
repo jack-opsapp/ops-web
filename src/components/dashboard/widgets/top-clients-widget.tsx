@@ -142,7 +142,7 @@ export function TopClientsWidget({
     return (
       <Card className="h-full">
         <div className="pb-1 pt-2 px-3">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
+          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
             {t("topClients.title") ?? "Top Clients"}
           </span>
         </div>
@@ -158,7 +158,7 @@ export function TopClientsWidget({
     return (
       <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
-          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider">
+          <span className="font-mono text-micro text-text-3 uppercase tracking-wider">
             {t("topClients.title") ?? "Top Clients"}
           </span>
           <div className="flex-1 flex flex-col justify-center">
@@ -179,7 +179,7 @@ export function TopClientsWidget({
           <span className="font-mono text-display font-bold leading-none text-text">
             {rankedClients.length}
           </span>
-          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
+          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
             {t("topClients.title") ?? "Top Clients"}
           </span>
           <WidgetTrendContext variant="snapshot" label={t("trend.byRevenue") ?? "By Revenue"} />
@@ -213,7 +213,7 @@ export function TopClientsWidget({
               <ArrowUpRight className="w-[14px] h-[14px]" />
             </button>
           </div>
-          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
+          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
             {t("topClients.title") ?? "Top Clients"}
           </span>
           <WidgetTrendContext variant="snapshot" label={t("trend.byRevenue") ?? "By Revenue"} />
@@ -249,7 +249,7 @@ export function TopClientsWidget({
       <div className="h-full flex flex-col p-3">
         {/* HEADER */}
         <div className="flex items-center justify-between mb-2">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
+          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
             {t("topClients.title") ?? "Top Clients"}
           </span>
         </div>

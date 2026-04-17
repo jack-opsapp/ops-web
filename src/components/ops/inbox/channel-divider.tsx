@@ -21,7 +21,7 @@ export function ChannelDivider({ channel, subject }: ChannelDividerProps) {
       )}
       <span
         className={cn(
-          "font-kosugi text-micro uppercase tracking-wider shrink-0",
+          "font-mono text-micro uppercase tracking-wider shrink-0",
           isEmail ? "text-text-mute" : "text-text-2"
         )}
       >
@@ -46,7 +46,7 @@ export function DateDivider({ label }: DateDividerProps) {
   return (
     <div className="flex items-center gap-2 my-3">
       <div className="flex-1 h-px bg-border-subtle" />
-      <span className="font-kosugi text-micro uppercase tracking-wider text-text-mute">
+      <span className="font-mono text-micro uppercase tracking-wider text-text-mute">
         {label}
       </span>
       <div className="flex-1 h-px bg-border-subtle" />

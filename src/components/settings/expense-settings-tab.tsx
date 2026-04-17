@@ -140,7 +140,7 @@ export function ExpenseSettingsTab() {
           <div className="flex items-center justify-between">
             <div>
               <p className="font-mohave text-body text-text">{t("expenses.autoApproveThreshold")}</p>
-              <p className="font-kosugi text-[11px] text-text-mute">{t("expenses.autoApproveDesc")}</p>
+              <p className="font-mono text-[11px] text-text-mute">{t("expenses.autoApproveDesc")}</p>
             </div>
             <div className="flex items-center gap-1 shrink-0">
               <span className="font-mohave text-body text-text-3">$</span>
@@ -161,7 +161,7 @@ export function ExpenseSettingsTab() {
           <div className="flex items-center justify-between">
             <div>
               <p className="font-mohave text-body text-text">{t("expenses.adminApprovalThreshold")}</p>
-              <p className="font-kosugi text-[11px] text-text-mute">{t("expenses.adminApprovalDesc")}</p>
+              <p className="font-mono text-[11px] text-text-mute">{t("expenses.adminApprovalDesc")}</p>
             </div>
             <div className="flex items-center gap-1 shrink-0">
               <span className="font-mohave text-body text-text-3">$</span>
@@ -189,7 +189,7 @@ export function ExpenseSettingsTab() {
           <div className="flex items-center justify-between py-[6px]">
             <div>
               <p className="font-mohave text-body text-text">{t("expenses.requireReceipt")}</p>
-              <p className="font-kosugi text-[11px] text-text-mute">{t("expenses.requireReceiptDesc")}</p>
+              <p className="font-mono text-[11px] text-text-mute">{t("expenses.requireReceiptDesc")}</p>
             </div>
             <button
               disabled={!can("expenses.configure")}
@@ -211,7 +211,7 @@ export function ExpenseSettingsTab() {
           <div className="flex items-center justify-between py-[6px]">
             <div>
               <p className="font-mohave text-body text-text">{t("expenses.requireProject")}</p>
-              <p className="font-kosugi text-[11px] text-text-mute">{t("expenses.requireProjectDesc")}</p>
+              <p className="font-mono text-[11px] text-text-mute">{t("expenses.requireProjectDesc")}</p>
             </div>
             <button
               disabled={!can("expenses.configure")}
@@ -238,13 +238,13 @@ export function ExpenseSettingsTab() {
           <CardTitle>{t("expenses.autoApproveRules")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
-          <p className="font-kosugi text-[11px] text-text-mute">
+          <p className="font-mono text-[11px] text-text-mute">
             {t("expenses.autoApproveRulesDesc")}
           </p>
 
           {/* Rules list */}
           {rules.length === 0 && !showAddRule && (
-            <p className="font-kosugi text-caption-sm text-text-mute py-2">
+            <p className="font-mono text-caption-sm text-text-mute py-2">
               {t("expenses.noRules")}
             </p>
           )}
@@ -258,7 +258,7 @@ export function ExpenseSettingsTab() {
                 {/* Rule type pill */}
                 <span
                   className={cn(
-                    "px-1.5 py-0.5 rounded font-kosugi text-micro uppercase tracking-wider",
+                    "px-1.5 py-0.5 rounded font-mono text-micro uppercase tracking-wider",
                     rule.ruleType === AutoApproveRuleType.Invoice
                       ? "bg-[rgba(129,149,181,0.15)] text-[#8195B5]"
                       : "bg-[rgba(196,168,104,0.15)] text-[#C4A868]"
@@ -278,7 +278,7 @@ export function ExpenseSettingsTab() {
                 </span>
 
                 {/* Members */}
-                <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider">
+                <span className="font-mono text-micro text-text-3 uppercase tracking-wider">
                   {rule.appliesToAll
                     ? t("expenses.allMembers")
                     : `${rule.members.length} ${t("expenses.members").toLowerCase()}`}
@@ -337,7 +337,7 @@ export function ExpenseSettingsTab() {
             can("expenses.configure") && (
               <button
                 onClick={() => setShowAddRule(true)}
-                className="font-kosugi text-caption-sm text-text-2 hover:text-text uppercase tracking-wider transition-colors"
+                className="font-mono text-caption-sm text-text-2 hover:text-text uppercase tracking-wider transition-colors"
               >
                 {t("expenses.addRule")}
               </button>

@@ -197,10 +197,10 @@ function TaskTemplatesSection({ taskType }: { taskType: TaskType }) {
 
   return (
     <div className="space-y-1">
-      <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
+      <label className="font-mono text-caption-sm text-text-2 uppercase tracking-widest">
         {t("taskTypes.taskTemplates")}
       </label>
-      <p className="font-kosugi text-[11px] text-text-mute">
+      <p className="font-mono text-[11px] text-text-mute">
         {t("taskTypes.templateHelper")}
       </p>
 
@@ -337,7 +337,7 @@ function TaskTypeCard({ taskType }: { taskType: TaskType }) {
         />
         <h4 className="font-mohave text-body text-text flex-1">{taskType.display}</h4>
         {taskType.isDefault && (
-          <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
+          <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
             {t("taskTypes.default")}
           </span>
         )}
@@ -357,7 +357,7 @@ function TaskTypeCard({ taskType }: { taskType: TaskType }) {
         <div className="px-2 pb-2 space-y-2 border-t border-[rgba(255,255,255,0.04)]">
           {/* Section: Default Crew */}
           <div className="space-y-1 pt-1.5">
-            <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
+            <label className="font-mono text-caption-sm text-text-2 uppercase tracking-widest">
               {t("taskTypes.defaultCrew")}
             </label>
             <CrewPicker
@@ -451,7 +451,7 @@ export function TaskTypesTab() {
                 autoFocus
               />
               <div className="flex flex-col gap-0.5">
-                <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
+                <label className="font-mono text-caption-sm text-text-2 uppercase tracking-widest">
                   {t("taskTypes.color")}
                 </label>
                 <input

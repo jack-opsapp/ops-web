@@ -45,7 +45,7 @@ export function ExpenseFilters({
         >
           NEEDS REVIEW
           {reviewCount > 0 && (
-            <span className="font-kosugi text-micro bg-[rgba(129,149,181,0.2)] text-[#8195B5] px-1.5 py-0.5 rounded-full">
+            <span className="font-mono text-micro bg-[rgba(129,149,181,0.2)] text-[#8195B5] px-1.5 py-0.5 rounded-full">
               {reviewCount}
             </span>
           )}
@@ -71,7 +71,7 @@ export function ExpenseFilters({
               key={period}
               onClick={() => onPeriodChange(period)}
               className={cn(
-                "px-2.5 py-1 rounded font-kosugi text-[11px] uppercase tracking-wider whitespace-nowrap shrink-0 transition-colors border",
+                "px-2.5 py-1 rounded font-mono text-[11px] uppercase tracking-wider whitespace-nowrap shrink-0 transition-colors border",
                 activePeriod === period
                   ? "bg-[rgba(255,255,255,0.08)] text-text border-[rgba(255,255,255,0.15)]"
                   : "text-text-3 border-transparent hover:text-text-2 hover:border-border"

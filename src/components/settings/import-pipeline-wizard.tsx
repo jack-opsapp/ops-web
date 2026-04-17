@@ -932,7 +932,7 @@ export function ImportPipelineWizard({
             <h2 className="font-mohave text-lg font-semibold text-white">
               Import Your Pipeline
             </h2>
-            <p className="font-kosugi text-micro tracking-[0.15em] uppercase text-[#999]">
+            <p className="font-mono text-micro tracking-[0.15em] uppercase text-[#999]">
               {STEP_KEY_MAP[step].toUpperCase()}{step === 4 ? ` · ${SUB_STEP_KEY_MAP[reviewSubStep]}` : ""}
             </p>
           </div>
@@ -990,7 +990,7 @@ export function ImportPipelineWizard({
                   </p>
                   <button
                     onClick={() => goTo(1)}
-                    className="font-kosugi text-micro tracking-[0.1em] uppercase text-[#6F94B0] hover:text-white transition-colors"
+                    className="font-mono text-micro tracking-[0.1em] uppercase text-[#6F94B0] hover:text-white transition-colors"
                   >
                     ← Back to Connect
                   </button>
@@ -1233,7 +1233,7 @@ export function ImportPipelineWizard({
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setShowCloseConfirm(false)}
-                  className="flex-1 py-2 font-kosugi text-micro tracking-[0.1em] uppercase border border-white/10 text-[#999] hover:text-white transition-colors"
+                  className="flex-1 py-2 font-mono text-micro tracking-[0.1em] uppercase border border-white/10 text-[#999] hover:text-white transition-colors"
                   style={{ borderRadius: 4 }}
                 >
                   CONTINUE
@@ -1245,7 +1245,7 @@ export function ImportPipelineWizard({
                     invalidateConnections();
                     onOpenChange(false);
                   }}
-                  className="flex-1 py-2 font-kosugi text-micro tracking-[0.1em] uppercase bg-ops-accent hover:bg-[#6A88A5] text-white transition-colors"
+                  className="flex-1 py-2 font-mono text-micro tracking-[0.1em] uppercase bg-ops-accent hover:bg-[#6A88A5] text-white transition-colors"
                   style={{ borderRadius: 4 }}
                 >
                   CLOSE & SAVE

@@ -54,20 +54,20 @@ export function CurriculumTree({ modules }: { modules: LearnModuleDetail[] }) {
                         {lesson.title}
                       </span>
                       {lesson.duration_minutes && (
-                        <span className="font-kosugi text-[11px] text-[#6B6B6B] shrink-0">
+                        <span className="font-mono text-[11px] text-[#6B6B6B] shrink-0">
                           {lesson.duration_minutes}m
                         </span>
                       )}
                       {lesson.content_blocks.map((cb, i) => (
                         <span
                           key={i}
-                          className="px-1.5 py-0.5 rounded font-kosugi text-micro uppercase bg-white/[0.05] text-[#6B6B6B]"
+                          className="px-1.5 py-0.5 rounded font-mono text-micro uppercase bg-white/[0.05] text-[#6B6B6B]"
                         >
                           {cb.type}
                         </span>
                       ))}
                     </div>
-                    <span className="font-kosugi text-micro uppercase text-[#6B6B6B] shrink-0">
+                    <span className="font-mono text-micro uppercase text-[#6B6B6B] shrink-0">
                       Lesson
                     </span>
                   </div>
@@ -83,22 +83,22 @@ export function CurriculumTree({ modules }: { modules: LearnModuleDetail[] }) {
                         {assessment.title}
                       </span>
                       <span
-                        className="font-kosugi text-micro uppercase"
+                        className="font-mono text-micro uppercase"
                         style={{ color: ASSESSMENT_TYPE_COLORS[assessment.type] ?? "#6B6B6B" }}
                       >
                         {assessment.type}
                       </span>
                       {assessment.passing_score !== null && (
-                        <span className="font-kosugi text-[11px] text-[#6B6B6B]">
+                        <span className="font-mono text-[11px] text-[#6B6B6B]">
                           pass: {assessment.passing_score}%
                         </span>
                       )}
-                      <span className="font-kosugi text-[11px] text-[#6B6B6B]">
+                      <span className="font-mono text-[11px] text-[#6B6B6B]">
                         {assessment.question_count}q
                       </span>
                     </div>
                     <span
-                      className="font-kosugi text-micro uppercase shrink-0"
+                      className="font-mono text-micro uppercase shrink-0"
                       style={{ color: ASSESSMENT_TYPE_COLORS[assessment.type] ?? "#6B6B6B" }}
                     >
                       Assessment

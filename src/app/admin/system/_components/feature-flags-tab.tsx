@@ -164,7 +164,7 @@ export function FeatureFlagsTab() {
           <h2 className="font-mohave text-[16px] uppercase tracking-wider text-[#E5E5E5]">
             User Special Permissions
           </h2>
-          <p className="font-kosugi text-[12px] text-[#6B6B6B] mt-1">
+          <p className="font-mono text-[12px] text-[#6B6B6B] mt-1">
             [per-user permission flags — separate from the company AI toggles above]
           </p>
         </div>
@@ -210,7 +210,7 @@ export function FeatureFlagsTab() {
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSearch()}
             placeholder={mode === "user" ? "Search by name or email..." : "Search by company name..."}
-            className="flex-1 bg-white/[0.05] border border-white/[0.08] rounded-lg px-4 py-2 font-kosugi text-[13px] text-[#E5E5E5] placeholder:text-[#6B6B6B] outline-none focus:border-[#597794]/50"
+            className="flex-1 bg-white/[0.05] border border-white/[0.08] rounded-lg px-4 py-2 font-mono text-[13px] text-[#E5E5E5] placeholder:text-[#6B6B6B] outline-none focus:border-[#597794]/50"
           />
           <button
             onClick={handleSearch}
@@ -296,7 +296,7 @@ export function FeatureFlagsTab() {
                 ← BACK
               </button>
               <span className="font-mohave text-[16px] text-[#E5E5E5]">{selectedCompany.name}</span>
-              <span className="font-kosugi text-[12px] text-[#6B6B6B]">
+              <span className="font-mono text-[12px] text-[#6B6B6B]">
                 {companyUsers.length} user{companyUsers.length !== 1 ? "s" : ""}
               </span>
             </div>
@@ -397,7 +397,7 @@ function UserPermissionRow({
       <span className="font-mohave text-[14px] text-[#E5E5E5]">
         {user.first_name} {user.last_name}
       </span>
-      <span className="font-kosugi text-[12px] text-[#6B6B6B] truncate">{user.email ?? "—"}</span>
+      <span className="font-mono text-[12px] text-[#6B6B6B] truncate">{user.email ?? "—"}</span>
       <span className="font-mohave text-[13px] text-[#A0A0A0]">{user.role ?? "—"}</span>
       <div className="flex items-center gap-1.5 flex-wrap">
         {/* Current permissions as removable chips */}

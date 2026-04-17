@@ -56,10 +56,10 @@ export function SpatialFloatingToolbar({
         <>
           <ToolbarAction onClick={onReviewEmails}>
             <Mail className="w-[13px] h-[13px] text-text-2" />
-            <span className="font-kosugi text-micro text-text-2 uppercase tracking-wider">
+            <span className="font-mono text-micro text-text-2 uppercase tracking-wider">
               {t("gmail.reviewEmails")}
             </span>
-            <span className="inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-[4px] border border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.08)] font-kosugi text-micro text-text">
+            <span className="inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-[4px] border border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.08)] font-mono text-micro text-text">
               {reviewCount > 99 ? "99+" : reviewCount}
             </span>
           </ToolbarAction>
@@ -70,7 +70,7 @@ export function SpatialFloatingToolbar({
       {/* Canvas tools */}
       <ToolbarAction onClick={handleFitAll}>
         <Maximize2 className="w-[13px] h-[13px]" />
-        <span className="font-kosugi text-micro uppercase tracking-wider">
+        <span className="font-mono text-micro uppercase tracking-wider">
           {t("spatial.fitAll")}
         </span>
       </ToolbarAction>
@@ -79,7 +79,7 @@ export function SpatialFloatingToolbar({
 
       <ToolbarAction onClick={onAddLead}>
         <Plus className="w-[13px] h-[13px]" />
-        <span className="font-kosugi text-micro uppercase tracking-wider">
+        <span className="font-mono text-micro uppercase tracking-wider">
           {t("spatial.newLead")}
         </span>
       </ToolbarAction>
@@ -88,7 +88,7 @@ export function SpatialFloatingToolbar({
 
       <ToolbarAction onClick={toggleArchiveTray} isActive={isArchiveTrayOpen}>
         <Archive className="w-[13px] h-[13px]" />
-        <span className="font-kosugi text-micro uppercase tracking-wider">
+        <span className="font-mono text-micro uppercase tracking-wider">
           {t("spatial.archivedDeals")}
         </span>
       </ToolbarAction>
@@ -97,7 +97,7 @@ export function SpatialFloatingToolbar({
 
       <ToolbarAction onClick={toggleDiscardTray} isActive={isDiscardTrayOpen}>
         <Trash2 className="w-[13px] h-[13px]" />
-        <span className="font-kosugi text-micro uppercase tracking-wider">
+        <span className="font-mono text-micro uppercase tracking-wider">
           {t("spatial.discardedDeals")}
         </span>
       </ToolbarAction>

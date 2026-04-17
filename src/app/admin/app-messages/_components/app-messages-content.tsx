@@ -221,7 +221,7 @@ export function AppMessagesContent({ initialMessages }: AppMessagesContentProps)
                 <td className="px-2 py-3 font-mohave text-[13px] text-[#A0A0A0]">
                   {m.dismissable ? "Yes" : "No"}
                 </td>
-                <td className="px-2 py-3 font-kosugi text-[12px] text-[#6B6B6B]">
+                <td className="px-2 py-3 font-mono text-[12px] text-[#6B6B6B]">
                   [{new Date(m.created_at).toLocaleDateString()}]
                 </td>
               </tr>
@@ -307,7 +307,7 @@ export function AppMessagesContent({ initialMessages }: AppMessagesContentProps)
                 <label className="block font-mohave text-[12px] uppercase tracking-widest text-[#6B6B6B] mb-1">
                   Target Users
                 </label>
-                <p className="font-kosugi text-[11px] text-[#6B6B6B] mb-2">
+                <p className="font-mono text-[11px] text-[#6B6B6B] mb-2">
                   Leave all unchecked to target all users
                 </p>
                 <div className="flex gap-3">
@@ -351,7 +351,7 @@ export function AppMessagesContent({ initialMessages }: AppMessagesContentProps)
                   </span>
                 </label>
                 {!form.dismissable && (
-                  <p className="font-kosugi text-[11px] text-[#C4A868] mt-1">
+                  <p className="font-mono text-[11px] text-[#C4A868] mt-1">
                     Non-dismissable messages block users from using the app
                   </p>
                 )}
@@ -394,7 +394,7 @@ export function AppMessagesContent({ initialMessages }: AppMessagesContentProps)
                   </span>
                 </label>
                 {form.active && (
-                  <p className="font-kosugi text-[11px] text-[#6B6B6B] mt-1">
+                  <p className="font-mono text-[11px] text-[#6B6B6B] mt-1">
                     Activating will deactivate any other active message
                   </p>
                 )}

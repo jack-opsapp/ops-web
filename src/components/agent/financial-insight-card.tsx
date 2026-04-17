@@ -75,7 +75,7 @@ function CollapsibleSection({
         <h3 className="font-mohave text-[13px] text-text-3 uppercase tracking-wider">
           {title}
         </h3>
-        <span className="flex items-center gap-1 font-kosugi text-[11px] text-text-3">
+        <span className="flex items-center gap-1 font-mono text-[11px] text-text-3">
           {open ? hideLabel : showLabel}
           {open ? (
             <ChevronUp className="w-[14px] h-[14px]" />
@@ -114,7 +114,7 @@ function StatBox({
 }) {
   return (
     <div className="flex-1 min-w-[100px] rounded-[4px] border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)] p-3">
-      <span className="font-kosugi text-[11px] text-text-3 uppercase block">
+      <span className="font-mono text-[11px] text-text-3 uppercase block">
         [{label}]
       </span>
       <span
@@ -168,7 +168,7 @@ function BarChart({
                 title={barLabel ? barLabel(d.value) : `${d.value}`}
               />
             </div>
-            <span className="font-kosugi text-micro text-text-3 truncate w-full text-center">
+            <span className="font-mono text-micro text-text-3 truncate w-full text-center">
               {d.label}
             </span>
           </div>
@@ -200,7 +200,7 @@ function ProjectionBar({
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between">
-        <span className="font-kosugi text-[11px] text-text-3">{label}</span>
+        <span className="font-mono text-[11px] text-text-3">{label}</span>
         <span className="font-mono text-[11px] text-text-2">
           {fmtCurrency(expected + pipeline, loc)}
         </span>
@@ -237,7 +237,7 @@ function HeatmapCell({ month, index }: { month: string; index: number }) {
         style={{ backgroundColor: `rgba(111, 148, 176, ${alpha})` }}
         title={`${month}: ${index}%`}
       />
-      <span className="font-kosugi text-micro text-text-3">{month}</span>
+      <span className="font-mono text-micro text-text-3">{month}</span>
     </div>
   );
 }
@@ -286,7 +286,7 @@ function AlertRibbon({
         return (
           <div
             key={i}
-            className="rounded-[4px] px-3 py-2 text-[12px] font-kosugi"
+            className="rounded-[4px] px-3 py-2 text-[12px] font-mono"
             style={{
               borderLeft: `3px solid ${borderColor}`,
               backgroundColor: `${borderColor}10`,
@@ -391,7 +391,7 @@ export function FinancialInsightCard({ data, t, inline }: FinancialInsightCardPr
           {/* Metrics row */}
           <div className="flex items-center gap-4 flex-wrap">
             <div>
-              <span className="font-kosugi text-[11px] text-text-3 uppercase block">
+              <span className="font-mono text-[11px] text-text-3 uppercase block">
                 [{t("financial.revenue.avgMonthly")}]
               </span>
               <span className="font-mono text-[14px] text-text font-medium">
@@ -399,7 +399,7 @@ export function FinancialInsightCard({ data, t, inline }: FinancialInsightCardPr
               </span>
             </div>
             <div>
-              <span className="font-kosugi text-[11px] text-text-3 uppercase block">
+              <span className="font-mono text-[11px] text-text-3 uppercase block">
                 [{t("financial.revenue.pipelineValue")}]
               </span>
               <span className="font-mono text-[14px] text-[#C4A868] font-medium">
@@ -408,7 +408,7 @@ export function FinancialInsightCard({ data, t, inline }: FinancialInsightCardPr
             </div>
             {data.revenue.yoy_change !== null && (
               <div>
-                <span className="font-kosugi text-[11px] text-text-3 uppercase block">
+                <span className="font-mono text-[11px] text-text-3 uppercase block">
                   [{t("financial.revenue.yoyChange")}]
                 </span>
                 <span className="flex items-center gap-1 font-mono text-[14px] font-medium" style={{
@@ -429,11 +429,11 @@ export function FinancialInsightCard({ data, t, inline }: FinancialInsightCardPr
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-1">
               <div className="w-[8px] h-[8px] rounded-[1px]" style={{ backgroundColor: "#6F94B0" }} />
-              <span className="font-kosugi text-micro text-text-3">{t("financial.revenue.actual")}</span>
+              <span className="font-mono text-micro text-text-3">{t("financial.revenue.actual")}</span>
             </div>
             <div className="flex items-center gap-1">
               <div className="w-[8px] h-[8px] rounded-[1px]" style={{ backgroundColor: "#6F94B066" }} />
-              <span className="font-kosugi text-micro text-text-3">{t("financial.revenue.projected")}</span>
+              <span className="font-mono text-micro text-text-3">{t("financial.revenue.projected")}</span>
             </div>
           </div>
         </div>
@@ -478,11 +478,11 @@ export function FinancialInsightCard({ data, t, inline }: FinancialInsightCardPr
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-1">
               <div className="w-[8px] h-[8px] rounded-[1px]" style={{ backgroundColor: "#6F94B0" }} />
-              <span className="font-kosugi text-micro text-text-3">{t("financial.cashflow.expected")}</span>
+              <span className="font-mono text-micro text-text-3">{t("financial.cashflow.expected")}</span>
             </div>
             <div className="flex items-center gap-1">
               <div className="w-[8px] h-[8px] rounded-[1px]" style={{ backgroundColor: "#6F94B066" }} />
-              <span className="font-kosugi text-micro text-text-3">{t("financial.cashflow.pipeline")}</span>
+              <span className="font-mono text-micro text-text-3">{t("financial.cashflow.pipeline")}</span>
             </div>
           </div>
         </div>
@@ -499,16 +499,16 @@ export function FinancialInsightCard({ data, t, inline }: FinancialInsightCardPr
             <table className="w-full text-left">
               <thead>
                 <tr className="border-b border-[rgba(255,255,255,0.06)]">
-                  <th className="font-kosugi text-[11px] text-text-3 uppercase pb-2 pr-3">
+                  <th className="font-mono text-[11px] text-text-3 uppercase pb-2 pr-3">
                     [{t("financial.pricing.service")}]
                   </th>
-                  <th className="font-kosugi text-[11px] text-text-3 uppercase pb-2 pr-3">
+                  <th className="font-mono text-[11px] text-text-3 uppercase pb-2 pr-3">
                     [{t("financial.pricing.winRate")}]
                   </th>
-                  <th className="font-kosugi text-[11px] text-text-3 uppercase pb-2 pr-3">
+                  <th className="font-mono text-[11px] text-text-3 uppercase pb-2 pr-3">
                     [{t("financial.pricing.avgPrice")}]
                   </th>
-                  <th className="font-kosugi text-[11px] text-text-3 uppercase pb-2">
+                  <th className="font-mono text-[11px] text-text-3 uppercase pb-2">
                     [{t("financial.pricing.suggestion")}]
                   </th>
                 </tr>
@@ -532,7 +532,7 @@ export function FinancialInsightCard({ data, t, inline }: FinancialInsightCardPr
                       <td className="font-mono text-[13px] text-text-2 py-2 pr-3">
                         {fmtCurrency(svc.avg_win_price, locale)}
                       </td>
-                      <td className="font-kosugi text-[11px] py-2" style={{ color: winColor }}>
+                      <td className="font-mono text-[11px] py-2" style={{ color: winColor }}>
                         {svc.suggestion.type === "increase"
                           ? t("financial.pricing.increase")
                           : svc.suggestion.type === "decrease"
@@ -567,7 +567,7 @@ export function FinancialInsightCard({ data, t, inline }: FinancialInsightCardPr
             <div className="flex items-center gap-4 flex-wrap">
               {data.seasonal.peak_months.length > 0 && (
                 <div>
-                  <span className="font-kosugi text-[11px] text-text-3 uppercase block">
+                  <span className="font-mono text-[11px] text-text-3 uppercase block">
                     [{t("financial.seasonal.peakMonths")}]
                   </span>
                   <span className="font-mohave text-[13px] text-[#A5B368]">
@@ -577,7 +577,7 @@ export function FinancialInsightCard({ data, t, inline }: FinancialInsightCardPr
               )}
               {data.seasonal.slow_months.length > 0 && (
                 <div>
-                  <span className="font-kosugi text-[11px] text-text-3 uppercase block">
+                  <span className="font-mono text-[11px] text-text-3 uppercase block">
                     [{t("financial.seasonal.slowMonths")}]
                   </span>
                   <span className="font-mohave text-[13px] text-[#C4A868]">
@@ -590,7 +590,7 @@ export function FinancialInsightCard({ data, t, inline }: FinancialInsightCardPr
             {/* Service patterns */}
             {data.seasonal.service_patterns.length > 0 && (
               <div>
-                <span className="font-kosugi text-[11px] text-text-3 uppercase block mb-1">
+                <span className="font-mono text-[11px] text-text-3 uppercase block mb-1">
                   [{t("financial.seasonal.servicePatterns")}]
                 </span>
                 <div className="space-y-1">
@@ -599,7 +599,7 @@ export function FinancialInsightCard({ data, t, inline }: FinancialInsightCardPr
                       <span className="font-mohave text-[12px] text-text-2">
                         {sp.service}
                       </span>
-                      <span className="font-kosugi text-[11px] text-[#A5B368]">
+                      <span className="font-mono text-[11px] text-[#A5B368]">
                         {sp.peak_months.join(", ")}
                       </span>
                     </div>

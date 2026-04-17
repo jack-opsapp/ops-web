@@ -67,7 +67,7 @@ export function InventoryTab() {
             <Package className="w-[16px] h-[16px] text-text-2" />
             <CardTitle>{t("inventory.unitsTitle")}</CardTitle>
           </div>
-          <p className="font-kosugi text-[11px] text-text-mute mt-1">
+          <p className="font-mono text-[11px] text-text-mute mt-1">
             {t("inventory.unitsDescription")}
           </p>
         </CardHeader>
@@ -93,7 +93,7 @@ export function InventoryTab() {
 
           {/* Unit list */}
           {sortedUnits.length === 0 ? (
-            <p className="font-kosugi text-[11px] text-text-mute py-4 text-center">
+            <p className="font-mono text-[11px] text-text-mute py-4 text-center">
               {t("inventory.noUnits")}
             </p>
           ) : (
@@ -106,7 +106,7 @@ export function InventoryTab() {
                   <div className="flex items-center gap-2">
                     <span className="font-mohave text-body text-text">{unit.display}</span>
                     {unit.isDefault && (
-                      <span className="font-kosugi text-micro text-text bg-[rgba(255,255,255,0.08)] px-1.5 py-0.5 rounded">
+                      <span className="font-mono text-micro text-text bg-[rgba(255,255,255,0.08)] px-1.5 py-0.5 rounded">
                         {t("inventory.default")}
                       </span>
                     )}

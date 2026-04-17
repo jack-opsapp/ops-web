@@ -86,7 +86,7 @@ export function MapFilterRail() {
         )}
       >
         <Map className="w-[12px] h-[12px] text-text-mute" />
-        <span className="font-kosugi text-micro text-text-mute tracking-wider uppercase select-none">
+        <span className="font-mono text-micro text-text-mute tracking-wider uppercase select-none">
           MAP
         </span>
       </div>
@@ -126,7 +126,7 @@ export function MapFilterRail() {
               />
             )}
             <Icon className="w-[14px] h-[14px] shrink-0 relative z-[1]" />
-            <span className="font-kosugi text-micro tracking-wider whitespace-nowrap relative z-[1]">
+            <span className="font-mono text-micro tracking-wider whitespace-nowrap relative z-[1]">
               {f.label}
             </span>
           </button>
@@ -148,7 +148,7 @@ export function MapFilterRail() {
             title="CREW"
           >
             <Users className="w-[14px] h-[14px] shrink-0" />
-            <span className="font-kosugi text-micro tracking-wider whitespace-nowrap">
+            <span className="font-mono text-micro tracking-wider whitespace-nowrap">
               CREW
             </span>
           </button>

@@ -174,7 +174,7 @@ function MonthDayCell({
       {/* Overflow "+N more" — bottom of cell */}
       {overflow > 0 && (
         <button
-          className="absolute cursor-pointer font-kosugi uppercase hover:underline"
+          className="absolute cursor-pointer font-mono uppercase hover:underline"
           style={{
             bottom: 2,
             left: 4,
@@ -589,7 +589,7 @@ export function CalendarGridMonth({
           return (
             <div
               key={name}
-              className="font-kosugi uppercase text-left"
+              className="font-mono uppercase text-left"
               style={{
                 fontSize: 10,
                 color: "#999999",

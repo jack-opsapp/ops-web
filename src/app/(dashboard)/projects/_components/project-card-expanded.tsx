@@ -72,7 +72,7 @@ export const ProjectCardExpanded = memo(function ProjectCardExpanded({
         className="flex flex-col gap-[3px] mb-2"
       >
         {/* Task summary */}
-        <span className="font-kosugi text-micro text-text-3">
+        <span className="font-mono text-micro text-text-3">
           {totalTasks > 0
             ? t("card.tasksComplete")
                 .replace("{completed}", String(completedTasks))
@@ -92,7 +92,7 @@ export const ProjectCardExpanded = memo(function ProjectCardExpanded({
               />
             ))}
             {teamMembers.length > 3 && (
-              <span className="font-kosugi text-micro text-text-mute ml-1">
+              <span className="font-mono text-micro text-text-mute ml-1">
                 +{teamMembers.length - 3}
               </span>
             )}
@@ -101,7 +101,7 @@ export const ProjectCardExpanded = memo(function ProjectCardExpanded({
 
         {/* Date range + days in status */}
         <div className="flex items-center justify-between mt-1">
-          <span className="font-kosugi text-micro text-text-mute">
+          <span className="font-mono text-micro text-text-mute">
             {dateRange}
           </span>
           <span className="font-mono text-micro text-text-mute">
@@ -126,7 +126,7 @@ export const ProjectCardExpanded = memo(function ProjectCardExpanded({
           className="flex items-center gap-1 px-2 py-1 rounded-panel text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.06)] transition-colors duration-150"
         >
           <ExternalLink className="w-3 h-3" />
-          <span className="font-kosugi text-micro">{t("actions.openDetail")}</span>
+          <span className="font-mono text-micro">{t("actions.openDetail")}</span>
         </button>
 
         {canCreateTasks && (
@@ -135,7 +135,7 @@ export const ProjectCardExpanded = memo(function ProjectCardExpanded({
             className="flex items-center gap-1 px-2 py-1 rounded-panel text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.06)] transition-colors duration-150"
           >
             <Plus className="w-3 h-3" />
-            <span className="font-kosugi text-micro">{t("actions.addTask")}</span>
+            <span className="font-mono text-micro">{t("actions.addTask")}</span>
           </button>
         )}
 
@@ -145,7 +145,7 @@ export const ProjectCardExpanded = memo(function ProjectCardExpanded({
             className="flex items-center gap-1 px-2 py-1 rounded-panel text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.06)] transition-colors duration-150"
           >
             <Receipt className="w-3 h-3" />
-            <span className="font-kosugi text-micro">{t("actions.recordPayment")}</span>
+            <span className="font-mono text-micro">{t("actions.recordPayment")}</span>
           </button>
         )}
 
@@ -155,7 +155,7 @@ export const ProjectCardExpanded = memo(function ProjectCardExpanded({
             className="flex items-center gap-1 px-2 py-1 rounded-panel text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.06)] transition-colors duration-150"
           >
             <Archive className="w-3 h-3" />
-            <span className="font-kosugi text-micro">{t("actions.archive")}</span>
+            <span className="font-mono text-micro">{t("actions.archive")}</span>
           </button>
         )}
       </motion.div>

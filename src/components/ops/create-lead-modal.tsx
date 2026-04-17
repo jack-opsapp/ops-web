@@ -95,7 +95,7 @@ function ClientSelector({
 
   return (
     <div className="flex flex-col gap-0.5">
-      <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
+      <label className="font-mono text-caption-sm text-text-2 uppercase tracking-widest">
         Existing Client
       </label>
       <div className="relative">
@@ -272,7 +272,7 @@ export function CreateLeadForm({ onSuccess, onCancel }: CreateLeadFormProps) {
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-2">
       {/* Contact Info */}
       <div className="space-y-2">
-        <span className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
+        <span className="font-mono text-caption-sm text-text-2 uppercase tracking-widest">
           Contact
         </span>
         <Input
@@ -313,7 +313,7 @@ export function CreateLeadForm({ onSuccess, onCancel }: CreateLeadFormProps) {
 
       {/* Deal Details */}
       <div className="space-y-2 pt-1 border-t border-[rgba(255,255,255,0.15)]">
-        <span className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
+        <span className="font-mono text-caption-sm text-text-2 uppercase tracking-widest">
           Deal Details
         </span>
 
@@ -325,7 +325,7 @@ export function CreateLeadForm({ onSuccess, onCancel }: CreateLeadFormProps) {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <div className="flex flex-col gap-0.5">
-            <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
+            <label className="font-mono text-caption-sm text-text-2 uppercase tracking-widest">
               Source
             </label>
             <select
@@ -341,7 +341,7 @@ export function CreateLeadForm({ onSuccess, onCancel }: CreateLeadFormProps) {
             </select>
           </div>
           <div className="flex flex-col gap-0.5">
-            <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
+            <label className="font-mono text-caption-sm text-text-2 uppercase tracking-widest">
               Priority
             </label>
             <select

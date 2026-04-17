@@ -14,11 +14,11 @@ export function BriefingHeroClient({ briefing }: { briefing: AdBriefing | null }
     <div className="border border-white/[0.08] rounded-lg bg-white/[0.02] p-6">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h2 className="font-kosugi text-micro uppercase tracking-wider text-[#6B6B6B]">
+          <h2 className="font-mono text-micro uppercase tracking-wider text-[#6B6B6B]">
             Latest Intelligence Briefing
           </h2>
           {briefing && (
-            <p className="font-kosugi text-[11px] text-[#444444] mt-1">
+            <p className="font-mono text-[11px] text-[#444444] mt-1">
               [{briefing.period_start} — {briefing.period_end}]
             </p>
           )}
@@ -44,7 +44,7 @@ export function BriefingHeroClient({ briefing }: { briefing: AdBriefing | null }
 
           <Link
             href={`/admin/google-ads/briefings/${briefing.id}`}
-            className="inline-block mt-4 font-kosugi text-[11px] text-[#597794] hover:text-[#E5E5E5] transition-colors duration-100"
+            className="inline-block mt-4 font-mono text-[11px] text-[#597794] hover:text-[#E5E5E5] transition-colors duration-100"
           >
             View full briefing →
           </Link>

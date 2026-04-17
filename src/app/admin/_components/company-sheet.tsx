@@ -179,7 +179,7 @@ function ErrorState({ message }: { message: string }) {
   return (
     <div className="py-8 text-center">
       <p className="font-mohave text-[14px] text-[#93321A] uppercase">Error</p>
-      <p className="font-kosugi text-[12px] text-[#A0A0A0] mt-2">{message}</p>
+      <p className="font-mono text-[12px] text-[#A0A0A0] mt-2">{message}</p>
     </div>
   );
 }
@@ -236,7 +236,7 @@ function OverviewTab({ data }: { data: CompanyData }) {
           Recent Projects
         </p>
         {data.projects.length === 0 ? (
-          <p className="font-kosugi text-[12px] text-[#6B6B6B] py-2">No projects</p>
+          <p className="font-mono text-[12px] text-[#6B6B6B] py-2">No projects</p>
         ) : (
           <div className="border border-white/[0.08] rounded-lg overflow-hidden">
             {data.projects.slice(0, 8).map((p) => (
@@ -281,7 +281,7 @@ function ActivityRow({ label, data }: { label: string; data: { label: string; va
     <div className="flex items-center justify-between px-4 h-10 border-b border-white/[0.05] last:border-0">
       <span className="font-mohave text-[13px] text-[#A0A0A0]">{label}</span>
       <div className="flex items-center gap-4">
-        <span className="font-kosugi text-[11px] text-[#6B6B6B]">last 4w: {recent}</span>
+        <span className="font-mono text-[11px] text-[#6B6B6B]">last 4w: {recent}</span>
         <span className="font-mohave text-[13px] text-[#E5E5E5]">{total} total</span>
       </div>
     </div>
@@ -292,7 +292,7 @@ function TeamTab({ users }: { users: CompanyData["usersWithAuth"] }) {
   return (
     <div className="border border-white/[0.08] rounded-lg overflow-hidden">
       {users.length === 0 ? (
-        <p className="font-kosugi text-[12px] text-[#6B6B6B] py-4 px-4 text-center">No users</p>
+        <p className="font-mono text-[12px] text-[#6B6B6B] py-4 px-4 text-center">No users</p>
       ) : (
         users.map((u) => {
           const roleColor = ROLE_COLORS[u.role] ?? "#6B6B6B";
@@ -310,8 +310,8 @@ function TeamTab({ users }: { users: CompanyData["usersWithAuth"] }) {
                 </span>
               </div>
               <div className="flex items-center gap-4 mt-1">
-                <span className="font-kosugi text-[11px] text-[#6B6B6B] truncate">{u.email}</span>
-                <span className="font-kosugi text-[11px] text-[#6B6B6B] shrink-0">
+                <span className="font-mono text-[11px] text-[#6B6B6B] truncate">{u.email}</span>
+                <span className="font-mono text-[11px] text-[#6B6B6B] shrink-0">
                   Last: {timeAgo(u.lastSignIn)}
                 </span>
               </div>
@@ -352,7 +352,7 @@ function PipelineTab({ data }: { data: CompanyData }) {
               <div key={stage} className="flex items-center justify-between px-4 h-10 border-b border-white/[0.05] last:border-0">
                 <span className="font-mohave text-[13px] text-[#E5E5E5]">{stage}</span>
                 <div className="flex items-center gap-4">
-                  <span className="font-kosugi text-[11px] text-[#6B6B6B]">{count} deals</span>
+                  <span className="font-mono text-[11px] text-[#6B6B6B]">{count} deals</span>
                   <span className="font-mohave text-[13px] text-[#E5E5E5]">${value.toLocaleString()}</span>
                 </div>
               </div>
@@ -369,7 +369,7 @@ function PipelineTab({ data }: { data: CompanyData }) {
           <div className="border border-white/[0.08] rounded-lg overflow-hidden">
             {data.recentPayments.map((p) => (
               <div key={p.id} className="flex items-center justify-between px-4 h-10 border-b border-white/[0.05] last:border-0">
-                <span className="font-kosugi text-[11px] text-[#6B6B6B]">
+                <span className="font-mono text-[11px] text-[#6B6B6B]">
                   {new Date(p.created_at).toLocaleDateString()}
                 </span>
                 <span className="font-mohave text-[14px] text-[#9DB582]">
@@ -382,7 +382,7 @@ function PipelineTab({ data }: { data: CompanyData }) {
       )}
 
       {data.pipeline.length === 0 && data.estimates.length === 0 && (
-        <p className="font-kosugi text-[12px] text-[#6B6B6B] py-4 text-center">No pipeline data</p>
+        <p className="font-mono text-[12px] text-[#6B6B6B] py-4 text-center">No pipeline data</p>
       )}
     </div>
   );
@@ -420,7 +420,7 @@ function SubscriptionTab({ company }: { company: Record<string, unknown> }) {
         {rows.map(([label, value]) => (
           <div key={label} className="flex justify-between items-center px-4 h-10 border-b border-white/[0.05] last:border-0">
             <span className="font-mohave text-[12px] uppercase text-[#6B6B6B]">{label}</span>
-            <span className="font-kosugi text-[12px] text-[#A0A0A0]">[{value}]</span>
+            <span className="font-mono text-[12px] text-[#A0A0A0]">[{value}]</span>
           </div>
         ))}
       </div>

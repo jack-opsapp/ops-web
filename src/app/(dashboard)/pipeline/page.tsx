@@ -682,7 +682,7 @@ function PipelineSkeleton() {
       {/* Header skeleton */}
       <div className="shrink-0 space-y-1">
         <div className="flex items-center justify-between">
-          <p className="font-kosugi text-caption-sm text-text-3">
+          <p className="font-mono text-caption-sm text-text-3">
             {t("loading")}
           </p>
         </div>
@@ -1412,7 +1412,7 @@ export default function PipelinePage() {
                 <p className="font-mohave text-body text-text">
                   {t("gmail.connectBanner")}
                 </p>
-                <p className="font-kosugi text-[11px] text-text-mute">
+                <p className="font-mono text-[11px] text-text-mute">
                   {t("gmail.connectDesc")}
                 </p>
               </div>
@@ -1453,7 +1453,7 @@ export default function PipelinePage() {
           {moveStage.isPending && (
             <div className="flex items-center gap-1.5 px-2 py-1 rounded-[4px] bg-[rgba(111, 148, 176,0.12)] border border-[rgba(111, 148, 176,0.25)]">
               <Loader2 className="w-[14px] h-[14px] text-[#6F94B0] animate-spin" />
-              <span className="font-kosugi text-[11px] text-[#6F94B0]">
+              <span className="font-mono text-[11px] text-[#6F94B0]">
                 {t("column.updating")}
               </span>
             </div>

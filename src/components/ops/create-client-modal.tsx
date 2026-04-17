@@ -144,7 +144,7 @@ export function CreateClientForm({ onSuccess, onCancel }: CreateClientFormProps)
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-2">
         {/* Basic Info */}
         <div className="space-y-2">
-          <span className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
+          <span className="font-mono text-caption-sm text-text-2 uppercase tracking-widest">
             Basic Info
           </span>
           <Input
@@ -164,7 +164,7 @@ export function CreateClientForm({ onSuccess, onCancel }: CreateClientFormProps)
 
         {/* Contact Details */}
         <div className="space-y-2 pt-1 border-t border-[rgba(255,255,255,0.15)]">
-          <span className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
+          <span className="font-mono text-caption-sm text-text-2 uppercase tracking-widest">
             Contact Details
           </span>
           <Input

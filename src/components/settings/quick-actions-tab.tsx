@@ -28,7 +28,7 @@ export function QuickActionsTab() {
 
   return (
     <div className="space-y-3 max-w-3xl">
-      <p className="font-kosugi text-[11px] text-text-3">
+      <p className="font-mono text-[11px] text-text-3">
         Choose which actions appear in the quick-add menu. Long-press the FAB on desktop to reorder.
       </p>
 
@@ -76,7 +76,7 @@ export function QuickActionsTab() {
 
       <button
         onClick={resetToDefaults}
-        className="font-kosugi text-[11px] text-text-mute hover:text-text-3 transition-colors"
+        className="font-mono text-[11px] text-text-mute hover:text-text-3 transition-colors"
       >
         Reset to defaults
       </button>

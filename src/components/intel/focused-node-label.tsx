@@ -69,7 +69,7 @@ export function FocusedNodeLabel({ clients, entities }: FocusedNodeLabelProps) {
               {client.address}
             </div>
           )}
-          <div className="font-kosugi text-micro uppercase tracking-wider text-[#6F94B0] mt-1">
+          <div className="font-mono text-micro uppercase tracking-wider text-[#6F94B0] mt-1">
             {client.mostActiveProjectStatus}
           </div>
         </div>
@@ -102,7 +102,7 @@ export function FocusedNodeLabel({ clients, entities }: FocusedNodeLabelProps) {
               </div>
             )}
             {typeof project.properties.status === "string" && (
-              <div className="font-kosugi text-micro uppercase tracking-wider text-[#6F94B0] mt-1">
+              <div className="font-mono text-micro uppercase tracking-wider text-[#6F94B0] mt-1">
                 {project.properties.status}
               </div>
             )}

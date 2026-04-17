@@ -239,13 +239,13 @@ export function AutoSendSettings({ connectionId }: AutoSendSettingsProps) {
           {/* Common Changes */}
           {stats.commonChanges.length > 0 && (
             <div className="mt-2.5 pt-2 border-t border-[rgba(255,255,255,0.04)]">
-              <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider block mb-1">
+              <span className="font-mono text-micro text-text-mute uppercase tracking-wider block mb-1">
                 {t("stats.commonChanges")}
               </span>
               <div className="space-y-0.5">
                 {stats.commonChanges.slice(0, 3).map((change, i) => (
                   <div key={i} className="flex items-center gap-1.5 text-[11px]">
-                    <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider w-[50px] shrink-0">
+                    <span className="font-mono text-micro text-text-mute uppercase tracking-wider w-[50px] shrink-0">
                       {t(`stats.change.${change.type}`)}
                     </span>
                     <span className="font-mohave text-text-mute line-through truncate">
@@ -276,7 +276,7 @@ export function AutoSendSettings({ connectionId }: AutoSendSettingsProps) {
                 <button
                   onClick={handleToggle}
                   disabled={saving}
-                  className="font-kosugi text-micro text-[#6F94B0] uppercase tracking-wider hover:text-text transition-colors shrink-0"
+                  className="font-mono text-micro text-[#6F94B0] uppercase tracking-wider hover:text-text transition-colors shrink-0"
                 >
                   {t("stats.suggestAutoSend.enable")}
                 </button>
@@ -333,7 +333,7 @@ export function AutoSendSettings({ connectionId }: AutoSendSettingsProps) {
           <div className="space-y-2.5 pt-2 border-t border-[rgba(255,255,255,0.04)]">
             {/* Business Hours */}
             <div>
-              <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider block mb-1">
+              <span className="font-mono text-micro text-text-mute uppercase tracking-wider block mb-1">
                 {t("autoSend.businessHours")}
               </span>
               <div className="flex items-center gap-2">
@@ -369,7 +369,7 @@ export function AutoSendSettings({ connectionId }: AutoSendSettingsProps) {
 
             {/* Timezone */}
             <div>
-              <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider block mb-1">
+              <span className="font-mono text-micro text-text-mute uppercase tracking-wider block mb-1">
                 {t("autoSend.timezone")}
               </span>
               <select
@@ -387,7 +387,7 @@ export function AutoSendSettings({ connectionId }: AutoSendSettingsProps) {
 
             {/* Delay Range */}
             <div>
-              <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider block mb-0.5">
+              <span className="font-mono text-micro text-text-mute uppercase tracking-wider block mb-0.5">
                 {t("autoSend.delay")}
               </span>
               <span className="font-mohave text-[11px] text-text-mute block mb-1">

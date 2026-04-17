@@ -79,7 +79,7 @@ export function PipelineStageTabBar({
               role="tab"
               type="button"
             >
-              <span className="font-kosugi text-micro uppercase tracking-wider">
+              <span className="font-mono text-micro uppercase tracking-wider">
                 {abbreviation}
               </span>
               <span className="font-mohave text-body-sm">{count}</span>

@@ -64,7 +64,7 @@ export function DayPersonalEventCard({ event, index }: DayPersonalEventCardProps
 
         {/* PERSONAL badge */}
         <div
-          className="shrink-0 flex items-center px-[6px] py-[2px] font-kosugi text-micro uppercase tracking-wider leading-tight ml-[8px]"
+          className="shrink-0 flex items-center px-[6px] py-[2px] font-mono text-micro uppercase tracking-wider leading-tight ml-[8px]"
           style={{
             color: "#999999",
             borderRadius: 2,
@@ -78,7 +78,7 @@ export function DayPersonalEventCard({ event, index }: DayPersonalEventCardProps
       {/* Line 2: Time range */}
       <div className="mt-[4px]">
         <span
-          className="font-kosugi text-[11px] leading-tight"
+          className="font-mono text-[11px] leading-tight"
           style={{ color: "rgba(255, 255, 255, 0.45)" }}
         >
           {timeRange}

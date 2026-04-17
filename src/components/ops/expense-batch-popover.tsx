@@ -134,7 +134,7 @@ function ExpenseRow({
           <span className="font-mohave text-body-sm text-text truncate block">
             {expense.merchantName ?? expense.description ?? t("batchPopover.untitled") ?? "Untitled"}
           </span>
-          <span className="font-kosugi text-micro text-text-mute truncate block">
+          <span className="font-mono text-micro text-text-mute truncate block">
             {expense.categoryName ?? ""}
             {expense.categoryName && expense.expenseDate ? " · " : ""}
             {expense.expenseDate ? formatDate(expense.expenseDate) : ""}
@@ -249,7 +249,7 @@ function SummaryTab({
     <div className="flex flex-col gap-4">
       {/* Category breakdown */}
       <div>
-        <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
+        <span className="font-mono text-micro text-text-mute uppercase tracking-widest">
           {t("batchPopover.summary") ?? "Summary"}
         </span>
         <div className="flex flex-col gap-2 mt-2">
@@ -283,7 +283,7 @@ function SummaryTab({
         const colorToken = rcColor === "error" ? WT.error : rcColor === "warning" ? WT.warning : WT.success;
         return (
           <div>
-            <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
+            <span className="font-mono text-micro text-text-mute uppercase tracking-widest">
               {t("batchPopover.receiptCoverage") ?? "Receipt coverage"}
             </span>
             <div className="flex items-center gap-2 mt-1">
@@ -572,25 +572,25 @@ const ExpenseBatchPopoverInstance = memo(function ExpenseBatchPopoverInstance({
         {/* Row 1: Submitter name */}
         <div className="flex items-center gap-2 min-w-0">
           {submitterName ? (
-            <span className="font-kosugi text-micro text-text-3 truncate">
+            <span className="font-mono text-micro text-text-3 truncate">
               {submitterName}
             </span>
           ) : (
-            <span className="font-kosugi text-micro text-text-mute">—</span>
+            <span className="font-mono text-micro text-text-mute">—</span>
           )}
         </div>
 
         {/* Row 2: Status + period range + items + total */}
         <div className="flex items-center gap-1.5">
-          <span className="font-kosugi text-micro uppercase tracking-wide" style={{ color: statusColor }}>
+          <span className="font-mono text-micro uppercase tracking-wide" style={{ color: statusColor }}>
             {batch ? BATCH_STATUS_DISPLAY[batch.status] : ""}
           </span>
           {batch && (
             <>
-              <span className="font-kosugi text-micro text-text-mute">
+              <span className="font-mono text-micro text-text-mute">
                 · {formatPeriodRange(batch.periodStart, batch.periodEnd)}
               </span>
-              <span className="font-kosugi text-micro text-text-mute">
+              <span className="font-mono text-micro text-text-mute">
                 · {expenses.length} {expenses.length === 1 ? "item" : "items"} · {formatCompactCurrency(batch.totalAmount ?? 0)}
               </span>
             </>
@@ -615,7 +615,7 @@ const ExpenseBatchPopoverInstance = memo(function ExpenseBatchPopoverInstance({
                   }}
                 />
               </div>
-              <span className="font-kosugi text-micro shrink-0" style={{ color: colorToken }}>
+              <span className="font-mono text-micro shrink-0" style={{ color: colorToken }}>
                 {compliance.receiptsTotal - compliance.receiptsMissing}/{compliance.receiptsTotal} {t("batchPopover.haveReceipts") ?? "have receipts"}
               </span>
             </div>
@@ -672,7 +672,7 @@ const ExpenseBatchPopoverInstance = memo(function ExpenseBatchPopoverInstance({
             </div>
           ) : (
             <div className="flex items-center justify-center h-full">
-              <span className="font-kosugi text-micro text-text-mute uppercase">
+              <span className="font-mono text-micro text-text-mute uppercase">
                 {t("batchPopover.noExpenses") ?? "No expenses in batch"}
               </span>
             </div>
@@ -713,7 +713,7 @@ const ExpenseBatchPopoverInstance = memo(function ExpenseBatchPopoverInstance({
         <div className="px-3 py-2 border-t border-[rgba(255,255,255,0.06)] shrink-0">
           <button
             onClick={() => closePopover(state.id)}
-            className="flex items-center gap-1 font-kosugi text-micro text-text-3 uppercase tracking-wider hover:text-text-2 transition-colors"
+            className="flex items-center gap-1 font-mono text-micro text-text-3 uppercase tracking-wider hover:text-text-2 transition-colors"
           >
             {t("batchPopover.viewInAccounting") ?? "View in Accounting"}
             <ArrowUpRight className="w-3 h-3" />

@@ -87,7 +87,7 @@ export function NodeInfo({ entities }: NodeInfoProps) {
             <div className="font-mohave text-sm text-white">
               {selectedEntity.name}
             </div>
-            <div className="font-kosugi text-micro uppercase tracking-wider text-[#999]">
+            <div className="font-mono text-micro uppercase tracking-wider text-[#999]">
               {selectedEntity.type}
               {selectedEntity.cluster !== selectedEntity.type && (
                 <span className="ml-2 text-[#666]">{selectedEntity.cluster}</span>
@@ -119,7 +119,7 @@ export function NodeInfo({ entities }: NodeInfoProps) {
 
           {/* Expanded detail from drill-down API */}
           {detailLoading ? (
-            <div className="font-kosugi text-micro uppercase tracking-wider text-[#666] animate-pulse">
+            <div className="font-mono text-micro uppercase tracking-wider text-[#666] animate-pulse">
               [ loading ]
             </div>
           ) : entityDetail ? (
@@ -127,7 +127,7 @@ export function NodeInfo({ entities }: NodeInfoProps) {
               {/* Facts */}
               {entityDetail.facts && entityDetail.facts.length > 0 && (
                 <div>
-                  <div className="font-kosugi text-micro uppercase tracking-wider text-[#666] mb-1">
+                  <div className="font-mono text-micro uppercase tracking-wider text-[#666] mb-1">
                     {t("node.facts")}
                   </div>
                   <div className="space-y-1 max-h-32 overflow-y-auto scrollbar-hide">
@@ -144,7 +144,7 @@ export function NodeInfo({ entities }: NodeInfoProps) {
               {/* Connections */}
               {entityDetail.edges && entityDetail.edges.length > 0 && (
                 <div>
-                  <div className="font-kosugi text-micro uppercase tracking-wider text-[#666] mb-1">
+                  <div className="font-mono text-micro uppercase tracking-wider text-[#666] mb-1">
                     {t("node.edges")}
                   </div>
                   <div className="space-y-0.5 max-h-24 overflow-y-auto scrollbar-hide">
@@ -162,7 +162,7 @@ export function NodeInfo({ entities }: NodeInfoProps) {
           {/* Dismiss */}
           <button
             onClick={dismissSelection}
-            className="font-kosugi text-micro uppercase tracking-wider text-[#666] hover:text-white transition-colors"
+            className="font-mono text-micro uppercase tracking-wider text-[#666] hover:text-white transition-colors"
           >
             {t("node.dismiss")}
           </button>
@@ -179,7 +179,7 @@ export function NodeInfo({ entities }: NodeInfoProps) {
           <div className="font-mohave text-sm text-white">
             {selectedEntity.name}
           </div>
-          <div className="font-kosugi text-micro uppercase tracking-wider text-[#999]">
+          <div className="font-mono text-micro uppercase tracking-wider text-[#999]">
             {selectedEntity.type}
           </div>
 
@@ -203,7 +203,7 @@ export function NodeInfo({ entities }: NodeInfoProps) {
           {/* Expand button */}
           <button
             onClick={() => expandNode(selectedNodeId)}
-            className="font-kosugi text-micro uppercase tracking-wider text-[#6F94B0] hover:text-white transition-colors mt-1"
+            className="font-mono text-micro uppercase tracking-wider text-[#6F94B0] hover:text-white transition-colors mt-1"
           >
             [ {t("node.more")} ]
           </button>
@@ -220,7 +220,7 @@ export function NodeInfo({ entities }: NodeInfoProps) {
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-baseline justify-between gap-3">
-      <span className="font-kosugi text-micro uppercase tracking-wider text-[#666] flex-shrink-0">
+      <span className="font-mono text-micro uppercase tracking-wider text-[#666] flex-shrink-0">
         {label}
       </span>
       <span className="font-mohave text-[11px] text-white text-right truncate">

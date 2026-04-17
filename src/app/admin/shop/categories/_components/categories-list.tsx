@@ -99,7 +99,7 @@ function SortableCategory({
       ) : (
         <>
           <span className="flex-1 font-mohave text-[13px] text-[#E5E5E5]">{category.name}</span>
-          <span className="px-2 py-0.5 bg-white/[0.05] rounded-sm font-kosugi text-micro uppercase tracking-widest text-[#6B6B6B]">
+          <span className="px-2 py-0.5 bg-white/[0.05] rounded-sm font-mono text-micro uppercase tracking-widest text-[#6B6B6B]">
             {category.slug}
           </span>
           <button
@@ -216,13 +216,13 @@ export function CategoriesList({ categories: initialCategories }: CategoriesList
           <button
             onClick={handleAdd}
             disabled={!newName.trim()}
-            className="px-4 py-1.5 bg-ops-accent rounded-sm font-kosugi text-[11px] uppercase tracking-widest text-white hover:bg-ops-accent/80 transition-colors disabled:opacity-50"
+            className="px-4 py-1.5 bg-ops-accent rounded-sm font-mono text-[11px] uppercase tracking-widest text-white hover:bg-ops-accent/80 transition-colors disabled:opacity-50"
           >
             Add
           </button>
           <button
             onClick={() => { setAdding(false); setNewName(""); }}
-            className="px-3 py-1.5 font-kosugi text-[11px] uppercase tracking-widest text-[#6B6B6B]"
+            className="px-3 py-1.5 font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B]"
           >
             Cancel
           </button>
@@ -230,7 +230,7 @@ export function CategoriesList({ categories: initialCategories }: CategoriesList
       ) : (
         <button
           onClick={() => setAdding(true)}
-          className="mt-4 flex items-center gap-1.5 font-kosugi text-[11px] uppercase tracking-widest text-[#6B6B6B] hover:text-[#E5E5E5] transition-colors"
+          className="mt-4 flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B] hover:text-[#E5E5E5] transition-colors"
         >
           <Plus size={14} /> Add Category
         </button>

@@ -253,7 +253,7 @@ export const DetailPopover = memo(function DetailPopover({
               className="flex items-center gap-1 text-text-3 hover:text-text transition-colors shrink-0"
             >
               <Phone className="w-2.5 h-2.5" />
-              <span className="font-kosugi text-micro whitespace-nowrap">
+              <span className="font-mono text-micro whitespace-nowrap">
                 {opportunity.contactPhone}
               </span>
             </a>
@@ -267,13 +267,13 @@ export const DetailPopover = memo(function DetailPopover({
               className="flex items-center gap-1 text-text-3 hover:text-text transition-colors min-w-0"
             >
               <Mail className="w-2.5 h-2.5 shrink-0" />
-              <span className="font-kosugi text-micro truncate">
+              <span className="font-mono text-micro truncate">
                 {opportunity.contactEmail}
               </span>
             </a>
           )}
           {!opportunity.contactPhone && !opportunity.contactEmail && (
-            <span className="font-kosugi text-micro text-text-mute">
+            <span className="font-mono text-micro text-text-mute">
               {t("detail.noContact")}
             </span>
           )}
@@ -282,12 +282,12 @@ export const DetailPopover = memo(function DetailPopover({
         {/* Row 2: stage + days + overflow */}
         <div className="flex items-center gap-1.5" ref={stageMenuRef}>
           <span
-            className="font-kosugi text-micro uppercase tracking-wide"
+            className="font-mono text-micro uppercase tracking-wide"
             style={{ color: stageColor }}
           >
             {stageName}
           </span>
-          <span className="font-kosugi text-micro text-text-mute">
+          <span className="font-mono text-micro text-text-mute">
             · {daysInStage}{t("detail.daysInStage")}
           </span>
           {canManage && active && (
@@ -345,7 +345,7 @@ export const DetailPopover = memo(function DetailPopover({
 
         {/* Summary */}
         {opportunity.aiSummary && (
-          <p className="font-kosugi text-micro text-text-mute leading-[1.6] mt-1.5">
+          <p className="font-mono text-micro text-text-mute leading-[1.6] mt-1.5">
             {opportunity.aiSummary}
           </p>
         )}
@@ -354,7 +354,7 @@ export const DetailPopover = memo(function DetailPopover({
       {/* ── Delete confirmation ── */}
       {showDeleteConfirm && (
         <div className="px-3 py-2 border-b border-[rgba(255,255,255,0.06)] shrink-0">
-          <p className="font-kosugi text-[11px] text-text-2 mb-2">
+          <p className="font-mono text-[11px] text-text-2 mb-2">
             {t("actions.deleteConfirm")}
           </p>
           <div className="flex items-center gap-2">

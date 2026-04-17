@@ -44,7 +44,7 @@ export function KeywordTable({ keywords }: KeywordTableProps) {
 
   return (
     <div>
-      <h2 className="font-kosugi text-micro uppercase tracking-wider text-[#6B6B6B] mb-4">
+      <h2 className="font-mono text-micro uppercase tracking-wider text-[#6B6B6B] mb-4">
         Keyword Performance
       </h2>
       <div className="overflow-x-auto">
@@ -60,7 +60,7 @@ export function KeywordTable({ keywords }: KeywordTableProps) {
               >
                 <td className="py-3 pr-3 font-mohave text-[14px] text-[#E5E5E5]">{k.keyword}</td>
                 <td className="py-3 pr-3">
-                  <span className="font-kosugi text-micro text-[#6B6B6B] uppercase">
+                  <span className="font-mono text-micro text-[#6B6B6B] uppercase">
                     [{k.matchType}]
                   </span>
                 </td>

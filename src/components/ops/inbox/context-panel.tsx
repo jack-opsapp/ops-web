@@ -140,11 +140,11 @@ async function fetchClientContext(
 function SectionHeader({ label, count }: { label: string; count?: number }) {
   return (
     <div className="flex items-center gap-1.5 mb-1.5">
-      <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
+      <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
         {label}
       </span>
       {count !== undefined && (
-        <span className="font-kosugi text-micro text-text-mute/60">
+        <span className="font-mono text-micro text-text-mute/60">
           {count}
         </span>
       )}
@@ -255,7 +255,7 @@ export function ContextPanel({
           <div className="w-[320px] h-full flex flex-col overflow-y-auto scrollbar-hide">
             {/* Header */}
             <div className="flex items-center justify-between p-3 border-b border-border-subtle">
-              <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider">
+              <span className="font-mono text-micro text-text-3 uppercase tracking-wider">
                 {t("context.toggle")}
               </span>
               <button onClick={onClose} className="text-text-mute hover:text-text-2 transition-colors">
@@ -272,11 +272,11 @@ export function ContextPanel({
                 <div className="space-y-1">
                   <button className="flex items-center gap-1.5 w-full px-2.5 py-2 rounded-panel border border-border-subtle bg-surface-input hover:bg-glass glass-surface transition-colors">
                     <UserPlus className="w-[12px] h-[12px] text-text-3" />
-                    <span className="font-kosugi text-micro text-text-2 uppercase">{t("unmatched.createClient")}</span>
+                    <span className="font-mono text-micro text-text-2 uppercase">{t("unmatched.createClient")}</span>
                   </button>
                   <button className="flex items-center gap-1.5 w-full px-2.5 py-2 rounded-panel border border-border-subtle bg-surface-input hover:bg-glass glass-surface transition-colors">
                     <Link className="w-[12px] h-[12px] text-text-3" />
-                    <span className="font-kosugi text-micro text-text-2 uppercase">{t("unmatched.linkToClient")}</span>
+                    <span className="font-mono text-micro text-text-2 uppercase">{t("unmatched.linkToClient")}</span>
                   </button>
                 </div>
               </div>
@@ -336,7 +336,7 @@ export function ContextPanel({
                                 </p>
                                 <div className="flex items-center gap-1.5">
                                   {c.title && (
-                                    <span className="font-kosugi text-micro text-text-2 uppercase tracking-wider">
+                                    <span className="font-mono text-micro text-text-2 uppercase tracking-wider">
                                       {c.title}
                                     </span>
                                   )}
@@ -389,7 +389,7 @@ export function ContextPanel({
                               <span className="font-mohave text-body-sm text-text-2 truncate flex-1">
                                 {p.title}
                               </span>
-                              <span className="font-kosugi text-micro text-text-mute uppercase">
+                              <span className="font-mono text-micro text-text-mute uppercase">
                                 {p.status}
                               </span>
                             </button>
@@ -415,7 +415,7 @@ export function ContextPanel({
                               <span className="font-mohave text-body-sm text-text-2 truncate flex-1">
                                 {e.title || "Untitled"}
                               </span>
-                              <span className="font-kosugi text-micro text-text-mute uppercase">
+                              <span className="font-mono text-micro text-text-mute uppercase">
                                 {e.status}
                               </span>
                             </button>
@@ -441,7 +441,7 @@ export function ContextPanel({
                               <span className="font-mohave text-body-sm text-text-2 truncate flex-1">
                                 {inv.subject || "Untitled"}
                               </span>
-                              <span className="font-kosugi text-micro text-text-mute uppercase">
+                              <span className="font-mono text-micro text-text-mute uppercase">
                                 {inv.status}
                               </span>
                             </button>
@@ -457,7 +457,7 @@ export function ContextPanel({
                         className="flex items-center gap-1.5 w-full px-2.5 py-2 rounded-panel border border-border-subtle bg-surface-input hover:bg-glass glass-surface transition-colors"
                       >
                         <ExternalLink className="w-[11px] h-[11px] text-text-3" />
-                        <span className="font-kosugi text-micro text-text-2 uppercase">
+                        <span className="font-mono text-micro text-text-2 uppercase">
                           {t("context.viewClient")}
                         </span>
                       </button>
@@ -503,7 +503,7 @@ function ImageThumbnail({
             className="flex items-center gap-1 w-full px-1.5 py-1 rounded-[4px] bg-glass glass-surface/90 border border-border-subtle text-text-2 hover:text-text transition-colors cursor-pointer"
           >
             <ArrowRight className="w-[10px] h-[10px] shrink-0" />
-            <span className="font-kosugi text-micro uppercase tracking-wider truncate">
+            <span className="font-mono text-micro uppercase tracking-wider truncate">
               Go to thread
             </span>
           </button>

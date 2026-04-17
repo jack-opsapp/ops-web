@@ -109,7 +109,7 @@ export function PaymentsRecentWidget({ size, onNavigate }: PaymentsRecentWidgetP
               </button>
             )}
           </div>
-          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
+          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
             {t("payments.lastPayment")}
           </span>
           <WidgetTrendContext variant="snapshot" label={t("trend.latest") ?? "Latest"} />
@@ -132,7 +132,7 @@ export function PaymentsRecentWidget({ size, onNavigate }: PaymentsRecentWidgetP
     <Card className="h-full p-0" ref={ref}>
       <div className="h-full flex flex-col p-3">
         <div className="flex items-center justify-between mb-2">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
+          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
             {t("payments.title")}
           </span>
           <span className="font-mono text-micro text-text-3">

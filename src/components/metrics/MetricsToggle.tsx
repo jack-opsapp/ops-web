@@ -11,7 +11,7 @@ export function MetricsToggle({ isVisible, onToggle }: MetricsToggleProps) {
       onClick={onToggle}
       aria-label={isVisible ? "Hide metrics" : "Show metrics"}
       aria-live="polite"
-      className="flex items-center gap-1 cursor-pointer font-kosugi bg-transparent border border-white/[0.06] rounded-sm text-micro uppercase tracking-[1px] text-[#6B6B6B]"
+      className="flex items-center gap-1 cursor-pointer font-mono bg-transparent border border-white/[0.06] rounded-sm text-micro uppercase tracking-[1px] text-[#6B6B6B]"
       style={{ padding: isVisible ? "3px 6px" : "3px 8px" }}
     >
       {isVisible ? "✕" : (

@@ -97,7 +97,7 @@ export function NotificationMiniCard({
 
       {/* Action label (visual indicator only — whole card is clickable) */}
       {hasAction && (
-        <span className="shrink-0 font-kosugi text-micro uppercase tracking-wider text-text">
+        <span className="shrink-0 font-mono text-micro uppercase tracking-wider text-text">
           {isDuplicateReview ? "Review" : displayActionLabel}
         </span>
       )}

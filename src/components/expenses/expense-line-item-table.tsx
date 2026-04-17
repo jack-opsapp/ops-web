@@ -67,19 +67,19 @@ export function ExpenseLineItemTable({
       {/* Table header */}
       <div className="grid grid-cols-[32px_80px_1fr_100px_80px_90px_60px] gap-2 px-3 py-1.5 border-b border-border">
         <span /> {/* Expand chevron */}
-        <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
+        <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
           DATE
         </span>
-        <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
+        <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
           MERCHANT
         </span>
-        <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
+        <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
           CATEGORY
         </span>
-        <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider text-right">
+        <span className="font-mono text-micro text-text-mute uppercase tracking-wider text-right">
           AMOUNT
         </span>
-        <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
+        <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
           STATUS
         </span>
         <span /> {/* Receipt thumb */}
@@ -113,7 +113,7 @@ export function ExpenseLineItemTable({
               </span>
 
               {/* Date */}
-              <span className="font-kosugi text-caption-sm text-text-2">
+              <span className="font-mono text-caption-sm text-text-2">
                 {formatDate(expense.expenseDate)}
               </span>
 
@@ -123,7 +123,7 @@ export function ExpenseLineItemTable({
               </span>
 
               {/* Category */}
-              <span className="font-kosugi text-caption-sm text-text-3 truncate">
+              <span className="font-mono text-caption-sm text-text-3 truncate">
                 {expense.categoryName || "—"}
               </span>
 
@@ -135,16 +135,16 @@ export function ExpenseLineItemTable({
               {/* Status */}
               <span>
                 {isFlagged ? (
-                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-[rgba(196,168,104,0.15)] text-[#C4A868] font-kosugi text-micro uppercase tracking-wider">
+                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-[rgba(196,168,104,0.15)] text-[#C4A868] font-mono text-micro uppercase tracking-wider">
                     <Flag className="w-[8px] h-[8px]" />
                     FLAGGED
                   </span>
                 ) : expense.status === "approved" ? (
-                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-[rgba(157,181,130,0.15)] text-[#9DB582] font-kosugi text-micro uppercase tracking-wider">
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-[rgba(157,181,130,0.15)] text-[#9DB582] font-mono text-micro uppercase tracking-wider">
                     APPROVED
                   </span>
                 ) : expense.status === "rejected" ? (
-                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-[rgba(147,50,26,0.15)] text-[#93321A] font-kosugi text-micro uppercase tracking-wider">
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-[rgba(147,50,26,0.15)] text-[#93321A] font-mono text-micro uppercase tracking-wider">
                     REJECTED
                   </span>
                 ) : null}
@@ -182,37 +182,37 @@ export function ExpenseLineItemTable({
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
                   {/* Category */}
                   <div>
-                    <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider block">
+                    <span className="font-mono text-micro text-text-mute uppercase tracking-wider block">
                       CATEGORY
                     </span>
-                    <span className="font-kosugi text-caption-sm text-text-2">
+                    <span className="font-mono text-caption-sm text-text-2">
                       {expense.categoryName || "—"}
                     </span>
                   </div>
 
                   {/* Project */}
                   <div>
-                    <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider block">
+                    <span className="font-mono text-micro text-text-mute uppercase tracking-wider block">
                       PROJECT
                     </span>
-                    <span className="font-kosugi text-caption-sm text-text-2">
+                    <span className="font-mono text-caption-sm text-text-2">
                       {expense.projectId || "—"}
                     </span>
                   </div>
 
                   {/* Payment Method */}
                   <div>
-                    <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider block">
+                    <span className="font-mono text-micro text-text-mute uppercase tracking-wider block">
                       PAYMENT METHOD
                     </span>
-                    <span className="font-kosugi text-caption-sm text-text-2">
+                    <span className="font-mono text-caption-sm text-text-2">
                       {expense.paymentMethod || "—"}
                     </span>
                   </div>
 
                   {/* Tax */}
                   <div>
-                    <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider block">
+                    <span className="font-mono text-micro text-text-mute uppercase tracking-wider block">
                       TAX
                     </span>
                     <span className="font-mono text-data-sm text-text-2">
@@ -226,10 +226,10 @@ export function ExpenseLineItemTable({
                 {/* Notes */}
                 {expense.description && (
                   <div className="mb-3">
-                    <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider block">
+                    <span className="font-mono text-micro text-text-mute uppercase tracking-wider block">
                       NOTES
                     </span>
-                    <span className="font-kosugi text-caption-sm text-text-3">
+                    <span className="font-mono text-caption-sm text-text-3">
                       {expense.description}
                     </span>
                   </div>
@@ -238,7 +238,7 @@ export function ExpenseLineItemTable({
                 {/* Receipt image (larger) */}
                 {(expense.receiptImageUrl || expense.receiptThumbnailUrl) && (
                   <div className="mb-3">
-                    <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider block mb-1">
+                    <span className="font-mono text-micro text-text-mute uppercase tracking-wider block mb-1">
                       RECEIPT
                     </span>
                     <button
@@ -265,13 +265,13 @@ export function ExpenseLineItemTable({
                       <div className="space-y-1.5">
                         <div className="flex items-start gap-2">
                           <Flag className="w-[12px] h-[12px] text-[#C4A868] mt-0.5 shrink-0" />
-                          <span className="font-kosugi text-caption-sm text-[#C4A868]">
+                          <span className="font-mono text-caption-sm text-[#C4A868]">
                             {expense.flagComment}
                           </span>
                         </div>
                         <button
                           onClick={() => onUnflag(expense.id)}
-                          className="flex items-center gap-1 font-kosugi text-micro text-text-3 hover:text-text-2 uppercase tracking-wider transition-colors"
+                          className="flex items-center gap-1 font-mono text-micro text-text-3 hover:text-text-2 uppercase tracking-wider transition-colors"
                         >
                           <FlagOff className="w-[10px] h-[10px]" />
                           UNFLAG
@@ -289,13 +289,13 @@ export function ExpenseLineItemTable({
                           }
                           placeholder="Flag comment (required)"
                           rows={2}
-                          className="w-full bg-[rgba(255,255,255,0.04)] border border-border rounded p-2 font-kosugi text-caption-sm text-text-2 placeholder:text-text-mute resize-none focus:outline-none focus:border-[rgba(255,255,255,0.20)]"
+                          className="w-full bg-[rgba(255,255,255,0.04)] border border-border rounded p-2 font-mono text-caption-sm text-text-2 placeholder:text-text-mute resize-none focus:outline-none focus:border-[rgba(255,255,255,0.20)]"
                         />
                         <button
                           onClick={() => handleFlag(expense.id)}
                           disabled={!flagInput[expense.id]?.trim()}
                           className={cn(
-                            "flex items-center gap-1 font-kosugi text-micro uppercase tracking-wider transition-colors",
+                            "flex items-center gap-1 font-mono text-micro uppercase tracking-wider transition-colors",
                             flagInput[expense.id]?.trim()
                               ? "text-[#C4A868] hover:text-[#d4b878]"
                               : "text-text-mute cursor-not-allowed"
@@ -317,7 +317,7 @@ export function ExpenseLineItemTable({
       {/* Empty state */}
       {expenses.length === 0 && (
         <div className="px-3 py-8">
-          <p className="font-kosugi text-caption-sm text-text-mute">
+          <p className="font-mono text-caption-sm text-text-mute">
             No expenses in this invoice
           </p>
         </div>

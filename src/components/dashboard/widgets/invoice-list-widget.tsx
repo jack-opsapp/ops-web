@@ -149,7 +149,7 @@ export function InvoiceListWidget({ size, config }: InvoiceListWidgetProps) {
               <ArrowUpRight className="w-[14px] h-[14px]" />
             </button>
           </div>
-          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
+          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
             {t(STATUS_FILTER_LABEL_KEYS[filter])} {t("invoiceList.invoices")}
           </span>
           {!isLoading && (
@@ -167,7 +167,7 @@ export function InvoiceListWidget({ size, config }: InvoiceListWidgetProps) {
     <Card className="h-full p-0" ref={ref}>
       <div className="h-full flex flex-col p-3">
         <div className="flex items-center justify-between mb-1">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
+          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
             {t(STATUS_FILTER_LABEL_KEYS[filter])} {t("invoiceList.invoices")}
           </span>
           <div className="flex items-center gap-1.5">
@@ -185,7 +185,7 @@ export function InvoiceListWidget({ size, config }: InvoiceListWidgetProps) {
                       key={opt.value}
                       onClick={() => setSortField(opt.value)}
                       className={cn(
-                        "font-kosugi text-micro uppercase tracking-wider px-2 py-1 rounded-sm text-left transition-colors",
+                        "font-mono text-micro uppercase tracking-wider px-2 py-1 rounded-sm text-left transition-colors",
                         sortField === opt.value
                           ? "text-text bg-[rgba(255,255,255,0.08)]"
                           : "text-text-3 hover:text-text-2"

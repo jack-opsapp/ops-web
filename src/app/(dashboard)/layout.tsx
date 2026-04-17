@@ -71,7 +71,7 @@ function DashboardAuthGate({ children }: { children: React.ReactNode }) {
           <div className="animate-pulse-live text-text">
             <OpsLockup orientation="vertical" className="h-16 w-auto" />
           </div>
-          <span className="font-kosugi text-caption-sm text-text-mute uppercase tracking-widest">
+          <span className="font-mono text-caption-sm text-text-mute uppercase tracking-widest">
             [preparing your dashboard]
           </span>
         </div>
@@ -102,7 +102,7 @@ function DashboardAuthGate({ children }: { children: React.ReactNode }) {
         <DashboardLayout>
           <div className="flex flex-col items-center justify-center h-[calc(100vh-120px)] gap-3">
             <span className="font-mohave text-[64px] text-text-mute leading-none">404</span>
-            <p className="font-kosugi text-caption-sm text-text-3 uppercase tracking-wider">
+            <p className="font-mono text-caption-sm text-text-3 uppercase tracking-wider">
               {t("pageNotFound")}
             </p>
           </div>

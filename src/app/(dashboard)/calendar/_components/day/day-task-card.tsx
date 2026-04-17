@@ -133,13 +133,13 @@ export function DayTaskCard({ event, index }: DayTaskCardProps) {
           {clientName && (
             <>
               <span
-                className="font-kosugi text-[12px] shrink-0"
+                className="font-mono text-[12px] shrink-0"
                 style={{ color: "#666666" }}
               >
                 ·
               </span>
               <span
-                className="font-kosugi text-[12px] truncate leading-tight"
+                className="font-mono text-[12px] truncate leading-tight"
                 style={{ color: "#999999" }}
               >
                 {clientName}
@@ -151,7 +151,7 @@ export function DayTaskCard({ event, index }: DayTaskCardProps) {
         {/* Line 2: Address (placeholder) + Task type badge */}
         <div className="flex items-center justify-between mt-[4px] min-w-0">
           <span
-            className="font-kosugi text-[11px] truncate leading-tight"
+            className="font-mono text-[11px] truncate leading-tight"
             style={{ color: "rgba(255, 255, 255, 0.45)" }}
           >
             {/* Address placeholder — will display when address data is available */}
@@ -159,7 +159,7 @@ export function DayTaskCard({ event, index }: DayTaskCardProps) {
 
           {/* Task type badge */}
           <div
-            className="shrink-0 flex items-center px-[6px] py-[2px] font-kosugi text-micro uppercase tracking-wider leading-tight ml-[8px]"
+            className="shrink-0 flex items-center px-[6px] py-[2px] font-mono text-micro uppercase tracking-wider leading-tight ml-[8px]"
             style={{
               color: colors.text,
               background: `rgba(${rgbStr}, 0.12)`,
@@ -174,7 +174,7 @@ export function DayTaskCard({ event, index }: DayTaskCardProps) {
         {/* Line 3: Team members + Time range / Multi-day indicator */}
         <div className="flex items-center justify-between mt-[4px] min-w-0">
           <span
-            className="font-kosugi text-[11px] truncate leading-tight"
+            className="font-mono text-[11px] truncate leading-tight"
             style={{ color: "#999999" }}
           >
             {event.teamMember ?? (event.teamMemberIds.length > 0
@@ -182,7 +182,7 @@ export function DayTaskCard({ event, index }: DayTaskCardProps) {
               : "")}
           </span>
           <span
-            className="font-kosugi text-[11px] shrink-0 leading-tight"
+            className="font-mono text-[11px] shrink-0 leading-tight"
             style={{ color: "rgba(255, 255, 255, 0.45)" }}
           >
             {multiDayInfo

@@ -108,22 +108,22 @@ export function PreviewStep({
         <table className="w-full border-collapse">
           <thead className="sticky top-0 bg-background-primary z-10">
             <tr>
-              <th className="text-left p-2 border-b border-border font-kosugi text-caption-sm uppercase tracking-widest text-text-3">
+              <th className="text-left p-2 border-b border-border font-mono text-caption-sm uppercase tracking-widest text-text-3">
                 Name
               </th>
-              <th className="text-left p-2 border-b border-border font-kosugi text-caption-sm uppercase tracking-widest text-text-3">
+              <th className="text-left p-2 border-b border-border font-mono text-caption-sm uppercase tracking-widest text-text-3">
                 Qty
               </th>
-              <th className="text-left p-2 border-b border-border font-kosugi text-caption-sm uppercase tracking-widest text-text-3">
+              <th className="text-left p-2 border-b border-border font-mono text-caption-sm uppercase tracking-widest text-text-3">
                 Unit
               </th>
-              <th className="text-left p-2 border-b border-border font-kosugi text-caption-sm uppercase tracking-widest text-text-3">
+              <th className="text-left p-2 border-b border-border font-mono text-caption-sm uppercase tracking-widest text-text-3">
                 SKU
               </th>
-              <th className="text-left p-2 border-b border-border font-kosugi text-caption-sm uppercase tracking-widest text-text-3">
+              <th className="text-left p-2 border-b border-border font-mono text-caption-sm uppercase tracking-widest text-text-3">
                 Tags
               </th>
-              <th className="text-left p-2 border-b border-border font-kosugi text-caption-sm uppercase tracking-widest text-text-3">
+              <th className="text-left p-2 border-b border-border font-mono text-caption-sm uppercase tracking-widest text-text-3">
                 Description
               </th>
               <th className="w-8 p-2 border-b border-border" />

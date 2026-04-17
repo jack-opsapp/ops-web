@@ -83,7 +83,7 @@ export function CascadeConfirmBar() {
             {/* Apply button */}
             <button
               onClick={handleApply}
-              className="font-kosugi text-micro uppercase tracking-wider leading-tight cursor-pointer"
+              className="font-mono text-micro uppercase tracking-wider leading-tight cursor-pointer"
               style={{
                 padding: "5px 12px",
                 background: "#6F94B0",
@@ -98,7 +98,7 @@ export function CascadeConfirmBar() {
             {/* Cancel button — ghost / border-only */}
             <button
               onClick={handleCancel}
-              className="font-kosugi text-micro uppercase tracking-wider leading-tight cursor-pointer"
+              className="font-mono text-micro uppercase tracking-wider leading-tight cursor-pointer"
               style={{
                 padding: "5px 12px",
                 background: "transparent",

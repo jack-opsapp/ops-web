@@ -87,7 +87,7 @@ export const SpatialCardExpanded = memo(function SpatialCardExpanded({
         {/* Email stats */}
         {opportunity.correspondenceCount > 0 ? (
           <div className="flex items-center justify-between">
-            <span className="font-kosugi text-micro text-text-3">
+            <span className="font-mono text-micro text-text-3">
               {t("spatial.emailCount").replace("{count}", String(opportunity.correspondenceCount))}
               {" · "}
               {t("spatial.emailInOut")
@@ -101,14 +101,14 @@ export const SpatialCardExpanded = memo(function SpatialCardExpanded({
             )}
           </div>
         ) : (
-          <span className="font-kosugi text-micro text-text-mute">
+          <span className="font-mono text-micro text-text-mute">
             {t("spatial.noCorrespondence")}
           </span>
         )}
 
         {/* Days in stage + follow-up */}
         <div className="flex items-center justify-between">
-          <span className="font-kosugi text-micro text-text-mute">
+          <span className="font-mono text-micro text-text-mute">
             {t("spatial.daysInStage")
               .replace("{count}", String(days))
               .replace("{stage}", stageName)}

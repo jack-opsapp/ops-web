@@ -86,7 +86,7 @@ export function BlogDashboard({
                   key={post.id}
                   className="border-t border-white/[0.05] hover:bg-white/[0.02] transition-colors"
                 >
-                  <td className="font-kosugi text-[13px] text-[#E5E5E5] px-4 py-3 max-w-[280px] truncate">
+                  <td className="font-mono text-[13px] text-[#E5E5E5] px-4 py-3 max-w-[280px] truncate">
                     {post.title}
                   </td>
                   <td className="font-mono text-[12px] text-[#6B6B6B] px-4 py-3">
@@ -122,7 +122,7 @@ export function BlogDashboard({
                 <tr>
                   <td
                     colSpan={6}
-                    className="font-kosugi text-[13px] text-[#6B6B6B] px-4 py-8 text-center"
+                    className="font-mono text-[13px] text-[#6B6B6B] px-4 py-8 text-center"
                   >
                     No live posts yet
                   </td>

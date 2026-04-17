@@ -13,7 +13,7 @@ export function ActionItems({ items }: { items: ActionItem[] }) {
 
   return (
     <div>
-      <h2 className="font-kosugi text-micro uppercase tracking-wider text-[#6B6B6B] mb-4">
+      <h2 className="font-mono text-micro uppercase tracking-wider text-[#6B6B6B] mb-4">
         Action Items
       </h2>
       <div className="space-y-2">
@@ -31,7 +31,7 @@ export function ActionItems({ items }: { items: ActionItem[] }) {
                     <span className="font-mohave text-[14px] text-[#E5E5E5]">{item.action}</span>
                   </div>
                   <div className="flex items-center gap-3 mt-1">
-                    <span className="font-kosugi text-[11px] text-[#6B6B6B]">{item.expectedImpact}</span>
+                    <span className="font-mono text-[11px] text-[#6B6B6B]">{item.expectedImpact}</span>
                     <span className="font-mohave text-[11px] text-[#444444] bg-white/[0.04] px-2 py-0.5 rounded">
                       {item.effort}
                     </span>

@@ -53,7 +53,7 @@ export function StatCard({
         </p>
         {trend && (
           <span
-            className={`font-kosugi text-[12px] mb-1 ${
+            className={`font-mono text-[12px] mb-1 ${
               trend.direction === "up"
                 ? "text-[#9DB582]"
                 : trend.direction === "down"
@@ -67,7 +67,7 @@ export function StatCard({
         )}
       </div>
       {caption && (
-        <p className="font-kosugi text-[12px] text-[#6B6B6B] mt-2">
+        <p className="font-mono text-[12px] text-[#6B6B6B] mt-2">
           [{caption}]
         </p>
       )}

@@ -144,7 +144,7 @@ function BatchRow({
             <div className="w-[6px] h-[6px] rounded-full shrink-0" style={{ backgroundColor: dotColor }} />
           ) : (
             <div className="w-[20px] h-[20px] rounded-full shrink-0 bg-fill-neutral-dim flex items-center justify-center">
-              <span className="font-kosugi text-micro text-text-3 uppercase">
+              <span className="font-mono text-micro text-text-3 uppercase">
                 {submitterName.slice(0, 2)}
               </span>
             </div>
@@ -158,7 +158,7 @@ function BatchRow({
           <p className="font-mohave text-caption-sm text-text truncate">
             {submitterName || batch.batchNumber}
           </p>
-          <span className="font-kosugi text-micro text-text-mute truncate block">
+          <span className="font-mono text-micro text-text-mute truncate block">
             {batch.batchNumber} · {periodRange}
             {hasComplianceIssue && (
               <> · <span style={{ color: complianceColor ?? undefined }}>{missingReceipts}/{totalExpenses} {t("expenseReview.missingReceipts") ?? "missing receipts"}</span></>
@@ -477,7 +477,7 @@ export function ExpenseReviewListPopover() {
               <span className="font-mono text-[20px] font-bold text-text leading-none">
                 {formatCompactCurrency(totalPending)}
               </span>
-              <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider ml-1">
+              <span className="font-mono text-micro text-text-mute uppercase tracking-wider ml-1">
                 pending
               </span>
             </div>
@@ -485,7 +485,7 @@ export function ExpenseReviewListPopover() {
               <span className="font-mono text-[14px] font-bold leading-none" style={{ color: WT.success }}>
                 {formatCompactCurrency(totalApproved)}
               </span>
-              <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider ml-1">
+              <span className="font-mono text-micro text-text-mute uppercase tracking-wider ml-1">
                 approved
               </span>
             </div>
@@ -498,7 +498,7 @@ export function ExpenseReviewListPopover() {
             <button
               onClick={() => setSelectedPeriod("all")}
               className={cn(
-                "px-2 py-0.5 rounded-sm font-kosugi text-micro uppercase tracking-wider transition-colors shrink-0",
+                "px-2 py-0.5 rounded-sm font-mono text-micro uppercase tracking-wider transition-colors shrink-0",
                 selectedPeriod === "all"
                   ? "bg-[rgba(255,255,255,0.08)] text-text border border-[rgba(255,255,255,0.18)]"
                   : "text-text-mute hover:text-text-2 border border-transparent"
@@ -511,7 +511,7 @@ export function ExpenseReviewListPopover() {
                 key={key}
                 onClick={() => setSelectedPeriod(key)}
                 className={cn(
-                  "px-2 py-0.5 rounded-sm font-kosugi text-micro uppercase tracking-wider transition-colors shrink-0",
+                  "px-2 py-0.5 rounded-sm font-mono text-micro uppercase tracking-wider transition-colors shrink-0",
                   selectedPeriod === key
                     ? "bg-[rgba(255,255,255,0.08)] text-text border border-[rgba(255,255,255,0.18)]"
                     : "text-text-mute hover:text-text-2 border border-transparent"
@@ -583,7 +583,7 @@ export function ExpenseReviewListPopover() {
             })
           ) : (
             <div className="flex items-center justify-center h-full">
-              <span className="font-kosugi text-micro text-text-mute uppercase">
+              <span className="font-mono text-micro text-text-mute uppercase">
                 {activeTab === "needs-review"
                   ? (t("expenseReview.allCaughtUp") ?? "All caught up")
                   : "No history"}

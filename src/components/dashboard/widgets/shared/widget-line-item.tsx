@@ -98,7 +98,7 @@ export function WidgetLineItem({
         </p>
         {secondary && (
           typeof secondary === "string" ? (
-            <span className="font-kosugi text-micro text-text-mute truncate block">
+            <span className="font-mono text-micro text-text-mute truncate block">
               {secondary}
             </span>
           ) : (
@@ -195,7 +195,7 @@ function LineItemIndicatorEl({
     case "avatar":
       return (
         <div className="w-[20px] h-[20px] rounded-full shrink-0 bg-fill-neutral-dim flex items-center justify-center">
-          <span className="font-kosugi text-micro text-text-3 uppercase">
+          <span className="font-mono text-micro text-text-3 uppercase">
             {indicator.initials}
           </span>
         </div>

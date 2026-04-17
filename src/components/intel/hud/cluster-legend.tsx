@@ -54,7 +54,7 @@ export function ClusterLegend() {
               }}
             />
             <span
-              className="font-kosugi text-micro uppercase tracking-wider transition-colors"
+              className="font-mono text-micro uppercase tracking-wider transition-colors"
               style={{
                 color: isVisible ? "#999" : "#444",
               }}

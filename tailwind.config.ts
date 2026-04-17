@@ -135,7 +135,6 @@ const config: Config = {
       // === Typography ===
       fontFamily: {
         mohave: ["Mohave", "sans-serif"],
-        kosugi: ["Kosugi", "sans-serif"],
         mono: ["JetBrains Mono", "Fira Code", "monospace"],
         cakemono: ["cake-mono", "Mohave", "sans-serif"],
       },

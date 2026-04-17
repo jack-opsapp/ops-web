@@ -241,11 +241,11 @@ const EstimateDetailPopoverInstance = memo(
           {/* Row 1: Client name */}
           <div className="flex items-center gap-2 min-w-0">
             {clientName ? (
-              <span className="font-kosugi text-micro text-text-3 truncate">
+              <span className="font-mono text-micro text-text-3 truncate">
                 {clientName}
               </span>
             ) : (
-              <span className="font-kosugi text-micro text-text-mute">
+              <span className="font-mono text-micro text-text-mute">
                 No client
               </span>
             )}
@@ -254,14 +254,14 @@ const EstimateDetailPopoverInstance = memo(
           {/* Row 2: Status + days since issued */}
           <div className="flex items-center gap-1.5">
             <span
-              className="font-kosugi text-micro uppercase tracking-wide"
+              className="font-mono text-micro uppercase tracking-wide"
               style={{ color: statusColor }}
             >
               {estimate
                 ? getEstimateStatusName(estimate.status)
                 : state.title}
             </span>
-            <span className="font-kosugi text-micro text-text-mute">
+            <span className="font-mono text-micro text-text-mute">
               · {daysSinceIssued}d
             </span>
           </div>
@@ -295,7 +295,7 @@ const EstimateDetailPopoverInstance = memo(
           )}
           {state.activeTab === "activity" && (
             <div className="flex items-center justify-center h-full">
-              <span className="font-kosugi text-micro text-text-mute uppercase">
+              <span className="font-mono text-micro text-text-mute uppercase">
                 Activity — coming soon
               </span>
             </div>
@@ -370,7 +370,7 @@ function EstimateOverviewTab({
       {/* Title */}
       {estimate.title && (
         <div>
-          <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
+          <span className="font-mono text-micro text-text-mute uppercase tracking-widest">
             Title
           </span>
           <p className="font-mohave text-body-sm text-text mt-1">
@@ -382,13 +382,13 @@ function EstimateOverviewTab({
       {/* Dates */}
       {(issueDateFormatted || expirationDateFormatted) && (
         <div>
-          <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
+          <span className="font-mono text-micro text-text-mute uppercase tracking-widest">
             Dates
           </span>
           <div className="flex flex-col gap-0.5 mt-1">
             {issueDateFormatted && (
               <div className="flex items-center gap-2">
-                <span className="font-kosugi text-micro text-text-mute uppercase tracking-wide w-16 shrink-0">
+                <span className="font-mono text-micro text-text-mute uppercase tracking-wide w-16 shrink-0">
                   Issued
                 </span>
                 <span className="font-mohave text-body-sm text-text">
@@ -398,7 +398,7 @@ function EstimateOverviewTab({
             )}
             {expirationDateFormatted && (
               <div className="flex items-center gap-2">
-                <span className="font-kosugi text-micro text-text-mute uppercase tracking-wide w-16 shrink-0">
+                <span className="font-mono text-micro text-text-mute uppercase tracking-wide w-16 shrink-0">
                   Expires
                 </span>
                 <span className="font-mohave text-body-sm text-text">
@@ -412,7 +412,7 @@ function EstimateOverviewTab({
 
       {/* Financial summary */}
       <div>
-        <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
+        <span className="font-mono text-micro text-text-mute uppercase tracking-widest">
           Financial
         </span>
         <div className="flex flex-col gap-0.5 mt-1">
@@ -488,7 +488,7 @@ function EstimateOverviewTab({
       {/* Line items */}
       {sortedLineItems.length > 0 && (
         <div>
-          <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
+          <span className="font-mono text-micro text-text-mute uppercase tracking-widest">
             Line Items
           </span>
           <div className="flex flex-col gap-1.5 mt-1">
@@ -502,7 +502,7 @@ function EstimateOverviewTab({
       {/* Client message */}
       {estimate.clientMessage && (
         <div>
-          <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
+          <span className="font-mono text-micro text-text-mute uppercase tracking-widest">
             Client Message
           </span>
           <p className="font-mohave text-body-sm text-text-2 mt-1 leading-relaxed">
@@ -514,7 +514,7 @@ function EstimateOverviewTab({
       {/* Terms */}
       {estimate.terms && (
         <div>
-          <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
+          <span className="font-mono text-micro text-text-mute uppercase tracking-widest">
             Terms
           </span>
           <p className="font-mohave text-body-sm text-text-2 mt-1 leading-relaxed">
@@ -540,7 +540,7 @@ function LineItemRow({ item }: { item: LineItem }) {
             </span>
           )}
         </span>
-        <span className="font-kosugi text-micro text-text-mute">
+        <span className="font-mono text-micro text-text-mute">
           {item.quantity} {item.unit} x{" "}
           <span className="font-mono">{formatCurrency(item.unitPrice)}</span>
         </span>

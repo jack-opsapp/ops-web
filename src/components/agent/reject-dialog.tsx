@@ -30,7 +30,7 @@ export function RejectDialog({ open, onClose, onConfirm, t }: RejectDialogProps)
           <AlertDialogTitle className="font-mohave text-body text-text uppercase">
             {t("reject.title")}
           </AlertDialogTitle>
-          <AlertDialogDescription className="font-kosugi text-[13px] text-text-3">
+          <AlertDialogDescription className="font-mono text-[13px] text-text-3">
             [{t("reject.description")}]
           </AlertDialogDescription>
         </AlertDialogHeader>
@@ -43,7 +43,7 @@ export function RejectDialog({ open, onClose, onConfirm, t }: RejectDialogProps)
           className={cn(
             "w-full px-3 py-2 rounded-[4px] resize-none",
             "bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)]",
-            "font-kosugi text-[13px] text-text placeholder:text-text-mute",
+            "font-mono text-[13px] text-text placeholder:text-text-mute",
             "focus:outline-none focus:border-[#6F94B0] transition-colors"
           )}
         />

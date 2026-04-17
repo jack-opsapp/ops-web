@@ -278,7 +278,7 @@ export function SpacerWidget({
           initial={{ opacity: 0, scale: 0.8, y: 4 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           transition={LABEL_SPRING}
-          className="font-kosugi text-micro text-text-mute tracking-wider uppercase select-none"
+          className="font-mono text-micro text-text-mute tracking-wider uppercase select-none"
         >
           {colSpan} &times; {rowSpan}
         </motion.span>

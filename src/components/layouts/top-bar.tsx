@@ -246,7 +246,7 @@ export function TopBar() {
                   border: "1px solid rgba(255, 255, 255, 0.1)",
                 }}
               >
-                <span className="font-kosugi text-micro text-text-2 uppercase tracking-wider">
+                <span className="font-mono text-micro text-text-2 uppercase tracking-wider">
                   {t("undo.tooltip").replace("{label}", topEntry.label)}
                 </span>
               </div>

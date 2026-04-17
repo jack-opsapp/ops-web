@@ -224,7 +224,7 @@ export function PipelineCardActions({
               setShowNoteInput(false);
             }}
             disabled={!noteValue.trim()}
-            className="px-[6px] py-[4px] rounded-panel bg-[rgba(255,255,255,0.08)] text-text font-kosugi text-micro uppercase tracking-wider hover:bg-[rgba(255,255,255,0.12)] disabled:opacity-30 disabled:cursor-not-allowed transition-colors shrink-0"
+            className="px-[6px] py-[4px] rounded-panel bg-[rgba(255,255,255,0.08)] text-text font-mono text-micro uppercase tracking-wider hover:bg-[rgba(255,255,255,0.12)] disabled:opacity-30 disabled:cursor-not-allowed transition-colors shrink-0"
           >
             {t("spatial.confirm")}
           </button>

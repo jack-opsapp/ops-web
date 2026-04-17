@@ -147,7 +147,7 @@ export function ProjectFloatingToolbar({
         isActive={showSearch || searchQuery.length > 0}
       >
         <Search className="w-[13px] h-[13px]" />
-        <span className="font-kosugi text-micro uppercase tracking-wider">
+        <span className="font-mono text-micro uppercase tracking-wider">
           {t("toolbar.search").replace("...", "")}
         </span>
       </ToolbarAction>
@@ -175,11 +175,11 @@ export function ProjectFloatingToolbar({
       <div className="relative" ref={filterMenuRef}>
         <ToolbarAction onClick={() => setShowFilterMenu(!showFilterMenu)} isActive={showFilterMenu || hasActiveFilter}>
           <SlidersHorizontal className="w-[13px] h-[13px]" />
-          <span className="font-kosugi text-micro uppercase tracking-wider">
+          <span className="font-mono text-micro uppercase tracking-wider">
             Filter
           </span>
           {hasActiveFilter && (
-            <span className="inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-[4px] border border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.08)] font-kosugi text-micro text-text">
+            <span className="inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-[4px] border border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.08)] font-mono text-micro text-text">
               {(selectedMemberId ? 1 : 0) + (selectedClientId ? 1 : 0)}
             </span>
           )}
@@ -195,7 +195,7 @@ export function ProjectFloatingToolbar({
             }}
           >
             <div>
-              <span className="font-kosugi text-micro uppercase tracking-widest text-text-mute">
+              <span className="font-mono text-micro uppercase tracking-widest text-text-mute">
                 {t("toolbar.allMembers")}
               </span>
               <select
@@ -210,7 +210,7 @@ export function ProjectFloatingToolbar({
               </select>
             </div>
             <div>
-              <span className="font-kosugi text-micro uppercase tracking-widest text-text-mute">
+              <span className="font-mono text-micro uppercase tracking-widest text-text-mute">
                 {t("toolbar.allClients")}
               </span>
               <select
@@ -231,7 +231,7 @@ export function ProjectFloatingToolbar({
                   onClientFilterChange(null);
                   setShowFilterMenu(false);
                 }}
-                className="w-full px-2 py-1.5 rounded-[2px] font-kosugi text-micro text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.04)] transition-colors text-center"
+                className="w-full px-2 py-1.5 rounded-[2px] font-mono text-micro text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.04)] transition-colors text-center"
               >
                 Clear filters
               </button>
@@ -245,14 +245,14 @@ export function ProjectFloatingToolbar({
       {/* ── SHARED: Archived + Closed ── */}
       <ToolbarAction onClick={onArchivedToggle} isActive={isArchivedActive}>
         <Archive className="w-[13px] h-[13px]" />
-        <span className="font-kosugi text-micro uppercase tracking-wider">
+        <span className="font-mono text-micro uppercase tracking-wider">
           Archived
         </span>
       </ToolbarAction>
 
       {viewMode === "spreadsheet" && (
         <ToolbarAction onClick={onClosedToggle} isActive={isClosedActive}>
-          <span className="font-kosugi text-micro uppercase tracking-wider">
+          <span className="font-mono text-micro uppercase tracking-wider">
             Closed
           </span>
         </ToolbarAction>
@@ -265,7 +265,7 @@ export function ProjectFloatingToolbar({
         <>
           <ToolbarAction onClick={handleFitAll}>
             <Maximize2 className="w-[13px] h-[13px]" />
-            <span className="font-kosugi text-micro uppercase tracking-wider">
+            <span className="font-mono text-micro uppercase tracking-wider">
               Fit All
             </span>
           </ToolbarAction>
@@ -273,7 +273,7 @@ export function ProjectFloatingToolbar({
           <div className="relative" ref={sortMenuRef}>
             <ToolbarAction onClick={() => setShowSortMenu(!showSortMenu)} isActive={showSortMenu}>
               <ArrowUpDown className="w-[13px] h-[13px]" />
-              <span className="font-kosugi text-micro uppercase tracking-wider">
+              <span className="font-mono text-micro uppercase tracking-wider">
                 {t("toolbar.sort")}
               </span>
             </ToolbarAction>
@@ -298,7 +298,7 @@ export function ProjectFloatingToolbar({
                         : "text-text-2 hover:bg-[rgba(255,255,255,0.06)]"
                     )}
                   >
-                    <span className="font-kosugi text-micro">{opt.label}</span>
+                    <span className="font-mono text-micro">{opt.label}</span>
                   </button>
                 ))}
               </div>
@@ -320,7 +320,7 @@ export function ProjectFloatingToolbar({
             <>
               <div className="relative" ref={bulkStatusMenuRef}>
                 <ToolbarAction onClick={() => setShowBulkStatusMenu(!showBulkStatusMenu)} isActive={showBulkStatusMenu}>
-                  <span className="font-kosugi text-micro uppercase tracking-wider">
+                  <span className="font-mono text-micro uppercase tracking-wider">
                     {t("spreadsheet.bulk.changeStatus")}
                   </span>
                 </ToolbarAction>
@@ -348,7 +348,7 @@ export function ProjectFloatingToolbar({
               </div>
 
               <ToolbarAction onClick={onBulkArchive}>
-                <span className="font-kosugi text-micro uppercase tracking-wider">
+                <span className="font-mono text-micro uppercase tracking-wider">
                   {t("spreadsheet.bulk.archive")}
                 </span>
               </ToolbarAction>
@@ -360,7 +360,7 @@ export function ProjectFloatingToolbar({
               onClick={onBulkDelete}
               className="flex items-center gap-[5px] px-[8px] py-[5px] rounded-sm transition-colors duration-150 cursor-pointer text-[#93321A] hover:text-[#b5423a] hover:bg-[rgba(147,50,26,0.1)]"
             >
-              <span className="font-kosugi text-micro uppercase tracking-wider">
+              <span className="font-mono text-micro uppercase tracking-wider">
                 {t("spreadsheet.bulk.delete")}
               </span>
             </button>

@@ -251,11 +251,11 @@ const InvoiceDetailPopoverInstance = memo(function InvoiceDetailPopoverInstance(
         {/* Row 1: Client name */}
         <div className="flex items-center gap-2 min-w-0">
           {clientName ? (
-            <span className="font-kosugi text-micro text-text-3 truncate">
+            <span className="font-mono text-micro text-text-3 truncate">
               {clientName}
             </span>
           ) : (
-            <span className="font-kosugi text-micro text-text-mute">
+            <span className="font-mono text-micro text-text-mute">
               No client
             </span>
           )}
@@ -264,7 +264,7 @@ const InvoiceDetailPopoverInstance = memo(function InvoiceDetailPopoverInstance(
         {/* Row 2: Status + days since issued */}
         <div className="flex items-center gap-1.5">
           <span
-            className="font-kosugi text-micro uppercase tracking-wide"
+            className="font-mono text-micro uppercase tracking-wide"
             style={{ color: statusColor }}
           >
             {invoice
@@ -272,7 +272,7 @@ const InvoiceDetailPopoverInstance = memo(function InvoiceDetailPopoverInstance(
               : state.title}
           </span>
           {invoice && (
-            <span className="font-kosugi text-micro text-text-mute">
+            <span className="font-mono text-micro text-text-mute">
               · {getDaysSinceIssued(invoice)}d
             </span>
           )}
@@ -310,7 +310,7 @@ const InvoiceDetailPopoverInstance = memo(function InvoiceDetailPopoverInstance(
         )}
         {state.activeTab === "activity" && (
           <div className="flex items-center justify-center h-full">
-            <span className="font-kosugi text-micro text-text-mute uppercase">
+            <span className="font-mono text-micro text-text-mute uppercase">
               Activity — coming soon
             </span>
           </div>
@@ -356,7 +356,7 @@ function InvoiceOverviewTab({
       {/* Dates */}
       {(issueDate || dueDate) && (
         <div>
-          <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
+          <span className="font-mono text-micro text-text-mute uppercase tracking-widest">
             Dates
           </span>
           <div className="flex flex-col gap-1 mt-1">
@@ -386,7 +386,7 @@ function InvoiceOverviewTab({
 
       {/* Financial summary */}
       <div>
-        <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
+        <span className="font-mono text-micro text-text-mute uppercase tracking-widest">
           Summary
         </span>
         <div className="flex flex-col gap-1 mt-1">
@@ -448,7 +448,7 @@ function InvoiceOverviewTab({
       {/* Line items */}
       {sortedLineItems.length > 0 && (
         <div>
-          <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
+          <span className="font-mono text-micro text-text-mute uppercase tracking-widest">
             Line Items
           </span>
           <div className="flex flex-col gap-2 mt-1">
@@ -462,7 +462,7 @@ function InvoiceOverviewTab({
       {/* Subject / notes */}
       {invoice.subject && (
         <div>
-          <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
+          <span className="font-mono text-micro text-text-mute uppercase tracking-widest">
             Subject
           </span>
           <p className="font-mohave text-body-sm text-text-2 mt-1 leading-relaxed">
@@ -472,7 +472,7 @@ function InvoiceOverviewTab({
       )}
       {invoice.clientMessage && (
         <div>
-          <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
+          <span className="font-mono text-micro text-text-mute uppercase tracking-widest">
             Message
           </span>
           <p className="font-mohave text-body-sm text-text-2 mt-1 leading-relaxed">
@@ -482,7 +482,7 @@ function InvoiceOverviewTab({
       )}
       {invoice.internalNotes && (
         <div>
-          <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
+          <span className="font-mono text-micro text-text-mute uppercase tracking-widest">
             Internal Notes
           </span>
           <p className="font-mohave text-body-sm text-text-2 mt-1 leading-relaxed">
@@ -524,7 +524,7 @@ function InvoicePaymentsTab({
   if (!payments || payments.length === 0) {
     return (
       <div className="flex items-center justify-center h-full">
-        <span className="font-kosugi text-micro text-text-mute uppercase">
+        <span className="font-mono text-micro text-text-mute uppercase">
           No payments recorded
         </span>
       </div>

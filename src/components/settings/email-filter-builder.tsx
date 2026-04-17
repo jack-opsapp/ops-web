@@ -162,17 +162,17 @@ export function EmailFilterBuilder({
       {/* Logic toggle — only show when 2+ rules */}
       {rules.length >= 2 && (
         <div className="flex items-center gap-[6px]">
-          <span className="font-kosugi text-micro text-text-mute">
+          <span className="font-mono text-micro text-text-mute">
             Match
           </span>
           <button
             onClick={toggleLogic}
-            className="inline-flex items-center gap-[3px] px-[8px] py-[3px] rounded-[4px] border border-border bg-surface-input font-kosugi text-[11px] text-text-2 hover:border-[rgba(255,255,255,0.18)] hover:text-text transition-colors"
+            className="inline-flex items-center gap-[3px] px-[8px] py-[3px] rounded-[4px] border border-border bg-surface-input font-mono text-[11px] text-text-2 hover:border-[rgba(255,255,255,0.18)] hover:text-text transition-colors"
           >
             {logic === "all" ? "ALL" : "ANY"}
             <ChevronDown className="w-[10px] h-[10px]" />
           </button>
-          <span className="font-kosugi text-micro text-text-mute">
+          <span className="font-mono text-micro text-text-mute">
             of these rules
           </span>
         </div>
@@ -183,7 +183,7 @@ export function EmailFilterBuilder({
         <div key={rule.id} className="flex items-start gap-[4px]">
           {/* Connector label */}
           {index > 0 && (
-            <span className="shrink-0 pt-[7px] font-kosugi text-micro text-text-mute uppercase w-[24px] text-right">
+            <span className="shrink-0 pt-[7px] font-mono text-micro text-text-mute uppercase w-[24px] text-right">
               {logic === "all" ? "and" : "or"}
             </span>
           )}
@@ -199,7 +199,7 @@ export function EmailFilterBuilder({
               onChange={(e) =>
                 updateRule(rule.id, { field: e.target.value as EmailFilterField })
               }
-              className="bg-surface-input border border-border rounded px-[8px] py-[4px] font-kosugi text-[11px] text-text min-w-0"
+              className="bg-surface-input border border-border rounded px-[8px] py-[4px] font-mono text-[11px] text-text min-w-0"
             >
               {FIELD_OPTIONS.map((f) => (
                 <option key={f.value} value={f.value}>
@@ -214,7 +214,7 @@ export function EmailFilterBuilder({
               onChange={(e) =>
                 updateRule(rule.id, { operator: e.target.value as EmailFilterOperator })
               }
-              className="bg-surface-input border border-border rounded px-[8px] py-[4px] font-kosugi text-[11px] text-text min-w-0"
+              className="bg-surface-input border border-border rounded px-[8px] py-[4px] font-mono text-[11px] text-text min-w-0"
             >
               {(rule.field === "label" ? LABEL_OPERATORS : OPERATOR_OPTIONS).map((o) => (
                 <option key={o.value} value={o.value}>
@@ -228,7 +228,7 @@ export function EmailFilterBuilder({
               <select
                 value={rule.value}
                 onChange={(e) => updateRule(rule.id, { value: e.target.value })}
-                className="flex-1 min-w-[120px] bg-surface-input border border-border rounded px-[8px] py-[4px] font-kosugi text-[11px] text-text"
+                className="flex-1 min-w-[120px] bg-surface-input border border-border rounded px-[8px] py-[4px] font-mono text-[11px] text-text"
               >
                 <option value="">
                   {labelsLoading ? "Loading labels..." : "Select label"}
@@ -266,7 +266,7 @@ export function EmailFilterBuilder({
         variant="ghost"
         size="sm"
         onClick={addRule}
-        className="gap-[4px] font-kosugi text-[11px] text-text-mute hover:text-text"
+        className="gap-[4px] font-mono text-[11px] text-text-mute hover:text-text"
       >
         <Plus className="w-[12px] h-[12px]" />
         Add filter rule
@@ -274,7 +274,7 @@ export function EmailFilterBuilder({
 
       {/* Explanation */}
       {hasRules && (
-        <p className="font-kosugi text-micro text-text-mute leading-relaxed">
+        <p className="font-mono text-micro text-text-mute leading-relaxed">
           {logic === "all"
             ? "Only emails matching ALL rules above will be imported/synced."
             : "Emails matching ANY of the rules above will be imported/synced."}

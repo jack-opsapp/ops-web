@@ -63,7 +63,7 @@ function PricingCard({ tier }: { tier: Exclude<SubscriptionTier, "trial"> }) {
       {/* Popular badge */}
       {display.popular && (
         <div className="absolute -top-[12px] left-1/2 -translate-x-1/2">
-          <span className="font-kosugi text-micro uppercase tracking-[0.2em] bg-ops-amber text-text-inverse px-1.5 py-0.5 rounded-sm">
+          <span className="font-mono text-micro uppercase tracking-[0.2em] bg-ops-amber text-text-inverse px-1.5 py-0.5 rounded-sm">
             {t("locked.mostPopular")}
           </span>
         </div>
@@ -128,7 +128,7 @@ export default function LockedPage() {
           <span className="sr-only">{t("ops")}</span>
           <OpsLockup orientation="vertical" className="h-24 w-auto mx-auto" title="" />
         </h1>
-        <p className="font-kosugi text-caption-sm text-text-3 uppercase tracking-[0.3em] mt-1">
+        <p className="font-mono text-caption-sm text-text-3 uppercase tracking-[0.3em] mt-1">
           {t("commandCenter")}
         </p>
       </div>
@@ -153,7 +153,7 @@ export default function LockedPage() {
       {/* Divider */}
       <div className="w-full max-w-[800px] flex items-center gap-2 my-3">
         <div className="flex-1 h-px bg-border" />
-        <span className="font-kosugi text-[11px] uppercase tracking-[0.3em] text-text-3">
+        <span className="font-mono text-[11px] uppercase tracking-[0.3em] text-text-3">
           {t("locked.selectPlan")}
         </span>
         <div className="flex-1 h-px bg-border" />

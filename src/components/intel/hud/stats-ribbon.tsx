@@ -52,7 +52,7 @@ export function StatsRibbon({
           <div className="font-mohave text-sm text-white leading-tight">
             {typeof stat.value === "number" ? stat.value.toLocaleString() : stat.value}
           </div>
-          <div className="font-kosugi text-micro uppercase tracking-wider text-[#666]">
+          <div className="font-mono text-micro uppercase tracking-wider text-[#666]">
             {stat.label}
           </div>
         </div>

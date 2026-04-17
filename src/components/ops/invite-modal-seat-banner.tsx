@@ -44,7 +44,7 @@ export function InviteModalSeatBanner({
         <div className="flex items-start gap-2">
           <AlertTriangle className="w-[14px] h-[14px] text-status-warning mt-[2px] shrink-0" />
           <div className="flex-1 min-w-0">
-            <p className="font-kosugi text-micro uppercase tracking-wider text-status-warning">
+            <p className="font-mono text-micro uppercase tracking-wider text-status-warning">
               {isFull
                 ? "All seats in use"
                 : `${seatsRemaining} seats remaining — ${invitesQueued} invites queued`}
@@ -56,7 +56,7 @@ export function InviteModalSeatBanner({
             </p>
             <Link
               href="/settings?tab=subscription"
-              className="font-kosugi text-micro uppercase tracking-wider text-text-2 hover:text-text transition-colors inline-flex items-center gap-1 mt-2"
+              className="font-mono text-micro uppercase tracking-wider text-text-2 hover:text-text transition-colors inline-flex items-center gap-1 mt-2"
             >
               Upgrade plan
               <ArrowRight className="w-[12px] h-[12px]" />

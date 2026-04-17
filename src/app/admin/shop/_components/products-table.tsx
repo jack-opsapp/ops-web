@@ -94,7 +94,7 @@ export function ProductsTable({ products, categories, lowStockCount }: ProductsT
 
   const SortHeader = ({ label, sortKeyName, width }: { label: string; sortKeyName: SortKey; width: string }) => (
     <th
-      className={`${width} px-4 py-3 text-left font-kosugi text-[11px] uppercase tracking-widest text-[#6B6B6B] cursor-pointer select-none hover:text-[#A0A0A0] transition-colors`}
+      className={`${width} px-4 py-3 text-left font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B] cursor-pointer select-none hover:text-[#A0A0A0] transition-colors`}
       onClick={() => toggleSort(sortKeyName)}
     >
       {label} {sortKey === sortKeyName ? (sortDir === "asc" ? "↑" : "↓") : ""}
@@ -136,7 +136,7 @@ export function ProductsTable({ products, categories, lowStockCount }: ProductsT
             <button
               key={s}
               onClick={() => setStatusFilter(s)}
-              className={`px-3 py-2 font-kosugi text-[11px] uppercase tracking-widest transition-colors ${
+              className={`px-3 py-2 font-mono text-[11px] uppercase tracking-widest transition-colors ${
                 statusFilter === s
                   ? "bg-white/[0.08] text-[#E5E5E5]"
                   : "text-[#6B6B6B] hover:text-[#A0A0A0]"
@@ -149,7 +149,7 @@ export function ProductsTable({ products, categories, lowStockCount }: ProductsT
         <div className="flex-1" />
         <Link
           href="/admin/shop/products/new"
-          className="flex items-center gap-2 bg-ops-accent text-white font-kosugi text-[11px] uppercase tracking-widest px-4 py-2 rounded-sm hover:bg-ops-accent/80 transition-colors"
+          className="flex items-center gap-2 bg-ops-accent text-white font-mono text-[11px] uppercase tracking-widest px-4 py-2 rounded-sm hover:bg-ops-accent/80 transition-colors"
         >
           <Plus size={14} />
           Add Product
@@ -161,16 +161,16 @@ export function ProductsTable({ products, categories, lowStockCount }: ProductsT
         <div className="flex items-center gap-3 mb-3 px-4 py-2 border border-[#597794]/30 rounded-sm bg-ops-accent/5">
           <span className="font-mohave text-[13px] text-[#E5E5E5]">{selected.size} selected</span>
           <div className="flex-1" />
-          <button onClick={() => bulkAction("feature")} className="flex items-center gap-1.5 px-3 py-1.5 font-kosugi text-[11px] uppercase tracking-widest text-[#E5E5E5] border border-white/[0.12] rounded-sm hover:bg-white/[0.04] transition-colors">
+          <button onClick={() => bulkAction("feature")} className="flex items-center gap-1.5 px-3 py-1.5 font-mono text-[11px] uppercase tracking-widest text-[#E5E5E5] border border-white/[0.12] rounded-sm hover:bg-white/[0.04] transition-colors">
             <Star size={12} /> Feature
           </button>
-          <button onClick={() => bulkAction("unfeature")} className="flex items-center gap-1.5 px-3 py-1.5 font-kosugi text-[11px] uppercase tracking-widest text-[#6B6B6B] border border-white/[0.12] rounded-sm hover:bg-white/[0.04] transition-colors">
+          <button onClick={() => bulkAction("unfeature")} className="flex items-center gap-1.5 px-3 py-1.5 font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B] border border-white/[0.12] rounded-sm hover:bg-white/[0.04] transition-colors">
             <StarOff size={12} /> Unfeature
           </button>
-          <button onClick={() => bulkAction("activate")} className="flex items-center gap-1.5 px-3 py-1.5 font-kosugi text-[11px] uppercase tracking-widest text-[#E5E5E5] border border-white/[0.12] rounded-sm hover:bg-white/[0.04] transition-colors">
+          <button onClick={() => bulkAction("activate")} className="flex items-center gap-1.5 px-3 py-1.5 font-mono text-[11px] uppercase tracking-widest text-[#E5E5E5] border border-white/[0.12] rounded-sm hover:bg-white/[0.04] transition-colors">
             <Eye size={12} /> Activate
           </button>
-          <button onClick={() => bulkAction("archive")} className="flex items-center gap-1.5 px-3 py-1.5 font-kosugi text-[11px] uppercase tracking-widest text-red-400 border border-red-500/20 rounded-sm hover:bg-red-500/5 transition-colors">
+          <button onClick={() => bulkAction("archive")} className="flex items-center gap-1.5 px-3 py-1.5 font-mono text-[11px] uppercase tracking-widest text-red-400 border border-red-500/20 rounded-sm hover:bg-red-500/5 transition-colors">
             <Archive size={12} /> Archive
           </button>
         </div>
@@ -194,10 +194,10 @@ export function ProductsTable({ products, categories, lowStockCount }: ProductsT
             <SortHeader label="Price" sortKeyName="priceCents" width="w-[100px]" />
             <SortHeader label="Variants" sortKeyName="variantCount" width="w-[80px]" />
             <SortHeader label="Stock" sortKeyName="totalStock" width="w-[120px]" />
-            <th className="w-[80px] px-4 py-3 text-left font-kosugi text-[11px] uppercase tracking-widest text-[#6B6B6B]">
+            <th className="w-[80px] px-4 py-3 text-left font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B]">
               Featured
             </th>
-            <th className="w-[100px] px-4 py-3 text-left font-kosugi text-[11px] uppercase tracking-widest text-[#6B6B6B]">
+            <th className="w-[100px] px-4 py-3 text-left font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B]">
               Status
             </th>
           </tr>
@@ -236,7 +236,7 @@ export function ProductsTable({ products, categories, lowStockCount }: ProductsT
                   </Link>
                 </td>
                 <td className="px-4 py-3">
-                  <span className="px-2 py-0.5 bg-white/[0.05] rounded-sm font-kosugi text-micro uppercase tracking-widest text-[#6B6B6B]">
+                  <span className="px-2 py-0.5 bg-white/[0.05] rounded-sm font-mono text-micro uppercase tracking-widest text-[#6B6B6B]">
                     {p.categoryName}
                   </span>
                 </td>
@@ -254,11 +254,11 @@ export function ProductsTable({ products, categories, lowStockCount }: ProductsT
                 </td>
                 <td className="px-4 py-3">
                   {p.archivedAt ? (
-                    <span className="px-2 py-0.5 bg-white/[0.05] rounded-sm font-kosugi text-micro uppercase tracking-widest text-[#6B6B6B]">
+                    <span className="px-2 py-0.5 bg-white/[0.05] rounded-sm font-mono text-micro uppercase tracking-widest text-[#6B6B6B]">
                       Archived
                     </span>
                   ) : (
-                    <span className="px-2 py-0.5 bg-ops-accent/20 rounded-sm font-kosugi text-micro uppercase tracking-widest text-[#597794]">
+                    <span className="px-2 py-0.5 bg-ops-accent/20 rounded-sm font-mono text-micro uppercase tracking-widest text-[#597794]">
                       Active
                     </span>
                   )}

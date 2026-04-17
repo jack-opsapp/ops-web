@@ -85,7 +85,7 @@ export function ScheduleOverview() {
   if (!health || !health.enabled) {
     return (
       <div className="px-4 py-6">
-        <p className="font-kosugi text-[12px] text-text-3 text-left">
+        <p className="font-mono text-[12px] text-text-3 text-left">
           {t("dashboard.noData")}
         </p>
       </div>
@@ -176,7 +176,7 @@ export function ScheduleOverview() {
         <h3 className="font-mohave text-[14px] text-text uppercase tracking-wider">
           {t("dashboard.title")}
         </h3>
-        <p className="font-kosugi text-[11px] text-text-3 mt-0.5">
+        <p className="font-mono text-[11px] text-text-3 mt-0.5">
           [{t("dashboard.subtitle")}]
         </p>
       </div>
@@ -193,7 +193,7 @@ export function ScheduleOverview() {
               >
                 <Icon className={cn("w-[14px] h-[14px] shrink-0", row.iconColor)} />
                 <div className="flex-1 min-w-0">
-                  <span className="font-kosugi text-[11px] text-text-3 block">
+                  <span className="font-mono text-[11px] text-text-3 block">
                     {row.label}
                   </span>
                   <span className={cn("font-mohave text-[13px] block truncate", row.color)}>
@@ -211,7 +211,7 @@ export function ScheduleOverview() {
         <div className="px-4 border-t border-[rgba(255,255,255,0.06)]">
           <a
             href="/agent/queue"
-            className="flex items-center gap-1.5 font-kosugi text-[11px] text-[#6F94B0] hover:text-[#7B9AB8] transition-colors min-h-[56px]"
+            className="flex items-center gap-1.5 font-mono text-[11px] text-[#6F94B0] hover:text-[#7B9AB8] transition-colors min-h-[56px]"
           >
             <ExternalLink className="w-[12px] h-[12px]" />
             {t("dashboard.viewQueue")}

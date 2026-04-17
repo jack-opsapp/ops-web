@@ -164,7 +164,7 @@ export function InvoiceSettingsTab() {
           <h2 className="font-mohave text-body-lg text-text uppercase">
             {t("invoiceSettings.title")}
           </h2>
-          <p className="font-kosugi text-[13px] text-text-2 mt-0.5">
+          <p className="font-mono text-[13px] text-text-2 mt-0.5">
             {t("invoiceSettings.subtitle")}
           </p>
         </div>
@@ -193,7 +193,7 @@ export function InvoiceSettingsTab() {
         <label className="font-mohave text-body-sm text-text uppercase block">
           {t("invoiceSettings.paymentTerms")}
         </label>
-        <p className="font-kosugi text-[12px] text-text-3">
+        <p className="font-mono text-[12px] text-text-3">
           {t("invoiceSettings.paymentTermsDesc")}
         </p>
         <div className="flex flex-wrap gap-2 mt-2">
@@ -220,7 +220,7 @@ export function InvoiceSettingsTab() {
         <label className="font-mohave text-body-sm text-text uppercase block">
           {t("invoiceSettings.taxRate")}
         </label>
-        <p className="font-kosugi text-[12px] text-text-3">
+        <p className="font-mono text-[12px] text-text-3">
           {t("invoiceSettings.taxRateDesc")}
         </p>
         <div className="flex items-center gap-2 mt-2">
@@ -240,7 +240,7 @@ export function InvoiceSettingsTab() {
             step={0.01}
             className="w-[120px] font-mono text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[4px] px-3 py-2 text-text outline-none focus:border-[rgba(255,255,255,0.3)] min-h-[56px] text-right [color-scheme:dark]"
           />
-          <span className="font-kosugi text-[13px] text-text-3">%</span>
+          <span className="font-mono text-[13px] text-text-3">%</span>
         </div>
       </div>
 
@@ -249,11 +249,11 @@ export function InvoiceSettingsTab() {
         <label className="font-mohave text-body-sm text-text uppercase block">
           {t("invoiceSettings.highValueThreshold")}
         </label>
-        <p className="font-kosugi text-[12px] text-text-3">
+        <p className="font-mono text-[12px] text-text-3">
           {t("invoiceSettings.highValueThresholdDesc")}
         </p>
         <div className="flex items-center gap-2 mt-2">
-          <span className="font-kosugi text-[13px] text-text-3">$</span>
+          <span className="font-mono text-[13px] text-text-3">$</span>
           <input
             type="number"
             value={config.high_value_threshold}
@@ -302,7 +302,7 @@ export function InvoiceSettingsTab() {
           <h3 className="font-mohave text-body-lg text-text uppercase">
             {t("invoiceSettings.reminders")}
           </h3>
-          <p className="font-kosugi text-[13px] text-text-2 mt-0.5">
+          <p className="font-mono text-[13px] text-text-2 mt-0.5">
             {t("invoiceSettings.remindersDesc")}
           </p>
         </div>
@@ -330,7 +330,7 @@ export function InvoiceSettingsTab() {
                   { key: "invoiceSettings.level4Days", index: 3 },
                 ].map(({ key, index }) => (
                   <div key={index}>
-                    <span className="font-kosugi text-[11px] text-text-3 block mb-1">
+                    <span className="font-mono text-[11px] text-text-3 block mb-1">
                       {t(key)}
                     </span>
                     <div className="flex items-center gap-2">
@@ -344,7 +344,7 @@ export function InvoiceSettingsTab() {
                         max={365}
                         className="w-[80px] font-mono text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[4px] px-3 py-2 text-text outline-none focus:border-[rgba(255,255,255,0.3)] min-h-[56px] text-right [color-scheme:dark]"
                       />
-                      <span className="font-kosugi text-[12px] text-text-3">
+                      <span className="font-mono text-[12px] text-text-3">
                         {t("invoiceSettings.days")}
                       </span>
                     </div>
@@ -390,7 +390,7 @@ export function InvoiceSettingsTab() {
               <label className="font-mohave text-body-sm text-text uppercase block">
                 {t("invoiceSettings.lateThreshold")}
               </label>
-              <p className="font-kosugi text-[12px] text-text-3">
+              <p className="font-mono text-[12px] text-text-3">
                 {t("invoiceSettings.lateThresholdDesc")}
               </p>
               <div className="flex items-center gap-2 mt-2">
@@ -409,7 +409,7 @@ export function InvoiceSettingsTab() {
                   max={100}
                   className="w-[80px] font-mono text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[4px] px-3 py-2 text-text outline-none focus:border-[rgba(255,255,255,0.3)] min-h-[56px] text-right [color-scheme:dark]"
                 />
-                <span className="font-kosugi text-[13px] text-text-3">
+                <span className="font-mono text-[13px] text-text-3">
                   {t("invoiceSettings.lateThresholdSuffix")}
                 </span>
               </div>
@@ -440,7 +440,7 @@ function ToggleSetting({
         <span className="font-mohave text-body-sm text-text uppercase block">
           {label}
         </span>
-        <p className="font-kosugi text-[12px] text-text-3 mt-0.5">
+        <p className="font-mono text-[12px] text-text-3 mt-0.5">
           {description}
         </p>
       </div>

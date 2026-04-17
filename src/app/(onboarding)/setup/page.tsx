@@ -541,7 +541,7 @@ export default function SetupPage() {
                   border: "1px solid rgba(255, 255, 255, 0.08)",
                 }}
               >
-                <span className="font-kosugi text-[11px] text-text-3 uppercase tracking-[0.2em]">
+                <span className="font-mono text-[11px] text-text-3 uppercase tracking-[0.2em]">
                   All questions answered
                 </span>
                 <button
@@ -562,7 +562,7 @@ export default function SetupPage() {
                     }}
                   />
                 </button>
-                <p className="font-kosugi text-micro text-text-mute uppercase tracking-[0.1em]">
+                <p className="font-mono text-micro text-text-mute uppercase tracking-[0.1em]">
                   Your dashboard is ready
                 </p>
               </motion.div>

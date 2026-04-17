@@ -18,7 +18,7 @@ export function SetupWizardsTab() {
         <h2 className="font-mohave text-heading-sm text-text uppercase tracking-wide">
           {t("setup.title")}
         </h2>
-        <p className="font-kosugi text-body-sm text-text-2 mt-[4px]">
+        <p className="font-mono text-body-sm text-text-2 mt-[4px]">
           {t("setup.description")}
         </p>
       </div>
@@ -30,7 +30,7 @@ export function SetupWizardsTab() {
         <Wrench className="w-[20px] h-[20px] text-text-mute shrink-0" />
         <div className="flex-1 min-w-0">
           <h3 className="font-mohave text-body text-text">{t("setup.taskTypes.title")}</h3>
-          <p className="font-kosugi text-caption-sm text-text-3">{t("setup.taskTypes.description")}</p>
+          <p className="font-mono text-caption-sm text-text-3">{t("setup.taskTypes.description")}</p>
         </div>
         <div className="flex items-center gap-[6px] shrink-0">
           {isComplete ? (

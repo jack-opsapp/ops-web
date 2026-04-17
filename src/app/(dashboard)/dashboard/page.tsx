@@ -745,7 +745,7 @@ export default function DashboardPage() {
               )}
             </p>
             <p
-              className={`font-kosugi text-caption-sm text-text-3 mt-0.5 uppercase transition-opacity duration-500 ${contentReady ? "opacity-100" : "opacity-0"}`}
+              className={`font-mono text-caption-sm text-text-3 mt-0.5 uppercase transition-opacity duration-500 ${contentReady ? "opacity-100" : "opacity-0"}`}
               style={{ textShadow: "0 1px 6px rgba(0,0,0,0.8)" }}
             >
               {t("greeting.subtitle")}

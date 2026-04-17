@@ -388,7 +388,7 @@ export function DocumentTemplatesTab() {
         </CardHeader>
         <CardContent>
           {templates.length === 0 ? (
-            <p className="font-kosugi text-[11px] text-text-mute text-center py-2">
+            <p className="font-mono text-[11px] text-text-mute text-center py-2">
               {t("templates.emptyState")}
             </p>
           ) : (
@@ -408,11 +408,11 @@ export function DocumentTemplatesTab() {
                     <p className="font-mohave text-body text-text truncate">
                       {tmpl.name}
                     </p>
-                    <span className="font-kosugi text-micro text-text-3 px-1 py-0.5 rounded bg-fill-neutral-dim shrink-0 uppercase">
+                    <span className="font-mono text-micro text-text-3 px-1 py-0.5 rounded bg-fill-neutral-dim shrink-0 uppercase">
                       {tmpl.documentType}
                     </span>
                     {tmpl.isDefault && (
-                      <span className="font-kosugi text-micro text-text px-1 py-0.5 rounded bg-[rgba(255,255,255,0.08)] shrink-0">
+                      <span className="font-mono text-micro text-text px-1 py-0.5 rounded bg-[rgba(255,255,255,0.08)] shrink-0">
                         {t("templates.default")}
                       </span>
                     )}
@@ -470,7 +470,7 @@ export function DocumentTemplatesTab() {
                   <p className="font-mohave text-body-sm text-text">
                     {t("templates.setAsDefault")}
                   </p>
-                  <p className="font-kosugi text-[11px] text-text-mute">
+                  <p className="font-mono text-[11px] text-text-mute">
                     {t("templates.autoApply")} {documentType === "both" ? "invoices & estimates" : `${documentType}s`}
                   </p>
                 </div>
@@ -513,7 +513,7 @@ export function DocumentTemplatesTab() {
               <CardTitle>{t("templates.brandingOverrides")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              <p className="font-kosugi text-[11px] text-text-mute">
+              <p className="font-mono text-[11px] text-text-mute">
                 {t("templates.brandingHelper")}
               </p>
 
@@ -687,7 +687,7 @@ export function DocumentTemplatesTab() {
               {t("templates.deleteTemplate")}
             </Button>
             <div className="flex items-center gap-1.5">
-              <p className="font-kosugi text-[11px] text-text-mute">
+              <p className="font-mono text-[11px] text-text-mute">
                 {isDirty ? t("templates.unsavedChanges") : t("templates.saved")}
               </p>
               <Button

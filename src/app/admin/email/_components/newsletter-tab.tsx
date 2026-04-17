@@ -220,7 +220,7 @@ export function NewsletterTab({ newsletters: initial }: NewsletterTabProps) {
                     value={item}
                     onChange={(e) => updateArrayField(key, i, e.target.value)}
                     placeholder={`${label} item...`}
-                    className="flex-1 bg-transparent border border-white/[0.08] rounded px-3 py-1.5 font-kosugi text-[13px] text-[#E5E5E5] placeholder:text-[#6B6B6B] focus:outline-none focus:border-[#597794]"
+                    className="flex-1 bg-transparent border border-white/[0.08] rounded px-3 py-1.5 font-mono text-[13px] text-[#E5E5E5] placeholder:text-[#6B6B6B] focus:outline-none focus:border-[#597794]"
                   />
                   <button
                     onClick={() => removeArrayItem(key, i)}
@@ -231,7 +231,7 @@ export function NewsletterTab({ newsletters: initial }: NewsletterTabProps) {
                 </div>
               ))}
               {draft[key].length === 0 && (
-                <p className="font-kosugi text-[12px] text-[#6B6B6B]">[no items]</p>
+                <p className="font-mono text-[12px] text-[#6B6B6B]">[no items]</p>
               )}
             </div>
           </div>
@@ -244,7 +244,7 @@ export function NewsletterTab({ newsletters: initial }: NewsletterTabProps) {
             value={draft.custom_intro ?? ""}
             onChange={(e) => setDraft((prev) => ({ ...prev, custom_intro: e.target.value || null }))}
             rows={2}
-            className="w-full bg-transparent border border-white/[0.08] rounded-lg px-3 py-2 font-kosugi text-[13px] text-[#E5E5E5] placeholder:text-[#6B6B6B] focus:outline-none focus:border-[#597794] resize-none"
+            className="w-full bg-transparent border border-white/[0.08] rounded-lg px-3 py-2 font-mono text-[13px] text-[#E5E5E5] placeholder:text-[#6B6B6B] focus:outline-none focus:border-[#597794] resize-none"
             placeholder="Optional intro paragraph..."
           />
         </div>
@@ -254,7 +254,7 @@ export function NewsletterTab({ newsletters: initial }: NewsletterTabProps) {
             value={draft.custom_outro ?? ""}
             onChange={(e) => setDraft((prev) => ({ ...prev, custom_outro: e.target.value || null }))}
             rows={2}
-            className="w-full bg-transparent border border-white/[0.08] rounded-lg px-3 py-2 font-kosugi text-[13px] text-[#E5E5E5] placeholder:text-[#6B6B6B] focus:outline-none focus:border-[#597794] resize-none"
+            className="w-full bg-transparent border border-white/[0.08] rounded-lg px-3 py-2 font-mono text-[13px] text-[#E5E5E5] placeholder:text-[#6B6B6B] focus:outline-none focus:border-[#597794] resize-none"
             placeholder="Optional outro paragraph..."
           />
         </div>
@@ -286,7 +286,7 @@ export function NewsletterTab({ newsletters: initial }: NewsletterTabProps) {
           )}
           {message && (
             <span
-              className={`font-kosugi text-[12px] ${
+              className={`font-mono text-[12px] ${
                 message.type === "success" ? "text-[#9DB582]" : "text-[#93321A]"
               }`}
             >

@@ -63,7 +63,7 @@ export default async function GoogleAdsPage() {
         <div className="p-8">
           <div className="border border-white/[0.08] rounded-lg p-6 bg-white/[0.02] max-w-lg">
             <h2 className="font-mohave text-[16px] text-[#E5E5E5] mb-3">SETUP REQUIRED</h2>
-            <p className="font-kosugi text-[13px] text-[#6B6B6B] leading-relaxed">
+            <p className="font-mono text-[13px] text-[#6B6B6B] leading-relaxed">
               Set the following environment variables to enable Google Ads data:
             </p>
             <ul className="font-mohave text-[13px] text-[#A0A0A0] mt-3 space-y-1">

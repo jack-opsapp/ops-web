@@ -171,19 +171,19 @@ export function LineItemEditor({
       {/* Header */}
       <div className="hidden sm:grid grid-cols-[18px_1fr_80px_100px_60px_60px_16px_36px] gap-1 px-1">
         <span />
-        <span className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
+        <span className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">
           Name
         </span>
-        <span className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest text-right">
+        <span className="font-mono text-caption-sm text-text-3 uppercase tracking-widest text-right">
           Qty
         </span>
-        <span className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest text-right">
+        <span className="font-mono text-caption-sm text-text-3 uppercase tracking-widest text-right">
           Price
         </span>
-        <span className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest text-center">
+        <span className="font-mono text-caption-sm text-text-3 uppercase tracking-widest text-center">
           Tax
         </span>
-        <span className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest text-right">
+        <span className="font-mono text-caption-sm text-text-3 uppercase tracking-widest text-right">
           Amount
         </span>
         <span />
@@ -226,7 +226,7 @@ export function LineItemEditor({
                     onChange={(e) => {
                       if (e.target.value) selectProduct(item.id, e.target.value);
                     }}
-                    className="w-full bg-transparent border border-border rounded px-1 py-0.5 font-kosugi text-micro text-text-3"
+                    className="w-full bg-transparent border border-border rounded px-1 py-0.5 font-mono text-micro text-text-3"
                   >
                     <option value="">Select product/service...</option>
                     {products.map((p) => (
@@ -298,7 +298,7 @@ export function LineItemEditor({
                     </TooltipTrigger>
                     <TooltipContent side="top" className="max-w-[260px]">
                       <div className="space-y-1">
-                        <p className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
+                        <p className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">
                           Stock
                         </p>
                         {stock.materials.map((m) => (
@@ -360,7 +360,7 @@ export function LineItemEditor({
             {expanded && item.productId && (
               <div className="border-t border-border pt-1.5 pb-1 pl-[22px] pr-1">
                 {isTempId ? (
-                  <p className="font-kosugi text-micro text-text-mute">
+                  <p className="font-mono text-micro text-text-mute">
                     [save estimate to override materials on this line item]
                   </p>
                 ) : (
@@ -391,14 +391,14 @@ export function LineItemEditor({
       {/* Totals */}
       <div className="border-t border-border pt-1.5 space-y-0.5">
         <div className="flex justify-between">
-          <span className="font-kosugi text-caption text-text-3">Subtotal</span>
+          <span className="font-mono text-caption text-text-3">Subtotal</span>
           <span className="font-mono text-data text-text-2">
             {formatCurrency(totals.subtotal)}
           </span>
         </div>
         {totals.tax > 0 && (
           <div className="flex justify-between">
-            <span className="font-kosugi text-caption text-text-3">Tax</span>
+            <span className="font-mono text-caption text-text-3">Tax</span>
             <span className="font-mono text-data text-text-2">
               {formatCurrency(totals.tax)}
             </span>

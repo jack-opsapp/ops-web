@@ -263,7 +263,7 @@ function LoginForm() {
         </div>
 
         {/* Divider */}
-        <div className="separator-label font-kosugi text-[11px] uppercase tracking-widest">
+        <div className="separator-label font-mono text-[11px] uppercase tracking-widest">
           {t("login.or")}
         </div>
 
@@ -328,7 +328,7 @@ function LoginForm() {
                       setResetSent(false);
                       setError(null);
                     }}
-                    className="font-kosugi text-micro text-text-mute hover:text-text transition-colors"
+                    className="font-mono text-micro text-text-mute hover:text-text transition-colors"
                   >
                     {t("login.forgotPassword")}
                   </button>
@@ -359,7 +359,7 @@ function LoginForm() {
                         setShowForgotPassword(false);
                         setResetSent(false);
                       }}
-                      className="font-kosugi text-micro text-text-2 hover:text-text transition-colors mt-2"
+                      className="font-mono text-micro text-text-2 hover:text-text transition-colors mt-2"
                     >
                       {t("login.backToSignIn")}
                     </button>
@@ -393,7 +393,7 @@ function LoginForm() {
                         setShowForgotPassword(false);
                         setError(null);
                       }}
-                      className="w-full text-center font-kosugi text-micro text-text-mute hover:text-text-3 transition-colors"
+                      className="w-full text-center font-mono text-micro text-text-mute hover:text-text-3 transition-colors"
                     >
                       {t("login.backToSignIn")}
                     </button>
@@ -409,7 +409,7 @@ function LoginForm() {
                   setShowForgotPassword(false);
                   setError(null);
                 }}
-                className="w-full text-center font-kosugi text-[11px] text-text-mute hover:text-text-3 transition-colors py-[4px]"
+                className="w-full text-center font-mono text-[11px] text-text-mute hover:text-text-3 transition-colors py-[4px]"
               >
                 {t("login.backToOptions")}
               </button>

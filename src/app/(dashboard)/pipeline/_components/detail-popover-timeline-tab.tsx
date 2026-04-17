@@ -183,7 +183,7 @@ function DetailCard({ node }: { node: TimelineNode }) {
         </p>
       )}
       {node.content && (
-        <p className="font-kosugi text-[11px] text-text-3 leading-relaxed line-clamp-3">
+        <p className="font-mono text-[11px] text-text-3 leading-relaxed line-clamp-3">
           {node.content}
         </p>
       )}
@@ -193,7 +193,7 @@ function DetailCard({ node }: { node: TimelineNode }) {
         </span>
       )}
       {node.outcome && (
-        <p className="font-kosugi text-micro text-text-3 mt-1">
+        <p className="font-mono text-micro text-text-3 mt-1">
           {node.outcome}
         </p>
       )}
@@ -233,7 +233,7 @@ export function DetailPopoverTimelineTab({
     return (
       <div className="flex flex-col items-center justify-center py-10 text-center">
         <Clock className="w-5 h-5 text-text-mute mb-2" />
-        <span className="font-kosugi text-[11px] text-text-mute">
+        <span className="font-mono text-[11px] text-text-mute">
           {t("detail.noActivityYet")}
         </span>
       </div>
@@ -259,7 +259,7 @@ export function DetailPopoverTimelineTab({
                     style={{ backgroundColor: node.color }}
                   />
                 </div>
-                <span className="font-kosugi text-micro text-text-mute truncate">
+                <span className="font-mono text-micro text-text-mute truncate">
                   {node.label}
                 </span>
               </div>

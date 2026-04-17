@@ -164,7 +164,7 @@ function FeatureRequestsTab({ requests }: { requests: FeatureRequest[] }) {
                   {r.title}
                 </button>
                 {expandedId === r.id && r.description && (
-                  <p className="font-kosugi text-[12px] text-[#A0A0A0] mt-2 whitespace-pre-wrap">
+                  <p className="font-mono text-[12px] text-[#A0A0A0] mt-2 whitespace-pre-wrap">
                     {r.description}
                   </p>
                 )}
@@ -185,8 +185,8 @@ function FeatureRequestsTab({ requests }: { requests: FeatureRequest[] }) {
                   ))}
                 </select>
               </td>
-              <td className="px-2 py-3 font-kosugi text-[12px] text-[#6B6B6B] truncate">{r.user_email ?? "\u2014"}</td>
-              <td className="px-2 py-3 font-kosugi text-[12px] text-[#6B6B6B]">
+              <td className="px-2 py-3 font-mono text-[12px] text-[#6B6B6B] truncate">{r.user_email ?? "\u2014"}</td>
+              <td className="px-2 py-3 font-mono text-[12px] text-[#6B6B6B]">
                 [{new Date(r.created_at).toLocaleDateString()}]
               </td>
             </tr>
@@ -223,7 +223,7 @@ function PromoCodesTab({ codes }: { codes: PromoCode[] }) {
           <span className={`font-mohave text-[13px] ${c.active ? "text-[#9DB582]" : "text-[#6B6B6B]"}`}>
             {c.active ? "ACTIVE" : "INACTIVE"}
           </span>
-          <span className="font-kosugi text-[12px] text-[#6B6B6B]">
+          <span className="font-mono text-[12px] text-[#6B6B6B]">
             [{new Date(c.created_at).toLocaleDateString()}]
           </span>
         </div>
@@ -382,7 +382,7 @@ function BugReportsTab({ reports }: { reports: BugReportRow[] }) {
                         {r.description}
                       </button>
                     </td>
-                    <td className="px-2 py-3 font-kosugi text-[11px] text-[#6B6B6B]">
+                    <td className="px-2 py-3 font-mono text-[11px] text-[#6B6B6B]">
                       {r.screen_name ?? "—"}
                     </td>
                     <td className="px-2 py-3">
@@ -415,13 +415,13 @@ function BugReportsTab({ reports }: { reports: BugReportRow[] }) {
                         ))}
                       </select>
                     </td>
-                    <td className="px-2 py-3 font-kosugi text-[11px] text-[#6B6B6B] max-w-[160px] truncate">
+                    <td className="px-2 py-3 font-mono text-[11px] text-[#6B6B6B] max-w-[160px] truncate">
                       {r.reporter_name || r.reporter_email || "—"}
                       {r.company_name && (
                         <div className="text-micro text-[#4A4A4A]">{r.company_name}</div>
                       )}
                     </td>
-                    <td className="px-2 py-3 font-kosugi text-[11px] text-[#6B6B6B] whitespace-nowrap">
+                    <td className="px-2 py-3 font-mono text-[11px] text-[#6B6B6B] whitespace-nowrap">
                       [{new Date(r.created_at).toLocaleDateString()}]
                     </td>
                   </tr>
@@ -570,11 +570,11 @@ function BugReportDetail({ report }: { report: BugReportRow }) {
       <div>
         <DetailSection label="SCREENSHOT">
           {!report.screenshot_url ? (
-            <p className="font-kosugi text-[11px] text-[#6B6B6B]">[NONE ATTACHED]</p>
+            <p className="font-mono text-[11px] text-[#6B6B6B]">[NONE ATTACHED]</p>
           ) : screenshotLoading ? (
-            <p className="font-kosugi text-[11px] text-[#6B6B6B]">[LOADING...]</p>
+            <p className="font-mono text-[11px] text-[#6B6B6B]">[LOADING...]</p>
           ) : screenshotError ? (
-            <p className="font-kosugi text-[11px] text-[#D97757]">[ERROR: {screenshotError}]</p>
+            <p className="font-mono text-[11px] text-[#D97757]">[ERROR: {screenshotError}]</p>
           ) : screenshotUrl ? (
             <a href={screenshotUrl} target="_blank" rel="noopener noreferrer">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -594,7 +594,7 @@ function BugReportDetail({ report }: { report: BugReportRow }) {
 function DetailSection({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <p className="font-kosugi text-micro uppercase tracking-wider text-[#6B6B6B] mb-2">
+      <p className="font-mono text-micro uppercase tracking-wider text-[#6B6B6B] mb-2">
         {label}
       </p>
       {children}
@@ -609,7 +609,7 @@ function DetailGrid({ children }: { children: React.ReactNode }) {
 function DetailRow({ k, v, mono = false }: { k: string; v: string; mono?: boolean }) {
   return (
     <div className="flex gap-2 text-[12px] min-w-0">
-      <span className="font-kosugi text-[#6B6B6B] whitespace-nowrap">{k}:</span>
+      <span className="font-mono text-[#6B6B6B] whitespace-nowrap">{k}:</span>
       <span
         className={`${mono ? "font-mono" : "font-mohave"} text-[#A0A0A0] truncate`}
         title={v}

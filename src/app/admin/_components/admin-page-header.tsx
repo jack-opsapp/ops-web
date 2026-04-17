@@ -10,7 +10,7 @@ export function AdminPageHeader({ title, caption }: AdminPageHeaderProps) {
         {title}
       </h1>
       {caption && (
-        <p className="font-kosugi text-[12px] text-[#6B6B6B] mt-1">[{caption}]</p>
+        <p className="font-mono text-[12px] text-[#6B6B6B] mt-1">[{caption}]</p>
       )}
     </div>
   );

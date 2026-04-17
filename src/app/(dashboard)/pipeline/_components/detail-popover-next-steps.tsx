@@ -211,7 +211,7 @@ export function DetailPopoverNextSteps({
       {!primary ? (
         <div className="flex items-center gap-1.5">
           <CheckCircle className="w-3 h-3 text-text-mute shrink-0" />
-          <span className="font-kosugi text-[11px] text-text-mute">
+          <span className="font-mono text-[11px] text-text-mute">
             {t("detail.noPendingActions")}
           </span>
         </div>
@@ -224,7 +224,7 @@ export function DetailPopoverNextSteps({
             />
             <span
               className={cn(
-                "font-kosugi text-[11px] flex-1 min-w-0 truncate",
+                "font-mono text-[11px] flex-1 min-w-0 truncate",
                 COLOR_MAP[primary.color]
               )}
             >
@@ -263,7 +263,7 @@ export function DetailPopoverNextSteps({
                   />
                   <span
                     className={cn(
-                      "font-kosugi text-micro flex-1 min-w-0 truncate",
+                      "font-mono text-micro flex-1 min-w-0 truncate",
                       COLOR_MAP[signal.color]
                     )}
                   >

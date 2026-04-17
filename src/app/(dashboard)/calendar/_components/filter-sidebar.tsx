@@ -38,7 +38,7 @@ function FilterSection({
         onClick={() => setOpen(!open)}
         className="w-full flex items-center justify-between px-3 py-2 hover:bg-fill-neutral-dim/30 transition-colors"
       >
-        <span className="font-kosugi text-micro text-text-3 uppercase tracking-[0.12em]">
+        <span className="font-mono text-micro text-text-3 uppercase tracking-[0.12em]">
           {title}
         </span>
         <div className="flex items-center gap-1.5">
@@ -217,7 +217,7 @@ export function FilterSidebar() {
           {totalActiveFilters > 0 && (
             <button
               onClick={clearFilters}
-              className="font-kosugi text-micro text-text-2 uppercase tracking-wider hover:text-text transition-colors"
+              className="font-mono text-micro text-text-2 uppercase tracking-wider hover:text-text transition-colors"
             >
               {t("filter.clearAll")}
             </button>

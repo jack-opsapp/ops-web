@@ -78,7 +78,7 @@ export function CalendarGridDay({
             </span>
             {dayIsToday && (
               <span
-                className="font-kosugi text-micro uppercase tracking-wider leading-tight"
+                className="font-mono text-micro uppercase tracking-wider leading-tight"
                 style={{
                   color: "#6F94B0",
                   background: "rgba(111, 148, 176,0.15)",
@@ -92,7 +92,7 @@ export function CalendarGridDay({
             )}
           </div>
           <span
-            className="font-kosugi text-[12px] uppercase tracking-wider mt-[2px] leading-tight"
+            className="font-mono text-[12px] uppercase tracking-wider mt-[2px] leading-tight"
             style={{ color: "#999999" }}
           >
             {format(currentDate, "MMMM d, yyyy").toUpperCase()}
@@ -102,7 +102,7 @@ export function CalendarGridDay({
         {/* Right: Task count */}
         <div className="flex items-center mt-[4px]">
           <span
-            className="font-kosugi text-[12px] uppercase tracking-wider leading-tight"
+            className="font-mono text-[12px] uppercase tracking-wider leading-tight"
             style={{ color: "#999999" }}
           >
             {taskCountLabel}
@@ -120,7 +120,7 @@ export function CalendarGridDay({
               key="empty"
             >
               <span
-                className="font-kosugi text-[12px] uppercase tracking-wider"
+                className="font-mono text-[12px] uppercase tracking-wider"
                 style={{ color: "rgba(255, 255, 255, 0.30)" }}
               >
                 NO TASKS SCHEDULED

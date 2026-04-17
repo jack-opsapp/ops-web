@@ -108,7 +108,7 @@ export const PhaseCDashboard = memo(function PhaseCDashboard() {
   if (loading || !data) {
     return (
       <div className="rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] saturate-[1.2] p-4">
-        <span className="font-kosugi text-[11px] text-text-3 uppercase">
+        <span className="font-mono text-[11px] text-text-3 uppercase">
           [{t("dashboard.loading")}]
         </span>
       </div>
@@ -134,7 +134,7 @@ export const PhaseCDashboard = memo(function PhaseCDashboard() {
           <h3 className="font-mohave text-[14px] text-text uppercase tracking-wider">
             {t("dashboard.phaseCTitle")}
           </h3>
-          <p className="font-kosugi text-[11px] text-text-3 mt-0.5">
+          <p className="font-mono text-[11px] text-text-3 mt-0.5">
             [{t("dashboard.phaseCSubtitle")}]
           </p>
         </div>
@@ -143,7 +143,7 @@ export const PhaseCDashboard = memo(function PhaseCDashboard() {
           <span className="font-mono text-[14px] text-text">
             {data.email.writingProfileConfidence}%
           </span>
-          <span className="font-kosugi text-[11px] text-text-3 uppercase ml-1">
+          <span className="font-mono text-[11px] text-text-3 uppercase ml-1">
             [{t("dashboard.confidence")}]
           </span>
         </div>
@@ -195,7 +195,7 @@ export const PhaseCDashboard = memo(function PhaseCDashboard() {
 
       {/* Milestones row */}
       <div className="mt-4 pt-4 border-t border-[rgba(255,255,255,0.06)]">
-        <span className="font-kosugi text-[11px] text-text-3 uppercase block mb-2">
+        <span className="font-mono text-[11px] text-text-3 uppercase block mb-2">
           [{t("dashboard.autonomyMilestones")}]
         </span>
         <div className="flex flex-wrap items-center gap-2">
@@ -277,10 +277,10 @@ const DomainCard = memo(function DomainCard({
       <div className="font-mohave text-[20px] text-text leading-none">
         {primary}
       </div>
-      <div className="font-kosugi text-micro text-text-3 mt-1">
+      <div className="font-mono text-micro text-text-3 mt-1">
         {primaryLabel}
       </div>
-      <div className="font-kosugi text-micro text-text-3 mt-0.5">
+      <div className="font-mono text-micro text-text-3 mt-0.5">
         {secondary}
       </div>
     </Link>
@@ -308,7 +308,7 @@ function MilestoneChip({
       ) : (
         <Circle className="w-[12px] h-[12px]" />
       )}
-      <span className="font-kosugi text-[11px] uppercase">{label}</span>
+      <span className="font-mono text-[11px] uppercase">{label}</span>
     </div>
   );
 }
@@ -316,7 +316,7 @@ function MilestoneChip({
 function SubDetail({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <span className="font-kosugi text-micro text-text-3 uppercase block">
+      <span className="font-mono text-micro text-text-3 uppercase block">
         [{label}]
       </span>
       <span className="font-mono text-[12px] text-text">{value}</span>

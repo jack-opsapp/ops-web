@@ -266,7 +266,7 @@ function EmptyState({ tab }: { tab: TabKey }) {
   return (
     <div className="flex flex-col items-center gap-3 py-16">
       <Icon className="h-8 w-8 text-[#333]" />
-      <p className="font-kosugi text-sm text-[#555]">{text}</p>
+      <p className="font-mono text-sm text-[#555]">{text}</p>
     </div>
   );
 }
@@ -299,12 +299,12 @@ function NeedsReviewCard({
             {item.subject || "(no subject)"}
           </p>
           {item.fromEmail && (
-            <p className="font-kosugi text-xs text-[#999] truncate mt-0.5">
+            <p className="font-mono text-xs text-[#999] truncate mt-0.5">
               {item.fromEmail}
             </p>
           )}
         </div>
-        <span className="font-kosugi text-micro text-[#555] uppercase tracking-wider shrink-0">
+        <span className="font-mono text-micro text-[#555] uppercase tracking-wider shrink-0">
           {formatDate(item.createdAt)}
         </span>
       </div>
@@ -320,7 +320,7 @@ function NeedsReviewCard({
       <div className="flex items-center gap-2 rounded-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.06)] px-3 py-2">
         <AlertTriangle className="h-3.5 w-3.5 text-[#C4A868] shrink-0" />
         <div className="min-w-0 flex-1">
-          <p className="font-kosugi text-micro text-[#C4A868] uppercase tracking-wider">
+          <p className="font-mono text-micro text-[#C4A868] uppercase tracking-wider">
             {confidenceLabel(item.matchConfidence)}
           </p>
           {item.suggestedClientName && (
@@ -391,12 +391,12 @@ function UnmatchedCard({
             {item.subject || "(no subject)"}
           </p>
           {item.fromEmail && (
-            <p className="font-kosugi text-xs text-[#999] truncate mt-0.5">
+            <p className="font-mono text-xs text-[#999] truncate mt-0.5">
               {item.fromEmail}
             </p>
           )}
         </div>
-        <span className="font-kosugi text-micro text-[#555] uppercase tracking-wider shrink-0">
+        <span className="font-mono text-micro text-[#555] uppercase tracking-wider shrink-0">
           {formatDate(item.createdAt)}
         </span>
       </div>
@@ -465,12 +465,12 @@ function MatchedCard({ item, onViewClient }: { item: ReviewItem; onViewClient?: 
             {item.subject || "(no subject)"}
           </p>
           {item.fromEmail && (
-            <p className="font-kosugi text-xs text-[#999] truncate mt-0.5">
+            <p className="font-mono text-xs text-[#999] truncate mt-0.5">
               {item.fromEmail}
             </p>
           )}
         </div>
-        <span className="font-kosugi text-micro text-[#555] uppercase tracking-wider shrink-0">
+        <span className="font-mono text-micro text-[#555] uppercase tracking-wider shrink-0">
           {formatDate(item.createdAt)}
         </span>
       </div>
@@ -480,7 +480,7 @@ function MatchedCard({ item, onViewClient }: { item: ReviewItem; onViewClient?: 
         <div className="flex items-center gap-2 rounded-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.06)] px-3 py-2">
           <Link2 className="h-3.5 w-3.5 text-[#9DB582] shrink-0" />
           <div className="min-w-0 flex-1">
-            <p className="font-kosugi text-micro text-[#9DB582] uppercase tracking-wider">
+            <p className="font-mono text-micro text-[#9DB582] uppercase tracking-wider">
               {confidenceLabel(item.matchConfidence)}
             </p>
             <p className="font-mohave text-sm text-[#E5E5E5] truncate mt-0.5">
@@ -490,7 +490,7 @@ function MatchedCard({ item, onViewClient }: { item: ReviewItem; onViewClient?: 
           {item.clientId && onViewClient && (
             <button
               onClick={() => onViewClient(item.clientId!)}
-              className="shrink-0 font-kosugi text-micro text-[#6F94B0] hover:text-[#7a9ab8] uppercase tracking-wider transition-colors"
+              className="shrink-0 font-mono text-micro text-[#6F94B0] hover:text-[#7a9ab8] uppercase tracking-wider transition-colors"
             >
               View Client
             </button>
@@ -664,7 +664,7 @@ export function EmailReviewPanel({
                     key={tab.key}
                     onClick={() => setActiveTab(tab.key)}
                     className={cn(
-                      "flex items-center gap-1.5 rounded-sm px-3 py-1.5 font-kosugi text-xs uppercase tracking-wider transition-colors",
+                      "flex items-center gap-1.5 rounded-sm px-3 py-1.5 font-mono text-xs uppercase tracking-wider transition-colors",
                       activeTab === tab.key
                         ? "bg-[rgba(255,255,255,0.08)] text-white"
                         : "text-[#555] hover:text-[#999] hover:bg-[rgba(255,255,255,0.03)]"
@@ -741,7 +741,7 @@ export function EmailReviewPanel({
 
             {/* ── Footer summary ────────────────────────────────────── */}
             <div className="shrink-0 border-t border-[rgba(255,255,255,0.10)] px-5 py-3">
-              <p className="font-kosugi text-micro text-[#555] uppercase tracking-wider">
+              <p className="font-mono text-micro text-[#555] uppercase tracking-wider">
                 {allItems.length} total
                 {needsReview.length > 0 &&
                   ` \u00b7 ${needsReview.length} need review`}

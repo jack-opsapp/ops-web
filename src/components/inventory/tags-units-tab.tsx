@@ -79,7 +79,7 @@ export function TagsUnitsTab() {
       {/* ─── Tags Section ─────────────────────────────────────────────────────── */}
       <section className="space-y-2">
         <div className="flex items-center justify-between">
-          <span className="font-kosugi text-caption-sm uppercase tracking-widest text-text-3">
+          <span className="font-mono text-caption-sm uppercase tracking-widest text-text-3">
             [ TAGS ]
           </span>
           <Button
@@ -95,13 +95,13 @@ export function TagsUnitsTab() {
 
         {tagsLoading ? (
           <div className="flex items-center justify-center py-8">
-            <span className="font-kosugi text-caption text-text-mute">
+            <span className="font-mono text-caption text-text-mute">
               Loading tags...
             </span>
           </div>
         ) : tags.length === 0 ? (
           <div className="py-6 text-center">
-            <span className="font-kosugi text-caption text-text-mute">
+            <span className="font-mono text-caption text-text-mute">
               No tags yet. Create one to categorize inventory items.
             </span>
           </div>
@@ -110,19 +110,19 @@ export function TagsUnitsTab() {
             <table className="w-full min-w-[400px]">
               <thead>
                 <tr className="border-b border-border bg-[rgba(255,255,255,0.02)]">
-                  <th className="text-left px-2 py-1.5 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
+                  <th className="text-left px-2 py-1.5 font-mono text-caption-sm text-text-3 uppercase tracking-widest">
                     Name
                   </th>
-                  <th className="text-right px-2 py-1.5 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest hidden sm:table-cell">
+                  <th className="text-right px-2 py-1.5 font-mono text-caption-sm text-text-3 uppercase tracking-widest hidden sm:table-cell">
                     Warning Threshold
                   </th>
-                  <th className="text-right px-2 py-1.5 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest hidden sm:table-cell">
+                  <th className="text-right px-2 py-1.5 font-mono text-caption-sm text-text-3 uppercase tracking-widest hidden sm:table-cell">
                     Critical Threshold
                   </th>
-                  <th className="text-right px-2 py-1.5 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
+                  <th className="text-right px-2 py-1.5 font-mono text-caption-sm text-text-3 uppercase tracking-widest">
                     Item Count
                   </th>
-                  <th className="text-right px-2 py-1.5 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest w-[80px]">
+                  <th className="text-right px-2 py-1.5 font-mono text-caption-sm text-text-3 uppercase tracking-widest w-[80px]">
                     Actions
                   </th>
                 </tr>
@@ -189,7 +189,7 @@ export function TagsUnitsTab() {
       {/* ─── Units Section ────────────────────────────────────────────────────── */}
       <section className="space-y-2">
         <div className="flex items-center justify-between">
-          <span className="font-kosugi text-caption-sm uppercase tracking-widest text-text-3">
+          <span className="font-mono text-caption-sm uppercase tracking-widest text-text-3">
             [ UNITS ]
           </span>
           <Button
@@ -205,13 +205,13 @@ export function TagsUnitsTab() {
 
         {unitsLoading ? (
           <div className="flex items-center justify-center py-8">
-            <span className="font-kosugi text-caption text-text-mute">
+            <span className="font-mono text-caption text-text-mute">
               Loading units...
             </span>
           </div>
         ) : sortedUnits.length === 0 ? (
           <div className="py-6 text-center">
-            <span className="font-kosugi text-caption text-text-mute">
+            <span className="font-mono text-caption text-text-mute">
               No units yet. Create one to track inventory measurements.
             </span>
           </div>
@@ -220,16 +220,16 @@ export function TagsUnitsTab() {
             <table className="w-full min-w-[400px]">
               <thead>
                 <tr className="border-b border-border bg-[rgba(255,255,255,0.02)]">
-                  <th className="text-left px-2 py-1.5 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
+                  <th className="text-left px-2 py-1.5 font-mono text-caption-sm text-text-3 uppercase tracking-widest">
                     Display
                   </th>
-                  <th className="text-center px-2 py-1.5 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
+                  <th className="text-center px-2 py-1.5 font-mono text-caption-sm text-text-3 uppercase tracking-widest">
                     Default
                   </th>
-                  <th className="text-right px-2 py-1.5 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest hidden sm:table-cell">
+                  <th className="text-right px-2 py-1.5 font-mono text-caption-sm text-text-3 uppercase tracking-widest hidden sm:table-cell">
                     Sort Order
                   </th>
-                  <th className="text-right px-2 py-1.5 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest w-[80px]">
+                  <th className="text-right px-2 py-1.5 font-mono text-caption-sm text-text-3 uppercase tracking-widest w-[80px]">
                     Actions
                   </th>
                 </tr>

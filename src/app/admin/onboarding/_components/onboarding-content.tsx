@@ -105,7 +105,7 @@ export function OnboardingContent({ data }: OnboardingContentProps) {
               height={200}
             />
           ) : (
-            <p className="font-kosugi text-[12px] text-[#6B6B6B]">
+            <p className="font-mono text-[12px] text-[#6B6B6B]">
               [no triage events yet]
             </p>
           )}
@@ -127,7 +127,7 @@ export function OnboardingContent({ data }: OnboardingContentProps) {
               height={240}
             />
           ) : (
-            <p className="font-kosugi text-[12px] text-[#6B6B6B]">
+            <p className="font-mono text-[12px] text-[#6B6B6B]">
               [no daily data yet]
             </p>
           )}

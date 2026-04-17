@@ -162,7 +162,7 @@ export function NotificationRail() {
               className="shrink-0 flex items-center gap-[5px] h-[40px] px-[10px] rounded-[4px] border border-[rgba(111, 148, 176,0.3)] hover:border-[rgba(111, 148, 176,0.5)] bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)] transition-colors duration-150 whitespace-nowrap"
             >
               <span className="font-mono text-[11px] text-text">{count}</span>
-              <span className="font-kosugi text-micro uppercase tracking-[0.08em] text-text-2">{t("notifications.viewAll")}</span>
+              <span className="font-mono text-micro uppercase tracking-[0.08em] text-text-2">{t("notifications.viewAll")}</span>
             </motion.button>
 
             {/* Left arrow */}
@@ -267,7 +267,7 @@ export function NotificationRail() {
                         {n.title}
                       </span>
                       {n.actionLabel && (
-                        <span className="font-kosugi text-micro uppercase tracking-wider text-text shrink-0">
+                        <span className="font-mono text-micro uppercase tracking-wider text-text shrink-0">
                           {n.actionLabel}
                         </span>
                       )}

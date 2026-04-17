@@ -146,7 +146,7 @@ export function ScheduleSettingsTab() {
           <h2 className="font-mohave text-[16px] text-text uppercase tracking-wider">
             {t("settings.title")}
           </h2>
-          <p className="font-kosugi text-[12px] text-text-3 mt-1">
+          <p className="font-mono text-[12px] text-text-3 mt-1">
             [{t("settings.description")}]
           </p>
         </div>
@@ -197,7 +197,7 @@ export function ScheduleSettingsTab() {
               }}
               className="w-[72px] h-[56px] px-3 rounded-[4px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] font-mono text-[13px] text-text text-right outline-none focus:border-[rgba(255,255,255,0.24)] transition-colors duration-150"
             />
-            <span className="font-kosugi text-[11px] text-text-3 min-w-[60px]">
+            <span className="font-mono text-[11px] text-text-3 min-w-[60px]">
               {t("settings.optimizationWindowSuffix")}
             </span>
           </div>
@@ -259,14 +259,14 @@ export function ScheduleSettingsTab() {
 
             {/* Outdoor task types */}
             <div>
-              <span className="font-kosugi text-[11px] text-text-3 block mb-2">
+              <span className="font-mono text-[11px] text-text-3 block mb-2">
                 [{t("settings.outdoorTaskTypes")}]
               </span>
-              <p className="font-kosugi text-[11px] text-text-3 mb-2">
+              <p className="font-mono text-[11px] text-text-3 mb-2">
                 {t("settings.outdoorTaskTypesDesc")}
               </p>
               {taskTypes.length === 0 ? (
-                <p className="font-kosugi text-[12px] text-text-mute py-2">
+                <p className="font-mono text-[12px] text-text-mute py-2">
                   {t("settings.noTaskTypes")}
                 </p>
               ) : (
@@ -353,7 +353,7 @@ function ToggleRowInline({
         <span className="font-mohave text-[13px] text-text block">
           {label}
         </span>
-        <span className="font-kosugi text-[11px] text-text-3 block">
+        <span className="font-mono text-[11px] text-text-3 block">
           {description}
         </span>
       </div>

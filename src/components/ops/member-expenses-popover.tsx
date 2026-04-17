@@ -172,7 +172,7 @@ const MemberExpensesPopoverInstance = memo(function MemberExpensesPopoverInstanc
       >
         <div className="flex items-center gap-2 min-w-0 flex-1">
           <div className="w-[22px] h-[22px] rounded-full bg-fill-neutral-dim flex items-center justify-center shrink-0">
-            <span className="font-kosugi text-micro text-text-3 uppercase">
+            <span className="font-mono text-micro text-text-3 uppercase">
               {state.title.slice(0, 2)}
             </span>
           </div>
@@ -202,7 +202,7 @@ const MemberExpensesPopoverInstance = memo(function MemberExpensesPopoverInstanc
           <span className="font-mono text-[11px] text-text-2">
             {formatCompactCurrency(totalAmount)}
           </span>
-          <span className="font-kosugi text-micro text-text-mute">
+          <span className="font-mono text-micro text-text-mute">
             · {memberExpenses.length} {memberExpenses.length === 1 ? (t("expenseTracker.popover.item") ?? "item") : (t("expenseTracker.popover.items") ?? "items")}
           </span>
         </div>
@@ -212,7 +212,7 @@ const MemberExpensesPopoverInstance = memo(function MemberExpensesPopoverInstanc
       <div className="flex-1 overflow-y-auto scrollbar-hide">
         {memberExpenses.length === 0 ? (
           <div className="flex items-center justify-center h-full">
-            <span className="font-kosugi text-micro text-text-mute uppercase">
+            <span className="font-mono text-micro text-text-mute uppercase">
               {t("expenseTracker.popover.noExpenses") ?? "No expenses"}
             </span>
           </div>
@@ -230,7 +230,7 @@ const MemberExpensesPopoverInstance = memo(function MemberExpensesPopoverInstanc
                 <p className="font-mohave text-body-sm text-text truncate">
                   {expense.merchantName ?? expense.description ?? (t("expenseTracker.popover.untitled") ?? "Untitled")}
                 </p>
-                <p className="font-kosugi text-micro text-text-mute truncate">
+                <p className="font-mono text-micro text-text-mute truncate">
                   {expense.categoryName ?? "\u2014"}
                   {expense.expenseDate && (
                     <> · {new Date(expense.expenseDate).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</>

@@ -50,7 +50,7 @@ function AttachmentImage({
         <span className="font-mohave text-caption-sm text-text-mute truncate">
           {attachment.filename}
         </span>
-        <span className="font-kosugi text-micro text-text-mute">
+        <span className="font-mono text-micro text-text-mute">
           {formatFileSize(attachment.size)}
         </span>
       </div>
@@ -88,7 +88,7 @@ function AttachmentImage({
         >
           <button
             onClick={(e) => { e.stopPropagation(); setExpanded(false); }}
-            className="absolute top-6 right-6 flex items-center gap-1.5 px-3 py-1.5 rounded-panel border border-border-subtle bg-glass glass-surface text-text-2 font-kosugi text-micro uppercase tracking-wider hover:bg-surface-input hover:text-text transition-colors cursor-pointer"
+            className="absolute top-6 right-6 flex items-center gap-1.5 px-3 py-1.5 rounded-panel border border-border-subtle bg-glass glass-surface text-text-2 font-mono text-micro uppercase tracking-wider hover:bg-surface-input hover:text-text transition-colors cursor-pointer"
           >
             <X className="w-3.5 h-3.5" />
             Close
@@ -155,7 +155,7 @@ export function MessageBubble({ message, showTimestamp = true }: MessageBubblePr
           {hasNonImageAttachments && (
             <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-border-subtle">
               <Paperclip className="w-3 h-3 text-text-mute" />
-              <span className="font-kosugi text-micro text-text-mute">
+              <span className="font-mono text-micro text-text-mute">
                 {nonImageAttachments.length || message.attachmentCount} attachment
                 {(nonImageAttachments.length || message.attachmentCount) > 1 ? "s" : ""}
               </span>
@@ -169,11 +169,11 @@ export function MessageBubble({ message, showTimestamp = true }: MessageBubblePr
             "flex items-center gap-1.5 mt-0.5 px-1",
             isOutbound ? "justify-end" : "justify-start"
           )}>
-            <span className="font-kosugi text-micro text-text-mute">
+            <span className="font-mono text-micro text-text-mute">
               {formatTime(message.timestamp)}
             </span>
             {!isOutbound && message.senderEmail && (
-              <span className="font-kosugi text-micro text-text-mute truncate max-w-[200px]">
+              <span className="font-mono text-micro text-text-mute truncate max-w-[200px]">
                 <span className="text-text-mute/50 mx-0.5">&middot;</span>
                 {message.senderEmail}
               </span>

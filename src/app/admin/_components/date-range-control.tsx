@@ -130,7 +130,7 @@ export function DateRangeControl({
                 <button
                   key={g}
                   onClick={() => handleGranularity(g)}
-                  className={`px-2 py-1 rounded font-kosugi text-[11px] transition-colors ${
+                  className={`px-2 py-1 rounded font-mono text-[11px] transition-colors ${
                     currentGranularity === g
                       ? "bg-white/[0.1] text-[#E5E5E5]"
                       : "text-[#6B6B6B] hover:text-[#A0A0A0]"

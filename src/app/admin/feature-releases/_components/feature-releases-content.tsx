@@ -323,7 +323,7 @@ function FlagCard({
               </span>
             </div>
             {flag.description && (
-              <p className="font-kosugi text-[12px] text-[#6B6B6B] mt-0.5">{flag.description}</p>
+              <p className="font-mono text-[12px] text-[#6B6B6B] mt-0.5">{flag.description}</p>
             )}
           </div>
         </div>
@@ -387,7 +387,7 @@ function FlagCard({
       {/* Empty state for no definitions */}
       {flag.routes.length === 0 && flag.permissions.length === 0 && !editingDefs && (
         <div className="px-6 pb-4 flex items-center gap-2">
-          <span className="font-kosugi text-[12px] text-[#6B6B6B]">No routes or permissions defined.</span>
+          <span className="font-mono text-[12px] text-[#6B6B6B]">No routes or permissions defined.</span>
           <button
             onClick={() => { setEditingDefs(true); setExpanded(true); }}
             className="flex items-center gap-1 text-[#597794] hover:text-[#8195B5] transition-colors"
@@ -463,7 +463,7 @@ function FlagCard({
                     </span>
                   ))}
                   {draftRoutes.length === 0 && (
-                    <span className="font-kosugi text-[11px] text-[#6B6B6B]">No routes — add one above</span>
+                    <span className="font-mono text-[11px] text-[#6B6B6B]">No routes — add one above</span>
                   )}
                 </div>
               </div>
@@ -501,7 +501,7 @@ function FlagCard({
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && searchUsers()}
                   placeholder="Search users by name or email..."
-                  className="w-full bg-white/[0.05] border border-white/[0.08] rounded-lg pl-9 pr-4 py-2 font-kosugi text-[13px] text-[#E5E5E5] placeholder:text-[#6B6B6B] outline-none focus:border-[#597794]/50"
+                  className="w-full bg-white/[0.05] border border-white/[0.08] rounded-lg pl-9 pr-4 py-2 font-mono text-[13px] text-[#E5E5E5] placeholder:text-[#6B6B6B] outline-none focus:border-[#597794]/50"
                 />
               </div>
               <button
@@ -530,7 +530,7 @@ function FlagCard({
                       <span className="font-mohave text-[13px] text-[#E5E5E5]">
                         {user.first_name} {user.last_name}
                       </span>
-                      <span className="font-kosugi text-[11px] text-[#6B6B6B] ml-2">
+                      <span className="font-mono text-[11px] text-[#6B6B6B] ml-2">
                         {user.email}
                       </span>
                     </div>
@@ -547,7 +547,7 @@ function FlagCard({
 
             {/* Current overrides */}
             {loadingOverrides ? (
-              <p className="font-kosugi text-[12px] text-[#6B6B6B] animate-pulse">Loading overrides...</p>
+              <p className="font-mono text-[12px] text-[#6B6B6B] animate-pulse">Loading overrides...</p>
             ) : overrides.length > 0 ? (
               <div className="border border-white/[0.06] rounded-lg overflow-hidden">
                 <div className="px-4 py-2 border-b border-white/[0.06]">
@@ -564,7 +564,7 @@ function FlagCard({
                       <span className="font-mohave text-[13px] text-[#E5E5E5]">
                         {override.user.first_name} {override.user.last_name}
                       </span>
-                      <span className="font-kosugi text-[11px] text-[#6B6B6B] ml-2">
+                      <span className="font-mono text-[11px] text-[#6B6B6B] ml-2">
                         {override.user.email}
                       </span>
                     </div>
@@ -579,7 +579,7 @@ function FlagCard({
                 ))}
               </div>
             ) : (
-              <p className="font-kosugi text-[12px] text-[#6B6B6B]">
+              <p className="font-mono text-[12px] text-[#6B6B6B]">
                 {flag.enabled
                   ? "No overrides. Feature is available to all eligible users."
                   : "No overrides. Feature is hidden from all users."}
@@ -625,7 +625,7 @@ function PermissionPicker({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Filter permissions..."
-          className="w-full bg-transparent font-kosugi text-[12px] text-[#E5E5E5] placeholder:text-[#6B6B6B] outline-none"
+          className="w-full bg-transparent font-mono text-[12px] text-[#E5E5E5] placeholder:text-[#6B6B6B] outline-none"
         />
       </div>
       <div className="max-h-64 overflow-y-auto">
@@ -670,7 +670,7 @@ function PermissionPicker({
                     }`}
                   >
                     <div>
-                      <span className={`font-kosugi text-[12px] ${
+                      <span className={`font-mono text-[12px] ${
                         selected.includes(action.id) ? "text-[#E5E5E5]" : "text-[#A0A0A0]"
                       }`}>
                         {action.label}
@@ -696,7 +696,7 @@ function PermissionPicker({
         ))}
         {filtered.length === 0 && (
           <div className="px-4 py-6 text-center">
-            <span className="font-kosugi text-[12px] text-[#6B6B6B]">No permissions match &ldquo;{search}&rdquo;</span>
+            <span className="font-mono text-[12px] text-[#6B6B6B]">No permissions match &ldquo;{search}&rdquo;</span>
           </div>
         )}
       </div>
@@ -816,7 +816,7 @@ function NewFlagForm({
                   value={label}
                   onChange={(e) => handleLabelChange(e.target.value)}
                   placeholder="Pipeline CRM"
-                  className="w-full bg-white/[0.05] border border-white/[0.08] rounded-lg px-4 py-2 font-kosugi text-[13px] text-[#E5E5E5] placeholder:text-[#6B6B6B] outline-none focus:border-[#597794]/50"
+                  className="w-full bg-white/[0.05] border border-white/[0.08] rounded-lg px-4 py-2 font-mono text-[13px] text-[#E5E5E5] placeholder:text-[#6B6B6B] outline-none focus:border-[#597794]/50"
                 />
               </div>
               <div>
@@ -844,7 +844,7 @@ function NewFlagForm({
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Brief description of what this flag controls..."
-                className="w-full bg-white/[0.05] border border-white/[0.08] rounded-lg px-4 py-2 font-kosugi text-[13px] text-[#E5E5E5] placeholder:text-[#6B6B6B] outline-none focus:border-[#597794]/50"
+                className="w-full bg-white/[0.05] border border-white/[0.08] rounded-lg px-4 py-2 font-mono text-[13px] text-[#E5E5E5] placeholder:text-[#6B6B6B] outline-none focus:border-[#597794]/50"
               />
             </div>
             <div className="flex justify-end">
@@ -897,7 +897,7 @@ function NewFlagForm({
                   </span>
                 ))}
                 {routes.length === 0 && (
-                  <span className="font-kosugi text-[11px] text-[#6B6B6B]">No routes added</span>
+                  <span className="font-mono text-[11px] text-[#6B6B6B]">No routes added</span>
                 )}
               </div>
             </div>

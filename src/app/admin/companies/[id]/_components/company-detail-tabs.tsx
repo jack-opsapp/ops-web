@@ -96,7 +96,7 @@ function SubscriptionTab({ company }: { company: Record<string, unknown> }) {
         {rows.map(([label, value]) => (
           <div key={label as string} className="flex justify-between items-center h-10 border-b border-white/[0.05] last:border-0">
             <span className="font-mohave text-[13px] uppercase text-[#6B6B6B]">{label as string}</span>
-            <span className="font-kosugi text-[13px] text-[#A0A0A0]">[{value as string}]</span>
+            <span className="font-mono text-[13px] text-[#A0A0A0]">[{value as string}]</span>
           </div>
         ))}
       </div>
@@ -120,7 +120,7 @@ function TeamTab({ users }: { users: CompanyDetailTabsProps["users"] }) {
             <span className="font-mohave text-[14px] text-[#E5E5E5]">
               {u.first_name} {u.last_name}
             </span>
-            <span className="font-kosugi text-[12px] text-[#6B6B6B] truncate pr-2">{u.email}</span>
+            <span className="font-mono text-[12px] text-[#6B6B6B] truncate pr-2">{u.email}</span>
             <span>
               <span
                 className="inline-flex items-center px-2 py-0.5 rounded-full font-mohave text-[11px] uppercase border"
@@ -129,10 +129,10 @@ function TeamTab({ users }: { users: CompanyDetailTabsProps["users"] }) {
                 {u.role}
               </span>
             </span>
-            <span className={`font-kosugi text-[12px] ${isRecent ? "text-[#9DB582]" : "text-[#6B6B6B]"}`}>
+            <span className={`font-mono text-[12px] ${isRecent ? "text-[#9DB582]" : "text-[#6B6B6B]"}`}>
               {u.lastSignIn ? `[${new Date(u.lastSignIn).toLocaleDateString()}]` : "[never]"}
             </span>
-            <span className="font-kosugi text-[11px] text-[#6B6B6B]">
+            <span className="font-mono text-[11px] text-[#6B6B6B]">
               [{new Date(u.created_at).toLocaleDateString()}]
             </span>
           </div>
@@ -183,7 +183,7 @@ function UsageTab({
               <span className="font-mohave text-[14px] text-[#E5E5E5]">{p.title}</span>
               <div className="flex items-center gap-3">
                 <StatusBadge status={p.status} />
-                <span className="font-kosugi text-[12px] text-[#6B6B6B]">
+                <span className="font-mono text-[12px] text-[#6B6B6B]">
                   [{new Date(p.created_at).toLocaleDateString()}]
                 </span>
               </div>
@@ -266,7 +266,7 @@ function PipelineTab({
           </p>
           {recentPayments.map((p) => (
             <div key={p.id} className="flex items-center justify-between h-10 border-b border-white/[0.05] last:border-0">
-              <span className="font-kosugi text-[13px] text-[#6B6B6B]">
+              <span className="font-mono text-[13px] text-[#6B6B6B]">
                 [{new Date(p.created_at).toLocaleDateString()}]
               </span>
               <span className="font-mohave text-[14px] text-[#9DB582]">${(p.amount ?? 0).toLocaleString()}</span>
@@ -294,7 +294,7 @@ function PortalTab({ company }: { company: Record<string, unknown> }) {
       {features.map(([label, value]) => (
         <div key={label} className="flex justify-between items-center h-10 border-b border-white/[0.05] last:border-0">
           <span className="font-mohave text-[13px] uppercase text-[#6B6B6B]">{label}</span>
-          <span className={`font-kosugi text-[13px] ${value === "Yes" || value === "Connected" || value === "Configured" ? "text-[#9DB582]" : "text-[#6B6B6B]"}`}>
+          <span className={`font-mono text-[13px] ${value === "Yes" || value === "Connected" || value === "Configured" ? "text-[#9DB582]" : "text-[#6B6B6B]"}`}>
             [{value}]
           </span>
         </div>

@@ -40,7 +40,7 @@ export function AcquisitionCharts({
           <p className="font-mohave text-[13px] uppercase tracking-widest text-[#6B6B6B] mb-2">
             Section Engagement
           </p>
-          <p className="font-kosugi text-[12px] text-[#6B6B6B] mb-6">
+          <p className="font-mono text-[12px] text-[#6B6B6B] mb-6">
             [views per landing page section]
           </p>
           {sectionEngagement.length > 0 ? (
@@ -60,7 +60,7 @@ export function AcquisitionCharts({
           <p className="font-mohave text-[13px] uppercase tracking-widest text-[#6B6B6B] mb-2">
             A/B Variant Comparison
           </p>
-          <p className="font-kosugi text-[12px] text-[#6B6B6B] mb-6">
+          <p className="font-mono text-[12px] text-[#6B6B6B] mb-6">
             [landing page views by variant]
           </p>
           {sortedVariants.length > 0 ? (
@@ -106,7 +106,7 @@ export function AcquisitionCharts({
             </div>
             <button
               onClick={() => setSelectedStep(null)}
-              className="font-kosugi text-[11px] text-[#6B6B6B] hover:text-[#E5E5E5] transition-colors"
+              className="font-mono text-[11px] text-[#6B6B6B] hover:text-[#E5E5E5] transition-colors"
             >
               Clear &times;
             </button>
@@ -120,7 +120,7 @@ export function AcquisitionCharts({
           <p className="font-mohave text-[13px] uppercase tracking-widest text-[#6B6B6B] mb-2">
             Tutorial Funnel
           </p>
-          <p className="font-kosugi text-[12px] text-[#6B6B6B] mb-6">
+          <p className="font-mono text-[12px] text-[#6B6B6B] mb-6">
             [started → halfway → complete vs skipped]
           </p>
           <FunnelChart
@@ -135,7 +135,7 @@ export function AcquisitionCharts({
           <p className="font-mohave text-[13px] uppercase tracking-widest text-[#6B6B6B] mb-2">
             Signup Funnel
           </p>
-          <p className="font-kosugi text-[12px] text-[#6B6B6B] mb-6">
+          <p className="font-mono text-[12px] text-[#6B6B6B] mb-6">
             [step-by-step conversion]
           </p>
           <FunnelChart
@@ -152,7 +152,7 @@ export function AcquisitionCharts({
         <p className="font-mohave text-[13px] uppercase tracking-widest text-[#6B6B6B] mb-2">
           Full Journey Funnel
         </p>
-        <p className="font-kosugi text-[12px] text-[#6B6B6B] mb-8">
+        <p className="font-mono text-[12px] text-[#6B6B6B] mb-8">
           [landing page → first project · last 90 days · all platforms]
         </p>
         <FunnelChart

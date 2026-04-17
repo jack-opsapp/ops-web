@@ -164,7 +164,7 @@ export function ExpenseReviewDashboard() {
           <span className="font-mono text-data text-text-2">
             {formatCurrency(periodTotal)}
           </span>
-          <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
+          <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
             {periodBatches.length} INVOICE{periodBatches.length !== 1 ? "S" : ""}
           </span>
         </div>
@@ -185,7 +185,7 @@ export function ExpenseReviewDashboard() {
             {activeTab === "review" && reviewBatches.length > 0 && (
               <div>
                 <div className="px-3 py-1.5 border-b border-border">
-                  <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
+                  <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
                     {reviewBatches.length} NEED REVIEW
                   </span>
                 </div>
@@ -203,7 +203,7 @@ export function ExpenseReviewDashboard() {
             {activeTab === "review" && autoApprovedBatches.length > 0 && (
               <div>
                 <div className="px-3 py-1.5 border-b border-border">
-                  <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
+                  <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
                     {autoApprovedBatches.length} AUTO-APPROVED
                   </span>
                 </div>
@@ -221,7 +221,7 @@ export function ExpenseReviewDashboard() {
             {activeTab === "history" && approvedBatches.length > 0 && (
               <div>
                 <div className="px-3 py-1.5 border-b border-border">
-                  <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
+                  <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
                     APPROVED
                   </span>
                 </div>
@@ -239,7 +239,7 @@ export function ExpenseReviewDashboard() {
             {activeTab === "history" && rejectedBatches.length > 0 && (
               <div>
                 <div className="px-3 py-1.5 border-b border-border">
-                  <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
+                  <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
                     REJECTED
                   </span>
                 </div>
@@ -258,7 +258,7 @@ export function ExpenseReviewDashboard() {
             {displayBatches.length === 0 && !isLoading && (
               <div className="px-3 py-12 flex flex-col items-start gap-2">
                 <FileText className="w-[24px] h-[24px] text-text-mute" />
-                <p className="font-kosugi text-caption-sm text-text-mute">
+                <p className="font-mono text-caption-sm text-text-mute">
                   No expense invoices for this period
                 </p>
               </div>
@@ -275,7 +275,7 @@ export function ExpenseReviewDashboard() {
             ) : (
               <div className="flex flex-col items-start justify-center h-full px-6 py-12 gap-2">
                 <FileText className="w-[24px] h-[24px] text-text-mute" />
-                <p className="font-kosugi text-caption-sm text-text-mute">
+                <p className="font-mono text-caption-sm text-text-mute">
                   Select an invoice to review
                 </p>
               </div>

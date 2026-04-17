@@ -76,22 +76,22 @@ export function PlatformHealthCharts({
                     </span>
                     <button
                       onClick={() => setSelectedStage(null)}
-                      className="font-kosugi text-[11px] text-[#6B6B6B] hover:text-[#E5E5E5]"
+                      className="font-mono text-[11px] text-[#6B6B6B] hover:text-[#E5E5E5]"
                     >
                       &times;
                     </button>
                   </div>
                   <div className="grid grid-cols-3 gap-4">
                     <div>
-                      <p className="font-kosugi text-[11px] text-[#6B6B6B]">Deals</p>
+                      <p className="font-mono text-[11px] text-[#6B6B6B]">Deals</p>
                       <p className="font-mohave text-[16px] text-[#E5E5E5]">{selectedStage.count}</p>
                     </div>
                     <div>
-                      <p className="font-kosugi text-[11px] text-[#6B6B6B]">Total Value</p>
+                      <p className="font-mono text-[11px] text-[#6B6B6B]">Total Value</p>
                       <p className="font-mohave text-[16px] text-[#E5E5E5]">${selectedStage.totalValue.toLocaleString()}</p>
                     </div>
                     <div>
-                      <p className="font-kosugi text-[11px] text-[#6B6B6B]">Avg Days</p>
+                      <p className="font-mono text-[11px] text-[#6B6B6B]">Avg Days</p>
                       <p className="font-mohave text-[16px] text-[#E5E5E5]">{selectedStage.avgDays}d</p>
                     </div>
                   </div>
@@ -113,7 +113,7 @@ export function PlatformHealthCharts({
             {selectedEstimateStatus && (
               <button
                 onClick={() => setSelectedEstimateStatus(null)}
-                className="font-kosugi text-[11px] text-[#597794] hover:text-[#E5E5E5] transition-colors"
+                className="font-mono text-[11px] text-[#597794] hover:text-[#E5E5E5] transition-colors"
               >
                 Clear: {selectedEstimateStatus} &times;
               </button>

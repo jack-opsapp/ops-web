@@ -115,7 +115,7 @@ export function FinancialSettingsTab() {
           <h2 className="font-mohave text-[16px] text-text uppercase tracking-wider">
             {t("financial.settings.title")}
           </h2>
-          <p className="font-kosugi text-[12px] text-text-3 mt-1">
+          <p className="font-mono text-[12px] text-text-3 mt-1">
             [{t("financial.settings.description")}]
           </p>
         </div>
@@ -287,7 +287,7 @@ function ThresholdInput({
           }}
           className="w-[72px] h-[56px] px-3 rounded-[4px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] font-mono text-[13px] text-text text-right outline-none focus:border-[#6F94B0] transition-colors duration-150"
         />
-        <span className="font-kosugi text-[11px] text-text-3 min-w-[60px]">
+        <span className="font-mono text-[11px] text-text-3 min-w-[60px]">
           {suffix}
         </span>
       </div>

@@ -160,11 +160,11 @@ function MessageBubble({
 
         {/* Content */}
         {msg.content ? (
-          <p className="font-kosugi text-[11px] text-text-2 leading-[1.6] whitespace-pre-wrap break-words">
+          <p className="font-mono text-[11px] text-text-2 leading-[1.6] whitespace-pre-wrap break-words">
             {msg.content}
           </p>
         ) : msg.subject ? (
-          <p className="font-kosugi text-[11px] text-text-mute italic">
+          <p className="font-mono text-[11px] text-text-mute italic">
             {msg.subject}
           </p>
         ) : null}
@@ -270,7 +270,7 @@ export function DetailPopoverCorrespondenceTab({
     return (
       <div className="flex flex-col items-center justify-center py-10 text-center">
         <Mail className="w-5 h-5 text-text-mute mb-2" />
-        <span className="font-kosugi text-[11px] text-text-mute">
+        <span className="font-mono text-[11px] text-text-mute">
           {t("detail.noEmailsYet")}
         </span>
       </div>

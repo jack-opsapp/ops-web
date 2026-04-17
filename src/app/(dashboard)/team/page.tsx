@@ -191,7 +191,7 @@ function RoleBadge({ role, t }: { role: Role; t: (key: string) => string }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-[4px] px-1 py-[3px] rounded-sm font-kosugi text-micro uppercase tracking-wider",
+        "inline-flex items-center gap-[4px] px-1 py-[3px] rounded-sm font-mono text-micro uppercase tracking-wider",
         config.color,
         config.bg
       )}
@@ -220,7 +220,7 @@ function RoleSelector({
       <div className="fixed inset-0 z-40" onClick={onClose} />
       <div className="absolute right-0 top-full mt-[4px] w-[200px] bg-glass glass-surface backdrop-blur-xl border border-[rgba(255,255,255,0.2)] rounded z-50 animate-scale-in overflow-hidden">
         <div className="px-1.5 py-[6px] border-b border-border-subtle">
-          <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
+          <span className="font-mono text-micro text-text-mute uppercase tracking-widest">
             {t("team.changeRole")}
           </span>
         </div>
@@ -618,7 +618,7 @@ export default function TeamPage() {
           <h3 className="font-mohave text-heading text-text">
             {searchQuery ? t("team.noResults") : t("team.empty")}
           </h3>
-          <p className="font-kosugi text-caption text-text-3 mt-0.5">
+          <p className="font-mono text-caption text-text-3 mt-0.5">
             {searchQuery
               ? t("team.noResultsHelper")
               : t("team.emptyHelper")}
@@ -640,7 +640,7 @@ export default function TeamPage() {
             <div>
               <div className="flex items-center gap-1 mb-1">
                 <ShieldCheck className="w-[14px] h-[14px] text-ops-amber" />
-                <h2 className="font-kosugi text-caption-bold text-ops-amber uppercase tracking-widest">
+                <h2 className="font-mono text-caption-bold text-ops-amber uppercase tracking-widest">
                   {t("team.sections.admins")}
                 </h2>
                 <Badge variant="warning" className="text-micro px-[6px] py-[1px]">
@@ -667,7 +667,7 @@ export default function TeamPage() {
             <div>
               <div className="flex items-center gap-1 mb-1">
                 <Shield className="w-[14px] h-[14px] text-text" />
-                <h2 className="font-kosugi text-caption-bold text-text uppercase tracking-widest">
+                <h2 className="font-mono text-caption-bold text-text uppercase tracking-widest">
                   {t("team.sections.office")}
                 </h2>
                 <Badge variant="info" className="text-micro px-[6px] py-[1px]">
@@ -694,7 +694,7 @@ export default function TeamPage() {
             <div>
               <div className="flex items-center gap-1 mb-1">
                 <Shield className="w-[14px] h-[14px] text-text" />
-                <h2 className="font-kosugi text-caption-bold text-text uppercase tracking-widest">
+                <h2 className="font-mono text-caption-bold text-text uppercase tracking-widest">
                   {t("team.sections.operators")}
                 </h2>
                 <Badge variant="info" className="text-micro px-[6px] py-[1px]">
@@ -721,7 +721,7 @@ export default function TeamPage() {
             <div>
               <div className="flex items-center gap-1 mb-1">
                 <HardHat className="w-[14px] h-[14px] text-text-2" />
-                <h2 className="font-kosugi text-caption-bold text-text-2 uppercase tracking-widest">
+                <h2 className="font-mono text-caption-bold text-text-2 uppercase tracking-widest">
                   {t("team.sections.crew")}
                 </h2>
                 <Badge variant="info" className="text-micro px-[6px] py-[1px] opacity-60">
@@ -748,7 +748,7 @@ export default function TeamPage() {
             <div>
               <div className="flex items-center gap-1 mb-1">
                 <HardHat className="w-[14px] h-[14px] text-text-mute" />
-                <h2 className="font-kosugi text-caption-bold text-text-mute uppercase tracking-widest">
+                <h2 className="font-mono text-caption-bold text-text-mute uppercase tracking-widest">
                   {t("team.sections.unassigned")}
                 </h2>
                 <Badge variant="info" className="text-micro px-[6px] py-[1px] opacity-40">

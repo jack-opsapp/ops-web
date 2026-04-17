@@ -97,7 +97,7 @@ function ClientCard({ client, onClick, t }: { client: ClientListItem; onClick: (
             {client.company && (
               <div className="flex items-center gap-[4px]">
                 <Building2 className="w-[11px] h-[11px] text-text-mute shrink-0" />
-                <p className="font-kosugi text-micro text-text-3 truncate">
+                <p className="font-mono text-micro text-text-3 truncate">
                   {client.company}
                 </p>
               </div>
@@ -163,7 +163,7 @@ function ClientCard({ client, onClick, t }: { client: ClientListItem; onClick: (
           className="border-t border-border-subtle bg-fill-neutral-dim/50 px-2 py-1.5 space-y-1 animate-slide-up"
           onClick={(e) => e.stopPropagation()}
         >
-          <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
+          <span className="font-mono text-micro text-text-mute uppercase tracking-widest">
             {t("card.subClients")}
           </span>
           {client.subClients.map((sc) => (
@@ -172,7 +172,7 @@ function ClientCard({ client, onClick, t }: { client: ClientListItem; onClick: (
                 <p className="font-mohave text-body-sm text-text-2 truncate">
                   {sc.name}
                   {sc.title && (
-                    <span className="text-text-mute ml-[6px] font-kosugi text-micro">
+                    <span className="text-text-mute ml-[6px] font-mono text-micro">
                       {sc.title}
                     </span>
                   )}
@@ -218,7 +218,7 @@ function ClientTableRow({
               {client.name}
             </span>
             {client.company && (
-              <span className="font-kosugi text-micro text-text-mute block truncate">
+              <span className="font-mono text-micro text-text-mute block truncate">
                 {client.company}
               </span>
             )}
@@ -508,22 +508,22 @@ export default function ClientsPage() {
           <table className="w-full min-w-[600px]">
             <thead>
               <tr className="border-b border-border">
-                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
+                <th className="px-1.5 py-1 text-left font-mono text-caption-sm text-text-3 uppercase tracking-widest">
                   {t("table.client")}
                 </th>
-                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-3 uppercase tracking-widest hidden md:table-cell">
+                <th className="px-1.5 py-1 text-left font-mono text-caption-sm text-text-3 uppercase tracking-widest hidden md:table-cell">
                   {t("table.email")}
                 </th>
-                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-3 uppercase tracking-widest hidden sm:table-cell">
+                <th className="px-1.5 py-1 text-left font-mono text-caption-sm text-text-3 uppercase tracking-widest hidden sm:table-cell">
                   {t("table.phone")}
                 </th>
-                <th className="px-1.5 py-1 text-left font-kosugi text-caption-sm text-text-3 uppercase tracking-widest hidden lg:table-cell">
+                <th className="px-1.5 py-1 text-left font-mono text-caption-sm text-text-3 uppercase tracking-widest hidden lg:table-cell">
                   {t("table.address")}
                 </th>
-                <th className="px-1.5 py-1 text-center font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
+                <th className="px-1.5 py-1 text-center font-mono text-caption-sm text-text-3 uppercase tracking-widest">
                   {t("table.projects")}
                 </th>
-                <th className="px-1.5 py-1 text-center font-kosugi text-caption-sm text-text-3 uppercase tracking-widest hidden sm:table-cell">
+                <th className="px-1.5 py-1 text-center font-mono text-caption-sm text-text-3 uppercase tracking-widest hidden sm:table-cell">
                   {t("table.contacts")}
                 </th>
               </tr>

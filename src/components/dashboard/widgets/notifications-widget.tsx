@@ -136,7 +136,7 @@ export function NotificationsWidget({ size, config }: NotificationsWidgetProps) 
           <span className="font-mono text-display font-bold text-text leading-none">
             {isLoading ? "—" : count}
           </span>
-          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
+          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
             {t("notifications.title")}
           </span>
           <WidgetTrendContext variant="snapshot" label={t("trend.unread") ?? "Unread"} />
@@ -151,7 +151,7 @@ export function NotificationsWidget({ size, config }: NotificationsWidgetProps) 
       <div className="h-full flex flex-col p-3">
         {/* Header */}
         <div className="flex items-center justify-between mb-2">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
+          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
             {t("notifications.title")}
           </span>
           <span className="font-mono text-micro text-text-3">

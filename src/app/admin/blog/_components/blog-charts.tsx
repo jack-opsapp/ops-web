@@ -52,7 +52,7 @@ export function BlogCharts({ ga4Timeline, ga4ByPost }: BlogChartsProps) {
         {timelineData.length > 0 ? (
           <AdminLineChart data={timelineData} />
         ) : (
-          <p className="font-kosugi text-[12px] text-[#6B6B6B]">
+          <p className="font-mono text-[12px] text-[#6B6B6B]">
             No timeline data available
           </p>
         )}
@@ -66,7 +66,7 @@ export function BlogCharts({ ga4Timeline, ga4ByPost }: BlogChartsProps) {
         {topPostsData.length > 0 ? (
           <AdminBarChart data={topPostsData} color="#C4A868" />
         ) : (
-          <p className="font-kosugi text-[12px] text-[#6B6B6B]">
+          <p className="font-mono text-[12px] text-[#6B6B6B]">
             No post view data available
           </p>
         )}

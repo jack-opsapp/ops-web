@@ -83,7 +83,7 @@ export function ItemRow({
             value={editTitle}
             onChange={(e) => setEditTitle(e.target.value)}
             placeholder="Title"
-            className="bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1.5 font-kosugi text-[12px] text-[#E5E5E5] outline-none"
+            className="bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1.5 font-mono text-[12px] text-[#E5E5E5] outline-none"
             autoFocus
           />
         </div>
@@ -92,7 +92,7 @@ export function ItemRow({
           onChange={(e) => setEditDescription(e.target.value)}
           placeholder="Description"
           rows={2}
-          className="w-full bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1.5 font-kosugi text-[12px] text-[#E5E5E5] outline-none resize-none"
+          className="w-full bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1.5 font-mono text-[12px] text-[#E5E5E5] outline-none resize-none"
         />
         <div className="flex items-center gap-3">
           <StatusChipBar currentStatus={editStatus} onStatusChange={setEditStatus} />
@@ -141,7 +141,7 @@ export function ItemRow({
         <span className="font-mono text-micro text-[#6B6B6B] w-12 truncate flex-shrink-0">
           {item.icon}
         </span>
-        <span className="font-kosugi text-[13px] text-[#E5E5E5] truncate">
+        <span className="font-mono text-[13px] text-[#E5E5E5] truncate">
           {item.title}
         </span>
         {item.feature_flag_slug && (

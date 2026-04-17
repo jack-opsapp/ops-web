@@ -146,7 +146,7 @@ export function ClientCommsSettingsTab() {
           <h2 className="font-mohave text-[16px] text-text uppercase tracking-[0.04em]">
             {t("settings.title")}
           </h2>
-          <p className="font-kosugi text-[12px] text-text-3 mt-1">
+          <p className="font-mono text-[12px] text-text-3 mt-1">
             [
             {configuredAt
               ? t("settings.configuredOn").replace("{{date}}", configuredAt)
@@ -182,7 +182,7 @@ export function ClientCommsSettingsTab() {
                 <div className="font-mohave text-[13px] text-text-3 uppercase tracking-[0.06em]">
                   {section.title}
                 </div>
-                <div className="font-kosugi text-[13px] text-text mt-1">
+                <div className="font-mono text-[13px] text-text mt-1">
                   {section.summary}
                 </div>
               </div>

@@ -164,7 +164,7 @@ export function ProjectDetailModal({ project, open, onOpenChange }: ProjectDetai
                         <p className="font-mohave text-body-sm text-text">
                           {getUserFullName(member)}
                         </p>
-                        <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider">
+                        <span className="font-mono text-micro text-text-3 uppercase tracking-wider">
                           {member.role}
                         </span>
                       </div>
@@ -189,7 +189,7 @@ export function ProjectDetailModal({ project, open, onOpenChange }: ProjectDetai
             <CardContent className="space-y-1.5">
               <div className="flex items-center gap-2">
                 <div>
-                  <span className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">Start</span>
+                  <span className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">Start</span>
                   <p className="font-mono text-data-sm text-text">
                     {project.startDate
                       ? new Date(project.startDate).toLocaleDateString(getDateLocale(locale), {
@@ -203,7 +203,7 @@ export function ProjectDetailModal({ project, open, onOpenChange }: ProjectDetai
                 </div>
                 <div className="h-[1px] flex-1 bg-border-subtle" />
                 <div>
-                  <span className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">End</span>
+                  <span className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">End</span>
                   <p className="font-mono text-data-sm text-text">
                     {project.endDate
                       ? new Date(project.endDate).toLocaleDateString(getDateLocale(locale), {
@@ -218,7 +218,7 @@ export function ProjectDetailModal({ project, open, onOpenChange }: ProjectDetai
               </div>
               {project.projectDescription && (
                 <div>
-                  <span className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">Description</span>
+                  <span className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">Description</span>
                   <p className="font-mohave text-body-sm text-text-2 mt-[4px]">
                     {project.projectDescription}
                   </p>
@@ -226,7 +226,7 @@ export function ProjectDetailModal({ project, open, onOpenChange }: ProjectDetai
               )}
               {project.notes && (
                 <div>
-                  <span className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">Notes</span>
+                  <span className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">Notes</span>
                   <p className="font-mohave text-body-sm text-text-2 mt-[4px]">
                     {project.notes}
                   </p>

@@ -65,7 +65,7 @@ export function FaqEditor({ faqs, onChange }: FaqEditorProps) {
 
       {/* Empty state */}
       {faqs.length === 0 && (
-        <p className="text-[13px] text-[#6B6B6B] font-kosugi">
+        <p className="text-[13px] text-[#6B6B6B] font-mono">
           No FAQ items. Add Q&amp;A pairs to generate FAQPage JSON-LD schema
           for AI SEO.
         </p>

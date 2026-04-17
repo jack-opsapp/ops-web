@@ -218,7 +218,7 @@ export function AiSetupDashboard({
 
       {/* Knowledge Stats */}
       <div className="space-y-1.5">
-        <span className="font-kosugi text-[11px] text-text-3 uppercase tracking-[0.08em]">
+        <span className="font-mono text-[11px] text-text-3 uppercase tracking-[0.08em]">
           {t("dashboard.stats.title")}
         </span>
         <div className="grid grid-cols-4 gap-1.5">
@@ -250,7 +250,7 @@ export function AiSetupDashboard({
             >
               <div className="flex items-center gap-1 mb-[2px]">
                 <stat.icon className="w-[10px] h-[10px] text-text-mute" />
-                <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
+                <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
                   {stat.label}
                 </span>
               </div>
@@ -264,7 +264,7 @@ export function AiSetupDashboard({
 
       {/* Readiness Indicators */}
       <div className="space-y-1.5">
-        <span className="font-kosugi text-[11px] text-text-3 uppercase tracking-[0.08em]">
+        <span className="font-mono text-[11px] text-text-3 uppercase tracking-[0.08em]">
           {t("dashboard.readiness.title")}
         </span>
         <div className="space-y-[6px]">
@@ -307,7 +307,7 @@ export function AiSetupDashboard({
                     style={{ backgroundColor: color }}
                   />
                   <span
-                    className="font-kosugi text-micro uppercase tracking-wider"
+                    className="font-mono text-micro uppercase tracking-wider"
                     style={{ color }}
                   >
                     {readinessLabel[level]}
@@ -321,7 +321,7 @@ export function AiSetupDashboard({
 
       {/* Quick Actions */}
       <div className="space-y-1.5">
-        <span className="font-kosugi text-[11px] text-text-3 uppercase tracking-[0.08em]">
+        <span className="font-mono text-[11px] text-text-3 uppercase tracking-[0.08em]">
           {t("dashboard.actions.title")}
         </span>
         <div className="flex flex-wrap gap-1.5">
@@ -361,7 +361,7 @@ export function AiSetupDashboard({
       {/* Next Steps */}
       {nextSteps.length > 0 && (
         <div className="space-y-1.5">
-          <span className="font-kosugi text-[11px] text-text-3 uppercase tracking-[0.08em]">
+          <span className="font-mono text-[11px] text-text-3 uppercase tracking-[0.08em]">
             {t("dashboard.nextSteps.title")}
           </span>
           <div className="space-y-[4px]">

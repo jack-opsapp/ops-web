@@ -31,7 +31,7 @@ export function MapPreferencesTab() {
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <p className="font-mohave text-body text-text">{t("map.defaultZoom")}</p>
-              <span className="font-kosugi text-[11px] text-text-3">{mapDefaultZoom}x</span>
+              <span className="font-mono text-[11px] text-text-3">{mapDefaultZoom}x</span>
             </div>
             <input
               type="range"
@@ -47,7 +47,7 @@ export function MapPreferencesTab() {
               onTouchEnd={() => toast.success(`${t("map.toast.zoomSet")} ${mapDefaultZoom}x`)}
               className="w-full accent-text-2"
             />
-            <div className="flex justify-between font-kosugi text-micro text-text-mute">
+            <div className="flex justify-between font-mono text-micro text-text-mute">
               <span>{t("map.zoomOut")}</span>
               <span>{t("map.zoomIn")}</span>
             </div>
@@ -57,7 +57,7 @@ export function MapPreferencesTab() {
           <div className="flex items-center justify-between py-[6px]">
             <div>
               <p className="font-mohave text-body text-text">{t("map.showTraffic")}</p>
-              <p className="font-kosugi text-[11px] text-text-mute">{t("map.showTrafficDesc")}</p>
+              <p className="font-mono text-[11px] text-text-mute">{t("map.showTrafficDesc")}</p>
             </div>
             <button
               onClick={() => {
@@ -83,7 +83,7 @@ export function MapPreferencesTab() {
           <div className="flex items-center justify-between py-[6px]">
             <div>
               <p className="font-mohave text-body text-text">{t("map.showCrewLabels")}</p>
-              <p className="font-kosugi text-[11px] text-text-mute">{t("map.showCrewLabelsDesc")}</p>
+              <p className="font-mono text-[11px] text-text-mute">{t("map.showCrewLabelsDesc")}</p>
             </div>
             <button
               onClick={() => {

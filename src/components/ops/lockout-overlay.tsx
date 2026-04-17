@@ -272,7 +272,7 @@ function CompactPricingCard({ tier }: { tier: Exclude<SubscriptionTier, "trial">
     >
       {display.popular && (
         <div className="absolute -top-[10px] left-1/2 -translate-x-1/2">
-          <span className="font-kosugi text-micro uppercase tracking-[0.2em] bg-ops-amber text-text-inverse px-1.5 py-0.5 rounded-sm whitespace-nowrap">
+          <span className="font-mono text-micro uppercase tracking-[0.2em] bg-ops-amber text-text-inverse px-1.5 py-0.5 rounded-sm whitespace-nowrap">
             {t("locked.mostPopular")}
           </span>
         </div>
@@ -337,7 +337,7 @@ function AdminDisplay({
 
   return (
     <div className="flex items-center gap-1 mt-2 mb-3">
-      <span className="font-kosugi text-[11px] uppercase tracking-[0.15em] text-text-3">
+      <span className="font-mono text-[11px] uppercase tracking-[0.15em] text-text-3">
         {t("lockout.adminLabel")}:
       </span>
       <span className="font-mohave text-body text-text font-medium">
@@ -481,7 +481,7 @@ export function LockoutOverlay() {
                 {/* Divider */}
                 <div className="flex items-center gap-2 my-4">
                   <div className="flex-1 h-px bg-white/[0.06]" />
-                  <span className="font-kosugi text-micro uppercase tracking-[0.3em] text-text-3">
+                  <span className="font-mono text-micro uppercase tracking-[0.3em] text-text-3">
                     {t("lockout.expiredAdmin.selectPlan")}
                   </span>
                   <div className="flex-1 h-px bg-white/[0.06]" />

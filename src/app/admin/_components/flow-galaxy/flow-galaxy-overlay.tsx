@@ -96,7 +96,7 @@ export function FlowGalaxyOverlay({
           </button>
         </div>
 
-        <p className="font-kosugi text-[11px] text-[#6B6B6B] mb-3">
+        <p className="font-mono text-[11px] text-[#6B6B6B] mb-3">
           {node.type} · {formatViews(node.views)} views
         </p>
 
@@ -118,13 +118,13 @@ export function FlowGalaxyOverlay({
 
         {/* Device toggle */}
         <div className="flex items-center gap-2 mb-3">
-          <span className="font-kosugi text-micro uppercase text-[#6B6B6B]">Device</span>
+          <span className="font-mono text-micro uppercase text-[#6B6B6B]">Device</span>
           <div className="flex gap-0 border border-white/[0.08] rounded-[2px] overflow-hidden">
             {['all', 'mobile', 'desktop', 'tablet'].map(d => (
               <button
                 key={d}
                 onClick={() => onDeviceFilterChange(d)}
-                className={`px-2 py-0.5 font-kosugi text-micro uppercase transition-colors
+                className={`px-2 py-0.5 font-mono text-micro uppercase transition-colors
                   ${deviceFilter === d ? 'bg-ops-accent/20 text-[#E5E5E5]' : 'text-[#6B6B6B] hover:text-[#A0A0A0]'}
                 `}
               >
@@ -152,13 +152,13 @@ export function FlowGalaxyOverlay({
         {/* Click breakdown */}
         {node.clickBreakdown.length > 0 && (
           <div className="border-t border-white/[0.05] pt-3 mb-3">
-            <p className="font-kosugi text-micro uppercase text-[#6B6B6B] tracking-wider mb-2">
+            <p className="font-mono text-micro uppercase text-[#6B6B6B] tracking-wider mb-2">
               Click Breakdown
             </p>
             <div className="space-y-1">
               {node.clickBreakdown.slice(0, 6).map(cb => (
                 <div key={cb.elementId} className="flex items-center justify-between">
-                  <span className="font-kosugi text-micro text-[#A0A0A0] truncate flex-1 mr-2">
+                  <span className="font-mono text-micro text-[#A0A0A0] truncate flex-1 mr-2">
                     {cb.elementId.replace(/-/g, ' ')}
                   </span>
                   <span className="font-mohave text-[11px] text-[#E5E5E5]">{cb.count}</span>
@@ -171,13 +171,13 @@ export function FlowGalaxyOverlay({
         {/* Device breakdown */}
         {node.deviceBreakdown.length > 0 && (
           <div className="border-t border-white/[0.05] pt-3 mb-3">
-            <p className="font-kosugi text-micro uppercase text-[#6B6B6B] tracking-wider mb-2">
+            <p className="font-mono text-micro uppercase text-[#6B6B6B] tracking-wider mb-2">
               Devices
             </p>
             <div className="space-y-1">
               {node.deviceBreakdown.map(db => (
                 <div key={db.device} className="flex items-center justify-between">
-                  <span className="font-kosugi text-micro text-[#A0A0A0]">{db.device}</span>
+                  <span className="font-mono text-micro text-[#A0A0A0]">{db.device}</span>
                   <span className="font-mohave text-[11px] text-[#E5E5E5]">{db.count}</span>
                 </div>
               ))}
@@ -208,7 +208,7 @@ export function FlowGalaxyOverlay({
 function MetricRow({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
     <div className="flex items-center justify-between">
-      <span className="font-kosugi text-[11px] text-[#6B6B6B]">{label}</span>
+      <span className="font-mono text-[11px] text-[#6B6B6B]">{label}</span>
       <span className="font-mohave text-[13px]" style={{ color: color ?? '#E5E5E5' }}>{value}</span>
     </div>
   );

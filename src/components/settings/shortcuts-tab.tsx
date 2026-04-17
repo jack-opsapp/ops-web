@@ -46,7 +46,7 @@ export function ShortcutsTab() {
       <div className="flex items-center justify-between">
         <div>
           <p className="font-mohave text-body text-text">{t("shortcuts.showShortcuts")}</p>
-          <p className="font-kosugi text-[11px] text-text-3">
+          <p className="font-mono text-[11px] text-text-3">
             {t("shortcuts.showShortcutsDesc")}
           </p>
         </div>
@@ -99,7 +99,7 @@ export function ShortcutsTab() {
               </Card>
             ))}
           </div>
-          <p className="font-kosugi text-[11px] text-text-mute">
+          <p className="font-mono text-[11px] text-text-mute">
             {t("shortcuts.footer")}
           </p>
         </>

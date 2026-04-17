@@ -63,14 +63,14 @@ function PaymentMethodCard({ method, onRemove, isRemoving }: { method: PaymentMe
           <p className="font-mohave text-body text-text">
             {brandDisplay} {t("billing.endingIn")} {method.last4}
           </p>
-          <p className="font-kosugi text-[11px] text-text-mute">
+          <p className="font-mono text-[11px] text-text-mute">
             {t("billing.expires")} {String(method.expMonth).padStart(2, "0")}/{method.expYear}
           </p>
         </div>
       </div>
       <div className="flex items-center gap-1">
         {method.isDefault && (
-          <span className="font-kosugi text-micro text-text bg-[rgba(255,255,255,0.08)] px-[6px] py-[2px] rounded-full uppercase tracking-wider">
+          <span className="font-mono text-micro text-text bg-[rgba(255,255,255,0.08)] px-[6px] py-[2px] rounded-full uppercase tracking-wider">
             {t("billing.defaultBadge")}
           </span>
         )}
@@ -191,7 +191,7 @@ function InvoiceStatusBadge({ status }: { status: string | null }) {
   };
 
   return (
-    <span className={`font-kosugi text-micro uppercase tracking-wider px-[6px] py-[2px] rounded-full ${className}`}>
+    <span className={`font-mono text-micro uppercase tracking-wider px-[6px] py-[2px] rounded-full ${className}`}>
       {statusLabels[s] ?? s}
     </span>
   );
@@ -260,7 +260,7 @@ export function BillingTab() {
                   <p className="font-mohave text-body text-text-2">
                     {t("billing.noPaymentMethod")}
                   </p>
-                  <p className="font-kosugi text-[11px] text-text-mute">
+                  <p className="font-mono text-[11px] text-text-mute">
                     {t("billing.addPaymentHelper")}
                   </p>
                 </div>
@@ -314,7 +314,7 @@ export function BillingTab() {
                       <p className="font-mohave text-body-sm text-text">
                         {invoice.number ?? "Invoice"}
                       </p>
-                      <p className="font-kosugi text-micro text-text-mute">
+                      <p className="font-mono text-micro text-text-mute">
                         {invoice.date
                           ? new Date(invoice.date).toLocaleDateString(getDateLocale(locale), {
                               month: "short",
@@ -358,7 +358,7 @@ export function BillingTab() {
             <div className="flex flex-col items-center py-3">
               <FileText className="w-[32px] h-[32px] text-text-mute mb-1" />
               <p className="font-mohave text-body text-text-3">{t("billing.noBillingHistory")}</p>
-              <p className="font-kosugi text-[11px] text-text-mute mt-0.5">
+              <p className="font-mono text-[11px] text-text-mute mt-0.5">
                 {t("billing.invoicesHelper")}
               </p>
             </div>

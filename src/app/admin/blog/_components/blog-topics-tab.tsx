@@ -82,7 +82,7 @@ export function BlogTopicsTab() {
 
   if (loading) {
     return (
-      <p className="font-kosugi text-[13px] text-[#6B6B6B]">
+      <p className="font-mono text-[13px] text-[#6B6B6B]">
         Loading topics...
       </p>
     );
@@ -120,7 +120,7 @@ export function BlogTopicsTab() {
 
       {/* Table */}
       {topics.length === 0 ? (
-        <p className="font-kosugi text-[13px] text-[#6B6B6B]">
+        <p className="font-mono text-[13px] text-[#6B6B6B]">
           No topics yet — add your first idea above
         </p>
       ) : (
@@ -153,7 +153,7 @@ export function BlogTopicsTab() {
               <span className="font-mohave text-[14px] text-[#E5E5E5] truncate pr-4">
                 {t.topic}
               </span>
-              <span className="font-kosugi text-[12px] text-[#A7A7A7]">
+              <span className="font-mono text-[12px] text-[#A7A7A7]">
                 {t.author}
               </span>
               <span>
@@ -161,7 +161,7 @@ export function BlogTopicsTab() {
                   type="button"
                   onClick={() => handleToggleUsed(t.id, t.used)}
                   className={[
-                    "text-[11px] font-kosugi px-2 py-0.5 rounded cursor-pointer transition-colors",
+                    "text-[11px] font-mono px-2 py-0.5 rounded cursor-pointer transition-colors",
                     t.used
                       ? "bg-[#A5B368]/20 text-[#A5B368]"
                       : "bg-white/[0.05] text-[#6B6B6B]",
@@ -170,14 +170,14 @@ export function BlogTopicsTab() {
                   {t.used ? "Used" : "Unused"}
                 </button>
               </span>
-              <span className="font-kosugi text-[12px] text-[#A7A7A7]">
+              <span className="font-mono text-[12px] text-[#A7A7A7]">
                 {formatDate(t.created_at)}
               </span>
               <span>
                 <button
                   type="button"
                   onClick={() => handleDelete(t.id)}
-                  className="font-kosugi text-[11px] text-[#93321A] hover:text-[#B5432A] transition-colors"
+                  className="font-mono text-[11px] text-[#93321A] hover:text-[#B5432A] transition-colors"
                 >
                   Delete
                 </button>

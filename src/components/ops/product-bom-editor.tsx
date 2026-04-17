@@ -104,10 +104,10 @@ export function ProductBomEditor({ productId, productUnit, className }: ProductB
   if (activeInventory.length === 0) {
     return (
       <div className={cn("space-y-1", className)}>
-        <p className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
+        <p className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">
           Materials / BOM
         </p>
-        <p className="font-kosugi text-micro text-text-mute">
+        <p className="font-mono text-micro text-text-mute">
           [add inventory items first to define a material recipe]
         </p>
       </div>
@@ -117,18 +117,18 @@ export function ProductBomEditor({ productId, productUnit, className }: ProductB
   return (
     <div className={cn("space-y-1.5", className)}>
       <div className="flex items-center justify-between">
-        <p className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
+        <p className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">
           Materials / BOM
         </p>
-        <span className="font-kosugi text-micro text-text-mute">
+        <span className="font-mono text-micro text-text-mute">
           [per 1 {productUnit ?? "unit"}]
         </span>
       </div>
 
       {isLoading ? (
-        <p className="font-kosugi text-micro text-text-mute">loading...</p>
+        <p className="font-mono text-micro text-text-mute">loading...</p>
       ) : rows.length === 0 ? (
-        <p className="font-kosugi text-micro text-text-mute">
+        <p className="font-mono text-micro text-text-mute">
           [no materials — this product does not deduct inventory]
         </p>
       ) : (

@@ -17,7 +17,7 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
         {label && (
           <label
             htmlFor={textareaId}
-            className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest"
+            className="font-mono text-caption-sm text-text-2 uppercase tracking-widest"
           >
             {label}
           </label>

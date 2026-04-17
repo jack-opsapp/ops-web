@@ -124,7 +124,7 @@ export function GalaxyCenterNode({ companyName }: GalaxyCenterNodeProps) {
           <div className="font-mohave text-xs text-white leading-tight">
             {companyName}
           </div>
-          <div className="font-kosugi text-micro uppercase tracking-wider text-[#6F94B0] mt-0.5">
+          <div className="font-mono text-micro uppercase tracking-wider text-[#6F94B0] mt-0.5">
             your network
           </div>
         </div>

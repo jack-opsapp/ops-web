@@ -263,15 +263,15 @@ export function PipelineCard({
         <div className="flex items-center gap-0 mt-[2px]">
           {followUpStatus && (
             <>
-              <span className={cn("font-kosugi text-micro", followUpStatus.colorClass)}>
+              <span className={cn("font-mono text-micro", followUpStatus.colorClass)}>
                 {followUpStatus.text}
               </span>
-              <span className="font-kosugi text-micro text-text-mute mx-[6px]">
+              <span className="font-mono text-micro text-text-mute mx-[6px]">
                 ·
               </span>
             </>
           )}
-          <span className="font-kosugi text-micro text-text-3">
+          <span className="font-mono text-micro text-text-3">
             {daysText}
           </span>
         </div>
@@ -368,7 +368,7 @@ export function PipelineCard({
                     <a
                       href={`tel:${opportunity.contactPhone}`}
                       onClick={(e) => e.stopPropagation()}
-                      className="flex items-center gap-[4px] font-kosugi text-micro text-[#6F94B0] hover:text-text transition-colors"
+                      className="flex items-center gap-[4px] font-mono text-micro text-[#6F94B0] hover:text-text transition-colors"
                     >
                       <Phone className="w-[12px] h-[12px]" />
                       {opportunity.contactPhone}
@@ -378,7 +378,7 @@ export function PipelineCard({
                     <a
                       href={`mailto:${opportunity.contactEmail}`}
                       onClick={(e) => e.stopPropagation()}
-                      className="flex items-center gap-[4px] font-kosugi text-micro text-[#6F94B0] hover:text-text transition-colors"
+                      className="flex items-center gap-[4px] font-mono text-micro text-[#6F94B0] hover:text-text transition-colors"
                     >
                       <Mail className="w-[12px] h-[12px]" />
                       {opportunity.contactEmail}
@@ -396,18 +396,18 @@ export function PipelineCard({
                 >
                   <div className="flex items-center gap-[4px]">
                     <Mail className="w-[11px] h-[11px] text-text-mute" />
-                    <span className="font-kosugi text-micro text-text-3">
+                    <span className="font-mono text-micro text-text-3">
                       {opportunity.correspondenceCount} email{opportunity.correspondenceCount !== 1 ? "s" : ""}
                     </span>
                   </div>
-                  <span className="text-text-mute font-kosugi text-micro">·</span>
-                  <span className="font-kosugi text-micro text-text-mute">
+                  <span className="text-text-mute font-mono text-micro">·</span>
+                  <span className="font-mono text-micro text-text-mute">
                     {opportunity.inboundCount} in / {opportunity.outboundCount} out
                   </span>
                   {(opportunity.lastInboundAt || opportunity.lastOutboundAt) && (
                     <>
-                      <span className="text-text-mute font-kosugi text-micro">·</span>
-                      <span className="font-kosugi text-micro text-text-mute">
+                      <span className="text-text-mute font-mono text-micro">·</span>
+                      <span className="font-mono text-micro text-text-mute">
                         last {formatTimeAgo(
                           opportunity.lastInboundAt && opportunity.lastOutboundAt
                             ? (opportunity.lastInboundAt > opportunity.lastOutboundAt
@@ -443,7 +443,7 @@ export function PipelineCard({
               {/* Last activity */}
               {lastActivityText && (
                 <motion.div variants={contentVariants} custom={2}>
-                  <span className="font-kosugi text-micro text-text-mute">
+                  <span className="font-mono text-micro text-text-mute">
                     {lastActivityText}
                   </span>
                 </motion.div>

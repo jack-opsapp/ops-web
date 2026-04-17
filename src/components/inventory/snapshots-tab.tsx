@@ -22,7 +22,7 @@ function SnapshotItemsSubTable({ snapshotId }: { snapshotId: string }) {
     return (
       <tr>
         <td colSpan={6} className="pl-8 py-2">
-          <span className="font-kosugi text-caption text-text-mute">
+          <span className="font-mono text-caption text-text-mute">
             Loading snapshot items...
           </span>
         </td>
@@ -34,7 +34,7 @@ function SnapshotItemsSubTable({ snapshotId }: { snapshotId: string }) {
     return (
       <tr>
         <td colSpan={6} className="pl-8 py-2">
-          <span className="font-kosugi text-caption text-text-mute">
+          <span className="font-mono text-caption text-text-mute">
             No items in this snapshot.
           </span>
         </td>
@@ -49,19 +49,19 @@ function SnapshotItemsSubTable({ snapshotId }: { snapshotId: string }) {
           <table className="w-full">
             <thead>
               <tr className="border-b border-border">
-                <th className="text-left px-2 py-1 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
+                <th className="text-left px-2 py-1 font-mono text-caption-sm text-text-3 uppercase tracking-widest">
                   Item Name
                 </th>
-                <th className="text-right px-2 py-1 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
+                <th className="text-right px-2 py-1 font-mono text-caption-sm text-text-3 uppercase tracking-widest">
                   Quantity
                 </th>
-                <th className="text-left px-2 py-1 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest hidden sm:table-cell">
+                <th className="text-left px-2 py-1 font-mono text-caption-sm text-text-3 uppercase tracking-widest hidden sm:table-cell">
                   Unit
                 </th>
-                <th className="text-left px-2 py-1 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest hidden md:table-cell">
+                <th className="text-left px-2 py-1 font-mono text-caption-sm text-text-3 uppercase tracking-widest hidden md:table-cell">
                   SKU
                 </th>
-                <th className="text-left px-2 py-1 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest hidden lg:table-cell">
+                <th className="text-left px-2 py-1 font-mono text-caption-sm text-text-3 uppercase tracking-widest hidden lg:table-cell">
                   Tags
                 </th>
               </tr>
@@ -83,17 +83,17 @@ function SnapshotItemsSubTable({ snapshotId }: { snapshotId: string }) {
                     </span>
                   </td>
                   <td className="px-2 py-1 hidden sm:table-cell">
-                    <span className="font-kosugi text-caption-sm text-text-2">
+                    <span className="font-mono text-caption-sm text-text-2">
                       {si.unitDisplay || "\u2014"}
                     </span>
                   </td>
                   <td className="px-2 py-1 hidden md:table-cell">
-                    <span className="font-kosugi text-caption-sm text-text-3">
+                    <span className="font-mono text-caption-sm text-text-3">
                       {si.sku || "\u2014"}
                     </span>
                   </td>
                   <td className="px-2 py-1 hidden lg:table-cell">
-                    <span className="font-kosugi text-caption-sm text-text-3 truncate block max-w-[200px]">
+                    <span className="font-mono text-caption-sm text-text-3 truncate block max-w-[200px]">
                       {si.tagsString || "\u2014"}
                     </span>
                   </td>
@@ -186,7 +186,7 @@ export function SnapshotsTab() {
       {/* Table */}
       {isLoading ? (
         <div className="flex items-center justify-center py-8">
-          <span className="font-kosugi text-caption text-text-mute">
+          <span className="font-mono text-caption text-text-mute">
             Loading snapshots...
           </span>
         </div>
@@ -206,19 +206,19 @@ export function SnapshotsTab() {
             <thead>
               <tr className="border-b border-border bg-[rgba(255,255,255,0.02)]">
                 <th className="w-[32px] px-1 py-1.5" />
-                <th className="text-left px-2 py-1.5 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
+                <th className="text-left px-2 py-1.5 font-mono text-caption-sm text-text-3 uppercase tracking-widest">
                   Date
                 </th>
-                <th className="text-left px-2 py-1.5 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest hidden sm:table-cell">
+                <th className="text-left px-2 py-1.5 font-mono text-caption-sm text-text-3 uppercase tracking-widest hidden sm:table-cell">
                   Created By
                 </th>
-                <th className="text-right px-2 py-1.5 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
+                <th className="text-right px-2 py-1.5 font-mono text-caption-sm text-text-3 uppercase tracking-widest">
                   Items
                 </th>
-                <th className="text-left px-2 py-1.5 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest hidden md:table-cell">
+                <th className="text-left px-2 py-1.5 font-mono text-caption-sm text-text-3 uppercase tracking-widest hidden md:table-cell">
                   Type
                 </th>
-                <th className="text-left px-2 py-1.5 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest hidden lg:table-cell">
+                <th className="text-left px-2 py-1.5 font-mono text-caption-sm text-text-3 uppercase tracking-widest hidden lg:table-cell">
                   Notes
                 </th>
               </tr>
@@ -292,7 +292,7 @@ function SnapshotRow({
 
         {/* Created By */}
         <td className="px-2 py-1.5 hidden sm:table-cell">
-          <span className="font-kosugi text-caption-sm text-text-2">
+          <span className="font-mono text-caption-sm text-text-2">
             {createdByLabel}
           </span>
         </td>
@@ -315,7 +315,7 @@ function SnapshotRow({
 
         {/* Notes */}
         <td className="px-2 py-1.5 hidden lg:table-cell">
-          <span className="font-kosugi text-caption-sm text-text-3 truncate block max-w-[200px]">
+          <span className="font-mono text-caption-sm text-text-3 truncate block max-w-[200px]">
             {snapshot.notes || "\u2014"}
           </span>
         </td>

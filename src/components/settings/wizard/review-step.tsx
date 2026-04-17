@@ -81,7 +81,7 @@ export function ReviewStep({
         <p className="font-mohave text-body text-text">
           {t("wizard.review.success")}
         </p>
-        <p className="font-kosugi text-[11px] text-text-mute mt-[6px]">
+        <p className="font-mono text-[11px] text-text-mute mt-[6px]">
           {t("wizard.review.elapsed").replace("{seconds}", String(elapsedSeconds))}
         </p>
       </motion.div>
@@ -105,7 +105,7 @@ export function ReviewStep({
         {t("wizard.review.summary").replace("{count}", String(taskTypes.length))}
       </p>
       {hasDependencies && (
-        <p className="font-kosugi text-[11px] text-text-mute mb-[16px]">
+        <p className="font-mono text-[11px] text-text-mute mb-[16px]">
           {t("wizard.review.withDeps")}
         </p>
       )}
@@ -131,7 +131,7 @@ export function ReviewStep({
       {/* Mini dependency timeline */}
       {hasDependencies && dependencyTimeline && dependencyTimeline.length > 1 && (
         <div className="mb-[24px]">
-          <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest mb-[6px] block">
+          <span className="font-mono text-micro text-text-mute uppercase tracking-widest mb-[6px] block">
             {t("wizard.review.depOrder")}
           </span>
           <div className="flex items-center gap-[4px] flex-wrap">
@@ -142,7 +142,7 @@ export function ReviewStep({
                     className="w-[8px] h-[8px] rounded-sm shrink-0"
                     style={{ backgroundColor: item.color }}
                   />
-                  <span className="font-kosugi text-micro text-text-2 whitespace-nowrap">
+                  <span className="font-mono text-micro text-text-2 whitespace-nowrap">
                     {item.name}
                   </span>
                   {item.overlapPercent > 0 && (

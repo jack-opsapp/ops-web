@@ -35,12 +35,12 @@ export default async function BriefingsArchivePage() {
                     "bg-[#93321A]/20 text-[#93321A]"
                   }`}>{b.status}</span>
                 </td>
-                <td className="py-3 pr-3 font-kosugi text-[11px] text-[#6B6B6B]">{b.triggered_by}</td>
+                <td className="py-3 pr-3 font-mono text-[11px] text-[#6B6B6B]">{b.triggered_by}</td>
                 <td className="py-3">
                   {b.status === "complete" && (
                     <Link
                       href={`/admin/google-ads/briefings/${b.id}`}
-                      className="font-kosugi text-[11px] text-[#597794] hover:text-[#E5E5E5] transition-colors duration-100"
+                      className="font-mono text-[11px] text-[#597794] hover:text-[#E5E5E5] transition-colors duration-100"
                     >
                       View →
                     </Link>

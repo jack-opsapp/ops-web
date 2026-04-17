@@ -92,7 +92,7 @@ export function EmailLogTab({ entries }: EmailLogTabProps) {
           ))}
         </div>
         {(segmentFilter !== "ALL" || statusFilter !== "ALL") && (
-          <span className="font-kosugi text-[11px] text-[#6B6B6B]">
+          <span className="font-mono text-[11px] text-[#6B6B6B]">
             [{sorted.length} of {entries.length}]
           </span>
         )}
@@ -111,7 +111,7 @@ export function EmailLogTab({ entries }: EmailLogTabProps) {
               className="grid grid-cols-4 px-6 items-center h-14 border-b border-white/[0.05] cursor-pointer hover:bg-white/[0.02] transition-colors"
               onClick={() => setExpandedId(expandedId === entry.id ? null : entry.id)}
             >
-              <span className="font-kosugi text-[13px] text-[#E5E5E5] truncate">
+              <span className="font-mono text-[13px] text-[#E5E5E5] truncate">
                 {entry.recipient_email}
               </span>
               <span className="font-mohave text-[13px] text-[#A0A0A0] uppercase">
@@ -120,7 +120,7 @@ export function EmailLogTab({ entries }: EmailLogTabProps) {
               <span className={`font-mohave text-[13px] uppercase ${STATUS_COLORS[entry.status] ?? "text-[#A0A0A0]"}`}>
                 {entry.status}
               </span>
-              <span className="font-kosugi text-[12px] text-[#6B6B6B]">
+              <span className="font-mono text-[12px] text-[#6B6B6B]">
                 [{new Date(entry.sent_at).toLocaleString()}]
               </span>
             </div>
@@ -129,11 +129,11 @@ export function EmailLogTab({ entries }: EmailLogTabProps) {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="font-mohave text-[11px] uppercase text-[#6B6B6B] mb-2">Subject</p>
-                    <p className="text-[13px] text-[#A0A0A0] font-kosugi">{entry.subject}</p>
+                    <p className="text-[13px] text-[#A0A0A0] font-mono">{entry.subject}</p>
                     {entry.error_message && (
                       <>
                         <p className="font-mohave text-[11px] uppercase text-[#6B6B6B] mb-2 mt-3">Error</p>
-                        <p className="text-[12px] text-[#93321A] font-kosugi">{entry.error_message}</p>
+                        <p className="text-[12px] text-[#93321A] font-mono">{entry.error_message}</p>
                       </>
                     )}
                   </div>

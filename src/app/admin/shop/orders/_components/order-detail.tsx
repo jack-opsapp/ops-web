@@ -70,7 +70,7 @@ export function OrderDetail({ order }: OrderDetailProps) {
       <div className="flex items-center justify-between mb-6">
         <Link
           href="/admin/shop/orders"
-          className="flex items-center gap-2 font-kosugi text-[11px] uppercase tracking-widest text-[#6B6B6B] hover:text-[#E5E5E5] transition-colors"
+          className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B] hover:text-[#E5E5E5] transition-colors"
         >
           <ArrowLeft size={14} /> Back to Orders
         </Link>
@@ -81,7 +81,7 @@ export function OrderDetail({ order }: OrderDetailProps) {
       <div className="grid grid-cols-2 gap-8 mb-8">
         {/* Left — Items + Totals */}
         <div>
-          <p className="font-kosugi text-[11px] uppercase tracking-widest text-[#6B6B6B] mb-3">
+          <p className="font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B] mb-3">
             Items
           </p>
           <div className="space-y-3 mb-6">
@@ -129,14 +129,14 @@ export function OrderDetail({ order }: OrderDetailProps) {
         {/* Right — Customer + Payment */}
         <div className="space-y-6">
           <div>
-            <p className="font-kosugi text-[11px] uppercase tracking-widest text-[#6B6B6B] mb-2">
+            <p className="font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B] mb-2">
               Customer
             </p>
             <p className="font-mohave text-[13px] text-[#E5E5E5]">{order.email}</p>
           </div>
 
           <div>
-            <p className="font-kosugi text-[11px] uppercase tracking-widest text-[#6B6B6B] mb-2">
+            <p className="font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B] mb-2">
               Shipping Address
             </p>
             <div className="font-mohave text-[13px] text-[#E5E5E5] space-y-0.5">
@@ -149,7 +149,7 @@ export function OrderDetail({ order }: OrderDetailProps) {
           </div>
 
           <div>
-            <p className="font-kosugi text-[11px] uppercase tracking-widest text-[#6B6B6B] mb-2">
+            <p className="font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B] mb-2">
               Payment
             </p>
             <a
@@ -171,7 +171,7 @@ export function OrderDetail({ order }: OrderDetailProps) {
 
       {/* Actions */}
       <div className="border-t border-white/[0.08] pt-6 mb-6">
-        <p className="font-kosugi text-[11px] uppercase tracking-widest text-[#6B6B6B] mb-3">
+        <p className="font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B] mb-3">
           Actions
         </p>
         <div className="flex items-center gap-2 flex-wrap">
@@ -179,7 +179,7 @@ export function OrderDetail({ order }: OrderDetailProps) {
             <button
               onClick={() => setShowShipForm(true)}
               disabled={saving}
-              className="flex items-center gap-1.5 px-4 py-1.5 bg-ops-accent rounded-sm font-kosugi text-[11px] uppercase tracking-widest text-white hover:bg-ops-accent/80 transition-colors disabled:opacity-50"
+              className="flex items-center gap-1.5 px-4 py-1.5 bg-ops-accent rounded-sm font-mono text-[11px] uppercase tracking-widest text-white hover:bg-ops-accent/80 transition-colors disabled:opacity-50"
             >
               <Truck size={12} /> Mark Shipped
             </button>
@@ -188,7 +188,7 @@ export function OrderDetail({ order }: OrderDetailProps) {
             <button
               onClick={() => action("deliver")}
               disabled={saving}
-              className="flex items-center gap-1.5 px-4 py-1.5 bg-emerald-600 rounded-sm font-kosugi text-[11px] uppercase tracking-widest text-white hover:bg-emerald-600/80 transition-colors disabled:opacity-50"
+              className="flex items-center gap-1.5 px-4 py-1.5 bg-emerald-600 rounded-sm font-mono text-[11px] uppercase tracking-widest text-white hover:bg-emerald-600/80 transition-colors disabled:opacity-50"
             >
               <CheckCircle size={12} /> Mark Delivered
             </button>
@@ -197,7 +197,7 @@ export function OrderDetail({ order }: OrderDetailProps) {
             <button
               onClick={handleRefund}
               disabled={saving}
-              className="flex items-center gap-1.5 px-3 py-1.5 border border-red-500/20 rounded-sm font-kosugi text-[11px] uppercase tracking-widest text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3 py-1.5 border border-red-500/20 rounded-sm font-mono text-[11px] uppercase tracking-widest text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50"
             >
               <RotateCcw size={12} /> Refund
             </button>
@@ -206,7 +206,7 @@ export function OrderDetail({ order }: OrderDetailProps) {
             <button
               onClick={handleCancel}
               disabled={saving}
-              className="flex items-center gap-1.5 px-3 py-1.5 border border-white/[0.12] rounded-sm font-kosugi text-[11px] uppercase tracking-widest text-[#6B6B6B] hover:text-red-400 hover:border-red-500/20 transition-colors disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3 py-1.5 border border-white/[0.12] rounded-sm font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B] hover:text-red-400 hover:border-red-500/20 transition-colors disabled:opacity-50"
             >
               <XCircle size={12} /> Cancel
             </button>
@@ -217,12 +217,12 @@ export function OrderDetail({ order }: OrderDetailProps) {
       {/* Ship form */}
       {showShipForm && (
         <div className="border border-[#597794]/30 rounded-sm p-4 mb-6 bg-ops-accent/5">
-          <p className="font-kosugi text-[11px] uppercase tracking-widest text-[#6B6B6B] mb-3">
+          <p className="font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B] mb-3">
             Shipping Details
           </p>
           <div className="grid grid-cols-2 gap-4 mb-3">
             <div>
-              <label className="block font-kosugi text-micro uppercase tracking-widest text-[#6B6B6B] mb-1">
+              <label className="block font-mono text-micro uppercase tracking-widest text-[#6B6B6B] mb-1">
                 Tracking Number *
               </label>
               <input
@@ -233,7 +233,7 @@ export function OrderDetail({ order }: OrderDetailProps) {
               />
             </div>
             <div>
-              <label className="block font-kosugi text-micro uppercase tracking-widest text-[#6B6B6B] mb-1">
+              <label className="block font-mono text-micro uppercase tracking-widest text-[#6B6B6B] mb-1">
                 Tracking URL
               </label>
               <input
@@ -248,13 +248,13 @@ export function OrderDetail({ order }: OrderDetailProps) {
             <button
               onClick={handleShip}
               disabled={!trackingNumber || saving}
-              className="px-4 py-1.5 bg-ops-accent rounded-sm font-kosugi text-[11px] uppercase tracking-widest text-white hover:bg-ops-accent/80 transition-colors disabled:opacity-50"
+              className="px-4 py-1.5 bg-ops-accent rounded-sm font-mono text-[11px] uppercase tracking-widest text-white hover:bg-ops-accent/80 transition-colors disabled:opacity-50"
             >
               Confirm Ship
             </button>
             <button
               onClick={() => setShowShipForm(false)}
-              className="px-3 py-1.5 font-kosugi text-[11px] uppercase tracking-widest text-[#6B6B6B]"
+              className="px-3 py-1.5 font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B]"
             >
               Cancel
             </button>
@@ -264,7 +264,7 @@ export function OrderDetail({ order }: OrderDetailProps) {
 
       {/* Notes */}
       <div className="border-t border-white/[0.08] pt-6 mb-6">
-        <p className="font-kosugi text-[11px] uppercase tracking-widest text-[#6B6B6B] mb-2">
+        <p className="font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B] mb-2">
           Internal Notes
         </p>
         <textarea
@@ -279,7 +279,7 @@ export function OrderDetail({ order }: OrderDetailProps) {
 
       {/* Timeline */}
       <div className="border-t border-white/[0.08] pt-6">
-        <p className="font-kosugi text-[11px] uppercase tracking-widest text-[#6B6B6B] mb-3">
+        <p className="font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B] mb-3">
           Timeline
         </p>
         <div className="space-y-3">

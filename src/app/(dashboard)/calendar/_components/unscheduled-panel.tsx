@@ -62,13 +62,13 @@ export function UnscheduledPanel() {
         </motion.span>
 
         {/* Label */}
-        <span className="font-kosugi text-micro text-[#999] uppercase tracking-[0.12em]">
+        <span className="font-mono text-micro text-[#999] uppercase tracking-[0.12em]">
           {count} unscheduled task{count !== 1 ? "s" : ""}
         </span>
 
         {/* Count badge */}
         {count > 0 && (
-          <span className="font-kosugi text-micro text-[#6F94B0] bg-[rgba(255,255,255,0.08)] px-[6px] py-[1px] rounded-sm ml-auto">
+          <span className="font-mono text-micro text-[#6F94B0] bg-[rgba(255,255,255,0.08)] px-[6px] py-[1px] rounded-sm ml-auto">
             {count}
           </span>
         )}
@@ -88,7 +88,7 @@ export function UnscheduledPanel() {
               {count === 0 ? (
                 /* ── Empty state ── */
                 <div className="h-[80px] flex items-center">
-                  <span className="font-kosugi text-micro uppercase tracking-[0.12em] text-white/30">
+                  <span className="font-mono text-micro uppercase tracking-[0.12em] text-white/30">
                     All tasks scheduled
                   </span>
                 </div>
@@ -104,7 +104,7 @@ export function UnscheduledPanel() {
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         placeholder="Search..."
-                        className="w-full pl-[26px] pr-2 py-[5px] bg-black border border-white/10 rounded-sm font-kosugi text-micro text-white uppercase placeholder:text-[#999] placeholder:normal-case focus:outline-none focus:border-[#6F94B0]/40 transition-colors"
+                        className="w-full pl-[26px] pr-2 py-[5px] bg-black border border-white/10 rounded-sm font-mono text-micro text-white uppercase placeholder:text-[#999] placeholder:normal-case focus:outline-none focus:border-[#6F94B0]/40 transition-colors"
                       />
                     </div>
                   )}
@@ -116,7 +116,7 @@ export function UnscheduledPanel() {
                     ))}
                     {unscheduledTasks.length === 0 && search && (
                       <div className="flex items-center h-[80px]">
-                        <span className="font-kosugi text-micro uppercase tracking-[0.12em] text-white/30">
+                        <span className="font-mono text-micro uppercase tracking-[0.12em] text-white/30">
                           No matching tasks
                         </span>
                       </div>
@@ -178,7 +178,7 @@ function UnscheduledTaskCard({ task }: { task: ProjectTask }) {
         <span className="font-cakemono font-light text-[12px] text-white uppercase truncate leading-tight">
           {projectName}
         </span>
-        <span className="font-kosugi text-micro text-[#999] uppercase tracking-[0.08em] truncate mt-0.5">
+        <span className="font-mono text-micro text-[#999] uppercase tracking-[0.08em] truncate mt-0.5">
           {taskTypeLabel}
         </span>
       </div>

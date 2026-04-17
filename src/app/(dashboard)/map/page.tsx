@@ -103,7 +103,7 @@ function ProjectListItem({
               </button>
             )}
           </div>
-          <p className="font-kosugi text-micro text-text-3 truncate">
+          <p className="font-mono text-micro text-text-3 truncate">
             {project.address || t("map.noAddress")}
           </p>
           <div className="flex items-center gap-1 mt-[2px]">
@@ -282,7 +282,7 @@ export default function MapPage() {
               <span className="font-mohave text-body-sm text-text-3">
                 {t("map.noProjectsFound")}
               </span>
-              <span className="font-kosugi text-micro text-text-mute">
+              <span className="font-mono text-micro text-text-mute">
                 {searchQuery ? t("map.tryDifferentSearch") : t("map.createProjectPrompt")}
               </span>
             </div>
@@ -347,7 +347,7 @@ export default function MapPage() {
             "p-1"
           )}
         >
-          <div className="font-kosugi text-micro text-text-mute uppercase tracking-widest mb-[4px]">
+          <div className="font-mono text-micro text-text-mute uppercase tracking-widest mb-[4px]">
             {t("map.status")}
           </div>
           <div className="space-y-[3px]">

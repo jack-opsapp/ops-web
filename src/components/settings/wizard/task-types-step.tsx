@@ -187,7 +187,7 @@ export function TaskTypesStep({
       </p>
 
       {/* Color hint strip */}
-      <p className="font-kosugi text-[11px] text-text-mute mb-[20px]">
+      <p className="font-mono text-[11px] text-text-mute mb-[20px]">
         {t("wizard.taskTypes.colorHint")}
       </p>
 
@@ -197,7 +197,7 @@ export function TaskTypesStep({
           <div key={group.industry}>
             {/* Industry header — only show if multiple industries selected */}
             {industries.length > 1 && (
-              <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest mb-[6px] block">
+              <span className="font-mono text-micro text-text-mute uppercase tracking-widest mb-[6px] block">
                 {group.industry}
               </span>
             )}
@@ -411,7 +411,7 @@ function TaskTypeCard({
             </span>
           )}
           {alsoIn.length > 0 && (
-            <span className="font-kosugi text-micro text-text-mute whitespace-nowrap">
+            <span className="font-mono text-micro text-text-mute whitespace-nowrap">
               {t("wizard.taskTypes.alsoIn").replace("{industries}", alsoIn.join(", "))}
             </span>
           )}

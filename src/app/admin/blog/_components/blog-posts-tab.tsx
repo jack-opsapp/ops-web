@@ -87,11 +87,11 @@ function BlogPreviewModal({
         <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-3 bg-glass glass-surface border-b border-white/[0.08] rounded-t-xl">
           <div className="flex items-center gap-3">
             {post.is_live ? (
-              <span className="text-[11px] font-kosugi px-2 py-0.5 rounded bg-[#A5B368]/20 text-[#A5B368]">
+              <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-[#A5B368]/20 text-[#A5B368]">
                 Live
               </span>
             ) : (
-              <span className="text-[11px] font-kosugi px-2 py-0.5 rounded bg-white/[0.05] text-[#6B6B6B]">
+              <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-white/[0.05] text-[#6B6B6B]">
                 Draft
               </span>
             )}
@@ -380,7 +380,7 @@ export function BlogPostsTab({ posts, categories }: BlogPostsTabProps) {
             </button>
 
             {/* Category */}
-            <span className="text-[11px] font-kosugi px-2 py-0.5 rounded bg-ops-accent/20 text-[#8AAFC4] w-fit">
+            <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-ops-accent/20 text-[#8AAFC4] w-fit">
               {getCategoryName(post.category_id, categories)}
             </span>
 
@@ -393,15 +393,15 @@ export function BlogPostsTab({ posts, categories }: BlogPostsTabProps) {
               title={post.is_live ? "Click to unpublish" : "Click to publish"}
             >
               {togglingId === post.id ? (
-                <span className="text-[11px] font-kosugi px-2 py-0.5 rounded bg-white/[0.05] text-[#6B6B6B] animate-pulse">
+                <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-white/[0.05] text-[#6B6B6B] animate-pulse">
                   ...
                 </span>
               ) : post.is_live ? (
-                <span className="text-[11px] font-kosugi px-2 py-0.5 rounded bg-[#A5B368]/20 text-[#A5B368] hover:bg-red-500/20 hover:text-red-400 transition-colors cursor-pointer">
+                <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-[#A5B368]/20 text-[#A5B368] hover:bg-red-500/20 hover:text-red-400 transition-colors cursor-pointer">
                   Live
                 </span>
               ) : (
-                <span className="text-[11px] font-kosugi px-2 py-0.5 rounded bg-white/[0.05] text-[#6B6B6B] hover:bg-[#A5B368]/20 hover:text-[#A5B368] transition-colors cursor-pointer">
+                <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-white/[0.05] text-[#6B6B6B] hover:bg-[#A5B368]/20 hover:text-[#A5B368] transition-colors cursor-pointer">
                   Draft
                 </span>
               )}
@@ -418,7 +418,7 @@ export function BlogPostsTab({ posts, categories }: BlogPostsTabProps) {
             </span>
 
             {/* Published */}
-            <span className="font-kosugi text-[12px] text-[#6B6B6B]">
+            <span className="font-mono text-[12px] text-[#6B6B6B]">
               {formatDate(post.published_at)}
             </span>
 
@@ -432,7 +432,7 @@ export function BlogPostsTab({ posts, categories }: BlogPostsTabProps) {
         {/* Empty State */}
         {filteredSorted.length === 0 && (
           <div className="px-6 py-12 text-center">
-            <p className="font-kosugi text-[13px] text-[#6B6B6B]">
+            <p className="font-mono text-[13px] text-[#6B6B6B]">
               No posts found
             </p>
           </div>

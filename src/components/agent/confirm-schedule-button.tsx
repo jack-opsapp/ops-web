@@ -188,7 +188,7 @@ export function ConfirmScheduleButton({
           <span className="font-mohave text-[14px] text-text uppercase tracking-[0.04em]">
             {t("confirmButton.labelConfirmed")}
           </span>
-          <span className="font-kosugi text-[11px] text-text-3">
+          <span className="font-mono text-[11px] text-text-3">
             [{caption}]
           </span>
         </span>
@@ -212,7 +212,7 @@ export function ConfirmScheduleButton({
           <span className="font-mohave text-[14px] text-text-2 uppercase tracking-[0.04em]">
             {t("confirmButton.labelAutoPending")}
           </span>
-          <span className="font-kosugi text-[11px] text-text-3">
+          <span className="font-mono text-[11px] text-text-3">
             [{t("confirmButton.captionAutoIn").replace(
               "{{hours}}",
               String(graceRemainingHours)
@@ -249,7 +249,7 @@ export function ConfirmScheduleButton({
         <span className="font-mohave text-[14px] text-text uppercase tracking-[0.04em]">
           {t("confirmButton.labelTentative")}
         </span>
-        <span className="font-kosugi text-[11px] text-text-3">
+        <span className="font-mono text-[11px] text-text-3">
           [{t("confirmButton.captionTentative")}]
         </span>
       </span>

@@ -329,7 +329,7 @@ export function UnifiedThreadView({
         <div className="flex items-center gap-2 min-w-0">
           <div
             className={cn(
-              "w-[32px] h-[32px] rounded-full flex items-center justify-center shrink-0 font-kosugi text-caption-sm font-semibold",
+              "w-[32px] h-[32px] rounded-full flex items-center justify-center shrink-0 font-mono text-caption-sm font-semibold",
               conversation.type === "unmatched"
                 ? "bg-ops-amber-muted text-ops-amber"
                 : "bg-[rgba(255,255,255,0.08)] text-text"
@@ -341,7 +341,7 @@ export function UnifiedThreadView({
             <h2 className="font-mohave text-body text-text font-semibold truncate">
               {conversation.displayName}
             </h2>
-            <p className="font-kosugi text-micro text-text-mute uppercase truncate">
+            <p className="font-mono text-micro text-text-mute uppercase truncate">
               {conversation.projectName
                 ? `${conversation.projectName} \u00b7 ${emailThreads.length + (conversation.hasPortalMessages ? 1 : 0)} threads`
                 : `${emailThreads.length + (conversation.hasPortalMessages ? 1 : 0)} threads`}
@@ -351,7 +351,7 @@ export function UnifiedThreadView({
 
         <div className="flex items-center gap-1.5 shrink-0">
           {conversation.type === "unmatched" && (
-            <button className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-panel border border-border-subtle bg-surface-input text-text-3 font-kosugi text-micro uppercase tracking-wider hover:bg-glass glass-surface transition-colors">
+            <button className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-panel border border-border-subtle bg-surface-input text-text-3 font-mono text-micro uppercase tracking-wider hover:bg-glass glass-surface transition-colors">
               <LinkIcon className="w-3.5 h-3.5" />
               {t("unmatched.linkToClient")}
             </button>
@@ -359,7 +359,7 @@ export function UnifiedThreadView({
           <button
             onClick={onToggleContext}
             className={cn(
-              "flex items-center gap-1.5 px-2.5 py-1.5 rounded-panel border font-kosugi text-micro uppercase tracking-wider transition-colors",
+              "flex items-center gap-1.5 px-2.5 py-1.5 rounded-panel border font-mono text-micro uppercase tracking-wider transition-colors",
               contextOpen
                 ? "bg-[rgba(255,255,255,0.08)] text-text border-[rgba(255,255,255,0.18)]/20"
                 : "bg-surface-input text-text-3 border-border-subtle hover:bg-glass glass-surface"
@@ -400,7 +400,7 @@ export function UnifiedThreadView({
               )}
             >
               <Plus className="w-3 h-3" />
-              <span className="font-kosugi text-micro uppercase tracking-wider">
+              <span className="font-mono text-micro uppercase tracking-wider">
                 Create Lead
               </span>
             </button>

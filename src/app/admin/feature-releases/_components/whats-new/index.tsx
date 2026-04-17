@@ -427,7 +427,7 @@ export function WhatsNewContent() {
           <h2 className="font-mohave text-[14px] uppercase tracking-widest text-[#E5E5E5]">
             Categories & Items
           </h2>
-          <span className="font-kosugi text-[12px] text-[#6B6B6B]">
+          <span className="font-mono text-[12px] text-[#6B6B6B]">
             {categories.length} categories ·{" "}
             {categories.reduce((sum, c) => sum + c.whats_new_items.length, 0)} items
           </span>
@@ -456,7 +456,7 @@ export function WhatsNewContent() {
       {/* Categories with drag & drop */}
       {categories.length === 0 ? (
         <div className="py-16 text-center space-y-4">
-          <p className="font-kosugi text-[12px] text-[#6B6B6B]">No categories yet</p>
+          <p className="font-mono text-[12px] text-[#6B6B6B]">No categories yet</p>
           <button
             onClick={() => setShowNewCategory(true)}
             className="inline-flex items-center gap-2 px-4 py-2 border border-dashed border-white/[0.12] rounded text-[#6B6B6B] hover:text-[#E5E5E5] hover:border-white/[0.2] transition-colors"

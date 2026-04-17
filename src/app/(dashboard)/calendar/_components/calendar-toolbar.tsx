@@ -76,7 +76,7 @@ export function CalendarToolbar({ events, t }: CalendarToolbarProps) {
     <div className="flex items-center gap-3 px-1 shrink-0">
       {/* Today / This Week counts */}
       <div className="flex items-center gap-[6px]">
-        <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
+        <span className="font-mono text-micro text-text-mute uppercase tracking-widest">
           {t("stats.today")}
         </span>
         <span className="font-mono text-data-sm text-text">
@@ -85,7 +85,7 @@ export function CalendarToolbar({ events, t }: CalendarToolbarProps) {
       </div>
       <div className="w-[1px] h-[16px] bg-border-subtle" />
       <div className="flex items-center gap-[6px]">
-        <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
+        <span className="font-mono text-micro text-text-mute uppercase tracking-widest">
           {t("stats.thisWeek")}
         </span>
         <span className="font-mono text-data-sm text-text">
@@ -101,7 +101,7 @@ export function CalendarToolbar({ events, t }: CalendarToolbarProps) {
             <button
               key={filter.label}
               onClick={filter.onRemove}
-              className="flex items-center gap-[4px] px-[8px] py-[2px] rounded-[4px] bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.18)] text-text font-kosugi text-micro uppercase tracking-wider hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+              className="flex items-center gap-[4px] px-[8px] py-[2px] rounded-[4px] bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.18)] text-text font-mono text-micro uppercase tracking-wider hover:bg-[rgba(255,255,255,0.08)] transition-colors"
             >
               {filter.label}
               <X className="w-[10px] h-[10px]" />
@@ -121,7 +121,7 @@ export function CalendarToolbar({ events, t }: CalendarToolbarProps) {
                 className="w-[8px] h-[8px] rounded-full"
                 style={{ backgroundColor: colors.border }}
               />
-              <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider">
+              <span className="font-mono text-micro text-text-3 uppercase tracking-wider">
                 {type}
               </span>
               <span className="font-mono text-micro text-text-mute">

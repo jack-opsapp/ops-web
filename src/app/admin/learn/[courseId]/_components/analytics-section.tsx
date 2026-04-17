@@ -52,12 +52,12 @@ export function AnalyticsSection({ analytics }: { analytics: LearnCourseAnalytic
                     }}
                   />
                 </div>
-                <span className="w-16 shrink-0 text-right font-kosugi text-[11px] text-[#6B6B6B]">
+                <span className="w-16 shrink-0 text-right font-mono text-[11px] text-[#6B6B6B]">
                   {lp.completed_count}/{lp.started_count}
                 </span>
               </div>
             ))}
-            <div className="flex gap-4 pt-2 font-kosugi text-micro text-[#6B6B6B]">
+            <div className="flex gap-4 pt-2 font-mono text-micro text-[#6B6B6B]">
               <span className="flex items-center gap-1.5">
                 <span className="inline-block w-3 h-2 rounded" style={{ backgroundColor: "#597794" }} /> Completed
               </span>

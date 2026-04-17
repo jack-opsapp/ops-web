@@ -44,7 +44,7 @@ function IndustryPicker({
 
   return (
     <div className="flex flex-col gap-1">
-      <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
+      <label className="font-mono text-caption-sm text-text-2 uppercase tracking-widest">
         Industries
       </label>
 
@@ -106,7 +106,7 @@ function IndustryPicker({
             );
           })}
           {filtered.length === 0 && (
-            <span className="font-kosugi text-[11px] text-text-mute px-1 py-2">
+            <span className="font-mono text-[11px] text-text-mute px-1 py-2">
               No trades found
             </span>
           )}
@@ -216,7 +216,7 @@ export function CompanyTab() {
         </CardHeader>
         <CardContent className="space-y-2">
           <div className="flex flex-col gap-0.5">
-            <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
+            <label className="font-mono text-caption-sm text-text-2 uppercase tracking-widest">
               {t("company.logo")}
             </label>
             <div className="flex items-center gap-1.5">
@@ -292,7 +292,7 @@ export function CompanyTab() {
           {/* Company Code (read-only) */}
           {company?.companyCode && (
             <div className="flex flex-col gap-0.5">
-              <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
+              <label className="font-mono text-caption-sm text-text-2 uppercase tracking-widest">
                 {t("company.companyCode")}
               </label>
               <div className="flex items-center gap-1">
@@ -318,14 +318,14 @@ export function CompanyTab() {
                   )}
                 </button>
               </div>
-              <p className="font-kosugi text-micro text-text-mute">
+              <p className="font-mono text-micro text-text-mute">
                 {t("company.companyCodeHint")}
               </p>
             </div>
           )}
 
           <div className="flex flex-col gap-0.5">
-            <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
+            <label className="font-mono text-caption-sm text-text-2 uppercase tracking-widest">
               {t("company.address")}
             </label>
             <div className="flex gap-1">
@@ -355,7 +355,7 @@ export function CompanyTab() {
           </div>
           <Input label={t("company.website")} type="url" value={companyWebsite} onChange={(e) => setCompanyWebsite(e.target.value)} placeholder={t("company.websitePlaceholder")} />
           <div className="flex flex-col gap-0.5">
-            <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
+            <label className="font-mono text-caption-sm text-text-2 uppercase tracking-widest">
               {t("company.description")}
             </label>
             <Textarea
@@ -366,7 +366,7 @@ export function CompanyTab() {
             />
           </div>
           <div className="flex flex-col gap-0.5">
-            <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
+            <label className="font-mono text-caption-sm text-text-2 uppercase tracking-widest">
               {t("company.businessHours")}
             </label>
             <div className="flex items-center gap-1.5">
@@ -388,7 +388,7 @@ export function CompanyTab() {
           {/* ── Company Size & Age — side by side ─────────────── */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
             <div className="flex flex-col gap-1">
-              <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
+              <label className="font-mono text-caption-sm text-text-2 uppercase tracking-widest">
                 Team Size
               </label>
               <div className="flex gap-1">
@@ -412,7 +412,7 @@ export function CompanyTab() {
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
+              <label className="font-mono text-caption-sm text-text-2 uppercase tracking-widest">
                 Years in Business
               </label>
               <div className="flex gap-1">

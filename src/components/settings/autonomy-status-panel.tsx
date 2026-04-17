@@ -267,7 +267,7 @@ export function AutonomyStatusPanel({ connectionId }: AutonomyStatusPanelProps) 
         {/* What's next */}
         {nextLevelConfig && (
           <div className="pt-2 border-t border-[rgba(255,255,255,0.04)]">
-            <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider block mb-0.5">
+            <span className="font-mono text-micro text-text-mute uppercase tracking-wider block mb-0.5">
               {t("status.whatsNext")}
             </span>
             <div className="flex items-start gap-1.5">
@@ -324,7 +324,7 @@ export function AutonomyStatusPanel({ connectionId }: AutonomyStatusPanelProps) 
         </p>
 
         {data.confidence <= 0.75 && (
-          <p className="font-kosugi text-micro text-text-mute mt-1">
+          <p className="font-mono text-micro text-text-mute mt-1">
             [{t("autoDraft.requiresConfidence")}]
           </p>
         )}

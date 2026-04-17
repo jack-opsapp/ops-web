@@ -48,7 +48,7 @@ export default function DashboardError({
             onClick={() => setShowDetails(!showDetails)}
             className="w-full flex items-center justify-between px-2 py-1.5 hover:bg-[rgba(255,255,255,0.03)] transition-colors"
           >
-            <span className="font-kosugi text-caption-sm text-text-mute uppercase tracking-widest">
+            <span className="font-mono text-caption-sm text-text-mute uppercase tracking-widest">
               Error Details
             </span>
             <ChevronDown

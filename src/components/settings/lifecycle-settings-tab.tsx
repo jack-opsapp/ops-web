@@ -168,7 +168,7 @@ export function LifecycleSettingsTab() {
           <h3 className="font-mohave text-body-lg text-text uppercase">
             {t("lifecycle.title")}
           </h3>
-          <p className="font-kosugi text-[12px] text-text-3 mt-0.5">
+          <p className="font-mono text-[12px] text-text-3 mt-0.5">
             [{t("lifecycle.subtitle")}]
           </p>
         </div>
@@ -190,10 +190,10 @@ export function LifecycleSettingsTab() {
 
       {/* Status Update Frequency */}
       <div className="rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] saturate-[1.2] p-4">
-        <span className="font-kosugi text-[11px] text-text-3 uppercase block mb-2">
+        <span className="font-mono text-[11px] text-text-3 uppercase block mb-2">
           [{t("lifecycle.statusUpdates")}]
         </span>
-        <p className="font-kosugi text-[12px] text-text-2 mb-3">
+        <p className="font-mono text-[12px] text-text-2 mb-3">
           {t("lifecycle.statusUpdatesDesc")}
         </p>
         <div className="flex gap-2 flex-wrap">
@@ -217,14 +217,14 @@ export function LifecycleSettingsTab() {
 
       {/* Overdue Task Detection */}
       <div className="rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] saturate-[1.2] p-4">
-        <span className="font-kosugi text-[11px] text-text-3 uppercase block mb-2">
+        <span className="font-mono text-[11px] text-text-3 uppercase block mb-2">
           [{t("lifecycle.overdueDetection")}]
         </span>
-        <p className="font-kosugi text-[12px] text-text-2 mb-3">
+        <p className="font-mono text-[12px] text-text-2 mb-3">
           {t("lifecycle.overdueDetectionDesc")}
         </p>
         <div className="flex items-center gap-3">
-          <span className="font-kosugi text-[12px] text-text-2">
+          <span className="font-mono text-[12px] text-text-2">
             {t("lifecycle.flagAfter")}
           </span>
           <input
@@ -242,11 +242,11 @@ export function LifecycleSettingsTab() {
             }
             className="w-[80px] min-h-[56px] font-mohave text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[4px] px-3 text-text text-center outline-none focus:border-[rgba(255,255,255,0.3)] [color-scheme:dark]"
           />
-          <span className="font-kosugi text-[12px] text-text-2">
+          <span className="font-mono text-[12px] text-text-2">
             {t("lifecycle.days")}
           </span>
           {config.overdue_threshold_days === 0 && (
-            <span className="font-kosugi text-[11px] text-text-3">
+            <span className="font-mono text-[11px] text-text-3">
               ({t("lifecycle.disabled")})
             </span>
           )}
@@ -255,14 +255,14 @@ export function LifecycleSettingsTab() {
 
       {/* Auto-Archive */}
       <div className="rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] saturate-[1.2] p-4">
-        <span className="font-kosugi text-[11px] text-text-3 uppercase block mb-2">
+        <span className="font-mono text-[11px] text-text-3 uppercase block mb-2">
           [{t("lifecycle.autoArchive")}]
         </span>
-        <p className="font-kosugi text-[12px] text-text-2 mb-3">
+        <p className="font-mono text-[12px] text-text-2 mb-3">
           {t("lifecycle.autoArchiveDesc")}
         </p>
         <div className="flex items-center gap-3">
-          <span className="font-kosugi text-[12px] text-text-2">
+          <span className="font-mono text-[12px] text-text-2">
             {t("lifecycle.archiveAfter")}
           </span>
           <input
@@ -280,11 +280,11 @@ export function LifecycleSettingsTab() {
             }
             className="w-[80px] min-h-[56px] font-mohave text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[4px] px-3 text-text text-center outline-none focus:border-[rgba(255,255,255,0.3)] [color-scheme:dark]"
           />
-          <span className="font-kosugi text-[12px] text-text-2">
+          <span className="font-mono text-[12px] text-text-2">
             {t("lifecycle.daysAfterCompletion")}
           </span>
           {config.archive_after_days === 0 && (
-            <span className="font-kosugi text-[11px] text-text-3">
+            <span className="font-mono text-[11px] text-text-3">
               ({t("lifecycle.disabled")})
             </span>
           )}
@@ -294,19 +294,19 @@ export function LifecycleSettingsTab() {
       {/* Stage-to-Task Mapping */}
       <div className="rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] saturate-[1.2] p-4">
         <div className="flex items-center justify-between mb-2">
-          <span className="font-kosugi text-[11px] text-text-3 uppercase">
+          <span className="font-mono text-[11px] text-text-3 uppercase">
             [{t("lifecycle.stageTaskMapping")}]
           </span>
           <button
             onClick={() => updateConfig({ stage_task_overrides: {} })}
-            className="flex items-center gap-1 font-kosugi text-[11px] text-text-3 hover:text-text-2 transition-colors min-h-[56px] min-w-[56px] justify-center -my-4"
+            className="flex items-center gap-1 font-mono text-[11px] text-text-3 hover:text-text-2 transition-colors min-h-[56px] min-w-[56px] justify-center -my-4"
             title={t("lifecycle.resetDefaults")}
           >
             <RotateCcw className="w-[12px] h-[12px]" />
             {t("lifecycle.resetDefaults")}
           </button>
         </div>
-        <p className="font-kosugi text-[12px] text-text-2 mb-4">
+        <p className="font-mono text-[12px] text-text-2 mb-4">
           {t("lifecycle.stageTaskMappingDesc")}
         </p>
 
@@ -335,7 +335,7 @@ export function LifecycleSettingsTab() {
                             handleStageTaskChange(key, i, e.target.value)
                           }
                           placeholder={t("lifecycle.taskNamePlaceholder")}
-                          className="flex-1 min-h-[56px] font-kosugi text-[12px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[4px] px-3 text-text outline-none focus:border-[rgba(255,255,255,0.3)] placeholder:text-text-mute"
+                          className="flex-1 min-h-[56px] font-mono text-[12px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[4px] px-3 text-text outline-none focus:border-[rgba(255,255,255,0.3)] placeholder:text-text-mute"
                         />
                         <button
                           onClick={() => removeStageTask(key, i)}
@@ -347,19 +347,19 @@ export function LifecycleSettingsTab() {
                     ))}
                     <button
                       onClick={() => addStageTask(key)}
-                      className="font-kosugi text-[11px] text-text-3 hover:text-text-2 transition-colors min-h-[56px]"
+                      className="font-mono text-[11px] text-text-3 hover:text-text-2 transition-colors min-h-[56px]"
                     >
                       + {t("lifecycle.addTask")}
                     </button>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
-                    <span className="font-kosugi text-[11px] text-text-3">
+                    <span className="font-mono text-[11px] text-text-3">
                       {t("lifecycle.usingDefaults")}
                     </span>
                     <button
                       onClick={() => addStageTask(key)}
-                      className="font-kosugi text-[11px] text-text-2 hover:text-text transition-colors min-h-[56px]"
+                      className="font-mono text-[11px] text-text-2 hover:text-text transition-colors min-h-[56px]"
                     >
                       {t("lifecycle.customize")}
                     </button>

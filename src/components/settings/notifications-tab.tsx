@@ -72,7 +72,7 @@ function CategoryRow({
       {/* Label */}
       <div className="flex-1 min-w-0">
         <p className="font-mohave text-body text-text">{label}</p>
-        <p className="font-kosugi text-micro text-text-mute leading-tight">{description}</p>
+        <p className="font-mono text-micro text-text-mute leading-tight">{description}</p>
       </div>
       {/* Phone toggle */}
       <div className="w-[40px] flex justify-center">
@@ -226,7 +226,7 @@ export function NotificationsTab() {
               <Smartphone className="w-[14px] h-[14px] text-text-3" />
               <div>
                 <p className="font-mohave text-body text-text">{t("notifications.pushNotifications")}</p>
-                <p className="font-kosugi text-micro text-text-mute">{t("notifications.pushDesc")}</p>
+                <p className="font-mono text-micro text-text-mute">{t("notifications.pushDesc")}</p>
               </div>
             </div>
             <ToggleSwitch
@@ -239,7 +239,7 @@ export function NotificationsTab() {
               <Mail className="w-[14px] h-[14px] text-text-3" />
               <div>
                 <p className="font-mohave text-body text-text">{t("notifications.emailNotifications")}</p>
-                <p className="font-kosugi text-micro text-text-mute">{t("notifications.emailDesc")}</p>
+                <p className="font-mono text-micro text-text-mute">{t("notifications.emailDesc")}</p>
               </div>
             </div>
             <ToggleSwitch
@@ -254,7 +254,7 @@ export function NotificationsTab() {
       <Card>
         <CardHeader>
           <CardTitle>{t("notifications.categories")}</CardTitle>
-          <p className="font-kosugi text-micro text-text-mute">{t("notifications.categoriesDesc")}</p>
+          <p className="font-mono text-micro text-text-mute">{t("notifications.categoriesDesc")}</p>
         </CardHeader>
         <CardContent>
           {/* Column headers */}
@@ -263,7 +263,7 @@ export function NotificationsTab() {
             <div className="w-[40px] flex justify-center">
               <div className="flex flex-col items-center gap-0.5">
                 <Smartphone className={cn("w-[12px] h-[12px]", globalPushOff ? "text-text-mute" : "text-text-2")} />
-                <span className={cn("font-kosugi text-micro uppercase", globalPushOff ? "text-text-mute" : "text-text-3")}>
+                <span className={cn("font-mono text-micro uppercase", globalPushOff ? "text-text-mute" : "text-text-3")}>
                   {t("notifications.colPhone")}
                 </span>
               </div>
@@ -271,7 +271,7 @@ export function NotificationsTab() {
             <div className="w-[40px] flex justify-center">
               <div className="flex flex-col items-center gap-0.5">
                 <Mail className={cn("w-[12px] h-[12px]", globalEmailOff ? "text-text-mute" : "text-text-2")} />
-                <span className={cn("font-kosugi text-micro uppercase", globalEmailOff ? "text-text-mute" : "text-text-3")}>
+                <span className={cn("font-mono text-micro uppercase", globalEmailOff ? "text-text-mute" : "text-text-3")}>
                   {t("notifications.colEmail")}
                 </span>
               </div>
@@ -280,12 +280,12 @@ export function NotificationsTab() {
 
           {/* Global off warnings */}
           {globalPushOff && (
-            <p className="font-kosugi text-micro text-yellow-400/70 py-1">
+            <p className="font-mono text-micro text-yellow-400/70 py-1">
               {t("notifications.globalOff").replace("{channel}", t("notifications.colPhone").toLowerCase())}
             </p>
           )}
           {globalEmailOff && (
-            <p className="font-kosugi text-micro text-yellow-400/70 py-1">
+            <p className="font-mono text-micro text-yellow-400/70 py-1">
               {t("notifications.globalOff").replace("{channel}", t("notifications.colEmail").toLowerCase())}
             </p>
           )}
@@ -319,7 +319,7 @@ export function NotificationsTab() {
           <div className="flex items-center justify-between py-[6px]">
             <div>
               <p className="font-mohave text-body text-text">{t("notifications.dailyDigest")}</p>
-              <p className="font-kosugi text-micro text-text-mute">{t("notifications.dailyDigestDesc")}</p>
+              <p className="font-mono text-micro text-text-mute">{t("notifications.dailyDigestDesc")}</p>
             </div>
             <ToggleSwitch
               enabled={prefs.channelPreferences.daily_digest.email || prefs.channelPreferences.daily_digest.push}
@@ -331,7 +331,7 @@ export function NotificationsTab() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-mohave text-body text-text">{t("notifications.quietHours")}</p>
-                <p className="font-kosugi text-micro text-text-mute">{t("notifications.quietHoursDesc")}</p>
+                <p className="font-mono text-micro text-text-mute">{t("notifications.quietHoursDesc")}</p>
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
                 <input
@@ -339,20 +339,20 @@ export function NotificationsTab() {
                   value={localStart}
                   onChange={(e) => setLocalStart(e.target.value)}
                   onBlur={() => saveQuietHours("quietHoursStart", localStart)}
-                  className="bg-surface-input border border-border rounded px-2 py-1 font-kosugi text-[11px] text-text w-[90px]"
+                  className="bg-surface-input border border-border rounded px-2 py-1 font-mono text-[11px] text-text w-[90px]"
                 />
-                <span className="font-kosugi text-[11px] text-text-mute">–</span>
+                <span className="font-mono text-[11px] text-text-mute">–</span>
                 <input
                   type="time"
                   value={localEnd}
                   onChange={(e) => setLocalEnd(e.target.value)}
                   onBlur={() => saveQuietHours("quietHoursEnd", localEnd)}
-                  className="bg-surface-input border border-border rounded px-2 py-1 font-kosugi text-[11px] text-text w-[90px]"
+                  className="bg-surface-input border border-border rounded px-2 py-1 font-mono text-[11px] text-text w-[90px]"
                 />
               </div>
             </div>
             {quietHoursWarning && (
-              <p className="font-kosugi text-micro text-yellow-400 mt-1">{t("notifications.quietHoursSameWarning")}</p>
+              <p className="font-mono text-micro text-yellow-400 mt-1">{t("notifications.quietHoursSameWarning")}</p>
             )}
           </div>
         </CardContent>

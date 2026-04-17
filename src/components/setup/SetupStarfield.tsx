@@ -1109,7 +1109,7 @@ export function SetupStarfield({
             transition={{ duration: 0.4 }}
             className="absolute top-[14%] left-1/2 -translate-x-1/2 z-10 text-center pointer-events-none"
           >
-            <p className="font-kosugi text-[11px] text-text-3 uppercase tracking-[0.2em] max-w-[400px] leading-relaxed">
+            <p className="font-mono text-[11px] text-text-3 uppercase tracking-[0.2em] max-w-[400px] leading-relaxed">
               Answer questions so we can tailor OPS to your operation
             </p>
           </motion.div>
@@ -1133,7 +1133,7 @@ export function SetupStarfield({
             }}
           >
             <div className="px-2.5 py-1.5 rounded-sm bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2] border border-[rgba(255,255,255,0.08)]">
-              <span className="font-kosugi text-body text-text whitespace-nowrap uppercase tracking-wider">
+              <span className="font-mono text-body text-text whitespace-nowrap uppercase tracking-wider">
                 {hoveredNode.label}
               </span>
             </div>
@@ -1157,7 +1157,7 @@ export function SetupStarfield({
               <h2 className="font-mohave text-display text-text">
                 {focusedQuestion.question}
               </h2>
-              <p className="font-kosugi text-caption text-text-3 mt-1">
+              <p className="font-mono text-caption text-text-3 mt-1">
                 Click an option to answer
               </p>
             </div>
@@ -1243,7 +1243,7 @@ export function SetupStarfield({
               <p className="font-mohave text-body text-text">
                 Dashboard unlocked
               </p>
-              <p className="font-kosugi text-[11px] text-text-3 mt-0.5">
+              <p className="font-mono text-[11px] text-text-3 mt-0.5">
                 Keep going or hit Launch to see your command center
               </p>
             </div>
@@ -1274,7 +1274,7 @@ export function SetupStarfield({
             />
           ))}
         </div>
-        <p className="font-kosugi text-micro text-text-mute text-center mt-2">
+        <p className="font-mono text-micro text-text-mute text-center mt-2">
           {answeredCount}/{visibleQuestions.length} answered
           {answeredCount < minRequired &&
             ` · ${minRequired - answeredCount} more needed`}

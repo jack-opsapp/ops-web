@@ -185,7 +185,7 @@ export function EngagementContent({
           <p className="font-mohave text-[13px] uppercase tracking-widest text-[#6B6B6B] mb-2">
             Engagement Distribution
           </p>
-          <p className="font-kosugi text-[12px] text-[#6B6B6B] mb-6">
+          <p className="font-mono text-[12px] text-[#6B6B6B] mb-6">
             [companies by total entity count (projects + tasks + clients)]
           </p>
           <AdminBarChart
@@ -199,7 +199,7 @@ export function EngagementContent({
           <p className="font-mohave text-[13px] uppercase tracking-widest text-[#6B6B6B] mb-2">
             Cohort Retention
           </p>
-          <p className="font-kosugi text-[12px] text-[#6B6B6B] mb-4">
+          <p className="font-mono text-[12px] text-[#6B6B6B] mb-4">
             [% active at month N, proxy: project creation]
           </p>
           <div className="overflow-x-auto">
@@ -244,7 +244,7 @@ export function EngagementContent({
                             {pct}%
                           </span>
                           {/* Hover tooltip showing absolute count */}
-                          <span className="absolute -top-6 left-1/2 -translate-x-1/2 bg-glass glass-surface border border-white/[0.08] rounded px-2 py-0.5 font-kosugi text-[11px] text-[#E5E5E5] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+                          <span className="absolute -top-6 left-1/2 -translate-x-1/2 bg-glass glass-surface border border-white/[0.08] rounded px-2 py-0.5 font-mono text-[11px] text-[#E5E5E5] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
                             {Math.round((pct / 100) * row.signups)} users
                           </span>
                         </td>

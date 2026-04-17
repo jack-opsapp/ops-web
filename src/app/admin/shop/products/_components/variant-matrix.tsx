@@ -88,7 +88,7 @@ export function VariantMatrix({
   if (mergedVariants.length === 0) {
     return (
       <div>
-        <p className="font-kosugi text-[11px] uppercase tracking-widest text-[#6B6B6B] mb-3">
+        <p className="font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B] mb-3">
           Variants
         </p>
         <p className="font-mohave text-[13px] text-[#6B6B6B]">
@@ -103,7 +103,7 @@ export function VariantMatrix({
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <p className="font-kosugi text-[11px] uppercase tracking-widest text-[#6B6B6B]">
+        <p className="font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B]">
           Variants ({mergedVariants.length})
         </p>
         <div className="flex items-center gap-2">
@@ -119,27 +119,27 @@ export function VariantMatrix({
               {optionNames.map((name) => (
                 <th
                   key={name}
-                  className="px-3 py-2 text-left font-kosugi text-[11px] uppercase tracking-widest text-[#6B6B6B]"
+                  className="px-3 py-2 text-left font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B]"
                 >
                   {name}
                 </th>
               ))}
-              <th className="px-3 py-2 text-left font-kosugi text-[11px] uppercase tracking-widest text-[#6B6B6B]">
+              <th className="px-3 py-2 text-left font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B]">
                 SKU
               </th>
-              <th className="px-3 py-2 text-left font-kosugi text-[11px] uppercase tracking-widest text-[#6B6B6B] w-[100px]">
+              <th className="px-3 py-2 text-left font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B] w-[100px]">
                 Price
               </th>
-              <th className="px-3 py-2 text-left font-kosugi text-[11px] uppercase tracking-widest text-[#6B6B6B] w-[80px]">
+              <th className="px-3 py-2 text-left font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B] w-[80px]">
                 Stock
               </th>
-              <th className="px-3 py-2 text-left font-kosugi text-[11px] uppercase tracking-widest text-[#6B6B6B] w-[70px]">
+              <th className="px-3 py-2 text-left font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B] w-[70px]">
                 Reserved
               </th>
-              <th className="px-3 py-2 text-left font-kosugi text-[11px] uppercase tracking-widest text-[#6B6B6B] w-[80px]">
+              <th className="px-3 py-2 text-left font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B] w-[80px]">
                 Available
               </th>
-              <th className="px-3 py-2 text-left font-kosugi text-[11px] uppercase tracking-widest text-[#6B6B6B] w-[60px]">
+              <th className="px-3 py-2 text-left font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B] w-[60px]">
                 Active
               </th>
             </tr>
@@ -239,7 +239,7 @@ function BulkSetButton({
           setOpen(false);
           setValue("");
         }}
-        className="px-2 py-1 bg-ops-accent rounded-sm font-kosugi text-micro uppercase text-white"
+        className="px-2 py-1 bg-ops-accent rounded-sm font-mono text-micro uppercase text-white"
       >
         Set
       </button>
@@ -247,7 +247,7 @@ function BulkSetButton({
   ) : (
     <button
       onClick={() => setOpen(true)}
-      className="font-kosugi text-micro uppercase tracking-widest text-[#6B6B6B] hover:text-[#E5E5E5] transition-colors"
+      className="font-mono text-micro uppercase tracking-widest text-[#6B6B6B] hover:text-[#E5E5E5] transition-colors"
     >
       {label}
     </button>

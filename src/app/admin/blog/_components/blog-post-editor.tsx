@@ -150,7 +150,7 @@ export function BlogPostEditor({
   const labelClass =
     "font-mohave text-[12px] uppercase tracking-wider text-[#6B6B6B] block mb-1";
   const inputClass =
-    "w-full bg-white/[0.05] border border-white/[0.1] rounded px-3 py-1.5 font-kosugi text-[12px] text-[#E5E5E5] focus:outline-none focus:border-white/[0.2]";
+    "w-full bg-white/[0.05] border border-white/[0.1] rounded px-3 py-1.5 font-mono text-[12px] text-[#E5E5E5] focus:outline-none focus:border-white/[0.2]";
 
   return (
     <div className="flex gap-6 min-h-[calc(100vh-100px)]">
@@ -369,7 +369,7 @@ export function BlogPostEditor({
           {/* Word Count */}
           <div>
             <label className={labelClass}>Word Count</label>
-            <p className="font-kosugi text-[12px] text-[#A7A7A7]">
+            <p className="font-mono text-[12px] text-[#A7A7A7]">
               {wordCount.toLocaleString()} words
             </p>
           </div>
@@ -491,7 +491,7 @@ function ThumbnailUploader({
             <span className="font-mohave text-[11px] uppercase tracking-wider text-[#6B6B6B]">
               {uploading ? "Uploading..." : "Drop image or click to upload"}
             </span>
-            <span className="font-kosugi text-micro text-[#6B6B6B]/60 mt-1">
+            <span className="font-mono text-micro text-[#6B6B6B]/60 mt-1">
               JPEG, PNG, WebP — max 10MB
             </span>
           </div>

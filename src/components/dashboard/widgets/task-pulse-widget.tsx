@@ -216,7 +216,7 @@ export function TaskPulseWidget({ size, tasks, estimates, projects = [], clients
     return (
       <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
+          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
             {t("taskPulse.title") ?? "Tasks"}
           </span>
           <WidgetSkeleton variant="horizontal-bars" />
@@ -230,7 +230,7 @@ export function TaskPulseWidget({ size, tasks, estimates, projects = [], clients
     return (
       <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
-          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider">
+          <span className="font-mono text-micro text-text-3 uppercase tracking-wider">
             {t("taskPulse.title") ?? "Tasks"}
           </span>
           <WidgetEmptyState
@@ -299,7 +299,7 @@ export function TaskPulseWidget({ size, tasks, estimates, projects = [], clients
           >
             {hasOverdue ? segments.overdue : segments.total}
           </span>
-          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
+          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
             {t("taskPulse.title") ?? "Tasks"}
           </span>
           <WidgetTrendContext
@@ -322,7 +322,7 @@ export function TaskPulseWidget({ size, tasks, estimates, projects = [], clients
             {segments.total}
           </span>
           {/* Row 2: Title */}
-          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
+          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
             {t("taskPulse.title") ?? "Tasks"}
           </span>
           {/* Row 3: Health indicator */}
@@ -350,7 +350,7 @@ export function TaskPulseWidget({ size, tasks, estimates, projects = [], clients
       <div className="h-full flex flex-col px-3 py-2">
         {/* Header */}
         <div className="flex items-baseline justify-between mb-2">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
+          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
             {t("taskPulse.title") ?? "Tasks"}
           </span>
           <span

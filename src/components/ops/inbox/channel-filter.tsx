@@ -58,7 +58,7 @@ export function ChannelFilterBar({ active, onChange }: ChannelFilterProps) {
             )}
           >
             {seg.icon}
-            <span className="font-kosugi text-micro uppercase tracking-wider">
+            <span className="font-mono text-micro uppercase tracking-wider">
               {seg.label}
             </span>
           </button>

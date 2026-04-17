@@ -56,7 +56,7 @@ export function SpreadsheetBulkBar({
           <div className="relative">
             <button
               onClick={() => setShowStatusMenu(!showStatusMenu)}
-              className="px-2 py-1 rounded-sm font-kosugi text-micro uppercase tracking-wider text-text-2 hover:text-text hover:bg-[rgba(255,255,255,0.06)] transition-colors"
+              className="px-2 py-1 rounded-sm font-mono text-micro uppercase tracking-wider text-text-2 hover:text-text hover:bg-[rgba(255,255,255,0.06)] transition-colors"
             >
               {t("spreadsheet.bulk.changeStatus")}
             </button>
@@ -85,7 +85,7 @@ export function SpreadsheetBulkBar({
 
           <button
             onClick={onArchive}
-            className="px-2 py-1 rounded-sm font-kosugi text-micro uppercase tracking-wider text-text-2 hover:text-text hover:bg-[rgba(255,255,255,0.06)] transition-colors"
+            className="px-2 py-1 rounded-sm font-mono text-micro uppercase tracking-wider text-text-2 hover:text-text hover:bg-[rgba(255,255,255,0.06)] transition-colors"
           >
             {t("spreadsheet.bulk.archive")}
           </button>
@@ -95,7 +95,7 @@ export function SpreadsheetBulkBar({
       {canDelete && (
         <button
           onClick={onDelete}
-          className="px-2 py-1 rounded-sm font-kosugi text-micro uppercase tracking-wider text-[#93321A] hover:text-[#b5423a] hover:bg-[rgba(147,50,26,0.1)] transition-colors"
+          className="px-2 py-1 rounded-sm font-mono text-micro uppercase tracking-wider text-[#93321A] hover:text-[#b5423a] hover:bg-[rgba(147,50,26,0.1)] transition-colors"
         >
           {t("spreadsheet.bulk.delete")}
         </button>
@@ -106,7 +106,7 @@ export function SpreadsheetBulkBar({
         className="ml-auto flex items-center gap-1 px-2 py-1 rounded-sm text-text-3 hover:text-text transition-colors"
       >
         <X className="w-3 h-3" />
-        <span className="font-kosugi text-micro uppercase tracking-wider">{t("spreadsheet.bulk.clear")}</span>
+        <span className="font-mono text-micro uppercase tracking-wider">{t("spreadsheet.bulk.clear")}</span>
       </button>
     </div>
   );

@@ -146,7 +146,7 @@ export function DetailPopoverPhotosTab({
     return (
       <div className="flex flex-col items-center justify-center py-10 text-center">
         <Camera className="w-5 h-5 text-text-mute mb-2" />
-        <span className="font-kosugi text-[11px] text-text-mute">
+        <span className="font-mono text-[11px] text-text-mute">
           {t("detail.noPhotosYet")}
         </span>
       </div>

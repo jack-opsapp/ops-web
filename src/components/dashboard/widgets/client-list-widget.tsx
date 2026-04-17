@@ -242,7 +242,7 @@ export function ClientListWidget({ size, config }: ClientListWidgetProps) {
               <ArrowUpRight className="w-[14px] h-[14px]" />
             </button>
           </div>
-          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
+          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
             {t("clientList.title")}
           </span>
           <WidgetTrendContext variant="snapshot" label={t("trend.active") ?? "Active"} />
@@ -273,7 +273,7 @@ export function ClientListWidget({ size, config }: ClientListWidgetProps) {
       <div className="h-full flex flex-col p-3">
         {/* HEADER: Title + Sort + New Client */}
         <div className="flex items-center justify-between mb-2 shrink-0">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
+          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
             {t("clientList.title")}
           </span>
           <div className="flex items-center gap-1">
@@ -300,7 +300,7 @@ export function ClientListWidget({ size, config }: ClientListWidgetProps) {
               <span className="font-mono text-data-lg font-bold text-text block leading-none">
                 {lgMetrics.total}
               </span>
-              <span className="font-kosugi text-micro text-text-3 uppercase">
+              <span className="font-mono text-micro text-text-3 uppercase">
                 {t("clientList.total")}
               </span>
             </div>
@@ -308,7 +308,7 @@ export function ClientListWidget({ size, config }: ClientListWidgetProps) {
               <span className="font-mono text-data-lg font-bold text-text block leading-none">
                 {lgMetrics.activeThisMonth}
               </span>
-              <span className="font-kosugi text-micro text-text-3 uppercase">
+              <span className="font-mono text-micro text-text-3 uppercase">
                 {t("clientList.activeMonth")}
               </span>
             </div>
@@ -316,7 +316,7 @@ export function ClientListWidget({ size, config }: ClientListWidgetProps) {
               <span className="font-mono text-data-lg font-bold text-text block leading-none">
                 {lgMetrics.newThisMonth}
               </span>
-              <span className="font-kosugi text-micro text-text-3 uppercase">
+              <span className="font-mono text-micro text-text-3 uppercase">
                 {t("clientList.newMonth")}
               </span>
             </div>

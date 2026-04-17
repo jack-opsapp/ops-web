@@ -72,7 +72,7 @@ export function SpatialDragOverlay({
               padding: "2px 8px",
             }}
           >
-            <span className="font-kosugi text-micro text-text">
+            <span className="font-mono text-micro text-text">
               +{batchCount - 1}
             </span>
           </div>

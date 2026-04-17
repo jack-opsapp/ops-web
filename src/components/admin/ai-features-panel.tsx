@@ -197,7 +197,7 @@ export function AIFeaturesPanel() {
                   </div>
                   <div className="flex gap-2 mt-1">
                     <span
-                      className={`inline-block px-1.5 py-0.5 text-micro font-kosugi uppercase tracking-wider rounded ${
+                      className={`inline-block px-1.5 py-0.5 text-micro font-mono uppercase tracking-wider rounded ${
                         c.aiEmailReview.enabled
                           ? "bg-[#9DB582]/15 text-[#9DB582]"
                           : "bg-white/5 text-[#999]"
@@ -207,7 +207,7 @@ export function AIFeaturesPanel() {
                       {c.aiEmailReview.enabled ? "ON" : "OFF"}
                     </span>
                     <span
-                      className={`inline-block px-1.5 py-0.5 text-micro font-kosugi uppercase tracking-wider rounded ${
+                      className={`inline-block px-1.5 py-0.5 text-micro font-mono uppercase tracking-wider rounded ${
                         c.phaseC.enabled
                           ? "bg-[#9DB582]/15 text-[#9DB582]"
                           : "bg-white/5 text-[#999]"
@@ -259,7 +259,7 @@ export function AIFeaturesPanel() {
                       )
                     }
                     disabled={toggling === "ai_email_review"}
-                    className={`px-3 py-1.5 text-xs font-kosugi uppercase tracking-wider rounded transition-colors ${
+                    className={`px-3 py-1.5 text-xs font-mono uppercase tracking-wider rounded transition-colors ${
                       selectedCompany.features.ai_email_review.enabled
                         ? "bg-[#9DB582]/15 text-[#9DB582] border border-[#9DB582]/20 hover:bg-[#93321A]/15 hover:text-[#93321A] hover:border-[#93321A]/20"
                         : "bg-white/5 text-[#999] border border-white/10 hover:bg-[#9DB582]/15 hover:text-[#9DB582] hover:border-[#9DB582]/20"
@@ -291,7 +291,7 @@ export function AIFeaturesPanel() {
                       )
                     }
                     disabled={toggling === "phase_c"}
-                    className={`px-3 py-1.5 text-xs font-kosugi uppercase tracking-wider rounded transition-colors ${
+                    className={`px-3 py-1.5 text-xs font-mono uppercase tracking-wider rounded transition-colors ${
                       selectedCompany.features.phase_c.enabled
                         ? "bg-[#9DB582]/15 text-[#9DB582] border border-[#9DB582]/20 hover:bg-[#93321A]/15 hover:text-[#93321A] hover:border-[#93321A]/20"
                         : "bg-white/5 text-[#999] border border-white/10 hover:bg-[#9DB582]/15 hover:text-[#9DB582] hover:border-[#9DB582]/20"
@@ -308,7 +308,7 @@ export function AIFeaturesPanel() {
 
               {/* Memory stats */}
               <div className="space-y-2">
-                <div className="font-kosugi text-micro uppercase tracking-wider text-[#999]">
+                <div className="font-mono text-micro uppercase tracking-wider text-[#999]">
                   [ MEMORY STATS ]
                 </div>
                 <div className="grid grid-cols-3 gap-2">
@@ -341,7 +341,7 @@ export function AIFeaturesPanel() {
                 {/* Entity breakdown */}
                 {Object.keys(selectedCompany.memory.entitiesByType).length > 0 && (
                   <div className="mt-2">
-                    <div className="font-kosugi text-micro uppercase tracking-wider text-[#999] mb-1">
+                    <div className="font-mono text-micro uppercase tracking-wider text-[#999] mb-1">
                       [ ENTITIES ]
                     </div>
                     <div className="px-2 py-1.5 rounded bg-glass glass-surface border border-white/5">
@@ -358,7 +358,7 @@ export function AIFeaturesPanel() {
                 {/* Fact categories (top 5) */}
                 {Object.keys(selectedCompany.memory.factsByCategory).length > 0 && (
                   <div className="mt-2">
-                    <div className="font-kosugi text-micro uppercase tracking-wider text-[#999] mb-1">
+                    <div className="font-mono text-micro uppercase tracking-wider text-[#999] mb-1">
                       [ TOP FACT CATEGORIES ]
                     </div>
                     <div className="px-2 py-1.5 rounded bg-glass glass-surface border border-white/5">
@@ -376,7 +376,7 @@ export function AIFeaturesPanel() {
                 {/* Writing profiles by type */}
                 {selectedCompany.memory.writingProfiles.length > 0 && (
                   <div className="mt-2 space-y-1">
-                    <div className="font-kosugi text-micro uppercase tracking-wider text-[#999]">
+                    <div className="font-mono text-micro uppercase tracking-wider text-[#999]">
                       [ WRITING PROFILES ]
                     </div>
                     {selectedCompany.memory.writingProfiles.map((wp) => (
@@ -406,7 +406,7 @@ export function AIFeaturesPanel() {
                 {!confirmReset ? (
                   <button
                     onClick={() => setConfirmReset(true)}
-                    className="px-3 py-1.5 text-xs font-kosugi uppercase tracking-wider rounded border border-[#93321A]/20 text-[#93321A] bg-[#93321A]/10 hover:bg-[#93321A]/20 transition-colors"
+                    className="px-3 py-1.5 text-xs font-mono uppercase tracking-wider rounded border border-[#93321A]/20 text-[#93321A] bg-[#93321A]/10 hover:bg-[#93321A]/20 transition-colors"
                   >
                     Reset Memory
                   </button>
@@ -419,13 +419,13 @@ export function AIFeaturesPanel() {
                       onClick={() =>
                         resetMemory(selectedCompany.company.id)
                       }
-                      className="px-3 py-1.5 text-xs font-kosugi uppercase tracking-wider rounded bg-[#93321A] text-white hover:bg-[#93321A]/80 transition-colors"
+                      className="px-3 py-1.5 text-xs font-mono uppercase tracking-wider rounded bg-[#93321A] text-white hover:bg-[#93321A]/80 transition-colors"
                     >
                       Confirm
                     </button>
                     <button
                       onClick={() => setConfirmReset(false)}
-                      className="px-3 py-1.5 text-xs font-kosugi uppercase tracking-wider rounded border border-white/10 text-[#999] hover:bg-white/5 transition-colors"
+                      className="px-3 py-1.5 text-xs font-mono uppercase tracking-wider rounded border border-white/10 text-[#999] hover:bg-white/5 transition-colors"
                     >
                       Cancel
                     </button>

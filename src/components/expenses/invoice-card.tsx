@@ -87,7 +87,7 @@ export function InvoiceCard({ batch, isSelected, onClick }: InvoiceCardProps) {
       </div>
 
       {/* Row 2 — Invoice number */}
-      <span className="font-kosugi text-caption-sm text-text-3 uppercase">
+      <span className="font-mono text-caption-sm text-text-3 uppercase">
         {batch.batchNumber}
       </span>
 
@@ -100,7 +100,7 @@ export function InvoiceCard({ batch, isSelected, onClick }: InvoiceCardProps) {
       <div className="flex items-center gap-1">
         {/* Status pill */}
         <span
-          className="inline-flex items-center rounded-full px-1.5 py-[2px] font-kosugi text-micro uppercase tracking-wider"
+          className="inline-flex items-center rounded-full px-1.5 py-[2px] font-mono text-micro uppercase tracking-wider"
           style={{
             backgroundColor: `${statusColor}26`,
             color: statusColor,
@@ -111,7 +111,7 @@ export function InvoiceCard({ batch, isSelected, onClick }: InvoiceCardProps) {
 
         {/* Amendment indicator */}
         {hasAmendment && (
-          <span className="inline-flex items-center rounded-full px-1.5 py-[2px] font-kosugi text-micro uppercase tracking-wider bg-ops-amber-muted text-ops-amber">
+          <span className="inline-flex items-center rounded-full px-1.5 py-[2px] font-mono text-micro uppercase tracking-wider bg-ops-amber-muted text-ops-amber">
             +A{batch.amendmentNumber}
           </span>
         )}

@@ -40,7 +40,7 @@ export function WidgetPeriodPicker({
                 key={opt.value}
                 onClick={() => onChange(opt.value)}
                 className={cn(
-                  "font-kosugi text-micro uppercase tracking-wider px-2 py-1 rounded-sm text-left transition-colors",
+                  "font-mono text-micro uppercase tracking-wider px-2 py-1 rounded-sm text-left transition-colors",
                   value === opt.value
                     ? "text-text bg-[rgba(255,255,255,0.08)] border border-[rgba(255,255,255,0.18)]"
                     : "text-text-3 hover:text-text-2"

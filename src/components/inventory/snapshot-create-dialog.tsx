@@ -82,7 +82,7 @@ export function SnapshotCreateDialog({
         <div className="space-y-3 mt-2">
           {/* Notes */}
           <div className="space-y-0.5">
-            <label className="font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
+            <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">
               Notes (optional)
             </label>
             <Textarea

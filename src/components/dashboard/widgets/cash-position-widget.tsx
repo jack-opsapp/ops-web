@@ -150,7 +150,7 @@ export function CashPositionWidget({
     return (
       <Card className="h-full">
         <div className="px-3 pt-2 pb-1">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
+          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
             {t("cashPosition.title") ?? "Cash Flow"}
           </span>
         </div>
@@ -170,7 +170,7 @@ export function CashPositionWidget({
         <Card className="h-full">
           <div className="h-full flex flex-col pt-3">
             <span className="font-mono text-display font-bold text-text-mute leading-none">$0</span>
-            <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
+            <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
               {t("cashPosition.title") ?? "Cash Flow"}
             </span>
           </div>
@@ -187,7 +187,7 @@ export function CashPositionWidget({
                 <ArrowUpRight className="w-[14px] h-[14px]" />
               </button>
             </div>
-            <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
+            <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
               {t("cashPosition.title") ?? "Cash Flow"}
             </span>
             <span className="font-mohave text-caption-sm text-text-mute mt-1 truncate">
@@ -200,7 +200,7 @@ export function CashPositionWidget({
     return (
       <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
-          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider">
+          <span className="font-mono text-micro text-text-3 uppercase tracking-wider">
             {t("cashPosition.title") ?? "Cash Flow"}
           </span>
           <div className="flex-1 flex flex-col justify-center">
@@ -222,7 +222,7 @@ export function CashPositionWidget({
           <span className={`font-mono ${formatCompactCurrency(animatedNet).length > 4 ? "text-data-lg" : "text-display"} font-bold leading-none`} style={{ color: netColor }}>
             {netPrefix}{formatCompactCurrency(animatedNet)}
           </span>
-          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
+          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
             {t("cashPosition.title") ?? "Cash Flow"}
           </span>
           <WidgetTrendContext
@@ -264,7 +264,7 @@ export function CashPositionWidget({
                 <ArrowUpRight className="w-[14px] h-[14px]" />
               </button>
             </div>
-            <span className="font-kosugi text-micro text-text-3 mt-0.5">
+            <span className="font-mono text-micro text-text-3 mt-0.5">
               <span className="uppercase tracking-wider">{t("cashPosition.title") ?? "Cash Flow"}</span>
               <span className="text-text-mute"> · {periodLabel}</span>
             </span>
@@ -291,7 +291,7 @@ export function CashPositionWidget({
       <div className="h-full flex flex-col px-3 py-2">
         {/* HEADER */}
         <div className="flex items-center justify-between mb-2">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
+          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
             {t("cashPosition.title") ?? "Cash Flow"}
           </span>
           <WidgetPeriodPicker
@@ -341,7 +341,7 @@ export function CashPositionWidget({
               onMouseLeave={() => setBarTooltip((prev) => ({ ...prev, visible: false }))}
             >
               <div className="flex items-center justify-between mb-0.5">
-                <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
+                <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
                   {t("cashPosition.collected") ?? "Collected"}
                 </span>
                 <span className="font-mono text-micro text-status-success">{formatCompactCurrency(cashFlow.collected)}</span>
@@ -379,7 +379,7 @@ export function CashPositionWidget({
               onMouseLeave={() => setBarTooltip((prev) => ({ ...prev, visible: false }))}
             >
               <div className="flex items-center justify-between mb-0.5">
-                <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
+                <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
                   {t("cashPosition.spent") ?? "Spent"}
                 </span>
                 <span className="font-mono text-micro text-status-error">{formatCompactCurrency(cashFlow.spent)}</span>
@@ -402,7 +402,7 @@ export function CashPositionWidget({
             {/* Net + forecast summary */}
             <div className="pt-1 border-t border-border-subtle space-y-0.5">
               <div className="flex items-center justify-between">
-                <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
+                <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
                   {t("cashPosition.netCashFlow") ?? "Net"}
                 </span>
                 <span className="font-mono text-data-sm font-medium" style={{ color: netColor }}>
@@ -411,7 +411,7 @@ export function CashPositionWidget({
               </div>
               {forecastNet !== null && (
                 <div className="flex items-center justify-between">
-                  <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
+                  <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
                     {t("cashPosition.forecast30d") ?? "30d forecast"}
                   </span>
                   <span className="font-mono text-micro text-text-mute">

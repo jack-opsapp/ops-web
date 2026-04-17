@@ -169,7 +169,7 @@ export default function NewClientPage() {
             <h1 className="font-mohave text-display text-text tracking-wide">
               {t("new.heading")}
             </h1>
-            <p className="font-kosugi text-caption-sm text-text-3">
+            <p className="font-mono text-caption-sm text-text-3">
               {t("new.subtitle")}
             </p>
           </div>
@@ -263,7 +263,7 @@ export default function NewClientPage() {
 
         {/* Actions */}
         <div className="flex items-center justify-between pt-1">
-          <p className="font-kosugi text-caption-sm text-text-mute">
+          <p className="font-mono text-caption-sm text-text-mute">
             * Required field
           </p>
           <div className="flex items-center gap-1">

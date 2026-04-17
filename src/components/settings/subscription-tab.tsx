@@ -159,11 +159,11 @@ function UpgradeModal({
             <span className="font-mono text-[28px] text-text">
               ${price}
             </span>
-            <span className="font-kosugi text-[12px] text-text-mute">
+            <span className="font-mono text-[12px] text-text-mute">
               {t("subscription.perMonth")}
             </span>
             {period === "Annual" && (
-              <p className="font-kosugi text-[11px] text-text-mute mt-[2px]">
+              <p className="font-mono text-[11px] text-text-mute mt-[2px]">
                 ${info.annualPrice}{t("subscription.perYear")}
               </p>
             )}
@@ -174,7 +174,7 @@ function UpgradeModal({
             {features.map((f) => (
               <div key={f} className="flex items-center gap-[6px]">
                 <Check className="w-[12px] h-[12px] text-text-2 shrink-0" />
-                <span className="font-kosugi text-[11px] text-text-2">
+                <span className="font-mono text-[11px] text-text-2">
                   {f}
                 </span>
               </div>
@@ -249,12 +249,12 @@ function PlanCard({
                 {info.displayName}
               </h4>
               {isCurrent && (
-                <span className="font-kosugi text-micro text-text bg-[rgba(255,255,255,0.08)] px-[6px] py-[2px] rounded-full uppercase tracking-wider shrink-0">
+                <span className="font-mono text-micro text-text bg-[rgba(255,255,255,0.08)] px-[6px] py-[2px] rounded-full uppercase tracking-wider shrink-0">
                   {t("subscription.currentBadge")}
                 </span>
               )}
             </div>
-            <p className="font-kosugi text-[11px] text-text-mute">
+            <p className="font-mono text-[11px] text-text-mute">
               {info.maxSeats} {t("subscription.seats")}
             </p>
           </div>
@@ -264,7 +264,7 @@ function PlanCard({
             ${info.monthlyPrice}{t("subscription.perMonth")}
           </p>
           {info.annualPrice > 0 && (
-            <p className="font-kosugi text-micro text-text-mute">
+            <p className="font-mono text-micro text-text-mute">
               ${info.annualPrice}{t("subscription.perYear")}
             </p>
           )}
@@ -278,7 +278,7 @@ function PlanCard({
             {features.map((f) => (
               <div key={f} className="flex items-center gap-[6px]">
                 <Check className="w-[12px] h-[12px] text-text-2 shrink-0" />
-                <span className="font-kosugi text-[11px] text-text-2">
+                <span className="font-mono text-[11px] text-text-2">
                   {f}
                 </span>
               </div>
@@ -371,7 +371,7 @@ export function SubscriptionTab() {
             {/* Plan header */}
             <div className="flex items-center justify-between">
               <div>
-                <span className="font-kosugi text-micro text-text-3 uppercase tracking-widest">
+                <span className="font-mono text-micro text-text-3 uppercase tracking-widest">
                   {t("subscription.currentPlan")}
                 </span>
                 <h3 className="font-mohave text-heading text-text">
@@ -381,12 +381,12 @@ export function SubscriptionTab() {
                   {priceDisplay}
                 </p>
                 {isTrial && trialDaysRemaining > 0 && (
-                  <p className="font-kosugi text-[11px] text-ops-amber mt-[4px]">
+                  <p className="font-mono text-[11px] text-ops-amber mt-[4px]">
                     {trialDaysRemaining} {t("subscription.trialRemaining")}
                   </p>
                 )}
                 {nextBillingDate && !isTrial && (
-                  <p className="font-kosugi text-[11px] text-text-mute mt-[4px]">
+                  <p className="font-mono text-[11px] text-text-mute mt-[4px]">
                     {t("subscription.nextBilling")}: {nextBillingDate}
                   </p>
                 )}
@@ -399,7 +399,7 @@ export function SubscriptionTab() {
             {/* Seat usage */}
             <div className="pt-1.5 border-t border-[rgba(255,255,255,0.06)]">
               <div className="flex items-center justify-between mb-1">
-                <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider">
+                <span className="font-mono text-micro text-text-3 uppercase tracking-wider">
                   {t("subscription.seatUsage")}
                 </span>
                 <span className="font-mono text-data-sm text-text">
@@ -412,21 +412,21 @@ export function SubscriptionTab() {
                   style={{ width: `${seatPercentage}%` }}
                 />
               </div>
-              <p className="font-kosugi text-micro text-text-mute mt-[4px]">
+              <p className="font-mono text-micro text-text-mute mt-[4px]">
                 {seatsRemaining} {t("subscription.seatsRemaining")}
               </p>
             </div>
 
             {/* Features */}
             <div className="pt-1.5 border-t border-[rgba(255,255,255,0.06)]">
-              <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider">
+              <span className="font-mono text-micro text-text-3 uppercase tracking-wider">
                 {t("subscription.planFeatures")}
               </span>
               <div className="space-y-[6px] mt-1">
                 {features.map((feature) => (
                   <div key={feature} className="flex items-center gap-[6px]">
                     <Check className="w-[14px] h-[14px] text-text-2 shrink-0" />
-                    <span className="font-kosugi text-[11px] text-text-2">
+                    <span className="font-mono text-[11px] text-text-2">
                       {feature}
                     </span>
                   </div>

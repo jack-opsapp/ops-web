@@ -157,7 +157,7 @@ export function NotificationModal() {
                 {hasDismissible && (
                   <button
                     onClick={handleDismissAll}
-                    className="font-kosugi text-micro uppercase tracking-wider text-text-mute hover:text-text-2 transition-colors duration-150"
+                    className="font-mono text-micro uppercase tracking-wider text-text-mute hover:text-text-2 transition-colors duration-150"
                   >
                     {t("notifications.dismissAll")}
                   </button>
@@ -177,7 +177,7 @@ export function NotificationModal() {
               {sorted.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 px-4 gap-2">
                   <BellOff className="w-[28px] h-[28px] text-text-mute" />
-                  <p className="font-kosugi text-[11px] text-text-mute uppercase tracking-widest text-center">
+                  <p className="font-mono text-[11px] text-text-mute uppercase tracking-widest text-center">
                     {t("notifications.empty")}
                   </p>
                   <p className="font-mohave text-body-sm text-text-mute text-center">
@@ -190,7 +190,7 @@ export function NotificationModal() {
                     <div key={group.label}>
                       {/* Group label */}
                       <div className="px-[12px] pt-[10px] pb-[4px]">
-                        <span className="font-kosugi text-micro uppercase tracking-widest text-text-3">
+                        <span className="font-mono text-micro uppercase tracking-widest text-text-3">
                           {group.label}
                         </span>
                       </div>

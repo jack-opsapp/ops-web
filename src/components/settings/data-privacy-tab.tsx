@@ -116,7 +116,7 @@ export function DataPrivacyTab() {
             )}
             {exporting ? t("dataPrivacy.exporting") : t("dataPrivacy.downloadExport")}
           </Button>
-          <p className="font-kosugi text-[11px] text-text-mute">
+          <p className="font-mono text-[11px] text-text-mute">
             {t("dataPrivacy.exportHelper")}
           </p>
         </CardContent>
@@ -132,7 +132,7 @@ export function DataPrivacyTab() {
               <Database className="w-[16px] h-[16px] text-text-2 shrink-0" />
               <div>
                 <p className="font-mohave text-body-sm text-text-2">{t("dataPrivacy.activeData")}</p>
-                <p className="font-kosugi text-[11px] text-text-mute">
+                <p className="font-mono text-[11px] text-text-mute">
                   {t("dataPrivacy.activeDataDesc")}
                 </p>
               </div>
@@ -141,7 +141,7 @@ export function DataPrivacyTab() {
               <Clock className="w-[16px] h-[16px] text-ops-amber shrink-0" />
               <div>
                 <p className="font-mohave text-body-sm text-text-2">{t("dataPrivacy.deletedData")}</p>
-                <p className="font-kosugi text-[11px] text-text-mute">
+                <p className="font-mono text-[11px] text-text-mute">
                   {t("dataPrivacy.deletedDataDesc")}
                 </p>
               </div>
@@ -150,7 +150,7 @@ export function DataPrivacyTab() {
               <Trash2 className="w-[16px] h-[16px] text-text-mute shrink-0" />
               <div>
                 <p className="font-mohave text-body-sm text-text-2">{t("dataPrivacy.closedAccounts")}</p>
-                <p className="font-kosugi text-[11px] text-text-mute">
+                <p className="font-mono text-[11px] text-text-mute">
                   {t("dataPrivacy.closedAccountsDesc")}
                 </p>
               </div>

@@ -245,7 +245,7 @@ export const SpreadsheetRow = memo(function SpreadsheetRow({
                 {m.avatarUrl ? (
                   <img src={m.avatarUrl} alt={m.name} className="w-full h-full object-cover" />
                 ) : (
-                  <span className="font-kosugi text-[7px] text-text-3 uppercase">
+                  <span className="font-mono text-[7px] text-text-3 uppercase">
                     {m.name.charAt(0)}
                   </span>
                 )}
@@ -338,7 +338,7 @@ export const SpreadsheetRow = memo(function SpreadsheetRow({
 
       case "pipeline":
         return project.opportunityId ? (
-          <span className="inline-flex px-1.5 py-0.5 rounded-sm bg-[rgba(255,255,255,0.06)] border border-border-subtle font-kosugi text-micro text-text-3 uppercase tracking-wider">
+          <span className="inline-flex px-1.5 py-0.5 rounded-sm bg-[rgba(255,255,255,0.06)] border border-border-subtle font-mono text-micro text-text-3 uppercase tracking-wider">
             Linked
           </span>
         ) : (

@@ -14,7 +14,7 @@ export function VercelProjectsTab() {
   return (
     <div className="space-y-6">
       <div className="border border-white/[0.08] rounded-lg p-4 bg-white/[0.02]">
-        <p className="font-kosugi text-[12px] text-[#6B6B6B]">
+        <p className="font-mono text-[12px] text-[#6B6B6B]">
           [vercel analytics &amp; speed insights have no read api — data is only viewable in the vercel dashboard. links below open the vercel dashboard directly.]
         </p>
       </div>
@@ -28,7 +28,7 @@ export function VercelProjectsTab() {
             <p className="font-mohave text-lg font-semibold text-[#E5E5E5] mb-1">
               {project.name}
             </p>
-            <p className="font-kosugi text-[12px] text-[#6B6B6B] mb-4">
+            <p className="font-mono text-[12px] text-[#6B6B6B] mb-4">
               {project.slug}
             </p>
 
@@ -55,7 +55,7 @@ export function VercelProjectsTab() {
                   </a>
                 </>
               ) : (
-                <p className="font-kosugi text-[12px] text-[#6B6B6B] italic">
+                <p className="font-mono text-[12px] text-[#6B6B6B] italic">
                   [analytics not confirmed]
                 </p>
               )}

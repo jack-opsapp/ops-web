@@ -98,7 +98,7 @@ function TaskTypeDropdown({
 
   return (
     <div className="flex flex-col gap-0.5">
-      <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
+      <label className="font-mono text-caption-sm text-text-2 uppercase tracking-widest">
         Task Type
       </label>
       <div className="relative">
@@ -196,7 +196,7 @@ function StatusDropdown({
 
   return (
     <div className="flex flex-col gap-0.5">
-      <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
+      <label className="font-mono text-caption-sm text-text-2 uppercase tracking-widest">
         Status
       </label>
       <div className="relative">
@@ -287,7 +287,7 @@ function TeamMemberDropdown({
 
   return (
     <div className="flex flex-col gap-0.5">
-      <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
+      <label className="font-mono text-caption-sm text-text-2 uppercase tracking-widest">
         Team Members
       </label>
       <div className="relative">
@@ -423,7 +423,7 @@ function DependencySection({
 
   return (
     <div className="flex flex-col gap-0.5">
-      <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
+      <label className="font-mono text-caption-sm text-text-2 uppercase tracking-widest">
         {t("taskForm.dependencies")}
       </label>
       {activeDeps.length === 0 ? (

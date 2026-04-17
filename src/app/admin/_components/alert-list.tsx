@@ -29,7 +29,7 @@ export function AlertList({ alerts }: { alerts: AlertItem[] }) {
                 {alert.title}
               </p>
               {alert.detail && (
-                <p className="font-kosugi text-[12px] text-[#6B6B6B] mt-0.5 truncate">
+                <p className="font-mono text-[12px] text-[#6B6B6B] mt-0.5 truncate">
                   [{alert.detail}]
                 </p>
               )}

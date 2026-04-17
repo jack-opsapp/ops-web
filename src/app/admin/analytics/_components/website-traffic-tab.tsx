@@ -96,7 +96,7 @@ export function WebsiteTrafficTab({
       </div>
 
       {/* Latency caption */}
-      <p className="font-kosugi text-[11px] text-[#6B6B6B]">
+      <p className="font-mono text-[11px] text-[#6B6B6B]">
         [ga4 data · ~24-48hr latency]
       </p>
     </div>
@@ -125,7 +125,7 @@ function DimensionTable({
       </div>
       {rows.map((r, i) => (
         <div key={i} className="grid grid-cols-2 px-6 items-center h-10 border-b border-white/[0.05] last:border-0">
-          <span className="font-kosugi text-[13px] text-[#E5E5E5] truncate">{r.dimension}</span>
+          <span className="font-mono text-[13px] text-[#E5E5E5] truncate">{r.dimension}</span>
           <span className="font-mohave text-[14px] text-[#A0A0A0] text-right">{r.count.toLocaleString()}</span>
         </div>
       ))}

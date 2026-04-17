@@ -78,7 +78,7 @@ function ClientSelector({
 
   return (
     <div className="flex flex-col gap-0.5">
-      <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
+      <label className="font-mono text-caption-sm text-text-2 uppercase tracking-widest">
         {t("new.clientLabel")}
       </label>
       <div className="relative">
@@ -170,7 +170,7 @@ function TeamMemberSelector({
   if (isLoading) {
     return (
       <div className="flex flex-col gap-0.5">
-        <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
+        <label className="font-mono text-caption-sm text-text-2 uppercase tracking-widest">
           {t("new.teamLabel")}
         </label>
         <div className="flex flex-wrap gap-1">
@@ -188,7 +188,7 @@ function TeamMemberSelector({
   if (members.length === 0) {
     return (
       <div className="flex flex-col gap-0.5">
-        <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
+        <label className="font-mono text-caption-sm text-text-2 uppercase tracking-widest">
           {t("new.teamLabel")}
         </label>
         <p className="font-mohave text-body-sm text-text-3">
@@ -200,7 +200,7 @@ function TeamMemberSelector({
 
   return (
     <div className="flex flex-col gap-0.5">
-      <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
+      <label className="font-mono text-caption-sm text-text-2 uppercase tracking-widest">
         {t("new.teamLabel")}
       </label>
       <div className="flex flex-wrap gap-1">
@@ -388,7 +388,7 @@ export default function NewProjectPage() {
             control={control}
             render={({ field }) => (
               <div className="flex flex-col gap-0.5">
-                <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
+                <label className="font-mono text-caption-sm text-text-2 uppercase tracking-widest">
                   {t("new.statusLabel")}
                 </label>
                 <div className="flex items-center gap-1">

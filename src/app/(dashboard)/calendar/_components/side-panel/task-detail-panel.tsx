@@ -63,7 +63,7 @@ function DarkSelect({
     <div ref={ref} className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full text-left px-[10px] py-[6px] rounded-panel text-[12px] font-kosugi text-white"
+        className="w-full text-left px-[10px] py-[6px] rounded-panel text-[12px] font-mono text-white"
         style={{
           backgroundColor: "#141414",
           border: "1px solid rgba(255,255,255,0.10)",
@@ -87,7 +87,7 @@ function DarkSelect({
                 onChange(opt.value);
                 setIsOpen(false);
               }}
-              className="w-full text-left px-[10px] py-[6px] text-[12px] font-kosugi text-[#999999] hover:text-white hover:bg-[rgba(255,255,255,0.05)] transition-colors"
+              className="w-full text-left px-[10px] py-[6px] text-[12px] font-mono text-[#999999] hover:text-white hover:bg-[rgba(255,255,255,0.05)] transition-colors"
               style={opt.value === value ? { color: "#FFFFFF" } : undefined}
             >
               {opt.label}
@@ -103,7 +103,7 @@ function DarkSelect({
 
 function SectionLabel({ children }: { children: string }) {
   return (
-    <span className="font-kosugi text-micro uppercase tracking-[0.08em] text-[#999999] block mb-[6px]">
+    <span className="font-mono text-micro uppercase tracking-[0.08em] text-[#999999] block mb-[6px]">
       {children}
     </span>
   );
@@ -129,10 +129,10 @@ function TeamPill({
         border: "1px solid rgba(255,255,255,0.10)",
       }}
     >
-      <span className="font-kosugi text-micro uppercase text-[#999999]">
+      <span className="font-mono text-micro uppercase text-[#999999]">
         {initials}
       </span>
-      <span className="font-kosugi text-micro uppercase">{name}</span>
+      <span className="font-mono text-micro uppercase">{name}</span>
       <button
         onClick={onRemove}
         className="ml-[2px] text-[#999999] hover:text-white transition-colors"
@@ -533,7 +533,7 @@ export function TaskDetailPanel() {
             </div>
             {taskType && (
               <span
-                className="inline-block font-kosugi text-micro uppercase tracking-[0.08em] px-[6px] py-[2px] rounded-[2px] ml-[16px]"
+                className="inline-block font-mono text-micro uppercase tracking-[0.08em] px-[6px] py-[2px] rounded-[2px] ml-[16px]"
                 style={{
                   backgroundColor: `${taskColor}20`,
                   color: taskColor,
@@ -591,14 +591,14 @@ export function TaskDetailPanel() {
                 />
               ))}
               {teamMembers.length === 0 && !showTeamAdd && (
-                <span className="font-kosugi text-micro uppercase text-[#999999]">
+                <span className="font-mono text-micro uppercase text-[#999999]">
                   No team assigned
                 </span>
               )}
               <div className="relative">
                 <button
                   onClick={() => setShowTeamAdd(!showTeamAdd)}
-                  className="inline-flex items-center gap-[2px] px-[8px] py-[3px] rounded-full text-micro font-kosugi uppercase text-[#999999] hover:text-white transition-colors"
+                  className="inline-flex items-center gap-[2px] px-[8px] py-[3px] rounded-full text-micro font-mono uppercase text-[#999999] hover:text-white transition-colors"
                   style={{
                     border: "1px solid rgba(255,255,255,0.10)",
                   }}
@@ -619,7 +619,7 @@ export function TaskDetailPanel() {
                       <button
                         key={m.id}
                         onClick={() => handleAddTeamMember(m.id)}
-                        className="w-full text-left px-[10px] py-[6px] text-[11px] font-kosugi uppercase text-[#999999] hover:text-white hover:bg-[rgba(255,255,255,0.05)] transition-colors"
+                        className="w-full text-left px-[10px] py-[6px] text-[11px] font-mono uppercase text-[#999999] hover:text-white hover:bg-[rgba(255,255,255,0.05)] transition-colors"
                       >
                         {m.firstName} {m.lastName}
                       </button>
@@ -669,7 +669,7 @@ export function TaskDetailPanel() {
                 />
               </div>
               {durationLabel && (
-                <span className="font-kosugi text-micro uppercase text-[#999999]">
+                <span className="font-mono text-micro uppercase text-[#999999]">
                   Duration: {durationLabel}
                 </span>
               )}
@@ -684,7 +684,7 @@ export function TaskDetailPanel() {
             <SectionLabel>DEPENDENCIES</SectionLabel>
             {dependencies.predecessors.length === 0 &&
             dependencies.successors.length === 0 ? (
-              <span className="font-kosugi text-micro uppercase text-[#999999]">
+              <span className="font-mono text-micro uppercase text-[#999999]">
                 None
               </span>
             ) : (
@@ -695,7 +695,7 @@ export function TaskDetailPanel() {
                     className="flex items-center gap-[6px] text-[11px]"
                   >
                     <ArrowLeft className="w-[10px] h-[10px] text-[#999999]" />
-                    <span className="font-kosugi uppercase text-white">
+                    <span className="font-mono uppercase text-white">
                       {dep.typeName}
                     </span>
                     {dep.isCompleted ? (
@@ -711,7 +711,7 @@ export function TaskDetailPanel() {
                     className="flex items-center gap-[6px] text-[11px]"
                   >
                     <ArrowRight className="w-[10px] h-[10px] text-[#999999]" />
-                    <span className="font-kosugi uppercase text-white">
+                    <span className="font-mono uppercase text-white">
                       {dep.typeName}
                     </span>
                   </div>
@@ -776,7 +776,7 @@ export function TaskDetailPanel() {
           <div className="flex gap-[6px] mb-[10px]">
             <button
               onClick={() => handlePush(1)}
-              className="flex-1 px-[8px] py-[6px] rounded-panel font-kosugi text-micro uppercase text-white transition-colors hover:bg-[rgba(255,255,255,0.05)]"
+              className="flex-1 px-[8px] py-[6px] rounded-panel font-mono text-micro uppercase text-white transition-colors hover:bg-[rgba(255,255,255,0.05)]"
               style={{
                 backgroundColor: "#141414",
                 border: "1px solid rgba(255,255,255,0.10)",
@@ -786,7 +786,7 @@ export function TaskDetailPanel() {
             </button>
             <button
               onClick={() => handlePush(7)}
-              className="flex-1 px-[8px] py-[6px] rounded-panel font-kosugi text-micro uppercase text-white transition-colors hover:bg-[rgba(255,255,255,0.05)]"
+              className="flex-1 px-[8px] py-[6px] rounded-panel font-mono text-micro uppercase text-white transition-colors hover:bg-[rgba(255,255,255,0.05)]"
               style={{
                 backgroundColor: "#141414",
                 border: "1px solid rgba(255,255,255,0.10)",
@@ -796,7 +796,7 @@ export function TaskDetailPanel() {
             </button>
             <button
               onClick={handleCascade}
-              className="flex-1 px-[8px] py-[6px] rounded-panel font-kosugi text-micro uppercase text-white transition-colors hover:bg-[rgba(255,255,255,0.05)] flex items-center justify-center gap-[4px]"
+              className="flex-1 px-[8px] py-[6px] rounded-panel font-mono text-micro uppercase text-white transition-colors hover:bg-[rgba(255,255,255,0.05)] flex items-center justify-center gap-[4px]"
               style={{
                 backgroundColor: "#141414",
                 border: "1px solid rgba(255,255,255,0.10)",
@@ -810,19 +810,19 @@ export function TaskDetailPanel() {
           {/* Delete */}
           {showDeleteConfirm ? (
             <div className="flex items-center gap-[8px]">
-              <span className="font-kosugi text-micro uppercase text-red-400">
+              <span className="font-mono text-micro uppercase text-red-400">
                 Are you sure?
               </span>
               <button
                 onClick={handleDelete}
                 disabled={deleteTask.isPending}
-                className="px-[10px] py-[4px] rounded-panel font-kosugi text-micro uppercase text-white bg-red-600 hover:bg-red-500 transition-colors disabled:opacity-50"
+                className="px-[10px] py-[4px] rounded-panel font-mono text-micro uppercase text-white bg-red-600 hover:bg-red-500 transition-colors disabled:opacity-50"
               >
                 {deleteTask.isPending ? "Deleting..." : "Yes, Delete"}
               </button>
               <button
                 onClick={() => setShowDeleteConfirm(false)}
-                className="px-[10px] py-[4px] rounded-panel font-kosugi text-micro uppercase text-[#999999] hover:text-white transition-colors"
+                className="px-[10px] py-[4px] rounded-panel font-mono text-micro uppercase text-[#999999] hover:text-white transition-colors"
                 style={{ border: "1px solid rgba(255,255,255,0.10)" }}
               >
                 Cancel
@@ -831,7 +831,7 @@ export function TaskDetailPanel() {
           ) : (
             <button
               onClick={() => setShowDeleteConfirm(true)}
-              className="w-full text-left font-kosugi text-micro uppercase text-red-400 hover:text-red-300 transition-colors flex items-center gap-[4px] py-[4px]"
+              className="w-full text-left font-mono text-micro uppercase text-red-400 hover:text-red-300 transition-colors flex items-center gap-[4px] py-[4px]"
             >
               <Trash2 className="w-[12px] h-[12px]" />
               Delete Task

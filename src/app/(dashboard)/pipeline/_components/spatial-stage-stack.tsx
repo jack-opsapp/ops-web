@@ -137,7 +137,7 @@ export function SpatialStageStack({
         />
         <div className="flex items-baseline gap-2">
           <span
-            className="font-kosugi text-micro uppercase tracking-widest"
+            className="font-mono text-micro uppercase tracking-widest"
             style={{
               color: isHeaderHovered ? stageColor : "#666",
               transition: "color 0.25s ease-out",
@@ -159,10 +159,10 @@ export function SpatialStageStack({
             style={{ animationDuration: "150ms", animationFillMode: "forwards" }}
           >
             {/* Metric abbreviations — intentionally not i18n'd (universal shorthand) */}
-            <span className="font-kosugi text-micro text-text-mute">
+            <span className="font-mono text-micro text-text-mute">
               avg {Math.round(opportunities.reduce((sum, o) => sum + getDaysInStage(o), 0) / opportunities.length)}d
             </span>
-            <span className="font-kosugi text-micro text-text-mute">
+            <span className="font-mono text-micro text-text-mute">
               oldest: {Math.max(...opportunities.map((o) => getDaysInStage(o)))}d
             </span>
           </div>
@@ -212,10 +212,10 @@ export function SpatialStageStack({
             bottom: 12,
           }}
         >
-          <span className="font-kosugi text-micro text-text-mute uppercase">
+          <span className="font-mono text-micro text-text-mute uppercase">
             {t("empty.noDeals")}
           </span>
-          <span className="font-kosugi text-micro text-text-mute uppercase mt-1">
+          <span className="font-mono text-micro text-text-mute uppercase mt-1">
             {t("empty.dropHere")}
           </span>
         </div>

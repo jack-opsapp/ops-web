@@ -148,7 +148,7 @@ export function ProjectTerminalRegion({
         />
         <div className="flex items-baseline gap-2">
           <span
-            className="font-kosugi text-micro uppercase tracking-widest"
+            className="font-mono text-micro uppercase tracking-widest"
             style={{
               color: isRegionHovered ? statusColor : "#666",
               transition: "color 0.25s ease-out",
@@ -178,7 +178,7 @@ export function ProjectTerminalRegion({
               animationFillMode: "forwards",
             }}
           >
-            <span className="font-kosugi text-micro text-text-mute">
+            <span className="font-mono text-micro text-text-mute">
               avg{" "}
               {Math.round(
                 projects.reduce((sum, p) => sum + getDaysInStatus(p), 0) /
@@ -186,7 +186,7 @@ export function ProjectTerminalRegion({
               )}
               d
             </span>
-            <span className="font-kosugi text-micro text-text-mute">
+            <span className="font-mono text-micro text-text-mute">
               oldest: {Math.max(...projects.map((p) => getDaysInStatus(p)))}d
             </span>
           </div>
@@ -226,7 +226,7 @@ export function ProjectTerminalRegion({
             height: CARD_HEIGHT,
           }}
         >
-          <span className="font-kosugi text-micro text-text-mute uppercase">
+          <span className="font-mono text-micro text-text-mute uppercase">
             {t("empty.noProjects")}
           </span>
         </div>

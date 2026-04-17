@@ -215,7 +215,7 @@ export function ExpenseTrackerWidget({
     return (
       <Card className="h-full">
         <div className="px-3 pt-2 pb-1">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
+          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
             {t("expenseTracker.title") ?? "Expenses"}
           </span>
         </div>
@@ -233,7 +233,7 @@ export function ExpenseTrackerWidget({
         <Card className="h-full">
           <div className="h-full flex flex-col pt-3">
             <span className="font-mono text-display font-bold text-text-mute leading-none">$0</span>
-            <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
+            <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
               {t("expenseTracker.title") ?? "Expenses"}
             </span>
           </div>
@@ -250,7 +250,7 @@ export function ExpenseTrackerWidget({
                 <ArrowUpRight className="w-[14px] h-[14px]" />
               </button>
             </div>
-            <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
+            <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
               {t("expenseTracker.title") ?? "Expenses"}
             </span>
             <span className="font-mohave text-caption-sm text-text-mute mt-1 truncate">
@@ -263,7 +263,7 @@ export function ExpenseTrackerWidget({
     return (
       <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
-          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider">
+          <span className="font-mono text-micro text-text-3 uppercase tracking-wider">
             {t("expenseTracker.title") ?? "Expenses"}
           </span>
           <div className="flex-1 flex flex-col justify-center">
@@ -285,7 +285,7 @@ export function ExpenseTrackerWidget({
           <span className={`font-mono ${formatCompactCurrency(animatedTotal).length > 4 ? "text-data-lg" : "text-display"} font-bold leading-none text-text`}>
             {formatCompactCurrency(animatedTotal)}
           </span>
-          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
+          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
             {t("expenseTracker.title") ?? "Expenses"}
           </span>
           <WidgetTrendContext
@@ -317,7 +317,7 @@ export function ExpenseTrackerWidget({
               <ArrowUpRight className="w-[14px] h-[14px]" />
             </button>
           </div>
-          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
+          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
             {t("expenseTracker.title") ?? "Expenses"}
           </span>
           {topCat && (
@@ -347,7 +347,7 @@ export function ExpenseTrackerWidget({
       <div className="h-full flex flex-col p-3">
         {/* Header */}
         <div className="flex items-center justify-between mb-1">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
+          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
             {t("expenseTracker.title") ?? "Expenses"}
           </span>
         </div>
@@ -508,7 +508,7 @@ export function ExpenseTrackerWidget({
 
           return (
             <div className="mt-2 pt-2 border-t border-border-subtle shrink-0 flex flex-col">
-              <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider mb-1 block">
+              <span className="font-mono text-micro text-text-mute uppercase tracking-wider mb-1 block">
                 {t("expenseTracker.byTeamMember") ?? "By Team Member"}
               </span>
               {teamListExpanded ? (

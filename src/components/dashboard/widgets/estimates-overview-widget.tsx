@@ -162,7 +162,7 @@ export function EstimatesOverviewWidget({
           <span className="font-mono text-data-lg font-bold leading-none text-text">
             {isLoading ? "—" : filtered.length}
           </span>
-          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
+          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
             {t("estimatesOverview.title").replace("{filter}", statusFilterLabel[filter])}
           </span>
           <WidgetTrendContext variant="snapshot" label={t("trend.pending") ?? "Pending"} />
@@ -186,7 +186,7 @@ export function EstimatesOverviewWidget({
     <Card className="h-full p-0" ref={ref}>
       <div className="h-full flex flex-col p-3">
         <div className="flex items-center justify-between mb-2">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
+          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
             {t("estimatesOverview.title").replace("{filter}", statusFilterLabel[filter])}
           </span>
           <span className="font-mono text-micro text-text-3">

@@ -25,7 +25,7 @@ const InfoRow = React.forwardRef<HTMLDivElement, InfoRowProps>(
           {icon}
         </div>
       )}
-      <span className="shrink-0 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest min-w-[100px]">
+      <span className="shrink-0 font-mono text-caption-sm text-text-3 uppercase tracking-widest min-w-[100px]">
         {label}
       </span>
       <span

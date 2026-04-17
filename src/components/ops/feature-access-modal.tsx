@@ -217,7 +217,7 @@ export function FeatureAccessModal({
               <p className="font-mohave text-body text-text text-center">
                 {"You're on the list!"}
               </p>
-              <p className="font-kosugi text-caption text-text-2 text-center">
+              <p className="font-mono text-caption text-text-2 text-center">
                 {"We'll review your request and get back to you."}
               </p>
               <Button variant="secondary" onClick={onClose} className="mt-2">
@@ -233,7 +233,7 @@ export function FeatureAccessModal({
               <p className="font-mohave text-body text-text text-center">
                 {"You've already requested access to"} {featureLabel}.
               </p>
-              <p className="font-kosugi text-caption text-text-2 text-center">
+              <p className="font-mono text-caption text-text-2 text-center">
                 {"We'll be in touch!"}
               </p>
               <Button variant="secondary" onClick={onClose} className="mt-2">
@@ -245,7 +245,7 @@ export function FeatureAccessModal({
           {/* ─── Request Form ─── */}
           {!success && !alreadyRequested && (
             <>
-              <p className="font-kosugi text-caption text-text-2">
+              <p className="font-mono text-caption text-text-2">
                 {profileComplete
                   ? "This feature is currently in development. Want to be added to the pre-release testing list?"
                   : "To request access, please complete your company information below."}
@@ -254,19 +254,19 @@ export function FeatureAccessModal({
               {/* User info (read-only) */}
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <span className="font-kosugi text-caption-sm text-text-mute uppercase w-[60px]">Name</span>
+                  <span className="font-mono text-caption-sm text-text-mute uppercase w-[60px]">Name</span>
                   <span className="font-mohave text-body-sm text-text">
                     {currentUser ? `${currentUser.firstName ?? ""} ${currentUser.lastName ?? ""}`.trim() : "—"}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="font-kosugi text-caption-sm text-text-mute uppercase w-[60px]">Email</span>
+                  <span className="font-mono text-caption-sm text-text-mute uppercase w-[60px]">Email</span>
                   <span className="font-mohave text-body-sm text-text">
                     {currentUser?.email ?? "—"}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="font-kosugi text-caption-sm text-text-mute uppercase w-[60px]">Company</span>
+                  <span className="font-mono text-caption-sm text-text-mute uppercase w-[60px]">Company</span>
                   <span className="font-mohave text-body-sm text-text">
                     {company?.name ?? "—"}
                   </span>
@@ -277,7 +277,7 @@ export function FeatureAccessModal({
               <div className="space-y-2 pt-1 border-t border-border">
                 {/* Industries */}
                 <div className="flex flex-col gap-0.5">
-                  <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
+                  <label className="font-mono text-caption-sm text-text-2 uppercase tracking-widest">
                     Industry {industries.length === 0 && <span className="text-ops-error">*</span>}
                   </label>
                   <div className="flex flex-wrap gap-1">
@@ -301,7 +301,7 @@ export function FeatureAccessModal({
 
                 {/* Company Size */}
                 <div className="flex flex-col gap-0.5">
-                  <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
+                  <label className="font-mono text-caption-sm text-text-2 uppercase tracking-widest">
                     Company Size {!companySize && <span className="text-ops-error">*</span>}
                   </label>
                   <div className="flex gap-1">
@@ -325,7 +325,7 @@ export function FeatureAccessModal({
 
                 {/* Company Age */}
                 <div className="flex flex-col gap-0.5">
-                  <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
+                  <label className="font-mono text-caption-sm text-text-2 uppercase tracking-widest">
                     Company Age {!companyAge && <span className="text-ops-error">*</span>}
                   </label>
                   <div className="flex gap-1 flex-wrap">

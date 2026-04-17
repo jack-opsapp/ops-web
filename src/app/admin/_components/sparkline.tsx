@@ -14,7 +14,7 @@ export function Sparkline({ data, color = "#597794", height = 48, onClick }: Spa
 
   if (chartData.length === 0) {
     return <div style={{ height }} className="flex items-center justify-center">
-      <span className="font-kosugi text-[11px] text-[#6B6B6B]">[no data]</span>
+      <span className="font-mono text-[11px] text-[#6B6B6B]">[no data]</span>
     </div>;
   }
 

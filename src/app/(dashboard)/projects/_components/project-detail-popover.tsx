@@ -268,12 +268,12 @@ const ProjectDetailPopoverInstance = memo(function ProjectDetailPopoverInstance(
           {project?.address ? (
             <div className="flex items-center gap-1 text-text-3 min-w-0">
               <MapPin className="w-2.5 h-2.5 shrink-0" />
-              <span className="font-kosugi text-micro truncate">
+              <span className="font-mono text-micro truncate">
                 {project.address}
               </span>
             </div>
           ) : (
-            <span className="font-kosugi text-micro text-text-mute">
+            <span className="font-mono text-micro text-text-mute">
               {t("detail.noAddress")}
             </span>
           )}
@@ -282,12 +282,12 @@ const ProjectDetailPopoverInstance = memo(function ProjectDetailPopoverInstance(
         {/* Row 2: status + days + overflow */}
         <div className="flex items-center gap-1.5" ref={overflowMenuRef}>
           <span
-            className="font-kosugi text-micro uppercase tracking-wide"
+            className="font-mono text-micro uppercase tracking-wide"
             style={{ color: statusColor }}
           >
             {statusName}
           </span>
-          <span className="font-kosugi text-micro text-text-mute">
+          <span className="font-mono text-micro text-text-mute">
             · {daysInStatus}d
           </span>
           {canManage && (
@@ -360,7 +360,7 @@ const ProjectDetailPopoverInstance = memo(function ProjectDetailPopoverInstance(
       {/* ── Delete confirmation ── */}
       {showDeleteConfirm && (
         <div className="px-3 py-2 border-b border-[rgba(255,255,255,0.06)] shrink-0">
-          <p className="font-kosugi text-[11px] text-text-2 mb-2">
+          <p className="font-mono text-[11px] text-text-2 mb-2">
             Permanently delete this project? This cannot be undone.
           </p>
           <div className="flex items-center gap-2">
@@ -415,21 +415,21 @@ const ProjectDetailPopoverInstance = memo(function ProjectDetailPopoverInstance(
         )}
         {state.activeTab === "tasks" && (
           <div className="flex items-center justify-center h-full">
-            <span className="font-kosugi text-micro text-text-mute uppercase">
+            <span className="font-mono text-micro text-text-mute uppercase">
               Tasks tab — coming soon
             </span>
           </div>
         )}
         {state.activeTab === "financial" && (
           <div className="flex items-center justify-center h-full">
-            <span className="font-kosugi text-micro text-text-mute uppercase">
+            <span className="font-mono text-micro text-text-mute uppercase">
               Financial tab — coming soon
             </span>
           </div>
         )}
         {state.activeTab === "photos" && (
           <div className="flex items-center justify-center h-full">
-            <span className="font-kosugi text-micro text-text-mute uppercase">
+            <span className="font-mono text-micro text-text-mute uppercase">
               Photos tab — coming soon
             </span>
           </div>
@@ -485,7 +485,7 @@ function ProjectOverviewTab({
     <div className="flex flex-col gap-4">
       {/* Status */}
       <div>
-        <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
+        <span className="font-mono text-micro text-text-mute uppercase tracking-widest">
           Status
         </span>
         <div className="flex items-center gap-2 mt-1">
@@ -502,7 +502,7 @@ function ProjectOverviewTab({
       {/* Client */}
       {clientName && (
         <div>
-          <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
+          <span className="font-mono text-micro text-text-mute uppercase tracking-widest">
             Client
           </span>
           <p className="font-mohave text-body-sm text-text mt-1">
@@ -514,7 +514,7 @@ function ProjectOverviewTab({
       {/* Address */}
       {project.address && (
         <div>
-          <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
+          <span className="font-mono text-micro text-text-mute uppercase tracking-widest">
             Address
           </span>
           <p className="font-mohave text-body-sm text-text mt-1">
@@ -526,7 +526,7 @@ function ProjectOverviewTab({
       {/* Dates */}
       {(startDate || endDate) && (
         <div>
-          <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
+          <span className="font-mono text-micro text-text-mute uppercase tracking-widest">
             Dates
           </span>
           <p className="font-mohave text-body-sm text-text mt-1">
@@ -540,7 +540,7 @@ function ProjectOverviewTab({
       {/* Description */}
       {project.projectDescription && (
         <div>
-          <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
+          <span className="font-mono text-micro text-text-mute uppercase tracking-widest">
             Description
           </span>
           <p className="font-mohave text-body-sm text-text-2 mt-1 leading-relaxed">
@@ -552,7 +552,7 @@ function ProjectOverviewTab({
       {/* Notes */}
       {project.notes && (
         <div>
-          <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
+          <span className="font-mono text-micro text-text-mute uppercase tracking-widest">
             Notes
           </span>
           <p className="font-mohave text-body-sm text-text-2 mt-1 leading-relaxed">

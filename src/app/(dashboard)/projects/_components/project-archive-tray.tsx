@@ -62,7 +62,7 @@ export function ProjectArchiveTray({
         >
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-[rgba(255,255,255,0.06)]">
-            <span className="font-kosugi text-micro text-text-3 uppercase tracking-widest">
+            <span className="font-mono text-micro text-text-3 uppercase tracking-widest">
               {t("archive.title")}
             </span>
             <button
@@ -116,7 +116,7 @@ export function ProjectArchiveTray({
                     {/* Restore + Delete buttons */}
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
-                        className="font-kosugi text-micro text-text-2 hover:text-text cursor-pointer whitespace-nowrap"
+                        className="font-mono text-micro text-text-2 hover:text-text cursor-pointer whitespace-nowrap"
                         onClick={() => onRestore(project.id)}
                       >
                         {t("archive.restore")}

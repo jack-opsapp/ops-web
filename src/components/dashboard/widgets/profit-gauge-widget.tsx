@@ -127,7 +127,7 @@ export function ProfitGaugeWidget({
     return (
       <Card className="h-full">
         <div className="px-3 pt-2 pb-1">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
+          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
             {t("profitGauge.title") ?? "Profit"}
           </span>
         </div>
@@ -146,10 +146,10 @@ export function ProfitGaugeWidget({
           <span className="font-mono text-display font-bold leading-none" style={{ color }}>
             {hasData ? `${animatedMargin}%` : "0%"}
           </span>
-          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
+          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
             {t("profitGauge.title") ?? "Profit"}
           </span>
-          <span className="font-kosugi text-micro text-text-mute uppercase">
+          <span className="font-mono text-micro text-text-mute uppercase">
             {t("profitGauge.margin") ?? "Margin"}
           </span>
         </div>
@@ -186,7 +186,7 @@ export function ProfitGaugeWidget({
             </div>
           </div>
           {/* Row 2: Title */}
-          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
+          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
             {t("profitGauge.title") ?? "Profit"}
           </span>
           {/* Row 3: Visual breakdown — stacked bar showing revenue vs expense proportion */}
@@ -241,7 +241,7 @@ export function ProfitGaugeWidget({
       <div className="h-full flex flex-col px-3 py-2">
         {/* Header with period picker */}
         <div className="flex items-center justify-between mb-2">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
+          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
             {t("profitGauge.title") ?? "Profit"}
           </span>
           <div className="flex items-center gap-2">
@@ -273,7 +273,7 @@ export function ProfitGaugeWidget({
               {/* Revenue bar — full width baseline */}
               <div className="flex-1 min-h-0 flex flex-col justify-center">
                 <div className="flex items-center justify-between mb-0.5">
-                  <span className="font-kosugi text-micro text-text-mute uppercase">
+                  <span className="font-mono text-micro text-text-mute uppercase">
                     {t("profitGauge.revenue") ?? "Revenue"}
                   </span>
                   <span className="font-mono text-micro text-text">{formatCompactCurrency(financials.revenue)}</span>
@@ -295,7 +295,7 @@ export function ProfitGaugeWidget({
               {/* Expenses bar — shows what's subtracted */}
               <div className="flex-1 min-h-0 flex flex-col justify-center">
                 <div className="flex items-center justify-between mb-0.5">
-                  <span className="font-kosugi text-micro text-text-mute uppercase">
+                  <span className="font-mono text-micro text-text-mute uppercase">
                     {t("profitGauge.expenses") ?? "Expenses"}
                   </span>
                   <span className="font-mono text-micro text-text-3">{formatCompactCurrency(financials.expenses)}</span>
@@ -318,7 +318,7 @@ export function ProfitGaugeWidget({
               {/* Profit bar — the result (revenue - expenses) */}
               <div className="flex-1 min-h-0 flex flex-col justify-center">
                 <div className="flex items-center justify-between mb-0.5">
-                  <span className="font-kosugi text-micro text-text-mute uppercase">
+                  <span className="font-mono text-micro text-text-mute uppercase">
                     {t("profitGauge.profit") ?? "Profit"}
                   </span>
                   <span className="font-mono text-micro font-medium" style={{ color }}>

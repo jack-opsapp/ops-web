@@ -62,10 +62,10 @@ type TagSelection = TagEntry | NewTagEntry;
 // ─── Section Label ──────────────────────────────────────────────────────────────
 
 const SECTION_LABEL =
-  "font-kosugi text-caption-sm uppercase tracking-widest text-text-3 mb-3";
+  "font-mono text-caption-sm uppercase tracking-widest text-text-3 mb-3";
 
 const FORM_LABEL =
-  "font-kosugi text-caption-sm uppercase tracking-widest text-text-3";
+  "font-mono text-caption-sm uppercase tracking-widest text-text-3";
 
 // ─── Component ──────────────────────────────────────────────────────────────────
 

@@ -80,14 +80,6 @@
   font-style: normal;
   font-display: swap;
 }
-@font-face {
-  font-family: "Kosugi";
-  src: url("/fonts/Kosugi-Regular.ttf") format("truetype");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
 @layer base {
   :root {
     --background: 0 0% 0%;
@@ -280,7 +272,7 @@
 
   /* === Section Header === */
   .section-header {
-    @apply font-kosugi text-caption-bold text-text-2 uppercase tracking-widest;
+    @apply font-mono text-caption-bold text-text-2 uppercase tracking-widest;
   }
 
   /* === Separator with Label === */

@@ -115,7 +115,7 @@ export function AssignRoleModal({
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-[480px]">
         <DialogHeader>
-          <DialogTitle className="font-kosugi text-micro uppercase tracking-wider text-text-2">
+          <DialogTitle className="font-mono text-micro uppercase tracking-wider text-text-2">
             Assign role
           </DialogTitle>
         </DialogHeader>
@@ -129,7 +129,7 @@ export function AssignRoleModal({
               {fullName}
             </p>
             {member.email && (
-              <p className="font-kosugi text-micro text-text-3 truncate">
+              <p className="font-mono text-micro text-text-3 truncate">
                 {member.email}
               </p>
             )}
@@ -146,7 +146,7 @@ export function AssignRoleModal({
         />
 
         <div className="flex flex-col gap-1 mt-2">
-          <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
+          <label className="font-mono text-caption-sm text-text-2 uppercase tracking-widest">
             Role
           </label>
           <div className="flex flex-wrap items-center gap-1">
@@ -167,11 +167,11 @@ export function AssignRoleModal({
             ))}
           </div>
           {selectedRole?.description ? (
-            <p className="font-kosugi text-micro text-text-3 mt-[4px]">
+            <p className="font-mono text-micro text-text-3 mt-[4px]">
               {selectedRole.description}
             </p>
           ) : (
-            <p className="font-kosugi text-micro text-text-mute mt-[4px]">
+            <p className="font-mono text-micro text-text-mute mt-[4px]">
               The role {firstName} receives when active on jobs.
             </p>
           )}

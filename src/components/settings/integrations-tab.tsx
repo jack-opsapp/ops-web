@@ -153,7 +153,7 @@ function AnalysisProgressBanner({ jobId, wizardOpen, onComplete, onClick }: Anal
           <span className="font-mohave text-body-sm text-[#9DB582] block">
             Analysis complete — {leadCount} lead{leadCount !== 1 ? "s" : ""} found
           </span>
-          <span className="font-kosugi text-micro text-text-mute">
+          <span className="font-mono text-micro text-text-mute">
             {totalScanned} emails scanned
           </span>
         </div>
@@ -175,7 +175,7 @@ function AnalysisProgressBanner({ jobId, wizardOpen, onComplete, onClick }: Anal
           <span className="font-mohave text-body-sm text-[#FF6B4A] block">
             Analysis failed
           </span>
-          <span className="font-kosugi text-micro text-text-mute">
+          <span className="font-mono text-micro text-text-mute">
             {message}
           </span>
         </div>
@@ -339,7 +339,7 @@ export function IntegrationsTab() {
           <div className="flex items-center justify-between">
             <CardTitle>{t("integrations.companyGmail")}</CardTitle>
             {companyConnections.length > 0 && (
-              <span className="inline-flex items-center gap-[4px] px-1 py-[3px] rounded-sm font-kosugi text-micro uppercase tracking-wider bg-[rgba(107,143,113,0.15)] text-[#6B8F71]">
+              <span className="inline-flex items-center gap-[4px] px-1 py-[3px] rounded-sm font-mono text-micro uppercase tracking-wider bg-[rgba(107,143,113,0.15)] text-[#6B8F71]">
                 <Check className="w-[12px] h-[12px]" />
                 {t("integrations.connected")}
               </span>
@@ -369,7 +369,7 @@ export function IntegrationsTab() {
                       <span className="font-mono text-data-sm text-[#6B8F71] block truncate">
                         {conn.email}
                       </span>
-                      <span className="font-kosugi text-micro text-text-mute">
+                      <span className="font-mono text-micro text-text-mute">
                         {t("integrations.lastSynced")} {formatTimeAgo(conn.lastSyncedAt)}
                       </span>
                     </div>
@@ -413,7 +413,7 @@ export function IntegrationsTab() {
                 <span className="font-mohave text-body text-text-2 block">
                   Analysis in progress...
                 </span>
-                <span className="font-kosugi text-micro text-text-mute">
+                <span className="font-mono text-micro text-text-mute">
                   Click to view progress
                 </span>
               </div>
@@ -428,7 +428,7 @@ export function IntegrationsTab() {
                 <span className="font-mohave text-body text-text block">
                   Import Your Pipeline
                 </span>
-                <span className="font-kosugi text-micro text-text-mute">
+                <span className="font-mono text-micro text-text-mute">
                   Connect your email and automatically import leads into your pipeline
                 </span>
               </div>
@@ -484,7 +484,7 @@ export function IntegrationsTab() {
 
           {companyConnections.length > 0 && (
             <div className="pt-[4px]">
-              <label className="flex items-center gap-[6px] font-kosugi text-[11px] text-text-2">
+              <label className="flex items-center gap-[6px] font-mono text-[11px] text-text-2">
                 <Clock className="w-[14px] h-[14px] text-text-mute" />
                 Sync Frequency
               </label>
@@ -518,7 +518,7 @@ export function IntegrationsTab() {
                     <span className="font-mohave text-body text-[#9DB582] block">
                       Import complete — activate sync
                     </span>
-                    <span className="font-kosugi text-micro text-text-mute">
+                    <span className="font-mono text-micro text-text-mute">
                       Your leads are in the pipeline. Finish setup to enable ongoing sync.
                     </span>
                   </div>
@@ -531,7 +531,7 @@ export function IntegrationsTab() {
                       <span className="font-mohave text-body-sm text-amber-600 dark:text-amber-400 block">
                         Pipeline import not configured
                       </span>
-                      <span className="font-kosugi text-micro text-text-mute">
+                      <span className="font-mono text-micro text-text-mute">
                         Run the import wizard to discover leads in your inbox and activate ongoing sync.
                       </span>
                     </div>
@@ -546,7 +546,7 @@ export function IntegrationsTab() {
                       <span className="font-mohave text-body text-text block">
                         Import Your Pipeline
                       </span>
-                      <span className="font-kosugi text-micro text-text-mute">
+                      <span className="font-mono text-micro text-text-mute">
                         Automatically discover leads, classify with AI, and import into your pipeline
                       </span>
                     </div>
@@ -567,7 +567,7 @@ export function IntegrationsTab() {
                   </span>
                   <button
                     onClick={() => openWizard()}
-                    className="ml-auto font-kosugi text-micro text-text-mute/50 hover:text-text-mute transition-colors"
+                    className="ml-auto font-mono text-micro text-text-mute/50 hover:text-text-mute transition-colors"
                   >
                     re-scan
                   </button>
@@ -577,7 +577,7 @@ export function IntegrationsTab() {
               {/* Sync History — last 3 import jobs */}
               {importHistory.length > 0 && (
                 <div className="pt-[4px] space-y-[6px]">
-                  <label className="flex items-center gap-[6px] font-kosugi text-[11px] text-text-2">
+                  <label className="flex items-center gap-[6px] font-mono text-[11px] text-text-2">
                     <Clock className="w-[14px] h-[14px] text-text-mute" />
                     Recent Import History
                   </label>
@@ -603,14 +603,14 @@ export function IntegrationsTab() {
                                   ? `Importing... ${job.processed}/${job.totalEmails} emails`
                                   : `Failed${job.error ? `: ${job.error}` : ""}`}
                             </span>
-                            <span className="font-kosugi text-micro text-text-mute">
+                            <span className="font-mono text-micro text-text-mute">
                               {formatTimeAgo(new Date(job.createdAt))}
                             </span>
                           </div>
                         </div>
                         <span
                           className={cn(
-                            "px-[6px] py-[2px] rounded-sm font-kosugi text-micro uppercase tracking-wider shrink-0",
+                            "px-[6px] py-[2px] rounded-sm font-mono text-micro uppercase tracking-wider shrink-0",
                             job.status === "completed" && "bg-[rgba(107,143,113,0.15)] text-[#6B8F71]",
                             job.status === "running" && "bg-[rgba(255,255,255,0.06)] text-text-2",
                             job.status === "failed" && "bg-ops-error/15 text-ops-error",
@@ -626,7 +626,7 @@ export function IntegrationsTab() {
             </>
           )}
 
-          <p className="font-kosugi text-[11px] text-text-mute">
+          <p className="font-mono text-[11px] text-text-mute">
             {t("integrations.gmailHelper")}
           </p>
 
@@ -685,7 +685,7 @@ function AiSetupCard() {
             <span className="font-mohave text-body text-[#6F94B0] block">
               {t("nav.cardAction")}
             </span>
-            <span className="font-kosugi text-micro text-text-mute">
+            <span className="font-mono text-micro text-text-mute">
               {t("nav.cardDesc")}
             </span>
           </div>

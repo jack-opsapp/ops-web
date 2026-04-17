@@ -116,7 +116,7 @@ function CardBack({
         >
           <X className="w-[14px] h-[14px] text-text-3" />
         </button>
-        <span className="font-kosugi text-micro uppercase tracking-wider text-text-3 shrink-0">
+        <span className="font-mono text-micro uppercase tracking-wider text-text-3 shrink-0">
           {content.title}
         </span>
         <ScrollFade className="flex-1 min-h-0 mt-1.5">

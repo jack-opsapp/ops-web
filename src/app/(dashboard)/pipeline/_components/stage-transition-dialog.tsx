@@ -70,7 +70,7 @@ function WonContent({
       <div className="space-y-2 py-2">
         {/* Final deal value */}
         <div className="space-y-0.5">
-          <label className="font-kosugi text-micro text-text-2 uppercase tracking-widest">
+          <label className="font-mono text-micro text-text-2 uppercase tracking-widest">
             {t("transition.finalValue")}
           </label>
           <div className="relative">
@@ -104,10 +104,10 @@ function WonContent({
             onChange={(e) => setConvertToProject(e.target.checked)}
             className="w-[14px] h-[14px] rounded border-border bg-surface-input accent-text-2"
           />
-          <span className="font-kosugi text-[11px] text-text-2 group-hover:text-text transition-colors">
+          <span className="font-mono text-[11px] text-text-2 group-hover:text-text transition-colors">
             {t("transition.convertToProject")}
           </span>
-          <span className="font-kosugi text-micro text-text-mute">{t("transition.comingSoon")}</span>
+          <span className="font-mono text-micro text-text-mute">{t("transition.comingSoon")}</span>
         </label>
       </div>
 
@@ -161,7 +161,7 @@ function LostContent({
       <div className="space-y-2 py-2">
         {/* Loss reason */}
         <div className="space-y-0.5">
-          <label className="font-kosugi text-micro text-text-2 uppercase tracking-widest">
+          <label className="font-mono text-micro text-text-2 uppercase tracking-widest">
             {t("transition.reason")}
           </label>
           <select
@@ -186,7 +186,7 @@ function LostContent({
 
         {/* Notes */}
         <div className="space-y-0.5">
-          <label className="font-kosugi text-micro text-text-2 uppercase tracking-widest">
+          <label className="font-mono text-micro text-text-2 uppercase tracking-widest">
             {t("transition.notes")}
           </label>
           <textarea

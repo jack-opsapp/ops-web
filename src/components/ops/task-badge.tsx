@@ -38,7 +38,7 @@ const TaskBadge = React.forwardRef<HTMLSpanElement, TaskBadgeProps>(
       <span
         ref={ref}
         className={cn(
-          "inline-flex items-center font-kosugi uppercase whitespace-nowrap",
+          "inline-flex items-center font-mono uppercase whitespace-nowrap",
           faded && "opacity-40",
           className
         )}

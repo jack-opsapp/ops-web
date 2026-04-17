@@ -206,14 +206,14 @@ export function OverviewTab({
         {/* Total Items */}
         <Card>
           <CardContent className="py-3 px-3">
-            <span className="font-kosugi text-caption-sm uppercase tracking-widest text-text-3 block mb-1">
+            <span className="font-mono text-caption-sm uppercase tracking-widest text-text-3 block mb-1">
               Total Items
             </span>
             <span className="font-mono text-data-lg text-text block">
               {summary.total}
             </span>
             {deltaText && (
-              <span className="font-kosugi text-micro text-text-mute block mt-1">
+              <span className="font-mono text-micro text-text-mute block mt-1">
                 {deltaText}
               </span>
             )}
@@ -223,7 +223,7 @@ export function OverviewTab({
         {/* Low Stock */}
         <Card className="border-l-2 border-l-status-warning">
           <CardContent className="py-3 px-3">
-            <span className="font-kosugi text-caption-sm uppercase tracking-widest text-text-3 block mb-1">
+            <span className="font-mono text-caption-sm uppercase tracking-widest text-text-3 block mb-1">
               Low Stock
             </span>
             <span className="font-mono text-data-lg text-status-warning block">
@@ -235,7 +235,7 @@ export function OverviewTab({
         {/* Critical */}
         <Card className="border-l-2 border-l-status-error">
           <CardContent className="py-3 px-3">
-            <span className="font-kosugi text-caption-sm uppercase tracking-widest text-text-3 block mb-1">
+            <span className="font-mono text-caption-sm uppercase tracking-widest text-text-3 block mb-1">
               Critical
             </span>
             <span className="font-mono text-data-lg text-status-error block">
@@ -252,7 +252,7 @@ export function OverviewTab({
         {/* Tags */}
         <Card>
           <CardContent className="py-3 px-3">
-            <span className="font-kosugi text-caption-sm uppercase tracking-widest text-text-3 block mb-1">
+            <span className="font-mono text-caption-sm uppercase tracking-widest text-text-3 block mb-1">
               Tags
             </span>
             <span className="font-mono text-data-lg text-text block">
@@ -265,7 +265,7 @@ export function OverviewTab({
       {/* ── 2. Needs Attention ────────────────────────────────────────────────── */}
       {attentionItems.length > 0 && (
         <div className="space-y-2">
-          <span className="font-kosugi text-caption-sm uppercase tracking-widest text-text-3">
+          <span className="font-mono text-caption-sm uppercase tracking-widest text-text-3">
             [ NEEDS ATTENTION ]
           </span>
 
@@ -273,16 +273,16 @@ export function OverviewTab({
             <table className="w-full min-w-[500px]">
               <thead>
                 <tr className="border-b border-border bg-[rgba(255,255,255,0.02)]">
-                  <th className="text-left px-2 py-1.5 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
+                  <th className="text-left px-2 py-1.5 font-mono text-caption-sm text-text-3 uppercase tracking-widest">
                     Name
                   </th>
-                  <th className="text-right px-2 py-1.5 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
+                  <th className="text-right px-2 py-1.5 font-mono text-caption-sm text-text-3 uppercase tracking-widest">
                     Quantity
                   </th>
-                  <th className="text-left px-2 py-1.5 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest hidden sm:table-cell">
+                  <th className="text-left px-2 py-1.5 font-mono text-caption-sm text-text-3 uppercase tracking-widest hidden sm:table-cell">
                     Status
                   </th>
-                  <th className="text-left px-2 py-1.5 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest hidden md:table-cell">
+                  <th className="text-left px-2 py-1.5 font-mono text-caption-sm text-text-3 uppercase tracking-widest hidden md:table-cell">
                     Tags
                   </th>
                 </tr>
@@ -303,7 +303,7 @@ export function OverviewTab({
                         {item.quantity}
                       </span>
                       {unitDisplay && (
-                        <span className="font-kosugi text-micro text-text-mute ml-1">
+                        <span className="font-mono text-micro text-text-mute ml-1">
                           {unitDisplay}
                         </span>
                       )}
@@ -324,14 +324,14 @@ export function OverviewTab({
                           return (
                             <span
                               key={tagId}
-                              className="font-kosugi text-micro text-text-mute bg-[rgba(255,255,255,0.05)] px-1 py-0.5 rounded"
+                              className="font-mono text-micro text-text-mute bg-[rgba(255,255,255,0.05)] px-1 py-0.5 rounded"
                             >
                               {tag.name}
                             </span>
                           );
                         })}
                         {tagIds.length === 0 && (
-                          <span className="font-kosugi text-micro text-text-mute">
+                          <span className="font-mono text-micro text-text-mute">
                             ---
                           </span>
                         )}
@@ -346,7 +346,7 @@ export function OverviewTab({
           {hasMoreAttention && (
             <button
               onClick={() => onSwitchToItems?.()}
-              className="font-kosugi text-caption-sm text-text-2 hover:text-text transition-colors cursor-pointer"
+              className="font-mono text-caption-sm text-text-2 hover:text-text transition-colors cursor-pointer"
             >
               View all in Items tab
             </button>
@@ -357,7 +357,7 @@ export function OverviewTab({
       {/* ── 3. By Tag ────────────────────────────────────────────────────────── */}
       {tagSummaries.length > 0 && (
         <div className="space-y-2">
-          <span className="font-kosugi text-caption-sm uppercase tracking-widest text-text-3">
+          <span className="font-mono text-caption-sm uppercase tracking-widest text-text-3">
             [ BY TAG ]
           </span>
 
@@ -381,7 +381,7 @@ export function OverviewTab({
                     {okCount > 0 && (
                       <span className="inline-flex items-center gap-1">
                         <span className="w-[6px] h-[6px] rounded-full bg-status-success" />
-                        <span className="font-kosugi text-micro text-text-mute">
+                        <span className="font-mono text-micro text-text-mute">
                           {okCount} ok
                         </span>
                       </span>
@@ -389,7 +389,7 @@ export function OverviewTab({
                     {warningCount > 0 && (
                       <span className="inline-flex items-center gap-1">
                         <span className="w-[6px] h-[6px] rounded-full bg-status-warning" />
-                        <span className="font-kosugi text-micro text-text-mute">
+                        <span className="font-mono text-micro text-text-mute">
                           {warningCount} low
                         </span>
                       </span>
@@ -397,13 +397,13 @@ export function OverviewTab({
                     {criticalCount > 0 && (
                       <span className="inline-flex items-center gap-1">
                         <span className="w-[6px] h-[6px] rounded-full bg-status-error" />
-                        <span className="font-kosugi text-micro text-text-mute">
+                        <span className="font-mono text-micro text-text-mute">
                           {criticalCount} critical
                         </span>
                       </span>
                     )}
                     {itemCount === 0 && (
-                      <span className="font-kosugi text-micro text-text-mute">
+                      <span className="font-mono text-micro text-text-mute">
                         No items
                       </span>
                     )}
@@ -418,7 +418,7 @@ export function OverviewTab({
       {/* ── 4. Recent Snapshots ───────────────────────────────────────────────── */}
       {recentSnapshots.length > 0 && (
         <div className="space-y-2">
-          <span className="font-kosugi text-caption-sm uppercase tracking-widest text-text-3">
+          <span className="font-mono text-caption-sm uppercase tracking-widest text-text-3">
             [ RECENT SNAPSHOTS ]
           </span>
 

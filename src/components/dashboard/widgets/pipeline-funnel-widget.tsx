@@ -141,7 +141,7 @@ export function PipelineFunnelWidget({
     return (
       <Card className="h-full">
         <CardHeader className="pb-1 pt-2 px-3">
-          <CardTitle className="font-kosugi text-micro uppercase tracking-wider text-text-3">
+          <CardTitle className="font-mono text-micro uppercase tracking-wider text-text-3">
             {t("pipelineFunnel.title") ?? "Pipeline"}
           </CardTitle>
         </CardHeader>
@@ -157,7 +157,7 @@ export function PipelineFunnelWidget({
     return (
       <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
-          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider">
+          <span className="font-mono text-micro text-text-3 uppercase tracking-wider">
             {t("pipelineFunnel.title") ?? "Pipeline"}
           </span>
           <div className="flex-1 flex flex-col justify-center">
@@ -197,7 +197,7 @@ export function PipelineFunnelWidget({
           <span className="font-mono text-display font-bold leading-none text-text">
             {totalProjects}
           </span>
-          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
+          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
             {t("pipelineFunnel.title") ?? "Pipeline"}
           </span>
           {weightedPipeline ? (
@@ -220,7 +220,7 @@ export function PipelineFunnelWidget({
             <span className="font-mono text-data-lg font-bold leading-none text-text">
               {totalProjects}
             </span>
-            <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
+            <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
               {t("pipelineFunnel.title") ?? "Pipeline"}
             </span>
             {weightedPipeline && (
@@ -338,7 +338,7 @@ export function PipelineFunnelWidget({
         <div className="h-full flex flex-col p-3">
           {/* Header */}
           <div className="flex items-center justify-between mb-1">
-            <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
+            <span className="font-mono text-micro uppercase tracking-wider text-text-3">
               {t("pipelineFunnel.title") ?? "Pipeline"}
             </span>
           </div>
@@ -348,7 +348,7 @@ export function PipelineFunnelWidget({
             <span className="font-mono text-display font-bold text-text leading-none">
               {totalProjects}
             </span>
-            <span className="font-kosugi text-micro text-text-mute uppercase">
+            <span className="font-mono text-micro text-text-mute uppercase">
               {t("trend.active") ?? "Active"}
             </span>
             {weightedPipeline && (
@@ -379,7 +379,7 @@ export function PipelineFunnelWidget({
       <div className="h-full flex flex-col p-3">
         {/* Header row: title + weighted value */}
         <div className="flex items-center justify-between mb-1">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
+          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
             {t("pipelineFunnel.title") ?? "Pipeline"}
           </span>
           {weightedPipeline && (
@@ -394,7 +394,7 @@ export function PipelineFunnelWidget({
           <span className="font-mono text-display font-bold text-text leading-none">
             {totalProjects}
           </span>
-          <span className="font-kosugi text-micro text-text-mute uppercase">
+          <span className="font-mono text-micro text-text-mute uppercase">
             {t("trend.active") ?? "Active"}
           </span>
         </div>

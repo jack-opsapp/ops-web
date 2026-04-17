@@ -455,7 +455,7 @@ function ProgressBar({ step }: { step: number }) {
                 />
                 <span
                   className={cn(
-                    "font-kosugi text-micro tracking-[0.1em]",
+                    "font-mono text-micro tracking-[0.1em]",
                     current ? "text-text" : "text-text-3"
                   )}
                 >
@@ -507,7 +507,7 @@ function StepWelcome({ t, onBegin }: { t: T; onBegin: () => void }) {
               <div className="font-mohave text-[13px] text-text uppercase tracking-[0.04em]">
                 {t(`step1.types.${key}.title`)}
               </div>
-              <div className="font-kosugi text-[11px] text-text-3 mt-1">
+              <div className="font-mono text-[11px] text-text-3 mt-1">
                 [{t(`step1.types.${key}.caption`)}]
               </div>
             </div>
@@ -515,7 +515,7 @@ function StepWelcome({ t, onBegin }: { t: T; onBegin: () => void }) {
         ))}
       </div>
       <div className="mt-4 p-3 rounded-[4px] border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)]">
-        <p className="font-kosugi text-[12px] text-text-2">
+        <p className="font-mono text-[12px] text-text-2">
           [{t("step1.estimate")}]
         </p>
       </div>
@@ -1020,7 +1020,7 @@ function StepInvoiceCover({
               {t("step6.threshold")}
             </div>
             <div className="flex items-center gap-3">
-              <span className="font-kosugi text-[12px] text-text-3">
+              <span className="font-mono text-[12px] text-text-3">
                 $
               </span>
               <input
@@ -1034,7 +1034,7 @@ function StepInvoiceCover({
                 className="flex-1 min-h-[48px] px-3 rounded-[4px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] font-mono text-[14px] text-text outline-none focus:border-[#6F94B0] transition-colors motion-reduce:transition-none"
               />
             </div>
-            <div className="font-kosugi text-[11px] text-text-3 mt-2">
+            <div className="font-mono text-[11px] text-text-3 mt-2">
               [{t("step6.thresholdHint")}]
             </div>
           </div>
@@ -1105,7 +1105,7 @@ function StepRescheduleRequest({
             valueLabel={`${Math.round(value.min_confidence * 100)}%`}
             onChange={(pct) => onChange({ min_confidence: pct / 100 })}
           />
-          <p className="font-kosugi text-[11px] text-text-3">
+          <p className="font-mono text-[11px] text-text-3">
             [{t("step7.confidenceHint")}]
           </p>
 
@@ -1215,7 +1215,7 @@ function StepCategories({ t }: { t: T }) {
         />
       ) : (
         <div className="p-4 rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-glass glass-surface">
-          <p className="font-kosugi text-[12px] text-text-3">
+          <p className="font-mono text-[12px] text-text-3">
             [{t("step9.noConnection")}]
           </p>
         </div>
@@ -1323,14 +1323,14 @@ function StepSummary({
                 {t(row.labelKey)}
               </span>
             </div>
-            <span className="font-kosugi text-[12px] text-text">
+            <span className="font-mono text-[12px] text-text">
               [{row.value}]
             </span>
           </div>
         ))}
       </div>
 
-      <p className="font-kosugi text-[12px] text-text-3 pt-2">
+      <p className="font-mono text-[12px] text-text-3 pt-2">
         [{t("step10.reminder")}]
       </p>
 

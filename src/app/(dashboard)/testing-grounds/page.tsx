@@ -45,7 +45,7 @@ export default function TestingGroundsPage() {
           <h1 className="font-mohave text-display text-text mb-2">
             Access Denied
           </h1>
-          <p className="font-kosugi text-body-sm text-text-3">
+          <p className="font-mono text-body-sm text-text-3">
             You need the &quot;testing-grounds&quot; permission to access this page.
           </p>
         </div>
@@ -61,7 +61,7 @@ export default function TestingGroundsPage() {
         <h1 className="font-mohave text-display text-text">
           Testing Grounds
         </h1>
-        <p className="font-kosugi text-body-sm text-text-3 max-w-md text-center">
+        <p className="font-mono text-body-sm text-text-3 max-w-md text-center">
           Isolated canvas for testing setup starfield and launch animations.
         </p>
         <div className="flex gap-3">

@@ -138,7 +138,7 @@ export function NotificationCardFull({
 
       {/* Row 3: Action label (visual indicator — whole card is clickable) */}
       {(isDuplicateReview || (displayActionLabel && notification.actionUrl)) && (
-        <span className="font-kosugi text-micro uppercase tracking-wider text-text-2 inline-block mt-[4px]">
+        <span className="font-mono text-micro uppercase tracking-wider text-text-2 inline-block mt-[4px]">
           {isDuplicateReview ? "REVIEW" : displayActionLabel}
         </span>
       )}

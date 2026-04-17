@@ -36,14 +36,14 @@ export function StepShell({
   return (
     <div className="w-full max-w-[640px] mx-auto">
       <div className="mb-4">
-        <span className="font-kosugi text-[11px] text-text-3 uppercase tracking-[0.12em]">
+        <span className="font-mono text-[11px] text-text-3 uppercase tracking-[0.12em]">
           [{stepLabel} · {String(stepNumber).padStart(2, "0")}]
         </span>
       </div>
       <h1 className="font-mohave text-[28px] leading-tight text-text uppercase tracking-[0.02em] mb-2">
         {title}
       </h1>
-      <p className="font-kosugi text-[14px] text-text-2 leading-relaxed mb-6">
+      <p className="font-mono text-[14px] text-text-2 leading-relaxed mb-6">
         [{description}]
       </p>
       <div className="space-y-3">{children}</div>
@@ -103,22 +103,22 @@ export function OptionCard({
               {title}
             </span>
             {recommended && (
-              <span className="font-kosugi text-micro uppercase tracking-[0.1em] text-[#6F94B0]">
+              <span className="font-mono text-micro uppercase tracking-[0.1em] text-[#6F94B0]">
                 [{t("common.recommended")}]
               </span>
             )}
             {locked && (
-              <span className="font-kosugi text-micro uppercase tracking-[0.1em] text-text-3 flex items-center gap-1">
+              <span className="font-mono text-micro uppercase tracking-[0.1em] text-text-3 flex items-center gap-1">
                 <Lock className="w-[10px] h-[10px]" />
                 [{t("common.locked")}]
               </span>
             )}
           </div>
-          <p className="font-kosugi text-[12px] text-text-3 leading-relaxed">
+          <p className="font-mono text-[12px] text-text-3 leading-relaxed">
             {description}
           </p>
           {locked && lockedReason && (
-            <p className="font-kosugi text-[11px] text-text-3 mt-2 italic">
+            <p className="font-mono text-[11px] text-text-3 mt-2 italic">
               [{lockedReason}]
             </p>
           )}
@@ -164,7 +164,7 @@ export function Toggle({
           {label}
         </div>
         {caption && (
-          <div className="font-kosugi text-[11px] text-text-3 mt-1">
+          <div className="font-mono text-[11px] text-text-3 mt-1">
             [{caption}]
           </div>
         )}
@@ -217,7 +217,7 @@ export function StepSlider({
         <span className="font-mohave text-[13px] text-text-2 uppercase tracking-[0.06em]">
           {label}
         </span>
-        <span className="font-kosugi text-[12px] text-text">
+        <span className="font-mono text-[12px] text-text">
           [{valueLabel}]
         </span>
       </div>
@@ -245,7 +245,7 @@ export function PreviewPanel({
 }) {
   return (
     <div className="p-4 rounded-[8px] border border-[rgba(255,255,255,0.06)] bg-[rgba(10,10,10,0.50)]">
-      <div className="font-kosugi text-micro text-text-3 uppercase tracking-[0.12em] mb-2">
+      <div className="font-mono text-micro text-text-3 uppercase tracking-[0.12em] mb-2">
         [{label}]
       </div>
       <div className="font-mono text-[12px] text-text-2 whitespace-pre-wrap leading-relaxed">
@@ -307,7 +307,7 @@ export function StepDropdown<T extends string | number>({
 export function WarningBanner({ children }: { children: ReactNode }) {
   return (
     <div className="p-3 rounded-[4px] border border-[rgba(196,168,104,0.24)] bg-[rgba(196,168,104,0.06)]">
-      <p className="font-kosugi text-[12px] text-[#C4A868] leading-relaxed">
+      <p className="font-mono text-[12px] text-[#C4A868] leading-relaxed">
         [{children}]
       </p>
     </div>

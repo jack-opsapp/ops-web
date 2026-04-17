@@ -230,7 +230,7 @@ export function WhatsNewContent() {
             <h2 className="font-mohave text-[14px] uppercase tracking-widest text-[#E5E5E5]">
               Categories & Items
             </h2>
-            <span className="font-kosugi text-[12px] text-[#6B6B6B]">
+            <span className="font-mono text-[12px] text-[#6B6B6B]">
               {categories.length} categories · {categories.reduce((sum, c) => sum + c.whats_new_items.length, 0)} items
             </span>
           </div>
@@ -309,7 +309,7 @@ export function WhatsNewContent() {
           </div>
 
           {filteredRequests.length === 0 ? (
-            <p className="font-kosugi text-[12px] text-[#6B6B6B] py-8 text-center">
+            <p className="font-mono text-[12px] text-[#6B6B6B] py-8 text-center">
               No {requestFilter === "all" ? "" : requestFilter} requests.
             </p>
           ) : (
@@ -324,7 +324,7 @@ export function WhatsNewContent() {
                       <div className="font-mohave text-[13px] text-[#E5E5E5] truncate">
                         {req.user_name}
                       </div>
-                      <div className="font-kosugi text-[11px] text-[#6B6B6B] truncate">
+                      <div className="font-mono text-[11px] text-[#6B6B6B] truncate">
                         {req.company_name} · {req.whats_new_items?.title ?? "Unknown"}
                       </div>
                     </div>
@@ -344,19 +344,19 @@ export function WhatsNewContent() {
                       <div className="grid grid-cols-2 gap-3 text-[12px]">
                         <div>
                           <span className="font-mohave text-micro uppercase tracking-widest text-[#6B6B6B]">Email</span>
-                          <p className="font-kosugi text-[#A0A0A0]">{req.user_email}</p>
+                          <p className="font-mono text-[#A0A0A0]">{req.user_email}</p>
                         </div>
                         <div>
                           <span className="font-mohave text-micro uppercase tracking-widest text-[#6B6B6B]">Company</span>
-                          <p className="font-kosugi text-[#A0A0A0]">{req.company_name}</p>
+                          <p className="font-mono text-[#A0A0A0]">{req.company_name}</p>
                         </div>
                         <div>
                           <span className="font-mohave text-micro uppercase tracking-widest text-[#6B6B6B]">Feature</span>
-                          <p className="font-kosugi text-[#A0A0A0]">{req.whats_new_items?.title ?? "—"}</p>
+                          <p className="font-mono text-[#A0A0A0]">{req.whats_new_items?.title ?? "—"}</p>
                         </div>
                         <div>
                           <span className="font-mohave text-micro uppercase tracking-widest text-[#6B6B6B]">Requested</span>
-                          <p className="font-kosugi text-[#A0A0A0]">{new Date(req.requested_at).toLocaleDateString()}</p>
+                          <p className="font-mono text-[#A0A0A0]">{new Date(req.requested_at).toLocaleDateString()}</p>
                         </div>
                       </div>
 
@@ -371,7 +371,7 @@ export function WhatsNewContent() {
                               onChange={(e) => setAdminNotes(e.target.value)}
                               placeholder="Add notes for the email..."
                               rows={2}
-                              className="w-full bg-white/[0.05] border border-white/[0.08] rounded px-3 py-2 font-kosugi text-[12px] text-[#E5E5E5] placeholder:text-[#6B6B6B] outline-none focus:border-[#597794]/50 resize-none"
+                              className="w-full bg-white/[0.05] border border-white/[0.08] rounded px-3 py-2 font-mono text-[12px] text-[#E5E5E5] placeholder:text-[#6B6B6B] outline-none focus:border-[#597794]/50 resize-none"
                             />
                           </div>
                           <div className="flex gap-2">
@@ -394,7 +394,7 @@ export function WhatsNewContent() {
                       {req.admin_notes && (
                         <div>
                           <span className="font-mohave text-micro uppercase tracking-widest text-[#6B6B6B]">Admin Notes</span>
-                          <p className="font-kosugi text-[12px] text-[#A0A0A0]">{req.admin_notes}</p>
+                          <p className="font-mono text-[12px] text-[#A0A0A0]">{req.admin_notes}</p>
                         </div>
                       )}
                     </div>
@@ -469,7 +469,7 @@ function CategoryCard({
             <div className="flex items-center gap-2">
               <span className="font-mono text-[11px] text-[#6B6B6B] bg-white/[0.05] px-1.5 py-0.5 rounded">{category.icon}</span>
               <h3 className="font-cakemono text-[15px] font-light uppercase text-[#E5E5E5]">{category.name}</h3>
-              <span className="font-kosugi text-[11px] text-[#6B6B6B]">{category.whats_new_items.length} items</span>
+              <span className="font-mono text-[11px] text-[#6B6B6B]">{category.whats_new_items.length} items</span>
             </div>
           )}
         </div>
@@ -549,9 +549,9 @@ function ItemRow({
       <div className="px-6 py-3 border-b border-white/[0.04] space-y-2 bg-white/[0.02]">
         <div className="grid grid-cols-[80px_1fr] gap-2">
           <input value={icon} onChange={(e) => setIcon(e.target.value)} placeholder="icon" className="bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1.5 font-mono text-[11px] text-[#E5E5E5] outline-none" />
-          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" className="bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1.5 font-kosugi text-[12px] text-[#E5E5E5] outline-none" />
+          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" className="bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1.5 font-mono text-[12px] text-[#E5E5E5] outline-none" />
         </div>
-        <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description" rows={2} className="w-full bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1.5 font-kosugi text-[12px] text-[#E5E5E5] outline-none resize-none" />
+        <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description" rows={2} className="w-full bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1.5 font-mono text-[12px] text-[#E5E5E5] outline-none resize-none" />
         <div className="flex gap-2">
           <select value={status} onChange={(e) => setStatus(e.target.value)} className="bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1.5 font-mohave text-[11px] uppercase text-[#E5E5E5] outline-none">
             {STATUS_OPTIONS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
@@ -573,7 +573,7 @@ function ItemRow({
       <div className="flex items-center gap-3 min-w-0">
         <span className="font-mono text-micro text-[#6B6B6B] w-16 truncate flex-shrink-0">{item.icon}</span>
         <div className="min-w-0">
-          <span className="font-kosugi text-[13px] text-[#E5E5E5]">{item.title}</span>
+          <span className="font-mono text-[13px] text-[#E5E5E5]">{item.title}</span>
           {item.feature_flag_slug && (
             <span className="ml-2 font-mono text-micro text-[#597794] bg-ops-accent/10 px-1.5 py-0.5 rounded">{item.feature_flag_slug}</span>
           )}
@@ -630,9 +630,9 @@ function NewItemForm({ onSubmit, onCancel }: { onSubmit: (title: string, desc: s
     <div className="px-6 py-3 border-t border-[#597794]/20 bg-ops-accent/5 space-y-2">
       <div className="grid grid-cols-[80px_1fr] gap-2">
         <input value={icon} onChange={(e) => setIcon(e.target.value)} placeholder="icon" className="bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1.5 font-mono text-[11px] text-[#E5E5E5] outline-none" />
-        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" className="bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1.5 font-kosugi text-[12px] text-[#E5E5E5] outline-none" autoFocus />
+        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" className="bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1.5 font-mono text-[12px] text-[#E5E5E5] outline-none" autoFocus />
       </div>
-      <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description" rows={2} className="w-full bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1.5 font-kosugi text-[12px] text-[#E5E5E5] outline-none resize-none" />
+      <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description" rows={2} className="w-full bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1.5 font-mono text-[12px] text-[#E5E5E5] outline-none resize-none" />
       <div className="flex gap-2">
         <select value={status} onChange={(e) => setStatus(e.target.value)} className="bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1.5 font-mohave text-[11px] uppercase text-[#E5E5E5] outline-none">
           {STATUS_OPTIONS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}

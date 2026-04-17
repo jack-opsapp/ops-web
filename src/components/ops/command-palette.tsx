@@ -604,19 +604,19 @@ export function CommandPalette() {
             <kbd className="font-mono text-micro px-[4px] py-[1px] rounded bg-fill-neutral-dim border border-border-subtle">
               &darr;
             </kbd>
-            <span className="font-kosugi text-micro">Navigate</span>
+            <span className="font-mono text-micro">Navigate</span>
           </div>
           <div className="flex items-center gap-[4px]">
             <kbd className="font-mono text-micro px-[4px] py-[1px] rounded bg-fill-neutral-dim border border-border-subtle">
               &crarr;
             </kbd>
-            <span className="font-kosugi text-micro">Select</span>
+            <span className="font-mono text-micro">Select</span>
           </div>
           <div className="flex items-center gap-[4px]">
             <kbd className="font-mono text-micro px-[6px] py-[1px] rounded bg-fill-neutral-dim border border-border-subtle">
               Esc
             </kbd>
-            <span className="font-kosugi text-micro">Close</span>
+            <span className="font-mono text-micro">Close</span>
           </div>
         </div>
         <span className="font-mono text-micro text-text-mute">OPS v1.0</span>

@@ -233,7 +233,7 @@ export function CreateSiteVisitModal({
 
           {/* Assignees */}
           <div className="flex flex-col gap-0.5">
-            <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest flex items-center gap-[6px]">
+            <label className="font-mono text-caption-sm text-text-2 uppercase tracking-widest flex items-center gap-[6px]">
               <Users className="w-[14px] h-[14px]" /> Assignees
             </label>
             <div className="flex flex-wrap gap-1">

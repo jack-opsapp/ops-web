@@ -214,7 +214,7 @@ export default function RegisterPage() {
         </div>
 
         {/* Divider */}
-        <div className="separator-label font-kosugi text-[11px] uppercase tracking-widest">
+        <div className="separator-label font-mono text-[11px] uppercase tracking-widest">
           {t("register.orEmail")}
         </div>
 

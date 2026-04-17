@@ -24,7 +24,7 @@ export function BackButton() {
       }}
     >
       <ArrowLeft className="w-3.5 h-3.5 text-[#999] group-hover:text-white transition-colors" />
-      <span className="font-kosugi text-micro uppercase tracking-wider text-[#999] group-hover:text-white transition-colors">
+      <span className="font-mono text-micro uppercase tracking-wider text-[#999] group-hover:text-white transition-colors">
         {t("nav.back")}
       </span>
     </button>

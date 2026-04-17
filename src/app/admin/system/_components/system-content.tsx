@@ -83,7 +83,7 @@ function AuditLogTab({ entries }: { entries: AuditLogEntry[] }) {
           ))}
         </div>
         {(tableFilter !== "ALL" || actionFilter !== "ALL") && (
-          <span className="font-kosugi text-[11px] text-[#6B6B6B]">
+          <span className="font-mono text-[11px] text-[#6B6B6B]">
             [{filtered.length} of {entries.length}]
           </span>
         )}
@@ -109,8 +109,8 @@ function AuditLogTab({ entries }: { entries: AuditLogEntry[] }) {
             }`}>
               {entry.action}
             </span>
-            <span className="font-kosugi text-[12px] text-[#6B6B6B] truncate">{entry.record_id}</span>
-            <span className="font-kosugi text-[12px] text-[#6B6B6B]">
+            <span className="font-mono text-[12px] text-[#6B6B6B] truncate">{entry.record_id}</span>
+            <span className="font-mono text-[12px] text-[#6B6B6B]">
               [{new Date(entry.created_at).toLocaleString()}]
             </span>
             <span className="font-mohave text-[12px] text-[#597794]">

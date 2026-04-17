@@ -235,7 +235,7 @@ export function AiDatabaseMining({ onComplete }: AiDatabaseMiningProps) {
           <div className="px-2 py-1.5 rounded border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.03)]">
             <div className="flex items-center gap-1 mb-[2px]">
               <DollarSign className="w-[11px] h-[11px] text-text-mute" />
-              <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
+              <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
                 {t("mining.pricingFacts")}
               </span>
             </div>
@@ -246,7 +246,7 @@ export function AiDatabaseMining({ onComplete }: AiDatabaseMiningProps) {
           <div className="px-2 py-1.5 rounded border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.03)]">
             <div className="flex items-center gap-1 mb-[2px]">
               <Users className="w-[11px] h-[11px] text-text-mute" />
-              <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
+              <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
                 {t("mining.clientRelationships")}
               </span>
             </div>
@@ -257,7 +257,7 @@ export function AiDatabaseMining({ onComplete }: AiDatabaseMiningProps) {
           <div className="px-2 py-1.5 rounded border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.03)]">
             <div className="flex items-center gap-1 mb-[2px]">
               <TrendingUp className="w-[11px] h-[11px] text-text-mute" />
-              <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
+              <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
                 {t("mining.seasonalPatterns")}
               </span>
             </div>
@@ -270,7 +270,7 @@ export function AiDatabaseMining({ onComplete }: AiDatabaseMiningProps) {
 
       {stats && stats.errors.length > 0 && (
         <div className="px-2 py-1 rounded border border-[rgba(196,168,104,0.2)] bg-[rgba(196,168,104,0.06)]">
-          <span className="font-kosugi text-micro text-[#C4A868]">
+          <span className="font-mono text-micro text-[#C4A868]">
             {stats.errors.length} warning{stats.errors.length !== 1 ? "s" : ""} during mining
           </span>
         </div>

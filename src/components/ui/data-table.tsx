@@ -218,7 +218,7 @@ function DataTableInner<T>(
                   key={col.id}
                   className={cn(
                     "px-1.5 py-1 text-left",
-                    "font-kosugi text-caption-sm text-text-3 uppercase tracking-widest",
+                    "font-mono text-caption-sm text-text-3 uppercase tracking-widest",
                     "whitespace-nowrap",
                     col.sortable && "cursor-pointer select-none hover:text-text-2 transition-colors"
                   )}

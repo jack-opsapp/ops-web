@@ -43,7 +43,7 @@ function CommandDialog({ open, onOpenChange, children }: CommandDialogProps) {
         <Command
           className={cn(
             "[&_[cmdk-group-heading]]:px-1 [&_[cmdk-group-heading]]:py-[6px]",
-            "[&_[cmdk-group-heading]]:font-kosugi [&_[cmdk-group-heading]]:text-caption-sm",
+            "[&_[cmdk-group-heading]]:font-mono [&_[cmdk-group-heading]]:text-caption-sm",
             "[&_[cmdk-group-heading]]:text-text-3 [&_[cmdk-group-heading]]:uppercase",
             "[&_[cmdk-group-heading]]:tracking-widest"
           )}
@@ -125,7 +125,7 @@ const CommandGroup = React.forwardRef<
     className={cn(
       "overflow-hidden py-0.5",
       "[&_[cmdk-group-heading]]:px-1 [&_[cmdk-group-heading]]:py-[6px]",
-      "[&_[cmdk-group-heading]]:font-kosugi [&_[cmdk-group-heading]]:text-caption-sm",
+      "[&_[cmdk-group-heading]]:font-mono [&_[cmdk-group-heading]]:text-caption-sm",
       "[&_[cmdk-group-heading]]:text-text-3 [&_[cmdk-group-heading]]:uppercase",
       "[&_[cmdk-group-heading]]:tracking-widest",
       className

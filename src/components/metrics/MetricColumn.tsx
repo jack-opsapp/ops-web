@@ -61,7 +61,7 @@ export function MetricColumn({ config }: MetricColumnProps) {
       >
         {/* ── Front face ── */}
         <div style={{ backfaceVisibility: "hidden" }}>
-          <div className="mb-1 font-kosugi text-micro uppercase tracking-[2px] text-[#6B6B6B]">
+          <div className="mb-1 font-mono text-micro uppercase tracking-[2px] text-[#6B6B6B]">
             {label}
           </div>
 
@@ -98,7 +98,7 @@ export function MetricColumn({ config }: MetricColumnProps) {
               transform: "rotateY(180deg)",
             }}
           >
-            <div className="mb-1 font-kosugi text-micro uppercase tracking-[2px] text-[#6B6B6B]">
+            <div className="mb-1 font-mono text-micro uppercase tracking-[2px] text-[#6B6B6B]">
               {label}
             </div>
             <div

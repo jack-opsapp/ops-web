@@ -19,7 +19,7 @@ function CompetitorCard({ competitor }: { competitor: CompetitorSnapshot }) {
         <div className="px-4 pb-4 space-y-3 border-t border-white/[0.06]">
           {competitor.adCopy.length > 0 && (
             <div>
-              <p className="font-kosugi text-micro uppercase tracking-wider text-[#6B6B6B] mt-3 mb-1">Their Ads</p>
+              <p className="font-mono text-micro uppercase tracking-wider text-[#6B6B6B] mt-3 mb-1">Their Ads</p>
               {competitor.adCopy.map((ad, i) => (
                 <div key={i} className="py-1">
                   <p className="font-mohave text-[13px] text-[#A0A0A0]">{ad.headline}</p>
@@ -30,7 +30,7 @@ function CompetitorCard({ competitor }: { competitor: CompetitorSnapshot }) {
           )}
           {competitor.offers.length > 0 && (
             <div>
-              <p className="font-kosugi text-micro uppercase tracking-wider text-[#6B6B6B] mb-1">Offers</p>
+              <p className="font-mono text-micro uppercase tracking-wider text-[#6B6B6B] mb-1">Offers</p>
               {competitor.offers.map((offer, i) => (
                 <p key={i} className="font-mohave text-[13px] text-[#A0A0A0]">{"\u2022"} {offer}</p>
               ))}
@@ -38,13 +38,13 @@ function CompetitorCard({ competitor }: { competitor: CompetitorSnapshot }) {
           )}
           {competitor.landingPageAngle && (
             <div>
-              <p className="font-kosugi text-micro uppercase tracking-wider text-[#6B6B6B] mb-1">Their Angle</p>
+              <p className="font-mono text-micro uppercase tracking-wider text-[#6B6B6B] mb-1">Their Angle</p>
               <p className="font-mohave text-[13px] text-[#A0A0A0]">{competitor.landingPageAngle}</p>
             </div>
           )}
           {competitor.weaknesses.length > 0 && (
             <div>
-              <p className="font-kosugi text-micro uppercase tracking-wider text-[#597794] mb-1">OPS Opportunity</p>
+              <p className="font-mono text-micro uppercase tracking-wider text-[#597794] mb-1">OPS Opportunity</p>
               {competitor.weaknesses.map((w, i) => (
                 <p key={i} className="font-mohave text-[13px] text-[#E5E5E5]">{"\u2192"} {w}</p>
               ))}
@@ -61,7 +61,7 @@ export function CompetitorIntel({ competitors }: { competitors: CompetitorSnapsh
 
   return (
     <div>
-      <h2 className="font-kosugi text-micro uppercase tracking-wider text-[#6B6B6B] mb-4">
+      <h2 className="font-mono text-micro uppercase tracking-wider text-[#6B6B6B] mb-4">
         Competitor Intel
       </h2>
       <div className="space-y-2">

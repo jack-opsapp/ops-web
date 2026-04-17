@@ -106,7 +106,7 @@ export function CompaniesTable({ companies }: { companies: Company[] }) {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="[search companies]"
-            className="w-full h-10 bg-transparent border border-white/[0.08] rounded-lg px-4 font-kosugi text-[14px] text-[#E5E5E5] placeholder-[#6B6B6B] focus:outline-none focus:border-[#597794] transition-colors"
+            className="w-full h-10 bg-transparent border border-white/[0.08] rounded-lg px-4 font-mono text-[14px] text-[#E5E5E5] placeholder-[#6B6B6B] focus:outline-none focus:border-[#597794] transition-colors"
           />
         </div>
         <div className="flex gap-1">
@@ -177,10 +177,10 @@ export function CompaniesTable({ companies }: { companies: Company[] }) {
               <span className="font-mohave text-[14px] text-[#A0A0A0]">{c.userCount}</span>
               <span className="font-mohave text-[14px] text-[#A0A0A0]">{c.projectCount}</span>
               <span className="font-mohave text-[14px] text-[#A0A0A0]">{c.pipelineCount}</span>
-              <span className={`font-kosugi text-[12px] ${inactive ? "text-[#C4A868]" : "text-[#6B6B6B]"}`}>
+              <span className={`font-mono text-[12px] ${inactive ? "text-[#C4A868]" : "text-[#6B6B6B]"}`}>
                 [{timeAgo(c.lastActive)}]
               </span>
-              <span className="font-kosugi text-[12px] text-[#6B6B6B]">
+              <span className="font-mono text-[12px] text-[#6B6B6B]">
                 [{new Date(c.created_at).toLocaleDateString()}]
               </span>
             </button>

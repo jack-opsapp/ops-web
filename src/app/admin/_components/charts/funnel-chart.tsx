@@ -42,7 +42,7 @@ export function FunnelChart({ steps, onStepClick }: FunnelChartProps) {
               </span>
               <div className="flex items-center gap-3">
                 {dropOff !== null && dropOff > 0 && (
-                  <span className="font-kosugi text-[12px] text-[#C4A868]">
+                  <span className="font-mono text-[12px] text-[#C4A868]">
                     [{dropOff}% drop]
                   </span>
                 )}

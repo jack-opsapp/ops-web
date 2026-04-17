@@ -113,7 +113,7 @@ class ErrorBoundary extends React.Component<
             onClick={this.handleReset}
             className={cn(
               "inline-flex items-center gap-2 rounded px-6 py-3 w-fit",
-              "font-kosugi text-[11px] uppercase tracking-widest",
+              "font-mono text-[11px] uppercase tracking-widest",
               "bg-ops-accent text-white",
               "transition-colors hover:bg-ops-accent/80",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background"

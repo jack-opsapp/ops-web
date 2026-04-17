@@ -371,7 +371,7 @@ function HoverLabel({ nodes }: { nodes: PositionedNode[] }) {
             {hoveredNode.sublabel}
           </div>
         )}
-        <div className="font-kosugi text-micro uppercase tracking-wider text-[#666] mt-0.5">
+        <div className="font-mono text-micro uppercase tracking-wider text-[#666] mt-0.5">
           {hoveredNode.nodeType}
         </div>
       </div>

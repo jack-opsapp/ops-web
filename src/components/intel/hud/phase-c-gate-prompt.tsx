@@ -59,7 +59,7 @@ export function PhaseCGatePrompt({ onRequestAccess }: PhaseCGatePromptProps) {
 
         {/* Content */}
         <div className="text-left space-y-4">
-          <div className="font-kosugi text-[11px] uppercase tracking-wider text-[#6F94B0]">
+          <div className="font-mono text-[11px] uppercase tracking-wider text-[#6F94B0]">
             {t("gate.title")}
           </div>
 
@@ -73,7 +73,7 @@ export function PhaseCGatePrompt({ onRequestAccess }: PhaseCGatePromptProps) {
 
           <button
             onClick={handleRequest}
-            className="font-kosugi text-micro uppercase tracking-wider px-4 py-2 rounded-[2px] transition-colors"
+            className="font-mono text-micro uppercase tracking-wider px-4 py-2 rounded-[2px] transition-colors"
             style={{
               background: "rgba(111, 148, 176, 0.2)",
               border: "1px solid rgba(111, 148, 176, 0.4)",

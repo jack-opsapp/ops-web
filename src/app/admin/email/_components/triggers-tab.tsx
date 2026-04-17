@@ -316,11 +316,11 @@ export function TriggersTab() {
                       <h3 className="font-mohave text-[14px] text-[#E5E5E5] uppercase">
                         {trigger.label}
                       </h3>
-                      <span className="font-kosugi text-micro text-[#6B6B6B]">
+                      <span className="font-mono text-micro text-[#6B6B6B]">
                         [{trigger.schedule}]
                       </span>
                     </div>
-                    <p className="font-kosugi text-[11px] text-[#6B6B6B] truncate">
+                    <p className="font-mono text-[11px] text-[#6B6B6B] truncate">
                       {trigger.description}
                     </p>
                   </div>
@@ -330,7 +330,7 @@ export function TriggersTab() {
 
               {/* Toggle error */}
               {toggleKey && toggleErrors[toggleKey] && (
-                <p className="mt-2 font-kosugi text-[11px] text-[#93321A]">
+                <p className="mt-2 font-mono text-[11px] text-[#93321A]">
                   Toggle failed: {toggleErrors[toggleKey]}
                 </p>
               )}

@@ -89,7 +89,7 @@ export function TimelineRow({
           <span className="font-mohave font-semibold text-[13px] text-text truncate leading-tight">
             {fullName}
           </span>
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-2 leading-tight">
+          <span className="font-mono text-micro uppercase tracking-wider text-text-2 leading-tight">
             {roleLabel}
           </span>
         </div>

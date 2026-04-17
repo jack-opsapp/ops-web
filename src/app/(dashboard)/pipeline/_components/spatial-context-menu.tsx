@@ -167,14 +167,14 @@ export function SpatialContextMenu({
                       style={{ backgroundColor: OPPORTUNITY_STAGE_COLORS[contextMenu.stage as OpportunityStage] ?? "#BCBCBC" }}
                     />
                     <span
-                      className="font-kosugi text-micro uppercase tracking-widest"
+                      className="font-mono text-micro uppercase tracking-widest"
                       style={{ color: OPPORTUNITY_STAGE_COLORS[contextMenu.stage as OpportunityStage] ?? "#BCBCBC" }}
                     >
                       in {getStageDisplayName(contextMenu.stage as OpportunityStage)}
                     </span>
                   </>
                 ) : (
-                  <span className="font-kosugi text-micro uppercase tracking-widest text-text-mute">
+                  <span className="font-mono text-micro uppercase tracking-widest text-text-mute">
                     all stages
                   </span>
                 )}
@@ -209,7 +209,7 @@ export function SpatialContextMenu({
                     </p>
                     <div className="flex gap-1">
                       <button
-                        className="font-kosugi text-micro text-text px-2 py-0.5 rounded-[2px] bg-[#93321A] cursor-pointer"
+                        className="font-mono text-micro text-text px-2 py-0.5 rounded-[2px] bg-[#93321A] cursor-pointer"
                         onClick={() =>
                           handleItemClick(() =>
                             onDelete(contextMenu.targetCardId!)
@@ -219,7 +219,7 @@ export function SpatialContextMenu({
                         {t("spatial.confirm")}
                       </button>
                       <button
-                        className="font-kosugi text-micro text-text-3 px-2 py-0.5 cursor-pointer"
+                        className="font-mono text-micro text-text-3 px-2 py-0.5 cursor-pointer"
                         onClick={() => setConfirmingDelete(null)}
                       >
                         {t("spatial.cancel")}

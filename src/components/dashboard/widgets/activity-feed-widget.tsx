@@ -270,10 +270,10 @@ export function ActivityWidget({
           >
             {isLoading ? "—" : count}
           </span>
-          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
+          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
             {t("activity.title")}
           </span>
-          <span className="font-kosugi text-micro text-text-mute uppercase mt-0.5 truncate">
+          <span className="font-mono text-micro text-text-mute uppercase mt-0.5 truncate">
             {isLoading
               ? "..."
               : activities && activities.length > 0
@@ -372,7 +372,7 @@ export function ActivityWidget({
       <div className="h-full flex flex-col p-3">
         {/* Header */}
         <div className="flex items-center justify-between mb-2">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
+          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
             {t("activity.title")}
           </span>
           <span className="font-mono text-micro text-text-3">
@@ -388,7 +388,7 @@ export function ActivityWidget({
                 <span className="font-mono text-data-lg font-bold text-text block leading-none">
                   {lgMetrics.todayCount}
                 </span>
-                <span className="font-kosugi text-micro text-text-3 uppercase">
+                <span className="font-mono text-micro text-text-3 uppercase">
                   {t("activity.todayCount")}
                 </span>
               </div>
@@ -396,7 +396,7 @@ export function ActivityWidget({
                 <span className="font-mono text-data-lg font-bold text-text block leading-none">
                   {lgMetrics.activeUsers}
                 </span>
-                <span className="font-kosugi text-micro text-text-3 uppercase">
+                <span className="font-mono text-micro text-text-3 uppercase">
                   {t("activity.activeUsers")}
                 </span>
               </div>
@@ -405,7 +405,7 @@ export function ActivityWidget({
                   <span className="font-mohave text-caption-sm text-text block truncate leading-none">
                     {lgMetrics.mostActiveProjectName}
                   </span>
-                  <span className="font-kosugi text-micro text-text-3 uppercase">
+                  <span className="font-mono text-micro text-text-3 uppercase">
                     {t("activity.mostActive")}
                   </span>
                 </div>

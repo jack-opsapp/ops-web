@@ -187,7 +187,7 @@ export function MyExpensesWidget({
           <span className={`font-mono ${heroVal.toString().length > 4 ? "text-data-lg" : "text-display"} font-bold leading-none ${heroVal > 0 ? "text-text" : "text-text-mute"}`}>
             {heroVal}
           </span>
-          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
+          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
             {t("myExpenses.title") ?? "My Expenses"}
           </span>
           {stats.revision > 0 && (
@@ -214,7 +214,7 @@ export function MyExpensesWidget({
               <ArrowUpRight className="w-[14px] h-[14px]" />
             </button>
           </div>
-          <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
+          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
             {t("myExpenses.title") ?? "My Expenses"}
           </span>
           {stats.revision > 0 ? (
@@ -241,7 +241,7 @@ export function MyExpensesWidget({
       <div className="h-full flex flex-col p-3">
         {/* Header */}
         <div className="flex items-center justify-between mb-1">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-text-3">
+          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
             {t("myExpenses.title") ?? "My Expenses"}
           </span>
         </div>
@@ -289,11 +289,11 @@ export function MyExpensesWidget({
                 }
 
                 const secondary = hasComplianceIssue ? (
-                  <span className="font-kosugi text-micro text-text-mute truncate">
+                  <span className="font-mono text-micro text-text-mute truncate">
                     {secondaryParts} · <span style={{ color: complianceColor ?? undefined }}>{missingReceipts}/{totalExpenses} {t("expenseReview.missingReceipts") ?? "missing receipts"}</span>
                   </span>
                 ) : (overdueReview ? (
-                  <span className="font-kosugi text-micro text-text-mute truncate">
+                  <span className="font-mono text-micro text-text-mute truncate">
                     {secondaryParts}
                   </span>
                 ) : secondaryParts);
@@ -360,7 +360,7 @@ export function MyExpensesWidget({
         {/* Footer */}
         <button
           onClick={() => onNavigate("/accounting")}
-          className="mt-auto pt-2 font-kosugi text-micro text-text-3 uppercase tracking-wider hover:text-text-2 transition-colors text-left"
+          className="mt-auto pt-2 font-mono text-micro text-text-3 uppercase tracking-wider hover:text-text-2 transition-colors text-left"
         >
           {t("myExpenses.viewAll") ?? "View All"}
         </button>

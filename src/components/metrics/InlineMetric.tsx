@@ -15,7 +15,7 @@ export function InlineMetric({ config }: InlineMetricProps) {
       >
         {value}
       </span>
-      <span className="font-kosugi text-micro uppercase tracking-[1px] text-[#6B6B6B]">
+      <span className="font-mono text-micro uppercase tracking-[1px] text-[#6B6B6B]">
         {label}
       </span>
     </div>

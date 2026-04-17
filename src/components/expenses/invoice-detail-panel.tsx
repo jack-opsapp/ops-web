@@ -209,7 +209,7 @@ export function InvoiceDetailPanel({
               <h3 className="font-mohave text-body text-text uppercase">
                 {displayName}
               </h3>
-              <p className="font-kosugi text-micro text-text-3 uppercase tracking-wider">
+              <p className="font-mono text-micro text-text-3 uppercase tracking-wider">
                 {batch.batchNumber} · {periodDisplay}
               </p>
             </div>
@@ -217,7 +217,7 @@ export function InvoiceDetailPanel({
 
           {/* Status pill */}
           <span
-            className="px-1.5 py-0.5 rounded-full font-kosugi text-micro uppercase tracking-wider"
+            className="px-1.5 py-0.5 rounded-full font-mono text-micro uppercase tracking-wider"
             style={{
               backgroundColor: `${statusColor}22`,
               color: statusColor,
@@ -230,7 +230,7 @@ export function InvoiceDetailPanel({
         {/* Metrics row */}
         <div className="flex gap-4">
           <div>
-            <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider block">
+            <span className="font-mono text-micro text-text-mute uppercase tracking-wider block">
               TOTAL
             </span>
             <span className="font-mono text-data text-text">
@@ -238,7 +238,7 @@ export function InvoiceDetailPanel({
             </span>
           </div>
           <div>
-            <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider block">
+            <span className="font-mono text-micro text-text-mute uppercase tracking-wider block">
               EXPENSES
             </span>
             <span className="font-mono text-data text-text">
@@ -247,7 +247,7 @@ export function InvoiceDetailPanel({
           </div>
           {flagCount > 0 && (
             <div>
-              <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider block">
+              <span className="font-mono text-micro text-text-mute uppercase tracking-wider block">
                 FLAGGED
               </span>
               <span className="font-mono text-data text-[#C4A868] flex items-center gap-1">
@@ -284,14 +284,14 @@ export function InvoiceDetailPanel({
               {/* Remove all flags text link */}
               <button
                 onClick={handleRemoveAllFlags}
-                className="font-kosugi text-micro text-text-3 hover:text-text-2 uppercase tracking-wider transition-colors"
+                className="font-mono text-micro text-text-3 hover:text-text-2 uppercase tracking-wider transition-colors"
               >
                 REMOVE ALL FLAGS
               </button>
               {/* Full-width reject button */}
               <button
                 onClick={() => setShowRejectModal(true)}
-                className="w-full px-4 py-2 rounded bg-[#93321A] hover:bg-[#a83d20] text-white font-kosugi text-caption-sm uppercase tracking-wider transition-colors"
+                className="w-full px-4 py-2 rounded bg-[#93321A] hover:bg-[#a83d20] text-white font-mono text-caption-sm uppercase tracking-wider transition-colors"
               >
                 REJECT WITH {flagCount} REVISION{flagCount !== 1 ? "S" : ""}
               </button>
@@ -301,7 +301,7 @@ export function InvoiceDetailPanel({
               {/* Reject — dimmed when no flags */}
               <button
                 disabled
-                className="flex-1 px-4 py-2 rounded border border-border text-text-mute font-kosugi text-caption-sm uppercase tracking-wider cursor-not-allowed"
+                className="flex-1 px-4 py-2 rounded border border-border text-text-mute font-mono text-caption-sm uppercase tracking-wider cursor-not-allowed"
               >
                 REJECT
               </button>
@@ -309,7 +309,7 @@ export function InvoiceDetailPanel({
               <button
                 onClick={handleApprove}
                 disabled={approveMutation.isPending}
-                className="flex-1 px-4 py-2 rounded bg-[rgba(157,181,130,0.15)] hover:bg-[rgba(157,181,130,0.25)] text-[#9DB582] font-kosugi text-caption-sm uppercase tracking-wider transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
+                className="flex-1 px-4 py-2 rounded bg-[rgba(157,181,130,0.15)] hover:bg-[rgba(157,181,130,0.25)] text-[#9DB582] font-mono text-caption-sm uppercase tracking-wider transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
               >
                 {approveMutation.isPending && (
                   <Loader2 className="w-[12px] h-[12px] animate-spin" />

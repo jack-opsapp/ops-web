@@ -172,7 +172,7 @@ export function ProjectStageStack({
         />
         <div className="flex items-baseline gap-2">
           <span
-            className="font-kosugi text-micro uppercase tracking-widest"
+            className="font-mono text-micro uppercase tracking-widest"
             style={{
               color: isRegionHovered ? statusColor : "#666",
               transition: "color 0.25s ease-out",
@@ -197,10 +197,10 @@ export function ProjectStageStack({
             className="flex items-baseline gap-2 mt-1 opacity-0 animate-fade-in"
             style={{ animationDuration: "150ms", animationFillMode: "forwards" }}
           >
-            <span className="font-kosugi text-micro text-text-mute">
+            <span className="font-mono text-micro text-text-mute">
               avg {daysInStatusAvg}d
             </span>
-            <span className="font-kosugi text-micro text-text-mute">
+            <span className="font-mono text-micro text-text-mute">
               oldest: {oldestDays}d
             </span>
           </div>
@@ -249,10 +249,10 @@ export function ProjectStageStack({
             bottom: 12,
           }}
         >
-          <span className="font-kosugi text-micro text-text-mute uppercase">
+          <span className="font-mono text-micro text-text-mute uppercase">
             {t("empty.noProjects")}
           </span>
-          <span className="font-kosugi text-micro text-text-mute uppercase mt-1">
+          <span className="font-mono text-micro text-text-mute uppercase mt-1">
             {t("empty.dropHere")}
           </span>
         </div>

@@ -164,7 +164,7 @@ export function OptionManager({ options, onChange }: OptionManagerProps) {
 
   return (
     <div>
-      <p className="font-kosugi text-[11px] uppercase tracking-widest text-[#6B6B6B] mb-3">
+      <p className="font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B] mb-3">
         Options
       </p>
 
@@ -197,13 +197,13 @@ export function OptionManager({ options, onChange }: OptionManagerProps) {
           />
           <button
             onClick={addOption}
-            className="px-3 py-1.5 bg-ops-accent rounded-sm font-kosugi text-[11px] uppercase tracking-widest text-white"
+            className="px-3 py-1.5 bg-ops-accent rounded-sm font-mono text-[11px] uppercase tracking-widest text-white"
           >
             Add
           </button>
           <button
             onClick={() => { setAddingOption(false); setNewOptionName(""); }}
-            className="px-3 py-1.5 font-kosugi text-[11px] uppercase tracking-widest text-[#6B6B6B]"
+            className="px-3 py-1.5 font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B]"
           >
             Cancel
           </button>
@@ -211,7 +211,7 @@ export function OptionManager({ options, onChange }: OptionManagerProps) {
       ) : (
         <button
           onClick={() => setAddingOption(true)}
-          className="flex items-center gap-1.5 font-kosugi text-[11px] uppercase tracking-widest text-[#6B6B6B] hover:text-[#E5E5E5] transition-colors"
+          className="flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B] hover:text-[#E5E5E5] transition-colors"
         >
           <Plus size={14} /> Add Option
         </button>

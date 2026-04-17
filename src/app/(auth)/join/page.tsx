@@ -313,7 +313,7 @@ export default function JoinPage() {
           {msg.title}
         </h1>
         <p className="font-mohave text-body-sm text-text-3">{msg.desc}</p>
-        <p className="font-kosugi text-[11px] text-text-mute">
+        <p className="font-mono text-[11px] text-text-mute">
           Contact your company admin for assistance.
         </p>
       </div>
@@ -350,7 +350,7 @@ export default function JoinPage() {
               Join {invite.companyName}
             </h1>
             {industries.length > 0 && (
-              <p className="font-kosugi text-micro text-text-3 uppercase tracking-wider mt-1">
+              <p className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
                 {industries.slice(0, 3).join(" / ")}
               </p>
             )}
@@ -378,7 +378,7 @@ export default function JoinPage() {
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <span className="font-kosugi text-micro text-text-3">
+                    <span className="font-mono text-micro text-text-3">
                       {getInitials(m.firstName, m.lastName)}
                     </span>
                   )}
@@ -386,13 +386,13 @@ export default function JoinPage() {
               ))}
               {extraCount > 0 && (
                 <div className="w-[28px] h-[28px] rounded-full border-2 border-background bg-[rgba(255,255,255,0.06)] flex items-center justify-center">
-                  <span className="font-kosugi text-micro text-text-mute">
+                  <span className="font-mono text-micro text-text-mute">
                     +{extraCount}
                   </span>
                 </div>
               )}
             </div>
-            <span className="font-kosugi text-micro text-text-2">
+            <span className="font-mono text-micro text-text-2">
               {teamSize} {teamSize === 1 ? "member" : "members"}
             </span>
           </div>
@@ -403,7 +403,7 @@ export default function JoinPage() {
         </p>
 
         {invite.roleName && (
-          <span className="inline-block font-kosugi text-micro text-text bg-[rgba(255,255,255,0.08)] px-2 py-1 rounded-[4px] uppercase tracking-wider">
+          <span className="inline-block font-mono text-micro text-text bg-[rgba(255,255,255,0.08)] px-2 py-1 rounded-[4px] uppercase tracking-wider">
             You&apos;ll join as {invite.roleName}
           </span>
         )}
@@ -461,7 +461,7 @@ export default function JoinPage() {
         {/* Divider */}
         <div className="flex items-center gap-2 py-1">
           <div className="flex-1 h-px bg-[rgba(255,255,255,0.08)]" />
-          <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
+          <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
             or
           </span>
           <div className="flex-1 h-px bg-[rgba(255,255,255,0.08)]" />
@@ -530,7 +530,7 @@ export default function JoinPage() {
         </form>
 
         {/* Toggle signup/login */}
-        <p className="text-center font-kosugi text-[12px] text-text-mute pt-1">
+        <p className="text-center font-mono text-[12px] text-text-mute pt-1">
           {mode === "signup" ? (
             <>
               Already have an account?{" "}

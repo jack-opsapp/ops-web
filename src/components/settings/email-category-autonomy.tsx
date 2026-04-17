@@ -197,7 +197,7 @@ export function EmailCategoryAutonomy({
         <span className="font-cakemono text-body-sm text-text-2 font-light uppercase tracking-wide">
           {t("category.title")}
         </span>
-        <p className="font-kosugi text-micro text-text-mute mt-0.5">
+        <p className="font-mono text-micro text-text-mute mt-0.5">
           [{t("category.description")}]
         </p>
       </div>
@@ -233,7 +233,7 @@ export function EmailCategoryAutonomy({
                   <span className="font-mohave text-body-sm text-text block truncate">
                     {t(`category.${cat.profileType}`)}
                   </span>
-                  <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
+                  <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
                     {isLearning
                       ? t("category.learning")
                       : t("category.emailCount").replace(
@@ -286,13 +286,13 @@ export function EmailCategoryAutonomy({
                           onClick={() =>
                             applyLevelChange(cat.profileType, "auto_send")
                           }
-                          className="font-kosugi text-micro text-[#C4A868] uppercase tracking-wider hover:text-text transition-colors"
+                          className="font-mono text-micro text-[#C4A868] uppercase tracking-wider hover:text-text transition-colors"
                         >
                           {t("confirm")}
                         </button>
                         <button
                           onClick={() => setShowAutoSendWarning(null)}
-                          className="font-kosugi text-micro text-text-mute uppercase tracking-wider hover:text-text-3 transition-colors"
+                          className="font-mono text-micro text-text-mute uppercase tracking-wider hover:text-text-3 transition-colors"
                         >
                           {t("cancel")}
                         </button>

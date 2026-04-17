@@ -264,7 +264,7 @@ export function InviteModal({
           {/* Company code */}
           {companyCode && (
             <div className="flex flex-col gap-0.5">
-              <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
+              <label className="font-mono text-caption-sm text-text-2 uppercase tracking-widest">
                 {t("team.companyCode")}
               </label>
               <div className="flex items-center gap-1">
@@ -285,7 +285,7 @@ export function InviteModal({
                   )}
                 </button>
               </div>
-              <p className="font-kosugi text-micro text-text-mute">
+              <p className="font-mono text-micro text-text-mute">
                 {t("team.companyCodeHint")}
               </p>
             </div>
@@ -325,7 +325,7 @@ export function InviteModal({
 
           {/* Multi-entry input with chips */}
           <div>
-            <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest mb-0.5 block">
+            <label className="font-mono text-caption-sm text-text-2 uppercase tracking-widest mb-0.5 block">
               {inviteMode === "email" ? t("team.emailAddress") : t("team.phoneNumber")}
             </label>
             <div
@@ -363,14 +363,14 @@ export function InviteModal({
                 className="flex-1 min-w-[120px] bg-transparent outline-none font-mohave text-body-sm text-text placeholder:text-text-mute"
               />
             </div>
-            <p className="font-kosugi text-micro text-text-mute mt-[4px]">
+            <p className="font-mono text-micro text-text-mute mt-[4px]">
               {t("team.multiInviteHint")}
             </p>
           </div>
 
           {/* RBAC Role picker */}
           <div className="flex flex-col gap-0.5">
-            <label className="font-kosugi text-caption-sm text-text-2 uppercase tracking-widest">
+            <label className="font-mono text-caption-sm text-text-2 uppercase tracking-widest">
               {t("team.assignRole")}
             </label>
             <div className="flex flex-wrap items-center gap-1">
@@ -392,11 +392,11 @@ export function InviteModal({
             </div>
             {/* Role description */}
             {selectedRole?.description ? (
-              <p className="font-kosugi text-micro text-text-3 mt-[2px]">
+              <p className="font-mono text-micro text-text-3 mt-[2px]">
                 {selectedRole.description}
               </p>
             ) : (
-              <p className="font-kosugi text-micro text-text-mute">
+              <p className="font-mono text-micro text-text-mute">
                 {t("team.roleAssignHint")}
               </p>
             )}

@@ -51,7 +51,7 @@ function SortableImage({
     >
       <Image src={url} alt="" fill className="object-cover" sizes="96px" />
       {index === 0 && (
-        <span className="absolute top-1 left-1 px-1.5 py-0.5 bg-ops-accent/80 rounded-sm font-kosugi text-micro uppercase tracking-widest text-white">
+        <span className="absolute top-1 left-1 px-1.5 py-0.5 bg-ops-accent/80 rounded-sm font-mono text-micro uppercase tracking-widest text-white">
           Primary
         </span>
       )}
@@ -123,7 +123,7 @@ export function ImageUploader({ images, onChange }: ImageUploaderProps) {
 
   return (
     <div>
-      <p className="font-kosugi text-[11px] uppercase tracking-widest text-[#6B6B6B] mb-3">
+      <p className="font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B] mb-3">
         Images
       </p>
 
@@ -150,7 +150,7 @@ export function ImageUploader({ images, onChange }: ImageUploaderProps) {
         />
         <label
           htmlFor="shop-image-upload"
-          className="inline-block px-4 py-1.5 border border-white/[0.12] rounded-sm font-kosugi text-[11px] uppercase tracking-widest text-[#6B6B6B] hover:text-[#E5E5E5] cursor-pointer transition-colors"
+          className="inline-block px-4 py-1.5 border border-white/[0.12] rounded-sm font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B] hover:text-[#E5E5E5] cursor-pointer transition-colors"
         >
           Browse
         </label>

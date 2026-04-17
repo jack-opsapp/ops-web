@@ -52,7 +52,7 @@ export function FlowGalaxyControls({
       <div className="flex items-center gap-4">
         {/* Device filter */}
         <div className="flex items-center gap-2">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-[#6B6B6B]">
+          <span className="font-mono text-micro uppercase tracking-wider text-[#6B6B6B]">
             Device
           </span>
           <select

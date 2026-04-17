@@ -129,7 +129,7 @@ export function CategoryGroup({
               <h3 className="font-cakemono text-[15px] font-light uppercase text-[#E5E5E5]">
                 {category.name}
               </h3>
-              <span className="font-kosugi text-[11px] text-[#6B6B6B]">
+              <span className="font-mono text-[11px] text-[#6B6B6B]">
                 {category.whats_new_items.length} items
               </span>
             </>
@@ -180,7 +180,7 @@ export function CategoryGroup({
       <div ref={setDropRef} className="border-t border-white/[0.06]">
         {filteredItems.length === 0 && isFiltered ? (
           <div className="px-6 py-3 text-center">
-            <span className="font-kosugi text-[11px] text-[#6B6B6B]">
+            <span className="font-mono text-[11px] text-[#6B6B6B]">
               No matching items
             </span>
           </div>

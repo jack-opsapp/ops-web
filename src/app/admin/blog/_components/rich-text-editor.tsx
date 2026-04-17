@@ -215,7 +215,7 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
         contentEditable
         suppressContentEditableWarning
         className={[
-          "min-h-[400px] p-6 font-kosugi text-[15px] text-[#E5E5E5] leading-relaxed focus:outline-none",
+          "min-h-[400px] p-6 font-mono text-[15px] text-[#E5E5E5] leading-relaxed focus:outline-none",
           "[&_h2]:font-mohave [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:text-[#E5E5E5] [&_h2]:mt-8 [&_h2]:mb-3",
           "[&_h3]:font-mohave [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:text-[#E5E5E5] [&_h3]:mt-6 [&_h3]:mb-2",
           "[&_p]:mb-4",

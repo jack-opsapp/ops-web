@@ -378,7 +378,7 @@ export function ItemsTab({ showCreateForm, onCreateFormOpen, onCreateFormClose }
       {/* Table */}
       {isLoading ? (
         <div className="flex items-center justify-center py-8">
-          <span className="font-kosugi text-caption text-text-mute">
+          <span className="font-mono text-caption text-text-mute">
             Loading inventory...
           </span>
         </div>
@@ -420,27 +420,27 @@ export function ItemsTab({ showCreateForm, onCreateFormOpen, onCreateFormClose }
                   />
                 </th>
                 {/* Name */}
-                <th className="text-left px-2 py-1.5 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
+                <th className="text-left px-2 py-1.5 font-mono text-caption-sm text-text-3 uppercase tracking-widest">
                   Name
                 </th>
                 {/* Quantity */}
-                <th className="text-left px-2 py-1.5 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
+                <th className="text-left px-2 py-1.5 font-mono text-caption-sm text-text-3 uppercase tracking-widest">
                   Quantity
                 </th>
                 {/* Status */}
-                <th className="text-left px-2 py-1.5 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest">
+                <th className="text-left px-2 py-1.5 font-mono text-caption-sm text-text-3 uppercase tracking-widest">
                   Status
                 </th>
                 {/* Tags */}
-                <th className="text-left px-2 py-1.5 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest hidden md:table-cell">
+                <th className="text-left px-2 py-1.5 font-mono text-caption-sm text-text-3 uppercase tracking-widest hidden md:table-cell">
                   Tags
                 </th>
                 {/* SKU */}
-                <th className="text-left px-2 py-1.5 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest hidden sm:table-cell">
+                <th className="text-left px-2 py-1.5 font-mono text-caption-sm text-text-3 uppercase tracking-widest hidden sm:table-cell">
                   SKU
                 </th>
                 {/* Actions */}
-                <th className="text-right px-2 py-1.5 font-kosugi text-caption-sm text-text-3 uppercase tracking-widest w-[100px]">
+                <th className="text-right px-2 py-1.5 font-mono text-caption-sm text-text-3 uppercase tracking-widest w-[100px]">
                   Actions
                 </th>
               </tr>
@@ -478,7 +478,7 @@ export function ItemsTab({ showCreateForm, onCreateFormOpen, onCreateFormClose }
                           {item.name}
                         </span>
                         {item.description && (
-                          <span className="font-kosugi text-micro text-text-mute truncate block max-w-[300px]">
+                          <span className="font-mono text-micro text-text-mute truncate block max-w-[300px]">
                             {item.description}
                           </span>
                         )}
@@ -501,7 +501,7 @@ export function ItemsTab({ showCreateForm, onCreateFormOpen, onCreateFormClose }
                     <td className="px-2 py-1.5 hidden md:table-cell">
                       <div className="flex flex-wrap gap-1">
                         {tagIds.length === 0 ? (
-                          <span className="font-kosugi text-micro text-text-mute">
+                          <span className="font-mono text-micro text-text-mute">
                             —
                           </span>
                         ) : (
@@ -528,7 +528,7 @@ export function ItemsTab({ showCreateForm, onCreateFormOpen, onCreateFormClose }
 
                     {/* SKU */}
                     <td className="px-2 py-1.5 hidden sm:table-cell">
-                      <span className="font-kosugi text-caption-sm text-text-3">
+                      <span className="font-mono text-caption-sm text-text-3">
                         {item.sku || "—"}
                       </span>
                     </td>

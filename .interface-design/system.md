@@ -86,8 +86,10 @@
 | Font | Role |
 |------|------|
 | **Mohave** | Headings, hero numbers (wt 300), body text (wt 400–500), page titles |
-| **Kosugi** | Category labels — ALWAYS uppercase + letter-spacing 0.16–0.20em |
-| **JetBrains Mono** | All numerical data, timestamps, metadata values, currency, `//` prefixes |
+| **JetBrains Mono** | All micro labels, numerical data, timestamps, metadata, category tags, `//` prefixes, tactical brackets |
+| **Cake Mono** (brand + TopBar H1 + display) | Uppercase display voice — see Logo & Brand section |
+
+**Kosugi is deprecated** (removed 2026-04-17). Every former Kosugi usage moved to JetBrains Mono — the mono face now carries both the tactical-label and numerical-data roles.
 
 ### Size Floor
 
@@ -107,14 +109,14 @@ All numerical contexts: `font-feature-settings: "tnum" 1, "zero" 1` (tabular num
 | Section heading | `font-cakemono font-light uppercase` | 15–20px | Admin section headers, settings panel subheads |
 | Button label | `font-cakemono font-light uppercase` | 14px | Primary/secondary uppercase button text |
 | Badge | `font-cakemono font-light uppercase tracking-wider` | 11px | Status badges, role tags |
-| Panel title | `font-kosugi text-micro uppercase tracking-wider` | 11px | Widget/section titles |
+| Panel title | `font-mono text-micro uppercase tracking-wider` | 11px | Widget/section titles |
 | Body / name | `font-mohave text-body-sm` | 14px | Entity names, row primary text |
 | Data value (lg) | `font-mono text-data-lg font-semibold` | 20px | Hero metrics in widgets |
 | Data value | `font-mono text-data-sm` | 13px | Standard data values |
-| Category label | `font-kosugi text-micro uppercase tracking-wider` | 11px | BOOKED, INVOICED, etc. |
+| Category label | `font-mono text-micro uppercase tracking-wider` | 11px | BOOKED, INVOICED, etc. |
 | Metadata | `font-mono text-micro` | 11px | Timestamps, IDs, subtotals |
-| Row secondary | `font-kosugi text-micro` | 11px | Line item secondary text |
-| Footer | `font-kosugi text-micro uppercase tracking-wider` | 11px | "View Invoices" etc. |
+| Row secondary | `font-mono text-micro` | 11px | Line item secondary text |
+| Footer | `font-mono text-micro uppercase tracking-wider` | 11px | "View Invoices" etc. |
 | Badge | `font-mono text-micro uppercase tracking-wider` | 11px | Status badges |
 
 ---
@@ -150,7 +152,7 @@ The OPS mark is two interlocking chamfered brackets with subtle isometric extrus
 - Body text, paragraphs, long-form copy
 - Sentence-case content
 - Numerical data readouts (use `font-mono`)
-- Small-caps category labels (use `font-kosugi`, which is already the "small uppercase" voice)
+- Small-caps category labels (use `font-mono`, which is already the "small uppercase" voice)
 
 **Mohave remains the voice for:**
 - Hero numbers (Mohave Light at 76–84px)
@@ -364,11 +366,11 @@ All category labels (BOOKED, INVOICED, LEAD, QUALIFIED, etc.) use Kosugi upperca
 
 ```
 ┌─────────────────────────────────────┐
-│ HEADER: title (left) + controls     │ ← font-kosugi text-micro uppercase
+│ HEADER: title (left) + controls     │ ← font-mono text-micro uppercase
 ├─────────────────────────────────────┤
 │ CONTENT: chart / metrics / list     │ ← main data display
 ├─────────────────────────────────────┤
-│ FOOTER: navigation text             │ ← font-kosugi text-micro uppercase
+│ FOOTER: navigation text             │ ← font-mono text-micro uppercase
 └─────────────────────────────────────┘
 ```
 
@@ -416,12 +418,12 @@ Title in header position. Centered hero value in `text-display text-text-mute`. 
 - MD+: Inline pill group
 - Active pill: `bg-surface-active text-text border border-[rgba(255,255,255,0.18)] rounded-chip px-1.5 py-[1px]`
 - Inactive: `text-text-3 hover:text-text-2 border border-transparent`
-- Font: `font-kosugi text-micro uppercase tracking-wider`
+- Font: `font-mono text-micro uppercase tracking-wider`
 - No accent on active pill.
 
 ### "+N More" (WidgetMoreButton)
 
-- Font: `font-kosugi text-micro text-text-3 hover:text-text-2`
+- Font: `font-mono text-micro text-text-3 hover:text-text-2`
 - MUST be outside the ScrollFade container
 - Click toggles expanded state — does NOT navigate away
 

@@ -146,7 +146,7 @@ export function CalendarHeader({ t }: CalendarHeaderProps) {
           onClick={() => {
             console.log("[AutoSchedule] Triggered — hook will be wired in cleanup task");
           }}
-          className="relative flex items-center gap-[5px] px-[10px] py-[6px] rounded-panel font-kosugi text-micro uppercase tracking-wider transition-colors"
+          className="relative flex items-center gap-[5px] px-[10px] py-[6px] rounded-panel font-mono text-micro uppercase tracking-wider transition-colors"
           style={{
             color: "#6F94B0",
             border: "1px solid rgba(111, 148, 176,0.30)",

@@ -129,7 +129,7 @@ function PlatformSelector({
         <button
           key={p.value}
           onClick={() => onChange(p.value)}
-          className={`px-3 py-1 font-kosugi text-[11px] uppercase tracking-wider rounded transition-colors ${
+          className={`px-3 py-1 font-mono text-[11px] uppercase tracking-wider rounded transition-colors ${
             value === p.value
               ? "bg-white/[0.08] text-[#E5E5E5]"
               : "text-[#6B6B6B] hover:text-[#A0A0A0] hover:bg-white/[0.04]"
@@ -278,7 +278,7 @@ export function AppAnalyticsContent({
               <p className="font-mohave text-[13px] uppercase tracking-widest text-[#6B6B6B] mb-2">
                 Platform Breakdown
               </p>
-              <p className="font-kosugi text-[12px] text-[#6B6B6B] mb-4">
+              <p className="font-mono text-[12px] text-[#6B6B6B] mb-4">
                 [distinct users last 30 days]
               </p>
               <AdminDonutChart data={activeUsersQuery.data?.platformBreakdown ?? []} />
@@ -288,7 +288,7 @@ export function AppAnalyticsContent({
               <p className="font-mohave text-[13px] uppercase tracking-widest text-[#6B6B6B] mb-2">
                 Avg Session Duration
               </p>
-              <p className="font-kosugi text-[12px] text-[#6B6B6B] mb-4">
+              <p className="font-mono text-[12px] text-[#6B6B6B] mb-4">
                 [seconds · from app_close lifecycle events]
               </p>
               <AdminLineChart
@@ -363,14 +363,14 @@ export function AppAnalyticsContent({
                         {f.sparkline.length > 0 ? (
                           <Sparkline data={f.sparkline} height={28} color="#597794" />
                         ) : (
-                          <span className="font-kosugi text-[11px] text-[#6B6B6B]">—</span>
+                          <span className="font-mono text-[11px] text-[#6B6B6B]">—</span>
                         )}
                       </td>
                     </tr>
                   ))}
                   {sortedFeatures.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="py-8 text-center font-kosugi text-[12px] text-[#6B6B6B]">
+                      <td colSpan={6} className="py-8 text-center font-mono text-[12px] text-[#6B6B6B]">
                         [no action events in this period]
                       </td>
                     </tr>
@@ -397,7 +397,7 @@ export function AppAnalyticsContent({
                     <button
                       key={f.label}
                       onClick={() => setSelectedFunnel(i)}
-                      className={`px-3 py-1 font-kosugi text-[11px] uppercase tracking-wider rounded transition-colors ${
+                      className={`px-3 py-1 font-mono text-[11px] uppercase tracking-wider rounded transition-colors ${
                         selectedFunnel === i
                           ? "bg-white/[0.08] text-[#E5E5E5]"
                           : "text-[#6B6B6B] hover:text-[#A0A0A0] hover:bg-white/[0.04]"
@@ -421,7 +421,7 @@ export function AppAnalyticsContent({
               <p className="font-mohave text-[13px] uppercase tracking-widest text-[#6B6B6B] mb-2">
                 Sync Failure Trend
               </p>
-              <p className="font-kosugi text-[12px] text-[#6B6B6B] mb-6">
+              <p className="font-mono text-[12px] text-[#6B6B6B] mb-6">
                 [sync_failed error events per day]
               </p>
               <AdminLineChart
@@ -462,17 +462,17 @@ export function AppAnalyticsContent({
                       <td className="py-2.5 font-mohave text-[14px] text-[#A0A0A0] pr-3 text-right tabular-nums">
                         {e.affectedUsers}
                       </td>
-                      <td className="py-2.5 font-kosugi text-[12px] text-[#6B6B6B] pr-3 max-w-[200px] truncate">
+                      <td className="py-2.5 font-mono text-[12px] text-[#6B6B6B] pr-3 max-w-[200px] truncate">
                         {e.topProperty ?? "—"}
                       </td>
-                      <td className="py-2.5 font-kosugi text-[12px] text-[#6B6B6B] pr-3 whitespace-nowrap">
+                      <td className="py-2.5 font-mono text-[12px] text-[#6B6B6B] pr-3 whitespace-nowrap">
                         {formatLastSeen(e.lastSeen)}
                       </td>
                     </tr>
                   ))}
                   {sortedErrors.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="py-8 text-center font-kosugi text-[12px] text-[#6B6B6B]">
+                      <td colSpan={5} className="py-8 text-center font-mono text-[12px] text-[#6B6B6B]">
                         [no error events in this period]
                       </td>
                     </tr>

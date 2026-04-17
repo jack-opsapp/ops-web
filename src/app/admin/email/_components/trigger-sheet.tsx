@@ -155,7 +155,7 @@ export function TriggerSheet({
               {trigger.schedule}
             </span>
             {trigger.cronJobName && (
-              <span className={`font-kosugi text-micro ${isActive ? "text-[#9DB582]" : "text-[#6B6B6B]"}`}>
+              <span className={`font-mono text-micro ${isActive ? "text-[#9DB582]" : "text-[#6B6B6B]"}`}>
                 {isActive ? "Active" : "Paused"}
               </span>
             )}
@@ -165,7 +165,7 @@ export function TriggerSheet({
         <SheetBody className="px-6 py-4">
           <div className="space-y-6">
             {/* Description */}
-            <p className="font-kosugi text-[12px] text-[#A0A0A0]">
+            <p className="font-mono text-[12px] text-[#A0A0A0]">
               {trigger.description}
             </p>
 
@@ -190,21 +190,21 @@ export function TriggerSheet({
                       <p className="font-mohave text-[13px] text-[#E5E5E5]">{lastEmail.subject}</p>
                     </div>
                     <div className="px-4 py-2 flex items-center justify-between border-b border-white/[0.05]">
-                      <span className="font-kosugi text-[11px] text-[#6B6B6B]">To</span>
-                      <span className="font-kosugi text-[11px] text-[#A0A0A0]">{lastEmail.recipient_email}</span>
+                      <span className="font-mono text-[11px] text-[#6B6B6B]">To</span>
+                      <span className="font-mono text-[11px] text-[#A0A0A0]">{lastEmail.recipient_email}</span>
                     </div>
                     <div className="px-4 py-2 flex items-center justify-between border-b border-white/[0.05]">
-                      <span className="font-kosugi text-[11px] text-[#6B6B6B]">Type</span>
-                      <span className="font-kosugi text-[11px] text-[#A0A0A0]">{lastEmail.email_type}</span>
+                      <span className="font-mono text-[11px] text-[#6B6B6B]">Type</span>
+                      <span className="font-mono text-[11px] text-[#A0A0A0]">{lastEmail.email_type}</span>
                     </div>
                     <div className="px-4 py-2 flex items-center justify-between border-b border-white/[0.05]">
-                      <span className="font-kosugi text-[11px] text-[#6B6B6B]">Sent</span>
-                      <span className="font-kosugi text-[11px] text-[#A0A0A0]">
+                      <span className="font-mono text-[11px] text-[#6B6B6B]">Sent</span>
+                      <span className="font-mono text-[11px] text-[#A0A0A0]">
                         {new Date(lastEmail.sent_at).toLocaleString()}
                       </span>
                     </div>
                     <div className="px-4 py-2 flex items-center justify-between">
-                      <span className="font-kosugi text-[11px] text-[#6B6B6B]">Status</span>
+                      <span className="font-mono text-[11px] text-[#6B6B6B]">Status</span>
                       <span className={`font-mohave text-[11px] uppercase ${
                         lastEmail.status === "sent" || lastEmail.status === "delivered"
                           ? "text-[#9DB582]"
@@ -216,7 +216,7 @@ export function TriggerSheet({
                   </div>
                 ) : (
                   <div className="border border-white/[0.08] rounded-lg p-4 bg-white/[0.02]">
-                    <p className="font-kosugi text-[12px] text-[#6B6B6B] text-center">
+                    <p className="font-mono text-[12px] text-[#6B6B6B] text-center">
                       No emails sent yet
                     </p>
                   </div>
@@ -286,7 +286,7 @@ export function TriggerSheet({
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && testEmail.trim()) onSendTest(testEmail.trim());
                       }}
-                      className="flex-1 bg-transparent border border-white/[0.08] rounded-lg px-3 py-2 font-kosugi text-[12px] text-[#E5E5E5] placeholder-[#4A4A4A] focus:outline-none focus:border-[#597794]"
+                      className="flex-1 bg-transparent border border-white/[0.08] rounded-lg px-3 py-2 font-mono text-[12px] text-[#E5E5E5] placeholder-[#4A4A4A] focus:outline-none focus:border-[#597794]"
                     />
                     <button
                       onClick={() => testEmail.trim() && onSendTest(testEmail.trim())}

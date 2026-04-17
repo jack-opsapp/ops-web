@@ -251,7 +251,7 @@ export function RevenueCharts({
           {planFilter && (
             <button
               onClick={() => setPlanFilter(null)}
-              className="font-kosugi text-[11px] text-[#597794] hover:text-[#E5E5E5] transition-colors"
+              className="font-mono text-[11px] text-[#597794] hover:text-[#E5E5E5] transition-colors"
             >
               Clear filter: {planFilter} &times;
             </button>

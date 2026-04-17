@@ -43,7 +43,7 @@ export function JoinTeamPrompt() {
   return (
     <form onSubmit={handleJoin} className="animate-fade-in space-y-1.5">
       <div className="flex items-center justify-between">
-        <span className="font-kosugi text-[11px] text-text-mute uppercase tracking-widest">
+        <span className="font-mono text-[11px] text-text-mute uppercase tracking-widest">
           {t("joinTeam.prompt")}
         </span>
         <button

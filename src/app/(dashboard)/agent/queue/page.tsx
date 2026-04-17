@@ -223,7 +223,7 @@ export default function AgentQueuePage() {
         <h1 className="font-mohave text-[28px] text-text uppercase leading-tight">
           {t("title")}
         </h1>
-        <p className="font-kosugi text-[13px] text-text-3 mt-0.5">
+        <p className="font-mono text-[13px] text-text-3 mt-0.5">
           [{t("subtitle")}]
         </p>
       </div>
@@ -282,7 +282,7 @@ export default function AgentQueuePage() {
             ) : (
               <Square className="w-[16px] h-[16px]" />
             )}
-            <span className="font-kosugi text-[12px]">
+            <span className="font-mono text-[12px]">
               {allSelected ? t("action.deselectAll") : t("action.selectAll")}
             </span>
           </button>
@@ -314,7 +314,7 @@ export default function AgentQueuePage() {
               <p className="font-mohave text-body text-text-2 uppercase">
                 {t("empty.title")}
               </p>
-              <p className="font-kosugi text-[13px] text-text-3 mt-1 max-w-[360px]">
+              <p className="font-mono text-[13px] text-text-3 mt-1 max-w-[360px]">
                 [{t("empty.description")}]
               </p>
             </div>
@@ -341,7 +341,7 @@ export default function AgentQueuePage() {
       {selectedIds.size > 0 && (
         <div className="fixed bottom-0 left-0 right-0 z-[1500] border-t border-[rgba(255,255,255,0.08)] bg-[var(--surface-glass-dense)] backdrop-blur-[24px] saturate-[1.3]">
           <div className="flex items-center justify-between gap-4 px-6 py-3 max-w-screen-xl mx-auto">
-            <span className="font-kosugi text-[13px] text-text-2">
+            <span className="font-mono text-[13px] text-text-2">
               [{selectedIds.size} {t("batch.selected")}]
             </span>
             <div className="flex items-center gap-2">

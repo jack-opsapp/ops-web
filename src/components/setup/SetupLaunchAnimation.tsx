@@ -307,7 +307,7 @@ export function SetupLaunchAnimation({
       >
         <div className="flex items-center gap-1.5">
           {workspaceReady && <Check className="w-3 h-3 text-text-2" />}
-          <span className="font-kosugi text-[11px] text-text-mute uppercase tracking-widest">
+          <span className="font-mono text-[11px] text-text-mute uppercase tracking-widest">
             {workspaceReady ? "Ready" : "Setting up your workspace\u2026"}
           </span>
         </div>

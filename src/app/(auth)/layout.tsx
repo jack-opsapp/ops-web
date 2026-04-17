@@ -70,7 +70,7 @@ function AuthRouteGate({ children }: { children: React.ReactNode }) {
             <h2 className="font-cakemono text-xl font-light text-text uppercase tracking-wide">
               AUTHENTICATION REQUIRED
             </h2>
-            <p className="font-kosugi text-[11px] text-text-3 mt-2">
+            <p className="font-mono text-[11px] text-text-3 mt-2">
               [you must be logged in to access this page]
             </p>
           </div>

@@ -166,7 +166,7 @@ function NavItemButton({
         <span
           className={cn(
             "inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-full",
-            "font-kosugi text-micro leading-none bg-fill-neutral text-text",
+            "font-mono text-micro leading-none bg-fill-neutral text-text",
             isCollapsed && "absolute top-0 right-0"
           )}
         >

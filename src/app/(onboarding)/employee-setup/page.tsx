@@ -346,7 +346,7 @@ export default function EmployeeSetupPage() {
               <h2 className="font-mohave text-heading text-text uppercase">
                 YOUR PROFILE
               </h2>
-              <p className="font-kosugi text-caption-sm text-text-3 mt-0.5 mb-3">
+              <p className="font-mono text-caption-sm text-text-3 mt-0.5 mb-3">
                 [confirm your name and add a photo]
               </p>
 
@@ -399,7 +399,7 @@ export default function EmployeeSetupPage() {
               <h2 className="font-mohave text-heading text-text uppercase">
                 PHONE NUMBER
               </h2>
-              <p className="font-kosugi text-caption-sm text-text-3 mt-0.5 mb-3">
+              <p className="font-mono text-caption-sm text-text-3 mt-0.5 mb-3">
                 [helps your team reach you in the field]
               </p>
               <Input
@@ -418,7 +418,7 @@ export default function EmployeeSetupPage() {
               <h2 className="font-mohave text-heading text-text uppercase">
                 EMERGENCY CONTACT
               </h2>
-              <p className="font-kosugi text-caption-sm text-text-3 mt-0.5 mb-3">
+              <p className="font-mono text-caption-sm text-text-3 mt-0.5 mb-3">
                 [optional — recommended for field safety]
               </p>
               <div className="space-y-2">
@@ -467,7 +467,7 @@ export default function EmployeeSetupPage() {
               <h2 className="font-mohave text-heading text-text uppercase">
                 NOTIFICATIONS
               </h2>
-              <p className="font-kosugi text-caption-sm text-text-3 mt-0.5 mb-3">
+              <p className="font-mono text-caption-sm text-text-3 mt-0.5 mb-3">
                 [how you want to hear about updates]
               </p>
 
@@ -478,7 +478,7 @@ export default function EmployeeSetupPage() {
                     <p className="font-mohave text-body text-text">
                       PUSH NOTIFICATIONS
                     </p>
-                    <p className="font-kosugi text-caption-sm text-text-mute">
+                    <p className="font-mono text-caption-sm text-text-mute">
                       [schedule changes, task assignments]
                     </p>
                   </div>
@@ -500,7 +500,7 @@ export default function EmployeeSetupPage() {
                     <p className="font-mohave text-body text-text">
                       EMAIL NOTIFICATIONS
                     </p>
-                    <p className="font-kosugi text-caption-sm text-text-mute">
+                    <p className="font-mono text-caption-sm text-text-mute">
                       [weekly summaries, important alerts]
                     </p>
                   </div>

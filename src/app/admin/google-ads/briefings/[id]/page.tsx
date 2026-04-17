@@ -52,7 +52,7 @@ export default async function BriefingDetailPage({
         {/* Performance Snapshot */}
         {perf && (
           <div>
-            <h2 className="font-kosugi text-micro uppercase tracking-wider text-[#6B6B6B] mb-4">
+            <h2 className="font-mono text-micro uppercase tracking-wider text-[#6B6B6B] mb-4">
               Performance Snapshot
             </h2>
             <div className="grid grid-cols-3 gap-4">
@@ -88,7 +88,7 @@ export default async function BriefingDetailPage({
         {/* Insights */}
         {briefing.insights.length > 0 && (
           <div>
-            <h2 className="font-kosugi text-micro uppercase tracking-wider text-[#6B6B6B] mb-4">
+            <h2 className="font-mono text-micro uppercase tracking-wider text-[#6B6B6B] mb-4">
               Insights
             </h2>
             <div className="space-y-3">
@@ -102,7 +102,7 @@ export default async function BriefingDetailPage({
                         insight.severity === "medium" ? "text-[#C4A868]" : "text-[#6B6B6B]"
                       }`}>[{insight.severity}]</span>
                       <span className="font-mohave text-[14px] text-[#E5E5E5]">{insight.title}</span>
-                      <span className="font-kosugi text-micro text-[#444444] bg-white/[0.04] px-1.5 py-0.5 rounded ml-auto">
+                      <span className="font-mono text-micro text-[#444444] bg-white/[0.04] px-1.5 py-0.5 rounded ml-auto">
                         {insight.impactScore}/10
                       </span>
                     </div>

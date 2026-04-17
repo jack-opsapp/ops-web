@@ -97,7 +97,7 @@ export function ConversationList({
           className="flex items-center justify-center gap-1 w-full py-[5px] rounded-panel border border-border-subtle bg-surface-input hover:bg-glass glass-surface transition-colors"
         >
           <Plus className="w-[12px] h-[12px] text-text-mute" />
-          <span className="font-kosugi text-micro text-text-mute uppercase tracking-[0.5px]">
+          <span className="font-mono text-micro text-text-mute uppercase tracking-[0.5px]">
             {t("newMessage")}
           </span>
         </button>
@@ -120,7 +120,7 @@ export function ConversationList({
               {searchQuery ? "No conversations match your search." : t("empty.title")}
             </p>
             {!searchQuery && (
-              <p className="font-kosugi text-caption-sm text-text-mute mt-1">
+              <p className="font-mono text-caption-sm text-text-mute mt-1">
                 {t("empty.description")}
               </p>
             )}

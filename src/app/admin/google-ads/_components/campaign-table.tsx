@@ -40,7 +40,7 @@ export function CampaignTable({ campaigns }: CampaignTableProps) {
 
   return (
     <div>
-      <h2 className="font-kosugi text-micro uppercase tracking-wider text-[#6B6B6B] mb-4">
+      <h2 className="font-mono text-micro uppercase tracking-wider text-[#6B6B6B] mb-4">
         Campaign Performance
       </h2>
       <div className="overflow-x-auto">

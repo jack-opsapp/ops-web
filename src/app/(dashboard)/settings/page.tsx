@@ -508,7 +508,7 @@ export default function SettingsPage() {
                               setActiveSubTab(sub.id);
                             }}
                             className={cn(
-                              "px-1.5 py-[6px] font-kosugi text-[11px] whitespace-nowrap rounded-sm",
+                              "px-1.5 py-[6px] font-mono text-[11px] whitespace-nowrap rounded-sm",
                               "transition-all duration-200 shrink-0",
                               activeSubTab === sub.id
                                 ? "text-text bg-[rgba(255,255,255,0.06)]"

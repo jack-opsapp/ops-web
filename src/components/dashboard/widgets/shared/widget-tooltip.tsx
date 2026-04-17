@@ -104,7 +104,7 @@ export function TooltipRow({
     <div className="flex items-center justify-between gap-3 min-w-[120px]">
       <div className="flex items-center gap-1">
         {color && <span className="w-[6px] h-[6px] rounded-full shrink-0" style={{ backgroundColor: color }} />}
-        <span className="font-kosugi text-micro text-text-3 uppercase tracking-wider whitespace-nowrap">{label}</span>
+        <span className="font-mono text-micro text-text-3 uppercase tracking-wider whitespace-nowrap">{label}</span>
       </div>
       <div className="flex items-center gap-1">
         <span className="font-mono text-[11px] text-text font-medium">{value}</span>

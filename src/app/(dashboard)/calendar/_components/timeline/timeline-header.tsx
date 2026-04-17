@@ -35,7 +35,7 @@ export function TimelineHeader({ startDate, daysShown }: TimelineHeaderProps) {
           borderRight: "1px solid rgba(255,255,255,0.10)",
         }}
       >
-        <span className="font-kosugi text-micro uppercase tracking-wider text-text-2">
+        <span className="font-mono text-micro uppercase tracking-wider text-text-2">
           Team
         </span>
       </div>
@@ -57,7 +57,7 @@ export function TimelineHeader({ startDate, daysShown }: TimelineHeaderProps) {
                 opacity: weekend ? 0.5 : 1,
               }}
             >
-              <span className="font-kosugi text-micro uppercase tracking-wider text-text-2">
+              <span className="font-mono text-micro uppercase tracking-wider text-text-2">
                 {format(day, "EEE")}
               </span>
               <span className="font-mohave font-semibold text-[16px] leading-tight text-text">

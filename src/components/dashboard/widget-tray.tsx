@@ -285,7 +285,7 @@ export function WidgetTray({ open, onClose, onDone, onCancel }: WidgetTrayProps)
               className="flex items-center gap-[6px] ml-auto mr-3"
               onPointerDown={(e) => e.stopPropagation()}
             >
-              <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider select-none">
+              <span className="font-mono text-micro text-text-mute uppercase tracking-wider select-none">
                 {t("tray.gap")}
               </span>
               <div className="flex items-center rounded-[4px] border border-[rgba(255,255,255,0.1)] bg-[rgba(10,10,10,0.5)] backdrop-blur-sm overflow-hidden">
@@ -404,7 +404,7 @@ export function WidgetTray({ open, onClose, onDone, onCancel }: WidgetTrayProps)
                       <div key={category}>
                         {/* Category label */}
                         <div className="flex items-center gap-[6px] mb-[6px]">
-                          <span className="font-kosugi text-micro text-text-3 uppercase tracking-widest">
+                          <span className="font-mono text-micro text-text-3 uppercase tracking-widest">
                             {CATEGORY_LABELS[category]}
                           </span>
                           <span className="font-mono text-micro text-text-mute">
@@ -430,7 +430,7 @@ export function WidgetTray({ open, onClose, onDone, onCancel }: WidgetTrayProps)
                         {inUse.length > 0 && (
                           <>
                             <div className="flex items-center gap-[6px] mb-[4px] mt-[2px]">
-                              <span className="font-kosugi text-micro text-text-mute uppercase tracking-widest">
+                              <span className="font-mono text-micro text-text-mute uppercase tracking-widest">
                                 {t("tray.alreadyInUse")}
                               </span>
                               <span className="font-mono text-micro text-text-mute">

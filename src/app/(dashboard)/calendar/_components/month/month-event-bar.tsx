@@ -78,7 +78,7 @@ function EventTooltip({ event }: { event: InternalCalendarEvent }) {
           style={{ background: colors.border }}
         />
         <span
-          className="font-kosugi text-micro uppercase tracking-wider leading-tight"
+          className="font-mono text-micro uppercase tracking-wider leading-tight"
           style={{ color: colors.text }}
         >
           {event.taskType.toUpperCase()}
@@ -87,7 +87,7 @@ function EventTooltip({ event }: { event: InternalCalendarEvent }) {
 
       {/* Date range */}
       <div
-        className="font-kosugi text-micro uppercase tracking-wider leading-tight mt-[3px]"
+        className="font-mono text-micro uppercase tracking-wider leading-tight mt-[3px]"
         style={{ color: "#999999" }}
       >
         {dateRangeStr}
@@ -242,7 +242,7 @@ export function MonthEventBar({
         {event.project || event.title}
       </span>
       <span
-        className="font-kosugi uppercase truncate"
+        className="font-mono uppercase truncate"
         style={{ fontSize: 9, lineHeight: "12px", color: "#999999", letterSpacing: "0.08em" }}
       >
         {event.taskType}

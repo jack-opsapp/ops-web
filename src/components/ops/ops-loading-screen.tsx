@@ -89,7 +89,7 @@ export function OpsLoadingScreen({
 
       {showText && (
         <motion.span
-          className="font-kosugi text-[11px] uppercase tracking-[0.3em] text-text-mute"
+          className="font-mono text-[11px] uppercase tracking-[0.3em] text-text-mute"
           initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{

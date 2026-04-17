@@ -86,7 +86,7 @@ export default function PinPage() {
         <span className="sr-only">{t("ops")}</span>
         <OpsLockup orientation="vertical" className="h-20 w-auto" title="" />
       </h1>
-      <p className="font-kosugi text-caption-sm text-text-3 uppercase tracking-[0.3em] mb-5">
+      <p className="font-mono text-caption-sm text-text-3 uppercase tracking-[0.3em] mb-5">
         {t("pin.title")}
       </p>
 

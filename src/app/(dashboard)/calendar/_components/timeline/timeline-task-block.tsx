@@ -353,13 +353,13 @@ export function TimelineTaskBlock({
             {clientName && !isNarrow && (
               <>
                 <span
-                  className="font-kosugi text-[11px] shrink-0"
+                  className="font-mono text-[11px] shrink-0"
                   style={{ color: "#666666" }}
                 >
                   ·
                 </span>
                 <span
-                  className="font-kosugi text-[11px] truncate leading-tight"
+                  className="font-mono text-[11px] truncate leading-tight"
                   style={{ color: "#999999" }}
                 >
                   {clientName}
@@ -371,7 +371,7 @@ export function TimelineTaskBlock({
           {/* Right: task type badge */}
           {!isNarrow && (
             <div
-              className="shrink-0 flex items-center px-[5px] py-[1px] font-kosugi text-micro uppercase tracking-wider leading-tight"
+              className="shrink-0 flex items-center px-[5px] py-[1px] font-mono text-micro uppercase tracking-wider leading-tight"
               style={{
                 color: textColor,
                 background: `rgba(${rgbStr}, 0.12)`,
@@ -419,7 +419,7 @@ export function TimelineTaskBlock({
             {/* Client */}
             {clientName && (
               <div
-                className="font-kosugi text-micro uppercase tracking-wider leading-tight mt-[2px] truncate"
+                className="font-mono text-micro uppercase tracking-wider leading-tight mt-[2px] truncate"
                 style={{ color: "#999999" }}
               >
                 {clientName}
@@ -442,7 +442,7 @@ export function TimelineTaskBlock({
                 style={{ background: borderColor }}
               />
               <span
-                className="font-kosugi text-micro uppercase tracking-wider leading-tight"
+                className="font-mono text-micro uppercase tracking-wider leading-tight"
                 style={{ color: textColor }}
               >
                 {taskTypeLabel}
@@ -452,7 +452,7 @@ export function TimelineTaskBlock({
             {/* Team members */}
             {event.teamMemberIds.length > 0 && (
               <div
-                className="font-kosugi text-micro uppercase tracking-wider leading-tight mt-[3px]"
+                className="font-mono text-micro uppercase tracking-wider leading-tight mt-[3px]"
                 style={{ color: "#999999" }}
               >
                 {event.teamMemberIds.length}{" "}
@@ -464,7 +464,7 @@ export function TimelineTaskBlock({
 
             {/* Date range */}
             <div
-              className="font-kosugi text-micro uppercase tracking-wider leading-tight mt-[3px]"
+              className="font-mono text-micro uppercase tracking-wider leading-tight mt-[3px]"
               style={{ color: "#999999" }}
             >
               {dateRangeStr}

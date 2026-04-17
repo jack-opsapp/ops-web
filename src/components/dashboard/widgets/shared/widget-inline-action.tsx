@@ -69,7 +69,7 @@ export function WidgetInlineAction(props: WidgetInlineActionProps) {
                 className="w-full flex items-center gap-1.5 px-2 py-1 hover:bg-[rgba(255,255,255,0.04)] transition-colors rounded-sm text-left"
               >
                 <ActionIcon className="w-[14px] h-[14px] text-text-3 shrink-0" />
-                <span className="font-kosugi text-micro text-text-2">
+                <span className="font-mono text-micro text-text-2">
                   {action.label}
                 </span>
               </button>

@@ -171,12 +171,12 @@ export default async function AcquisitionPage() {
         {data.adsSummary && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <p className="font-kosugi text-micro uppercase tracking-wider text-[#6B6B6B]">
+              <p className="font-mono text-micro uppercase tracking-wider text-[#6B6B6B]">
                 Paid Acquisition
               </p>
               <Link
                 href="/admin/google-ads"
-                className="font-kosugi text-[11px] text-[#597794] hover:text-[#E5E5E5] transition-colors"
+                className="font-mono text-[11px] text-[#597794] hover:text-[#E5E5E5] transition-colors"
               >
                 View details &rarr;
               </Link>

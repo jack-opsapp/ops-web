@@ -34,7 +34,7 @@ export function NewItemForm({ onSubmit, onCancel }: NewItemFormProps) {
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Title"
-          className="bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1.5 font-kosugi text-[12px] text-[#E5E5E5] outline-none"
+          className="bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1.5 font-mono text-[12px] text-[#E5E5E5] outline-none"
           autoFocus
         />
       </div>
@@ -43,7 +43,7 @@ export function NewItemForm({ onSubmit, onCancel }: NewItemFormProps) {
         onChange={(e) => setDescription(e.target.value)}
         placeholder="Description"
         rows={2}
-        className="w-full bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1.5 font-kosugi text-[12px] text-[#E5E5E5] outline-none resize-none"
+        className="w-full bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1.5 font-mono text-[12px] text-[#E5E5E5] outline-none resize-none"
       />
       <div className="flex items-center gap-3">
         <StatusChipBar currentStatus={status} onStatusChange={setStatus} />

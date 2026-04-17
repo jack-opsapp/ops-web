@@ -293,7 +293,7 @@ export function GalaxyScene() {
       {/* Loading state */}
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <span className="font-kosugi text-micro uppercase tracking-wider text-[#999] animate-pulse">
+          <span className="font-mono text-micro uppercase tracking-wider text-[#999] animate-pulse">
             [ LOADING INTEL ]
           </span>
         </div>
@@ -400,7 +400,7 @@ export function GalaxyScene() {
               borderRadius: "3px",
             }}
           >
-            <div className="font-kosugi text-micro uppercase tracking-wider text-[#6F94B0]">
+            <div className="font-mono text-micro uppercase tracking-wider text-[#6F94B0]">
               [ INTEL ]
             </div>
             <div className="font-mohave text-sm text-white leading-relaxed">
@@ -408,7 +408,7 @@ export function GalaxyScene() {
             </div>
             <a
               href="/settings"
-              className="inline-block font-kosugi text-micro uppercase tracking-wider px-3 py-1.5 rounded-[2px] transition-colors"
+              className="inline-block font-mono text-micro uppercase tracking-wider px-3 py-1.5 rounded-[2px] transition-colors"
               style={{
                 background: "rgba(111, 148, 176, 0.15)",
                 border: "1px solid rgba(111, 148, 176, 0.3)",
@@ -463,7 +463,7 @@ function FocusedEntityInfo({
         <div className="font-mohave text-sm text-white leading-tight">
           {client.name}
         </div>
-        <div className="font-kosugi text-micro uppercase tracking-wider text-[#666]">
+        <div className="font-mono text-micro uppercase tracking-wider text-[#666]">
           {client.email || client.phone || client.address || "client"}
         </div>
       </div>
@@ -476,7 +476,7 @@ function FocusedEntityInfo({
             <div className="font-mohave text-sm text-white leading-tight">
               {project.name}
             </div>
-            <div className="font-kosugi text-micro uppercase tracking-wider text-[#666]">
+            <div className="font-mono text-micro uppercase tracking-wider text-[#666]">
               {typeof project.properties.status === "string" ? project.properties.status : "project"}
               {typeof project.properties.address === "string" && (
                 <span className="ml-2 text-[#555]">{project.properties.address}</span>

@@ -260,7 +260,7 @@ export default function ClientDetailPage() {
     return (
       <div className="flex flex-col items-center justify-center py-12">
         <h2 className="font-mohave text-display text-text">Client Not Found</h2>
-        <p className="font-kosugi text-caption text-text-3 mt-1">
+        <p className="font-mono text-caption text-text-3 mt-1">
           This client may have been deleted or doesn&apos;t exist.
         </p>
         <Button className="mt-3" onClick={() => router.push("/clients")}>
@@ -407,7 +407,7 @@ export default function ClientDetailPage() {
                 />
               )}
               {!isEditing && (
-                <p className="font-kosugi text-caption-sm text-text-3 mt-[2px]">
+                <p className="font-mono text-caption-sm text-text-3 mt-[2px]">
                   {clientProjects.length} {t("card.projects")}
                   {clientData.createdAt && (
                     <>
@@ -682,7 +682,7 @@ export default function ClientDetailPage() {
                               {sc.name}
                             </p>
                             {sc.title && (
-                              <span className="font-kosugi text-micro text-text-mute uppercase tracking-wider">
+                              <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
                                 {sc.title}
                               </span>
                             )}
@@ -753,7 +753,7 @@ export default function ClientDetailPage() {
                   <p className="font-mohave text-body text-text-3">
                     {t("detail.noActiveProjects")}
                   </p>
-                  <p className="font-kosugi text-caption-sm text-text-mute mt-[4px]">
+                  <p className="font-mono text-caption-sm text-text-mute mt-[4px]">
                     {t("detail.createProjectHelper")}
                   </p>
                 </div>

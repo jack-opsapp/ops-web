@@ -81,7 +81,7 @@ export function DependencyTimelineStep({
       <h2 className="font-cakemono text-[28px] font-light text-text tracking-tight uppercase mb-[4px]">
         {t("wizard.timeline.headline")}
       </h2>
-      <p className="font-kosugi text-[11px] text-text-mute mb-[20px]">
+      <p className="font-mono text-[11px] text-text-mute mb-[20px]">
         {t("wizard.timeline.subtitle")}
       </p>
 

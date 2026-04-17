@@ -26,7 +26,7 @@ export function DependenciesGateStep({ onYes, onNo }: DependenciesGateStepProps)
       <p className="font-mohave text-body text-text-2 text-center max-w-[400px] mb-[4px]">
         {t("wizard.dependencies.body")}
       </p>
-      <p className="font-kosugi text-[11px] text-text-mute mb-[32px]">
+      <p className="font-mono text-[11px] text-text-mute mb-[32px]">
         {t("wizard.dependencies.subtitle")}
       </p>
 

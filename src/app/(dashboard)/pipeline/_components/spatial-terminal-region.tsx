@@ -126,7 +126,7 @@ export function SpatialTerminalRegion({
         />
         <div className="flex items-baseline gap-2">
           <span
-            className="font-kosugi text-micro uppercase tracking-widest"
+            className="font-mono text-micro uppercase tracking-widest"
             style={{
               color: isRegionHovered ? stageColor : "#666",
               transition: "color 0.25s ease-out",
@@ -147,10 +147,10 @@ export function SpatialTerminalRegion({
             className="flex items-baseline gap-2 mt-1 opacity-0 animate-fade-in"
             style={{ animationDuration: "150ms", animationFillMode: "forwards" }}
           >
-            <span className="font-kosugi text-micro text-text-mute">
+            <span className="font-mono text-micro text-text-mute">
               avg {Math.round(opportunities.reduce((sum, o) => sum + getDaysInStage(o), 0) / opportunities.length)}d
             </span>
-            <span className="font-kosugi text-micro text-text-mute">
+            <span className="font-mono text-micro text-text-mute">
               oldest: {Math.max(...opportunities.map((o) => getDaysInStage(o)))}d
             </span>
           </div>
@@ -178,7 +178,7 @@ export function SpatialTerminalRegion({
             height: 44,
           }}
         >
-          <span className="font-kosugi text-micro text-text-mute uppercase">
+          <span className="font-mono text-micro text-text-mute uppercase">
             {stage === OpportunityStage.Won ? t("spatial.noWonDeals") : t("spatial.noLostDeals")}
           </span>
         </div>

@@ -196,7 +196,7 @@ export function CompanyAiFeatures() {
           <h2 className="font-mohave text-[16px] uppercase tracking-wider text-[#E5E5E5]">
             Company AI Features
           </h2>
-          <p className="font-kosugi text-[12px] text-[#6B6B6B] mt-1">
+          <p className="font-mono text-[12px] text-[#6B6B6B] mt-1">
             [{companies.length} companies · phase_c: {phaseCCount} on ·
             ai_email_review: {emailReviewCount} on]
           </p>
@@ -211,7 +211,7 @@ export function CompanyAiFeatures() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="[search companies]"
-            className="w-full h-10 bg-transparent border border-white/[0.08] rounded-lg px-4 font-kosugi text-[14px] text-[#E5E5E5] placeholder-[#6B6B6B] focus:outline-none focus:border-[#597794] transition-colors"
+            className="w-full h-10 bg-transparent border border-white/[0.08] rounded-lg px-4 font-mono text-[14px] text-[#E5E5E5] placeholder-[#6B6B6B] focus:outline-none focus:border-[#597794] transition-colors"
           />
         </div>
         <div className="flex gap-1">
@@ -233,7 +233,7 @@ export function CompanyAiFeatures() {
       </div>
 
       {error && (
-        <div className="border border-[#93321A]/40 bg-[#93321A]/10 rounded-lg px-4 py-3 font-kosugi text-[12px] text-[#E5E5E5]">
+        <div className="border border-[#93321A]/40 bg-[#93321A]/10 rounded-lg px-4 py-3 font-mono text-[12px] text-[#E5E5E5]">
           [error] {error}
         </div>
       )}
@@ -279,7 +279,7 @@ export function CompanyAiFeatures() {
                 onClick={() => toggle(c.id, "phase_c", !c.phaseC.enabled)}
                 label="phase_c"
               />
-              <span className="font-kosugi text-[12px] text-[#6B6B6B]">
+              <span className="font-mono text-[12px] text-[#6B6B6B]">
                 [{formatEnabledAt(c.phaseC.enabledAt)}]
               </span>
 
@@ -291,7 +291,7 @@ export function CompanyAiFeatures() {
                 }
                 label="ai_email_review"
               />
-              <span className="font-kosugi text-[12px] text-[#6B6B6B]">
+              <span className="font-mono text-[12px] text-[#6B6B6B]">
                 [{formatEnabledAt(c.aiEmailReview.enabledAt)}]
               </span>
             </div>

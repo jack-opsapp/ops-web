@@ -132,7 +132,7 @@ export function OverviewTab({ stats, engagement }: OverviewTabProps) {
               <div className="w-5 h-5 border-2 border-[#597794] border-t-transparent rounded-full animate-spin" />
             </div>
           ) : dayEmails.length === 0 ? (
-            <p className="font-kosugi text-[12px] text-[#6B6B6B] text-center py-6">
+            <p className="font-mono text-[12px] text-[#6B6B6B] text-center py-6">
               No emails sent on this day
             </p>
           ) : (
@@ -147,7 +147,7 @@ export function OverviewTab({ stats, engagement }: OverviewTabProps) {
                     <span className="font-mohave text-[12px] uppercase tracking-wider text-[#A0A0A0]">
                       {type}
                     </span>
-                    <span className="font-kosugi text-micro text-[#6B6B6B]">
+                    <span className="font-mono text-micro text-[#6B6B6B]">
                       ({emails.length})
                     </span>
                   </div>
@@ -157,10 +157,10 @@ export function OverviewTab({ stats, engagement }: OverviewTabProps) {
                         key={`${email.recipient_email}-${email.sent_at}-${i}`}
                         className="flex items-center gap-3 px-3 py-2 border-b border-white/[0.05] last:border-0"
                       >
-                        <span className="font-kosugi text-[11px] text-[#A0A0A0] w-40 truncate flex-shrink-0">
+                        <span className="font-mono text-[11px] text-[#A0A0A0] w-40 truncate flex-shrink-0">
                           {email.recipient_email}
                         </span>
-                        <span className="font-kosugi text-[11px] text-[#6B6B6B] flex-1 truncate">
+                        <span className="font-mono text-[11px] text-[#6B6B6B] flex-1 truncate">
                           {email.subject}
                         </span>
                         <span className={`font-mohave text-micro uppercase flex-shrink-0 ${
@@ -170,7 +170,7 @@ export function OverviewTab({ stats, engagement }: OverviewTabProps) {
                         }`}>
                           {email.status}
                         </span>
-                        <span className="font-kosugi text-micro text-[#6B6B6B] flex-shrink-0 w-16 text-right">
+                        <span className="font-mono text-micro text-[#6B6B6B] flex-shrink-0 w-16 text-right">
                           {new Date(email.sent_at).toLocaleTimeString("en-US", {
                             hour: "numeric",
                             minute: "2-digit",

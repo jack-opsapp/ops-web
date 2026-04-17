@@ -226,7 +226,7 @@ function IndustryDropdown({
                 aria-activedescendant={
                   highlightedIndex >= 0 ? `industry-option-${highlightedIndex}` : undefined
                 }
-                className="w-full bg-surface-input text-text font-mohave text-body-sm pl-8 pr-1.5 py-1.5 rounded-sm border border-[rgba(255,255,255,0.08)] focus:border-[rgba(255,255,255,0.20)] focus:outline-none placeholder:text-text-mute placeholder:font-kosugi min-h-[48px]"
+                className="w-full bg-surface-input text-text font-mohave text-body-sm pl-8 pr-1.5 py-1.5 rounded-sm border border-[rgba(255,255,255,0.08)] focus:border-[rgba(255,255,255,0.20)] focus:outline-none placeholder:text-text-mute placeholder:font-mono min-h-[48px]"
               />
             </div>
           </div>
@@ -266,7 +266,7 @@ function IndustryDropdown({
               );
             })}
             {filtered.length === 0 && (
-              <p className="px-2 py-2 font-kosugi text-caption-sm text-text-mute" role="status">
+              <p className="px-2 py-2 font-mono text-caption-sm text-text-mute" role="status">
                 [no industries match &quot;{search}&quot;]
               </p>
             )}
@@ -319,7 +319,7 @@ export function IdentityStep1({
         <h2 className="font-mohave text-heading text-text uppercase">
           ABOUT YOU
         </h2>
-        <p className="font-kosugi text-caption-sm text-text-3 mt-0.5">
+        <p className="font-mono text-caption-sm text-text-3 mt-0.5">
           [the name behind the operation]
         </p>
       </div>
@@ -343,7 +343,7 @@ export function IdentityStep1({
           )}
         </div>
         {avatarUrl && (
-          <p className="font-kosugi text-[11px] text-text-mute">
+          <p className="font-mono text-[11px] text-text-mute">
             Imported from your sign-in account
           </p>
         )}
@@ -411,7 +411,7 @@ export function IdentityStep2({
         <h2 className="font-mohave text-heading text-text uppercase">
           YOUR COMPANY
         </h2>
-        <p className="font-kosugi text-caption-sm text-text-3 mt-0.5">
+        <p className="font-mono text-caption-sm text-text-3 mt-0.5">
           [this shapes your command center]
         </p>
       </div>

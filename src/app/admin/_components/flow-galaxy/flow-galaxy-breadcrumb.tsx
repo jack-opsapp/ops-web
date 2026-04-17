@@ -18,7 +18,7 @@ export function FlowGalaxyBreadcrumb({ segments }: FlowGalaxyBreadcrumbProps) {
     <div className="absolute bottom-4 left-4 z-20 flex items-center gap-1">
       {segments.map((seg, i) => (
         <span key={i} className="flex items-center gap-1">
-          {i > 0 && <span className="font-kosugi text-micro text-[#6B6B6B]">›</span>}
+          {i > 0 && <span className="font-mono text-micro text-[#6B6B6B]">›</span>}
           <button
             onClick={seg.onClick}
             className={`font-mohave text-[11px] uppercase tracking-wider transition-colors
