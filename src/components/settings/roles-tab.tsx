@@ -514,7 +514,7 @@ function TierColumn({
         <div className="flex items-center gap-[6px]">
           <h3
             className={cn(
-              "font-mohave text-body-sm font-medium uppercase tracking-wider",
+              "font-cakemono text-body-sm font-light uppercase tracking-wider",
               TIER_HEADER_COLORS[tier]
             )}
           >
@@ -1715,7 +1715,7 @@ function RoleAssignmentColumn({
         onClick={onClickHeader}
       >
         {isPreset && <Lock className="w-[10px] h-[10px] text-text-mute shrink-0" />}
-        <h3 className="font-mohave text-body-sm font-medium text-text uppercase tracking-wider truncate flex-1">
+        <h3 className="font-cakemono text-body-sm font-light text-text uppercase tracking-wider truncate flex-1">
           {roleName}
         </h3>
         <span className="font-mono text-micro text-text-mute shrink-0">

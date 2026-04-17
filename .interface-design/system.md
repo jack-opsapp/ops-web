@@ -103,6 +103,10 @@ All numerical contexts: `font-feature-settings: "tnum" 1, "zero" 1` (tabular num
 |------|---------|------|-----|
 | Hero number | `font-mohave font-light` | 76–84px | Dashboard hero, revenue total |
 | Page title (TopBar H1) | `font-cakemono font-light uppercase` | 22px | Root-route page heading — dashboard, clients, invoices, etc. |
+| Display heading | `font-cakemono font-light uppercase` | 28–32px | Auth h1s, wizard step titles, account-type screen |
+| Section heading | `font-cakemono font-light uppercase` | 15–20px | Admin section headers, settings panel subheads |
+| Button label | `font-cakemono font-light uppercase` | 14px | Primary/secondary uppercase button text |
+| Badge | `font-cakemono font-light uppercase tracking-wider` | 11px | Status badges, role tags |
 | Panel title | `font-kosugi text-micro uppercase tracking-wider` | 11px | Widget/section titles |
 | Body / name | `font-mohave text-body-sm` | 14px | Entity names, row primary text |
 | Data value (lg) | `font-mono text-data-lg font-semibold` | 20px | Hero metrics in widgets |
@@ -128,18 +132,36 @@ The OPS mark is two interlocking chamfered brackets with subtle isometric extrus
 - Clear space around the mark: at least 25% of the mark's height on all sides. No other element (text, border, icon) may enter this buffer.
 - Minimum display size: 16px (mark), 24px tall (horizontal lockup), 48px tall (vertical lockup). Below these thresholds the extrusion detail collapses.
 
-### Typography Boundary: Cake Mono = Brand + TopBar H1
+### Typography Role: Cake Mono = Heavy Uppercase Display Voice
 
-**Cake Mono is a brand typeface with ONE product-UI allowance.** It appears only in:
-- The logo lockups (`<OpsLockup>`)
-- The iOS / Android app icon
+**Cake Mono Light is OPS-Web's uppercase display voice.** It replaces every former "heavy-weight Mohave uppercase" treatment. Use it anywhere the visual intent is "confident, branded, all-caps" — page titles, section headers, buttons, badges, card titles, form labels, wizard step headings, modal titles, dashboard panel subheaders, calendar event labels.
+
+**Weight is always `font-light` (300).** Never use Regular (400) or Bold (700) in product UI — they override Cake Mono's natural condensed tension. If something needs to read heavier, increase the size, don't increase the weight.
+
+**Tracking:** Cake Mono is tightly metered by design. Most usages drop `tracking-wider` — apply extra tracking only when the visual context demands it (e.g., full-screen hero wordmarks).
+
+**Still reserved for brand surfaces (uses same `font-cakemono` class):**
+- Logo lockups (`<OpsLockup>`)
+- iOS / Android app icon
 - Marketing hero wordmarks (`ops-site/`)
 - Social share images (OG, Twitter card)
-- **The TopBar root-route H1 page title** (`font-cakemono font-light uppercase`, 22px) — `src/components/layouts/top-bar.tsx`
 
-**Not anywhere else in product UI.** No button labels, body text, panel titles, data readouts, form inputs, navigation, or section headers in Cake Mono. If you need large display type outside the TopBar H1, use Mohave Light. Code review must reject `font-cakemono` declarations outside `src/components/brand/` and the TopBar.
+**Never use Cake Mono for:**
+- Body text, paragraphs, long-form copy
+- Sentence-case content
+- Numerical data readouts (use `font-mono`)
+- Small-caps category labels (use `font-kosugi`, which is already the "small uppercase" voice)
 
-Cake Mono is loaded via Adobe Typekit (kit id `dbh0pet`) in the root layout `<head>`. Weights available: 300 (Light), 400 (Regular), 700 (Bold). TopBar H1 uses 300.
+**Mohave remains the voice for:**
+- Hero numbers (Mohave Light at 76–84px)
+- Body text, names, secondary text (Mohave 400–500 sentence-case)
+- Anything non-uppercase at display sizes
+
+**Kosugi remains the voice for:** 11px uppercase category labels — the micro label tier below Cake Mono.
+
+Cake Mono is loaded via Adobe Typekit (kit id `dbh0pet`) in the root layout `<head>`. Weights available: 300 (Light), 400 (Regular), 700 (Bold). Product UI uses 300 only.
+
+**ops-site** (marketing) does NOT follow this rule — it retains heavy Mohave display type. The web product (OPS-Web) and the marketing site diverge here intentionally.
 
 ### Color Treatment
 - On dark backgrounds (product chrome, dashboard): mark in `text` (#EDEDED) via CSS `color` inherited through `currentColor`.

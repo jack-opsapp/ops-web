@@ -468,7 +468,7 @@ function CategoryCard({
           ) : (
             <div className="flex items-center gap-2">
               <span className="font-mono text-[11px] text-[#6B6B6B] bg-white/[0.05] px-1.5 py-0.5 rounded">{category.icon}</span>
-              <h3 className="font-mohave text-[15px] font-semibold uppercase text-[#E5E5E5]">{category.name}</h3>
+              <h3 className="font-cakemono text-[15px] font-light uppercase text-[#E5E5E5]">{category.name}</h3>
               <span className="font-kosugi text-[11px] text-[#6B6B6B]">{category.whats_new_items.length} items</span>
             </div>
           )}

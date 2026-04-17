@@ -211,7 +211,7 @@ export function AiSetupDashboard({
       {/* Title */}
       <div className="flex items-center gap-1.5">
         <Brain className="w-[16px] h-[16px] text-[#6F94B0]" />
-        <span className="font-mohave text-body font-medium uppercase tracking-wide text-text">
+        <span className="font-cakemono text-body font-light uppercase tracking-wide text-text">
           {t("dashboard.title")}
         </span>
       </div>

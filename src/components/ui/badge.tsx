@@ -6,7 +6,7 @@ const badgeVariants = cva(
   [
     "inline-flex items-center gap-0.5",
     "px-1.5 py-[3px] rounded-sm",
-    "font-mohave font-medium text-status uppercase tracking-wider",
+    "font-cakemono font-light text-status uppercase tracking-wider",
     "whitespace-nowrap no-select",
   ],
   {

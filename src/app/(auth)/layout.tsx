@@ -67,7 +67,7 @@ function AuthRouteGate({ children }: { children: React.ReactNode }) {
             </svg>
           </div>
           <div>
-            <h2 className="font-mohave text-xl font-semibold text-text uppercase tracking-wide">
+            <h2 className="font-cakemono text-xl font-light text-text uppercase tracking-wide">
               AUTHENTICATION REQUIRED
             </h2>
             <p className="font-kosugi text-[11px] text-text-3 mt-2">
@@ -77,13 +77,13 @@ function AuthRouteGate({ children }: { children: React.ReactNode }) {
           <div className="flex flex-col gap-3">
             <button
               onClick={() => router.push("/login")}
-              className="w-full py-3 bg-text-primary rounded font-mohave text-[14px] font-semibold text-background uppercase tracking-wide transition-colors hover:bg-white"
+              className="w-full py-3 bg-text-primary rounded font-cakemono text-[14px] font-light text-background uppercase tracking-wide transition-colors hover:bg-white"
             >
               LOG IN
             </button>
             <button
               onClick={() => router.push("/register")}
-              className="w-full py-3 bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.1)] rounded font-mohave text-[14px] font-medium text-text-2 uppercase tracking-wide transition-colors hover:bg-[rgba(255,255,255,0.08)]"
+              className="w-full py-3 bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.1)] rounded font-cakemono text-[14px] font-light text-text-2 uppercase tracking-wide transition-colors hover:bg-[rgba(255,255,255,0.08)]"
             >
               CREATE ACCOUNT
             </button>

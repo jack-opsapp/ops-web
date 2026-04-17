@@ -175,7 +175,7 @@ function UnscheduledTaskCard({ task }: { task: ProjectTask }) {
 
       {/* Card content */}
       <div className="flex flex-col justify-center min-w-0 flex-1 pr-2 py-2">
-        <span className="font-mohave font-semibold text-[12px] text-white uppercase truncate leading-tight">
+        <span className="font-cakemono font-light text-[12px] text-white uppercase truncate leading-tight">
           {projectName}
         </span>
         <span className="font-kosugi text-micro text-[#999] uppercase tracking-[0.08em] truncate mt-0.5">

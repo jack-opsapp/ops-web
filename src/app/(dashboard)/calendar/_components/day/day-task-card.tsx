@@ -125,7 +125,7 @@ export function DayTaskCard({ event, index }: DayTaskCardProps) {
         {/* Line 1: Project name + Client */}
         <div className="flex items-center gap-[6px] min-w-0">
           <span
-            className="font-mohave font-semibold text-[15px] uppercase truncate leading-tight"
+            className="font-cakemono font-light text-[15px] uppercase truncate leading-tight"
             style={{ color: "#FFFFFF" }}
           >
             {projectName}

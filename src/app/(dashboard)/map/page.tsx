@@ -199,7 +199,7 @@ export default function MapPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-[6px]">
               <MapPin className="w-[16px] h-[16px] text-text-2" />
-              <span className="font-mohave text-body font-medium text-text uppercase tracking-wider">{t("map.projects")}</span>
+              <span className="font-cakemono text-body font-light text-text uppercase tracking-wider">{t("map.projects")}</span>
             </div>
             <div className="flex items-center gap-[6px]">
               <span className="font-mono text-micro text-text-mute">

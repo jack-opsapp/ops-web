@@ -136,7 +136,7 @@ export function AiDatabaseMining({ onComplete }: AiDatabaseMiningProps) {
       <div className="space-y-2">
         <div className="flex items-center gap-1.5">
           <Database className="w-[16px] h-[16px] text-text-3" />
-          <span className="font-mohave text-body font-medium uppercase tracking-wide text-text">
+          <span className="font-cakemono text-body font-light uppercase tracking-wide text-text">
             {t("mining.title")}
           </span>
         </div>
@@ -161,7 +161,7 @@ export function AiDatabaseMining({ onComplete }: AiDatabaseMiningProps) {
       <div className="space-y-2">
         <div className="flex items-center gap-1.5">
           <Loader2 className="w-[16px] h-[16px] text-[#6F94B0] animate-spin" />
-          <span className="font-mohave text-body font-medium uppercase tracking-wide text-text">
+          <span className="font-cakemono text-body font-light uppercase tracking-wide text-text">
             {t("mining.title")}
           </span>
         </div>
@@ -199,7 +199,7 @@ export function AiDatabaseMining({ onComplete }: AiDatabaseMiningProps) {
       <div className="space-y-2">
         <div className="flex items-center gap-1.5">
           <AlertTriangle className="w-[16px] h-[16px] text-[#93321A]" />
-          <span className="font-mohave text-body font-medium uppercase tracking-wide text-text">
+          <span className="font-cakemono text-body font-light uppercase tracking-wide text-text">
             {t("mining.title")}
           </span>
         </div>
@@ -225,7 +225,7 @@ export function AiDatabaseMining({ onComplete }: AiDatabaseMiningProps) {
     <div className="space-y-2">
       <div className="flex items-center gap-1.5">
         <CheckCircle className="w-[16px] h-[16px] text-[#9DB582]" />
-        <span className="font-mohave text-body font-medium uppercase tracking-wide text-text">
+        <span className="font-cakemono text-body font-light uppercase tracking-wide text-text">
           {t("mining.complete")}
         </span>
       </div>

@@ -177,7 +177,7 @@ export function TaskTypesStep({
       className="flex flex-col px-4"
     >
       {/* Headline */}
-      <h2 className="font-mohave text-[28px] font-bold text-text tracking-tight uppercase mb-[8px]">
+      <h2 className="font-cakemono text-[28px] font-light text-text tracking-tight uppercase mb-[8px]">
         {t("wizard.taskTypes.headline")}
       </h2>
 

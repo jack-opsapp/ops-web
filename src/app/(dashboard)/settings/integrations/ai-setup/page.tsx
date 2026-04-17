@@ -146,7 +146,7 @@ function EmailScanSection({ onComplete, onSkip }: { onComplete: () => void; onSk
     <div className="space-y-3">
       <div className="flex items-center gap-1.5">
         <Mail className="w-[16px] h-[16px] text-text-3" />
-        <span className="font-mohave text-body font-medium uppercase tracking-wide text-text">
+        <span className="font-cakemono text-body font-light uppercase tracking-wide text-text">
           {t("emailScan.title")}
         </span>
       </div>
@@ -224,7 +224,7 @@ function ComingSoonState() {
     <div className="flex flex-col items-start gap-3 py-8">
       <div className="flex items-center gap-2">
         <Lock className="w-[20px] h-[20px] text-text-mute" />
-        <h2 className="font-mohave text-title font-semibold uppercase tracking-wide text-text">
+        <h2 className="font-cakemono text-title font-light uppercase tracking-wide text-text">
           {t("page.comingSoon")}
         </h2>
       </div>
@@ -325,7 +325,7 @@ export default function AiSetupPage() {
         </button>
         <div className="flex items-center gap-1.5">
           <Brain className="w-[18px] h-[18px] text-[#6F94B0]" />
-          <h1 className="font-mohave text-title font-semibold uppercase tracking-wide text-text">
+          <h1 className="font-cakemono text-title font-light uppercase tracking-wide text-text">
             {t("page.title")}
           </h1>
         </div>

@@ -19,8 +19,8 @@ Supplements the root `OPS LTD./CLAUDE.md`. Read both.
 - **Kosugi** — captions, section labels, uppercase metadata (`font-kosugi`)
 - **JetBrains Mono** — numerical data, timestamps, metadata values (`font-mono`)
 
-**Brand + TopBar H1 only:**
-- **Cake Mono** — loaded from Adobe Typekit (kit `dbh0pet`, family `cake-mono`, weights 300/400/700). Allowed in: `<OpsLockup>` (via outlined paths, no font load needed), the app icon, marketing hero wordmarks, social share images, **and the TopBar root-route H1 in `top-bar.tsx`** (`font-cakemono font-light uppercase` at 22px). Not allowed anywhere else — no buttons, body text, panel titles, data readouts, or navigation.
+**Heavy uppercase display voice (weight 300 only):**
+- **Cake Mono** — loaded from Adobe Typekit (kit `dbh0pet`, family `cake-mono`, weights 300/400/700). OPS-Web uses Cake Mono Light (`font-cakemono font-light`) for every uppercase display treatment: page titles, section headers, buttons, badges, card titles, form labels, wizard steps. Weight is always 300 (Light). Never use Regular (400) or Bold (700) in product UI. Never for body text, sentence-case content, numerical data (`font-mono`), or the tiny 11px uppercase label tier (`font-kosugi`).
 
 **Deprecated (removed 2026-04-17):**
 - Bebas Neue — do not reintroduce.

@@ -59,7 +59,7 @@ export function IndustryStep({ onNext }: IndustryStepProps) {
         transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
         className="flex flex-col justify-center min-h-[320px] px-4"
       >
-        <h2 className="font-mohave text-[28px] font-bold text-text tracking-tight uppercase mb-[8px]">
+        <h2 className="font-cakemono text-[28px] font-light text-text tracking-tight uppercase mb-[8px]">
           {t("wizard.industry.headlineKnown")}
         </h2>
         <p className="font-mohave text-body text-text-2 max-w-[400px] mb-[32px]">
@@ -97,7 +97,7 @@ export function IndustryStep({ onNext }: IndustryStepProps) {
       transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
       className="flex flex-col justify-center min-h-[320px] px-4"
     >
-      <h2 className="font-mohave text-[28px] font-bold text-text tracking-tight uppercase mb-[8px]">
+      <h2 className="font-cakemono text-[28px] font-light text-text tracking-tight uppercase mb-[8px]">
         {hasIndustries
           ? t("wizard.industry.headlineKnown")
           : t("wizard.industry.headlineUnknown")}

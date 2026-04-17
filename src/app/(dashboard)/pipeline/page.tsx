@@ -714,7 +714,7 @@ function PipelineSkeleton() {
               >
                 <div className="flex items-center gap-1">
                   <h3
-                    className="font-mohave text-body font-medium uppercase tracking-wider"
+                    className="font-cakemono text-body font-light uppercase tracking-wider"
                     style={{ color: stage.color }}
                   >
                     {stage.name}

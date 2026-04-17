@@ -315,7 +315,7 @@ function FlagCard({
           </button>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <h3 className="font-mohave text-[16px] font-semibold uppercase text-[#E5E5E5]">
+              <h3 className="font-cakemono text-[16px] font-light uppercase text-[#E5E5E5]">
                 {flag.label}
               </h3>
               <span className="font-mono text-[11px] text-[#6B6B6B] bg-white/[0.05] px-2 py-0.5 rounded">

@@ -35,7 +35,7 @@ export default async function BlogIndexPage() {
       <header className="mb-12">
         <h1 className="flex items-center gap-3 text-[#E5E5E5]">
           <OpsLockup orientation="horizontal" className="h-10 w-auto" />
-          <span className="font-mohave text-4xl font-bold uppercase leading-none">
+          <span className="font-cakemono text-4xl font-light uppercase leading-none">
             Blog
           </span>
         </h1>

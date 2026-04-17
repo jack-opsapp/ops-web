@@ -646,7 +646,7 @@ export function EmailReviewPanel({
             {/* ── Sticky Header ─────────────────────────────────────── */}
             <div className="shrink-0 border-b border-[rgba(255,255,255,0.10)] px-5 py-4">
               <div className="flex items-center justify-between">
-                <h2 className="font-mohave text-lg font-semibold text-white uppercase tracking-wide">
+                <h2 className="font-cakemono text-lg font-light text-white uppercase tracking-wide">
                   Email Review
                 </h2>
                 <button

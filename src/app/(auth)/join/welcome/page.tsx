@@ -74,7 +74,7 @@ function WelcomeContent() {
           variants={blockVariants}
           className="text-left"
         >
-          <h1 className="font-mohave text-display font-bold uppercase text-text tracking-tight leading-none">
+          <h1 className="font-cakemono text-display font-light uppercase text-text tracking-tight leading-none">
             You&apos;re in.
           </h1>
           <p className="font-mohave text-body-lg text-text-2 mt-2">

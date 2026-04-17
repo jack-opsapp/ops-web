@@ -78,7 +78,7 @@ export function DependencyTimelineStep({
       transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
       className="flex flex-col px-4"
     >
-      <h2 className="font-mohave text-[28px] font-bold text-text tracking-tight uppercase mb-[4px]">
+      <h2 className="font-cakemono text-[28px] font-light text-text tracking-tight uppercase mb-[4px]">
         {t("wizard.timeline.headline")}
       </h2>
       <p className="font-kosugi text-[11px] text-text-mute mb-[20px]">

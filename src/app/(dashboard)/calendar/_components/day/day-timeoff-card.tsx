@@ -78,7 +78,7 @@ export function DayTimeOffCard({
       {/* Line 1: Title + Status badge */}
       <div className="flex items-center justify-between min-w-0">
         <span
-          className="font-mohave font-semibold text-[15px] uppercase truncate leading-tight"
+          className="font-cakemono font-light text-[15px] uppercase truncate leading-tight"
           style={{ color: "#FFFFFF" }}
         >
           TIME OFF REQUEST

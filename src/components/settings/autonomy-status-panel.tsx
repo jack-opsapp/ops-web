@@ -216,7 +216,7 @@ export function AutonomyStatusPanel({ connectionId }: AutonomyStatusPanelProps) 
         {/* Header */}
         <div className="flex items-center gap-2 mb-2">
           <CurrentIcon className="w-[14px] h-[14px] text-[#6F94B0]" />
-          <span className="font-mohave text-body-sm text-text-2 font-medium uppercase tracking-wide">
+          <span className="font-cakemono text-body-sm text-text-2 font-light uppercase tracking-wide">
             {t("status.title")}
           </span>
         </div>
@@ -285,7 +285,7 @@ export function AutonomyStatusPanel({ connectionId }: AutonomyStatusPanelProps) 
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
             <Zap className="w-[14px] h-[14px] text-[#6F94B0]" />
-            <span className="font-mohave text-body-sm text-text-2 font-medium uppercase tracking-wide">
+            <span className="font-cakemono text-body-sm text-text-2 font-light uppercase tracking-wide">
               {t("autoDraft.title")}
             </span>
           </div>

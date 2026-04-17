@@ -96,7 +96,7 @@ export function ReviewStep({
       transition={{ duration: 0.3, ease: EASE_SMOOTH }}
       className="flex flex-col px-4"
     >
-      <h2 className="font-mohave text-[28px] font-bold text-text tracking-tight uppercase mb-[8px]">
+      <h2 className="font-cakemono text-[28px] font-light text-text tracking-tight uppercase mb-[8px]">
         {t("wizard.review.headline")}
       </h2>
 

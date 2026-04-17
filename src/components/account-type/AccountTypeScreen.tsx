@@ -222,7 +222,7 @@ export function AccountTypeScreen() {
             [welcome,{" "}
             <span className="text-text-2">{displayName}</span>]
           </p>
-          <h1 className="font-mohave text-[22px] sm:text-[28px] font-semibold uppercase tracking-wide text-text leading-tight">
+          <h1 className="font-cakemono text-[22px] sm:text-[28px] font-light uppercase tracking-wide text-text leading-tight">
             HOW ARE YOU USING OPS?
           </h1>
           <p className="font-kosugi text-[11px] sm:text-[12px] text-text-3">
@@ -242,7 +242,7 @@ export function AccountTypeScreen() {
               className="w-full max-w-[400px] pointer-events-auto"
             >
               {/* Typewriter headline — full text rendered invisibly to reserve height */}
-              <p className="font-mohave text-[20px] font-semibold text-text uppercase tracking-wide text-center mb-4 relative">
+              <p className="font-cakemono text-[20px] font-light text-text uppercase tracking-wide text-center mb-4 relative">
                 <span className="invisible" aria-hidden="true">
                   {content.headline}
                 </span>
@@ -335,12 +335,12 @@ export function AccountTypeScreen() {
                       }}
                       placeholder="Enter code"
                       maxLength={20}
-                      className="flex-1 bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.1)] rounded px-4 py-3 font-mohave text-[16px] font-medium text-text tracking-widest uppercase outline-none transition-colors focus:border-[rgba(255,255,255,0.20)] placeholder:text-text-mute placeholder:tracking-wide placeholder:normal-case"
+                      className="flex-1 bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.1)] rounded px-4 py-3 font-cakemono text-[16px] font-light text-text tracking-widest uppercase outline-none transition-colors focus:border-[rgba(255,255,255,0.20)] placeholder:text-text-mute placeholder:tracking-wide placeholder:normal-case"
                     />
                     <button
                       onClick={validateCode}
                       disabled={codeLoading || !crewCode.trim()}
-                      className="px-5 py-3 bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.18)] rounded font-mohave text-[14px] font-semibold text-text uppercase tracking-wide transition-colors hover:bg-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.20)] disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="px-5 py-3 bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.18)] rounded font-cakemono text-[14px] font-light text-text uppercase tracking-wide transition-colors hover:bg-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.20)] disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       {codeLoading ? "..." : "JOIN"}
                     </button>
@@ -381,7 +381,7 @@ export function AccountTypeScreen() {
                 <button
                   onClick={handleContinue}
                   disabled={joining}
-                  className="w-full py-4 bg-text-primary rounded-lg font-mohave text-[16px] font-semibold text-background uppercase tracking-wide transition-all hover:bg-white disabled:opacity-60 animate-fade-in"
+                  className="w-full py-4 bg-text-primary rounded-lg font-cakemono text-[16px] font-light text-background uppercase tracking-wide transition-all hover:bg-white disabled:opacity-60 animate-fade-in"
                 >
                   {joining ? "JOINING..." : "CONTINUE"}
                 </button>

@@ -263,7 +263,7 @@ export default function JoinPage() {
   if (!loading && !isJoining && isAuthenticated && currentUser?.companyId) {
     return (
       <div className="flex flex-col items-center text-center space-y-4">
-        <h1 className="font-mohave text-[28px] font-bold tracking-wide text-text leading-none uppercase">
+        <h1 className="font-cakemono text-[28px] font-light tracking-wide text-text leading-none uppercase">
           Already on a team
         </h1>
         <p className="font-mohave text-body-sm text-text-3">
@@ -309,7 +309,7 @@ export default function JoinPage() {
     return (
       <div className="flex flex-col items-center text-center space-y-4">
         <AlertCircle className="w-12 h-12 text-red-400" />
-        <h1 className="font-mohave text-[28px] font-bold tracking-wide text-text leading-none uppercase">
+        <h1 className="font-cakemono text-[28px] font-light tracking-wide text-text leading-none uppercase">
           {msg.title}
         </h1>
         <p className="font-mohave text-body-sm text-text-3">{msg.desc}</p>
@@ -346,7 +346,7 @@ export default function JoinPage() {
             />
           )}
           <div>
-            <h1 className="font-mohave text-[26px] font-bold tracking-wide text-text leading-none uppercase">
+            <h1 className="font-cakemono text-[26px] font-light tracking-wide text-text leading-none uppercase">
               Join {invite.companyName}
             </h1>
             {industries.length > 0 && (

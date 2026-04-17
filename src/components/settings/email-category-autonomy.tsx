@@ -194,7 +194,7 @@ export function EmailCategoryAutonomy({
     <div className="space-y-2">
       {/* Header */}
       <div className="mb-2">
-        <span className="font-mohave text-body-sm text-text-2 font-medium uppercase tracking-wide">
+        <span className="font-cakemono text-body-sm text-text-2 font-light uppercase tracking-wide">
           {t("category.title")}
         </span>
         <p className="font-kosugi text-micro text-text-mute mt-0.5">

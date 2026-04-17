@@ -224,7 +224,7 @@ function IntroScreen({ onStart }: { onStart: () => void }) {
   return (
     <div className="space-y-4 py-4">
       <div className="space-y-2">
-        <h2 className="font-mohave text-title font-semibold uppercase tracking-wide text-text">
+        <h2 className="font-cakemono text-title font-light uppercase tracking-wide text-text">
           {t("intro.title")}
         </h2>
         <p className="font-mohave text-body-sm text-text-2 leading-relaxed max-w-[520px]">
@@ -283,7 +283,7 @@ function SummaryScreen({ onConfirm, onEdit }: { onConfirm: () => void; onEdit: (
   return (
     <div className="space-y-4 py-3">
       <div className="space-y-1">
-        <h2 className="font-mohave text-title font-semibold uppercase tracking-wide text-text">
+        <h2 className="font-cakemono text-title font-light uppercase tracking-wide text-text">
           {t("interview.summary.title")}
         </h2>
         <p className="font-mohave text-body-sm text-text-2">
