@@ -476,7 +476,7 @@ export default function ClientDetailPage() {
               {/* Email */}
               {(clientData.email || isEditing) && (
                 <div className="flex items-center gap-1 py-1.5 border-b border-border-subtle">
-                  <Mail className="w-[16px] h-[16px] text-ops-accent shrink-0" />
+                  <Mail className="w-[16px] h-[16px] text-text-2 shrink-0" />
                   {isEditing ? (
                     <Input
                       type="email"
@@ -489,7 +489,7 @@ export default function ClientDetailPage() {
                     <div className="flex items-center gap-1 flex-1 min-w-0">
                       <a
                         href={`mailto:${clientData.email}`}
-                        className="font-mono text-data-sm text-ops-accent hover:underline truncate"
+                        className="font-mono text-data-sm text-text-2 hover:text-text hover:underline truncate"
                       >
                         {clientData.email}
                       </a>
@@ -502,7 +502,7 @@ export default function ClientDetailPage() {
               {/* Phone */}
               {(clientData.phoneNumber || isEditing) && (
                 <div className="flex items-center gap-1 py-1.5 border-b border-border-subtle">
-                  <Phone className="w-[16px] h-[16px] text-ops-accent shrink-0" />
+                  <Phone className="w-[16px] h-[16px] text-text-2 shrink-0" />
                   {isEditing ? (
                     <Input
                       type="tel"
@@ -515,7 +515,7 @@ export default function ClientDetailPage() {
                     <div className="flex items-center gap-1 flex-1 min-w-0">
                       <a
                         href={`tel:${clientData.phoneNumber}`}
-                        className="font-mono text-data-sm text-text hover:text-ops-accent transition-colors"
+                        className="font-mono text-data-sm text-text hover:text-text-2 transition-colors"
                       >
                         {clientData.phoneNumber}
                       </a>
@@ -528,7 +528,7 @@ export default function ClientDetailPage() {
               {/* Address */}
               {(clientData.address || isEditing) && (
                 <div className="flex items-start gap-1 py-1.5">
-                  <MapPin className="w-[16px] h-[16px] text-ops-accent shrink-0 mt-[2px]" />
+                  <MapPin className="w-[16px] h-[16px] text-text-2 shrink-0 mt-[2px]" />
                   {isEditing ? (
                     <div className="flex gap-1 flex-1">
                       <Input
@@ -544,7 +544,7 @@ export default function ClientDetailPage() {
                           if (addr) setEditAddress(addr);
                         }}
                         disabled={locating}
-                        className="flex items-center justify-center w-[28px] shrink-0 rounded border border-border bg-surface-input text-text-3 hover:text-ops-accent hover:border-[rgba(255,255,255,0.18)] transition-colors duration-150 disabled:opacity-40"
+                        className="flex items-center justify-center w-[28px] shrink-0 rounded border border-border bg-surface-input text-text-3 hover:text-text hover:border-[rgba(255,255,255,0.18)] transition-colors duration-150 disabled:opacity-40"
                         title="Use my location"
                       >
                         {locating ? (
@@ -566,7 +566,7 @@ export default function ClientDetailPage() {
                             href={mapUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="p-[4px] rounded text-text-mute hover:text-ops-accent transition-colors"
+                            className="p-[4px] rounded text-text-mute hover:text-text transition-colors"
                             title="Open in Maps"
                           >
                             <Navigation className="w-[13px] h-[13px]" />
@@ -694,7 +694,7 @@ export default function ClientDetailPage() {
                           {sc.phoneNumber && (
                             <a
                               href={`tel:${sc.phoneNumber}`}
-                              className="font-mono text-micro text-text-3 hover:text-ops-accent transition-colors"
+                              className="font-mono text-micro text-text-3 hover:text-text transition-colors"
                             >
                               {sc.phoneNumber}
                             </a>
@@ -702,7 +702,7 @@ export default function ClientDetailPage() {
                           {sc.email && (
                             <a
                               href={`mailto:${sc.email}`}
-                              className="font-mono text-micro text-ops-accent hover:underline truncate max-w-[140px]"
+                              className="font-mono text-micro text-text-2 hover:text-text hover:underline truncate max-w-[140px]"
                             >
                               {sc.email}
                             </a>
