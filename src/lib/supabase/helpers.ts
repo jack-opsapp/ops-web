@@ -5,7 +5,6 @@
  * Extracted from opportunity-service.ts for DRY.
  */
 
-import { AsyncLocalStorage } from "node:async_hooks";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -19,8 +18,32 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  * during a long-running `after()` background job. That race caused background
  * imports to fall through to the anon browser client and fail every subsequent
  * write against RLS.
+ *
+ * Initialized lazily and guarded so this file stays client-safe — service
+ * modules that depend on helpers.ts end up in the browser bundle via other
+ * imports, and Next.js stubs `async_hooks` to `false` for the client.
  */
-const supabaseStorage = new AsyncLocalStorage<SupabaseClient>();
+type SupabaseStorage = {
+  getStore: () => SupabaseClient | undefined;
+  run: <T>(store: SupabaseClient, callback: () => Promise<T>) => Promise<T>;
+};
+
+let _storage: SupabaseStorage | null = null;
+
+function getStorage(): SupabaseStorage | null {
+  if (_storage) return _storage;
+  if (typeof window !== "undefined") return null; // browser — no ALS
+  try {
+    // `async_hooks` is Node-only; Next.js elides it from client bundles.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const mod = require("async_hooks") as typeof import("async_hooks");
+    if (typeof mod.AsyncLocalStorage !== "function") return null;
+    _storage = new mod.AsyncLocalStorage<SupabaseClient>() as unknown as SupabaseStorage;
+    return _storage;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Legacy module-level override. Retained so existing call sites using the
@@ -36,12 +59,23 @@ let _legacyOverride: SupabaseClient | null = null;
  * awaited calls, `after()` continuations, and nested promises) but is invisible
  * to concurrent async chains. Prefer this over `setSupabaseOverride` for any
  * background work.
+ *
+ * If AsyncLocalStorage is unavailable (e.g., the browser bundle accidentally
+ * reaches this path), falls back to the legacy module-level override so calls
+ * don't fail outright — but race safety is forfeited in that mode.
  */
 export function runWithSupabase<T>(
   client: SupabaseClient,
   fn: () => Promise<T>
 ): Promise<T> {
-  return supabaseStorage.run(client, fn);
+  const storage = getStorage();
+  if (storage) return storage.run(client, fn);
+
+  const prev = _legacyOverride;
+  _legacyOverride = client;
+  return fn().finally(() => {
+    _legacyOverride = prev;
+  });
 }
 
 /**
@@ -62,7 +96,8 @@ export function setSupabaseOverride(client: SupabaseClient | null): void {
  *   3. The Firebase-auth-backed browser client
  */
 export function requireSupabase(): SupabaseClient {
-  const scoped = supabaseStorage.getStore();
+  const storage = getStorage();
+  const scoped = storage?.getStore();
   if (scoped) return scoped;
 
   if (_legacyOverride) return _legacyOverride;
