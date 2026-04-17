@@ -5,6 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { AuthProvider } from "@/components/providers/auth-provider";
 import { useDictionary } from "@/i18n/client";
+import { OpsLockup } from "@/components/brand";
 
 // Routes within (auth) group that authenticated users CAN access
 const authenticatedAllowedRoutes = ["/locked", "/join", "/account-type"];
@@ -37,10 +38,8 @@ function AuthRouteGate({ children }: { children: React.ReactNode }) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
-        <div className="flex flex-col items-center gap-2">
-          <span className="font-bebas text-[48px] tracking-[0.2em] text-text leading-none animate-pulse-live">
-            OPS
-          </span>
+        <div className="flex flex-col items-center gap-2 animate-pulse-live text-text">
+          <OpsLockup orientation="vertical" className="h-16 w-auto" />
         </div>
       </div>
     );
@@ -140,11 +139,9 @@ function AuthRouteGate({ children }: { children: React.ReactNode }) {
         />
 
         {/* Brand mark in bottom-left */}
-        <div className="absolute bottom-8 left-8 z-10">
-          <p className="font-bebas text-[40px] tracking-[0.2em] text-white/90 leading-none">
-            OPS
-          </p>
-          <p className="font-mohave text-body-sm text-white/50 mt-1">
+        <div className="absolute bottom-8 left-8 z-10 text-white/90">
+          <OpsLockup orientation="horizontal" className="h-8 w-auto" />
+          <p className="font-mohave text-body-sm text-white/50 mt-3">
             {t("tagline")}
           </p>
         </div>
