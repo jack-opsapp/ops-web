@@ -133,7 +133,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   if (needsOnboarding) {
     return (
       <div className="flex items-center justify-center h-screen bg-background">
-        <span className="font-bebas text-[48px] tracking-[0.2em] text-ops-accent leading-none animate-pulse-live">
+        <span className="font-bebas text-[48px] tracking-[0.2em] text-text leading-none animate-pulse-live">
           OPS
         </span>
       </div>

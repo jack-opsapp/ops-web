@@ -111,7 +111,7 @@ const DropdownMenuCheckboxItem = React.forwardRef<
   >
     <span className="absolute left-1 flex h-[14px] w-[14px] items-center justify-center">
       <DropdownMenuPrimitive.ItemIndicator>
-        <Check className="h-[14px] w-[14px] text-ops-accent" />
+        <Check className="h-[14px] w-[14px] text-text-2" />
       </DropdownMenuPrimitive.ItemIndicator>
     </span>
     {children}
@@ -137,7 +137,7 @@ const DropdownMenuRadioItem = React.forwardRef<
   >
     <span className="absolute left-1 flex h-[14px] w-[14px] items-center justify-center">
       <DropdownMenuPrimitive.ItemIndicator>
-        <Circle className="h-[8px] w-[8px] fill-ops-accent text-ops-accent" />
+        <Circle className="h-[8px] w-[8px] fill-text-2 text-text-2" />
       </DropdownMenuPrimitive.ItemIndicator>
     </span>
     {children}

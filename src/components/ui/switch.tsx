@@ -13,7 +13,7 @@ const Switch = React.forwardRef<
       "transition-colors duration-150",
       "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background",
       "disabled:cursor-not-allowed disabled:opacity-40",
-      "data-[state=checked]:bg-ops-accent",
+      "data-[state=checked]:bg-text-2",
       "data-[state=unchecked]:bg-fill-neutral-dim",
       className
     )}

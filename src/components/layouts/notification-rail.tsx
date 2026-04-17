@@ -161,7 +161,7 @@ export function NotificationRail() {
               onClick={openModal}
               className="shrink-0 flex items-center gap-[5px] h-[40px] px-[10px] rounded-[4px] border border-[rgba(111, 148, 176,0.3)] hover:border-[rgba(111, 148, 176,0.5)] bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)] transition-colors duration-150 whitespace-nowrap"
             >
-              <span className="font-mono text-[11px] text-ops-accent">{count}</span>
+              <span className="font-mono text-[11px] text-text">{count}</span>
               <span className="font-kosugi text-micro uppercase tracking-[0.08em] text-text-2">{t("notifications.viewAll")}</span>
             </motion.button>
 
@@ -225,7 +225,7 @@ export function NotificationRail() {
             {/* Count button — styled, bespoke */}
             <motion.button
               key="count-btn"
-              className="shrink-0 w-[40px] h-[40px] flex items-center justify-center rounded-[4px] border border-[rgba(255,255,255,0.06)] hover:border-[rgba(111, 148, 176,0.4)] bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)] font-mono text-[12px] text-text-2 hover:text-ops-accent transition-all duration-150 cursor-pointer"
+              className="shrink-0 w-[40px] h-[40px] flex items-center justify-center rounded-[4px] border border-[rgba(255,255,255,0.06)] hover:border-[rgba(255,255,255,0.18)] bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)] font-mono text-[12px] text-text-2 hover:text-text transition-all duration-150 cursor-pointer"
               style={{
                 background: countHovered ? "rgba(111, 148, 176, 0.08)" : "transparent",
               }}
@@ -258,7 +258,7 @@ export function NotificationRail() {
                       WebkitBackdropFilter: "blur(28px) saturate(1.3)",
                       border: "1px solid rgba(255, 255, 255, 0.08)",
                       borderLeft: n.persistent
-                        ? "2px solid var(--ops-accent, #6F94B0)"
+                        ? "2px solid rgba(255, 255, 255, 0.30)"
                         : "1px solid rgba(255, 255, 255, 0.08)",
                     }}
                   >
@@ -267,7 +267,7 @@ export function NotificationRail() {
                         {n.title}
                       </span>
                       {n.actionLabel && (
-                        <span className="font-kosugi text-micro uppercase tracking-wider text-ops-accent shrink-0">
+                        <span className="font-kosugi text-micro uppercase tracking-wider text-text shrink-0">
                           {n.actionLabel}
                         </span>
                       )}

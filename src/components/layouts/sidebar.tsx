@@ -387,7 +387,7 @@ export function Sidebar() {
               )}
             >
               <div
-                className="shrink-0 w-[32px] h-[32px] rounded-full flex items-center justify-center overflow-hidden border-2 border-ops-accent"
+                className="shrink-0 w-[32px] h-[32px] rounded-full flex items-center justify-center overflow-hidden border-2 border-[rgba(255,255,255,0.18)]"
               >
                 {currentUser?.profileImageURL ? (
                   /* eslint-disable-next-line @next/next/no-img-element */

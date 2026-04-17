@@ -86,7 +86,7 @@ export function NotificationMiniCard({
         WebkitBackdropFilter: "blur(28px) saturate(1.3)",
         border: "1px solid rgba(255, 255, 255, 0.08)",
         borderLeft: notification.persistent
-          ? "2px solid var(--ops-accent, #6F94B0)"
+          ? "2px solid rgba(255, 255, 255, 0.30)"
           : "1px solid rgba(255, 255, 255, 0.08)",
       }}
     >
@@ -97,7 +97,7 @@ export function NotificationMiniCard({
 
       {/* Action label (visual indicator only — whole card is clickable) */}
       {hasAction && (
-        <span className="shrink-0 font-kosugi text-micro uppercase tracking-wider text-ops-accent">
+        <span className="shrink-0 font-kosugi text-micro uppercase tracking-wider text-text">
           {isDuplicateReview ? "Review" : displayActionLabel}
         </span>
       )}

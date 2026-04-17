@@ -13,7 +13,7 @@ const Avatar = React.forwardRef<
     ref={ref}
     className={cn(
       "relative flex shrink-0 overflow-hidden rounded-full",
-      "border-2 border-ops-accent",
+      "border-2 border-[rgba(255,255,255,0.18)]",
       {
         "h-[32px] w-[32px]": size === "sm",
         "h-5 w-5": size === "md",
@@ -52,7 +52,7 @@ const AvatarFallback = React.forwardRef<
     ref={ref}
     className={cn(
       "flex h-full w-full items-center justify-center rounded-full",
-      "text-ops-accent",
+      "text-text-2",
       "font-mohave text-caption-bold uppercase",
       className
     )}
