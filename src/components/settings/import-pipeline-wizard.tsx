@@ -110,30 +110,58 @@ export function ImportPipelineWizard({
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
 
   // ─── Review state persistence ───────────────────────────────────────────
+  // lastSaveFingerprintRef tracks the last successfully saved reviewState body
+  // so auto-save can skip redundant writes. This is what prevents the class of
+  // bug where a stale default-populated UI silently overwrites the user's
+  // prior corrections during a close/reopen race.
+  const lastSaveFingerprintRef = useRef<string | null>(null);
+  // Only flipped true after restoration has finished AND produced populated
+  // leads. Auto-save is gated on this so we can never write an empty or
+  // unrestored state over the user's saved overrides.
+  const canAutoSaveRef = useRef(false);
+
   const saveReviewState = useCallback(async () => {
     if (!connectionId || step !== 4) return;
+
+    // Defense 1 — restoration must have completed AND leads must be present
+    // before auto-save is allowed to write. This closes the window where a
+    // stale-default UI state (from a skipped restoration) silently clobbered
+    // the user's corrections via the 30s auto-save tick.
+    if (!canAutoSaveRef.current) return;
+    if (confirmedLeads.length === 0) return;
+
+    const reviewState = {
+      subStep: reviewSubStep,
+      filteredOutIds: confirmedLeads.filter((l) => !l.enabled && l.needsReview).map((l) => l.id),
+      consolidationDecisions: consolidationGroups
+        .filter((g) => g.decision)
+        .map((g) => ({ groupId: g.id, decision: g.decision, companyName: g.companyName })),
+      triageDecisions: Array.from(triageDecisions.entries())
+        .map(([leadId, decision]) => ({ leadId, decision })),
+      stageOverrides: confirmedLeads
+        .filter((l) => l.enabled)
+        .map((l) => ({ leadId: l.id, stage: l.stage })),
+      nameOverrides: confirmedLeads
+        .filter((l) => l.enabled)
+        .map((l) => ({ leadId: l.id, name: l.client.name })),
+    };
+
+    // Defense 2 — content-based deduplication. If nothing has meaningfully
+    // changed since the last save, skip the PATCH entirely. savedAt is
+    // excluded from the fingerprint because it changes on every call.
+    const fingerprint = JSON.stringify(reviewState);
+    if (fingerprint === lastSaveFingerprintRef.current) return;
+
     try {
-      const reviewState = {
-        subStep: reviewSubStep,
-        filteredOutIds: confirmedLeads.filter((l) => !l.enabled && l.needsReview).map((l) => l.id),
-        consolidationDecisions: consolidationGroups
-          .filter((g) => g.decision)
-          .map((g) => ({ groupId: g.id, decision: g.decision, companyName: g.companyName })),
-        triageDecisions: Array.from(triageDecisions.entries())
-          .map(([leadId, decision]) => ({ leadId, decision })),
-        stageOverrides: confirmedLeads
-          .filter((l) => l.enabled)
-          .map((l) => ({ leadId: l.id, stage: l.stage })),
-        nameOverrides: confirmedLeads
-          .filter((l) => l.enabled)
-          .map((l) => ({ leadId: l.id, name: l.client.name })),
-        savedAt: new Date().toISOString(),
-      };
       await fetch("/api/integrations/email/connection", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ connectionId, syncFilters: { reviewState } }),
+        body: JSON.stringify({
+          connectionId,
+          syncFilters: { reviewState: { ...reviewState, savedAt: new Date().toISOString() } },
+        }),
       });
+      lastSaveFingerprintRef.current = fingerprint;
     } catch (err) {
       console.error("[wizard] Failed to save review state:", err);
     }
@@ -422,6 +450,25 @@ export function ImportPipelineWizard({
                 }
                 setConsolidationGroups(groups);
 
+                // Seed the auto-save fingerprint with what we just restored,
+                // so the first auto-save tick after restoration doesn't write
+                // a byte-identical payload back to the DB.
+                lastSaveFingerprintRef.current = JSON.stringify({
+                  subStep: reviewState.subStep || 1,
+                  filteredOutIds: Array.from(filteredSet),
+                  consolidationDecisions: groups
+                    .filter((g) => g.decision)
+                    .map((g) => ({ groupId: g.id, decision: g.decision, companyName: g.companyName })),
+                  triageDecisions: (reviewState.triageDecisions || [])
+                    .map((t: { leadId: string; decision: TriageDecision }) => ({ leadId: t.leadId, decision: t.decision })),
+                  stageOverrides: restoredLeads
+                    .filter((l: AnalyzedLead) => l.enabled)
+                    .map((l: AnalyzedLead) => ({ leadId: l.id, stage: l.stage })),
+                  nameOverrides: restoredLeads
+                    .filter((l: AnalyzedLead) => l.enabled)
+                    .map((l: AnalyzedLead) => ({ leadId: l.id, name: l.client.name })),
+                });
+
                 setReviewSubStep(reviewState.subStep || 1);
                 setDirection(1);
                 setStep(4);
@@ -463,9 +510,20 @@ export function ImportPipelineWizard({
     if (!open) {
       wizardStateCheckedRef.current = false;
       autoAdvancedRef.current = false;
+      canAutoSaveRef.current = false;
+      lastSaveFingerprintRef.current = null;
       if (initialConnectionId) setStateCheckComplete(false);
     }
   }, [open, initialConnectionId]);
+
+  // Defense 3 — auto-save is only allowed once the wizard is on Step 4 with
+  // populated lead data AND the state-restoration check has completed. Until
+  // then, any auto-save tick is a write against unreal state and risks
+  // clobbering the user's saved corrections in the DB.
+  useEffect(() => {
+    canAutoSaveRef.current =
+      step === 4 && stateCheckComplete && confirmedLeads.length > 0;
+  }, [step, stateCheckComplete, confirmedLeads.length]);
 
   // ─── Background polling (minimized state) ─────────────────────────────────
   // Polls the running job (analysis OR import) for progress + completion.
