@@ -2,6 +2,7 @@
 
 import { AlertCircle, Clock } from "lucide-react";
 import { useDictionary } from "@/i18n/client";
+import { OpsLockup } from "@/components/brand";
 
 /**
  * Session expired fallback page.
@@ -89,15 +90,16 @@ export default function PortalVerifyPage() {
         </div>
 
         {/* Powered by OPS */}
-        <p
-          className="text-[10px] text-center mt-8 tracking-wider uppercase"
+        <div
+          className="flex items-center justify-center gap-2 text-[10px] mt-8 tracking-wider uppercase"
           style={{
             color: "var(--portal-text-secondary, #A7A7A7)",
             opacity: 0.5,
           }}
         >
-          {t("landing.poweredBy")}
-        </p>
+          <span>{t("landing.poweredBy")}</span>
+          <OpsLockup orientation="horizontal" className="h-2.5 w-auto" />
+        </div>
       </div>
     </div>
   );

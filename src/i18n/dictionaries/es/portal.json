@@ -177,7 +177,7 @@
   "landing.previewError": "No se pudo crear la sesión de vista previa",
   "landing.verifyFailed": "Error de verificación",
   "landing.genericError": "Algo salió mal. Intenta de nuevo.",
-  "landing.poweredBy": "impulsado por OPS",
+  "landing.poweredBy": "impulsado por",
 
   "verify.title": "Sesión expirada",
   "verify.message": "Tu sesión del portal ha expirado. Por favor revisa tu correo para un enlace del portal de tu proveedor de servicios.",

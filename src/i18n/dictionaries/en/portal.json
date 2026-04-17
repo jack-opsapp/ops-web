@@ -177,7 +177,7 @@
   "landing.previewError": "Preview session could not be created",
   "landing.verifyFailed": "Verification failed",
   "landing.genericError": "Something went wrong. Please try again.",
-  "landing.poweredBy": "powered by OPS",
+  "landing.poweredBy": "powered by",
 
   "verify.title": "Session expired",
   "verify.message": "Your portal session has expired. Please check your email for a portal link from your service provider.",

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { OpsLockup } from "@/components/brand";
 import {
   getLiveBlogPosts,
   getBlogCategories,
@@ -32,8 +33,11 @@ export default async function BlogIndexPage() {
     <main className="max-w-6xl mx-auto px-6 py-16">
       {/* Header */}
       <header className="mb-12">
-        <h1 className="font-mohave text-4xl font-bold text-[#E5E5E5] uppercase">
-          OPS Blog
+        <h1 className="flex items-center gap-3 text-[#E5E5E5]">
+          <OpsLockup orientation="horizontal" className="h-10 w-auto" />
+          <span className="font-mohave text-4xl font-bold uppercase leading-none">
+            Blog
+          </span>
         </h1>
         <p className="mt-3 text-[#A7A7A7] text-lg max-w-2xl">
           Insights, guides, and strategies for trade businesses &mdash;
