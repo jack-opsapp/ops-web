@@ -19,8 +19,8 @@ Supplements the root `OPS LTD./CLAUDE.md`. Read both.
 - **Kosugi** — captions, section labels, uppercase metadata (`font-kosugi`)
 - **JetBrains Mono** — numerical data, timestamps, metadata values (`font-mono`)
 
-**Brand-only (forbidden in product UI):**
-- **Cake Mono** — appears solely inside `<OpsLockup>`, the app icon, and marketing hero wordmarks. The lockup SVGs outline the Cake Mono glyphs as paths — no font file is loaded into the product bundle. Never declare `font-family: "Cake Mono"` in any component under `src/`.
+**Brand + TopBar H1 only:**
+- **Cake Mono** — loaded from Adobe Typekit (kit `dbh0pet`, family `cake-mono`, weights 300/400/700). Allowed in: `<OpsLockup>` (via outlined paths, no font load needed), the app icon, marketing hero wordmarks, social share images, **and the TopBar root-route H1 in `top-bar.tsx`** (`font-cakemono font-light uppercase` at 22px). Not allowed anywhere else — no buttons, body text, panel titles, data readouts, or navigation.
 
 **Deprecated (removed 2026-04-17):**
 - Bebas Neue — do not reintroduce.

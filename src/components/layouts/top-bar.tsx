@@ -203,7 +203,7 @@ export function TopBar() {
         ) : (
           /* Simple title for top-level routes */
           rootTitle && (
-            <h1 className="font-mohave text-heading text-text uppercase tracking-wider">
+            <h1 className="font-cakemono font-light text-heading text-text uppercase">
               {rootTitle}
             </h1>
           )

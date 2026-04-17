@@ -51,6 +51,9 @@ export default async function RootLayout({
 
   return (
     <html lang={locale} className="dark" suppressHydrationWarning>
+      <head>
+        <link rel="stylesheet" href="https://use.typekit.net/dbh0pet.css" />
+      </head>
       <body className="min-h-screen bg-background text-text font-mohave antialiased">
         <Providers locale={locale}>
           {children}

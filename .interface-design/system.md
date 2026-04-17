@@ -102,7 +102,7 @@ All numerical contexts: `font-feature-settings: "tnum" 1, "zero" 1` (tabular num
 | Role | Classes | Size | Use |
 |------|---------|------|-----|
 | Hero number | `font-mohave font-light` | 76–84px | Dashboard hero, revenue total |
-| Page title | `font-mohave font-medium` | 22–26px | Page heading |
+| Page title (TopBar H1) | `font-cakemono font-light uppercase` | 22px | Root-route page heading — dashboard, clients, invoices, etc. |
 | Panel title | `font-kosugi text-micro uppercase tracking-wider` | 11px | Widget/section titles |
 | Body / name | `font-mohave text-body-sm` | 14px | Entity names, row primary text |
 | Data value (lg) | `font-mono text-data-lg font-semibold` | 20px | Hero metrics in widgets |
@@ -128,15 +128,18 @@ The OPS mark is two interlocking chamfered brackets with subtle isometric extrus
 - Clear space around the mark: at least 25% of the mark's height on all sides. No other element (text, border, icon) may enter this buffer.
 - Minimum display size: 16px (mark), 24px tall (horizontal lockup), 48px tall (vertical lockup). Below these thresholds the extrusion detail collapses.
 
-### Typography Boundary: Cake Mono = Brand-Only
+### Typography Boundary: Cake Mono = Brand + TopBar H1
 
-**Cake Mono is a brand typeface, not a product typeface.** It appears ONLY in:
+**Cake Mono is a brand typeface with ONE product-UI allowance.** It appears only in:
 - The logo lockups (`<OpsLockup>`)
 - The iOS / Android app icon
 - Marketing hero wordmarks (`ops-site/`)
 - Social share images (OG, Twitter card)
+- **The TopBar root-route H1 page title** (`font-cakemono font-light uppercase`, 22px) — `src/components/layouts/top-bar.tsx`
 
-**Never in product UI.** No button labels, body text, headers, data, or navigation in Cake Mono. Product typography is Mohave + Kosugi + JetBrains Mono. Code review must reject any `font-family: "Cake Mono"` declaration outside `src/components/brand/` and the explicit brand surfaces listed above.
+**Not anywhere else in product UI.** No button labels, body text, panel titles, data readouts, form inputs, navigation, or section headers in Cake Mono. If you need large display type outside the TopBar H1, use Mohave Light. Code review must reject `font-cakemono` declarations outside `src/components/brand/` and the TopBar.
+
+Cake Mono is loaded via Adobe Typekit (kit id `dbh0pet`) in the root layout `<head>`. Weights available: 300 (Light), 400 (Regular), 700 (Bold). TopBar H1 uses 300.
 
 ### Color Treatment
 - On dark backgrounds (product chrome, dashboard): mark in `text` (#EDEDED) via CSS `color` inherited through `currentColor`.
@@ -411,6 +414,56 @@ Title in header position. Centered hero value in `text-display text-text-mute`. 
 - Click on title → 3D rotateY(180deg), 350ms, perspective(600px)
 - Back face: glass-surface, title + description + data source
 - Reduced motion: crossfade fallback
+
+---
+
+## Keyboard Annotations
+
+Every keyboard shortcut on screen renders through **`KeyHint`** (`src/components/ui/key-hint.tsx`). Do not hand-roll `<kbd>` chips.
+
+### Canonical glyphs
+
+Always use these symbols — never spelled-out words like `"Cmd"` or `"Enter"`.
+
+| Key | Glyph | Key | Glyph |
+|-----|-------|-----|-------|
+| Command | `⌘` | Enter / Return | `↵` |
+| Option / Alt | `⌥` | Backspace | `⌫` |
+| Shift | `⇧` | Space | `␣` |
+| Control | `⌃` | Escape | `⎋` |
+| Tab | `⇥` | Arrows | `→ ← ↑ ↓` |
+
+### Variants
+
+| Variant | Use when | Visual |
+|---------|----------|--------|
+| **`chip`** *(default)* | Standalone reference: shortcut lists, tooltips, command palette, search-field hints, menu items | Boxed: `bg-[rgba(255,255,255,0.06)]`, `border-[rgba(255,255,255,0.10)]`, `rounded-[3px]`, `min-w-[20px] h-[20px] px-[5px]`. Combos render as side-by-side chips with `gap-[4px]`. |
+| **`inline`** | Inside a coloured button or running text where a hard-edged chip would compete with the container | Bracketed mono: `[K]` or `[⌘K]`, `font-mono text-[11px] opacity-70`, colour inherits from parent. |
+
+### Rules
+
+1. **Always mono** (`font-mono` — JetBrains Mono) at `text-[11px]`. Never Kosugi, never Mohave.
+2. **Never accent-coloured.** KeyHints are metadata, not primary actions.
+3. **Multi-key combos** = pass an array: `<KeyHint keys={["⌘","K"]} />` → renders `⌘` `K` (chip) or `[⌘K]` (inline).
+4. **Accessibility**: `KeyHint` wraps a real `<kbd>` element and sets `aria-label` from a glyph-to-name map so screen readers announce "Command K" instead of the raw glyph. Override with an explicit `aria-label` if the context needs different copy.
+5. **Never pair with a repeating text label.** "Press [K] to search" — not "Press K key [K]".
+
+### Usage
+
+```tsx
+import { KeyHint } from "@/components/ui/key-hint";
+
+// Single key, standalone
+<KeyHint keys="K" />
+
+// Combo, standalone
+<KeyHint keys={["⌘", "K"]} />
+
+// Inline inside a button or muted text
+<button>
+  <KeyHint keys="1" variant="inline" /> SAVE AS LEAD
+</button>
+```
 
 ---
 
