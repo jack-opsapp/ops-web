@@ -38,7 +38,7 @@ function AuthRouteGate({ children }: { children: React.ReactNode }) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="flex flex-col items-center gap-2">
-          <span className="font-bebas text-[48px] tracking-[0.2em] text-ops-accent leading-none animate-pulse-live">
+          <span className="font-bebas text-[48px] tracking-[0.2em] text-text leading-none animate-pulse-live">
             OPS
           </span>
         </div>

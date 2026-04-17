@@ -140,9 +140,9 @@ export function ImportTab() {
                   "font-mohave text-caption-sm font-medium",
                   "transition-all duration-200",
                   currentStep === step.number
-                    ? "bg-ops-accent text-white"
+                    ? "bg-text-2 text-background"
                     : currentStep > step.number
-                      ? "bg-ops-accent/30 text-ops-accent"
+                      ? "bg-[rgba(255,255,255,0.08)] text-text"
                       : "bg-[rgba(255,255,255,0.07)] text-text-3"
                 )}
               >

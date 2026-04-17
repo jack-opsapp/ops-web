@@ -917,11 +917,11 @@ export const ActionCard = memo(function ActionCard({
                 "w-[20px] h-[20px] rounded-[2px] border transition-colors",
                 // Fix 21: checkbox is the ONE accent element (selection indicator)
                 selected
-                  ? "bg-ops-accent border-[#6F94B0]"
+                  ? "bg-text-2 border-[rgba(255,255,255,0.30)]"
                   : "border-[rgba(255,255,255,0.12)] hover:border-[rgba(255,255,255,0.24)]"
               )}
             >
-              {selected && <Check className="w-[14px] h-[14px] text-white mx-auto mt-[2px]" />}
+              {selected && <Check className="w-[14px] h-[14px] text-background mx-auto mt-[2px]" />}
             </div>
           </button>
         )}
@@ -3000,7 +3000,7 @@ export const ActionCard = memo(function ActionCard({
                                   )}
                                 >
                                   {isSelected && (
-                                    <div className="w-[8px] h-[8px] rounded-full bg-ops-accent" />
+                                    <div className="w-[8px] h-[8px] rounded-full bg-text-2" />
                                   )}
                                 </div>
                                 <div className="min-w-0 flex-1">

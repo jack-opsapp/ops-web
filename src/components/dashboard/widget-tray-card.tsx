@@ -82,7 +82,7 @@ export function WidgetTrayCard({ typeId, index, instanceCount }: WidgetTrayCardP
               "w-[18px] h-[18px] rounded-md flex items-center justify-center border transition-all duration-150",
               isAdded
                 ? "bg-transparent text-text-mute border-border/50 hover:bg-[rgba(255,255,255,0.06)]"
-                : "bg-[rgba(255,255,255,0.05)] text-ops-accent border-[rgba(255,255,255,0.12)] hover:bg-[rgba(255,255,255,0.08)]"
+                : "bg-[rgba(255,255,255,0.05)] text-text-2 border-[rgba(255,255,255,0.18)] hover:bg-[rgba(255,255,255,0.08)] hover:text-text"
             )}
             title={`${t("tray.card.addTitle")} ${entry.label}`}
           >

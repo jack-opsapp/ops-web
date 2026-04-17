@@ -147,7 +147,7 @@ export function AutoApproveRuleForm({ onClose }: AutoApproveRuleFormProps) {
             onClick={() => setAppliesToAll(!appliesToAll)}
             className={cn(
               "w-[36px] h-[20px] rounded-full transition-colors relative shrink-0",
-              appliesToAll ? "bg-ops-accent" : "bg-fill-neutral-dim"
+              appliesToAll ? "bg-text-2" : "bg-fill-neutral-dim"
             )}
           >
             <span
@@ -171,7 +171,7 @@ export function AutoApproveRuleForm({ onClose }: AutoApproveRuleFormProps) {
                   type="checkbox"
                   checked={selectedMembers.includes(member.id)}
                   onChange={() => toggleMember(member.id)}
-                  className="w-[14px] h-[14px] rounded border-border accent-ops-accent"
+                  className="w-[14px] h-[14px] rounded border-border accent-text-2"
                 />
                 <span className="font-kosugi text-caption-sm text-text-2">
                   {member.firstName} {member.lastName}

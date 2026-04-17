@@ -81,7 +81,7 @@ export default function PinPage() {
   return (
     <div className="flex flex-col items-center" ref={containerRef}>
       {/* Logo */}
-      <h1 className="font-bebas text-[48px] tracking-[0.2em] text-ops-accent leading-none mb-1">
+      <h1 className="font-bebas text-[48px] tracking-[0.2em] text-text leading-none mb-1">
         {t("ops")}
       </h1>
       <p className="font-kosugi text-caption-sm text-text-3 uppercase tracking-[0.3em] mb-5">
@@ -108,7 +108,7 @@ export default function PinPage() {
             className={cn(
               "w-[18px] h-[18px] rounded-full border-2 transition-all duration-200",
               i < pin.length
-                ? "bg-ops-accent border-ops-accent scale-110"
+                ? "bg-text-2 border-[rgba(255,255,255,0.30)] scale-110"
                 : "bg-transparent border-border-medium"
             )}
           />
@@ -169,7 +169,7 @@ export default function PinPage() {
 
       {/* Forgot PIN */}
       <button
-        className="mt-3 font-mohave text-body-sm text-text-3 hover:text-ops-accent transition-colors underline underline-offset-4"
+        className="mt-3 font-mohave text-body-sm text-text-3 hover:text-text transition-colors underline underline-offset-4"
         onClick={() => {
           localStorage.removeItem("ops-pin");
           toast.success(t("pin.cleared"));

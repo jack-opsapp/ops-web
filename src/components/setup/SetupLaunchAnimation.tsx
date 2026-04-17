@@ -306,14 +306,14 @@ export function SetupLaunchAnimation({
         style={{ opacity: overlayVisible ? 1 : 0 }}
       >
         <div className="flex items-center gap-1.5">
-          {workspaceReady && <Check className="w-3 h-3 text-ops-accent" />}
+          {workspaceReady && <Check className="w-3 h-3 text-text-2" />}
           <span className="font-kosugi text-[11px] text-text-mute uppercase tracking-widest">
             {workspaceReady ? "Ready" : "Setting up your workspace\u2026"}
           </span>
         </div>
         <div className="w-32 h-[2px] rounded-full bg-[rgba(255,255,255,0.06)] overflow-hidden">
           <div
-            className={`h-full bg-ops-accent rounded-full transition-all duration-500 ${
+            className={`h-full bg-text-2 rounded-full transition-all duration-500 ${
               workspaceReady ? "w-full" : "animate-shimmer"
             }`}
             style={workspaceReady ? undefined : { width: "40%" }}

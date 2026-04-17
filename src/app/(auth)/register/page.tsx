@@ -197,7 +197,7 @@ export default function RegisterPage() {
               {t("register.continueGoogle")}
             </span>
             {isLoadingGoogle && (
-              <span className="w-[16px] h-[16px] border-2 border-text-disabled border-t-ops-accent rounded-full animate-spin shrink-0" />
+              <span className="w-[16px] h-[16px] border-2 border-text-disabled border-t-text-2 rounded-full animate-spin shrink-0" />
             )}
           </button>
 
@@ -214,7 +214,7 @@ export default function RegisterPage() {
               {t("register.continueApple")}
             </span>
             {isLoadingApple && (
-              <span className="w-[16px] h-[16px] border-2 border-text-disabled border-t-ops-accent rounded-full animate-spin shrink-0" />
+              <span className="w-[16px] h-[16px] border-2 border-text-disabled border-t-text-2 rounded-full animate-spin shrink-0" />
             )}
           </button>
         </div>
@@ -292,7 +292,7 @@ export default function RegisterPage() {
         {t("register.hasAccount")}{" "}
         <Link
           href="/login"
-          className="text-ops-accent hover:text-ops-accent-hover underline underline-offset-4 transition-colors"
+          className="text-text-2 hover:text-text underline underline-offset-4 transition-colors"
         >
           {t("register.signIn")}
         </Link>

@@ -142,7 +142,7 @@ export function UploadStep({ onParsed }: UploadStepProps) {
           "flex flex-col items-center justify-center gap-4",
           "cursor-pointer transition-colors duration-150",
           isDragOver
-            ? "border-ops-accent bg-[rgba(255,255,255,0.03)]"
+            ? "border-[rgba(255,255,255,0.30)] bg-[rgba(255,255,255,0.05)]"
             : "border-border hover:border-border-strong"
         )}
       >

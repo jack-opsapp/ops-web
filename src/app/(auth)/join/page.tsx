@@ -282,7 +282,7 @@ export default function JoinPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 text-ops-accent animate-spin" />
+        <Loader2 className="w-8 h-8 text-text-2 animate-spin" />
       </div>
     );
   }
@@ -408,7 +408,7 @@ export default function JoinPage() {
         </p>
 
         {invite.roleName && (
-          <span className="inline-block font-kosugi text-micro text-ops-accent bg-[rgba(255,255,255,0.08)] px-2 py-1 rounded-sm uppercase tracking-wider">
+          <span className="inline-block font-kosugi text-micro text-text bg-[rgba(255,255,255,0.08)] px-2 py-1 rounded-[4px] uppercase tracking-wider">
             You&apos;ll join as {invite.roleName}
           </span>
         )}
@@ -441,7 +441,7 @@ export default function JoinPage() {
               Continue with Google
             </span>
             {isLoadingGoogle && (
-              <span className="w-[16px] h-[16px] border-2 border-text-disabled border-t-ops-accent rounded-full animate-spin shrink-0" />
+              <span className="w-[16px] h-[16px] border-2 border-text-disabled border-t-text-2 rounded-full animate-spin shrink-0" />
             )}
           </button>
 
@@ -458,7 +458,7 @@ export default function JoinPage() {
               Continue with Apple
             </span>
             {isLoadingApple && (
-              <span className="w-[16px] h-[16px] border-2 border-text-disabled border-t-ops-accent rounded-full animate-spin shrink-0" />
+              <span className="w-[16px] h-[16px] border-2 border-text-disabled border-t-text-2 rounded-full animate-spin shrink-0" />
             )}
           </button>
         </div>
@@ -541,7 +541,7 @@ export default function JoinPage() {
               Already have an account?{" "}
               <button
                 onClick={() => setMode("login")}
-                className="text-ops-accent hover:underline"
+                className="text-text-2 hover:text-text hover:underline"
               >
                 Log in
               </button>
@@ -551,7 +551,7 @@ export default function JoinPage() {
               Don&apos;t have an account?{" "}
               <button
                 onClick={() => setMode("signup")}
-                className="text-ops-accent hover:underline"
+                className="text-text-2 hover:text-text hover:underline"
               >
                 Sign up
               </button>

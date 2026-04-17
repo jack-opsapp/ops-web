@@ -18,10 +18,10 @@ const TIER_DISPLAY: Record<Exclude<SubscriptionTier, "trial">, {
 }> = {
   starter: {
     icon: <Zap className="w-[20px] h-[20px]" />,
-    accentClass: "text-ops-accent",
+    accentClass: "text-text",
     borderClass: "border-[rgba(255,255,255,0.12)] hover:border-[rgba(255,255,255,0.18)]",
     glowClass: "",
-    badgeClass: "bg-[rgba(255,255,255,0.05)] text-ops-accent",
+    badgeClass: "bg-[rgba(255,255,255,0.05)] text-text",
   },
   team: {
     icon: <Crown className="w-[20px] h-[20px]" />,
@@ -123,7 +123,7 @@ export default function LockedPage() {
     <div className="flex flex-col items-center min-h-screen px-2 py-5">
       {/* Logo */}
       <div className="text-center mb-2">
-        <h1 className="font-bebas text-[56px] tracking-[0.2em] text-ops-accent leading-none">
+        <h1 className="font-bebas text-[56px] tracking-[0.2em] text-text leading-none">
           {t("ops")}
         </h1>
         <p className="font-kosugi text-caption-sm text-text-3 uppercase tracking-[0.3em] mt-0.5">
@@ -172,7 +172,7 @@ export default function LockedPage() {
         <div className="flex items-center justify-center gap-2">
           <a
             href="mailto:support@opsapp.co"
-            className="inline-flex items-center gap-0.5 font-mohave text-body-sm text-ops-accent hover:text-ops-accent-hover underline underline-offset-4 transition-colors"
+            className="inline-flex items-center gap-0.5 font-mohave text-body-sm text-text-2 hover:text-text underline underline-offset-4 transition-colors"
           >
             <Headphones className="w-[14px] h-[14px]" />
             {t("locked.contactSupport")}

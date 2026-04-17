@@ -246,7 +246,7 @@ function LoginForm() {
               {t("login.continueGoogle")}
             </span>
             {isLoadingGoogle && (
-              <span className="w-[16px] h-[16px] border-2 border-text-disabled border-t-ops-accent rounded-full animate-spin shrink-0" />
+              <span className="w-[16px] h-[16px] border-2 border-text-disabled border-t-text-2 rounded-full animate-spin shrink-0" />
             )}
           </button>
 
@@ -263,7 +263,7 @@ function LoginForm() {
               {t("login.continueApple")}
             </span>
             {isLoadingApple && (
-              <span className="w-[16px] h-[16px] border-2 border-text-disabled border-t-ops-accent rounded-full animate-spin shrink-0" />
+              <span className="w-[16px] h-[16px] border-2 border-text-disabled border-t-text-2 rounded-full animate-spin shrink-0" />
             )}
           </button>
         </div>
@@ -334,7 +334,7 @@ function LoginForm() {
                       setResetSent(false);
                       setError(null);
                     }}
-                    className="font-kosugi text-micro text-text-mute hover:text-ops-accent transition-colors"
+                    className="font-kosugi text-micro text-text-mute hover:text-text transition-colors"
                   >
                     {t("login.forgotPassword")}
                   </button>
@@ -365,7 +365,7 @@ function LoginForm() {
                         setShowForgotPassword(false);
                         setResetSent(false);
                       }}
-                      className="font-kosugi text-micro text-ops-accent hover:text-ops-accent-hover transition-colors mt-2"
+                      className="font-kosugi text-micro text-text-2 hover:text-text transition-colors mt-2"
                     >
                       {t("login.backToSignIn")}
                     </button>
@@ -434,7 +434,7 @@ function LoginForm() {
         {t("login.noAccount")}{" "}
         <Link
           href="/register"
-          className="text-ops-accent hover:text-ops-accent-hover underline underline-offset-4 transition-colors"
+          className="text-text-2 hover:text-text underline underline-offset-4 transition-colors"
         >
           {t("login.signUp")}
         </Link>

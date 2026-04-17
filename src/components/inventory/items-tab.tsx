@@ -338,7 +338,7 @@ export function ItemsTab({ showCreateForm, onCreateFormOpen, onCreateFormClose }
       {/* Bulk Actions Bar */}
       {selectedIds.size > 0 && (
         <div className="flex items-center gap-2 px-2 py-1.5 bg-[rgba(255,255,255,0.03)] border border-border rounded-lg animate-fade-in">
-          <span className="text-caption-sm text-ops-accent font-mono">
+          <span className="text-caption-sm text-text font-mono">
             {selectedIds.size} selected
           </span>
           <Button

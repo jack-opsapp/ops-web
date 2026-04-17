@@ -346,7 +346,7 @@ export function OverviewTab({
           {hasMoreAttention && (
             <button
               onClick={() => onSwitchToItems?.()}
-              className="font-kosugi text-caption-sm text-ops-accent hover:text-ops-accent-hover transition-colors cursor-pointer"
+              className="font-kosugi text-caption-sm text-text-2 hover:text-text transition-colors cursor-pointer"
             >
               View all in Items tab
             </button>

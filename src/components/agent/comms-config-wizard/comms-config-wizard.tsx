@@ -448,8 +448,8 @@ function ProgressBar({ step }: { step: number }) {
                     "motion-reduce:transition-none",
                     filled
                       ? current
-                        ? "bg-ops-accent"
-                        : "bg-text-primary"
+                        ? "bg-text"
+                        : "bg-text-2"
                       : "bg-[rgba(255,255,255,0.08)]"
                   )}
                 />

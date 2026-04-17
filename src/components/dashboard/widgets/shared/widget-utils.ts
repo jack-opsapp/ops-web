@@ -81,7 +81,7 @@ const INVOICE_STATUS_COLORS: Record<string, StatusColors> = {
     border: "border-text-disabled/30",
   },
   [InvoiceStatus.Sent]: {
-    text: "text-ops-accent",
+    text: "text-text-2",
     bg: "bg-[rgba(255,255,255,0.06)]",
     border: "border-[rgba(255,255,255,0.15)]",
   },
@@ -124,7 +124,7 @@ const ESTIMATE_STATUS_COLORS: Record<string, StatusColors> = {
     border: "border-text-disabled/30",
   },
   [EstimateStatus.Sent]: {
-    text: "text-ops-accent",
+    text: "text-text-2",
     bg: "bg-[rgba(255,255,255,0.06)]",
     border: "border-[rgba(255,255,255,0.15)]",
   },
@@ -228,12 +228,12 @@ const PROJECT_STATUS_COLORS: Record<string, StatusColors> = {
 
 const OPPORTUNITY_STAGE_COLORS: Record<string, StatusColors> = {
   [OpportunityStage.NewLead]: {
-    text: "text-ops-accent",
+    text: "text-text-2",
     bg: "bg-[rgba(255,255,255,0.06)]",
     border: "border-[rgba(255,255,255,0.15)]",
   },
   [OpportunityStage.Qualifying]: {
-    text: "text-ops-accent",
+    text: "text-text-2",
     bg: "bg-[rgba(255,255,255,0.06)]",
     border: "border-[rgba(255,255,255,0.15)]",
   },

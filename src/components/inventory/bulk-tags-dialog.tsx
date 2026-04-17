@@ -123,7 +123,7 @@ export function BulkTagsDialog({
                       className={cn(
                         "flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-sm border",
                         isSelected
-                          ? "border-ops-accent bg-ops-accent"
+                          ? "border-[rgba(255,255,255,0.30)] bg-text-2"
                           : "border-[rgba(255,255,255,0.2)] bg-transparent"
                       )}
                     >

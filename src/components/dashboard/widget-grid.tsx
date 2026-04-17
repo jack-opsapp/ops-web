@@ -94,7 +94,7 @@ export function WidgetGrid({
                 )}
                 style={{ minHeight: 140 }}
               >
-                <span className="font-mohave text-[11px] text-ops-accent/60">
+                <span className="font-mohave text-[11px] text-text-mute">
                   {ghostEntry?.label ?? t("grid.widgetFallback")}
                 </span>
               </motion.div>

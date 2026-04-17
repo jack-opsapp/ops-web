@@ -187,7 +187,7 @@ export function InvoiceListWidget({ size, config }: InvoiceListWidgetProps) {
                       className={cn(
                         "font-kosugi text-micro uppercase tracking-wider px-2 py-1 rounded-sm text-left transition-colors",
                         sortField === opt.value
-                          ? "text-ops-accent bg-[rgba(255,255,255,0.06)]"
+                          ? "text-text bg-[rgba(255,255,255,0.08)]"
                           : "text-text-3 hover:text-text-2"
                       )}
                     >
@@ -343,7 +343,7 @@ function InvoiceRow({
       disabled={sendState !== "idle"}
       className={cn(
         "shrink-0 flex items-center gap-0.5 px-1.5 py-[2px] rounded transition-all duration-200",
-        "text-text-2 hover:text-ops-accent hover:bg-[rgba(255,255,255,0.05)]",
+        "text-text-2 hover:text-text hover:bg-[rgba(255,255,255,0.05)]",
         sendState === "sent" && "text-status-success"
       )}
       title={t("invoiceList.sendInvoice")}

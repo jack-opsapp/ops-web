@@ -426,7 +426,7 @@ export function ItemFormDialog({
                         >
                           {tag.name}
                           {tag.type === "new" && (
-                            <span className="text-ops-accent text-micro ml-0.5">
+                            <span className="text-text text-micro ml-0.5">
                               NEW
                             </span>
                           )}
@@ -494,7 +494,7 @@ export function ItemFormDialog({
                               type="button"
                               className={cn(
                                 "w-full px-1.5 py-1 text-left",
-                                "text-body-sm text-ops-accent font-mohave",
+                                "text-body-sm text-text-2 font-mohave",
                                 "hover:bg-[rgba(255,255,255,0.06)]",
                                 "transition-colors",
                                 "border-t border-[rgba(255,255,255,0.06)]"

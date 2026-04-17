@@ -453,7 +453,7 @@ export default function SetupPage() {
   if (!ready) {
     return (
       <div className="fixed inset-0 bg-background flex items-center justify-center">
-        <span className="font-mohave text-[48px] tracking-[0.2em] text-ops-accent leading-none animate-pulse">
+        <span className="font-mohave text-[48px] tracking-[0.2em] text-text leading-none animate-pulse">
           OPS
         </span>
       </div>
