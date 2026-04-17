@@ -17,7 +17,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { after } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
-import { setSupabaseOverride } from "@/lib/supabase/helpers";
+import { runWithSupabase } from "@/lib/supabase/helpers";
 import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
 import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 import { AdminFeatureOverrideService } from "@/lib/api/services/admin-feature-override-service";
@@ -85,108 +85,110 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const supabase = getServiceRoleClient();
-  setSupabaseOverride(supabase);
 
-  try {
-    // Auth
-    const authUser = await verifyAdminAuth(request);
-    if (!authUser) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  // Pin the service-role client to this request's async context. ALS isolates
+  // it from concurrent requests, so the 800s background scan can't get its
+  // override wiped by another handler's finally clause.
+  return runWithSupabase(supabase, async () => {
+    try {
+      // Auth
+      const authUser = await verifyAdminAuth(request);
+      if (!authUser) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
 
-    const user = await findUserByAuth(authUser.uid, authUser.email, "id, company_id");
-    if (!user) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+      const user = await findUserByAuth(authUser.uid, authUser.email, "id, company_id");
+      if (!user) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
 
-    const userId = user.id as string;
-    const companyId = user.company_id as string;
+      const userId = user.id as string;
+      const companyId = user.company_id as string;
 
-    if (!companyId) {
-      return NextResponse.json({ error: "No company" }, { status: 400 });
-    }
+      if (!companyId) {
+        return NextResponse.json({ error: "No company" }, { status: 400 });
+      }
 
-    // Feature gate
-    const enabled = await AdminFeatureOverrideService.isAIFeatureEnabled(companyId, "phase_c");
-    if (!enabled) {
-      return NextResponse.json({ error: "Phase C not enabled" }, { status: 403 });
-    }
+      // Feature gate
+      const enabled = await AdminFeatureOverrideService.isAIFeatureEnabled(companyId, "phase_c");
+      if (!enabled) {
+        return NextResponse.json({ error: "Phase C not enabled" }, { status: 403 });
+      }
 
-    // Find the email connection
-    const body = await request.json().catch(() => ({}));
-    const connectionId = body.connectionId as string | undefined;
+      // Find the email connection
+      const body = await request.json().catch(() => ({}));
+      const connectionId = body.connectionId as string | undefined;
 
-    let connection;
-    if (connectionId) {
-      connection = await EmailService.getConnection(connectionId);
-    } else {
-      // Use first available connection
-      const connections = await EmailService.getConnections(companyId);
-      connection = connections[0] ?? null;
-    }
+      let connection;
+      if (connectionId) {
+        connection = await EmailService.getConnection(connectionId);
+      } else {
+        // Use first available connection
+        const connections = await EmailService.getConnections(companyId);
+        connection = connections[0] ?? null;
+      }
 
-    if (!connection) {
+      if (!connection) {
+        return NextResponse.json(
+          { error: "No email connection found" },
+          { status: 400 }
+        );
+      }
+
+      // Create a job record for progress tracking
+      const { data: jobRecord } = await supabase
+        .from("gmail_scan_jobs")
+        .insert({
+          connection_id: connection.id,
+          company_id: companyId,
+          status: "pending",
+          result: {
+            emailScanProgress: {
+              status: "pending",
+              total: 0,
+              processed: 0,
+              factsExtracted: 0,
+              entitiesCreated: 0,
+              profileUpdates: 0,
+              startedAt: new Date().toISOString(),
+            } satisfies ScanProgress,
+          },
+        })
+        .select("id")
+        .single();
+
+      if (!jobRecord) {
+        return NextResponse.json({ error: "Failed to create scan job" }, { status: 500 });
+      }
+
+      const jobId = jobRecord.id as string;
+
+      // Run scan in background. Re-binding inside after() keeps the
+      // service-role client pinned for the entire 800s scan window.
+      after(async () => {
+        const bgSupabase = getServiceRoleClient();
+        await runWithSupabase(bgSupabase, async () => {
+          try {
+            await runFullHistoryScan(bgSupabase, jobId, connection, companyId, userId);
+          } catch (err) {
+            console.error("[email-scan] Full history scan failed:", err);
+            await updateProgress(bgSupabase, jobId, {
+              status: "error",
+              error: err instanceof Error ? err.message : "Unknown error",
+            });
+          }
+        });
+      });
+
+      return NextResponse.json({ ok: true, jobId });
+    } catch (err) {
+      console.error("[email-scan]", err);
       return NextResponse.json(
-        { error: "No email connection found" },
-        { status: 400 }
+        { error: err instanceof Error ? err.message : "Internal error" },
+        { status: 500 }
       );
     }
-
-    // Create a job record for progress tracking
-    const { data: jobRecord } = await supabase
-      .from("gmail_scan_jobs")
-      .insert({
-        connection_id: connection.id,
-        company_id: companyId,
-        status: "pending",
-        result: {
-          emailScanProgress: {
-            status: "pending",
-            total: 0,
-            processed: 0,
-            factsExtracted: 0,
-            entitiesCreated: 0,
-            profileUpdates: 0,
-            startedAt: new Date().toISOString(),
-          } satisfies ScanProgress,
-        },
-      })
-      .select("id")
-      .single();
-
-    if (!jobRecord) {
-      return NextResponse.json({ error: "Failed to create scan job" }, { status: 500 });
-    }
-
-    const jobId = jobRecord.id as string;
-
-    // Run scan in background
-    after(async () => {
-      const bgSupabase = getServiceRoleClient();
-      setSupabaseOverride(bgSupabase);
-      try {
-        await runFullHistoryScan(bgSupabase, jobId, connection, companyId, userId);
-      } catch (err) {
-        console.error("[email-scan] Full history scan failed:", err);
-        await updateProgress(bgSupabase, jobId, {
-          status: "error",
-          error: err instanceof Error ? err.message : "Unknown error",
-        });
-      } finally {
-        setSupabaseOverride(null);
-      }
-    });
-
-    return NextResponse.json({ ok: true, jobId });
-  } catch (err) {
-    console.error("[email-scan]", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Internal error" },
-      { status: 500 }
-    );
-  } finally {
-    setSupabaseOverride(null);
-  }
+  });
 }
 
 // ─── Progress update helper ────────────────────────────────────────────────────
@@ -385,8 +387,8 @@ async function runFullHistoryScan(
       }
     }
 
-    // Process each email through writing profile and memory services
-    setSupabaseOverride(supabase);
+    // Process each email through writing profile and memory services.
+    // Service-role client is bound by the caller's runWithSupabase().
     for (const email of batchEmails) {
       try {
         // Update writing profile from every outbound email

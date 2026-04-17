@@ -17,7 +17,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { after } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
-import { setSupabaseOverride } from "@/lib/supabase/helpers";
+import { runWithSupabase } from "@/lib/supabase/helpers";
 import { EmailService } from "@/lib/api/services/email-service";
 import { EmailAIClassifier, stripQuotedContent } from "@/lib/api/services/email-ai-classifier";
 import { PLATFORM_DOMAINS } from "@/lib/api/services/known-platforms";
@@ -230,24 +230,25 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Run Phase B in background — return immediately
+  // Run Phase B in background — return immediately. The ALS-scoped client
+  // prevents a concurrent request's finally-clause from wiping the override
+  // while deep extraction is still making DB writes.
   after(async () => {
     const bgSupabase = getServiceRoleClient();
-    setSupabaseOverride(bgSupabase);
-    try {
-      await runPhaseB(jobId, connectionId, companyId, bgSupabase);
-    } catch (err) {
-      console.error("[email-analyze-continue] Phase B failed:", err);
-      await bgSupabase
-        .from("gmail_scan_jobs")
-        .update({
-          status: "error",
-          error_message: `Phase B failed: ${(err as Error).message}`,
-        })
-        .eq("id", jobId);
-    } finally {
-      setSupabaseOverride(null);
-    }
+    await runWithSupabase(bgSupabase, async () => {
+      try {
+        await runPhaseB(jobId, connectionId, companyId, bgSupabase);
+      } catch (err) {
+        console.error("[email-analyze-continue] Phase B failed:", err);
+        await bgSupabase
+          .from("gmail_scan_jobs")
+          .update({
+            status: "error",
+            error_message: `Phase B failed: ${(err as Error).message}`,
+          })
+          .eq("id", jobId);
+      }
+    });
   });
 
   return NextResponse.json({ ok: true });
@@ -314,13 +315,8 @@ async function runPhaseB(
   };
 
   // ─── 2. Re-fetch connection, company, employees from DB ───────────────────
-  setSupabaseOverride(supabase);
-  let connection;
-  try {
-    connection = await EmailService.getConnection(connectionId);
-  } finally {
-    setSupabaseOverride(null);
-  }
+  // Service-role client bound by outer after() runWithSupabase().
+  const connection = await EmailService.getConnection(connectionId);
 
   if (!connection) {
     throw new Error(`Connection ${connectionId} not found`);

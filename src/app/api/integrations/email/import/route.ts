@@ -14,7 +14,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { after } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
-import { setSupabaseOverride } from "@/lib/supabase/helpers";
+import { runWithSupabase } from "@/lib/supabase/helpers";
 import { EmailService } from "@/lib/api/services/email-service";
 import { ClientService } from "@/lib/api/services/client-service";
 import { OpportunityService } from "@/lib/api/services/opportunity-service";
@@ -41,14 +41,12 @@ export async function POST(request: NextRequest) {
 
   const supabase = getServiceRoleClient();
 
-  // Validate connection exists
-  setSupabaseOverride(supabase);
-  let connection;
-  try {
-    connection = await EmailService.getConnection(connectionId);
-  } finally {
-    setSupabaseOverride(null);
-  }
+  // Validate connection exists. Runs inside the supabase context so any
+  // nested services that call requireSupabase() land on the service-role
+  // client, isolated from concurrent requests via AsyncLocalStorage.
+  const connection = await runWithSupabase(supabase, () =>
+    EmailService.getConnection(connectionId)
+  );
 
   if (!connection) {
     return NextResponse.json(
@@ -99,23 +97,25 @@ export async function POST(request: NextRequest) {
     .eq("id", connectionId);
 
   // ─── Run import in background ─────────────────────────────────────────────
+  // runWithSupabase pins the service-role client to this async chain so that
+  // every requireSupabase() call inside the 90s+ loop resolves to the right
+  // client — even while concurrent requests finish their own overrides.
   after(async () => {
     const bgSupabase = getServiceRoleClient();
-    setSupabaseOverride(bgSupabase);
-    try {
-      await runImport(job.id, payload, connection, bgSupabase);
-    } catch (err) {
-      console.error("[email-import] Import failed:", err);
-      await bgSupabase
-        .from("gmail_scan_jobs")
-        .update({
-          status: "import_error",
-          error_message: (err as Error).message,
-        })
-        .eq("id", job.id);
-    } finally {
-      setSupabaseOverride(null);
-    }
+    await runWithSupabase(bgSupabase, async () => {
+      try {
+        await runImport(job.id, payload, connection, bgSupabase);
+      } catch (err) {
+        console.error("[email-import] Import failed:", err);
+        await bgSupabase
+          .from("gmail_scan_jobs")
+          .update({
+            status: "import_error",
+            error_message: (err as Error).message,
+          })
+          .eq("id", job.id);
+      }
+    });
   });
 
   return NextResponse.json({ jobId: job.id });

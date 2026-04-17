@@ -27,7 +27,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { after } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
-import { setSupabaseOverride } from "@/lib/supabase/helpers";
+import { runWithSupabase } from "@/lib/supabase/helpers";
 import { EmailService } from "@/lib/api/services/email-service";
 import { PatternDetectionService } from "@/lib/api/services/pattern-detection-service";
 import { EmailAIClassifier, stripQuotedContent } from "@/lib/api/services/email-ai-classifier";
@@ -89,15 +89,12 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Use service-role client for the initial connection lookup
+  // Use service-role client for the initial connection lookup. The ALS
+  // binding survives across awaits without colliding with concurrent requests.
   const supabase = getServiceRoleClient();
-  setSupabaseOverride(supabase);
-  let connection;
-  try {
-    connection = await EmailService.getConnection(connectionId);
-  } finally {
-    setSupabaseOverride(null);
-  }
+  const connection = await runWithSupabase(supabase, () =>
+    EmailService.getConnection(connectionId)
+  );
 
   if (!connection) {
     return NextResponse.json(
@@ -173,24 +170,25 @@ export async function POST(request: NextRequest) {
   // Run Phase A (pattern detection + AI classification) in background.
   // When Phase A completes, it saves intermediate data and chains to
   // /api/integrations/email/analyze-continue for Phase B (lead building + validation).
-  // Each phase gets its own 800s budget.
+  // Each phase gets its own 800s budget. runWithSupabase binds the
+  // service-role client to this async chain so nested requireSupabase() calls
+  // can't be clobbered by concurrent request handlers.
   after(async () => {
     const bgSupabase = getServiceRoleClient();
-    setSupabaseOverride(bgSupabase);
-    try {
-      await runPhaseA(job.id, connection, companyId, connectionId, bgSupabase);
-    } catch (err) {
-      console.error("[email-analyze] Phase A failed:", err);
-      await bgSupabase
-        .from("gmail_scan_jobs")
-        .update({
-          status: "error",
-          error_message: (err as Error).message,
-        })
-        .eq("id", job.id);
-    } finally {
-      setSupabaseOverride(null);
-    }
+    await runWithSupabase(bgSupabase, async () => {
+      try {
+        await runPhaseA(job.id, connection, companyId, connectionId, bgSupabase);
+      } catch (err) {
+        console.error("[email-analyze] Phase A failed:", err);
+        await bgSupabase
+          .from("gmail_scan_jobs")
+          .update({
+            status: "error",
+            error_message: (err as Error).message,
+          })
+          .eq("id", job.id);
+      }
+    });
   });
 
   return NextResponse.json({ jobId: job.id });

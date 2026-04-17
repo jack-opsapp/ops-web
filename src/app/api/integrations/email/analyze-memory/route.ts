@@ -12,7 +12,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { after } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
-import { setSupabaseOverride } from "@/lib/supabase/helpers";
+import { runWithSupabase } from "@/lib/supabase/helpers";
 import { EmailService } from "@/lib/api/services/email-service";
 import { AdminFeatureOverrideService } from "@/lib/api/services/admin-feature-override-service";
 import {
@@ -124,30 +124,27 @@ export async function POST(request: NextRequest) {
 
   // Feature gate check
   const supabase = getServiceRoleClient();
-  setSupabaseOverride(supabase);
-  let enabled: boolean;
-  try {
-    enabled = await AdminFeatureOverrideService.isAIFeatureEnabled(companyId, "phase_c");
-  } finally {
-    setSupabaseOverride(null);
-  }
+  const enabled = await runWithSupabase(supabase, () =>
+    AdminFeatureOverrideService.isAIFeatureEnabled(companyId, "phase_c")
+  );
 
   if (!enabled) {
     console.log(`[analyze-memory] Phase C skipped — phase_c disabled for ${companyId}`);
     return NextResponse.json({ skipped: true });
   }
 
-  // Run Phase C in background
+  // Run Phase C in background. runWithSupabase pins the service-role client to
+  // the async chain so Memory/Writing/KnowledgeGraph services see the right
+  // client for the entire multi-minute run, regardless of concurrent traffic.
   after(async () => {
     const bgSupabase = getServiceRoleClient();
-    setSupabaseOverride(bgSupabase);
-    try {
-      await runPhaseC(jobId, connectionId, companyId, bgSupabase);
-    } catch (err) {
-      console.error("[analyze-memory] Phase C failed:", err);
-    } finally {
-      setSupabaseOverride(null);
-    }
+    await runWithSupabase(bgSupabase, async () => {
+      try {
+        await runPhaseC(jobId, connectionId, companyId, bgSupabase);
+      } catch (err) {
+        console.error("[analyze-memory] Phase C failed:", err);
+      }
+    });
   });
 
   return NextResponse.json({ ok: true });
@@ -185,13 +182,9 @@ async function runPhaseC(
   console.log(`[analyze-memory] Found ${leads.length} leads, ${notLeadReasons.length} skip threads`);
 
   // ─── 2. Get connection for userId + ownerEmail ───────────────────────────
-  setSupabaseOverride(supabase);
-  let connection;
-  try {
-    connection = await EmailService.getConnection(connectionId);
-  } finally {
-    setSupabaseOverride(null);
-  }
+  // The caller's runWithSupabase already bound the service-role client to
+  // this async context, so EmailService.getConnection picks it up.
+  const connection = await EmailService.getConnection(connectionId);
 
   if (!connection) {
     console.error(`[analyze-memory] Connection ${connectionId} not found`);
@@ -332,19 +325,14 @@ async function runPhaseC(
   console.log(`[analyze-memory] Classified ${classifiedThreads.length} threads (${classifiedThreads.filter(t => t.classification === 'client').length} client, ${classifiedThreads.filter(t => t.classification === 'vendor').length} vendor, ${classifiedThreads.filter(t => t.classification === 'subtrade').length} subtrade, ${classifiedThreads.filter(t => t.classification === 'internal').length} internal, ${classifiedThreads.filter(t => t.classification === 'unknown').length} unknown)`);
 
   // ─── 7. Run MemoryService orchestrator ───────────────────────────────────
-  setSupabaseOverride(supabase);
-  let stats;
-  try {
-    stats = await MemoryService.processImportBatch(
-      companyId,
-      userId,
-      ownerEmail,
-      employeeEmailSet,
-      classifiedThreads,
-    );
-  } finally {
-    setSupabaseOverride(null);
-  }
+  // Service-role client is already bound via the outer runWithSupabase().
+  const stats = await MemoryService.processImportBatch(
+    companyId,
+    userId,
+    ownerEmail,
+    employeeEmailSet,
+    classifiedThreads,
+  );
 
   // ─── 8. Save completion stats to job result ──────────────────────────────
   const processingTimeMs = Date.now() - startTime;
