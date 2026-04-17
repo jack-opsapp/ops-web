@@ -1,194 +1,106 @@
 "use client";
 
-import { useReducedMotion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { cn } from "@/lib/utils/cn";
 
-// ─── OPS Logo SVG Paths ─────────────────────────────────────────────────────
-// Recreates the concentric-stroke "P" logo shape.
-// Each path: rounded rect open at bottom-left, inner bowl curving up.
-// viewBox 0 0 100 100, 4 concentric strokes from outer to inner.
-
-const LOGO_PATHS = [
-  // Outermost stroke
-  "M 12 88 L 12 22 Q 12 8 26 8 L 78 8 Q 92 8 92 22 L 92 58 Q 92 72 78 72 L 42 72 Q 28 72 28 58 L 28 88",
-  // Second stroke
-  "M 20 88 L 20 26 Q 20 16 30 16 L 74 16 Q 84 16 84 26 L 84 54 Q 84 64 74 64 L 42 64 Q 36 64 36 58 L 36 88",
-  // Third stroke
-  "M 28 88 L 28 30 Q 28 24 34 24 L 70 24 Q 76 24 76 30 L 76 50 Q 76 56 70 56 L 50 56 Q 44 56 44 50 L 44 88",
-  // Innermost stroke
-  "M 36 88 L 36 34 Q 36 32 38 32 L 66 32 Q 68 32 68 34 L 68 46 Q 68 48 66 48 L 56 48 Q 52 48 52 44 L 52 88",
-];
-
-// ─── Timing (brand tokens) ──────────────────────────────────────────────────
-// Each stroke draws in 600ms with sharp ease-out.
-// 100ms stagger between strokes. Total draw: ~900ms.
-// Then ambient accent pulse loops every 2.4s.
-const STROKE_DURATION = 0.6; // seconds
-const STAGGER = 0.1; // seconds between each stroke start
-
-// ─── Component ──────────────────────────────────────────────────────────────
+// ─── Timing ─────────────────────────────────────────────────────────────────
+// Per-bracket entry: 450ms. 180ms stagger between top and bottom.
+// After entry completes, mark pulses opacity 100% → 72% → 100% on a 2.4s loop.
+const ENTRY_DURATION = 0.45;
+const STAGGER = 0.18;
+const PULSE_DURATION = 2.4;
+const EASE = [0.22, 1, 0.36, 1] as const; // EASE_SMOOTH
 
 interface OpsLoadingScreenProps {
-  /** Optional size override (default 64px) */
+  /** Width of mark in px (height derives from natural aspect). Default 72. */
   size?: number;
-  /** Show "LOADING" text below logo */
+  /** Show "LOADING" caption under the mark. Default true. */
   showText?: boolean;
-  /** Additional className for container */
   className?: string;
 }
 
 export function OpsLoadingScreen({
-  size = 64,
+  size = 72,
   showText = true,
   className,
 }: OpsLoadingScreenProps) {
   const prefersReducedMotion = useReducedMotion();
 
+  const topEntry = prefersReducedMotion
+    ? { opacity: 1, y: 0 }
+    : {
+        opacity: 1,
+        y: 0,
+        transition: { duration: ENTRY_DURATION, ease: EASE, delay: 0 },
+      };
+
+  const bottomEntry = prefersReducedMotion
+    ? { opacity: 1, y: 0 }
+    : {
+        opacity: 1,
+        y: 0,
+        transition: { duration: ENTRY_DURATION, ease: EASE, delay: STAGGER },
+      };
+
+  const pulseAnim = prefersReducedMotion
+    ? undefined
+    : {
+        opacity: [1, 0.72, 1],
+        transition: {
+          duration: PULSE_DURATION,
+          ease: EASE,
+          repeat: Infinity,
+          delay: ENTRY_DURATION + STAGGER + 0.2,
+        },
+      };
+
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center gap-4",
+        "flex flex-col items-center justify-center gap-4 text-text",
         className
       )}
       role="status"
       aria-label="Loading"
     >
-      <svg
-        viewBox="0 0 100 100"
+      <motion.svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="775 477 850 1440"
         width={size}
-        height={size}
-        fill="none"
-        className="ops-logo-loading"
+        height={(size * 1440) / 850}
+        fill="currentColor"
+        focusable="false"
+        aria-hidden="true"
+        animate={pulseAnim}
       >
-        {LOGO_PATHS.map((d, i) => (
-          <path
-            key={i}
-            d={d}
-            stroke="rgba(255,255,255,0.85)"
-            strokeWidth={1.5}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={cn(
-              !prefersReducedMotion && "ops-logo-stroke"
-            )}
-            style={
-              !prefersReducedMotion
-                ? {
-                    // Each path's total length (approximate — generous overshoot is fine)
-                    strokeDasharray: 300,
-                    strokeDashoffset: 300,
-                    animationDelay: `${i * STAGGER}s`,
-                    animationDuration: `${STROKE_DURATION}s`,
-                  }
-                : undefined
-            }
-          />
-        ))}
-
-        {/* Accent pulse overlay — traces the outermost path after draw completes */}
-        {!prefersReducedMotion && (
-          <path
-            d={LOGO_PATHS[0]}
-            stroke="#6F94B0"
-            strokeWidth={1.5}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="ops-logo-pulse"
-            style={{
-              strokeDasharray: 300,
-              strokeDashoffset: 300,
-            }}
-          />
-        )}
-      </svg>
+        {/* Top bracket */}
+        <motion.path
+          d="M1624.48,1228.51v-563.59s-375.6-187.86-375.6-187.86h0l-281.73,140.87.16.08,469.34,234.72v469.62s.07.04.07.04l187.78-93.89Z"
+          initial={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: -8 }}
+          animate={topEntry}
+        />
+        {/* Bottom bracket */}
+        <motion.path
+          d="M1432.95,1775.53l.03-.02v-.08l-469.49-234.8-.13-469.56-187.37,93.85-.15.08-.33,563.39.15.08,375.54,187.82.1.06,281.64-140.81Z"
+          initial={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 8 }}
+          animate={bottomEntry}
+        />
+      </motion.svg>
 
       {showText && (
-        <span
-          className={cn(
-            "font-kosugi text-micro uppercase tracking-[0.3em] text-text-mute",
-            !prefersReducedMotion && "ops-loading-text"
-          )}
+        <motion.span
+          className="font-kosugi text-[11px] uppercase tracking-[0.3em] text-text-mute"
+          initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{
+            duration: 0.3,
+            ease: EASE,
+            delay: prefersReducedMotion ? 0 : ENTRY_DURATION + STAGGER,
+          }}
         >
           Loading
-        </span>
+        </motion.span>
       )}
-
-      {/* CSS Animations — scoped to this component */}
-      <style jsx>{`
-        /* Stroke draw: offset → 0 with sharp ease-out */
-        .ops-logo-stroke {
-          animation-name: ops-draw;
-          animation-fill-mode: forwards;
-          animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        @keyframes ops-draw {
-          to {
-            stroke-dashoffset: 0;
-          }
-        }
-
-        /* Accent pulse — starts after all strokes drawn (~1s), loops */
-        .ops-logo-pulse {
-          opacity: 0;
-          animation:
-            ops-pulse-entry 0.3s cubic-bezier(0.16, 1, 0.3, 1) 1s forwards,
-            ops-pulse-trace 2.4s cubic-bezier(0.22, 1, 0.36, 1) 1s infinite;
-        }
-
-        @keyframes ops-pulse-entry {
-          to {
-            opacity: 1;
-          }
-        }
-
-        @keyframes ops-pulse-trace {
-          0% {
-            stroke-dashoffset: 300;
-            opacity: 0.6;
-          }
-          40% {
-            stroke-dashoffset: 0;
-            opacity: 0.4;
-          }
-          60% {
-            stroke-dashoffset: 0;
-            opacity: 0.2;
-          }
-          100% {
-            stroke-dashoffset: -300;
-            opacity: 0;
-          }
-        }
-
-        /* Text fade-in after logo draws */
-        .ops-loading-text {
-          opacity: 0;
-          animation: ops-text-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) 0.8s forwards;
-        }
-
-        @keyframes ops-text-in {
-          to {
-            opacity: 1;
-          }
-        }
-
-        /* Reduced motion: instant display, no animation */
-        @media (prefers-reduced-motion: reduce) {
-          .ops-logo-stroke {
-            stroke-dashoffset: 0 !important;
-            animation: none !important;
-          }
-          .ops-logo-pulse {
-            animation: none !important;
-            opacity: 0 !important;
-          }
-          .ops-loading-text {
-            opacity: 1 !important;
-            animation: none !important;
-          }
-        }
-      `}</style>
     </div>
   );
 }
