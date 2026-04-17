@@ -97,12 +97,12 @@ export function SpreadsheetHeader({
                             )}
                           >
                             <span className={cn(
-                              "w-3.5 h-3.5 rounded-sm border flex items-center justify-center flex-shrink-0",
+                              "w-3.5 h-3.5 rounded-[4px] border flex items-center justify-center flex-shrink-0",
                               isChecked
-                                ? "border-ops-accent bg-[rgba(255,255,255,0.08)]/30"
+                                ? "border-[rgba(255,255,255,0.30)] bg-[rgba(255,255,255,0.08)]"
                                 : "border-border-subtle"
                             )}>
-                              {isChecked && <span className="text-micro text-ops-accent">✓</span>}
+                              {isChecked && <span className="text-micro text-text">✓</span>}
                             </span>
                             <span className="font-mohave text-body-sm">
                               {t(`spreadsheet.columns.${tc.header}`)}
@@ -135,9 +135,9 @@ export function SpreadsheetHeader({
                 {col.sortable && (
                   <span className="text-text-mute">
                     {isSorted && sortDirection === "asc" ? (
-                      <ArrowUp className="h-[13px] w-[13px] text-ops-accent" />
+                      <ArrowUp className="h-[13px] w-[13px] text-text-2" />
                     ) : isSorted && sortDirection === "desc" ? (
-                      <ArrowDown className="h-[13px] w-[13px] text-ops-accent" />
+                      <ArrowDown className="h-[13px] w-[13px] text-text-2" />
                     ) : (
                       <ArrowUpDown className="h-[13px] w-[13px]" />
                     )}

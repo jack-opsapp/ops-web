@@ -179,7 +179,7 @@ export function ProjectFloatingToolbar({
             Filter
           </span>
           {hasActiveFilter && (
-            <span className="inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-sm border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.08)] font-kosugi text-micro text-ops-accent">
+            <span className="inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-[4px] border border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.08)] font-kosugi text-micro text-text">
               {(selectedMemberId ? 1 : 0) + (selectedClientId ? 1 : 0)}
             </span>
           )}
@@ -294,7 +294,7 @@ export function ProjectFloatingToolbar({
                     className={cn(
                       "flex items-center gap-2 w-full px-2 py-1.5 rounded-[2px] transition-colors",
                       sortBy === opt.value
-                        ? "text-ops-accent bg-[rgba(255,255,255,0.08)]/20"
+                        ? "text-text bg-[rgba(255,255,255,0.08)]"
                         : "text-text-2 hover:bg-[rgba(255,255,255,0.06)]"
                     )}
                   >
@@ -312,7 +312,7 @@ export function ProjectFloatingToolbar({
       {/* ── SPREADSHEET ONLY: Bulk actions (when rows selected) ── */}
       {showBulkActions && (
         <>
-          <span className="font-mono text-data-sm text-ops-accent">
+          <span className="font-mono text-data-sm text-text">
             {t("spreadsheet.bulk.selected").replace("{count}", String(selectedCount))}
           </span>
 
@@ -404,8 +404,8 @@ function ToolbarAction({
       className={cn(
         "flex items-center gap-[5px] px-[8px] py-[5px] rounded-sm transition-colors duration-150 cursor-pointer",
         isActive
-          ? "text-ops-accent bg-[rgba(255,255,255,0.08)]/20"
-          : "text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.04)]"
+          ? "text-text bg-[rgba(255,255,255,0.08)] border border-[rgba(255,255,255,0.18)]"
+          : "text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.04)] border border-transparent"
       )}
       onClick={onClick}
     >

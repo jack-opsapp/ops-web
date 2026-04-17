@@ -317,7 +317,7 @@ export default function InvoicesPage() {
                   onClick={() => { if (!can("invoices.edit")) return; setEditingInvoice(invoice); }}
                 >
                   <td className="px-1.5 py-1">
-                    <span className="font-mono text-data text-ops-accent">{invoice.invoiceNumber}</span>
+                    <span className="font-mono text-data text-text">{invoice.invoiceNumber}</span>
                   </td>
                   <td className="px-1.5 py-1">
                     <span className="font-mohave text-body text-text truncate block max-w-[160px]">
@@ -364,7 +364,7 @@ export default function InvoicesPage() {
                       <button
                         onClick={() => handleDownloadPdf(invoice.id)}
                         disabled={generatingPdfId === invoice.id}
-                        className="p-[4px] rounded text-text-3 hover:text-ops-accent hover:bg-[rgba(255,255,255,0.08)] transition-colors disabled:opacity-50"
+                        className="p-[4px] rounded text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.08)] transition-colors disabled:opacity-50"
                         title={t("invoices.actions.downloadPdf")}
                       >
                         {generatingPdfId === invoice.id ? (
@@ -376,7 +376,7 @@ export default function InvoicesPage() {
                       {invoice.status === InvoiceStatus.Draft && can("invoices.send") && (
                         <button
                           onClick={() => sendInvoice.mutate(invoice.id)}
-                          className="p-[4px] rounded text-text-3 hover:text-ops-accent hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+                          className="p-[4px] rounded text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.08)] transition-colors"
                           title={t("invoices.actions.send")}
                         >
                           <Send className="w-[14px] h-[14px]" />
@@ -760,7 +760,7 @@ function RecordPaymentModal({
           <div className="bg-fill-neutral-dim rounded p-1.5 space-y-0.5">
             <div className="flex justify-between">
               <span className="font-kosugi text-caption text-text-3">{t("invoices.payment.invoice")}</span>
-              <span className="font-mono text-data text-ops-accent">{invoice.invoiceNumber}</span>
+              <span className="font-mono text-data text-text">{invoice.invoiceNumber}</span>
             </div>
             <div className="flex justify-between">
               <span className="font-kosugi text-caption text-text-3">{t("invoices.payment.total")}</span>

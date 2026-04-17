@@ -682,7 +682,7 @@ export default function ProjectsPage() {
   if (isLoading) {
     return (
       <div className="flex flex-col h-full items-center justify-center gap-3">
-        <Loader2 className="w-8 h-8 text-ops-accent animate-spin" />
+        <Loader2 className="w-8 h-8 text-text-2 animate-spin" />
         <span className="font-mohave text-body text-text-3">{t("loading")}</span>
       </div>
     );

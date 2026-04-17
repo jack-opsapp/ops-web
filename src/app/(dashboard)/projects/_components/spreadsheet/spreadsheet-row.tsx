@@ -193,7 +193,7 @@ export const SpreadsheetRow = memo(function SpreadsheetRow({
             <button
               data-no-select
               onClick={(e) => { e.stopPropagation(); onAddTask(project.id); }}
-              className="flex items-center gap-1 text-text-3 hover:text-ops-accent transition-colors"
+              className="flex items-center gap-1 text-text-3 hover:text-text transition-colors"
             >
               <Plus className="w-3 h-3" />
               <span className="font-mohave text-[11px]">Add task</span>

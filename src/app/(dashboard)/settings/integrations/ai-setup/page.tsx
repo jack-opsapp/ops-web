@@ -173,7 +173,7 @@ function EmailScanSection({ onComplete, onSkip }: { onComplete: () => void; onSk
           {progress.total > 0 && (
             <div className="h-[3px] rounded-full overflow-hidden bg-[rgba(255,255,255,0.06)]">
               <motion.div
-                className="h-full bg-ops-accent rounded-full"
+                className="h-full bg-text-2 rounded-full"
                 animate={{
                   width: `${progress.total > 0 ? (progress.processed / progress.total) * 100 : 0}%`,
                 }}
@@ -367,7 +367,7 @@ export default function AiSetupPage() {
                     className={cn(
                       "w-[24px] h-[24px] rounded-full flex items-center justify-center font-mohave text-[12px] font-semibold transition-colors",
                       isActive
-                        ? "bg-ops-accent text-white"
+                        ? "bg-text-2 text-background"
                         : isPast
                           ? "bg-[rgba(157,181,130,0.2)] text-[#9DB582] cursor-pointer"
                           : "bg-[rgba(255,255,255,0.06)] text-text-mute cursor-not-allowed"

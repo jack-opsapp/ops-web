@@ -47,7 +47,7 @@ export function SpreadsheetBulkBar({
         backdropFilter: "blur(28px) saturate(1.3)",
       }}
     >
-      <span className="font-mono text-data-sm text-ops-accent">
+      <span className="font-mono text-data-sm text-text">
         {t("spreadsheet.bulk.selected").replace("{count}", String(selectedCount))}
       </span>
 

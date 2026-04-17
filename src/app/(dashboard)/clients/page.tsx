@@ -143,7 +143,7 @@ function ClientCard({ client, onClick, t }: { client: ClientListItem; onClick: (
                 e.stopPropagation();
                 setExpanded(!expanded);
               }}
-              className="flex items-center gap-[3px] text-text-3 hover:text-ops-accent transition-colors"
+              className="flex items-center gap-[3px] text-text-3 hover:text-text transition-colors"
             >
               <Users className="w-[12px] h-[12px]" />
               <span className="font-mono text-micro">{client.subClients.length}</span>
