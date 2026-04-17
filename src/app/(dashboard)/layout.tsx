@@ -8,6 +8,7 @@ import { useFeatureFlagsStore, selectFlagsReady } from "@/lib/store/feature-flag
 import { AuthProvider } from "@/components/providers/auth-provider";
 import { AnalyticsProvider } from "@/components/providers/analytics-provider";
 import { DashboardLayout } from "@/components/layouts/dashboard-layout";
+import { OpsLockup } from "@/components/brand";
 import { LockoutOverlay } from "@/components/ops/lockout-overlay";
 import { useDictionary } from "@/i18n/client";
 
@@ -66,10 +67,10 @@ function DashboardAuthGate({ children }: { children: React.ReactNode }) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen bg-background">
-        <div className="flex flex-col items-center gap-2">
-          <span className="font-bebas text-[48px] tracking-[0.2em] text-text leading-none animate-pulse-live">
-            OPS
-          </span>
+        <div className="flex flex-col items-center gap-3">
+          <div className="animate-pulse-live text-text">
+            <OpsLockup orientation="vertical" className="h-16 w-auto" />
+          </div>
           <span className="font-kosugi text-caption-sm text-text-mute uppercase tracking-widest">
             [preparing your dashboard]
           </span>

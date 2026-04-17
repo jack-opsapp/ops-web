@@ -8,6 +8,7 @@ import { CommandPalette } from "@/components/ops/command-palette";
 import { KeyboardShortcuts } from "@/components/ops/keyboard-shortcuts";
 import { FloatingWindow } from "@/components/ops/floating-window";
 import { PreferencesApplier } from "@/components/ops/preferences-applier";
+import { OpsLockup } from "@/components/brand";
 import { WindowDock } from "@/components/ops/window-dock";
 import { FloatingActionButton } from "@/components/ops/floating-action-button";
 import { BugReportButton } from "@/components/ops/bug-report-button";
@@ -133,9 +134,9 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   if (needsOnboarding) {
     return (
       <div className="flex items-center justify-center h-screen bg-background">
-        <span className="font-bebas text-[48px] tracking-[0.2em] text-text leading-none animate-pulse-live">
-          OPS
-        </span>
+        <div className="animate-pulse-live text-text">
+          <OpsLockup orientation="vertical" className="h-16 w-auto" />
+        </div>
       </div>
     );
   }

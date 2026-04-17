@@ -156,7 +156,7 @@ export default function RegisterPage() {
 
       {/* Heading */}
       <div className="mb-6">
-        <h1 className="font-bebas text-[36px] tracking-[0.1em] text-text leading-none">
+        <h1 className="font-mohave font-medium text-[32px] tracking-[0.08em] uppercase text-text leading-none">
           {t("register.title")}
         </h1>
         <p className="font-mohave text-body-sm text-text-3 mt-1">

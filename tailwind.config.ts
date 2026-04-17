@@ -136,7 +136,6 @@ const config: Config = {
       fontFamily: {
         mohave: ["Mohave", "sans-serif"],
         kosugi: ["Kosugi", "sans-serif"],
-        bebas: ["Bebas Neue", "sans-serif"],
         mono: ["JetBrains Mono", "Fira Code", "monospace"],
       },
 

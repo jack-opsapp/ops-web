@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils/cn";
 import { Delete } from "lucide-react";
 import { toast } from "sonner";
 import { useDictionary } from "@/i18n/client";
+import { OpsLockup } from "@/components/brand";
 
 const PIN_LENGTH = 4;
 
@@ -81,8 +82,9 @@ export default function PinPage() {
   return (
     <div className="flex flex-col items-center" ref={containerRef}>
       {/* Logo */}
-      <h1 className="font-bebas text-[48px] tracking-[0.2em] text-text leading-none mb-1">
-        {t("ops")}
+      <h1 className="text-text mb-1">
+        <span className="sr-only">{t("ops")}</span>
+        <OpsLockup orientation="vertical" className="h-20 w-auto" title="" />
       </h1>
       <p className="font-kosugi text-caption-sm text-text-3 uppercase tracking-[0.3em] mb-5">
         {t("pin.title")}

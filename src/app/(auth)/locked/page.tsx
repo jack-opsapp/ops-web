@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils/cn";
 import { TIER_CONFIG, type SubscriptionTier } from "@/lib/subscription";
 import { Button } from "@/components/ui/button";
 import { useDictionary } from "@/i18n/client";
+import { OpsLockup } from "@/components/brand";
 
 // ─── Tier Visual Config ──────────────────────────────────────────────────────
 
@@ -122,11 +123,12 @@ export default function LockedPage() {
   return (
     <div className="flex flex-col items-center min-h-screen px-2 py-5">
       {/* Logo */}
-      <div className="text-center mb-2">
-        <h1 className="font-bebas text-[56px] tracking-[0.2em] text-text leading-none">
-          {t("ops")}
+      <div className="text-center mb-2 text-text">
+        <h1 className="leading-none">
+          <span className="sr-only">{t("ops")}</span>
+          <OpsLockup orientation="vertical" className="h-24 w-auto mx-auto" title="" />
         </h1>
-        <p className="font-kosugi text-caption-sm text-text-3 uppercase tracking-[0.3em] mt-0.5">
+        <p className="font-kosugi text-caption-sm text-text-3 uppercase tracking-[0.3em] mt-1">
           {t("commandCenter")}
         </p>
       </div>
