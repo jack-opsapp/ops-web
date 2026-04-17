@@ -8,6 +8,7 @@
 
 import type { EmailConnection } from "@/lib/types/email-connection";
 import { requireSupabase } from "@/lib/supabase/helpers";
+import { htmlToPlainText } from "@/lib/utils/email-parsing";
 import {
   ProviderApiError,
   ProviderAuthError,
@@ -643,7 +644,7 @@ export class GmailProvider implements EmailProviderInterface {
       const htmlBody = htmlPart?.body as { data?: string } | undefined;
       if (htmlBody?.data) {
         const html = Buffer.from(htmlBody.data, "base64").toString("utf-8");
-        return this.stripHtml(html);
+        return htmlToPlainText(html);
       }
 
       return "";
@@ -654,35 +655,12 @@ export class GmailProvider implements EmailProviderInterface {
     if (body?.data) {
       const decoded = Buffer.from(body.data, "base64").toString("utf-8");
       if (mimeType === "text/html" || decoded.trimStart().startsWith("<")) {
-        return this.stripHtml(decoded);
+        return htmlToPlainText(decoded);
       }
       return decoded;
     }
 
     return "";
-  }
-
-  /** Convert HTML email body to plain text */
-  private stripHtml(html: string): string {
-    return html
-      // Replace <br>, <br/>, </p>, </div>, </li> with newlines
-      .replace(/<br\s*\/?>/gi, "\n")
-      .replace(/<\/(?:p|div|li|tr|h[1-6])>/gi, "\n")
-      // Replace <li> with "- " prefix
-      .replace(/<li[^>]*>/gi, "- ")
-      // Remove all remaining HTML tags
-      .replace(/<[^>]+>/g, "")
-      // Decode common HTML entities
-      .replace(/&nbsp;/gi, " ")
-      .replace(/&amp;/gi, "&")
-      .replace(/&lt;/gi, "<")
-      .replace(/&gt;/gi, ">")
-      .replace(/&quot;/gi, '"')
-      .replace(/&#39;/gi, "'")
-      .replace(/&#x27;/gi, "'")
-      // Collapse multiple blank lines into at most 2
-      .replace(/\n{3,}/g, "\n\n")
-      .trim();
   }
 
   private hasAttachments(payload: Record<string, unknown> | undefined): boolean {

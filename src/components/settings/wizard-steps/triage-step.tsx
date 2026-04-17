@@ -3,6 +3,7 @@
 import { useMemo, useCallback, useState, useRef, useEffect } from "react";
 import { CardCarousel, type CarouselItem, type CarouselDecision } from "./card-carousel";
 import { EmailThreadView, formatRelativeDate } from "./email-thread-view";
+import { GlassActionButton } from "./glass-action-button";
 import { useDictionary } from "@/i18n/client";
 import type { AnalyzedLead, ConsolidationGroup, TriageDecision } from "@/lib/types/email-import";
 
@@ -297,61 +298,44 @@ export function TriageStep({
               onToggle={onThreadToggle}
             />
 
-            {/* Action buttons — only on focused card */}
-            {focused && <div className="flex items-center gap-1.5 pt-3 pb-1 sticky bottom-0 -mx-4 px-2 -mb-4">
-              <button
-                onClick={() => triggerAction("1")}
-                className="flex-1 py-1.5 font-kosugi text-micro tracking-[0.1em] uppercase border transition-colors flex items-center justify-center gap-1.5"
-                style={{
-                  borderRadius: 4,
-                  borderColor: highlightedKey === "1" ? "#9DB582" : "rgba(157, 181, 130, 0.3)",
-                  color: "#9DB582",
-                  background: highlightedKey === "1" ? "rgb(20, 26, 18)" : "var(--surface-glass-dense)",
-                }}
-              >
-                <kbd className="inline-flex items-center justify-center w-[16px] h-[16px] rounded-[2px] border border-current text-micro font-mono leading-none opacity-60">1</kbd>
-                {t("triage.won")}
-              </button>
-              <button
-                onClick={() => triggerAction("2")}
-                className="flex-1 py-1.5 font-kosugi text-micro tracking-[0.1em] uppercase border transition-colors flex items-center justify-center gap-1.5"
-                style={{
-                  borderRadius: 4,
-                  borderColor: highlightedKey === "2" ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.1)",
-                  color: highlightedKey === "2" ? "#aaa" : "#888",
-                  background: highlightedKey === "2" ? "rgba(255, 255, 255, 0.08)" : "var(--surface-glass-dense)",
-                }}
-              >
-                <kbd className="inline-flex items-center justify-center w-[16px] h-[16px] rounded-[2px] border border-current text-micro font-mono leading-none opacity-60">2</kbd>
-                {t("triage.lost")}
-              </button>
-              <button
-                onClick={() => triggerAction("3")}
-                className="flex-1 py-1.5 font-kosugi text-micro tracking-[0.1em] uppercase border transition-colors flex items-center justify-center gap-1.5"
-                style={{
-                  borderRadius: 4,
-                  borderColor: highlightedKey === "3" ? "#6F94B0" : "rgba(111, 148, 176, 0.3)",
-                  color: "#6F94B0",
-                  background: highlightedKey === "3" ? "rgb(18, 24, 30)" : "var(--surface-glass-dense)",
-                }}
-              >
-                <kbd className="inline-flex items-center justify-center w-[16px] h-[16px] rounded-[2px] border border-current text-micro font-mono leading-none opacity-60">3</kbd>
-                {t("triage.active")}
-              </button>
-              <button
-                onClick={() => triggerAction("4")}
-                className="py-1.5 px-2.5 font-kosugi text-micro tracking-[0.1em] uppercase border transition-colors flex-shrink-0 flex items-center justify-center gap-1.5"
-                style={{
-                  borderRadius: 4,
-                  borderColor: highlightedKey === "4" ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.08)",
-                  color: highlightedKey === "4" ? "#888" : "#555",
-                  background: highlightedKey === "4" ? "rgba(255, 255, 255, 0.06)" : "var(--surface-glass-dense)",
-                }}
-              >
-                <kbd className="inline-flex items-center justify-center w-[16px] h-[16px] rounded-[2px] border border-current text-micro font-mono leading-none opacity-60">4</kbd>
-                {t("triage.discard")}
-              </button>
-            </div>}
+            {/* Action buttons — only on focused card. Each button is a
+                floating glass chip with its own backdrop blur. */}
+            {focused && (
+              <div className="flex items-center gap-1.5 pt-3 pb-1 sticky bottom-0 -mx-4 px-2 -mb-4">
+                <GlassActionButton
+                  keyLabel="1"
+                  label={t("triage.won")}
+                  accentColor="#9DB582"
+                  highlighted={highlightedKey === "1"}
+                  onClick={() => triggerAction("1")}
+                  className="flex-1"
+                />
+                <GlassActionButton
+                  keyLabel="2"
+                  label={t("triage.lost")}
+                  accentColor="#AAAAAA"
+                  highlighted={highlightedKey === "2"}
+                  onClick={() => triggerAction("2")}
+                  className="flex-1"
+                />
+                <GlassActionButton
+                  keyLabel="3"
+                  label={t("triage.active")}
+                  accentColor="#6F94B0"
+                  highlighted={highlightedKey === "3"}
+                  onClick={() => triggerAction("3")}
+                  className="flex-1"
+                />
+                <GlassActionButton
+                  keyLabel="4"
+                  label={t("triage.discard")}
+                  accentColor="#777777"
+                  highlighted={highlightedKey === "4"}
+                  onClick={() => triggerAction("4")}
+                  className="flex-shrink-0"
+                />
+              </div>
+            )}
           </div>
         );
       }}

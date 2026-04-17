@@ -7,6 +7,7 @@
 
 import type { EmailConnection } from "@/lib/types/email-connection";
 import { requireSupabase } from "@/lib/supabase/helpers";
+import { htmlToPlainText } from "@/lib/utils/email-parsing";
 import {
   ProviderApiError,
   ProviderAuthError,
@@ -595,23 +596,7 @@ export class Microsoft365Provider implements EmailProviderInterface {
   ): string {
     if (!msgBody?.content) return "";
     if (msgBody.contentType === "text") return msgBody.content;
-
-    // HTML → plain text. Same stripping logic as gmail-provider.stripHtml
-    // but inlined here to avoid cross-provider imports.
-    return msgBody.content
-      .replace(/<br\s*\/?>/gi, "\n")
-      .replace(/<\/(?:p|div|li|tr|h[1-6])>/gi, "\n")
-      .replace(/<li[^>]*>/gi, "- ")
-      .replace(/<[^>]+>/g, "")
-      .replace(/&nbsp;/gi, " ")
-      .replace(/&amp;/gi, "&")
-      .replace(/&lt;/gi, "<")
-      .replace(/&gt;/gi, ">")
-      .replace(/&quot;/gi, '"')
-      .replace(/&#39;/gi, "'")
-      .replace(/&#x27;/gi, "'")
-      .replace(/\n{3,}/g, "\n\n")
-      .trim();
+    return htmlToPlainText(msgBody.content);
   }
 
   private normalizeM365Message(

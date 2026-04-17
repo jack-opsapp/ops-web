@@ -4,6 +4,7 @@ import { useMemo, useCallback, useState, useRef, useEffect } from "react";
 import { X } from "lucide-react";
 import { CardCarousel, type CarouselItem, type CarouselDecision } from "./card-carousel";
 import { EmailThreadView } from "./email-thread-view";
+import { GlassActionButton } from "./glass-action-button";
 import { useDictionary } from "@/i18n/client";
 import type { AnalyzedLead, ConsolidationGroup } from "@/lib/types/email-import";
 
@@ -140,6 +141,25 @@ export function ConsolidateContactsStep({
       renderCard={(item, focused, _setDecision, triggerAction, highlightedKey, threadToggle) => {
         const group = item.data;
 
+        // Compact peek: company name + counts. Full content is only rendered
+        // when the card is focused; otherwise 4× email thread views per card
+        // would push the focused card out of the viewport.
+        if (!focused) {
+          return (
+            <div className="space-y-1">
+              <h4 className="font-mohave text-[18px] text-white leading-tight truncate">
+                {group.companyName}
+              </h4>
+              <p className="font-mohave text-[13px] text-[#888]">
+                {group.contacts.length} {t("consolidate.contacts").toLowerCase()}
+                {" · "}
+                {group.leads.length} {t("consolidate.leads").toLowerCase()}
+                {group.domain ? ` · ${group.domain}` : ""}
+              </p>
+            </div>
+          );
+        }
+
         return (
           <div className="space-y-3">
             {/* Company name (editable) */}
@@ -233,45 +253,36 @@ export function ConsolidateContactsStep({
               })}
             </div>
 
-            {/* Action buttons — only on focused card */}
-            {focused && <div className="flex items-center gap-1.5 pt-3 pb-1 sticky bottom-0 -mx-4 px-2 -mb-4">
-              <button
-                onClick={() => triggerAction("1")}
-                className="flex-1 py-1.5 font-kosugi text-micro tracking-[0.1em] uppercase border transition-colors"
-                style={{
-                  borderRadius: 4,
-                  borderColor: highlightedKey === "1" ? "#6F94B0" : "rgba(111, 148, 176, 0.3)",
-                  color: "#6F94B0",
-                  background: highlightedKey === "1" ? "rgb(18, 24, 30)" : "var(--surface-glass-dense)",
-                }}
-              >
-                1: SAVE AS {group.leads.length} LEAD{group.leads.length !== 1 ? "S" : ""}
-              </button>
-              <button
-                onClick={() => triggerAction("2")}
-                className="flex-1 py-1.5 font-kosugi text-micro tracking-[0.1em] uppercase border transition-colors"
-                style={{
-                  borderRadius: 4,
-                  borderColor: highlightedKey === "2" ? "#C4A868" : "rgba(196, 168, 104, 0.3)",
-                  color: "#C4A868",
-                  background: highlightedKey === "2" ? "rgb(28, 24, 16)" : "var(--surface-glass-dense)",
-                }}
-              >
-                2: {t("consolidate.mergeIntoOne")}
-              </button>
-              <button
-                onClick={() => triggerAction("3")}
-                className="py-1.5 px-2.5 font-kosugi text-micro tracking-[0.1em] uppercase border transition-colors flex-shrink-0"
-                style={{
-                  borderRadius: 4,
-                  borderColor: highlightedKey === "3" ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.08)",
-                  color: "#555",
-                  background: highlightedKey === "3" ? "rgb(16, 16, 16)" : "var(--surface-glass-dense)",
-                }}
-              >
-                3: {t("filter.discard")}
-              </button>
-            </div>}
+            {/* Action buttons — only on focused card. Each button is a
+                floating glass chip with its own backdrop blur. */}
+            {focused && (
+              <div className="flex items-center gap-1.5 pt-3 pb-1 sticky bottom-0 -mx-4 px-2 -mb-4">
+                <GlassActionButton
+                  keyLabel="1"
+                  label={`SAVE AS ${group.leads.length} LEAD${group.leads.length !== 1 ? "S" : ""}`}
+                  accentColor="#6F94B0"
+                  highlighted={highlightedKey === "1"}
+                  onClick={() => triggerAction("1")}
+                  className="flex-1"
+                />
+                <GlassActionButton
+                  keyLabel="2"
+                  label={t("consolidate.mergeIntoOne")}
+                  accentColor="#C4A868"
+                  highlighted={highlightedKey === "2"}
+                  onClick={() => triggerAction("2")}
+                  className="flex-1"
+                />
+                <GlassActionButton
+                  keyLabel="3"
+                  label={t("filter.discard")}
+                  accentColor="#888888"
+                  highlighted={highlightedKey === "3"}
+                  onClick={() => triggerAction("3")}
+                  className="flex-shrink-0"
+                />
+              </div>
+            )}
           </div>
         );
       }}

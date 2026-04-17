@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { ChevronDown, ExternalLink } from "lucide-react";
 import { EASE_SMOOTH } from "@/lib/utils/motion";
+import { htmlToPlainText } from "@/lib/utils/email-parsing";
 import { useDictionary } from "@/i18n/client";
 import type { AnalyzedLead } from "@/lib/types/email-import";
 
@@ -12,32 +13,38 @@ const MAX_BODY_CHARS = 300;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/** Strip HTML tags and decode common entities. Returns plain text only. */
-function stripHtml(raw: string): string {
-  if (!raw || !raw.includes("<")) return raw;
-  return raw
-    .replace(/<script[\s\S]*?<\/script>/gi, "")
-    .replace(/<style[\s\S]*?<\/style>/gi, "")
-    .replace(/<head[\s\S]*?<\/head>/gi, "")
-    .replace(/<noscript[\s\S]*?<\/noscript>/gi, "")
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/(?:p|div|li|tr|h[1-6])>/gi, "\n")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/&quot;/gi, '"')
-    .replace(/&#0?39;/gi, "'")
-    .replace(/&#x200[cdef];/gi, "")
-    .replace(/\n{3,}/g, "\n\n")
-    .replace(/[^\S\n]+/g, " ")
-    .trim();
+// Most bodies arrive pre-stripped by the provider, but leftover CSS from
+// marketing templates (e.g. `.body .primary { ... }`) can slip through if the
+// body was stripped by an older build. The regex requires a `;` inside the
+// block (CSS property terminator) so inline JSON-like content such as
+// `{ tomorrow: 9am, Wed: noon }` is not mistakenly stripped.
+const CSS_RULE_BLOCK =
+  /[^{}<>\n][^{}<>]{0,300}\{[^{}]*?[a-zA-Z-]+\s*:\s*[^{};]*?;[^{}]*?\}/g;
+// After inner rules are removed, wrappers like `@media (...)` and orphan
+// braces or Outlook conditional-comment ends remain. Strip those too.
+const CSS_NOISE =
+  /(?:^|\n)\s*(?:-->|<!--\[if[^\]]*\]>|<!--|\[if[^\]]*\]>|@(?:media|supports|keyframes|font-face|import|charset)[^\n{}]*\{?|\}|\{)/g;
+
+/** Drop orphan CSS rule blocks that weren't wrapped in <style> tags. */
+function stripOrphanCss(text: string): string {
+  if (!text) return text;
+  let out = text;
+  // Iterate until stable — handles nested blocks (@media { .x { ... } })
+  if (out.includes("{") && out.includes("}")) {
+    let prev = "";
+    let guard = 0;
+    while (out !== prev && guard++ < 5) {
+      prev = out;
+      out = out.replace(CSS_RULE_BLOCK, "\n");
+    }
+  }
+  out = out.replace(CSS_NOISE, "\n");
+  return out.replace(/\n{3,}/g, "\n\n").trim();
 }
 
 /** Truncate email body: strip HTML, clean signatures and forwarded noise, limit length. */
 function cleanBody(raw: string): string {
-  let text = stripHtml(raw);
+  let text = stripOrphanCss(htmlToPlainText(raw));
 
   // If the email is a forward, extract the forwarded content (which is the actual lead info)
   // and discard the owner's brief reply above the fold

@@ -1,10 +1,61 @@
 /**
  * Email parsing utilities — shared between AI classification and UI rendering.
  *
+ * - htmlToPlainText: strips HTML (including <style>/<script> blocks with contents)
  * - stripQuotedContent: removes quoted reply chains (>, >>, "On ... wrote:")
  * - extractEmailAddress: pulls raw email from RFC822 "Name <email>" format
  * - isCommonEmailDomain: identifies shared providers where domain matching is meaningless
  */
+
+// ─── HTML → plain text ─────────────────────────────────────────────────────
+// Email bodies often arrive as marketing-grade HTML: inline <style> blocks,
+// Outlook conditional comments, zero-width entities. A naive tag strip leaves
+// the CSS content behind because `<[^>]+>` only matches the `<style>` and
+// `</style>` tags themselves, not the rule block between them.
+
+/**
+ * Convert an HTML email body to plain text.
+ *
+ * Strips `<script>`, `<style>`, `<head>`, `<noscript>` blocks *with their
+ * contents*, HTML comments (including Outlook conditionals), and all remaining
+ * tags. Preserves paragraph structure by converting block-level closing tags
+ * and `<br>` to newlines, and `<li>` to `- ` bullets.
+ *
+ * Idempotent on plain text: returns the input unchanged if no `<` is present.
+ */
+export function htmlToPlainText(raw: string): string {
+  if (!raw || !raw.includes("<")) return raw;
+  return raw
+    // Block-level content containers — must strip with their contents,
+    // otherwise CSS/JS/metadata leaks through the general tag regex below.
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<head[\s\S]*?<\/head>/gi, "")
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, "")
+    // Structural tags become newlines so paragraphs don't merge into a blob
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(?:p|div|li|tr|h[1-6])>/gi, "\n")
+    .replace(/<li[^>]*>/gi, "- ")
+    // Strip any other remaining tag (including Outlook `<![if]>` / `<![endif]>`)
+    .replace(/<[^>]+>/g, "")
+    // Decode common HTML entities
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#0?39;/gi, "'")
+    .replace(/&#x27;/gi, "'")
+    // Zero-width joiners used to obscure text in promotional emails
+    .replace(/&#x200[cdef];/gi, "")
+    .replace(/&zwnj;/gi, "")
+    .replace(/&zwj;/gi, "")
+    // Collapse whitespace
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/[^\S\n]+/g, " ")
+    .trim();
+}
 
 // ─── Common email domains ──────────────────────────────────────────────────
 // Domain matching for outbound detection is meaningless on shared providers —
