@@ -57,7 +57,7 @@ export function QuickActionsTab() {
                   className={cn(
                     "w-[40px] h-[22px] rounded-full transition-colors relative shrink-0",
                     "disabled:opacity-40 disabled:cursor-not-allowed",
-                    isActive ? "bg-ops-accent" : "bg-fill-neutral-dim"
+                    isActive ? "bg-text-2" : "bg-fill-neutral-dim"
                   )}
                   aria-label={isActive ? `Remove ${action.label}` : `Add ${action.label}`}
                 >

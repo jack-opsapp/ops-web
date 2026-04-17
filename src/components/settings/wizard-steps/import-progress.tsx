@@ -199,7 +199,7 @@ export function ImportProgress({
               style={{ borderRadius: 1 }}
             >
               <motion.div
-                className="h-full bg-ops-accent"
+                className="h-full bg-text-2"
                 initial={{ width: "0%" }}
                 animate={{ width: `${Math.round(displayProgress)}%` }}
                 transition={{ duration: 0.6, ease: EASE }}
@@ -282,4 +282,6 @@ export function ImportProgress({
       )}
     </div>
   );
+}
+;
 }

@@ -84,7 +84,7 @@ function LifecycleSettings() {
     return (
       <Card>
         <CardContent className="flex items-center justify-center py-4">
-          <Loader2 className="w-[20px] h-[20px] text-ops-accent animate-spin" />
+          <Loader2 className="w-[20px] h-[20px] text-text-2 animate-spin" />
         </CardContent>
       </Card>
     );
@@ -111,7 +111,7 @@ function LifecycleSettings() {
             onClick={() => handleToggle("autoGenerateTasks", autoGenerate)}
             className={cn(
               "w-[40px] h-[22px] rounded-full transition-colors relative shrink-0",
-              autoGenerate ? "bg-ops-accent" : "bg-fill-neutral-dim"
+              autoGenerate ? "bg-text-2" : "bg-fill-neutral-dim"
             )}
           >
             <span
@@ -154,7 +154,7 @@ function LifecycleSettings() {
             onClick={() => handleToggle("gmailAutoLogEnabled", gmailAutoLog)}
             className={cn(
               "w-[40px] h-[22px] rounded-full transition-colors relative shrink-0",
-              gmailAutoLog ? "bg-ops-accent" : "bg-fill-neutral-dim"
+              gmailAutoLog ? "bg-text-2" : "bg-fill-neutral-dim"
             )}
           >
             <span
@@ -220,7 +220,7 @@ function QuickActionsCard() {
                 className={cn(
                   "w-[40px] h-[22px] rounded-full transition-colors relative shrink-0",
                   "disabled:opacity-40 disabled:cursor-not-allowed",
-                  isActive ? "bg-ops-accent" : "bg-fill-neutral-dim"
+                  isActive ? "bg-text-2" : "bg-fill-neutral-dim"
                 )}
               >
                 <span
@@ -286,8 +286,8 @@ export function PreferencesTab() {
                   <p className="font-kosugi text-[11px] text-text-3">{layout.description}</p>
                 </div>
                 {dashboardLayout === layout.id && (
-                  <div className="w-[20px] h-[20px] rounded-full bg-ops-accent flex items-center justify-center">
-                    <Check className="w-[12px] h-[12px] text-white" />
+                  <div className="w-[20px] h-[20px] rounded-full bg-text-2 flex items-center justify-center">
+                    <Check className="w-[12px] h-[12px] text-background" />
                   </div>
                 )}
               </button>
@@ -321,8 +321,8 @@ export function PreferencesTab() {
                   <p className="font-kosugi text-[11px] text-text-3">{type.description}</p>
                 </div>
                 {schedulingType === type.id && (
-                  <div className="w-[20px] h-[20px] rounded-full bg-ops-accent flex items-center justify-center">
-                    <Check className="w-[12px] h-[12px] text-white" />
+                  <div className="w-[20px] h-[20px] rounded-full bg-text-2 flex items-center justify-center">
+                    <Check className="w-[12px] h-[12px] text-background" />
                   </div>
                 )}
               </button>

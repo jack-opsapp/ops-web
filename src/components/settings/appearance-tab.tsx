@@ -56,8 +56,8 @@ export function AppearanceTab() {
                     : "bg-surface-input border-border hover:border-border-medium opacity-50"
                 )}
               >
-                <themeOpt.icon className={cn("w-[20px] h-[20px]", themeOpt.id === "dark" ? "text-ops-accent" : "text-text-3")} />
-                <span className={cn("font-mohave text-body-sm", themeOpt.id === "dark" ? "text-ops-accent" : "text-text-2")}>
+                <themeOpt.icon className={cn("w-[20px] h-[20px]", themeOpt.id === "dark" ? "text-text" : "text-text-3")} />
+                <span className={cn("font-mohave text-body-sm", themeOpt.id === "dark" ? "text-text" : "text-text-2")}>
                   {themeOpt.label}
                 </span>
               </button>
@@ -100,7 +100,7 @@ export function AppearanceTab() {
                 />
                 <span className="font-mohave text-body-sm text-text-2 truncate">{color.name}</span>
                 {isActive && (
-                  <Check className="w-[12px] h-[12px] text-ops-accent absolute right-[6px] shrink-0" />
+                  <Check className="w-[12px] h-[12px] text-text absolute right-[6px] shrink-0" />
                 )}
               </button>
               );
@@ -155,7 +155,7 @@ export function AppearanceTab() {
               }}
               className={cn(
                 "w-[40px] h-[22px] rounded-full transition-colors relative",
-                compactMode ? "bg-ops-accent" : "bg-fill-neutral-dim"
+                compactMode ? "bg-text-2" : "bg-fill-neutral-dim"
               )}
             >
               <span

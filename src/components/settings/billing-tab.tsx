@@ -70,7 +70,7 @@ function PaymentMethodCard({ method, onRemove, isRemoving }: { method: PaymentMe
       </div>
       <div className="flex items-center gap-1">
         {method.isDefault && (
-          <span className="font-kosugi text-micro text-ops-accent bg-[rgba(255,255,255,0.08)] px-[6px] py-[2px] rounded-full uppercase tracking-wider">
+          <span className="font-kosugi text-micro text-text bg-[rgba(255,255,255,0.08)] px-[6px] py-[2px] rounded-full uppercase tracking-wider">
             {t("billing.defaultBadge")}
           </span>
         )}
@@ -234,7 +234,7 @@ export function BillingTab() {
         <CardContent>
           {methodsLoading ? (
             <div className="flex items-center justify-center py-4">
-              <Loader2 className="w-[20px] h-[20px] text-ops-accent animate-spin" />
+              <Loader2 className="w-[20px] h-[20px] text-text-2 animate-spin" />
             </div>
           ) : hasPaymentMethod ? (
             <div className="space-y-0">
@@ -299,7 +299,7 @@ export function BillingTab() {
         <CardContent>
           {invoicesLoading ? (
             <div className="flex items-center justify-center py-4">
-              <Loader2 className="w-[20px] h-[20px] text-ops-accent animate-spin" />
+              <Loader2 className="w-[20px] h-[20px] text-text-2 animate-spin" />
             </div>
           ) : invoices && invoices.length > 0 ? (
             <div className="space-y-0">
@@ -337,7 +337,7 @@ export function BillingTab() {
                         rel="noopener noreferrer"
                         className="p-[4px] rounded hover:bg-fill-neutral-dim transition-colors"
                       >
-                        <ExternalLink className="w-[14px] h-[14px] text-ops-accent" />
+                        <ExternalLink className="w-[14px] h-[14px] text-text-2" />
                       </a>
                     )}
                     {invoice.pdfUrl && (

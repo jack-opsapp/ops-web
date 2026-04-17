@@ -159,7 +159,7 @@ export function ClientCommsSettingsTab() {
           onClick={() => router.push("/agent/comms-config")}
           className={cn(
             "flex items-center gap-2 min-h-[56px] px-5 rounded-[8px]",
-            "border border-[#6F94B0] bg-ops-accent",
+            "border border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.08)]",
             "font-mohave text-[14px] text-text uppercase tracking-[0.04em]",
             "transition-colors duration-150 motion-reduce:transition-none",
             "hover:bg-[#6A8AA8] hover:border-[#6A8AA8]"

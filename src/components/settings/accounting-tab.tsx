@@ -48,7 +48,7 @@ function ProviderCard({ provider, label }: { provider: AccountingProvider; label
     return (
       <Card>
         <CardContent className="flex items-center justify-center py-6">
-          <Loader2 className="w-[20px] h-[20px] text-ops-accent animate-spin" />
+          <Loader2 className="w-[20px] h-[20px] text-text-2 animate-spin" />
         </CardContent>
       </Card>
     );
@@ -97,7 +97,7 @@ function ProviderCard({ provider, label }: { provider: AccountingProvider; label
                 disabled={updateSyncEnabled.isPending}
                 className={cn(
                   "w-[40px] h-[22px] rounded-full transition-colors relative shrink-0",
-                  connection?.syncEnabled ? "bg-ops-accent" : "bg-fill-neutral-dim"
+                  connection?.syncEnabled ? "bg-text-2" : "bg-fill-neutral-dim"
                 )}
               >
                 <span
@@ -175,7 +175,7 @@ function SyncHistoryCard() {
       <CardContent>
         {isLoading ? (
           <div className="flex items-center justify-center py-4">
-            <Loader2 className="w-[20px] h-[20px] text-ops-accent animate-spin" />
+            <Loader2 className="w-[20px] h-[20px] text-text-2 animate-spin" />
           </div>
         ) : !history || history.length === 0 ? (
           <p className="font-kosugi text-[11px] text-text-mute">{t("accounting.noSyncHistory")}</p>

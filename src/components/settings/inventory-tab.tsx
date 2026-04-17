@@ -51,7 +51,7 @@ export function InventoryTab() {
     return (
       <Card>
         <CardContent className="flex items-center justify-center py-6">
-          <Loader2 className="w-[20px] h-[20px] text-ops-accent animate-spin" />
+          <Loader2 className="w-[20px] h-[20px] text-text-2 animate-spin" />
         </CardContent>
       </Card>
     );
@@ -106,7 +106,7 @@ export function InventoryTab() {
                   <div className="flex items-center gap-2">
                     <span className="font-mohave text-body text-text">{unit.display}</span>
                     {unit.isDefault && (
-                      <span className="font-kosugi text-micro text-ops-accent bg-[rgba(255,255,255,0.08)] px-1.5 py-0.5 rounded">
+                      <span className="font-kosugi text-micro text-text bg-[rgba(255,255,255,0.08)] px-1.5 py-0.5 rounded">
                         {t("inventory.default")}
                       </span>
                     )}

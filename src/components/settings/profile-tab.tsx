@@ -246,7 +246,7 @@ export function ProfileTab() {
   if (isUserLoading && !user) {
     return (
       <div className="flex items-center justify-center py-8">
-        <Loader2 className="w-[24px] h-[24px] text-ops-accent animate-spin" />
+        <Loader2 className="w-[24px] h-[24px] text-text-2 animate-spin" />
       </div>
     );
   }
@@ -258,7 +258,7 @@ export function ProfileTab() {
           {/* Avatar + Name row */}
           <div className="flex items-center gap-2 pb-1 border-b border-[rgba(255,255,255,0.04)]">
             <div className="relative">
-              <div className="w-[72px] h-[72px] rounded-full flex items-center justify-center overflow-hidden border-2 border-ops-accent">
+              <div className="w-[72px] h-[72px] rounded-full flex items-center justify-center overflow-hidden border-2 border-[rgba(255,255,255,0.18)]">
                 {user?.profileImageURL ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
                   <img
@@ -268,16 +268,16 @@ export function ProfileTab() {
                     referrerPolicy="no-referrer"
                   />
                 ) : (
-                  <span className="font-mohave text-display text-ops-accent">
+                  <span className="font-mohave text-display text-text-2">
                     {name?.charAt(0)?.toUpperCase() || "U"}
                   </span>
                 )}
               </div>
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="absolute bottom-0 right-0 w-[24px] h-[24px] rounded-full bg-ops-accent flex items-center justify-center hover:bg-ops-accent-hover transition-colors"
+                className="absolute bottom-0 right-0 w-[24px] h-[24px] rounded-full bg-[rgba(255,255,255,0.18)] flex items-center justify-center hover:bg-[rgba(255,255,255,0.25)] transition-colors"
               >
-                <Camera className="w-[14px] h-[14px] text-white" />
+                <Camera className="w-[14px] h-[14px] text-text" />
               </button>
               <input
                 ref={fileInputRef}

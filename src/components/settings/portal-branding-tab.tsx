@@ -304,7 +304,7 @@ export function PortalBrandingTab() {
     return (
       <Card>
         <CardContent className="flex items-center justify-center py-4">
-          <Loader2 className="w-[20px] h-[20px] text-ops-accent animate-spin" />
+          <Loader2 className="w-[20px] h-[20px] text-text-2 animate-spin" />
         </CardContent>
       </Card>
     );
@@ -681,8 +681,8 @@ export function PortalBrandingTab() {
                   <p className="font-kosugi text-[11px] text-text-3">{t(tmpl.descKey)}</p>
                 </div>
                 {template === tmpl.id && (
-                  <div className="w-[20px] h-[20px] rounded-full bg-ops-accent flex items-center justify-center shrink-0 ml-1">
-                    <Check className="w-[12px] h-[12px] text-white" />
+                  <div className="w-[20px] h-[20px] rounded-full bg-text-2 flex items-center justify-center shrink-0 ml-1">
+                    <Check className="w-[12px] h-[12px] text-background" />
                   </div>
                 )}
               </button>
@@ -720,13 +720,13 @@ export function PortalBrandingTab() {
                 <mode.icon
                   className={cn(
                     "w-[20px] h-[20px]",
-                    themeMode === mode.id ? "text-ops-accent" : "text-text-3"
+                    themeMode === mode.id ? "text-text" : "text-text-3"
                   )}
                 />
                 <span
                   className={cn(
                     "font-mohave text-body-sm",
-                    themeMode === mode.id ? "text-ops-accent" : "text-text-2"
+                    themeMode === mode.id ? "text-text" : "text-text-2"
                   )}
                 >
                   {mode.label}

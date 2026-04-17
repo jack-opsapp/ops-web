@@ -348,7 +348,7 @@ export function DocumentTemplatesTab() {
     return (
       <Card>
         <CardContent className="flex items-center justify-center py-4">
-          <Loader2 className="w-[20px] h-[20px] text-ops-accent animate-spin" />
+          <Loader2 className="w-[20px] h-[20px] text-text-2 animate-spin" />
         </CardContent>
       </Card>
     );
@@ -412,13 +412,13 @@ export function DocumentTemplatesTab() {
                       {tmpl.documentType}
                     </span>
                     {tmpl.isDefault && (
-                      <span className="font-kosugi text-micro text-ops-accent px-1 py-0.5 rounded bg-[rgba(255,255,255,0.08)] shrink-0">
+                      <span className="font-kosugi text-micro text-text px-1 py-0.5 rounded bg-[rgba(255,255,255,0.08)] shrink-0">
                         {t("templates.default")}
                       </span>
                     )}
                   </div>
                   {selectedId === tmpl.id && (
-                    <Check className="w-[14px] h-[14px] text-ops-accent shrink-0" />
+                    <Check className="w-[14px] h-[14px] text-text shrink-0" />
                   )}
                 </button>
               ))}
@@ -654,13 +654,13 @@ export function DocumentTemplatesTab() {
                         <mode.icon
                           className={cn(
                             "w-[16px] h-[16px]",
-                            themeMode === mode.id ? "text-ops-accent" : "text-text-3"
+                            themeMode === mode.id ? "text-text" : "text-text-3"
                           )}
                         />
                         <span
                           className={cn(
                             "font-mohave text-body-sm",
-                            themeMode === mode.id ? "text-ops-accent" : "text-text-2"
+                            themeMode === mode.id ? "text-text" : "text-text-2"
                           )}
                         >
                           {mode.label}

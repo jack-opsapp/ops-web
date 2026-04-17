@@ -787,7 +787,7 @@ export function ImportPipelineWizard({
                 {minimizedCompleteLabel}
               </span>
             </div>
-            <span className="font-mohave text-[12px] text-ops-accent shrink-0">
+            <span className="font-mohave text-[12px] text-text shrink-0">
               Review
             </span>
           </>
@@ -795,7 +795,7 @@ export function ImportPipelineWizard({
           <>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
-                <Loader2 size={14} className="text-ops-accent animate-spin shrink-0" />
+                <Loader2 size={14} className="text-text-2 animate-spin shrink-0" />
                 <span className="font-mohave text-[13px] text-white">
                   {minimizedLabel}
                 </span>
@@ -819,13 +819,13 @@ export function ImportPipelineWizard({
               )}
               <div className="h-[2px] w-full bg-white/5 overflow-hidden" style={{ borderRadius: 1 }}>
                 <motion.div
-                  className="h-full bg-ops-accent"
+                  className="h-full bg-text-2"
                   animate={{ width: `${Math.round(bgProgress.percent)}%` }}
                   transition={{ duration: 0.8, ease: EASE }}
                 />
               </div>
             </div>
-            <span className="font-mohave text-[12px] text-ops-accent hover:text-white transition-colors shrink-0 ml-2">
+            <span className="font-mohave text-[12px] text-text-2 hover:text-text transition-colors shrink-0 ml-2">
               Expand
             </span>
           </>
@@ -941,7 +941,7 @@ export function ImportPipelineWizard({
               {step === 2 && connectionId && (
                 !stateCheckComplete ? (
                   <div className="flex flex-col items-center justify-center py-16 gap-4">
-                    <Loader2 size={24} className="text-ops-accent animate-spin" />
+                    <Loader2 size={24} className="text-text-2 animate-spin" />
                     <p className="font-mohave text-[14px] text-[#999]">
                       Reconnecting to analysis...
                     </p>
@@ -1118,7 +1118,7 @@ export function ImportPipelineWizard({
               )}
               {step === 5 && !importResult && (
                 <div className="flex flex-col items-center justify-center py-16 gap-4">
-                  <Loader2 size={24} className="text-ops-accent animate-spin" />
+                  <Loader2 size={24} className="text-text-2 animate-spin" />
                   <p className="font-mohave text-[14px] text-[#999]">
                     Loading import results...
                   </p>
@@ -1213,4 +1213,17 @@ export function ImportPipelineWizard({
     </Dialog>
     </>
   );
+}
+ );
+}
+;
+}
+;
+}
+
+;
+}
+;
+}
+;
 }

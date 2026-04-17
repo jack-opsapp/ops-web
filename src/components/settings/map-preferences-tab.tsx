@@ -45,7 +45,7 @@ export function MapPreferencesTab() {
               }}
               onMouseUp={() => toast.success(`${t("map.toast.zoomSet")} ${mapDefaultZoom}x`)}
               onTouchEnd={() => toast.success(`${t("map.toast.zoomSet")} ${mapDefaultZoom}x`)}
-              className="w-full accent-ops-accent"
+              className="w-full accent-text-2"
             />
             <div className="flex justify-between font-kosugi text-micro text-text-mute">
               <span>{t("map.zoomOut")}</span>
@@ -67,7 +67,7 @@ export function MapPreferencesTab() {
               }}
               className={cn(
                 "w-[40px] h-[22px] rounded-full transition-colors relative shrink-0",
-                mapShowTraffic ? "bg-ops-accent" : "bg-fill-neutral-dim"
+                mapShowTraffic ? "bg-text-2" : "bg-fill-neutral-dim"
               )}
             >
               <span
@@ -93,7 +93,7 @@ export function MapPreferencesTab() {
               }}
               className={cn(
                 "w-[40px] h-[22px] rounded-full transition-colors relative shrink-0",
-                mapShowCrewLabels ? "bg-ops-accent" : "bg-fill-neutral-dim"
+                mapShowCrewLabels ? "bg-text-2" : "bg-fill-neutral-dim"
               )}
             >
               <span

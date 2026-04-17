@@ -309,7 +309,7 @@ export function AutoSendSettings({ connectionId }: AutoSendSettingsProps) {
               className={cn(
                 "relative w-[36px] h-[18px] rounded-full transition-colors",
                 effectiveSettings.enabled
-                  ? "bg-ops-accent"
+                  ? "bg-text-2"
                   : "bg-[rgba(255,255,255,0.1)]"
               )}
             >

@@ -89,10 +89,10 @@ function CrewPicker({
                 <div
                   className={cn(
                     "w-[16px] h-[16px] rounded-sm border flex items-center justify-center shrink-0",
-                    selected ? "bg-ops-accent border-ops-accent" : "border-border"
+                    selected ? "bg-text-2 border-[rgba(255,255,255,0.30)]" : "border-border"
                   )}
                 >
-                  {selected && <span className="text-micro text-white font-bold">✓</span>}
+                  {selected && <span className="text-micro text-background font-bold">✓</span>}
                 </div>
                 {name}
               </button>
@@ -249,7 +249,7 @@ function TaskTemplatesSection({ taskType }: { taskType: TaskType }) {
                   <button
                     type="button"
                     onClick={() => startEdit(template)}
-                    className="flex-1 text-left font-mohave text-body-sm text-text hover:text-ops-accent transition-colors"
+                    className="flex-1 text-left font-mohave text-body-sm text-text hover:text-text-2 transition-colors"
                   >
                     {template.title}
                   </button>
@@ -481,7 +481,7 @@ export function TaskTypesTab() {
 
           {isLoading ? (
             <div className="flex items-center justify-center py-4">
-              <Loader2 className="w-[20px] h-[20px] text-ops-accent animate-spin" />
+              <Loader2 className="w-[20px] h-[20px] text-text-2 animate-spin" />
             </div>
           ) : forceWizard || (activeTypes.length === 0 && showWizard) ? (
             <TaskTypesWizard onComplete={() => { setShowWizard(false); setForceWizard(false); }} />
@@ -522,4 +522,8 @@ export function TaskTypesTab() {
       </Card>
     </div>
   );
+}
+;
+}
+;
 }

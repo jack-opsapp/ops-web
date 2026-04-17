@@ -57,7 +57,7 @@ function IndustryPicker({
               type="button"
               disabled={disabled}
               onClick={() => toggle(ind)}
-              className="flex items-center gap-[4px] px-[8px] py-[3px] rounded-sm border border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.05)] text-ops-accent font-mohave text-caption transition-colors hover:bg-[rgba(255,255,255,0.08)] disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex items-center gap-[4px] px-[8px] py-[3px] rounded-chip border border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.05)] text-text font-mohave text-caption transition-colors hover:bg-[rgba(255,255,255,0.08)] disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {ind}
               <X className="w-[10px] h-[10px]" />
@@ -203,7 +203,7 @@ export function CompanyTab() {
   if (isCompanyLoading && !company) {
     return (
       <div className="flex items-center justify-center py-8">
-        <Loader2 className="w-[24px] h-[24px] text-ops-accent animate-spin" />
+        <Loader2 className="w-[24px] h-[24px] text-text-2 animate-spin" />
       </div>
     );
   }
@@ -240,7 +240,7 @@ export function CompanyTab() {
                       />
                     ) : null}
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <Loader2 className="w-[20px] h-[20px] text-ops-accent animate-spin" />
+                      <Loader2 className="w-[20px] h-[20px] text-text-2 animate-spin" />
                     </div>
                   </>
                 ) : company?.logoURL ? (
@@ -337,7 +337,7 @@ export function CompanyTab() {
                   if (addr) setCompanyAddress(addr);
                 }}
                 disabled={locating}
-                className="flex items-center justify-center w-[36px] shrink-0 rounded border border-border bg-surface-input text-text-3 hover:text-ops-accent hover:border-[rgba(255,255,255,0.18)] transition-colors duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="flex items-center justify-center w-[36px] shrink-0 rounded border border-border bg-surface-input text-text-3 hover:text-text hover:border-[rgba(255,255,255,0.18)] transition-colors duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
                 title="Use my location"
                 aria-label="Auto-fill address from current location"
               >

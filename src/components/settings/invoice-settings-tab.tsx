@@ -463,7 +463,7 @@ function ToggleSetting({
             className={`
               absolute top-[2px] w-[20px] h-[20px] rounded-[12px] transition-transform duration-150 motion-reduce:transition-none
               ${checked
-                ? "translate-x-[22px] bg-ops-accent"
+                ? "translate-x-[22px] bg-text-2"
                 : "translate-x-[2px] bg-[rgba(255,255,255,0.3)]"
               }
             `}
@@ -472,4 +472,6 @@ function ToggleSetting({
       </button>
     </div>
   );
+}
+;
 }

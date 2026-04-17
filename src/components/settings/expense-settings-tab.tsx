@@ -50,7 +50,7 @@ export function ExpenseSettingsTab() {
     return (
       <Card>
         <CardContent className="flex items-center justify-center py-6">
-          <Loader2 className="w-[20px] h-[20px] text-ops-accent animate-spin" />
+          <Loader2 className="w-[20px] h-[20px] text-text-2 animate-spin" />
         </CardContent>
       </Card>
     );
@@ -196,7 +196,7 @@ export function ExpenseSettingsTab() {
               onClick={() => handleToggle("requireReceiptPhoto", requireReceiptPhoto)}
               className={cn(
                 "w-[40px] h-[22px] rounded-full transition-colors relative shrink-0 disabled:opacity-40 disabled:cursor-not-allowed",
-                requireReceiptPhoto ? "bg-ops-accent" : "bg-fill-neutral-dim"
+                requireReceiptPhoto ? "bg-text-2" : "bg-fill-neutral-dim"
               )}
             >
               <span
@@ -218,7 +218,7 @@ export function ExpenseSettingsTab() {
               onClick={() => handleToggle("requireProjectAssignment", requireProjectAssignment)}
               className={cn(
                 "w-[40px] h-[22px] rounded-full transition-colors relative shrink-0 disabled:opacity-40 disabled:cursor-not-allowed",
-                requireProjectAssignment ? "bg-ops-accent" : "bg-fill-neutral-dim"
+                requireProjectAssignment ? "bg-text-2" : "bg-fill-neutral-dim"
               )}
             >
               <span
@@ -301,7 +301,7 @@ export function ExpenseSettingsTab() {
                   }}
                   className={cn(
                     "w-[36px] h-[20px] rounded-full transition-colors relative shrink-0 disabled:opacity-40 disabled:cursor-not-allowed",
-                    rule.isActive ? "bg-ops-accent" : "bg-fill-neutral-dim"
+                    rule.isActive ? "bg-text-2" : "bg-fill-neutral-dim"
                   )}
                 >
                   <span
@@ -337,7 +337,7 @@ export function ExpenseSettingsTab() {
             can("expenses.configure") && (
               <button
                 onClick={() => setShowAddRule(true)}
-                className="font-kosugi text-caption-sm text-ops-accent hover:text-text uppercase tracking-wider transition-colors"
+                className="font-kosugi text-caption-sm text-text-2 hover:text-text uppercase tracking-wider transition-colors"
               >
                 {t("expenses.addRule")}
               </button>

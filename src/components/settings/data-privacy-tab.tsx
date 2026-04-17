@@ -129,7 +129,7 @@ export function DataPrivacyTab() {
         <CardContent>
           <div className="space-y-1.5">
             <div className="flex items-center gap-1.5 py-[6px]">
-              <Database className="w-[16px] h-[16px] text-ops-accent shrink-0" />
+              <Database className="w-[16px] h-[16px] text-text-2 shrink-0" />
               <div>
                 <p className="font-mohave text-body-sm text-text-2">{t("dataPrivacy.activeData")}</p>
                 <p className="font-kosugi text-[11px] text-text-mute">

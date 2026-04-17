@@ -167,7 +167,7 @@ export function EmailFilterBuilder({
           </span>
           <button
             onClick={toggleLogic}
-            className="inline-flex items-center gap-[3px] px-[8px] py-[3px] rounded-sm border border-border bg-surface-input font-kosugi text-[11px] text-text-2 hover:border-[rgba(255,255,255,0.18)] hover:text-ops-accent transition-colors"
+            className="inline-flex items-center gap-[3px] px-[8px] py-[3px] rounded-[4px] border border-border bg-surface-input font-kosugi text-[11px] text-text-2 hover:border-[rgba(255,255,255,0.18)] hover:text-text transition-colors"
           >
             {logic === "all" ? "ALL" : "ANY"}
             <ChevronDown className="w-[10px] h-[10px]" />
@@ -266,7 +266,7 @@ export function EmailFilterBuilder({
         variant="ghost"
         size="sm"
         onClick={addRule}
-        className="gap-[4px] font-kosugi text-[11px] text-text-mute hover:text-ops-accent"
+        className="gap-[4px] font-kosugi text-[11px] text-text-mute hover:text-text"
       >
         <Plus className="w-[12px] h-[12px]" />
         Add filter rule
@@ -282,4 +282,10 @@ export function EmailFilterBuilder({
       )}
     </div>
   );
+}
+
+}
+
+}
+
 }

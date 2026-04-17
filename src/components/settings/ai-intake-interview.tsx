@@ -104,7 +104,7 @@ function ProgressBar() {
                     isComplete
                       ? "bg-[#9DB582]"
                       : isActive
-                        ? "bg-ops-accent"
+                        ? "bg-text-2"
                         : "bg-[rgba(255,255,255,0.15)]"
                   )}
                   animate={{ width: `${cp.total > 0 ? (cp.completed / cp.total) * 100 : 0}%` }}
@@ -621,4 +621,6 @@ export function AiIntakeInterview({ onComplete }: AiIntakeInterviewProps) {
       </div>
     </div>
   );
+}
+;
 }

@@ -54,7 +54,7 @@ export function ShortcutsTab() {
           onClick={toggleShortcutHints}
           className={cn(
             "w-[40px] h-[22px] rounded-full transition-colors relative",
-            showShortcutHints ? "bg-ops-accent" : "bg-fill-neutral-dim"
+            showShortcutHints ? "bg-text-2" : "bg-fill-neutral-dim"
           )}
         >
           <span
