@@ -25,6 +25,7 @@ import {
 } from "@/lib/analytics/analytics";
 import { useSetupStore, STARFIELD_QUESTIONS } from "@/stores/setup-store";
 import { usePreferencesStore } from "@/stores/preferences-store";
+import { OpsLockup } from "@/components/brand";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { getDefaultWidgetInstancesFromSetup } from "@/lib/utils/widget-defaults";
 import { IdentityStep1, IdentityStep2 } from "@/components/setup/SetupIdentityStep";
@@ -453,9 +454,9 @@ export default function SetupPage() {
   if (!ready) {
     return (
       <div className="fixed inset-0 bg-background flex items-center justify-center">
-        <span className="font-mohave text-[48px] tracking-[0.2em] text-text leading-none animate-pulse">
-          OPS
-        </span>
+        <div className="animate-pulse text-text">
+          <OpsLockup orientation="vertical" className="h-20 w-auto" />
+        </div>
       </div>
     );
   }
@@ -602,9 +603,10 @@ export default function SetupPage() {
       <h1
         ref={headingRef}
         tabIndex={-1}
-        className="font-mohave text-display-lg text-text tracking-[0.25em] uppercase mb-4 focus:outline-none"
+        className="text-text mb-4 focus:outline-none"
       >
-        OPS
+        <span className="sr-only">OPS</span>
+        <OpsLockup orientation="vertical" className="h-24 w-auto mx-auto" title="" />
       </h1>
 
       {/* Glass surface card */}

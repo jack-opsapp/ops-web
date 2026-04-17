@@ -8,6 +8,7 @@ import { motion, useReducedMotion, type Variants } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import { EASE_SMOOTH } from "@/lib/utils/motion";
 import { useCompany } from "@/lib/hooks";
+import { OpsLockup } from "@/components/brand";
 
 function WelcomeContent() {
   const searchParams = useSearchParams();
@@ -49,10 +50,8 @@ function WelcomeContent() {
   return (
     <main className="min-h-screen bg-background flex items-center justify-center px-6 py-12">
       <div className="w-full max-w-[420px] flex flex-col gap-6">
-        <div className="flex justify-center">
-          <span className="font-mohave text-2xl font-bold tracking-wider text-text">
-            OPS
-          </span>
+        <div className="flex justify-center text-text">
+          <OpsLockup orientation="horizontal" className="h-7 w-auto" />
         </div>
 
         {companyLogo && (
