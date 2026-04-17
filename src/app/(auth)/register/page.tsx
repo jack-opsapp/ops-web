@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { OpsLockup } from "@/components/brand";
 import { Eye, EyeOff, Mail, Lock, User } from "lucide-react";
 import { signInWithGoogle, signInWithApple, signUpWithEmail } from "@/lib/firebase/auth";
 import { UserService } from "@/lib/api/services/user-service";
@@ -150,14 +150,8 @@ export default function RegisterPage() {
   return (
     <div className="flex flex-col">
       {/* Mobile logo — hidden on desktop (hero has branding) */}
-      <div className="lg:hidden mb-6">
-        <Image
-          src="/images/ops-logo-white.png"
-          alt={t("ops")}
-          width={64}
-          height={26}
-          priority
-        />
+      <div className="lg:hidden mb-6 text-text">
+        <OpsLockup orientation="horizontal" className="h-6 w-auto" title={t("ops")} />
       </div>
 
       {/* Heading */}

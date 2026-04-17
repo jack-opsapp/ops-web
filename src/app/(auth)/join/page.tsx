@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
+import { OpsLockup } from "@/components/brand";
 import { Eye, EyeOff, Mail, Lock, User, Loader2, AlertCircle } from "lucide-react";
 import {
   signInWithGoogle,
@@ -327,14 +328,8 @@ export default function JoinPage() {
   return (
     <div className="flex flex-col">
       {/* Mobile logo */}
-      <div className="lg:hidden mb-6">
-        <Image
-          src="/images/ops-logo-white.png"
-          alt="OPS"
-          width={64}
-          height={26}
-          priority
-        />
+      <div className="lg:hidden mb-6 text-text">
+        <OpsLockup orientation="horizontal" className="h-6 w-auto" />
       </div>
 
       {/* ── Company info header ─────────────────────────────────────── */}
