@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle, RefreshCw, LayoutDashboard, ChevronDown } from "lucide-react";
-import Image from "next/image";
 import { Button } from "@/components/ui/button";
+import { OpsLockup } from "@/components/brand";
 import { cn } from "@/lib/utils/cn";
 
 export default function DashboardError({
@@ -97,12 +97,10 @@ export default function DashboardError({
 
         {/* Branding */}
         <div className="mt-5 flex items-center gap-1 opacity-30">
-          <Image
-            src="/images/ops-logo-white.png"
-            alt="OPS"
-            width={24}
-            height={9}
-            className="select-none"
+          <OpsLockup
+            orientation="horizontal"
+            title=""
+            className="select-none h-3 w-auto text-text-mute"
           />
           <span className="font-mono text-micro text-text-mute select-none">
             ERROR BOUNDARY

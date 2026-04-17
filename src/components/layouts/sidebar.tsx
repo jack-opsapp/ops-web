@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect, useCallback, useMemo } from "react";
-import Image from "next/image";
+import { OpsLockup } from "@/components/brand";
 import {
   LayoutDashboard,
   FolderKanban,
@@ -359,12 +359,10 @@ export function Sidebar() {
             effectiveCollapsed ? "justify-center" : "gap-1"
           )}
         >
-          <Image
-            src="/images/ops-logo-white.png"
-            alt="OPS"
-            width={16}
-            height={6}
-            className="select-none shrink-0 opacity-40"
+          <OpsLockup
+            orientation="horizontal"
+            title=""
+            className="select-none shrink-0 h-2 w-auto opacity-40 text-text-mute"
           />
           <span
             className={cn(
