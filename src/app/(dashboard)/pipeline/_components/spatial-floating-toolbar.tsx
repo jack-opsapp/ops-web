@@ -55,11 +55,11 @@ export function SpatialFloatingToolbar({
       {reviewCount > 0 && onReviewEmails && (
         <>
           <ToolbarAction onClick={onReviewEmails}>
-            <Mail className="w-[13px] h-[13px] text-ops-accent" />
-            <span className="font-kosugi text-micro text-ops-accent uppercase tracking-wider">
+            <Mail className="w-[13px] h-[13px] text-text-2" />
+            <span className="font-kosugi text-micro text-text-2 uppercase tracking-wider">
               {t("gmail.reviewEmails")}
             </span>
-            <span className="inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-sm border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.08)] font-kosugi text-micro text-ops-accent">
+            <span className="inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-[4px] border border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.08)] font-kosugi text-micro text-text">
               {reviewCount > 99 ? "99+" : reviewCount}
             </span>
           </ToolbarAction>
@@ -121,8 +121,8 @@ function ToolbarAction({
       className={cn(
         "flex items-center gap-[5px] px-[8px] py-[5px] rounded-sm transition-colors duration-150 cursor-pointer",
         isActive
-          ? "text-ops-accent bg-[rgba(255,255,255,0.08)]/20"
-          : "text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.04)]"
+          ? "text-text bg-[rgba(255,255,255,0.08)] border border-[rgba(255,255,255,0.18)]"
+          : "text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.04)] border border-transparent"
       )}
       onClick={onClick}
     >

@@ -71,7 +71,7 @@ export function CalendarGridDay({
             <span
               className={cn(
                 "font-mohave font-bold text-[22px] leading-tight",
-                dayIsToday ? "text-ops-accent" : "text-white"
+                dayIsToday ? "text-text" : "text-white"
               )}
             >
               {format(currentDate, "EEEE").toUpperCase()}

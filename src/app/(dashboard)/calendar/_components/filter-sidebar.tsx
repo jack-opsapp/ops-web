@@ -43,7 +43,7 @@ function FilterSection({
         </span>
         <div className="flex items-center gap-1.5">
           {count > 0 && (
-            <span className="font-mono text-micro text-ops-accent bg-[rgba(255,255,255,0.08)]/20 px-[6px] py-[1px] rounded-sm">
+            <span className="font-mono text-micro text-text bg-[rgba(255,255,255,0.08)] px-[6px] py-[1px] rounded-[4px]">
               {count}
             </span>
           )}
@@ -82,7 +82,7 @@ function FilterCheckbox({
         className={cn(
           "w-[14px] h-[14px] rounded-sm border flex items-center justify-center shrink-0 transition-colors",
           checked
-            ? "bg-ops-accent border-ops-accent"
+            ? "bg-text-2 border-[rgba(255,255,255,0.30)]"
             : "border-border bg-transparent group-hover:border-text-tertiary"
         )}
       >
@@ -217,7 +217,7 @@ export function FilterSidebar() {
           {totalActiveFilters > 0 && (
             <button
               onClick={clearFilters}
-              className="font-kosugi text-micro text-ops-accent uppercase tracking-wider hover:text-ops-accent/80 transition-colors"
+              className="font-kosugi text-micro text-text-2 uppercase tracking-wider hover:text-text transition-colors"
             >
               {t("filter.clearAll")}
             </button>

@@ -131,7 +131,7 @@ function SpatialDealTray({
                     {/* Restore + Delete buttons */}
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
-                        className="font-kosugi text-micro text-ops-accent hover:text-text cursor-pointer whitespace-nowrap"
+                        className="font-kosugi text-micro text-text-2 hover:text-text cursor-pointer whitespace-nowrap"
                         onClick={() => onRestore(opp.id)}
                       >
                         {t("archiveTray.restore")}

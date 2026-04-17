@@ -163,7 +163,7 @@ function DataTableInner<T>(
         {/* Bulk actions */}
         {selectable && selectedKeys.size > 0 && (
           <div className="flex items-center gap-1 animate-fade-in">
-            <span className="text-caption-sm text-ops-accent font-mono">
+            <span className="text-caption-sm text-text font-mono">
               {selectedKeys.size} selected
             </span>
             {bulkActions}
@@ -237,9 +237,9 @@ function DataTableInner<T>(
                     {col.sortable && (
                       <span className="text-text-mute">
                         {sortColumn === col.id && sortDirection === "asc" ? (
-                          <ArrowUp className="h-[14px] w-[14px] text-ops-accent" />
+                          <ArrowUp className="h-[14px] w-[14px] text-text-2" />
                         ) : sortColumn === col.id && sortDirection === "desc" ? (
-                          <ArrowDown className="h-[14px] w-[14px] text-ops-accent" />
+                          <ArrowDown className="h-[14px] w-[14px] text-text-2" />
                         ) : (
                           <ArrowUpDown className="h-[14px] w-[14px]" />
                         )}
@@ -275,7 +275,7 @@ function DataTableInner<T>(
                       "border-b border-border-subtle",
                       "transition-colors duration-100",
                       "hover:bg-fill-neutral-dim/50",
-                      isSelected && "bg-ops-accent-muted"
+                      isSelected && "bg-[rgba(255,255,255,0.04)]"
                     )}
                   >
                     {selectable && (

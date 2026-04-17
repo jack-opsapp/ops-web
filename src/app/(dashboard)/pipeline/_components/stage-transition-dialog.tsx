@@ -102,7 +102,7 @@ function WonContent({
             type="checkbox"
             checked={convertToProject}
             onChange={(e) => setConvertToProject(e.target.checked)}
-            className="w-[14px] h-[14px] rounded border-border bg-surface-input accent-ops-accent"
+            className="w-[14px] h-[14px] rounded border-border bg-surface-input accent-text-2"
           />
           <span className="font-kosugi text-[11px] text-text-2 group-hover:text-text transition-colors">
             {t("transition.convertToProject")}

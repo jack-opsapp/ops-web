@@ -250,7 +250,7 @@ export const DetailPopover = memo(function DetailPopover({
           {opportunity.contactPhone && (
             <a
               href={`tel:${opportunity.contactPhone}`}
-              className="flex items-center gap-1 text-text-3 hover:text-ops-accent transition-colors shrink-0"
+              className="flex items-center gap-1 text-text-3 hover:text-text transition-colors shrink-0"
             >
               <Phone className="w-2.5 h-2.5" />
               <span className="font-kosugi text-micro whitespace-nowrap">
@@ -264,7 +264,7 @@ export const DetailPopover = memo(function DetailPopover({
           {opportunity.contactEmail && (
             <a
               href={`mailto:${opportunity.contactEmail}`}
-              className="flex items-center gap-1 text-text-3 hover:text-ops-accent transition-colors min-w-0"
+              className="flex items-center gap-1 text-text-3 hover:text-text transition-colors min-w-0"
             >
               <Mail className="w-2.5 h-2.5 shrink-0" />
               <span className="font-kosugi text-micro truncate">

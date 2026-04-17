@@ -224,7 +224,7 @@ export function PipelineCardActions({
               setShowNoteInput(false);
             }}
             disabled={!noteValue.trim()}
-            className="px-[6px] py-[4px] rounded-panel bg-[rgba(255,255,255,0.08)] text-ops-accent font-kosugi text-micro uppercase tracking-wider hover:bg-ops-accent/30 disabled:opacity-30 disabled:cursor-not-allowed transition-colors shrink-0"
+            className="px-[6px] py-[4px] rounded-panel bg-[rgba(255,255,255,0.08)] text-text font-kosugi text-micro uppercase tracking-wider hover:bg-[rgba(255,255,255,0.12)] disabled:opacity-30 disabled:cursor-not-allowed transition-colors shrink-0"
           >
             {t("spatial.confirm")}
           </button>
@@ -258,8 +258,8 @@ function ActionIcon({
       className={cn(
         "p-[5px] rounded-panel transition-colors duration-150 cursor-pointer",
         isActive
-          ? "text-ops-accent bg-[rgba(255,255,255,0.08)]/20"
-          : "text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.06)]",
+          ? "text-text bg-[rgba(255,255,255,0.08)] border border-[rgba(255,255,255,0.18)]"
+          : "text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.06)] border border-transparent",
         disabled && "opacity-40 pointer-events-none"
       )}
     >
