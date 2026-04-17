@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { OpsLockup } from "@/components/brand";
+import { OpsMark } from "@/components/brand";
 import {
   LayoutDashboard,
   FolderKanban,
@@ -359,10 +359,9 @@ export function Sidebar() {
             effectiveCollapsed ? "justify-center" : "gap-1"
           )}
         >
-          <OpsLockup
-            orientation="horizontal"
+          <OpsMark
             title=""
-            className="select-none shrink-0 h-2 w-auto opacity-40 text-text-mute"
+            className="select-none shrink-0 h-4 w-auto opacity-40 text-text-mute"
           />
           <span
             className={cn(

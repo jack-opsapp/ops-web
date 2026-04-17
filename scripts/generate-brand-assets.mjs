@@ -53,6 +53,29 @@ async function renderSquareIcon({
   console.log(`  ✓ ${path.relative(ROOT, outPath)} (${size}×${size})`);
 }
 
+/** Render an SVG as a square transparent PNG with mark maxed on the long axis. */
+async function renderFavicon({
+  svgPath,
+  size,
+  outPath,
+  fgColor = "#000000",
+}) {
+  const svg = await fs.readFile(svgPath, "utf8");
+  const coloredSvg = svg.replace(/currentColor/g, fgColor);
+
+  await sharp(Buffer.from(coloredSvg))
+    .resize({
+      width: size,
+      height: size,
+      fit: "contain",
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    })
+    .png({ quality: 95, compressionLevel: 9 })
+    .toFile(outPath);
+
+  console.log(`  ✓ ${path.relative(ROOT, outPath)} (${size}×${size}, favicon)`);
+}
+
 /** Render a horizontal lockup onto a wide PNG (for emails, social, etc.). */
 async function renderLockup({
   svgPath,
@@ -93,10 +116,11 @@ async function renderLockup({
 
 // ─── Manifest ───────────────────────────────────────────────────────────────
 const TARGETS = [
-  // Next.js file-convention icons (in src/app/)
-  { kind: "icon", size: 64, out: path.join(APP_DIR, "icon.png") },
+  // Browser tab favicon PNG — transparent bg, black mark, zero padding
+  { kind: "favicon", size: 64, out: path.join(APP_DIR, "icon.png") },
+  // iOS home screen icon — opaque black, white mark, padded (Apple convention)
   { kind: "icon", size: 180, out: path.join(APP_DIR, "apple-icon.png") },
-  // PWA manifest icons (in public/brand/)
+  // PWA manifest icons — opaque black, white mark, padded
   { kind: "icon", size: 192, out: path.join(BRAND_DIR, "icon-192.png") },
   { kind: "icon", size: 512, out: path.join(BRAND_DIR, "icon-512.png") },
   // Email header + social share (wide lockup)
@@ -106,7 +130,9 @@ const TARGETS = [
 // ─── Run ────────────────────────────────────────────────────────────────────
 console.log("Generating OPS brand assets…");
 for (const t of TARGETS) {
-  if (t.kind === "icon") {
+  if (t.kind === "favicon") {
+    await renderFavicon({ svgPath: MARK_SVG, size: t.size, outPath: t.out });
+  } else if (t.kind === "icon") {
     await renderSquareIcon({ svgPath: MARK_SVG, size: t.size, outPath: t.out });
   } else if (t.kind === "lockup") {
     await renderLockup({ svgPath: LOCKUP_H_SVG, width: t.width, outPath: t.out });
