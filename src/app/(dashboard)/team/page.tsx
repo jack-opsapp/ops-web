@@ -148,15 +148,15 @@ const roleStyleConfig: Record<
   },
   office: {
     icon: Shield,
-    color: "text-ops-accent",
+    color: "text-text",
     bg: "bg-[rgba(255,255,255,0.08)]",
-    borderColor: "border-l-[#6F94B0]",
+    borderColor: "border-l-[rgba(255,255,255,0.18)]",
   },
   operator: {
     icon: Shield,
-    color: "text-ops-accent",
+    color: "text-text",
     bg: "bg-[rgba(255,255,255,0.08)]",
-    borderColor: "border-l-[#417394]",
+    borderColor: "border-l-[rgba(255,255,255,0.18)]",
   },
   crew: {
     icon: HardHat,
@@ -316,7 +316,7 @@ function TeamMemberCard({
               <span
                 className={cn(
                   "font-mohave text-body-lg",
-                  isInactive ? "text-text-mute" : "text-ops-accent"
+                  isInactive ? "text-text-mute" : "text-text-2"
                 )}
                 style={
                   member.userColor && !isInactive
@@ -418,7 +418,7 @@ function TeamMemberCard({
             <Mail className="w-[13px] h-[13px] shrink-0" />
             <a
               href={`mailto:${member.email}`}
-              className="font-mono text-[11px] truncate hover:text-ops-accent transition-colors"
+              className="font-mono text-[11px] truncate hover:text-text transition-colors"
             >
               {member.email}
             </a>
@@ -428,7 +428,7 @@ function TeamMemberCard({
               <Phone className="w-[13px] h-[13px] shrink-0" />
               <a
                 href={`tel:${member.phone}`}
-                className="font-mono text-[11px] hover:text-ops-accent transition-colors"
+                className="font-mono text-[11px] hover:text-text transition-colors"
               >
                 {member.phone}
               </a>
@@ -666,8 +666,8 @@ export default function TeamPage() {
           {office.length > 0 && (
             <div>
               <div className="flex items-center gap-1 mb-1">
-                <Shield className="w-[14px] h-[14px] text-ops-accent" />
-                <h2 className="font-kosugi text-caption-bold text-ops-accent uppercase tracking-widest">
+                <Shield className="w-[14px] h-[14px] text-text" />
+                <h2 className="font-kosugi text-caption-bold text-text uppercase tracking-widest">
                   {t("team.sections.office")}
                 </h2>
                 <Badge variant="info" className="text-micro px-[6px] py-[1px]">
@@ -693,8 +693,8 @@ export default function TeamPage() {
           {operators.length > 0 && (
             <div>
               <div className="flex items-center gap-1 mb-1">
-                <Shield className="w-[14px] h-[14px] text-ops-accent" />
-                <h2 className="font-kosugi text-caption-bold text-ops-accent uppercase tracking-widest">
+                <Shield className="w-[14px] h-[14px] text-text" />
+                <h2 className="font-kosugi text-caption-bold text-text uppercase tracking-widest">
                   {t("team.sections.operators")}
                 </h2>
                 <Badge variant="info" className="text-micro px-[6px] py-[1px]">
