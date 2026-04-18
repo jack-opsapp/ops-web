@@ -1149,8 +1149,13 @@ function StepConnect({
         <motion.div variants={staggerItem} className="space-y-1.5">
           <button
             onClick={() => {
+              if (!currentUserId) {
+                console.error("[email-setup-wizard] No current user — cannot initiate OAuth");
+                return;
+              }
               const params = new URLSearchParams({
                 companyId,
+                userId: currentUserId,
                 type: "company",
               });
               window.location.href = `/api/integrations/gmail?${params}`;
@@ -1173,10 +1178,14 @@ function StepConnect({
 
           <button
             onClick={() => {
+              if (!currentUserId) {
+                console.error("[email-setup-wizard] No current user — cannot initiate OAuth");
+                return;
+              }
               const params = new URLSearchParams({
                 companyId,
+                userId: currentUserId,
                 type: "individual",
-                ...(currentUserId ? { userId: currentUserId } : {}),
               });
               window.location.href = `/api/integrations/gmail?${params}`;
             }}

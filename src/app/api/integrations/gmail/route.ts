@@ -37,12 +37,15 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Individual connections must carry a userId — the wizard already enforces
-  // this on the client side, but we fail loudly here too so a missing userId
-  // can't silently degrade into an un-owned connection.
-  if (type === "individual" && !userId) {
+  // Both company and individual connections require a userId. Phase C
+  // memory/writing-profile extraction attributes artifacts to a real user —
+  // without one, the entire knowledge-extraction pipeline silently skips.
+  // Company connections attribute to whichever admin ran the wizard, matching
+  // how other shared-resource features (estimates, invoices) track createdBy
+  // while still being visible to the whole company.
+  if (!userId) {
     return NextResponse.json(
-      { error: "userId is required for individual connections" },
+      { error: "userId is required — wizard must pass the current user's id" },
       { status: 400 }
     );
   }

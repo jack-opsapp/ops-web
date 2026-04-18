@@ -1421,8 +1421,13 @@ export default function PipelinePage() {
                   size="sm"
                   className="gap-[6px]"
                   onClick={() => {
+                    if (!currentUser?.id) {
+                      console.error("[pipeline] No current user — cannot initiate OAuth");
+                      return;
+                    }
                     const params = new URLSearchParams({
                       companyId: company?.id ?? "",
+                      userId: currentUser.id,
                       type: "company",
                     });
                     window.location.href = `/api/integrations/gmail?${params}`;

@@ -195,7 +195,22 @@ async function runPhaseC(
   const ownerEmail = connection.email.toLowerCase();
 
   if (!userId) {
-    console.error("[analyze-memory] Connection has no userId");
+    console.error(`[analyze-memory] Connection ${connectionId} has no userId — Phase C skipped`);
+
+    // Surface the failure so it doesn't rot silently. New OAuth inits carry
+    // a userId after the 2026-04-17 fix, so this should be very rare — but if
+    // it fires, we want ops to see it and the user to be prompted to reconnect.
+    await supabase.from("notifications").insert({
+      user_id: null,
+      company_id: companyId,
+      type: "role_needed",
+      title: "AI knowledge extraction skipped — reconnect required",
+      body: "The email connection is missing an owner. Reconnect your inbox in Settings → Integrations to enable AI draft assistance.",
+      is_read: false,
+      persistent: true,
+      action_url: "/settings?tab=integrations",
+      action_label: "Reconnect",
+    });
     return;
   }
 

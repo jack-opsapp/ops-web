@@ -28,8 +28,18 @@ export function ConnectStep({ companyId }: ConnectStepProps) {
         ? "/api/integrations/gmail"
         : "/api/integrations/microsoft365";
 
+    // userId is required for BOTH company and individual connections — Phase C
+    // memory/writing-profile extraction attributes artifacts to a real user.
+    // Company connections attribute to whichever admin ran the wizard.
+    if (!currentUser?.id) {
+      console.error("[connect-step] No current user — cannot initiate OAuth");
+      setConnecting(null);
+      return;
+    }
+
     const params = new URLSearchParams({
       companyId,
+      userId: currentUser.id,
       type: "company",
     });
 

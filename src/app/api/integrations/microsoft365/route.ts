@@ -28,6 +28,16 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  // Both company and individual connections require a userId. Phase C
+  // memory/writing-profile extraction attributes artifacts to a real user —
+  // without one, the entire knowledge-extraction pipeline silently skips.
+  if (!userId) {
+    return NextResponse.json(
+      { error: "userId is required — wizard must pass the current user's id" },
+      { status: 400 }
+    );
+  }
+
   const state = Buffer.from(
     JSON.stringify({ companyId, userId, type })
   ).toString("base64");
