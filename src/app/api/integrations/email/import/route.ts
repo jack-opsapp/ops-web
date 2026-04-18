@@ -23,6 +23,7 @@ import {
   OpportunityStage,
   OpportunitySource,
 } from "@/lib/types/pipeline";
+import { getAppUrl } from "@/lib/utils/app-url";
 import type { ImportPayload, ImportResult } from "@/lib/types/email-import";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -506,21 +507,17 @@ async function runImport(
     `[email-import] Complete: ${result.clientsCreated} clients, ${result.leadsCreated} leads, ${result.activitiesLogged} activities, ${result.labelsApplied} labels`
   );
 
-  // ─── Extract images from email threads ──────────────────────────────────────
-  // After all leads are created, scan their threads for image attachments,
-  // download from Gmail, upload to Supabase Storage, and link to the opportunity.
-  await updateProgress(leads.length, "Extracting images from emails...");
-
-  // imagesExtracted tracked via result.imagesExtracted
-  const MAX_IMAGES_PER_LEAD = 10;
-  const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10 MB (matches Supabase bucket limit)
-  const IMAGE_CONCURRENCY = 3;
-
-  // Collect all unique threadIds + allowed sender emails per opportunity
+  // ─── Serialize image-extraction payload ────────────────────────────────────
+  // Image extraction is moved to a separate route (/api/integrations/email/
+  // extract-images) because the fetch+upload cycle for many attachments can
+  // easily exceed this route's 300s maxDuration, leaving jobs stuck in
+  // 'importing' forever. We build the opportunity → {threadIds, allowedSenders}
+  // map here, serialize it, mark the job complete, then dispatch the
+  // extraction in a background after() callback.
   const oppThreadMap = new Map<string, {
     opportunityId: string;
     threadIds: string[];
-    allowedSenders: Set<string>; // Only grab images from client + sub-contact emails
+    allowedSenders: Set<string>;
   }>();
   for (const lead of leads) {
     const oppId = oppMap.get(lead.id);
@@ -530,7 +527,6 @@ async function runImport(
       ? lead.mergeWithLeadId.split(",").filter(Boolean)
       : [lead.threadId];
 
-    // Build allowlist: client email + all sub-contact emails
     const senderEmails = new Set<string>();
     if (lead.clientEmail) senderEmails.add(lead.clientEmail.toLowerCase().trim());
     if (lead.subContacts) {
@@ -549,98 +545,17 @@ async function runImport(
     }
   }
 
-  for (const [, { opportunityId, threadIds, allowedSenders }] of oppThreadMap) {
-    try {
-      // Collect image attachment metadata from all threads
-      const allImageMeta: Array<{
-        messageId: string;
-        attachmentId: string;
-        filename: string;
-        mimeType: string;
-        size: number;
-        fromEmail: string;
-      }> = [];
+  const oppThreadPayload = Array.from(oppThreadMap.values()).map((v) => ({
+    opportunityId: v.opportunityId,
+    threadIds: v.threadIds,
+    allowedSenders: Array.from(v.allowedSenders),
+  }));
 
-      for (const tid of threadIds) {
-        try {
-          const images = await provider.getImageAttachmentsFromThread(tid);
-          allImageMeta.push(...images);
-        } catch (err) {
-          console.warn(`[email-import] Failed to scan thread ${tid} for images:`, err);
-        }
-      }
-
-      // Only keep images sent BY the client or their sub-contacts — not our own outbound images
-      const clientImages = allImageMeta.filter((img) => allowedSenders.has(img.fromEmail));
-
-      if (clientImages.length === 0) continue;
-
-      // Deduplicate by attachmentId and limit
-      const seen = new Set<string>();
-      const uniqueImages = clientImages.filter((img) => {
-        if (seen.has(img.attachmentId)) return false;
-        if (img.size > MAX_IMAGE_SIZE) return false;
-        seen.add(img.attachmentId);
-        return true;
-      }).slice(0, MAX_IMAGES_PER_LEAD);
-
-      console.log(`[email-import] Opportunity ${opportunityId}: found ${uniqueImages.length} images across ${threadIds.length} threads`);
-
-      // Download and upload in batches
-      const imageUrls: string[] = [];
-
-      for (let i = 0; i < uniqueImages.length; i += IMAGE_CONCURRENCY) {
-        const batch = uniqueImages.slice(i, i + IMAGE_CONCURRENCY);
-        const results = await Promise.allSettled(
-          batch.map(async (img) => {
-            const buffer = await provider.fetchAttachment(img.messageId, img.attachmentId);
-
-            // Upload to Supabase Storage
-            const ext = img.filename.split(".").pop()?.toLowerCase() || "jpg";
-            const storagePath = `email-imports/${opportunityId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-
-            const { error: uploadErr } = await supabase.storage
-              .from("images")
-              .upload(storagePath, buffer, {
-                contentType: img.mimeType,
-                upsert: false,
-              });
-
-            if (uploadErr) throw new Error(`Upload failed: ${uploadErr.message}`);
-
-            const { data: urlData } = supabase.storage
-              .from("images")
-              .getPublicUrl(storagePath);
-
-            return urlData.publicUrl;
-          })
-        );
-
-        for (const r of results) {
-          if (r.status === "fulfilled") {
-            imageUrls.push(r.value);
-            result.imagesExtracted++;
-          } else {
-            console.warn(`[email-import] Image upload failed:`, r.reason);
-          }
-        }
-      }
-
-      // Store image URLs on the opportunity
-      if (imageUrls.length > 0) {
-        await supabase
-          .from("opportunities")
-          .update({ images: imageUrls })
-          .eq("id", opportunityId);
-      }
-    } catch (err) {
-      console.warn(`[email-import] Image extraction failed for opportunity ${opportunityId}:`, err);
-    }
-  }
-
-  console.log(`[email-import] Image extraction complete: ${result.imagesExtracted} images uploaded`);
-
-  // ─── Mark job complete ──────────────────────────────────────────────────────
+  // ─── Mark job complete BEFORE image extraction dispatches ──────────────────
+  // The wizard polls analyze-status and advances past step 4 once status flips
+  // to import_complete. Writing the completion here (rather than after image
+  // extraction) ensures the wizard never stalls waiting for attachment work.
+  // imagesExtracted starts at 0 and grows as the background route finishes.
   await supabase
     .from("gmail_scan_jobs")
     .update({
@@ -648,7 +563,9 @@ async function runImport(
       progress: {
         stage: "import_complete",
         percent: 100,
-        message: "Import complete!",
+        message: oppThreadPayload.length > 0
+          ? "Import complete! Extracting images in background..."
+          : "Import complete!",
         totalLeads: leads.length,
         processedLeads: leads.length,
         clientsCreated: result.clientsCreated,
@@ -694,6 +611,36 @@ async function runImport(
       action_label: "Activate Sync",
     }).then(({ error: notifErr }) => {
       if (notifErr) console.error("[email-import] Failed to create notification:", notifErr.message);
+    });
+  }
+
+  // ─── Dispatch image extraction as a separate background route ─────────────
+  // This runs AFTER the job is marked import_complete so the wizard advances
+  // past step 4 regardless of how long extraction takes. The extract-images
+  // route has its own 800s budget (Pro plan max) for the fetch+upload cycle
+  // and writes imagesExtracted back to result on completion.
+  if (oppThreadPayload.length > 0) {
+    after(async () => {
+      try {
+        const res = await fetch(`${getAppUrl()}/api/integrations/email/extract-images`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            jobId,
+            connectionId,
+            companyId,
+            oppThreadPayload,
+          }),
+        });
+        if (!res.ok) {
+          const errBody = await res.text().catch(() => "");
+          console.error(
+            `[email-import] extract-images dispatch failed (${res.status}): ${errBody}`
+          );
+        }
+      } catch (err) {
+        console.error("[email-import] Failed to dispatch image extraction:", err);
+      }
     });
   }
 }
