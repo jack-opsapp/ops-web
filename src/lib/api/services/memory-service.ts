@@ -268,23 +268,32 @@ async function extractEntitiesAndFacts(
       messages: [
         {
           role: 'system',
-          content: `Extract business facts and entities from this email thread. Return ONLY notable facts — skip generic pleasantries.
+          content: `Extract business facts and entities from this email thread for a trades/construction business. Be generous — most threads contain at least 1-3 extractable facts. Only skip truly empty threads (one-line "thanks" / "got it" with no context).
 
 Fact categories: ${FACT_CATEGORIES.join(', ')}
 
+Extract facts from BOTH inbound client messages AND outbound owner replies:
+- Inbound (client) facts: their requirements, budget signals, service area, preferences, timeline, objections, decisions
+- Outbound (owner) facts: prices quoted, services offered, commitments made, policies stated
+
 Return JSON:
 {
-  "facts": [{"category": "pricing", "content": "Quoted $3,200 for 40ft cedar fence", "confidence": 0.9, "entity_email": "john@acme.com"}],
+  "facts": [
+    {"category": "pricing", "content": "Quoted $3,200 for 40ft cedar fence", "confidence": 0.9, "entity_email": "john@acme.com"},
+    {"category": "client_preference", "content": "Client prefers cedar over pressure-treated", "confidence": 0.85, "entity_email": "john@acme.com"},
+    {"category": "service_area", "content": "Project at 45 Maple St, Oakville", "confidence": 0.95, "entity_email": "john@acme.com"},
+    {"category": "budget_signal", "content": "Budget range $15-20k", "confidence": 0.8, "entity_email": "john@acme.com"}
+  ],
   "entities": [{"name": "John Henderson", "email": "john@acme.com", "type": "person"}, {"name": "Acme Properties", "domain": "acme.com", "type": "company"}],
   "edges": [{"from_email": "john@acme.com", "predicate": "quoted_for", "to_name": "cedar fence", "to_type": "service", "properties": {"amount": 3200}}]
 }
 
-Be concise. 1-2 sentences per fact max. Only extract facts useful for future email drafting, pricing, analytics, or relationship tracking.`,
+Be concise — 1-2 sentences per fact. Aim for 2-5 facts per substantive thread. Facts should be useful for future email drafting, pricing reference, or relationship tracking.`,
         },
         { role: 'user', content: `Thread classification: ${thread.classification}\n\n${messageSummary}` },
       ],
       temperature: 0.1,
-      max_tokens: 500,
+      max_tokens: 800,
       response_format: { type: 'json_object' },
     });
 
@@ -373,9 +382,12 @@ export const MemoryService = {
       }
     }
 
-    // Update knowledge graph edges
+    // Update knowledge graph edges. Surface upsert errors — previously the
+    // .then(null, errorHandler) pattern swallowed schema/constraint failures
+    // and made Phase C tables silently stay empty (see agent_knowledge_graph
+    // legacy-schema incident 2026-04-18).
     for (const edge of extraction.edges) {
-      await supabase
+      const { error: edgeErr } = await supabase
         .from("agent_knowledge_graph")
         .upsert(
           {
@@ -392,10 +404,10 @@ export const MemoryService = {
             onConflict:
               "company_id,subject_type,subject_id,predicate,object_type,object_id",
           }
-        )
-        .then(null, (err) => {
-          console.error("[memory-service] Knowledge graph upsert failed:", err);
-        });
+        );
+      if (edgeErr) {
+        console.error("[memory-service] Knowledge graph upsert failed:", edgeErr);
+      }
     }
   },
 
@@ -536,10 +548,13 @@ export const MemoryService = {
         }
       }
 
-      // Create works_for edge: person → company
+      // Create works_for edge: person → company. Only increment edgesCreated
+      // if the upsert actually landed — previously the stat always incremented
+      // even when the write failed silently, which masked the 2026-04-18
+      // agent_knowledge_graph legacy-NOT-NULL schema bug.
       const companyEntityId = domainCompanyIds.get(domain);
       if (personEntity && companyEntityId) {
-        await supabase
+        const { error: edgeErr } = await supabase
           .from("agent_knowledge_graph")
           .upsert({
             company_id: companyId,
@@ -548,11 +563,12 @@ export const MemoryService = {
             target_entity_id: companyEntityId,
             link_type: 'extracted',
             valid_from: new Date().toISOString(),
-          }, { onConflict: 'company_id,source_entity_id,predicate,target_entity_id' })
-          .then(null, (err) => {
-            console.error("[memory-service] works_for edge upsert failed:", err);
-          });
-        edgesCreated++;
+          }, { onConflict: 'company_id,source_entity_id,predicate,target_entity_id' });
+        if (edgeErr) {
+          console.error("[memory-service] works_for edge upsert failed:", edgeErr);
+        } else {
+          edgesCreated++;
+        }
       }
 
       // Create relationship edge: external company → self company
@@ -563,7 +579,7 @@ export const MemoryService = {
         else if (info.classification === 'subtrade') predicate = 'subtrade_of';
 
         if (predicate !== 'communicates_with') {
-          await supabase
+          const { error: relErr } = await supabase
             .from("agent_knowledge_graph")
             .upsert({
               company_id: companyId,
@@ -572,11 +588,12 @@ export const MemoryService = {
               target_entity_id: selfCompanyId,
               link_type: 'extracted',
               valid_from: new Date().toISOString(),
-            }, { onConflict: 'company_id,source_entity_id,predicate,target_entity_id' })
-            .then(null, (err) => {
-              console.error(`[memory-service] ${predicate} edge upsert failed:`, err);
-            });
-          edgesCreated++;
+            }, { onConflict: 'company_id,source_entity_id,predicate,target_entity_id' });
+          if (relErr) {
+            console.error(`[memory-service] ${predicate} edge upsert failed:`, relErr);
+          } else {
+            edgesCreated++;
+          }
         }
       }
     }
@@ -681,7 +698,7 @@ export const MemoryService = {
           ? entity.email.toLowerCase()
           : (entity.domain || entity.name.toLowerCase().trim());
 
-        await supabase
+        const { error: entityErr } = await supabase
           .from("graph_entities")
           .upsert({
             company_id: companyId,
@@ -693,10 +710,10 @@ export const MemoryService = {
             confidence: 0.8,
             source: 'email_import',
             updated_at: new Date().toISOString(),
-          }, { onConflict: 'company_id,entity_type,normalized_name' })
-          .then(null, (err) => {
-            console.error("[memory-service] AI entity upsert failed:", err);
-          });
+          }, { onConflict: 'company_id,entity_type,normalized_name' });
+        if (entityErr) {
+          console.error("[memory-service] AI entity upsert failed:", entityErr);
+        }
       }
 
       // Upsert AI-extracted edges into agent_knowledge_graph
@@ -735,7 +752,7 @@ export const MemoryService = {
         }
 
         if (sourceEntityId && targetEntityId) {
-          await supabase
+          const { error: aiEdgeErr } = await supabase
             .from("agent_knowledge_graph")
             .upsert({
               company_id: companyId,
@@ -745,11 +762,12 @@ export const MemoryService = {
               link_type: 'extracted',
               properties: edge.properties || {},
               valid_from: new Date().toISOString(),
-            }, { onConflict: 'company_id,source_entity_id,predicate,target_entity_id' })
-            .then(null, (err) => {
-              console.error("[memory-service] AI edge upsert failed:", err);
-            });
-          edgesCreated++;
+            }, { onConflict: 'company_id,source_entity_id,predicate,target_entity_id' });
+          if (aiEdgeErr) {
+            console.error("[memory-service] AI edge upsert failed:", aiEdgeErr);
+          } else {
+            edgesCreated++;
+          }
         }
       }
 
