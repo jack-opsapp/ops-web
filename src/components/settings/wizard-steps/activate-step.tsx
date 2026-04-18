@@ -2,9 +2,11 @@
 
 import { useState, useCallback } from "react";
 import { motion } from "framer-motion";
-import { Check, CheckCircle, Loader2, Zap } from "lucide-react";
+import { AlertTriangle, CheckCircle, Loader2, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { ImportPayload, ImportResult } from "@/lib/types/email-import";
+
+type ActivationWarning = { step: string; message: string };
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 const staggerContainer = { hidden: {}, show: { transition: { staggerChildren: 0.08 } } };
@@ -23,7 +25,7 @@ interface ActivateStepProps {
   companyId: string;
   syncProfile: ImportPayload["syncProfile"];
   importResult: ImportResult;
-  onActivate: (interval: number) => Promise<void>;
+  onActivate: (interval: number) => Promise<{ warnings?: ActivationWarning[] }>;
   onComplete: () => void;
 }
 
@@ -35,6 +37,7 @@ export function ActivateStep({
   const [selectedInterval, setSelectedInterval] = useState(60);
   const [activating, setActivating] = useState(false);
   const [activated, setActivated] = useState(false);
+  const [warnings, setWarnings] = useState<ActivationWarning[]>([]);
 
   const [activationError, setActivationError] = useState<string | null>(null);
 
@@ -42,7 +45,8 @@ export function ActivateStep({
     setActivating(true);
     setActivationError(null);
     try {
-      await onActivate(selectedInterval);
+      const result = await onActivate(selectedInterval);
+      setWarnings(result?.warnings || []);
       setActivated(true);
     } catch (err) {
       console.error("Activation failed:", err);
@@ -62,7 +66,7 @@ export function ActivateStep({
       >
         <div className="flex items-center gap-2 mb-3">
           <CheckCircle size={16} className="text-[#9DB582]" />
-          <span className="font-kosugi text-micro tracking-[0.15em] uppercase text-[#9DB582]">
+          <span className="font-mono text-micro tracking-[0.15em] uppercase text-[#9DB582]">
             Import Complete
           </span>
         </div>
@@ -105,7 +109,7 @@ export function ActivateStep({
         className="mb-6 p-3 border border-white/10 bg-white/[0.02]"
         style={{ borderRadius: 3 }}
       >
-        <p className="font-kosugi text-micro tracking-[0.15em] uppercase text-[#6F94B0] mb-2">
+        <p className="font-mono text-micro tracking-[0.15em] uppercase text-[#6F94B0] mb-2">
           How new leads are captured
         </p>
         <div className="space-y-2">
@@ -137,7 +141,7 @@ export function ActivateStep({
       {/* Sync frequency */}
       {!activated && (
         <motion.div variants={staggerItem} className="mb-6">
-          <p className="font-kosugi text-micro tracking-[0.15em] uppercase text-[#999] mb-3">
+          <p className="font-mono text-micro tracking-[0.15em] uppercase text-[#999] mb-3">
             Sync Frequency
           </p>
           <div className="flex gap-2 flex-wrap">
@@ -181,6 +185,35 @@ export function ActivateStep({
         </motion.div>
       )}
 
+      {/* Partial-success warnings — rendered only after activation so the user
+          sees what did/didn't complete. Typically: webhook setup failed but
+          the connection is live and scheduled sync is running. */}
+      {activated && warnings.length > 0 && (
+        <motion.div
+          variants={staggerItem}
+          className="mb-4 p-3 border border-amber-500/30 bg-amber-500/[0.08]"
+          style={{ borderRadius: 3 }}
+        >
+          <div className="flex items-center gap-2 mb-2">
+            <AlertTriangle size={14} className="text-amber-400" />
+            <span className="font-mono text-micro tracking-[0.15em] uppercase text-amber-400">
+              Partial activation
+            </span>
+          </div>
+          <div className="space-y-1 mb-2">
+            {warnings.map((w, i) => (
+              <p key={i} className="font-mohave text-[13px] text-[#CCC]">
+                <span className="text-amber-400 font-medium">{w.step}:</span>{" "}
+                {w.message}
+              </p>
+            ))}
+          </div>
+          <p className="font-mohave text-[11px] text-[#888]">
+            Scheduled sync is running. To enable real-time updates, reconnect the inbox from Settings.
+          </p>
+        </motion.div>
+      )}
+
       {/* Activate / Done */}
       <motion.div variants={staggerItem}>
         {activated ? (
@@ -193,7 +226,7 @@ export function ActivateStep({
             </div>
             <Button
               onClick={onComplete}
-              className="font-kosugi text-[11px] tracking-[0.1em] uppercase bg-ops-accent hover:bg-[#6A88A5] text-white px-6 py-2"
+              className="font-mono text-[11px] tracking-[0.1em] uppercase bg-ops-accent hover:bg-[#6A88A5] text-white px-6 py-2"
               style={{ borderRadius: 3 }}
             >
               Done
@@ -203,7 +236,7 @@ export function ActivateStep({
           <Button
             onClick={handleActivate}
             disabled={activating}
-            className="font-kosugi text-[11px] tracking-[0.1em] uppercase bg-ops-accent hover:bg-[#6A88A5] text-white px-8 py-2.5 w-full disabled:opacity-40"
+            className="font-mono text-[11px] tracking-[0.1em] uppercase bg-ops-accent hover:bg-[#6A88A5] text-white px-8 py-2.5 w-full disabled:opacity-40"
             style={{ borderRadius: 3 }}
           >
             {activating ? (

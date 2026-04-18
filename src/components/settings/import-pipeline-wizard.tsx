@@ -822,8 +822,10 @@ export function ImportPipelineWizard({
   // ─── Activate & complete ─────────────────────────────────────────────────
 
   const handleActivate = useCallback(
-    async (interval: number) => {
-      if (!connectionId || !analysisResult) return;
+    async (
+      interval: number
+    ): Promise<{ warnings?: Array<{ step: string; message: string }> }> => {
+      if (!connectionId || !analysisResult) return {};
 
       setSyncInterval(interval);
       const activationPayload = {
@@ -855,6 +857,13 @@ export function ImportPipelineWizard({
         const errorData = await res.json().catch(() => ({ error: "Activation failed" }));
         throw new Error(errorData.error || `Activation failed (${res.status})`);
       }
+
+      // Parse the response so partial-success warnings (e.g. webhook setup
+      // failure) can surface in ActivateStep instead of being swallowed.
+      const data = (await res.json().catch(() => ({}))) as {
+        warnings?: Array<{ step: string; message: string }>;
+      };
+      return { warnings: data.warnings };
     },
     [connectionId, companyId, analysisResult, confirmedSources, estimatePattern]
   );
