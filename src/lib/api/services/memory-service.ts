@@ -304,19 +304,56 @@ Be concise — 1-2 sentences per fact. Aim for 2-5 facts per substantive thread.
       entities: Array.isArray(parsed.entities) ? parsed.entities : [],
       edges: Array.isArray(parsed.edges) ? parsed.edges : [],
     };
-    // One-line diagnostic so Phase C runs can be audited via Vercel logs:
-    // facts/entities/edges counts per thread + first 100 chars of response.
-    // Remove once the extraction loop is reliably producing facts.
+    // Capture diagnostic samples so we can inspect what gpt-4o-mini is actually
+    // returning (Vercel streaming logs are unreliable for post-hoc audit).
+    // First 5 raw responses + first 5 empty responses are captured in module
+    // state and flushed to gmail_scan_jobs.result at end of processImportBatch.
     if (result.facts.length === 0 && result.entities.length === 0 && result.edges.length === 0) {
+      if (_diagEmptyResponses.length < 5) _diagEmptyResponses.push(content.slice(0, 500));
       console.warn(`[memory-service] extractEntitiesAndFacts returned empty — raw: ${content.slice(0, 200)}`);
     } else {
+      if (_diagSampleResponses.length < 5) {
+        _diagSampleResponses.push({
+          factsLen: result.facts.length,
+          entitiesLen: result.entities.length,
+          edgesLen: result.edges.length,
+          raw: content.slice(0, 500),
+        });
+      }
       console.log(`[memory-service] extract: ${result.facts.length} facts, ${result.entities.length} entities, ${result.edges.length} edges`);
     }
     return result;
   } catch (err) {
+    _diagExtractionErrors.push(err instanceof Error ? err.message : String(err));
     console.error('[memory-service] Entity+fact extraction failed:', err);
     return { facts: [], entities: [], edges: [] };
   }
+}
+
+// Module-level diagnostic capture for Phase C fact extraction. Flushed to
+// gmail_scan_jobs.result.extractionDiagnostics at end of processImportBatch
+// so we can post-hoc inspect what gpt-4o-mini returned without relying on
+// streaming logs. Remove once extraction is known-good.
+const _diagEmptyResponses: string[] = [];
+const _diagSampleResponses: Array<{
+  factsLen: number;
+  entitiesLen: number;
+  edgesLen: number;
+  raw: string;
+}> = [];
+const _diagExtractionErrors: string[] = [];
+function _resetDiagnostics(): void {
+  _diagEmptyResponses.length = 0;
+  _diagSampleResponses.length = 0;
+  _diagExtractionErrors.length = 0;
+}
+function _snapshotDiagnostics() {
+  return {
+    emptyResponsesCount: _diagEmptyResponses.length,
+    firstEmptyResponses: [..._diagEmptyResponses],
+    sampleResponses: [..._diagSampleResponses],
+    extractionErrors: [..._diagExtractionErrors],
+  };
 }
 
 // ─── Service ────────────────────────────────────────────────────────────────
@@ -631,6 +668,11 @@ export const MemoryService = {
     let entitiesCreated = 0;
     let edgesCreated = 0;
 
+    // Reset per-batch diagnostic capture. These samples are flushed into
+    // analyze-memory's job result so operators can inspect what extraction
+    // returned without chasing streaming logs.
+    _resetDiagnostics();
+
     // Step 1: Deterministic entity resolution
     console.log(`[memory-service] Step 1: Resolving entities from ${threads.length} threads`);
     const entityResult = await this.resolveEntities(companyId, threads, ownerEmail, employeeEmails);
@@ -801,6 +843,25 @@ export const MemoryService = {
 
     console.log(`[memory-service] processImportBatch complete: ${factsExtracted} facts, ${entitiesCreated} entities, ${edgesCreated} edges, ${profilesBuilt} profiles`);
     return { factsExtracted, entitiesCreated, edgesCreated, profilesBuilt };
+  },
+
+  /**
+   * Returns diagnostic samples captured during the most recent
+   * processImportBatch run. Used by analyze-memory to persist debugging
+   * data into gmail_scan_jobs.result. Remove once extraction is stable.
+   */
+  getLastBatchDiagnostics() {
+    return _snapshotDiagnostics();
+  },
+
+  /**
+   * Summarizes emailsByProfileType for diagnostics. Passed separately from
+   * processImportBatch to avoid touching the stable public signature.
+   */
+  summarizeProfileTypes(emailsByProfileType: Map<string, unknown[]>): Record<string, number> {
+    const out: Record<string, number> = {};
+    for (const [k, v] of emailsByProfileType) out[k] = v.length;
+    return out;
   },
 
   /**

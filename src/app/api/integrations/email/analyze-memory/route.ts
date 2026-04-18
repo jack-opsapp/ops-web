@@ -351,6 +351,7 @@ async function runPhaseC(
 
   // ─── 8. Save completion stats to job result ──────────────────────────────
   const processingTimeMs = Date.now() - startTime;
+  const extractionDiagnostics = MemoryService.getLastBatchDiagnostics();
   await supabase
     .from("gmail_scan_jobs")
     .update({
@@ -362,6 +363,10 @@ async function runPhaseC(
           processingTimeMs,
           threadsProcessed: classifiedThreads.length,
         },
+        // Temporary diagnostics so operators can inspect extraction output
+        // without relying on Vercel streaming logs. Safe to drop once the
+        // fact-extraction pipeline is reliably producing data.
+        extractionDiagnostics,
       },
     })
     .eq("id", jobId);
