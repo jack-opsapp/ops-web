@@ -78,8 +78,18 @@ export async function POST(request: NextRequest) {
     }
 
     // 3. Save sync profile and activate
+    // Merge into existing syncFilters so activation preserves wizard state —
+    // lastScanJobId, lastImportJobId, reviewState, and anything else the
+    // wizard has persisted. Replacing (not merging) caused fix #20's auto-
+    // scan bug: once activation wiped the job IDs, reopening the wizard for
+    // an already-active connection found empty state and fell through to a
+    // phantom fresh analyze. The PATCH /connection route already uses this
+    // merge pattern — activate should match.
+    const existingFilters = (connection.syncFilters as Record<string, unknown>) || {};
+
     await EmailService.updateConnection(connectionId, {
       syncFilters: {
+        ...existingFilters,
         ...syncProfile,
         wizardCompleted: true,
         wizardStep: 5,
