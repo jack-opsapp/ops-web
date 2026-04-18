@@ -266,7 +266,14 @@ export function IntegrationsTab() {
       });
     }
   }, [hasAnyConnection, companyConnections]); // eslint-disable-line react-hooks/exhaustive-deps
-  const wizardDone = companyConnections[0]?.syncFilters?.wizardCompleted === true;
+  // wizardDone must accept EITHER signal. After activation, the activate route
+  // flips `status` to 'active' but there's a refetch race where `syncFilters`
+  // can still read the stale pre-activation flag. Treating `status === 'active'`
+  // as authoritative lets the UI flip to the "active" state immediately,
+  // without flashing the amber "Pipeline import not configured" CTA.
+  const wizardDone =
+    companyConnections[0]?.syncFilters?.wizardCompleted === true ||
+    companyConnections[0]?.status === "active";
   const importComplete = companyConnections[0]?.syncFilters?.importComplete === true;
 
   // Determine if there's a running analysis job to show progress for
@@ -326,10 +333,14 @@ export function IntegrationsTab() {
         onOpenChange={setWizardOpen}
         connectionId={companyConnections[0]?.id}
         companyId={companyId}
-        onComplete={() => {
+        onComplete={async () => {
           setWizardOpen(false);
           toast.success("Pipeline import complete");
-          queryClient.invalidateQueries({ queryKey: queryKeys.gmailConnections.all });
+          // Await both invalidation AND refetch so the tile re-renders with the
+          // post-activation connection data (status='active', syncFilters.wizardCompleted=true)
+          // before any other guard reads stale cache.
+          await queryClient.invalidateQueries({ queryKey: queryKeys.gmailConnections.all });
+          await queryClient.refetchQueries({ queryKey: queryKeys.gmailConnections.all });
         }}
       />
 
