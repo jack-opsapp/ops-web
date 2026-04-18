@@ -300,7 +300,65 @@ export function ImportPipelineWizard({
         const conn = await res.json();
         const filters = conn.syncFilters || {};
 
-        // Wizard already completed — nothing to restore
+        // ── Early guard: connection is already active ────────────────────
+        // Without this, a user reopening the wizard for an already-active
+        // connection would fall through to step 2's AnalyzeStep, which auto-
+        // starts a brand new scan. That wastes OpenAI + Gmail budget and
+        // produces phantom job rows. Gate on status='active' so the wizard
+        // always lands on step 5 (the activation confirmation) for set-up
+        // connections, regardless of what the job IDs look like.
+        if (filters.wizardCompleted && conn.status === "active") {
+          let loadedImportResult: ImportResult | null = null;
+
+          // Load existing scan/import data so step 5 renders real numbers
+          // instead of zeroes. Silent on error — we still navigate to step 5.
+          try {
+            if (filters.lastImportJobId) {
+              const jobRes = await fetch(`/api/integrations/email/analyze-status?jobId=${filters.lastImportJobId}`);
+              if (jobRes.ok) {
+                const jobData = await jobRes.json();
+                if (jobData.result) {
+                  setImportResult(jobData.result);
+                  loadedImportResult = jobData.result;
+                }
+              }
+            }
+            if (filters.lastScanJobId) {
+              const scanRes = await fetch(`/api/integrations/email/analyze-status?jobId=${filters.lastScanJobId}`);
+              if (scanRes.ok) {
+                const scanData = await scanRes.json();
+                if (scanData.result) {
+                  setAnalysisResult(scanData.result);
+                  setConfirmedSources(scanData.result.detectedSources);
+                  setConfirmedLeads(scanData.result.leads || []);
+                  if (scanData.result.estimatePattern) setEstimatePattern(scanData.result.estimatePattern);
+                }
+              }
+            }
+          } catch (err) {
+            console.error("[wizard] Failed to load existing scan/import data for active connection:", err);
+          }
+
+          // Fallback: synthesize an empty ImportResult so step 5 never hangs
+          // on the "Loading import results..." state when job data is missing.
+          if (!loadedImportResult) {
+            setImportResult({
+              clientsCreated: 0,
+              leadsCreated: 0,
+              activitiesLogged: 0,
+              labelsApplied: 0,
+              imagesExtracted: 0,
+              errors: [],
+            });
+          }
+
+          setDirection(1);
+          setStep(5);
+          return;
+        }
+
+        // Wizard marked complete but connection isn't active (edge case —
+        // probably a deactivated or errored connection). Nothing to restore.
         if (filters.wizardCompleted) return;
 
         // ── Check for import job first (higher wizard step) ──────────────
