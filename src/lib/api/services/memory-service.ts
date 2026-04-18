@@ -299,11 +299,20 @@ Be concise — 1-2 sentences per fact. Aim for 2-5 facts per substantive thread.
 
     const content = response.choices[0]?.message?.content || '{"facts":[],"entities":[],"edges":[]}';
     const parsed = JSON.parse(content);
-    return {
+    const result = {
       facts: Array.isArray(parsed.facts) ? parsed.facts : [],
       entities: Array.isArray(parsed.entities) ? parsed.entities : [],
       edges: Array.isArray(parsed.edges) ? parsed.edges : [],
     };
+    // One-line diagnostic so Phase C runs can be audited via Vercel logs:
+    // facts/entities/edges counts per thread + first 100 chars of response.
+    // Remove once the extraction loop is reliably producing facts.
+    if (result.facts.length === 0 && result.entities.length === 0 && result.edges.length === 0) {
+      console.warn(`[memory-service] extractEntitiesAndFacts returned empty — raw: ${content.slice(0, 200)}`);
+    } else {
+      console.log(`[memory-service] extract: ${result.facts.length} facts, ${result.entities.length} entities, ${result.edges.length} edges`);
+    }
+    return result;
   } catch (err) {
     console.error('[memory-service] Entity+fact extraction failed:', err);
     return { facts: [], entities: [], edges: [] };
