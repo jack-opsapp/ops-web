@@ -37,6 +37,7 @@ import { AutoSendSettings } from "./auto-send-settings";
 import { AutonomyStatusPanel } from "./autonomy-status-panel";
 import { useRouter } from "next/navigation";
 import { useFeatureFlagsStore } from "@/lib/store/feature-flags-store";
+import { authedFetch } from "@/lib/utils/authed-fetch";
 import { Brain } from "lucide-react";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
@@ -85,7 +86,10 @@ function AnalysisProgressBanner({ jobId, wizardOpen, onComplete, onClick }: Anal
 
     const poll = async () => {
       try {
-        const res = await fetch(`/api/integrations/email/analyze-status?jobId=${jobId}`);
+        // authedFetch attaches the Firebase ID token and retries once on 401
+        // so long-running analyses keep streaming progress even when the
+        // user's token expires mid-session.
+        const res = await authedFetch(`/api/integrations/email/analyze-status?jobId=${jobId}`);
         if (!res.ok) return;
         const data = await res.json();
 

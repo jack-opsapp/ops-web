@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Users, FileText, Tag, CheckCircle, Loader2, Minimize2 } from "lucide-react";
+import { authedFetch } from "@/lib/utils/authed-fetch";
 import type { ImportResult } from "@/lib/types/email-import";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
@@ -79,7 +80,11 @@ export function ImportProgress({
   // ─── Poll for status ─────────────────────────────────────────────────────
   const pollCallback = useCallback(async (currentJobId: string) => {
     try {
-      const res = await fetch(
+      // authedFetch attaches the Firebase ID token and auto-retries on 401
+      // with a force-refreshed token. Long imports can outlive the initial
+      // token's lifetime, so the retry prevents the UI from going silent
+      // when the token expires mid-poll.
+      const res = await authedFetch(
         `/api/integrations/email/analyze-status?jobId=${currentJobId}`
       );
       const data = await res.json();
@@ -242,7 +247,7 @@ export function ImportProgress({
                 >
                   <div className="flex items-center gap-2 mb-2">
                     <Icon size={14} className="text-[#6F94B0]" />
-                    <span className="font-kosugi text-micro uppercase tracking-wider text-[#666]">
+                    <span className="font-mono text-micro uppercase tracking-wider text-[#666]">
                       {stat.label}
                     </span>
                   </div>

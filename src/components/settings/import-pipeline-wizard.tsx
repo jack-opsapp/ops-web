@@ -25,6 +25,7 @@ import { useDashboardCustomizeStore } from "@/stores/dashboard-customize-store";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/api/query-client";
 import { useAuthStore } from "@/lib/store/auth-store";
+import { authedFetch } from "@/lib/utils/authed-fetch";
 import type { AnalysisResult, AnalyzedLead, ImportPayload, ImportResult, ConsolidationGroup, TriageDecision } from "@/lib/types/email-import";
 import type { DetectedSource } from "@/lib/api/services/pattern-detection-service";
 
@@ -314,7 +315,7 @@ export function ImportPipelineWizard({
           // instead of zeroes. Silent on error — we still navigate to step 5.
           try {
             if (filters.lastImportJobId) {
-              const jobRes = await fetch(`/api/integrations/email/analyze-status?jobId=${filters.lastImportJobId}`);
+              const jobRes = await authedFetch(`/api/integrations/email/analyze-status?jobId=${filters.lastImportJobId}`);
               if (jobRes.ok) {
                 const jobData = await jobRes.json();
                 if (jobData.result) {
@@ -324,7 +325,7 @@ export function ImportPipelineWizard({
               }
             }
             if (filters.lastScanJobId) {
-              const scanRes = await fetch(`/api/integrations/email/analyze-status?jobId=${filters.lastScanJobId}`);
+              const scanRes = await authedFetch(`/api/integrations/email/analyze-status?jobId=${filters.lastScanJobId}`);
               if (scanRes.ok) {
                 const scanData = await scanRes.json();
                 if (scanData.result) {
@@ -363,7 +364,7 @@ export function ImportPipelineWizard({
 
         // ── Check for import job first (higher wizard step) ──────────────
         if (filters.lastImportJobId) {
-          const jobRes = await fetch(`/api/integrations/email/analyze-status?jobId=${filters.lastImportJobId}`);
+          const jobRes = await authedFetch(`/api/integrations/email/analyze-status?jobId=${filters.lastImportJobId}`);
           if (jobRes.ok) {
             const jobData = await jobRes.json();
 
@@ -377,7 +378,7 @@ export function ImportPipelineWizard({
               setImportResult(jobData.result);
               // We also need analysis result for the activate step's sync profile
               if (filters.lastScanJobId) {
-                const scanRes = await fetch(`/api/integrations/email/analyze-status?jobId=${filters.lastScanJobId}`);
+                const scanRes = await authedFetch(`/api/integrations/email/analyze-status?jobId=${filters.lastScanJobId}`);
                 if (scanRes.ok) {
                   const scanData = await scanRes.json();
                   if (scanData.result) {
@@ -401,7 +402,7 @@ export function ImportPipelineWizard({
               }
               // Load analysis result for later steps
               if (filters.lastScanJobId) {
-                const scanRes = await fetch(`/api/integrations/email/analyze-status?jobId=${filters.lastScanJobId}`);
+                const scanRes = await authedFetch(`/api/integrations/email/analyze-status?jobId=${filters.lastScanJobId}`);
                 if (scanRes.ok) {
                   const scanData = await scanRes.json();
                   if (scanData.result) {
@@ -422,7 +423,7 @@ export function ImportPipelineWizard({
 
         // ── Check for scan/analysis job ──────────────────────────────────
         if (filters.lastScanJobId) {
-          const jobRes = await fetch(`/api/integrations/email/analyze-status?jobId=${filters.lastScanJobId}`);
+          const jobRes = await authedFetch(`/api/integrations/email/analyze-status?jobId=${filters.lastScanJobId}`);
           if (!jobRes.ok) return;
           const jobData = await jobRes.json();
 
@@ -590,7 +591,10 @@ export function ImportPipelineWizard({
 
     const poll = async () => {
       try {
-        const res = await fetch(`/api/integrations/email/analyze-status?jobId=${runningJobId}`);
+        // authedFetch auto-refreshes the Firebase ID token on 401 so the
+        // minimized-state polling doesn't silently drop when the token ages
+        // out mid-analysis/import.
+        const res = await authedFetch(`/api/integrations/email/analyze-status?jobId=${runningJobId}`);
         if (!res.ok) { bgPollRef.current = setTimeout(poll, 5000); return; }
         const data = await res.json();
 

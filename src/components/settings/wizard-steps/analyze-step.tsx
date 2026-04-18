@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, Mail, Zap, MessageCircle, CheckCircle, Minimize2 } from "lucide-react";
+import { authedFetch } from "@/lib/utils/authed-fetch";
 import type { AnalysisResult } from "@/lib/types/email-import";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
@@ -139,7 +140,10 @@ export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete
   // Poll for status
   const pollCallback = useCallback(async (currentJobId: string) => {
     try {
-      const res = await fetch(`/api/integrations/email/analyze-status?jobId=${currentJobId}`);
+      // authedFetch attaches the Firebase ID token and retries once on 401
+      // with a force-refreshed token. Without this, long analyses lose the
+      // progress feed the moment the token ages out.
+      const res = await authedFetch(`/api/integrations/email/analyze-status?jobId=${currentJobId}`);
       const data = await res.json();
 
       setStatus(normalizeStatus(data.status));
