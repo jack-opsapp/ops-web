@@ -40,6 +40,7 @@ function mapFromDb(row: Record<string, unknown>): GmailConnection {
     lastSyncedAt: parseDate(row.last_synced_at),
     syncIntervalMinutes: (row.sync_interval_minutes as number) ?? 60,
     syncFilters: (row.sync_filters as GmailSyncFilters) ?? DEFAULT_SYNC_FILTERS,
+    status: (row.status as GmailConnection["status"]) ?? "setup_incomplete",
     createdAt: parseDateRequired(row.created_at),
     updatedAt: parseDateRequired(row.updated_at),
   };

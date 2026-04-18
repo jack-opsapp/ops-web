@@ -1473,6 +1473,15 @@ export interface UpdateSiteVisit {
 
 // ─── Gmail Connections ──────────────────────────────────────────────────────
 
+/** Matches EmailConnectionStatus in email-connection.ts — inlined to avoid
+ *  a cross-file import cycle. Keep in sync. */
+export type GmailConnectionStatus =
+  | "active"
+  | "paused"
+  | "error"
+  | "setup_incomplete"
+  | "needs_reconnect";
+
 export interface GmailConnection {
   id: string;
   companyId: string;
@@ -1487,6 +1496,7 @@ export interface GmailConnection {
   lastSyncedAt: Date | null;
   syncIntervalMinutes: number;
   syncFilters: GmailSyncFilters;
+  status: GmailConnectionStatus;
   createdAt: Date;
   updatedAt: Date;
 }
