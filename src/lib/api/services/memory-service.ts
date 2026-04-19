@@ -506,6 +506,140 @@ async function processThreadExtraction(
   return { factsAdded, edgesAdded };
 }
 
+// ─── Single-profile writing-profile analyzer ─────────────────────────────────
+//
+// Extracted from buildWritingProfiles so the outer orchestrator can drive a
+// concurrency-limited worker pool over profile types. One unit of work here =
+// one gpt-4o-mini call + one agent_writing_profiles upsert. Returns true iff
+// a profile row was upserted; false for skip (too few samples, invalid type)
+// or failure (LLM call threw).
+async function buildSingleWritingProfile(
+  supabase: SupabaseClient,
+  companyId: string,
+  userId: string,
+  profileType: string,
+  emails: Array<{ subject: string; bodyText: string; date: string }>,
+): Promise<boolean> {
+  // Need at least 2 emails to extract any reliable style signal.
+  if (emails.length < 2) return false;
+  if (!VALID_PROFILE_TYPES.includes(profileType as ProfileType)) return false;
+
+  // Select up to 10 most recent with diverse subjects
+  const sorted = [...emails].sort(
+    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+  );
+  const seen = new Set<string>();
+  const selected: typeof emails = [];
+  for (const e of sorted) {
+    const subjectKey = e.subject.toLowerCase().replace(/^re:\s*/i, '').trim();
+    if (!seen.has(subjectKey)) {
+      seen.add(subjectKey);
+      selected.push(e);
+    }
+    if (selected.length >= 10) break;
+  }
+
+  try {
+    const description = PROFILE_TYPE_DESCRIPTIONS[profileType as ProfileType] || profileType;
+    const response = await getOpenAI().chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content: `Analyze these outbound emails from a business owner to characterize their writing style for this relationship type. These are all emails to ${description}.
+
+Return JSON:
+{
+  "greeting_patterns": ["Hey {name},", "Hi {name},"],
+  "closing_patterns": ["Thanks,", "Best,"],
+  "avg_sentence_length": 12,
+  "formality_score": 0.6,
+  "tone_traits": {"direct": true, "professional": true, "warm": true},
+  "vocabulary_preferences": ["appreciate", "looking forward to", "let me know"],
+  "common_phrases": ["happy to help", "sounds good"],
+  "hedging_tendency": 0.15,
+  "punctuation_habits": {"exclamation_marks": 1.5, "em_dashes": 0.3, "semicolons": 0.1, "ellipsis": 0.0, "parenthetical": 0.5}
+}
+
+IMPORTANT:
+- formality_score must be 0.0-1.0 (0=very casual, 1=very formal). NOT 1-10.
+- hedging_tendency must be a number 0.0-1.0 (fraction of sentences containing hedging phrases).
+- punctuation_habits values must be numbers (average count per email), NOT strings.`,
+        },
+        {
+          role: 'user',
+          content: selected.map(e => `Subject: ${e.subject}\n${e.bodyText.slice(0, 600)}`).join('\n---\n'),
+        },
+      ],
+      temperature: 0.1,
+      max_tokens: 400,
+      response_format: { type: 'json_object' },
+    });
+
+    const content = response.choices[0]?.message?.content || '{}';
+    const parsed = JSON.parse(content);
+
+    // Normalize hedging_tendency to number (GPT may return string like "low")
+    let hedgingNum = 0.2;
+    if (typeof parsed.hedging_tendency === 'number') {
+      hedgingNum = parsed.hedging_tendency;
+    } else if (typeof parsed.hedging_tendency === 'string') {
+      const hedgeMap: Record<string, number> = { none: 0, low: 0.15, moderate: 0.35, medium: 0.5, high: 0.7, very_high: 0.85 };
+      hedgingNum = hedgeMap[parsed.hedging_tendency.toLowerCase()] ?? 0.2;
+    }
+
+    // Normalize punctuation_habits to numbers (GPT may return strings like "occasional")
+    const rawPunctuation = parsed.punctuation_habits || {};
+    const punctMap: Record<string, number> = { never: 0, rare: 0.2, occasional: 0.8, sometimes: 1.0, moderate: 1.5, frequent: 3.0, heavy: 5.0 };
+    const normalizePunctValue = (v: unknown): number => {
+      if (typeof v === 'number') return v;
+      if (typeof v === 'string') return punctMap[v.toLowerCase()] ?? 0.5;
+      if (typeof v === 'boolean') return v ? 1.0 : 0;
+      return 0;
+    };
+    const normalizedPunctuation = {
+      exclamation_marks: normalizePunctValue(rawPunctuation.exclamation_marks ?? rawPunctuation.exclamations),
+      em_dashes: normalizePunctValue(rawPunctuation.em_dashes),
+      semicolons: normalizePunctValue(rawPunctuation.semicolons),
+      ellipsis: normalizePunctValue(rawPunctuation.ellipsis),
+      parenthetical: normalizePunctValue(rawPunctuation.parenthetical ?? rawPunctuation.parentheticals),
+    };
+
+    // Store in vocabulary_preferences JSONB
+    const vocabPrefs = {
+      words: Array.isArray(parsed.vocabulary_preferences) ? parsed.vocabulary_preferences : [],
+      common_phrases: Array.isArray(parsed.common_phrases) ? parsed.common_phrases : [],
+      hedging_tendency: hedgingNum,
+      punctuation_habits: normalizedPunctuation,
+    };
+
+    // Normalize formality_score to 0-1 (GPT may return 1-10 scale)
+    let formalityScore = typeof parsed.formality_score === 'number' ? parsed.formality_score : 0.5;
+    if (formalityScore > 1) formalityScore = formalityScore / 10;
+
+    await supabase
+      .from("agent_writing_profiles")
+      .upsert({
+        company_id: companyId,
+        user_id: userId,
+        profile_type: profileType,
+        greeting_patterns: Array.isArray(parsed.greeting_patterns) ? parsed.greeting_patterns : [],
+        closing_patterns: Array.isArray(parsed.closing_patterns) ? parsed.closing_patterns : [],
+        avg_sentence_length: parsed.avg_sentence_length || 0,
+        formality_score: formalityScore,
+        tone_traits: WritingProfileService.normalizeToneTraits(parsed.tone_traits),
+        vocabulary_preferences: vocabPrefs,
+        emails_analyzed: selected.length,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'company_id,user_id,profile_type' });
+
+    return true;
+  } catch (err) {
+    console.error(`[memory-service] Writing profile analysis failed for ${profileType}:`, err);
+    return false;
+  }
+}
+
 // ─── Service ────────────────────────────────────────────────────────────────
 
 export const MemoryService = {
@@ -931,129 +1065,37 @@ export const MemoryService = {
     emailsByProfileType: Map<string, Array<{ subject: string; bodyText: string; date: string }>>
   ): Promise<number> {
     const supabase = requireSupabase();
+    const entries = Array.from(emailsByProfileType.entries());
+
+    // Concurrency-2 work-stealing pool. Matches CONCURRENCY in
+    // email-ai-classifier.ts to stay inside OpenAI tier-1 rate limits
+    // (~30k TPM on gpt-4o-mini; each profile call is ~4-6k tokens, so two
+    // concurrent bursts to ~10k TPM). With 9 profile types and per-call
+    // latency of ~10s, serialized finalize was ~90s; two workers bring it
+    // to ~45s — well inside the ~250s finalize headroom (maxDuration 800 −
+    // chunk budget 550). Work-stealing (vs lock-step batching) matters
+    // because 2-sample vs 10-sample analyses have wide latency variance.
+    const CONCURRENCY = 2;
+    let cursor = 0;
     let profilesBuilt = 0;
 
-    for (const [profileType, emails] of emailsByProfileType) {
-      // Need at least 2 emails to extract any reliable style signal.
-      if (emails.length < 2) continue;
-
-      // Validate profile type
-      if (!VALID_PROFILE_TYPES.includes(profileType as ProfileType)) continue;
-
-      // Select up to 10 most recent with diverse subjects
-      const sorted = [...emails].sort((a, b) =>
-        new Date(b.date).getTime() - new Date(a.date).getTime()
-      );
-      const seen = new Set<string>();
-      const selected: typeof emails = [];
-      for (const e of sorted) {
-        const subjectKey = e.subject.toLowerCase().replace(/^re:\s*/i, '').trim();
-        if (!seen.has(subjectKey)) {
-          seen.add(subjectKey);
-          selected.push(e);
-        }
-        if (selected.length >= 10) break;
+    const worker = async () => {
+      while (true) {
+        const idx = cursor++;
+        if (idx >= entries.length) return;
+        const [profileType, emails] = entries[idx];
+        const built = await buildSingleWritingProfile(
+          supabase,
+          companyId,
+          userId,
+          profileType,
+          emails,
+        );
+        if (built) profilesBuilt++;
       }
+    };
 
-      try {
-        const description = PROFILE_TYPE_DESCRIPTIONS[profileType as ProfileType] || profileType;
-        const response = await getOpenAI().chat.completions.create({
-          model: 'gpt-4o-mini',
-          messages: [
-            {
-              role: 'system',
-              content: `Analyze these outbound emails from a business owner to characterize their writing style for this relationship type. These are all emails to ${description}.
-
-Return JSON:
-{
-  "greeting_patterns": ["Hey {name},", "Hi {name},"],
-  "closing_patterns": ["Thanks,", "Best,"],
-  "avg_sentence_length": 12,
-  "formality_score": 0.6,
-  "tone_traits": {"direct": true, "professional": true, "warm": true},
-  "vocabulary_preferences": ["appreciate", "looking forward to", "let me know"],
-  "common_phrases": ["happy to help", "sounds good"],
-  "hedging_tendency": 0.15,
-  "punctuation_habits": {"exclamation_marks": 1.5, "em_dashes": 0.3, "semicolons": 0.1, "ellipsis": 0.0, "parenthetical": 0.5}
-}
-
-IMPORTANT:
-- formality_score must be 0.0-1.0 (0=very casual, 1=very formal). NOT 1-10.
-- hedging_tendency must be a number 0.0-1.0 (fraction of sentences containing hedging phrases).
-- punctuation_habits values must be numbers (average count per email), NOT strings.`,
-            },
-            {
-              role: 'user',
-              content: selected.map(e => `Subject: ${e.subject}\n${e.bodyText.slice(0, 600)}`).join('\n---\n'),
-            },
-          ],
-          temperature: 0.1,
-          max_tokens: 400,
-          response_format: { type: 'json_object' },
-        });
-
-        const content = response.choices[0]?.message?.content || '{}';
-        const parsed = JSON.parse(content);
-
-        // Normalize hedging_tendency to number (GPT may return string like "low")
-        let hedgingNum = 0.2;
-        if (typeof parsed.hedging_tendency === 'number') {
-          hedgingNum = parsed.hedging_tendency;
-        } else if (typeof parsed.hedging_tendency === 'string') {
-          const hedgeMap: Record<string, number> = { none: 0, low: 0.15, moderate: 0.35, medium: 0.5, high: 0.7, very_high: 0.85 };
-          hedgingNum = hedgeMap[parsed.hedging_tendency.toLowerCase()] ?? 0.2;
-        }
-
-        // Normalize punctuation_habits to numbers (GPT may return strings like "occasional")
-        const rawPunctuation = parsed.punctuation_habits || {};
-        const punctMap: Record<string, number> = { never: 0, rare: 0.2, occasional: 0.8, sometimes: 1.0, moderate: 1.5, frequent: 3.0, heavy: 5.0 };
-        const normalizePunctValue = (v: unknown): number => {
-          if (typeof v === 'number') return v;
-          if (typeof v === 'string') return punctMap[v.toLowerCase()] ?? 0.5;
-          if (typeof v === 'boolean') return v ? 1.0 : 0;
-          return 0;
-        };
-        const normalizedPunctuation = {
-          exclamation_marks: normalizePunctValue(rawPunctuation.exclamation_marks ?? rawPunctuation.exclamations),
-          em_dashes: normalizePunctValue(rawPunctuation.em_dashes),
-          semicolons: normalizePunctValue(rawPunctuation.semicolons),
-          ellipsis: normalizePunctValue(rawPunctuation.ellipsis),
-          parenthetical: normalizePunctValue(rawPunctuation.parenthetical ?? rawPunctuation.parentheticals),
-        };
-
-        // Store in vocabulary_preferences JSONB
-        const vocabPrefs = {
-          words: Array.isArray(parsed.vocabulary_preferences) ? parsed.vocabulary_preferences : [],
-          common_phrases: Array.isArray(parsed.common_phrases) ? parsed.common_phrases : [],
-          hedging_tendency: hedgingNum,
-          punctuation_habits: normalizedPunctuation,
-        };
-
-        // Normalize formality_score to 0-1 (GPT may return 1-10 scale)
-        let formalityScore = typeof parsed.formality_score === 'number' ? parsed.formality_score : 0.5;
-        if (formalityScore > 1) formalityScore = formalityScore / 10; // Convert 1-10 → 0-1
-
-        await supabase
-          .from("agent_writing_profiles")
-          .upsert({
-            company_id: companyId,
-            user_id: userId,
-            profile_type: profileType,
-            greeting_patterns: Array.isArray(parsed.greeting_patterns) ? parsed.greeting_patterns : [],
-            closing_patterns: Array.isArray(parsed.closing_patterns) ? parsed.closing_patterns : [],
-            avg_sentence_length: parsed.avg_sentence_length || 0,
-            formality_score: formalityScore,
-            tone_traits: WritingProfileService.normalizeToneTraits(parsed.tone_traits),
-            vocabulary_preferences: vocabPrefs,
-            emails_analyzed: selected.length,
-            updated_at: new Date().toISOString(),
-          }, { onConflict: 'company_id,user_id,profile_type' });
-
-        profilesBuilt++;
-      } catch (err) {
-        console.error(`[memory-service] Writing profile analysis failed for ${profileType}:`, err);
-      }
-    }
+    await Promise.all(Array.from({ length: CONCURRENCY }, () => worker()));
 
     return profilesBuilt;
   },
