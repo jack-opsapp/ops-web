@@ -96,8 +96,18 @@ export async function finalizePhaseC(params: {
   const { supabase, jobId, companyId, userId, state, priorResult, extractionDiagnostics } = params;
 
   const emailsByProfileType = new Map(Object.entries(state.emailsByProfileType));
+
+  // Record per-type sample distribution BEFORE the threshold gate so we can
+  // tell at a glance whether a low profilesBuilt reflects (a) genuinely
+  // sparse outbound data or (b) the threshold being too strict for an
+  // inbox's profile-type distribution. Persisted into phaseCStats.
+  const profilesByTypeStats: Record<string, number> = {};
+  for (const [type, emails] of emailsByProfileType) {
+    profilesByTypeStats[type] = emails.length;
+  }
+
   console.log(
-    `[phase-c] Finalize: building writing profiles from ${emailsByProfileType.size} profile types`,
+    `[phase-c] Finalize: building writing profiles from ${emailsByProfileType.size} profile types (distribution: ${JSON.stringify(profilesByTypeStats)})`,
   );
   const profilesBuilt = await MemoryService.buildWritingProfiles(
     companyId,
@@ -123,6 +133,7 @@ export async function finalizePhaseC(params: {
         phaseCStats: {
           ...state.stats,
           profilesBuilt,
+          profilesByTypeStats,
           processingTimeMs,
           threadsProcessed: state.classifiedThreads.length,
         },

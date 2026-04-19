@@ -988,7 +988,11 @@ export const MemoryService = {
 
   /**
    * Phase C: Build per-relationship-type writing profiles from outbound emails.
-   * Groups emails by profile type, analyzes style for each type with 3+ samples.
+   * Requires ≥2 outbound samples per type — below that there isn't enough
+   * signal for even greeting/closing pattern detection. Higher thresholds
+   * (e.g. 3) leave small-inbox or early-stage-heavy accounts (like Canpro's
+   * 91-thread run where nearly everything classified as client_new_inquiry)
+   * with zero profiles, blocking AI drafting for those relationship types.
    */
   async buildWritingProfiles(
     companyId: string,
@@ -999,8 +1003,8 @@ export const MemoryService = {
     let profilesBuilt = 0;
 
     for (const [profileType, emails] of emailsByProfileType) {
-      // Need at least 3 emails to build a meaningful profile
-      if (emails.length < 3) continue;
+      // Need at least 2 emails to extract any reliable style signal.
+      if (emails.length < 2) continue;
 
       // Validate profile type
       if (!VALID_PROFILE_TYPES.includes(profileType as ProfileType)) continue;
