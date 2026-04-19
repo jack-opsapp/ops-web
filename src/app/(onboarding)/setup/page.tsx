@@ -79,13 +79,22 @@ export default function SetupPage() {
   const hasPrePopulated = useRef(false);
 
   // ─── Ready gate: wait for store hydration + auth resolution ──────────
+  // Two-path resolution: either both gates pass (normal path, small delay to
+  // let pre-population effects run), or a 3s fallback forces ready so a stuck
+  // Zustand persist rehydrate or hanging auth sync can't leave the user on
+  // the loading pulse forever. If gates pass late, authUser/pre-population
+  // effects still fire once authLoading flips.
   const [ready, setReady] = useState(false);
   useEffect(() => {
     if (setupHydrated && !authLoading) {
-      // Small delay to let pre-population effects run before first paint
       const timer = setTimeout(() => setReady(true), 50);
       return () => clearTimeout(timer);
     }
+    const fallback = setTimeout(() => {
+      console.warn("[setup] Ready gate fallback fired — forcing render after 3s");
+      setReady(true);
+    }, 3000);
+    return () => clearTimeout(fallback);
   }, [setupHydrated, authLoading]);
 
   // Avatar URL: prefer Supabase user, fallback to Firebase auth.
