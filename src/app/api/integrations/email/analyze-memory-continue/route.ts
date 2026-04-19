@@ -23,9 +23,11 @@ import {
   type PhaseCPipelineState,
 } from "@/lib/api/services/memory-service";
 import {
+  acquirePhaseCLock,
   buildPersistStateFn,
   dispatchPhaseCContinuation,
   finalizePhaseC,
+  releasePhaseCLock,
   writePhaseCError,
 } from "@/lib/api/services/phase-c-pipeline-helpers";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -71,8 +73,19 @@ export async function POST(request: NextRequest) {
   after(async () => {
     const bgSupabase = getServiceRoleClient();
     await runWithSupabase(bgSupabase, async () => {
+      // Row-level execution lock. Continuations are the hot path for
+      // double-dispatch races — a webhook retry or a sluggish Vercel that
+      // re-fires the same fetch can put two runners on the same thread
+      // range simultaneously. See migration 070_phase_c_row_lock.sql.
+      const holderId = await acquirePhaseCLock(bgSupabase, jobId, "continuation");
+      if (!holderId) {
+        console.log(
+          `[analyze-memory-continue] Phase C lock held by another runner for job ${jobId} — skipping duplicate dispatch`,
+        );
+        return;
+      }
       try {
-        await runPhaseCContinuation(jobId, connectionId, companyId, bgSupabase);
+        await runPhaseCContinuation(jobId, connectionId, companyId, bgSupabase, holderId);
       } catch (err) {
         console.error("[analyze-memory-continue] Phase C continuation failed:", err);
         try {
@@ -80,6 +93,11 @@ export async function POST(request: NextRequest) {
         } catch (markErr) {
           console.error("[analyze-memory-continue] Failed to persist phaseCError marker:", markErr);
         }
+      } finally {
+        // Idempotent safety net: the inner function releases ahead of any
+        // continuation dispatch so the next runner can acquire immediately.
+        // Fenced release makes a double-release a no-op.
+        await releasePhaseCLock(bgSupabase, jobId, holderId).catch(() => {});
       }
     });
   });
@@ -94,8 +112,9 @@ async function runPhaseCContinuation(
   connectionId: string,
   companyId: string,
   supabase: SupabaseClient,
+  holderId: string,
 ) {
-  console.log(`[analyze-memory-continue] Phase C continuation starting for job ${jobId}`);
+  console.log(`[analyze-memory-continue] Phase C continuation starting for job ${jobId} (lock holder ${holderId})`);
 
   // Read durable pipeline state off the job row
   const { data: job } = await supabase
@@ -160,6 +179,10 @@ async function runPhaseCContinuation(
       priorResult: currentPriorResult,
     });
   } else {
+    // Release before dispatching so the next continuation can acquire
+    // immediately. Outer finally() will no-op since fenced release only
+    // clears when holderId still matches.
+    await releasePhaseCLock(supabase, jobId, holderId);
     dispatchPhaseCContinuation(jobId, connectionId, companyId);
   }
 }

@@ -27,9 +27,11 @@ import {
   type ProfileType,
 } from "@/lib/api/services/memory-service";
 import {
+  acquirePhaseCLock,
   buildPersistStateFn,
   dispatchPhaseCContinuation,
   finalizePhaseC,
+  releasePhaseCLock,
   writePhaseCError,
 } from "@/lib/api/services/phase-c-pipeline-helpers";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -157,8 +159,20 @@ export async function POST(request: NextRequest) {
   after(async () => {
     const bgSupabase = getServiceRoleClient();
     await runWithSupabase(bgSupabase, async () => {
+      // Row-level execution lock. A duplicate dispatch (webhook retry, a
+      // user double-click on a retry button, two entry routes overlapping)
+      // would otherwise race through the same thread range and corrupt
+      // phaseCStats — in-memory counters whose "last writer wins" on
+      // finalize makes concurrent progress invisible to the job row.
+      const holderId = await acquirePhaseCLock(bgSupabase, jobId, "entry");
+      if (!holderId) {
+        console.log(
+          `[analyze-memory] Phase C lock held by another runner for job ${jobId} — skipping duplicate dispatch`,
+        );
+        return;
+      }
       try {
-        await runPhaseCEntry(jobId, connectionId, companyId, bgSupabase);
+        await runPhaseCEntry(jobId, connectionId, companyId, bgSupabase, holderId);
       } catch (err) {
         console.error("[analyze-memory] Phase C entry failed:", err);
         try {
@@ -166,6 +180,12 @@ export async function POST(request: NextRequest) {
         } catch (markErr) {
           console.error("[analyze-memory] Failed to persist phaseCError marker:", markErr);
         }
+      } finally {
+        // Idempotent: runPhaseCEntry releases the lock itself just before
+        // firing a continuation dispatch so the next runner can acquire. If
+        // it already released, this is a no-op (fenced by holder id). This
+        // block is the crash safety net.
+        await releasePhaseCLock(bgSupabase, jobId, holderId).catch(() => {});
       }
     });
   });
@@ -179,9 +199,10 @@ async function runPhaseCEntry(
   jobId: string,
   connectionId: string,
   companyId: string,
-  supabase: SupabaseClient
+  supabase: SupabaseClient,
+  holderId: string,
 ) {
-  console.log(`[analyze-memory] Phase C entry starting for job ${jobId}`);
+  console.log(`[analyze-memory] Phase C entry starting for job ${jobId} (lock holder ${holderId})`);
 
   // ─── 1. Read Phase B job result ──────────────────────────────────────────
   const { data: job } = await supabase
@@ -207,6 +228,9 @@ async function runPhaseCEntry(
 
   if (priorResult.phaseCPipeline) {
     console.log(`[analyze-memory] Phase C pipeline state found — resuming via continuation`);
+    // Release before dispatching so the continuation can acquire immediately
+    // rather than racing our still-held lock and skipping as a duplicate.
+    await releasePhaseCLock(supabase, jobId, holderId);
     dispatchPhaseCContinuation(jobId, connectionId, companyId);
     return;
   }
@@ -417,6 +441,10 @@ async function runPhaseCEntry(
       priorResult: currentPriorResult,
     });
   } else {
+    // Release before dispatching so the continuation's acquire doesn't see
+    // our lock and skip as a duplicate. Outer finally() will no-op since
+    // fenced release only clears when holderId still matches.
+    await releasePhaseCLock(supabase, jobId, holderId);
     dispatchPhaseCContinuation(jobId, connectionId, companyId);
   }
 }

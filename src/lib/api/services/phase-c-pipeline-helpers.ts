@@ -10,9 +10,17 @@
  * final user-facing notification.
  */
 
+import { randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { MemoryService, type PhaseCPipelineState } from "./memory-service";
 import { getAppUrl } from "@/lib/utils/app-url";
+
+// Lease duration for the Phase C row-level execution lock. Chosen slightly
+// longer than the route's 800s maxDuration so that a hard crash between the
+// final runPhaseCChunks yield and the outer finally() can't block a retry
+// for much more than a single invocation lifetime. Must match the default in
+// migration 070_phase_c_row_lock.sql.
+const PHASE_C_LOCK_LEASE_SECONDS = 900;
 
 /**
  * Persist the current pipeline state into gmail_scan_jobs.result.phaseCPipeline
@@ -45,6 +53,59 @@ export async function buildPersistStateFn(
       })
       .eq("id", jobId);
   };
+}
+
+/**
+ * Try to acquire the Phase C execution lock for a scan job. Returns the
+ * holder id on success, null on contention (another runner already holds an
+ * unexpired lock). The holder id is stage-prefixed so log grepping can tell
+ * which invocation last acquired it.
+ *
+ * Callers MUST release the lock — either via releasePhaseCLock (normal path
+ * before dispatching a continuation) or implicitly via lease expiry (crash
+ * path). See migration 070_phase_c_row_lock.sql for atomicity details.
+ */
+export async function acquirePhaseCLock(
+  supabase: SupabaseClient,
+  jobId: string,
+  stageLabel: "entry" | "continuation",
+): Promise<string | null> {
+  const holderId = `${stageLabel}:${randomUUID()}`;
+  const { data, error } = await supabase.rpc("acquire_phase_c_lock", {
+    p_job_id: jobId,
+    p_holder: holderId,
+    p_lease_seconds: PHASE_C_LOCK_LEASE_SECONDS,
+  });
+  if (error) {
+    console.error(`[phase-c] acquirePhaseCLock RPC error for job ${jobId}:`, error);
+    return null;
+  }
+  return data === true ? holderId : null;
+}
+
+/**
+ * Release the Phase C execution lock. Fenced — the UPDATE in the RPC only
+ * clears the row if holderId still matches, so concurrent callers can't
+ * stomp on each other's lock state. Idempotent: safe to call from both the
+ * inner dispatch path (release-before-continuation-dispatch) and the outer
+ * finally() (crash safety net).
+ *
+ * Errors are logged but not thrown. A failed release means the lock will sit
+ * until lease expiry (~900s), which is an acceptable degradation — it just
+ * delays the next retry attempt.
+ */
+export async function releasePhaseCLock(
+  supabase: SupabaseClient,
+  jobId: string,
+  holderId: string,
+): Promise<void> {
+  const { error } = await supabase.rpc("release_phase_c_lock", {
+    p_job_id: jobId,
+    p_holder: holderId,
+  });
+  if (error) {
+    console.error(`[phase-c] releasePhaseCLock RPC error for job ${jobId}:`, error);
+  }
 }
 
 /**
