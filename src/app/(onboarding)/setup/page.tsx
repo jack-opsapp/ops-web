@@ -88,9 +88,14 @@ export default function SetupPage() {
     }
   }, [setupHydrated, authLoading]);
 
-  // Avatar URL: prefer Supabase user, fallback to Firebase auth
+  // Avatar URL: prefer Supabase user, fallback to Firebase auth.
+  // getAuth() throws on SSR when no Firebase app is initialized, so the
+  // fallback is client-only. Without this guard, hard navigations to /setup
+  // (e.g. middleware redirect after onboarding_completed.web flips to false)
+  // crash the initial HTML render with FirebaseError before the ready gate
+  // can short-circuit to the loading screen.
   const avatarUrl = authUser?.profileImageURL
-    || getAuth()?.currentUser?.photoURL
+    || (typeof window !== "undefined" ? getAuth()?.currentUser?.photoURL : null)
     || null;
 
   // ─── Guard: already completed → redirect to dashboard ─────────────────
