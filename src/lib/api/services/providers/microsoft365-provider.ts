@@ -103,8 +103,11 @@ export class Microsoft365Provider implements EmailProviderInterface {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({
-          client_id: process.env.MICROSOFT_CLIENT_ID!,
-          client_secret: process.env.MICROSOFT_CLIENT_SECRET!,
+          // Trim — a trailing newline in the Vercel-stored value breaks
+          // the OAuth token request with an opaque 400. See
+          // GOOGLE_PUBSUB_TOPIC incident 2026-04-18.
+          client_id: process.env.MICROSOFT_CLIENT_ID!.trim(),
+          client_secret: process.env.MICROSOFT_CLIENT_SECRET!.trim(),
           refresh_token: this.connection.refreshToken,
           grant_type: "refresh_token",
           scope: SCOPES.join(" "),

@@ -96,8 +96,11 @@ export class GmailProvider implements EmailProviderInterface {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
-        client_id: process.env.GOOGLE_GMAIL_CLIENT_ID!,
-        client_secret: process.env.GOOGLE_GMAIL_CLIENT_SECRET!,
+        // Trim env vars — a trailing newline baked into the Vercel value
+        // silently breaks string comparisons / OAuth requests with no
+        // useful error surface. See GOOGLE_PUBSUB_TOPIC incident 2026-04-18.
+        client_id: process.env.GOOGLE_GMAIL_CLIENT_ID!.trim(),
+        client_secret: process.env.GOOGLE_GMAIL_CLIENT_SECRET!.trim(),
         refresh_token: this.connection.refreshToken,
         grant_type: "refresh_token",
       }),
@@ -406,7 +409,12 @@ export class GmailProvider implements EmailProviderInterface {
     // var, /watch returns an error body and we used to silently store
     // a fallback expiresAt with no subscription_id — producing rows the
     // renewal cron couldn't recover.
-    const topicName = process.env.GOOGLE_PUBSUB_TOPIC;
+    //
+    // Trim defensively: Gmail validates topicName against the regex
+    // `projects/<project>/topics/<name>`. A single trailing newline in the
+    // env value (easy to paste in via Vercel UI) breaks the regex match
+    // with the unhelpful error "Invalid topicName does not match ...".
+    const topicName = process.env.GOOGLE_PUBSUB_TOPIC?.trim();
     if (!topicName) {
       throw new ProviderApiError(
         "Gmail webhook setup failed: GOOGLE_PUBSUB_TOPIC env var is not set",

@@ -19,8 +19,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { getAppUrl } from "@/lib/utils/app-url";
 
-const PUBSUB_AUDIENCE = process.env.GOOGLE_PUBSUB_PUSH_AUDIENCE;
-const PUBSUB_SERVICE_ACCOUNT = process.env.GOOGLE_PUBSUB_SERVICE_ACCOUNT;
+// Trim defensively: these values are compared to OIDC token claims via
+// strict equality below. A trailing newline (easy to introduce via the
+// Vercel UI when pasting) would silently 401 every real push with
+// "Audience mismatch" or "Service account mismatch".
+const PUBSUB_AUDIENCE = process.env.GOOGLE_PUBSUB_PUSH_AUDIENCE?.trim();
+const PUBSUB_SERVICE_ACCOUNT = process.env.GOOGLE_PUBSUB_SERVICE_ACCOUNT?.trim();
 
 interface TokenInfo {
   email?: string;
