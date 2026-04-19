@@ -1,0 +1,152 @@
+/**
+ * OPS Web - Phase C Pipeline Route Helpers
+ *
+ * Shared orchestration helpers for the chunked Phase C pipeline. Used by both
+ * /api/integrations/email/analyze-memory (entry route) and
+ * /api/integrations/email/analyze-memory-continue (continuation route).
+ *
+ * Keeps MemoryService pure (just the memory/entity/profile API) while these
+ * helpers handle job-row state persistence, continuation dispatch, and the
+ * final user-facing notification.
+ */
+
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { MemoryService, type PhaseCPipelineState } from "./memory-service";
+import { getAppUrl } from "@/lib/utils/app-url";
+
+/**
+ * Persist the current pipeline state into gmail_scan_jobs.result.phaseCPipeline
+ * without disturbing any other fields in result. Used as the persistState
+ * callback for MemoryService.runPhaseCChunks.
+ *
+ * Race note: this overwrites the entire result object with a re-serialized
+ * copy. Phase C is the only writer to result once Phase B has saved its final
+ * leads, so there's no other concurrent mutator to clobber.
+ */
+export async function buildPersistStateFn(
+  supabase: SupabaseClient,
+  jobId: string,
+): Promise<(state: PhaseCPipelineState) => Promise<void>> {
+  return async (state: PhaseCPipelineState) => {
+    const { data: row } = await supabase
+      .from("gmail_scan_jobs")
+      .select("result")
+      .eq("id", jobId)
+      .single();
+
+    const currentResult = (row?.result as Record<string, unknown>) || {};
+    await supabase
+      .from("gmail_scan_jobs")
+      .update({
+        result: {
+          ...currentResult,
+          phaseCPipeline: state,
+        },
+      })
+      .eq("id", jobId);
+  };
+}
+
+/**
+ * Fire the Phase C continuation route as a fire-and-forget fetch. The receiving
+ * route pulls the durable pipeline state out of gmail_scan_jobs.result and
+ * resumes processing from state.startIndex — no parameters need to travel in
+ * the POST body beyond the job/connection/company identifiers.
+ *
+ * Errors are intentionally swallowed — if the continuation never fires, the
+ * job row still holds the partial progress and a user-initiated retrigger can
+ * recover from state.
+ */
+export function dispatchPhaseCContinuation(
+  jobId: string,
+  connectionId: string,
+  companyId: string,
+): void {
+  const baseUrl = getAppUrl();
+  fetch(`${baseUrl}/api/integrations/email/analyze-memory-continue`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ jobId, connectionId, companyId }),
+  }).catch(() => {
+    /* fire-and-forget */
+  });
+  console.log(
+    `[phase-c] Continuation dispatched for job ${jobId}`,
+  );
+}
+
+/**
+ * Finalize Phase C: build writing profiles from the accumulated outbound
+ * emails, persist the final stats + diagnostics to gmail_scan_jobs.result,
+ * clear the working pipeline buffer, and fire the completion notification.
+ *
+ * Called by both entry and continuation routes when runPhaseCChunks returns
+ * done=true. Idempotent modulo the writing-profile build — repeated calls
+ * would re-run gpt-4o-mini analysis on the same emails.
+ */
+export async function finalizePhaseC(params: {
+  supabase: SupabaseClient;
+  jobId: string;
+  companyId: string;
+  userId: string;
+  state: PhaseCPipelineState;
+  priorResult: Record<string, unknown>;
+  extractionDiagnostics: ReturnType<typeof MemoryService.getLastBatchDiagnostics>;
+}): Promise<void> {
+  const { supabase, jobId, companyId, userId, state, priorResult, extractionDiagnostics } = params;
+
+  const emailsByProfileType = new Map(Object.entries(state.emailsByProfileType));
+  console.log(
+    `[phase-c] Finalize: building writing profiles from ${emailsByProfileType.size} profile types`,
+  );
+  const profilesBuilt = await MemoryService.buildWritingProfiles(
+    companyId,
+    userId,
+    emailsByProfileType,
+  );
+
+  const processingTimeMs = Date.now() - new Date(state.startedAt).getTime();
+  const totalDataPoints =
+    state.stats.factsExtracted + state.stats.entitiesCreated + state.stats.edgesCreated;
+
+  // Drop the working pipeline buffer from result so it doesn't linger as a
+  // several-megabyte JSONB payload on every future read of the job row.
+  const { phaseCPipeline: _drop, ...priorWithoutPipeline } = priorResult;
+  void _drop;
+
+  await supabase
+    .from("gmail_scan_jobs")
+    .update({
+      result: {
+        ...priorWithoutPipeline,
+        phaseCComplete: true,
+        phaseCStats: {
+          ...state.stats,
+          profilesBuilt,
+          processingTimeMs,
+          threadsProcessed: state.classifiedThreads.length,
+        },
+        // Temporary diagnostics so operators can inspect extraction output
+        // without relying on Vercel streaming logs. Safe to drop once the
+        // fact-extraction pipeline is reliably producing data.
+        extractionDiagnostics,
+      },
+    })
+    .eq("id", jobId);
+
+  await supabase.from("notifications").insert({
+    user_id: userId,
+    company_id: companyId,
+    type: "mention",
+    title: "Indexing complete",
+    body: `${totalDataPoints} data points captured`,
+    is_read: false,
+    persistent: false,
+    action_url: "/intel",
+    action_label: "View Intel",
+  });
+
+  console.log(
+    `[phase-c] Complete in ${(processingTimeMs / 1000).toFixed(1)}s — ${state.stats.factsExtracted} facts, ${state.stats.entitiesCreated} entities, ${state.stats.edgesCreated} edges, ${profilesBuilt} profiles`,
+  );
+}

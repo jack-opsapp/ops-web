@@ -1,10 +1,15 @@
 /**
- * OPS Web - Email Analyze Memory Endpoint (Phase C)
+ * OPS Web - Email Analyze Memory Endpoint (Phase C - Entry)
  *
  * POST /api/integrations/email/analyze-memory
  * Background processing that extracts business intelligence from email threads,
  * resolves named entities into a knowledge graph, and builds per-relationship-type
  * writing profiles. Fire-and-forget from Phase B completion.
+ *
+ * Chunked execution: fetches + classifies threads, runs per-thread extraction
+ * until either all threads complete OR the in-call time budget is exhausted. If
+ * exhausted, fires /analyze-memory-continue with the durable pipeline state
+ * persisted in gmail_scan_jobs.result.phaseCPipeline.
  *
  * Feature-gated: phase_c
  */
@@ -21,10 +26,22 @@ import {
   type ClassifiedThread,
   type ProfileType,
 } from "@/lib/api/services/memory-service";
-import { PUBLIC_EMAIL_DOMAINS } from "@/lib/types/pipeline";
+import {
+  buildPersistStateFn,
+  dispatchPhaseCContinuation,
+  finalizePhaseC,
+} from "@/lib/api/services/phase-c-pipeline-helpers";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const maxDuration = 800;
+
+// Per-call budgets. Each Vercel invocation gets its own 800s; we yield at 550s
+// so the subsequent finalize (profile-building gpt-4o-mini calls, ~30-60s) and
+// any continuation dispatch have room to land inside the same invocation.
+const CHUNK_TIME_BUDGET_MS = 550_000;
+// 12 threads per chunk → progress is persisted every ~60-90s at typical
+// extraction speeds. Small enough that a Lambda kill loses < 2 min of work.
+const CHUNK_SIZE = 12;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -140,9 +157,9 @@ export async function POST(request: NextRequest) {
     const bgSupabase = getServiceRoleClient();
     await runWithSupabase(bgSupabase, async () => {
       try {
-        await runPhaseC(jobId, connectionId, companyId, bgSupabase);
+        await runPhaseCEntry(jobId, connectionId, companyId, bgSupabase);
       } catch (err) {
-        console.error("[analyze-memory] Phase C failed:", err);
+        console.error("[analyze-memory] Phase C entry failed:", err);
       }
     });
   });
@@ -150,16 +167,15 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ ok: true });
 }
 
-// ─── Phase C: Entity resolution, fact extraction, writing profiles ───────────
+// ─── Phase C Entry: bootstrap (fetch + classify) + first chunk run ───────────
 
-async function runPhaseC(
+async function runPhaseCEntry(
   jobId: string,
   connectionId: string,
   companyId: string,
   supabase: SupabaseClient
 ) {
-  const startTime = Date.now();
-  console.log(`[analyze-memory] Phase C starting for job ${jobId}`);
+  console.log(`[analyze-memory] Phase C entry starting for job ${jobId}`);
 
   // ─── 1. Read Phase B job result ──────────────────────────────────────────
   const { data: job } = await supabase
@@ -173,8 +189,24 @@ async function runPhaseC(
     return;
   }
 
+  const priorResult = job.result as Record<string, unknown>;
+
+  // Idempotency: if Phase C already completed, skip. If pipeline state already
+  // exists (e.g., a prior invocation wrote it before crashing), resume from
+  // there rather than re-fetching threads.
+  if (priorResult.phaseCComplete) {
+    console.log(`[analyze-memory] Phase C already complete for job ${jobId} — skipping`);
+    return;
+  }
+
+  if (priorResult.phaseCPipeline) {
+    console.log(`[analyze-memory] Phase C pipeline state found — resuming via continuation`);
+    dispatchPhaseCContinuation(jobId, connectionId, companyId);
+    return;
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const result = job.result as any;
+  const result = priorResult as any;
   const leads = result.leads || [];
   const notLeadReasons: Array<{ tid: string; name: string; email: string; reason: string }> =
     result._extractionDebug?.notLeadReasons || [];
@@ -182,8 +214,6 @@ async function runPhaseC(
   console.log(`[analyze-memory] Found ${leads.length} leads, ${notLeadReasons.length} skip threads`);
 
   // ─── 2. Get connection for userId + ownerEmail ───────────────────────────
-  // The caller's runWithSupabase already bound the service-role client to
-  // this async context, so EmailService.getConnection picks it up.
   const connection = await EmailService.getConnection(connectionId);
 
   if (!connection) {
@@ -339,51 +369,49 @@ async function runPhaseC(
 
   console.log(`[analyze-memory] Classified ${classifiedThreads.length} threads (${classifiedThreads.filter(t => t.classification === 'client').length} client, ${classifiedThreads.filter(t => t.classification === 'vendor').length} vendor, ${classifiedThreads.filter(t => t.classification === 'subtrade').length} subtrade, ${classifiedThreads.filter(t => t.classification === 'internal').length} internal, ${classifiedThreads.filter(t => t.classification === 'unknown').length} unknown)`);
 
-  // ─── 7. Run MemoryService orchestrator ───────────────────────────────────
-  // Service-role client is already bound via the outer runWithSupabase().
-  const stats = await MemoryService.processImportBatch(
-    companyId,
+  // ─── 7. Initialize chunked pipeline state ─────────────────────────────────
+  const state = MemoryService.initPhaseCPipelineState(
     userId,
     ownerEmail,
     employeeEmailSet,
     classifiedThreads,
   );
 
-  // ─── 8. Save completion stats to job result ──────────────────────────────
-  const processingTimeMs = Date.now() - startTime;
-  const extractionDiagnostics = MemoryService.getLastBatchDiagnostics();
-  await supabase
-    .from("gmail_scan_jobs")
-    .update({
-      result: {
-        ...result,
-        phaseCComplete: true,
-        phaseCStats: {
-          ...stats,
-          processingTimeMs,
-          threadsProcessed: classifiedThreads.length,
-        },
-        // Temporary diagnostics so operators can inspect extraction output
-        // without relying on Vercel streaming logs. Safe to drop once the
-        // fact-extraction pipeline is reliably producing data.
-        extractionDiagnostics,
-      },
-    })
-    .eq("id", jobId);
+  const persistState = await buildPersistStateFn(supabase, jobId);
+  await persistState(state);
 
-  // ─── 9. Fire completion notification ─────────────────────────────────────
-  const totalDataPoints = stats.factsExtracted + stats.entitiesCreated + stats.edgesCreated;
-  await supabase.from("notifications").insert({
-    user_id: userId,
-    company_id: companyId,
-    type: 'mention',
-    title: 'Indexing complete',
-    body: `${totalDataPoints} data points captured`,
-    is_read: false,
-    persistent: false,
-    action_url: '/intel',
-    action_label: 'View Intel',
-  });
+  // ─── 8. Run chunks until done or time budget exhausted ────────────────────
+  const { done, state: finalState } = await MemoryService.runPhaseCChunks(
+    companyId,
+    state,
+    {
+      jobId,
+      chunkSize: CHUNK_SIZE,
+      timeBudgetMs: CHUNK_TIME_BUDGET_MS,
+      persistState,
+    },
+  );
 
-  console.log(`[analyze-memory] Phase C complete in ${(processingTimeMs / 1000).toFixed(1)}s — ${stats.factsExtracted} facts, ${stats.entitiesCreated} entities, ${stats.edgesCreated} edges, ${stats.profilesBuilt} profiles`);
+  if (done) {
+    // Re-read priorResult so we don't clobber phaseCPipeline writes that
+    // happened during our own chunk run (startIndex, stats, etc.)
+    const { data: currentRow } = await supabase
+      .from("gmail_scan_jobs")
+      .select("result")
+      .eq("id", jobId)
+      .single();
+    const currentPriorResult = (currentRow?.result as Record<string, unknown>) || {};
+
+    await finalizePhaseC({
+      supabase,
+      jobId,
+      companyId,
+      userId,
+      state: finalState,
+      priorResult: currentPriorResult,
+      extractionDiagnostics: MemoryService.getLastBatchDiagnostics(),
+    });
+  } else {
+    dispatchPhaseCContinuation(jobId, connectionId, companyId);
+  }
 }

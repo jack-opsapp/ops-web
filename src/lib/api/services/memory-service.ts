@@ -8,6 +8,7 @@ import { PUBLIC_EMAIL_DOMAINS } from "@/lib/types/pipeline";
 import { PLATFORM_DOMAINS } from "@/lib/api/services/known-platforms";
 import { getSyncOpenAI } from "./openai-clients";
 import { WritingProfileService } from "./writing-profile-service";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 // Uses OPENAI_API_KEY_SYNC — memory extraction runs during ongoing sync.
 function getOpenAI() {
@@ -195,6 +196,28 @@ interface ExtractionResult {
   }>;
 }
 
+/**
+ * Durable state for the chunked Phase C pipeline. Persisted to
+ * gmail_scan_jobs.result.phaseCPipeline between chunks so an interrupted run
+ * (800s timeout, Lambda kill) leaves partial progress the continuation route
+ * can resume from without re-fetching Gmail threads.
+ */
+export interface PhaseCPipelineState {
+  classifiedThreads: ClassifiedThread[];
+  startIndex: number;
+  stats: {
+    factsExtracted: number;
+    entitiesCreated: number;
+    edgesCreated: number;
+  };
+  emailsByProfileType: Record<string, Array<{ subject: string; bodyText: string; date: string }>>;
+  entityResolutionDone: boolean;
+  ownerEmail: string;
+  employeeEmails: string[];
+  userId: string;
+  startedAt: string;
+}
+
 // ─── Module-level helpers ───────────────────────────────────────────────────
 
 async function extractFacts(
@@ -354,6 +377,179 @@ function _snapshotDiagnostics() {
     sampleResponses: [..._diagSampleResponses],
     extractionErrors: [..._diagExtractionErrors],
   };
+}
+
+/**
+ * Per-thread worker for Phase C. Runs one extractEntitiesAndFacts call plus the
+ * downstream fact/entity/edge writes and collects outbound emails into the
+ * accumulator used for writing-profile analysis. Extracted from processImportBatch
+ * so runPhaseCChunks can call it in a bounded loop.
+ */
+async function processThreadExtraction(
+  supabase: SupabaseClient,
+  companyId: string,
+  userId: string,
+  thread: ClassifiedThread,
+  emailsByProfileType: Record<string, Array<{ subject: string; bodyText: string; date: string }>>,
+): Promise<{ factsAdded: number; edgesAdded: number }> {
+  const extraction = await extractEntitiesAndFacts(thread);
+  let factsAdded = 0;
+  let edgesAdded = 0;
+
+  // Store facts with ADD/UPDATE/NOOP conflict resolution
+  for (const fact of extraction.facts) {
+    // Check for similar existing fact (cheap proxy: first 50 chars ilike match)
+    const { data: existing } = await supabase
+      .from("agent_memories")
+      .select("id, confidence, access_count")
+      .eq("company_id", companyId)
+      .eq("category", fact.category)
+      .ilike("content", `%${fact.content.slice(0, 50)}%`)
+      .limit(1);
+
+    if (existing && existing.length > 0) {
+      // NOOP — reinforce existing fact
+      const current = existing[0];
+      await supabase
+        .from("agent_memories")
+        .update({
+          confidence: Math.min(1.0, ((current.confidence as number) || 0.5) + 0.05),
+          last_accessed_at: new Date().toISOString(),
+          access_count: ((current.access_count as number) || 0) + 1,
+        })
+        .eq("id", current.id);
+    } else {
+      // ADD — new fact, try to link to entity via email
+      let entityId: string | null = null;
+      if (fact.entity_email) {
+        const { data: entityMatch } = await supabase
+          .from("graph_entities")
+          .select("id")
+          .eq("company_id", companyId)
+          .eq("entity_type", "person")
+          .eq("normalized_name", fact.entity_email.toLowerCase())
+          .single();
+        entityId = entityMatch?.id || null;
+      }
+
+      // Generate embedding for vector search retrieval
+      const embedding = await generateEmbedding(
+        `${fact.category}: ${fact.content}`
+      );
+
+      await supabase.from("agent_memories").insert({
+        company_id: companyId,
+        user_id: userId,
+        memory_type: 'fact',
+        category: fact.category,
+        content: fact.content,
+        confidence: fact.confidence || 0.8,
+        source: 'email_import',
+        source_id: thread.threadId,
+        entity_id: entityId,
+        ...(embedding ? { embedding: JSON.stringify(embedding) } : {}),
+      });
+      factsAdded++;
+    }
+  }
+
+  // Upsert AI-extracted entities into graph_entities
+  for (const entity of extraction.entities) {
+    const normalizedName = entity.email
+      ? entity.email.toLowerCase()
+      : (entity.domain || entity.name.toLowerCase().trim());
+
+    const { error: entityErr } = await supabase
+      .from("graph_entities")
+      .upsert({
+        company_id: companyId,
+        entity_type: entity.type,
+        name: entity.name,
+        normalized_name: normalizedName,
+        email: entity.email || null,
+        properties: entity.domain ? { domain: entity.domain } : {},
+        confidence: 0.8,
+        source: 'email_import',
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'company_id,entity_type,normalized_name' });
+    if (entityErr) {
+      console.error("[memory-service] AI entity upsert failed:", entityErr);
+    }
+  }
+
+  // Upsert AI-extracted edges into agent_knowledge_graph
+  for (const edge of extraction.edges) {
+    // Look up source entity by email or name
+    let sourceEntityId: string | null = null;
+    if (edge.from_email) {
+      const { data: src } = await supabase
+        .from("graph_entities")
+        .select("id")
+        .eq("company_id", companyId)
+        .eq("normalized_name", edge.from_email.toLowerCase())
+        .single();
+      sourceEntityId = src?.id || null;
+    }
+
+    // Look up or create target entity by name + type
+    let targetEntityId: string | null = null;
+    if (edge.to_name && edge.to_type) {
+      const targetNormalized = edge.to_name.toLowerCase().trim();
+      const { data: tgt } = await supabase
+        .from("graph_entities")
+        .upsert({
+          company_id: companyId,
+          entity_type: edge.to_type,
+          name: edge.to_name,
+          normalized_name: targetNormalized,
+          properties: edge.properties || {},
+          confidence: 0.7,
+          source: 'email_import',
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'company_id,entity_type,normalized_name' })
+        .select("id")
+        .single();
+      targetEntityId = tgt?.id || null;
+    }
+
+    if (sourceEntityId && targetEntityId) {
+      const { error: aiEdgeErr } = await supabase
+        .from("agent_knowledge_graph")
+        .upsert({
+          company_id: companyId,
+          source_entity_id: sourceEntityId,
+          predicate: edge.predicate,
+          target_entity_id: targetEntityId,
+          link_type: 'extracted',
+          properties: edge.properties || {},
+          valid_from: new Date().toISOString(),
+        }, { onConflict: 'company_id,source_entity_id,predicate,target_entity_id' });
+      if (aiEdgeErr) {
+        console.error("[memory-service] AI edge upsert failed:", aiEdgeErr);
+      } else {
+        edgesAdded++;
+      }
+    }
+  }
+
+  // Collect outbound emails by profile type for writing profile analysis
+  if (thread.profileType) {
+    const outbound = thread.messages.filter(m => m.direction === 'outbound');
+    if (outbound.length > 0) {
+      if (!emailsByProfileType[thread.profileType]) {
+        emailsByProfileType[thread.profileType] = [];
+      }
+      for (const m of outbound) {
+        emailsByProfileType[thread.profileType].push({
+          subject: m.subject,
+          bodyText: m.bodyText,
+          date: m.date,
+        });
+      }
+    }
+  }
+
+  return { factsAdded, edgesAdded };
 }
 
 // ─── Service ────────────────────────────────────────────────────────────────
@@ -648,201 +844,127 @@ export const MemoryService = {
   },
 
   /**
-   * Phase C: Main orchestrator — runs entity resolution, fact extraction,
-   * knowledge graph building, and writing profile analysis for an import batch.
+   * Phase C: Build the initial chunked-pipeline state from classified threads.
+   * The caller persists this into gmail_scan_jobs.result.phaseCPipeline and
+   * then drives the pipeline with runPhaseCChunks.
    */
-  async processImportBatch(
-    companyId: string,
+  initPhaseCPipelineState(
     userId: string,
     ownerEmail: string,
     employeeEmails: Set<string>,
     threads: ClassifiedThread[],
-  ): Promise<{ factsExtracted: number; entitiesCreated: number; edgesCreated: number; profilesBuilt: number }> {
+  ): PhaseCPipelineState {
+    return {
+      classifiedThreads: threads,
+      startIndex: 0,
+      stats: { factsExtracted: 0, entitiesCreated: 0, edgesCreated: 0 },
+      emailsByProfileType: {},
+      entityResolutionDone: false,
+      ownerEmail,
+      employeeEmails: Array.from(employeeEmails),
+      userId,
+      startedAt: new Date().toISOString(),
+    };
+  },
+
+  /**
+   * Phase C: Run chunks of per-thread AI extraction until either all threads
+   * are processed (done=true) OR the in-call time budget is exhausted
+   * (done=false). Writing profiles are NOT built here — when done=true is
+   * returned, the caller finalizes by invoking buildWritingProfiles with the
+   * accumulated state.emailsByProfileType.
+   *
+   * State is persisted via opts.persistState at chunk boundaries and right
+   * before a time-budget yield, so an interrupted invocation leaves durable
+   * progress the continuation route can resume from with no re-processing.
+   */
+  async runPhaseCChunks(
+    companyId: string,
+    state: PhaseCPipelineState,
+    opts: {
+      jobId: string;
+      chunkSize: number;
+      timeBudgetMs: number;
+      persistState: (state: PhaseCPipelineState) => Promise<void>;
+    },
+  ): Promise<{ done: boolean; state: PhaseCPipelineState }> {
     // Validate companyId is a valid UUID
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(companyId)) {
       throw new Error('Invalid companyId UUID');
     }
 
     const supabase = requireSupabase();
-    let factsExtracted = 0;
-    let entitiesCreated = 0;
-    let edgesCreated = 0;
+    const startTime = Date.now();
+    const employeeEmails = new Set(state.employeeEmails);
 
-    // Reset per-batch diagnostic capture. These samples are flushed into
-    // analyze-memory's job result so operators can inspect what extraction
-    // returned without chasing streaming logs.
+    // Reset per-call diagnostic capture (Lambda-local — survives only for
+    // this invocation). Flushed into gmail_scan_jobs.result at finalize.
     _resetDiagnostics();
 
-    // Step 1: Deterministic entity resolution
-    console.log(`[memory-service] Step 1: Resolving entities from ${threads.length} threads`);
-    const entityResult = await this.resolveEntities(companyId, threads, ownerEmail, employeeEmails);
-    entitiesCreated += entityResult.entitiesCreated;
-    edgesCreated += entityResult.edgesCreated;
-
-    // Step 2: Extract facts + entities + edges from each thread
-    console.log(`[memory-service] Step 2: Extracting facts from ${threads.length} threads`);
-    const emailsByProfileType = new Map<string, Array<{ subject: string; bodyText: string; date: string }>>();
-
-    for (const thread of threads) {
-      const extraction = await extractEntitiesAndFacts(thread);
-
-      // Store facts with ADD/UPDATE/NOOP conflict resolution
-      for (const fact of extraction.facts) {
-        // Check for similar existing fact (cheap proxy: first 50 chars ilike match)
-        const { data: existing } = await supabase
-          .from("agent_memories")
-          .select("id, confidence, access_count")
-          .eq("company_id", companyId)
-          .eq("category", fact.category)
-          .ilike("content", `%${fact.content.slice(0, 50)}%`)
-          .limit(1);
-
-        if (existing && existing.length > 0) {
-          // NOOP — reinforce existing fact
-          const current = existing[0];
-          await supabase
-            .from("agent_memories")
-            .update({
-              confidence: Math.min(1.0, ((current.confidence as number) || 0.5) + 0.05),
-              last_accessed_at: new Date().toISOString(),
-              access_count: ((current.access_count as number) || 0) + 1,
-            })
-            .eq("id", current.id);
-        } else {
-          // ADD — new fact, try to link to entity via email
-          let entityId: string | null = null;
-          if (fact.entity_email) {
-            const { data: entityMatch } = await supabase
-              .from("graph_entities")
-              .select("id")
-              .eq("company_id", companyId)
-              .eq("entity_type", "person")
-              .eq("normalized_name", fact.entity_email.toLowerCase())
-              .single();
-            entityId = entityMatch?.id || null;
-          }
-
-          // Generate embedding for vector search retrieval
-          const embedding = await generateEmbedding(
-            `${fact.category}: ${fact.content}`
-          );
-
-          await supabase.from("agent_memories").insert({
-            company_id: companyId,
-            user_id: userId,
-            memory_type: 'fact',
-            category: fact.category,
-            content: fact.content,
-            confidence: fact.confidence || 0.8,
-            source: 'email_import',
-            source_id: thread.threadId,
-            entity_id: entityId,
-            ...(embedding ? { embedding: JSON.stringify(embedding) } : {}),
-          });
-          factsExtracted++;
-        }
-      }
-
-      // Upsert AI-extracted entities into graph_entities
-      for (const entity of extraction.entities) {
-        const normalizedName = entity.email
-          ? entity.email.toLowerCase()
-          : (entity.domain || entity.name.toLowerCase().trim());
-
-        const { error: entityErr } = await supabase
-          .from("graph_entities")
-          .upsert({
-            company_id: companyId,
-            entity_type: entity.type,
-            name: entity.name,
-            normalized_name: normalizedName,
-            email: entity.email || null,
-            properties: entity.domain ? { domain: entity.domain } : {},
-            confidence: 0.8,
-            source: 'email_import',
-            updated_at: new Date().toISOString(),
-          }, { onConflict: 'company_id,entity_type,normalized_name' });
-        if (entityErr) {
-          console.error("[memory-service] AI entity upsert failed:", entityErr);
-        }
-      }
-
-      // Upsert AI-extracted edges into agent_knowledge_graph
-      for (const edge of extraction.edges) {
-        // Look up source entity by email or name
-        let sourceEntityId: string | null = null;
-        if (edge.from_email) {
-          const { data: src } = await supabase
-            .from("graph_entities")
-            .select("id")
-            .eq("company_id", companyId)
-            .eq("normalized_name", edge.from_email.toLowerCase())
-            .single();
-          sourceEntityId = src?.id || null;
-        }
-
-        // Look up or create target entity by name + type
-        let targetEntityId: string | null = null;
-        if (edge.to_name && edge.to_type) {
-          const targetNormalized = edge.to_name.toLowerCase().trim();
-          const { data: tgt } = await supabase
-            .from("graph_entities")
-            .upsert({
-              company_id: companyId,
-              entity_type: edge.to_type,
-              name: edge.to_name,
-              normalized_name: targetNormalized,
-              properties: edge.properties || {},
-              confidence: 0.7,
-              source: 'email_import',
-              updated_at: new Date().toISOString(),
-            }, { onConflict: 'company_id,entity_type,normalized_name' })
-            .select("id")
-            .single();
-          targetEntityId = tgt?.id || null;
-        }
-
-        if (sourceEntityId && targetEntityId) {
-          const { error: aiEdgeErr } = await supabase
-            .from("agent_knowledge_graph")
-            .upsert({
-              company_id: companyId,
-              source_entity_id: sourceEntityId,
-              predicate: edge.predicate,
-              target_entity_id: targetEntityId,
-              link_type: 'extracted',
-              properties: edge.properties || {},
-              valid_from: new Date().toISOString(),
-            }, { onConflict: 'company_id,source_entity_id,predicate,target_entity_id' });
-          if (aiEdgeErr) {
-            console.error("[memory-service] AI edge upsert failed:", aiEdgeErr);
-          } else {
-            edgesCreated++;
-          }
-        }
-      }
-
-      // Collect outbound emails by profile type for writing profile analysis
-      if (thread.profileType) {
-        const outbound = thread.messages.filter(m => m.direction === 'outbound');
-        if (outbound.length > 0) {
-          const existing = emailsByProfileType.get(thread.profileType) || [];
-          existing.push(...outbound.map(m => ({
-            subject: m.subject,
-            bodyText: m.bodyText,
-            date: m.date,
-          })));
-          emailsByProfileType.set(thread.profileType, existing);
-        }
-      }
+    // Step 1 (once per pipeline): deterministic entity resolution over ALL
+    // threads. Fast (~DB upserts, no LLM) so we do it up-front.
+    if (!state.entityResolutionDone) {
+      console.log(
+        `[memory-service] Phase C Step 1: resolving entities from ${state.classifiedThreads.length} threads`,
+      );
+      const entityResult = await this.resolveEntities(
+        companyId,
+        state.classifiedThreads,
+        state.ownerEmail,
+        employeeEmails,
+      );
+      state.stats.entitiesCreated += entityResult.entitiesCreated;
+      state.stats.edgesCreated += entityResult.edgesCreated;
+      state.entityResolutionDone = true;
+      await opts.persistState(state);
     }
 
-    // Step 3: Build writing profiles
-    console.log(`[memory-service] Step 3: Building writing profiles from ${emailsByProfileType.size} types`);
-    const profilesBuilt = await this.buildWritingProfiles(companyId, userId, emailsByProfileType);
+    // Step 2: chunked per-thread extraction. Each thread is one gpt-4o-mini
+    // call plus downstream DB writes (~3-8s per thread). We process up to
+    // chunkSize threads, persist progress, then check the in-call time budget
+    // before continuing. When the budget is exhausted, startIndex points to
+    // the NEXT thread to process so the continuation route can resume
+    // without duplicating any extraction work.
+    while (state.startIndex < state.classifiedThreads.length) {
+      const chunkEnd = Math.min(
+        state.startIndex + opts.chunkSize,
+        state.classifiedThreads.length,
+      );
 
-    console.log(`[memory-service] processImportBatch complete: ${factsExtracted} facts, ${entitiesCreated} entities, ${edgesCreated} edges, ${profilesBuilt} profiles`);
-    return { factsExtracted, entitiesCreated, edgesCreated, profilesBuilt };
+      for (let i = state.startIndex; i < chunkEnd; i++) {
+        // Yield before starting thread `i` if time budget is exhausted.
+        if (Date.now() - startTime > opts.timeBudgetMs) {
+          state.startIndex = i;
+          await opts.persistState(state);
+          console.log(
+            `[memory-service] Phase C yielding at thread ${i}/${state.classifiedThreads.length} — time budget reached`,
+          );
+          return { done: false, state };
+        }
+
+        const thread = state.classifiedThreads[i];
+        const threadStats = await processThreadExtraction(
+          supabase,
+          companyId,
+          state.userId,
+          thread,
+          state.emailsByProfileType,
+        );
+        state.stats.factsExtracted += threadStats.factsAdded;
+        state.stats.edgesCreated += threadStats.edgesAdded;
+      }
+
+      state.startIndex = chunkEnd;
+      await opts.persistState(state);
+      console.log(
+        `[memory-service] Phase C chunk complete — ${state.startIndex}/${state.classifiedThreads.length} threads processed`,
+      );
+    }
+
+    console.log(
+      `[memory-service] Phase C all threads processed — ${state.stats.factsExtracted} facts, ${state.stats.entitiesCreated} entities, ${state.stats.edgesCreated} edges`,
+    );
+    return { done: true, state };
   },
 
   /**
