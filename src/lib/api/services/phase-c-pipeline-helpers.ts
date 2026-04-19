@@ -48,6 +48,50 @@ export async function buildPersistStateFn(
 }
 
 /**
+ * Record a Phase C failure on the job row without wiping the durable pipeline
+ * state. The wizard reads (phaseCError && phaseCPipeline) as "indexing paused —
+ * retry", and a user-initiated retry re-POSTs /analyze-memory which picks up
+ * the existing phaseCPipeline and dispatches a continuation from state.startIndex.
+ *
+ * Diverges from Phase B on purpose: Phase B writes `status: "error"` on the
+ * scan-lifecycle column and treats failure as terminal. Phase C has a native
+ * resume path via the chunked pipeline, so we keep `status` alone (Phase B
+ * owns that field) and mark the failure only in result.phaseCError.
+ */
+export async function writePhaseCError(
+  supabase: SupabaseClient,
+  jobId: string,
+  err: unknown,
+  stage: "entry" | "continuation",
+): Promise<void> {
+  const message = err instanceof Error ? err.message : String(err);
+
+  const { data: row } = await supabase
+    .from("gmail_scan_jobs")
+    .select("result")
+    .eq("id", jobId)
+    .single();
+
+  const currentResult = (row?.result as Record<string, unknown>) || {};
+  const currentState = currentResult.phaseCPipeline as PhaseCPipelineState | undefined;
+
+  await supabase
+    .from("gmail_scan_jobs")
+    .update({
+      result: {
+        ...currentResult,
+        phaseCError: {
+          message,
+          at: new Date().toISOString(),
+          stage,
+          failedAtIndex: currentState?.startIndex ?? null,
+        },
+      },
+    })
+    .eq("id", jobId);
+}
+
+/**
  * Fire the Phase C continuation route as a fire-and-forget fetch. The receiving
  * route pulls the durable pipeline state out of gmail_scan_jobs.result and
  * resumes processing from state.startIndex — no parameters need to travel in
@@ -119,9 +163,17 @@ export async function finalizePhaseC(params: {
     state.stats.factsExtracted + state.stats.entitiesCreated + state.stats.edgesCreated;
 
   // Drop the working pipeline buffer from result so it doesn't linger as a
-  // several-megabyte JSONB payload on every future read of the job row.
-  const { phaseCPipeline: _drop, ...priorWithoutPipeline } = priorResult;
-  void _drop;
+  // several-megabyte JSONB payload on every future read of the job row. Also
+  // drop any phaseCError marker from a prior failed attempt now that we've
+  // succeeded — the wizard uses (phaseCError && phaseCPipeline) to show
+  // "indexing paused — retry", so leaving a stale error here would mislead.
+  const {
+    phaseCPipeline: _dropPipeline,
+    phaseCError: _dropError,
+    ...priorWithoutPipeline
+  } = priorResult;
+  void _dropPipeline;
+  void _dropError;
 
   await supabase
     .from("gmail_scan_jobs")

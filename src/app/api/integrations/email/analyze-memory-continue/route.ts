@@ -26,6 +26,7 @@ import {
   buildPersistStateFn,
   dispatchPhaseCContinuation,
   finalizePhaseC,
+  writePhaseCError,
 } from "@/lib/api/services/phase-c-pipeline-helpers";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -74,6 +75,11 @@ export async function POST(request: NextRequest) {
         await runPhaseCContinuation(jobId, connectionId, companyId, bgSupabase);
       } catch (err) {
         console.error("[analyze-memory-continue] Phase C continuation failed:", err);
+        try {
+          await writePhaseCError(bgSupabase, jobId, err, "continuation");
+        } catch (markErr) {
+          console.error("[analyze-memory-continue] Failed to persist phaseCError marker:", markErr);
+        }
       }
     });
   });
