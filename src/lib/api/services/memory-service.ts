@@ -322,68 +322,22 @@ Be concise — 1-2 sentences per fact. Aim for 2-5 facts per substantive thread.
 
     const content = response.choices[0]?.message?.content || '{"facts":[],"entities":[],"edges":[]}';
     const parsed = JSON.parse(content);
-    const result = {
+    return {
       facts: Array.isArray(parsed.facts) ? parsed.facts : [],
       entities: Array.isArray(parsed.entities) ? parsed.entities : [],
       edges: Array.isArray(parsed.edges) ? parsed.edges : [],
     };
-    // Capture diagnostic samples so we can inspect what gpt-4o-mini is actually
-    // returning (Vercel streaming logs are unreliable for post-hoc audit).
-    // First 5 raw responses + first 5 empty responses are captured in module
-    // state and flushed to gmail_scan_jobs.result at end of processImportBatch.
-    if (result.facts.length === 0 && result.entities.length === 0 && result.edges.length === 0) {
-      if (_diagEmptyResponses.length < 5) _diagEmptyResponses.push(content.slice(0, 500));
-      console.warn(`[memory-service] extractEntitiesAndFacts returned empty — raw: ${content.slice(0, 200)}`);
-    } else {
-      if (_diagSampleResponses.length < 5) {
-        _diagSampleResponses.push({
-          factsLen: result.facts.length,
-          entitiesLen: result.entities.length,
-          edgesLen: result.edges.length,
-          raw: content.slice(0, 500),
-        });
-      }
-      console.log(`[memory-service] extract: ${result.facts.length} facts, ${result.entities.length} entities, ${result.edges.length} edges`);
-    }
-    return result;
   } catch (err) {
-    _diagExtractionErrors.push(err instanceof Error ? err.message : String(err));
     console.error('[memory-service] Entity+fact extraction failed:', err);
     return { facts: [], entities: [], edges: [] };
   }
 }
 
-// Module-level diagnostic capture for Phase C fact extraction. Flushed to
-// gmail_scan_jobs.result.extractionDiagnostics at end of processImportBatch
-// so we can post-hoc inspect what gpt-4o-mini returned without relying on
-// streaming logs. Remove once extraction is known-good.
-const _diagEmptyResponses: string[] = [];
-const _diagSampleResponses: Array<{
-  factsLen: number;
-  entitiesLen: number;
-  edgesLen: number;
-  raw: string;
-}> = [];
-const _diagExtractionErrors: string[] = [];
-function _resetDiagnostics(): void {
-  _diagEmptyResponses.length = 0;
-  _diagSampleResponses.length = 0;
-  _diagExtractionErrors.length = 0;
-}
-function _snapshotDiagnostics() {
-  return {
-    emptyResponsesCount: _diagEmptyResponses.length,
-    firstEmptyResponses: [..._diagEmptyResponses],
-    sampleResponses: [..._diagSampleResponses],
-    extractionErrors: [..._diagExtractionErrors],
-  };
-}
-
 /**
  * Per-thread worker for Phase C. Runs one extractEntitiesAndFacts call plus the
  * downstream fact/entity/edge writes and collects outbound emails into the
- * accumulator used for writing-profile analysis. Extracted from processImportBatch
- * so runPhaseCChunks can call it in a bounded loop.
+ * accumulator used for writing-profile analysis. Called from runPhaseCChunks
+ * for each thread in the classified set.
  */
 async function processThreadExtraction(
   supabase: SupabaseClient,
@@ -897,10 +851,6 @@ export const MemoryService = {
     const startTime = Date.now();
     const employeeEmails = new Set(state.employeeEmails);
 
-    // Reset per-call diagnostic capture (Lambda-local — survives only for
-    // this invocation). Flushed into gmail_scan_jobs.result at finalize.
-    _resetDiagnostics();
-
     // Step 1 (once per pipeline): deterministic entity resolution over ALL
     // threads. Fast (~DB upserts, no LLM) so we do it up-front.
     if (!state.entityResolutionDone) {
@@ -965,25 +915,6 @@ export const MemoryService = {
       `[memory-service] Phase C all threads processed — ${state.stats.factsExtracted} facts, ${state.stats.entitiesCreated} entities, ${state.stats.edgesCreated} edges`,
     );
     return { done: true, state };
-  },
-
-  /**
-   * Returns diagnostic samples captured during the most recent
-   * processImportBatch run. Used by analyze-memory to persist debugging
-   * data into gmail_scan_jobs.result. Remove once extraction is stable.
-   */
-  getLastBatchDiagnostics() {
-    return _snapshotDiagnostics();
-  },
-
-  /**
-   * Summarizes emailsByProfileType for diagnostics. Passed separately from
-   * processImportBatch to avoid touching the stable public signature.
-   */
-  summarizeProfileTypes(emailsByProfileType: Map<string, unknown[]>): Record<string, number> {
-    const out: Record<string, number> = {};
-    for (const [k, v] of emailsByProfileType) out[k] = v.length;
-    return out;
   },
 
   /**

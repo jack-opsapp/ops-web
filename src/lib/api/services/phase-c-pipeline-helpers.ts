@@ -91,9 +91,8 @@ export async function finalizePhaseC(params: {
   userId: string;
   state: PhaseCPipelineState;
   priorResult: Record<string, unknown>;
-  extractionDiagnostics: ReturnType<typeof MemoryService.getLastBatchDiagnostics>;
 }): Promise<void> {
-  const { supabase, jobId, companyId, userId, state, priorResult, extractionDiagnostics } = params;
+  const { supabase, jobId, companyId, userId, state, priorResult } = params;
 
   const emailsByProfileType = new Map(Object.entries(state.emailsByProfileType));
 
@@ -137,10 +136,6 @@ export async function finalizePhaseC(params: {
           processingTimeMs,
           threadsProcessed: state.classifiedThreads.length,
         },
-        // Temporary diagnostics so operators can inspect extraction output
-        // without relying on Vercel streaming logs. Safe to drop once the
-        // fact-extraction pipeline is reliably producing data.
-        extractionDiagnostics,
       },
     })
     .eq("id", jobId);

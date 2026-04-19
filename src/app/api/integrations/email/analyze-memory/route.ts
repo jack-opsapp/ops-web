@@ -409,7 +409,6 @@ async function runPhaseCEntry(
       userId,
       state: finalState,
       priorResult: currentPriorResult,
-      extractionDiagnostics: MemoryService.getLastBatchDiagnostics(),
     });
   } else {
     dispatchPhaseCContinuation(jobId, connectionId, companyId);

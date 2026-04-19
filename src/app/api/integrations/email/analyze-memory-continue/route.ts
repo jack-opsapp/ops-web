@@ -152,7 +152,6 @@ async function runPhaseCContinuation(
       userId: finalState.userId,
       state: finalState,
       priorResult: currentPriorResult,
-      extractionDiagnostics: MemoryService.getLastBatchDiagnostics(),
     });
   } else {
     dispatchPhaseCContinuation(jobId, connectionId, companyId);
