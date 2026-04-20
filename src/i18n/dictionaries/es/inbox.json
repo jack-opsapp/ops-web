@@ -50,11 +50,15 @@
   "thread.expand": "Expandir",
   "thread.collapse": "Colapsar",
 
-  "rail.needsReply": "Necesita respuesta",
+  "rail.needsReply": "Responder",
   "rail.everything": "Todo",
-  "rail.scheduled": "Programados",
+  "rail.scheduled": "Después",
   "rail.done": "Hecho",
   "rail.allCategories": "Todas",
+  "rail.needsReply.title": "Necesita respuesta (pulsa 1)",
+  "rail.everything.title": "Todo (pulsa 2)",
+  "rail.scheduled.title": "Programados (pulsa 3)",
+  "rail.done.title": "Hecho (pulsa 4)",
 
   "action.archive": "Archivar",
   "action.unarchive": "Desarchivar",

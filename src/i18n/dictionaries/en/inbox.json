@@ -54,11 +54,15 @@
   "thread.people.one": "{count} person",
   "thread.people.other": "{count} people",
 
-  "rail.needsReply": "Needs reply",
-  "rail.everything": "Everything",
-  "rail.scheduled": "Scheduled",
+  "rail.needsReply": "Reply",
+  "rail.everything": "All",
+  "rail.scheduled": "Later",
   "rail.done": "Done",
   "rail.allCategories": "All",
+  "rail.needsReply.title": "Needs reply (press 1)",
+  "rail.everything.title": "Everything (press 2)",
+  "rail.scheduled.title": "Scheduled (press 3)",
+  "rail.done.title": "Done (press 4)",
 
   "action.archive": "Archive",
   "action.unarchive": "Unarchive",

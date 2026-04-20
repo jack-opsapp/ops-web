@@ -299,7 +299,7 @@ export default function InboxPage() {
         {/* ─── Left: list ────────────────────────────────────────────────── */}
         <div
           style={{ width: 360 }}
-          className="shrink-0 flex flex-col border-r border-border-subtle min-h-0"
+          className="shrink-0 flex flex-col border-r border-border-subtle min-h-0 min-w-0 overflow-hidden"
         >
           {/* Search */}
           <div className="p-2.5 border-b border-border-subtle">

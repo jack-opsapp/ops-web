@@ -3,18 +3,22 @@
 /**
  * SplitInboxTabs — four-rail segmented control at the top of the inbox.
  *
- * Rails: NEEDS REPLY · EVERYTHING · SCHEDULED · DONE. Each rail shows an
- * unread counter in JetBrains Mono. Keyboard 1/2/3/4 switches rails (when
- * focus isn't trapped in an input). Active tab uses the white-8% fill +
- * 18% border pattern from the design system — no accent on segment controls.
- *
- * Animated underline uses a Motion `layoutId` so it slides between tabs
- * with EASE_SMOOTH. Reduced motion crossfades instead.
+ * Rails (left→right, matching daily workflow): REPLY · ALL · LATER · DONE.
+ * The cake-mono uppercase rendering is applied via CSS — dictionary strings
+ * stay in title case. Unread count shows as a JetBrains Mono badge; zero is
+ * suppressed. The keyboard shortcut `1`/`2`/`3`/`4` stays live; its
+ * discoverability is handled by the `title` tooltip (and the command
+ * palette) so the tab chrome stays tight enough to fit the 360px list
+ * column without bleeding into the thread pane. Active tab uses the
+ * white-8% fill + 18% border pattern from the design system — no accent on
+ * segment controls. Animated underline uses a Motion `layoutId` so it slides
+ * between tabs with EASE_SMOOTH; reduced motion crossfades instead.
  */
 
 import { useEffect, useMemo } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { cn } from "@/lib/utils/cn";
+import { useDictionary } from "@/i18n/client";
 import { EASE_SMOOTH } from "@/lib/utils/motion";
 import type { InboxRail } from "@/lib/types/email-thread";
 
@@ -35,15 +39,18 @@ interface SplitInboxTabsProps {
 
 interface RailDef {
   id: InboxRail;
-  label: string;
+  /** Dictionary key for the short (compact) label shown inside the tab. */
+  labelKey: string;
+  /** Dictionary key for the verbose tooltip shown on hover. */
+  titleKey: string;
   hotkey: "1" | "2" | "3" | "4";
 }
 
 const RAILS: readonly RailDef[] = [
-  { id: "needs_reply", label: "Needs reply", hotkey: "1" },
-  { id: "everything",  label: "Everything",  hotkey: "2" },
-  { id: "scheduled",   label: "Scheduled",   hotkey: "3" },
-  { id: "done",        label: "Done",        hotkey: "4" },
+  { id: "needs_reply", labelKey: "rail.needsReply", titleKey: "rail.needsReply.title", hotkey: "1" },
+  { id: "everything",  labelKey: "rail.everything", titleKey: "rail.everything.title", hotkey: "2" },
+  { id: "scheduled",   labelKey: "rail.scheduled",  titleKey: "rail.scheduled.title",  hotkey: "3" },
+  { id: "done",        labelKey: "rail.done",       titleKey: "rail.done.title",       hotkey: "4" },
 ] as const;
 
 function formatCount(n: number | undefined): string | null {
@@ -58,6 +65,7 @@ export function SplitInboxTabs({
   counts,
   hotkeys = true,
 }: SplitInboxTabsProps) {
+  const { t } = useDictionary("inbox");
   const reduceMotion = useReducedMotion();
 
   useEffect(() => {
@@ -82,17 +90,28 @@ export function SplitInboxTabs({
     return () => window.removeEventListener("keydown", handler);
   }, [hotkeys, onChange]);
 
-  const underlineId = useMemo(() => `split-tabs-${Math.random().toString(36).slice(2, 7)}`, []);
+  const underlineId = useMemo(
+    () => `split-tabs-${Math.random().toString(36).slice(2, 7)}`,
+    []
+  );
 
   return (
     <div
       role="tablist"
       aria-label="Inbox rail"
-      className="flex items-stretch gap-1 px-2.5 pt-2.5 pb-2 border-b border-border-subtle"
+      className={cn(
+        "flex items-stretch gap-1 px-2.5 pt-2.5 pb-2",
+        "border-b border-border-subtle",
+        // Defensive clip — the 360px column is snug; never let tabs bleed
+        // into the thread detail pane even under long localizations.
+        "overflow-hidden"
+      )}
     >
       {RAILS.map((rail) => {
         const isActive = rail.id === active;
         const countDisplay = formatCount(counts?.[rail.id]);
+        const label = t(rail.labelKey);
+        const title = t(rail.titleKey);
 
         return (
           <button
@@ -101,23 +120,32 @@ export function SplitInboxTabs({
             type="button"
             aria-selected={isActive}
             aria-controls={`inbox-rail-${rail.id}`}
+            aria-keyshortcuts={rail.hotkey}
+            title={title}
             onClick={() => onChange(rail.id)}
             className={cn(
-              "group relative flex items-center gap-1.5 px-2 py-1.5 rounded-[5px]",
-              "border transition-colors duration-150",
+              "group relative flex flex-1 min-w-0 items-center justify-center gap-1.5",
+              "px-1.5 py-1.5 rounded-[5px] border transition-colors duration-150",
               isActive
                 ? "border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.08)] text-text"
                 : "border-transparent text-text-3 hover:text-text-2 hover:bg-[rgba(255,255,255,0.03)]"
             )}
           >
-            <span className="font-cakemono font-light uppercase text-[11px] tracking-[0.18em] leading-none">
-              {rail.label}
+            <span
+              className={cn(
+                "font-cakemono font-light uppercase",
+                "text-[11px] tracking-[0.14em] leading-none",
+                "truncate"
+              )}
+            >
+              {label}
             </span>
 
             {countDisplay && (
               <span
                 className={cn(
-                  "font-mono text-[10px] leading-none tabular-nums px-1 py-[1px] rounded-[3px]",
+                  "shrink-0 font-mono text-[10px] leading-none tabular-nums",
+                  "px-1 py-[1px] rounded-[3px]",
                   isActive
                     ? "text-text-2 bg-[rgba(255,255,255,0.08)]"
                     : "text-text-mute bg-[rgba(255,255,255,0.04)]"
@@ -126,16 +154,6 @@ export function SplitInboxTabs({
                 {countDisplay}
               </span>
             )}
-
-            <span
-              aria-hidden
-              className={cn(
-                "font-mono text-[10px] leading-none text-text-mute ml-1",
-                !isActive && "opacity-60"
-              )}
-            >
-              {rail.hotkey}
-            </span>
 
             {isActive && !reduceMotion && (
               <motion.span
