@@ -21,6 +21,7 @@ import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 
 import { GalaxyStarfield } from "./galaxy-starfield";
 import { GalaxyNodes } from "./galaxy-nodes";
+import { GalaxyThreadDensityHalos } from "./galaxy-thread-density-halos";
 import { GalaxyCenterNode } from "./galaxy-center";
 import { GalaxyEdges } from "./galaxy-edges";
 import { GalaxyCamera } from "./galaxy-camera";
@@ -258,6 +259,11 @@ export function GalaxyScene() {
           {/* Entity nodes (hierarchical) */}
           {enrichedLayout.length > 0 && (
             <GalaxyNodes nodes={enrichedLayout} onNodeClick={() => { r3fHandledClickRef.current = true; }} />
+          )}
+
+          {/* Inbox v2 — thread density halos around client nodes */}
+          {enrichedLayout.length > 0 && (
+            <GalaxyThreadDensityHalos nodes={enrichedLayout} />
           )}
 
           {/* Edges (hover/click only, L2+) */}

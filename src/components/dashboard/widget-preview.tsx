@@ -37,6 +37,8 @@ import { ActivityWidget } from "@/components/dashboard/widgets/activity-feed-wid
 import { NotificationsWidget } from "@/components/dashboard/widgets/notifications-widget";
 import { ExpenseReviewWidget } from "@/components/dashboard/widgets/expense-review-widget";
 import { MyExpensesWidget } from "@/components/dashboard/widgets/my-expenses-widget";
+import { InboxLeadsWidget } from "@/components/dashboard/widgets/inbox-leads-widget";
+import { PhaseCAutonomyWidget } from "@/components/dashboard/widgets/phase-c-autonomy-widget";
 
 // No-op navigate for preview
 const noop = () => {};
@@ -114,6 +116,12 @@ function renderPreviewContent(typeId: WidgetTypeId, size: WidgetSize): ReactNode
       return <NotificationsWidget size={size} config={config} />;
     case "expense-review":
       return <ExpenseReviewWidget size={size} isLoading={false} onNavigate={noop} />;
+
+    // ── INBOX v2 ──
+    case "inbox-leads":
+      return <InboxLeadsWidget size={size} config={config} />;
+    case "phase-c-autonomy":
+      return <PhaseCAutonomyWidget size={size} config={config} />;
 
     default:
       return (

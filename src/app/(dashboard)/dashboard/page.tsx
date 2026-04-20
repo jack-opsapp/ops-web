@@ -94,6 +94,8 @@ import { ClientListWidget } from "@/components/dashboard/widgets/client-list-wid
 import { ClientAttentionWidget } from "@/components/dashboard/widgets/client-attention-widget";
 import { ActivityWidget } from "@/components/dashboard/widgets/activity-feed-widget";
 import { NotificationsWidget } from "@/components/dashboard/widgets/notifications-widget";
+import { InboxLeadsWidget } from "@/components/dashboard/widgets/inbox-leads-widget";
+import { PhaseCAutonomyWidget } from "@/components/dashboard/widgets/phase-c-autonomy-widget";
 import { ExpenseReviewWidget } from "@/components/dashboard/widgets/expense-review-widget";
 import { MyExpensesWidget } from "@/components/dashboard/widgets/my-expenses-widget";
 import type { Invoice, Estimate, Opportunity } from "@/lib/types/pipeline";
@@ -637,6 +639,12 @@ export default function DashboardPage() {
         return <NotificationsWidget size={size} config={config} />;
       case "expense-review":
         return <ExpenseReviewWidget size={size} isLoading={batchesLoading} onNavigate={navigate} />;
+
+      // ── INBOX v2 ──
+      case "inbox-leads":
+        return <InboxLeadsWidget size={size} config={config} />;
+      case "phase-c-autonomy":
+        return <PhaseCAutonomyWidget size={size} config={config} />;
 
       // ── PLACEHOLDER — not yet implemented ──
       default:

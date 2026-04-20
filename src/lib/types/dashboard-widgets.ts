@@ -64,7 +64,10 @@ export type WidgetTypeId =
   | "expense-review"
   // Pipeline Detail (2)
   | "pipeline-list"
-  | "lead-sources";
+  | "lead-sources"
+  // Inbox v2 (2)
+  | "inbox-leads"
+  | "phase-c-autonomy";
 
 // ---------------------------------------------------------------------------
 // Config field definition — drives per-instance sidebar config UI
@@ -716,6 +719,34 @@ export const WIDGET_TYPE_REGISTRY: Record<WidgetTypeId, WidgetTypeEntry> = {
     configSchema: [],
     allowMultiple: false,
     requiredPermission: "pipeline.view",
+  },
+
+  // ── INBOX v2 (2) ──────────────────────────────────────────────────────
+  "inbox-leads": {
+    label: "New Leads",
+    description: "Unread leads + 7-day response time",
+    dataSource: "email_threads filtered to LEAD + activities for response timing",
+    category: "alerts",
+    tags: ["essential", "pipeline"],
+    icon: "Inbox",
+    supportedSizes: ["xs", "sm", "md", "lg"],
+    defaultSize: "sm",
+    configSchema: [],
+    allowMultiple: false,
+    requiredPermission: "inbox.view",
+  },
+  "phase-c-autonomy": {
+    label: "Phase C",
+    description: "AI assistant — weekly activity and per-category autonomy",
+    dataSource: "pending_auto_sends + ai_draft_history + email_connections.category_autonomy",
+    category: "alerts",
+    tags: ["essential"],
+    icon: "Sparkles",
+    supportedSizes: ["xs", "sm", "md", "lg"],
+    defaultSize: "md",
+    configSchema: [],
+    allowMultiple: false,
+    requiredPermission: "inbox.view",
   },
 };
 

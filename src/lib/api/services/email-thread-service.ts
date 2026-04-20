@@ -479,6 +479,14 @@ export const EmailThreadService = {
         console.error("[phase-c-router] post-classify route failed:", err)
       );
 
+    // Notification hook — fire-and-forget. Only fires on category TRANSITIONS
+    // (LEAD/PLATFORM_BID that wasn't LEAD/PLATFORM_BID before) or on a newly
+    // surfaced URGENT label for an inbound thread. Defensive-by-default: any
+    // error is logged, never thrown.
+    fireThreadNotifications(threadRow, mappedUpdated).catch((err) =>
+      console.error("[thread-notify] hook failed (non-fatal):", err)
+    );
+
     return mappedUpdated;
   },
 
@@ -830,3 +838,93 @@ export function extractSubjectKeywords(subject: string): string[] {
 
 // Suppress unused helper warning — `listThreads` uses scope from params
 export type { InboxRail, InboxScope };
+
+// ─── Notification hook ──────────────────────────────────────────────────────
+// Fired after classifyAndUpdate. Only notifies on meaningful transitions:
+//   - Thread just became LEAD (wasn't LEAD before)
+//   - URGENT label appeared on an inbound thread (wasn't URGENT before)
+//   - Thread just became PLATFORM_BID
+//
+// Addressed to the connection owner (email_connections.user_id). Uses
+// NotificationService.create — the DB-level dedup index ignores repeat titles
+// in the same company+user while unread, so we don't spam.
+
+async function fireThreadNotifications(
+  previous: EmailThread,
+  next: EmailThread
+): Promise<void> {
+  const supabase = requireSupabase();
+
+  // Resolve the connection owner — the user who should be notified.
+  const { data: connRow } = await supabase
+    .from("email_connections")
+    .select("user_id")
+    .eq("id", next.connectionId)
+    .maybeSingle();
+  const userId = (connRow?.user_id as string | null) ?? null;
+  if (!userId) return;
+
+  const wasLead = previous.primaryCategory === "LEAD";
+  const isLead = next.primaryCategory === "LEAD";
+  const wasPlatform = previous.primaryCategory === "PLATFORM_BID";
+  const isPlatform = next.primaryCategory === "PLATFORM_BID";
+  const wasUrgent = previous.labels.includes("URGENT");
+  const isUrgent = next.labels.includes("URGENT");
+
+  const sender =
+    next.latestSenderName ||
+    next.latestSenderEmail ||
+    "Unknown sender";
+  const subject = next.subject?.trim() || "(no subject)";
+  const actionUrl = `/inbox?thread=${next.id}`;
+
+  const { NotificationService } = await import("./notification-service");
+
+  // New LEAD
+  if (isLead && !wasLead) {
+    await NotificationService.create({
+      userId,
+      companyId: next.companyId,
+      type: "leads_waiting",
+      title: `New lead: ${sender}`,
+      body: subject,
+      persistent: false,
+      actionUrl,
+      actionLabel: "Open thread",
+    });
+  }
+
+  // New PLATFORM_BID
+  if (isPlatform && !wasPlatform) {
+    // Extract platform name from sender domain when possible.
+    const domain = next.latestSenderEmail?.split("@")[1] ?? "Platform";
+    const platform = domain
+      .split(".")[0]
+      .replace(/[-_]/g, " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+    await NotificationService.create({
+      userId,
+      companyId: next.companyId,
+      type: "leads_waiting",
+      title: `Platform bid: ${platform}`,
+      body: subject,
+      persistent: false,
+      actionUrl,
+      actionLabel: "Review",
+    });
+  }
+
+  // URGENT reply needed — only when the flag is NEW and the latest msg is inbound.
+  if (isUrgent && !wasUrgent && next.latestDirection === "inbound") {
+    await NotificationService.create({
+      userId,
+      companyId: next.companyId,
+      type: "role_needed",
+      title: `Urgent reply needed: ${sender}`,
+      body: subject,
+      persistent: false,
+      actionUrl,
+      actionLabel: "Reply now",
+    });
+  }
+}
