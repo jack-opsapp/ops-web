@@ -330,17 +330,15 @@ export default function JoinPage() {
       {/* ── Company info header ─────────────────────────────────────── */}
       <div className="mb-6 space-y-3">
         {/* Company logo + name */}
-        <div className="flex items-stretch gap-3">
+        <div className="flex items-center gap-3">
           {invite.companyLogo && (
-            <div className="relative self-stretch aspect-square shrink-0 rounded-sm border border-[rgba(255,255,255,0.08)] overflow-hidden">
-              <Image
-                src={invite.companyLogo}
-                alt={invite.companyName}
-                fill
-                sizes="96px"
-                className="object-cover"
-              />
-            </div>
+            <Image
+              src={invite.companyLogo}
+              alt={invite.companyName}
+              width={48}
+              height={48}
+              className="w-12 h-12 shrink-0 rounded-sm border border-[rgba(255,255,255,0.08)] object-cover"
+            />
           )}
           <div className="min-w-0">
             <h1 className="font-cakemono text-[26px] font-light tracking-wide text-text leading-none uppercase">
