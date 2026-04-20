@@ -117,7 +117,10 @@ function formatTime(date: Date): string {
 interface BubbleProps {
   from: string;
   fromName: string | null;
+  /** Full raw body including quoted reply chain. Shown when expanded. */
   bodyText: string;
+  /** Body with quoted reply chain stripped. Default visible content. */
+  cleanBodyText: string;
   snippet: string;
   date: Date;
   hasAttachments: boolean;
@@ -129,14 +132,28 @@ function MessageBubble({
   from,
   fromName,
   bodyText,
+  cleanBodyText,
   snippet,
   date,
   hasAttachments,
   isOutbound,
   isRead,
 }: BubbleProps) {
+  const [expanded, setExpanded] = useState(false);
   const initials = getInitials(fromName, from);
-  const display = fromName ?? from;
+  // `from` may arrive as "Display Name <email@domain>" from the provider.
+  // Strip the angle-bracket address so the header never shows raw email when
+  // a nice display name is available.
+  const displayName = fromName ?? from.replace(/\s*<[^>]+>\s*$/, "").trim();
+  const display = displayName || from;
+
+  // If stripQuotedContent actually removed something, we have a collapsed
+  // view to show — otherwise the "Show quoted" affordance would be dead.
+  const hasQuoted =
+    cleanBodyText.length > 0 &&
+    bodyText.length > cleanBodyText.length + 10;
+  const visibleBody =
+    (expanded ? bodyText : cleanBodyText) || snippet || bodyText;
 
   return (
     <div
@@ -193,8 +210,25 @@ function MessageBubble({
           )}
         >
           <p className="font-mohave text-[13px] text-text whitespace-pre-wrap break-words leading-relaxed">
-            {bodyText || snippet}
+            {visibleBody}
           </p>
+
+          {hasQuoted && (
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              className={cn(
+                "mt-2 inline-flex items-center gap-1 px-1.5 h-[20px] rounded-[3px]",
+                "font-mono text-[10px] uppercase tracking-[0.12em]",
+                "text-text-mute hover:text-text-2 transition-colors",
+                "border border-border-subtle hover:border-[rgba(255,255,255,0.14)]",
+                "bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(255,255,255,0.05)]"
+              )}
+              aria-expanded={expanded}
+            >
+              {expanded ? "Hide quoted" : "Show quoted"}
+            </button>
+          )}
         </div>
       </div>
 
@@ -606,13 +640,10 @@ export function ThreadDetailView({
 
         {!isLoading &&
           messagesWithDates.map((m) => {
-            const isOutbound = Boolean(
-              m.from && listRow?.latestSenderEmail &&
-                m.from.toLowerCase() !== listRow.latestSenderEmail.toLowerCase() &&
-                participants.some(
-                  (p) => p.toLowerCase() === m.from.toLowerCase()
-                ) === false
-            ) || false;
+            // Trust the server-derived direction. It was computed against the
+            // owning connection's email, so it's correct even when the stored
+            // activities.direction is unreliable (imported data era).
+            const isOutbound = m.direction === "outbound";
             return (
               <div key={m.id}>
                 {m.showLabel && (
@@ -628,6 +659,7 @@ export function ThreadDetailView({
                   from={m.from}
                   fromName={m.fromName}
                   bodyText={m.bodyText}
+                  cleanBodyText={m.cleanBodyText}
                   snippet={m.snippet}
                   date={m.dateObj}
                   hasAttachments={m.hasAttachments}

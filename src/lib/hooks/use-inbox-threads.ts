@@ -63,7 +63,20 @@ export interface InboxThreadMessage {
   cc: string[];
   subject: string;
   snippet: string;
+  /** Full raw body including any quoted reply chain. Used on expand. */
   bodyText: string;
+  /**
+   * `bodyText` with the quoted reply chain removed — only this message's
+   * new content. When equal to `bodyText`, no quotes were found.
+   */
+  cleanBodyText: string;
+  /**
+   * Inbound = someone else sent to the connection mailbox.
+   * Outbound = the connection mailbox sent.
+   * Server-derived by comparing from-address to the connection's email; do
+   * not trust stored per-row direction fields for imported data.
+   */
+  direction: "inbound" | "outbound";
   date: string;
   isRead: boolean;
   hasAttachments: boolean;

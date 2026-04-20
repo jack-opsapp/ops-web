@@ -22,6 +22,7 @@ import { checkPermissionById } from "@/lib/supabase/check-permission";
 import { EmailThreadService } from "@/lib/api/services/email-thread-service";
 import { EmailService } from "@/lib/api/services/email-service";
 import { PhaseCLearningService } from "@/lib/api/services/phase-c-learning-service";
+import { extractEmailAddress, stripQuotedContent } from "@/lib/utils/email-parsing";
 import {
   EMAIL_THREAD_CATEGORIES,
   type EmailThreadCategory,
@@ -61,6 +62,22 @@ export async function GET(
       .eq("id", thread.connectionId)
       .single();
 
+    // Owning mailbox address. We use this (not the stored per-row `direction`
+    // column, which is unreliable for imported data) to decide inbound vs
+    // outbound on every message. Whatever produces the UI alignment — left
+    // vs right, gray vs accent — must trace to this comparison and nothing
+    // else.
+    const connectionEmail = connRow
+      ? extractEmailAddress((connRow.email as string) ?? "").toLowerCase()
+      : "";
+
+    const deriveDirection = (fromField: string | null | undefined): "inbound" | "outbound" => {
+      if (!connectionEmail || !fromField) return "inbound";
+      return extractEmailAddress(fromField).toLowerCase() === connectionEmail
+        ? "outbound"
+        : "inbound";
+    };
+
     let messages: Array<Record<string, unknown>> = [];
     if (connRow) {
       try {
@@ -91,19 +108,25 @@ export async function GET(
 
         const provider = EmailService.getProvider(connection);
         const providerMsgs = await provider.fetchThread(thread.providerThreadId);
-        messages = providerMsgs.map((m) => ({
-          id: m.id,
-          from: m.from,
-          fromName: m.fromName,
-          to: m.to,
-          cc: m.cc,
-          subject: m.subject,
-          snippet: m.snippet,
-          bodyText: m.bodyText,
-          date: m.date.toISOString(),
-          isRead: m.isRead,
-          hasAttachments: m.hasAttachments,
-        }));
+        messages = providerMsgs.map((m) => {
+          const rawBody = m.bodyText ?? "";
+          const cleanBody = stripQuotedContent(rawBody);
+          return {
+            id: m.id,
+            from: m.from,
+            fromName: m.fromName,
+            to: m.to,
+            cc: m.cc,
+            subject: m.subject,
+            snippet: m.snippet,
+            bodyText: rawBody,
+            cleanBodyText: cleanBody,
+            direction: deriveDirection(m.from),
+            date: m.date.toISOString(),
+            isRead: m.isRead,
+            hasAttachments: m.hasAttachments,
+          };
+        });
       } catch (err) {
         console.error("[/api/inbox/threads/:id] provider.fetchThread failed:", err);
         // Fall through to activities fallback
@@ -119,19 +142,26 @@ export async function GET(
         .eq("email_thread_id", thread.providerThreadId)
         .order("created_at", { ascending: true });
 
-      messages = (activityRows ?? []).map((r) => ({
-        id: r.id,
-        from: r.from_email,
-        fromName: null,
-        to: r.to_emails ?? [],
-        cc: r.cc_emails ?? [],
-        subject: r.subject ?? "",
-        snippet: (r.content as string) ?? "",
-        bodyText: (r.body_text as string) ?? (r.content as string) ?? "",
-        date: (r.created_at as string),
-        isRead: r.is_read,
-        hasAttachments: r.has_attachments,
-      }));
+      messages = (activityRows ?? []).map((r) => {
+        const rawBody =
+          ((r.body_text as string) ?? (r.content as string) ?? "");
+        const cleanBody = stripQuotedContent(rawBody);
+        return {
+          id: r.id,
+          from: r.from_email,
+          fromName: null,
+          to: r.to_emails ?? [],
+          cc: r.cc_emails ?? [],
+          subject: r.subject ?? "",
+          snippet: (r.content as string) ?? "",
+          bodyText: rawBody,
+          cleanBodyText: cleanBody,
+          direction: deriveDirection(r.from_email as string | null),
+          date: (r.created_at as string),
+          isRead: r.is_read,
+          hasAttachments: r.has_attachments,
+        };
+      });
     }
 
     return NextResponse.json({
