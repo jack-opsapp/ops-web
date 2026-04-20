@@ -16,6 +16,7 @@ import { AutoSendService } from "./auto-send-service";
 import { AIDraftService } from "./ai-draft-service";
 import { AutonomyMilestoneService } from "./autonomy-milestone-service";
 import { maybeSuggestProject } from "./project-suggestion-service";
+import { EmailThreadService } from "./email-thread-service";
 import type {
   EmailConnection,
   SyncProfile,
@@ -269,6 +270,45 @@ async function createActivity(
     match_confidence: extra?.matchConfidence || "pattern",
     is_read: !extra?.matchNeedsReview,
   });
+
+  // ── Inbox v2: Sync-step 7.5 — upsert email_threads row + classify ──────
+  //
+  // Every email flows through this function, so it's the single integration
+  // point for the new inbox's per-thread state. We upsert first (fast), then
+  // fire-and-forget classification so an OpenAI call never blocks sync.
+  //
+  // A failure here must not break the sync loop — swallow errors into the
+  // log and keep going.
+  try {
+    const { threadRow, isNew } = await EmailThreadService.upsertFromEmail({
+      companyId: connection.companyId,
+      connectionId: connection.id,
+      providerThreadId: email.threadId,
+      email,
+      direction,
+      opportunityId,
+    });
+
+    const needsClassify =
+      isNew ||
+      threadRow.categoryConfidence < 0.6 ||
+      (direction === "inbound" && !threadRow.categoryManuallySet);
+
+    if (needsClassify) {
+      EmailThreadService.classifyAndUpdate(threadRow).catch((err) => {
+        console.error(
+          "[sync-engine] thread classify failed (non-fatal) for",
+          threadRow.id,
+          err instanceof Error ? err.message : err
+        );
+      });
+    }
+  } catch (err) {
+    console.error(
+      "[sync-engine] email_threads upsert failed (non-fatal):",
+      err instanceof Error ? err.message : err
+    );
+  }
 }
 
 async function updateCorrespondenceCounts(
