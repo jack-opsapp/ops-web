@@ -426,6 +426,12 @@ export const queryKeys = {
       [...queryKeys.inbox.all, "portal-messages", companyId, clientId] as const,
     portalUnread: (companyId: string) =>
       [...queryKeys.inbox.all, "portal-unread", companyId] as const,
+    // Inbox v2 — thread-based (email_threads table)
+    threadsAll: () => [...queryKeys.inbox.all, "v2", "threads"] as const,
+    threads: (params: Record<string, unknown>) =>
+      [...queryKeys.inbox.all, "v2", "threads", params] as const,
+    threadDetail: (threadId: string) =>
+      [...queryKeys.inbox.all, "v2", "thread", threadId] as const,
   },
 
   // Approval Queue (agent actions)

@@ -1,0 +1,335 @@
+/**
+ * OPS Web - Inbox v2 React Hooks
+ *
+ * TanStack Query hooks for the rebuilt /inbox page. Wraps the new
+ * /api/inbox/threads endpoints with:
+ *   - useInboxThreads       : infinite cursor-paginated list
+ *   - useInboxThread        : single thread detail + messages
+ *   - useThreadActions      : archive/snooze/recategorize/markRead/preference
+ *                             mutations with optimistic invalidation
+ *
+ * Firebase/Supabase auth header is pulled via getIdToken(). All hooks are
+ * client-only ("use client" in consumers).
+ */
+
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
+import { queryKeys } from "@/lib/api/query-client";
+import type {
+  ArchiveWritebackPreference,
+  EmailThreadCategory,
+  EmailThreadLabel,
+  InboxRail,
+  InboxScope,
+} from "@/lib/types/email-thread";
+
+// ─── Wire types (what the API returns) ──────────────────────────────────────
+
+export interface InboxThreadRow {
+  id: string;
+  connectionId: string;
+  providerThreadId: string;
+  primaryCategory: EmailThreadCategory;
+  categoryConfidence: number;
+  categoryManuallySet: boolean;
+  labels: EmailThreadLabel[];
+  archivedAt: string | null;
+  snoozedUntil: string | null;
+  priorityScore: number;
+  aiSummary: string | null;
+  subject: string;
+  participants: string[];
+  firstMessageAt: string;
+  lastMessageAt: string;
+  messageCount: number;
+  unreadCount: number;
+  latestDirection: "inbound" | "outbound" | null;
+  latestSenderEmail: string | null;
+  latestSenderName: string | null;
+  latestSnippet: string | null;
+  opportunityId: string | null;
+  clientId: string | null;
+}
+
+export interface InboxThreadMessage {
+  id: string;
+  from: string;
+  fromName: string | null;
+  to: string[];
+  cc: string[];
+  subject: string;
+  snippet: string;
+  bodyText: string;
+  date: string;
+  isRead: boolean;
+  hasAttachments: boolean;
+}
+
+export interface InboxThreadDetail {
+  thread: {
+    id: string;
+    primaryCategory: EmailThreadCategory;
+    categoryConfidence: number;
+    categoryManuallySet: boolean;
+    labels: EmailThreadLabel[];
+    archivedAt: string | null;
+    snoozedUntil: string | null;
+    aiSummary: string | null;
+    subject: string;
+    participants: string[];
+    messageCount: number;
+    unreadCount: number;
+    opportunityId: string | null;
+    clientId: string | null;
+  };
+  messages: InboxThreadMessage[];
+}
+
+export interface InboxThreadsPage {
+  threads: InboxThreadRow[];
+  nextCursor: string | null;
+}
+
+// ─── Auth helper ─────────────────────────────────────────────────────────────
+
+async function authHeaders(): Promise<HeadersInit> {
+  const { getIdToken } = await import("@/lib/firebase/auth");
+  const token = await getIdToken();
+  if (!token) throw new Error("Not authenticated");
+  return { Authorization: `Bearer ${token}` };
+}
+
+// ─── Fetchers ────────────────────────────────────────────────────────────────
+
+export interface UseInboxThreadsParams {
+  scope: InboxScope;
+  filter: InboxRail;
+  category?: EmailThreadCategory;
+  search?: string;
+}
+
+async function fetchThreadsPage(
+  params: UseInboxThreadsParams & { cursor?: string | null }
+): Promise<InboxThreadsPage> {
+  const qs = new URLSearchParams();
+  qs.set("scope", params.scope);
+  qs.set("filter", params.filter);
+  if (params.category) qs.set("category", params.category);
+  if (params.search) qs.set("search", params.search);
+  if (params.cursor) qs.set("cursor", params.cursor);
+
+  const headers = await authHeaders();
+  const res = await fetch(`/api/inbox/threads?${qs.toString()}`, { headers });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `threads fetch failed (${res.status})`);
+  }
+  return res.json();
+}
+
+async function fetchThreadDetail(threadId: string): Promise<InboxThreadDetail> {
+  const headers = await authHeaders();
+  const res = await fetch(`/api/inbox/threads/${threadId}`, { headers });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `thread fetch failed (${res.status})`);
+  }
+  return res.json();
+}
+
+// ─── List hook (infinite) ───────────────────────────────────────────────────
+
+export function useInboxThreads(params: UseInboxThreadsParams) {
+  return useInfiniteQuery({
+    queryKey: queryKeys.inbox.threads({
+      scope: params.scope,
+      filter: params.filter,
+      category: params.category ?? null,
+      search: params.search ?? null,
+    }),
+    queryFn: ({ pageParam }) =>
+      fetchThreadsPage({
+        ...params,
+        cursor: pageParam as string | null,
+      }),
+    initialPageParam: null as string | null,
+    getNextPageParam: (last) => last.nextCursor,
+    refetchInterval: 30_000,
+    staleTime: 15_000,
+  });
+}
+
+// ─── Detail hook ─────────────────────────────────────────────────────────────
+
+export function useInboxThread(threadId: string | null) {
+  return useQuery({
+    queryKey: queryKeys.inbox.threadDetail(threadId ?? ""),
+    queryFn: () => fetchThreadDetail(threadId!),
+    enabled: !!threadId,
+    refetchInterval: 20_000,
+  });
+}
+
+// ─── Action mutations ────────────────────────────────────────────────────────
+
+interface ActionArgs {
+  threadId: string;
+  action: "archive" | "unarchive" | "snooze" | "unsnooze" | "recategorize" | "markRead";
+  until?: string;
+  toCategory?: EmailThreadCategory;
+  note?: string;
+  isRead?: boolean;
+}
+
+interface ActionResponse {
+  ok?: true;
+  needsPreference?: true;
+  connectionId?: string;
+  correctionId?: string;
+}
+
+async function runThreadAction(args: ActionArgs): Promise<ActionResponse> {
+  const headers = {
+    ...(await authHeaders()),
+    "Content-Type": "application/json",
+  };
+  const body: Record<string, unknown> = { action: args.action };
+  if (args.until) body.until = args.until;
+  if (args.toCategory) body.toCategory = args.toCategory;
+  if (args.note) body.note = args.note;
+  if (args.isRead !== undefined) body.isRead = args.isRead;
+
+  const res = await fetch(`/api/inbox/threads/${args.threadId}`, {
+    method: "PATCH",
+    headers,
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}));
+    throw new Error(e.error || `action failed (${res.status})`);
+  }
+  return res.json();
+}
+
+async function setWritebackPreferenceRequest(args: {
+  connectionId: string;
+  preference: ArchiveWritebackPreference;
+}): Promise<void> {
+  const headers = {
+    ...(await authHeaders()),
+    "Content-Type": "application/json",
+  };
+  const res = await fetch(`/api/inbox/writeback-preference`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(args),
+  });
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}));
+    throw new Error(e.error || `preference set failed (${res.status})`);
+  }
+}
+
+// ─── Actions hook ────────────────────────────────────────────────────────────
+
+export function useThreadActions() {
+  const qc = useQueryClient();
+
+  const invalidateLists = () =>
+    qc.invalidateQueries({ queryKey: queryKeys.inbox.threadsAll() });
+  const invalidateDetail = (threadId: string) =>
+    qc.invalidateQueries({ queryKey: queryKeys.inbox.threadDetail(threadId) });
+
+  const archive = useMutation({
+    mutationFn: (threadId: string) =>
+      runThreadAction({ threadId, action: "archive" }),
+    onSuccess: (_res, threadId) => {
+      invalidateLists();
+      invalidateDetail(threadId);
+    },
+  });
+
+  const unarchive = useMutation({
+    mutationFn: (threadId: string) =>
+      runThreadAction({ threadId, action: "unarchive" }),
+    onSuccess: (_res, threadId) => {
+      invalidateLists();
+      invalidateDetail(threadId);
+    },
+  });
+
+  const snooze = useMutation({
+    mutationFn: (args: { threadId: string; until: Date }) =>
+      runThreadAction({
+        threadId: args.threadId,
+        action: "snooze",
+        until: args.until.toISOString(),
+      }),
+    onSuccess: (_res, args) => {
+      invalidateLists();
+      invalidateDetail(args.threadId);
+    },
+  });
+
+  const unsnooze = useMutation({
+    mutationFn: (threadId: string) =>
+      runThreadAction({ threadId, action: "unsnooze" }),
+    onSuccess: (_res, threadId) => {
+      invalidateLists();
+      invalidateDetail(threadId);
+    },
+  });
+
+  const recategorize = useMutation({
+    mutationFn: (args: {
+      threadId: string;
+      toCategory: EmailThreadCategory;
+      note?: string;
+    }) =>
+      runThreadAction({
+        threadId: args.threadId,
+        action: "recategorize",
+        toCategory: args.toCategory,
+        note: args.note,
+      }),
+    onSuccess: (_res, args) => {
+      invalidateLists();
+      invalidateDetail(args.threadId);
+    },
+  });
+
+  const markRead = useMutation({
+    mutationFn: (args: { threadId: string; isRead: boolean }) =>
+      runThreadAction({
+        threadId: args.threadId,
+        action: "markRead",
+        isRead: args.isRead,
+      }),
+    onSuccess: (_res, args) => {
+      invalidateLists();
+      invalidateDetail(args.threadId);
+    },
+  });
+
+  const setWritebackPreference = useMutation({
+    mutationFn: setWritebackPreferenceRequest,
+    onSuccess: () => {
+      invalidateLists();
+    },
+  });
+
+  return {
+    archive,
+    unarchive,
+    snooze,
+    unsnooze,
+    recategorize,
+    markRead,
+    setWritebackPreference,
+  };
+}
