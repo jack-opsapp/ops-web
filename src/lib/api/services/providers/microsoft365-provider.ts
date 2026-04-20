@@ -320,6 +320,67 @@ export class Microsoft365Provider implements EmailProviderInterface {
     );
   }
 
+  async listThreadIds(options: {
+    pageSize?: number;
+    after?: Date;
+    pageToken?: string | null;
+  }): Promise<{ threadIds: string[]; nextPageToken: string | null }> {
+    // M365's messages endpoint clamps $top at 999. Select only what we need
+    // to keep the page payload light — one hop to the inbox-level list, not
+    // per-message bodies.
+    const pageSize = Math.min(Math.max(options.pageSize ?? 500, 1), 999);
+
+    // When we have a `pageToken` it's the full @odata.nextLink URL Graph
+    // handed back last time. Use it verbatim so $skiptoken / ordering stay
+    // intact. Otherwise we build the first page URL from scratch.
+    let url: string;
+    if (options.pageToken) {
+      url = options.pageToken;
+    } else {
+      const params = new URLSearchParams({
+        $select: "conversationId",
+        $top: String(pageSize),
+        $orderby: "receivedDateTime desc",
+      });
+      if (options.after) {
+        params.set(
+          "$filter",
+          `receivedDateTime ge ${options.after.toISOString()}`
+        );
+      }
+      url = `/me/messages?${params.toString()}`;
+    }
+
+    const data = (await this.graphFetch(url)) as {
+      value?: Array<{ conversationId?: string }>;
+      "@odata.nextLink"?: string;
+    };
+
+    // Dedupe within page — a conversation with N messages returns N entries
+    // unless we projected to distinct conversations, which Graph's /messages
+    // endpoint does not support natively.
+    const seen = new Set<string>();
+    const threadIds: string[] = [];
+    for (const m of data.value ?? []) {
+      if (!m.conversationId || seen.has(m.conversationId)) continue;
+      seen.add(m.conversationId);
+      threadIds.push(m.conversationId);
+    }
+
+    // Convert the full nextLink URL to a path Graph will accept from
+    // graphFetch the next time round. graphFetch prepends the base, so strip
+    // it here if it's absolute.
+    let nextPageToken: string | null = data["@odata.nextLink"] ?? null;
+    if (nextPageToken && nextPageToken.startsWith("https://graph.microsoft.com")) {
+      nextPageToken = nextPageToken.replace(
+        /^https:\/\/graph\.microsoft\.com\/v1\.0/,
+        ""
+      );
+    }
+
+    return { threadIds, nextPageToken };
+  }
+
   async createLabel(name: string): Promise<string> {
     // M365 uses categories, not labels. Create a master category.
     const data = await this.graphFetch("/me/outlook/masterCategories", {

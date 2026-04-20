@@ -147,6 +147,35 @@ export interface EmailProviderInterface {
     options?: { maxResults?: number; after?: Date }
   ): Promise<NormalizedEmail[]>;
 
+  /**
+   * Paginated list of unique thread IDs in the mailbox, used for historical
+   * backfill. Returns just the thread IDs — callers pair this with
+   * `fetchThread` to pull full content. Order is roughly newest-first; the
+   * provider-specific details differ (Gmail uses messages.list which orders
+   * by internalDate desc; M365 uses /me/messages ordered by receivedDateTime
+   * desc), but within a backfill it doesn't matter — all threads converge.
+   *
+   * Semantics:
+   *   - `pageSize` is a hint; provider may clamp (Gmail max 500, M365 max 999).
+   *   - `after` is inclusive. Omit for "everything".
+   *   - `pageToken` = the `nextPageToken` returned from a previous call.
+   *     Pass null/undefined on first call.
+   *   - A null `nextPageToken` in the response means the walk is complete.
+   *
+   * Implementations must deduplicate thread IDs within a page; callers
+   * still dedupe across pages. Implementations must NOT fetch full message
+   * content here — that's what makes this cheap enough to paginate through
+   * an entire mailbox.
+   */
+  listThreadIds(options: {
+    pageSize?: number;
+    after?: Date;
+    pageToken?: string | null;
+  }): Promise<{
+    threadIds: string[];
+    nextPageToken: string | null;
+  }>;
+
   // Thread operations
   fetchThread(threadId: string): Promise<NormalizedEmail[]>;
 

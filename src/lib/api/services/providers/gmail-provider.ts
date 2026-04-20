@@ -292,6 +292,53 @@ export class GmailProvider implements EmailProviderInterface {
     );
   }
 
+  async listThreadIds(options: {
+    pageSize?: number;
+    after?: Date;
+    pageToken?: string | null;
+  }): Promise<{ threadIds: string[]; nextPageToken: string | null }> {
+    // Gmail caps /messages at 500; tolerate callers asking for more.
+    const pageSize = Math.min(Math.max(options.pageSize ?? 500, 1), 500);
+
+    // "in:anywhere" covers inbox + sent + archive + trash. Users asked for
+    // "all my Gmail threads", not "just inbox" — Superhuman et al. pull
+    // everything. If we ever want to scope tighter we can expose a flag.
+    let q = "in:anywhere";
+    if (options.after) {
+      q += ` after:${Math.floor(options.after.getTime() / 1000)}`;
+    }
+
+    const params = new URLSearchParams({
+      q,
+      maxResults: String(pageSize),
+    });
+    if (options.pageToken) params.set("pageToken", options.pageToken);
+
+    const res = await this.gmailFetch(`/messages?${params.toString()}`);
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throwForGmailError(res.status, body, "messages.list (backfill)");
+    }
+    const data = (await res.json()) as {
+      messages?: Array<{ id: string; threadId: string }>;
+      nextPageToken?: string;
+    };
+
+    // Dedupe within the page — a thread with N messages returns N entries.
+    const seen = new Set<string>();
+    const threadIds: string[] = [];
+    for (const m of data.messages ?? []) {
+      if (!m.threadId || seen.has(m.threadId)) continue;
+      seen.add(m.threadId);
+      threadIds.push(m.threadId);
+    }
+
+    return {
+      threadIds,
+      nextPageToken: data.nextPageToken ?? null,
+    };
+  }
+
   async createLabel(name: string): Promise<string> {
     const res = await this.gmailFetch("/labels", {
       method: "POST",
