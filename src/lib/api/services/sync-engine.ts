@@ -302,6 +302,30 @@ async function createActivity(
           err instanceof Error ? err.message : err
         );
       });
+    } else if (direction === "inbound") {
+      // New inbound on an already-classified thread — no need to reclassify,
+      // but Phase C still needs to decide whether to draft/send/archive.
+      import("./phase-c-autonomy-router")
+        .then(({ PhaseCAutonomyRouter }) => PhaseCAutonomyRouter.route(threadRow))
+        .then((result) => {
+          if (
+            result.outcome !== "noop_off" &&
+            result.outcome !== "noop_draft_on_request"
+          ) {
+            console.log(
+              "[phase-c-router] thread=%s outcome=%s level=%s (inbound reuse)",
+              threadRow.id,
+              result.outcome,
+              result.effectiveLevel
+            );
+          }
+        })
+        .catch((err) =>
+          console.error(
+            "[phase-c-router] sync-engine inbound route failed (non-fatal):",
+            err instanceof Error ? err.message : err
+          )
+        );
     }
   } catch (err) {
     console.error(

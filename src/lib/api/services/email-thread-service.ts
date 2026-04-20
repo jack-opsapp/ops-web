@@ -459,7 +459,27 @@ export const EmailThreadService = {
       return threadRow;
     }
 
-    return mapEmailThreadFromDb(updated);
+    const mappedUpdated = mapEmailThreadFromDb(updated);
+
+    // Phase C post-classification hook — fire-and-forget. Classification
+    // must never be blocked by routing issues (draft generation can be slow).
+    import("./phase-c-autonomy-router")
+      .then(({ PhaseCAutonomyRouter }) => PhaseCAutonomyRouter.route(mappedUpdated))
+      .then((result) => {
+        if (result.outcome !== "noop_off" && result.outcome !== "noop_draft_on_request") {
+          console.log(
+            "[phase-c-router] thread=%s outcome=%s level=%s",
+            mappedUpdated.id,
+            result.outcome,
+            result.effectiveLevel
+          );
+        }
+      })
+      .catch((err) =>
+        console.error("[phase-c-router] post-classify route failed:", err)
+      );
+
+    return mappedUpdated;
   },
 
   /**

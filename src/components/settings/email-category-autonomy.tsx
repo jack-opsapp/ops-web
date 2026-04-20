@@ -6,11 +6,22 @@ import {
   ChevronDown,
   AlertTriangle,
   Sparkles,
+  CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
 import { useAuthStore } from "@/lib/store/auth-store";
+import {
+  EMAIL_THREAD_CATEGORIES,
+  type EmailThreadAutonomyLevel,
+  type EmailThreadCategory,
+} from "@/lib/types/email-thread";
+import {
+  categoryLabel,
+  categoryDotColor,
+} from "@/components/ops/inbox/category-chip";
+import { allowedLevelsFor } from "@/lib/api/services/phase-c-category-autonomy-service";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -321,6 +332,262 @@ export function EmailCategoryAutonomy({
           );
         })}
       </div>
+
+      {/* ─── Primary Category Autonomy (Inbox v2) ───────────────────────── */}
+      <PrimaryCategoryAutonomy
+        connectionId={connectionId}
+        autoSendFeatureEnabled={autoSendFeatureEnabled}
+        categoryCounts={categories.reduce<Record<string, number>>((acc, c) => {
+          acc[c.profileType] = c.emailCount;
+          return acc;
+        }, {})}
+      />
     </div>
   );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Primary Category Autonomy section — Inbox v2 taxonomy (13 categories)
+// ═══════════════════════════════════════════════════════════════════════════
+
+interface PrimaryCategoryAutonomyProps {
+  connectionId: string;
+  autoSendFeatureEnabled: boolean;
+  /**
+   * Category email counts per profile_type — used to compute a rough
+   * "ready to graduate" signal for primary categories (LEAD maps to
+   * client_new_inquiry + client_quoting profile types, etc.).
+   */
+  categoryCounts: Record<string, number>;
+}
+
+const PRIMARY_PROFILE_MAP: Partial<Record<EmailThreadCategory, string[]>> = {
+  LEAD: ["client_new_inquiry", "client_quoting"],
+  CLIENT: ["client_active_project", "client_followup"],
+  VENDOR: ["vendor_ordering", "vendor_inquiry"],
+  SUBTRADE: ["subtrade_coordination"],
+  PLATFORM_BID: ["client_new_inquiry"],
+  INTERNAL: ["internal"],
+};
+
+const PRIMARY_MIN_SAMPLES = 20;
+
+function PrimaryCategoryAutonomy({
+  connectionId,
+  autoSendFeatureEnabled,
+  categoryCounts,
+}: PrimaryCategoryAutonomyProps) {
+  const { t } = useDictionary("autonomy");
+  const { company } = useAuthStore();
+  const [levels, setLevels] = useState<
+    Record<EmailThreadCategory, EmailThreadAutonomyLevel>
+  >(() => {
+    const out = {} as Record<EmailThreadCategory, EmailThreadAutonomyLevel>;
+    for (const c of EMAIL_THREAD_CATEGORIES) out[c] = "off";
+    return out;
+  });
+  const [saving, setSaving] = useState<EmailThreadCategory | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Load current settings
+  useEffect(() => {
+    if (!company?.id || !connectionId) return;
+    let aborted = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(
+          `/api/integrations/email/auto-send/settings?companyId=${company.id}&connectionId=${connectionId}`
+        );
+        if (!res.ok || aborted) return;
+        const data = await res.json();
+        const settings = (data.settings as Record<string, unknown>) ?? {};
+        const map =
+          (settings.category_autonomy as Record<string, string>) ?? {};
+        const next = {} as Record<EmailThreadCategory, EmailThreadAutonomyLevel>;
+        for (const c of EMAIL_THREAD_CATEGORIES) {
+          const key = `primary:${c}`;
+          const value = (map[key] as EmailThreadAutonomyLevel | undefined);
+          const allowed = allowedLevelsFor(c);
+          next[c] = value && allowed.includes(value)
+            ? value
+            : allowed[0]; // default: first allowed ("off" or "draft_on_request")
+        }
+        setLevels(next);
+      } catch {
+        // non-fatal
+      } finally {
+        if (!aborted) setLoading(false);
+      }
+    })();
+    return () => {
+      aborted = true;
+    };
+  }, [company?.id, connectionId]);
+
+  const commit = useCallback(
+    async (category: EmailThreadCategory, level: EmailThreadAutonomyLevel) => {
+      if (!company?.id) return;
+      setSaving(category);
+      const prevLevels = levels;
+      const nextLevels = { ...levels, [category]: level };
+      setLevels(nextLevels);
+      try {
+        // Merge with existing category_autonomy: fetch → patch → write.
+        const getRes = await fetch(
+          `/api/integrations/email/auto-send/settings?companyId=${company.id}&connectionId=${connectionId}`
+        );
+        const getBody = await getRes.json();
+        const currentMap =
+          ((getBody.settings as Record<string, unknown>)
+            ?.category_autonomy as Record<string, string>) ?? {};
+
+        const mergedMap: Record<string, string> = {
+          ...currentMap,
+          [`primary:${category}`]: level,
+        };
+
+        const res = await fetch(
+          "/api/integrations/email/auto-send/settings",
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              companyId: company.id,
+              connectionId,
+              settings: { category_autonomy: mergedMap },
+            }),
+          }
+        );
+        if (!res.ok) throw new Error("Save failed");
+        toast.success(t("category.saved") ?? "Saved");
+      } catch {
+        setLevels(prevLevels);
+        toast.error(t("error.categorySaveFailed") ?? "Could not save.");
+      } finally {
+        setSaving(null);
+      }
+    },
+    [company?.id, connectionId, levels, t]
+  );
+
+  if (loading) return null;
+
+  return (
+    <div className="mt-6">
+      <div className="mb-2">
+        <span className="font-cakemono text-body-sm text-text-2 font-light uppercase tracking-wide">
+          Primary category autonomy
+        </span>
+        <p className="font-mono text-micro text-text-mute mt-0.5">
+          [Inbox v2 — thirteen primary categories]
+        </p>
+      </div>
+
+      <div className="rounded-[8px] border border-[rgba(255,255,255,0.06)] overflow-hidden">
+        {EMAIL_THREAD_CATEGORIES.map((cat, index) => {
+          const allowed = allowedLevelsFor(cat);
+          // Apply the global feature gate too: if auto_send isn't enabled at
+          // the connection level, remove it from the dropdown.
+          const filtered = allowed.filter((lvl) => {
+            if (
+              (lvl === "auto_send" || lvl === "auto_follow_up") &&
+              !autoSendFeatureEnabled
+            ) {
+              return false;
+            }
+            return true;
+          });
+
+          const profileTypes = PRIMARY_PROFILE_MAP[cat] ?? [];
+          const totalSamples = profileTypes.reduce(
+            (sum, pt) => sum + (categoryCounts[pt] ?? 0),
+            0
+          );
+          const readyToGraduate =
+            profileTypes.length > 0 && totalSamples >= PRIMARY_MIN_SAMPLES;
+
+          const isSaving = saving === cat;
+
+          return (
+            <div
+              key={cat}
+              className={cn(
+                "flex items-center justify-between px-3 py-2 min-h-[48px]",
+                index > 0 && "border-t border-[rgba(255,255,255,0.04)]"
+              )}
+            >
+              <div className="flex-1 min-w-0 mr-3 flex items-center gap-2">
+                <span
+                  className="w-[6px] h-[6px] rounded-full shrink-0"
+                  aria-hidden
+                  style={{ backgroundColor: categoryDotColor(cat) }}
+                />
+                <span className="font-cakemono font-light uppercase text-[12px] tracking-[0.14em] text-text-2">
+                  {categoryLabel(cat)}
+                </span>
+                {readyToGraduate && levels[cat] === "auto_draft" && (
+                  <span className="inline-flex items-center gap-1 px-1.5 py-[1px] rounded-[3px] bg-[rgba(157,181,130,0.08)] border border-[rgba(157,181,130,0.24)]">
+                    <CheckCircle2 className="w-[10px] h-[10px] text-olive" strokeWidth={2} />
+                    <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-olive">
+                      Ready to auto
+                    </span>
+                  </span>
+                )}
+              </div>
+
+              <div className="relative shrink-0">
+                <select
+                  value={levels[cat]}
+                  onChange={(e) =>
+                    commit(cat, e.target.value as EmailThreadAutonomyLevel)
+                  }
+                  disabled={isSaving || filtered.length <= 1}
+                  className={cn(
+                    "appearance-none pl-2 pr-6 py-1 rounded-[4px]",
+                    "bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)]",
+                    "font-mohave text-caption-sm text-text-2 outline-none",
+                    "focus:border-[rgba(111,148,176,0.4)] transition-colors cursor-pointer min-w-[150px]",
+                    isSaving && "opacity-50"
+                  )}
+                >
+                  {filtered.map((level) => (
+                    <option key={level} value={level}>
+                      {formatLevelLabel(level)}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-[10px] h-[10px] text-text-mute pointer-events-none" />
+                {isSaving && (
+                  <Loader2
+                    className={cn(
+                      "absolute right-6 top-1/2 -translate-y-1/2 w-[10px] h-[10px] text-text-mute",
+                      "animate-spin"
+                    )}
+                  />
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function formatLevelLabel(level: EmailThreadAutonomyLevel): string {
+  switch (level) {
+    case "off":
+      return "Off";
+    case "draft_on_request":
+      return "Draft on request";
+    case "auto_draft":
+      return "Auto-draft";
+    case "auto_send":
+      return "Auto-send";
+    case "auto_archive":
+      return "Auto-archive";
+    case "auto_follow_up":
+      return "Auto follow-up";
+  }
 }
