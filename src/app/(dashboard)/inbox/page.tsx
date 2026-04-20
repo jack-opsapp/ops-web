@@ -43,6 +43,13 @@ import { WritebackPreferenceModal } from "@/components/ops/inbox/writeback-prefe
 import { UndoToastHost, enqueueUndoToast } from "@/components/ops/inbox/undo-toast";
 import { ComposeEmailModal } from "@/components/ops/compose-email-modal";
 import { KeyHint } from "@/components/ui/key-hint";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { useEmailConnections } from "@/lib/hooks/use-email-connections";
 
 // ─── Pending action queue — for "archive then choose write-back" flow ───────
 
@@ -55,11 +62,30 @@ export default function InboxPage() {
   usePageTitle("Inbox");
   const { t } = useDictionary("inbox");
   const can = usePermissionStore((s) => s.can);
-  const { company } = useAuthStore();
+  const { company, currentUser } = useAuthStore();
+  const { data: emailConnections } = useEmailConnections();
 
   // ─── Filters & scope ──────────────────────────────────────────────────────
   const canViewCompany = can("inbox.view_company");
   const canConfigurePhaseC = can("inbox.configure_phase_c");
+
+  // Build hover tooltips for the My inbox / Company scope toggle so the user
+  // can see exactly which mailbox(es) each scope covers without opening
+  // Settings. "My inbox" resolves to the current user's individual
+  // connections plus any company-type connections they can see; "Company"
+  // shows the full list.
+  const myScopeEmails = useMemo(() => {
+    const rows = emailConnections ?? [];
+    if (!currentUser) return rows.map((r) => r.email);
+    return rows
+      .filter((r) => r.type === "company" || r.userId === currentUser.id)
+      .map((r) => r.email);
+  }, [emailConnections, currentUser]);
+
+  const companyScopeEmails = useMemo(
+    () => (emailConnections ?? []).map((r) => r.email),
+    [emailConnections]
+  );
 
   const [scope, setScope] = useState<InboxScope>("own");
   const [rail, setRail] = useState<InboxRail>("needs_reply");
@@ -321,34 +347,86 @@ export default function InboxPage() {
               </span>
             </div>
             {canViewCompany && (
-              <div className="flex items-center gap-1 mt-2 px-0.5">
-                <button
-                  type="button"
-                  onClick={() => setScope("own")}
-                  className={cn(
-                    "px-2 h-[22px] rounded-[4px] border transition-colors",
-                    "font-cakemono font-light uppercase text-[10px] tracking-[0.16em]",
-                    scope === "own"
-                      ? "border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.08)] text-text"
-                      : "border-border-subtle text-text-3 hover:text-text-2"
-                  )}
-                >
-                  My inbox
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setScope("company")}
-                  className={cn(
-                    "px-2 h-[22px] rounded-[4px] border transition-colors",
-                    "font-cakemono font-light uppercase text-[10px] tracking-[0.16em]",
-                    scope === "company"
-                      ? "border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.08)] text-text"
-                      : "border-border-subtle text-text-3 hover:text-text-2"
-                  )}
-                >
-                  Company
-                </button>
-              </div>
+              <TooltipProvider delayDuration={200}>
+                <div className="flex items-center gap-1 mt-2 px-0.5">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={() => setScope("own")}
+                        className={cn(
+                          "px-2 h-[22px] rounded-[4px] border transition-colors",
+                          "font-cakemono font-light uppercase text-[10px] tracking-[0.16em]",
+                          scope === "own"
+                            ? "border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.08)] text-text"
+                            : "border-border-subtle text-text-3 hover:text-text-2"
+                        )}
+                      >
+                        My inbox
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" align="start">
+                      {myScopeEmails.length === 0 ? (
+                        <span className="font-mono text-[11px] text-text-3">
+                          No email connected
+                        </span>
+                      ) : (
+                        <div className="flex flex-col gap-0.5">
+                          {myScopeEmails.map((addr) => (
+                            <span
+                              key={addr}
+                              className="font-mono text-[11px] text-text leading-none"
+                            >
+                              {addr}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </TooltipContent>
+                  </Tooltip>
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={() => setScope("company")}
+                        className={cn(
+                          "px-2 h-[22px] rounded-[4px] border transition-colors",
+                          "font-cakemono font-light uppercase text-[10px] tracking-[0.16em]",
+                          scope === "company"
+                            ? "border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.08)] text-text"
+                            : "border-border-subtle text-text-3 hover:text-text-2"
+                        )}
+                      >
+                        Company
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" align="start">
+                      {companyScopeEmails.length === 0 ? (
+                        <span className="font-mono text-[11px] text-text-3">
+                          No email connected
+                        </span>
+                      ) : (
+                        <div className="flex flex-col gap-0.5">
+                          <span className="font-cakemono font-light uppercase text-[10px] tracking-[0.18em] text-text-mute leading-none">
+                            {companyScopeEmails.length === 1
+                              ? "1 account"
+                              : `${companyScopeEmails.length} accounts`}
+                          </span>
+                          {companyScopeEmails.map((addr) => (
+                            <span
+                              key={addr}
+                              className="font-mono text-[11px] text-text leading-none"
+                            >
+                              {addr}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+              </TooltipProvider>
             )}
           </div>
 

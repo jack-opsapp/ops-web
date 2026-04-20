@@ -456,6 +456,24 @@ export function ThreadDetailView({
     onBack,
   ]);
 
+  // ─── Derived render data ──────────────────────────────────────────────
+  //
+  // MUST come before the `!threadId` early return below. React hook rules
+  // require the same hooks to be called on every render; if this useMemo
+  // sits after the early-return it gets skipped when threadId is null and
+  // re-runs once a user picks a thread, tripping "Rendered more hooks than
+  // during the previous render" and crashing the thread pane.
+  const messagesWithDates = useMemo(() => {
+    let lastLabel = "";
+    return messages.map((m) => {
+      const d = new Date(m.date);
+      const label = formatDateGroup(d);
+      const showLabel = label !== lastLabel;
+      lastLabel = label;
+      return { ...m, dateObj: d, dateLabel: label, showLabel };
+    });
+  }, [messages]);
+
   // ─── Empty state ──────────────────────────────────────────────────────
 
   if (!threadId) {
@@ -476,18 +494,6 @@ export function ThreadDetailView({
   }
 
   // ─── Render ───────────────────────────────────────────────────────────
-
-  // Group messages by date.
-  const messagesWithDates = useMemo(() => {
-    let lastLabel = "";
-    return messages.map((m) => {
-      const d = new Date(m.date);
-      const label = formatDateGroup(d);
-      const showLabel = label !== lastLabel;
-      lastLabel = label;
-      return { ...m, dateObj: d, dateLabel: label, showLabel };
-    });
-  }, [messages]);
 
   return (
     <motion.div

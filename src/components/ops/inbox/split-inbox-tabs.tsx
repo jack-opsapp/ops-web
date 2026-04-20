@@ -124,8 +124,8 @@ export function SplitInboxTabs({
             title={title}
             onClick={() => onChange(rail.id)}
             className={cn(
-              "group relative flex flex-1 min-w-0 items-center justify-center gap-1.5",
-              "px-1.5 py-1.5 rounded-[5px] border transition-colors duration-150",
+              "group relative flex flex-1 min-w-0 items-center justify-center gap-1",
+              "px-1 py-1.5 rounded-[5px] border transition-colors duration-150",
               isActive
                 ? "border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.08)] text-text"
                 : "border-transparent text-text-3 hover:text-text-2 hover:bg-[rgba(255,255,255,0.03)]"
@@ -133,9 +133,10 @@ export function SplitInboxTabs({
           >
             <span
               className={cn(
-                "font-cakemono font-light uppercase",
-                "text-[11px] tracking-[0.14em] leading-none",
-                "truncate"
+                "font-cakemono font-light uppercase whitespace-nowrap",
+                // Tight tracking so 5-char labels (REPLY / LATER) fit inside
+                // an 80px flex-basis button next to their count badge.
+                "text-[11px] tracking-[0.08em] leading-none"
               )}
             >
               {label}
@@ -145,10 +146,10 @@ export function SplitInboxTabs({
               <span
                 className={cn(
                   "shrink-0 font-mono text-[10px] leading-none tabular-nums",
-                  "px-1 py-[1px] rounded-[3px]",
-                  isActive
-                    ? "text-text-2 bg-[rgba(255,255,255,0.08)]"
-                    : "text-text-mute bg-[rgba(255,255,255,0.04)]"
+                  // No background pill — the label carries the tab identity,
+                  // the count is a supporting datum. A color shift is enough
+                  // to differentiate without eating horizontal space.
+                  isActive ? "text-text-2" : "text-text-mute"
                 )}
               >
                 {countDisplay}
