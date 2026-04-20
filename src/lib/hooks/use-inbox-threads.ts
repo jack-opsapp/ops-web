@@ -141,6 +141,34 @@ async function fetchThreadDetail(threadId: string): Promise<InboxThreadDetail> {
   return res.json();
 }
 
+// ─── Unread count (for sidebar badge) ───────────────────────────────────────
+
+async function fetchUnreadCount(): Promise<number> {
+  const headers = await authHeaders();
+  const res = await fetch(`/api/inbox/threads?scope=own&filter=needs_reply&limit=50`, {
+    headers,
+  });
+  if (!res.ok) return 0;
+  const body = (await res.json()) as InboxThreadsPage;
+  let count = 0;
+  for (const t of body.threads) count += t.unreadCount;
+  return count;
+}
+
+/**
+ * Badge-ready unread count across the user's own inbox. Summed from the
+ * first page of the `needs_reply` rail. Refreshes every 60s.
+ */
+export function useInboxUnreadCount() {
+  return useQuery({
+    queryKey: [...queryKeys.inbox.all, "v2", "unread"],
+    queryFn: fetchUnreadCount,
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+    retry: 1,
+  });
+}
+
 // ─── List hook (infinite) ───────────────────────────────────────────────────
 
 export function useInboxThreads(params: UseInboxThreadsParams) {

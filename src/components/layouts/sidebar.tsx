@@ -37,7 +37,7 @@ import { useSignOutStore } from "@/stores/signout-store";
 import { useDictionary } from "@/i18n/client";
 import { FeatureAccessModal } from "@/components/ops/feature-access-modal";
 import { useFeatureAccessRequests } from "@/lib/hooks/use-feature-access-requests";
-import { useUnifiedUnreadCount } from "@/lib/hooks/use-unified-inbox";
+import { useInboxUnreadCount } from "@/lib/hooks/use-inbox-threads";
 import { useApprovalQueuePendingCount } from "@/lib/hooks/use-approval-queue";
 import { getSlugForPermission } from "@/lib/feature-flags/feature-flag-definitions";
 import {
@@ -194,7 +194,7 @@ export function Sidebar() {
   const [accessModalOpen, setAccessModalOpen] = useState(false);
   const [accessModalFeature, setAccessModalFeature] = useState<{ label: string; slug: string } | null>(null);
   const { data: requestedSlugs, refetch: refetchRequests } = useFeatureAccessRequests(currentUser?.id);
-  const { data: inboxUnreadCount = 0 } = useUnifiedUnreadCount();
+  const { data: inboxUnreadCount = 0 } = useInboxUnreadCount();
   const { data: agentQueuePendingCount = 0 } = useApprovalQueuePendingCount();
 
   // Mobile: detect viewport and derive effective collapsed state
