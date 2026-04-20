@@ -1,12 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { OpsLockup } from "@/components/brand";
 import { Eye, EyeOff, Mail, Lock, User } from "lucide-react";
-import { signInWithGoogle, signInWithApple, signUpWithEmail } from "@/lib/firebase/auth";
+import {
+  signInWithGoogle,
+  signInWithApple,
+  signUpWithEmail,
+  consumeRedirectContext,
+} from "@/lib/firebase/auth";
 import { UserService } from "@/lib/api/services/user-service";
+import { useAuthStore } from "@/lib/store/auth-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { trackSignUp } from "@/lib/analytics/analytics";
@@ -27,22 +33,29 @@ export default function RegisterPage() {
 
   const anyLoading = isLoadingEmail || isLoadingGoogle || isLoadingApple;
 
+  const currentUser = useAuthStore((s) => s.currentUser);
+
+  // When the user returns from a Google/Apple redirect that originated here,
+  // AuthProvider has already synced them and populated the store. Run the
+  // sign-up side-effects (analytics + route-to-account-type) now.
+  useEffect(() => {
+    if (!currentUser) return;
+    const ctx = consumeRedirectContext();
+    if (!ctx || ctx.origin !== "register") return;
+
+    trackSignUp(ctx.provider);
+    router.push("/account-type");
+  }, [currentUser, router]);
+
   async function handleGoogleSignIn() {
     setError(null);
     setIsLoadingGoogle(true);
     try {
-      await signInWithGoogle();
-      trackSignUp("google");
-      router.push("/account-type");
+      await signInWithGoogle({ origin: "register", provider: "google" });
+      // Browser navigates to Google before resolution.
     } catch (err: unknown) {
-      const code = (err as { code?: string })?.code;
-      // User closed the popup — silently reset, no error
-      if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
-        return;
-      }
       const message = err instanceof Error ? err.message : t("register.error.googleFailed");
       setError(message);
-    } finally {
       setIsLoadingGoogle(false);
     }
   }
@@ -51,18 +64,10 @@ export default function RegisterPage() {
     setError(null);
     setIsLoadingApple(true);
     try {
-      await signInWithApple();
-      trackSignUp("apple");
-      router.push("/account-type");
+      await signInWithApple({ origin: "register", provider: "apple" });
     } catch (err: unknown) {
-      const code = (err as { code?: string })?.code;
-      // User closed the popup — silently reset, no error
-      if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
-        return;
-      }
       const message = err instanceof Error ? err.message : t("register.error.appleFailed");
       setError(message);
-    } finally {
       setIsLoadingApple(false);
     }
   }

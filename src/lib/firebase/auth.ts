@@ -1,5 +1,4 @@
 import {
-  signInWithPopup,
   signInWithRedirect,
   getRedirectResult,
   GoogleAuthProvider,
@@ -30,6 +29,7 @@ appleProvider.addScope("name");
 // onAuthStateChanged from firing. We only call it when we know a
 // redirect was initiated (flagged via sessionStorage).
 const REDIRECT_FLAG_KEY = "ops-auth-redirect-pending";
+const REDIRECT_CTX_KEY = "ops-auth-redirect-ctx";
 
 export function setRedirectFlag() {
   try { sessionStorage.setItem(REDIRECT_FLAG_KEY, "1"); } catch {}
@@ -43,68 +43,61 @@ export function clearRedirectFlag() {
   try { sessionStorage.removeItem(REDIRECT_FLAG_KEY); } catch {}
 }
 
-/**
- * Sign in with Google — tries popup first, falls back to redirect.
- * Popup can fail due to COOP policies or popup blockers on some browsers.
- */
-export async function signInWithGoogle(): Promise<User> {
+// ─── Redirect Context ───────────────────────────────────────────────────────
+// When a page kicks off OAuth via signInWithGoogle/Apple, it stashes where the
+// user came from (login/register/join), the provider, and any per-origin data
+// (redirect target, invite code). After the user returns, the origin page reads
+// this back via `consumeRedirectContext()` to run its post-auth logic (route
+// decisions, analytics events, company-join API call, etc.).
+
+export type RedirectContext = {
+  origin: "login" | "register" | "join";
+  provider: "google" | "apple";
+  /** For login: where to route an already-onboarded user. */
+  redirectTo?: string;
+  /** For join: the invite code the user was responding to. */
+  joinCode?: string;
+};
+
+function setRedirectContext(ctx: RedirectContext) {
+  try { sessionStorage.setItem(REDIRECT_CTX_KEY, JSON.stringify(ctx)); } catch {}
+}
+
+/** Read the redirect context once and delete it. Returns null if none. */
+export function consumeRedirectContext(): RedirectContext | null {
   try {
-    const result = await signInWithPopup(auth, googleProvider);
-    return result.user;
-  } catch (err: unknown) {
-    const code = (err as { code?: string })?.code;
-    // User dismissed the popup — re-throw so callers can reset loading state
-    if (
-      code === "auth/popup-closed-by-user" ||
-      code === "auth/cancelled-popup-request"
-    ) {
-      throw err;
-    }
-    // Technical failure — fall back to redirect
-    if (
-      code === "auth/popup-blocked" ||
-      code === "auth/network-request-failed" ||
-      code === "auth/internal-error"
-    ) {
-      console.warn("[auth] Popup failed, falling back to redirect:", code);
-      setRedirectFlag();
-      await signInWithRedirect(auth, googleProvider);
-      // Page will reload — this promise never resolves
-      return new Promise(() => {});
-    }
-    throw err;
+    const raw = sessionStorage.getItem(REDIRECT_CTX_KEY);
+    if (!raw) return null;
+    sessionStorage.removeItem(REDIRECT_CTX_KEY);
+    return JSON.parse(raw) as RedirectContext;
+  } catch {
+    return null;
   }
 }
 
 /**
- * Sign in with Apple — tries popup first, falls back to redirect.
+ * Sign in with Google via full-page redirect.
+ *
+ * Popup mode (signInWithPopup) is not used because its internal
+ * `popup.closed` polling triggers Cross-Origin-Opener-Policy warnings on
+ * every render — the browser refuses to expose popup state to a
+ * same-origin opener. Redirect has no popup and no polling.
+ *
+ * Returns a promise that never resolves in the success case (the browser
+ * navigates away before resolution). It may still reject if the redirect
+ * fails to initiate (e.g. auth config error).
  */
-export async function signInWithApple(): Promise<User> {
-  try {
-    const result = await signInWithPopup(auth, appleProvider);
-    return result.user;
-  } catch (err: unknown) {
-    const code = (err as { code?: string })?.code;
-    // User dismissed the popup — re-throw so callers can reset loading state
-    if (
-      code === "auth/popup-closed-by-user" ||
-      code === "auth/cancelled-popup-request"
-    ) {
-      throw err;
-    }
-    // Technical failure — fall back to redirect
-    if (
-      code === "auth/popup-blocked" ||
-      code === "auth/network-request-failed" ||
-      code === "auth/internal-error"
-    ) {
-      console.warn("[auth] Popup failed, falling back to redirect:", code);
-      setRedirectFlag();
-      await signInWithRedirect(auth, appleProvider);
-      return new Promise(() => {});
-    }
-    throw err;
-  }
+export async function signInWithGoogle(ctx: RedirectContext): Promise<void> {
+  setRedirectContext(ctx);
+  setRedirectFlag();
+  await signInWithRedirect(auth, googleProvider);
+}
+
+/** Sign in with Apple via full-page redirect. See `signInWithGoogle` for rationale. */
+export async function signInWithApple(ctx: RedirectContext): Promise<void> {
+  setRedirectContext(ctx);
+  setRedirectFlag();
+  await signInWithRedirect(auth, appleProvider);
 }
 
 /**

@@ -12,6 +12,7 @@ import {
   signUpWithEmail,
   signInWithEmail,
   getIdToken,
+  consumeRedirectContext,
 } from "@/lib/firebase/auth";
 import { UserService } from "@/lib/api/services/user-service";
 import { useAuthStore } from "@/lib/store/auth-store";
@@ -124,38 +125,26 @@ export default function JoinPage() {
     router.push(`/join/welcome?company=${encodeURIComponent(companyId)}`);
   }
 
+  // Consume and discard the redirect context after OAuth return. The
+  // "already authenticated + no company" useEffect below handles the actual
+  // `joinCompany()` call — this just clears the sessionStorage marker so it
+  // doesn't linger for a later unrelated visit.
+  useEffect(() => {
+    if (currentUser) consumeRedirectContext();
+  }, [currentUser]);
+
   async function handleGoogleSignIn() {
     setError(null);
     setIsLoadingGoogle(true);
     try {
-      const fbUser = await signInWithGoogle();
-      const token = await getIdToken();
-      if (token) {
-        try {
-          await UserService.syncUser(
-            token,
-            fbUser.email ?? "",
-            fbUser.displayName ?? undefined,
-            fbUser.displayName?.split(" ")[0] || undefined,
-            fbUser.displayName?.split(" ").slice(1).join(" ") || undefined,
-            fbUser.photoURL ?? undefined,
-          );
-        } catch {
-          /* may already exist */
-        }
-      }
-      await joinCompany();
+      await signInWithGoogle({
+        origin: "join",
+        provider: "google",
+        joinCode: code ?? undefined,
+      });
+      // Browser navigates before resolution.
     } catch (err: unknown) {
-      const errCode = (err as { code?: string })?.code;
-      if (
-        errCode === "auth/popup-closed-by-user" ||
-        errCode === "auth/cancelled-popup-request"
-      )
-        return;
-      setError(
-        err instanceof Error ? err.message : "Google sign-in failed"
-      );
-    } finally {
+      setError(err instanceof Error ? err.message : "Google sign-in failed");
       setIsLoadingGoogle(false);
     }
   }
@@ -164,34 +153,13 @@ export default function JoinPage() {
     setError(null);
     setIsLoadingApple(true);
     try {
-      const fbUser = await signInWithApple();
-      const token = await getIdToken();
-      if (token) {
-        try {
-          await UserService.syncUser(
-            token,
-            fbUser.email ?? "",
-            fbUser.displayName ?? undefined,
-            fbUser.displayName?.split(" ")[0] || undefined,
-            fbUser.displayName?.split(" ").slice(1).join(" ") || undefined,
-            fbUser.photoURL ?? undefined,
-          );
-        } catch {
-          /* may already exist */
-        }
-      }
-      await joinCompany();
+      await signInWithApple({
+        origin: "join",
+        provider: "apple",
+        joinCode: code ?? undefined,
+      });
     } catch (err: unknown) {
-      const errCode = (err as { code?: string })?.code;
-      if (
-        errCode === "auth/popup-closed-by-user" ||
-        errCode === "auth/cancelled-popup-request"
-      )
-        return;
-      setError(
-        err instanceof Error ? err.message : "Apple sign-in failed"
-      );
-    } finally {
+      setError(err instanceof Error ? err.message : "Apple sign-in failed");
       setIsLoadingApple(false);
     }
   }

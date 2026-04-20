@@ -1,11 +1,17 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { OpsLockup } from "@/components/brand";
 import { Eye, EyeOff, Mail, Lock, ArrowRight } from "lucide-react";
-import { signInWithGoogle, signInWithApple, signInWithEmail, signOut } from "@/lib/firebase/auth";
+import {
+  signInWithGoogle,
+  signInWithApple,
+  signInWithEmail,
+  signOut,
+  consumeRedirectContext,
+} from "@/lib/firebase/auth";
 import { UserService } from "@/lib/api/services/user-service";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { useSetupStore } from "@/stores/setup-store";
@@ -42,68 +48,50 @@ function LoginForm() {
   const [resetSent, setResetSent] = useState(false);
   const resetPassword = useResetPassword();
 
+  const currentUser = useAuthStore((s) => s.currentUser);
   const setUser = useAuthStore((s) => s.setUser);
   const setCompany = useAuthStore((s) => s.setCompany);
 
   const anyLoading = isLoadingEmail || isLoadingGoogle || isLoadingApple;
 
-  async function handleOAuthSignIn(
-    provider: "google" | "apple",
-    signInFn: typeof signInWithGoogle
-  ) {
+  // ── Post-redirect handoff ──────────────────────────────────────────────────
+  // When the user returns from a Google/Apple redirect, AuthProvider runs
+  // `syncUser` and populates `currentUser` in the store. We watch for that
+  // population and execute the original login-side post-auth logic (analytics
+  // + route decision based on onboarding state). The sessionStorage context
+  // was stashed by `signInWithGoogle/Apple` before the redirect.
+  useEffect(() => {
+    if (!currentUser) return;
+    const ctx = consumeRedirectContext();
+    if (!ctx || ctx.origin !== "login") return;
+
+    trackLogin(ctx.provider);
+    if (!currentUser.onboardingCompleted?.web) {
+      const isEmployee = !!currentUser.companyId && !currentUser.isCompanyAdmin;
+      if (isEmployee) {
+        router.push("/employee-setup");
+      } else if (currentUser.companyId) {
+        useSetupStore.getState().reset();
+        router.push("/setup");
+      } else {
+        router.push("/account-type");
+      }
+    } else {
+      router.push(ctx.redirectTo || redirectTo);
+    }
+  }, [currentUser, router, redirectTo]);
+
+  async function handleOAuthSignIn(provider: "google" | "apple") {
     setError(null);
     const setLoading = provider === "google" ? setIsLoadingGoogle : setIsLoadingApple;
     setLoading(true);
-
-    // Detect popup dismissal faster than Firebase's built-in polling (~10s).
-    // When the main window regains focus, the popup was likely closed or
-    // completed. Give Firebase a short grace period, then force-reset.
-    let resolved = false;
-    const focusHandler = () => {
-      setTimeout(() => {
-        if (!resolved) setLoading(false);
-      }, 1500);
-    };
-    window.addEventListener("focus", focusHandler);
-
     try {
-      const firebaseUser = await signInFn();
-      resolved = true;
-      const idToken = await firebaseUser.getIdToken();
-      const result = await UserService.syncUser(
-        idToken,
-        firebaseUser.email || "",
-        firebaseUser.displayName || undefined,
-        firebaseUser.displayName?.split(" ")[0] || undefined,
-        firebaseUser.displayName?.split(" ").slice(1).join(" ") || undefined,
-        firebaseUser.photoURL || undefined
-      );
-      setUser(result.user);
-      if (result.company) {
-        setCompany(result.company);
-      }
-      trackLogin(provider);
-      if (!result.user.onboardingCompleted?.web) {
-        // User hasn't finished onboarding — route based on user type
-        const isEmployee = !!result.user.companyId && !result.user.isCompanyAdmin;
-        if (isEmployee) {
-          router.push("/employee-setup");
-        } else if (result.user.companyId) {
-          useSetupStore.getState().reset();
-          router.push("/setup");
-        } else {
-          router.push("/account-type");
-        }
-      } else {
-        router.push(redirectTo);
-      }
+      const signInFn = provider === "google" ? signInWithGoogle : signInWithApple;
+      await signInFn({ origin: "login", provider, redirectTo });
+      // Browser navigates to the IdP before this resolves; fall-through is a
+      // rare initiation failure that we treat as a generic error below.
     } catch (err: unknown) {
-      resolved = true;
       const code = (err as { code?: string })?.code;
-      // User closed the popup — silently reset, no error
-      if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
-        return;
-      }
       let message: string;
       if (code === "auth/unauthorized-domain") {
         message = t("login.error.unauthorizedDomain");
@@ -114,10 +102,7 @@ function LoginForm() {
       }
       console.error(`[Login] ${provider} sign-in error:`, code, err);
       setError(message);
-    } finally {
-      resolved = true;
       setLoading(false);
-      window.removeEventListener("focus", focusHandler);
     }
   }
 
@@ -226,7 +211,7 @@ function LoginForm() {
         <div className="space-y-1">
           {/* Google */}
           <button
-            onClick={() => handleOAuthSignIn("google", signInWithGoogle)}
+            onClick={() => handleOAuthSignIn("google")}
             disabled={anyLoading}
             className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg border border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.06)] hover:border-[rgba(255,255,255,0.2)] transition-all disabled:opacity-50"
           >
@@ -246,7 +231,7 @@ function LoginForm() {
 
           {/* Apple */}
           <button
-            onClick={() => handleOAuthSignIn("apple", signInWithApple)}
+            onClick={() => handleOAuthSignIn("apple")}
             disabled={anyLoading}
             className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg border border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.06)] hover:border-[rgba(255,255,255,0.2)] transition-all disabled:opacity-50"
           >
