@@ -247,6 +247,33 @@ export default function JoinPage() {
     );
   }
 
+  // ── Authenticated + valid invite + no company yet → joining in progress ─
+  // Covers three transient states after OAuth redirect returns:
+  //   1. Firebase auth done, Supabase sync still in-flight (currentUser null)
+  //   2. Sync done, auto-join useEffect about to fire (isJoining still false)
+  //   3. join-company API call in flight (isJoining true)
+  // Prevents the auth-form flash between OAuth return and /welcome redirect.
+  if (
+    !loading &&
+    invite?.valid &&
+    (isAuthenticated || isJoining) &&
+    !currentUser?.companyId
+  ) {
+    return (
+      <div className="flex flex-col items-center text-center space-y-5 py-8">
+        <Loader2 className="w-10 h-10 text-text-2 animate-spin" />
+        <div className="space-y-2">
+          <h1 className="font-cakemono text-[28px] font-light tracking-wide text-text leading-none uppercase">
+            Joining {invite.companyName}
+          </h1>
+          <p className="font-mohave text-body-sm text-text-3">
+            Hold tight — setting up your access.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   // ── Loading ─────────────────────────────────────────────────────────────
   if (loading) {
     return (

@@ -344,14 +344,16 @@ export const RolesService = {
         )
       `)
       .eq("user_id", userId)
-      .single();
+      .maybeSingle();
 
     if (error) {
-      // No role assigned — return empty permissions
-      if (error.code === "PGRST116") {
-        return { permissions: new Map(), roleId: null, roleName: null };
-      }
       throw new Error(`Failed to fetch user permissions: ${error.message}`);
+    }
+
+    // No role assigned (brand-new invited user pre-role-assignment) —
+    // return empty permissions without logging a console error.
+    if (!data) {
+      return { permissions: new Map(), roleId: null, roleName: null };
     }
 
     const permissions = new Map<string, PermissionScope>();
