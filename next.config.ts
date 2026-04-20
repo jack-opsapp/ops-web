@@ -24,6 +24,14 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "lh3.googleusercontent.com",
       },
+      // Supabase Storage — legacy company logos and user uploads that haven't
+      // migrated to S3 yet. Scoped to the public storage path so a misconfigured
+      // auth-endpoint URL can't be proxied through the image optimizer.
+      {
+        protocol: "https",
+        hostname: "ijeekuhbatykdomumfjx.supabase.co",
+        pathname: "/storage/v1/object/public/**",
+      },
     ],
   },
   experimental: {
