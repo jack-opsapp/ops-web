@@ -10,9 +10,23 @@ import { getFirebaseApp } from "@/lib/firebase/config";
 
 // ─── Singleton (lazy, browser-only) ──────────────────────────────────────────
 
+// Firebase Analytics is disabled by default. Calling `getAnalytics()` writes
+// heartbeat telemetry to IndexedDB on every init; in browsers with a tight
+// IDB quota this surfaces as `QuotaExceededError` in the console and as
+// unhandled promise rejections on the page. We don't consume GA4 events from
+// the web app, so the noise isn't worth the zero payoff.
+//
+// To re-enable, set `NEXT_PUBLIC_ANALYTICS_ENABLED=true` in the Vercel env and
+// redeploy. The IDB warnings will return in quota-constrained browsers but
+// Firebase Auth + heartbeat continue to work either way.
+//
+// Bug: 9413a32a-03b8-4b73-bd57-d9fe374a353c
+const ANALYTICS_ENABLED = process.env.NEXT_PUBLIC_ANALYTICS_ENABLED === "true";
+
 let _analytics: Analytics | null = null;
 
 function getAnalyticsInstance(): Analytics | null {
+  if (!ANALYTICS_ENABLED) return null;
   if (typeof window === "undefined") return null;
   if (_analytics) return _analytics;
   try {

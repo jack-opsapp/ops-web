@@ -1,5 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
 
+// Force-enable analytics for tests — production default is disabled. See
+// `ANALYTICS_ENABLED` in src/lib/analytics/analytics.ts.
+process.env.NEXT_PUBLIC_ANALYTICS_ENABLED = "true";
+
 const mockLogEvent = vi.fn();
 const mockGetAnalytics = vi.fn(() => ({ name: "analytics" }));
 
