@@ -130,4 +130,6 @@ export interface ComposeEmailData {
   recipientName?: string;
   /** Provider message ID of the email being replied to (for threading) */
   inReplyTo?: string;
+  /** Open the compose modal with the Phase C AI draft generator engaged. */
+  aiDraft?: boolean;
 }
