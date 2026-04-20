@@ -270,6 +270,20 @@ const emailModule: PermissionModule = {
   ],
 };
 
+const inboxModule: PermissionModule = {
+  id: "inbox",
+  label: "Inbox",
+  actions: [
+    { id: "inbox.view", label: "View inbox", scopes: ["all"] },
+    { id: "inbox.view_company", label: "View all company mail", scopes: ["all"] },
+    { id: "inbox.archive", label: "Archive / unarchive threads", scopes: ["all"] },
+    { id: "inbox.snooze", label: "Snooze / unsnooze threads", scopes: ["all"] },
+    { id: "inbox.categorize", label: "Recategorize threads", scopes: ["all"] },
+    { id: "inbox.send", label: "Send and reply from inbox", scopes: ["all"] },
+    { id: "inbox.configure_phase_c", label: "Configure Phase C autonomy", scopes: ["all"] },
+  ],
+};
+
 const portalModule: PermissionModule = {
   id: "portal",
   label: "Portal",
@@ -313,7 +327,7 @@ export const PERMISSION_CATEGORIES: PermissionCategory[] = [
   {
     id: "admin",
     label: "Admin",
-    modules: [settingsModule, emailModule, portalModule, reportsModule],
+    modules: [settingsModule, emailModule, inboxModule, portalModule, reportsModule],
   },
 ];
 
@@ -389,7 +403,9 @@ const DESTRUCTIVE_SUFFIXES = [
   "void",
   "configure",
   "configure_ai",
+  "configure_phase_c",
   "convert",
+  "view_company",
 ];
 
 function _isDestructive(actionId: string): boolean {

@@ -353,6 +353,48 @@ export class Microsoft365Provider implements EmailProviderInterface {
     }
   }
 
+  // ─── Triage write-back ────────────────────────────────────────────────────
+  //
+  // M365: archive = move every message in the conversation to the wellknown
+  // 'archive' folder. Unarchive = move back to 'inbox'. Snooze is identical to
+  // archive at the provider level (OPS moves back to inbox when snooze
+  // expires). Read state is `isRead` patched per message.
+
+  async archiveThread(threadId: string): Promise<void> {
+    const messages = await this.fetchThread(threadId);
+    for (const msg of messages) {
+      await this.graphFetch(`/me/messages/${msg.id}/move`, {
+        method: "POST",
+        body: JSON.stringify({ destinationId: "archive" }),
+      });
+    }
+  }
+
+  async unarchiveThread(threadId: string): Promise<void> {
+    const messages = await this.fetchThread(threadId);
+    for (const msg of messages) {
+      await this.graphFetch(`/me/messages/${msg.id}/move`, {
+        method: "POST",
+        body: JSON.stringify({ destinationId: "inbox" }),
+      });
+    }
+  }
+
+  async snoozeThread(threadId: string): Promise<void> {
+    // Same as archive at the provider level.
+    await this.archiveThread(threadId);
+  }
+
+  async markThreadRead(threadId: string, isRead: boolean): Promise<void> {
+    const messages = await this.fetchThread(threadId);
+    for (const msg of messages) {
+      await this.graphFetch(`/me/messages/${msg.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ isRead }),
+      });
+    }
+  }
+
   async listLabels(): Promise<
     Array<{ id: string; name: string; type: string }>
   > {

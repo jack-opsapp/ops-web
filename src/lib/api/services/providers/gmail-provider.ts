@@ -319,6 +319,42 @@ export class GmailProvider implements EmailProviderInterface {
     });
   }
 
+  // ─── Triage write-back ────────────────────────────────────────────────────
+  //
+  // Gmail: archiving a thread = removing the INBOX system label. snoozing is
+  // identical at the provider level; OPS re-applies INBOX via cron when the
+  // snooze window expires. Read state is the UNREAD system label.
+
+  async archiveThread(threadId: string): Promise<void> {
+    await this.gmailFetch(`/threads/${threadId}/modify`, {
+      method: "POST",
+      body: JSON.stringify({ removeLabelIds: ["INBOX"] }),
+    });
+  }
+
+  async unarchiveThread(threadId: string): Promise<void> {
+    await this.gmailFetch(`/threads/${threadId}/modify`, {
+      method: "POST",
+      body: JSON.stringify({ addLabelIds: ["INBOX"] }),
+    });
+  }
+
+  async snoozeThread(threadId: string): Promise<void> {
+    await this.gmailFetch(`/threads/${threadId}/modify`, {
+      method: "POST",
+      body: JSON.stringify({ removeLabelIds: ["INBOX"] }),
+    });
+  }
+
+  async markThreadRead(threadId: string, isRead: boolean): Promise<void> {
+    await this.gmailFetch(`/threads/${threadId}/modify`, {
+      method: "POST",
+      body: JSON.stringify(
+        isRead ? { removeLabelIds: ["UNREAD"] } : { addLabelIds: ["UNREAD"] }
+      ),
+    });
+  }
+
   async listLabels(): Promise<Array<{ id: string; name: string; type: string }>> {
     const res = await this.gmailFetch("/labels");
     const data = await res.json();

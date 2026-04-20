@@ -160,6 +160,16 @@ export interface EmailProviderInterface {
   removeLabel(threadId: string, labelId: string): Promise<void>;
   listLabels(): Promise<Array<{ id: string; name: string; type: string }>>;
 
+  // Triage — archive, unarchive, snooze-equivalent (removes from INBOX), and
+  // per-thread read state. All operate on the entire thread (Gmail threadId or
+  // M365 conversationId). snoozeThread is identical to archiveThread at the
+  // provider level — the snooze cron re-applies INBOX when the thread's OPS
+  // snoozed_until expires.
+  archiveThread(threadId: string): Promise<void>;
+  unarchiveThread(threadId: string): Promise<void>;
+  snoozeThread(threadId: string): Promise<void>;
+  markThreadRead(threadId: string, isRead: boolean): Promise<void>;
+
   // Send
   sendEmail(params: SendEmailParams): Promise<SendEmailResult>;
 
