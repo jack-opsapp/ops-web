@@ -33,7 +33,7 @@ import { ExpenseBatchPopover } from "@/components/ops/expense-batch-popover";
 import { ExpenseReviewListPopover } from "@/components/ops/expense-review-list-popover";
 import { UnassignedRoleBanner } from "@/components/ops/unassigned-role-banner";
 import { useSetupGate } from "@/hooks/useSetupGate";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 
 // Leaflet map background + filter rail — client-only (no SSR)
 const DashboardMapBackground = dynamic(
@@ -50,6 +50,34 @@ const MapFilterRail = dynamic(
     ),
   { ssr: false }
 );
+
+// ─── Full-height page support ────────────────────────────────────────────────
+//
+// Pages listed here opt out of the normal scrollable layout and instead fill
+// the viewport below the topbar. Two modes:
+//
+//   - "padded" — 12px gutters on all sides, 12px gap below topbar. Used when
+//                the page has its own bordered panel/card that should breathe.
+//   - "bleed"  — edge-to-edge, clears only the topbar. Used when the page
+//                renders a background surface (e.g. a map) that should run
+//                into the viewport edges.
+//
+// The inner wrapper applies `flex-1 min-h-0 flex flex-col` so children can
+// use `h-full` and `flex-1 min-h-0` without re-deriving viewport math.
+
+type FullHeightMode = "padded" | "bleed";
+
+const FULL_HEIGHT_ROUTES: Record<string, FullHeightMode> = {
+  // Populated per-task as pages are migrated. Empty for the infrastructure
+  // commit so existing pages keep their current behavior.
+};
+
+function resolveFullHeightMode(pathname: string): FullHeightMode | null {
+  for (const [route, mode] of Object.entries(FULL_HEIGHT_ROUTES)) {
+    if (pathname === route || pathname.startsWith(route + "/")) return mode;
+  }
+  return null;
+}
 
 function ActionPromptsInitializer() {
   useActionPrompts();
@@ -119,7 +147,11 @@ function FloatingWindows() {
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { needsWebSetup, needsEmployeeOnboarding } = useSetupGate();
   const router = useRouter();
+  const pathname = usePathname();
   const needsOnboarding = needsEmployeeOnboarding || needsWebSetup;
+
+  const fullHeightMode = resolveFullHeightMode(pathname);
+  const isFullHeight = fullHeightMode !== null;
 
   // Redirect to the appropriate onboarding flow if incomplete.
   useEffect(() => {
@@ -143,22 +175,39 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="relative h-screen overflow-hidden bg-background">
-      {/* Page content — full bleed to all edges except left (sidebar width) */}
-      <main className="relative z-[1] h-screen w-full overflow-y-auto overflow-x-auto pl-0 md:pl-[72px]">
+      {/* Page content — full bleed to all edges except left (sidebar width).
+          <main> is a flex column so scrollable and full-height pages can coexist:
+          scrollable pages host their scroll on the inner wrapper; full-height
+          pages use flex-1 min-h-0 to fill remaining space after the banner. */}
+      <main className="relative z-[1] h-screen w-full pl-0 md:pl-[72px] flex flex-col overflow-hidden">
         <UnassignedRoleBanner />
-        <div className="pt-[68px] pb-32 px-3 space-y-3">
-          {children}
-        </div>
+
+        {fullHeightMode === "padded" ? (
+          <div className="flex-1 min-h-0 pt-[68px] pb-3 px-3 flex flex-col">
+            {children}
+          </div>
+        ) : fullHeightMode === "bleed" ? (
+          <div className="flex-1 min-h-0 pt-[56px] flex flex-col">
+            {children}
+          </div>
+        ) : (
+          <div className="flex-1 min-h-0 pt-[68px] pb-32 px-3 space-y-3 overflow-y-auto overflow-x-auto">
+            {children}
+          </div>
+        )}
       </main>
 
-      {/* Bottom gradient fade — signals more content below the fold */}
-      <div
-        className="fixed bottom-0 right-0 left-0 md:left-[72px] h-24 pointer-events-none z-[5]"
-        style={{
-          background:
-            "linear-gradient(to bottom, transparent 0%, hsl(var(--background)) 100%)",
-        }}
-      />
+      {/* Bottom gradient fade — signals more content below the fold.
+          Hidden on full-height pages where there is no fold. */}
+      {!isFullHeight && (
+        <div
+          className="fixed bottom-0 right-0 left-0 md:left-[72px] h-24 pointer-events-none z-[5]"
+          style={{
+            background:
+              "linear-gradient(to bottom, transparent 0%, hsl(var(--background)) 100%)",
+          }}
+        />
+      )}
 
       {/* ── HUD Overlays ── */}
 
