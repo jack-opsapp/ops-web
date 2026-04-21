@@ -49,11 +49,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let cancelled = false;
     setLoading(true);
 
-    // Handle redirect result only if a redirect was actually initiated
+    // Handle redirect result only if a redirect was actually initiated.
+    // We keep a reference to the promise so handleAuthState can defer the
+    // unauth conclusion until getRedirectResult actually resolves —
+    // onAuthStateChanged fires null synchronously on subscribe, which
+    // otherwise races against the redirect processing and eats the ctx.
+    let redirectResultPromise: Promise<import("firebase/auth").User | null> | null = null;
     if (isRedirectPending()) {
       console.log("[AuthProvider] Redirect pending, checking result...");
       clearRedirectFlag();
-      checkRedirectResult().then((redirectUser) => {
+      redirectResultPromise = checkRedirectResult();
+      redirectResultPromise.then((redirectUser) => {
         if (redirectUser) {
           console.log("[AuthProvider] Redirect sign-in detected:", redirectUser.email);
         }
@@ -67,6 +73,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async function handleAuthState(firebaseUser: import("firebase/auth").User | null) {
       if (cancelled) return;
 
+      // If Firebase reports no user but we have a pending redirect result,
+      // wait for it before concluding unauth. A synchronous null fire from
+      // onAuthStateChanged can precede the redirect's processing — acting on
+      // it would clear the freshly-stashed redirect ctx and strand a valid
+      // sign-in. If the redirect resolves with a user, Firebase will fire
+      // onAuthStateChanged again with that user; we let that call handle it.
+      if (!firebaseUser && redirectResultPromise) {
+        const redirectUser = await redirectResultPromise;
+        redirectResultPromise = null; // single-use defer
+        if (cancelled) return;
+        if (redirectUser) return;
+        // Redirect resolved to null → genuine unauth, fall through.
+      }
+
       const authenticated = !!firebaseUser;
       setFirebaseAuth(authenticated);
 
@@ -74,10 +94,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setAuthCookie(null);
         clearPermissions();
         clearFlags();
-        // Any redirect context stashed before a prior OAuth attempt is stale
-        // now — Firebase has conclusively resolved to no user. Leaving it
-        // would trap the next /login (or /register, /join) visit on the
-        // post-OAuth-return spinner branch.
+        // Safe to clear now: if a redirect was in flight, we awaited it
+        // above and confirmed no user came back — any stashed ctx is stale.
         clearRedirectContext();
         console.log("[AuthProvider] Not authenticated");
         setLoading(false);
