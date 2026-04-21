@@ -4,12 +4,13 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { OpsLockup } from "@/components/brand";
-import { Eye, EyeOff, Mail, Lock, User } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, User, Loader2 } from "lucide-react";
 import {
   signInWithGoogle,
   signInWithApple,
   signUpWithEmail,
   consumeRedirectContext,
+  peekRedirectContext,
 } from "@/lib/firebase/auth";
 import { UserService } from "@/lib/api/services/user-service";
 import { useAuthStore } from "@/lib/store/auth-store";
@@ -34,6 +35,29 @@ export default function RegisterPage() {
   const anyLoading = isLoadingEmail || isLoadingGoogle || isLoadingApple;
 
   const currentUser = useAuthStore((s) => s.currentUser);
+  const isLoadingAuth = useAuthStore((s) => s.isLoading);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+
+  // ── OAuth return detection ────────────────────────────────────────────────
+  // After Google/Apple redirect returns, AuthProvider runs syncUser and only
+  // then does the effect below fire `router.push`. Without this flag we'd
+  // render the pre-auth form during that 1–2s window. Peek (not consume) so
+  // the existing effect still owns the single consume + route transition.
+  const [isReturningFromOAuth, setIsReturningFromOAuth] = useState(false);
+  useEffect(() => {
+    const ctx = peekRedirectContext();
+    if (ctx?.origin === "register") setIsReturningFromOAuth(true);
+  }, []);
+
+  // Escape hatch for stale context: if AuthProvider has finished its initial
+  // check and there's no Firebase user, the peek was reading a ctx left by an
+  // abandoned OAuth. AuthProvider clears the ctx on its side; we clear our
+  // local flag so the form renders instead of the spinner.
+  useEffect(() => {
+    if (!isLoadingAuth && !isAuthenticated) {
+      setIsReturningFromOAuth(false);
+    }
+  }, [isLoadingAuth, isAuthenticated]);
 
   // When the user returns from a Google/Apple redirect that originated here,
   // AuthProvider has already synced them and populated the store. Run the
@@ -52,9 +76,19 @@ export default function RegisterPage() {
     setIsLoadingGoogle(true);
     try {
       await signInWithGoogle({ origin: "register", provider: "google" });
-      // Browser navigates to Google before resolution.
+      // Production (redirect): unreachable — browser navigated before resolve.
+      // Development (popup): resolved on success; stay in loading state until
+      // the consume-effect fires on currentUser and routes away.
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : t("register.error.googleFailed");
+      const code = (err as { code?: string })?.code;
+      // Dev popup cancellation — silent reset, no error UI.
+      if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
+        setIsLoadingGoogle(false);
+        return;
+      }
+      const message = code === "auth/popup-blocked"
+        ? t("register.popupBlocked")
+        : err instanceof Error ? err.message : t("register.error.googleFailed");
       setError(message);
       setIsLoadingGoogle(false);
     }
@@ -66,7 +100,14 @@ export default function RegisterPage() {
     try {
       await signInWithApple({ origin: "register", provider: "apple" });
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : t("register.error.appleFailed");
+      const code = (err as { code?: string })?.code;
+      if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
+        setIsLoadingApple(false);
+        return;
+      }
+      const message = code === "auth/popup-blocked"
+        ? t("register.popupBlocked")
+        : err instanceof Error ? err.message : t("register.error.appleFailed");
       setError(message);
       setIsLoadingApple(false);
     }
@@ -150,6 +191,26 @@ export default function RegisterPage() {
     } finally {
       setIsLoadingEmail(false);
     }
+  }
+
+  // ── Returning from OAuth redirect → bridge the sync-in-flight window ───
+  // Covers the span between Firebase auth resolving and the effect above
+  // consuming the redirect context + firing router.push. Prevents the
+  // pre-auth form flash after Google/Apple return.
+  if (isReturningFromOAuth) {
+    return (
+      <div className="flex flex-col items-center text-center space-y-5 py-8">
+        <Loader2 className="w-10 h-10 text-text-2 animate-spin" />
+        <div className="space-y-2">
+          <h1 className="font-cakemono text-[28px] font-light tracking-wide text-text leading-none uppercase">
+            {t("register.signingUpTitle")}
+          </h1>
+          <p className="font-mohave text-body-sm text-text-3">
+            {t("register.signingUpSubtitle")}
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (
