@@ -142,9 +142,19 @@ export default function JoinPage() {
         provider: "google",
         joinCode: code ?? undefined,
       });
-      // Browser navigates before resolution.
+      // Production (redirect): unreachable — browser navigated before resolve.
+      // Development (popup): resolved on success; the auto-join useEffect
+      // takes over once currentUser populates.
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Google sign-in failed");
+      const errCode = (err as { code?: string })?.code;
+      if (errCode === "auth/popup-closed-by-user" || errCode === "auth/cancelled-popup-request") {
+        setIsLoadingGoogle(false);
+        return;
+      }
+      const message = errCode === "auth/popup-blocked"
+        ? "Popup blocked — allow popups for this site to sign in."
+        : err instanceof Error ? err.message : "Google sign-in failed";
+      setError(message);
       setIsLoadingGoogle(false);
     }
   }
@@ -159,7 +169,15 @@ export default function JoinPage() {
         joinCode: code ?? undefined,
       });
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Apple sign-in failed");
+      const errCode = (err as { code?: string })?.code;
+      if (errCode === "auth/popup-closed-by-user" || errCode === "auth/cancelled-popup-request") {
+        setIsLoadingApple(false);
+        return;
+      }
+      const message = errCode === "auth/popup-blocked"
+        ? "Popup blocked — allow popups for this site to sign in."
+        : err instanceof Error ? err.message : "Apple sign-in failed";
+      setError(message);
       setIsLoadingApple(false);
     }
   }

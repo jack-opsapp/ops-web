@@ -261,9 +261,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }, 3000);
 
+    // ── Fail-safe: ignore the redirect-in-flight gate ──────────────────────
+    // Covers the pathological case where getRedirectResult neither resolves
+    // nor rejects (SDK hang on flaky networks during cold-start). The 3s
+    // gate above would otherwise suppress the primary timeout forever and
+    // strand the user on a spinner.
+    const failSafe = setTimeout(() => {
+      if (!initialCheckDone) {
+        console.warn("[AuthProvider] Fail-safe timeout after 10s — forcing unauthenticated");
+        initialCheckDone = true;
+        setFirebaseAuth(false);
+        setLoading(false);
+      }
+    }, 10000);
+
     return () => {
       cancelled = true;
       clearTimeout(timeout);
+      clearTimeout(failSafe);
       if (unsubscribe) unsubscribe();
     };
   }, [setFirebaseAuth, setUser, setCompany, setLoading, fetchPermissions, clearPermissions, fetchFlags, clearFlags]);
