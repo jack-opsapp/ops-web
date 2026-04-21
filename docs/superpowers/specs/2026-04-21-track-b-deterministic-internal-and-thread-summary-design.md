@@ -91,7 +91,7 @@ export interface DeterministicInternalResult {
   category: "INTERNAL";
   summary: string;                  // deterministic one-sentence template
   classifierVersion: "deterministic-v1";
-  confidence: 1.0;
+  confidence: 1;                    // literal 1 (TS number literal; stored as numeric 1.0)
 }
 
 export function tryDeterministicInternal(
@@ -101,13 +101,14 @@ export function tryDeterministicInternal(
 
 The caller is responsible for extracting the bare email from each `participants` entry (they may arrive in `"Jared Reed <jared@ops.co>"` format). Use the existing `extractEmailAddress` helper in `src/lib/utils/email-parsing.ts` before looking up in `companyUsers`.
 
-**Rule logic, in order:**
+**Rule logic, in order (guards bail early):**
 
-1. If `categoryManuallySet` → return null.
-2. If `isForward(input.subject, input.firstMessageBody)` → return null.
-3. If `isLikelyForwardedInquiry(input.senderEmail, input.subject, input.teamForwarders)` → return null.
-4. Extract each participant's bare email via `extractEmailAddress`, lowercase. If any result is NOT a key in `input.companyUsers` → return null.
-5. Build the deterministic summary using the resolved `displayName` for each matched participant. Return `{ category: "INTERNAL", summary, classifierVersion: "deterministic-v1", confidence: 1.0 }`.
+1. If `participants.length === 0` → return null. Empty participants means we don't know who's in the thread; don't classify deterministically. (`Array.every()` returns `true` on empty arrays, which would otherwise false-positive here — guarding explicitly.)
+2. If `categoryManuallySet` → return null.
+3. If `isForward(input.subject, input.firstMessageBody)` → return null.
+4. If `isLikelyForwardedInquiry(input.senderEmail, input.subject, input.teamForwarders)` → return null.
+5. Extract each participant's bare email via `extractEmailAddress`, lowercase. If any result is empty OR is NOT a key in `input.companyUsers` → return null.
+6. Build the deterministic summary using the resolved `displayName` for each matched participant. Return `{ category: "INTERNAL", summary, classifierVersion: "deterministic-v1", confidence: 1 }`.
 
 **`isForward`** reuses the patterns in `src/lib/utils/email-parsing.ts` (lines 308–311). We add a helper `isForwardMarker(subject, body)` there and re-export it. New code path: subject starts with `fwd:` / `fw:` (case-insensitive, whitespace-trimmed), OR body matches `/^-{5,}\s*Forwarded message\s*-{5,}/mi`, OR body matches `/^Begin forwarded message:/mi`.
 
@@ -266,14 +267,19 @@ Seven files. One new file. Zero schema migrations.
 ### Deterministic-internal rule
 
 1. **Unit test** `tryDeterministicInternal` covering:
-   - All participants in `companyUserEmails` → returns INTERNAL
-   - One participant outside → returns null
-   - Empty participants → returns null
-   - `categoryManuallySet = true` → returns null
-   - Subject `Fwd: Website inquiry` → returns null
-   - Body contains `---------- Forwarded message ----------` → returns null
-   - Sender in `teamForwarders` + subject `new inquiry` → returns null
-   - Normal internal thread → returns INTERNAL with summary matching `/^Internal thread between/`
+   - All participants in `companyUsers` → returns INTERNAL
+   - One participant outside `companyUsers` → returns null
+   - Empty participants array → returns null (explicit guard, not relying on `every()` truthiness)
+   - Participant formatted as `"Jared Reed <jared@ops.co>"` is matched correctly by its bare email
+   - Participant with malformed email (no `@`, or empty after extraction) → returns null
+   - `categoryManuallySet = true` → returns null even when all else matches
+   - Subject `"Fwd: Website inquiry"` → returns null
+   - Subject `"FW: quote request"` (uppercase) → returns null
+   - Subject `"Fw: update"` (mixed case) → returns null
+   - Body contains `"---------- Forwarded message ----------"` → returns null
+   - Body contains `"Begin forwarded message:"` → returns null
+   - Sender in `teamForwarders` + subject `"new inquiry"` → returns null (matches existing sync-engine flow)
+   - Normal internal thread → returns INTERNAL with summary matching `/^Internal thread between/` and confidence `1`
 2. **Integration smoke**: in a dev environment with seeded users, sync a mailbox containing a known-internal thread. Confirm the resulting `email_threads` row has `primary_category='INTERNAL'`, `category_classifier_version='deterministic-v1'`, `category_confidence=1.0`, and no classifier call was made (check server logs for absence of the OpenAI request line).
 3. **Forward regression**: sync a forwarded inquiry between two internal users. Confirm the row goes through the LLM path (`category_classifier_version='v1'`) and gets classified per content, not INTERNAL.
 
