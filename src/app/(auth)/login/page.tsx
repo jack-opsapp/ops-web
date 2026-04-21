@@ -4,13 +4,14 @@ import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { OpsLockup } from "@/components/brand";
-import { Eye, EyeOff, Mail, Lock, ArrowRight } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, ArrowRight, Loader2 } from "lucide-react";
 import {
   signInWithGoogle,
   signInWithApple,
   signInWithEmail,
   signOut,
   consumeRedirectContext,
+  peekRedirectContext,
 } from "@/lib/firebase/auth";
 import { UserService } from "@/lib/api/services/user-service";
 import { useAuthStore } from "@/lib/store/auth-store";
@@ -53,6 +54,17 @@ function LoginForm() {
   const setCompany = useAuthStore((s) => s.setCompany);
 
   const anyLoading = isLoadingEmail || isLoadingGoogle || isLoadingApple;
+
+  // ── OAuth return detection ────────────────────────────────────────────────
+  // After Google/Apple redirect returns, AuthProvider runs syncUser and only
+  // then does the effect below fire `router.push`. Without this flag we'd
+  // render the pre-auth form during that 1–2s window. Peek (not consume) so
+  // the existing effect still owns the single consume + route transition.
+  const [isReturningFromOAuth, setIsReturningFromOAuth] = useState(false);
+  useEffect(() => {
+    const ctx = peekRedirectContext();
+    if (ctx?.origin === "login") setIsReturningFromOAuth(true);
+  }, []);
 
   // ── Post-redirect handoff ──────────────────────────────────────────────────
   // When the user returns from a Google/Apple redirect, AuthProvider runs
@@ -179,6 +191,26 @@ function LoginForm() {
       // so we always show success to prevent email enumeration
       setResetSent(true);
     }
+  }
+
+  // ── Returning from OAuth redirect → bridge the sync-in-flight window ───
+  // Covers the span between Firebase auth resolving and the effect above
+  // consuming the redirect context + firing router.push. Prevents the
+  // pre-auth form flash after Google/Apple return.
+  if (isReturningFromOAuth) {
+    return (
+      <div className="flex flex-col items-center text-center space-y-5 py-8">
+        <Loader2 className="w-10 h-10 text-text-2 animate-spin" />
+        <div className="space-y-2">
+          <h1 className="font-cakemono text-[28px] font-light tracking-wide text-text leading-none uppercase">
+            {t("login.signingInTitle")}
+          </h1>
+          <p className="font-mohave text-body-sm text-text-3">
+            {t("login.signingInSubtitle")}
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (

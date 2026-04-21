@@ -76,6 +76,22 @@ export function consumeRedirectContext(): RedirectContext | null {
 }
 
 /**
+ * Read the redirect context without clearing it. Use this when a page needs
+ * to detect "we're in the post-OAuth-return window" before the origin-specific
+ * effect consumes the context and navigates. SSR-safe (returns null when
+ * sessionStorage is unavailable).
+ */
+export function peekRedirectContext(): RedirectContext | null {
+  try {
+    const raw = sessionStorage.getItem(REDIRECT_CTX_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as RedirectContext;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Sign in with Google via full-page redirect.
  *
  * Popup mode (signInWithPopup) is not used because its internal
