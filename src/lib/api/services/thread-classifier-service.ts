@@ -69,8 +69,8 @@ export interface ClassifyResult {
   primaryCategory: EmailThreadCategory;
   confidence: number;
   labels: EmailThreadLabel[];
-  /** Populated only if messageCount >= 10. Null otherwise. */
-  aiSummary: string | null;
+  /** One sentence describing conversation state + what's owed. Always populated. */
+  aiSummary: string;
   reasoning: string;
 }
 
@@ -139,10 +139,17 @@ If learnedRulesForDomain contains a rule with count >= 2 → strongly prefer the
 If learnedRulesForDomain contains a rule with count >= 4 → treat as near-deterministic.
 
 ═══════════════════════════════════════════════════════════════
-AI SUMMARY — only if messageCount >= 10
+AI SUMMARY — one sentence, always
 ═══════════════════════════════════════════════════════════════
 
-For long threads (10+ messages), produce a 1–2 sentence summary covering: who the thread is between, what it's about, and where it currently stands (awaiting quote, client signed off, vendor coordinating delivery, etc.). For shorter threads, return \`aiSummary: null\`.
+Produce a SINGLE sentence describing the current state of the conversation and what is owed by whom. Lead with the pending action if one exists. Target ≤120 characters. Never return null. Examples:
+
+  - "Jane asked for cedar pricing; you owe her a quote by Fri Apr 25."
+  - "Brent confirmed PO #4421 for $3,220, delivers Tue Apr 29."
+  - "Your crew lead is asking whether to bring the spare trailer tomorrow."
+  - "Marketing pitch from ACME Tools — no action needed."
+
+For long threads (10+ messages) the sentence may capture the latest state only; we value scannability over completeness.
 
 ═══════════════════════════════════════════════════════════════
 OUTPUT
@@ -154,7 +161,7 @@ Respond with a single JSON object, no prose, no code fences:
   "primaryCategory": "LEAD" | "CLIENT" | "VENDOR" | "SUBTRADE" | "PLATFORM_BID" | "LEGAL" | "JOB_SEEKER" | "COLLECTIONS" | "MARKETING" | "RECEIPT" | "PERSONAL" | "INTERNAL" | "OTHER",
   "confidence": 0.0-1.0,
   "labels": ["URGENT", "AWAITING_REPLY", "HAS_ATTACHMENT", "HAS_QUOTE", "HAS_INVOICE", "FROM_NEW_SENDER"],
-  "aiSummary": "..." | null,
+  "aiSummary": "...",  // one sentence, always non-empty
   "reasoning": "one short sentence"
 }
 
@@ -240,13 +247,15 @@ function parseResult(
   threadId: string,
   messageCount: number
 ): ClassifyResult {
+  void messageCount; // parameter retained for future heuristics
   const primaryCategory = validateCategory(raw.primaryCategory);
   const confidence = validateConfidence(raw.confidence);
   const labels = validateLabels(raw.labels);
+  const rawSummary = typeof raw.aiSummary === "string" ? raw.aiSummary.trim() : "";
   const aiSummary =
-    messageCount >= 10 && typeof raw.aiSummary === "string" && raw.aiSummary.length > 0
-      ? raw.aiSummary.slice(0, 500)
-      : null;
+    rawSummary.length > 0
+      ? rawSummary.slice(0, 500)
+      : `Thread classified as ${primaryCategory}.`; // defensive fallback if the model returns empty
   const reasoning =
     typeof raw.reasoning === "string" ? raw.reasoning.slice(0, 200) : "";
 
@@ -266,7 +275,7 @@ function fallbackResult(threadId: string): ClassifyResult {
     primaryCategory: "OTHER",
     confidence: 0.3,
     labels: [],
-    aiSummary: null,
+    aiSummary: "Classification unavailable — open the thread to read it directly.",
     reasoning: "classification_failed",
   };
 }
