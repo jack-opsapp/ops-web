@@ -432,6 +432,8 @@ export const queryKeys = {
       [...queryKeys.inbox.all, "v2", "threads", params] as const,
     threadDetail: (threadId: string) =>
       [...queryKeys.inbox.all, "v2", "thread", threadId] as const,
+    drafts: (scope: "own" | "company") =>
+      [...queryKeys.inbox.all, "v2", "drafts", scope] as const,
   },
 
   // Approval Queue (agent actions)

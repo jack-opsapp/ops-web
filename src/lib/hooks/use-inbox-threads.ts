@@ -21,8 +21,10 @@ import {
 import { queryKeys } from "@/lib/api/query-client";
 import type {
   ArchiveWritebackPreference,
+  DraftSource,
   EmailThreadCategory,
   EmailThreadLabel,
+  InboxDraftRow,
   InboxRail,
   InboxScope,
 } from "@/lib/types/email-thread";
@@ -274,6 +276,83 @@ async function setWritebackPreferenceRequest(args: {
     const e = await res.json().catch(() => ({}));
     throw new Error(e.error || `preference set failed (${res.status})`);
   }
+}
+
+// ─── Drafts ──────────────────────────────────────────────────────────────────
+//
+// Parallel to the threads list but scoped to drafts (provider + AI). Powered
+// by /api/inbox/drafts which merges Gmail/M365 Drafts folder content with
+// ai_draft_history rows where status='drafted'. The hook exposes BOTH the
+// flat list (for the DRAFTS rail) and a map indexed by providerThreadId (for
+// painting [DRAFT] pills on the conversation-list thread cards without a
+// second network round-trip).
+//
+// Wire types live in @/lib/types/email-thread so the route + hook share one
+// source of truth — re-exported here for consumer convenience.
+export type { InboxDraftRow, DraftSource } from "@/lib/types/email-thread";
+
+async function fetchDrafts(scope: InboxScope): Promise<InboxDraftRow[]> {
+  const headers = await authHeaders();
+  const res = await fetch(`/api/inbox/drafts?scope=${scope}`, { headers });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `drafts fetch failed (${res.status})`);
+  }
+  const payload = (await res.json()) as { drafts: InboxDraftRow[] };
+  return payload.drafts;
+}
+
+/**
+ * Merged drafts list. Polls every 60s — drafts don't move fast and we don't
+ * want to hammer provider APIs (Gmail /drafts has a tighter rate budget than
+ * /messages). Returns an empty array on error to keep the UI rendering.
+ */
+export function useInboxDrafts(scope: InboxScope) {
+  return useQuery({
+    queryKey: queryKeys.inbox.drafts(scope),
+    queryFn: () => fetchDrafts(scope),
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+    retry: 1,
+  });
+}
+
+/**
+ * Discard a draft. Source decides routing: provider → provider.deleteDraft;
+ * ai → ai_draft_history.status='discarded'. Invalidates the drafts query so
+ * the row drops from the UI immediately.
+ */
+export function useDiscardDraft() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: {
+      source: DraftSource;
+      id: string;
+      connectionId: string | null;
+    }) => {
+      const headers = await authHeaders();
+      const qs = new URLSearchParams({ source: args.source, id: args.id });
+      if (args.connectionId) qs.set("connectionId", args.connectionId);
+      const res = await fetch(`/api/inbox/drafts?${qs.toString()}`, {
+        method: "DELETE",
+        headers,
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `discard failed (${res.status})`);
+      }
+    },
+    onSuccess: () => {
+      // Invalidate the drafts query for BOTH scopes explicitly. A cached
+      // "company" view won't refetch if we only invalidate "own", and a
+      // prefix-match invalidation ([inbox, v2, drafts]) would silently
+      // stop working if anyone adds `exact: true` to the invalidator.
+      // Calling the factory makes the coupling load-bearing on the key
+      // shape rather than on TanStack Query's matching semantics.
+      qc.invalidateQueries({ queryKey: queryKeys.inbox.drafts("own") });
+      qc.invalidateQueries({ queryKey: queryKeys.inbox.drafts("company") });
+    },
+  });
 }
 
 // ─── Actions hook ────────────────────────────────────────────────────────────

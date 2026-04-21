@@ -1,8 +1,20 @@
 /**
  * Email parsing utilities — shared between AI classification and UI rendering.
  *
+ * Display-path layering (thread detail). Each layer is a fallback for the
+ * previous; first one that fires wins. Layers are additive — the route
+ * composes them in this order:
+ *   1. Provider-native (M365 uniqueBody / Gmail HTML-first stripping in the
+ *      provider), yielding `bodyTextClean` on NormalizedEmail.
+ *   2. `stripQuotedContent` — regex over plain text (this file).
+ *   3. `stripPriorMessageOverlap` — cross-message diff across the thread.
+ *
  * - htmlToPlainText: strips HTML (including <style>/<script> blocks with contents)
- * - stripQuotedContent: removes quoted reply chains (>, >>, "On ... wrote:")
+ * - stripQuotedHtml: removes quoted-block HTML markers BEFORE text conversion
+ * - stripQuotedContent: removes quoted reply chains from PLAIN text
+ *     (>, >>, "On ... wrote:", Outlook headers, etc.)
+ * - stripPriorMessageOverlap: safety net — subtracts verbatim older message
+ *     bodies that got inlined into a later message
  * - extractEmailAddress: pulls raw email from RFC822 "Name <email>" format
  * - isCommonEmailDomain: identifies shared providers where domain matching is meaningless
  */
@@ -55,6 +67,210 @@ export function htmlToPlainText(raw: string): string {
     .replace(/\n{3,}/g, "\n\n")
     .replace(/[^\S\n]+/g, " ")
     .trim();
+}
+
+// ─── HTML quote stripping ──────────────────────────────────────────────────
+// Runs BEFORE htmlToPlainText so structural quote markers survive. Every
+// major mail client wraps the prior-message chain in an identifiable element:
+// <blockquote> (RFC-ish), <div class="gmail_quote"> (Gmail), <div
+// id="divRplyFwdMsg"> (Outlook web), <div id="OLK_SRC_BODY_SECTION"> (Outlook
+// desktop), <div class="yahoo_quoted"> (Yahoo), <div class="protonmail_quote">
+// (ProtonMail), <div class="moz-cite-prefix"> (Thunderbird).
+//
+// Non-greedy regex fails on nested <div> because it halts at the first
+// </div>, so we walk the string counting depth on matched element types.
+
+/**
+ * True when the char immediately after a prospective tag needle is a real
+ * tag-boundary character — i.e. the match is `<div>` / `<div ` / `<div\n`
+ * / `</div>` and NOT `<divider>` / `</divx>` / other word-continuations.
+ * Critical for both opens and closes: without this the depth counter
+ * ticks on bogus matches like `</divider>` and we silently eat body text.
+ */
+function isTagBoundary(ch: string | undefined, isOpen: boolean): boolean {
+  if (ch === undefined) return false;
+  if (ch === ">" || ch === " " || ch === "\t" || ch === "\n" || ch === "\r") return true;
+  // Opens only: `<div/>` is a (rare) self-closing form; `/` is a boundary.
+  if (isOpen && ch === "/") return true;
+  return false;
+}
+
+/**
+ * Find the next real occurrence of `needle` in `lower` starting at `from`,
+ * where "real" means the char after the needle is a tag boundary (per
+ * isTagBoundary). Returns -1 when no valid match remains. Walks past
+ * false matches one character at a time — cheap because false matches
+ * are rare in practice.
+ */
+function findTagNeedle(
+  lower: string,
+  needle: string,
+  from: number,
+  isOpen: boolean
+): number {
+  let pos = from;
+  while (pos < lower.length) {
+    const idx = lower.indexOf(needle, pos);
+    if (idx === -1) return -1;
+    if (isTagBoundary(lower[idx + needle.length], isOpen)) return idx;
+    pos = idx + 1;
+  }
+  return -1;
+}
+
+function stripElementByTagName(html: string, tagName: string): string {
+  const tag = tagName.toLowerCase();
+  const openNeedle = `<${tag}`;
+  const closeNeedle = `</${tag}`;
+
+  let result = "";
+  let i = 0;
+  const lower = html.toLowerCase();
+
+  while (i < html.length) {
+    const openIdx = findTagNeedle(lower, openNeedle, i, true);
+    if (openIdx === -1) {
+      result += html.slice(i);
+      break;
+    }
+    result += html.slice(i, openIdx);
+
+    // Walk forward to find the matching close, respecting depth.
+    const tagEnd = lower.indexOf(">", openIdx);
+    if (tagEnd === -1) {
+      // Malformed — drop the rest.
+      break;
+    }
+    let depth = 1;
+    let pos = tagEnd + 1;
+    while (pos < html.length && depth > 0) {
+      const nextOpen = findTagNeedle(lower, openNeedle, pos, true);
+      const nextClose = findTagNeedle(lower, closeNeedle, pos, false);
+      if (nextClose === -1) {
+        // Unclosed — eat to end.
+        pos = html.length;
+        break;
+      }
+      if (nextOpen !== -1 && nextOpen < nextClose) {
+        depth++;
+        pos = nextOpen + openNeedle.length;
+      } else {
+        depth--;
+        const closeEnd = lower.indexOf(">", nextClose);
+        pos = closeEnd === -1 ? html.length : closeEnd + 1;
+      }
+    }
+    i = pos;
+  }
+
+  return result;
+}
+
+function stripDivByAttribute(
+  html: string,
+  attrName: "id" | "class",
+  attrValueTest: (value: string) => boolean
+): string {
+  const openNeedle = "<div";
+  const closeNeedle = "</div";
+  let result = "";
+  let i = 0;
+  const lower = html.toLowerCase();
+
+  while (i < html.length) {
+    const openIdx = findTagNeedle(lower, openNeedle, i, true);
+    if (openIdx === -1) {
+      result += html.slice(i);
+      break;
+    }
+    const tagEnd = html.indexOf(">", openIdx);
+    if (tagEnd === -1) {
+      result += html.slice(i);
+      break;
+    }
+    const openTag = html.slice(openIdx, tagEnd + 1);
+    // Extract the target attribute value, tolerating single- or double-quoted.
+    const attrRE = new RegExp(`\\b${attrName}\\s*=\\s*("([^"]*)"|'([^']*)')`, "i");
+    const m = openTag.match(attrRE);
+    const value = m ? (m[2] ?? m[3] ?? "") : "";
+
+    result += html.slice(i, openIdx);
+
+    if (value && attrValueTest(value)) {
+      // Strip this div and everything until its matching </div>.
+      let depth = 1;
+      let pos = tagEnd + 1;
+      while (pos < html.length && depth > 0) {
+        const nextOpen = findTagNeedle(lower, openNeedle, pos, true);
+        const nextClose = findTagNeedle(lower, closeNeedle, pos, false);
+        if (nextClose === -1) {
+          pos = html.length;
+          break;
+        }
+        if (nextOpen !== -1 && nextOpen < nextClose) {
+          depth++;
+          pos = nextOpen + openNeedle.length;
+        } else {
+          depth--;
+          const closeEnd = lower.indexOf(">", nextClose);
+          pos = closeEnd === -1 ? html.length : closeEnd + 1;
+        }
+      }
+      i = pos;
+    } else {
+      // Keep this div open tag, advance past it so nested divs are still scanned.
+      result += openTag;
+      i = tagEnd + 1;
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Strip quoted-content HTML markers BEFORE running htmlToPlainText.
+ * Idempotent on plain text (returns input unchanged if no `<` present).
+ *
+ * Known markers handled:
+ *   - <blockquote>           — generic RFC-style quote
+ *   - <div class="gmail_quote*"> — Gmail web + mobile
+ *   - <div id="divRplyFwdMsg">    — Outlook web reply/forward
+ *   - <div id="OLK_SRC_BODY_SECTION"> — Outlook desktop
+ *   - <div class="*OutlookMessageHeader*"> — Outlook headers
+ *   - <div class="*yahoo_quoted*">
+ *   - <div class="*protonmail_quote*">
+ *   - <div class="*moz-cite-prefix*">      — Thunderbird cite line
+ */
+export function stripQuotedHtml(html: string): string {
+  if (!html || !html.includes("<")) return html;
+
+  let result = html;
+
+  // Element-by-tag: blockquote (and its entire contents).
+  result = stripElementByTagName(result, "blockquote");
+
+  // Class-based div strippers — match if attribute contains token.
+  const classMatchers: Array<(v: string) => boolean> = [
+    (v) => /\bgmail_quote\b/i.test(v),
+    (v) => /\bOutlookMessageHeader\b/i.test(v),
+    (v) => /\byahoo_quoted\b/i.test(v),
+    (v) => /\bprotonmail_quote\b/i.test(v),
+    (v) => /\bmoz-cite-prefix\b/i.test(v),
+  ];
+  for (const test of classMatchers) {
+    result = stripDivByAttribute(result, "class", test);
+  }
+
+  // ID-based div strippers — exact match.
+  const idMatchers: Array<(v: string) => boolean> = [
+    (v) => v === "divRplyFwdMsg",
+    (v) => v === "OLK_SRC_BODY_SECTION",
+  ];
+  for (const test of idMatchers) {
+    result = stripDivByAttribute(result, "id", test);
+  }
+
+  return result;
 }
 
 // ─── Common email domains ──────────────────────────────────────────────────
@@ -128,6 +344,105 @@ export function stripQuotedContent(body: string): string {
   }
 
   return normalized;
+}
+
+// ─── Cross-message overlap stripping ───────────────────────────────────────
+// Safety net for cases where HTML + regex passes miss a quoted chain. If a
+// newer message's body contains a chunk of an older message verbatim (modulo
+// whitespace), that chunk is a quoted reply and should be removed from the
+// display body.
+//
+// We signature-match on the first ~140 chars of the older body rather than
+// full-body diff because (a) senders sometimes tweak the quoted block (>
+// prefixes, indent tweaks) and (b) first-N-chars is a strong uniqueness
+// signal with cheap scanning.
+
+function normalizeWhitespace(s: string): string {
+  return s.replace(/\s+/g, " ").trim();
+}
+
+/**
+ * Map a position in a whitespace-normalized string back to the equivalent
+ * position in the original. Walks the original counting "normalized
+ * characters" (each non-space char is 1; each whitespace run is 1) until it
+ * has consumed `normalizedIdx` of them.
+ */
+function mapNormalizedIndex(original: string, normalizedIdx: number): number {
+  if (normalizedIdx <= 0) return 0;
+  let origPos = 0;
+  let normCount = 0;
+  let inSpace = false;
+  // Skip leading whitespace in original — `trim()` removes it from normalized.
+  while (origPos < original.length && /\s/.test(original[origPos])) origPos++;
+  while (origPos < original.length && normCount < normalizedIdx) {
+    const c = original[origPos];
+    if (/\s/.test(c)) {
+      if (!inSpace) {
+        normCount++;
+        inSpace = true;
+      }
+    } else {
+      normCount++;
+      inSpace = false;
+    }
+    origPos++;
+  }
+  return origPos;
+}
+
+/**
+ * Trim `body` at the earliest point where it repeats a verbatim signature
+ * from any message in `priorBodies`. Returns `body` unchanged if no overlap
+ * is found or overlap starts too close to the top (we won't leave an empty
+ * message).
+ *
+ * Guardrails against false positives on boilerplate openers
+ * ("Hi [name], hope you're well…") which easily hit 60-char matches:
+ *   - MIN_SIGNATURE_LEN is high enough (120) that shared openers alone
+ *     can't trigger a cut; the prior body must be substantively similar.
+ *   - The match must land in the *latter half* of the current body.
+ *     A real quoted chain sits BELOW the new reply; a coincidental
+ *     opener-match in the top half means the user is writing fresh
+ *     content that happens to start the same way.
+ */
+export function stripPriorMessageOverlap(
+  body: string,
+  priorBodies: string[]
+): string {
+  if (!body || priorBodies.length === 0) return body;
+
+  const MIN_SIGNATURE_LEN = 120;
+  const SIGNATURE_LEN = 180;
+  const MIN_REMAINING = 20;
+
+  const normBody = normalizeWhitespace(body);
+  // Invariant: only strip when the overlap starts in the second half of
+  // the normalized body. Below that, we're almost certainly looking at a
+  // false match (shared opener phrase) rather than a real quoted chain.
+  const minNormIdx = Math.floor(normBody.length / 2);
+
+  let earliestCut = body.length;
+
+  for (const prior of priorBodies) {
+    if (!prior) continue;
+    const normPrior = normalizeWhitespace(prior);
+    if (normPrior.length < MIN_SIGNATURE_LEN) continue;
+
+    const sig = normPrior.slice(0, Math.min(SIGNATURE_LEN, normPrior.length));
+    const normIdx = normBody.indexOf(sig);
+    if (normIdx === -1) continue;
+    if (normIdx < minNormIdx) continue;
+
+    const origIdx = mapNormalizedIndex(body, normIdx);
+    if (origIdx >= MIN_REMAINING && origIdx < earliestCut) {
+      earliestCut = origIdx;
+    }
+  }
+
+  if (earliestCut < body.length) {
+    return body.slice(0, earliestCut).trimEnd();
+  }
+  return body;
 }
 
 // ─── Email address extraction ──────────────────────────────────────────────

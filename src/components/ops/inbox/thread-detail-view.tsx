@@ -17,7 +17,7 @@
  *   r reply · Shift+D ask AI · c compose new · Esc back to list
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import {
   Archive,
@@ -29,6 +29,8 @@ import {
   Send,
   PanelRight,
   Paperclip,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { EASE_SMOOTH } from "@/lib/utils/motion";
@@ -36,6 +38,7 @@ import { useDictionary } from "@/i18n/client";
 import {
   useInboxThread,
   useThreadActions,
+  type InboxDraftRow,
   type InboxThreadRow,
 } from "@/lib/hooks/use-inbox-threads";
 import type {
@@ -79,6 +82,17 @@ export interface ThreadDetailViewProps {
   canConfigurePhaseC?: boolean;
   /** Escape goes back to list on narrow layouts. */
   onBack?: () => void;
+  /**
+   * Draft for this thread, if one exists (AI draft pending review OR an
+   * unsent provider reply in Gmail/Outlook). Rendered as a pinned card at
+   * the bottom of the message stack with Continue / Discard actions.
+   * `undefined` means "drafts haven't loaded yet"; `null` means "no draft".
+   */
+  threadDraft?: InboxDraftRow | null;
+  /** Open the compose modal prefilled with this draft. */
+  onContinueDraft?: (draft: InboxDraftRow) => void;
+  /** Discard this draft (delete from provider / mark AI draft discarded). */
+  onDiscardDraft?: (draft: InboxDraftRow) => void;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -314,6 +328,9 @@ export function ThreadDetailView({
   keyboardActive = true,
   canConfigurePhaseC = false,
   onBack,
+  threadDraft,
+  onContinueDraft,
+  onDiscardDraft,
 }: ThreadDetailViewProps) {
   const { t } = useDictionary("inbox");
   const reduceMotion = useReducedMotion();
@@ -323,6 +340,17 @@ export function ThreadDetailView({
   const [recatOpen, setRecatOpen] = useState(false);
   const [snoozeOpen, setSnoozeOpen] = useState(false);
   const [showFullSummary, setShowFullSummary] = useState(false);
+
+  // Scroll container for the message stack. The auto-scroll effect below
+  // lands at the bottom (most recent message) whenever a new thread opens,
+  // mirroring Gmail/Superhuman — the newest message is what the user wants
+  // to see first, not the thread root from months ago.
+  const messagesRef = useRef<HTMLDivElement>(null);
+  // Track which thread we've already auto-scrolled for. The 20s background
+  // poll on useInboxThread refetches the detail and can flip messages.length
+  // as new activity lands — without this guard the user reading history
+  // would get yanked to bottom on every refetch. Scroll ONCE per threadId.
+  const scrolledForThread = useRef<string | null>(null);
 
   // Prefer detail over listRow when available (detail is authoritative).
   const thread = data?.thread;
@@ -356,6 +384,30 @@ export function ThreadDetailView({
     markRead.mutate({ threadId, isRead: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [threadId]);
+
+  // Auto-scroll to bottom exactly once per threadId. Reset the guard when
+  // the user navigates to a different thread; subsequent refetches of the
+  // SAME thread (20s poll picking up a new reply) do not re-scroll and
+  // won't hijack the user's reading position.
+  useEffect(() => {
+    if (!threadId) return;
+    if (scrolledForThread.current === threadId) return;
+    if (isLoading) return;
+    if (messages.length === 0) return;
+    const el = messagesRef.current;
+    if (!el) return;
+    // rAF defers until after layout commits so scrollHeight reflects the
+    // painted stack (otherwise we scroll to the pre-paint height and land
+    // short of the actual bottom).
+    const raf = requestAnimationFrame(() => {
+      el.scrollTo({
+        top: el.scrollHeight,
+        behavior: reduceMotion ? "auto" : "smooth",
+      });
+      scrolledForThread.current = threadId;
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [threadId, isLoading, messages.length, reduceMotion]);
 
   // ─── Handlers ─────────────────────────────────────────────────────────
 
@@ -630,7 +682,10 @@ export function ThreadDetailView({
       )}
 
       {/* ─── Messages ──────────────────────────────────────────────────── */}
-      <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide px-3 py-3 space-y-3">
+      <div
+        ref={messagesRef}
+        className="flex-1 min-h-0 overflow-y-auto scrollbar-hide px-3 py-3 space-y-3"
+      >
         {isLoading && (
           <div className="space-y-3">
             <div className="h-[62px] rounded-[6px] bg-[rgba(255,255,255,0.03)] animate-pulse" />
@@ -678,6 +733,74 @@ export function ThreadDetailView({
             <p className="font-mohave text-[13px] text-text mt-1">
               No messages to show.
             </p>
+          </div>
+        )}
+
+        {/* ─── Inline draft card ───────────────────────────────────────── */}
+        {/* Pinned below the message stack — Superhuman/Fyxer pattern: the
+            draft is part of the conversation even though it's unsent. The
+            amber accent matches the list-row [DRAFT] pill so it reads as
+            the same "pending from you" signal. */}
+        {threadDraft && (
+          <div
+            className={cn(
+              "mt-2 rounded-[8px] border",
+              "border-[rgba(196,168,104,0.30)] bg-[rgba(196,168,104,0.04)]",
+              "px-3 py-2.5"
+            )}
+          >
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <Pencil
+                className="w-[12px] h-[12px] text-[#C4A868]"
+                strokeWidth={1.75}
+              />
+              <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#C4A868]">
+                // {threadDraft.source === "ai" ? "AI draft" : "Draft"}
+              </span>
+              <span className="font-mono text-[10px] text-text-mute ml-auto">
+                Updated {formatTime(new Date(threadDraft.updatedAt))}
+              </span>
+            </div>
+            {threadDraft.subject && (
+              <p className="font-mohave text-[12.5px] text-text-2 mb-1 truncate">
+                {threadDraft.subject}
+              </p>
+            )}
+            <p className="font-mohave text-[12.5px] text-text leading-relaxed whitespace-pre-wrap break-words line-clamp-4">
+              {threadDraft.bodyText || "(empty draft)"}
+            </p>
+            <div className="flex items-center gap-1.5 mt-2">
+              <button
+                type="button"
+                onClick={() => onContinueDraft?.(threadDraft)}
+                className={cn(
+                  "inline-flex items-center gap-1.5 h-[26px] px-2.5 rounded-[5px] border transition-colors duration-150",
+                  "border-[rgba(196,168,104,0.32)] bg-[rgba(196,168,104,0.10)] text-text",
+                  "hover:bg-[rgba(196,168,104,0.16)]"
+                )}
+                title="Open this draft in compose"
+              >
+                <Pencil className="w-[12px] h-[12px]" strokeWidth={1.75} />
+                <span className="font-cakemono font-light uppercase text-[11px] tracking-[0.14em]">
+                  Continue
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => onDiscardDraft?.(threadDraft)}
+                className={cn(
+                  "inline-flex items-center gap-1.5 h-[26px] px-2.5 rounded-[5px] border transition-colors duration-150",
+                  "border-border-subtle bg-[rgba(255,255,255,0.03)] text-text-3",
+                  "hover:bg-[rgba(164,88,79,0.10)] hover:border-[rgba(164,88,79,0.32)] hover:text-rose"
+                )}
+                title="Delete this draft"
+              >
+                <Trash2 className="w-[12px] h-[12px]" strokeWidth={1.75} />
+                <span className="font-cakemono font-light uppercase text-[11px] tracking-[0.14em]">
+                  Discard
+                </span>
+              </button>
+            </div>
           </div>
         )}
       </div>

@@ -248,8 +248,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     // ── Fallback: hard timeout ──────────────────────────────────────────────
+    // Skip the timeout while a redirect is still resolving — a slow OAuth
+    // return can legitimately take longer than 3s, and our deferred
+    // handleAuthState is already awaiting the real signal. Firing unauth
+    // here would flash the form before the authed path corrects it.
     const timeout = setTimeout(() => {
-      if (!initialCheckDone) {
+      if (!initialCheckDone && !redirectResultPromise) {
         console.warn("[AuthProvider] Auth timed out after 3s — forcing unauthenticated");
         initialCheckDone = true;
         setFirebaseAuth(false);

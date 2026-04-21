@@ -8,7 +8,7 @@
 
 import type { EmailConnection } from "@/lib/types/email-connection";
 import { requireSupabase } from "@/lib/supabase/helpers";
-import { htmlToPlainText } from "@/lib/utils/email-parsing";
+import { htmlToPlainText, stripQuotedHtml } from "@/lib/utils/email-parsing";
 import {
   ProviderApiError,
   ProviderAuthError,
@@ -16,6 +16,7 @@ import {
   SyncTokenExpiredError,
   type EmailProviderInterface,
   type ImageAttachmentMeta,
+  type NormalizedDraft,
   type NormalizedEmail,
   type SendEmailParams,
   type SendEmailResult,
@@ -487,6 +488,90 @@ export class GmailProvider implements EmailProviderInterface {
     return data.id;
   }
 
+  async listDrafts(): Promise<NormalizedDraft[]> {
+    // /drafts returns id + minimal metadata only; the message body/headers
+    // require a second fetch per draft. We cap at the 15 most recent to
+    // bound wall-clock time — full-format fetches in serial used to push
+    // heavy inboxes past the function timeout. Anyone sitting on more than
+    // 15 unsent drafts is the degenerate case; the first 15 are what you
+    // actually want to see.
+    const DRAFT_LIMIT = 15;
+    const listRes = await this.gmailFetch(`/drafts?maxResults=${DRAFT_LIMIT}`);
+    if (!listRes.ok) {
+      const body = await listRes.json().catch(() => ({}));
+      throwForGmailError(listRes.status, body, "drafts.list");
+    }
+    const listData = (await listRes.json()) as {
+      drafts?: Array<{ id: string; message?: { id: string; threadId?: string } }>;
+    };
+    const drafts = (listData.drafts ?? []).slice(0, DRAFT_LIMIT);
+    if (drafts.length === 0) return [];
+
+    // Single parallel burst — 15 concurrent GETs is well under Gmail's
+    // per-user budget and avoids the synthetic 150ms inter-batch pause.
+    const results = await Promise.all(
+      drafts.map(async (d) => {
+        const r = await this.gmailFetch(`/drafts/${d.id}?format=full`);
+        return r.json();
+      })
+    );
+    const out: NormalizedDraft[] = [];
+    for (const full of results) {
+      const normalized = this.normalizeGmailDraft(full);
+      if (normalized) out.push(normalized);
+    }
+    return out;
+  }
+
+  async deleteDraft(draftId: string): Promise<void> {
+    // Gmail returns 204 on success, 404 if already gone. We treat both as
+    // "draft is no longer there" and move on — caller-visible outcome is
+    // identical, and other error statuses still throw.
+    const res = await this.gmailFetch(`/drafts/${draftId}`, {
+      method: "DELETE",
+    });
+    if (!res.ok && res.status !== 404) {
+      const body = await res.json().catch(() => ({}));
+      throwForGmailError(res.status, body, "drafts.delete");
+    }
+  }
+
+  /**
+   * Normalize a Gmail `draft.get?format=full` response into our wire shape.
+   * Returns null if the payload is missing (Gmail occasionally returns
+   * headerless stubs) — safer to drop than to surface an empty row.
+   */
+  private normalizeGmailDraft(
+    draft: Record<string, unknown>
+  ): NormalizedDraft | null {
+    const id = draft.id as string;
+    const msg = (draft.message ?? {}) as Record<string, unknown>;
+    if (!msg || !msg.payload) return null;
+
+    const payload = msg.payload as Record<string, unknown>;
+    const headers = ((payload.headers || []) as Array<{ name: string; value: string }>);
+    const getHeader = (name: string) =>
+      headers.find((h) => h.name.toLowerCase() === name.toLowerCase())?.value || "";
+
+    // Drafts use the same body extraction as full messages; the clean
+    // version would strip quoted content, but for drafts the user just
+    // wrote the content so we keep the full body for editing.
+    const { full } = this.extractBodies(payload);
+
+    return {
+      id,
+      threadId: (msg.threadId as string) || null,
+      to: this.parseAddressList(getHeader("To")),
+      cc: this.parseAddressList(getHeader("Cc")),
+      subject: getHeader("Subject"),
+      bodyText: full,
+      // Gmail exposes internalDate on the inner message, not the draft wrapper.
+      updatedAt: msg.internalDate
+        ? new Date(parseInt(msg.internalDate as string))
+        : new Date(),
+    };
+  }
+
   async setupWebhook(_webhookUrl: string): Promise<WebhookSubscription> {
     // Precondition: Pub/Sub topic must be configured. Without this env
     // var, /watch returns an error body and we used to silently store
@@ -678,6 +763,8 @@ export class GmailProvider implements EmailProviderInterface {
     const getHeader = (name: string) =>
       headers.find((h) => h.name.toLowerCase() === name.toLowerCase())?.value || "";
 
+    const { full, clean } = this.extractBodies(payload);
+
     return {
       id: msg.id as string,
       threadId: (msg.threadId as string) || "",
@@ -687,7 +774,8 @@ export class GmailProvider implements EmailProviderInterface {
       cc: this.parseAddressList(getHeader("Cc")),
       subject: getHeader("Subject"),
       snippet: (msg.snippet as string) || "",
-      bodyText: this.extractBody(payload),
+      bodyText: full,
+      bodyTextClean: clean || undefined,
       date: msg.internalDate ? new Date(parseInt(msg.internalDate as string)) : new Date(),
       labelIds: (msg.labelIds as string[]) || [],
       isRead: !((msg.labelIds as string[]) || []).includes("UNREAD"),
@@ -709,49 +797,84 @@ export class GmailProvider implements EmailProviderInterface {
       .filter(Boolean);
   }
 
-  private extractBody(payload: Record<string, unknown> | undefined): string {
-    if (!payload) return "";
+  /**
+   * Extract both the full plain-text body and a display-clean variant (with
+   * quoted-chain HTML stripped before text conversion). Single walk over the
+   * payload — callers get whichever they need.
+   *
+   * Strategy:
+   *   - Decode text/html ONCE; derive `clean` by running stripQuotedHtml()
+   *     before htmlToPlainText().
+   *   - Decode text/plain; if no HTML variant was present, `clean` falls back
+   *     to the plain text unchanged (display path then runs regex stripping).
+   *   - If both text/plain AND text/html are present, prefer the plain text
+   *     for `full` (Gmail's text/plain alternative is authoritative for AI /
+   *     classification) but still derive `clean` from the HTML side because
+   *     only the HTML side preserves quote markers.
+   */
+  private extractBodies(
+    payload: Record<string, unknown> | undefined
+  ): { full: string; clean: string } {
+    if (!payload) return { full: "", clean: "" };
 
+    const { plain, html } = this.collectBodyParts(payload);
+
+    // `full` — widest context. Prefer plain when available.
+    const full = plain || (html ? htmlToPlainText(html) : "");
+
+    // `clean` — strip quote markers in HTML space before text conversion.
+    // Only useful when we actually have HTML; for plain-only messages let
+    // the regex layer in stripQuotedContent handle it (we leave `clean`
+    // equal to `full` to signal "provider had no structural advantage here",
+    // and the route still applies stripQuotedContent as layer 2).
+    let clean = full;
+    if (html) {
+      const stripped = stripQuotedHtml(html);
+      clean = htmlToPlainText(stripped);
+    }
+
+    return { full, clean };
+  }
+
+  /**
+   * Walk a Gmail MIME tree, returning the first text/plain and text/html
+   * bodies we find. Gmail nests multipart/alternative inside multipart/mixed
+   * for messages with attachments, so a recursive walk is required.
+   */
+  private collectBodyParts(
+    payload: Record<string, unknown>
+  ): { plain: string; html: string } {
     const mimeType = (payload.mimeType as string) || "";
+    const body = payload.body as { data?: string } | undefined;
     const parts = payload.parts as Array<Record<string, unknown>> | undefined;
 
-    // Multipart: search parts for text/plain first, then text/html as fallback
-    if (parts && parts.length > 0) {
-      // Pass 1: look for text/plain at this level
-      const textPart = parts.find((p) => p.mimeType === "text/plain");
-      const textBody = textPart?.body as { data?: string } | undefined;
-      if (textBody?.data) {
-        return Buffer.from(textBody.data, "base64").toString("utf-8");
-      }
+    let plain = "";
+    let html = "";
 
-      // Pass 2: recurse into nested multipart parts (e.g. multipart/alternative inside multipart/mixed)
+    const decode = (data?: string) =>
+      data ? Buffer.from(data, "base64").toString("utf-8") : "";
+
+    if (mimeType === "text/plain" && body?.data) {
+      plain = decode(body.data);
+    } else if (mimeType === "text/html" && body?.data) {
+      html = decode(body.data);
+    } else if (!parts && body?.data) {
+      // Single-part, unknown mime — heuristically classify.
+      const decoded = decode(body.data);
+      if (decoded.trimStart().startsWith("<")) html = decoded;
+      else plain = decoded;
+    }
+
+    if (parts) {
       for (const part of parts) {
-        const nested = this.extractBody(part);
-        if (nested) return nested;
+        const nested = this.collectBodyParts(part);
+        if (!plain && nested.plain) plain = nested.plain;
+        if (!html && nested.html) html = nested.html;
+        if (plain && html) break;
       }
-
-      // Pass 3: fall back to text/html at this level, stripped to plain text
-      const htmlPart = parts.find((p) => p.mimeType === "text/html");
-      const htmlBody = htmlPart?.body as { data?: string } | undefined;
-      if (htmlBody?.data) {
-        const html = Buffer.from(htmlBody.data, "base64").toString("utf-8");
-        return htmlToPlainText(html);
-      }
-
-      return "";
     }
 
-    // Single-part message: check mimeType before decoding
-    const body = payload.body as { data?: string } | undefined;
-    if (body?.data) {
-      const decoded = Buffer.from(body.data, "base64").toString("utf-8");
-      if (mimeType === "text/html" || decoded.trimStart().startsWith("<")) {
-        return htmlToPlainText(decoded);
-      }
-      return decoded;
-    }
-
-    return "";
+    return { plain, html };
   }
 
   private hasAttachments(payload: Record<string, unknown> | undefined): boolean {

@@ -15,6 +15,7 @@ import {
   SyncTokenExpiredError,
   type EmailProviderInterface,
   type ImageAttachmentMeta,
+  type NormalizedDraft,
   type NormalizedEmail,
   type SendEmailParams,
   type SendEmailResult,
@@ -310,9 +311,20 @@ export class Microsoft365Provider implements EmailProviderInterface {
   }
 
   async fetchThread(threadId: string): Promise<NormalizedEmail[]> {
-    // M365 uses conversationId for threading
+    // M365 uses conversationId for threading. $select includes uniqueBody,
+    // Graph's server-stripped "new content only" variant — used to populate
+    // NormalizedEmail.bodyTextClean for the thread-detail display path so we
+    // never show quoted reply chains inline. `body` stays required for the
+    // full-context fields that feed classification / Phase C memory.
+    const selectFields = [
+      "id", "conversationId", "from", "toRecipients", "ccRecipients",
+      "subject", "bodyPreview", "body", "uniqueBody",
+      "receivedDateTime", "categories", "isRead", "hasAttachments",
+    ].join(",");
     const data = await this.graphFetch(
-      `/me/messages?$filter=conversationId eq '${threadId}'&$orderby=receivedDateTime asc&$top=100`
+      `/me/messages?$filter=conversationId eq '${threadId}'` +
+      `&$select=${selectFields}` +
+      `&$orderby=receivedDateTime asc&$top=100`
     );
 
     return ((data.value as Array<Record<string, unknown>>) || []).map((msg) =>
@@ -558,6 +570,76 @@ export class Microsoft365Provider implements EmailProviderInterface {
     return data.id as string;
   }
 
+  async listDrafts(): Promise<NormalizedDraft[]> {
+    // The Drafts well-known folder surfaces exactly what the user sees in
+    // Outlook's Drafts view. $select keeps the payload tight; $top=100 caps
+    // the list (same as Gmail — we don't paginate drafts).
+    const selectFields = [
+      "id", "conversationId", "toRecipients", "ccRecipients",
+      "subject", "body", "lastModifiedDateTime",
+    ].join(",");
+    const data = (await this.graphFetch(
+      `/me/mailFolders/drafts/messages?$select=${selectFields}` +
+      `&$orderby=lastModifiedDateTime desc&$top=100`
+    )) as { value?: Array<Record<string, unknown>> };
+
+    return (data.value ?? []).map((msg) => this.normalizeM365Draft(msg));
+  }
+
+  async deleteDraft(draftId: string): Promise<void> {
+    // Graph returns 204 on success; 404 if the draft is already gone.
+    // Both are "draft is no longer there" — move on. Other errors still
+    // bubble up through throwForGraphError. We bypass graphFetch here
+    // because it calls res.json() on the response, which would throw on
+    // the empty 204 body (same pattern as graphSend below).
+    const token = await this.getToken();
+    const res = await fetch(`${GRAPH_BASE}/me/messages/${draftId}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok && res.status !== 404) {
+      const body = await res.text().catch(() => "");
+      throwForGraphError(res.status, body, "messages/delete (draft)");
+    }
+  }
+
+  /**
+   * Normalize a Graph draft message payload into our wire shape. Drafts on
+   * M365 don't distinguish reply-drafts from new-compose drafts at the
+   * folder level — the conversationId field is always present. We treat a
+   * conversationId with only one message (this draft) as a standalone and
+   * set threadId to null so the pill-rendering logic doesn't mis-attach.
+   */
+  private normalizeM365Draft(msg: Record<string, unknown>): NormalizedDraft {
+    const toRecipients = (msg.toRecipients || []) as Array<{
+      emailAddress?: { address?: string };
+    }>;
+    const ccRecipients = (msg.ccRecipients || []) as Array<{
+      emailAddress?: { address?: string };
+    }>;
+    const msgBody = msg.body as
+      | { contentType?: string; content?: string }
+      | undefined;
+
+    return {
+      id: msg.id as string,
+      threadId: (msg.conversationId as string) || null,
+      to: toRecipients
+        .map((r) => r.emailAddress?.address)
+        .filter(Boolean) as string[],
+      cc: ccRecipients
+        .map((r) => r.emailAddress?.address)
+        .filter(Boolean) as string[],
+      subject: (msg.subject as string) || "",
+      bodyText: this.bodyToText(msgBody),
+      updatedAt: new Date(
+        (msg.lastModifiedDateTime as string) ||
+          (msg.createdDateTime as string) ||
+          Date.now()
+      ),
+    };
+  }
+
   async setupWebhook(webhookUrl: string): Promise<WebhookSubscription> {
     const expiry = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000); // 3 days max
     const data = await this.graphFetch("/subscriptions", {
@@ -721,6 +803,18 @@ export class Microsoft365Provider implements EmailProviderInterface {
       contentType?: string;
       content?: string;
     } | undefined;
+    // uniqueBody is Graph's server-stripped variant (new content only, no
+    // quoted chain). Only present when we $select it on the thread endpoint —
+    // delta / list paths still populate `body` alone and this stays undefined.
+    const msgUniqueBody = msg.uniqueBody as {
+      contentType?: string;
+      content?: string;
+    } | undefined;
+
+    const fullText = this.bodyToText(msgBody);
+    const cleanText = msgUniqueBody?.content
+      ? this.bodyToText(msgUniqueBody)
+      : "";
 
     return {
       id: msg.id as string,
@@ -735,7 +829,8 @@ export class Microsoft365Provider implements EmailProviderInterface {
         .filter(Boolean) as string[],
       subject: (msg.subject as string) || "",
       snippet: ((msg.bodyPreview as string) || "").slice(0, 200),
-      bodyText: this.bodyToText(msgBody),
+      bodyText: fullText,
+      bodyTextClean: cleanText || undefined,
       date: new Date(msg.receivedDateTime as string),
       labelIds: (msg.categories as string[]) || [],
       isRead: (msg.isRead as boolean) || false,

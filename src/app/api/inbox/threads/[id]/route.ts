@@ -22,7 +22,11 @@ import { checkPermissionById } from "@/lib/supabase/check-permission";
 import { EmailThreadService } from "@/lib/api/services/email-thread-service";
 import { EmailService } from "@/lib/api/services/email-service";
 import { PhaseCLearningService } from "@/lib/api/services/phase-c-learning-service";
-import { extractEmailAddress, stripQuotedContent } from "@/lib/utils/email-parsing";
+import {
+  extractEmailAddress,
+  stripQuotedContent,
+  stripPriorMessageOverlap,
+} from "@/lib/utils/email-parsing";
 import {
   EMAIL_THREAD_CATEGORIES,
   type EmailThreadCategory,
@@ -110,7 +114,15 @@ export async function GET(
         const providerMsgs = await provider.fetchThread(thread.providerThreadId);
         messages = providerMsgs.map((m) => {
           const rawBody = m.bodyText ?? "";
-          const cleanBody = stripQuotedContent(rawBody);
+          // 3-layer clean-body cascade (see email-parsing.ts header):
+          //   1. provider-native (M365 uniqueBody, Gmail HTML-first) → bodyTextClean
+          //   2. plain-text regex stripping via stripQuotedContent
+          //   3. cross-message overlap — applied below once all messages are in hand.
+          const providerClean = m.bodyTextClean?.trim();
+          const initialClean =
+            providerClean && providerClean.length > 0
+              ? providerClean
+              : stripQuotedContent(rawBody);
           return {
             id: m.id,
             from: m.from,
@@ -120,7 +132,7 @@ export async function GET(
             subject: m.subject,
             snippet: m.snippet,
             bodyText: rawBody,
-            cleanBodyText: cleanBody,
+            cleanBodyText: initialClean,
             direction: deriveDirection(m.from),
             date: m.date.toISOString(),
             isRead: m.isRead,
@@ -145,6 +157,9 @@ export async function GET(
       messages = (activityRows ?? []).map((r) => {
         const rawBody =
           ((r.body_text as string) ?? (r.content as string) ?? "");
+        // Activities fallback has no provider-clean body stored — regex layer
+        // only. Cross-message pass still runs below to catch cases where the
+        // regex missed.
         const cleanBody = stripQuotedContent(rawBody);
         return {
           id: r.id,
@@ -162,6 +177,26 @@ export async function GET(
           hasAttachments: r.has_attachments,
         };
       });
+    }
+
+    // Layer 3 — cross-message overlap. For each message (in chronological
+    // order), subtract any prior message body that appears verbatim inside
+    // the current clean body. This catches chains where the user pasted an
+    // older email into a new reply without quote markers, or quoted via a
+    // client whose structural pattern we don't yet recognize.
+    if (messages.length > 1) {
+      const priorBodies: string[] = [];
+      for (const m of messages) {
+        const current = (m.cleanBodyText as string) ?? "";
+        if (current && priorBodies.length > 0) {
+          m.cleanBodyText = stripPriorMessageOverlap(current, priorBodies);
+        }
+        // Prime the pool with the FULL body of this message (not the stripped
+        // one) so later overlap checks still find the complete signature even
+        // if layers 1–2 already trimmed this message's own display text.
+        const fullBody = (m.bodyText as string) ?? "";
+        if (fullBody) priorBodies.push(fullBody);
+      }
     }
 
     return NextResponse.json({

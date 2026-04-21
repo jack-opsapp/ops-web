@@ -83,7 +83,46 @@ export type ArchiveWritebackPreference =
   | "ops_only";
 
 /** Split-inbox rail. */
-export type InboxRail = "needs_reply" | "everything" | "scheduled" | "done";
+export type InboxRail =
+  | "needs_reply"
+  | "everything"
+  | "scheduled"
+  | "done"
+  | "drafts";
+
+// ─── Drafts (shared wire shape) ─────────────────────────────────────────────
+// Wire shape used by /api/inbox/drafts and consumed by useInboxDrafts on the
+// client. Single declaration so the route and the hook can't drift. `source`
+// + `id` are what the DELETE endpoint round-trips to find the underlying
+// record (provider API vs. ai_draft_history row).
+
+export type DraftSource = "provider" | "ai";
+
+export interface InboxDraftRow {
+  source: DraftSource;
+  id: string;
+  /**
+   * Provider thread id when the draft is a reply. Null for standalone
+   * compose drafts (new message typed in Gmail/Outlook without picking a
+   * thread to reply to).
+   */
+  threadId: string | null;
+  /**
+   * Connection id for provider drafts; AI drafts may also carry one when
+   * the AI was scoped to a specific mailbox. Required by the discard path
+   * for `source=provider` to pick the right provider client.
+   */
+  connectionId: string | null;
+  /** Sender mailbox address — surfaced in multi-mailbox UIs. */
+  fromEmail: string;
+  to: string[];
+  cc: string[];
+  subject: string;
+  bodyText: string;
+  /** ISO 8601. Provider-reported last-save time (Gmail internalDate /
+   *  M365 lastModifiedDateTime); for AI drafts, row updated_at. */
+  updatedAt: string;
+}
 
 /** Inbox scope — own mailbox vs. all company mailboxes (permission-gated). */
 export type InboxScope = "own" | "company";

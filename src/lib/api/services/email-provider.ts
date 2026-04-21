@@ -78,7 +78,15 @@ export interface NormalizedEmail {
   cc: string[];
   subject: string;
   snippet: string;
+  /** Full plain-text body. Used for AI classification, Phase C memory, and
+   *  sync persistence — callers relying on complete context read this. */
   bodyText: string;
+  /** Optional provider-native "new content only" body. Populated when the
+   *  provider can deliver a reliably-stripped version (M365 `uniqueBody`;
+   *  Gmail HTML-first structural stripping). When present, the thread-detail
+   *  renderer prefers this over running plain-text regex stripping. Omit or
+   *  set null/empty when the provider cannot confidently strip. */
+  bodyTextClean?: string;
   date: Date;
   labelIds: string[];
   isRead: boolean;
@@ -120,6 +128,34 @@ export interface ImageAttachmentMeta {
   mimeType: string;
   size: number;
   fromEmail: string;
+}
+
+// ─── Draft Types ─────────────────────────────────────────────────────────────
+
+/**
+ * A normalized representation of a provider-side draft (Gmail `/drafts` or
+ * M365 `/me/mailFolders/drafts/messages`). Drafts are unsent emails the user
+ * composed in the native client (Gmail web, Apple Mail, Outlook, etc.) — OPS
+ * surfaces them alongside its own AI drafts so the user has a single place to
+ * find any in-flight reply.
+ *
+ * `threadId` is the provider's thread/conversation id when the draft is a
+ * reply (Gmail fills this in automatically when you hit "Reply"); null for
+ * standalone compose drafts. When present, OPS can attach the draft to the
+ * corresponding inbox thread and show a [DRAFT] pill on that thread card.
+ */
+export interface NormalizedDraft {
+  /** Provider draft id — used for DELETE and for update-in-place flows. */
+  id: string;
+  /** Gmail threadId / M365 conversationId when replying; null for new compose. */
+  threadId: string | null;
+  to: string[];
+  cc: string[];
+  subject: string;
+  /** Draft body as plain text. HTML drafts are converted via htmlToPlainText. */
+  bodyText: string;
+  /** Last time the draft was saved/updated on the provider. */
+  updatedAt: Date;
 }
 
 // ─── Provider Interface ──────────────────────────────────────────────────────
@@ -209,6 +245,19 @@ export interface EmailProviderInterface {
     body: string,
     threadId?: string
   ): Promise<string>;
+
+  /**
+   * List every draft currently sitting in the user's provider Drafts folder.
+   * Includes both reply-drafts (with threadId) and new-compose drafts. Used
+   * by /api/inbox/drafts to merge provider-side drafts with OPS AI drafts.
+   *
+   * Implementations fetch content too (not just ids) — cheap enough at the
+   * page sizes we care about, and the UI needs subject/body/to for the list.
+   */
+  listDrafts(): Promise<NormalizedDraft[]>;
+
+  /** Delete a draft from the provider. Idempotent on already-gone drafts. */
+  deleteDraft(draftId: string): Promise<void>;
 
   // Push notifications
   setupWebhook(webhookUrl: string): Promise<WebhookSubscription>;

@@ -27,6 +27,7 @@ export interface InboxRailCounts {
   everything: number;
   scheduled: number;
   done: number;
+  drafts: number;
 }
 
 interface SplitInboxTabsProps {
@@ -43,14 +44,22 @@ interface RailDef {
   labelKey: string;
   /** Dictionary key for the verbose tooltip shown on hover. */
   titleKey: string;
-  hotkey: "1" | "2" | "3" | "4";
+  /** Fallback label used when the dictionary key isn't present yet. */
+  fallbackLabel: string;
+  /** Fallback tooltip used when the dictionary key isn't present yet. */
+  fallbackTitle: string;
+  hotkey: "1" | "2" | "3" | "4" | "5";
 }
 
+// NOTE: five tabs in a 360px left column is tight — keep labels ≤ 6 chars.
+// "DRAFTS" fits; longer localizations are clipped via `overflow-hidden` on
+// the container (existing behavior).
 const RAILS: readonly RailDef[] = [
-  { id: "needs_reply", labelKey: "rail.needsReply", titleKey: "rail.needsReply.title", hotkey: "1" },
-  { id: "everything",  labelKey: "rail.everything", titleKey: "rail.everything.title", hotkey: "2" },
-  { id: "scheduled",   labelKey: "rail.scheduled",  titleKey: "rail.scheduled.title",  hotkey: "3" },
-  { id: "done",        labelKey: "rail.done",       titleKey: "rail.done.title",       hotkey: "4" },
+  { id: "needs_reply", labelKey: "rail.needsReply", titleKey: "rail.needsReply.title", fallbackLabel: "Reply",  fallbackTitle: "Needs reply",  hotkey: "1" },
+  { id: "everything",  labelKey: "rail.everything", titleKey: "rail.everything.title", fallbackLabel: "All",    fallbackTitle: "Everything",   hotkey: "2" },
+  { id: "scheduled",   labelKey: "rail.scheduled",  titleKey: "rail.scheduled.title",  fallbackLabel: "Later",  fallbackTitle: "Snoozed",      hotkey: "3" },
+  { id: "done",        labelKey: "rail.done",       titleKey: "rail.done.title",       fallbackLabel: "Done",   fallbackTitle: "Archived",     hotkey: "4" },
+  { id: "drafts",      labelKey: "rail.drafts",     titleKey: "rail.drafts.title",     fallbackLabel: "Drafts", fallbackTitle: "Drafts — provider + AI (5)", hotkey: "5" },
 ] as const;
 
 function formatCount(n: number | undefined): string | null {
@@ -110,8 +119,13 @@ export function SplitInboxTabs({
       {RAILS.map((rail) => {
         const isActive = rail.id === active;
         const countDisplay = formatCount(counts?.[rail.id]);
-        const label = t(rail.labelKey);
-        const title = t(rail.titleKey);
+        // Use the dictionary when the key resolves, else fall back to the
+        // baked-in English label so new rails (e.g. `rail.drafts`) render
+        // correctly before translations ship.
+        const rawLabel = t(rail.labelKey);
+        const label = rawLabel && rawLabel !== rail.labelKey ? rawLabel : rail.fallbackLabel;
+        const rawTitle = t(rail.titleKey);
+        const title = rawTitle && rawTitle !== rail.titleKey ? rawTitle : rail.fallbackTitle;
 
         return (
           <button

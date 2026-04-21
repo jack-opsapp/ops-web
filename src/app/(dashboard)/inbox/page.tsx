@@ -28,8 +28,14 @@ import { useDictionary } from "@/i18n/client";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { cn } from "@/lib/utils/cn";
-import { useThreadActions, type InboxThreadRow } from "@/lib/hooks/use-inbox-threads";
-import { useInboxThreads } from "@/lib/hooks/use-inbox-threads";
+import {
+  useThreadActions,
+  useInboxThreads,
+  useInboxDrafts,
+  useDiscardDraft,
+  type InboxDraftRow,
+  type InboxThreadRow,
+} from "@/lib/hooks/use-inbox-threads";
 import type { ArchiveWritebackPreference, EmailThreadCategory, InboxRail, InboxScope } from "@/lib/types/email-thread";
 import type { ComposeEmailData } from "@/lib/types/email-template";
 
@@ -136,6 +142,25 @@ export default function InboxPage() {
     search: undefined,
   });
 
+  // ─── Drafts — merged provider + AI, indexed by providerThreadId for pill
+  //     painting on the list. Polled every 60s by the hook. ────────────────
+  const { data: draftsData } = useInboxDrafts(scope);
+  const drafts = useMemo<InboxDraftRow[]>(() => draftsData ?? [], [draftsData]);
+
+  // Keyed on providerThreadId because the conversation-list emits
+  // thread.providerThreadId (the Gmail/M365 native id) — which is what the
+  // draft's threadId matches against. Thread-bound drafts only; standalones
+  // live in the DRAFTS rail list instead.
+  const draftsByThreadId = useMemo(() => {
+    const m: Record<string, InboxDraftRow> = {};
+    for (const d of drafts) {
+      if (d.threadId) m[d.threadId] = d;
+    }
+    return m;
+  }, [drafts]);
+
+  const discardDraft = useDiscardDraft();
+
   const railCounts = useMemo(
     () => ({
       needs_reply:
@@ -144,8 +169,9 @@ export default function InboxPage() {
         everythingCounts.data?.pages[0]?.threads.filter((r) => r.unreadCount > 0).length ?? 0,
       scheduled: 0,
       done: 0,
+      drafts: drafts.length,
     }),
-    [needsReplyCounts.data, everythingCounts.data]
+    [needsReplyCounts.data, everythingCounts.data, drafts.length]
   );
 
   const categoryCounts = useMemo(() => {
@@ -172,6 +198,41 @@ export default function InboxPage() {
     setComposeData({ mode: "new" });
     setComposeOpen(true);
   }, []);
+
+  // Continue a draft → populate the compose modal with the draft body,
+  // subject, and recipients (provider drafts only — AI drafts don't store
+  // to/subject, so for AI drafts the compose modal re-derives from the
+  // thread context, same as hitting Reply). Sets mode="reply" when the
+  // draft is attached to a thread; "new" for standalone.
+  const handleContinueDraft = useCallback(
+    (draft: InboxDraftRow) => {
+      const mode: "reply" | "new" = draft.threadId ? "reply" : "new";
+      setComposeData({
+        mode,
+        to: draft.to[0],
+        cc: draft.cc,
+        subject: draft.subject || undefined,
+        threadId: draft.threadId ?? undefined,
+        connectionId: draft.connectionId ?? undefined,
+        // We don't have inReplyTo here — the message-id of the last inbound
+        // message isn't on the draft row. The compose modal will fall back
+        // to threadId-only threading (still correct at the provider level).
+      });
+      setComposeOpen(true);
+    },
+    []
+  );
+
+  const handleDiscardDraft = useCallback(
+    (draft: InboxDraftRow) => {
+      discardDraft.mutate({
+        source: draft.source,
+        id: draft.id,
+        connectionId: draft.connectionId,
+      });
+    },
+    [discardDraft]
+  );
 
   // ─── Context panel ────────────────────────────────────────────────────────
   const [contextOpen, setContextOpen] = useState(false);
@@ -440,13 +501,18 @@ export default function InboxPage() {
             counts={categoryCounts}
           />
 
-          {/* Thread list */}
+          {/* Thread list — switches to a flat drafts list when rail=drafts */}
           <ConversationList
             params={listParams}
             selectedThreadId={selectedThread?.id ?? null}
             onSelectThread={handleSelectThread}
             onNeedsWritebackPreference={handleNeedsWritebackPreference}
             keyboardActive={!paletteOpen && !composeOpen && !writebackOpen}
+            draftsByThreadId={draftsByThreadId}
+            draftMode={rail === "drafts"}
+            drafts={drafts}
+            onOpenDraft={handleContinueDraft}
+            onDiscardDraft={handleDiscardDraft}
           />
         </div>
 
@@ -462,6 +528,15 @@ export default function InboxPage() {
             contextOpen={contextOpen}
             keyboardActive={!paletteOpen && !composeOpen && !writebackOpen}
             canConfigurePhaseC={canConfigurePhaseC}
+            threadDraft={
+              // Match by the selected thread's providerThreadId — same key
+              // we used to build draftsByThreadId above.
+              selectedThread?.providerThreadId
+                ? draftsByThreadId[selectedThread.providerThreadId] ?? null
+                : null
+            }
+            onContinueDraft={handleContinueDraft}
+            onDiscardDraft={handleDiscardDraft}
           />
         </div>
 

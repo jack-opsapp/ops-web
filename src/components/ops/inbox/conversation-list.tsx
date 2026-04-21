@@ -31,13 +31,14 @@ import {
   useRef,
   useState,
 } from "react";
-import { Archive, Clock, Paperclip, FileSignature, Receipt, UserPlus, AlertTriangle, CornerUpLeft, Mail } from "lucide-react";
+import { Archive, Clock, Paperclip, FileSignature, Receipt, UserPlus, AlertTriangle, CornerUpLeft, Mail, Pencil, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { EASE_SMOOTH } from "@/lib/utils/motion";
 import { motion, useReducedMotion } from "framer-motion";
 import {
   useInboxThreads,
   useThreadActions,
+  type InboxDraftRow,
   type InboxThreadRow,
   type UseInboxThreadsParams,
 } from "@/lib/hooks/use-inbox-threads";
@@ -57,6 +58,23 @@ export interface ConversationListProps {
   onNeedsWritebackPreference: (connectionId: string, threadId: string) => void;
   /** True when parent wants the list to receive keyboard shortcuts. */
   keyboardActive?: boolean;
+  /**
+   * Drafts indexed by provider thread id. When a thread has an entry here,
+   * the row paints a small [DRAFT] pill on the snippet line. Passing null
+   * (vs. an empty object) means "drafts haven't loaded yet" so we skip the
+   * pill rather than implying "no drafts exist".
+   */
+  draftsByThreadId?: Record<string, InboxDraftRow> | null;
+  /**
+   * When true, the list renders `drafts` instead of threads and ignores
+   * `params`. `onOpenDraft` is invoked on click (thread-bound drafts open
+   * the thread; the parent decides whether to also pop compose). `onDiscardDraft`
+   * wires the trash icon. Used by the DRAFTS rail.
+   */
+  draftMode?: boolean;
+  drafts?: InboxDraftRow[];
+  onOpenDraft?: (draft: InboxDraftRow) => void;
+  onDiscardDraft?: (draft: InboxDraftRow) => void;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -102,6 +120,31 @@ const LABEL_META: Record<EmailThreadLabel, { icon: React.ComponentType<React.Com
   HAS_INVOICE:      { icon: Receipt,        label: "Invoice",    tone: "neutral" },
   FROM_NEW_SENDER:  { icon: UserPlus,       label: "New",        tone: "neutral" },
 };
+
+/**
+ * Small amber-accent pill shown on a thread row when the user has an
+ * unsent draft on that thread (Gmail/Outlook reply in progress OR an OPS
+ * AI draft). Intentionally distinct from LabelChip's tone palette so it
+ * reads as "action pending from you" rather than metadata.
+ */
+function DraftPill({ source }: { source: "provider" | "ai" }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-[3px] h-[16px] px-[4px] rounded-[3px] border",
+        "font-mono text-[10px] uppercase tracking-[0.14em] leading-none",
+        // Amber-ish tone drawn from the design-system status palette
+        // (C4A868-adjacent). Readable over the row hover without being
+        // louder than the unread accent strip.
+        "border-[rgba(196,168,104,0.32)] text-[#C4A868] bg-[rgba(196,168,104,0.08)]"
+      )}
+      title={source === "ai" ? "AI draft pending review" : "Draft in Gmail/Outlook"}
+    >
+      <Pencil className="w-[9px] h-[9px]" strokeWidth={2} />
+      <span>Draft</span>
+    </span>
+  );
+}
 
 function LabelChip({ label }: { label: EmailThreadLabel }) {
   const meta = LABEL_META[label];
@@ -160,6 +203,8 @@ interface ThreadRowProps {
   onSelect: (thread: InboxThreadRow) => void;
   onArchive: (thread: InboxThreadRow) => void;
   onToggleRead: (thread: InboxThreadRow) => void;
+  /** When present, paints the Draft pill on this thread's row. */
+  draft?: InboxDraftRow | null;
 }
 
 function ThreadRow({
@@ -172,6 +217,7 @@ function ThreadRow({
   onSelect,
   onArchive,
   onToggleRead,
+  draft,
 }: ThreadRowProps) {
   const unread = thread.unreadCount > 0;
   const initials = getInitials(thread.latestSenderName, thread.latestSenderEmail);
@@ -277,6 +323,7 @@ function ThreadRow({
           <p className="font-mohave text-[11.5px] text-text-3 truncate flex-1 min-w-0">
             {thread.latestSnippet ?? ""}
           </p>
+          {draft && <DraftPill source={draft.source} />}
           {labelsShown.map((label) => (
             <LabelChip key={label} label={label} />
           ))}
@@ -366,6 +413,98 @@ function ThreadRow({
   );
 }
 
+// ─── Draft row (used in DRAFTS rail) ─────────────────────────────────────────
+//
+// Thinner than a thread row — no category chip, no unread state, no avatar
+// flourish. The goal here is "pick a draft to continue", not "triage an
+// incoming thread", so we optimize for subject + snippet of the draft body
+// and a conspicuous trash affordance.
+
+interface DraftRowProps {
+  draft: InboxDraftRow;
+  isSelected: boolean;
+  onOpen: (draft: InboxDraftRow) => void;
+  onDiscard: (draft: InboxDraftRow) => void;
+}
+
+function DraftRow({ draft, isSelected, onOpen, onDiscard }: DraftRowProps) {
+  // Body preview — collapse whitespace, truncate to a single line.
+  const bodyPreview = (draft.bodyText || "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 140);
+  const recipient = draft.to[0] || "(no recipient)";
+  const timestamp = formatRelative(draft.updatedAt);
+
+  return (
+    <div
+      role="option"
+      aria-selected={isSelected}
+      data-draft-id={draft.id}
+      data-row-kind="draft"
+      onClick={() => onOpen(draft)}
+      className={cn(
+        "group relative flex items-start gap-2.5 px-3 py-2.5 cursor-pointer border-b border-border-subtle",
+        "transition-colors duration-150",
+        isSelected
+          ? "bg-[rgba(255,255,255,0.05)]"
+          : "hover:bg-[rgba(255,255,255,0.03)]"
+      )}
+    >
+      {/* Draft icon sits where the avatar would — same footprint so the
+          two row kinds align visually when switching rails. */}
+      <div
+        className={cn(
+          "w-[30px] h-[30px] rounded-full shrink-0",
+          "flex items-center justify-center border",
+          "border-[rgba(196,168,104,0.24)] bg-[rgba(196,168,104,0.06)]"
+        )}
+      >
+        <Pencil className="w-[12px] h-[12px] text-[#C4A868]" strokeWidth={1.75} />
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <DraftPill source={draft.source} />
+          <span className="font-mohave text-[13px] text-text truncate">
+            To {recipient}
+          </span>
+        </div>
+        <p className="mt-0.5 font-mohave text-[12.5px] text-text-2 truncate">
+          {draft.subject || "(no subject)"}
+        </p>
+        <p className="mt-0.5 font-mohave text-[11.5px] text-text-3 truncate">
+          {bodyPreview || "(empty draft)"}
+        </p>
+      </div>
+
+      <div className="flex flex-col items-end gap-1.5 shrink-0">
+        <span className="font-mono text-[10px] text-text-mute tabular-nums">
+          {timestamp}
+        </span>
+        <button
+          type="button"
+          aria-label="Discard draft"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDiscard(draft);
+          }}
+          className={cn(
+            "w-[22px] h-[22px] rounded-[4px] flex items-center justify-center",
+            "border border-border-subtle bg-[rgba(255,255,255,0.03)] text-text-3",
+            "hover:bg-[rgba(164,88,79,0.12)] hover:border-[rgba(164,88,79,0.32)] hover:text-rose transition-colors",
+            // Always visible in the drafts rail — unlike thread rows where
+            // actions only show on hover — because discard IS the point.
+          )}
+          title="Discard draft"
+        >
+          <Trash2 className="w-[12px] h-[12px]" strokeWidth={1.75} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── List ────────────────────────────────────────────────────────────────────
 
 export function ConversationList({
@@ -374,6 +513,11 @@ export function ConversationList({
   onSelectThread,
   onNeedsWritebackPreference,
   keyboardActive = true,
+  draftsByThreadId = null,
+  draftMode = false,
+  drafts = [],
+  onOpenDraft,
+  onDiscardDraft,
 }: ConversationListProps) {
   const reduceMotion = useReducedMotion();
   const listRef = useRef<HTMLDivElement>(null);
@@ -382,21 +526,33 @@ export function ConversationList({
 
   const [recatOpenId, setRecatOpenId] = useState<string | null>(null);
   const [snoozeOpenId, setSnoozeOpenId] = useState<string | null>(null);
+  const [selectedDraftId, setSelectedDraftId] = useState<string | null>(null);
 
-  const { data, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage, isError } =
-    useInboxThreads(params);
+  // Thread query is enabled only when we're NOT in draft mode. Wasting a
+  // threads fetch while the user browses drafts would re-populate the cache
+  // and cause flicker when they switch rails back.
+  const threadsQuery = useInboxThreads(params);
+  const data = draftMode ? undefined : threadsQuery.data;
+  const isLoading = draftMode ? false : threadsQuery.isLoading;
+  const isError = draftMode ? false : threadsQuery.isError;
+  const isFetchingNextPage = draftMode ? false : threadsQuery.isFetchingNextPage;
+  const hasNextPage = draftMode ? false : threadsQuery.hasNextPage;
+  const fetchNextPage = threadsQuery.fetchNextPage;
 
   const threads = useMemo(
     () => data?.pages.flatMap((p) => p.threads) ?? [],
     [data]
   );
 
-  // Auto-select first row if nothing selected yet.
+  // Auto-select first row if nothing selected yet. Disabled in draft mode
+  // (we don't want to hijack thread selection when the user is browsing
+  // drafts — parent owns that contract).
   useEffect(() => {
+    if (draftMode) return;
     if (!selectedThreadId && threads.length > 0) {
       onSelectThread(threads[0]);
     }
-  }, [selectedThreadId, threads, onSelectThread]);
+  }, [draftMode, selectedThreadId, threads, onSelectThread]);
 
   // Infinite loader sentinel.
   useEffect(() => {
@@ -453,9 +609,11 @@ export function ConversationList({
     [markRead]
   );
 
-  // Keyboard handler at list level.
+  // Keyboard handler at list level. In draft mode we let the browser handle
+  // arrow keys normally — the drafts rail doesn't need archive/snooze/etc.
+  // and j/k would be confusing without a matching detail pane.
   useEffect(() => {
-    if (!keyboardActive) return;
+    if (!keyboardActive || draftMode) return;
     const handler = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const target = e.target as HTMLElement | null;
@@ -521,6 +679,7 @@ export function ConversationList({
     return () => window.removeEventListener("keydown", handler);
   }, [
     keyboardActive,
+    draftMode,
     threads,
     selectedThreadId,
     onSelectThread,
@@ -529,6 +688,53 @@ export function ConversationList({
   ]);
 
   // ─── Render ───────────────────────────────────────────────────────────────
+
+  // Draft mode short-circuits the threads list entirely — the rail is a
+  // flat, keyboard-lite list of drafts (thread-bound or standalone). Empty
+  // state copy is distinct from "inbox zero" so the user understands the
+  // absence is about drafts, not unread mail.
+  if (draftMode) {
+    if (drafts.length === 0) {
+      return (
+        <div className="flex-1 flex flex-col items-start justify-start px-4 py-6">
+          <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
+            // No drafts
+          </p>
+          <p className="font-mohave text-[13px] text-text mt-1">
+            Nothing in progress.
+          </p>
+          <p className="font-mohave text-[12px] text-text-3 mt-0.5">
+            Drafts started in Gmail/Outlook show up here too.
+          </p>
+        </div>
+      );
+    }
+    return (
+      <motion.div
+        ref={listRef}
+        role="listbox"
+        aria-label="Drafts"
+        tabIndex={0}
+        className="flex-1 overflow-y-auto scrollbar-hide focus:outline-none"
+        initial={reduceMotion ? false : { opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.2, ease: EASE_SMOOTH }}
+      >
+        {drafts.map((d) => (
+          <DraftRow
+            key={`${d.source}:${d.id}`}
+            draft={d}
+            isSelected={selectedDraftId === d.id}
+            onOpen={(draft) => {
+              setSelectedDraftId(draft.id);
+              onOpenDraft?.(draft);
+            }}
+            onDiscard={(draft) => onDiscardDraft?.(draft)}
+          />
+        ))}
+      </motion.div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -603,6 +809,13 @@ export function ConversationList({
             onSelect={onSelectThread}
             onArchive={handleArchive}
             onToggleRead={handleToggleRead}
+            draft={
+              // The drafts map keys on provider thread id (Gmail threadId /
+              // M365 conversationId), which is `thread.providerThreadId`
+              // on the list row. When no draft matches, pass undefined —
+              // the pill simply won't render.
+              draftsByThreadId?.[thread.providerThreadId] ?? null
+            }
           />
         </div>
       ))}
