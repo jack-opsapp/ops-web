@@ -130,7 +130,7 @@ export function CommandPalette({
               {searchHits.map((thread) => (
                 <CommandItem
                   key={thread.id}
-                  value={`thread:${thread.id} ${thread.subject} ${thread.latestSnippet ?? ""} ${thread.latestSenderName ?? ""}`}
+                  value={`thread:${thread.id} ${thread.subject} ${thread.latestSnippet ?? ""} ${thread.clientName ?? thread.latestSenderName ?? ""}`}
                   onSelect={() => run(() => handlers.onOpenThread(thread.id))}
                 >
                   <Mail className="w-[14px] h-[14px] text-text-3 shrink-0" />
@@ -139,7 +139,7 @@ export function CommandPalette({
                       {thread.subject || "(no subject)"}
                     </span>
                     <span className="font-mono text-[10px] text-text-mute uppercase tracking-[0.14em] truncate">
-                      {thread.latestSenderName ?? thread.latestSenderEmail ?? "Unknown"}
+                      {thread.clientName ?? thread.latestSenderName ?? thread.latestSenderEmail ?? "Unknown"}
                       {" · "}
                       {categoryLabel(thread.primaryCategory)}
                     </span>

@@ -110,6 +110,28 @@ export async function GET(request: NextRequest) {
       })
     );
 
+    // Resolve client names for every linked thread in one IN-list query.
+    // Cheap, and bounded by the page size. The UI prefers the client name
+    // over the raw sender name when both are present (see conversation-list).
+    const clientIds = Array.from(
+      new Set(
+        result.threads
+          .map((t) => t.clientId)
+          .filter((v): v is string => !!v)
+      )
+    );
+    const clientNameById = new Map<string, string>();
+    if (clientIds.length > 0) {
+      const { data: clientRows } = await supabase
+        .from("clients")
+        .select("id, name")
+        .in("id", clientIds);
+      for (const row of clientRows ?? []) {
+        const name = (row.name as string | null)?.trim();
+        if (name) clientNameById.set(row.id as string, name);
+      }
+    }
+
     return NextResponse.json({
       threads: result.threads.map((t) => ({
         id: t.id,
@@ -135,6 +157,7 @@ export async function GET(request: NextRequest) {
         latestSnippet: t.latestSnippet,
         opportunityId: t.opportunityId,
         clientId: t.clientId,
+        clientName: t.clientId ? clientNameById.get(t.clientId) ?? null : null,
       })),
       nextCursor: result.nextCursor,
     });

@@ -55,6 +55,11 @@ export interface InboxThreadRow {
   latestSnippet: string | null;
   opportunityId: string | null;
   clientId: string | null;
+  /** Canonical client name (resolved server-side via clients.id join).
+   *  Null when the thread isn't linked to a client. UI renders this in
+   *  preference to latestSenderName so cards show "Acme Roofing" instead
+   *  of "Jackson Sweet" on threads where the user is the latest sender. */
+  clientName: string | null;
 }
 
 export interface InboxThreadMessage {

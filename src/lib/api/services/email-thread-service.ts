@@ -39,6 +39,203 @@ import {
 import { isCommonEmailDomain, extractEmailAddress, stripQuotedContent } from "@/lib/utils/email-parsing";
 import type { NormalizedEmail } from "./email-provider";
 
+// ─── Sender-name resolution ──────────────────────────────────────────────────
+//
+// Three-tier lookup against the OPS directory (clients → sub_clients →
+// users), case-insensitive on email. Used by upsertFromEmail to populate
+// `latest_sender_name` with the canonical name for the contact rather than
+// whatever display string the sender's mail client happened to put in the
+// From header (or the local-part fallback, which produces garbage like
+// "canprojack" for bare-email senders).
+//
+// Memoized with a short TTL. Sync cycles call upsertFromEmail in tight
+// loops — without the cache we'd fire 3 roundtrips per message for what
+// are usually the same handful of senders per cycle.
+
+const GENERIC_MAILBOX_TOKENS = new Set([
+  "team", "info", "accounts", "accounting", "sales", "support", "billing",
+  "help", "hello", "contact", "noreply", "no-reply", "admin", "office",
+  "mailbox", "inbox", "notifications", "updates", "news", "marketing",
+  "service", "services", "enquiries", "inquiries",
+]);
+
+/**
+ * True when a display name looks like a generic mailbox label rather than a
+ * person or a company. Triggers if ANY token in the name matches the list —
+ * "Info Mailbox" and "Sales Team" both fail. Multi-word person names
+ * ("Cecilia Reyes") pass cleanly because none of their tokens are generic.
+ */
+function isGenericMailboxName(name: string | null | undefined): boolean {
+  if (!name) return true;
+  const tokens = name.toLowerCase().split(/[\s_\-/.]+/).filter(Boolean);
+  if (tokens.length === 0) return true;
+  return tokens.some((t) => GENERIC_MAILBOX_TOKENS.has(t));
+}
+
+/**
+ * Cache map keyed by `${companyId}::${lowercaseEmail}`. Value is the
+ * resolved name or an empty string to represent "looked up, no match"
+ * (so we don't re-query every no-match sender repeatedly).
+ */
+const senderNameCache = new Map<
+  string,
+  { name: string; expiresAt: number }
+>();
+const SENDER_NAME_CACHE_TTL_MS = 60_000;
+
+function getCachedSenderName(key: string): string | undefined {
+  const hit = senderNameCache.get(key);
+  if (!hit) return undefined;
+  if (hit.expiresAt < Date.now()) {
+    senderNameCache.delete(key);
+    return undefined;
+  }
+  return hit.name;
+}
+
+function setCachedSenderName(key: string, name: string) {
+  senderNameCache.set(key, {
+    name,
+    expiresAt: Date.now() + SENDER_NAME_CACHE_TTL_MS,
+  });
+}
+
+/**
+ * Look up a canonical name for `senderEmail` in this company's directory.
+ * Priority: clients → sub_clients → users. Returns "" (empty) when no row
+ * matches — caller can fall through to the display-name / email-address
+ * fallback chain.
+ *
+ * Both sides of the email comparison are lowercased. Queries fire in
+ * parallel so wall-time is one roundtrip.
+ */
+async function resolveSenderNameFromDirectory(
+  supabase: ReturnType<typeof requireSupabase>,
+  companyId: string,
+  senderEmail: string
+): Promise<string> {
+  if (!senderEmail || !companyId) return "";
+  const lc = senderEmail.toLowerCase();
+  const cacheKey = `${companyId}::${lc}`;
+  const cached = getCachedSenderName(cacheKey);
+  if (cached !== undefined) return cached;
+
+  // Fire all three lookups in parallel. PostgREST's `ilike` is
+  // case-insensitive and exact-match — cheaper than lower(email) function
+  // calls and works with any existing index on the column.
+  const [clientsRes, subClientsRes, usersRes] = await Promise.all([
+    supabase
+      .from("clients")
+      .select("name")
+      .eq("company_id", companyId)
+      .ilike("email", lc)
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("sub_clients")
+      .select("name")
+      .eq("company_id", companyId)
+      .ilike("email", lc)
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("users")
+      .select("first_name, last_name")
+      .eq("company_id", companyId)
+      .ilike("email", lc)
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  let resolved = "";
+  if (clientsRes.data?.name) {
+    resolved = String(clientsRes.data.name).trim();
+  } else if (subClientsRes.data?.name) {
+    resolved = String(subClientsRes.data.name).trim();
+  } else if (usersRes.data) {
+    const fn = (usersRes.data.first_name as string | null) ?? "";
+    const ln = (usersRes.data.last_name as string | null) ?? "";
+    resolved = `${fn} ${ln}`.trim();
+  }
+
+  setCachedSenderName(cacheKey, resolved);
+  return resolved;
+}
+
+/**
+ * Compose the final `latest_sender_name` we want to persist. Policy:
+ *   1. Directory lookup (clients → sub_clients → users) if match.
+ *   2. Raw From display name IF it's not a generic mailbox label.
+ *   3. Full email address (NOT the local part — avoids "canprojack" for
+ *      canprojack@gmail.com). Guarantees we never persist a naked local
+ *      part and never persist null unless the email itself is empty.
+ */
+async function composeSenderName(
+  supabase: ReturnType<typeof requireSupabase>,
+  companyId: string,
+  senderEmail: string,
+  fromName: string | null | undefined
+): Promise<string> {
+  const directory = await resolveSenderNameFromDirectory(
+    supabase,
+    companyId,
+    senderEmail
+  );
+  if (directory) return directory;
+  const candidate = (fromName ?? "").trim();
+  if (candidate && !isGenericMailboxName(candidate)) return candidate;
+  return senderEmail || candidate || "Unknown";
+}
+
+// ─── Client-id resolution ──────────────────────────────────────────────────
+//
+// Find the canonical `client_id` for a message by checking every
+// participant email against clients + sub_clients for this company. Used
+// by upsertFromEmail so threads auto-link to their client the first time
+// a matching participant appears — the inbox list can then render the
+// client's name instead of the raw sender. Clients take priority over
+// sub_clients (a direct match is stronger than a parent-of-contact match).
+//
+// Returns null when no participant matches. A single query with IN-list
+// covers both tables in one roundtrip per table.
+
+async function resolveClientIdFromEmails(
+  supabase: ReturnType<typeof requireSupabase>,
+  companyId: string,
+  participantEmails: string[]
+): Promise<string | null> {
+  if (!companyId || participantEmails.length === 0) return null;
+  const unique = Array.from(
+    new Set(
+      participantEmails
+        .map((e) => e.toLowerCase().trim())
+        .filter(Boolean)
+    )
+  );
+  if (unique.length === 0) return null;
+
+  const [clientsRes, subClientsRes] = await Promise.all([
+    supabase
+      .from("clients")
+      .select("id, email")
+      .eq("company_id", companyId)
+      .in("email", unique)
+      .limit(1),
+    supabase
+      .from("sub_clients")
+      .select("client_id, email")
+      .eq("company_id", companyId)
+      .in("email", unique)
+      .limit(1),
+  ]);
+
+  const clientRow = clientsRes.data?.[0];
+  if (clientRow?.id) return String(clientRow.id);
+  const subRow = subClientsRes.data?.[0];
+  if (subRow?.client_id) return String(subRow.client_id);
+  return null;
+}
+
 // ─── Labels (label-toggle helpers) ───────────────────────────────────────────
 
 function evaluateLabelsFromMessages(
@@ -273,7 +470,16 @@ export const EmailThreadService = {
     }
 
     const senderEmail = extractEmailAddress(email.from).toLowerCase();
-    const senderName = email.fromName || senderEmail.split("@")[0] || "Unknown";
+    // Canonical name via directory lookup (clients/sub_clients/users),
+    // falling through to the raw From display name when it isn't a generic
+    // mailbox label, then the full email. Never the local part — that
+    // produces garbage like "canprojack" for bare-email senders.
+    const senderName = await composeSenderName(
+      supabase,
+      companyId,
+      senderEmail,
+      email.fromName
+    );
     const snippet = (email.snippet || email.bodyText || "").slice(0, 400);
 
     if (existing) {
@@ -310,12 +516,24 @@ export const EmailThreadService = {
         }
       }
 
-      // Opportunity/client linkage — set if currently null and provided
+      // Opportunity/client linkage — set if currently null. Explicit
+      // params.clientId wins; otherwise auto-derive from participants so
+      // a thread links to its client the first time a matching address
+      // shows up in the conversation.
       if (params.opportunityId && !existing.opportunity_id) {
         update.opportunity_id = params.opportunityId;
       }
-      if (params.clientId && !existing.client_id) {
-        update.client_id = params.clientId;
+      if (!existing.client_id) {
+        if (params.clientId) {
+          update.client_id = params.clientId;
+        } else {
+          const auto = await resolveClientIdFromEmails(
+            supabase,
+            companyId,
+            Array.from(existingParticipants)
+          );
+          if (auto) update.client_id = auto;
+        }
       }
 
       const { data: updated, error: updError } = await supabase
@@ -337,6 +555,18 @@ export const EmailThreadService = {
       if (extracted) participants.add(extracted);
     }
 
+    // Auto-link to a client on insert if caller didn't pass one. Same
+    // directory lookup the update path uses — keeps the two branches
+    // semantically identical.
+    const autoClientId =
+      params.clientId ??
+      (await resolveClientIdFromEmails(
+        supabase,
+        companyId,
+        Array.from(participants)
+      )) ??
+      null;
+
     const insert: Record<string, unknown> = {
       company_id: companyId,
       connection_id: connectionId,
@@ -357,7 +587,7 @@ export const EmailThreadService = {
       latest_sender_name: senderName,
       latest_snippet: snippet,
       opportunity_id: params.opportunityId ?? null,
-      client_id: params.clientId ?? null,
+      client_id: autoClientId,
     };
 
     const { data: inserted, error: insError } = await supabase

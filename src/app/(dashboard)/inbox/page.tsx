@@ -352,6 +352,7 @@ export default function InboxPage() {
         latestSnippet: null,
         opportunityId: null,
         clientId: null,
+        clientName: null,
       });
     },
     [everythingCounts.data, needsReplyCounts.data]

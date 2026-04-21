@@ -106,7 +106,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     monthsBack = 12,
     maxPages = 1,
     startPageToken = null,
-    classify = false,
+    // Historical backfill should classify by default — otherwise imported
+    // threads land at primary_category='OTHER' / category_classified_at=NULL
+    // and stay there (only live sync classifies). First run of this endpoint
+    // on an empty inbox dumped 3,316 rows into OTHER because this was false.
+    // Callers can still override to skip classification for migration passes.
+    classify = true,
     dryRun = false,
   } = body;
 

@@ -220,7 +220,17 @@ function ThreadRow({
   draft,
 }: ThreadRowProps) {
   const unread = thread.unreadCount > 0;
-  const initials = getInitials(thread.latestSenderName, thread.latestSenderEmail);
+  // Display name priority: canonical client name → sender display name →
+  // sender email → "Unknown". The client name is the identity of the
+  // conversation (who are you corresponding with); the sender is whoever
+  // happened to send last, which is often the user themselves on outbound
+  // replies and confuses the list card.
+  const displayName =
+    thread.clientName ||
+    thread.latestSenderName ||
+    thread.latestSenderEmail ||
+    "Unknown";
+  const initials = getInitials(displayName, thread.latestSenderEmail);
   const timestamp = formatRelative(thread.lastMessageAt);
 
   // Show only the first 3 labels, plus "+N" if more.
@@ -299,7 +309,7 @@ function ThreadRow({
               unread ? "text-text font-semibold" : "text-text-2"
             )}
           >
-            {thread.latestSenderName || thread.latestSenderEmail || "Unknown"}
+            {displayName}
           </span>
           {thread.messageCount > 1 && (
             <span className="font-mono text-[10px] text-text-mute tabular-nums">
