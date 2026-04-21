@@ -84,7 +84,10 @@ export interface DeterministicInternalInput {
   senderEmail: string | null;       // latest sender, for forwarder match
   categoryManuallySet: boolean;
   companyUsers: Map<string, CompanyUser>;   // key: email (lowercase)
-  teamForwarders: string[];         // from pipeline_profile.team_forwarders, if any
+  teamForwarders: string[];         // from pipeline_profiles.team_forwarders, if any
+  /** Connection owner's email — added to the set at check time as a fallback
+   *  when the user's own row isn't in `users` yet (new connection edge case). */
+  connectionEmail?: string;
 }
 
 export interface DeterministicInternalResult {
@@ -164,36 +167,49 @@ The JSON output shape stays the same (`aiSummary: string`). Validation in `threa
 
 ### Company user cache
 
-`tryDeterministicInternal` needs `companyUsers: Map<string, CompanyUser>` and `teamForwarders: string[]`. Both are loaded per-sync-run, not per-thread. The existing sync engine already loads the connection and profile per run; we add a one-shot query:
+`tryDeterministicInternal` needs `companyUsers: Map<string, CompanyUser>` and `teamForwarders: string[]`. `classifyAndUpdate` already runs multiple reads in parallel (`loadLearnedRules`, `senderHasPriorConversations`); we add the users and profile fetches to the same `Promise.all` — one extra query per classification, sub-10ms each, and it parallelizes with the existing work. No per-sync caching required because the fire-and-forget classify path is already per-email, not per-batch.
 
 ```ts
-// Once per sync run, not per email
-const { data: userRows } = await supabase
-  .from("users")
-  .select("email, first_name, last_name")
-  .eq("company_id", companyId);
+// Inside classifyAndUpdate, added to the existing Promise.all
+const [learned, senderIsNew, companyUsers, teamForwarders] = await Promise.all([
+  loadLearnedRules(threadRow.companyId, senderEmail, senderDomain),
+  senderEmail
+    ? senderHasPriorConversations(threadRow.companyId, senderEmail).then((v) => !v)
+    : Promise.resolve(false),
+  loadCompanyUsers(threadRow.companyId),
+  loadTeamForwarders(threadRow.companyId),
+]);
+```
 
-const companyUsers = new Map<string, CompanyUser>();
-for (const row of userRows ?? []) {
-  const email = (row.email as string | null)?.toLowerCase().trim();
-  if (!email) continue;
-  const first = (row.first_name as string | null)?.trim() ?? "";
-  const last = (row.last_name as string | null)?.trim() ?? "";
-  const displayName =
-    [first, last].filter(Boolean).join(" ") || email.split("@")[0];
-  companyUsers.set(email, { email, displayName });
-}
+`loadCompanyUsers` lives in `src/lib/api/services/deterministic-internal-rule.ts` next to the rule it serves:
 
-// Belt-and-suspenders: include the mailbox owner even if their row is missing
-// (brand-new connection, user row not yet upserted, etc.)
-const connEmail = connection.email.toLowerCase().trim();
-if (!companyUsers.has(connEmail)) {
-  companyUsers.set(connEmail, {
-    email: connEmail,
-    displayName: connEmail.split("@")[0],
-  });
+```ts
+export async function loadCompanyUsers(
+  companyId: string
+): Promise<Map<string, CompanyUser>> {
+  const supabase = requireSupabase();
+  const { data: rows } = await supabase
+    .from("users")
+    .select("email, first_name, last_name")
+    .eq("company_id", companyId);
+
+  const users = new Map<string, CompanyUser>();
+  for (const row of rows ?? []) {
+    const email = (row.email as string | null)?.toLowerCase().trim();
+    if (!email) continue;
+    const first = (row.first_name as string | null)?.trim() ?? "";
+    const last = (row.last_name as string | null)?.trim() ?? "";
+    const displayName =
+      [first, last].filter(Boolean).join(" ") || email.split("@")[0];
+    users.set(email, { email, displayName });
+  }
+  return users;
 }
 ```
+
+`loadTeamForwarders` reads from `pipeline_profiles.team_forwarders` (same source the sync-engine already reads). Returns `string[]` (empty array if profile missing).
+
+The connection mailbox owner is added to the map inside `tryDeterministicInternal` itself via the optional `input.connectionEmail` field, belt-and-suspenders for brand-new connections whose user row hasn't been upserted yet.
 
 Schema verified: `public.users` has `email`, `first_name`, `last_name` columns plus `company_id` (confirmed 2026-04-21).
 
@@ -238,9 +254,8 @@ NEW:
 MODIFIED:
   src/lib/utils/email-parsing.ts                         — add + export isForwardMarker(subject, body)
   src/lib/api/services/known-platforms.ts                — add + export isLikelyForwardedInquiry(senderEmail, subject, teamForwarders)
-  src/lib/api/services/email-thread-service.ts           — classifyAndUpdate: try deterministic rule first, fallthrough to classifier
-  src/lib/api/services/thread-classifier-service.ts      — system prompt updated for always-on summary; ClassifyResult.aiSummary: string (no null)
-  src/lib/api/services/sync-engine.ts                    — load companyUserEmails once per run, pass into classifyAndUpdate
+  src/lib/api/services/email-thread-service.ts           — classifyAndUpdate: add companyUsers + teamForwarders to Promise.all, try deterministic rule first, fallthrough to classifier
+  src/lib/api/services/thread-classifier-service.ts      — system prompt updated for always-on summary; ClassifyResult.aiSummary: string (no null); parseResult falls back to a template when the model returns empty
   src/components/ops/inbox/thread-detail-view.tsx        — drop messageCount gate, simplify render
   src/lib/types/email-thread.ts                          — (optional) update docblock for aiSummary field
 ```
