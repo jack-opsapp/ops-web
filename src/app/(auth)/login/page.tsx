@@ -112,15 +112,23 @@ function LoginForm() {
     try {
       const signInFn = provider === "google" ? signInWithGoogle : signInWithApple;
       await signInFn({ origin: "login", provider, redirectTo });
-      // Browser navigates to the IdP before this resolves; fall-through is a
-      // rare initiation failure that we treat as a generic error below.
+      // Production (redirect): unreachable — browser navigated before resolve.
+      // Development (popup): resolved on success; stay in loading state until
+      // the consume-effect fires on currentUser and routes away.
     } catch (err: unknown) {
       const code = (err as { code?: string })?.code;
+      // Dev popup cancellation — silent reset, no error UI.
+      if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
+        setLoading(false);
+        return;
+      }
       let message: string;
       if (code === "auth/unauthorized-domain") {
         message = t("login.error.unauthorizedDomain");
       } else if (code === "auth/operation-not-allowed") {
         message = `${provider === "google" ? "Google" : "Apple"} ${t("login.error.operationNotAllowed")}`;
+      } else if (code === "auth/popup-blocked") {
+        message = "Popup blocked — allow popups for this site to sign in.";
       } else {
         message = err instanceof Error ? err.message : t("login.error.providerFailed");
       }

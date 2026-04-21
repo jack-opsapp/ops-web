@@ -101,26 +101,53 @@ export function clearRedirectContext(): void {
 }
 
 /**
- * Sign in with Google via full-page redirect.
+ * Sign in with Google.
  *
- * Popup mode (signInWithPopup) is not used because its internal
- * `popup.closed` polling triggers Cross-Origin-Opener-Policy warnings on
- * every render — the browser refuses to expose popup state to a
- * same-origin opener. Redirect has no popup and no polling.
+ * Production uses signInWithRedirect so the OAuth handoff lives on our
+ * custom authDomain (auth.opsapp.co) — same eTLD+1 as the app, avoids the
+ * Cross-Origin-Opener-Policy warnings signInWithPopup generates, and works
+ * inside embedded-browser edge cases.
  *
- * Returns a promise that never resolves in the success case (the browser
- * navigates away before resolution). It may still reject if the redirect
- * fails to initiate (e.g. auth config error).
+ * Development falls back to signInWithPopup because localhost and
+ * auth.opsapp.co do NOT share eTLD+1, so Chrome's third-party storage
+ * partitioning silently eats the credential during the redirect return —
+ * getRedirectResult resolves null and the sign-in never completes. Popup
+ * bypasses the cross-origin handoff entirely (postMessage to the opener
+ * instead of storage sharing). The COOP console warnings are noise-only.
+ *
+ * In redirect mode, the returned promise never resolves on success (the
+ * browser navigates away). In popup mode, it resolves after the popup
+ * closes; the subsequent onAuthStateChanged fire drives AuthProvider.
  */
 export async function signInWithGoogle(ctx: RedirectContext): Promise<void> {
   setRedirectContext(ctx);
+  if (process.env.NODE_ENV === "development") {
+    try {
+      const { signInWithPopup } = await import("firebase/auth");
+      await signInWithPopup(auth, googleProvider);
+    } catch (err) {
+      clearRedirectContext();
+      throw err;
+    }
+    return;
+  }
   setRedirectFlag();
   await signInWithRedirect(auth, googleProvider);
 }
 
-/** Sign in with Apple via full-page redirect. See `signInWithGoogle` for rationale. */
+/** Sign in with Apple. See `signInWithGoogle` for the dev/prod rationale. */
 export async function signInWithApple(ctx: RedirectContext): Promise<void> {
   setRedirectContext(ctx);
+  if (process.env.NODE_ENV === "development") {
+    try {
+      const { signInWithPopup } = await import("firebase/auth");
+      await signInWithPopup(auth, appleProvider);
+    } catch (err) {
+      clearRedirectContext();
+      throw err;
+    }
+    return;
+  }
   setRedirectFlag();
   await signInWithRedirect(auth, appleProvider);
 }
