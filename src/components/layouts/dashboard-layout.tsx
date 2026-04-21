@@ -70,6 +70,7 @@ type FullHeightMode = "padded" | "bleed";
 const FULL_HEIGHT_ROUTES: Record<string, FullHeightMode> = {
   "/inbox": "padded",
   "/map": "bleed",
+  "/calendar": "padded",
 };
 
 function resolveFullHeightMode(pathname: string): FullHeightMode | null {

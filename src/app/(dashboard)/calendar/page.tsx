@@ -209,9 +209,9 @@ export default function CalendarPage() {
   );
 
   return (
-    <div className="space-y-3">
+    <div className="flex flex-col h-full gap-3">
       <MetricsHeader variant="compact" tabId="calendar" title="Schedule" metrics={calendarMetrics} isLoading={calendarMetricsLoading} />
-      <div className="flex flex-col h-[calc(100vh-68px-128px)] gap-1.5">
+      <div className="flex flex-col flex-1 min-h-0 gap-1.5">
       <CalendarHeader t={t} />
       <CalendarToolbar events={events} t={t} />
 
