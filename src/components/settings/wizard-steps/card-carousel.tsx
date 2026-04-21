@@ -236,7 +236,7 @@ export function CardCarousel<T>({
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-3 flex-shrink-0">
-        <h3 className="font-kosugi text-[11px] tracking-[0.15em] uppercase text-[#999]">
+        <h3 className="font-mono text-[11px] tracking-[0.15em] uppercase text-[#999]">
           {title}
         </h3>
         <span className="font-mohave text-[13px] text-[#555]">
@@ -274,7 +274,7 @@ export function CardCarousel<T>({
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ delay: 0.12, duration: 0.2 }}
-                      className="absolute top-2.5 right-3 font-kosugi text-micro tracking-[0.1em] uppercase"
+                      className="absolute top-2.5 right-3 font-mono text-micro tracking-[0.1em] uppercase"
                       style={{ color: d.color }}
                     >
                       {isDefault ? `AGENT: ${d.label}` : `SELECTED: ${d.label}`}
@@ -336,7 +336,7 @@ export function CardCarousel<T>({
           {onBack && (
             <button
               onClick={onBack}
-              className="font-kosugi text-micro tracking-[0.1em] uppercase text-[#666] hover:text-[#999] transition-colors"
+              className="font-mono text-micro tracking-[0.1em] uppercase text-[#666] hover:text-[#999] transition-colors"
             >
               ← {t("confirm.back")}
             </button>
@@ -347,7 +347,7 @@ export function CardCarousel<T>({
         </div>
         <button
           onClick={onComplete}
-          className="font-kosugi text-micro tracking-[0.1em] uppercase text-[#666] hover:text-[#999] transition-colors"
+          className="font-mono text-micro tracking-[0.1em] uppercase text-[#666] hover:text-[#999] transition-colors"
         >
           {skipLabel || t("skipToNext")} →
         </button>

@@ -44,7 +44,7 @@ export function GlassActionButton({
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      className={`py-1.5 px-3 font-kosugi text-micro tracking-[0.1em] uppercase inline-flex items-center justify-center gap-2 transition-[background,border-color,box-shadow,transform] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] ${className}`}
+      className={`py-1.5 px-3 font-mono text-micro tracking-[0.1em] uppercase inline-flex items-center justify-center gap-2 transition-[background,border-color,box-shadow,transform] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] ${className}`}
       style={{
         borderRadius: 4,
         border: `1px solid ${accentBorder}`,

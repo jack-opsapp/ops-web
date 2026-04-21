@@ -173,7 +173,7 @@ export function ConsolidateContactsStep({
 
             {/* Contacts list */}
             <div className="space-y-1.5">
-              <span className="font-kosugi text-micro tracking-[0.12em] uppercase text-[#777]">
+              <span className="font-mono text-micro tracking-[0.12em] uppercase text-[#777]">
                 {t("consolidate.contacts")}
               </span>
               {group.contacts.map((contact) => {
@@ -215,7 +215,7 @@ export function ConsolidateContactsStep({
 
             {/* Leads list with editable titles */}
             <div className="space-y-1.5">
-              <span className="font-kosugi text-micro tracking-[0.12em] uppercase text-[#777]">
+              <span className="font-mono text-micro tracking-[0.12em] uppercase text-[#777]">
                 {t("consolidate.leads")} ({group.leads.length})
               </span>
               {group.leads.map((gl, i) => {

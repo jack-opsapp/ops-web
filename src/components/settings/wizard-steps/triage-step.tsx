@@ -275,7 +275,7 @@ export function TriageStep({
                   color: DECISION_COLORS[defaultDecision],
                 }}
               >
-                <span className="font-kosugi text-micro tracking-[0.1em] uppercase whitespace-nowrap">
+                <span className="font-mono text-micro tracking-[0.1em] uppercase whitespace-nowrap">
                   {t("triage.agentSuggests")}: {DECISION_LABELS[defaultDecision]}
                 </span>
               </div>

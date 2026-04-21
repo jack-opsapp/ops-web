@@ -119,7 +119,7 @@ export function FilterFlaggedStep({
             {/* Flag badge */}
             <div className="flex items-center gap-2">
               <Icon size={14} className="text-[#C4A868] flex-shrink-0" />
-              <span className="font-kosugi text-micro tracking-[0.12em] uppercase text-[#C4A868]">
+              <span className="font-mono text-micro tracking-[0.12em] uppercase text-[#C4A868]">
                 {t(`filter.reason.${reason}`)}
               </span>
             </div>
@@ -159,7 +159,7 @@ export function FilterFlaggedStep({
             {focused && <div className="flex items-center gap-2 pt-3 border-t border-white/5">
               <button
                 onClick={() => triggerAction("1")}
-                className="flex-1 py-2.5 font-kosugi text-[11px] tracking-[0.1em] uppercase border transition-colors"
+                className="flex-1 py-2.5 font-mono text-[11px] tracking-[0.1em] uppercase border transition-colors"
                 style={{
                   borderRadius: 4,
                   borderColor: highlightedKey === "1" ? "#6F94B0" : "rgba(111, 148, 176, 0.3)",
@@ -171,7 +171,7 @@ export function FilterFlaggedStep({
               </button>
               <button
                 onClick={() => triggerAction("2")}
-                className="flex-1 py-2.5 font-kosugi text-[11px] tracking-[0.1em] uppercase border transition-colors"
+                className="flex-1 py-2.5 font-mono text-[11px] tracking-[0.1em] uppercase border transition-colors"
                 style={{
                   borderRadius: 4,
                   borderColor: highlightedKey === "2" ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.1)",

@@ -68,7 +68,7 @@ export function StepperRail({
 
               {/* Label */}
               <span
-                className="font-kosugi text-micro tracking-[0.15em] uppercase"
+                className="font-mono text-micro tracking-[0.15em] uppercase"
                 style={{
                   color: isCurrent
                     ? "#E5E5E5"
@@ -123,7 +123,7 @@ export function StepperRail({
                         )}
                       </div>
                       <span
-                        className="font-kosugi text-micro tracking-[0.12em] uppercase"
+                        className="font-mono text-micro tracking-[0.12em] uppercase"
                         style={{
                           color: isSubCurrent
                             ? "#E5E5E5"

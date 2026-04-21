@@ -272,7 +272,7 @@ export function EmailThreadView({
                   <div key={thread.threadId} className={ti > 0 ? "mt-2 pt-2 border-t border-white/[0.06]" : ""}>
                     {/* Thread label */}
                     <div className="flex items-center justify-between mb-1.5">
-                      <span className="font-kosugi text-micro tracking-[0.1em] uppercase text-[#555]">
+                      <span className="font-mono text-micro tracking-[0.1em] uppercase text-[#555]">
                         Thread {ti + 1} · {threadExcerpts.length} emails
                       </span>
                       <a

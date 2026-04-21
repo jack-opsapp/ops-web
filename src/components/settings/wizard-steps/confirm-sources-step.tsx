@@ -78,7 +78,7 @@ export function ConfirmSourcesStep({
                 <Mail size={14} className="text-[#6F94B0]" />
               </div>
               <div>
-                <p className="font-kosugi text-micro tracking-[0.15em] uppercase text-[#6F94B0]">
+                <p className="font-mono text-micro tracking-[0.15em] uppercase text-[#6F94B0]">
                   Estimate Pattern Detected
                 </p>
                 {editingPattern ? (
@@ -173,7 +173,7 @@ export function ConfirmSourcesStep({
         </p>
         <Button
           onClick={onNext}
-          className="font-kosugi text-[11px] tracking-[0.1em] uppercase bg-ops-accent hover:bg-[#6A88A5] text-white px-6 py-2"
+          className="font-mono text-[11px] tracking-[0.1em] uppercase bg-ops-accent hover:bg-[#6A88A5] text-white px-6 py-2"
           style={{ borderRadius: 3 }}
         >
           Review Leads

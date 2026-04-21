@@ -174,7 +174,7 @@ export function ConfirmPipelineStep({
         <Button
           onClick={onBack}
           variant="ghost"
-          className="font-kosugi text-micro tracking-[0.1em] uppercase text-[#666]"
+          className="font-mono text-micro tracking-[0.1em] uppercase text-[#666]"
         >
           ← {t("confirm.backToTriage")}
         </Button>
@@ -188,7 +188,7 @@ export function ConfirmPipelineStep({
     <div className="flex flex-col" style={{ maxHeight: "calc(85vh - 180px)" }}>
       {/* Header */}
       <div className="flex-shrink-0 mb-4">
-        <h3 className="font-kosugi text-micro tracking-[0.15em] uppercase text-[#999]">
+        <h3 className="font-mono text-micro tracking-[0.15em] uppercase text-[#999]">
           {t("confirm.title")}
         </h3>
         <p className="font-mohave text-[12px] text-[#666] mt-1">
@@ -224,7 +224,7 @@ export function ConfirmPipelineStep({
                     style={{ background: config.color, borderRadius: 1 }}
                   />
                   <span
-                    className="font-kosugi text-micro tracking-[0.15em] uppercase"
+                    className="font-mono text-micro tracking-[0.15em] uppercase"
                     style={{ color: config.color }}
                   >
                     {config.label}
@@ -296,7 +296,7 @@ export function ConfirmPipelineStep({
                   className="w-2 h-2"
                   style={{ background: "#444", borderRadius: 1, opacity: 0.6 }}
                 />
-                <span className="font-kosugi text-micro tracking-[0.15em] uppercase text-[#555]">
+                <span className="font-mono text-micro tracking-[0.15em] uppercase text-[#555]">
                   Discarded
                 </span>
                 <span className="font-mohave text-[11px] text-[#444]">
@@ -415,14 +415,14 @@ export function ConfirmPipelineStep({
         <div className="flex items-center justify-between">
           <button
             onClick={onBack}
-            className="font-kosugi text-micro tracking-[0.1em] uppercase text-[#666] hover:text-[#999] transition-colors"
+            className="font-mono text-micro tracking-[0.1em] uppercase text-[#666] hover:text-[#999] transition-colors"
           >
             ← {t("confirm.back")}
           </button>
           <button
             onClick={onImport}
             disabled={counts.importTotal === 0}
-            className="font-kosugi text-micro tracking-[0.1em] uppercase border border-[rgba(255,255,255,0.18)] text-text-2 hover:bg-[rgba(255,255,255,0.08)] hover:text-text px-4 py-1.5 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+            className="font-mono text-micro tracking-[0.1em] uppercase border border-[rgba(255,255,255,0.18)] text-text-2 hover:bg-[rgba(255,255,255,0.08)] hover:text-text px-4 py-1.5 transition-colors disabled:opacity-30 disabled:pointer-events-none"
             style={{ borderRadius: 3 }}
           >
             {t("confirm.import")} {counts.importTotal}
