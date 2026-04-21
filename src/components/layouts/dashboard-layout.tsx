@@ -68,8 +68,7 @@ const MapFilterRail = dynamic(
 type FullHeightMode = "padded" | "bleed";
 
 const FULL_HEIGHT_ROUTES: Record<string, FullHeightMode> = {
-  // Populated per-task as pages are migrated. Empty for the infrastructure
-  // commit so existing pages keep their current behavior.
+  "/inbox": "padded",
 };
 
 function resolveFullHeightMode(pathname: string): FullHeightMode | null {

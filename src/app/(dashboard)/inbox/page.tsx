@@ -377,10 +377,10 @@ export default function InboxPage() {
 
   // ─── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="space-y-3">
+    <>
       <div
         className={cn(
-          "flex h-[calc(100vh-68px-96px)] overflow-hidden",
+          "flex-1 min-h-0 flex overflow-hidden",
           "rounded-panel border border-border glass-surface"
         )}
       >
@@ -624,6 +624,6 @@ export default function InboxPage() {
 
       {/* Suppress unused — company may power future filters */}
       {company?.id ? null : null}
-    </div>
+    </>
   );
 }
