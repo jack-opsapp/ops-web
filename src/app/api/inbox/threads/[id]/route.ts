@@ -199,6 +199,70 @@ export async function GET(
       }
     }
 
+    // ─── Client name + siblings ──────────────────────────────────────────
+    //
+    // Resolve client name once (the detail view's header uses it in the
+    // "other threads with …" strip label), and pull up to 5 sibling threads
+    // tied to the same client. Both queries are cheap and gated on clientId
+    // being present — no wasted round-trips for unmatched threads.
+    //
+    // Siblings are served here rather than via a separate endpoint because
+    // they're coupled to the detail view's render cycle — one round-trip
+    // keeps the strip flash-free (appears with the rest of the header).
+    let clientName: string | null = null;
+    let siblingThreads: Array<{
+      id: string;
+      connectionId: string;
+      providerThreadId: string;
+      subject: string;
+      primaryCategory: typeof thread.primaryCategory;
+      lastMessageAt: string;
+      messageCount: number;
+      unreadCount: number;
+      latestSenderName: string | null;
+      latestSenderEmail: string | null;
+      latestSnippet: string | null;
+      archivedAt: string | null;
+      snoozedUntil: string | null;
+    }> = [];
+
+    if (thread.clientId) {
+      const [clientRes, siblings] = await Promise.all([
+        supabase
+          .from("clients")
+          .select("name")
+          .eq("id", thread.clientId)
+          .maybeSingle(),
+        runWithSupabase(supabase, () =>
+          EmailThreadService.listSiblings(
+            thread.companyId,
+            thread.clientId as string,
+            thread.id,
+            5
+          )
+        ),
+      ]);
+
+      const resolvedName = (clientRes.data?.name as string | null)?.trim() ?? null;
+      clientName = resolvedName && resolvedName.length > 0 ? resolvedName : null;
+
+      siblingThreads = siblings.map((s) => ({
+        id: s.id,
+        connectionId: s.connectionId,
+        providerThreadId: s.providerThreadId,
+        subject: s.subject,
+        primaryCategory: s.primaryCategory,
+        lastMessageAt: s.lastMessageAt.toISOString(),
+        messageCount: s.messageCount,
+        unreadCount: s.unreadCount,
+        latestSenderName: s.latestSenderName,
+        latestSenderEmail: s.latestSenderEmail,
+        latestSnippet: s.latestSnippet,
+        archivedAt: s.archivedAt?.toISOString() ?? null,
+        snoozedUntil: s.snoozedUntil?.toISOString() ?? null,
+      }));
+    }
+
     return NextResponse.json({
       thread: {
         id: thread.id,
@@ -215,8 +279,10 @@ export async function GET(
         unreadCount: thread.unreadCount,
         opportunityId: thread.opportunityId,
         clientId: thread.clientId,
+        clientName,
       },
       messages,
+      siblingThreads,
     });
   } catch (err) {
     console.error("[/api/inbox/threads/:id] GET failed:", err);

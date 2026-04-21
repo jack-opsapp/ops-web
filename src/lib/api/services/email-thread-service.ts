@@ -1095,13 +1095,19 @@ export const EmailThreadService = {
   ): Promise<EmailThread[]> {
     if (!companyId || !clientId) return [];
     const supabase = requireSupabase();
+    // Exclude archived — "archive" is the user's explicit "I'm done" signal,
+    // and surfacing those in a context strip would drag old closed-out
+    // conversations back into a live triage surface. Snoozed is kept:
+    // snooze is deferral, not completion, and seeing "oh right, that
+    // quote is coming back Tuesday" is useful context when replying on a
+    // parallel thread.
     const { data, error } = await supabase
       .from("email_threads")
       .select("*")
       .eq("company_id", companyId)
       .eq("client_id", clientId)
       .neq("id", excludingThreadId)
-      .is("snoozed_until", null)
+      .is("archived_at", null)
       .order("last_message_at", { ascending: false })
       .limit(limit);
     if (error || !data) return [];

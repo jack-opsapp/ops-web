@@ -89,6 +89,31 @@ export interface InboxThreadMessage {
   hasAttachments: boolean;
 }
 
+/**
+ * Compact shape for a sibling thread — other threads tied to the same
+ * client as the one currently open. Rendered by ThreadSiblingStrip at
+ * the top of the detail view. The fields here are the minimum the strip
+ * needs for display (subject, category, time, unread) plus enough to
+ * construct a placeholder {@link InboxThreadRow} for selection so the
+ * detail view can refetch full detail on click without a second network
+ * round-trip for the selection-only path.
+ */
+export interface InboxSiblingThread {
+  id: string;
+  connectionId: string;
+  providerThreadId: string;
+  subject: string;
+  primaryCategory: EmailThreadCategory;
+  lastMessageAt: string;
+  messageCount: number;
+  unreadCount: number;
+  latestSenderName: string | null;
+  latestSenderEmail: string | null;
+  latestSnippet: string | null;
+  archivedAt: string | null;
+  snoozedUntil: string | null;
+}
+
 export interface InboxThreadDetail {
   thread: {
     id: string;
@@ -105,8 +130,17 @@ export interface InboxThreadDetail {
     unreadCount: number;
     opportunityId: string | null;
     clientId: string | null;
+    /** Canonical client name, null when unmatched. Server-resolved via clients.id. */
+    clientName: string | null;
   };
   messages: InboxThreadMessage[];
+  /**
+   * Up to 5 other threads tied to the same client as `thread.clientId`,
+   * most recent first. Archived siblings are excluded; snoozed ones are
+   * kept because snooze is deferral, not closure. Empty array when
+   * clientId is null or no other threads exist.
+   */
+  siblingThreads: InboxSiblingThread[];
 }
 
 export interface InboxThreadsPage {

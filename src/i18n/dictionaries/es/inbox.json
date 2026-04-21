@@ -114,6 +114,12 @@
   "phaseC.graduating.action": "Graduar",
   "phaseC.adjust": "Ajustar",
 
+  "siblings.headerOne": "1 hilo más con {client}",
+  "siblings.headerMany": "{count} hilos más con {client}",
+  "siblings.clientFallback": "este cliente",
+  "siblings.viewClient": "Ver cliente",
+  "siblings.viewClientTitle": "Abrir perfil del cliente",
+
   "insights.header": "Phase C intel",
   "insights.sender": "Remitente",
   "insights.manual": "Manual",

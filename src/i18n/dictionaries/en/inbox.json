@@ -145,6 +145,12 @@
   "phaseC.following.secondary": "Phase C nudges when a lead goes cold.",
   "phaseC.adjust": "Adjust",
 
+  "siblings.headerOne": "1 other thread with {client}",
+  "siblings.headerMany": "{count} other threads with {client}",
+  "siblings.clientFallback": "this client",
+  "siblings.viewClient": "View client",
+  "siblings.viewClientTitle": "Open client profile",
+
   "insights.header": "Phase C insights",
   "insights.sender": "Sender",
   "insights.manual": "Manual",

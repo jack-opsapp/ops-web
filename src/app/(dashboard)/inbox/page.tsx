@@ -538,6 +538,7 @@ export default function InboxPage() {
             }
             onContinueDraft={handleContinueDraft}
             onDiscardDraft={handleDiscardDraft}
+            onSelectThread={handleSelectThread}
           />
         </div>
 

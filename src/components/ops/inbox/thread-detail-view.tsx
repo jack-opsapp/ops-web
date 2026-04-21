@@ -55,6 +55,7 @@ import {
   computePhaseCStripState,
   type PhaseCStripState,
 } from "./phase-c-status-strip";
+import { ThreadSiblingStrip } from "./thread-sibling-strip";
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 
@@ -93,6 +94,12 @@ export interface ThreadDetailViewProps {
   onContinueDraft?: (draft: InboxDraftRow) => void;
   /** Discard this draft (delete from provider / mark AI draft discarded). */
   onDiscardDraft?: (draft: InboxDraftRow) => void;
+  /**
+   * Jump to a different thread (e.g. from the sibling strip). The parent
+   * owns selection state; the strip synthesizes a minimal row and bubbles
+   * it up via this callback. Detail data refetches on threadId change.
+   */
+  onSelectThread?: (row: InboxThreadRow) => void;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -331,6 +338,7 @@ export function ThreadDetailView({
   threadDraft,
   onContinueDraft,
   onDiscardDraft,
+  onSelectThread,
 }: ThreadDetailViewProps) {
   const { t } = useDictionary("inbox");
   const reduceMotion = useReducedMotion();
@@ -637,6 +645,20 @@ export function ThreadDetailView({
           </button>
         </div>
       </div>
+
+      {/* ─── Sibling threads ───────────────────────────────────────────── */}
+      {/* Peek at other threads tied to the same client. Hidden when the
+          thread isn't client-linked or has no active siblings. Placed
+          immediately under the header because parallel-conversation
+          context belongs with identity, not with agent/content state. */}
+      {onSelectThread && data && (data.siblingThreads?.length ?? 0) > 0 && (
+        <ThreadSiblingStrip
+          clientName={data.thread.clientName ?? null}
+          clientId={data.thread.clientId}
+          siblings={data.siblingThreads}
+          onSelect={onSelectThread}
+        />
+      )}
 
       {/* ─── Phase C status strip ──────────────────────────────────────── */}
       {category && (
