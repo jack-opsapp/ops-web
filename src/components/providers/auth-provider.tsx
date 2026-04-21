@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import { useFeatureFlagsStore } from "@/lib/store/feature-flags-store";
-import { onAuthStateChanged, getIdToken, checkRedirectResult, clearRedirectFlag, isRedirectPending } from "@/lib/firebase/auth";
+import { onAuthStateChanged, getIdToken, checkRedirectResult, clearRedirectFlag, isRedirectPending, clearRedirectContext } from "@/lib/firebase/auth";
 import { getFirebaseAuth } from "@/lib/firebase/config";
 import { UserService } from "@/lib/api/services/user-service";
 import { toast } from "sonner";
@@ -74,6 +74,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setAuthCookie(null);
         clearPermissions();
         clearFlags();
+        // Any redirect context stashed before a prior OAuth attempt is stale
+        // now — Firebase has conclusively resolved to no user. Leaving it
+        // would trap the next /login (or /register, /join) visit on the
+        // post-OAuth-return spinner branch.
+        clearRedirectContext();
         console.log("[AuthProvider] Not authenticated");
         setLoading(false);
         return;

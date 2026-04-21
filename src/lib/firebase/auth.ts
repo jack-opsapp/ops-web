@@ -92,6 +92,15 @@ export function peekRedirectContext(): RedirectContext | null {
 }
 
 /**
+ * Discard any redirect context. Use when Firebase has conclusively resolved
+ * the auth state to "no user" — at that point, any stashed context is stale
+ * (abandoned OAuth, cancelled at provider, closed tab mid-flight).
+ */
+export function clearRedirectContext(): void {
+  try { sessionStorage.removeItem(REDIRECT_CTX_KEY); } catch {}
+}
+
+/**
  * Sign in with Google via full-page redirect.
  *
  * Popup mode (signInWithPopup) is not used because its internal

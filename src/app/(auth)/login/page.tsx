@@ -52,6 +52,8 @@ function LoginForm() {
   const currentUser = useAuthStore((s) => s.currentUser);
   const setUser = useAuthStore((s) => s.setUser);
   const setCompany = useAuthStore((s) => s.setCompany);
+  const isLoadingAuth = useAuthStore((s) => s.isLoading);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   const anyLoading = isLoadingEmail || isLoadingGoogle || isLoadingApple;
 
@@ -65,6 +67,16 @@ function LoginForm() {
     const ctx = peekRedirectContext();
     if (ctx?.origin === "login") setIsReturningFromOAuth(true);
   }, []);
+
+  // Escape hatch for stale context: if AuthProvider has finished its initial
+  // check and there's no Firebase user, the peek was reading a ctx left by an
+  // abandoned OAuth. AuthProvider clears the ctx on its side; we clear our
+  // local flag so the form renders instead of the spinner.
+  useEffect(() => {
+    if (!isLoadingAuth && !isAuthenticated) {
+      setIsReturningFromOAuth(false);
+    }
+  }, [isLoadingAuth, isAuthenticated]);
 
   // ── Post-redirect handoff ──────────────────────────────────────────────────
   // When the user returns from a Google/Apple redirect, AuthProvider runs
