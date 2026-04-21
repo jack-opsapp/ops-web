@@ -90,4 +90,23 @@ export function isFormSubmissionSubject(subject: string): boolean {
   return FORM_SUBJECT_PATTERNS.some((pattern) => lower.includes(pattern));
 }
 
+/**
+ * True when a sender's email is in the team's forwarders list AND the
+ * subject matches a form-submission pattern. Used by both:
+ *   - sync-engine.ts's lead-creation flow (existing)
+ *   - deterministic-internal-rule.ts's bail check (new)
+ *
+ * Having one predicate prevents drift between the two call sites.
+ */
+export function isLikelyForwardedInquiry(
+  senderEmail: string | null,
+  subject: string,
+  teamForwarders: string[]
+): boolean {
+  if (!senderEmail) return false;
+  if (!isFormSubmissionSubject(subject)) return false;
+  const sender = senderEmail.toLowerCase();
+  return teamForwarders.some((f) => sender.includes(f.toLowerCase()));
+}
+
 export { FORM_SUBJECT_PATTERNS, PLATFORM_DOMAINS };

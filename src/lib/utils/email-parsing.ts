@@ -461,3 +461,25 @@ export function extractEmailAddress(from: string | null | undefined): string {
   const match = from.match(/<([^>]+)>/);
   return match ? match[1] : from.trim();
 }
+
+// ─── Forward detection (shared by deterministic-internal-rule) ──────────────
+
+const FORWARD_SUBJECT_RE = /^\s*fwd?:\s*/i;
+const FORWARDED_MESSAGE_BODY_RE = /^-{5,}\s*Forwarded message\s*-{5,}/mi;
+const BEGIN_FORWARDED_BODY_RE = /^Begin forwarded message:/mi;
+
+/**
+ * True when the thread's subject or first-message body indicates a
+ * forward — subject starts with "Fwd:" / "FW:" / "Fw:" (case-insensitive,
+ * whitespace-tolerant), OR body contains a standard forward marker.
+ *
+ * Used by tryDeterministicInternal to bail out of the "all participants are
+ * internal → INTERNAL" shortcut when the thread's semantic content comes
+ * from a forwarded message rather than the participants themselves.
+ */
+export function isForwardMarker(subject: string, bodyText: string): boolean {
+  if (FORWARD_SUBJECT_RE.test(subject)) return true;
+  if (FORWARDED_MESSAGE_BODY_RE.test(bodyText)) return true;
+  if (BEGIN_FORWARDED_BODY_RE.test(bodyText)) return true;
+  return false;
+}
