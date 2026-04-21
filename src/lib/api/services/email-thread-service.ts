@@ -31,6 +31,11 @@ import {
   type ListInboxThreadsParams,
   type ListInboxThreadsResult,
 } from "@/lib/types/email-thread";
+import { tryDeterministicInternal } from "./deterministic-internal-rule";
+import {
+  loadCompanyUsers,
+  loadTeamForwarders,
+} from "./deterministic-internal-reads";
 import {
   ThreadClassifier,
   type ClassifyMessage,
@@ -637,10 +642,70 @@ export const EmailThreadService = {
     const senderEmail = threadRow.latestSenderEmail;
     const senderDomain = domainOf(senderEmail);
 
-    const [learned, senderIsNew] = await Promise.all([
-      loadLearnedRules(threadRow.companyId, senderEmail, senderDomain),
-      senderEmail ? senderHasPriorConversations(threadRow.companyId, senderEmail).then((v) => !v) : Promise.resolve(false),
-    ]);
+    const [learned, senderIsNew, companyUsers, teamForwarders] =
+      await Promise.all([
+        loadLearnedRules(threadRow.companyId, senderEmail, senderDomain),
+        senderEmail
+          ? senderHasPriorConversations(threadRow.companyId, senderEmail).then(
+              (v) => !v
+            )
+          : Promise.resolve(false),
+        loadCompanyUsers(threadRow.companyId),
+        loadTeamForwarders(threadRow.connectionId),
+      ]);
+
+    // Used as a fallback when the connection owner's users row is missing.
+    const { data: connectionRow } = await supabase
+      .from("email_connections")
+      .select("email")
+      .eq("id", threadRow.connectionId)
+      .maybeSingle();
+    const connectionEmail =
+      (connectionRow?.email as string | null)?.toLowerCase().trim() ?? undefined;
+
+    // ── Deterministic INTERNAL classification ──────────────────────────
+    // When every participant of the thread is a company user (and the
+    // thread isn't a forward), we skip the LLM and write the result
+    // directly. Manual corrections are respected by the rule itself.
+    const firstMessageBody =
+      messages[0]?.bodyText ?? messages[messages.length - 1]?.bodyText ?? "";
+    const deterministic = tryDeterministicInternal({
+      subject: threadRow.subject,
+      firstMessageBody,
+      participants: threadRow.participants,
+      senderEmail,
+      categoryManuallySet: threadRow.categoryManuallySet,
+      companyUsers,
+      teamForwarders,
+      connectionEmail,
+    });
+
+    if (deterministic) {
+      const detUpdate: Record<string, unknown> = {
+        labels: threadRow.labels, // preserve any existing labels
+        ai_summary: deterministic.summary,
+        category_classified_at: new Date().toISOString(),
+        category_classifier_version: deterministic.classifierVersion,
+        primary_category: deterministic.category,
+        category_confidence: deterministic.confidence,
+      };
+
+      const { data: detUpdated, error: detErr } = await supabase
+        .from("email_threads")
+        .update(detUpdate)
+        .eq("id", threadRow.id)
+        .select("*")
+        .single();
+
+      if (detErr) {
+        console.error(
+          "[email-thread-service] deterministic-internal update failed:",
+          detErr
+        );
+        return threadRow;
+      }
+      return mapEmailThreadFromDb(detUpdated);
+    }
 
     const outboundCount = messages.filter((m) => m.direction === "outbound").length;
 
@@ -1007,6 +1072,40 @@ export const EmailThreadService = {
       .maybeSingle();
     if (error || !data) return null;
     return mapEmailThreadFromDb(data);
+  },
+
+  /**
+   * Other threads tied to the same client. Used by the detail view's
+   * "other threads with …" strip so the user can jump between parallel
+   * conversations (quote + invoice + scheduling) without bouncing through
+   * the list. Returns the most recent first; caps at `limit` (default 5)
+   * because the strip is a peek, not a full history — the client profile
+   * page owns the exhaustive view.
+   *
+   * Category filter is intentionally absent: opening this thread is a
+   * deliberate "show me context for this client" act, and narrowing by
+   * rail would hide the very cross-category surprises the user wants
+   * to notice (e.g., an open invoice sitting next to a LEAD conversation).
+   */
+  async listSiblings(
+    companyId: string,
+    clientId: string,
+    excludingThreadId: string,
+    limit = 5
+  ): Promise<EmailThread[]> {
+    if (!companyId || !clientId) return [];
+    const supabase = requireSupabase();
+    const { data, error } = await supabase
+      .from("email_threads")
+      .select("*")
+      .eq("company_id", companyId)
+      .eq("client_id", clientId)
+      .neq("id", excludingThreadId)
+      .is("snoozed_until", null)
+      .order("last_message_at", { ascending: false })
+      .limit(limit);
+    if (error || !data) return [];
+    return data.map(mapEmailThreadFromDb);
   },
 };
 
