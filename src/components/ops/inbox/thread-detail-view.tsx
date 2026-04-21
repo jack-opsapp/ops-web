@@ -339,7 +339,6 @@ export function ThreadDetailView({
 
   const [recatOpen, setRecatOpen] = useState(false);
   const [snoozeOpen, setSnoozeOpen] = useState(false);
-  const [showFullSummary, setShowFullSummary] = useState(false);
 
   // Scroll container for the message stack. The auto-scroll effect below
   // lands at the bottom (most recent message) whenever a new thread opens,
@@ -650,33 +649,17 @@ export function ThreadDetailView({
         />
       )}
 
-      {/* ─── AI summary ────────────────────────────────────────────────── */}
-      {(aiSummary || messageCount >= 10) && aiSummary && (
+      {/* ─── AI summary — one sentence, current state of the thread ──── */}
+      {aiSummary && (
         <div className="shrink-0 px-3 py-2 border-b border-border-subtle bg-[rgba(111,148,176,0.04)]">
           <div className="flex items-start gap-2">
-            <Sparkles className="w-[12px] h-[12px] text-ops-accent shrink-0 mt-[3px]" strokeWidth={1.75} />
-            <div className="min-w-0 flex-1">
-              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
-                // {t("thread.aiSummary") ?? "AI summary"}
-              </p>
-              <p
-                className={cn(
-                  "font-mohave text-[12.5px] text-text-2 mt-0.5 leading-snug",
-                  !showFullSummary && "line-clamp-2"
-                )}
-              >
-                {aiSummary}
-              </p>
-              {aiSummary.length > 200 && (
-                <button
-                  type="button"
-                  onClick={() => setShowFullSummary((v) => !v)}
-                  className="font-mono text-[10px] uppercase tracking-[0.14em] text-text-mute hover:text-text-2 mt-1 transition-colors"
-                >
-                  {showFullSummary ? "Collapse" : "Expand"}
-                </button>
-              )}
-            </div>
+            <Sparkles
+              className="w-[12px] h-[12px] text-ops-accent shrink-0 mt-[3px]"
+              strokeWidth={1.75}
+            />
+            <p className="font-mohave text-[12.5px] text-text-2 leading-snug min-w-0 flex-1">
+              {aiSummary}
+            </p>
           </div>
         </div>
       )}
