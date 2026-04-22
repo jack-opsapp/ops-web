@@ -6,6 +6,12 @@
  * 1. Decay — reduce decay_score for memories not accessed in 30+ days
  * 2. Prune — delete memories with decay_score < 0.1 older than 6 months
  * 3. Consolidate — merge near-duplicate memories (cosine similarity > 0.95)
+ *
+ * Unresolved commitment memories are protected from decay/prune when
+ * their due_date is still in the future (or within the last 7 days) —
+ * a commitment that hasn't landed yet is load-bearing regardless of
+ * how recently anyone "accessed" the row, and deleting one silently
+ * would make the COMMITMENTS rail wrong.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -36,6 +42,14 @@ export async function GET(request: NextRequest) {
     errors: [] as string[],
   };
 
+  // Commitments whose due_date hasn't passed (with a 7-day grace window)
+  // are load-bearing — don't decay or prune them. Grace window is there
+  // because a commitment "overdue by 3 days" is still something the user
+  // may need to see and act on, not something to silently vacuum.
+  const commitmentGraceWindowIso = new Date(
+    Date.now() - 7 * 24 * 60 * 60 * 1000
+  ).toISOString();
+
   console.log("[memory-decay] Starting memory maintenance cycle");
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -49,7 +63,7 @@ export async function GET(request: NextRequest) {
 
     const { data: staleMemories, error: staleErr } = await supabase
       .from("agent_memories")
-      .select("id, decay_score, last_accessed_at, created_at")
+      .select("id, category, decay_score, last_accessed_at, created_at, due_date, resolved_at")
       .gt("decay_score", 0.1)
       .or(
         `last_accessed_at.lt.${thirtyDaysAgo.toISOString()},` +
@@ -61,6 +75,16 @@ export async function GET(request: NextRequest) {
       stats.errors.push(`Decay fetch failed: ${staleErr.message}`);
     } else if (staleMemories && staleMemories.length > 0) {
       for (const memory of staleMemories) {
+        // Skip load-bearing unresolved commitments — see file header.
+        if (
+          memory.category === "commitment" &&
+          memory.resolved_at === null &&
+          (memory.due_date === null ||
+            (memory.due_date as string) >= commitmentGraceWindowIso)
+        ) {
+          continue;
+        }
+
         const referenceDate = memory.last_accessed_at || memory.created_at;
         const daysSinceAccess = Math.floor(
           (Date.now() - new Date(referenceDate as string).getTime()) /
@@ -107,7 +131,7 @@ export async function GET(request: NextRequest) {
 
     const { data: pruneTargets, error: pruneErr } = await supabase
       .from("agent_memories")
-      .select("id")
+      .select("id, category, due_date, resolved_at")
       .lt("decay_score", 0.1)
       .lt("created_at", sixMonthsAgo.toISOString())
       .limit(500);
@@ -115,17 +139,32 @@ export async function GET(request: NextRequest) {
     if (pruneErr) {
       stats.errors.push(`Prune fetch failed: ${pruneErr.message}`);
     } else if (pruneTargets && pruneTargets.length > 0) {
-      const pruneIds = pruneTargets.map((m) => m.id as string);
+      // Filter out still-actionable commitments before deletion. A 6-month-old
+      // commitment with a future due_date (e.g. a seasonal warranty followup)
+      // is still real work — deleting it would make the COMMITMENTS rail lie.
+      const pruneIds = pruneTargets
+        .filter(
+          (m) =>
+            !(
+              m.category === "commitment" &&
+              m.resolved_at === null &&
+              (m.due_date === null ||
+                (m.due_date as string) >= commitmentGraceWindowIso)
+            )
+        )
+        .map((m) => m.id as string);
 
-      const { error: deleteErr } = await supabase
-        .from("agent_memories")
-        .delete()
-        .in("id", pruneIds);
+      if (pruneIds.length > 0) {
+        const { error: deleteErr } = await supabase
+          .from("agent_memories")
+          .delete()
+          .in("id", pruneIds);
 
-      if (deleteErr) {
-        stats.errors.push(`Prune delete failed: ${deleteErr.message}`);
-      } else {
-        stats.pruned = pruneIds.length;
+        if (deleteErr) {
+          stats.errors.push(`Prune delete failed: ${deleteErr.message}`);
+        } else {
+          stats.pruned = pruneIds.length;
+        }
       }
     }
 
