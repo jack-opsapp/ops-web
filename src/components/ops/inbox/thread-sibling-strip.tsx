@@ -89,6 +89,9 @@ function siblingToRow(sibling: InboxSiblingThread): InboxThreadRow {
     // as the current thread) until the full payload lands.
     clientId: null,
     clientName: null,
+    // Commitment denorm is refetched with the detail — placeholder safe.
+    nextCommitmentDueAt: null,
+    hasUnresolvedCommitments: false,
   };
 }
 

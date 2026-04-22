@@ -27,7 +27,13 @@ import {
   type InboxScope,
 } from "@/lib/types/email-thread";
 
-const VALID_FILTERS = new Set<InboxRail>(["needs_reply", "everything", "scheduled", "done"]);
+const VALID_FILTERS = new Set<InboxRail>([
+  "needs_reply",
+  "everything",
+  "scheduled",
+  "done",
+  "commitments",
+]);
 const CATEGORY_SET = new Set<string>(EMAIL_THREAD_CATEGORIES);
 
 function parseFilter(raw: string | null): InboxRail {
@@ -158,6 +164,8 @@ export async function GET(request: NextRequest) {
         opportunityId: t.opportunityId,
         clientId: t.clientId,
         clientName: t.clientId ? clientNameById.get(t.clientId) ?? null : null,
+        nextCommitmentDueAt: t.nextCommitmentDueAt?.toISOString() ?? null,
+        hasUnresolvedCommitments: t.hasUnresolvedCommitments,
       })),
       nextCursor: result.nextCursor,
     });

@@ -28,6 +28,7 @@ export interface InboxRailCounts {
   scheduled: number;
   done: number;
   drafts: number;
+  commitments: number;
 }
 
 interface SplitInboxTabsProps {
@@ -48,18 +49,20 @@ interface RailDef {
   fallbackLabel: string;
   /** Fallback tooltip used when the dictionary key isn't present yet. */
   fallbackTitle: string;
-  hotkey: "1" | "2" | "3" | "4" | "5";
+  hotkey: "1" | "2" | "3" | "4" | "5" | "6";
 }
 
-// NOTE: five tabs in a 360px left column is tight — keep labels ≤ 6 chars.
-// "DRAFTS" fits; longer localizations are clipped via `overflow-hidden` on
-// the container (existing behavior).
+// NOTE: six tabs in a 360px left column is tight — labels stay ≤ 6 chars
+// and the container clips overflow. COMMIT slots between DRAFTS and the
+// canvas edge because commitments are a triage-urgency surface, adjacent
+// to where the user is already scanning for attention.
 const RAILS: readonly RailDef[] = [
   { id: "needs_reply", labelKey: "rail.needsReply", titleKey: "rail.needsReply.title", fallbackLabel: "Reply",  fallbackTitle: "Needs reply",  hotkey: "1" },
   { id: "everything",  labelKey: "rail.everything", titleKey: "rail.everything.title", fallbackLabel: "All",    fallbackTitle: "Everything",   hotkey: "2" },
   { id: "scheduled",   labelKey: "rail.scheduled",  titleKey: "rail.scheduled.title",  fallbackLabel: "Later",  fallbackTitle: "Snoozed",      hotkey: "3" },
   { id: "done",        labelKey: "rail.done",       titleKey: "rail.done.title",       fallbackLabel: "Done",   fallbackTitle: "Archived",     hotkey: "4" },
   { id: "drafts",      labelKey: "rail.drafts",     titleKey: "rail.drafts.title",     fallbackLabel: "Drafts", fallbackTitle: "Drafts — provider + AI (5)", hotkey: "5" },
+  { id: "commitments", labelKey: "rail.commitments", titleKey: "rail.commitments.title", fallbackLabel: "Commit", fallbackTitle: "Commitments — threads with unresolved deadlines (6)", hotkey: "6" },
 ] as const;
 
 function formatCount(n: number | undefined): string | null {

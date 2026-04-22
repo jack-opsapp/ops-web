@@ -394,7 +394,11 @@ async function listThreads(
     query = query.in("connection_id", userConnectionIds);
   }
 
-  // Rail filter
+  // Rail filter. Commitments rail sorts/paginates on next_commitment_due_at
+  // instead of last_message_at, because the user cares about urgency
+  // (earliest due first) rather than recency of correspondence.
+  const isCommitmentsRail = params.filter === "commitments";
+
   switch (params.filter) {
     case "needs_reply":
       query = query
@@ -416,6 +420,11 @@ async function listThreads(
     case "done":
       query = query.not("archived_at", "is", null);
       break;
+    case "commitments":
+      query = query
+        .eq("has_unresolved_commitments", true)
+        .is("archived_at", null);
+      break;
   }
 
   if (params.category) {
@@ -429,10 +438,20 @@ async function listThreads(
     );
   }
 
-  query = query.order("last_message_at", { ascending: false }).limit(limit + 1);
-
-  if (params.cursor) {
-    query = query.lt("last_message_at", params.cursor);
+  // Commitments rail sorts ASC on next_commitment_due_at (soonest due first).
+  // All other rails sort DESC on last_message_at (most recent first).
+  if (isCommitmentsRail) {
+    query = query
+      .order("next_commitment_due_at", { ascending: true })
+      .limit(limit + 1);
+    if (params.cursor) {
+      query = query.gt("next_commitment_due_at", params.cursor);
+    }
+  } else {
+    query = query.order("last_message_at", { ascending: false }).limit(limit + 1);
+    if (params.cursor) {
+      query = query.lt("last_message_at", params.cursor);
+    }
   }
 
   const { data, error } = await query;
@@ -441,8 +460,14 @@ async function listThreads(
   const rows = (data ?? []).map(mapEmailThreadFromDb);
   const hasMore = rows.length > limit;
   const page = hasMore ? rows.slice(0, limit) : rows;
+  // Cursor matches the sort column. Commitments rail paginates on due
+  // date ASC; every other rail uses lastMessageAt DESC. A mismatch here
+  // would silently break infinite scroll (client would re-request the
+  // same page) so keep them coupled.
   const nextCursor = hasMore
-    ? page[page.length - 1].lastMessageAt.toISOString()
+    ? isCommitmentsRail
+      ? page[page.length - 1].nextCommitmentDueAt?.toISOString() ?? null
+      : page[page.length - 1].lastMessageAt.toISOString()
     : null;
 
   return { threads: page, nextCursor };

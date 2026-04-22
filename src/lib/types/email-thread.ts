@@ -88,7 +88,8 @@ export type InboxRail =
   | "everything"
   | "scheduled"
   | "done"
-  | "drafts";
+  | "drafts"
+  | "commitments";
 
 // ─── Drafts (shared wire shape) ─────────────────────────────────────────────
 // Wire shape used by /api/inbox/drafts and consumed by useInboxDrafts on the
@@ -164,6 +165,14 @@ export interface EmailThread {
   opportunityId: string | null;
   clientId: string | null;
 
+  // Phase C commitment denormalization — maintained by the
+  // recompute_thread_commitments DB trigger. `nextCommitmentDueAt` is the
+  // earliest unresolved commitment due date across the thread's
+  // agent_memories rows (null when none). `hasUnresolvedCommitments`
+  // mirrors the indexed boolean used by the COMMITMENTS rail filter.
+  nextCommitmentDueAt: Date | null;
+  hasUnresolvedCommitments: boolean;
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -224,6 +233,8 @@ export function mapEmailThreadFromDb(row: Record<string, unknown>): EmailThread 
     latestSnippet: (row.latest_snippet as string | null) ?? null,
     opportunityId: (row.opportunity_id as string | null) ?? null,
     clientId: (row.client_id as string | null) ?? null,
+    nextCommitmentDueAt: parseDateOrNull(row.next_commitment_due_at),
+    hasUnresolvedCommitments: Boolean(row.has_unresolved_commitments),
     createdAt: parseDate(row.created_at),
     updatedAt: parseDate(row.updated_at),
   };
