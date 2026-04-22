@@ -37,20 +37,34 @@ No new env vars.
 
 ## Stripe Dashboard configuration
 
-The endpoint is already configured. If reconfiguring from scratch:
+The endpoint URL is already configured at `https://opsapp.co/api/webhooks/stripe`.
+To enable PMF capture on the existing endpoint, verify the webhook subscription
+includes ALL seven PMF-tracked event types listed below.
+
+| Event | Already enabled (subscription sync) | Required for PMF |
+|---|---|---|
+| `invoice.paid` | no | YES — add if missing |
+| `invoice.payment_failed` | yes | already enabled |
+| `customer.subscription.created` | yes | already enabled |
+| `customer.subscription.updated` | yes | already enabled |
+| `customer.subscription.deleted` | yes | already enabled |
+| `charge.refunded` | no | YES — add if missing |
+| `charge.dispute.created` | no | YES — add if missing |
+
+The pre-existing endpoint also listens for `payment_intent.succeeded` and
+`customer.deleted` for the non-PMF handlers. Leave those enabled.
+
+To check and add the missing events:
 
 1. Stripe Dashboard → Developers → Webhooks → existing endpoint
-2. URL: `https://opsapp.co/api/webhooks/stripe`
-3. Events to send (existing list, add any from the PMF-tracked list above
-   that are not already enabled):
-   - `payment_intent.succeeded`
-   - `customer.subscription.created` / `updated` / `deleted`
-   - `customer.deleted`
-   - `invoice.paid` ← may need to add for PMF
-   - `invoice.payment_failed`
-   - `charge.refunded` ← may need to add for PMF
-   - `charge.dispute.created` ← may need to add for PMF
-4. Signing secret → Vercel env `STRIPE_WEBHOOK_SECRET`
+2. Click "Listening to N events" → review the list
+3. If `invoice.paid`, `charge.refunded`, or `charge.dispute.created` are
+   missing, click "Update details" → "Add events" → search and select.
+4. No code changes or env-var changes needed after adding events — the
+   handler already knows what to do.
+
+If reconfiguring the endpoint from scratch, the signing secret must be wired
+to the Vercel env var `STRIPE_WEBHOOK_SECRET`.
 
 ## Local test
 
@@ -70,9 +84,12 @@ Two layers:
    that bypasses layer 1.
 
 The handler inspects the Postgres error code on insert and treats `23505`
-(unique_violation) as benign — any other error is logged but does not fail
-the request, so a transient Supabase blip on the analytics insert never
-blocks the existing subscription-state-sync handlers from running.
+(unique_violation) as benign. Any other DB error returns 500 so Stripe retries
+the event — without the retry, the dedup table would be written on the next
+successful delivery and the missing `billing_events` row would be permanently
+lost (and `pmf_deals.first_paid_at` would never fire). The 500 also blocks
+the per-type handlers on this delivery, but that is safe: those handlers are
+idempotent and Stripe's retry will re-apply them.
 
 ## After-insert trigger
 
@@ -85,6 +102,6 @@ paid customers. This is the wiring that surfaces in the PMF dashboard.
 - Handler: `src/app/api/webhooks/stripe/route.ts`
   - `PMF_TRACKED_EVENTS` constant (top of file) — the seven captured types
   - PMF block (after dedup, before per-type handlers) — performs the insert
-  - `extractCustomerId(event)` / `extractAmountCents(event)` (bottom of file)
+  - `extractCustomerId(event)` / `extractAmountCents(event)` / `extractCurrency(event)` (bottom of file)
 - Tests: `tests/integration/stripe-webhook-billing-events.test.ts`
 - Schema: `supabase/migrations/20260421120000_pmf_tracking.sql`

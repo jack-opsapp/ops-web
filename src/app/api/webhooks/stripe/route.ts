@@ -98,21 +98,34 @@ export async function POST(req: NextRequest) {
       stripe_customer_id: customer,
       company_id: companyId,
       amount_cents: amountCents,
-      currency: "usd",
+      currency: extractCurrency(event),
       occurred_at: occurredAt,
       raw: event as unknown as Record<string, unknown>,
     });
 
-    // 23505 = unique_violation: a concurrent delivery of the same event beat
-    // us to the insert. Safe to ignore — that's exactly what the unique
-    // constraint is for. Anything else gets logged but does NOT fail the
-    // request: the existing handlers must still run, and one missing analytics
-    // row is not worth blocking subscription state sync over.
-    if (billingError && (billingError as { code?: string }).code !== "23505") {
-      console.error(
-        "[stripe-webhook] billing_events insert failed:",
-        billingError.message
-      );
+    if (billingError) {
+      const code = (billingError as { code?: string }).code;
+      if (code !== "23505") {
+        // Real DB failure — return 500 so Stripe retries the event.
+        // Without retry, the billing_events row would be permanently missing
+        // because the dedup early-return above will short-circuit subsequent
+        // deliveries once stripe_webhook_events is recorded at the end of
+        // the handler. The downstream billing_events_first_paid trigger that
+        // drives pmf_deals.first_paid_at would silently skip this customer.
+        //
+        // Returning 500 here also blocks the per-type handlers from running on
+        // this delivery, which is intentional: those handlers are idempotent
+        // (own dedup at top + behavior-level idempotency in each branch), so
+        // Stripe's retry will re-apply them safely.
+        console.error(
+          "[stripe-webhook] billing_events insert failed:",
+          billingError.message
+        );
+        return NextResponse.json({ error: "billing_events insert failed" }, { status: 500 });
+      }
+      // 23505 = unique_violation: a concurrent delivery of the same event beat
+      // us to the insert. Safe to ignore — that's exactly what the unique
+      // constraint is for.
     }
   }
 
@@ -441,4 +454,16 @@ function extractAmountCents(event: Stripe.Event): number | null {
     amount_refunded?: number;
   };
   return obj.amount_paid ?? obj.amount ?? obj.amount_refunded ?? null;
+}
+
+/**
+ * Extract the ISO 4217 currency code from the event object. Invoice and Charge
+ * carry `currency` directly; subscription events do not, in which case we fall
+ * back to "usd" to preserve the prior hardcoded behavior. Defends against
+ * silent miscategorization if the company ever takes payments in another
+ * currency.
+ */
+function extractCurrency(event: Stripe.Event): string {
+  const obj = event.data.object as { currency?: string };
+  return obj.currency ?? "usd";
 }
