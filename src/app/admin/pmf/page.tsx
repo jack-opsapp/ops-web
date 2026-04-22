@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { getPmfState } from "@/lib/admin/pmf-queries";
+import { getPmfState, PMF_STATE_TTL_SECONDS } from "@/lib/admin/pmf-queries";
 import { MarkerCard } from "@/components/pmf/marker-card";
 import { IndicatorCard } from "@/components/pmf/indicator-card";
 import { PipelineKanban } from "@/components/pmf/pipeline-kanban";
@@ -10,7 +10,7 @@ import { PmfButton } from "@/components/pmf/ui/button";
 import { SlashHeader } from "@/components/pmf/ui/slash-header";
 import type { MarkerKey, IndicatorKey } from "@/lib/pmf/types";
 
-export const revalidate = 60;
+export const revalidate = PMF_STATE_TTL_SECONDS;
 
 const MARKER_KEYS: MarkerKey[] = ["marker_1", "marker_2", "marker_3", "marker_4"];
 const INDICATOR_KEYS: IndicatorKey[] = [
@@ -105,6 +105,7 @@ export default async function PmfDashboardPage() {
       {/* Pipeline + MRR */}
       <section className="grid grid-cols-5 gap-6">
         <div className="col-span-3">
+          {/* Suspense boundary anticipates server-data fetching in Task 19 */}
           <Suspense
             fallback={
               <div className="glass-surface h-[560px] animate-pulse rounded-[10px]" />
@@ -114,6 +115,7 @@ export default async function PmfDashboardPage() {
           </Suspense>
         </div>
         <div className="col-span-2">
+          {/* Suspense boundary anticipates server-data fetching in Task 20 */}
           <Suspense
             fallback={
               <div className="glass-surface h-[560px] animate-pulse rounded-[10px]" />

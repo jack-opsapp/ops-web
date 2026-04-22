@@ -9,10 +9,9 @@ import type { MarkerState } from "@/lib/pmf/types";
 interface MarkerCardProps {
   state: MarkerState;
   asCurrency?: boolean;
-  detail?: string;
 }
 
-export function MarkerCard({ state, asCurrency, detail }: MarkerCardProps) {
+export function MarkerCard({ state, asCurrency }: MarkerCardProps) {
   const pct =
     state.target > 0
       ? Math.min(100, Math.round((state.value / state.target) * 100))
@@ -20,7 +19,7 @@ export function MarkerCard({ state, asCurrency, detail }: MarkerCardProps) {
 
   const dotCount = Math.min(state.target, 8);
   const dotValue = Math.min(state.value, dotCount);
-  const detailLine = state.detail ?? detail;
+  const detailLine = state.detail;
 
   return (
     <PmfCard className="relative h-[220px] flex flex-col justify-between">

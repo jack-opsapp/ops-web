@@ -7,7 +7,7 @@ import {
 } from '@/lib/pmf/marker-compute';
 import type { PmfState, MarkerStatus } from '@/lib/pmf/types';
 
-const TTL = 60;
+export const PMF_STATE_TTL_SECONDS = 60;
 
 // Marker 1 — Tier A paid & delivered
 async function queryMarker1(): Promise<number> {
@@ -166,5 +166,5 @@ function wow(sparkline: number[]): number {
 export const getPmfState = unstable_cache(
   computePmfState,
   ['pmf-state'],
-  { revalidate: TTL, tags: ['pmf-state'] }
+  { revalidate: PMF_STATE_TTL_SECONDS, tags: ['pmf-state'] }
 );
