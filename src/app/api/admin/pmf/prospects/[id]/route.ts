@@ -109,6 +109,19 @@ export async function DELETE(
 ) {
   try {
     await requireAdmin(req);
+
+    // Confirmation guard — DELETE cascades through pmf_deals →
+    // pmf_deal_events via FK on delete cascade. A typo'd UUID could
+    // wipe months of pipeline history. Until a UI confirmation modal
+    // exists, require an explicit ?confirm=1 query param to proceed.
+    const url = new URL(req.url);
+    if (url.searchParams.get("confirm") !== "1") {
+      return NextResponse.json(
+        { error: "missing ?confirm=1 — DELETE cascades to deals + events" },
+        { status: 400 }
+      );
+    }
+
     const { id } = await params;
 
     const sb = getAdminSupabase();

@@ -316,8 +316,8 @@ describe("POST /api/admin/pmf/prospects", () => {
     expect(dealRow.stage).toBe("contacted");
     expect(dealRow.deal_type).toBe("tier_a");
 
-    const json = (await res.json()) as { prospect: { id: string } };
-    expect(json.prospect.id).toBe(VALID_PROSPECT_ID);
+    const json = (await res.json()) as { data: { id: string } };
+    expect(json.data.id).toBe(VALID_PROSPECT_ID);
   });
 
   it("returns 500 when the prospect insert fails", async () => {
@@ -332,10 +332,15 @@ describe("POST /api/admin/pmf/prospects", () => {
     expect(res.status).toBe(500);
   });
 
-  it("returns 500 when the auto-deal insert fails", async () => {
+  it("returns 500 when the auto-deal insert fails and runs compensating delete", async () => {
+    // Three terminal results in order:
+    //   1. prospect insert .single() → success
+    //   2. deal insert (await) → failure
+    //   3. compensating prospect delete (await) → success
     resultQueue = [
       { data: { id: VALID_PROSPECT_ID, ...VALID_PROSPECT }, error: null },
       { data: null, error: { message: "deal insert failed" } },
+      { data: null, error: null },
     ];
     const { POST } = await import("@/app/api/admin/pmf/prospects/route");
     const res = await POST(
@@ -345,6 +350,59 @@ describe("POST /api/admin/pmf/prospects", () => {
       })
     );
     expect(res.status).toBe(500);
+
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toContain("rolled back");
+
+    // Assert the call sequence: prospect insert → deal insert →
+    // compensating prospect delete keyed by the prospect id.
+    const prospectCalls = callsFor("pmf_prospects");
+    const insertIdx = prospectCalls.findIndex((c) => c.method === "insert");
+    const deleteIdx = prospectCalls.findIndex((c) => c.method === "delete");
+    expect(insertIdx).toBeGreaterThanOrEqual(0);
+    expect(deleteIdx).toBeGreaterThan(insertIdx);
+
+    const eqAfterDelete = prospectCalls
+      .slice(deleteIdx)
+      .find((c) => c.method === "eq");
+    expect(eqAfterDelete?.args).toEqual(["id", VALID_PROSPECT_ID]);
+  });
+
+  it("logs CRITICAL error if compensating delete also fails", async () => {
+    // Three terminal results: prospect insert ok, deal insert fails,
+    // compensating delete ALSO fails — orphan exists, we must scream.
+    resultQueue = [
+      { data: { id: VALID_PROSPECT_ID, ...VALID_PROSPECT }, error: null },
+      { data: null, error: { message: "deal insert failed" } },
+      { data: null, error: { message: "delete also failed" } },
+    ];
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const { POST } = await import("@/app/api/admin/pmf/prospects/route");
+      const res = await POST(
+        buildReq("http://localhost/api/admin/pmf/prospects", {
+          method: "POST",
+          body: VALID_PROSPECT,
+        })
+      );
+      expect(res.status).toBe(500);
+
+      const criticalCall = errorSpy.mock.calls.find((args) =>
+        args.some(
+          (a) => typeof a === "string" && a.includes("CRITICAL")
+        )
+      );
+      expect(criticalCall).toBeDefined();
+      // Prospect id must appear somewhere in the CRITICAL call args so
+      // it is grep-able in Vercel logs.
+      expect(
+        criticalCall!.some(
+          (a) => typeof a === "string" && a.includes(VALID_PROSPECT_ID)
+        )
+      ).toBe(true);
+    } finally {
+      errorSpy.mockRestore();
+    }
   });
 });
 
@@ -434,13 +492,14 @@ describe("PATCH /api/admin/pmf/prospects/[id]", () => {
 // ─── Tests: DELETE /api/admin/pmf/prospects/[id] ─────────────────────────────
 
 describe("DELETE /api/admin/pmf/prospects/[id]", () => {
-  it("deletes the prospect and returns ok", async () => {
+  it("deletes the prospect and returns ok when ?confirm=1 is supplied", async () => {
     resultQueue = [{ data: null, error: null }];
     const { DELETE } = await import("@/app/api/admin/pmf/prospects/[id]/route");
     const res = await DELETE(
-      buildReq(`http://localhost/api/admin/pmf/prospects/${VALID_PROSPECT_ID}`, {
-        method: "DELETE",
-      }),
+      buildReq(
+        `http://localhost/api/admin/pmf/prospects/${VALID_PROSPECT_ID}?confirm=1`,
+        { method: "DELETE" }
+      ),
       { params: Promise.resolve({ id: VALID_PROSPECT_ID }) }
     );
     expect(res.status).toBe(200);
@@ -452,6 +511,25 @@ describe("DELETE /api/admin/pmf/prospects/[id]", () => {
 
     const json = (await res.json()) as { ok: boolean };
     expect(json.ok).toBe(true);
+  });
+
+  it("returns 400 when DELETE is missing ?confirm=1 and never touches the DB", async () => {
+    const { DELETE } = await import("@/app/api/admin/pmf/prospects/[id]/route");
+    const res = await DELETE(
+      buildReq(
+        `http://localhost/api/admin/pmf/prospects/${VALID_PROSPECT_ID}`,
+        { method: "DELETE" }
+      ),
+      { params: Promise.resolve({ id: VALID_PROSPECT_ID }) }
+    );
+    expect(res.status).toBe(400);
+
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toContain("confirm");
+
+    // No supabase.delete() call should have been made.
+    const del = callsFor("pmf_prospects").find((c) => c.method === "delete");
+    expect(del).toBeUndefined();
   });
 });
 

@@ -73,22 +73,50 @@ async function handlePOST(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  const prospectRow = prospect as { id: string; deal_type: string };
+
   // Auto-create the initial deal at stage=contacted. The DB trigger
   // pmf_log_deal_stage_change fires only on UPDATE so the first row
   // does not log an event — that's fine; the initial state is
   // implicit from the deal's created_at.
   const { error: dealErr } = await sb.from("pmf_deals").insert({
-    prospect_id: (prospect as { id: string }).id,
+    prospect_id: prospectRow.id,
     stage: "contacted",
-    deal_type: (prospect as { deal_type: string }).deal_type,
+    deal_type: prospectRow.deal_type,
   });
 
   if (dealErr) {
-    return NextResponse.json({ error: dealErr.message }, { status: 500 });
+    // Compensating delete: the prospect was inserted but its required
+    // companion deal failed. The list GET uses pmf_deals!inner so the
+    // orphan would be invisible — silent corruption. Roll back the
+    // prospect to keep the two-row write atomic from the caller's
+    // perspective.
+    console.error(
+      "[pmf-prospects] deal insert failed for prospect",
+      prospectRow.id,
+      "— compensating delete:",
+      dealErr.message
+    );
+    const { error: delErr } = await sb
+      .from("pmf_prospects")
+      .delete()
+      .eq("id", prospectRow.id);
+    if (delErr) {
+      console.error(
+        "[pmf-prospects] CRITICAL: compensating delete also failed for prospect",
+        prospectRow.id,
+        "— orphan exists:",
+        delErr.message
+      );
+    }
+    return NextResponse.json(
+      { error: "deal insert failed; prospect rolled back" },
+      { status: 500 }
+    );
   }
 
   revalidateTag("pmf-state");
-  return NextResponse.json({ prospect });
+  return NextResponse.json({ data: prospect });
 }
 
 export const GET = withAdmin(handleGET);
