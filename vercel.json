@@ -117,7 +117,7 @@
     },
     {
       "path": "/api/cron/pmf/google-ads-sync",
-      "schedule": "0 14 * * *"
+      "schedule": "15 14 * * *"
     },
     {
       "path": "/api/cron/pmf/cleanup-snapshots",
