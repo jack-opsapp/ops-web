@@ -1,0 +1,39 @@
+{
+  "page_title": "PMF TRACKING DECK",
+
+  "markers.section_title": "GATE B · PRIMARY MARKERS",
+  "markers.on_target": "{n}/{total} ON TARGET",
+  "markers.marker_1": "TIER A ENGAGEMENTS",
+  "markers.marker_2": "RETAINED BASE SAAS",
+  "markers.marker_3": "INBOUND LEAD",
+  "markers.marker_4": "CAC · $15K SPEND",
+
+  "indicators.section_title": "LEADING INDICATORS",
+  "indicators.indicator_a": "ACTIVE TIER A",
+  "indicators.indicator_b": "WEEKLY TRIALS",
+  "indicators.indicator_c": "TRIAL → PAID",
+  "indicators.indicator_d": "COHORT CHURN",
+  "indicators.indicator_e": "REFERRALS",
+
+  "pipeline.title": "TIER A PIPELINE",
+  "pipeline.stages.contacted": "CONTACTED",
+  "pipeline.stages.qualified": "QUALIFIED",
+  "pipeline.stages.proposal": "PROPOSAL",
+  "pipeline.stages.negotiation": "NEGOTIATION",
+  "pipeline.stages.signed": "SIGNED",
+  "pipeline.stages.delivered": "DELIVERED",
+  "pipeline.stages.closed_lost": "LOST",
+  "pipeline.new_prospect": "NEW PROSPECT",
+  "pipeline.empty_column": "—",
+
+  "mrr.title": "BASE SAAS · MRR TREND",
+
+  "status.green": "GREEN",
+  "status.amber": "AMBER",
+  "status.red": "RED",
+  "status.percent_of_target": "{pct}% OF TARGET",
+
+  "errors.sync_failed": "ERROR — SYNC FAILED",
+  "errors.save_failed": "ERROR — SAVE FAILED",
+  "errors.load_failed": "ERROR — LOAD FAILED"
+}

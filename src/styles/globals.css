@@ -380,3 +380,6 @@
     border-left-color: #93321A;
   }
 }
+
+/* === PMF Dashboard scoped tokens === */
+@import './pmf-tokens.css';
