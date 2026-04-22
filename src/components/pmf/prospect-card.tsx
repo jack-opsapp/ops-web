@@ -10,6 +10,11 @@
  * The card carries column metadata via useSortable's `data` so the
  * cross-column drop handler can derive the destination stage from
  * either case (card-over-card or card-over-empty-column).
+ *
+ * NOTE: when Task 21 adds onClick to open the prospect sheet, do NOT
+ * re-add role="button" here — KeyboardSensor uses Space to grab and
+ * browsers fire click on Space for buttons. Use a dedicated drag handle
+ * or attach onClick to a child element outside the dnd listeners.
  */
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -65,7 +70,7 @@ export function ProspectCard({ prospect, deal, onClick }: ProspectCardProps) {
       {...listeners}
       onClick={onClick}
       className="glass-surface p-3 cursor-grab active:cursor-grabbing rounded-[5px]"
-      role="button"
+      role="article"
       tabIndex={0}
     >
       <div className="flex items-center justify-between gap-2">

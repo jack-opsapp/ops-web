@@ -129,6 +129,16 @@ describe("ProspectCard", () => {
     render(<ProspectCard prospect={makeProspect()} deal={makeDeal()} />);
     expect(screen.getByText(/(year|month|day|hour|minute|second)s?/i)).toBeInTheDocument();
   });
+
+  it("does NOT carry role=button (avoids Space-key drag/click collision)", () => {
+    // KeyboardSensor uses Space to grab a sortable item. Browsers fire
+    // click on Space for role="button" elements, which would double-fire
+    // any onClick wired by Task 21 (prospect sheet). The card uses
+    // role="article" instead so Space only triggers the drag.
+    render(<ProspectCard prospect={makeProspect()} deal={makeDeal()} />);
+    expect(screen.queryByRole("button")).toBeNull();
+    expect(screen.getByRole("article")).toBeInTheDocument();
+  });
 });
 
 describe("PipelineKanban", () => {
@@ -199,7 +209,7 @@ describe("PipelineKanban", () => {
     expect(counts.filter((c) => c === "[0]")).toHaveLength(4);
   });
 
-  it("surfaces an inline error when fetch fails", async () => {
+  it("renders a full-replacement error state when initial fetch fails (no empty grid)", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
@@ -211,7 +221,27 @@ describe("PipelineKanban", () => {
 
     render(<PipelineKanban />);
     await waitFor(() => {
-      expect(screen.getByText(/fetch failed: 500/)).toBeInTheDocument();
+      expect(screen.getByText(/FAILED TO LOAD/)).toBeInTheDocument();
     });
+    // The fetch error message is included for diagnostics.
+    expect(screen.getByText(/fetch failed: 500/)).toBeInTheDocument();
+    // Critically: the column grid must NOT render alongside the error
+    // (previous behavior co-rendered an empty 6-column board that
+    // looked like real data).
+    expect(screen.queryByText("CONTACTED")).toBeNull();
+    expect(screen.queryByText("QUALIFIED")).toBeNull();
+    expect(screen.queryByText("PROPOSAL")).toBeNull();
+    expect(screen.queryByText("NEGOTIATION")).toBeNull();
+    expect(screen.queryByText("SIGNED")).toBeNull();
+    expect(screen.queryByText("DELIVERED")).toBeNull();
   });
+
+  // TEST GAP: multi-error display ("(+N more)" badge) is not unit
+  // tested. Exercising it requires either simulating two failed drags
+  // through the dnd-kit DragEndEvent path (the hooks are mocked here,
+  // so DragEnd never fires) or extracting the error-banner JSX into a
+  // separate component to test in isolation. The banner logic is small
+  // and pure (Object.values(errors) + slice the last entry), and the
+  // per-deal scoping is exercised by the success-path code in the
+  // PATCH handler. Revisit if the banner grows more logic.
 });

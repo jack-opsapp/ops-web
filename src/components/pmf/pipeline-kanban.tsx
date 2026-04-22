@@ -14,8 +14,15 @@
  *
  * State updates are optimistic: the local row stage is mutated
  * immediately, the PATCH fires, and on failure the previous stage is
- * restored and an inline error message is shown next to the section
- * header.
+ * restored and the deal id is added to a per-deal `errors` map. Each
+ * map entry is keyed by deal id so a successful drag of one card does
+ * NOT silently clear a still-valid error from another card. The header
+ * banner shows the most recent error and a "(+N more)" badge if more
+ * than one drag is currently in a failed/rolled-back state.
+ *
+ * Initial fetch failures use a separate `initialFetchError` state and
+ * render a dedicated error UI instead of co-rendering the empty
+ * 6-column grid (which previously looked like real data).
  */
 import { useEffect, useState } from "react";
 import {
@@ -98,7 +105,11 @@ function ColumnDropZone({ stage, children }: ColumnDropZoneProps) {
 export function PipelineKanban() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // Separate states: `initialFetchError` is the FETCH failure (renders
+  // a full error view); `errors` is a per-deal map of drag failures
+  // (renders an inline header banner without replacing the board).
+  const [initialFetchError, setInitialFetchError] = useState<string | null>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     fetchTierA()
@@ -107,7 +118,7 @@ export function PipelineKanban() {
         setLoading(false);
       })
       .catch((e: Error) => {
-        setError(e.message);
+        setInitialFetchError(e.message);
         setLoading(false);
       });
   }, []);
@@ -153,8 +164,14 @@ export function PipelineKanban() {
       if (!res.ok) {
         throw new Error(`stage PATCH failed: ${res.status}`);
       }
-      // Clear any previously surfaced error on a successful update.
-      setError(null);
+      // Clear ONLY this deal's error on success — leave any other
+      // deal's error intact (their cards are still in a rolled-back
+      // state and the user needs to know).
+      setErrors((prev) => {
+        if (!(activeDeal.id in prev)) return prev;
+        const { [activeDeal.id]: _removed, ...rest } = prev;
+        return rest;
+      });
     } catch (err) {
       console.error("[pmf-pipeline] stage update failed, rolling back:", err);
       setRows((rs) =>
@@ -164,69 +181,97 @@ export function PipelineKanban() {
             : r,
         ),
       );
-      setError("Stage update failed — reverted");
+      setErrors((prev) => ({
+        ...prev,
+        [activeDeal.id]: "Stage update failed — reverted",
+      }));
     }
   };
+
+  if (loading) {
+    return (
+      <PmfCard className="p-4">
+        <div className="flex items-center justify-between mb-2">
+          <SlashHeader variant="section">TIER A PIPELINE</SlashHeader>
+        </div>
+        <div className="h-[400px] animate-pulse mt-4" />
+      </PmfCard>
+    );
+  }
+
+  if (initialFetchError) {
+    return (
+      <PmfCard className="p-4">
+        <div className="flex items-center justify-between mb-2">
+          <SlashHeader variant="section">TIER A PIPELINE</SlashHeader>
+        </div>
+        <div className="font-mono text-[11px] text-[color:var(--rose)] py-12 text-center">
+          // ERROR — FAILED TO LOAD
+          <br />
+          {initialFetchError}
+        </div>
+      </PmfCard>
+    );
+  }
+
+  const errorMessages = Object.values(errors);
 
   return (
     <PmfCard className="p-4">
       <div className="flex items-center justify-between mb-2">
         <SlashHeader variant="section">TIER A PIPELINE</SlashHeader>
-        {error && (
+        {errorMessages.length > 0 && (
           <span className="font-mono text-[11px] text-[color:var(--rose)]">
-            // {error}
+            // {errorMessages[errorMessages.length - 1]}
+            {errorMessages.length > 1 && ` (+${errorMessages.length - 1} more)`}
           </span>
         )}
       </div>
 
-      {loading ? (
-        <div className="h-[400px] animate-pulse mt-4" />
-      ) : (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCorners}
-          onDragEnd={onDragEnd}
-        >
-          <div className="grid grid-cols-6 gap-3 mt-4">
-            {COLUMNS.map((col) => {
-              const items = rows.filter((r) => r.deal.stage === col.key);
-              return (
-                <div key={col.key}>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-cakemono font-light uppercase text-[14px]">
-                      {col.label}
-                    </span>
-                    <span className="font-mono text-[11px] text-[color:var(--text-3)]">
-                      [{items.length}]
-                    </span>
-                  </div>
-                  <ColumnDropZone stage={col.key}>
-                    <SortableContext
-                      items={items.map((i) => i.deal.id)}
-                      strategy={rectSortingStrategy}
-                    >
-                      <div className="space-y-2">
-                        {items.length === 0 && (
-                          <div className="font-mono text-[11px] text-[color:var(--text-mute)]">
-                            —
-                          </div>
-                        )}
-                        {items.map((r) => (
-                          <ProspectCard
-                            key={r.deal.id}
-                            prospect={r.prospect}
-                            deal={r.deal}
-                          />
-                        ))}
-                      </div>
-                    </SortableContext>
-                  </ColumnDropZone>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCorners}
+        onDragEnd={onDragEnd}
+      >
+        <div className="grid grid-cols-6 gap-3 mt-4">
+          {COLUMNS.map((col) => {
+            const items = rows.filter((r) => r.deal.stage === col.key);
+            return (
+              <div key={col.key}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-cakemono font-light uppercase text-[14px]">
+                    {col.label}
+                  </span>
+                  <span className="font-mono text-[11px] text-[color:var(--text-3)]">
+                    [{items.length}]
+                  </span>
                 </div>
-              );
-            })}
-          </div>
-        </DndContext>
-      )}
+                <ColumnDropZone stage={col.key}>
+                  <SortableContext
+                    items={items.map((i) => i.deal.id)}
+                    strategy={rectSortingStrategy}
+                  >
+                    <div className="space-y-2">
+                      {items.length === 0 && (
+                        <div className="font-mono text-[11px] text-[color:var(--text-mute)]">
+                          —
+                        </div>
+                      )}
+                      {items.map((r) => (
+                        <ProspectCard
+                          key={r.deal.id}
+                          prospect={r.prospect}
+                          deal={r.deal}
+                        />
+                      ))}
+                    </div>
+                  </SortableContext>
+                </ColumnDropZone>
+              </div>
+            );
+          })}
+        </div>
+      </DndContext>
     </PmfCard>
   );
 }
