@@ -40,8 +40,8 @@ export default async function PmfDashboardPage() {
     <div className="space-y-8">
       {/* Hero strip */}
       <div className="flex items-center justify-between">
-        <h1 className="font-cakemono font-light uppercase text-[28px] tracking-[0.02em] leading-none">
-          <span className="mr-2 text-[color:var(--text-mute)] font-mono text-[20px]">//</span>
+        <h1 className="font-cakemono font-light uppercase text-[22px] tracking-[0.02em] leading-none">
+          <span className="text-[color:var(--text-mute)] font-mono mr-2">//</span>
           PMF TRACKING DECK
         </h1>
         <div className="flex items-center gap-4">
@@ -64,7 +64,7 @@ export default async function PmfDashboardPage() {
             </span>
           }
         >
-          GATE B MARKERS
+          GATE B · PRIMARY MARKERS
         </SlashHeader>
         <div className="grid grid-cols-4 gap-6">
           {MARKER_KEYS.map((key) => {
@@ -85,7 +85,7 @@ export default async function PmfDashboardPage() {
 
       {/* Indicators */}
       <section className="space-y-4">
-        <SlashHeader variant="section">EARLY INDICATORS</SlashHeader>
+        <SlashHeader variant="section">LEADING INDICATORS</SlashHeader>
         <div className="grid grid-cols-5 gap-4">
           {INDICATOR_KEYS.map((key) => {
             const indicator = state.indicators[key];
