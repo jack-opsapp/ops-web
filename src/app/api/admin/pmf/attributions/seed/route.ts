@@ -8,8 +8,13 @@
  *   - company_id            uuid, required
  *   - first_touch           optional UTM/click-id payload (utm_source,
  *                           utm_medium, utm_campaign, utm_content,
- *                           utm_term, gclid, fbclid, landing_url, referrer)
+ *                           utm_term, gclid, fbclid, landing_url)
  *   - trial_started_at      ISO timestamp; defaults to now() when absent
+ *
+ * Note: `referrer` is intentionally NOT accepted on the body. The
+ * trial_attributions table has no referrer column, so accepting the field
+ * caused silent data loss. If we later want referrer to influence
+ * attributed_channel, we'll add a column + bring the field back together.
  *
  * Behaviour:
  *   - 401 / 403 via the shared admin-auth helpers
@@ -40,7 +45,6 @@ const FirstTouchSchema = z
     gclid: z.string().max(500).optional(),
     fbclid: z.string().max(500).optional(),
     landing_url: z.string().url().optional(),
-    referrer: z.string().max(2000).optional(),
   })
   .strict();
 
@@ -93,6 +97,8 @@ export const POST = withAdmin(async (req) => {
     return NextResponse.json({ error: "Company not found" }, { status: 404 });
   }
 
+  // Referrer is intentionally omitted — see header comment + FirstTouchSchema.
+  // deriveAttributionChannel handles undefined referrer (treats it as missing).
   const attributed_channel = deriveAttributionChannel({
     utm_source: touch.utm_source,
     utm_medium: touch.utm_medium,
@@ -100,7 +106,6 @@ export const POST = withAdmin(async (req) => {
     gclid: touch.gclid,
     fbclid: touch.fbclid,
     landing_url: touch.landing_url,
-    referrer: touch.referrer,
   });
 
   const { error: insertError } = await db.from("trial_attributions").insert({

@@ -65,6 +65,10 @@ export function captureFirstTouchFromUrl(
 /**
  * Read the first-touch cookie. Returns null on SSR, missing cookie, or
  * malformed payload.
+ *
+ * Defends against malicious / corrupt cookies: the parsed JSON must be a
+ * non-null, non-array object. Any non-string field is coerced to undefined
+ * so downstream consumers never see e.g. `utm_source = 123`.
  */
 export function readCookieFirstTouch(): FirstTouch | null {
   if (typeof document === "undefined") return null;
@@ -74,7 +78,24 @@ export function readCookieFirstTouch(): FirstTouch | null {
   if (!match) return null;
   try {
     const value = match.substring(COOKIE.length + 1);
-    return JSON.parse(decodeURIComponent(value)) as FirstTouch;
+    const raw: unknown = JSON.parse(decodeURIComponent(value));
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+    const obj = raw as Record<string, unknown>;
+    const isStr = (v: unknown): v is string => typeof v === "string";
+    return {
+      utm_source: isStr(obj.utm_source) ? obj.utm_source : undefined,
+      utm_medium: isStr(obj.utm_medium) ? obj.utm_medium : undefined,
+      utm_campaign: isStr(obj.utm_campaign) ? obj.utm_campaign : undefined,
+      utm_content: isStr(obj.utm_content) ? obj.utm_content : undefined,
+      utm_term: isStr(obj.utm_term) ? obj.utm_term : undefined,
+      gclid: isStr(obj.gclid) ? obj.gclid : undefined,
+      fbclid: isStr(obj.fbclid) ? obj.fbclid : undefined,
+      landing_url: isStr(obj.landing_url) ? obj.landing_url : undefined,
+      referrer: isStr(obj.referrer) ? obj.referrer : undefined,
+      captured_at: isStr(obj.captured_at)
+        ? obj.captured_at
+        : new Date().toISOString(),
+    };
   } catch {
     return null;
   }
@@ -82,13 +103,18 @@ export function readCookieFirstTouch(): FirstTouch | null {
 
 /**
  * Write the first-touch cookie. SSR-safe no-op when document is undefined.
- * Path=/, SameSite=Lax, Expires=+30d.
+ * Path=/, SameSite=Lax, Expires=+30d. Adds Secure when running on HTTPS so
+ * the cookie isn't sent over plain HTTP. HttpOnly is intentionally omitted
+ * because the JS reader (readCookieFirstTouch) needs access.
  */
 export function writeCookieFirstTouch(touch: FirstTouch): void {
   if (typeof document === "undefined") return;
   const expires = new Date(Date.now() + TTL_DAYS * 86_400_000).toUTCString();
   const value = encodeURIComponent(JSON.stringify(touch));
-  document.cookie = `${COOKIE}=${value}; Path=/; Expires=${expires}; SameSite=Lax`;
+  const isHttps =
+    typeof window !== "undefined" && window.location.protocol === "https:";
+  const secure = isHttps ? "; Secure" : "";
+  document.cookie = `${COOKIE}=${value}; Path=/; Expires=${expires}; SameSite=Lax${secure}`;
 }
 
 /**

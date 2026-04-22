@@ -15,7 +15,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import type { NextRequest } from "next/server";
+import type { NextRequest, NextResponse } from "next/server";
 
 // ─── Mock state ──────────────────────────────────────────────────────────────
 
@@ -47,14 +47,18 @@ vi.mock("@/lib/admin/api-auth", async () => {
       }
       return { uid: "admin-uid", email: "admin@opsapp.co", claims: {} };
     },
+    // Signature mirrors the real withAdmin in src/lib/admin/api-auth.ts —
+    // handler returns Promise<NextResponse>, NOT Promise<Response>. Keeping
+    // these aligned means future narrowing of the catch surface in the real
+    // wrapper will be caught by tests instead of slipping through.
     withAdmin: (
-      handler: (req: NextRequest) => Promise<Response>
+      handler: (req: NextRequest) => Promise<NextResponse>
     ) =>
       async (req: NextRequest) => {
         try {
           return await handler(req);
         } catch (err) {
-          if (err instanceof Response) return err;
+          if (err instanceof NextResponse) return err;
           return NextResponse.json(
             { error: "Internal server error" },
             { status: 500 }
