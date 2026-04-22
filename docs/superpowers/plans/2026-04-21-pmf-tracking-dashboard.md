@@ -967,7 +967,7 @@ git commit -m "feat(pmf): formatters (PT timezone, tabular) + recipients helper"
 
 Create `src/components/pmf/ui/status-dot.tsx`:
 ```tsx
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/cn';
 import type { MarkerStatus } from '@/lib/pmf/types';
 
 interface StatusDotProps {
@@ -1005,7 +1005,7 @@ export function StatusDot({ status, size = 6, className, label }: StatusDotProps
 
 Create `src/components/pmf/ui/slash-header.tsx`:
 ```tsx
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/cn';
 
 interface SlashHeaderProps {
   children: React.ReactNode;
@@ -1056,7 +1056,7 @@ export function OpsMark({ size = 16, className }: OpsMarkProps) {
 
 Create `src/components/pmf/ui/kbd.tsx`:
 ```tsx
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/cn';
 interface KbdProps { children: React.ReactNode; className?: string; }
 export function Kbd({ children, className }: KbdProps) {
   return (
@@ -1077,7 +1077,7 @@ export function Kbd({ children, className }: KbdProps) {
 
 Create `src/components/pmf/ui/tag.tsx`:
 ```tsx
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/cn';
 
 type TagVariant = 'default' | 'olive' | 'tan' | 'rose';
 interface TagProps {
@@ -1133,7 +1133,7 @@ Create `src/components/pmf/ui/button.tsx`:
 ```tsx
 'use client';
 import { forwardRef, type ButtonHTMLAttributes } from 'react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/cn';
 
 type Variant = 'primary' | 'default' | 'secondary' | 'ghost' | 'destructive';
 
@@ -1174,7 +1174,7 @@ PmfButton.displayName = 'PmfButton';
 
 Create `src/components/pmf/ui/card.tsx`:
 ```tsx
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/cn';
 
 interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   dense?: boolean;
@@ -1193,7 +1193,7 @@ export function PmfCard({ dense, className, children, ...rest }: CardProps) {
 
 Create `src/components/pmf/ui/progress-dots.tsx`:
 ```tsx
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/cn';
 import type { MarkerStatus } from '@/lib/pmf/types';
 
 interface ProgressDotsProps {
@@ -1234,7 +1234,7 @@ Create `src/components/pmf/ui/countdown-chip.tsx`:
 ```tsx
 'use client';
 import { useEffect, useState } from 'react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/cn';
 import { daysUntilGate } from '@/lib/pmf/formatters';
 
 export function CountdownChip() {
@@ -1314,7 +1314,7 @@ Create `src/components/pmf/ui/hero-number.tsx`:
 'use client';
 import { useEffect } from 'react';
 import { motion, useMotionValue, useTransform, animate, useReducedMotion } from 'framer-motion';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/cn';
 
 interface HeroNumberProps {
   value: number;
