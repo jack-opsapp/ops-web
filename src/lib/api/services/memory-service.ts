@@ -998,6 +998,45 @@ export const MemoryService = {
   },
 
   /**
+   * Extract facts/entities/edges from one pre-classified thread and persist
+   * them (agent_memories + graph_entities + agent_knowledge_graph). Thin
+   * public wrapper around the module-level worker — for callers that want
+   * to process one thread at a time without spinning up the chunked
+   * pipeline state machine. Used by the inbox backfill route, which walks
+   * targeted threads (LEAD/CLIENT, last 90 days) and feeds each in.
+   *
+   * Returns the per-thread stat diff the caller can accumulate. Errors
+   * from any individual extraction are logged and swallowed — one bad
+   * thread shouldn't abort the backfill.
+   */
+  async extractFromThread(
+    companyId: string,
+    userId: string,
+    thread: ClassifiedThread,
+  ): Promise<{ factsAdded: number; edgesAdded: number }> {
+    const supabase = requireSupabase();
+    // Accumulator is discarded — the one-off path doesn't build writing
+    // profiles; that's a batch-level operation driven by runPhaseCChunks.
+    const scratch: Record<string, Array<{ subject: string; bodyText: string; date: string }>> = {};
+    try {
+      return await processThreadExtraction(
+        supabase,
+        companyId,
+        userId,
+        thread,
+        scratch,
+      );
+    } catch (err) {
+      console.error(
+        '[memory-service] extractFromThread failed for thread',
+        thread.threadId,
+        err instanceof Error ? err.message : err,
+      );
+      return { factsAdded: 0, edgesAdded: 0 };
+    }
+  },
+
+  /**
    * Phase C: Build the initial chunked-pipeline state from classified threads.
    * The caller persists this into gmail_scan_jobs.result.phaseCPipeline and
    * then drives the pipeline with runPhaseCChunks.
