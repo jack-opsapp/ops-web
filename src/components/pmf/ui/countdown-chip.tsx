@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { cn } from '@/lib/cn';
+import { cn } from '@/lib/utils/cn';
 import { daysUntilGate } from '@/lib/pmf/formatters';
 
 export function CountdownChip() {

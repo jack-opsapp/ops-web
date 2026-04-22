@@ -1,4 +1,4 @@
-import { cn } from '@/lib/cn';
+import { cn } from '@/lib/utils/cn';
 
 interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   dense?: boolean;

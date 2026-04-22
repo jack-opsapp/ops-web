@@ -1,4 +1,4 @@
-import { cn } from '@/lib/cn';
+import { cn } from '@/lib/utils/cn';
 interface KbdProps { children: React.ReactNode; className?: string; }
 export function Kbd({ children, className }: KbdProps) {
   return (

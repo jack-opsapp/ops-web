@@ -1,7 +1,7 @@
 'use client';
 import { useEffect } from 'react';
 import { motion, useMotionValue, useTransform, animate, useReducedMotion } from 'framer-motion';
-import { cn } from '@/lib/cn';
+import { cn } from '@/lib/utils/cn';
 
 interface HeroNumberProps {
   value: number;
