@@ -74,7 +74,6 @@ begin
             now());
     new.stage_entered_at := now();
   end if;
-  new.updated_at := now();
   return new;
 end $$;
 
@@ -215,4 +214,7 @@ returns trigger language plpgsql as $$
 begin new.updated_at := now(); return new; end $$;
 
 create trigger pmf_prospects_touch before update on public.pmf_prospects
+  for each row execute function public.pmf_touch_updated_at();
+
+create trigger pmf_deals_touch before update on public.pmf_deals
   for each row execute function public.pmf_touch_updated_at();
