@@ -171,6 +171,11 @@
   "siblings.viewClient": "View client",
   "siblings.viewClientTitle": "Open client profile",
 
+  "commitment.label": "// COMMITMENT",
+  "commitment.empty": "—",
+  "commitment.resolve": "Resolve",
+  "commitment.resolveTitle": "Mark commitment resolved",
+
   "insights.header": "Phase C insights",
   "insights.sender": "Sender",
   "insights.manual": "Manual",

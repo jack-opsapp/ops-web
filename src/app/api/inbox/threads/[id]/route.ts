@@ -263,6 +263,28 @@ export async function GET(
       }));
     }
 
+    // ─── Commitments (unresolved, for this thread) ──────────────────────
+    //
+    // Returned in ascending due-date order so the detail pill renders the
+    // most urgent first. Only unresolved rows — resolved commitments fall
+    // off the pill automatically once the Resolve action lands.
+    const { data: commitmentRows } = await supabase
+      .from("agent_memories")
+      .select("id, content, due_date, resolved_at, confidence, created_at")
+      .eq("company_id", thread.companyId)
+      .eq("source_id", thread.id)
+      .eq("category", "commitment")
+      .is("resolved_at", null)
+      .order("due_date", { ascending: true, nullsFirst: false });
+
+    const commitments = (commitmentRows ?? []).map((r) => ({
+      id: r.id as string,
+      content: (r.content as string) ?? "",
+      dueDate: (r.due_date as string | null) ?? null,
+      confidence: Number(r.confidence ?? 0.8),
+      createdAt: (r.created_at as string) ?? null,
+    }));
+
     return NextResponse.json({
       thread: {
         id: thread.id,
@@ -283,6 +305,7 @@ export async function GET(
       },
       messages,
       siblingThreads,
+      commitments,
     });
   } catch (err) {
     console.error("[/api/inbox/threads/:id] GET failed:", err);

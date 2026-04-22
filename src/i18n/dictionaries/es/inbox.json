@@ -140,6 +140,11 @@
   "siblings.viewClient": "Ver cliente",
   "siblings.viewClientTitle": "Abrir perfil del cliente",
 
+  "commitment.label": "// COMPROMISO",
+  "commitment.empty": "—",
+  "commitment.resolve": "Resolver",
+  "commitment.resolveTitle": "Marcar compromiso como resuelto",
+
   "insights.header": "Phase C intel",
   "insights.sender": "Remitente",
   "insights.manual": "Manual",

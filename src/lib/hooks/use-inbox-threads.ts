@@ -122,6 +122,24 @@ export interface InboxSiblingThread {
   snoozedUntil: string | null;
 }
 
+/**
+ * An unresolved commitment attached to a thread. The detail view renders
+ * these as pills at the top of the pane with a Resolve affordance. Order
+ * is earliest-due first, matching the COMMITMENTS rail sort.
+ */
+export interface InboxThreadCommitment {
+  /** agent_memories.id — use this to resolve via the PATCH endpoint. */
+  id: string;
+  /** The fact text extracted by Phase C (e.g. "Owner promised revised quote to John by Friday"). */
+  content: string;
+  /** ISO-8601. Null when Phase C recorded a commitment without a parseable date. */
+  dueDate: string | null;
+  /** 0–1 confidence from the extractor. Surfaced as a soft indicator in the UI. */
+  confidence: number;
+  /** When the commitment fact was created. */
+  createdAt: string | null;
+}
+
 export interface InboxThreadDetail {
   thread: {
     id: string;
@@ -149,6 +167,12 @@ export interface InboxThreadDetail {
    * clientId is null or no other threads exist.
    */
   siblingThreads: InboxSiblingThread[];
+  /**
+   * Unresolved commitments Phase C extracted from this thread. Ordered
+   * by due_date ASC (earliest first). Empty array when no commitments
+   * or all have been resolved.
+   */
+  commitments: InboxThreadCommitment[];
 }
 
 export interface InboxThreadsPage {
@@ -406,6 +430,49 @@ export function useDiscardDraft() {
       // shape rather than on TanStack Query's matching semantics.
       qc.invalidateQueries({ queryKey: queryKeys.inbox.drafts("own") });
       qc.invalidateQueries({ queryKey: queryKeys.inbox.drafts("company") });
+    },
+  });
+}
+
+// ─── Commitment resolve mutation ────────────────────────────────────────────
+//
+// Hits PATCH /api/inbox/commitments/:id to toggle resolved state on an
+// agent_memories row. The DB trigger (migration 077) picks up the change
+// and recomputes email_threads.next_commitment_due_at + has_unresolved_commitments,
+// which means the COMMITMENTS rail drops the thread automatically when
+// its last commitment is resolved.
+
+export interface ResolveCommitmentArgs {
+  id: string;
+  /** ISO-8601 for unresolve-back-to-this-due, or null for resolve-now. */
+  resolvedAt: string | null;
+  /** threadId so we can invalidate the parent thread's detail query. */
+  threadId: string;
+}
+
+export function useResolveCommitment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: ResolveCommitmentArgs): Promise<void> => {
+      const headers = {
+        ...(await authHeaders()),
+        "Content-Type": "application/json",
+      };
+      const res = await fetch(`/api/inbox/commitments/${args.id}`, {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({ resolvedAt: args.resolvedAt }),
+      });
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({}));
+        throw new Error(e.error || `resolve failed (${res.status})`);
+      }
+    },
+    onSuccess: (_res, args) => {
+      // Invalidate both the thread detail (pill disappears) and the list
+      // (rail sort + unread signal may shift).
+      qc.invalidateQueries({ queryKey: queryKeys.inbox.threadDetail(args.threadId) });
+      qc.invalidateQueries({ queryKey: queryKeys.inbox.threadsAll() });
     },
   });
 }

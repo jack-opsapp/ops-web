@@ -59,6 +59,7 @@ import {
   type PhaseCStripState,
 } from "./phase-c-status-strip";
 import { ThreadSiblingStrip } from "./thread-sibling-strip";
+import { ThreadCommitmentStrip } from "./thread-commitment-strip";
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 
@@ -686,6 +687,17 @@ export function ThreadDetailView({
           clientId={data.thread.clientId}
           siblings={data.siblingThreads}
           onSelect={onSelectThread}
+        />
+      )}
+
+      {/* ─── Unresolved commitments ────────────────────────────────────── */}
+      {/* Positioned immediately above the agent-state strip because
+          commitments are explicit things the user owes, outranking
+          agent drafting status. Hidden when none exist. */}
+      {threadId && data && (data.commitments?.length ?? 0) > 0 && (
+        <ThreadCommitmentStrip
+          threadId={threadId}
+          commitments={data.commitments}
         />
       )}
 
