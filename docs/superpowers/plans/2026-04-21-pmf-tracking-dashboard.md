@@ -156,8 +156,8 @@ STRIPE_WEBHOOK_SECRET=whsec_xxx
 TWILIO_ACCOUNT_SID=ACxxx
 TWILIO_AUTH_TOKEN=xxx
 TWILIO_PHONE_NUMBER=+1xxxxxxxxxx
-PMF_NOTIFICATION_SMS=+12505388994
-PMF_NOTIFICATION_EMAIL=canprojack@gmail.com
+PMF_NOTIFICATION_SMS=+1XXXXXXXXXX
+PMF_NOTIFICATION_EMAIL=you@example.com
 PMF_OPERATOR_USER_ID=<supabase auth user id for operator>
 CRON_SECRET=<random string for cron auth>
 ```
@@ -169,11 +169,11 @@ Read current `vercel.json`, add to `crons` array:
 { "path": "/api/cron/pmf/threshold-check",   "schedule": "*/15 * * * *" },
 { "path": "/api/cron/pmf/daily-digest",      "schedule": "0 15 * * *"  },
 { "path": "/api/cron/pmf/weekly-digest",     "schedule": "0 15 * * 1"  },
-{ "path": "/api/cron/pmf/google-ads-sync",   "schedule": "0 14 * * *"  },
+{ "path": "/api/cron/pmf/google-ads-sync",   "schedule": "15 14 * * *" },
 { "path": "/api/cron/pmf/cleanup-snapshots", "schedule": "30 14 * * *" }
 ```
 
-All UTC; comment above them that 14/15 UTC = 6/7am PST.
+All UTC; 14/15 UTC = 6/7am PST. `google-ads-sync` at `:15` staggers it off the existing `trial-expiry` 14:00 slot.
 
 - [ ] **Step 1.4: Commit**
 
