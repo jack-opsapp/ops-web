@@ -22,7 +22,7 @@ import { Tag } from "@/components/pmf/ui/tag";
 import { formatDistanceToNowStrict } from "date-fns";
 import type { Prospect, Deal, ProspectSource, DealStage } from "@/lib/pmf/types";
 
-const SOURCE_TAG_VARIANT: Record<ProspectSource, "olive" | "tan" | "default"> = {
+export const SOURCE_TAG_VARIANT: Record<ProspectSource, "olive" | "tan" | "default"> = {
   referral: "olive",
   organic_search: "olive",
   direct: "olive",
@@ -31,7 +31,7 @@ const SOURCE_TAG_VARIANT: Record<ProspectSource, "olive" | "tan" | "default"> = 
   outbound_cold: "default",
 };
 
-const SOURCE_LABEL: Record<ProspectSource, string> = {
+export const SOURCE_LABEL: Record<ProspectSource, string> = {
   referral: "REFERRAL",
   organic_search: "ORGANIC",
   direct: "DIRECT",

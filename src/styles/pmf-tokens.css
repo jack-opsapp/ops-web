@@ -121,3 +121,19 @@
     animation-iteration-count: 1 !important;
   }
 }
+
+/* Form inputs scoped to .pmf-scope */
+.pmf-scope .pmf-input {
+  background: var(--surface-input);
+  border: 1px solid var(--line);
+  border-radius: var(--r-btn);
+  color: var(--text);
+  font-family: var(--font-mohave, "Mohave", system-ui, sans-serif);
+  font-size: 14px;
+  padding: 8px 12px;
+  min-height: 36px;
+  width: 100%;
+  transition: border-color var(--d-hover) var(--ease-smooth);
+}
+.pmf-scope .pmf-input:focus { outline: none; border-color: rgba(255,255,255,0.20); }
+.pmf-scope .pmf-input::placeholder { color: var(--text-3); }
