@@ -125,14 +125,21 @@ export async function GET(request: NextRequest) {
   // ── Fetch OPS AI drafts (status='drafted') ──────────────────────────────
   // Scope=own → only this user's drafts; scope=company → every user in the
   // company. Matches the "is this actionable for me right now" mental model.
+  //
+  // Migration 040 declared `updated_at` on ai_draft_history but production
+  // only has `created_at` — the column was dropped (or the migration never
+  // fully applied). We sort + project by created_at and surface it as
+  // `updatedAt` on the wire; the row is effectively immutable after creation
+  // anyway (edits produce a new row via the learning pipeline, not an
+  // in-place update), so created_at is the authoritative "last touched" time.
   let aiQuery = supabase
     .from("ai_draft_history")
     .select(
-      "id, user_id, connection_id, thread_id, opportunity_id, original_draft, final_version, created_at, updated_at"
+      "id, user_id, connection_id, thread_id, opportunity_id, original_draft, final_version, created_at"
     )
     .eq("company_id", companyId)
     .eq("status", "drafted")
-    .order("updated_at", { ascending: false })
+    .order("created_at", { ascending: false })
     .limit(200);
 
   if (scope === "own") {
@@ -163,8 +170,7 @@ export async function GET(request: NextRequest) {
       bodyText:
         ((r.final_version as string) || (r.original_draft as string) || "")
           .trim(),
-      updatedAt:
-        (r.updated_at as string) ?? (r.created_at as string) ?? new Date().toISOString(),
+      updatedAt: (r.created_at as string) ?? new Date().toISOString(),
     };
   });
 
@@ -264,9 +270,12 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    // `updated_at` column doesn't exist on this table (see GET path note)
+    // so we only flip `status`. The discard timestamp isn't critical —
+    // downstream learning reads status + created_at only.
     const { error: updErr } = await supabase
       .from("ai_draft_history")
-      .update({ status: "discarded", updated_at: new Date().toISOString() })
+      .update({ status: "discarded" })
       .eq("id", id);
     if (updErr) {
       console.error("[/api/inbox/drafts] ai discard failed:", updErr);

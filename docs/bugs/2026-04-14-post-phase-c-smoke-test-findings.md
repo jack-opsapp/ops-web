@@ -1,7 +1,8 @@
 # Post–Phase C Deploy Smoke Test — Non-Phase-C Findings
 
-**Date:** 2026-04-14
+**Date:** 2026-04-14 → 2026-04-15
 **Deploy:** `dpl_8jBzPhfepkdH2D8USKDS4t23RTuu` (commit `26d65dd`) — `READY`
+**Follow-up deploy:** `dpl_EVA2VdEXzXAxUqxb5BR84UG71ZAq` (commit `4b7183b` — the `setSupabaseOverride` fix) — `READY`
 **Scope:** Pre-existing / adjacent bugs observed while smoke-testing Phase C in the live production browser (Canpro Deck and Rail, `app.opsapp.co`). All Phase C features themselves passed. Items below are **not Phase C regressions** — they were either already broken, or were masked by a now-fixed bug and have become visible as a result.
 
 ---
@@ -149,6 +150,67 @@ Profile tab is pre-existing. Phase C added `companies.locale` which could be lev
 
 ---
 
+## 6. Approval queue filter chips should use the standardized SegmentedPicker
+
+**Severity:** minor UX — design system inconsistency
+**First observed:** Jackson's manual test pass on commit `4b7183b`
+**Location:** `src/app/(dashboard)/agent/queue/page.tsx:238-271`
+
+### Current behavior
+The agent queue page renders three filter groups (status / action type / priority) as rows of custom `FilterPill` components with visual divider bars between groups:
+
+```tsx
+<div className="flex flex-wrap items-center gap-1">
+  <Filter className="w-[14px] h-[14px] text-text-tertiary shrink-0 mx-2" />
+
+  {STATUS_OPTIONS.map((s) => (
+    <FilterPill key={`s-${s}`} label={...} active={...} onClick={...} />
+  ))}
+  <div className="w-px h-8 bg-[rgba(255,255,255,0.08)] mx-1" />
+
+  {TYPE_OPTIONS.map((s) => (
+    <FilterPill key={`t-${s}`} label={...} ... />
+  ))}
+  <div className="w-px h-8 bg-[rgba(255,255,255,0.08)] mx-1" />
+
+  {PRIORITY_OPTIONS.map((s) => (
+    <FilterPill key={`p-${s}`} label={...} ... />
+  ))}
+</div>
+```
+
+### Expected behavior
+OPS has a standardized `SegmentedPicker` component at `src/components/ops/segmented-picker.tsx` used by `task-list-widget`, `widget-period-picker`, and `pipeline-funnel-widget`. It supports:
+- Exclusive selection (one value at a time)
+- Sliding underline animation via ResizeObserver
+- Optional icon-only mode
+- Font-mohave labels
+- text-tertiary → text-primary transitions
+
+The queue page should use three `<SegmentedPicker>` instances instead of `FilterPill` rows — one for each filter group. `SegmentedPicker` API:
+
+```tsx
+<SegmentedPicker
+  options={STATUS_OPTIONS.map(s => ({
+    value: s,
+    label: t(s === "all" ? "filter.all" : `filter.${s}`)
+  }))}
+  value={filters.status ?? "all"}
+  onChange={(v) => setFilters((f) => ({ ...f, status: v === "all" ? undefined : v }))}
+/>
+```
+
+### Notes
+- Filters **work functionally** — confirmed during the manual test, clicking filters correctly shows/hides action cards
+- This is purely a visual / design-system consistency refactor
+- Scope: replace 3 `FilterPill` loops with 3 `<SegmentedPicker>` instances. Keep the state logic and i18n keys identical.
+- The `FilterPill` component can be deleted if no other page uses it (needs a grep)
+
+### Why it's not a Phase C blocker
+The queue page shipped with the current filter chip design on commit `26d65dd`. The `setSupabaseOverride` fix (commit `4b7183b`) didn't touch the queue page UI — this design system inconsistency predates both commits.
+
+---
+
 ## Summary table
 
 | # | Area | Severity | Status | Hidden by Phase C bug? |
@@ -158,6 +220,7 @@ Profile tab is pre-existing. Phase C added `companies.locale` which could be lev
 | 3 | Firebase COOP popup warnings | Benign console noise | Not filed | No |
 | 4 | GA4 `collect` ERR_ABORTED | None | Not filed | No |
 | 5 | Unformatted phone on Settings | Minor UX | Not filed | No |
+| 6 | Agent queue filter chips → SegmentedPicker | Minor UX | Not filed | No |
 
 ---
 

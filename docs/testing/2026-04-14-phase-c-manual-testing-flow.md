@@ -83,6 +83,8 @@ After clicking reject, you should see:
 - `PATCH /api/agent/queue/5baf4ff3-11e9-4340-a9b1-fad5ad993e6f` → **200**
 - Followed by a refetch: `GET /api/agent/queue?...` → **200**
 
+
+Looks good
 ---
 
 ## 4. Comms wizard gating (1 minute)
@@ -103,6 +105,17 @@ This tests `/api/agent/comms-wizard/gating` — the 6th route I fixed.
      }
      ```
 4. **If the response is empty `{}` or throws 500:** it means the route still can't read the DB. Tell me.
+
+Response: {
+    "phaseCEnabled": false,
+    "writingProfileConfidence": 0,
+    "priorConfirmationsSent": 0,
+    "fullAutoUnlocked": false,
+    "thresholds": {
+        "minConfidence": 0.85,
+        "minPriors": 50
+    }
+}
 
 ---
 
@@ -184,12 +197,12 @@ Once the writing profile is built (via Settings → Integrations → AI Setup �
 
 When you're done, tell me:
 
-- [ ] Deploy state (READY / ERROR / BUILDING)
-- [ ] Did the test action card appear in the queue? (Y/N)
-- [ ] Did the status filter chips correctly hide/show the card? (Y/N)
-- [ ] Did reject → the card disappear + show up under "Rejected"? (Y/N)
-- [ ] Did `/agent/comms-config` redirect to `/agent/queue` with a 200 on the gating endpoint? (Y/N)
-- [ ] Any red 500s in the console from Phase C routes? (paste the stack)
-- [ ] Any 401s except on `/api/dashboard-preferences`? (those are the pre-existing auth-rotation noise)
-- [ ] Any UI bugs I should log in the bug-report doc?
-- [ ] Did you run the cleanup SQL in § 6? (Y/N + row count returned)
+- [ READY] Deploy state (READY / ERROR / BUILDING)
+- [YES ] Did the test action card appear in the queue? (Y/N)
+- [ YES, but we will need to fix UI. They should use segmented picker that we have standardized] Did the status filter chips correctly hide/show the card? (Y/N)
+- [ Yes ] Did reject → the card disappear + show up under "Rejected"? (Y/N)
+- [ Y] Did `/agent/comms-config` redirect to `/agent/queue` with a 200 on the gating endpoint? (Y/N)
+- [ N] Any red 500s in the console from Phase C routes? (paste the stack)
+- [ N] Any 401s except on `/api/dashboard-preferences`? (those are the pre-existing auth-rotation noise)
+- [ Y, need to fix the chips to change to segmented pickers.] Any UI bugs I should log in the bug-report doc?
+- [N ] Did you run the cleanup SQL in § 6? (Y/N + row count returned)
