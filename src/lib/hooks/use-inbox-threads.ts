@@ -60,6 +60,14 @@ export interface InboxThreadRow {
    *  preference to latestSenderName so cards show "Acme Roofing" instead
    *  of "Jackson Sweet" on threads where the user is the latest sender. */
   clientName: string | null;
+  /**
+   * Earliest unresolved commitment due date across the thread's memories.
+   * Denormalized from agent_memories via a DB trigger. Null when the
+   * thread has no unresolved commitment. ISO-8601.
+   */
+  nextCommitmentDueAt: string | null;
+  /** True when at least one unresolved commitment memory targets this thread. */
+  hasUnresolvedCommitments: boolean;
 }
 
 export interface InboxThreadMessage {
@@ -164,6 +172,12 @@ export interface UseInboxThreadsParams {
   filter: InboxRail;
   category?: EmailThreadCategory;
   search?: string;
+  /**
+   * Page size override. Omit for the default. The empty-status-view's
+   * reply-debt section passes `limit: 10` so it can client-side sort
+   * ASC by lastMessageAt and take the top 3 oldest without paging.
+   */
+  limit?: number;
 }
 
 async function fetchThreadsPage(
@@ -175,6 +189,7 @@ async function fetchThreadsPage(
   if (params.category) qs.set("category", params.category);
   if (params.search) qs.set("search", params.search);
   if (params.cursor) qs.set("cursor", params.cursor);
+  if (params.limit) qs.set("limit", String(params.limit));
 
   const headers = await authHeaders();
   const res = await fetch(`/api/inbox/threads?${qs.toString()}`, { headers });
@@ -232,6 +247,7 @@ export function useInboxThreads(params: UseInboxThreadsParams) {
       filter: params.filter,
       category: params.category ?? null,
       search: params.search ?? null,
+      limit: params.limit ?? null,
     }),
     queryFn: ({ pageParam }) =>
       fetchThreadsPage({
