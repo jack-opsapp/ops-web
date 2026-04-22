@@ -192,16 +192,26 @@ export async function POST(request: NextRequest) {
 
   // ── Target thread selection ───────────────────────────────────────────────
   //
-  // Skip threads that already have a commitment memory — those have been
-  // through Phase C extraction recently and re-running would just burn
-  // tokens on the dedup NOOP path. If a future run needs to reprocess
-  // (e.g., prompt revision) the caller can delete the relevant memories
-  // first; we deliberately don't expose a force-reprocess flag here
-  // because it's a surface for expensive mistakes.
+  // Skip threads that have ANY agent_memories row attributed to them —
+  // those have been through Phase C extraction already and re-running
+  // would just burn tokens on the dedup NOOP path. Checking for any
+  // row (not only category='commitment') also filters out threads that
+  // produced pricing/service/preference facts but no commitment — those
+  // would otherwise get re-processed on every run because a dateless
+  // extraction produces no new commitment rows.
+  //
+  // If a future run needs to reprocess (e.g., prompt revision) the
+  // caller can delete the relevant memories first; we deliberately
+  // don't expose a force-reprocess flag here because it's a surface
+  // for expensive mistakes.
   const sinceIso = new Date(
     Date.now() - LOOKBACK_DAYS * 24 * 60 * 60 * 1000
   ).toISOString();
 
+  // `phase_c_extracted_at IS NULL` is a fast partial-index hit after the
+  // migration 078 backfill. The over-fetch window is removed because the
+  // index already narrows the candidate set — every returned row is
+  // unprocessed, so we can request exactly `limit` threads.
   const { data: threadRows, error: threadError } = await supabase
     .from("email_threads")
     .select("*")
@@ -209,8 +219,9 @@ export async function POST(request: NextRequest) {
     .in("primary_category", TARGET_CATEGORIES as unknown as string[])
     .gt("last_message_at", sinceIso)
     .is("archived_at", null)
+    .is("phase_c_extracted_at", null)
     .order("last_message_at", { ascending: false })
-    .limit(limit * 4); // over-fetch; we'll filter out already-processed below
+    .limit(limit);
 
   if (threadError) {
     return NextResponse.json(
@@ -219,35 +230,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const candidateIds = (threadRows ?? []).map((r) => r.id as string);
-  if (candidateIds.length === 0) {
-    return NextResponse.json<BackfillResult>({
-      scanned: 0,
-      processed: 0,
-      errors: 0,
-      factsAdded: 0,
-      edgesAdded: 0,
-      remaining: 0,
-    });
-  }
-
-  // Find which of the candidates already have a commitment memory — those
-  // are considered "processed" for the purposes of the idempotency gate.
-  const { data: existingRows } = await supabase
-    .from("agent_memories")
-    .select("source_id")
-    .eq("company_id", companyId)
-    .eq("category", "commitment")
-    .in("source_id", candidateIds);
-
-  const alreadyProcessed = new Set<string>(
-    (existingRows ?? []).map((r) => r.source_id as string)
-  );
-
-  const targetRows = (threadRows ?? [])
-    .filter((r) => !alreadyProcessed.has(r.id as string))
-    .slice(0, limit);
-
+  const targetRows = threadRows ?? [];
   if (targetRows.length === 0) {
     return NextResponse.json<BackfillResult>({
       scanned: 0,
@@ -361,6 +344,15 @@ export async function POST(request: NextRequest) {
         result.edgesAdded += stats.edgesAdded;
         result.processed++;
         result.scanned++;
+
+        // Stamp the thread as processed so it drops out of future
+        // candidate sets, even when the LLM returned zero new facts.
+        // Fire-and-forget — a failed stamp just means we re-process the
+        // thread once more next run, never lose data.
+        await supabase
+          .from("email_threads")
+          .update({ phase_c_extracted_at: new Date().toISOString() })
+          .eq("id", threadId);
       } catch (err) {
         console.error(
           "[/api/inbox/phase-c-backfill] extraction failed for thread",
@@ -381,33 +373,15 @@ export async function POST(request: NextRequest) {
   // again on its own cadence). For the UI path it drives "Processed X of Y
   // — click again to continue" messaging.
   if (!isCronAuth) {
-    const { data: remainingRows } = await supabase
+    const { count } = await supabase
       .from("email_threads")
-      .select("id")
+      .select("id", { count: "exact", head: true })
       .eq("company_id", companyId)
       .in("primary_category", TARGET_CATEGORIES as unknown as string[])
       .gt("last_message_at", sinceIso)
-      .is("archived_at", null);
-
-    const allCandidateIds = (remainingRows ?? []).map((r) => r.id as string);
-
-    if (allCandidateIds.length > 0) {
-      const { data: processedRows } = await supabase
-        .from("agent_memories")
-        .select("source_id")
-        .eq("company_id", companyId)
-        .eq("category", "commitment")
-        .in("source_id", allCandidateIds);
-
-      const processedSet = new Set<string>(
-        (processedRows ?? []).map((r) => r.source_id as string)
-      );
-      result.remaining = allCandidateIds.filter(
-        (id) => !processedSet.has(id)
-      ).length;
-    } else {
-      result.remaining = 0;
-    }
+      .is("archived_at", null)
+      .is("phase_c_extracted_at", null);
+    result.remaining = count ?? 0;
   }
 
   return NextResponse.json<BackfillResult>(result);
