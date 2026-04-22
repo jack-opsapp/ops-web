@@ -21,6 +21,20 @@ function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!);
 }
 
+// PMF — events whose financial impact we capture into billing_events for the
+// PMF analytics dashboard. This set is intentionally narrow: the existing
+// per-type handlers below run regardless of this set, and billing_events is
+// strictly an append-only ledger for analytics, not a state-machine input.
+const PMF_TRACKED_EVENTS = new Set<string>([
+  "invoice.paid",
+  "invoice.payment_failed",
+  "customer.subscription.created",
+  "customer.subscription.updated",
+  "customer.subscription.deleted",
+  "charge.refunded",
+  "charge.dispute.created",
+]);
+
 export async function POST(req: NextRequest) {
   const body = await req.text();
   const signature = req.headers.get("stripe-signature");
@@ -57,6 +71,49 @@ export async function POST(req: NextRequest) {
   if (existingEvent) {
     console.log(`[stripe-webhook] Duplicate event ${event.id} (${event.type}) — skipping`);
     return NextResponse.json({ received: true, duplicate: true });
+  }
+
+  // PMF — capture financially-meaningful events into billing_events. Runs
+  // independently of the per-type handlers below: billing_events is the PMF
+  // analytics ledger, not a state-machine action. The unique constraint on
+  // stripe_event_id absorbs duplicate replays (a 23505 here is benign).
+  if (PMF_TRACKED_EVENTS.has(event.type)) {
+    const customer = extractCustomerId(event);
+    const amountCents = extractAmountCents(event);
+    const occurredAt = new Date(event.created * 1000).toISOString();
+
+    let companyId: string | null = null;
+    if (customer) {
+      const { data: company } = await supabase
+        .from("companies")
+        .select("id")
+        .eq("stripe_customer_id", customer)
+        .maybeSingle();
+      companyId = (company as { id?: string } | null)?.id ?? null;
+    }
+
+    const { error: billingError } = await supabase.from("billing_events").insert({
+      stripe_event_id: event.id,
+      event_type: event.type,
+      stripe_customer_id: customer,
+      company_id: companyId,
+      amount_cents: amountCents,
+      currency: "usd",
+      occurred_at: occurredAt,
+      raw: event as unknown as Record<string, unknown>,
+    });
+
+    // 23505 = unique_violation: a concurrent delivery of the same event beat
+    // us to the insert. Safe to ignore — that's exactly what the unique
+    // constraint is for. Anything else gets logged but does NOT fail the
+    // request: the existing handlers must still run, and one missing analytics
+    // row is not worth blocking subscription state sync over.
+    if (billingError && (billingError as { code?: string }).code !== "23505") {
+      console.error(
+        "[stripe-webhook] billing_events insert failed:",
+        billingError.message
+      );
+    }
   }
 
   // Handle payment_intent.succeeded
@@ -341,4 +398,47 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ received: true });
+}
+
+// PMF helpers -----------------------------------------------------------------
+
+/**
+ * Extract a Stripe customer ID from any event we track. Handles three shapes:
+ *  - object.customer is a string (most common — invoices, charges, subs)
+ *  - object.customer is a hydrated Customer/DeletedCustomer object
+ *  - object IS a Customer (its id starts with "cus_") — for customer.* events
+ *
+ * Note: returns null if no customer can be determined (e.g. a charge made
+ * with no customer attached). The billing_events row is still inserted with
+ * stripe_customer_id=null in that case.
+ */
+function extractCustomerId(event: Stripe.Event): string | null {
+  const obj = event.data.object as {
+    customer?: string | Stripe.Customer | Stripe.DeletedCustomer | null;
+    id?: string;
+  };
+  if (typeof obj.customer === "string") return obj.customer;
+  if (obj.customer && typeof obj.customer === "object" && "id" in obj.customer) {
+    return obj.customer.id;
+  }
+  if (typeof obj.id === "string" && obj.id.startsWith("cus_")) return obj.id;
+  return null;
+}
+
+/**
+ * Extract the cents amount that best represents the financial impact of the
+ * event. Tries fields in order of relevance:
+ *   - amount_paid (Invoice)
+ *   - amount (Charge, PaymentIntent)
+ *   - amount_refunded (Charge with refund)
+ * Returns null for events with no amount (e.g. customer.subscription.created
+ * before any invoice is paid).
+ */
+function extractAmountCents(event: Stripe.Event): number | null {
+  const obj = event.data.object as {
+    amount_paid?: number;
+    amount?: number;
+    amount_refunded?: number;
+  };
+  return obj.amount_paid ?? obj.amount ?? obj.amount_refunded ?? null;
 }
