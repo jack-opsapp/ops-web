@@ -179,6 +179,14 @@ interface ExtractionResult {
     content: string;
     confidence: number;
     entity_email?: string;
+    /**
+     * ISO-8601 timestamp — populated for category='commitment' when the
+     * source message states an explicit deadline. Grounded against the
+     * message date by the LLM so relative phrases ("by Friday") resolve
+     * correctly. Omitted for vague phrases ("ASAP", "soon"). Validated
+     * by the caller before storage — bad values become null.
+     */
+    due_date?: string | null;
   }>;
   entities: Array<{
     name: string;
@@ -194,6 +202,27 @@ interface ExtractionResult {
     to_type: string;
     properties?: Record<string, unknown>;
   }>;
+}
+
+// ─── Commitment date validation ─────────────────────────────────────────────
+//
+// LLMs sometimes hallucinate absurd dates (year 0001, year 9999) or return
+// text in unexpected formats. We accept anything parseable by Date() that
+// lands inside a ±2-year window around the message date — wider than that
+// is almost always a model mistake rather than a real commitment.
+
+const MAX_COMMITMENT_WINDOW_MS = 2 * 365 * 24 * 60 * 60 * 1000; // 2 years
+
+function parseCommitmentDueDate(
+  raw: unknown,
+  referenceDate: Date
+): string | null {
+  if (typeof raw !== 'string' || raw.trim().length === 0) return null;
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return null;
+  const deltaMs = Math.abs(parsed.getTime() - referenceDate.getTime());
+  if (deltaMs > MAX_COMMITMENT_WINDOW_MS) return null;
+  return parsed.toISOString();
 }
 
 /**
@@ -286,6 +315,14 @@ async function extractEntitiesAndFacts(
       .map(m => `[${m.direction}] From: ${m.from} | Subject: ${m.subject}\n${m.bodyText.slice(0, 800)}`)
       .join('\n---\n');
 
+    // Latest message date — we pass this to the model so it can resolve
+    // relative commitment phrasing ("by Friday", "end of month") against
+    // the actual conversation timeline, not today's date at inference time.
+    const latestDate =
+      thread.messages.length > 0
+        ? thread.messages[thread.messages.length - 1].date
+        : new Date().toISOString();
+
     const response = await getOpenAI().chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
@@ -299,10 +336,22 @@ Extract facts from BOTH inbound client messages AND outbound owner replies:
 - Inbound (client) facts: their requirements, budget signals, service area, preferences, timeline, objections, decisions
 - Outbound (owner) facts: prices quoted, services offered, commitments made, policies stated
 
+COMMITMENT DATES — critical for category='commitment':
+- When a party explicitly states a deadline ("I'll have the quote by Friday", "We'll be onsite Monday 9am", "Invoice due Oct 25"), include a due_date field on that fact.
+- due_date MUST be ISO-8601 (e.g., "2026-04-25T12:00:00Z"). Ground relative phrases against the REFERENCE DATE supplied in the user message.
+- "by Friday" → next Friday after the reference date, 17:00 local (use Z if unsure).
+- "end of month" / "EOM" → last day of the reference month, 23:59Z.
+- "end of day" / "EOD" → same calendar day as the reference, 23:59Z.
+- "next week" / "early next week" → the Monday of the next ISO week after the reference.
+- Vague phrases ("ASAP", "soon", "shortly", "in the near future") → OMIT due_date entirely.
+- If a commitment is mentioned without any timeframe, still record the fact in category='commitment' but with NO due_date.
+- Do NOT invent dates. When in doubt, omit due_date.
+
 Return JSON:
 {
   "facts": [
     {"category": "pricing", "content": "Quoted $3,200 for 40ft cedar fence", "confidence": 0.9, "entity_email": "john@acme.com"},
+    {"category": "commitment", "content": "Owner promised revised quote to John by Friday", "confidence": 0.9, "entity_email": "john@acme.com", "due_date": "2026-04-25T17:00:00Z"},
     {"category": "client_preference", "content": "Client prefers cedar over pressure-treated", "confidence": 0.85, "entity_email": "john@acme.com"},
     {"category": "service_area", "content": "Project at 45 Maple St, Oakville", "confidence": 0.95, "entity_email": "john@acme.com"},
     {"category": "budget_signal", "content": "Budget range $15-20k", "confidence": 0.8, "entity_email": "john@acme.com"}
@@ -313,7 +362,10 @@ Return JSON:
 
 Be concise — 1-2 sentences per fact. Aim for 2-5 facts per substantive thread. Facts should be useful for future email drafting, pricing reference, or relationship tracking.`,
         },
-        { role: 'user', content: `Thread classification: ${thread.classification}\n\n${messageSummary}` },
+        {
+          role: 'user',
+          content: `REFERENCE DATE (use for resolving relative commitment dates): ${latestDate}\nThread classification: ${thread.classification}\n\n${messageSummary}`,
+        },
       ],
       temperature: 0.1,
       max_tokens: 800,
@@ -391,6 +443,19 @@ async function processThreadExtraction(
         `${fact.category}: ${fact.content}`
       );
 
+      // Validate + normalize the commitment due_date before storage.
+      // Latest message date (same one passed to the LLM) grounds the
+      // sanity window so hallucinated dates get filtered out. Non-commitment
+      // facts never carry a due_date, even if the model returned one.
+      const referenceDate =
+        thread.messages.length > 0
+          ? new Date(thread.messages[thread.messages.length - 1].date)
+          : new Date();
+      const normalizedDueDate =
+        fact.category === 'commitment'
+          ? parseCommitmentDueDate(fact.due_date, referenceDate)
+          : null;
+
       await supabase.from("agent_memories").insert({
         company_id: companyId,
         user_id: userId,
@@ -401,6 +466,7 @@ async function processThreadExtraction(
         source: 'email_import',
         source_id: thread.threadId,
         entity_id: entityId,
+        ...(normalizedDueDate ? { due_date: normalizedDueDate } : {}),
         ...(embedding ? { embedding: JSON.stringify(embedding) } : {}),
       });
       factsAdded++;
