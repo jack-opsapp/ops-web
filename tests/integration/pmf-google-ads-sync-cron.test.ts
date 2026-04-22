@@ -41,6 +41,7 @@ let nextRows: Array<{
   cpa: number;
   ctr: number;
 }> = [];
+let nextQueryError: Error | null = null;
 const queryCalls: Array<{ start: Date; end: Date }> = [];
 
 // ─── Mocks ───────────────────────────────────────────────────────────────────
@@ -53,6 +54,7 @@ vi.mock("@/lib/analytics/google-ads-client", () => ({
   isGoogleAdsConfigured: () => isConfigured,
   queryDailyAccountData: async (start: Date, end: Date) => {
     queryCalls.push({ start, end });
+    if (nextQueryError) throw nextQueryError;
     return nextRows;
   },
 }));
@@ -107,6 +109,7 @@ describe("GET /api/cron/pmf/google-ads-sync", () => {
     upsertCalls.length = 0;
     queryCalls.length = 0;
     nextUpsertError = null;
+    nextQueryError = null;
     isConfigured = true;
     nextRows = [];
     process.env.CRON_SECRET = VALID_SECRET;
@@ -236,6 +239,46 @@ describe("GET /api/cron/pmf/google-ads-sync", () => {
 
     const json = (await res.json()) as { spend_cents: number };
     expect(json.spend_cents).toBe(0);
+  });
+
+  it("returns a generic 500 (no secret leakage) when the Google Ads query throws", async () => {
+    // Mirrors the real shape thrown by queryGoogleAds, which embeds the raw
+    // Google response body — including customer ID and request diagnostics —
+    // into the Error message. The route must NOT echo that back in the HTTP
+    // response body, but MUST log it server-side for debugging.
+    const leakyMessage =
+      'Google Ads API error (401): {"error":{"code":401,"message":"Request had invalid authentication credentials.","status":"UNAUTHENTICATED","details":[{"customerId":"1234567890","requestId":"abc-secret-request-id"}]}}';
+    nextQueryError = new Error(leakyMessage);
+
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const { GET } = await import(
+      "@/app/api/cron/pmf/google-ads-sync/route"
+    );
+    const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
+
+    expect(res.status).toBe(500);
+    const json = (await res.json()) as { error: string };
+    // Exactly the generic message — no leakage of the underlying Google Ads body.
+    expect(json).toEqual({ error: "google ads sync failed" });
+    expect(json.error).not.toContain("customerId");
+    expect(json.error).not.toContain("requestId");
+    expect(json.error).not.toContain("Google Ads API error");
+
+    // The full message IS logged server-side (Vercel logs need it for debugging).
+    expect(errorSpy).toHaveBeenCalled();
+    const loggedAnything = errorSpy.mock.calls.some((args) =>
+      args.some(
+        (a) => typeof a === "string" && a.includes(leakyMessage)
+      )
+    );
+    expect(loggedAnything).toBe(true);
+
+    // The query was attempted; no upsert happened because the throw came first.
+    expect(queryCalls).toHaveLength(1);
+    expect(upsertCalls).toHaveLength(0);
+
+    errorSpy.mockRestore();
   });
 
   it("returns 500 with the error message when the supabase upsert fails", async () => {

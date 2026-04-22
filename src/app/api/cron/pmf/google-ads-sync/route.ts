@@ -56,9 +56,15 @@ export async function GET(request: NextRequest) {
   try {
     rows = await queryDailyAccountData(yesterday, yesterday);
   } catch (err) {
+    // Google Ads errors are formatted as "Google Ads API error (status): <raw body>".
+    // The raw body can include customer IDs, request diagnostics, and partial auth
+    // metadata — log it server-side, but don't echo it back to the HTTP response.
     const message = err instanceof Error ? err.message : "google ads query failed";
     console.error("[pmf-google-ads-sync] query failed:", message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json(
+      { error: "google ads sync failed" },
+      { status: 500 }
+    );
   }
 
   const row = rows[0];
