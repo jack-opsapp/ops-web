@@ -141,6 +141,13 @@ export default function InboxPage() {
     filter: "needs_reply",
     search: undefined,
   });
+  // Commitments rail — separate fetch so the badge reflects overdue
+  // count independently of whichever rail the user is currently viewing.
+  const commitmentsCounts = useInboxThreads({
+    scope,
+    filter: "commitments",
+    search: undefined,
+  });
 
   // ─── Drafts — merged provider + AI, indexed by providerThreadId for pill
   //     painting on the list. Polled every 60s by the hook. ────────────────
@@ -161,8 +168,17 @@ export default function InboxPage() {
 
   const discardDraft = useDiscardDraft();
 
-  const railCounts = useMemo(
-    () => ({
+  const railCounts = useMemo(() => {
+    const now = Date.now();
+    // Commitments badge shows OVERDUE only — the urgent subset. Threads
+    // whose earliest due date hasn't hit yet are still visible inside
+    // the rail but don't inflate the tab counter.
+    const overdueCommitments =
+      commitmentsCounts.data?.pages[0]?.threads.filter((r) => {
+        if (!r.nextCommitmentDueAt) return false;
+        return new Date(r.nextCommitmentDueAt).getTime() <= now;
+      }).length ?? 0;
+    return {
       needs_reply:
         needsReplyCounts.data?.pages[0]?.threads.filter((r) => r.unreadCount > 0).length ?? 0,
       everything:
@@ -170,9 +186,14 @@ export default function InboxPage() {
       scheduled: 0,
       done: 0,
       drafts: drafts.length,
-    }),
-    [needsReplyCounts.data, everythingCounts.data, drafts.length]
-  );
+      commitments: overdueCommitments,
+    };
+  }, [
+    needsReplyCounts.data,
+    everythingCounts.data,
+    commitmentsCounts.data,
+    drafts.length,
+  ]);
 
   const categoryCounts = useMemo(() => {
     const m: Record<string, number> = {};
@@ -353,6 +374,8 @@ export default function InboxPage() {
         opportunityId: null,
         clientId: null,
         clientName: null,
+        nextCommitmentDueAt: null,
+        hasUnresolvedCommitments: false,
       });
     },
     [everythingCounts.data, needsReplyCounts.data]
@@ -539,6 +562,10 @@ export default function InboxPage() {
             onContinueDraft={handleContinueDraft}
             onDiscardDraft={handleDiscardDraft}
             onSelectThread={handleSelectThread}
+            emptyStateScope={scope}
+            emptyStateUnreadCount={railCounts.everything}
+            emptyStateContinueDraft={handleContinueDraft}
+            emptyStateSwitchRail={setRail}
           />
         </div>
 

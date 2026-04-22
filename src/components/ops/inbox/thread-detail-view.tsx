@@ -44,9 +44,12 @@ import {
 import type {
   EmailThreadAutonomyLevel,
   EmailThreadCategory,
+  InboxRail,
+  InboxScope,
 } from "@/lib/types/email-thread";
 import type { ComposeEmailData } from "@/lib/types/email-template";
 import { CategoryChip, categoryLabel } from "./category-chip";
+import { EmptyStatusView } from "./empty-status-view";
 import { RecategorizeMenu } from "./recategorize-menu";
 import { SnoozePicker } from "./snooze-picker";
 import { enqueueUndoToast } from "./undo-toast";
@@ -100,6 +103,17 @@ export interface ThreadDetailViewProps {
    * it up via this callback. Detail data refetches on threadId change.
    */
   onSelectThread?: (row: InboxThreadRow) => void;
+  /**
+   * Aggregate unread count across all rails — rendered in the empty
+   * state header. Parent passes `railCounts.everything`.
+   */
+  emptyStateUnreadCount?: number;
+  /** Called from the empty state to open a draft in compose. */
+  emptyStateContinueDraft?: (draft: InboxDraftRow) => void;
+  /** Called from the empty state's "open rail" buttons. */
+  emptyStateSwitchRail?: (rail: InboxRail) => void;
+  /** Inbox scope — needed to fetch velocity / debt / drafts per scope. */
+  emptyStateScope?: InboxScope;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -339,6 +353,10 @@ export function ThreadDetailView({
   onContinueDraft,
   onDiscardDraft,
   onSelectThread,
+  emptyStateUnreadCount,
+  emptyStateContinueDraft,
+  emptyStateSwitchRail,
+  emptyStateScope,
 }: ThreadDetailViewProps) {
   const { t } = useDictionary("inbox");
   const reduceMotion = useReducedMotion();
@@ -570,17 +588,28 @@ export function ThreadDetailView({
   // ─── Empty state ──────────────────────────────────────────────────────
 
   if (!threadId) {
+    if (
+      emptyStateScope &&
+      emptyStateContinueDraft &&
+      emptyStateSwitchRail &&
+      typeof emptyStateUnreadCount === "number" &&
+      onSelectThread
+    ) {
+      return (
+        <EmptyStatusView
+          scope={emptyStateScope}
+          unreadCount={emptyStateUnreadCount}
+          onSelectThread={onSelectThread}
+          onContinueDraft={emptyStateContinueDraft}
+          onSwitchRail={emptyStateSwitchRail}
+        />
+      );
+    }
+    // Fallback when wiring is incomplete (shouldn't happen in prod).
     return (
       <div className="flex flex-col items-start justify-start h-full px-6 py-10">
         <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
           // Nothing selected
-        </p>
-        <p className="font-mohave text-[13px] text-text mt-1">
-          Pick a thread from the list.
-        </p>
-        <p className="font-mohave text-[12px] text-text-3 mt-0.5">
-          Or hit <span className="font-mono text-[11px] text-text-2">⌘K</span> to
-          search or jump.
         </p>
       </div>
     );
