@@ -102,6 +102,26 @@
     {
       "path": "/api/cron/phase-c-graduation-check",
       "schedule": "0 13 * * *"
+    },
+    {
+      "path": "/api/cron/pmf/threshold-check",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/pmf/daily-digest",
+      "schedule": "0 15 * * *"
+    },
+    {
+      "path": "/api/cron/pmf/weekly-digest",
+      "schedule": "0 15 * * 1"
+    },
+    {
+      "path": "/api/cron/pmf/google-ads-sync",
+      "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/cron/pmf/cleanup-snapshots",
+      "schedule": "30 14 * * *"
     }
   ]
 }
