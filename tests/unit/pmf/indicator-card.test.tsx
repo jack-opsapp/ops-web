@@ -86,4 +86,17 @@ describe("IndicatorCard", () => {
     // fmtPct(0.034) -> "3.4%"
     expect(screen.getByText(/↑\s*3\.4%\s*WOW/)).toBeInTheDocument();
   });
+
+  it("renders unsigned percent delta with ↓ in rose class when delta_wow is negative", () => {
+    render(
+      <IndicatorCard
+        state={makeState({ value: 0.12, delta_wow: -0.05, unit: "percent" })}
+      />,
+    );
+    // Arrow conveys direction; value should be unsigned -> "↓ 5.0% WOW", NOT "↓ -5.0%"
+    const delta = screen.getByText(/↓\s*5\.0%\s*WOW/);
+    expect(delta).toBeInTheDocument();
+    expect(delta.textContent).not.toMatch(/-/);
+    expect(delta.className).toContain("text-[color:var(--rose)]");
+  });
 });

@@ -29,7 +29,7 @@ export function IndicatorCard({ state }: IndicatorCardProps) {
         {displayValue}
       </div>
       <div className={`mt-1 font-mono text-[11px] tabular-nums ${deltaClass}`}>
-        {deltaSign} {state.unit === "percent" ? fmtPct(state.delta_wow) : fmtInt(Math.abs(state.delta_wow))} WOW
+        {deltaSign} {state.unit === "percent" ? fmtPct(Math.abs(state.delta_wow)) : fmtInt(Math.abs(state.delta_wow))} WOW
       </div>
       <div className="mt-2">
         <Sparkline data={state.sparkline} width={120} height={20} />
