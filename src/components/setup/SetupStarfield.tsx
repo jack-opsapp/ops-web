@@ -1132,7 +1132,7 @@ export function SetupStarfield({
               transform: "translateX(-50%)",
             }}
           >
-            <div className="px-2.5 py-1.5 rounded-sm bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2] border border-[rgba(255,255,255,0.08)]">
+            <div className="px-2.5 py-1.5 rounded-chip glass-dense">
               <span className="font-mono text-body text-text whitespace-nowrap uppercase tracking-wider">
                 {hoveredNode.label}
               </span>
