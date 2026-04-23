@@ -36,6 +36,10 @@ export const maxDuration = 60;
 
 const DASHBOARD_URL = `${process.env.NEXT_PUBLIC_APP_URL ?? "https://app.opsapp.co"}/admin/pmf`;
 
+const STEM_PREFIX = 'OPS ::';
+const UNKNOWN_LABEL = 'UNKNOWN';
+const BILLING_EVENT_TYPE_REFUND = 'charge.refunded';
+
 interface InboundProspectRow {
   id: string;
   company: string | null;
@@ -71,6 +75,10 @@ export async function GET(request: NextRequest) {
   if (authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  // Compute a single timestamp shared across every alert fired in this run, so
+  // a batch of transitions + events all report the same `· HH:MM` suffix.
+  const runTimestamp = fmtTime(new Date());
 
   const sb = getAdminSupabase();
 
@@ -138,7 +146,7 @@ export async function GET(request: NextRequest) {
     sb
       .from("billing_events")
       .select("id,amount_cents,company_id,occurred_at")
-      .eq("event_type", "charge.refunded")
+      .eq("event_type", BILLING_EVENT_TYPE_REFUND)
       .gte("received_at", since),
     sb
       .from("pmf_prospects")
@@ -178,6 +186,9 @@ export async function GET(request: NextRequest) {
 
   const sends: Promise<void>[] = [];
 
+  // Note: if two cron runs overlap (retry or slow previous), both would diff against
+  // the same prior snapshot. Safety relies on pmf_notification_log dedup in sendPmfNotification
+  // (4h window keyed by trigger) to prevent duplicate alerts for identical transitions.
   // State transitions
   for (const t of transitions) {
     const stem =
@@ -188,8 +199,8 @@ export async function GET(request: NextRequest) {
       sendPmfNotification({
         kind: "threshold_alert",
         trigger: `${t.key}_${t.from}_to_${t.to}`,
-        smsBody: `OPS :: ${stem} · ${fmtTime(new Date())}`,
-        emailSubject: `OPS :: ${stem}`,
+        smsBody: `${STEM_PREFIX} ${stem} · ${runTimestamp}`,
+        emailSubject: `${STEM_PREFIX} ${stem}`,
         emailReact: ThresholdAlertEmail({
           trigger: `${t.key} ${t.from}→${t.to}`,
           messageBody: stem,
@@ -209,14 +220,14 @@ export async function GET(request: NextRequest) {
     // Skip the prospect that the first_referral block will alert on — a
     // referral prospect matches both queries, and we only want one send.
     if (firstReferralProspect && p.id === firstReferralProspect.id) continue;
-    const label = (p.company ?? p.name ?? "UNKNOWN").toUpperCase();
+    const label = (p.company ?? p.name ?? UNKNOWN_LABEL).toUpperCase();
     const stem = `NEW INBOUND LEAD · ${label}`;
     sends.push(
       sendPmfNotification({
         kind: "threshold_alert",
         trigger: `new_inbound_${p.id}`,
-        smsBody: `OPS :: ${stem} · ${fmtTime(new Date())}`,
-        emailSubject: `OPS :: ${stem}`,
+        smsBody: `${STEM_PREFIX} ${stem} · ${runTimestamp}`,
+        emailSubject: `${STEM_PREFIX} ${stem}`,
         emailReact: ThresholdAlertEmail({
           trigger: "new_inbound_lead",
           messageBody: stem,
@@ -240,12 +251,12 @@ export async function GET(request: NextRequest) {
       sendPmfNotification({
         kind: "threshold_alert",
         trigger: `refund_${r.id}`,
-        smsBody: `OPS :: ${stem} · ${fmtTime(new Date())}`,
-        emailSubject: `OPS :: ${stem}`,
+        smsBody: `${STEM_PREFIX} ${stem} · ${runTimestamp}`,
+        emailSubject: `${STEM_PREFIX} ${stem}`,
         emailReact: ThresholdAlertEmail({
           trigger: "refund",
           messageBody: stem,
-          context: { COMPANY_ID: r.company_id ?? "unknown" },
+          context: { COMPANY_ID: r.company_id ?? UNKNOWN_LABEL },
           dashboardUrl: DASHBOARD_URL,
         }),
         inAppTitle: stem,
@@ -258,14 +269,14 @@ export async function GET(request: NextRequest) {
   // in the last 15 min". Only the first row triggers; subsequent referrals
   // in the same window are handled by the normal state-diff path.
   if (firstReferralProspect) {
-    const label = (firstReferralProspect.company ?? firstReferralProspect.name ?? "UNKNOWN").toUpperCase();
+    const label = (firstReferralProspect.company ?? firstReferralProspect.name ?? UNKNOWN_LABEL).toUpperCase();
     const stem = `FIRST REFERRAL · ${label}`;
     sends.push(
       sendPmfNotification({
         kind: "threshold_alert",
         trigger: "first_referral",
-        smsBody: `OPS :: ${stem} · ${fmtTime(new Date())}`,
-        emailSubject: `OPS :: ${stem}`,
+        smsBody: `${STEM_PREFIX} ${stem} · ${runTimestamp}`,
+        emailSubject: `${STEM_PREFIX} ${stem}`,
         emailReact: ThresholdAlertEmail({
           trigger: "first_referral",
           messageBody: stem,
