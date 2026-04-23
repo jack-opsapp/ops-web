@@ -42,7 +42,7 @@ export function passwordResetTemplate(params: {
   <!-- OPS wordmark -->
   <tr>
     <td style="padding:0 0 40px 0;">
-      <span style="font-family:${sans};font-size:15px;font-weight:700;letter-spacing:5px;color:#ffffff;text-transform:uppercase;">
+      <span style="font-family:${sans};font-size:15px;font-weight:700;letter-spacing:5px;color:#EDEDED;text-transform:uppercase;">
         OPS
       </span>
     </td>
@@ -57,7 +57,7 @@ export function passwordResetTemplate(params: {
         <!-- Headline -->
         <tr>
           <td style="padding:0 0 12px 0;">
-            <span style="font-family:${mono};font-size:22px;font-weight:bold;color:#ffffff;line-height:1.3;">
+            <span style="font-family:${mono};font-size:22px;font-weight:bold;color:#EDEDED;line-height:1.3;">
               Reset your password.
             </span>
           </td>
@@ -66,7 +66,7 @@ export function passwordResetTemplate(params: {
         <!-- Body text -->
         <tr>
           <td style="padding:0 0 32px 0;">
-            <span style="font-family:${mono};font-size:13px;color:#999999;line-height:1.7;">
+            <span style="font-family:${mono};font-size:13px;color:#B5B5B5;line-height:1.7;">
               We received a request to reset the password for your OPS account. Click the button below to choose a new password.
             </span>
           </td>
@@ -78,7 +78,7 @@ export function passwordResetTemplate(params: {
             <table role="presentation" cellspacing="0" cellpadding="0" border="0">
               <tr>
                 <td style="background-color:#6F94B0;border-radius:2px;">
-                  <a href="${resetLink}" target="_blank" style="display:inline-block;padding:12px 28px;font-family:${mono};font-size:13px;font-weight:bold;letter-spacing:1px;color:#ffffff;text-decoration:none;text-transform:uppercase;">
+                  <a href="${resetLink}" target="_blank" style="display:inline-block;padding:12px 28px;font-family:${mono};font-size:13px;font-weight:bold;letter-spacing:1px;color:#000000;text-decoration:none;text-transform:uppercase;">
                     RESET PASSWORD
                   </a>
                 </td>
@@ -90,7 +90,7 @@ export function passwordResetTemplate(params: {
         <!-- Subtext -->
         <tr>
           <td style="padding:0 0 40px 0;">
-            <span style="font-family:${mono};font-size:11px;color:#666666;line-height:1.6;">
+            <span style="font-family:${mono};font-size:11px;color:#8A8A8A;line-height:1.6;">
               This link expires in 1 hour.
             </span>
           </td>
@@ -102,7 +102,7 @@ export function passwordResetTemplate(params: {
         <!-- Didn't request this -->
         <tr>
           <td style="padding:0;">
-            <span style="font-family:${mono};font-size:12px;color:#999999;line-height:1.7;">
+            <span style="font-family:${mono};font-size:12px;color:#B5B5B5;line-height:1.7;">
               If you didn't request a password reset, you can safely ignore this email. Your password will not be changed.
             </span>
           </td>
@@ -115,9 +115,9 @@ export function passwordResetTemplate(params: {
   <!-- Footer -->
   <tr>
     <td style="padding:28px 0 0 0;">
-      <span style="font-family:${mono};font-size:11px;color:#444444;line-height:1.7;">
+      <span style="font-family:${mono};font-size:11px;color:#6A6A6A;line-height:1.7;">
         Built by trades, for trades.<br/>
-        <a href="https://opsapp.co" target="_blank" style="color:#444444;text-decoration:none;">opsapp.co</a>
+        <a href="https://opsapp.co" target="_blank" style="color:#6A6A6A;text-decoration:none;">opsapp.co</a>
       </span>
     </td>
   </tr>

@@ -41,7 +41,7 @@ export function trialExpiryReengagementTemplate(params: {
     : `Whatever pulled you away &mdash; bad timing, crew pushback, a fire on another job &mdash; I get it. Running a trades business means everything else gets interrupted by the thing on fire right now.`;
 
   const body = `
-    <h1 style="margin:0 0 12px 0;font-size:22px;font-weight:700;color:#ffffff;line-height:1.3;">
+    <h1 style="margin:0 0 12px 0;font-size:22px;font-weight:700;color:#EDEDED;line-height:1.3;">
       ${heading}
     </h1>
     <p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#d4d4d4;">
@@ -56,7 +56,7 @@ export function trialExpiryReengagementTemplate(params: {
           <p style="margin:0 0 6px 0;font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#9ca3af;">
             Option A &mdash; 50% off for 2 months
           </p>
-          <p style="margin:0;font-size:20px;font-weight:700;font-family:Menlo,Monaco,'Courier New',monospace;color:#ffffff;letter-spacing:0.04em;">
+          <p style="margin:0;font-size:20px;font-weight:700;font-family:Menlo,Monaco,'Courier New',monospace;color:#EDEDED;letter-spacing:0.04em;">
             ${promoCode50}
           </p>
         </td>
@@ -67,7 +67,7 @@ export function trialExpiryReengagementTemplate(params: {
           <p style="margin:0 0 6px 0;font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#9ca3af;">
             Option B &mdash; 30% off for 6 months
           </p>
-          <p style="margin:0;font-size:20px;font-weight:700;font-family:Menlo,Monaco,'Courier New',monospace;color:#ffffff;letter-spacing:0.04em;">
+          <p style="margin:0;font-size:20px;font-weight:700;font-family:Menlo,Monaco,'Courier New',monospace;color:#EDEDED;letter-spacing:0.04em;">
             ${promoCode30}
           </p>
         </td>

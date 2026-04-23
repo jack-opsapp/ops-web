@@ -191,7 +191,7 @@ export async function sendRoleNeeded(params: {
     userName: params.userName,
     companyName: params.companyName,
     assignUrl: params.assignUrl,
-    accentColor: params.accentColor ?? "#417394",
+    accentColor: params.accentColor ?? "#6F94B0",
     logoUrl: params.logoUrl ?? null,
   });
 

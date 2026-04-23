@@ -102,7 +102,7 @@ export function blogNewsletterTemplate(params: {
           <!-- Title -->
           <tr>
             <td style="padding-bottom:16px;">
-              <h1 style="margin:0;font-size:26px;line-height:1.25;font-weight:700;color:#ffffff;letter-spacing:-0.01em;">
+              <h1 style="margin:0;font-size:26px;line-height:1.25;font-weight:700;color:#EDEDED;letter-spacing:-0.01em;">
                 ${safeTitle}
               </h1>
             </td>
@@ -133,7 +133,7 @@ export function blogNewsletterTemplate(params: {
               <table role="presentation" cellspacing="0" cellpadding="0" border="0">
                 <tr>
                   <td style="background-color:#6F94B0;">
-                    <a href="${safePostUrl}" target="_blank" style="display:inline-block;padding:14px 28px;font-size:13px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#ffffff;text-decoration:none;font-family:'Courier New',monospace;">
+                    <a href="${safePostUrl}" target="_blank" style="display:inline-block;padding:14px 28px;font-size:13px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#000000;text-decoration:none;font-family:'Courier New',monospace;">
                       Read the full piece →
                     </a>
                   </td>

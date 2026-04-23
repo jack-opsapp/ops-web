@@ -23,7 +23,7 @@ export function adsBriefingTemplate(briefing: AdBriefing): string {
 <!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width"></head>
-<body style="margin:0;padding:0;background:#0D0D0D;font-family:'Courier New',monospace;color:#E5E5E5;">
+<body style="margin:0;padding:0;background:#000000;font-family:'Courier New',monospace;color:#EDEDED;">
   <div style="max-width:600px;margin:0 auto;padding:32px 24px;">
 
     <div style="border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:16px;margin-bottom:24px;">
@@ -37,7 +37,7 @@ export function adsBriefingTemplate(briefing: AdBriefing): string {
     </div>
 
     <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:4px;padding:16px;margin-bottom:24px;">
-      <p style="margin:0;font-size:14px;line-height:1.5;color:#E5E5E5;">
+      <p style="margin:0;font-size:14px;line-height:1.5;color:#EDEDED;">
         ${briefing.summary ?? "Briefing summary unavailable."}
       </p>
     </div>
@@ -48,7 +48,7 @@ export function adsBriefingTemplate(briefing: AdBriefing): string {
       </p>
       ${actions.map((a, i) => `
         <div style="margin-bottom:8px;padding:8px 12px;border-left:2px solid ${priorityColor(a.priority)};">
-          <span style="font-size:13px;color:#E5E5E5;">
+          <span style="font-size:13px;color:#EDEDED;">
             ${i + 1}. <span style="color:${priorityColor(a.priority)};text-transform:uppercase;font-size:11px;">[${a.priority}]</span>
             ${a.action}
           </span>
@@ -66,17 +66,17 @@ export function adsBriefingTemplate(briefing: AdBriefing): string {
       <table style="width:100%;font-size:13px;border-collapse:collapse;">
         <tr>
           <td style="padding:4px 8px;color:#6B6B6B;">Spend</td>
-          <td style="padding:4px 8px;color:#E5E5E5;">$${perf.current.spend.toFixed(0)}</td>
+          <td style="padding:4px 8px;color:#EDEDED;">$${perf.current.spend.toFixed(0)}</td>
           <td style="padding:4px 8px;color:#A0A0A0;">${formatDelta(perf.deltas.spend)}</td>
         </tr>
         <tr>
           <td style="padding:4px 8px;color:#6B6B6B;">CPA</td>
-          <td style="padding:4px 8px;color:#E5E5E5;">$${perf.current.cpa.toFixed(2)}</td>
+          <td style="padding:4px 8px;color:#EDEDED;">$${perf.current.cpa.toFixed(2)}</td>
           <td style="padding:4px 8px;color:#A0A0A0;">${formatDelta(perf.deltas.cpa)}</td>
         </tr>
         <tr>
           <td style="padding:4px 8px;color:#6B6B6B;">Conv.</td>
-          <td style="padding:4px 8px;color:#E5E5E5;">${perf.current.conversions}</td>
+          <td style="padding:4px 8px;color:#EDEDED;">${perf.current.conversions}</td>
           <td style="padding:4px 8px;color:#A0A0A0;">${formatDelta(perf.deltas.conversions)}</td>
         </tr>
       </table>
@@ -85,13 +85,13 @@ export function adsBriefingTemplate(briefing: AdBriefing): string {
 
     <div style="text-align:center;margin-top:32px;">
       <a href="${appUrl}/admin/google-ads/briefings/${briefing.id}"
-         style="display:inline-block;padding:10px 24px;background:#6F94B0;color:#E5E5E5;text-decoration:none;font-size:13px;border-radius:4px;text-transform:uppercase;letter-spacing:0.05em;">
+         style="display:inline-block;padding:10px 24px;background:#6F94B0;color:#000000;text-decoration:none;font-size:13px;border-radius:4px;text-transform:uppercase;letter-spacing:0.05em;">
         View Full Briefing
       </a>
     </div>
 
     <div style="margin-top:32px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.06);text-align:center;">
-      <span style="font-size:10px;color:#444444;">OPS LTD \u00b7 Automated Intelligence Briefing</span>
+      <span style="font-size:10px;color:#6A6A6A;">OPS LTD \u00b7 Automated Intelligence Briefing</span>
     </div>
 
   </div>
