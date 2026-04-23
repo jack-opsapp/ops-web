@@ -2,13 +2,14 @@
  * OPS Web — PMF Weekly Digest email template.
  *
  * Superset of the daily digest with an additional cohort-retention section
- * showing the last 6 cohorts' D30/D60/D90 retention. Fired from the weekly
+ * showing the last N cohorts' D30/D60/D90 retention. Fired from the weekly
  * cron handler (Task 27) and dispatched through `sendPmfNotification`.
  *
- * Composition: wraps the full daily-digest render for all markers/indicators
- * and appends the retention block. React Email tolerates nested Html/Body,
- * but if that ever becomes a rendering issue we can refactor the daily
- * template to expose its inner sections as a standalone component.
+ * Composition: renders a single `<Html>/<Head>/<Body>` wrapping the daily
+ * digest's inner body (via `DailyDigestBody`, not `DailyDigestEmail`) plus
+ * the retention block. Nesting `<Html>` inside `<Html>` breaks Gmail and
+ * Outlook — `DailyDigestBody` is chrome-less so the rendered HTML has
+ * exactly one `<html>` element.
  */
 import React from 'react';
 import {
@@ -21,7 +22,8 @@ import {
   Text,
 } from '@react-email/components';
 import type { PmfState } from '@/lib/pmf/types';
-import { DailyDigestEmail } from './daily-digest';
+import { DailyDigestBody } from './daily-digest';
+import { CANVAS, GLASS, MONO11, sanitizeDashboardUrl } from './_shared';
 
 export interface WeeklyDigestCohort {
   cohort_month: string;
@@ -35,35 +37,14 @@ export interface WeeklyDigestProps {
   state: PmfState;
   daysToGate: number;
   weekNumber: number;
-  dashboardUrl: string;
+  dashboardUrl?: string;
   retentionCohorts: WeeklyDigestCohort[];
 }
 
-const MONO11: React.CSSProperties = {
-  fontFamily: "'JetBrains Mono', monospace",
-  fontSize: 11,
-  letterSpacing: '0.16em',
-  textTransform: 'uppercase',
-  color: '#8A8A8A',
-};
-
-const GLASS: React.CSSProperties = {
-  background: 'rgba(10,10,10,0.70)',
-  border: '1px solid rgba(255,255,255,0.08)',
-  borderRadius: 5,
-  padding: 24,
-  marginBottom: 12,
-};
-
-const CANVAS: React.CSSProperties = {
-  background: '#000000',
-  margin: 0,
-  padding: 24,
-  fontFamily: "'Mohave', sans-serif",
-  color: '#EDEDED',
-};
+const MAX_COHORTS_DISPLAYED = 6;
 
 export function WeeklyDigestEmail(p: WeeklyDigestProps) {
+  const safeUrl = sanitizeDashboardUrl(p.dashboardUrl);
   return (
     <Html>
       <Head />
@@ -74,25 +55,37 @@ export function WeeklyDigestEmail(p: WeeklyDigestProps) {
             // PMF WEEKLY DIGEST · WEEK {p.weekNumber} · GATE B {p.daysToGate}{' '}
             DAYS
           </Text>
-          {/* Reuse daily digest inner sections */}
-          <DailyDigestEmail
+          {/* Reuse daily digest inner sections (no nested <Html>/<Body>). */}
+          <DailyDigestBody
             state={p.state}
             daysToGate={p.daysToGate}
-            dashboardUrl={p.dashboardUrl}
+            dashboardUrl={safeUrl}
           />
           <Section style={GLASS}>
-            <Text style={MONO11}>// COHORT RETENTION · LAST 6 COHORTS</Text>
-            {p.retentionCohorts.slice(0, 6).map((c) => (
+            <Text style={MONO11}>
+              // COHORT RETENTION · LAST {MAX_COHORTS_DISPLAYED} COHORTS
+            </Text>
+            {p.retentionCohorts.length === 0 ? (
               <Text
-                key={c.cohort_month}
-                style={{ ...MONO11, color: '#B5B5B5', marginTop: 4 }}
+                style={{ ...MONO11, color: '#6A6A6A', marginTop: 4 }}
               >
-                {c.cohort_month} · n={c.size} · 30D=
-                {(c.d30 * 100).toFixed(0)}% · 60D=
-                {(c.d60 * 100).toFixed(0)}% · 90D=
-                {(c.d90 * 100).toFixed(0)}%
+                [NO COHORT DATA YET]
               </Text>
-            ))}
+            ) : (
+              p.retentionCohorts
+                .slice(0, MAX_COHORTS_DISPLAYED)
+                .map((c) => (
+                  <Text
+                    key={c.cohort_month}
+                    style={{ ...MONO11, color: '#B5B5B5', marginTop: 4 }}
+                  >
+                    {c.cohort_month} · n={c.size} · 30D=
+                    {(c.d30 * 100).toFixed(0)}% · 60D=
+                    {(c.d60 * 100).toFixed(0)}% · 90D=
+                    {(c.d90 * 100).toFixed(0)}%
+                  </Text>
+                ))
+            )}
           </Section>
         </Container>
       </Body>

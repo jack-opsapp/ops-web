@@ -12,6 +12,10 @@ import { describe, it, expect } from 'vitest';
 import { render } from '@react-email/render';
 import { ThresholdAlertEmail } from '@/emails/pmf/threshold-alert';
 import { DailyDigestEmail } from '@/emails/pmf/daily-digest';
+import {
+  WeeklyDigestEmail,
+  type WeeklyDigestCohort,
+} from '@/emails/pmf/weekly-digest';
 import type { PmfState } from '@/lib/pmf/types';
 
 const fixture: PmfState = {
@@ -73,6 +77,12 @@ const fixture: PmfState = {
   },
 };
 
+const cohortsFixture: WeeklyDigestCohort[] = [
+  { cohort_month: '2026-01', size: 12, d30: 0.75, d60: 0.58, d90: 0.41 },
+  { cohort_month: '2026-02', size: 18, d30: 0.8, d60: 0.62, d90: 0.5 },
+  { cohort_month: '2026-03', size: 22, d30: 0.7, d60: 0.55, d90: 0.45 },
+];
+
 describe('ThresholdAlertEmail', () => {
   it('renders HTML with trigger + body + view-deck link', async () => {
     const html = await render(
@@ -100,6 +110,18 @@ describe('ThresholdAlertEmail', () => {
     expect(html).toContain('TARGET');
     // No dashboard link when not provided.
     expect(html).not.toContain('VIEW DECK');
+  });
+
+  it('omits the view-deck link when the URL is not http(s)', async () => {
+    const html = await render(
+      ThresholdAlertEmail({
+        trigger: 'marker_1_green',
+        messageBody: 'MARKER 1 GREEN',
+        dashboardUrl: 'javascript:alert(1)',
+      })
+    );
+    expect(html).not.toContain('VIEW DECK');
+    expect(html).not.toContain('javascript:');
   });
 });
 
@@ -131,7 +153,7 @@ describe('DailyDigestEmail', () => {
     expect(html).toContain('VIEW DECK');
   });
 
-  it('appends a % sign for percent-unit indicators only', async () => {
+  it('scales percent-unit indicators from fractions to whole-number %', async () => {
     const html = await render(
       DailyDigestEmail({
         state: fixture,
@@ -139,12 +161,93 @@ describe('DailyDigestEmail', () => {
         dashboardUrl: 'https://x/admin/pmf',
       })
     );
-    // indicator_c is percent with value 0.07. React inserts comment
-    // separators between adjacent text children ("0.07" then "%"), so
-    // collapse them out before the match.
+    // React inserts comment separators between adjacent text children — strip
+    // them before the match so "7" + "%" collapses to "7%".
     const stripped = html.replace(/<!--.*?-->/g, '');
-    expect(stripped).toContain('0.07%');
+    // indicator_c: 0.07 with unit: 'percent' → "7%"
+    expect(stripped).toContain('7%');
+    // indicator_d: 0.05 with unit: 'percent' → "5%"
+    expect(stripped).toContain('5%');
+    // The old pre-scale representation must NOT appear.
+    expect(stripped).not.toContain('0.07%');
+    expect(stripped).not.toContain('0.05%');
     // indicator_a has no unit and value 3 → must NOT render "3%".
     expect(stripped).not.toContain('A: 3%');
+  });
+});
+
+describe('WeeklyDigestEmail', () => {
+  it('renders a single <html> and <body> element (no nesting)', async () => {
+    const html = await render(
+      WeeklyDigestEmail({
+        state: fixture,
+        daysToGate: 120,
+        weekNumber: 17,
+        dashboardUrl: 'https://x/admin/pmf',
+        retentionCohorts: cohortsFixture,
+      })
+    );
+    const htmlOpens = html.match(/<html[\s>]/gi) ?? [];
+    const bodyOpens = html.match(/<body[\s>]/gi) ?? [];
+    expect(htmlOpens.length).toBe(1);
+    expect(bodyOpens.length).toBe(1);
+  });
+
+  it('renders weekly header, week number, and all 4 marker labels', async () => {
+    const html = await render(
+      WeeklyDigestEmail({
+        state: fixture,
+        daysToGate: 120,
+        weekNumber: 17,
+        dashboardUrl: 'https://x/admin/pmf',
+        retentionCohorts: cohortsFixture,
+      })
+    );
+    // React inserts comment separators between adjacent text children — strip
+    // them before matching so "WEEK " + "17" collapses to "WEEK 17".
+    const stripped = html.replace(/<!--.*?-->/g, '');
+    // Weekly header + week number.
+    expect(stripped).toContain('PMF WEEKLY DIGEST');
+    expect(stripped).toContain('WEEK 17');
+    // Daily-digest markers reused.
+    expect(stripped).toContain('TIER A ENGAGEMENTS');
+    expect(stripped).toContain('RETAINED BASE SAAS');
+    expect(stripped).toContain('INBOUND LEAD');
+    expect(stripped).toContain('CAC');
+  });
+
+  it('renders cohort retention rows with percent scaling', async () => {
+    const html = await render(
+      WeeklyDigestEmail({
+        state: fixture,
+        daysToGate: 120,
+        weekNumber: 17,
+        dashboardUrl: 'https://x/admin/pmf',
+        retentionCohorts: cohortsFixture,
+      })
+    );
+    const stripped = html.replace(/<!--.*?-->/g, '');
+    expect(stripped).toContain('COHORT RETENTION');
+    expect(stripped).toContain('LAST 6 COHORTS');
+    // At least one cohort month + the 30D= label.
+    expect(stripped).toContain('2026-01');
+    expect(stripped).toContain('30D=');
+    // 0.75 fraction scales to "75%".
+    expect(stripped).toContain('75%');
+  });
+
+  it('renders an empty-state placeholder when retentionCohorts is empty', async () => {
+    const html = await render(
+      WeeklyDigestEmail({
+        state: fixture,
+        daysToGate: 120,
+        weekNumber: 17,
+        dashboardUrl: 'https://x/admin/pmf',
+        retentionCohorts: [],
+      })
+    );
+    expect(html).toContain('[NO COHORT DATA YET]');
+    // No cohort row artefacts when the list is empty.
+    expect(html).not.toContain('30D=');
   });
 });
