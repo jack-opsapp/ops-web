@@ -174,7 +174,7 @@ export async function sendPmfNotification(opts: SendOptions): Promise<void> {
     try {
       const { error } = await sb.from('notifications').insert({
         user_id: recipients.operatorUserId,
-        company_id: null,
+        company_id: recipients.operatorCompanyId,
         type: 'pmf_alert',
         title,
         body: opts.inAppBody ?? '',

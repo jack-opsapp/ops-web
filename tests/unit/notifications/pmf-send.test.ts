@@ -25,6 +25,7 @@ vi.mock('@/lib/pmf/recipients', () => ({
     sms: '+15555550100',
     email: 'pmf@ops.test',
     operatorUserId: 'operator-uid',
+    operatorCompanyId: 'ops-platform',
   }),
 }));
 
@@ -372,6 +373,7 @@ describe('sendPmfNotification — channel gating', () => {
     expect(railInsert).toBeDefined();
     const row = railInsert!.args[0] as Record<string, unknown>;
     expect(row.user_id).toBe('operator-uid');
+    expect(row.company_id).toBe('ops-platform');
     expect(row.type).toBe('pmf_alert');
     expect(row.title).toBe('// PMF — M1 RED');
     expect(row.body).toBe('Marker 1 flipped red');
