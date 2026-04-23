@@ -15,18 +15,18 @@
  * `[NO COHORT DATA YET]` gracefully.
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { computePmfState } from '@/lib/admin/pmf-queries';
-import { getAdminSupabase } from '@/lib/supabase/admin-client';
-import { sendPmfNotification } from '@/lib/notifications/pmf-send';
-import { WeeklyDigestEmail } from '@/emails/pmf/weekly-digest';
-import { daysUntilGate } from '@/lib/pmf/formatters';
+import { NextRequest, NextResponse } from "next/server";
+import { computePmfState } from "@/lib/admin/pmf-queries";
+import { getAdminSupabase } from "@/lib/supabase/admin-client";
+import { sendPmfNotification } from "@/lib/notifications/pmf-send";
+import { WeeklyDigestEmail } from "@/emails/pmf/weekly-digest";
+import { daysUntilGate, isoWeekNumber } from "@/lib/pmf/formatters";
 
-export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-const DASHBOARD_URL = `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.opsapp.co'}/admin/pmf`;
+const DASHBOARD_URL = `${process.env.NEXT_PUBLIC_APP_URL ?? "https://app.opsapp.co"}/admin/pmf`;
 
 /** Shape returned by `public.pmf_retention_cohorts()` — matches the email template prop. */
 interface RetentionCohortRow {
@@ -37,32 +37,18 @@ interface RetentionCohortRow {
   d90: number;
 }
 
-/**
- * ISO-8601 week number (1–53). Derived locally to avoid pulling a
- * date-fns `getISOWeek` import for a single callsite. Thursday of the
- * week determines the ISO year; counting weeks from Jan 1 of that
- * year yields the ISO week.
- */
-function isoWeekNumber(date: Date = new Date()): number {
-  const tmp = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  const dayNum = tmp.getUTCDay() || 7;
-  tmp.setUTCDate(tmp.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(tmp.getUTCFullYear(), 0, 1));
-  return Math.ceil((((tmp.getTime() - yearStart.getTime()) / 86_400_000) + 1) / 7);
-}
-
 export async function GET(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) {
     return NextResponse.json(
-      { error: 'CRON_SECRET not configured' },
+      { error: "CRON_SECRET not configured" },
       { status: 500 }
     );
   }
 
-  const authHeader = request.headers.get('authorization');
+  const authHeader = request.headers.get("authorization");
   if (authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
@@ -71,7 +57,7 @@ export async function GET(request: NextRequest) {
     // Fetch state + retention cohorts in parallel — independent work.
     const [state, cohortsResult] = await Promise.all([
       computePmfState(),
-      sb.rpc('pmf_retention_cohorts' as never),
+      sb.rpc("pmf_retention_cohorts" as never),
     ]);
 
     // The RPC's typed return is `never` (not in supabase-js generated types),
@@ -85,19 +71,21 @@ export async function GET(request: NextRequest) {
       // error in logs so the missing migration (if that's the cause) is
       // visible, but still send the rest of the digest.
       console.error(
-        '[pmf-weekly-digest] pmf_retention_cohorts RPC failed:',
+        "[pmf-weekly-digest] pmf_retention_cohorts RPC failed:",
         cohortsResult.error.message
       );
     }
 
-    // Hoist once so the subject and body share the same values even if
-    // computation straddled a day boundary.
-    const daysToGate = daysUntilGate();
-    const weekNumber = isoWeekNumber();
-    const today = new Date().toISOString().slice(0, 10);
+    // Hoist `now` once so the subject and body share the same values even
+    // if computation straddled a day boundary. Every time-derived value in
+    // this request (days-to-gate, ISO week, date slice) reads from this.
+    const now = new Date();
+    const daysToGate = daysUntilGate(now);
+    const weekNumber = isoWeekNumber(now);
+    const today = now.toISOString().slice(0, 10);
 
     await sendPmfNotification({
-      kind: 'weekly_digest',
+      kind: "weekly_digest",
       trigger: `weekly_${today}`,
       emailSubject: `OPS :: PMF WEEKLY · W${weekNumber} · ${daysToGate} DAYS`,
       emailReact: WeeklyDigestEmail({
@@ -111,10 +99,10 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ ok: true });
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'weekly digest failed';
-    console.error('[pmf-weekly-digest] failed:', message, err);
+    const message = err instanceof Error ? err.message : "weekly digest failed";
+    console.error("[pmf-weekly-digest] failed:", message, err);
     return NextResponse.json(
-      { error: 'weekly digest failed' },
+      { error: "weekly digest failed" },
       { status: 500 }
     );
   }

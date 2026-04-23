@@ -9,11 +9,11 @@
  * Thirty days is plenty of history for diff-and-forensics use cases.
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { getAdminSupabase } from '@/lib/supabase/admin-client';
+import { NextRequest, NextResponse } from "next/server";
+import { getAdminSupabase } from "@/lib/supabase/admin-client";
 
-export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 const RETENTION_DAYS = 30;
@@ -22,14 +22,14 @@ export async function GET(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) {
     return NextResponse.json(
-      { error: 'CRON_SECRET not configured' },
+      { error: "CRON_SECRET not configured" },
       { status: 500 }
     );
   }
 
-  const authHeader = request.headers.get('authorization');
+  const authHeader = request.headers.get("authorization");
   if (authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
@@ -39,17 +39,14 @@ export async function GET(request: NextRequest) {
     ).toISOString();
 
     const { error, count } = await sb
-      .from('pmf_threshold_snapshots')
-      .delete({ count: 'exact' })
-      .lt('captured_at', cutoff);
+      .from("pmf_threshold_snapshots")
+      .delete({ count: "exact" })
+      .lt("captured_at", cutoff);
 
     if (error) {
-      console.error(
-        '[pmf-cleanup-snapshots] delete failed:',
-        error.message
-      );
+      console.error("[pmf-cleanup-snapshots] delete failed:", error.message);
       return NextResponse.json(
-        { error: 'snapshot cleanup failed' },
+        { error: "snapshot cleanup failed" },
         { status: 500 }
       );
     }
@@ -59,10 +56,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ ok: true, pruned: count ?? 0 });
   } catch (err) {
     const message =
-      err instanceof Error ? err.message : 'snapshot cleanup failed';
-    console.error('[pmf-cleanup-snapshots] failed:', message, err);
+      err instanceof Error ? err.message : "snapshot cleanup failed";
+    console.error("[pmf-cleanup-snapshots] failed:", message, err);
     return NextResponse.json(
-      { error: 'snapshot cleanup failed' },
+      { error: "snapshot cleanup failed" },
       { status: 500 }
     );
   }

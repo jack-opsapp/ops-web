@@ -11,7 +11,7 @@
  * Outlook — `DailyDigestBody` is chrome-less so the rendered HTML has
  * exactly one `<html>` element.
  */
-import React from 'react';
+import React from "react";
 import {
   Body,
   Container,
@@ -20,10 +20,10 @@ import {
   Preview,
   Section,
   Text,
-} from '@react-email/components';
-import type { PmfState } from '@/lib/pmf/types';
-import { DailyDigestBody } from './daily-digest';
-import { CANVAS, GLASS, MONO11, sanitizeDashboardUrl } from './_shared';
+} from "@react-email/components";
+import type { PmfState } from "@/lib/pmf/types";
+import { DailyDigestBody } from "./daily-digest";
+import { CANVAS, GLASS, MONO11, sanitizeDashboardUrl } from "./_shared";
 
 export interface WeeklyDigestCohort {
   cohort_month: string;
@@ -52,7 +52,7 @@ export function WeeklyDigestEmail(p: WeeklyDigestProps) {
       <Body style={CANVAS}>
         <Container>
           <Text style={MONO11}>
-            // PMF WEEKLY DIGEST · WEEK {p.weekNumber} · GATE B {p.daysToGate}{' '}
+            // PMF WEEKLY DIGEST · WEEK {p.weekNumber} · GATE B {p.daysToGate}{" "}
             DAYS
           </Text>
           {/* Reuse daily digest inner sections (no nested <Html>/<Body>). */}
@@ -66,25 +66,21 @@ export function WeeklyDigestEmail(p: WeeklyDigestProps) {
               // COHORT RETENTION · LAST {MAX_COHORTS_DISPLAYED} COHORTS
             </Text>
             {p.retentionCohorts.length === 0 ? (
-              <Text
-                style={{ ...MONO11, color: '#6A6A6A', marginTop: 4 }}
-              >
+              <Text style={{ ...MONO11, color: "#6A6A6A", marginTop: 4 }}>
                 [NO COHORT DATA YET]
               </Text>
             ) : (
-              p.retentionCohorts
-                .slice(0, MAX_COHORTS_DISPLAYED)
-                .map((c) => (
-                  <Text
-                    key={c.cohort_month}
-                    style={{ ...MONO11, color: '#B5B5B5', marginTop: 4 }}
-                  >
-                    {c.cohort_month} · n={c.size} · 30D=
-                    {(c.d30 * 100).toFixed(0)}% · 60D=
-                    {(c.d60 * 100).toFixed(0)}% · 90D=
-                    {(c.d90 * 100).toFixed(0)}%
-                  </Text>
-                ))
+              p.retentionCohorts.slice(0, MAX_COHORTS_DISPLAYED).map((c) => (
+                <Text
+                  key={c.cohort_month}
+                  style={{ ...MONO11, color: "#B5B5B5", marginTop: 4 }}
+                >
+                  {c.cohort_month} · n={c.size} · 30D=
+                  {(c.d30 * 100).toFixed(0)}% · 60D=
+                  {(c.d60 * 100).toFixed(0)}% · 90D=
+                  {(c.d90 * 100).toFixed(0)}%
+                </Text>
+              ))
             )}
           </Section>
         </Container>

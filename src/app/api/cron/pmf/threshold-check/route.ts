@@ -36,9 +36,9 @@ export const maxDuration = 60;
 
 const DASHBOARD_URL = `${process.env.NEXT_PUBLIC_APP_URL ?? "https://app.opsapp.co"}/admin/pmf`;
 
-const STEM_PREFIX = 'OPS ::';
-const UNKNOWN_LABEL = 'UNKNOWN';
-const BILLING_EVENT_TYPE_REFUND = 'charge.refunded';
+const STEM_PREFIX = "OPS ::";
+const UNKNOWN_LABEL = "UNKNOWN";
+const BILLING_EVENT_TYPE_REFUND = "charge.refunded";
 
 interface InboundProspectRow {
   id: string;
@@ -87,8 +87,13 @@ export async function GET(request: NextRequest) {
   try {
     now = await computePmfState();
   } catch (err) {
-    const message = err instanceof Error ? err.message : "compute pmf state failed";
-    console.error("[pmf-threshold-check] computePmfState failed:", message, err);
+    const message =
+      err instanceof Error ? err.message : "compute pmf state failed";
+    console.error(
+      "[pmf-threshold-check] computePmfState failed:",
+      message,
+      err
+    );
     return NextResponse.json(
       { error: "pmf state computation failed" },
       { status: 500 }
@@ -107,7 +112,10 @@ export async function GET(request: NextRequest) {
     .order("captured_at", { ascending: false })
     .limit(1);
   if (priorErr) {
-    console.error("[pmf-threshold-check] prior snapshot read failed:", priorErr);
+    console.error(
+      "[pmf-threshold-check] prior snapshot read failed:",
+      priorErr
+    );
   }
   const prior = (priorRows?.[0]?.state ?? null) as PmfState | null;
 
@@ -156,13 +164,22 @@ export async function GET(request: NextRequest) {
   ]);
 
   if (inboundErr) {
-    console.error("[pmf-threshold-check] newInbound query failed:", inboundErr.message);
+    console.error(
+      "[pmf-threshold-check] newInbound query failed:",
+      inboundErr.message
+    );
   }
   if (refundErr) {
-    console.error("[pmf-threshold-check] newRefunds query failed:", refundErr.message);
+    console.error(
+      "[pmf-threshold-check] newRefunds query failed:",
+      refundErr.message
+    );
   }
   if (referralErr) {
-    console.error("[pmf-threshold-check] newReferrals query failed:", referralErr.message);
+    console.error(
+      "[pmf-threshold-check] newReferrals query failed:",
+      referralErr.message
+    );
   }
 
   const inboundRows = (newInbound ?? []) as InboundProspectRow[];
@@ -269,7 +286,11 @@ export async function GET(request: NextRequest) {
   // in the last 15 min". Only the first row triggers; subsequent referrals
   // in the same window are handled by the normal state-diff path.
   if (firstReferralProspect) {
-    const label = (firstReferralProspect.company ?? firstReferralProspect.name ?? UNKNOWN_LABEL).toUpperCase();
+    const label = (
+      firstReferralProspect.company ??
+      firstReferralProspect.name ??
+      UNKNOWN_LABEL
+    ).toUpperCase();
     const stem = `FIRST REFERRAL · ${label}`;
     sends.push(
       sendPmfNotification({

@@ -21,14 +21,15 @@ import type { PmfState } from "@/lib/pmf/types";
 
 // ─── Mock state ──────────────────────────────────────────────────────────────
 
-const sendPmfNotificationMock = vi.fn<
-  (opts: {
-    kind: string;
-    trigger: string;
-    emailSubject?: string;
-    emailReact?: unknown;
-  }) => Promise<void>
->();
+const sendPmfNotificationMock =
+  vi.fn<
+    (opts: {
+      kind: string;
+      trigger: string;
+      emailSubject?: string;
+      emailReact?: unknown;
+    }) => Promise<void>
+  >();
 
 let nextComputePmfStateResult: PmfState | Error = makeState();
 
@@ -82,7 +83,12 @@ function makeState(): PmfState {
         target: 2,
         label: "TIER A ENGAGEMENTS",
       },
-      marker_2: { status: "red", value: 0, target: 5, label: "RETAINED BASE SAAS" },
+      marker_2: {
+        status: "red",
+        value: 0,
+        target: 5,
+        label: "RETAINED BASE SAAS",
+      },
       marker_3: { status: "red", value: 0, target: 1, label: "INBOUND LEAD" },
       marker_4: {
         status: "red",
@@ -149,18 +155,14 @@ describe("GET /api/cron/pmf/daily-digest", () => {
   });
 
   it("returns 401 when no auth header is supplied", async () => {
-    const { GET } = await import(
-      "@/app/api/cron/pmf/daily-digest/route"
-    );
+    const { GET } = await import("@/app/api/cron/pmf/daily-digest/route");
     const res = await GET(buildReq());
     expect(res.status).toBe(401);
     expect(sendPmfNotificationMock).not.toHaveBeenCalled();
   });
 
   it("returns 401 with the wrong bearer secret", async () => {
-    const { GET } = await import(
-      "@/app/api/cron/pmf/daily-digest/route"
-    );
+    const { GET } = await import("@/app/api/cron/pmf/daily-digest/route");
     const res = await GET(buildReq("Bearer not-the-secret"));
     expect(res.status).toBe(401);
     expect(sendPmfNotificationMock).not.toHaveBeenCalled();
@@ -168,9 +170,7 @@ describe("GET /api/cron/pmf/daily-digest", () => {
 
   it("returns 500 when CRON_SECRET is not configured", async () => {
     delete process.env.CRON_SECRET;
-    const { GET } = await import(
-      "@/app/api/cron/pmf/daily-digest/route"
-    );
+    const { GET } = await import("@/app/api/cron/pmf/daily-digest/route");
     const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
     expect(res.status).toBe(500);
     const json = (await res.json()) as { error: string };
@@ -179,9 +179,7 @@ describe("GET /api/cron/pmf/daily-digest", () => {
   });
 
   it("happy path: returns { ok: true } and fires one notification", async () => {
-    const { GET } = await import(
-      "@/app/api/cron/pmf/daily-digest/route"
-    );
+    const { GET } = await import("@/app/api/cron/pmf/daily-digest/route");
     const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
     expect(res.status).toBe(200);
     const json = (await res.json()) as { ok: boolean };
@@ -191,9 +189,7 @@ describe("GET /api/cron/pmf/daily-digest", () => {
   });
 
   it("hands off the correct kind, trigger, subject, and a React element", async () => {
-    const { GET } = await import(
-      "@/app/api/cron/pmf/daily-digest/route"
-    );
+    const { GET } = await import("@/app/api/cron/pmf/daily-digest/route");
     await GET(buildReq(`Bearer ${VALID_SECRET}`));
 
     expect(sendPmfNotificationMock).toHaveBeenCalledTimes(1);
@@ -208,9 +204,7 @@ describe("GET /api/cron/pmf/daily-digest", () => {
     expect(call.trigger).toBe(`daily_${today}`);
 
     // Subject follows the "OPS :: PMF DAILY · GATE B <N> DAYS" format.
-    expect(call.emailSubject).toMatch(
-      /^OPS :: PMF DAILY · GATE B \d+ DAYS$/
-    );
+    expect(call.emailSubject).toMatch(/^OPS :: PMF DAILY · GATE B \d+ DAYS$/);
 
     // emailReact is a real React element (DailyDigestEmail output).
     expect(call.emailReact).toBeTruthy();
@@ -218,12 +212,12 @@ describe("GET /api/cron/pmf/daily-digest", () => {
   });
 
   it("returns 500 when computePmfState throws (and logs the error)", async () => {
-    nextComputePmfStateResult = new Error("RPC pmf_count_retained_saas missing");
+    nextComputePmfStateResult = new Error(
+      "RPC pmf_count_retained_saas missing"
+    );
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
-    const { GET } = await import(
-      "@/app/api/cron/pmf/daily-digest/route"
-    );
+    const { GET } = await import("@/app/api/cron/pmf/daily-digest/route");
     const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
     expect(res.status).toBe(500);
     const json = (await res.json()) as { error: string };
@@ -240,9 +234,7 @@ describe("GET /api/cron/pmf/daily-digest", () => {
     );
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
-    const { GET } = await import(
-      "@/app/api/cron/pmf/daily-digest/route"
-    );
+    const { GET } = await import("@/app/api/cron/pmf/daily-digest/route");
     const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
     expect(res.status).toBe(500);
     const json = (await res.json()) as { error: string };

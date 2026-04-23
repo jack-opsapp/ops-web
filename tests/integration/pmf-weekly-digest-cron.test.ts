@@ -34,14 +34,15 @@ let nextRpcResponse: {
   error: { message: string } | null;
 } = { data: [], error: null };
 
-const sendPmfNotificationMock = vi.fn<
-  (opts: {
-    kind: string;
-    trigger: string;
-    emailSubject?: string;
-    emailReact?: unknown;
-  }) => Promise<void>
->();
+const sendPmfNotificationMock =
+  vi.fn<
+    (opts: {
+      kind: string;
+      trigger: string;
+      emailSubject?: string;
+      emailReact?: unknown;
+    }) => Promise<void>
+  >();
 
 let nextComputePmfStateResult: PmfState | Error = makeState();
 
@@ -121,7 +122,12 @@ function makeState(): PmfState {
         target: 2,
         label: "TIER A ENGAGEMENTS",
       },
-      marker_2: { status: "red", value: 0, target: 5, label: "RETAINED BASE SAAS" },
+      marker_2: {
+        status: "red",
+        value: 0,
+        target: 5,
+        label: "RETAINED BASE SAAS",
+      },
       marker_3: { status: "red", value: 0, target: 1, label: "INBOUND LEAD" },
       marker_4: {
         status: "red",
@@ -191,9 +197,7 @@ describe("GET /api/cron/pmf/weekly-digest", () => {
   });
 
   it("returns 401 when no auth header is supplied", async () => {
-    const { GET } = await import(
-      "@/app/api/cron/pmf/weekly-digest/route"
-    );
+    const { GET } = await import("@/app/api/cron/pmf/weekly-digest/route");
     const res = await GET(buildReq());
     expect(res.status).toBe(401);
     expect(sendPmfNotificationMock).not.toHaveBeenCalled();
@@ -201,9 +205,7 @@ describe("GET /api/cron/pmf/weekly-digest", () => {
   });
 
   it("returns 401 with the wrong bearer secret", async () => {
-    const { GET } = await import(
-      "@/app/api/cron/pmf/weekly-digest/route"
-    );
+    const { GET } = await import("@/app/api/cron/pmf/weekly-digest/route");
     const res = await GET(buildReq("Bearer not-the-secret"));
     expect(res.status).toBe(401);
     expect(sendPmfNotificationMock).not.toHaveBeenCalled();
@@ -212,9 +214,7 @@ describe("GET /api/cron/pmf/weekly-digest", () => {
 
   it("returns 500 when CRON_SECRET is not configured", async () => {
     delete process.env.CRON_SECRET;
-    const { GET } = await import(
-      "@/app/api/cron/pmf/weekly-digest/route"
-    );
+    const { GET } = await import("@/app/api/cron/pmf/weekly-digest/route");
     const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
     expect(res.status).toBe(500);
     const json = (await res.json()) as { error: string };
@@ -223,9 +223,7 @@ describe("GET /api/cron/pmf/weekly-digest", () => {
   });
 
   it("happy path: calls pmf_retention_cohorts RPC and fires one notification", async () => {
-    const { GET } = await import(
-      "@/app/api/cron/pmf/weekly-digest/route"
-    );
+    const { GET } = await import("@/app/api/cron/pmf/weekly-digest/route");
     const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
     expect(res.status).toBe(200);
     const json = (await res.json()) as { ok: boolean };
@@ -239,9 +237,7 @@ describe("GET /api/cron/pmf/weekly-digest", () => {
   });
 
   it("hands off kind, date-scoped trigger, subject with week + days, and a React element", async () => {
-    const { GET } = await import(
-      "@/app/api/cron/pmf/weekly-digest/route"
-    );
+    const { GET } = await import("@/app/api/cron/pmf/weekly-digest/route");
     await GET(buildReq(`Bearer ${VALID_SECRET}`));
 
     expect(sendPmfNotificationMock).toHaveBeenCalledTimes(1);
@@ -256,9 +252,7 @@ describe("GET /api/cron/pmf/weekly-digest", () => {
     expect(call.trigger).toBe(`weekly_${today}`);
 
     // Subject follows "OPS :: PMF WEEKLY · W<N> · <DAYS> DAYS".
-    expect(call.emailSubject).toMatch(
-      /^OPS :: PMF WEEKLY · W\d+ · \d+ DAYS$/
-    );
+    expect(call.emailSubject).toMatch(/^OPS :: PMF WEEKLY · W\d+ · \d+ DAYS$/);
 
     // emailReact is a real React element.
     expect(call.emailReact).toBeTruthy();
@@ -266,9 +260,7 @@ describe("GET /api/cron/pmf/weekly-digest", () => {
   });
 
   it("subject includes the current ISO week number", async () => {
-    const { GET } = await import(
-      "@/app/api/cron/pmf/weekly-digest/route"
-    );
+    const { GET } = await import("@/app/api/cron/pmf/weekly-digest/route");
     await GET(buildReq(`Bearer ${VALID_SECRET}`));
 
     const call = sendPmfNotificationMock.mock.calls[0][0];
@@ -299,9 +291,7 @@ describe("GET /api/cron/pmf/weekly-digest", () => {
       error: null,
     };
 
-    const { GET } = await import(
-      "@/app/api/cron/pmf/weekly-digest/route"
-    );
+    const { GET } = await import("@/app/api/cron/pmf/weekly-digest/route");
     const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
     expect(res.status).toBe(200);
 
@@ -328,9 +318,7 @@ describe("GET /api/cron/pmf/weekly-digest", () => {
     // '[NO COHORT DATA YET]'.
     nextRpcResponse = { data: null, error: null };
 
-    const { GET } = await import(
-      "@/app/api/cron/pmf/weekly-digest/route"
-    );
+    const { GET } = await import("@/app/api/cron/pmf/weekly-digest/route");
     const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
     expect(res.status).toBe(200);
 
@@ -342,13 +330,13 @@ describe("GET /api/cron/pmf/weekly-digest", () => {
   it("RPC error is non-fatal: logs and still sends with empty cohorts", async () => {
     nextRpcResponse = {
       data: null,
-      error: { message: "function public.pmf_retention_cohorts() does not exist" },
+      error: {
+        message: "function public.pmf_retention_cohorts() does not exist",
+      },
     };
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
-    const { GET } = await import(
-      "@/app/api/cron/pmf/weekly-digest/route"
-    );
+    const { GET } = await import("@/app/api/cron/pmf/weekly-digest/route");
     const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
     expect(res.status).toBe(200);
 
@@ -371,12 +359,12 @@ describe("GET /api/cron/pmf/weekly-digest", () => {
   });
 
   it("returns 500 when computePmfState throws (and logs the error)", async () => {
-    nextComputePmfStateResult = new Error("RPC pmf_count_retained_saas missing");
+    nextComputePmfStateResult = new Error(
+      "RPC pmf_count_retained_saas missing"
+    );
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
-    const { GET } = await import(
-      "@/app/api/cron/pmf/weekly-digest/route"
-    );
+    const { GET } = await import("@/app/api/cron/pmf/weekly-digest/route");
     const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
     expect(res.status).toBe(500);
     const json = (await res.json()) as { error: string };
@@ -392,9 +380,7 @@ describe("GET /api/cron/pmf/weekly-digest", () => {
     );
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
-    const { GET } = await import(
-      "@/app/api/cron/pmf/weekly-digest/route"
-    );
+    const { GET } = await import("@/app/api/cron/pmf/weekly-digest/route");
     const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
     expect(res.status).toBe(500);
     const json = (await res.json()) as { error: string };

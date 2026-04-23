@@ -11,7 +11,7 @@
  * the darker opaque `rgba(10,10,10,0.70)` variant rather than the
  * web-UI glass spec `rgba(18,18,20,0.58)`.
  */
-import React from 'react';
+import React from "react";
 import {
   Body,
   Container,
@@ -20,7 +20,7 @@ import {
   Preview,
   Section,
   Text,
-} from '@react-email/components';
+} from "@react-email/components";
 import {
   ACCENT,
   CANVAS,
@@ -28,7 +28,7 @@ import {
   GLASS_SINGLE,
   MONO11,
   sanitizeDashboardUrl,
-} from './_shared';
+} from "./_shared";
 
 export interface ThresholdAlertProps {
   trigger: string;
@@ -57,7 +57,7 @@ export function ThresholdAlertEmail({
               {Object.entries(context).map(([k, v]) => (
                 <Text
                   key={k}
-                  style={{ ...MONO11, color: '#B5B5B5', marginBottom: 4 }}
+                  style={{ ...MONO11, color: "#B5B5B5", marginBottom: 4 }}
                 >
                   {k.toUpperCase()}: {String(v)}
                 </Text>
@@ -68,7 +68,7 @@ export function ThresholdAlertEmail({
             <Text style={{ ...MONO11, marginTop: 24 }}>
               <a
                 href={safeUrl}
-                style={{ color: ACCENT, textDecoration: 'none' }}
+                style={{ color: ACCENT, textDecoration: "none" }}
               >
                 → VIEW DECK
               </a>

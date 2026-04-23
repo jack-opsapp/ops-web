@@ -52,17 +52,18 @@ function enqueue(result: DbResult): void {
   resultQueue.push(result);
 }
 
-const sendPmfNotificationMock = vi.fn<
-  (opts: {
-    kind: string;
-    trigger: string;
-    smsBody?: string;
-    emailSubject?: string;
-    emailReact?: unknown;
-    inAppTitle?: string;
-    inAppBody?: string;
-  }) => Promise<void>
->();
+const sendPmfNotificationMock =
+  vi.fn<
+    (opts: {
+      kind: string;
+      trigger: string;
+      smsBody?: string;
+      emailSubject?: string;
+      emailReact?: unknown;
+      inAppTitle?: string;
+      inAppBody?: string;
+    }) => Promise<void>
+  >();
 
 let nextComputePmfStateResult: PmfState | Error = makeState();
 
@@ -183,7 +184,12 @@ function makeState(overrides?: {
         target: 2,
         label: "TIER A ENGAGEMENTS",
       },
-      marker_2: { status: "red", value: 0, target: 5, label: "RETAINED BASE SAAS" },
+      marker_2: {
+        status: "red",
+        value: 0,
+        target: 5,
+        label: "RETAINED BASE SAAS",
+      },
       marker_3: { status: "red", value: 0, target: 1, label: "INBOUND LEAD" },
       marker_4: {
         status: "red",
@@ -276,9 +282,7 @@ describe("GET /api/cron/pmf/threshold-check", () => {
   });
 
   it("returns 401 when no auth header is supplied", async () => {
-    const { GET } = await import(
-      "@/app/api/cron/pmf/threshold-check/route"
-    );
+    const { GET } = await import("@/app/api/cron/pmf/threshold-check/route");
     const res = await GET(buildReq());
     expect(res.status).toBe(401);
     expect(sendPmfNotificationMock).not.toHaveBeenCalled();
@@ -286,9 +290,7 @@ describe("GET /api/cron/pmf/threshold-check", () => {
   });
 
   it("returns 401 with the wrong bearer secret", async () => {
-    const { GET } = await import(
-      "@/app/api/cron/pmf/threshold-check/route"
-    );
+    const { GET } = await import("@/app/api/cron/pmf/threshold-check/route");
     const res = await GET(buildReq("Bearer not-the-secret"));
     expect(res.status).toBe(401);
     expect(sendPmfNotificationMock).not.toHaveBeenCalled();
@@ -297,9 +299,7 @@ describe("GET /api/cron/pmf/threshold-check", () => {
 
   it("returns 500 when CRON_SECRET is not configured", async () => {
     delete process.env.CRON_SECRET;
-    const { GET } = await import(
-      "@/app/api/cron/pmf/threshold-check/route"
-    );
+    const { GET } = await import("@/app/api/cron/pmf/threshold-check/route");
     const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
     expect(res.status).toBe(500);
     const json = (await res.json()) as { error: string };
@@ -309,9 +309,7 @@ describe("GET /api/cron/pmf/threshold-check", () => {
 
   it("first run: no prior snapshot → no transitions; inserts current snapshot; returns { ok, transitions: 0 }", async () => {
     seedQueue({ prior: null });
-    const { GET } = await import(
-      "@/app/api/cron/pmf/threshold-check/route"
-    );
+    const { GET } = await import("@/app/api/cron/pmf/threshold-check/route");
     const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
     expect(res.status).toBe(200);
     const json = (await res.json()) as {
@@ -344,9 +342,7 @@ describe("GET /api/cron/pmf/threshold-check", () => {
     nextComputePmfStateResult = now;
     seedQueue({ prior });
 
-    const { GET } = await import(
-      "@/app/api/cron/pmf/threshold-check/route"
-    );
+    const { GET } = await import("@/app/api/cron/pmf/threshold-check/route");
     const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
     expect(res.status).toBe(200);
     const json = (await res.json()) as { transitions: number; sent: number };
@@ -378,9 +374,7 @@ describe("GET /api/cron/pmf/threshold-check", () => {
       ],
     });
 
-    const { GET } = await import(
-      "@/app/api/cron/pmf/threshold-check/route"
-    );
+    const { GET } = await import("@/app/api/cron/pmf/threshold-check/route");
     const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
     expect(res.status).toBe(200);
     const json = (await res.json()) as { inbound: number; sent: number };
@@ -410,9 +404,7 @@ describe("GET /api/cron/pmf/threshold-check", () => {
       ],
     });
 
-    const { GET } = await import(
-      "@/app/api/cron/pmf/threshold-check/route"
-    );
+    const { GET } = await import("@/app/api/cron/pmf/threshold-check/route");
     const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
     expect(res.status).toBe(200);
     const call = sendPmfNotificationMock.mock.calls[0][0];
@@ -432,9 +424,7 @@ describe("GET /api/cron/pmf/threshold-check", () => {
       ],
     });
 
-    const { GET } = await import(
-      "@/app/api/cron/pmf/threshold-check/route"
-    );
+    const { GET } = await import("@/app/api/cron/pmf/threshold-check/route");
     const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
     expect(res.status).toBe(200);
     const json = (await res.json()) as { refunds: number; sent: number };
@@ -451,15 +441,15 @@ describe("GET /api/cron/pmf/threshold-check", () => {
 
   it("queries billing_events by received_at (not the nonexistent created_at)", async () => {
     seedQueue({ prior: makeState() });
-    const { GET } = await import(
-      "@/app/api/cron/pmf/threshold-check/route"
-    );
+    const { GET } = await import("@/app/api/cron/pmf/threshold-check/route");
     await GET(buildReq(`Bearer ${VALID_SECRET}`));
 
     // Schema has no `billing_events.created_at`, so the route MUST filter
     // on `received_at` — guard against a regression that would make
     // refund alerts silently fail in prod.
-    const billingCalls = recordedCalls.filter((c) => c.table === "billing_events");
+    const billingCalls = recordedCalls.filter(
+      (c) => c.table === "billing_events"
+    );
     const gteCalls = billingCalls.filter((c) => c.method === "gte");
     expect(gteCalls).toHaveLength(1);
     expect(gteCalls[0].args[0]).toBe("received_at");
@@ -477,9 +467,7 @@ describe("GET /api/cron/pmf/threshold-check", () => {
       ],
     });
 
-    const { GET } = await import(
-      "@/app/api/cron/pmf/threshold-check/route"
-    );
+    const { GET } = await import("@/app/api/cron/pmf/threshold-check/route");
     const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
     expect(res.status).toBe(200);
     expect(sendPmfNotificationMock).toHaveBeenCalledTimes(1);
@@ -506,9 +494,7 @@ describe("GET /api/cron/pmf/threshold-check", () => {
       ],
     });
 
-    const { GET } = await import(
-      "@/app/api/cron/pmf/threshold-check/route"
-    );
+    const { GET } = await import("@/app/api/cron/pmf/threshold-check/route");
     const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
     expect(res.status).toBe(200);
 
@@ -545,9 +531,7 @@ describe("GET /api/cron/pmf/threshold-check", () => {
       ],
     });
 
-    const { GET } = await import(
-      "@/app/api/cron/pmf/threshold-check/route"
-    );
+    const { GET } = await import("@/app/api/cron/pmf/threshold-check/route");
     const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
     expect(res.status).toBe(200);
 
@@ -586,9 +570,7 @@ describe("GET /api/cron/pmf/threshold-check", () => {
       ],
     });
 
-    const { GET } = await import(
-      "@/app/api/cron/pmf/threshold-check/route"
-    );
+    const { GET } = await import("@/app/api/cron/pmf/threshold-check/route");
     const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
     expect(res.status).toBe(200);
 
@@ -635,9 +617,7 @@ describe("GET /api/cron/pmf/threshold-check", () => {
       { data: [], error: null },
     ];
 
-    const { GET } = await import(
-      "@/app/api/cron/pmf/threshold-check/route"
-    );
+    const { GET } = await import("@/app/api/cron/pmf/threshold-check/route");
     const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
     expect(res.status).toBe(200);
     const json = (await res.json()) as {
@@ -660,8 +640,8 @@ describe("GET /api/cron/pmf/threshold-check", () => {
     // The read error was logged.
     expect(errorSpy).toHaveBeenCalled();
     const loggedPriorErr = errorSpy.mock.calls.some((args) =>
-      args.some((a) =>
-        typeof a === "string" && a.includes("prior snapshot read failed")
+      args.some(
+        (a) => typeof a === "string" && a.includes("prior snapshot read failed")
       )
     );
     expect(loggedPriorErr).toBe(true);
@@ -671,9 +651,7 @@ describe("GET /api/cron/pmf/threshold-check", () => {
 
   it("no transitions, no events: returns 200 with zero sends", async () => {
     seedQueue({ prior: makeState() });
-    const { GET } = await import(
-      "@/app/api/cron/pmf/threshold-check/route"
-    );
+    const { GET } = await import("@/app/api/cron/pmf/threshold-check/route");
     const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
     expect(res.status).toBe(200);
     const json = (await res.json()) as {
@@ -694,12 +672,12 @@ describe("GET /api/cron/pmf/threshold-check", () => {
   });
 
   it("returns 500 when computePmfState throws (and logs the error)", async () => {
-    nextComputePmfStateResult = new Error("RPC pmf_count_retained_saas missing");
+    nextComputePmfStateResult = new Error(
+      "RPC pmf_count_retained_saas missing"
+    );
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
-    const { GET } = await import(
-      "@/app/api/cron/pmf/threshold-check/route"
-    );
+    const { GET } = await import("@/app/api/cron/pmf/threshold-check/route");
     const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
     expect(res.status).toBe(500);
     const json = (await res.json()) as { error: string };
@@ -736,9 +714,7 @@ describe("GET /api/cron/pmf/threshold-check", () => {
       ],
     });
 
-    const { GET } = await import(
-      "@/app/api/cron/pmf/threshold-check/route"
-    );
+    const { GET } = await import("@/app/api/cron/pmf/threshold-check/route");
     const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
     expect(res.status).toBe(200);
     const json = (await res.json()) as {

@@ -13,6 +13,7 @@
 import { requireSupabase } from "@/lib/supabase/helpers";
 import { AdminFeatureOverrideService } from "./admin-feature-override-service";
 import { ApprovalQueueService } from "./approval-queue-service";
+import { isoWeekNumber } from "@/lib/pmf/formatters";
 import type {
   FinancialAlert,
   FinancialInsightActionData,
@@ -137,14 +138,6 @@ function monthsAgo(n: number): Date {
   d.setDate(1);
   d.setHours(0, 0, 0, 0);
   return d;
-}
-
-function getISOWeekNumber(date: Date): number {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  const dayNum = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
 }
 
 // ─── Admin User Lookup ────────────────────────────────────────────────────────
@@ -893,7 +886,7 @@ export const FinancialIntelligenceService = {
 
     // Deduplicate by week number
     const now = new Date();
-    const weekNumber = getISOWeekNumber(now);
+    const weekNumber = isoWeekNumber(now);
     const sourceId = `financial:weekly:${now.getFullYear()}-W${String(weekNumber).padStart(2, "0")}`;
 
     const priority: AgentActionPriority = allAlerts.some((a) => a.type === "low_cash")

@@ -16,7 +16,7 @@
  * `DailyDigestBody` so the rendered HTML has exactly one `<html>` element
  * (Gmail strips nested `<html>`; Outlook renders inconsistently).
  */
-import React from 'react';
+import React from "react";
 import {
   Body,
   Container,
@@ -25,8 +25,8 @@ import {
   Preview,
   Section,
   Text,
-} from '@react-email/components';
-import type { PmfState } from '@/lib/pmf/types';
+} from "@react-email/components";
+import type { PmfState } from "@/lib/pmf/types";
 import {
   ACCENT,
   CANVAS,
@@ -35,7 +35,7 @@ import {
   MONO11,
   STATUS_COLOR,
   sanitizeDashboardUrl,
-} from './_shared';
+} from "./_shared";
 
 export interface DailyDigestProps {
   state: PmfState;
@@ -70,10 +70,8 @@ export function DailyDigestBody({
         <Section key={key} style={GLASS}>
           <Text style={MONO11}>// {m.label}</Text>
           <Text style={HERO}>
-            {m.value}{' '}
-            <span style={{ color: '#8A8A8A', fontSize: 24 }}>
-              / {m.target}
-            </span>
+            {m.value}{" "}
+            <span style={{ color: "#8A8A8A", fontSize: 24 }}>/ {m.target}</span>
           </Text>
           <Text style={{ ...MONO11, color: STATUS_COLOR[m.status] }}>
             [{m.status.toUpperCase()}]
@@ -84,15 +82,12 @@ export function DailyDigestBody({
       <Section style={GLASS}>
         <Text style={MONO11}>// LEADING INDICATORS</Text>
         {Object.entries(state.indicators).map(([key, ind]) => (
-          <Text
-            key={key}
-            style={{ ...MONO11, color: '#B5B5B5', marginTop: 6 }}
-          >
-            {ind.label}:{' '}
-            {ind.unit === 'percent'
+          <Text key={key} style={{ ...MONO11, color: "#B5B5B5", marginTop: 6 }}>
+            {ind.label}:{" "}
+            {ind.unit === "percent"
               ? `${(ind.value * 100).toFixed(0)}%`
-              : ind.value}{' '}
-            ·{' '}
+              : ind.value}{" "}
+            ·{" "}
             <span style={{ color: STATUS_COLOR[ind.status] }}>
               {ind.status.toUpperCase()}
             </span>
@@ -104,7 +99,7 @@ export function DailyDigestBody({
         <Text style={{ ...MONO11, marginTop: 24 }}>
           <a
             href={dashboardUrl}
-            style={{ color: ACCENT, textDecoration: 'none' }}
+            style={{ color: ACCENT, textDecoration: "none" }}
           >
             → VIEW DECK
           </a>

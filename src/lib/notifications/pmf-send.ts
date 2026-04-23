@@ -15,17 +15,20 @@
  * keyed by (kind, trigger, channel); success rows set `sent_at`, failure
  * rows set `error` instead.
  */
-import 'server-only';
-import type { ReactElement } from 'react';
-import { getAdminSupabase } from '@/lib/supabase/admin-client';
-import { sendSms } from './twilio';
-import { getPmfRecipients } from '@/lib/pmf/recipients';
-import { sendTransactionalEmail } from '@/lib/email/sendgrid';
-import { render } from '@react-email/render';
+import "server-only";
+import type { ReactElement } from "react";
+import { getAdminSupabase } from "@/lib/supabase/admin-client";
+import { sendSms } from "./twilio";
+import { getPmfRecipients } from "@/lib/pmf/recipients";
+import { sendTransactionalEmail } from "@/lib/email/sendgrid";
+import { render } from "@react-email/render";
 
-export type NotificationKind = 'threshold_alert' | 'daily_digest' | 'weekly_digest';
+export type NotificationKind =
+  | "threshold_alert"
+  | "daily_digest"
+  | "weekly_digest";
 
-export type NotificationChannel = 'sms' | 'email' | 'in_app';
+export type NotificationChannel = "sms" | "email" | "in_app";
 
 export interface SendOptions {
   kind: NotificationKind;
@@ -59,15 +62,15 @@ async function hasRecentSend(
   const sb = getAdminSupabase();
   const since = new Date(Date.now() - withinMs).toISOString();
   const { data, error } = await sb
-    .from('pmf_notification_log')
-    .select('id')
-    .eq('kind', kind)
-    .eq('trigger', trigger)
-    .gte('created_at', since)
-    .is('error', null)
+    .from("pmf_notification_log")
+    .select("id")
+    .eq("kind", kind)
+    .eq("trigger", trigger)
+    .gte("created_at", since)
+    .is("error", null)
     .limit(1);
   if (error) {
-    console.error('[pmf-send] hasRecentSend query failed:', error);
+    console.error("[pmf-send] hasRecentSend query failed:", error);
     return false;
   }
   return (data ?? []).length > 0;
@@ -85,7 +88,7 @@ interface LogSendArgs {
 async function logSend(args: LogSendArgs): Promise<void> {
   try {
     const sb = getAdminSupabase();
-    await sb.from('pmf_notification_log').insert({
+    await sb.from("pmf_notification_log").insert({
       kind: args.kind,
       trigger: args.trigger,
       channel: args.channel,
@@ -95,7 +98,7 @@ async function logSend(args: LogSendArgs): Promise<void> {
       error: args.error ?? null,
     });
   } catch (e) {
-    console.error('[pmf-send] logSend failed:', e);
+    console.error("[pmf-send] logSend failed:", e);
   }
 }
 
@@ -103,7 +106,10 @@ async function logSend(args: LogSendArgs): Promise<void> {
  * Retry with exponential delay: 1s, 5s, 25s between attempts (1s * 5^i).
  * The final attempt's rejection propagates so the caller can log it.
  */
-export async function withRetry<T>(fn: () => Promise<T>, attempts = 3): Promise<T> {
+export async function withRetry<T>(
+  fn: () => Promise<T>,
+  attempts = 3
+): Promise<T> {
   let lastErr: unknown;
   for (let i = 0; i < attempts; i++) {
     try {
@@ -126,14 +132,14 @@ export async function sendPmfNotification(opts: SendOptions): Promise<void> {
   const sb = getAdminSupabase();
 
   // SMS — only for threshold alerts.
-  if (opts.kind === 'threshold_alert' && opts.smsBody) {
+  if (opts.kind === "threshold_alert" && opts.smsBody) {
     const smsBody = opts.smsBody;
     try {
       await withRetry(() => sendSms(recipients.sms, smsBody));
       await logSend({
         kind: opts.kind,
         trigger: opts.trigger,
-        channel: 'sms',
+        channel: "sms",
         recipient: recipients.sms,
         payload: { body: smsBody },
       });
@@ -141,7 +147,7 @@ export async function sendPmfNotification(opts: SendOptions): Promise<void> {
       await logSend({
         kind: opts.kind,
         trigger: opts.trigger,
-        channel: 'sms',
+        channel: "sms",
         recipient: recipients.sms,
         payload: { body: smsBody },
         error: errorMessage(e),
@@ -160,7 +166,7 @@ export async function sendPmfNotification(opts: SendOptions): Promise<void> {
       await logSend({
         kind: opts.kind,
         trigger: opts.trigger,
-        channel: 'email',
+        channel: "email",
         recipient: recipients.email,
         payload: { subject },
       });
@@ -168,7 +174,7 @@ export async function sendPmfNotification(opts: SendOptions): Promise<void> {
       await logSend({
         kind: opts.kind,
         trigger: opts.trigger,
-        channel: 'email',
+        channel: "email",
         recipient: recipients.email,
         payload: { subject },
         error: errorMessage(e),
@@ -177,25 +183,25 @@ export async function sendPmfNotification(opts: SendOptions): Promise<void> {
   }
 
   // In-app rail — only for threshold alerts.
-  if (opts.kind === 'threshold_alert' && opts.inAppTitle) {
+  if (opts.kind === "threshold_alert" && opts.inAppTitle) {
     const title = opts.inAppTitle;
     try {
-      const { error } = await sb.from('notifications').insert({
+      const { error } = await sb.from("notifications").insert({
         user_id: recipients.operatorUserId,
         company_id: recipients.operatorCompanyId,
-        type: 'pmf_alert',
+        type: "pmf_alert",
         title,
-        body: opts.inAppBody ?? '',
+        body: opts.inAppBody ?? "",
         is_read: false,
         persistent: false,
-        action_url: opts.inAppActionUrl ?? '/admin/pmf',
-        action_label: 'VIEW DECK',
+        action_url: opts.inAppActionUrl ?? "/admin/pmf",
+        action_label: "VIEW DECK",
       });
       if (error) throw new Error(error.message);
       await logSend({
         kind: opts.kind,
         trigger: opts.trigger,
-        channel: 'in_app',
+        channel: "in_app",
         recipient: recipients.operatorUserId,
         payload: { title },
       });
@@ -203,7 +209,7 @@ export async function sendPmfNotification(opts: SendOptions): Promise<void> {
       await logSend({
         kind: opts.kind,
         trigger: opts.trigger,
-        channel: 'in_app',
+        channel: "in_app",
         recipient: recipients.operatorUserId,
         payload: { title },
         error: errorMessage(e),

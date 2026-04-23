@@ -40,7 +40,10 @@ vi.mock("@/lib/supabase/admin-client", () => ({
 
 interface MockBuilder {
   delete: (opts?: Record<string, unknown>) => MockBuilder;
-  lt: (col: string, val: unknown) => Promise<{
+  lt: (
+    col: string,
+    val: unknown
+  ) => Promise<{
     error: { message: string } | null;
     count: number | null;
   }>;
@@ -77,10 +80,10 @@ function buildReq(authHeader?: string): NextRequest {
   if (authHeader !== undefined) {
     headers.authorization = authHeader;
   }
-  const req = new Request(
-    "http://localhost/api/cron/pmf/cleanup-snapshots",
-    { method: "GET", headers }
-  );
+  const req = new Request("http://localhost/api/cron/pmf/cleanup-snapshots", {
+    method: "GET",
+    headers,
+  });
   return req as unknown as NextRequest;
 }
 
@@ -94,18 +97,14 @@ describe("GET /api/cron/pmf/cleanup-snapshots", () => {
   });
 
   it("returns 401 when no auth header is supplied", async () => {
-    const { GET } = await import(
-      "@/app/api/cron/pmf/cleanup-snapshots/route"
-    );
+    const { GET } = await import("@/app/api/cron/pmf/cleanup-snapshots/route");
     const res = await GET(buildReq());
     expect(res.status).toBe(401);
     expect(recordedCalls).toHaveLength(0);
   });
 
   it("returns 401 with the wrong bearer secret", async () => {
-    const { GET } = await import(
-      "@/app/api/cron/pmf/cleanup-snapshots/route"
-    );
+    const { GET } = await import("@/app/api/cron/pmf/cleanup-snapshots/route");
     const res = await GET(buildReq("Bearer not-the-secret"));
     expect(res.status).toBe(401);
     expect(recordedCalls).toHaveLength(0);
@@ -113,9 +112,7 @@ describe("GET /api/cron/pmf/cleanup-snapshots", () => {
 
   it("returns 500 when CRON_SECRET is not configured", async () => {
     delete process.env.CRON_SECRET;
-    const { GET } = await import(
-      "@/app/api/cron/pmf/cleanup-snapshots/route"
-    );
+    const { GET } = await import("@/app/api/cron/pmf/cleanup-snapshots/route");
     const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
     expect(res.status).toBe(500);
     const json = (await res.json()) as { error: string };
@@ -125,9 +122,7 @@ describe("GET /api/cron/pmf/cleanup-snapshots", () => {
 
   it("happy path: deletes from pmf_threshold_snapshots and returns pruned count", async () => {
     nextDeleteResponse = { error: null, count: 42 };
-    const { GET } = await import(
-      "@/app/api/cron/pmf/cleanup-snapshots/route"
-    );
+    const { GET } = await import("@/app/api/cron/pmf/cleanup-snapshots/route");
     const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
     expect(res.status).toBe(200);
     const json = (await res.json()) as { ok: boolean; pruned: number };
@@ -144,9 +139,7 @@ describe("GET /api/cron/pmf/cleanup-snapshots", () => {
 
   it("filters by captured_at < cutoff, where cutoff is ~30 days ago", async () => {
     const beforeMs = Date.now();
-    const { GET } = await import(
-      "@/app/api/cron/pmf/cleanup-snapshots/route"
-    );
+    const { GET } = await import("@/app/api/cron/pmf/cleanup-snapshots/route");
     await GET(buildReq(`Bearer ${VALID_SECRET}`));
     const afterMs = Date.now();
 
@@ -171,9 +164,7 @@ describe("GET /api/cron/pmf/cleanup-snapshots", () => {
     // supabase-js v2's delete({ count: 'exact' }) returns count: number | null.
     // The route must coerce null → 0 so the JSON response is well-typed.
     nextDeleteResponse = { error: null, count: null };
-    const { GET } = await import(
-      "@/app/api/cron/pmf/cleanup-snapshots/route"
-    );
+    const { GET } = await import("@/app/api/cron/pmf/cleanup-snapshots/route");
     const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
     expect(res.status).toBe(200);
     const json = (await res.json()) as { ok: boolean; pruned: number };
@@ -187,9 +178,7 @@ describe("GET /api/cron/pmf/cleanup-snapshots", () => {
     };
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
-    const { GET } = await import(
-      "@/app/api/cron/pmf/cleanup-snapshots/route"
-    );
+    const { GET } = await import("@/app/api/cron/pmf/cleanup-snapshots/route");
     const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
     expect(res.status).toBe(500);
     const json = (await res.json()) as { error: string };
