@@ -43,7 +43,7 @@ export function AdminSidebar() {
   return (
     <aside className="w-[220px] min-h-screen flex-shrink-0 border-r border-white/[0.08] flex flex-col">
       <div className="px-6 py-8">
-        <p className="font-mohave text-[13px] uppercase tracking-widest text-[#6B6B6B]">
+        <p className="font-mohave text-[13px] uppercase tracking-widest text-text-3">
           OPS ADMIN
         </p>
       </div>
@@ -52,7 +52,7 @@ export function AdminSidebar() {
           entry.type === "section" ? (
             <div
               key={`section-${i}`}
-              className="px-6 pt-5 pb-1 font-mohave text-micro uppercase tracking-[0.18em] text-[#4A4A4A]"
+              className="px-6 pt-5 pb-1 font-mohave text-micro uppercase tracking-[0.18em] text-text-mute"
             >
               {entry.label}
             </div>

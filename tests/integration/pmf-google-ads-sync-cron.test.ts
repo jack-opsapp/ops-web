@@ -116,9 +116,7 @@ describe("GET /api/cron/pmf/google-ads-sync", () => {
   });
 
   it("returns 401 when no auth header is supplied", async () => {
-    const { GET } = await import(
-      "@/app/api/cron/pmf/google-ads-sync/route"
-    );
+    const { GET } = await import("@/app/api/cron/pmf/google-ads-sync/route");
     const res = await GET(buildReq());
     expect(res.status).toBe(401);
     expect(queryCalls).toHaveLength(0);
@@ -126,9 +124,7 @@ describe("GET /api/cron/pmf/google-ads-sync", () => {
   });
 
   it("returns 401 with the wrong bearer secret", async () => {
-    const { GET } = await import(
-      "@/app/api/cron/pmf/google-ads-sync/route"
-    );
+    const { GET } = await import("@/app/api/cron/pmf/google-ads-sync/route");
     const res = await GET(buildReq("Bearer not-the-secret"));
     expect(res.status).toBe(401);
     expect(queryCalls).toHaveLength(0);
@@ -137,9 +133,7 @@ describe("GET /api/cron/pmf/google-ads-sync", () => {
 
   it("returns 500 when CRON_SECRET is not configured", async () => {
     delete process.env.CRON_SECRET;
-    const { GET } = await import(
-      "@/app/api/cron/pmf/google-ads-sync/route"
-    );
+    const { GET } = await import("@/app/api/cron/pmf/google-ads-sync/route");
     const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
     expect(res.status).toBe(500);
     const json = (await res.json()) as { error: string };
@@ -150,9 +144,7 @@ describe("GET /api/cron/pmf/google-ads-sync", () => {
 
   it("returns { skipped } and does no work when Google Ads is not configured", async () => {
     isConfigured = false;
-    const { GET } = await import(
-      "@/app/api/cron/pmf/google-ads-sync/route"
-    );
+    const { GET } = await import("@/app/api/cron/pmf/google-ads-sync/route");
     const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
     expect(res.status).toBe(200);
     const json = (await res.json()) as { skipped: string };
@@ -175,9 +167,7 @@ describe("GET /api/cron/pmf/google-ads-sync", () => {
       },
     ];
 
-    const { GET } = await import(
-      "@/app/api/cron/pmf/google-ads-sync/route"
-    );
+    const { GET } = await import("@/app/api/cron/pmf/google-ads-sync/route");
     const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
     expect(res.status).toBe(200);
 
@@ -218,9 +208,7 @@ describe("GET /api/cron/pmf/google-ads-sync", () => {
     nextRows = [];
     const dateStr = expectedYesterdayStr();
 
-    const { GET } = await import(
-      "@/app/api/cron/pmf/google-ads-sync/route"
-    );
+    const { GET } = await import("@/app/api/cron/pmf/google-ads-sync/route");
     const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
     expect(res.status).toBe(200);
 
@@ -252,9 +240,7 @@ describe("GET /api/cron/pmf/google-ads-sync", () => {
 
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
-    const { GET } = await import(
-      "@/app/api/cron/pmf/google-ads-sync/route"
-    );
+    const { GET } = await import("@/app/api/cron/pmf/google-ads-sync/route");
     const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
 
     expect(res.status).toBe(500);
@@ -268,9 +254,7 @@ describe("GET /api/cron/pmf/google-ads-sync", () => {
     // The full message IS logged server-side (Vercel logs need it for debugging).
     expect(errorSpy).toHaveBeenCalled();
     const loggedAnything = errorSpy.mock.calls.some((args) =>
-      args.some(
-        (a) => typeof a === "string" && a.includes(leakyMessage)
-      )
+      args.some((a) => typeof a === "string" && a.includes(leakyMessage))
     );
     expect(loggedAnything).toBe(true);
 
@@ -295,9 +279,7 @@ describe("GET /api/cron/pmf/google-ads-sync", () => {
     ];
     nextUpsertError = { message: "boom" };
 
-    const { GET } = await import(
-      "@/app/api/cron/pmf/google-ads-sync/route"
-    );
+    const { GET } = await import("@/app/api/cron/pmf/google-ads-sync/route");
     const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
     expect(res.status).toBe(500);
     const json = (await res.json()) as { error: string };

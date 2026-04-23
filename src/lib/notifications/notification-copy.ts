@@ -15,9 +15,12 @@ export interface MemberJoinedCopy {
   actionLabel: "ASSIGN ROLE" | "VIEW MEMBER";
 }
 
-export function buildMemberJoinedCopy(params: MemberJoinedCopyParams): MemberJoinedCopy {
+export function buildMemberJoinedCopy(
+  params: MemberJoinedCopyParams
+): MemberJoinedCopy {
   const { firstName, wasSeated } = params;
-  const hasRole = !!params.roleName && params.roleName.toLowerCase() !== "unassigned";
+  const hasRole =
+    !!params.roleName && params.roleName.toLowerCase() !== "unassigned";
   const roleName = params.roleName ?? "";
 
   if (hasRole && wasSeated) {

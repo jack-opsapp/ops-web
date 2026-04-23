@@ -47,9 +47,8 @@ vi.mock("@/lib/admin/api-auth", async () => {
       }
       return { uid: "admin-uid", email: "admin@opsapp.co", claims: {} };
     },
-    withAdmin: (
-      handler: (req: NextRequest) => Promise<NextResponse>
-    ) =>
+    withAdmin:
+      (handler: (req: NextRequest) => Promise<NextResponse>) =>
       async (req: NextRequest) => {
         try {
           return await handler(req);
@@ -93,9 +92,7 @@ describe("GET /api/admin/pmf/mrr-trend", () => {
 
   it("returns 401 when the caller is unauthenticated", async () => {
     authMode = "unauthenticated";
-    const { GET } = await import(
-      "@/app/api/admin/pmf/mrr-trend/route"
-    );
+    const { GET } = await import("@/app/api/admin/pmf/mrr-trend/route");
     const res = await GET(buildReq());
     expect(res.status).toBe(401);
     expect(rpcCalls).toHaveLength(0);
@@ -103,9 +100,7 @@ describe("GET /api/admin/pmf/mrr-trend", () => {
 
   it("returns 403 when the caller is signed in but not an admin", async () => {
     authMode = "non_admin";
-    const { GET } = await import(
-      "@/app/api/admin/pmf/mrr-trend/route"
-    );
+    const { GET } = await import("@/app/api/admin/pmf/mrr-trend/route");
     const res = await GET(buildReq());
     expect(res.status).toBe(403);
     expect(rpcCalls).toHaveLength(0);
@@ -119,9 +114,7 @@ describe("GET /api/admin/pmf/mrr-trend", () => {
     ];
     nextRpcResponse = { data: rows, error: null };
 
-    const { GET } = await import(
-      "@/app/api/admin/pmf/mrr-trend/route"
-    );
+    const { GET } = await import("@/app/api/admin/pmf/mrr-trend/route");
     const res = await GET(buildReq());
     expect(res.status).toBe(200);
 
@@ -138,9 +131,7 @@ describe("GET /api/admin/pmf/mrr-trend", () => {
       data: null,
       error: { message: "function does not exist" },
     };
-    const { GET } = await import(
-      "@/app/api/admin/pmf/mrr-trend/route"
-    );
+    const { GET } = await import("@/app/api/admin/pmf/mrr-trend/route");
     const res = await GET(buildReq());
     expect(res.status).toBe(500);
     const json = (await res.json()) as { error: string };

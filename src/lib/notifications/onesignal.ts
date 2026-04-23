@@ -13,12 +13,16 @@ export interface SendOneSignalPushParams {
   data: Record<string, unknown>;
 }
 
-export async function sendOneSignalPush(params: SendOneSignalPushParams): Promise<void> {
+export async function sendOneSignalPush(
+  params: SendOneSignalPushParams
+): Promise<void> {
   const appId = process.env.ONESIGNAL_APP_ID;
   const apiKey = process.env.ONESIGNAL_REST_API_KEY;
 
   if (!appId || !apiKey) {
-    console.warn("[onesignal] Missing ONESIGNAL_APP_ID or ONESIGNAL_REST_API_KEY — skipping push");
+    console.warn(
+      "[onesignal] Missing ONESIGNAL_APP_ID or ONESIGNAL_REST_API_KEY — skipping push"
+    );
     return;
   }
 

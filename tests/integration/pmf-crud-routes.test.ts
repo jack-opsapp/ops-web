@@ -37,7 +37,10 @@ interface RecordedCall {
 
 const recordedCalls: RecordedCall[] = [];
 
-type DbResult = { data: unknown; error: { code?: string; message: string } | null };
+type DbResult = {
+  data: unknown;
+  error: { code?: string; message: string } | null;
+};
 
 // Per-test overrides: queue of results consumed in FIFO order by terminal ops
 // (.single / .maybeSingle / await). When empty, we fall through to default
@@ -61,9 +64,8 @@ vi.mock("@/lib/admin/api-auth", async () => {
       }
       return { uid: "admin-uid", email: "admin@ops.test", claims: {} };
     },
-    withAdmin: (
-      handler: (req: NextRequest) => Promise<NextResponse>
-    ) =>
+    withAdmin:
+      (handler: (req: NextRequest) => Promise<NextResponse>) =>
       async (req: NextRequest) => {
         try {
           return await handler(req);
@@ -216,7 +218,9 @@ describe("GET /api/admin/pmf/prospects", () => {
   });
 
   it("lists prospects with the deal embed and orders by first_contact_at desc", async () => {
-    resultQueue = [{ data: [{ id: VALID_PROSPECT_ID, name: "Acme" }], error: null }];
+    resultQueue = [
+      { data: [{ id: VALID_PROSPECT_ID, name: "Acme" }], error: null },
+    ];
     const { GET } = await import("@/app/api/admin/pmf/prospects/route");
     const res = await GET(buildReq("http://localhost/api/admin/pmf/prospects"));
     expect(res.status).toBe(200);
@@ -307,9 +311,7 @@ describe("POST /api/admin/pmf/prospects", () => {
     expect(prospectRow.name).toBe(VALID_PROSPECT.name);
     expect(prospectRow.deal_type).toBe("tier_a");
 
-    const dealInsert = callsFor("pmf_deals").find(
-      (c) => c.method === "insert"
-    );
+    const dealInsert = callsFor("pmf_deals").find((c) => c.method === "insert");
     expect(dealInsert).toBeDefined();
     const dealRow = dealInsert!.args[0] as Record<string, unknown>;
     expect(dealRow.prospect_id).toBe(VALID_PROSPECT_ID);
@@ -388,9 +390,7 @@ describe("POST /api/admin/pmf/prospects", () => {
       expect(res.status).toBe(500);
 
       const criticalCall = errorSpy.mock.calls.find((args) =>
-        args.some(
-          (a) => typeof a === "string" && a.includes("CRITICAL")
-        )
+        args.some((a) => typeof a === "string" && a.includes("CRITICAL"))
       );
       expect(criticalCall).toBeDefined();
       // Prospect id must appear somewhere in the CRITICAL call args so
@@ -443,9 +443,7 @@ describe("GET /api/admin/pmf/prospects/[id]", () => {
     );
     expect(res.status).toBe(200);
 
-    const select = callsFor("pmf_prospects").find(
-      (c) => c.method === "select"
-    );
+    const select = callsFor("pmf_prospects").find((c) => c.method === "select");
     expect(select?.args[0]).toContain("pmf_deals(*, pmf_deal_events(*))");
 
     const eq = callsFor("pmf_prospects").find((c) => c.method === "eq");
@@ -459,24 +457,34 @@ describe("PATCH /api/admin/pmf/prospects/[id]", () => {
   it("returns 400 when the body fails validation", async () => {
     const { PATCH } = await import("@/app/api/admin/pmf/prospects/[id]/route");
     const res = await PATCH(
-      buildReq(`http://localhost/api/admin/pmf/prospects/${VALID_PROSPECT_ID}`, {
-        method: "PATCH",
-        body: { source: "not_a_real_source" },
-      }),
+      buildReq(
+        `http://localhost/api/admin/pmf/prospects/${VALID_PROSPECT_ID}`,
+        {
+          method: "PATCH",
+          body: { source: "not_a_real_source" },
+        }
+      ),
       { params: Promise.resolve({ id: VALID_PROSPECT_ID }) }
     );
     expect(res.status).toBe(400);
   });
 
   it("updates the prospect and returns the new row", async () => {
-    const updated = { id: VALID_PROSPECT_ID, name: "Renamed", source: "referral" };
+    const updated = {
+      id: VALID_PROSPECT_ID,
+      name: "Renamed",
+      source: "referral",
+    };
     resultQueue = [{ data: updated, error: null }];
     const { PATCH } = await import("@/app/api/admin/pmf/prospects/[id]/route");
     const res = await PATCH(
-      buildReq(`http://localhost/api/admin/pmf/prospects/${VALID_PROSPECT_ID}`, {
-        method: "PATCH",
-        body: { name: "Renamed" },
-      }),
+      buildReq(
+        `http://localhost/api/admin/pmf/prospects/${VALID_PROSPECT_ID}`,
+        {
+          method: "PATCH",
+          body: { name: "Renamed" },
+        }
+      ),
       { params: Promise.resolve({ id: VALID_PROSPECT_ID }) }
     );
     expect(res.status).toBe(200);
@@ -566,7 +574,9 @@ describe("PATCH /api/admin/pmf/deals/[id]", () => {
     expect(res.status).toBe(200);
 
     const update = callsFor("pmf_deals").find((c) => c.method === "update");
-    expect(update?.args[0]).toEqual({ sow_signed_at: "2026-04-20T10:00:00.000Z" });
+    expect(update?.args[0]).toEqual({
+      sow_signed_at: "2026-04-20T10:00:00.000Z",
+    });
   });
 });
 
@@ -574,14 +584,13 @@ describe("PATCH /api/admin/pmf/deals/[id]", () => {
 
 describe("PATCH /api/admin/pmf/deals/[id]/stage", () => {
   it("returns 400 on an invalid stage", async () => {
-    const { PATCH } = await import(
-      "@/app/api/admin/pmf/deals/[id]/stage/route"
-    );
+    const { PATCH } =
+      await import("@/app/api/admin/pmf/deals/[id]/stage/route");
     const res = await PATCH(
-      buildReq(
-        `http://localhost/api/admin/pmf/deals/${VALID_DEAL_ID}/stage`,
-        { method: "PATCH", body: { stage: "garbage" } }
-      ),
+      buildReq(`http://localhost/api/admin/pmf/deals/${VALID_DEAL_ID}/stage`, {
+        method: "PATCH",
+        body: { stage: "garbage" },
+      }),
       { params: Promise.resolve({ id: VALID_DEAL_ID }) }
     );
     expect(res.status).toBe(400);
@@ -591,14 +600,13 @@ describe("PATCH /api/admin/pmf/deals/[id]/stage", () => {
     resultQueue = [
       { data: { id: VALID_DEAL_ID, stage: "qualified" }, error: null },
     ];
-    const { PATCH } = await import(
-      "@/app/api/admin/pmf/deals/[id]/stage/route"
-    );
+    const { PATCH } =
+      await import("@/app/api/admin/pmf/deals/[id]/stage/route");
     const res = await PATCH(
-      buildReq(
-        `http://localhost/api/admin/pmf/deals/${VALID_DEAL_ID}/stage`,
-        { method: "PATCH", body: { stage: "qualified" } }
-      ),
+      buildReq(`http://localhost/api/admin/pmf/deals/${VALID_DEAL_ID}/stage`, {
+        method: "PATCH",
+        body: { stage: "qualified" },
+      }),
       { params: Promise.resolve({ id: VALID_DEAL_ID }) }
     );
     expect(res.status).toBe(200);
@@ -624,7 +632,11 @@ describe("POST /api/admin/pmf/ad-spend", () => {
     const res = await POST(
       buildReq("http://localhost/api/admin/pmf/ad-spend", {
         method: "POST",
-        body: { channel: "google_ads", month: "not-a-month", spend_cents: 1000 },
+        body: {
+          channel: "google_ads",
+          month: "not-a-month",
+          spend_cents: 1000,
+        },
       })
     );
     expect(res.status).toBe(400);

@@ -2,7 +2,7 @@
  * OPS Web - Twilio SMS Service
  *
  * Sends SMS messages via Twilio. Server-side only.
- * Requires TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER env vars.
+ * Requires TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER env vars.
  */
 
 import twilio from "twilio";
@@ -15,8 +15,8 @@ function getClient() {
 }
 
 function getFromNumber(): string {
-  const num = process.env.TWILIO_FROM_NUMBER;
-  if (!num) throw new Error("Missing TWILIO_FROM_NUMBER");
+  const num = process.env.TWILIO_PHONE_NUMBER;
+  if (!num) throw new Error("Missing TWILIO_PHONE_NUMBER");
   return num;
 }
 

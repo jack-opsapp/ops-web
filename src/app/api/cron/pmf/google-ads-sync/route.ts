@@ -59,7 +59,8 @@ export async function GET(request: NextRequest) {
     // Google Ads errors are formatted as "Google Ads API error (status): <raw body>".
     // The raw body can include customer IDs, request diagnostics, and partial auth
     // metadata — log it server-side, but don't echo it back to the HTTP response.
-    const message = err instanceof Error ? err.message : "google ads query failed";
+    const message =
+      err instanceof Error ? err.message : "google ads query failed";
     console.error("[pmf-google-ads-sync] query failed:", message);
     return NextResponse.json(
       { error: "google ads sync failed" },
@@ -77,19 +78,17 @@ export async function GET(request: NextRequest) {
   const spendCents = Math.round(spendDollars * 100);
 
   const sb = getAdminSupabase();
-  const { error } = await sb
-    .from("ad_spend_log")
-    .upsert(
-      {
-        channel: "google_ads",
-        spend_date: dateStr,
-        spend_cents: spendCents,
-        impressions,
-        clicks,
-        source: "auto_sync",
-      },
-      { onConflict: "channel,spend_date" }
-    );
+  const { error } = await sb.from("ad_spend_log").upsert(
+    {
+      channel: "google_ads",
+      spend_date: dateStr,
+      spend_cents: spendCents,
+      impressions,
+      clicks,
+      source: "auto_sync",
+    },
+    { onConflict: "channel,spend_date" }
+  );
 
   if (error) {
     console.error("[pmf-google-ads-sync] upsert failed:", error.message);

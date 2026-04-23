@@ -51,9 +51,8 @@ vi.mock("@/lib/admin/api-auth", async () => {
     // handler returns Promise<NextResponse>, NOT Promise<Response>. Keeping
     // these aligned means future narrowing of the catch surface in the real
     // wrapper will be caught by tests instead of slipping through.
-    withAdmin: (
-      handler: (req: NextRequest) => Promise<NextResponse>
-    ) =>
+    withAdmin:
+      (handler: (req: NextRequest) => Promise<NextResponse>) =>
       async (req: NextRequest) => {
         try {
           return await handler(req);
@@ -122,14 +121,11 @@ function makeMockClient() {
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function buildReq(body: unknown): NextRequest {
-  const req = new Request(
-    "http://localhost/api/admin/pmf/attributions/seed",
-    {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
-    }
-  );
+  const req = new Request("http://localhost/api/admin/pmf/attributions/seed", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
   // Cast — the admin handler only consumes standard Request methods.
   return req as unknown as NextRequest;
 }
@@ -147,9 +143,8 @@ describe("POST /api/admin/pmf/attributions/seed", () => {
   });
 
   it("inserts a trial_attributions row with derived google_ads channel from gclid", async () => {
-    const { POST } = await import(
-      "@/app/api/admin/pmf/attributions/seed/route"
-    );
+    const { POST } =
+      await import("@/app/api/admin/pmf/attributions/seed/route");
     const res = await POST(
       buildReq({
         company_id: VALID_COMPANY_ID,
@@ -178,9 +173,8 @@ describe("POST /api/admin/pmf/attributions/seed", () => {
   });
 
   it("derives meta_ads from utm_source=facebook", async () => {
-    const { POST } = await import(
-      "@/app/api/admin/pmf/attributions/seed/route"
-    );
+    const { POST } =
+      await import("@/app/api/admin/pmf/attributions/seed/route");
     const res = await POST(
       buildReq({
         company_id: VALID_COMPANY_ID,
@@ -195,9 +189,8 @@ describe("POST /api/admin/pmf/attributions/seed", () => {
   });
 
   it("defaults trial_started_at to now() when absent", async () => {
-    const { POST } = await import(
-      "@/app/api/admin/pmf/attributions/seed/route"
-    );
+    const { POST } =
+      await import("@/app/api/admin/pmf/attributions/seed/route");
     const before = Date.now();
     const res = await POST(
       buildReq({ company_id: VALID_COMPANY_ID, first_touch: {} })
@@ -212,9 +205,8 @@ describe("POST /api/admin/pmf/attributions/seed", () => {
   });
 
   it("uses provided trial_started_at when supplied", async () => {
-    const { POST } = await import(
-      "@/app/api/admin/pmf/attributions/seed/route"
-    );
+    const { POST } =
+      await import("@/app/api/admin/pmf/attributions/seed/route");
     const ts = "2026-04-01T12:00:00.000Z";
     const res = await POST(
       buildReq({ company_id: VALID_COMPANY_ID, trial_started_at: ts })
@@ -224,9 +216,8 @@ describe("POST /api/admin/pmf/attributions/seed", () => {
   });
 
   it("derives 'direct' when first_touch is omitted entirely", async () => {
-    const { POST } = await import(
-      "@/app/api/admin/pmf/attributions/seed/route"
-    );
+    const { POST } =
+      await import("@/app/api/admin/pmf/attributions/seed/route");
     const res = await POST(buildReq({ company_id: VALID_COMPANY_ID }));
     expect(res.status).toBe(200);
     expect(insertCalls[0].row.attributed_channel).toBe("direct");
@@ -234,9 +225,8 @@ describe("POST /api/admin/pmf/attributions/seed", () => {
 
   it("returns 409 when trial_attributions row already exists for the company", async () => {
     nextInsertError = { code: "23505", message: "duplicate key" };
-    const { POST } = await import(
-      "@/app/api/admin/pmf/attributions/seed/route"
-    );
+    const { POST } =
+      await import("@/app/api/admin/pmf/attributions/seed/route");
     const res = await POST(buildReq({ company_id: VALID_COMPANY_ID }));
     expect(res.status).toBe(409);
     const json = (await res.json()) as { error: string };
@@ -245,45 +235,42 @@ describe("POST /api/admin/pmf/attributions/seed", () => {
 
   it("returns 500 on a non-unique-violation insert error", async () => {
     nextInsertError = { code: "42P01", message: "table missing" };
-    const { POST } = await import(
-      "@/app/api/admin/pmf/attributions/seed/route"
-    );
+    const { POST } =
+      await import("@/app/api/admin/pmf/attributions/seed/route");
     const res = await POST(buildReq({ company_id: VALID_COMPANY_ID }));
     expect(res.status).toBe(500);
   });
 
   it("returns 404 when the company does not exist", async () => {
     companyExists = false;
-    const { POST } = await import(
-      "@/app/api/admin/pmf/attributions/seed/route"
-    );
+    const { POST } =
+      await import("@/app/api/admin/pmf/attributions/seed/route");
     const res = await POST(buildReq({ company_id: VALID_COMPANY_ID }));
     expect(res.status).toBe(404);
-    expect(insertCalls.filter((c) => c.table === "trial_attributions")).toHaveLength(0);
+    expect(
+      insertCalls.filter((c) => c.table === "trial_attributions")
+    ).toHaveLength(0);
   });
 
   it("returns 400 on invalid body (company_id missing)", async () => {
-    const { POST } = await import(
-      "@/app/api/admin/pmf/attributions/seed/route"
-    );
+    const { POST } =
+      await import("@/app/api/admin/pmf/attributions/seed/route");
     const res = await POST(buildReq({ first_touch: {} }));
     expect(res.status).toBe(400);
     expect(insertCalls).toHaveLength(0);
   });
 
   it("returns 400 on invalid body (company_id not a uuid)", async () => {
-    const { POST } = await import(
-      "@/app/api/admin/pmf/attributions/seed/route"
-    );
+    const { POST } =
+      await import("@/app/api/admin/pmf/attributions/seed/route");
     const res = await POST(buildReq({ company_id: "not-a-uuid" }));
     expect(res.status).toBe(400);
   });
 
   it("returns 401 when the caller is unauthenticated", async () => {
     authMode = "unauthenticated";
-    const { POST } = await import(
-      "@/app/api/admin/pmf/attributions/seed/route"
-    );
+    const { POST } =
+      await import("@/app/api/admin/pmf/attributions/seed/route");
     const res = await POST(buildReq({ company_id: VALID_COMPANY_ID }));
     expect(res.status).toBe(401);
     expect(insertCalls).toHaveLength(0);
@@ -291,9 +278,8 @@ describe("POST /api/admin/pmf/attributions/seed", () => {
 
   it("returns 403 when the caller is signed in but not an admin", async () => {
     authMode = "non_admin";
-    const { POST } = await import(
-      "@/app/api/admin/pmf/attributions/seed/route"
-    );
+    const { POST } =
+      await import("@/app/api/admin/pmf/attributions/seed/route");
     const res = await POST(buildReq({ company_id: VALID_COMPANY_ID }));
     expect(res.status).toBe(403);
     expect(insertCalls).toHaveLength(0);
