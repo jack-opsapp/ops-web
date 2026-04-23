@@ -52,8 +52,8 @@ export function WeeklyDigestEmail(p: WeeklyDigestProps) {
       <Body style={CANVAS}>
         <Container>
           <Text style={MONO11}>
-            // PMF WEEKLY DIGEST · WEEK {p.weekNumber} · GATE B {p.daysToGate}{" "}
-            DAYS
+            {"//"} PMF WEEKLY DIGEST · WEEK {p.weekNumber} · GATE B{" "}
+            {p.daysToGate} DAYS
           </Text>
           {/* Reuse daily digest inner sections (no nested <Html>/<Body>). */}
           <DailyDigestBody
@@ -63,7 +63,7 @@ export function WeeklyDigestEmail(p: WeeklyDigestProps) {
           />
           <Section style={GLASS}>
             <Text style={MONO11}>
-              // COHORT RETENTION · LAST {MAX_COHORTS_DISPLAYED} COHORTS
+              {"//"} COHORT RETENTION · LAST {MAX_COHORTS_DISPLAYED} COHORTS
             </Text>
             {p.retentionCohorts.length === 0 ? (
               <Text style={{ ...MONO11, color: "#6A6A6A", marginTop: 4 }}>

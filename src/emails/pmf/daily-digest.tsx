@@ -63,12 +63,14 @@ export function DailyDigestBody({
   return (
     <>
       <Text style={MONO11}>
-        // PMF DAILY DIGEST · GATE B · {daysToGate} DAYS
+        {"//"} PMF DAILY DIGEST · GATE B · {daysToGate} DAYS
       </Text>
 
       {Object.entries(state.markers).map(([key, m]) => (
         <Section key={key} style={GLASS}>
-          <Text style={MONO11}>// {m.label}</Text>
+          <Text style={MONO11}>
+            {"//"} {m.label}
+          </Text>
           <Text style={HERO}>
             {m.value}{" "}
             <span style={{ color: "#8A8A8A", fontSize: 24 }}>/ {m.target}</span>
@@ -80,7 +82,7 @@ export function DailyDigestBody({
       ))}
 
       <Section style={GLASS}>
-        <Text style={MONO11}>// LEADING INDICATORS</Text>
+        <Text style={MONO11}>{"//"} LEADING INDICATORS</Text>
         {Object.entries(state.indicators).map(([key, ind]) => (
           <Text key={key} style={{ ...MONO11, color: "#B5B5B5", marginTop: 6 }}>
             {ind.label}:{" "}

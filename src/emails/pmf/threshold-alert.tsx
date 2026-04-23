@@ -50,7 +50,9 @@ export function ThresholdAlertEmail({
       <Preview>{messageBody}</Preview>
       <Body style={CANVAS}>
         <Container style={GLASS_SINGLE}>
-          <Text style={MONO11}>// PMF ALERT · {trigger.toUpperCase()}</Text>
+          <Text style={MONO11}>
+            {"//"} PMF ALERT · {trigger.toUpperCase()}
+          </Text>
           <Text style={{ ...CAKE_DISPLAY, marginTop: 16 }}>{messageBody}</Text>
           {context && (
             <Section style={{ marginTop: 24 }}>
