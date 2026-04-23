@@ -208,7 +208,7 @@ function LeadCard({
       {/* Header */}
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <p className="font-mohave text-sm font-medium text-[#E5E5E5] truncate">
+          <p className="font-mohave text-sm font-medium text-[#EDEDED] truncate">
             {lead.subject || "(no subject)"}
           </p>
         </div>
@@ -265,12 +265,12 @@ function SenderGroupSection({
       {count > 1 && (
         <p className="font-mono text-[11px] text-[#999] px-1">
           {count} {count === 1 ? "email" : "emails"} from{" "}
-          <span className="text-[#E5E5E5]">{senderGroup.email}</span>
+          <span className="text-[#EDEDED]">{senderGroup.email}</span>
         </p>
       )}
       {count === 1 && (
         <p className="font-mono text-[11px] text-[#999] px-1">
-          <span className="text-[#E5E5E5]">{senderGroup.email}</span>
+          <span className="text-[#EDEDED]">{senderGroup.email}</span>
         </p>
       )}
 
@@ -323,7 +323,7 @@ function DomainGroupSection({
           ) : (
             <ChevronRight className="h-3 w-3 text-[#555] shrink-0" />
           )}
-          <span className="font-cakemono text-xs font-light text-[#E5E5E5] uppercase tracking-wide truncate group-hover:text-white transition-colors">
+          <span className="font-cakemono text-xs font-light text-[#EDEDED] uppercase tracking-wide truncate group-hover:text-white transition-colors">
             @{group.domain}
           </span>
           <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[rgba(255,255,255,0.08)] px-1 font-mono text-micro font-bold text-[#999] shrink-0">
@@ -443,7 +443,7 @@ export function InboxLeadsQueue({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Inbox className="h-4 w-4 text-[#999]" />
-            <h3 className="font-cakemono text-sm font-light text-[#E5E5E5] uppercase tracking-wide">
+            <h3 className="font-cakemono text-sm font-light text-[#EDEDED] uppercase tracking-wide">
               Inbox Leads
             </h3>
             {leads.length > 0 && (

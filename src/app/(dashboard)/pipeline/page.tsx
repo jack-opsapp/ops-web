@@ -137,7 +137,7 @@ const SpatialCardWrapperComponent = memo(function SpatialCardWrapperComponent({
     clientNameMap.get(opportunity.clientId ?? "") ??
     opportunity.contactName ??
     tUnknown;
-  const stageColor = OPPORTUNITY_STAGE_COLORS[opportunity.stage] ?? "#BCBCBC";
+  const stageColor = OPPORTUNITY_STAGE_COLORS[opportunity.stage] ?? "#8F9AA3";
   const stalenessOpacity = stalenessMap.get(opportunity.id) ?? 1.0;
   const cb = callbacksRef.current;
 
@@ -1245,7 +1245,7 @@ export default function PipelinePage() {
     const screenPos = rect
       ? { x: rect.right + 20, y: rect.top }
       : { x: globalThis.innerWidth / 2 - 190, y: 100 };
-    const stageColor = OPPORTUNITY_STAGE_COLORS[opp.stage] ?? "#BCBCBC";
+    const stageColor = OPPORTUNITY_STAGE_COLORS[opp.stage] ?? "#8F9AA3";
     openPopover(opp.id, screenPos, opp.title, stageColor);
   }, [openPopover]);
 

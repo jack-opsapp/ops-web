@@ -39,7 +39,7 @@ export function FlowGalaxyControls({
             className={`
               px-4 py-1.5 font-mohave text-[11px] uppercase tracking-wider transition-colors
               ${activeGalaxy === opt.id
-                ? 'bg-ops-accent/20 text-[#E5E5E5]'
+                ? 'bg-ops-accent/20 text-[#EDEDED]'
                 : 'text-[#6B6B6B] hover:text-[#A0A0A0]'
               }
             `}
@@ -58,7 +58,7 @@ export function FlowGalaxyControls({
           <select
             value={params.device}
             onChange={(e) => onChange({ ...params, device: e.target.value })}
-            className="bg-transparent border border-white/[0.08] rounded-panel px-2 py-1 font-mohave text-[11px] uppercase text-[#E5E5E5] outline-none cursor-pointer"
+            className="bg-transparent border border-white/[0.08] rounded-panel px-2 py-1 font-mohave text-[11px] uppercase text-[#EDEDED] outline-none cursor-pointer"
           >
             {DEVICE_OPTIONS.map(d => (
               <option key={d} value={d} className="bg-black">
@@ -77,7 +77,7 @@ export function FlowGalaxyControls({
               className={`
                 px-3 py-1.5 font-mohave text-[11px] uppercase tracking-wider transition-colors
                 ${params.days === opt.value
-                  ? 'bg-ops-accent/20 text-[#E5E5E5]'
+                  ? 'bg-ops-accent/20 text-[#EDEDED]'
                   : 'text-[#6B6B6B] hover:text-[#A0A0A0]'
                 }
               `}

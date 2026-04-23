@@ -29,9 +29,9 @@ async function fetchSparklines(params: DateRangeParams): Promise<SparklineSet> {
 }
 
 const SPARKLINE_CARDS = [
-  { key: "companies" as const, label: "New Companies", color: "#597794", href: "/admin/companies" },
+  { key: "companies" as const, label: "New Companies", color: "#6F94B0", href: "/admin/companies" },
   { key: "activeUsers" as const, label: "Active Users", color: "#9DB582", href: "/admin/engagement" },
-  { key: "tasks" as const, label: "Tasks Created", color: "#8195B5", href: "/admin/engagement" },
+  { key: "tasks" as const, label: "Tasks Created", color: "#D99A3E", href: "/admin/engagement" },
   { key: "revenue" as const, label: "Revenue", color: "#C4A868", href: "/admin/revenue" },
 ];
 

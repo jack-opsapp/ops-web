@@ -313,7 +313,7 @@ export function TriggersTab() {
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <h3 className="font-mohave text-[14px] text-[#E5E5E5] uppercase">
+                      <h3 className="font-mohave text-[14px] text-[#EDEDED] uppercase">
                         {trigger.label}
                       </h3>
                       <span className="font-mono text-micro text-[#6B6B6B]">

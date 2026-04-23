@@ -11,7 +11,7 @@ export function InlineMetric({ config }: InlineMetricProps) {
     <div className="flex items-baseline gap-1">
       <span
         className="font-mono text-body font-semibold"
-        style={{ color: color ?? "#E5E5E5" }}
+        style={{ color: color ?? "#EDEDED" }}
       >
         {value}
       </span>

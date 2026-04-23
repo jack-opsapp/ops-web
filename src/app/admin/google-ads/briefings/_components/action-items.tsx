@@ -22,13 +22,13 @@ export function ActionItems({ items }: { items: ActionItem[] }) {
           return (
             <div key={i} className={`border-l-2 ${style.border} pl-3 py-2`}>
               <div className="flex items-start gap-2">
-                <span className="font-mohave text-[14px] text-[#E5E5E5] shrink-0">{i + 1}.</span>
+                <span className="font-mohave text-[14px] text-[#EDEDED] shrink-0">{i + 1}.</span>
                 <div className="flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className={`font-mohave text-[11px] uppercase ${style.text}`}>
                       [{item.priority}]
                     </span>
-                    <span className="font-mohave text-[14px] text-[#E5E5E5]">{item.action}</span>
+                    <span className="font-mohave text-[14px] text-[#EDEDED]">{item.action}</span>
                   </div>
                   <div className="flex items-center gap-3 mt-1">
                     <span className="font-mono text-[11px] text-[#6B6B6B]">{item.expectedImpact}</span>

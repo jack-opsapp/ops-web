@@ -142,7 +142,7 @@ function AddCardForm({ onSuccess, onCancel }: { onSuccess: () => void; onCancel:
             style: {
               base: {
                 fontSize: "15px",
-                color: "#e5e5e5",
+                color: "#ededed",
                 "::placeholder": { color: "#6b7280" },
                 backgroundColor: "transparent",
               },

@@ -26,7 +26,7 @@ export function ProjectDragOverlay({
   if (!activeProject) return null;
 
   const statusColor =
-    PROJECT_STATUS_COLORS[activeProject.status] ?? "#BCBCBC";
+    PROJECT_STATUS_COLORS[activeProject.status] ?? "#8F9AA3";
   const primaryLabel =
     activeProject.title || formatStreetAddress(activeProject.address) || "Untitled Project";
 

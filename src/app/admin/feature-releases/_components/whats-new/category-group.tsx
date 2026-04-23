@@ -85,8 +85,8 @@ export function CategoryGroup({
       style={catStyle}
       className={`border rounded overflow-hidden transition-colors ${
         category.is_active ? "border-white/[0.08]" : "border-white/[0.04] opacity-60"
-      } ${isCatDragging ? "opacity-60 border-[#597794]/40" : ""} ${
-        isOver ? "border-[#597794]/30" : ""
+      } ${isCatDragging ? "opacity-60 border-[#6F94B0]/40" : ""} ${
+        isOver ? "border-[#6F94B0]/30" : ""
       }`}
     >
       {/* Category Header */}
@@ -105,19 +105,19 @@ export function CategoryGroup({
               <input
                 value={editIcon}
                 onChange={(e) => setEditIcon(e.target.value)}
-                className="w-20 bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1 font-mono text-[11px] text-[#E5E5E5] outline-none"
+                className="w-20 bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1 font-mono text-[11px] text-[#EDEDED] outline-none"
                 placeholder="icon"
               />
               <input
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
-                className="flex-1 bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1 font-mohave text-[14px] text-[#E5E5E5] outline-none"
+                className="flex-1 bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1 font-mohave text-[14px] text-[#EDEDED] outline-none"
                 autoFocus
               />
               <button onClick={handleSaveHeader} className="text-[#9DB582] hover:text-[#9DB582]/80">
                 <Check className="w-4 h-4" />
               </button>
-              <button onClick={() => setIsEditingHeader(false)} className="text-[#6B6B6B] hover:text-[#E5E5E5]">
+              <button onClick={() => setIsEditingHeader(false)} className="text-[#6B6B6B] hover:text-[#EDEDED]">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -126,7 +126,7 @@ export function CategoryGroup({
               <span className="font-mono text-[11px] text-[#6B6B6B] bg-white/[0.05] px-1.5 py-0.5 rounded">
                 {category.icon}
               </span>
-              <h3 className="font-cakemono text-[15px] font-light uppercase text-[#E5E5E5]">
+              <h3 className="font-cakemono text-[15px] font-light uppercase text-[#EDEDED]">
                 {category.name}
               </h3>
               <span className="font-mono text-[11px] text-[#6B6B6B]">
@@ -140,14 +140,14 @@ export function CategoryGroup({
           <div className="flex items-center gap-2 flex-shrink-0">
             <button
               onClick={() => setShowAddItem(true)}
-              className="text-[#6B6B6B] hover:text-[#E5E5E5] transition-colors"
+              className="text-[#6B6B6B] hover:text-[#EDEDED] transition-colors"
               title="Add item"
             >
               <Plus className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={() => onUpdateCategory(category.id, { is_active: !category.is_active })}
-              className="text-[#6B6B6B] hover:text-[#E5E5E5] transition-colors"
+              className="text-[#6B6B6B] hover:text-[#EDEDED] transition-colors"
               title={category.is_active ? "Hide" : "Show"}
             >
               {category.is_active ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
@@ -158,7 +158,7 @@ export function CategoryGroup({
                 setEditName(category.name);
                 setEditIcon(category.icon);
               }}
-              className="text-[#6B6B6B] hover:text-[#597794] transition-colors"
+              className="text-[#6B6B6B] hover:text-[#6F94B0] transition-colors"
             >
               <Edit2 className="w-3.5 h-3.5" />
             </button>
@@ -212,7 +212,7 @@ export function CategoryGroup({
           !isFiltered && (
             <button
               onClick={() => setShowAddItem(true)}
-              className="flex items-center gap-2 px-6 py-2.5 w-full text-[#6B6B6B] hover:text-[#E5E5E5] hover:bg-white/[0.02] transition-colors"
+              className="flex items-center gap-2 px-6 py-2.5 w-full text-[#6B6B6B] hover:text-[#EDEDED] hover:bg-white/[0.02] transition-colors"
             >
               <Plus className="w-3 h-3" />
               <span className="font-mohave text-[11px] uppercase tracking-wider">Add Item</span>

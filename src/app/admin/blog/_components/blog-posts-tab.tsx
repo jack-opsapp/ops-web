@@ -112,7 +112,7 @@ function BlogPreviewModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-3 py-1.5 rounded font-mohave text-[12px] uppercase tracking-wider text-[#6B6B6B] hover:text-[#E5E5E5] border border-white/[0.1] hover:border-white/[0.2] transition-colors"
+              className="px-3 py-1.5 rounded font-mohave text-[12px] uppercase tracking-wider text-[#6B6B6B] hover:text-[#EDEDED] border border-white/[0.1] hover:border-white/[0.2] transition-colors"
             >
               Close
             </button>
@@ -124,15 +124,15 @@ function BlogPreviewModal({
           {/* Header */}
           <header className="mb-8">
             {category && (
-              <span className="inline-block text-xs font-medium uppercase tracking-wider text-[#597794] mb-3">
+              <span className="inline-block text-xs font-medium uppercase tracking-wider text-[#6F94B0] mb-3">
                 {category.name}
               </span>
             )}
-            <h1 className="font-mohave text-3xl font-bold text-[#E5E5E5] leading-tight">
+            <h1 className="font-mohave text-3xl font-bold text-[#EDEDED] leading-tight">
               {post.title}
             </h1>
             {post.subtitle && (
-              <p className="mt-2 text-lg text-[#A7A7A7]">{post.subtitle}</p>
+              <p className="mt-2 text-lg text-[#B5B5B5]">{post.subtitle}</p>
             )}
             <div className="mt-4 flex flex-wrap items-center gap-4 text-sm text-[#666]">
               <span>{post.author || "The Ops Team"}</span>
@@ -158,17 +158,17 @@ function BlogPreviewModal({
           <section
             className={[
               "text-[#CFCFCF] leading-relaxed",
-              "[&_h1]:font-mohave [&_h1]:text-2xl [&_h1]:font-semibold [&_h1]:text-[#E5E5E5] [&_h1]:mt-8 [&_h1]:mb-4",
-              "[&_h2]:font-mohave [&_h2]:text-2xl [&_h2]:font-semibold [&_h2]:text-[#E5E5E5] [&_h2]:mt-8 [&_h2]:mb-4",
-              "[&_h3]:font-mohave [&_h3]:text-xl [&_h3]:font-semibold [&_h3]:text-[#E5E5E5] [&_h3]:mt-6 [&_h3]:mb-3",
+              "[&_h1]:font-mohave [&_h1]:text-2xl [&_h1]:font-semibold [&_h1]:text-[#EDEDED] [&_h1]:mt-8 [&_h1]:mb-4",
+              "[&_h2]:font-mohave [&_h2]:text-2xl [&_h2]:font-semibold [&_h2]:text-[#EDEDED] [&_h2]:mt-8 [&_h2]:mb-4",
+              "[&_h3]:font-mohave [&_h3]:text-xl [&_h3]:font-semibold [&_h3]:text-[#EDEDED] [&_h3]:mt-6 [&_h3]:mb-3",
               "[&_p]:mb-4",
-              "[&_a]:text-[#597794] [&_a]:underline [&_a]:hover:text-[#8AAFC4]",
+              "[&_a]:text-[#6F94B0] [&_a]:underline [&_a]:hover:text-[#8AAFC4]",
               "[&_ul]:list-disc [&_ul]:pl-6 [&_ul]:mb-4",
               "[&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:mb-4",
               "[&_li]:mb-2",
-              "[&_blockquote]:border-l-2 [&_blockquote]:border-[#597794] [&_blockquote]:pl-5 [&_blockquote]:italic [&_blockquote]:text-[#A7A7A7] [&_blockquote]:my-5",
+              "[&_blockquote]:border-l-2 [&_blockquote]:border-[#6F94B0] [&_blockquote]:pl-5 [&_blockquote]:italic [&_blockquote]:text-[#B5B5B5] [&_blockquote]:my-5",
               "[&_img]:max-w-full [&_img]:rounded-lg [&_img]:my-5",
-              "[&_strong]:font-semibold [&_strong]:text-[#E5E5E5]",
+              "[&_strong]:font-semibold [&_strong]:text-[#EDEDED]",
             ].join(" ")}
             dangerouslySetInnerHTML={contentHtml}
           />
@@ -176,7 +176,7 @@ function BlogPreviewModal({
           {/* FAQs */}
           {post.faqs && post.faqs.length > 0 && (
             <section className="mt-12 border-t border-white/[0.08] pt-8">
-              <h2 className="font-mohave text-2xl font-semibold text-[#E5E5E5] mb-5">
+              <h2 className="font-mohave text-2xl font-semibold text-[#EDEDED] mb-5">
                 Frequently Asked Questions
               </h2>
               <div className="space-y-3">
@@ -185,10 +185,10 @@ function BlogPreviewModal({
                     key={i}
                     className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4"
                   >
-                    <h3 className="font-mohave text-lg font-semibold text-[#E5E5E5] mb-1">
+                    <h3 className="font-mohave text-lg font-semibold text-[#EDEDED] mb-1">
                       {faq.question}
                     </h3>
-                    <p className="text-[#A7A7A7] text-sm leading-relaxed">
+                    <p className="text-[#B5B5B5] text-sm leading-relaxed">
                       {faq.answer}
                     </p>
                   </div>
@@ -311,7 +311,7 @@ export function BlogPostsTab({ posts, categories }: BlogPostsTabProps) {
           onChange={(e) =>
             setStatusFilter(e.target.value as "all" | "live" | "draft")
           }
-          className="bg-white/[0.05] border border-white/[0.1] rounded px-3 py-1.5 font-mohave text-[13px] text-[#E5E5E5]"
+          className="bg-white/[0.05] border border-white/[0.1] rounded px-3 py-1.5 font-mohave text-[13px] text-[#EDEDED]"
         >
           <option value="all">All Status</option>
           <option value="live">Live</option>
@@ -321,7 +321,7 @@ export function BlogPostsTab({ posts, categories }: BlogPostsTabProps) {
         <select
           value={categoryFilter}
           onChange={(e) => setCategoryFilter(e.target.value)}
-          className="bg-white/[0.05] border border-white/[0.1] rounded px-3 py-1.5 font-mohave text-[13px] text-[#E5E5E5]"
+          className="bg-white/[0.05] border border-white/[0.1] rounded px-3 py-1.5 font-mohave text-[13px] text-[#EDEDED]"
         >
           <option value="all">All Categories</option>
           {categories.map((cat) => (
@@ -374,7 +374,7 @@ export function BlogPostsTab({ posts, categories }: BlogPostsTabProps) {
             <button
               type="button"
               onClick={() => setPreviewPost(post)}
-              className="font-mohave text-[14px] text-[#E5E5E5] hover:text-[#C4A868] max-w-[300px] truncate text-left"
+              className="font-mohave text-[14px] text-[#EDEDED] hover:text-[#C4A868] max-w-[300px] truncate text-left"
             >
               {post.title}
             </button>
@@ -408,12 +408,12 @@ export function BlogPostsTab({ posts, categories }: BlogPostsTabProps) {
             </button>
 
             {/* Display Views */}
-            <span className="font-mono text-[13px] text-[#A7A7A7] text-right">
+            <span className="font-mono text-[13px] text-[#B5B5B5] text-right">
               {post.display_views.toLocaleString()}
             </span>
 
             {/* GA4 Views */}
-            <span className="font-mono text-[13px] text-[#A7A7A7] text-right">
+            <span className="font-mono text-[13px] text-[#B5B5B5] text-right">
               {post.ga4_views.toLocaleString()}
             </span>
 
@@ -423,7 +423,7 @@ export function BlogPostsTab({ posts, categories }: BlogPostsTabProps) {
             </span>
 
             {/* Word Count */}
-            <span className="font-mono text-[13px] text-[#A7A7A7] text-right">
+            <span className="font-mono text-[13px] text-[#B5B5B5] text-right">
               {post.word_count.toLocaleString()}
             </span>
           </div>

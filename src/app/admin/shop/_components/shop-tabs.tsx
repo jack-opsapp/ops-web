@@ -51,7 +51,7 @@ export function ShopTabs({
             className={[
               "px-4 py-3 font-mono text-[11px] uppercase tracking-widest transition-colors relative",
               activeTab === tab
-                ? "text-[#E5E5E5]"
+                ? "text-[#EDEDED]"
                 : "text-[#6B6B6B] hover:text-[#A0A0A0]",
             ].join(" ")}
           >

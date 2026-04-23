@@ -60,11 +60,11 @@ export interface HierarchicalLayoutConfig {
 export const CLUSTER_COLORS: Record<string, string> = {
   voice: "#6F94B0",
   internal: "#8E8E93",
-  client: "#8195B5",
+  client: "#D99A3E",
   project: "#B58289",
   vendor: "#C4A868",
   subtrade: "#9DB582",
-  financial: "#BCBCBC",
+  financial: "#8F9AA3",
 };
 
 // ---------------------------------------------------------------------------
@@ -86,11 +86,11 @@ function hashString(str: string): number {
 // ---------------------------------------------------------------------------
 
 function projectStatusColor(status: string): string {
-  return PROJECT_STATUS_COLORS[status as ProjectStatus] ?? "#BCBCBC";
+  return PROJECT_STATUS_COLORS[status as ProjectStatus] ?? "#8F9AA3";
 }
 
 function taskStatusColor(status: string): string {
-  return TASK_STATUS_COLORS[status as TaskStatus] ?? "#8195B5";
+  return TASK_STATUS_COLORS[status as TaskStatus] ?? "#D99A3E";
 }
 
 // ---------------------------------------------------------------------------
@@ -387,7 +387,7 @@ function layoutLevel3(
     result.push({
       entityId: fin.id, nodeType: "financial", position: [x, y, z],
       orbitCenter: focusPos, orbitRadius: finRadius,
-      color: "#BCBCBC", label: fin.name,
+      color: "#8F9AA3", label: fin.name,
       sublabel: fin.total != null ? `$${fin.total.toLocaleString()}` : undefined,
       dimmed: false, visible: true,
     });

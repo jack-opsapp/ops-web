@@ -70,7 +70,7 @@ export function OrderDetail({ order }: OrderDetailProps) {
       <div className="flex items-center justify-between mb-6">
         <Link
           href="/admin/shop/orders"
-          className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B] hover:text-[#E5E5E5] transition-colors"
+          className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B] hover:text-[#EDEDED] transition-colors"
         >
           <ArrowLeft size={14} /> Back to Orders
         </Link>
@@ -95,11 +95,11 @@ export function OrderDetail({ order }: OrderDetailProps) {
                   <div className="w-12 h-12 rounded-sm bg-white/[0.04]" />
                 )}
                 <div className="flex-1 min-w-0">
-                  <p className="font-mohave text-[13px] text-[#E5E5E5]">{item.productName}</p>
+                  <p className="font-mohave text-[13px] text-[#EDEDED]">{item.productName}</p>
                   <p className="font-mohave text-[11px] text-[#6B6B6B]">{item.variantLabel} · {item.sku}</p>
                 </div>
                 <p className="font-mohave text-[12px] text-[#6B6B6B]">x{item.quantity}</p>
-                <p className="font-mohave text-[13px] text-[#E5E5E5]">
+                <p className="font-mohave text-[13px] text-[#EDEDED]">
                   {formatCents(item.unitPriceCents * item.quantity)}
                 </p>
               </div>
@@ -109,19 +109,19 @@ export function OrderDetail({ order }: OrderDetailProps) {
           <div className="space-y-1 border-t border-white/[0.08] pt-4">
             <div className="flex justify-between font-mohave text-[13px]">
               <span className="text-[#6B6B6B]">Subtotal</span>
-              <span className="text-[#E5E5E5]">{formatCents(order.subtotalCents)}</span>
+              <span className="text-[#EDEDED]">{formatCents(order.subtotalCents)}</span>
             </div>
             <div className="flex justify-between font-mohave text-[13px]">
               <span className="text-[#6B6B6B]">Shipping{order.shippingMethodName ? ` (${order.shippingMethodName})` : ""}</span>
-              <span className="text-[#E5E5E5]">{formatCents(order.shippingCents)}</span>
+              <span className="text-[#EDEDED]">{formatCents(order.shippingCents)}</span>
             </div>
             <div className="flex justify-between font-mohave text-[13px]">
               <span className="text-[#6B6B6B]">Tax</span>
-              <span className="text-[#E5E5E5]">{formatCents(order.taxCents)}</span>
+              <span className="text-[#EDEDED]">{formatCents(order.taxCents)}</span>
             </div>
             <div className="flex justify-between font-mohave text-[15px] font-semibold border-t border-white/[0.08] pt-2 mt-2">
-              <span className="text-[#E5E5E5]">Total</span>
-              <span className="text-[#E5E5E5]">{formatCents(order.totalCents)}</span>
+              <span className="text-[#EDEDED]">Total</span>
+              <span className="text-[#EDEDED]">{formatCents(order.totalCents)}</span>
             </div>
           </div>
         </div>
@@ -132,14 +132,14 @@ export function OrderDetail({ order }: OrderDetailProps) {
             <p className="font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B] mb-2">
               Customer
             </p>
-            <p className="font-mohave text-[13px] text-[#E5E5E5]">{order.email}</p>
+            <p className="font-mohave text-[13px] text-[#EDEDED]">{order.email}</p>
           </div>
 
           <div>
             <p className="font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B] mb-2">
               Shipping Address
             </p>
-            <div className="font-mohave text-[13px] text-[#E5E5E5] space-y-0.5">
+            <div className="font-mohave text-[13px] text-[#EDEDED] space-y-0.5">
               <p>{addr.firstName} {addr.lastName}</p>
               <p>{addr.line1}</p>
               {addr.line2 && <p>{addr.line2}</p>}
@@ -156,7 +156,7 @@ export function OrderDetail({ order }: OrderDetailProps) {
               href={`https://dashboard.stripe.com/payments/${order.stripePaymentIntentId}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1.5 font-mohave text-[13px] text-[#597794] hover:underline"
+              className="flex items-center gap-1.5 font-mohave text-[13px] text-[#6F94B0] hover:underline"
             >
               View in Stripe <ExternalLink size={12} />
             </a>
@@ -216,7 +216,7 @@ export function OrderDetail({ order }: OrderDetailProps) {
 
       {/* Ship form */}
       {showShipForm && (
-        <div className="border border-[#597794]/30 rounded-sm p-4 mb-6 bg-ops-accent/5">
+        <div className="border border-[#6F94B0]/30 rounded-sm p-4 mb-6 bg-ops-accent/5">
           <p className="font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B] mb-3">
             Shipping Details
           </p>
@@ -229,7 +229,7 @@ export function OrderDetail({ order }: OrderDetailProps) {
                 type="text"
                 value={trackingNumber}
                 onChange={(e) => setTrackingNumber(e.target.value)}
-                className="w-full bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#E5E5E5] focus:border-[#597794] focus:outline-none"
+                className="w-full bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#EDEDED] focus:border-[#6F94B0] focus:outline-none"
               />
             </div>
             <div>
@@ -240,7 +240,7 @@ export function OrderDetail({ order }: OrderDetailProps) {
                 type="url"
                 value={trackingUrl}
                 onChange={(e) => setTrackingUrl(e.target.value)}
-                className="w-full bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#E5E5E5] focus:border-[#597794] focus:outline-none"
+                className="w-full bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#EDEDED] focus:border-[#6F94B0] focus:outline-none"
               />
             </div>
           </div>
@@ -273,7 +273,7 @@ export function OrderDetail({ order }: OrderDetailProps) {
           onBlur={() => action("notes", { notes })}
           rows={3}
           placeholder="Add internal notes..."
-          className="w-full bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#E5E5E5] placeholder:text-[#6B6B6B] focus:border-[#597794] focus:outline-none resize-none"
+          className="w-full bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#EDEDED] placeholder:text-[#6B6B6B] focus:border-[#6F94B0] focus:outline-none resize-none"
         />
       </div>
 
@@ -290,7 +290,7 @@ export function OrderDetail({ order }: OrderDetailProps) {
                 <p className="font-mohave text-[12px] text-[#6B6B6B]">
                   {new Date(t.time).toLocaleString()}
                 </p>
-                <p className="font-mohave text-[13px] text-[#E5E5E5]">{t.label}</p>
+                <p className="font-mohave text-[13px] text-[#EDEDED]">{t.label}</p>
               </div>
             </div>
           ))}

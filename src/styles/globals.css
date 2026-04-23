@@ -10,12 +10,17 @@
   --ops-accent-hover: #82a8c4;
   --ops-accent-muted: rgba(111, 148, 176, 0.15);
 
-  /* Widget color tokens — for inline styles (charts, SVGs) */
+  /* Widget color tokens — for inline styles (charts, SVGs) — spec v2 earth tones */
   /* Use Tailwind classes (text-status-warning, bg-financial-revenue) where possible. */
   /* These variables are for cases where inline style={{ }} is required. */
-  --color-status-success: #A5B368;
-  --color-status-warning: #C4A868;
-  --color-status-error: #93321A;
+  --color-status-success: #9DB582;    /* olive — was #A5B368 */
+  --color-status-warning: #C4A868;    /* tan */
+  --color-status-error: #93321A;      /* brick — destructive borders/dots */
+  --color-status-rose: #B58289;       /* rose — error text / overdue / cost */
+  --color-olive: #9DB582;
+  --color-tan: #C4A868;
+  --color-rose: #B58289;
+  --color-brick: #93321A;
   --color-financial-revenue: #C4A868;
   --color-financial-profit: #9DB582;
   --color-financial-cost: #B58289;
@@ -24,9 +29,10 @@
   --color-ops-accent: rgb(var(--ops-accent-rgb));
 
   /* RGB splits for opacity-modulated chart fills */
-  --status-error-rgb: 147 50 26;
-  --status-warning-rgb: 196 168 104;
-  --status-success-rgb: 165 179 104;
+  --status-error-rgb: 147 50 26;          /* brick */
+  --status-warning-rgb: 196 168 104;      /* tan */
+  --status-success-rgb: 157 181 130;      /* olive — was 165 179 104 */
+  --status-rose-rgb: 181 130 137;         /* rose */
 
   /* ── Surface system (for inline style={{ }} usage) ── */
   --surface-glass: rgba(18, 18, 20, 0.58);
@@ -88,19 +94,20 @@
     --card-foreground: 0 0% 90%;
     --popover: 0 0% 4%;
     --popover-foreground: 0 0% 90%;
-    --primary: 203 39% 42%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 42 40% 59%;
-    --secondary-foreground: 0 0% 100%;
+    /* spec v2 steel blue #6F94B0 = hsl(205 29% 56%) */
+    --primary: 205 29% 56%;
+    --primary-foreground: 0 0% 0%;            /* black text on accent fill */
+    --secondary: 42 40% 59%;                  /* tan */
+    --secondary-foreground: 0 0% 0%;
     --muted: 0 0% 10%;
-    --muted-foreground: 0 0% 47%;
-    --accent: 203 39% 42%;
-    --accent-foreground: 0 0% 100%;
-    --destructive: 12 70% 34%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 0 0% 100% / 0.2;
-    --input: 0 0% 7%;
-    --ring: 203 39% 42%;
+    --muted-foreground: 0 0% 42%;             /* text-3 */
+    --accent: 205 29% 56%;
+    --accent-foreground: 0 0% 0%;
+    --destructive: 12 70% 34%;                /* brick */
+    --destructive-foreground: 0 0% 93%;       /* text */
+    --border: 0 0% 100% / 0.10;               /* spec: 10%, not 20% */
+    --input: 0 0% 0% / 0.04;                  /* surface-input rgba white 0.04 */
+    --ring: 205 29% 56%;
     --radius: 5px;
 
     /* ── Glass surface system (Command Deck spec) ── */

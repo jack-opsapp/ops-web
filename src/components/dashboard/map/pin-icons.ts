@@ -7,7 +7,7 @@ export function createProjectPinIcon(
   status: ProjectStatus,
   dimmed = false
 ): L.DivIcon {
-  const color = PROJECT_STATUS_COLORS[status] || "#8195B5";
+  const color = PROJECT_STATUS_COLORS[status] || "#D99A3E";
   const opacity = dimmed ? 0.5 : 1;
   return L.divIcon({
     html: `
@@ -43,7 +43,7 @@ export function createProjectPinWithLabel(
   projectName: string,
   dimmed = false
 ): L.DivIcon {
-  const color = PROJECT_STATUS_COLORS[status] || "#8195B5";
+  const color = PROJECT_STATUS_COLORS[status] || "#D99A3E";
   const opacity = dimmed ? 0.5 : 1;
   const truncName =
     projectName.length > 16 ? projectName.slice(0, 16) + "..." : projectName;
@@ -73,7 +73,7 @@ export function createProjectPinWithLabel(
         <span style="
           font-family: 'Kosugi', sans-serif;
           font-size: 9px;
-          color: #A7A7A7;
+          color: #B5B5B5;
           text-transform: uppercase;
           letter-spacing: 0.5px;
           margin-top: 3px;
@@ -94,20 +94,20 @@ export function createStackedProjectPin(
   projects: { status: ProjectStatus; title: string }[],
   dimmed = false
 ): L.DivIcon {
-  const primaryColor = PROJECT_STATUS_COLORS[projects[0].status] || "#8195B5";
+  const primaryColor = PROJECT_STATUS_COLORS[projects[0].status] || "#D99A3E";
   const opacity = dimmed ? 0.5 : 1;
   const count = projects.length;
 
   // Build stacked label lines — show up to 4 names, then "+N more"
   const maxLabels = 4;
   const labelLines = projects.slice(0, maxLabels).map((p) => {
-    const color = PROJECT_STATUS_COLORS[p.status] || "#8195B5";
+    const color = PROJECT_STATUS_COLORS[p.status] || "#D99A3E";
     const name = truncate(p.title, 16);
     return `<span style="
       display: flex; align-items: center; gap: 3px;
       font-family: 'Kosugi', sans-serif;
       font-size: 9px;
-      color: #A7A7A7;
+      color: #B5B5B5;
       text-transform: uppercase;
       letter-spacing: 0.5px;
       white-space: nowrap;
@@ -166,7 +166,7 @@ export function createStackedProjectPin(
             width: 16px; height: 16px;
             display: flex; align-items: center; justify-content: center;
             font-family: 'Kosugi', sans-serif;
-            font-size: 8px; color: #E5E5E5;
+            font-size: 8px; color: #EDEDED;
           ">${count}</span>
         </div>
         <div style="
@@ -192,7 +192,7 @@ export function createTaskPinIcon(
   taskColor?: string,
   extraCount = 0
 ): L.DivIcon {
-  const color = taskColor || "#8195B5";
+  const color = taskColor || "#D99A3E";
   const displayLabel = extraCount > 0
     ? `${truncate(taskLabel, 12)} +${extraCount}`
     : truncate(taskLabel, 14);
@@ -221,7 +221,7 @@ export function createTaskPinIcon(
         <span style="
           font-family: 'Kosugi', sans-serif;
           font-size: 9px;
-          color: #E5E5E5;
+          color: #EDEDED;
           text-transform: uppercase;
           letter-spacing: 0.5px;
           margin-top: 3px;
@@ -252,7 +252,7 @@ export function createGroupedTaskPinIcon(
   projectGroups: { projectName: string; taskCount: number; taskColor?: string }[]
 ): L.DivIcon {
   const totalTasks = projectGroups.reduce((sum, g) => sum + g.taskCount, 0);
-  const primaryColor = projectGroups[0].taskColor || "#8195B5";
+  const primaryColor = projectGroups[0].taskColor || "#D99A3E";
 
   // Build stacked project lines — show up to 3 projects
   const maxProjects = 3;
@@ -318,7 +318,7 @@ export function createGroupedTaskPinIcon(
             width: 14px; height: 14px;
             display: flex; align-items: center; justify-content: center;
             font-family: 'Kosugi', sans-serif;
-            font-size: 7px; color: #E5E5E5;
+            font-size: 7px; color: #EDEDED;
           ">${totalTasks}</span>
         </div>
         <div style="
@@ -367,7 +367,7 @@ export function createCrewPinIcon(
           <span style="
             font-family: 'Kosugi', sans-serif;
             font-size: 10px;
-            color: #E5E5E5;
+            color: #EDEDED;
             text-transform: uppercase;
             letter-spacing: 0.5px;
           ">${initials}</span>
@@ -375,7 +375,7 @@ export function createCrewPinIcon(
         <span style="
           font-family: 'Kosugi', sans-serif;
           font-size: 9px;
-          color: #A7A7A7;
+          color: #B5B5B5;
           text-transform: uppercase;
           letter-spacing: 0.5px;
           margin-top: 3px;

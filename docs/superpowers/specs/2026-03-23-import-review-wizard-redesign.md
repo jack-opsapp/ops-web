@@ -41,7 +41,7 @@ Replace the current 5-dot horizontal progress bar with a vertical stepper rail o
 ```
 
 - Completed steps: checkmark icon, muted text
-- Current step: accent highlight (`#597794`), filled circle
+- Current step: accent highlight (`#6F94B0`), filled circle
 - Future steps: dimmed circle, dimmed text
 - Sub-steps only visible when user is in the REVIEW phase
 - Sub-step labels: `filter`, `consolidate`, `triage`, `confirm`

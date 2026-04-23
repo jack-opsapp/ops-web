@@ -124,7 +124,7 @@ interface CameraState {
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const ACCENT: RGB = { r: 89, g: 119, b: 148 }; // #6F94B0 — source/result blue
+const ACCENT: RGB = { r: 111, g: 148, b: 176 }; // #6F94B0 — source/result blue
 const AMBER: RGB = { r: 196, g: 168, b: 104 }; // #C4A868 — active filter
 const GREEN: RGB = { r: 157, g: 181, b: 130 }; // #9DB582 — result
 const DIM: RGB = { r: 80, g: 80, b: 80 }; // disabled/inactive

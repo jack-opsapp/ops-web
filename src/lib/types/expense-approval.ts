@@ -45,8 +45,8 @@ export const BATCH_STATUS_DISPLAY: Record<ExpenseBatchStatus, string> = {
 
 /** Hex color for each batch status */
 export const BATCH_STATUS_COLOR: Record<ExpenseBatchStatus, string> = {
-  [ExpenseBatchStatus.PendingReview]: "#8195B5",
-  [ExpenseBatchStatus.Submitted]: "#8195B5",
+  [ExpenseBatchStatus.PendingReview]: "#D99A3E",
+  [ExpenseBatchStatus.Submitted]: "#D99A3E",
   [ExpenseBatchStatus.Approved]: "#9DB582",
   [ExpenseBatchStatus.PartiallyApproved]: "#C4A868",
   [ExpenseBatchStatus.Rejected]: "#93321A",

@@ -19,7 +19,7 @@ export function SidebarNavItem({ href, label }: SidebarNavItemProps) {
         "flex items-center h-14 px-6 relative",
         "font-mohave text-[13px] uppercase tracking-widest transition-colors",
         isActive
-          ? "text-[#E5E5E5]"
+          ? "text-[#EDEDED]"
           : "text-[#6B6B6B] hover:text-[#A0A0A0]",
       ].join(" ")}
     >

@@ -33,13 +33,13 @@ export default async function BlogIndexPage() {
     <main className="max-w-6xl mx-auto px-6 py-16">
       {/* Header */}
       <header className="mb-12">
-        <h1 className="flex items-center gap-3 text-[#E5E5E5]">
+        <h1 className="flex items-center gap-3 text-[#EDEDED]">
           <OpsLockup orientation="horizontal" className="h-10 w-auto" />
           <span className="font-cakemono text-4xl font-light uppercase leading-none">
             Blog
           </span>
         </h1>
-        <p className="mt-3 text-[#A7A7A7] text-lg max-w-2xl">
+        <p className="mt-3 text-[#B5B5B5] text-lg max-w-2xl">
           Insights, guides, and strategies for trade businesses &mdash;
           scheduling, invoicing, CRM, and more.
         </p>
@@ -48,7 +48,7 @@ export default async function BlogIndexPage() {
       {/* Posts grid */}
       {posts.length === 0 ? (
         <div className="text-center py-24">
-          <p className="text-[#A7A7A7] text-lg">
+          <p className="text-[#B5B5B5] text-lg">
             No posts yet. Check back soon!
           </p>
         </div>
@@ -80,19 +80,19 @@ export default async function BlogIndexPage() {
                 <div className="p-5">
                   {/* Category badge */}
                   {category && (
-                    <span className="inline-block text-xs font-medium uppercase tracking-wider text-[#597794] mb-2">
+                    <span className="inline-block text-xs font-medium uppercase tracking-wider text-[#6F94B0] mb-2">
                       {category.name}
                     </span>
                   )}
 
                   {/* Title */}
-                  <h2 className="font-mohave text-xl font-semibold text-[#E5E5E5] group-hover:text-[#C4A868] transition-colors leading-tight">
+                  <h2 className="font-mohave text-xl font-semibold text-[#EDEDED] group-hover:text-[#C4A868] transition-colors leading-tight">
                     {post.title}
                   </h2>
 
                   {/* Teaser */}
                   {post.teaser && (
-                    <p className="mt-2 text-sm text-[#A7A7A7] line-clamp-3">
+                    <p className="mt-2 text-sm text-[#B5B5B5] line-clamp-3">
                       {post.teaser}
                     </p>
                   )}

@@ -131,7 +131,7 @@ function PlatformSelector({
           onClick={() => onChange(p.value)}
           className={`px-3 py-1 font-mono text-[11px] uppercase tracking-wider rounded transition-colors ${
             value === p.value
-              ? "bg-white/[0.08] text-[#E5E5E5]"
+              ? "bg-white/[0.08] text-[#EDEDED]"
               : "text-[#6B6B6B] hover:text-[#A0A0A0] hover:bg-white/[0.04]"
           }`}
         >
@@ -245,7 +245,7 @@ export function AppAnalyticsContent({
               onClick={() => setTab(t.value)}
               className={`px-4 py-2 font-mohave text-[13px] uppercase tracking-widest rounded transition-colors ${
                 tab === t.value
-                  ? "bg-white/[0.08] text-[#E5E5E5]"
+                  ? "bg-white/[0.08] text-[#EDEDED]"
                   : "text-[#6B6B6B] hover:text-[#A0A0A0] hover:bg-white/[0.04]"
               }`}
             >
@@ -266,7 +266,7 @@ export function AppAnalyticsContent({
             </p>
             <AdminLineChart
               data={activeUsersQuery.data?.sparkline ?? []}
-              color="#597794"
+              color="#6F94B0"
               height={240}
               isLoading={activeUsersQuery.isFetching && !activeUsersQuery.data?.sparkline?.length}
             />
@@ -315,7 +315,7 @@ export function AppAnalyticsContent({
                 label: f.eventName.replace(/_/g, " "),
                 value: f.totalCount,
               }))}
-              color="#597794"
+              color="#6F94B0"
               height={260}
               isLoading={featureQuery.isFetching && !featureQuery.data?.length}
             />
@@ -344,7 +344,7 @@ export function AppAnalyticsContent({
                       key={f.eventName}
                       className="border-b border-white/[0.05] last:border-0 hover:bg-white/[0.02] transition-colors"
                     >
-                      <td className="py-2.5 font-mohave text-[13px] text-[#E5E5E5] pr-3">
+                      <td className="py-2.5 font-mohave text-[13px] text-[#EDEDED] pr-3">
                         {f.eventName.replace(/_/g, " ")}
                       </td>
                       <td className="py-2.5 font-mohave text-[14px] text-[#A0A0A0] pr-3 text-right tabular-nums">
@@ -353,7 +353,7 @@ export function AppAnalyticsContent({
                       <td className="py-2.5 font-mohave text-[14px] text-[#A0A0A0] pr-3 text-right tabular-nums">
                         {f.companiesUsing}
                       </td>
-                      <td className="py-2.5 font-mohave text-[14px] text-[#E5E5E5] pr-3 text-right tabular-nums">
+                      <td className="py-2.5 font-mohave text-[14px] text-[#EDEDED] pr-3 text-right tabular-nums">
                         {f.adoptionRate}%
                       </td>
                       <td className="py-2.5 font-mohave text-[14px] text-[#A0A0A0] pr-3 text-right tabular-nums">
@@ -361,7 +361,7 @@ export function AppAnalyticsContent({
                       </td>
                       <td className="py-2.5 pr-1 w-[120px]">
                         {f.sparkline.length > 0 ? (
-                          <Sparkline data={f.sparkline} height={28} color="#597794" />
+                          <Sparkline data={f.sparkline} height={28} color="#6F94B0" />
                         ) : (
                           <span className="font-mono text-[11px] text-[#6B6B6B]">—</span>
                         )}
@@ -399,7 +399,7 @@ export function AppAnalyticsContent({
                       onClick={() => setSelectedFunnel(i)}
                       className={`px-3 py-1 font-mono text-[11px] uppercase tracking-wider rounded transition-colors ${
                         selectedFunnel === i
-                          ? "bg-white/[0.08] text-[#E5E5E5]"
+                          ? "bg-white/[0.08] text-[#EDEDED]"
                           : "text-[#6B6B6B] hover:text-[#A0A0A0] hover:bg-white/[0.04]"
                       }`}
                     >
@@ -453,7 +453,7 @@ export function AppAnalyticsContent({
                       key={e.eventName}
                       className="border-b border-white/[0.05] last:border-0 hover:bg-white/[0.02] transition-colors"
                     >
-                      <td className="py-2.5 font-mohave text-[13px] text-[#E5E5E5] pr-3">
+                      <td className="py-2.5 font-mohave text-[13px] text-[#EDEDED] pr-3">
                         {e.eventName.replace(/_/g, " ")}
                       </td>
                       <td className="py-2.5 font-mohave text-[14px] text-[#93321A] pr-3 text-right tabular-nums">

@@ -100,14 +100,14 @@ export function BlogTopicsTab() {
           onKeyDown={(e) => {
             if (e.key === "Enter") handleCreate();
           }}
-          className="flex-1 bg-white/[0.05] border border-white/[0.1] rounded px-3 py-2 font-mohave text-[14px] text-[#E5E5E5] placeholder:text-[#6B6B6B] focus:outline-none focus:border-white/[0.2]"
+          className="flex-1 bg-white/[0.05] border border-white/[0.1] rounded px-3 py-2 font-mohave text-[14px] text-[#EDEDED] placeholder:text-[#6B6B6B] focus:outline-none focus:border-white/[0.2]"
         />
         <input
           type="text"
           placeholder="Author"
           value={newAuthor}
           onChange={(e) => setNewAuthor(e.target.value)}
-          className="w-[200px] bg-white/[0.05] border border-white/[0.1] rounded px-3 py-2 font-mohave text-[14px] text-[#E5E5E5] placeholder:text-[#6B6B6B] focus:outline-none focus:border-white/[0.2]"
+          className="w-[200px] bg-white/[0.05] border border-white/[0.1] rounded px-3 py-2 font-mohave text-[14px] text-[#EDEDED] placeholder:text-[#6B6B6B] focus:outline-none focus:border-white/[0.2]"
         />
         <button
           type="button"
@@ -150,10 +150,10 @@ export function BlogTopicsTab() {
               key={t.id}
               className="grid grid-cols-5 px-6 items-center h-14 border-b border-white/[0.05] hover:bg-white/[0.02] transition-colors"
             >
-              <span className="font-mohave text-[14px] text-[#E5E5E5] truncate pr-4">
+              <span className="font-mohave text-[14px] text-[#EDEDED] truncate pr-4">
                 {t.topic}
               </span>
-              <span className="font-mono text-[12px] text-[#A7A7A7]">
+              <span className="font-mono text-[12px] text-[#B5B5B5]">
                 {t.author}
               </span>
               <span>
@@ -170,7 +170,7 @@ export function BlogTopicsTab() {
                   {t.used ? "Used" : "Unused"}
                 </button>
               </span>
-              <span className="font-mono text-[12px] text-[#A7A7A7]">
+              <span className="font-mono text-[12px] text-[#B5B5B5]">
                 {formatDate(t.created_at)}
               </span>
               <span>

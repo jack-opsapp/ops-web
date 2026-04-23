@@ -100,7 +100,7 @@ Sorted by `lastMessageAt` descending. Each item shows:
 - **Unread count badge**: accent circle with count (if > 0)
 
 **States:**
-- Active: left border `#597794`, background `rgba(89,119,148,0.08)`
+- Active: left border `#6F94B0`, background `rgba(111,148,176,0.08)`
 - Unread: full opacity, bold client name
 - Read: reduced opacity (0.5)
 - Unmatched: orange `?` avatar, `UNMATCHED` badge, italic name
@@ -125,7 +125,7 @@ When an unmatched conversation is selected, the thread header shows inline actio
 
 Positioned directly below header, sticky on scroll. Pipeline tab-bar pattern:
 - Three segments: **ALL** / **EMAIL** / **PORTAL**
-- Active segment: `rgba(89,119,148,0.2)` background + 2px bottom border `#597794`
+- Active segment: `rgba(111,148,176,0.2)` background + 2px bottom border `#6F94B0`
 - Inactive: transparent, `rgba(255,255,255,0.35)` text
 - Kosugi font, 9px, uppercase, letter-spacing 0.5px
 - Container: `rgba(255,255,255,0.04)` background, `1px solid rgba(255,255,255,0.06)`, 3px radius
@@ -149,8 +149,8 @@ All messages rendered as chat bubbles regardless of channel:
 
 **Outbound (from company):**
 - Right-aligned
-- Background: `rgba(89,119,148,0.12)`
-- Border: `1px solid rgba(89,119,148,0.18)`
+- Background: `rgba(111,148,176,0.12)`
+- Border: `1px solid rgba(111,148,176,0.18)`
 - Border-radius: `3px 3px 1px 3px`
 - Max-width: 65%
 
@@ -175,7 +175,7 @@ When the "ALL" filter is active, inline dividers appear when messages switch cha
 
 - Kosugi font, 8px, uppercase, letter-spacing 0.5px
 - Email dividers: `rgba(255,255,255,0.2)` color
-- Portal dividers: `rgba(89,119,148,0.5)` color
+- Portal dividers: `rgba(111,148,176,0.5)` color
 - 1px separator line extending to fill width
 
 ### Date Separators
@@ -196,11 +196,11 @@ When the "ALL" filter is active, inline dividers appear when messages switch cha
 - Fixed at bottom of thread view
 - Channel selector: small dropdown defaulting to last message's channel
   - Shows icon + channel name + dropdown arrow
-  - Portal: `rgba(89,119,148,0.08)` background, portal icon
+  - Portal: `rgba(111,148,176,0.08)` background, portal icon
   - Email: neutral background, mail icon
 - Text input: `rgba(255,255,255,0.04)` background, 1px border
 - Attach button (paperclip icon)
-- Send button: `#597794` background, Kosugi font
+- Send button: `#6F94B0` background, Kosugi font
 
 **Channel-specific behavior:**
 - **Portal reply**: direct Supabase insert via `PortalMessageService.sendMessage()`. Inline, instant.
@@ -459,7 +459,7 @@ All styling follows `CLAUDE.md` and the OPS design system:
 |----------|-------|
 | Surfaces | `rgba(10, 10, 10, 0.70)` + `backdrop-blur(20px) saturate(1.2)` |
 | Borders | `1px solid rgba(255,255,255,0.08)` |
-| Accent | `#597794` — used for active states, outbound bubbles, unread badges |
+| Accent | `#6F94B0` — used for active states, outbound bubbles, unread badges |
 | Border radius | 3px (bubbles, inputs, buttons) — sharp, not rounded |
 | Depth | Borders-only, no shadows |
 | Text alignment | Left-aligned only |

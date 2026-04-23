@@ -26,8 +26,8 @@ interface CategoryStyle {
 }
 
 const CATEGORY_STYLES: Record<EmailThreadCategory, CategoryStyle> = {
-  LEAD:         { border: "#597794", label: "LEAD",         dotColor: "#597794" },
-  CLIENT:       { border: "#597794", label: "CLIENT",       dotColor: "#597794" },
+  LEAD:         { border: "#6F94B0", label: "LEAD",         dotColor: "#6F94B0" },
+  CLIENT:       { border: "#6F94B0", label: "CLIENT",       dotColor: "#6F94B0" },
   VENDOR:       { border: "#6b7280", label: "VENDOR",       dotColor: "#6b7280" },
   SUBTRADE:     { border: "#6b7280", label: "SUBTRADE",     dotColor: "#6b7280" },
   PLATFORM_BID: { border: "#8b7e3a", label: "PLATFORM BID", dotColor: "#8b7e3a" },

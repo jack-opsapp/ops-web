@@ -50,7 +50,7 @@ function KpiItem({ label, value, href, accent }: { label: string; value: string 
   const inner = (
     <span className={`flex items-center gap-2 ${href ? 'hover:text-[#A0A0A0] cursor-pointer' : ''} transition-colors`}>
       <span className="font-mono text-micro uppercase tracking-wider text-[#6B6B6B]">{label}</span>
-      <span className={`font-mohave text-[15px] font-semibold ${accent ? 'text-[#C4A868]' : 'text-[#E5E5E5]'}`}>{value}</span>
+      <span className={`font-mohave text-[15px] font-semibold ${accent ? 'text-[#C4A868]' : 'text-[#EDEDED]'}`}>{value}</span>
     </span>
   );
   if (href) return <Link href={href}>{inner}</Link>;
@@ -67,7 +67,7 @@ export default async function OverviewPage() {
     return (
       <div className="p-8">
         <h1 className="text-red-400 font-mohave text-lg mb-4">Admin Data Fetch Failed</h1>
-        <pre className="text-[13px] text-[#E5E5E5] bg-white/[0.05] rounded p-4 overflow-auto whitespace-pre-wrap">
+        <pre className="text-[13px] text-[#EDEDED] bg-white/[0.05] rounded p-4 overflow-auto whitespace-pre-wrap">
           {msg}
           {stack && `\n\n${stack}`}
         </pre>

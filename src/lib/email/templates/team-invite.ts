@@ -6,7 +6,7 @@
  * - Sharp corners (2px border-radius)
  * - Left-aligned text throughout
  * - Monospace body font, sans-serif for OPS wordmark
- * - Accent #597794 used only on the CTA button
+ * - Accent #6F94B0 used only on the CTA button
  * - Generous spacing between sections
  * - FAQs sourced from ops-site homepage
  */
@@ -123,7 +123,7 @@ export function teamInviteTemplate(params: {
           <td style="padding:0 0 12px 0;">
             <table role="presentation" cellspacing="0" cellpadding="0" border="0">
               <tr>
-                <td style="background-color:#597794;border-radius:2px;">
+                <td style="background-color:#6F94B0;border-radius:2px;">
                   <a href="${joinUrl}" target="_blank" style="display:inline-block;padding:12px 28px;font-family:${mono};font-size:13px;font-weight:bold;letter-spacing:1px;color:#ffffff;text-decoration:none;text-transform:uppercase;">
                     JOIN ${name}
                   </a>
@@ -154,7 +154,7 @@ export function teamInviteTemplate(params: {
         <tr>
           <td style="padding:0 0 20px 0;">
             <span style="font-family:${mono};font-size:12px;color:#999999;line-height:1.8;">
-              1. Download OPS from the <a href="${esc(APP_STORE_URL)}" target="_blank" style="color:#597794;text-decoration:underline;">App Store</a><br/>
+              1. Download OPS from the <a href="${esc(APP_STORE_URL)}" target="_blank" style="color:#6F94B0;text-decoration:underline;">App Store</a><br/>
               2. Create your account<br/>
               3. Enter the company code below when prompted
             </span>

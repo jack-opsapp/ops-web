@@ -23,7 +23,7 @@ The notification rail lives in the left zone of the existing 56px TopBar. It rea
 All decisions below trace to `.interface-design/system.md`:
 
 - **Surfaces:** Frosted glass — `rgba(10,10,10,0.70)`, `backdrop-blur(20px) saturate(1.2)`, border `rgba(255,255,255,0.08)`
-- **Colors:** Monochromatic. Standard pills use `rgba(255,255,255,0.20)`. Persistent pills use `#597794` (accent, sparingly). No other colors.
+- **Colors:** Monochromatic. Standard pills use `rgba(255,255,255,0.20)`. Persistent pills use `#6F94B0` (accent, sparingly). No other colors.
 - **Typography:** Card titles in Mohave Regular `text-body-sm`. Count label in `font-mono text-[10px]`. Action buttons in Kosugi uppercase `text-[9px]` tracked.
 - **Border radius:** 2px on cards, full-rounded on pills (they're small enough to be dots)
 - **Depth:** Borders-only on dark. No shadows. Surface elevation via lightness shifts only.
@@ -62,7 +62,7 @@ Lives in TopBar left zone, replacing the page actions div.
 - Horizontal row of pills, left-to-right, oldest first
 - Each pill: 6px wide, 14px tall, rounded-full, `gap-[3px]`
 - Standard: `bg-[rgba(255,255,255,0.20)]`
-- Persistent: `bg-[#597794]`
+- Persistent: `bg-[#6F94B0]`
 - Count label after pills: `font-mono text-[10px] text-text-disabled ml-[6px]`
 - Max ~15 pills visible before `+N` overflow (prevents rail from eating into right-side controls)
 - Click anywhere on rail to expand
@@ -96,9 +96,9 @@ Lives in TopBar left zone, replacing the page actions div.
 - Inner padding: `px-[8px] py-[4px]`
 - Content layout (single row, vertically centered):
   - Title text: `font-mohave text-[12px] text-text-primary truncate`, flex-1
-  - If `actionLabel`: text button, `font-kosugi text-[9px] uppercase tracking-wider text-[#597794] hover:text-text-primary`, shrink-0
+  - If `actionLabel`: text button, `font-kosugi text-[9px] uppercase tracking-wider text-[#6F94B0] hover:text-text-primary`, shrink-0
   - If dismissible: X button, `w-[14px] h-[14px] text-text-disabled hover:text-text-secondary`, shrink-0
-- Persistent cards: left border accent — `border-l-2 border-l-[#597794]`
+- Persistent cards: left border accent — `border-l-2 border-l-[#6F94B0]`
 - Dismissible cards: no left accent, shows X button
 - `snap-start` for scroll snapping
 - `layout` + `layoutId` for position animation on dismiss
@@ -130,11 +130,11 @@ Triggered by: bell icon click OR "View all" button in expanded rail.
 
 - Full width within modal, `min-h-[64px]`, `py-[10px] px-[12px]`
 - No background (sits on modal surface), separated by `1px` border-bottom `rgba(255,255,255,0.06)`
-- Persistent: left accent border `2px #597794`
+- Persistent: left accent border `2px #6F94B0`
 - Layout:
   - Row 1: Title `font-mohave text-body-sm text-text-primary` + timestamp `font-mono text-[10px] text-text-disabled ml-auto`
   - Row 2: Body `font-mohave text-[12px] text-text-secondary line-clamp-2`
-  - Row 3 (if action): Action button `font-kosugi text-[10px] uppercase tracking-wider text-[#597794] hover:text-text-primary mt-[4px]`
+  - Row 3 (if action): Action button `font-kosugi text-[10px] uppercase tracking-wider text-[#6F94B0] hover:text-text-primary mt-[4px]`
 - Dismiss: X button top-right, only on non-persistent
 - Dismiss animation: `opacity: 0, height: 0, marginTop: 0, marginBottom: 0`, 200ms — remaining cards slide up via layout
 

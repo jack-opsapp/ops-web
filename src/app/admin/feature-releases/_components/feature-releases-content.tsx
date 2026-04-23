@@ -170,7 +170,7 @@ export function FeatureReleasesContent() {
       ) : (
         <button
           onClick={() => setShowNewFlag(true)}
-          className="flex items-center gap-2 px-4 py-3 w-full border border-dashed border-white/[0.12] rounded-lg text-[#6B6B6B] hover:text-[#E5E5E5] hover:border-white/[0.2] transition-colors"
+          className="flex items-center gap-2 px-4 py-3 w-full border border-dashed border-white/[0.12] rounded-lg text-[#6B6B6B] hover:text-[#EDEDED] hover:border-white/[0.2] transition-colors"
         >
           <Plus className="w-4 h-4" />
           <span className="font-mohave text-[13px] uppercase tracking-wider">Define New Feature Flag</span>
@@ -309,13 +309,13 @@ function FlagCard({
         <div className="flex items-center gap-3 min-w-0">
           <button
             onClick={() => setExpanded((v) => !v)}
-            className="text-[#6B6B6B] hover:text-[#E5E5E5] transition-colors flex-shrink-0"
+            className="text-[#6B6B6B] hover:text-[#EDEDED] transition-colors flex-shrink-0"
           >
             {expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
           </button>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <h3 className="font-cakemono text-[16px] font-light uppercase text-[#E5E5E5]">
+              <h3 className="font-cakemono text-[16px] font-light uppercase text-[#EDEDED]">
                 {flag.label}
               </h3>
               <span className="font-mono text-[11px] text-[#6B6B6B] bg-white/[0.05] px-2 py-0.5 rounded">
@@ -353,7 +353,7 @@ function FlagCard({
               {flag.routes.map((r) => (
                 <span
                   key={r}
-                  className="font-mono text-[11px] text-[#8195B5] bg-ops-accent/10 border border-[#597794]/20 px-2 py-0.5 rounded"
+                  className="font-mono text-[11px] text-[#D99A3E] bg-ops-accent/10 border border-[#6F94B0]/20 px-2 py-0.5 rounded"
                 >
                   {r}
                 </span>
@@ -375,7 +375,7 @@ function FlagCard({
           )}
           <button
             onClick={() => { setEditingDefs(true); setExpanded(true); }}
-            className="flex items-center gap-1 text-[#6B6B6B] hover:text-[#597794] transition-colors ml-auto"
+            className="flex items-center gap-1 text-[#6B6B6B] hover:text-[#6F94B0] transition-colors ml-auto"
             title="Edit routes & permissions"
           >
             <Edit2 className="w-3 h-3" />
@@ -390,7 +390,7 @@ function FlagCard({
           <span className="font-mono text-[12px] text-[#6B6B6B]">No routes or permissions defined.</span>
           <button
             onClick={() => { setEditingDefs(true); setExpanded(true); }}
-            className="flex items-center gap-1 text-[#597794] hover:text-[#8195B5] transition-colors"
+            className="flex items-center gap-1 text-[#6F94B0] hover:text-[#D99A3E] transition-colors"
           >
             <Plus className="w-3 h-3" />
             <span className="font-mohave text-micro uppercase tracking-widest">Define</span>
@@ -405,13 +405,13 @@ function FlagCard({
           {editingDefs && (
             <div className="px-6 py-5 border-b border-white/[0.06] space-y-5">
               <div className="flex items-center justify-between">
-                <span className="font-mohave text-[12px] uppercase tracking-widest text-[#E5E5E5]">
+                <span className="font-mohave text-[12px] uppercase tracking-widest text-[#EDEDED]">
                   Edit Definitions
                 </span>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={cancelEditDefs}
-                    className="px-3 py-1.5 font-mohave text-[11px] uppercase text-[#6B6B6B] hover:text-[#E5E5E5] transition-colors"
+                    className="px-3 py-1.5 font-mohave text-[11px] uppercase text-[#6B6B6B] hover:text-[#EDEDED] transition-colors"
                   >
                     Cancel
                   </button>
@@ -437,12 +437,12 @@ function FlagCard({
                     onChange={(e) => setRouteInput(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && addRoute()}
                     placeholder="/route-path"
-                    className="flex-1 bg-white/[0.05] border border-white/[0.08] rounded px-3 py-1.5 font-mono text-[12px] text-[#E5E5E5] placeholder:text-[#6B6B6B] outline-none focus:border-[#597794]/50"
+                    className="flex-1 bg-white/[0.05] border border-white/[0.08] rounded px-3 py-1.5 font-mono text-[12px] text-[#EDEDED] placeholder:text-[#6B6B6B] outline-none focus:border-[#6F94B0]/50"
                   />
                   <button
                     onClick={addRoute}
                     disabled={!routeInput.trim()}
-                    className="px-3 py-1.5 bg-white/[0.05] border border-white/[0.08] rounded font-mohave text-[11px] uppercase text-[#A0A0A0] hover:text-[#E5E5E5] transition-colors disabled:opacity-40"
+                    className="px-3 py-1.5 bg-white/[0.05] border border-white/[0.08] rounded font-mohave text-[11px] uppercase text-[#A0A0A0] hover:text-[#EDEDED] transition-colors disabled:opacity-40"
                   >
                     Add
                   </button>
@@ -451,12 +451,12 @@ function FlagCard({
                   {draftRoutes.map((r) => (
                     <span
                       key={r}
-                      className="flex items-center gap-1 font-mono text-[11px] text-[#8195B5] bg-ops-accent/10 border border-[#597794]/20 px-2 py-0.5 rounded"
+                      className="flex items-center gap-1 font-mono text-[11px] text-[#D99A3E] bg-ops-accent/10 border border-[#6F94B0]/20 px-2 py-0.5 rounded"
                     >
                       {r}
                       <button
                         onClick={() => setDraftRoutes((prev) => prev.filter((x) => x !== r))}
-                        className="text-[#597794]/60 hover:text-[#93321A] transition-colors ml-0.5"
+                        className="text-[#6F94B0]/60 hover:text-[#93321A] transition-colors ml-0.5"
                       >
                         ×
                       </button>
@@ -501,7 +501,7 @@ function FlagCard({
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && searchUsers()}
                   placeholder="Search users by name or email..."
-                  className="w-full bg-white/[0.05] border border-white/[0.08] rounded-lg pl-9 pr-4 py-2 font-mono text-[13px] text-[#E5E5E5] placeholder:text-[#6B6B6B] outline-none focus:border-[#597794]/50"
+                  className="w-full bg-white/[0.05] border border-white/[0.08] rounded-lg pl-9 pr-4 py-2 font-mono text-[13px] text-[#EDEDED] placeholder:text-[#6B6B6B] outline-none focus:border-[#6F94B0]/50"
                 />
               </div>
               <button
@@ -527,7 +527,7 @@ function FlagCard({
                     className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.04] last:border-0 hover:bg-white/[0.02] transition-colors"
                   >
                     <div>
-                      <span className="font-mohave text-[13px] text-[#E5E5E5]">
+                      <span className="font-mohave text-[13px] text-[#EDEDED]">
                         {user.first_name} {user.last_name}
                       </span>
                       <span className="font-mono text-[11px] text-[#6B6B6B] ml-2">
@@ -561,7 +561,7 @@ function FlagCard({
                     className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.04] last:border-0"
                   >
                     <div>
-                      <span className="font-mohave text-[13px] text-[#E5E5E5]">
+                      <span className="font-mohave text-[13px] text-[#EDEDED]">
                         {override.user.first_name} {override.user.last_name}
                       </span>
                       <span className="font-mono text-[11px] text-[#6B6B6B] ml-2">
@@ -625,7 +625,7 @@ function PermissionPicker({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Filter permissions..."
-          className="w-full bg-transparent font-mono text-[12px] text-[#E5E5E5] placeholder:text-[#6B6B6B] outline-none"
+          className="w-full bg-transparent font-mono text-[12px] text-[#EDEDED] placeholder:text-[#6B6B6B] outline-none"
         />
       </div>
       <div className="max-h-64 overflow-y-auto">
@@ -671,7 +671,7 @@ function PermissionPicker({
                   >
                     <div>
                       <span className={`font-mono text-[12px] ${
-                        selected.includes(action.id) ? "text-[#E5E5E5]" : "text-[#A0A0A0]"
+                        selected.includes(action.id) ? "text-[#EDEDED]" : "text-[#A0A0A0]"
                       }`}>
                         {action.label}
                       </span>
@@ -769,10 +769,10 @@ function NewFlagForm({
   };
 
   return (
-    <div className="border border-[#597794]/30 rounded-lg overflow-hidden">
+    <div className="border border-[#6F94B0]/30 rounded-lg overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06]">
-        <span className="font-mohave text-[15px] uppercase tracking-wider text-[#E5E5E5]">
+        <span className="font-mohave text-[15px] uppercase tracking-wider text-[#EDEDED]">
           New Feature Flag
         </span>
         <div className="flex items-center gap-3">
@@ -781,7 +781,7 @@ function NewFlagForm({
             <button
               onClick={() => setStep("basics")}
               className={`font-mohave text-[11px] uppercase tracking-widest px-2 py-1 rounded transition-colors ${
-                step === "basics" ? "text-[#E5E5E5] bg-white/[0.06]" : "text-[#6B6B6B] hover:text-[#A0A0A0]"
+                step === "basics" ? "text-[#EDEDED] bg-white/[0.06]" : "text-[#6B6B6B] hover:text-[#A0A0A0]"
               }`}
             >
               1. Basics
@@ -791,13 +791,13 @@ function NewFlagForm({
               onClick={() => setStep("definitions")}
               disabled={!slug || !label}
               className={`font-mohave text-[11px] uppercase tracking-widest px-2 py-1 rounded transition-colors ${
-                step === "definitions" ? "text-[#E5E5E5] bg-white/[0.06]" : "text-[#6B6B6B] hover:text-[#A0A0A0]"
+                step === "definitions" ? "text-[#EDEDED] bg-white/[0.06]" : "text-[#6B6B6B] hover:text-[#A0A0A0]"
               } disabled:opacity-30`}
             >
               2. Routes & Permissions
             </button>
           </div>
-          <button onClick={onCancel} className="text-[#6B6B6B] hover:text-[#E5E5E5] transition-colors">
+          <button onClick={onCancel} className="text-[#6B6B6B] hover:text-[#EDEDED] transition-colors">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -816,7 +816,7 @@ function NewFlagForm({
                   value={label}
                   onChange={(e) => handleLabelChange(e.target.value)}
                   placeholder="Pipeline CRM"
-                  className="w-full bg-white/[0.05] border border-white/[0.08] rounded-lg px-4 py-2 font-mono text-[13px] text-[#E5E5E5] placeholder:text-[#6B6B6B] outline-none focus:border-[#597794]/50"
+                  className="w-full bg-white/[0.05] border border-white/[0.08] rounded-lg px-4 py-2 font-mono text-[13px] text-[#EDEDED] placeholder:text-[#6B6B6B] outline-none focus:border-[#6F94B0]/50"
                 />
               </div>
               <div>
@@ -831,7 +831,7 @@ function NewFlagForm({
                     setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ""));
                   }}
                   placeholder="pipeline-crm"
-                  className="w-full bg-white/[0.05] border border-white/[0.08] rounded-lg px-4 py-2 font-mono text-[13px] text-[#E5E5E5] placeholder:text-[#6B6B6B] outline-none focus:border-[#597794]/50"
+                  className="w-full bg-white/[0.05] border border-white/[0.08] rounded-lg px-4 py-2 font-mono text-[13px] text-[#EDEDED] placeholder:text-[#6B6B6B] outline-none focus:border-[#6F94B0]/50"
                 />
               </div>
             </div>
@@ -844,7 +844,7 @@ function NewFlagForm({
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Brief description of what this flag controls..."
-                className="w-full bg-white/[0.05] border border-white/[0.08] rounded-lg px-4 py-2 font-mono text-[13px] text-[#E5E5E5] placeholder:text-[#6B6B6B] outline-none focus:border-[#597794]/50"
+                className="w-full bg-white/[0.05] border border-white/[0.08] rounded-lg px-4 py-2 font-mono text-[13px] text-[#EDEDED] placeholder:text-[#6B6B6B] outline-none focus:border-[#6F94B0]/50"
               />
             </div>
             <div className="flex justify-end">
@@ -871,12 +871,12 @@ function NewFlagForm({
                   onChange={(e) => setRouteInput(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && addRoute()}
                   placeholder="/route-path"
-                  className="flex-1 bg-white/[0.05] border border-white/[0.08] rounded px-3 py-1.5 font-mono text-[12px] text-[#E5E5E5] placeholder:text-[#6B6B6B] outline-none focus:border-[#597794]/50"
+                  className="flex-1 bg-white/[0.05] border border-white/[0.08] rounded px-3 py-1.5 font-mono text-[12px] text-[#EDEDED] placeholder:text-[#6B6B6B] outline-none focus:border-[#6F94B0]/50"
                 />
                 <button
                   onClick={addRoute}
                   disabled={!routeInput.trim()}
-                  className="px-3 py-1.5 bg-white/[0.05] border border-white/[0.08] rounded font-mohave text-[11px] uppercase text-[#A0A0A0] hover:text-[#E5E5E5] transition-colors disabled:opacity-40"
+                  className="px-3 py-1.5 bg-white/[0.05] border border-white/[0.08] rounded font-mohave text-[11px] uppercase text-[#A0A0A0] hover:text-[#EDEDED] transition-colors disabled:opacity-40"
                 >
                   Add
                 </button>
@@ -885,12 +885,12 @@ function NewFlagForm({
                 {routes.map((r) => (
                   <span
                     key={r}
-                    className="flex items-center gap-1 font-mono text-[11px] text-[#8195B5] bg-ops-accent/10 border border-[#597794]/20 px-2 py-0.5 rounded"
+                    className="flex items-center gap-1 font-mono text-[11px] text-[#D99A3E] bg-ops-accent/10 border border-[#6F94B0]/20 px-2 py-0.5 rounded"
                   >
                     {r}
                     <button
                       onClick={() => setRoutes((prev) => prev.filter((x) => x !== r))}
-                      className="text-[#597794]/60 hover:text-[#93321A] transition-colors"
+                      className="text-[#6F94B0]/60 hover:text-[#93321A] transition-colors"
                     >
                       ×
                     </button>
@@ -913,14 +913,14 @@ function NewFlagForm({
             <div className="flex justify-between items-center pt-2">
               <button
                 onClick={() => setStep("basics")}
-                className="font-mohave text-[12px] uppercase text-[#6B6B6B] hover:text-[#E5E5E5] transition-colors"
+                className="font-mohave text-[12px] uppercase text-[#6B6B6B] hover:text-[#EDEDED] transition-colors"
               >
                 ← Back
               </button>
               <div className="flex gap-2">
                 <button
                   onClick={onCancel}
-                  className="px-4 py-2 font-mohave text-[12px] uppercase tracking-wider text-[#6B6B6B] hover:text-[#E5E5E5] transition-colors"
+                  className="px-4 py-2 font-mohave text-[12px] uppercase tracking-wider text-[#6B6B6B] hover:text-[#EDEDED] transition-colors"
                 >
                   Cancel
                 </button>

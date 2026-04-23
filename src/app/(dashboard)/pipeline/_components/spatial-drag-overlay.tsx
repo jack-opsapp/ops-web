@@ -27,7 +27,7 @@ export function SpatialDragOverlay({
   if (!activeOpportunity) return null;
 
   const stageColor =
-    OPPORTUNITY_STAGE_COLORS[activeOpportunity.stage] ?? "#BCBCBC";
+    OPPORTUNITY_STAGE_COLORS[activeOpportunity.stage] ?? "#8F9AA3";
 
   return (
     <DragOverlay dropAnimation={null}>

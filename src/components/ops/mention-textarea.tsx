@@ -169,7 +169,7 @@ export function MentionTextArea({
         onKeyDown={handleKeyDownInternal}
         placeholder={placeholder}
         rows={2}
-        className="w-full resize-none bg-transparent text-sm text-[#E5E5E5] placeholder:text-[#666] focus:outline-none"
+        className="w-full resize-none bg-transparent text-sm text-[#EDEDED] placeholder:text-[#666] focus:outline-none"
       />
 
       {showSuggestions && filteredUsers.length > 0 && (
@@ -180,7 +180,7 @@ export function MentionTextArea({
               onClick={() => insertMention(user)}
               className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition ${
                 i === suggestionIndex
-                  ? "bg-[rgba(255,255,255,0.08)] text-[#E5E5E5]"
+                  ? "bg-[rgba(255,255,255,0.08)] text-[#EDEDED]"
                   : "text-[#999] hover:bg-white/5"
               }`}
             >

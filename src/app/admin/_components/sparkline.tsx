@@ -9,7 +9,7 @@ interface SparklineProps {
   onClick?: () => void;
 }
 
-export function Sparkline({ data, color = "#597794", height = 48, onClick }: SparklineProps) {
+export function Sparkline({ data, color = "#6F94B0", height = 48, onClick }: SparklineProps) {
   const chartData = data.map((d) => ({ name: d.label, value: d.value }));
 
   if (chartData.length === 0) {
@@ -38,7 +38,7 @@ export function Sparkline({ data, color = "#597794", height = 48, onClick }: Spa
               borderRadius: "6px",
               fontFamily: "Mohave",
               fontSize: 12,
-              color: "#E5E5E5",
+              color: "#EDEDED",
               padding: "4px 8px",
             }}
             labelStyle={{ display: "none" }}

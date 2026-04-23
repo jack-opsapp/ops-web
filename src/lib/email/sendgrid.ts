@@ -161,7 +161,7 @@ export async function sendTeamInvite(params: {
   const html = teamInviteTemplate({
     companyName: params.companyName,
     joinUrl: params.joinUrl,
-    accentColor: params.accentColor ?? "#597794",
+    accentColor: params.accentColor ?? "#6F94B0",
     logoUrl: params.logoUrl ?? null,
     inviterName: params.inviterName,
     inviterEmail: params.inviterEmail,

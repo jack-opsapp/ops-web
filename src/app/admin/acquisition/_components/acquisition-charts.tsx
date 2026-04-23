@@ -46,7 +46,7 @@ export function AcquisitionCharts({
           {sectionEngagement.length > 0 ? (
             <AdminBarChart
               data={sectionEngagement.map((d) => ({ label: d.dimension, value: d.count }))}
-              color="#597794"
+              color="#6F94B0"
               onBarClick={(p) => setSelectedStep({ funnel: "section", step: p.label, count: p.value })}
             />
           ) : (
@@ -78,7 +78,7 @@ export function AcquisitionCharts({
               <tbody>
                 {sortedVariants.map((v) => (
                   <tr key={v.dimension} className="border-b border-white/[0.05] last:border-0 hover:bg-white/[0.02] transition-colors">
-                    <td className="py-2.5 font-mohave text-[14px] text-[#E5E5E5]">{v.dimension}</td>
+                    <td className="py-2.5 font-mohave text-[14px] text-[#EDEDED]">{v.dimension}</td>
                     <td className="py-2.5 font-mohave text-[14px] text-[#A0A0A0]">{v.count.toLocaleString()}</td>
                   </tr>
                 ))}
@@ -94,19 +94,19 @@ export function AcquisitionCharts({
 
       {/* Selected step detail */}
       {selectedStep && (
-        <div className="border border-[#597794]/30 rounded-lg p-4 bg-ops-accent/5">
+        <div className="border border-[#6F94B0]/30 rounded-lg p-4 bg-ops-accent/5">
           <div className="flex items-center justify-between">
             <div>
-              <span className="font-mohave text-[12px] uppercase tracking-widest text-[#597794]">
+              <span className="font-mohave text-[12px] uppercase tracking-widest text-[#6F94B0]">
                 Selected Step
               </span>
-              <p className="font-mohave text-[16px] text-[#E5E5E5] mt-1">
+              <p className="font-mohave text-[16px] text-[#EDEDED] mt-1">
                 {selectedStep.step}: {selectedStep.count.toLocaleString()} events
               </p>
             </div>
             <button
               onClick={() => setSelectedStep(null)}
-              className="font-mono text-[11px] text-[#6B6B6B] hover:text-[#E5E5E5] transition-colors"
+              className="font-mono text-[11px] text-[#6B6B6B] hover:text-[#EDEDED] transition-colors"
             >
               Clear &times;
             </button>

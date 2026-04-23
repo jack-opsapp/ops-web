@@ -329,7 +329,7 @@ export function TriageStep({
                 <GlassActionButton
                   keyLabel="4"
                   label={t("triage.discard")}
-                  accentColor="#777777"
+                  accentColor="#8A8A8A"
                   highlighted={highlightedKey === "4"}
                   onClick={() => triggerAction("4")}
                   className="flex-shrink-0"

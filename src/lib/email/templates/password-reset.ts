@@ -6,7 +6,7 @@
  * - Sharp corners (2px border-radius)
  * - Left-aligned text throughout
  * - Monospace body font, sans-serif for OPS wordmark
- * - Accent #597794 on CTA button
+ * - Accent #6F94B0 on CTA button
  */
 
 function esc(str: string): string {
@@ -77,7 +77,7 @@ export function passwordResetTemplate(params: {
           <td style="padding:0 0 12px 0;">
             <table role="presentation" cellspacing="0" cellpadding="0" border="0">
               <tr>
-                <td style="background-color:#597794;border-radius:2px;">
+                <td style="background-color:#6F94B0;border-radius:2px;">
                   <a href="${resetLink}" target="_blank" style="display:inline-block;padding:12px 28px;font-family:${mono};font-size:13px;font-weight:bold;letter-spacing:1px;color:#ffffff;text-decoration:none;text-transform:uppercase;">
                     RESET PASSWORD
                   </a>

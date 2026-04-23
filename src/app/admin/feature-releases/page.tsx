@@ -23,7 +23,7 @@ export default function FeatureReleasesPage() {
             onClick={() => setActiveTab("flags")}
             className={`px-5 py-3 font-mohave text-[13px] uppercase tracking-wider transition-colors border-b-2 -mb-px ${
               activeTab === "flags"
-                ? "text-[#E5E5E5] border-[#597794]"
+                ? "text-[#EDEDED] border-[#6F94B0]"
                 : "text-[#6B6B6B] border-transparent hover:text-[#A0A0A0]"
             }`}
           >
@@ -33,7 +33,7 @@ export default function FeatureReleasesPage() {
             onClick={() => setActiveTab("whats-new")}
             className={`px-5 py-3 font-mohave text-[13px] uppercase tracking-wider transition-colors border-b-2 -mb-px ${
               activeTab === "whats-new"
-                ? "text-[#E5E5E5] border-[#597794]"
+                ? "text-[#EDEDED] border-[#6F94B0]"
                 : "text-[#6B6B6B] border-transparent hover:text-[#A0A0A0]"
             }`}
           >

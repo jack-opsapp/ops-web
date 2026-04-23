@@ -162,7 +162,7 @@ const roleStyleConfig: Record<
     icon: HardHat,
     color: "text-text-2",
     bg: "bg-fill-neutral-dim",
-    borderColor: "border-l-[#555555]",
+    borderColor: "border-l-[#6A6A6A]",
   },
   unassigned: {
     icon: HardHat,

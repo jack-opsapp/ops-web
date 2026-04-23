@@ -58,7 +58,7 @@ export function KeywordTable({ keywords }: KeywordTableProps) {
                 key={`${k.keyword}-${i}`}
                 className="border-b border-white/[0.08] hover:bg-white/[0.02] transition-colors duration-100"
               >
-                <td className="py-3 pr-3 font-mohave text-[14px] text-[#E5E5E5]">{k.keyword}</td>
+                <td className="py-3 pr-3 font-mohave text-[14px] text-[#EDEDED]">{k.keyword}</td>
                 <td className="py-3 pr-3">
                   <span className="font-mono text-micro text-[#6B6B6B] uppercase">
                     [{k.matchType}]
@@ -66,7 +66,7 @@ export function KeywordTable({ keywords }: KeywordTableProps) {
                 </td>
                 <td className="py-3 pr-3 font-mohave text-[14px] text-[#A0A0A0] tabular-nums">{k.impressions.toLocaleString()}</td>
                 <td className="py-3 pr-3 font-mohave text-[14px] text-[#A0A0A0] tabular-nums">{k.clicks.toLocaleString()}</td>
-                <td className="py-3 pr-3 font-mohave text-[14px] text-[#E5E5E5] tabular-nums">${k.cost.toFixed(2)}</td>
+                <td className="py-3 pr-3 font-mohave text-[14px] text-[#EDEDED] tabular-nums">${k.cost.toFixed(2)}</td>
                 <td className="py-3 pr-3 font-mohave text-[14px] text-[#A0A0A0] tabular-nums">{k.conversions.toFixed(1)}</td>
                 <td className="py-3 pr-3 font-mohave text-[14px] tabular-nums">
                   <QualityScore score={k.qualityScore} />

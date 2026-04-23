@@ -162,17 +162,17 @@ export default async function BlogPostPage({ params }: PageProps) {
         {/* ── Header ──────────────────────────────────────────────────────── */}
         <header className="mb-10">
           {category && (
-            <span className="inline-block text-xs font-medium uppercase tracking-wider text-[#597794] mb-3">
+            <span className="inline-block text-xs font-medium uppercase tracking-wider text-[#6F94B0] mb-3">
               {category.name}
             </span>
           )}
 
-          <h1 className="font-mohave text-4xl md:text-5xl font-bold text-[#E5E5E5] leading-tight">
+          <h1 className="font-mohave text-4xl md:text-5xl font-bold text-[#EDEDED] leading-tight">
             {post.title}
           </h1>
 
           {post.subtitle && (
-            <p className="mt-3 text-lg text-[#A7A7A7]">{post.subtitle}</p>
+            <p className="mt-3 text-lg text-[#B5B5B5]">{post.subtitle}</p>
           )}
 
           <div className="mt-5 flex flex-wrap items-center gap-4 text-sm text-[#666]">
@@ -204,16 +204,16 @@ export default async function BlogPostPage({ params }: PageProps) {
         <section
           className={[
             "text-[#CFCFCF] leading-relaxed",
-            "[&_h2]:font-mohave [&_h2]:text-2xl [&_h2]:font-semibold [&_h2]:text-[#E5E5E5] [&_h2]:mt-10 [&_h2]:mb-4",
-            "[&_h3]:font-mohave [&_h3]:text-xl [&_h3]:font-semibold [&_h3]:text-[#E5E5E5] [&_h3]:mt-8 [&_h3]:mb-3",
+            "[&_h2]:font-mohave [&_h2]:text-2xl [&_h2]:font-semibold [&_h2]:text-[#EDEDED] [&_h2]:mt-10 [&_h2]:mb-4",
+            "[&_h3]:font-mohave [&_h3]:text-xl [&_h3]:font-semibold [&_h3]:text-[#EDEDED] [&_h3]:mt-8 [&_h3]:mb-3",
             "[&_p]:mb-5",
-            "[&_a]:text-[#597794] [&_a]:underline [&_a]:hover:text-[#8AAFC4]",
+            "[&_a]:text-[#6F94B0] [&_a]:underline [&_a]:hover:text-[#8AAFC4]",
             "[&_ul]:list-disc [&_ul]:pl-6 [&_ul]:mb-5",
             "[&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:mb-5",
             "[&_li]:mb-2",
-            "[&_blockquote]:border-l-2 [&_blockquote]:border-[#597794] [&_blockquote]:pl-5 [&_blockquote]:italic [&_blockquote]:text-[#A7A7A7] [&_blockquote]:my-6",
+            "[&_blockquote]:border-l-2 [&_blockquote]:border-[#6F94B0] [&_blockquote]:pl-5 [&_blockquote]:italic [&_blockquote]:text-[#B5B5B5] [&_blockquote]:my-6",
             "[&_img]:max-w-full [&_img]:rounded-lg [&_img]:my-6",
-            "[&_strong]:font-semibold [&_strong]:text-[#E5E5E5]",
+            "[&_strong]:font-semibold [&_strong]:text-[#EDEDED]",
           ].join(" ")}
           dangerouslySetInnerHTML={{ __html: post.content }}
         />
@@ -221,7 +221,7 @@ export default async function BlogPostPage({ params }: PageProps) {
         {/* ── FAQs ────────────────────────────────────────────────────────── */}
         {post.faqs.length > 0 && (
           <section className="mt-16 border-t border-white/[0.08] pt-10">
-            <h2 className="font-mohave text-2xl font-semibold text-[#E5E5E5] mb-6">
+            <h2 className="font-mohave text-2xl font-semibold text-[#EDEDED] mb-6">
               Frequently Asked Questions
             </h2>
 
@@ -231,10 +231,10 @@ export default async function BlogPostPage({ params }: PageProps) {
                   key={i}
                   className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-5"
                 >
-                  <h3 className="font-mohave text-lg font-semibold text-[#E5E5E5] mb-2">
+                  <h3 className="font-mohave text-lg font-semibold text-[#EDEDED] mb-2">
                     {faq.question}
                   </h3>
-                  <p className="text-[#A7A7A7] text-sm leading-relaxed">
+                  <p className="text-[#B5B5B5] text-sm leading-relaxed">
                     {faq.answer}
                   </p>
                 </div>

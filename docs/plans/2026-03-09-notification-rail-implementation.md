@@ -10,7 +10,7 @@
 
 **Design doc:** `docs/plans/2026-03-09-notification-rail-design.md`
 
-**Design system:** `.interface-design/system.md` — frosted glass surfaces, `#597794` accent (sparingly), Mohave body, Kosugi labels, 2-4px radius, borders-only depth, `EASE_SMOOTH` easing, no spring/bounce, left-aligned text only
+**Design system:** `.interface-design/system.md` — frosted glass surfaces, `#6F94B0` accent (sparingly), Mohave body, Kosugi labels, 2-4px radius, borders-only depth, `EASE_SMOOTH` easing, no spring/bounce, left-aligned text only
 
 ---
 
@@ -585,7 +585,7 @@ export function NotificationPill({ persistent, layoutId }: NotificationPillProps
       style={{
         width: 6,
         backgroundColor: persistent
-          ? "#597794"
+          ? "#6F94B0"
           : "rgba(255, 255, 255, 0.20)",
       }}
     />
@@ -659,7 +659,7 @@ export function NotificationMiniCard({
         WebkitBackdropFilter: "blur(20px) saturate(1.2)",
         border: "1px solid rgba(255, 255, 255, 0.08)",
         borderLeft: notification.persistent
-          ? "2px solid #597794"
+          ? "2px solid #6F94B0"
           : "1px solid rgba(255, 255, 255, 0.08)",
       }}
     >
@@ -675,7 +675,7 @@ export function NotificationMiniCard({
             e.stopPropagation();
             router.push(notification.actionUrl!);
           }}
-          className="shrink-0 font-kosugi text-[9px] uppercase tracking-wider text-[#597794] hover:text-text-primary transition-colors duration-150"
+          className="shrink-0 font-kosugi text-[9px] uppercase tracking-wider text-[#6F94B0] hover:text-text-primary transition-colors duration-150"
         >
           {notification.actionLabel}
         </button>
@@ -764,7 +764,7 @@ export function NotificationCardFull({
       className="relative px-[12px] py-[10px] border-b border-[rgba(255,255,255,0.06)]"
       style={{
         borderLeft: notification.persistent
-          ? "2px solid #597794"
+          ? "2px solid #6F94B0"
           : undefined,
       }}
     >
@@ -800,7 +800,7 @@ export function NotificationCardFull({
       {notification.actionLabel && notification.actionUrl && (
         <button
           onClick={() => router.push(notification.actionUrl!)}
-          className="font-kosugi text-[10px] uppercase tracking-wider text-[#597794] hover:text-text-primary transition-colors duration-150 mt-[4px]"
+          className="font-kosugi text-[10px] uppercase tracking-wider text-[#6F94B0] hover:text-text-primary transition-colors duration-150 mt-[4px]"
         >
           {notification.actionLabel}
         </button>

@@ -60,7 +60,7 @@ export function BlogDashboard({
 
       {/* Content Performance Table */}
       <div>
-        <h2 className="font-mohave text-[15px] uppercase tracking-widest text-[#A7A7A7] mb-4">
+        <h2 className="font-mohave text-[15px] uppercase tracking-widest text-[#B5B5B5] mb-4">
           Content Performance
         </h2>
         <div className="border border-white/[0.08] rounded-lg overflow-hidden">
@@ -86,7 +86,7 @@ export function BlogDashboard({
                   key={post.id}
                   className="border-t border-white/[0.05] hover:bg-white/[0.02] transition-colors"
                 >
-                  <td className="font-mono text-[13px] text-[#E5E5E5] px-4 py-3 max-w-[280px] truncate">
+                  <td className="font-mono text-[13px] text-[#EDEDED] px-4 py-3 max-w-[280px] truncate">
                     {post.title}
                   </td>
                   <td className="font-mono text-[12px] text-[#6B6B6B] px-4 py-3">
@@ -101,10 +101,10 @@ export function BlogDashboard({
                   >
                     {post.ga4_views.toLocaleString()}
                   </td>
-                  <td className="font-mono text-[13px] text-[#A7A7A7] px-4 py-3 text-right">
+                  <td className="font-mono text-[13px] text-[#B5B5B5] px-4 py-3 text-right">
                     {post.display_views.toLocaleString()}
                   </td>
-                  <td className="font-mono text-[13px] text-[#A7A7A7] px-4 py-3 text-right">
+                  <td className="font-mono text-[13px] text-[#B5B5B5] px-4 py-3 text-right">
                     {post.word_count.toLocaleString()}
                   </td>
                   <td className="font-mono text-[12px] text-[#6B6B6B] px-4 py-3 text-right whitespace-nowrap">

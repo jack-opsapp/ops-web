@@ -195,11 +195,11 @@ export enum MilestoneType {
 // ─── Stage Color Mappings ─────────────────────────────────────────────────────
 
 export const OPPORTUNITY_STAGE_COLORS: Record<OpportunityStage, string> = {
-  [OpportunityStage.NewLead]: "#BCBCBC",
-  [OpportunityStage.Qualifying]: "#8195B5",
+  [OpportunityStage.NewLead]: "#8F9AA3",
+  [OpportunityStage.Qualifying]: "#D99A3E",
   [OpportunityStage.Quoting]: "#C4A868",
-  [OpportunityStage.Quoted]: "#B5A381",
-  [OpportunityStage.FollowUp]: "#A182B5",
+  [OpportunityStage.Quoted]: "#B6AC97",
+  [OpportunityStage.FollowUp]: "#4E4B48",
   [OpportunityStage.Negotiation]: "#B58289",
   [OpportunityStage.Won]: "#9DB582",
   [OpportunityStage.Lost]: "#6B7280",
@@ -208,21 +208,21 @@ export const OPPORTUNITY_STAGE_COLORS: Record<OpportunityStage, string> = {
 
 export const ESTIMATE_STATUS_COLORS: Record<EstimateStatus, string> = {
   [EstimateStatus.Draft]: "#9CA3AF",
-  [EstimateStatus.Sent]: "#8195B5",
+  [EstimateStatus.Sent]: "#D99A3E",
   [EstimateStatus.Viewed]: "#C4A868",
   [EstimateStatus.Approved]: "#9DB582",
-  [EstimateStatus.ChangesRequested]: "#B5A381",
+  [EstimateStatus.ChangesRequested]: "#B6AC97",
   [EstimateStatus.Declined]: "#B58289",
-  [EstimateStatus.Converted]: "#A182B5",
+  [EstimateStatus.Converted]: "#4E4B48",
   [EstimateStatus.Expired]: "#6B7280",
   [EstimateStatus.Superseded]: "#D1D5DB",
 };
 
 export const INVOICE_STATUS_COLORS: Record<InvoiceStatus, string> = {
   [InvoiceStatus.Draft]: "#9CA3AF",
-  [InvoiceStatus.Sent]: "#8195B5",
+  [InvoiceStatus.Sent]: "#D99A3E",
   [InvoiceStatus.AwaitingPayment]: "#C4A868",
-  [InvoiceStatus.PartiallyPaid]: "#B5A381",
+  [InvoiceStatus.PartiallyPaid]: "#B6AC97",
   [InvoiceStatus.PastDue]: "#B58289",
   [InvoiceStatus.Paid]: "#9DB582",
   [InvoiceStatus.Void]: "#6B7280",
@@ -231,30 +231,30 @@ export const INVOICE_STATUS_COLORS: Record<InvoiceStatus, string> = {
 
 export const ACTIVITY_TYPE_COLORS: Record<ActivityType, string> = {
   [ActivityType.Note]: "#9CA3AF",
-  [ActivityType.Email]: "#8195B5",
+  [ActivityType.Email]: "#D99A3E",
   [ActivityType.Call]: "#9DB582",
-  [ActivityType.TextMessage]: "#8195B5",
-  [ActivityType.Meeting]: "#A182B5",
+  [ActivityType.TextMessage]: "#D99A3E",
+  [ActivityType.Meeting]: "#4E4B48",
   [ActivityType.EstimateSent]: "#C4A868",
   [ActivityType.EstimateAccepted]: "#9DB582",
   [ActivityType.EstimateDeclined]: "#B58289",
-  [ActivityType.InvoiceSent]: "#8195B5",
+  [ActivityType.InvoiceSent]: "#D99A3E",
   [ActivityType.PaymentReceived]: "#9DB582",
-  [ActivityType.StageChange]: "#B5A381",
-  [ActivityType.Created]: "#BCBCBC",
+  [ActivityType.StageChange]: "#B6AC97",
+  [ActivityType.Created]: "#8F9AA3",
   [ActivityType.Won]: "#9DB582",
   [ActivityType.Lost]: "#B58289",
   [ActivityType.System]: "#6B7280",
-  [ActivityType.SiteVisitScheduled]: "#8195B5",
-  [ActivityType.SiteVisit]: "#8195B5",
+  [ActivityType.SiteVisitScheduled]: "#D99A3E",
+  [ActivityType.SiteVisit]: "#D99A3E",
 };
 
 export const FOLLOW_UP_TYPE_COLORS: Record<FollowUpType, string> = {
   [FollowUpType.Call]: "#9DB582",
-  [FollowUpType.Email]: "#8195B5",
-  [FollowUpType.Meeting]: "#A182B5",
+  [FollowUpType.Email]: "#D99A3E",
+  [FollowUpType.Meeting]: "#4E4B48",
   [FollowUpType.QuoteFollowUp]: "#C4A868",
-  [FollowUpType.InvoiceFollowUp]: "#B5A381",
+  [FollowUpType.InvoiceFollowUp]: "#B6AC97",
   [FollowUpType.Custom]: "#9CA3AF",
 };
 
@@ -288,7 +288,7 @@ export const PIPELINE_STAGES_DEFAULT: PipelineStageDefault[] = [
   {
     name: "New Lead",
     slug: "new_lead",
-    color: "#BCBCBC",
+    color: "#8F9AA3",
     sortOrder: 0,
     winProbability: 10,
     autoFollowUpDays: 2,
@@ -296,7 +296,7 @@ export const PIPELINE_STAGES_DEFAULT: PipelineStageDefault[] = [
   {
     name: "Qualifying",
     slug: "qualifying",
-    color: "#8195B5",
+    color: "#D99A3E",
     sortOrder: 1,
     winProbability: 20,
     autoFollowUpDays: 3,
@@ -312,7 +312,7 @@ export const PIPELINE_STAGES_DEFAULT: PipelineStageDefault[] = [
   {
     name: "Quoted",
     slug: "quoted",
-    color: "#B5A381",
+    color: "#B6AC97",
     sortOrder: 3,
     winProbability: 60,
     autoFollowUpDays: 5,
@@ -320,7 +320,7 @@ export const PIPELINE_STAGES_DEFAULT: PipelineStageDefault[] = [
   {
     name: "Follow-Up",
     slug: "follow_up",
-    color: "#A182B5",
+    color: "#4E4B48",
     sortOrder: 4,
     winProbability: 50,
     autoFollowUpDays: 3,
@@ -855,7 +855,7 @@ export function getStageDisplayName(stage: OpportunityStage): string {
 
 /** Get the color for a stage slug */
 export function getStageColor(stage: OpportunityStage): string {
-  return OPPORTUNITY_STAGE_COLORS[stage] ?? "#BCBCBC";
+  return OPPORTUNITY_STAGE_COLORS[stage] ?? "#8F9AA3";
 }
 
 /** Calculate weighted pipeline value for an opportunity */

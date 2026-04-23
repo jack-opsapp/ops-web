@@ -127,7 +127,7 @@ Initialize the context service in the app's root provider or in the dashboard la
 - Border: `1px solid rgba(255,255,255,0.12)`
 - Border radius: 4px (panel), full (button)
 - Fonts: Mohave for all text, Kosugi for section labels
-- Colors: monochromatic. Accent `#597794` only on submit button
+- Colors: monochromatic. Accent `#6F94B0` only on submit button
 - Text alignment: LEFT only
 - Animation: `ease-out`, 200ms transitions, no spring/bounce
 

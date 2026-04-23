@@ -52,7 +52,7 @@ export function VanityMetricsEditor({ courseId, initial }: Props) {
             step={1}
             value={metrics.display_enrollments}
             onChange={(e) => setMetrics({ ...metrics, display_enrollments: parseInt(e.target.value) || 0 })}
-            className="w-full bg-white/[0.03] border border-white/[0.08] px-4 py-3 rounded-lg font-mohave text-[14px] text-[#E5E5E5] focus:outline-none focus:border-[#597794] transition-colors"
+            className="w-full bg-white/[0.03] border border-white/[0.08] px-4 py-3 rounded-lg font-mohave text-[14px] text-[#EDEDED] focus:outline-none focus:border-[#6F94B0] transition-colors"
           />
         </div>
 
@@ -68,7 +68,7 @@ export function VanityMetricsEditor({ courseId, initial }: Props) {
             step={0.1}
             value={metrics.display_rating}
             onChange={(e) => setMetrics({ ...metrics, display_rating: parseFloat(e.target.value) || 0 })}
-            className="w-full bg-white/[0.03] border border-white/[0.08] px-4 py-3 rounded-lg font-mohave text-[14px] text-[#E5E5E5] focus:outline-none focus:border-[#597794] transition-colors"
+            className="w-full bg-white/[0.03] border border-white/[0.08] px-4 py-3 rounded-lg font-mohave text-[14px] text-[#EDEDED] focus:outline-none focus:border-[#6F94B0] transition-colors"
           />
         </div>
 
@@ -83,7 +83,7 @@ export function VanityMetricsEditor({ courseId, initial }: Props) {
             step={1}
             value={metrics.display_review_count}
             onChange={(e) => setMetrics({ ...metrics, display_review_count: parseInt(e.target.value) || 0 })}
-            className="w-full bg-white/[0.03] border border-white/[0.08] px-4 py-3 rounded-lg font-mohave text-[14px] text-[#E5E5E5] focus:outline-none focus:border-[#597794] transition-colors"
+            className="w-full bg-white/[0.03] border border-white/[0.08] px-4 py-3 rounded-lg font-mohave text-[14px] text-[#EDEDED] focus:outline-none focus:border-[#6F94B0] transition-colors"
           />
         </div>
       </div>
@@ -93,7 +93,7 @@ export function VanityMetricsEditor({ courseId, initial }: Props) {
           onClick={handleSave}
           disabled={saving}
           className="px-6 py-2.5 rounded-lg font-mohave text-[13px] uppercase tracking-wider text-white transition-opacity cursor-pointer disabled:opacity-50"
-          style={{ backgroundColor: "#597794" }}
+          style={{ backgroundColor: "#6F94B0" }}
         >
           {saving ? "Saving..." : "Save"}
         </button>

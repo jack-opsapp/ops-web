@@ -48,7 +48,7 @@ export function AnalyticsSection({ analytics }: { analytics: LearnCourseAnalytic
                     className="absolute inset-y-0 left-0 rounded"
                     style={{
                       width: `${(lp.completed_count / maxStarted) * 100}%`,
-                      backgroundColor: "#597794",
+                      backgroundColor: "#6F94B0",
                     }}
                   />
                 </div>
@@ -59,7 +59,7 @@ export function AnalyticsSection({ analytics }: { analytics: LearnCourseAnalytic
             ))}
             <div className="flex gap-4 pt-2 font-mono text-micro text-[#6B6B6B]">
               <span className="flex items-center gap-1.5">
-                <span className="inline-block w-3 h-2 rounded" style={{ backgroundColor: "#597794" }} /> Completed
+                <span className="inline-block w-3 h-2 rounded" style={{ backgroundColor: "#6F94B0" }} /> Completed
               </span>
               <span className="flex items-center gap-1.5">
                 <span className="inline-block w-3 h-2 rounded" style={{ backgroundColor: "rgba(111, 148, 176, 0.25)" }} /> Started
@@ -104,7 +104,7 @@ function AssessmentTable({ stats }: { stats: LearnAssessmentStats[] }) {
             >
               {col.label}
               {sort.sort.key === col.key && (
-                <span className="text-[#597794]">{sort.sort.dir === "asc" ? "↑" : "↓"}</span>
+                <span className="text-[#6F94B0]">{sort.sort.dir === "asc" ? "↑" : "↓"}</span>
               )}
             </p>
           ))}
@@ -114,11 +114,11 @@ function AssessmentTable({ stats }: { stats: LearnAssessmentStats[] }) {
             key={a.assessment_id}
             className="grid grid-cols-[1fr_80px_100px_100px_100px] gap-4 px-6 h-10 items-center border-b border-white/[0.05] last:border-0"
           >
-            <p className="font-mohave text-[13px] text-[#E5E5E5] truncate">{a.assessment_title}</p>
+            <p className="font-mohave text-[13px] text-[#EDEDED] truncate">{a.assessment_title}</p>
             <p className="font-mohave text-[12px] uppercase text-[#A0A0A0]">{a.type}</p>
-            <p className="font-mohave text-[13px] text-[#E5E5E5] text-right">{a.submission_count}</p>
-            <p className="font-mohave text-[13px] text-[#E5E5E5] text-right">{a.pass_rate}%</p>
-            <p className="font-mohave text-[13px] text-[#E5E5E5] text-right">{a.avg_score}</p>
+            <p className="font-mohave text-[13px] text-[#EDEDED] text-right">{a.submission_count}</p>
+            <p className="font-mohave text-[13px] text-[#EDEDED] text-right">{a.pass_rate}%</p>
+            <p className="font-mohave text-[13px] text-[#EDEDED] text-right">{a.avg_score}</p>
           </div>
         ))}
       </div>

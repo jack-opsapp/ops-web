@@ -18,7 +18,7 @@ export function PlatformToggle({ value, onChange }: PlatformToggleProps) {
           className={[
             "px-4 py-2 font-mohave text-[12px] uppercase tracking-wider transition-colors",
             value === platform
-              ? "text-[#E5E5E5] border-b-2 border-[#E5E5E5]"
+              ? "text-[#EDEDED] border-b-2 border-[#EDEDED]"
               : "text-[#6B6B6B] hover:text-[#A0A0A0]",
           ].join(" ")}
         >

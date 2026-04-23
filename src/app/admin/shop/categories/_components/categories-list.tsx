@@ -80,31 +80,31 @@ function SortableCategory({
             onChange={(e) => setEditName(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSave()}
             autoFocus
-            className="flex-1 bg-white/[0.04] border border-[#597794] rounded-sm px-3 py-1.5 font-mohave text-[13px] text-[#E5E5E5] focus:outline-none"
+            className="flex-1 bg-white/[0.04] border border-[#6F94B0] rounded-sm px-3 py-1.5 font-mohave text-[13px] text-[#EDEDED] focus:outline-none"
           />
           <input
             type="text"
             value={editSlug}
             onChange={(e) => setEditSlug(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSave()}
-            className="w-40 bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-1.5 font-mohave text-[12px] text-[#6B6B6B] focus:border-[#597794] focus:outline-none"
+            className="w-40 bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-1.5 font-mohave text-[12px] text-[#6B6B6B] focus:border-[#6F94B0] focus:outline-none"
           />
           <button onClick={handleSave} className="p-1.5 rounded-sm text-emerald-400 hover:bg-emerald-500/10 transition-colors">
             <Check size={14} />
           </button>
-          <button onClick={handleCancel} className="p-1.5 rounded-sm text-[#6B6B6B] hover:text-[#E5E5E5] transition-colors">
+          <button onClick={handleCancel} className="p-1.5 rounded-sm text-[#6B6B6B] hover:text-[#EDEDED] transition-colors">
             <X size={14} />
           </button>
         </>
       ) : (
         <>
-          <span className="flex-1 font-mohave text-[13px] text-[#E5E5E5]">{category.name}</span>
+          <span className="flex-1 font-mohave text-[13px] text-[#EDEDED]">{category.name}</span>
           <span className="px-2 py-0.5 bg-white/[0.05] rounded-sm font-mono text-micro uppercase tracking-widest text-[#6B6B6B]">
             {category.slug}
           </span>
           <button
             onClick={() => setEditing(true)}
-            className="p-1.5 rounded-sm text-[#6B6B6B] hover:text-[#E5E5E5] transition-colors"
+            className="p-1.5 rounded-sm text-[#6B6B6B] hover:text-[#EDEDED] transition-colors"
           >
             <Pencil size={14} />
           </button>
@@ -211,7 +211,7 @@ export function CategoriesList({ categories: initialCategories }: CategoriesList
             onKeyDown={(e) => e.key === "Enter" && handleAdd()}
             placeholder="Category name..."
             autoFocus
-            className="bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-1.5 font-mohave text-[13px] text-[#E5E5E5] focus:border-[#597794] focus:outline-none"
+            className="bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-1.5 font-mohave text-[13px] text-[#EDEDED] focus:border-[#6F94B0] focus:outline-none"
           />
           <button
             onClick={handleAdd}
@@ -230,7 +230,7 @@ export function CategoriesList({ categories: initialCategories }: CategoriesList
       ) : (
         <button
           onClick={() => setAdding(true)}
-          className="mt-4 flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B] hover:text-[#E5E5E5] transition-colors"
+          className="mt-4 flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B] hover:text-[#EDEDED] transition-colors"
         >
           <Plus size={14} /> Add Category
         </button>

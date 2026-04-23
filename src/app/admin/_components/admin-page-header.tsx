@@ -6,7 +6,7 @@ interface AdminPageHeaderProps {
 export function AdminPageHeader({ title, caption }: AdminPageHeaderProps) {
   return (
     <div className="border-b border-white/[0.08] px-8 py-6">
-      <h1 className="font-cakemono text-2xl font-light uppercase text-[#E5E5E5]">
+      <h1 className="font-cakemono text-2xl font-light uppercase text-[#EDEDED]">
         {title}
       </h1>
       {caption && (

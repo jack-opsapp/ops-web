@@ -962,18 +962,18 @@ export function SyncStatusBar() {
         <div className="flex items-center gap-2">
           <div className="w-24 h-1 bg-white/[0.06] rounded-full overflow-hidden">
             <div
-              className="h-full bg-[#597794] transition-all duration-300"
+              className="h-full bg-[#6F94B0] transition-all duration-300"
               style={{ width: `${pct}%` }}
             />
           </div>
-          <span className="text-[#597794]">{pct}% — {progress.currentDate}</span>
+          <span className="text-[#6F94B0]">{pct}% — {progress.currentDate}</span>
         </div>
       ) : backfill?.status === "complete" ? (
         <span className="text-[#9DB582]">History imported</span>
       ) : (
         <button
           onClick={handleBackfill}
-          className="text-[#597794] hover:text-[#E5E5E5] transition-colors duration-100 uppercase tracking-wider"
+          className="text-[#6F94B0] hover:text-[#E5E5E5] transition-colors duration-100 uppercase tracking-wider"
         >
           Import History
         </button>

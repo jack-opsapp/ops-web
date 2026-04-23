@@ -12,7 +12,7 @@ function CompetitorCard({ competitor }: { competitor: CompetitorSnapshot }) {
         onClick={() => setExpanded(!expanded)}
         className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/[0.02] transition-colors duration-100"
       >
-        <span className="font-mohave text-[14px] text-[#E5E5E5]">{competitor.name}</span>
+        <span className="font-mohave text-[14px] text-[#EDEDED]">{competitor.name}</span>
         <span className="font-mohave text-[12px] text-[#6B6B6B]">{expanded ? "\u2212" : "+"}</span>
       </button>
       {expanded && (
@@ -44,9 +44,9 @@ function CompetitorCard({ competitor }: { competitor: CompetitorSnapshot }) {
           )}
           {competitor.weaknesses.length > 0 && (
             <div>
-              <p className="font-mono text-micro uppercase tracking-wider text-[#597794] mb-1">OPS Opportunity</p>
+              <p className="font-mono text-micro uppercase tracking-wider text-[#6F94B0] mb-1">OPS Opportunity</p>
               {competitor.weaknesses.map((w, i) => (
-                <p key={i} className="font-mohave text-[13px] text-[#E5E5E5]">{"\u2192"} {w}</p>
+                <p key={i} className="font-mohave text-[13px] text-[#EDEDED]">{"\u2192"} {w}</p>
               ))}
             </div>
           )}

@@ -143,7 +143,7 @@ export function NewsletterTab({ newsletters: initial }: NewsletterTabProps) {
       <div className="space-y-2">
         <button
           onClick={startNew}
-          className="w-full px-4 py-2.5 rounded-lg border border-white/[0.08] font-mohave text-[13px] uppercase tracking-wider text-[#597794] hover:bg-white/[0.04] transition-colors"
+          className="w-full px-4 py-2.5 rounded-lg border border-white/[0.08] font-mohave text-[13px] uppercase tracking-wider text-[#6F94B0] hover:bg-white/[0.04] transition-colors"
         >
           + New Newsletter
         </button>
@@ -154,11 +154,11 @@ export function NewsletterTab({ newsletters: initial }: NewsletterTabProps) {
             className={[
               "w-full text-left px-4 py-3 rounded-lg border transition-colors",
               selected?.id === nl.id
-                ? "border-[#597794] bg-white/[0.04]"
+                ? "border-[#6F94B0] bg-white/[0.04]"
                 : "border-white/[0.05] hover:bg-white/[0.02]",
             ].join(" ")}
           >
-            <span className="font-mohave text-[14px] text-[#E5E5E5]">
+            <span className="font-mohave text-[14px] text-[#EDEDED]">
               {MONTHS[nl.month - 1]} {nl.year}
             </span>
             <span
@@ -182,7 +182,7 @@ export function NewsletterTab({ newsletters: initial }: NewsletterTabProps) {
               value={draft.month}
               onChange={(e) => setDraft((prev) => ({ ...prev, month: Number(e.target.value) }))}
               disabled={isEditing}
-              className="bg-transparent border border-white/[0.08] rounded-lg px-3 py-1.5 font-mohave text-[13px] text-[#E5E5E5] focus:outline-none focus:border-[#597794] disabled:opacity-50"
+              className="bg-transparent border border-white/[0.08] rounded-lg px-3 py-1.5 font-mohave text-[13px] text-[#EDEDED] focus:outline-none focus:border-[#6F94B0] disabled:opacity-50"
             >
               {MONTHS.map((m, i) => (
                 <option key={m} value={i + 1} className="bg-glass glass-surface">{m}</option>
@@ -196,7 +196,7 @@ export function NewsletterTab({ newsletters: initial }: NewsletterTabProps) {
               value={draft.year}
               onChange={(e) => setDraft((prev) => ({ ...prev, year: Number(e.target.value) }))}
               disabled={isEditing}
-              className="bg-transparent border border-white/[0.08] rounded-lg px-3 py-1.5 font-mohave text-[13px] text-[#E5E5E5] w-24 focus:outline-none focus:border-[#597794] disabled:opacity-50"
+              className="bg-transparent border border-white/[0.08] rounded-lg px-3 py-1.5 font-mohave text-[13px] text-[#EDEDED] w-24 focus:outline-none focus:border-[#6F94B0] disabled:opacity-50"
             />
           </div>
         </div>
@@ -208,7 +208,7 @@ export function NewsletterTab({ newsletters: initial }: NewsletterTabProps) {
               <label className="font-mohave text-[11px] uppercase text-[#6B6B6B]">{label}</label>
               <button
                 onClick={() => addArrayItem(key)}
-                className="font-mohave text-[12px] text-[#597794] hover:text-[#6B8DAD] transition-colors"
+                className="font-mohave text-[12px] text-[#6F94B0] hover:text-[#6B8DAD] transition-colors"
               >
                 + Add
               </button>
@@ -220,7 +220,7 @@ export function NewsletterTab({ newsletters: initial }: NewsletterTabProps) {
                     value={item}
                     onChange={(e) => updateArrayField(key, i, e.target.value)}
                     placeholder={`${label} item...`}
-                    className="flex-1 bg-transparent border border-white/[0.08] rounded px-3 py-1.5 font-mono text-[13px] text-[#E5E5E5] placeholder:text-[#6B6B6B] focus:outline-none focus:border-[#597794]"
+                    className="flex-1 bg-transparent border border-white/[0.08] rounded px-3 py-1.5 font-mono text-[13px] text-[#EDEDED] placeholder:text-[#6B6B6B] focus:outline-none focus:border-[#6F94B0]"
                   />
                   <button
                     onClick={() => removeArrayItem(key, i)}
@@ -244,7 +244,7 @@ export function NewsletterTab({ newsletters: initial }: NewsletterTabProps) {
             value={draft.custom_intro ?? ""}
             onChange={(e) => setDraft((prev) => ({ ...prev, custom_intro: e.target.value || null }))}
             rows={2}
-            className="w-full bg-transparent border border-white/[0.08] rounded-lg px-3 py-2 font-mono text-[13px] text-[#E5E5E5] placeholder:text-[#6B6B6B] focus:outline-none focus:border-[#597794] resize-none"
+            className="w-full bg-transparent border border-white/[0.08] rounded-lg px-3 py-2 font-mono text-[13px] text-[#EDEDED] placeholder:text-[#6B6B6B] focus:outline-none focus:border-[#6F94B0] resize-none"
             placeholder="Optional intro paragraph..."
           />
         </div>
@@ -254,7 +254,7 @@ export function NewsletterTab({ newsletters: initial }: NewsletterTabProps) {
             value={draft.custom_outro ?? ""}
             onChange={(e) => setDraft((prev) => ({ ...prev, custom_outro: e.target.value || null }))}
             rows={2}
-            className="w-full bg-transparent border border-white/[0.08] rounded-lg px-3 py-2 font-mono text-[13px] text-[#E5E5E5] placeholder:text-[#6B6B6B] focus:outline-none focus:border-[#597794] resize-none"
+            className="w-full bg-transparent border border-white/[0.08] rounded-lg px-3 py-2 font-mono text-[13px] text-[#EDEDED] placeholder:text-[#6B6B6B] focus:outline-none focus:border-[#6F94B0] resize-none"
             placeholder="Optional outro paragraph..."
           />
         </div>
@@ -264,14 +264,14 @@ export function NewsletterTab({ newsletters: initial }: NewsletterTabProps) {
           <button
             onClick={() => save(false)}
             disabled={isPending}
-            className="px-5 py-2 rounded-lg border border-white/[0.08] font-mohave text-[13px] uppercase tracking-wider text-[#E5E5E5] hover:bg-white/[0.04] transition-colors disabled:opacity-50"
+            className="px-5 py-2 rounded-lg border border-white/[0.08] font-mohave text-[13px] uppercase tracking-wider text-[#EDEDED] hover:bg-white/[0.04] transition-colors disabled:opacity-50"
           >
             {isPending ? "Saving..." : "Save Draft"}
           </button>
           <button
             onClick={() => save(true)}
             disabled={isPending}
-            className="px-5 py-2 rounded-lg bg-ops-accent font-mohave text-[13px] uppercase tracking-wider text-[#E5E5E5] hover:bg-[#6B8DAD] transition-colors disabled:opacity-50"
+            className="px-5 py-2 rounded-lg bg-ops-accent font-mohave text-[13px] uppercase tracking-wider text-[#EDEDED] hover:bg-[#6B8DAD] transition-colors disabled:opacity-50"
           >
             Mark Sent
           </button>

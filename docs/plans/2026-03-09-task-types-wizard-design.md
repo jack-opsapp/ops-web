@@ -8,7 +8,7 @@
 
 **Tech Stack:** Next.js 14, React 18, TypeScript, Framer Motion 12, Zustand, TanStack Query, Tailwind CSS, Sonner toasts
 
-**Design System:** No `.interface-design/system.md` exists — follow existing OPS-Web conventions (Mohave headings, Kosugi body, dark theme #0A0A0A, accent #597794)
+**Design System:** No `.interface-design/system.md` exists — follow existing OPS-Web conventions (Mohave headings, Kosugi body, dark theme #0A0A0A, accent #6F94B0)
 
 **Required Skills:** `interface-design`, `elite-animations`, `ops-copywriter`
 

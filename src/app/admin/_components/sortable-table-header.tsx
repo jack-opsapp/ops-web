@@ -71,7 +71,7 @@ export function SortableTableHeader({
           <span className="inline-flex items-center gap-1">
             {col.label}
             {col.sortable !== false && sort.key === col.key && (
-              <span className="text-[#597794]">
+              <span className="text-[#6F94B0]">
                 {sort.dir === "asc" ? "\u2191" : "\u2193"}
               </span>
             )}

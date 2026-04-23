@@ -21,7 +21,7 @@
 This is an admin data dashboard — the person using it is Jack, checking ad performance multiple times daily. The interface must be dense with data but scannable at a glance. Military-tactical aesthetic: information arrives crisp and organized, like a mission briefing.
 
 **Intent:** Admin checking paid acquisition performance under time pressure. Get in, read the numbers, get out.
-**Palette:** `#0D0D0D` background, `#E5E5E5` primary text, `#6B6B6B` tertiary, `#597794` accent (sparingly — only on the active date range pill and the "View details" link), `#9DB582`/`#C4A868`/`#93321A` for quality score indicators.
+**Palette:** `#0D0D0D` background, `#E5E5E5` primary text, `#6B6B6B` tertiary, `#6F94B0` accent (sparingly — only on the active date range pill and the "View details" link), `#9DB582`/`#C4A868`/`#93321A` for quality score indicators.
 **Depth:** Borders only. `rgba(255, 255, 255, 0.08)` for card edges and table dividers.
 **Surfaces:** StatCards use `bg-white/[0.02]` with `border border-white/[0.08]` — matching existing admin pattern exactly.
 **Typography:** Mohave for all data (numbers, labels, table cells, column headers). Kosugi for captions and metadata only.
@@ -741,7 +741,7 @@ git commit -m "feat: add Google Ads API route for date range switching"
 
 - [ ] **Step 1: Create loading skeleton**
 
-Create `src/app/admin/google-ads/loading.tsx`. Uses the tactical shimmer loading pattern from the OPS design system — vertical bars with a radar-sweep ripple in `colorAccent` (#597794).
+Create `src/app/admin/google-ads/loading.tsx`. Uses the tactical shimmer loading pattern from the OPS design system — vertical bars with a radar-sweep ripple in `colorAccent` (#6F94B0).
 
 ```typescript
 export default function GoogleAdsLoading() {
@@ -830,7 +830,7 @@ const COLUMNS = [
 ];
 
 const STATUS_STYLES: Record<string, string> = {
-  ENABLED: "bg-[#597794]/20 text-[#597794]",
+  ENABLED: "bg-[#6F94B0]/20 text-[#6F94B0]",
   PAUSED: "bg-white/[0.06] text-[#6B6B6B]",
   REMOVED: "bg-white/[0.04] text-[#444444]",
 };
@@ -1441,7 +1441,7 @@ After the existing charts section (after `<AcquisitionCharts ... />`), add:
       </p>
       <Link
         href="/admin/google-ads"
-        className="font-kosugi text-[11px] text-[#597794] hover:text-[#E5E5E5] transition-colors"
+        className="font-kosugi text-[11px] text-[#6F94B0] hover:text-[#E5E5E5] transition-colors"
       >
         View details →
       </Link>
@@ -1632,7 +1632,7 @@ export async function GET(req: NextRequest) {
   return new NextResponse(
     `<html>
       <body style="background:#0D0D0D;color:#E5E5E5;font-family:monospace;padding:40px;">
-        <h1 style="color:#597794;">Google Ads Refresh Token</h1>
+        <h1 style="color:#6F94B0;">Google Ads Refresh Token</h1>
         <p>Copy this value to your GOOGLE_ADS_REFRESH_TOKEN environment variable:</p>
         <pre style="background:#1D1D1D;padding:16px;border-radius:4px;word-break:break-all;margin:16px 0;">
 ${tokenData.refresh_token ?? "No refresh token returned — you may need to revoke access and try again with prompt=consent"}

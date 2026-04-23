@@ -70,7 +70,7 @@ export function SendEstimateFlow({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-[#0A0A0A] border border-[#2A2A2A] max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-[#E5E5E5] font-['Mohave'] text-lg">
+          <DialogTitle className="text-[#EDEDED] font-['Mohave'] text-lg">
             Send Estimate
           </DialogTitle>
         </DialogHeader>
@@ -87,12 +87,12 @@ export function SendEstimateFlow({
             {client && (
               <div className="flex items-center justify-between">
                 <span className="text-sm text-[#9CA3AF]">Client</span>
-                <span className="text-sm text-[#E5E5E5]">{client.name}</span>
+                <span className="text-sm text-[#EDEDED]">{client.name}</span>
               </div>
             )}
             <div className="flex items-center justify-between">
               <span className="text-sm text-[#9CA3AF]">Total</span>
-              <span className="font-mono text-sm text-[#E5E5E5]">
+              <span className="font-mono text-sm text-[#EDEDED]">
                 {formatCurrency(estimate.total)}
               </span>
             </div>
@@ -122,7 +122,7 @@ export function SendEstimateFlow({
             <Button
               variant="ghost"
               onClick={() => onOpenChange(false)}
-              className="flex-1 text-[#9CA3AF] hover:text-[#E5E5E5]"
+              className="flex-1 text-[#9CA3AF] hover:text-[#EDEDED]"
             >
               Cancel
             </Button>

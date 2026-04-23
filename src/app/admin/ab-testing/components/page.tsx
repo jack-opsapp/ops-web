@@ -191,12 +191,12 @@ export default function ComponentPreviewPage() {
               onClick={() => setSelectedType(selectedType === section.type ? null : section.type)}
               className={`text-left rounded-lg border p-4 transition-all ${
                 selectedType === section.type
-                  ? 'border-[#597794] bg-ops-accent/10'
+                  ? 'border-[#6F94B0] bg-ops-accent/10'
                   : 'border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.05]'
               }`}
             >
               <div className="flex items-center justify-between mb-2">
-                <span className="font-mohave text-sm uppercase tracking-wider text-[#E5E5E5]">
+                <span className="font-mohave text-sm uppercase tracking-wider text-[#EDEDED]">
                   {section.label}
                 </span>
                 <span className={`text-micro font-mono px-2 py-0.5 rounded ${
@@ -216,7 +216,7 @@ export default function ComponentPreviewPage() {
 
         {/* Selected section detail */}
         {selected && (
-          <div className="border border-[#597794]/40 rounded-lg p-6 mb-12 bg-ops-accent/5">
+          <div className="border border-[#6F94B0]/40 rounded-lg p-6 mb-12 bg-ops-accent/5">
             <div className="flex items-start gap-8">
               {/* Wireframe preview */}
               <div className="flex-shrink-0 w-[280px] h-[400px] bg-black/60 rounded-lg border border-white/10 overflow-hidden relative">
@@ -230,7 +230,7 @@ export default function ComponentPreviewPage() {
 
               {/* Detail panel */}
               <div className="flex-1 min-w-0">
-                <h3 className="font-mohave text-xl uppercase tracking-wider text-[#E5E5E5] mb-2">
+                <h3 className="font-mohave text-xl uppercase tracking-wider text-[#EDEDED] mb-2">
                   {selected.label}
                 </h3>
                 <p className="text-xs text-white/50 leading-relaxed mb-6">
@@ -320,7 +320,7 @@ export default function ComponentPreviewPage() {
 function WireRect({ x, y, w, h, label, accent }: { x: number; y: number; w: number; h: number; label?: string; accent?: boolean }) {
   return (
     <g>
-      <rect x={x} y={y} width={w} height={h} rx={2} fill="none" stroke={accent ? '#597794' : '#ffffff'} strokeWidth={0.5} opacity={accent ? 0.6 : 0.2} />
+      <rect x={x} y={y} width={w} height={h} rx={2} fill="none" stroke={accent ? '#6F94B0' : '#ffffff'} strokeWidth={0.5} opacity={accent ? 0.6 : 0.2} />
       {label && (
         <text x={x + w / 2} y={y + h / 2 + 3} textAnchor="middle" fontSize={6} fill="#ffffff" opacity={0.3} fontFamily="monospace">
           {label}
@@ -447,7 +447,7 @@ function StarburstWireframe() {
             y1={75}
             x2={100 + Math.cos(angle) * 70}
             y2={75 + Math.sin(angle) * 50}
-            stroke="#597794"
+            stroke="#6F94B0"
             strokeWidth={0.5}
             opacity={0.2}
           />
@@ -493,7 +493,7 @@ function RoadmapWireframe() {
     <svg viewBox="0 0 200 200" className="w-full h-full" fill="none">
       <WireLine x={20} y={20} w={60} />
       {/* Built */}
-      <circle cx={25} cy={45} r={4} fill="#597794" opacity={0.4} />
+      <circle cx={25} cy={45} r={4} fill="#6F94B0" opacity={0.4} />
       <text x={33} y={47} fontSize={5} fill="#ffffff" opacity={0.3} fontFamily="monospace">BUILT</text>
       <WireLine x={33} y={55} w={40} />
       {/* In Dev */}

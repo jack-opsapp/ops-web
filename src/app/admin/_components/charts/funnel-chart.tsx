@@ -46,7 +46,7 @@ export function FunnelChart({ steps, onStepClick }: FunnelChartProps) {
                     [{dropOff}% drop]
                   </span>
                 )}
-                <span className="font-mohave text-[14px] text-[#E5E5E5]">
+                <span className="font-mohave text-[14px] text-[#EDEDED]">
                   {s.count.toLocaleString()}
                 </span>
               </div>

@@ -64,7 +64,7 @@ export function BetaRequestsDrawer({
             <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.08]">
               <div className="flex items-center gap-2">
                 <Flag className="w-4 h-4 text-[#C4A868]" />
-                <h2 className="font-mohave text-[14px] uppercase tracking-widest text-[#E5E5E5]">
+                <h2 className="font-mohave text-[14px] uppercase tracking-widest text-[#EDEDED]">
                   Beta Requests
                 </h2>
                 {pendingCount > 0 && (
@@ -73,7 +73,7 @@ export function BetaRequestsDrawer({
                   </span>
                 )}
               </div>
-              <button onClick={onClose} className="text-[#6B6B6B] hover:text-[#E5E5E5] transition-colors">
+              <button onClick={onClose} className="text-[#6B6B6B] hover:text-[#EDEDED] transition-colors">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -86,7 +86,7 @@ export function BetaRequestsDrawer({
                   onClick={() => setFilter(f)}
                   className={`px-3 py-1.5 font-mohave text-[11px] uppercase tracking-wider rounded transition-colors ${
                     filter === f
-                      ? "bg-white/[0.08] text-[#E5E5E5]"
+                      ? "bg-white/[0.08] text-[#EDEDED]"
                       : "text-[#6B6B6B] hover:text-[#A0A0A0]"
                   }`}
                 >
@@ -109,7 +109,7 @@ export function BetaRequestsDrawer({
                       className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/[0.02] transition-colors"
                     >
                       <div className="text-left min-w-0">
-                        <div className="font-mohave text-[13px] text-[#E5E5E5] truncate">
+                        <div className="font-mohave text-[13px] text-[#EDEDED] truncate">
                           {req.user_name}
                         </div>
                         <div className="font-mono text-[11px] text-[#6B6B6B] truncate">
@@ -180,7 +180,7 @@ export function BetaRequestsDrawer({
                                 onChange={(e) => setNote(req.id, e.target.value)}
                                 placeholder="Add notes for the email..."
                                 rows={2}
-                                className="w-full bg-white/[0.05] border border-white/[0.08] rounded px-3 py-2 font-mono text-[12px] text-[#E5E5E5] placeholder:text-[#6B6B6B] outline-none focus:border-[#597794]/50 resize-none"
+                                className="w-full bg-white/[0.05] border border-white/[0.08] rounded px-3 py-2 font-mono text-[12px] text-[#EDEDED] placeholder:text-[#6B6B6B] outline-none focus:border-[#6F94B0]/50 resize-none"
                               />
                             </div>
                             <div className="flex gap-2">

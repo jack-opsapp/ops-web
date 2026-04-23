@@ -57,7 +57,7 @@ export function StackedBarChart({ data, isLoading, onBarClick }: StackedBarChart
             border: "1px solid rgba(255,255,255,0.08)",
             borderRadius: "8px",
             fontFamily: "Mohave",
-            color: "#E5E5E5",
+            color: "#EDEDED",
           }}
           cursor={{ fill: "rgba(255,255,255,0.03)" }}
         />

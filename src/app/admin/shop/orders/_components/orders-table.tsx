@@ -59,7 +59,7 @@ export function OrdersTable({ orders, orderItemCounts }: OrdersTableProps) {
           placeholder="Search order # or email..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 max-w-xs bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#E5E5E5] placeholder:text-[#6B6B6B] focus:border-[#597794] focus:outline-none"
+          className="flex-1 max-w-xs bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#EDEDED] placeholder:text-[#6B6B6B] focus:border-[#6F94B0] focus:outline-none"
         />
         <div className="flex items-center border border-white/[0.08] rounded-sm overflow-hidden">
           {statuses.map((s) => (
@@ -68,7 +68,7 @@ export function OrdersTable({ orders, orderItemCounts }: OrdersTableProps) {
               onClick={() => setStatusFilter(s)}
               className={`px-2.5 py-2 font-mono text-micro uppercase tracking-widest transition-colors ${
                 statusFilter === s
-                  ? "bg-white/[0.08] text-[#E5E5E5]"
+                  ? "bg-white/[0.08] text-[#EDEDED]"
                   : "text-[#6B6B6B] hover:text-[#A0A0A0]"
               }`}
             >
@@ -111,23 +111,23 @@ export function OrdersTable({ orders, orderItemCounts }: OrdersTableProps) {
                 <td className="px-4 py-3">
                   <Link
                     href={`/admin/shop/orders/${o.id}`}
-                    className="font-mohave text-[13px] text-[#597794] hover:underline"
+                    className="font-mohave text-[13px] text-[#6F94B0] hover:underline"
                   >
                     {o.orderNumber}
                   </Link>
                 </td>
-                <td className="px-4 py-3 font-mohave text-[13px] text-[#E5E5E5]">
+                <td className="px-4 py-3 font-mohave text-[13px] text-[#EDEDED]">
                   {new Date(o.createdAt).toLocaleDateString("en-US", {
                     month: "short",
                     day: "numeric",
                     year: "numeric",
                   })}
                 </td>
-                <td className="px-4 py-3 font-mohave text-[13px] text-[#E5E5E5]">{o.email}</td>
+                <td className="px-4 py-3 font-mohave text-[13px] text-[#EDEDED]">{o.email}</td>
                 <td className="px-4 py-3 font-mohave text-[12px] text-[#6B6B6B] truncate max-w-[200px]">
                   {itemInfo ? `${itemInfo.count} item${itemInfo.count !== 1 ? "s" : ""} — ${itemInfo.firstItem}` : "—"}
                 </td>
-                <td className="px-4 py-3 font-mohave text-[13px] text-[#E5E5E5]">
+                <td className="px-4 py-3 font-mohave text-[13px] text-[#EDEDED]">
                   {formatCents(o.totalCents)}
                 </td>
                 <td className="px-4 py-3">
@@ -139,7 +139,7 @@ export function OrdersTable({ orders, orderItemCounts }: OrdersTableProps) {
                       href={o.trackingUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-[#597794] hover:underline"
+                      className="text-[#6F94B0] hover:underline"
                     >
                       {o.trackingNumber}
                     </a>

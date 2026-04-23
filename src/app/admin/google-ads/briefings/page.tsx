@@ -22,7 +22,7 @@ export default async function BriefingsArchivePage() {
           <tbody>
             {briefings.map((b) => (
               <tr key={b.id} className="border-b border-white/[0.08] hover:bg-white/[0.02] transition-colors duration-100">
-                <td className="py-3 pr-3 font-mohave text-[14px] text-[#E5E5E5]">
+                <td className="py-3 pr-3 font-mohave text-[14px] text-[#EDEDED]">
                   {b.period_start} — {b.period_end}
                 </td>
                 <td className="py-3 pr-3 font-mohave text-[13px] text-[#A0A0A0] max-w-[300px] truncate">
@@ -31,7 +31,7 @@ export default async function BriefingsArchivePage() {
                 <td className="py-3 pr-3">
                   <span className={`font-mohave text-[11px] uppercase px-2 py-0.5 rounded ${
                     b.status === "complete" ? "bg-[#9DB582]/20 text-[#9DB582]" :
-                    b.status === "generating" ? "bg-ops-accent/20 text-[#597794]" :
+                    b.status === "generating" ? "bg-ops-accent/20 text-[#6F94B0]" :
                     "bg-[#93321A]/20 text-[#93321A]"
                   }`}>{b.status}</span>
                 </td>
@@ -40,7 +40,7 @@ export default async function BriefingsArchivePage() {
                   {b.status === "complete" && (
                     <Link
                       href={`/admin/google-ads/briefings/${b.id}`}
-                      className="font-mono text-[11px] text-[#597794] hover:text-[#E5E5E5] transition-colors duration-100"
+                      className="font-mono text-[11px] text-[#6F94B0] hover:text-[#EDEDED] transition-colors duration-100"
                     >
                       View →
                     </Link>

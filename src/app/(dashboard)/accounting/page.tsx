@@ -696,7 +696,7 @@ export default function AccountingPage() {
               </div>
               <div className="flex items-start gap-1.5">
                 <div className="w-[20px] h-[20px] rounded-full bg-[rgba(129,149,181,0.1)] flex items-center justify-center shrink-0 mt-0.5">
-                  <span className="font-mono text-micro text-[#8195B5]">2</span>
+                  <span className="font-mono text-micro text-[#D99A3E]">2</span>
                 </div>
                 <p className="font-mono text-caption-sm text-text-2">
                   <strong className="text-text">{t("integrations.inbound")}</strong> {t("integrations.inboundDesc")}

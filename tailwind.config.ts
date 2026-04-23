@@ -54,58 +54,67 @@ const config: Config = {
           status: "#1D1D1D",
         },
 
-        // === Text System ===
+        // === Text System (spec v2 — 2026-04-17) ===
         text: {
-          // Legacy tokens (kept during migration)
-          primary: "#E5E5E5",
-          secondary: "#A7A7A7",
-          tertiary: "#777777",
-          disabled: "#555555",
-          inactive: "#878787",
-          placeholder: "#999999",
+          // Legacy aliases — values shifted to spec v2. Hardcoded `text-text-primary`
+          // class usage across the codebase auto-upgrades via these.
+          primary: "#EDEDED",           // was #E5E5E5
+          secondary: "#B5B5B5",         // was #A7A7A7
+          tertiary: "#8A8A8A",          // was #777777
+          disabled: "#6A6A6A",          // was #555555
+          inactive: "#6A6A6A",          // was #878787 — now aligns with text-mute
+          placeholder: "#8A8A8A",       // was #999999
           inverse: "#000000",
           // Command Deck spec tokens (WCAG AA verified vs #000)
-          DEFAULT: "#EDEDED",        // 18.8:1 AAA — primary body, hero, names
-          "2": "#B5B5B5",            // 10.3:1 AAA — secondary values, ghost buttons, links
-          "3": "#8A8A8A",            // 5.4:1 AA — labels, metadata, subtitles
-          mute: "#6A6A6A",           // 3.4:1 AA large — decorative only: // slashes, separators
+          DEFAULT: "#EDEDED",           // 18.8:1 AAA — primary body, hero, names
+          "2": "#B5B5B5",               // 10.3:1 AAA — secondary values, ghost buttons, links
+          "3": "#8A8A8A",               // 5.4:1 AA — labels, metadata, subtitles
+          mute: "#6A6A6A",              // 3.4:1 AA large — decorative only: // slashes, separators
         },
 
-        // === Border System (iOS uses 20% default — OPSStyle) ===
+        // === Border System (spec v2 — 10% default, not 20%) ===
         border: {
-          DEFAULT: "rgba(255, 255, 255, 0.2)",
+          DEFAULT: "rgba(255, 255, 255, 0.10)",     // was 0.2 — spec is 0.10
           subtle: "rgba(255, 255, 255, 0.05)",
-          medium: "rgba(255, 255, 255, 0.2)",
-          strong: "rgba(255, 255, 255, 0.3)",
-          button: "rgba(255, 255, 255, 0.4)",
-          separator: "rgba(255, 255, 255, 0.15)",
-          input: "rgba(255, 255, 255, 0.2)",
+          medium: "rgba(255, 255, 255, 0.18)",      // was 0.2 — aligned to active-state border
+          strong: "rgba(255, 255, 255, 0.25)",      // was 0.3 — aligned to border-hover
+          button: "rgba(255, 255, 255, 0.10)",      // was 0.4 — buttons use standard hairline now
+          separator: "rgba(255, 255, 255, 0.10)",   // was 0.15
+          input: "rgba(255, 255, 255, 0.10)",       // was 0.2 — aligned to spec
+          glass: "rgba(255, 255, 255, 0.09)",       // spec glass-border
         },
 
-        // === Status Colors (from iOS OPSStyle) ===
+        // === Status Colors (spec v2 Thermal Map — globally unique hexes) ===
+        // Pipeline / Project / Task / Estimate / Invoice palettes per system.md.
+        // Every status across all enums has a globally unique hex.
         status: {
-          rfq: "#BCBCBC",
-          estimated: "#B5A381",
-          accepted: "#9DB582",
-          "in-progress": "#8195B5",
-          completed: "#B58289",
-          closed: "#E9E9E9",
-          archived: "#A182B5",
-          booked: "#9DB582",
-          cancelled: "#93321A",
-          success: "#A5B368",
-          warning: "#C4A868",
-          error: "#93321A",
+          // ProjectStatus — "Thermal Map" (slate → moss → marigold HOT → terracotta → graphite)
+          rfq: "#8F9AA3",                // was #BCBCBC
+          estimated: "#B6AC97",          // was #B5A381
+          accepted: "#8FA577",           // was #9DB582
+          "in-progress": "#D99A3E",      // was #8195B5 — now HOT marigold
+          completed: "#BA7458",          // was #B58289
+          closed: "#8C6A57",             // was #E9E9E9
+          archived: "#4E4B48",           // was #A182B5
+          // TaskStatus — tan → warm steel → sage → dim rose
+          booked: "#CFB074",             // was #9DB582
+          "task-in-progress": "#6E9CB8",
+          "task-completed": "#95B07A",
+          cancelled: "#8E6E73",          // was #93321A — now dim rose
+          // Earth-tone semantic (prefer these for generic success/warning/error)
+          success: "#9DB582",            // olive — was #A5B368
+          warning: "#C4A868",            // tan
+          error: "#B58289",              // rose (for text); #93321A brick for borders only
         },
 
-        // === Task Type Default Colors ===
+        // === Task Type Default Colors (spec v2 — from system.md default TaskType table) ===
         tasktype: {
-          estimate: "#A5B368",
-          quote: "#59779F",
-          material: "#C4A868",
-          installation: "#931A32",
-          inspection: "#7B68A6",
-          completion: "#4A4A4A",
+          estimate: "#9DB582",           // olive
+          quote: "#6F94B0",              // steel (= ops-accent) — was #59779F
+          material: "#C4A868",           // tan
+          installation: "#B58289",       // rose — was #931A32 (was a non-spec red)
+          inspection: "#A69AB5",         // lilac
+          completion: "#9C938A",         // stone — was #4A4A4A
         },
 
         // === Accounting & Financial Colors ===

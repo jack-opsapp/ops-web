@@ -118,7 +118,7 @@ export function EngagementContent({
         </div>
         <AdminLineChart
           data={activeUsersQuery.data ?? []}
-          color="#597794"
+          color="#6F94B0"
           isLoading={activeUsersQuery.isFetching && !activeUsersQuery.data?.length}
         />
       </div>
@@ -144,7 +144,7 @@ export function EngagementContent({
                     key={f.feature}
                     className="border-b border-white/[0.05] last:border-0 hover:bg-white/[0.02] transition-colors"
                   >
-                    <td className="py-2.5 font-mohave text-[13px] text-[#E5E5E5] pr-3">
+                    <td className="py-2.5 font-mohave text-[13px] text-[#EDEDED] pr-3">
                       {f.feature}
                     </td>
                     <td className="py-2.5 font-mohave text-[14px] text-[#A0A0A0] pr-3">
@@ -153,7 +153,7 @@ export function EngagementContent({
                     <td className="py-2.5 font-mohave text-[14px] text-[#A0A0A0] pr-3">
                       {f.companiesUsing}
                     </td>
-                    <td className="py-2.5 font-mohave text-[14px] text-[#E5E5E5] pr-3">
+                    <td className="py-2.5 font-mohave text-[14px] text-[#EDEDED] pr-3">
                       {f.adoptionRate}%
                     </td>
                   </tr>
@@ -173,7 +173,7 @@ export function EngagementContent({
               value: f.adoptionRate,
               maxValue: 100,
             }))}
-            color="#597794"
+            color="#6F94B0"
             suffix="%"
           />
         </div>
@@ -190,7 +190,7 @@ export function EngagementContent({
           </p>
           <AdminBarChart
             data={distQuery.data ?? []}
-            color="#8195B5"
+            color="#D99A3E"
             isLoading={distQuery.isFetching && !distQuery.data?.length}
           />
         </div>
@@ -225,7 +225,7 @@ export function EngagementContent({
                     key={row.cohort}
                     className="border-b border-white/[0.05] last:border-0 hover:bg-white/[0.02] transition-colors"
                   >
-                    <td className="py-2 font-mohave text-[13px] text-[#E5E5E5] pr-3">
+                    <td className="py-2 font-mohave text-[13px] text-[#EDEDED] pr-3">
                       {row.cohort}
                     </td>
                     <td className="py-2 font-mohave text-[13px] text-[#A0A0A0] pr-3">
@@ -238,13 +238,13 @@ export function EngagementContent({
                             className="font-mohave text-[13px] px-1.5 py-0.5 rounded"
                             style={{
                               backgroundColor: `rgba(111, 148, 176, ${(pct / 100) * 0.5})`,
-                              color: pct > 0 ? "#E5E5E5" : "#6B6B6B",
+                              color: pct > 0 ? "#EDEDED" : "#6B6B6B",
                             }}
                           >
                             {pct}%
                           </span>
                           {/* Hover tooltip showing absolute count */}
-                          <span className="absolute -top-6 left-1/2 -translate-x-1/2 bg-glass glass-surface border border-white/[0.08] rounded px-2 py-0.5 font-mono text-[11px] text-[#E5E5E5] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+                          <span className="absolute -top-6 left-1/2 -translate-x-1/2 bg-glass glass-surface border border-white/[0.08] rounded px-2 py-0.5 font-mono text-[11px] text-[#EDEDED] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
                             {Math.round((pct / 100) * row.signups)} users
                           </span>
                         </td>

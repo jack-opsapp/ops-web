@@ -55,7 +55,7 @@ export interface StatusOption {
 
 export const STATUS_OPTIONS: StatusOption[] = [
   { value: "planned", label: "Planning", chip: "Plan", icon: Lightbulb, color: "#6B6B6B" },
-  { value: "in_development", label: "Development", chip: "Dev", icon: Clock, color: "#E5E5E5" },
+  { value: "in_development", label: "Development", chip: "Dev", icon: Clock, color: "#EDEDED" },
   { value: "in_testing", label: "Testing", chip: "Test", icon: FlaskConical, color: "#C4A868" },
   { value: "completed", label: "Done", chip: "Done", icon: CheckCircle2, color: "#9DB582" },
 ];

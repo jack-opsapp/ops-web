@@ -11,7 +11,7 @@ import type { PipelineStage, InvoiceAging } from "@/lib/admin/types";
 
 const ESTIMATE_STATUS_COLORS: Record<string, string> = {
   draft: "#6B6B6B",
-  sent: "#8195B5",
+  sent: "#D99A3E",
   approved: "#9DB582",
   rejected: "#93321A",
   expired: "#C4A868",
@@ -62,7 +62,7 @@ export function PlatformHealthCharts({
             <>
               <AdminBarChart
                 data={stageBarData}
-                color="#597794"
+                color="#6F94B0"
                 onBarClick={(p) => {
                   const stage = stageDistribution.find((s) => s.stage === p.label);
                   setSelectedStage(stage ?? null);
@@ -71,12 +71,12 @@ export function PlatformHealthCharts({
               {selectedStage && (
                 <div className="mt-4 p-3 rounded bg-white/[0.03] border border-white/[0.06]">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="font-mohave text-[13px] uppercase text-[#597794]">
+                    <span className="font-mohave text-[13px] uppercase text-[#6F94B0]">
                       {selectedStage.stage}
                     </span>
                     <button
                       onClick={() => setSelectedStage(null)}
-                      className="font-mono text-[11px] text-[#6B6B6B] hover:text-[#E5E5E5]"
+                      className="font-mono text-[11px] text-[#6B6B6B] hover:text-[#EDEDED]"
                     >
                       &times;
                     </button>
@@ -84,15 +84,15 @@ export function PlatformHealthCharts({
                   <div className="grid grid-cols-3 gap-4">
                     <div>
                       <p className="font-mono text-[11px] text-[#6B6B6B]">Deals</p>
-                      <p className="font-mohave text-[16px] text-[#E5E5E5]">{selectedStage.count}</p>
+                      <p className="font-mohave text-[16px] text-[#EDEDED]">{selectedStage.count}</p>
                     </div>
                     <div>
                       <p className="font-mono text-[11px] text-[#6B6B6B]">Total Value</p>
-                      <p className="font-mohave text-[16px] text-[#E5E5E5]">${selectedStage.totalValue.toLocaleString()}</p>
+                      <p className="font-mohave text-[16px] text-[#EDEDED]">${selectedStage.totalValue.toLocaleString()}</p>
                     </div>
                     <div>
                       <p className="font-mono text-[11px] text-[#6B6B6B]">Avg Days</p>
-                      <p className="font-mohave text-[16px] text-[#E5E5E5]">{selectedStage.avgDays}d</p>
+                      <p className="font-mohave text-[16px] text-[#EDEDED]">{selectedStage.avgDays}d</p>
                     </div>
                   </div>
                 </div>
@@ -113,7 +113,7 @@ export function PlatformHealthCharts({
             {selectedEstimateStatus && (
               <button
                 onClick={() => setSelectedEstimateStatus(null)}
-                className="font-mono text-[11px] text-[#597794] hover:text-[#E5E5E5] transition-colors"
+                className="font-mono text-[11px] text-[#6F94B0] hover:text-[#EDEDED] transition-colors"
               >
                 Clear: {selectedEstimateStatus} &times;
               </button>
@@ -168,8 +168,8 @@ export function PlatformHealthCharts({
               {sortedAging.map((a) => (
                 <tr key={a.bucket} className="border-b border-white/[0.05] last:border-0 hover:bg-white/[0.02] transition-colors">
                   <td className="py-2.5 font-mohave text-[13px] text-[#A0A0A0]">{a.bucket}</td>
-                  <td className="py-2.5 font-mohave text-[14px] text-[#E5E5E5]">{a.count}</td>
-                  <td className="py-2.5 font-mohave text-[14px] text-[#E5E5E5]">${a.totalAmount.toLocaleString()}</td>
+                  <td className="py-2.5 font-mohave text-[14px] text-[#EDEDED]">{a.count}</td>
+                  <td className="py-2.5 font-mohave text-[14px] text-[#EDEDED]">${a.totalAmount.toLocaleString()}</td>
                 </tr>
               ))}
             </tbody>

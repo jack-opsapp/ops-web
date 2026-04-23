@@ -986,7 +986,7 @@ The component receives `size`, `tasks` (ProjectTask[]), `isLoading`, and `onNavi
 - At `sm`: shows segmented horizontal bar (20px tall, proportional) + count labels
 - At `md`: adds top 4 actionable tasks below the bar as clickable rows
 
-Segment colors: Overdue `#B58289`, Due today `#C4A868`, In progress `#597794`, Upcoming `rgba(255,255,255,0.15)`.
+Segment colors: Overdue `#B58289`, Due today `#C4A868`, In progress `#6F94B0`, Upcoming `rgba(255,255,255,0.15)`.
 
 Use `WidgetSkeleton variant="horizontal-bars"` for loading state.
 

@@ -79,20 +79,20 @@ export enum OpsContactRole {
 // ─── Status Color Mappings ────────────────────────────────────────────────────
 
 export const PROJECT_STATUS_COLORS: Record<ProjectStatus, string> = {
-  [ProjectStatus.RFQ]: "#BCBCBC",
-  [ProjectStatus.Estimated]: "#B5A381",
+  [ProjectStatus.RFQ]: "#8F9AA3",
+  [ProjectStatus.Estimated]: "#B6AC97",
   [ProjectStatus.Accepted]: "#9DB582",
-  [ProjectStatus.InProgress]: "#8195B5",
+  [ProjectStatus.InProgress]: "#D99A3E",
   [ProjectStatus.Completed]: "#B58289",
-  [ProjectStatus.Closed]: "#E9E9E9",
-  [ProjectStatus.Archived]: "#A182B5",
+  [ProjectStatus.Closed]: "#8C6A57",
+  [ProjectStatus.Archived]: "#4E4B48",
 };
 
 export const TASK_STATUS_COLORS: Record<TaskStatus, string> = {
-  [TaskStatus.Booked]: "#8195B5",
+  [TaskStatus.Booked]: "#D99A3E",
   [TaskStatus.InProgress]: "#C4A868",
   [TaskStatus.Completed]: "#9DB582",
-  [TaskStatus.Cancelled]: "#BCBCBC",
+  [TaskStatus.Cancelled]: "#8F9AA3",
 };
 
 // ─── Status Sort Orders ───────────────────────────────────────────────────────
@@ -803,11 +803,11 @@ export interface DefaultTaskType {
 }
 
 export const DEFAULT_TASK_TYPES: DefaultTaskType[] = [
-  { display: "Quote", color: "#B5A381", icon: "FileText" },
-  { display: "Installation", color: "#8195B5", icon: "Wrench" },
+  { display: "Quote", color: "#B6AC97", icon: "FileText" },
+  { display: "Installation", color: "#D99A3E", icon: "Wrench" },
   { display: "Repair", color: "#B58289", icon: "Settings" },
   { display: "Inspection", color: "#9DB582", icon: "Search" },
-  { display: "Consultation", color: "#A182B5", icon: "MessageSquare" },
+  { display: "Consultation", color: "#4E4B48", icon: "MessageSquare" },
   { display: "Follow-up", color: "#C4A868", icon: "PhoneCall" },
 ];
 

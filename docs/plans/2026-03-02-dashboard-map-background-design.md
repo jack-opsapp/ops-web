@@ -69,7 +69,7 @@ Map is a fixed-position layer inside `dashboard-layout.tsx`, behind the scrollab
 - Initials fallback, first name label below (Kosugi, uppercase)
 
 ### Event Pins
-- Diamond shape, accent color (#597794)
+- Diamond shape, accent color (#6F94B0)
 - Calendar icon center
 - Event title label
 

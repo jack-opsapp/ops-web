@@ -999,7 +999,7 @@ export function adsBriefingTemplate(briefing: AdBriefing): string {
 
     <div style="text-align:center;margin-top:32px;">
       <a href="${appUrl}/admin/google-ads/briefings/${briefing.id}"
-         style="display:inline-block;padding:10px 24px;background:#597794;color:#E5E5E5;text-decoration:none;font-size:13px;border-radius:4px;text-transform:uppercase;letter-spacing:0.05em;">
+         style="display:inline-block;padding:10px 24px;background:#6F94B0;color:#E5E5E5;text-decoration:none;font-size:13px;border-radius:4px;text-transform:uppercase;letter-spacing:0.05em;">
         View Full Briefing
       </a>
     </div>
@@ -1434,7 +1434,7 @@ export function GenerationProgress({ onComplete }: GenerationProgressProps) {
     return (
       <button
         onClick={handleGenerate}
-        className="font-mohave text-[13px] uppercase tracking-wider px-4 py-2 border border-[#597794] text-[#597794] rounded hover:bg-[#597794]/10 transition-colors"
+        className="font-mohave text-[13px] uppercase tracking-wider px-4 py-2 border border-[#6F94B0] text-[#6F94B0] rounded hover:bg-[#6F94B0]/10 transition-colors"
       >
         Generate Briefing Now
       </button>
@@ -1450,7 +1450,7 @@ export function GenerationProgress({ onComplete }: GenerationProgressProps) {
 
         return (
           <div key={i} className="flex items-center gap-3 font-mohave text-[13px]">
-            <span className={isDone ? "text-[#9DB582]" : isActive ? "text-[#597794]" : "text-[#444444]"}>
+            <span className={isDone ? "text-[#9DB582]" : isActive ? "text-[#6F94B0]" : "text-[#444444]"}>
               {isDone ? "✓" : isActive ? "●" : "○"}
             </span>
             <span className={isDone ? "text-[#6B6B6B]" : isActive ? "text-[#E5E5E5]" : "text-[#444444]"}>
@@ -1575,7 +1575,7 @@ export function AdPreview({ suggestions, keywords }: { suggestions: AdSuggestion
         {headlines.map((h, i) => (
           <div key={i} className="border border-white/[0.08] rounded p-4 bg-white/[0.02]">
             <p className="font-kosugi text-[10px] text-[#6B6B6B] mb-1">Ad · opsapp.co</p>
-            <p className="font-mohave text-[16px] text-[#597794]">{h.text}</p>
+            <p className="font-mohave text-[16px] text-[#6F94B0]">{h.text}</p>
             {descriptions[i] && (
               <p className="font-mohave text-[13px] text-[#A0A0A0] mt-1">{descriptions[i].text}</p>
             )}
@@ -1650,8 +1650,8 @@ export function ABComparison({ proposals }: { proposals: ABTestProposal[] }) {
                 <p className="font-mohave text-[12px] text-[#6B6B6B] mt-1">{p.currentAd.description}</p>
               </div>
               {/* Proposed */}
-              <div className="p-4 border-l border-[#597794]/20">
-                <p className="font-kosugi text-[10px] uppercase tracking-wider text-[#597794] mb-2">Proposed</p>
+              <div className="p-4 border-l border-[#6F94B0]/20">
+                <p className="font-kosugi text-[10px] uppercase tracking-wider text-[#6F94B0] mb-2">Proposed</p>
                 <p className="font-mohave text-[14px] text-[#E5E5E5]">{p.proposedAd.headline}</p>
                 <p className="font-mohave text-[12px] text-[#A0A0A0] mt-1">{p.proposedAd.description}</p>
               </div>
@@ -1739,7 +1739,7 @@ function CompetitorCard({ competitor }: { competitor: CompetitorSnapshot }) {
           )}
           {competitor.weaknesses.length > 0 && (
             <div>
-              <p className="font-kosugi text-[10px] uppercase tracking-wider text-[#597794] mb-1">OPS Opportunity</p>
+              <p className="font-kosugi text-[10px] uppercase tracking-wider text-[#6F94B0] mb-1">OPS Opportunity</p>
               {competitor.weaknesses.map((w, i) => (
                 <p key={i} className="font-mohave text-[13px] text-[#E5E5E5]">→ {w}</p>
               ))}
@@ -1816,7 +1816,7 @@ export function MarketPulse({ themes }: { themes: SentimentTheme[] }) {
               ))}
             </div>
             {theme.opportunity && (
-              <p className="font-mohave text-[13px] text-[#597794] mt-2">→ {theme.opportunity}</p>
+              <p className="font-mohave text-[13px] text-[#6F94B0] mt-2">→ {theme.opportunity}</p>
             )}
           </div>
         ))}
@@ -1911,7 +1911,7 @@ export function BriefingHeroClient({ briefing }: { briefing: AdBriefing | null }
 
           <Link
             href={`/admin/google-ads/briefings/${briefing.id}`}
-            className="inline-block mt-4 font-kosugi text-[11px] text-[#597794] hover:text-[#E5E5E5] transition-colors"
+            className="inline-block mt-4 font-kosugi text-[11px] text-[#6F94B0] hover:text-[#E5E5E5] transition-colors"
           >
             View full briefing →
           </Link>
@@ -2047,7 +2047,7 @@ export default async function BriefingDetailPage({
                       </span>
                     </div>
                     <p className="font-mohave text-[13px] text-[#A0A0A0] mb-1">{insight.explanation}</p>
-                    <p className="font-mohave text-[13px] text-[#597794]">{insight.recommendation}</p>
+                    <p className="font-mohave text-[13px] text-[#6F94B0]">{insight.recommendation}</p>
                   </div>
                 ))}
             </div>
@@ -2103,7 +2103,7 @@ export default async function BriefingsArchivePage() {
                 <td className="py-3 pr-3">
                   <span className={`font-mohave text-[11px] uppercase px-2 py-0.5 rounded ${
                     b.status === "complete" ? "bg-[#9DB582]/20 text-[#9DB582]" :
-                    b.status === "generating" ? "bg-[#597794]/20 text-[#597794]" :
+                    b.status === "generating" ? "bg-[#6F94B0]/20 text-[#6F94B0]" :
                     "bg-[#93321A]/20 text-[#93321A]"
                   }`}>{b.status}</span>
                 </td>
@@ -2112,7 +2112,7 @@ export default async function BriefingsArchivePage() {
                   {b.status === "complete" && (
                     <Link
                       href={`/admin/google-ads/briefings/${b.id}`}
-                      className="font-kosugi text-[11px] text-[#597794] hover:text-[#E5E5E5] transition-colors"
+                      className="font-kosugi text-[11px] text-[#6F94B0] hover:text-[#E5E5E5] transition-colors"
                     >
                       View →
                     </Link>

@@ -119,7 +119,7 @@ function DrawerTaskCard({
         {/* Grip handle */}
         <GripVertical
           className="w-[14px] h-[14px] shrink-0 mt-[1px]"
-          style={{ color: "#555555" }}
+          style={{ color: "#6A6A6A" }}
         />
 
         {/* Color dot */}
@@ -384,7 +384,7 @@ export function ProjectDrawerPanel() {
                 }}
                 placeholder="Task name..."
                 autoFocus
-                className="w-full px-[10px] py-[6px] rounded-panel font-mono text-[11px] text-white placeholder:text-[#555555] focus:outline-none"
+                className="w-full px-[10px] py-[6px] rounded-panel font-mono text-[11px] text-white placeholder:text-[#6A6A6A] focus:outline-none"
                 style={{
                   backgroundColor: "#141414",
                   border: "1px solid rgba(255,255,255,0.15)",

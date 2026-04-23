@@ -77,13 +77,13 @@ export function ItemRow({
             value={editIcon}
             onChange={(e) => setEditIcon(e.target.value)}
             placeholder="icon"
-            className="bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1.5 font-mono text-[11px] text-[#E5E5E5] outline-none"
+            className="bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1.5 font-mono text-[11px] text-[#EDEDED] outline-none"
           />
           <input
             value={editTitle}
             onChange={(e) => setEditTitle(e.target.value)}
             placeholder="Title"
-            className="bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1.5 font-mono text-[12px] text-[#E5E5E5] outline-none"
+            className="bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1.5 font-mono text-[12px] text-[#EDEDED] outline-none"
             autoFocus
           />
         </div>
@@ -92,7 +92,7 @@ export function ItemRow({
           onChange={(e) => setEditDescription(e.target.value)}
           placeholder="Description"
           rows={2}
-          className="w-full bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1.5 font-mono text-[12px] text-[#E5E5E5] outline-none resize-none"
+          className="w-full bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1.5 font-mono text-[12px] text-[#EDEDED] outline-none resize-none"
         />
         <div className="flex items-center gap-3">
           <StatusChipBar currentStatus={editStatus} onStatusChange={setEditStatus} />
@@ -100,13 +100,13 @@ export function ItemRow({
             value={editSlug}
             onChange={(e) => setEditSlug(e.target.value)}
             placeholder="feature_flag_slug (optional)"
-            className="flex-1 bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1.5 font-mono text-[11px] text-[#E5E5E5] outline-none"
+            className="flex-1 bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1.5 font-mono text-[11px] text-[#EDEDED] outline-none"
           />
         </div>
         <div className="flex justify-end gap-2">
           <button
             onClick={() => setIsEditing(false)}
-            className="px-3 py-1.5 font-mohave text-[11px] uppercase text-[#6B6B6B] hover:text-[#E5E5E5]"
+            className="px-3 py-1.5 font-mohave text-[11px] uppercase text-[#6B6B6B] hover:text-[#EDEDED]"
           >
             Cancel
           </button>
@@ -127,7 +127,7 @@ export function ItemRow({
       style={style}
       className={`flex items-center justify-between px-4 py-2.5 border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors ${
         !item.is_active ? "opacity-50" : ""
-      } ${isDragging ? "opacity-60 border-[#597794]/40 bg-white/[0.03]" : ""}`}
+      } ${isDragging ? "opacity-60 border-[#6F94B0]/40 bg-white/[0.03]" : ""}`}
     >
       {/* Left zone: drag handle + icon + title */}
       <div className="flex items-center gap-3 min-w-0 flex-shrink-0">
@@ -141,11 +141,11 @@ export function ItemRow({
         <span className="font-mono text-micro text-[#6B6B6B] w-12 truncate flex-shrink-0">
           {item.icon}
         </span>
-        <span className="font-mono text-[13px] text-[#E5E5E5] truncate">
+        <span className="font-mono text-[13px] text-[#EDEDED] truncate">
           {item.title}
         </span>
         {item.feature_flag_slug && (
-          <span className="ml-1 font-mono text-micro text-[#597794] bg-ops-accent/10 px-1.5 py-0.5 rounded flex-shrink-0">
+          <span className="ml-1 font-mono text-micro text-[#6F94B0] bg-ops-accent/10 px-1.5 py-0.5 rounded flex-shrink-0">
             {item.feature_flag_slug}
           </span>
         )}
@@ -163,14 +163,14 @@ export function ItemRow({
       <div className="flex items-center gap-2 flex-shrink-0">
         <button
           onClick={() => onToggleVisibility(item.id, !item.is_active)}
-          className="text-[#6B6B6B] hover:text-[#E5E5E5] transition-colors"
+          className="text-[#6B6B6B] hover:text-[#EDEDED] transition-colors"
           title={item.is_active ? "Hide" : "Show"}
         >
           {item.is_active ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
         </button>
         <button
           onClick={handleStartEdit}
-          className="text-[#6B6B6B] hover:text-[#597794] transition-colors"
+          className="text-[#6B6B6B] hover:text-[#6F94B0] transition-colors"
         >
           <Edit2 className="w-3 h-3" />
         </button>

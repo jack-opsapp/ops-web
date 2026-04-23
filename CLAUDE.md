@@ -25,15 +25,21 @@ Supplements the root `OPS LTD./CLAUDE.md`. Read both.
 - Bebas Neue — do not reintroduce.
 - Kosugi — retired on 2026-04-17; all former usages moved to `font-mono`. Do not reintroduce.
 
-## Design System
+## Design System (spec v2 — 2026-04-17)
 
-- Read and follow `.interface-design/system.md` for every UI decision
-- Frosted glass surfaces: `rgba(10, 10, 10, 0.70)` + `backdrop-blur(20px) saturate(1.2)` + `1px solid rgba(255, 255, 255, 0.08)`
-- Accent `#597794` — used sparingly, never as decoration
-- Border radius: 2-4px (sharp, not rounded)
-- Depth: borders-only, no shadows on dark backgrounds
-- Text alignment: left only, never center
-- Animation easing: `EASE_SMOOTH` = `[0.22, 1, 0.36, 1]`, no spring/bounce
+- Read and follow `.interface-design/system.md` for every UI decision (canonical source)
+- Canvas: pure `#000000`
+- Glass surfaces (Command Deck spec): `rgba(18, 18, 20, 0.58)` + `backdrop-blur(28px) saturate(1.3)` + `1px solid rgba(255, 255, 255, 0.09)`. `.glass-dense` variant uses `0.78` alpha for stacked layers (modals / popovers / toasts).
+- **Accent `#6F94B0`** (steel blue) — primary CTA and focus ring ONLY. Never on links, toggles, nav, tabs, tags. One element per screen maximum.
+- **Text ladder:** `#EDEDED` / `#B5B5B5` / `#8A8A8A` / `#6A6A6A` (text-mute decorative only — `//` slashes, separators)
+- **Earth tones (semantic):** `olive #9DB582` / `tan #C4A868` / `rose #B58289` / `brick #93321A` (border-only)
+- **Border radius:** `panel: 10` / `modal: 12` / `btn: 5` / `chip: 4` / `bar: 2` / `sidebar: 6`. No 999px pills except avatars.
+- **Depth:** borders-only, zero box-shadows on dark backgrounds
+- **Primary button:** outlined at rest with `text-ops-accent border-ops-accent` → fills to `bg-ops-accent text-black` on hover
+- **Text alignment:** left only, never center
+- **Animation easing:** single curve `EASE_SMOOTH` = `cubic-bezier(0.22, 1, 0.36, 1)` / `[0.22, 1, 0.36, 1]` for Framer Motion. No spring/bounce (drag-reorder is the lone exception).
+- **Tactical voice:** `//` prefix for panel/section titles, `[brackets]` for instructional micro-text and metadata, `SYS ::` for system state, `// OPERATOR :: NAME` for identity. No emoji. No exclamation points. UPPERCASE for authority, sentence case for content.
+- **Numbers always mono** (JetBrains Mono) with `font-feature-settings: "tnum" 1, "zero" 1`. 11px minimum.
 
 ## Key Architecture Patterns
 

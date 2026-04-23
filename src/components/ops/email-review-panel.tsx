@@ -295,7 +295,7 @@ function NeedsReviewCard({
           <Mail className="h-3.5 w-3.5 text-[#6F94B0]" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="font-mohave text-sm font-medium text-[#E5E5E5] truncate">
+          <p className="font-mohave text-sm font-medium text-[#EDEDED] truncate">
             {item.subject || "(no subject)"}
           </p>
           {item.fromEmail && (
@@ -324,7 +324,7 @@ function NeedsReviewCard({
             {confidenceLabel(item.matchConfidence)}
           </p>
           {item.suggestedClientName && (
-            <p className="font-mohave text-sm text-[#E5E5E5] truncate mt-0.5">
+            <p className="font-mohave text-sm text-[#EDEDED] truncate mt-0.5">
               {item.suggestedClientName}
             </p>
           )}
@@ -387,7 +387,7 @@ function UnmatchedCard({
           <Mail className="h-3.5 w-3.5 text-[#999]" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="font-mohave text-sm font-medium text-[#E5E5E5] truncate">
+          <p className="font-mohave text-sm font-medium text-[#EDEDED] truncate">
             {item.subject || "(no subject)"}
           </p>
           {item.fromEmail && (
@@ -461,7 +461,7 @@ function MatchedCard({ item, onViewClient }: { item: ReviewItem; onViewClient?: 
           <CheckCircle2 className="h-3.5 w-3.5 text-[#9DB582]" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="font-mohave text-sm font-medium text-[#E5E5E5] truncate">
+          <p className="font-mohave text-sm font-medium text-[#EDEDED] truncate">
             {item.subject || "(no subject)"}
           </p>
           {item.fromEmail && (
@@ -483,7 +483,7 @@ function MatchedCard({ item, onViewClient }: { item: ReviewItem; onViewClient?: 
             <p className="font-mono text-micro text-[#9DB582] uppercase tracking-wider">
               {confidenceLabel(item.matchConfidence)}
             </p>
-            <p className="font-mohave text-sm text-[#E5E5E5] truncate mt-0.5">
+            <p className="font-mohave text-sm text-[#EDEDED] truncate mt-0.5">
               {item.clientName}
             </p>
           </div>

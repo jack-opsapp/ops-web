@@ -74,7 +74,7 @@ export function LifecycleConfigPanel() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-6">
-        <div className="w-4 h-4 border-2 border-[#597794] border-t-transparent rounded-full animate-spin" />
+        <div className="w-4 h-4 border-2 border-[#6F94B0] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -98,7 +98,7 @@ export function LifecycleConfigPanel() {
           const emails = LIFECYCLE_EMAIL_META.filter((m) => m.stage === stage);
           return (
             <div key={stage}>
-              <p className="font-mohave text-[12px] uppercase tracking-wider text-[#597794] mb-2">
+              <p className="font-mohave text-[12px] uppercase tracking-wider text-[#6F94B0] mb-2">
                 {STAGE_LABELS[stage]}
               </p>
 
@@ -125,10 +125,10 @@ export function LifecycleConfigPanel() {
                           disabled={isSaving}
                         />
                         <div className="flex-1 min-w-0">
-                          <p className="font-mohave text-[13px] text-[#E5E5E5]">
+                          <p className="font-mohave text-[13px] text-[#EDEDED]">
                             {meta.label}
                             {isSaving && (
-                              <span className="ml-2 inline-block w-3 h-3 border border-[#597794] border-t-transparent rounded-full animate-spin align-middle" />
+                              <span className="ml-2 inline-block w-3 h-3 border border-[#6F94B0] border-t-transparent rounded-full animate-spin align-middle" />
                             )}
                           </p>
                           <p className="font-mono text-micro text-[#6B6B6B] truncate">
@@ -224,7 +224,7 @@ function DayInput({
           if (e.key === "Enter") (e.target as HTMLInputElement).blur();
         }}
         disabled={disabled}
-        className="w-[52px] bg-transparent border border-white/[0.08] rounded px-2 py-1 font-mono text-[11px] text-[#E5E5E5] text-center focus:outline-none focus:border-[#597794] disabled:opacity-40 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+        className="w-[52px] bg-transparent border border-white/[0.08] rounded px-2 py-1 font-mono text-[11px] text-[#EDEDED] text-center focus:outline-none focus:border-[#6F94B0] disabled:opacity-40 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
       />
     </div>
   );

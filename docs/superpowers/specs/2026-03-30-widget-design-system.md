@@ -170,7 +170,7 @@ These hardcoded values currently appear in widgets and must be replaced:
 | `#B58289` | `status-error` | revenue-pulse, task-pulse, crew-board, action-required, receivables-aging |
 | `#6B8F71` | `status-success` | revenue-pulse |
 | `#C4976A` | `financial-receivables` (or add new token) | action-required, receivables-aging |
-| `#597794` | `ops-accent` | task-pulse, action-required, receivables-aging |
+| `#6F94B0` | `ops-accent` | task-pulse, action-required, receivables-aging |
 | `rgba(255,255,255,0.15)` | `border-subtle` or `text-disabled` opacity | task-pulse, crew-board |
 
 ### 5.4 Invalid Token References to Fix

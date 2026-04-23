@@ -71,7 +71,7 @@ export function StepperRail({
                 className="font-mono text-micro tracking-[0.15em] uppercase"
                 style={{
                   color: isCurrent
-                    ? "#E5E5E5"
+                    ? "#EDEDED"
                     : isPast
                       ? "#6F94B0"
                       : isFuture
@@ -126,7 +126,7 @@ export function StepperRail({
                         className="font-mono text-micro tracking-[0.12em] uppercase"
                         style={{
                           color: isSubCurrent
-                            ? "#E5E5E5"
+                            ? "#EDEDED"
                             : isSubCompleted
                               ? "#6F94B0"
                               : "#444",

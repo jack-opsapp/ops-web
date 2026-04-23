@@ -49,7 +49,7 @@ export default async function GoogleAdsPage() {
     return (
       <div className="p-8">
         <h1 className="text-[#93321A] font-mohave text-lg mb-4">Google Ads Data Fetch Failed</h1>
-        <pre className="text-[13px] text-[#E5E5E5] bg-white/[0.05] rounded p-4 whitespace-pre-wrap">
+        <pre className="text-[13px] text-[#EDEDED] bg-white/[0.05] rounded p-4 whitespace-pre-wrap">
           {err instanceof Error ? `${err.message}\n\n${err.stack}` : String(err)}
         </pre>
       </div>
@@ -62,7 +62,7 @@ export default async function GoogleAdsPage() {
         <AdminPageHeader title="Google Ads" caption="not configured" />
         <div className="p-8">
           <div className="border border-white/[0.08] rounded-lg p-6 bg-white/[0.02] max-w-lg">
-            <h2 className="font-mohave text-[16px] text-[#E5E5E5] mb-3">SETUP REQUIRED</h2>
+            <h2 className="font-mohave text-[16px] text-[#EDEDED] mb-3">SETUP REQUIRED</h2>
             <p className="font-mono text-[13px] text-[#6B6B6B] leading-relaxed">
               Set the following environment variables to enable Google Ads data:
             </p>

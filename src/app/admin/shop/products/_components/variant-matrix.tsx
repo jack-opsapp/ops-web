@@ -153,7 +153,7 @@ export function VariantMatrix({
               return (
                 <tr key={i} className="border-b border-white/[0.06] hover:bg-white/[0.02]">
                   {optionNames.map((name) => (
-                    <td key={name} className="px-3 py-2 font-mohave text-[13px] text-[#E5E5E5]">
+                    <td key={name} className="px-3 py-2 font-mohave text-[13px] text-[#EDEDED]">
                       {v.optionValues[name]}
                     </td>
                   ))}
@@ -162,7 +162,7 @@ export function VariantMatrix({
                       type="text"
                       value={v.sku}
                       onChange={(e) => updateVariant(i, "sku", e.target.value)}
-                      className="w-full bg-transparent border-b border-white/[0.06] font-mohave text-[12px] text-[#E5E5E5] focus:border-[#597794] focus:outline-none py-1"
+                      className="w-full bg-transparent border-b border-white/[0.06] font-mohave text-[12px] text-[#EDEDED] focus:border-[#6F94B0] focus:outline-none py-1"
                     />
                   </td>
                   <td className="px-3 py-2">
@@ -173,7 +173,7 @@ export function VariantMatrix({
                         step="0.01"
                         value={centsToDecimal(v.priceCents)}
                         onChange={(e) => updateVariant(i, "priceCents", Math.round(parseFloat(e.target.value || "0") * 100))}
-                        className="w-16 bg-transparent border-b border-white/[0.06] font-mohave text-[12px] text-[#E5E5E5] focus:border-[#597794] focus:outline-none py-1 text-right"
+                        className="w-16 bg-transparent border-b border-white/[0.06] font-mohave text-[12px] text-[#EDEDED] focus:border-[#6F94B0] focus:outline-none py-1 text-right"
                       />
                     </div>
                   </td>
@@ -182,7 +182,7 @@ export function VariantMatrix({
                       type="number"
                       value={v.stockQuantity}
                       onChange={(e) => updateVariant(i, "stockQuantity", parseInt(e.target.value || "0"))}
-                      className="w-14 bg-transparent border-b border-white/[0.06] font-mohave text-[12px] text-[#E5E5E5] focus:border-[#597794] focus:outline-none py-1 text-right"
+                      className="w-14 bg-transparent border-b border-white/[0.06] font-mohave text-[12px] text-[#EDEDED] focus:border-[#6F94B0] focus:outline-none py-1 text-right"
                     />
                   </td>
                   <td className="px-3 py-2 font-mohave text-[12px] text-[#6B6B6B] text-right">
@@ -231,7 +231,7 @@ function BulkSetButton({
           }
         }}
         autoFocus
-        className="w-20 bg-white/[0.04] border border-white/[0.08] rounded-sm px-2 py-1 font-mohave text-[11px] text-[#E5E5E5] focus:border-[#597794] focus:outline-none"
+        className="w-20 bg-white/[0.04] border border-white/[0.08] rounded-sm px-2 py-1 font-mohave text-[11px] text-[#EDEDED] focus:border-[#6F94B0] focus:outline-none"
       />
       <button
         onClick={() => {
@@ -247,7 +247,7 @@ function BulkSetButton({
   ) : (
     <button
       onClick={() => setOpen(true)}
-      className="font-mono text-micro uppercase tracking-widest text-[#6B6B6B] hover:text-[#E5E5E5] transition-colors"
+      className="font-mono text-micro uppercase tracking-widest text-[#6B6B6B] hover:text-[#EDEDED] transition-colors"
     >
       {label}
     </button>

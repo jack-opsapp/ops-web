@@ -27,8 +27,8 @@ function generateBrandingVars(branding: TokenBranding): Record<string, string> {
   return {
     "--portal-bg": isDark ? "#0A0A0A" : "#FAFAFA",
     "--portal-card": isDark ? "#191919" : "#FFFFFF",
-    "--portal-text": isDark ? "#E5E5E5" : "#1A1A1A",
-    "--portal-text-secondary": isDark ? "#A7A7A7" : "#666666",
+    "--portal-text": isDark ? "#EDEDED" : "#1A1A1A",
+    "--portal-text-secondary": isDark ? "#B5B5B5" : "#666666",
     "--portal-text-tertiary": isDark ? "#6B6B6B" : "#999999",
     "--portal-accent": accent,
     "--portal-accent-text": "#FFFFFF",
@@ -189,8 +189,8 @@ export default function MagicLinkLandingPage() {
   // Resolve colors with branding or defaults
   const bg = brandingVars["--portal-bg"] || "#0A0A0A";
   const card = brandingVars["--portal-card"] || "#191919";
-  const text = brandingVars["--portal-text"] || "#E5E5E5";
-  const textSecondary = brandingVars["--portal-text-secondary"] || "#A7A7A7";
+  const text = brandingVars["--portal-text"] || "#EDEDED";
+  const textSecondary = brandingVars["--portal-text-secondary"] || "#B5B5B5";
   const accent = brandingVars["--portal-accent"] || "#417394";
   const border = brandingVars["--portal-border"] || "rgba(255,255,255,0.08)";
   const warning = brandingVars["--portal-warning"] || "#C4A868";

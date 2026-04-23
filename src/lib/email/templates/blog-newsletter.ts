@@ -132,7 +132,7 @@ export function blogNewsletterTemplate(params: {
             <td align="left" style="padding:24px 0 8px 0;">
               <table role="presentation" cellspacing="0" cellpadding="0" border="0">
                 <tr>
-                  <td style="background-color:#597794;">
+                  <td style="background-color:#6F94B0;">
                     <a href="${safePostUrl}" target="_blank" style="display:inline-block;padding:14px 28px;font-size:13px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#ffffff;text-decoration:none;font-family:'Courier New',monospace;">
                       Read the full piece →
                     </a>

@@ -297,7 +297,7 @@ export function ProjectPhotoGallery({ projectId, legacyImages = [] }: ProjectPho
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Camera className="h-4 w-4 text-[#9CA3AF]" />
-          <h2 className="text-sm font-medium text-[#E5E5E5]">
+          <h2 className="text-sm font-medium text-[#EDEDED]">
             Photos
           </h2>
           {totalCount > 0 && (

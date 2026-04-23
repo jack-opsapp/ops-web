@@ -31,7 +31,7 @@ export function StatCard({
     ? "text-[#93321A]"
     : accent
     ? "text-[#C4A868]"
-    : "text-[#E5E5E5]";
+    : "text-[#EDEDED]";
 
   const isClickable = !!onClick || !!href;
 

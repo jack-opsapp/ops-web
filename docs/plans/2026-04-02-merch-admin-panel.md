@@ -10,7 +10,7 @@
 
 **Design doc:** `docs/superpowers/specs/2026-04-02-ops-merch-admin-panel-design.md`
 
-**Design system:** No `.interface-design/system.md` exists. Design tokens come from `OPS-Web/CLAUDE.md`: frosted glass surfaces `rgba(10,10,10,0.70)` + `backdrop-blur(20px)`, accent `#597794` (sparingly), Mohave body/headings, Kosugi labels/captions, 2-4px radius, borders-only depth (`border-white/[0.08]`), `EASE_SMOOTH = [0.22, 1, 0.36, 1]` easing, no spring/bounce, left-aligned text only.
+**Design system:** No `.interface-design/system.md` exists. Design tokens come from `OPS-Web/CLAUDE.md`: frosted glass surfaces `rgba(10,10,10,0.70)` + `backdrop-blur(20px)`, accent `#6F94B0` (sparingly), Mohave body/headings, Kosugi labels/captions, 2-4px radius, borders-only depth (`border-white/[0.08]`), `EASE_SMOOTH = [0.22, 1, 0.36, 1]` easing, no spring/bounce, left-aligned text only.
 
 **Required Skills:** `interface-design`, `frontend-design`
 
@@ -1097,12 +1097,12 @@ export function ProductsTable({ products, categories, lowStockCount }: ProductsT
           placeholder="Search products..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 max-w-xs bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#E5E5E5] placeholder:text-[#6B6B6B] focus:border-[#597794] focus:outline-none"
+          className="flex-1 max-w-xs bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#E5E5E5] placeholder:text-[#6B6B6B] focus:border-[#6F94B0] focus:outline-none"
         />
         <select
           value={categoryFilter}
           onChange={(e) => setCategoryFilter(e.target.value)}
-          className="bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#E5E5E5] focus:border-[#597794] focus:outline-none"
+          className="bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#E5E5E5] focus:border-[#6F94B0] focus:outline-none"
         >
           <option value="ALL">All Categories</option>
           {categories.map((c) => (
@@ -1127,7 +1127,7 @@ export function ProductsTable({ products, categories, lowStockCount }: ProductsT
         <div className="flex-1" />
         <Link
           href="/admin/shop/products/new"
-          className="flex items-center gap-2 bg-[#597794] text-white font-kosugi text-[11px] uppercase tracking-widest px-4 py-2 rounded-sm hover:bg-[#597794]/80 transition-colors"
+          className="flex items-center gap-2 bg-[#6F94B0] text-white font-kosugi text-[11px] uppercase tracking-widest px-4 py-2 rounded-sm hover:bg-[#6F94B0]/80 transition-colors"
         >
           <Plus size={14} />
           Add Product
@@ -1136,7 +1136,7 @@ export function ProductsTable({ products, categories, lowStockCount }: ProductsT
 
       {/* Bulk action bar */}
       {selected.size > 0 && (
-        <div className="flex items-center gap-3 mb-3 px-4 py-2 border border-[#597794]/30 rounded-sm bg-[#597794]/5">
+        <div className="flex items-center gap-3 mb-3 px-4 py-2 border border-[#6F94B0]/30 rounded-sm bg-[#6F94B0]/5">
           <span className="font-mohave text-[13px] text-[#E5E5E5]">{selected.size} selected</span>
           <div className="flex-1" />
           <button onClick={() => bulkAction("feature")} className="flex items-center gap-1.5 px-3 py-1.5 font-kosugi text-[11px] uppercase tracking-widest text-[#E5E5E5] border border-white/[0.12] rounded-sm hover:bg-white/[0.04] transition-colors">
@@ -1163,7 +1163,7 @@ export function ProductsTable({ products, categories, lowStockCount }: ProductsT
                 type="checkbox"
                 checked={selected.size === filtered.length && filtered.length > 0}
                 onChange={toggleAll}
-                className="accent-[#597794]"
+                className="accent-[#6F94B0]"
               />
             </th>
             <th className="w-[48px] px-2 py-3" />
@@ -1193,7 +1193,7 @@ export function ProductsTable({ products, categories, lowStockCount }: ProductsT
                     type="checkbox"
                     checked={selected.has(p.id)}
                     onChange={() => toggleSelect(p.id)}
-                    className="accent-[#597794]"
+                    className="accent-[#6F94B0]"
                   />
                 </td>
                 <td className="px-2 py-3">
@@ -1210,7 +1210,7 @@ export function ProductsTable({ products, categories, lowStockCount }: ProductsT
                 <td className="px-4 py-3">
                   <Link
                     href={`/admin/shop/products/${p.id}`}
-                    className="font-mohave text-[13px] text-[#E5E5E5] hover:text-[#597794] transition-colors"
+                    className="font-mohave text-[13px] text-[#E5E5E5] hover:text-[#6F94B0] transition-colors"
                   >
                     {p.name}
                   </Link>
@@ -1233,7 +1233,7 @@ export function ProductsTable({ products, categories, lowStockCount }: ProductsT
                   <button
                     onClick={() => toggleFeatured(p.id, p.isFeatured)}
                     className={`w-8 h-4 rounded-full transition-colors relative ${
-                      p.isFeatured ? "bg-[#597794]" : "bg-white/[0.08]"
+                      p.isFeatured ? "bg-[#6F94B0]" : "bg-white/[0.08]"
                     }`}
                   >
                     <span
@@ -1249,7 +1249,7 @@ export function ProductsTable({ products, categories, lowStockCount }: ProductsT
                       Archived
                     </span>
                   ) : (
-                    <span className="px-2 py-0.5 bg-[#597794]/20 rounded-sm font-kosugi text-[10px] uppercase tracking-widest text-[#597794]">
+                    <span className="px-2 py-0.5 bg-[#6F94B0]/20 rounded-sm font-kosugi text-[10px] uppercase tracking-widest text-[#6F94B0]">
                       Active
                     </span>
                   )}
@@ -1740,7 +1740,7 @@ function SortableImage({
     >
       <img src={url} alt="" className="w-full h-full object-cover" />
       {index === 0 && (
-        <span className="absolute top-1 left-1 px-1.5 py-0.5 bg-[#597794]/80 rounded-sm font-kosugi text-[8px] uppercase tracking-widest text-white">
+        <span className="absolute top-1 left-1 px-1.5 py-0.5 bg-[#6F94B0]/80 rounded-sm font-kosugi text-[8px] uppercase tracking-widest text-white">
           Primary
         </span>
       )}
@@ -1822,7 +1822,7 @@ export function ImageUploader({ images, onChange }: ImageUploaderProps) {
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
         className={`border-2 border-dashed rounded-sm p-6 text-center mb-4 transition-colors ${
-          dragOver ? "border-[#597794] bg-[#597794]/5" : "border-white/[0.08] bg-white/[0.02]"
+          dragOver ? "border-[#6F94B0] bg-[#6F94B0]/5" : "border-white/[0.08] bg-white/[0.02]"
         }`}
       >
         <Upload size={20} className="mx-auto mb-2 text-[#6B6B6B]" />
@@ -1954,7 +1954,7 @@ export function OptionManager({ options, onChange }: OptionManagerProps) {
               type="text"
               value={opt.name}
               onChange={(e) => updateOptionName(oi, e.target.value)}
-              className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-1.5 font-mohave text-[13px] text-[#E5E5E5] focus:border-[#597794] focus:outline-none"
+              className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-1.5 font-mohave text-[13px] text-[#E5E5E5] focus:border-[#6F94B0] focus:outline-none"
               placeholder="Option name (e.g., Size)"
             />
             <button
@@ -1994,11 +1994,11 @@ export function OptionManager({ options, onChange }: OptionManagerProps) {
             onKeyDown={(e) => e.key === "Enter" && addOption()}
             placeholder="Option name..."
             autoFocus
-            className="bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-1.5 font-mohave text-[13px] text-[#E5E5E5] focus:border-[#597794] focus:outline-none"
+            className="bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-1.5 font-mohave text-[13px] text-[#E5E5E5] focus:border-[#6F94B0] focus:outline-none"
           />
           <button
             onClick={addOption}
-            className="px-3 py-1.5 bg-[#597794] rounded-sm font-kosugi text-[11px] uppercase tracking-widest text-white"
+            className="px-3 py-1.5 bg-[#6F94B0] rounded-sm font-kosugi text-[11px] uppercase tracking-widest text-white"
           >
             Add
           </button>
@@ -2037,7 +2037,7 @@ function ValueInput({ onAdd }: { onAdd: (value: string) => void }) {
         }
       }}
       placeholder="+ value"
-      className="w-20 bg-transparent border-b border-white/[0.08] px-1 py-1 font-mohave text-[12px] text-[#6B6B6B] focus:text-[#E5E5E5] focus:border-[#597794] focus:outline-none placeholder:text-[#6B6B6B]/50"
+      className="w-20 bg-transparent border-b border-white/[0.08] px-1 py-1 font-mohave text-[12px] text-[#6B6B6B] focus:text-[#E5E5E5] focus:border-[#6F94B0] focus:outline-none placeholder:text-[#6B6B6B]/50"
     />
   );
 }
@@ -2222,7 +2222,7 @@ export function VariantMatrix({
                       type="text"
                       value={v.sku}
                       onChange={(e) => updateVariant(i, "sku", e.target.value)}
-                      className="w-full bg-transparent border-b border-white/[0.06] font-mohave text-[12px] text-[#E5E5E5] focus:border-[#597794] focus:outline-none py-1"
+                      className="w-full bg-transparent border-b border-white/[0.06] font-mohave text-[12px] text-[#E5E5E5] focus:border-[#6F94B0] focus:outline-none py-1"
                     />
                   </td>
                   <td className="px-3 py-2">
@@ -2233,7 +2233,7 @@ export function VariantMatrix({
                         step="0.01"
                         value={(v.priceCents / 100).toFixed(2)}
                         onChange={(e) => updateVariant(i, "priceCents", Math.round(parseFloat(e.target.value || "0") * 100))}
-                        className="w-16 bg-transparent border-b border-white/[0.06] font-mohave text-[12px] text-[#E5E5E5] focus:border-[#597794] focus:outline-none py-1 text-right"
+                        className="w-16 bg-transparent border-b border-white/[0.06] font-mohave text-[12px] text-[#E5E5E5] focus:border-[#6F94B0] focus:outline-none py-1 text-right"
                       />
                     </div>
                   </td>
@@ -2242,7 +2242,7 @@ export function VariantMatrix({
                       type="number"
                       value={v.stockQuantity}
                       onChange={(e) => updateVariant(i, "stockQuantity", parseInt(e.target.value || "0"))}
-                      className="w-14 bg-transparent border-b border-white/[0.06] font-mohave text-[12px] text-[#E5E5E5] focus:border-[#597794] focus:outline-none py-1 text-right"
+                      className="w-14 bg-transparent border-b border-white/[0.06] font-mohave text-[12px] text-[#E5E5E5] focus:border-[#6F94B0] focus:outline-none py-1 text-right"
                     />
                   </td>
                   <td className="px-3 py-2 font-mohave text-[12px] text-[#6B6B6B] text-right">
@@ -2255,7 +2255,7 @@ export function VariantMatrix({
                     <button
                       onClick={() => updateVariant(i, "isActive", !v.isActive)}
                       className={`w-8 h-4 rounded-full transition-colors relative ${
-                        v.isActive ? "bg-[#597794]" : "bg-white/[0.08]"
+                        v.isActive ? "bg-[#6F94B0]" : "bg-white/[0.08]"
                       }`}
                     >
                       <span
@@ -2302,7 +2302,7 @@ function BulkSetButton({
           }
         }}
         autoFocus
-        className="w-20 bg-white/[0.04] border border-white/[0.08] rounded-sm px-2 py-1 font-mohave text-[11px] text-[#E5E5E5] focus:border-[#597794] focus:outline-none"
+        className="w-20 bg-white/[0.04] border border-white/[0.08] rounded-sm px-2 py-1 font-mohave text-[11px] text-[#E5E5E5] focus:border-[#6F94B0] focus:outline-none"
       />
       <button
         onClick={() => {
@@ -2310,7 +2310,7 @@ function BulkSetButton({
           setOpen(false);
           setValue("");
         }}
-        className="px-2 py-1 bg-[#597794] rounded-sm font-kosugi text-[9px] uppercase text-white"
+        className="px-2 py-1 bg-[#6F94B0] rounded-sm font-kosugi text-[9px] uppercase text-white"
       >
         Set
       </button>
@@ -2532,7 +2532,7 @@ export function ProductEditor({ product, categories, options: initialOptions, va
           <button
             onClick={handleSave}
             disabled={saving || !name || !slug || !categoryId}
-            className="flex items-center gap-1.5 px-4 py-1.5 bg-[#597794] rounded-sm font-kosugi text-[11px] uppercase tracking-widest text-white hover:bg-[#597794]/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-1.5 px-4 py-1.5 bg-[#6F94B0] rounded-sm font-kosugi text-[11px] uppercase tracking-widest text-white hover:bg-[#6F94B0]/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Save size={12} /> {saving ? "Saving..." : "Save"}
           </button>
@@ -2561,7 +2561,7 @@ export function ProductEditor({ product, categories, options: initialOptions, va
               type="text"
               value={name}
               onChange={(e) => handleNameChange(e.target.value)}
-              className="w-full bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#E5E5E5] focus:border-[#597794] focus:outline-none"
+              className="w-full bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#E5E5E5] focus:border-[#6F94B0] focus:outline-none"
             />
           </div>
 
@@ -2573,7 +2573,7 @@ export function ProductEditor({ product, categories, options: initialOptions, va
               type="text"
               value={slug}
               onChange={(e) => setSlug(e.target.value)}
-              className="w-full bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#E5E5E5] focus:border-[#597794] focus:outline-none"
+              className="w-full bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#E5E5E5] focus:border-[#6F94B0] focus:outline-none"
             />
           </div>
 
@@ -2585,7 +2585,7 @@ export function ProductEditor({ product, categories, options: initialOptions, va
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
-              className="w-full bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#E5E5E5] focus:border-[#597794] focus:outline-none resize-none"
+              className="w-full bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#E5E5E5] focus:border-[#6F94B0] focus:outline-none resize-none"
             />
           </div>
 
@@ -2596,7 +2596,7 @@ export function ProductEditor({ product, categories, options: initialOptions, va
             <select
               value={categoryId}
               onChange={(e) => setCategoryId(e.target.value)}
-              className="w-full bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#E5E5E5] focus:border-[#597794] focus:outline-none"
+              className="w-full bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#E5E5E5] focus:border-[#6F94B0] focus:outline-none"
             >
               {categories.map((c) => (
                 <option key={c.id} value={c.id}>{c.name}</option>
@@ -2614,7 +2614,7 @@ export function ProductEditor({ product, categories, options: initialOptions, va
                 step="0.01"
                 value={(priceCents / 100).toFixed(2)}
                 onChange={(e) => setPriceCents(Math.round(parseFloat(e.target.value || "0") * 100))}
-                className="w-full bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#E5E5E5] focus:border-[#597794] focus:outline-none"
+                className="w-full bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#E5E5E5] focus:border-[#6F94B0] focus:outline-none"
               />
             </div>
             <div>
@@ -2625,7 +2625,7 @@ export function ProductEditor({ product, categories, options: initialOptions, va
                 type="text"
                 value={taxCode}
                 onChange={(e) => setTaxCode(e.target.value)}
-                className="w-full bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#E5E5E5] focus:border-[#597794] focus:outline-none"
+                className="w-full bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#E5E5E5] focus:border-[#6F94B0] focus:outline-none"
               />
             </div>
           </div>
@@ -2635,7 +2635,7 @@ export function ProductEditor({ product, categories, options: initialOptions, va
               <button
                 onClick={() => setIsFeatured(!isFeatured)}
                 className={`w-8 h-4 rounded-full transition-colors relative ${
-                  isFeatured ? "bg-[#597794]" : "bg-white/[0.08]"
+                  isFeatured ? "bg-[#6F94B0]" : "bg-white/[0.08]"
                 }`}
               >
                 <span className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform ${isFeatured ? "left-[18px]" : "left-0.5"}`} />
@@ -2646,7 +2646,7 @@ export function ProductEditor({ product, categories, options: initialOptions, va
               <button
                 onClick={() => setIsActive(!isActive)}
                 className={`w-8 h-4 rounded-full transition-colors relative ${
-                  isActive ? "bg-[#597794]" : "bg-white/[0.08]"
+                  isActive ? "bg-[#6F94B0]" : "bg-white/[0.08]"
                 }`}
               >
                 <span className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform ${isActive ? "left-[18px]" : "left-0.5"}`} />
@@ -2707,7 +2707,7 @@ Create `src/app/admin/shop/orders/_components/order-status-badge.tsx`:
 
 const STATUS_STYLES: Record<string, string> = {
   pending: "bg-white/[0.05] text-[#6B6B6B]",
-  paid: "bg-[#597794]/20 text-[#597794]",
+  paid: "bg-[#6F94B0]/20 text-[#6F94B0]",
   shipped: "bg-amber-500/20 text-amber-400",
   delivered: "bg-emerald-500/20 text-emerald-400",
   cancelled: "bg-red-500/10 text-[#6B6B6B] line-through",
@@ -2790,7 +2790,7 @@ export function OrdersTable({ orders, orderItemCounts }: OrdersTableProps) {
           placeholder="Search order # or email..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 max-w-xs bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#E5E5E5] placeholder:text-[#6B6B6B] focus:border-[#597794] focus:outline-none"
+          className="flex-1 max-w-xs bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#E5E5E5] placeholder:text-[#6B6B6B] focus:border-[#6F94B0] focus:outline-none"
         />
         <div className="flex items-center border border-white/[0.08] rounded-sm overflow-hidden">
           {statuses.map((s) => (
@@ -2842,7 +2842,7 @@ export function OrdersTable({ orders, orderItemCounts }: OrdersTableProps) {
                 <td className="px-4 py-3">
                   <Link
                     href={`/admin/shop/orders/${o.id}`}
-                    className="font-mohave text-[13px] text-[#597794] hover:underline"
+                    className="font-mohave text-[13px] text-[#6F94B0] hover:underline"
                   >
                     {o.orderNumber}
                   </Link>
@@ -2870,7 +2870,7 @@ export function OrdersTable({ orders, orderItemCounts }: OrdersTableProps) {
                       href={o.trackingUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-[#597794] hover:underline"
+                      className="text-[#6F94B0] hover:underline"
                     >
                       {o.trackingNumber}
                     </a>
@@ -3365,7 +3365,7 @@ export function OrderDetail({ order }: OrderDetailProps) {
               href={`https://dashboard.stripe.com/payments/${order.stripePaymentIntentId}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1.5 font-mohave text-[13px] text-[#597794] hover:underline"
+              className="flex items-center gap-1.5 font-mohave text-[13px] text-[#6F94B0] hover:underline"
             >
               View in Stripe <ExternalLink size={12} />
             </a>
@@ -3388,7 +3388,7 @@ export function OrderDetail({ order }: OrderDetailProps) {
             <button
               onClick={() => setShowShipForm(true)}
               disabled={saving}
-              className="flex items-center gap-1.5 px-4 py-1.5 bg-[#597794] rounded-sm font-kosugi text-[11px] uppercase tracking-widest text-white hover:bg-[#597794]/80 transition-colors disabled:opacity-50"
+              className="flex items-center gap-1.5 px-4 py-1.5 bg-[#6F94B0] rounded-sm font-kosugi text-[11px] uppercase tracking-widest text-white hover:bg-[#6F94B0]/80 transition-colors disabled:opacity-50"
             >
               <Truck size={12} /> Mark Shipped
             </button>
@@ -3425,7 +3425,7 @@ export function OrderDetail({ order }: OrderDetailProps) {
 
       {/* Ship form */}
       {showShipForm && (
-        <div className="border border-[#597794]/30 rounded-sm p-4 mb-6 bg-[#597794]/5">
+        <div className="border border-[#6F94B0]/30 rounded-sm p-4 mb-6 bg-[#6F94B0]/5">
           <p className="font-kosugi text-[11px] uppercase tracking-widest text-[#6B6B6B] mb-3">
             Shipping Details
           </p>
@@ -3438,7 +3438,7 @@ export function OrderDetail({ order }: OrderDetailProps) {
                 type="text"
                 value={trackingNumber}
                 onChange={(e) => setTrackingNumber(e.target.value)}
-                className="w-full bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#E5E5E5] focus:border-[#597794] focus:outline-none"
+                className="w-full bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#E5E5E5] focus:border-[#6F94B0] focus:outline-none"
               />
             </div>
             <div>
@@ -3449,7 +3449,7 @@ export function OrderDetail({ order }: OrderDetailProps) {
                 type="url"
                 value={trackingUrl}
                 onChange={(e) => setTrackingUrl(e.target.value)}
-                className="w-full bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#E5E5E5] focus:border-[#597794] focus:outline-none"
+                className="w-full bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#E5E5E5] focus:border-[#6F94B0] focus:outline-none"
               />
             </div>
           </div>
@@ -3457,7 +3457,7 @@ export function OrderDetail({ order }: OrderDetailProps) {
             <button
               onClick={handleShip}
               disabled={!trackingNumber || saving}
-              className="px-4 py-1.5 bg-[#597794] rounded-sm font-kosugi text-[11px] uppercase tracking-widest text-white hover:bg-[#597794]/80 transition-colors disabled:opacity-50"
+              className="px-4 py-1.5 bg-[#6F94B0] rounded-sm font-kosugi text-[11px] uppercase tracking-widest text-white hover:bg-[#6F94B0]/80 transition-colors disabled:opacity-50"
             >
               Confirm Ship
             </button>
@@ -3482,7 +3482,7 @@ export function OrderDetail({ order }: OrderDetailProps) {
           onBlur={() => action("notes", { notes })}
           rows={3}
           placeholder="Add internal notes..."
-          className="w-full bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#E5E5E5] placeholder:text-[#6B6B6B] focus:border-[#597794] focus:outline-none resize-none"
+          className="w-full bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#E5E5E5] placeholder:text-[#6B6B6B] focus:border-[#6F94B0] focus:outline-none resize-none"
         />
       </div>
 
@@ -3494,7 +3494,7 @@ export function OrderDetail({ order }: OrderDetailProps) {
         <div className="space-y-3">
           {timeline.map((t, i) => (
             <div key={i} className="flex items-start gap-3">
-              <div className="w-1.5 h-1.5 rounded-full bg-[#597794] mt-1.5 flex-shrink-0" />
+              <div className="w-1.5 h-1.5 rounded-full bg-[#6F94B0] mt-1.5 flex-shrink-0" />
               <div>
                 <p className="font-mohave text-[12px] text-[#6B6B6B]">
                   {new Date(t.time).toLocaleString()}

@@ -28,7 +28,7 @@ export function BriefingHeroClient({ briefing }: { briefing: AdBriefing | null }
 
       {briefing ? (
         <>
-          <p className="font-mohave text-[14px] text-[#E5E5E5] leading-relaxed mb-4">
+          <p className="font-mohave text-[14px] text-[#EDEDED] leading-relaxed mb-4">
             {briefing.summary}
           </p>
 
@@ -38,13 +38,13 @@ export function BriefingHeroClient({ briefing }: { briefing: AdBriefing | null }
               <span className={`font-mohave text-[11px] uppercase shrink-0 ${
                 item.priority === "high" ? "text-[#93321A]" : item.priority === "medium" ? "text-[#C4A868]" : "text-[#6B6B6B]"
               }`}>[{item.priority}]</span>
-              <span className="font-mohave text-[13px] text-[#E5E5E5]">{item.action}</span>
+              <span className="font-mohave text-[13px] text-[#EDEDED]">{item.action}</span>
             </div>
           ))}
 
           <Link
             href={`/admin/google-ads/briefings/${briefing.id}`}
-            className="inline-block mt-4 font-mono text-[11px] text-[#597794] hover:text-[#E5E5E5] transition-colors duration-100"
+            className="inline-block mt-4 font-mono text-[11px] text-[#6F94B0] hover:text-[#EDEDED] transition-colors duration-100"
           >
             View full briefing →
           </Link>

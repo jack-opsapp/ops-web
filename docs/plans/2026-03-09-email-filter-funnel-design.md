@@ -43,7 +43,7 @@ Full-width Canvas 2D component at top of the Filters step. Below it: filter cont
 
 | Node | Label | Glow Color |
 |------|-------|------------|
-| Source | "500 emails sampled" | Accent blue `#597794` |
+| Source | "500 emails sampled" | Accent blue `#6F94B0` |
 | Preset Blocklist | "Newsletters & notifications" | Amber `#C4A868` |
 | AI Blocked Domains | "Blocked domains" | Amber `#C4A868` |
 | AI Blocked Addresses | "Blocked addresses" | Amber `#C4A868` |
@@ -79,7 +79,7 @@ Each filter node shows its removal count (e.g., "-112").
 - ~200 ambient background stars with gentle drift
 - RequestAnimationFrame loop, cleanup on unmount
 - `prefers-reduced-motion`: static nodes + lines, no particles or flow animation
-- Colors: accent blue `#597794`, amber `#C4A868`, green `#9DB582`
+- Colors: accent blue `#6F94B0`, amber `#C4A868`, green `#9DB582`
 
 ---
 

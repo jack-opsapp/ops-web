@@ -134,7 +134,7 @@ export function NoteComposer({
               </button>
               {att.caption && (
                 <div className="absolute bottom-0 left-0 right-0 rounded-b-lg bg-black/70 px-1 py-0.5">
-                  <span className="text-micro text-[#E5E5E5] line-clamp-1">
+                  <span className="text-micro text-[#EDEDED] line-clamp-1">
                     {att.caption}
                   </span>
                 </div>
@@ -189,7 +189,7 @@ export function NoteComposer({
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="rounded p-1.5 text-[#999] transition hover:bg-white/10 hover:text-[#E5E5E5]"
+            className="rounded p-1.5 text-[#999] transition hover:bg-white/10 hover:text-[#EDEDED]"
             title="Attach photos"
           >
             <ImageIcon className="h-4 w-4" />
@@ -210,7 +210,7 @@ export function NoteComposer({
           {onCancel && (
             <button
               onClick={onCancel}
-              className="rounded-md px-3 py-1.5 text-xs text-[#999] hover:text-[#E5E5E5]"
+              className="rounded-md px-3 py-1.5 text-xs text-[#999] hover:text-[#EDEDED]"
             >
               Cancel
             </button>

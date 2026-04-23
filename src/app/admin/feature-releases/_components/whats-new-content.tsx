@@ -49,9 +49,9 @@ interface BetaRequest {
 
 const STATUS_OPTIONS = [
   { value: "planned", label: "Planned", icon: Lightbulb, color: "#6B6B6B" },
-  { value: "in_development", label: "In Development", icon: Clock, color: "#E5E5E5" },
+  { value: "in_development", label: "In Development", icon: Clock, color: "#EDEDED" },
   { value: "in_testing", label: "In Testing", icon: FlaskConical, color: "#C4A868" },
-  { value: "coming_soon", label: "Coming Soon", icon: Rocket, color: "#8195B5" },
+  { value: "coming_soon", label: "Coming Soon", icon: Rocket, color: "#D99A3E" },
   { value: "shipped", label: "Shipped", icon: PackageCheck, color: "#9DB582" },
   { value: "completed", label: "Completed", icon: CheckCircle2, color: "#9DB582" },
 ];
@@ -227,7 +227,7 @@ export function WhatsNewContent() {
         {/* ── Left: Categories & Items ── */}
         <div className="space-y-3">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-mohave text-[14px] uppercase tracking-widest text-[#E5E5E5]">
+            <h2 className="font-mohave text-[14px] uppercase tracking-widest text-[#EDEDED]">
               Categories & Items
             </h2>
             <span className="font-mono text-[12px] text-[#6B6B6B]">
@@ -270,7 +270,7 @@ export function WhatsNewContent() {
           ) : (
             <button
               onClick={() => setShowNewCategory(true)}
-              className="flex items-center gap-2 px-4 py-3 w-full border border-dashed border-white/[0.12] rounded-lg text-[#6B6B6B] hover:text-[#E5E5E5] hover:border-white/[0.2] transition-colors"
+              className="flex items-center gap-2 px-4 py-3 w-full border border-dashed border-white/[0.12] rounded-lg text-[#6B6B6B] hover:text-[#EDEDED] hover:border-white/[0.2] transition-colors"
             >
               <Plus className="w-4 h-4" />
               <span className="font-mohave text-[13px] uppercase tracking-wider">Add Category</span>
@@ -281,7 +281,7 @@ export function WhatsNewContent() {
         {/* ── Right: Beta Access Requests ── */}
         <div className="space-y-3">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-mohave text-[14px] uppercase tracking-widest text-[#E5E5E5]">
+            <h2 className="font-mohave text-[14px] uppercase tracking-widest text-[#EDEDED]">
               Beta Requests
               {pendingCount > 0 && (
                 <span className="ml-2 px-2 py-0.5 bg-[#C4A868]/20 text-[#C4A868] text-[11px] rounded">
@@ -299,7 +299,7 @@ export function WhatsNewContent() {
                 onClick={() => setRequestFilter(f)}
                 className={`px-3 py-1.5 font-mohave text-[11px] uppercase tracking-wider rounded transition-colors ${
                   requestFilter === f
-                    ? "bg-white/[0.08] text-[#E5E5E5]"
+                    ? "bg-white/[0.08] text-[#EDEDED]"
                     : "text-[#6B6B6B] hover:text-[#A0A0A0]"
                 }`}
               >
@@ -321,7 +321,7 @@ export function WhatsNewContent() {
                     className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/[0.02] transition-colors"
                   >
                     <div className="text-left min-w-0">
-                      <div className="font-mohave text-[13px] text-[#E5E5E5] truncate">
+                      <div className="font-mohave text-[13px] text-[#EDEDED] truncate">
                         {req.user_name}
                       </div>
                       <div className="font-mono text-[11px] text-[#6B6B6B] truncate">
@@ -371,7 +371,7 @@ export function WhatsNewContent() {
                               onChange={(e) => setAdminNotes(e.target.value)}
                               placeholder="Add notes for the email..."
                               rows={2}
-                              className="w-full bg-white/[0.05] border border-white/[0.08] rounded px-3 py-2 font-mono text-[12px] text-[#E5E5E5] placeholder:text-[#6B6B6B] outline-none focus:border-[#597794]/50 resize-none"
+                              className="w-full bg-white/[0.05] border border-white/[0.08] rounded px-3 py-2 font-mono text-[12px] text-[#EDEDED] placeholder:text-[#6B6B6B] outline-none focus:border-[#6F94B0]/50 resize-none"
                             />
                           </div>
                           <div className="flex gap-2">
@@ -441,7 +441,7 @@ function CategoryCard({
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3">
         <div className="flex items-center gap-3 min-w-0">
-          <button onClick={onToggleExpand} className="text-[#6B6B6B] hover:text-[#E5E5E5] transition-colors flex-shrink-0">
+          <button onClick={onToggleExpand} className="text-[#6B6B6B] hover:text-[#EDEDED] transition-colors flex-shrink-0">
             {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
           </button>
 
@@ -450,25 +450,25 @@ function CategoryCard({
               <input
                 value={editIcon}
                 onChange={(e) => setEditIcon(e.target.value)}
-                className="w-20 bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1 font-mono text-[11px] text-[#E5E5E5] outline-none"
+                className="w-20 bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1 font-mono text-[11px] text-[#EDEDED] outline-none"
                 placeholder="icon"
               />
               <input
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
-                className="flex-1 bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1 font-mohave text-[14px] text-[#E5E5E5] outline-none"
+                className="flex-1 bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1 font-mohave text-[14px] text-[#EDEDED] outline-none"
               />
               <button onClick={() => { onUpdateCategory(category.id, { name: editName, icon: editIcon }); }} className="text-[#9DB582] hover:text-[#9DB582]/80">
                 <Check className="w-4 h-4" />
               </button>
-              <button onClick={() => setEditingCat(null)} className="text-[#6B6B6B] hover:text-[#E5E5E5]">
+              <button onClick={() => setEditingCat(null)} className="text-[#6B6B6B] hover:text-[#EDEDED]">
                 <X className="w-4 h-4" />
               </button>
             </div>
           ) : (
             <div className="flex items-center gap-2">
               <span className="font-mono text-[11px] text-[#6B6B6B] bg-white/[0.05] px-1.5 py-0.5 rounded">{category.icon}</span>
-              <h3 className="font-cakemono text-[15px] font-light uppercase text-[#E5E5E5]">{category.name}</h3>
+              <h3 className="font-cakemono text-[15px] font-light uppercase text-[#EDEDED]">{category.name}</h3>
               <span className="font-mono text-[11px] text-[#6B6B6B]">{category.whats_new_items.length} items</span>
             </div>
           )}
@@ -476,10 +476,10 @@ function CategoryCard({
 
         {!isEditing && (
           <div className="flex items-center gap-2 flex-shrink-0">
-            <button onClick={() => onUpdateCategory(category.id, { is_active: !category.is_active })} className="text-[#6B6B6B] hover:text-[#E5E5E5] transition-colors" title={category.is_active ? "Hide" : "Show"}>
+            <button onClick={() => onUpdateCategory(category.id, { is_active: !category.is_active })} className="text-[#6B6B6B] hover:text-[#EDEDED] transition-colors" title={category.is_active ? "Hide" : "Show"}>
               {category.is_active ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
             </button>
-            <button onClick={() => { setEditingCat(category.id); setEditName(category.name); setEditIcon(category.icon); }} className="text-[#6B6B6B] hover:text-[#597794] transition-colors">
+            <button onClick={() => { setEditingCat(category.id); setEditName(category.name); setEditIcon(category.icon); }} className="text-[#6B6B6B] hover:text-[#6F94B0] transition-colors">
               <Edit2 className="w-3.5 h-3.5" />
             </button>
             <button onClick={() => onDeleteCategory(category.id)} className="text-[#6B6B6B] hover:text-[#93321A] transition-colors">
@@ -512,7 +512,7 @@ function CategoryCard({
           ) : (
             <button
               onClick={() => setAddingItemToCat(category.id)}
-              className="flex items-center gap-2 px-6 py-2.5 w-full text-[#6B6B6B] hover:text-[#E5E5E5] hover:bg-white/[0.02] transition-colors"
+              className="flex items-center gap-2 px-6 py-2.5 w-full text-[#6B6B6B] hover:text-[#EDEDED] hover:bg-white/[0.02] transition-colors"
             >
               <Plus className="w-3 h-3" />
               <span className="font-mohave text-[11px] uppercase tracking-wider">Add Item</span>
@@ -548,18 +548,18 @@ function ItemRow({
     return (
       <div className="px-6 py-3 border-b border-white/[0.04] space-y-2 bg-white/[0.02]">
         <div className="grid grid-cols-[80px_1fr] gap-2">
-          <input value={icon} onChange={(e) => setIcon(e.target.value)} placeholder="icon" className="bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1.5 font-mono text-[11px] text-[#E5E5E5] outline-none" />
-          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" className="bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1.5 font-mono text-[12px] text-[#E5E5E5] outline-none" />
+          <input value={icon} onChange={(e) => setIcon(e.target.value)} placeholder="icon" className="bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1.5 font-mono text-[11px] text-[#EDEDED] outline-none" />
+          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" className="bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1.5 font-mono text-[12px] text-[#EDEDED] outline-none" />
         </div>
-        <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description" rows={2} className="w-full bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1.5 font-mono text-[12px] text-[#E5E5E5] outline-none resize-none" />
+        <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description" rows={2} className="w-full bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1.5 font-mono text-[12px] text-[#EDEDED] outline-none resize-none" />
         <div className="flex gap-2">
-          <select value={status} onChange={(e) => setStatus(e.target.value)} className="bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1.5 font-mohave text-[11px] uppercase text-[#E5E5E5] outline-none">
+          <select value={status} onChange={(e) => setStatus(e.target.value)} className="bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1.5 font-mohave text-[11px] uppercase text-[#EDEDED] outline-none">
             {STATUS_OPTIONS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
           </select>
-          <input value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="feature_flag_slug (optional)" className="flex-1 bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1.5 font-mono text-[11px] text-[#E5E5E5] outline-none" />
+          <input value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="feature_flag_slug (optional)" className="flex-1 bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1.5 font-mono text-[11px] text-[#EDEDED] outline-none" />
         </div>
         <div className="flex justify-end gap-2">
-          <button onClick={onCancelEdit} className="px-3 py-1.5 font-mohave text-[11px] uppercase text-[#6B6B6B] hover:text-[#E5E5E5]">Cancel</button>
+          <button onClick={onCancelEdit} className="px-3 py-1.5 font-mohave text-[11px] uppercase text-[#6B6B6B] hover:text-[#EDEDED]">Cancel</button>
           <button onClick={() => onUpdate(item.id, { title, description, icon, status, feature_flag_slug: slug || null })} className="flex items-center gap-1 px-3 py-1.5 bg-[#9DB582]/20 border border-[#9DB582]/30 rounded font-mohave text-[11px] uppercase text-[#9DB582] hover:bg-[#9DB582]/30">
             <Check className="w-3 h-3" /> Save
           </button>
@@ -573,9 +573,9 @@ function ItemRow({
       <div className="flex items-center gap-3 min-w-0">
         <span className="font-mono text-micro text-[#6B6B6B] w-16 truncate flex-shrink-0">{item.icon}</span>
         <div className="min-w-0">
-          <span className="font-mono text-[13px] text-[#E5E5E5]">{item.title}</span>
+          <span className="font-mono text-[13px] text-[#EDEDED]">{item.title}</span>
           {item.feature_flag_slug && (
-            <span className="ml-2 font-mono text-micro text-[#597794] bg-ops-accent/10 px-1.5 py-0.5 rounded">{item.feature_flag_slug}</span>
+            <span className="ml-2 font-mono text-micro text-[#6F94B0] bg-ops-accent/10 px-1.5 py-0.5 rounded">{item.feature_flag_slug}</span>
           )}
         </div>
       </div>
@@ -583,10 +583,10 @@ function ItemRow({
         <span className="font-mohave text-micro uppercase tracking-widest" style={{ color: statusOption?.color ?? "#6B6B6B" }}>
           {statusOption?.label ?? item.status}
         </span>
-        <button onClick={() => onUpdate(item.id, { is_active: !item.is_active })} className="text-[#6B6B6B] hover:text-[#E5E5E5] transition-colors">
+        <button onClick={() => onUpdate(item.id, { is_active: !item.is_active })} className="text-[#6B6B6B] hover:text-[#EDEDED] transition-colors">
           {item.is_active ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
         </button>
-        <button onClick={onStartEdit} className="text-[#6B6B6B] hover:text-[#597794] transition-colors">
+        <button onClick={onStartEdit} className="text-[#6B6B6B] hover:text-[#6F94B0] transition-colors">
           <Edit2 className="w-3 h-3" />
         </button>
         <button onClick={() => onDelete(item.id)} className="text-[#6B6B6B] hover:text-[#93321A] transition-colors">
@@ -604,13 +604,13 @@ function NewCategoryForm({ onSubmit, onCancel }: { onSubmit: (name: string, icon
   const [icon, setIcon] = useState("star");
 
   return (
-    <div className="border border-[#597794]/30 rounded-lg px-4 py-3 space-y-2">
+    <div className="border border-[#6F94B0]/30 rounded-lg px-4 py-3 space-y-2">
       <div className="flex gap-2">
-        <input value={icon} onChange={(e) => setIcon(e.target.value)} placeholder="icon" className="w-24 bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1.5 font-mono text-[11px] text-[#E5E5E5] outline-none" />
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Category name" className="flex-1 bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1.5 font-mohave text-[14px] text-[#E5E5E5] outline-none" autoFocus />
+        <input value={icon} onChange={(e) => setIcon(e.target.value)} placeholder="icon" className="w-24 bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1.5 font-mono text-[11px] text-[#EDEDED] outline-none" />
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Category name" className="flex-1 bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1.5 font-mohave text-[14px] text-[#EDEDED] outline-none" autoFocus />
       </div>
       <div className="flex justify-end gap-2">
-        <button onClick={onCancel} className="px-3 py-1.5 font-mohave text-[11px] uppercase text-[#6B6B6B] hover:text-[#E5E5E5]">Cancel</button>
+        <button onClick={onCancel} className="px-3 py-1.5 font-mohave text-[11px] uppercase text-[#6B6B6B] hover:text-[#EDEDED]">Cancel</button>
         <button onClick={() => name && onSubmit(name, icon)} disabled={!name} className="px-3 py-1.5 bg-ops-accent rounded font-mohave text-[11px] uppercase text-white hover:bg-ops-accent/80 disabled:opacity-40">Create</button>
       </div>
     </div>
@@ -627,20 +627,20 @@ function NewItemForm({ onSubmit, onCancel }: { onSubmit: (title: string, desc: s
   const [slug, setSlug] = useState("");
 
   return (
-    <div className="px-6 py-3 border-t border-[#597794]/20 bg-ops-accent/5 space-y-2">
+    <div className="px-6 py-3 border-t border-[#6F94B0]/20 bg-ops-accent/5 space-y-2">
       <div className="grid grid-cols-[80px_1fr] gap-2">
-        <input value={icon} onChange={(e) => setIcon(e.target.value)} placeholder="icon" className="bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1.5 font-mono text-[11px] text-[#E5E5E5] outline-none" />
-        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" className="bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1.5 font-mono text-[12px] text-[#E5E5E5] outline-none" autoFocus />
+        <input value={icon} onChange={(e) => setIcon(e.target.value)} placeholder="icon" className="bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1.5 font-mono text-[11px] text-[#EDEDED] outline-none" />
+        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" className="bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1.5 font-mono text-[12px] text-[#EDEDED] outline-none" autoFocus />
       </div>
-      <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description" rows={2} className="w-full bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1.5 font-mono text-[12px] text-[#E5E5E5] outline-none resize-none" />
+      <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description" rows={2} className="w-full bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1.5 font-mono text-[12px] text-[#EDEDED] outline-none resize-none" />
       <div className="flex gap-2">
-        <select value={status} onChange={(e) => setStatus(e.target.value)} className="bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1.5 font-mohave text-[11px] uppercase text-[#E5E5E5] outline-none">
+        <select value={status} onChange={(e) => setStatus(e.target.value)} className="bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1.5 font-mohave text-[11px] uppercase text-[#EDEDED] outline-none">
           {STATUS_OPTIONS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
         </select>
-        <input value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="feature_flag_slug (optional)" className="flex-1 bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1.5 font-mono text-[11px] text-[#E5E5E5] outline-none" />
+        <input value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="feature_flag_slug (optional)" className="flex-1 bg-white/[0.05] border border-white/[0.08] rounded px-2 py-1.5 font-mono text-[11px] text-[#EDEDED] outline-none" />
       </div>
       <div className="flex justify-end gap-2">
-        <button onClick={onCancel} className="px-3 py-1.5 font-mohave text-[11px] uppercase text-[#6B6B6B] hover:text-[#E5E5E5]">Cancel</button>
+        <button onClick={onCancel} className="px-3 py-1.5 font-mohave text-[11px] uppercase text-[#6B6B6B] hover:text-[#EDEDED]">Cancel</button>
         <button onClick={() => title && onSubmit(title, description, icon, status, slug)} disabled={!title} className="px-3 py-1.5 bg-ops-accent rounded font-mohave text-[11px] uppercase text-white hover:bg-ops-accent/80 disabled:opacity-40">Create</button>
       </div>
     </div>

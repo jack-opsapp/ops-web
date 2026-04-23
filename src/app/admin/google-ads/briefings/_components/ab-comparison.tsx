@@ -14,7 +14,7 @@ export function ABComparison({ proposals }: { proposals: ABTestProposal[] }) {
         {proposals.map((p, i) => (
           <div key={i} className="border border-white/[0.08] rounded-lg overflow-hidden">
             <div className="px-4 py-2 bg-white/[0.02] border-b border-white/[0.06]">
-              <p className="font-mohave text-[13px] text-[#E5E5E5]">{p.name}</p>
+              <p className="font-mohave text-[13px] text-[#EDEDED]">{p.name}</p>
             </div>
             <div className="grid grid-cols-2">
               {/* Current */}
@@ -24,9 +24,9 @@ export function ABComparison({ proposals }: { proposals: ABTestProposal[] }) {
                 <p className="font-mohave text-[12px] text-[#6B6B6B] mt-1">{p.currentAd.description}</p>
               </div>
               {/* Proposed */}
-              <div className="p-4 border-l border-[#597794]/20">
-                <p className="font-mono text-micro uppercase tracking-wider text-[#597794] mb-2">Proposed</p>
-                <p className="font-mohave text-[14px] text-[#E5E5E5]">{p.proposedAd.headline}</p>
+              <div className="p-4 border-l border-[#6F94B0]/20">
+                <p className="font-mono text-micro uppercase tracking-wider text-[#6F94B0] mb-2">Proposed</p>
+                <p className="font-mohave text-[14px] text-[#EDEDED]">{p.proposedAd.headline}</p>
                 <p className="font-mohave text-[12px] text-[#A0A0A0] mt-1">{p.proposedAd.description}</p>
               </div>
             </div>

@@ -59,7 +59,7 @@ function AuditLogTab({ entries }: { entries: AuditLogEntry[] }) {
         <select
           value={tableFilter}
           onChange={(e) => setTableFilter(e.target.value)}
-          className="bg-transparent border border-white/[0.08] rounded-lg px-3 py-1.5 font-mohave text-[12px] text-[#E5E5E5] uppercase focus:outline-none focus:border-[#597794]"
+          className="bg-transparent border border-white/[0.08] rounded-lg px-3 py-1.5 font-mohave text-[12px] text-[#EDEDED] uppercase focus:outline-none focus:border-[#6F94B0]"
         >
           <option value="ALL" className="bg-glass glass-surface">All Tables</option>
           {tables.map((t) => (
@@ -74,7 +74,7 @@ function AuditLogTab({ entries }: { entries: AuditLogEntry[] }) {
               className={[
                 "px-3 py-1.5 rounded-full font-mohave text-[12px] uppercase border transition-colors",
                 actionFilter === a
-                  ? "text-[#E5E5E5] border-white/[0.12] bg-white/[0.05]"
+                  ? "text-[#EDEDED] border-white/[0.12] bg-white/[0.05]"
                   : "text-[#6B6B6B] border-white/[0.05] hover:text-[#A0A0A0]",
               ].join(" ")}
             >
@@ -101,10 +101,10 @@ function AuditLogTab({ entries }: { entries: AuditLogEntry[] }) {
             className="grid grid-cols-5 px-6 items-center h-14 border-b border-white/[0.05] cursor-pointer hover:bg-white/[0.02] transition-colors"
             onClick={() => setExpandedId(expandedId === entry.id ? null : entry.id)}
           >
-            <span className="font-mohave text-[14px] text-[#E5E5E5]">{entry.table_name}</span>
+            <span className="font-mohave text-[14px] text-[#EDEDED]">{entry.table_name}</span>
             <span className={`font-mohave text-[13px] uppercase ${
               entry.action === "INSERT" ? "text-[#9DB582]" :
-              entry.action === "UPDATE" ? "text-[#8195B5]" :
+              entry.action === "UPDATE" ? "text-[#D99A3E]" :
               entry.action === "DELETE" ? "text-[#93321A]" : "text-[#A0A0A0]"
             }`}>
               {entry.action}
@@ -113,7 +113,7 @@ function AuditLogTab({ entries }: { entries: AuditLogEntry[] }) {
             <span className="font-mono text-[12px] text-[#6B6B6B]">
               [{new Date(entry.created_at).toLocaleString()}]
             </span>
-            <span className="font-mohave text-[12px] text-[#597794]">
+            <span className="font-mohave text-[12px] text-[#6F94B0]">
               {expandedId === entry.id ? "COLLAPSE" : "EXPAND"}
             </span>
           </div>
@@ -167,7 +167,7 @@ function DataQualityTab({ issues }: { issues: DataQualityIssue[] }) {
               <span className={`font-mohave text-[14px] ${style.text}`}>{issue.check}</span>
             </div>
             {issue.count > 0 && (
-              <span className="font-mohave text-[14px] text-[#E5E5E5]">{issue.count}</span>
+              <span className="font-mohave text-[14px] text-[#EDEDED]">{issue.count}</span>
             )}
           </div>
         );
@@ -195,7 +195,7 @@ function IntegrationsTab({ data }: { data: SystemContentProps["integrations"] })
         const pct = item.total > 0 ? Math.round((item.count / item.total) * 100) : 0;
         return (
           <div key={item.label} className="grid grid-cols-3 px-6 items-center h-14 border-b border-white/[0.05] last:border-0">
-            <span className="font-mohave text-[14px] text-[#E5E5E5]">{item.label}</span>
+            <span className="font-mohave text-[14px] text-[#EDEDED]">{item.label}</span>
             <span className="font-mohave text-[14px] text-[#A0A0A0]">
               {item.count} / {item.total}
             </span>
@@ -224,7 +224,7 @@ function DatabaseTab({ stats }: { stats: TableStats[] }) {
     <div className="space-y-4">
       <div className="border border-white/[0.08] rounded-lg p-4 inline-flex items-center gap-4">
         <span className="font-mohave text-[13px] uppercase text-[#6B6B6B]">Total Rows</span>
-        <span className="font-mohave text-2xl text-[#E5E5E5]">{totalRows.toLocaleString()}</span>
+        <span className="font-mohave text-2xl text-[#EDEDED]">{totalRows.toLocaleString()}</span>
         <span className="font-mohave text-[13px] uppercase text-[#6B6B6B]">across {stats.length} tables</span>
       </div>
 
@@ -244,7 +244,7 @@ function DatabaseTab({ stats }: { stats: TableStats[] }) {
             >
               {col.label}
               {col.key && sort.sort.key === col.key && (
-                <span className="text-[#597794]">{sort.sort.dir === "asc" ? "↑" : "↓"}</span>
+                <span className="text-[#6F94B0]">{sort.sort.dir === "asc" ? "↑" : "↓"}</span>
               )}
             </span>
           ))}
@@ -253,7 +253,7 @@ function DatabaseTab({ stats }: { stats: TableStats[] }) {
           const pct = totalRows > 0 ? Math.round((t.rowCount / totalRows) * 100) : 0;
           return (
             <div key={t.table} className="grid grid-cols-3 px-6 items-center h-12 border-b border-white/[0.05] last:border-0">
-              <span className="font-mohave text-[14px] text-[#E5E5E5] font-mono">{t.table}</span>
+              <span className="font-mohave text-[14px] text-[#EDEDED] font-mono">{t.table}</span>
               <span className="font-mohave text-[14px] text-[#A0A0A0]">{t.rowCount.toLocaleString()}</span>
               <div className="flex items-center gap-2">
                 <div className="w-24 h-1.5 bg-white/[0.05] rounded-full overflow-hidden">

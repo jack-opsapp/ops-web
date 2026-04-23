@@ -24,7 +24,7 @@ export default async function LearnCourseDetailPage({
     return (
       <div className="p-8">
         <h1 className="text-red-400 font-mohave text-lg mb-4">Course Data Fetch Failed</h1>
-        <pre className="text-[13px] text-[#E5E5E5] bg-white/[0.05] rounded p-4 whitespace-pre-wrap">
+        <pre className="text-[13px] text-[#EDEDED] bg-white/[0.05] rounded p-4 whitespace-pre-wrap">
           {err instanceof Error ? `${err.message}\n\n${err.stack}` : String(err)}
         </pre>
       </div>
@@ -43,7 +43,7 @@ export default async function LearnCourseDetailPage({
         {/* Back link */}
         <Link
           href="/admin/learn"
-          className="inline-flex items-center gap-1.5 font-mohave text-[13px] text-[#6B6B6B] hover:text-[#E5E5E5] transition-colors"
+          className="inline-flex items-center gap-1.5 font-mohave text-[13px] text-[#6B6B6B] hover:text-[#EDEDED] transition-colors"
         >
           ← All Courses
         </Link>

@@ -21,7 +21,7 @@ export function SubTabs({ tabs, defaultTab, children }: SubTabsProps) {
             className={[
               "px-5 py-2.5 font-mohave text-[13px] uppercase tracking-wider transition-colors relative",
               activeTab === tab
-                ? "text-[#E5E5E5]"
+                ? "text-[#EDEDED]"
                 : "text-[#6B6B6B] hover:text-[#A0A0A0]",
             ].join(" ")}
           >

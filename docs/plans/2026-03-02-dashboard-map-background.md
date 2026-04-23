@@ -245,11 +245,11 @@ export function createEventPinIcon(eventTitle: string): L.DivIcon {
       ">
         <div style="
           width: 20px; height: 20px;
-          background: rgba(89,119,148,0.85);
-          border: 1.5px solid rgba(89,119,148,0.6);
+          background: rgba(111,148,176,0.85);
+          border: 1.5px solid rgba(111,148,176,0.6);
           border-radius: 3px;
           transform: rotate(45deg);
-          box-shadow: 0 0 8px rgba(89,119,148,0.25);
+          box-shadow: 0 0 8px rgba(111,148,176,0.25);
           display: flex; align-items: center; justify-content: center;
           transition: transform 0.15s ease;
         ">
@@ -379,7 +379,7 @@ export function eventPopupHtml(title: string, date?: string): string {
     min-width: 120px; border: 1px solid rgba(255,255,255,0.08);
   ">
     <div style="font-size: 13px; font-weight: 600;">${title}</div>
-    ${date ? `<div style="font-size: 10px; color: #597794; font-family: 'Kosugi', sans-serif; margin-top: 2px;">${date}</div>` : ""}
+    ${date ? `<div style="font-size: 10px; color: #6F94B0; font-family: 'Kosugi', sans-serif; margin-top: 2px;">${date}</div>` : ""}
   </div>`;
 }
 ```

@@ -424,7 +424,7 @@ export function WhatsNewContent() {
       {/* Header row: title + beta requests badge */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <h2 className="font-mohave text-[14px] uppercase tracking-widest text-[#E5E5E5]">
+          <h2 className="font-mohave text-[14px] uppercase tracking-widest text-[#EDEDED]">
             Categories & Items
           </h2>
           <span className="font-mono text-[12px] text-[#6B6B6B]">
@@ -434,7 +434,7 @@ export function WhatsNewContent() {
         </div>
         <button
           onClick={() => setDrawerOpen(true)}
-          className="flex items-center gap-2 px-3 py-1.5 rounded border border-white/[0.08] text-[#6B6B6B] hover:text-[#E5E5E5] hover:border-white/[0.15] transition-colors"
+          className="flex items-center gap-2 px-3 py-1.5 rounded border border-white/[0.08] text-[#6B6B6B] hover:text-[#EDEDED] hover:border-white/[0.15] transition-colors"
         >
           <Flag className="w-3.5 h-3.5" />
           <span className="font-mohave text-[11px] uppercase tracking-wider">Beta Requests</span>
@@ -459,7 +459,7 @@ export function WhatsNewContent() {
           <p className="font-mono text-[12px] text-[#6B6B6B]">No categories yet</p>
           <button
             onClick={() => setShowNewCategory(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 border border-dashed border-white/[0.12] rounded text-[#6B6B6B] hover:text-[#E5E5E5] hover:border-white/[0.2] transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2 border border-dashed border-white/[0.12] rounded text-[#6B6B6B] hover:text-[#EDEDED] hover:border-white/[0.2] transition-colors"
           >
             <Plus className="w-4 h-4" />
             <span className="font-mohave text-[13px] uppercase tracking-wider">Add Category</span>
@@ -496,7 +496,7 @@ export function WhatsNewContent() {
           {/* Drag overlay — renders a ghost of the dragged item */}
           <DragOverlay>
             {activeItem ? (
-              <div className="bg-glass glass-surface border border-[#597794]/40 rounded opacity-90 shadow-lg">
+              <div className="bg-glass glass-surface border border-[#6F94B0]/40 rounded opacity-90 shadow-lg">
                 <ItemRow
                   item={activeItem}
                   onStatusChange={() => {}}
@@ -520,7 +520,7 @@ export function WhatsNewContent() {
         ) : (
           <button
             onClick={() => setShowNewCategory(true)}
-            className="flex items-center gap-2 px-4 py-3 w-full border border-dashed border-white/[0.12] rounded text-[#6B6B6B] hover:text-[#E5E5E5] hover:border-white/[0.2] transition-colors"
+            className="flex items-center gap-2 px-4 py-3 w-full border border-dashed border-white/[0.12] rounded text-[#6B6B6B] hover:text-[#EDEDED] hover:border-white/[0.2] transition-colors"
           >
             <Plus className="w-4 h-4" />
             <span className="font-mohave text-[13px] uppercase tracking-wider">Add Category</span>

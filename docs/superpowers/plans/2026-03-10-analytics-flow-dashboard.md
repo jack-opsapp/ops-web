@@ -627,7 +627,7 @@ cd /c/OPS/ops-web && git add src/app/api/admin/analytics/flow/route.ts && git co
 - Must use `Handle` from `@xyflow/react` for edge connection points
 - Design system: `bg-white/[0.02]`, `border-white/[0.08]`, Mohave uppercase, Kosugi captions, no shadows, 4px border-radius
 - Entry node: green left border `#4A7C59`
-- Conversion node: accent border `#597794`
+- Conversion node: accent border `#6F94B0`
 - Dropoff node: red-tinted `#7C4A4A`
 - Section node: default borders, size reflects traffic relative to total
 
@@ -749,10 +749,10 @@ export function ConversionNode({ data }: ConversionNodeProps) {
   return (
     <div
       className="relative px-5 py-4 min-w-[160px] border rounded bg-white/[0.02] cursor-pointer hover:bg-white/[0.04] transition-colors"
-      style={{ borderColor: '#597794', borderWidth: 1, boxShadow: '0 0 20px rgba(89,119,148,0.15)' }}
+      style={{ borderColor: '#6F94B0', borderWidth: 1, boxShadow: '0 0 20px rgba(111,148,176,0.15)' }}
       onClick={() => data.onClick(data.id)}
     >
-      <p className="font-mohave text-[11px] uppercase tracking-wider text-[#597794] mb-1">
+      <p className="font-mohave text-[11px] uppercase tracking-wider text-[#6F94B0] mb-1">
         {data.label}
       </p>
       <p className="font-mohave text-[28px] font-semibold text-[#E5E5E5] leading-none">
@@ -761,7 +761,7 @@ export function ConversionNode({ data }: ConversionNodeProps) {
       <p className="font-kosugi text-[10px] text-[#6B6B6B] mt-1">
         [{(data.conversionRate * 100).toFixed(1)}% conversion rate]
       </p>
-      <Handle type="target" position={Position.Left} className="!bg-[#597794] !w-2 !h-2 !border-0" />
+      <Handle type="target" position={Position.Left} className="!bg-[#6F94B0] !w-2 !h-2 !border-0" />
     </div>
   )
 }
@@ -846,7 +846,7 @@ export function FlowEdge({
 
   // Thickness: 1-6px proportional to count
   const strokeWidth = Math.max(1, Math.min(6, 1 + 5 * (count / maxCount)))
-  const stroke = isConversion ? '#597794' : 'rgba(255,255,255,0.15)'
+  const stroke = isConversion ? '#6F94B0' : 'rgba(255,255,255,0.15)'
   const opacity = isConversion ? 0.8 : 0.4 + 0.4 * (count / maxCount)
 
   return (
@@ -967,7 +967,7 @@ export function FlowControls({ params, onChange, variants }: FlowControlsProps) 
     (active: boolean) =>
       `px-3 py-1 rounded-full font-mohave text-[12px] uppercase tracking-wider transition-colors ${
         active
-          ? 'bg-[#597794]/20 text-[#597794]'
+          ? 'bg-[#6F94B0]/20 text-[#6F94B0]'
           : 'bg-white/[0.06] text-[#6B6B6B] hover:text-[#A0A0A0] hover:bg-white/[0.08]'
       }`,
     []
@@ -1221,7 +1221,7 @@ function ConversionDetails({ breakdown, totalSignups }: { breakdown: ConversionB
 }
 
 function MetricRow({ label, value, accent }: { label: string; value: string; accent?: 'danger' | 'accent' }) {
-  const valueColor = accent === 'danger' ? 'text-[#93321A]' : accent === 'accent' ? 'text-[#597794]' : 'text-[#E5E5E5]'
+  const valueColor = accent === 'danger' ? 'text-[#93321A]' : accent === 'accent' ? 'text-[#6F94B0]' : 'text-[#E5E5E5]'
   return (
     <div className="flex items-baseline justify-between">
       <span className="font-kosugi text-[10px] text-[#6B6B6B] uppercase tracking-wider">{label}</span>
@@ -1718,7 +1718,7 @@ import Link from 'next/link'
   <div />
   <Link
     href="/admin/analytics/flow"
-    className="px-4 py-2 font-mohave text-[12px] uppercase tracking-wider text-[#597794] border border-[#597794]/30 rounded hover:bg-[#597794]/10 transition-colors"
+    className="px-4 py-2 font-mohave text-[12px] uppercase tracking-wider text-[#6F94B0] border border-[#6F94B0]/30 rounded hover:bg-[#6F94B0]/10 transition-colors"
   >
     User Flow Visualization →
   </Link>

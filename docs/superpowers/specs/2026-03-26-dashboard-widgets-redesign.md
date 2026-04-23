@@ -206,7 +206,7 @@ Returns `true` once the element has intersected the viewport. Once true, stays t
 **Aging buckets:**
 | Bucket | Range | Color | Semantic |
 |--------|-------|-------|----------|
-| Current | Not yet due | `#597794` (accent steel) | Normal |
+| Current | Not yet due | `#6F94B0` (accent steel) | Normal |
 | 1-30 days | 1-30 past due | `#C4A868` (amber) | Attention |
 | 31-60 days | 31-60 past due | `#F97316` (orange) | Warning |
 | 61-90 days | 61-90 past due | `rgba(181,130,137,0.7)` (muted red) | Danger |
@@ -329,7 +329,7 @@ margin% = (profit / revenue) * 100
 **Category colors** (9 categories, from the design system neutral spectrum + accent):
 | Category | Color |
 |----------|-------|
-| Materials | `#597794` (accent steel) |
+| Materials | `#6F94B0` (accent steel) |
 | Equipment | `#C4A868` (amber) |
 | Fuel | `#8B7355` (earth brown) |
 | Subcontractor | `#7A8B6F` (sage) |
@@ -692,7 +692,7 @@ Else (no task dates):
 |---------|-------|
 | Overdue | `#B58289` (red) |
 | Due today | `#C4A868` (amber) |
-| In progress | `#597794` (accent steel) |
+| In progress | `#6F94B0` (accent steel) |
 | Upcoming | `rgba(255,255,255,0.15)` (muted) |
 
 **Size layouts:**
@@ -991,7 +991,7 @@ utilization = min(tasksAssigned.length / capacityTarget, 1.0)
 | Overdue task | `CheckSquare` | `#B58289` |
 | Past-due invoice | `FileText` | `#F97316` |
 | Expiring estimate | `FileSpreadsheet` | `#C4A868` |
-| Stale follow-up | `Phone` | `#597794` |
+| Stale follow-up | `Phone` | `#6F94B0` |
 
 **Size layouts:**
 

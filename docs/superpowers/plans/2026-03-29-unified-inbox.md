@@ -797,7 +797,7 @@ export function ChannelFilterBar({ active, onChange }: ChannelFilterProps) {
             className={cn(
               "px-3.5 py-1 font-kosugi text-[9px] uppercase tracking-[0.5px] border-b-2 transition-colors",
               active === seg.value
-                ? "text-white bg-[rgba(89,119,148,0.2)] border-b-[#597794]"
+                ? "text-white bg-[rgba(111,148,176,0.2)] border-b-[#6F94B0]"
                 : "text-[rgba(255,255,255,0.35)] bg-transparent border-b-transparent hover:text-[rgba(255,255,255,0.5)]"
             )}
           >
@@ -859,7 +859,7 @@ export function MessageBubble({ message, showTimestamp = true }: MessageBubblePr
           className={cn(
             "px-3 py-2.5 border",
             isOutbound
-              ? "bg-[rgba(89,119,148,0.12)] border-[rgba(89,119,148,0.18)] rounded-[3px_3px_1px_3px]"
+              ? "bg-[rgba(111,148,176,0.12)] border-[rgba(111,148,176,0.18)] rounded-[3px_3px_1px_3px]"
               : "bg-[rgba(255,255,255,0.05)] border-[rgba(255,255,255,0.06)] rounded-[3px_3px_3px_1px]"
           )}
         >
@@ -945,12 +945,12 @@ export function ChannelDivider({ channel, subject }: ChannelDividerProps) {
       {isEmail ? (
         <Mail className="w-[10px] h-[10px] text-[rgba(255,255,255,0.2)] shrink-0" />
       ) : (
-        <MessageSquareText className="w-[10px] h-[10px] text-[rgba(89,119,148,0.5)] shrink-0" />
+        <MessageSquareText className="w-[10px] h-[10px] text-[rgba(111,148,176,0.5)] shrink-0" />
       )}
       <span
         className={cn(
           "font-kosugi text-[8px] uppercase tracking-[0.5px] shrink-0",
-          isEmail ? "text-[rgba(255,255,255,0.2)]" : "text-[rgba(89,119,148,0.5)]"
+          isEmail ? "text-[rgba(255,255,255,0.2)]" : "text-[rgba(111,148,176,0.5)]"
         )}
       >
         {isEmail ? (subject ?? "EMAIL") : "CLIENT PORTAL"}
@@ -1040,7 +1040,7 @@ export function ConversationItem({
       className={cn(
         "w-full text-left px-2.5 py-2.5 border-l-2 cursor-pointer transition-colors",
         isActive
-          ? "border-l-[#597794] bg-[rgba(89,119,148,0.08)]"
+          ? "border-l-[#6F94B0] bg-[rgba(111,148,176,0.08)]"
           : "border-l-transparent hover:bg-[rgba(255,255,255,0.02)]",
         !hasUnread && !isActive && "opacity-50"
       )}
@@ -1054,7 +1054,7 @@ export function ConversationItem({
             isUnmatched
               ? "bg-[rgba(255,165,0,0.1)] text-[rgba(255,165,0,0.5)]"
               : isActive
-                ? "bg-[rgba(89,119,148,0.25)] text-[#597794]"
+                ? "bg-[rgba(111,148,176,0.25)] text-[#6F94B0]"
                 : "bg-[rgba(255,255,255,0.06)] text-[rgba(255,255,255,0.4)]"
           )}
         >
@@ -1078,7 +1078,7 @@ export function ConversationItem({
                 {formatRelativeTime(conversation.lastMessageAt)}
               </span>
               {hasUnread && (
-                <span className="inline-flex items-center justify-center min-w-[14px] h-[14px] px-1 rounded-full bg-[#597794] text-white font-kosugi text-[8px] leading-none">
+                <span className="inline-flex items-center justify-center min-w-[14px] h-[14px] px-1 rounded-full bg-[#6F94B0] text-white font-kosugi text-[8px] leading-none">
                   {conversation.unreadCount > 99 ? "99+" : conversation.unreadCount}
                 </span>
               )}
@@ -1098,7 +1098,7 @@ export function ConversationItem({
               className={cn(
                 "px-1 rounded-[2px] font-kosugi text-[7px] shrink-0",
                 channelBadge.accent
-                  ? "bg-[rgba(89,119,148,0.25)] text-[#597794]"
+                  ? "bg-[rgba(111,148,176,0.25)] text-[#6F94B0]"
                   : channelBadge.warning
                     ? "bg-[rgba(255,165,0,0.12)] text-[rgba(255,165,0,0.5)]"
                     : "bg-[rgba(255,255,255,0.06)] text-[rgba(255,255,255,0.35)]"
@@ -1357,7 +1357,7 @@ export function UnifiedReplyBar({
             className={cn(
               "flex items-center gap-1 px-1.5 py-0.5 rounded-[2px] font-kosugi text-[8px] uppercase tracking-[0.3px] cursor-pointer transition-colors",
               channel === "portal"
-                ? "bg-[rgba(89,119,148,0.08)] text-[rgba(89,119,148,0.6)]"
+                ? "bg-[rgba(111,148,176,0.08)] text-[rgba(111,148,176,0.6)]"
                 : "bg-[rgba(255,255,255,0.04)] text-[rgba(255,255,255,0.35)]"
             )}
           >
@@ -1380,7 +1380,7 @@ export function UnifiedReplyBar({
                   }}
                   className="flex items-center gap-1.5 px-3 py-2 w-full text-left hover:bg-[rgba(255,255,255,0.04)] transition-colors"
                 >
-                  <MessageSquareText className="w-[10px] h-[10px] text-[rgba(89,119,148,0.6)]" />
+                  <MessageSquareText className="w-[10px] h-[10px] text-[rgba(111,148,176,0.6)]" />
                   <span className="font-kosugi text-[9px] text-text-secondary uppercase">
                     {t("reply.viaPortal")}
                   </span>
@@ -1423,7 +1423,7 @@ export function UnifiedReplyBar({
           <button
             onClick={handleSend}
             disabled={isSending || !message.trim()}
-            className="bg-[#597794] text-white px-3.5 py-1.5 rounded-[3px] font-kosugi text-[10px] uppercase tracking-[0.3px] hover:bg-[#6a8aaa] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="bg-[#6F94B0] text-white px-3.5 py-1.5 rounded-[3px] font-kosugi text-[10px] uppercase tracking-[0.3px] hover:bg-[#6a8aaa] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {t("reply.send")}
           </button>
@@ -1965,7 +1965,7 @@ export function UnifiedThreadView({
               "w-[32px] h-[32px] rounded-full flex items-center justify-center shrink-0 font-kosugi text-[11px] font-semibold",
               conversation.type === "unmatched"
                 ? "bg-[rgba(255,165,0,0.1)] text-[rgba(255,165,0,0.5)]"
-                : "bg-[rgba(89,119,148,0.25)] text-[#597794]"
+                : "bg-[rgba(111,148,176,0.25)] text-[#6F94B0]"
             )}
           >
             {conversation.avatarInitials}
@@ -1994,7 +1994,7 @@ export function UnifiedThreadView({
             className={cn(
               "flex items-center gap-1 px-2 py-1 rounded-[3px] border border-[rgba(255,255,255,0.06)] font-kosugi text-[9px] uppercase tracking-[0.3px] transition-colors",
               contextOpen
-                ? "bg-[rgba(89,119,148,0.1)] text-[#597794] border-[rgba(89,119,148,0.2)]"
+                ? "bg-[rgba(111,148,176,0.1)] text-[#6F94B0] border-[rgba(111,148,176,0.2)]"
                 : "bg-[rgba(255,255,255,0.04)] text-[rgba(255,255,255,0.3)] hover:bg-[rgba(255,255,255,0.06)]"
             )}
           >

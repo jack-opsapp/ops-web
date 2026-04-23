@@ -53,7 +53,7 @@ export function FlowGalaxyContextMenu({ state, onClose }: FlowGalaxyContextMenuP
           <button
             key={i}
             onClick={() => { item.action(); onClose(); }}
-            className="w-full text-left px-3 py-2 font-mohave text-[11px] uppercase tracking-wider text-[#E5E5E5] hover:bg-white/[0.05] transition-colors"
+            className="w-full text-left px-3 py-2 font-mohave text-[11px] uppercase tracking-wider text-[#EDEDED] hover:bg-white/[0.05] transition-colors"
           >
             {item.label}
           </button>

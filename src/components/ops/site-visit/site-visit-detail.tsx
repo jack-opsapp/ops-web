@@ -159,7 +159,7 @@ export function SiteVisitDetail({
       <SheetContent className="w-full sm:max-w-lg bg-[#0A0A0A] border-l border-[#2A2A2A] flex flex-col">
         <SheetHeader className="shrink-0">
           <div className="flex items-center justify-between">
-            <SheetTitle className="text-[#E5E5E5] font-['Mohave'] text-xl">
+            <SheetTitle className="text-[#EDEDED] font-['Mohave'] text-xl">
               Site Visit
             </SheetTitle>
             {visit && (
@@ -250,7 +250,7 @@ export function SiteVisitDetail({
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="What did you observe during the visit?"
                 rows={4}
-                className="bg-surface-input border-[#333] text-[#E5E5E5] resize-none text-sm"
+                className="bg-surface-input border-[#333] text-[#EDEDED] resize-none text-sm"
               />
             </section>
 
@@ -264,7 +264,7 @@ export function SiteVisitDetail({
                 onChange={(e) => setMeasurements(e.target.value)}
                 placeholder="Record dimensions, quantities, or scope notes…"
                 rows={3}
-                className="bg-surface-input border-[#333] text-[#E5E5E5] resize-none text-sm font-mono"
+                className="bg-surface-input border-[#333] text-[#EDEDED] resize-none text-sm font-mono"
               />
             </section>
 
@@ -279,7 +279,7 @@ export function SiteVisitDetail({
                 onChange={(e) => setInternalNotes(e.target.value)}
                 placeholder="Not visible to clients…"
                 rows={3}
-                className="bg-surface-input border-[#2A4A3A] text-[#E5E5E5] resize-none text-sm"
+                className="bg-surface-input border-[#2A4A3A] text-[#EDEDED] resize-none text-sm"
               />
             </section>
           </div>

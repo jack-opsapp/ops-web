@@ -43,7 +43,7 @@ export default function PortalVerifyPage() {
         <h1
           className="text-lg font-semibold mb-2"
           style={{
-            color: "var(--portal-text, #E5E5E5)",
+            color: "var(--portal-text, #EDEDED)",
             fontFamily: "var(--portal-heading-font, inherit)",
             fontWeight: "var(--portal-heading-weight, 600)",
           }}
@@ -54,7 +54,7 @@ export default function PortalVerifyPage() {
         {/* Message */}
         <p
           className="text-sm leading-relaxed mb-4"
-          style={{ color: "var(--portal-text-secondary, #A7A7A7)" }}
+          style={{ color: "var(--portal-text-secondary, #B5B5B5)" }}
         >
           {t("verify.message")}
         </p>
@@ -76,7 +76,7 @@ export default function PortalVerifyPage() {
           <div>
             <p
               className="text-xs font-medium mb-0.5"
-              style={{ color: "var(--portal-text-secondary, #A7A7A7)" }}
+              style={{ color: "var(--portal-text-secondary, #B5B5B5)" }}
             >
               {t("verify.subtitle")}
             </p>
@@ -93,7 +93,7 @@ export default function PortalVerifyPage() {
         <div
           className="flex items-center justify-center gap-2 text-[10px] mt-8 tracking-wider uppercase"
           style={{
-            color: "var(--portal-text-secondary, #A7A7A7)",
+            color: "var(--portal-text-secondary, #B5B5B5)",
             opacity: 0.5,
           }}
         >

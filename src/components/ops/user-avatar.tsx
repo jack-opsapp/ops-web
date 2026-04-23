@@ -13,7 +13,7 @@ export type UserRole = "admin" | "manager" | "field-crew";
 const ROLE_COLORS: Record<UserRole, string> = {
   admin: "#C4A868",
   manager: "#417394",
-  "field-crew": "#777777",
+  "field-crew": "#8A8A8A",
 };
 
 function getInitials(name: string): string {

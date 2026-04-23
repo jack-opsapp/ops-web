@@ -228,7 +228,7 @@ export function StepSlider({
         step={step}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="w-full h-[2px] bg-[rgba(255,255,255,0.08)] rounded-full appearance-none outline-none accent-[#E5E5E5] cursor-pointer"
+        className="w-full h-[2px] bg-[rgba(255,255,255,0.08)] rounded-full appearance-none outline-none accent-[#EDEDED] cursor-pointer"
       />
     </div>
   );

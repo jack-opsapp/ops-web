@@ -139,7 +139,7 @@ export function TriggerSheet({
       <SheetContent side="right" className="max-w-[480px] w-full">
         <SheetHeader className="px-6 pt-6 pb-4 border-b border-white/[0.08]">
           <div className="flex items-center justify-between">
-            <SheetTitle className="font-mohave text-xl text-[#E5E5E5]">
+            <SheetTitle className="font-mohave text-xl text-[#EDEDED]">
               {trigger.label}
             </SheetTitle>
             {trigger.cronJobName && (
@@ -151,7 +151,7 @@ export function TriggerSheet({
             )}
           </div>
           <SheetDescription className="flex items-center gap-2 mt-1">
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full font-mohave text-micro uppercase border border-[#597794]/30 text-[#597794] bg-ops-accent/10">
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full font-mohave text-micro uppercase border border-[#6F94B0]/30 text-[#6F94B0] bg-ops-accent/10">
               {trigger.schedule}
             </span>
             {trigger.cronJobName && (
@@ -181,13 +181,13 @@ export function TriggerSheet({
                 {lastEmailLoading ? (
                   <div className="border border-white/[0.08] rounded-lg p-4 bg-white/[0.02]">
                     <div className="flex items-center justify-center py-4">
-                      <div className="w-4 h-4 border-2 border-[#597794] border-t-transparent rounded-full animate-spin" />
+                      <div className="w-4 h-4 border-2 border-[#6F94B0] border-t-transparent rounded-full animate-spin" />
                     </div>
                   </div>
                 ) : lastEmail ? (
                   <div className="border border-white/[0.08] rounded-lg overflow-hidden bg-white/[0.02]">
                     <div className="px-4 py-2.5 border-b border-white/[0.05]">
-                      <p className="font-mohave text-[13px] text-[#E5E5E5]">{lastEmail.subject}</p>
+                      <p className="font-mohave text-[13px] text-[#EDEDED]">{lastEmail.subject}</p>
                     </div>
                     <div className="px-4 py-2 flex items-center justify-between border-b border-white/[0.05]">
                       <span className="font-mono text-[11px] text-[#6B6B6B]">To</span>
@@ -257,7 +257,7 @@ export function TriggerSheet({
               <button
                 onClick={onRun}
                 disabled={runLoading}
-                className="w-full px-4 py-2.5 rounded-lg border border-white/[0.08] font-mohave text-[13px] uppercase tracking-wider text-[#597794] hover:bg-white/[0.04] transition-colors disabled:opacity-40 mb-2"
+                className="w-full px-4 py-2.5 rounded-lg border border-white/[0.08] font-mohave text-[13px] uppercase tracking-wider text-[#6F94B0] hover:bg-white/[0.04] transition-colors disabled:opacity-40 mb-2"
               >
                 {runLoading ? "Running..." : "Run Now"}
               </button>
@@ -286,7 +286,7 @@ export function TriggerSheet({
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && testEmail.trim()) onSendTest(testEmail.trim());
                       }}
-                      className="flex-1 bg-transparent border border-white/[0.08] rounded-lg px-3 py-2 font-mono text-[12px] text-[#E5E5E5] placeholder-[#4A4A4A] focus:outline-none focus:border-[#597794]"
+                      className="flex-1 bg-transparent border border-white/[0.08] rounded-lg px-3 py-2 font-mono text-[12px] text-[#EDEDED] placeholder-[#4A4A4A] focus:outline-none focus:border-[#6F94B0]"
                     />
                     <button
                       onClick={() => testEmail.trim() && onSendTest(testEmail.trim())}

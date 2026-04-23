@@ -21,7 +21,7 @@ interface OverviewTabProps {
 }
 
 const SEGMENT_COLORS: Record<string, string> = {
-  lifecycle: "#597794",
+  lifecycle: "#6F94B0",
   bubble: "#C4A868",
   unverified: "#9DB582",
   newsletter: "#93321A",
@@ -93,14 +93,14 @@ export function OverviewTab({ stats, engagement }: OverviewTabProps) {
       <div className="border border-white/[0.08] rounded-lg p-5 bg-white/[0.02]">
         <p className="font-mohave text-[13px] uppercase tracking-widest text-[#6B6B6B] mb-3">
           Daily Send Volume (Last 30 Days)
-          <span className="text-[11px] ml-2 normal-case tracking-normal text-[#597794]">
+          <span className="text-[11px] ml-2 normal-case tracking-normal text-[#6F94B0]">
             click a bar for details
           </span>
         </p>
         {stats.dailyVolume.length > 0 ? (
           <AdminBarChart
             data={stats.dailyVolume}
-            color="#597794"
+            color="#6F94B0"
             height={220}
             onBarClick={(point) => openDayDetail(point.label)}
           />
@@ -129,7 +129,7 @@ export function OverviewTab({ stats, engagement }: OverviewTabProps) {
 
           {dayLoading ? (
             <div className="flex items-center justify-center py-8">
-              <div className="w-5 h-5 border-2 border-[#597794] border-t-transparent rounded-full animate-spin" />
+              <div className="w-5 h-5 border-2 border-[#6F94B0] border-t-transparent rounded-full animate-spin" />
             </div>
           ) : dayEmails.length === 0 ? (
             <p className="font-mono text-[12px] text-[#6B6B6B] text-center py-6">
@@ -206,7 +206,7 @@ function Metric({
     ? "text-[#93321A]"
     : accent
     ? "text-[#C4A868]"
-    : "text-[#E5E5E5]";
+    : "text-[#EDEDED]";
 
   return (
     <div className="flex items-center gap-2">

@@ -51,8 +51,8 @@ export function LearnCourseList({ courses }: { courses: LearnCourseOverview[] })
           >
             {/* Course name + price */}
             <div className="flex items-center gap-3 min-w-0">
-              <p className="font-mohave text-[14px] text-[#E5E5E5] truncate">{course.title}</p>
-              <span className="font-mohave text-[12px] text-[#597794] shrink-0">{price}</span>
+              <p className="font-mohave text-[14px] text-[#EDEDED] truncate">{course.title}</p>
+              <span className="font-mohave text-[12px] text-[#6F94B0] shrink-0">{price}</span>
             </div>
 
             {/* Status */}
@@ -67,12 +67,12 @@ export function LearnCourseList({ courses }: { courses: LearnCourseOverview[] })
             </p>
 
             {/* Real enrollment */}
-            <p className="font-mohave text-[13px] text-[#E5E5E5] text-right">
+            <p className="font-mohave text-[13px] text-[#EDEDED] text-right">
               {course.enrolled_count} <span className="text-[#6B6B6B]">/ {course.completed_count} done</span>
             </p>
 
             {/* Display metrics */}
-            <p className="font-mohave text-[12px] text-[#597794] text-right">
+            <p className="font-mohave text-[12px] text-[#6F94B0] text-right">
               {course.display_enrollments} · {course.display_rating.toFixed(1)}★ · {course.display_review_count}r
             </p>
           </Link>

@@ -629,7 +629,7 @@ Replace every hardcoded hex:
 - `rgba(196, 168, 104, 0.6)` → `WT.accentMuted`
 - `#6B8F71` → `WT.success`
 - `#B58289` → `WT.error`
-- `#597794` → `WT.accent`
+- `#6F94B0` → `WT.accent`
 
 Replace in className:
 - `border-border-primary` → `border-border` or `border-border-subtle`
@@ -671,7 +671,7 @@ git commit -m "fix(widget): audit revenue-pulse — design system compliance"
 - Modify: `src/components/dashboard/widgets/task-pulse-widget.tsx`
 
 **Known violations:**
-- Lines 18-22: `SEGMENT_COLORS` with hardcoded `#B58289`, `#C4A868`, `#597794`, `rgba(255,255,255,0.15)`
+- Lines 18-22: `SEGMENT_COLORS` with hardcoded `#B58289`, `#C4A868`, `#6F94B0`, `rgba(255,255,255,0.15)`
 
 - [ ] **Step 1: Read the full widget and list all violations**
 
@@ -735,7 +735,7 @@ git commit -m "fix(widget): audit pipeline-funnel — design system compliance"
 - Modify: `src/components/dashboard/widgets/action-required-widget.tsx`
 
 **Known violations:**
-- Lines 29-32: `TYPE_CONFIG` with hardcoded `#B58289`, `#C4976A`, `#C4A868`, `#597794`
+- Lines 29-32: `TYPE_CONFIG` with hardcoded `#B58289`, `#C4976A`, `#C4A868`, `#6F94B0`
 
 - [ ] **Step 1: Read and list violations**
 - [ ] **Step 2: Replace TYPE_CONFIG colors with WT tokens**

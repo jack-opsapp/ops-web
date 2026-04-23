@@ -165,7 +165,7 @@ export function ProductEditor({ product, categories, options: initialOptions, va
       <div className="flex items-center justify-between mb-6">
         <Link
           href="/admin/shop"
-          className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B] hover:text-[#E5E5E5] transition-colors"
+          className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B] hover:text-[#EDEDED] transition-colors"
         >
           <ArrowLeft size={14} /> Back to Products
         </Link>
@@ -174,7 +174,7 @@ export function ProductEditor({ product, categories, options: initialOptions, va
             <>
               <button
                 onClick={handleArchive}
-                className="flex items-center gap-1.5 px-3 py-1.5 border border-white/[0.12] rounded-sm font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B] hover:text-[#E5E5E5] transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 border border-white/[0.12] rounded-sm font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B] hover:text-[#EDEDED] transition-colors"
               >
                 <Archive size={12} /> Archive
               </button>
@@ -218,7 +218,7 @@ export function ProductEditor({ product, categories, options: initialOptions, va
               type="text"
               value={name}
               onChange={(e) => handleNameChange(e.target.value)}
-              className="w-full bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#E5E5E5] focus:border-[#597794] focus:outline-none"
+              className="w-full bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#EDEDED] focus:border-[#6F94B0] focus:outline-none"
             />
           </div>
 
@@ -230,7 +230,7 @@ export function ProductEditor({ product, categories, options: initialOptions, va
               type="text"
               value={slug}
               onChange={(e) => setSlug(e.target.value)}
-              className="w-full bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#E5E5E5] focus:border-[#597794] focus:outline-none"
+              className="w-full bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#EDEDED] focus:border-[#6F94B0] focus:outline-none"
             />
           </div>
 
@@ -242,7 +242,7 @@ export function ProductEditor({ product, categories, options: initialOptions, va
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
-              className="w-full bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#E5E5E5] focus:border-[#597794] focus:outline-none resize-none"
+              className="w-full bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#EDEDED] focus:border-[#6F94B0] focus:outline-none resize-none"
             />
           </div>
 
@@ -253,7 +253,7 @@ export function ProductEditor({ product, categories, options: initialOptions, va
             <select
               value={categoryId}
               onChange={(e) => setCategoryId(e.target.value)}
-              className="w-full bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#E5E5E5] focus:border-[#597794] focus:outline-none"
+              className="w-full bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#EDEDED] focus:border-[#6F94B0] focus:outline-none"
             >
               {categories.map((c) => (
                 <option key={c.id} value={c.id}>{c.name}</option>
@@ -271,7 +271,7 @@ export function ProductEditor({ product, categories, options: initialOptions, va
                 step="0.01"
                 value={centsToDecimal(priceCents)}
                 onChange={(e) => setPriceCents(Math.round(parseFloat(e.target.value || "0") * 100))}
-                className="w-full bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#E5E5E5] focus:border-[#597794] focus:outline-none"
+                className="w-full bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#EDEDED] focus:border-[#6F94B0] focus:outline-none"
               />
             </div>
             <div>
@@ -282,7 +282,7 @@ export function ProductEditor({ product, categories, options: initialOptions, va
                 type="text"
                 value={taxCode}
                 onChange={(e) => setTaxCode(e.target.value)}
-                className="w-full bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#E5E5E5] focus:border-[#597794] focus:outline-none"
+                className="w-full bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#EDEDED] focus:border-[#6F94B0] focus:outline-none"
               />
             </div>
           </div>

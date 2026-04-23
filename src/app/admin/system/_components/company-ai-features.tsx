@@ -193,7 +193,7 @@ export function CompanyAiFeatures() {
       {/* Section header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="font-mohave text-[16px] uppercase tracking-wider text-[#E5E5E5]">
+          <h2 className="font-mohave text-[16px] uppercase tracking-wider text-[#EDEDED]">
             Company AI Features
           </h2>
           <p className="font-mono text-[12px] text-[#6B6B6B] mt-1">
@@ -211,7 +211,7 @@ export function CompanyAiFeatures() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="[search companies]"
-            className="w-full h-10 bg-transparent border border-white/[0.08] rounded-lg px-4 font-mono text-[14px] text-[#E5E5E5] placeholder-[#6B6B6B] focus:outline-none focus:border-[#597794] transition-colors"
+            className="w-full h-10 bg-transparent border border-white/[0.08] rounded-lg px-4 font-mono text-[14px] text-[#EDEDED] placeholder-[#6B6B6B] focus:outline-none focus:border-[#6F94B0] transition-colors"
           />
         </div>
         <div className="flex gap-1">
@@ -222,7 +222,7 @@ export function CompanyAiFeatures() {
               className={[
                 "px-3 py-1.5 rounded-full font-mohave text-[12px] uppercase border transition-colors",
                 filter === f.key
-                  ? "text-[#E5E5E5] border-white/[0.12] bg-white/[0.05]"
+                  ? "text-[#EDEDED] border-white/[0.12] bg-white/[0.05]"
                   : "text-[#6B6B6B] border-white/[0.05] hover:text-[#A0A0A0]",
               ].join(" ")}
             >
@@ -233,7 +233,7 @@ export function CompanyAiFeatures() {
       </div>
 
       {error && (
-        <div className="border border-[#93321A]/40 bg-[#93321A]/10 rounded-lg px-4 py-3 font-mono text-[12px] text-[#E5E5E5]">
+        <div className="border border-[#93321A]/40 bg-[#93321A]/10 rounded-lg px-4 py-3 font-mono text-[12px] text-[#EDEDED]">
           [error] {error}
         </div>
       )}
@@ -269,7 +269,7 @@ export function CompanyAiFeatures() {
               key={c.id}
               className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] px-6 items-center h-14 border-b border-white/[0.05] last:border-0 hover:bg-white/[0.02] transition-colors"
             >
-              <span className="font-mohave text-[14px] text-[#E5E5E5] truncate pr-4">
+              <span className="font-mohave text-[14px] text-[#EDEDED] truncate pr-4">
                 {c.name}
               </span>
 
@@ -334,11 +334,11 @@ function Toggle({ enabled, disabled, onClick, label }: ToggleProps) {
       className={[
         "relative inline-flex h-[24px] w-[44px] shrink-0 rounded-full border transition-colors",
         enabled
-          ? "border-[#597794] bg-ops-accent/20"
+          ? "border-[#6F94B0] bg-ops-accent/20"
           : "border-white/[0.12] bg-transparent",
         disabled
           ? "opacity-40 cursor-wait"
-          : "cursor-pointer hover:border-[#597794]/60",
+          : "cursor-pointer hover:border-[#6F94B0]/60",
       ].join(" ")}
     >
       <span

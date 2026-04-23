@@ -11,8 +11,8 @@ import type { FeatureRequest, PromoCode, BugReportRow } from "@/lib/admin/types"
 const STATUS_OPTIONS = ["new", "reviewing", "planned", "in-progress", "done", "wont-fix"] as const;
 const STATUS_COLORS: Record<string, string> = {
   new: "#C4A868",
-  reviewing: "#8195B5",
-  planned: "#597794",
+  reviewing: "#D99A3E",
+  planned: "#6F94B0",
   "in-progress": "#9DB582",
   done: "#6B8F71",
   "wont-fix": "#6B6B6B",
@@ -21,8 +21,8 @@ const STATUS_COLORS: Record<string, string> = {
 const BUG_STATUS_OPTIONS = ["new", "triaged", "in_progress", "resolved", "closed", "duplicate"] as const;
 const BUG_STATUS_COLORS: Record<string, string> = {
   new: "#C4A868",
-  triaged: "#8195B5",
-  in_progress: "#597794",
+  triaged: "#D99A3E",
+  in_progress: "#6F94B0",
   resolved: "#9DB582",
   closed: "#6B8F71",
   duplicate: "#6B6B6B",
@@ -32,7 +32,7 @@ const BUG_PRIORITY_OPTIONS = ["none", "low", "medium", "high", "urgent"] as cons
 const BUG_PRIORITY_COLORS: Record<string, string> = {
   urgent: "#D97757",
   high: "#C4A868",
-  medium: "#8195B5",
+  medium: "#D99A3E",
   low: "#6B8F71",
   none: "#6B6B6B",
 };
@@ -101,7 +101,7 @@ function FeatureRequestsTab({ requests }: { requests: FeatureRequest[] }) {
               className={[
                 "px-3 py-1.5 rounded-full font-mohave text-[12px] uppercase border transition-colors",
                 statusFilter === f
-                  ? "text-[#E5E5E5] border-white/[0.12] bg-white/[0.05]"
+                  ? "text-[#EDEDED] border-white/[0.12] bg-white/[0.05]"
                   : "text-[#6B6B6B] border-white/[0.05] hover:text-[#A0A0A0]",
               ].join(" ")}
             >
@@ -120,7 +120,7 @@ function FeatureRequestsTab({ requests }: { requests: FeatureRequest[] }) {
                   className={[
                     "px-3 py-1.5 rounded-full font-mohave text-[12px] uppercase border transition-colors",
                     typeFilter === t
-                      ? "text-[#597794] border-[#597794]/30 bg-ops-accent/10"
+                      ? "text-[#6F94B0] border-[#6F94B0]/30 bg-ops-accent/10"
                       : "text-[#6B6B6B] border-white/[0.05] hover:text-[#A0A0A0]",
                   ].join(" ")}
                 >
@@ -159,7 +159,7 @@ function FeatureRequestsTab({ requests }: { requests: FeatureRequest[] }) {
               <td className="px-2 py-3">
                 <button
                   onClick={() => setExpandedId(expandedId === r.id ? null : r.id)}
-                  className="font-mohave text-[14px] text-[#E5E5E5] truncate text-left hover:text-[#597794] transition-colors cursor-pointer"
+                  className="font-mohave text-[14px] text-[#EDEDED] truncate text-left hover:text-[#6F94B0] transition-colors cursor-pointer"
                 >
                   {r.title}
                 </button>
@@ -179,7 +179,7 @@ function FeatureRequestsTab({ requests }: { requests: FeatureRequest[] }) {
                   style={{ color: statusColor, borderColor: statusColor }}
                 >
                   {STATUS_OPTIONS.map((s) => (
-                    <option key={s} value={s} className="bg-glass glass-surface text-[#E5E5E5]">
+                    <option key={s} value={s} className="bg-glass glass-surface text-[#EDEDED]">
                       {s}
                     </option>
                   ))}
@@ -214,7 +214,7 @@ function PromoCodesTab({ codes }: { codes: PromoCode[] }) {
       </div>
       {codes.map((c) => (
         <div key={c.id} className="grid grid-cols-6 px-6 items-center h-14 border-b border-white/[0.05] last:border-0">
-          <span className="font-mohave text-[14px] text-[#E5E5E5] font-mono">{c.code}</span>
+          <span className="font-mohave text-[14px] text-[#EDEDED] font-mono">{c.code}</span>
           <span className="font-mohave text-[14px] text-[#A0A0A0]">
             {c.discount_percent ? `${c.discount_percent}%` : c.discount_amount ? `$${c.discount_amount}` : "—"}
           </span>
@@ -377,7 +377,7 @@ function BugReportsTab({ reports }: { reports: BugReportRow[] }) {
                     <td className="px-2 py-3 max-w-[420px]">
                       <button
                         onClick={() => setExpandedId(isExpanded ? null : r.id)}
-                        className="font-mohave text-[14px] text-[#E5E5E5] text-left hover:text-[#597794] transition-colors cursor-pointer line-clamp-2"
+                        className="font-mohave text-[14px] text-[#EDEDED] text-left hover:text-[#6F94B0] transition-colors cursor-pointer line-clamp-2"
                       >
                         {r.description}
                       </button>
@@ -394,7 +394,7 @@ function BugReportsTab({ reports }: { reports: BugReportRow[] }) {
                         style={{ color: priorityColor, borderColor: priorityColor }}
                       >
                         {BUG_PRIORITY_OPTIONS.map((p) => (
-                          <option key={p} value={p} className="bg-glass glass-surface text-[#E5E5E5]">
+                          <option key={p} value={p} className="bg-glass glass-surface text-[#EDEDED]">
                             {p}
                           </option>
                         ))}
@@ -409,7 +409,7 @@ function BugReportsTab({ reports }: { reports: BugReportRow[] }) {
                         style={{ color: statusColor, borderColor: statusColor }}
                       >
                         {BUG_STATUS_OPTIONS.map((s) => (
-                          <option key={s} value={s} className="bg-glass glass-surface text-[#E5E5E5]">
+                          <option key={s} value={s} className="bg-glass glass-surface text-[#EDEDED]">
                             {s}
                           </option>
                         ))}
@@ -465,8 +465,8 @@ function FilterPill({
         "px-3 py-1.5 rounded-full font-mohave text-[11px] uppercase border transition-colors whitespace-nowrap",
         active
           ? accent
-            ? "text-[#597794] border-[#597794]/30 bg-ops-accent/10"
-            : "text-[#E5E5E5] border-white/[0.12] bg-white/[0.05]"
+            ? "text-[#6F94B0] border-[#6F94B0]/30 bg-ops-accent/10"
+            : "text-[#EDEDED] border-white/[0.12] bg-white/[0.05]"
           : "text-[#6B6B6B] border-white/[0.05] hover:text-[#A0A0A0]",
       ].join(" ")}
     >
@@ -509,7 +509,7 @@ function BugReportDetail({ report }: { report: BugReportRow }) {
       {/* Left: text sections */}
       <div className="space-y-4">
         <DetailSection label="DESCRIPTION">
-          <p className="font-mohave text-[13px] text-[#E5E5E5] whitespace-pre-wrap">
+          <p className="font-mohave text-[13px] text-[#EDEDED] whitespace-pre-wrap">
             {report.description}
           </p>
         </DetailSection>

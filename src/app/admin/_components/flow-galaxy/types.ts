@@ -2,7 +2,7 @@
 
 /* ── Colors ── */
 export const HEALTH_COLORS = {
-  healthy:  { r: 89, g: 119, b: 148 },   // #597794
+  healthy:  { r: 111, g: 148, b: 176 },   // #6F94B0
   moderate: { r: 196, g: 168, b: 104 },  // #C4A868
   critical: { r: 147, g: 65, b: 55 },    // rgb(147,65,55)
 } as const;

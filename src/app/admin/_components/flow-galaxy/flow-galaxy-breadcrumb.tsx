@@ -23,7 +23,7 @@ export function FlowGalaxyBreadcrumb({ segments }: FlowGalaxyBreadcrumbProps) {
             onClick={seg.onClick}
             className={`font-mohave text-[11px] uppercase tracking-wider transition-colors
               ${i === segments.length - 1
-                ? 'text-[#E5E5E5]'
+                ? 'text-[#EDEDED]'
                 : 'text-[#6B6B6B] hover:text-[#A0A0A0]'
               }
             `}

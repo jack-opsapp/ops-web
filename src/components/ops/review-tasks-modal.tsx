@@ -84,7 +84,7 @@ function TaskRow({
       </button>
 
       <div className="flex-1 min-w-0">
-        <p className="text-sm text-[#E5E5E5]">{task.template.title}</p>
+        <p className="text-sm text-[#EDEDED]">{task.template.title}</p>
         {task.template.estimatedHours && (
           <p className="text-xs text-[#9CA3AF]">
             ~{task.template.estimatedHours}h
@@ -132,7 +132,7 @@ function TaskRow({
                       onMembersChange([...assignedMemberIds, member.id]);
                       setShowPicker(false);
                     }}
-                    className="w-full text-left px-3 py-2 text-sm text-[#E5E5E5] hover:bg-[#2A2A2A]"
+                    className="w-full text-left px-3 py-2 text-sm text-[#EDEDED] hover:bg-[#2A2A2A]"
                   >
                     {member.firstName} {member.lastName}
                   </button>
@@ -267,7 +267,7 @@ export function ReviewTasksModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-[#0A0A0A] border border-[#2A2A2A] max-w-lg max-h-[85vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle className="text-[#E5E5E5] font-['Mohave'] text-lg">
+          <DialogTitle className="text-[#EDEDED] font-['Mohave'] text-lg">
             Review Tasks — {projectTitle}
           </DialogTitle>
           <p className="text-xs text-[#9CA3AF] mt-1">
@@ -325,7 +325,7 @@ export function ReviewTasksModal({
           <Button
             variant="ghost"
             onClick={() => onOpenChange(false)}
-            className="flex-1 text-[#9CA3AF] hover:text-[#E5E5E5]"
+            className="flex-1 text-[#9CA3AF] hover:text-[#EDEDED]"
           >
             Generate tasks later
           </Button>

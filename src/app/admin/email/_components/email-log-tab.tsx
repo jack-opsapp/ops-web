@@ -20,7 +20,7 @@ function deriveSegment(emailType: string): SegmentFilter {
 
 const STATUS_COLORS: Record<string, string> = {
   sent: "text-[#9DB582]",
-  delivered: "text-[#597794]",
+  delivered: "text-[#6F94B0]",
   failed: "text-[#93321A]",
   bounced: "text-[#C4A868]",
 };
@@ -66,7 +66,7 @@ export function EmailLogTab({ entries }: EmailLogTabProps) {
               className={[
                 "px-3 py-1.5 rounded-full font-mohave text-[12px] uppercase border transition-colors",
                 segmentFilter === f
-                  ? "text-[#E5E5E5] border-white/[0.12] bg-white/[0.05]"
+                  ? "text-[#EDEDED] border-white/[0.12] bg-white/[0.05]"
                   : "text-[#6B6B6B] border-white/[0.05] hover:text-[#A0A0A0]",
               ].join(" ")}
             >
@@ -83,7 +83,7 @@ export function EmailLogTab({ entries }: EmailLogTabProps) {
               className={[
                 "px-3 py-1.5 rounded-full font-mohave text-[12px] uppercase border transition-colors",
                 statusFilter === f
-                  ? "text-[#E5E5E5] border-white/[0.12] bg-white/[0.05]"
+                  ? "text-[#EDEDED] border-white/[0.12] bg-white/[0.05]"
                   : "text-[#6B6B6B] border-white/[0.05] hover:text-[#A0A0A0]",
               ].join(" ")}
             >
@@ -111,7 +111,7 @@ export function EmailLogTab({ entries }: EmailLogTabProps) {
               className="grid grid-cols-4 px-6 items-center h-14 border-b border-white/[0.05] cursor-pointer hover:bg-white/[0.02] transition-colors"
               onClick={() => setExpandedId(expandedId === entry.id ? null : entry.id)}
             >
-              <span className="font-mono text-[13px] text-[#E5E5E5] truncate">
+              <span className="font-mono text-[13px] text-[#EDEDED] truncate">
                 {entry.recipient_email}
               </span>
               <span className="font-mohave text-[13px] text-[#A0A0A0] uppercase">

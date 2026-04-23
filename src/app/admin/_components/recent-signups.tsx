@@ -22,7 +22,7 @@ export function RecentSignups({ companies }: { companies: Signup[] }) {
           onClick={() => openCompany(company.id)}
           className="flex items-center justify-between h-14 border-b border-white/[0.05] last:border-0 w-full text-left hover:bg-white/[0.02] transition-colors cursor-pointer px-1 rounded"
         >
-          <span className="font-mohave text-[14px] text-[#E5E5E5] hover:text-[#597794] transition-colors">
+          <span className="font-mohave text-[14px] text-[#EDEDED] hover:text-[#6F94B0] transition-colors">
             {company.name}
           </span>
           <div className="flex items-center gap-3">

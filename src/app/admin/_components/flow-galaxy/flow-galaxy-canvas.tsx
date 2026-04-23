@@ -550,7 +550,7 @@ export function FlowGalaxyCanvas({
             // Metrics text — use Mohave for legibility
             ctx.textAlign = 'left';
             ctx.font = '11px Mohave, sans-serif';
-            ctx.fillStyle = '#E5E5E5';
+            ctx.fillStyle = '#EDEDED';
             ctx.fillText(`${tm.reached} / ${Math.round(tm.reachedPct)}%`, badgeX + 8, badgeY + 15);
             ctx.fillStyle = 'rgba(111, 148, 176,1)';
             ctx.fillText(`${tm.converted} / ${Math.round(tm.convertedPct)}%`, badgeX + 8, badgeY + 29);

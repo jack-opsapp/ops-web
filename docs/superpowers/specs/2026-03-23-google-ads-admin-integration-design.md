@@ -420,7 +420,7 @@ Added below the existing organic KPI grid in `src/app/admin/acquisition/page.tsx
 | Paid Signups | `XX` | signup conversion count from `getCostPerConversion(30)` |
 | Paid CPA | `$XX.XX` | signup CPA from `getCostPerConversion(30)` |
 
-**Link:** Small "View details →" link to `/admin/google-ads` after the cards, styled as `font-kosugi text-[11px] text-[#597794] hover:text-[#E5E5E5]`.
+**Link:** Small "View details →" link to `/admin/google-ads` after the cards, styled as `font-kosugi text-[11px] text-[#6F94B0] hover:text-[#E5E5E5]`.
 
 ### 3.2 Data Fetching Changes
 

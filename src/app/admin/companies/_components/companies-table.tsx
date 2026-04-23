@@ -106,7 +106,7 @@ export function CompaniesTable({ companies }: { companies: Company[] }) {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="[search companies]"
-            className="w-full h-10 bg-transparent border border-white/[0.08] rounded-lg px-4 font-mono text-[14px] text-[#E5E5E5] placeholder-[#6B6B6B] focus:outline-none focus:border-[#597794] transition-colors"
+            className="w-full h-10 bg-transparent border border-white/[0.08] rounded-lg px-4 font-mono text-[14px] text-[#EDEDED] placeholder-[#6B6B6B] focus:outline-none focus:border-[#6F94B0] transition-colors"
           />
         </div>
         <div className="flex gap-1">
@@ -117,7 +117,7 @@ export function CompaniesTable({ companies }: { companies: Company[] }) {
               className={[
                 "px-3 py-1.5 rounded-full font-mohave text-[12px] uppercase border transition-colors",
                 statusFilter === f
-                  ? "text-[#E5E5E5] border-white/[0.12] bg-white/[0.05]"
+                  ? "text-[#EDEDED] border-white/[0.12] bg-white/[0.05]"
                   : "text-[#6B6B6B] border-white/[0.05] hover:text-[#A0A0A0]",
               ].join(" ")}
             >
@@ -150,7 +150,7 @@ export function CompaniesTable({ companies }: { companies: Company[] }) {
             >
               {col.label}
               {col.key && sortKey === col.key && (
-                <span className="text-[#597794]">{sortDir === "asc" ? "\u2191" : "\u2193"}</span>
+                <span className="text-[#6F94B0]">{sortDir === "asc" ? "\u2191" : "\u2193"}</span>
               )}
             </span>
           ))}
@@ -169,7 +169,7 @@ export function CompaniesTable({ companies }: { companies: Company[] }) {
                 inactive ? "opacity-60" : "",
               ].join(" ")}
             >
-              <span className="font-mohave text-[14px] text-[#E5E5E5] truncate pr-4">
+              <span className="font-mohave text-[14px] text-[#EDEDED] truncate pr-4">
                 {c.name}
               </span>
               <span><PlanBadge plan={deriveSubscriptionPlan(c)} /></span>

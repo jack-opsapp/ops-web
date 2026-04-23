@@ -17,7 +17,7 @@ interface HorizontalBarChartProps {
 
 export function HorizontalBarChart({
   data,
-  color = "#597794",
+  color = "#6F94B0",
   suffix = "%",
   onBarClick,
 }: HorizontalBarChartProps) {
@@ -43,7 +43,7 @@ export function HorizontalBarChart({
               <span className="font-mohave text-[13px] text-[#A0A0A0]">
                 {item.label}
               </span>
-              <span className="font-mohave text-[14px] text-[#E5E5E5]">
+              <span className="font-mohave text-[14px] text-[#EDEDED]">
                 {item.value}{suffix}
               </span>
             </div>

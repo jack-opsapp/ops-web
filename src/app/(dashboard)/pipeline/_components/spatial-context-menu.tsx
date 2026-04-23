@@ -164,11 +164,11 @@ export function SpatialContextMenu({
                   <>
                     <div
                       className="w-[6px] h-[6px] rounded-[2px] shrink-0"
-                      style={{ backgroundColor: OPPORTUNITY_STAGE_COLORS[contextMenu.stage as OpportunityStage] ?? "#BCBCBC" }}
+                      style={{ backgroundColor: OPPORTUNITY_STAGE_COLORS[contextMenu.stage as OpportunityStage] ?? "#8F9AA3" }}
                     />
                     <span
                       className="font-mono text-micro uppercase tracking-widest"
-                      style={{ color: OPPORTUNITY_STAGE_COLORS[contextMenu.stage as OpportunityStage] ?? "#BCBCBC" }}
+                      style={{ color: OPPORTUNITY_STAGE_COLORS[contextMenu.stage as OpportunityStage] ?? "#8F9AA3" }}
                     >
                       in {getStageDisplayName(contextMenu.stage as OpportunityStage)}
                     </span>

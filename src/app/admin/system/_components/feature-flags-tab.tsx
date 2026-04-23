@@ -161,7 +161,7 @@ export function FeatureFlagsTab() {
       {/* Divider between the two distinct feature-flag systems */}
       <div className="border-t border-white/[0.08] pt-8 space-y-6">
         <div>
-          <h2 className="font-mohave text-[16px] uppercase tracking-wider text-[#E5E5E5]">
+          <h2 className="font-mohave text-[16px] uppercase tracking-wider text-[#EDEDED]">
             User Special Permissions
           </h2>
           <p className="font-mono text-[12px] text-[#6B6B6B] mt-1">
@@ -188,7 +188,7 @@ export function FeatureFlagsTab() {
           <button
             onClick={() => { setMode("user"); setUsers([]); setCompanies([]); setSelectedCompany(null); setSearchQuery(""); }}
             className={`px-4 py-2 font-mohave text-[13px] uppercase tracking-wider transition-colors ${
-              mode === "user" ? "bg-ops-accent/30 text-[#E5E5E5]" : "text-[#6B6B6B] hover:text-[#A0A0A0]"
+              mode === "user" ? "bg-ops-accent/30 text-[#EDEDED]" : "text-[#6B6B6B] hover:text-[#A0A0A0]"
             }`}
           >
             By User
@@ -196,7 +196,7 @@ export function FeatureFlagsTab() {
           <button
             onClick={() => { setMode("company"); setUsers([]); setCompanies([]); setSelectedCompany(null); setSearchQuery(""); }}
             className={`px-4 py-2 font-mohave text-[13px] uppercase tracking-wider transition-colors ${
-              mode === "company" ? "bg-ops-accent/30 text-[#E5E5E5]" : "text-[#6B6B6B] hover:text-[#A0A0A0]"
+              mode === "company" ? "bg-ops-accent/30 text-[#EDEDED]" : "text-[#6B6B6B] hover:text-[#A0A0A0]"
             }`}
           >
             By Company
@@ -210,7 +210,7 @@ export function FeatureFlagsTab() {
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSearch()}
             placeholder={mode === "user" ? "Search by name or email..." : "Search by company name..."}
-            className="flex-1 bg-white/[0.05] border border-white/[0.08] rounded-lg px-4 py-2 font-mono text-[13px] text-[#E5E5E5] placeholder:text-[#6B6B6B] outline-none focus:border-[#597794]/50"
+            className="flex-1 bg-white/[0.05] border border-white/[0.08] rounded-lg px-4 py-2 font-mono text-[13px] text-[#EDEDED] placeholder:text-[#6B6B6B] outline-none focus:border-[#6F94B0]/50"
           />
           <button
             onClick={handleSearch}
@@ -231,7 +231,7 @@ export function FeatureFlagsTab() {
           {knownPermissions.map((p) => (
             <span
               key={p}
-              className="px-2 py-0.5 bg-ops-accent/20 border border-[#597794]/30 rounded text-[12px] font-mono text-[#8195B5]"
+              className="px-2 py-0.5 bg-ops-accent/20 border border-[#6F94B0]/30 rounded text-[12px] font-mono text-[#D99A3E]"
             >
               {p}
             </span>
@@ -277,8 +277,8 @@ export function FeatureFlagsTab() {
               className="grid grid-cols-2 px-6 items-center h-14 border-b border-white/[0.05] last:border-0 cursor-pointer hover:bg-white/[0.02] transition-colors"
               onClick={() => selectCompany(company)}
             >
-              <span className="font-mohave text-[14px] text-[#E5E5E5]">{company.name}</span>
-              <span className="font-mohave text-[12px] text-[#597794]">VIEW USERS →</span>
+              <span className="font-mohave text-[14px] text-[#EDEDED]">{company.name}</span>
+              <span className="font-mohave text-[12px] text-[#6F94B0]">VIEW USERS →</span>
             </div>
           ))}
         </div>
@@ -291,11 +291,11 @@ export function FeatureFlagsTab() {
             <div className="flex items-center gap-3">
               <button
                 onClick={() => { setSelectedCompany(null); setCompanyUsers([]); }}
-                className="font-mohave text-[12px] text-[#597794] hover:text-[#8195B5] transition-colors"
+                className="font-mohave text-[12px] text-[#6F94B0] hover:text-[#D99A3E] transition-colors"
               >
                 ← BACK
               </button>
-              <span className="font-mohave text-[16px] text-[#E5E5E5]">{selectedCompany.name}</span>
+              <span className="font-mohave text-[16px] text-[#EDEDED]">{selectedCompany.name}</span>
               <span className="font-mono text-[12px] text-[#6B6B6B]">
                 {companyUsers.length} user{companyUsers.length !== 1 ? "s" : ""}
               </span>
@@ -309,7 +309,7 @@ export function FeatureFlagsTab() {
                 onChange={(e) => setNewPermission(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleAddNew({ companyId: selectedCompany.id })}
                 placeholder="Permission name..."
-                className="bg-white/[0.05] border border-white/[0.08] rounded px-3 py-1.5 font-mono text-[12px] text-[#E5E5E5] placeholder:text-[#6B6B6B] outline-none focus:border-[#597794]/50 w-48"
+                className="bg-white/[0.05] border border-white/[0.08] rounded px-3 py-1.5 font-mono text-[12px] text-[#EDEDED] placeholder:text-[#6B6B6B] outline-none focus:border-[#6F94B0]/50 w-48"
               />
               <button
                 onClick={() => handleAddNew({ companyId: selectedCompany.id })}
@@ -394,7 +394,7 @@ function UserPermissionRow({
 
   return (
     <div className="grid grid-cols-[1fr_1fr_1fr_2fr] px-6 items-center min-h-[56px] py-3 border-b border-white/[0.05] last:border-0">
-      <span className="font-mohave text-[14px] text-[#E5E5E5]">
+      <span className="font-mohave text-[14px] text-[#EDEDED]">
         {user.first_name} {user.last_name}
       </span>
       <span className="font-mono text-[12px] text-[#6B6B6B] truncate">{user.email ?? "—"}</span>
@@ -406,7 +406,7 @@ function UserPermissionRow({
             key={p}
             onClick={() => onRemove(p)}
             disabled={!!actionLoading}
-            className="group flex items-center gap-1 px-2 py-0.5 bg-ops-accent/20 border border-[#597794]/30 rounded text-[12px] font-mono text-[#8195B5] hover:bg-[#93321A]/20 hover:border-[#93321A]/30 hover:text-[#93321A] transition-colors disabled:opacity-50"
+            className="group flex items-center gap-1 px-2 py-0.5 bg-ops-accent/20 border border-[#6F94B0]/30 rounded text-[12px] font-mono text-[#D99A3E] hover:bg-[#93321A]/20 hover:border-[#93321A]/30 hover:text-[#93321A] transition-colors disabled:opacity-50"
             title={`Remove "${p}"`}
           >
             {p}
@@ -418,7 +418,7 @@ function UserPermissionRow({
         {!showAdd ? (
           <button
             onClick={() => setShowAdd(true)}
-            className="w-6 h-6 flex items-center justify-center rounded border border-white/[0.08] text-[#6B6B6B] hover:text-[#E5E5E5] hover:border-white/[0.15] transition-colors text-[14px]"
+            className="w-6 h-6 flex items-center justify-center rounded border border-white/[0.08] text-[#6B6B6B] hover:text-[#EDEDED] hover:border-white/[0.15] transition-colors text-[14px]"
             title="Add permission"
           >
             +
@@ -443,12 +443,12 @@ function UserPermissionRow({
               onChange={(e) => setNewPermission(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") { onAddNew(); setShowAdd(false); } if (e.key === "Escape") setShowAdd(false); }}
               placeholder="new..."
-              className="bg-white/[0.05] border border-white/[0.08] rounded px-2 py-0.5 font-mono text-[11px] text-[#E5E5E5] placeholder:text-[#6B6B6B] outline-none focus:border-[#597794]/50 w-28"
+              className="bg-white/[0.05] border border-white/[0.08] rounded px-2 py-0.5 font-mono text-[11px] text-[#EDEDED] placeholder:text-[#6B6B6B] outline-none focus:border-[#6F94B0]/50 w-28"
               autoFocus
             />
             <button
               onClick={() => setShowAdd(false)}
-              className="text-[#6B6B6B] hover:text-[#E5E5E5] text-[12px] transition-colors"
+              className="text-[#6B6B6B] hover:text-[#EDEDED] text-[12px] transition-colors"
             >
               ×
             </button>

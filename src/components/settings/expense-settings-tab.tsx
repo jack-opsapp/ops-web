@@ -260,7 +260,7 @@ export function ExpenseSettingsTab() {
                   className={cn(
                     "px-1.5 py-0.5 rounded font-mono text-micro uppercase tracking-wider",
                     rule.ruleType === AutoApproveRuleType.Invoice
-                      ? "bg-[rgba(129,149,181,0.15)] text-[#8195B5]"
+                      ? "bg-[rgba(129,149,181,0.15)] text-[#D99A3E]"
                       : "bg-[rgba(196,168,104,0.15)] text-[#C4A868]"
                   )}
                 >

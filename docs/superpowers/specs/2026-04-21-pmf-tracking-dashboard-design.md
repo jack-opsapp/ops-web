@@ -605,9 +605,9 @@ Weight `font-light` (300) is required for Cake Mono per repo convention; Regular
 
 ### 9.4 Accent color — divergence from existing admin
 
-Existing ops-web admin uses accent `#597794`. The v2 design bundle specifies `#6F94B0` (a brighter steel blue). The bundle is the newer source of truth and the user explicitly requested it for the PMF dashboard. Resolution:
+Existing ops-web admin uses accent `#6F94B0`. The v2 design bundle specifies `#6F94B0` (a brighter steel blue). The bundle is the newer source of truth and the user explicitly requested it for the PMF dashboard. Resolution:
 - PMF dashboard uses `#6F94B0` inside the `.pmf-scope` wrapper
-- Non-PMF admin pages keep `#597794` (no global change)
+- Non-PMF admin pages keep `#6F94B0` (no global change)
 - Document the divergence in `ops-web/CLAUDE.md` so the next contributor understands why two accents exist
 
 ### 9.5 Tailwind additions

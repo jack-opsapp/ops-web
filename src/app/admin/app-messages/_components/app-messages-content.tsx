@@ -163,7 +163,7 @@ export function AppMessagesContent({ initialMessages }: AppMessagesContentProps)
         </p>
         <button
           onClick={openCreate}
-          className="px-4 py-2 rounded font-mohave text-[13px] uppercase bg-white/[0.05] border border-white/[0.12] text-[#E5E5E5] hover:bg-white/[0.08] transition-colors"
+          className="px-4 py-2 rounded font-mohave text-[13px] uppercase bg-white/[0.05] border border-white/[0.12] text-[#EDEDED] hover:bg-white/[0.08] transition-colors"
         >
           Create Message
         </button>
@@ -204,7 +204,7 @@ export function AppMessagesContent({ initialMessages }: AppMessagesContentProps)
                     {m.active ? "Active" : "Inactive"}
                   </span>
                 </td>
-                <td className="px-2 py-3 font-mohave text-[14px] text-[#E5E5E5]">
+                <td className="px-2 py-3 font-mohave text-[14px] text-[#EDEDED]">
                   {m.title}
                 </td>
                 <td className="px-2 py-3 font-mohave text-[13px] text-[#A0A0A0]">
@@ -258,7 +258,7 @@ export function AppMessagesContent({ initialMessages }: AppMessagesContentProps)
                   onChange={(e) =>
                     setForm((f) => ({ ...f, title: e.target.value }))
                   }
-                  className="w-full bg-white/[0.05] border border-white/[0.12] rounded px-3 py-2 font-mohave text-[14px] text-[#E5E5E5] focus:outline-none focus:border-[#597794]"
+                  className="w-full bg-white/[0.05] border border-white/[0.12] rounded px-3 py-2 font-mohave text-[14px] text-[#EDEDED] focus:outline-none focus:border-[#6F94B0]"
                   placeholder="Message title"
                 />
               </div>
@@ -277,7 +277,7 @@ export function AppMessagesContent({ initialMessages }: AppMessagesContentProps)
                     }))
                   }
                   rows={4}
-                  className="w-full bg-white/[0.05] border border-white/[0.12] rounded px-3 py-2 font-mohave text-[14px] text-[#E5E5E5] focus:outline-none focus:border-[#597794] resize-y"
+                  className="w-full bg-white/[0.05] border border-white/[0.12] rounded px-3 py-2 font-mohave text-[14px] text-[#EDEDED] focus:outline-none focus:border-[#6F94B0] resize-y"
                   placeholder="Message body"
                 />
               </div>
@@ -292,7 +292,7 @@ export function AppMessagesContent({ initialMessages }: AppMessagesContentProps)
                   onChange={(e) =>
                     setForm((f) => ({ ...f, message_type: e.target.value }))
                   }
-                  className="w-full bg-white/[0.05] border border-white/[0.12] rounded px-3 py-2 font-mohave text-[14px] text-[#E5E5E5] focus:outline-none focus:border-[#597794]"
+                  className="w-full bg-white/[0.05] border border-white/[0.12] rounded px-3 py-2 font-mohave text-[14px] text-[#EDEDED] focus:outline-none focus:border-[#6F94B0]"
                 >
                   {APP_MESSAGE_TYPES.map((t) => (
                     <option key={t} value={t} className="bg-glass glass-surface">
@@ -322,7 +322,7 @@ export function AppMessagesContent({ initialMessages }: AppMessagesContentProps)
                           form.target_user_types?.includes(t) ?? false
                         }
                         onChange={() => toggleTargetType(t)}
-                        className="accent-[#597794]"
+                        className="accent-[#6F94B0]"
                       />
                       <span className="font-mohave text-[13px] text-[#A0A0A0]">
                         {TARGET_USER_TYPE_LABELS[t]}
@@ -344,9 +344,9 @@ export function AppMessagesContent({ initialMessages }: AppMessagesContentProps)
                         dismissable: e.target.checked,
                       }))
                     }
-                    className="accent-[#597794]"
+                    className="accent-[#6F94B0]"
                   />
-                  <span className="font-mohave text-[13px] text-[#E5E5E5]">
+                  <span className="font-mohave text-[13px] text-[#EDEDED]">
                     Dismissable
                   </span>
                 </label>
@@ -372,7 +372,7 @@ export function AppMessagesContent({ initialMessages }: AppMessagesContentProps)
                         app_store_url: e.target.value || null,
                       }))
                     }
-                    className="w-full bg-white/[0.05] border border-white/[0.12] rounded px-3 py-2 font-mohave text-[14px] text-[#E5E5E5] focus:outline-none focus:border-[#597794]"
+                    className="w-full bg-white/[0.05] border border-white/[0.12] rounded px-3 py-2 font-mohave text-[14px] text-[#EDEDED] focus:outline-none focus:border-[#6F94B0]"
                     placeholder="https://apps.apple.com/..."
                   />
                 </div>
@@ -389,7 +389,7 @@ export function AppMessagesContent({ initialMessages }: AppMessagesContentProps)
                     }
                     className="accent-[#9DB582]"
                   />
-                  <span className="font-mohave text-[13px] text-[#E5E5E5]">
+                  <span className="font-mohave text-[13px] text-[#EDEDED]">
                     Active
                   </span>
                 </label>
@@ -420,7 +420,7 @@ export function AppMessagesContent({ initialMessages }: AppMessagesContentProps)
             <button
               onClick={handleSave}
               disabled={isPending || !form.title || !form.body}
-              className="px-4 py-1.5 rounded font-mohave text-[13px] uppercase bg-white/[0.05] border border-white/[0.12] text-[#E5E5E5] hover:bg-white/[0.08] transition-colors disabled:opacity-50"
+              className="px-4 py-1.5 rounded font-mohave text-[13px] uppercase bg-white/[0.05] border border-white/[0.12] text-[#EDEDED] hover:bg-white/[0.08] transition-colors disabled:opacity-50"
             >
               {isPending ? "Saving..." : editingId ? "Update" : "Create"}
             </button>

@@ -117,7 +117,7 @@ function TeamTab({ users }: { users: CompanyDetailTabsProps["users"] }) {
         const isRecent = u.lastSignIn && Date.now() - new Date(u.lastSignIn).getTime() < 7 * 86_400_000;
         return (
           <div key={u.id} className="grid grid-cols-5 px-6 items-center h-14 border-b border-white/[0.05] last:border-0">
-            <span className="font-mohave text-[14px] text-[#E5E5E5]">
+            <span className="font-mohave text-[14px] text-[#EDEDED]">
               {u.first_name} {u.last_name}
             </span>
             <span className="font-mono text-[12px] text-[#6B6B6B] truncate pr-2">{u.email}</span>
@@ -156,7 +156,7 @@ function UsageTab({
           <p className="font-mohave text-[13px] uppercase tracking-widest text-[#6B6B6B] mb-4">
             Projects Created [12 weeks]
           </p>
-          <AdminLineChart data={usageTimeline.projects} color="#597794" />
+          <AdminLineChart data={usageTimeline.projects} color="#6F94B0" />
         </div>
         <div className="border border-white/[0.08] rounded-lg p-6 bg-white/[0.02]">
           <p className="font-mohave text-[13px] uppercase tracking-widest text-[#6B6B6B] mb-4">
@@ -180,7 +180,7 @@ function UsageTab({
         <div className="space-y-0">
           {projects.map((p) => (
             <div key={p.id} className="flex items-center justify-between h-12 border-b border-white/[0.05] last:border-0">
-              <span className="font-mohave text-[14px] text-[#E5E5E5]">{p.title}</span>
+              <span className="font-mohave text-[14px] text-[#EDEDED]">{p.title}</span>
               <div className="flex items-center gap-3">
                 <StatusBadge status={p.status} />
                 <span className="font-mono text-[12px] text-[#6B6B6B]">
@@ -224,19 +224,19 @@ function PipelineTab({
       <div className="grid grid-cols-4 gap-4">
         <div className="border border-white/[0.08] rounded-lg p-4">
           <p className="font-mohave text-[12px] uppercase text-[#6B6B6B]">Pipeline Deals</p>
-          <p className="font-mohave text-2xl text-[#E5E5E5] mt-1">{pipeline.length}</p>
+          <p className="font-mohave text-2xl text-[#EDEDED] mt-1">{pipeline.length}</p>
         </div>
         <div className="border border-white/[0.08] rounded-lg p-4">
           <p className="font-mohave text-[12px] uppercase text-[#6B6B6B]">Estimates</p>
-          <p className="font-mohave text-2xl text-[#E5E5E5] mt-1">${estimateTotal.toLocaleString()}</p>
+          <p className="font-mohave text-2xl text-[#EDEDED] mt-1">${estimateTotal.toLocaleString()}</p>
         </div>
         <div className="border border-white/[0.08] rounded-lg p-4">
           <p className="font-mohave text-[12px] uppercase text-[#6B6B6B]">Invoices</p>
-          <p className="font-mohave text-2xl text-[#E5E5E5] mt-1">${invoiceTotal.toLocaleString()}</p>
+          <p className="font-mohave text-2xl text-[#EDEDED] mt-1">${invoiceTotal.toLocaleString()}</p>
         </div>
         <div className="border border-white/[0.08] rounded-lg p-4">
           <p className="font-mohave text-[12px] uppercase text-[#6B6B6B]">Payments</p>
-          <p className="font-mohave text-2xl text-[#E5E5E5] mt-1">${paymentTotal.toLocaleString()}</p>
+          <p className="font-mohave text-2xl text-[#EDEDED] mt-1">${paymentTotal.toLocaleString()}</p>
         </div>
       </div>
 
@@ -248,10 +248,10 @@ function PipelineTab({
           </p>
           {Object.entries(stages).map(([stage, { count, value }]) => (
             <div key={stage} className="flex items-center justify-between h-10 border-b border-white/[0.05] last:border-0">
-              <span className="font-mohave text-[14px] text-[#E5E5E5]">{stage}</span>
+              <span className="font-mohave text-[14px] text-[#EDEDED]">{stage}</span>
               <div className="flex items-center gap-6">
                 <span className="font-mohave text-[13px] text-[#A0A0A0]">{count} deals</span>
-                <span className="font-mohave text-[14px] text-[#E5E5E5]">${value.toLocaleString()}</span>
+                <span className="font-mohave text-[14px] text-[#EDEDED]">${value.toLocaleString()}</span>
               </div>
             </div>
           ))}

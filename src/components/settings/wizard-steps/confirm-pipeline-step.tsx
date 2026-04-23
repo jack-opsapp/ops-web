@@ -12,11 +12,11 @@ import type { AnalyzedLead, ConsolidationGroup, TriageDecision } from "@/lib/typ
 // ─── Stage config ─────────────────────────────────────────────────────────────
 
 const STAGE_CONFIG: Record<string, { label: string; color: string }> = {
-  new_lead: { label: "New Lead", color: "#BCBCBC" },
-  qualifying: { label: "Qualifying", color: "#8195B5" },
+  new_lead: { label: "New Lead", color: "#8F9AA3" },
+  qualifying: { label: "Qualifying", color: "#D99A3E" },
   quoting: { label: "Quoting", color: "#C4A868" },
-  quoted: { label: "Quoted", color: "#B5A381" },
-  follow_up: { label: "Follow Up", color: "#A182B5" },
+  quoted: { label: "Quoted", color: "#B6AC97" },
+  follow_up: { label: "Follow Up", color: "#4E4B48" },
   negotiation: { label: "Negotiation", color: "#B58289" },
   won: { label: "Won", color: "#9DB582" },
   lost: { label: "Lost", color: "#6B7280" },

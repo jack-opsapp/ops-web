@@ -19,7 +19,7 @@ import type { StarfieldQuestion } from "@/stores/setup-store";
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
-const ACCENT = { r: 89, g: 119, b: 148 };
+const ACCENT = { r: 111, g: 148, b: 176 };
 const STAR_COUNT = 500;
 const TOTAL_DURATION = 5000; // ms
 

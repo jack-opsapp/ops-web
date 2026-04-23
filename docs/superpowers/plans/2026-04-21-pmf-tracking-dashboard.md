@@ -4770,7 +4770,7 @@ Append to `ops-web/CLAUDE.md`:
 ## PMF Dashboard (`/admin/pmf`)
 
 - Visual system v2 scoped via `.pmf-scope` wrapper — do NOT extend pmf tokens globally
-- Accent color inside `.pmf-scope`: `#6F94B0` (diverges from global `#597794` intentionally)
+- Accent color inside `.pmf-scope`: `#6F94B0` (diverges from global `#6F94B0` intentionally)
 - All text inside `.pmf-scope` uses Cake Mono Light for uppercase display, JetBrains Mono for numbers, Mohave for body
 - Dashboard data flows through `src/lib/admin/pmf-queries.ts` → `computePmfState()`
 - Mutations revalidate via `revalidateTag('pmf-state')`

@@ -80,7 +80,7 @@ export function GenerationProgress({ onComplete }: GenerationProgressProps) {
     return (
       <button
         onClick={handleGenerate}
-        className="font-mohave text-[13px] uppercase tracking-wider px-4 py-2 border border-[#597794] text-[#597794] rounded hover:bg-ops-accent/10 transition-colors duration-100"
+        className="font-mohave text-[13px] uppercase tracking-wider px-4 py-2 border border-[#6F94B0] text-[#6F94B0] rounded hover:bg-ops-accent/10 transition-colors duration-100"
       >
         Generate Briefing Now
       </button>
@@ -96,10 +96,10 @@ export function GenerationProgress({ onComplete }: GenerationProgressProps) {
 
         return (
           <div key={i} className="flex items-center gap-3 font-mohave text-[13px]">
-            <span className={isDone ? "text-[#9DB582]" : isActive ? "text-[#597794]" : "text-[#444444]"}>
+            <span className={isDone ? "text-[#9DB582]" : isActive ? "text-[#6F94B0]" : "text-[#444444]"}>
               {isDone ? "\u2713" : isActive ? "\u25CF" : "\u25CB"}
             </span>
-            <span className={isDone ? "text-[#6B6B6B]" : isActive ? "text-[#E5E5E5]" : "text-[#444444]"}>
+            <span className={isDone ? "text-[#6B6B6B]" : isActive ? "text-[#EDEDED]" : "text-[#444444]"}>
               Step {stepNum}/5: {label}
             </span>
           </div>
@@ -109,7 +109,7 @@ export function GenerationProgress({ onComplete }: GenerationProgressProps) {
       {status === "failed" && error && (
         <div className="mt-3 p-3 border border-[#93321A]/30 rounded bg-[#93321A]/5">
           <p className="font-mohave text-[13px] text-[#93321A]">{error}</p>
-          <button onClick={handleGenerate} className="font-mohave text-[12px] text-[#A0A0A0] mt-2 hover:text-[#E5E5E5] transition-colors duration-100">
+          <button onClick={handleGenerate} className="font-mohave text-[12px] text-[#A0A0A0] mt-2 hover:text-[#EDEDED] transition-colors duration-100">
             Retry
           </button>
         </div>

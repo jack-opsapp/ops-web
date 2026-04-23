@@ -8,7 +8,7 @@
 
 **Tech Stack:** React, TypeScript, Framer Motion, Supabase, TanStack Query
 
-**Design System:** OPS Web — frosted glass surfaces, Mohave/Kosugi typography, `#597794` accent, sharp 2-4px radii, left-aligned text. Follow `.interface-design/system.md`.
+**Design System:** OPS Web — frosted glass surfaces, Mohave/Kosugi typography, `#6F94B0` accent, sharp 2-4px radii, left-aligned text. Follow `.interface-design/system.md`.
 
 ---
 
@@ -273,8 +273,8 @@ All resolved → final summary + Import button
       key={i}
       className="h-[3px] flex-1 rounded-[1px]"
       style={{
-        background: i < currentIndex ? '#597794'
-          : i === currentIndex ? '#597794'
+        background: i < currentIndex ? '#6F94B0'
+          : i === currentIndex ? '#6F94B0'
           : 'rgba(255,255,255,0.1)',
         opacity: i === currentIndex ? 1 : 0.5,
       }}
@@ -285,9 +285,9 @@ All resolved → final summary + Import button
 {/* Side-by-side comparison */}
 <div className="grid grid-cols-2 gap-3 mb-4">
   {/* Importing card */}
-  <div className="p-3 border border-[rgba(89,119,148,0.3)] bg-[rgba(89,119,148,0.04)]"
+  <div className="p-3 border border-[rgba(111,148,176,0.3)] bg-[rgba(111,148,176,0.04)]"
     style={{ borderRadius: 2 }}>
-    <p className="font-kosugi text-[8px] tracking-[0.15em] uppercase text-[#597794] mb-2">
+    <p className="font-kosugi text-[8px] tracking-[0.15em] uppercase text-[#6F94B0] mb-2">
       Importing
     </p>
     <p className="font-mohave text-[15px] text-text-primary">{currentLead.client.name}</p>
@@ -328,9 +328,9 @@ All resolved → final summary + Import button
     className="font-mohave text-[12px] px-2 py-[3px]"
     style={{
       borderRadius: 2,
-      background: mergeMode === 'fill_blanks' ? 'rgba(89,119,148,0.15)' : 'transparent',
-      color: mergeMode === 'fill_blanks' ? '#597794' : '#666',
-      border: `1px solid ${mergeMode === 'fill_blanks' ? 'rgba(89,119,148,0.3)' : 'rgba(255,255,255,0.08)'}`,
+      background: mergeMode === 'fill_blanks' ? 'rgba(111,148,176,0.15)' : 'transparent',
+      color: mergeMode === 'fill_blanks' ? '#6F94B0' : '#666',
+      border: `1px solid ${mergeMode === 'fill_blanks' ? 'rgba(111,148,176,0.3)' : 'rgba(255,255,255,0.08)'}`,
     }}
   >
     Fill blanks only
@@ -340,9 +340,9 @@ All resolved → final summary + Import button
     className="font-mohave text-[12px] px-2 py-[3px]"
     style={{
       borderRadius: 2,
-      background: mergeMode === 'overwrite' ? 'rgba(89,119,148,0.15)' : 'transparent',
-      color: mergeMode === 'overwrite' ? '#597794' : '#666',
-      border: `1px solid ${mergeMode === 'overwrite' ? 'rgba(89,119,148,0.3)' : 'rgba(255,255,255,0.08)'}`,
+      background: mergeMode === 'overwrite' ? 'rgba(111,148,176,0.15)' : 'transparent',
+      color: mergeMode === 'overwrite' ? '#6F94B0' : '#666',
+      border: `1px solid ${mergeMode === 'overwrite' ? 'rgba(111,148,176,0.3)' : 'rgba(255,255,255,0.08)'}`,
     }}
   >
     Overwrite existing
@@ -382,7 +382,7 @@ function ActionButton({ label, onClick, variant = 'default' }: {
   label: string; onClick: () => void; variant?: 'default' | 'muted' | 'danger';
 }) {
   const styles = {
-    default: 'bg-[rgba(89,119,148,0.12)] border-[rgba(89,119,148,0.25)] text-[#597794] hover:bg-[rgba(89,119,148,0.2)]',
+    default: 'bg-[rgba(111,148,176,0.12)] border-[rgba(111,148,176,0.25)] text-[#6F94B0] hover:bg-[rgba(111,148,176,0.2)]',
     muted: 'bg-transparent border-[rgba(255,255,255,0.08)] text-[#666] hover:text-[#999] hover:border-[rgba(255,255,255,0.15)]',
     danger: 'bg-[rgba(147,50,26,0.08)] border-[rgba(147,50,26,0.2)] text-[#93321A] hover:bg-[rgba(147,50,26,0.15)]',
   };
@@ -452,7 +452,7 @@ const totalToImport = enabledLeads.length - discardCount;
       onClick={handleImport}
       loading={importing}
       disabled={totalToImport === 0}
-      className="font-kosugi text-[11px] tracking-[0.1em] uppercase bg-[#597794] hover:bg-[#6A88A5] text-white px-6 py-2"
+      className="font-kosugi text-[11px] tracking-[0.1em] uppercase bg-[#6F94B0] hover:bg-[#6A88A5] text-white px-6 py-2"
       style={{ borderRadius: 3 }}
     >
       Import {totalToImport} Lead{totalToImport !== 1 ? 's' : ''}

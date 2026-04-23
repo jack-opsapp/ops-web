@@ -278,7 +278,7 @@ export function SpreadsheetCellText({ value, canEdit, onCommit }: SpreadsheetCel
           if (e.key === "Escape") cancel();
           if (e.key === "Tab") { e.preventDefault(); commit(); }
         }}
-        className="w-full px-1 py-0.5 bg-[rgba(255,255,255,0.06)] border border-[rgba(89,119,148,0.3)] rounded-sm font-mohave text-body-sm text-text-primary focus:outline-none"
+        className="w-full px-1 py-0.5 bg-[rgba(255,255,255,0.06)] border border-[rgba(111,148,176,0.3)] rounded-sm font-mohave text-body-sm text-text-primary focus:outline-none"
       />
     );
   }
@@ -446,7 +446,7 @@ export function SpreadsheetCellDate({ value, canEdit, onCommit }: SpreadsheetCel
           if (e.key === "Escape") { setEditing(false); }
           if (e.key === "Enter") commit((e.target as HTMLInputElement).value);
         }}
-        className="w-full px-1 py-0.5 bg-[rgba(255,255,255,0.06)] border border-[rgba(89,119,148,0.3)] rounded-sm font-mono text-data-sm text-text-primary focus:outline-none [color-scheme:dark]"
+        className="w-full px-1 py-0.5 bg-[rgba(255,255,255,0.06)] border border-[rgba(111,148,176,0.3)] rounded-sm font-mono text-data-sm text-text-primary focus:outline-none [color-scheme:dark]"
       />
     );
   }
@@ -512,7 +512,7 @@ export function SpreadsheetCellNumber({ value, suffix = "", canEdit, onCommit }:
           if (e.key === "Enter") commit();
           if (e.key === "Escape") { setEditing(false); setDraft(String(value ?? "")); }
         }}
-        className="w-full px-1 py-0.5 bg-[rgba(255,255,255,0.06)] border border-[rgba(89,119,148,0.3)] rounded-sm font-mono text-data-sm text-text-primary focus:outline-none"
+        className="w-full px-1 py-0.5 bg-[rgba(255,255,255,0.06)] border border-[rgba(111,148,176,0.3)] rounded-sm font-mono text-data-sm text-text-primary focus:outline-none"
       />
     );
   }
@@ -573,7 +573,7 @@ export function SpreadsheetCellTextarea({ value, canEdit, onCommit }: Spreadshee
           if (e.key === "Escape") { setEditing(false); setDraft(value ?? ""); }
         }}
         rows={3}
-        className="w-full px-1 py-0.5 bg-[rgba(255,255,255,0.06)] border border-[rgba(89,119,148,0.3)] rounded-sm font-mohave text-body-sm text-text-primary focus:outline-none resize-none"
+        className="w-full px-1 py-0.5 bg-[rgba(255,255,255,0.06)] border border-[rgba(111,148,176,0.3)] rounded-sm font-mohave text-body-sm text-text-primary focus:outline-none resize-none"
       />
     );
   }

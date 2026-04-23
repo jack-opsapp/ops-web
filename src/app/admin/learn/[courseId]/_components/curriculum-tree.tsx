@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { LearnModuleDetail } from "@/lib/admin/types";
 
 const ASSESSMENT_TYPE_COLORS: Record<string, string> = {
-  quiz: "#597794",
+  quiz: "#6F94B0",
   assignment: "#C4A868",
   test: "#9DB582",
 };
@@ -33,7 +33,7 @@ export function CurriculumTree({ modules }: { modules: LearnModuleDetail[] }) {
               className="w-full flex items-center justify-between px-6 h-14 bg-white/[0.02] hover:bg-white/[0.04] transition-colors cursor-pointer text-left"
             >
               <div>
-                <span className="font-mohave text-[14px] text-[#E5E5E5]">{mod.title}</span>
+                <span className="font-mohave text-[14px] text-[#EDEDED]">{mod.title}</span>
                 <span className="ml-3 font-mohave text-[12px] text-[#6B6B6B]">
                   {mod.lessons.length} lessons · {mod.assessments.length} assessments
                 </span>

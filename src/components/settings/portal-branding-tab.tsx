@@ -332,8 +332,8 @@ export function PortalBrandingTab() {
   const isDark = themeMode === "dark";
   const portalBg = isDark ? "#0A0A0A" : "#FAFAFA";
   const portalCard = isDark ? "#191919" : "#FFFFFF";
-  const portalText = isDark ? "#E5E5E5" : "#1A1A1A";
-  const portalTextSec = isDark ? "#A7A7A7" : "#6B7280";
+  const portalText = isDark ? "#EDEDED" : "#1A1A1A";
+  const portalTextSec = isDark ? "#B5B5B5" : "#6B7280";
   const portalTextTer = isDark ? "#6B7280" : "#9CA3AF";
   const portalBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)";
   const currentLogoUrl = company?.logoURL ?? null;

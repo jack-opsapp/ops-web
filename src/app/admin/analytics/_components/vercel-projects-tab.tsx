@@ -25,7 +25,7 @@ export function VercelProjectsTab() {
             key={project.slug}
             className="border border-white/[0.08] rounded-lg p-6 bg-white/[0.02]"
           >
-            <p className="font-mohave text-lg font-semibold text-[#E5E5E5] mb-1">
+            <p className="font-mohave text-lg font-semibold text-[#EDEDED] mb-1">
               {project.name}
             </p>
             <p className="font-mono text-[12px] text-[#6B6B6B] mb-4">
@@ -39,7 +39,7 @@ export function VercelProjectsTab() {
                     href={`https://vercel.com/${TEAM_SLUG}/${project.slug}/analytics`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-white/[0.08] font-mohave text-[13px] uppercase tracking-wider text-[#E5E5E5] hover:border-white/[0.16] hover:bg-white/[0.04] transition-colors"
+                    className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-white/[0.08] font-mohave text-[13px] uppercase tracking-wider text-[#EDEDED] hover:border-white/[0.16] hover:bg-white/[0.04] transition-colors"
                   >
                     View Analytics
                     <ExternalLinkIcon />

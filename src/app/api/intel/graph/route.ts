@@ -144,7 +144,7 @@ export async function GET(req: NextRequest) {
   for (const tt of taskTypeRows ?? []) {
     taskTypeMap.set(tt.id as string, {
       display: (tt.display as string) ?? "Task",
-      color: (tt.color as string) ?? "#8195B5",
+      color: (tt.color as string) ?? "#D99A3E",
     });
   }
 
@@ -194,7 +194,7 @@ export async function GET(req: NextRequest) {
       projectId: t.project_id as string,
       title: (t.custom_title as string) || taskType?.display || "Task",
       status,
-      taskColor: (t.task_color as string) || taskType?.color || TASK_STATUS_COLORS[enumStatus] || "#8195B5",
+      taskColor: (t.task_color as string) || taskType?.color || TASK_STATUS_COLORS[enumStatus] || "#D99A3E",
       startDate: (t.start_date as string) ?? null,
       endDate: (t.end_date as string) ?? null,
       teamMemberIds: memberIds,

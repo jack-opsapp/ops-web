@@ -106,7 +106,7 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
   }, [onChange]);
 
   const btnClass =
-    "px-2.5 py-1.5 rounded text-[13px] font-mono text-[#A7A7A7] hover:bg-white/[0.05] hover:text-[#E5E5E5]";
+    "px-2.5 py-1.5 rounded text-[13px] font-mono text-[#B5B5B5] hover:bg-white/[0.05] hover:text-[#EDEDED]";
   const divider = "w-px h-5 bg-white/[0.1] mx-1";
 
   return (
@@ -215,15 +215,15 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
         contentEditable
         suppressContentEditableWarning
         className={[
-          "min-h-[400px] p-6 font-mono text-[15px] text-[#E5E5E5] leading-relaxed focus:outline-none",
-          "[&_h2]:font-mohave [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:text-[#E5E5E5] [&_h2]:mt-8 [&_h2]:mb-3",
-          "[&_h3]:font-mohave [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:text-[#E5E5E5] [&_h3]:mt-6 [&_h3]:mb-2",
+          "min-h-[400px] p-6 font-mono text-[15px] text-[#EDEDED] leading-relaxed focus:outline-none",
+          "[&_h2]:font-mohave [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:text-[#EDEDED] [&_h2]:mt-8 [&_h2]:mb-3",
+          "[&_h3]:font-mohave [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:text-[#EDEDED] [&_h3]:mt-6 [&_h3]:mb-2",
           "[&_p]:mb-4",
-          "[&_a]:text-[#597794] [&_a]:underline",
+          "[&_a]:text-[#6F94B0] [&_a]:underline",
           "[&_ul]:list-disc [&_ul]:pl-6 [&_ul]:mb-4",
           "[&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:mb-4",
           "[&_li]:mb-1",
-          "[&_blockquote]:border-l-2 [&_blockquote]:border-[#597794] [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-[#A7A7A7] [&_blockquote]:my-4",
+          "[&_blockquote]:border-l-2 [&_blockquote]:border-[#6F94B0] [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-[#B5B5B5] [&_blockquote]:my-4",
           "[&_img]:max-w-full [&_img]:rounded [&_img]:my-4",
         ].join(" ")}
         dangerouslySetInnerHTML={{ __html: value }}

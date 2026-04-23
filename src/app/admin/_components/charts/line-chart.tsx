@@ -21,7 +21,7 @@ interface LineChartProps {
 
 export function AdminLineChart({
   data,
-  color = "#597794",
+  color = "#6F94B0",
   height = 200,
   isLoading,
   onDataPointClick,
@@ -64,7 +64,7 @@ export function AdminLineChart({
             border: "1px solid rgba(255,255,255,0.08)",
             borderRadius: "8px",
             fontFamily: "Mohave",
-            color: "#E5E5E5",
+            color: "#EDEDED",
           }}
         />
         <Line

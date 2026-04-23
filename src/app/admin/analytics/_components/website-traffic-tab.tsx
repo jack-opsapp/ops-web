@@ -74,7 +74,7 @@ export function WebsiteTrafficTab({
             : "0.0";
           return (
             <div key={d.dimension} className="grid grid-cols-3 px-6 items-center h-12 border-b border-white/[0.05] last:border-0">
-              <span className="font-mohave text-[14px] text-[#E5E5E5] capitalize">{d.dimension}</span>
+              <span className="font-mohave text-[14px] text-[#EDEDED] capitalize">{d.dimension}</span>
               <span className="font-mohave text-[14px] text-[#A0A0A0]">{d.count.toLocaleString()}</span>
               <div className="flex items-center gap-2">
                 <div className="w-24 h-1.5 bg-white/[0.05] rounded-full overflow-hidden">
@@ -125,7 +125,7 @@ function DimensionTable({
       </div>
       {rows.map((r, i) => (
         <div key={i} className="grid grid-cols-2 px-6 items-center h-10 border-b border-white/[0.05] last:border-0">
-          <span className="font-mono text-[13px] text-[#E5E5E5] truncate">{r.dimension}</span>
+          <span className="font-mono text-[13px] text-[#EDEDED] truncate">{r.dimension}</span>
           <span className="font-mohave text-[14px] text-[#A0A0A0] text-right">{r.count.toLocaleString()}</span>
         </div>
       ))}

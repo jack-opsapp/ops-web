@@ -847,8 +847,8 @@ export function ProjectMarqueeSelect(_props: ProjectMarqueeSelectProps) {
         top: y,
         width,
         height,
-        border: "1px solid rgba(89, 119, 148, 0.5)",
-        background: "rgba(89, 119, 148, 0.08)",
+        border: "1px solid rgba(111, 148, 176, 0.5)",
+        background: "rgba(111, 148, 176, 0.08)",
         borderRadius: 2,
         zIndex: 100,
       }}
@@ -1446,7 +1446,7 @@ export function ProjectDragConfirmation({
             type="checkbox"
             checked={dontShowAgain}
             onChange={(e) => setDontShowAgain(e.target.checked)}
-            className="w-4 h-4 rounded-[2px] border border-[rgba(255,255,255,0.15)] bg-transparent accent-[#597794]"
+            className="w-4 h-4 rounded-[2px] border border-[rgba(255,255,255,0.15)] bg-transparent accent-[#6F94B0]"
           />
           <span className="font-mohave text-body-sm text-text-tertiary">
             {t("drag.dontShowAgain")}
@@ -1465,7 +1465,7 @@ export function ProjectDragConfirmation({
               if (dontShowAgain) setFirstDragConfirmed();
               onConfirm();
             }}
-            className="px-4 py-2 rounded-[3px] font-mohave text-body-sm text-text-primary bg-[rgba(89,119,148,0.2)] hover:bg-[rgba(89,119,148,0.3)] border border-[rgba(89,119,148,0.3)] transition-colors duration-150"
+            className="px-4 py-2 rounded-[3px] font-mohave text-body-sm text-text-primary bg-[rgba(111,148,176,0.2)] hover:bg-[rgba(111,148,176,0.3)] border border-[rgba(111,148,176,0.3)] transition-colors duration-150"
           >
             {t("drag.confirmAction")}
           </button>
@@ -1581,7 +1581,7 @@ export function ProjectFloatingToolbar({
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder={t("toolbar.search")}
-          className="w-full pl-7 pr-3 py-1.5 rounded-[3px] font-mohave text-body-sm text-text-primary bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.06)] placeholder:text-text-disabled focus:outline-none focus:border-[rgba(89,119,148,0.3)]"
+          className="w-full pl-7 pr-3 py-1.5 rounded-[3px] font-mohave text-body-sm text-text-primary bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.06)] placeholder:text-text-disabled focus:outline-none focus:border-[rgba(111,148,176,0.3)]"
         />
       </div>
 

@@ -2387,7 +2387,7 @@ export function DuplicateReviewSheet() {
                 >
                   {t(TAB_KEYS[tab])}
                   {count > 0 && (
-                    <span className="ml-1.5 text-[#597794]">{count}</span>
+                    <span className="ml-1.5 text-[#6F94B0]">{count}</span>
                   )}
                 </button>
               );

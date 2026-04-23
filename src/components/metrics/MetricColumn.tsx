@@ -39,7 +39,7 @@ export function MetricColumn({ config }: MetricColumnProps) {
         : "—"
     : undefined;
 
-  const valueColor = color ?? "#E5E5E5";
+  const valueColor = color ?? "#EDEDED";
 
   return (
     <div

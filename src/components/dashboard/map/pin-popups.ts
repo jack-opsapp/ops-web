@@ -11,11 +11,11 @@ export const POPUP_OPTIONS = {
 
 // ── Project Popup ──
 export function projectPopupHtml(project: Project): string {
-  const statusColor = PROJECT_STATUS_COLORS[project.status] || "#8195B5";
+  const statusColor = PROJECT_STATUS_COLORS[project.status] || "#D99A3E";
   return `<div style="
     background: var(--surface-glass-dense);
     backdrop-filter: blur(28px) saturate(1.3); -webkit-backdrop-filter: blur(28px) saturate(1.3);
-    color: #E5E5E5; padding: 10px 12px;
+    color: #EDEDED; padding: 10px 12px;
     border-radius: 4px; font-family: 'Mohave', sans-serif;
     min-width: 180px; border: 1px solid rgba(255,255,255,0.08);
   ">
@@ -37,7 +37,7 @@ export function groupedProjectPopupHtml(projects: Project[]): string {
   const projectLines = projects
     .slice(0, 6)
     .map((p) => {
-      const color = PROJECT_STATUS_COLORS[p.status] || "#8195B5";
+      const color = PROJECT_STATUS_COLORS[p.status] || "#D99A3E";
       return `<div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
         <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${color}; box-shadow: 0 0 4px ${color}; flex-shrink: 0;"></span>
         <div style="min-width: 0;">
@@ -58,7 +58,7 @@ export function groupedProjectPopupHtml(projects: Project[]): string {
   return `<div style="
     background: var(--surface-glass-dense);
     backdrop-filter: blur(28px) saturate(1.3); -webkit-backdrop-filter: blur(28px) saturate(1.3);
-    color: #E5E5E5; padding: 10px 12px;
+    color: #EDEDED; padding: 10px 12px;
     border-radius: 4px; font-family: 'Mohave', sans-serif;
     min-width: 180px; border: 1px solid rgba(255,255,255,0.08);
   ">
@@ -76,7 +76,7 @@ export function taskPopupHtml(
   const taskLines = tasks
     .slice(0, 4)
     .map((t) => {
-      const color = t.taskColor || "#8195B5";
+      const color = t.taskColor || "#D99A3E";
       const name = t.customTitle || t.taskType?.display || "Task";
       return `<div style="display: flex; align-items: center; gap: 6px; margin-bottom: 3px;">
         <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: ${color}; flex-shrink: 0;"></span>
@@ -93,7 +93,7 @@ export function taskPopupHtml(
   return `<div style="
     background: var(--surface-glass-dense);
     backdrop-filter: blur(28px) saturate(1.3); -webkit-backdrop-filter: blur(28px) saturate(1.3);
-    color: #E5E5E5; padding: 10px 12px;
+    color: #EDEDED; padding: 10px 12px;
     border-radius: 4px; font-family: 'Mohave', sans-serif;
     min-width: 160px; border: 1px solid rgba(255,255,255,0.08);
   ">
@@ -119,7 +119,7 @@ export function groupedTaskPopupHtml(
       const taskLines = group.tasks
         .slice(0, 2)
         .map((t) => {
-          const color = t.taskColor || "#8195B5";
+          const color = t.taskColor || "#D99A3E";
           const name = t.customTitle || t.taskType?.display || "Task";
           return `<div style="display: flex; align-items: center; gap: 5px; margin-bottom: 2px; padding-left: 12px;">
             <span style="display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: ${color}; flex-shrink: 0;"></span>
@@ -149,7 +149,7 @@ export function groupedTaskPopupHtml(
   return `<div style="
     background: var(--surface-glass-dense);
     backdrop-filter: blur(28px) saturate(1.3); -webkit-backdrop-filter: blur(28px) saturate(1.3);
-    color: #E5E5E5; padding: 10px 12px;
+    color: #EDEDED; padding: 10px 12px;
     border-radius: 4px; font-family: 'Mohave', sans-serif;
     min-width: 180px; border: 1px solid rgba(255,255,255,0.08);
   ">
@@ -199,7 +199,7 @@ export function crewPopupHtml(
   return `<div style="
     background: var(--surface-glass-dense);
     backdrop-filter: blur(28px) saturate(1.3); -webkit-backdrop-filter: blur(28px) saturate(1.3);
-    color: #E5E5E5; padding: 10px 12px;
+    color: #EDEDED; padding: 10px 12px;
     border-radius: 4px; font-family: 'Mohave', sans-serif;
     min-width: 140px; border: 1px solid rgba(255,255,255,0.08);
   ">

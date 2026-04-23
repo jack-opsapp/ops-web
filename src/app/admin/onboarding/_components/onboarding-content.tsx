@@ -63,7 +63,7 @@ export function OnboardingContent({ data }: OnboardingContentProps) {
 
       {/* ── Funnel by Variant ────────────────────────────────────── */}
       <div>
-        <h2 className="font-cakemono text-[16px] font-light uppercase text-[#E5E5E5] mb-4">
+        <h2 className="font-cakemono text-[16px] font-light uppercase text-[#EDEDED] mb-4">
           Funnel by Variant
         </h2>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -92,7 +92,7 @@ export function OnboardingContent({ data }: OnboardingContentProps) {
 
       {/* ── Triage Breakdown ─────────────────────────────────────── */}
       <div>
-        <h2 className="font-cakemono text-[16px] font-light uppercase text-[#E5E5E5] mb-4">
+        <h2 className="font-cakemono text-[16px] font-light uppercase text-[#EDEDED] mb-4">
           Returning User Triage
         </h2>
         <div className="border border-white/[0.08] rounded-md p-4 max-w-lg">
@@ -114,7 +114,7 @@ export function OnboardingContent({ data }: OnboardingContentProps) {
 
       {/* ── Daily Trend ──────────────────────────────────────────── */}
       <div>
-        <h2 className="font-cakemono text-[16px] font-light uppercase text-[#E5E5E5] mb-4">
+        <h2 className="font-cakemono text-[16px] font-light uppercase text-[#EDEDED] mb-4">
           Daily Signups &amp; Completions
         </h2>
         <div className="border border-white/[0.08] rounded-md p-4">

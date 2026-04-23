@@ -168,7 +168,7 @@ interface ScannedEmail {
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const ACCENT = { r: 89, g: 119, b: 148 };     // #597794
+const ACCENT = { r: 111, g: 148, b: 176 };     // #6F94B0
 const AMBER = { r: 196, g: 168, b: 104 };     // #C4A868
 const GREEN = { r: 157, g: 181, b: 130 };     // #9DB582
 const DIM = { r: 80, g: 80, b: 80 };          // disabled

@@ -92,8 +92,8 @@ export function generatePortalTheme(branding: PortalBranding): PortalThemeVars {
     "--portal-card-hover": isDark ? "#1F1F1F" : "#F9FAFB",
 
     // Text
-    "--portal-text": isDark ? "#E5E5E5" : "#1A1A1A",
-    "--portal-text-secondary": isDark ? "#A7A7A7" : "#6B7280",
+    "--portal-text": isDark ? "#EDEDED" : "#1A1A1A",
+    "--portal-text-secondary": isDark ? "#B5B5B5" : "#6B7280",
     "--portal-text-tertiary": isDark ? "#6B7280" : "#9CA3AF",
 
     // Accent

@@ -88,7 +88,7 @@ export function FaqEditor({ faqs, onChange }: FaqEditorProps) {
                   type="button"
                   disabled={index === 0}
                   onClick={() => moveItem(index, -1)}
-                  className="px-2 py-1 rounded text-[12px] font-mono text-[#A7A7A7] hover:bg-white/[0.05] hover:text-[#E5E5E5] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  className="px-2 py-1 rounded text-[12px] font-mono text-[#B5B5B5] hover:bg-white/[0.05] hover:text-[#EDEDED] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                 >
                   &uarr;
                 </button>
@@ -96,7 +96,7 @@ export function FaqEditor({ faqs, onChange }: FaqEditorProps) {
                   type="button"
                   disabled={index === faqs.length - 1}
                   onClick={() => moveItem(index, 1)}
-                  className="px-2 py-1 rounded text-[12px] font-mono text-[#A7A7A7] hover:bg-white/[0.05] hover:text-[#E5E5E5] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  className="px-2 py-1 rounded text-[12px] font-mono text-[#B5B5B5] hover:bg-white/[0.05] hover:text-[#EDEDED] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                 >
                   &darr;
                 </button>
@@ -116,7 +116,7 @@ export function FaqEditor({ faqs, onChange }: FaqEditorProps) {
               placeholder="Question"
               value={faq.question}
               onChange={(e) => updateItem(index, "question", e.target.value)}
-              className="w-full bg-white/[0.05] border border-white/[0.1] rounded px-3 py-2 font-mohave text-[14px] text-[#E5E5E5] placeholder:text-[#6B6B6B] focus:outline-none focus:border-white/[0.2] mb-2"
+              className="w-full bg-white/[0.05] border border-white/[0.1] rounded px-3 py-2 font-mohave text-[14px] text-[#EDEDED] placeholder:text-[#6B6B6B] focus:outline-none focus:border-white/[0.2] mb-2"
             />
 
             {/* Answer textarea */}
@@ -125,7 +125,7 @@ export function FaqEditor({ faqs, onChange }: FaqEditorProps) {
               rows={3}
               value={faq.answer}
               onChange={(e) => updateItem(index, "answer", e.target.value)}
-              className="w-full bg-white/[0.05] border border-white/[0.1] rounded px-3 py-2 font-mohave text-[14px] text-[#E5E5E5] placeholder:text-[#6B6B6B] focus:outline-none focus:border-white/[0.2] resize-y"
+              className="w-full bg-white/[0.05] border border-white/[0.1] rounded px-3 py-2 font-mohave text-[14px] text-[#EDEDED] placeholder:text-[#6B6B6B] focus:outline-none focus:border-white/[0.2] resize-y"
             />
           </div>
         ))}

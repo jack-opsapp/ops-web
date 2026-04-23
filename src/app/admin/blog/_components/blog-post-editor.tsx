@@ -150,7 +150,7 @@ export function BlogPostEditor({
   const labelClass =
     "font-mohave text-[12px] uppercase tracking-wider text-[#6B6B6B] block mb-1";
   const inputClass =
-    "w-full bg-white/[0.05] border border-white/[0.1] rounded px-3 py-1.5 font-mono text-[12px] text-[#E5E5E5] focus:outline-none focus:border-white/[0.2]";
+    "w-full bg-white/[0.05] border border-white/[0.1] rounded px-3 py-1.5 font-mono text-[12px] text-[#EDEDED] focus:outline-none focus:border-white/[0.2]";
 
   return (
     <div className="flex gap-6 min-h-[calc(100vh-100px)]">
@@ -162,7 +162,7 @@ export function BlogPostEditor({
           placeholder="Post title..."
           value={post.title}
           onChange={(e) => update("title", e.target.value)}
-          className="w-full bg-transparent text-3xl font-mohave font-semibold text-[#E5E5E5] placeholder:text-[#6B6B6B] focus:outline-none"
+          className="w-full bg-transparent text-3xl font-mohave font-semibold text-[#EDEDED] placeholder:text-[#6B6B6B] focus:outline-none"
         />
 
         {/* Subtitle */}
@@ -171,7 +171,7 @@ export function BlogPostEditor({
           placeholder="Subtitle..."
           value={post.subtitle}
           onChange={(e) => update("subtitle", e.target.value)}
-          className="w-full bg-transparent text-lg font-mohave text-[#A7A7A7] placeholder:text-[#6B6B6B] focus:outline-none"
+          className="w-full bg-transparent text-lg font-mohave text-[#B5B5B5] placeholder:text-[#6B6B6B] focus:outline-none"
         />
 
         {/* Rich Text Editor */}
@@ -369,7 +369,7 @@ export function BlogPostEditor({
           {/* Word Count */}
           <div>
             <label className={labelClass}>Word Count</label>
-            <p className="font-mono text-[12px] text-[#A7A7A7]">
+            <p className="font-mono text-[12px] text-[#B5B5B5]">
               {wordCount.toLocaleString()} words
             </p>
           </div>
@@ -452,7 +452,7 @@ function ThumbnailUploader({
         className={[
           "relative w-full rounded border cursor-pointer transition-colors overflow-hidden",
           dragOver
-            ? "border-[#597794] bg-ops-accent/10"
+            ? "border-[#6F94B0] bg-ops-accent/10"
             : url
               ? "border-white/[0.08]"
               : "border-dashed border-white/[0.15] bg-white/[0.02] hover:border-white/[0.25]",

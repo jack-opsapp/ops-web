@@ -77,7 +77,7 @@ function SortableOptionCard({
           type="text"
           value={opt.name}
           onChange={(e) => onUpdateName(index, e.target.value)}
-          className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-1.5 font-mohave text-[13px] text-[#E5E5E5] focus:border-[#597794] focus:outline-none"
+          className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-1.5 font-mohave text-[13px] text-[#EDEDED] focus:border-[#6F94B0] focus:outline-none"
           placeholder="Option name (e.g., Size)"
         />
         <button
@@ -92,7 +92,7 @@ function SortableOptionCard({
         {opt.values.map((val, vi) => (
           <span
             key={vi}
-            className="flex items-center gap-1.5 px-2.5 py-1 bg-white/[0.04] border border-white/[0.08] rounded-sm font-mohave text-[12px] text-[#E5E5E5]"
+            className="flex items-center gap-1.5 px-2.5 py-1 bg-white/[0.04] border border-white/[0.08] rounded-sm font-mohave text-[12px] text-[#EDEDED]"
           >
             {val.value}
             <button
@@ -193,7 +193,7 @@ export function OptionManager({ options, onChange }: OptionManagerProps) {
             onKeyDown={(e) => e.key === "Enter" && addOption()}
             placeholder="Option name..."
             autoFocus
-            className="bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-1.5 font-mohave text-[13px] text-[#E5E5E5] focus:border-[#597794] focus:outline-none"
+            className="bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-1.5 font-mohave text-[13px] text-[#EDEDED] focus:border-[#6F94B0] focus:outline-none"
           />
           <button
             onClick={addOption}
@@ -211,7 +211,7 @@ export function OptionManager({ options, onChange }: OptionManagerProps) {
       ) : (
         <button
           onClick={() => setAddingOption(true)}
-          className="flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B] hover:text-[#E5E5E5] transition-colors"
+          className="flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B] hover:text-[#EDEDED] transition-colors"
         >
           <Plus size={14} /> Add Option
         </button>
@@ -236,7 +236,7 @@ function ValueInput({ onAdd }: { onAdd: (value: string) => void }) {
         }
       }}
       placeholder="+ value"
-      className="w-20 bg-transparent border-b border-white/[0.08] px-1 py-1 font-mohave text-[12px] text-[#6B6B6B] focus:text-[#E5E5E5] focus:border-[#597794] focus:outline-none placeholder:text-[#6B6B6B]/50"
+      className="w-20 bg-transparent border-b border-white/[0.08] px-1 py-1 font-mohave text-[12px] text-[#6B6B6B] focus:text-[#EDEDED] focus:border-[#6F94B0] focus:outline-none placeholder:text-[#6B6B6B]/50"
     />
   );
 }

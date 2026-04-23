@@ -150,7 +150,7 @@ export function RevenueCharts({
               <div key={p.plan} className="grid grid-cols-5 py-2.5 border-b border-white/[0.05] last:border-0 items-center">
                 <span><PlanBadge plan={p.plan} /></span>
                 <span className="font-mohave text-[14px] text-[#A0A0A0]">{p.count}</span>
-                <span className="font-mohave text-[14px] text-[#E5E5E5]">${p.mrr.toLocaleString()}</span>
+                <span className="font-mohave text-[14px] text-[#EDEDED]">${p.mrr.toLocaleString()}</span>
                 <span className="font-mohave text-[14px] text-[#A0A0A0]">{p.avgUsers}</span>
                 <span className="font-mohave text-[14px] text-[#A0A0A0]">{p.avgProjects}</span>
               </div>
@@ -225,7 +225,7 @@ export function RevenueCharts({
                   onClick={() => setTrialDays(opt.days)}
                   className={`px-3 py-1 rounded-full font-mohave text-[12px] uppercase tracking-wider transition-colors ${
                     trialDays === opt.days
-                      ? "bg-ops-accent/20 text-[#597794]"
+                      ? "bg-ops-accent/20 text-[#6F94B0]"
                       : "bg-white/[0.06] text-[#6B6B6B] hover:text-[#A0A0A0] hover:bg-white/[0.08]"
                   }`}
                 >
@@ -251,7 +251,7 @@ export function RevenueCharts({
           {planFilter && (
             <button
               onClick={() => setPlanFilter(null)}
-              className="font-mono text-[11px] text-[#597794] hover:text-[#E5E5E5] transition-colors"
+              className="font-mono text-[11px] text-[#6F94B0] hover:text-[#EDEDED] transition-colors"
             >
               Clear filter: {planFilter} &times;
             </button>
@@ -276,7 +276,7 @@ export function RevenueCharts({
                     <button
                       type="button"
                       onClick={() => openCompany(s.companyId)}
-                      className="font-mohave text-[14px] text-[#E5E5E5] truncate text-left hover:text-[#597794] transition-colors cursor-pointer"
+                      className="font-mohave text-[14px] text-[#EDEDED] truncate text-left hover:text-[#6F94B0] transition-colors cursor-pointer"
                     >
                       {s.companyName}
                     </button>
@@ -291,7 +291,7 @@ export function RevenueCharts({
                           className="h-full rounded-full"
                           style={{
                             width: `${Math.min(s.utilization, 100)}%`,
-                            backgroundColor: s.utilization > 90 ? "#C4A868" : "#597794",
+                            backgroundColor: s.utilization > 90 ? "#C4A868" : "#6F94B0",
                           }}
                         />
                       </div>

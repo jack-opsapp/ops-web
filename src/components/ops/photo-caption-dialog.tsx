@@ -35,7 +35,7 @@ export function PhotoCaptionDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md border-white/10 bg-surface-input">
         <DialogHeader>
-          <DialogTitle className="text-[#E5E5E5]">
+          <DialogTitle className="text-[#EDEDED]">
             Photo Caption
           </DialogTitle>
         </DialogHeader>
@@ -52,7 +52,7 @@ export function PhotoCaptionDialog({
             placeholder="Add a caption..."
             maxLength={200}
             rows={2}
-            className="w-full resize-none rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-[#E5E5E5] placeholder:text-[#666] focus:border-[#417394] focus:outline-none"
+            className="w-full resize-none rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-[#EDEDED] placeholder:text-[#666] focus:border-[#417394] focus:outline-none"
           />
           <div className="text-right text-xs text-[#666]">
             {caption.length}/200
@@ -62,7 +62,7 @@ export function PhotoCaptionDialog({
         <DialogFooter className="gap-2">
           <button
             onClick={() => onOpenChange(false)}
-            className="rounded-md px-3 py-1.5 text-sm text-[#999] hover:text-[#E5E5E5]"
+            className="rounded-md px-3 py-1.5 text-sm text-[#999] hover:text-[#EDEDED]"
           >
             Cancel
           </button>

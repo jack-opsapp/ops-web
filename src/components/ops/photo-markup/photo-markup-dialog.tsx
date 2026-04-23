@@ -58,7 +58,7 @@ export function PhotoMarkupDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl border-white/10 bg-surface-input">
         <DialogHeader>
-          <DialogTitle className="text-[#E5E5E5]">
+          <DialogTitle className="text-[#EDEDED]">
             Mark Up Photo
           </DialogTitle>
         </DialogHeader>
@@ -95,7 +95,7 @@ export function PhotoMarkupDialog({
         <DialogFooter className="gap-2">
           <button
             onClick={() => onOpenChange(false)}
-            className="rounded-md px-3 py-1.5 text-sm text-[#999] hover:text-[#E5E5E5]"
+            className="rounded-md px-3 py-1.5 text-sm text-[#999] hover:text-[#EDEDED]"
           >
             Cancel
           </button>

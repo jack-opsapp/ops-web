@@ -33,7 +33,7 @@ export function FlowGalaxyOverlay({
 
   const maxH = Math.min(400, containerHeight - 100);
 
-  const col = node.healthTier === 'healthy' ? '#597794'
+  const col = node.healthTier === 'healthy' ? '#6F94B0'
     : node.healthTier === 'moderate' ? '#C4A868'
     : 'rgb(147,65,55)';
 
@@ -84,13 +84,13 @@ export function FlowGalaxyOverlay({
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full" style={{ background: col }} />
-            <span className="font-mohave text-[14px] uppercase text-[#E5E5E5] tracking-wider">
+            <span className="font-mohave text-[14px] uppercase text-[#EDEDED] tracking-wider">
               {node.label}
             </span>
           </div>
           <button
             onClick={onClose}
-            className="text-[#6B6B6B] hover:text-[#E5E5E5] transition-colors font-mohave text-[12px]"
+            className="text-[#6B6B6B] hover:text-[#EDEDED] transition-colors font-mohave text-[12px]"
           >
             ×
           </button>
@@ -111,7 +111,7 @@ export function FlowGalaxyOverlay({
                 </linearGradient>
               </defs>
               <path d={sparklinePath.area} fill={`url(#grad-${node.id})`} />
-              <path d={sparklinePath.line} fill="none" stroke="#597794" strokeWidth="1.5" />
+              <path d={sparklinePath.line} fill="none" stroke="#6F94B0" strokeWidth="1.5" />
             </svg>
           </div>
         )}
@@ -125,7 +125,7 @@ export function FlowGalaxyOverlay({
                 key={d}
                 onClick={() => onDeviceFilterChange(d)}
                 className={`px-2 py-0.5 font-mono text-micro uppercase transition-colors
-                  ${deviceFilter === d ? 'bg-ops-accent/20 text-[#E5E5E5]' : 'text-[#6B6B6B] hover:text-[#A0A0A0]'}
+                  ${deviceFilter === d ? 'bg-ops-accent/20 text-[#EDEDED]' : 'text-[#6B6B6B] hover:text-[#A0A0A0]'}
                 `}
               >
                 {d}
@@ -145,7 +145,7 @@ export function FlowGalaxyOverlay({
           <MetricRow
             label="Conversion"
             value={formatPct(node.conversionRate)}
-            color={node.conversionRate > 0.1 ? '#597794' : undefined}
+            color={node.conversionRate > 0.1 ? '#6F94B0' : undefined}
           />
         </div>
 
@@ -161,7 +161,7 @@ export function FlowGalaxyOverlay({
                   <span className="font-mono text-micro text-[#A0A0A0] truncate flex-1 mr-2">
                     {cb.elementId.replace(/-/g, ' ')}
                   </span>
-                  <span className="font-mohave text-[11px] text-[#E5E5E5]">{cb.count}</span>
+                  <span className="font-mohave text-[11px] text-[#EDEDED]">{cb.count}</span>
                 </div>
               ))}
             </div>
@@ -178,7 +178,7 @@ export function FlowGalaxyOverlay({
               {node.deviceBreakdown.map(db => (
                 <div key={db.device} className="flex items-center justify-between">
                   <span className="font-mono text-micro text-[#A0A0A0]">{db.device}</span>
-                  <span className="font-mohave text-[11px] text-[#E5E5E5]">{db.count}</span>
+                  <span className="font-mohave text-[11px] text-[#EDEDED]">{db.count}</span>
                 </div>
               ))}
             </div>
@@ -189,13 +189,13 @@ export function FlowGalaxyOverlay({
         <div className="flex gap-2 border-t border-white/[0.05] pt-3">
           <button
             onClick={() => onTraceDownstream(node.id)}
-            className="flex-1 py-1.5 border border-[#597794]/30 rounded-[2px] font-mohave text-micro uppercase tracking-wider text-[#597794] hover:bg-ops-accent/10 transition-colors"
+            className="flex-1 py-1.5 border border-[#6F94B0]/30 rounded-[2px] font-mohave text-micro uppercase tracking-wider text-[#6F94B0] hover:bg-ops-accent/10 transition-colors"
           >
             Trace Flow ↓
           </button>
           <button
             onClick={() => onTraceUpstream(node.id)}
-            className="flex-1 py-1.5 border border-[#597794]/30 rounded-[2px] font-mohave text-micro uppercase tracking-wider text-[#597794] hover:bg-ops-accent/10 transition-colors"
+            className="flex-1 py-1.5 border border-[#6F94B0]/30 rounded-[2px] font-mohave text-micro uppercase tracking-wider text-[#6F94B0] hover:bg-ops-accent/10 transition-colors"
           >
             Trace Upstream ↑
           </button>
@@ -209,7 +209,7 @@ function MetricRow({ label, value, color }: { label: string; value: string; colo
   return (
     <div className="flex items-center justify-between">
       <span className="font-mono text-[11px] text-[#6B6B6B]">{label}</span>
-      <span className="font-mohave text-[13px]" style={{ color: color ?? '#E5E5E5' }}>{value}</span>
+      <span className="font-mohave text-[13px]" style={{ color: color ?? '#EDEDED' }}>{value}</span>
     </div>
   );
 }

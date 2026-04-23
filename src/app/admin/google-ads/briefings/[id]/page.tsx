@@ -41,7 +41,7 @@ export default async function BriefingDetailPage({
       <div className="p-8 space-y-8">
         {/* Summary */}
         <div className="border border-white/[0.08] rounded-lg p-6 bg-white/[0.02]">
-          <p className="font-mohave text-[16px] text-[#E5E5E5] leading-relaxed">
+          <p className="font-mohave text-[16px] text-[#EDEDED] leading-relaxed">
             {briefing.summary}
           </p>
         </div>
@@ -101,13 +101,13 @@ export default async function BriefingDetailPage({
                         insight.severity === "high" ? "text-[#93321A]" :
                         insight.severity === "medium" ? "text-[#C4A868]" : "text-[#6B6B6B]"
                       }`}>[{insight.severity}]</span>
-                      <span className="font-mohave text-[14px] text-[#E5E5E5]">{insight.title}</span>
+                      <span className="font-mohave text-[14px] text-[#EDEDED]">{insight.title}</span>
                       <span className="font-mono text-micro text-[#444444] bg-white/[0.04] px-1.5 py-0.5 rounded ml-auto">
                         {insight.impactScore}/10
                       </span>
                     </div>
                     <p className="font-mohave text-[13px] text-[#A0A0A0] mb-1">{insight.explanation}</p>
-                    <p className="font-mohave text-[13px] text-[#597794]">{insight.recommendation}</p>
+                    <p className="font-mohave text-[13px] text-[#6F94B0]">{insight.recommendation}</p>
                   </div>
                 ))}
             </div>

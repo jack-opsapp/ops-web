@@ -51,12 +51,12 @@ export function betaAccessRequestTemplate(params: {
       </tr>
     </table>
 
-    ${emailButton({ url: params.adminUrl, label: "Review in Admin Panel", accentColor: "#597794" })}
+    ${emailButton({ url: params.adminUrl, label: "Review in Admin Panel", accentColor: "#6F94B0" })}
   `;
 
   return emailLayout({
     companyName: "OPS",
-    accentColor: "#597794",
+    accentColor: "#6F94B0",
     logoUrl: null,
     body,
   });

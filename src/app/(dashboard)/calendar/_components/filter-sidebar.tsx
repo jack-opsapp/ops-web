@@ -12,7 +12,7 @@ import { UnscheduledPanel } from "./unscheduled-panel";
 // ─── Event Status Options ────────────────────────────────────────────────────
 
 const EVENT_STATUS_OPTIONS = [
-  { value: "upcoming", labelKey: "status.upcoming", color: "#8195B5" },
+  { value: "upcoming", labelKey: "status.upcoming", color: "#D99A3E" },
   { value: "in-progress", labelKey: "status.inProgress", color: "#C4A868" },
   { value: "past", labelKey: "status.past", color: "#9DB582" },
 ] as const;

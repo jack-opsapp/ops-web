@@ -33,7 +33,7 @@ export function FlowGalaxyLegend() {
           <div className="px-3 pb-2 space-y-1.5">
             {/* Health colors */}
             <div className="flex items-center gap-2">
-              <div className="w-[6px] h-[6px] rounded-full" style={{ background: '#597794' }} />
+              <div className="w-[6px] h-[6px] rounded-full" style={{ background: '#6F94B0' }} />
               <span className="font-mono text-micro text-[#A0A0A0]">Healthy (&lt;25% drop)</span>
             </div>
             <div className="flex items-center gap-2">
@@ -57,7 +57,7 @@ export function FlowGalaxyLegend() {
               <span className="font-mono text-micro text-[#A0A0A0]">Size = traffic</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-[6px] h-[6px] rounded-full bg-ops-accent/30 ring-1 ring-[#597794]/20" />
+              <div className="w-[6px] h-[6px] rounded-full bg-ops-accent/30 ring-1 ring-[#6F94B0]/20" />
               <span className="font-mono text-micro text-[#A0A0A0]">Glow = engagement</span>
             </div>
 

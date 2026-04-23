@@ -85,7 +85,7 @@ export function adsBriefingTemplate(briefing: AdBriefing): string {
 
     <div style="text-align:center;margin-top:32px;">
       <a href="${appUrl}/admin/google-ads/briefings/${briefing.id}"
-         style="display:inline-block;padding:10px 24px;background:#597794;color:#E5E5E5;text-decoration:none;font-size:13px;border-radius:4px;text-transform:uppercase;letter-spacing:0.05em;">
+         style="display:inline-block;padding:10px 24px;background:#6F94B0;color:#E5E5E5;text-decoration:none;font-size:13px;border-radius:4px;text-transform:uppercase;letter-spacing:0.05em;">
         View Full Briefing
       </a>
     </div>

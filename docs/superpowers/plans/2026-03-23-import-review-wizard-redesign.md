@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-03-23-import-review-wizard-redesign.md`
 
-**Design system:** Dark theme (`#0D0D0D`), accent `#597794`, Mohave/Kosugi fonts, `EASE_SMOOTH` from `src/lib/utils/motion.ts`, `transform`+`opacity` only, 2-4px border radius, frosted glass surfaces (`rgba(10,10,10,0.70)` + `backdrop-blur(20px) saturate(1.2)` + `1px solid rgba(255,255,255,0.08)`)
+**Design system:** Dark theme (`#0D0D0D`), accent `#6F94B0`, Mohave/Kosugi fonts, `EASE_SMOOTH` from `src/lib/utils/motion.ts`, `transform`+`opacity` only, 2-4px border radius, frosted glass surfaces (`rgba(10,10,10,0.70)` + `backdrop-blur(20px) saturate(1.2)` + `1px solid rgba(255,255,255,0.08)`)
 
 **Deliberate renames:** The existing wizard uses "ANALYZE" and "IMPORT" for steps 2 and 4. This redesign renames them to **"SCAN"** and **"REVIEW"** to better describe what the user is doing (scanning their inbox, reviewing results). The old labels described the system action; the new labels describe the user action.
 
@@ -292,7 +292,7 @@ export function EmailThreadView({ lead, defaultExpanded = false, keyboardEnabled
                 <span
                   className="font-mohave text-[11px] flex-shrink-0 mt-0.5 select-none"
                   style={{
-                    color: excerpt.direction === "inbound" ? "#597794" : "#555",
+                    color: excerpt.direction === "inbound" ? "#6F94B0" : "#555",
                   }}
                 >
                   {excerpt.direction === "inbound" ? "←" : "→"}
@@ -316,7 +316,7 @@ export function EmailThreadView({ lead, defaultExpanded = false, keyboardEnabled
             {!showAll && hiddenCount > 0 && (
               <button
                 onClick={() => setShowAll(true)}
-                className="font-mohave text-[10px] text-[#597794] hover:text-[#6A88A5] transition-colors ml-4"
+                className="font-mohave text-[10px] text-[#6F94B0] hover:text-[#6A88A5] transition-colors ml-4"
               >
                 Show older messages ({hiddenCount} more)
               </button>
@@ -326,7 +326,7 @@ export function EmailThreadView({ lead, defaultExpanded = false, keyboardEnabled
               href={gmailUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1 font-mohave text-[10px] text-[#597794] hover:text-[#6A88A5] transition-colors ml-4"
+              className="flex items-center gap-1 font-mohave text-[10px] text-[#6F94B0] hover:text-[#6A88A5] transition-colors ml-4"
             >
               View full thread in Gmail
               <ExternalLink size={9} />
@@ -684,11 +684,11 @@ export function StepperRail({
                 style={{ borderRadius: 2 }}
               >
                 {isCompleted ? (
-                  <Check size={10} className="text-[#597794]" />
+                  <Check size={10} className="text-[#6F94B0]" />
                 ) : isCurrent ? (
                   <div
                     className="w-2 h-2"
-                    style={{ background: "#597794", borderRadius: 1 }}
+                    style={{ background: "#6F94B0", borderRadius: 1 }}
                   />
                 ) : (
                   <div
@@ -705,7 +705,7 @@ export function StepperRail({
                   color: isCurrent
                     ? "#E5E5E5"
                     : isPast
-                      ? "#597794"
+                      ? "#6F94B0"
                       : "#444",
                 }}
               >
@@ -728,11 +728,11 @@ export function StepperRail({
                     <div key={sub.key} className="flex items-center gap-2 py-1">
                       <div className="w-2.5 h-2.5 flex items-center justify-center flex-shrink-0">
                         {isSubCompleted ? (
-                          <Check size={8} className="text-[#597794]" />
+                          <Check size={8} className="text-[#6F94B0]" />
                         ) : isSubCurrent ? (
                           <div
                             className="w-1.5 h-1.5"
-                            style={{ background: "#597794", borderRadius: 1 }}
+                            style={{ background: "#6F94B0", borderRadius: 1 }}
                           />
                         ) : (
                           <div
@@ -747,7 +747,7 @@ export function StepperRail({
                           color: isSubCurrent
                             ? "#E5E5E5"
                             : isSubCompleted
-                              ? "#597794"
+                              ? "#6F94B0"
                               : "#444",
                         }}
                       >

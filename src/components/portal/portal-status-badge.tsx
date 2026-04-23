@@ -7,20 +7,20 @@ import { cn } from "@/lib/utils/cn";
 const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }> = {
   // Estimate statuses
   draft: { bg: "rgba(156,163,175,0.15)", text: "#9CA3AF", border: "rgba(156,163,175,0.3)" },
-  sent: { bg: "rgba(129,149,181,0.15)", text: "#8195B5", border: "rgba(129,149,181,0.3)" },
+  sent: { bg: "rgba(129,149,181,0.15)", text: "#D99A3E", border: "rgba(129,149,181,0.3)" },
   viewed: { bg: "rgba(196,168,104,0.15)", text: "#C4A868", border: "rgba(196,168,104,0.3)" },
   approved: { bg: "rgba(157,181,130,0.15)", text: "#9DB582", border: "rgba(157,181,130,0.3)" },
-  changes_requested: { bg: "rgba(181,163,129,0.15)", text: "#B5A381", border: "rgba(181,163,129,0.3)" },
+  changes_requested: { bg: "rgba(181,163,129,0.15)", text: "#B6AC97", border: "rgba(181,163,129,0.3)" },
   declined: { bg: "rgba(181,130,137,0.15)", text: "#B58289", border: "rgba(181,130,137,0.3)" },
   expired: { bg: "rgba(107,114,128,0.15)", text: "#6B7280", border: "rgba(107,114,128,0.3)" },
   // Invoice statuses
   awaiting_payment: { bg: "rgba(196,168,104,0.15)", text: "#C4A868", border: "rgba(196,168,104,0.3)" },
-  partially_paid: { bg: "rgba(181,163,129,0.15)", text: "#B5A381", border: "rgba(181,163,129,0.3)" },
+  partially_paid: { bg: "rgba(181,163,129,0.15)", text: "#B6AC97", border: "rgba(181,163,129,0.3)" },
   past_due: { bg: "rgba(181,130,137,0.15)", text: "#B58289", border: "rgba(181,130,137,0.3)" },
   paid: { bg: "rgba(157,181,130,0.15)", text: "#9DB582", border: "rgba(157,181,130,0.3)" },
   // Project statuses
   RFQ: { bg: "rgba(156,163,175,0.15)", text: "#9CA3AF", border: "rgba(156,163,175,0.3)" },
-  Estimated: { bg: "rgba(129,149,181,0.15)", text: "#8195B5", border: "rgba(129,149,181,0.3)" },
+  Estimated: { bg: "rgba(129,149,181,0.15)", text: "#D99A3E", border: "rgba(129,149,181,0.3)" },
   Accepted: { bg: "rgba(196,168,104,0.15)", text: "#C4A868", border: "rgba(196,168,104,0.3)" },
   "In Progress": { bg: "rgba(65,115,148,0.15)", text: "#417394", border: "rgba(65,115,148,0.3)" },
   Completed: { bg: "rgba(157,181,130,0.15)", text: "#9DB582", border: "rgba(157,181,130,0.3)" },

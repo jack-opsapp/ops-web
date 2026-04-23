@@ -23,7 +23,7 @@ export function MarketPulse({ themes }: { themes: SentimentTheme[] }) {
               <span className={`font-mohave text-[11px] uppercase ${SENTIMENT_COLORS[theme.sentiment]}`}>
                 [{theme.sentiment}]
               </span>
-              <span className="font-mohave text-[14px] text-[#E5E5E5]">{theme.theme}</span>
+              <span className="font-mohave text-[14px] text-[#EDEDED]">{theme.theme}</span>
             </div>
             {theme.quotes.length > 0 && (
               <div className="space-y-1 mb-2">
@@ -42,7 +42,7 @@ export function MarketPulse({ themes }: { themes: SentimentTheme[] }) {
               ))}
             </div>
             {theme.opportunity && (
-              <p className="font-mohave text-[13px] text-[#597794] mt-2">{"\u2192"} {theme.opportunity}</p>
+              <p className="font-mohave text-[13px] text-[#6F94B0] mt-2">{"\u2192"} {theme.opportunity}</p>
             )}
           </div>
         ))}

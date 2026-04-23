@@ -79,7 +79,7 @@ export function MarkupToolbar({
       <button
         onClick={onUndo}
         disabled={!canUndo}
-        className="rounded p-1.5 text-[#999] transition hover:bg-white/10 hover:text-[#E5E5E5] disabled:opacity-30"
+        className="rounded p-1.5 text-[#999] transition hover:bg-white/10 hover:text-[#EDEDED] disabled:opacity-30"
         title="Undo"
       >
         <Undo className="h-4 w-4" />
@@ -87,7 +87,7 @@ export function MarkupToolbar({
       <button
         onClick={onClear}
         disabled={!canUndo}
-        className="rounded p-1.5 text-[#999] transition hover:bg-white/10 hover:text-[#E5E5E5] disabled:opacity-30"
+        className="rounded p-1.5 text-[#999] transition hover:bg-white/10 hover:text-[#EDEDED] disabled:opacity-30"
         title="Clear all"
       >
         <Eraser className="h-4 w-4" />

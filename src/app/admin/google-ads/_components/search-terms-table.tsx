@@ -45,10 +45,10 @@ export function SearchTermsTable({ searchTerms }: SearchTermsTableProps) {
                 key={`${t.searchTerm}-${i}`}
                 className="border-b border-white/[0.08] hover:bg-white/[0.02] transition-colors duration-100"
               >
-                <td className="py-3 pr-3 font-mohave text-[14px] text-[#E5E5E5]">{t.searchTerm}</td>
+                <td className="py-3 pr-3 font-mohave text-[14px] text-[#EDEDED]">{t.searchTerm}</td>
                 <td className="py-3 pr-3 font-mohave text-[14px] text-[#A0A0A0] tabular-nums">{t.impressions.toLocaleString()}</td>
                 <td className="py-3 pr-3 font-mohave text-[14px] text-[#A0A0A0] tabular-nums">{t.clicks.toLocaleString()}</td>
-                <td className="py-3 pr-3 font-mohave text-[14px] text-[#E5E5E5] tabular-nums">${t.cost.toFixed(2)}</td>
+                <td className="py-3 pr-3 font-mohave text-[14px] text-[#EDEDED] tabular-nums">${t.cost.toFixed(2)}</td>
                 <td className="py-3 pr-3 font-mohave text-[14px] text-[#A0A0A0] tabular-nums">{t.conversions.toFixed(1)}</td>
               </tr>
             ))}

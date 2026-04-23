@@ -13,7 +13,7 @@ import type { EmailScheduleDay, EmailDayDetail } from "@/lib/admin/types";
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const SEGMENT_COLORS: Record<string, string> = {
-  lifecycle: "#597794",
+  lifecycle: "#6F94B0",
   bubble: "#C4A868",
   unverified: "#9DB582",
   newsletter: "#93321A",
@@ -160,16 +160,16 @@ export function ScheduleTab() {
       <div className="flex items-center justify-between">
         <button
           onClick={prevMonth}
-          className="p-1.5 rounded hover:bg-white/[0.04] transition-colors text-[#6B6B6B] hover:text-[#E5E5E5]"
+          className="p-1.5 rounded hover:bg-white/[0.04] transition-colors text-[#6B6B6B] hover:text-[#EDEDED]"
         >
           <ChevronLeft className="w-4 h-4" />
         </button>
-        <h2 className="font-mohave text-[16px] uppercase tracking-wider text-[#E5E5E5]">
+        <h2 className="font-mohave text-[16px] uppercase tracking-wider text-[#EDEDED]">
           {formatMonthYear(year, month)}
         </h2>
         <button
           onClick={nextMonth}
-          className="p-1.5 rounded hover:bg-white/[0.04] transition-colors text-[#6B6B6B] hover:text-[#E5E5E5]"
+          className="p-1.5 rounded hover:bg-white/[0.04] transition-colors text-[#6B6B6B] hover:text-[#EDEDED]"
         >
           <ChevronRight className="w-4 h-4" />
         </button>
@@ -226,12 +226,12 @@ export function ScheduleTab() {
                 key={key}
                 className={`min-h-[72px] border-b border-r border-white/[0.04] p-1.5 transition-colors ${
                   hasData && !future ? "cursor-pointer hover:bg-white/[0.04]" : ""
-                } ${today ? "ring-1 ring-inset ring-[#597794]/50 bg-ops-accent/5" : ""}`}
+                } ${today ? "ring-1 ring-inset ring-[#6F94B0]/50 bg-ops-accent/5" : ""}`}
                 onClick={() => {
                   if (hasData && !future) openDayDetail(key);
                 }}
               >
-                <span className={`font-mohave text-[12px] ${today ? "text-[#597794]" : "text-[#A0A0A0]"}`}>
+                <span className={`font-mohave text-[12px] ${today ? "text-[#6F94B0]" : "text-[#A0A0A0]"}`}>
                   {day}
                 </span>
                 {Object.keys(segments).length > 0 && (
@@ -258,7 +258,7 @@ export function ScheduleTab() {
 
       {loading && (
         <div className="flex items-center justify-center py-4">
-          <div className="w-4 h-4 border-2 border-[#597794] border-t-transparent rounded-full animate-spin" />
+          <div className="w-4 h-4 border-2 border-[#6F94B0] border-t-transparent rounded-full animate-spin" />
         </div>
       )}
 
@@ -278,7 +278,7 @@ export function ScheduleTab() {
 
           {dayLoading ? (
             <div className="flex items-center justify-center py-8">
-              <div className="w-5 h-5 border-2 border-[#597794] border-t-transparent rounded-full animate-spin" />
+              <div className="w-5 h-5 border-2 border-[#6F94B0] border-t-transparent rounded-full animate-spin" />
             </div>
           ) : dayEmails.length === 0 ? (
             <p className="font-mono text-[12px] text-[#6B6B6B] text-center py-6">

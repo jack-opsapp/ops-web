@@ -328,7 +328,7 @@ export function AiSetupDashboard({
           {readiness.emailDrafting === "ready" && (
             <button
               onClick={() => router.push("/inbox?compose=true&ai=true")}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-ops-accent hover:bg-[#4a6680] text-white font-mohave text-[13px] transition-colors"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-ops-accent hover:bg-[#7fa3bd] text-white font-mohave text-[13px] transition-colors"
             >
               <Mail className="w-[13px] h-[13px]" />
               {t("dashboard.actions.tryDraft")}

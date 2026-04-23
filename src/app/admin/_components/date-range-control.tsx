@@ -112,7 +112,7 @@ export function DateRangeControl({
             onClick={() => handlePreset(p.key)}
             className={`px-3 py-1 rounded-full font-mohave text-[12px] uppercase tracking-wider transition-colors ${
               active === p.key
-                ? "bg-ops-accent/20 text-[#597794]"
+                ? "bg-ops-accent/20 text-[#6F94B0]"
                 : "bg-white/[0.06] text-[#6B6B6B] hover:text-[#A0A0A0] hover:bg-white/[0.08]"
             }`}
           >
@@ -132,7 +132,7 @@ export function DateRangeControl({
                   onClick={() => handleGranularity(g)}
                   className={`px-2 py-1 rounded font-mono text-[11px] transition-colors ${
                     currentGranularity === g
-                      ? "bg-white/[0.1] text-[#E5E5E5]"
+                      ? "bg-white/[0.1] text-[#EDEDED]"
                       : "text-[#6B6B6B] hover:text-[#A0A0A0]"
                   }`}
                 >

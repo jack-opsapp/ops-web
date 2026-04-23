@@ -34,7 +34,7 @@ export function SummaryBar({ categories, activeFilter, onFilterChange }: Summary
           />
           <span
             className={`font-mohave text-[11px] uppercase tracking-wider ${
-              activeFilter === s.value ? "text-[#E5E5E5]" : "text-[#6B6B6B]"
+              activeFilter === s.value ? "text-[#EDEDED]" : "text-[#6B6B6B]"
             }`}
           >
             {s.count} {s.label}

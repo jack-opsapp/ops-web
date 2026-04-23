@@ -29,7 +29,7 @@ function InlineEdit({
     return (
       <button
         onClick={() => { setDraft(value); setEditing(true); }}
-        className="font-mohave text-[13px] text-[#E5E5E5] hover:text-[#597794] transition-colors text-left"
+        className="font-mohave text-[13px] text-[#EDEDED] hover:text-[#6F94B0] transition-colors text-left"
       >
         {prefix}{value || <span className="text-[#6B6B6B]/50">—</span>}
       </button>
@@ -50,7 +50,7 @@ function InlineEdit({
           if (e.key === "Escape") setEditing(false);
         }}
         autoFocus
-        className="w-full bg-white/[0.04] border border-[#597794] rounded-sm px-2 py-1 font-mohave text-[13px] text-[#E5E5E5] focus:outline-none"
+        className="w-full bg-white/[0.04] border border-[#6F94B0] rounded-sm px-2 py-1 font-mohave text-[13px] text-[#EDEDED] focus:outline-none"
       />
     </div>
   );
@@ -191,7 +191,7 @@ export function ShippingTable({ methods }: ShippingTableProps) {
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 autoFocus
-                className="w-full bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#E5E5E5] focus:border-[#597794] focus:outline-none"
+                className="w-full bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#EDEDED] focus:border-[#6F94B0] focus:outline-none"
               />
             </div>
             <div>
@@ -200,7 +200,7 @@ export function ShippingTable({ methods }: ShippingTableProps) {
                 type="text"
                 value={newDesc}
                 onChange={(e) => setNewDesc(e.target.value)}
-                className="w-full bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#E5E5E5] focus:border-[#597794] focus:outline-none"
+                className="w-full bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#EDEDED] focus:border-[#6F94B0] focus:outline-none"
               />
             </div>
             <div>
@@ -210,7 +210,7 @@ export function ShippingTable({ methods }: ShippingTableProps) {
                 step="0.01"
                 value={newPrice}
                 onChange={(e) => setNewPrice(e.target.value)}
-                className="w-full bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#E5E5E5] focus:border-[#597794] focus:outline-none"
+                className="w-full bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#EDEDED] focus:border-[#6F94B0] focus:outline-none"
               />
             </div>
             <div>
@@ -221,7 +221,7 @@ export function ShippingTable({ methods }: ShippingTableProps) {
                 value={newThreshold}
                 onChange={(e) => setNewThreshold(e.target.value)}
                 placeholder="Optional"
-                className="w-full bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#E5E5E5] placeholder:text-[#6B6B6B] focus:border-[#597794] focus:outline-none"
+                className="w-full bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#EDEDED] placeholder:text-[#6B6B6B] focus:border-[#6F94B0] focus:outline-none"
               />
             </div>
           </div>
@@ -244,7 +244,7 @@ export function ShippingTable({ methods }: ShippingTableProps) {
       ) : (
         <button
           onClick={() => setAdding(true)}
-          className="mt-4 flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B] hover:text-[#E5E5E5] transition-colors"
+          className="mt-4 flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B] hover:text-[#EDEDED] transition-colors"
         >
           <Plus size={14} /> Add Shipping Method
         </button>

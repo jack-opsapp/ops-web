@@ -613,8 +613,8 @@ interface SpatialCardProps {
 
 1. **Contact info:**
    - `opportunity.contactName` if exists — `font-mohave text-body-sm text-text-secondary`
-   - Phone link: `tel:` href, with Phone icon (12px), `text-[#597794]` — only if `opportunity.contactPhone` exists
-   - Email link: `mailto:` href, with Mail icon (12px), `text-[#597794]` — only if `opportunity.contactEmail` exists
+   - Phone link: `tel:` href, with Phone icon (12px), `text-[#6F94B0]` — only if `opportunity.contactPhone` exists
+   - Email link: `mailto:` href, with Mail icon (12px), `text-[#6F94B0]` — only if `opportunity.contactEmail` exists
 
 2. **Email correspondence stats** (only if `opportunity.correspondenceCount > 0`):
    - `"{count} email(s)"` — `font-kosugi text-micro-sm text-text-tertiary`
@@ -629,7 +629,7 @@ interface SpatialCardProps {
    - If `opportunity.lastActivityAt` exists: `"activity {timeAgo}"` — `font-kosugi text-micro-sm text-text-disabled`
 
 5. **Details button:**
-   - `font-mohave text-body-sm text-[#597794] hover:text-text-primary cursor-pointer`
+   - `font-mohave text-body-sm text-[#6F94B0] hover:text-text-primary cursor-pointer`
    - Calls `onOpenDetail` — this will eventually open the tethered detail popover (designed separately, for now opens deal detail sheet)
 
 **Animation per content row:**
@@ -751,8 +751,8 @@ In `spatial-drag-overlay.tsx`:
 - Mouse down on **empty canvas space** (not on a card) starts the marquee
 - Must distinguish from pan: marquee = left-click drag on empty space. Pan = middle-click or two-finger.
 - As the user drags, render a selection rectangle:
-  - `border: 1px solid rgba(89, 119, 148, 0.5)` (accent at 50%)
-  - `background: rgba(89, 119, 148, 0.08)` (accent at 8%)
+  - `border: 1px solid rgba(111, 148, 176, 0.5)` (accent at 50%)
+  - `background: rgba(111, 148, 176, 0.08)` (accent at 8%)
   - `border-radius: 2px`
   - `pointer-events: none`
 - On every mousemove: calculate which cards intersect the rectangle (compare card bounding boxes against marquee rect)
@@ -925,7 +925,7 @@ interface SpatialTerminalRegionProps {
 - `text-text-disabled hover:text-text-primary hover:bg-[rgba(255,255,255,0.06)]`
 - `transition: all 0.15s ease`
 - Icons: `w-[16px] h-[16px]`
-- Active state (archive tray open): `text-[#597794]` `bg-[rgba(89,119,148,0.1)]`
+- Active state (archive tray open): `text-[#6F94B0]` `bg-[rgba(111,148,176,0.1)]`
 
 ---
 
@@ -1178,7 +1178,7 @@ All values verified from the source files listed. Implementers MUST re-verify by
 | Surface | `rgba(13,13,13,0.6)` | Current `pipeline-card.tsx` line 228 |
 | Border | `rgba(255,255,255,0.08)` | `.interface-design/system.md` line 132 |
 | Border hover | `rgba(255,255,255,0.15)` | Current `pipeline-card.tsx` line 237 |
-| Accent | `#597794` | `.interface-design/system.md` line 16 |
+| Accent | `#6F94B0` | `.interface-design/system.md` line 16 |
 | Frosted glass bg | `rgba(10, 10, 10, 0.70)` | `.interface-design/system.md` line 129 |
 | Frosted glass blur | `blur(20px) saturate(1.2)` | `.interface-design/system.md` line 130 |
 | Stage colors | `OPPORTUNITY_STAGE_COLORS` | `pipeline.ts` lines 197-207 |

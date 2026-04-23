@@ -181,7 +181,7 @@ export function ProjectMap({
         }
         .leaflet-control-zoom a {
           background: #111 !important;
-          color: #E5E5E5 !important;
+          color: #EDEDED !important;
           border-color: #333 !important;
         }
         .leaflet-control-zoom a:hover {

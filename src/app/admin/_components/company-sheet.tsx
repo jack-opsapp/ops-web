@@ -123,7 +123,7 @@ export function CompanySheet({ companyId, onClose }: CompanySheetProps) {
         <SheetHeader className="px-6 pt-6 pb-4 border-b border-white/[0.08]">
           {data ? (
             <>
-              <SheetTitle className="font-mohave text-xl text-[#E5E5E5]">
+              <SheetTitle className="font-mohave text-xl text-[#EDEDED]">
                 {(data.company.name as string) ?? "Company"}
               </SheetTitle>
               <SheetDescription className="flex items-center gap-2 mt-1">
@@ -133,7 +133,7 @@ export function CompanySheet({ companyId, onClose }: CompanySheetProps) {
             </>
           ) : (
             <>
-              <SheetTitle className="font-mohave text-xl text-[#E5E5E5]">
+              <SheetTitle className="font-mohave text-xl text-[#EDEDED]">
                 {loading ? "Loading..." : "Company"}
               </SheetTitle>
               <SheetDescription>
@@ -154,7 +154,7 @@ export function CompanySheet({ companyId, onClose }: CompanySheetProps) {
           <div className="shrink-0 px-6 py-3 border-t border-white/[0.08]">
             <Link
               href={`/admin/companies/${companyId}`}
-              className="font-mohave text-[13px] uppercase tracking-widest text-[#597794] hover:text-[#E5E5E5] transition-colors"
+              className="font-mohave text-[13px] uppercase tracking-widest text-[#6F94B0] hover:text-[#EDEDED] transition-colors"
             >
               Open Full Detail →
             </Link>
@@ -170,7 +170,7 @@ export function CompanySheet({ companyId, onClose }: CompanySheetProps) {
 function LoadingState() {
   return (
     <div className="flex items-center justify-center py-16">
-      <div className="w-6 h-6 border-2 border-[#597794] border-t-transparent rounded-full animate-spin" />
+      <div className="w-6 h-6 border-2 border-[#6F94B0] border-t-transparent rounded-full animate-spin" />
     </div>
   );
 }
@@ -220,7 +220,7 @@ function MiniStat({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="border border-white/[0.08] rounded-lg p-3 bg-white/[0.02]">
       <p className="font-mohave text-[11px] uppercase text-[#6B6B6B]">{label}</p>
-      <p className="font-mohave text-lg text-[#E5E5E5] mt-0.5">{value}</p>
+      <p className="font-mohave text-lg text-[#EDEDED] mt-0.5">{value}</p>
     </div>
   );
 }
@@ -241,7 +241,7 @@ function OverviewTab({ data }: { data: CompanyData }) {
           <div className="border border-white/[0.08] rounded-lg overflow-hidden">
             {data.projects.slice(0, 8).map((p) => (
               <div key={p.id} className="flex items-center justify-between px-4 h-10 border-b border-white/[0.05] last:border-0">
-                <span className="font-mohave text-[13px] text-[#E5E5E5] truncate pr-4">{p.title}</span>
+                <span className="font-mohave text-[13px] text-[#EDEDED] truncate pr-4">{p.title}</span>
                 <StatusBadge status={p.status} />
               </div>
             ))}
@@ -282,7 +282,7 @@ function ActivityRow({ label, data }: { label: string; data: { label: string; va
       <span className="font-mohave text-[13px] text-[#A0A0A0]">{label}</span>
       <div className="flex items-center gap-4">
         <span className="font-mono text-[11px] text-[#6B6B6B]">last 4w: {recent}</span>
-        <span className="font-mohave text-[13px] text-[#E5E5E5]">{total} total</span>
+        <span className="font-mohave text-[13px] text-[#EDEDED]">{total} total</span>
       </div>
     </div>
   );
@@ -299,7 +299,7 @@ function TeamTab({ users }: { users: CompanyData["usersWithAuth"] }) {
           return (
             <div key={u.id} className="px-4 py-3 border-b border-white/[0.05] last:border-0">
               <div className="flex items-center justify-between">
-                <span className="font-mohave text-[14px] text-[#E5E5E5]">
+                <span className="font-mohave text-[14px] text-[#EDEDED]">
                   {u.first_name} {u.last_name}
                 </span>
                 <span
@@ -350,10 +350,10 @@ function PipelineTab({ data }: { data: CompanyData }) {
           <div className="border border-white/[0.08] rounded-lg overflow-hidden">
             {Object.entries(stages).map(([stage, { count, value }]) => (
               <div key={stage} className="flex items-center justify-between px-4 h-10 border-b border-white/[0.05] last:border-0">
-                <span className="font-mohave text-[13px] text-[#E5E5E5]">{stage}</span>
+                <span className="font-mohave text-[13px] text-[#EDEDED]">{stage}</span>
                 <div className="flex items-center gap-4">
                   <span className="font-mono text-[11px] text-[#6B6B6B]">{count} deals</span>
-                  <span className="font-mohave text-[13px] text-[#E5E5E5]">${value.toLocaleString()}</span>
+                  <span className="font-mohave text-[13px] text-[#EDEDED]">${value.toLocaleString()}</span>
                 </div>
               </div>
             ))}

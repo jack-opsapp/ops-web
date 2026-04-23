@@ -21,7 +21,7 @@ interface BarChartProps {
 
 export function AdminBarChart({
   data,
-  color = "#597794",
+  color = "#6F94B0",
   height = 200,
   isLoading,
   onBarClick,
@@ -51,7 +51,7 @@ export function AdminBarChart({
             border: "1px solid rgba(255,255,255,0.08)",
             borderRadius: "8px",
             fontFamily: "Mohave",
-            color: "#E5E5E5",
+            color: "#EDEDED",
           }}
           cursor={{ fill: "rgba(255,255,255,0.03)" }}
         />

@@ -323,7 +323,7 @@ export function FlowGalaxyDashboard() {
           <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
             <button
               onClick={() => setParams({ ...params })}
-              className="pointer-events-auto font-mohave text-[12px] uppercase tracking-wider text-[#597794] hover:text-[#E5E5E5] transition-colors mt-16"
+              className="pointer-events-auto font-mohave text-[12px] uppercase tracking-wider text-[#6F94B0] hover:text-[#EDEDED] transition-colors mt-16"
             >
               Retry
             </button>

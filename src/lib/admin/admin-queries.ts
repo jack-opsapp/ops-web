@@ -254,7 +254,7 @@ export async function getPlanDistribution(): Promise<PlanDistribution[]> {
   const PLAN_COLORS: Record<string, string> = {
     trial: "#A0A0A0",
     starter: "#9DB582",
-    team: "#8195B5",
+    team: "#D99A3E",
     business: "#C4A868",
   };
 

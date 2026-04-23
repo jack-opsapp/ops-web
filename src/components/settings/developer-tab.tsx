@@ -9,7 +9,7 @@ export function DeveloperTab() {
   return (
     <div className="space-y-6 py-4">
       <div>
-        <h2 className="text-lg font-semibold text-[#E5E5E5]">{t("developer.title")}</h2>
+        <h2 className="text-lg font-semibold text-[#EDEDED]">{t("developer.title")}</h2>
         <p className="text-sm text-[#999] mt-1">
           {t("developer.description")}
         </p>
@@ -19,7 +19,7 @@ export function DeveloperTab() {
         <div className="flex items-start gap-3">
           <Database className="h-5 w-5 text-[#417394] mt-0.5 shrink-0" />
           <div className="flex-1">
-            <h3 className="text-sm font-medium text-[#E5E5E5]">
+            <h3 className="text-sm font-medium text-[#EDEDED]">
               {t("developer.database")}
             </h3>
             <p className="text-sm text-[#999] mt-1">

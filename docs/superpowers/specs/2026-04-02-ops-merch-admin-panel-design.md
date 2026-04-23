@@ -296,7 +296,7 @@ page.tsx (server):
 | Status | Background | Text |
 |--------|-----------|------|
 | pending | `bg-white/[0.05]` | `text-[#6B6B6B]` |
-| paid | `bg-[#597794]/20` | `text-[#597794]` |
+| paid | `bg-[#6F94B0]/20` | `text-[#6F94B0]` |
 | shipped | `bg-amber-500/20` | `text-amber-400` |
 | delivered | `bg-emerald-500/20` | `text-emerald-400` |
 | cancelled | `bg-red-500/10` | `text-[#6B6B6B]` + strikethrough |
@@ -559,18 +559,18 @@ All UI follows existing OPS-Web admin patterns from `CLAUDE.md`:
 | Table | `bg-transparent`, `border-b border-white/[0.06]` per row, hover `bg-white/[0.02]` |
 | Table header | `font-kosugi text-[11px] uppercase tracking-widest text-[#6B6B6B]` |
 | Table cell | `font-mohave text-[13px] text-[#E5E5E5]` |
-| Badges | Accent: `bg-[#597794]/20 text-[#597794]`. Muted: `bg-white/[0.05] text-[#6B6B6B]` |
-| Buttons (primary) | `bg-[#597794] text-white font-kosugi text-[11px] uppercase tracking-widest px-4 py-2 rounded-sm` |
+| Badges | Accent: `bg-[#6F94B0]/20 text-[#6F94B0]`. Muted: `bg-white/[0.05] text-[#6B6B6B]` |
+| Buttons (primary) | `bg-[#6F94B0] text-white font-kosugi text-[11px] uppercase tracking-widest px-4 py-2 rounded-sm` |
 | Buttons (ghost) | `border border-white/[0.12] text-[#6B6B6B] hover:text-[#E5E5E5]` same font |
 | Buttons (danger) | `bg-red-500/20 text-red-400 hover:bg-red-500/30` |
-| Inputs | `bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#E5E5E5] focus:border-[#597794]` |
+| Inputs | `bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-2 font-mohave text-[13px] text-[#E5E5E5] focus:border-[#6F94B0]` |
 | Toggles | Small switch, accent color when on, `bg-white/[0.08]` when off |
 | Card/section | `border border-white/[0.08] rounded-sm p-6` — no background fill, border only |
 | Section label | `font-kosugi text-[11px] uppercase tracking-widest text-[#6B6B6B] mb-4` |
 
 ### 10.1 Accent Colors by Context
 
-- Default accent: `#597794`
+- Default accent: `#6F94B0`
 - Stock green: `text-emerald-400`
 - Stock yellow: `text-amber-400`
 - Stock red / danger: `text-red-400`
