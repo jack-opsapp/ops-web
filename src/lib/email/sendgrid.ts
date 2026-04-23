@@ -42,6 +42,29 @@ function getFromEmail(): string {
 
 // ─── Public API ──────────────────────────────────────────────────────────────
 
+/**
+ * Generic transactional email sender. Use for pre-rendered HTML where the
+ * subject and body are computed by the caller (e.g. PMF digests rendered via
+ * `@react-email/render`). Prefer the typed per-template senders below for
+ * everything else.
+ */
+export async function sendTransactionalEmail(params: {
+  to: string;
+  subject: string;
+  html: string;
+  fromName?: string;
+  from?: string;
+}): Promise<void> {
+  ensureInitialized();
+
+  await sgMail.send({
+    to: params.to,
+    from: { email: params.from ?? getFromEmail(), name: params.fromName ?? "OPS" },
+    subject: params.subject,
+    html: params.html,
+  });
+}
+
 export async function sendMagicLink(params: {
   email: string;
   token: string;
