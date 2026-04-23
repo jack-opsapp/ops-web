@@ -26,6 +26,14 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      // `server-only` is a marker module Next.js bundles internally and
+      // does not hoist to the top-level `node_modules`. Route it to
+      // Next's empty shim so server-guarded modules can be imported from
+      // Vitest without a resolver failure.
+      "server-only": path.resolve(
+        __dirname,
+        "./node_modules/next/dist/compiled/server-only/empty.js"
+      ),
     },
   },
 });
