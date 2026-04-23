@@ -5,6 +5,7 @@ type NavEntry =
   | { type: "section"; label: string };
 
 const NAV_ITEMS: NavEntry[] = [
+  { type: "item", href: "/admin/pmf", label: "PMF" },
   { type: "item", href: "/admin", label: "OVERVIEW" },
 
   { type: "section", label: "GROWTH" },

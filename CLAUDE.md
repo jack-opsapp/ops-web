@@ -141,3 +141,61 @@ Full reference: `ops-software-bible/05_DESIGN_SYSTEM.md` § 15. Use this scale f
 | **emergency** | 9000–9999 | Sign-out, lockout overlays |
 
 **Rules:** Decorative overlays must never exceed 10. Gaps between layers are intentional — use them for future additions. Existing components use the old tight scale (sidebar=45, FAB=95, etc.) — migrate to the new scale as you touch them.
+
+## PMF Dashboard (`/admin/pmf`)
+
+The PMF tracking deck is the operator's primary operating surface during the pre-PMF phase (Gate B: Sept 1 2026). Separate tenancy model from the main app — global operator view, not company-scoped.
+
+### Architecture
+- **Data flow:** `src/lib/admin/pmf-queries.ts` → `computePmfState()` (uncached) or `getPmfState()` (ISR, 60s TTL) → dashboard page + crons
+- **Mutations revalidate** via `revalidateTag('pmf-state')` — call from any admin POST/PATCH/DELETE on PMF data
+- **Route-cache TTL constant:** `PMF_STATE_TTL_SECONDS = 60` — pages import this for `export const revalidate`, so cache drift can't happen
+
+### Design system — scoped, not global
+- The PMF dashboard applies visual tokens via the `.pmf-scope` wrapper at `src/styles/pmf-tokens.css`
+- Do NOT extend pmf tokens globally; they live under the scope exclusively
+- Fonts inside `.pmf-scope`: Cake Mono Light (uppercase display), JetBrains Mono (numbers), Mohave (body)
+- Accent `#6F94B0` (matches global spec v2 accent — intentional reuse, not divergence)
+
+### Notifications pipeline (Session 3)
+- **Sender:** `src/lib/notifications/pmf-send.ts` — `sendPmfNotification({ kind, trigger, smsBody?, emailSubject?, emailReact?, inAppTitle?, inAppBody?, inAppActionUrl?, dedupMs? })`
+- **Channels by kind:**
+  - `threshold_alert`: SMS + email + in-app (all three)
+  - `daily_digest`: email only
+  - `weekly_digest`: email only
+- **Dedup:** 4-hour window for threshold alerts, 0 (always fire) for digests — keyed by `(kind, trigger)` against `pmf_notification_log` and filtered to successful prior sends only
+- **Retry:** exponential backoff 1s / 5s (two real waits, then rejects); `logSend` never throws
+- **Email path:** `sendTransactionalEmail` at `src/lib/email/sendgrid.ts` (added by Task 24); templates at `src/emails/pmf/*`
+- **In-app path:** inserts into `notifications` table with `type: 'pmf_alert'`, `company_id: PMF_OPERATOR_COMPANY_ID`, `action_label: 'VIEW DECK'`
+
+### Cron schedule (registered in `vercel.json`)
+| Path | Schedule (UTC) | Purpose |
+|------|----------------|---------|
+| `/api/cron/pmf/threshold-check` | `*/15 * * * *` | Detect state transitions + event-driven alerts |
+| `/api/cron/pmf/daily-digest` | `0 15 * * *` | 7am PT daily recap email |
+| `/api/cron/pmf/weekly-digest` | `0 15 * * 1` | Mon 7am PT weekly recap + cohorts |
+| `/api/cron/pmf/cleanup-snapshots` | `30 14 * * *` | Prune snapshots older than 30 days |
+| `/api/cron/pmf/google-ads-sync` | `15 14 * * *` | Daily ad spend sync |
+
+### Source of truth rules
+- **Billing events / MRR:** `billing_events` table, written by the Stripe webhook at `/api/webhooks/stripe/route.ts` (layered — NOT a separate endpoint). Do not compute MRR from `companies.subscription_status` alone.
+- **Retention cohorts:** `pmf_retention_cohorts` RPC (migration `20260422120001_pmf_retention_cohorts_rpc.sql` — must be applied to prod before weekly digest runs)
+- **Attribution:** UTM cookies on `try-ops` landing → `/api/admin/pmf/attributions/seed` → `trial_attributions` table
+- **Threshold snapshots:** `pmf_threshold_snapshots` — written every 15 min by threshold-check cron, consumed by next run's diff
+
+### Environment variables
+| Name | Purpose |
+|------|---------|
+| `PMF_NOTIFICATION_SMS` | Operator SMS recipient (E.164) |
+| `PMF_NOTIFICATION_EMAIL` | Operator email recipient |
+| `PMF_OPERATOR_USER_ID` | Supabase auth user id of the operator (for in-app rail routing) |
+| `PMF_OPERATOR_COMPANY_ID` | Operator's company_id (in-app `notifications.company_id` NOT NULL) |
+| `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_PHONE_NUMBER` | SMS transport |
+| `SENDGRID_API_KEY` / `SENDGRID_FROM_EMAIL` | Email transport |
+| `CRON_SECRET` | Vercel cron auth (Bearer token) |
+| `NEXT_PUBLIC_APP_URL` | Dashboard URL base for `VIEW DECK` links |
+
+### Testing
+- Unit: `tests/unit/notifications/pmf-send.test.ts` (sender internals), `tests/unit/notifications/pmf-templates.test.ts` (email templates)
+- Integration: `tests/integration/pmf-*-cron.test.ts` (cron handlers), `tests/integration/notifications.test.ts` (transport boundary), `tests/integration/pmf-crud-routes.test.ts`, `tests/integration/pmf-attributions-seed.test.ts`, `tests/integration/stripe-webhook-billing-events.test.ts`
+- E2E: `tests/e2e/pmf-*.spec.ts` — admin-gated tests skipped unless `E2E_ADMIN_EMAIL`/`E2E_ADMIN_PASSWORD` set
