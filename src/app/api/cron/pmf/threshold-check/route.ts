@@ -89,17 +89,17 @@ export async function GET(request: NextRequest) {
 
   // Read the most recent prior snapshot BEFORE inserting the current one,
   // so the diff compares against the previous run, not this one.
+  // A transient read failure is non-fatal: we log and fall back to
+  // `prior = null`, which disables only the state-diff path. Event-driven
+  // triggers (inbound / refund / first-referral) still fire — we'd rather
+  // deliver those than abort the whole cron run on a read hiccup.
   const { data: priorRows, error: priorErr } = await sb
     .from("pmf_threshold_snapshots")
     .select("state")
     .order("captured_at", { ascending: false })
     .limit(1);
   if (priorErr) {
-    console.error("[pmf-threshold-check] prior snapshot read failed:", priorErr.message);
-    return NextResponse.json(
-      { error: "prior snapshot read failed" },
-      { status: 500 }
-    );
+    console.error("[pmf-threshold-check] prior snapshot read failed:", priorErr);
   }
   const prior = (priorRows?.[0]?.state ?? null) as PmfState | null;
 
@@ -164,6 +164,18 @@ export async function GET(request: NextRequest) {
   // Compute transitions once; used both for sends and the response payload.
   const transitions = prior ? diffState(prior, now) : [];
 
+  // Determine whether the first_referral block will fire this run, and for
+  // which prospect. A new prospect with `source = 'referral'` matches BOTH
+  // the inbound `.or(...)` query (which includes `source.in.(...,referral,...)`)
+  // AND the referral query. Without this guard, such a prospect would fire
+  // two sends — `new_inbound_<id>` AND `first_referral` — for the same event.
+  // When the milestone is triggering, the milestone wins; when it isn't, the
+  // inbound path owns the alert.
+  const firstReferralProspect =
+    prior && prior.indicators.indicator_e.value === 0 && referralRows.length > 0
+      ? referralRows[0]
+      : null;
+
   const sends: Promise<void>[] = [];
 
   // State transitions
@@ -194,6 +206,9 @@ export async function GET(request: NextRequest) {
   // `pmf_prospects.name` is NOT NULL per schema, so `p.name` is always
   // present; `p.company` can be null. The fallback chain is defensive.
   for (const p of inboundRows) {
+    // Skip the prospect that the first_referral block will alert on — a
+    // referral prospect matches both queries, and we only want one send.
+    if (firstReferralProspect && p.id === firstReferralProspect.id) continue;
     const label = (p.company ?? p.name ?? "UNKNOWN").toUpperCase();
     const stem = `NEW INBOUND LEAD · ${label}`;
     sends.push(
@@ -242,13 +257,8 @@ export async function GET(request: NextRequest) {
   // "zero referrals" (per the prior snapshot) to "at least one new referral
   // in the last 15 min". Only the first row triggers; subsequent referrals
   // in the same window are handled by the normal state-diff path.
-  if (
-    prior &&
-    prior.indicators.indicator_e.value === 0 &&
-    referralRows.length > 0
-  ) {
-    const first = referralRows[0];
-    const label = (first.company ?? first.name ?? "UNKNOWN").toUpperCase();
+  if (firstReferralProspect) {
+    const label = (firstReferralProspect.company ?? firstReferralProspect.name ?? "UNKNOWN").toUpperCase();
     const stem = `FIRST REFERRAL · ${label}`;
     sends.push(
       sendPmfNotification({

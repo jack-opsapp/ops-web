@@ -520,6 +520,155 @@ describe("GET /api/cron/pmf/threshold-check", () => {
     expect(sendPmfNotificationMock).toHaveBeenCalledTimes(0);
   });
 
+  it("fires only first_referral when prior E=0 and a referral prospect lands in both queries", async () => {
+    // A brand-new prospect with source='referral' matches both the inbound
+    // `.or(...)` query AND the referral query. When prior.E === 0 the
+    // milestone alert wins and the inbound dup must be suppressed — a
+    // single send, trigger 'first_referral'.
+    const referralRow = {
+      id: "prospect-shared-1",
+      company: "acme referral",
+      name: "new contact",
+      source: "referral",
+      first_contact_direction: "inbound",
+      first_contact_at: "2026-04-22T11:55:00.000Z",
+    };
+    seedQueue({
+      prior: makeState({ indicatorE: 0 }),
+      inbound: [referralRow],
+      referrals: [
+        {
+          id: referralRow.id,
+          company: referralRow.company,
+          name: referralRow.name,
+        },
+      ],
+    });
+
+    const { GET } = await import(
+      "@/app/api/cron/pmf/threshold-check/route"
+    );
+    const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
+    expect(res.status).toBe(200);
+
+    expect(sendPmfNotificationMock).toHaveBeenCalledTimes(1);
+    const call = sendPmfNotificationMock.mock.calls[0][0];
+    expect(call.trigger).toBe("first_referral");
+    expect(call.inAppTitle).toBe("FIRST REFERRAL · ACME REFERRAL");
+    // And explicitly no new_inbound trigger.
+    const inboundCalls = sendPmfNotificationMock.mock.calls.filter((c) =>
+      c[0].trigger.startsWith("new_inbound_")
+    );
+    expect(inboundCalls).toHaveLength(0);
+  });
+
+  it("fires only new_inbound when prior E>0 and a referral prospect lands in both queries", async () => {
+    // Same dual-match shape, but prior.E === 1 disables the first_referral
+    // block — the inbound path owns this alert. Exactly one send.
+    const referralRow = {
+      id: "prospect-shared-2",
+      company: "acme referral",
+      name: "new contact",
+      source: "referral",
+      first_contact_direction: "inbound",
+      first_contact_at: "2026-04-22T11:55:00.000Z",
+    };
+    nextComputePmfStateResult = makeState({ indicatorE: 1 });
+    seedQueue({
+      prior: makeState({ indicatorE: 1 }),
+      inbound: [referralRow],
+      referrals: [
+        {
+          id: referralRow.id,
+          company: referralRow.company,
+          name: referralRow.name,
+        },
+      ],
+    });
+
+    const { GET } = await import(
+      "@/app/api/cron/pmf/threshold-check/route"
+    );
+    const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
+    expect(res.status).toBe(200);
+
+    expect(sendPmfNotificationMock).toHaveBeenCalledTimes(1);
+    const call = sendPmfNotificationMock.mock.calls[0][0];
+    expect(call.trigger).toBe(`new_inbound_${referralRow.id}`);
+    // And explicitly no first_referral trigger.
+    const firstReferralCalls = sendPmfNotificationMock.mock.calls.filter(
+      (c) => c[0].trigger === "first_referral"
+    );
+    expect(firstReferralCalls).toHaveLength(0);
+  });
+
+  it("treats prior-snapshot read error as null and still fires event-driven triggers", async () => {
+    // A transient failure reading the prior snapshot must NOT abort the
+    // cron — we log the error, fall back to prior=null (disabling only
+    // the state-diff path), and still deliver inbound / refund /
+    // first-referral alerts. Seed position 1 (prior snapshot) with an
+    // error and a new inbound prospect; expect one send.
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    resultQueue = [
+      // 1. prior snapshot — transient read error
+      { data: null, error: { message: "transient db error" } },
+      // 2. insert snapshot
+      { data: null, error: null },
+      // 3. newInbound — one prospect
+      {
+        data: [
+          {
+            id: "prospect-after-err",
+            company: "acme",
+            name: "alice",
+            source: "paid_ad",
+            first_contact_direction: "inbound",
+            first_contact_at: "2026-04-22T11:55:00.000Z",
+          },
+        ],
+        error: null,
+      },
+      // 4. newRefunds — none
+      { data: [], error: null },
+      // 5. newReferrals — none
+      { data: [], error: null },
+    ];
+
+    const { GET } = await import(
+      "@/app/api/cron/pmf/threshold-check/route"
+    );
+    const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      ok: boolean;
+      transitions: number;
+      inbound: number;
+      refunds: number;
+      sent: number;
+    };
+    expect(json.ok).toBe(true);
+    expect(json.transitions).toBe(0);
+    expect(json.inbound).toBe(1);
+    expect(json.sent).toBe(1);
+
+    expect(sendPmfNotificationMock).toHaveBeenCalledTimes(1);
+    expect(sendPmfNotificationMock.mock.calls[0][0].trigger).toBe(
+      "new_inbound_prospect-after-err"
+    );
+
+    // The read error was logged.
+    expect(errorSpy).toHaveBeenCalled();
+    const loggedPriorErr = errorSpy.mock.calls.some((args) =>
+      args.some((a) =>
+        typeof a === "string" && a.includes("prior snapshot read failed")
+      )
+    );
+    expect(loggedPriorErr).toBe(true);
+
+    errorSpy.mockRestore();
+  });
+
   it("no transitions, no events: returns 200 with zero sends", async () => {
     seedQueue({ prior: makeState() });
     const { GET } = await import(
