@@ -26,10 +26,15 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
-      // `server-only` is a marker module Next.js bundles internally and
-      // does not hoist to the top-level `node_modules`. Route it to
-      // Next's empty shim so server-guarded modules can be imported from
-      // Vitest without a resolver failure.
+      // Aliases `server-only` to Next's empty shim so server-guarded
+      // modules can be imported in Vitest. Tradeoff: silently hides
+      // `server-only` violations from client-component tests. If you add
+      // client-component tests that need to detect this, consider scoping
+      // this alias via `test.server.conditions` or a separate test
+      // project config.
+      //
+      // Background: `server-only` is a marker module Next.js bundles
+      // internally and does not hoist to the top-level `node_modules`.
       "server-only": path.resolve(
         __dirname,
         "./node_modules/next/dist/compiled/server-only/empty.js"

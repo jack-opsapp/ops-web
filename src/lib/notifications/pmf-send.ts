@@ -64,8 +64,12 @@ async function hasRecentSend(
     .eq('kind', kind)
     .eq('trigger', trigger)
     .gte('created_at', since)
+    .is('error', null)
     .limit(1);
-  if (error) return false;
+  if (error) {
+    console.error('[pmf-send] hasRecentSend query failed:', error);
+    return false;
+  }
   return (data ?? []).length > 0;
 }
 
@@ -79,16 +83,20 @@ interface LogSendArgs {
 }
 
 async function logSend(args: LogSendArgs): Promise<void> {
-  const sb = getAdminSupabase();
-  await sb.from('pmf_notification_log').insert({
-    kind: args.kind,
-    trigger: args.trigger,
-    channel: args.channel,
-    recipient: args.recipient,
-    payload: args.payload,
-    sent_at: args.error ? null : new Date().toISOString(),
-    error: args.error ?? null,
-  });
+  try {
+    const sb = getAdminSupabase();
+    await sb.from('pmf_notification_log').insert({
+      kind: args.kind,
+      trigger: args.trigger,
+      channel: args.channel,
+      recipient: args.recipient,
+      payload: args.payload,
+      sent_at: args.error ? null : new Date().toISOString(),
+      error: args.error ?? null,
+    });
+  } catch (e) {
+    console.error('[pmf-send] logSend failed:', e);
+  }
 }
 
 /**

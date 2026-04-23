@@ -71,6 +71,7 @@ interface MockBuilder {
   upsert: (rows: unknown, opts?: unknown) => MockBuilder;
   eq: (col: string, val: unknown) => MockBuilder;
   gte: (col: string, val: unknown) => MockBuilder;
+  is: (col: string, val: unknown) => MockBuilder;
   limit: (n: number) => MockBuilder;
   order: (col: string, opts?: unknown) => MockBuilder;
   single: () => Promise<DbResult>;
@@ -116,6 +117,10 @@ function makeMockClient(): { from: (table: string) => MockBuilder } {
         },
         gte: (col, val) => {
           record('gte', col, val);
+          return builder;
+        },
+        is: (col, val) => {
+          record('is', col, val);
           return builder;
         },
         limit: (n) => {
@@ -199,6 +204,33 @@ describe('sendPmfNotification — dedup', () => {
     expect(
       callsFor('pmf_notification_log').some((c) => c.method === 'insert')
     ).toBe(false);
+  });
+
+  it('does not treat prior failure rows as dedup hits', async () => {
+    // A prior failure row exists in pmf_notification_log, but the dedup
+    // query filters with `.is('error', null)` → returns empty → SMS fires.
+    // The mock returns [] for the dedup SELECT, simulating the filtered
+    // result (no successful prior sends in the window).
+    sendSmsMock.mockResolvedValue({ sid: 'SM_after_failure' });
+    resultQueue = [{ data: [], error: null }];
+
+    const { sendPmfNotification } = await import('@/lib/notifications/pmf-send');
+    await sendPmfNotification({
+      kind: 'threshold_alert',
+      trigger: 'marker_1_red',
+      smsBody: 'PMF :: M1 RED',
+    });
+
+    // SMS must fire despite the hypothetical prior failure row.
+    expect(sendSmsMock).toHaveBeenCalledTimes(1);
+
+    // The dedup query must include `.is('error', null)` — this is the
+    // filter that excludes failure rows from the dedup check.
+    const dedupCalls = callsFor('pmf_notification_log');
+    const isCall = dedupCalls.find(
+      (c) => c.method === 'is' && c.args[0] === 'error' && c.args[1] === null
+    );
+    expect(isCall).toBeDefined();
   });
 });
 
