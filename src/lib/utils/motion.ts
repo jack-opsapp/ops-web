@@ -425,3 +425,39 @@ export const fadeSlideDownReduced: Variants = {
   visible: { opacity: 1, transition: { duration: 0.2 } },
   exit: { opacity: 0, transition: { duration: 0.15 } },
 };
+
+// ── Notifications drawer (2026-04-23 redesign) ──
+
+/** Drawer slide-in from the right edge */
+export const drawerVariants: Variants = {
+  hidden: { x: 360, opacity: 0 },
+  visible: { x: 0, opacity: 1, transition: { duration: 0.26, ease: EASE_SMOOTH } },
+  exit: { x: 360, opacity: 0, transition: { duration: 0.22, ease: EASE_SMOOTH } },
+};
+
+/** Drawer reduced-motion fallback — opacity only */
+export const drawerVariantsReduced: Variants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { duration: 0.15 } },
+  exit: { opacity: 0, transition: { duration: 0.15 } },
+};
+
+/** Row mount animation — slight slide from left */
+export const rowVariants: Variants = {
+  hidden: { opacity: 0, x: -8 },
+  visible: { opacity: 1, x: 0, transition: { duration: 0.2, ease: EASE_SMOOTH } },
+  exit: { opacity: 0, x: -12, transition: { duration: 0.15, ease: EASE_SMOOTH } },
+};
+
+/** Row reduced-motion fallback */
+export const rowVariantsReduced: Variants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { duration: 0.15 } },
+  exit: { opacity: 0, transition: { duration: 0.1 } },
+};
+
+/** Filter chip mount animation */
+export const chipVariants: Variants = {
+  hidden: { opacity: 0, scale: 0.96 },
+  visible: { opacity: 1, scale: 1, transition: { duration: 0.15, ease: EASE_SMOOTH } },
+};
