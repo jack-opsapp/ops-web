@@ -24,6 +24,16 @@ export const metadata: Metadata = {
   authors: [{ name: "OPS" }],
   creator: "OPS",
   manifest: "/manifest.json",
+  // Color-scheme-aware SVG favicons via the metadata API. Browsers pick the
+  // variant matching the user's system color scheme; the raster app/icon.png
+  // / app/apple-icon.png / app/favicon.ico auto-convention files remain as
+  // fallbacks for clients that don't honor the media attribute.
+  icons: {
+    icon: [
+      { url: "/brand/icon-light.svg", media: "(prefers-color-scheme: light)", type: "image/svg+xml" },
+      { url: "/brand/icon-dark.svg", media: "(prefers-color-scheme: dark)", type: "image/svg+xml" },
+    ],
+  },
   openGraph: {
     type: "website",
     siteName: "OPS",
