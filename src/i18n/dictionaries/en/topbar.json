@@ -12,19 +12,6 @@
   "search.shortcut": "⌘K",
   "search.ariaLabel": "Open search",
 
-  "notifications.title": "Notifications",
-  "notifications.ariaLabel": "Notifications",
-  "notifications.viewAll": "View all",
-  "notifications.dismissAll": "Dismiss all",
-  "notifications.empty": "No new notifications",
-  "notifications.emptyHint": "You're all caught up.",
-  "notifications.today": "Today",
-  "notifications.yesterday": "Yesterday",
-  "notifications.earlier": "Earlier",
-  "notifications.count": "{count}",
-  "notifications.overflow": "+{count}",
-  "notifications.clickToExpand": "Click to expand",
-
   "menu.ariaLabel": "Open menu",
 
   "undo.ariaLabel": "Undo last action",
