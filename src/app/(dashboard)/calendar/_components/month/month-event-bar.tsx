@@ -107,11 +107,12 @@ export function MonthEventBar({
   const [isHovered, setIsHovered] = useState(false);
   const colors = getEventColors(event.taskType);
 
-  // Corner rounding logic for multi-day bars
+  // Spec v2: event bars follow chip radii (4px). Multi-day bars square off
+  // the interior corners so consecutive weeks read as one continuous strip.
   const borderRadius = (() => {
-    if (span.isSingleDay) return "3px";
-    const left = span.isFirstSegment ? "3px" : "0px";
-    const right = span.isLastSegment ? "3px" : "0px";
+    if (span.isSingleDay) return "4px";
+    const left = span.isFirstSegment ? "4px" : "0px";
+    const right = span.isLastSegment ? "4px" : "0px";
     return `${left} ${right} ${right} ${left}`;
   })();
 
@@ -143,6 +144,9 @@ export function MonthEventBar({
   }
 
   // ── Level 2: Standard — short bar with single-line title ──
+  // Use inset box-shadow (not borderLeft) so the accent stripe respects the
+  // bar's rounded corners instead of clipping against them — that corner
+  // clip is the "funny" left-edge line the bug flagged.
   if (displayLevel === "standard") {
     return (
       <div
@@ -150,10 +154,13 @@ export function MonthEventBar({
         style={{
           height: 14,
           backgroundColor: colors.bg,
-          borderLeft: span.isFirstSegment || span.isSingleDay ? `2px solid ${colors.border}` : undefined,
+          boxShadow:
+            span.isFirstSegment || span.isSingleDay
+              ? `inset 3px 0 0 0 ${colors.border}`
+              : undefined,
           borderRadius,
           color: colors.text,
-          paddingLeft: 4,
+          paddingLeft: span.isFirstSegment || span.isSingleDay ? 7 : 4,
           paddingRight: 4,
           display: "flex",
           alignItems: "center",
@@ -186,10 +193,12 @@ export function MonthEventBar({
         style={{
           height: 14,
           backgroundColor: colors.bg,
-          borderLeft: span.isFirstSegment ? `2px solid ${colors.border}` : undefined,
+          boxShadow: span.isFirstSegment
+            ? `inset 3px 0 0 0 ${colors.border}`
+            : undefined,
           borderRadius,
           color: colors.text,
-          paddingLeft: 4,
+          paddingLeft: span.isFirstSegment ? 7 : 4,
           paddingRight: 4,
           display: "flex",
           alignItems: "center",
@@ -219,10 +228,10 @@ export function MonthEventBar({
       style={{
         height: 42,
         backgroundColor: colors.bg,
-        borderLeft: `2px solid ${colors.border}`,
-        borderRadius: "3px",
+        boxShadow: `inset 3px 0 0 0 ${colors.border}`,
+        borderRadius: "4px",
         color: colors.text,
-        paddingLeft: 4,
+        paddingLeft: 7,
         paddingRight: 4,
         paddingTop: 2,
         paddingBottom: 2,
@@ -243,7 +252,12 @@ export function MonthEventBar({
       </span>
       <span
         className="font-mono uppercase truncate"
-        style={{ fontSize: 9, lineHeight: "12px", color: "#999999", letterSpacing: "0.08em" }}
+        style={{
+          fontSize: 9,
+          lineHeight: "12px",
+          color: "var(--text-3, #8A8A8A)",
+          letterSpacing: "0.08em",
+        }}
       >
         {event.taskType}
       </span>
