@@ -17,7 +17,6 @@ import { cn } from "@/lib/utils/cn";
 import { usePreferencesStore } from "@/stores/preferences-store";
 import { useConnectivity } from "@/lib/hooks/use-connectivity";
 import { useDictionary } from "@/i18n/client";
-import { NotificationRail } from "./notification-rail";
 import { useSidebarStore } from "@/stores/sidebar-store";
 import { useBreadcrumbStore } from "@/stores/breadcrumb-store";
 import { useUndoStore } from "@/stores/undo-store";
@@ -283,9 +282,8 @@ export function TopBar() {
         </button>
       </div>
 
-      {/* Right: Notifications + Sync */}
+      {/* Right: Sync */}
       <div className="flex items-center gap-[6px] shrink-0">
-        <NotificationRail />
         <SyncIndicator status={syncStatus} t={t} />
       </div>
     </header>
