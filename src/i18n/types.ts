@@ -31,6 +31,7 @@ export type Namespace =
   | 'client-comms'
   | 'comms-wizard'
   | 'calibration'
+  | 'notifications'
   | 'server-emails';
 
 

@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { motion, useReducedMotion } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { useDictionary } from "@/i18n/client";
 import { lucideIconFromName } from "@/lib/notifications/notification-meta";
+import { translateNotifCopy } from "@/lib/notifications/translate-copy";
 import { rowVariants, rowVariantsReduced } from "@/lib/utils/motion";
 import type { AppNotification } from "@/lib/api/services/notification-service";
 import type { NotificationMeta } from "@/lib/notifications/notification-meta";
@@ -26,16 +27,6 @@ const TONE_SURFACE: Record<
   attn: { color: "var(--tan)", line: "var(--tan-line)", soft: "var(--tan-soft)" },
   ambient: { color: "var(--text-3)", line: "rgba(255,255,255,0.08)", soft: "rgba(255,255,255,0.04)" },
 };
-
-function translateNotifCopy(
-  raw: string | null | undefined,
-  t: (k: string) => string,
-): string | null {
-  if (!raw) return null;
-  const looksLikeKey = /^[a-z][a-zA-Z0-9._-]*$/.test(raw) && raw.includes(".");
-  if (!looksLikeKey) return raw;
-  return t(raw);
-}
 
 function formatRel(min: number): string {
   if (min < 1) return "now";
@@ -75,7 +66,7 @@ export function NotificationRow({
 
   return (
     <motion.div
-      layout="position"
+      layout
       variants={variants}
       initial="hidden"
       animate="visible"
@@ -170,14 +161,16 @@ export function NotificationRow({
         </span>
       </div>
 
-      <motion.div
-        initial={false}
-        animate={{ maxHeight: expanded ? 160 : 0 }}
-        transition={reducedMotion ? { duration: 0 } : { duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-        style={{ overflow: "hidden", paddingLeft: 28 }}
-      >
+      <AnimatePresence initial={false}>
         {expanded && (
-          <>
+          <motion.div
+            key="expanded-content"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={reducedMotion ? { duration: 0 } : { duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+            style={{ overflow: "hidden", paddingLeft: 28 }}
+          >
             {displayBody && (
               <div
                 style={{
@@ -240,9 +233,9 @@ export function NotificationRow({
                 </button>
               )}
             </div>
-          </>
+          </motion.div>
         )}
-      </motion.div>
+      </AnimatePresence>
     </motion.div>
   );
 }
