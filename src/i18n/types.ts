@@ -30,6 +30,7 @@ export type Namespace =
   | 'scheduling'
   | 'client-comms'
   | 'comms-wizard'
+  | 'calibration'
   | 'server-emails';
 
 
