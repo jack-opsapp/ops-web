@@ -456,8 +456,16 @@ export const rowVariantsReduced: Variants = {
   exit: { opacity: 0, transition: { duration: 0.1 } },
 };
 
-/** Filter chip mount animation */
+/** Filter chip mount/unmount animation */
 export const chipVariants: Variants = {
   hidden: { opacity: 0, scale: 0.96 },
   visible: { opacity: 1, scale: 1, transition: { duration: 0.15, ease: EASE_SMOOTH } },
+  exit: { opacity: 0, scale: 0.96, transition: { duration: 0.12, ease: EASE_SMOOTH } },
+};
+
+/** Filter chip reduced-motion fallback */
+export const chipVariantsReduced: Variants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { duration: 0.15 } },
+  exit: { opacity: 0, transition: { duration: 0.1 } },
 };
