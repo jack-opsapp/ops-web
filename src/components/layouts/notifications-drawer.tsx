@@ -38,7 +38,7 @@ export function NotificationsDrawer() {
   const router = useRouter();
   const open = useEdgeTabStore((s) => s.activeTab === EDGE_TAB_ID);
   const close = useEdgeTabStore((s) => s.close);
-  const { data: notifs = [] } = useNotifications();
+  const { data: notifs = [], dataUpdatedAt } = useNotifications();
   const dismissMutation = useDismissNotification();
   const dismissAllMutation = useDismissAllNotifications();
   const openDuplicateSheet = useDuplicateReviewStore((s) => s.openSheet);
@@ -101,6 +101,12 @@ export function NotificationsDrawer() {
     [notifs],
   );
 
+  const syncTime = useMemo(() => {
+    if (!dataUpdatedAt) return "—:—";
+    const d = new Date(dataUpdatedAt);
+    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  }, [dataUpdatedAt]);
+
   const handleRowClick = (n: AppNotification) => {
     setExpandedId((prev) => (prev === n.id ? null : n.id));
   };
@@ -137,47 +143,50 @@ export function NotificationsDrawer() {
 
   const variants = reducedMotion ? drawerVariantsReduced : drawerVariants;
 
-  const CHIPS: Array<{
+  const CHIPS = useMemo<Array<{
     key: "all" | DrawerTone;
     label: string;
     color: string;
     line: string;
     soft: string;
     count: number;
-  }> = [
-    {
-      key: "all",
-      label: t("filters.all"),
-      color: "var(--text)",
-      line: "rgba(255,255,255,0.18)",
-      soft: "rgba(255,255,255,0.08)",
-      count: notifs.length,
-    },
-    {
-      key: "critical",
-      label: t("filters.critical"),
-      color: "var(--rose)",
-      line: "var(--rose-line)",
-      soft: "var(--rose-soft)",
-      count: counts.critical,
-    },
-    {
-      key: "attn",
-      label: t("filters.attn"),
-      color: "var(--tan)",
-      line: "var(--tan-line)",
-      soft: "var(--tan-soft)",
-      count: counts.attn,
-    },
-    {
-      key: "ambient",
-      label: t("filters.ambient"),
-      color: "var(--text-3)",
-      line: "rgba(255,255,255,0.12)",
-      soft: "rgba(255,255,255,0.04)",
-      count: counts.ambient,
-    },
-  ];
+  }>>(
+    () => [
+      {
+        key: "all",
+        label: t("filters.all"),
+        color: "var(--text)",
+        line: "rgba(255,255,255,0.18)",
+        soft: "rgba(255,255,255,0.08)",
+        count: notifs.length,
+      },
+      {
+        key: "critical",
+        label: t("filters.critical"),
+        color: "var(--rose)",
+        line: "var(--rose-line)",
+        soft: "var(--rose-soft)",
+        count: counts.critical,
+      },
+      {
+        key: "attn",
+        label: t("filters.attn"),
+        color: "var(--tan)",
+        line: "var(--tan-line)",
+        soft: "var(--tan-soft)",
+        count: counts.attn,
+      },
+      {
+        key: "ambient",
+        label: t("filters.ambient"),
+        color: "var(--text-3)",
+        line: "rgba(255,255,255,0.12)",
+        soft: "rgba(255,255,255,0.04)",
+        count: counts.ambient,
+      },
+    ],
+    [t, notifs.length, counts],
+  );
 
   return (
     <AnimatePresence mode="wait">
@@ -432,7 +441,7 @@ export function NotificationsDrawer() {
                 letterSpacing: "0.14em",
               }}
             >
-              {t("footer.lastSync").replace("{time}", formatSyncTime())}
+              {t("footer.lastSync").replace("{time}", syncTime)}
             </span>
             <div style={{ flex: 1 }} />
             <button
@@ -456,11 +465,6 @@ export function NotificationsDrawer() {
       )}
     </AnimatePresence>
   );
-}
-
-function formatSyncTime(): string {
-  const d = new Date();
-  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
 const drawerIconBtnStyle: React.CSSProperties = {
