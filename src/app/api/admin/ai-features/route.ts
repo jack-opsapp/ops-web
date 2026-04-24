@@ -50,10 +50,6 @@ export const GET = withAdmin(async (req) => {
   const result = (companies ?? []).map((c) => ({
     id: c.id,
     name: c.name,
-    aiEmailReview: overrideMap[c.id]?.ai_email_review || {
-      enabled: false,
-      enabledAt: null,
-    },
     phaseC: overrideMap[c.id]?.phase_c || {
       enabled: false,
       enabledAt: null,

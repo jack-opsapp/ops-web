@@ -48,12 +48,10 @@ function formatEnabledAt(iso: string | null): string {
   return `${Math.floor(days / 365)}y ago`;
 }
 
-// The API currently still returns an aiEmailReview block — drop it here.
 interface ApiCompanyRow {
   id: string;
   name: string;
   phaseC: { enabled: boolean; enabledAt: string | null };
-  aiEmailReview?: { enabled: boolean; enabledAt: string | null };
 }
 
 export function CompanyAiFeatures() {

@@ -2,21 +2,20 @@
  * OPS Web - Admin Feature Override Service
  *
  * Controls per-company AI feature gating. AI features require BOTH:
- * 1. The product-level feature flag (ai_email_review, phase_c)
+ * 1. The product-level feature flag (phase_c / ai_auto_send)
  * 2. An admin override enabling it for the specific company
  *
  * Uses getServiceRoleClient() because this bypasses RLS — the
  * admin_feature_overrides table has no user-facing RLS policies.
+ *
+ * ai_email_review was collapsed into phase_c on 2026-04-24. Union narrow
+ * happens here in N3; legacy rows are dropped by migration 20260424000002.
  */
 
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import type { AdminFeatureOverride } from "@/lib/types/email-connection";
 
-// ai_email_review kept as historical key for reading legacy rows only.
-// Post-2026-04-24 migration 20260424000000, all new writes must use phase_c.
-// setOverride() throws if called with ai_email_review. Final removal
-// happens in Group N3 alongside union narrowing.
-type AIFeatureKey = "ai_email_review" | "phase_c" | "ai_auto_send";
+type AIFeatureKey = "phase_c" | "ai_auto_send";
 
 // ─── Database ↔ TypeScript Mapping ──────────────────────────────────────────
 
@@ -87,12 +86,6 @@ export const AdminFeatureOverrideService = {
     enabled: boolean,
     adminUserId: string
   ): Promise<void> {
-    if (feature === "ai_email_review") {
-      throw new Error(
-        "ai_email_review is deprecated — use phase_c instead (migration 20260424000000)."
-      );
-    }
-
     const supabase = getServiceRoleClient();
 
     // Capture prior state to detect the first-enable transition
