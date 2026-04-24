@@ -264,6 +264,22 @@ export default function AiSetupPage() {
   const [emailScanDone, setEmailScanDone] = useState(false);
   const [miningDone, setMiningDone] = useState(false);
 
+  // Track which phases the user has visited — separate from *Done flags so
+  // "Skip" paths still unlock nav back to the skipped phase. Bug fcac6fcf.
+  const [visitedPhases, setVisitedPhases] = useState<Set<SetupPhase>>(
+    () => new Set<SetupPhase>(["interview"])
+  );
+
+  // Keep visitedPhases in sync whenever activePhase changes.
+  useEffect(() => {
+    setVisitedPhases((prev) => {
+      if (prev.has(activePhase)) return prev;
+      const next = new Set(prev);
+      next.add(activePhase);
+      return next;
+    });
+  }, [activePhase]);
+
   // Auto-advance to dashboard if everything is done
   useEffect(() => {
     if (interviewPhase === "completed" && emailScanDone && miningDone) {
@@ -314,7 +330,7 @@ export default function AiSetupPage() {
   // ─── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-3">
+    <div className="flex flex-col h-full gap-3">
       {/* Header */}
       <div className="flex items-center gap-2">
         <button
@@ -340,7 +356,7 @@ export default function AiSetupPage() {
           <ComingSoonState />
         </div>
       ) : (
-        <div className="pl-[42px]">
+        <div className="flex flex-col flex-1 min-h-0 pl-[42px]">
           {/* Step indicators */}
           <div className="flex items-center gap-[6px] mb-4">
             {(
@@ -352,10 +368,15 @@ export default function AiSetupPage() {
               ] as const
             ).map((step, i) => {
               const isActive = step.key === activePhase;
-              const isPast =
+              // A phase is navigable if either (a) the user has visited it
+              // before (including via skip), or (b) it's been completed. The
+              // visited check keeps skip paths from trapping the user on a
+              // downstream tab. Bug fcac6fcf.
+              const isCompleted =
                 (step.key === "interview" && interviewPhase === "completed") ||
                 (step.key === "email_scan" && emailScanDone) ||
                 (step.key === "mining" && miningDone);
+              const isPast = isCompleted || visitedPhases.has(step.key);
 
               return (
                 <div key={step.key} className="flex items-center gap-[6px]">
@@ -368,9 +389,11 @@ export default function AiSetupPage() {
                       "w-[24px] h-[24px] rounded-full flex items-center justify-center font-mohave text-[12px] font-semibold transition-colors",
                       isActive
                         ? "bg-text-2 text-background"
-                        : isPast
+                        : isCompleted
                           ? "bg-[rgba(157,181,130,0.2)] text-[#9DB582] cursor-pointer"
-                          : "bg-[rgba(255,255,255,0.06)] text-text-mute cursor-not-allowed"
+                          : isPast
+                            ? "bg-[rgba(255,255,255,0.08)] text-text-2 cursor-pointer"
+                            : "bg-[rgba(255,255,255,0.06)] text-text-mute cursor-not-allowed"
                     )}
                   >
                     {step.label}
@@ -379,7 +402,7 @@ export default function AiSetupPage() {
                     <div
                       className={cn(
                         "w-[20px] h-[1px]",
-                        isPast
+                        isCompleted
                           ? "bg-[rgba(157,181,130,0.3)]"
                           : "bg-[rgba(255,255,255,0.06)]"
                       )}
@@ -391,7 +414,7 @@ export default function AiSetupPage() {
           </div>
 
           {/* Active content */}
-          <div className="glass-surface rounded-lg p-4 min-h-[400px]">
+          <div className="glass-surface rounded-panel p-4 flex-1 min-h-0 overflow-y-auto">
             <AnimatePresence mode="wait">
               {activePhase === "interview" && (
                 <motion.div key="interview" variants={variants} initial="initial" animate="animate" exit="exit" className="h-full">
