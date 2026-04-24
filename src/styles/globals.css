@@ -391,3 +391,35 @@
   }
 }
 
+/* ─── CALIBRATION — radar sweep signature ─────────────────────────────── */
+
+@keyframes cal-radar-rotate {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.cal-radar-sweep {
+  position: relative;
+  display: inline-block;
+}
+
+.cal-radar-sweep__arm {
+  transform-origin: 8px 8px;
+  animation: cal-radar-rotate 2.4s linear infinite;
+  transition: animation-duration 200ms ease-out;
+}
+
+/* Hover — parent tile shortens the sweep cycle. */
+.cal-tile:hover .cal-radar-sweep__arm,
+.cal-tile:focus-visible .cal-radar-sweep__arm {
+  animation-duration: 1.2s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cal-radar-sweep__arm {
+    animation: none;
+    transform: rotate(315deg);
+    opacity: 0.35;
+  }
+}
+
