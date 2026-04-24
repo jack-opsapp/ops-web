@@ -14,8 +14,9 @@ export const FEATURE_FLAG_ROUTES: Record<string, string[]> = {
   products: ["/products"],
   inventory: ["/inventory"],
   portal: ["/inbox"],
-  ai_email_review: ["/settings/integrations"],
-  phase_c: ["/settings/integrations"],
+  // ai_email_review removed 2026-04-24 — collapsed into phase_c
+  // (migration 20260424000000). phase_c now gates /calibration.
+  phase_c: ["/calibration"],
   deck_builder: ["/deck-builder"],
 };
 
@@ -51,7 +52,7 @@ export const FEATURE_FLAG_PERMISSIONS: Record<string, string[]> = {
   products: ["products.view", "products.manage"],
   inventory: ["inventory.view", "inventory.manage", "inventory.import"],
   portal: ["portal.view", "portal.manage_branding"],
-  ai_email_review: ["email.configure_ai"],
+  // ai_email_review removed — all AI gating now on phase_c.
   phase_c: ["email.configure_ai"],
   deck_builder: ["deck_builder.view", "deck_builder.create", "deck_builder.edit"],
 };

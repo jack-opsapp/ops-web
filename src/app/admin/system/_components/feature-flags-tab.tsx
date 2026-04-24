@@ -155,7 +155,7 @@ export function FeatureFlagsTab() {
 
   return (
     <div className="space-y-8">
-      {/* ── Company AI Features (phase_c, ai_email_review) ─────────────── */}
+      {/* ── Company AI Features (phase_c only; ai_email_review collapsed) ── */}
       <CompanyAiFeatures />
 
       {/* Divider between the two distinct feature-flag systems */}

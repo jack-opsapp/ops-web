@@ -3,11 +3,13 @@
 /**
  * Company-level AI feature toggles used inside the System → Feature Flags tab.
  *
- * Distinct from the user-level `special_permissions` UI that shares the tab:
- * this controls `admin_feature_overrides` rows which gate every Phase C
- * cron job, the agent dashboard, and the communications wizard. Flipping
- * `phase_c` ON fires the wizard-ready notification to every admin of the
- * target company (via AdminFeatureOverrideService.setOverride).
+ * Post-2026-04-24 flag collapse (migration 20260424000000):
+ *   ai_email_review has been merged into phase_c. Only phase_c is writable
+ *   from this panel. Any latent ai_email_review rows returned by the API
+ *   are ignored — they'll be dropped in migration 20260424000002 (N2).
+ *
+ * Flipping `phase_c` ON fires the wizard-ready notification to every admin
+ * of the target company (via AdminFeatureOverrideService.setOverride).
  *
  * Reads and writes via the existing `/api/admin/ai-features` routes.
  */
@@ -24,17 +26,15 @@ import { useRouter } from "next/navigation";
 interface CompanyFeatureRow {
   id: string;
   name: string;
-  aiEmailReview: { enabled: boolean; enabledAt: string | null };
   phaseC: { enabled: boolean; enabledAt: string | null };
 }
 
-type FilterKey = "ALL" | "PHASE_C" | "EMAIL_REVIEW" | "NONE";
+type FilterKey = "ALL" | "PHASE_C" | "NONE";
 
 const FILTERS: { key: FilterKey; label: string }[] = [
   { key: "ALL", label: "ALL" },
   { key: "PHASE_C", label: "PHASE C ON" },
-  { key: "EMAIL_REVIEW", label: "EMAIL REVIEW ON" },
-  { key: "NONE", label: "NEITHER" },
+  { key: "NONE", label: "OFF" },
 ];
 
 function formatEnabledAt(iso: string | null): string {
@@ -46,6 +46,14 @@ function formatEnabledAt(iso: string | null): string {
   if (days < 30) return `${days}d ago`;
   if (days < 365) return `${Math.floor(days / 30)}mo ago`;
   return `${Math.floor(days / 365)}y ago`;
+}
+
+// The API currently still returns an aiEmailReview block — drop it here.
+interface ApiCompanyRow {
+  id: string;
+  name: string;
+  phaseC: { enabled: boolean; enabledAt: string | null };
+  aiEmailReview?: { enabled: boolean; enabledAt: string | null };
 }
 
 export function CompanyAiFeatures() {
@@ -67,8 +75,16 @@ export function CompanyAiFeatures() {
           credentials: "include",
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = (await res.json()) as CompanyFeatureRow[];
-        if (!cancelled) setCompanies(data);
+        const data = (await res.json()) as ApiCompanyRow[];
+        if (!cancelled) {
+          setCompanies(
+            data.map((c) => ({
+              id: c.id,
+              name: c.name,
+              phaseC: c.phaseC,
+            }))
+          );
+        }
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : "Unknown error");
@@ -89,23 +105,17 @@ export function CompanyAiFeatures() {
         return false;
       }
       if (filter === "PHASE_C") return c.phaseC.enabled;
-      if (filter === "EMAIL_REVIEW") return c.aiEmailReview.enabled;
-      if (filter === "NONE")
-        return !c.phaseC.enabled && !c.aiEmailReview.enabled;
+      if (filter === "NONE") return !c.phaseC.enabled;
       return true;
     });
   }, [companies, search, filter]);
 
   const toggle = useCallback(
-    async (
-      companyId: string,
-      feature: "phase_c" | "ai_email_review",
-      nextEnabled: boolean
-    ) => {
+    async (companyId: string, nextEnabled: boolean) => {
       // Turning phase_c ON fires wizard notifications and unblocks crons
       // that generate real agent proposals against real client data. Pause
       // for an explicit confirmation.
-      if (feature === "phase_c" && nextEnabled) {
+      if (nextEnabled) {
         const company = companies.find((c) => c.id === companyId);
         const ok = window.confirm(
           `Enable Phase C for "${company?.name}"?\n\n` +
@@ -117,7 +127,7 @@ export function CompanyAiFeatures() {
         if (!ok) return;
       }
 
-      setPendingIds((s) => new Set([...s, `${companyId}:${feature}`]));
+      setPendingIds((s) => new Set([...s, `${companyId}:phase_c`]));
       setError(null);
 
       try {
@@ -125,7 +135,7 @@ export function CompanyAiFeatures() {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({ [feature]: nextEnabled }),
+          body: JSON.stringify({ phase_c: nextEnabled }),
         });
 
         if (!res.ok) {
@@ -142,19 +152,10 @@ export function CompanyAiFeatures() {
             c.id === companyId
               ? {
                   ...c,
-                  ...(feature === "phase_c"
-                    ? {
-                        phaseC: {
-                          enabled: nextEnabled,
-                          enabledAt: nextEnabled ? new Date().toISOString() : null,
-                        },
-                      }
-                    : {
-                        aiEmailReview: {
-                          enabled: nextEnabled,
-                          enabledAt: nextEnabled ? new Date().toISOString() : null,
-                        },
-                      }),
+                  phaseC: {
+                    enabled: nextEnabled,
+                    enabledAt: nextEnabled ? new Date().toISOString() : null,
+                  },
                 }
               : c
           )
@@ -163,11 +164,11 @@ export function CompanyAiFeatures() {
         startTransition(() => router.refresh());
       } catch (err) {
         const message = err instanceof Error ? err.message : "Unknown error";
-        setError(`Failed to toggle ${feature}: ${message}`);
+        setError(`Failed to toggle phase_c: ${message}`);
       } finally {
         setPendingIds((s) => {
           const next = new Set(s);
-          next.delete(`${companyId}:${feature}`);
+          next.delete(`${companyId}:phase_c`);
           return next;
         });
       }
@@ -176,7 +177,6 @@ export function CompanyAiFeatures() {
   );
 
   const phaseCCount = companies.filter((c) => c.phaseC.enabled).length;
-  const emailReviewCount = companies.filter((c) => c.aiEmailReview.enabled).length;
 
   if (loading) {
     return (
@@ -197,8 +197,7 @@ export function CompanyAiFeatures() {
             Company AI Features
           </h2>
           <p className="font-mono text-[12px] text-[#6B6B6B] mt-1">
-            [{companies.length} companies · phase_c: {phaseCCount} on ·
-            ai_email_review: {emailReviewCount} on]
+            [{companies.length} companies · phase_c: {phaseCCount} on]
           </p>
         </div>
       </div>
@@ -240,7 +239,7 @@ export function CompanyAiFeatures() {
 
       {/* Table */}
       <div className="border border-white/[0.08] rounded-lg overflow-hidden">
-        <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] px-6 py-3 border-b border-white/[0.08]">
+        <div className="grid grid-cols-[2fr_1fr_1fr] px-6 py-3 border-b border-white/[0.08]">
           <span className="font-mohave text-[11px] uppercase tracking-widest text-[#6B6B6B]">
             Company
           </span>
@@ -250,24 +249,16 @@ export function CompanyAiFeatures() {
           <span className="font-mohave text-[11px] uppercase tracking-widest text-[#6B6B6B]">
             Since
           </span>
-          <span className="font-mohave text-[11px] uppercase tracking-widest text-[#6B6B6B]">
-            AI Email Review
-          </span>
-          <span className="font-mohave text-[11px] uppercase tracking-widest text-[#6B6B6B]">
-            Since
-          </span>
         </div>
 
         {filtered.map((c) => {
           const phaseCKey = `${c.id}:phase_c`;
-          const emailKey = `${c.id}:ai_email_review`;
           const phaseCPending = pendingIds.has(phaseCKey);
-          const emailPending = pendingIds.has(emailKey);
 
           return (
             <div
               key={c.id}
-              className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] px-6 items-center h-14 border-b border-white/[0.05] last:border-0 hover:bg-white/[0.02] transition-colors"
+              className="grid grid-cols-[2fr_1fr_1fr] px-6 items-center h-14 border-b border-white/[0.05] last:border-0 hover:bg-white/[0.02] transition-colors"
             >
               <span className="font-mohave text-[14px] text-[#EDEDED] truncate pr-4">
                 {c.name}
@@ -276,23 +267,11 @@ export function CompanyAiFeatures() {
               <Toggle
                 enabled={c.phaseC.enabled}
                 disabled={phaseCPending}
-                onClick={() => toggle(c.id, "phase_c", !c.phaseC.enabled)}
+                onClick={() => toggle(c.id, !c.phaseC.enabled)}
                 label="phase_c"
               />
               <span className="font-mono text-[12px] text-[#6B6B6B]">
                 [{formatEnabledAt(c.phaseC.enabledAt)}]
-              </span>
-
-              <Toggle
-                enabled={c.aiEmailReview.enabled}
-                disabled={emailPending}
-                onClick={() =>
-                  toggle(c.id, "ai_email_review", !c.aiEmailReview.enabled)
-                }
-                label="ai_email_review"
-              />
-              <span className="font-mono text-[12px] text-[#6B6B6B]">
-                [{formatEnabledAt(c.aiEmailReview.enabledAt)}]
               </span>
             </div>
           );
