@@ -30,6 +30,7 @@ const ROUTE_PERMISSIONS: Record<string, string> = {
   "/accounting": "accounting.view",
   "/inbox": "pipeline.view",
   "/intel": "pipeline.view",
+  "/calibration": "email.configure_ai",
   "/agent": "pipeline.view",
   // testing-grounds uses a per-user special permission check on the page itself
 };

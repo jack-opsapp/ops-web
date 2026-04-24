@@ -14,7 +14,7 @@ const protectedPrefixes = [
   "/team",
   "/map",
   "/pipeline",
-  "/intel",
+  "/calibration",
   "/estimates",
   "/products",
   "/inventory",
@@ -40,8 +40,29 @@ const portalProtectedPrefixes = [
 // Portal routes that are publicly accessible (no session needed)
 const portalPublicPrefixes = ["/portal/verify", "/portal/auth"];
 
+/**
+ * CALIBRATION 308 redirects from retired AI surfaces. Exact-match only —
+ * keeps sub-routes of /settings / /agent intact while the legacy hub
+ * pages hard-redirect.
+ */
+const CALIBRATION_REDIRECTS: Record<string, string> = {
+  "/settings/integrations/ai-setup": "/calibration",
+  "/agent/comms-config": "/calibration?section=config&wizard=open",
+  "/intel": "/calibration?section=corpus",
+};
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // ─── CALIBRATION retirements (308 permanent) ────────────────────────────
+  if (CALIBRATION_REDIRECTS[pathname] !== undefined) {
+    const target = CALIBRATION_REDIRECTS[pathname];
+    const [basePath, query] = target.split("?");
+    const url = request.nextUrl.clone();
+    url.pathname = basePath;
+    url.search = query ? `?${query}` : "";
+    return NextResponse.redirect(url, 308);
+  }
 
   // ─── Portal Routes ───────────────────────────────────────────────────────
   if (pathname.startsWith("/portal")) {

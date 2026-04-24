@@ -24,7 +24,6 @@ import { getUserFullName } from "@/lib/types/models";
 import { QueueStatsRibbon } from "@/components/agent/queue-stats";
 import { ActionCard, type TeamMemberOption } from "@/components/agent/action-card";
 import { RejectDialog } from "@/components/agent/reject-dialog";
-import { PhaseCDashboard } from "@/components/agent/phase-c-dashboard";
 
 import type {
   AgentActionStatus,
@@ -227,9 +226,6 @@ export default function AgentQueuePage() {
           [{t("subtitle")}]
         </p>
       </div>
-
-      {/* ── Phase C Integration Dashboard (Sprint S2) ───────────────── */}
-      <PhaseCDashboard />
 
       {/* ── Stats Ribbon ───────────────────────────────────────────────── */}
       <QueueStatsRibbon stats={stats} isLoading={statsLoading} t={t} />
