@@ -470,3 +470,11 @@
   .deck-recent-rail { grid-column: 1; }
 }
 
+/* EdgeTab — focus-visible brightens the left accent stripe without adding an outline.
+   Rationale: the 2px accent stripe is already the dominant visual anchor. A
+   separate outline would compete. Matches the design-system focus-ring guidance. */
+[data-edge-tab]:focus-visible [data-edge-tab-accent] {
+  background: var(--text) !important;
+  transition: background 150ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
