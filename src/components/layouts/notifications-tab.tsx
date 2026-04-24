@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { EdgeTab } from "@/components/ui/edge-tab";
 import { useNotifications } from "@/lib/hooks/use-notifications";
 import { useEdgeTabStore } from "@/stores/edge-tab-store";
@@ -23,12 +23,15 @@ export function NotificationsTab() {
   const count = notifs.length;
 
   // Compute the accent from the highest-severity outstanding notification.
-  const topTone = notifs.reduce<EdgeTabAccent>((best, n) => {
-    const tone = resolveTone(n.type);
-    return toneRank[tone] > toneRank[best] ? tone : best;
-  }, "ambient");
-  const accent: EdgeTabAccent =
-    topTone === "critical" ? "critical" : topTone === "attn" ? "attn" : "accent";
+  const accent = useMemo<EdgeTabAccent>(() => {
+    const topTone = notifs.reduce<EdgeTabAccent>((best, n) => {
+      const tone = resolveTone(n.type);
+      return toneRank[tone] > toneRank[best] ? tone : best;
+    }, "ambient");
+    if (topTone === "critical") return "critical";
+    if (topTone === "attn") return "attn";
+    return "accent";
+  }, [notifs]);
 
   // Keyboard shortcut: N (no modifiers, not inside input/textarea/contenteditable)
   useEffect(() => {

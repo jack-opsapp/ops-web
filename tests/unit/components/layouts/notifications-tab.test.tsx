@@ -106,4 +106,23 @@ describe("<NotificationsTab>", () => {
     await user.keyboard("n");
     expect(useEdgeTabStore.getState().activeTab).toBeNull();
   });
+
+  it("N inside a contentEditable element does NOT toggle", async () => {
+    const user = userEvent.setup();
+    wrap(
+      <>
+        <div contentEditable data-testid="editable" suppressContentEditableWarning />
+        <NotificationsTab />
+      </>,
+    );
+    const editable = screen.getByTestId("editable");
+    // jsdom does not implement HTMLElement.isContentEditable; patch for parity with browsers.
+    Object.defineProperty(editable, "isContentEditable", {
+      configurable: true,
+      get: () => true,
+    });
+    editable.focus();
+    await user.keyboard("n");
+    expect(useEdgeTabStore.getState().activeTab).toBeNull();
+  });
 });
