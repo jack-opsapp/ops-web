@@ -212,16 +212,134 @@ export const CalibrationService = {
 
   /**
    * Fetch the full activity log for the ACTIVITY drill-in.
-   * Paginated, filtered, limited to the last N events by time range.
-   * Full implementation expanded in Task I1 — stubbed here for A2.
+   *
+   * Paginated via a timestamp cursor (created_at of the last event in the
+   * previous page). Each source table returns up to `limit` rows; we merge
+   * into a single list sorted by createdAt desc and slice to `limit`.
+   *
+   * When `filters.types` is "all" we query every source. Otherwise we skip
+   * sources whose event types aren't in the set.
    */
   async getActivityLog(
-    _companyId: string,
-    _filters: ActivityFilters,
-    _cursor?: string,
-    _limit = 50
+    companyId: string,
+    filters: ActivityFilters,
+    cursor?: string,
+    limit = 50
   ): Promise<{ events: RecentEvent[]; nextCursor: string | null }> {
-    return { events: [], nextCursor: null };
+    const supabase = getServiceRoleClient();
+
+    const since = resolveTimeRangeCutoff(filters.timeRange);
+    const cursorIso = cursor ? new Date(cursor).toISOString() : undefined;
+
+    const wantsAll = filters.types === "all";
+    const typeSet = Array.isArray(filters.types)
+      ? new Set(filters.types)
+      : null;
+
+    const wantsMemories =
+      wantsAll || typeSet?.has("extraction") || typeSet?.has("learning");
+    const wantsScans =
+      wantsAll || typeSet?.has("scan") || typeSet?.has("scan_complete");
+    const wantsActions =
+      wantsAll || typeSet?.has("draft") || typeSet?.has("suggestion");
+
+    const memoriesQuery = supabase
+      .from("agent_memories")
+      .select("id, source, content, created_at")
+      .eq("company_id", companyId)
+      .gte("created_at", since.toISOString())
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (cursorIso) memoriesQuery.lt("created_at", cursorIso);
+
+    const scansQuery = supabase
+      .from("gmail_scan_jobs")
+      .select("id, status, created_at, updated_at")
+      .eq("company_id", companyId)
+      .in("status", ["complete", "error", "running"])
+      .gte("updated_at", since.toISOString())
+      .order("updated_at", { ascending: false })
+      .limit(limit);
+    if (cursorIso) scansQuery.lt("updated_at", cursorIso);
+
+    const actionsQuery = supabase
+      .from("agent_actions")
+      .select("id, action_type, status, created_at")
+      .eq("company_id", companyId)
+      .gte("created_at", since.toISOString())
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (cursorIso) actionsQuery.lt("created_at", cursorIso);
+
+    const [memoriesResult, scansResult, actionsResult] = await Promise.all([
+      wantsMemories
+        ? memoriesQuery
+        : Promise.resolve({ data: [], error: null } as const),
+      wantsScans
+        ? scansQuery
+        : Promise.resolve({ data: [], error: null } as const),
+      wantsActions
+        ? actionsQuery
+        : Promise.resolve({ data: [], error: null } as const),
+    ]);
+
+    const events: RecentEvent[] = [];
+
+    for (const m of memoriesResult.data ?? []) {
+      const source = (m as Record<string, unknown>).source as string | null;
+      const isLearning = source === "learning";
+      events.push({
+        id: String((m as Record<string, unknown>).id),
+        type: isLearning ? "learning" : "extraction",
+        title: isLearning ? "LEARNING" : "EXTRACTION",
+        detail: truncate(
+          String((m as Record<string, unknown>).content ?? ""),
+          40
+        ),
+        createdAt: String((m as Record<string, unknown>).created_at),
+        sourceTable: "agent_memories",
+        sourceId: String((m as Record<string, unknown>).id),
+      });
+    }
+
+    for (const j of scansResult.data ?? []) {
+      const status = (j as Record<string, unknown>).status as string;
+      events.push({
+        id: String((j as Record<string, unknown>).id),
+        type: status === "complete" ? "scan_complete" : "scan",
+        title: status === "complete" ? "SCAN COMPLETE" : "SCAN",
+        detail: null,
+        createdAt: String(
+          (j as Record<string, unknown>).updated_at ??
+            (j as Record<string, unknown>).created_at
+        ),
+        sourceTable: "gmail_scan_jobs",
+        sourceId: String((j as Record<string, unknown>).id),
+      });
+    }
+
+    for (const a of actionsResult.data ?? []) {
+      const actionType = (a as Record<string, unknown>).action_type as string;
+      events.push({
+        id: String((a as Record<string, unknown>).id),
+        type: actionType === "send_email" ? "draft" : "suggestion",
+        title: actionType === "send_email" ? "DRAFT" : "SUGGESTION",
+        detail: null,
+        createdAt: String((a as Record<string, unknown>).created_at),
+        sourceTable: "agent_actions",
+        sourceId: String((a as Record<string, unknown>).id),
+      });
+    }
+
+    events.sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+    const sliced = events.slice(0, limit);
+    const nextCursor =
+      sliced.length === limit ? sliced[sliced.length - 1].createdAt : null;
+
+    return { events: sliced, nextCursor };
   },
 
   // ─── Per-tile queries ─────────────────────────────────────────────────────
@@ -710,6 +828,23 @@ async function deriveScheduleStatus(companyId: string): Promise<DomainStatus> {
   if ((count ?? 0) > 0)
     return { status: "learning", confidence: null, metric: `${count}` };
   return { status: "gated", confidence: null, metric: null };
+}
+
+function resolveTimeRangeCutoff(range: ActivityFilters["timeRange"]): Date {
+  const now = Date.now();
+  const hour = 60 * 60 * 1000;
+  switch (range) {
+    case "hour":
+      return new Date(now - hour);
+    case "day":
+      return new Date(now - 24 * hour);
+    case "week":
+      return new Date(now - 7 * 24 * hour);
+    case "month":
+      return new Date(now - 30 * 24 * hour);
+    case "all":
+      return new Date(0);
+  }
 }
 
 function deriveCommsStatus(
