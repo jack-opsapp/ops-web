@@ -132,11 +132,11 @@ export const AutonomyMilestoneService = {
           userId,
           companyId,
           type: "ai_milestone",
-          title: "AI EMAIL DRAFTING READY",
-          body: "Your writing profile is strong enough to generate draft replies. Try it on your next email.",
+          title: "SYS :: AUTONOMY UNLOCK · DRAFTING AVAILABLE",
+          body: "Writing profile confidence reached 0.20. Drafting capability is available for activation.",
           persistent: true,
-          actionUrl: "/inbox",
-          actionLabel: "Try It",
+          actionUrl: "/calibration?section=milestones#milestone-3",
+          actionLabel: "Review",
         });
 
         milestones.draft_available_shown = true;
@@ -153,11 +153,11 @@ export const AutonomyMilestoneService = {
           userId,
           companyId,
           type: "ai_milestone",
-          title: "AUTO-DRAFT AVAILABLE",
-          body: "Draft replies can be generated automatically before you open emails.",
+          title: "SYS :: AUTONOMY UNLOCK · AUTO-DRAFT UNLOCKED",
+          body: "Writing profile confidence reached 0.75. Auto-draft capability is available for activation.",
           persistent: true,
-          actionUrl: "/settings/integrations",
-          actionLabel: "Turn On",
+          actionUrl: "/calibration?section=milestones#milestone-4",
+          actionLabel: "Review",
         });
 
         milestones.auto_draft_suggested = true;
@@ -178,10 +178,10 @@ export const AutonomyMilestoneService = {
           userId,
           companyId,
           type: "ai_milestone",
-          title: "CONFIGURE YOUR AI COMMUNICATIONS",
+          title: "SYS :: AUTONOMY UNLOCK · CONFIGURE COMMUNICATIONS",
           body: "Your AI is ready to handle client communications. Take 2 minutes to set up how you want it to work.",
           persistent: true,
-          actionUrl: "/agent/comms-config",
+          actionUrl: "/calibration?section=config&wizard=open",
           actionLabel: "Configure",
         });
 
@@ -264,11 +264,11 @@ export const AutonomyMilestoneService = {
           userId,
           companyId,
           type: "ai_milestone",
-          title: "AUTO-SEND RECOMMENDED",
-          body: `${(approvalRate * 100).toFixed(0)}% of your drafts are sent without changes. Auto-send can handle routine replies.`,
+          title: "SYS :: AUTONOMY UNLOCK · AUTO-SEND UNLOCKED",
+          body: `${(approvalRate * 100).toFixed(0)}% of your drafts are sent without changes. Auto-send is available for activation.`,
           persistent: true,
-          actionUrl: "/settings/integrations",
-          actionLabel: "Configure",
+          actionUrl: "/calibration?section=milestones#milestone-8",
+          actionLabel: "Review",
         });
 
         milestones.auto_send_suggested = true;
@@ -454,10 +454,10 @@ export const AutonomyMilestoneService = {
             userId,
             companyId,
             type: "ai_milestone",
-            title: "YOUR AI IS READY — SET IT UP",
+            title: "SYS :: CALIBRATION READY",
             body: "Phase C is enabled. Run the 5-minute intake to teach your AI your voice, your clients, and your business rules.",
             persistent: true,
-            actionUrl: "/settings/integrations/ai-setup",
+            actionUrl: "/calibration",
             actionLabel: "Start Setup",
           })
         )
