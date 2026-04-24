@@ -49,8 +49,15 @@ export function deriveTaskType(title: string, color: string): string {
   if (lower.includes("walkthrough") || lower.includes("completion") || lower.includes("final")) return "completion";
 
   const colorMap: Record<string, string> = {
-    "#931A32": "installation",
+    "#B58289": "installation",
     "#C4A868": "material",
+    "#9DB582": "estimate",
+    "#A69AB5": "inspection",
+    "#6F94B0": "quote",
+    "#9C938A": "completion",
+    // Legacy hexes (pre-spec-v2) — kept for existing ProjectTask rows stored
+    // with the old palette so derivation still works during data migration.
+    "#931A32": "installation",
     "#A5B368": "estimate",
     "#7B68A6": "inspection",
     "#59779F": "quote",
