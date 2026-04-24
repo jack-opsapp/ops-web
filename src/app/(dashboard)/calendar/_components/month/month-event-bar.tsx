@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useLayoutEffect } from "react";
+import { createPortal } from "react-dom";
 import { format } from "date-fns";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { type InternalCalendarEvent, getEventColors } from "@/lib/utils/calendar-utils";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -26,41 +27,105 @@ interface MonthEventBarProps {
 
 // ─── Tooltip ─────────────────────────────────────────────────────────────────
 
-const tooltipVariants = {
+// Spec v2 EASE_SMOOTH — single curve for all motion in OPS-Web.
+const EASE_SMOOTH: [number, number, number, number] = [0.22, 1, 0.36, 1];
+
+const tooltipVariantsMotion = {
   hidden: { opacity: 0, y: 4 },
   visible: { opacity: 1, y: 0 },
   exit: { opacity: 0, y: 4 },
 };
 
-function EventTooltip({ event }: { event: InternalCalendarEvent }) {
+// Reduced-motion alternative: same arrival beat, opacity only. The tooltip
+// still appears with the same timing so the user still gets the feedback —
+// just without any y-translate that could trigger vestibular discomfort.
+const tooltipVariantsReduced = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1 },
+  exit: { opacity: 0 },
+};
+
+interface EventTooltipProps {
+  event: InternalCalendarEvent;
+  anchorRect: DOMRect;
+}
+
+/**
+ * Rendered to document.body via portal so it escapes the calendar cell's
+ * `overflow: hidden` (which is load-bearing for the drop indicator and hover
+ * border on day cells). Bug 10ed5e3f.
+ *
+ * Position strategy: above the anchor by default; if there's not enough
+ * viewport above, flip below. `fixed` positioning so scroll doesn't displace.
+ */
+function EventTooltip({ event, anchorRect }: EventTooltipProps) {
+  const reducedMotion = useReducedMotion();
+  const tooltipVariants = reducedMotion ? tooltipVariantsReduced : tooltipVariantsMotion;
   const colors = getEventColors(event.taskType);
   const dateRangeStr = `${format(event.startDate, "MMM d")} - ${format(event.endDate, "MMM d, yyyy")}`;
+  const tooltipRef = useRef<HTMLDivElement>(null);
+  const [placement, setPlacement] = useState<{ top: number; left: number }>({
+    top: anchorRect.top - 8,
+    left: anchorRect.left,
+  });
 
-  return (
+  useLayoutEffect(() => {
+    const tooltip = tooltipRef.current;
+    if (!tooltip) return;
+    const tooltipRect = tooltip.getBoundingClientRect();
+    const margin = 6;
+    const above = anchorRect.top - tooltipRect.height - margin;
+    const below = anchorRect.bottom + margin;
+    const viewportH = window.innerHeight;
+    const viewportW = window.innerWidth;
+
+    let top = above >= 8 ? above : below;
+    let left = anchorRect.left;
+
+    // Clamp horizontally so the tooltip doesn't run off-screen
+    if (left + tooltipRect.width > viewportW - 8) {
+      left = viewportW - tooltipRect.width - 8;
+    }
+    if (left < 8) left = 8;
+
+    // If below also overflows, pin to bottom and accept the clip
+    if (below + tooltipRect.height > viewportH - 8 && above < 8) {
+      top = viewportH - tooltipRect.height - 8;
+    }
+
+    setPlacement({ top, left });
+  }, [anchorRect]);
+
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
     <motion.div
+      ref={tooltipRef}
       initial="hidden"
       animate="visible"
       exit="exit"
       variants={tooltipVariants}
-      transition={{ duration: 0.15 }}
-      className="absolute z-50 pointer-events-none"
+      transition={{ duration: 0.15, ease: EASE_SMOOTH }}
+      className="pointer-events-none"
       style={{
-        bottom: "calc(100% + 6px)",
-        left: 0,
+        position: "fixed",
+        top: placement.top,
+        left: placement.left,
+        zIndex: 1000, // dropdown layer per spec v2 z-index scale
         minWidth: 180,
         maxWidth: 240,
-        background: "var(--surface-glass)",
+        background: "var(--glass-bg-dense)",
         backdropFilter: "blur(28px) saturate(1.3)",
         WebkitBackdropFilter: "blur(28px) saturate(1.3)",
-        border: "1px solid rgba(255, 255, 255, 0.08)",
-        borderRadius: 3,
+        border: "1px solid var(--glass-border)",
+        borderRadius: 12, // rounded-modal per spec v2 (popover/dropdown tier)
         padding: "8px 10px",
       }}
     >
       {/* Project name */}
       <div
         className="font-mohave font-semibold text-[12px] leading-tight truncate"
-        style={{ color: "#FFFFFF" }}
+        style={{ color: "var(--text-primary, #EDEDED)" }}
       >
         {event.project || event.title}
       </div>
@@ -68,7 +133,7 @@ function EventTooltip({ event }: { event: InternalCalendarEvent }) {
       {/* Divider */}
       <div
         className="my-[4px]"
-        style={{ height: 1, background: "rgba(255, 255, 255, 0.08)" }}
+        style={{ height: 1, background: "var(--glass-border)" }}
       />
 
       {/* Task type */}
@@ -88,11 +153,12 @@ function EventTooltip({ event }: { event: InternalCalendarEvent }) {
       {/* Date range */}
       <div
         className="font-mono text-micro uppercase tracking-wider leading-tight mt-[3px]"
-        style={{ color: "#999999" }}
+        style={{ color: "var(--text-3, #8A8A8A)" }}
       >
         {dateRangeStr}
       </div>
-    </motion.div>
+    </motion.div>,
+    document.body
   );
 }
 
@@ -104,7 +170,22 @@ export function MonthEventBar({
   span,
   onClick,
 }: MonthEventBarProps) {
+  const anchorRef = useRef<HTMLDivElement>(null);
+  const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
   const [isHovered, setIsHovered] = useState(false);
+
+  const handleEnter = () => {
+    if (anchorRef.current) {
+      setAnchorRect(anchorRef.current.getBoundingClientRect());
+    }
+    setIsHovered(true);
+  };
+  const handleLeave = () => {
+    setIsHovered(false);
+    // Keep anchorRect around one frame so the exit animation has a position;
+    // cleared the next time the tooltip opens on a different bar.
+  };
+
   const colors = getEventColors(event.taskType);
 
   // Spec v2: event bars follow chip radii (4px). Multi-day bars square off
@@ -125,6 +206,7 @@ export function MonthEventBar({
   if (displayLevel === "compact") {
     return (
       <div
+        ref={anchorRef}
         className="cursor-pointer transition-opacity duration-100 hover:opacity-80 shrink-0 relative"
         style={{
           width: 10,
@@ -133,11 +215,13 @@ export function MonthEventBar({
           backgroundColor: colors.border,
         }}
         onClick={handleClick}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
+        onMouseEnter={handleEnter}
+        onMouseLeave={handleLeave}
       >
         <AnimatePresence>
-          {isHovered && <EventTooltip event={event} />}
+          {isHovered && anchorRect && (
+            <EventTooltip event={event} anchorRect={anchorRect} />
+          )}
         </AnimatePresence>
       </div>
     );
@@ -150,6 +234,7 @@ export function MonthEventBar({
   if (displayLevel === "standard") {
     return (
       <div
+        ref={anchorRef}
         className="cursor-pointer transition-all duration-100 hover:brightness-125 truncate relative"
         style={{
           height: 14,
@@ -167,8 +252,8 @@ export function MonthEventBar({
           overflow: "visible",
         }}
         onClick={handleClick}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
+        onMouseEnter={handleEnter}
+        onMouseLeave={handleLeave}
       >
         <span
           className="font-mohave truncate"
@@ -177,7 +262,9 @@ export function MonthEventBar({
           {event.project || event.title}
         </span>
         <AnimatePresence>
-          {isHovered && <EventTooltip event={event} />}
+          {isHovered && anchorRect && (
+            <EventTooltip event={event} anchorRect={anchorRect} />
+          )}
         </AnimatePresence>
       </div>
     );
@@ -189,6 +276,7 @@ export function MonthEventBar({
   if (!span.isSingleDay) {
     return (
       <div
+        ref={anchorRef}
         className="cursor-pointer transition-all duration-100 hover:brightness-125 truncate relative"
         style={{
           height: 14,
@@ -205,8 +293,8 @@ export function MonthEventBar({
           overflow: "visible",
         }}
         onClick={handleClick}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
+        onMouseEnter={handleEnter}
+        onMouseLeave={handleLeave}
       >
         <span
           className="font-mohave truncate"
@@ -215,7 +303,9 @@ export function MonthEventBar({
           {event.project || event.title}
         </span>
         <AnimatePresence>
-          {isHovered && <EventTooltip event={event} />}
+          {isHovered && anchorRect && (
+            <EventTooltip event={event} anchorRect={anchorRect} />
+          )}
         </AnimatePresence>
       </div>
     );
@@ -224,6 +314,7 @@ export function MonthEventBar({
   // Single-day expanded: 42px tall, 2 lines (project name + task type)
   return (
     <div
+      ref={anchorRef}
       className="cursor-pointer transition-all duration-100 hover:brightness-125 relative"
       style={{
         height: 42,
@@ -241,8 +332,8 @@ export function MonthEventBar({
         overflow: "visible",
       }}
       onClick={handleClick}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onMouseEnter={handleEnter}
+      onMouseLeave={handleLeave}
     >
       <span
         className="font-mohave truncate"
@@ -262,7 +353,9 @@ export function MonthEventBar({
         {event.taskType}
       </span>
       <AnimatePresence>
-        {isHovered && <EventTooltip event={event} />}
+        {isHovered && anchorRect && (
+          <EventTooltip event={event} anchorRect={anchorRect} />
+        )}
       </AnimatePresence>
     </div>
   );
