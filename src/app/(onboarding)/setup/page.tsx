@@ -463,6 +463,17 @@ export default function SetupPage() {
     router,
   ]);
 
+  // ─── Completed gate ───────────────────────────────────────────────────
+  // When `handleLaunchComplete` fires it updates auth + resets the setup store
+  // to its default (phase="identity"). React renders the new phase before
+  // `router.push` navigates, which briefly flashes the identity form. Short-
+  // circuit to a black screen as soon as onboarding is flagged complete — the
+  // guard effect at the top of the file will `router.replace("/dashboard")` on
+  // the next tick regardless. Bug a4bc6901.
+  if (authUser?.onboardingCompleted?.web) {
+    return <div className="fixed inset-0 bg-background" aria-hidden="true" />;
+  }
+
   // ─── Loading gate ───────────────────────────────────────────────────
 
   if (!ready) {
