@@ -80,7 +80,6 @@ export async function GET(
   return NextResponse.json({
     company: { id: company.id, name: company.name },
     features: {
-      ai_email_review: overrideMap.ai_email_review || { enabled: false, enabledBy: null, enabledAt: null },
       phase_c: overrideMap.phase_c || { enabled: false, enabledBy: null, enabledAt: null },
     },
     memory: {
@@ -106,11 +105,8 @@ export async function PATCH(
   const { companyId } = await params;
   const body = await req.json();
 
-  const validFeatures: Array<"ai_email_review" | "phase_c"> = [
-    "ai_email_review",
-    "phase_c",
-  ];
-  const updates: Array<{ feature: "ai_email_review" | "phase_c"; enabled: boolean }> = [];
+  const validFeatures: Array<"phase_c"> = ["phase_c"];
+  const updates: Array<{ feature: "phase_c"; enabled: boolean }> = [];
 
   for (const feature of validFeatures) {
     if (feature in body) {

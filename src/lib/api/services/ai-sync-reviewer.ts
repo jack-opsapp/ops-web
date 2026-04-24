@@ -68,7 +68,7 @@ function emptyReviewResult(): AIReviewResult {
 export const AISyncReviewer = {
   /**
    * Run AI review on unmatched emails from the current sync cycle.
-   * Only called if ai_email_review is enabled.
+   * Only called if phase_c is enabled (collapsed from ai_email_review 2026-04-24).
    * Passes the SYNC OpenAI client to the classifier.
    */
   async reviewUnmatchedEmails(
@@ -78,7 +78,7 @@ export const AISyncReviewer = {
   ): Promise<AIReviewResult> {
     const enabled = await AdminFeatureOverrideService.isAIFeatureEnabled(
       connection.companyId,
-      "ai_email_review"
+      "phase_c"
     );
     if (!enabled) return emptyReviewResult();
 
@@ -147,7 +147,7 @@ export const AISyncReviewer = {
    * for active leads that received new emails. Combined into a single
    * API call to minimize cost.
    *
-   * Only called if ai_email_review is enabled.
+   * Only called if phase_c is enabled (collapsed from ai_email_review 2026-04-24).
    * Uses OPENAI_API_KEY_SYNC directly (no delegation to EmailAIClassifier).
    */
   async evaluateStagesWithSummary(
@@ -164,7 +164,7 @@ export const AISyncReviewer = {
   > {
     const enabled = await AdminFeatureOverrideService.isAIFeatureEnabled(
       connection.companyId,
-      "ai_email_review"
+      "phase_c"
     );
     if (!enabled) return [];
 
