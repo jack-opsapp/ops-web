@@ -7,7 +7,11 @@ import { Bug, X, Send, CheckCircle2, Loader2, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
 import { useAuthStore } from "@/lib/store/auth-store";
-import { BugReportService } from "@/lib/api/services/bug-report-service";
+import {
+  BugReportService,
+  type BugReportCategory,
+  type BugReportPriority,
+} from "@/lib/api/services/bug-report-service";
 import {
   getBugContext,
   initBugContext,
@@ -16,12 +20,38 @@ import {
 import { useDictionary } from "@/i18n/client";
 
 type FormState = "idle" | "submitting" | "success" | "error";
+type Severity = "blocker" | "major" | "minor";
+
+const CATEGORY_OPTIONS: { value: BugReportCategory; labelKey: string }[] = [
+  { value: "bug", labelKey: "bugReport.category.bug" },
+  { value: "ui_issue", labelKey: "bugReport.category.ui" },
+  { value: "crash", labelKey: "bugReport.category.crash" },
+  { value: "feature_request", labelKey: "bugReport.category.feature" },
+  { value: "other", labelKey: "bugReport.category.other" },
+];
+
+const SEVERITY_OPTIONS: { value: Severity; labelKey: string }[] = [
+  { value: "blocker", labelKey: "bugReport.severity.blocker" },
+  { value: "major", labelKey: "bugReport.severity.major" },
+  { value: "minor", labelKey: "bugReport.severity.minor" },
+];
+
+// User-chosen severity maps to the triage `priority` column as a starting
+// signal. Admins can override during triage — this is a hint, not a verdict.
+const SEVERITY_TO_PRIORITY: Record<Severity, BugReportPriority> = {
+  blocker: "urgent",
+  major: "high",
+  minor: "low",
+};
 
 export function BugReportButton() {
   const { t } = useDictionary("common");
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [category, setCategory] = useState<BugReportCategory>("bug");
+  const [severity, setSeverity] = useState<Severity | null>(null);
+  const [requiresMyInput, setRequiresMyInput] = useState(false);
   const [formState, setFormState] = useState<FormState>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [screenshotBlob, setScreenshotBlob] = useState<Blob | null>(null);
@@ -106,6 +136,9 @@ export function BugReportButton() {
     setTimeout(() => {
       setTitle("");
       setDescription("");
+      setCategory("bug");
+      setSeverity(null);
+      setRequiresMyInput(false);
       setFormState("idle");
       setErrorMessage(null);
       setScreenshotBlob(null);
@@ -154,8 +187,13 @@ export function BugReportButton() {
         companyId: currentUser.companyId,
         reporterId: currentUser.id,
         description: fullDescription,
-        category: "bug",
+        category,
         platform: "web",
+        ...(severity ? { priority: SEVERITY_TO_PRIORITY[severity] } : {}),
+        requiresHumanReview: requiresMyInput,
+        humanReviewReason: requiresMyInput
+          ? "Reporter flagged at submission: needs their follow-up to resolve."
+          : null,
 
         browser: ctx.browser,
         browserVersion: ctx.browserVersion,
@@ -186,6 +224,7 @@ export function BugReportButton() {
           screenWidth: ctx.screenWidth,
           screenHeight: ctx.screenHeight,
           userTitle: trimmedTitle,
+          userSeverity: severity,
         },
 
         reporterName: reporterName || null,
@@ -237,7 +276,7 @@ export function BugReportButton() {
         err instanceof Error ? err.message : "Failed to submit bug report."
       );
     }
-  }, [title, description, formState, currentUser, company, screenshotBlob, includeScreenshot]);
+  }, [title, description, category, severity, requiresMyInput, formState, currentUser, company, screenshotBlob, includeScreenshot]);
 
   // Don't render on dashboard (map filter rail occupies bottom-left)
   // Don't render on intel (full-bleed canvas, overlaps cluster legend)
@@ -294,6 +333,41 @@ export function BugReportButton() {
                 </div>
               ) : (
                 <>
+                  {/* Category — required. Chip grid wraps to handle longer
+                      localizations (e.g. Spanish "FEATURE REQUEST"). */}
+                  <div>
+                    <label className="font-mono text-micro uppercase tracking-wider text-text-3 mb-1 block">
+                      {t("bugReport.category")}
+                    </label>
+                    <div
+                      role="radiogroup"
+                      aria-label={t("bugReport.category")}
+                      className="flex flex-wrap gap-1"
+                    >
+                      {CATEGORY_OPTIONS.map((opt) => {
+                        const isActive = category === opt.value;
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            role="radio"
+                            aria-checked={isActive}
+                            onClick={() => setCategory(opt.value)}
+                            className={cn(
+                              "px-2 py-1 rounded-[4px] border transition-colors duration-150",
+                              "font-mono text-[10px] uppercase tracking-wider",
+                              isActive
+                                ? "border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.08)] text-text"
+                                : "border-[rgba(255,255,255,0.08)] bg-transparent text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.03)]"
+                            )}
+                          >
+                            {t(opt.labelKey)}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
                   {/* Title input */}
                   <div>
                     <label className="font-mono text-micro uppercase tracking-wider text-text-3 mb-1 block">
@@ -340,6 +414,80 @@ export function BugReportButton() {
                       )}
                     />
                   </div>
+
+                  {/* Severity — optional. Writes to `priority` as a hint; admin
+                      can override during triage. Click active chip to clear. */}
+                  <div>
+                    <label className="font-mono text-micro uppercase tracking-wider text-text-3 mb-1 block">
+                      {t("bugReport.severity")}
+                    </label>
+                    <div role="radiogroup" aria-label={t("bugReport.severity")} className="flex gap-1">
+                      {SEVERITY_OPTIONS.map((opt) => {
+                        const isActive = severity === opt.value;
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            role="radio"
+                            aria-checked={isActive}
+                            onClick={() => setSeverity(isActive ? null : opt.value)}
+                            className={cn(
+                              "flex-1 px-2 py-1.5 rounded-[4px] border transition-colors duration-150",
+                              "font-mono text-[10px] uppercase tracking-wider",
+                              isActive
+                                ? "border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.08)] text-text"
+                                : "border-[rgba(255,255,255,0.08)] bg-transparent text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.03)]"
+                            )}
+                          >
+                            {t(opt.labelKey)}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Requires-my-input toggle. When on, the nightly triage
+                      agent skips this report (written to requires_human_review). */}
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={requiresMyInput}
+                    onClick={() => setRequiresMyInput((v) => !v)}
+                    className={cn(
+                      "w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-[4px] border transition-colors",
+                      requiresMyInput
+                        ? "border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.06)]"
+                        : "border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] hover:border-[rgba(255,255,255,0.14)]"
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "font-mono text-[10px] uppercase tracking-wider text-left",
+                        requiresMyInput ? "text-text-2" : "text-text-mute"
+                      )}
+                    >
+                      {requiresMyInput
+                        ? `[${t("bugReport.requiresInputOn")}]`
+                        : t("bugReport.requiresInputOff")}
+                    </span>
+                    <span
+                      className={cn(
+                        "relative inline-block w-6 h-3 rounded-full transition-colors flex-shrink-0",
+                        requiresMyInput
+                          ? "bg-[rgba(255,255,255,0.2)]"
+                          : "bg-[rgba(255,255,255,0.08)]"
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "absolute top-[1px] w-[10px] h-[10px] rounded-full transition-all",
+                          requiresMyInput
+                            ? "left-[13px] bg-text-2"
+                            : "left-[1px] bg-text-disabled"
+                        )}
+                      />
+                    </span>
+                  </button>
 
                   {/* Auto-captured context */}
                   <div className="space-y-1.5">

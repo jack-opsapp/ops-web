@@ -64,6 +64,16 @@ export interface BugReport {
   resolvedAt: Date | null;
   resolutionNotes: string | null;
 
+  // Agent-processed triage fields (mirror of qa_bugs)
+  requiresHumanReview: boolean;
+  humanReviewReason: string | null;
+  fixBranch: string | null;
+  fixPrUrl: string | null;
+  fixCommit: string | null;
+  fixNotes: string | null;
+  claimedAt: Date | null;
+  fixedAt: Date | null;
+
   createdAt: Date | null;
   updatedAt: Date | null;
 }
@@ -115,6 +125,15 @@ function mapFromDb(row: Record<string, unknown>): BugReport {
     resolvedAt: parseDate(row.resolved_at),
     resolutionNotes: (row.resolution_notes as string) ?? null,
 
+    requiresHumanReview: (row.requires_human_review as boolean) ?? false,
+    humanReviewReason: (row.human_review_reason as string) ?? null,
+    fixBranch: (row.fix_branch as string) ?? null,
+    fixPrUrl: (row.fix_pr_url as string) ?? null,
+    fixCommit: (row.fix_commit as string) ?? null,
+    fixNotes: (row.fix_notes as string) ?? null,
+    claimedAt: parseDate(row.claimed_at),
+    fixedAt: parseDate(row.fixed_at),
+
     createdAt: parseDate(row.created_at),
     updatedAt: parseDate(row.updated_at),
   };
@@ -156,6 +175,14 @@ function mapToDb(data: Partial<BugReport>): Record<string, unknown> {
   if (data.assignedTo !== undefined) row.assigned_to = data.assignedTo;
   if (data.resolvedAt !== undefined) row.resolved_at = data.resolvedAt?.toISOString() ?? null;
   if (data.resolutionNotes !== undefined) row.resolution_notes = data.resolutionNotes;
+  if (data.requiresHumanReview !== undefined) row.requires_human_review = data.requiresHumanReview;
+  if (data.humanReviewReason !== undefined) row.human_review_reason = data.humanReviewReason;
+  if (data.fixBranch !== undefined) row.fix_branch = data.fixBranch;
+  if (data.fixPrUrl !== undefined) row.fix_pr_url = data.fixPrUrl;
+  if (data.fixCommit !== undefined) row.fix_commit = data.fixCommit;
+  if (data.fixNotes !== undefined) row.fix_notes = data.fixNotes;
+  if (data.claimedAt !== undefined) row.claimed_at = data.claimedAt?.toISOString() ?? null;
+  if (data.fixedAt !== undefined) row.fixed_at = data.fixedAt?.toISOString() ?? null;
   return row;
 }
 
