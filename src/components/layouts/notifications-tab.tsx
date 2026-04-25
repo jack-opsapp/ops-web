@@ -64,6 +64,7 @@ export function NotificationsTab() {
       ariaLabel={t("tab.ariaLabel")}
       shortcut="N"
       tooltipTitle={t("tab.tooltipTitle")}
+      closedGlyphRotation={-90}
       renderGlyph={(isOpen) => (
         <svg
           width="14"

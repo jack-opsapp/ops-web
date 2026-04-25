@@ -60,6 +60,20 @@ export interface EdgeTabProps {
   /** Icon glyph renderer — receives open state, returns an SVG React node. */
   renderGlyph: (open: boolean) => ReactNode;
 
+  /**
+   * Rotation (deg) applied to the glyph wrapper when closed. Default 0 (upright).
+   * Notifications uses -90 so the bell lays sideways aligned with the vertical
+   * wordmark. Quick Actions uses 0 so the plus glyph is upright.
+   */
+  closedGlyphRotation?: number;
+
+  /**
+   * Rotation (deg) applied to the glyph wrapper when open. Default 45 (turns
+   * a + into × for FAB-style consumers; preserved for symmetry on bell-style
+   * consumers since the open state shows × always).
+   */
+  openGlyphRotation?: number;
+
   /** Accessible label for the tab button. */
   ariaLabel: string;
 

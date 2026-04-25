@@ -1,0 +1,16 @@
+{
+  "tab.wordmarkClosed": "QUICK ACTIONS",
+  "tab.wordmarkOpen": "CLOSE",
+  "tab.ariaLabel": "Toggle quick actions drawer",
+  "tab.tooltipTitle": "Quick actions",
+  "tab.shortcut": "Q",
+
+  "drawer.ariaLabel": "Quick actions",
+  "drawer.title": "QUICK ACTIONS",
+  "drawer.shortcutHint": "Q",
+
+  "footer.customize": "CUSTOMIZE",
+  "footer.customizeAriaLabel": "Customize quick actions",
+
+  "empty.noActions": "[ no actions available ]"
+}

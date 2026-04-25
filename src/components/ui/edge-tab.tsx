@@ -34,6 +34,8 @@ export function EdgeTab({
   wordmark,
   wordmarkOpen = "CLOSE",
   renderGlyph,
+  closedGlyphRotation = 0,
+  openGlyphRotation = 45,
   ariaLabel,
   shortcut,
   tooltipTitle,
@@ -126,7 +128,7 @@ export function EdgeTab({
           style={{
             color: "var(--text)",
             display: "inline-flex",
-            transform: `rotate(${open ? 45 : -90}deg)`,
+            transform: `rotate(${open ? openGlyphRotation : closedGlyphRotation}deg)`,
             transition: reducedMotion ? "none" : `transform 260ms ${EASE_SMOOTH_CSS}`,
             position: "relative",
           }}

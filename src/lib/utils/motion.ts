@@ -407,3 +407,38 @@ export const chipVariantsReduced: Variants = {
   visible: { opacity: 1, transition: { duration: 0.15 } },
   exit: { opacity: 0, transition: { duration: 0.1 } },
 };
+
+// ── Quick Actions drawer (2026-04-25 — replaces bottom-right FAB) ──
+
+/** Quick Actions drawer panel slide-in from the right (308px) */
+export const quickActionsDrawerVariants: Variants = {
+  hidden: { x: 308, opacity: 0 },
+  visible: { x: 0, opacity: 1, transition: { duration: 0.26, ease: EASE_SMOOTH } },
+  exit: { x: 308, opacity: 0, transition: { duration: 0.22, ease: EASE_SMOOTH } },
+};
+
+/** Quick Actions drawer reduced-motion fallback */
+export const quickActionsDrawerVariantsReduced: Variants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { duration: 0.15 } },
+  exit: { opacity: 0, transition: { duration: 0.15 } },
+};
+
+/** Quick Actions row stagger entry — 30ms per item, 200ms duration */
+export const quickActionsRowVariants: Variants = {
+  hidden: { opacity: 0, x: -6 },
+  visible: (i: number) => ({
+    opacity: 1,
+    x: 0,
+    transition: { delay: i * 0.03, duration: 0.2, ease: EASE_SMOOTH },
+  }),
+};
+
+/** Quick Actions row reduced-motion fallback */
+export const quickActionsRowVariantsReduced: Variants = {
+  hidden: { opacity: 0 },
+  visible: (i: number) => ({
+    opacity: 1,
+    transition: { delay: i * 0.015, duration: 0.15 },
+  }),
+};
