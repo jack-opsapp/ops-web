@@ -42,9 +42,6 @@ export function EdgeTab({
   const reducedMotion = useReducedMotion();
 
   const expanded = open || (hovered && canHoverExpand);
-  const tabHeight = expanded
-    ? `calc(100vh - ${railTop + railBottom}px)`
-    : `${restHeight}px`;
 
   return (
     <div
@@ -79,16 +76,17 @@ export function EdgeTab({
         onBlur={() => setHovered(false)}
         style={{
           position: "absolute",
-          top: `calc(50% + ${stackOffset}px)`,
+          top: expanded
+            ? 0
+            : `calc(50% + ${stackOffset - restHeight / 2}px)`,
           right: open ? drawerWidth : 0,
-          transform: "translateY(-50%)",
           width: TAB_WIDTH,
-          height: tabHeight,
+          height: expanded ? "100%" : restHeight,
           boxSizing: "border-box",
           background: fill,
           backdropFilter: "blur(28px) saturate(1.3)",
           WebkitBackdropFilter: "blur(28px) saturate(1.3)",
-          border: "1px solid rgba(255,255,255,0.14)",
+          border: "1px solid var(--glass-border)",
           borderTopLeftRadius: 4,
           borderBottomLeftRadius: 4,
           borderTopRightRadius: 0,
@@ -103,7 +101,7 @@ export function EdgeTab({
           color: "var(--text)",
           transition: reducedMotion
             ? "opacity 150ms linear"
-            : `right 260ms ${EASE_SMOOTH_CSS}, height 260ms ${EASE_SMOOTH_CSS}, background-color 180ms ${EASE_SMOOTH_CSS}`,
+            : `top 260ms ${EASE_SMOOTH_CSS}, height 260ms ${EASE_SMOOTH_CSS}, right 260ms ${EASE_SMOOTH_CSS}, background-color 180ms ${EASE_SMOOTH_CSS}`,
           outline: "none",
         }}
       >

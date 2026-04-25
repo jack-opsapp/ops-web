@@ -210,7 +210,7 @@ export function NotificationsDrawer() {
             background: "var(--glass)",
             backdropFilter: "blur(28px) saturate(1.3)",
             WebkitBackdropFilter: "blur(28px) saturate(1.3)",
-            border: "1px solid rgba(255,255,255,0.14)",
+            border: "1px solid var(--glass-border)",
             borderRight: "none",
             zIndex: 1500,
             overflow: "hidden",
@@ -323,25 +323,31 @@ export function NotificationsDrawer() {
                     fontSize: 10,
                     letterSpacing: "0.12em",
                     padding: "4px 8px",
-                    borderRadius: 2.5,
+                    borderRadius: 4,
                     cursor: "pointer",
                     display: "inline-flex",
                     alignItems: "center",
-                    gap: 5,
-                    background: active ? c.soft : "transparent",
+                    gap: 6,
+                    background: active ? c.soft : "rgba(255,255,255,0.02)",
                     border: `1px solid ${active ? c.line : "rgba(255,255,255,0.08)"}`,
                     color: active ? c.color : "var(--text-3)",
-                    transition: reducedMotion ? "none" : "all 120ms cubic-bezier(0.22,1,0.36,1)",
+                    transition: reducedMotion
+                      ? "none"
+                      : "background 160ms var(--ease-smooth), border-color 160ms var(--ease-smooth), color 160ms var(--ease-smooth)",
                   }}
                 >
                   {c.key !== "all" && (
                     <span
                       aria-hidden
                       style={{
-                        width: 4,
-                        height: 4,
+                        width: 5,
+                        height: 5,
+                        borderRadius: 1,
                         background: c.color,
-                        opacity: active ? 1 : 0.6,
+                        opacity: active ? 1 : 0.55,
+                        transition: reducedMotion
+                          ? "none"
+                          : "opacity 160ms var(--ease-smooth)",
                       }}
                     />
                   )}
@@ -349,8 +355,11 @@ export function NotificationsDrawer() {
                   <span
                     style={{
                       color: active ? c.color : "var(--text-mute)",
-                      opacity: active ? 0.7 : 1,
+                      opacity: active ? 0.85 : 1,
                       fontVariantNumeric: "tabular-nums",
+                      transition: reducedMotion
+                        ? "none"
+                        : "color 160ms var(--ease-smooth), opacity 160ms var(--ease-smooth)",
                     }}
                   >
                     {c.count}
