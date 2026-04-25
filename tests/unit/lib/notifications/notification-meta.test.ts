@@ -26,6 +26,9 @@ const ALL_TYPES: NotificationType[] = [
   "ai_milestone",
   "agent_suggestion",
   "trial_expiry",
+  "payment_review_stack",
+  "task_review_stack",
+  "unscheduled_review_stack",
 ];
 
 describe("notification-meta", () => {

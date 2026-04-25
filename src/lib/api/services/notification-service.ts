@@ -18,7 +18,10 @@ export type NotificationType =
   | "duplicates_found"
   | "ai_milestone"
   | "agent_suggestion"
-  | "trial_expiry";
+  | "trial_expiry"
+  | "payment_review_stack"
+  | "task_review_stack"
+  | "unscheduled_review_stack";
 
 export interface AppNotification {
   id: string;

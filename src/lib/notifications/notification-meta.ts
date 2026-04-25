@@ -16,6 +16,9 @@ import {
   Copy,
   Sparkle,
   Bot,
+  Layers,
+  ListChecks,
+  CalendarX,
   AlarmClock,
   Circle,
   type LucideIcon,
@@ -53,6 +56,9 @@ export const NOTIF_TYPE_META: Record<NotificationType, NotificationMeta> = {
   agent_suggestion: { label: "AGENT", icon: "bot", tone: "accent" },
   // AlarmClock in lucide 0.468 — ClockAlert (0.475+) preferred long-term; upgrade when lucide-react is bumped.
   trial_expiry: { label: "TRIAL", icon: "alarm-clock", tone: "critical" },
+  payment_review_stack: { label: "PAY REV", icon: "layers", tone: "attn" },
+  task_review_stack: { label: "TASK REV", icon: "list-checks", tone: "attn" },
+  unscheduled_review_stack: { label: "UNSCHED", icon: "calendar-x", tone: "attn" },
 };
 
 export const toneRank: Record<NotificationTone, number> = {
@@ -86,6 +92,9 @@ const LUCIDE_REGISTRY: Record<string, LucideIcon> = {
   bot: Bot,
   "alarm-clock": AlarmClock,
   circle: Circle,
+  "layers": Layers,
+  "list-checks": ListChecks,
+  "calendar-x": CalendarX,
 };
 
 export function lucideIconFromName(name: string): LucideIcon {

@@ -42,7 +42,9 @@ export function EdgeTab({
   const reducedMotion = useReducedMotion();
 
   const expanded = open || (hovered && canHoverExpand);
-  const tabHeight = expanded ? "100%" : `${restHeight}px`;
+  const tabHeight = expanded
+    ? `calc(100vh - ${railTop + railBottom}px)`
+    : `${restHeight}px`;
 
   return (
     <div
@@ -126,7 +128,7 @@ export function EdgeTab({
           style={{
             color: "var(--text)",
             display: "inline-flex",
-            transform: `rotate(${open ? 45 : 0}deg)`,
+            transform: `rotate(${open ? 45 : -90}deg)`,
             transition: reducedMotion ? "none" : `transform 260ms ${EASE_SMOOTH_CSS}`,
             position: "relative",
           }}
