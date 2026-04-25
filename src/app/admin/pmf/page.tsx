@@ -10,7 +10,10 @@ import { PmfButton } from "@/components/pmf/ui/button";
 import { SlashHeader } from "@/components/pmf/ui/slash-header";
 import type { MarkerKey, IndicatorKey } from "@/lib/pmf/types";
 
-export const revalidate = PMF_STATE_TTL_SECONDS;
+// Next.js statically analyzes `revalidate` and requires a literal initializer.
+// The literal-type annotation links this to PMF_STATE_TTL_SECONDS — TypeScript
+// fails the build if either drifts, preserving the single-source-of-truth invariant.
+export const revalidate: typeof PMF_STATE_TTL_SECONDS = 60;
 
 const MARKER_KEYS: MarkerKey[] = ["marker_1", "marker_2", "marker_3", "marker_4"];
 const INDICATOR_KEYS: IndicatorKey[] = [

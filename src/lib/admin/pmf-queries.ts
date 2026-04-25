@@ -7,7 +7,7 @@ import {
 } from '@/lib/pmf/marker-compute';
 import type { PmfState, MarkerStatus } from '@/lib/pmf/types';
 
-export const PMF_STATE_TTL_SECONDS = 60;
+export const PMF_STATE_TTL_SECONDS = 60 as const;
 
 // Marker 1 — Tier A paid & delivered
 async function queryMarker1(): Promise<number> {
