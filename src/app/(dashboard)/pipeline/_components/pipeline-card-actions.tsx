@@ -14,6 +14,7 @@ import {
   XCircle,
   Ban,
   Archive,
+  Send,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
@@ -203,9 +204,10 @@ export function PipelineCardActions({
         </div>
       </div>
 
-      {/* Inline note input */}
+      {/* Inline note input — submit button lives inside the input gutter so
+          it can never be clipped by narrow card widths */}
       {showNoteInput && (
-        <div className="mt-[4px] flex gap-[3px]">
+        <div className="mt-[4px] relative">
           <input
             ref={noteInputRef}
             type="text"
@@ -214,19 +216,22 @@ export function PipelineCardActions({
             onClick={stop}
             onKeyDown={handleNoteKeyDown}
             placeholder={t("actions.notePlaceholder")}
-            className="flex-1 min-w-0 px-[6px] py-[4px] rounded-panel bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] font-mohave text-caption-sm text-text placeholder:text-text-3 focus:border-[rgba(255,255,255,0.2)] focus:outline-none"
+            className="w-full pl-[6px] pr-[26px] py-[4px] rounded-panel bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] font-mohave text-caption-sm text-text placeholder:text-text-3 focus:border-[rgba(255,255,255,0.2)] focus:outline-none"
           />
           <button
+            type="button"
+            aria-label={t("spatial.confirm")}
             onClick={(e) => {
               e.stopPropagation();
-              if (noteValue.trim()) onAddNote(noteValue.trim());
+              if (!noteValue.trim()) return;
+              onAddNote(noteValue.trim());
               setNoteValue("");
               setShowNoteInput(false);
             }}
             disabled={!noteValue.trim()}
-            className="px-[6px] py-[4px] rounded-panel bg-[rgba(255,255,255,0.08)] text-text font-mono text-micro uppercase tracking-wider hover:bg-[rgba(255,255,255,0.12)] disabled:opacity-30 disabled:cursor-not-allowed transition-colors shrink-0"
+            className="absolute right-[3px] top-1/2 -translate-y-1/2 p-[3px] rounded-panel text-text-2 hover:text-text hover:bg-[rgba(255,255,255,0.08)] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
           >
-            {t("spatial.confirm")}
+            <Send className="w-[12px] h-[12px]" />
           </button>
         </div>
       )}
