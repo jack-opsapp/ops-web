@@ -9,6 +9,7 @@
  *   - status not in ('new', 'triaged')
  *   - requires_human_review = true (operator or reporter flagged)
  *   - false_positive = true (qa_bugs only)
+ *   - category = 'feature_request' (orchestrator can't fix features)
  *   - claimed_at within last 6 hours (active claim by another run)
  *
  * Auth: Bearer BUG_TRIAGE_AGENT_TOKEN.
@@ -48,6 +49,7 @@ export async function GET(request: NextRequest) {
       .eq("platform", platform)
       .in("status", ["new", "triaged"])
       .eq("requires_human_review", false)
+      .neq("category", "feature_request")
       .or(`claimed_at.is.null,claimed_at.lt.${claimExpiryCutoff}`)
       .order("created_at", { ascending: true })
       .limit(limit),
@@ -60,6 +62,7 @@ export async function GET(request: NextRequest) {
       .in("status", ["new", "triaged"])
       .eq("requires_human_review", false)
       .eq("false_positive", false)
+      .neq("category", "feature_request")
       .or(`claimed_at.is.null,claimed_at.lt.${claimExpiryCutoff}`)
       .order("found_at", { ascending: true })
       .limit(limit),
