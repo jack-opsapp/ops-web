@@ -312,7 +312,7 @@ function LoginForm() {
             className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg border border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.06)] hover:border-[rgba(255,255,255,0.2)] transition-all disabled:opacity-50"
           >
             <Mail className="w-[18px] h-[18px] text-text-3 shrink-0" />
-            <span className="font-mohave text-body text-text flex-1 text-left">
+            <span className="font-mohave text-body text-text flex-1 text-left truncate whitespace-nowrap">
               {t("login.emailSignIn")}
             </span>
             <ArrowRight className="w-[14px] h-[14px] text-text-mute shrink-0" />

@@ -341,9 +341,9 @@ export function TimelineTaskBlock({
         }}
       >
         {/* Content */}
-        <div className="flex-1 flex items-center justify-between min-w-0 gap-[6px]">
+        <div className="flex-1 flex items-center justify-between min-w-0 gap-[10px]">
           {/* Left: title + client */}
-          <div className="flex items-center min-w-0 gap-[4px] overflow-hidden">
+          <div className="flex items-center min-w-0 gap-[4px] overflow-hidden pr-[2px]">
             <span
               className="font-mohave font-semibold text-[11px] text-text truncate leading-tight"
               style={{ color: "#FFFFFF" }}

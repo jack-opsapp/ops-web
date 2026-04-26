@@ -290,6 +290,7 @@ export function CalendarGridMonth({
   t,
 }: CalendarGridMonthProps) {
   const [cellHeight, setCellHeight] = useState(DEFAULT_CELL_HEIGHT);
+  const [userOverrodeZoom, setUserOverrodeZoom] = useState(false);
   const gridRef = useRef<HTMLDivElement>(null);
 
   const displayLevel = getDisplayLevel(cellHeight);
@@ -519,12 +520,37 @@ export function CalendarGridMonth({
   const handleWheel = useCallback((e: React.WheelEvent) => {
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
+      setUserOverrodeZoom(true);
       setCellHeight((prev) => {
         const next = prev + e.deltaY * -0.5;
         return Math.min(MAX_CELL_HEIGHT, Math.max(MIN_CELL_HEIGHT, next));
       });
     }
   }, []);
+
+  // ── Auto-fit cell height to available container height ──
+  // Without this, the default 120px cellHeight × 5-6 weeks pushes the last
+  // weeks below the viewport fold on 1280×720 displays. Once the user
+  // explicitly cmd-scrolls to zoom, we stop auto-fitting and respect the
+  // chosen zoom level.
+  useEffect(() => {
+    if (userOverrodeZoom) return;
+    const grid = gridRef.current;
+    if (!grid) return;
+
+    const fit = () => {
+      const available = grid.clientHeight;
+      if (available <= 0) return;
+      const target = Math.floor(available / weeks);
+      const clamped = Math.min(MAX_CELL_HEIGHT, Math.max(MIN_CELL_HEIGHT, target));
+      setCellHeight((prev) => (prev === clamped ? prev : clamped));
+    };
+
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(grid);
+    return () => ro.disconnect();
+  }, [weeks, userOverrodeZoom]);
 
   // ── Slot height for current level ──
   const baseSlotHeight = displayLevel === "compact" ? 10 : 14;
