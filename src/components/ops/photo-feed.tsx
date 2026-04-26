@@ -61,7 +61,7 @@ function PhotoCard({
   photo: ProjectPhoto;
   uploader: User | undefined;
 }) {
-  const displayName = uploader ? getUserFullName(uploader) : "Unknown User";
+  const displayName = uploader ? getUserFullName(uploader) : "Former member";
   const photoDate = new Date(photo.takenAt || photo.createdAt);
   const timeAgo = formatDistanceToNow(photoDate, { addSuffix: true });
 
