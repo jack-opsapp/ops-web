@@ -111,12 +111,26 @@ export function requireSupabase(): SupabaseClient {
   return client;
 }
 
+const DATE_ONLY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
+
 /**
  * Parse a value from the database into a Date or null.
- * Supabase returns dates as ISO-8601 strings.
+ *
+ * Supabase returns DATE columns as plain `YYYY-MM-DD` strings and TIMESTAMPTZ
+ * columns as full ISO-8601 strings. `new Date("2026-03-25")` interprets the
+ * plain form as UTC midnight, which renders as the previous day in any
+ * timezone west of UTC (e.g. `Mar 24` in Pacific). For date-only values we
+ * construct a local-midnight Date so calendar-day semantics are preserved
+ * across the user's timezone.
  */
 export function parseDate(value: unknown): Date | null {
   if (value == null) return null;
+  if (typeof value === "string") {
+    const m = DATE_ONLY_PATTERN.exec(value);
+    if (m) {
+      return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    }
+  }
   const d = new Date(value as string);
   return isNaN(d.getTime()) ? null : d;
 }

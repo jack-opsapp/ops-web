@@ -144,6 +144,21 @@ export function formatNumber(value: number): string {
 }
 
 /**
+ * Format a Date as `YYYY-MM-DD` using local-time components.
+ *
+ * Use this whenever you need to populate an `<input type="date">` value or
+ * round-trip a DATE-typed field. `Date.toISOString().slice(0, 10)` returns the
+ * UTC date, which can drift one calendar day for any user east of UTC.
+ */
+export function formatDateOnly(date: Date | null | undefined): string {
+  if (!date) return "";
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+/**
  * Format a percentage.
  */
 export function formatPercent(
