@@ -63,6 +63,12 @@ export function BugReportButton() {
   const { currentUser, company } = useAuthStore();
   const sidebarWidth = 72;
 
+  // Minimal-form gate. Trades business owners get one textarea + submit;
+  // power user (the developer) gets full triage controls. Defaults applied
+  // for hidden fields: category='bug', severity=null, requiresHumanReview=false,
+  // screenshot=included.
+  const isPowerUser = currentUser?.email === "canprojack@gmail.com";
+
   useEffect(() => {
     initBugContext();
   }, []);
@@ -333,168 +339,200 @@ export function BugReportButton() {
                 </div>
               ) : (
                 <>
-                  {/* Category — required. Chip grid wraps to handle longer
-                      localizations (e.g. Spanish "FEATURE REQUEST"). */}
-                  <div>
-                    <label className="font-mono text-micro uppercase tracking-wider text-text-3 mb-1 block">
-                      {t("bugReport.category")}
-                    </label>
-                    <div
-                      role="radiogroup"
-                      aria-label={t("bugReport.category")}
-                      className="flex flex-wrap gap-1"
-                    >
-                      {CATEGORY_OPTIONS.map((opt) => {
-                        const isActive = category === opt.value;
-                        return (
-                          <button
-                            key={opt.value}
-                            type="button"
-                            role="radio"
-                            aria-checked={isActive}
-                            onClick={() => setCategory(opt.value)}
-                            className={cn(
-                              "px-2 py-1 rounded-[4px] border transition-colors duration-150",
-                              "font-mono text-[10px] uppercase tracking-wider",
-                              isActive
-                                ? "border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.08)] text-text"
-                                : "border-[rgba(255,255,255,0.08)] bg-transparent text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.03)]"
-                            )}
-                          >
-                            {t(opt.labelKey)}
-                          </button>
-                        );
-                      })}
+                  {isPowerUser && (
+                    /* Category — required. Chip grid wraps to handle longer
+                        localizations (e.g. Spanish "FEATURE REQUEST"). */
+                    <div>
+                      <label className="font-mono text-micro uppercase tracking-wider text-text-3 mb-1 block">
+                        {t("bugReport.category")}
+                      </label>
+                      <div
+                        role="radiogroup"
+                        aria-label={t("bugReport.category")}
+                        className="flex flex-wrap gap-1"
+                      >
+                        {CATEGORY_OPTIONS.map((opt) => {
+                          const isActive = category === opt.value;
+                          return (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              role="radio"
+                              aria-checked={isActive}
+                              onClick={() => setCategory(opt.value)}
+                              className={cn(
+                                "px-2 py-1 rounded-[4px] border transition-colors duration-150",
+                                "font-mono text-[10px] uppercase tracking-wider",
+                                isActive
+                                  ? "border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.08)] text-text"
+                                  : "border-[rgba(255,255,255,0.08)] bg-transparent text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.03)]"
+                              )}
+                            >
+                              {t(opt.labelKey)}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
+                  )}
 
-                  {/* Title input */}
-                  <div>
-                    <label className="font-mono text-micro uppercase tracking-wider text-text-3 mb-1 block">
-                      {t("bugReport.whatHappened")}
-                    </label>
-                    <input
-                      type="text"
-                      value={title}
-                      onChange={(e) => setTitle(e.target.value)}
-                      placeholder={t("bugReport.titlePlaceholder")}
-                      className={cn(
-                        "w-full px-2.5 py-2 rounded-sm font-mohave text-body-sm text-text",
-                        "bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)]",
-                        "placeholder:text-text-mute",
-                        "focus:outline-none focus:border-[rgba(255,255,255,0.20)]/40",
-                        "transition-colors duration-150"
-                      )}
-                      autoFocus
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) {
-                          e.preventDefault();
-                          handleSubmit();
-                        }
-                      }}
-                    />
-                  </div>
+                  {/* Primary input — single field for minimal users
+                      (their text becomes the full report), title+description
+                      pair for the power user. */}
+                  {isPowerUser ? (
+                    <>
+                      <div>
+                        <label className="font-mono text-micro uppercase tracking-wider text-text-3 mb-1 block">
+                          {t("bugReport.whatHappened")}
+                        </label>
+                        <input
+                          type="text"
+                          value={title}
+                          onChange={(e) => setTitle(e.target.value)}
+                          placeholder={t("bugReport.titlePlaceholder")}
+                          className={cn(
+                            "w-full px-2.5 py-2 rounded-sm font-mohave text-body-sm text-text",
+                            "bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)]",
+                            "placeholder:text-text-mute",
+                            "focus:outline-none focus:border-[rgba(255,255,255,0.20)]/40",
+                            "transition-colors duration-150"
+                          )}
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && !e.shiftKey) {
+                              e.preventDefault();
+                              handleSubmit();
+                            }
+                          }}
+                        />
+                      </div>
 
-                  {/* Description textarea */}
-                  <div>
-                    <label className="font-mono text-micro uppercase tracking-wider text-text-3 mb-1 block">
-                      {t("bugReport.details")}
-                    </label>
-                    <textarea
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      placeholder={t("bugReport.detailsPlaceholder")}
-                      rows={3}
-                      className={cn(
-                        "w-full px-2.5 py-2 rounded-sm font-mohave text-body-sm text-text resize-none",
-                        "bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)]",
-                        "placeholder:text-text-mute",
-                        "focus:outline-none focus:border-[rgba(255,255,255,0.20)]/40",
-                        "transition-colors duration-150"
-                      )}
-                    />
-                  </div>
-
-                  {/* Severity — optional. Writes to `priority` as a hint; admin
-                      can override during triage. Click active chip to clear. */}
-                  <div>
-                    <label className="font-mono text-micro uppercase tracking-wider text-text-3 mb-1 block">
-                      {t("bugReport.severity")}
-                    </label>
-                    <div role="radiogroup" aria-label={t("bugReport.severity")} className="flex gap-1">
-                      {SEVERITY_OPTIONS.map((opt) => {
-                        const isActive = severity === opt.value;
-                        return (
-                          <button
-                            key={opt.value}
-                            type="button"
-                            role="radio"
-                            aria-checked={isActive}
-                            onClick={() => setSeverity(isActive ? null : opt.value)}
-                            className={cn(
-                              "flex-1 px-2 py-1.5 rounded-[4px] border transition-colors duration-150",
-                              "font-mono text-[10px] uppercase tracking-wider",
-                              isActive
-                                ? "border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.08)] text-text"
-                                : "border-[rgba(255,255,255,0.08)] bg-transparent text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.03)]"
-                            )}
-                          >
-                            {t(opt.labelKey)}
-                          </button>
-                        );
-                      })}
+                      <div>
+                        <label className="font-mono text-micro uppercase tracking-wider text-text-3 mb-1 block">
+                          {t("bugReport.details")}
+                        </label>
+                        <textarea
+                          value={description}
+                          onChange={(e) => setDescription(e.target.value)}
+                          placeholder={t("bugReport.detailsPlaceholder")}
+                          rows={3}
+                          className={cn(
+                            "w-full px-2.5 py-2 rounded-sm font-mohave text-body-sm text-text resize-none",
+                            "bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)]",
+                            "placeholder:text-text-mute",
+                            "focus:outline-none focus:border-[rgba(255,255,255,0.20)]/40",
+                            "transition-colors duration-150"
+                          )}
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <div>
+                      <label className="font-mono text-micro uppercase tracking-wider text-text-3 mb-1 block">
+                        {t("bugReport.whatHappened")}
+                      </label>
+                      <textarea
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        placeholder={t("bugReport.titlePlaceholder")}
+                        rows={4}
+                        className={cn(
+                          "w-full px-2.5 py-2 rounded-sm font-mohave text-body-sm text-text resize-none",
+                          "bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)]",
+                          "placeholder:text-text-mute",
+                          "focus:outline-none focus:border-[rgba(255,255,255,0.20)]/40",
+                          "transition-colors duration-150"
+                        )}
+                        autoFocus
+                      />
                     </div>
-                  </div>
+                  )}
 
-                  {/* Requires-my-input toggle. When on, the nightly triage
-                      agent skips this report (written to requires_human_review). */}
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={requiresMyInput}
-                    onClick={() => setRequiresMyInput((v) => !v)}
-                    className={cn(
-                      "w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-[4px] border transition-colors",
-                      requiresMyInput
-                        ? "border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.06)]"
-                        : "border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] hover:border-[rgba(255,255,255,0.14)]"
-                    )}
-                  >
-                    <span
+                  {isPowerUser && (
+                    /* Severity — optional. Writes to `priority` as a hint; admin
+                        can override during triage. Click active chip to clear. */
+                    <div>
+                      <label className="font-mono text-micro uppercase tracking-wider text-text-3 mb-1 block">
+                        {t("bugReport.severity")}
+                      </label>
+                      <div role="radiogroup" aria-label={t("bugReport.severity")} className="flex gap-1">
+                        {SEVERITY_OPTIONS.map((opt) => {
+                          const isActive = severity === opt.value;
+                          return (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              role="radio"
+                              aria-checked={isActive}
+                              onClick={() => setSeverity(isActive ? null : opt.value)}
+                              className={cn(
+                                "flex-1 px-2 py-1.5 rounded-[4px] border transition-colors duration-150",
+                                "font-mono text-[10px] uppercase tracking-wider",
+                                isActive
+                                  ? "border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.08)] text-text"
+                                  : "border-[rgba(255,255,255,0.08)] bg-transparent text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.03)]"
+                              )}
+                            >
+                              {t(opt.labelKey)}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {isPowerUser && (
+                    /* Requires-my-input toggle. When on, the nightly triage
+                        agent skips this report (written to requires_human_review). */
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={requiresMyInput}
+                      onClick={() => setRequiresMyInput((v) => !v)}
                       className={cn(
-                        "font-mono text-[10px] uppercase tracking-wider text-left",
-                        requiresMyInput ? "text-text-2" : "text-text-mute"
-                      )}
-                    >
-                      {requiresMyInput
-                        ? `[${t("bugReport.requiresInputOn")}]`
-                        : t("bugReport.requiresInputOff")}
-                    </span>
-                    <span
-                      className={cn(
-                        "relative inline-block w-6 h-3 rounded-full transition-colors flex-shrink-0",
+                        "w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-[4px] border transition-colors",
                         requiresMyInput
-                          ? "bg-[rgba(255,255,255,0.2)]"
-                          : "bg-[rgba(255,255,255,0.08)]"
+                          ? "border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.06)]"
+                          : "border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] hover:border-[rgba(255,255,255,0.14)]"
                       )}
                     >
                       <span
                         className={cn(
-                          "absolute top-[1px] w-[10px] h-[10px] rounded-full transition-all",
-                          requiresMyInput
-                            ? "left-[13px] bg-text-2"
-                            : "left-[1px] bg-text-disabled"
+                          "font-mono text-[10px] uppercase tracking-wider text-left",
+                          requiresMyInput ? "text-text-2" : "text-text-mute"
                         )}
-                      />
-                    </span>
-                  </button>
+                      >
+                        {requiresMyInput
+                          ? `[${t("bugReport.requiresInputOn")}]`
+                          : t("bugReport.requiresInputOff")}
+                      </span>
+                      <span
+                        className={cn(
+                          "relative inline-block w-6 h-3 rounded-full transition-colors flex-shrink-0",
+                          requiresMyInput
+                            ? "bg-[rgba(255,255,255,0.2)]"
+                            : "bg-[rgba(255,255,255,0.08)]"
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "absolute top-[1px] w-[10px] h-[10px] rounded-full transition-all",
+                            requiresMyInput
+                              ? "left-[13px] bg-text-2"
+                              : "left-[1px] bg-text-disabled"
+                          )}
+                        />
+                      </span>
+                    </button>
+                  )}
 
-                  {/* Auto-captured context */}
+                  {/* Auto-captured context. Power user gets a screenshot toggle;
+                      minimal users get the screenshot attached silently. */}
                   <div className="space-y-1.5">
                     <p className="font-mono text-micro text-text-mute tracking-wider">
                       {t("bugReport.autoCapture")}
                     </p>
-                    {screenshotBlob && (
+                    {isPowerUser && screenshotBlob && (
                       <button
                         type="button"
                         onClick={() => setIncludeScreenshot((v) => !v)}
