@@ -29,23 +29,21 @@ function useNew(): boolean {
   return process.env.EMAIL_PMF_NEW_TEMPLATES === "true";
 }
 
+// Each helper invokes the chosen template as a function so callers receive
+// a fully-built React element (matching the prior `EmailFn(props)` pattern).
+// Wrapping in JSX would defer execution and break existing call-site tests
+// that mock the legacy template module to capture props at construction time.
+
 export function thresholdAlertEmail(props: ThresholdAlertProps) {
-  if (useNew()) {
-    return <PmfThresholdAlert {...props} />;
-  }
-  return <LegacyThresholdAlertEmail {...props} />;
+  return useNew()
+    ? PmfThresholdAlert(props)
+    : LegacyThresholdAlertEmail(props);
 }
 
 export function dailyDigestEmail(props: DailyDigestProps) {
-  if (useNew()) {
-    return <PmfDailyDigest {...props} />;
-  }
-  return <LegacyDailyDigestEmail {...props} />;
+  return useNew() ? PmfDailyDigest(props) : LegacyDailyDigestEmail(props);
 }
 
 export function weeklyDigestEmail(props: WeeklyDigestProps) {
-  if (useNew()) {
-    return <PmfWeeklyDigest {...props} />;
-  }
-  return <LegacyWeeklyDigestEmail {...props} />;
+  return useNew() ? PmfWeeklyDigest(props) : LegacyWeeklyDigestEmail(props);
 }
