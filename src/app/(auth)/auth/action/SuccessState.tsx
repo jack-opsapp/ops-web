@@ -53,7 +53,7 @@ export function SuccessState({
           letterSpacing: "0.18em",
         }}
       >
-        // {chip}
+        {"// "}{chip}
       </motion.div>
       <motion.h1
         initial={{ opacity: 0, y: 6 }}

@@ -49,7 +49,7 @@ export function HandlerShell({ eyebrow, children }: HandlerShellProps) {
               lineHeight: "14px",
             }}
           >
-            // {eyebrow}
+            {"// "}{eyebrow}
           </div>
           {children}
         </motion.div>
