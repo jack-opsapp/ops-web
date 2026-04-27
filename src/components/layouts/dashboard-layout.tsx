@@ -8,7 +8,7 @@ import { CommandPalette } from "@/components/ops/command-palette";
 import { KeyboardShortcuts } from "@/components/ops/keyboard-shortcuts";
 import { FloatingWindow } from "@/components/ops/floating-window";
 import { PreferencesApplier } from "@/components/ops/preferences-applier";
-import { OpsLockup } from "@/components/brand";
+import { LogoLoader } from "@/components/brand";
 import { WindowDock } from "@/components/ops/window-dock";
 import { BugReportButton } from "@/components/ops/bug-report-button";
 import { NotificationsDrawer } from "@/components/layouts/notifications-drawer";
@@ -170,9 +170,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   if (needsOnboarding) {
     return (
       <div className="flex items-center justify-center h-screen bg-background">
-        <div className="animate-pulse-live text-text">
-          <OpsLockup orientation="vertical" className="h-16 w-auto" />
-        </div>
+        <LogoLoader size={120} />
       </div>
     );
   }
