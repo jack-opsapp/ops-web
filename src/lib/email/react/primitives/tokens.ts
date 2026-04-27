@@ -25,7 +25,7 @@ export const emailTokens = {
   },
   font: {
     sans: "Mohave, 'Helvetica Neue', Arial, sans-serif",
-    // Kosugi was retired 2026-04-17 — micro labels now use JetBrains Mono.
+    // Micro labels use JetBrains Mono (retired font 2026-04-17).
     // Cake Mono is Adobe Typekit only and is not available in email.
     label:
       "'JetBrains Mono', 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace",
