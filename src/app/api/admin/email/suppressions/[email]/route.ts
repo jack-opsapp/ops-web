@@ -11,11 +11,12 @@ import { requireAdmin, withAdmin } from "@/lib/admin/api-auth";
 import { getAdminSupabase } from "@/lib/supabase/admin-client";
 import { removeSuppression } from "@/lib/email/suppressions";
 
-type RouteContext = { params: { email: string } };
+type RouteContext = { params: Promise<{ email: string }> };
 
 export const GET = withAdmin(async (req: NextRequest, ctx: RouteContext) => {
   await requireAdmin(req);
-  const email = decodeURIComponent(ctx.params.email).toLowerCase().trim();
+  const { email: rawEmail } = await ctx.params;
+  const email = decodeURIComponent(rawEmail).toLowerCase().trim();
   if (!email) return NextResponse.json({ error: "email required" }, { status: 400 });
 
   const list = new URL(req.url).searchParams.get("list") ?? "global";
@@ -35,7 +36,8 @@ export const GET = withAdmin(async (req: NextRequest, ctx: RouteContext) => {
 
 export const DELETE = withAdmin(async (req: NextRequest, ctx: RouteContext) => {
   const adminUser = await requireAdmin(req);
-  const email = decodeURIComponent(ctx.params.email).toLowerCase().trim();
+  const { email: rawEmail } = await ctx.params;
+  const email = decodeURIComponent(rawEmail).toLowerCase().trim();
   if (!email) return NextResponse.json({ error: "email required" }, { status: 400 });
 
   const list = new URL(req.url).searchParams.get("list") ?? "global";
