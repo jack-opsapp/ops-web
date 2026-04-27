@@ -14,6 +14,8 @@ interface BetaAccessRequestProps {
   featureTitle: string;
   featureDescription: string;
   adminUrl: string;
+  unsubscribeUrl?: string;
+  list?: string;
 }
 
 export function BetaAccessRequest(p: BetaAccessRequestProps) {
@@ -22,6 +24,8 @@ export function BetaAccessRequest(p: BetaAccessRequestProps) {
       preview={`Beta request: ${p.featureTitle} — ${p.companyName}`}
       eyebrow="Beta request"
       senderAddress={DISPATCH.email}
+      unsubscribeUrl={p.unsubscribeUrl}
+      list={p.list}
     >
       <Headline>Beta request: {p.featureTitle}</Headline>
       <Paragraph>{p.featureDescription}</Paragraph>

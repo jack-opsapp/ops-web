@@ -7,17 +7,31 @@ import {
   Preview,
   Font,
 } from "@react-email/components";
-import { Hero, BodyBand, Footer, emailTokens as T } from "../primitives";
-
-const OPS_PHYSICAL_ADDRESS =
-  "OPS Ltd. · 1515 Douglas St, Victoria, BC V8W 2G4, Canada";
+import {
+  Hero,
+  BodyBand,
+  Footer,
+  ComplianceFooter,
+  emailTokens as T,
+} from "../primitives";
 
 interface OpsEmailLayoutProps {
   preview: string;
   eyebrow?: string;
   senderAddress: string;
+  /** @deprecated retained for prop-compat with PR β templates; unused. */
   mode?: "transactional" | "marketing";
+  /**
+   * `List-Unsubscribe` value used both in the rendered footer link and
+   * (separately) in the SMTP headers injected by `gatedSend`.
+   */
   unsubscribeUrl?: string;
+  /**
+   * `List-Unsubscribe` list value (e.g. `global`, `field_notes`, `blog`).
+   * Used in the compliance footer's "you subscribed to {LIST}" sentence.
+   * Defaults to `global`.
+   */
+  list?: string;
   children: React.ReactNode;
 }
 
@@ -25,8 +39,8 @@ export function OpsEmailLayout({
   preview,
   eyebrow,
   senderAddress,
-  mode = "transactional",
   unsubscribeUrl,
+  list,
   children,
 }: OpsEmailLayoutProps) {
   return (
@@ -74,13 +88,8 @@ export function OpsEmailLayout({
         >
           <Hero variant="ops" eyebrow={eyebrow} />
           <BodyBand>{children}</BodyBand>
-          <Footer
-            variant="ops"
-            mode={mode}
-            senderAddress={senderAddress}
-            unsubscribeUrl={unsubscribeUrl}
-            physicalAddress={OPS_PHYSICAL_ADDRESS}
-          />
+          <ComplianceFooter list={list ?? "global"} unsubscribeUrl={unsubscribeUrl} />
+          <Footer variant="ops" senderAddress={senderAddress} />
         </Container>
       </Body>
     </Html>

@@ -15,6 +15,8 @@ interface BetaAccessDecisionProps {
   featureTitle: string;
   approved: boolean;
   adminNotes: string | null;
+  unsubscribeUrl?: string;
+  list?: string;
 }
 
 function AdminNotesQuote({ notes }: { notes: string }) {
@@ -51,6 +53,8 @@ export function BetaAccessDecision({
   featureTitle,
   approved,
   adminNotes,
+  unsubscribeUrl,
+  list,
 }: BetaAccessDecisionProps) {
   return (
     <OpsEmailLayout
@@ -61,6 +65,8 @@ export function BetaAccessDecision({
       }
       eyebrow={approved ? "Beta approved" : "Beta decision"}
       senderAddress={DISPATCH.email}
+      unsubscribeUrl={unsubscribeUrl}
+      list={list}
     >
       {approved ? (
         <>

@@ -17,6 +17,8 @@ interface TeamInviteProps {
   inviterEmail: string;
   companyCode: string;
   roleName: string | null;
+  unsubscribeUrl?: string;
+  list?: string;
 }
 
 export function TeamInvite({
@@ -26,12 +28,16 @@ export function TeamInvite({
   inviterEmail,
   companyCode,
   roleName,
+  unsubscribeUrl,
+  list,
 }: TeamInviteProps) {
   return (
     <OpsEmailLayout
       preview={`${inviterName} invited you to join ${companyName} on OPS`}
       eyebrow="Team invite"
       senderAddress={DISPATCH.email}
+      unsubscribeUrl={unsubscribeUrl}
+      list={list}
     >
       <Headline>{inviterName} wants you on the crew.</Headline>
       <Paragraph>

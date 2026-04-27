@@ -11,6 +11,12 @@
  *   portalSender(companyName) — whitelabel portal emails (contractor brand)
  *
  * Uses SENDGRID_API_KEY and SENDGRID_FROM_EMAIL environment variables.
+ *
+ * CAN-SPAM + CASL compliance (PR 2): every send carries a per-recipient
+ * RFC-8058 `List-Unsubscribe` URL signed with HMAC-SHA256, plus the
+ * `List-Unsubscribe-Post` header that opts the message into Gmail one-click.
+ * The compliance footer (legal name + physical address + unsubscribe link)
+ * is rendered by `ComplianceFooter`, which both layouts include.
  */
 
 import sgMail from "@sendgrid/mail";
@@ -42,6 +48,8 @@ import { DISPATCH, GATE, FIELD_NOTES, portalSender, type Sender } from "./sender
 import type { AdBriefing } from "@/lib/admin/briefing-types";
 import { isSuppressed, filterSuppressed } from "./suppressions";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
+import { buildUnsubscribeUrl } from "./unsubscribe-token";
+import { KIND_TO_LIST, OPS_SUPPORT_EMAIL } from "./constants";
 
 let initialized = false;
 
@@ -57,16 +65,38 @@ function getPortalFromEmail(): string {
   return process.env.SENDGRID_FROM_EMAIL ?? "noreply@opsapp.co";
 }
 
-function buildUnsubscribeUrl(email: string, list: string): string {
-  const base = process.env.NEXT_PUBLIC_APP_URL ?? "https://app.opsapp.co";
-  return `${base}/unsubscribe?email=${encodeURIComponent(email)}&list=${encodeURIComponent(list)}`;
+/**
+ * Build the per-recipient `List-Unsubscribe` URL plus the SMTP headers
+ * required by RFC 2369 + RFC 8058. Caller passes the email kind; we look
+ * up the canonical list value from `KIND_TO_LIST` so transactional and
+ * marketing emails route to the right `email_suppressions.list`.
+ */
+function buildComplianceHeaders(opts: { email: string; kind: string }): {
+  list: string;
+  unsubscribeUrl: string;
+  headers: Record<string, string>;
+} {
+  const list = KIND_TO_LIST[opts.kind] ?? "global";
+  const unsubscribeUrl = buildUnsubscribeUrl({ email: opts.email, list });
+  return {
+    list,
+    unsubscribeUrl,
+    headers: {
+      // RFC 2369: comma-separated URI references; per RFC 8058 we offer the
+      // HTTPS POST endpoint plus a mailto fallback so MUAs that don't
+      // implement one-click can still honour the request.
+      "List-Unsubscribe": `<${unsubscribeUrl}>, <mailto:${OPS_SUPPORT_EMAIL}?subject=unsubscribe>`,
+      "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+    },
+  };
 }
 
 /**
  * Single-recipient send chokepoint. Every typed sendXxx function below
  * routes through this. Performs the suppression check, dispatches via
- * SendGrid, and writes to email_log. Throws on transport error so the
- * caller sees the failure; never throws on suppression (silent skip).
+ * SendGrid (with compliance headers injected), and writes to email_log.
+ * Throws on transport error so the caller sees the failure; never throws
+ * on suppression (silent skip).
  */
 async function gatedSend(params: {
   to: string;
@@ -77,6 +107,13 @@ async function gatedSend(params: {
   text?: string;
   emailType: string;
   list?: string;
+  /**
+   * Compliance headers (List-Unsubscribe + List-Unsubscribe-Post). When
+   * omitted, gatedSend builds them from `(to, emailType)` itself so a
+   * caller can never forget to include them — RFC-8058 is mandatory for
+   * every commercial OPS email, regardless of bucket.
+   */
+  headers?: Record<string, string>;
   userId?: string;
   metadata?: Record<string, unknown>;
 }): Promise<{ status: "sent" | "suppression_skipped"; reason?: string }> {
@@ -84,7 +121,8 @@ async function gatedSend(params: {
   const lower = params.to.trim().toLowerCase();
   if (!lower) throw new Error("gatedSend: empty `to` address");
 
-  const list = params.list ?? "global";
+  const list =
+    params.list ?? (KIND_TO_LIST[params.emailType] ?? "global");
 
   if (await isSuppressed(lower, list)) {
     await logEmail({
@@ -98,6 +136,9 @@ async function gatedSend(params: {
     return { status: "suppression_skipped", reason: "suppressed" };
   }
 
+  const headers =
+    params.headers ?? buildComplianceHeaders({ email: lower, kind: params.emailType }).headers;
+
   await sgMail.send({
     to: params.to,
     from: params.from,
@@ -105,6 +146,7 @@ async function gatedSend(params: {
     subject: params.subject,
     html: params.html,
     text: params.text,
+    headers,
   });
 
   await logEmail({
@@ -157,14 +199,23 @@ export async function sendMagicLink(params: {
   companyName: string;
   accentColor: string;
   logoUrl?: string | null;
+  /** Customer's CASL/CAN-SPAM postal address (Settings → Company). */
+  companyPhysicalAddress?: string | null;
 }): Promise<void> {
   const portalUrl = `${process.env.NEXT_PUBLIC_APP_URL}/portal/${params.token}`;
+  const compliance = buildComplianceHeaders({
+    email: params.email,
+    kind: "portal_magic_link",
+  });
   const html = await render(
     <PortalMagicLink
       companyName={params.companyName}
       portalUrl={portalUrl}
       accentColor={params.accentColor}
       logoUrl={params.logoUrl ?? null}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+      list={compliance.list}
+      companyPhysicalAddress={params.companyPhysicalAddress ?? null}
     />,
   );
 
@@ -175,7 +226,8 @@ export async function sendMagicLink(params: {
     subject: `Access your ${params.companyName} portal`,
     html,
     emailType: "portal_magic_link",
-    list: "global",
+    list: compliance.list,
+    headers: compliance.headers,
     metadata: { companyName: params.companyName },
   });
 }
@@ -187,7 +239,12 @@ export async function sendEstimateReady(params: {
   portalUrl: string;
   accentColor: string;
   logoUrl?: string | null;
+  companyPhysicalAddress?: string | null;
 }): Promise<void> {
+  const compliance = buildComplianceHeaders({
+    email: params.email,
+    kind: "portal_estimate_ready",
+  });
   const html = await render(
     <PortalEstimateReady
       companyName={params.companyName}
@@ -195,6 +252,9 @@ export async function sendEstimateReady(params: {
       portalUrl={params.portalUrl}
       accentColor={params.accentColor}
       logoUrl={params.logoUrl ?? null}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+      list={compliance.list}
+      companyPhysicalAddress={params.companyPhysicalAddress ?? null}
     />,
   );
 
@@ -205,7 +265,8 @@ export async function sendEstimateReady(params: {
     subject: `Estimate #${params.estimateNumber} from ${params.companyName}`,
     html,
     emailType: "portal_estimate_ready",
-    list: "global",
+    list: compliance.list,
+    headers: compliance.headers,
     metadata: { companyName: params.companyName, estimateNumber: params.estimateNumber },
   });
 }
@@ -216,13 +277,21 @@ export async function sendQuestionsReminder(params: {
   portalUrl: string;
   accentColor: string;
   logoUrl?: string | null;
+  companyPhysicalAddress?: string | null;
 }): Promise<void> {
+  const compliance = buildComplianceHeaders({
+    email: params.email,
+    kind: "portal_questions_reminder",
+  });
   const html = await render(
     <PortalQuestionsReminder
       companyName={params.companyName}
       portalUrl={params.portalUrl}
       accentColor={params.accentColor}
       logoUrl={params.logoUrl ?? null}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+      list={compliance.list}
+      companyPhysicalAddress={params.companyPhysicalAddress ?? null}
     />,
   );
 
@@ -233,7 +302,8 @@ export async function sendQuestionsReminder(params: {
     subject: `${params.companyName} needs a few answers from you`,
     html,
     emailType: "portal_questions_reminder",
-    list: "global",
+    list: compliance.list,
+    headers: compliance.headers,
     metadata: { companyName: params.companyName },
   });
 }
@@ -246,7 +316,12 @@ export async function sendInvoiceReady(params: {
   portalUrl: string;
   accentColor: string;
   logoUrl?: string | null;
+  companyPhysicalAddress?: string | null;
 }): Promise<void> {
+  const compliance = buildComplianceHeaders({
+    email: params.email,
+    kind: "portal_invoice_ready",
+  });
   const html = await render(
     <PortalInvoiceReady
       companyName={params.companyName}
@@ -255,6 +330,9 @@ export async function sendInvoiceReady(params: {
       portalUrl={params.portalUrl}
       accentColor={params.accentColor}
       logoUrl={params.logoUrl ?? null}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+      list={compliance.list}
+      companyPhysicalAddress={params.companyPhysicalAddress ?? null}
     />,
   );
 
@@ -265,7 +343,8 @@ export async function sendInvoiceReady(params: {
     subject: `Invoice #${params.invoiceNumber} from ${params.companyName} — ${params.amount}`,
     html,
     emailType: "portal_invoice_ready",
-    list: "global",
+    list: compliance.list,
+    headers: compliance.headers,
     metadata: { companyName: params.companyName, invoiceNumber: params.invoiceNumber, amount: params.amount },
   });
 }
@@ -285,6 +364,7 @@ export async function sendTeamInvite(params: {
   companyCode: string;
   roleName: string | null;
 }): Promise<void> {
+  const compliance = buildComplianceHeaders({ email: params.email, kind: "team_invite" });
   const html = await render(
     <TeamInvite
       companyName={params.companyName}
@@ -293,6 +373,8 @@ export async function sendTeamInvite(params: {
       inviterEmail={params.inviterEmail}
       companyCode={params.companyCode}
       roleName={params.roleName}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+      list={compliance.list}
     />,
   );
 
@@ -303,7 +385,8 @@ export async function sendTeamInvite(params: {
     subject: `${params.inviterName} invited you to join ${params.companyName} on OPS`,
     html,
     emailType: "team_invite",
-    list: "global",
+    list: compliance.list,
+    headers: compliance.headers,
     metadata: { companyName: params.companyName, inviterEmail: params.inviterEmail },
   });
 }
@@ -318,11 +401,14 @@ export async function sendRoleNeeded(params: {
   /** @deprecated retained for backward compat; no longer used */
   logoUrl?: string | null;
 }): Promise<void> {
+  const compliance = buildComplianceHeaders({ email: params.email, kind: "role_needed" });
   const html = await render(
     <RoleNeeded
       userName={params.userName}
       companyName={params.companyName}
       assignUrl={params.assignUrl}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+      list={compliance.list}
     />,
   );
 
@@ -333,7 +419,8 @@ export async function sendRoleNeeded(params: {
     subject: `${params.userName} joined ${params.companyName} and needs a role`,
     html,
     emailType: "role_needed",
-    list: "global",
+    list: compliance.list,
+    headers: compliance.headers,
     metadata: { companyName: params.companyName, joinedUser: params.userName },
   });
 }
@@ -350,16 +437,25 @@ export async function sendBetaAccessRequest(params: {
   featureDescription: string;
   adminUrl: string;
 }): Promise<void> {
-  const html = await render(<BetaAccessRequest {...params} />);
+  const recipient = "jack@opsapp.co";
+  const compliance = buildComplianceHeaders({ email: recipient, kind: "beta_access_request" });
+  const html = await render(
+    <BetaAccessRequest
+      {...params}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+      list={compliance.list}
+    />,
+  );
 
   await gatedSend({
-    to: "jack@opsapp.co",
+    to: recipient,
     from: DISPATCH,
     replyTo: DISPATCH.email,
     subject: `Beta Access Request — ${params.featureTitle} — ${params.companyName}`,
     html,
     emailType: "beta_access_request",
-    list: "global",
+    list: compliance.list,
+    headers: compliance.headers,
     metadata: { companyName: params.companyName, featureTitle: params.featureTitle, requesterEmail: params.userEmail },
   });
 }
@@ -371,12 +467,18 @@ export async function sendBetaAccessDecision(params: {
   approved: boolean;
   adminNotes: string | null;
 }): Promise<void> {
+  const compliance = buildComplianceHeaders({
+    email: params.userEmail,
+    kind: "beta_access_decision",
+  });
   const html = await render(
     <BetaAccessDecision
       userName={params.userName}
       featureTitle={params.featureTitle}
       approved={params.approved}
       adminNotes={params.adminNotes}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+      list={compliance.list}
     />,
   );
 
@@ -389,7 +491,8 @@ export async function sendBetaAccessDecision(params: {
       : `Your OPS Beta Access Request — ${params.featureTitle}`,
     html,
     emailType: "beta_access_decision",
-    list: "global",
+    list: compliance.list,
+    headers: compliance.headers,
     metadata: { featureTitle: params.featureTitle, approved: params.approved },
   });
 }
@@ -398,25 +501,33 @@ export async function sendAdsBriefing(params: {
   recipientEmails: string[];
   briefing: AdBriefing;
 }): Promise<void> {
-  const html = await render(<AdsBriefing briefing={params.briefing} />);
   const subject = `[OPS Intel] Google Ads Weekly — ${params.briefing.period_start} to ${params.briefing.period_end}`;
 
   await Promise.all(
-    params.recipientEmails.map((email) =>
-      gatedSend({
+    params.recipientEmails.map(async (email) => {
+      const compliance = buildComplianceHeaders({ email, kind: "ads_briefing" });
+      const html = await render(
+        <AdsBriefing
+          briefing={params.briefing}
+          unsubscribeUrl={compliance.unsubscribeUrl}
+          list={compliance.list}
+        />,
+      );
+      return gatedSend({
         to: email,
         from: DISPATCH,
         replyTo: DISPATCH.email,
         subject,
         html,
         emailType: "ads_briefing",
-        list: "global",
+        list: compliance.list,
+        headers: compliance.headers,
         metadata: {
           period_start: params.briefing.period_start,
           period_end: params.briefing.period_end,
         },
-      }),
-    ),
+      });
+    }),
   );
 }
 
@@ -426,7 +537,14 @@ export async function sendPasswordReset(params: {
   email: string;
   resetLink: string;
 }): Promise<void> {
-  const html = await render(<PasswordReset resetLink={params.resetLink} />);
+  const compliance = buildComplianceHeaders({ email: params.email, kind: "password_reset" });
+  const html = await render(
+    <PasswordReset
+      resetLink={params.resetLink}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+      list={compliance.list}
+    />,
+  );
 
   await gatedSend({
     to: params.email,
@@ -435,7 +553,8 @@ export async function sendPasswordReset(params: {
     subject: "Reset your OPS password",
     html,
     emailType: "password_reset",
-    list: "global",
+    list: compliance.list,
+    headers: compliance.headers,
   });
 }
 
@@ -443,7 +562,14 @@ export async function sendEmailVerification(params: {
   email: string;
   verifyLink: string;
 }): Promise<void> {
-  const html = await render(<EmailVerification verifyLink={params.verifyLink} />);
+  const compliance = buildComplianceHeaders({ email: params.email, kind: "email_verification" });
+  const html = await render(
+    <EmailVerification
+      verifyLink={params.verifyLink}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+      list={compliance.list}
+    />,
+  );
 
   await gatedSend({
     to: params.email,
@@ -452,7 +578,8 @@ export async function sendEmailVerification(params: {
     subject: "Verify your OPS email",
     html,
     emailType: "email_verification",
-    list: "global",
+    list: compliance.list,
+    headers: compliance.headers,
   });
 }
 
@@ -462,11 +589,17 @@ export async function sendEmailChangeConfirmation(params: {
   oldEmail: string;
   recoveryLink: string;
 }): Promise<void> {
+  const compliance = buildComplianceHeaders({
+    email: params.toEmail,
+    kind: "email_change_confirmation",
+  });
   const html = await render(
     <EmailChangeConfirmation
       newEmail={params.newEmail}
       oldEmail={params.oldEmail}
       recoveryLink={params.recoveryLink}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+      list={compliance.list}
     />,
   );
 
@@ -477,7 +610,8 @@ export async function sendEmailChangeConfirmation(params: {
     subject: "Your OPS sign-in email changed",
     html,
     emailType: "email_change_confirmation",
-    list: "global",
+    list: compliance.list,
+    headers: compliance.headers,
     metadata: { newEmail: params.newEmail, oldEmail: params.oldEmail },
   });
 }
@@ -540,7 +674,7 @@ export async function sendBlogNewsletter(params: {
   // covers the whole list instead of one per recipient.
   const suppressed = await filterSuppressed(
     unique.map((r) => r.email),
-    "field_notes",
+    "blog",
   );
   const eligible: BlogNewsletterRecipient[] = [];
   for (const r of unique) {
@@ -556,7 +690,7 @@ export async function sendBlogNewsletter(params: {
     const batch = eligible.slice(i, i + BLOG_NEWSLETTER_BATCH_SIZE);
     const settled = await Promise.allSettled(
       batch.map(async (r) => {
-        const unsubscribeUrl = buildUnsubscribeUrl(r.email, "field-notes");
+        const compliance = buildComplianceHeaders({ email: r.email, kind: "blog_newsletter" });
         const html = await render(
           <BlogNewsletter
             firstName={r.first_name}
@@ -565,7 +699,8 @@ export async function sendBlogNewsletter(params: {
             thumbnailUrl={params.post.thumbnail_url}
             emailContent={bodyContent}
             postUrl={postUrl}
-            unsubscribeUrl={unsubscribeUrl}
+            unsubscribeUrl={compliance.unsubscribeUrl}
+            list={compliance.list}
           />,
         );
         await gatedSend({
@@ -575,7 +710,8 @@ export async function sendBlogNewsletter(params: {
           subject,
           html,
           emailType: "blog_newsletter",
-          list: "field_notes",
+          list: compliance.list,
+          headers: compliance.headers,
           metadata: { postSlug: params.post.slug, postId: params.post.id },
         });
         return r.email;
@@ -655,7 +791,10 @@ export async function sendFieldNotesNewsletter(params: {
     const batch = eligible.slice(i, i + BLOG_NEWSLETTER_BATCH_SIZE);
     const settled = await Promise.allSettled(
       batch.map(async (r) => {
-        const unsubscribeUrl = buildUnsubscribeUrl(r.email, "field-notes");
+        const compliance = buildComplianceHeaders({
+          email: r.email,
+          kind: "field_notes_newsletter",
+        });
         const html = await render(
           <FieldNotesNewsletter
             firstName={r.first_name}
@@ -665,7 +804,8 @@ export async function sendFieldNotesNewsletter(params: {
             companyNews={params.issue.companyNews}
             industryInsights={params.issue.industryInsights}
             fullIssueUrl={params.issue.fullIssueUrl}
-            unsubscribeUrl={unsubscribeUrl}
+            unsubscribeUrl={compliance.unsubscribeUrl}
+            list={compliance.list}
           />,
         );
         await gatedSend({
@@ -675,7 +815,8 @@ export async function sendFieldNotesNewsletter(params: {
           subject,
           html,
           emailType: "field_notes_newsletter",
-          list: "field_notes",
+          list: compliance.list,
+          headers: compliance.headers,
           metadata: { issueNumber: params.issue.issueNumber, issueDate: params.issue.issueDate },
         });
         return r.email;
@@ -715,14 +856,18 @@ export async function sendTrialExpiryWarning(params: {
   /** @deprecated retained for backward compat; no longer used */
   logoUrl?: string | null;
 }): Promise<void> {
-  const unsubscribeUrl = buildUnsubscribeUrl(params.email, "trial");
+  const compliance = buildComplianceHeaders({
+    email: params.email,
+    kind: "trial_expiry_warning",
+  });
   const html = await render(
     <TrialExpiryWarning
       companyName={params.companyName}
       daysRemaining={params.daysRemaining}
       trialEndDisplay={params.trialEndDisplay}
       subscribeUrl={params.subscribeUrl}
-      unsubscribeUrl={unsubscribeUrl}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+      list={compliance.list}
     />,
   );
 
@@ -738,7 +883,8 @@ export async function sendTrialExpiryWarning(params: {
     subject,
     html,
     emailType: "trial_expiry_warning",
-    list: "trial",
+    list: compliance.list,
+    headers: compliance.headers,
     metadata: { companyName: params.companyName, daysRemaining: params.daysRemaining },
   });
 }
@@ -756,7 +902,10 @@ export async function sendTrialExpiryDiscount(params: {
   /** @deprecated retained for backward compat; no longer used */
   logoUrl?: string | null;
 }): Promise<void> {
-  const unsubscribeUrl = buildUnsubscribeUrl(params.email, "trial");
+  const compliance = buildComplianceHeaders({
+    email: params.email,
+    kind: "trial_expiry_discount",
+  });
   const html = await render(
     <TrialExpiryDiscount
       companyName={params.companyName}
@@ -765,7 +914,8 @@ export async function sendTrialExpiryDiscount(params: {
       promoCode50={params.promoCode50}
       promoCode30={params.promoCode30}
       subscribeUrl={params.subscribeUrl}
-      unsubscribeUrl={unsubscribeUrl}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+      list={compliance.list}
     />,
   );
 
@@ -776,7 +926,8 @@ export async function sendTrialExpiryDiscount(params: {
     subject: `${params.daysRemaining} days left — 50% off or 30% off, your call`,
     html,
     emailType: "trial_expiry_discount",
-    list: "trial",
+    list: compliance.list,
+    headers: compliance.headers,
     metadata: { companyName: params.companyName, daysRemaining: params.daysRemaining },
   });
 }
@@ -793,7 +944,10 @@ export async function sendTrialExpiryReengagement(params: {
   /** @deprecated retained for backward compat; no longer used */
   logoUrl?: string | null;
 }): Promise<void> {
-  const unsubscribeUrl = buildUnsubscribeUrl(params.email, "trial");
+  const compliance = buildComplianceHeaders({
+    email: params.email,
+    kind: "trial_expiry_reengagement",
+  });
   const html = await render(
     <TrialExpiryReengagement
       companyName={params.companyName}
@@ -801,7 +955,8 @@ export async function sendTrialExpiryReengagement(params: {
       promoCode50={params.promoCode50}
       promoCode30={params.promoCode30}
       subscribeUrl={params.subscribeUrl}
-      unsubscribeUrl={unsubscribeUrl}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+      list={compliance.list}
     />,
   );
 
@@ -817,7 +972,8 @@ export async function sendTrialExpiryReengagement(params: {
     subject,
     html,
     emailType: "trial_expiry_reengagement",
-    list: "trial",
+    list: compliance.list,
+    headers: compliance.headers,
     metadata: { companyName: params.companyName, daysSinceExpiry: params.daysSinceExpiry },
   });
 }
@@ -828,7 +984,9 @@ export async function sendTrialExpiryReengagement(params: {
 // own React element + render manually (notably `pmf-send.ts`) keep working
 // until they migrate to a typed `sendXxx` template. Both default to the
 // DISPATCH bucket and fall back to `SENDGRID_FROM_EMAIL` when DNS is not yet
-// aligned for the bucket addresses.
+// aligned for the bucket addresses. gatedSend auto-injects compliance
+// headers in this path (the caller's pre-rendered HTML may not include the
+// matching footer link, but the SMTP header still satisfies RFC-8058).
 
 export async function sendTransactionalEmail(params: {
   to: string;

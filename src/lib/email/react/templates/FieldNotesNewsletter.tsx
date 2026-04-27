@@ -44,6 +44,7 @@ interface FieldNotesNewsletterProps {
   industryInsights: NewsletterItem[];
   fullIssueUrl: string;
   unsubscribeUrl: string;
+  list?: string;
 }
 
 const SAFE_HTML_CONFIG: sanitizeHtml.IOptions = {
@@ -157,14 +158,15 @@ export function FieldNotesNewsletter({
   industryInsights,
   fullIssueUrl,
   unsubscribeUrl,
+  list,
 }: FieldNotesNewsletterProps) {
   return (
     <OpsEmailLayout
       preview={intro}
       eyebrow={`Field notes — issue #${issueNumber} — ${issueDate}`}
       senderAddress={FIELD_NOTES.email}
-      mode="marketing"
       unsubscribeUrl={unsubscribeUrl}
+      list={list}
     >
       <Headline>Field Notes — Issue #{issueNumber}</Headline>
       {firstName ? <Paragraph small>{firstName},</Paragraph> : null}
