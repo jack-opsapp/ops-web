@@ -17,7 +17,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { computePmfState } from "@/lib/admin/pmf-queries";
 import { sendPmfNotification } from "@/lib/notifications/pmf-send";
-import { DailyDigestEmail } from "@/emails/pmf/daily-digest";
+import { dailyDigestEmail as DailyDigestEmail } from "@/lib/email/pmf-bridge";
 import { daysUntilGate } from "@/lib/pmf/formatters";
 
 export const runtime = "nodejs";

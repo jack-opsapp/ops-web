@@ -26,7 +26,7 @@ import { getAdminSupabase } from "@/lib/supabase/admin-client";
 import { computePmfState } from "@/lib/admin/pmf-queries";
 import { diffState } from "@/lib/pmf/threshold-diff";
 import { sendPmfNotification } from "@/lib/notifications/pmf-send";
-import { ThresholdAlertEmail } from "@/emails/pmf/threshold-alert";
+import { thresholdAlertEmail as ThresholdAlertEmail } from "@/lib/email/pmf-bridge";
 import { fmtTime } from "@/lib/pmf/formatters";
 import type { PmfState } from "@/lib/pmf/types";
 
