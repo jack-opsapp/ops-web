@@ -889,12 +889,18 @@ function FinancialTab({ project }: { project: Project }) {
       .filter((i) => i.status !== InvoiceStatus.Void)
       .reduce((sum, i) => sum + i.total, 0),
     paid: invoices.reduce((sum, i) => sum + i.amountPaid, 0),
+    // Outstanding semantics match metrics-service.ts + accounting page aging
+    // buckets: anything not Paid / Void / Draft / WrittenOff is owed. The
+    // earlier hard-coded Sent|PartiallyPaid|PastDue list omitted
+    // AwaitingPayment, which produced $0 outstanding for projects whose
+    // invoices were sitting in that status (e.g. Flight Deck Coating).
     outstanding: invoices
       .filter(
         (i) =>
-          i.status === InvoiceStatus.Sent ||
-          i.status === InvoiceStatus.PartiallyPaid ||
-          i.status === InvoiceStatus.PastDue
+          i.status !== InvoiceStatus.Paid &&
+          i.status !== InvoiceStatus.Void &&
+          i.status !== InvoiceStatus.Draft &&
+          i.status !== InvoiceStatus.WrittenOff
       )
       .reduce((sum, i) => sum + i.balanceDue, 0),
   };
