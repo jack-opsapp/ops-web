@@ -60,8 +60,8 @@ export function PmfWeeklyDigest({
     >
       <Headline as="h1">Weekly marker readout</Headline>
       <Paragraph small>
-        Markers, leading indicators, and the last {MAX_COHORTS_DISPLAYED} cohorts'
-        retention.
+        Markers, leading indicators, and retention for the last
+        {" "}{MAX_COHORTS_DISPLAYED}{" "}cohorts.
       </Paragraph>
 
       <Spacer size="md" />
@@ -80,7 +80,7 @@ export function PmfWeeklyDigest({
       <Divider />
       <Spacer size="md" />
 
-      <Paragraph small>// LEADING INDICATORS</Paragraph>
+      <Paragraph small>{"// LEADING INDICATORS"}</Paragraph>
       {Object.entries(state.indicators).map(([key, ind]) => (
         <InfoBlock
           key={key}
@@ -99,7 +99,7 @@ export function PmfWeeklyDigest({
       <Spacer size="md" />
 
       <Paragraph small>
-        // COHORT RETENTION · LAST {MAX_COHORTS_DISPLAYED} COHORTS
+        {"// COHORT RETENTION · LAST "}{MAX_COHORTS_DISPLAYED}{" COHORTS"}
       </Paragraph>
       {cohorts.length === 0 ? (
         <Paragraph small>[NO COHORT DATA YET]</Paragraph>

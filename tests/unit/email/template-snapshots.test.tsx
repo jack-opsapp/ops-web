@@ -6,6 +6,7 @@
  * preview UI uses, so we test the same rendering path operators preview.
  */
 
+import * as React from "react";
 import { describe, it, expect } from "vitest";
 import { render } from "@react-email/render";
 import { AdsBriefing } from "@/lib/email/react/templates/AdsBriefing";
@@ -54,9 +55,9 @@ describe("Email template snapshots", () => {
       // covers the same shape an operator previews.
       const previewProps = (Component as unknown as { PreviewProps: object })
         .PreviewProps;
-      const element = (Component as unknown as (p: object) => JSX.Element)(
-        previewProps
-      );
+      const element = (
+        Component as unknown as (p: object) => React.ReactElement
+      )(previewProps);
       const html = await render(element, { pretty: false });
 
       expect(html.length).toBeGreaterThan(500);

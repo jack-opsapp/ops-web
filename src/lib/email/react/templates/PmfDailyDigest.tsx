@@ -64,7 +64,7 @@ export function PmfDailyDigest({
       <Divider />
       <Spacer size="md" />
 
-      <Paragraph small>// LEADING INDICATORS</Paragraph>
+      <Paragraph small>{"// LEADING INDICATORS"}</Paragraph>
       {Object.entries(state.indicators).map(([key, ind]) => (
         <InfoBlock
           key={key}
