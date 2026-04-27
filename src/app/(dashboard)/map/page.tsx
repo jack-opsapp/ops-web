@@ -10,7 +10,6 @@ import {
   ExternalLink,
   ChevronRight,
   Loader2,
-  List,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
@@ -186,12 +185,17 @@ export default function MapPage() {
       <div className="px-3 pt-3">
         <MetricsHeader variant="compact" tabId="map" title="Map" metrics={mapMetrics} isLoading={mapMetricsLoading} />
       </div>
-      <div className="flex flex-1 min-h-0 relative">
-      {/* Sidebar */}
+      <div className="flex-1 min-h-0 relative">
+      {/* Slide-out project drawer — overlays the map from the left edge.
+          Closed state hides the panel entirely; the toggle button on the
+          left rail (rendered next to the map) is the open affordance. */}
       <div
         className={cn(
-          "flex flex-col border-r border-border bg-background transition-all duration-200",
-          showSidebar ? "w-[320px]" : "w-0 overflow-hidden"
+          "absolute top-0 bottom-0 left-0 z-[5000]",
+          "flex flex-col border-r border-border bg-background",
+          "transition-transform duration-[250ms] ease-[cubic-bezier(0.22,1,0.36,1)]",
+          "w-[360px]",
+          showSidebar ? "translate-x-0" : "-translate-x-full"
         )}
       >
         {/* Header */}
@@ -312,31 +316,39 @@ export default function MapPage() {
         </div>
       </div>
 
-      {/* Map area */}
-      <div className="flex-1 relative">
+      {/* Map area — full-bleed canvas underneath the drawer */}
+      <div className="absolute inset-0">
         <ProjectMap
           projects={filteredProjects}
           selectedProjectId={selectedProjectId}
           onProjectSelect={handleProjectSelect}
         />
 
-        {/* Toggle sidebar button */}
+        {/* Drawer toggle — anchored to the left edge so it always stays the
+            same affordance whether the drawer is open or closed. Sits above
+            the map (z-5000 + 1) so the click target survives the drawer
+            slide animation. */}
         <button
           onClick={() => setShowSidebar(!showSidebar)}
           className={cn(
-            "absolute top-2 left-2 z-[1000]",
-            "w-[36px] h-[36px] rounded-lg",
-            "bg-glass glass-surface/90 backdrop-blur border border-border",
-            "flex items-center justify-center",
-            "text-text-3 hover:text-text transition-colors"
+            "absolute top-2 z-[5001]",
+            "w-[32px] h-[36px] flex items-center justify-center",
+            "bg-glass glass-surface/90 backdrop-blur",
+            "border border-border border-l-2 border-l-ops-accent",
+            "rounded-r-[5px]",
+            "text-text-3 hover:text-text transition-[left,colors] duration-[250ms] ease-[cubic-bezier(0.22,1,0.36,1)]",
+            showSidebar ? "left-[360px]" : "left-0"
           )}
           title={showSidebar ? t("map.hideSidebar") : t("map.showSidebar")}
+          aria-label={showSidebar ? t("map.hideSidebar") : t("map.showSidebar")}
+          aria-expanded={showSidebar}
         >
-          {showSidebar ? (
-            <ChevronRight className="w-[16px] h-[16px] rotate-180" />
-          ) : (
-            <List className="w-[16px] h-[16px]" />
-          )}
+          <ChevronRight
+            className={cn(
+              "w-[16px] h-[16px] transition-transform duration-[250ms] ease-[cubic-bezier(0.22,1,0.36,1)]",
+              showSidebar && "rotate-180"
+            )}
+          />
         </button>
 
         {/* Map legend */}
