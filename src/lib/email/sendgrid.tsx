@@ -38,8 +38,10 @@ import { PortalEstimateReady } from "./react/templates/PortalEstimateReady";
 import { PortalInvoiceReady } from "./react/templates/PortalInvoiceReady";
 import { PortalQuestionsReminder } from "./react/templates/PortalQuestionsReminder";
 
-import { DISPATCH, GATE, FIELD_NOTES, portalSender } from "./senders";
+import { DISPATCH, GATE, FIELD_NOTES, portalSender, type Sender } from "./senders";
 import type { AdBriefing } from "@/lib/admin/briefing-types";
+import { isSuppressed, filterSuppressed } from "./suppressions";
+import { getServiceRoleClient } from "@/lib/supabase/server-client";
 
 let initialized = false;
 
@@ -60,6 +62,93 @@ function buildUnsubscribeUrl(email: string, list: string): string {
   return `${base}/unsubscribe?email=${encodeURIComponent(email)}&list=${encodeURIComponent(list)}`;
 }
 
+/**
+ * Single-recipient send chokepoint. Every typed sendXxx function below
+ * routes through this. Performs the suppression check, dispatches via
+ * SendGrid, and writes to email_log. Throws on transport error so the
+ * caller sees the failure; never throws on suppression (silent skip).
+ */
+async function gatedSend(params: {
+  to: string;
+  from: Sender;
+  replyTo?: string;
+  subject: string;
+  html: string;
+  text?: string;
+  emailType: string;
+  list?: string;
+  userId?: string;
+  metadata?: Record<string, unknown>;
+}): Promise<{ status: "sent" | "suppression_skipped"; reason?: string }> {
+  ensureInitialized();
+  const lower = params.to.trim().toLowerCase();
+  if (!lower) throw new Error("gatedSend: empty `to` address");
+
+  const list = params.list ?? "global";
+
+  if (await isSuppressed(lower, list)) {
+    await logEmail({
+      emailType: params.emailType,
+      recipient: lower,
+      subject: params.subject,
+      status: "suppression_skipped",
+      metadata: { ...(params.metadata ?? {}), list },
+      userId: params.userId,
+    });
+    return { status: "suppression_skipped", reason: "suppressed" };
+  }
+
+  await sgMail.send({
+    to: params.to,
+    from: params.from,
+    replyTo: params.replyTo,
+    subject: params.subject,
+    html: params.html,
+    text: params.text,
+  });
+
+  await logEmail({
+    emailType: params.emailType,
+    recipient: lower,
+    subject: params.subject,
+    status: "sent",
+    metadata: { ...(params.metadata ?? {}), list, from: params.from.email },
+    userId: params.userId,
+  });
+
+  return { status: "sent" };
+}
+
+/**
+ * Append a row to email_log. Never throws — logging failures are emitted
+ * to console.error and swallowed so they don't break the send.
+ */
+async function logEmail(params: {
+  emailType: string;
+  recipient: string;
+  subject: string;
+  status: "sent" | "failed" | "suppression_skipped";
+  metadata?: Record<string, unknown>;
+  userId?: string;
+  errorMessage?: string;
+}): Promise<void> {
+  try {
+    const db = getServiceRoleClient();
+    const { error } = await db.from("email_log").insert({
+      email_type: params.emailType,
+      recipient_email: params.recipient,
+      subject: params.subject,
+      status: params.status,
+      error_message: params.errorMessage ?? null,
+      metadata: params.metadata ?? {},
+      user_id: params.userId ?? null,
+    });
+    if (error) console.error("[email_log] insert failed:", error.message);
+  } catch (e) {
+    console.error("[email_log] insert threw:", e);
+  }
+}
+
 // ─── Portal whitelabel ─────────────────────────────────────────────────────
 
 export async function sendMagicLink(params: {
@@ -69,8 +158,6 @@ export async function sendMagicLink(params: {
   accentColor: string;
   logoUrl?: string | null;
 }): Promise<void> {
-  ensureInitialized();
-
   const portalUrl = `${process.env.NEXT_PUBLIC_APP_URL}/portal/${params.token}`;
   const html = await render(
     <PortalMagicLink
@@ -81,12 +168,15 @@ export async function sendMagicLink(params: {
     />,
   );
 
-  await sgMail.send({
+  await gatedSend({
     to: params.email,
     from: portalSender(params.companyName),
     replyTo: getPortalFromEmail(),
     subject: `Access your ${params.companyName} portal`,
     html,
+    emailType: "portal_magic_link",
+    list: "global",
+    metadata: { companyName: params.companyName },
   });
 }
 
@@ -98,8 +188,6 @@ export async function sendEstimateReady(params: {
   accentColor: string;
   logoUrl?: string | null;
 }): Promise<void> {
-  ensureInitialized();
-
   const html = await render(
     <PortalEstimateReady
       companyName={params.companyName}
@@ -110,12 +198,15 @@ export async function sendEstimateReady(params: {
     />,
   );
 
-  await sgMail.send({
+  await gatedSend({
     to: params.email,
     from: portalSender(params.companyName),
     replyTo: getPortalFromEmail(),
     subject: `Estimate #${params.estimateNumber} from ${params.companyName}`,
     html,
+    emailType: "portal_estimate_ready",
+    list: "global",
+    metadata: { companyName: params.companyName, estimateNumber: params.estimateNumber },
   });
 }
 
@@ -126,8 +217,6 @@ export async function sendQuestionsReminder(params: {
   accentColor: string;
   logoUrl?: string | null;
 }): Promise<void> {
-  ensureInitialized();
-
   const html = await render(
     <PortalQuestionsReminder
       companyName={params.companyName}
@@ -137,12 +226,15 @@ export async function sendQuestionsReminder(params: {
     />,
   );
 
-  await sgMail.send({
+  await gatedSend({
     to: params.email,
     from: portalSender(params.companyName),
     replyTo: getPortalFromEmail(),
     subject: `${params.companyName} needs a few answers from you`,
     html,
+    emailType: "portal_questions_reminder",
+    list: "global",
+    metadata: { companyName: params.companyName },
   });
 }
 
@@ -155,8 +247,6 @@ export async function sendInvoiceReady(params: {
   accentColor: string;
   logoUrl?: string | null;
 }): Promise<void> {
-  ensureInitialized();
-
   const html = await render(
     <PortalInvoiceReady
       companyName={params.companyName}
@@ -168,12 +258,15 @@ export async function sendInvoiceReady(params: {
     />,
   );
 
-  await sgMail.send({
+  await gatedSend({
     to: params.email,
     from: portalSender(params.companyName),
     replyTo: getPortalFromEmail(),
     subject: `Invoice #${params.invoiceNumber} from ${params.companyName} — ${params.amount}`,
     html,
+    emailType: "portal_invoice_ready",
+    list: "global",
+    metadata: { companyName: params.companyName, invoiceNumber: params.invoiceNumber, amount: params.amount },
   });
 }
 
@@ -192,8 +285,6 @@ export async function sendTeamInvite(params: {
   companyCode: string;
   roleName: string | null;
 }): Promise<void> {
-  ensureInitialized();
-
   const html = await render(
     <TeamInvite
       companyName={params.companyName}
@@ -205,12 +296,15 @@ export async function sendTeamInvite(params: {
     />,
   );
 
-  await sgMail.send({
+  await gatedSend({
     to: params.email,
     from: DISPATCH,
     replyTo: DISPATCH.email,
     subject: `${params.inviterName} invited you to join ${params.companyName} on OPS`,
     html,
+    emailType: "team_invite",
+    list: "global",
+    metadata: { companyName: params.companyName, inviterEmail: params.inviterEmail },
   });
 }
 
@@ -224,8 +318,6 @@ export async function sendRoleNeeded(params: {
   /** @deprecated retained for backward compat; no longer used */
   logoUrl?: string | null;
 }): Promise<void> {
-  ensureInitialized();
-
   const html = await render(
     <RoleNeeded
       userName={params.userName}
@@ -234,12 +326,15 @@ export async function sendRoleNeeded(params: {
     />,
   );
 
-  await sgMail.send({
+  await gatedSend({
     to: params.email,
     from: DISPATCH,
     replyTo: DISPATCH.email,
     subject: `${params.userName} joined ${params.companyName} and needs a role`,
     html,
+    emailType: "role_needed",
+    list: "global",
+    metadata: { companyName: params.companyName, joinedUser: params.userName },
   });
 }
 
@@ -255,16 +350,17 @@ export async function sendBetaAccessRequest(params: {
   featureDescription: string;
   adminUrl: string;
 }): Promise<void> {
-  ensureInitialized();
-
   const html = await render(<BetaAccessRequest {...params} />);
 
-  await sgMail.send({
+  await gatedSend({
     to: "jack@opsapp.co",
     from: DISPATCH,
     replyTo: DISPATCH.email,
     subject: `Beta Access Request — ${params.featureTitle} — ${params.companyName}`,
     html,
+    emailType: "beta_access_request",
+    list: "global",
+    metadata: { companyName: params.companyName, featureTitle: params.featureTitle, requesterEmail: params.userEmail },
   });
 }
 
@@ -275,8 +371,6 @@ export async function sendBetaAccessDecision(params: {
   approved: boolean;
   adminNotes: string | null;
 }): Promise<void> {
-  ensureInitialized();
-
   const html = await render(
     <BetaAccessDecision
       userName={params.userName}
@@ -286,7 +380,7 @@ export async function sendBetaAccessDecision(params: {
     />,
   );
 
-  await sgMail.send({
+  await gatedSend({
     to: params.userEmail,
     from: DISPATCH,
     replyTo: DISPATCH.email,
@@ -294,6 +388,9 @@ export async function sendBetaAccessDecision(params: {
       ? `Your OPS Beta Access — Approved`
       : `Your OPS Beta Access Request — ${params.featureTitle}`,
     html,
+    emailType: "beta_access_decision",
+    list: "global",
+    metadata: { featureTitle: params.featureTitle, approved: params.approved },
   });
 }
 
@@ -301,18 +398,23 @@ export async function sendAdsBriefing(params: {
   recipientEmails: string[];
   briefing: AdBriefing;
 }): Promise<void> {
-  ensureInitialized();
   const html = await render(<AdsBriefing briefing={params.briefing} />);
   const subject = `[OPS Intel] Google Ads Weekly — ${params.briefing.period_start} to ${params.briefing.period_end}`;
 
   await Promise.all(
     params.recipientEmails.map((email) =>
-      sgMail.send({
+      gatedSend({
         to: email,
         from: DISPATCH,
         replyTo: DISPATCH.email,
         subject,
         html,
+        emailType: "ads_briefing",
+        list: "global",
+        metadata: {
+          period_start: params.briefing.period_start,
+          period_end: params.briefing.period_end,
+        },
       }),
     ),
   );
@@ -324,16 +426,16 @@ export async function sendPasswordReset(params: {
   email: string;
   resetLink: string;
 }): Promise<void> {
-  ensureInitialized();
-
   const html = await render(<PasswordReset resetLink={params.resetLink} />);
 
-  await sgMail.send({
+  await gatedSend({
     to: params.email,
     from: GATE,
     replyTo: GATE.email,
     subject: "Reset your OPS password",
     html,
+    emailType: "password_reset",
+    list: "global",
   });
 }
 
@@ -341,16 +443,16 @@ export async function sendEmailVerification(params: {
   email: string;
   verifyLink: string;
 }): Promise<void> {
-  ensureInitialized();
-
   const html = await render(<EmailVerification verifyLink={params.verifyLink} />);
 
-  await sgMail.send({
+  await gatedSend({
     to: params.email,
     from: GATE,
     replyTo: GATE.email,
     subject: "Verify your OPS email",
     html,
+    emailType: "email_verification",
+    list: "global",
   });
 }
 
@@ -360,8 +462,6 @@ export async function sendEmailChangeConfirmation(params: {
   oldEmail: string;
   recoveryLink: string;
 }): Promise<void> {
-  ensureInitialized();
-
   const html = await render(
     <EmailChangeConfirmation
       newEmail={params.newEmail}
@@ -370,12 +470,15 @@ export async function sendEmailChangeConfirmation(params: {
     />,
   );
 
-  await sgMail.send({
+  await gatedSend({
     to: params.toEmail,
     from: GATE,
     replyTo: GATE.email,
     subject: "Your OPS sign-in email changed",
     html,
+    emailType: "email_change_confirmation",
+    list: "global",
+    metadata: { newEmail: params.newEmail, oldEmail: params.oldEmail },
   });
 }
 
@@ -399,8 +502,9 @@ export interface BlogNewsletterRecipient {
 export interface BlogNewsletterResult {
   sent: number;
   failed: number;
+  skipped: number;
   errors: string[];
-  results: Array<{ email: string; status: "sent" | "failed"; error?: string }>;
+  results: Array<{ email: string; status: "sent" | "failed" | "skipped"; error?: string }>;
 }
 
 const BLOG_NEWSLETTER_BATCH_SIZE = 100;
@@ -409,8 +513,6 @@ export async function sendBlogNewsletter(params: {
   post: BlogNewsletterPost;
   recipients: BlogNewsletterRecipient[];
 }): Promise<BlogNewsletterResult> {
-  ensureInitialized();
-
   // Deduplicate by lowercased email
   const seen = new Set<string>();
   const unique: BlogNewsletterRecipient[] = [];
@@ -429,12 +531,29 @@ export async function sendBlogNewsletter(params: {
   const aggregate: BlogNewsletterResult = {
     sent: 0,
     failed: 0,
+    skipped: 0,
     errors: [],
     results: [],
   };
 
-  for (let i = 0; i < unique.length; i += BLOG_NEWSLETTER_BATCH_SIZE) {
-    const batch = unique.slice(i, i + BLOG_NEWSLETTER_BATCH_SIZE);
+  // Bulk-filter suppressed recipients before fan-out so a single SQL query
+  // covers the whole list instead of one per recipient.
+  const suppressed = await filterSuppressed(
+    unique.map((r) => r.email),
+    "field_notes",
+  );
+  const eligible: BlogNewsletterRecipient[] = [];
+  for (const r of unique) {
+    if (suppressed.has(r.email)) {
+      aggregate.skipped++;
+      aggregate.results.push({ email: r.email, status: "skipped" });
+    } else {
+      eligible.push(r);
+    }
+  }
+
+  for (let i = 0; i < eligible.length; i += BLOG_NEWSLETTER_BATCH_SIZE) {
+    const batch = eligible.slice(i, i + BLOG_NEWSLETTER_BATCH_SIZE);
     const settled = await Promise.allSettled(
       batch.map(async (r) => {
         const unsubscribeUrl = buildUnsubscribeUrl(r.email, "field-notes");
@@ -449,12 +568,15 @@ export async function sendBlogNewsletter(params: {
             unsubscribeUrl={unsubscribeUrl}
           />,
         );
-        await sgMail.send({
+        await gatedSend({
           to: r.email,
           from: FIELD_NOTES,
           replyTo: FIELD_NOTES.email,
           subject,
           html,
+          emailType: "blog_newsletter",
+          list: "field_notes",
+          metadata: { postSlug: params.post.slug, postId: params.post.id },
         });
         return r.email;
       }),
@@ -495,8 +617,6 @@ export async function sendFieldNotesNewsletter(params: {
   issue: FieldNotesIssue;
   recipients: BlogNewsletterRecipient[];
 }): Promise<BlogNewsletterResult> {
-  ensureInitialized();
-
   // Deduplicate by lowercased email
   const seen = new Set<string>();
   const unique: BlogNewsletterRecipient[] = [];
@@ -512,12 +632,27 @@ export async function sendFieldNotesNewsletter(params: {
   const aggregate: BlogNewsletterResult = {
     sent: 0,
     failed: 0,
+    skipped: 0,
     errors: [],
     results: [],
   };
 
-  for (let i = 0; i < unique.length; i += BLOG_NEWSLETTER_BATCH_SIZE) {
-    const batch = unique.slice(i, i + BLOG_NEWSLETTER_BATCH_SIZE);
+  const suppressed = await filterSuppressed(
+    unique.map((r) => r.email),
+    "field_notes",
+  );
+  const eligible: BlogNewsletterRecipient[] = [];
+  for (const r of unique) {
+    if (suppressed.has(r.email)) {
+      aggregate.skipped++;
+      aggregate.results.push({ email: r.email, status: "skipped" });
+    } else {
+      eligible.push(r);
+    }
+  }
+
+  for (let i = 0; i < eligible.length; i += BLOG_NEWSLETTER_BATCH_SIZE) {
+    const batch = eligible.slice(i, i + BLOG_NEWSLETTER_BATCH_SIZE);
     const settled = await Promise.allSettled(
       batch.map(async (r) => {
         const unsubscribeUrl = buildUnsubscribeUrl(r.email, "field-notes");
@@ -533,12 +668,15 @@ export async function sendFieldNotesNewsletter(params: {
             unsubscribeUrl={unsubscribeUrl}
           />,
         );
-        await sgMail.send({
+        await gatedSend({
           to: r.email,
           from: FIELD_NOTES,
           replyTo: FIELD_NOTES.email,
           subject,
           html,
+          emailType: "field_notes_newsletter",
+          list: "field_notes",
+          metadata: { issueNumber: params.issue.issueNumber, issueDate: params.issue.issueDate },
         });
         return r.email;
       }),
@@ -577,8 +715,6 @@ export async function sendTrialExpiryWarning(params: {
   /** @deprecated retained for backward compat; no longer used */
   logoUrl?: string | null;
 }): Promise<void> {
-  ensureInitialized();
-
   const unsubscribeUrl = buildUnsubscribeUrl(params.email, "trial");
   const html = await render(
     <TrialExpiryWarning
@@ -595,12 +731,15 @@ export async function sendTrialExpiryWarning(params: {
       ? "Tomorrow — your OPS trial ends"
       : `${params.daysRemaining} days left on your OPS trial`;
 
-  await sgMail.send({
+  await gatedSend({
     to: params.email,
     from: DISPATCH,
     replyTo: DISPATCH.email,
     subject,
     html,
+    emailType: "trial_expiry_warning",
+    list: "trial",
+    metadata: { companyName: params.companyName, daysRemaining: params.daysRemaining },
   });
 }
 
@@ -617,8 +756,6 @@ export async function sendTrialExpiryDiscount(params: {
   /** @deprecated retained for backward compat; no longer used */
   logoUrl?: string | null;
 }): Promise<void> {
-  ensureInitialized();
-
   const unsubscribeUrl = buildUnsubscribeUrl(params.email, "trial");
   const html = await render(
     <TrialExpiryDiscount
@@ -632,12 +769,15 @@ export async function sendTrialExpiryDiscount(params: {
     />,
   );
 
-  await sgMail.send({
+  await gatedSend({
     to: params.email,
     from: DISPATCH,
     replyTo: DISPATCH.email,
     subject: `${params.daysRemaining} days left — 50% off or 30% off, your call`,
     html,
+    emailType: "trial_expiry_discount",
+    list: "trial",
+    metadata: { companyName: params.companyName, daysRemaining: params.daysRemaining },
   });
 }
 
@@ -653,8 +793,6 @@ export async function sendTrialExpiryReengagement(params: {
   /** @deprecated retained for backward compat; no longer used */
   logoUrl?: string | null;
 }): Promise<void> {
-  ensureInitialized();
-
   const unsubscribeUrl = buildUnsubscribeUrl(params.email, "trial");
   const html = await render(
     <TrialExpiryReengagement
@@ -672,12 +810,15 @@ export async function sendTrialExpiryReengagement(params: {
       ? "Last check-in before we stop"
       : "Still thinking about it?";
 
-  await sgMail.send({
+  await gatedSend({
     to: params.email,
     from: DISPATCH,
     replyTo: DISPATCH.email,
     subject,
     html,
+    emailType: "trial_expiry_reengagement",
+    list: "trial",
+    metadata: { companyName: params.companyName, daysSinceExpiry: params.daysSinceExpiry },
   });
 }
 
@@ -696,8 +837,7 @@ export async function sendTransactionalEmail(params: {
   fromName?: string;
   from?: string;
 }): Promise<void> {
-  ensureInitialized();
-  await sgMail.send({
+  await gatedSend({
     to: params.to,
     from: {
       email: params.from ?? DISPATCH.email,
@@ -705,6 +845,8 @@ export async function sendTransactionalEmail(params: {
     },
     subject: params.subject,
     html: params.html,
+    emailType: "transactional_generic",
+    list: "global",
   });
 }
 
@@ -717,8 +859,7 @@ export async function sendEmail(params: {
   from?: string;
   replyTo?: string;
 }): Promise<void> {
-  ensureInitialized();
-  await sgMail.send({
+  await gatedSend({
     to: params.to,
     from: {
       email: params.from ?? DISPATCH.email,
@@ -728,5 +869,7 @@ export async function sendEmail(params: {
     subject: params.subject,
     html: params.html,
     text: params.text,
+    emailType: "generic",
+    list: "global",
   });
 }
