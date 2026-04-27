@@ -25,7 +25,7 @@ import { PmfThresholdAlert } from "./react/templates/PmfThresholdAlert";
 import { PmfDailyDigest } from "./react/templates/PmfDailyDigest";
 import { PmfWeeklyDigest } from "./react/templates/PmfWeeklyDigest";
 
-function useNew(): boolean {
+function shouldUseNewTemplate(): boolean {
   return process.env.EMAIL_PMF_NEW_TEMPLATES === "true";
 }
 
@@ -35,15 +35,19 @@ function useNew(): boolean {
 // that mock the legacy template module to capture props at construction time.
 
 export function thresholdAlertEmail(props: ThresholdAlertProps) {
-  return useNew()
+  return shouldUseNewTemplate()
     ? PmfThresholdAlert(props)
     : LegacyThresholdAlertEmail(props);
 }
 
 export function dailyDigestEmail(props: DailyDigestProps) {
-  return useNew() ? PmfDailyDigest(props) : LegacyDailyDigestEmail(props);
+  return shouldUseNewTemplate()
+    ? PmfDailyDigest(props)
+    : LegacyDailyDigestEmail(props);
 }
 
 export function weeklyDigestEmail(props: WeeklyDigestProps) {
-  return useNew() ? PmfWeeklyDigest(props) : LegacyWeeklyDigestEmail(props);
+  return shouldUseNewTemplate()
+    ? PmfWeeklyDigest(props)
+    : LegacyWeeklyDigestEmail(props);
 }
