@@ -295,7 +295,7 @@ export default function EmployeeSetupPage() {
     return (
       <div className="fixed inset-0 bg-background flex items-center justify-center">
         <div className="animate-pulse text-text">
-          <OpsLockup orientation="vertical" className="h-20 w-auto" />
+          <OpsLockup orientation="horizontal" className="h-12 w-auto" />
         </div>
       </div>
     );
@@ -306,7 +306,7 @@ export default function EmployeeSetupPage() {
       {/* Logo */}
       <h1 className="text-text mb-4">
         <span className="sr-only">OPS</span>
-        <OpsLockup orientation="vertical" className="h-24 w-auto" title="" />
+        <OpsLockup orientation="horizontal" className="h-14 w-auto" title="" />
       </h1>
 
       {/* Glass surface card */}

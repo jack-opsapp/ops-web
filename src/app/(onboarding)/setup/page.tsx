@@ -480,7 +480,7 @@ export default function SetupPage() {
     return (
       <div className="fixed inset-0 bg-background flex items-center justify-center">
         <div className="animate-pulse text-text">
-          <OpsLockup orientation="vertical" className="h-20 w-auto" />
+          <OpsLockup orientation="horizontal" className="h-12 w-auto" />
         </div>
       </div>
     );
@@ -631,7 +631,7 @@ export default function SetupPage() {
         className="text-text mb-4 focus:outline-none"
       >
         <span className="sr-only">OPS</span>
-        <OpsLockup orientation="vertical" className="h-24 w-auto mx-auto" title="" />
+        <OpsLockup orientation="horizontal" className="h-14 w-auto mx-auto" title="" />
       </h1>
 
       {/* Glass surface card */}
