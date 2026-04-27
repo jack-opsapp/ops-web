@@ -34,6 +34,7 @@ import { NoteComposer } from "@/components/ops/note-composer";
 import { PhotoFeed } from "@/components/ops/photo-feed";
 import { ProjectDeductionsTab } from "@/components/ops/project-deductions-tab";
 import { PermissionGate } from "@/components/ops/permission-gate";
+import { EditProjectModal } from "@/components/ops/projects/edit-project-modal";
 import {
   useProjectNotes,
   useCreateProjectNote,
@@ -1144,6 +1145,7 @@ export default function ProjectDetailPage() {
     }
   }, [visibleTabs, activeTab]);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Data hooks
@@ -1373,10 +1375,7 @@ export default function ProjectDetailPage() {
               variant="secondary"
               size="sm"
               className="gap-[6px]"
-              onClick={() => {
-                toast.info(t("detail.editHint"));
-                window.scrollTo({ top: 0, behavior: "smooth" });
-              }}
+              onClick={() => setShowEditModal(true)}
             >
               <Edit3 className="w-[14px] h-[14px]" />
               {t("detail.edit")}
@@ -1461,6 +1460,13 @@ export default function ProjectDetailPage() {
           </>
         )}
       </AnimatePresence>
+
+      {/* ── Edit Project Modal ──────────────────────────────────────────────── */}
+      <EditProjectModal
+        open={showEditModal}
+        onOpenChange={setShowEditModal}
+        project={project}
+      />
 
       {/* ── Delete Confirmation Dialog ─────────────────────────────────────── */}
       <ConfirmDialog
