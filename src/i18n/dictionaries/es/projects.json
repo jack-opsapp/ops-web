@@ -52,6 +52,8 @@
   "new.createProject": "Crear proyecto",
   "new.noCompany": "Empresa no encontrada. Por favor inicia sesión de nuevo.",
   "new.createFailed": "Error al crear proyecto. Por favor intenta de nuevo.",
+  "new.requiredHint": "Obligatorio",
+  "new.validationError": "Por favor corrige los campos resaltados antes de crear el proyecto.",
 
   "status.rfq": "Solicitud",
   "status.estimated": "Cotizado",
