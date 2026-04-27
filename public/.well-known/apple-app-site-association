@@ -5,15 +5,14 @@
       {
         "appIDs": ["X47H96M34K.co.opsapp.ops.OPS"],
         "components": [
-          {
-            "/": "/projects/*",
-            "comment": "Project deep links — opens the OPS iOS app directly"
-          }
+          { "/": "/projects/*", "comment": "Project deep links" },
+          { "/": "/auth/action", "comment": "Firebase action handler (exact)" },
+          { "/": "/auth/action*", "comment": "Firebase action handler (with query)" },
+          { "/": "/open", "comment": "App return bridge (exact)" },
+          { "/": "/open*", "comment": "App return bridge (with query)" }
         ]
       }
     ]
   },
-  "webcredentials": {
-    "apps": ["X47H96M34K.co.opsapp.ops.OPS"]
-  }
+  "webcredentials": { "apps": ["X47H96M34K.co.opsapp.ops.OPS"] }
 }
