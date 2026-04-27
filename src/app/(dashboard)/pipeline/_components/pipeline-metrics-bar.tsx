@@ -15,6 +15,14 @@ import {
   formatCurrency,
   isActiveStage,
 } from "@/lib/types/pipeline";
+
+// Pipeline summary semantics:
+// - The headline "pipeline value" is the SUM OF RAW estimatedValue across active
+//   deals. This matches what each stage column shows in its header
+//   (`spatial-stage-stack.tsx`), so summary == sum of stages by construction.
+// - The probability-weighted total (estimatedValue * winProbability) is shown
+//   as a secondary "[forecast]" line beneath the headline so users still see
+//   the expected-revenue figure without it silently replacing the visible total.
 import { EASE_SMOOTH } from "@/lib/utils/motion";
 
 // ---------------------------------------------------------------------------
@@ -281,7 +289,16 @@ export function PipelineMetricsBar({
     );
     const discardedCount = discardedDeals.length;
 
+    // Headline pipeline value: sum of raw estimatedValue across active deals.
+    // This is the figure that must equal the sum of stage column totals.
     const pipelineValue = activeDeals.reduce(
+      (sum, opp) => sum + (opp.estimatedValue ?? 0),
+      0
+    );
+    // Probability-weighted forecast (estimatedValue * winProbability).
+    // Shown as a secondary line so users see expected revenue without it
+    // silently replacing the visible total.
+    const pipelineForecast = activeDeals.reduce(
       (sum, opp) => sum + getWeightedValue(opp),
       0
     );
@@ -307,6 +324,7 @@ export function PipelineMetricsBar({
 
     return {
       pipelineValue,
+      pipelineForecast,
       activeCount,
       wonCount,
       wonValue,
@@ -370,7 +388,8 @@ export function PipelineMetricsBar({
     <div className="bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)] border border-[rgba(255,255,255,0.06)] rounded-[4px] overflow-hidden">
       {/* ── Metrics row ──────────────────────────────────────────────── */}
       <div className="flex items-stretch">
-        {/* 1. Pipeline Value */}
+        {/* 1. Pipeline Value — sum of active stage totals (raw estimatedValue).
+              Forecast (probability-weighted) shown beneath as secondary metric. */}
         <div className="flex flex-col justify-center px-4 py-[10px] shrink-0">
           <span className="font-mohave text-[22px] leading-tight text-text">
             {isLoading ? (
@@ -385,6 +404,17 @@ export function PipelineMetricsBar({
           <span className="font-mono text-[11px] text-text-3 uppercase tracking-[0.12em] mt-[2px]">
             {t("metrics.pipelineValue")}
           </span>
+          {!isLoading && metrics.pipelineForecast > 0 && (
+            <span
+              className="font-mono text-[11px] text-text-mute mt-[3px] tabular-nums"
+              title="Probability-weighted forecast: sum of estimated value times win probability for each active deal."
+            >
+              [forecast]{" "}
+              <span className="text-text-3">
+                {formatCurrency(metrics.pipelineForecast)}
+              </span>
+            </span>
+          )}
         </div>
 
         <MetricDivider />
