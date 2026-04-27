@@ -89,8 +89,12 @@ export function EdgeTab({
           backdropFilter: "blur(28px) saturate(1.3)",
           WebkitBackdropFilter: "blur(28px) saturate(1.3)",
           border: "1px solid var(--glass-border)",
-          borderTopLeftRadius: 4,
-          borderBottomLeftRadius: 4,
+          // Tab shape: outer (left) edge is fully rounded so the curve is
+          // tangent to the screen edge — the tab reads as "hiding" at the
+          // page edge. Inner (right) side stays square against the viewport.
+          // Radius = TAB_WIDTH / 2 yields a half-pill profile.
+          borderTopLeftRadius: TAB_WIDTH / 2,
+          borderBottomLeftRadius: TAB_WIDTH / 2,
           borderTopRightRadius: 0,
           borderBottomRightRadius: 0,
           display: "flex",
@@ -107,15 +111,18 @@ export function EdgeTab({
           outline: "none",
         }}
       >
-        {/* Left accent stripe — data attribute for focus-visible brighten in global CSS */}
+        {/* Left accent stripe — top/bottom inset by half the tab width so the
+            stripe stays inside the rounded outer edge (corners curl in by
+            TAB_WIDTH/2 due to the half-pill profile). Data attribute for
+            focus-visible brighten in global CSS. */}
         <span
           aria-hidden
           data-edge-tab-accent
           style={{
             position: "absolute",
             left: 0,
-            top: 0,
-            bottom: 0,
+            top: TAB_WIDTH / 2,
+            bottom: TAB_WIDTH / 2,
             width: 2,
             background: ACCENT_VAR[accent],
             transition: reducedMotion ? "none" : `background 180ms ${EASE_SMOOTH_CSS}`,
