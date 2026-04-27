@@ -84,9 +84,11 @@ export const LogoLoader: React.FC<LogoLoaderProps> = ({
           border: 0,
           background: "transparent",
         }}
-        // Loading screens are passive; sandbox the iframe so it can run its
-        // CDN-loaded React/Babel but cannot touch the host.
-        sandbox="allow-scripts"
+        // Sandbox: allow-scripts to run React/Babel, allow-same-origin so
+        // Babel can fetch the .jsx source files from /v2-loader/. Without
+        // allow-same-origin the inline `<script type="text/babel" src=...>`
+        // tags fail silently and the iframe renders blank.
+        sandbox="allow-scripts allow-same-origin"
         // Don't gate page LCP on this — it's a loading affordance.
         loading="lazy"
       />

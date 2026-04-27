@@ -59,18 +59,37 @@
     }
   }
 
+  // Headless timeline. We bypass the v2 <Stage> component because Stage
+  // bakes in a PlaybackBar + 0a0a0a backdrop + box-shadow that we don't want
+  // on a real loading screen. LogoLoaderScene only depends on TimelineContext
+  // (via useTime), which we recreate here with a minimal requestAnimationFrame
+  // loop driving `time` from 0 → duration → loop.
+  function HeadlessTimeline({ duration, children }) {
+    const [time, setTime] = React.useState(0);
+    React.useEffect(() => {
+      let raf = 0;
+      const start = performance.now();
+      const tick = (now) => {
+        const elapsed = (now - start) / 1000;
+        setTime(elapsed % duration);
+        raf = requestAnimationFrame(tick);
+      };
+      raf = requestAnimationFrame(tick);
+      return () => cancelAnimationFrame(raf);
+    }, [duration]);
+
+    return (
+      <TimelineContext.Provider value={{ time, duration, playing: true }}>
+        {children}
+      </TimelineContext.Provider>
+    );
+  }
+
   function Loader() {
     return (
-      <Stage
-        width={1280}
-        height={720}
-        duration={LOADER_DEFAULTS.duration}
-        background="transparent"
-        loop
-        autoplay
-      >
+      <HeadlessTimeline duration={LOADER_DEFAULTS.duration}>
         <LogoLoaderScene cfg={LOADER_DEFAULTS} />
-      </Stage>
+      </HeadlessTimeline>
     );
   }
 
