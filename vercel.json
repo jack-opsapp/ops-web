@@ -20,6 +20,10 @@
       "schedule": "*/15 * * * *"
     },
     {
+      "path": "/api/cron/email-ingest-heartbeat",
+      "schedule": "*/15 * * * *"
+    },
+    {
       "path": "/api/cron/webhook-renewal",
       "schedule": "0 6 * * *"
     },
