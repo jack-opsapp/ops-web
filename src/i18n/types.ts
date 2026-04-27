@@ -3,6 +3,7 @@ export type Locale = 'en' | 'es';
 export type Namespace =
   | 'common'
   | 'auth'
+  | 'auth-action'
   | 'sidebar'
   | 'topbar'
   | 'breadcrumbs'
