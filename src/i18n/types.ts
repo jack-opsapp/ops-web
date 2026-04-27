@@ -34,7 +34,8 @@ export type Namespace =
   | 'calibration'
   | 'notifications'
   | 'quick-actions'
-  | 'server-emails';
+  | 'server-emails'
+  | 'unsubscribe';
 
 
 export type Dictionary = Record<string, string | string[] | Record<string, unknown>>;

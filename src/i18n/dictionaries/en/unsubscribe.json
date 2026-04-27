@@ -1,0 +1,39 @@
+{
+  "eyebrow": "Unsubscribe",
+  "loading": {
+    "title": "PROCESSING",
+    "body": "Removing you from this list."
+  },
+  "success": {
+    "title": "UNSUBSCRIBED",
+    "body": "You're off [{list}]. We won't send you emails from this list again unless you re-subscribe.",
+    "cta": "Return to opsapp.co"
+  },
+  "errors": {
+    "missing_token": {
+      "title": "BROKEN LINK",
+      "body": "This unsubscribe link is missing its token. Open the email and click the link directly, or write us at [{email}].",
+      "cta": "Email support"
+    },
+    "malformed": {
+      "title": "BROKEN LINK",
+      "body": "This unsubscribe link is malformed. Email us and we'll remove you manually.",
+      "cta": "Email support"
+    },
+    "bad_signature": {
+      "title": "INVALID LINK",
+      "body": "This link couldn't be verified. Email us and we'll remove you manually.",
+      "cta": "Email support"
+    },
+    "expired": {
+      "title": "LINK EXPIRED",
+      "body": "Unsubscribe links expire after 1 year. Email us and we'll remove you manually.",
+      "cta": "Email support"
+    },
+    "internal": {
+      "title": "SOMETHING WENT WRONG",
+      "body": "Try again in a minute, or email us and we'll remove you manually.",
+      "cta": "Email support"
+    }
+  }
+}
