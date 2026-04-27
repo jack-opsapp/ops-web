@@ -15,6 +15,8 @@ import type { AdBriefing, ActionItem } from "@/lib/admin/briefing-types";
 
 interface AdsBriefingProps {
   briefing: AdBriefing;
+  unsubscribeUrl?: string;
+  list?: string;
 }
 
 function priorityColor(p: "high" | "medium" | "low"): string {
@@ -84,7 +86,7 @@ function ActionRow({ item, index }: { item: ActionItem; index: number }) {
   );
 }
 
-export function AdsBriefing({ briefing }: AdsBriefingProps) {
+export function AdsBriefing({ briefing, unsubscribeUrl, list }: AdsBriefingProps) {
   const perf = briefing.performance_data;
   const actions = (briefing.action_items ?? []).slice(0, 3);
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://app.opsapp.co";
@@ -94,6 +96,8 @@ export function AdsBriefing({ briefing }: AdsBriefingProps) {
       preview={`Google Ads weekly — ${briefing.period_start} to ${briefing.period_end}`}
       eyebrow="Ads intel // Google Ads weekly"
       senderAddress={DISPATCH.email}
+      unsubscribeUrl={unsubscribeUrl}
+      list={list}
     >
       <Headline>
         {briefing.period_start} &mdash; {briefing.period_end}

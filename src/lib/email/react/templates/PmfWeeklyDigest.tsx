@@ -25,6 +25,8 @@ export interface PmfWeeklyDigestProps {
   weekNumber: number;
   dashboardUrl?: string;
   retentionCohorts: PmfWeeklyDigestCohort[];
+  unsubscribeUrl?: string;
+  list?: string;
 }
 
 const MAX_COHORTS_DISPLAYED = 6;
@@ -47,6 +49,8 @@ export function PmfWeeklyDigest({
   weekNumber,
   dashboardUrl,
   retentionCohorts,
+  unsubscribeUrl,
+  list,
 }: PmfWeeklyDigestProps) {
   const safeUrl =
     dashboardUrl && /^https?:\/\//.test(dashboardUrl) ? dashboardUrl : null;
@@ -57,6 +61,8 @@ export function PmfWeeklyDigest({
       preview={`PMF weekly digest · week ${weekNumber}`}
       eyebrow={`// PMF WEEKLY DIGEST · WEEK ${weekNumber} · GATE B ${daysToGate} DAYS`}
       senderAddress={DISPATCH.email}
+      unsubscribeUrl={unsubscribeUrl}
+      list={list}
     >
       <Headline as="h1">Weekly marker readout</Headline>
       <Paragraph small>

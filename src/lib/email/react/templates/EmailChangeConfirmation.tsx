@@ -7,18 +7,24 @@ interface EmailChangeConfirmationProps {
   newEmail: string;
   oldEmail: string;
   recoveryLink: string;
+  unsubscribeUrl?: string;
+  list?: string;
 }
 
 export function EmailChangeConfirmation({
   newEmail,
   oldEmail,
   recoveryLink,
+  unsubscribeUrl,
+  list,
 }: EmailChangeConfirmationProps) {
   return (
     <OpsEmailLayout
       preview={`Your OPS sign-in is now ${newEmail}`}
       eyebrow="Email changed"
       senderAddress={GATE.email}
+      unsubscribeUrl={unsubscribeUrl}
+      list={list}
     >
       <Headline>Email changed.</Headline>
       <Paragraph>

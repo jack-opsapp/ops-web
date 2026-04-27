@@ -5,14 +5,22 @@ import { GATE } from "../../senders";
 
 interface EmailVerificationProps {
   verifyLink: string;
+  unsubscribeUrl?: string;
+  list?: string;
 }
 
-export function EmailVerification({ verifyLink }: EmailVerificationProps) {
+export function EmailVerification({
+  verifyLink,
+  unsubscribeUrl,
+  list,
+}: EmailVerificationProps) {
   return (
     <OpsEmailLayout
       preview="Confirm your email on OPS"
       eyebrow="Email verification"
       senderAddress={GATE.email}
+      unsubscribeUrl={unsubscribeUrl}
+      list={list}
     >
       <Headline>Confirm it&apos;s you.</Headline>
       <Paragraph>

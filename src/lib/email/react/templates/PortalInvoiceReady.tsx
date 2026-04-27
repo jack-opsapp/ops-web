@@ -9,6 +9,9 @@ interface PortalInvoiceReadyProps {
   portalUrl: string;
   accentColor: string;
   logoUrl: string | null;
+  unsubscribeUrl?: string;
+  list?: string;
+  companyPhysicalAddress?: string | null;
 }
 
 export function PortalInvoiceReady({
@@ -18,15 +21,21 @@ export function PortalInvoiceReady({
   portalUrl,
   accentColor,
   logoUrl,
+  unsubscribeUrl,
+  list,
+  companyPhysicalAddress,
 }: PortalInvoiceReadyProps) {
   return (
     <PortalEmailLayout
       preview={`Invoice ${invoiceNumber} — ${amount}`}
       eyebrow={`Invoice ${invoiceNumber}`}
       companyName={companyName}
+      companyPhysicalAddress={companyPhysicalAddress}
       logoUrl={logoUrl}
       accentColor={accentColor}
       senderAddress="noreply@opsapp.co"
+      unsubscribeUrl={unsubscribeUrl}
+      list={list}
     >
       <Headline>Your invoice from {companyName}.</Headline>
       <Paragraph>Job&apos;s done. Tap below to review and pay.</Paragraph>

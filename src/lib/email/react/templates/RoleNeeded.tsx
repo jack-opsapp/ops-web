@@ -7,18 +7,24 @@ interface RoleNeededProps {
   userName: string;
   companyName: string;
   assignUrl: string;
+  unsubscribeUrl?: string;
+  list?: string;
 }
 
 export function RoleNeeded({
   userName,
   companyName,
   assignUrl,
+  unsubscribeUrl,
+  list,
 }: RoleNeededProps) {
   return (
     <OpsEmailLayout
       preview={`${userName} joined ${companyName} and needs a role`}
       eyebrow="New crew member"
       senderAddress={DISPATCH.email}
+      unsubscribeUrl={unsubscribeUrl}
+      list={list}
     >
       <Headline>{userName}&apos;s in. Give them a role.</Headline>
       <Paragraph>

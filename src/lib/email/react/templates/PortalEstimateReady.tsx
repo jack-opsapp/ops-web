@@ -8,6 +8,9 @@ interface PortalEstimateReadyProps {
   portalUrl: string;
   accentColor: string;
   logoUrl: string | null;
+  unsubscribeUrl?: string;
+  list?: string;
+  companyPhysicalAddress?: string | null;
 }
 
 export function PortalEstimateReady({
@@ -16,15 +19,21 @@ export function PortalEstimateReady({
   portalUrl,
   accentColor,
   logoUrl,
+  unsubscribeUrl,
+  list,
+  companyPhysicalAddress,
 }: PortalEstimateReadyProps) {
   return (
     <PortalEmailLayout
       preview={`Estimate ${estimateNumber} from ${companyName}`}
       eyebrow={`Estimate ${estimateNumber}`}
       companyName={companyName}
+      companyPhysicalAddress={companyPhysicalAddress}
       logoUrl={logoUrl}
       accentColor={accentColor}
       senderAddress="noreply@opsapp.co"
+      unsubscribeUrl={unsubscribeUrl}
+      list={list}
     >
       <Headline>Your estimate&apos;s ready.</Headline>
       <Paragraph>
