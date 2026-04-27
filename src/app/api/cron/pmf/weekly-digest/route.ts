@@ -19,7 +19,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { computePmfState } from "@/lib/admin/pmf-queries";
 import { getAdminSupabase } from "@/lib/supabase/admin-client";
 import { sendPmfNotification } from "@/lib/notifications/pmf-send";
-import { WeeklyDigestEmail } from "@/emails/pmf/weekly-digest";
+import { weeklyDigestEmail as WeeklyDigestEmail } from "@/lib/email/pmf-bridge";
 import { daysUntilGate, isoWeekNumber } from "@/lib/pmf/formatters";
 
 export const runtime = "nodejs";
