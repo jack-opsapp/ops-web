@@ -9,3 +9,5 @@ export { Divider } from "./Divider";
 export { Spacer } from "./Spacer";
 export { InfoBlock } from "./InfoBlock";
 export { Footer } from "./Footer";
+export { ComplianceFooter } from "./ComplianceFooter";
+export type { ComplianceFooterProps } from "./ComplianceFooter";
