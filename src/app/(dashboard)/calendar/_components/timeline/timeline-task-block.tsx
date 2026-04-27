@@ -16,6 +16,12 @@ interface TimelineTaskBlockProps {
   daysShown: number; // number of visible day columns
   isSelected?: boolean; // selected via click or multi-select
   isGhost?: boolean; // ghost preview for cascade/auto-schedule
+  /** Vertical lane index for stacking overlapping events (0-based) */
+  laneIndex?: number;
+  /** Total number of lanes used in this row */
+  laneCount?: number;
+  /** Total row height in px — block divides this evenly across laneCount */
+  rowHeight?: number;
   onClick?: (event: InternalCalendarEvent) => void;
   onContextMenu?: (
     event: InternalCalendarEvent,
@@ -63,6 +69,9 @@ export function TimelineTaskBlock({
   daysShown,
   isSelected = false,
   isGhost = false,
+  laneIndex = 0,
+  laneCount = 1,
+  rowHeight = TIMELINE_ROW_HEIGHT,
   onClick,
   onContextMenu,
   onResize,
@@ -145,7 +154,19 @@ export function TimelineTaskBlock({
     return { leftPercent: newLeft, widthPercent: newWidth };
   }, [resizeState, leftPercent, widthPercent, daysShown]);
 
-  const blockHeight = TIMELINE_ROW_HEIGHT - 16; // 56px (8px padding top + bottom)
+  // Lane-aware vertical layout. The row reserves 8px top + 8px bottom
+  // padding, then divides the remaining vertical space among laneCount
+  // lanes with a 4px gap between lanes.
+  const VERTICAL_PADDING = 8;
+  const LANE_GAP = 4;
+  const innerHeight = rowHeight - VERTICAL_PADDING * 2;
+  const totalLaneGaps = LANE_GAP * Math.max(laneCount - 1, 0);
+  const perLaneHeight = Math.max(
+    14, // minimum readable lane height
+    Math.floor((innerHeight - totalLaneGaps) / Math.max(laneCount, 1))
+  );
+  const blockHeight = perLaneHeight;
+  const blockTop = VERTICAL_PADDING + laneIndex * (perLaneHeight + LANE_GAP);
 
   // ── Determine if block is narrow ──────────────────────────────────────
 
@@ -284,7 +305,7 @@ export function TimelineTaskBlock({
       style={{
         left: `${resizeAdjusted.leftPercent}%`,
         width: `${resizeAdjusted.widthPercent}%`,
-        top: 8,
+        top: blockTop,
         height: blockHeight,
         zIndex: isDragging ? 20 : resizeState ? 15 : isSelected ? 5 : isHovered ? 4 : 2,
         pointerEvents: isGhost ? "none" : "auto",

@@ -24,7 +24,71 @@ import {
   TIMELINE_DAYS_SHOWN,
   TIMELINE_DAY_MIN_WIDTH,
   TIMELINE_GUTTER_WIDTH,
+  TIMELINE_ROW_HEIGHT,
 } from "@/lib/utils/timeline-constants";
+
+// ─── Lane assignment ────────────────────────────────────────────────────────
+
+interface LaneAssignment {
+  /** eventId → lane index */
+  lanes: Map<string, number>;
+  /** maximum number of overlapping lanes used */
+  laneCount: number;
+}
+
+/**
+ * Sweep-line lane assignment: events sorted by start date are placed into the
+ * lowest-numbered lane whose previous event has already ended. Two events
+ * count as overlapping when their inclusive [start, end] ranges intersect.
+ */
+function assignLanes(events: InternalCalendarEvent[]): LaneAssignment {
+  if (events.length === 0) return { lanes: new Map(), laneCount: 1 };
+
+  const sorted = [...events].sort(
+    (a, b) => a.startDate.getTime() - b.startDate.getTime()
+  );
+  // laneEndTimes[i] = end timestamp of the latest event currently in lane i
+  const laneEndTimes: number[] = [];
+  const lanes = new Map<string, number>();
+
+  for (const event of sorted) {
+    const startMs = event.startDate.getTime();
+    const endMs = event.endDate.getTime();
+    let placed = false;
+
+    for (let i = 0; i < laneEndTimes.length; i++) {
+      // Overlap if this event starts on or before the lane's last event ends.
+      // Use strict less-than so an event ending on day N can sit in the same
+      // lane as one starting on day N+1 (back-to-back, not overlapping).
+      if (laneEndTimes[i] < startMs) {
+        lanes.set(event.id, i);
+        laneEndTimes[i] = endMs;
+        placed = true;
+        break;
+      }
+    }
+
+    if (!placed) {
+      lanes.set(event.id, laneEndTimes.length);
+      laneEndTimes.push(endMs);
+    }
+  }
+
+  return { lanes, laneCount: Math.max(laneEndTimes.length, 1) };
+}
+
+/**
+ * Decide row height given a lane count. Each lane is allotted ≥24px so labels
+ * stay readable; rows always honor the base TIMELINE_ROW_HEIGHT minimum.
+ */
+function rowHeightForLanes(laneCount: number): number {
+  const MIN_LANE_HEIGHT = 24;
+  const VERTICAL_PADDING = 16; // 8px top + 8px bottom
+  const LANE_GAP = 4;
+  const computed =
+    VERTICAL_PADDING + laneCount * MIN_LANE_HEIGHT + Math.max(laneCount - 1, 0) * LANE_GAP;
+  return Math.max(TIMELINE_ROW_HEIGHT, computed);
+}
 
 // ─── Unassigned Placeholder ─────────────────────────────────────────────────
 
@@ -59,12 +123,14 @@ function DroppableTimelineRow({
   startDate,
   daysShown,
   isLast,
+  rowHeight,
   children,
 }: {
   teamMember: TeamMember;
   startDate: Date;
   daysShown: number;
   isLast?: boolean;
+  rowHeight?: number;
   children: React.ReactNode;
 }) {
   const rowRef = useRef<HTMLDivElement>(null);
@@ -108,6 +174,7 @@ function DroppableTimelineRow({
         startDate={startDate}
         daysShown={daysShown}
         isLast={isLast}
+        rowHeight={rowHeight}
       >
         {children}
       </TimelineRow>
@@ -305,12 +372,15 @@ export function TimelineGrid({
           {/* Team member rows */}
           {teamMembers.map((member) => {
             const memberEvents = grouped.get(member.id) ?? [];
+            const { lanes, laneCount } = assignLanes(memberEvents);
+            const rowHeight = rowHeightForLanes(laneCount);
             return (
               <DroppableTimelineRow
                 key={member.id}
                 teamMember={member}
                 startDate={startDate}
                 daysShown={daysShown}
+                rowHeight={rowHeight}
               >
                 {memberEvents.map((event) => (
                   <TimelineTaskBlock
@@ -319,6 +389,9 @@ export function TimelineGrid({
                     startDate={startDate}
                     daysShown={daysShown}
                     isSelected={isTaskSelected(event.id)}
+                    laneIndex={lanes.get(event.id) ?? 0}
+                    laneCount={laneCount}
+                    rowHeight={rowHeight}
                     onClick={handleEventClick}
                     onContextMenu={handleContextMenu}
                     onResize={handleResize}
@@ -332,12 +405,15 @@ export function TimelineGrid({
           {(() => {
             const unassignedEvents = grouped.get(UNASSIGNED_MEMBER.id) ?? [];
             if (unassignedEvents.length === 0) return null;
+            const { lanes, laneCount } = assignLanes(unassignedEvents);
+            const rowHeight = rowHeightForLanes(laneCount);
             return (
               <DroppableTimelineRow
                 teamMember={UNASSIGNED_MEMBER}
                 startDate={startDate}
                 daysShown={daysShown}
                 isLast
+                rowHeight={rowHeight}
               >
                 {unassignedEvents.map((event) => (
                   <TimelineTaskBlock
@@ -346,6 +422,9 @@ export function TimelineGrid({
                     startDate={startDate}
                     daysShown={daysShown}
                     isSelected={isTaskSelected(event.id)}
+                    laneIndex={lanes.get(event.id) ?? 0}
+                    laneCount={laneCount}
+                    rowHeight={rowHeight}
                     onClick={handleEventClick}
                     onContextMenu={handleContextMenu}
                     onResize={handleResize}
