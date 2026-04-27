@@ -35,6 +35,9 @@ beforeEach(() => {
   sgSend.mockResolvedValue([{ statusCode: 202 } as unknown, {}]);
   process.env.SENDGRID_API_KEY = "test-key";
   process.env.NEXT_PUBLIC_APP_URL = "https://app.opsapp.co";
+  // PR 2 — gatedSend builds a compliance unsubscribe URL on every send,
+  // which requires a 32+ char HMAC secret.
+  process.env.EMAIL_UNSUBSCRIBE_SECRET = "z".repeat(64);
 });
 
 function mockSuppressed(emails: string[]) {

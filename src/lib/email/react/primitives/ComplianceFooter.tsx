@@ -69,7 +69,7 @@ export function ComplianceFooter({
           color: T.color.inkTextMeta,
         }}
       >
-        // {nameLine}
+        {"// "}{nameLine}
       </Text>
       <Text
         style={{

@@ -84,7 +84,7 @@ function UnsubscribeInner() {
       >
         <header className="mb-8 flex items-center justify-between">
           <div className="font-mono text-[11px] uppercase tracking-[0.18em] text-[#8A8A8A]">
-            // OPS LTD.
+            {"// OPS LTD."}
           </div>
           <div className="font-mono text-[11px] uppercase tracking-[0.18em] text-[#6A6A6A]">
             [{dict.eyebrow}]
