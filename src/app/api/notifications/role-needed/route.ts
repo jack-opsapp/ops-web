@@ -1,21 +1,26 @@
 /**
  * POST /api/notifications/role-needed
  *
- * Creates in-app notifications, sends emails, and sends push notifications
- * to all company users with `team.assign_roles` permission when a new
- * team member joins without a pre-assigned role.
+ * Notifies company admins (users with team.assign_roles permission) when
+ * a new team member joins without a pre-assigned role. Delivers:
+ *   1. In-app notification rail entry (persistent) for each admin.
+ *   2. OneSignal push to each admin's registered mobile device.
+ *
+ * Email notification is intentionally excluded — it belongs to the email
+ * PR series and is not part of this push-hardening PR.
  *
  * Body: { userId, userName, companyId }
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
-import { sendRoleNeeded } from "@/lib/email/sendgrid";
+import { sendOneSignalPush } from "@/lib/notifications/onesignal";
 import { getAppUrl } from "@/lib/utils/app-url";
 
 export async function POST(req: NextRequest) {
   try {
     const { userId, userName, companyId } = await req.json();
+
     if (!userId || !userName || !companyId) {
       return NextResponse.json(
         { error: "Missing required fields: userId, userName, companyId" },
@@ -25,10 +30,10 @@ export async function POST(req: NextRequest) {
 
     const db = getServiceRoleClient();
 
-    // Get company info
+    // Company existence check
     const { data: company } = await db
       .from("companies")
-      .select("name, logo_url")
+      .select("name")
       .eq("id", companyId)
       .maybeSingle();
 
@@ -39,21 +44,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Find all role IDs that have team.assign_roles permission
+    // Find roles that carry team.assign_roles permission
     const { data: rolePerms } = await db
       .from("role_permissions")
       .select("role_id")
       .eq("permission", "team.assign_roles");
 
-    const roleIds = (rolePerms ?? []).map(
-      (rp) => rp.role_id as string
-    );
+    const roleIds = (rolePerms ?? []).map((rp) => rp.role_id as string);
 
     if (roleIds.length === 0) {
       return NextResponse.json({ success: true, notified: 0 });
     }
 
-    // Find users with those roles in this company
+    // Users holding those roles in this company
     const { data: userRoles } = await db
       .from("user_roles")
       .select("user_id")
@@ -67,10 +70,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, notified: 0 });
     }
 
-    // Get admin user details
+    // Fetch admin records — onesignal_player_id for push, id for rail
     const { data: admins } = await db
       .from("users")
-      .select("id, email, device_token")
+      .select("id, onesignal_player_id")
       .in("id", adminUserIds)
       .eq("company_id", companyId)
       .is("deleted_at", null);
@@ -82,82 +85,53 @@ export async function POST(req: NextRequest) {
     const appUrl = getAppUrl();
     const assignUrl = `${appUrl}/settings?tab=team`;
 
-    // 1. In-app notifications
+    // Push copy (ops-copywriter validated — direct, imperative, under 60 chars)
+    const firstName = userName.split(" ")[0] ?? userName;
+    const pushTitle = `${firstName} needs a role`;
+    const pushBody = "Tap to assign their role.";
+
+    // 1. In-app notification rail (persistent — stays until admin acts)
     const notificationRows = admins.map((admin) => ({
       user_id: admin.id,
       company_id: companyId,
       type: "role_needed",
-      title: `${userName} needs a role`,
-      body: `${userName} joined ${company.name} and needs a role assigned.`,
+      title: pushTitle,
+      body: `${userName} joined ${company.name as string} without a role.`,
       is_read: false,
+      persistent: true,
+      action_url: assignUrl,
+      action_label: "ASSIGN ROLE",
       metadata: JSON.stringify({ targetUserId: userId }),
     }));
 
     const { error: notifError } = await db
       .from("notifications")
       .insert(notificationRows);
+
     if (notifError) {
       console.error(
-        "[role-needed] Failed to create in-app notifications:",
+        "[role-needed] in-app notification insert failed:",
         notifError
       );
     }
 
-    // 2. Email notifications via the typed React Email sender. Each typed
-    // call routes through the GATE bucket (sender authentication aligned by
-    // the operator runbook in docs/email/sendgrid-senders-setup.md).
-    if (process.env.SENDGRID_API_KEY) {
-      const emailPromises = admins
-        .filter((a) => a.email)
-        .map((admin) =>
-          sendRoleNeeded({
-            email: admin.email as string,
-            userName,
-            companyName: company.name as string,
-            assignUrl,
-          })
-        );
+    // 2. OneSignal push — fan out to all admins with registered devices
+    const playerIds = admins
+      .map((a) => a.onesignal_player_id as string | null)
+      .filter((id): id is string => !!id);
 
-      await Promise.allSettled(emailPromises);
-    }
-
-    // 3. Push notifications (OneSignal)
-    const oneSignalAppId = process.env.ONESIGNAL_APP_ID;
-    const oneSignalApiKey = process.env.ONESIGNAL_REST_API_KEY;
-
-    if (oneSignalAppId && oneSignalApiKey) {
-      const deviceTokens = admins
-        .map((a) => a.device_token as string | null)
-        .filter((t): t is string => !!t);
-
-      if (deviceTokens.length > 0) {
-        try {
-          await fetch("https://onesignal.com/api/v1/notifications", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Basic ${oneSignalApiKey}`,
-            },
-            body: JSON.stringify({
-              app_id: oneSignalAppId,
-              include_player_ids: deviceTokens,
-              headings: { en: "New team member" },
-              contents: {
-                en: `${userName} joined and needs a role assigned.`,
-              },
-              data: {
-                type: "role_needed",
-                userId,
-                deepLink: `ops://settings/team?user=${userId}`,
-              },
-              ios_badgeType: "Increase",
-              ios_badgeCount: 1,
-            }),
-          });
-        } catch (pushErr) {
-          console.error("[role-needed] Push notification failed:", pushErr);
-        }
-      }
+    if (playerIds.length > 0) {
+      await sendOneSignalPush({
+        playerIds,
+        title: pushTitle,
+        body: pushBody,
+        data: {
+          type: "role_needed",
+          userId,
+          companyId,
+          deepLink: `ops://settings/team?user=${userId}`,
+        },
+      });
     }
 
     return NextResponse.json({ success: true, notified: admins.length });
