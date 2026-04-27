@@ -41,7 +41,7 @@ export const DELETE = withAdmin(async (req: NextRequest, ctx: RouteContext) => {
   const list = new URL(req.url).searchParams.get("list") ?? "global";
 
   const removed = await removeSuppression(email, list);
-  console.log(
+  console.warn(
     `[admin/email/suppressions] removed email=${email} list=${list} by=${adminUser.email} hadRow=${removed}`
   );
   return NextResponse.json({ removed });

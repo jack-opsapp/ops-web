@@ -168,7 +168,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Failed to persist events" }, { status: 500 });
   }
 
-  console.log(
+  console.warn(
     `[sendgrid-webhook] received=${events.length} stored=${count ?? rows.length} skipped=${skipped}`
   );
   return NextResponse.json({ received: events.length, stored: count ?? rows.length, skipped });
