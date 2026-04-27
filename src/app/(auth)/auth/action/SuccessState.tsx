@@ -12,7 +12,9 @@ interface SuccessStateProps {
   headline: string;
   subline: React.ReactNode;
   from: string;
-  extraCta?: { label: string; href: string };
+  extraCta?:
+    | { label: string; href: string }
+    | { label: string; onClick: () => void };
 }
 
 export function SuccessState({
@@ -99,16 +101,30 @@ export function SuccessState({
         </motion.a>
       ) : null}
       {extraCta ? (
-        <motion.a
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={t(0.28)}
-          href={extraCta.href}
-          className="block mt-3 font-mono uppercase text-text-3 hover:text-text-2 transition-colors"
-          style={{ fontSize: "11px", letterSpacing: "0.12em" }}
-        >
-          [{extraCta.label}]
-        </motion.a>
+        "onClick" in extraCta ? (
+          <motion.button
+            type="button"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={t(0.28)}
+            onClick={extraCta.onClick}
+            className="block w-full text-left mt-3 font-mono uppercase text-text-3 hover:text-text-2 transition-colors"
+            style={{ fontSize: "11px", letterSpacing: "0.12em" }}
+          >
+            [{extraCta.label}]
+          </motion.button>
+        ) : (
+          <motion.a
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={t(0.28)}
+            href={extraCta.href}
+            className="block mt-3 font-mono uppercase text-text-3 hover:text-text-2 transition-colors"
+            style={{ fontSize: "11px", letterSpacing: "0.12em" }}
+          >
+            [{extraCta.label}]
+          </motion.a>
+        )
       ) : null}
     </div>
   );
