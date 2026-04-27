@@ -8,16 +8,24 @@
  * and optional caption.
  */
 
-import { useState, useMemo } from "react";
-import { Camera } from "lucide-react";
+import { useState, useMemo, useRef, useCallback } from "react";
+import { Camera, Upload, Loader2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils/cn";
-import { useProjectPhotos } from "@/lib/hooks/use-project-photos";
+import {
+  useProjectPhotos,
+  useCreateProjectPhoto,
+} from "@/lib/hooks/use-project-photos";
 import { useTeamMembers } from "@/lib/hooks/use-users";
+import { useAuthStore } from "@/lib/store/auth-store";
+import { CompanyService } from "@/lib/api/services/company-service";
 import { getUserFullName } from "@/lib/types/models";
 import { useDictionary, useLocale } from "@/i18n/client";
 import { UserAvatar } from "@/components/ops/user-avatar";
 import { EmptyState } from "@/components/ops/empty-state";
+import { Button } from "@/components/ui/button";
+import { PermissionGate } from "@/components/ops/permission-gate";
 import {
   Select,
   SelectContent,
@@ -113,8 +121,108 @@ export function PhotoFeed({ projectId, className }: PhotoFeedProps) {
   const { t } = useDictionary("projects");
   useLocale(); // i18n context — triggers re-render on locale change
 
+  const { company, currentUser } = useAuthStore();
+  const companyId = company?.id ?? "";
+  const userId = currentUser?.id ?? "";
+  const createPhoto = useCreateProjectPhoto();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [uploading, setUploading] = useState(false);
+
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
   const [searchQuery, setSearchQuery] = useState("");
+
+  const handleUploadClick = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  const handleFilesSelected = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const files = Array.from(e.target.files ?? []);
+      // Reset the input so re-uploading the same filename re-fires onChange.
+      e.target.value = "";
+      if (files.length === 0 || !projectId || !userId || !companyId) return;
+
+      setUploading(true);
+      let successCount = 0;
+      let failCount = 0;
+
+      for (const file of files) {
+        try {
+          const { uploadUrl, publicUrl } =
+            await CompanyService.getPresignedUrlProject(
+              companyId,
+              projectId,
+              file.name,
+              file.type || "image/jpeg"
+            );
+          const putRes = await fetch(uploadUrl, {
+            method: "PUT",
+            body: file,
+            headers: { "Content-Type": file.type || "image/jpeg" },
+          });
+          if (!putRes.ok) throw new Error(`S3 PUT ${putRes.status}`);
+
+          await createPhoto.mutateAsync({
+            projectId,
+            companyId,
+            url: publicUrl,
+            source: "in_progress",
+            uploadedBy: userId,
+            takenAt: new Date(file.lastModified || Date.now()),
+            caption: null,
+          });
+          successCount += 1;
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.error("[PhotoFeed] upload failed", file.name, err);
+          failCount += 1;
+        }
+      }
+
+      setUploading(false);
+      if (successCount > 0) {
+        toast.success(
+          `${successCount} photo${successCount === 1 ? "" : "s"} uploaded`
+        );
+      }
+      if (failCount > 0) {
+        toast.error(
+          `${failCount} photo${failCount === 1 ? "" : "s"} failed to upload`
+        );
+      }
+    },
+    [companyId, createPhoto, projectId, userId]
+  );
+
+  const uploadButton = (
+    <PermissionGate permission="photos.upload">
+      <Button
+        size="sm"
+        variant="secondary"
+        className="gap-[6px]"
+        onClick={handleUploadClick}
+        disabled={uploading}
+      >
+        {uploading ? (
+          <Loader2 className="w-[14px] h-[14px] animate-spin" />
+        ) : (
+          <Upload className="w-[14px] h-[14px]" />
+        )}
+        {uploading ? "Uploading…" : "Upload Photos"}
+      </Button>
+    </PermissionGate>
+  );
+
+  const hiddenFileInput = (
+    <input
+      ref={fileInputRef}
+      type="file"
+      accept="image/*"
+      multiple
+      hidden
+      onChange={handleFilesSelected}
+    />
+  );
 
   // Build a lookup map: userId → User
   const userMap = useMemo(() => {
@@ -168,11 +276,13 @@ export function PhotoFeed({ projectId, className }: PhotoFeedProps) {
   if (!photos || photos.length === 0) {
     return (
       <div className={cn(className)}>
+        {hiddenFileInput}
         <EmptyState
           icon={<Camera className="h-4 w-4" />}
           title={t("photoFeed.noPhotos")}
           description={t("photoFeed.noPhotosDesc")}
         />
+        <div className="mt-2 pl-3">{uploadButton}</div>
       </div>
     );
   }
@@ -181,8 +291,10 @@ export function PhotoFeed({ projectId, className }: PhotoFeedProps) {
 
   return (
     <div className={cn(className)}>
-      {/* Toolbar: sort + search */}
-      <div className="flex items-center justify-between mb-4">
+      {hiddenFileInput}
+
+      {/* Toolbar: sort + search + upload */}
+      <div className="flex items-center justify-between mb-4 gap-2">
         <Select
           value={sortOrder}
           onValueChange={(v) => setSortOrder(v as "newest" | "oldest")}
@@ -200,13 +312,16 @@ export function PhotoFeed({ projectId, className }: PhotoFeedProps) {
           </SelectContent>
         </Select>
 
-        <input
-          type="text"
-          placeholder={t("photoFeed.searchPlaceholder")}
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="font-mohave text-body-sm bg-glass glass-surface border border-border rounded-panel px-3 py-1.5 text-text placeholder:text-text-mute w-[200px] outline-none focus:border-[rgba(255,255,255,0.3)]"
-        />
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            placeholder={t("photoFeed.searchPlaceholder")}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="font-mohave text-body-sm bg-glass glass-surface border border-border rounded-panel px-3 py-1.5 text-text placeholder:text-text-mute w-[200px] outline-none focus:border-[rgba(255,255,255,0.3)]"
+          />
+          {uploadButton}
+        </div>
       </div>
 
       {/* Photo cards */}
