@@ -45,6 +45,15 @@ export const metadata: Metadata = {
     title: { default: "OPS", template: "%s | OPS" },
     description: "Operations software for trades.",
   },
+  // Smart App Banner — iOS Safari shows an "OPEN" / "VIEW" banner at the top
+  // of the page when a visitor has (or lacks) the OPS app installed. Critical
+  // for shared project links received by users who don't yet have the app —
+  // without this, they land on the web dashboard with no install affordance.
+  // The app-argument passes the current URL to the app on launch, mirroring
+  // the Universal Link payload.
+  other: {
+    "apple-itunes-app": "app-id=6746662078",
+  },
 };
 
 export const viewport: Viewport = {
