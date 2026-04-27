@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=1920,initial-scale=1"/>
+<title>OPS · Notifications Rail — Explorations</title>
+<link rel="stylesheet" href="colors_and_type.css"/>
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  html, body, #root { height: 100%; margin: 0; }
+  body { background: #f0eee9; }
+  .hide-scrollbar { scrollbar-width: none; }
+  .hide-scrollbar::-webkit-scrollbar { display: none; }
+  /* Lucide icons inside react */
+  [data-lucide] { display: inline-block; stroke: currentColor; fill: none; stroke-linecap: square; stroke-linejoin: miter; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="data.js"></script>
+<script type="text/babel" src="shell.jsx"></script>
+<script type="text/babel" src="rail-feed.jsx"></script>
+<script type="text/babel" src="rail-telemetry.jsx"></script>
+<script type="text/babel" src="rail-triage.jsx"></script>
+<script type="text/babel" src="notif-tab.jsx"></script>
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+
+<script type="text/babel">
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "notifCount": 14,
+  "compactFeed": false,
+  "railOpen": true
+}/*EDITMODE-END*/;
+
+function App() {
+  const [tweaks, setTweaks] = useTweaks ? useTweaks(TWEAK_DEFAULTS) : [TWEAK_DEFAULTS, () => {}];
+  const [dismissed, setDismissed] = React.useState(new Set());
+  const [openRails, setOpenRails] = React.useState({ feed: true, telemetry: true, triage: true });
+
+  React.useEffect(() => {
+    setOpenRails({ feed: tweaks.railOpen, telemetry: tweaks.railOpen, triage: tweaks.railOpen });
+  }, [tweaks.railOpen]);
+
+  const count = tweaks.notifCount;
+  const allNotifs = React.useMemo(() => buildNotifs(count), [count]);
+  const notifs = allNotifs.filter(n => !dismissed.has(n.id));
+
+  // Highest-tone outstanding notif drives the tab badge color
+  const toneRank = { critical: 3, attn: 2, info: 1, ambient: 0 };
+  const topTone = notifs.reduce((best, n) => {
+    const t = (window.NOTIF_TYPES[n.type] || {}).tone || "info";
+    return toneRank[t] > toneRank[best] ? t : best;
+  }, "ambient");
+  const badgeTone = topTone === "critical" ? "critical" : topTone === "attn" ? "attn" : null;
+
+  const handleDismiss = (id) => {
+    setDismissed(prev => { const next = new Set(prev); next.add(id); return next; });
+  };
+
+  // Re-render lucide icons after every render pass
+  React.useEffect(() => {
+    if (window.lucide) window.lucide.createIcons();
+  });
+
+  return (
+    <>
+      <DesignCanvas initialZoom={0.7}>
+        <DCSection id="rails" title="Notifications Rail — 3 directions" subtitle="Vertical right-edge rails, each embodying a different theory of the notification problem. All OPS design system.">
+          <DCArtboard id="feed" label="01 · FEED — refined inbox" width={1600} height={1100}>
+            <Shell title="DASHBOARD">
+              <RailFeed notifs={notifs} compact={tweaks.compactFeed} onDismiss={handleDismiss} open={openRails.feed} />
+              <NotifTab open={openRails.feed} onToggle={() => setOpenRails(s => ({...s, feed: !s.feed}))} count={notifs.length} unreadTone={badgeTone} panelHeight={1012} />
+            </Shell>
+          </DCArtboard>
+
+          <DCArtboard id="telemetry" label="02 · TELEMETRY — live comms stream" width={1600} height={1100}>
+            <Shell title="DASHBOARD">
+              <RailTelemetry notifs={notifs} onDismiss={handleDismiss} open={openRails.telemetry} />
+              <NotifTab open={openRails.telemetry} onToggle={() => setOpenRails(s => ({...s, telemetry: !s.telemetry}))} count={notifs.length} unreadTone={badgeTone} railWidth={380} fill="rgba(6,6,8,0.82)" panelHeight={1012} />
+            </Shell>
+          </DCArtboard>
+
+          <DCArtboard id="triage" label="03 · TRIAGE — priority-bucketed" width={1600} height={1100}>
+            <Shell title="DASHBOARD">
+              <RailTriage notifs={notifs} onDismiss={handleDismiss} open={openRails.triage} />
+              <NotifTab open={openRails.triage} onToggle={() => setOpenRails(s => ({...s, triage: !s.triage}))} count={notifs.length} unreadTone={badgeTone} panelHeight={1012} />
+            </Shell>
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="isolated" title="Component states — isolated" subtitle="Same three rails, no surrounding chrome, for close inspection.">
+          <DCArtboard id="feed-iso" label="01 · FEED isolated" width={440} height={900}>
+            <div style={{ position: "relative", width: "100%", height: "100%", background: "#000" }}>
+              <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 30%, rgba(111,148,176,0.08), transparent 60%)" }}/>
+              <div style={{ position: "absolute", top: 24, right: 24, bottom: 24, left: 24 }}>
+                <div style={{ position: "relative", width: "100%", height: "100%" }}>
+                  <RailFeedStatic notifs={notifs.slice(0,8)} compact={tweaks.compactFeed} onDismiss={handleDismiss} />
+                </div>
+              </div>
+            </div>
+          </DCArtboard>
+
+          <DCArtboard id="telem-iso" label="02 · TELEMETRY isolated" width={440} height={900}>
+            <div style={{ position: "relative", width: "100%", height: "100%", background: "#000" }}>
+              <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 30%, rgba(111,148,176,0.08), transparent 60%)" }}/>
+              <div style={{ position: "absolute", top: 24, right: 24, bottom: 24, left: 24 }}>
+                <div style={{ position: "relative", width: "100%", height: "100%" }}>
+                  <RailTelemetryStatic notifs={notifs.slice(0,12)} onDismiss={handleDismiss} />
+                </div>
+              </div>
+            </div>
+          </DCArtboard>
+
+          <DCArtboard id="triage-iso" label="03 · TRIAGE isolated" width={440} height={900}>
+            <div style={{ position: "relative", width: "100%", height: "100%", background: "#000" }}>
+              <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 30%, rgba(111,148,176,0.08), transparent 60%)" }}/>
+              <div style={{ position: "absolute", top: 24, right: 24, bottom: 24, left: 24 }}>
+                <div style={{ position: "relative", width: "100%", height: "100%" }}>
+                  <RailTriageStatic notifs={notifs} onDismiss={handleDismiss} />
+                </div>
+              </div>
+            </div>
+          </DCArtboard>
+        </DCSection>
+      </DesignCanvas>
+
+      <TweaksPanel title="Tweaks">
+        <TweakSection title="Rail">
+          <TweakToggle label="Open" value={tweaks.railOpen}
+            onChange={v => setTweaks({ railOpen: v })} />
+        </TweakSection>
+        <TweakSection title="Load">
+          <TweakSlider label="Notification count" value={tweaks.notifCount} min={0} max={40} step={1}
+            onChange={v => setTweaks({ notifCount: v })} />
+        </TweakSection>
+        <TweakSection title="Feed density">
+          <TweakToggle label="Compact (hide body)" value={tweaks.compactFeed}
+            onChange={v => setTweaks({ compactFeed: v })} />
+        </TweakSection>
+      </TweaksPanel>
+    </>
+  );
+}
+
+// Static wrappers that reposition the rail to fill the isolated artboard
+function RailFeedStatic(props) {
+  return (
+    <div style={{ position: "absolute", inset: 0 }}>
+      <RailFeedInner {...props} />
+    </div>
+  );
+}
+function RailTelemetryStatic(props) {
+  return (
+    <div style={{ position: "absolute", inset: 0 }}>
+      <RailTelemetryInner {...props} />
+    </div>
+  );
+}
+function RailTriageStatic(props) {
+  return (
+    <div style={{ position: "absolute", inset: 0 }}>
+      <RailTriageInner {...props} />
+    </div>
+  );
+}
+
+// Override the absolute-positioned rails to fill their container instead
+function RailFeedInner(props) {
+  // RailFeed uses absolute top:72/right:16 etc. For iso view, wrap.
+  return (
+    <div style={{ position: "relative", width: "100%", height: "100%" }}>
+      <style>{`.iso-feed > div { top: 0 !important; right: 0 !important; bottom: 0 !important; width: 100% !important; }`}</style>
+      <div className="iso-feed" style={{ position: "absolute", inset: 0 }}>
+        <RailFeed {...props} />
+      </div>
+    </div>
+  );
+}
+function RailTelemetryInner(props) {
+  return (
+    <div style={{ position: "relative", width: "100%", height: "100%" }}>
+      <style>{`.iso-telem > div { top: 0 !important; right: 0 !important; bottom: 0 !important; width: 100% !important; }`}</style>
+      <div className="iso-telem" style={{ position: "absolute", inset: 0 }}>
+        <RailTelemetry {...props} />
+      </div>
+    </div>
+  );
+}
+function RailTriageInner(props) {
+  return (
+    <div style={{ position: "relative", width: "100%", height: "100%" }}>
+      <style>{`.iso-triage > div { top: 0 !important; right: 0 !important; bottom: 0 !important; width: 100% !important; }`}</style>
+      <div className="iso-triage" style={{ position: "absolute", inset: 0 }}>
+        <RailTriage {...props} />
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+
+<template id="__bundler_thumbnail">
+  <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+    <rect width="120" height="120" fill="#000"/>
+    <rect x="80" y="24" width="24" height="72" rx="2" fill="none" stroke="#EDEDED" stroke-width="1.5"/>
+    <rect x="84" y="32" width="16" height="4" fill="#C4A868"/>
+    <rect x="84" y="42" width="16" height="4" fill="#B58289"/>
+    <rect x="84" y="52" width="16" height="4" fill="#EDEDED" opacity=".5"/>
+    <rect x="84" y="62" width="16" height="4" fill="#EDEDED" opacity=".35"/>
+    <rect x="84" y="72" width="16" height="4" fill="#EDEDED" opacity=".25"/>
+    <text x="16" y="64" fill="#EDEDED" font-family="monospace" font-size="10" letter-spacing="2">//NOTIF</text>
+  </svg>
+</template>
+</body>
+</html>

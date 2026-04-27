@@ -1,0 +1,34 @@
+{
+  "__": "TODO: ES translation pass — currently mirrors EN for consistent keys",
+  "tab.wordmarkClosed": "NOTIFICATIONS",
+  "tab.wordmarkOpen": "CLOSE",
+  "tab.ariaLabel": "Toggle notifications drawer",
+  "tab.tooltipTitle": "Notifications",
+  "tab.shortcut": "N",
+
+  "drawer.ariaLabel": "Notifications",
+  "drawer.title": "NOTIFICATIONS",
+  "drawer.muteAllAriaLabel": "Mute all notifications",
+  "drawer.clearAllAriaLabel": "Clear all dismissable notifications",
+
+  "filters.ariaLabel": "Filter notifications by tone",
+  "filters.all": "ALL",
+  "filters.critical": "CRITICAL",
+  "filters.attn": "ATTENTION",
+  "filters.ambient": "AMBIENT",
+
+  "list.eofMarker": "[ EOF ]",
+
+  "empty.allClear": "// NO NOTIFICATIONS",
+  "empty.noneInBucket": "// NONE IN {bucket}",
+  "empty.error": "// SYS :: SYNC ERROR",
+  "empty.retry": "RETRY",
+
+  "row.snooze": "SNOOZE",
+  "row.snoozeTooltipComingSoon": "Snooze coming soon",
+  "row.dismiss": "DISMISS",
+  "row.dismissAriaLabel": "Dismiss notification",
+
+  "footer.lastSync": "LAST SYNC {time}",
+  "footer.viewAll": "VIEW ALL →"
+}

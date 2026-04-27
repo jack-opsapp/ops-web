@@ -10,9 +10,11 @@ import { FloatingWindow } from "@/components/ops/floating-window";
 import { PreferencesApplier } from "@/components/ops/preferences-applier";
 import { OpsLockup } from "@/components/brand";
 import { WindowDock } from "@/components/ops/window-dock";
-import { FloatingActionButton } from "@/components/ops/floating-action-button";
 import { BugReportButton } from "@/components/ops/bug-report-button";
-import { NotificationModal } from "@/components/layouts/notification-modal";
+import { NotificationsDrawer } from "@/components/layouts/notifications-drawer";
+import { NotificationsTab } from "@/components/layouts/notifications-tab";
+import { QuickActionsDrawer } from "@/components/layouts/quick-actions-drawer";
+import { QuickActionsTab } from "@/components/layouts/quick-actions-tab";
 import { DuplicateReviewSheet } from "@/components/ops/duplicate-review-sheet";
 import { useActionPrompts } from "@/hooks/useActionPrompts";
 import { useWindowStore } from "@/stores/window-store";
@@ -241,9 +243,11 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       <CommandPalette />
       <KeyboardShortcuts />
       <FloatingWindows />
-      <FloatingActionButton />
       <BugReportButton />
-      <NotificationModal />
+      <NotificationsDrawer />
+      <NotificationsTab />
+      <QuickActionsDrawer />
+      <QuickActionsTab />
       <DuplicateReviewSheet />
       <WindowDock />
 

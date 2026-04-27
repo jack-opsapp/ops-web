@@ -1,0 +1,4 @@
+{"type":"server-started","port":52933,"host":"127.0.0.1","url_host":"localhost","url":"http://localhost:52933","screen_dir":"/Users/jacksonsweet/Projects/OPS/OPS-Web/.superpowers/brainstorm/61127-1777012816/content","state_dir":"/Users/jacksonsweet/Projects/OPS/OPS-Web/.superpowers/brainstorm/61127-1777012816/state"}
+{"type":"screen-added","file":"/Users/jacksonsweet/Projects/OPS/OPS-Web/.superpowers/brainstorm/61127-1777012816/content/02-notifications-rail-designs.html"}
+{"type":"screen-added","file":"/Users/jacksonsweet/Projects/OPS/OPS-Web/.superpowers/brainstorm/61127-1777012816/content/03-notifications-rail-inline.html"}
+{"type":"server-stopped","reason":"idle timeout"}

@@ -1,0 +1,256 @@
+<style>
+  /* OPS wireframe palette — mimics the app, scaled down */
+  .ops-wire {
+    background: #000;
+    width: 100%;
+    aspect-ratio: 16/10;
+    position: relative;
+    overflow: hidden;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+  }
+  .ops-wire .sidebar {
+    position: absolute; left: 0; top: 0; bottom: 0; width: 8%;
+    background: rgba(18,18,20,0.70);
+    border-right: 1px solid rgba(255,255,255,0.08);
+  }
+  .ops-wire .topbar {
+    position: absolute; left: 8%; right: 0; top: 0; height: 9%;
+    background: rgba(18,18,20,0.70);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    display: flex; align-items: center; padding: 0 10px;
+    gap: 6px;
+  }
+  .ops-wire .topbar .title {
+    font-size: 8px; color: #EDEDED; text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .ops-wire .topbar .spacer { flex: 1; }
+  .ops-wire .topbar .search {
+    width: 40%; height: 55%;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 2px;
+  }
+  .ops-wire .canvas {
+    position: absolute; left: 8%; right: 0; top: 9%; bottom: 0;
+    padding: 8px;
+  }
+  .ops-wire .widget {
+    background: rgba(18,18,20,0.58);
+    border: 1px solid rgba(255,255,255,0.09);
+    border-radius: 4px;
+    height: 30%; margin-bottom: 5px;
+  }
+  .ops-wire .widget.wide { width: 65%; }
+
+  /* A — Rich ambient strip */
+  .wire-a .strip {
+    position: absolute; right: 0; top: 9%; bottom: 0; width: 22%;
+    padding: 6px 4px;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .wire-a .strip .notif {
+    background: rgba(18,18,20,0.78);
+    border: 1px solid rgba(255,255,255,0.09);
+    border-left: 2px solid rgba(255,255,255,0.30);
+    border-radius: 2px;
+    padding: 4px 5px;
+    font-size: 6px;
+    color: #EDEDED;
+    line-height: 1.2;
+  }
+  .wire-a .strip .notif.standard {
+    border-left-color: rgba(255,255,255,0.08);
+    border-left-width: 1px;
+  }
+  .wire-a .strip .notif .t { color: #EDEDED; display: block; }
+  .wire-a .strip .notif .b { color: #8A8A8A; font-size: 5px; }
+
+  /* B — Minimal marks */
+  .wire-b .strip {
+    position: absolute; right: 4px; top: 12%; bottom: 8%; width: 4%;
+    display: flex; flex-direction: column; gap: 4px; align-items: flex-end;
+  }
+  .wire-b .strip .mark {
+    width: 2px; height: 12px;
+    background: rgba(255,255,255,0.20);
+    border-radius: 1px;
+  }
+  .wire-b .strip .mark.persistent {
+    background: rgba(255,255,255,0.60);
+    width: 3px;
+  }
+  .wire-b .strip .count {
+    position: absolute; bottom: -18px; right: 0;
+    color: #8A8A8A; font-size: 7px;
+    font-family: "JetBrains Mono", monospace;
+  }
+
+  /* C — Summoned */
+  .wire-c .bell {
+    position: absolute; right: 8px; top: 3%;
+    width: 10px; height: 10px;
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 2px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .wire-c .bell::after {
+    content: "3"; font-size: 6px; color: #EDEDED;
+    font-family: "JetBrains Mono", monospace;
+  }
+
+  /* D — Hybrid */
+  .wire-d .badge {
+    position: absolute; right: 8px; top: 3%;
+    display: flex; align-items: center; gap: 3px;
+  }
+  .wire-d .badge .pill {
+    padding: 1px 4px;
+    border: 1px solid rgba(111,148,176,0.35);
+    background: rgba(111,148,176,0.08);
+    border-radius: 2px;
+    font-size: 6px;
+    color: #6F94B0;
+    font-family: "JetBrains Mono", monospace;
+  }
+  .wire-d .badge .label {
+    font-size: 5px; color: #8A8A8A;
+    text-transform: uppercase; letter-spacing: 0.05em;
+  }
+
+  .card-body h3 { font-family: system-ui; }
+  .card-body .tiny {
+    font-size: 0.7rem; color: var(--text-tertiary);
+    margin-top: 0.5rem; font-style: italic;
+  }
+
+  /* Override card-image padding so wires fill */
+  .card-image { padding: 0; background: #000 !important; aspect-ratio: 16/10; }
+</style>
+
+<h2>Notification system — pick the mental model</h2>
+<p class="subtitle">The horizontal topbar rail is out. But what replaces it? This is the first — and most cascading — decision. It shapes placement, density, motion, and every interaction below.</p>
+
+<div class="cards">
+
+  <!-- A — Rich ambient strip -->
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="ops-wire wire-a">
+        <div class="sidebar"></div>
+        <div class="topbar">
+          <div class="title">DASHBOARD</div>
+          <div class="spacer"></div>
+          <div class="search"></div>
+        </div>
+        <div class="canvas">
+          <div class="widget wide"></div>
+          <div class="widget wide"></div>
+          <div class="widget wide"></div>
+        </div>
+        <div class="strip">
+          <div class="notif"><span class="t">Email scan running</span><span class="b">12 leads found</span></div>
+          <div class="notif standard"><span class="t">Roof inspection done</span><span class="b">View project</span></div>
+          <div class="notif standard"><span class="t">Expense approved</span><span class="b">$480 · L. Ortiz</span></div>
+          <div class="notif standard"><span class="t">Duplicate found</span><span class="b">Review 2 matches</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Rich ambient strip</h3>
+      <p>Vertical column docked to the right edge, always visible. Each notification shows title + body + action. Scrolls to handle unlimited count.</p>
+      <div class="tiny">You see everything, all the time. Field-visible. Canvas loses ~22% width.</div>
+    </div>
+  </div>
+
+  <!-- B — Minimal marks -->
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="ops-wire wire-b">
+        <div class="sidebar"></div>
+        <div class="topbar">
+          <div class="title">DASHBOARD</div>
+          <div class="spacer"></div>
+          <div class="search"></div>
+        </div>
+        <div class="canvas">
+          <div class="widget wide"></div>
+          <div class="widget wide"></div>
+          <div class="widget wide"></div>
+        </div>
+        <div class="strip">
+          <div class="mark persistent"></div>
+          <div class="mark"></div>
+          <div class="mark"></div>
+          <div class="mark"></div>
+          <div class="mark"></div>
+          <div class="mark"></div>
+          <div class="count">+3</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Minimal marks, expand on demand</h3>
+      <p>Thin vertical strip of tactical marks on the right edge. Hover reveals titles; click opens the full card inline. Persistent items are brighter/thicker.</p>
+      <div class="tiny">Ambient awareness without chrome. Costs almost no canvas. Requires one action to read detail.</div>
+    </div>
+  </div>
+
+  <!-- C — Summoned drawer -->
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="ops-wire wire-c">
+        <div class="sidebar"></div>
+        <div class="topbar">
+          <div class="title">DASHBOARD</div>
+          <div class="spacer"></div>
+          <div class="search"></div>
+        </div>
+        <div class="canvas">
+          <div class="widget wide"></div>
+          <div class="widget wide"></div>
+          <div class="widget wide"></div>
+        </div>
+        <div class="bell"></div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Summoned drawer</h3>
+      <p>No ambient presence. Small bell/count icon in the topbar corner + keyboard shortcut (e.g. `N`) opens a right-side drawer overlaying the canvas.</p>
+      <div class="tiny">Full canvas when not needed. Zero ambient awareness — you have to look to know.</div>
+    </div>
+  </div>
+
+  <!-- D — Hybrid -->
+  <div class="card" data-choice="d" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="ops-wire wire-d">
+        <div class="sidebar"></div>
+        <div class="topbar">
+          <div class="title">DASHBOARD</div>
+          <div class="spacer"></div>
+          <div class="search"></div>
+        </div>
+        <div class="canvas">
+          <div class="widget wide"></div>
+          <div class="widget wide"></div>
+          <div class="widget wide"></div>
+        </div>
+        <div class="badge">
+          <div class="pill">3</div>
+          <div class="label">UNREAD</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>D — Hybrid: ambient count + summoned drawer</h3>
+      <p>A minimal persistent count (e.g. "3 UNREAD") lives in the topbar. Click it or press `N` to open a right-side drawer with the full list.</p>
+      <div class="tiny">Signal without noise. One piece of state ambient, detail on demand.</div>
+    </div>
+  </div>
+
+</div>
+
+<p class="subtitle" style="margin-top: 2rem; font-size: 0.85rem;">
+  Pick one to anchor the design. We'll iterate on density, motion, and interaction after this foundation is set.
+</p>

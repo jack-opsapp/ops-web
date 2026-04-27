@@ -12,19 +12,6 @@
   "search.shortcut": "⌘K",
   "search.ariaLabel": "Abrir búsqueda",
 
-  "notifications.title": "Notificaciones",
-  "notifications.ariaLabel": "Notificaciones",
-  "notifications.viewAll": "Ver todo",
-  "notifications.dismissAll": "Descartar todo",
-  "notifications.empty": "Sin notificaciones nuevas",
-  "notifications.emptyHint": "Estás al día.",
-  "notifications.today": "Hoy",
-  "notifications.yesterday": "Ayer",
-  "notifications.earlier": "Anteriores",
-  "notifications.count": "{count}",
-  "notifications.overflow": "+{count}",
-  "notifications.clickToExpand": "Clic para expandir",
-
   "menu.ariaLabel": "Abrir menú",
 
   "undo.ariaLabel": "Deshacer última acción",

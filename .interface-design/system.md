@@ -330,6 +330,127 @@ Earth-tone tags ONLY when the color carries semantic meaning. Default is neutral
 
 ---
 
+## Right-Edge Action Tabs
+
+The right edge of the canvas houses a stack of tactical action tabs — slim 28px vertical tabs flush against `right: 0`, each pairing with its own drawer. The current instances are **Notifications** (`N`) and **Quick Actions** (`Q`). Both render through the shared `<EdgeTab>` primitive at `src/components/ui/edge-tab.tsx`.
+
+### Anatomy
+
+| Element | Spec |
+|---------|------|
+| Tab width | `28px` always |
+| Tab rest height | Per instance — Notifications `180px`, Quick Actions `132px` |
+| Tab expanded height (hover or open) | Matches paired drawer height (animates `top` + `height` simultaneously, never `bottom`/`transform`) |
+| Background | `var(--glass)` |
+| Backdrop | `blur(28px) saturate(1.3)` |
+| Border | `1px solid var(--glass-border)`, `border-right: none` |
+| Radius | `4px` top-left + bottom-left only (flat against edge) |
+| Accent stripe | `2px` left edge, full height. Color reflects state per instance — see Accent Tones below |
+| Glyph | Centered. Closed state `rotate(-90deg)` (lays sideways with vertical wordmark), open state `rotate(45deg)` (`+` becomes `×`). 220ms `EASE_SMOOTH` |
+| Wordmark | `font-mono` 9px, `letter-spacing: 0.18em`, vertical (`writing-mode: vertical-rl; transform: rotate(180deg)`), uppercase, `text-2` |
+| Count badge | Closed only. `font-mono` 11px tabular-nums, vertical orientation matching wordmark |
+| Hover tooltip | Closed only. `glass-dense` chip with title (`font-mohave` 13) + `KeyHint` shortcut, fades in to the left of the tab |
+
+### Accent Tones
+
+The left accent stripe is **always painted** — never empty. Color derives from instance semantics:
+
+| Instance | At rest | Has critical | Has attention |
+|---|---|---|---|
+| Notifications | `--ops-accent` (steel blue) | `--rose` | `--tan` |
+| Quick Actions | `--ops-accent` (steel blue, always — actions have no severity tone) | — | — |
+
+### Stacking on the Right Edge
+
+When two or more tabs share the right rail, they stack vertically centered on the viewport mid. The math is precomputed via `stackOffset`:
+
+```
+combined_height = tab1.restHeight + gap + tab2.restHeight  (gap = 8px)
+midpoint = combined_height / 2
+tab1.stackOffset = -(midpoint - tab1.restHeight/2)   // negative = above center
+tab2.stackOffset = +(midpoint - tab2.restHeight/2)   // positive = below center
+```
+
+For Notifications (180) + Quick Actions (132): `STACK_OFFSET_NOTIF = -94`, `STACK_OFFSET_QA = +94`. When a tab expands (hover or open), `top` and `height` interpolate smoothly to fill the paired drawer's footprint — `top` becomes `0` and `height` becomes `100%` of the rail anchor.
+
+### Drawer Pairing
+
+Each tab pairs with **one** drawer. Two drawers cannot be open simultaneously — `useEdgeTabStore` enforces single-slot mutual exclusion via `activeTab: string | null`. Opening Quick Actions atomically closes Notifications and vice versa.
+
+| Drawer style | Use when | Notifications | Quick Actions |
+|---|---|---|---|
+| **Full-rail** | Content needs vertical room (lists, filtering, scroll) | ✓ `top: 72; bottom: 16` | — |
+| **Panel-anchored** | Content is finite and static (action menus, settings) | — | ✓ 308×452, anchored to tab vertical center via `stackOffset` math |
+
+### Drawer Surface
+
+| Property | Full-rail (Notif) | Panel (Quick Actions) |
+|---|---|---|
+| Width | `min(360px, calc(100vw - 36px))` | `308px` |
+| Height | `calc(100vh - 88px)` (full rail) | `452px` (panel) |
+| Background | `var(--glass)` (0.58 alpha) | `rgba(32, 34, 38, 0.92)` (denser, slightly lighter tone — content is action-list dense, needs higher legibility) |
+| Border | `1px solid var(--glass-border)` (0.09) | `1px solid rgba(255,255,255,0.18)` (denser to match denser fill) |
+| Border-right | `none` | `none` |
+| Border-radius | `0` (flat against edge) | `0` (flat against edge) |
+| Top-edge highlight | `linear-gradient(180deg, rgba(255,255,255,0.04), transparent 40%)` | Same — both drawers carry the lit-from-above spec v2 highlight |
+| z-index | `1500` (floating-ui) | `1500` |
+
+### Open Animation
+
+Both drawer styles slide in from the right edge over `260ms EASE_SMOOTH`:
+
+```ts
+hidden:  { x: width, opacity: 0 }
+visible: { x: 0, opacity: 1, transition: { duration: 0.26, ease: EASE_SMOOTH } }
+exit:    { x: width, opacity: 0, transition: { duration: 0.22, ease: EASE_SMOOTH } }
+```
+
+The tab simultaneously translates left by `drawerWidth` (CSS `right` transition, same 260ms / `EASE_SMOOTH`), so the tab remains stuck to the drawer's leading edge throughout.
+
+### Customize Affordance
+
+Long-press edit modes are **forbidden** on edge-tab drawers. Customize must be a persistent footer affordance:
+
+```
+[CUSTOMIZE →]   bottom-right of drawer, font-mono 10px, letter-spacing 0.14em, text-3
+```
+
+Clicking routes to the relevant settings tab (`/settings?tab=quick-actions` for Quick Actions). The drawer closes on navigation.
+
+### Keyboard Shortcuts
+
+Single-letter, no modifier, registered globally with input/textarea/contenteditable guards. Toggles open/close.
+
+| Tab | Shortcut |
+|---|---|
+| Notifications | `N` |
+| Quick Actions | `Q` |
+
+`Escape` closes the active drawer. Both shortcuts mount via document keydown listener and check:
+
+```ts
+if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+const tag = (e.target as HTMLElement)?.tagName;
+if (tag === "INPUT" || tag === "TEXTAREA") return;
+if ((e.target as HTMLElement)?.isContentEditable) return;
+```
+
+### Hide Conditions
+
+Edge tabs hide when the canvas is in immersive/full-bleed mode:
+
+- `pathname === "/intel"` (full-bleed map canvas)
+- Dashboard customize mode active
+- A wizard or duplicate-review sheet is open
+
+When hidden, the corresponding `<EdgeTab>` returns `null` — the entire tab is removed from the DOM, not just hidden via opacity.
+
+### Reduced Motion
+
+Both tabs and drawers must provide `useReducedMotion()` fallbacks: opacity-only transitions at `150ms`. Glyph rotation and slide motion are suppressed.
+
+---
+
 ## Tactical Character
 
 These elements give OPS its identity — the feel of a command center, not a generic SaaS dashboard.

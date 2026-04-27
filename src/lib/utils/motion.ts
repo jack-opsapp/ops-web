@@ -179,68 +179,6 @@ export const calendarEventVariantsReduced: Variants = {
   visible: { opacity: 1, transition: { duration: 0.1 } },
 };
 
-// ── Notification rail animations ──
-
-/** Notification pill enter/exit — width animates for smooth gap filling */
-export const notifPillVariants: Variants = {
-  hidden: { opacity: 0, scale: 0.6, width: 0 },
-  visible: { opacity: 1, scale: 1, width: 6, transition: { duration: 0.2, ease: EASE_SMOOTH } },
-  exit: { opacity: 0, scale: 0.6, width: 0, transition: { duration: 0.15, ease: EASE_SMOOTH } },
-};
-
-/** Mini card enter/exit (expanded rail) — stagger index via custom prop */
-export const notifCardVariants: Variants = {
-  hidden: { opacity: 0, scale: 0.9, x: -8 },
-  visible: (i: number) => ({
-    opacity: 1, scale: 1, x: 0,
-    transition: { delay: i * 0.03, duration: 0.25, ease: EASE_SMOOTH },
-  }),
-  exit: { opacity: 0, x: -12, transition: { duration: 0.15, ease: EASE_SMOOTH } },
-};
-
-/** Full card dismiss (modal) — height collapse for layout shift */
-export const notifCardFullVariants: Variants = {
-  hidden: { opacity: 0, height: 0 },
-  visible: { opacity: 1, height: "auto", transition: { duration: 0.2, ease: EASE_SMOOTH } },
-  exit: { opacity: 0, height: 0, transition: { duration: 0.2, ease: EASE_SMOOTH } },
-};
-
-/** Modal entrance/exit */
-export const notifModalVariants: Variants = {
-  hidden: { opacity: 0, scale: 0.97, y: -8 },
-  visible: { opacity: 1, scale: 1, y: 0, transition: { duration: 0.3, ease: EASE_SMOOTH } },
-  exit: { opacity: 0, scale: 0.97, y: -8, transition: { duration: 0.2, ease: EASE_SMOOTH } },
-};
-
-/** Modal backdrop */
-export const notifBackdropVariants: Variants = {
-  hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { duration: 0.2, ease: EASE_SMOOTH } },
-  exit: { opacity: 0, transition: { duration: 0.15, ease: EASE_SMOOTH } },
-};
-
-/** Reduced-motion fallbacks — opacity only */
-export const notifPillVariantsReduced: Variants = {
-  hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { duration: 0.15 } },
-  exit: { opacity: 0, transition: { duration: 0.1 } },
-};
-
-export const notifCardVariantsReduced: Variants = {
-  hidden: { opacity: 0 },
-  visible: (i: number) => ({
-    opacity: 1,
-    transition: { delay: i * 0.02, duration: 0.15 },
-  }),
-  exit: { opacity: 0, transition: { duration: 0.1 } },
-};
-
-export const notifModalVariantsReduced: Variants = {
-  hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { duration: 0.2 } },
-  exit: { opacity: 0, transition: { duration: 0.15 } },
-};
-
 // ── Lockout overlay animations ──
 
 /** Lockout backdrop — full-screen frosted overlay fade */
@@ -424,4 +362,83 @@ export const fadeSlideDownReduced: Variants = {
   hidden: { opacity: 0 },
   visible: { opacity: 1, transition: { duration: 0.2 } },
   exit: { opacity: 0, transition: { duration: 0.15 } },
+};
+
+// ── Notifications drawer (2026-04-23 redesign) ──
+
+/** Drawer slide-in from the right edge */
+export const drawerVariants: Variants = {
+  hidden: { x: 360, opacity: 0 },
+  visible: { x: 0, opacity: 1, transition: { duration: 0.26, ease: EASE_SMOOTH } },
+  exit: { x: 360, opacity: 0, transition: { duration: 0.22, ease: EASE_SMOOTH } },
+};
+
+/** Drawer reduced-motion fallback — opacity only */
+export const drawerVariantsReduced: Variants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { duration: 0.15 } },
+  exit: { opacity: 0, transition: { duration: 0.15 } },
+};
+
+/** Row mount animation — slight slide from left */
+export const rowVariants: Variants = {
+  hidden: { opacity: 0, x: -8 },
+  visible: { opacity: 1, x: 0, transition: { duration: 0.2, ease: EASE_SMOOTH } },
+  exit: { opacity: 0, x: -12, transition: { duration: 0.15, ease: EASE_SMOOTH } },
+};
+
+/** Row reduced-motion fallback */
+export const rowVariantsReduced: Variants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { duration: 0.15 } },
+  exit: { opacity: 0, transition: { duration: 0.1 } },
+};
+
+/** Filter chip mount/unmount animation */
+export const chipVariants: Variants = {
+  hidden: { opacity: 0, scale: 0.96 },
+  visible: { opacity: 1, scale: 1, transition: { duration: 0.15, ease: EASE_SMOOTH } },
+  exit: { opacity: 0, scale: 0.96, transition: { duration: 0.12, ease: EASE_SMOOTH } },
+};
+
+/** Filter chip reduced-motion fallback */
+export const chipVariantsReduced: Variants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { duration: 0.15 } },
+  exit: { opacity: 0, transition: { duration: 0.1 } },
+};
+
+// ── Quick Actions drawer (2026-04-25 — replaces bottom-right FAB) ──
+
+/** Quick Actions drawer panel slide-in from the right (308px) */
+export const quickActionsDrawerVariants: Variants = {
+  hidden: { x: 308, opacity: 0 },
+  visible: { x: 0, opacity: 1, transition: { duration: 0.26, ease: EASE_SMOOTH } },
+  exit: { x: 308, opacity: 0, transition: { duration: 0.22, ease: EASE_SMOOTH } },
+};
+
+/** Quick Actions drawer reduced-motion fallback */
+export const quickActionsDrawerVariantsReduced: Variants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { duration: 0.15 } },
+  exit: { opacity: 0, transition: { duration: 0.15 } },
+};
+
+/** Quick Actions row stagger entry — 30ms per item, 200ms duration */
+export const quickActionsRowVariants: Variants = {
+  hidden: { opacity: 0, x: -6 },
+  visible: (i: number) => ({
+    opacity: 1,
+    x: 0,
+    transition: { delay: i * 0.03, duration: 0.2, ease: EASE_SMOOTH },
+  }),
+};
+
+/** Quick Actions row reduced-motion fallback */
+export const quickActionsRowVariantsReduced: Variants = {
+  hidden: { opacity: 0 },
+  visible: (i: number) => ({
+    opacity: 1,
+    transition: { delay: i * 0.015, duration: 0.15 },
+  }),
 };
