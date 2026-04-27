@@ -24,15 +24,22 @@ type State =
   | { kind: "error"; error: ErrorKind; email?: string };
 
 function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
-  return Promise.race([
-    p,
-    new Promise<T>((_, reject) =>
-      setTimeout(
-        () => reject({ code: "auth/network-request-failed" }),
-        ms,
-      ),
-    ),
-  ]);
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject({ code: "auth/network-request-failed" }),
+      ms,
+    );
+    p.then(
+      (v) => {
+        clearTimeout(timer);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(timer);
+        reject(e);
+      },
+    );
+  });
 }
 
 function toErrorKind(kind: AuthErrorKind): ErrorKind {
