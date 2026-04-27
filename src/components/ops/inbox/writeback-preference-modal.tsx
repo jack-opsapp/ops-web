@@ -208,7 +208,7 @@ export function WritebackPreferenceModal({
               "disabled:opacity-50 disabled:cursor-not-allowed"
             )}
           >
-            {submitting ? "Saving…" : "Save &amp; archive"}
+            {submitting ? "Saving…" : "Save & archive"}
           </button>
         </div>
       </DialogContent>

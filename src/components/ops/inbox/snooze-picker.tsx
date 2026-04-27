@@ -233,7 +233,7 @@ export function SnoozePicker({
             className="flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute mb-1"
           >
             <CalendarIcon className="w-[10px] h-[10px]" strokeWidth={1.75} />
-            Pick date &amp; time
+            Pick date & time
           </label>
           <div className="flex items-stretch gap-1">
             <input
