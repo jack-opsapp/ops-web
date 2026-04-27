@@ -20,6 +20,7 @@ import {
 } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/api/query-client";
 import type {
+  ArchiveLeadPreference,
   ArchiveWritebackPreference,
   DraftSource,
   EmailThreadCategory,
@@ -28,6 +29,28 @@ import type {
   InboxRail,
   InboxScope,
 } from "@/lib/types/email-thread";
+
+/**
+ * Wire shape for a sibling thread surfaced in the archive-confirmation modal.
+ * Subset of EmailThread carrying only the fields the modal renders, matching
+ * what `EmailThreadService.archive` puts on the wire.
+ */
+export interface ArchiveSiblingThread {
+  id: string;
+  subject: string;
+  lastMessageAt: string;
+  latestSenderName: string | null;
+  latestSenderEmail: string | null;
+  latestSnippet: string | null;
+}
+
+/**
+ * Wire shape for the linked opportunity in the archive-confirmation modal.
+ */
+export interface ArchiveLinkedOpportunity {
+  id: string;
+  title: string;
+}
 
 // ─── Wire types (what the API returns) ──────────────────────────────────────
 
@@ -307,11 +330,20 @@ interface ActionArgs {
   isRead?: boolean;
 }
 
-interface ActionResponse {
+export interface ActionResponse {
   ok?: true;
   needsPreference?: true;
+  needsConfirmation?: true;
   connectionId?: string;
   correctionId?: string;
+  /** archive: linked opportunity id when archive automatically also archived the lead. */
+  leadArchivedOpportunityId?: string | null;
+  /** archive (needsConfirmation): the lead-archive preference currently saved on the connection. */
+  leadPreference?: ArchiveLeadPreference;
+  /** archive (needsConfirmation): the linked opportunity for the user to optionally archive. */
+  linkedOpportunity?: ArchiveLinkedOpportunity;
+  /** archive (needsConfirmation): other open threads on the same opportunity. */
+  siblingThreads?: ArchiveSiblingThread[];
 }
 
 async function runThreadAction(args: ActionArgs): Promise<ActionResponse> {
@@ -355,6 +387,85 @@ async function setWritebackPreferenceRequest(args: {
     const e = await res.json().catch(() => ({}));
     throw new Error(e.error || `preference set failed (${res.status})`);
   }
+}
+
+async function setLeadArchivePreferenceRequest(args: {
+  connectionId: string;
+  preference: ArchiveLeadPreference;
+}): Promise<void> {
+  const headers = {
+    ...(await authHeaders()),
+    "Content-Type": "application/json",
+  };
+  const res = await fetch(`/api/inbox/lead-archive-preference`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(args),
+  });
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}));
+    throw new Error(e.error || `lead preference set failed (${res.status})`);
+  }
+}
+
+export interface BatchArchiveArgs {
+  threadIds: string[];
+  archiveOpportunityId: string | null;
+}
+
+export interface BatchArchiveResponse {
+  ok: true;
+  archivedThreadIds: string[];
+  failedThreadIds: string[];
+  leadArchivedOpportunityId: string | null;
+}
+
+async function batchArchiveRequest(args: BatchArchiveArgs): Promise<BatchArchiveResponse> {
+  const headers = {
+    ...(await authHeaders()),
+    "Content-Type": "application/json",
+  };
+  const res = await fetch(`/api/inbox/threads/batch-archive`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(args),
+  });
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}));
+    throw new Error(e.error || `batch archive failed (${res.status})`);
+  }
+  return res.json();
+}
+
+export interface BatchUnarchiveArgs {
+  threadIds: string[];
+  unarchiveOpportunityId: string | null;
+}
+
+export interface BatchUnarchiveResponse {
+  ok: true;
+  unarchivedThreadIds: string[];
+  failedThreadIds: string[];
+  unarchivedOpportunityId: string | null;
+}
+
+async function batchUnarchiveRequest(
+  args: BatchUnarchiveArgs
+): Promise<BatchUnarchiveResponse> {
+  const headers = {
+    ...(await authHeaders()),
+    "Content-Type": "application/json",
+  };
+  const res = await fetch(`/api/inbox/threads/batch-unarchive`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(args),
+  });
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}));
+    throw new Error(e.error || `batch unarchive failed (${res.status})`);
+  }
+  return res.json();
 }
 
 // ─── Drafts ──────────────────────────────────────────────────────────────────
@@ -487,12 +598,22 @@ export function useThreadActions() {
   const invalidateDetail = (threadId: string) =>
     qc.invalidateQueries({ queryKey: queryKeys.inbox.threadDetail(threadId) });
 
+  const invalidateOpportunities = () =>
+    qc.invalidateQueries({ queryKey: queryKeys.opportunities.all });
+
   const archive = useMutation({
     mutationFn: (threadId: string) =>
       runThreadAction({ threadId, action: "archive" }),
-    onSuccess: (_res, threadId) => {
+    onSuccess: (res, threadId) => {
+      // The needsConfirmation case still resolves successfully here — the
+      // server signals "I need user input" rather than throwing. We
+      // invalidate lists either way (a successful archive needs them
+      // refreshed; a confirmation request is harmless to refresh).
       invalidateLists();
       invalidateDetail(threadId);
+      if (res.leadArchivedOpportunityId) {
+        invalidateOpportunities();
+      }
     },
   });
 
@@ -565,6 +686,38 @@ export function useThreadActions() {
     },
   });
 
+  const setLeadArchivePreference = useMutation({
+    mutationFn: setLeadArchivePreferenceRequest,
+  });
+
+  const archiveBatch = useMutation({
+    mutationFn: batchArchiveRequest,
+    onSuccess: (res) => {
+      invalidateLists();
+      // Detail invalidation per archived thread — covers the case where the
+      // user is currently viewing one of the siblings we just archived.
+      for (const id of res.archivedThreadIds) {
+        invalidateDetail(id);
+      }
+      if (res.leadArchivedOpportunityId) {
+        invalidateOpportunities();
+      }
+    },
+  });
+
+  const unarchiveBatch = useMutation({
+    mutationFn: batchUnarchiveRequest,
+    onSuccess: (res) => {
+      invalidateLists();
+      for (const id of res.unarchivedThreadIds) {
+        invalidateDetail(id);
+      }
+      if (res.unarchivedOpportunityId) {
+        invalidateOpportunities();
+      }
+    },
+  });
+
   return {
     archive,
     unarchive,
@@ -573,5 +726,8 @@ export function useThreadActions() {
     recategorize,
     markRead,
     setWritebackPreference,
+    setLeadArchivePreference,
+    archiveBatch,
+    unarchiveBatch,
   };
 }

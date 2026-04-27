@@ -82,6 +82,15 @@ export type ArchiveWritebackPreference =
   | "mark_read_only"
   | "ops_only";
 
+/**
+ * Whether archiving an inbox thread should also archive its linked pipeline
+ * opportunity (the "lead"). Asked once per connection on the first
+ * opp-linked archive that has no sibling threads. When the thread shares an
+ * opportunity with siblings, the user is always prompted via the multi-select
+ * modal regardless of this preference.
+ */
+export type ArchiveLeadPreference = "ask" | "archive" | "leave";
+
 /** Split-inbox rail. */
 export type InboxRail =
   | "needs_reply"

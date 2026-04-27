@@ -60,6 +60,7 @@ import {
 } from "./phase-c-status-strip";
 import { ThreadSiblingStrip } from "./thread-sibling-strip";
 import { ThreadCommitmentStrip } from "./thread-commitment-strip";
+import type { ArchiveConfirmContext } from "./archive-confirm-modal";
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 
@@ -68,8 +69,24 @@ export interface ThreadDetailViewProps {
   listRow: InboxThreadRow | null;
   /** The v2 thread detail query — separately fetched. */
   threadId: string | null;
-  /** Fires when archive requires a write-back preference (first time). */
-  onNeedsWritebackPreference: (connectionId: string, threadId: string) => void;
+  /**
+   * Fires when archive requires a write-back preference (first time per
+   * connection). Carries thread metadata so the parent's modals (write-back,
+   * then archive-confirm) can render the correct subject + sender.
+   */
+  onNeedsWritebackPreference: (
+    connectionId: string,
+    threadId: string,
+    subject: string,
+    latestSenderName: string | null,
+    latestSenderEmail: string | null
+  ) => void;
+  /**
+   * Fires when archive needs the multi-select confirmation modal — the
+   * thread is tied to a pipeline lead AND either siblings exist or the
+   * lead-archive preference is still 'ask'.
+   */
+  onNeedsArchiveConfirmation: (context: ArchiveConfirmContext) => void;
   /** Parent opens the compose modal with this data. */
   onReply: (data: ComposeEmailData) => void;
   /** Parent opens the compose modal for a brand-new email. */
@@ -340,6 +357,7 @@ export function ThreadDetailView({
   listRow,
   threadId,
   onNeedsWritebackPreference,
+  onNeedsArchiveConfirmation,
   onReply,
   onComposeNew,
   onToggleContext,
@@ -362,7 +380,7 @@ export function ThreadDetailView({
   const { t } = useDictionary("inbox");
   const reduceMotion = useReducedMotion();
   const { data, isLoading } = useInboxThread(threadId);
-  const { archive, unarchive, markRead } = useThreadActions();
+  const { archive, unarchive, unarchiveBatch, markRead } = useThreadActions();
 
   const [recatOpen, setRecatOpen] = useState(false);
   const [snoozeOpen, setSnoozeOpen] = useState(false);
@@ -450,20 +468,69 @@ export function ThreadDetailView({
       });
       return;
     }
+    // Capture sender metadata from the best available source — detail data
+    // takes precedence, list row fills in when detail hasn't loaded yet.
+    const senderName =
+      listRow?.latestSenderName ??
+      null;
+    const senderEmail =
+      listRow?.latestSenderEmail ??
+      null;
     archive.mutate(threadId, {
       onSuccess: (res) => {
         if (res?.needsPreference && res.connectionId) {
-          onNeedsWritebackPreference(res.connectionId, threadId);
+          onNeedsWritebackPreference(
+            res.connectionId,
+            threadId,
+            subject,
+            senderName,
+            senderEmail
+          );
           return;
         }
+        if (res?.needsConfirmation) {
+          onNeedsArchiveConfirmation({
+            currentThread: {
+              id: threadId,
+              subject,
+              latestSenderName: senderName,
+              latestSenderEmail: senderEmail,
+            },
+            connectionId: res.connectionId!,
+            leadPreference: res.leadPreference!,
+            linkedOpportunity: res.linkedOpportunity!,
+            siblingThreads: res.siblingThreads!,
+          });
+          return;
+        }
+        const leadOppId = res?.leadArchivedOpportunityId ?? null;
         enqueueUndoToast({
           message: "Archived",
           detail: subject,
-          onUndo: () => unarchive.mutate(threadId),
+          onUndo: () => {
+            if (leadOppId) {
+              unarchiveBatch.mutate({
+                threadIds: [threadId],
+                unarchiveOpportunityId: leadOppId,
+              });
+            } else {
+              unarchive.mutate(threadId);
+            }
+          },
         });
       },
     });
-  }, [threadId, isArchived, archive, unarchive, onNeedsWritebackPreference, subject]);
+  }, [
+    threadId,
+    isArchived,
+    archive,
+    unarchive,
+    unarchiveBatch,
+    onNeedsWritebackPreference,
+    onNeedsArchiveConfirmation,
+    subject,
+    listRow,
+  ]);
 
   const handleMarkUnread = useCallback(() => {
     if (!threadId) return;

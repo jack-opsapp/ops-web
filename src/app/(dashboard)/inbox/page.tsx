@@ -46,6 +46,11 @@ import { SplitInboxTabs } from "@/components/ops/inbox/split-inbox-tabs";
 import { CategoryFilterChips } from "@/components/ops/inbox/category-filter-chips";
 import { CommandPalette } from "@/components/ops/inbox/command-palette";
 import { WritebackPreferenceModal } from "@/components/ops/inbox/writeback-preference-modal";
+import {
+  ArchiveConfirmModal,
+  type ArchiveConfirmContext,
+  type ArchiveConfirmSubmitArgs,
+} from "@/components/ops/inbox/archive-confirm-modal";
 import { UndoToastHost, enqueueUndoToast } from "@/components/ops/inbox/undo-toast";
 import { ComposeEmailModal } from "@/components/ops/compose-email-modal";
 import { KeyHint } from "@/components/ui/key-hint";
@@ -58,10 +63,19 @@ import {
 import { useEmailConnections } from "@/lib/hooks/use-email-connections";
 
 // ─── Pending action queue — for "archive then choose write-back" flow ───────
+//
+// PendingArchive carries the data needed to (a) re-fire the archive after the
+// user picks a write-back preference, and (b) build the
+// ArchiveConfirmContext for the multi-select modal when the same thread
+// turns out to need confirmation. Sender details are captured at click time
+// so the modal can render them even if the row has scrolled out of view.
 
 interface PendingArchive {
   threadId: string;
   connectionId: string;
+  subject: string;
+  latestSenderName: string | null;
+  latestSenderEmail: string | null;
 }
 
 export default function InboxPage() {
@@ -259,15 +273,143 @@ export default function InboxPage() {
   const [contextOpen, setContextOpen] = useState(false);
   const handleToggleContext = useCallback(() => setContextOpen((v) => !v), []);
 
-  // ─── Write-back preference modal ──────────────────────────────────────────
+  // ─── Archive flow ─────────────────────────────────────────────────────────
+  //
+  // Three modal-driven branches off a single archive click:
+  //
+  //   1. needsPreference (writeback)  → WritebackPreferenceModal saves the
+  //      Gmail/M365 preference, then we re-fire archive — which may itself
+  //      hit branch 2 or 3.
+  //
+  //   2. needsConfirmation             → ArchiveConfirmModal lets the user
+  //      pick which sibling threads + the linked lead to also archive.
+  //      Submits to archiveBatch.
+  //
+  //   3. archived (success)            → undo toast.
+  //
+  // The "single archive click" can come from: detail view button, list-row
+  // action, command palette item, keyboard shortcut. All paths converge on
+  // resolveArchiveResponse() so the handling is identical.
   const [writebackOpen, setWritebackOpen] = useState(false);
   const [pendingArchive, setPendingArchive] = useState<PendingArchive | null>(null);
-  const { archive: archiveMutation, unarchive: unarchiveMutation } = useThreadActions();
+  const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
+  const [archiveConfirmContext, setArchiveConfirmContext] =
+    useState<ArchiveConfirmContext | null>(null);
+  const {
+    archive: archiveMutation,
+    unarchive: unarchiveMutation,
+    archiveBatch: archiveBatchMutation,
+    unarchiveBatch: unarchiveBatchMutation,
+    setLeadArchivePreference: setLeadArchivePreferenceMutation,
+  } = useThreadActions();
+
+  const enqueueArchivedToast = useCallback(
+    (subject: string | undefined, threadId: string, leadOpportunityId: string | null) => {
+      enqueueUndoToast({
+        message: t("toast.archived") ?? "Archived",
+        detail: subject,
+        onUndo: () => {
+          if (leadOpportunityId) {
+            // Single-thread archive that auto-archived the lead — undo both.
+            unarchiveBatchMutation.mutate({
+              threadIds: [threadId],
+              unarchiveOpportunityId: leadOpportunityId,
+            });
+          } else {
+            unarchiveMutation.mutate(threadId);
+          }
+        },
+      });
+    },
+    [t, unarchiveMutation, unarchiveBatchMutation]
+  );
+
+  const enqueueBatchArchivedToast = useCallback(
+    (
+      threadIds: string[],
+      leadOpportunityId: string | null,
+      detail: string | undefined
+    ) => {
+      const itemCount = threadIds.length + (leadOpportunityId ? 1 : 0);
+      const message =
+        itemCount === 1
+          ? t("toast.archived") ?? "Archived"
+          : `Archived ${itemCount} items`;
+      enqueueUndoToast({
+        message,
+        detail,
+        onUndo: () => {
+          unarchiveBatchMutation.mutate({
+            threadIds,
+            unarchiveOpportunityId: leadOpportunityId,
+          });
+        },
+      });
+    },
+    [t, unarchiveBatchMutation]
+  );
+
+  const fireArchiveForPending = useCallback(
+    (pending: PendingArchive) => {
+      archiveMutation.mutate(pending.threadId, {
+        onSuccess: (res) => {
+          if (res?.needsPreference && res.connectionId) {
+            // Should not happen on a re-fire after writeback save, but guard.
+            setPendingArchive((curr) => curr ?? pending);
+            setWritebackOpen(true);
+            return;
+          }
+          if (res?.needsConfirmation) {
+            setArchiveConfirmContext({
+              currentThread: {
+                id: pending.threadId,
+                subject: pending.subject,
+                latestSenderName: pending.latestSenderName,
+                latestSenderEmail: pending.latestSenderEmail,
+              },
+              connectionId: res.connectionId!,
+              leadPreference: res.leadPreference!,
+              linkedOpportunity: res.linkedOpportunity!,
+              siblingThreads: res.siblingThreads!,
+            });
+            setArchiveConfirmOpen(true);
+            return;
+          }
+          enqueueArchivedToast(
+            pending.subject,
+            pending.threadId,
+            res?.leadArchivedOpportunityId ?? null
+          );
+        },
+      });
+    },
+    [archiveMutation, enqueueArchivedToast]
+  );
 
   const handleNeedsWritebackPreference = useCallback(
-    (connectionId: string, threadId: string) => {
-      setPendingArchive({ threadId, connectionId });
+    (
+      connectionId: string,
+      threadId: string,
+      subject: string,
+      latestSenderName: string | null,
+      latestSenderEmail: string | null
+    ) => {
+      setPendingArchive({
+        threadId,
+        connectionId,
+        subject,
+        latestSenderName,
+        latestSenderEmail,
+      });
       setWritebackOpen(true);
+    },
+    []
+  );
+
+  const handleNeedsArchiveConfirmation = useCallback(
+    (context: ArchiveConfirmContext) => {
+      setArchiveConfirmContext(context);
+      setArchiveConfirmOpen(true);
     },
     []
   );
@@ -277,20 +419,56 @@ export default function InboxPage() {
       const pending = pendingArchive;
       setPendingArchive(null);
       if (!pending) return;
-      archiveMutation.mutate(pending.threadId, {
-        onSuccess: () => {
-          enqueueUndoToast({
-            message: t("toast.archived") ?? "Archived",
-            onUndo: () => unarchiveMutation.mutate(pending.threadId),
-          });
-        },
-      });
+      // Re-fire archive — server will now skip the writeback branch and
+      // either succeed or escalate to needsConfirmation.
+      fireArchiveForPending(pending);
     },
-    [pendingArchive, archiveMutation, unarchiveMutation, t]
+    [pendingArchive, fireArchiveForPending]
   );
 
   const handleWritebackCancel = useCallback(() => {
     setPendingArchive(null);
+  }, []);
+
+  const handleArchiveConfirmed = useCallback(
+    async (args: ArchiveConfirmSubmitArgs) => {
+      const ctx = archiveConfirmContext;
+      if (!ctx) return;
+      // Persist the lead-archive preference first when applicable so the
+      // user is never asked again under the same condition. Failure here is
+      // non-fatal — the archive still proceeds; the modal would just show
+      // again on the next no-sibling opp-linked archive.
+      if (args.saveLeadPreference) {
+        try {
+          await setLeadArchivePreferenceMutation.mutateAsync({
+            connectionId: ctx.connectionId,
+            preference: args.saveLeadPreference,
+          });
+        } catch (err) {
+          console.error("[inbox] setLeadArchivePreference failed:", err);
+        }
+      }
+      const res = await archiveBatchMutation.mutateAsync({
+        threadIds: args.threadIds,
+        archiveOpportunityId: args.archiveOpportunityId,
+      });
+      enqueueBatchArchivedToast(
+        res.archivedThreadIds,
+        res.leadArchivedOpportunityId,
+        ctx.currentThread.subject
+      );
+      setArchiveConfirmContext(null);
+    },
+    [
+      archiveConfirmContext,
+      setLeadArchivePreferenceMutation,
+      archiveBatchMutation,
+      enqueueBatchArchivedToast,
+    ]
+  );
+
+  const handleArchiveConfirmCancel = useCallback(() => {
+    setArchiveConfirmContext(null);
   }, []);
 
   // ─── Command palette ──────────────────────────────────────────────────────
@@ -531,7 +709,10 @@ export default function InboxPage() {
             selectedThreadId={selectedThread?.id ?? null}
             onSelectThread={handleSelectThread}
             onNeedsWritebackPreference={handleNeedsWritebackPreference}
-            keyboardActive={!paletteOpen && !composeOpen && !writebackOpen}
+            onNeedsArchiveConfirmation={handleNeedsArchiveConfirmation}
+            keyboardActive={
+              !paletteOpen && !composeOpen && !writebackOpen && !archiveConfirmOpen
+            }
             draftsByThreadId={draftsByThreadId}
             draftMode={rail === "drafts"}
             drafts={drafts}
@@ -546,11 +727,14 @@ export default function InboxPage() {
             listRow={selectedThread}
             threadId={selectedThread?.id ?? null}
             onNeedsWritebackPreference={handleNeedsWritebackPreference}
+            onNeedsArchiveConfirmation={handleNeedsArchiveConfirmation}
             onReply={handleReply}
             onComposeNew={handleComposeNew}
             onToggleContext={handleToggleContext}
             contextOpen={contextOpen}
-            keyboardActive={!paletteOpen && !composeOpen && !writebackOpen}
+            keyboardActive={
+              !paletteOpen && !composeOpen && !writebackOpen && !archiveConfirmOpen
+            }
             canConfigurePhaseC={canConfigurePhaseC}
             threadDraft={
               // Match by the selected thread's providerThreadId — same key
@@ -590,17 +774,45 @@ export default function InboxPage() {
           onComposeNew: handleComposeNew,
           onArchive: () => {
             if (!selectedThread) return;
+            const captured: PendingArchive = {
+              threadId: selectedThread.id,
+              connectionId: selectedThread.connectionId,
+              subject: selectedThread.subject,
+              latestSenderName: selectedThread.latestSenderName ?? null,
+              latestSenderEmail: selectedThread.latestSenderEmail ?? null,
+            };
             archiveMutation.mutate(selectedThread.id, {
               onSuccess: (res) => {
                 if (res?.needsPreference && res.connectionId) {
-                  handleNeedsWritebackPreference(res.connectionId, selectedThread.id);
+                  handleNeedsWritebackPreference(
+                    res.connectionId,
+                    captured.threadId,
+                    captured.subject,
+                    captured.latestSenderName,
+                    captured.latestSenderEmail
+                  );
                   return;
                 }
-                enqueueUndoToast({
-                  message: t("toast.archived") ?? "Archived",
-                  detail: selectedThread.subject,
-                  onUndo: () => unarchiveMutation.mutate(selectedThread.id),
-                });
+                if (res?.needsConfirmation) {
+                  handleNeedsArchiveConfirmation({
+                    currentThread: {
+                      id: captured.threadId,
+                      subject: captured.subject,
+                      latestSenderName: captured.latestSenderName,
+                      latestSenderEmail: captured.latestSenderEmail,
+                    },
+                    connectionId: res.connectionId!,
+                    leadPreference: res.leadPreference!,
+                    linkedOpportunity: res.linkedOpportunity!,
+                    siblingThreads: res.siblingThreads!,
+                  });
+                  return;
+                }
+                enqueueArchivedToast(
+                  captured.subject,
+                  captured.threadId,
+                  res?.leadArchivedOpportunityId ?? null
+                );
               },
             });
           },
@@ -638,6 +850,17 @@ export default function InboxPage() {
         connectionId={pendingArchive?.connectionId ?? null}
         onConfirmed={handleWritebackConfirmed}
         onCancel={handleWritebackCancel}
+      />
+
+      {/* Archive confirmation modal — shown when archiving a thread tied to a
+          pipeline lead with siblings, or on the first opp-linked archive when
+          no lead-archive preference has been saved yet. */}
+      <ArchiveConfirmModal
+        open={archiveConfirmOpen}
+        onOpenChange={setArchiveConfirmOpen}
+        context={archiveConfirmContext}
+        onConfirm={handleArchiveConfirmed}
+        onCancel={handleArchiveConfirmCancel}
       />
 
       {/* Compose modal — unchanged */}

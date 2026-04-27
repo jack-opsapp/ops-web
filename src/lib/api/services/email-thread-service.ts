@@ -22,6 +22,7 @@ import {
 } from "@/lib/types/email-connection";
 import {
   mapEmailThreadFromDb,
+  type ArchiveLeadPreference,
   type ArchiveWritebackPreference,
   type EmailThread,
   type EmailThreadCategory,
@@ -884,18 +885,43 @@ export const EmailThreadService = {
   },
 
   /**
-   * Archive a thread. Honors the connection's archive_writeback_preference.
-   * Returns { needsPreference: true } on the first archive per connection if
-   * the user hasn't picked a preference yet — the UI shows a modal.
+   * Archive a thread. Decides one of three outcomes:
+   *
+   *   1. `needsPreference` — first archive on this connection; UI must show
+   *      the writeback-preference modal, persist the choice, then retry.
+   *   2. `needsConfirmation` — thread has a linked opportunity AND either
+   *      sibling threads exist on that opp OR the connection's lead
+   *      preference is still 'ask'. UI shows the multi-select confirmation
+   *      modal and then dispatches `archiveBatch` with the user's selections.
+   *   3. `archived` — nothing requires user input; the thread (and the
+   *      linked opportunity, when the connection is set to 'archive') was
+   *      archived in this call.
+   *
+   * Provider write-back (Gmail / M365) honors archive_writeback_preference.
    */
-  async archive(params: {
-    threadId: string;
-  }): Promise<{ archived: true } | { needsPreference: true; connectionId: string }> {
+  async archive(params: { threadId: string }): Promise<
+    | { archived: true; leadArchivedOpportunityId: string | null }
+    | { needsPreference: true; connectionId: string }
+    | {
+        needsConfirmation: true;
+        connectionId: string;
+        leadPreference: ArchiveLeadPreference;
+        linkedOpportunity: { id: string; title: string };
+        siblingThreads: Array<{
+          id: string;
+          subject: string;
+          lastMessageAt: string;
+          latestSenderName: string | null;
+          latestSenderEmail: string | null;
+          latestSnippet: string | null;
+        }>;
+      }
+  > {
     const supabase = requireSupabase();
 
     const { data: row, error } = await supabase
       .from("email_threads")
-      .select("id, connection_id, provider_thread_id, company_id")
+      .select("id, connection_id, provider_thread_id, company_id, opportunity_id")
       .eq("id", params.threadId)
       .single();
 
@@ -909,17 +935,84 @@ export const EmailThreadService = {
 
     if (connError || !connRow) throw new Error(`archive: connection not found`);
 
-    const preference = (connRow.archive_writeback_preference as ArchiveWritebackPreference) ?? "ask";
-    if (preference === "ask") {
+    const writebackPreference =
+      (connRow.archive_writeback_preference as ArchiveWritebackPreference) ?? "ask";
+    if (writebackPreference === "ask") {
       return { needsPreference: true, connectionId: row.connection_id as string };
     }
 
+    const opportunityId = (row.opportunity_id as string | null) ?? null;
+    const leadPreference =
+      (connRow.archive_lead_preference as ArchiveLeadPreference | null) ?? "ask";
+
+    // Inspect linked opportunity + siblings before deciding to commit. If the
+    // opp is already archived we treat it as "no linked lead" — there's
+    // nothing to ask the user about.
+    let linkedOpportunity: { id: string; title: string } | null = null;
+    let siblingThreads: Array<{
+      id: string;
+      subject: string;
+      lastMessageAt: string;
+      latestSenderName: string | null;
+      latestSenderEmail: string | null;
+      latestSnippet: string | null;
+    }> = [];
+
+    if (opportunityId) {
+      const { data: oppRow } = await supabase
+        .from("opportunities")
+        .select("id, title, archived_at")
+        .eq("id", opportunityId)
+        .maybeSingle();
+
+      if (oppRow && !oppRow.archived_at) {
+        linkedOpportunity = {
+          id: oppRow.id as string,
+          title: ((oppRow.title as string) ?? "").trim() || "Untitled lead",
+        };
+
+        const { data: siblings } = await supabase
+          .from("email_threads")
+          .select(
+            "id, subject, last_message_at, latest_sender_name, latest_sender_email, latest_snippet"
+          )
+          .eq("opportunity_id", opportunityId)
+          .eq("company_id", row.company_id as string)
+          .neq("id", params.threadId)
+          .is("archived_at", null)
+          .order("last_message_at", { ascending: false });
+
+        siblingThreads = (siblings ?? []).map((s) => ({
+          id: s.id as string,
+          subject: ((s.subject as string) ?? "").trim() || "(no subject)",
+          lastMessageAt: s.last_message_at as string,
+          latestSenderName: (s.latest_sender_name as string | null) ?? null,
+          latestSenderEmail: (s.latest_sender_email as string | null) ?? null,
+          latestSnippet: (s.latest_snippet as string | null) ?? null,
+        }));
+      }
+    }
+
+    // If the opp is linked AND we either have siblings or the lead preference
+    // is still 'ask', defer the decision to the user.
+    if (linkedOpportunity && (siblingThreads.length > 0 || leadPreference === "ask")) {
+      return {
+        needsConfirmation: true,
+        connectionId: row.connection_id as string,
+        leadPreference,
+        linkedOpportunity,
+        siblingThreads,
+      };
+    }
+
+    // Commit path. Provider write-back first (best-effort failure handling
+    // matches the old behavior — provider exceptions surface to the route).
     const connection = mapConnectionFromDb(connRow);
 
-    if (preference === "archive_in_gmail") {
+    if (writebackPreference === "archive_in_gmail") {
       const provider = EmailService.getProvider(connection);
       await provider.archiveThread(row.provider_thread_id as string);
-    } else if (preference === "mark_read_only") {
+    } else if (writebackPreference === "mark_read_only") {
       const provider = EmailService.getProvider(connection);
       await provider.markThreadRead(row.provider_thread_id as string, true);
     }
@@ -930,7 +1023,265 @@ export const EmailThreadService = {
       .update({ archived_at: new Date().toISOString() })
       .eq("id", params.threadId);
 
-    return { archived: true };
+    // No-prompt opp archive: only when the user has explicitly opted in via
+    // the saved 'archive' preference AND the opp has no other live threads.
+    let leadArchivedOpportunityId: string | null = null;
+    if (linkedOpportunity && leadPreference === "archive" && siblingThreads.length === 0) {
+      await supabase
+        .from("opportunities")
+        .update({ archived_at: new Date().toISOString() })
+        .eq("id", linkedOpportunity.id);
+      leadArchivedOpportunityId = linkedOpportunity.id;
+    }
+
+    return { archived: true, leadArchivedOpportunityId };
+  },
+
+  /**
+   * Persist the connection-level lead-archive preference. Called once after
+   * the user picks 'archive' or 'leave' on the first opp-linked archive that
+   * had no siblings. Subsequent same-shape archives skip the modal.
+   */
+  async setLeadArchivePreference(
+    connectionId: string,
+    preference: ArchiveLeadPreference
+  ): Promise<void> {
+    const supabase = requireSupabase();
+    await supabase
+      .from("email_connections")
+      .update({ archive_lead_preference: preference })
+      .eq("id", connectionId);
+  },
+
+  /**
+   * Archive multiple threads in one transaction-ish unit, plus optionally
+   * archive a linked opportunity. Used when the user confirms the
+   * multi-select modal — the modal already validated which threads/opp the
+   * user wants to act on, so this method commits without re-asking.
+   *
+   * Each thread independently honors its own connection's
+   * `archive_writeback_preference` for provider write-back. Failures on one
+   * thread do not roll back others — the caller logs partial failures.
+   */
+  async archiveBatch(params: {
+    companyId: string;
+    threadIds: string[];
+    archiveOpportunityId: string | null;
+  }): Promise<{
+    archivedThreadIds: string[];
+    failedThreadIds: string[];
+    leadArchivedOpportunityId: string | null;
+  }> {
+    const supabase = requireSupabase();
+
+    const archivedThreadIds: string[] = [];
+    const failedThreadIds: string[] = [];
+
+    // Cache connection rows so we don't refetch when multiple threads share
+    // the same mailbox (common — siblings on a single opp usually do).
+    const connectionCache = new Map<string, Record<string, unknown>>();
+
+    for (const threadId of params.threadIds) {
+      try {
+        const { data: row, error } = await supabase
+          .from("email_threads")
+          .select("id, connection_id, provider_thread_id, company_id, archived_at")
+          .eq("id", threadId)
+          .eq("company_id", params.companyId)
+          .single();
+
+        if (error || !row) {
+          failedThreadIds.push(threadId);
+          continue;
+        }
+
+        // Already archived — count as success without redoing work.
+        if (row.archived_at) {
+          archivedThreadIds.push(threadId);
+          continue;
+        }
+
+        const connectionId = row.connection_id as string;
+        const cached = connectionCache.get(connectionId);
+        let connRow: Record<string, unknown>;
+        if (cached) {
+          connRow = cached;
+        } else {
+          const { data: fetched } = await supabase
+            .from("email_connections")
+            .select("*")
+            .eq("id", connectionId)
+            .single();
+          if (!fetched) {
+            failedThreadIds.push(threadId);
+            continue;
+          }
+          connRow = fetched;
+          connectionCache.set(connectionId, fetched);
+        }
+
+        const writebackPreference =
+          (connRow.archive_writeback_preference as ArchiveWritebackPreference) ?? "ask";
+
+        // 'ask' means the user hasn't picked yet — for the batch path we
+        // skip provider write-back rather than block on a modal we can't
+        // show mid-batch. The user picked the writeback choice on the first
+        // archive of this batch already; only edge cases (siblings on a
+        // different connection) hit this branch.
+        if (writebackPreference === "archive_in_gmail") {
+          try {
+            const provider = EmailService.getProvider(mapConnectionFromDb(connRow));
+            await provider.archiveThread(row.provider_thread_id as string);
+          } catch (err) {
+            console.error(
+              `[email-thread-service] archiveBatch provider.archive failed for ${threadId}:`,
+              err
+            );
+          }
+        } else if (writebackPreference === "mark_read_only") {
+          try {
+            const provider = EmailService.getProvider(mapConnectionFromDb(connRow));
+            await provider.markThreadRead(row.provider_thread_id as string, true);
+          } catch (err) {
+            console.error(
+              `[email-thread-service] archiveBatch provider.markRead failed for ${threadId}:`,
+              err
+            );
+          }
+        }
+
+        await supabase
+          .from("email_threads")
+          .update({ archived_at: new Date().toISOString() })
+          .eq("id", threadId);
+
+        archivedThreadIds.push(threadId);
+      } catch (err) {
+        console.error(`[email-thread-service] archiveBatch failed for ${threadId}:`, err);
+        failedThreadIds.push(threadId);
+      }
+    }
+
+    let leadArchivedOpportunityId: string | null = null;
+    if (params.archiveOpportunityId) {
+      const { error: oppError } = await supabase
+        .from("opportunities")
+        .update({ archived_at: new Date().toISOString() })
+        .eq("id", params.archiveOpportunityId)
+        .eq("company_id", params.companyId);
+
+      if (!oppError) {
+        leadArchivedOpportunityId = params.archiveOpportunityId;
+      } else {
+        console.error(
+          "[email-thread-service] archiveBatch opportunity archive failed:",
+          oppError
+        );
+      }
+    }
+
+    return { archivedThreadIds, failedThreadIds, leadArchivedOpportunityId };
+  },
+
+  /**
+   * Reverse a batch archive — used by the undo path on the multi-archive
+   * toast. Mirrors archiveBatch: per-thread provider write-back honored,
+   * partial failures surfaced rather than aborted, optional opportunity
+   * unarchive.
+   */
+  async unarchiveBatch(params: {
+    companyId: string;
+    threadIds: string[];
+    unarchiveOpportunityId: string | null;
+  }): Promise<{
+    unarchivedThreadIds: string[];
+    failedThreadIds: string[];
+    unarchivedOpportunityId: string | null;
+  }> {
+    const supabase = requireSupabase();
+
+    const unarchivedThreadIds: string[] = [];
+    const failedThreadIds: string[] = [];
+    const connectionCache = new Map<string, Record<string, unknown>>();
+
+    for (const threadId of params.threadIds) {
+      try {
+        const { data: row } = await supabase
+          .from("email_threads")
+          .select("id, connection_id, provider_thread_id, company_id")
+          .eq("id", threadId)
+          .eq("company_id", params.companyId)
+          .single();
+
+        if (!row) {
+          failedThreadIds.push(threadId);
+          continue;
+        }
+
+        const connectionId = row.connection_id as string;
+        const cached = connectionCache.get(connectionId);
+        let connRow: Record<string, unknown>;
+        if (cached) {
+          connRow = cached;
+        } else {
+          const { data: fetched } = await supabase
+            .from("email_connections")
+            .select("*")
+            .eq("id", connectionId)
+            .single();
+          if (!fetched) {
+            failedThreadIds.push(threadId);
+            continue;
+          }
+          connRow = fetched;
+          connectionCache.set(connectionId, fetched);
+        }
+
+        const writebackPreference =
+          (connRow.archive_writeback_preference as ArchiveWritebackPreference) ?? "ask";
+        if (writebackPreference === "archive_in_gmail") {
+          try {
+            const provider = EmailService.getProvider(mapConnectionFromDb(connRow));
+            await provider.unarchiveThread(row.provider_thread_id as string);
+          } catch (err) {
+            console.error(
+              `[email-thread-service] unarchiveBatch provider.unarchive failed for ${threadId}:`,
+              err
+            );
+          }
+        }
+
+        await supabase
+          .from("email_threads")
+          .update({ archived_at: null })
+          .eq("id", threadId);
+
+        unarchivedThreadIds.push(threadId);
+      } catch (err) {
+        console.error(`[email-thread-service] unarchiveBatch failed for ${threadId}:`, err);
+        failedThreadIds.push(threadId);
+      }
+    }
+
+    let unarchivedOpportunityId: string | null = null;
+    if (params.unarchiveOpportunityId) {
+      const { error: oppError } = await supabase
+        .from("opportunities")
+        .update({ archived_at: null })
+        .eq("id", params.unarchiveOpportunityId)
+        .eq("company_id", params.companyId);
+
+      if (!oppError) {
+        unarchivedOpportunityId = params.unarchiveOpportunityId;
+      } else {
+        console.error(
+          "[email-thread-service] unarchiveBatch opportunity unarchive failed:",
+          oppError
+        );
+      }
+    }
+
+    return { unarchivedThreadIds, failedThreadIds, unarchivedOpportunityId };
   },
 
   async unarchive(params: { threadId: string }): Promise<void> {

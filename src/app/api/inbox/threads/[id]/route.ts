@@ -385,7 +385,19 @@ export async function PATCH(
             connectionId: result.connectionId,
           });
         }
-        return NextResponse.json({ ok: true });
+        if ("needsConfirmation" in result) {
+          return NextResponse.json({
+            needsConfirmation: true,
+            connectionId: result.connectionId,
+            leadPreference: result.leadPreference,
+            linkedOpportunity: result.linkedOpportunity,
+            siblingThreads: result.siblingThreads,
+          });
+        }
+        return NextResponse.json({
+          ok: true,
+          leadArchivedOpportunityId: result.leadArchivedOpportunityId,
+        });
       }
 
       case "unarchive": {

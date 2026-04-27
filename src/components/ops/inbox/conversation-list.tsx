@@ -43,6 +43,7 @@ import {
   type UseInboxThreadsParams,
 } from "@/lib/hooks/use-inbox-threads";
 import type { EmailThreadCategory, EmailThreadLabel } from "@/lib/types/email-thread";
+import type { ArchiveConfirmContext } from "./archive-confirm-modal";
 import { CategoryChip } from "./category-chip";
 import { RecategorizeMenu } from "./recategorize-menu";
 import { SnoozePicker } from "./snooze-picker";
@@ -54,8 +55,24 @@ export interface ConversationListProps {
   params: UseInboxThreadsParams;
   selectedThreadId: string | null;
   onSelectThread: (row: InboxThreadRow) => void;
-  /** Fires when archive requires a write-back preference (first time). */
-  onNeedsWritebackPreference: (connectionId: string, threadId: string) => void;
+  /**
+   * Fires when archive requires a write-back preference (first time per
+   * connection). The thread metadata is captured here so the parent can
+   * re-display it in subsequent modals (write-back → archive-confirm).
+   */
+  onNeedsWritebackPreference: (
+    connectionId: string,
+    threadId: string,
+    subject: string,
+    latestSenderName: string | null,
+    latestSenderEmail: string | null
+  ) => void;
+  /**
+   * Fires when archive needs the multi-select confirmation modal — i.e. the
+   * thread is tied to a pipeline lead AND either siblings exist or the
+   * lead-archive preference is still 'ask'.
+   */
+  onNeedsArchiveConfirmation: (context: ArchiveConfirmContext) => void;
   /** True when parent wants the list to receive keyboard shortcuts. */
   keyboardActive?: boolean;
   /**
@@ -522,6 +539,7 @@ export function ConversationList({
   selectedThreadId,
   onSelectThread,
   onNeedsWritebackPreference,
+  onNeedsArchiveConfirmation,
   keyboardActive = true,
   draftsByThreadId = null,
   draftMode = false,
@@ -587,20 +605,51 @@ export function ConversationList({
     el?.scrollIntoView({ block: "nearest" });
   }, [selectedThreadId]);
 
-  const { archive, markRead } = useThreadActions();
+  const { archive, unarchive, unarchiveBatch, markRead } = useThreadActions();
 
   const handleArchive = useCallback(
     (thread: InboxThreadRow) => {
       archive.mutate(thread.id, {
         onSuccess: (res) => {
           if (res?.needsPreference && res.connectionId) {
-            onNeedsWritebackPreference(res.connectionId, thread.id);
+            onNeedsWritebackPreference(
+              res.connectionId,
+              thread.id,
+              thread.subject,
+              thread.latestSenderName ?? null,
+              thread.latestSenderEmail ?? null
+            );
             return;
           }
+          if (res?.needsConfirmation) {
+            onNeedsArchiveConfirmation({
+              currentThread: {
+                id: thread.id,
+                subject: thread.subject,
+                latestSenderName: thread.latestSenderName ?? null,
+                latestSenderEmail: thread.latestSenderEmail ?? null,
+              },
+              connectionId: res.connectionId!,
+              leadPreference: res.leadPreference!,
+              linkedOpportunity: res.linkedOpportunity!,
+              siblingThreads: res.siblingThreads!,
+            });
+            return;
+          }
+          const leadOppId = res?.leadArchivedOpportunityId ?? null;
           enqueueUndoToast({
             message: "Archived",
             detail: thread.subject,
-            onUndo: () => archive.reset(),
+            onUndo: () => {
+              if (leadOppId) {
+                unarchiveBatch.mutate({
+                  threadIds: [thread.id],
+                  unarchiveOpportunityId: leadOppId,
+                });
+              } else {
+                unarchive.mutate(thread.id);
+              }
+            },
           });
         },
         onError: (err) => {
@@ -608,7 +657,7 @@ export function ConversationList({
         },
       });
     },
-    [archive, onNeedsWritebackPreference]
+    [archive, unarchive, unarchiveBatch, onNeedsWritebackPreference, onNeedsArchiveConfirmation]
   );
 
   const handleToggleRead = useCallback(
