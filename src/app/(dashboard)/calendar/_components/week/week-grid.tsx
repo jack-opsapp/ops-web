@@ -17,7 +17,9 @@ import {
 } from "@dnd-kit/core";
 import { toast } from "sonner";
 import type { InternalCalendarEvent } from "@/lib/utils/calendar-utils";
-import { useUpdateTask } from "@/lib/hooks";
+import type { ProjectTask } from "@/lib/types/models";
+import { useUpdateTask, useTasks, useRecurrenceEdit } from "@/lib/hooks";
+import { useRecurrenceEditPrompt } from "@/components/ui/recurrence-edit-prompt";
 import { WeekDayColumn } from "./week-day-column";
 
 // ─── Props ──────────────────────────────────────────────────────────────────
@@ -52,13 +54,21 @@ export function WeekGrid({ currentDate, events }: WeekGridProps) {
   }, [currentDate]);
 
   const updateTask = useUpdateTask();
+  const recurrenceEdit = useRecurrenceEdit();
+  const recurrencePrompt = useRecurrenceEditPrompt();
+  const { data: taskData } = useTasks();
+  const tasksById = useMemo(() => {
+    const map = new Map<string, ProjectTask>();
+    for (const t of taskData?.tasks ?? []) map.set(t.id, t);
+    return map;
+  }, [taskData]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
   );
 
   const handleDragEnd = useCallback(
-    (dragEvent: DragEndEvent) => {
+    async (dragEvent: DragEndEvent) => {
       const { active, over } = dragEvent;
       if (!over) return;
 
@@ -88,6 +98,29 @@ export function WeekGrid({ currentDate, events }: WeekGridProps) {
         const newStart = addDays(eventStart, dayDelta);
         const newEnd = addDays(eventEnd, dayDelta);
 
+        // Phase 3 — series-aware drag.
+        const sourceTask = tasksById.get(calEvent.id);
+        if (sourceTask?.recurrenceId) {
+          const scope = await recurrencePrompt.request({
+            description: "Move this occurrence, or shift the entire series?",
+          });
+          if (!scope) return;
+          recurrenceEdit.mutate(
+            {
+              task: sourceTask,
+              scope,
+              patch: { startDate: newStart, endDate: newEnd },
+            },
+            {
+              onError: (err) =>
+                toast.error("Failed to move recurring task", {
+                  description: err.message,
+                }),
+            }
+          );
+          return;
+        }
+
         updateTask.mutate(
           { id: calEvent.id, data: { startDate: newStart, endDate: newEnd } },
           {
@@ -115,7 +148,7 @@ export function WeekGrid({ currentDate, events }: WeekGridProps) {
         return;
       }
     },
-    [updateTask]
+    [updateTask, recurrenceEdit, recurrencePrompt, tasksById]
   );
 
   return (
@@ -131,6 +164,8 @@ export function WeekGrid({ currentDate, events }: WeekGridProps) {
             />
           ))}
         </div>
+        {/* Phase 3 — recurrence scope prompt */}
+        {recurrencePrompt.promptElement}
       </div>
     </DndContext>
   );

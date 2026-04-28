@@ -35,6 +35,23 @@ interface UseCrewDndOptions {
   schedulableTasks?: SchedulableTask[];
   /** Whether the company skips weekends in scheduling */
   skipWeekends?: boolean;
+  /**
+   * Phase 3 — when set and the dragged task has a recurrence_id, the hook
+   * delegates to this callback instead of issuing a direct updateMutation.
+   * The callback is expected to prompt the user for scope and apply the
+   * series-aware mutation. Returning a Promise lets the hook await the
+   * decision before exiting. Resolve to true if the move was applied,
+   * false if cancelled.
+   */
+  onRecurringEdit?: (params: {
+    event: InternalCalendarEvent;
+    patch: Partial<ProjectTask>;
+  }) => Promise<boolean>;
+  /**
+   * Phase 3 — lookup of the full ProjectTask (with recurrenceId,
+   * recurrenceOriginDate) used to decide whether to invoke onRecurringEdit.
+   */
+  tasksById?: Map<string, ProjectTask>;
 }
 
 // ─── Hook ────────────────────────────────────────────────────────────────────
@@ -45,6 +62,8 @@ export function useCrewDnd({
   daysShown,
   schedulableTasks = [],
   skipWeekends = false,
+  onRecurringEdit,
+  tasksById,
 }: UseCrewDndOptions) {
   const { setDragState } = useCalendarStore();
   const { company } = useAuthStore();
@@ -52,6 +71,31 @@ export function useCrewDnd({
   const createMutation = useCreateTask();
   const { previewCascade } = useCascade();
   const { detectInsertPoint, calculatePushOffsets } = useSmartInsert();
+
+  /**
+   * Phase 3 — single mutate path: if the dragged task is part of a series
+   * AND a recurring-edit handler was provided, delegate to it. Otherwise
+   * fall through to the standard updateMutation.
+   */
+  const applyMove = useCallback(
+    async (
+      eventId: string,
+      patch: Partial<ProjectTask>
+    ): Promise<void> => {
+      const sourceTask = tasksById?.get(eventId);
+      const sourceEvent = events.find((e) => e.id === eventId);
+      if (sourceTask?.recurrenceId && sourceEvent && onRecurringEdit) {
+        const accepted = await onRecurringEdit({
+          event: sourceEvent,
+          patch,
+        });
+        if (!accepted) return;
+        return;
+      }
+      updateMutation.mutate({ id: eventId, data: patch });
+    },
+    [tasksById, events, onRecurringEdit, updateMutation]
+  );
 
   /** Ref to store the grid container width at drag start for pixel-to-day math */
   const gridWidthRef = useRef<number>(0);
@@ -152,7 +196,7 @@ export function useCrewDnd({
   // ── Drag end ────────────────────────────────────────────────────────────
 
   const handleDragEnd = useCallback(
-    (event: DragEndEvent) => {
+    async (event: DragEndEvent) => {
       setDragState(null);
 
       const { active, over, delta } = event;
@@ -352,13 +396,10 @@ export function useCrewDnd({
             if (cascadeResult && cascadeResult.changes.length > 0) {
               // Don't apply the move yet — let confirm bar handle it
               // But still apply the primary move + team member change
-              updateMutation.mutate({
-                id: calEvent.id,
-                data: {
-                  startDate: newStart,
-                  endDate: newEnd,
-                  ...(newTeamMemberIds ? { teamMemberIds: newTeamMemberIds } : {}),
-                },
+              await applyMove(calEvent.id, {
+                startDate: newStart,
+                endDate: newEnd,
+                ...(newTeamMemberIds ? { teamMemberIds: newTeamMemberIds } : {}),
               });
               return;
             }
@@ -378,13 +419,10 @@ export function useCrewDnd({
 
           if (cascadeResult && cascadeResult.changes.length > 0) {
             // Apply the primary move, let confirm bar handle cascade changes
-            updateMutation.mutate({
-              id: calEvent.id,
-              data: {
-                startDate: newStart,
-                endDate: newEnd,
-                ...(newTeamMemberIds ? { teamMemberIds: newTeamMemberIds } : {}),
-              },
+            await applyMove(calEvent.id, {
+              startDate: newStart,
+              endDate: newEnd,
+              ...(newTeamMemberIds ? { teamMemberIds: newTeamMemberIds } : {}),
             });
             return;
           }
@@ -425,13 +463,10 @@ export function useCrewDnd({
         }
 
         // No cascade needed — apply the move directly
-        updateMutation.mutate({
-          id: calEvent.id,
-          data: {
-            startDate: newStart,
-            endDate: newEnd,
-            ...(newTeamMemberIds ? { teamMemberIds: newTeamMemberIds } : {}),
-          },
+        await applyMove(calEvent.id, {
+          startDate: newStart,
+          endDate: newEnd,
+          ...(newTeamMemberIds ? { teamMemberIds: newTeamMemberIds } : {}),
         });
         return;
       }
@@ -450,6 +485,7 @@ export function useCrewDnd({
       previewCascade,
       detectInsertPoint,
       calculatePushOffsets,
+      applyMove,
     ]
   );
 

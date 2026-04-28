@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useMemo, useState, useRef, useCallback } from "react";
+import { toast } from "sonner";
 import { isToday, differenceInCalendarDays, getHours, getMinutes, format } from "date-fns";
 import {
   DndContext,
@@ -9,7 +10,7 @@ import {
   useSensors,
   useDroppable,
 } from "@dnd-kit/core";
-import type { TeamMember } from "@/lib/types/models";
+import type { ProjectTask, TeamMember } from "@/lib/types/models";
 import type { InternalCalendarEvent } from "@/lib/utils/calendar-utils";
 import { UserRole } from "@/lib/types/models";
 import { CrewHeader } from "./crew-header";
@@ -18,7 +19,8 @@ import { CrewTaskBlock } from "./crew-task-block";
 import { EventContextMenu } from "../event-context-menu";
 import { InlineEditor } from "../inline-editor";
 import { useCalendarStore } from "@/stores/calendar-store";
-import { useUpdateTask } from "@/lib/hooks";
+import { useRecurrenceEditPrompt } from "@/components/ui/recurrence-edit-prompt";
+import { useUpdateTask, useTasks, useRecurrenceEdit } from "@/lib/hooks";
 import { useCrewDnd } from "@/lib/hooks/use-crew-dnd";
 import {
   CREW_DAYS_SHOWN,
@@ -197,6 +199,52 @@ export function CrewGrid({
   // ── Mutations ─────────────────────────────────────────────────────────
 
   const updateTask = useUpdateTask();
+  const recurrenceEdit = useRecurrenceEdit();
+  const recurrencePrompt = useRecurrenceEditPrompt();
+
+  // Phase 3 — full task lookup so the DnD hook can detect series membership.
+  const { data: taskData } = useTasks();
+  const tasksById = useMemo(() => {
+    const map = new Map<string, ProjectTask>();
+    for (const t of taskData?.tasks ?? []) {
+      map.set(t.id, t);
+    }
+    return map;
+  }, [taskData]);
+
+  const handleRecurringEdit = useCallback(
+    async ({
+      event,
+      patch,
+    }: {
+      event: InternalCalendarEvent;
+      patch: Partial<ProjectTask>;
+    }): Promise<boolean> => {
+      const task = tasksById.get(event.id);
+      if (!task) return false;
+      const scope = await recurrencePrompt.request({
+        description: "Move this occurrence, or shift the entire series?",
+      });
+      if (!scope) return false;
+      try {
+        await new Promise<void>((resolve, reject) => {
+          recurrenceEdit.mutate(
+            { task, scope, patch },
+            {
+              onSuccess: () => resolve(),
+              onError: (err) => reject(err),
+            }
+          );
+        });
+        return true;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Unknown error";
+        toast.error("Failed to move recurring task", { description: message });
+        return false;
+      }
+    },
+    [tasksById, recurrencePrompt, recurrenceEdit]
+  );
 
   // ── DnD ───────────────────────────────────────────────────────────────
 
@@ -208,6 +256,8 @@ export function CrewGrid({
     events,
     startDate,
     daysShown,
+    onRecurringEdit: handleRecurringEdit,
+    tasksById,
   });
 
   // ── Resize callback ───────────────────────────────────────────────────
@@ -367,6 +417,9 @@ export function CrewGrid({
 
       {/* Inline editor overlay */}
       <InlineEditor />
+
+      {/* Phase 3 — recurrence scope prompt for drag-rescheduled series tasks */}
+      {recurrencePrompt.promptElement}
     </DndContext>
   );
 }
