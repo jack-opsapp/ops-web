@@ -69,7 +69,7 @@ export const POST = withAdmin(async (req: NextRequest) => {
       actorUserId: admin.uid,
       actorEmail: admin.email,
     });
-    return NextResponse.json({ ok: true, paused: result });
+    return NextResponse.json({ ok: true, paused: result.state });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ ok: false, error: message }, { status: 500 });

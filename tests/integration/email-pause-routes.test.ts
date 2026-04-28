@@ -40,12 +40,15 @@ beforeEach(() => {
   getActivePausesSpy.mockReset();
   listAuditLogSpy.mockReset();
   pauseSpy.mockResolvedValue({
-    scope: "global",
-    isPaused: true,
-    pauseReason: "ok",
-    pausedUntil: null,
-    pausedAt: new Date().toISOString(),
-    pausedBy: "admin-uuid",
+    state: {
+      scope: "global",
+      isPaused: true,
+      pauseReason: "ok",
+      pausedUntil: null,
+      pausedAt: new Date().toISOString(),
+      pausedBy: "admin-uuid",
+    },
+    pauseAuditId: "audit-stub-id",
   });
   resumeSpy.mockResolvedValue(undefined);
   getActivePausesSpy.mockResolvedValue([]);
