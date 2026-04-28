@@ -13,7 +13,13 @@ import {
   useTeamMembers,
   useProjectTasks,
   useCompany,
+  useRecurrence,
+  useCreateRecurrence,
+  useUpdateRecurrence,
 } from "@/lib/hooks";
+import { useAuthStore } from "@/lib/store/auth-store";
+import { RepeatPicker } from "./repeat-picker";
+import { useRecurrenceEditPrompt } from "@/components/ui/recurrence-edit-prompt";
 import {
   TaskStatus,
   getInitials,
@@ -162,10 +168,17 @@ export function TaskDetailPanel() {
 
   // Company defaults — used to seed time when toggling all_day off (Phase 3)
   const { data: company } = useCompany();
+  const { currentUser } = useAuthStore();
+
+  // Phase 3 — fetch the parent recurrence template if this task is generated.
+  const { data: recurrence } = useRecurrence(task?.recurrenceId ?? undefined);
 
   // Mutations
   const updateTask = useUpdateTask();
   const deleteTask = useDeleteTask();
+  const createRecurrence = useCreateRecurrence();
+  const updateRecurrence = useUpdateRecurrence();
+  const recurrencePrompt = useRecurrenceEditPrompt();
 
   // Local state
   const [editingTitle, setEditingTitle] = useState(false);
@@ -449,6 +462,167 @@ export function TaskDetailPanel() {
       }
     );
   }, [selectedTaskId, notesValue, task, updateTask]);
+
+  // ─── Phase 3 — Repeat handling ───────────────────────────────────────────
+
+  const handleRepeatChange = useCallback(
+    async (nextRrule: string | null) => {
+      if (!task || !selectedTaskId) return;
+      const startAnchor = task.startDate
+        ? format(
+            task.startDate instanceof Date
+              ? task.startDate
+              : new Date(task.startDate),
+            "yyyy-MM-dd"
+          )
+        : null;
+
+      // ── Case A: not a series yet, user is enabling recurrence
+      if (!task.recurrenceId) {
+        if (!nextRrule) return; // Off → still off, no-op
+        if (!startAnchor) {
+          toast.error("Set a start date before enabling recurrence");
+          return;
+        }
+        try {
+          await createRecurrence.mutateAsync({
+            companyId: task.companyId,
+            projectId: task.projectId,
+            clientId: null,
+            taskTypeId: task.taskTypeId,
+            title: task.customTitle ?? taskType?.display ?? "Task",
+            teamMemberIds: task.teamMemberIds,
+            rrule: nextRrule,
+            startAnchor,
+            endAnchor: null,
+            allDay: task.allDay,
+            startTime: task.startTime ?? null,
+            endTime: task.endTime ?? null,
+            duration: task.duration > 0 ? task.duration : 1,
+            notes: task.taskNotes,
+            createdBy: currentUser?.id ?? null,
+          });
+          // Soft-delete the seed task — the cron will materialize the first
+          // occurrence (and every future occurrence) within minutes.
+          deleteTask.mutate(
+            { id: selectedTaskId, projectId: task.projectId },
+            {
+              onSuccess: () => {
+                toast.success("// SERIES CREATED", {
+                  description: "Generating occurrences…",
+                });
+                closeSidePanel();
+              },
+            }
+          );
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "Unknown error";
+          toast.error("Failed to create series", { description: message });
+        }
+        return;
+      }
+
+      // ── Case B: already a series, user is editing the rule
+      if (!recurrence) {
+        toast.error("Recurrence template not loaded yet — try again");
+        return;
+      }
+
+      // Off = stop the series. Treat as edit-following: cap end_anchor at
+      // current occurrence and don't fork. (No new template needed.)
+      if (!nextRrule) {
+        try {
+          await updateRecurrence.mutateAsync({
+            id: recurrence.id,
+            patch: {
+              endAnchor: task.recurrenceOriginDate ?? startAnchor ?? undefined,
+            },
+          });
+          toast.success("// SERIES STOPPED");
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "Unknown error";
+          toast.error("Failed to stop series", { description: message });
+        }
+        return;
+      }
+
+      // Editing the rule itself — prompt for scope, then patch the template.
+      const scope = await recurrencePrompt.request({
+        title: "// CHANGE REPEAT RULE",
+        description:
+          "This task is part of a series. Choose how widely to apply the new rule.",
+      });
+      if (!scope) return;
+
+      if (scope === "this") {
+        toast.error(
+          "Cannot change the repeat rule for a single occurrence. Use Following or All."
+        );
+        return;
+      }
+
+      try {
+        if (scope === "all") {
+          await updateRecurrence.mutateAsync({
+            id: recurrence.id,
+            patch: { rrule: nextRrule },
+          });
+          toast.success("// SERIES UPDATED");
+        } else {
+          // this_and_following — cap original at originalDate-1, fork a new
+          // template starting at originalDate with the new rule.
+          const originalDate =
+            task.recurrenceOriginDate ?? startAnchor ?? null;
+          if (!originalDate) {
+            toast.error("Missing recurrence anchor — cannot split series");
+            return;
+          }
+          const splitDate = new Date(`${originalDate}T00:00:00Z`);
+          const cappedEnd = new Date(splitDate);
+          cappedEnd.setUTCDate(cappedEnd.getUTCDate() - 1);
+          const cappedKey = format(cappedEnd, "yyyy-MM-dd");
+
+          await updateRecurrence.mutateAsync({
+            id: recurrence.id,
+            patch: { endAnchor: cappedKey },
+          });
+          await createRecurrence.mutateAsync({
+            companyId: recurrence.companyId,
+            projectId: recurrence.projectId,
+            clientId: recurrence.clientId,
+            taskTypeId: recurrence.taskTypeId,
+            title: recurrence.title,
+            teamMemberIds: recurrence.teamMemberIds,
+            rrule: nextRrule,
+            startAnchor: originalDate,
+            endAnchor: recurrence.endAnchor,
+            allDay: recurrence.allDay,
+            startTime: recurrence.startTime,
+            endTime: recurrence.endTime,
+            duration: recurrence.duration,
+            notes: recurrence.notes,
+            createdBy: currentUser?.id ?? null,
+          });
+          toast.success("// SERIES SPLIT");
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Unknown error";
+        toast.error("Failed to update series", { description: message });
+      }
+    },
+    [
+      task,
+      selectedTaskId,
+      recurrence,
+      taskType,
+      currentUser,
+      createRecurrence,
+      updateRecurrence,
+      deleteTask,
+      recurrencePrompt,
+      closeSidePanel,
+    ]
+  );
 
   const handlePush = useCallback(
     (days: number) => {
@@ -864,6 +1038,37 @@ export function TaskDetailPanel() {
             </div>
           </div>
 
+          {/* ── Repeat Section (Phase 3) ───────────────────────────────── */}
+          <div
+            className="px-[16px] py-[12px]"
+            style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}
+          >
+            <SectionLabel>REPEAT</SectionLabel>
+            {startDate ? (
+              <RepeatPicker
+                anchor={startDate}
+                value={recurrence?.rrule ?? null}
+                onChange={handleRepeatChange}
+                disabled={
+                  createRecurrence.isPending ||
+                  updateRecurrence.isPending
+                }
+              />
+            ) : (
+              <span className="font-mono text-micro uppercase text-[#999999]">
+                Set a start date to enable repeat
+              </span>
+            )}
+            {task?.recurrenceId && task.recurrenceOriginDate && (
+              <span
+                className="block mt-[6px] font-mono text-micro uppercase tracking-wider"
+                style={{ color: "var(--text-mute)" }}
+              >
+                {`// PART OF SERIES — ORIGIN ${task.recurrenceOriginDate}`}
+              </span>
+            )}
+          </div>
+
           {/* ── Dependencies Section ───────────────────────────────────── */}
           <div
             className="px-[16px] py-[12px]"
@@ -1027,6 +1232,8 @@ export function TaskDetailPanel() {
           )}
         </div>
       </div>
+      {/* Phase 3 — recurrence scope prompt (Radix portal at z-modal=3000) */}
+      {recurrencePrompt.promptElement}
     </SidePanelShell>
   );
 }
