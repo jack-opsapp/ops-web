@@ -20,6 +20,11 @@ export interface QuickCreateAnchor {
 
 // ─── Store Interface ─────────────────────────────────────────────────────────
 
+// ─── Unscheduled tray types ─────────────────────────────────────────────────
+
+export type UnscheduledTrayGroupBy = "project" | "client" | "type" | "none";
+export type UnscheduledTraySort = "created" | "title" | "project";
+
 interface CalendarStoreState {
   // View
   currentDate: Date;
@@ -32,6 +37,12 @@ interface CalendarStoreState {
 
   // Filter sidebar
   isFilterSidebarOpen: boolean;
+
+  // Unscheduled tray (T15)
+  unscheduledTrayCollapsed: boolean;
+  unscheduledTrayGroupBy: UnscheduledTrayGroupBy;
+  unscheduledTraySort: UnscheduledTraySort;
+  unscheduledTraySearch: string;
 
   // Quick create
   quickCreateAnchor: QuickCreateAnchor | null;
@@ -105,6 +116,13 @@ interface CalendarStoreState {
 
   // Actions — Inline edit
   setInlineEdit: (state: InlineEditState | null) => void;
+
+  // Actions — Unscheduled tray
+  toggleUnscheduledTray: () => void;
+  setUnscheduledTrayCollapsed: (collapsed: boolean) => void;
+  setUnscheduledTrayGroupBy: (groupBy: UnscheduledTrayGroupBy) => void;
+  setUnscheduledTraySort: (sort: UnscheduledTraySort) => void;
+  setUnscheduledTraySearch: (search: string) => void;
 }
 
 // ─── Store ───────────────────────────────────────────────────────────────────
@@ -123,6 +141,15 @@ export const useCalendarStore = create<CalendarStoreState>()(
 
       // Filter sidebar
       isFilterSidebarOpen: false,
+
+      // Unscheduled tray (T15)
+      // Defaults: expanded on first visit (per spec). Tray dock side flips
+      // based on view (Day → left, others → right) but that lives in the
+      // component, not state.
+      unscheduledTrayCollapsed: false,
+      unscheduledTrayGroupBy: "project",
+      unscheduledTraySort: "created",
+      unscheduledTraySearch: "",
 
       // Quick create
       quickCreateAnchor: null,
@@ -231,6 +258,20 @@ export const useCalendarStore = create<CalendarStoreState>()(
 
       // Actions — Inline edit
       setInlineEdit: (inlineEdit) => set({ inlineEdit }),
+
+      // Actions — Unscheduled tray
+      toggleUnscheduledTray: () =>
+        set((state) => ({
+          unscheduledTrayCollapsed: !state.unscheduledTrayCollapsed,
+        })),
+      setUnscheduledTrayCollapsed: (unscheduledTrayCollapsed) =>
+        set({ unscheduledTrayCollapsed }),
+      setUnscheduledTrayGroupBy: (unscheduledTrayGroupBy) =>
+        set({ unscheduledTrayGroupBy }),
+      setUnscheduledTraySort: (unscheduledTraySort) =>
+        set({ unscheduledTraySort }),
+      setUnscheduledTraySearch: (unscheduledTraySearch) =>
+        set({ unscheduledTraySearch }),
     }),
     {
       name: "ops-calendar",
@@ -255,6 +296,9 @@ export const useCalendarStore = create<CalendarStoreState>()(
         filterProjectIds: state.filterProjectIds,
         filterStatuses: state.filterStatuses,
         isFilterSidebarOpen: state.isFilterSidebarOpen,
+        unscheduledTrayCollapsed: state.unscheduledTrayCollapsed,
+        unscheduledTrayGroupBy: state.unscheduledTrayGroupBy,
+        unscheduledTraySort: state.unscheduledTraySort,
       }),
     }
   )

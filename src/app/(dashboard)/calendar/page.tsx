@@ -39,6 +39,7 @@ import { CalendarGridMonth } from "./_components/calendar-grid-month";
 import { CalendarGridDay } from "./_components/calendar-grid-day";
 import { CrewGrid } from "./_components/crew/crew-grid";
 import { WeekGrid } from "./_components/week/week-grid";
+import { UnscheduledTray } from "./_components/unscheduled-tray";
 import { FilterSidebar } from "./_components/filter-sidebar";
 import { CascadeConfirmBar } from "./_components/cascade/cascade-confirm-bar";
 import { GhostOverlay } from "./_components/cascade/ghost-overlay";
@@ -222,6 +223,9 @@ export default function CalendarPage() {
         {/* Filter sidebar (left) — hidden on mobile */}
         {!isMobile && <FilterSidebar />}
 
+        {/* Day view: tray docks LEFT (mirrors Jobber/Housecall) */}
+        {!isMobile && view === "day" && <UnscheduledTray view={view} />}
+
         {/* Main calendar grid */}
         <div className="flex-1 flex flex-col min-h-0 min-w-0 relative">
           {/* Cascade confirm bar — sits above the view */}
@@ -306,6 +310,9 @@ export default function CalendarPage() {
             />
           )}
         </div>
+
+        {/* Week / Month / Crew view: tray docks RIGHT */}
+        {!isMobile && view !== "day" && <UnscheduledTray view={view} />}
 
       </div>
       </div>

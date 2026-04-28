@@ -546,40 +546,64 @@ export function CalendarGridMonth({
       if (!over) return;
 
       const activeData = active.data?.current as
-        | { type?: string; event?: InternalCalendarEvent }
+        | {
+            type?: string;
+            event?: InternalCalendarEvent;
+            task?: { id: string; duration: number };
+          }
         | undefined;
       const overData = over.data?.current as
         | { type?: string; day?: Date }
         | undefined;
 
-      if (activeData?.type !== "month-event" || overData?.type !== "month-day") return;
-      if (!activeData.event || !overData.day) return;
-
-      const calEvent = activeData.event;
+      if (overData?.type !== "month-day" || !overData.day) return;
       const targetDay = overData.day;
 
-      // Coerce to Date for safety (Supabase responses may be strings)
-      const eventStart = calEvent.startDate instanceof Date
-        ? calEvent.startDate
-        : new Date(calEvent.startDate);
-      const eventEnd = calEvent.endDate instanceof Date
-        ? calEvent.endDate
-        : new Date(calEvent.endDate);
+      // ── Reschedule existing scheduled month event ────────────────────
+      if (activeData?.type === "month-event" && activeData.event) {
+        const calEvent = activeData.event;
 
-      // Shift both start and end dates by the day delta
-      const dayDelta = differenceInCalendarDays(targetDay, eventStart);
-      if (dayDelta === 0) return;
+        // Coerce to Date for safety (Supabase responses may be strings)
+        const eventStart = calEvent.startDate instanceof Date
+          ? calEvent.startDate
+          : new Date(calEvent.startDate);
+        const eventEnd = calEvent.endDate instanceof Date
+          ? calEvent.endDate
+          : new Date(calEvent.endDate);
 
-      const newStart = addDays(eventStart, dayDelta);
-      const newEnd = addDays(eventEnd, dayDelta);
+        // Shift both start and end dates by the day delta
+        const dayDelta = differenceInCalendarDays(targetDay, eventStart);
+        if (dayDelta === 0) return;
 
-      updateTask.mutate(
-        { id: calEvent.id, data: { startDate: newStart, endDate: newEnd } },
-        {
-          onError: (err) =>
-            toast.error("Failed to move event", { description: err.message }),
-        }
-      );
+        const newStart = addDays(eventStart, dayDelta);
+        const newEnd = addDays(eventEnd, dayDelta);
+
+        updateTask.mutate(
+          { id: calEvent.id, data: { startDate: newStart, endDate: newEnd } },
+          {
+            onError: (err) =>
+              toast.error("Failed to move event", { description: err.message }),
+          }
+        );
+        return;
+      }
+
+      // ── Schedule from unscheduled tray (T15) ─────────────────────────
+      if (activeData?.type === "unscheduled-task" && activeData.task) {
+        const task = activeData.task;
+        const duration = Math.max(task.duration ?? 1, 1);
+        const newStart = targetDay;
+        const newEnd = addDays(newStart, duration);
+
+        updateTask.mutate(
+          { id: task.id, data: { startDate: newStart, endDate: newEnd } },
+          {
+            onError: (err) =>
+              toast.error("Failed to schedule task", { description: err.message }),
+          }
+        );
+        return;
+      }
     },
     [updateTask]
   );

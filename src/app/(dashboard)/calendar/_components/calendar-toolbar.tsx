@@ -7,6 +7,8 @@ import {
   getEventColors,
 } from "@/lib/utils/calendar-utils";
 import { useCalendarStore } from "@/stores/calendar-store";
+import { useTasks } from "@/lib/hooks";
+import { TaskStatus } from "@/lib/types/models";
 import { X } from "lucide-react";
 
 interface CalendarToolbarProps {
@@ -21,7 +23,22 @@ export function CalendarToolbar({ events, t }: CalendarToolbarProps) {
     filterProjectIds,
     filterStatuses,
     updateFilters,
+    unscheduledTrayCollapsed,
+    toggleUnscheduledTray,
   } = useCalendarStore();
+
+  // Unscheduled count for the toolbar chip (T15)
+  const { data: taskData } = useTasks();
+  const unscheduledCount = useMemo(() => {
+    const all = taskData?.tasks ?? [];
+    return all.filter(
+      (t) =>
+        !t.startDate &&
+        t.status !== TaskStatus.Completed &&
+        t.status !== TaskStatus.Cancelled &&
+        !t.deletedAt
+    ).length;
+  }, [taskData]);
 
   const stats = useMemo(() => {
     const today = new Date();
@@ -74,6 +91,37 @@ export function CalendarToolbar({ events, t }: CalendarToolbarProps) {
 
   return (
     <div className="flex items-center gap-3 px-1 shrink-0">
+      {/* T15 — // UNSCHEDULED [N] chip toggles the tray */}
+      <button
+        type="button"
+        onClick={toggleUnscheduledTray}
+        aria-label={
+          unscheduledTrayCollapsed
+            ? `Show ${unscheduledCount} unscheduled tasks`
+            : "Collapse unscheduled tray"
+        }
+        className="font-mono text-[11px] uppercase tracking-wider tabular-nums px-2 py-1 cursor-pointer"
+        style={{
+          color: unscheduledCount > 0 ? "var(--text-2)" : "var(--text-3)",
+          background: "rgba(255, 255, 255, 0.04)",
+          border: "1px solid var(--line)",
+          borderRadius: 4,
+          fontFeatureSettings: '"tnum" 1, "zero" 1',
+          transition: "background 0.15s cubic-bezier(0.22, 1, 0.36, 1)",
+        }}
+        onMouseEnter={(e) => {
+          (e.currentTarget as HTMLElement).style.background =
+            "rgba(255, 255, 255, 0.08)";
+        }}
+        onMouseLeave={(e) => {
+          (e.currentTarget as HTMLElement).style.background =
+            "rgba(255, 255, 255, 0.04)";
+        }}
+      >
+        {`// UNSCHEDULED [${unscheduledCount}]`}
+      </button>
+      <div className="w-[1px] h-[16px] bg-border-subtle" />
+
       {/* Today / This Week counts */}
       <div className="flex items-center gap-[6px]">
         <span className="font-mono text-micro text-text-mute uppercase tracking-widest">
