@@ -15,6 +15,7 @@ import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { completeCampaignIfDone } from "@/lib/email/campaigns";
 import { bootstrapCampaignTemplates } from "@/lib/email/campaign-templates-bootstrap";
 import { getCampaignTemplate } from "@/lib/email/campaign-templates";
+import { getPauseState, type PauseScope } from "@/lib/email/pause";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -82,6 +83,17 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // PR 4 — campaign-scope killswitch. For every campaign in this batch,
+  // resolve whether `email_pause_state` has an active `campaign:<uuid>`
+  // pause. We check once per campaign (not per job) to keep this fast.
+  // Paused jobs stay in 'pending' so they're reconsidered next minute —
+  // pauses are reversible, so we never flip them to a terminal status here.
+  const campaignPauseMap = new Map<string, boolean>();
+  for (const cid of campaignIds) {
+    const ps = await getPauseState(`campaign:${cid}` as PauseScope);
+    campaignPauseMap.set(cid, !!ps?.isPaused);
+  }
+
   // Per-campaign tallies for notification body.
   const tallies = new Map<
     string,
@@ -108,12 +120,15 @@ export async function GET(request: NextRequest) {
     const campaign = campaignMap.get(job.campaign_id);
 
     // Campaign was paused or cancelled while this batch was claimed —
-    // re-pend (paused) or finalise as cancelled (cancelled). Pause logic
-    // hardens in PR 4 with the killswitch state machine.
+    // re-pend (paused) or finalise as cancelled (cancelled). PR 4 adds the
+    // `email_pause_state` killswitch as an additional pause source — the
+    // operator can pause a campaign without touching `email_campaigns.send_status`.
+    const killswitchPaused = campaignPauseMap.get(job.campaign_id) === true;
     if (
       !campaign ||
       campaign.send_status === "paused" ||
-      campaign.send_status === "cancelled"
+      campaign.send_status === "cancelled" ||
+      killswitchPaused
     ) {
       await db
         .from("email_jobs")
@@ -163,6 +178,13 @@ export async function GET(request: NextRequest) {
         });
         tally(job.campaign_id).skipped++;
         totalSkipped++;
+      } else if (result.status === "paused_skipped") {
+        // Killswitch fired between the campaign-pause batch read and this
+        // dispatch (eg. global pause flipped on, or a bucket pause matched
+        // this kind). Pause is reversible — leave the job pending so it's
+        // reconsidered next minute. The email_log row already records the
+        // paused_skipped attempt with the resolving scope.
+        await db.from("email_jobs").update({ status: "pending" }).eq("id", job.id);
       } else {
         await db
           .from("email_jobs")

@@ -130,6 +130,10 @@
     {
       "path": "/api/cron/email/worker",
       "schedule": "*/1 * * * *"
+    },
+    {
+      "path": "/api/cron/email/auto-resume",
+      "schedule": "*/5 * * * *"
     }
   ]
 }
