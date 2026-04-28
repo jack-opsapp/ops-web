@@ -11,8 +11,12 @@ import {
   LAST_HOUR,
   TASK_TYPE_COLORS,
   DEFAULT_TASK_TYPE_COLORS,
+  TASK_STATUS_COLORS,
   type TaskTypeColors,
+  type TaskStatusColors,
+  type TaskStatusKey,
 } from "./calendar-constants";
+import { TaskStatus } from "@/lib/types/models";
 import type { ProjectTask } from "@/lib/types/models";
 
 // ─── Internal Event Type ─────────────────────────────────────────────────────
@@ -35,6 +39,44 @@ export interface InternalCalendarEvent {
 
 export function getEventColors(taskType: string): TaskTypeColors {
   return TASK_TYPE_COLORS[taskType] ?? DEFAULT_TASK_TYPE_COLORS;
+}
+
+export function getStatusColors(key: TaskStatusKey): TaskStatusColors {
+  return TASK_STATUS_COLORS[key];
+}
+
+// ─── Status Derivation ──────────────────────────────────────────────────────
+
+/**
+ * Map a ProjectTask to a TaskStatusKey for card coloring.
+ *
+ * Production project_tasks.status only stores 'active' | 'completed' |
+ * 'cancelled'. The TS enum's Booked/InProgress both round-trip to 'active'.
+ *
+ * Computed states layered on top of 'active':
+ *   - end_date < now            → 'overdue'
+ *   - start_date <= now < end   → 'in_progress'
+ *   - otherwise (future-active) → 'scheduled'
+ */
+export function deriveTaskStatusKey(
+  task: Pick<ProjectTask, "status" | "startDate" | "endDate" | "duration">,
+  now: Date = new Date()
+): TaskStatusKey {
+  if (task.status === TaskStatus.Completed) return "completed";
+  if (task.status === TaskStatus.Cancelled) return "cancelled";
+
+  // Active state — split by date relationship to now.
+  const start = task.startDate ? new Date(task.startDate) : null;
+  let end = task.endDate ? new Date(task.endDate) : null;
+
+  // Fall back to start + duration when end_date is missing.
+  if (!end && start && task.duration > 0) {
+    end = new Date(start.getTime() + task.duration * 24 * 60 * 60 * 1000);
+  }
+
+  if (end && end < now) return "overdue";
+  if (start && end && start <= now && now <= end) return "in_progress";
+  return "scheduled";
 }
 
 // ─── Task Type Derivation ────────────────────────────────────────────────────
