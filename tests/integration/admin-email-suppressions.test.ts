@@ -122,7 +122,7 @@ describe("admin email suppressions API", () => {
     expect(store).toHaveLength(1);
     const res = await itemDELETE(
       new NextRequest(new URL("https://example.com/api/admin/email/suppressions/a%40x.com")),
-      { params: { email: "a%40x.com" } }
+      { params: Promise.resolve({ email: "a%40x.com" }) }
     );
     expect(res.status).toBe(200);
     expect((await res.json()).removed).toBe(true);
