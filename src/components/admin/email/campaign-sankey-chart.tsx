@@ -114,7 +114,7 @@ export function CampaignSankeyChart({ stages }: CampaignSankeyChartProps) {
     return (
       <div className="rounded-panel border border-glass-border px-6 py-8">
         <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-3">
-          // NO FUNNEL DATA YET
+          {"// NO FUNNEL DATA YET"}
         </div>
         <p className="mt-2 font-mohave text-[14px] text-text-2">
           Campaign hasn&apos;t accumulated enough events. Check back after the first dispatch tick.

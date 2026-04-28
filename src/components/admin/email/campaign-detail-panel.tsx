@@ -99,7 +99,7 @@ export function CampaignDetailPanel({
   if (!data) {
     return (
       <div className="py-12 text-center font-mono text-[11px] uppercase tracking-[0.16em] text-text-3">
-        // LOADING
+        {"// LOADING"}
       </div>
     );
   }

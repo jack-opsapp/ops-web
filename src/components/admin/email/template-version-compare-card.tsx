@@ -83,7 +83,7 @@ export function TemplateVersionCompareCard({ emailType, versions }: Props) {
   return (
     <div className="rounded-panel border border-glass-border px-5 py-5">
       <div className="mb-4 font-mono text-[11px] uppercase tracking-[0.16em] text-text-3">
-        // VERSION COMPARE
+        {"// VERSION COMPARE"}
       </div>
       <table className="w-full">
         <thead>

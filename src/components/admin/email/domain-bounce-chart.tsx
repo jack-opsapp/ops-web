@@ -23,7 +23,7 @@ export function DomainBounceChart({ data }: DomainBounceChartProps) {
     return (
       <div className="rounded-panel border border-glass-border px-6 py-8">
         <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-3">
-          // ZERO BOUNCES
+          {"// ZERO BOUNCES"}
         </div>
         <p className="mt-2 font-mohave text-[14px] text-text-2">
           No bounce events recorded for this campaign.
@@ -38,7 +38,7 @@ export function DomainBounceChart({ data }: DomainBounceChartProps) {
       style={{ height: 320 }}
     >
       <div className="mb-3 font-mono text-[11px] uppercase tracking-[0.16em] text-text-3">
-        // BOUNCES BY DOMAIN — TOP {sorted.length}
+        {`// BOUNCES BY DOMAIN — TOP ${sorted.length}`}
       </div>
       <ResponsiveContainer width="100%" height={260}>
         <BarChart

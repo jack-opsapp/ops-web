@@ -145,7 +145,7 @@ export function CampaignAnalyticsTab() {
         })}
         {filtered.length === 0 && (
           <div className="px-5 py-12 text-center font-mono text-[11px] uppercase tracking-[0.16em] text-text-3">
-            // NO CAMPAIGNS MATCH FILTERS
+            {"// NO CAMPAIGNS MATCH FILTERS"}
           </div>
         )}
       </div>
