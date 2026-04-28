@@ -11,6 +11,7 @@ import {
   campaignRowVariantsReduced,
 } from "@/lib/utils/motion";
 import type { Campaign } from "@/lib/email/campaigns";
+import type { AudienceFilterNode } from "@/lib/admin/types";
 
 interface ListResponse {
   rows: Campaign[];
@@ -33,6 +34,20 @@ export function ScheduledSendsTab() {
   const reduce = useReducedMotion();
   const [createOpen, setCreateOpen] = React.useState(false);
   const [detailId, setDetailId] = React.useState<string | null>(null);
+  const [pendingAudienceFilter, setPendingAudienceFilter] =
+    React.useState<AudienceFilterNode | null>(null);
+
+  // Bridge: Audience Builder fires CustomEvent → open create modal pre-populated.
+  React.useEffect(() => {
+    const handler = (e: Event) => {
+      const ce = e as CustomEvent<{ filter: AudienceFilterNode }>;
+      setPendingAudienceFilter(ce.detail.filter);
+      setCreateOpen(true);
+    };
+    window.addEventListener("ops:audience-use-in-campaign", handler);
+    return () =>
+      window.removeEventListener("ops:audience-use-in-campaign", handler);
+  }, []);
 
   const list = useQuery({
     queryKey: ["campaigns"],
@@ -133,8 +148,12 @@ export function ScheduledSendsTab() {
 
       <CampaignCreateModal
         open={createOpen}
-        onClose={() => setCreateOpen(false)}
+        onClose={() => {
+          setCreateOpen(false);
+          setPendingAudienceFilter(null);
+        }}
         onCreated={(id) => setDetailId(id)}
+        audienceFilterOverride={pendingAudienceFilter}
       />
       <CampaignDetailModal
         campaignId={detailId}
