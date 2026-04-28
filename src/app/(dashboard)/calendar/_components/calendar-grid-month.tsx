@@ -12,6 +12,7 @@ import {
   isSameDay,
   isToday,
   differenceInCalendarDays,
+  addDays,
 } from "date-fns";
 import { motion } from "framer-motion";
 import { useDroppable, useDraggable } from "@dnd-kit/core";
@@ -21,6 +22,7 @@ import {
   type DisplayLevel,
   type MonthEventBarSpan,
 } from "./month/month-event-bar";
+import { useCalendarResize } from "./use-calendar-resize";
 
 // ─── Props ──────────────────────────────────────────────────────────────────
 
@@ -525,6 +527,38 @@ export function CalendarGridMonth({
   // ── Slot height for current level ──
   const baseSlotHeight = displayLevel === "compact" ? 10 : 14;
 
+  // ── Resize commit (left/right edge of month bars) ─────────────────────
+  const { commitResize, promptElement: resizePromptElement } =
+    useCalendarResize();
+  const handleBarResize = useCallback(
+    (
+      event: InternalCalendarEvent,
+      edge: "left" | "right",
+      dayDelta: number
+    ) => {
+      if (dayDelta === 0) return;
+      if (edge === "right") {
+        const totalDays = differenceInCalendarDays(event.endDate, event.startDate);
+        // Min 1-day duration (single-day events have totalDays = 0).
+        const minDelta = -(totalDays);
+        const clamped = Math.max(dayDelta, minDelta);
+        if (clamped === 0) return;
+        const newEnd = addDays(event.endDate, clamped);
+        commitResize(event, { endDate: newEnd });
+        return;
+      }
+      // Left edge: positive delta pushes start later (shrink), negative
+      // pulls start earlier (grow). Min duration = same-day (1 day).
+      const totalDays = differenceInCalendarDays(event.endDate, event.startDate);
+      const maxDelta = totalDays; // can't push start past end
+      const clamped = Math.min(dayDelta, maxDelta);
+      if (clamped === 0) return;
+      const newStart = addDays(event.startDate, clamped);
+      commitResize(event, { startDate: newStart });
+    },
+    [commitResize]
+  );
+
   return (
     <div className="flex flex-col flex-1 min-h-0" onWheel={handleWheel}>
       {/* Day name headers — fixed top row */}
@@ -554,6 +588,7 @@ export function CalendarGridMonth({
         {weekRows.map((row) => (
           <div
             key={row.weekIndex}
+            data-month-week-row
             className="grid grid-cols-7 relative"
             style={{
               height: cellHeight,
@@ -612,6 +647,7 @@ export function CalendarGridMonth({
                             displayLevel={displayLevel}
                             span={span}
                             onClick={onEventClick}
+                            onResize={handleBarResize}
                           />
                         </motion.div>
                       </DraggableMonthEvent>
@@ -660,6 +696,7 @@ export function CalendarGridMonth({
           </div>
         ))}
       </div>
+      {resizePromptElement}
     </div>
   );
 }
