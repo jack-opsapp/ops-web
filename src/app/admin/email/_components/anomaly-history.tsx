@@ -58,7 +58,7 @@ export function AnomalyHistory() {
         className="px-3 py-2 font-cakemono font-light text-[10px] tracking-[0.06em] text-text-3"
         style={{ background: "rgba(255,255,255,0.02)" }}
       >
-        // ANOMALY LOG [{q.data?.total ?? 0}]
+        {`// ANOMALY LOG [${q.data?.total ?? 0}]`}
       </p>
       {(q.data?.rows.length ?? 0) === 0 && !q.isLoading && (
         <p className="font-mono text-[11px] text-text-mute py-6 px-3">

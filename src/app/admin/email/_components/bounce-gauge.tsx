@@ -29,7 +29,7 @@ export function BounceGauge({ bouncePct }: Props) {
       style={{ border: "1px solid rgba(255,255,255,0.06)" }}
     >
       <span className="font-cakemono font-light text-[10px] tracking-[0.06em] text-text-3 block mb-2">
-        // BOUNCE RATE [15-MIN]
+        {"// BOUNCE RATE [15-MIN]"}
       </span>
       <svg
         viewBox="0 0 200 110"

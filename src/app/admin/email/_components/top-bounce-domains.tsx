@@ -42,7 +42,7 @@ export function TopBounceDomains({ minutesBack }: Props) {
       style={{ border: "1px solid rgba(255,255,255,0.06)" }}
     >
       <span className="font-cakemono font-light text-[10px] tracking-[0.06em] text-text-3 block mb-3">
-        // TOP BOUNCE DOMAINS
+        {"// TOP BOUNCE DOMAINS"}
       </span>
       <div className="space-y-2">
         {q.data?.map((d, i) => (

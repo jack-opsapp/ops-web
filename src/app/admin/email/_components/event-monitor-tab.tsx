@@ -67,7 +67,7 @@ export function EventMonitorTab() {
       <header className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <h3 className="font-cakemono font-light text-[14px] tracking-[0.06em] text-text">
-            // EVENT MONITOR
+            {"// EVENT MONITOR"}
           </h3>
           <p className="font-mono text-[11px] text-text-3">
             [live deliverability — refreshes every 5s while visible]

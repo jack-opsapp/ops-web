@@ -59,7 +59,7 @@ export function EventStream({ eventTypes }: Props) {
         className="px-3 py-2 font-cakemono font-light text-[10px] tracking-[0.06em] text-text-3"
         style={{ background: "rgba(255,255,255,0.02)" }}
       >
-        // EVENT STREAM [last 50]
+        {"// EVENT STREAM [last 50]"}
       </p>
       <div className="max-h-[420px] overflow-y-auto scrollbar-hide">
         <AnimatePresence initial={false}>
