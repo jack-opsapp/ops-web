@@ -56,16 +56,18 @@ export function CalendarHeader({ t }: CalendarHeaderProps) {
 
   const navigate = useCallback(
     (direction: "prev" | "next") => {
+      const isWeekly = view === "week" || view === "crew";
+      const isMonthly = view === "month";
       const fn =
         direction === "next"
-          ? view === "month"
+          ? isMonthly
             ? addMonths
-            : view === "timeline"
+            : isWeekly
               ? addWeeks
               : addDays
-          : view === "month"
+          : isMonthly
             ? (d: Date, n: number) => subMonths(d, n)
-            : view === "timeline"
+            : isWeekly
               ? (d: Date, n: number) => subWeeks(d, n)
               : (d: Date, n: number) => subDays(d, n);
       setCurrentDate(fn(currentDate, 1));
@@ -75,9 +77,9 @@ export function CalendarHeader({ t }: CalendarHeaderProps) {
 
   const headerTitle = useMemo(() => {
     if (view === "month") return format(currentDate, "MMMM yyyy");
-    if (view === "timeline") {
-      const ws = startOfWeek(currentDate);
-      const we = endOfWeek(currentDate);
+    if (view === "week" || view === "crew") {
+      const ws = startOfWeek(currentDate, { weekStartsOn: 1 });
+      const we = endOfWeek(currentDate, { weekStartsOn: 1 });
       if (ws.getMonth() === we.getMonth()) {
         return `${format(ws, "MMM d")} - ${format(we, "d, yyyy")}`;
       }
@@ -88,9 +90,10 @@ export function CalendarHeader({ t }: CalendarHeaderProps) {
   }, [currentDate, view]);
 
   const viewOptions: { value: SchedulerView; label: string }[] = [
-    { value: "timeline", label: "Timeline" },
-    { value: "month", label: "Month" },
-    { value: "day", label: "Day" },
+    { value: "day", label: "// DAY" },
+    { value: "week", label: "// WEEK" },
+    { value: "month", label: "// MONTH" },
+    { value: "crew", label: "// CREW" },
   ];
 
   return (
@@ -182,13 +185,16 @@ export function CalendarHeader({ t }: CalendarHeaderProps) {
         {/* Keyboard hints */}
         <div className="hidden xl:flex items-center gap-[3px] ml-[4px]">
           <kbd className="font-mono text-micro text-text-mute bg-glass glass-surface px-[5px] py-[2px] rounded-sm border border-border-subtle">
-            T
+            D
+          </kbd>
+          <kbd className="font-mono text-micro text-text-mute bg-glass glass-surface px-[5px] py-[2px] rounded-sm border border-border-subtle">
+            W
           </kbd>
           <kbd className="font-mono text-micro text-text-mute bg-glass glass-surface px-[5px] py-[2px] rounded-sm border border-border-subtle">
             M
           </kbd>
           <kbd className="font-mono text-micro text-text-mute bg-glass glass-surface px-[5px] py-[2px] rounded-sm border border-border-subtle">
-            D
+            C
           </kbd>
         </div>
       </div>

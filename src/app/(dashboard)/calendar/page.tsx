@@ -100,10 +100,11 @@ export default function CalendarPage() {
         const me = endOfMonth(currentDate);
         return { rangeStart: startOfWeek(ms), rangeEnd: endOfWeek(me) };
       }
-      case "timeline":
+      case "week":
+      case "crew":
         return {
-          rangeStart: startOfWeek(currentDate),
-          rangeEnd: endOfWeek(currentDate),
+          rangeStart: startOfWeek(currentDate, { weekStartsOn: 1 }),
+          rangeEnd: endOfWeek(currentDate, { weekStartsOn: 1 }),
         };
       case "day":
       default:
@@ -258,7 +259,7 @@ export default function CalendarPage() {
                   exit="exit"
                   className="flex flex-col flex-1 min-h-0"
                 >
-                  {view === "timeline" && (
+                  {view === "crew" && (
                     <TimelineGrid
                       events={events}
                       teamMembers={teamMembers}
@@ -288,8 +289,8 @@ export default function CalendarPage() {
             )}
           </div>
 
-          {/* Ghost overlay — only visible in timeline view with active previews */}
-          {view === "timeline" && ghostPreviews.length > 0 && (
+          {/* Ghost overlay — only visible in crew view with active previews */}
+          {view === "crew" && ghostPreviews.length > 0 && (
             <GhostOverlay
               startDate={timelineStartDate}
               daysShown={7}
