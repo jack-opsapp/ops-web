@@ -222,6 +222,17 @@
 }
 
 @layer components {
+  /* === Z-index utility classes — see OPS-Web/CLAUDE.md § Z-Index Scale === */
+  .z-content        { z-index: var(--z-content); }
+  .z-interactive    { z-index: var(--z-interactive); }
+  .z-nav            { z-index: var(--z-nav); }
+  .z-dropdown       { z-index: var(--z-dropdown); }
+  .z-floating-ui    { z-index: var(--z-floating-ui); }
+  .z-window         { z-index: var(--z-window); }
+  .z-modal          { z-index: var(--z-modal); }
+  .z-map-controls   { z-index: var(--z-map-controls); }
+  .z-emergency      { z-index: var(--z-emergency); }
+
   /* === Glass surface utility (Command Deck spec) === */
   .glass-surface {
     background: var(--glass-bg);

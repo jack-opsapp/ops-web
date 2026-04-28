@@ -4,7 +4,7 @@ import { useState, useRef, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
 import { format } from "date-fns";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { type InternalCalendarEvent, getEventColors } from "@/lib/utils/calendar-utils";
+import { type InternalCalendarEvent } from "@/lib/utils/calendar-utils";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -52,8 +52,7 @@ interface EventTooltipProps {
 
 /**
  * Rendered to document.body via portal so it escapes the calendar cell's
- * `overflow: hidden` (which is load-bearing for the drop indicator and hover
- * border on day cells). Bug 10ed5e3f.
+ * `overflow: hidden`. T17 replaces this with Radix HoverCard.
  *
  * Position strategy: above the anchor by default; if there's not enough
  * viewport above, flip below. `fixed` positioning so scroll doesn't displace.
@@ -61,7 +60,6 @@ interface EventTooltipProps {
 function EventTooltip({ event, anchorRect }: EventTooltipProps) {
   const reducedMotion = useReducedMotion();
   const tooltipVariants = reducedMotion ? tooltipVariantsReduced : tooltipVariantsMotion;
-  const colors = getEventColors(event.taskType);
   const dateRangeStr = `${format(event.startDate, "MMM d")} - ${format(event.endDate, "MMM d, yyyy")}`;
   const tooltipRef = useRef<HTMLDivElement>(null);
   const [placement, setPlacement] = useState<{ top: number; left: number }>({
@@ -106,54 +104,81 @@ function EventTooltip({ event, anchorRect }: EventTooltipProps) {
       exit="exit"
       variants={tooltipVariants}
       transition={{ duration: 0.15, ease: EASE_SMOOTH }}
-      className="pointer-events-none"
+      className="pointer-events-none z-dropdown"
       style={{
         position: "fixed",
         top: placement.top,
         left: placement.left,
-        zIndex: 1000, // dropdown layer per spec v2 z-index scale
         minWidth: 180,
         maxWidth: 240,
         background: "var(--glass-bg-dense)",
         backdropFilter: "blur(28px) saturate(1.3)",
         WebkitBackdropFilter: "blur(28px) saturate(1.3)",
         border: "1px solid var(--glass-border)",
-        borderRadius: 12, // rounded-modal per spec v2 (popover/dropdown tier)
+        borderRadius: 12,
         padding: "8px 10px",
       }}
     >
       {/* Project name */}
       <div
-        className="font-mohave font-semibold text-[12px] leading-tight truncate"
-        style={{ color: "var(--text-primary, #EDEDED)" }}
+        className="font-cakemono font-light text-[12px] uppercase leading-tight truncate"
+        style={{ color: "var(--text)" }}
       >
-        {event.project || event.title}
+        {event.projectTitle ?? event.taskTitle}
       </div>
+
+      {/* Subtitle when distinct */}
+      {event.projectTitle && event.taskTitle !== event.projectTitle && (
+        <div
+          className="font-mohave text-[12px] leading-tight truncate mt-[2px]"
+          style={{ color: "var(--text-3)" }}
+        >
+          {event.taskTitle}
+        </div>
+      )}
 
       {/* Divider */}
       <div
-        className="my-[4px]"
+        className="my-[6px]"
         style={{ height: 1, background: "var(--glass-border)" }}
       />
 
-      {/* Task type */}
+      {/* Type + status badges */}
       <div className="flex items-center gap-[6px]">
         <div
-          className="w-[6px] h-[6px] rounded-[1px] shrink-0"
-          style={{ background: colors.border }}
-        />
-        <span
-          className="font-mono text-micro uppercase tracking-wider leading-tight"
-          style={{ color: colors.text }}
+          className="px-[5px] py-[1px] font-cakemono font-light uppercase"
+          style={{
+            color: event.typeColors.text,
+            background: event.typeColors.bg,
+            border: `1px solid ${event.typeColors.border}`,
+            borderRadius: 4,
+            fontSize: 9,
+            letterSpacing: "0.04em",
+          }}
         >
-          {event.taskType.toUpperCase()}
-        </span>
+          {event.typeLabel}
+        </div>
+        <div
+          className="px-[5px] py-[1px] font-mono uppercase tracking-wider"
+          style={{
+            color: event.statusColors.text,
+            background: event.statusColors.bg,
+            border: `1px solid ${event.statusColors.border}`,
+            borderRadius: 4,
+            fontSize: 9,
+          }}
+        >
+          {event.statusKey.replace("_", " ")}
+        </div>
       </div>
 
       {/* Date range */}
       <div
-        className="font-mono text-micro uppercase tracking-wider leading-tight mt-[3px]"
-        style={{ color: "var(--text-3, #8A8A8A)" }}
+        className="font-mono text-[10px] uppercase tracking-wider leading-tight mt-[6px] tabular-nums"
+        style={{
+          color: "var(--text-3)",
+          fontFeatureSettings: '"tnum" 1, "zero" 1',
+        }}
       >
         {dateRangeStr}
       </div>
@@ -182,11 +207,7 @@ export function MonthEventBar({
   };
   const handleLeave = () => {
     setIsHovered(false);
-    // Keep anchorRect around one frame so the exit animation has a position;
-    // cleared the next time the tooltip opens on a different bar.
   };
-
-  const colors = getEventColors(event.taskType);
 
   // Spec v2: event bars follow chip radii (4px). Multi-day bars square off
   // the interior corners so consecutive weeks read as one continuous strip.
@@ -202,7 +223,7 @@ export function MonthEventBar({
     onClick?.(event);
   };
 
-  // ── Level 1: Compact — color dot only ──
+  // ── Level 1: Compact — color dot only (no stripe — leave as-is) ──
   if (displayLevel === "compact") {
     return (
       <div
@@ -212,7 +233,7 @@ export function MonthEventBar({
           width: 10,
           height: 10,
           borderRadius: "50%",
-          backgroundColor: colors.border,
+          backgroundColor: event.typeColors.border,
         }}
         onClick={handleClick}
         onMouseEnter={handleEnter}
@@ -227,39 +248,60 @@ export function MonthEventBar({
     );
   }
 
+  // ── Stripe: 3px sibling div — replaces inset box-shadow ──
+  // Box-shadow inset doesn't respect the border-radius, producing a
+  // 'crescent moon' artifact at the corners. The sibling div with matching
+  // border-radius gives pixel-perfect curve continuity.
+  const StripeAccent = (visible: boolean) =>
+    visible ? (
+      <div
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: 3,
+          background: event.typeColors.border,
+          borderRadius: span.isSingleDay
+            ? "4px 0 0 4px"
+            : "4px 0 0 4px", // first segment always rounds the left
+          pointerEvents: "none",
+        }}
+      />
+    ) : null;
+
   // ── Level 2: Standard — short bar with single-line title ──
-  // Use inset box-shadow (not borderLeft) so the accent stripe respects the
-  // bar's rounded corners instead of clipping against them — that corner
-  // clip is the "funny" left-edge line the bug flagged.
   if (displayLevel === "standard") {
+    const showStripe = span.isFirstSegment || span.isSingleDay;
     return (
       <div
         ref={anchorRef}
-        className="cursor-pointer transition-all duration-100 hover:brightness-125 truncate relative"
+        className="cursor-pointer truncate relative"
         style={{
           height: 14,
-          backgroundColor: colors.bg,
-          boxShadow:
-            span.isFirstSegment || span.isSingleDay
-              ? `inset 3px 0 0 0 ${colors.border}`
-              : undefined,
+          background: event.statusColors.bg,
+          border: `1px solid ${event.statusColors.border}`,
           borderRadius,
-          color: colors.text,
-          paddingLeft: span.isFirstSegment || span.isSingleDay ? 7 : 4,
+          color: event.statusColors.text,
+          paddingLeft: showStripe ? 7 : 4,
           paddingRight: 4,
           display: "flex",
           alignItems: "center",
           overflow: "visible",
+          transition: "filter 0.15s cubic-bezier(0.22, 1, 0.36, 1)",
+          filter: isHovered ? "brightness(1.18)" : "none",
         }}
         onClick={handleClick}
         onMouseEnter={handleEnter}
         onMouseLeave={handleLeave}
       >
+        {StripeAccent(showStripe)}
         <span
           className="font-mohave truncate"
-          style={{ fontSize: 11, lineHeight: "14px" }}
+          style={{ fontSize: 11, lineHeight: "14px", color: "var(--text)" }}
         >
-          {event.project || event.title}
+          {event.projectTitle ?? event.taskTitle}
         </span>
         <AnimatePresence>
           {isHovered && anchorRect && (
@@ -274,33 +316,35 @@ export function MonthEventBar({
 
   // Multi-day events stay 14px even at expanded level
   if (!span.isSingleDay) {
+    const showStripe = span.isFirstSegment;
     return (
       <div
         ref={anchorRef}
-        className="cursor-pointer transition-all duration-100 hover:brightness-125 truncate relative"
+        className="cursor-pointer truncate relative"
         style={{
           height: 14,
-          backgroundColor: colors.bg,
-          boxShadow: span.isFirstSegment
-            ? `inset 3px 0 0 0 ${colors.border}`
-            : undefined,
+          background: event.statusColors.bg,
+          border: `1px solid ${event.statusColors.border}`,
           borderRadius,
-          color: colors.text,
-          paddingLeft: span.isFirstSegment ? 7 : 4,
+          color: event.statusColors.text,
+          paddingLeft: showStripe ? 7 : 4,
           paddingRight: 4,
           display: "flex",
           alignItems: "center",
           overflow: "visible",
+          transition: "filter 0.15s cubic-bezier(0.22, 1, 0.36, 1)",
+          filter: isHovered ? "brightness(1.18)" : "none",
         }}
         onClick={handleClick}
         onMouseEnter={handleEnter}
         onMouseLeave={handleLeave}
       >
+        {StripeAccent(showStripe)}
         <span
           className="font-mohave truncate"
-          style={{ fontSize: 11, lineHeight: "14px" }}
+          style={{ fontSize: 11, lineHeight: "14px", color: "var(--text)" }}
         >
-          {event.project || event.title}
+          {event.projectTitle ?? event.taskTitle}
         </span>
         <AnimatePresence>
           {isHovered && anchorRect && (
@@ -311,47 +355,80 @@ export function MonthEventBar({
     );
   }
 
-  // Single-day expanded: 42px tall, 2 lines (project name + task type)
+  // Single-day expanded: 42px tall, 2 lines + badge
+  const subtitle =
+    event.projectTitle && event.taskTitle !== event.projectTitle
+      ? event.taskTitle
+      : null;
+
   return (
     <div
       ref={anchorRef}
-      className="cursor-pointer transition-all duration-100 hover:brightness-125 relative"
+      className="cursor-pointer relative"
       style={{
         height: 42,
-        backgroundColor: colors.bg,
-        boxShadow: `inset 3px 0 0 0 ${colors.border}`,
+        background: event.statusColors.bg,
+        border: `1px solid ${event.statusColors.border}`,
         borderRadius: "4px",
-        color: colors.text,
-        paddingLeft: 7,
-        paddingRight: 4,
-        paddingTop: 2,
-        paddingBottom: 2,
+        color: event.statusColors.text,
+        paddingLeft: 9,
+        paddingRight: 6,
+        paddingTop: 4,
+        paddingBottom: 4,
         display: "flex",
-        flexDirection: "column",
-        justifyContent: "center",
+        alignItems: "center",
+        gap: 8,
         overflow: "visible",
+        transition: "filter 0.15s cubic-bezier(0.22, 1, 0.36, 1)",
+        filter: isHovered ? "brightness(1.18)" : "none",
       }}
       onClick={handleClick}
       onMouseEnter={handleEnter}
       onMouseLeave={handleLeave}
     >
-      <span
-        className="font-mohave truncate"
-        style={{ fontSize: 11, lineHeight: "14px" }}
-      >
-        {event.project || event.title}
-      </span>
-      <span
-        className="font-mono uppercase truncate"
+      {StripeAccent(true)}
+
+      <div className="flex-1 min-w-0 flex flex-col justify-center">
+        <span
+          className="font-mohave truncate"
+          style={{
+            fontSize: 11,
+            lineHeight: "14px",
+            color: "var(--text)",
+          }}
+        >
+          {event.projectTitle ?? event.taskTitle}
+        </span>
+        {subtitle && (
+          <span
+            className="font-mono truncate"
+            style={{
+              fontSize: 10,
+              lineHeight: "12px",
+              color: "var(--text-3)",
+            }}
+          >
+            {subtitle}
+          </span>
+        )}
+      </div>
+
+      {/* Type badge */}
+      <div
+        className="shrink-0 px-[5px] py-[1px] font-cakemono font-light uppercase"
         style={{
+          color: event.typeColors.text,
+          background: event.typeColors.bg,
+          border: `1px solid ${event.typeColors.border}`,
+          borderRadius: 4,
           fontSize: 9,
+          letterSpacing: "0.04em",
           lineHeight: "12px",
-          color: "var(--text-3, #8A8A8A)",
-          letterSpacing: "0.08em",
         }}
       >
-        {event.taskType}
-      </span>
+        {event.typeLabel}
+      </div>
+
       <AnimatePresence>
         {isHovered && anchorRect && (
           <EventTooltip event={event} anchorRect={anchorRect} />
