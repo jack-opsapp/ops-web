@@ -90,6 +90,13 @@ export const queryKeys = {
     lists: () => [...queryKeys.calendar.all, "list"] as const,
     scheduled: (companyId: string, start: string, end: string, scopedUserId = "") =>
       [...queryKeys.calendar.lists(), "scheduled", companyId, start, end, scopedUserId] as const,
+    // Phase 3 — recurring task templates and exceptions
+    recurrences: (companyId: string) =>
+      [...queryKeys.calendar.all, "recurrences", companyId] as const,
+    recurrence: (id: string) =>
+      [...queryKeys.calendar.all, "recurrence", id] as const,
+    recurrenceExceptions: (recurrenceId: string) =>
+      [...queryKeys.calendar.all, "recurrence-exceptions", recurrenceId] as const,
   },
 
   // Task Types
