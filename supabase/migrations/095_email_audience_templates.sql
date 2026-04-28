@@ -1,4 +1,4 @@
--- 092_email_audience_templates.sql
+-- 095_email_audience_templates.sql
 -- Saved audience filters. Operators build a filter in the Audience Builder,
 -- click "Save as template", and reuse it across campaigns.
 
