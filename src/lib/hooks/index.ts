@@ -38,6 +38,8 @@ export {
   useSoftDeleteRecurrence,
   useUpsertRecurrenceException,
 } from "./use-recurrences";
+export { useRecurrenceEdit } from "./use-recurrence-edit";
+export type { RecurrenceEditInput } from "./use-recurrence-edit";
 
 // Clients
 export {
