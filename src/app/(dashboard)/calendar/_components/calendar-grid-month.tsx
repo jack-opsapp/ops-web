@@ -7,7 +7,6 @@ import {
   startOfWeek,
   endOfWeek,
   eachDayOfInterval,
-  addDays,
   format,
   isSameMonth,
   isSameDay,
@@ -15,20 +14,8 @@ import {
   differenceInCalendarDays,
 } from "date-fns";
 import { motion } from "framer-motion";
-import {
-  DndContext,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  useDroppable,
-  useDraggable,
-  type DragEndEvent,
-} from "@dnd-kit/core";
-import { toast } from "sonner";
+import { useDroppable, useDraggable } from "@dnd-kit/core";
 import { type InternalCalendarEvent } from "@/lib/utils/calendar-utils";
-import { useUpdateTask, useTasks, useRecurrenceEdit } from "@/lib/hooks";
-import { useRecurrenceEditPrompt } from "@/components/ui/recurrence-edit-prompt";
-import type { ProjectTask } from "@/lib/types/models";
 import {
   MonthEventBar,
   type DisplayLevel,
@@ -538,136 +525,7 @@ export function CalendarGridMonth({
   // ── Slot height for current level ──
   const baseSlotHeight = displayLevel === "compact" ? 10 : 14;
 
-  // ── DnD ──
-  const updateTask = useUpdateTask();
-  const recurrenceEdit = useRecurrenceEdit();
-  const recurrencePrompt = useRecurrenceEditPrompt();
-  // Phase 3 — full task lookup so we can detect series membership on drop.
-  const { data: taskData } = useTasks();
-  const tasksById = useMemo(() => {
-    const map = new Map<string, ProjectTask>();
-    for (const t of taskData?.tasks ?? []) {
-      map.set(t.id, t);
-    }
-    return map;
-  }, [taskData]);
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
-  );
-
-  const handleDragEnd = useCallback(
-    async (dragEvent: DragEndEvent) => {
-      const { active, over } = dragEvent;
-      if (!over) return;
-
-      const activeData = active.data?.current as
-        | {
-            type?: string;
-            event?: InternalCalendarEvent;
-            task?: { id: string; duration: number };
-          }
-        | undefined;
-      const overData = over.data?.current as
-        | { type?: string; day?: Date }
-        | undefined;
-
-      if (overData?.type !== "month-day" || !overData.day) return;
-      const targetDay = overData.day;
-
-      // ── Reschedule existing scheduled month event ────────────────────
-      if (activeData?.type === "month-event" && activeData.event) {
-        const calEvent = activeData.event;
-
-        // Coerce to Date for safety (Supabase responses may be strings)
-        const eventStart = calEvent.startDate instanceof Date
-          ? calEvent.startDate
-          : new Date(calEvent.startDate);
-        const eventEnd = calEvent.endDate instanceof Date
-          ? calEvent.endDate
-          : new Date(calEvent.endDate);
-
-        // Shift both start and end dates by the day delta
-        const dayDelta = differenceInCalendarDays(targetDay, eventStart);
-        if (dayDelta === 0) return;
-
-        const newStart = addDays(eventStart, dayDelta);
-        const newEnd = addDays(eventEnd, dayDelta);
-
-        // Phase 3 — series-aware. If the task belongs to a recurrence,
-        // prompt for scope and apply via useRecurrenceEdit.
-        const sourceTask = tasksById.get(calEvent.id);
-        if (sourceTask?.recurrenceId) {
-          const scope = await recurrencePrompt.request({
-            description:
-              "Move this occurrence, or shift the entire series?",
-          });
-          if (!scope) return;
-          recurrenceEdit.mutate(
-            {
-              task: sourceTask,
-              scope,
-              patch: { startDate: newStart, endDate: newEnd },
-            },
-            {
-              onError: (err) =>
-                toast.error("Failed to move recurring task", {
-                  description: err.message,
-                }),
-            }
-          );
-          return;
-        }
-
-        updateTask.mutate(
-          { id: calEvent.id, data: { startDate: newStart, endDate: newEnd } },
-          {
-            onError: (err) =>
-              toast.error("Failed to move event", { description: err.message }),
-          }
-        );
-        return;
-      }
-
-      // ── Schedule from unscheduled tray (T15) ─────────────────────────
-      if (activeData?.type === "unscheduled-task" && activeData.task) {
-        const task = activeData.task;
-        const duration = Math.max(task.duration ?? 1, 1);
-        const newStart = targetDay;
-        const newEnd = addDays(newStart, duration);
-
-        updateTask.mutate(
-          { id: task.id, data: { startDate: newStart, endDate: newEnd } },
-          {
-            onError: (err) =>
-              toast.error("Failed to schedule task", { description: err.message }),
-          }
-        );
-        return;
-      }
-
-      // ── Schedule from project drawer ────────────────────────────────
-      if (activeData?.type === "project-drawer-task" && activeData.task) {
-        const task = activeData.task;
-        const duration = Math.max(task.duration ?? 1, 1);
-        const newStart = targetDay;
-        const newEnd = addDays(newStart, duration);
-
-        updateTask.mutate(
-          { id: task.id, data: { startDate: newStart, endDate: newEnd } },
-          {
-            onError: (err) =>
-              toast.error("Failed to schedule task", { description: err.message }),
-          }
-        );
-        return;
-      }
-    },
-    [updateTask, recurrenceEdit, recurrencePrompt, tasksById]
-  );
-
   return (
-    <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
     <div className="flex flex-col flex-1 min-h-0" onWheel={handleWheel}>
       {/* Day name headers — fixed top row */}
       <div className="grid grid-cols-7 shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.10)" }}>
@@ -802,9 +660,6 @@ export function CalendarGridMonth({
           </div>
         ))}
       </div>
-      {/* Phase 3 — recurrence scope prompt for drag-rescheduled series tasks */}
-      {recurrencePrompt.promptElement}
     </div>
-    </DndContext>
   );
 }

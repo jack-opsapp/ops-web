@@ -10,6 +10,7 @@ import {
 import { addDays, format, startOfDay, isSameDay } from "date-fns";
 import type { InternalCalendarEvent } from "@/lib/utils/calendar-utils";
 import { CalendarGridDay } from "../calendar-grid-day";
+import { useCalendarDragState } from "../calendar-dnd-shell";
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -183,13 +184,15 @@ export function DayScrollContainer({
     didInitialScroll.current = false;
   }, [currentDate, activeDay]);
 
+  const { isDragging } = useCalendarDragState();
+
   return (
     <div
       ref={scrollRef}
       className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden flex scrollbar-hide"
       style={{
-        scrollSnapType: "x mandatory",
-        scrollBehavior: "smooth",
+        scrollSnapType: isDragging ? "none" : "x mandatory",
+        scrollBehavior: isDragging ? "auto" : "smooth",
       }}
     >
       {days.map((d) => {

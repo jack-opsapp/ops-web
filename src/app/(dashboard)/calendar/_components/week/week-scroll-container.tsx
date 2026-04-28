@@ -15,6 +15,7 @@ import {
 } from "date-fns";
 import type { InternalCalendarEvent } from "@/lib/utils/calendar-utils";
 import { WeekGrid } from "./week-grid";
+import { useCalendarDragState } from "../calendar-dnd-shell";
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -173,13 +174,15 @@ export function WeekScrollContainer({
     didInitialScroll.current = false;
   }, [currentDate, activeWeek]);
 
+  const { isDragging } = useCalendarDragState();
+
   return (
     <div
       ref={scrollRef}
       className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden flex scrollbar-hide"
       style={{
-        scrollSnapType: "x mandatory",
-        scrollBehavior: "smooth",
+        scrollSnapType: isDragging ? "none" : "x mandatory",
+        scrollBehavior: isDragging ? "auto" : "smooth",
       }}
     >
       {weeks.map((w) => {

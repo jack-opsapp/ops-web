@@ -16,6 +16,7 @@ import {
 } from "date-fns";
 import type { InternalCalendarEvent } from "@/lib/utils/calendar-utils";
 import { CalendarGridMonth } from "../calendar-grid-month";
+import { useCalendarDragState } from "../calendar-dnd-shell";
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -237,6 +238,10 @@ export function MonthScrollContainer({
     didInitialScroll.current = false; // re-run initial scroll
   }, [currentDate, activeMonth]);
 
+  // ── Drag state — disable snap during drag so dnd-kit's autoscroll can move
+  //    the viewport across panel boundaries. ────────────────────────────────
+  const { isDragging } = useCalendarDragState();
+
   // ── Render ──────────────────────────────────────────────────────────────
 
   return (
@@ -244,8 +249,8 @@ export function MonthScrollContainer({
       ref={scrollRef}
       className="flex-1 min-h-0 overflow-y-auto scrollbar-hide"
       style={{
-        scrollSnapType: "y mandatory",
-        scrollBehavior: "smooth",
+        scrollSnapType: isDragging ? "none" : "y mandatory",
+        scrollBehavior: isDragging ? "auto" : "smooth",
       }}
     >
       {months.map((m) => {

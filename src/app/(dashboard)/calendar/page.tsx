@@ -48,6 +48,7 @@ import { UnscheduledTray } from "./_components/unscheduled-tray";
 import { FilterSidebar } from "./_components/filter-sidebar";
 import { CascadeConfirmBar } from "./_components/cascade/cascade-confirm-bar";
 import { GhostOverlay } from "./_components/cascade/ghost-overlay";
+import { CalendarDndShell } from "./_components/calendar-dnd-shell";
 
 export default function CalendarPage() {
   usePageTitle("Schedule");
@@ -258,7 +259,10 @@ export default function CalendarPage() {
       <CalendarHeader t={t} />
       <CalendarToolbar events={events} t={t} />
 
-      {/* Main content area */}
+      {/* Main content area — wrapped in a single dnd-kit context so the
+          unscheduled tray, project drawer, and continuous-scroll calendar
+          panels all share one drag surface. */}
+      <CalendarDndShell>
       <div className="flex flex-1 min-h-0 gap-1.5">
         {/* Filter sidebar (left) — hidden on mobile */}
         {!isMobile && <FilterSidebar />}
@@ -358,6 +362,7 @@ export default function CalendarPage() {
         {!isMobile && view !== "day" && <UnscheduledTray view={view} />}
 
       </div>
+      </CalendarDndShell>
       </div>
     </div>
   );

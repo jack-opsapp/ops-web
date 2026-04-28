@@ -3,25 +3,14 @@
 import { useCallback, useMemo } from "react";
 import { format, isToday } from "date-fns";
 import { AnimatePresence } from "framer-motion";
-import {
-  DndContext,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from "@dnd-kit/core";
+import { useDroppable, useDraggable } from "@dnd-kit/core";
 import { cn } from "@/lib/utils/cn";
 import {
   type InternalCalendarEvent,
   getEventsForDay,
 } from "@/lib/utils/calendar-utils";
-import { HOUR_HEIGHT } from "@/lib/utils/calendar-constants";
 import { DayTaskCard } from "./day/day-task-card";
 import { DayHourlyGrid } from "./day/day-hourly-grid";
-import { useTasks, useUpdateTask, useRecurrenceEdit } from "@/lib/hooks";
-import { useRecurrenceEditPrompt } from "@/components/ui/recurrence-edit-prompt";
-import type { ProjectTask } from "@/lib/types/models";
-import { toast } from "sonner";
 
 // ── Props ──────────────────────────────────────────────────────────────────
 
@@ -38,6 +27,38 @@ interface CalendarGridDayProps {
   t: (key: string) => string;
 }
 
+// ── Draggable list-mode card wrapper ───────────────────────────────────────
+
+function DraggableDayListCard({
+  event,
+  index,
+}: {
+  event: InternalCalendarEvent;
+  index: number;
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } =
+    useDraggable({
+      id: `day-list-event-${event.id}`,
+      data: { type: "day-list-event", event },
+    });
+
+  const style: React.CSSProperties = transform
+    ? {
+        transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+        opacity: 0.6,
+        zIndex: 100,
+      }
+    : isDragging
+      ? { opacity: 0.4 }
+      : {};
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      <DayTaskCard event={event} index={index} />
+    </div>
+  );
+}
+
 // ── Component ──────────────────────────────────────────────────────────────
 
 export function CalendarGridDay({
@@ -52,7 +73,6 @@ export function CalendarGridDay({
 
   const dayEvents = useMemo(() => {
     const filtered = getEventsForDay(events, currentDate);
-    // Sort by start time, then by title for consistent ordering
     return [...filtered].sort((a, b) => {
       const timeDiff = a.startDate.getTime() - b.startDate.getTime();
       if (timeDiff !== 0) return timeDiff;
@@ -74,77 +94,13 @@ export function CalendarGridDay({
     return template.replace("{count}", String(count));
   }, [dayEvents.length, t]);
 
-  // ── DnD for hourly mode (drag = vertical reschedule with 15-min snap) ─
-
-  const updateTask = useUpdateTask();
-  const recurrenceEdit = useRecurrenceEdit();
-  const recurrencePrompt = useRecurrenceEditPrompt();
-  const { data: taskData } = useTasks();
-  const tasksById = useMemo(() => {
-    const map = new Map<string, ProjectTask>();
-    for (const t of taskData?.tasks ?? []) map.set(t.id, t);
-    return map;
-  }, [taskData]);
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
-  );
-
-  const handleDragEnd = useCallback(
-    async (e: DragEndEvent) => {
-      const data = e.active.data?.current as
-        | { type?: string; event?: InternalCalendarEvent }
-        | undefined;
-      if (data?.type !== "day-hourly-event" || !data.event) return;
-      const event = data.event;
-
-      // Snap pixel delta → minutes (15-min increments).
-      const SNAP_MIN = 15;
-      const PX_PER_MIN = HOUR_HEIGHT / 60;
-      const SNAP_PX = SNAP_MIN * PX_PER_MIN;
-      const snappedY = Math.round(e.delta.y / SNAP_PX) * SNAP_PX;
-      const minutes = Math.round(snappedY / PX_PER_MIN);
-      if (minutes === 0) return;
-
-      const newStart = new Date(event.startDate.getTime() + minutes * 60_000);
-      const newEnd = new Date(event.endDate.getTime() + minutes * 60_000);
-      const pad = (n: number) => String(n).padStart(2, "0");
-      const fmt = (d: Date) => `${pad(d.getHours())}:${pad(d.getMinutes())}:00`;
-
-      const patch: Partial<ProjectTask> = {
-        startDate: newStart,
-        endDate: newEnd,
-        startTime: fmt(newStart),
-        endTime: fmt(newEnd),
-      };
-
-      const sourceTask = tasksById.get(event.id);
-      if (sourceTask?.recurrenceId) {
-        const scope = await recurrencePrompt.request({
-          description: "Move this occurrence, or shift the entire series?",
-        });
-        if (!scope) return;
-        recurrenceEdit.mutate(
-          { task: sourceTask, scope, patch },
-          {
-            onError: (err) =>
-              toast.error("Failed to move recurring task", {
-                description: err.message,
-              }),
-          }
-        );
-        return;
-      }
-      updateTask.mutate(
-        { id: event.id, data: patch },
-        {
-          onError: (err) =>
-            toast.error("Failed to move task", { description: err.message }),
-        }
-      );
-    },
-    [tasksById, updateTask, recurrenceEdit, recurrencePrompt]
-  );
+  // ── Day-level droppable: every panel is a drop target keyed by its day,
+  //    so cross-day drag in the horizontal scroll container can land here
+  //    regardless of hourly vs list rendering. ────────────────────────────
+  const { setNodeRef: setDayDroppableRef, isOver } = useDroppable({
+    id: `day-cell-${currentDate.toISOString()}`,
+    data: { type: "day-cell", day: currentDate },
+  });
 
   const handleEventClick = useCallback(
     (event: InternalCalendarEvent) => {
@@ -156,7 +112,14 @@ export function CalendarGridDay({
   // ── Render ────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col flex-1 min-h-0">
+    <div
+      ref={setDayDroppableRef}
+      className="flex flex-col flex-1 min-h-0"
+      style={{
+        background: isOver ? "rgba(111, 148, 176, 0.06)" : undefined,
+        transition: "background 0.15s cubic-bezier(0.22, 1, 0.36, 1)",
+      }}
+    >
       {/* Day header. Today indicator: TODAY badge with solid accent fill, black text. */}
       <div
         className="px-[16px] py-[14px] border-b shrink-0 flex items-start justify-between"
@@ -214,14 +177,11 @@ export function CalendarGridDay({
 
       {/* Phase 3: hourly mode when any event is timed; otherwise legacy list */}
       {hasTimedEvents ? (
-        <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-          <DayHourlyGrid
-            currentDate={currentDate}
-            events={dayEvents}
-            onEventClick={handleEventClick}
-          />
-          {recurrencePrompt.promptElement}
-        </DndContext>
+        <DayHourlyGrid
+          currentDate={currentDate}
+          events={dayEvents}
+          onEventClick={handleEventClick}
+        />
       ) : (
         <div className="flex-1 overflow-y-auto min-h-0 px-[16px] py-[12px]">
           <AnimatePresence mode="wait">
@@ -240,7 +200,7 @@ export function CalendarGridDay({
             ) : (
               <div className="flex flex-col gap-[8px]" key="cards">
                 {dayEvents.map((event, index) => (
-                  <DayTaskCard
+                  <DraggableDayListCard
                     key={event.id}
                     event={event}
                     index={index}
