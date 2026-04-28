@@ -47,6 +47,7 @@ export enum OpportunitySource {
   WalkIn = "walk_in",
   SocialMedia = "social_media",
   RepeatClient = "repeat_client",
+  VoiceLog = "voice_log",
   Other = "other",
 }
 
