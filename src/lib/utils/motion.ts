@@ -609,3 +609,34 @@ export const suppressionDrawerVariants: Variants = {
     transition: { duration: 0.24, ease: EASE_SMOOTH },
   },
 };
+
+// ─── Email Event Monitor (PR 8) ──────────────────────────────────────────
+
+/**
+ * Bounce-rate gauge needle. Sweeps from -90deg (left, 0%) to +90deg (right, 15%+).
+ * Custom value is the absolute target angle in degrees.
+ */
+export const bounceGaugeNeedleVariants: Variants = {
+  hidden: { rotate: -90 },
+  visible: (angleDeg: number) => ({
+    rotate: angleDeg,
+    transition: { duration: 0.6, ease: EASE_SMOOTH },
+  }),
+};
+
+/** Live event stream row — slide from top, fade out on exit. */
+export const eventStreamRowVariants: Variants = {
+  hidden: { opacity: 0, y: -8 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.28, ease: EASE_SMOOTH } },
+  exit: { opacity: 0, y: -8, transition: { duration: 0.18, ease: EASE_SMOOTH } },
+};
+
+/** Sparkline path draw-on. Used for the 6 metric cards in the monitor bar. */
+export const sparklineVariants: Variants = {
+  hidden: { pathLength: 0, opacity: 0 },
+  visible: {
+    pathLength: 1,
+    opacity: 1,
+    transition: { duration: 0.7, ease: EASE_SMOOTH },
+  },
+};
