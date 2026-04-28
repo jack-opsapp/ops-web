@@ -1,5 +1,5 @@
 /**
- * GET /api/admin/email/templates/[type]/versions/compare?a=1.0.0&b=1.1.0&since=ISO
+ * GET /api/admin/email/templates/[templateId]/versions/compare?a=1.0.0&b=1.1.0&since=ISO
  *   Returns side-by-side metrics for two template versions of the same email_type.
  */
 
@@ -9,11 +9,11 @@ import { getTemplateVersionCompare } from "@/lib/admin/email-campaign-queries";
 
 export const runtime = "nodejs";
 
-type RouteContext = { params: Promise<{ type: string }> };
+type RouteContext = { params: Promise<{ templateId: string }> };
 
 export const GET = withAdmin(async (req: NextRequest, ctx: RouteContext) => {
   await requireAdmin(req);
-  const { type } = await ctx.params;
+  const { templateId } = await ctx.params;
   const url = new URL(req.url);
   const a = url.searchParams.get("a");
   const b = url.searchParams.get("b");
@@ -24,7 +24,7 @@ export const GET = withAdmin(async (req: NextRequest, ctx: RouteContext) => {
       { status: 400 }
     );
   }
-  const result = await getTemplateVersionCompare(type, a, b, since);
+  const result = await getTemplateVersionCompare(templateId, a, b, since);
   return NextResponse.json(
     { ok: true, result },
     { headers: { "Cache-Control": "private, max-age=60" } }
