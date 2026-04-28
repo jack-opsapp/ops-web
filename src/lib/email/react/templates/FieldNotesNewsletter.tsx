@@ -1,3 +1,4 @@
+// @template-version: 1.0.0
 import * as React from "react";
 import sanitizeHtml from "sanitize-html";
 import parse from "html-react-parser";
@@ -240,3 +241,5 @@ FieldNotesNewsletter.PreviewProps = {
 } satisfies FieldNotesNewsletterProps;
 
 export default FieldNotesNewsletter;
+
+export const previewProps = FieldNotesNewsletter.PreviewProps;

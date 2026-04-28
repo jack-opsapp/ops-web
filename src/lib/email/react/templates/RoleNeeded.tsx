@@ -1,3 +1,4 @@
+// @template-version: 1.0.0
 import * as React from "react";
 import { OpsEmailLayout } from "../layouts/OpsEmailLayout";
 import { Headline, Paragraph, Button, Spacer, InfoBlock } from "../primitives";
@@ -50,3 +51,5 @@ RoleNeeded.PreviewProps = {
 } satisfies RoleNeededProps;
 
 export default RoleNeeded;
+
+export const previewProps = RoleNeeded.PreviewProps;

@@ -1,3 +1,4 @@
+// @template-version: 1.0.0
 import * as React from "react";
 import { OpsEmailLayout } from "../layouts/OpsEmailLayout";
 import { Headline, Paragraph, Button, Spacer } from "../primitives";
@@ -38,3 +39,5 @@ EmailVerification.PreviewProps = {
 } satisfies EmailVerificationProps;
 
 export default EmailVerification;
+
+export const previewProps = EmailVerification.PreviewProps;

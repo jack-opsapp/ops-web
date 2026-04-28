@@ -1,3 +1,4 @@
+// @template-version: 1.0.0
 import * as React from "react";
 import { PortalEmailLayout } from "../layouts/PortalEmailLayout";
 import { Headline, Paragraph, Button, Spacer, InfoBlock } from "../primitives";
@@ -58,3 +59,5 @@ PortalEstimateReady.PreviewProps = {
 } satisfies PortalEstimateReadyProps;
 
 export default PortalEstimateReady;
+
+export const previewProps = PortalEstimateReady.PreviewProps;

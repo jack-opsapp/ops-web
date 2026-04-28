@@ -1,3 +1,4 @@
+// @template-version: 1.0.0
 import * as React from "react";
 import { OpsEmailLayout } from "../layouts/OpsEmailLayout";
 import {
@@ -230,3 +231,5 @@ AdsBriefing.PreviewProps = {
 } satisfies AdsBriefingProps;
 
 export default AdsBriefing;
+
+export const previewProps = AdsBriefing.PreviewProps;

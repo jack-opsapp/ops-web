@@ -1,3 +1,4 @@
+// @template-version: 1.0.0
 import * as React from "react";
 import { OpsEmailLayout } from "../layouts/OpsEmailLayout";
 import { Headline, Paragraph, InfoBlock, Spacer, Button } from "../primitives";
@@ -47,3 +48,5 @@ EmailChangeConfirmation.PreviewProps = {
 } satisfies EmailChangeConfirmationProps;
 
 export default EmailChangeConfirmation;
+
+export const previewProps = EmailChangeConfirmation.PreviewProps;

@@ -1,3 +1,4 @@
+// @template-version: 1.0.0
 import * as React from "react";
 import { OpsEmailLayout } from "../layouts/OpsEmailLayout";
 import { Headline, Paragraph, Button, Spacer, InfoBlock } from "../primitives";
@@ -60,3 +61,5 @@ BetaAccessRequest.PreviewProps = {
 } satisfies BetaAccessRequestProps;
 
 export default BetaAccessRequest;
+
+export const previewProps = BetaAccessRequest.PreviewProps;
