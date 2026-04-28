@@ -42,7 +42,7 @@ describe("email templates routes", () => {
     listTemplatesMock.mockResolvedValueOnce([
       { templateId: "x", displayName: "X", currentVersion: "1.0.0", versionsCount: 1 },
     ]);
-    const r = await listGET(new Request("https://x") as any, {} as any);
+    const r = await (listGET as unknown as (req: Request, ctx: unknown) => Promise<Response>)(new Request("https://x"), {});
     expect(r.status).toBe(200);
     const j = await r.json();
     expect(j.ok).toBe(true);
