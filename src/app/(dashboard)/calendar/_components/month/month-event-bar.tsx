@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { format } from "date-fns";
 import { type InternalCalendarEvent } from "@/lib/utils/calendar-utils";
 import { EventHoverPopover } from "../event-hover-popover";
 
@@ -165,6 +166,11 @@ export function MonthEventBar({
       ? event.taskTitle
       : null;
 
+  // Phase 3 — show time range only when not all-day
+  const timeLabel = event.allDay
+    ? null
+    : `${format(event.startDate, "HH:mm")} → ${format(event.endDate, "HH:mm")}`;
+
   return (
     <EventHoverPopover event={event} side="top">
       <div
@@ -217,20 +223,35 @@ export function MonthEventBar({
           )}
         </div>
 
-        {/* Type badge */}
-        <div
-          className="shrink-0 px-[5px] py-[1px] font-cakemono font-light uppercase"
-          style={{
-            color: event.typeColors.text,
-            background: event.typeColors.bg,
-            border: `1px solid ${event.typeColors.border}`,
-            borderRadius: 4,
-            fontSize: 9,
-            letterSpacing: "0.04em",
-            lineHeight: "12px",
-          }}
-        >
-          {event.typeLabel}
+        {/* Right cluster: optional time + type badge */}
+        <div className="flex items-center gap-[5px] shrink-0">
+          {timeLabel && (
+            <span
+              className="font-mono tabular-nums"
+              style={{
+                fontSize: 10,
+                lineHeight: "12px",
+                color: "var(--text-3)",
+                fontFeatureSettings: '"tnum" 1, "zero" 1',
+              }}
+            >
+              {timeLabel}
+            </span>
+          )}
+          <div
+            className="px-[5px] py-[1px] font-cakemono font-light uppercase"
+            style={{
+              color: event.typeColors.text,
+              background: event.typeColors.bg,
+              border: `1px solid ${event.typeColors.border}`,
+              borderRadius: 4,
+              fontSize: 9,
+              letterSpacing: "0.04em",
+              lineHeight: "12px",
+            }}
+          >
+            {event.typeLabel}
+          </div>
         </div>
       </div>
     </EventHoverPopover>
