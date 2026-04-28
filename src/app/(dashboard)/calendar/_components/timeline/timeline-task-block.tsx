@@ -5,14 +5,13 @@ import { differenceInCalendarDays, addDays, format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
 import { useDraggable } from "@dnd-kit/core";
 import type { InternalCalendarEvent } from "@/lib/utils/calendar-utils";
-import { getEventColors } from "@/lib/utils/calendar-utils";
 import { TIMELINE_ROW_HEIGHT } from "@/lib/utils/timeline-constants";
 
 // ─── Props ──────────────────────────────────────────────────────────────────
 
 interface TimelineTaskBlockProps {
   event: InternalCalendarEvent;
-  startDate: Date; // timeline start date (first visible day)
+  startDate: Date; // crew swimlane start date (first visible day)
   daysShown: number; // number of visible day columns
   isSelected?: boolean; // selected via click or multi-select
   isGhost?: boolean; // ghost preview for cascade/auto-schedule
@@ -30,29 +29,6 @@ interface TimelineTaskBlockProps {
 /** Clamp a value between min and max */
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
-}
-
-/**
- * Parse a hex color string to r, g, b values.
- * Handles #RGB, #RRGGBB, or returns fallback for invalid input.
- */
-function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
-  const clean = hex.replace("#", "");
-  if (clean.length === 3) {
-    return {
-      r: parseInt(clean[0] + clean[0], 16),
-      g: parseInt(clean[1] + clean[1], 16),
-      b: parseInt(clean[2] + clean[2], 16),
-    };
-  }
-  if (clean.length === 6) {
-    return {
-      r: parseInt(clean.slice(0, 2), 16),
-      g: parseInt(clean.slice(2, 4), 16),
-      b: parseInt(clean.slice(4, 6), 16),
-    };
-  }
-  return null;
 }
 
 // ─── Component ──────────────────────────────────────────────────────────────
@@ -88,16 +64,6 @@ export function TimelineTaskBlock({
     data: { type: "timeline-event", event },
     disabled: isGhost || !!resizeState,
   });
-
-  // ── Color computation ─────────────────────────────────────────────────
-
-  const colors = useMemo(() => getEventColors(event.taskType), [event.taskType]);
-  const borderColor = colors.border;
-  const textColor = colors.text;
-
-  // Parse the border color to RGB for opacity variants
-  const rgb = useMemo(() => hexToRgb(borderColor), [borderColor]);
-  const rgbStr = rgb ? `${rgb.r}, ${rgb.g}, ${rgb.b}` : "89, 119, 159";
 
   // ── Positioning ───────────────────────────────────────────────────────
 
@@ -153,15 +119,23 @@ export function TimelineTaskBlock({
   const oneDayPercent = 100 / daysShown;
   const isNarrow = resizeAdjusted.widthPercent < oneDayPercent * 0.6;
 
-  // ── Label content ─────────────────────────────────────────────────────
+  // ── Display values (unified mapping per T8) ───────────────────────────
 
-  const projectName = event.title;
-  const clientName = event.project ?? null;
-  const taskTypeLabel = event.taskType.toUpperCase();
-
-  // ── Date range for tooltip ────────────────────────────────────────────
-
+  const primaryTitle = event.projectTitle ?? event.taskTitle;
+  const subtitle =
+    event.projectTitle && event.taskTitle !== event.projectTitle
+      ? event.taskTitle
+      : null;
   const dateRangeStr = `${format(event.startDate, "MMM d")} - ${format(event.endDate, "MMM d, yyyy")}`;
+
+  // ── Time label (only when allDay = false; Phase 3) ────────────────────
+
+  const timeRange = useMemo(() => {
+    if (event.allDay) return null;
+    const start = format(event.startDate, "HH:mm");
+    const end = format(event.endDate, "HH:mm");
+    return `${start} → ${end}`;
+  }, [event.allDay, event.startDate, event.endDate]);
 
   // ── Event handlers ────────────────────────────────────────────────────
 
@@ -259,7 +233,7 @@ export function TimelineTaskBlock({
       }
     : {};
 
-  // ── Reduced motion ────────────────────────────────────────────────────
+  // ── Reduced motion (tooltip) ──────────────────────────────────────────
 
   const tooltipVariants = {
     hidden: { opacity: 0, y: 4 },
@@ -319,73 +293,97 @@ export function TimelineTaskBlock({
         />
       )}
 
-      {/* Left color stripe */}
+      {/* Body — sibling-div stripe + status fill (no box-shadow crescent) */}
       <div
-        className="shrink-0 rounded-l-[3px]"
+        className="flex-1 relative flex items-center min-w-0"
         style={{
-          width: 3,
-          background: borderColor,
-        }}
-      />
-
-      {/* Main block body */}
-      <div
-        className="flex-1 flex items-center min-w-0 px-[8px] rounded-r-[3px] transition-colors duration-150"
-        style={{
-          background: `rgba(${rgbStr}, 0.15)`,
-          border: `1px ${isGhost ? "dashed" : "solid"} rgba(${rgbStr}, ${isHovered ? 0.5 : 0.3})`,
-          borderLeft: "none",
-          borderRadius: "0 3px 3px 0",
-          outline: isSelected ? "1px solid #6F94B0" : "none",
+          background: event.statusColors.bg,
+          border: `1px ${isGhost ? "dashed" : "solid"} ${event.statusColors.border}`,
+          borderRadius: 4,
+          paddingLeft: 11, // 8 (text) + 3 (stripe gutter)
+          paddingRight: 8,
+          outline: isSelected ? "1px solid var(--ops-accent)" : "none",
           outlineOffset: isSelected ? 0 : undefined,
+          transition: "filter 0.15s cubic-bezier(0.22, 1, 0.36, 1)",
+          filter: isHovered && !isGhost ? "brightness(1.18)" : "none",
         }}
       >
+        {/* Type stripe */}
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: 3,
+            background: event.typeColors.border,
+            borderRadius: "4px 0 0 4px",
+            pointerEvents: "none",
+          }}
+        />
+
         {/* Content */}
         <div className="flex-1 flex items-center justify-between min-w-0 gap-[6px]">
-          {/* Left: title + client */}
-          <div className="flex items-center min-w-0 gap-[4px] overflow-hidden">
+          <div className="flex items-baseline min-w-0 gap-[6px] overflow-hidden">
             <span
-              className="font-mohave font-semibold text-[11px] text-text truncate leading-tight"
-              style={{ color: "#FFFFFF" }}
+              className="font-mohave text-[11px] truncate leading-tight"
+              style={{ color: "var(--text)" }}
             >
-              {projectName}
+              {primaryTitle}
             </span>
-            {clientName && !isNarrow && (
+            {subtitle && !isNarrow && (
               <>
                 <span
                   className="font-mono text-[11px] shrink-0"
-                  style={{ color: "#666666" }}
+                  style={{ color: "var(--text-mute)" }}
                 >
-                  ·
+                  /
                 </span>
                 <span
                   className="font-mono text-[11px] truncate leading-tight"
-                  style={{ color: "#999999" }}
+                  style={{ color: "var(--text-3)" }}
                 >
-                  {clientName}
+                  {subtitle}
                 </span>
               </>
             )}
           </div>
 
-          {/* Right: task type badge */}
-          {!isNarrow && (
-            <div
-              className="shrink-0 flex items-center px-[5px] py-[1px] font-mono text-micro uppercase tracking-wider leading-tight"
-              style={{
-                color: textColor,
-                background: `rgba(${rgbStr}, 0.12)`,
-                border: `1px solid rgba(${rgbStr}, 0.30)`,
-                borderRadius: 2,
-              }}
-            >
-              {taskTypeLabel}
-            </div>
-          )}
+          {/* Right cluster: time + type badge */}
+          <div className="flex items-center gap-[6px] shrink-0">
+            {timeRange && !isNarrow && (
+              <span
+                className="font-mono text-[10px] tabular-nums"
+                style={{
+                  color: "var(--text-3)",
+                  fontFeatureSettings: '"tnum" 1, "zero" 1',
+                }}
+              >
+                {timeRange}
+              </span>
+            )}
+            {!isNarrow && (
+              <div
+                className="px-[5px] py-[1px] font-cakemono font-light uppercase"
+                style={{
+                  color: event.typeColors.text,
+                  background: event.typeColors.bg,
+                  border: `1px solid ${event.typeColors.border}`,
+                  borderRadius: 4,
+                  fontSize: 9,
+                  letterSpacing: "0.04em",
+                  lineHeight: "12px",
+                }}
+              >
+                {event.typeLabel}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Hover tooltip */}
+      {/* Hover tooltip — replaced by Radix HoverCard in T17 */}
       <AnimatePresence>
         {isHovered && !isGhost && !isDragging && !resizeState && (
           <motion.div
@@ -393,79 +391,81 @@ export function TimelineTaskBlock({
             animate="visible"
             exit="exit"
             variants={tooltipVariants}
-            transition={{ duration: 0.15 }}
-            className="absolute z-50 pointer-events-none"
+            transition={{ duration: 0.15, ease: [0.22, 1, 0.36, 1] }}
+            className="absolute z-dropdown pointer-events-none"
             style={{
               bottom: "calc(100% + 6px)",
               left: 0,
               minWidth: 200,
               maxWidth: 280,
-              background: "var(--surface-glass)",
+              background: "var(--glass-bg-dense)",
               backdropFilter: "blur(28px) saturate(1.3)",
               WebkitBackdropFilter: "blur(28px) saturate(1.3)",
-              border: "1px solid rgba(255, 255, 255, 0.08)",
-              borderRadius: 3,
+              border: "1px solid var(--glass-border)",
+              borderRadius: 12,
               padding: "8px 10px",
             }}
           >
-            {/* Project name */}
             <div
-              className="font-mohave font-semibold text-[12px] leading-tight truncate"
-              style={{ color: "#FFFFFF" }}
+              className="font-cakemono font-light text-[12px] uppercase leading-tight truncate"
+              style={{ color: "var(--text)" }}
             >
-              {projectName}
+              {primaryTitle}
             </div>
-
-            {/* Client */}
-            {clientName && (
+            {subtitle && (
               <div
-                className="font-mono text-micro uppercase tracking-wider leading-tight mt-[2px] truncate"
-                style={{ color: "#999999" }}
+                className="font-mohave text-[12px] leading-tight truncate mt-[2px]"
+                style={{ color: "var(--text-3)" }}
               >
-                {clientName}
+                {subtitle}
               </div>
             )}
-
-            {/* Divider */}
             <div
-              className="my-[5px]"
-              style={{
-                height: 1,
-                background: "rgba(255, 255, 255, 0.08)",
-              }}
+              className="my-[6px]"
+              style={{ height: 1, background: "var(--glass-border)" }}
             />
-
-            {/* Task type */}
             <div className="flex items-center gap-[6px]">
               <div
-                className="w-[6px] h-[6px] rounded-[1px] shrink-0"
-                style={{ background: borderColor }}
-              />
-              <span
-                className="font-mono text-micro uppercase tracking-wider leading-tight"
-                style={{ color: textColor }}
+                className="px-[5px] py-[1px] font-cakemono font-light uppercase"
+                style={{
+                  color: event.typeColors.text,
+                  background: event.typeColors.bg,
+                  border: `1px solid ${event.typeColors.border}`,
+                  borderRadius: 4,
+                  fontSize: 9,
+                  letterSpacing: "0.04em",
+                }}
               >
-                {taskTypeLabel}
-              </span>
-            </div>
-
-            {/* Team members */}
-            {event.teamMemberIds.length > 0 && (
+                {event.typeLabel}
+              </div>
               <div
-                className="font-mono text-micro uppercase tracking-wider leading-tight mt-[3px]"
-                style={{ color: "#999999" }}
+                className="px-[5px] py-[1px] font-mono uppercase tracking-wider"
+                style={{
+                  color: event.statusColors.text,
+                  background: event.statusColors.bg,
+                  border: `1px solid ${event.statusColors.border}`,
+                  borderRadius: 4,
+                  fontSize: 9,
+                }}
               >
-                {event.teamMemberIds.length}{" "}
-                {event.teamMemberIds.length === 1
-                  ? "TEAM MEMBER"
-                  : "TEAM MEMBERS"}
+                {event.statusKey.replace("_", " ")}
+              </div>
+            </div>
+            {event.crewIds.length > 0 && (
+              <div
+                className="font-mono text-micro uppercase tracking-wider leading-tight mt-[6px]"
+                style={{ color: "var(--text-3)" }}
+              >
+                {event.crewIds.length}{" "}
+                {event.crewIds.length === 1 ? "CREW MEMBER" : "CREW MEMBERS"}
               </div>
             )}
-
-            {/* Date range */}
             <div
-              className="font-mono text-micro uppercase tracking-wider leading-tight mt-[3px]"
-              style={{ color: "#999999" }}
+              className="font-mono text-[10px] uppercase tracking-wider leading-tight mt-[3px] tabular-nums"
+              style={{
+                color: "var(--text-3)",
+                fontFeatureSettings: '"tnum" 1, "zero" 1',
+              }}
             >
               {dateRangeStr}
             </div>
