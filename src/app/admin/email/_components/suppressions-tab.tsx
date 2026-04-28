@@ -95,12 +95,14 @@ export function SuppressionsTab() {
           >
             IMPORT CSV
           </button>
-          <a
-            href="/api/admin/email/suppressions/export"
+          <button
+            onClick={() => {
+              window.location.href = "/api/admin/email/suppressions/export";
+            }}
             className="font-cakemono font-light text-[11px] tracking-[0.06em] text-[#B5B5B5] border border-white/10 hover:bg-white/[0.05] px-3 py-1.5 rounded-[5px]"
           >
             EXPORT
-          </a>
+          </button>
           {selected.size > 0 && (
             <button
               onClick={() => removeSelected.mutate()}
