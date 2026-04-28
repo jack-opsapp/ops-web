@@ -1,14 +1,27 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { format, isToday } from "date-fns";
 import { AnimatePresence } from "framer-motion";
+import {
+  DndContext,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
 import { cn } from "@/lib/utils/cn";
 import {
   type InternalCalendarEvent,
   getEventsForDay,
 } from "@/lib/utils/calendar-utils";
+import { HOUR_HEIGHT } from "@/lib/utils/calendar-constants";
 import { DayTaskCard } from "./day/day-task-card";
+import { DayHourlyGrid } from "./day/day-hourly-grid";
+import { useTasks, useUpdateTask, useRecurrenceEdit } from "@/lib/hooks";
+import { useRecurrenceEditPrompt } from "@/components/ui/recurrence-edit-prompt";
+import type { ProjectTask } from "@/lib/types/models";
+import { toast } from "sonner";
 
 // ── Props ──────────────────────────────────────────────────────────────────
 
@@ -30,6 +43,7 @@ interface CalendarGridDayProps {
 export function CalendarGridDay({
   currentDate,
   events,
+  onEventClick,
   t,
 }: CalendarGridDayProps) {
   const dayIsToday = isToday(currentDate);
@@ -46,6 +60,12 @@ export function CalendarGridDay({
     });
   }, [events, currentDate]);
 
+  // Phase 3 — switch to hourly mode when at least one event is timed.
+  const hasTimedEvents = useMemo(
+    () => dayEvents.some((e) => !e.allDay),
+    [dayEvents]
+  );
+
   // ── Task count label ──────────────────────────────────────────────────
 
   const taskCountLabel = useMemo(() => {
@@ -53,6 +73,85 @@ export function CalendarGridDay({
     const template = count !== 1 ? t("eventCountPlural") : t("eventCount");
     return template.replace("{count}", String(count));
   }, [dayEvents.length, t]);
+
+  // ── DnD for hourly mode (drag = vertical reschedule with 15-min snap) ─
+
+  const updateTask = useUpdateTask();
+  const recurrenceEdit = useRecurrenceEdit();
+  const recurrencePrompt = useRecurrenceEditPrompt();
+  const { data: taskData } = useTasks();
+  const tasksById = useMemo(() => {
+    const map = new Map<string, ProjectTask>();
+    for (const t of taskData?.tasks ?? []) map.set(t.id, t);
+    return map;
+  }, [taskData]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
+  );
+
+  const handleDragEnd = useCallback(
+    async (e: DragEndEvent) => {
+      const data = e.active.data?.current as
+        | { type?: string; event?: InternalCalendarEvent }
+        | undefined;
+      if (data?.type !== "day-hourly-event" || !data.event) return;
+      const event = data.event;
+
+      // Snap pixel delta → minutes (15-min increments).
+      const SNAP_MIN = 15;
+      const PX_PER_MIN = HOUR_HEIGHT / 60;
+      const SNAP_PX = SNAP_MIN * PX_PER_MIN;
+      const snappedY = Math.round(e.delta.y / SNAP_PX) * SNAP_PX;
+      const minutes = Math.round(snappedY / PX_PER_MIN);
+      if (minutes === 0) return;
+
+      const newStart = new Date(event.startDate.getTime() + minutes * 60_000);
+      const newEnd = new Date(event.endDate.getTime() + minutes * 60_000);
+      const pad = (n: number) => String(n).padStart(2, "0");
+      const fmt = (d: Date) => `${pad(d.getHours())}:${pad(d.getMinutes())}:00`;
+
+      const patch: Partial<ProjectTask> = {
+        startDate: newStart,
+        endDate: newEnd,
+        startTime: fmt(newStart),
+        endTime: fmt(newEnd),
+      };
+
+      const sourceTask = tasksById.get(event.id);
+      if (sourceTask?.recurrenceId) {
+        const scope = await recurrencePrompt.request({
+          description: "Move this occurrence, or shift the entire series?",
+        });
+        if (!scope) return;
+        recurrenceEdit.mutate(
+          { task: sourceTask, scope, patch },
+          {
+            onError: (err) =>
+              toast.error("Failed to move recurring task", {
+                description: err.message,
+              }),
+          }
+        );
+        return;
+      }
+      updateTask.mutate(
+        { id: event.id, data: patch },
+        {
+          onError: (err) =>
+            toast.error("Failed to move task", { description: err.message }),
+        }
+      );
+    },
+    [tasksById, updateTask, recurrenceEdit, recurrencePrompt]
+  );
+
+  const handleEventClick = useCallback(
+    (event: InternalCalendarEvent) => {
+      onEventClick?.(event);
+    },
+    [onEventClick]
+  );
 
   // ── Render ────────────────────────────────────────────────────────────
 
@@ -113,36 +212,45 @@ export function CalendarGridDay({
         </div>
       </div>
 
-      {/* Scrollable card list */}
-      <div className="flex-1 overflow-y-auto min-h-0 px-[16px] py-[12px]">
-        <AnimatePresence mode="wait">
-          {dayEvents.length === 0 ? (
-            /* Empty state */
-            <div
-              className="flex items-center justify-start pt-[48px]"
-              key="empty"
-            >
-              <span
-                className="font-mono text-[12px] uppercase tracking-wider"
-                style={{ color: "rgba(255, 255, 255, 0.30)" }}
+      {/* Phase 3: hourly mode when any event is timed; otherwise legacy list */}
+      {hasTimedEvents ? (
+        <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+          <DayHourlyGrid
+            currentDate={currentDate}
+            events={dayEvents}
+            onEventClick={handleEventClick}
+          />
+          {recurrencePrompt.promptElement}
+        </DndContext>
+      ) : (
+        <div className="flex-1 overflow-y-auto min-h-0 px-[16px] py-[12px]">
+          <AnimatePresence mode="wait">
+            {dayEvents.length === 0 ? (
+              <div
+                className="flex items-center justify-start pt-[48px]"
+                key="empty"
               >
-                NO TASKS SCHEDULED
-              </span>
-            </div>
-          ) : (
-            /* Card list */
-            <div className="flex flex-col gap-[8px]" key="cards">
-              {dayEvents.map((event, index) => (
-                <DayTaskCard
-                  key={event.id}
-                  event={event}
-                  index={index}
-                />
-              ))}
-            </div>
-          )}
-        </AnimatePresence>
-      </div>
+                <span
+                  className="font-mono text-[12px] uppercase tracking-wider"
+                  style={{ color: "rgba(255, 255, 255, 0.30)" }}
+                >
+                  NO TASKS SCHEDULED
+                </span>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-[8px]" key="cards">
+                {dayEvents.map((event, index) => (
+                  <DayTaskCard
+                    key={event.id}
+                    event={event}
+                    index={index}
+                  />
+                ))}
+              </div>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
     </div>
   );
 }
