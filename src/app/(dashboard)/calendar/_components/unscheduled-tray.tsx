@@ -375,7 +375,11 @@ function UnscheduledTrayCard({ task }: { task: ProjectTask }) {
 
   // Use task color for the stripe (as proxy for type — matches what other
   // card consumers do when they don't have access to mapped event colors)
-  const stripeColor = task.taskColor || "#6F94B0";
+  // Mirror iOS effectiveColor — task_types.color takes precedence.
+  const stripeColor =
+    (task.taskType?.color && task.taskType.color.trim()) ||
+    task.taskColor ||
+    "#6F94B0";
 
   const projectName = task.project?.title ?? "Untitled Project";
   const taskTypeLabel = task.taskType?.display?.toUpperCase() ?? "TASK";

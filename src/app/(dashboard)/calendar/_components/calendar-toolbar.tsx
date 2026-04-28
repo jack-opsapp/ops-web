@@ -4,7 +4,6 @@ import { useMemo } from "react";
 import { isSameDay, startOfWeek, endOfWeek, isBefore, isAfter } from "date-fns";
 import {
   type InternalCalendarEvent,
-  getEventColors,
 } from "@/lib/utils/calendar-utils";
 import { useCalendarStore } from "@/stores/calendar-store";
 import { useTasks } from "@/lib/hooks";
@@ -49,16 +48,23 @@ export function CalendarToolbar({ events, t }: CalendarToolbarProps) {
       (e) => !isBefore(e.startDate, weekStartDate) && !isAfter(e.startDate, weekEndDate)
     );
 
-    const taskTypeCounts: Record<string, number> = {};
+    // Group by real type display ('Vinyl Install', 'Rail Install', etc.) and
+    // remember the first effective color we see for each so the legend dot
+    // matches the actual card stripe.
+    const typeStats: Record<string, { count: number; color: string }> = {};
     events.forEach((e) => {
-      taskTypeCounts[e.taskType] = (taskTypeCounts[e.taskType] || 0) + 1;
+      const label = e.typeLabel || "Task";
+      if (!typeStats[label]) {
+        typeStats[label] = { count: 0, color: e.color };
+      }
+      typeStats[label].count += 1;
     });
 
     return {
       todayCount: todayEvents.length,
       weekCount: weekEvents.length,
       totalCount: events.length,
-      taskTypeCounts,
+      typeStats,
     };
   }, [events]);
 
@@ -159,25 +165,25 @@ export function CalendarToolbar({ events, t }: CalendarToolbarProps) {
         </div>
       )}
 
-      {/* Task type legend — hidden on mobile */}
-      <div className="hidden md:flex items-center gap-[8px] ml-auto">
-        {Object.entries(stats.taskTypeCounts).map(([type, count]) => {
-          const colors = getEventColors(type);
-          return (
+      {/* Task type legend — hidden on mobile. Uses the real task_types.display
+          and per-type DB color (matches the card stripe). */}
+      <div className="hidden md:flex items-center gap-[10px] ml-auto flex-wrap">
+        {Object.entries(stats.typeStats)
+          .sort(([, a], [, b]) => b.count - a.count)
+          .map(([type, { count, color }]) => (
             <div key={type} className="flex items-center gap-[4px]">
               <div
                 className="w-[8px] h-[8px] rounded-full"
-                style={{ backgroundColor: colors.border }}
+                style={{ backgroundColor: color }}
               />
               <span className="font-mono text-micro text-text-3 uppercase tracking-wider">
                 {type}
               </span>
-              <span className="font-mono text-micro text-text-mute">
+              <span className="font-mono text-micro text-text-mute tabular-nums">
                 {count}
               </span>
             </div>
-          );
-        })}
+          ))}
       </div>
     </div>
   );

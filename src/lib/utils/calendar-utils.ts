@@ -79,12 +79,79 @@ export interface InternalCalendarEvent {
 
 // ─── Color Helpers ───────────────────────────────────────────────────────────
 
+/**
+ * Legacy: looked up colors from a 6-bucket palette. Kept exported because
+ * the toolbar legend still calls it with derived keys for non-task entries.
+ * For tasks, prefer `colorTripleFromHex(event.color)` which honors the actual
+ * task_types.color value from the DB (matches iOS effectiveColor).
+ */
 export function getEventColors(taskType: string): TaskTypeColors {
   return TASK_TYPE_COLORS[taskType] ?? DEFAULT_TASK_TYPE_COLORS;
 }
 
 export function getStatusColors(key: TaskStatusKey): TaskStatusColors {
   return TASK_STATUS_COLORS[key];
+}
+
+/**
+ * Parse a #RGB or #RRGGBB hex into r/g/b. Returns null on bad input so the
+ * caller can fall back to the legacy palette.
+ */
+function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+  const clean = hex.replace("#", "").trim();
+  if (clean.length === 3) {
+    return {
+      r: parseInt(clean[0] + clean[0], 16),
+      g: parseInt(clean[1] + clean[1], 16),
+      b: parseInt(clean[2] + clean[2], 16),
+    };
+  }
+  if (clean.length === 6) {
+    return {
+      r: parseInt(clean.slice(0, 2), 16),
+      g: parseInt(clean.slice(2, 4), 16),
+      b: parseInt(clean.slice(4, 6), 16),
+    };
+  }
+  return null;
+}
+
+/**
+ * Lighten an RGB triple by a percentage (0–1). Used to derive a legible
+ * `text` value sitting on the same hue's soft fill.
+ */
+function lightenRgb(
+  rgb: { r: number; g: number; b: number },
+  amount: number
+): { r: number; g: number; b: number } {
+  return {
+    r: Math.round(rgb.r + (255 - rgb.r) * amount),
+    g: Math.round(rgb.g + (255 - rgb.g) * amount),
+    b: Math.round(rgb.b + (255 - rgb.b) * amount),
+  };
+}
+
+const rgbToString = (rgb: { r: number; g: number; b: number }, alpha = 1) =>
+  alpha === 1
+    ? `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`
+    : `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
+
+/**
+ * Build a {bg, border, text} triple from any task_types.color hex. Mirrors
+ * iOS effectiveColor — the per-type DB color drives both the stripe and the
+ * card fill at low alpha. This replaces the 6-bucket TASK_TYPE_COLORS lookup
+ * so 'Vinyl Install', 'Rail Install', 'Glass Install', 'Renovation', etc.
+ * each get their own visual identity instead of being collapsed.
+ */
+export function colorTripleFromHex(hex: string | null | undefined): TaskTypeColors {
+  if (!hex) return DEFAULT_TASK_TYPE_COLORS;
+  const rgb = hexToRgb(hex);
+  if (!rgb) return DEFAULT_TASK_TYPE_COLORS;
+  return {
+    border: rgbToString(rgb), // full-strength hex for the stripe
+    bg: rgbToString(rgb, 0.18), // soft fill at 18% alpha
+    text: rgbToString(lightenRgb(rgb, 0.45), 1), // lightened for legibility on the fill
+  };
 }
 
 // ─── Status Derivation ──────────────────────────────────────────────────────
@@ -216,9 +283,21 @@ export function mapTaskToInternalEvent(task: ProjectTask): InternalCalendarEvent
   const taskTitle = task.customTitle ?? typeLabel;
   const displayTitle = projectTitle ?? taskTitle;
 
-  // Type-derived palette (left stripe + badge)
-  const taskTypeKey = deriveTaskType(taskTitle, task.taskColor);
-  const typeColors = getEventColors(taskTypeKey);
+  // Effective color — mirrors iOS ProjectTask.effectiveColor:
+  // task_types.color takes precedence, falling back to project_tasks.task_color.
+  // The 6-bucket TASK_TYPE_COLORS lookup is no longer used here so 'Vinyl
+  // Install', 'Rail Install', 'Glass Install', 'Renovation' etc. each get
+  // their own DB-driven color instead of being collapsed into 'installation'.
+  const effectiveColor =
+    (task.taskType?.color && task.taskType.color.trim()) ||
+    task.taskColor ||
+    "#6F94B0";
+  const typeColors = colorTripleFromHex(effectiveColor);
+
+  // Keep a stable categorical key for the toolbar legend / filtering. Prefer
+  // the real type display (e.g. 'Vinyl Install'); fall back to the legacy
+  // bucket for tasks missing taskType.
+  const taskTypeKey = task.taskType?.display ?? deriveTaskType(taskTitle, task.taskColor);
 
   // Status-derived palette (body fill + border)
   const statusKey = deriveTaskStatusKey(task);
@@ -229,7 +308,7 @@ export function mapTaskToInternalEvent(task: ProjectTask): InternalCalendarEvent
     title: displayTitle,
     startDate,
     endDate,
-    color: task.taskColor,
+    color: effectiveColor,
     taskType: taskTypeKey,
     status: task.status,
     teamMember: task.teamMemberIds.length > 0 ? "Team" : undefined,
