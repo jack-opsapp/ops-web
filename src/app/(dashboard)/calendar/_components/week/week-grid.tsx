@@ -147,6 +147,23 @@ export function WeekGrid({ currentDate, events }: WeekGridProps) {
         );
         return;
       }
+
+      // ── Schedule from project drawer ────────────────────────────────
+      if (activeData?.type === "project-drawer-task" && activeData.task) {
+        const task = activeData.task;
+        const duration = Math.max(task.duration ?? 1, 1);
+        const newStart = targetDay;
+        const newEnd = addDays(newStart, duration);
+
+        updateTask.mutate(
+          { id: task.id, data: { startDate: newStart, endDate: newEnd } },
+          {
+            onError: (err) =>
+              toast.error("Failed to schedule task", { description: err.message }),
+          }
+        );
+        return;
+      }
     },
     [updateTask, recurrenceEdit, recurrencePrompt, tasksById]
   );

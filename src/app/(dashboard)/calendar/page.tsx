@@ -20,11 +20,13 @@ import {
   useTeamMembers,
   useCalendarMetrics,
 } from "@/lib/hooks";
+import { useScheduledUserEvents } from "@/lib/hooks/use-calendar-user-events";
 import { MetricsHeader } from "@/components/metrics";
 import { useSchedulerShortcuts } from "@/lib/hooks/use-scheduler-shortcuts";
 import {
   type InternalCalendarEvent,
   mapTaskToInternalEvent,
+  mapUserEventToInternalEvent,
 } from "@/lib/utils/calendar-utils";
 import {
   calendarViewVariants,
@@ -124,6 +126,13 @@ export default function CalendarPage() {
     rangeEnd
   );
 
+  // Personal events + time-off requests in the visible range. Mirrors the iOS
+  // CalendarViewModel, which renders ProjectTask + CalendarUserEvent together.
+  const { data: scheduledUserEvents } = useScheduledUserEvents(
+    rangeStart,
+    rangeEnd
+  );
+
   // Team members for timeline
   const { data: teamData } = useTeamMembers();
   const teamMembers: TeamMember[] = useMemo(() => {
@@ -144,12 +153,18 @@ export default function CalendarPage() {
       }));
   }, [teamData]);
 
-  // Map + filter events
+  // Map + filter events. Combines ProjectTasks and CalendarUserEvents so the
+  // grid renders both, matching iOS schedule parity.
   const events: InternalCalendarEvent[] = useMemo(() => {
-    if (!scheduledTasks) return [];
-    let mapped = scheduledTasks
+    const taskEvents = (scheduledTasks ?? [])
       .map(mapTaskToInternalEvent)
       .filter((e): e is InternalCalendarEvent => e !== null);
+
+    const userEvents = (scheduledUserEvents ?? []).map(
+      mapUserEventToInternalEvent
+    );
+
+    let mapped: InternalCalendarEvent[] = [...taskEvents, ...userEvents];
 
     if (filterTaskTypes.length > 0) {
       mapped = mapped.filter((e) => filterTaskTypes.includes(e.taskType));
@@ -181,6 +196,7 @@ export default function CalendarPage() {
     return mapped;
   }, [
     scheduledTasks,
+    scheduledUserEvents,
     filterTaskTypes,
     filterTeamMemberIds,
     filterProjectIds,

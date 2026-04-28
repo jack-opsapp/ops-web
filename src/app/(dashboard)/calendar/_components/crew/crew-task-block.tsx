@@ -291,8 +291,8 @@ export function CrewTaskBlock({
       <div
         className="flex-1 relative flex items-center min-w-0"
         style={{
-          background: event.statusColors.bg,
-          border: `1px ${isGhost ? "dashed" : "solid"} ${event.statusColors.border}`,
+          background: event.typeColors.bg,
+          border: `1px ${isGhost ? "dashed" : "solid"} ${event.typeColors.border}`,
           borderRadius: 4,
           paddingLeft: 11, // 8 (text) + 3 (stripe gutter)
           paddingRight: 8,

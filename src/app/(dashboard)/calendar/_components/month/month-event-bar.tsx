@@ -93,10 +93,10 @@ export function MonthEventBar({
           className="cursor-pointer truncate relative"
           style={{
             height: 14,
-            background: event.statusColors.bg,
-            border: `1px solid ${event.statusColors.border}`,
+            background: event.typeColors.bg,
+            border: `1px solid ${event.typeColors.border}`,
             borderRadius,
-            color: event.statusColors.text,
+            color: event.typeColors.text,
             paddingLeft: showStripe ? 7 : 4,
             paddingRight: 4,
             display: "flex",
@@ -132,10 +132,10 @@ export function MonthEventBar({
           className="cursor-pointer truncate relative"
           style={{
             height: 14,
-            background: event.statusColors.bg,
-            border: `1px solid ${event.statusColors.border}`,
+            background: event.typeColors.bg,
+            border: `1px solid ${event.typeColors.border}`,
             borderRadius,
-            color: event.statusColors.text,
+            color: event.typeColors.text,
             paddingLeft: showStripe ? 7 : 4,
             paddingRight: 4,
             display: "flex",
@@ -177,10 +177,10 @@ export function MonthEventBar({
         className="cursor-pointer relative"
         style={{
           height: 42,
-          background: event.statusColors.bg,
-          border: `1px solid ${event.statusColors.border}`,
+          background: event.typeColors.bg,
+          border: `1px solid ${event.typeColors.border}`,
           borderRadius: "4px",
-          color: event.statusColors.text,
+          color: event.typeColors.text,
           paddingLeft: 9,
           paddingRight: 6,
           paddingTop: 4,

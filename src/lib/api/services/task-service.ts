@@ -63,6 +63,57 @@ function mapTaskTypeFromDb(raw: unknown): TaskType | null {
   };
 }
 
+function mapClientFromDb(raw: unknown): import("@/lib/types/models").Client | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  return {
+    id: r.id as string,
+    name: r.name as string,
+    email: (r.email as string) ?? null,
+    phoneNumber: (r.phone_number as string) ?? null,
+    address: (r.address as string) ?? null,
+    latitude: (r.latitude as number) ?? null,
+    longitude: (r.longitude as number) ?? null,
+    profileImageURL: (r.profile_image_url as string) ?? null,
+    notes: (r.notes as string) ?? null,
+    companyId: (r.company_id as string) ?? null,
+    lastSyncedAt: null,
+    needsSync: false,
+    createdAt: parseDate(r.created_at),
+    deletedAt: parseDate(r.deleted_at),
+  };
+}
+
+function mapProjectFromDb(raw: unknown): import("@/lib/types/models").Project | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  return {
+    id: r.id as string,
+    title: r.title as string,
+    address: (r.address as string) ?? null,
+    latitude: (r.latitude as number) ?? null,
+    longitude: (r.longitude as number) ?? null,
+    startDate: parseDate(r.start_date),
+    endDate: parseDate(r.end_date),
+    duration: (r.duration as number) ?? null,
+    status: (r.status as import("@/lib/types/models").Project["status"]) ?? "rfq" as never,
+    notes: (r.notes as string) ?? null,
+    companyId: r.company_id as string,
+    clientId: (r.client_id as string) ?? null,
+    opportunityId: (r.opportunity_id as string) ?? null,
+    allDay: (r.all_day as boolean) ?? true,
+    teamMemberIds: (r.team_member_ids as string[]) ?? [],
+    projectDescription: (r.project_description as string) ?? null,
+    projectImages: (r.project_images as string[]) ?? [],
+    createdAt: parseDate(r.created_at),
+    lastSyncedAt: null,
+    needsSync: false,
+    syncPriority: (r.sync_priority as number) ?? 0,
+    deletedAt: parseDate(r.deleted_at),
+    client: mapClientFromDb(r.client),
+  };
+}
+
 /**
  * Find a default admin/owner user id for a company. Used by fire-and-forget
  * hooks inside task mutations to attribute agent actions without requiring
@@ -130,6 +181,7 @@ function mapFromDb(row: Record<string, unknown>): ProjectTask {
     needsSync: false,
     deletedAt: parseDate(row.deleted_at),
     taskType: mapTaskTypeFromDb(row.task_type),
+    project: mapProjectFromDb(row.project),
   };
 }
 
@@ -218,7 +270,7 @@ export const TaskService = {
 
     let query = supabase
       .from("project_tasks")
-      .select("*, task_type:task_types(*)", { count: "exact" })
+      .select("*, task_type:task_types(*), project:projects(*, client:clients(*))", { count: "exact" })
       .eq("company_id", companyId)
       .is("deleted_at", null);
 
@@ -271,7 +323,7 @@ export const TaskService = {
     const supabase = requireSupabase();
     const { data, error } = await supabase
       .from("project_tasks")
-      .select("*, task_type:task_types(*)")
+      .select("*, task_type:task_types(*), project:projects(*, client:clients(*))")
       .eq("project_id", projectId)
       .is("deleted_at", null)
       .order("display_order");
@@ -287,7 +339,7 @@ export const TaskService = {
     const supabase = requireSupabase();
     const { data, error } = await supabase
       .from("project_tasks")
-      .select("*, task_type:task_types(*)")
+      .select("*, task_type:task_types(*), project:projects(*, client:clients(*))")
       .eq("id", id)
       .single();
 

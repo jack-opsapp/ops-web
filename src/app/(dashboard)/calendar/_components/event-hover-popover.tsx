@@ -134,7 +134,8 @@ function PopoverBody({ event }: { event: InternalCalendarEvent }) {
         </div>
       )}
 
-      {/* Type + status row */}
+      {/* Type + status row. Status badge is only shown for completed/cancelled
+          (matches iOS card rule); active states ride entirely on the type. */}
       <div className="flex items-center gap-[6px] mt-[8px] flex-wrap">
         <div
           className="px-[6px] py-[2px] font-cakemono font-light uppercase"
@@ -149,18 +150,20 @@ function PopoverBody({ event }: { event: InternalCalendarEvent }) {
         >
           {event.typeLabel}
         </div>
-        <div
-          className="px-[6px] py-[2px] font-mono uppercase tracking-wider"
-          style={{
-            color: event.statusColors.text,
-            background: event.statusColors.bg,
-            border: `1px solid ${event.statusColors.border}`,
-            borderRadius: 4,
-            fontSize: 10,
-          }}
-        >
-          {event.statusKey.replace("_", " ")}
-        </div>
+        {(event.statusKey === "completed" || event.statusKey === "cancelled") && (
+          <div
+            className="px-[6px] py-[2px] font-mono uppercase tracking-wider"
+            style={{
+              color: "#000",
+              background:
+                event.statusKey === "completed" ? "#9DB582" : "#6A6A6A",
+              borderRadius: 4,
+              fontSize: 10,
+            }}
+          >
+            {event.statusKey === "completed" ? "completed" : "cancelled"}
+          </div>
+        )}
       </div>
 
       {/* Divider */}
@@ -171,6 +174,24 @@ function PopoverBody({ event }: { event: InternalCalendarEvent }) {
           margin: "10px 0",
         }}
       />
+
+      {/* Client */}
+      {event.clientName && (
+        <div className="mb-[6px]">
+          <div
+            className="font-mono uppercase tracking-wider mb-[2px]"
+            style={{ color: "var(--text-mute)", fontSize: 10 }}
+          >
+            // CLIENT
+          </div>
+          <div
+            className="font-mohave"
+            style={{ color: "var(--text-2)", fontSize: 13 }}
+          >
+            {event.clientName}
+          </div>
+        </div>
+      )}
 
       {/* Time range (Phase 3) */}
       {timeRange && (

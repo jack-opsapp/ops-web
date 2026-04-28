@@ -252,21 +252,23 @@ export function UnscheduledTray({ view }: UnscheduledTrayProps) {
       <div className="shrink-0 px-3 pt-3 pb-1">
         <div className="relative">
           <Search
-            className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 pointer-events-none"
+            size={12}
+            className="absolute left-[10px] top-1/2 -translate-y-1/2 pointer-events-none"
             style={{ color: "var(--text-3)" }}
           />
           <input
             type="text"
             value={unscheduledTraySearch}
             onChange={(e) => setUnscheduledTraySearch(e.target.value)}
-            placeholder="search..."
-            className="w-full pl-[26px] pr-2 py-[6px] font-mono text-[11px] uppercase placeholder:normal-case"
+            placeholder="SEARCH"
+            className="w-full pl-[30px] pr-2 py-[6px] font-mono text-[11px] uppercase tracking-wider"
             style={{
               background: "var(--surface-input)",
               border: "1px solid var(--line)",
               borderRadius: 5,
               color: "var(--text)",
               outline: "none",
+              letterSpacing: "0.06em",
             }}
             onFocus={(e) =>
               ((e.currentTarget as HTMLElement).style.borderColor =

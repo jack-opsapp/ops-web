@@ -312,6 +312,39 @@ export interface ProjectTask {
   teamMembers?: User[];
 }
 
+/** Calendar user event types - matches iOS CalendarUserEventType enum */
+export type CalendarUserEventType = "personal" | "time_off";
+
+/** Calendar user event status - matches iOS CalendarUserEventStatus enum */
+export type CalendarUserEventStatus = "none" | "pending" | "approved" | "denied";
+
+/**
+ * CalendarUserEvent entity — user-owned personal events + time-off requests.
+ * Matches iOS CalendarUserEvent model. Stored in Supabase `calendar_user_events`.
+ *
+ * These render on the calendar alongside ProjectTasks but carry no project/
+ * client/address data of their own — just title, time, optional notes.
+ */
+export interface CalendarUserEvent {
+  id: string;
+  userId: string;
+  companyId: string;
+  type: CalendarUserEventType;
+  title: string;
+  startDate: Date;
+  endDate: Date;
+  allDay: boolean;
+  notes: string | null;
+  status: CalendarUserEventStatus;
+  address: string | null;
+  teamMemberIds: string[] | null;
+  reviewedBy: string | null;
+  reviewedAt: Date | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+  deletedAt: Date | null;
+}
+
 /** CalendarEvent entity - matches iOS CalendarEvent model */
 export interface CalendarEvent {
   id: string;

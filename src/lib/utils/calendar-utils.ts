@@ -17,7 +17,7 @@ import {
   type TaskStatusKey,
 } from "./calendar-constants";
 import { TaskStatus } from "@/lib/types/models";
-import type { ProjectTask } from "@/lib/types/models";
+import type { ProjectTask, CalendarUserEvent } from "@/lib/types/models";
 
 // ─── Internal Event Type ─────────────────────────────────────────────────────
 
@@ -60,11 +60,21 @@ export interface InternalCalendarEvent {
   statusKey: TaskStatusKey;
   crewIds: string[];
   address: string | null;
+  /** Client.name resolved through project.client. Null when no client. */
+  clientName: string | null;
 
   // ── Phase 3 fields (provisioned now, populated when allDay=false ships)
   startTime: string | null;
   endTime: string | null;
   allDay: boolean;
+
+  /**
+   * What kind of calendar item this is. Branches the card rendering:
+   *   - 'task'      → ProjectTask (project / client / address etc.)
+   *   - 'personal'  → user-owned personal event (no project)
+   *   - 'time_off'  → time-off request (status reflects approval state)
+   */
+  kind: "task" | "personal" | "time_off";
 }
 
 // ─── Color Helpers ───────────────────────────────────────────────────────────
@@ -236,6 +246,7 @@ export function mapTaskToInternalEvent(task: ProjectTask): InternalCalendarEvent
     statusKey,
     crewIds: task.teamMemberIds,
     address: task.project?.address ?? null,
+    clientName: task.project?.client?.name ?? null,
 
     // Phase 3 — task.allDay is authoritative. Pre-Phase-3 rows default to
     // true (verified at task-service.mapFromDb), so legacy rows with
@@ -243,6 +254,80 @@ export function mapTaskToInternalEvent(task: ProjectTask): InternalCalendarEvent
     startTime: task.startTime ?? null,
     endTime: task.endTime ?? null,
     allDay: task.allDay,
+
+    // ── Calendar user event differentiator ──
+    // Tasks have kind = 'task'; user events get 'personal' / 'time_off' from
+    // the sibling mapUserEventToInternalEvent below. Cards branch on this.
+    kind: "task",
+  };
+}
+
+// ─── CalendarUserEvent → Internal Calendar Event ────────────────────────────
+
+/**
+ * Map a personal / time-off event to the same InternalCalendarEvent shape so
+ * Day / Week / Month / Crew views can render it alongside ProjectTasks. Per
+ * iOS parity (CalendarViewModel.loadUserEvents), user events have:
+ *   - no project / client / address relationships
+ *   - title is the user-entered string
+ *   - status flips meaning: time-off pending vs approved drives styling
+ *   - type stripe color comes from the event type (personal / time-off)
+ */
+export function mapUserEventToInternalEvent(
+  evt: CalendarUserEvent
+): InternalCalendarEvent {
+  const start = evt.startDate instanceof Date ? evt.startDate : new Date(evt.startDate);
+  const end = evt.endDate instanceof Date ? evt.endDate : new Date(evt.endDate);
+
+  // For all-day events, normalize to local-midnight so they line up with the
+  // grid (same trick mapTaskToInternalEvent uses).
+  const startDate = evt.allDay ? normalizeToLocalDate(start) : start;
+  const endDate = evt.allDay ? normalizeToLocalDate(end) : end;
+
+  // Type colors — personal uses 'quote' (steel blue), time-off uses 'inspection'
+  // (lavender). Both legible against the dark canvas; both visually distinct
+  // from project task types.
+  const typeKey = evt.type === "time_off" ? "inspection" : "quote";
+  const typeColors = getEventColors(typeKey);
+  const typeLabel = evt.type === "time_off" ? "TIME OFF" : "PERSONAL";
+
+  // Status — time-off rides on the approval workflow; personal is always 'scheduled'.
+  let statusKey: TaskStatusKey = "scheduled";
+  if (evt.type === "time_off") {
+    if (evt.status === "approved") statusKey = "scheduled";
+    else if (evt.status === "denied") statusKey = "cancelled";
+    else if (evt.status === "pending") statusKey = "in_progress";
+  }
+  const statusColors = getStatusColors(statusKey);
+
+  return {
+    id: evt.id,
+    title: evt.title,
+    startDate,
+    endDate,
+    color: typeColors.border,
+    taskType: typeKey,
+    status: statusKey,
+    teamMember: undefined,
+    teamMemberIds: evt.teamMemberIds ?? [],
+    project: undefined,
+    projectId: undefined,
+
+    projectTitle: null,
+    taskTitle: evt.title,
+    typeLabel,
+    typeColors,
+    statusColors,
+    statusKey,
+    crewIds: evt.teamMemberIds ?? [],
+    address: evt.address,
+    clientName: null,
+
+    startTime: null,
+    endTime: null,
+    allDay: evt.allDay,
+
+    kind: evt.type === "time_off" ? "time_off" : "personal",
   };
 }
 
