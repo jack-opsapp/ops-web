@@ -114,7 +114,7 @@ export const useCalendarStore = create<CalendarStoreState>()(
     (set) => ({
       // View
       currentDate: new Date(),
-      view: "timeline",
+      view: "crew",
 
       // Side Panel
       sidePanelMode: null,
@@ -234,6 +234,20 @@ export const useCalendarStore = create<CalendarStoreState>()(
     }),
     {
       name: "ops-calendar",
+      version: 2,
+      migrate: (persistedState, version) => {
+        const s = (persistedState ?? {}) as Record<string, unknown>;
+        // v0/v1 → v2: rename 'timeline' → 'crew'
+        if (version < 2 && s.view === "timeline") {
+          s.view = "crew";
+        }
+        // Defensive: any unknown view value falls back to 'week' default
+        const validViews = new Set(["day", "week", "month", "crew"]);
+        if (typeof s.view !== "string" || !validViews.has(s.view as string)) {
+          s.view = "week";
+        }
+        return s;
+      },
       partialize: (state) => ({
         view: state.view,
         filterTeamMemberIds: state.filterTeamMemberIds,

@@ -96,7 +96,7 @@ export function useSchedulerShortcuts() {
         e.preventDefault();
         const d = state.currentDate;
         if (view === "month") state.setCurrentDate(subMonths(d, 1));
-        else if (view === "timeline") state.setCurrentDate(subWeeks(d, 1));
+        else if (view === "week" || view === "crew") state.setCurrentDate(subWeeks(d, 1));
         else state.setCurrentDate(subDays(d, 1));
         return;
       }
@@ -105,14 +105,18 @@ export function useSchedulerShortcuts() {
         e.preventDefault();
         const d = state.currentDate;
         if (view === "month") state.setCurrentDate(addMonths(d, 1));
-        else if (view === "timeline") state.setCurrentDate(addWeeks(d, 1));
+        else if (view === "week" || view === "crew") state.setCurrentDate(addWeeks(d, 1));
         else state.setCurrentDate(addDays(d, 1));
         return;
       }
 
       // ── View switching ────────────────────────────────────────────────
-      if (keyLower === "t") {
-        state.setView("timeline");
+      if (keyLower === "c") {
+        state.setView("crew");
+        return;
+      }
+      if (keyLower === "w") {
+        state.setView("week");
         return;
       }
       if (keyLower === "m") {

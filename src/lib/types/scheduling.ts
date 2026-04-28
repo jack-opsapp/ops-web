@@ -59,7 +59,7 @@ export interface TaskPlacement {
 // ─── Calendar / Scheduler UI Types ───────────────────────────────────────────
 
 /** Calendar view types (replacing old CalendarView) */
-export type SchedulerView = 'timeline' | 'month' | 'day';
+export type SchedulerView = 'day' | 'week' | 'month' | 'crew';
 
 /** Ghost preview for cascade/auto-schedule visualization */
 export interface GhostPreview {
