@@ -38,6 +38,7 @@ import { CalendarToolbar } from "./_components/calendar-toolbar";
 import { CalendarGridMonth } from "./_components/calendar-grid-month";
 import { CalendarGridDay } from "./_components/calendar-grid-day";
 import { CrewGrid } from "./_components/crew/crew-grid";
+import { WeekGrid } from "./_components/week/week-grid";
 import { FilterSidebar } from "./_components/filter-sidebar";
 import { CascadeConfirmBar } from "./_components/cascade/cascade-confirm-bar";
 import { GhostOverlay } from "./_components/cascade/ghost-overlay";
@@ -265,6 +266,12 @@ export default function CalendarPage() {
                       teamMembers={teamMembers}
                       startDate={timelineStartDate}
                       onEventClick={handleEventClick}
+                    />
+                  )}
+                  {view === "week" && (
+                    <WeekGrid
+                      currentDate={currentDate}
+                      events={events}
                     />
                   )}
                   {view === "month" && (
