@@ -51,7 +51,7 @@ export function TemplatePreviewTab({ templateId, initialProps }: Props) {
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <div>
         <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-[#8A8A8A] mb-2">
-          // PROPS / JSON
+          {"// PROPS / JSON"}
         </div>
         <textarea
           value={propsText}
@@ -63,18 +63,18 @@ export function TemplatePreviewTab({ templateId, initialProps }: Props) {
         />
         {error && (
           <div className="mt-2 font-mono text-[11px] uppercase tracking-[0.14em] text-[#B58289]">
-            // ERROR :: {error}
+            {"// ERROR :: "}{error}
           </div>
         )}
         {isRendering && !error && (
           <div className="mt-2 font-mono text-[11px] uppercase tracking-[0.14em] text-[#8A8A8A]">
-            // SYS :: RENDERING
+            {"// SYS :: RENDERING"}
           </div>
         )}
       </div>
       <div>
         <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-[#8A8A8A] mb-2">
-          // RENDERED PREVIEW
+          {"// RENDERED PREVIEW"}
         </div>
         <iframe
           srcDoc={html}

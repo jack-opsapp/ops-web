@@ -213,7 +213,7 @@ export function PhaseCAutonomyWidget({ size, config: _config }: PhaseCAutonomyWi
         {/* Header */}
         <div className="flex items-center justify-between mb-2">
           <span className="font-mono text-micro uppercase tracking-wider text-text-3">
-            // Phase C · last 7 days
+            {"// Phase C · last 7 days"}
           </span>
           <button
             type="button"
@@ -237,7 +237,7 @@ export function PhaseCAutonomyWidget({ size, config: _config }: PhaseCAutonomyWi
           {activeCategories.length === 0 ? (
             <div className="py-6 flex flex-col items-start">
               <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
-                // Phase C standing by
+                {"// Phase C standing by"}
               </p>
               <p className="font-mohave text-[12.5px] text-text-2 mt-1">
                 Nothing configured yet.

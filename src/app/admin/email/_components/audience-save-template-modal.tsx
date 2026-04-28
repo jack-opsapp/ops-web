@@ -68,7 +68,7 @@ export function AudienceSaveTemplateModal({
             }}
           >
             <h2 className="font-cakemono font-light text-[14px] tracking-[0.06em] text-[#EDEDED] mb-4">
-              // SAVE AUDIENCE
+              {"// SAVE AUDIENCE"}
             </h2>
             <label className="block mb-3">
               <span className="font-cakemono font-light text-[10px] tracking-[0.06em] text-[#B5B5B5] block mb-1">

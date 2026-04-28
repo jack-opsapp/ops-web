@@ -141,7 +141,7 @@ export function CampaignDetailModal({ campaignId, onClose }: Props) {
                   id="campaign-detail-title"
                   className="font-cakemono font-light text-[14px] tracking-[0.06em] text-[#EDEDED] mb-1 truncate"
                 >
-                  // {c.name.toUpperCase()}
+                  {"// "}{c.name.toUpperCase()}
                 </h2>
                 <span className="font-mono text-[11px] text-[#8A8A8A]">
                   [{c.slug}] [template = {c.templateId}]

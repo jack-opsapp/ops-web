@@ -45,7 +45,7 @@ export function MrrTrendChart() {
       <PmfCard className="p-4">
         <SlashHeader variant="section">BASE SAAS · MRR TREND</SlashHeader>
         <div className="h-[460px] mt-4 flex items-center justify-center font-mono text-[11px] text-[color:var(--rose)]">
-          // ERROR — FAILED TO LOAD<br />
+          {"// ERROR — FAILED TO LOAD"}<br />
           {error}
         </div>
       </PmfCard>

@@ -101,7 +101,7 @@ export function AdSpendForm() {
           )}
           {status === "error" && (
             <span className="font-mono text-[11px] text-[color:var(--rose)]">
-              // ERROR
+              {"// ERROR"}
             </span>
           )}
         </div>

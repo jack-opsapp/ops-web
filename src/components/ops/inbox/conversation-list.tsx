@@ -757,7 +757,7 @@ export function ConversationList({
       return (
         <div className="flex-1 flex flex-col items-start justify-start px-4 py-6">
           <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
-            // No drafts
+            {"// No drafts"}
           </p>
           <p className="font-mohave text-[13px] text-text mt-1">
             Nothing in progress.
@@ -811,7 +811,7 @@ export function ConversationList({
     return (
       <div className="flex-1 flex flex-col items-start justify-start px-4 py-6">
         <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-rose">
-          // Error
+          {"// Error"}
         </p>
         <p className="font-mohave text-[13px] text-text mt-1">
           Couldn&apos;t load your inbox.
@@ -827,7 +827,7 @@ export function ConversationList({
     return (
       <div className="flex-1 flex flex-col items-start justify-start px-4 py-6">
         <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
-          // Inbox zero
+          {"// Inbox zero"}
         </p>
         <p className="font-mohave text-[13px] text-text mt-1">
           Nothing to triage here.

@@ -82,7 +82,7 @@ export function EmptyStatusVelocity({ scope }: EmptyStatusVelocityProps) {
   return (
     <section className="px-3 py-3 border-b border-[rgba(255,255,255,0.10)]">
       <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-3">
-        <span className="text-text-mute">// </span>CLASSIFIED · LAST 14D
+        <span className="text-text-mute">{"// "}</span>CLASSIFIED · LAST 14D
       </p>
 
       <div className="mt-3">

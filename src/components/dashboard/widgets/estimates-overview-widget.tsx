@@ -154,6 +154,11 @@ export function EstimatesOverviewWidget({
     [filtered]
   );
 
+  // Hooks must be called unconditionally (Rules of Hooks). The MD/LG
+  // expand/collapse state is hoisted above the SM early-return so render
+  // order stays stable across size transitions.
+  const [listExpanded, setListExpanded] = useState(false);
+
   // ── SM: Hero + title + total value ──────────────────────────────────────
   if (size === "sm") {
     return (
@@ -177,7 +182,6 @@ export function EstimatesOverviewWidget({
   }
 
   // ── MD / LG: List with send button ───────────────────────────────────────
-  const [listExpanded, setListExpanded] = useState(false);
   const defaultMax = size === "lg" ? 15 : 5;
   const maxItems = listExpanded ? filtered.length : defaultMax;
   const remaining = filtered.length - defaultMax;

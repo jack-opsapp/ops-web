@@ -60,7 +60,7 @@ export function EmptyStatusDrafts({
     <section className="px-3 py-3">
       <div className="flex items-baseline justify-between">
         <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-3">
-          <span className="text-text-mute">// </span>DRAFTS
+          <span className="text-text-mute">{"// "}</span>DRAFTS
         </p>
         <span
           className={cn(

@@ -81,7 +81,7 @@ export function AudienceBuilderTab() {
       <header className="flex items-center justify-between">
         <div>
           <h3 className="font-cakemono font-light text-[14px] tracking-[0.06em] text-[#EDEDED]">
-            // AUDIENCE BUILDER
+            {"// AUDIENCE BUILDER"}
           </h3>
           <p className="font-mono text-[11px] text-[#8A8A8A]">
             [build a filter, save it, point a campaign at it]
@@ -207,7 +207,7 @@ export function AudienceBuilderTab() {
       {(templates.data?.length ?? 0) > 0 && (
         <div>
           <h4 className="font-cakemono font-light text-[11px] tracking-[0.06em] text-[#8A8A8A] mb-2">
-            // SAVED TEMPLATES
+            {"// SAVED TEMPLATES"}
           </h4>
           <div className="space-y-1">
             {templates.data!.map((t) => {

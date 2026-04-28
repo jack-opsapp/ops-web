@@ -677,7 +677,7 @@ export function ThreadDetailView({
     return (
       <div className="flex flex-col items-start justify-start h-full px-6 py-10">
         <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
-          // Nothing selected
+          {"// Nothing selected"}
         </p>
       </div>
     );
@@ -716,7 +716,7 @@ export function ThreadDetailView({
                 />
               )}
               <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-mute">
-                // {participants.length} {participants.length === 1 ? "person" : "people"}
+                {"// "}{participants.length} {participants.length === 1 ? "person" : "people"}
                 {messageCount > 0 && ` · ${messageCount} msg${messageCount === 1 ? "" : "s"}`}
               </p>
             </div>
@@ -841,7 +841,7 @@ export function ThreadDetailView({
         {!isLoading && messagesWithDates.length === 0 && (
           <div className="flex flex-col items-start justify-start py-8">
             <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
-              // Empty thread
+              {"// Empty thread"}
             </p>
             <p className="font-mohave text-[13px] text-text mt-1">
               No messages to show.
@@ -868,7 +868,7 @@ export function ThreadDetailView({
                 strokeWidth={1.75}
               />
               <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#C4A868]">
-                // {threadDraft.source === "ai" ? "AI draft" : "Draft"}
+                {"// "}{threadDraft.source === "ai" ? "AI draft" : "Draft"}
               </span>
               <span className="font-mono text-[10px] text-text-mute ml-auto">
                 Updated {formatTime(new Date(threadDraft.updatedAt))}

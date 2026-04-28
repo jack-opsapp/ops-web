@@ -28,7 +28,7 @@ export default function TemplatesListPage() {
     <div className="min-h-screen bg-black text-[#EDEDED] px-[44px] py-[36px]">
       <header className="mb-8">
         <div className="font-mono text-[11px] uppercase tracking-[0.18em] text-[#8A8A8A]">
-          // OPS LTD. / EMAIL / TEMPLATES
+          {"// OPS LTD. / EMAIL / TEMPLATES"}
         </div>
         <h1 className="mt-2 font-cakemono font-light text-[28px] uppercase tracking-[0.04em] text-[#EDEDED]">
           Templates
@@ -41,7 +41,7 @@ export default function TemplatesListPage() {
       <div className="rounded-panel border border-white/[0.09] overflow-hidden">
         {templates.length === 0 && !isLoading && (
           <div className="px-5 py-6 font-mono text-[11px] uppercase tracking-[0.16em] text-[#8A8A8A]">
-            // NO TEMPLATES REGISTERED
+            {"// NO TEMPLATES REGISTERED"}
           </div>
         )}
         {templates.map((t) => (

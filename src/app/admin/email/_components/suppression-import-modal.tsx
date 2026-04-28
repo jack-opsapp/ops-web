@@ -82,7 +82,7 @@ export function SuppressionImportModal({ open, onClose }: Props) {
             }}
           >
             <h2 className="font-cakemono font-light text-[14px] tracking-[0.06em] text-[#EDEDED] mb-1">
-              // IMPORT CSV
+              {"// IMPORT CSV"}
             </h2>
             <p className="font-mono text-[11px] text-[#8A8A8A] mb-4">
               [first column = email; one per row]

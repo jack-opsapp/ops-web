@@ -97,12 +97,12 @@ export function TemplateSendTestTab({ templateId, initialProps }: Props) {
 
       {status === "success" && (
         <div className="font-mono text-[11px] uppercase tracking-[0.14em] text-[#9DB582]">
-          // SENT — check the inbox
+          {"// SENT — check the inbox"}
         </div>
       )}
       {status === "error" && errorMessage && (
         <div className="font-mono text-[11px] uppercase tracking-[0.14em] text-[#B58289]">
-          // ERROR :: {errorMessage}
+          {"// ERROR :: "}{errorMessage}
         </div>
       )}
     </div>

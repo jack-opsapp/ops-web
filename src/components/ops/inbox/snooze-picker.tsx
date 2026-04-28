@@ -189,7 +189,7 @@ export function SnoozePicker({
       >
         <div className="px-3 pt-2.5 pb-1.5 border-b border-border-subtle">
           <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-mute">
-            // Snooze
+            {"// Snooze"}
           </p>
           <p className="font-cakemono font-light uppercase text-[13px] tracking-[0.14em] text-text mt-0.5">
             Come back when

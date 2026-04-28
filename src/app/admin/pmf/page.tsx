@@ -44,7 +44,7 @@ export default async function PmfDashboardPage() {
       {/* Hero strip */}
       <div className="flex items-center justify-between">
         <h1 className="font-cakemono font-light uppercase text-[22px] tracking-[0.02em] leading-none">
-          <span className="text-[color:var(--text-mute)] font-mono mr-2">//</span>
+          <span className="text-[color:var(--text-mute)] font-mono mr-2">{"//"}</span>
           PMF TRACKING DECK
         </h1>
         <div className="flex items-center gap-4">
