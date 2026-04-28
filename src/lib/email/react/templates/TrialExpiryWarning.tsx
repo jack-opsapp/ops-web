@@ -1,3 +1,4 @@
+// @template-version: 1.0.0
 import * as React from "react";
 import { OpsEmailLayout } from "../layouts/OpsEmailLayout";
 import { Headline, Paragraph, Button, Spacer, Divider } from "../primitives";
@@ -78,3 +79,5 @@ TrialExpiryWarning.PreviewProps = {
 } satisfies TrialExpiryWarningProps;
 
 export default TrialExpiryWarning;
+
+export const previewProps = TrialExpiryWarning.PreviewProps;

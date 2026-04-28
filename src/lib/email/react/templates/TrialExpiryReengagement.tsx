@@ -1,3 +1,4 @@
+// @template-version: 1.0.0
 import * as React from "react";
 import { OpsEmailLayout } from "../layouts/OpsEmailLayout";
 import {
@@ -145,3 +146,5 @@ TrialExpiryReengagement.PreviewProps = {
 } satisfies TrialExpiryReengagementProps;
 
 export default TrialExpiryReengagement;
+
+export const previewProps = TrialExpiryReengagement.PreviewProps;

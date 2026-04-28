@@ -10,6 +10,7 @@ import { ScheduleTab } from "./schedule-tab";
 import { ScheduledSendsTab } from "./scheduled-sends-tab";
 import { KillswitchesTab } from "./killswitches-tab";
 import { ActivePauseBanner } from "./active-pause-banner";
+import { TemplatesTab } from "./templates-tab";
 import { CampaignAnalyticsTab } from "@/components/admin/email/campaign-analytics-tab";
 import type {
   EmailOverviewStats,
@@ -39,6 +40,7 @@ export function EmailContent({ overview, engagement, funnels, emailLog, newslett
           "Funnels",
           "Email Log",
           "Newsletter",
+          "Templates",
           "Lifecycle",
           "Triggers",
           "Killswitches",
@@ -51,6 +53,7 @@ export function EmailContent({ overview, engagement, funnels, emailLog, newslett
           if (tab === "Funnels") return <FunnelsTab data={funnels} />;
           if (tab === "Email Log") return <EmailLogTab entries={emailLog} />;
           if (tab === "Newsletter") return <NewsletterTab newsletters={newsletters} />;
+          if (tab === "Templates") return <TemplatesTab />;
           if (tab === "Lifecycle") return <ScheduleTab />;
           if (tab === "Triggers") return <TriggersTab />;
           if (tab === "Killswitches") return <KillswitchesTab />;

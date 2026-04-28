@@ -1,3 +1,4 @@
+// @template-version: 1.0.0
 import * as React from "react";
 import { OpsEmailLayout } from "../layouts/OpsEmailLayout";
 import { Headline, Paragraph, Button, Spacer, Divider } from "../primitives";
@@ -43,3 +44,5 @@ PasswordReset.PreviewProps = {
 } satisfies PasswordResetProps;
 
 export default PasswordReset;
+
+export const previewProps = PasswordReset.PreviewProps;

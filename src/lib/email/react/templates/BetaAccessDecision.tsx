@@ -1,3 +1,4 @@
+// @template-version: 1.0.0
 import * as React from "react";
 import { OpsEmailLayout } from "../layouts/OpsEmailLayout";
 import {
@@ -110,3 +111,5 @@ BetaAccessDecision.PreviewProps = {
 } satisfies BetaAccessDecisionProps;
 
 export default BetaAccessDecision;
+
+export const previewProps = BetaAccessDecision.PreviewProps;

@@ -1,3 +1,4 @@
+// @template-version: 1.0.0
 import * as React from "react";
 import { PortalEmailLayout } from "../layouts/PortalEmailLayout";
 import { Headline, Paragraph, Button, Spacer } from "../primitives";
@@ -54,3 +55,5 @@ PortalQuestionsReminder.PreviewProps = {
 } satisfies PortalQuestionsReminderProps;
 
 export default PortalQuestionsReminder;
+
+export const previewProps = PortalQuestionsReminder.PreviewProps;

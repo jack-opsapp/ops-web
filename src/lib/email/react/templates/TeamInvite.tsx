@@ -1,3 +1,4 @@
+// @template-version: 1.0.0
 import * as React from "react";
 import { OpsEmailLayout } from "../layouts/OpsEmailLayout";
 import {
@@ -71,3 +72,5 @@ TeamInvite.PreviewProps = {
 } satisfies TeamInviteProps;
 
 export default TeamInvite;
+
+export const previewProps = TeamInvite.PreviewProps;

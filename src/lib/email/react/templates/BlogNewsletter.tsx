@@ -1,3 +1,4 @@
+// @template-version: 1.0.0
 import * as React from "react";
 import sanitizeHtml from "sanitize-html";
 import parse from "html-react-parser";
@@ -127,3 +128,5 @@ BlogNewsletter.PreviewProps = {
 } satisfies BlogNewsletterProps;
 
 export default BlogNewsletter;
+
+export const previewProps = BlogNewsletter.PreviewProps;
