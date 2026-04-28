@@ -50,6 +50,7 @@ import { PortalQuestionsReminder } from "./react/templates/PortalQuestionsRemind
 import { DISPATCH, GATE, FIELD_NOTES, portalSender, type Sender } from "./senders";
 import type { AdBriefing } from "@/lib/admin/briefing-types";
 import { isSuppressed, filterSuppressed } from "./suppressions";
+import { getActivePauseScope } from "./pause";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { buildUnsubscribeUrl } from "./unsubscribe-token";
 import { KIND_TO_LIST, OPS_SUPPORT_EMAIL } from "./constants";
@@ -101,7 +102,8 @@ function buildComplianceHeaders(opts: { email: string; kind: string }): {
  */
 export type GatedSendResult =
   | { status: "sent"; messageId: string | null }
-  | { status: "suppression_skipped"; reason: "suppressed" };
+  | { status: "suppression_skipped"; reason: "suppressed" }
+  | { status: "paused_skipped"; scope: string };
 
 /**
  * Single-recipient send chokepoint. Every typed sendXxx function below
@@ -142,6 +144,32 @@ async function gatedSend(params: {
 
   const list =
     params.list ?? (KIND_TO_LIST[params.emailType] ?? "global");
+
+  // 1) PAUSE CHECK FIRST — operator killswitch trumps everything, including
+  // suppressions. A paused send writes email_log.status='paused_skipped' and
+  // never calls SendGrid. Pauses are reversible; suppressions are not, so we
+  // want pauses to short-circuit the suppression check.
+  const activePause = await getActivePauseScope({
+    kind: params.emailType,
+    campaignId: params.campaignId ?? null,
+  });
+  if (activePause) {
+    await logEmail({
+      emailType: params.emailType,
+      recipient: lower,
+      subject: params.subject,
+      status: "paused_skipped",
+      metadata: {
+        ...(params.metadata ?? {}),
+        list,
+        pause_scope: activePause.scope,
+        pause_reason: activePause.pauseReason,
+      },
+      userId: params.userId,
+      campaignId: params.campaignId ?? null,
+    });
+    return { status: "paused_skipped", scope: activePause.scope };
+  }
 
   if (await isSuppressed(lower, list)) {
     await logEmail({
@@ -206,7 +234,7 @@ async function logEmail(params: {
   emailType: string;
   recipient: string;
   subject: string;
-  status: "sent" | "failed" | "suppression_skipped";
+  status: "sent" | "failed" | "suppression_skipped" | "paused_skipped";
   metadata?: Record<string, unknown>;
   userId?: string;
   errorMessage?: string;
