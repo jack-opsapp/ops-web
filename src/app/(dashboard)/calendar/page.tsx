@@ -10,6 +10,9 @@ import {
   endOfWeek,
   startOfDay,
   endOfDay,
+  addMonths,
+  addWeeks,
+  addDays,
 } from "date-fns";
 import { Loader2 } from "lucide-react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
@@ -37,10 +40,10 @@ import { UserRole, type TeamMember } from "@/lib/types/models";
 
 import { CalendarHeader } from "./_components/calendar-header";
 import { CalendarToolbar } from "./_components/calendar-toolbar";
-import { CalendarGridMonth } from "./_components/calendar-grid-month";
-import { CalendarGridDay } from "./_components/calendar-grid-day";
 import { CrewGrid } from "./_components/crew/crew-grid";
-import { WeekGrid } from "./_components/week/week-grid";
+import { MonthScrollContainer } from "./_components/month/month-scroll-container";
+import { WeekScrollContainer } from "./_components/week/week-scroll-container";
+import { DayScrollContainer } from "./_components/day/day-scroll-container";
 import { UnscheduledTray } from "./_components/unscheduled-tray";
 import { FilterSidebar } from "./_components/filter-sidebar";
 import { CascadeConfirmBar } from "./_components/cascade/cascade-confirm-bar";
@@ -96,15 +99,36 @@ export default function CalendarPage() {
     }
   }, [isMobile]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Compute date range for data fetching
+  // Compute date range for data fetching. Continuous-scroll views (Month /
+  // Week / Day) buffer extra panels in each direction; we match the fetch
+  // window to the scroll buffer so events for the off-screen panels are
+  // already cached when the user scrolls them into view. The scroll
+  // containers extend their buffers when the user nears an edge — the fetch
+  // range follows because the active date updates on snap, which re-runs
+  // this useMemo and refetches.
+  //
+  // Buffer matches the scroll containers:
+  //   - Month: ±6 months
+  //   - Week:  ±6 weeks
+  //   - Day:   ±14 days
+  // Crew is not virtualized — keeps the single-week range.
   const { rangeStart, rangeEnd } = useMemo(() => {
     switch (view) {
       case "month": {
         const ms = startOfMonth(currentDate);
         const me = endOfMonth(currentDate);
-        return { rangeStart: startOfWeek(ms), rangeEnd: endOfWeek(me) };
+        return {
+          rangeStart: startOfWeek(addMonths(ms, -6)),
+          rangeEnd: endOfWeek(addMonths(me, 6)),
+        };
       }
       case "week":
+        return {
+          rangeStart: startOfWeek(addWeeks(currentDate, -6), {
+            weekStartsOn: 1,
+          }),
+          rangeEnd: endOfWeek(addWeeks(currentDate, 6), { weekStartsOn: 1 }),
+        };
       case "crew":
         return {
           rangeStart: startOfWeek(currentDate, { weekStartsOn: 1 }),
@@ -113,8 +137,8 @@ export default function CalendarPage() {
       case "day":
       default:
         return {
-          rangeStart: startOfDay(currentDate),
-          rangeEnd: endOfDay(currentDate),
+          rangeStart: startOfDay(addDays(currentDate, -14)),
+          rangeEnd: endOfDay(addDays(currentDate, 14)),
         };
     }
   }, [currentDate, view]);
@@ -289,24 +313,27 @@ export default function CalendarPage() {
                     />
                   )}
                   {view === "week" && (
-                    <WeekGrid
+                    <WeekScrollContainer
                       currentDate={currentDate}
                       events={events}
+                      onCurrentDateChange={setCurrentDate}
                     />
                   )}
                   {view === "month" && (
-                    <CalendarGridMonth
+                    <MonthScrollContainer
                       currentDate={currentDate}
                       events={events}
+                      onCurrentDateChange={setCurrentDate}
                       onSelectDate={handleSelectDate}
                       onEventClick={handleEventClick}
                       t={t}
                     />
                   )}
                   {view === "day" && (
-                    <CalendarGridDay
+                    <DayScrollContainer
                       currentDate={currentDate}
                       events={events}
+                      onCurrentDateChange={setCurrentDate}
                       onEventClick={handleEventClick}
                       t={t}
                     />
