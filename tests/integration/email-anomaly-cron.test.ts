@@ -43,7 +43,7 @@ const captures = {
   recent: [] as AnomalyRow[],
 };
 
-const pauseMock = vi.fn(async () => ({
+const pauseMock = vi.fn(async (_input: unknown) => ({
   state: {
     scope: "global",
     isPaused: true,
@@ -56,7 +56,7 @@ const pauseMock = vi.fn(async () => ({
 }));
 
 vi.mock("@/lib/email/pause", () => ({
-  pause: (...args: unknown[]) => pauseMock(...(args as [unknown])),
+  pause: (input: unknown) => pauseMock(input),
 }));
 
 vi.mock("@/lib/supabase/server-client", () => {

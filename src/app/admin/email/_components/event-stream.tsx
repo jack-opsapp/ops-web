@@ -34,7 +34,7 @@ function isVisible(): boolean {
 
 export function EventStream({ eventTypes }: Props) {
   const reduce = useReducedMotion();
-  const stream = useQuery({
+  const stream = useQuery<EventStreamRow[]>({
     queryKey: ["eventStream", eventTypes?.join(",") ?? ""],
     queryFn: async (): Promise<EventStreamRow[]> => {
       const sp = new URLSearchParams({ limit: "50" });
@@ -86,12 +86,12 @@ export function EventStream({ eventTypes }: Props) {
             </motion.div>
           ))}
         </AnimatePresence>
-        {(stream.data?.length ?? 0) === 0 && !stream.isLoading && (
+        {!stream.isLoading && !stream.data?.length && (
           <p className="font-mono text-[11px] text-text-mute py-6">
             [no events in window]
           </p>
         )}
-        {stream.isLoading && (stream.data?.length ?? 0) === 0 && (
+        {stream.isLoading && (
           <p className="font-mono text-[11px] text-text-mute py-6">
             [loading...]
           </p>
