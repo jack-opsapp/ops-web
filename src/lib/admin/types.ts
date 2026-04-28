@@ -612,3 +612,81 @@ export interface LifecycleEmailMeta {
   description: string;
   audience: string;
 }
+
+// ─── Email — Suppressions / Audience (PR 5) ───────────────────────────────
+
+export interface SuppressionRow {
+  id: string;
+  email: string;
+  list: string;
+  reason:
+    | "hard_bounce"
+    | "soft_bounce"
+    | "spam_report"
+    | "unsubscribe"
+    | "group_unsubscribe"
+    | "manual"
+    | "invalid_address";
+  source: "webhook" | "manual" | "backfill" | "import";
+  sourceEventId: string | null;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+  expiresAt: string | null;
+}
+
+export type AudienceOp =
+  | "eq"
+  | "neq"
+  | "in"
+  | "not_in"
+  | "lt"
+  | "gt"
+  | "lte"
+  | "gte"
+  | "gte_days"
+  | "lte_days"
+  | "is_null"
+  | "is_not_null"
+  | "like";
+
+export type AudienceField =
+  | "email"
+  | "role"
+  | "user_type"
+  | "is_company_admin"
+  | "is_active"
+  | "removed_from_email_list"
+  | "company_id"
+  | "created_at"
+  | "plan"
+  | "subscription_status"
+  | "trial_end_date";
+
+export interface AudienceFilterClause {
+  field: AudienceField;
+  op: AudienceOp;
+  value?: unknown;
+}
+
+export type AudienceFilterNode =
+  | AudienceFilterClause
+  | { and: AudienceFilterNode[] }
+  | { or: AudienceFilterNode[] }
+  | { group: AudienceFilterNode };
+
+export interface AudienceTemplate {
+  id: string;
+  name: string;
+  description: string | null;
+  filter: AudienceFilterNode;
+  lastUsedCount: number;
+  lastResolvedAt: string | null;
+  createdByUserId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AudiencePreviewResponse {
+  count: number;
+  sample: Array<{ user_id: string; email: string }>;
+}
