@@ -114,7 +114,7 @@ export const useCalendarStore = create<CalendarStoreState>()(
     (set) => ({
       // View
       currentDate: new Date(),
-      view: "crew",
+      view: "week",
 
       // Side Panel
       sidePanelMode: null,
