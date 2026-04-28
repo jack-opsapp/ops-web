@@ -43,6 +43,17 @@
   --surface-input: rgba(255, 255, 255, 0.04);
   --fill-neutral: rgba(255, 255, 255, 0.14);
   --fill-neutral-dim: rgba(255, 255, 255, 0.06);
+
+  /* ── Z-index scale — see OPS-Web/CLAUDE.md § Z-Index Scale ── */
+  --z-content:        1;
+  --z-interactive:    100;
+  --z-nav:            500;
+  --z-dropdown:       1000;
+  --z-floating-ui:    1500;
+  --z-window:         2000;
+  --z-modal:          3000;
+  --z-map-controls:   5000;
+  --z-emergency:      9000;
 }
 
 /* Compact mode spacing overrides */
