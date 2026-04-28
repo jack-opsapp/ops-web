@@ -130,11 +130,14 @@ async function findDefaultUserForCompany(
     .eq("id", companyId)
     .maybeSingle();
 
-  const rawAdminIds = (company?.admin_ids as string) ?? "";
-  const adminIds = rawAdminIds
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
+  // companies.admin_ids is text[] in Supabase; older code paths assumed it
+  // came back as a comma-separated string. Handle both shapes defensively.
+  const rawAdminIds = company?.admin_ids;
+  const adminIds: string[] = Array.isArray(rawAdminIds)
+    ? rawAdminIds.filter((s): s is string => typeof s === "string" && s.length > 0)
+    : typeof rawAdminIds === "string"
+      ? rawAdminIds.split(",").map((s) => s.trim()).filter(Boolean)
+      : [];
   if (adminIds.length > 0) return adminIds[0];
 
   const { data: roleMatch } = await supabase

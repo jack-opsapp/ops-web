@@ -317,35 +317,62 @@ export function CrewTaskBlock({
           }}
         />
 
-        {/* Content */}
-        <div className="flex-1 flex items-center justify-between min-w-0 gap-[6px]">
-          <div className="flex items-baseline min-w-0 gap-[6px] overflow-hidden">
+        {/* Content — vertical stack: project, client, address (when wide enough) */}
+        <div className="flex-1 flex items-stretch justify-between min-w-0 gap-[6px] py-[6px]">
+          <div className="flex flex-col justify-center min-w-0 overflow-hidden">
             <span
-              className="font-mohave text-[11px] truncate leading-tight"
-              style={{ color: "var(--text)" }}
+              className="font-cakemono font-light text-[12px] uppercase truncate leading-tight"
+              style={{ color: "var(--text)", letterSpacing: 0 }}
             >
               {primaryTitle}
             </span>
-            {subtitle && !isNarrow && (
-              <>
-                <span
-                  className="font-mono text-[11px] shrink-0"
-                  style={{ color: "var(--text-mute)" }}
-                >
-                  /
-                </span>
-                <span
-                  className="font-mono text-[11px] truncate leading-tight"
-                  style={{ color: "var(--text-3)" }}
-                >
-                  {subtitle}
-                </span>
-              </>
+            {!isNarrow && event.clientName && (
+              <span
+                className="font-mono text-[11px] truncate leading-tight mt-[1px]"
+                style={{ color: "var(--text-2)" }}
+              >
+                {event.clientName}
+              </span>
+            )}
+            {!isNarrow && !event.clientName && subtitle && (
+              <span
+                className="font-mono text-[11px] truncate leading-tight mt-[1px]"
+                style={{ color: "var(--text-3)" }}
+              >
+                {subtitle}
+              </span>
+            )}
+            {!isNarrow && event.address && (
+              <span
+                className="font-mono text-[10px] uppercase tracking-wider truncate leading-tight mt-[1px]"
+                style={{
+                  color: "rgba(237, 237, 237, 0.45)",
+                  letterSpacing: "0.06em",
+                }}
+              >
+                {event.address.split(",").slice(0, 2).map((s) => s.trim()).join(", ")}
+              </span>
             )}
           </div>
 
           {/* Right cluster: time + type badge */}
-          <div className="flex items-center gap-[6px] shrink-0">
+          <div className="flex flex-col items-end justify-between gap-[4px] shrink-0">
+            {!isNarrow && (
+              <div
+                className="px-[5px] py-[1px] font-cakemono font-light uppercase"
+                style={{
+                  color: event.typeColors.text,
+                  background: "rgba(0, 0, 0, 0.30)",
+                  border: `1px solid ${event.typeColors.border}`,
+                  borderRadius: 2,
+                  fontSize: 9,
+                  letterSpacing: "0.04em",
+                  lineHeight: "12px",
+                }}
+              >
+                {event.typeLabel}
+              </div>
+            )}
             {timeRange && !isNarrow && (
               <span
                 className="font-mono text-[10px] tabular-nums"
@@ -356,22 +383,6 @@ export function CrewTaskBlock({
               >
                 {timeRange}
               </span>
-            )}
-            {!isNarrow && (
-              <div
-                className="px-[5px] py-[1px] font-cakemono font-light uppercase"
-                style={{
-                  color: event.typeColors.text,
-                  background: event.typeColors.bg,
-                  border: `1px solid ${event.typeColors.border}`,
-                  borderRadius: 4,
-                  fontSize: 9,
-                  letterSpacing: "0.04em",
-                  lineHeight: "12px",
-                }}
-              >
-                {event.typeLabel}
-              </div>
             )}
           </div>
         </div>

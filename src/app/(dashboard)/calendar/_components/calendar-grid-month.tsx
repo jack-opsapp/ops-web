@@ -133,10 +133,12 @@ function MonthDayCell({
         borderRight: "1px solid rgba(255,255,255,0.10)",
         opacity: isCurrentMonth ? 1 : 0.3,
         backgroundColor: isOver
-          ? "rgba(111, 148, 176, 0.08)"
-          : isWeekend && isCurrentMonth
-            ? "rgba(255,255,255,0.02)"
-            : undefined,
+          ? "rgba(111, 148, 176, 0.10)"
+          : isCurrentDay
+            ? "rgba(111, 148, 176, 0.06)"
+            : isWeekend && isCurrentMonth
+              ? "rgba(255,255,255,0.02)"
+              : undefined,
       }}
     >
       {/* Day number — top-left. T14 today indicator (signal #1):

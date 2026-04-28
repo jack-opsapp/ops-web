@@ -57,6 +57,7 @@ export function CrewHeader({ startDate, daysShown }: CrewHeaderProps) {
                 flex: "1 0 0",
                 minWidth: CREW_DAY_MIN_WIDTH,
                 opacity: weekend ? 0.6 : 1,
+                background: today ? "rgba(111, 148, 176, 0.06)" : "transparent",
                 // Today column: 2px accent top border (T14 — today indicator signal #2)
                 borderTop: today ? "2px solid var(--ops-accent)" : "2px solid transparent",
               }}

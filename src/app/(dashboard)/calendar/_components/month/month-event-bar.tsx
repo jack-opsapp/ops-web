@@ -160,9 +160,11 @@ export function MonthEventBar({
     );
   }
 
-  // Single-day expanded: 42px tall, 2 lines + badge
-  const subtitle =
-    event.projectTitle && event.taskTitle !== event.projectTitle
+  // Single-day expanded: 42px tall — show project + client (or fall back to
+  // taskTitle subtitle when there's no client). Address lives in the popover.
+  const lineTwo: string | null = event.clientName
+    ? event.clientName
+    : event.projectTitle && event.taskTitle !== event.projectTitle
       ? event.taskTitle
       : null;
 
@@ -200,25 +202,26 @@ export function MonthEventBar({
 
         <div className="flex-1 min-w-0 flex flex-col justify-center">
           <span
-            className="font-mohave truncate"
+            className="font-cakemono font-light uppercase truncate"
             style={{
-              fontSize: 11,
+              fontSize: 12,
               lineHeight: "14px",
               color: "var(--text)",
+              letterSpacing: 0,
             }}
           >
             {event.projectTitle ?? event.taskTitle}
           </span>
-          {subtitle && (
+          {lineTwo && (
             <span
               className="font-mono truncate"
               style={{
                 fontSize: 10,
                 lineHeight: "12px",
-                color: "var(--text-3)",
+                color: "var(--text-2)",
               }}
             >
-              {subtitle}
+              {lineTwo}
             </span>
           )}
         </div>

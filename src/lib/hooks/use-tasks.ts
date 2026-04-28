@@ -341,6 +341,11 @@ export function useUpdateTask() {
       queryClient.invalidateQueries({
         queryKey: queryKeys.tasks.lists(),
       });
+      // Calendar uses a separate key (calendar.scheduled). Invalidate the
+      // whole calendar tree so drag-and-drop refreshes the grid view.
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.calendar.all,
+      });
     },
   });
 }

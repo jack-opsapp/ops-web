@@ -1,9 +1,10 @@
 "use client";
 
 import { ReactNode } from "react";
-import { format } from "date-fns";
+import { format, formatDistanceToNowStrict } from "date-fns";
 import * as HoverCard from "@radix-ui/react-hover-card";
 import { useTeamMembers } from "@/lib/hooks";
+import { useProjectPreview } from "@/lib/hooks/use-project-preview";
 import type { InternalCalendarEvent } from "@/lib/utils/calendar-utils";
 
 // ─── Props ──────────────────────────────────────────────────────────────────
@@ -59,7 +60,9 @@ export function EventHoverPopover({
           avoidCollisions
           className="z-dropdown"
           style={{
-            width: 320,
+            width: 340,
+            maxHeight: 520,
+            overflow: "auto",
             padding: "12px 14px",
             background: "var(--glass-bg-dense)",
             backdropFilter: "blur(28px) saturate(1.3)",
@@ -259,6 +262,179 @@ function PopoverBody({ event }: { event: InternalCalendarEvent }) {
             }}
           >
             {event.address}
+          </div>
+        </div>
+      )}
+
+      {/* Project preview — photos + recent notes (lazy-fetched) */}
+      {event.kind === "task" && event.projectId && (
+        <ProjectPreviewSection
+          projectId={event.projectId}
+          userMap={userMap}
+        />
+      )}
+    </>
+  );
+}
+
+// ─── Project preview section ────────────────────────────────────────────────
+
+function ProjectPreviewSection({
+  projectId,
+  userMap,
+}: {
+  projectId: string;
+  userMap: Map<string, { firstName: string | null; lastName: string | null; email: string | null }>;
+}) {
+  // Fetch only fires when the popover content mounts (Radix unmounts when
+  // closed). 5-min staleTime so re-hovering the same card doesn't refetch.
+  const { data, isLoading } = useProjectPreview(projectId);
+
+  const photos = data?.photos ?? [];
+  const notes = data?.notes ?? [];
+
+  // Hide the section entirely if there's nothing to show.
+  if (!isLoading && photos.length === 0 && notes.length === 0) return null;
+
+  return (
+    <>
+      {/* Photos strip */}
+      {(isLoading || photos.length > 0) && (
+        <div className="mt-[10px]">
+          <div
+            className="font-mono uppercase tracking-wider mb-[4px]"
+            style={{ color: "var(--text-mute)", fontSize: 10 }}
+          >
+            {`// PHOTOS [${photos.length}]`}
+          </div>
+          <div className="flex gap-[4px]">
+            {isLoading
+              ? // Skeleton row
+                [0, 1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    style={{
+                      width: 70,
+                      height: 70,
+                      borderRadius: 4,
+                      background: "rgba(255, 255, 255, 0.04)",
+                      border: "1px solid var(--line)",
+                    }}
+                  />
+                ))
+              : photos.map((photo) => (
+                  <a
+                    key={photo.id}
+                    href={photo.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={photo.caption ?? ""}
+                    style={{
+                      width: 70,
+                      height: 70,
+                      borderRadius: 4,
+                      overflow: "hidden",
+                      border: "1px solid var(--line)",
+                      background: "rgba(255, 255, 255, 0.04)",
+                      display: "block",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <img
+                      src={photo.thumbnailUrl ?? photo.url}
+                      alt={photo.caption ?? ""}
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                        display: "block",
+                      }}
+                      loading="lazy"
+                    />
+                  </a>
+                ))}
+          </div>
+        </div>
+      )}
+
+      {/* Notes feed */}
+      {(isLoading || notes.length > 0) && (
+        <div className="mt-[10px]">
+          <div
+            className="font-mono uppercase tracking-wider mb-[4px]"
+            style={{ color: "var(--text-mute)", fontSize: 10 }}
+          >
+            {`// NOTES [${notes.length}]`}
+          </div>
+          <div className="flex flex-col gap-[6px]">
+            {isLoading ? (
+              <div
+                style={{
+                  height: 32,
+                  borderRadius: 4,
+                  background: "rgba(255, 255, 255, 0.04)",
+                }}
+              />
+            ) : (
+              notes.map((note) => {
+                const author = userMap.get(note.authorId);
+                const authorName = author
+                  ? `${author.firstName ?? ""} ${author.lastName ?? ""}`.trim() ||
+                    author.email ||
+                    "Unknown"
+                  : "Unknown";
+                const ago = note.createdAt
+                  ? formatDistanceToNowStrict(note.createdAt, { addSuffix: true })
+                  : "";
+                return (
+                  <div
+                    key={note.id}
+                    style={{
+                      padding: "6px 8px",
+                      background: "rgba(255, 255, 255, 0.03)",
+                      border: "1px solid var(--line)",
+                      borderRadius: 4,
+                    }}
+                  >
+                    <div
+                      className="flex items-center justify-between gap-2 mb-[2px]"
+                      style={{ fontSize: 10 }}
+                    >
+                      <span
+                        className="font-mono uppercase tracking-wider truncate"
+                        style={{ color: "var(--text-2)" }}
+                      >
+                        {authorName}
+                      </span>
+                      <span
+                        className="font-mono shrink-0 tabular-nums"
+                        style={{
+                          color: "var(--text-mute)",
+                          fontFeatureSettings: '"tnum" 1, "zero" 1',
+                        }}
+                      >
+                        {ago}
+                      </span>
+                    </div>
+                    <div
+                      className="font-mohave"
+                      style={{
+                        color: "var(--text)",
+                        fontSize: 12,
+                        lineHeight: 1.4,
+                        // Clamp to 3 lines max
+                        display: "-webkit-box",
+                        WebkitLineClamp: 3,
+                        WebkitBoxOrient: "vertical",
+                        overflow: "hidden",
+                      }}
+                    >
+                      {note.content}
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
       )}

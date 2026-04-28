@@ -85,7 +85,11 @@ export function WeekDayColumn({ day, events }: WeekDayColumnProps) {
       style={{
         flex: "1 0 0",
         opacity: weekend ? 0.85 : 1,
-        background: isOver ? "rgba(111, 148, 176, 0.05)" : "transparent",
+        background: isOver
+          ? "rgba(111, 148, 176, 0.10)"
+          : today
+            ? "rgba(111, 148, 176, 0.06)"
+            : "transparent",
         borderRight: "1px solid var(--line)",
         // Today column: 2px accent top border (T14 — today indicator signal #2)
         borderTop: today ? "2px solid var(--ops-accent)" : "2px solid transparent",
