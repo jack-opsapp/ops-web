@@ -14,6 +14,7 @@ import { TemplatesTab } from "./templates-tab";
 import { AudienceBuilderTab } from "./audience-builder-tab";
 import { SuppressionsTab } from "./suppressions-tab";
 import { CampaignAnalyticsTab } from "@/components/admin/email/campaign-analytics-tab";
+import { EventMonitorTab } from "./event-monitor-tab";
 import type {
   EmailOverviewStats,
   EmailEngagementStats,
@@ -37,6 +38,7 @@ export function EmailContent({ overview, engagement, funnels, emailLog, newslett
       <SubTabs
         tabs={[
           "Overview",
+          "Event Monitor",
           "Campaign Analytics",
           "Scheduled Sends",
           "Audience",
@@ -52,6 +54,7 @@ export function EmailContent({ overview, engagement, funnels, emailLog, newslett
       >
         {(tab) => {
           if (tab === "Overview") return <OverviewTab stats={overview} engagement={engagement} />;
+          if (tab === "Event Monitor") return <EventMonitorTab />;
           if (tab === "Campaign Analytics") return <CampaignAnalyticsTab />;
           if (tab === "Scheduled Sends") return <ScheduledSendsTab />;
           if (tab === "Audience") return <AudienceBuilderTab />;
