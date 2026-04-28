@@ -326,6 +326,16 @@ export function CalendarDndShell({ children }: CalendarDndShellProps) {
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         onDragCancel={handleDragCancel}
+        autoScroll={{
+          // Tight edge zone (~5% of axis = ~40-60px on typical layouts).
+          // dnd-kit walks up to scrollable ancestors and scrolls them when
+          // the pointer enters the threshold band. Each scroll container
+          // toggles off scroll-snap during drag (see useCalendarDragState),
+          // which lets autoscroll move the viewport across panel boundaries
+          // without the snap engine yanking it back.
+          threshold: { x: 0.05, y: 0.05 },
+          acceleration: 12,
+        }}
       >
         {children}
         <DragOverlay dropAnimation={null}>
