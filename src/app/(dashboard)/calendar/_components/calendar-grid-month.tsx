@@ -137,23 +137,28 @@ function MonthDayCell({
             : undefined,
       }}
     >
-      {/* Day number — top-left */}
+      {/* Day number — top-left. T14 today indicator (signal #1):
+          24x24 accent square, weight 300 Cake Mono Light, black text. */}
       <div
         className="flex items-center"
         style={{ padding: "4px 4px 0 4px", height: DAY_NUMBER_HEIGHT }}
       >
         <button
-          className="cursor-pointer flex items-center justify-center transition-colors duration-100"
+          className="cursor-pointer flex items-center justify-center"
           style={{
-            fontFamily: "var(--font-mohave), sans-serif",
-            fontWeight: 600,
+            fontFamily: isCurrentDay
+              ? "var(--font-cakemono), sans-serif"
+              : "var(--font-mohave), sans-serif",
+            fontWeight: isCurrentDay ? 300 : 600,
             fontSize: 13,
-            width: 22,
-            height: 22,
-            borderRadius: isCurrentDay ? "50%" : "2px",
-            backgroundColor: isCurrentDay ? "rgba(111, 148, 176,0.15)" : "transparent",
-            color: isCurrentDay ? "#FFFFFF" : "#999999",
+            width: isCurrentDay ? 24 : 22,
+            height: isCurrentDay ? 24 : 22,
+            borderRadius: isCurrentDay ? 4 : 2,
+            backgroundColor: isCurrentDay ? "var(--ops-accent)" : "transparent",
+            color: isCurrentDay ? "#000" : "var(--text-3)",
             border: "none",
+            letterSpacing: 0,
+            transition: "background-color 0.15s cubic-bezier(0.22, 1, 0.36, 1)",
           }}
           onClick={(e) => {
             e.stopPropagation();

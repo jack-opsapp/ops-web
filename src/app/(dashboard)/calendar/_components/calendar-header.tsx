@@ -13,7 +13,11 @@ import {
   addWeeks,
   startOfWeek,
   endOfWeek,
+  startOfMonth,
+  endOfMonth,
   format,
+  isSameDay,
+  isWithinInterval,
   subMonths,
   subWeeks,
   subDays,
@@ -96,6 +100,24 @@ export function CalendarHeader({ t }: CalendarHeaderProps) {
     { value: "crew", label: "// CREW" },
   ];
 
+  // T14 — TODAY pill disabled state: viewing today already?
+  const isViewingToday = useMemo(() => {
+    const now = new Date();
+    if (view === "day") return isSameDay(currentDate, now);
+    if (view === "week" || view === "crew") {
+      const ws = startOfWeek(currentDate, { weekStartsOn: 1 });
+      const we = endOfWeek(currentDate, { weekStartsOn: 1 });
+      return isWithinInterval(now, { start: ws, end: we });
+    }
+    if (view === "month") {
+      return isWithinInterval(now, {
+        start: startOfMonth(currentDate),
+        end: endOfMonth(currentDate),
+      });
+    }
+    return false;
+  }, [view, currentDate]);
+
   return (
     <div className="flex items-center justify-between shrink-0 flex-wrap gap-y-1">
       {/* Left: Navigation arrows + date label + Today pill + Filter toggle */}
@@ -119,9 +141,39 @@ export function CalendarHeader({ t }: CalendarHeaderProps) {
         >
           <ChevronRight className="w-[18px] h-[18px]" />
         </Button>
-        <Button variant="secondary" size="sm" onClick={goToToday}>
-          {t("today")}
-        </Button>
+        {/* T14 — TODAY pill (signal #3). JetBrains Mono, accent border, accent
+            text, transparent fill at rest. Fills accent on hover. Disabled
+            when current view already includes today. */}
+        <button
+          type="button"
+          onClick={goToToday}
+          disabled={isViewingToday}
+          aria-label="Jump to today"
+          className="font-mono text-[11px] uppercase tracking-wide leading-none px-[10px] py-[5px] rounded-[5px] tabular-nums"
+          style={{
+            color: "var(--ops-accent)",
+            border: "1px solid var(--ops-accent)",
+            background: "transparent",
+            opacity: isViewingToday ? 0.3 : 1,
+            cursor: isViewingToday ? "not-allowed" : "pointer",
+            transition:
+              "background-color 0.15s cubic-bezier(0.22, 1, 0.36, 1), color 0.15s cubic-bezier(0.22, 1, 0.36, 1)",
+            fontFeatureSettings: '"tnum" 1, "zero" 1',
+          }}
+          onMouseEnter={(e) => {
+            if (isViewingToday) return;
+            (e.currentTarget as HTMLElement).style.backgroundColor =
+              "var(--ops-accent)";
+            (e.currentTarget as HTMLElement).style.color = "#000";
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLElement).style.backgroundColor =
+              "transparent";
+            (e.currentTarget as HTMLElement).style.color = "var(--ops-accent)";
+          }}
+        >
+          [ TODAY ]
+        </button>
         <Button
           variant="ghost"
           size="icon"

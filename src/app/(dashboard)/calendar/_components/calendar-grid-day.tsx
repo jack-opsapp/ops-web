@@ -58,11 +58,13 @@ export function CalendarGridDay({
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
-      {/* Day header */}
+      {/* Day header. Today indicator: TODAY badge with solid accent fill, black text. */}
       <div
         className="px-[16px] py-[14px] border-b shrink-0 flex items-start justify-between"
         style={{
-          borderColor: "rgba(255, 255, 255, 0.10)",
+          borderColor: "var(--line)",
+          // Today: 2px accent top border on the day header (signal #2)
+          borderTop: dayIsToday ? "2px solid var(--ops-accent)" : "2px solid transparent",
         }}
       >
         {/* Left: Day name + date + TODAY badge */}
@@ -70,21 +72,22 @@ export function CalendarGridDay({
           <div className="flex items-center gap-[8px]">
             <span
               className={cn(
-                "font-mohave font-bold text-[22px] leading-tight",
-                dayIsToday ? "text-text" : "text-white"
+                "font-cakemono font-light text-[22px] leading-tight uppercase"
               )}
+              style={{ color: "var(--text)" }}
             >
-              {format(currentDate, "EEEE").toUpperCase()}
+              {format(currentDate, "EEEE")}
             </span>
             {dayIsToday && (
               <span
-                className="font-mono text-micro uppercase tracking-wider leading-tight"
+                className="font-cakemono font-light leading-tight uppercase"
                 style={{
-                  color: "#6F94B0",
-                  background: "rgba(111, 148, 176,0.15)",
-                  border: "1px solid rgba(111, 148, 176,0.30)",
-                  borderRadius: 2,
+                  color: "#000",
+                  background: "var(--ops-accent)",
+                  borderRadius: 4,
                   padding: "2px 6px",
+                  fontSize: 11,
+                  letterSpacing: "0.04em",
                 }}
               >
                 TODAY
@@ -93,7 +96,7 @@ export function CalendarGridDay({
           </div>
           <span
             className="font-mono text-[12px] uppercase tracking-wider mt-[2px] leading-tight"
-            style={{ color: "#999999" }}
+            style={{ color: "var(--text-3)" }}
           >
             {format(currentDate, "MMMM d, yyyy").toUpperCase()}
           </span>
