@@ -179,9 +179,29 @@ interface PauseInput {
   pausedUntil?: string | null;
   actorUserId: string;
   actorEmail: string;
+  /**
+   * Optional severity tag — populated by the anomaly cron when triggering an
+   * automatic pause. Manual pauses from the killswitches admin route leave
+   * this undefined and the audit row's severity column stays NULL.
+   */
+  severity?: "warn" | "critical";
+  /**
+   * Optional FK to the email_anomaly_log row that triggered an automatic
+   * pause. Used to render the audit chain in the admin Event Monitor tab.
+   */
+  anomalyLogId?: string;
 }
 
-export async function pause(input: PauseInput): Promise<PauseState> {
+export interface PauseResult {
+  state: PauseState;
+  /**
+   * The id of the email_pause_audit_log row written for this pause. Returned
+   * so the anomaly cron can persist it back onto email_anomaly_log.pause_audit_id.
+   */
+  pauseAuditId: string | null;
+}
+
+export async function pause(input: PauseInput): Promise<PauseResult> {
   if (!input.reason || input.reason.trim().length < 3) {
     throw new Error("Pause requires a reason (>= 3 chars)");
   }
@@ -209,14 +229,28 @@ export async function pause(input: PauseInput): Promise<PauseState> {
 
   if (error) throw new Error(`Pause failed: ${error.message}`);
 
-  await supabase.from("email_pause_audit_log").insert({
-    scope: input.scope,
-    action: "pause",
-    reason: input.reason,
-    paused_until: input.pausedUntil ?? null,
-    actor_user_id: input.actorUserId,
-    actor_email: input.actorEmail,
-  });
+  const { data: auditRow, error: auditErr } = await supabase
+    .from("email_pause_audit_log")
+    .insert({
+      scope: input.scope,
+      action: "pause",
+      reason: input.reason,
+      paused_until: input.pausedUntil ?? null,
+      actor_user_id: input.actorUserId,
+      actor_email: input.actorEmail,
+      severity: input.severity ?? null,
+      anomaly_log_id: input.anomalyLogId ?? null,
+    })
+    .select("id")
+    .single();
+
+  // Audit insert failure must not roll back the pause itself — the killswitch
+  // is already active in email_pause_state. Log the error but continue so the
+  // operator still gets the rail notification and the send chokepoint stops.
+  if (auditErr) {
+    console.error("[email-pause] audit insert failed:", auditErr);
+  }
+  const pauseAuditId = (auditRow?.id as string | undefined) ?? null;
 
   await fanoutPauseNotifications({
     scope: input.scope,
@@ -224,7 +258,7 @@ export async function pause(input: PauseInput): Promise<PauseState> {
     actorEmail: input.actorEmail,
   });
 
-  return rowToState(data);
+  return { state: rowToState(data), pauseAuditId };
 }
 
 interface ResumeInput {
