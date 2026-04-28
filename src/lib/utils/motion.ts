@@ -527,3 +527,43 @@ export const confirmationModalVariants: Variants = {
   animate: { opacity: 1, scale: 1, transition: { duration: 0.24, ease: EASE_SMOOTH } },
   exit: { opacity: 0, scale: 0.96, transition: { duration: 0.16, ease: EASE_SMOOTH } },
 };
+
+// ---------------------------------------------------------------------------
+// Campaign analytics (PR 6) — metric grid, Sankey funnel, bounce chart
+// ---------------------------------------------------------------------------
+
+/** 8-card metric grid — 60ms stagger lifts each card in sequence. */
+export const campaignMetricGridVariants: Variants = {
+  initial: { opacity: 0, y: 6 },
+  animate: (i: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.32, ease: EASE_SMOOTH, delay: i * 0.06 },
+  }),
+};
+
+/** Sankey link draw — `pathLength` 0→1 with 80ms stagger per link. */
+export const sankeyLinkVariants: Variants = {
+  initial: { pathLength: 0, opacity: 0.2 },
+  animate: (i: number) => ({
+    pathLength: 1,
+    opacity: 0.85,
+    transition: { duration: 0.42, ease: EASE_SMOOTH, delay: i * 0.08 },
+  }),
+};
+
+/** Sankey node entrance — quiet pop after links anchor. */
+export const sankeyNodeVariants: Variants = {
+  initial: { opacity: 0, scale: 0.94 },
+  animate: {
+    opacity: 1,
+    scale: 1,
+    transition: { duration: 0.28, ease: EASE_SMOOTH },
+  },
+};
+
+/** Single-value count entrance — used for animated number cells. */
+export const animatedCountVariants: Variants = {
+  initial: { opacity: 0, y: 4 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.32, ease: EASE_SMOOTH } },
+};

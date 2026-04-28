@@ -47,7 +47,8 @@ export const GET = withAdmin(async (req: NextRequest) => {
   const status = parseStatus(sp.get("status"));
   const limit = Math.min(Math.max(Number(sp.get("limit") ?? 50), 1), 200);
   const offset = Math.max(Number(sp.get("offset") ?? 0), 0);
-  const result = await listCampaigns({ status, limit, offset });
+  const includeVersions = sp.get("include_versions") === "1";
+  const result = await listCampaigns({ status, limit, offset, includeVersions });
   return NextResponse.json(result);
 });
 
