@@ -136,9 +136,10 @@ describe("email dispatcher cron", () => {
     const body = await res.json();
     expect(body.results[0].error).toContain("audience boom");
     // Campaign should be marked failed.
-    const failedCall = updateSpy.mock.calls.find(
-      ([payload]) => (payload as { send_status?: string }).send_status === "failed"
-    );
+    const failedCall = updateSpy.mock.calls.find((call) => {
+      const payload = (call as unknown[])[0] as { send_status?: string };
+      return payload?.send_status === "failed";
+    });
     expect(failedCall).toBeTruthy();
   });
 });
