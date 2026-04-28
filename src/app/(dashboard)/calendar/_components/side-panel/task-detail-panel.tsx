@@ -12,6 +12,7 @@ import {
   useTaskTypes,
   useTeamMembers,
   useProjectTasks,
+  useCompany,
 } from "@/lib/hooks";
 import {
   TaskStatus,
@@ -158,6 +159,9 @@ export function TaskDetailPanel() {
   const { data: projectTasksData } = useProjectTasks(
     task?.projectId ?? undefined
   );
+
+  // Company defaults — used to seed time when toggling all_day off (Phase 3)
+  const { data: company } = useCompany();
 
   // Mutations
   const updateTask = useUpdateTask();
@@ -367,6 +371,65 @@ export function TaskDetailPanel() {
         {
           onError: (err) =>
             toast.error("Failed to update end date", {
+              description: err.message,
+            }),
+        }
+      );
+    },
+    [selectedTaskId, updateTask]
+  );
+
+  // Phase 3 — All-day toggle + time inputs
+  const handleAllDayToggle = useCallback(
+    (nextAllDay: boolean) => {
+      if (!selectedTaskId || !task) return;
+      const patch: Partial<typeof task> = { allDay: nextAllDay };
+      // When switching off all-day, seed start/end time from company defaults
+      // (or existing values if already set).
+      if (!nextAllDay) {
+        patch.startTime = task.startTime ?? company?.defaultWorkStart ?? "08:00:00";
+        patch.endTime = task.endTime ?? company?.defaultWorkEnd ?? "17:00:00";
+      }
+      updateTask.mutate(
+        { id: selectedTaskId, data: patch },
+        {
+          onError: (err) =>
+            toast.error("Failed to update all-day", {
+              description: err.message,
+            }),
+        }
+      );
+    },
+    [selectedTaskId, task, company, updateTask]
+  );
+
+  const handleStartTimeChange = useCallback(
+    (value: string) => {
+      if (!selectedTaskId) return;
+      // <input type="time"> emits "HH:mm" — append seconds for Postgres TIME.
+      const next = value ? `${value}:00` : null;
+      updateTask.mutate(
+        { id: selectedTaskId, data: { startTime: next } },
+        {
+          onError: (err) =>
+            toast.error("Failed to update start time", {
+              description: err.message,
+            }),
+        }
+      );
+    },
+    [selectedTaskId, updateTask]
+  );
+
+  const handleEndTimeChange = useCallback(
+    (value: string) => {
+      if (!selectedTaskId) return;
+      const next = value ? `${value}:00` : null;
+      updateTask.mutate(
+        { id: selectedTaskId, data: { endTime: next } },
+        {
+          onError: (err) =>
+            toast.error("Failed to update end time", {
               description: err.message,
             }),
         }
@@ -636,7 +699,8 @@ export function TaskDetailPanel() {
             style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}
           >
             <SectionLabel>SCHEDULE</SectionLabel>
-            <div className="space-y-[6px]">
+            <div className="space-y-[8px]">
+              {/* Date range */}
               <div className="flex items-center gap-[8px]">
                 <input
                   type="datetime-local"
@@ -668,6 +732,130 @@ export function TaskDetailPanel() {
                   }}
                 />
               </div>
+
+              {/* Phase 3 — All-day toggle (two-state segmented row) */}
+              <div className="flex items-center gap-[6px] pt-[2px]">
+                <span
+                  className="font-mono text-micro uppercase tracking-[0.08em]"
+                  style={{ color: "var(--text-mute)" }}
+                >
+                  // ALL-DAY
+                </span>
+                <div className="ml-auto flex items-center" role="group">
+                  <button
+                    type="button"
+                    onClick={() => handleAllDayToggle(true)}
+                    aria-pressed={!!task?.allDay}
+                    className="px-[10px] py-[3px] font-mono text-micro uppercase tracking-wider transition-colors"
+                    style={{
+                      color: task?.allDay ? "var(--text)" : "var(--text-3)",
+                      background: task?.allDay
+                        ? "rgba(255,255,255,0.08)"
+                        : "transparent",
+                      border: task?.allDay
+                        ? "1px solid rgba(255,255,255,0.18)"
+                        : "1px solid var(--line)",
+                      borderRadius: "5px 0 0 5px",
+                    }}
+                  >
+                    ON
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAllDayToggle(false)}
+                    aria-pressed={!task?.allDay}
+                    className="px-[10px] py-[3px] font-mono text-micro uppercase tracking-wider transition-colors"
+                    style={{
+                      color: !task?.allDay ? "var(--text)" : "var(--text-3)",
+                      background: !task?.allDay
+                        ? "rgba(255,255,255,0.08)"
+                        : "transparent",
+                      border: !task?.allDay
+                        ? "1px solid rgba(255,255,255,0.18)"
+                        : "1px solid var(--line)",
+                      borderLeft: "none",
+                      borderRadius: "0 5px 5px 0",
+                    }}
+                  >
+                    OFF
+                  </button>
+                </div>
+              </div>
+
+              {/* Phase 3 — Time inputs (only meaningful when allDay = false) */}
+              <div className="flex items-center gap-[8px]">
+                <div className="flex-1 flex flex-col gap-[2px]">
+                  <span
+                    className="font-mono text-[10px] uppercase tracking-[0.08em]"
+                    style={{
+                      color: task?.allDay ? "var(--text-mute)" : "var(--text-3)",
+                    }}
+                  >
+                    // START
+                  </span>
+                  <input
+                    type="time"
+                    step={900}
+                    disabled={!!task?.allDay}
+                    value={
+                      task?.startTime
+                        ? task.startTime.slice(0, 5)
+                        : ""
+                    }
+                    onChange={(e) => handleStartTimeChange(e.target.value)}
+                    className="w-full px-[8px] py-[4px] rounded-[5px] text-[13px] font-mono outline-none tabular-nums"
+                    style={{
+                      backgroundColor: "rgba(255,255,255,0.04)",
+                      border: "1px solid var(--line)",
+                      colorScheme: "dark",
+                      color: task?.allDay
+                        ? "var(--text-mute)"
+                        : "var(--text)",
+                      fontFeatureSettings: '"tnum" 1, "zero" 1',
+                      opacity: task?.allDay ? 0.5 : 1,
+                    }}
+                  />
+                </div>
+                <ArrowRight
+                  className="w-[12px] h-[12px] shrink-0 mt-[14px]"
+                  style={{
+                    color: task?.allDay ? "var(--text-mute)" : "var(--text-3)",
+                  }}
+                />
+                <div className="flex-1 flex flex-col gap-[2px]">
+                  <span
+                    className="font-mono text-[10px] uppercase tracking-[0.08em]"
+                    style={{
+                      color: task?.allDay ? "var(--text-mute)" : "var(--text-3)",
+                    }}
+                  >
+                    // END
+                  </span>
+                  <input
+                    type="time"
+                    step={900}
+                    disabled={!!task?.allDay}
+                    value={
+                      task?.endTime
+                        ? task.endTime.slice(0, 5)
+                        : ""
+                    }
+                    onChange={(e) => handleEndTimeChange(e.target.value)}
+                    className="w-full px-[8px] py-[4px] rounded-[5px] text-[13px] font-mono outline-none tabular-nums"
+                    style={{
+                      backgroundColor: "rgba(255,255,255,0.04)",
+                      border: "1px solid var(--line)",
+                      colorScheme: "dark",
+                      color: task?.allDay
+                        ? "var(--text-mute)"
+                        : "var(--text)",
+                      fontFeatureSettings: '"tnum" 1, "zero" 1',
+                      opacity: task?.allDay ? 0.5 : 1,
+                    }}
+                  />
+                </div>
+              </div>
+
               {durationLabel && (
                 <span className="font-mono text-micro uppercase text-[#999999]">
                   Duration: {durationLabel}

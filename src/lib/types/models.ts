@@ -486,6 +486,10 @@ export interface Company {
   stripeCustomerId: string | null;
   preciseSchedulingEnabled?: boolean;
   skipWeekendsInAutoSchedule?: boolean;
+  /** Phase 3 — seed value for project_tasks.start_time when toggling all_day=false. */
+  defaultWorkStart: string;
+  /** Phase 3 — seed value for project_tasks.end_time when toggling all_day=false. */
+  defaultWorkEnd: string;
   lastSyncedAt: Date | null;
   needsSync: boolean;
   deletedAt: Date | null;
