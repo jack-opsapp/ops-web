@@ -34,7 +34,8 @@ export const GET = withAdmin(async (req: NextRequest) => {
   const reason = reasonRaw && VALID_REASONS.includes(reasonRaw as SuppressionReason)
     ? (reasonRaw as SuppressionReason)
     : undefined;
-  const emailLike = searchParams.get("email") ?? undefined;
+  const emailLike =
+    searchParams.get("emailLike") ?? searchParams.get("email") ?? undefined;
 
   const { rows, total } = await listSuppressions({ list, reason, emailLike, limit, offset });
   return NextResponse.json({ rows, total, limit, offset });
