@@ -2,10 +2,10 @@
 
 import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import { differenceInCalendarDays, addDays, format } from "date-fns";
-import { motion, AnimatePresence } from "framer-motion";
 import { useDraggable } from "@dnd-kit/core";
 import type { InternalCalendarEvent } from "@/lib/utils/calendar-utils";
 import { CREW_ROW_HEIGHT } from "@/lib/utils/crew-constants";
+import { EventHoverPopover } from "../event-hover-popover";
 
 // ─── Props ──────────────────────────────────────────────────────────────────
 
@@ -126,7 +126,6 @@ export function CrewTaskBlock({
     event.projectTitle && event.taskTitle !== event.projectTitle
       ? event.taskTitle
       : null;
-  const dateRangeStr = `${format(event.startDate, "MMM d")} - ${format(event.endDate, "MMM d, yyyy")}`;
 
   // ── Time label (only when allDay = false; Phase 3) ────────────────────
 
@@ -233,20 +232,15 @@ export function CrewTaskBlock({
       }
     : {};
 
-  // ── Reduced motion (tooltip) ──────────────────────────────────────────
-
-  const tooltipVariants = {
-    hidden: { opacity: 0, y: 4 },
-    visible: { opacity: 1, y: 0 },
-    exit: { opacity: 0, y: 4 },
-  };
-
   // Don't render if completely outside visible range
   if (resizeAdjusted.widthPercent <= 0) return null;
+
+  const popoverDisabled = isGhost || isDragging || !!resizeState;
 
   // ── Render ────────────────────────────────────────────────────────────
 
   return (
+    <EventHoverPopover event={event} side="top" disabled={popoverDisabled}>
     <div
       ref={(node) => {
         // Merge dnd-kit ref with our local ref
@@ -383,95 +377,7 @@ export function CrewTaskBlock({
         </div>
       </div>
 
-      {/* Hover tooltip — replaced by Radix HoverCard in T17 */}
-      <AnimatePresence>
-        {isHovered && !isGhost && !isDragging && !resizeState && (
-          <motion.div
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-            variants={tooltipVariants}
-            transition={{ duration: 0.15, ease: [0.22, 1, 0.36, 1] }}
-            className="absolute z-dropdown pointer-events-none"
-            style={{
-              bottom: "calc(100% + 6px)",
-              left: 0,
-              minWidth: 200,
-              maxWidth: 280,
-              background: "var(--glass-bg-dense)",
-              backdropFilter: "blur(28px) saturate(1.3)",
-              WebkitBackdropFilter: "blur(28px) saturate(1.3)",
-              border: "1px solid var(--glass-border)",
-              borderRadius: 12,
-              padding: "8px 10px",
-            }}
-          >
-            <div
-              className="font-cakemono font-light text-[12px] uppercase leading-tight truncate"
-              style={{ color: "var(--text)" }}
-            >
-              {primaryTitle}
-            </div>
-            {subtitle && (
-              <div
-                className="font-mohave text-[12px] leading-tight truncate mt-[2px]"
-                style={{ color: "var(--text-3)" }}
-              >
-                {subtitle}
-              </div>
-            )}
-            <div
-              className="my-[6px]"
-              style={{ height: 1, background: "var(--glass-border)" }}
-            />
-            <div className="flex items-center gap-[6px]">
-              <div
-                className="px-[5px] py-[1px] font-cakemono font-light uppercase"
-                style={{
-                  color: event.typeColors.text,
-                  background: event.typeColors.bg,
-                  border: `1px solid ${event.typeColors.border}`,
-                  borderRadius: 4,
-                  fontSize: 9,
-                  letterSpacing: "0.04em",
-                }}
-              >
-                {event.typeLabel}
-              </div>
-              <div
-                className="px-[5px] py-[1px] font-mono uppercase tracking-wider"
-                style={{
-                  color: event.statusColors.text,
-                  background: event.statusColors.bg,
-                  border: `1px solid ${event.statusColors.border}`,
-                  borderRadius: 4,
-                  fontSize: 9,
-                }}
-              >
-                {event.statusKey.replace("_", " ")}
-              </div>
-            </div>
-            {event.crewIds.length > 0 && (
-              <div
-                className="font-mono text-micro uppercase tracking-wider leading-tight mt-[6px]"
-                style={{ color: "var(--text-3)" }}
-              >
-                {event.crewIds.length}{" "}
-                {event.crewIds.length === 1 ? "CREW MEMBER" : "CREW MEMBERS"}
-              </div>
-            )}
-            <div
-              className="font-mono text-[10px] uppercase tracking-wider leading-tight mt-[3px] tabular-nums"
-              style={{
-                color: "var(--text-3)",
-                fontFeatureSettings: '"tnum" 1, "zero" 1',
-              }}
-            >
-              {dateRangeStr}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
+    </EventHoverPopover>
   );
 }

@@ -7,6 +7,7 @@ import type { InternalCalendarEvent } from "@/lib/utils/calendar-utils";
 import { useCalendarStore } from "@/stores/calendar-store";
 import { useTeamMembers } from "@/lib/hooks";
 import { UserAvatar } from "@/components/ops/user-avatar";
+import { EventHoverPopover } from "../event-hover-popover";
 
 // ── Props ──────────────────────────────────────────────────────────────────
 
@@ -79,6 +80,7 @@ export function DayTaskCard({ event, index }: DayTaskCardProps) {
   // ── Render ────────────────────────────────────────────────────────────
 
   return (
+    <EventHoverPopover event={event} side="right">
     <motion.div
       initial={{ y: 14, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
@@ -231,5 +233,6 @@ export function DayTaskCard({ event, index }: DayTaskCardProps) {
         )}
       </div>
     </motion.div>
+    </EventHoverPopover>
   );
 }
