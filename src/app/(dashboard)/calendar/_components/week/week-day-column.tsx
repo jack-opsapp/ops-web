@@ -13,10 +13,12 @@ interface WeekDayColumnProps {
   day: Date;
   events: InternalCalendarEvent[];
   /**
-   * Multi-day events whose first day intersects this column. Rendered as
-   * spanning bars at the top of the column, above the standard task cards.
-   * (Phase 1 keeps Week as an all-day list — Phase 3 introduces hourly mode.)
+   * Bottom-edge resize callback — passed through to each DayTaskCard so the
+   * user can extend / shrink an event's duration in whole-day increments.
+   * The WeekGrid owns the recurrence-aware mutation path and provides this
+   * callback via useCalendarResize.
    */
+  onCardResize?: (event: InternalCalendarEvent, newEndDate: Date) => void;
 }
 
 // ── Draggable card wrapper ──────────────────────────────────────────────
@@ -24,13 +26,18 @@ interface WeekDayColumnProps {
 function DraggableWeekCard({
   event,
   index,
+  onResize,
 }: {
   event: InternalCalendarEvent;
   index: number;
+  onResize?: (event: InternalCalendarEvent, newEndDate: Date) => void;
 }) {
+  const locked =
+    event.statusKey === "completed" || event.statusKey === "cancelled";
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `week-event-${event.id}`,
     data: { type: "week-event", event },
+    disabled: locked,
   });
 
   const style = transform
@@ -45,14 +52,14 @@ function DraggableWeekCard({
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      <DayTaskCard event={event} index={index} />
+      <DayTaskCard event={event} index={index} onResize={onResize} />
     </div>
   );
 }
 
 // ── Component ──────────────────────────────────────────────────────────────
 
-export function WeekDayColumn({ day, events }: WeekDayColumnProps) {
+export function WeekDayColumn({ day, events, onCardResize }: WeekDayColumnProps) {
   const today = isToday(day);
   const weekend = isWeekend(day);
 
@@ -173,7 +180,12 @@ export function WeekDayColumn({ day, events }: WeekDayColumnProps) {
         ) : (
           <div className="flex flex-col gap-[6px]">
             {dayEvents.map((event, idx) => (
-              <DraggableWeekCard key={event.id} event={event} index={idx} />
+              <DraggableWeekCard
+                key={event.id}
+                event={event}
+                index={idx}
+                onResize={onCardResize}
+              />
             ))}
           </div>
         )}

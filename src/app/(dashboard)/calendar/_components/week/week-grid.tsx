@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import {
   startOfWeek,
   endOfWeek,
@@ -8,6 +8,7 @@ import {
 } from "date-fns";
 import type { InternalCalendarEvent } from "@/lib/utils/calendar-utils";
 import { WeekDayColumn } from "./week-day-column";
+import { useCalendarResize } from "../use-calendar-resize";
 
 // ─── Props ──────────────────────────────────────────────────────────────────
 
@@ -29,6 +30,10 @@ interface WeekGridProps {
  * hosts droppables (week-day per column) + draggables (week-event per card).
  * Cross-week drag falls out for free because the parent
  * WeekScrollContainer (and the shell above it) sees every panel's targets.
+ *
+ * Edge-resize on cards is wired here via useCalendarResize so each card in
+ * every column can extend / shrink duration without re-implementing the
+ * recurrence prompt + mutation plumbing.
  */
 export function WeekGrid({ currentDate, events }: WeekGridProps) {
   // Mon–Sun week
@@ -37,6 +42,16 @@ export function WeekGrid({ currentDate, events }: WeekGridProps) {
     const end = endOfWeek(currentDate, { weekStartsOn: 1 });
     return eachDayOfInterval({ start, end });
   }, [currentDate]);
+
+  const { commitResize, promptElement: resizePromptElement } =
+    useCalendarResize();
+
+  const handleCardResize = useCallback(
+    (event: InternalCalendarEvent, newEndDate: Date) => {
+      commitResize(event, { endDate: newEndDate });
+    },
+    [commitResize]
+  );
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
@@ -47,9 +62,11 @@ export function WeekGrid({ currentDate, events }: WeekGridProps) {
             key={day.toISOString()}
             day={day}
             events={events}
+            onCardResize={handleCardResize}
           />
         ))}
       </div>
+      {resizePromptElement}
     </div>
   );
 }
