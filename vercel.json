@@ -122,6 +122,14 @@
     {
       "path": "/api/cron/pmf/cleanup-snapshots",
       "schedule": "30 14 * * *"
+    },
+    {
+      "path": "/api/cron/email/dispatcher",
+      "schedule": "*/1 * * * *"
+    },
+    {
+      "path": "/api/cron/email/worker",
+      "schedule": "*/1 * * * *"
     }
   ]
 }
