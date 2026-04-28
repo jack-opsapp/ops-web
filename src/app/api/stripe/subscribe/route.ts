@@ -187,6 +187,37 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       await stripe.customers.update(stripeCustomerId, {
         invoice_settings: { default_payment_method: paymentMethodId },
       });
+    } else {
+      // Lockout enforcement — refuse to create a subscription without a
+      // confirmed payment method. Without this guard, a UI bug or stale
+      // upgrade modal can call /subscribe with no paymentMethodId, Stripe
+      // creates an `incomplete` subscription that never becomes active, but
+      // the company row gets `subscription_plan` written + a success toast
+      // surfaces — granting the user the upgraded tier UX before any money
+      // changes hands.
+      //
+      // If a paymentMethodId was not passed, require that the Stripe customer
+      // already has a default payment method on file (set via SetupIntent in
+      // /settings/billing or attached on a prior subscribe call). Otherwise
+      // reject with 402 so the frontend can route the user to add a card.
+      const customer = await stripe.customers.retrieve(stripeCustomerId);
+      if (customer.deleted) {
+        return NextResponse.json(
+          { error: "Stripe customer was deleted" },
+          { status: 500 }
+        );
+      }
+      const defaultPm = customer.invoice_settings?.default_payment_method;
+      if (!defaultPm) {
+        return NextResponse.json(
+          {
+            error:
+              "A payment method is required to subscribe. Add a card in Settings → Billing first.",
+            code: "payment_method_required",
+          },
+          { status: 402 }
+        );
+      }
     }
 
     // Create subscription.
