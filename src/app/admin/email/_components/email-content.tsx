@@ -11,6 +11,8 @@ import { ScheduledSendsTab } from "./scheduled-sends-tab";
 import { KillswitchesTab } from "./killswitches-tab";
 import { ActivePauseBanner } from "./active-pause-banner";
 import { TemplatesTab } from "./templates-tab";
+import { AudienceBuilderTab } from "./audience-builder-tab";
+import { SuppressionsTab } from "./suppressions-tab";
 import { CampaignAnalyticsTab } from "@/components/admin/email/campaign-analytics-tab";
 import type {
   EmailOverviewStats,
@@ -37,6 +39,8 @@ export function EmailContent({ overview, engagement, funnels, emailLog, newslett
           "Overview",
           "Campaign Analytics",
           "Scheduled Sends",
+          "Audience",
+          "Suppressions",
           "Funnels",
           "Email Log",
           "Newsletter",
@@ -50,6 +54,8 @@ export function EmailContent({ overview, engagement, funnels, emailLog, newslett
           if (tab === "Overview") return <OverviewTab stats={overview} engagement={engagement} />;
           if (tab === "Campaign Analytics") return <CampaignAnalyticsTab />;
           if (tab === "Scheduled Sends") return <ScheduledSendsTab />;
+          if (tab === "Audience") return <AudienceBuilderTab />;
+          if (tab === "Suppressions") return <SuppressionsTab />;
           if (tab === "Funnels") return <FunnelsTab data={funnels} />;
           if (tab === "Email Log") return <EmailLogTab entries={emailLog} />;
           if (tab === "Newsletter") return <NewsletterTab newsletters={newsletters} />;

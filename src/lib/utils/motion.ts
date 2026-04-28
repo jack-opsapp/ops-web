@@ -567,3 +567,45 @@ export const animatedCountVariants: Variants = {
   initial: { opacity: 0, y: 4 },
   animate: { opacity: 1, y: 0, transition: { duration: 0.32, ease: EASE_SMOOTH } },
 };
+
+// ─── Email Suppressions / Audience Builder (PR 5) ───────────────────────────
+
+/** Big-number swap on the audience preview count. No spring per design system. */
+export const audienceCountVariants: Variants = {
+  hidden: { opacity: 0, scale: 0.9 },
+  visible: {
+    opacity: 1,
+    scale: 1,
+    transition: { duration: 0.4, ease: EASE_SMOOTH },
+  },
+};
+
+/** Operator/condition chip enter/exit (audience builder filter rows). */
+export const audienceChipVariants: Variants = {
+  hidden: { opacity: 0, scale: 0.85 },
+  visible: {
+    opacity: 1,
+    scale: 1,
+    transition: { duration: 0.22, ease: EASE_SMOOTH },
+  },
+  exit: {
+    opacity: 0,
+    scale: 0.85,
+    transition: { duration: 0.18, ease: EASE_SMOOTH },
+  },
+};
+
+/** Right-edge slide-in drawer (suppression detail). 400px width. */
+export const suppressionDrawerVariants: Variants = {
+  hidden: { x: "100%", opacity: 0 },
+  visible: {
+    x: 0,
+    opacity: 1,
+    transition: { duration: 0.32, ease: EASE_SMOOTH },
+  },
+  exit: {
+    x: "100%",
+    opacity: 0,
+    transition: { duration: 0.24, ease: EASE_SMOOTH },
+  },
+};

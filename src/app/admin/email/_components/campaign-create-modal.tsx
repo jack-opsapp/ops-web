@@ -3,11 +3,18 @@ import * as React from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { EASE_SMOOTH } from "@/lib/utils/motion";
+import type { AudienceFilterNode } from "@/lib/admin/types";
 
 interface Props {
   open: boolean;
   onClose: () => void;
   onCreated?: (id: string) => void;
+  /**
+   * When provided, overrides the built-in segment dropdown with a custom
+   * predicate from the Audience Builder. Sent to /api/admin/email/campaigns
+   * as the `audienceFilter` field, and previewed via /audience/preview.
+   */
+  audienceFilterOverride?: AudienceFilterNode | null;
 }
 
 interface TemplateOption {
@@ -63,7 +70,12 @@ interface CreateResponse {
   campaign: { id: string };
 }
 
-export function CampaignCreateModal({ open, onClose, onCreated }: Props) {
+export function CampaignCreateModal({
+  open,
+  onClose,
+  onCreated,
+  audienceFilterOverride,
+}: Props) {
   const reduce = useReducedMotion();
   const qc = useQueryClient();
 
@@ -86,9 +98,24 @@ export function CampaignCreateModal({ open, onClose, onCreated }: Props) {
 
   const slug = React.useMemo(() => slugify(name), [name]);
 
+  const usingOverride = !!audienceFilterOverride;
+  const overrideKey = usingOverride
+    ? JSON.stringify(audienceFilterOverride)
+    : null;
+
   const audienceQuery = useQuery({
-    queryKey: ["audienceEstimate", segment],
+    queryKey: ["audienceEstimate", usingOverride ? overrideKey : segment],
     queryFn: async () => {
+      if (usingOverride) {
+        const res = await fetch("/api/admin/email/audience/preview", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ filter: audienceFilterOverride }),
+        });
+        if (!res.ok) throw new Error("preview_failed");
+        const j = await res.json();
+        return { count: (j.count as number) ?? 0 };
+      }
       const res = await fetch(
         "/api/admin/email/campaigns/audience-estimate",
         {
@@ -118,7 +145,9 @@ export function CampaignCreateModal({ open, onClose, onCreated }: Props) {
           name: trimmed,
           slug,
           templateId,
-          audienceFilter: { segment },
+          audienceFilter: usingOverride
+            ? audienceFilterOverride
+            : { segment },
         }),
       });
       if (!createRes.ok) {
@@ -244,20 +273,29 @@ export function CampaignCreateModal({ open, onClose, onCreated }: Props) {
               <span className="font-cakemono font-light text-[11px] tracking-[0.06em] text-[#B5B5B5] block mb-1">
                 AUDIENCE
               </span>
-              <select
-                value={segment}
-                onChange={(e) => setSegment(e.target.value)}
-                className="w-full font-mohave text-[14px] bg-transparent border border-white/10 rounded-[5px] px-3 py-2 text-[#EDEDED]"
-              >
-                {SEGMENTS.map((s) => (
-                  <option key={s.id} value={s.id} className="bg-black">
-                    {s.label}
-                  </option>
-                ))}
-              </select>
+              {usingOverride ? (
+                <div
+                  className="w-full font-mono text-[12px] text-[#EDEDED] border border-white/10 rounded-[5px] px-3 py-2"
+                  style={{ background: "rgba(157,181,130,0.04)" }}
+                >
+                  [custom predicate from audience builder]
+                </div>
+              ) : (
+                <select
+                  value={segment}
+                  onChange={(e) => setSegment(e.target.value)}
+                  className="w-full font-mohave text-[14px] bg-transparent border border-white/10 rounded-[5px] px-3 py-2 text-[#EDEDED]"
+                >
+                  {SEGMENTS.map((s) => (
+                    <option key={s.id} value={s.id} className="bg-black">
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+              )}
               <span
                 className="font-mono text-[11px] text-[#9DB582] mt-1 block"
-                style={{ fontFeatureSettings: '"tnum" 1' }}
+                style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
               >
                 [{audienceText}]
               </span>
