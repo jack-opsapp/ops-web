@@ -159,11 +159,13 @@ export function mapTaskToInternalEvent(task: ProjectTask): InternalCalendarEvent
   if (!task.startDate) return null;
 
   const rawStart = task.startDate instanceof Date ? task.startDate : new Date(task.startDate);
-  // Normalize date-only values (UTC midnight) to local midnight
-  const startDate = !task.startTime ? normalizeToLocalDate(rawStart) : rawStart;
+  // For all-day tasks, normalize UTC midnight to local midnight so display
+  // matches the calendar grid. Timed tasks keep the raw timestamp so the
+  // applied start_time positions them correctly within the day.
+  const startDate = task.allDay ? normalizeToLocalDate(rawStart) : rawStart;
 
-  // Combine start date with startTime for precise positioning
-  if (task.startTime) {
+  // Combine start date with startTime for precise positioning when timed.
+  if (!task.allDay && task.startTime) {
     const [h, m] = task.startTime.split(":").map(Number);
     if (!isNaN(h) && !isNaN(m)) startDate.setHours(h, m, 0, 0);
   }
@@ -171,16 +173,15 @@ export function mapTaskToInternalEvent(task: ProjectTask): InternalCalendarEvent
   let endDate: Date;
   if (task.endDate) {
     const rawEnd = task.endDate instanceof Date ? new Date(task.endDate) : new Date(task.endDate);
-    endDate = !task.endTime ? normalizeToLocalDate(rawEnd) : rawEnd;
-    // Combine end date with endTime
-    if (task.endTime) {
+    endDate = task.allDay ? normalizeToLocalDate(rawEnd) : rawEnd;
+    if (!task.allDay && task.endTime) {
       const [h, m] = task.endTime.split(":").map(Number);
       if (!isNaN(h) && !isNaN(m)) endDate.setHours(h, m, 0, 0);
     }
   } else if (task.duration > 0) {
     endDate = new Date(startDate.getTime() + task.duration * 24 * 60 * 60 * 1000);
-    // Apply endTime if single-day
-    if (task.endTime && task.duration <= 1) {
+    // Single-day timed tasks honor endTime to set the closing wall-clock.
+    if (!task.allDay && task.endTime && task.duration <= 1) {
       const [h, m] = task.endTime.split(":").map(Number);
       if (!isNaN(h) && !isNaN(m)) {
         endDate = new Date(startDate);
@@ -190,7 +191,7 @@ export function mapTaskToInternalEvent(task: ProjectTask): InternalCalendarEvent
   } else {
     // Default: same day, apply endTime or default to +9 hours
     endDate = new Date(startDate);
-    if (task.endTime) {
+    if (!task.allDay && task.endTime) {
       const [h, m] = task.endTime.split(":").map(Number);
       if (!isNaN(h) && !isNaN(m)) endDate.setHours(h, m, 0, 0);
     } else {
@@ -236,10 +237,12 @@ export function mapTaskToInternalEvent(task: ProjectTask): InternalCalendarEvent
     crewIds: task.teamMemberIds,
     address: task.project?.address ?? null,
 
-    // Phase 3 — provisioned, default to all-day until Phase 3 ships
+    // Phase 3 — task.allDay is authoritative. Pre-Phase-3 rows default to
+    // true (verified at task-service.mapFromDb), so legacy rows with
+    // hardcoded 08:00–17:00 read as all-day.
     startTime: task.startTime ?? null,
     endTime: task.endTime ?? null,
-    allDay: !task.startTime && !task.endTime,
+    allDay: task.allDay,
   };
 }
 

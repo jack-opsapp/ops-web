@@ -119,6 +119,9 @@ function mapFromDb(row: Record<string, unknown>): ProjectTask {
     duration: (row.duration as number) ?? 1,
     startTime: (row.start_time as string) ?? null,
     endTime: (row.end_time as string) ?? null,
+    allDay: (row.all_day as boolean) ?? true,
+    recurrenceId: (row.recurrence_id as string) ?? null,
+    recurrenceOriginDate: (row.recurrence_origin_date as string) ?? null,
     scheduleConfirmedAt: parseDate(row.schedule_confirmed_at),
     scheduleConfirmedBy: (row.schedule_confirmed_by as string) ?? null,
     updatedAt: parseDate(row.updated_at),
@@ -148,6 +151,9 @@ function mapToDb(data: Partial<ProjectTask>): Record<string, unknown> {
   if (data.duration !== undefined) row.duration = data.duration;
   if (data.startTime !== undefined) row.start_time = data.startTime;
   if (data.endTime !== undefined) row.end_time = data.endTime;
+  if (data.allDay !== undefined) row.all_day = data.allDay;
+  if (data.recurrenceId !== undefined) row.recurrence_id = data.recurrenceId;
+  if (data.recurrenceOriginDate !== undefined) row.recurrence_origin_date = data.recurrenceOriginDate;
   // Map both taskIndex and displayOrder to display_order
   if (data.displayOrder !== undefined) row.display_order = data.displayOrder;
   else if (data.taskIndex !== undefined) row.display_order = data.taskIndex;
@@ -412,6 +418,7 @@ export const TaskService = {
       data.endDate !== undefined ||
       data.startTime !== undefined ||
       data.endTime !== undefined ||
+      data.allDay !== undefined ||
       data.teamMemberIds !== undefined ||
       data.duration !== undefined;
 

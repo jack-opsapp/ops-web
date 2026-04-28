@@ -70,6 +70,9 @@ function makeTask(overrides: Partial<ProjectTask> = {}): ProjectTask {
     duration: 1,
     startTime: null,
     endTime: null,
+    allDay: true,
+    recurrenceId: null,
+    recurrenceOriginDate: null,
     inventoryDeducted: false,
     lastSyncedAt: null,
     needsSync: false,
@@ -228,17 +231,25 @@ describe("mapTaskToInternalEvent", () => {
     });
   });
 
-  describe("Phase 3 fields (provisioned, default to all-day)", () => {
-    it("allDay defaults to true when startTime + endTime are both null", () => {
-      const task = makeTask({ startTime: null, endTime: null });
+  describe("Phase 3 fields (allDay is authoritative)", () => {
+    it("allDay = true is preserved on the event", () => {
+      const task = makeTask({ allDay: true, startTime: null, endTime: null });
       const event = mapTaskToInternalEvent(task);
       expect(event?.allDay).toBe(true);
     });
 
-    it("allDay is false when either startTime or endTime is set", () => {
-      const task = makeTask({ startTime: "08:00:00", endTime: "17:00:00" });
+    it("allDay = false is preserved on the event", () => {
+      const task = makeTask({ allDay: false, startTime: "08:00:00", endTime: "17:00:00" });
       const event = mapTaskToInternalEvent(task);
       expect(event?.allDay).toBe(false);
+    });
+
+    it("allDay is true even if startTime/endTime are populated (legacy 08:00-17:00 rows)", () => {
+      // Production has 275/275 tasks with hardcoded 08:00-17:00 startTime/endTime
+      // that are functionally all-day. The allDay flag is the source of truth.
+      const task = makeTask({ allDay: true, startTime: "08:00:00", endTime: "17:00:00" });
+      const event = mapTaskToInternalEvent(task);
+      expect(event?.allDay).toBe(true);
     });
 
     it("preserves startTime / endTime values from the task", () => {
