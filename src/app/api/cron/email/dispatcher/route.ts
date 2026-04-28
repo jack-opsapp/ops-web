@@ -57,8 +57,6 @@ export async function GET(request: NextRequest) {
 
   for (const c of ready ?? []) {
     try {
-      // PR 5 introduces email_audience_templates; PR 3 falls back to the
-      // inline audience_filter when the template table doesn't exist.
       let filter = (c.audience_filter ?? {}) as Record<string, unknown>;
       if (c.audience_template_id) {
         const { data: tpl } = await db
@@ -68,16 +66,16 @@ export async function GET(request: NextRequest) {
           .maybeSingle();
         if (tpl) {
           filter = (tpl.filter ?? {}) as Record<string, unknown>;
-          await db
-            .rpc("increment_audience_template_usage" as never, {
-              p_template_id: c.audience_template_id,
-            } as never)
-            .then((res) => {
-              if (res.error) {
-                // PR 5 RPC absent in PR 3 — swallow silently.
-              }
-            })
-            .then(() => undefined, () => undefined);
+          const { error: incErr } = await db.rpc(
+            "increment_audience_template_usage",
+            { p_template_id: c.audience_template_id }
+          );
+          if (incErr) {
+            console.error(
+              "[email-dispatcher] template usage increment failed",
+              incErr
+            );
+          }
         }
       }
 
