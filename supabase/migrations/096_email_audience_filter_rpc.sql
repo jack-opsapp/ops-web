@@ -1,4 +1,4 @@
--- 093_email_audience_filter_rpc.sql
+-- 096_email_audience_filter_rpc.sql
 -- Audience filter resolver. Walks a JSONB tree of nested AND/OR groups
 -- with leaf clauses {field, op, value}. SECURITY DEFINER + field allowlist
 -- prevents SQL injection.

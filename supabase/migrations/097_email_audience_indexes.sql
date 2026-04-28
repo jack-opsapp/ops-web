@@ -1,4 +1,4 @@
--- 094_email_audience_indexes.sql
+-- 097_email_audience_indexes.sql
 -- Indexes for the audience filter hot paths. The full filter scan is bounded
 -- by users.is_active=true + email NOT NULL + removed_from_email_list. Below
 -- adds composite indexes for the most common predicate columns.
