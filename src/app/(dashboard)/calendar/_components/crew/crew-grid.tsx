@@ -12,19 +12,19 @@ import {
 import type { TeamMember } from "@/lib/types/models";
 import type { InternalCalendarEvent } from "@/lib/utils/calendar-utils";
 import { UserRole } from "@/lib/types/models";
-import { TimelineHeader } from "./timeline-header";
-import { TimelineRow } from "./timeline-row";
-import { TimelineTaskBlock } from "./timeline-task-block";
+import { CrewHeader } from "./crew-header";
+import { CrewRow } from "./crew-row";
+import { CrewTaskBlock } from "./crew-task-block";
 import { EventContextMenu } from "../event-context-menu";
 import { InlineEditor } from "../inline-editor";
 import { useCalendarStore } from "@/stores/calendar-store";
 import { useUpdateTask } from "@/lib/hooks";
-import { useTimelineDnd } from "@/lib/hooks/use-timeline-dnd";
+import { useCrewDnd } from "@/lib/hooks/use-crew-dnd";
 import {
-  TIMELINE_DAYS_SHOWN,
-  TIMELINE_DAY_MIN_WIDTH,
-  TIMELINE_GUTTER_WIDTH,
-} from "@/lib/utils/timeline-constants";
+  CREW_DAYS_SHOWN,
+  CREW_DAY_MIN_WIDTH,
+  CREW_GUTTER_WIDTH,
+} from "@/lib/utils/crew-constants";
 
 // ─── Unassigned Placeholder ─────────────────────────────────────────────────
 
@@ -43,7 +43,7 @@ const UNASSIGNED_MEMBER: TeamMember = {
 
 // ─── Props ──────────────────────────────────────────────────────────────────
 
-interface TimelineGridProps {
+interface CrewGridProps {
   events: InternalCalendarEvent[];
   teamMembers: TeamMember[];
   startDate: Date;
@@ -53,8 +53,8 @@ interface TimelineGridProps {
 
 // ─── Droppable Row Wrapper ──────────────────────────────────────────────────
 
-/** Wraps each TimelineRow so it is a valid droppable target for DnD */
-function DroppableTimelineRow({
+/** Wraps each CrewRow so it is a valid droppable target for DnD */
+function DroppableCrewRow({
   teamMember,
   startDate,
   daysShown,
@@ -76,7 +76,7 @@ function DroppableTimelineRow({
     const resizeObserver = new ResizeObserver(() => {
       if (rowRef.current) {
         const totalWidth = rowRef.current.getBoundingClientRect().width;
-        setGridWidth(Math.max(totalWidth - TIMELINE_GUTTER_WIDTH, 0));
+        setGridWidth(Math.max(totalWidth - CREW_GUTTER_WIDTH, 0));
       }
     });
     resizeObserver.observe(rowRef.current);
@@ -84,9 +84,9 @@ function DroppableTimelineRow({
   }, []);
 
   const { setNodeRef, isOver } = useDroppable({
-    id: `timeline-row-${teamMember.id}`,
+    id: `crew-row-${teamMember.id}`,
     data: {
-      type: "timeline-row",
+      type: "crew-row",
       teamMemberId: teamMember.id,
       gridWidth,
     },
@@ -103,14 +103,14 @@ function DroppableTimelineRow({
         outlineOffset: -1,
       }}
     >
-      <TimelineRow
+      <CrewRow
         teamMember={teamMember}
         startDate={startDate}
         daysShown={daysShown}
         isLast={isLast}
       >
         {children}
-      </TimelineRow>
+      </CrewRow>
     </div>
   );
 }
@@ -150,7 +150,7 @@ function CurrentTimeIndicator({
     <div
       className="absolute top-0 bottom-0 z-20 pointer-events-none"
       style={{
-        left: `calc(${TIMELINE_GUTTER_WIDTH}px + (100% - ${TIMELINE_GUTTER_WIDTH}px) * ${leftPercent / 100})`,
+        left: `calc(${CREW_GUTTER_WIDTH}px + (100% - ${CREW_GUTTER_WIDTH}px) * ${leftPercent / 100})`,
       }}
     >
       {/* Time label */}
@@ -173,13 +173,13 @@ function CurrentTimeIndicator({
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
-export function TimelineGrid({
+export function CrewGrid({
   events,
   teamMembers,
   startDate,
-  daysShown = TIMELINE_DAYS_SHOWN,
+  daysShown = CREW_DAYS_SHOWN,
   onEventClick,
-}: TimelineGridProps) {
+}: CrewGridProps) {
   // ── Store ─────────────────────────────────────────────────────────────
 
   const selectedTaskId = useCalendarStore((s) => s.selectedTaskId);
@@ -204,7 +204,7 @@ export function TimelineGrid({
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
   );
 
-  const { handleDragStart, handleDragEnd, handleDragCancel } = useTimelineDnd({
+  const { handleDragStart, handleDragEnd, handleDragCancel } = useCrewDnd({
     events,
     startDate,
     daysShown,
@@ -293,7 +293,7 @@ export function TimelineGrid({
     >
       <div className="flex flex-col h-full overflow-hidden relative">
         {/* Header row — day labels */}
-        <TimelineHeader startDate={startDate} daysShown={daysShown} />
+        <CrewHeader startDate={startDate} daysShown={daysShown} />
 
         {/* Scrollable body */}
         <div className="flex-1 overflow-auto relative">
@@ -306,14 +306,14 @@ export function TimelineGrid({
           {teamMembers.map((member) => {
             const memberEvents = grouped.get(member.id) ?? [];
             return (
-              <DroppableTimelineRow
+              <DroppableCrewRow
                 key={member.id}
                 teamMember={member}
                 startDate={startDate}
                 daysShown={daysShown}
               >
                 {memberEvents.map((event) => (
-                  <TimelineTaskBlock
+                  <CrewTaskBlock
                     key={event.id}
                     event={event}
                     startDate={startDate}
@@ -324,7 +324,7 @@ export function TimelineGrid({
                     onResize={handleResize}
                   />
                 ))}
-              </DroppableTimelineRow>
+              </DroppableCrewRow>
             );
           })}
 
@@ -333,14 +333,14 @@ export function TimelineGrid({
             const unassignedEvents = grouped.get(UNASSIGNED_MEMBER.id) ?? [];
             if (unassignedEvents.length === 0) return null;
             return (
-              <DroppableTimelineRow
+              <DroppableCrewRow
                 teamMember={UNASSIGNED_MEMBER}
                 startDate={startDate}
                 daysShown={daysShown}
                 isLast
               >
                 {unassignedEvents.map((event) => (
-                  <TimelineTaskBlock
+                  <CrewTaskBlock
                     key={event.id}
                     event={event}
                     startDate={startDate}
@@ -351,7 +351,7 @@ export function TimelineGrid({
                     onResize={handleResize}
                   />
                 ))}
-              </DroppableTimelineRow>
+              </DroppableCrewRow>
             );
           })()}
         </div>

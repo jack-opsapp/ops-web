@@ -37,7 +37,7 @@ import { CalendarHeader } from "./_components/calendar-header";
 import { CalendarToolbar } from "./_components/calendar-toolbar";
 import { CalendarGridMonth } from "./_components/calendar-grid-month";
 import { CalendarGridDay } from "./_components/calendar-grid-day";
-import { TimelineGrid } from "./_components/timeline/timeline-grid";
+import { CrewGrid } from "./_components/crew/crew-grid";
 import { FilterSidebar } from "./_components/filter-sidebar";
 import { CascadeConfirmBar } from "./_components/cascade/cascade-confirm-bar";
 import { GhostOverlay } from "./_components/cascade/ghost-overlay";
@@ -203,9 +203,9 @@ export default function CalendarPage() {
     [router]
   );
 
-  // Timeline start date (week start)
+  // Crew swimlane start date (week start, Mon)
   const timelineStartDate = useMemo(
-    () => startOfWeek(currentDate),
+    () => startOfWeek(currentDate, { weekStartsOn: 1 }),
     [currentDate]
   );
 
@@ -260,7 +260,7 @@ export default function CalendarPage() {
                   className="flex flex-col flex-1 min-h-0"
                 >
                   {view === "crew" && (
-                    <TimelineGrid
+                    <CrewGrid
                       events={events}
                       teamMembers={teamMembers}
                       startDate={timelineStartDate}

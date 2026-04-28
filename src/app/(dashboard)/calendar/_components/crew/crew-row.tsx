@@ -5,14 +5,14 @@ import { addDays, isToday } from "date-fns";
 import type { TeamMember } from "@/lib/types/models";
 import { getInitials, getUserRoleDisplay } from "@/lib/types/models";
 import {
-  TIMELINE_ROW_HEIGHT,
-  TIMELINE_GUTTER_WIDTH,
-  TIMELINE_DAY_MIN_WIDTH,
-} from "@/lib/utils/timeline-constants";
+  CREW_ROW_HEIGHT,
+  CREW_GUTTER_WIDTH,
+  CREW_DAY_MIN_WIDTH,
+} from "@/lib/utils/crew-constants";
 
 // ─── Props ──────────────────────────────────────────────────────────────────
 
-interface TimelineRowProps {
+interface CrewRowProps {
   teamMember: TeamMember;
   startDate: Date;
   daysShown: number;
@@ -22,13 +22,13 @@ interface TimelineRowProps {
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
-export function TimelineRow({
+export function CrewRow({
   teamMember,
   startDate,
   daysShown,
   isLast = false,
   children,
-}: TimelineRowProps) {
+}: CrewRowProps) {
   const fullName = `${teamMember.firstName} ${teamMember.lastName}`.trim() || "Unknown";
   const initials = getInitials(fullName);
   const roleLabel = getUserRoleDisplay(teamMember.role);
@@ -38,7 +38,7 @@ export function TimelineRow({
     <div
       className="flex group transition-colors duration-150"
       style={{
-        height: TIMELINE_ROW_HEIGHT,
+        height: CREW_ROW_HEIGHT,
         borderBottom: isLast ? "none" : "1px solid rgba(255,255,255,0.05)",
         background: "transparent",
       }}
@@ -53,7 +53,7 @@ export function TimelineRow({
       <div
         className="shrink-0 flex items-center gap-[8px] px-[12px] sticky left-0 z-10"
         style={{
-          width: TIMELINE_GUTTER_WIDTH,
+          width: CREW_GUTTER_WIDTH,
           background: "#0A0A0A",
           borderRight: "1px solid rgba(255,255,255,0.10)",
         }}
@@ -105,7 +105,7 @@ export function TimelineRow({
               className="relative"
               style={{
                 flex: "1 0 0",
-                minWidth: TIMELINE_DAY_MIN_WIDTH,
+                minWidth: CREW_DAY_MIN_WIDTH,
                 borderRight:
                   idx < daysShown - 1
                     ? "1px solid rgba(255,255,255,0.05)"

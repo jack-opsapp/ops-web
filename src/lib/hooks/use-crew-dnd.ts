@@ -1,14 +1,14 @@
 /**
- * OPS Web - Timeline Drag-and-Drop Hook
+ * OPS Web - Crew Swimlane Drag-and-Drop Hook
  *
- * Manages all timeline (Gantt) drag interactions:
+ * Manages all Crew swimlane (Gantt-style) drag interactions:
  * - Drag to move: reposition task blocks across days / team member rows
  * - Drop from unscheduled tray: accept data.type === 'unscheduled-task'
  * - Drop from project drawer: accept data.type === 'project-drawer-task'
  * - Dependency enforcement: validates moves against dependency constraints
  * - Smart insert: detects insert-between scenarios and cascades push offsets
  *
- * Edge-resize is handled locally inside TimelineTaskBlock (mousedown/move/up)
+ * Edge-resize is handled locally inside CrewTaskBlock (mousedown/move/up)
  * and committed through an `onResize` callback that calls useUpdateTask.
  */
 
@@ -27,7 +27,7 @@ import type { SchedulableTask } from "@/lib/types/scheduling";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-interface UseTimelineDndOptions {
+interface UseCrewDndOptions {
   events: InternalCalendarEvent[];
   startDate: Date;
   daysShown: number;
@@ -39,13 +39,13 @@ interface UseTimelineDndOptions {
 
 // ─── Hook ────────────────────────────────────────────────────────────────────
 
-export function useTimelineDnd({
+export function useCrewDnd({
   events,
   startDate,
   daysShown,
   schedulableTasks = [],
   skipWeekends = false,
-}: UseTimelineDndOptions) {
+}: UseCrewDndOptions) {
   const { setDragState } = useCalendarStore();
   const { company } = useAuthStore();
   const updateMutation = useUpdateTask();
@@ -183,7 +183,7 @@ export function useTimelineDnd({
       if (
         activeData?.type === "unscheduled-task" &&
         activeData.task &&
-        overData?.type === "timeline-row"
+        overData?.type === "crew-row"
       ) {
         const task = activeData.task;
         if (!company?.id) return;
@@ -242,7 +242,7 @@ export function useTimelineDnd({
       if (
         activeData?.type === "project-drawer-task" &&
         activeData.task &&
-        overData?.type === "timeline-row"
+        overData?.type === "crew-row"
       ) {
         const task = activeData.task;
         if (!company?.id) return;
@@ -295,8 +295,8 @@ export function useTimelineDnd({
         return;
       }
 
-      // ── Handle timeline-event drags (move) ────────────────────────────
-      if (activeData?.type === "timeline-event" && activeData.event) {
+      // ── Handle crew-event drags (move) ────────────────────────────────
+      if (activeData?.type === "crew-event" && activeData.event) {
         if (delta.x === 0 && delta.y === 0 && !overData?.teamMemberId) return;
 
         const calEvent = events.find((e) => e.id === activeData.event!.id);
@@ -312,7 +312,7 @@ export function useTimelineDnd({
 
         // Determine if team member assignment changed
         const newTeamMemberIds =
-          overData?.type === "timeline-row" && overData.teamMemberId
+          overData?.type === "crew-row" && overData.teamMemberId
             ? [overData.teamMemberId]
             : undefined;
 

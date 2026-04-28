@@ -5,11 +5,11 @@ import { differenceInCalendarDays, addDays, format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
 import { useDraggable } from "@dnd-kit/core";
 import type { InternalCalendarEvent } from "@/lib/utils/calendar-utils";
-import { TIMELINE_ROW_HEIGHT } from "@/lib/utils/timeline-constants";
+import { CREW_ROW_HEIGHT } from "@/lib/utils/crew-constants";
 
 // ─── Props ──────────────────────────────────────────────────────────────────
 
-interface TimelineTaskBlockProps {
+interface CrewTaskBlockProps {
   event: InternalCalendarEvent;
   startDate: Date; // crew swimlane start date (first visible day)
   daysShown: number; // number of visible day columns
@@ -33,7 +33,7 @@ function clamp(value: number, min: number, max: number): number {
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
-export function TimelineTaskBlock({
+export function CrewTaskBlock({
   event,
   startDate,
   daysShown,
@@ -42,7 +42,7 @@ export function TimelineTaskBlock({
   onClick,
   onContextMenu,
   onResize,
-}: TimelineTaskBlockProps) {
+}: CrewTaskBlockProps) {
   const [isHovered, setIsHovered] = useState(false);
   const blockRef = useRef<HTMLDivElement>(null);
 
@@ -60,8 +60,8 @@ export function TimelineTaskBlock({
   // ── dnd-kit draggable ─────────────────────────────────────────────────
 
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: `timeline-event-${event.id}`,
-    data: { type: "timeline-event", event },
+    id: `crew-event-${event.id}`,
+    data: { type: "crew-event", event },
     disabled: isGhost || !!resizeState,
   });
 
@@ -111,7 +111,7 @@ export function TimelineTaskBlock({
     return { leftPercent: newLeft, widthPercent: newWidth };
   }, [resizeState, leftPercent, widthPercent, daysShown]);
 
-  const blockHeight = TIMELINE_ROW_HEIGHT - 16; // 56px (8px padding top + bottom)
+  const blockHeight = CREW_ROW_HEIGHT - 16; // 56px (8px padding top + bottom)
 
   // ── Determine if block is narrow ──────────────────────────────────────
 
