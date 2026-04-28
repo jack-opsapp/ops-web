@@ -11,6 +11,7 @@ import {
 } from "@/lib/utils/calendar-utils";
 import { DayTaskCard } from "./day/day-task-card";
 import { DayHourlyGrid } from "./day/day-hourly-grid";
+import { useCalendarResize } from "./use-calendar-resize";
 
 // ── Props ──────────────────────────────────────────────────────────────────
 
@@ -32,9 +33,11 @@ interface CalendarGridDayProps {
 function DraggableDayListCard({
   event,
   index,
+  onResize,
 }: {
   event: InternalCalendarEvent;
   index: number;
+  onResize: (event: InternalCalendarEvent, newEndDate: Date) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({
@@ -54,7 +57,7 @@ function DraggableDayListCard({
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      <DayTaskCard event={event} index={index} />
+      <DayTaskCard event={event} index={index} onResize={onResize} />
     </div>
   );
 }
@@ -107,6 +110,16 @@ export function CalendarGridDay({
       onEventClick?.(event);
     },
     [onEventClick]
+  );
+
+  // ── Resize commit (list-mode all-day cards) ──────────────────────────
+  const { commitResize, promptElement: resizePromptElement } =
+    useCalendarResize();
+  const handleListResize = useCallback(
+    (event: InternalCalendarEvent, newEndDate: Date) => {
+      commitResize(event, { endDate: newEndDate });
+    },
+    [commitResize]
   );
 
   // ── Render ────────────────────────────────────────────────────────────
@@ -204,6 +217,7 @@ export function CalendarGridDay({
                     key={event.id}
                     event={event}
                     index={index}
+                    onResize={handleListResize}
                   />
                 ))}
               </div>
@@ -211,6 +225,7 @@ export function CalendarGridDay({
           </AnimatePresence>
         </div>
       )}
+      {resizePromptElement}
     </div>
   );
 }

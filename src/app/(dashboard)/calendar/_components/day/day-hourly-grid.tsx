@@ -84,10 +84,16 @@ function TimedBlock({
       .slice(0, 3);
   }, [event.crewIds, allUsers]);
 
+  // Status guard — completed / cancelled events are display-only (matches
+  // the iOS rule where status badge replaces interactive affordances).
+  const locked =
+    event.statusKey === "completed" || event.statusKey === "cancelled";
+
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({
       id: `day-hourly-event-${event.id}`,
       data: { type: "day-hourly-event", event },
+      disabled: locked,
     });
 
   // Resize state — pixel delta tracked locally; committed on mouseup.
@@ -197,21 +203,29 @@ function TimedBlock({
         }}
       />
 
-      {/* Top resize handle */}
-      <div
-        onMouseDown={(e) => handleResizeStart("top", e)}
-        className="absolute left-0 right-0 top-0 z-10"
-        style={{ height: 6, cursor: "ns-resize" }}
-        onPointerDown={(e) => e.stopPropagation()}
-      />
+      {/* Top resize handle — hidden for locked events */}
+      {!locked && (
+        <div
+          onMouseDown={(e) => handleResizeStart("top", e)}
+          className="absolute left-0 right-0 top-0 z-10"
+          style={{ height: 6, cursor: "ns-resize" }}
+          onPointerDown={(e) => e.stopPropagation()}
+          aria-label="Resize event start"
+          role="separator"
+        />
+      )}
 
-      {/* Bottom resize handle */}
-      <div
-        onMouseDown={(e) => handleResizeStart("bottom", e)}
-        className="absolute left-0 right-0 bottom-0 z-10"
-        style={{ height: 6, cursor: "ns-resize" }}
-        onPointerDown={(e) => e.stopPropagation()}
-      />
+      {/* Bottom resize handle — hidden for locked events */}
+      {!locked && (
+        <div
+          onMouseDown={(e) => handleResizeStart("bottom", e)}
+          className="absolute left-0 right-0 bottom-0 z-10"
+          style={{ height: 6, cursor: "ns-resize" }}
+          onPointerDown={(e) => e.stopPropagation()}
+          aria-label="Resize event end"
+          role="separator"
+        />
+      )}
 
       {/* Body */}
       <div

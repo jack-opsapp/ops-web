@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useCallback, useState } from "react";
-import { format, differenceInCalendarDays } from "date-fns";
+import { useMemo, useCallback, useState, useRef, useEffect } from "react";
+import { format, differenceInCalendarDays, addDays } from "date-fns";
 import { motion } from "framer-motion";
 import type { InternalCalendarEvent } from "@/lib/utils/calendar-utils";
 import { useCalendarStore } from "@/stores/calendar-store";
@@ -14,7 +14,23 @@ import { EventHoverPopover } from "../event-hover-popover";
 interface DayTaskCardProps {
   event: InternalCalendarEvent;
   index: number;
+  /**
+   * When provided, the card grows a bottom-edge resize handle. Drag the
+   * handle vertically — pixel delta snaps to whole-day increments and
+   * commits via this callback on mouseup. Pass `undefined` (or omit) to
+   * keep the card non-resizable (e.g. for completed/cancelled events).
+   */
+  onResize?: (event: InternalCalendarEvent, newEndDate: Date) => void;
+  /** Pixels per day for the resize gesture (default 32). */
+  pxPerDay?: number;
 }
+
+// Resize-handle hit zone (matches crew-task-block).
+const RESIZE_HANDLE_PX = 8;
+const DEFAULT_PX_PER_DAY = 32;
+// Visual extension during drag — keeps the snap legible without making the
+// card grow off the bottom of the viewport.
+const PREVIEW_PX_PER_DAY = 16;
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -51,10 +67,85 @@ function formatShortAddress(address: string | null): string | null {
  * For CalendarUserEvents (kind = personal / time_off): no project/client/
  * address, just title + (for time-off) approval-state badge.
  */
-export function DayTaskCard({ event, index }: DayTaskCardProps) {
+export function DayTaskCard({
+  event,
+  index,
+  onResize,
+  pxPerDay = DEFAULT_PX_PER_DAY,
+}: DayTaskCardProps) {
   const [isHovered, setIsHovered] = useState(false);
   const setSidePanelTask = useCalendarStore((s) => s.setSidePanelTask);
   const setInlineEdit = useCalendarStore((s) => s.setInlineEdit);
+
+  // ── Resize state — bottom-edge drag for all-day duration ──────────────
+  const [resize, setResize] = useState<{
+    initialY: number;
+    deltaPx: number;
+  } | null>(null);
+  const resizeRef = useRef(resize);
+  resizeRef.current = resize;
+
+  const baseDurationDays = Math.max(
+    differenceInCalendarDays(event.endDate, event.startDate),
+    1
+  );
+
+  // Snap deltaPx → integer dayDelta. Clamp so duration stays >= 1 day.
+  const snapDayDelta = useCallback(
+    (deltaPx: number): number => {
+      const raw = Math.round(deltaPx / pxPerDay);
+      const minDelta = -(baseDurationDays - 1);
+      return Math.max(raw, minDelta);
+    },
+    [pxPerDay, baseDurationDays]
+  );
+
+  const previewDayDelta = resize ? snapDayDelta(resize.deltaPx) : 0;
+  const previewExtraPx = Math.max(previewDayDelta, 0) * PREVIEW_PX_PER_DAY;
+  const previewShrinkPx = Math.min(previewDayDelta, 0) * PREVIEW_PX_PER_DAY; // negative
+
+  // Keep latest event refs so global handlers commit against current data
+  const eventRef = useRef(event);
+  eventRef.current = event;
+  const onResizeRef = useRef(onResize);
+  onResizeRef.current = onResize;
+  const snapRef = useRef(snapDayDelta);
+  snapRef.current = snapDayDelta;
+
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setResize({ initialY: e.clientY, deltaPx: 0 });
+  }, []);
+
+  // Global mousemove/mouseup for resize
+  useEffect(() => {
+    if (!resize) return;
+    const onMouseMove = (mv: MouseEvent) => {
+      setResize((prev) =>
+        prev ? { ...prev, deltaPx: mv.clientY - prev.initialY } : null
+      );
+    };
+    const onMouseUp = () => {
+      const state = resizeRef.current;
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+      setResize(null);
+      if (!state) return;
+      const dayDelta = snapRef.current(state.deltaPx);
+      if (dayDelta === 0) return;
+      const cb = onResizeRef.current;
+      if (!cb) return;
+      const newEnd = addDays(eventRef.current.endDate, dayDelta);
+      cb(eventRef.current, newEnd);
+    };
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+  }, [resize]);
 
   // Team members — read from TanStack Query cache (CalendarPage already fetched)
   const { data: teamData } = useTeamMembers();
@@ -143,8 +234,19 @@ export function DayTaskCard({ event, index }: DayTaskCardProps) {
 
   // ── Render ────────────────────────────────────────────────────────────
 
+  // Resize is gated by onResize being provided AND the event not being in a
+  // completed/cancelled state — those are display-only (matches iOS).
+  const canResize = !!onResize && !dimmed;
+
+  // Live duration preview during drag — used for the "+N DAY(S)" label.
+  const previewDuration = baseDurationDays + previewDayDelta;
+
+  // Effective extra height during drag. Negative values shrink the card,
+  // bottom-clamped at 64px so the body content never collapses.
+  const heightOffset = previewExtraPx + previewShrinkPx;
+
   return (
-    <EventHoverPopover event={event} side="right">
+    <EventHoverPopover event={event} side="right" disabled={!!resize}>
       <motion.div
         initial={{ y: 14, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -156,16 +258,19 @@ export function DayTaskCard({ event, index }: DayTaskCardProps) {
         className="relative cursor-pointer"
         style={{
           display: "flex",
-          minHeight: 64,
+          minHeight: Math.max(64 + heightOffset, 64),
           borderRadius: 4,
           overflow: "hidden",
           // Dark card body (matches iOS cardBackgroundDark). Type drives the
           // stripe + badge — never the fill.
           background: "var(--bg-card)",
-          border: "1px solid rgba(255, 255, 255, 0.10)",
+          border: resize
+            ? `1px solid ${event.typeColors.border}`
+            : "1px solid rgba(255, 255, 255, 0.10)",
           opacity: isHovered ? 1 : 0.96,
-          transition:
-            "border-color 0.15s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.15s cubic-bezier(0.22, 1, 0.36, 1)",
+          transition: resize
+            ? "min-height 0.05s linear, border-color 0.15s cubic-bezier(0.22, 1, 0.36, 1)"
+            : "min-height 0.18s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.15s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.15s cubic-bezier(0.22, 1, 0.36, 1)",
         }}
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
@@ -372,6 +477,54 @@ export function DayTaskCard({ event, index }: DayTaskCardProps) {
             className="absolute inset-0 pointer-events-none"
             style={{ background: "rgba(0, 0, 0, 0.40)" }}
           />
+        )}
+
+        {/* Bottom resize handle — only when caller wires onResize */}
+        {canResize && (
+          <div
+            onMouseDown={handleResizeStart}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+            className="absolute left-0 right-0 bottom-0"
+            style={{
+              height: RESIZE_HANDLE_PX,
+              cursor: "ns-resize",
+              zIndex: 6,
+              // 2px hairline at the very bottom — visible on hover, full-color
+              // during drag. Honors prefers-reduced-motion via short transition.
+              background:
+                resize || isHovered
+                  ? `linear-gradient(to top, ${event.typeColors.border} 0 2px, transparent 2px)`
+                  : "transparent",
+              transition: "background 0.12s cubic-bezier(0.22, 1, 0.36, 1)",
+            }}
+            aria-label="Resize event duration"
+            role="separator"
+          />
+        )}
+
+        {/* Resize live label — bottom-right floating chip during drag */}
+        {resize && previewDayDelta !== 0 && (
+          <div
+            aria-hidden="true"
+            className="absolute pointer-events-none font-mono tabular-nums"
+            style={{
+              right: 8,
+              bottom: RESIZE_HANDLE_PX + 6,
+              padding: "2px 6px",
+              borderRadius: 4,
+              background: "rgba(0, 0, 0, 0.78)",
+              border: `1px solid ${event.typeColors.border}`,
+              color: "var(--text)",
+              fontSize: 10,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              fontFeatureSettings: '"tnum" 1, "zero" 1',
+              zIndex: 7,
+            }}
+          >
+            {`${previewDuration} DAY${previewDuration === 1 ? "" : "S"}`}
+          </div>
         )}
       </motion.div>
     </EventHoverPopover>
