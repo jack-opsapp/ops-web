@@ -21,8 +21,25 @@ import type { ProjectTask } from "@/lib/types/models";
 
 // ─── Internal Event Type ─────────────────────────────────────────────────────
 
+/**
+ * The unified calendar event shape consumed by every view (Day, Week, Month,
+ * Crew). Built once via mapTaskToInternalEvent — consumers must not re-derive
+ * colors, titles, or status from the underlying ProjectTask. The shape is the
+ * single source of truth.
+ *
+ * Three-source rule:
+ *   - Title (line 1)    → projectTitle ?? taskTitle
+ *   - Subtitle          → taskTitle (when distinct from projectTitle)
+ *   - Body fill / border→ statusColors (status-driven)
+ *   - Left accent stripe→ typeColors.border (type-driven)
+ *   - Type badge        → typeLabel (uppercase Cake Mono Light)
+ */
 export interface InternalCalendarEvent {
   id: string;
+  /**
+   * Primary display title. Equal to projectTitle ?? taskTitle.
+   * Preserved as a top-level field for backward compatibility.
+   */
   title: string;
   startDate: Date;
   endDate: Date;
@@ -33,6 +50,21 @@ export interface InternalCalendarEvent {
   teamMemberIds: string[];
   project?: string;
   projectId?: string;
+
+  // ── Unified mapping (T8) — three-source rule
+  projectTitle: string | null;
+  taskTitle: string;
+  typeLabel: string;
+  typeColors: TaskTypeColors;
+  statusColors: TaskStatusColors;
+  statusKey: TaskStatusKey;
+  crewIds: string[];
+  address: string | null;
+
+  // ── Phase 3 fields (provisioned now, populated when allDay=false ships)
+  startTime: string | null;
+  endTime: string | null;
+  allDay: boolean;
 }
 
 // ─── Color Helpers ───────────────────────────────────────────────────────────
@@ -166,21 +198,48 @@ export function mapTaskToInternalEvent(task: ProjectTask): InternalCalendarEvent
     }
   }
 
-  // Title: customTitle > taskType.display > "Task"
-  const title = task.customTitle || task.taskType?.display || "Task";
+  // Three-source title rule:
+  //   primary display = projectTitle ?? taskTitle (taskTitle = customTitle ?? typeLabel)
+  const projectTitle: string | null = task.project?.title ?? null;
+  const typeLabel = task.taskType?.display ?? "Task";
+  const taskTitle = task.customTitle ?? typeLabel;
+  const displayTitle = projectTitle ?? taskTitle;
+
+  // Type-derived palette (left stripe + badge)
+  const taskTypeKey = deriveTaskType(taskTitle, task.taskColor);
+  const typeColors = getEventColors(taskTypeKey);
+
+  // Status-derived palette (body fill + border)
+  const statusKey = deriveTaskStatusKey(task);
+  const statusColors = getStatusColors(statusKey);
 
   return {
     id: task.id,
-    title,
+    title: displayTitle,
     startDate,
     endDate,
     color: task.taskColor,
-    taskType: deriveTaskType(title, task.taskColor),
+    taskType: taskTypeKey,
     status: task.status,
     teamMember: task.teamMemberIds.length > 0 ? "Team" : undefined,
     teamMemberIds: task.teamMemberIds,
-    project: task.project?.title ?? undefined,
+    project: projectTitle ?? undefined,
     projectId: task.projectId,
+
+    // Unified mapping
+    projectTitle,
+    taskTitle,
+    typeLabel,
+    typeColors,
+    statusColors,
+    statusKey,
+    crewIds: task.teamMemberIds,
+    address: task.project?.address ?? null,
+
+    // Phase 3 — provisioned, default to all-day until Phase 3 ships
+    startTime: task.startTime ?? null,
+    endTime: task.endTime ?? null,
+    allDay: !task.startTime && !task.endTime,
   };
 }
 
