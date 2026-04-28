@@ -237,8 +237,9 @@ export async function getCampaignStats(
 export async function listCampaigns(input: {
   status?: CampaignStatus | CampaignStatus[];
   limit?: number; offset?: number;
+  includeVersions?: boolean;
   client?: SupabaseClient;
-} = {}): Promise<{ rows: Campaign[]; total: number }> {
+} = {}): Promise<{ rows: (Campaign & { templateVersionsSent?: string[] })[]; total: number }> {
   const db = input.client ?? getServiceRoleClient();
   let q = db.from("email_campaigns").select("*", { count: "exact" })
     .order("created_at", { ascending: false })
@@ -248,5 +249,32 @@ export async function listCampaigns(input: {
   }
   const { data, count, error } = await q;
   if (error) throw new Error(`listCampaigns: ${error.message}`);
-  return { rows: (data ?? []).map((r) => rowToCampaign(r as Row)), total: count ?? 0 };
+  const rows = (data ?? []).map((r) => rowToCampaign(r as Row));
+
+  if (!input.includeVersions || rows.length === 0) {
+    return { rows, total: count ?? 0 };
+  }
+
+  const ids = rows.map((r) => r.id);
+  const { data: jobRows, error: jobErr } = await db
+    .from("email_jobs")
+    .select("campaign_id, template_version")
+    .in("campaign_id", ids)
+    .not("template_version", "is", null);
+  if (jobErr) throw new Error(`listCampaigns versions: ${jobErr.message}`);
+
+  const versionsByCampaign = new Map<string, string[]>();
+  for (const j of (jobRows ?? []) as Array<{ campaign_id: string; template_version: string }>) {
+    const arr = versionsByCampaign.get(j.campaign_id) ?? [];
+    if (!arr.includes(j.template_version)) arr.push(j.template_version);
+    versionsByCampaign.set(j.campaign_id, arr);
+  }
+
+  return {
+    rows: rows.map((r) => ({
+      ...r,
+      templateVersionsSent: versionsByCampaign.get(r.id) ?? [],
+    })),
+    total: count ?? 0,
+  };
 }

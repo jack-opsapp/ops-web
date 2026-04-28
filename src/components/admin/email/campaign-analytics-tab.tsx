@@ -8,15 +8,15 @@ import { CampaignDetailPanel } from "./campaign-detail-panel";
 interface CampaignRow {
   id: string;
   name: string;
-  email_type: string;
-  send_status: string;
-  sent_count: number;
-  delivered_count: number;
-  bounced_count: number;
-  recipient_count_actual: number;
-  template_versions_sent: string[];
-  completed_at: string | null;
-  created_at: string;
+  templateId: string;
+  sendStatus: string;
+  sentCount: number;
+  deliveredCount: number;
+  bouncedCount: number;
+  recipientCountActual: number | null;
+  templateVersionsSent: string[];
+  completedAt: string | null;
+  createdAt: string;
 }
 
 const STATUS_TOKEN: Record<string, string> = {
@@ -58,11 +58,11 @@ export function CampaignAnalyticsTab() {
   });
 
   const filtered = rows
-    .filter((r) => statusFilter === "all" || r.send_status === statusFilter)
+    .filter((r) => statusFilter === "all" || r.sendStatus === statusFilter)
     .sort((a, b) =>
       sortBy === "sent"
-        ? (b.sent_count ?? 0) - (a.sent_count ?? 0)
-        : new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        ? (b.sentCount ?? 0) - (a.sentCount ?? 0)
+        : new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
 
   return (
@@ -102,12 +102,12 @@ export function CampaignAnalyticsTab() {
                     {row.name}
                   </div>
                   <div className="mt-1 font-mono text-[11px] uppercase tracking-[0.14em] text-text-3">
-                    [{row.email_type}]
+                    [{row.templateId}]
                     <span
                       className="ml-3"
-                      style={{ color: STATUS_TOKEN[row.send_status] ?? "var(--text-3)" }}
+                      style={{ color: STATUS_TOKEN[row.sendStatus] ?? "var(--text-3)" }}
                     >
-                      {row.send_status}
+                      {row.sendStatus}
                     </span>
                   </div>
                 </div>
@@ -115,7 +115,7 @@ export function CampaignAnalyticsTab() {
                   className="font-mono text-[14px] text-text-2"
                   style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
                 >
-                  {row.sent_count}/{row.recipient_count_actual}
+                  {row.sentCount}/{row.recipientCountActual ?? "—"}
                 </div>
               </button>
               <AnimatePresence initial={false}>
@@ -133,8 +133,8 @@ export function CampaignAnalyticsTab() {
                     <div className="px-5 py-5">
                       <CampaignDetailPanel
                         campaignId={row.id}
-                        emailType={row.email_type}
-                        templateVersionsSent={row.template_versions_sent}
+                        emailType={row.templateId}
+                        templateVersionsSent={row.templateVersionsSent}
                       />
                     </div>
                   </motion.div>

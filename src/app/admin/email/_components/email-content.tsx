@@ -10,6 +10,7 @@ import { ScheduleTab } from "./schedule-tab";
 import { ScheduledSendsTab } from "./scheduled-sends-tab";
 import { KillswitchesTab } from "./killswitches-tab";
 import { ActivePauseBanner } from "./active-pause-banner";
+import { CampaignAnalyticsTab } from "@/components/admin/email/campaign-analytics-tab";
 import type {
   EmailOverviewStats,
   EmailEngagementStats,
@@ -33,6 +34,7 @@ export function EmailContent({ overview, engagement, funnels, emailLog, newslett
       <SubTabs
         tabs={[
           "Overview",
+          "Campaign Analytics",
           "Scheduled Sends",
           "Funnels",
           "Email Log",
@@ -44,6 +46,7 @@ export function EmailContent({ overview, engagement, funnels, emailLog, newslett
       >
         {(tab) => {
           if (tab === "Overview") return <OverviewTab stats={overview} engagement={engagement} />;
+          if (tab === "Campaign Analytics") return <CampaignAnalyticsTab />;
           if (tab === "Scheduled Sends") return <ScheduledSendsTab />;
           if (tab === "Funnels") return <FunnelsTab data={funnels} />;
           if (tab === "Email Log") return <EmailLogTab entries={emailLog} />;
