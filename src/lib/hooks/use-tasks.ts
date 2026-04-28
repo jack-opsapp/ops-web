@@ -299,22 +299,35 @@ export function useUpdateTask() {
         }
       }
 
-      // Notify team when schedule changes (start or end date moved)
+      // Notify team when schedule changes — date, time, or all-day toggle.
+      // Phase 3: also fires on startTime/endTime/allDay so timed reschedules
+      // surface in the notification rail.
       const dateChanged =
         (data.startDate !== undefined &&
           data.startDate?.getTime() !== prev.startDate?.getTime()) ||
         (data.endDate !== undefined &&
           data.endDate?.getTime() !== prev.endDate?.getTime());
+      const timeChanged =
+        (data.startTime !== undefined && data.startTime !== prev.startTime) ||
+        (data.endTime !== undefined && data.endTime !== prev.endTime);
+      const allDayChanged =
+        data.allDay !== undefined && data.allDay !== prev.allDay;
 
-      if (dateChanged) {
-        const allMembers = data.teamMemberIds ?? prev.teamMemberIds ?? [];
-        if (allMembers.length > 0) {
+      if (dateChanged || timeChanged || allDayChanged) {
+        // Union of prior + new assignees so removed members also see the change.
+        const recipients = Array.from(
+          new Set<string>([
+            ...(prev.teamMemberIds ?? []),
+            ...(data.teamMemberIds ?? prev.teamMemberIds ?? []),
+          ])
+        );
+        if (recipients.length > 0) {
           dispatchScheduleChange({
             taskId: id,
             taskTitle,
             projectId: prev.projectId,
             projectTitle,
-            teamMemberIds: allMembers,
+            teamMemberIds: recipients,
             companyId: prev.companyId,
           });
         }
