@@ -87,7 +87,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const priceId = getPriceId(plan, period);
     if (!priceId) {
       console.error(`[stripe/subscribe] Missing price env var for ${plan}_${period}`);
-      return NextResponse.json({ error: "Price configuration not found" }, { status: 500 });
+      return NextResponse.json(
+        {
+          error: `Price configuration not found for ${plan} ${period}. Contact support.`,
+          code: "price_env_missing",
+          plan,
+          period,
+        },
+        { status: 500 }
+      );
     }
 
     const supabase = getServiceRoleClient();
@@ -300,6 +308,36 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       clientSecret,
     });
   } catch (error) {
+    // Stripe errors carry a `code` field (e.g. "resource_missing") and a
+    // `param` (e.g. "items[0][price]") that pinpoint config issues. Surface
+    // them cleanly so users see a useful message instead of "no such price"
+    // and so logs identify the misconfigured env var.
+    if (error instanceof Stripe.errors.StripeInvalidRequestError) {
+      const code = error.code ?? "stripe_invalid_request";
+      const param = error.param ?? null;
+      console.error(
+        `[stripe/subscribe] StripeInvalidRequestError code=${code} param=${param ?? "?"} msg=${error.message}`
+      );
+      if (code === "resource_missing" && (param === "price" || param?.includes("price"))) {
+        return NextResponse.json(
+          {
+            error:
+              "This plan is currently unavailable. Contact support so we can update the pricing configuration.",
+            code: "price_not_found",
+            stripeMessage: error.message,
+          },
+          { status: 500 }
+        );
+      }
+      return NextResponse.json(
+        {
+          error: error.message,
+          code,
+          param,
+        },
+        { status: 400 }
+      );
+    }
     const message = error instanceof Error ? error.message : "Failed to create subscription";
     console.error("[stripe/subscribe] Error:", error);
     return NextResponse.json({ error: message }, { status: 500 });
