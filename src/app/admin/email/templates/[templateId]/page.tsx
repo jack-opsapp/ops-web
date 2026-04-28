@@ -46,7 +46,7 @@ export default function TemplateDetailPage() {
     return (
       <div className="min-h-screen bg-black text-[#EDEDED] px-[44px] py-[36px]">
         <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-[#8A8A8A]">
-          // SYS :: LOADING TEMPLATE
+          {"// SYS :: LOADING TEMPLATE"}
         </div>
       </div>
     );
@@ -59,10 +59,10 @@ export default function TemplateDetailPage() {
           href="/admin/email/templates"
           className="font-mono text-[11px] uppercase tracking-[0.16em] text-[#8A8A8A] hover:text-[#EDEDED]"
         >
-          // / TEMPLATES
+          {"// / TEMPLATES"}
         </Link>
         <div className="mt-4 font-mono text-[11px] uppercase tracking-[0.16em] text-[#B58289]">
-          // ERROR :: {data?.error ?? "template not found"}
+          {"// ERROR :: "}{data?.error ?? "template not found"}
         </div>
       </div>
     );
@@ -77,7 +77,7 @@ export default function TemplateDetailPage() {
         className="font-mono text-[11px] uppercase tracking-[0.16em] text-[#8A8A8A] hover:text-[#EDEDED] transition-colors"
         style={{ transitionDuration: "180ms" }}
       >
-        // / TEMPLATES
+        {"// / TEMPLATES"}
       </Link>
       <h1 className="mt-2 font-cakemono font-light text-[28px] uppercase tracking-[0.04em] text-[#EDEDED]">
         {tpl.displayName}
@@ -103,7 +103,7 @@ export default function TemplateDetailPage() {
                 transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
               }}
             >
-              // {label}
+              {"// "}{label}
               {active && (
                 <span
                   className="absolute bottom-0 left-0 right-0 h-[1px]"

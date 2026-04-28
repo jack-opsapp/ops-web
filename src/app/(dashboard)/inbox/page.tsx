@@ -564,7 +564,7 @@ export default function InboxPage() {
     return (
       <div className="flex flex-col items-start justify-start px-6 py-10">
         <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-rose">
-          // Access denied
+          {"// Access denied"}
         </p>
         <p className="font-mohave text-[14px] text-text mt-1">
           You don&apos;t have permission to view the inbox.

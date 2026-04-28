@@ -53,7 +53,7 @@ export function EmptyStatusHeader({ unreadCount }: EmptyStatusHeaderProps) {
   return (
     <header className="px-3 py-3 border-b border-[rgba(255,255,255,0.10)]">
       <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-3">
-        <span className="text-text-mute">// </span>INBOX STATUS
+        <span className="text-text-mute">{"// "}</span>INBOX STATUS
       </p>
       <div className="mt-1 flex items-baseline justify-between gap-3">
         <span

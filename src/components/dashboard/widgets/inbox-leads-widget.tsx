@@ -274,7 +274,7 @@ export function InboxLeadsWidget({ size, config: _config }: InboxLeadsWidgetProp
         {/* Header */}
         <div className="flex items-center justify-between mb-2">
           <span className="font-mono text-micro uppercase tracking-wider text-text-3">
-            // New leads
+            {"// New leads"}
           </span>
           <button
             type="button"

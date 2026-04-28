@@ -45,7 +45,7 @@ export function RecentRail() {
     >
       <div className="flex items-center gap-3 shrink-0">
         <span className="font-mono text-micro uppercase tracking-wider text-text-3">
-          <span className="text-text-mute mr-[6px]">//</span>
+          <span className="text-text-mute mr-[6px]">{"//"}</span>
           {t("recent.title").slice(3).trim()}
         </span>
         <span className="font-mono text-micro uppercase tracking-wider text-text-mute">

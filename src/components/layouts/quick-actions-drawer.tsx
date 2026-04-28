@@ -180,7 +180,7 @@ export function QuickActionsDrawer() {
                     letterSpacing: "0.16em",
                   }}
                 >
-                  //
+                  {"//"}
                 </span>
                 <span
                   style={{

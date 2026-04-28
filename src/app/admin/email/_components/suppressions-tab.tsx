@@ -73,7 +73,7 @@ export function SuppressionsTab() {
       <header className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h3 className="font-cakemono font-light text-[14px] tracking-[0.06em] text-[#EDEDED]">
-            // SUPPRESSIONS
+            {"// SUPPRESSIONS"}
           </h3>
           <p
             className="font-mono text-[11px] text-[#8A8A8A]"

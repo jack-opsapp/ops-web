@@ -64,7 +64,7 @@ export function ScheduledSendsTab() {
       <header className="flex items-center justify-between">
         <div>
           <h3 className="font-cakemono font-light text-[14px] tracking-[0.06em] text-[#EDEDED]">
-            // SCHEDULED SENDS
+            {"// SCHEDULED SENDS"}
           </h3>
           <p
             className="font-mono text-[11px] text-[#8A8A8A]"

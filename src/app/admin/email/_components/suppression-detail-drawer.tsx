@@ -30,7 +30,7 @@ export function SuppressionDetailDrawer({ row, onClose, onDelete }: Props) {
         >
           <header className="flex items-center justify-between mb-5">
             <h3 className="font-cakemono font-light text-[12px] tracking-[0.06em] text-[#B5B5B5]">
-              // SUPPRESSION
+              {"// SUPPRESSION"}
             </h3>
             <button
               onClick={onClose}

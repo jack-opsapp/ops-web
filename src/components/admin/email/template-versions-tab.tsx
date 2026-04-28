@@ -21,7 +21,7 @@ export function TemplateVersionsTab({ versions }: Props) {
   if (versions.length === 0) {
     return (
       <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-[#8A8A8A]">
-        // NO VERSIONS RECORDED
+        {"// NO VERSIONS RECORDED"}
       </div>
     );
   }
@@ -70,7 +70,7 @@ export function TemplateVersionsTab({ versions }: Props) {
                   />
                 ) : (
                   <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-[#8A8A8A]">
-                    // NO RENDERED SAMPLE STORED FOR THIS VERSION
+                    {"// NO RENDERED SAMPLE STORED FOR THIS VERSION"}
                   </div>
                 )}
               </div>

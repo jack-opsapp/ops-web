@@ -225,7 +225,7 @@ export function CampaignCreateModal({
               id="campaign-create-title"
               className="font-cakemono font-light text-[14px] tracking-[0.06em] text-[#EDEDED] mb-1"
             >
-              // NEW CAMPAIGN
+              {"// NEW CAMPAIGN"}
             </h2>
             <p className="font-mono text-[11px] text-[#8A8A8A] mb-5">
               [save as draft now, schedule once you&apos;re ready]

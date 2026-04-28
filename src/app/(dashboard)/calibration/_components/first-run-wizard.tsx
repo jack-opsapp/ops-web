@@ -71,7 +71,7 @@ export function FirstRunWizard({ onDone }: Props) {
     <div className="max-w-[720px] mx-auto px-6 py-10 w-full">
       <div className="flex items-center justify-between mb-4">
         <h1 className="font-cakemono font-light uppercase text-[22px] text-text">
-          <span className="text-text-mute mr-2">//</span>
+          <span className="text-text-mute mr-2">{"//"}</span>
           {t("firstRun.header").replace("// ", "")}
         </h1>
         <span className="font-mono text-micro uppercase tracking-wider text-text-2 tabular-nums">

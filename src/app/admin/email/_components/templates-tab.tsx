@@ -7,7 +7,7 @@ export function TemplatesTab() {
   return (
     <div className="rounded-panel border border-white/[0.09] p-8 max-w-[640px]">
       <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-[#8A8A8A]">
-        // TEMPLATE REGISTRY
+        {"// TEMPLATE REGISTRY"}
       </div>
       <h2 className="mt-2 font-cakemono font-light text-[20px] uppercase tracking-[0.04em] text-[#EDEDED]">
         Versioned email templates

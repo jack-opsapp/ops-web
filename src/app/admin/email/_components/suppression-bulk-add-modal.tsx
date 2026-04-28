@@ -79,7 +79,7 @@ export function SuppressionBulkAddModal({ open, onClose }: Props) {
             }}
           >
             <h2 className="font-cakemono font-light text-[14px] tracking-[0.06em] text-[#EDEDED] mb-1">
-              // BULK SUPPRESS
+              {"// BULK SUPPRESS"}
             </h2>
             <p className="font-mono text-[11px] text-[#8A8A8A] mb-4">
               [paste email list — comma, space, or newline separated]

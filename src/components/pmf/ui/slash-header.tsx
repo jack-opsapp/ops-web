@@ -17,7 +17,7 @@ export function SlashHeader({ children, variant = 'section', className, trailing
   return (
     <div className={cn('flex items-center justify-between', className)}>
       <h2 className={cn(VARIANT_CLASS[variant])}>
-        <span className="mr-1 text-[color:var(--text-mute)] font-mono">//</span>
+        <span className="mr-1 text-[color:var(--text-mute)] font-mono">{"//"}</span>
         {children}
       </h2>
       {trailing && <div>{trailing}</div>}

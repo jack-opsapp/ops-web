@@ -263,7 +263,7 @@ export function ThreadContextPanel({
             {/* Header */}
             <div className="flex items-center justify-between p-3 border-b border-border-subtle">
               <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-mute">
-                // Context
+                {"// Context"}
               </span>
               <button
                 type="button"
