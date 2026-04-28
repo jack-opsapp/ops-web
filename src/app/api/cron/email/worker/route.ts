@@ -97,7 +97,10 @@ export async function GET(request: NextRequest) {
   };
 
   let totalSent = 0;
-  let totalBounced = 0;
+  // Bounces arrive via the SendGrid webhook (PR 6), not in the worker
+  // dispatch path — the counter is reported here for API stability and
+  // populated upstream by the webhook handler.
+  const totalBounced = 0;
   let totalFailed = 0;
   let totalSkipped = 0;
 
