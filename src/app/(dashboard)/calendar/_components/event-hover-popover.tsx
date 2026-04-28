@@ -288,84 +288,101 @@ function ProjectPreviewSection({
 }) {
   // Fetch only fires when the popover content mounts (Radix unmounts when
   // closed). 5-min staleTime so re-hovering the same card doesn't refetch.
-  const { data, isLoading } = useProjectPreview(projectId);
+  const { data, isLoading, isError, error } = useProjectPreview(projectId);
 
   const photos = data?.photos ?? [];
   const notes = data?.notes ?? [];
 
-  // Hide the section entirely if there's nothing to show.
-  if (!isLoading && photos.length === 0 && notes.length === 0) return null;
-
   return (
     <>
-      {/* Photos strip */}
-      {(isLoading || photos.length > 0) && (
-        <div className="mt-[10px]">
-          <div
-            className="font-mono uppercase tracking-wider mb-[4px]"
-            style={{ color: "var(--text-mute)", fontSize: 10 }}
-          >
-            {`// PHOTOS [${photos.length}]`}
-          </div>
-          <div className="flex gap-[4px]">
-            {isLoading
-              ? // Skeleton row
-                [0, 1, 2, 3].map((i) => (
-                  <div
-                    key={i}
-                    style={{
-                      width: 70,
-                      height: 70,
-                      borderRadius: 4,
-                      background: "rgba(255, 255, 255, 0.04)",
-                      border: "1px solid var(--line)",
-                    }}
-                  />
-                ))
-              : photos.map((photo) => (
-                  <a
-                    key={photo.id}
-                    href={photo.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    title={photo.caption ?? ""}
-                    style={{
-                      width: 70,
-                      height: 70,
-                      borderRadius: 4,
-                      overflow: "hidden",
-                      border: "1px solid var(--line)",
-                      background: "rgba(255, 255, 255, 0.04)",
-                      display: "block",
-                      flexShrink: 0,
-                    }}
-                  >
-                    <img
-                      src={photo.thumbnailUrl ?? photo.url}
-                      alt={photo.caption ?? ""}
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "cover",
-                        display: "block",
-                      }}
-                      loading="lazy"
-                    />
-                  </a>
-                ))}
-          </div>
+      {/* Photos strip — always render the header so the operator knows the
+          section exists; show '— none yet' when the project has no photos.
+          (Hidden entirely was confusing — looked like the feature was broken
+          when the project simply hadn't uploaded any photos yet.) */}
+      <div className="mt-[10px]">
+        <div
+          className="font-mono uppercase tracking-wider mb-[4px]"
+          style={{ color: "var(--text-mute)", fontSize: 10 }}
+        >
+          {isLoading
+            ? "// PHOTOS"
+            : `// PHOTOS [${photos.length}]`}
         </div>
-      )}
+        {isError ? (
+          <span
+            className="font-mono"
+            style={{ color: "var(--rose)", fontSize: 11 }}
+          >
+            {`// FAILED TO LOAD — ${error instanceof Error ? error.message : "unknown"}`}
+          </span>
+        ) : isLoading ? (
+          <div className="flex gap-[4px]">
+            {[0, 1, 2, 3].map((i) => (
+              <div
+                key={i}
+                style={{
+                  width: 70,
+                  height: 70,
+                  borderRadius: 4,
+                  background: "rgba(255, 255, 255, 0.04)",
+                  border: "1px solid var(--line)",
+                }}
+              />
+            ))}
+          </div>
+        ) : photos.length === 0 ? (
+          <span
+            className="font-mono"
+            style={{ color: "var(--text-mute)", fontSize: 11 }}
+          >
+            // NONE YET
+          </span>
+        ) : (
+          <div className="flex gap-[4px]">
+            {photos.map((photo) => (
+              <a
+                key={photo.id}
+                href={photo.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={photo.caption ?? ""}
+                style={{
+                  width: 70,
+                  height: 70,
+                  borderRadius: 4,
+                  overflow: "hidden",
+                  border: "1px solid var(--line)",
+                  background: "rgba(255, 255, 255, 0.04)",
+                  display: "block",
+                  flexShrink: 0,
+                }}
+              >
+                <img
+                  src={photo.thumbnailUrl ?? photo.url}
+                  alt={photo.caption ?? ""}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    display: "block",
+                  }}
+                  loading="lazy"
+                />
+              </a>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Notes feed */}
-      {(isLoading || notes.length > 0) && (
-        <div className="mt-[10px]">
-          <div
-            className="font-mono uppercase tracking-wider mb-[4px]"
-            style={{ color: "var(--text-mute)", fontSize: 10 }}
-          >
-            {`// NOTES [${notes.length}]`}
-          </div>
+      <div className="mt-[10px]">
+        <div
+          className="font-mono uppercase tracking-wider mb-[4px]"
+          style={{ color: "var(--text-mute)", fontSize: 10 }}
+        >
+          {isLoading ? "// NOTES" : `// NOTES [${notes.length}]`}
+        </div>
+        {!isError && (
           <div className="flex flex-col gap-[6px]">
             {isLoading ? (
               <div
@@ -375,6 +392,13 @@ function ProjectPreviewSection({
                   background: "rgba(255, 255, 255, 0.04)",
                 }}
               />
+            ) : notes.length === 0 ? (
+              <span
+                className="font-mono"
+                style={{ color: "var(--text-mute)", fontSize: 11 }}
+              >
+                // NONE YET
+              </span>
             ) : (
               notes.map((note) => {
                 const author = userMap.get(note.authorId);
@@ -436,8 +460,8 @@ function ProjectPreviewSection({
               })
             )}
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </>
   );
 }
