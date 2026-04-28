@@ -580,8 +580,8 @@ export const audienceCountVariants: Variants = {
   },
 };
 
-/** Operator/condition chip enter/exit (used inside filter rows). */
-export const chipVariants: Variants = {
+/** Operator/condition chip enter/exit (audience builder filter rows). */
+export const audienceChipVariants: Variants = {
   hidden: { opacity: 0, scale: 0.85 },
   visible: {
     opacity: 1,
@@ -595,8 +595,8 @@ export const chipVariants: Variants = {
   },
 };
 
-/** Right-edge slide-in drawer (suppression detail). */
-export const drawerVariants: Variants = {
+/** Right-edge slide-in drawer (suppression detail). 400px width. */
+export const suppressionDrawerVariants: Variants = {
   hidden: { x: "100%", opacity: 0 },
   visible: {
     x: 0,

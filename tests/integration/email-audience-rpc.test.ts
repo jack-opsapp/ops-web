@@ -1,16 +1,20 @@
 import { describe, it, expect } from "vitest";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 /**
  * Hits the live SUPABASE service-role connection. Skipped unless
- * RUN_DB_INTEGRATION=1 + SUPABASE_SERVICE_ROLE_KEY are set.
+ * RUN_DB_INTEGRATION=1 + SUPABASE_SERVICE_ROLE_KEY are set. The client
+ * is constructed lazily inside the suite so a missing env var does not
+ * fail the file at module load.
  */
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const skip = !url || !key || process.env.RUN_DB_INTEGRATION !== "1";
 
 (skip ? describe.skip : describe)("email_audience_filter RPC", () => {
-  const db = createClient(url!, key!);
+  const db: SupabaseClient = skip
+    ? (null as unknown as SupabaseClient)
+    : createClient(url!, key!);
 
   it("empty filter = active emailable users", async () => {
     const { data, error } = await db.rpc("email_audience_count", {

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { drawerVariants } from "@/lib/utils/motion";
+import { suppressionDrawerVariants } from "@/lib/utils/motion";
 import type { SuppressionRow } from "@/lib/admin/types";
 
 interface Props {
@@ -16,7 +16,7 @@ export function SuppressionDetailDrawer({ row, onClose, onDelete }: Props) {
     <AnimatePresence>
       {row && (
         <motion.aside
-          variants={drawerVariants}
+          variants={suppressionDrawerVariants}
           initial="hidden"
           animate="visible"
           exit="exit"
