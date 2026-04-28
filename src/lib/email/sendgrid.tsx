@@ -33,6 +33,9 @@ import { BetaAccessDecision } from "./react/templates/BetaAccessDecision";
 import { TrialExpiryWarning } from "./react/templates/TrialExpiryWarning";
 import { TrialExpiryDiscount } from "./react/templates/TrialExpiryDiscount";
 import { TrialExpiryReengagement } from "./react/templates/TrialExpiryReengagement";
+import { ProductUpdate } from "./react/templates/ProductUpdate";
+import { FeatureAnnouncement } from "./react/templates/FeatureAnnouncement";
+import { Reengagement } from "./react/templates/Reengagement";
 import { AdsBriefing } from "./react/templates/AdsBriefing";
 import { BlogNewsletter } from "./react/templates/BlogNewsletter";
 import {
@@ -92,6 +95,15 @@ function buildComplianceHeaders(opts: { email: string; kind: string }): {
 }
 
 /**
+ * Outcome of a `gatedSend` call. Exposed so the campaign worker can branch
+ * on suppression vs. delivery and can persist the SendGrid `messageId` for
+ * webhook attribution.
+ */
+export type GatedSendResult =
+  | { status: "sent"; messageId: string | null }
+  | { status: "suppression_skipped"; reason: "suppressed" };
+
+/**
  * Single-recipient send chokepoint. Every typed sendXxx function below
  * routes through this. Performs the suppression check, dispatches via
  * SendGrid (with compliance headers injected), and writes to email_log.
@@ -116,7 +128,14 @@ async function gatedSend(params: {
   headers?: Record<string, string>;
   userId?: string;
   metadata?: Record<string, unknown>;
-}): Promise<{ status: "sent" | "suppression_skipped"; reason?: string }> {
+  /**
+   * Campaign UUID, when this send is part of a marketing/lifecycle campaign.
+   * Stored on `email_log.campaign_id` and forwarded to SendGrid as a
+   * `customArgs.campaign_id` so inbound webhooks (PR 6) can attribute
+   * opens / clicks / bounces back to the originating campaign.
+   */
+  campaignId?: string | null;
+}): Promise<GatedSendResult> {
   ensureInitialized();
   const lower = params.to.trim().toLowerCase();
   if (!lower) throw new Error("gatedSend: empty `to` address");
@@ -132,6 +151,7 @@ async function gatedSend(params: {
       status: "suppression_skipped",
       metadata: { ...(params.metadata ?? {}), list },
       userId: params.userId,
+      campaignId: params.campaignId ?? null,
     });
     return { status: "suppression_skipped", reason: "suppressed" };
   }
@@ -139,7 +159,12 @@ async function gatedSend(params: {
   const headers =
     params.headers ?? buildComplianceHeaders({ email: lower, kind: params.emailType }).headers;
 
-  await sgMail.send({
+  const customArgs: Record<string, string> = {};
+  if (params.campaignId) customArgs.campaign_id = params.campaignId;
+  if (params.userId) customArgs.user_id = params.userId;
+  customArgs.email_type = params.emailType;
+
+  const [response] = await sgMail.send({
     to: params.to,
     from: params.from,
     replyTo: params.replyTo,
@@ -147,7 +172,17 @@ async function gatedSend(params: {
     html: params.html,
     text: params.text,
     headers,
+    customArgs: Object.keys(customArgs).length > 0 ? customArgs : undefined,
   });
+
+  // SendGrid returns the message id in the `x-message-id` response header.
+  // Capture it so the campaign worker can write it onto email_jobs.sg_message_id.
+  const responseHeaders = (response as { headers?: Record<string, string> })
+    .headers;
+  const messageId =
+    typeof responseHeaders?.["x-message-id"] === "string"
+      ? responseHeaders["x-message-id"]
+      : null;
 
   await logEmail({
     emailType: params.emailType,
@@ -156,9 +191,11 @@ async function gatedSend(params: {
     status: "sent",
     metadata: { ...(params.metadata ?? {}), list, from: params.from.email },
     userId: params.userId,
+    campaignId: params.campaignId ?? null,
+    sgMessageId: messageId,
   });
 
-  return { status: "sent" };
+  return { status: "sent", messageId };
 }
 
 /**
@@ -173,17 +210,22 @@ async function logEmail(params: {
   metadata?: Record<string, unknown>;
   userId?: string;
   errorMessage?: string;
+  campaignId?: string | null;
+  sgMessageId?: string | null;
 }): Promise<void> {
   try {
     const db = getServiceRoleClient();
+    const metadata: Record<string, unknown> = { ...(params.metadata ?? {}) };
+    if (params.sgMessageId) metadata.sg_message_id = params.sgMessageId;
     const { error } = await db.from("email_log").insert({
       email_type: params.emailType,
       recipient_email: params.recipient,
       subject: params.subject,
       status: params.status,
       error_message: params.errorMessage ?? null,
-      metadata: params.metadata ?? {},
+      metadata,
       user_id: params.userId ?? null,
+      campaign_id: params.campaignId ?? null,
     });
     if (error) console.error("[email_log] insert failed:", error.message);
   } catch (e) {
@@ -851,11 +893,13 @@ export async function sendTrialExpiryWarning(params: {
   daysRemaining: number;
   trialEndDisplay: string;
   subscribeUrl: string;
+  campaignId?: string | null;
+  userId?: string | null;
   /** @deprecated retained for backward compat; no longer used */
   accentColor?: string;
   /** @deprecated retained for backward compat; no longer used */
   logoUrl?: string | null;
-}): Promise<void> {
+}): Promise<GatedSendResult> {
   const compliance = buildComplianceHeaders({
     email: params.email,
     kind: "trial_expiry_warning",
@@ -876,7 +920,7 @@ export async function sendTrialExpiryWarning(params: {
       ? "Tomorrow — your OPS trial ends"
       : `${params.daysRemaining} days left on your OPS trial`;
 
-  await gatedSend({
+  return gatedSend({
     to: params.email,
     from: DISPATCH,
     replyTo: DISPATCH.email,
@@ -886,6 +930,8 @@ export async function sendTrialExpiryWarning(params: {
     list: compliance.list,
     headers: compliance.headers,
     metadata: { companyName: params.companyName, daysRemaining: params.daysRemaining },
+    campaignId: params.campaignId ?? null,
+    userId: params.userId ?? undefined,
   });
 }
 
@@ -975,6 +1021,160 @@ export async function sendTrialExpiryReengagement(params: {
     list: compliance.list,
     headers: compliance.headers,
     metadata: { companyName: params.companyName, daysSinceExpiry: params.daysSinceExpiry },
+  });
+}
+
+// ─── Campaign senders (PR 3 — Marketing/lifecycle, OPS Dispatch) ──────────
+//
+// These four senders feed the campaign-template registry. Each accepts an
+// optional `campaignId` so the dispatcher/worker can attribute opens,
+// clicks, bounces back to the originating campaign via SendGrid customArgs
+// and email_log.campaign_id.
+
+export async function sendProductUpdate(params: {
+  email: string;
+  firstName?: string | null;
+  headline?: string;
+  eyebrow?: string;
+  intro: string;
+  items: Array<{ title: string; body: string }>;
+  closing?: string;
+  ctaLabel?: string;
+  ctaUrl: string;
+  campaignId?: string | null;
+  userId?: string | null;
+  subject?: string;
+}): Promise<GatedSendResult> {
+  const compliance = buildComplianceHeaders({
+    email: params.email,
+    kind: "product_update",
+  });
+  const html = await render(
+    <ProductUpdate
+      firstName={params.firstName ?? null}
+      headline={params.headline}
+      eyebrow={params.eyebrow}
+      intro={params.intro}
+      items={params.items}
+      closing={params.closing}
+      ctaLabel={params.ctaLabel}
+      ctaUrl={params.ctaUrl}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+      list={compliance.list}
+    />,
+  );
+
+  return gatedSend({
+    to: params.email,
+    from: DISPATCH,
+    replyTo: DISPATCH.email,
+    subject: params.subject ?? params.headline ?? "What shipped this week.",
+    html,
+    emailType: "product_update",
+    list: compliance.list,
+    headers: compliance.headers,
+    metadata: { itemCount: params.items.length },
+    campaignId: params.campaignId ?? null,
+    userId: params.userId ?? undefined,
+  });
+}
+
+export async function sendFeatureAnnouncement(params: {
+  email: string;
+  firstName?: string | null;
+  featureName: string;
+  headline: string;
+  whatItDoes: string;
+  whyItMatters: string;
+  howToFindIt?: string;
+  ctaUrl: string;
+  ctaLabel?: string;
+  campaignId?: string | null;
+  userId?: string | null;
+  subject?: string;
+}): Promise<GatedSendResult> {
+  const compliance = buildComplianceHeaders({
+    email: params.email,
+    kind: "feature_announcement",
+  });
+  const html = await render(
+    <FeatureAnnouncement
+      firstName={params.firstName ?? null}
+      featureName={params.featureName}
+      headline={params.headline}
+      whatItDoes={params.whatItDoes}
+      whyItMatters={params.whyItMatters}
+      howToFindIt={params.howToFindIt}
+      ctaUrl={params.ctaUrl}
+      ctaLabel={params.ctaLabel}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+      list={compliance.list}
+    />,
+  );
+
+  return gatedSend({
+    to: params.email,
+    from: DISPATCH,
+    replyTo: DISPATCH.email,
+    subject: params.subject ?? params.headline,
+    html,
+    emailType: "feature_announcement",
+    list: compliance.list,
+    headers: compliance.headers,
+    metadata: { featureName: params.featureName },
+    campaignId: params.campaignId ?? null,
+    userId: params.userId ?? undefined,
+  });
+}
+
+export async function sendReengagement(params: {
+  email: string;
+  firstName?: string | null;
+  headline?: string;
+  eyebrow?: string;
+  daysSinceActive?: number;
+  opener?: string;
+  body?: string;
+  closing?: string;
+  ctaLabel?: string;
+  ctaUrl: string;
+  campaignId?: string | null;
+  userId?: string | null;
+  subject?: string;
+}): Promise<GatedSendResult> {
+  const compliance = buildComplianceHeaders({
+    email: params.email,
+    kind: "reengagement",
+  });
+  const html = await render(
+    <Reengagement
+      firstName={params.firstName ?? null}
+      headline={params.headline}
+      eyebrow={params.eyebrow}
+      daysSinceActive={params.daysSinceActive}
+      opener={params.opener}
+      body={params.body}
+      closing={params.closing}
+      ctaLabel={params.ctaLabel}
+      ctaUrl={params.ctaUrl}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+      list={compliance.list}
+    />,
+  );
+
+  return gatedSend({
+    to: params.email,
+    from: DISPATCH,
+    replyTo: DISPATCH.email,
+    subject:
+      params.subject ?? params.headline ?? "Still running things from texts and Post-its?",
+    html,
+    emailType: "reengagement",
+    list: compliance.list,
+    headers: compliance.headers,
+    metadata: { daysSinceActive: params.daysSinceActive ?? null },
+    campaignId: params.campaignId ?? null,
+    userId: params.userId ?? undefined,
   });
 }
 

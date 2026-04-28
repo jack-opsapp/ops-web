@@ -20,6 +20,7 @@ export const LIST_DISPLAY_NAMES: Record<string, string> = {
   global: "OPS account notifications",
   field_notes: "Field Notes (newsletter)",
   product_updates: "OPS product updates",
+  reengagement: "OPS reengagement campaigns",
   blog: "OPS blog",
   beta: "OPS beta program",
 };
@@ -49,6 +50,9 @@ export const KIND_TO_LIST: Record<string, string> = {
   portal_questions_reminder: "global",
   blog_newsletter: "blog",
   field_notes_newsletter: "field_notes",
+  product_update: "product_updates",
+  feature_announcement: "product_updates",
+  reengagement: "reengagement",
   pmf_threshold_alert: "global",
   pmf_daily_digest: "global",
   pmf_weekly_digest: "global",
