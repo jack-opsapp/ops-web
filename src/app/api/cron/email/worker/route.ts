@@ -178,6 +178,13 @@ export async function GET(request: NextRequest) {
         });
         tally(job.campaign_id).skipped++;
         totalSkipped++;
+      } else if (result.status === "paused_skipped") {
+        // Killswitch fired between the campaign-pause batch read and this
+        // dispatch (eg. global pause flipped on, or a bucket pause matched
+        // this kind). Pause is reversible — leave the job pending so it's
+        // reconsidered next minute. The email_log row already records the
+        // paused_skipped attempt with the resolving scope.
+        await db.from("email_jobs").update({ status: "pending" }).eq("id", job.id);
       } else {
         await db
           .from("email_jobs")
