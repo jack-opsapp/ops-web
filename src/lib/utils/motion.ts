@@ -505,3 +505,25 @@ export const counterVariantsReduced: Variants = {
   hidden: { opacity: 0 },
   visible: { opacity: 1, transition: { duration: 0.15 } },
 };
+
+// ── PR 4 — Email killswitches ──
+// Switch toggle, sticky pause banner, and confirmation modal.
+// All consumers must respect useReducedMotion() — pass `undefined` variants
+// when reduced is true so framer-motion skips the transition.
+
+export const switchToggleVariants: Variants = {
+  off: { x: 0, transition: { duration: 0.22, ease: EASE_SMOOTH } },
+  on: { x: 18, transition: { duration: 0.22, ease: EASE_SMOOTH } },
+};
+
+export const activePauseBannerVariants: Variants = {
+  initial: { opacity: 0, y: -8 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.28, ease: EASE_SMOOTH } },
+  exit: { opacity: 0, y: -8, transition: { duration: 0.18, ease: EASE_SMOOTH } },
+};
+
+export const confirmationModalVariants: Variants = {
+  initial: { opacity: 0, scale: 0.96 },
+  animate: { opacity: 1, scale: 1, transition: { duration: 0.24, ease: EASE_SMOOTH } },
+  exit: { opacity: 0, scale: 0.96, transition: { duration: 0.16, ease: EASE_SMOOTH } },
+};
