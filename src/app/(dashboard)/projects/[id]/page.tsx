@@ -34,6 +34,7 @@ import { NoteComposer } from "@/components/ops/note-composer";
 import { PhotoFeed } from "@/components/ops/photo-feed";
 import { ProjectDeductionsTab } from "@/components/ops/project-deductions-tab";
 import { PermissionGate } from "@/components/ops/permission-gate";
+import { EditProjectModal } from "@/components/ops/projects/edit-project-modal";
 import {
   useProjectNotes,
   useCreateProjectNote,
@@ -889,12 +890,18 @@ function FinancialTab({ project }: { project: Project }) {
       .filter((i) => i.status !== InvoiceStatus.Void)
       .reduce((sum, i) => sum + i.total, 0),
     paid: invoices.reduce((sum, i) => sum + i.amountPaid, 0),
+    // Outstanding semantics match metrics-service.ts + accounting page aging
+    // buckets: anything not Paid / Void / Draft / WrittenOff is owed. The
+    // earlier hard-coded Sent|PartiallyPaid|PastDue list omitted
+    // AwaitingPayment, which produced $0 outstanding for projects whose
+    // invoices were sitting in that status (e.g. Flight Deck Coating).
     outstanding: invoices
       .filter(
         (i) =>
-          i.status === InvoiceStatus.Sent ||
-          i.status === InvoiceStatus.PartiallyPaid ||
-          i.status === InvoiceStatus.PastDue
+          i.status !== InvoiceStatus.Paid &&
+          i.status !== InvoiceStatus.Void &&
+          i.status !== InvoiceStatus.Draft &&
+          i.status !== InvoiceStatus.WrittenOff
       )
       .reduce((sum, i) => sum + i.balanceDue, 0),
   };
@@ -1138,6 +1145,7 @@ export default function ProjectDetailPage() {
     }
   }, [visibleTabs, activeTab]);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Data hooks
@@ -1367,10 +1375,7 @@ export default function ProjectDetailPage() {
               variant="secondary"
               size="sm"
               className="gap-[6px]"
-              onClick={() => {
-                toast.info(t("detail.editHint"));
-                window.scrollTo({ top: 0, behavior: "smooth" });
-              }}
+              onClick={() => setShowEditModal(true)}
             >
               <Edit3 className="w-[14px] h-[14px]" />
               {t("detail.edit")}
@@ -1455,6 +1460,13 @@ export default function ProjectDetailPage() {
           </>
         )}
       </AnimatePresence>
+
+      {/* ── Edit Project Modal ──────────────────────────────────────────────── */}
+      <EditProjectModal
+        open={showEditModal}
+        onOpenChange={setShowEditModal}
+        project={project}
+      />
 
       {/* ── Delete Confirmation Dialog ─────────────────────────────────────── */}
       <ConfirmDialog
