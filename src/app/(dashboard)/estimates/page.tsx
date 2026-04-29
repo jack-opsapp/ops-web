@@ -61,7 +61,7 @@ import { usePermissionStore } from "@/lib/store/permissions-store";
 import { useSetupGate } from "@/hooks/useSetupGate";
 import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModal";
 import { cn } from "@/lib/utils/cn";
-import { formatEnumLabel } from "@/lib/utils/format";
+import { formatEnumLabel, formatDateOnly } from "@/lib/utils/format";
 import { toast } from "sonner";
 import { SendEstimateFlow } from "@/components/ops/send-estimate-flow";
 import { ReviewTasksModal } from "@/components/ops/review-tasks-modal";
@@ -522,13 +522,11 @@ function EstimateFormModal({
       setProjectId(estimate.projectId ?? estimate.opportunityId ?? "");
       setDate(
         estimate.issueDate
-          ? new Date(estimate.issueDate).toISOString().slice(0, 10)
-          : new Date().toISOString().slice(0, 10)
+          ? formatDateOnly(estimate.issueDate)
+          : formatDateOnly(new Date())
       );
       setExpirationDate(
-        estimate.expirationDate
-          ? new Date(estimate.expirationDate).toISOString().slice(0, 10)
-          : ""
+        estimate.expirationDate ? formatDateOnly(estimate.expirationDate) : ""
       );
       setNotes(estimate.clientMessage ?? "");
       setInternalNotes(estimate.internalNotes ?? "");

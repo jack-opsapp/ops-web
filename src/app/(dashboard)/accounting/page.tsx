@@ -40,6 +40,7 @@ import type { AccountingConnection, Invoice } from "@/lib/types/pipeline";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import { cn } from "@/lib/utils/cn";
+import { formatEnumLabel } from "@/lib/utils/format";
 import { ExpenseReviewDashboard } from "@/components/expenses/expense-review-dashboard";
 
 type TabValue = "dashboard" | "expenses" | "integrations";
@@ -604,7 +605,7 @@ export default function AccountingPage() {
                     className="flex flex-col gap-0.5 p-1.5 rounded bg-[rgba(255,255,255,0.02)] border border-border"
                   >
                     <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
-                      {status}
+                      {formatEnumLabel(status)}
                     </span>
                     <span className="font-mono text-data text-text">{count}</span>
                     <span className="font-mono text-micro text-text-3">

@@ -486,27 +486,34 @@ export async function fetchAccountingMetrics(companyId: string): Promise<MetricC
     .is("voided_at", null)
     .gte("payment_date", monthStart.toISOString()));
 
+  // Outstanding semantics: drafts are NOT yet sent and therefore not owed.
+  // Void / Paid are excluded by definition. This matches the aging-bucket
+  // computation on the Accounting page (calculateAgingBuckets) — keeping the
+  // two in sync prevents the "Total Outstanding ≠ sum of Aging" mismatch.
+  const isOutstanding = (inv: { status: string }) =>
+    inv.status !== "paid" && inv.status !== "void" && inv.status !== "draft";
+
   const outstanding = invoices
-    .filter((inv) => inv.status !== "paid" && inv.status !== "void")
+    .filter(isOutstanding)
     .reduce((sum, inv) => sum + Number(inv.balance_due ?? 0), 0);
 
   const collectedMtd = payments.reduce((sum, p) => sum + Number(p.amount ?? 0), 0);
 
   const overdue = invoices
-    .filter((inv) => inv.due_date && new Date(inv.due_date) < now && inv.status !== "paid" && inv.status !== "void")
+    .filter((inv) => inv.due_date && new Date(inv.due_date) < now && isOutstanding(inv))
     .reduce((sum, inv) => sum + Number(inv.balance_due ?? 0), 0);
 
   const aging90 = invoices
     .filter((inv) => {
-      if (!inv.due_date || inv.status === "paid" || inv.status === "void") return false;
+      if (!inv.due_date || !isOutstanding(inv)) return false;
       return new Date(inv.due_date) < ninetyDaysAgo;
     })
     .reduce((sum, inv) => sum + Number(inv.balance_due ?? 0), 0);
 
-  const outstandingCount = invoices.filter((inv) => inv.status !== "paid" && inv.status !== "void").length;
-  const overdueCount = invoices.filter((inv) => inv.due_date && new Date(inv.due_date) < now && inv.status !== "paid" && inv.status !== "void").length;
+  const outstandingCount = invoices.filter(isOutstanding).length;
+  const overdueCount = invoices.filter((inv) => inv.due_date && new Date(inv.due_date) < now && isOutstanding(inv)).length;
   const aging90Count = invoices.filter((inv) => {
-    if (!inv.due_date || inv.status === "paid" || inv.status === "void") return false;
+    if (!inv.due_date || !isOutstanding(inv)) return false;
     return new Date(inv.due_date) < ninetyDaysAgo;
   }).length;
 
