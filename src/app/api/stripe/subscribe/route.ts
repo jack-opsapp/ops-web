@@ -87,7 +87,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const priceId = getPriceId(plan, period);
     if (!priceId) {
       console.error(`[stripe/subscribe] Missing price env var for ${plan}_${period}`);
-      return NextResponse.json({ error: "Price configuration not found" }, { status: 500 });
+      return NextResponse.json(
+        {
+          error: `Price configuration not found for ${plan} ${period}. Contact support.`,
+          code: "price_env_missing",
+          plan,
+          period,
+        },
+        { status: 500 }
+      );
     }
 
     const supabase = getServiceRoleClient();
@@ -187,6 +195,37 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       await stripe.customers.update(stripeCustomerId, {
         invoice_settings: { default_payment_method: paymentMethodId },
       });
+    } else {
+      // Lockout enforcement — refuse to create a subscription without a
+      // confirmed payment method. Without this guard, a UI bug or stale
+      // upgrade modal can call /subscribe with no paymentMethodId, Stripe
+      // creates an `incomplete` subscription that never becomes active, but
+      // the company row gets `subscription_plan` written + a success toast
+      // surfaces — granting the user the upgraded tier UX before any money
+      // changes hands.
+      //
+      // If a paymentMethodId was not passed, require that the Stripe customer
+      // already has a default payment method on file (set via SetupIntent in
+      // /settings/billing or attached on a prior subscribe call). Otherwise
+      // reject with 402 so the frontend can route the user to add a card.
+      const customer = await stripe.customers.retrieve(stripeCustomerId);
+      if (customer.deleted) {
+        return NextResponse.json(
+          { error: "Stripe customer was deleted" },
+          { status: 500 }
+        );
+      }
+      const defaultPm = customer.invoice_settings?.default_payment_method;
+      if (!defaultPm) {
+        return NextResponse.json(
+          {
+            error:
+              "A payment method is required to subscribe. Add a card in Settings → Billing first.",
+            code: "payment_method_required",
+          },
+          { status: 402 }
+        );
+      }
     }
 
     // Create subscription.
@@ -269,6 +308,36 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       clientSecret,
     });
   } catch (error) {
+    // Stripe errors carry a `code` field (e.g. "resource_missing") and a
+    // `param` (e.g. "items[0][price]") that pinpoint config issues. Surface
+    // them cleanly so users see a useful message instead of "no such price"
+    // and so logs identify the misconfigured env var.
+    if (error instanceof Stripe.errors.StripeInvalidRequestError) {
+      const code = error.code ?? "stripe_invalid_request";
+      const param = error.param ?? null;
+      console.error(
+        `[stripe/subscribe] StripeInvalidRequestError code=${code} param=${param ?? "?"} msg=${error.message}`
+      );
+      if (code === "resource_missing" && (param === "price" || param?.includes("price"))) {
+        return NextResponse.json(
+          {
+            error:
+              "This plan is currently unavailable. Contact support so we can update the pricing configuration.",
+            code: "price_not_found",
+            stripeMessage: error.message,
+          },
+          { status: 500 }
+        );
+      }
+      return NextResponse.json(
+        {
+          error: error.message,
+          code,
+          param,
+        },
+        { status: 400 }
+      );
+    }
     const message = error instanceof Error ? error.message : "Failed to create subscription";
     console.error("[stripe/subscribe] Error:", error);
     return NextResponse.json({ error: message }, { status: 500 });
