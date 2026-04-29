@@ -26,6 +26,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { useCreateClient } from "@/lib/hooks";
 import { useAuthStore } from "@/lib/store/auth-store";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 // ─── Validation Schema ───────────────────────────────────────────────────────
 
@@ -160,11 +161,12 @@ export default function NewClientPage() {
           <ArrowLeft className="w-[20px] h-[20px]" />
         </Button>
         <div className="flex items-center gap-1.5">
-          <div className="w-[40px] h-[40px] rounded-full flex items-center justify-center shrink-0 border border-[rgba(255,255,255,0.15)]">
-            <span className="font-mohave text-body-lg text-text-2">
+          {/* Design system v2 avatar — new-client header preview at 40px. */}
+          <Avatar className="h-[40px] w-[40px]">
+            <AvatarFallback className="font-mohave text-body-lg text-text-2">
               {initials}
-            </span>
-          </div>
+            </AvatarFallback>
+          </Avatar>
           <div>
             <h1 className="font-mohave text-display text-text tracking-wide">
               {t("new.heading")}

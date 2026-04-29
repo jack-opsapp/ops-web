@@ -579,10 +579,13 @@ export default function InboxPage() {
   // ─── Render ────────────────────────────────────────────────────────────────
   return (
     <>
+      {/* BG fill matches site BG (#000) — inbox is a canvas-style page like
+          pipeline/projects, not a glass card. Internal columns retain their
+          own borders for separation. */}
       <div
         className={cn(
           "flex-1 min-h-0 flex overflow-hidden",
-          "rounded-panel border border-border glass-surface"
+          "rounded-panel border border-border bg-background"
         )}
       >
         {/* ─── Left: list ────────────────────────────────────────────────── */}

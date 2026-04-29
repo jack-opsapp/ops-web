@@ -33,6 +33,7 @@ import { useWindowStore } from "@/stores/window-store";
 import { useSetupGate } from "@/hooks/useSetupGate";
 import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModal";
 import { SegmentedPicker } from "@/components/ops/segmented-picker";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 type ViewMode = "cards" | "table";
 type FilterMode = "all" | "with-projects" | "new";
@@ -85,11 +86,14 @@ function ClientCard({ client, onClick, t }: { client: ClientListItem; onClick: (
       <div className="p-2 space-y-1.5">
         {/* Header: Avatar + Name + Company */}
         <div className="flex items-center gap-1.5">
-          <div className="w-[44px] h-[44px] rounded-full flex items-center justify-center shrink-0 border border-[rgba(255,255,255,0.15)]">
-            <span className="font-mohave text-body-lg text-text-2">
+          {/* Design system v2 avatar — uses the spec Avatar primitive
+              (rounded-full + border-2 rgba(255,255,255,0.18)) with size
+              override via className for this card's 44px variant. */}
+          <Avatar className="h-[44px] w-[44px]">
+            <AvatarFallback className="font-mohave text-body-lg text-text-2">
               {getInitials(client.name) || "?"}
-            </span>
-          </div>
+            </AvatarFallback>
+          </Avatar>
           <div className="min-w-0 flex-1">
             <h3 className="font-mohave text-card-title text-text truncate">
               {client.name}
@@ -208,11 +212,12 @@ function ClientTableRow({
       {/* Name + Company */}
       <td className="px-1.5 py-1">
         <div className="flex items-center gap-1">
-          <div className="w-[32px] h-[32px] rounded-full flex items-center justify-center shrink-0 border border-[rgba(255,255,255,0.15)]">
-            <span className="font-mohave text-body-sm text-text-2">
+          {/* Design system v2 avatar — table row variant at 32px. */}
+          <Avatar className="h-[32px] w-[32px]">
+            <AvatarFallback className="font-mohave text-body-sm text-text-2">
               {getInitials(client.name) || "?"}
-            </span>
-          </div>
+            </AvatarFallback>
+          </Avatar>
           <div className="min-w-0">
             <span className="font-mohave text-body text-text block truncate">
               {client.name}
