@@ -34,6 +34,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useGeolocationAddress } from "@/lib/hooks/use-geolocation-address";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ops/confirm-dialog";
+import { EditClientModal } from "@/components/ops/edit-client-modal";
 import { toast } from "sonner";
 import {
   useClient,
@@ -220,6 +221,7 @@ export default function ClientDetailPage() {
 
   const { getAddress, loading: locating } = useGeolocationAddress();
   const [isEditing, setIsEditing] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showAddSubClient, setShowAddSubClient] = useState(false);
 
@@ -445,7 +447,7 @@ export default function ClientDetailPage() {
                   variant="secondary"
                   size="sm"
                   className="gap-[6px]"
-                  onClick={() => setIsEditing(true)}
+                  onClick={() => setShowEditModal(true)}
                 >
                   <Edit3 className="w-[14px] h-[14px]" />
                   Edit
@@ -845,6 +847,13 @@ export default function ClientDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Edit Client Modal */}
+      <EditClientModal
+        open={showEditModal}
+        onOpenChange={setShowEditModal}
+        client={clientData}
+      />
 
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog

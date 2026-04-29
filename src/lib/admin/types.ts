@@ -612,3 +612,147 @@ export interface LifecycleEmailMeta {
   description: string;
   audience: string;
 }
+
+// ─── Email — Suppressions / Audience (PR 5) ───────────────────────────────
+
+export interface SuppressionRow {
+  id: string;
+  email: string;
+  list: string;
+  reason:
+    | "hard_bounce"
+    | "soft_bounce"
+    | "spam_report"
+    | "unsubscribe"
+    | "group_unsubscribe"
+    | "manual"
+    | "invalid_address";
+  source: "webhook" | "manual" | "backfill" | "import";
+  sourceEventId: string | null;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+  expiresAt: string | null;
+}
+
+export type AudienceOp =
+  | "eq"
+  | "neq"
+  | "in"
+  | "not_in"
+  | "lt"
+  | "gt"
+  | "lte"
+  | "gte"
+  | "gte_days"
+  | "lte_days"
+  | "is_null"
+  | "is_not_null"
+  | "like";
+
+export type AudienceField =
+  | "email"
+  | "role"
+  | "user_type"
+  | "is_company_admin"
+  | "is_active"
+  | "removed_from_email_list"
+  | "company_id"
+  | "created_at"
+  | "plan"
+  | "subscription_status"
+  | "trial_end_date";
+
+export interface AudienceFilterClause {
+  field: AudienceField;
+  op: AudienceOp;
+  value?: unknown;
+}
+
+export type AudienceFilterNode =
+  | AudienceFilterClause
+  | { and: AudienceFilterNode[] }
+  | { or: AudienceFilterNode[] }
+  | { group: AudienceFilterNode };
+
+export interface AudienceTemplate {
+  id: string;
+  name: string;
+  description: string | null;
+  filter: AudienceFilterNode;
+  lastUsedCount: number;
+  lastResolvedAt: string | null;
+  createdByUserId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AudiencePreviewResponse {
+  count: number;
+  sample: Array<{ user_id: string; email: string }>;
+}
+
+// ─── Email — Event Monitor (PR 8) ─────────────────────────────────────────
+
+export interface EventMetricsBucket {
+  bucket_at: string;
+  sent: number;
+  delivered: number;
+  bounced: number;
+  spam: number;
+  open: number;
+  click: number;
+}
+
+export interface EventMetrics {
+  window_minutes: number;
+  total_sent: number;
+  total_delivered: number;
+  total_bounced: number;
+  bounce_pct: number;
+  total_spam: number;
+  spam_pct: number;
+  total_open: number;
+  open_pct: number;
+  total_click: number;
+  click_pct: number;
+  error_events: number;
+  by_minute: EventMetricsBucket[];
+}
+
+export interface EventStreamRow {
+  id: string;
+  email: string;
+  event: string;
+  timestamp: string;
+  sg_message_id: string | null;
+  reason: string | null;
+}
+
+export interface TopBounceDomain {
+  domain: string;
+  bounce_count: number;
+  bounce_pct: number;
+}
+
+export type AnomalyKind =
+  | "bounce_spike"
+  | "spam_spike"
+  | "delivery_drop"
+  | "volume_drop";
+
+export type AnomalySeverity = "warn" | "critical";
+
+export interface AnomalyLogRow {
+  id: string;
+  detected_at: string;
+  kind: AnomalyKind;
+  severity: AnomalySeverity;
+  window_minutes: number;
+  metric_value: number;
+  threshold: number;
+  context: Record<string, unknown>;
+  action_taken: string | null;
+  notification_id: string | null;
+  pause_audit_id: string | null;
+  resolved_at: string | null;
+}

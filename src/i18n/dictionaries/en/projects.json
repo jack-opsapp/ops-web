@@ -52,6 +52,8 @@
   "new.createProject": "Create Project",
   "new.noCompany": "No company found. Please sign in again.",
   "new.createFailed": "Failed to create project. Please try again.",
+  "new.requiredHint": "Required",
+  "new.validationError": "Please fix the highlighted fields before creating the project.",
 
   "status.rfq": "RFQ",
   "status.estimated": "Estimated",

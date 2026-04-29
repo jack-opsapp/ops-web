@@ -150,7 +150,7 @@ export function ProspectSheet({ prospectId }: ProspectSheetProps) {
       <PmfCard className="p-6">
         <SlashHeader variant="page-title">PROSPECT</SlashHeader>
         <div className="font-mono text-[11px] text-[color:var(--rose)] py-12 text-center">
-          // ERROR — FAILED TO LOAD
+          {"// ERROR — FAILED TO LOAD"}
           <br />
           {fetchError ?? "no data"}
         </div>
@@ -214,7 +214,7 @@ export function ProspectSheet({ prospectId }: ProspectSheetProps) {
         <PmfCard className="p-6">
           <SlashHeader variant="section">DEAL</SlashHeader>
           <div className="font-mono text-[11px] text-[color:var(--text-mute)] mt-4">
-            // no deal attached
+            {"// no deal attached"}
           </div>
         </PmfCard>
       ) : (
@@ -233,7 +233,7 @@ export function ProspectSheet({ prospectId }: ProspectSheetProps) {
           role="alert"
           className="font-mono text-[11px] text-[color:var(--rose)]"
         >
-          // ERROR — {saveError}
+          {"// ERROR — "}{saveError}
         </div>
       )}
     </div>

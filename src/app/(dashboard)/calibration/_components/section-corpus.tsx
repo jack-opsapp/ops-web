@@ -59,7 +59,7 @@ export function SectionCorpus() {
       <SectionBreadcrumb currentSection="corpus" />
       <div className="flex items-baseline justify-between mb-6">
         <h2 className="font-cakemono font-light uppercase text-[22px] text-text">
-          <span className="text-text-mute mr-2">//</span>CORPUS
+          <span className="text-text-mute mr-2">{"//"}</span>CORPUS
         </h2>
         <span className="font-mono text-data-sm text-text-2 tabular-nums">
           {t("sections.corpus.header")
@@ -77,7 +77,7 @@ export function SectionCorpus() {
           {/* FACTS drawer — scrollable list of extracted facts. */}
           <div className="glass-surface rounded-panel p-4 h-[600px] overflow-y-auto scrollbar-hide">
             <div className="font-mono text-micro uppercase tracking-wider text-text-3 mb-3">
-              <span className="text-text-mute mr-[6px]">//</span>
+              <span className="text-text-mute mr-[6px]">{"//"}</span>
               {t("sections.corpus.drawers.facts").slice(3).trim()}
             </div>
             <p className="font-mohave text-body-sm text-text-2">
@@ -106,7 +106,7 @@ export function SectionCorpus() {
           {/* ENTITY drawer — selection detail. */}
           <div className="glass-surface rounded-panel p-4 h-[600px]">
             <div className="font-mono text-micro uppercase tracking-wider text-text-3 mb-3">
-              <span className="text-text-mute mr-[6px]">//</span>
+              <span className="text-text-mute mr-[6px]">{"//"}</span>
               {t("sections.corpus.drawers.entity").slice(3).trim()}
             </div>
             <p className="font-mono text-micro uppercase tracking-wider text-text-mute">

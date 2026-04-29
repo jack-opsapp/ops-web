@@ -194,7 +194,7 @@ export function SectionInputs() {
     <div className="px-11 py-9 max-w-[1080px] mx-auto">
       <SectionBreadcrumb currentSection="inputs" />
       <h2 className="font-cakemono font-light uppercase text-[22px] text-text mb-6">
-        <span className="text-text-mute mr-2">//</span>INPUTS
+        <span className="text-text-mute mr-2">{"//"}</span>INPUTS
       </h2>
       <div className="flex flex-col gap-4">
         {(["interview", "scan", "mining"] as const).map((src) => (

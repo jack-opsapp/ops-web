@@ -3,6 +3,7 @@ export type Locale = 'en' | 'es';
 export type Namespace =
   | 'common'
   | 'auth'
+  | 'auth-action'
   | 'sidebar'
   | 'topbar'
   | 'breadcrumbs'
@@ -33,7 +34,8 @@ export type Namespace =
   | 'calibration'
   | 'notifications'
   | 'quick-actions'
-  | 'server-emails';
+  | 'server-emails'
+  | 'unsubscribe';
 
 
 export type Dictionary = Record<string, string | string[] | Record<string, unknown>>;

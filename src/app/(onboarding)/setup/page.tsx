@@ -25,7 +25,7 @@ import {
 } from "@/lib/analytics/analytics";
 import { useSetupStore, STARFIELD_QUESTIONS } from "@/stores/setup-store";
 import { usePreferencesStore } from "@/stores/preferences-store";
-import { OpsLockup } from "@/components/brand";
+import { OpsLockup, LogoLoader } from "@/components/brand";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { getDefaultWidgetInstancesFromSetup } from "@/lib/utils/widget-defaults";
 import { IdentityStep1, IdentityStep2 } from "@/components/setup/SetupIdentityStep";
@@ -479,9 +479,7 @@ export default function SetupPage() {
   if (!ready) {
     return (
       <div className="fixed inset-0 bg-background flex items-center justify-center">
-        <div className="animate-pulse text-text">
-          <OpsLockup orientation="horizontal" className="h-12 w-auto" />
-        </div>
+        <LogoLoader size={140} />
       </div>
     );
   }
@@ -631,7 +629,10 @@ export default function SetupPage() {
         className="text-text mb-4 focus:outline-none"
       >
         <span className="sr-only">OPS</span>
-        <OpsLockup orientation="horizontal" className="h-14 w-auto mx-auto" title="" />
+        {/* Setup splash uses the horizontal lockup per logo ruleset
+            (docs/brand/logo-system.md) — vertical-stack is reserved for
+            full-screen hero contexts (locked, PIN, lockout). */}
+        <OpsLockup orientation="horizontal" className="h-16 w-auto mx-auto" title="" />
       </h1>
 
       {/* Glass surface card */}

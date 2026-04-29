@@ -20,13 +20,17 @@ export async function requireAdmin(req: NextRequest) {
   return user;
 }
 
-/** Wrapper for API route handlers — catches thrown NextResponse errors */
-export function withAdmin(
-  handler: (req: NextRequest) => Promise<NextResponse>
+/**
+ * Wrapper for API route handlers — catches thrown NextResponse errors.
+ * Supports both static (`(req)`) and dynamic (`(req, ctx)`) route signatures
+ * by passing through any extra args Next.js provides.
+ */
+export function withAdmin<TRest extends unknown[]>(
+  handler: (req: NextRequest, ...rest: TRest) => Promise<NextResponse>
 ) {
-  return async (req: NextRequest) => {
+  return async (req: NextRequest, ...rest: TRest) => {
     try {
-      return await handler(req);
+      return await handler(req, ...rest);
     } catch (err) {
       if (err instanceof NextResponse) return err;
       console.error("[admin-api]", err);

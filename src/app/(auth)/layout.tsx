@@ -5,7 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { AuthProvider } from "@/components/providers/auth-provider";
 import { useDictionary } from "@/i18n/client";
-import { OpsLockup } from "@/components/brand";
+import { OpsLockup, LogoLoader } from "@/components/brand";
 
 // Routes within (auth) group that authenticated users CAN access
 const authenticatedAllowedRoutes = ["/locked", "/join", "/account-type"];
@@ -38,9 +38,7 @@ function AuthRouteGate({ children }: { children: React.ReactNode }) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
-        <div className="flex flex-col items-center gap-2 animate-pulse-live text-text">
-          <OpsLockup orientation="vertical" className="h-16 w-auto" />
-        </div>
+        <LogoLoader size={120} />
       </div>
     );
   }

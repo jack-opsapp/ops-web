@@ -109,7 +109,7 @@ export function WritebackPreferenceModal({
       <DialogContent className="max-w-[520px] p-0">
         <div className="px-4 pt-4 pb-3 border-b border-border-subtle">
           <p className="font-mono text-[10px] uppercase tracking-[0.20em] text-text-mute">
-            // First archive
+            {"// First archive"}
           </p>
           <DialogTitle className="font-cakemono font-light uppercase text-[20px] tracking-[0.10em] text-text mt-1">
             What should archive do?

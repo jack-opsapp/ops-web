@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>OPS · Logo Loader</title>
+<style>
+  html, body { margin: 0; padding: 0; background: transparent; height: 100%; overflow: hidden; }
+  #root { position: fixed; inset: 0; }
+  /* Suppress the controls layer baked into the v2 Stage component
+     (PlaybackBar etc). The loader is meant to run autoplay+loop only. */
+  .stage-controls, .twk-panel, .twk-tab { display: none !important; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
+
+<!-- v2 design-system files copied verbatim from
+     /Users/jacksonsweet/Projects/OPS/ops-design-system-v2/project/.
+     Do not edit here — re-copy from the design-system folder if it
+     evolves there. -->
+<script type="text/babel" src="animations.jsx"></script>
+<script type="text/babel" src="logo-loader.jsx"></script>
+
+<script type="text/babel">
+  // Match the LOADER_DEFAULTS object in logo-loader.jsx verbatim. The const
+  // is not exposed on window, so we mirror it here. Sync if the v2 source
+  // changes.
+  const LOADER_DEFAULTS = {
+    "mode": "OPS",
+    "duration": 4.2,
+    "holdIn": 0.35,
+    "sepEnd": 1.10,
+    "typeStart": 0.85,
+    "opsTypeSpeed": 0.09,
+    "longTypeSpeed": 0.085,
+    "holdOut": 3.20,
+    "colEnd": 3.95,
+    "openGap": 820,
+    "longOpenGap": 1500,
+    "chevronColor": "#EDEDED",
+    "markScale": 1.0,
+    "showCaret": true,
+  };
+
+  // Allow the host to override config via URL query params, e.g.
+  // ?mode=LONG&chevronColor=%236F94B0
+  const url = new URL(location.href);
+  for (const key of Object.keys(LOADER_DEFAULTS)) {
+    if (url.searchParams.has(key)) {
+      const raw = url.searchParams.get(key);
+      const orig = LOADER_DEFAULTS[key];
+      if (typeof orig === "number") LOADER_DEFAULTS[key] = parseFloat(raw);
+      else if (typeof orig === "boolean") LOADER_DEFAULTS[key] = raw !== "false";
+      else LOADER_DEFAULTS[key] = raw;
+    }
+  }
+
+  // Headless timeline. We bypass the v2 <Stage> component because Stage
+  // bakes in a PlaybackBar + 0a0a0a backdrop + box-shadow that we don't want
+  // on a real loading screen. LogoLoaderScene only depends on TimelineContext
+  // (via useTime), which we recreate here with a minimal requestAnimationFrame
+  // loop driving `time` from 0 → duration → loop.
+  function HeadlessTimeline({ duration, children }) {
+    const [time, setTime] = React.useState(0);
+    React.useEffect(() => {
+      let raf = 0;
+      const start = performance.now();
+      const tick = (now) => {
+        const elapsed = (now - start) / 1000;
+        setTime(elapsed % duration);
+        raf = requestAnimationFrame(tick);
+      };
+      raf = requestAnimationFrame(tick);
+      return () => cancelAnimationFrame(raf);
+    }, [duration]);
+
+    return (
+      <TimelineContext.Provider value={{ time, duration, playing: true }}>
+        {children}
+      </TimelineContext.Provider>
+    );
+  }
+
+  function Loader() {
+    return (
+      <HeadlessTimeline duration={LOADER_DEFAULTS.duration}>
+        <LogoLoaderScene cfg={LOADER_DEFAULTS} />
+      </HeadlessTimeline>
+    );
+  }
+
+  ReactDOM.createRoot(document.getElementById('root')).render(<Loader />);
+</script>
+</body>
+</html>

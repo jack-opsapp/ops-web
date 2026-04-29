@@ -66,8 +66,8 @@ export default function CalibrationPage() {
         </h1>
       </div>
       <p className="font-mono text-micro uppercase tracking-wider text-text-3 px-11 pb-2">
-        <span className="text-text-mute">//</span> COMMAND
-        <span className="text-text-mute mx-1">//</span> CALIBRATION
+        <span className="text-text-mute">{"//"}</span> COMMAND
+        <span className="text-text-mute mx-1">{"//"}</span> CALIBRATION
       </p>
       <CommandDeck deck={deck} />
     </>

@@ -24,7 +24,7 @@ import { ImageUpload } from "@/components/ops/image-upload";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { useEmployeeSetupStore } from "@/stores/employee-setup-store";
 import { useSignOutStore } from "@/stores/signout-store";
-import { OpsLockup } from "@/components/brand";
+import { OpsLockup, LogoLoader } from "@/components/brand";
 import { getIdToken } from "@/lib/firebase/auth";
 import { cn } from "@/lib/utils/cn";
 
@@ -294,9 +294,7 @@ export default function EmployeeSetupPage() {
   if (authLoading || !currentUser) {
     return (
       <div className="fixed inset-0 bg-background flex items-center justify-center">
-        <div className="animate-pulse text-text">
-          <OpsLockup orientation="horizontal" className="h-12 w-auto" />
-        </div>
+        <LogoLoader size={140} />
       </div>
     );
   }
@@ -306,7 +304,7 @@ export default function EmployeeSetupPage() {
       {/* Logo */}
       <h1 className="text-text mb-4">
         <span className="sr-only">OPS</span>
-        <OpsLockup orientation="horizontal" className="h-14 w-auto" title="" />
+        <OpsLockup orientation="vertical" className="h-24 w-auto" title="" />
       </h1>
 
       {/* Glass surface card */}

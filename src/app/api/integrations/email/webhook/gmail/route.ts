@@ -128,6 +128,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Phase C observability: record the webhook hit so the heartbeat cron
+    // can detect long zero-event windows even if downstream sync fails.
+    console.log("[email-ingest] webhook", {
+      provider: "gmail",
+      email,
+      historyId: data.historyId ?? null,
+      at: new Date().toISOString(),
+    });
+
     // Find the connection for this email. ilike tolerates any case variance
     // between Gmail's /userinfo response (which we stored) and the value
     // Pub/Sub echoes back in the notification.

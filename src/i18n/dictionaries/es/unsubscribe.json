@@ -1,0 +1,39 @@
+{
+  "eyebrow": "Cancelar suscripción",
+  "loading": {
+    "title": "PROCESANDO",
+    "body": "Eliminándote de esta lista."
+  },
+  "success": {
+    "title": "DESUSCRITO",
+    "body": "Ya no estás en [{list}]. No te enviaremos correos de esta lista a menos que vuelvas a suscribirte.",
+    "cta": "Volver a opsapp.co"
+  },
+  "errors": {
+    "missing_token": {
+      "title": "ENLACE INVÁLIDO",
+      "body": "A este enlace le falta el token. Abre el correo y haz clic directamente, o escríbenos a [{email}].",
+      "cta": "Escribir a soporte"
+    },
+    "malformed": {
+      "title": "ENLACE INVÁLIDO",
+      "body": "Este enlace está malformado. Escríbenos y te quitaremos manualmente.",
+      "cta": "Escribir a soporte"
+    },
+    "bad_signature": {
+      "title": "ENLACE INVÁLIDO",
+      "body": "No pudimos verificar el enlace. Escríbenos y te quitaremos manualmente.",
+      "cta": "Escribir a soporte"
+    },
+    "expired": {
+      "title": "ENLACE EXPIRADO",
+      "body": "Los enlaces caducan después de 1 año. Escríbenos y te quitaremos manualmente.",
+      "cta": "Escribir a soporte"
+    },
+    "internal": {
+      "title": "ALGO SALIÓ MAL",
+      "body": "Inténtalo en un minuto, o escríbenos y te quitaremos manualmente.",
+      "cta": "Escribir a soporte"
+    }
+  }
+}

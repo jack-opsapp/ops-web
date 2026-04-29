@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
+import { useClient } from "@/lib/hooks/use-clients";
 import type { Project } from "@/lib/types/models";
 import { PROJECT_STATUS_COLORS } from "@/lib/types/models";
 import {
@@ -97,6 +98,16 @@ const ProjectDetailPopoverInstance = memo(function ProjectDetailPopoverInstance(
     ? getProjectStatusDisplayName(project.status)
     : state.title;
   const daysInStatus = project ? getDaysInStatus(project) : 0;
+
+  // Fallback: when the parent map hasn't populated (load-order race) but the
+  // project clearly has a clientId, fetch the client directly. The detail page
+  // already does this via useClient — quick-view should match. Verified
+  // against MCP: e.g. Dave Colson is a real parent client; the empty value
+  // here was a timing race, not missing data.
+  const { data: fallbackClient } = useClient(
+    !clientName && project?.clientId ? project.clientId : undefined
+  );
+  const resolvedClientName = clientName || fallbackClient?.name || "";
 
   // ── Drag handling (title bar) — document addEventListener pattern ──
   const handleDragStart = useCallback(
@@ -409,7 +420,7 @@ const ProjectDetailPopoverInstance = memo(function ProjectDetailPopoverInstance(
         {state.activeTab === "overview" && project && (
           <ProjectOverviewTab
             project={project}
-            clientName={clientName}
+            clientName={resolvedClientName}
             statusColor={statusColor}
           />
         )}

@@ -25,6 +25,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 import { useTeamScheduleConflicts } from "@/lib/hooks/use-team-conflicts";
 import {
   MiniCalendarPopover,
@@ -632,22 +639,23 @@ function TaskList({ projectId, companyId, className }: TaskListProps) {
         )}
       </div>
 
-      {/* Edit form popover (no visible trigger — opened programmatically) */}
-      <Popover
+      {/* Edit task dialog — opened programmatically when editingTask is set */}
+      <Dialog
         open={!!editingTask}
         onOpenChange={(open) => {
           if (!open) setEditingTask(null);
         }}
       >
-        <PopoverTrigger asChild>
-          <span className="sr-only" />
-        </PopoverTrigger>
-        <PopoverContent
-          side="bottom"
-          align="center"
-          className="w-[480px] p-0"
+        <DialogContent
+          className="w-[480px] max-w-[calc(100vw-32px)] p-0"
           onOpenAutoFocus={(e) => e.preventDefault()}
         >
+          <VisuallyHidden.Root>
+            <DialogTitle>Edit Task</DialogTitle>
+            <DialogDescription>
+              Edit task details including title, schedule, and assignment.
+            </DialogDescription>
+          </VisuallyHidden.Root>
           {editingTask && (
             <TaskForm
               task={editingTask}
@@ -662,8 +670,8 @@ function TaskList({ projectId, companyId, className }: TaskListProps) {
               teamConflicts={teamConflicts}
             />
           )}
-        </PopoverContent>
-      </Popover>
+        </DialogContent>
+      </Dialog>
 
       {/* Task rows */}
       {sortedTasks.length === 0 && !showCreateForm ? (

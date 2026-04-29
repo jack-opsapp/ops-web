@@ -19,15 +19,36 @@ export function KeyboardShortcuts() {
   const router = useRouter();
 
   useEffect(() => {
+    function isEditableElement(node: Element | null | undefined): boolean {
+      if (!node) return false;
+      if (node instanceof HTMLInputElement || node instanceof HTMLTextAreaElement) {
+        return true;
+      }
+      if (node instanceof HTMLElement && node.isContentEditable) {
+        return true;
+      }
+      // Tag-name fallback for cases where instanceof fails (e.g. cross-realm
+      // events dispatched from portals, iframes, or libraries that re-host the
+      // node). Also covers select elements and standard form controls.
+      const tag = node.tagName?.toUpperCase();
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") {
+        return true;
+      }
+      // Walk up looking for a contenteditable ancestor.
+      if (node instanceof HTMLElement && node.closest("[contenteditable='true'], [contenteditable='']")) {
+        return true;
+      }
+      return false;
+    }
+
     function handleKeyDown(e: KeyboardEvent) {
-      // Don't capture if user is typing in an input
-      const target = e.target as HTMLElement;
-      if (
-        target instanceof HTMLInputElement ||
-        target instanceof HTMLTextAreaElement ||
-        target.isContentEditable ||
-        target.closest("[contenteditable]")
-      ) {
+      // Don't capture if user is typing in an input — check both the event
+      // target AND the document's active element. The active-element fallback
+      // catches cases where keystrokes are dispatched after a focus/blur race
+      // or where the event target is the body/window rather than the field
+      // itself (observed when a controlled textarea re-renders mid-keystroke).
+      const target = e.target as Element | null;
+      if (isEditableElement(target) || isEditableElement(document.activeElement)) {
         return;
       }
 

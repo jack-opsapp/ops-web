@@ -206,7 +206,7 @@ export function PipelineKanban() {
           <SlashHeader variant="section">TIER A PIPELINE</SlashHeader>
         </div>
         <div className="font-mono text-[11px] text-[color:var(--rose)] py-12 text-center">
-          // ERROR — FAILED TO LOAD
+          {"// ERROR — FAILED TO LOAD"}
           <br />
           {initialFetchError}
         </div>
@@ -222,7 +222,7 @@ export function PipelineKanban() {
         <SlashHeader variant="section">TIER A PIPELINE</SlashHeader>
         {errorMessages.length > 0 && (
           <span className="font-mono text-[11px] text-[color:var(--rose)]">
-            // {errorMessages[errorMessages.length - 1]}
+            {"// "}{errorMessages[errorMessages.length - 1]}
             {errorMessages.length > 1 && ` (+${errorMessages.length - 1} more)`}
           </span>
         )}

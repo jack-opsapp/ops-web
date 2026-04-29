@@ -261,7 +261,7 @@ async function runFullHistoryScan(
   const twelveMonthsAgo = new Date();
   twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
 
-  let allSentEmails: NormalizedEmail[] = [];
+  const allSentEmails: NormalizedEmail[] = [];
   let pageToken: string | undefined;
   const GMAIL_API = "https://gmail.googleapis.com/gmail/v1/users/me";
 
@@ -311,7 +311,7 @@ async function runFullHistoryScan(
   const BATCH_SIZE = 50;
   let totalProcessed = 0;
   let totalFactsExtracted = 0;
-  let totalEntitiesCreated = 0;
+  const totalEntitiesCreated = 0;
   let totalProfileUpdates = 0;
 
   for (let i = 0; i < allMessageIds.length; i += BATCH_SIZE) {

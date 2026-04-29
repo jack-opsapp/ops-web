@@ -26,6 +26,13 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const notifications = body.value || [];
 
+    // Phase C observability: log every webhook hit for the heartbeat cron.
+    console.log("[email-ingest] webhook", {
+      provider: "microsoft365",
+      notificationCount: notifications.length,
+      at: new Date().toISOString(),
+    });
+
     const supabase = getServiceRoleClient();
 
     for (const notification of notifications) {
