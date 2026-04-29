@@ -49,6 +49,8 @@ import { FilterSidebar } from "./_components/filter-sidebar";
 import { CascadeConfirmBar } from "./_components/cascade/cascade-confirm-bar";
 import { GhostOverlay } from "./_components/cascade/ghost-overlay";
 import { CalendarDndShell } from "./_components/calendar-dnd-shell";
+import { TaskDetailPanel } from "./_components/side-panel/task-detail-panel";
+import { ProjectDrawerPanel } from "./_components/side-panel/project-drawer-panel";
 
 export default function CalendarPage() {
   usePageTitle("Schedule");
@@ -371,6 +373,14 @@ export default function CalendarPage() {
         {!isMobile && view !== "day" && <UnscheduledTray view={view} />}
 
       </div>
+
+      {/* Side panels — read sidePanelMode from the calendar store. Click on
+          an event card opens TaskDetailPanel; clicking a project name opens
+          ProjectDrawerPanel. Mounted inside the dnd shell so the
+          project-drawer-task draggable participates in the same context as
+          calendar droppables. */}
+      <TaskDetailPanel />
+      <ProjectDrawerPanel />
       </CalendarDndShell>
       </div>
     </div>
