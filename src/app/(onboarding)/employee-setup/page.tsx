@@ -304,7 +304,10 @@ export default function EmployeeSetupPage() {
       {/* Logo */}
       <h1 className="text-text mb-4">
         <span className="sr-only">OPS</span>
-        <OpsLockup orientation="vertical" className="h-24 w-auto" title="" />
+        {/* Onboarding splash uses the horizontal lockup per logo ruleset
+            (docs/brand/logo-system.md) — vertical-stack is reserved for
+            full-screen hero contexts (locked, PIN, lockout). */}
+        <OpsLockup orientation="horizontal" className="h-14 w-auto" title="" />
       </h1>
 
       {/* Glass surface card */}
