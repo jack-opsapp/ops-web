@@ -11,7 +11,7 @@ import {
 } from "@/lib/utils/calendar-utils";
 import { DayTaskCard } from "./day/day-task-card";
 import { DayHourlyGrid } from "./day/day-hourly-grid";
-import { useCalendarResize } from "./use-calendar-resize";
+import { useCalendarResizeContext } from "./calendar-dnd-shell";
 
 // ── Props ──────────────────────────────────────────────────────────────────
 
@@ -115,9 +115,9 @@ export function CalendarGridDay({
     [onEventClick]
   );
 
-  // ── Resize commit (list-mode all-day cards) ──────────────────────────
-  const { commitResize, promptElement: resizePromptElement } =
-    useCalendarResize();
+  // ── Resize commit (list-mode all-day cards) — provided by the hoisted
+  //    CalendarDndShell so we don't mount one prompt per day panel. ─────
+  const { commitResize } = useCalendarResizeContext();
   const handleListResize = useCallback(
     (event: InternalCalendarEvent, newEndDate: Date) => {
       commitResize(event, { endDate: newEndDate });
@@ -228,7 +228,6 @@ export function CalendarGridDay({
           </AnimatePresence>
         </div>
       )}
-      {resizePromptElement}
     </div>
   );
 }

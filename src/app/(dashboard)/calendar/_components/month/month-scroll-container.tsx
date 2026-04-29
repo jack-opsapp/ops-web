@@ -39,8 +39,10 @@ import {
 } from "date-fns";
 import { motion } from "framer-motion";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
-import { useCalendarDragState } from "../calendar-dnd-shell";
-import { useCalendarResize } from "../use-calendar-resize";
+import {
+  useCalendarDragState,
+  useCalendarResizeContext,
+} from "../calendar-dnd-shell";
 import {
   MonthEventBar,
   type DisplayLevel,
@@ -665,9 +667,10 @@ export function MonthScrollContainer({
     didInitialScroll.current = false;
   }, [currentDate]);
 
-  // ── Resize commit (left/right edge of month bars) ───────────────────────
-  const { commitResize, promptElement: resizePromptElement } =
-    useCalendarResize();
+  // ── Resize commit (left/right edge of month bars) — provided by the
+  //    hoisted CalendarDndShell so we don't mount one prompt per scroll
+  //    panel (~14 sections in this view alone). ──────────────────────────
+  const { commitResize } = useCalendarResizeContext();
   const handleBarResize = useCallback(
     (
       event: InternalCalendarEvent,
@@ -926,7 +929,6 @@ export function MonthScrollContainer({
           </section>
         );
       })}
-      {resizePromptElement}
     </div>
   );
 }

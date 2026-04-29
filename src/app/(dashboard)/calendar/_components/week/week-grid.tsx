@@ -8,7 +8,7 @@ import {
 } from "date-fns";
 import type { InternalCalendarEvent } from "@/lib/utils/calendar-utils";
 import { WeekDayColumn } from "./week-day-column";
-import { useCalendarResize } from "../use-calendar-resize";
+import { useCalendarResizeContext } from "../calendar-dnd-shell";
 
 // ─── Props ──────────────────────────────────────────────────────────────────
 
@@ -43,8 +43,7 @@ export function WeekGrid({ currentDate, events }: WeekGridProps) {
     return eachDayOfInterval({ start, end });
   }, [currentDate]);
 
-  const { commitResize, promptElement: resizePromptElement } =
-    useCalendarResize();
+  const { commitResize } = useCalendarResizeContext();
 
   const handleCardResize = useCallback(
     (event: InternalCalendarEvent, newEndDate: Date) => {
@@ -66,7 +65,6 @@ export function WeekGrid({ currentDate, events }: WeekGridProps) {
           />
         ))}
       </div>
-      {resizePromptElement}
     </div>
   );
 }

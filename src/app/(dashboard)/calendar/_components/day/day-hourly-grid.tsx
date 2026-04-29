@@ -20,9 +20,8 @@ import { format } from "date-fns";
 import { motion } from "framer-motion";
 import { useDraggable } from "@dnd-kit/core";
 import { toast } from "sonner";
-import { useUpdateTask, useTasks, useRecurrenceEdit } from "@/lib/hooks";
-import { useRecurrenceEditPrompt } from "@/components/ui/recurrence-edit-prompt";
 import { useCalendarStore } from "@/stores/calendar-store";
+import { useCalendarResizeContext } from "../calendar-dnd-shell";
 import {
   HOURS,
   HOUR_HEIGHT,
@@ -37,7 +36,6 @@ import {
   type InternalCalendarEvent,
 } from "@/lib/utils/calendar-utils";
 import { useTeamMembers } from "@/lib/hooks";
-import type { ProjectTask } from "@/lib/types/models";
 import { UserAvatar } from "@/components/ops/user-avatar";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -342,15 +340,9 @@ export function DayHourlyGrid({
   events,
   onEventClick,
 }: DayHourlyGridProps) {
-  const updateTask = useUpdateTask();
-  const recurrenceEdit = useRecurrenceEdit();
-  const recurrencePrompt = useRecurrenceEditPrompt();
-  const { data: taskData } = useTasks();
-  const tasksById = useMemo(() => {
-    const map = new Map<string, ProjectTask>();
-    for (const t of taskData?.tasks ?? []) map.set(t.id, t);
-    return map;
-  }, [taskData]);
+  // Hourly resize delegates to the shell-hoisted commitResize so we don't
+  // mount yet another RecurrenceEditPrompt instance per day panel.
+  const { commitResize } = useCalendarResizeContext();
 
   const allDay = events.filter((e) => e.allDay);
   const timed = events.filter((e) => !e.allDay);
@@ -375,8 +367,7 @@ export function DayHourlyGrid({
       if (newEnd.getTime() - newStart.getTime() < SNAP_MINUTES * 60_000) {
         return;
       }
-      // Clamp to visible hourly band — outside FIRST_HOUR..LAST_HOUR the
-      // event would render off the grid.
+      // Clamp to visible hourly band.
       const startHourFloat =
         newStart.getHours() + newStart.getMinutes() / 60;
       const endHourFloat =
@@ -387,38 +378,14 @@ export function DayHourlyGrid({
         });
         return;
       }
-      const patch: Partial<ProjectTask> = {
+      await commitResize(event, {
         startDate: newStart,
         endDate: newEnd,
         startTime: `${formatTimeHHmm(newStart)}:00`,
         endTime: `${formatTimeHHmm(newEnd)}:00`,
-      };
-      const sourceTask = tasksById.get(event.id);
-      if (sourceTask?.recurrenceId) {
-        const scope = await recurrencePrompt.request({
-          description: "Resize this occurrence, or the entire series?",
-        });
-        if (!scope) return;
-        recurrenceEdit.mutate(
-          { task: sourceTask, scope, patch },
-          {
-            onError: (err) =>
-              toast.error("Failed to resize recurring task", {
-                description: err.message,
-              }),
-          }
-        );
-        return;
-      }
-      updateTask.mutate(
-        { id: event.id, data: patch },
-        {
-          onError: (err) =>
-            toast.error("Failed to resize task", { description: err.message }),
-        }
-      );
+      });
     },
-    [tasksById, updateTask, recurrenceEdit, recurrencePrompt]
+    [commitResize]
   );
 
   // Empty state
@@ -510,7 +477,6 @@ export function DayHourlyGrid({
         </div>
       </div>
 
-      {recurrencePrompt.promptElement}
     </div>
   );
 }

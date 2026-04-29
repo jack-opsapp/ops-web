@@ -47,6 +47,7 @@ import {
 import type { ProjectTask } from "@/lib/types/models";
 import { useUpdateTask, useTasks, useRecurrenceEdit } from "@/lib/hooks";
 import { useRecurrenceEditPrompt } from "@/components/ui/recurrence-edit-prompt";
+import { useCalendarResize, type ResizePatch } from "./use-calendar-resize";
 
 // ─── Drag state context ─────────────────────────────────────────────────────
 
@@ -63,6 +64,32 @@ const DragStateContext = createContext<CalendarDragState>({
 /** Read live drag state — used by scroll containers to disable scroll-snap mid-drag. */
 export function useCalendarDragState() {
   return useContext(DragStateContext);
+}
+
+// ─── Resize context ─────────────────────────────────────────────────────────
+//
+// Hoisted out of each grid so we don't mount one RecurrenceEditPrompt per
+// scroll panel — the buffered Month / Week / Day containers can render up
+// to ~55 panels combined, each previously mounted its own prompt. One
+// useCalendarResize lives here; every grid consumes via this context.
+
+interface CalendarResizeAPI {
+  commitResize: (
+    event: InternalCalendarEvent,
+    patch: ResizePatch
+  ) => Promise<void>;
+}
+
+const CalendarResizeContext = createContext<CalendarResizeAPI | null>(null);
+
+export function useCalendarResizeContext(): CalendarResizeAPI {
+  const ctx = useContext(CalendarResizeContext);
+  if (!ctx) {
+    throw new Error(
+      "useCalendarResizeContext must be used inside <CalendarDndShell>"
+    );
+  }
+  return ctx;
 }
 
 // ─── Active drag descriptor ────────────────────────────────────────────────
@@ -97,6 +124,14 @@ export function CalendarDndShell({ children }: CalendarDndShellProps) {
   const updateTask = useUpdateTask();
   const recurrenceEdit = useRecurrenceEdit();
   const recurrencePrompt = useRecurrenceEditPrompt();
+
+  // Single shared resize API. Provided to descendants via context so each
+  // grid panel doesn't mount its own copy.
+  const resize = useCalendarResize();
+  const resizeApi = useMemo<CalendarResizeAPI>(
+    () => ({ commitResize: resize.commitResize }),
+    [resize.commitResize]
+  );
 
   const { data: taskData } = useTasks();
   const tasksById = useMemo(() => {
@@ -340,28 +375,31 @@ export function CalendarDndShell({ children }: CalendarDndShellProps) {
 
   return (
     <DragStateContext.Provider value={dragState}>
-      <DndContext
-        sensors={sensors}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-        onDragCancel={handleDragCancel}
-        autoScroll={{
-          // Tight edge zone (~5% of axis = ~40-60px on typical layouts).
-          // dnd-kit walks up to scrollable ancestors and scrolls them when
-          // the pointer enters the threshold band. Each scroll container
-          // toggles off scroll-snap during drag (see useCalendarDragState),
-          // which lets autoscroll move the viewport across panel boundaries
-          // without the snap engine yanking it back.
-          threshold: { x: 0.05, y: 0.05 },
-          acceleration: 12,
-        }}
-      >
-        {children}
-        <DragOverlay dropAnimation={null}>
-          {activeDrag?.event ? <DragPreview event={activeDrag.event} /> : null}
-        </DragOverlay>
-        {recurrencePrompt.promptElement}
-      </DndContext>
+      <CalendarResizeContext.Provider value={resizeApi}>
+        <DndContext
+          sensors={sensors}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          onDragCancel={handleDragCancel}
+          autoScroll={{
+            // Tight edge zone (~5% of axis = ~40-60px on typical layouts).
+            // dnd-kit walks up to scrollable ancestors and scrolls them when
+            // the pointer enters the threshold band. Each scroll container
+            // toggles off scroll-snap during drag (see useCalendarDragState),
+            // which lets autoscroll move the viewport across panel boundaries
+            // without the snap engine yanking it back.
+            threshold: { x: 0.05, y: 0.05 },
+            acceleration: 12,
+          }}
+        >
+          {children}
+          <DragOverlay dropAnimation={null}>
+            {activeDrag?.event ? <DragPreview event={activeDrag.event} /> : null}
+          </DragOverlay>
+          {recurrencePrompt.promptElement}
+          {resize.promptElement}
+        </DndContext>
+      </CalendarResizeContext.Provider>
     </DragStateContext.Provider>
   );
 }
