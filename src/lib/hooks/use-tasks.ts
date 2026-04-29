@@ -121,6 +121,11 @@ export function useScheduledTasks(
         scopedUserId ? { teamMemberId: scopedUserId } : {}
       ),
     enabled: !!companyId && !!startDate && !!endDate,
+    // Keep previous range's data visible while a new range fetches. Without
+    // this, scrolling to a new month/week/day flips data → undefined and the
+    // calendar unmounts to a loader. With it, the previous events stay on
+    // screen and the refetch happens in the background.
+    placeholderData: (previousData) => previousData,
     ...queryOptions,
   });
 }

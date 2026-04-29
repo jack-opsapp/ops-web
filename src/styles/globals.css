@@ -455,6 +455,22 @@
   }
 }
 
+/* ─── Calendar motion suppression ────────────────────────────────────────
+   The calendar surface uses many short CSS transitions inline-styled per
+   element. Under prefers-reduced-motion, collapse them to opacity-only at
+   150ms per the .interface-design/system.md spec. Scope is keyed to the
+   calendar page's data attribute. */
+@media (prefers-reduced-motion: reduce) {
+  [data-calendar-motion-scope] *,
+  [data-calendar-motion-scope] *::before,
+  [data-calendar-motion-scope] *::after {
+    transition-duration: 0.15s !important;
+    transition-timing-function: linear !important;
+    transition-property: opacity !important;
+    animation-duration: 0.15s !important;
+  }
+}
+
 /* ─── CALIBRATION — radar sweep signature ─────────────────────────────── */
 
 @keyframes cal-radar-rotate {

@@ -1,5 +1,14 @@
 "use client";
 
+/**
+ * CrewScrollContainer — horizontal infinite scroll for the Crew view.
+ *
+ * Mirrors WeekScrollContainer's pattern: each panel is one full week of the
+ * crew/day matrix, full container width, snap-aligned. Trackpad swipe /
+ * touch drag advances week-by-week with proximity snap (no trapping at
+ * panel boundaries).
+ */
+
 import {
   useCallback,
   useEffect,
@@ -7,56 +16,43 @@ import {
   useRef,
   useState,
 } from "react";
-import { addDays, format, startOfDay, isSameDay } from "date-fns";
+import { addWeeks, format, isSameWeek, startOfWeek } from "date-fns";
+import type { TeamMember } from "@/lib/types/models";
 import type { InternalCalendarEvent } from "@/lib/utils/calendar-utils";
-import { CalendarGridDay } from "../calendar-grid-day";
+import { CrewGrid } from "./crew-grid";
 import { useCalendarDragState } from "../calendar-dnd-shell";
 
-// ─── Constants ──────────────────────────────────────────────────────────────
+const INITIAL_BUFFER = 6;
+const EDGE_TRIGGER = 1;
+const EXTEND_STEP = 6;
+const WEEK_OPTS = { weekStartsOn: 1 as const };
 
-const INITIAL_BUFFER = 14; // ±14 days
-const EDGE_TRIGGER = 2;
-const EXTEND_STEP = 14;
-
-// ─── Props ──────────────────────────────────────────────────────────────────
-
-interface DayScrollContainerProps {
+interface CrewScrollContainerProps {
   currentDate: Date;
   events: InternalCalendarEvent[];
+  teamMembers: TeamMember[];
   onCurrentDateChange: (date: Date) => void;
   onEventClick?: (event: InternalCalendarEvent) => void;
-  t: (key: string) => string;
 }
 
-// ─── Component ──────────────────────────────────────────────────────────────
-
-/**
- * Horizontal infinite scroll for the Day view. Each panel is one day,
- * full container width, snap-aligned at the left edge. Trackpad horizontal
- * swipe / touch drag moves day-by-day.
- *
- * Mirrors MonthScrollContainer's pattern: IntersectionObserver tracks the
- * active panel; edge-triggered prepend/append extends the buffer with
- * scrollLeft compensation when prepending.
- */
-export function DayScrollContainer({
+export function CrewScrollContainer({
   currentDate,
   events,
+  teamMembers,
   onCurrentDateChange,
   onEventClick,
-  t,
-}: DayScrollContainerProps) {
-  const [days, setDays] = useState<Date[]>(() => {
-    const anchor = startOfDay(currentDate);
+}: CrewScrollContainerProps) {
+  const [weeks, setWeeks] = useState<Date[]>(() => {
+    const anchor = startOfWeek(currentDate, WEEK_OPTS);
     const out: Date[] = [];
     for (let i = -INITIAL_BUFFER; i <= INITIAL_BUFFER; i++) {
-      out.push(addDays(anchor, i));
+      out.push(addWeeks(anchor, i));
     }
     return out;
   });
 
-  const [activeDay, setActiveDay] = useState<Date>(() =>
-    startOfDay(currentDate)
+  const [activeWeek, setActiveWeek] = useState<Date>(() =>
+    startOfWeek(currentDate, WEEK_OPTS)
   );
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -71,19 +67,20 @@ export function DayScrollContainer({
 
   const didInitialScroll = useRef(false);
 
-  // Initial horizontal scroll-to-anchor
   useLayoutEffect(() => {
     if (didInitialScroll.current) return;
     const container = scrollRef.current;
     if (!container) return;
-    const key = format(startOfDay(currentDate), "yyyy-MM-dd");
+    const key = format(startOfWeek(currentDate, WEEK_OPTS), "yyyy-MM-dd");
     const el = panelRefs.current.get(key);
     if (!el) return;
-    container.scrollTo({ left: el.offsetLeft, behavior: "instant" as ScrollBehavior });
+    container.scrollTo({
+      left: el.offsetLeft,
+      behavior: "instant" as ScrollBehavior,
+    });
     didInitialScroll.current = true;
   }, [currentDate]);
 
-  // Track active day — uses 50% intersection threshold on the horizontal axis
   useEffect(() => {
     const container = scrollRef.current;
     if (!container) return;
@@ -93,57 +90,53 @@ export function DayScrollContainer({
         let best: IntersectionObserverEntry | null = null;
         for (const e of entries) {
           if (!e.isIntersecting) continue;
-          if (!best || e.intersectionRatio > best.intersectionRatio) {
-            best = e;
-          }
+          if (!best || e.intersectionRatio > best.intersectionRatio) best = e;
         }
         if (!best) return;
-        const key = (best.target as HTMLElement).dataset.dayKey;
+        const key = (best.target as HTMLElement).dataset.weekKey;
         if (!key) return;
-        const next = days.find((d) => format(d, "yyyy-MM-dd") === key);
+        const next = weeks.find((w) => format(w, "yyyy-MM-dd") === key);
         if (!next) return;
-        setActiveDay((prev) => (isSameDay(prev, next) ? prev : next));
+        setActiveWeek((prev) =>
+          isSameWeek(prev, next, WEEK_OPTS) ? prev : next
+        );
       },
-      {
-        root: container,
-        threshold: [0.5],
-      }
+      { root: container, threshold: [0.5] }
     );
 
     panelRefs.current.forEach((el) => observer.observe(el));
     return () => observer.disconnect();
-  }, [days]);
+  }, [weeks]);
 
-  // Edge extension
   useEffect(() => {
-    const idx = days.findIndex((d) => isSameDay(d, activeDay));
+    const idx = weeks.findIndex((w) => isSameWeek(w, activeWeek, WEEK_OPTS));
     if (idx === -1) return;
     const container = scrollRef.current;
     const distFromStart = idx;
-    const distFromEnd = days.length - 1 - idx;
+    const distFromEnd = weeks.length - 1 - idx;
 
     if (distFromEnd <= EDGE_TRIGGER) {
-      const last = days[days.length - 1];
+      const last = weeks[weeks.length - 1];
       const additions = Array.from({ length: EXTEND_STEP }, (_, i) =>
-        addDays(last, i + 1)
+        addWeeks(last, i + 1)
       );
-      setDays((prev) => [...prev, ...additions]);
+      setWeeks((prev) => [...prev, ...additions]);
       return;
     }
 
     if (distFromStart <= EDGE_TRIGGER && container) {
-      const first = days[0];
+      const first = weeks[0];
       const additions = Array.from({ length: EXTEND_STEP }, (_, i) =>
-        addDays(first, -(EXTEND_STEP - i))
+        addWeeks(first, -(EXTEND_STEP - i))
       );
 
-      const beforeKey = format(activeDay, "yyyy-MM-dd");
+      const beforeKey = format(activeWeek, "yyyy-MM-dd");
       const beforeEl = panelRefs.current.get(beforeKey);
       const beforeOffset = beforeEl?.offsetLeft ?? 0;
       const beforeScrollLeft = container.scrollLeft;
       const delta = beforeScrollLeft - beforeOffset;
 
-      setDays((prev) => [...additions, ...prev]);
+      setWeeks((prev) => [...additions, ...prev]);
 
       requestAnimationFrame(() => {
         const afterEl = panelRefs.current.get(beforeKey);
@@ -154,41 +147,37 @@ export function DayScrollContainer({
         });
       });
     }
-  }, [activeDay, days]);
+  }, [activeWeek, weeks]);
 
-  // Notify parent
   useEffect(() => {
-    onCurrentDateChange(activeDay);
-  }, [activeDay, onCurrentDateChange]);
+    onCurrentDateChange(activeWeek);
+  }, [activeWeek, onCurrentDateChange]);
 
-  // CRITICAL: do NOT key on activeDay — same feedback-loop concern as the
-  // month / week scrollers. Read the latest activeDay via a ref so the
-  // effect only re-fires on external currentDate changes.
-  const activeDayRef = useRef(activeDay);
+  // See month-scroll-container for why activeWeek is intentionally not in
+  // the deps — prevents an internal scroll feedback loop from yanking the
+  // viewport mid-scroll.
+  const activeWeekRef = useRef(activeWeek);
   useEffect(() => {
-    activeDayRef.current = activeDay;
-  }, [activeDay]);
+    activeWeekRef.current = activeWeek;
+  }, [activeWeek]);
 
-  // React to external currentDate changes
   useEffect(() => {
-    const want = startOfDay(currentDate);
-    if (isSameDay(want, activeDayRef.current)) return;
+    const want = startOfWeek(currentDate, WEEK_OPTS);
+    if (isSameWeek(want, activeWeekRef.current, WEEK_OPTS)) return;
     const container = scrollRef.current;
     if (!container) return;
-
     const key = format(want, "yyyy-MM-dd");
     const el = panelRefs.current.get(key);
     if (el) {
       container.scrollTo({ left: el.offsetLeft, behavior: "smooth" });
       return;
     }
-
     const fresh: Date[] = [];
     for (let i = -INITIAL_BUFFER; i <= INITIAL_BUFFER; i++) {
-      fresh.push(addDays(want, i));
+      fresh.push(addWeeks(want, i));
     }
-    setDays(fresh);
-    setActiveDay(want);
+    setWeeks(fresh);
+    setActiveWeek(want);
     didInitialScroll.current = false;
   }, [currentDate]);
 
@@ -203,13 +192,13 @@ export function DayScrollContainer({
         scrollBehavior: isDragging ? "auto" : "smooth",
       }}
     >
-      {days.map((d) => {
-        const key = format(d, "yyyy-MM-dd");
+      {weeks.map((w) => {
+        const key = format(w, "yyyy-MM-dd");
         return (
           <div
             key={key}
             ref={setPanelRef(key)}
-            data-day-key={key}
+            data-week-key={key}
             className="shrink-0 flex flex-col"
             style={{
               width: "100%",
@@ -218,11 +207,11 @@ export function DayScrollContainer({
               borderLeft: "1px solid rgba(255, 255, 255, 0.04)",
             }}
           >
-            <CalendarGridDay
-              currentDate={d}
+            <CrewGrid
               events={events}
+              teamMembers={teamMembers}
+              startDate={w}
               onEventClick={onEventClick}
-              t={t}
             />
           </div>
         );

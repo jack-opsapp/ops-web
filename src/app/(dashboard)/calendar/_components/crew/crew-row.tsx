@@ -102,10 +102,9 @@ export function CrewRow({
           return (
             <div
               key={day.toISOString()}
-              className="relative"
+              className="relative min-w-0"
               style={{
-                flex: "1 0 0",
-                minWidth: CREW_DAY_MIN_WIDTH,
+                flex: "1 1 0%",
                 borderRight:
                   idx < daysShown - 1
                     ? "1px solid rgba(255,255,255,0.05)"

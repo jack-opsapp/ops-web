@@ -77,6 +77,13 @@ export function DayTaskCard({
   const setSidePanelTask = useCalendarStore((s) => s.setSidePanelTask);
   const setInlineEdit = useCalendarStore((s) => s.setInlineEdit);
 
+  // Legend hover-to-highlight integration.
+  const highlightedTaskType = useCalendarStore((s) => s.highlightedTaskType);
+  const dimmedByLegend =
+    highlightedTaskType !== null && event.typeLabel !== highlightedTaskType;
+  const highlightedByLegend =
+    highlightedTaskType !== null && event.typeLabel === highlightedTaskType;
+
   // ── Resize state — bottom-edge drag for all-day duration ──────────────
   const [resize, setResize] = useState<{
     initialY: number;
@@ -266,11 +273,14 @@ export function DayTaskCard({
           background: "var(--bg-card)",
           border: resize
             ? `1px solid ${event.typeColors.border}`
-            : "1px solid rgba(255, 255, 255, 0.10)",
-          opacity: isHovered ? 1 : 0.96,
+            : highlightedByLegend
+              ? `1px solid ${event.typeColors.border}`
+              : "1px solid rgba(255, 255, 255, 0.10)",
+          opacity: dimmedByLegend ? 0.18 : isHovered ? 1 : 0.96,
+          filter: highlightedByLegend ? "brightness(1.2)" : "none",
           transition: resize
             ? "min-height 0.05s linear, border-color 0.15s cubic-bezier(0.22, 1, 0.36, 1)"
-            : "min-height 0.18s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.15s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.15s cubic-bezier(0.22, 1, 0.36, 1)",
+            : "min-height 0.18s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.15s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.15s cubic-bezier(0.22, 1, 0.36, 1), filter 0.15s cubic-bezier(0.22, 1, 0.36, 1)",
         }}
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
@@ -507,13 +517,12 @@ export function DayTaskCard({
         {resize && previewDayDelta !== 0 && (
           <div
             aria-hidden="true"
-            className="absolute pointer-events-none font-mono tabular-nums"
+            className="glass-dense absolute pointer-events-none font-mono tabular-nums"
             style={{
               right: 8,
               bottom: RESIZE_HANDLE_PX + 6,
               padding: "2px 6px",
               borderRadius: 4,
-              background: "rgba(0, 0, 0, 0.78)",
               border: `1px solid ${event.typeColors.border}`,
               color: "var(--text)",
               fontSize: 10,

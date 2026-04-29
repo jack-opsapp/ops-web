@@ -39,10 +39,13 @@ function DraggableDayListCard({
   index: number;
   onResize: (event: InternalCalendarEvent, newEndDate: Date) => void;
 }) {
+  const locked =
+    event.statusKey === "completed" || event.statusKey === "cancelled";
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({
       id: `day-list-event-${event.id}`,
       data: { type: "day-list-event", event },
+      disabled: locked,
     });
 
   const style: React.CSSProperties = transform

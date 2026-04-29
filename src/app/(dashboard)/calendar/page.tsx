@@ -40,7 +40,7 @@ import { UserRole, type TeamMember } from "@/lib/types/models";
 
 import { CalendarHeader } from "./_components/calendar-header";
 import { CalendarToolbar } from "./_components/calendar-toolbar";
-import { CrewGrid } from "./_components/crew/crew-grid";
+import { CrewScrollContainer } from "./_components/crew/crew-scroll-container";
 import { MonthScrollContainer } from "./_components/month/month-scroll-container";
 import { WeekScrollContainer } from "./_components/week/week-scroll-container";
 import { DayScrollContainer } from "./_components/day/day-scroll-container";
@@ -131,9 +131,12 @@ export default function CalendarPage() {
           rangeEnd: endOfWeek(addWeeks(currentDate, 6), { weekStartsOn: 1 }),
         };
       case "crew":
+        // Crew now uses horizontal infinite scroll (±6 weeks like Week view).
         return {
-          rangeStart: startOfWeek(currentDate, { weekStartsOn: 1 }),
-          rangeEnd: endOfWeek(currentDate, { weekStartsOn: 1 }),
+          rangeStart: startOfWeek(addWeeks(currentDate, -6), {
+            weekStartsOn: 1,
+          }),
+          rangeEnd: endOfWeek(addWeeks(currentDate, 6), { weekStartsOn: 1 }),
         };
       case "day":
       default:
@@ -253,7 +256,7 @@ export default function CalendarPage() {
   );
 
   return (
-    <div className="flex flex-col h-full gap-3">
+    <div className="flex flex-col h-full gap-3" data-calendar-motion-scope>
       <MetricsHeader variant="compact" tabId="calendar" title="Schedule" metrics={calendarMetrics} isLoading={calendarMetricsLoading} />
       <div className="flex flex-col flex-1 min-h-0 gap-1.5">
       <CalendarHeader t={t} />
@@ -290,7 +293,12 @@ export default function CalendarPage() {
               backgroundSize: "24px 24px",
             }}
           >
-            {isLoading && (
+            {/* Loader appears only on the very first mount (no cached
+                events yet). Once any data has been seen, scroll to a new
+                month/week/day reuses the previous range's data via
+                placeholderData on useScheduledTasks — so the calendar stays
+                mounted and the user never sees a flash. */}
+            {isLoading && events.length === 0 && (
               <div className="flex flex-col items-center justify-center flex-1 min-h-[200px] gap-3">
                 <Loader2 className="w-[32px] h-[32px] text-text-2 animate-spin" />
                 <p className="font-mohave text-body-sm text-text-3">
@@ -298,7 +306,7 @@ export default function CalendarPage() {
                 </p>
               </div>
             )}
-            {!isLoading && (
+            {(!isLoading || events.length > 0) && (
               <AnimatePresence mode="wait" initial={false}>
                 <motion.div
                   key={view}
@@ -309,10 +317,11 @@ export default function CalendarPage() {
                   className="flex flex-col flex-1 min-h-0"
                 >
                   {view === "crew" && (
-                    <CrewGrid
+                    <CrewScrollContainer
+                      currentDate={currentDate}
                       events={events}
                       teamMembers={teamMembers}
-                      startDate={timelineStartDate}
+                      onCurrentDateChange={setCurrentDate}
                       onEventClick={handleEventClick}
                     />
                   )}

@@ -52,13 +52,13 @@ export function CrewHeader({ startDate, daysShown }: CrewHeaderProps) {
           return (
             <div
               key={day.toISOString()}
-              className="relative flex flex-col justify-center px-[12px]"
+              className="relative flex flex-col justify-center px-[8px] min-w-0"
               style={{
-                flex: "1 0 0",
-                minWidth: CREW_DAY_MIN_WIDTH,
+                // 1 1 0% allows shrinking so all 7 days fit on narrow viewports
+                // without horizontal overflow.
+                flex: "1 1 0%",
                 opacity: weekend ? 0.6 : 1,
                 background: today ? "rgba(111, 148, 176, 0.06)" : "transparent",
-                // Today column: 2px accent top border (T14 — today indicator signal #2)
                 borderTop: today ? "2px solid var(--ops-accent)" : "2px solid transparent",
               }}
             >

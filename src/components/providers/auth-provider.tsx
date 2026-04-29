@@ -6,6 +6,7 @@ import { usePermissionStore } from "@/lib/store/permissions-store";
 import { useFeatureFlagsStore } from "@/lib/store/feature-flags-store";
 import { onAuthStateChanged, getIdToken, checkRedirectResult, clearRedirectFlag, isRedirectPending, clearRedirectContext } from "@/lib/firebase/auth";
 import { getFirebaseAuth } from "@/lib/firebase/config";
+import { attemptDevBypass, isDevBypassEnabled } from "@/lib/firebase/dev-bypass";
 import { UserService } from "@/lib/api/services/user-service";
 import { toast } from "sonner";
 
@@ -49,6 +50,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let cancelled = false;
     setLoading(true);
 
+    // Dev bypass — guard so we only attempt once per AuthProvider mount.
+    let bypassAttempted = false;
+
     // Handle redirect result only if a redirect was actually initiated.
     // We keep a reference to the promise so handleAuthState can defer the
     // unauth conclusion until getRedirectResult actually resolves —
@@ -91,6 +95,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setFirebaseAuth(authenticated);
 
       if (!authenticated) {
+        // Dev bypass: when NEXT_PUBLIC_DEV_BYPASS_AUTH=true, mint a custom
+        // Firebase token via /api/dev/bypass-token and sign in as the
+        // selected dev user. Once signed in, Firebase fires
+        // onAuthStateChanged again with the bypass user and the normal
+        // authed path takes over. Used to test inside the Claude Code
+        // preview sandbox where OAuth popups are blocked.
+        if (isDevBypassEnabled() && !bypassAttempted) {
+          bypassAttempted = true;
+          const ok = await attemptDevBypass();
+          if (cancelled) return;
+          if (ok) return; // wait for the next onAuthStateChanged fire
+        }
+
         setAuthCookie(null);
         clearPermissions();
         clearFlags();

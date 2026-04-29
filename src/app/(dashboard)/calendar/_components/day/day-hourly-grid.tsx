@@ -22,10 +22,12 @@ import { useDraggable } from "@dnd-kit/core";
 import { toast } from "sonner";
 import { useUpdateTask, useTasks, useRecurrenceEdit } from "@/lib/hooks";
 import { useRecurrenceEditPrompt } from "@/components/ui/recurrence-edit-prompt";
+import { useCalendarStore } from "@/stores/calendar-store";
 import {
   HOURS,
   HOUR_HEIGHT,
   FIRST_HOUR,
+  LAST_HOUR,
 } from "@/lib/utils/calendar-constants";
 import {
   formatHour,
@@ -88,6 +90,13 @@ function TimedBlock({
   // the iOS rule where status badge replaces interactive affordances).
   const locked =
     event.statusKey === "completed" || event.statusKey === "cancelled";
+
+  // Legend hover-to-highlight integration.
+  const highlightedTaskType = useCalendarStore((s) => s.highlightedTaskType);
+  const dimmedByLegend =
+    highlightedTaskType !== null && event.typeLabel !== highlightedTaskType;
+  const highlightedByLegend =
+    highlightedTaskType !== null && event.typeLabel === highlightedTaskType;
 
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({
@@ -180,11 +189,20 @@ function TimedBlock({
         top: displayTop,
         height: displayHeight,
         transform: dragTransform,
-        opacity: isDragging ? 0.6 : resize ? 0.85 : 1,
+        opacity: dimmedByLegend
+          ? 0.18
+          : isDragging
+            ? 0.6
+            : resize
+              ? 0.85
+              : 1,
+        filter: highlightedByLegend ? "brightness(1.25)" : "none",
         background: event.statusColors.bg,
         border: `1px solid ${event.statusColors.border}`,
         borderRadius: 4,
         zIndex: isDragging ? 30 : resize ? 20 : 5,
+        transition:
+          "opacity 0.15s cubic-bezier(0.22, 1, 0.36, 1), filter 0.15s cubic-bezier(0.22, 1, 0.36, 1)",
       }}
       {...attributes}
       {...listeners}
@@ -355,6 +373,18 @@ export function DayHourlyGrid({
       }
       // Guard: ensure end > start with at least 15-min gap.
       if (newEnd.getTime() - newStart.getTime() < SNAP_MINUTES * 60_000) {
+        return;
+      }
+      // Clamp to visible hourly band — outside FIRST_HOUR..LAST_HOUR the
+      // event would render off the grid.
+      const startHourFloat =
+        newStart.getHours() + newStart.getMinutes() / 60;
+      const endHourFloat =
+        newEnd.getHours() + newEnd.getMinutes() / 60;
+      if (startHourFloat < FIRST_HOUR || endHourFloat > LAST_HOUR) {
+        toast.error("Cannot resize outside business hours", {
+          description: `Event must stay between ${FIRST_HOUR}:00 and ${LAST_HOUR}:00.`,
+        });
         return;
       }
       const patch: Partial<ProjectTask> = {

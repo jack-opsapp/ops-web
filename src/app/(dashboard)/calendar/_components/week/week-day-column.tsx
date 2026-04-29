@@ -88,9 +88,12 @@ export function WeekDayColumn({ day, events, onCardResize }: WeekDayColumnProps)
   return (
     <div
       ref={setNodeRef}
-      className="relative flex flex-col min-h-0"
+      className="relative flex flex-col min-h-0 min-w-0"
       style={{
-        flex: "1 0 0",
+        // 1 1 0% = grow + shrink, basis 0%. min-w-0 above lets the column
+        // contract below its intrinsic content width — without it, long
+        // card titles inflate the column and bleed across siblings.
+        flex: "1 1 0%",
         opacity: weekend ? 0.85 : 1,
         background: isOver
           ? "rgba(111, 148, 176, 0.10)"

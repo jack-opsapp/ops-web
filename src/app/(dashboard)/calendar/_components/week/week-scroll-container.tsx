@@ -154,9 +154,18 @@ export function WeekScrollContainer({
     onCurrentDateChange(activeWeek);
   }, [activeWeek, onCurrentDateChange]);
 
+  // CRITICAL: do NOT key on activeWeek. The internal scroll → setActiveWeek
+  // → onCurrentDateChange → parent setCurrentDate loop would otherwise see
+  // a stale currentDate, fire scrollTo to the OLD week's offset, and yank
+  // the user back mid-scroll. Read the latest activeWeek via a ref instead.
+  const activeWeekRef = useRef(activeWeek);
+  useEffect(() => {
+    activeWeekRef.current = activeWeek;
+  }, [activeWeek]);
+
   useEffect(() => {
     const want = startOfWeek(currentDate, WEEK_OPTS);
-    if (isSameWeek(want, activeWeek, WEEK_OPTS)) return;
+    if (isSameWeek(want, activeWeekRef.current, WEEK_OPTS)) return;
     const container = scrollRef.current;
     if (!container) return;
     const key = format(want, "yyyy-MM-dd");
@@ -172,7 +181,7 @@ export function WeekScrollContainer({
     setWeeks(fresh);
     setActiveWeek(want);
     didInitialScroll.current = false;
-  }, [currentDate, activeWeek]);
+  }, [currentDate]);
 
   const { isDragging } = useCalendarDragState();
 
@@ -181,7 +190,9 @@ export function WeekScrollContainer({
       ref={scrollRef}
       className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden flex scrollbar-hide"
       style={{
-        scrollSnapType: isDragging ? "none" : "x mandatory",
+        // proximity (not mandatory) so panels snap when scroll settles but
+        // don't trap each wheel/trackpad tick at the boundary.
+        scrollSnapType: isDragging ? "none" : "x proximity",
         scrollBehavior: isDragging ? "auto" : "smooth",
       }}
     >
@@ -197,7 +208,6 @@ export function WeekScrollContainer({
               width: "100%",
               minWidth: "100%",
               scrollSnapAlign: "start",
-              scrollSnapStop: "always",
               borderLeft: "1px solid rgba(255, 255, 255, 0.04)",
             }}
           >

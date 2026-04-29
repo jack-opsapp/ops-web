@@ -57,6 +57,10 @@ interface CalendarStoreState {
   draggedEventId: string | null;
   dragPreview: { date: Date; duration: number } | null;
 
+  // Legend hover-to-highlight: when set, event renderers dim non-matching
+  // events and brighten matching ones. UI-ephemeral, never persisted.
+  highlightedTaskType: string | null;
+
   // Cascade / Ghost previews
   ghostPreviews: GhostPreview[];
   isConfirmBarVisible: boolean;
@@ -102,6 +106,9 @@ interface CalendarStoreState {
     eventId: string | null,
     preview?: { date: Date; duration: number } | null
   ) => void;
+
+  // Actions — Legend highlight
+  setHighlightedTaskType: (type: string | null) => void;
 
   // Actions — Multi-select
   toggleTaskSelection: (taskId: string) => void;
@@ -163,6 +170,9 @@ export const useCalendarStore = create<CalendarStoreState>()(
       // DnD
       draggedEventId: null,
       dragPreview: null,
+
+      // Legend highlight
+      highlightedTaskType: null,
 
       // Cascade / Ghost
       ghostPreviews: [],
@@ -229,6 +239,9 @@ export const useCalendarStore = create<CalendarStoreState>()(
           draggedEventId: eventId,
           dragPreview: preview ?? null,
         }),
+
+      // Actions — Legend highlight
+      setHighlightedTaskType: (type) => set({ highlightedTaskType: type }),
 
       // Actions — Multi-select
       toggleTaskSelection: (taskId) =>

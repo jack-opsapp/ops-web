@@ -39,7 +39,11 @@ import {
 import { addDays, differenceInCalendarDays } from "date-fns";
 import { toast } from "sonner";
 import type { InternalCalendarEvent } from "@/lib/utils/calendar-utils";
-import { HOUR_HEIGHT } from "@/lib/utils/calendar-constants";
+import {
+  FIRST_HOUR,
+  HOUR_HEIGHT,
+  LAST_HOUR,
+} from "@/lib/utils/calendar-constants";
 import type { ProjectTask } from "@/lib/types/models";
 import { useUpdateTask, useTasks, useRecurrenceEdit } from "@/lib/hooks";
 import { useRecurrenceEditPrompt } from "@/components/ui/recurrence-edit-prompt";
@@ -231,6 +235,21 @@ export function CalendarDndShell({ children }: CalendarDndShellProps) {
           addDays(eventEnd, dayDelta).getTime() + minutes * 60_000
         );
 
+        // Clamp to the visible hourly band [FIRST_HOUR, LAST_HOUR].
+        const startHourFloat =
+          newStart.getHours() + newStart.getMinutes() / 60;
+        const endHourFloat = newEnd.getHours() + newEnd.getMinutes() / 60;
+        if (
+          startHourFloat < FIRST_HOUR ||
+          endHourFloat > LAST_HOUR ||
+          newEnd.getTime() <= newStart.getTime()
+        ) {
+          toast.error("Cannot move outside business hours", {
+            description: `Event must stay between ${FIRST_HOUR}:00 and ${LAST_HOUR}:00.`,
+          });
+          return;
+        }
+
         const patch: Partial<ProjectTask> = {
           startDate: newStart,
           endDate: newEnd,
@@ -354,7 +373,11 @@ function DragPreview({ event }: { event: InternalCalendarEvent }) {
   return (
     <div
       style={{
-        background: event.typeColors.bg,
+        // glass-dense surface + type-color border. Spec forbids box-shadow
+        // on dark canvas — dense glass + border IS the depth cue.
+        background: "rgba(18, 18, 20, 0.78)",
+        backdropFilter: "blur(28px) saturate(1.3)",
+        WebkitBackdropFilter: "blur(28px) saturate(1.3)",
         border: `1px solid ${event.typeColors.border}`,
         borderRadius: 4,
         padding: "6px 10px",
@@ -365,8 +388,7 @@ function DragPreview({ event }: { event: InternalCalendarEvent }) {
         lineHeight: 1.2,
         textTransform: "uppercase",
         letterSpacing: 0,
-        boxShadow: "0 8px 24px rgba(0, 0, 0, 0.6)",
-        opacity: 0.92,
+        opacity: 0.96,
         maxWidth: 320,
         whiteSpace: "nowrap",
         overflow: "hidden",

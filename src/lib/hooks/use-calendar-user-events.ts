@@ -49,5 +49,7 @@ export function useScheduledUserEvents(
         scopedUserId ? { userId: scopedUserId } : {}
       ),
     enabled: !!companyId && !!startDate && !!endDate,
+    // Keep previous range visible during background refetches on scroll.
+    placeholderData: (previousData) => previousData,
   });
 }

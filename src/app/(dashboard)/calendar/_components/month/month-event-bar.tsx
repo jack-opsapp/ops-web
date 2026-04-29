@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { format } from "date-fns";
 import { type InternalCalendarEvent } from "@/lib/utils/calendar-utils";
+import { useCalendarStore } from "@/stores/calendar-store";
 import { EventHoverPopover } from "../event-hover-popover";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -142,6 +143,15 @@ export function MonthEventBar({
   const [isHovered, setIsHovered] = useState(false);
   const barRef = useRef<HTMLDivElement | null>(null);
 
+  // Legend hover-to-highlight: dim non-matches, brighten matches. The "glow"
+  // is brightness + opacity rather than a box-shadow (forbidden on dark
+  // canvas per the design spec).
+  const highlightedTaskType = useCalendarStore((s) => s.highlightedTaskType);
+  const dimmedByLegend =
+    highlightedTaskType !== null && event.typeLabel !== highlightedTaskType;
+  const highlightedByLegend =
+    highlightedTaskType !== null && event.typeLabel === highlightedTaskType;
+
   // Status guard — completed/cancelled events are display-only.
   const locked =
     event.statusKey === "completed" || event.statusKey === "cancelled";
@@ -270,12 +280,16 @@ export function MonthEventBar({
     return (
       <EventHoverPopover event={event} side="top">
         <div
-          className="cursor-pointer transition-opacity duration-100 hover:opacity-80 shrink-0"
+          className="cursor-pointer shrink-0"
           style={{
             width: 10,
             height: 10,
             borderRadius: "50%",
             backgroundColor: event.typeColors.border,
+            opacity: dimmedByLegend ? 0.18 : 1,
+            filter: highlightedByLegend ? "brightness(1.25)" : "none",
+            transition:
+              "opacity 0.15s cubic-bezier(0.22, 1, 0.36, 1), filter 0.15s cubic-bezier(0.22, 1, 0.36, 1)",
           }}
           onClick={handleClick}
         />
@@ -302,8 +316,14 @@ export function MonthEventBar({
             display: "flex",
             alignItems: "center",
             overflow: "visible",
-            transition: "filter 0.15s cubic-bezier(0.22, 1, 0.36, 1)",
-            filter: isHovered ? "brightness(1.18)" : "none",
+            transition:
+              "filter 0.15s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.15s cubic-bezier(0.22, 1, 0.36, 1)",
+            filter: highlightedByLegend
+              ? "brightness(1.3)"
+              : isHovered
+                ? "brightness(1.18)"
+                : "none",
+            opacity: dimmedByLegend ? 0.18 : 1,
           }}
           onClick={handleClick}
           onMouseEnter={() => setIsHovered(true)}
@@ -346,8 +366,14 @@ export function MonthEventBar({
             display: "flex",
             alignItems: "center",
             overflow: "visible",
-            transition: "filter 0.15s cubic-bezier(0.22, 1, 0.36, 1)",
-            filter: isHovered ? "brightness(1.18)" : "none",
+            transition:
+              "filter 0.15s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.15s cubic-bezier(0.22, 1, 0.36, 1)",
+            filter: highlightedByLegend
+              ? "brightness(1.3)"
+              : isHovered
+                ? "brightness(1.18)"
+                : "none",
+            opacity: dimmedByLegend ? 0.18 : 1,
           }}
           onClick={handleClick}
           onMouseEnter={() => setIsHovered(true)}
