@@ -282,6 +282,25 @@ export default function NewProjectPage() {
 
   const [serverError, setServerError] = useState<string | null>(null);
 
+  // Surface a top-level banner whenever zod validation fails so the user
+  // never has to hunt for the inline error on a long form. Scroll the
+  // first invalid field into view.
+  function handleInvalid(formErrors: typeof errors) {
+    setServerError(t("new.validationError"));
+    const firstErrorKey = Object.keys(formErrors)[0];
+    if (typeof window !== "undefined" && firstErrorKey) {
+      requestAnimationFrame(() => {
+        const el =
+          document.querySelector<HTMLElement>(`[name="${firstErrorKey}"]`) ??
+          document.querySelector<HTMLElement>(`#${firstErrorKey}`);
+        el?.scrollIntoView({ behavior: "smooth", block: "center" });
+        if (el && typeof (el as HTMLInputElement).focus === "function") {
+          (el as HTMLInputElement).focus({ preventScroll: true });
+        }
+      });
+    }
+  }
+
   // Submit handler
   async function onSubmit(data: ProjectFormData) {
     if (!companyId) {
@@ -350,12 +369,15 @@ export default function NewProjectPage() {
       )}
 
       {/* Form */}
-      <form onSubmit={handleSubmit(onSubmit)}>
+      <form onSubmit={handleSubmit(onSubmit, handleInvalid)} noValidate>
         <div className="bg-glass glass-surface border border-border rounded-lg p-3 space-y-3">
           {/* Project Name */}
           <Input
             label={t("new.nameLabel")}
             placeholder={t("new.namePlaceholder")}
+            helperText={t("new.requiredHint")}
+            aria-required="true"
+            required
             {...register("title")}
             error={errors.title?.message}
           />

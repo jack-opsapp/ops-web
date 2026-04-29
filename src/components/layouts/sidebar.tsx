@@ -274,14 +274,23 @@ export function Sidebar() {
       <aside
         onMouseEnter={() => { if (!isMobileView) setHoverExpanded(true); }}
         onMouseLeave={() => { if (!isMobileView) setHoverExpanded(false); }}
+        aria-hidden={isMobileView && !isMobileOpen ? "true" : undefined}
         className={cn(
           "fixed left-0 top-0 h-screen z-[45]",
           "border-r border-[rgba(255,255,255,0.06)]",
           "flex flex-col transition-all duration-200 ease-out",
           effectiveCollapsed ? "w-[72px]" : "w-[256px]",
-          // Mobile: off-screen by default, slide in when open
+          // Mobile: off-screen by default, slide in when open. We pair the
+          // translate with invisible/pointer-events-none so the drawer is
+          // genuinely removed from interaction even if the transform fails
+          // to apply (some legacy mobile browsers / WebView rendering paths
+          // dropped the sidebar back into layout, which left it overlapping
+          // dashboard widgets at 390px).
           isMobileOpen ? "translate-x-0" : "-translate-x-full",
-          "md:translate-x-0"
+          isMobileOpen ? "visible pointer-events-auto" : "invisible pointer-events-none",
+          // Restore visibility/interaction at md+ regardless of mobile-open
+          // state so the desktop hover-rail keeps working.
+          "md:translate-x-0 md:visible md:pointer-events-auto"
         )}
         style={{
           background: "var(--surface-glass-dense)",
