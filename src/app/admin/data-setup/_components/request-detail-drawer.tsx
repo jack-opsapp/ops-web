@@ -185,7 +185,7 @@ export function RequestDetailDrawer({
         <header className="flex items-start justify-between gap-3 px-5 py-4 border-b border-line">
           <div className="min-w-0">
             <p className="font-mono text-micro text-text-mute uppercase tracking-wider">
-              // Data Setup
+              {"// Data Setup"}
             </p>
             <h2 className="font-cakemono font-light uppercase text-[18px] text-text mt-1 truncate">
               {row.companyName}

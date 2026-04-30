@@ -23,8 +23,8 @@ export function DataSetupRequest(p: DataSetupRequestProps) {
     >
       <Headline>{p.companyName} bought Data Setup.</Headline>
       <Paragraph>
-        Reach out within 24 hours. Confirm what they're moving over, lock a
-        date, then run the migration.
+        Reach out within 24 hours. Confirm what they&apos;re moving over, lock
+        a date, then run the migration.
       </Paragraph>
       <Spacer size="md" />
       <InfoBlock label="Company">{p.companyName}</InfoBlock>

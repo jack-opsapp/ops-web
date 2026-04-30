@@ -534,7 +534,7 @@ export function AddonsSection() {
           className="font-mono text-micro uppercase tracking-wider text-text-mute select-none"
           aria-hidden="true"
         >
-          //
+          {"//"}
         </span>
         <h3 className="font-cakemono font-light uppercase text-[15px] text-text leading-none">
           {t("addons.section.title") ?? "Add-ons"}

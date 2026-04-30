@@ -18,7 +18,7 @@ export function PrioritySupportActivated(p: PrioritySupportActivatedProps) {
       eyebrow="Priority support // Active"
       senderAddress={DISPATCH.email}
     >
-      <Headline>You're at the front of the line.</Headline>
+      <Headline>You&apos;re at the front of the line.</Headline>
       <Paragraph>
         Priority Support is live for {p.companyName}. Email{" "}
         {p.contactEmail} from inside OPS or hit reply on this message and the
