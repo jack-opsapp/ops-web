@@ -50,7 +50,7 @@ export default async function MarkerDrillInPage({ params }: { params: Promise<{ 
           <SlashHeader variant="section">COHORT RETENTION</SlashHeader>
           {cohortRows.length === 0 ? (
             <div className="mt-4 font-mono text-[11px] text-[color:var(--text-mute)]">
-              // NO COHORTS YET
+              {"// NO COHORTS YET"}
             </div>
           ) : (
             <table className="w-full mt-4 font-mono text-[11px]">

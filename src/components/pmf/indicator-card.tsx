@@ -22,7 +22,7 @@ export function IndicatorCard({ state }: IndicatorCardProps) {
         <StatusDot status={state.status} size={5} />
       </div>
       <div className="font-mono uppercase text-[11px] tracking-[0.16em] text-[color:var(--text-3)]">
-        <span className="text-[color:var(--text-mute)] mr-1">//</span>
+        <span className="text-[color:var(--text-mute)] mr-1">{"//"}</span>
         {state.label}
       </div>
       <div className="mt-3 font-mono text-[20px] font-semibold tabular-nums text-[color:var(--text)]">

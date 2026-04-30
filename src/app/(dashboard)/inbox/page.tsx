@@ -564,7 +564,7 @@ export default function InboxPage() {
     return (
       <div className="flex flex-col items-start justify-start px-6 py-10">
         <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-rose">
-          // Access denied
+          {"// Access denied"}
         </p>
         <p className="font-mohave text-[14px] text-text mt-1">
           You don&apos;t have permission to view the inbox.
@@ -579,10 +579,13 @@ export default function InboxPage() {
   // ─── Render ────────────────────────────────────────────────────────────────
   return (
     <>
+      {/* BG fill matches site BG (#000) — inbox is a canvas-style page like
+          pipeline/projects, not a glass card. Internal columns retain their
+          own borders for separation. */}
       <div
         className={cn(
           "flex-1 min-h-0 flex overflow-hidden",
-          "rounded-panel border border-border glass-surface"
+          "rounded-panel border border-border bg-background"
         )}
       >
         {/* ─── Left: list ────────────────────────────────────────────────── */}

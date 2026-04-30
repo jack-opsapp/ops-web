@@ -223,8 +223,16 @@ export default function InvoicesPage() {
   }, [invoices, filterStatus, searchQuery, clientMap]);
 
   const metrics = useMemo(() => {
+    // Drafts are not yet sent and therefore not "outstanding" — exclude them
+    // so this metric stays in sync with the Accounting aging buckets and the
+    // server-side fetchAccountingMetrics outstanding total.
     const outstanding = invoices
-      .filter((i) => i.status !== InvoiceStatus.Paid && i.status !== InvoiceStatus.Void)
+      .filter(
+        (i) =>
+          i.status !== InvoiceStatus.Paid &&
+          i.status !== InvoiceStatus.Void &&
+          i.status !== InvoiceStatus.Draft
+      )
       .reduce((sum, i) => sum + i.balanceDue, 0);
     const overdue = invoices
       .filter((i) => i.status === InvoiceStatus.PastDue)

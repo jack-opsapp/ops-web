@@ -34,6 +34,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useGeolocationAddress } from "@/lib/hooks/use-geolocation-address";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ops/confirm-dialog";
+import { EditClientModal } from "@/components/ops/edit-client-modal";
 import { toast } from "sonner";
 import {
   useClient,
@@ -47,6 +48,7 @@ import {
 } from "@/lib/hooks";
 import { getInitials } from "@/lib/types/models";
 import type { Project } from "@/lib/types/models";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 const statusConfig: Record<string, { label: string; color: string; bg: string }> = {
   RFQ: { label: "RFQ", color: "text-status-rfq", bg: "bg-status-rfq/15" },
@@ -219,6 +221,7 @@ export default function ClientDetailPage() {
 
   const { getAddress, loading: locating } = useGeolocationAddress();
   const [isEditing, setIsEditing] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showAddSubClient, setShowAddSubClient] = useState(false);
 
@@ -381,11 +384,12 @@ export default function ClientDetailPage() {
       <div className="flex items-start gap-2">
         <div className="flex-1">
           <div className="flex items-center gap-1.5">
-            <div className="w-[52px] h-[52px] rounded-full flex items-center justify-center shrink-0 border border-[rgba(255,255,255,0.15)]">
-              <span className="font-mohave text-display text-text-2">
+            {/* Design system v2 avatar — client detail header at 52px. */}
+            <Avatar className="h-[52px] w-[52px]">
+              <AvatarFallback className="font-mohave text-display text-text-2">
                 {getInitials(clientData.name) || "?"}
-              </span>
-            </div>
+              </AvatarFallback>
+            </Avatar>
             <div>
               {isEditing ? (
                 <Input
@@ -443,7 +447,7 @@ export default function ClientDetailPage() {
                   variant="secondary"
                   size="sm"
                   className="gap-[6px]"
-                  onClick={() => setIsEditing(true)}
+                  onClick={() => setShowEditModal(true)}
                 >
                   <Edit3 className="w-[14px] h-[14px]" />
                   Edit
@@ -672,11 +676,12 @@ export default function ClientDetailPage() {
                     >
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1">
-                          <div className="w-[28px] h-[28px] rounded-full flex items-center justify-center shrink-0 border border-[rgba(255,255,255,0.15)]">
-                            <span className="font-mohave text-[11px] text-text-2">
+                          {/* Design system v2 avatar — sub-client list at 28px. */}
+                          <Avatar className="h-[28px] w-[28px]">
+                            <AvatarFallback className="font-mohave text-[11px] text-text-2">
                               {getInitials(sc.name)}
-                            </span>
-                          </div>
+                            </AvatarFallback>
+                          </Avatar>
                           <div className="min-w-0">
                             <p className="font-mohave text-body-sm text-text truncate">
                               {sc.name}
@@ -842,6 +847,13 @@ export default function ClientDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Edit Client Modal */}
+      <EditClientModal
+        open={showEditModal}
+        onOpenChange={setShowEditModal}
+        client={clientData}
+      />
 
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog

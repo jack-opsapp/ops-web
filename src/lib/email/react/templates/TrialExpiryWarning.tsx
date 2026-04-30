@@ -1,3 +1,4 @@
+// @template-version: 1.0.0
 import * as React from "react";
 import { OpsEmailLayout } from "../layouts/OpsEmailLayout";
 import { Headline, Paragraph, Button, Spacer, Divider } from "../primitives";
@@ -9,6 +10,7 @@ interface TrialExpiryWarningProps {
   trialEndDisplay: string;
   subscribeUrl: string;
   unsubscribeUrl: string;
+  list?: string;
 }
 
 export function TrialExpiryWarning({
@@ -16,6 +18,7 @@ export function TrialExpiryWarning({
   trialEndDisplay,
   subscribeUrl,
   unsubscribeUrl,
+  list,
 }: TrialExpiryWarningProps) {
   const headline =
     daysRemaining === 1
@@ -38,8 +41,8 @@ export function TrialExpiryWarning({
       }
       eyebrow="Trial reminder"
       senderAddress={DISPATCH.email}
-      mode="marketing"
       unsubscribeUrl={unsubscribeUrl}
+      list={list}
     >
       <Headline>{headline}</Headline>
       <Paragraph>
@@ -76,3 +79,5 @@ TrialExpiryWarning.PreviewProps = {
 } satisfies TrialExpiryWarningProps;
 
 export default TrialExpiryWarning;
+
+export const previewProps = TrialExpiryWarning.PreviewProps;

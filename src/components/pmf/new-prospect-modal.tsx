@@ -261,7 +261,7 @@ export function NewProspectModal() {
             role="alert"
             className="font-mono text-[11px] text-[color:var(--rose)]"
           >
-            // ERROR — {error}
+            {"// ERROR — "}{error}
           </div>
         )}
 

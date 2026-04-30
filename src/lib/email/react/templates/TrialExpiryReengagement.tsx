@@ -1,3 +1,4 @@
+// @template-version: 1.0.0
 import * as React from "react";
 import { OpsEmailLayout } from "../layouts/OpsEmailLayout";
 import {
@@ -18,6 +19,7 @@ interface TrialExpiryReengagementProps {
   promoCode30: string;
   subscribeUrl: string;
   unsubscribeUrl: string;
+  list?: string;
 }
 
 function PromoCodeBox({
@@ -75,6 +77,7 @@ export function TrialExpiryReengagement({
   promoCode30,
   subscribeUrl,
   unsubscribeUrl,
+  list,
 }: TrialExpiryReengagementProps) {
   const isFinal = daysSinceExpiry >= 30;
 
@@ -99,8 +102,8 @@ export function TrialExpiryReengagement({
       }
       eyebrow={isFinal ? "Final message" : "Come back"}
       senderAddress={DISPATCH.email}
-      mode="marketing"
       unsubscribeUrl={unsubscribeUrl}
+      list={list}
     >
       <Headline>{headline}</Headline>
       <Paragraph>{opener}</Paragraph>
@@ -143,3 +146,5 @@ TrialExpiryReengagement.PreviewProps = {
 } satisfies TrialExpiryReengagementProps;
 
 export default TrialExpiryReengagement;
+
+export const previewProps = TrialExpiryReengagement.PreviewProps;

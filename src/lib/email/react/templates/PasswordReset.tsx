@@ -1,3 +1,4 @@
+// @template-version: 1.0.0
 import * as React from "react";
 import { OpsEmailLayout } from "../layouts/OpsEmailLayout";
 import { Headline, Paragraph, Button, Spacer, Divider } from "../primitives";
@@ -5,14 +6,22 @@ import { GATE } from "../../senders";
 
 interface PasswordResetProps {
   resetLink: string;
+  unsubscribeUrl?: string;
+  list?: string;
 }
 
-export function PasswordReset({ resetLink }: PasswordResetProps) {
+export function PasswordReset({
+  resetLink,
+  unsubscribeUrl,
+  list,
+}: PasswordResetProps) {
   return (
     <OpsEmailLayout
       preview="Reset your OPS password — link valid for 60 minutes"
       eyebrow="Secure password reset"
       senderAddress={GATE.email}
+      unsubscribeUrl={unsubscribeUrl}
+      list={list}
     >
       <Headline>Set a new password.</Headline>
       <Paragraph>
@@ -35,3 +44,5 @@ PasswordReset.PreviewProps = {
 } satisfies PasswordResetProps;
 
 export default PasswordReset;
+
+export const previewProps = PasswordReset.PreviewProps;

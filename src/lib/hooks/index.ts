@@ -89,6 +89,16 @@ export {
   useRemoveSeatedEmployee,
 } from "./use-company";
 
+// Subscription Add-ons
+export { useAddOns, useAddOnPrices } from "./use-addons";
+export type {
+  AddOnsState,
+  DataSetupState,
+  PrioritySupportState,
+  DataSetupStatus,
+  AddOnPriceMap,
+} from "./use-addons";
+
 // Calendar (deprecated — site visit hooks only)
 // New calendar data flows through useScheduledTasks in ./use-tasks.ts
 

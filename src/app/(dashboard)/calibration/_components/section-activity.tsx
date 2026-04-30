@@ -84,7 +84,7 @@ export function SectionActivity() {
     <div className="px-11 py-9 max-w-[1320px] mx-auto">
       <SectionBreadcrumb currentSection="activity" />
       <h2 className="font-cakemono font-light uppercase text-[22px] text-text mb-4">
-        <span className="text-text-mute mr-2">//</span>ACTIVITY
+        <span className="text-text-mute mr-2">{"//"}</span>ACTIVITY
       </h2>
 
       {/* Live sensor strip */}

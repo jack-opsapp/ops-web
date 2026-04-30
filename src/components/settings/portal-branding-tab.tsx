@@ -125,14 +125,63 @@ async function updateBranding(
   if (updates.showTax !== undefined) row.show_tax = updates.showTax;
   if (updates.showDiscount !== undefined) row.show_discount = updates.showDiscount;
 
-  const { data, error } = await supabase
+  // Visibility-override columns are added in migration 044. If migration 044
+  // has not yet been applied to the target Postgres/PostgREST schema cache,
+  // upserts that include any of these columns fail with:
+  //   "Could not find the '<col>' column of 'portal_branding' in the schema cache"
+  // Strip any unknown visibility columns and retry transparently so the user's
+  // core branding (logo / accent / template / theme / welcome) still saves.
+  const VISIBILITY_COLS = [
+    "show_quantities",
+    "show_unit_prices",
+    "show_line_totals",
+    "show_descriptions",
+    "show_tax",
+    "show_discount",
+  ] as const;
+
+  let attempt = await supabase
     .from("portal_branding")
     .upsert(row, { onConflict: "company_id" })
     .select()
     .single();
 
-  if (error) throw new Error(`Failed to update branding: ${error.message}`);
-  return mapBrandingFromDb(data);
+  if (attempt.error) {
+    const msg = attempt.error.message ?? "";
+    const schemaCacheMatch = /Could not find the '([^']+)' column of 'portal_branding' in the schema cache/i.exec(msg);
+    if (schemaCacheMatch) {
+      const missingCol = schemaCacheMatch[1];
+      // Strip the offending column and any other visibility overrides — the
+      // feature degrades gracefully until migration 044 lands.
+      const sanitized = { ...row };
+      delete sanitized[missingCol];
+      let strippedAny = false;
+      for (const col of VISIBILITY_COLS) {
+        if (col in sanitized) {
+          delete sanitized[col];
+          strippedAny = true;
+        }
+      }
+      attempt = await supabase
+        .from("portal_branding")
+        .upsert(sanitized, { onConflict: "company_id" })
+        .select()
+        .single();
+      if (attempt.error) {
+        throw new Error(`Failed to update branding: ${attempt.error.message}`);
+      }
+      if (strippedAny) {
+        // Soft warning — the save succeeded for everything visibility
+        // overrides. Caller surfaces the original toast on success.
+        console.warn(
+          "[portal-branding] Document visibility overrides not saved: schema is missing migration 044 (portal_branding visibility columns)."
+        );
+      }
+      return mapBrandingFromDb(attempt.data);
+    }
+    throw new Error(`Failed to update branding: ${attempt.error.message}`);
+  }
+  return mapBrandingFromDb(attempt.data);
 }
 
 // ─── Preset accent colors (centralized palette) ─────────────────────────────

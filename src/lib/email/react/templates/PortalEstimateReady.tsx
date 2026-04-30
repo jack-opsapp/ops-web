@@ -1,3 +1,4 @@
+// @template-version: 1.0.0
 import * as React from "react";
 import { PortalEmailLayout } from "../layouts/PortalEmailLayout";
 import { Headline, Paragraph, Button, Spacer, InfoBlock } from "../primitives";
@@ -8,6 +9,9 @@ interface PortalEstimateReadyProps {
   portalUrl: string;
   accentColor: string;
   logoUrl: string | null;
+  unsubscribeUrl?: string;
+  list?: string;
+  companyPhysicalAddress?: string | null;
 }
 
 export function PortalEstimateReady({
@@ -16,15 +20,21 @@ export function PortalEstimateReady({
   portalUrl,
   accentColor,
   logoUrl,
+  unsubscribeUrl,
+  list,
+  companyPhysicalAddress,
 }: PortalEstimateReadyProps) {
   return (
     <PortalEmailLayout
       preview={`Estimate ${estimateNumber} from ${companyName}`}
       eyebrow={`Estimate ${estimateNumber}`}
       companyName={companyName}
+      companyPhysicalAddress={companyPhysicalAddress}
       logoUrl={logoUrl}
       accentColor={accentColor}
       senderAddress="noreply@opsapp.co"
+      unsubscribeUrl={unsubscribeUrl}
+      list={list}
     >
       <Headline>Your estimate&apos;s ready.</Headline>
       <Paragraph>
@@ -49,3 +59,5 @@ PortalEstimateReady.PreviewProps = {
 } satisfies PortalEstimateReadyProps;
 
 export default PortalEstimateReady;
+
+export const previewProps = PortalEstimateReady.PreviewProps;

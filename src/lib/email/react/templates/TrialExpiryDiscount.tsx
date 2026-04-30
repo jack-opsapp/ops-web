@@ -1,3 +1,4 @@
+// @template-version: 1.0.0
 import * as React from "react";
 import { OpsEmailLayout } from "../layouts/OpsEmailLayout";
 import {
@@ -19,6 +20,7 @@ interface TrialExpiryDiscountProps {
   promoCode30: string;
   subscribeUrl: string;
   unsubscribeUrl: string;
+  list?: string;
 }
 
 function PromoCodeBox({
@@ -78,14 +80,15 @@ export function TrialExpiryDiscount({
   promoCode30,
   subscribeUrl,
   unsubscribeUrl,
+  list,
 }: TrialExpiryDiscountProps) {
   return (
     <OpsEmailLayout
       preview={`${daysRemaining} days left — 50% off or 30% off, your call`}
       eyebrow="Last call"
       senderAddress={DISPATCH.email}
-      mode="marketing"
       unsubscribeUrl={unsubscribeUrl}
+      list={list}
     >
       <Headline>
         {daysRemaining} days left &mdash; 50% off or 30% off, your call.
@@ -137,3 +140,5 @@ TrialExpiryDiscount.PreviewProps = {
 } satisfies TrialExpiryDiscountProps;
 
 export default TrialExpiryDiscount;
+
+export const previewProps = TrialExpiryDiscount.PreviewProps;

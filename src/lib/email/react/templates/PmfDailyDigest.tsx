@@ -15,6 +15,8 @@ export interface PmfDailyDigestProps {
   state: PmfState;
   daysToGate: number;
   dashboardUrl?: string;
+  unsubscribeUrl?: string;
+  list?: string;
 }
 
 function statusTone(status: string): "neutral" | "success" | "error" {
@@ -33,6 +35,8 @@ export function PmfDailyDigest({
   state,
   daysToGate,
   dashboardUrl,
+  unsubscribeUrl,
+  list,
 }: PmfDailyDigestProps) {
   const safeUrl =
     dashboardUrl && /^https?:\/\//.test(dashboardUrl) ? dashboardUrl : null;
@@ -42,6 +46,8 @@ export function PmfDailyDigest({
       preview={`PMF daily digest · gate B · ${daysToGate} days`}
       eyebrow={`// PMF DAILY DIGEST · GATE B · ${daysToGate} DAYS`}
       senderAddress={DISPATCH.email}
+      unsubscribeUrl={unsubscribeUrl}
+      list={list}
     >
       <Headline as="h1">Daily marker readout</Headline>
       <Paragraph small>

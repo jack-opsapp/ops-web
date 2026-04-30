@@ -5,10 +5,19 @@ import { useRouter, usePathname } from "next/navigation";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { AuthProvider } from "@/components/providers/auth-provider";
 import { useDictionary } from "@/i18n/client";
-import { OpsLockup } from "@/components/brand";
+import { OpsLockup, LogoLoader } from "@/components/brand";
 
 // Routes within (auth) group that authenticated users CAN access
-const authenticatedAllowedRoutes = ["/locked", "/join", "/account-type"];
+const authenticatedAllowedRoutes = [
+  "/locked",
+  "/join",
+  "/account-type",
+  // Inbox-reconnect confirmation pages must work for both authenticated and
+  // unauthenticated users — alert emails can be opened on a session that's
+  // already signed in OR signed out, and we want both paths to land on the
+  // same confirmation experience instead of bouncing the authed user to /dashboard.
+  "/reconnect-inbox",
+];
 
 // Routes that REQUIRE authentication (show auth popup if not logged in)
 const authRequiredRoutes = ["/locked", "/account-type"];
@@ -38,9 +47,7 @@ function AuthRouteGate({ children }: { children: React.ReactNode }) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
-        <div className="flex flex-col items-center gap-2 animate-pulse-live text-text">
-          <OpsLockup orientation="vertical" className="h-16 w-auto" />
-        </div>
+        <LogoLoader size={120} />
       </div>
     );
   }

@@ -1,3 +1,4 @@
+// @template-version: 1.0.0
 import * as React from "react";
 import sanitizeHtml from "sanitize-html";
 import parse from "html-react-parser";
@@ -14,6 +15,7 @@ interface BlogNewsletterProps {
   emailContent: string;
   postUrl: string;
   unsubscribeUrl: string;
+  list?: string;
 }
 
 /**
@@ -60,6 +62,7 @@ export function BlogNewsletter({
   emailContent,
   postUrl,
   unsubscribeUrl,
+  list,
 }: BlogNewsletterProps) {
   // Two-layer safety: sanitize-html enforces the tag/attr allowlist and link
   // schemes, then html-react-parser converts the validated string to real
@@ -71,8 +74,8 @@ export function BlogNewsletter({
       preview={teaser ?? title}
       eyebrow="Field notes"
       senderAddress={FIELD_NOTES.email}
-      mode="marketing"
       unsubscribeUrl={unsubscribeUrl}
+      list={list}
     >
       {thumbnailUrl ? (
         <>
@@ -125,3 +128,5 @@ BlogNewsletter.PreviewProps = {
 } satisfies BlogNewsletterProps;
 
 export default BlogNewsletter;
+
+export const previewProps = BlogNewsletter.PreviewProps;

@@ -18,6 +18,7 @@ import {
   screenNameFromPath,
 } from "@/lib/utils/bug-context";
 import { useDictionary } from "@/i18n/client";
+import { Switch } from "@/components/ui/switch";
 
 type FormState = "idle" | "submitting" | "success" | "error";
 type Severity = "blocker" | "major" | "minor";
@@ -484,13 +485,9 @@ export function BugReportButton() {
                   {isPowerUser && (
                     /* Requires-my-input toggle. When on, the nightly triage
                         agent skips this report (written to requires_human_review). */
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={requiresMyInput}
-                      onClick={() => setRequiresMyInput((v) => !v)}
+                    <label
                       className={cn(
-                        "w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-[4px] border transition-colors",
+                        "w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-[4px] border transition-colors cursor-pointer",
                         requiresMyInput
                           ? "border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.06)]"
                           : "border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] hover:border-[rgba(255,255,255,0.14)]"
@@ -506,24 +503,11 @@ export function BugReportButton() {
                           ? `[${t("bugReport.requiresInputOn")}]`
                           : t("bugReport.requiresInputOff")}
                       </span>
-                      <span
-                        className={cn(
-                          "relative inline-block w-6 h-3 rounded-full transition-colors flex-shrink-0",
-                          requiresMyInput
-                            ? "bg-[rgba(255,255,255,0.2)]"
-                            : "bg-[rgba(255,255,255,0.08)]"
-                        )}
-                      >
-                        <span
-                          className={cn(
-                            "absolute top-[1px] w-[10px] h-[10px] rounded-full transition-all",
-                            requiresMyInput
-                              ? "left-[13px] bg-text-2"
-                              : "left-[1px] bg-text-disabled"
-                          )}
-                        />
-                      </span>
-                    </button>
+                      <Switch
+                        checked={requiresMyInput}
+                        onCheckedChange={setRequiresMyInput}
+                      />
+                    </label>
                   )}
 
                   {/* Auto-captured context. Power user gets a screenshot toggle;
@@ -533,11 +517,9 @@ export function BugReportButton() {
                       {t("bugReport.autoCapture")}
                     </p>
                     {isPowerUser && screenshotBlob && (
-                      <button
-                        type="button"
-                        onClick={() => setIncludeScreenshot((v) => !v)}
+                      <label
                         className={cn(
-                          "w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-sm border transition-colors",
+                          "w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-sm border transition-colors cursor-pointer",
                           includeScreenshot
                             ? "border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.05)]"
                             : "border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)]"
@@ -553,24 +535,11 @@ export function BugReportButton() {
                             ? `[ATTACH SCREENSHOT · ${Math.round(screenshotBlob.size / 1024)}KB]`
                             : "[SCREENSHOT OFF]"}
                         </span>
-                        <span
-                          className={cn(
-                            "relative inline-block w-6 h-3 rounded-full transition-colors flex-shrink-0",
-                            includeScreenshot
-                              ? "bg-ops-accent/40"
-                              : "bg-[rgba(255,255,255,0.08)]"
-                          )}
-                        >
-                          <span
-                            className={cn(
-                              "absolute top-[1px] w-[10px] h-[10px] rounded-full transition-all",
-                              includeScreenshot
-                                ? "left-[13px] bg-ops-accent"
-                                : "left-[1px] bg-text-disabled"
-                            )}
-                          />
-                        </span>
-                      </button>
+                        <Switch
+                          checked={includeScreenshot}
+                          onCheckedChange={setIncludeScreenshot}
+                        />
+                      </label>
                     )}
                   </div>
 

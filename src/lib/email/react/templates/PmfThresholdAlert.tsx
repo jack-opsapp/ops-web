@@ -14,6 +14,8 @@ export interface PmfThresholdAlertProps {
   messageBody: string;
   context?: Record<string, string | number>;
   dashboardUrl?: string;
+  unsubscribeUrl?: string;
+  list?: string;
 }
 
 export function PmfThresholdAlert({
@@ -21,6 +23,8 @@ export function PmfThresholdAlert({
   messageBody,
   context,
   dashboardUrl,
+  unsubscribeUrl,
+  list,
 }: PmfThresholdAlertProps) {
   const safeUrl =
     dashboardUrl && /^https?:\/\//.test(dashboardUrl) ? dashboardUrl : null;
@@ -30,6 +34,8 @@ export function PmfThresholdAlert({
       preview={messageBody}
       eyebrow={`// PMF ALERT · ${trigger.toUpperCase()}`}
       senderAddress={DISPATCH.email}
+      unsubscribeUrl={unsubscribeUrl}
+      list={list}
     >
       <Headline as="h1">{messageBody}</Headline>
 

@@ -1,3 +1,4 @@
+// @template-version: 1.0.0
 import * as React from "react";
 import { OpsEmailLayout } from "../layouts/OpsEmailLayout";
 import { Headline, Paragraph, Button, Spacer } from "../primitives";
@@ -5,14 +6,22 @@ import { GATE } from "../../senders";
 
 interface EmailVerificationProps {
   verifyLink: string;
+  unsubscribeUrl?: string;
+  list?: string;
 }
 
-export function EmailVerification({ verifyLink }: EmailVerificationProps) {
+export function EmailVerification({
+  verifyLink,
+  unsubscribeUrl,
+  list,
+}: EmailVerificationProps) {
   return (
     <OpsEmailLayout
       preview="Confirm your email on OPS"
       eyebrow="Email verification"
       senderAddress={GATE.email}
+      unsubscribeUrl={unsubscribeUrl}
+      list={list}
     >
       <Headline>Confirm it&apos;s you.</Headline>
       <Paragraph>
@@ -30,3 +39,5 @@ EmailVerification.PreviewProps = {
 } satisfies EmailVerificationProps;
 
 export default EmailVerification;
+
+export const previewProps = EmailVerification.PreviewProps;

@@ -179,6 +179,7 @@ async function createOpportunity(
 ): Promise<string> {
   const supabase = requireSupabase();
   const isOutbound = stage === "qualifying"; // sent folder leads start at qualifying
+  const startedAt = Date.now();
   const { data } = await supabase
     .from("opportunities")
     .insert({
@@ -197,6 +198,18 @@ async function createOpportunity(
     })
     .select("id")
     .single();
+
+  // Phase C observability: log lead creation so the heartbeat cron has a
+  // signal of end-to-end ingestion success, not just webhook delivery.
+  console.log("[email-ingest] lead-created", {
+    leadId: data!.id,
+    companyId,
+    clientId,
+    stage,
+    direction: isOutbound ? "out" : "in",
+    msToCreate: Date.now() - startedAt,
+  });
+
   return data!.id;
 }
 

@@ -64,6 +64,9 @@ describe("Email template snapshots", () => {
       expect(html).toContain("Mohave");
       expect(html).not.toMatch(/Kosugi/i);
       expect(html).not.toMatch(/Bebas/i);
+      // CAN-SPAM/CASL — every email must carry the legal address.
+      expect(html).toContain("1515 Douglas St");
+      expect(html).toContain("Victoria");
       expect(html).toMatchSnapshot();
     });
   }

@@ -24,6 +24,7 @@ import {
 import { toast } from "sonner";
 import { useDictionary } from "@/i18n/client";
 import { usePermissionStore } from "@/lib/store/permissions-store";
+import { AddonsSection } from "./addons-section";
 
 // ─── Plan Features Data ──────────────────────────────────────────────────────
 
@@ -105,7 +106,26 @@ function UpgradeModal({
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Subscription failed");
+      if (!res.ok) {
+        // 402 from /api/stripe/subscribe means the company has no payment
+        // method on file. Surface a specific, actionable toast that routes
+        // the user to Settings → Billing instead of the generic failure
+        // message — and bail BEFORE showing the success toast.
+        if (res.status === 402 || data?.code === "payment_method_required") {
+          toast.error("Payment method required", {
+            description:
+              "Add a card in Settings → Billing, then try the upgrade again.",
+            action: {
+              label: "Open Billing",
+              onClick: () => {
+                window.location.assign("/settings?tab=billing");
+              },
+            },
+          });
+          return;
+        }
+        throw new Error(data.error ?? "Subscription failed");
+      }
       toast.success(t("subscription.toast.subscribed"));
       onClose();
     } catch (err) {
@@ -364,6 +384,7 @@ export function SubscriptionTab() {
 
   return (
     <>
+      <div className="space-y-4">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         {/* Current Plan + Features + Seat Usage (combined) */}
         <Card variant="accent">
@@ -459,6 +480,10 @@ export function SubscriptionTab() {
             })}
           </CardContent>
         </Card>
+      </div>
+
+      {/* Add-ons — Data Setup + Priority Support */}
+      <AddonsSection />
       </div>
 
       {upgradePlan && (

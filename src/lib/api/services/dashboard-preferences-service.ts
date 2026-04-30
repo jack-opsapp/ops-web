@@ -7,6 +7,7 @@
  */
 
 import { parseDateRequired } from "@/lib/supabase/helpers";
+import { getIdToken as getFirebaseIdToken } from "@/lib/firebase/auth";
 import type { WidgetInstance } from "@/lib/types/dashboard-widgets";
 import type { DashboardLayoutId, SchedulingTypeId } from "@/stores/preferences-store";
 
@@ -56,9 +57,20 @@ function mapFromDb(row: Record<string, unknown>): DashboardPreferences {
   };
 }
 
-/** Get the Firebase auth token from cookie for API route auth */
-function getAuthToken(): string | null {
+/**
+ * Resolve a fresh Firebase ID token. The cookie value can lag behind Firebase's
+ * in-memory token by up to an hour (token rotation), which manifested as a
+ * "401 Unauthorized" on every page load when the cached cookie was stale.
+ * Calling getIdToken() lets Firebase refresh the token if it's about to expire.
+ */
+async function getAuthToken(): Promise<string | null> {
   if (typeof document === "undefined") return null;
+  try {
+    const token = await getFirebaseIdToken();
+    if (token) return token;
+  } catch {
+    // Fall through to cookie fallback below
+  }
   const match = document.cookie.match(/ops-auth-token=([^;]+)/);
   return match?.[1] ?? null;
 }
@@ -89,7 +101,7 @@ export const DashboardPreferencesService = {
    * Get dashboard preferences for a user+company. Creates defaults if missing.
    */
   async getPreferences(userId: string, companyId: string): Promise<DashboardPreferences> {
-    const token = getAuthToken();
+    const token = await getAuthToken();
     if (!token) {
       console.warn("[DashboardPreferences] No auth token available, using defaults.");
       return makeDefaults(userId, companyId);
@@ -124,7 +136,7 @@ export const DashboardPreferencesService = {
     companyId: string,
     updates: UpdateDashboardPreferences
   ): Promise<DashboardPreferences> {
-    const token = getAuthToken();
+    const token = await getAuthToken();
     if (!token) throw new Error("No auth token available");
 
     const row: Record<string, unknown> = { user_id: userId, company_id: companyId };

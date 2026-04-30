@@ -7,20 +7,33 @@ import {
   Preview,
   Font,
 } from "@react-email/components";
-import { Hero, BodyBand, Footer, emailTokens as T } from "../primitives";
-
-const OPS_PHYSICAL_ADDRESS =
-  "OPS Ltd. · 1515 Douglas St, Victoria, BC V8W 2G4, Canada";
+import {
+  Hero,
+  BodyBand,
+  Footer,
+  ComplianceFooter,
+  emailTokens as T,
+} from "../primitives";
 
 interface PortalEmailLayoutProps {
   preview: string;
   eyebrow?: string;
   companyName: string;
+  /**
+   * Customer-provided postal address shown in the compliance footer for
+   * whitelabel portal emails. CAN-SPAM/CASL require the company's address
+   * (not OPS's) since the email is sent on the company's behalf. If NULL or
+   * blank, ComplianceFooter falls back to the OPS address — the operator
+   * runbook nudges the company to fill this in via Settings → Company.
+   */
+  companyPhysicalAddress?: string | null;
   logoUrl?: string | null;
   accentColor: string;
   senderAddress: string;
+  /** @deprecated retained for prop-compat with PR β templates; unused. */
   mode?: "transactional" | "marketing";
   unsubscribeUrl?: string;
+  list?: string;
   children: React.ReactNode;
 }
 
@@ -28,11 +41,12 @@ export function PortalEmailLayout({
   preview,
   eyebrow,
   companyName,
+  companyPhysicalAddress,
   logoUrl,
   accentColor,
   senderAddress,
-  mode = "transactional",
   unsubscribeUrl,
+  list,
   children,
 }: PortalEmailLayoutProps) {
   return (
@@ -86,13 +100,16 @@ export function PortalEmailLayout({
             accentColor={accentColor}
           />
           <BodyBand>{children}</BodyBand>
+          <ComplianceFooter
+            list={list ?? "global"}
+            unsubscribeUrl={unsubscribeUrl}
+            physicalAddress={companyPhysicalAddress ?? undefined}
+            legalName={companyName}
+          />
           <Footer
             variant="portal"
-            mode={mode}
             senderAddress={senderAddress}
-            unsubscribeUrl={unsubscribeUrl}
             companyName={companyName}
-            physicalAddress={OPS_PHYSICAL_ADDRESS}
           />
         </Container>
       </Body>

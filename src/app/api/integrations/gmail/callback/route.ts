@@ -21,6 +21,13 @@ interface OAuthState {
   companyId: string;
   userId: string | null;
   type: "company" | "individual";
+  /**
+   * Where to land the user after the connection is written. `wizard` (default)
+   * keeps the existing /settings landing for in-app reconnects. `alert` lands
+   * them on /reconnect-inbox/success — the auth-aware confirmation page used
+   * by the email-ingest-down alert flow.
+   */
+  source: "wizard" | "alert";
 }
 
 /**
@@ -38,6 +45,7 @@ function decodeState(raw: string): OAuthState | null {
         companyId: json.companyId,
         userId: typeof json.userId === "string" ? json.userId : null,
         type: json.type === "individual" ? "individual" : "company",
+        source: json.source === "alert" ? "alert" : "wizard",
       };
     }
   } catch {
@@ -46,7 +54,7 @@ function decodeState(raw: string): OAuthState | null {
 
   // Legacy format: state was just the raw companyId string.
   if (raw && !raw.includes("=") && !raw.includes(":")) {
-    return { companyId: raw, userId: null, type: "company" };
+    return { companyId: raw, userId: null, type: "company", source: "wizard" };
   }
   return null;
 }
@@ -170,6 +178,17 @@ export async function GET(request: NextRequest) {
       console.error("Failed to store Gmail tokens:", upsertError.message);
       return NextResponse.redirect(
         `${getAppUrl()}/settings?tab=integrations&status=error&message=storage_failed`
+      );
+    }
+
+    if (state.source === "alert") {
+      const successParams = new URLSearchParams({
+        companyId: state.companyId,
+        email: gmailEmail,
+        provider: "gmail",
+      });
+      return NextResponse.redirect(
+        `${getAppUrl()}/reconnect-inbox/success?${successParams.toString()}`
       );
     }
 

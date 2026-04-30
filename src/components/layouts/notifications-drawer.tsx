@@ -244,7 +244,7 @@ export function NotificationsDrawer() {
                 letterSpacing: "0.16em",
               }}
             >
-              //
+              {"//"}
             </span>
             <span
               style={{

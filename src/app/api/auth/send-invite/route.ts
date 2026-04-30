@@ -18,7 +18,6 @@ import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 import { sendTeamInvite } from "@/lib/email/sendgrid";
 import { sendTeamInviteSMS } from "@/lib/sms/twilio";
 import { normalizePhoneE164, InvalidPhoneError } from "@/lib/sms/phone-utils";
-import { getAppUrl } from "@/lib/utils/app-url";
 
 // ─── Request Body ────────────────────────────────────────────────────────────
 
@@ -106,7 +105,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     const inviteCode = company.company_code || company.id;
-    const joinUrl = `${getAppUrl()}/join?code=${inviteCode}`;
+    const joinUrl = `${process.env.NEXT_PUBLIC_APP_URL}/join?code=${inviteCode}`;
     const inviterName = [requestingUser.first_name, requestingUser.last_name].filter(Boolean).join(" ") || "A team member";
     const inviterEmail = (requestingUser.email as string) || "";
 

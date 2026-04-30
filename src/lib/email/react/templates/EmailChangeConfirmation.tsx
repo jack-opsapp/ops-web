@@ -1,3 +1,4 @@
+// @template-version: 1.0.0
 import * as React from "react";
 import { OpsEmailLayout } from "../layouts/OpsEmailLayout";
 import { Headline, Paragraph, InfoBlock, Spacer, Button } from "../primitives";
@@ -7,18 +8,24 @@ interface EmailChangeConfirmationProps {
   newEmail: string;
   oldEmail: string;
   recoveryLink: string;
+  unsubscribeUrl?: string;
+  list?: string;
 }
 
 export function EmailChangeConfirmation({
   newEmail,
   oldEmail,
   recoveryLink,
+  unsubscribeUrl,
+  list,
 }: EmailChangeConfirmationProps) {
   return (
     <OpsEmailLayout
       preview={`Your OPS sign-in is now ${newEmail}`}
       eyebrow="Email changed"
       senderAddress={GATE.email}
+      unsubscribeUrl={unsubscribeUrl}
+      list={list}
     >
       <Headline>Email changed.</Headline>
       <Paragraph>
@@ -41,3 +48,5 @@ EmailChangeConfirmation.PreviewProps = {
 } satisfies EmailChangeConfirmationProps;
 
 export default EmailChangeConfirmation;
+
+export const previewProps = EmailChangeConfirmation.PreviewProps;

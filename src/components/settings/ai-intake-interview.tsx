@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Send,
@@ -68,9 +69,15 @@ const CATEGORY_I18N: Record<QuestionCategory, string> = {
 
 function ProgressBar() {
   const { t } = useDictionary("ai-setup");
-  const categoryProgress = useInterviewStore(selectCategoryProgress);
+  // selectCategoryProgress and selectProgress synthesize fresh objects every
+  // call. Without useShallow, Zustand v5 / React 19 useSyncExternalStore
+  // re-fires on every render — surfacing as
+  // "The result of getSnapshot should be cached to avoid an infinite loop"
+  // and a Maximum-update-depth crash. useShallow does a shallow compare on
+  // the returned object so identical content does not retrigger renders.
+  const categoryProgress = useInterviewStore(useShallow(selectCategoryProgress));
   const currentCategory = useInterviewStore(selectCurrentCategory);
-  const overall = useInterviewStore(selectProgress);
+  const overall = useInterviewStore(useShallow(selectProgress));
 
   return (
     <div className="space-y-2">

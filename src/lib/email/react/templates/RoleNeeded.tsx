@@ -1,3 +1,4 @@
+// @template-version: 1.0.0
 import * as React from "react";
 import { OpsEmailLayout } from "../layouts/OpsEmailLayout";
 import { Headline, Paragraph, Button, Spacer, InfoBlock } from "../primitives";
@@ -7,18 +8,24 @@ interface RoleNeededProps {
   userName: string;
   companyName: string;
   assignUrl: string;
+  unsubscribeUrl?: string;
+  list?: string;
 }
 
 export function RoleNeeded({
   userName,
   companyName,
   assignUrl,
+  unsubscribeUrl,
+  list,
 }: RoleNeededProps) {
   return (
     <OpsEmailLayout
       preview={`${userName} joined ${companyName} and needs a role`}
       eyebrow="New crew member"
       senderAddress={DISPATCH.email}
+      unsubscribeUrl={unsubscribeUrl}
+      list={list}
     >
       <Headline>{userName}&apos;s in. Give them a role.</Headline>
       <Paragraph>
@@ -44,3 +51,5 @@ RoleNeeded.PreviewProps = {
 } satisfies RoleNeededProps;
 
 export default RoleNeeded;
+
+export const previewProps = RoleNeeded.PreviewProps;

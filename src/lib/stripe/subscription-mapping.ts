@@ -100,3 +100,66 @@ export function planFromStripePriceId(
   const match = candidates.find((c) => c.env && c.env === priceId);
   return match ? { plan: match.plan, period: match.period } : null;
 }
+
+// ─── Add-ons ─────────────────────────────────────────────────────────────────
+//
+// Two add-ons sit alongside the core subscription:
+//   - data_setup            → one-time charge, gates `companies.data_setup_purchased`
+//   - priority_support_*    → recurring, gates `companies.has_priority_support`
+//
+// Resolved the same way base plans are: env vars hold the Stripe price ID,
+// and helpers map back from a price ID to a stable internal label so the
+// webhook handler can route a checkout.session.completed event to the right
+// fulfillment path.
+
+export type OpsAddon =
+  | "data_setup"
+  | "priority_support_monthly"
+  | "priority_support_annual";
+
+/**
+ * Map of every add-on name to its Stripe price ID env var. Read at call
+ * time (not module import) so per-environment price IDs work in dev/preview/
+ * production without rebuilds.
+ */
+export const ADDON_PRICE_MAP: Record<OpsAddon, string | undefined> = {
+  get data_setup() {
+    return process.env.STRIPE_PRICE_DATA_SETUP;
+  },
+  get priority_support_monthly() {
+    return process.env.STRIPE_PRICE_PRIORITY_SUPPORT_MONTHLY;
+  },
+  get priority_support_annual() {
+    return process.env.STRIPE_PRICE_PRIORITY_SUPPORT_ANNUAL;
+  },
+};
+
+/**
+ * Resolve an OPS add-on label from a Stripe price ID. Returns null when the
+ * price is a base plan price or unknown — callers in the webhook use this
+ * return value to decide whether to enter the add-on fulfillment branch.
+ */
+export function addonFromPriceId(
+  priceId: string | null | undefined
+): OpsAddon | null {
+  if (!priceId) return null;
+  const entries = Object.entries(ADDON_PRICE_MAP) as Array<
+    [OpsAddon, string | undefined]
+  >;
+  for (const [addon, env] of entries) {
+    if (env && env === priceId) return addon;
+  }
+  return null;
+}
+
+/**
+ * True when the price ID is either the monthly or annual priority-support
+ * SKU. Used by the subscription webhook to decide whether to flip the
+ * `has_priority_support` entitlement on the company.
+ */
+export function isPrioritySupportPrice(
+  priceId: string | null | undefined
+): boolean {
+  const addon = addonFromPriceId(priceId);
+  return addon === "priority_support_monthly" || addon === "priority_support_annual";
+}

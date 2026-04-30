@@ -25,6 +25,11 @@ export async function GET(request: NextRequest) {
   const companyId = searchParams.get("companyId");
   const userId = searchParams.get("userId");
   const type = (searchParams.get("type") || "company") as "company" | "individual";
+  // `source` lets the callback know whether to land the user back on the
+  // standard /settings page (wizard flow) or on /reconnect-inbox/success
+  // (alert-email flow). Defaults to wizard so existing in-app callers
+  // are unaffected.
+  const source = searchParams.get("source") === "alert" ? "alert" : "wizard";
 
   if (!companyId) {
     return NextResponse.json({ error: "companyId is required" }, { status: 400 });
@@ -56,7 +61,7 @@ export async function GET(request: NextRequest) {
   // the callback. Using base64 JSON so we can carry structured data through
   // Google's opaque-string `state` parameter.
   const state = Buffer.from(
-    JSON.stringify({ companyId, userId, type })
+    JSON.stringify({ companyId, userId, type, source })
   ).toString("base64");
 
   const params = new URLSearchParams({

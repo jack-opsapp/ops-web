@@ -442,3 +442,201 @@ export const quickActionsRowVariantsReduced: Variants = {
     transition: { delay: i * 0.015, duration: 0.15 },
   }),
 };
+
+// ── Email Campaigns admin (PR 3 — 2026-04-27) ──
+
+/** Campaign list row stagger — 60ms cascade, 320ms duration */
+export const campaignRowVariants: Variants = {
+  hidden: { opacity: 0, y: 8 },
+  visible: (i: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: { delay: i * 0.06, duration: 0.32, ease: EASE_SMOOTH },
+  }),
+  exit: { opacity: 0, y: -6, transition: { duration: 0.2, ease: EASE_SMOOTH } },
+};
+
+export const campaignRowVariantsReduced: Variants = {
+  hidden: { opacity: 0 },
+  visible: (i: number) => ({
+    opacity: 1,
+    transition: { delay: i * 0.02, duration: 0.15 },
+  }),
+  exit: { opacity: 0, transition: { duration: 0.1 } },
+};
+
+/** Status pill scale-in on mount or status flip */
+export const statusPillVariants: Variants = {
+  hidden: { opacity: 0, scale: 0.9 },
+  visible: { opacity: 1, scale: 1, transition: { duration: 0.25, ease: EASE_SMOOTH } },
+};
+
+export const statusPillVariantsReduced: Variants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { duration: 0.15 } },
+};
+
+/**
+ * Campaign progress bar segment fill. Consumers pass `progress` (0-1) via
+ * the `custom` prop and animate `width` directly — pathLength was the
+ * original spec but progress bars on `<motion.div>` use width % so a 2px
+ * tall rule still feels material.
+ */
+export const progressBarVariants: Variants = {
+  hidden: { width: 0 },
+  visible: (progress: number) => ({
+    width: `${Math.max(0, Math.min(progress, 1)) * 100}%`,
+    transition: { duration: 0.6, ease: EASE_SMOOTH },
+  }),
+};
+
+export const progressBarVariantsReduced: Variants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { duration: 0.15 } },
+};
+
+/** Counter cell entrance — small lift on every value change so the eye trusts the number */
+export const counterVariants: Variants = {
+  hidden: { opacity: 0, y: 4 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.3, ease: EASE_SMOOTH } },
+};
+
+export const counterVariantsReduced: Variants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { duration: 0.15 } },
+};
+
+// ── PR 4 — Email killswitches ──
+// Switch toggle, sticky pause banner, and confirmation modal.
+// All consumers must respect useReducedMotion() — pass `undefined` variants
+// when reduced is true so framer-motion skips the transition.
+
+export const switchToggleVariants: Variants = {
+  off: { x: 0, transition: { duration: 0.22, ease: EASE_SMOOTH } },
+  on: { x: 18, transition: { duration: 0.22, ease: EASE_SMOOTH } },
+};
+
+export const activePauseBannerVariants: Variants = {
+  initial: { opacity: 0, y: -8 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.28, ease: EASE_SMOOTH } },
+  exit: { opacity: 0, y: -8, transition: { duration: 0.18, ease: EASE_SMOOTH } },
+};
+
+export const confirmationModalVariants: Variants = {
+  initial: { opacity: 0, scale: 0.96 },
+  animate: { opacity: 1, scale: 1, transition: { duration: 0.24, ease: EASE_SMOOTH } },
+  exit: { opacity: 0, scale: 0.96, transition: { duration: 0.16, ease: EASE_SMOOTH } },
+};
+
+// ---------------------------------------------------------------------------
+// Campaign analytics (PR 6) — metric grid, Sankey funnel, bounce chart
+// ---------------------------------------------------------------------------
+
+/** 8-card metric grid — 60ms stagger lifts each card in sequence. */
+export const campaignMetricGridVariants: Variants = {
+  initial: { opacity: 0, y: 6 },
+  animate: (i: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.32, ease: EASE_SMOOTH, delay: i * 0.06 },
+  }),
+};
+
+/** Sankey link draw — `pathLength` 0→1 with 80ms stagger per link. */
+export const sankeyLinkVariants: Variants = {
+  initial: { pathLength: 0, opacity: 0.2 },
+  animate: (i: number) => ({
+    pathLength: 1,
+    opacity: 0.85,
+    transition: { duration: 0.42, ease: EASE_SMOOTH, delay: i * 0.08 },
+  }),
+};
+
+/** Sankey node entrance — quiet pop after links anchor. */
+export const sankeyNodeVariants: Variants = {
+  initial: { opacity: 0, scale: 0.94 },
+  animate: {
+    opacity: 1,
+    scale: 1,
+    transition: { duration: 0.28, ease: EASE_SMOOTH },
+  },
+};
+
+/** Single-value count entrance — used for animated number cells. */
+export const animatedCountVariants: Variants = {
+  initial: { opacity: 0, y: 4 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.32, ease: EASE_SMOOTH } },
+};
+
+// ─── Email Suppressions / Audience Builder (PR 5) ───────────────────────────
+
+/** Big-number swap on the audience preview count. No spring per design system. */
+export const audienceCountVariants: Variants = {
+  hidden: { opacity: 0, scale: 0.9 },
+  visible: {
+    opacity: 1,
+    scale: 1,
+    transition: { duration: 0.4, ease: EASE_SMOOTH },
+  },
+};
+
+/** Operator/condition chip enter/exit (audience builder filter rows). */
+export const audienceChipVariants: Variants = {
+  hidden: { opacity: 0, scale: 0.85 },
+  visible: {
+    opacity: 1,
+    scale: 1,
+    transition: { duration: 0.22, ease: EASE_SMOOTH },
+  },
+  exit: {
+    opacity: 0,
+    scale: 0.85,
+    transition: { duration: 0.18, ease: EASE_SMOOTH },
+  },
+};
+
+/** Right-edge slide-in drawer (suppression detail). 400px width. */
+export const suppressionDrawerVariants: Variants = {
+  hidden: { x: "100%", opacity: 0 },
+  visible: {
+    x: 0,
+    opacity: 1,
+    transition: { duration: 0.32, ease: EASE_SMOOTH },
+  },
+  exit: {
+    x: "100%",
+    opacity: 0,
+    transition: { duration: 0.24, ease: EASE_SMOOTH },
+  },
+};
+
+// ─── Email Event Monitor (PR 8) ──────────────────────────────────────────
+
+/**
+ * Bounce-rate gauge needle. Sweeps from -90deg (left, 0%) to +90deg (right, 15%+).
+ * Custom value is the absolute target angle in degrees.
+ */
+export const bounceGaugeNeedleVariants: Variants = {
+  hidden: { rotate: -90 },
+  visible: (angleDeg: number) => ({
+    rotate: angleDeg,
+    transition: { duration: 0.6, ease: EASE_SMOOTH },
+  }),
+};
+
+/** Live event stream row — slide from top, fade out on exit. */
+export const eventStreamRowVariants: Variants = {
+  hidden: { opacity: 0, y: -8 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.28, ease: EASE_SMOOTH } },
+  exit: { opacity: 0, y: -8, transition: { duration: 0.18, ease: EASE_SMOOTH } },
+};
+
+/** Sparkline path draw-on. Used for the 6 metric cards in the monitor bar. */
+export const sparklineVariants: Variants = {
+  hidden: { pathLength: 0, opacity: 0 },
+  visible: {
+    pathLength: 1,
+    opacity: 1,
+    transition: { duration: 0.7, ease: EASE_SMOOTH },
+  },
+};

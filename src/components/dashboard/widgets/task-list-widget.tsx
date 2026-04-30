@@ -118,6 +118,14 @@ export function TaskListWidget({
     };
   }, [filteredTasks, today]);
 
+  // ── Visibility toggle options (hoisted above SM early-return so the
+  //    useMemo call order stays stable across size transitions per Rules
+  //    of Hooks). Only consumed in MD+ render paths below. ─────────────
+  const viewToggleOptions = useMemo(() => [
+    { value: "all" as const, label: t("taskList.all") ?? "All" },
+    { value: "mine" as const, label: t("taskList.mine") ?? "Mine" },
+  ], [t]);
+
   // ── SM: hero + title + next task ──────────────────────────────────────
   if (size === "sm") {
     const nextTask = todayTasks[0];
@@ -142,11 +150,6 @@ export function TaskListWidget({
   }
 
   // ── Visibility toggle (MD+) ───────────────────────────────────────────
-  const viewToggleOptions = useMemo(() => [
-    { value: "all" as const, label: t("taskList.all") ?? "All" },
-    { value: "mine" as const, label: t("taskList.mine") ?? "Mine" },
-  ], [t]);
-
   const viewToggle = canViewAll ? (
     <SegmentedPicker
       options={viewToggleOptions}

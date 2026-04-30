@@ -1,3 +1,4 @@
+// @template-version: 1.0.0
 import * as React from "react";
 import { PortalEmailLayout } from "../layouts/PortalEmailLayout";
 import { Headline, Paragraph, Button, Spacer } from "../primitives";
@@ -7,6 +8,9 @@ interface PortalMagicLinkProps {
   portalUrl: string;
   accentColor: string;
   logoUrl: string | null;
+  unsubscribeUrl?: string;
+  list?: string;
+  companyPhysicalAddress?: string | null;
 }
 
 export function PortalMagicLink({
@@ -14,15 +18,21 @@ export function PortalMagicLink({
   portalUrl,
   accentColor,
   logoUrl,
+  unsubscribeUrl,
+  list,
+  companyPhysicalAddress,
 }: PortalMagicLinkProps) {
   return (
     <PortalEmailLayout
       preview={`Access your ${companyName} portal`}
       eyebrow="Your portal"
       companyName={companyName}
+      companyPhysicalAddress={companyPhysicalAddress}
       logoUrl={logoUrl}
       accentColor={accentColor}
       senderAddress="noreply@opsapp.co"
+      unsubscribeUrl={unsubscribeUrl}
+      list={list}
     >
       <Headline>Your {companyName} portal.</Headline>
       <Paragraph>
@@ -45,3 +55,5 @@ PortalMagicLink.PreviewProps = {
 } satisfies PortalMagicLinkProps;
 
 export default PortalMagicLink;
+
+export const previewProps = PortalMagicLink.PreviewProps;

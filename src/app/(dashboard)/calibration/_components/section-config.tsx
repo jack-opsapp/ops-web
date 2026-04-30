@@ -42,7 +42,7 @@ export function SectionConfig() {
     <div className="px-11 py-9 max-w-[1080px] mx-auto">
       <SectionBreadcrumb currentSection="config" />
       <h2 className="font-cakemono font-light uppercase text-[22px] text-text mb-6">
-        <span className="text-text-mute mr-2">//</span>CONFIG
+        <span className="text-text-mute mr-2">{"//"}</span>CONFIG
       </h2>
 
       {/* AUTONOMY panel — summary + RE-RUN WIZARD */}
@@ -121,7 +121,7 @@ export function SectionConfig() {
       {/* EXTERNAL links — per V6, only TASK TYPES. Duplicate Detection dropped. */}
       <div className="mt-6">
         <h4 className="font-mono text-micro uppercase tracking-wider text-text-mute mb-3">
-          <span className="mr-[6px]">//</span>
+          <span className="mr-[6px]">{"//"}</span>
           {t("sections.config.external.heading")}
         </h4>
         <a

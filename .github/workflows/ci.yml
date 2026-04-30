@@ -6,6 +6,22 @@ on:
   pull_request:
     branches: [main]
 
+# Note: the dedicated `build` job that previously lived here was removed.
+# The repo has no GitHub Actions secrets configured, so `next build`
+# failed at page-data-collection time the moment it imported any API
+# route that initializes Supabase / Firebase / SendGrid at module load
+# (e.g. /api/admin/whats-new/categories — "Error: supabaseUrl is required").
+# The failure was masked for months because the upstream `lint-and-test`
+# job has been red since #5, which kept the `build` job in SKIPPED state.
+#
+# The Vercel deployment that fires on every push runs the same `next build`
+# against the real production environment variables — that is the
+# authoritative build verification. Re-introducing a secrets-less build
+# step here would just duplicate work in an environment that cannot
+# possibly succeed. If a CI-side build check is wanted later, wire in
+# secrets.NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, the
+# Firebase keys, and SENDGRID_API_KEY first, then restore the job.
+
 jobs:
   lint-and-test:
     runs-on: ubuntu-latest
@@ -19,15 +35,3 @@ jobs:
       - run: npm run lint
       - run: npm run type-check
       - run: npm test -- --reporter=verbose
-
-  build:
-    runs-on: ubuntu-latest
-    needs: lint-and-test
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'npm'
-      - run: npm ci
-      - run: npm run build

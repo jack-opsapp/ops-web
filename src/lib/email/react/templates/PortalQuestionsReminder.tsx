@@ -1,3 +1,4 @@
+// @template-version: 1.0.0
 import * as React from "react";
 import { PortalEmailLayout } from "../layouts/PortalEmailLayout";
 import { Headline, Paragraph, Button, Spacer } from "../primitives";
@@ -7,6 +8,9 @@ interface PortalQuestionsReminderProps {
   portalUrl: string;
   accentColor: string;
   logoUrl: string | null;
+  unsubscribeUrl?: string;
+  list?: string;
+  companyPhysicalAddress?: string | null;
 }
 
 export function PortalQuestionsReminder({
@@ -14,15 +18,21 @@ export function PortalQuestionsReminder({
   portalUrl,
   accentColor,
   logoUrl,
+  unsubscribeUrl,
+  list,
+  companyPhysicalAddress,
 }: PortalQuestionsReminderProps) {
   return (
     <PortalEmailLayout
       preview={`${companyName} needs a few answers`}
       eyebrow="Quick questions"
       companyName={companyName}
+      companyPhysicalAddress={companyPhysicalAddress}
       logoUrl={logoUrl}
       accentColor={accentColor}
       senderAddress="noreply@opsapp.co"
+      unsubscribeUrl={unsubscribeUrl}
+      list={list}
     >
       <Headline>{companyName} needs a few answers.</Headline>
       <Paragraph>
@@ -45,3 +55,5 @@ PortalQuestionsReminder.PreviewProps = {
 } satisfies PortalQuestionsReminderProps;
 
 export default PortalQuestionsReminder;
+
+export const previewProps = PortalQuestionsReminder.PreviewProps;

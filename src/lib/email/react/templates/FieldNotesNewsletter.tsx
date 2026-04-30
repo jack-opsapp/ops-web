@@ -1,3 +1,4 @@
+// @template-version: 1.0.0
 import * as React from "react";
 import sanitizeHtml from "sanitize-html";
 import parse from "html-react-parser";
@@ -44,6 +45,7 @@ interface FieldNotesNewsletterProps {
   industryInsights: NewsletterItem[];
   fullIssueUrl: string;
   unsubscribeUrl: string;
+  list?: string;
 }
 
 const SAFE_HTML_CONFIG: sanitizeHtml.IOptions = {
@@ -157,14 +159,15 @@ export function FieldNotesNewsletter({
   industryInsights,
   fullIssueUrl,
   unsubscribeUrl,
+  list,
 }: FieldNotesNewsletterProps) {
   return (
     <OpsEmailLayout
       preview={intro}
       eyebrow={`Field notes — issue #${issueNumber} — ${issueDate}`}
       senderAddress={FIELD_NOTES.email}
-      mode="marketing"
       unsubscribeUrl={unsubscribeUrl}
+      list={list}
     >
       <Headline>Field Notes — Issue #{issueNumber}</Headline>
       {firstName ? <Paragraph small>{firstName},</Paragraph> : null}
@@ -238,3 +241,5 @@ FieldNotesNewsletter.PreviewProps = {
 } satisfies FieldNotesNewsletterProps;
 
 export default FieldNotesNewsletter;
+
+export const previewProps = FieldNotesNewsletter.PreviewProps;

@@ -1,0 +1,77 @@
+{
+  "reset": {
+    "headlineForm": "Establece una contraseña nueva.",
+    "accountLabel": "Cuenta",
+    "passwordLabel": "Contraseña nueva",
+    "submitCta": "Establecer contraseña",
+    "cancelLink": "Cancelar",
+    "loadingCheck": "Verificando código",
+    "loadingSubmit": "Estableciendo contraseña",
+    "successHeadline": "Contraseña restablecida.",
+    "successSubline": "Listo.",
+    "successChip": "Restablecida"
+  },
+  "verify": {
+    "headlineLoading": "Confirmando que eres tú.",
+    "headlineSuccess": "Correo verificado. Estás dentro.",
+    "sublineSuccess": "Tu correo está confirmado. Vuelve a OPS y a trabajar.",
+    "successChip": "Verificado"
+  },
+  "recover": {
+    "headlineForm": "Revertir cambio de correo.",
+    "headlineLoading": "Verificando la solicitud.",
+    "submitCta": "Revertir correo",
+    "headlineSuccess": "Correo revertido.",
+    "resetCta": "Restablecer contraseña",
+    "successChip": "Revertido"
+  },
+  "signIn": {
+    "headlineLoading": "Iniciando sesión.",
+    "headlineSuccess": "Sesión iniciada. Bienvenido de vuelta.",
+    "successChip": "Sesión iniciada"
+  },
+  "verifyAndChangeEmail": {
+    "headlineLoading": "Confirmando el cambio.",
+    "headlineSuccess": "Correo actualizado.",
+    "successChip": "Actualizado"
+  },
+  "errors": {
+    "malformed": {
+      "headline": "Enlace roto.",
+      "body": "Algo no anda con este enlace. Solicita uno nuevo.",
+      "primaryCta": "Enviar enlace nuevo"
+    },
+    "expired": {
+      "headline": "Enlace caducado.",
+      "body": "Este enlace tiene más de una hora. Pide uno nuevo.",
+      "primaryCta": "Enviar enlace nuevo"
+    },
+    "alreadyUsed": {
+      "headline": "Ya usado.",
+      "body": "Parece que este enlace ya se usó. Si no fuiste tú, restablece de nuevo por precaución.",
+      "primaryCta": "Enviar enlace nuevo"
+    },
+    "userDisabled": {
+      "headline": "Cuenta bloqueada.",
+      "body": "Tu cuenta está bloqueada. Tu admin o el equipo de OPS puede ayudar.",
+      "primaryCta": "Escribir a central"
+    },
+    "weakPassword": "Falta fuerza. Hazla más larga.",
+    "network": {
+      "headline": "No conectamos.",
+      "body": "Revisa tu señal e intenta de nuevo.",
+      "primaryCta": "Intentar de nuevo"
+    },
+    "unknown": {
+      "headline": "Algo no anda.",
+      "body": "No pudimos procesar el enlace. Pide uno nuevo o escribe a central.",
+      "primaryCta": "Enviar enlace nuevo",
+      "secondaryCta": "Escribir a central"
+    }
+  },
+  "success": {
+    "iosPrimaryCta": "Abrir OPS",
+    "webPrimaryCta": "Iniciar sesión en web",
+    "webSecondaryCta": "Iniciar sesión en web"
+  }
+}

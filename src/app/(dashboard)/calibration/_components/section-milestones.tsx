@@ -118,7 +118,7 @@ export function SectionMilestones() {
       <SectionBreadcrumb currentSection="milestones" />
       <div className="flex items-baseline justify-between mb-6">
         <h2 className="font-cakemono font-light uppercase text-[22px] text-text">
-          <span className="text-text-mute mr-2">//</span>MILESTONES
+          <span className="text-text-mute mr-2">{"//"}</span>MILESTONES
         </h2>
         <span className="font-mono text-data text-text-2 tabular-nums">
           {t("sections.milestones.overallHeader").replace(
