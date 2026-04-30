@@ -316,7 +316,7 @@ export function UnscheduledTray({ view }: UnscheduledTrayProps) {
               className="font-mono text-[10px] uppercase tracking-wider"
               style={{ color: "var(--text-mute)" }}
             >
-              // ALL TASKS SCHEDULED
+              {"// ALL TASKS SCHEDULED"}
             </span>
           </div>
         ) : (

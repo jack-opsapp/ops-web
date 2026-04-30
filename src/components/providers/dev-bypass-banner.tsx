@@ -58,7 +58,7 @@ export function DevBypassBanner() {
           fontFeatureSettings: '"tnum" 1, "zero" 1',
         }}
       >
-        <span style={{ color: "#C4A868" }}>// DEV BYPASS</span>
+        <span style={{ color: "#C4A868" }}>{"// DEV BYPASS"}</span>
 
         {meta ? (
           <div className="flex items-center gap-1">

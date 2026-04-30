@@ -185,7 +185,7 @@ function PopoverBody({ event }: { event: InternalCalendarEvent }) {
             className="font-mono uppercase tracking-wider mb-[2px]"
             style={{ color: "var(--text-mute)", fontSize: 10 }}
           >
-            // CLIENT
+            {"// CLIENT"}
           </div>
           <div
             className="font-mohave"
@@ -229,7 +229,7 @@ function PopoverBody({ event }: { event: InternalCalendarEvent }) {
             className="font-mono uppercase tracking-wider mb-[4px]"
             style={{ color: "var(--text-mute)", fontSize: 10 }}
           >
-            // CREW
+            {"// CREW"}
           </div>
           <div
             className="font-mohave"
@@ -251,7 +251,7 @@ function PopoverBody({ event }: { event: InternalCalendarEvent }) {
             className="font-mono uppercase tracking-wider mb-[2px]"
             style={{ color: "var(--text-mute)", fontSize: 10 }}
           >
-            // SITE
+            {"// SITE"}
           </div>
           <div
             className="font-mono"
@@ -335,7 +335,7 @@ function ProjectPreviewSection({
             className="font-mono"
             style={{ color: "var(--text-mute)", fontSize: 11 }}
           >
-            // NONE YET
+            {"// NONE YET"}
           </span>
         ) : (
           <div className="flex gap-[4px]">
@@ -397,7 +397,7 @@ function ProjectPreviewSection({
                 className="font-mono"
                 style={{ color: "var(--text-mute)", fontSize: 11 }}
               >
-                // NONE YET
+                {"// NONE YET"}
               </span>
             ) : (
               notes.map((note) => {

@@ -39,7 +39,7 @@ export function CrewHeader({ startDate, daysShown }: CrewHeaderProps) {
           className="font-mono text-micro uppercase tracking-wider"
           style={{ color: "var(--text-2)" }}
         >
-          // CREW
+          {"// CREW"}
         </span>
       </div>
 

@@ -327,7 +327,7 @@ export function EventContextMenu({
             onHover={() => setFocusedIndex(0)}
           >
             <Pencil className="w-[14px] h-[14px]" />
-            // EDIT
+            {"// EDIT"}
           </ContextMenuItem>
 
           {/* Push +1 Day */}
@@ -337,7 +337,7 @@ export function EventContextMenu({
             onHover={() => setFocusedIndex(1)}
           >
             <ChevronRight className="w-[14px] h-[14px]" />
-            // PUSH +1 DAY
+            {"// PUSH +1 DAY"}
           </ContextMenuItem>
 
           {/* Push +1 Day (Cascade) */}
@@ -347,7 +347,7 @@ export function EventContextMenu({
             onHover={() => setFocusedIndex(2)}
           >
             <ChevronRight className="w-[14px] h-[14px]" />
-            // PUSH +1 DAY [CASCADE]
+            {"// PUSH +1 DAY [CASCADE]"}
           </ContextMenuItem>
 
           {/* Push to Next Week */}
@@ -357,7 +357,7 @@ export function EventContextMenu({
             onHover={() => setFocusedIndex(3)}
           >
             <CalendarDays className="w-[14px] h-[14px]" />
-            // PUSH TO NEXT WEEK
+            {"// PUSH TO NEXT WEEK"}
           </ContextMenuItem>
 
           {/* Separator */}
@@ -377,7 +377,7 @@ export function EventContextMenu({
             onHover={() => setFocusedIndex(4)}
           >
             <Copy className="w-[14px] h-[14px]" />
-            // DUPLICATE
+            {"// DUPLICATE"}
           </ContextMenuItem>
 
           {/* Separator */}
@@ -398,7 +398,7 @@ export function EventContextMenu({
             destructive
           >
             <Trash2 className="w-[14px] h-[14px]" />
-            // DELETE
+            {"// DELETE"}
           </ContextMenuItem>
         </Popover.Content>
       </Popover.Portal>

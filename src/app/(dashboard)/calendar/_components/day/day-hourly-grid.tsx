@@ -305,7 +305,7 @@ function AllDayStrip({
         className="font-mono text-micro uppercase tracking-wider mr-[4px] self-center"
         style={{ color: "var(--text-mute)" }}
       >
-        // ALL-DAY
+        {"// ALL-DAY"}
       </span>
       {events.map((event) => (
         <button

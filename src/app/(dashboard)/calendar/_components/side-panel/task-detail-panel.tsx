@@ -913,7 +913,7 @@ export function TaskDetailPanel() {
                   className="font-mono text-micro uppercase tracking-[0.08em]"
                   style={{ color: "var(--text-mute)" }}
                 >
-                  // ALL-DAY
+                  {"// ALL-DAY"}
                 </span>
                 <div className="ml-auto flex items-center" role="group">
                   <button
@@ -965,7 +965,7 @@ export function TaskDetailPanel() {
                       color: task?.allDay ? "var(--text-mute)" : "var(--text-3)",
                     }}
                   >
-                    // START
+                    {"// START"}
                   </span>
                   <input
                     type="time"
@@ -1003,7 +1003,7 @@ export function TaskDetailPanel() {
                       color: task?.allDay ? "var(--text-mute)" : "var(--text-3)",
                     }}
                   >
-                    // END
+                    {"// END"}
                   </span>
                   <input
                     type="time"
