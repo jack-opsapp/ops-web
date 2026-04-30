@@ -246,9 +246,15 @@ export function useUpdateTask() {
     }) => TaskService.updateTask(id, data),
 
     onMutate: async ({ id, data }) => {
-      await queryClient.cancelQueries({
-        queryKey: queryKeys.tasks.detail(id),
-      });
+      // Cancel ongoing fetches against any cache that contains this task —
+      // detail, list, project tasks, AND the calendar scheduled-range
+      // queries — so a refetch landing mid-mutation can't overwrite our
+      // optimistic snapshot.
+      await Promise.all([
+        queryClient.cancelQueries({ queryKey: queryKeys.tasks.detail(id) }),
+        queryClient.cancelQueries({ queryKey: queryKeys.tasks.lists() }),
+        queryClient.cancelQueries({ queryKey: queryKeys.calendar.all }),
+      ]);
 
       const previousTask = queryClient.getQueryData<ProjectTask>(
         queryKeys.tasks.detail(id)
@@ -261,7 +267,58 @@ export function useUpdateTask() {
         });
       }
 
-      return { previousTask };
+      // Snapshot of every list/calendar query that contains this task's row
+      // so onError can restore them. Each entry maps the queryKey to the
+      // previous value; we update in place.
+      const previousLists: Array<{
+        queryKey: readonly unknown[];
+        data: unknown;
+      }> = [];
+
+      const patchTaskInList = (
+        list: ProjectTask[] | undefined
+      ): ProjectTask[] | undefined => {
+        if (!list) return list;
+        let mutated = false;
+        const next = list.map((t) => {
+          if (t.id !== id) return t;
+          mutated = true;
+          return { ...t, ...data };
+        });
+        return mutated ? next : list;
+      };
+
+      // tasks.list / tasks.projectTasks are stored as
+      // `{ tasks: ProjectTask[]; remaining: number; count: number }`.
+      const taskListQueries = queryClient.getQueriesData<{
+        tasks: ProjectTask[];
+        remaining: number;
+        count: number;
+      }>({ queryKey: queryKeys.tasks.lists() });
+      for (const [queryKey, value] of taskListQueries) {
+        if (!value) continue;
+        const nextTasks = patchTaskInList(value.tasks);
+        if (nextTasks === value.tasks) continue;
+        previousLists.push({ queryKey, data: value });
+        queryClient.setQueryData(queryKey, { ...value, tasks: nextTasks });
+      }
+
+      // calendar.scheduled is stored as a flat ProjectTask[]. Spread fix
+      // here — without it, the calendar grid keeps painting the badge in
+      // the source cell until refetch returns and jumps it to the new
+      // cell, producing the "jumps back, then jumps forward" glitch.
+      const calendarQueries = queryClient.getQueriesData<ProjectTask[]>({
+        queryKey: queryKeys.calendar.all,
+      });
+      for (const [queryKey, value] of calendarQueries) {
+        if (!Array.isArray(value)) continue;
+        const next = patchTaskInList(value);
+        if (next === value) continue;
+        previousLists.push({ queryKey, data: value });
+        queryClient.setQueryData(queryKey, next);
+      }
+
+      return { previousTask, previousLists };
     },
 
     onError: (_err, { id }, context) => {
@@ -270,6 +327,11 @@ export function useUpdateTask() {
           queryKeys.tasks.detail(id),
           context.previousTask
         );
+      }
+      if (context?.previousLists) {
+        for (const { queryKey, data } of context.previousLists) {
+          queryClient.setQueryData(queryKey, data);
+        }
       }
     },
 
