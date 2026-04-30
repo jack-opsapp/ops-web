@@ -92,10 +92,11 @@ export function DayTaskCard({
   const resizeRef = useRef(resize);
   resizeRef.current = resize;
 
-  const baseDurationDays = Math.max(
-    differenceInCalendarDays(event.endDate, event.startDate),
-    1
-  );
+  // Inclusive day count: a bar that runs May 7 → May 8 covers 2 calendar
+  // days (diff = 1 + the start day = 2). Clamp to at least 1 so a same-day
+  // event can never shrink past the start.
+  const baseDurationDays =
+    differenceInCalendarDays(event.endDate, event.startDate) + 1;
 
   // Snap deltaPx → integer dayDelta. Clamp so duration stays >= 1 day.
   const snapDayDelta = useCallback(

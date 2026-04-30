@@ -678,19 +678,29 @@ export function MonthScrollContainer({
       dayDelta: number
     ) => {
       if (dayDelta === 0) return;
+      // totalDays = how many days between start and end. For a 2-day bar
+      // (May 7 → May 8) this is 1. The minimum allowed bar covers a
+      // single calendar day, i.e. start === end (totalDays === 0).
       const totalDays = differenceInCalendarDays(
         event.endDate,
         event.startDate
       );
       if (edge === "right") {
-        const minDelta = totalDays > 0 ? -(totalDays - 1) : 0;
+        // Pulling the right edge inward shrinks the bar. Allow shrink down
+        // to start === end (single day), so minDelta is -totalDays. The
+        // earlier formula (-(totalDays - 1)) blocked the final click that
+        // would collapse a 2-day bar back to 1 day.
+        const minDelta = -totalDays;
         const clamped = Math.max(dayDelta, minDelta);
         if (clamped === 0) return;
         const newEnd = addDays(event.endDate, clamped);
         commitResize(event, { endDate: newEnd });
         return;
       }
-      const maxDelta = totalDays > 0 ? totalDays - 1 : 0;
+      // Pulling the left edge inward (positive dayDelta) shrinks the bar.
+      // Symmetric clamp: allow up to totalDays so the bar can collapse to
+      // a single day.
+      const maxDelta = totalDays;
       const clamped = Math.min(dayDelta, maxDelta);
       if (clamped === 0) return;
       const newStart = addDays(event.startDate, clamped);
