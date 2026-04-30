@@ -186,19 +186,24 @@ export function MonthEventBar({
     canResize && (span.isSingleDay || span.isLastSegment);
 
   // Visual preview during drag — translucent overlay extending or
-  // contracting from the active edge by previewDayDelta day-columns. The
-  // outer absolute container is one day-column wide on the bar's edge,
-  // anchored beyond the bar so growth is visible.
+  // contracting from the active edge by previewDayDelta day-columns.
+  //
+  // The bar's own width spans `barDayCount` calendar columns (1 for
+  // single-day, N for multi-day). A naive `${magnitude * 100}%` is
+  // measured against the bar's width, which means a 1-day extension on
+  // a 2-day bar renders as a 2-column-wide preview overlay (the
+  // user-visible bug). Compute the width as a fraction of a single
+  // day-column so the preview always tracks one calendar day per unit
+  // of dayDelta.
   const renderEdgePreview = (edge: "left" | "right") => {
     if (!resize || resize.edge !== edge || previewDayDelta === 0) return null;
     const grow = previewDayDelta > 0;
     const magnitude = Math.abs(previewDayDelta);
 
-    // For "right" edge: positive grow extends further right (outside the bar);
-    //                    negative shrink overlays the bar from the right.
-    // For "left" edge:  positive grow extends further left;
-    //                    negative shrink overlays from the left.
-    const widthCol = `${magnitude * 100}%`;
+    const barDayCount =
+      span.endDayIndex - span.startDayIndex + 1; // 1 for single-day; N for multi-day
+    const widthPctOfBar = (magnitude / barDayCount) * 100;
+
     const style: React.CSSProperties = {
       position: "absolute",
       top: -2,
@@ -209,7 +214,7 @@ export function MonthEventBar({
         : "rgba(0,0,0,0.45)",
       border: `1px dashed ${event.typeColors.border}`,
       borderRadius: 4,
-      width: widthCol,
+      width: `${widthPctOfBar}%`,
       zIndex: 8,
     };
     if (edge === "right") {
