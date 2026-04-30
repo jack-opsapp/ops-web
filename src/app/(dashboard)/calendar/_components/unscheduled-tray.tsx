@@ -5,6 +5,7 @@ import { Search, ChevronRight, ChevronLeft, GripVertical } from "lucide-react";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTasks } from "@/lib/hooks";
+import { useClients } from "@/lib/hooks/use-clients";
 import { TaskStatus, type ProjectTask } from "@/lib/types/models";
 import {
   useCalendarStore,
@@ -51,6 +52,17 @@ export function UnscheduledTray({ view }: UnscheduledTrayProps) {
   } = useCalendarStore();
 
   const { data: taskData } = useTasks();
+  // Group-by-client needs client.name; the cached project on each task only
+  // carries clientId. Pull the company's clients list once and resolve
+  // each task's client via the project → client foreign key.
+  const { data: clientsData } = useClients();
+  const clientNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const c of clientsData?.clients ?? []) {
+      if (c.id && c.name) map.set(c.id, c.name);
+    }
+    return map;
+  }, [clientsData]);
 
   // Tasks: unscheduled, not completed/cancelled, not deleted
   const allUnscheduled = useMemo(() => {
@@ -111,10 +123,15 @@ export function UnscheduledTray({ view }: UnscheduledTrayProps) {
       switch (unscheduledTrayGroupBy) {
         case "project":
           return t.project?.title ?? "// NO PROJECT";
-        case "client":
-          // ProjectTask doesn't expose client directly; project carries clientId.
-          // Without joining, fall back to project title (best available proxy).
-          return t.project?.title ?? "// NO CLIENT";
+        case "client": {
+          // Resolve client name via project.clientId -> clients list. The
+          // previous fallback (project.title) collapsed every project for
+          // the same client into separate groups labeled by project — the
+          // user's bug report said "not showing client names for groups".
+          const clientId = t.project?.clientId ?? null;
+          if (!clientId) return "// NO CLIENT";
+          return clientNameById.get(clientId) ?? "// NO CLIENT";
+        }
         case "type":
           return t.taskType?.display?.toUpperCase() ?? "// NO TYPE";
       }
