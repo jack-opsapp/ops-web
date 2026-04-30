@@ -137,82 +137,94 @@ export function UnscheduledTray({ view }: UnscheduledTrayProps) {
   const dockSide: "left" | "right" = view === "day" ? "left" : "right";
   const count = allUnscheduled.length;
 
-  // ── Collapsed state ─────────────────────────────────────────────────────
-
-  if (unscheduledTrayCollapsed) {
-    return (
-      <button
-        type="button"
-        onClick={toggleUnscheduledTray}
-        className="shrink-0 h-full flex flex-col items-center justify-start gap-3 cursor-pointer group"
-        style={{
-          width: COLLAPSED_WIDTH,
-          background: "var(--glass-bg)",
-          borderLeft: dockSide === "right" ? "1px solid var(--line)" : "none",
-          borderRight: dockSide === "left" ? "1px solid var(--line)" : "none",
-          padding: "16px 0",
-          transition: "background 0.15s cubic-bezier(0.22, 1, 0.36, 1)",
-        }}
-        onMouseEnter={(e) => {
-          (e.currentTarget as HTMLElement).style.background = "var(--surface-hover)";
-        }}
-        onMouseLeave={(e) => {
-          (e.currentTarget as HTMLElement).style.background = "var(--glass-bg)";
-        }}
-        aria-label={`Show ${count} unscheduled tasks`}
-        title={`// UNSCHEDULED [${count}]`}
-      >
-        {dockSide === "right" ? (
-          <ChevronLeft
-            className="w-[14px] h-[14px]"
-            style={{ color: "var(--text-3)" }}
-          />
-        ) : (
-          <ChevronRight
-            className="w-[14px] h-[14px]"
-            style={{ color: "var(--text-3)" }}
-          />
-        )}
-        <div
-          className="flex-1 flex items-center justify-center"
-          style={{
-            writingMode: "vertical-rl",
-            transform: "rotate(180deg)",
-          }}
-        >
-          <span
-            className="font-mono text-[11px] uppercase tracking-wider tabular-nums"
-            style={{
-              color: "var(--text-3)",
-              fontFeatureSettings: '"tnum" 1, "zero" 1',
-            }}
-          >
-            {`// UNSCHEDULED [${count}]`}
-          </span>
-        </div>
-        <GripVertical
-          className="w-[14px] h-[14px]"
-          style={{ color: "var(--text-mute)" }}
-        />
-      </button>
-    );
-  }
-
-  // ── Expanded state ──────────────────────────────────────────────────────
+  // ── Animated width container ────────────────────────────────────────────
+  // A single motion.div animates between COLLAPSED_WIDTH and EXPANDED_WIDTH
+  // so the rail visibly slides closed / open. Inner contents cross-fade with
+  // AnimatePresence so the collapsed rail (vertical label) and expanded
+  // panel (search + cards) hand off smoothly without an instant swap.
 
   return (
     <motion.div
       initial={false}
-      animate={{ width: EXPANDED_WIDTH }}
-      transition={{ duration: 0.22, ease: EASE_SMOOTH }}
-      className="shrink-0 h-full flex flex-col min-h-0"
+      animate={{
+        width: unscheduledTrayCollapsed ? COLLAPSED_WIDTH : EXPANDED_WIDTH,
+      }}
+      transition={{ duration: 0.24, ease: EASE_SMOOTH }}
+      className="shrink-0 h-full flex flex-col min-h-0 overflow-hidden relative"
       style={{
-        width: EXPANDED_WIDTH,
         background: "var(--glass-bg)",
         borderLeft: dockSide === "right" ? "1px solid var(--line)" : "none",
         borderRight: dockSide === "left" ? "1px solid var(--line)" : "none",
       }}
     >
+      <AnimatePresence initial={false} mode="wait">
+        {unscheduledTrayCollapsed ? (
+          <motion.button
+            key="tray-collapsed"
+            type="button"
+            onClick={toggleUnscheduledTray}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.16, ease: EASE_SMOOTH }}
+            className="absolute inset-0 flex flex-col items-center justify-start gap-3 cursor-pointer group"
+            style={{
+              padding: "16px 0",
+              background: "transparent",
+              transition: "background 0.15s cubic-bezier(0.22, 1, 0.36, 1)",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLElement).style.background = "var(--surface-hover)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLElement).style.background = "transparent";
+            }}
+            aria-label={`Show ${count} unscheduled tasks`}
+            title={`// UNSCHEDULED [${count}]`}
+          >
+            {dockSide === "right" ? (
+              <ChevronLeft
+                className="w-[14px] h-[14px]"
+                style={{ color: "var(--text-3)" }}
+              />
+            ) : (
+              <ChevronRight
+                className="w-[14px] h-[14px]"
+                style={{ color: "var(--text-3)" }}
+              />
+            )}
+            <div
+              className="flex-1 flex items-center justify-center"
+              style={{
+                writingMode: "vertical-rl",
+                transform: "rotate(180deg)",
+              }}
+            >
+              <span
+                className="font-mono text-[11px] uppercase tracking-wider tabular-nums"
+                style={{
+                  color: "var(--text-3)",
+                  fontFeatureSettings: '"tnum" 1, "zero" 1',
+                }}
+              >
+                {`// UNSCHEDULED [${count}]`}
+              </span>
+            </div>
+            <GripVertical
+              className="w-[14px] h-[14px]"
+              style={{ color: "var(--text-mute)" }}
+            />
+          </motion.button>
+        ) : (
+          <motion.div
+            key="tray-expanded"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18, ease: EASE_SMOOTH, delay: 0.04 }}
+            className="absolute inset-0 flex flex-col min-h-0"
+            style={{ width: EXPANDED_WIDTH }}
+          >
       {/* Header row */}
       <div
         className="shrink-0 flex items-center justify-between px-3 py-3"
@@ -354,6 +366,9 @@ export function UnscheduledTray({ view }: UnscheduledTrayProps) {
           </div>
         )}
       </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
