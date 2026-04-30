@@ -42,11 +42,9 @@ export interface DataSetupState {
 export interface PrioritySupportState {
   active: boolean;
   /**
-   * Resolved server-side from `companies.subscription_period` only when
-   * that column reflects the priority-support sub. We don't currently
-   * persist the priority-support period separately — until we do, the
-   * UI infers it from the toggle the user picked at checkout time and
-   * surfaces "Manage in billing portal" for definitive details.
+   * Billing cadence cached from Stripe in `companies.priority_support_period`,
+   * written by the webhook on every `customer.subscription.*` event for a
+   * priority-support price. NULL when the subscription is inactive.
    */
   period: "monthly" | "annual" | null;
 }
@@ -72,6 +70,7 @@ export const addOnQueryKeys = {
 
 interface AddOnRawState {
   hasPrioritySupport: boolean;
+  prioritySupportPeriod: "monthly" | "annual" | null;
   dataSetupPurchased: boolean;
   dataSetupCompleted: boolean;
   scheduledAt: Date | null;
@@ -86,7 +85,7 @@ async function fetchAddOnState(companyId: string): Promise<AddOnRawState> {
       supabase
         .from("companies")
         .select(
-          "has_priority_support, data_setup_purchased, data_setup_completed, data_setup_scheduled"
+          "has_priority_support, priority_support_period, data_setup_purchased, data_setup_completed, data_setup_scheduled"
         )
         .eq("id", companyId)
         .maybeSingle(),
@@ -103,6 +102,9 @@ async function fetchAddOnState(companyId: string): Promise<AddOnRawState> {
 
   const hasPrioritySupport =
     (company?.has_priority_support as boolean | null) ?? false;
+  const rawPeriod = company?.priority_support_period as string | null;
+  const prioritySupportPeriod =
+    rawPeriod === "monthly" || rawPeriod === "annual" ? rawPeriod : null;
   const dataSetupPurchased =
     (company?.data_setup_purchased as boolean | null) ?? false;
   const dataSetupCompleted =
@@ -136,6 +138,7 @@ async function fetchAddOnState(companyId: string): Promise<AddOnRawState> {
 
   return {
     hasPrioritySupport,
+    prioritySupportPeriod,
     dataSetupPurchased,
     dataSetupCompleted,
     scheduledAt,
@@ -278,10 +281,7 @@ export function useAddOns(): AddOnsState {
       },
       prioritySupport: {
         active: data?.hasPrioritySupport ?? false,
-        // Period is informational; we don't currently persist a separate
-        // priority-support period column, so the UI defaults to null and
-        // routes to the billing portal for ground truth.
-        period: null,
+        period: data?.prioritySupportPeriod ?? null,
       },
       isLoading,
       refetch: () => {

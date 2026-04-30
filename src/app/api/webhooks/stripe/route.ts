@@ -250,9 +250,19 @@ export async function POST(req: NextRequest) {
       ];
       const entitled = activeForEntitlement.includes(subscription.status);
 
+      // Persist the billing cadence so the UI can render "Active · Annual"
+      // without a Stripe roundtrip per render. Cleared on cancellation.
+      const period =
+        addonFromPriceId(itemPriceId) === "priority_support_annual"
+          ? "annual"
+          : "monthly";
+
       const { error: addonErr } = await supabase
         .from("companies")
-        .update({ has_priority_support: entitled })
+        .update({
+          has_priority_support: entitled,
+          priority_support_period: entitled ? period : null,
+        })
         .eq("id", company.id);
 
       if (addonErr) {
@@ -400,7 +410,10 @@ export async function POST(req: NextRequest) {
     if (company && isPrioritySupportPrice(itemPriceId)) {
       const { error: offErr } = await supabase
         .from("companies")
-        .update({ has_priority_support: false })
+        .update({
+          has_priority_support: false,
+          priority_support_period: null,
+        })
         .eq("id", company.id);
 
       if (offErr) {

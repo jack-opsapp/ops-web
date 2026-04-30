@@ -282,7 +282,10 @@ function PrioritySupportCard({ prices }: { prices: AddOnPriceMap | undefined }) 
         ? `${currentUser.firstName} ${currentUser.lastName}`.trim()
         : currentUser?.email ?? "OPS user";
     const companyName = company?.name ?? "OPS company";
-    const planLabel = `Priority Support (${period === "annual" ? "annual" : "monthly"})`;
+    // When active, use the persisted Stripe-derived cadence; falls back to
+    // the toggle state for the brief moment between purchase and webhook.
+    const effectivePeriod = prioritySupport.period ?? period;
+    const planLabel = `Priority Support (${effectivePeriod === "annual" ? "annual" : "monthly"})`;
     const currentPage = window.location.href;
     const subject = `[OPS Priority] ${companyName}`;
     const body =
@@ -392,7 +395,7 @@ function PrioritySupportCard({ prices }: { prices: AddOnPriceMap | undefined }) 
       {/* Action surface */}
       {prioritySupport.active ? (
         <div className="pt-1 space-y-1.5">
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 flex-wrap">
             <span
               className={cn(
                 "inline-flex items-center px-1 py-[1px] rounded-chip",
@@ -402,6 +405,19 @@ function PrioritySupportCard({ prices }: { prices: AddOnPriceMap | undefined }) 
             >
               {t("addons.prioritySupport.activePill") ?? "Active"}
             </span>
+            {prioritySupport.period && (
+              <span
+                className={cn(
+                  "inline-flex items-center px-1 py-[1px] rounded-chip",
+                  "font-mono text-micro uppercase tracking-wide",
+                  "border border-line text-text-2 bg-[rgba(255,255,255,0.04)]"
+                )}
+              >
+                {prioritySupport.period === "annual"
+                  ? t("addons.prioritySupport.toggleAnnual") ?? "Annual"
+                  : t("addons.prioritySupport.toggleMonthly") ?? "Monthly"}
+              </span>
+            )}
             <span className="font-mono text-micro text-text-3">
               {t("addons.prioritySupport.activeCopy") ??
                 "Email us — we'll be on it."}
