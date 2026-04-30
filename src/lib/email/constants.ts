@@ -56,4 +56,5 @@ export const KIND_TO_LIST: Record<string, string> = {
   pmf_threshold_alert: "global",
   pmf_daily_digest: "global",
   pmf_weekly_digest: "global",
+  inbox_connection_down: "global",
 };

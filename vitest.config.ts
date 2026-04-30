@@ -6,6 +6,18 @@ export default defineConfig({
   plugins: [react()],
   test: {
     environment: "jsdom",
+    // Without an explicit URL jsdom defaults to an opaque origin
+    // (`about:blank`), which causes `localStorage` to throw
+    // `SecurityError: localStorage is not available for opaque origins`
+    // — which surfaces in Zustand's persist middleware as
+    // "storage.setItem is not a function" and breaks every integration
+    // test that touches the auth store. Setting a non-opaque URL lets
+    // jsdom provision a real Storage instance.
+    environmentOptions: {
+      jsdom: {
+        url: "http://localhost/",
+      },
+    },
     globals: true,
     setupFiles: ["./tests/setup.ts"],
     include: ["tests/**/*.{test,spec}.{ts,tsx}", "src/**/*.{test,spec}.{ts,tsx}"],

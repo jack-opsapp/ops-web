@@ -6,7 +6,22 @@
  * - MSW server lifecycle (start, reset, close)
  * - Browser API mocks (matchMedia, IntersectionObserver, ResizeObserver)
  * - Console error suppression for known React warnings
+ * - Stub Firebase env so `firebase/config.ts`'s top-level
+ *   `auth = getFirebaseAuth()` invocation doesn't blow up under jsdom
+ *   for tests that import the auth provider transitively (auth.test.tsx,
+ *   projects.test.tsx). Firebase v11 throws `auth/invalid-api-key`
+ *   before any test runs if the apiKey is undefined; a non-empty stub
+ *   value satisfies the constructor without making any network calls.
  */
+
+// MUST run before any imports that touch firebase/config — module-load
+// order matters here; the env reads happen at the top of config.ts.
+process.env.NEXT_PUBLIC_FIREBASE_API_KEY ??= "test-api-key";
+process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN ??= "test.firebaseapp.com";
+process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ??= "test-project";
+process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ??= "test.appspot.com";
+process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID ??= "0";
+process.env.NEXT_PUBLIC_FIREBASE_APP_ID ??= "1:0:web:test";
 
 import "@testing-library/jest-dom/vitest";
 import { server } from "./mocks/server";
@@ -27,6 +42,50 @@ afterEach(() => {
 afterAll(() => {
   server.close();
 });
+
+// ─── Polyfill: localStorage / sessionStorage ────────────────────────────────
+//
+// jsdom 25 + Vitest 2's worker pool gives us a `localStorage` that exists as
+// an `object` but is missing the `setItem`/`getItem`/`removeItem` methods
+// (its prototype is plain Object, not Storage). This breaks Zustand's
+// persist middleware ("storage.setItem is not a function") which in turn
+// blows up every integration test that touches the auth store. Install a
+// fresh in-memory Storage shim before any test or component code runs.
+
+class InMemoryStorage implements Storage {
+  private store = new Map<string, string>();
+  get length(): number {
+    return this.store.size;
+  }
+  clear(): void {
+    this.store.clear();
+  }
+  getItem(key: string): string | null {
+    return this.store.get(key) ?? null;
+  }
+  key(index: number): string | null {
+    return Array.from(this.store.keys())[index] ?? null;
+  }
+  removeItem(key: string): void {
+    this.store.delete(key);
+  }
+  setItem(key: string, value: string): void {
+    this.store.set(key, String(value));
+  }
+}
+
+for (const name of ["localStorage", "sessionStorage"] as const) {
+  Object.defineProperty(window, name, {
+    configurable: true,
+    writable: false,
+    value: new InMemoryStorage(),
+  });
+  Object.defineProperty(globalThis, name, {
+    configurable: true,
+    writable: false,
+    value: (window as unknown as Record<string, Storage>)[name],
+  });
+}
 
 // ─── Mock: window.matchMedia ────────────────────────────────────────────────
 
