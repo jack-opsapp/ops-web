@@ -15,6 +15,7 @@ import {
   decodeFirebaseToken,
   ensureStripeCustomer,
   buildAddonReturnUrls,
+  bucketedIdempotencyKey,
 } from "@/lib/stripe/checkout-helpers";
 import { ADDON_PRICE_MAP } from "@/lib/stripe/subscription-mapping";
 
@@ -142,7 +143,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         },
       },
       {
-        idempotencyKey: `company-${company.id}-checkout-priority-${period}`,
+        idempotencyKey: bucketedIdempotencyKey([
+          "company",
+          company.id,
+          "checkout",
+          "priority",
+          period,
+        ]),
       }
     );
 

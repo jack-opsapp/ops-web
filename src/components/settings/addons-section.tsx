@@ -503,17 +503,20 @@ function useAddonResultToasts() {
       toast("Checkout cancelled");
     }
 
-    // Strip the query so a refresh doesn't replay the toast.
+    // Strip the query so a refresh doesn't replay the toast. We schedule
+    // this AFTER the toast fires (microtask) so React doesn't tear down the
+    // toast renderer before sonner mounts it.
     const params = new URLSearchParams(Array.from(searchParams.entries()));
     params.delete("addon");
     params.delete("result");
     params.delete("session_id");
     const next = params.toString();
-    router.replace(`/settings${next ? `?${next}` : "?tab=subscription"}`, {
-      scroll: false,
+    queueMicrotask(() => {
+      router.replace(`/settings${next ? `?${next}` : "?tab=subscription"}`, {
+        scroll: false,
+      });
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [searchParams, router, refetch, t]);
 }
 
 // ─── Public component ───────────────────────────────────────────────────────

@@ -27,15 +27,17 @@ function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!);
 }
 
-// PMF — checkout.session.completed is added to the tracked set so add-on
-// purchases (one-time and subscription) feed billing_events the same way
-// invoice.paid and subscription events already do.
+// Constant for the per-type branch that routes add-on Checkout completions.
 const PMF_CHECKOUT_TRACKED = "checkout.session.completed";
 
 // PMF — events whose financial impact we capture into billing_events for the
 // PMF analytics dashboard. This set is intentionally narrow: the existing
 // per-type handlers below run regardless of this set, and billing_events is
 // strictly an append-only ledger for analytics, not a state-machine input.
+//
+// `checkout.session.completed` is included so one-time add-on revenue
+// (Data Setup) lands in the ledger — invoice.paid covers recurring add-on
+// revenue (Priority Support) via the customer's invoices.
 const PMF_TRACKED_EVENTS = new Set<string>([
   "invoice.paid",
   "invoice.payment_failed",
@@ -44,6 +46,7 @@ const PMF_TRACKED_EVENTS = new Set<string>([
   "customer.subscription.deleted",
   "charge.refunded",
   "charge.dispute.created",
+  "checkout.session.completed",
 ]);
 
 export async function POST(req: NextRequest) {
@@ -212,7 +215,7 @@ export async function POST(req: NextRequest) {
       const result = await handleDataSetupCheckout({ supabase, stripe: getStripe(), session, companyId });
       if (result) return result;
     } else if (addon === "priority_support") {
-      const result = await handlePrioritySupportCheckout({ supabase, session, companyId });
+      const result = await handlePrioritySupportCheckout({ supabase, stripe: getStripe(), session, companyId });
       if (result) return result;
     }
   }
@@ -589,6 +592,7 @@ function extractCustomerId(event: Stripe.Event): string | null {
  * Extract the cents amount that best represents the financial impact of the
  * event. Tries fields in order of relevance:
  *   - amount_paid (Invoice)
+ *   - amount_total (Checkout.Session) — for one-time add-on revenue
  *   - amount (Charge, PaymentIntent)
  *   - amount_refunded (Charge with refund)
  * Returns null for events with no amount (e.g. customer.subscription.created
@@ -597,10 +601,17 @@ function extractCustomerId(event: Stripe.Event): string | null {
 function extractAmountCents(event: Stripe.Event): number | null {
   const obj = event.data.object as {
     amount_paid?: number;
+    amount_total?: number;
     amount?: number;
     amount_refunded?: number;
   };
-  return obj.amount_paid ?? obj.amount ?? obj.amount_refunded ?? null;
+  return (
+    obj.amount_paid ??
+    obj.amount_total ??
+    obj.amount ??
+    obj.amount_refunded ??
+    null
+  );
 }
 
 /**
@@ -949,11 +960,35 @@ async function handleDataSetupCheckout(args: {
  */
 async function handlePrioritySupportCheckout(args: {
   supabase: SupabaseClient;
+  stripe: Stripe;
   session: Stripe.Checkout.Session;
   companyId: string;
 }): Promise<NextResponse | null> {
-  const { supabase, session, companyId } = args;
-  const period = (session.metadata?.period as "monthly" | "annual") ?? "monthly";
+  const { supabase, stripe, session, companyId } = args;
+
+  // Derive period from the line item's price ID (the canonical source) and
+  // fall back to the session metadata only if the expand fails. The metadata
+  // is set by our own endpoint, but Stripe-side dashboard edits or future
+  // migrations could leave it stale — the price ID can't lie.
+  let period: "monthly" | "annual" =
+    (session.metadata?.period as "monthly" | "annual") ?? "monthly";
+  try {
+    const expanded = await stripe.checkout.sessions.retrieve(session.id, {
+      expand: ["line_items"],
+    });
+    const itemPriceId = expanded.line_items?.data[0]?.price?.id;
+    const addon = addonFromPriceId(itemPriceId);
+    if (addon === "priority_support_annual") period = "annual";
+    else if (addon === "priority_support_monthly") period = "monthly";
+  } catch (err) {
+    // Stripe API failure here isn't fatal — metadata fallback is good enough
+    // for the email subject line; the entitlement column is set by the
+    // customer.subscription.* handler from the price directly.
+    console.warn(
+      "[stripe-webhook] Could not expand line_items for period derivation, using metadata fallback:",
+      err instanceof Error ? err.message : err
+    );
+  }
 
   const ctx = await resolveCompanyContext(
     supabase,

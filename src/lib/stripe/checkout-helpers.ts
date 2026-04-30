@@ -102,3 +102,22 @@ export function buildAddonReturnUrls(params: {
     cancelUrl: `${base}&result=cancelled`,
   };
 }
+
+/**
+ * Build a time-bucketed Stripe idempotency key. Stripe Checkout Sessions
+ * expire after 24 hours; our default idempotency cache (24h) means a user
+ * who abandons checkout for >a few minutes and clicks Purchase again would
+ * get back the SAME session URL — possibly already expired or near-expired.
+ *
+ * Bucketing the key per 15 minutes keeps double-click protection (any two
+ * clicks within the same 15-min window collapse to one Stripe session) but
+ * lets a deliberate retry an hour later get a fresh, valid session.
+ *
+ * The bucket is pure server-time math — no DB roundtrip — so the fast path
+ * stays fast.
+ */
+export function bucketedIdempotencyKey(parts: string[]): string {
+  const FIFTEEN_MIN_MS = 15 * 60 * 1000;
+  const bucket = Math.floor(Date.now() / FIFTEEN_MIN_MS);
+  return [...parts, `b${bucket}`].join("-");
+}
