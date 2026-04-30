@@ -16,6 +16,7 @@ const NAV_ITEMS: NavEntry[] = [
 
   { type: "section", label: "USERS" },
   { type: "item", href: "/admin/companies", label: "COMPANIES" },
+  { type: "item", href: "/admin/data-setup", label: "DATA SETUP" },
   { type: "item", href: "/admin/engagement", label: "ENGAGEMENT" },
   { type: "item", href: "/admin/feedback", label: "FEEDBACK" },
 

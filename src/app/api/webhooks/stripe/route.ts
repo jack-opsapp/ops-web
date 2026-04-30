@@ -14,17 +14,30 @@ import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import {
   mapStripeStatus,
   planFromStripePriceId,
+  addonFromPriceId,
+  isPrioritySupportPrice,
   MAX_SEATS_BY_PLAN,
 } from "@/lib/stripe/subscription-mapping";
+import {
+  sendDataSetupRequest,
+  sendPrioritySupportActivated,
+} from "@/lib/email/sendgrid";
 
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!);
 }
 
+// Constant for the per-type branch that routes add-on Checkout completions.
+const PMF_CHECKOUT_TRACKED = "checkout.session.completed";
+
 // PMF — events whose financial impact we capture into billing_events for the
 // PMF analytics dashboard. This set is intentionally narrow: the existing
 // per-type handlers below run regardless of this set, and billing_events is
 // strictly an append-only ledger for analytics, not a state-machine input.
+//
+// `checkout.session.completed` is included so one-time add-on revenue
+// (Data Setup) lands in the ledger — invoice.paid covers recurring add-on
+// revenue (Priority Support) via the customer's invoices.
 const PMF_TRACKED_EVENTS = new Set<string>([
   "invoice.paid",
   "invoice.payment_failed",
@@ -33,6 +46,7 @@ const PMF_TRACKED_EVENTS = new Set<string>([
   "customer.subscription.deleted",
   "charge.refunded",
   "charge.dispute.created",
+  "checkout.session.completed",
 ]);
 
 export async function POST(req: NextRequest) {
@@ -176,6 +190,36 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Handle add-on Checkout completions (Data Setup one-time, Priority Support
+  // recurring). Routes off `metadata.addon` set by the /api/stripe/addon/* routes.
+  // Idempotency: Stripe never replays a checkout.session.completed for the same
+  // session, and the dedup table at the top blocks event-id replays. Each
+  // branch is also internally idempotent (column writes are deterministic;
+  // data_setup_requests has a unique index on stripe_payment_intent_id; the
+  // notification RPC does ON CONFLICT DO NOTHING).
+  if (event.type === PMF_CHECKOUT_TRACKED) {
+    const session = event.data.object as Stripe.Checkout.Session;
+    const addon = session.metadata?.addon as
+      | "data_setup"
+      | "priority_support"
+      | undefined;
+    const companyIdMeta = session.metadata?.companyId as string | undefined;
+    const companyId = companyIdMeta ?? (session.client_reference_id ?? null);
+
+    if (!addon || !companyId) {
+      // Not an add-on Checkout we own. Silently pass — record dedup at the bottom.
+      console.log(
+        `[stripe-webhook] checkout.session.completed without addon metadata (id=${session.id}) — skipping`
+      );
+    } else if (addon === "data_setup") {
+      const result = await handleDataSetupCheckout({ supabase, stripe: getStripe(), session, companyId });
+      if (result) return result;
+    } else if (addon === "priority_support") {
+      const result = await handlePrioritySupportCheckout({ supabase, stripe: getStripe(), session, companyId });
+      if (result) return result;
+    }
+  }
+
   // Handle subscription events
   if (event.type === "customer.subscription.created" || event.type === "customer.subscription.updated") {
     const subscription = event.data.object as Stripe.Subscription;
@@ -187,6 +231,72 @@ export async function POST(req: NextRequest) {
       .select("id, subscription_ids_json")
       .eq("stripe_customer_id", customerId)
       .maybeSingle();
+
+    // Add-on subscriptions (Priority Support today; future add-ons here too)
+    // run on the same Stripe customer as the base plan but are NOT the base
+    // plan. We must NOT let an add-on subscription overwrite subscription_*
+    // columns that belong to the base plan. Detect via the line item's price.
+    const itemPriceId = subscription.items.data[0]?.price?.id;
+    const isAddonSubscription = !!addonFromPriceId(itemPriceId);
+
+    if (company && isAddonSubscription && isPrioritySupportPrice(itemPriceId)) {
+      // Priority Support entitlement tracking. Stripe statuses we treat as
+      // "active for entitlement purposes": active, trialing, past_due
+      // (grace), paused. Anything else (canceled, incomplete_expired, unpaid,
+      // incomplete) → entitlement off. The mapping mirrors mapStripeStatus
+      // intent but operates on the addon flag rather than subscription_status.
+      const activeForEntitlement: Stripe.Subscription.Status[] = [
+        "active",
+        "trialing",
+        "past_due",
+        "paused",
+      ];
+      const entitled = activeForEntitlement.includes(subscription.status);
+
+      // Persist the billing cadence so the UI can render "Active · Annual"
+      // without a Stripe roundtrip per render. Cleared on cancellation.
+      const period =
+        addonFromPriceId(itemPriceId) === "priority_support_annual"
+          ? "annual"
+          : "monthly";
+
+      const { error: addonErr } = await supabase
+        .from("companies")
+        .update({
+          has_priority_support: entitled,
+          priority_support_period: entitled ? period : null,
+        })
+        .eq("id", company.id);
+
+      if (addonErr) {
+        console.error(
+          `[stripe-webhook] Failed to update priority support entitlement for ${company.id}:`,
+          addonErr.message
+        );
+        return NextResponse.json({ error: "Update failed" }, { status: 500 });
+      }
+      console.log(
+        `[stripe-webhook] Priority support ${entitled ? "ON" : "OFF"} for company ${company.id} (sub=${subscription.id}, status=${subscription.status})`
+      );
+
+      // Record dedup and return — do NOT fall through to base-plan logic.
+      await supabase
+        .from("stripe_webhook_events")
+        .insert({ event_id: event.id, event_type: event.type });
+      return NextResponse.json({ received: true, addon: "priority_support" });
+    }
+
+    if (company && isAddonSubscription) {
+      // Unknown add-on (future use). Skip base-plan handling so we never
+      // accidentally clobber subscription_status with an add-on event.
+      console.log(
+        `[stripe-webhook] Skipping non-priority addon subscription event (sub=${subscription.id}, price=${itemPriceId})`
+      );
+      await supabase
+        .from("stripe_webhook_events")
+        .insert({ event_id: event.id, event_type: event.type });
+      return NextResponse.json({ received: true, addon: "unknown" });
+    }
 
     if (company) {
       // N4 — Skip late events for terminal-state subscriptions that aren't
@@ -296,6 +406,46 @@ export async function POST(req: NextRequest) {
       .select("id, subscription_ids_json")
       .eq("stripe_customer_id", customerId)
       .maybeSingle();
+
+    // Same add-on guard as in subscription.updated — do NOT clobber the base
+    // plan's subscription_status when an add-on subscription is deleted.
+    const itemPriceId = subscription.items.data[0]?.price?.id;
+    if (company && isPrioritySupportPrice(itemPriceId)) {
+      const { error: offErr } = await supabase
+        .from("companies")
+        .update({
+          has_priority_support: false,
+          priority_support_period: null,
+        })
+        .eq("id", company.id);
+
+      if (offErr) {
+        console.error(
+          `[stripe-webhook] Failed to disable priority support for ${company.id}:`,
+          offErr.message
+        );
+        return NextResponse.json({ error: "Update failed" }, { status: 500 });
+      }
+
+      console.log(
+        `[stripe-webhook] Priority support OFF for company ${company.id} (deletion of ${subscription.id})`
+      );
+
+      await supabase
+        .from("stripe_webhook_events")
+        .insert({ event_id: event.id, event_type: event.type });
+      return NextResponse.json({ received: true, addon: "priority_support" });
+    }
+
+    if (company && addonFromPriceId(itemPriceId)) {
+      console.log(
+        `[stripe-webhook] Skipping non-priority addon subscription deletion (sub=${subscription.id})`
+      );
+      await supabase
+        .from("stripe_webhook_events")
+        .insert({ event_id: event.id, event_type: event.type });
+      return NextResponse.json({ received: true, addon: "unknown" });
+    }
 
     if (company) {
       // Guard against late .deleted events from a previously-cancelled
@@ -442,6 +592,7 @@ function extractCustomerId(event: Stripe.Event): string | null {
  * Extract the cents amount that best represents the financial impact of the
  * event. Tries fields in order of relevance:
  *   - amount_paid (Invoice)
+ *   - amount_total (Checkout.Session) — for one-time add-on revenue
  *   - amount (Charge, PaymentIntent)
  *   - amount_refunded (Charge with refund)
  * Returns null for events with no amount (e.g. customer.subscription.created
@@ -450,10 +601,17 @@ function extractCustomerId(event: Stripe.Event): string | null {
 function extractAmountCents(event: Stripe.Event): number | null {
   const obj = event.data.object as {
     amount_paid?: number;
+    amount_total?: number;
     amount?: number;
     amount_refunded?: number;
   };
-  return obj.amount_paid ?? obj.amount ?? obj.amount_refunded ?? null;
+  return (
+    obj.amount_paid ??
+    obj.amount_total ??
+    obj.amount ??
+    obj.amount_refunded ??
+    null
+  );
 }
 
 /**
@@ -466,4 +624,456 @@ function extractAmountCents(event: Stripe.Event): number | null {
 function extractCurrency(event: Stripe.Event): string {
   const obj = event.data.object as { currency?: string };
   return obj.currency ?? "usd";
+}
+
+// Add-on Checkout helpers -----------------------------------------------------
+
+type SupabaseClient = ReturnType<typeof getServiceRoleClient>;
+
+/**
+ * Format a Stripe amount in minor units to a human display string.
+ * `4900` USD → "$49.00 USD". Falls back to a numeric repr if formatting fails.
+ */
+function formatAmount(amountMinor: number, currency: string): string {
+  try {
+    const formatter = new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: currency.toUpperCase(),
+    });
+    return `${formatter.format(amountMinor / 100)} ${currency.toUpperCase()}`;
+  } catch {
+    return `${(amountMinor / 100).toFixed(2)} ${currency.toUpperCase()}`;
+  }
+}
+
+/**
+ * Resolve the user UUID and contact info to attach to a data_setup_requests
+ * row + the fulfillment notification. Falls back to the company account
+ * holder when the purchaser can't be matched (rare; e.g. user signed in via
+ * a Firebase token but the users row has no auth_id link yet).
+ */
+async function resolveCompanyContext(
+  supabase: SupabaseClient,
+  companyId: string,
+  authUid: string | null
+): Promise<{
+  company: {
+    id: string;
+    name: string;
+    email: string | null;
+    phone: string | null;
+    account_holder_id: string | null;
+    admin_ids: string[];
+  };
+  requestedBy: string | null;
+  railRecipients: { userIdText: string; companyIdText: string }[];
+} | null> {
+  const { data: company } = await supabase
+    .from("companies")
+    .select("id, name, email, phone, account_holder_id, admin_ids")
+    .eq("id", companyId)
+    .maybeSingle();
+
+  if (!company) return null;
+
+  // Locate the purchaser. Match the auth-pattern used in
+  // /api/auth/join-company: try auth_id first, then firebase_uid. Most
+  // production users only have firebase_uid set (auth_id is the optional
+  // Supabase Auth bridge that's not yet populated for legacy accounts).
+  // Fall back to any admin in the company so the FK insert never fails.
+  let requestedBy: string | null = null;
+  if (authUid) {
+    const { data: byAuthId } = await supabase
+      .from("users")
+      .select("id")
+      .eq("auth_id", authUid)
+      .maybeSingle();
+    requestedBy = (byAuthId?.id as string | undefined) ?? null;
+
+    if (!requestedBy) {
+      const { data: byFirebaseUid } = await supabase
+        .from("users")
+        .select("id")
+        .eq("firebase_uid", authUid)
+        .maybeSingle();
+      requestedBy = (byFirebaseUid?.id as string | undefined) ?? null;
+    }
+  }
+  if (!requestedBy) {
+    const { data: anyAdmin } = await supabase
+      .from("users")
+      .select("id")
+      .eq("company_id", companyId)
+      .eq("is_company_admin", true)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    requestedBy = (anyAdmin?.id as string | undefined) ?? null;
+  }
+
+  // Notification rail recipients: every admin user in the company. The
+  // notifications table types user_id and company_id as TEXT (legacy from
+  // the Bubble-era schema), so cast UUID strings here.
+  const { data: admins } = await supabase
+    .from("users")
+    .select("id")
+    .eq("company_id", companyId)
+    .eq("is_company_admin", true);
+
+  const rail = (admins ?? []).map((u) => ({
+    userIdText: u.id as string,
+    companyIdText: company.id as string,
+  }));
+
+  return {
+    company: {
+      id: company.id as string,
+      name: company.name as string,
+      email: (company.email as string | null) ?? null,
+      phone: (company.phone as string | null) ?? null,
+      account_holder_id: (company.account_holder_id as string | null) ?? null,
+      admin_ids: (company.admin_ids as string[] | null) ?? [],
+    },
+    requestedBy,
+    railRecipients: rail,
+  };
+}
+
+/**
+ * Drop a notification on the rail for every admin in the company. Uses the
+ * dedup RPC so retries don't pile up duplicates.
+ */
+async function notifyAdmins(
+  supabase: SupabaseClient,
+  recipients: { userIdText: string; companyIdText: string }[],
+  params: {
+    type: string;
+    title: string;
+    body: string;
+    persistent: boolean;
+    actionUrl?: string;
+    actionLabel?: string;
+  }
+): Promise<void> {
+  await Promise.all(
+    recipients.map(async (r) => {
+      const { error } = await supabase.rpc("create_notification_if_new", {
+        p_user_id: r.userIdText,
+        p_company_id: r.companyIdText,
+        p_type: params.type,
+        p_title: params.title,
+        p_body: params.body,
+        p_persistent: params.persistent,
+        p_action_url: params.actionUrl ?? null,
+        p_action_label: params.actionLabel ?? null,
+        p_project_id: null,
+      });
+      if (error) {
+        console.error(
+          `[stripe-webhook] notification RPC failed for ${r.userIdText}:`,
+          error.message
+        );
+      }
+    })
+  );
+}
+
+/**
+ * Handle Data Setup checkout completion. Idempotent across retries:
+ *  - companies.data_setup_purchased is a boolean — re-write is a no-op
+ *  - data_setup_requests has a unique index on stripe_payment_intent_id
+ *  - notification RPC is INSERT ... ON CONFLICT DO NOTHING
+ *  - email send is the only side effect that's NOT naturally idempotent;
+ *    the dedup table at the top of the handler keeps Stripe retries from
+ *    re-triggering the email (the duplicate-event check returns early
+ *    before we get here on retries).
+ */
+async function handleDataSetupCheckout(args: {
+  supabase: SupabaseClient;
+  stripe: Stripe;
+  session: Stripe.Checkout.Session;
+  companyId: string;
+}): Promise<NextResponse | null> {
+  const { supabase, stripe, session, companyId } = args;
+
+  const ctx = await resolveCompanyContext(
+    supabase,
+    companyId,
+    (session.metadata?.purchasedByAuthUid as string | undefined) ?? null
+  );
+  if (!ctx) {
+    console.error(
+      `[stripe-webhook] data_setup checkout for unknown company ${companyId} (session ${session.id})`
+    );
+    return NextResponse.json(
+      { error: "Company not found" },
+      { status: 404 }
+    );
+  }
+
+  // Hydrate the payment intent so we have the real charge id + amount.
+  // session.amount_total is set on Checkout, but the PI id we want for the
+  // data_setup_requests row lives on session.payment_intent (string when not
+  // expanded, object when expanded). Always retrieve to normalize.
+  let paymentIntentId: string | null = null;
+  if (typeof session.payment_intent === "string") {
+    paymentIntentId = session.payment_intent;
+  } else if (session.payment_intent && "id" in session.payment_intent) {
+    paymentIntentId = session.payment_intent.id;
+  }
+
+  const amountMinor = session.amount_total ?? 0;
+  const currency = (session.currency ?? "usd").toUpperCase();
+
+  // 1. Flip the entitlement column.
+  const { error: companyErr } = await supabase
+    .from("companies")
+    .update({ data_setup_purchased: true })
+    .eq("id", companyId);
+  if (companyErr) {
+    console.error(
+      `[stripe-webhook] Failed to set data_setup_purchased for ${companyId}:`,
+      companyErr.message
+    );
+    return NextResponse.json({ error: "Update failed" }, { status: 500 });
+  }
+
+  // 2. Insert the request row. We need a `requested_by` UUID — RLS is
+  //    bypassed because we're on the service role client, but the FK still
+  //    must point to a real user. If we somehow can't resolve one, error
+  //    out so Stripe retries.
+  if (!ctx.requestedBy) {
+    console.error(
+      `[stripe-webhook] data_setup checkout has no resolvable requester for ${companyId} (session ${session.id})`
+    );
+    return NextResponse.json(
+      { error: "No resolvable requester" },
+      { status: 500 }
+    );
+  }
+
+  const { error: insertErr } = await supabase
+    .from("data_setup_requests")
+    .insert({
+      company_id: companyId,
+      requested_by: ctx.requestedBy,
+      status: "pending",
+      stripe_payment_intent_id: paymentIntentId,
+      amount_paid_cents: amountMinor,
+      contact_email:
+        (session.customer_details?.email as string | null) ??
+        ctx.company.email,
+      contact_phone: ctx.company.phone,
+    });
+
+  // 23505 = unique-violation on stripe_payment_intent_id; means we've
+  // already inserted this row from a prior delivery. Safe to swallow.
+  if (insertErr && (insertErr as { code?: string }).code !== "23505") {
+    console.error(
+      `[stripe-webhook] data_setup_requests insert failed for ${companyId}:`,
+      insertErr.message
+    );
+    return NextResponse.json({ error: "Insert failed" }, { status: 500 });
+  }
+
+  // 3. Send fulfillment email to the OPS team. ADDON_FULFILLMENT_EMAIL is
+  //    required — surface as 500 if unset so Stripe retries instead of
+  //    silently swallowing the purchase notification.
+  const fulfillmentTo = process.env.ADDON_FULFILLMENT_EMAIL;
+  if (!fulfillmentTo) {
+    console.error(
+      "[stripe-webhook] ADDON_FULFILLMENT_EMAIL not set — cannot deliver Data Setup notification"
+    );
+    return NextResponse.json(
+      { error: "Fulfillment email not configured" },
+      { status: 500 }
+    );
+  }
+
+  const purchasedAtSecs = session.created ?? Math.floor(Date.now() / 1000);
+  const purchasedAt = new Date(purchasedAtSecs * 1000);
+  const purchasedAtDisplay = purchasedAt.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "America/Los_Angeles",
+    timeZoneName: "short",
+  });
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://app.opsapp.co";
+  const adminUrl = `${appUrl}/admin/companies/${companyId}`;
+
+  try {
+    await sendDataSetupRequest({
+      to: fulfillmentTo,
+      companyName: ctx.company.name,
+      contactEmail:
+        (session.customer_details?.email as string | null) ??
+        ctx.company.email ??
+        "(no email on file)",
+      contactPhone: ctx.company.phone,
+      sourceSoftware: null, // captured later in the call; admin can fill via notes
+      stripePaymentIntentId: paymentIntentId ?? "(no PI id)",
+      amountDisplay: formatAmount(amountMinor, currency),
+      purchasedAtDisplay,
+      adminUrl,
+    });
+    console.log(
+      `[stripe-webhook] Data Setup fulfillment email sent to ${fulfillmentTo} for ${companyId}`
+    );
+  } catch (err) {
+    console.error(
+      "[stripe-webhook] Failed to send Data Setup fulfillment email:",
+      err instanceof Error ? err.message : err
+    );
+    return NextResponse.json(
+      { error: "Email send failed" },
+      { status: 500 }
+    );
+  }
+
+  // 4. Notify admins via the rail (persistent until status leaves pending).
+  await notifyAdmins(supabase, ctx.railRecipients, {
+    type: "system",
+    title: "Data Setup purchased",
+    body: "We'll reach out within 24 hours to schedule your migration.",
+    persistent: true,
+    actionUrl: "/settings?tab=subscription",
+    actionLabel: "View",
+  });
+
+  // Suppress unused-arg warning — `stripe` is hoisted into the call site for
+  // future expansion (e.g. retrieving the PI to grab the charge id directly).
+  void stripe;
+
+  // Return null so the main POST handler writes the dedup record + 200.
+  return null;
+}
+
+/**
+ * Handle Priority Support checkout completion. The actual entitlement flip
+ * (companies.has_priority_support) happens via the customer.subscription.*
+ * branch above when Stripe fires the subscription event. We use this hook
+ * for the customer-facing confirmation email + notification rail entry.
+ */
+async function handlePrioritySupportCheckout(args: {
+  supabase: SupabaseClient;
+  stripe: Stripe;
+  session: Stripe.Checkout.Session;
+  companyId: string;
+}): Promise<NextResponse | null> {
+  const { supabase, stripe, session, companyId } = args;
+
+  // Derive period from the line item's price ID (the canonical source) and
+  // fall back to the session metadata only if the expand fails. The metadata
+  // is set by our own endpoint, but Stripe-side dashboard edits or future
+  // migrations could leave it stale — the price ID can't lie.
+  let period: "monthly" | "annual" =
+    (session.metadata?.period as "monthly" | "annual") ?? "monthly";
+  try {
+    const expanded = await stripe.checkout.sessions.retrieve(session.id, {
+      expand: ["line_items"],
+    });
+    const itemPriceId = expanded.line_items?.data[0]?.price?.id;
+    const addon = addonFromPriceId(itemPriceId);
+    if (addon === "priority_support_annual") period = "annual";
+    else if (addon === "priority_support_monthly") period = "monthly";
+  } catch (err) {
+    // Stripe API failure here isn't fatal — metadata fallback is good enough
+    // for the email subject line; the entitlement column is set by the
+    // customer.subscription.* handler from the price directly.
+    console.warn(
+      "[stripe-webhook] Could not expand line_items for period derivation, using metadata fallback:",
+      err instanceof Error ? err.message : err
+    );
+  }
+
+  const ctx = await resolveCompanyContext(
+    supabase,
+    companyId,
+    (session.metadata?.purchasedByAuthUid as string | undefined) ?? null
+  );
+  if (!ctx) {
+    console.error(
+      `[stripe-webhook] priority_support checkout for unknown company ${companyId} (session ${session.id})`
+    );
+    return NextResponse.json(
+      { error: "Company not found" },
+      { status: 404 }
+    );
+  }
+
+  // Belt-and-suspenders flip: the subscription event will also set this to
+  // true, but we set it here too so the UI doesn't lag on the (rare) case
+  // where checkout.session.completed lands before customer.subscription.*.
+  const { error: flipErr } = await supabase
+    .from("companies")
+    .update({ has_priority_support: true })
+    .eq("id", companyId);
+  if (flipErr) {
+    console.error(
+      `[stripe-webhook] Failed to flip has_priority_support for ${companyId}:`,
+      flipErr.message
+    );
+    return NextResponse.json({ error: "Update failed" }, { status: 500 });
+  }
+
+  // Confirmation email to the buyer (or company billing email if no buyer).
+  const recipient =
+    (session.customer_details?.email as string | null) ?? ctx.company.email;
+
+  if (recipient) {
+    const startedAt = new Date(
+      (session.created ?? Math.floor(Date.now() / 1000)) * 1000
+    );
+    const startedAtDisplay = startedAt.toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+
+    const appUrl =
+      process.env.NEXT_PUBLIC_APP_URL ?? "https://app.opsapp.co";
+    const fulfillmentInbox =
+      process.env.ADDON_FULFILLMENT_EMAIL ?? "jack@opsapp.co";
+
+    try {
+      await sendPrioritySupportActivated({
+        to: recipient,
+        companyName: ctx.company.name,
+        period,
+        startedAtDisplay,
+        contactEmail: fulfillmentInbox,
+        manageUrl: `${appUrl}/settings?tab=subscription`,
+      });
+      console.log(
+        `[stripe-webhook] Priority support confirmation sent to ${recipient} for ${companyId}`
+      );
+    } catch (err) {
+      console.error(
+        "[stripe-webhook] Failed to send priority support confirmation:",
+        err instanceof Error ? err.message : err
+      );
+      // Non-fatal — entitlement is already flipped. Logging is enough; the
+      // user can still see the change in the UI and email re-send is cheap.
+    }
+  } else {
+    console.log(
+      `[stripe-webhook] Priority support confirmation skipped — no recipient email for ${companyId}`
+    );
+  }
+
+  // Standard (dismissible) notification.
+  await notifyAdmins(supabase, ctx.railRecipients, {
+    type: "system",
+    title: "Priority Support active",
+    body: "Email priority support directly from the subscription tab.",
+    persistent: false,
+    actionUrl: "/settings?tab=subscription",
+    actionLabel: "Open",
+  });
+
+  return null; // fall through to dedup record at the bottom of POST
 }
