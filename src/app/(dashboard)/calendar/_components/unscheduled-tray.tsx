@@ -134,7 +134,13 @@ export function UnscheduledTray({ view }: UnscheduledTrayProps) {
     }));
   }, [sorted, unscheduledTrayGroupBy]);
 
-  const dockSide: "left" | "right" = view === "day" ? "left" : "right";
+  // Spec v2 — tray always docks on the right edge, regardless of the
+  // active view. The prior view-dependent split (left in Day, right
+  // everywhere else) was visually disorienting. `view` is still consumed
+  // upstream so we keep it on the prop.
+  void view;
+  type DockSide = "left" | "right";
+  const dockSide = "right" as DockSide;
   const count = allUnscheduled.length;
 
   // Drop target — accepts existing calendar events (month/week/day-hourly/

@@ -272,8 +272,10 @@ export default function CalendarPage() {
         {/* Filter sidebar (left) — hidden on mobile */}
         {!isMobile && <FilterSidebar />}
 
-        {/* Day view: tray docks LEFT (mirrors Jobber/Housecall) */}
-        {!isMobile && view === "day" && <UnscheduledTray view={view} />}
+        {/* Tray now docks RIGHT in every view (was left for Day, right
+            for Week/Month/Crew — visually disorienting when switching
+            views per the user's bug report). The single placement below
+            handles all views including Day. */}
 
         {/* Main calendar grid */}
         <div className="flex-1 flex flex-col min-h-0 min-w-0 relative">
@@ -369,8 +371,8 @@ export default function CalendarPage() {
           )}
         </div>
 
-        {/* Week / Month / Crew view: tray docks RIGHT */}
-        {!isMobile && view !== "day" && <UnscheduledTray view={view} />}
+        {/* Tray dock — RIGHT in every view */}
+        {!isMobile && <UnscheduledTray view={view} />}
 
       </div>
 
