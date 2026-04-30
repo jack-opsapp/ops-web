@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo } from "react";
-import { Search, ChevronRight, ChevronLeft, GripVertical } from "lucide-react";
+import { ChevronRight, ChevronLeft, GripVertical } from "lucide-react";
+import { SearchInput } from "@/components/ui/search-input";
 import { useDraggable } from "@dnd-kit/core";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTasks } from "@/lib/hooks";
@@ -73,7 +74,8 @@ export function UnscheduledTray({ view }: UnscheduledTrayProps) {
         (t.customTitle ?? "").toLowerCase().includes(q) ||
         (t.taskType?.display ?? "").toLowerCase().includes(q) ||
         (t.project?.title ?? "").toLowerCase().includes(q) ||
-        (t.project?.address ?? "").toLowerCase().includes(q)
+        (t.project?.address ?? "").toLowerCase().includes(q) ||
+        (t.project?.client?.name ?? "").toLowerCase().includes(q)
     );
   }, [allUnscheduled, unscheduledTraySearch]);
 
@@ -112,9 +114,9 @@ export function UnscheduledTray({ view }: UnscheduledTrayProps) {
         case "project":
           return t.project?.title ?? "// NO PROJECT";
         case "client":
-          // ProjectTask doesn't expose client directly; project carries clientId.
-          // Without joining, fall back to project title (best available proxy).
-          return t.project?.title ?? "// NO CLIENT";
+          // task-service eager-loads project.client (see select clause), so
+          // group by the actual client name when present.
+          return t.project?.client?.name ?? "// NO CLIENT";
         case "type":
           return t.taskType?.display?.toUpperCase() ?? "// NO TYPE";
       }
@@ -137,82 +139,94 @@ export function UnscheduledTray({ view }: UnscheduledTrayProps) {
   const dockSide: "left" | "right" = view === "day" ? "left" : "right";
   const count = allUnscheduled.length;
 
-  // ── Collapsed state ─────────────────────────────────────────────────────
-
-  if (unscheduledTrayCollapsed) {
-    return (
-      <button
-        type="button"
-        onClick={toggleUnscheduledTray}
-        className="shrink-0 h-full flex flex-col items-center justify-start gap-3 cursor-pointer group"
-        style={{
-          width: COLLAPSED_WIDTH,
-          background: "var(--glass-bg)",
-          borderLeft: dockSide === "right" ? "1px solid var(--line)" : "none",
-          borderRight: dockSide === "left" ? "1px solid var(--line)" : "none",
-          padding: "16px 0",
-          transition: "background 0.15s cubic-bezier(0.22, 1, 0.36, 1)",
-        }}
-        onMouseEnter={(e) => {
-          (e.currentTarget as HTMLElement).style.background = "var(--surface-hover)";
-        }}
-        onMouseLeave={(e) => {
-          (e.currentTarget as HTMLElement).style.background = "var(--glass-bg)";
-        }}
-        aria-label={`Show ${count} unscheduled tasks`}
-        title={`// UNSCHEDULED [${count}]`}
-      >
-        {dockSide === "right" ? (
-          <ChevronLeft
-            className="w-[14px] h-[14px]"
-            style={{ color: "var(--text-3)" }}
-          />
-        ) : (
-          <ChevronRight
-            className="w-[14px] h-[14px]"
-            style={{ color: "var(--text-3)" }}
-          />
-        )}
-        <div
-          className="flex-1 flex items-center justify-center"
-          style={{
-            writingMode: "vertical-rl",
-            transform: "rotate(180deg)",
-          }}
-        >
-          <span
-            className="font-mono text-[11px] uppercase tracking-wider tabular-nums"
-            style={{
-              color: "var(--text-3)",
-              fontFeatureSettings: '"tnum" 1, "zero" 1',
-            }}
-          >
-            {`// UNSCHEDULED [${count}]`}
-          </span>
-        </div>
-        <GripVertical
-          className="w-[14px] h-[14px]"
-          style={{ color: "var(--text-mute)" }}
-        />
-      </button>
-    );
-  }
-
-  // ── Expanded state ──────────────────────────────────────────────────────
+  // ── Animated width container ────────────────────────────────────────────
+  // A single motion.div animates between COLLAPSED_WIDTH and EXPANDED_WIDTH
+  // so the rail visibly slides closed / open. Inner contents cross-fade with
+  // AnimatePresence so the collapsed rail (vertical label) and expanded
+  // panel (search + cards) hand off smoothly without an instant swap.
 
   return (
     <motion.div
       initial={false}
-      animate={{ width: EXPANDED_WIDTH }}
-      transition={{ duration: 0.22, ease: EASE_SMOOTH }}
-      className="shrink-0 h-full flex flex-col min-h-0"
+      animate={{
+        width: unscheduledTrayCollapsed ? COLLAPSED_WIDTH : EXPANDED_WIDTH,
+      }}
+      transition={{ duration: 0.24, ease: EASE_SMOOTH }}
+      className="shrink-0 h-full flex flex-col min-h-0 overflow-hidden relative"
       style={{
-        width: EXPANDED_WIDTH,
         background: "var(--glass-bg)",
         borderLeft: dockSide === "right" ? "1px solid var(--line)" : "none",
         borderRight: dockSide === "left" ? "1px solid var(--line)" : "none",
       }}
     >
+      <AnimatePresence initial={false} mode="wait">
+        {unscheduledTrayCollapsed ? (
+          <motion.button
+            key="tray-collapsed"
+            type="button"
+            onClick={toggleUnscheduledTray}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.16, ease: EASE_SMOOTH }}
+            className="absolute inset-0 flex flex-col items-center justify-start gap-3 cursor-pointer group"
+            style={{
+              padding: "16px 0",
+              background: "transparent",
+              transition: "background 0.15s cubic-bezier(0.22, 1, 0.36, 1)",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLElement).style.background = "var(--surface-hover)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLElement).style.background = "transparent";
+            }}
+            aria-label={`Show ${count} unscheduled tasks`}
+            title={`// UNSCHEDULED [${count}]`}
+          >
+            {dockSide === "right" ? (
+              <ChevronLeft
+                className="w-[14px] h-[14px]"
+                style={{ color: "var(--text-3)" }}
+              />
+            ) : (
+              <ChevronRight
+                className="w-[14px] h-[14px]"
+                style={{ color: "var(--text-3)" }}
+              />
+            )}
+            <div
+              className="flex-1 flex items-center justify-center"
+              style={{
+                writingMode: "vertical-rl",
+                transform: "rotate(180deg)",
+              }}
+            >
+              <span
+                className="font-mono text-[11px] uppercase tracking-wider tabular-nums"
+                style={{
+                  color: "var(--text-3)",
+                  fontFeatureSettings: '"tnum" 1, "zero" 1',
+                }}
+              >
+                {`// UNSCHEDULED [${count}]`}
+              </span>
+            </div>
+            <GripVertical
+              className="w-[14px] h-[14px]"
+              style={{ color: "var(--text-mute)" }}
+            />
+          </motion.button>
+        ) : (
+          <motion.div
+            key="tray-expanded"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18, ease: EASE_SMOOTH, delay: 0.04 }}
+            className="absolute inset-0 flex flex-col min-h-0"
+            style={{ width: EXPANDED_WIDTH }}
+          >
       {/* Header row */}
       <div
         className="shrink-0 flex items-center justify-between px-3 py-3"
@@ -250,35 +264,10 @@ export function UnscheduledTray({ view }: UnscheduledTrayProps) {
 
       {/* Search */}
       <div className="shrink-0 px-3 pt-3 pb-1">
-        <div className="relative">
-          <Search
-            size={12}
-            className="absolute left-[10px] top-1/2 -translate-y-1/2 pointer-events-none"
-            style={{ color: "var(--text-3)" }}
-          />
-          <input
-            type="text"
-            value={unscheduledTraySearch}
-            onChange={(e) => setUnscheduledTraySearch(e.target.value)}
-            placeholder="SEARCH"
-            className="w-full pl-[30px] pr-2 py-[6px] font-mono text-[11px] uppercase tracking-wider"
-            style={{
-              background: "var(--surface-input)",
-              border: "1px solid var(--line)",
-              borderRadius: 5,
-              color: "var(--text)",
-              outline: "none",
-              letterSpacing: "0.06em",
-            }}
-            onFocus={(e) =>
-              ((e.currentTarget as HTMLElement).style.borderColor =
-                "rgba(255,255,255,0.20)")
-            }
-            onBlur={(e) =>
-              ((e.currentTarget as HTMLElement).style.borderColor = "var(--line)")
-            }
-          />
-        </div>
+        <SearchInput
+          value={unscheduledTraySearch}
+          onChange={(e) => setUnscheduledTraySearch(e.target.value)}
+        />
       </div>
 
       {/* Group / Sort selects */}
@@ -354,6 +343,9 @@ export function UnscheduledTray({ view }: UnscheduledTrayProps) {
           </div>
         )}
       </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
@@ -382,6 +374,7 @@ function UnscheduledTrayCard({ task }: { task: ProjectTask }) {
     "#6F94B0";
 
   const projectName = task.project?.title ?? "Untitled Project";
+  const clientName = task.project?.client?.name ?? null;
   const taskTypeLabel = task.taskType?.display?.toUpperCase() ?? "TASK";
   const customTitle = task.customTitle;
 
@@ -437,6 +430,14 @@ function UnscheduledTrayCard({ task }: { task: ProjectTask }) {
           {taskTypeLabel}
         </span>
       </div>
+      {clientName && (
+        <div
+          className="font-mono text-[10px] uppercase tracking-wider truncate mt-1"
+          style={{ color: "var(--text-2)", letterSpacing: "0.04em" }}
+        >
+          {clientName}
+        </div>
+      )}
       {customTitle && customTitle !== task.taskType?.display && (
         <div
           className="font-mono text-[10px] truncate mt-1"

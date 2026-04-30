@@ -327,11 +327,16 @@ export function CalendarDndShell({ children }: CalendarDndShellProps) {
       }
 
       // ── Schedule from unscheduled tray ───────────────────────────────
+      // duration is the inclusive day count (1 = single calendar day,
+      // 2 = two consecutive days, etc). Calendar surfaces treat
+      // endDate === startDate as single-day, so endDate must land
+      // (duration - 1) days after the start, never duration. The earlier
+      // formula scheduled a 1-day task as a 2-day span (May 7 → May 8).
       if (activeData.type === "unscheduled-task" && activeData.task) {
         const task = activeData.task;
         const duration = Math.max(task.duration ?? 1, 1);
         const newStart = targetDay;
-        const newEnd = addDays(newStart, duration);
+        const newEnd = addDays(newStart, Math.max(duration - 1, 0));
         updateTask.mutate(
           { id: task.id, data: { startDate: newStart, endDate: newEnd } },
           {
@@ -349,7 +354,7 @@ export function CalendarDndShell({ children }: CalendarDndShellProps) {
         const task = activeData.task;
         const duration = Math.max(task.duration ?? 1, 1);
         const newStart = targetDay;
-        const newEnd = addDays(newStart, duration);
+        const newEnd = addDays(newStart, Math.max(duration - 1, 0));
         updateTask.mutate(
           { id: task.id, data: { startDate: newStart, endDate: newEnd } },
           {

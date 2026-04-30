@@ -61,6 +61,11 @@ interface CalendarStoreState {
   // events and brighten matching ones. UI-ephemeral, never persisted.
   highlightedTaskType: string | null;
 
+  // Team-member hover-to-highlight (parallel to highlightedTaskType, for
+  // the team-member dropdown). When set, event renderers dim cards whose
+  // crew does not include this user id.
+  highlightedTeamMemberId: string | null;
+
   // Cascade / Ghost previews
   ghostPreviews: GhostPreview[];
   isConfirmBarVisible: boolean;
@@ -109,6 +114,7 @@ interface CalendarStoreState {
 
   // Actions — Legend highlight
   setHighlightedTaskType: (type: string | null) => void;
+  setHighlightedTeamMemberId: (id: string | null) => void;
 
   // Actions — Multi-select
   toggleTaskSelection: (taskId: string) => void;
@@ -173,6 +179,7 @@ export const useCalendarStore = create<CalendarStoreState>()(
 
       // Legend highlight
       highlightedTaskType: null,
+      highlightedTeamMemberId: null,
 
       // Cascade / Ghost
       ghostPreviews: [],
@@ -242,6 +249,7 @@ export const useCalendarStore = create<CalendarStoreState>()(
 
       // Actions — Legend highlight
       setHighlightedTaskType: (type) => set({ highlightedTaskType: type }),
+      setHighlightedTeamMemberId: (id) => set({ highlightedTeamMemberId: id }),
 
       // Actions — Multi-select
       toggleTaskSelection: (taskId) =>

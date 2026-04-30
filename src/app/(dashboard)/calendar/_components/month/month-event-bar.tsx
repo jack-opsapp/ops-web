@@ -2,9 +2,18 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { format } from "date-fns";
+import { Star } from "lucide-react";
 import { type InternalCalendarEvent } from "@/lib/utils/calendar-utils";
 import { useCalendarStore } from "@/stores/calendar-store";
 import { EventHoverPopover } from "../event-hover-popover";
+
+// Personal events ride on the same color pool as task types, which makes
+// them visually indistinguishable from any task type using the same color.
+// Override their visual treatment: outline-only chip with a star icon and
+// white text/border — distinct from any task-type bar regardless of color.
+const PERSONAL_BG = "rgba(255, 255, 255, 0.04)";
+const PERSONAL_BORDER = "rgba(255, 255, 255, 0.55)";
+const PERSONAL_TEXT = "#FFFFFF";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -143,14 +152,32 @@ export function MonthEventBar({
   const [isHovered, setIsHovered] = useState(false);
   const barRef = useRef<HTMLDivElement | null>(null);
 
+  // Personal events render with a distinct white-outline + star treatment
+  // so they're never confused with task-type bars (which can land on any
+  // color in the palette).
+  const isPersonal = event.kind === "personal";
+  const barBg = isPersonal ? PERSONAL_BG : event.typeColors.bg;
+  const barBorder = isPersonal ? PERSONAL_BORDER : event.typeColors.border;
+  const barText = isPersonal ? PERSONAL_TEXT : event.typeColors.text;
+
   // Legend hover-to-highlight: dim non-matches, brighten matches. The "glow"
   // is brightness + opacity rather than a box-shadow (forbidden on dark
-  // canvas per the design spec).
+  // canvas per the design spec). Mirrors logic for the team-member dropdown
+  // — when a team member is being hovered, dim every card whose crew does
+  // not include them.
   const highlightedTaskType = useCalendarStore((s) => s.highlightedTaskType);
-  const dimmedByLegend =
-    highlightedTaskType !== null && event.typeLabel !== highlightedTaskType;
-  const highlightedByLegend =
+  const highlightedTeamMemberId = useCalendarStore(
+    (s) => s.highlightedTeamMemberId
+  );
+  const matchesType =
     highlightedTaskType !== null && event.typeLabel === highlightedTaskType;
+  const matchesMember =
+    highlightedTeamMemberId !== null &&
+    event.crewIds.includes(highlightedTeamMemberId);
+  const dimmedByLegend =
+    (highlightedTaskType !== null && !matchesType) ||
+    (highlightedTeamMemberId !== null && !matchesMember);
+  const highlightedByLegend = matchesType || matchesMember;
 
   // Status guard — completed/cancelled events are display-only.
   const locked =
@@ -186,19 +213,24 @@ export function MonthEventBar({
     canResize && (span.isSingleDay || span.isLastSegment);
 
   // Visual preview during drag — translucent overlay extending or
-  // contracting from the active edge by previewDayDelta day-columns. The
-  // outer absolute container is one day-column wide on the bar's edge,
-  // anchored beyond the bar so growth is visible.
+  // contracting from the active edge by previewDayDelta day-columns.
+  //
+  // The bar's own width spans `barDayCount` calendar columns (1 for
+  // single-day, N for multi-day). A naive `${magnitude * 100}%` is
+  // measured against the bar's width, which means a 1-day extension on
+  // a 2-day bar renders as a 2-column-wide preview overlay (the
+  // user-visible bug). Compute the width as a fraction of a single
+  // day-column so the preview always tracks one calendar day per unit
+  // of dayDelta.
   const renderEdgePreview = (edge: "left" | "right") => {
     if (!resize || resize.edge !== edge || previewDayDelta === 0) return null;
     const grow = previewDayDelta > 0;
     const magnitude = Math.abs(previewDayDelta);
 
-    // For "right" edge: positive grow extends further right (outside the bar);
-    //                    negative shrink overlays the bar from the right.
-    // For "left" edge:  positive grow extends further left;
-    //                    negative shrink overlays from the left.
-    const widthCol = `${magnitude * 100}%`;
+    const barDayCount =
+      span.endDayIndex - span.startDayIndex + 1; // 1 for single-day; N for multi-day
+    const widthPctOfBar = (magnitude / barDayCount) * 100;
+
     const style: React.CSSProperties = {
       position: "absolute",
       top: -2,
@@ -209,7 +241,7 @@ export function MonthEventBar({
         : "rgba(0,0,0,0.45)",
       border: `1px dashed ${event.typeColors.border}`,
       borderRadius: 4,
-      width: widthCol,
+      width: `${widthPctOfBar}%`,
       zIndex: 8,
     };
     if (edge === "right") {
@@ -277,6 +309,32 @@ export function MonthEventBar({
 
   // ── Level 1: Compact — color dot only (no stripe, no handles) ──
   if (displayLevel === "compact") {
+    if (isPersonal) {
+      // White star instead of color dot — keeps the same 10px slot but
+      // signals "personal" at a glance.
+      return (
+        <EventHoverPopover event={event} side="top">
+          <div
+            className="cursor-pointer shrink-0 flex items-center justify-center"
+            style={{
+              width: 10,
+              height: 10,
+              opacity: dimmedByLegend ? 0.18 : 1,
+              filter: highlightedByLegend ? "brightness(1.25)" : "none",
+              transition:
+                "opacity 0.15s cubic-bezier(0.22, 1, 0.36, 1), filter 0.15s cubic-bezier(0.22, 1, 0.36, 1)",
+            }}
+            onClick={handleClick}
+          >
+            <Star
+              size={10}
+              strokeWidth={1.5}
+              style={{ color: PERSONAL_TEXT, fill: PERSONAL_TEXT }}
+            />
+          </div>
+        </EventHoverPopover>
+      );
+    }
     return (
       <EventHoverPopover event={event} side="top">
         <div
@@ -299,7 +357,7 @@ export function MonthEventBar({
 
   // ── Level 2: Standard — short bar with single-line title ──
   if (displayLevel === "standard") {
-    const showStripe = span.isFirstSegment || span.isSingleDay;
+    const showStripe = !isPersonal && (span.isFirstSegment || span.isSingleDay);
     return (
       <EventHoverPopover event={event} side="top" disabled={!!resize}>
         <div
@@ -307,14 +365,15 @@ export function MonthEventBar({
           className="cursor-pointer truncate relative"
           style={{
             height: 14,
-            background: event.typeColors.bg,
-            border: `1px solid ${event.typeColors.border}`,
+            background: barBg,
+            border: `1px solid ${barBorder}`,
             borderRadius,
-            color: event.typeColors.text,
-            paddingLeft: showStripe ? 7 : 4,
+            color: barText,
+            paddingLeft: showStripe ? 7 : isPersonal ? 5 : 4,
             paddingRight: 4,
             display: "flex",
             alignItems: "center",
+            gap: isPersonal ? 4 : 0,
             overflow: "visible",
             transition:
               "filter 0.15s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.15s cubic-bezier(0.22, 1, 0.36, 1)",
@@ -330,9 +389,17 @@ export function MonthEventBar({
           onMouseLeave={() => setIsHovered(false)}
         >
           {StripeAccent(showStripe)}
+          {isPersonal && (
+            <Star
+              size={9}
+              strokeWidth={1.5}
+              style={{ color: PERSONAL_TEXT, fill: PERSONAL_TEXT, flexShrink: 0 }}
+              aria-hidden="true"
+            />
+          )}
           <span
             className="font-mohave truncate"
-            style={{ fontSize: 11, lineHeight: "14px", color: "var(--text)" }}
+            style={{ fontSize: 11, lineHeight: "14px", color: barText }}
           >
             {event.projectTitle ?? event.taskTitle}
           </span>
@@ -349,7 +416,8 @@ export function MonthEventBar({
 
   // Multi-day events stay 14px even at expanded level
   if (!span.isSingleDay) {
-    const showStripe = span.isFirstSegment;
+    const showStripe = !isPersonal && span.isFirstSegment;
+    const showStarLead = isPersonal && span.isFirstSegment;
     return (
       <EventHoverPopover event={event} side="top" disabled={!!resize}>
         <div
@@ -357,14 +425,15 @@ export function MonthEventBar({
           className="cursor-pointer truncate relative"
           style={{
             height: 14,
-            background: event.typeColors.bg,
-            border: `1px solid ${event.typeColors.border}`,
+            background: barBg,
+            border: `1px solid ${barBorder}`,
             borderRadius,
-            color: event.typeColors.text,
-            paddingLeft: showStripe ? 7 : 4,
+            color: barText,
+            paddingLeft: showStripe ? 7 : isPersonal ? 5 : 4,
             paddingRight: 4,
             display: "flex",
             alignItems: "center",
+            gap: showStarLead ? 4 : 0,
             overflow: "visible",
             transition:
               "filter 0.15s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.15s cubic-bezier(0.22, 1, 0.36, 1)",
@@ -380,9 +449,17 @@ export function MonthEventBar({
           onMouseLeave={() => setIsHovered(false)}
         >
           {StripeAccent(showStripe)}
+          {showStarLead && (
+            <Star
+              size={9}
+              strokeWidth={1.5}
+              style={{ color: PERSONAL_TEXT, fill: PERSONAL_TEXT, flexShrink: 0 }}
+              aria-hidden="true"
+            />
+          )}
           <span
             className="font-mohave truncate"
-            style={{ fontSize: 11, lineHeight: "14px", color: "var(--text)" }}
+            style={{ fontSize: 11, lineHeight: "14px", color: barText }}
           >
             {event.projectTitle ?? event.taskTitle}
           </span>
@@ -415,11 +492,11 @@ export function MonthEventBar({
         className="cursor-pointer relative"
         style={{
           height: 42,
-          background: event.typeColors.bg,
-          border: `1px solid ${event.typeColors.border}`,
+          background: barBg,
+          border: `1px solid ${barBorder}`,
           borderRadius: "4px",
-          color: event.typeColors.text,
-          paddingLeft: 9,
+          color: barText,
+          paddingLeft: isPersonal ? 8 : 9,
           paddingRight: 6,
           paddingTop: 4,
           paddingBottom: 4,
@@ -434,7 +511,15 @@ export function MonthEventBar({
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        {StripeAccent(true)}
+        {StripeAccent(!isPersonal)}
+        {isPersonal && (
+          <Star
+            size={12}
+            strokeWidth={1.5}
+            style={{ color: PERSONAL_TEXT, fill: PERSONAL_TEXT, flexShrink: 0 }}
+            aria-hidden="true"
+          />
+        )}
 
         <div className="flex-1 min-w-0 flex flex-col justify-center">
           <span
@@ -442,7 +527,7 @@ export function MonthEventBar({
             style={{
               fontSize: 12,
               lineHeight: "14px",
-              color: "var(--text)",
+              color: barText,
               letterSpacing: 0,
             }}
           >
@@ -454,7 +539,7 @@ export function MonthEventBar({
               style={{
                 fontSize: 10,
                 lineHeight: "12px",
-                color: "var(--text-2)",
+                color: isPersonal ? "rgba(255,255,255,0.65)" : "var(--text-2)",
               }}
             >
               {lineTwo}
@@ -470,7 +555,7 @@ export function MonthEventBar({
               style={{
                 fontSize: 10,
                 lineHeight: "12px",
-                color: "var(--text-3)",
+                color: isPersonal ? "rgba(255,255,255,0.65)" : "var(--text-3)",
                 fontFeatureSettings: '"tnum" 1, "zero" 1',
               }}
             >
@@ -480,9 +565,9 @@ export function MonthEventBar({
           <div
             className="px-[5px] py-[1px] font-cakemono font-light uppercase"
             style={{
-              color: event.typeColors.text,
-              background: event.typeColors.bg,
-              border: `1px solid ${event.typeColors.border}`,
+              color: barText,
+              background: barBg,
+              border: `1px solid ${barBorder}`,
               borderRadius: 4,
               fontSize: 9,
               letterSpacing: "0.04em",
