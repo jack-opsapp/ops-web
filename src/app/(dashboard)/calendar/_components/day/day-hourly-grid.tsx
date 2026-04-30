@@ -89,12 +89,21 @@ function TimedBlock({
   const locked =
     event.statusKey === "completed" || event.statusKey === "cancelled";
 
-  // Legend hover-to-highlight integration.
+  // Legend hover-to-highlight integration. Combined logic — match either
+  // the highlighted task type or the highlighted team member.
   const highlightedTaskType = useCalendarStore((s) => s.highlightedTaskType);
-  const dimmedByLegend =
-    highlightedTaskType !== null && event.typeLabel !== highlightedTaskType;
-  const highlightedByLegend =
+  const highlightedTeamMemberId = useCalendarStore(
+    (s) => s.highlightedTeamMemberId
+  );
+  const matchesType =
     highlightedTaskType !== null && event.typeLabel === highlightedTaskType;
+  const matchesMember =
+    highlightedTeamMemberId !== null &&
+    event.crewIds.includes(highlightedTeamMemberId);
+  const dimmedByLegend =
+    (highlightedTaskType !== null && !matchesType) ||
+    (highlightedTeamMemberId !== null && !matchesMember);
+  const highlightedByLegend = matchesType || matchesMember;
 
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({

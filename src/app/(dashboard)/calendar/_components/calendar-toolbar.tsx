@@ -6,7 +6,7 @@ import {
   type InternalCalendarEvent,
 } from "@/lib/utils/calendar-utils";
 import { useCalendarStore } from "@/stores/calendar-store";
-import { useTasks } from "@/lib/hooks";
+import { useTasks, useTeamMembers } from "@/lib/hooks";
 import { TaskStatus } from "@/lib/types/models";
 import { ChevronDown, X } from "lucide-react";
 
@@ -25,11 +25,16 @@ export function CalendarToolbar({ events, t }: CalendarToolbarProps) {
     unscheduledTrayCollapsed,
     toggleUnscheduledTray,
     setHighlightedTaskType,
+    setHighlightedTeamMemberId,
   } = useCalendarStore();
 
   // Legend dropdown — collapsed by default. Click summary chip to expand.
   const [legendOpen, setLegendOpen] = useState(false);
   const legendWrapRef = useRef<HTMLDivElement | null>(null);
+
+  // Team-member dropdown — same interaction pattern as legend.
+  const [teamOpen, setTeamOpen] = useState(false);
+  const teamWrapRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!legendOpen) {
@@ -48,8 +53,61 @@ export function CalendarToolbar({ events, t }: CalendarToolbarProps) {
     return () => document.removeEventListener("mousedown", onDown);
   }, [legendOpen, setHighlightedTaskType]);
 
+  useEffect(() => {
+    if (!teamOpen) {
+      setHighlightedTeamMemberId(null);
+      return;
+    }
+    const onDown = (e: MouseEvent) => {
+      if (
+        teamWrapRef.current &&
+        !teamWrapRef.current.contains(e.target as Node)
+      ) {
+        setTeamOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [teamOpen, setHighlightedTeamMemberId]);
+
   // Unscheduled count for the toolbar chip (T15)
   const { data: taskData } = useTasks();
+  const { data: teamData } = useTeamMembers();
+  const teamMembers = useMemo(() => teamData?.users ?? [], [teamData]);
+
+  // Per-member event counts (use crewIds from each event so it tracks
+  // multi-assignee tasks; unassigned events naturally fall out).
+  const memberEventCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const e of events) {
+      for (const id of e.crewIds) {
+        counts[id] = (counts[id] ?? 0) + 1;
+      }
+    }
+    return counts;
+  }, [events]);
+
+  // Helper — toggle a member id in the persisted filter list.
+  function toggleMemberFilter(id: string) {
+    const current = filterTeamMemberIds;
+    updateFilters({
+      filterTeamMemberIds: current.includes(id)
+        ? current.filter((x) => x !== id)
+        : [...current, id],
+    });
+  }
+
+  // Helper — toggle a task type in the persisted filter list. Mirrors
+  // FilterSidebar.toggleTaskType so legend click and sidebar checkbox
+  // are kept in sync.
+  function toggleTypeFilter(typeLabel: string) {
+    const current = filterTaskTypes;
+    updateFilters({
+      filterTaskTypes: current.includes(typeLabel)
+        ? current.filter((x) => x !== typeLabel)
+        : [...current, typeLabel],
+    });
+  }
   const unscheduledCount = useMemo(() => {
     const all = taskData?.tasks ?? [];
     return all.filter(
@@ -72,12 +130,17 @@ export function CalendarToolbar({ events, t }: CalendarToolbarProps) {
 
     // Group by real type display ('Vinyl Install', 'Rail Install', etc.) and
     // remember the first effective color we see for each so the legend dot
-    // matches the actual card stripe.
-    const typeStats: Record<string, { count: number; color: string }> = {};
+    // matches the actual card stripe. Also track the underlying taskType key
+    // (e.g. 'installation') so legend clicks can toggle the persisted
+    // filterTaskTypes — which filters on key, not display label.
+    const typeStats: Record<
+      string,
+      { count: number; color: string; key: string }
+    > = {};
     events.forEach((e) => {
       const label = e.typeLabel || "Task";
       if (!typeStats[label]) {
-        typeStats[label] = { count: 0, color: e.color };
+        typeStats[label] = { count: 0, color: e.color, key: e.taskType };
       }
       typeStats[label].count += 1;
     });
@@ -187,10 +250,160 @@ export function CalendarToolbar({ events, t }: CalendarToolbarProps) {
         </div>
       )}
 
+      {/* Team-member dropdown — same interaction pattern as legend.
+          Hover row → dim every non-matching card. Click row → toggle
+          the persisted team-member filter. */}
+      <div ref={teamWrapRef} className="hidden md:block ml-auto relative">
+        <button
+          type="button"
+          onClick={() => setTeamOpen((v) => !v)}
+          aria-expanded={teamOpen}
+          aria-haspopup="true"
+          className="flex items-center gap-[6px] px-2 py-1 cursor-pointer font-mono text-[11px] uppercase tracking-wider tabular-nums"
+          style={{
+            color: teamOpen ? "var(--text)" : "var(--text-2)",
+            background: teamOpen
+              ? "rgba(255, 255, 255, 0.08)"
+              : "rgba(255, 255, 255, 0.04)",
+            border: "1px solid var(--line)",
+            borderRadius: 4,
+            fontFeatureSettings: '"tnum" 1, "zero" 1',
+            transition: "background 0.15s cubic-bezier(0.22, 1, 0.36, 1)",
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLElement).style.background =
+              "rgba(255, 255, 255, 0.08)";
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLElement).style.background = teamOpen
+              ? "rgba(255, 255, 255, 0.08)"
+              : "rgba(255, 255, 255, 0.04)";
+          }}
+        >
+          <span style={{ color: "var(--text-mute)" }}>{"// TEAM"}</span>
+          <span>{`[${teamMembers.length}]`}</span>
+          {filterTeamMemberIds.length > 0 && (
+            <span style={{ color: "var(--ops-accent)" }}>
+              {`(${filterTeamMemberIds.length})`}
+            </span>
+          )}
+          <ChevronDown
+            className="w-[10px] h-[10px]"
+            style={{
+              transform: teamOpen ? "rotate(180deg)" : "rotate(0deg)",
+              transition: "transform 0.15s cubic-bezier(0.22, 1, 0.36, 1)",
+            }}
+          />
+        </button>
+
+        {teamOpen && (
+          <div
+            className="absolute right-0 mt-1 z-50"
+            onMouseLeave={() => setHighlightedTeamMemberId(null)}
+            style={{
+              minWidth: 240,
+              background: "rgba(18, 18, 20, 0.78)",
+              backdropFilter: "blur(28px) saturate(1.3)",
+              WebkitBackdropFilter: "blur(28px) saturate(1.3)",
+              border: "1px solid rgba(255, 255, 255, 0.09)",
+              borderRadius: 12,
+              padding: "6px 0",
+              maxHeight: 360,
+              overflowY: "auto",
+            }}
+          >
+            {teamMembers.length === 0 ? (
+              <div
+                className="px-3 py-[6px] font-mono text-[10px] uppercase tracking-wider"
+                style={{ color: "var(--text-mute)" }}
+              >
+                {"// NO TEAM MEMBERS"}
+              </div>
+            ) : (
+              teamMembers
+                .slice()
+                .sort((a, b) => {
+                  const an = `${a.firstName ?? ""} ${a.lastName ?? ""}`.trim() || a.email || "";
+                  const bn = `${b.firstName ?? ""} ${b.lastName ?? ""}`.trim() || b.email || "";
+                  return an.localeCompare(bn);
+                })
+                .map((member) => {
+                  const name =
+                    `${member.firstName ?? ""} ${member.lastName ?? ""}`.trim() ||
+                    member.email ||
+                    "Unknown";
+                  const count = memberEventCounts[member.id] ?? 0;
+                  const isFiltered = filterTeamMemberIds.includes(member.id);
+                  return (
+                    <div
+                      key={member.id}
+                      onMouseEnter={() => setHighlightedTeamMemberId(member.id)}
+                      onClick={() => toggleMemberFilter(member.id)}
+                      className="flex items-center gap-[8px] px-3 py-[5px] cursor-pointer"
+                      style={{
+                        background: isFiltered
+                          ? "rgba(111, 148, 176, 0.10)"
+                          : "transparent",
+                        transition:
+                          "background 0.12s cubic-bezier(0.22, 1, 0.36, 1)",
+                      }}
+                      onMouseOver={(e) => {
+                        (e.currentTarget as HTMLElement).style.background =
+                          isFiltered
+                            ? "rgba(111, 148, 176, 0.16)"
+                            : "rgba(255, 255, 255, 0.05)";
+                      }}
+                      onMouseOut={(e) => {
+                        (e.currentTarget as HTMLElement).style.background =
+                          isFiltered
+                            ? "rgba(111, 148, 176, 0.10)"
+                            : "transparent";
+                      }}
+                    >
+                      {member.profileImageURL ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={member.profileImageURL}
+                          alt=""
+                          className="w-[18px] h-[18px] rounded-full object-cover shrink-0"
+                        />
+                      ) : (
+                        <div className="w-[18px] h-[18px] rounded-full bg-fill-neutral-dim shrink-0 flex items-center justify-center">
+                          <span className="font-mono text-[9px] text-text-mute uppercase">
+                            {name.charAt(0)}
+                          </span>
+                        </div>
+                      )}
+                      <span
+                        className="font-mono text-[11px] uppercase tracking-wider flex-1 truncate"
+                        style={{
+                          color: isFiltered ? "var(--text)" : "var(--text-2)",
+                        }}
+                      >
+                        {name}
+                      </span>
+                      <span
+                        className="font-mono text-[11px] tabular-nums"
+                        style={{
+                          color: "var(--text-3)",
+                          fontFeatureSettings: '"tnum" 1, "zero" 1',
+                        }}
+                      >
+                        {count}
+                      </span>
+                    </div>
+                  );
+                })
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Task type legend — collapsed dropdown. Click the summary chip to
           open the panel. Hovering a row dims every non-matching event card
-          across the calendar (highlightedTaskType state). */}
-      <div ref={legendWrapRef} className="hidden md:block ml-auto relative">
+          across the calendar (highlightedTaskType state). Clicking a row
+          toggles the persisted filterTaskTypes filter. */}
+      <div ref={legendWrapRef} className="hidden md:block relative">
         <button
           type="button"
           onClick={() => setLegendOpen((v) => !v)}
@@ -246,36 +459,53 @@ export function CalendarToolbar({ events, t }: CalendarToolbarProps) {
           >
             {Object.entries(stats.typeStats)
               .sort(([, a], [, b]) => b.count - a.count)
-              .map(([type, { count, color }]) => (
-                <div
-                  key={type}
-                  onMouseEnter={() => setHighlightedTaskType(type)}
-                  className="flex items-center gap-[8px] px-3 py-[5px] cursor-default"
-                  style={{
-                    transition:
-                      "background 0.12s cubic-bezier(0.22, 1, 0.36, 1)",
-                  }}
-                  onMouseOver={(e) => {
-                    (e.currentTarget as HTMLElement).style.background =
-                      "rgba(255, 255, 255, 0.05)";
-                  }}
-                  onMouseOut={(e) => {
-                    (e.currentTarget as HTMLElement).style.background =
-                      "transparent";
-                  }}
-                >
+              .map(([type, { count, color, key }]) => {
+                const isFiltered = filterTaskTypes.includes(key);
+                return (
                   <div
-                    className="w-[8px] h-[8px] rounded-full shrink-0"
-                    style={{ backgroundColor: color }}
-                  />
-                  <span className="font-mono text-[11px] text-text-2 uppercase tracking-wider flex-1 truncate">
-                    {type}
-                  </span>
-                  <span className="font-mono text-[11px] text-text-3 tabular-nums">
-                    {count}
-                  </span>
-                </div>
-              ))}
+                    key={type}
+                    onMouseEnter={() => setHighlightedTaskType(type)}
+                    onClick={() => toggleTypeFilter(key)}
+                    className="flex items-center gap-[8px] px-3 py-[5px] cursor-pointer"
+                    role="button"
+                    style={{
+                      background: isFiltered
+                        ? "rgba(111, 148, 176, 0.10)"
+                        : "transparent",
+                      transition:
+                        "background 0.12s cubic-bezier(0.22, 1, 0.36, 1)",
+                    }}
+                    onMouseOver={(e) => {
+                      (e.currentTarget as HTMLElement).style.background =
+                        isFiltered
+                          ? "rgba(111, 148, 176, 0.16)"
+                          : "rgba(255, 255, 255, 0.05)";
+                    }}
+                    onMouseOut={(e) => {
+                      (e.currentTarget as HTMLElement).style.background =
+                        isFiltered
+                          ? "rgba(111, 148, 176, 0.10)"
+                          : "transparent";
+                    }}
+                  >
+                    <div
+                      className="w-[8px] h-[8px] rounded-full shrink-0"
+                      style={{ backgroundColor: color }}
+                    />
+                    <span
+                      className="font-mono text-[11px] uppercase tracking-wider flex-1 truncate"
+                      style={{
+                        color: isFiltered ? "var(--text)" : "var(--text-2)",
+                      }}
+                    >
+                      {type}
+                    </span>
+                    <span className="font-mono text-[11px] text-text-3 tabular-nums">
+                      {count}
+                    </span>
+                  </div>
+                );
+              })}
           </div>
         )}
       </div>

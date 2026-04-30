@@ -77,12 +77,22 @@ export function DayTaskCard({
   const setSidePanelTask = useCalendarStore((s) => s.setSidePanelTask);
   const setInlineEdit = useCalendarStore((s) => s.setInlineEdit);
 
-  // Legend hover-to-highlight integration.
+  // Legend hover-to-highlight integration. Same combined logic as the month
+  // bar — match either the highlighted task type or the highlighted team
+  // member, dim everything that matches neither when one is set.
   const highlightedTaskType = useCalendarStore((s) => s.highlightedTaskType);
-  const dimmedByLegend =
-    highlightedTaskType !== null && event.typeLabel !== highlightedTaskType;
-  const highlightedByLegend =
+  const highlightedTeamMemberId = useCalendarStore(
+    (s) => s.highlightedTeamMemberId
+  );
+  const matchesType =
     highlightedTaskType !== null && event.typeLabel === highlightedTaskType;
+  const matchesMember =
+    highlightedTeamMemberId !== null &&
+    event.crewIds.includes(highlightedTeamMemberId);
+  const dimmedByLegend =
+    (highlightedTaskType !== null && !matchesType) ||
+    (highlightedTeamMemberId !== null && !matchesMember);
+  const highlightedByLegend = matchesType || matchesMember;
 
   // ── Resize state — bottom-edge drag for all-day duration ──────────────
   const [resize, setResize] = useState<{

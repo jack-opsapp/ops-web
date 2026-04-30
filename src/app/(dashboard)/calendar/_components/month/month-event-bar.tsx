@@ -162,12 +162,22 @@ export function MonthEventBar({
 
   // Legend hover-to-highlight: dim non-matches, brighten matches. The "glow"
   // is brightness + opacity rather than a box-shadow (forbidden on dark
-  // canvas per the design spec).
+  // canvas per the design spec). Mirrors logic for the team-member dropdown
+  // — when a team member is being hovered, dim every card whose crew does
+  // not include them.
   const highlightedTaskType = useCalendarStore((s) => s.highlightedTaskType);
-  const dimmedByLegend =
-    highlightedTaskType !== null && event.typeLabel !== highlightedTaskType;
-  const highlightedByLegend =
+  const highlightedTeamMemberId = useCalendarStore(
+    (s) => s.highlightedTeamMemberId
+  );
+  const matchesType =
     highlightedTaskType !== null && event.typeLabel === highlightedTaskType;
+  const matchesMember =
+    highlightedTeamMemberId !== null &&
+    event.crewIds.includes(highlightedTeamMemberId);
+  const dimmedByLegend =
+    (highlightedTaskType !== null && !matchesType) ||
+    (highlightedTeamMemberId !== null && !matchesMember);
+  const highlightedByLegend = matchesType || matchesMember;
 
   // Status guard — completed/cancelled events are display-only.
   const locked =
