@@ -17,7 +17,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getAdminAuth } from "@/lib/firebase/admin-sdk";
 
-export const BYPASS_USER_COOKIE = "dev-bypass-user";
+const BYPASS_USER_COOKIE = "dev-bypass-user";
 
 /**
  * Allow-list of dev bypass identities — Maverick Projects test team,
