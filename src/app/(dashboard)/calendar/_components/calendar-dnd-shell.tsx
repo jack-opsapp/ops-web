@@ -24,6 +24,7 @@ import {
   useCallback,
   useContext,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import {
@@ -92,6 +93,43 @@ export function useCalendarResizeContext(): CalendarResizeAPI {
   return ctx;
 }
 
+// ─── Auxiliary drag handlers ────────────────────────────────────────────────
+//
+// CrewGrid used to mount its own <DndContext> with `useCrewDnd` handlers,
+// which broke cross-surface drags (the unscheduled tray is registered with
+// the outer CalendarDndShell context, so its drags could not reach the
+// inner crew DndContext). The crew grid now registers its handler via this
+// bridge instead — CalendarDndShell.handleDragEnd invokes any registered
+// auxiliary handlers when the active drag type matches their `match` set,
+// which lets `useCrewDnd` keep its per-grid state (gridWidth ref, cascade
+// preview, dependency check) while sharing the single outer context.
+
+type AuxDragHandler = {
+  /** Set of activeData.type values this handler will receive */
+  matchTypes: Set<string>;
+  onDragStart?: (e: DragStartEvent) => void;
+  onDragEnd: (e: DragEndEvent) => void | Promise<void>;
+  onDragCancel?: (e: DragCancelEvent) => void;
+};
+
+interface CalendarDragBridgeAPI {
+  register: (id: string, handler: AuxDragHandler) => () => void;
+}
+
+const CalendarDragBridgeContext = createContext<CalendarDragBridgeAPI | null>(
+  null
+);
+
+export function useCalendarDragBridge(): CalendarDragBridgeAPI {
+  const ctx = useContext(CalendarDragBridgeContext);
+  if (!ctx) {
+    throw new Error(
+      "useCalendarDragBridge must be used inside <CalendarDndShell>"
+    );
+  }
+  return ctx;
+}
+
 // ─── Active drag descriptor ────────────────────────────────────────────────
 
 interface ActiveDrag {
@@ -146,35 +184,80 @@ export function CalendarDndShell({ children }: CalendarDndShellProps) {
 
   const [activeDrag, setActiveDrag] = useState<ActiveDrag | null>(null);
 
+  // Auxiliary handler registry — see useCalendarDragBridge above. Map keyed
+  // by handler id so an unmount removes only that handler.
+  const auxHandlersRef = useRef(new Map<string, AuxDragHandler>());
+  const dragBridge = useMemo<CalendarDragBridgeAPI>(
+    () => ({
+      register: (id, handler) => {
+        auxHandlersRef.current.set(id, handler);
+        return () => {
+          auxHandlersRef.current.delete(id);
+        };
+      },
+    }),
+    []
+  );
+
+  const dispatchAux = useCallback(
+    (
+      method: "onDragStart" | "onDragEnd" | "onDragCancel",
+      e: DragStartEvent | DragEndEvent | DragCancelEvent,
+      activeType: string | undefined
+    ) => {
+      if (!activeType) return false;
+      let handled = false;
+      for (const handler of auxHandlersRef.current.values()) {
+        if (!handler.matchTypes.has(activeType)) continue;
+        const fn = handler[method];
+        if (!fn) continue;
+        // Aux handlers are typed loosely above; the runtime guarantees the
+        // event shape matches the method we're calling.
+        (fn as (evt: typeof e) => void | Promise<void>)(e);
+        handled = true;
+      }
+      return handled;
+    },
+    []
+  );
+
   // ── Lifecycle handlers ───────────────────────────────────────────────────
 
-  const handleDragStart = useCallback((e: DragStartEvent) => {
-    const data = e.active.data?.current as
-      | {
-          type?: string;
-          event?: InternalCalendarEvent;
-          task?: { id: string; duration: number; title?: string };
-        }
-      | undefined;
-    if (!data?.type) return;
-    setActiveDrag({
-      id: String(e.active.id),
-      type: data.type,
-      event: data.event,
-      task: data.task,
-    });
-  }, []);
+  const handleDragStart = useCallback(
+    (e: DragStartEvent) => {
+      const data = e.active.data?.current as
+        | {
+            type?: string;
+            event?: InternalCalendarEvent;
+            task?: { id: string; duration: number; title?: string };
+          }
+        | undefined;
+      if (!data?.type) return;
+      setActiveDrag({
+        id: String(e.active.id),
+        type: data.type,
+        event: data.event,
+        task: data.task,
+      });
+      dispatchAux("onDragStart", e, data.type);
+    },
+    [dispatchAux]
+  );
 
-  const handleDragCancel = useCallback((_e: DragCancelEvent) => {
-    setActiveDrag(null);
-  }, []);
+  const handleDragCancel = useCallback(
+    (e: DragCancelEvent) => {
+      setActiveDrag(null);
+      const data = e.active?.data?.current as { type?: string } | undefined;
+      dispatchAux("onDragCancel", e, data?.type);
+    },
+    [dispatchAux]
+  );
 
   const handleDragEnd = useCallback(
     async (dragEvent: DragEndEvent) => {
       setActiveDrag(null);
 
       const { active, over, delta } = dragEvent;
-      if (!over) return;
 
       const activeData = active.data?.current as
         | {
@@ -183,10 +266,23 @@ export function CalendarDndShell({ children }: CalendarDndShellProps) {
             task?: { id: string; duration: number };
           }
         | undefined;
-      const overData = over.data?.current as
-        | { type?: string; day?: Date }
-        | undefined;
+      // Always dispatch to aux handlers first — they get the full event
+      // object (including null `over` so they can no-op cleanly) and may
+      // own the resolution for crew-event / unscheduled→crew-row /
+      // project-drawer→crew-row drops. The shell's own branches still run
+      // afterwards for any types the aux handler didn't claim (e.g. drops
+      // on month/week day cells, the unscheduled dock, etc.).
+      const auxHandled = dispatchAux("onDragEnd", dragEvent, activeData?.type);
+
+      if (!over) return;
       if (!activeData?.type) return;
+      const overData = over.data?.current as
+        | { type?: string; day?: Date; teamMemberId?: string }
+        | undefined;
+      // Crew-row drops are owned by the crew aux handler exclusively to
+      // avoid double-applying when both the shell and the aux handler
+      // recognize the type.
+      if (auxHandled && overData?.type === "crew-row") return;
 
       // Recurrence-aware dispatcher
       const dispatchUpdate = async (
@@ -410,29 +506,31 @@ export function CalendarDndShell({ children }: CalendarDndShellProps) {
   return (
     <DragStateContext.Provider value={dragState}>
       <CalendarResizeContext.Provider value={resizeApi}>
-        <DndContext
-          sensors={sensors}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-          onDragCancel={handleDragCancel}
-          autoScroll={{
-            // Tight edge zone (~5% of axis = ~40-60px on typical layouts).
-            // dnd-kit walks up to scrollable ancestors and scrolls them when
-            // the pointer enters the threshold band. Each scroll container
-            // toggles off scroll-snap during drag (see useCalendarDragState),
-            // which lets autoscroll move the viewport across panel boundaries
-            // without the snap engine yanking it back.
-            threshold: { x: 0.05, y: 0.05 },
-            acceleration: 12,
-          }}
-        >
-          {children}
-          <DragOverlay dropAnimation={null}>
-            {activeDrag?.event ? <DragPreview event={activeDrag.event} /> : null}
-          </DragOverlay>
-          {recurrencePrompt.promptElement}
-          {resize.promptElement}
-        </DndContext>
+        <CalendarDragBridgeContext.Provider value={dragBridge}>
+          <DndContext
+            sensors={sensors}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+            onDragCancel={handleDragCancel}
+            autoScroll={{
+              // Tight edge zone (~5% of axis = ~40-60px on typical layouts).
+              // dnd-kit walks up to scrollable ancestors and scrolls them when
+              // the pointer enters the threshold band. Each scroll container
+              // toggles off scroll-snap during drag (see useCalendarDragState),
+              // which lets autoscroll move the viewport across panel boundaries
+              // without the snap engine yanking it back.
+              threshold: { x: 0.05, y: 0.05 },
+              acceleration: 12,
+            }}
+          >
+            {children}
+            <DragOverlay dropAnimation={null}>
+              {activeDrag?.event ? <DragPreview event={activeDrag.event} /> : null}
+            </DragOverlay>
+            {recurrencePrompt.promptElement}
+            {resize.promptElement}
+          </DndContext>
+        </CalendarDragBridgeContext.Provider>
       </CalendarResizeContext.Provider>
     </DragStateContext.Provider>
   );

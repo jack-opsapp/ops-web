@@ -224,6 +224,14 @@ export function useCrewDnd({
       const dayColumnWidth = gridWidth > 0 ? gridWidth / daysShown : 0;
 
       // ── Handle unscheduled-task drops ─────────────────────────────────
+      // The dragged task already exists (it lives in the unscheduled tray
+      // because its start_date / end_date are null). The original code
+      // called `createMutation` here, which produced a *duplicate* task —
+      // the original would still appear in the tray and a brand new task
+      // would land on the calendar with default fields and no project
+      // history. Drop semantics per the bug report: assign the dropped
+      // crew row's team member, schedule for the day under the cursor,
+      // preserve duration. Update — never create.
       if (
         activeData?.type === "unscheduled-task" &&
         activeData.task &&
@@ -235,10 +243,11 @@ export function useCrewDnd({
         // Calculate target day from horizontal drop offset
         const dayDelta = dayColumnWidth > 0 ? Math.round(delta.x / dayColumnWidth) : 0;
         const targetDate = addDays(startDate, Math.max(0, Math.min(dayDelta, daysShown - 1)));
-        const targetEndDate = addDays(targetDate, 1); // Default 1-day duration
+        const durationDays = Math.max(task.duration ?? 1, 1);
+        const targetEndDate = addDays(targetDate, durationDays);
 
         // Smart insert: check if dropping between existing events
-        if (overData.teamMemberId) {
+        if (overData.teamMemberId && overData.teamMemberId !== "__unassigned__") {
           const insertPoint = detectInsertPoint(
             task.id,
             overData.teamMemberId,
@@ -250,7 +259,7 @@ export function useCrewDnd({
 
           if (insertPoint && insertPoint.after) {
             const pushOffsets = calculatePushOffsets(
-              1, // Default 1-day duration for new tasks
+              durationDays,
               insertPoint.before,
               insertPoint.after,
               events,
@@ -267,17 +276,22 @@ export function useCrewDnd({
           }
         }
 
-        createMutation.mutate({
-          customTitle: task.customTitle || task.taskType?.display || "Untitled Task",
-          projectId: task.projectId,
-          companyId: company.id,
-          taskTypeId: task.taskTypeId || task.taskType?.id || "",
-          startDate: targetDate,
-          endDate: targetEndDate,
-          taskColor: task.taskColor || "#59779F",
-          teamMemberIds: overData.teamMemberId
+        // Resolve the team member set for the assignment patch. Dropping
+        // on the placeholder "Unassigned" row leaves teamMemberIds empty
+        // (so the task moves out of the tray onto the unassigned strip);
+        // dropping on a member row replaces any prior assignment.
+        const newTeamMemberIds =
+          overData.teamMemberId && overData.teamMemberId !== "__unassigned__"
             ? [overData.teamMemberId]
-            : task.teamMemberIds,
+            : [];
+
+        updateMutation.mutate({
+          id: task.id,
+          data: {
+            startDate: targetDate,
+            endDate: targetEndDate,
+            teamMemberIds: newTeamMemberIds,
+          },
         });
         return;
       }

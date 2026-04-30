@@ -3,13 +3,8 @@
 import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { toast } from "sonner";
 import { isToday, differenceInCalendarDays, getHours, getMinutes, format } from "date-fns";
-import {
-  DndContext,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  useDroppable,
-} from "@dnd-kit/core";
+import { useDroppable } from "@dnd-kit/core";
+import { useCalendarDragBridge } from "../calendar-dnd-shell";
 import type { ProjectTask, TeamMember } from "@/lib/types/models";
 import type { InternalCalendarEvent } from "@/lib/utils/calendar-utils";
 import { UserRole } from "@/lib/types/models";
@@ -252,10 +247,13 @@ export function CrewGrid({
   );
 
   // ── DnD ───────────────────────────────────────────────────────────────
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
-  );
+  //
+  // Crew used to mount its own <DndContext>; that broke cross-surface drags
+  // (the unscheduled tray's draggable was registered with the outer
+  // CalendarDndShell context and could not reach a nested context's
+  // droppables). Instead, use the outer CalendarDndShell context and route
+  // crew-specific drag types (`crew-event`, `unscheduled-task` →
+  // `crew-row`, `project-drawer-task` → `crew-row`) through the bridge.
 
   const { handleDragStart, handleDragEnd, handleDragCancel } = useCrewDnd({
     events,
@@ -264,6 +262,20 @@ export function CrewGrid({
     onRecurringEdit: handleRecurringEdit,
     tasksById,
   });
+
+  const dragBridge = useCalendarDragBridge();
+  useEffect(() => {
+    return dragBridge.register("crew-grid", {
+      matchTypes: new Set([
+        "crew-event",
+        "unscheduled-task",
+        "project-drawer-task",
+      ]),
+      onDragStart: handleDragStart,
+      onDragEnd: handleDragEnd,
+      onDragCancel: handleDragCancel,
+    });
+  }, [dragBridge, handleDragStart, handleDragEnd, handleDragCancel]);
 
   // ── Resize callback ───────────────────────────────────────────────────
 
@@ -340,12 +352,7 @@ export function CrewGrid({
   });
 
   return (
-    <DndContext
-      sensors={sensors}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
-      onDragCancel={handleDragCancel}
-    >
+    <>
       <div className="flex flex-col h-full overflow-hidden relative">
         {/* Header row — day labels */}
         <CrewHeader startDate={startDate} daysShown={daysShown} />
@@ -437,6 +444,6 @@ export function CrewGrid({
 
       {/* Phase 3 — recurrence scope prompt for drag-rescheduled series tasks */}
       {recurrencePrompt.promptElement}
-    </DndContext>
+    </>
   );
 }
