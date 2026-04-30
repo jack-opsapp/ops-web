@@ -14,12 +14,24 @@
  * }
  *
  * Runs in the background via after(); pulls image attachments from email
- * threads and uploads them to Supabase Storage. Split from the main import
- * route because the attachment fetch+upload cycle can easily exceed the
- * import route's 300s maxDuration budget, leaving import jobs stuck in
- * 'importing' status indefinitely. This route has its own 800s budget
- * (Vercel Pro max) and writes back to gmail_scan_jobs.result.imagesExtracted
- * when finished.
+ * threads and uploads them to the OPS storage backend (S3 by default;
+ * Supabase under STORAGE_BACKEND=supabase for rollback). Split from the
+ * main import route because the attachment fetch+upload cycle can easily
+ * exceed the import route's 300s maxDuration budget, leaving import jobs
+ * stuck in 'importing' status indefinitely. This route has its own 800s
+ * budget (Vercel Pro max) and writes back to gmail_scan_jobs.result.
+ * imagesExtracted when finished.
+ *
+ * Phase 1 storage migration:
+ *   - Default backend is `s3`. Keys are company-scoped:
+ *     `email-imports/{companyId}/{opportunityId}/{ts}-{rand}.{ext}` —
+ *     differs from the legacy Supabase path (which omitted companyId)
+ *     so a future tenant audit can attribute every byte to a company.
+ *   - Setting STORAGE_BACKEND=supabase falls back to the legacy
+ *     Supabase Storage code path (same key shape it used before).
+ *   - 94% of historical Supabase Storage bytes flowed through this
+ *     route, so the cutover here is the largest single behavior change
+ *     of the migration.
  *
  * Uses runWithSupabase (not setSupabaseOverride) so the service-role client
  * binding survives the entire async extraction chain without being clobbered
@@ -28,9 +40,16 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { after } from "next/server";
+import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { runWithSupabase } from "@/lib/supabase/helpers";
 import { EmailService } from "@/lib/api/services/email-service";
+import {
+  getS3Client,
+  S3_BUCKET,
+  buildPublicS3Url,
+  getStorageBackend,
+} from "@/lib/s3/client";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const maxDuration = 800; // Pro plan max
@@ -76,7 +95,7 @@ export async function POST(request: NextRequest) {
     const bgSupabase = getServiceRoleClient();
     await runWithSupabase(bgSupabase, async () => {
       try {
-        await runExtraction(jobId, connection, oppThreadPayload, bgSupabase);
+        await runExtraction(jobId, companyId, connection, oppThreadPayload, bgSupabase);
       } catch (err) {
         console.error("[extract-images] Extraction failed:", err);
       }
@@ -90,6 +109,7 @@ export async function POST(request: NextRequest) {
 
 async function runExtraction(
   jobId: string,
+  companyId: string,
   connection: NonNullable<Awaited<ReturnType<typeof EmailService.getConnection>>>,
   oppThreadPayload: OppThreadEntry[],
   supabase: SupabaseClient
@@ -97,9 +117,10 @@ async function runExtraction(
   const provider = EmailService.getProvider(connection);
 
   const MAX_IMAGES_PER_LEAD = 10;
-  const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10 MB (matches Supabase bucket limit)
+  const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10 MB (matches bucket / IAM cap)
   const IMAGE_CONCURRENCY = 3;
 
+  const backend = getStorageBackend();
   let totalExtracted = 0;
 
   for (const entry of oppThreadPayload) {
@@ -156,25 +177,36 @@ async function runExtraction(
         const results = await Promise.allSettled(
           batch.map(async (img) => {
             const buffer = await provider.fetchAttachment(img.messageId, img.attachmentId);
+            const ext = (img.filename.split(".").pop()?.toLowerCase() || "jpg")
+              .replace(/[^a-z0-9]/g, "")
+              .slice(0, 12) || "jpg";
+            const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-            const ext = img.filename.split(".").pop()?.toLowerCase() || "jpg";
-            const storagePath = `email-imports/${opportunityId}/${Date.now()}-${Math.random()
-              .toString(36)
-              .slice(2, 8)}.${ext}`;
+            if (backend === "s3") {
+              const key = `email-imports/${companyId}/${opportunityId}/${unique}.${ext}`;
+              await getS3Client().send(
+                new PutObjectCommand({
+                  Bucket: S3_BUCKET,
+                  Key: key,
+                  Body: buffer,
+                  ContentType: img.mimeType,
+                })
+              );
+              return buildPublicS3Url(key);
+            }
 
+            // Legacy Supabase path — preserved verbatim for STORAGE_BACKEND=supabase rollback.
+            const storagePath = `email-imports/${opportunityId}/${unique}.${ext}`;
             const { error: uploadErr } = await supabase.storage
               .from("images")
               .upload(storagePath, buffer, {
                 contentType: img.mimeType,
                 upsert: false,
               });
-
             if (uploadErr) throw new Error(`Upload failed: ${uploadErr.message}`);
-
             const { data: urlData } = supabase.storage
               .from("images")
               .getPublicUrl(storagePath);
-
             return urlData.publicUrl;
           })
         );
@@ -205,7 +237,7 @@ async function runExtraction(
   }
 
   console.log(
-    `[extract-images] Complete: ${totalExtracted} images uploaded across ${oppThreadPayload.length} opportunities`
+    `[extract-images] Complete: ${totalExtracted} images uploaded across ${oppThreadPayload.length} opportunities (backend=${backend})`
   );
 
   // Merge imagesExtracted into the existing gmail_scan_jobs.result payload.

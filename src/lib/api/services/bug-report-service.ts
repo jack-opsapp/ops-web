@@ -326,30 +326,32 @@ export const BugReportService = {
   },
 
   /**
-   * Upload a screenshot to the private `bug-reports` bucket and return the
-   * storage path. Admin views must call `getScreenshotUrl(path)` to produce a
-   * short-lived signed URL for display — the stored value is not a direct URL.
+   * Resolve a `bug_reports.screenshot_url` value to a short-lived URL
+   * the admin UI can render. Two storage backends coexist during the
+   * Phase 1 → Phase 2 cutover:
+   *
+   *   - Values starting with `s3:` reference an object key in the
+   *     `ops-app-files-prod` bucket (written by
+   *     `/api/bug-reports/screenshot` after the Phase 1 cutover) — we
+   *     issue an S3 presigned GET URL.
+   *   - All other values are bucket-relative paths in the legacy
+   *     Supabase Storage `bug-reports` bucket (written before the
+   *     cutover, or during STORAGE_BACKEND=supabase rollback) — we
+   *     issue a Supabase signed URL.
+   *
+   * Phase 2 backfill rewrites legacy values to the `s3:` form; Phase 3
+   * removes the Supabase branch.
    */
-  async uploadScreenshot(
-    companyId: string,
-    reportId: string,
-    file: File | Blob,
-    contentType: string = "image/png"
-  ): Promise<string> {
-    const supabase = requireSupabase();
-    const ext = contentType === "image/jpeg" ? "jpg" : "png";
-    const path = `${companyId}/${reportId}/screenshot.${ext}`;
-
-    const { error } = await supabase.storage
-      .from("bug-reports")
-      .upload(path, file, { contentType, upsert: true });
-
-    if (error) throw new Error(`Failed to upload screenshot: ${error.message}`);
-
-    return path;
-  },
-
   async getScreenshotUrl(path: string): Promise<string> {
+    if (path.startsWith("s3:")) {
+      // Defer to the admin-side resolver, which has access to the
+      // server-only S3 SDK and IAM credentials.
+      const { getBugReportScreenshotSignedUrl } = await import(
+        "@/lib/admin/admin-queries"
+      );
+      const url = await getBugReportScreenshotSignedUrl(path);
+      return url ?? "";
+    }
     const supabase = requireSupabase();
     const { data } = await supabase.storage
       .from("bug-reports")
