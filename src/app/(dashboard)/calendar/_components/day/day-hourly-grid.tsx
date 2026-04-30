@@ -34,6 +34,7 @@ import {
   getEventHeight,
   resolveEventColumns,
   type InternalCalendarEvent,
+  frostedBadgeStyleFromBg,
 } from "@/lib/utils/calendar-utils";
 import { useTeamMembers } from "@/lib/hooks";
 import { UserAvatar } from "@/components/ops/user-avatar";
@@ -195,7 +196,7 @@ function TimedBlock({
               ? 0.85
               : 1,
         filter: highlightedByLegend ? "brightness(1.25)" : "none",
-        background: event.statusColors.bg,
+        ...frostedBadgeStyleFromBg(event.statusColors.bg),
         border: `1px solid ${event.statusColors.border}`,
         borderRadius: 4,
         zIndex: isDragging ? 30 : resize ? 20 : 5,
@@ -315,7 +316,7 @@ function AllDayStrip({
           className="px-[8px] py-[3px] rounded-[4px] font-mohave text-[12px] truncate"
           style={{
             maxWidth: 240,
-            background: event.statusColors.bg,
+            ...frostedBadgeStyleFromBg(event.statusColors.bg),
             border: `1px solid ${event.statusColors.border}`,
             color: "var(--text)",
           }}

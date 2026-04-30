@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import { differenceInCalendarDays, addDays, format } from "date-fns";
 import { useDraggable } from "@dnd-kit/core";
-import type { InternalCalendarEvent } from "@/lib/utils/calendar-utils";
+import { type InternalCalendarEvent, frostedBadgeStyle } from "@/lib/utils/calendar-utils";
 import { CREW_ROW_HEIGHT } from "@/lib/utils/crew-constants";
 import { laneVerticalLayout } from "@/lib/utils/lane-assignment";
 import { EventHoverPopover } from "../event-hover-popover";
@@ -309,7 +309,7 @@ export function CrewTaskBlock({
       <div
         className="flex-1 relative flex items-center min-w-0"
         style={{
-          background: event.typeColors.bg,
+          ...frostedBadgeStyle(event.typeColors),
           border: `1px ${isGhost ? "dashed" : "solid"} ${event.typeColors.border}`,
           borderRadius: 4,
           paddingLeft: 11, // 8 (text) + 3 (stripe gutter)

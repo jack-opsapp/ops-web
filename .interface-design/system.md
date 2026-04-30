@@ -642,6 +642,28 @@ import { KeyHint } from "@/components/ui/key-hint";
 - Color pattern: `text-{color} bg-{color}/15 border-{color}/30`
 - MUST use WidgetStatusBadge component — never hand-roll badge styling
 
+### Calendar event badges & bars (frosted-glass tinted fill)
+
+Calendar event chips, bars, and the type/status sub-badges paint over a busy
+canvas (grid lines, day numbers, drop targets). Their fill MUST be a frosted-
+glass-tinted layer so content behind them never bleeds through and hurts
+legibility.
+
+**Recipe (canonical — exposed via `frostedBadgeStyle()` in `calendar-utils.ts`):**
+
+- `background: linear-gradient({typeColors.bg}, {typeColors.bg}), rgba(18, 18, 20, 0.78)`
+  — type tint stacked over the dense-glass dark base.
+- `backdrop-filter: blur(28px) saturate(1.3)` (and the `-webkit-` prefix).
+- Border: `1px solid {typeColors.border}` (full-strength type color).
+- Type tint alpha stays at `0.18` (`colorTripleFromHex` default) — do not
+  raise it; the dark base is what guarantees legibility.
+
+Use `frostedBadgeStyle(event.typeColors)` for type-driven fills (Month bars,
+Crew blocks, Day card type badges, hover-popover type chip) and
+`frostedBadgeStyleFromBg(event.statusColors.bg)` for status-driven fills
+(Day timed blocks, all-day strip pills). Never paint a calendar badge with
+just the raw `typeColors.bg` — the result is unreadable over busy grids.
+
 ---
 
 ## Scroll Containers

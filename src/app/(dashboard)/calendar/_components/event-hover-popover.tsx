@@ -5,7 +5,7 @@ import { format, formatDistanceToNowStrict } from "date-fns";
 import * as HoverCard from "@radix-ui/react-hover-card";
 import { useTeamMembers } from "@/lib/hooks";
 import { useProjectPreview } from "@/lib/hooks/use-project-preview";
-import type { InternalCalendarEvent } from "@/lib/utils/calendar-utils";
+import { type InternalCalendarEvent, frostedBadgeStyle } from "@/lib/utils/calendar-utils";
 
 // ─── Props ──────────────────────────────────────────────────────────────────
 
@@ -144,7 +144,7 @@ function PopoverBody({ event }: { event: InternalCalendarEvent }) {
           className="px-[6px] py-[2px] font-cakemono font-light uppercase"
           style={{
             color: event.typeColors.text,
-            background: event.typeColors.bg,
+            ...frostedBadgeStyle(event.typeColors),
             border: `1px solid ${event.typeColors.border}`,
             borderRadius: 4,
             fontSize: 10,

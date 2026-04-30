@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { format } from "date-fns";
-import { type InternalCalendarEvent } from "@/lib/utils/calendar-utils";
+import { type InternalCalendarEvent, frostedBadgeStyle } from "@/lib/utils/calendar-utils";
 import { useCalendarStore } from "@/stores/calendar-store";
 import { EventHoverPopover } from "../event-hover-popover";
 
@@ -307,7 +307,7 @@ export function MonthEventBar({
           className="cursor-pointer truncate relative"
           style={{
             height: 14,
-            background: event.typeColors.bg,
+            ...frostedBadgeStyle(event.typeColors),
             border: `1px solid ${event.typeColors.border}`,
             borderRadius,
             color: event.typeColors.text,
@@ -357,7 +357,7 @@ export function MonthEventBar({
           className="cursor-pointer truncate relative"
           style={{
             height: 14,
-            background: event.typeColors.bg,
+            ...frostedBadgeStyle(event.typeColors),
             border: `1px solid ${event.typeColors.border}`,
             borderRadius,
             color: event.typeColors.text,
@@ -415,7 +415,7 @@ export function MonthEventBar({
         className="cursor-pointer relative"
         style={{
           height: 42,
-          background: event.typeColors.bg,
+          ...frostedBadgeStyle(event.typeColors),
           border: `1px solid ${event.typeColors.border}`,
           borderRadius: "4px",
           color: event.typeColors.text,
@@ -481,7 +481,7 @@ export function MonthEventBar({
             className="px-[5px] py-[1px] font-cakemono font-light uppercase"
             style={{
               color: event.typeColors.text,
-              background: event.typeColors.bg,
+              ...frostedBadgeStyle(event.typeColors),
               border: `1px solid ${event.typeColors.border}`,
               borderRadius: 4,
               fontSize: 9,

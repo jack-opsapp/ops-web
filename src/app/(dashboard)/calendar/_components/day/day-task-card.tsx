@@ -3,7 +3,7 @@
 import { useMemo, useCallback, useState, useRef, useEffect } from "react";
 import { format, differenceInCalendarDays, addDays } from "date-fns";
 import { motion } from "framer-motion";
-import type { InternalCalendarEvent } from "@/lib/utils/calendar-utils";
+import { type InternalCalendarEvent, frostedBadgeStyle } from "@/lib/utils/calendar-utils";
 import { useCalendarStore } from "@/stores/calendar-store";
 import { useTeamMembers } from "@/lib/hooks";
 import { UserAvatar } from "@/components/ops/user-avatar";
@@ -442,7 +442,7 @@ export function DayTaskCard({
             right: 8,
             padding: "2px 6px",
             borderRadius: 2,
-            background: event.typeColors.bg,
+            ...frostedBadgeStyle(event.typeColors),
             border: `1px solid ${event.typeColors.border}`,
             color: event.typeColors.text,
             fontFamily: "var(--font-cakemono), sans-serif",
