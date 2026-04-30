@@ -5,6 +5,7 @@ import { differenceInCalendarDays, addDays, format } from "date-fns";
 import { useDraggable } from "@dnd-kit/core";
 import type { InternalCalendarEvent } from "@/lib/utils/calendar-utils";
 import { CREW_ROW_HEIGHT } from "@/lib/utils/crew-constants";
+import { laneVerticalLayout } from "@/lib/utils/lane-assignment";
 import { EventHoverPopover } from "../event-hover-popover";
 
 // ─── Props ──────────────────────────────────────────────────────────────────
@@ -15,6 +16,12 @@ interface CrewTaskBlockProps {
   daysShown: number; // number of visible day columns
   isSelected?: boolean; // selected via click or multi-select
   isGhost?: boolean; // ghost preview for cascade/auto-schedule
+  /** Vertical lane index for stacking overlapping events (0-based) */
+  laneIndex?: number;
+  /** Total number of lanes used in this row */
+  laneCount?: number;
+  /** Total row height in px — block divides this evenly across laneCount */
+  rowHeight?: number;
   onClick?: (event: InternalCalendarEvent) => void;
   onContextMenu?: (
     event: InternalCalendarEvent,
@@ -39,6 +46,9 @@ export function CrewTaskBlock({
   daysShown,
   isSelected = false,
   isGhost = false,
+  laneIndex = 0,
+  laneCount = 1,
+  rowHeight = CREW_ROW_HEIGHT,
   onClick,
   onContextMenu,
   onResize,
@@ -111,7 +121,15 @@ export function CrewTaskBlock({
     return { leftPercent: newLeft, widthPercent: newWidth };
   }, [resizeState, leftPercent, widthPercent, daysShown]);
 
-  const blockHeight = CREW_ROW_HEIGHT - 16; // 56px (8px padding top + bottom)
+  // Lane-aware vertical layout. The row reserves 8px top + 8px bottom
+  // padding, then divides the remaining space among laneCount lanes with
+  // a 4px gap between lanes. Single-lane rows stay at the historical
+  // 56px (CREW_ROW_HEIGHT - 16) height.
+  const { top: blockTop, height: blockHeight } = laneVerticalLayout(
+    laneIndex,
+    laneCount,
+    rowHeight
+  );
 
   // ── Determine if block is narrow ──────────────────────────────────────
 
@@ -252,7 +270,7 @@ export function CrewTaskBlock({
       style={{
         left: `${resizeAdjusted.leftPercent}%`,
         width: `${resizeAdjusted.widthPercent}%`,
-        top: 8,
+        top: blockTop,
         height: blockHeight,
         zIndex: isDragging ? 20 : resizeState ? 15 : isSelected ? 5 : isHovered ? 4 : 2,
         pointerEvents: isGhost ? "none" : "auto",

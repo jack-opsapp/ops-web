@@ -26,7 +26,9 @@ import {
   CREW_DAYS_SHOWN,
   CREW_DAY_MIN_WIDTH,
   CREW_GUTTER_WIDTH,
+  CREW_ROW_HEIGHT,
 } from "@/lib/utils/crew-constants";
+import { assignLanes, rowHeightForLanes } from "@/lib/utils/lane-assignment";
 
 // ─── Unassigned Placeholder ─────────────────────────────────────────────────
 
@@ -61,12 +63,14 @@ function DroppableCrewRow({
   startDate,
   daysShown,
   isLast,
+  rowHeight,
   children,
 }: {
   teamMember: TeamMember;
   startDate: Date;
   daysShown: number;
   isLast?: boolean;
+  rowHeight?: number;
   children: React.ReactNode;
 }) {
   const rowRef = useRef<HTMLDivElement>(null);
@@ -110,6 +114,7 @@ function DroppableCrewRow({
         startDate={startDate}
         daysShown={daysShown}
         isLast={isLast}
+        rowHeight={rowHeight}
       >
         {children}
       </CrewRow>
@@ -355,12 +360,15 @@ export function CrewGrid({
           {/* Team member rows */}
           {teamMembers.map((member) => {
             const memberEvents = grouped.get(member.id) ?? [];
+            const { lanes, laneCount } = assignLanes(memberEvents);
+            const rowHeight = rowHeightForLanes(laneCount, CREW_ROW_HEIGHT);
             return (
               <DroppableCrewRow
                 key={member.id}
                 teamMember={member}
                 startDate={startDate}
                 daysShown={daysShown}
+                rowHeight={rowHeight}
               >
                 {memberEvents.map((event) => (
                   <CrewTaskBlock
@@ -369,6 +377,9 @@ export function CrewGrid({
                     startDate={startDate}
                     daysShown={daysShown}
                     isSelected={isTaskSelected(event.id)}
+                    laneIndex={lanes.get(event.id) ?? 0}
+                    laneCount={laneCount}
+                    rowHeight={rowHeight}
                     onClick={handleEventClick}
                     onContextMenu={handleContextMenu}
                     onResize={handleResize}
@@ -382,12 +393,15 @@ export function CrewGrid({
           {(() => {
             const unassignedEvents = grouped.get(UNASSIGNED_MEMBER.id) ?? [];
             if (unassignedEvents.length === 0) return null;
+            const { lanes, laneCount } = assignLanes(unassignedEvents);
+            const rowHeight = rowHeightForLanes(laneCount, CREW_ROW_HEIGHT);
             return (
               <DroppableCrewRow
                 teamMember={UNASSIGNED_MEMBER}
                 startDate={startDate}
                 daysShown={daysShown}
                 isLast
+                rowHeight={rowHeight}
               >
                 {unassignedEvents.map((event) => (
                   <CrewTaskBlock
@@ -396,6 +410,9 @@ export function CrewGrid({
                     startDate={startDate}
                     daysShown={daysShown}
                     isSelected={isTaskSelected(event.id)}
+                    laneIndex={lanes.get(event.id) ?? 0}
+                    laneCount={laneCount}
+                    rowHeight={rowHeight}
                     onClick={handleEventClick}
                     onContextMenu={handleContextMenu}
                     onResize={handleResize}
