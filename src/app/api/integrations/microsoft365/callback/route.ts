@@ -35,9 +35,15 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const { companyId, userId, type } = JSON.parse(
+    const decoded = JSON.parse(
       Buffer.from(stateParam, "base64").toString()
     );
+    const companyId = decoded.companyId as string;
+    const userId = decoded.userId as string | undefined;
+    const type = decoded.type as string | undefined;
+    // `source === "alert"` lands the user on /reconnect-inbox/success after
+    // the connection is written. Defaults to wizard for in-app flows.
+    const source = decoded.source === "alert" ? "alert" : "wizard";
 
     // Exchange authorization code for tokens
     const tokenRes = await fetch(
@@ -107,6 +113,17 @@ export async function GET(request: NextRequest) {
       console.error("[M365 OAuth] Failed to store tokens:", insertError.message);
       return NextResponse.redirect(
         `${getAppUrl()}/settings?tab=integrations&status=error&message=storage_failed`
+      );
+    }
+
+    if (source === "alert") {
+      const successParams = new URLSearchParams({
+        companyId,
+        email,
+        provider: "microsoft365",
+      });
+      return NextResponse.redirect(
+        `${getAppUrl()}/reconnect-inbox/success?${successParams.toString()}`
       );
     }
 

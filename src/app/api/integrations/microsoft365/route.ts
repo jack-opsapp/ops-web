@@ -13,6 +13,11 @@ export async function GET(request: NextRequest) {
   const companyId = searchParams.get("companyId");
   const userId = searchParams.get("userId");
   const type = searchParams.get("type") || "individual";
+  // `source` lets the callback know whether to land the user back on the
+  // standard /settings page (wizard flow) or on /reconnect-inbox/success
+  // (alert-email flow). Defaults to wizard so existing in-app callers
+  // are unaffected.
+  const source = searchParams.get("source") === "alert" ? "alert" : "wizard";
 
   if (!companyId) {
     return NextResponse.json(
@@ -39,7 +44,7 @@ export async function GET(request: NextRequest) {
   }
 
   const state = Buffer.from(
-    JSON.stringify({ companyId, userId, type })
+    JSON.stringify({ companyId, userId, type, source })
   ).toString("base64");
 
   const authUrl = new URL(

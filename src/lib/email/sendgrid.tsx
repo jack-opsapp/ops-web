@@ -19,6 +19,7 @@
  * is rendered by `ComplianceFooter`, which both layouts include.
  */
 
+import * as React from "react";
 import sgMail from "@sendgrid/mail";
 import { render } from "@react-email/render";
 
@@ -36,6 +37,10 @@ import { TrialExpiryReengagement } from "./react/templates/TrialExpiryReengageme
 import { ProductUpdate } from "./react/templates/ProductUpdate";
 import { FeatureAnnouncement } from "./react/templates/FeatureAnnouncement";
 import { Reengagement } from "./react/templates/Reengagement";
+import {
+  InboxConnectionDown,
+  type InboxConnectionDownReason,
+} from "./react/templates/InboxConnectionDown";
 import { AdsBriefing } from "./react/templates/AdsBriefing";
 import { BlogNewsletter } from "./react/templates/BlogNewsletter";
 import {
@@ -492,6 +497,55 @@ export async function sendRoleNeeded(params: {
     list: compliance.list,
     headers: compliance.headers,
     metadata: { companyName: params.companyName, joinedUser: params.userName },
+  });
+}
+
+/**
+ * Operator alert when the heartbeat cron detects a real failure in the
+ * email-ingest pipeline (expired webhook, failed setup, or stale sync).
+ * Goes to the resolved company admin from `dispatch@opsapp.co`. The
+ * 'global' list classification + suppression-aware gatedSend keeps it
+ * compliant; the cron itself dedupes per-company so we never flood.
+ */
+export async function sendInboxConnectionDown(params: {
+  email: string;
+  companyName: string;
+  inboxAddress: string;
+  reason: InboxConnectionDownReason;
+  hoursSilent: number;
+  reconnectUrl: string;
+}): Promise<GatedSendResult> {
+  const compliance = buildComplianceHeaders({
+    email: params.email,
+    kind: "inbox_connection_down",
+  });
+  const html = await render(
+    <InboxConnectionDown
+      companyName={params.companyName}
+      inboxAddress={params.inboxAddress}
+      reason={params.reason}
+      hoursSilent={params.hoursSilent}
+      reconnectUrl={params.reconnectUrl}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+      list={compliance.list}
+    />,
+  );
+
+  return gatedSend({
+    to: params.email,
+    from: DISPATCH,
+    replyTo: DISPATCH.email,
+    subject: `Your inbox stopped sending leads to OPS — ${params.companyName}`,
+    html,
+    emailType: "inbox_connection_down",
+    list: compliance.list,
+    headers: compliance.headers,
+    metadata: {
+      companyName: params.companyName,
+      inboxAddress: params.inboxAddress,
+      reason: params.reason,
+      hoursSilent: params.hoursSilent,
+    },
   });
 }
 
