@@ -36,7 +36,7 @@ export default function DashboardError({
           <span className="font-mono text-micro uppercase tracking-wider text-text-mute">
             SYS :: ROUTE FAULT
           </span>
-          <span className="font-mono text-micro text-text-mute">//</span>
+          <span className="font-mono text-micro text-text-mute">{"//"}</span>
           <span className="font-mono text-micro uppercase tracking-wider text-text-3">
             HANDLER STOPPED
           </span>
@@ -61,7 +61,7 @@ export default function DashboardError({
             aria-expanded={showDetails}
           >
             <span className="font-mono text-micro uppercase tracking-wider text-text-3">
-              // DIAGNOSTIC
+              {"// DIAGNOSTIC"}
             </span>
             <span className="flex items-center gap-1.5">
               <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
@@ -139,7 +139,7 @@ export default function DashboardError({
             className="select-none h-3 w-auto text-text-mute"
           />
           <span className="font-mono text-micro text-text-mute select-none uppercase tracking-wider">
-            // ERROR BOUNDARY
+            {"// ERROR BOUNDARY"}
           </span>
         </div>
       </div>
