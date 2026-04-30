@@ -57,6 +57,7 @@ import { ProjectSpreadsheet } from "./_components/project-spreadsheet";
 import { useProjectDetailPopoverStore } from "./_components/project-detail-popover-store";
 import { useSetupGate } from "@/hooks/useSetupGate";
 import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModal";
+import { useWindowStore } from "@/stores/window-store";
 
 // ── Active statuses for the canvas columns ──
 const ACTIVE_STATUSES: ProjectStatus[] = [
@@ -546,10 +547,27 @@ export default function ProjectsPage() {
     [projectMap, openPopover]
   );
 
-  const handleAddTask = useCallback((_projectId: string) => {
-    // TODO: Open task creation form — integrate with existing window system
-    toast.info("Task creation coming soon");
-  }, []);
+  const handleAddTask = useCallback(
+    (projectId: string) => {
+      const project = projectMap.get(projectId);
+      const titleSuffix = project?.title
+        ? ` — ${project.title}`
+        : project?.address
+          ? ` — ${project.address.split(",")[0]}`
+          : "";
+      // Open the floating create-task window with the project preselected. A
+      // per-project window id keeps multiple "Add task" clicks from stacking
+      // duplicate windows for the same project; clicking the same project's
+      // Add task again restores the existing window.
+      useWindowStore.getState().openWindow({
+        id: `create-task:${projectId}`,
+        title: `New Task${titleSuffix}`,
+        type: "create-task",
+        metadata: { projectId },
+      });
+    },
+    [projectMap]
+  );
 
   const handleRecordPayment = useCallback((_projectId: string) => {
     // TODO: Open payment recording form

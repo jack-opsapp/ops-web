@@ -174,13 +174,19 @@ function ProjectSelector({
 interface CreateTaskFormProps {
   onSuccess?: () => void;
   onCancel?: () => void;
+  /**
+   * Pre-select a project (e.g. when launched from the Projects spreadsheet's
+   * "Add task" button or the project detail Tasks tab). The project picker
+   * still renders so the user can change selection if needed.
+   */
+  initialProjectId?: string | null;
 }
 
-export function CreateTaskForm({ onSuccess, onCancel }: CreateTaskFormProps) {
+export function CreateTaskForm({ onSuccess, onCancel, initialProjectId }: CreateTaskFormProps) {
   const { company } = useAuthStore();
   const companyId = company?.id ?? "";
 
-  const [projectId, setProjectId] = useState<string | null>(null);
+  const [projectId, setProjectId] = useState<string | null>(initialProjectId ?? null);
   const [showCreateProject, setShowCreateProject] = useState(false);
 
   const { data: taskTypes } = useTaskTypes();

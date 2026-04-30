@@ -122,6 +122,11 @@ function FloatingWindows() {
             <CreateTaskForm
               onSuccess={() => closeWindow(win.id)}
               onCancel={() => closeWindow(win.id)}
+              initialProjectId={
+                typeof win.metadata?.projectId === "string"
+                  ? win.metadata.projectId
+                  : null
+              }
             />
           )}
           {win.type === "create-estimate" && (
