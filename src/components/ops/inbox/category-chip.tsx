@@ -41,12 +41,32 @@ const CATEGORY_STYLES: Record<EmailThreadCategory, CategoryStyle> = {
   OTHER:        { border: "#4a4a4a", label: "OTHER",        dotColor: "#4a4a4a" },
 };
 
+// Fallback used when a thread arrives with a `primaryCategory` that isn't
+// in CATEGORY_STYLES — e.g. a legacy row, a server-side enum extension, or
+// a malformed payload. We render OTHER's style and the raw value (if any)
+// rather than crashing the whole inbox route. (See bug a8ece79d.)
+const FALLBACK_STYLE: CategoryStyle = CATEGORY_STYLES.OTHER;
+
+function resolveCategoryStyle(
+  category: EmailThreadCategory | null | undefined
+): CategoryStyle {
+  if (!category) return FALLBACK_STYLE;
+  return CATEGORY_STYLES[category] ?? FALLBACK_STYLE;
+}
+
 export function categoryLabel(category: EmailThreadCategory): string {
-  return CATEGORY_STYLES[category].label;
+  const style = CATEGORY_STYLES[category];
+  if (style) return style.label;
+  // For unmapped categories, surface the raw token (uppercased) so the
+  // operator can still see what came back from the server.
+  if (typeof category === "string" && category.length > 0) {
+    return category.replace(/_/g, " ").toUpperCase();
+  }
+  return FALLBACK_STYLE.label;
 }
 
 export function categoryDotColor(category: EmailThreadCategory): string {
-  return CATEGORY_STYLES[category].dotColor;
+  return (CATEGORY_STYLES[category] ?? FALLBACK_STYLE).dotColor;
 }
 
 // ─── Chip props ──────────────────────────────────────────────────────────────
@@ -78,8 +98,8 @@ export const CategoryChip = forwardRef<HTMLButtonElement | HTMLSpanElement, Cate
     { category, size = "sm", interactive = false, onClick, label, leading, manual, className, title },
     ref
   ) {
-    const style = CATEGORY_STYLES[category];
-    const display = label ?? style.label;
+    const style = resolveCategoryStyle(category);
+    const display = label ?? categoryLabel(category);
 
     const sizeClasses =
       size === "md"
