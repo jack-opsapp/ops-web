@@ -73,7 +73,8 @@ export function UnscheduledTray({ view }: UnscheduledTrayProps) {
         (t.customTitle ?? "").toLowerCase().includes(q) ||
         (t.taskType?.display ?? "").toLowerCase().includes(q) ||
         (t.project?.title ?? "").toLowerCase().includes(q) ||
-        (t.project?.address ?? "").toLowerCase().includes(q)
+        (t.project?.address ?? "").toLowerCase().includes(q) ||
+        (t.project?.client?.name ?? "").toLowerCase().includes(q)
     );
   }, [allUnscheduled, unscheduledTraySearch]);
 
@@ -112,9 +113,9 @@ export function UnscheduledTray({ view }: UnscheduledTrayProps) {
         case "project":
           return t.project?.title ?? "// NO PROJECT";
         case "client":
-          // ProjectTask doesn't expose client directly; project carries clientId.
-          // Without joining, fall back to project title (best available proxy).
-          return t.project?.title ?? "// NO CLIENT";
+          // task-service eager-loads project.client (see select clause), so
+          // group by the actual client name when present.
+          return t.project?.client?.name ?? "// NO CLIENT";
         case "type":
           return t.taskType?.display?.toUpperCase() ?? "// NO TYPE";
       }
@@ -397,6 +398,7 @@ function UnscheduledTrayCard({ task }: { task: ProjectTask }) {
     "#6F94B0";
 
   const projectName = task.project?.title ?? "Untitled Project";
+  const clientName = task.project?.client?.name ?? null;
   const taskTypeLabel = task.taskType?.display?.toUpperCase() ?? "TASK";
   const customTitle = task.customTitle;
 
@@ -452,6 +454,14 @@ function UnscheduledTrayCard({ task }: { task: ProjectTask }) {
           {taskTypeLabel}
         </span>
       </div>
+      {clientName && (
+        <div
+          className="font-mono text-[10px] uppercase tracking-wider truncate mt-1"
+          style={{ color: "var(--text-2)", letterSpacing: "0.04em" }}
+        >
+          {clientName}
+        </div>
+      )}
       {customTitle && customTitle !== task.taskType?.display && (
         <div
           className="font-mono text-[10px] truncate mt-1"
