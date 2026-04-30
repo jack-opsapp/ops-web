@@ -25,6 +25,7 @@ export function EdgeTab({
   count,
   accent = "accent",
   restHeight = DEFAULT_REST_HEIGHT,
+  expandedHeight,
   drawerWidth = DEFAULT_DRAWER_WIDTH,
   railTop = DEFAULT_RAIL_TOP,
   railBottom = DEFAULT_RAIL_BOTTOM,
@@ -44,6 +45,66 @@ export function EdgeTab({
   const reducedMotion = useReducedMotion();
 
   const expanded = open || (hovered && canHoverExpand);
+
+  // ─── Tab vertical positioning ──────────────────────────────────────────────
+  //
+  // Two stacked tabs share the right rail, separated by an 8px gap and offset
+  // from the rail's vertical midpoint via `stackOffset` (negative = above
+  // center, positive = below).
+  //
+  // Rest center: `50% + stackOffset`.
+  // Rest top:    `50% + stackOffset - restHeight/2`.
+  // Rest bottom: `50% + stackOffset + restHeight/2`.
+  //
+  // Behavior (bug dd5659ed / 85da1e52):
+  //
+  //   OPEN with expandedHeight  → centered on `stackOffset`, height
+  //     `expandedHeight`. Aligns with a panel-anchored drawer (which is
+  //     also centered on `stackOffset`). The active drawer covers the
+  //     sibling-tab area anyway, so crossing the rail midpoint here is
+  //     fine.
+  //
+  //   OPEN without expandedHeight → fill the entire rail (legacy behavior
+  //     for full-rail drawers like Notifications).
+  //
+  //   HOVER with expandedHeight → grow ONLY toward the rail extremity (away
+  //     from the rail midpoint), capping at `expandedHeight`. This stops
+  //     the tab from bursting across the midpoint and covering the sibling
+  //     tab while no drawer is yet open. The drawer hasn't mounted, so we
+  //     don't need to align with it perfectly.
+  //
+  //   HOVER without expandedHeight → stay at rest height. Better than
+  //     bursting full-rail and covering the sibling tab.
+
+  let tabTop: string;
+  let tabHeight: string | number;
+  if (!expanded) {
+    tabTop = `calc(50% + ${stackOffset - restHeight / 2}px)`;
+    tabHeight = restHeight;
+  } else if (open && typeof expandedHeight === "number") {
+    // Open + panel clamp → align with the panel-anchored drawer.
+    tabTop = `calc(50% + ${stackOffset - expandedHeight / 2}px)`;
+    tabHeight = expandedHeight;
+  } else if (open) {
+    // Open + no clamp → legacy full-rail expansion.
+    tabTop = "0";
+    tabHeight = "100%";
+  } else if (typeof expandedHeight === "number") {
+    // Hover only → grow outward from the near edge, never crossing the
+    // rail midpoint into the sibling tab's half.
+    if (stackOffset >= 0) {
+      // Below center: anchor TOP edge of rest position, grow down.
+      tabTop = `calc(50% + ${stackOffset - restHeight / 2}px)`;
+    } else {
+      // Above center: anchor BOTTOM edge of rest position, grow up.
+      tabTop = `calc(50% + ${stackOffset + restHeight / 2 - expandedHeight}px)`;
+    }
+    tabHeight = expandedHeight;
+  } else {
+    // Hover only without `expandedHeight` → stay at rest.
+    tabTop = `calc(50% + ${stackOffset - restHeight / 2}px)`;
+    tabHeight = restHeight;
+  }
 
   return (
     <div
@@ -78,12 +139,10 @@ export function EdgeTab({
         onBlur={() => setHovered(false)}
         style={{
           position: "absolute",
-          top: expanded
-            ? 0
-            : `calc(50% + ${stackOffset - restHeight / 2}px)`,
+          top: tabTop,
           right: open ? drawerWidth : 0,
           width: TAB_WIDTH,
-          height: expanded ? "100%" : restHeight,
+          height: tabHeight,
           boxSizing: "border-box",
           background: fill,
           backdropFilter: "blur(28px) saturate(1.3)",

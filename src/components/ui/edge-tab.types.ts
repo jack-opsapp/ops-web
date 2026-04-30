@@ -22,6 +22,18 @@ export interface EdgeTabProps {
   /** Rest height in px. Default 180. FAB uses 132 for its shorter wordmark. */
   restHeight?: number;
 
+  /**
+   * Height (px) the tab grows to when hovered or open. Should match the paired
+   * drawer's height so the tab + drawer read as one shape.
+   *
+   * When omitted, the tab fills the full rail (`100%`) — keep this as the
+   * default for tabs paired with a full-rail drawer (e.g. Notifications).
+   * Tabs paired with a panel-anchored drawer (e.g. Quick Actions, panel
+   * 308×452) MUST pass the panel's height here so the tab doesn't tower
+   * above its drawer and overlap a sibling tab. (See bug dd5659ed / 85da1e52.)
+   */
+  expandedHeight?: number;
+
   /** Drawer width in px — the tab slides this far when opening. Default 360. */
   drawerWidth?: number;
 
