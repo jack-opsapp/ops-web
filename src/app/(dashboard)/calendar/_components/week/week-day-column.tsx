@@ -95,11 +95,16 @@ export function WeekDayColumn({ day, events, onCardResize }: WeekDayColumnProps)
         // card titles inflate the column and bleed across siblings.
         flex: "1 1 0%",
         opacity: weekend ? 0.85 : 1,
+        // Today column: spec v2 "frosted-glass tinted primary accent" — bright
+        // enough to read against the canvas without bleeding behind events.
         background: isOver
           ? "rgba(111, 148, 176, 0.10)"
           : today
-            ? "rgba(111, 148, 176, 0.06)"
+            ? "linear-gradient(rgba(111, 148, 176, 0.22), rgba(111, 148, 176, 0.22)), rgba(18, 18, 20, 0.78)"
             : "transparent",
+        backdropFilter: today && !isOver ? "blur(28px) saturate(1.3)" : undefined,
+        WebkitBackdropFilter:
+          today && !isOver ? "blur(28px) saturate(1.3)" : undefined,
         borderRight: "1px solid var(--line)",
         // Today column: 2px accent top border (T14 — today indicator signal #2)
         borderTop: today ? "2px solid var(--ops-accent)" : "2px solid transparent",

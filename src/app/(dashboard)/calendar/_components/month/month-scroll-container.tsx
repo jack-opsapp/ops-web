@@ -329,20 +329,33 @@ function MonthDayCell({
     data: { type: "month-day", day },
   });
 
+  // Spec v2: Today cell paints a brighter, frosted-glass-tinted primary
+  // accent fill. The 0.06-alpha tint barely registered against the canvas;
+  // 0.18 over the dense-glass base keeps it readable without bleeding.
+  const todayBg = isCurrentDay
+    ? {
+        background:
+          "linear-gradient(rgba(111, 148, 176, 0.22), rgba(111, 148, 176, 0.22)), rgba(18, 18, 20, 0.78)",
+        backdropFilter: "blur(28px) saturate(1.3)",
+        WebkitBackdropFilter: "blur(28px) saturate(1.3)",
+      }
+    : undefined;
+  const cellStyle: React.CSSProperties = {
+    borderRight: "1px solid rgba(255,255,255,0.10)",
+  };
+  if (isOver) {
+    cellStyle.backgroundColor = "rgba(111, 148, 176, 0.10)";
+  } else if (todayBg) {
+    Object.assign(cellStyle, todayBg);
+  } else if (isWeekend) {
+    cellStyle.backgroundColor = "rgba(255,255,255,0.02)";
+  }
+
   return (
     <div
       ref={setNodeRef}
       className="relative overflow-hidden group"
-      style={{
-        borderRight: "1px solid rgba(255,255,255,0.10)",
-        backgroundColor: isOver
-          ? "rgba(111, 148, 176, 0.10)"
-          : isCurrentDay
-            ? "rgba(111, 148, 176, 0.06)"
-            : isWeekend
-              ? "rgba(255,255,255,0.02)"
-              : undefined,
-      }}
+      style={cellStyle}
     >
       <div
         className="flex items-center"

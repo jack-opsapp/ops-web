@@ -112,7 +112,13 @@ export function CrewRow({
                   idx < daysShown - 1
                     ? "1px solid rgba(255,255,255,0.05)"
                     : "none",
-                background: today ? "rgba(111, 148, 176, 0.06)" : "transparent",
+                background: today
+                  ? "linear-gradient(rgba(111, 148, 176, 0.22), rgba(111, 148, 176, 0.22)), rgba(18, 18, 20, 0.78)"
+                  : "transparent",
+                backdropFilter: today ? "blur(28px) saturate(1.3)" : undefined,
+                WebkitBackdropFilter: today
+                  ? "blur(28px) saturate(1.3)"
+                  : undefined,
               }}
             />
           );
