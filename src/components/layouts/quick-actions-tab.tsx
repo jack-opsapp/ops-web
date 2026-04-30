@@ -12,6 +12,11 @@ const EDGE_TAB_ID = "quick-actions";
 const STACK_OFFSET_QA = 94;
 const REST_HEIGHT = 132;
 const DRAWER_WIDTH = 308;
+// Match the panel-anchored drawer (`PANEL_H`) in quick-actions-drawer.tsx so
+// the tab + panel read as one shape when expanded, and the tab never towers
+// above its drawer or overlaps the Notifications tab. (See bugs dd5659ed +
+// 85da1e52.)
+const EXPANDED_HEIGHT_QA = 452;
 
 export function QuickActionsTab() {
   const { t } = useDictionary("quick-actions");
@@ -44,6 +49,7 @@ export function QuickActionsTab() {
       onToggle={() => toggle(EDGE_TAB_ID)}
       accent="accent"
       restHeight={REST_HEIGHT}
+      expandedHeight={EXPANDED_HEIGHT_QA}
       drawerWidth={DRAWER_WIDTH}
       stackOffset={STACK_OFFSET_QA}
       canHoverExpand={!anyActive || open}
