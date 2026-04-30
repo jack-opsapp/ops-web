@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { Search, ChevronRight, ChevronLeft, GripVertical } from "lucide-react";
-import { useDraggable } from "@dnd-kit/core";
+import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTasks } from "@/lib/hooks";
 import { TaskStatus, type ProjectTask } from "@/lib/types/models";
@@ -137,19 +137,35 @@ export function UnscheduledTray({ view }: UnscheduledTrayProps) {
   const dockSide: "left" | "right" = view === "day" ? "left" : "right";
   const count = allUnscheduled.length;
 
+  // Drop target — accepts existing calendar events (month/week/day-hourly/
+  // day-list) and unschedules them. Type `unscheduled-dock` is matched in
+  // CalendarDndShell's handleDragEnd to clear startDate / endDate.
+  const { setNodeRef: setDropRef, isOver } = useDroppable({
+    id: "unscheduled-dock",
+    data: { type: "unscheduled-dock" },
+  });
+  const dropOutline = isOver
+    ? "1px dashed var(--ops-accent)"
+    : undefined;
+
   // ── Collapsed state ─────────────────────────────────────────────────────
 
   if (unscheduledTrayCollapsed) {
     return (
       <button
+        ref={setDropRef}
         type="button"
         onClick={toggleUnscheduledTray}
         className="shrink-0 h-full flex flex-col items-center justify-start gap-3 cursor-pointer group"
         style={{
           width: COLLAPSED_WIDTH,
-          background: "var(--glass-bg)",
-          borderLeft: dockSide === "right" ? "1px solid var(--line)" : "none",
-          borderRight: dockSide === "left" ? "1px solid var(--line)" : "none",
+          background: isOver ? "var(--surface-active)" : "var(--glass-bg)",
+          borderLeft:
+            dropOutline ??
+            (dockSide === "right" ? "1px solid var(--line)" : "none"),
+          borderRight:
+            dropOutline ??
+            (dockSide === "left" ? "1px solid var(--line)" : "none"),
           padding: "16px 0",
           transition: "background 0.15s cubic-bezier(0.22, 1, 0.36, 1)",
         }}
@@ -202,15 +218,21 @@ export function UnscheduledTray({ view }: UnscheduledTrayProps) {
 
   return (
     <motion.div
+      ref={setDropRef}
       initial={false}
       animate={{ width: EXPANDED_WIDTH }}
       transition={{ duration: 0.22, ease: EASE_SMOOTH }}
       className="shrink-0 h-full flex flex-col min-h-0"
       style={{
         width: EXPANDED_WIDTH,
-        background: "var(--glass-bg)",
-        borderLeft: dockSide === "right" ? "1px solid var(--line)" : "none",
-        borderRight: dockSide === "left" ? "1px solid var(--line)" : "none",
+        background: isOver ? "var(--surface-active)" : "var(--glass-bg)",
+        borderLeft:
+          dropOutline ??
+          (dockSide === "right" ? "1px solid var(--line)" : "none"),
+        borderRight:
+          dropOutline ??
+          (dockSide === "left" ? "1px solid var(--line)" : "none"),
+        transition: "background 0.15s cubic-bezier(0.22, 1, 0.36, 1)",
       }}
     >
       {/* Header row */}

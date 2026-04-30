@@ -186,9 +186,7 @@ export function CalendarDndShell({ children }: CalendarDndShellProps) {
       const overData = over.data?.current as
         | { type?: string; day?: Date }
         | undefined;
-      if (!activeData?.type || !overData?.day) return;
-
-      const targetDay = overData.day;
+      if (!activeData?.type) return;
 
       // Recurrence-aware dispatcher
       const dispatchUpdate = async (
@@ -221,6 +219,42 @@ export function CalendarDndShell({ children }: CalendarDndShellProps) {
           }
         );
       };
+
+      // ── Drop on the unscheduled dock → unschedule the event ─────────────
+      // Only existing calendar events can be unscheduled; tasks already in
+      // the tray (`unscheduled-task`) have no schedule to clear.
+      if (overData?.type === "unscheduled-dock") {
+        const calEvent = activeData.event;
+        if (
+          !calEvent ||
+          (activeData.type !== "month-event" &&
+            activeData.type !== "week-event" &&
+            activeData.type !== "day-hourly-event" &&
+            activeData.type !== "day-list-event")
+        ) {
+          return;
+        }
+        // Clear startDate / endDate. Recurrence-aware to mirror reschedule
+        // behavior: a series occurrence opens the prompt; a one-off updates
+        // directly. startTime / endTime are explicitly cleared so the row
+        // doesn't carry a phantom time slot.
+        const patch: Partial<ProjectTask> = {
+          startDate: null,
+          endDate: null,
+          startTime: null,
+          endTime: null,
+        };
+        await dispatchUpdate(
+          calEvent.id,
+          patch,
+          "Unschedule this occurrence, or unschedule the entire series?"
+        );
+        return;
+      }
+
+      if (!overData?.day) return;
+
+      const targetDay = overData.day;
 
       // ── month-event / week-event: whole-day reschedule ───────────────
       if (
