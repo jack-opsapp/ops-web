@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { X, Search, ChevronDown, ChevronRight } from "lucide-react";
+import { X, ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { TASK_TYPE_COLORS } from "@/lib/utils/calendar-constants";
 import { useCalendarStore } from "@/stores/calendar-store";
 import { useTeamMembers, useProjects } from "@/lib/hooks";
 import { useDictionary } from "@/i18n/client";
+import { SearchInput } from "@/components/ui/search-input";
 
 // ─── Event Status Options ────────────────────────────────────────────────────
 
@@ -282,16 +283,11 @@ export function FilterSidebar() {
           count={filterProjectIds.length}
         >
           <div className="mb-1.5">
-            <div className="relative">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-text-mute" />
-              <input
-                type="text"
-                value={projectSearch}
-                onChange={(e) => setProjectSearch(e.target.value)}
-                placeholder={t("filter.searchProjects")}
-                className="w-full pl-[26px] pr-2 py-[5px] bg-fill-neutral-dim/50 border border-border-subtle rounded-sm font-mono text-[11px] text-text placeholder:text-text-mute focus:outline-none focus:border-[rgba(255,255,255,0.20)]/40 transition-colors"
-              />
-            </div>
+            <SearchInput
+              value={projectSearch}
+              onChange={(e) => setProjectSearch(e.target.value)}
+              placeholder={t("filter.searchProjects")}
+            />
           </div>
           <div className="flex flex-col gap-0.5 max-h-[200px] overflow-y-auto">
             {projects.map((project) => (

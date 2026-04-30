@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo } from "react";
-import { Search, ChevronRight, ChevronLeft, GripVertical } from "lucide-react";
+import { ChevronRight, ChevronLeft, GripVertical } from "lucide-react";
+import { SearchInput } from "@/components/ui/search-input";
 import { useDraggable } from "@dnd-kit/core";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTasks } from "@/lib/hooks";
@@ -263,35 +264,10 @@ export function UnscheduledTray({ view }: UnscheduledTrayProps) {
 
       {/* Search */}
       <div className="shrink-0 px-3 pt-3 pb-1">
-        <div className="relative">
-          <Search
-            size={12}
-            className="absolute left-[10px] top-1/2 -translate-y-1/2 pointer-events-none"
-            style={{ color: "var(--text-3)" }}
-          />
-          <input
-            type="text"
-            value={unscheduledTraySearch}
-            onChange={(e) => setUnscheduledTraySearch(e.target.value)}
-            placeholder="SEARCH"
-            className="w-full pl-[30px] pr-2 py-[6px] font-mono text-[11px] uppercase tracking-wider"
-            style={{
-              background: "var(--surface-input)",
-              border: "1px solid var(--line)",
-              borderRadius: 5,
-              color: "var(--text)",
-              outline: "none",
-              letterSpacing: "0.06em",
-            }}
-            onFocus={(e) =>
-              ((e.currentTarget as HTMLElement).style.borderColor =
-                "rgba(255,255,255,0.20)")
-            }
-            onBlur={(e) =>
-              ((e.currentTarget as HTMLElement).style.borderColor = "var(--line)")
-            }
-          />
-        </div>
+        <SearchInput
+          value={unscheduledTraySearch}
+          onChange={(e) => setUnscheduledTraySearch(e.target.value)}
+        />
       </div>
 
       {/* Group / Sort selects */}
