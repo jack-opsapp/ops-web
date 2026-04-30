@@ -20,6 +20,11 @@ export interface QuickCreateAnchor {
 
 // ─── Store Interface ─────────────────────────────────────────────────────────
 
+// ─── Unscheduled tray types ─────────────────────────────────────────────────
+
+export type UnscheduledTrayGroupBy = "project" | "client" | "type" | "none";
+export type UnscheduledTraySort = "created" | "title" | "project";
+
 interface CalendarStoreState {
   // View
   currentDate: Date;
@@ -33,6 +38,12 @@ interface CalendarStoreState {
   // Filter sidebar
   isFilterSidebarOpen: boolean;
 
+  // Unscheduled tray (T15)
+  unscheduledTrayCollapsed: boolean;
+  unscheduledTrayGroupBy: UnscheduledTrayGroupBy;
+  unscheduledTraySort: UnscheduledTraySort;
+  unscheduledTraySearch: string;
+
   // Quick create
   quickCreateAnchor: QuickCreateAnchor | null;
 
@@ -45,6 +56,10 @@ interface CalendarStoreState {
   // DnD
   draggedEventId: string | null;
   dragPreview: { date: Date; duration: number } | null;
+
+  // Legend hover-to-highlight: when set, event renderers dim non-matching
+  // events and brighten matching ones. UI-ephemeral, never persisted.
+  highlightedTaskType: string | null;
 
   // Cascade / Ghost previews
   ghostPreviews: GhostPreview[];
@@ -92,6 +107,9 @@ interface CalendarStoreState {
     preview?: { date: Date; duration: number } | null
   ) => void;
 
+  // Actions — Legend highlight
+  setHighlightedTaskType: (type: string | null) => void;
+
   // Actions — Multi-select
   toggleTaskSelection: (taskId: string) => void;
   selectTaskRange: (taskIds: string[]) => void;
@@ -105,6 +123,13 @@ interface CalendarStoreState {
 
   // Actions — Inline edit
   setInlineEdit: (state: InlineEditState | null) => void;
+
+  // Actions — Unscheduled tray
+  toggleUnscheduledTray: () => void;
+  setUnscheduledTrayCollapsed: (collapsed: boolean) => void;
+  setUnscheduledTrayGroupBy: (groupBy: UnscheduledTrayGroupBy) => void;
+  setUnscheduledTraySort: (sort: UnscheduledTraySort) => void;
+  setUnscheduledTraySearch: (search: string) => void;
 }
 
 // ─── Store ───────────────────────────────────────────────────────────────────
@@ -114,7 +139,7 @@ export const useCalendarStore = create<CalendarStoreState>()(
     (set) => ({
       // View
       currentDate: new Date(),
-      view: "timeline",
+      view: "week",
 
       // Side Panel
       sidePanelMode: null,
@@ -123,6 +148,15 @@ export const useCalendarStore = create<CalendarStoreState>()(
 
       // Filter sidebar
       isFilterSidebarOpen: false,
+
+      // Unscheduled tray (T15)
+      // Defaults: expanded on first visit (per spec). Tray dock side flips
+      // based on view (Day → left, others → right) but that lives in the
+      // component, not state.
+      unscheduledTrayCollapsed: false,
+      unscheduledTrayGroupBy: "project",
+      unscheduledTraySort: "created",
+      unscheduledTraySearch: "",
 
       // Quick create
       quickCreateAnchor: null,
@@ -136,6 +170,9 @@ export const useCalendarStore = create<CalendarStoreState>()(
       // DnD
       draggedEventId: null,
       dragPreview: null,
+
+      // Legend highlight
+      highlightedTaskType: null,
 
       // Cascade / Ghost
       ghostPreviews: [],
@@ -203,6 +240,9 @@ export const useCalendarStore = create<CalendarStoreState>()(
           dragPreview: preview ?? null,
         }),
 
+      // Actions — Legend highlight
+      setHighlightedTaskType: (type) => set({ highlightedTaskType: type }),
+
       // Actions — Multi-select
       toggleTaskSelection: (taskId) =>
         set((state) => ({
@@ -231,9 +271,37 @@ export const useCalendarStore = create<CalendarStoreState>()(
 
       // Actions — Inline edit
       setInlineEdit: (inlineEdit) => set({ inlineEdit }),
+
+      // Actions — Unscheduled tray
+      toggleUnscheduledTray: () =>
+        set((state) => ({
+          unscheduledTrayCollapsed: !state.unscheduledTrayCollapsed,
+        })),
+      setUnscheduledTrayCollapsed: (unscheduledTrayCollapsed) =>
+        set({ unscheduledTrayCollapsed }),
+      setUnscheduledTrayGroupBy: (unscheduledTrayGroupBy) =>
+        set({ unscheduledTrayGroupBy }),
+      setUnscheduledTraySort: (unscheduledTraySort) =>
+        set({ unscheduledTraySort }),
+      setUnscheduledTraySearch: (unscheduledTraySearch) =>
+        set({ unscheduledTraySearch }),
     }),
     {
       name: "ops-calendar",
+      version: 2,
+      migrate: (persistedState, version) => {
+        const s = (persistedState ?? {}) as Record<string, unknown>;
+        // v0/v1 → v2: rename 'timeline' → 'crew'
+        if (version < 2 && s.view === "timeline") {
+          s.view = "crew";
+        }
+        // Defensive: any unknown view value falls back to 'week' default
+        const validViews = new Set(["day", "week", "month", "crew"]);
+        if (typeof s.view !== "string" || !validViews.has(s.view as string)) {
+          s.view = "week";
+        }
+        return s;
+      },
       partialize: (state) => ({
         view: state.view,
         filterTeamMemberIds: state.filterTeamMemberIds,
@@ -241,6 +309,9 @@ export const useCalendarStore = create<CalendarStoreState>()(
         filterProjectIds: state.filterProjectIds,
         filterStatuses: state.filterStatuses,
         isFilterSidebarOpen: state.isFilterSidebarOpen,
+        unscheduledTrayCollapsed: state.unscheduledTrayCollapsed,
+        unscheduledTrayGroupBy: state.unscheduledTrayGroupBy,
+        unscheduledTraySort: state.unscheduledTraySort,
       }),
     }
   )

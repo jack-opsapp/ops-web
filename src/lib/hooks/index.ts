@@ -28,6 +28,19 @@ export {
   useReorderTasks,
 } from "./use-tasks";
 
+// Recurrences (Phase 3)
+export {
+  useRecurrences,
+  useRecurrence,
+  useRecurrenceExceptions,
+  useCreateRecurrence,
+  useUpdateRecurrence,
+  useSoftDeleteRecurrence,
+  useUpsertRecurrenceException,
+} from "./use-recurrences";
+export { useRecurrenceEdit } from "./use-recurrence-edit";
+export type { RecurrenceEditInput } from "./use-recurrence-edit";
+
 // Clients
 export {
   useClients,

@@ -11,14 +11,35 @@ import {
   LAST_HOUR,
   TASK_TYPE_COLORS,
   DEFAULT_TASK_TYPE_COLORS,
+  TASK_STATUS_COLORS,
   type TaskTypeColors,
+  type TaskStatusColors,
+  type TaskStatusKey,
 } from "./calendar-constants";
-import type { ProjectTask } from "@/lib/types/models";
+import { TaskStatus } from "@/lib/types/models";
+import type { ProjectTask, CalendarUserEvent } from "@/lib/types/models";
 
 // ─── Internal Event Type ─────────────────────────────────────────────────────
 
+/**
+ * The unified calendar event shape consumed by every view (Day, Week, Month,
+ * Crew). Built once via mapTaskToInternalEvent — consumers must not re-derive
+ * colors, titles, or status from the underlying ProjectTask. The shape is the
+ * single source of truth.
+ *
+ * Three-source rule:
+ *   - Title (line 1)    → projectTitle ?? taskTitle
+ *   - Subtitle          → taskTitle (when distinct from projectTitle)
+ *   - Body fill / border→ statusColors (status-driven)
+ *   - Left accent stripe→ typeColors.border (type-driven)
+ *   - Type badge        → typeLabel (uppercase Cake Mono Light)
+ */
 export interface InternalCalendarEvent {
   id: string;
+  /**
+   * Primary display title. Equal to projectTitle ?? taskTitle.
+   * Preserved as a top-level field for backward compatibility.
+   */
   title: string;
   startDate: Date;
   endDate: Date;
@@ -29,12 +50,142 @@ export interface InternalCalendarEvent {
   teamMemberIds: string[];
   project?: string;
   projectId?: string;
+
+  // ── Unified mapping (T8) — three-source rule
+  projectTitle: string | null;
+  taskTitle: string;
+  typeLabel: string;
+  typeColors: TaskTypeColors;
+  statusColors: TaskStatusColors;
+  statusKey: TaskStatusKey;
+  crewIds: string[];
+  address: string | null;
+  /** Client.name resolved through project.client. Null when no client. */
+  clientName: string | null;
+
+  // ── Phase 3 fields (provisioned now, populated when allDay=false ships)
+  startTime: string | null;
+  endTime: string | null;
+  allDay: boolean;
+
+  /**
+   * What kind of calendar item this is. Branches the card rendering:
+   *   - 'task'      → ProjectTask (project / client / address etc.)
+   *   - 'personal'  → user-owned personal event (no project)
+   *   - 'time_off'  → time-off request (status reflects approval state)
+   */
+  kind: "task" | "personal" | "time_off";
 }
 
 // ─── Color Helpers ───────────────────────────────────────────────────────────
 
+/**
+ * Legacy: looked up colors from a 6-bucket palette. Kept exported because
+ * the toolbar legend still calls it with derived keys for non-task entries.
+ * For tasks, prefer `colorTripleFromHex(event.color)` which honors the actual
+ * task_types.color value from the DB (matches iOS effectiveColor).
+ */
 export function getEventColors(taskType: string): TaskTypeColors {
   return TASK_TYPE_COLORS[taskType] ?? DEFAULT_TASK_TYPE_COLORS;
+}
+
+export function getStatusColors(key: TaskStatusKey): TaskStatusColors {
+  return TASK_STATUS_COLORS[key];
+}
+
+/**
+ * Parse a #RGB or #RRGGBB hex into r/g/b. Returns null on bad input so the
+ * caller can fall back to the legacy palette.
+ */
+function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+  const clean = hex.replace("#", "").trim();
+  if (clean.length === 3) {
+    return {
+      r: parseInt(clean[0] + clean[0], 16),
+      g: parseInt(clean[1] + clean[1], 16),
+      b: parseInt(clean[2] + clean[2], 16),
+    };
+  }
+  if (clean.length === 6) {
+    return {
+      r: parseInt(clean.slice(0, 2), 16),
+      g: parseInt(clean.slice(2, 4), 16),
+      b: parseInt(clean.slice(4, 6), 16),
+    };
+  }
+  return null;
+}
+
+/**
+ * Lighten an RGB triple by a percentage (0–1). Used to derive a legible
+ * `text` value sitting on the same hue's soft fill.
+ */
+function lightenRgb(
+  rgb: { r: number; g: number; b: number },
+  amount: number
+): { r: number; g: number; b: number } {
+  return {
+    r: Math.round(rgb.r + (255 - rgb.r) * amount),
+    g: Math.round(rgb.g + (255 - rgb.g) * amount),
+    b: Math.round(rgb.b + (255 - rgb.b) * amount),
+  };
+}
+
+const rgbToString = (rgb: { r: number; g: number; b: number }, alpha = 1) =>
+  alpha === 1
+    ? `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`
+    : `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
+
+/**
+ * Build a {bg, border, text} triple from any task_types.color hex. Mirrors
+ * iOS effectiveColor — the per-type DB color drives both the stripe and the
+ * card fill at low alpha. This replaces the 6-bucket TASK_TYPE_COLORS lookup
+ * so 'Vinyl Install', 'Rail Install', 'Glass Install', 'Renovation', etc.
+ * each get their own visual identity instead of being collapsed.
+ */
+export function colorTripleFromHex(hex: string | null | undefined): TaskTypeColors {
+  if (!hex) return DEFAULT_TASK_TYPE_COLORS;
+  const rgb = hexToRgb(hex);
+  if (!rgb) return DEFAULT_TASK_TYPE_COLORS;
+  return {
+    border: rgbToString(rgb), // full-strength hex for the stripe
+    bg: rgbToString(rgb, 0.18), // soft fill at 18% alpha
+    text: rgbToString(lightenRgb(rgb, 0.45), 1), // lightened for legibility on the fill
+  };
+}
+
+// ─── Status Derivation ──────────────────────────────────────────────────────
+
+/**
+ * Map a ProjectTask to a TaskStatusKey for card coloring.
+ *
+ * Production project_tasks.status only stores 'active' | 'completed' |
+ * 'cancelled'. The TS enum's Booked/InProgress both round-trip to 'active'.
+ *
+ * Computed states layered on top of 'active':
+ *   - end_date < now            → 'overdue'
+ *   - start_date <= now < end   → 'in_progress'
+ *   - otherwise (future-active) → 'scheduled'
+ */
+export function deriveTaskStatusKey(
+  task: Pick<ProjectTask, "status" | "startDate" | "endDate" | "duration">,
+  now: Date = new Date()
+): TaskStatusKey {
+  if (task.status === TaskStatus.Completed) return "completed";
+  if (task.status === TaskStatus.Cancelled) return "cancelled";
+
+  // Active state — split by date relationship to now.
+  const start = task.startDate ? new Date(task.startDate) : null;
+  let end = task.endDate ? new Date(task.endDate) : null;
+
+  // Fall back to start + duration when end_date is missing.
+  if (!end && start && task.duration > 0) {
+    end = new Date(start.getTime() + task.duration * 24 * 60 * 60 * 1000);
+  }
+
+  if (end && end < now) return "overdue";
+  if (start && end && start <= now && now <= end) return "in_progress";
+  return "scheduled";
 }
 
 // ─── Task Type Derivation ────────────────────────────────────────────────────
@@ -85,11 +236,13 @@ export function mapTaskToInternalEvent(task: ProjectTask): InternalCalendarEvent
   if (!task.startDate) return null;
 
   const rawStart = task.startDate instanceof Date ? task.startDate : new Date(task.startDate);
-  // Normalize date-only values (UTC midnight) to local midnight
-  const startDate = !task.startTime ? normalizeToLocalDate(rawStart) : rawStart;
+  // For all-day tasks, normalize UTC midnight to local midnight so display
+  // matches the calendar grid. Timed tasks keep the raw timestamp so the
+  // applied start_time positions them correctly within the day.
+  const startDate = task.allDay ? normalizeToLocalDate(rawStart) : rawStart;
 
-  // Combine start date with startTime for precise positioning
-  if (task.startTime) {
+  // Combine start date with startTime for precise positioning when timed.
+  if (!task.allDay && task.startTime) {
     const [h, m] = task.startTime.split(":").map(Number);
     if (!isNaN(h) && !isNaN(m)) startDate.setHours(h, m, 0, 0);
   }
@@ -97,16 +250,15 @@ export function mapTaskToInternalEvent(task: ProjectTask): InternalCalendarEvent
   let endDate: Date;
   if (task.endDate) {
     const rawEnd = task.endDate instanceof Date ? new Date(task.endDate) : new Date(task.endDate);
-    endDate = !task.endTime ? normalizeToLocalDate(rawEnd) : rawEnd;
-    // Combine end date with endTime
-    if (task.endTime) {
+    endDate = task.allDay ? normalizeToLocalDate(rawEnd) : rawEnd;
+    if (!task.allDay && task.endTime) {
       const [h, m] = task.endTime.split(":").map(Number);
       if (!isNaN(h) && !isNaN(m)) endDate.setHours(h, m, 0, 0);
     }
   } else if (task.duration > 0) {
     endDate = new Date(startDate.getTime() + task.duration * 24 * 60 * 60 * 1000);
-    // Apply endTime if single-day
-    if (task.endTime && task.duration <= 1) {
+    // Single-day timed tasks honor endTime to set the closing wall-clock.
+    if (!task.allDay && task.endTime && task.duration <= 1) {
       const [h, m] = task.endTime.split(":").map(Number);
       if (!isNaN(h) && !isNaN(m)) {
         endDate = new Date(startDate);
@@ -116,7 +268,7 @@ export function mapTaskToInternalEvent(task: ProjectTask): InternalCalendarEvent
   } else {
     // Default: same day, apply endTime or default to +9 hours
     endDate = new Date(startDate);
-    if (task.endTime) {
+    if (!task.allDay && task.endTime) {
       const [h, m] = task.endTime.split(":").map(Number);
       if (!isNaN(h) && !isNaN(m)) endDate.setHours(h, m, 0, 0);
     } else {
@@ -124,21 +276,137 @@ export function mapTaskToInternalEvent(task: ProjectTask): InternalCalendarEvent
     }
   }
 
-  // Title: customTitle > taskType.display > "Task"
-  const title = task.customTitle || task.taskType?.display || "Task";
+  // Three-source title rule:
+  //   primary display = projectTitle ?? taskTitle (taskTitle = customTitle ?? typeLabel)
+  const projectTitle: string | null = task.project?.title ?? null;
+  const typeLabel = task.taskType?.display ?? "Task";
+  const taskTitle = task.customTitle ?? typeLabel;
+  const displayTitle = projectTitle ?? taskTitle;
+
+  // Effective color — mirrors iOS ProjectTask.effectiveColor:
+  // task_types.color takes precedence, falling back to project_tasks.task_color.
+  // The 6-bucket TASK_TYPE_COLORS lookup is no longer used here so 'Vinyl
+  // Install', 'Rail Install', 'Glass Install', 'Renovation' etc. each get
+  // their own DB-driven color instead of being collapsed into 'installation'.
+  const effectiveColor =
+    (task.taskType?.color && task.taskType.color.trim()) ||
+    task.taskColor ||
+    "#6F94B0";
+  const typeColors = colorTripleFromHex(effectiveColor);
+
+  // Keep a stable categorical key for the toolbar legend / filtering. Prefer
+  // the real type display (e.g. 'Vinyl Install'); fall back to the legacy
+  // bucket for tasks missing taskType.
+  const taskTypeKey = task.taskType?.display ?? deriveTaskType(taskTitle, task.taskColor);
+
+  // Status-derived palette (body fill + border)
+  const statusKey = deriveTaskStatusKey(task);
+  const statusColors = getStatusColors(statusKey);
 
   return {
     id: task.id,
-    title,
+    title: displayTitle,
     startDate,
     endDate,
-    color: task.taskColor,
-    taskType: deriveTaskType(title, task.taskColor),
+    color: effectiveColor,
+    taskType: taskTypeKey,
     status: task.status,
     teamMember: task.teamMemberIds.length > 0 ? "Team" : undefined,
     teamMemberIds: task.teamMemberIds,
-    project: task.project?.title ?? undefined,
+    project: projectTitle ?? undefined,
     projectId: task.projectId,
+
+    // Unified mapping
+    projectTitle,
+    taskTitle,
+    typeLabel,
+    typeColors,
+    statusColors,
+    statusKey,
+    crewIds: task.teamMemberIds,
+    address: task.project?.address ?? null,
+    clientName: task.project?.client?.name ?? null,
+
+    // Phase 3 — task.allDay is authoritative. Pre-Phase-3 rows default to
+    // true (verified at task-service.mapFromDb), so legacy rows with
+    // hardcoded 08:00–17:00 read as all-day.
+    startTime: task.startTime ?? null,
+    endTime: task.endTime ?? null,
+    allDay: task.allDay,
+
+    // ── Calendar user event differentiator ──
+    // Tasks have kind = 'task'; user events get 'personal' / 'time_off' from
+    // the sibling mapUserEventToInternalEvent below. Cards branch on this.
+    kind: "task",
+  };
+}
+
+// ─── CalendarUserEvent → Internal Calendar Event ────────────────────────────
+
+/**
+ * Map a personal / time-off event to the same InternalCalendarEvent shape so
+ * Day / Week / Month / Crew views can render it alongside ProjectTasks. Per
+ * iOS parity (CalendarViewModel.loadUserEvents), user events have:
+ *   - no project / client / address relationships
+ *   - title is the user-entered string
+ *   - status flips meaning: time-off pending vs approved drives styling
+ *   - type stripe color comes from the event type (personal / time-off)
+ */
+export function mapUserEventToInternalEvent(
+  evt: CalendarUserEvent
+): InternalCalendarEvent {
+  const start = evt.startDate instanceof Date ? evt.startDate : new Date(evt.startDate);
+  const end = evt.endDate instanceof Date ? evt.endDate : new Date(evt.endDate);
+
+  // For all-day events, normalize to local-midnight so they line up with the
+  // grid (same trick mapTaskToInternalEvent uses).
+  const startDate = evt.allDay ? normalizeToLocalDate(start) : start;
+  const endDate = evt.allDay ? normalizeToLocalDate(end) : end;
+
+  // Type colors — personal uses 'quote' (steel blue), time-off uses 'inspection'
+  // (lavender). Both legible against the dark canvas; both visually distinct
+  // from project task types.
+  const typeKey = evt.type === "time_off" ? "inspection" : "quote";
+  const typeColors = getEventColors(typeKey);
+  const typeLabel = evt.type === "time_off" ? "TIME OFF" : "PERSONAL";
+
+  // Status — time-off rides on the approval workflow; personal is always 'scheduled'.
+  let statusKey: TaskStatusKey = "scheduled";
+  if (evt.type === "time_off") {
+    if (evt.status === "approved") statusKey = "scheduled";
+    else if (evt.status === "denied") statusKey = "cancelled";
+    else if (evt.status === "pending") statusKey = "in_progress";
+  }
+  const statusColors = getStatusColors(statusKey);
+
+  return {
+    id: evt.id,
+    title: evt.title,
+    startDate,
+    endDate,
+    color: typeColors.border,
+    taskType: typeKey,
+    status: statusKey,
+    teamMember: undefined,
+    teamMemberIds: evt.teamMemberIds ?? [],
+    project: undefined,
+    projectId: undefined,
+
+    projectTitle: null,
+    taskTitle: evt.title,
+    typeLabel,
+    typeColors,
+    statusColors,
+    statusKey,
+    crewIds: evt.teamMemberIds ?? [],
+    address: evt.address,
+    clientName: null,
+
+    startTime: null,
+    endTime: null,
+    allDay: evt.allDay,
+
+    kind: evt.type === "time_off" ? "time_off" : "personal",
   };
 }
 

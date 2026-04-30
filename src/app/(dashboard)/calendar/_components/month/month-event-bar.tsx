@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useRef, useLayoutEffect } from "react";
-import { createPortal } from "react-dom";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { format } from "date-fns";
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { type InternalCalendarEvent, getEventColors } from "@/lib/utils/calendar-utils";
+import { type InternalCalendarEvent } from "@/lib/utils/calendar-utils";
+import { useCalendarStore } from "@/stores/calendar-store";
+import { EventHoverPopover } from "../event-hover-popover";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -23,143 +23,112 @@ interface MonthEventBarProps {
   displayLevel: DisplayLevel;
   span: MonthEventBarSpan;
   onClick?: (event: InternalCalendarEvent) => void;
+  /**
+   * Edge resize callback. dayDelta is signed — positive extends, negative
+   * shrinks. Edge "left" pulls the start; edge "right" pushes the end.
+   * Caller is responsible for applying the patch (typically via
+   * useCalendarResize).
+   *
+   * Multi-day bars only render the matching handle on the boundary
+   * segments: `left` on isFirstSegment, `right` on isLastSegment. Compact
+   * (dot) bars render no handles regardless.
+   */
+  onResize?: (
+    event: InternalCalendarEvent,
+    edge: "left" | "right",
+    dayDelta: number
+  ) => void;
 }
 
-// ─── Tooltip ─────────────────────────────────────────────────────────────────
+// 8px hit zone, matches crew-task-block.
+const RESIZE_HANDLE_PX = 6;
 
-// Spec v2 EASE_SMOOTH — single curve for all motion in OPS-Web.
-const EASE_SMOOTH: [number, number, number, number] = [0.22, 1, 0.36, 1];
-
-const tooltipVariantsMotion = {
-  hidden: { opacity: 0, y: 4 },
-  visible: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: 4 },
-};
-
-// Reduced-motion alternative: same arrival beat, opacity only. The tooltip
-// still appears with the same timing so the user still gets the feedback —
-// just without any y-translate that could trigger vestibular discomfort.
-const tooltipVariantsReduced = {
-  hidden: { opacity: 0 },
-  visible: { opacity: 1 },
-  exit: { opacity: 0 },
-};
-
-interface EventTooltipProps {
-  event: InternalCalendarEvent;
-  anchorRect: DOMRect;
-}
+// ─── Resize hook ────────────────────────────────────────────────────────────
 
 /**
- * Rendered to document.body via portal so it escapes the calendar cell's
- * `overflow: hidden` (which is load-bearing for the drop indicator and hover
- * border on day cells). Bug 10ed5e3f.
- *
- * Position strategy: above the anchor by default; if there's not enough
- * viewport above, flip below. `fixed` positioning so scroll doesn't displace.
+ * Tracks an active edge-drag for a Month event bar. dayDelta is computed by
+ * dividing the pixel delta by the parent week row's day-column width (its
+ * total width / 7).
  */
-function EventTooltip({ event, anchorRect }: EventTooltipProps) {
-  const reducedMotion = useReducedMotion();
-  const tooltipVariants = reducedMotion ? tooltipVariantsReduced : tooltipVariantsMotion;
-  const colors = getEventColors(event.taskType);
-  const dateRangeStr = `${format(event.startDate, "MMM d")} - ${format(event.endDate, "MMM d, yyyy")}`;
-  const tooltipRef = useRef<HTMLDivElement>(null);
-  const [placement, setPlacement] = useState<{ top: number; left: number }>({
-    top: anchorRect.top - 8,
-    left: anchorRect.left,
-  });
+function useEdgeResize(
+  barRef: React.RefObject<HTMLDivElement | null>,
+  onResize:
+    | ((
+        event: InternalCalendarEvent,
+        edge: "left" | "right",
+        dayDelta: number
+      ) => void)
+    | undefined,
+  event: InternalCalendarEvent
+) {
+  const [resize, setResize] = useState<{
+    edge: "left" | "right";
+    initialX: number;
+    deltaPx: number;
+  } | null>(null);
+  const resizeRef = useRef(resize);
+  resizeRef.current = resize;
 
-  useLayoutEffect(() => {
-    const tooltip = tooltipRef.current;
-    if (!tooltip) return;
-    const tooltipRect = tooltip.getBoundingClientRect();
-    const margin = 6;
-    const above = anchorRect.top - tooltipRect.height - margin;
-    const below = anchorRect.bottom + margin;
-    const viewportH = window.innerHeight;
-    const viewportW = window.innerWidth;
+  // Resolve the day-column width by walking up to the week row (data-attr).
+  const resolveDayColumnWidth = useCallback((): number | null => {
+    const el = barRef.current;
+    if (!el) return null;
+    const weekRow = el.closest<HTMLElement>("[data-month-week-row]");
+    if (!weekRow) return null;
+    const rect = weekRow.getBoundingClientRect();
+    return rect.width / 7;
+  }, [barRef]);
 
-    let top = above >= 8 ? above : below;
-    let left = anchorRect.left;
-
-    // Clamp horizontally so the tooltip doesn't run off-screen
-    if (left + tooltipRect.width > viewportW - 8) {
-      left = viewportW - tooltipRect.width - 8;
-    }
-    if (left < 8) left = 8;
-
-    // If below also overflows, pin to bottom and accept the clip
-    if (below + tooltipRect.height > viewportH - 8 && above < 8) {
-      top = viewportH - tooltipRect.height - 8;
-    }
-
-    setPlacement({ top, left });
-  }, [anchorRect]);
-
-  if (typeof document === "undefined") return null;
-
-  return createPortal(
-    <motion.div
-      ref={tooltipRef}
-      initial="hidden"
-      animate="visible"
-      exit="exit"
-      variants={tooltipVariants}
-      transition={{ duration: 0.15, ease: EASE_SMOOTH }}
-      className="pointer-events-none"
-      style={{
-        position: "fixed",
-        top: placement.top,
-        left: placement.left,
-        zIndex: 1000, // dropdown layer per spec v2 z-index scale
-        minWidth: 180,
-        maxWidth: 240,
-        background: "var(--glass-bg-dense)",
-        backdropFilter: "blur(28px) saturate(1.3)",
-        WebkitBackdropFilter: "blur(28px) saturate(1.3)",
-        border: "1px solid var(--glass-border)",
-        borderRadius: 12, // rounded-modal per spec v2 (popover/dropdown tier)
-        padding: "8px 10px",
-      }}
-    >
-      {/* Project name */}
-      <div
-        className="font-mohave font-semibold text-[12px] leading-tight truncate"
-        style={{ color: "var(--text-primary, #EDEDED)" }}
-      >
-        {event.project || event.title}
-      </div>
-
-      {/* Divider */}
-      <div
-        className="my-[4px]"
-        style={{ height: 1, background: "var(--glass-border)" }}
-      />
-
-      {/* Task type */}
-      <div className="flex items-center gap-[6px]">
-        <div
-          className="w-[6px] h-[6px] rounded-[1px] shrink-0"
-          style={{ background: colors.border }}
-        />
-        <span
-          className="font-mono text-micro uppercase tracking-wider leading-tight"
-          style={{ color: colors.text }}
-        >
-          {event.taskType.toUpperCase()}
-        </span>
-      </div>
-
-      {/* Date range */}
-      <div
-        className="font-mono text-micro uppercase tracking-wider leading-tight mt-[3px]"
-        style={{ color: "var(--text-3, #8A8A8A)" }}
-      >
-        {dateRangeStr}
-      </div>
-    </motion.div>,
-    document.body
+  const handleResizeStart = useCallback(
+    (edge: "left" | "right") => (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setResize({ edge, initialX: e.clientX, deltaPx: 0 });
+    },
+    []
   );
+
+  useEffect(() => {
+    if (!resize) return;
+
+    const onMouseMove = (mv: MouseEvent) => {
+      setResize((prev) =>
+        prev ? { ...prev, deltaPx: mv.clientX - prev.initialX } : null
+      );
+    };
+    const onMouseUp = () => {
+      const state = resizeRef.current;
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+      setResize(null);
+      if (!state) return;
+      const colWidth = resolveDayColumnWidth();
+      if (!colWidth || colWidth <= 0) return;
+      const dayDelta = Math.round(state.deltaPx / colWidth);
+      if (dayDelta === 0) return;
+      onResize?.(event, state.edge, dayDelta);
+    };
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+  }, [resize, resolveDayColumnWidth, onResize, event]);
+
+  // Live preview: snap the deltaPx to integer day units for visual feedback.
+  const previewDayDelta = (() => {
+    if (!resize) return 0;
+    const colWidth = resolveDayColumnWidth();
+    if (!colWidth || colWidth <= 0) return 0;
+    return Math.round(resize.deltaPx / colWidth);
+  })();
+
+  return {
+    resize,
+    previewDayDelta,
+    handleResizeStart,
+  };
 }
 
 // ─── Component ──────────────────────────────────────────────────────────────
@@ -169,24 +138,30 @@ export function MonthEventBar({
   displayLevel,
   span,
   onClick,
+  onResize,
 }: MonthEventBarProps) {
-  const anchorRef = useRef<HTMLDivElement>(null);
-  const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
   const [isHovered, setIsHovered] = useState(false);
+  const barRef = useRef<HTMLDivElement | null>(null);
 
-  const handleEnter = () => {
-    if (anchorRef.current) {
-      setAnchorRect(anchorRef.current.getBoundingClientRect());
-    }
-    setIsHovered(true);
-  };
-  const handleLeave = () => {
-    setIsHovered(false);
-    // Keep anchorRect around one frame so the exit animation has a position;
-    // cleared the next time the tooltip opens on a different bar.
-  };
+  // Legend hover-to-highlight: dim non-matches, brighten matches. The "glow"
+  // is brightness + opacity rather than a box-shadow (forbidden on dark
+  // canvas per the design spec).
+  const highlightedTaskType = useCalendarStore((s) => s.highlightedTaskType);
+  const dimmedByLegend =
+    highlightedTaskType !== null && event.typeLabel !== highlightedTaskType;
+  const highlightedByLegend =
+    highlightedTaskType !== null && event.typeLabel === highlightedTaskType;
 
-  const colors = getEventColors(event.taskType);
+  // Status guard — completed/cancelled events are display-only.
+  const locked =
+    event.statusKey === "completed" || event.statusKey === "cancelled";
+  const canResize = !!onResize && !locked && displayLevel !== "compact";
+
+  const { resize, previewDayDelta, handleResizeStart } = useEdgeResize(
+    barRef,
+    canResize ? onResize : undefined,
+    event
+  );
 
   // Spec v2: event bars follow chip radii (4px). Multi-day bars square off
   // the interior corners so consecutive weeks read as one continuous strip.
@@ -198,75 +173,175 @@ export function MonthEventBar({
   })();
 
   const handleClick = (e: React.MouseEvent) => {
+    if (resize) return;
     e.stopPropagation();
     onClick?.(event);
   };
 
-  // ── Level 1: Compact — color dot only ──
+  // Resize affordances — only on the boundary segments (first/last) of a
+  // multi-day bar. Single-day bars get both.
+  const showLeftHandle =
+    canResize && (span.isSingleDay || span.isFirstSegment);
+  const showRightHandle =
+    canResize && (span.isSingleDay || span.isLastSegment);
+
+  // Visual preview during drag — translucent overlay extending or
+  // contracting from the active edge by previewDayDelta day-columns. The
+  // outer absolute container is one day-column wide on the bar's edge,
+  // anchored beyond the bar so growth is visible.
+  const renderEdgePreview = (edge: "left" | "right") => {
+    if (!resize || resize.edge !== edge || previewDayDelta === 0) return null;
+    const grow = previewDayDelta > 0;
+    const magnitude = Math.abs(previewDayDelta);
+
+    // For "right" edge: positive grow extends further right (outside the bar);
+    //                    negative shrink overlays the bar from the right.
+    // For "left" edge:  positive grow extends further left;
+    //                    negative shrink overlays from the left.
+    const widthCol = `${magnitude * 100}%`;
+    const style: React.CSSProperties = {
+      position: "absolute",
+      top: -2,
+      bottom: -2,
+      pointerEvents: "none",
+      background: grow
+        ? `linear-gradient(${edge === "right" ? "90deg" : "270deg"}, ${event.typeColors.bg} 0%, transparent 100%)`
+        : "rgba(0,0,0,0.45)",
+      border: `1px dashed ${event.typeColors.border}`,
+      borderRadius: 4,
+      width: widthCol,
+      zIndex: 8,
+    };
+    if (edge === "right") {
+      if (grow) style.left = "100%";
+      else style.right = 0;
+    } else {
+      if (grow) style.right = "100%";
+      else style.left = 0;
+    }
+    return <div aria-hidden="true" style={style} />;
+  };
+
+  // Resize handle factory — shared shape across display levels.
+  const Handle = ({
+    edge,
+    height,
+    barTopOffset = 0,
+  }: {
+    edge: "left" | "right";
+    height: number;
+    barTopOffset?: number;
+  }) => (
+    <div
+      onMouseDown={handleResizeStart(edge)}
+      onPointerDown={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
+      aria-label={`Resize event ${edge === "left" ? "start" : "end"}`}
+      role="separator"
+      style={{
+        position: "absolute",
+        [edge]: 0,
+        top: barTopOffset,
+        height,
+        width: RESIZE_HANDLE_PX,
+        cursor: "ew-resize",
+        zIndex: 10,
+        background:
+          isHovered || resize
+            ? edge === "left"
+              ? `linear-gradient(to right, ${event.typeColors.border} 0 2px, transparent 2px)`
+              : `linear-gradient(to left, ${event.typeColors.border} 0 2px, transparent 2px)`
+            : "transparent",
+        transition: "background 0.12s cubic-bezier(0.22, 1, 0.36, 1)",
+      }}
+    />
+  );
+
+  // ── Stripe accent — sibling div, NOT box-shadow (avoids crescent at radius corners) ──
+  const StripeAccent = (visible: boolean) =>
+    visible ? (
+      <div
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: 3,
+          background: event.typeColors.border,
+          borderRadius: "4px 0 0 4px",
+          pointerEvents: "none",
+        }}
+      />
+    ) : null;
+
+  // ── Level 1: Compact — color dot only (no stripe, no handles) ──
   if (displayLevel === "compact") {
     return (
-      <div
-        ref={anchorRef}
-        className="cursor-pointer transition-opacity duration-100 hover:opacity-80 shrink-0 relative"
-        style={{
-          width: 10,
-          height: 10,
-          borderRadius: "50%",
-          backgroundColor: colors.border,
-        }}
-        onClick={handleClick}
-        onMouseEnter={handleEnter}
-        onMouseLeave={handleLeave}
-      >
-        <AnimatePresence>
-          {isHovered && anchorRect && (
-            <EventTooltip event={event} anchorRect={anchorRect} />
-          )}
-        </AnimatePresence>
-      </div>
+      <EventHoverPopover event={event} side="top">
+        <div
+          className="cursor-pointer shrink-0"
+          style={{
+            width: 10,
+            height: 10,
+            borderRadius: "50%",
+            backgroundColor: event.typeColors.border,
+            opacity: dimmedByLegend ? 0.18 : 1,
+            filter: highlightedByLegend ? "brightness(1.25)" : "none",
+            transition:
+              "opacity 0.15s cubic-bezier(0.22, 1, 0.36, 1), filter 0.15s cubic-bezier(0.22, 1, 0.36, 1)",
+          }}
+          onClick={handleClick}
+        />
+      </EventHoverPopover>
     );
   }
 
   // ── Level 2: Standard — short bar with single-line title ──
-  // Use inset box-shadow (not borderLeft) so the accent stripe respects the
-  // bar's rounded corners instead of clipping against them — that corner
-  // clip is the "funny" left-edge line the bug flagged.
   if (displayLevel === "standard") {
+    const showStripe = span.isFirstSegment || span.isSingleDay;
     return (
-      <div
-        ref={anchorRef}
-        className="cursor-pointer transition-all duration-100 hover:brightness-125 truncate relative"
-        style={{
-          height: 14,
-          backgroundColor: colors.bg,
-          boxShadow:
-            span.isFirstSegment || span.isSingleDay
-              ? `inset 3px 0 0 0 ${colors.border}`
-              : undefined,
-          borderRadius,
-          color: colors.text,
-          paddingLeft: span.isFirstSegment || span.isSingleDay ? 7 : 4,
-          paddingRight: 4,
-          display: "flex",
-          alignItems: "center",
-          overflow: "visible",
-        }}
-        onClick={handleClick}
-        onMouseEnter={handleEnter}
-        onMouseLeave={handleLeave}
-      >
-        <span
-          className="font-mohave truncate"
-          style={{ fontSize: 11, lineHeight: "14px" }}
+      <EventHoverPopover event={event} side="top" disabled={!!resize}>
+        <div
+          ref={barRef}
+          className="cursor-pointer truncate relative"
+          style={{
+            height: 14,
+            background: event.typeColors.bg,
+            border: `1px solid ${event.typeColors.border}`,
+            borderRadius,
+            color: event.typeColors.text,
+            paddingLeft: showStripe ? 7 : 4,
+            paddingRight: 4,
+            display: "flex",
+            alignItems: "center",
+            overflow: "visible",
+            transition:
+              "filter 0.15s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.15s cubic-bezier(0.22, 1, 0.36, 1)",
+            filter: highlightedByLegend
+              ? "brightness(1.3)"
+              : isHovered
+                ? "brightness(1.18)"
+                : "none",
+            opacity: dimmedByLegend ? 0.18 : 1,
+          }}
+          onClick={handleClick}
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
         >
-          {event.project || event.title}
-        </span>
-        <AnimatePresence>
-          {isHovered && anchorRect && (
-            <EventTooltip event={event} anchorRect={anchorRect} />
-          )}
-        </AnimatePresence>
-      </div>
+          {StripeAccent(showStripe)}
+          <span
+            className="font-mohave truncate"
+            style={{ fontSize: 11, lineHeight: "14px", color: "var(--text)" }}
+          >
+            {event.projectTitle ?? event.taskTitle}
+          </span>
+          {showLeftHandle && <Handle edge="left" height={14} />}
+          {showRightHandle && <Handle edge="right" height={14} />}
+          {renderEdgePreview("left")}
+          {renderEdgePreview("right")}
+        </div>
+      </EventHoverPopover>
     );
   }
 
@@ -274,89 +349,155 @@ export function MonthEventBar({
 
   // Multi-day events stay 14px even at expanded level
   if (!span.isSingleDay) {
+    const showStripe = span.isFirstSegment;
     return (
-      <div
-        ref={anchorRef}
-        className="cursor-pointer transition-all duration-100 hover:brightness-125 truncate relative"
-        style={{
-          height: 14,
-          backgroundColor: colors.bg,
-          boxShadow: span.isFirstSegment
-            ? `inset 3px 0 0 0 ${colors.border}`
-            : undefined,
-          borderRadius,
-          color: colors.text,
-          paddingLeft: span.isFirstSegment ? 7 : 4,
-          paddingRight: 4,
-          display: "flex",
-          alignItems: "center",
-          overflow: "visible",
-        }}
-        onClick={handleClick}
-        onMouseEnter={handleEnter}
-        onMouseLeave={handleLeave}
-      >
-        <span
-          className="font-mohave truncate"
-          style={{ fontSize: 11, lineHeight: "14px" }}
+      <EventHoverPopover event={event} side="top" disabled={!!resize}>
+        <div
+          ref={barRef}
+          className="cursor-pointer truncate relative"
+          style={{
+            height: 14,
+            background: event.typeColors.bg,
+            border: `1px solid ${event.typeColors.border}`,
+            borderRadius,
+            color: event.typeColors.text,
+            paddingLeft: showStripe ? 7 : 4,
+            paddingRight: 4,
+            display: "flex",
+            alignItems: "center",
+            overflow: "visible",
+            transition:
+              "filter 0.15s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.15s cubic-bezier(0.22, 1, 0.36, 1)",
+            filter: highlightedByLegend
+              ? "brightness(1.3)"
+              : isHovered
+                ? "brightness(1.18)"
+                : "none",
+            opacity: dimmedByLegend ? 0.18 : 1,
+          }}
+          onClick={handleClick}
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
         >
-          {event.project || event.title}
-        </span>
-        <AnimatePresence>
-          {isHovered && anchorRect && (
-            <EventTooltip event={event} anchorRect={anchorRect} />
-          )}
-        </AnimatePresence>
-      </div>
+          {StripeAccent(showStripe)}
+          <span
+            className="font-mohave truncate"
+            style={{ fontSize: 11, lineHeight: "14px", color: "var(--text)" }}
+          >
+            {event.projectTitle ?? event.taskTitle}
+          </span>
+          {showLeftHandle && <Handle edge="left" height={14} />}
+          {showRightHandle && <Handle edge="right" height={14} />}
+          {renderEdgePreview("left")}
+          {renderEdgePreview("right")}
+        </div>
+      </EventHoverPopover>
     );
   }
 
-  // Single-day expanded: 42px tall, 2 lines (project name + task type)
+  // Single-day expanded: 42px tall — show project + client (or fall back to
+  // taskTitle subtitle when there's no client). Address lives in the popover.
+  const lineTwo: string | null = event.clientName
+    ? event.clientName
+    : event.projectTitle && event.taskTitle !== event.projectTitle
+      ? event.taskTitle
+      : null;
+
+  // Phase 3 — show time range only when not all-day
+  const timeLabel = event.allDay
+    ? null
+    : `${format(event.startDate, "HH:mm")} → ${format(event.endDate, "HH:mm")}`;
+
   return (
-    <div
-      ref={anchorRef}
-      className="cursor-pointer transition-all duration-100 hover:brightness-125 relative"
-      style={{
-        height: 42,
-        backgroundColor: colors.bg,
-        boxShadow: `inset 3px 0 0 0 ${colors.border}`,
-        borderRadius: "4px",
-        color: colors.text,
-        paddingLeft: 7,
-        paddingRight: 4,
-        paddingTop: 2,
-        paddingBottom: 2,
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "center",
-        overflow: "visible",
-      }}
-      onClick={handleClick}
-      onMouseEnter={handleEnter}
-      onMouseLeave={handleLeave}
-    >
-      <span
-        className="font-mohave truncate"
-        style={{ fontSize: 11, lineHeight: "14px" }}
-      >
-        {event.project || event.title}
-      </span>
-      <span
-        className="font-mono uppercase truncate"
+    <EventHoverPopover event={event} side="top" disabled={!!resize}>
+      <div
+        ref={barRef}
+        className="cursor-pointer relative"
         style={{
-          fontSize: 9,
-          lineHeight: "12px",
-          color: "var(--text-3, #8A8A8A)",
-          letterSpacing: "0.08em",
+          height: 42,
+          background: event.typeColors.bg,
+          border: `1px solid ${event.typeColors.border}`,
+          borderRadius: "4px",
+          color: event.typeColors.text,
+          paddingLeft: 9,
+          paddingRight: 6,
+          paddingTop: 4,
+          paddingBottom: 4,
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          overflow: "visible",
+          transition: "filter 0.15s cubic-bezier(0.22, 1, 0.36, 1)",
+          filter: isHovered ? "brightness(1.18)" : "none",
         }}
+        onClick={handleClick}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
       >
-        {event.taskType}
-      </span>
-      <AnimatePresence>
-        {isHovered && anchorRect && (
-          <EventTooltip event={event} anchorRect={anchorRect} />
-        )}
-      </AnimatePresence>
-    </div>
+        {StripeAccent(true)}
+
+        <div className="flex-1 min-w-0 flex flex-col justify-center">
+          <span
+            className="font-cakemono font-light uppercase truncate"
+            style={{
+              fontSize: 12,
+              lineHeight: "14px",
+              color: "var(--text)",
+              letterSpacing: 0,
+            }}
+          >
+            {event.projectTitle ?? event.taskTitle}
+          </span>
+          {lineTwo && (
+            <span
+              className="font-mono truncate"
+              style={{
+                fontSize: 10,
+                lineHeight: "12px",
+                color: "var(--text-2)",
+              }}
+            >
+              {lineTwo}
+            </span>
+          )}
+        </div>
+
+        {/* Right cluster: optional time + type badge */}
+        <div className="flex items-center gap-[5px] shrink-0">
+          {timeLabel && (
+            <span
+              className="font-mono tabular-nums"
+              style={{
+                fontSize: 10,
+                lineHeight: "12px",
+                color: "var(--text-3)",
+                fontFeatureSettings: '"tnum" 1, "zero" 1',
+              }}
+            >
+              {timeLabel}
+            </span>
+          )}
+          <div
+            className="px-[5px] py-[1px] font-cakemono font-light uppercase"
+            style={{
+              color: event.typeColors.text,
+              background: event.typeColors.bg,
+              border: `1px solid ${event.typeColors.border}`,
+              borderRadius: 4,
+              fontSize: 9,
+              letterSpacing: "0.04em",
+              lineHeight: "12px",
+            }}
+          >
+            {event.typeLabel}
+          </div>
+        </div>
+
+        {showLeftHandle && <Handle edge="left" height={42} />}
+        {showRightHandle && <Handle edge="right" height={42} />}
+        {renderEdgePreview("left")}
+        {renderEdgePreview("right")}
+      </div>
+    </EventHoverPopover>
   );
 }

@@ -4,6 +4,7 @@ import { Providers } from "./providers";
 import { Toaster } from "@/components/ui/toast";
 import { SignOutOverlay } from "@/components/ops/sign-out-overlay";
 import { UtmCaptureEffect } from "@/components/pmf/utm-capture-effect";
+import { DevBypassBanner } from "@/components/providers/dev-bypass-banner";
 import { getLocale } from "@/i18n/server";
 
 export const metadata: Metadata = {
@@ -80,6 +81,7 @@ export default async function RootLayout({
           <Toaster />
           <SignOutOverlay />
           <UtmCaptureEffect />
+          <DevBypassBanner />
         </Providers>
       </body>
     </html>

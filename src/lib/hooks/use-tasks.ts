@@ -121,6 +121,11 @@ export function useScheduledTasks(
         scopedUserId ? { teamMemberId: scopedUserId } : {}
       ),
     enabled: !!companyId && !!startDate && !!endDate,
+    // Keep previous range's data visible while a new range fetches. Without
+    // this, scrolling to a new month/week/day flips data → undefined and the
+    // calendar unmounts to a loader. With it, the previous events stay on
+    // screen and the refetch happens in the background.
+    placeholderData: (previousData) => previousData,
     ...queryOptions,
   });
 }
@@ -299,22 +304,35 @@ export function useUpdateTask() {
         }
       }
 
-      // Notify team when schedule changes (start or end date moved)
+      // Notify team when schedule changes — date, time, or all-day toggle.
+      // Phase 3: also fires on startTime/endTime/allDay so timed reschedules
+      // surface in the notification rail.
       const dateChanged =
         (data.startDate !== undefined &&
           data.startDate?.getTime() !== prev.startDate?.getTime()) ||
         (data.endDate !== undefined &&
           data.endDate?.getTime() !== prev.endDate?.getTime());
+      const timeChanged =
+        (data.startTime !== undefined && data.startTime !== prev.startTime) ||
+        (data.endTime !== undefined && data.endTime !== prev.endTime);
+      const allDayChanged =
+        data.allDay !== undefined && data.allDay !== prev.allDay;
 
-      if (dateChanged) {
-        const allMembers = data.teamMemberIds ?? prev.teamMemberIds ?? [];
-        if (allMembers.length > 0) {
+      if (dateChanged || timeChanged || allDayChanged) {
+        // Union of prior + new assignees so removed members also see the change.
+        const recipients = Array.from(
+          new Set<string>([
+            ...(prev.teamMemberIds ?? []),
+            ...(data.teamMemberIds ?? prev.teamMemberIds ?? []),
+          ])
+        );
+        if (recipients.length > 0) {
           dispatchScheduleChange({
             taskId: id,
             taskTitle,
             projectId: prev.projectId,
             projectTitle,
-            teamMemberIds: allMembers,
+            teamMemberIds: recipients,
             companyId: prev.companyId,
           });
         }
@@ -327,6 +345,11 @@ export function useUpdateTask() {
       });
       queryClient.invalidateQueries({
         queryKey: queryKeys.tasks.lists(),
+      });
+      // Calendar uses a separate key (calendar.scheduled). Invalidate the
+      // whole calendar tree so drag-and-drop refreshes the grid view.
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.calendar.all,
       });
     },
   });

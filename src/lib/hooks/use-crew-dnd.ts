@@ -1,14 +1,14 @@
 /**
- * OPS Web - Timeline Drag-and-Drop Hook
+ * OPS Web - Crew Swimlane Drag-and-Drop Hook
  *
- * Manages all timeline (Gantt) drag interactions:
+ * Manages all Crew swimlane (Gantt-style) drag interactions:
  * - Drag to move: reposition task blocks across days / team member rows
  * - Drop from unscheduled tray: accept data.type === 'unscheduled-task'
  * - Drop from project drawer: accept data.type === 'project-drawer-task'
  * - Dependency enforcement: validates moves against dependency constraints
  * - Smart insert: detects insert-between scenarios and cascades push offsets
  *
- * Edge-resize is handled locally inside TimelineTaskBlock (mousedown/move/up)
+ * Edge-resize is handled locally inside CrewTaskBlock (mousedown/move/up)
  * and committed through an `onResize` callback that calls useUpdateTask.
  */
 
@@ -27,7 +27,7 @@ import type { SchedulableTask } from "@/lib/types/scheduling";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-interface UseTimelineDndOptions {
+interface UseCrewDndOptions {
   events: InternalCalendarEvent[];
   startDate: Date;
   daysShown: number;
@@ -35,23 +35,67 @@ interface UseTimelineDndOptions {
   schedulableTasks?: SchedulableTask[];
   /** Whether the company skips weekends in scheduling */
   skipWeekends?: boolean;
+  /**
+   * Phase 3 — when set and the dragged task has a recurrence_id, the hook
+   * delegates to this callback instead of issuing a direct updateMutation.
+   * The callback is expected to prompt the user for scope and apply the
+   * series-aware mutation. Returning a Promise lets the hook await the
+   * decision before exiting. Resolve to true if the move was applied,
+   * false if cancelled.
+   */
+  onRecurringEdit?: (params: {
+    event: InternalCalendarEvent;
+    patch: Partial<ProjectTask>;
+  }) => Promise<boolean>;
+  /**
+   * Phase 3 — lookup of the full ProjectTask (with recurrenceId,
+   * recurrenceOriginDate) used to decide whether to invoke onRecurringEdit.
+   */
+  tasksById?: Map<string, ProjectTask>;
 }
 
 // ─── Hook ────────────────────────────────────────────────────────────────────
 
-export function useTimelineDnd({
+export function useCrewDnd({
   events,
   startDate,
   daysShown,
   schedulableTasks = [],
   skipWeekends = false,
-}: UseTimelineDndOptions) {
+  onRecurringEdit,
+  tasksById,
+}: UseCrewDndOptions) {
   const { setDragState } = useCalendarStore();
   const { company } = useAuthStore();
   const updateMutation = useUpdateTask();
   const createMutation = useCreateTask();
   const { previewCascade } = useCascade();
   const { detectInsertPoint, calculatePushOffsets } = useSmartInsert();
+
+  /**
+   * Phase 3 — single mutate path: if the dragged task is part of a series
+   * AND a recurring-edit handler was provided, delegate to it. Otherwise
+   * fall through to the standard updateMutation.
+   */
+  const applyMove = useCallback(
+    async (
+      eventId: string,
+      patch: Partial<ProjectTask>
+    ): Promise<void> => {
+      const sourceTask = tasksById?.get(eventId);
+      const sourceEvent = events.find((e) => e.id === eventId);
+      if (sourceTask?.recurrenceId && sourceEvent && onRecurringEdit) {
+        const accepted = await onRecurringEdit({
+          event: sourceEvent,
+          patch,
+        });
+        if (!accepted) return;
+        return;
+      }
+      updateMutation.mutate({ id: eventId, data: patch });
+    },
+    [tasksById, events, onRecurringEdit, updateMutation]
+  );
 
   /** Ref to store the grid container width at drag start for pixel-to-day math */
   const gridWidthRef = useRef<number>(0);
@@ -152,7 +196,7 @@ export function useTimelineDnd({
   // ── Drag end ────────────────────────────────────────────────────────────
 
   const handleDragEnd = useCallback(
-    (event: DragEndEvent) => {
+    async (event: DragEndEvent) => {
       setDragState(null);
 
       const { active, over, delta } = event;
@@ -183,7 +227,7 @@ export function useTimelineDnd({
       if (
         activeData?.type === "unscheduled-task" &&
         activeData.task &&
-        overData?.type === "timeline-row"
+        overData?.type === "crew-row"
       ) {
         const task = activeData.task;
         if (!company?.id) return;
@@ -242,7 +286,7 @@ export function useTimelineDnd({
       if (
         activeData?.type === "project-drawer-task" &&
         activeData.task &&
-        overData?.type === "timeline-row"
+        overData?.type === "crew-row"
       ) {
         const task = activeData.task;
         if (!company?.id) return;
@@ -295,8 +339,8 @@ export function useTimelineDnd({
         return;
       }
 
-      // ── Handle timeline-event drags (move) ────────────────────────────
-      if (activeData?.type === "timeline-event" && activeData.event) {
+      // ── Handle crew-event drags (move) ────────────────────────────────
+      if (activeData?.type === "crew-event" && activeData.event) {
         if (delta.x === 0 && delta.y === 0 && !overData?.teamMemberId) return;
 
         const calEvent = events.find((e) => e.id === activeData.event!.id);
@@ -312,7 +356,7 @@ export function useTimelineDnd({
 
         // Determine if team member assignment changed
         const newTeamMemberIds =
-          overData?.type === "timeline-row" && overData.teamMemberId
+          overData?.type === "crew-row" && overData.teamMemberId
             ? [overData.teamMemberId]
             : undefined;
 
@@ -352,13 +396,10 @@ export function useTimelineDnd({
             if (cascadeResult && cascadeResult.changes.length > 0) {
               // Don't apply the move yet — let confirm bar handle it
               // But still apply the primary move + team member change
-              updateMutation.mutate({
-                id: calEvent.id,
-                data: {
-                  startDate: newStart,
-                  endDate: newEnd,
-                  ...(newTeamMemberIds ? { teamMemberIds: newTeamMemberIds } : {}),
-                },
+              await applyMove(calEvent.id, {
+                startDate: newStart,
+                endDate: newEnd,
+                ...(newTeamMemberIds ? { teamMemberIds: newTeamMemberIds } : {}),
               });
               return;
             }
@@ -378,13 +419,10 @@ export function useTimelineDnd({
 
           if (cascadeResult && cascadeResult.changes.length > 0) {
             // Apply the primary move, let confirm bar handle cascade changes
-            updateMutation.mutate({
-              id: calEvent.id,
-              data: {
-                startDate: newStart,
-                endDate: newEnd,
-                ...(newTeamMemberIds ? { teamMemberIds: newTeamMemberIds } : {}),
-              },
+            await applyMove(calEvent.id, {
+              startDate: newStart,
+              endDate: newEnd,
+              ...(newTeamMemberIds ? { teamMemberIds: newTeamMemberIds } : {}),
             });
             return;
           }
@@ -425,13 +463,10 @@ export function useTimelineDnd({
         }
 
         // No cascade needed — apply the move directly
-        updateMutation.mutate({
-          id: calEvent.id,
-          data: {
-            startDate: newStart,
-            endDate: newEnd,
-            ...(newTeamMemberIds ? { teamMemberIds: newTeamMemberIds } : {}),
-          },
+        await applyMove(calEvent.id, {
+          startDate: newStart,
+          endDate: newEnd,
+          ...(newTeamMemberIds ? { teamMemberIds: newTeamMemberIds } : {}),
         });
         return;
       }
@@ -450,6 +485,7 @@ export function useTimelineDnd({
       previewCascade,
       detectInsertPoint,
       calculatePushOffsets,
+      applyMove,
     ]
   );
 

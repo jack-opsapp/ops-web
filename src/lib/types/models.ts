@@ -283,6 +283,16 @@ export interface ProjectTask {
   duration: number;
   startTime?: string | null;
   endTime?: string | null;
+  /** Phase 3 — when true, startTime/endTime are ignored. Defaults to true.
+   *  When false, startTime/endTime are authoritative local-clock times. */
+  allDay: boolean;
+  /** Phase 3 — points back at the task_recurrences template that generated
+   *  this task. NULL for one-off tasks. */
+  recurrenceId: string | null;
+  /** Phase 3 — the original (un-shifted) date this occurrence was generated
+   *  for, as YYYY-MM-DD. Used to look up exceptions and prevent duplicate
+   *  generation. NULL for one-off tasks. */
+  recurrenceOriginDate: string | null;
   /** S2 Amendment: explicit schedule-confirmed marker. When set, the task is
    *  considered stable and the appointment_confirmation dispatcher has fired. */
   scheduleConfirmedAt?: Date | null;
@@ -300,6 +310,39 @@ export interface ProjectTask {
   project?: Project | null;
   taskType?: TaskType | null;
   teamMembers?: User[];
+}
+
+/** Calendar user event types - matches iOS CalendarUserEventType enum */
+export type CalendarUserEventType = "personal" | "time_off";
+
+/** Calendar user event status - matches iOS CalendarUserEventStatus enum */
+export type CalendarUserEventStatus = "none" | "pending" | "approved" | "denied";
+
+/**
+ * CalendarUserEvent entity — user-owned personal events + time-off requests.
+ * Matches iOS CalendarUserEvent model. Stored in Supabase `calendar_user_events`.
+ *
+ * These render on the calendar alongside ProjectTasks but carry no project/
+ * client/address data of their own — just title, time, optional notes.
+ */
+export interface CalendarUserEvent {
+  id: string;
+  userId: string;
+  companyId: string;
+  type: CalendarUserEventType;
+  title: string;
+  startDate: Date;
+  endDate: Date;
+  allDay: boolean;
+  notes: string | null;
+  status: CalendarUserEventStatus;
+  address: string | null;
+  teamMemberIds: string[] | null;
+  reviewedBy: string | null;
+  reviewedAt: Date | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+  deletedAt: Date | null;
 }
 
 /** CalendarEvent entity - matches iOS CalendarEvent model */
@@ -476,6 +519,10 @@ export interface Company {
   stripeCustomerId: string | null;
   preciseSchedulingEnabled?: boolean;
   skipWeekendsInAutoSchedule?: boolean;
+  /** Phase 3 — seed value for project_tasks.start_time when toggling all_day=false. */
+  defaultWorkStart: string;
+  /** Phase 3 — seed value for project_tasks.end_time when toggling all_day=false. */
+  defaultWorkEnd: string;
   lastSyncedAt: Date | null;
   needsSync: boolean;
   deletedAt: Date | null;
@@ -929,6 +976,65 @@ export type Syncable = {
   lastSyncedAt: Date | null;
   needsSync: boolean;
 };
+
+// ─── Recurrence (Phase 3) ────────────────────────────────────────────────────
+
+/** TaskRecurrence — RFC 5545 RRULE template that the cron worker materializes
+ *  into concrete project_tasks. Edits propagate via the cron's
+ *  next_generation_at flag. */
+export interface TaskRecurrence {
+  id: string;
+  companyId: string;
+  projectId: string | null;
+  clientId: string | null;
+  taskTypeId: string | null;
+  title: string;
+  teamMemberIds: string[];
+  /** RFC 5545 RRULE string, e.g. `FREQ=WEEKLY;BYDAY=MO`. */
+  rrule: string;
+  /** First permissible date as YYYY-MM-DD. Used as RRULE DTSTART. */
+  startAnchor: string;
+  /** Last permissible date as YYYY-MM-DD, or null for unbounded. */
+  endAnchor: string | null;
+  allDay: boolean;
+  /** Time of day as HH:mm:ss when allDay = false. */
+  startTime: string | null;
+  endTime: string | null;
+  /** Duration in days. */
+  duration: number;
+  notes: string | null;
+  nextGenerationAt: Date | null;
+  createdBy: string | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+  deletedAt: Date | null;
+}
+
+/** Action stored on an exception row. */
+export type TaskRecurrenceExceptionAction = "skip" | "reschedule";
+
+/** TaskRecurrenceException — per-occurrence override on a recurrence series.
+ *  Looked up by (recurrenceId, originalDate). */
+export interface TaskRecurrenceException {
+  id: string;
+  recurrenceId: string;
+  /** Original (unshifted) date of the occurrence as YYYY-MM-DD. */
+  originalDate: string;
+  action: TaskRecurrenceExceptionAction;
+  /** When action = reschedule, the new date as YYYY-MM-DD. */
+  newDate: string | null;
+  newStartTime: string | null;
+  newEndTime: string | null;
+  newTeamMemberIds: string[] | null;
+  notes: string | null;
+  createdAt: Date | null;
+}
+
+/** Scope of a recurring-task edit:
+ *  - "this": affect only the dragged/edited occurrence (writes an exception)
+ *  - "this_and_following": split the series at this date (new template forward)
+ *  - "all": edit the original template (cron regenerates everything) */
+export type RecurrenceEditScope = "this" | "this_and_following" | "all";
 
 // ─── Financial types moved to pipeline.ts ────────────────────────────────────
 // All financial enums, interfaces, and helpers (EstimateStatus, InvoiceStatus,

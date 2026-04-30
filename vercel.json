@@ -88,6 +88,10 @@
       "schedule": "15 * * * *"
     },
     {
+      "path": "/api/cron/recurrence-generate",
+      "schedule": "0 */4 * * *"
+    },
+    {
       "path": "/api/cron/auto-execute-actions",
       "schedule": "*/5 * * * *"
     },

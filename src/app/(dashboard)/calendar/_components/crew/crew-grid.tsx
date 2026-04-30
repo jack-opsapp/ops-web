@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useMemo, useState, useRef, useCallback } from "react";
+import { toast } from "sonner";
 import { isToday, differenceInCalendarDays, getHours, getMinutes, format } from "date-fns";
 import {
   DndContext,
@@ -9,86 +10,23 @@ import {
   useSensors,
   useDroppable,
 } from "@dnd-kit/core";
-import type { TeamMember } from "@/lib/types/models";
+import type { ProjectTask, TeamMember } from "@/lib/types/models";
 import type { InternalCalendarEvent } from "@/lib/utils/calendar-utils";
 import { UserRole } from "@/lib/types/models";
-import { TimelineHeader } from "./timeline-header";
-import { TimelineRow } from "./timeline-row";
-import { TimelineTaskBlock } from "./timeline-task-block";
+import { CrewHeader } from "./crew-header";
+import { CrewRow } from "./crew-row";
+import { CrewTaskBlock } from "./crew-task-block";
 import { EventContextMenu } from "../event-context-menu";
 import { InlineEditor } from "../inline-editor";
 import { useCalendarStore } from "@/stores/calendar-store";
-import { useUpdateTask } from "@/lib/hooks";
-import { useTimelineDnd } from "@/lib/hooks/use-timeline-dnd";
+import { useRecurrenceEditPrompt } from "@/components/ui/recurrence-edit-prompt";
+import { useUpdateTask, useTasks, useRecurrenceEdit } from "@/lib/hooks";
+import { useCrewDnd } from "@/lib/hooks/use-crew-dnd";
 import {
-  TIMELINE_DAYS_SHOWN,
-  TIMELINE_DAY_MIN_WIDTH,
-  TIMELINE_GUTTER_WIDTH,
-  TIMELINE_ROW_HEIGHT,
-} from "@/lib/utils/timeline-constants";
-
-// ─── Lane assignment ────────────────────────────────────────────────────────
-
-interface LaneAssignment {
-  /** eventId → lane index */
-  lanes: Map<string, number>;
-  /** maximum number of overlapping lanes used */
-  laneCount: number;
-}
-
-/**
- * Sweep-line lane assignment: events sorted by start date are placed into the
- * lowest-numbered lane whose previous event has already ended. Two events
- * count as overlapping when their inclusive [start, end] ranges intersect.
- */
-function assignLanes(events: InternalCalendarEvent[]): LaneAssignment {
-  if (events.length === 0) return { lanes: new Map(), laneCount: 1 };
-
-  const sorted = [...events].sort(
-    (a, b) => a.startDate.getTime() - b.startDate.getTime()
-  );
-  // laneEndTimes[i] = end timestamp of the latest event currently in lane i
-  const laneEndTimes: number[] = [];
-  const lanes = new Map<string, number>();
-
-  for (const event of sorted) {
-    const startMs = event.startDate.getTime();
-    const endMs = event.endDate.getTime();
-    let placed = false;
-
-    for (let i = 0; i < laneEndTimes.length; i++) {
-      // Overlap if this event starts on or before the lane's last event ends.
-      // Use strict less-than so an event ending on day N can sit in the same
-      // lane as one starting on day N+1 (back-to-back, not overlapping).
-      if (laneEndTimes[i] < startMs) {
-        lanes.set(event.id, i);
-        laneEndTimes[i] = endMs;
-        placed = true;
-        break;
-      }
-    }
-
-    if (!placed) {
-      lanes.set(event.id, laneEndTimes.length);
-      laneEndTimes.push(endMs);
-    }
-  }
-
-  return { lanes, laneCount: Math.max(laneEndTimes.length, 1) };
-}
-
-/**
- * Decide row height given a lane count. Each lane is allotted ≥24px so labels
- * stay readable; rows always honor the base TIMELINE_ROW_HEIGHT minimum.
- */
-function rowHeightForLanes(laneCount: number): number {
-  const MIN_LANE_HEIGHT = 24;
-  const VERTICAL_PADDING = 16; // 8px top + 8px bottom
-  const LANE_GAP = 4;
-  const computed =
-    VERTICAL_PADDING + laneCount * MIN_LANE_HEIGHT + Math.max(laneCount - 1, 0) * LANE_GAP;
-  return Math.max(TIMELINE_ROW_HEIGHT, computed);
-}
+  CREW_DAYS_SHOWN,
+  CREW_DAY_MIN_WIDTH,
+  CREW_GUTTER_WIDTH,
+} from "@/lib/utils/crew-constants";
 
 // ─── Unassigned Placeholder ─────────────────────────────────────────────────
 
@@ -107,7 +45,7 @@ const UNASSIGNED_MEMBER: TeamMember = {
 
 // ─── Props ──────────────────────────────────────────────────────────────────
 
-interface TimelineGridProps {
+interface CrewGridProps {
   events: InternalCalendarEvent[];
   teamMembers: TeamMember[];
   startDate: Date;
@@ -117,20 +55,18 @@ interface TimelineGridProps {
 
 // ─── Droppable Row Wrapper ──────────────────────────────────────────────────
 
-/** Wraps each TimelineRow so it is a valid droppable target for DnD */
-function DroppableTimelineRow({
+/** Wraps each CrewRow so it is a valid droppable target for DnD */
+function DroppableCrewRow({
   teamMember,
   startDate,
   daysShown,
   isLast,
-  rowHeight,
   children,
 }: {
   teamMember: TeamMember;
   startDate: Date;
   daysShown: number;
   isLast?: boolean;
-  rowHeight?: number;
   children: React.ReactNode;
 }) {
   const rowRef = useRef<HTMLDivElement>(null);
@@ -142,7 +78,7 @@ function DroppableTimelineRow({
     const resizeObserver = new ResizeObserver(() => {
       if (rowRef.current) {
         const totalWidth = rowRef.current.getBoundingClientRect().width;
-        setGridWidth(Math.max(totalWidth - TIMELINE_GUTTER_WIDTH, 0));
+        setGridWidth(Math.max(totalWidth - CREW_GUTTER_WIDTH, 0));
       }
     });
     resizeObserver.observe(rowRef.current);
@@ -150,9 +86,9 @@ function DroppableTimelineRow({
   }, []);
 
   const { setNodeRef, isOver } = useDroppable({
-    id: `timeline-row-${teamMember.id}`,
+    id: `crew-row-${teamMember.id}`,
     data: {
-      type: "timeline-row",
+      type: "crew-row",
       teamMemberId: teamMember.id,
       gridWidth,
     },
@@ -169,15 +105,14 @@ function DroppableTimelineRow({
         outlineOffset: -1,
       }}
     >
-      <TimelineRow
+      <CrewRow
         teamMember={teamMember}
         startDate={startDate}
         daysShown={daysShown}
         isLast={isLast}
-        rowHeight={rowHeight}
       >
         {children}
-      </TimelineRow>
+      </CrewRow>
     </div>
   );
 }
@@ -217,7 +152,7 @@ function CurrentTimeIndicator({
     <div
       className="absolute top-0 bottom-0 z-20 pointer-events-none"
       style={{
-        left: `calc(${TIMELINE_GUTTER_WIDTH}px + (100% - ${TIMELINE_GUTTER_WIDTH}px) * ${leftPercent / 100})`,
+        left: `calc(${CREW_GUTTER_WIDTH}px + (100% - ${CREW_GUTTER_WIDTH}px) * ${leftPercent / 100})`,
       }}
     >
       {/* Time label */}
@@ -240,13 +175,13 @@ function CurrentTimeIndicator({
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
-export function TimelineGrid({
+export function CrewGrid({
   events,
   teamMembers,
   startDate,
-  daysShown = TIMELINE_DAYS_SHOWN,
+  daysShown = CREW_DAYS_SHOWN,
   onEventClick,
-}: TimelineGridProps) {
+}: CrewGridProps) {
   // ── Store ─────────────────────────────────────────────────────────────
 
   const selectedTaskId = useCalendarStore((s) => s.selectedTaskId);
@@ -264,6 +199,52 @@ export function TimelineGrid({
   // ── Mutations ─────────────────────────────────────────────────────────
 
   const updateTask = useUpdateTask();
+  const recurrenceEdit = useRecurrenceEdit();
+  const recurrencePrompt = useRecurrenceEditPrompt();
+
+  // Phase 3 — full task lookup so the DnD hook can detect series membership.
+  const { data: taskData } = useTasks();
+  const tasksById = useMemo(() => {
+    const map = new Map<string, ProjectTask>();
+    for (const t of taskData?.tasks ?? []) {
+      map.set(t.id, t);
+    }
+    return map;
+  }, [taskData]);
+
+  const handleRecurringEdit = useCallback(
+    async ({
+      event,
+      patch,
+    }: {
+      event: InternalCalendarEvent;
+      patch: Partial<ProjectTask>;
+    }): Promise<boolean> => {
+      const task = tasksById.get(event.id);
+      if (!task) return false;
+      const scope = await recurrencePrompt.request({
+        description: "Move this occurrence, or shift the entire series?",
+      });
+      if (!scope) return false;
+      try {
+        await new Promise<void>((resolve, reject) => {
+          recurrenceEdit.mutate(
+            { task, scope, patch },
+            {
+              onSuccess: () => resolve(),
+              onError: (err) => reject(err),
+            }
+          );
+        });
+        return true;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Unknown error";
+        toast.error("Failed to move recurring task", { description: message });
+        return false;
+      }
+    },
+    [tasksById, recurrencePrompt, recurrenceEdit]
+  );
 
   // ── DnD ───────────────────────────────────────────────────────────────
 
@@ -271,10 +252,12 @@ export function TimelineGrid({
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
   );
 
-  const { handleDragStart, handleDragEnd, handleDragCancel } = useTimelineDnd({
+  const { handleDragStart, handleDragEnd, handleDragCancel } = useCrewDnd({
     events,
     startDate,
     daysShown,
+    onRecurringEdit: handleRecurringEdit,
+    tasksById,
   });
 
   // ── Resize callback ───────────────────────────────────────────────────
@@ -360,7 +343,7 @@ export function TimelineGrid({
     >
       <div className="flex flex-col h-full overflow-hidden relative">
         {/* Header row — day labels */}
-        <TimelineHeader startDate={startDate} daysShown={daysShown} />
+        <CrewHeader startDate={startDate} daysShown={daysShown} />
 
         {/* Scrollable body */}
         <div className="flex-1 overflow-auto relative">
@@ -372,32 +355,26 @@ export function TimelineGrid({
           {/* Team member rows */}
           {teamMembers.map((member) => {
             const memberEvents = grouped.get(member.id) ?? [];
-            const { lanes, laneCount } = assignLanes(memberEvents);
-            const rowHeight = rowHeightForLanes(laneCount);
             return (
-              <DroppableTimelineRow
+              <DroppableCrewRow
                 key={member.id}
                 teamMember={member}
                 startDate={startDate}
                 daysShown={daysShown}
-                rowHeight={rowHeight}
               >
                 {memberEvents.map((event) => (
-                  <TimelineTaskBlock
+                  <CrewTaskBlock
                     key={event.id}
                     event={event}
                     startDate={startDate}
                     daysShown={daysShown}
                     isSelected={isTaskSelected(event.id)}
-                    laneIndex={lanes.get(event.id) ?? 0}
-                    laneCount={laneCount}
-                    rowHeight={rowHeight}
                     onClick={handleEventClick}
                     onContextMenu={handleContextMenu}
                     onResize={handleResize}
                   />
                 ))}
-              </DroppableTimelineRow>
+              </DroppableCrewRow>
             );
           })}
 
@@ -405,32 +382,26 @@ export function TimelineGrid({
           {(() => {
             const unassignedEvents = grouped.get(UNASSIGNED_MEMBER.id) ?? [];
             if (unassignedEvents.length === 0) return null;
-            const { lanes, laneCount } = assignLanes(unassignedEvents);
-            const rowHeight = rowHeightForLanes(laneCount);
             return (
-              <DroppableTimelineRow
+              <DroppableCrewRow
                 teamMember={UNASSIGNED_MEMBER}
                 startDate={startDate}
                 daysShown={daysShown}
                 isLast
-                rowHeight={rowHeight}
               >
                 {unassignedEvents.map((event) => (
-                  <TimelineTaskBlock
+                  <CrewTaskBlock
                     key={event.id}
                     event={event}
                     startDate={startDate}
                     daysShown={daysShown}
                     isSelected={isTaskSelected(event.id)}
-                    laneIndex={lanes.get(event.id) ?? 0}
-                    laneCount={laneCount}
-                    rowHeight={rowHeight}
                     onClick={handleEventClick}
                     onContextMenu={handleContextMenu}
                     onResize={handleResize}
                   />
                 ))}
-              </DroppableTimelineRow>
+              </DroppableCrewRow>
             );
           })()}
         </div>
@@ -446,6 +417,9 @@ export function TimelineGrid({
 
       {/* Inline editor overlay */}
       <InlineEditor />
+
+      {/* Phase 3 — recurrence scope prompt for drag-rescheduled series tasks */}
+      {recurrencePrompt.promptElement}
     </DndContext>
   );
 }

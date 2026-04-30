@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useCalendarStore } from "@/stores/calendar-store";
 import { useUpdateTask } from "@/lib/hooks";
 
@@ -8,10 +9,15 @@ import { useUpdateTask } from "@/lib/hooks";
  * InlineEditor — renders an absolutely-positioned input overlaying a task block
  * when `inlineEdit` state is set in the Zustand store.
  *
+ * T18 — portal-rendered to document.body so it escapes any parent
+ * `overflow:hidden` clipping (calendar cells, side-panels, etc).
+ * Z-layer: var(--z-floating-ui) (1500) — above the dropdown layer
+ * because it's a focused editing affordance.
+ *
  * Supports:
  *  - Enter → save
  *  - Escape → cancel
- *  - Tab → cycle field (title → close, since notes is not yet a model field)
+ *  - Tab   → save and close
  *  - Click outside → cancel
  */
 export function InlineEditor() {
@@ -42,8 +48,12 @@ export function InlineEditor() {
     const domRect = el.getBoundingClientRect();
     setRect(domRect);
 
-    // Pre-fill with the current value from the DOM (title text)
-    const titleEl = el.querySelector(".font-mohave.font-semibold");
+    // Pre-fill with the current value from the DOM. The unified card mapping
+    // (T8) renders the primary title in a Cake Mono Light or Mohave element
+    // depending on view; we accept either. Falls back to the data attr title.
+    const titleEl =
+      el.querySelector(".font-cakemono") ||
+      el.querySelector(".font-mohave");
     const currentValue = titleEl?.textContent?.trim() ?? "";
     setValue(currentValue);
     originalValueRef.current = currentValue;
@@ -91,8 +101,7 @@ export function InlineEditor() {
           break;
         case "Tab":
           e.preventDefault();
-          // Currently only title is editable inline.
-          // Close the editor on Tab.
+          // Currently only title is editable inline. Save and close on Tab.
           handleSave();
           break;
       }
@@ -126,31 +135,37 @@ export function InlineEditor() {
   }, [inlineEdit, handleCancel]);
 
   if (!inlineEdit || !rect) return null;
+  if (typeof document === "undefined") return null;
 
-  return (
+  // Portal to document.body so we escape any parent overflow:hidden clipping.
+  return createPortal(
     <input
       ref={inputRef}
       value={value}
       onChange={(e) => setValue(e.target.value)}
       onKeyDown={handleKeyDown}
       onBlur={handleSave}
-      className="fixed z-[100] outline-none"
+      className="z-floating-ui outline-none"
       style={{
+        position: "fixed",
         left: rect.left,
         top: rect.top,
         width: rect.width,
         height: rect.height,
-        background: "transparent",
-        border: "1px solid rgba(111, 148, 176, 0.5)",
-        borderRadius: 3,
-        color: "#FFFFFF",
-        fontFamily: "var(--font-mohave), sans-serif",
-        fontWeight: 600,
-        fontSize: 11,
+        background: "var(--surface-input)",
+        border: "1.5px solid var(--ops-accent)",
+        borderRadius: 4,
+        color: "var(--text)",
+        fontFamily: "var(--font-cakemono), var(--font-mohave), sans-serif",
+        fontWeight: 300,
+        fontSize: 13,
         padding: "0 8px",
         // Match the task block's internal padding (3px left stripe + 8px padding)
         paddingLeft: 11,
+        textTransform: "uppercase",
+        letterSpacing: 0,
       }}
-    />
+    />,
+    document.body
   );
 }

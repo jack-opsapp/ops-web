@@ -43,6 +43,17 @@
   --surface-input: rgba(255, 255, 255, 0.04);
   --fill-neutral: rgba(255, 255, 255, 0.14);
   --fill-neutral-dim: rgba(255, 255, 255, 0.06);
+
+  /* ── Z-index scale — see OPS-Web/CLAUDE.md § Z-Index Scale ── */
+  --z-content:        1;
+  --z-interactive:    100;
+  --z-nav:            500;
+  --z-dropdown:       1000;
+  --z-floating-ui:    1500;
+  --z-window:         2000;
+  --z-modal:          3000;
+  --z-map-controls:   5000;
+  --z-emergency:      9000;
 }
 
 /* Compact mode spacing overrides */
@@ -211,6 +222,17 @@
 }
 
 @layer components {
+  /* === Z-index utility classes — see OPS-Web/CLAUDE.md § Z-Index Scale === */
+  .z-content        { z-index: var(--z-content); }
+  .z-interactive    { z-index: var(--z-interactive); }
+  .z-nav            { z-index: var(--z-nav); }
+  .z-dropdown       { z-index: var(--z-dropdown); }
+  .z-floating-ui    { z-index: var(--z-floating-ui); }
+  .z-window         { z-index: var(--z-window); }
+  .z-modal          { z-index: var(--z-modal); }
+  .z-map-controls   { z-index: var(--z-map-controls); }
+  .z-emergency      { z-index: var(--z-emergency); }
+
   /* === Glass surface utility (Command Deck spec) === */
   .glass-surface {
     background: var(--glass-bg);
@@ -430,6 +452,22 @@
   .animate-stale-pulse {
     animation: none;
     border-left-color: #93321A;
+  }
+}
+
+/* ─── Calendar motion suppression ────────────────────────────────────────
+   The calendar surface uses many short CSS transitions inline-styled per
+   element. Under prefers-reduced-motion, collapse them to opacity-only at
+   150ms per the .interface-design/system.md spec. Scope is keyed to the
+   calendar page's data attribute. */
+@media (prefers-reduced-motion: reduce) {
+  [data-calendar-motion-scope] *,
+  [data-calendar-motion-scope] *::before,
+  [data-calendar-motion-scope] *::after {
+    transition-duration: 0.15s !important;
+    transition-timing-function: linear !important;
+    transition-property: opacity !important;
+    animation-duration: 0.15s !important;
   }
 }
 

@@ -7,7 +7,6 @@ import { TASK_TYPE_COLORS } from "@/lib/utils/calendar-constants";
 import { useCalendarStore } from "@/stores/calendar-store";
 import { useTeamMembers, useProjects } from "@/lib/hooks";
 import { useDictionary } from "@/i18n/client";
-import { UnscheduledPanel } from "./unscheduled-panel";
 
 // ─── Event Status Options ────────────────────────────────────────────────────
 
@@ -330,8 +329,8 @@ export function FilterSidebar() {
           </div>
         </FilterSection>
 
-        {/* Unscheduled tasks — draggable into calendar grid */}
-        <UnscheduledPanel />
+        {/* Unscheduled tray promoted out of filter sidebar in T15 — see
+            `<UnscheduledTray />` mounted at the calendar page layout level. */}
       </div>
     </div>
   );

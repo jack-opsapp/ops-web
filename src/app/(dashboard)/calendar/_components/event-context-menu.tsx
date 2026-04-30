@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import * as Popover from "@radix-ui/react-popover";
 import {
   Pencil,
   Copy,
@@ -20,7 +21,6 @@ import { useCascade } from "@/lib/hooks/use-cascade";
 import { useAuthStore } from "@/lib/store/auth-store";
 import {
   type InternalCalendarEvent,
-  getEventColors,
 } from "@/lib/utils/calendar-utils";
 import { useCalendarStore } from "@/stores/calendar-store";
 
@@ -42,20 +42,32 @@ type MenuItemId =
   | "duplicate"
   | "delete";
 
-// Items in order. Separators live between groups.
+// Items in order — used for keyboard navigation.
 const MENU_ITEMS: MenuItemId[] = [
   "edit",
   "push-1-day",
   "push-1-day-cascade",
   "push-next-week",
-  // separator after push-next-week (rendered via index check below)
   "duplicate",
-  // separator after duplicate
   "delete",
 ];
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
+/**
+ * T16 — Portal-rendered context menu via Radix Popover with a virtual anchor.
+ *
+ * Why portal: the menu must escape the calendar cell's `overflow:hidden`
+ * (load-bearing for the drop indicator and hover border on day cells).
+ *
+ * Anchor strategy: we render a 0×0 invisible div positioned at {x, y} and
+ * use it as <Popover.Anchor>'s child. This lets us keep the existing
+ * position-based API while letting Radix handle focus, escape, click-away,
+ * and portal lifecycle.
+ *
+ * Z-layer: `z-dropdown` (1000) per spec v2.
+ * Surface: glass-dense (popovers stack above panels).
+ */
 export function EventContextMenu({
   event,
   position,
@@ -68,8 +80,9 @@ export function EventContextMenu({
   const duplicateMutation = useCreateTask();
   const updateMutation = useUpdateTask();
   const { previewCascade } = useCascade();
-  const menuRef = useRef<HTMLDivElement>(null);
   const [focusedIndex, setFocusedIndex] = useState(0);
+
+  const open = !!event && !!position;
 
   // ── Handlers ──────────────────────────────────────────────────────────
 
@@ -81,7 +94,6 @@ export function EventContextMenu({
 
   const handlePush1Day = useCallback(() => {
     if (!event) return;
-
     const durationDays = differenceInCalendarDays(event.endDate, event.startDate);
     const newStart = addDays(event.startDate, 1);
     const newEnd = addDays(newStart, durationDays);
@@ -102,14 +114,10 @@ export function EventContextMenu({
 
   const handlePush1DayCascade = useCallback(() => {
     if (!event) return;
-
     const durationDays = differenceInCalendarDays(event.endDate, event.startDate);
     const newStart = addDays(event.startDate, 1);
     const newEnd = addDays(newStart, durationDays);
 
-    // Convert InternalCalendarEvents to SchedulableTask shape for the engine.
-    // Dependencies are not yet on InternalCalendarEvent, so cascade will be
-    // a no-op unless dependencies are wired. This is expected for now.
     const schedulableTasks = allEvents.map((e) => ({
       id: e.id,
       taskTypeId: e.taskType,
@@ -121,12 +129,10 @@ export function EventContextMenu({
       teamMemberIds: e.teamMemberIds,
     }));
 
-    // First, update the pushed task itself
     updateMutation.mutate(
       { id: event.id, data: { startDate: newStart, endDate: newEnd } },
       {
         onSuccess: () => {
-          // Then trigger cascade preview for dependents
           previewCascade(event.id, newStart, newEnd, schedulableTasks, false);
           toast.success("Pushed +1 day (cascade preview shown)");
           onClose();
@@ -140,7 +146,6 @@ export function EventContextMenu({
 
   const handlePushNextWeek = useCallback(() => {
     if (!event) return;
-
     const durationDays = differenceInCalendarDays(event.endDate, event.startDate);
     const newStart = nextMonday(event.startDate);
     const newEnd = addDays(newStart, durationDays);
@@ -187,16 +192,18 @@ export function EventContextMenu({
 
   const handleDelete = useCallback(() => {
     if (!event) return;
-
-    deleteMutation.mutate({ id: event.id }, {
-      onSuccess: () => {
-        toast.success("Task deleted");
-        onClose();
-      },
-      onError: (err) => {
-        toast.error("Failed to delete", { description: err.message });
-      },
-    });
+    deleteMutation.mutate(
+      { id: event.id },
+      {
+        onSuccess: () => {
+          toast.success("Task deleted");
+          onClose();
+        },
+        onError: (err) => {
+          toast.error("Failed to delete", { description: err.message });
+        },
+      }
+    );
   }, [event, deleteMutation, onClose]);
 
   const actions: Record<MenuItemId, () => void> = {
@@ -208,19 +215,14 @@ export function EventContextMenu({
     delete: handleDelete,
   };
 
-  // ── Focus the menu container when it appears ──────────────────────────
-
+  // ── Reset focus on open ──
   useEffect(() => {
-    if (event && position && menuRef.current) {
-      menuRef.current.focus();
-      setFocusedIndex(0);
-    }
-  }, [event, position]);
+    if (open) setFocusedIndex(0);
+  }, [open]);
 
-  // ── Keyboard navigation ───────────────────────────────────────────────
-
+  // ── Keyboard navigation (arrow + enter inside the open popover) ──
   useEffect(() => {
-    if (!event || !position) return;
+    if (!open) return;
 
     function handleKeyDown(e: KeyboardEvent) {
       switch (e.key) {
@@ -239,138 +241,168 @@ export function EventContextMenu({
           e.preventDefault();
           actions[MENU_ITEMS[focusedIndex]]();
           break;
-        case "Escape":
-          e.preventDefault();
-          onClose();
-          break;
+        // Escape handled by Radix DismissableLayer.
       }
     }
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [event, position, focusedIndex, onClose, actions]);
+  }, [open, focusedIndex, actions]);
 
-  if (!event || !position) return null;
-
-  const colors = getEventColors(event.taskType);
-
-  // Separator indices: after "push-next-week" (index 3) and after "duplicate" (index 4)
-  const separatorAfterIndices = new Set([3, 4]);
+  if (!open) return null;
 
   return (
-    <div
-      className="fixed z-50"
-      style={{ left: position.x, top: position.y }}
+    <Popover.Root
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
     >
-      <div
-        ref={menuRef}
-        role="menu"
-        aria-label={`Actions for ${event.title}`}
-        tabIndex={-1}
-        className={cn(
-          "min-w-[200px] rounded py-[4px] outline-none",
-          "bg-[rgba(13,13,13,0.92)] backdrop-blur-xl",
-          "border border-[rgba(255,255,255,0.12)]",
-          "animate-in fade-in-0 zoom-in-95"
-        )}
-      >
-        {/* Event title header */}
-        <div className="px-2 py-1 border-b border-border-subtle mb-[4px]">
-          <div className="flex items-center gap-[6px]">
-            <div
-              className="w-[8px] h-[8px] rounded-full shrink-0"
-              style={{ backgroundColor: colors.border }}
-            />
-            <span className="font-mohave text-body-sm text-text truncate">
-              {event.title}
-            </span>
-          </div>
-        </div>
-
-        {/* Edit */}
-        <ContextMenuItem
-          onClick={handleEdit}
-          focused={focusedIndex === 0}
-          onHover={() => setFocusedIndex(0)}
-        >
-          <Pencil className="w-[14px] h-[14px]" />
-          Edit
-        </ContextMenuItem>
-
-        {/* Push +1 Day */}
-        <ContextMenuItem
-          onClick={handlePush1Day}
-          focused={focusedIndex === 1}
-          onHover={() => setFocusedIndex(1)}
-        >
-          <ChevronRight className="w-[14px] h-[14px]" />
-          Push +1 Day
-        </ContextMenuItem>
-
-        {/* Push +1 Day (Cascade) */}
-        <ContextMenuItem
-          onClick={handlePush1DayCascade}
-          focused={focusedIndex === 2}
-          onHover={() => setFocusedIndex(2)}
-        >
-          <ChevronRight className="w-[14px] h-[14px]" />
-          Push +1 Day (cascade)
-        </ContextMenuItem>
-
-        {/* Push to Next Week */}
-        <ContextMenuItem
-          onClick={handlePushNextWeek}
-          focused={focusedIndex === 3}
-          onHover={() => setFocusedIndex(3)}
-        >
-          <CalendarDays className="w-[14px] h-[14px]" />
-          Push to Next Week
-        </ContextMenuItem>
-
-        {/* Separator */}
-        <div
-          className="h-[1px] bg-border-subtle mx-1 my-[4px]"
-          role="separator"
-        />
-
-        {/* Duplicate */}
-        <ContextMenuItem
-          onClick={handleDuplicate}
-          focused={focusedIndex === 4}
-          onHover={() => setFocusedIndex(4)}
-        >
-          <Copy className="w-[14px] h-[14px]" />
-          Duplicate
-        </ContextMenuItem>
-
-        {/* Separator */}
-        <div
-          className="h-[1px] bg-border-subtle mx-1 my-[4px]"
-          role="separator"
-        />
-
-        {/* Delete */}
-        <ContextMenuItem
-          onClick={handleDelete}
-          focused={focusedIndex === 5}
-          onHover={() => setFocusedIndex(5)}
-          destructive
-        >
-          <Trash2 className="w-[14px] h-[14px]" />
-          Delete
-        </ContextMenuItem>
-      </div>
-
-      {/* Click-away overlay */}
-      <div
-        className="fixed inset-0 z-[-1]"
-        onClick={onClose}
-        onContextMenu={(e) => {
-          e.preventDefault();
-          onClose();
+      {/* Virtual anchor: 0×0 invisible div at the click coordinates.
+          Radix anchors the floating Content to this. */}
+      <Popover.Anchor
+        style={{
+          position: "fixed",
+          top: position.y,
+          left: position.x,
+          width: 0,
+          height: 0,
+          pointerEvents: "none",
         }}
       />
-    </div>
+
+      <Popover.Portal>
+        <Popover.Content
+          className="z-dropdown"
+          sideOffset={6}
+          align="start"
+          aria-label={`Actions for ${event.title}`}
+          // Prevent the trigger element from auto-focusing — there's no real
+          // trigger here, just a virtual anchor.
+          onOpenAutoFocus={(e) => e.preventDefault()}
+          style={{
+            minWidth: 220,
+            maxWidth: 260,
+            padding: "4px",
+            background: "var(--glass-bg-dense)",
+            backdropFilter: "blur(28px) saturate(1.3)",
+            WebkitBackdropFilter: "blur(28px) saturate(1.3)",
+            border: "1px solid var(--glass-border)",
+            borderRadius: 12,
+            outline: "none",
+          }}
+        >
+          {/* Event title header */}
+          <div
+            className="px-2 py-1.5"
+            style={{
+              borderBottom: "1px solid var(--line)",
+              marginBottom: 4,
+            }}
+          >
+            <div className="flex items-center gap-[6px]">
+              <div
+                className="w-[8px] h-[8px] shrink-0"
+                style={{
+                  background: event.typeColors.border,
+                  borderRadius: 2,
+                }}
+              />
+              <span
+                className="font-cakemono font-light text-[11px] uppercase truncate"
+                style={{
+                  color: "var(--text)",
+                  letterSpacing: "0.04em",
+                }}
+              >
+                {event.projectTitle ?? event.taskTitle}
+              </span>
+            </div>
+          </div>
+
+          {/* Edit */}
+          <ContextMenuItem
+            onClick={handleEdit}
+            focused={focusedIndex === 0}
+            onHover={() => setFocusedIndex(0)}
+          >
+            <Pencil className="w-[14px] h-[14px]" />
+            {"// EDIT"}
+          </ContextMenuItem>
+
+          {/* Push +1 Day */}
+          <ContextMenuItem
+            onClick={handlePush1Day}
+            focused={focusedIndex === 1}
+            onHover={() => setFocusedIndex(1)}
+          >
+            <ChevronRight className="w-[14px] h-[14px]" />
+            {"// PUSH +1 DAY"}
+          </ContextMenuItem>
+
+          {/* Push +1 Day (Cascade) */}
+          <ContextMenuItem
+            onClick={handlePush1DayCascade}
+            focused={focusedIndex === 2}
+            onHover={() => setFocusedIndex(2)}
+          >
+            <ChevronRight className="w-[14px] h-[14px]" />
+            {"// PUSH +1 DAY [CASCADE]"}
+          </ContextMenuItem>
+
+          {/* Push to Next Week */}
+          <ContextMenuItem
+            onClick={handlePushNextWeek}
+            focused={focusedIndex === 3}
+            onHover={() => setFocusedIndex(3)}
+          >
+            <CalendarDays className="w-[14px] h-[14px]" />
+            {"// PUSH TO NEXT WEEK"}
+          </ContextMenuItem>
+
+          {/* Separator */}
+          <div
+            role="separator"
+            style={{
+              height: 1,
+              background: "var(--line)",
+              margin: "4px 4px",
+            }}
+          />
+
+          {/* Duplicate */}
+          <ContextMenuItem
+            onClick={handleDuplicate}
+            focused={focusedIndex === 4}
+            onHover={() => setFocusedIndex(4)}
+          >
+            <Copy className="w-[14px] h-[14px]" />
+            {"// DUPLICATE"}
+          </ContextMenuItem>
+
+          {/* Separator */}
+          <div
+            role="separator"
+            style={{
+              height: 1,
+              background: "var(--line)",
+              margin: "4px 4px",
+            }}
+          />
+
+          {/* Delete */}
+          <ContextMenuItem
+            onClick={handleDelete}
+            focused={focusedIndex === 5}
+            onHover={() => setFocusedIndex(5)}
+            destructive
+          >
+            <Trash2 className="w-[14px] h-[14px]" />
+            {"// DELETE"}
+          </ContextMenuItem>
+        </Popover.Content>
+      </Popover.Portal>
+    </Popover.Root>
   );
 }
 
@@ -394,18 +426,45 @@ function ContextMenuItem({
       role="menuitem"
       tabIndex={-1}
       onClick={onClick}
-      onMouseEnter={onHover}
+      onMouseEnter={(e) => {
+        onHover?.();
+        if (!destructive) {
+          (e.currentTarget as HTMLElement).style.background =
+            "rgba(255, 255, 255, 0.05)";
+          (e.currentTarget as HTMLElement).style.color = "var(--text)";
+        } else {
+          (e.currentTarget as HTMLElement).style.background = "var(--rose-soft)";
+          (e.currentTarget as HTMLElement).style.color = "var(--rose)";
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (focused) return;
+        if (!destructive) {
+          (e.currentTarget as HTMLElement).style.background = "transparent";
+          (e.currentTarget as HTMLElement).style.color = "var(--text-2)";
+        } else {
+          (e.currentTarget as HTMLElement).style.background = "transparent";
+          (e.currentTarget as HTMLElement).style.color = "var(--rose)";
+        }
+      }}
       className={cn(
-        "w-full flex items-center gap-[8px] px-2 py-1 text-left transition-colors",
-        "font-mohave text-body-sm",
-        destructive
-          ? "text-red-400 hover:text-red-300 hover:bg-red-500/10"
-          : "text-text-2 hover:text-text hover:bg-[rgba(255,255,255,0.05)]",
-        focused &&
-          (destructive
-            ? "bg-red-500/10 text-red-300"
-            : "bg-[rgba(255,255,255,0.05)] text-text")
+        "w-full flex items-center gap-[8px] px-2 py-1.5 text-left",
+        "font-mono uppercase tracking-wider"
       )}
+      style={{
+        fontSize: 11,
+        letterSpacing: "0.06em",
+        color: destructive ? "var(--rose)" : "var(--text-2)",
+        background: focused
+          ? destructive
+            ? "var(--rose-soft)"
+            : "rgba(255, 255, 255, 0.05)"
+          : "transparent",
+        borderRadius: 4,
+        transitionProperty: "background-color, color",
+        transitionDuration: "150ms",
+        transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
+      }}
     >
       {children}
     </button>

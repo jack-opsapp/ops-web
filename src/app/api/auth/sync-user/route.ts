@@ -117,6 +117,8 @@ function mapCompanyFromDb(row: Record<string, unknown>): Company {
     dataSetupCompleted: (row.data_setup_completed as boolean) ?? false,
     dataSetupScheduledDate: parseDate(row.data_setup_scheduled),
     stripeCustomerId: (row.stripe_customer_id as string) ?? null,
+    defaultWorkStart: (row.default_work_start as string) ?? "08:00:00",
+    defaultWorkEnd: (row.default_work_end as string) ?? "17:00:00",
     lastSyncedAt: null,
     needsSync: false,
     deletedAt: parseDate(row.deleted_at),

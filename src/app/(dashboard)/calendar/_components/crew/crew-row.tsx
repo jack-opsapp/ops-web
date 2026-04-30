@@ -5,33 +5,30 @@ import { addDays, isToday } from "date-fns";
 import type { TeamMember } from "@/lib/types/models";
 import { getInitials, getUserRoleDisplay } from "@/lib/types/models";
 import {
-  TIMELINE_ROW_HEIGHT,
-  TIMELINE_GUTTER_WIDTH,
-  TIMELINE_DAY_MIN_WIDTH,
-} from "@/lib/utils/timeline-constants";
+  CREW_ROW_HEIGHT,
+  CREW_GUTTER_WIDTH,
+  CREW_DAY_MIN_WIDTH,
+} from "@/lib/utils/crew-constants";
 
 // ─── Props ──────────────────────────────────────────────────────────────────
 
-interface TimelineRowProps {
+interface CrewRowProps {
   teamMember: TeamMember;
   startDate: Date;
   daysShown: number;
   isLast?: boolean;
-  /** Optional row height override — used by lane stacking when overlaps push the row taller. */
-  rowHeight?: number;
   children?: ReactNode;
 }
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
-export function TimelineRow({
+export function CrewRow({
   teamMember,
   startDate,
   daysShown,
   isLast = false,
-  rowHeight,
   children,
-}: TimelineRowProps) {
+}: CrewRowProps) {
   const fullName = `${teamMember.firstName} ${teamMember.lastName}`.trim() || "Unknown";
   const initials = getInitials(fullName);
   const roleLabel = getUserRoleDisplay(teamMember.role);
@@ -41,7 +38,7 @@ export function TimelineRow({
     <div
       className="flex group transition-colors duration-150"
       style={{
-        height: rowHeight ?? TIMELINE_ROW_HEIGHT,
+        height: CREW_ROW_HEIGHT,
         borderBottom: isLast ? "none" : "1px solid rgba(255,255,255,0.05)",
         background: "transparent",
       }}
@@ -56,7 +53,7 @@ export function TimelineRow({
       <div
         className="shrink-0 flex items-center gap-[8px] px-[12px] sticky left-0 z-10"
         style={{
-          width: TIMELINE_GUTTER_WIDTH,
+          width: CREW_GUTTER_WIDTH,
           background: "#0A0A0A",
           borderRight: "1px solid rgba(255,255,255,0.10)",
         }}
@@ -105,15 +102,14 @@ export function TimelineRow({
           return (
             <div
               key={day.toISOString()}
-              className="relative"
+              className="relative min-w-0"
               style={{
-                flex: "1 0 0",
-                minWidth: TIMELINE_DAY_MIN_WIDTH,
+                flex: "1 1 0%",
                 borderRight:
                   idx < daysShown - 1
                     ? "1px solid rgba(255,255,255,0.05)"
                     : "none",
-                background: today ? "rgba(111, 148, 176,0.08)" : "transparent",
+                background: today ? "rgba(111, 148, 176, 0.06)" : "transparent",
               }}
             />
           );

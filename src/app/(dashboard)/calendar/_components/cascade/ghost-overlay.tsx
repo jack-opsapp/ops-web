@@ -4,7 +4,8 @@ import { useMemo } from "react";
 import { motion } from "framer-motion";
 import { differenceInCalendarDays } from "date-fns";
 import { useCalendarStore } from "@/stores/calendar-store";
-import { TimelineTaskBlock } from "../timeline/timeline-task-block";
+import { CrewTaskBlock } from "../crew/crew-task-block";
+import { CREW_ROW_HEIGHT, CREW_GUTTER_WIDTH } from "@/lib/utils/crew-constants";
 import type { TeamMember } from "@/lib/types/models";
 import type { InternalCalendarEvent } from "@/lib/utils/calendar-utils";
 
@@ -27,11 +28,12 @@ function clamp(value: number, min: number, max: number): number {
 // ─── Component ──────────────────────────────────────────────────────────────
 
 /**
- * GhostOverlay — renders ghost task blocks on the timeline for cascade preview.
+ * GhostOverlay — renders ghost task blocks on the crew swimlane for cascade preview.
  *
  * Reads `ghostPreviews` from the calendar store and positions a transparent,
  * pulsing ghost version of each affected task at its new cascade position.
- * Must be rendered inside the scrollable timeline body, after the team member rows.
+ * Must be rendered inside the scrollable crew swimlane body, after the team
+ * member rows.
  */
 export function GhostOverlay({
   startDate,
@@ -79,7 +81,7 @@ export function GhostOverlay({
           if (rowIdx === -1) return null;
         }
 
-        // Calculate horizontal positioning (same logic as TimelineTaskBlock)
+        // Calculate horizontal positioning (same logic as CrewTaskBlock)
         const eventStart = differenceInCalendarDays(ghost.newStart, startDate);
         const eventEnd = differenceInCalendarDays(ghost.newEnd, startDate);
         const durationDays = Math.max(eventEnd - eventStart, 1);
@@ -109,9 +111,6 @@ export function GhostOverlay({
 
   if (visibleGhosts.length === 0) return null;
 
-  // ROW_HEIGHT from timeline-constants (72px)
-  const ROW_HEIGHT = 72;
-
   return (
     <>
       {visibleGhosts.map(({ ghost, ghostEvent, rowIdx }) => (
@@ -119,10 +118,10 @@ export function GhostOverlay({
           key={`ghost-${ghost.taskId}`}
           className="absolute pointer-events-none"
           style={{
-            top: rowIdx * ROW_HEIGHT,
-            height: ROW_HEIGHT,
-            // Skip the gutter (200px) — ghosts position within the grid area
-            left: 200,
+            top: rowIdx * CREW_ROW_HEIGHT,
+            height: CREW_ROW_HEIGHT,
+            // Skip the gutter — ghosts position within the grid area
+            left: CREW_GUTTER_WIDTH,
             right: 0,
             zIndex: 10,
           }}
@@ -134,7 +133,7 @@ export function GhostOverlay({
           }}
         >
           <div className="relative w-full h-full">
-            <TimelineTaskBlock
+            <CrewTaskBlock
               event={ghostEvent}
               startDate={startDate}
               daysShown={daysShown}

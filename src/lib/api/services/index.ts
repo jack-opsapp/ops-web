@@ -8,6 +8,12 @@ export type { FetchProjectsOptions } from "./project-service";
 export { TaskService } from "./task-service";
 export type { FetchTasksOptions, CreateTaskWithEventData } from "./task-service";
 
+export { RecurrenceService } from "./recurrence-service";
+export type {
+  CreateRecurrenceInput,
+  UpsertRecurrenceExceptionInput,
+} from "./recurrence-service";
+
 export { ClientService } from "./client-service";
 export type { FetchClientsOptions } from "./client-service";
 

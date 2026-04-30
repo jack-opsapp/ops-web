@@ -13,7 +13,11 @@ import {
   addWeeks,
   startOfWeek,
   endOfWeek,
+  startOfMonth,
+  endOfMonth,
   format,
+  isSameDay,
+  isWithinInterval,
   subMonths,
   subWeeks,
   subDays,
@@ -56,16 +60,18 @@ export function CalendarHeader({ t }: CalendarHeaderProps) {
 
   const navigate = useCallback(
     (direction: "prev" | "next") => {
+      const isWeekly = view === "week" || view === "crew";
+      const isMonthly = view === "month";
       const fn =
         direction === "next"
-          ? view === "month"
+          ? isMonthly
             ? addMonths
-            : view === "timeline"
+            : isWeekly
               ? addWeeks
               : addDays
-          : view === "month"
+          : isMonthly
             ? (d: Date, n: number) => subMonths(d, n)
-            : view === "timeline"
+            : isWeekly
               ? (d: Date, n: number) => subWeeks(d, n)
               : (d: Date, n: number) => subDays(d, n);
       setCurrentDate(fn(currentDate, 1));
@@ -75,9 +81,9 @@ export function CalendarHeader({ t }: CalendarHeaderProps) {
 
   const headerTitle = useMemo(() => {
     if (view === "month") return format(currentDate, "MMMM yyyy");
-    if (view === "timeline") {
-      const ws = startOfWeek(currentDate);
-      const we = endOfWeek(currentDate);
+    if (view === "week" || view === "crew") {
+      const ws = startOfWeek(currentDate, { weekStartsOn: 1 });
+      const we = endOfWeek(currentDate, { weekStartsOn: 1 });
       if (ws.getMonth() === we.getMonth()) {
         return `${format(ws, "MMM d")} - ${format(we, "d, yyyy")}`;
       }
@@ -88,10 +94,29 @@ export function CalendarHeader({ t }: CalendarHeaderProps) {
   }, [currentDate, view]);
 
   const viewOptions: { value: SchedulerView; label: string }[] = [
-    { value: "timeline", label: "Timeline" },
-    { value: "month", label: "Month" },
-    { value: "day", label: "Day" },
+    { value: "day", label: "// DAY" },
+    { value: "week", label: "// WEEK" },
+    { value: "month", label: "// MONTH" },
+    { value: "crew", label: "// CREW" },
   ];
+
+  // T14 — TODAY pill disabled state: viewing today already?
+  const isViewingToday = useMemo(() => {
+    const now = new Date();
+    if (view === "day") return isSameDay(currentDate, now);
+    if (view === "week" || view === "crew") {
+      const ws = startOfWeek(currentDate, { weekStartsOn: 1 });
+      const we = endOfWeek(currentDate, { weekStartsOn: 1 });
+      return isWithinInterval(now, { start: ws, end: we });
+    }
+    if (view === "month") {
+      return isWithinInterval(now, {
+        start: startOfMonth(currentDate),
+        end: endOfMonth(currentDate),
+      });
+    }
+    return false;
+  }, [view, currentDate]);
 
   return (
     <div className="flex items-center justify-between shrink-0 flex-wrap gap-y-1">
@@ -116,9 +141,39 @@ export function CalendarHeader({ t }: CalendarHeaderProps) {
         >
           <ChevronRight className="w-[18px] h-[18px]" />
         </Button>
-        <Button variant="secondary" size="sm" onClick={goToToday}>
-          {t("today")}
-        </Button>
+        {/* T14 — TODAY pill (signal #3). JetBrains Mono, accent border, accent
+            text, transparent fill at rest. Fills accent on hover. Disabled
+            when current view already includes today. */}
+        <button
+          type="button"
+          onClick={goToToday}
+          disabled={isViewingToday}
+          aria-label="Jump to today"
+          className="font-mono text-[11px] uppercase tracking-wide leading-none px-[10px] py-[5px] rounded-[5px] tabular-nums"
+          style={{
+            color: "var(--ops-accent)",
+            border: "1px solid var(--ops-accent)",
+            background: "transparent",
+            opacity: isViewingToday ? 0.3 : 1,
+            cursor: isViewingToday ? "not-allowed" : "pointer",
+            transition:
+              "background-color 0.15s cubic-bezier(0.22, 1, 0.36, 1), color 0.15s cubic-bezier(0.22, 1, 0.36, 1)",
+            fontFeatureSettings: '"tnum" 1, "zero" 1',
+          }}
+          onMouseEnter={(e) => {
+            if (isViewingToday) return;
+            (e.currentTarget as HTMLElement).style.backgroundColor =
+              "var(--ops-accent)";
+            (e.currentTarget as HTMLElement).style.color = "#000";
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLElement).style.backgroundColor =
+              "transparent";
+            (e.currentTarget as HTMLElement).style.color = "var(--ops-accent)";
+          }}
+        >
+          [ TODAY ]
+        </button>
         <Button
           variant="ghost"
           size="icon"
@@ -182,13 +237,16 @@ export function CalendarHeader({ t }: CalendarHeaderProps) {
         {/* Keyboard hints */}
         <div className="hidden xl:flex items-center gap-[3px] ml-[4px]">
           <kbd className="font-mono text-micro text-text-mute bg-glass glass-surface px-[5px] py-[2px] rounded-sm border border-border-subtle">
-            T
+            D
+          </kbd>
+          <kbd className="font-mono text-micro text-text-mute bg-glass glass-surface px-[5px] py-[2px] rounded-sm border border-border-subtle">
+            W
           </kbd>
           <kbd className="font-mono text-micro text-text-mute bg-glass glass-surface px-[5px] py-[2px] rounded-sm border border-border-subtle">
             M
           </kbd>
           <kbd className="font-mono text-micro text-text-mute bg-glass glass-surface px-[5px] py-[2px] rounded-sm border border-border-subtle">
-            D
+            C
           </kbd>
         </div>
       </div>
