@@ -46,6 +46,8 @@ import { PortalMagicLink } from "./react/templates/PortalMagicLink";
 import { PortalEstimateReady } from "./react/templates/PortalEstimateReady";
 import { PortalInvoiceReady } from "./react/templates/PortalInvoiceReady";
 import { PortalQuestionsReminder } from "./react/templates/PortalQuestionsReminder";
+import { DataSetupRequest } from "./react/templates/DataSetupRequest";
+import { PrioritySupportActivated } from "./react/templates/PrioritySupportActivated";
 
 import { DISPATCH, GATE, FIELD_NOTES, portalSender, type Sender } from "./senders";
 import type { AdBriefing } from "@/lib/admin/briefing-types";
@@ -599,6 +601,82 @@ export async function sendAdsBriefing(params: {
       });
     }),
   );
+}
+
+// ─── Subscription Add-ons (OPS Dispatch) ───────────────────────────────────
+
+/**
+ * Internal ops notification that a customer just bought the Data Setup
+ * add-on. Sent to ADDON_FULFILLMENT_EMAIL (jack@opsapp.co) so the founder
+ * can reach out within 24h. Subject is formatted for inbox triage.
+ */
+export async function sendDataSetupRequest(params: {
+  to: string;
+  companyName: string;
+  contactEmail: string;
+  contactPhone: string | null;
+  sourceSoftware: string | null;
+  stripePaymentIntentId: string;
+  amountDisplay: string;
+  purchasedAtDisplay: string;
+  adminUrl: string;
+}): Promise<void> {
+  ensureInitialized();
+
+  const html = await render(
+    <DataSetupRequest
+      companyName={params.companyName}
+      contactEmail={params.contactEmail}
+      contactPhone={params.contactPhone}
+      sourceSoftware={params.sourceSoftware}
+      stripePaymentIntentId={params.stripePaymentIntentId}
+      amountDisplay={params.amountDisplay}
+      purchasedAtDisplay={params.purchasedAtDisplay}
+      adminUrl={params.adminUrl}
+    />,
+  );
+
+  await sgMail.send({
+    to: params.to,
+    from: DISPATCH,
+    replyTo: DISPATCH.email,
+    subject: `[OPS Data Setup] ${params.companyName} purchased data setup`,
+    html,
+  });
+}
+
+/**
+ * Customer-facing confirmation that Priority Support is now active. Sent
+ * to the company billing email after `checkout.session.completed` flips
+ * `companies.has_priority_support`.
+ */
+export async function sendPrioritySupportActivated(params: {
+  to: string;
+  companyName: string;
+  period: "monthly" | "annual";
+  startedAtDisplay: string;
+  contactEmail: string;
+  manageUrl: string;
+}): Promise<void> {
+  ensureInitialized();
+
+  const html = await render(
+    <PrioritySupportActivated
+      companyName={params.companyName}
+      period={params.period}
+      startedAtDisplay={params.startedAtDisplay}
+      contactEmail={params.contactEmail}
+      manageUrl={params.manageUrl}
+    />,
+  );
+
+  await sgMail.send({
+    to: params.to,
+    from: DISPATCH,
+    replyTo: DISPATCH.email,
+    subject: `Priority Support is live for ${params.companyName}`,
+    html,
+  });
 }
 
 // ─── OPS Gate ──────────────────────────────────────────────────────────────

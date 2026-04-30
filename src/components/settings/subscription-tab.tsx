@@ -24,6 +24,7 @@ import {
 import { toast } from "sonner";
 import { useDictionary } from "@/i18n/client";
 import { usePermissionStore } from "@/lib/store/permissions-store";
+import { AddonsSection } from "./addons-section";
 
 // ─── Plan Features Data ──────────────────────────────────────────────────────
 
@@ -364,6 +365,7 @@ export function SubscriptionTab() {
 
   return (
     <>
+      <div className="space-y-4">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         {/* Current Plan + Features + Seat Usage (combined) */}
         <Card variant="accent">
@@ -459,6 +461,10 @@ export function SubscriptionTab() {
             })}
           </CardContent>
         </Card>
+      </div>
+
+      {/* Add-ons — Data Setup + Priority Support */}
+      <AddonsSection />
       </div>
 
       {upgradePlan && (
