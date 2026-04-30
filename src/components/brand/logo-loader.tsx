@@ -42,6 +42,16 @@ export const LogoLoader: React.FC<LogoLoaderProps> = ({
 }) => {
   const reduced = useReducedMotion();
 
+  // Track iframe readiness — Babel + React CDN bootstraps inside the iframe
+  // can take 1-2s before LogoLoaderScene mounts. Until `onLoad` fires we
+  // paint the static lockup behind the iframe so the slot is never blank
+  // (the original bug — blank area while the iframe was loading or when its
+  // CDN scripts were blocked / failed silently).
+  //
+  // Hook must be called unconditionally — declared above the reduced-motion
+  // early return per React rules-of-hooks. Unused on the reduced path.
+  const [iframeReady, setIframeReady] = React.useState(false);
+
   if (reduced) {
     return (
       <div
@@ -69,13 +79,6 @@ export const LogoLoader: React.FC<LogoLoaderProps> = ({
   const params = new URLSearchParams({ mode });
   if (color) params.set("chevronColor", color);
   const src = `/v2-loader/index.html?${params.toString()}`;
-
-  // Track iframe readiness — Babel + React CDN bootstraps inside the iframe
-  // can take 1-2s before LogoLoaderScene mounts. Until `onLoad` fires we
-  // paint the static lockup behind the iframe so the slot is never blank
-  // (the original bug — blank area while the iframe was loading or when its
-  // CDN scripts were blocked / failed silently).
-  const [iframeReady, setIframeReady] = React.useState(false);
 
   return (
     <div
