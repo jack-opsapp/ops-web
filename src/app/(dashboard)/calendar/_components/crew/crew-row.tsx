@@ -17,6 +17,8 @@ interface CrewRowProps {
   startDate: Date;
   daysShown: number;
   isLast?: boolean;
+  /** Optional row height override — used by lane stacking when overlaps push the row taller. */
+  rowHeight?: number;
   children?: ReactNode;
 }
 
@@ -27,6 +29,7 @@ export function CrewRow({
   startDate,
   daysShown,
   isLast = false,
+  rowHeight,
   children,
 }: CrewRowProps) {
   const fullName = `${teamMember.firstName} ${teamMember.lastName}`.trim() || "Unknown";
@@ -38,7 +41,7 @@ export function CrewRow({
     <div
       className="flex group transition-colors duration-150"
       style={{
-        height: CREW_ROW_HEIGHT,
+        height: rowHeight ?? CREW_ROW_HEIGHT,
         borderBottom: isLast ? "none" : "1px solid rgba(255,255,255,0.05)",
         background: "transparent",
       }}
