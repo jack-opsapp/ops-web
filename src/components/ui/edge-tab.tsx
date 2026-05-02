@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useReducedMotion } from "framer-motion";
 import type { EdgeTabProps, EdgeTabAccent } from "./edge-tab.types";
 
@@ -44,6 +44,30 @@ export function EdgeTab({
   const [hovered, setHovered] = useState(false);
   const reducedMotion = useReducedMotion();
 
+  // Live viewport height — drives the rail-height clamp so the expanded tab
+  // never grows beyond the visible rail on shorter screens (13" laptops in
+  // particular tend to land below 720px). SSR-safe default 0 means "no clamp"
+  // until first client measurement.
+  const [viewportH, setViewportH] = useState<number>(() =>
+    typeof window === "undefined" ? 0 : window.innerHeight
+  );
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onResize = () => setViewportH(window.innerHeight);
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  // Maximum tab height we'll allow. The wrapper occupies the rail bounded by
+  // railTop / railBottom from the viewport, so the rail height is
+  // `vh - railTop - railBottom`. We never let the tab exceed that.
+  const railHeight = viewportH > 0 ? viewportH - railTop - railBottom : null;
+  const clampToRail = (h: number): number => {
+    if (railHeight == null || railHeight <= 0) return h;
+    return Math.min(h, railHeight);
+  };
+
   const expanded = open || (hovered && canHoverExpand);
 
   // ─── Tab vertical positioning ──────────────────────────────────────────────
@@ -76,6 +100,11 @@ export function EdgeTab({
   //   HOVER without expandedHeight → stay at rest height. Better than
   //     bursting full-rail and covering the sibling tab.
 
+  // Fit-to-rail helpers. Once we know rail height, recompute every
+  // expanded-state tabTop using the clamped tabHeight (instead of the raw
+  // requested height). This keeps the expanded tab anchored to the same
+  // visual edge it was supposed to anchor to (drawer center / sibling-tab
+  // boundary) but never extends beyond the rail on short viewports.
   let tabTop: string;
   let tabHeight: string | number;
   if (!expanded) {
@@ -83,27 +112,51 @@ export function EdgeTab({
     tabHeight = restHeight;
   } else if (open && typeof expandedHeight === "number") {
     // Open + panel clamp → align with the panel-anchored drawer.
-    tabTop = `calc(50% + ${stackOffset - expandedHeight / 2}px)`;
-    tabHeight = expandedHeight;
+    const h = clampToRail(expandedHeight);
+    tabTop = `calc(50% + ${stackOffset - h / 2}px)`;
+    tabHeight = h;
   } else if (open) {
-    // Open + no clamp → legacy full-rail expansion.
+    // Open + no clamp → legacy full-rail expansion. railHeight already
+    // matches wrapper height, so "100%" stays correct here.
     tabTop = "0";
     tabHeight = "100%";
   } else if (typeof expandedHeight === "number") {
     // Hover only → grow outward from the near edge, never crossing the
-    // rail midpoint into the sibling tab's half.
+    // rail midpoint into the sibling tab's half. Clamp height to rail so
+    // short viewports don't push the tab past the rail's far edge.
+    const h = clampToRail(expandedHeight);
     if (stackOffset >= 0) {
       // Below center: anchor TOP edge of rest position, grow down.
       tabTop = `calc(50% + ${stackOffset - restHeight / 2}px)`;
     } else {
       // Above center: anchor BOTTOM edge of rest position, grow up.
-      tabTop = `calc(50% + ${stackOffset + restHeight / 2 - expandedHeight}px)`;
+      tabTop = `calc(50% + ${stackOffset + restHeight / 2 - h}px)`;
     }
-    tabHeight = expandedHeight;
+    tabHeight = h;
   } else {
     // Hover only without `expandedHeight` → stay at rest.
     tabTop = `calc(50% + ${stackOffset - restHeight / 2}px)`;
     tabHeight = restHeight;
+  }
+
+  // Final safety: cap absolute placement so the tab never spills below the
+  // rail bottom (or above the rail top) on any viewport. Apply only when
+  // we've measured the viewport (railHeight known) AND tabTop is a calc()
+  // we can parse — the legacy "0" / "100%" full-rail expansion already
+  // fits by construction.
+  let tabTopCap: number | undefined;
+  if (railHeight != null && typeof tabHeight === "number") {
+    const offsetMatch =
+      typeof tabTop === "string"
+        ? tabTop.match(/^calc\(50%\s*\+\s*(-?\d+(?:\.\d+)?)px\)$/)
+        : null;
+    if (offsetMatch) {
+      const offset = parseFloat(offsetMatch[1]);
+      const rawTop = railHeight / 2 + offset;
+      const maxTop = railHeight - tabHeight;
+      const clampedTop = Math.max(0, Math.min(rawTop, maxTop));
+      tabTopCap = clampedTop;
+    }
   }
 
   return (
@@ -139,7 +192,7 @@ export function EdgeTab({
         onBlur={() => setHovered(false)}
         style={{
           position: "absolute",
-          top: tabTop,
+          top: tabTopCap != null ? `${tabTopCap}px` : tabTop,
           right: open ? drawerWidth : 0,
           width: TAB_WIDTH,
           height: tabHeight,
