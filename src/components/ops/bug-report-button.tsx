@@ -7,6 +7,8 @@ import { Bug, X, Send, CheckCircle2, Loader2, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
 import { useAuthStore } from "@/lib/store/auth-store";
+import { useEdgeTabStore } from "@/stores/edge-tab-store";
+import { EdgeTab } from "@/components/ui/edge-tab";
 import {
   BugReportService,
   type BugReportCategory,
@@ -45,9 +47,31 @@ const SEVERITY_TO_PRIORITY: Record<Severity, BugReportPriority> = {
   minor: "low",
 };
 
+// EdgeTab integration (bug-b842f0ff): the report trigger is now a right-rail
+// edge tab that mirrors NotificationsTab + QuickActionsTab. Stack math:
+//   Notifications (180px) sits above center at -94.
+//   Quick Actions (132px) sits below center at +94.
+//   Bug Report tab sits BELOW Quick Actions: top edge = +160, +8px gap, our
+//   own restHeight = 64 (icon-only square-ish) → tab center = +200.
+//
+// Form panel reuses Quick Actions' panel-anchored geometry (308×420) so the
+// tab + panel read as one shape when expanded.
+const EDGE_TAB_ID = "bug-report";
+const STACK_OFFSET_BUG = 200;
+const REST_HEIGHT_BUG = 64;
+const PANEL_W = 308;
+const PANEL_H = 420;
+const RAIL_TOP = 72;
+const RAIL_BOTTOM = 16;
+
 export function BugReportButton() {
   const { t } = useDictionary("common");
-  const [open, setOpen] = useState(false);
+  const pathname = usePathname();
+  const open = useEdgeTabStore((s) => s.activeTab === EDGE_TAB_ID);
+  const anyActive = useEdgeTabStore((s) => s.activeTab !== null);
+  const toggle = useEdgeTabStore((s) => s.toggle);
+  const close = useEdgeTabStore((s) => s.close);
+
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState<BugReportCategory>("bug");
@@ -58,11 +82,8 @@ export function BugReportButton() {
   const [screenshotBlob, setScreenshotBlob] = useState<Blob | null>(null);
   const [includeScreenshot, setIncludeScreenshot] = useState(true);
   const [capturingScreenshot, setCapturingScreenshot] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
   const prefersReducedMotion = useReducedMotion();
-  const pathname = usePathname();
   const { currentUser, company } = useAuthStore();
-  const sidebarWidth = 72;
 
   // Minimal-form gate. Trades business owners get one textarea + submit;
   // power user (the developer) gets full triage controls. Defaults applied
@@ -79,12 +100,11 @@ export function BugReportButton() {
    * shows what the user was actually looking at when they hit the bug button.
    * modern-screenshot handles backdrop-filter / custom fonts better than
    * html2canvas, which is important for this app's frosted-glass surfaces.
+   *
+   * Capture runs only on the OPEN transition — not on close — so toggling
+   * closed doesn't burn a second screenshot.
    */
-  const handleOpen = useCallback(async () => {
-    if (open) {
-      setOpen(false);
-      return;
-    }
+  const captureScreenshot = useCallback(async () => {
     setCapturingScreenshot(true);
     try {
       const { domToBlob } = await import("modern-screenshot");
@@ -95,7 +115,7 @@ export function BugReportButton() {
         backgroundColor: "#0A0A0A",
         filter: (node) => {
           if (!(node instanceof HTMLElement)) return true;
-          // Skip the bug report button itself and anything that opts out
+          // Skip the bug report tab/panel itself and anything that opts out
           if (node.dataset?.bugReportIgnore === "true") return false;
           return true;
         },
@@ -107,40 +127,35 @@ export function BugReportButton() {
       setScreenshotBlob(null);
     } finally {
       setCapturingScreenshot(false);
-      setOpen(true);
     }
-  }, [open]);
+  }, []);
 
-  // Close on outside click
-  useEffect(() => {
-    if (!open) return;
-    function handleClick(e: MouseEvent) {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(e.target as Node)
-      ) {
-        handleClose();
-      }
+  const handleToggle = useCallback(() => {
+    // If we're about to OPEN the panel, capture the screenshot first so the
+    // panel itself isn't in frame.
+    if (!open) {
+      void captureScreenshot();
     }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [open]);
+    toggle(EDGE_TAB_ID);
+  }, [open, toggle, captureScreenshot]);
 
-  // Close on Escape
+  // Close on Escape — duplicates the EdgeTab behavior but adds form reset.
   useEffect(() => {
     if (!open) return;
     function handleKey(e: KeyboardEvent) {
-      if (e.key === "Escape") handleClose();
+      if (e.key === "Escape") {
+        if (formState === "submitting") return;
+        close(EDGE_TAB_ID);
+      }
     }
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [open]);
+  }, [open, formState, close]);
 
-  function handleClose() {
-    if (formState === "submitting") return;
-    setOpen(false);
-    // Reset after animation
-    setTimeout(() => {
+  // Reset form a beat after closing so the exit animation has time to play.
+  useEffect(() => {
+    if (open) return;
+    const t = setTimeout(() => {
       setTitle("");
       setDescription("");
       setCategory("bug");
@@ -150,8 +165,9 @@ export function BugReportButton() {
       setErrorMessage(null);
       setScreenshotBlob(null);
       setIncludeScreenshot(true);
-    }, 200);
-  }
+    }, 220);
+    return () => clearTimeout(t);
+  }, [open]);
 
   const handleSubmit = useCallback(async () => {
     if (!title.trim() || formState === "submitting") return;
@@ -274,7 +290,7 @@ export function BugReportButton() {
 
       setFormState("success");
       setTimeout(() => {
-        handleClose();
+        close(EDGE_TAB_ID);
       }, 1200);
     } catch (err) {
       console.error("Bug report submission failed:", err);
@@ -283,140 +299,201 @@ export function BugReportButton() {
         err instanceof Error ? err.message : "Failed to submit bug report."
       );
     }
-  }, [title, description, category, severity, requiresMyInput, formState, currentUser, company, screenshotBlob, includeScreenshot]);
+  }, [title, description, category, severity, requiresMyInput, formState, currentUser, company, screenshotBlob, includeScreenshot, close]);
 
   // Don't render on dashboard (map filter rail occupies bottom-left)
   // Don't render on intel (full-bleed canvas, overlaps cluster legend)
   if (pathname === "/dashboard" || pathname === "/intel") return null;
 
   return (
-    <div
-      ref={containerRef}
-      className="fixed z-[90]"
-      style={{ bottom: 16, left: sidebarWidth + 12 }}
-      data-bug-report-ignore="true"
-    >
-      {/* Popover form */}
-      <AnimatePresence>
+    <>
+      {/* Right-rail edge tab — icon only at rest, "BUG REPORT" wordmark on
+          hover/open. Mirrors NotificationsTab + QuickActionsTab. */}
+      <EdgeTab
+        id={EDGE_TAB_ID}
+        open={open}
+        onToggle={handleToggle}
+        accent="ambient"
+        restHeight={REST_HEIGHT_BUG}
+        expandedHeight={PANEL_H}
+        drawerWidth={PANEL_W}
+        stackOffset={STACK_OFFSET_BUG}
+        canHoverExpand={!anyActive || open}
+        wordmark={t("bugReport.label")}
+        wordmarkOpen="CLOSE"
+        ariaLabel={t("bugReport.title")}
+        tooltipTitle={t("bugReport.title")}
+        renderGlyph={(isOpen) =>
+          capturingScreenshot ? (
+            <Loader2 className="w-[14px] h-[14px] animate-spin" />
+          ) : isOpen ? (
+            <X className="w-[14px] h-[14px]" />
+          ) : (
+            <Bug className="w-[14px] h-[14px]" />
+          )
+        }
+      />
+
+      {/* Panel-anchored drawer — same geometry as Quick Actions so the
+          tab + panel read as one shape (308×420 centered on stackOffset). */}
+      <AnimatePresence mode="wait">
         {open && (
-          <motion.div
-            initial={{ opacity: 0, y: 8, scale: 0.96 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 8, scale: 0.96 }}
-            transition={
-              prefersReducedMotion
-                ? { duration: 0 }
-                : { duration: 0.2, ease: [0.22, 1, 0.36, 1] }
-            }
-            className="absolute bottom-[44px] left-0 w-[320px] rounded-sm overflow-hidden"
+          <div
+            data-bug-report-ignore="true"
+            aria-hidden={false}
             style={{
-              background: "var(--surface-glass)",
-              backdropFilter: "blur(28px) saturate(1.3)",
-              WebkitBackdropFilter: "blur(28px) saturate(1.3)",
-              border: "1px solid rgba(255, 255, 255, 0.08)",
+              position: "fixed",
+              top: RAIL_TOP,
+              right: 0,
+              bottom: RAIL_BOTTOM,
+              width: PANEL_W,
+              pointerEvents: "none",
+              zIndex: 1500,
             }}
           >
-            {/* Header */}
-            <div className="flex items-center justify-between px-3 py-2.5 border-b border-[rgba(255,255,255,0.08)]">
-              <span className="font-mono text-micro uppercase tracking-wider text-text-2">
-                {t("bugReport.title")}
-              </span>
-              <button
-                onClick={handleClose}
-                className="p-1 text-text-mute hover:text-text-2 transition-colors duration-150"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            </div>
+            <motion.div
+              key="bug-report-panel"
+              initial={prefersReducedMotion ? { opacity: 0 } : { x: PANEL_W, opacity: 0 }}
+              animate={prefersReducedMotion ? { opacity: 1 } : { x: 0, opacity: 1 }}
+              exit={prefersReducedMotion ? { opacity: 0 } : { x: PANEL_W, opacity: 0 }}
+              transition={{ duration: prefersReducedMotion ? 0.15 : 0.26, ease: [0.22, 1, 0.36, 1] }}
+              role="dialog"
+              aria-label={t("bugReport.title")}
+              style={{
+                position: "absolute",
+                top: `calc(50% + ${STACK_OFFSET_BUG - PANEL_H / 2}px)`,
+                right: 0,
+                width: PANEL_W,
+                height: PANEL_H,
+                background: "var(--glass)",
+                backdropFilter: "blur(28px) saturate(1.3)",
+                WebkitBackdropFilter: "blur(28px) saturate(1.3)",
+                border: "1px solid var(--glass-border)",
+                borderRight: "none",
+                borderRadius: "10px 0 0 10px",
+                pointerEvents: "auto",
+                display: "flex",
+                flexDirection: "column",
+                overflow: "hidden",
+              }}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between px-3 py-2.5 border-b border-[rgba(255,255,255,0.08)]">
+                <span className="font-mono text-micro uppercase tracking-wider text-text-2">
+                  {t("bugReport.title")}
+                </span>
+                <button
+                  onClick={() => close(EDGE_TAB_ID)}
+                  className="p-1 text-text-mute hover:text-text-2 transition-colors duration-150"
+                  aria-label="Close"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
 
-            {/* Body */}
-            <div className="p-3 space-y-2.5">
-              {formState === "success" ? (
-                <div className="flex flex-col items-center justify-center py-4 gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-ops-accent" />
-                  <p className="font-mohave text-body-sm text-text-2 text-left">
-                    {t("bugReport.submitted")}
-                  </p>
-                </div>
-              ) : (
-                <>
-                  {isPowerUser && (
-                    /* Category — required. Chip grid wraps to handle longer
-                        localizations (e.g. Spanish "FEATURE REQUEST"). */
-                    <div>
-                      <label className="font-mono text-micro uppercase tracking-wider text-text-3 mb-1 block">
-                        {t("bugReport.category")}
-                      </label>
-                      <div
-                        role="radiogroup"
-                        aria-label={t("bugReport.category")}
-                        className="flex flex-wrap gap-1"
-                      >
-                        {CATEGORY_OPTIONS.map((opt) => {
-                          const isActive = category === opt.value;
-                          return (
-                            <button
-                              key={opt.value}
-                              type="button"
-                              role="radio"
-                              aria-checked={isActive}
-                              onClick={() => setCategory(opt.value)}
-                              className={cn(
-                                "px-2 py-1 rounded-[4px] border transition-colors duration-150",
-                                "font-mono text-[10px] uppercase tracking-wider",
-                                isActive
-                                  ? "border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.08)] text-text"
-                                  : "border-[rgba(255,255,255,0.08)] bg-transparent text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.03)]"
-                              )}
-                            >
-                              {t(opt.labelKey)}
-                            </button>
-                          );
-                        })}
+              {/* Body */}
+              <div className="flex-1 overflow-y-auto scrollbar-hide p-3 space-y-2.5">
+                {formState === "success" ? (
+                  <div className="flex flex-col items-center justify-center py-4 gap-2">
+                    <CheckCircle2 className="w-5 h-5 text-ops-accent" />
+                    <p className="font-mohave text-body-sm text-text-2 text-left">
+                      {t("bugReport.submitted")}
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    {isPowerUser && (
+                      <div>
+                        <label className="font-mono text-micro uppercase tracking-wider text-text-3 mb-1 block">
+                          {t("bugReport.category")}
+                        </label>
+                        <div
+                          role="radiogroup"
+                          aria-label={t("bugReport.category")}
+                          className="flex flex-wrap gap-1"
+                        >
+                          {CATEGORY_OPTIONS.map((opt) => {
+                            const isActive = category === opt.value;
+                            return (
+                              <button
+                                key={opt.value}
+                                type="button"
+                                role="radio"
+                                aria-checked={isActive}
+                                onClick={() => setCategory(opt.value)}
+                                className={cn(
+                                  "px-2 py-1 rounded-[4px] border transition-colors duration-150",
+                                  "font-mono text-[10px] uppercase tracking-wider",
+                                  isActive
+                                    ? "border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.08)] text-text"
+                                    : "border-[rgba(255,255,255,0.08)] bg-transparent text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.03)]"
+                                )}
+                              >
+                                {t(opt.labelKey)}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  {/* Primary input — single field for minimal users
-                      (their text becomes the full report), title+description
-                      pair for the power user. */}
-                  {isPowerUser ? (
-                    <>
+                    {isPowerUser ? (
+                      <>
+                        <div>
+                          <label className="font-mono text-micro uppercase tracking-wider text-text-3 mb-1 block">
+                            {t("bugReport.whatHappened")}
+                          </label>
+                          <input
+                            type="text"
+                            value={title}
+                            onChange={(e) => setTitle(e.target.value)}
+                            placeholder={t("bugReport.titlePlaceholder")}
+                            className={cn(
+                              "w-full px-2.5 py-2 rounded-sm font-mohave text-body-sm text-text",
+                              "bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)]",
+                              "placeholder:text-text-mute",
+                              "focus:outline-none focus:border-[rgba(255,255,255,0.20)]/40",
+                              "transition-colors duration-150"
+                            )}
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && !e.shiftKey) {
+                                e.preventDefault();
+                                handleSubmit();
+                              }
+                            }}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="font-mono text-micro uppercase tracking-wider text-text-3 mb-1 block">
+                            {t("bugReport.details")}
+                          </label>
+                          <textarea
+                            value={description}
+                            onChange={(e) => setDescription(e.target.value)}
+                            placeholder={t("bugReport.detailsPlaceholder")}
+                            rows={3}
+                            className={cn(
+                              "w-full px-2.5 py-2 rounded-sm font-mohave text-body-sm text-text resize-none",
+                              "bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)]",
+                              "placeholder:text-text-mute",
+                              "focus:outline-none focus:border-[rgba(255,255,255,0.20)]/40",
+                              "transition-colors duration-150"
+                            )}
+                          />
+                        </div>
+                      </>
+                    ) : (
                       <div>
                         <label className="font-mono text-micro uppercase tracking-wider text-text-3 mb-1 block">
                           {t("bugReport.whatHappened")}
                         </label>
-                        <input
-                          type="text"
+                        <textarea
                           value={title}
                           onChange={(e) => setTitle(e.target.value)}
                           placeholder={t("bugReport.titlePlaceholder")}
-                          className={cn(
-                            "w-full px-2.5 py-2 rounded-sm font-mohave text-body-sm text-text",
-                            "bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)]",
-                            "placeholder:text-text-mute",
-                            "focus:outline-none focus:border-[rgba(255,255,255,0.20)]/40",
-                            "transition-colors duration-150"
-                          )}
-                          autoFocus
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" && !e.shiftKey) {
-                              e.preventDefault();
-                              handleSubmit();
-                            }
-                          }}
-                        />
-                      </div>
-
-                      <div>
-                        <label className="font-mono text-micro uppercase tracking-wider text-text-3 mb-1 block">
-                          {t("bugReport.details")}
-                        </label>
-                        <textarea
-                          value={description}
-                          onChange={(e) => setDescription(e.target.value)}
-                          placeholder={t("bugReport.detailsPlaceholder")}
-                          rows={3}
+                          rows={4}
                           className={cn(
                             "w-full px-2.5 py-2 rounded-sm font-mohave text-body-sm text-text resize-none",
                             "bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)]",
@@ -424,194 +501,136 @@ export function BugReportButton() {
                             "focus:outline-none focus:border-[rgba(255,255,255,0.20)]/40",
                             "transition-colors duration-150"
                           )}
+                          autoFocus
                         />
                       </div>
-                    </>
-                  ) : (
-                    <div>
-                      <label className="font-mono text-micro uppercase tracking-wider text-text-3 mb-1 block">
-                        {t("bugReport.whatHappened")}
-                      </label>
-                      <textarea
-                        value={title}
-                        onChange={(e) => setTitle(e.target.value)}
-                        placeholder={t("bugReport.titlePlaceholder")}
-                        rows={4}
-                        className={cn(
-                          "w-full px-2.5 py-2 rounded-sm font-mohave text-body-sm text-text resize-none",
-                          "bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)]",
-                          "placeholder:text-text-mute",
-                          "focus:outline-none focus:border-[rgba(255,255,255,0.20)]/40",
-                          "transition-colors duration-150"
-                        )}
-                        autoFocus
-                      />
-                    </div>
-                  )}
+                    )}
 
-                  {isPowerUser && (
-                    /* Severity — optional. Writes to `priority` as a hint; admin
-                        can override during triage. Click active chip to clear. */
-                    <div>
-                      <label className="font-mono text-micro uppercase tracking-wider text-text-3 mb-1 block">
-                        {t("bugReport.severity")}
-                      </label>
-                      <div role="radiogroup" aria-label={t("bugReport.severity")} className="flex gap-1">
-                        {SEVERITY_OPTIONS.map((opt) => {
-                          const isActive = severity === opt.value;
-                          return (
-                            <button
-                              key={opt.value}
-                              type="button"
-                              role="radio"
-                              aria-checked={isActive}
-                              onClick={() => setSeverity(isActive ? null : opt.value)}
-                              className={cn(
-                                "flex-1 px-2 py-1.5 rounded-[4px] border transition-colors duration-150",
-                                "font-mono text-[10px] uppercase tracking-wider",
-                                isActive
-                                  ? "border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.08)] text-text"
-                                  : "border-[rgba(255,255,255,0.08)] bg-transparent text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.03)]"
-                              )}
-                            >
-                              {t(opt.labelKey)}
-                            </button>
-                          );
-                        })}
+                    {isPowerUser && (
+                      <div>
+                        <label className="font-mono text-micro uppercase tracking-wider text-text-3 mb-1 block">
+                          {t("bugReport.severity")}
+                        </label>
+                        <div role="radiogroup" aria-label={t("bugReport.severity")} className="flex gap-1">
+                          {SEVERITY_OPTIONS.map((opt) => {
+                            const isActive = severity === opt.value;
+                            return (
+                              <button
+                                key={opt.value}
+                                type="button"
+                                role="radio"
+                                aria-checked={isActive}
+                                onClick={() => setSeverity(isActive ? null : opt.value)}
+                                className={cn(
+                                  "flex-1 px-2 py-1.5 rounded-[4px] border transition-colors duration-150",
+                                  "font-mono text-[10px] uppercase tracking-wider",
+                                  isActive
+                                    ? "border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.08)] text-text"
+                                    : "border-[rgba(255,255,255,0.08)] bg-transparent text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.03)]"
+                                )}
+                              >
+                                {t(opt.labelKey)}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  {isPowerUser && (
-                    /* Requires-my-input toggle. When on, the nightly triage
-                        agent skips this report (written to requires_human_review). */
-                    <label
-                      className={cn(
-                        "w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-[4px] border transition-colors cursor-pointer",
-                        requiresMyInput
-                          ? "border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.06)]"
-                          : "border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] hover:border-[rgba(255,255,255,0.14)]"
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          "font-mono text-[10px] uppercase tracking-wider text-left",
-                          requiresMyInput ? "text-text-2" : "text-text-mute"
-                        )}
-                      >
-                        {requiresMyInput
-                          ? `[${t("bugReport.requiresInputOn")}]`
-                          : t("bugReport.requiresInputOff")}
-                      </span>
-                      <Switch
-                        checked={requiresMyInput}
-                        onCheckedChange={setRequiresMyInput}
-                      />
-                    </label>
-                  )}
-
-                  {/* Auto-captured context. Power user gets a screenshot toggle;
-                      minimal users get the screenshot attached silently. */}
-                  <div className="space-y-1.5">
-                    <p className="font-mono text-micro text-text-mute tracking-wider">
-                      {t("bugReport.autoCapture")}
-                    </p>
-                    {isPowerUser && screenshotBlob && (
+                    {isPowerUser && (
                       <label
                         className={cn(
-                          "w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-sm border transition-colors cursor-pointer",
-                          includeScreenshot
-                            ? "border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.05)]"
-                            : "border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)]"
+                          "w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-[4px] border transition-colors cursor-pointer",
+                          requiresMyInput
+                            ? "border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.06)]"
+                            : "border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] hover:border-[rgba(255,255,255,0.14)]"
                         )}
                       >
                         <span
                           className={cn(
-                            "font-mono text-micro tracking-wider uppercase text-left",
-                            includeScreenshot ? "text-ops-accent" : "text-text-mute"
+                            "font-mono text-[10px] uppercase tracking-wider text-left",
+                            requiresMyInput ? "text-text-2" : "text-text-mute"
                           )}
                         >
-                          {includeScreenshot
-                            ? `[ATTACH SCREENSHOT · ${Math.round(screenshotBlob.size / 1024)}KB]`
-                            : "[SCREENSHOT OFF]"}
+                          {requiresMyInput
+                            ? `[${t("bugReport.requiresInputOn")}]`
+                            : t("bugReport.requiresInputOff")}
                         </span>
                         <Switch
-                          checked={includeScreenshot}
-                          onCheckedChange={setIncludeScreenshot}
+                          checked={requiresMyInput}
+                          onCheckedChange={setRequiresMyInput}
                         />
                       </label>
                     )}
-                  </div>
 
-                  {/* Error state */}
-                  {formState === "error" && errorMessage && (
-                    <div className="flex items-start gap-1.5 px-2 py-1.5 rounded-sm border border-[rgba(220,80,80,0.3)] bg-[rgba(220,80,80,0.08)]">
-                      <AlertCircle className="w-3 h-3 text-[#E57373] mt-[2px] flex-shrink-0" />
-                      <p className="font-mono text-micro tracking-wider text-[#E57373] break-words">
-                        {errorMessage}
+                    <div className="space-y-1.5">
+                      <p className="font-mono text-micro text-text-mute tracking-wider">
+                        {t("bugReport.autoCapture")}
                       </p>
+                      {isPowerUser && screenshotBlob && (
+                        <label
+                          className={cn(
+                            "w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-sm border transition-colors cursor-pointer",
+                            includeScreenshot
+                              ? "border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.05)]"
+                              : "border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)]"
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              "font-mono text-micro tracking-wider uppercase text-left",
+                              includeScreenshot ? "text-ops-accent" : "text-text-mute"
+                            )}
+                          >
+                            {includeScreenshot
+                              ? `[ATTACH SCREENSHOT · ${Math.round(screenshotBlob.size / 1024)}KB]`
+                              : "[SCREENSHOT OFF]"}
+                          </span>
+                          <Switch
+                            checked={includeScreenshot}
+                            onCheckedChange={setIncludeScreenshot}
+                          />
+                        </label>
+                      )}
                     </div>
-                  )}
 
-                  {/* Submit */}
-                  <button
-                    onClick={handleSubmit}
-                    disabled={!title.trim() || formState === "submitting"}
-                    className={cn(
-                      "w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-sm",
-                      "font-mono text-micro uppercase tracking-wider",
-                      "transition-all duration-150",
-                      title.trim() && formState !== "submitting"
-                        ? "bg-[rgba(255,255,255,0.08)] text-ops-accent border border-[rgba(255,255,255,0.15)] hover:bg-ops-accent/30"
-                        : "bg-[rgba(255,255,255,0.04)] text-text-mute border border-[rgba(255,255,255,0.06)] cursor-not-allowed"
+                    {formState === "error" && errorMessage && (
+                      <div className="flex items-start gap-1.5 px-2 py-1.5 rounded-sm border border-[rgba(220,80,80,0.3)] bg-[rgba(220,80,80,0.08)]">
+                        <AlertCircle className="w-3 h-3 text-[#E57373] mt-[2px] flex-shrink-0" />
+                        <p className="font-mono text-micro tracking-wider text-[#E57373] break-words">
+                          {errorMessage}
+                        </p>
+                      </div>
                     )}
-                  >
-                    {formState === "submitting" ? (
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                    ) : (
-                      <Send className="w-3 h-3" />
-                    )}
-                    {formState === "submitting"
-                      ? t("bugReport.sending")
-                      : t("bugReport.submit")}
-                  </button>
-                </>
-              )}
-            </div>
-          </motion.div>
+
+                    <button
+                      onClick={handleSubmit}
+                      disabled={!title.trim() || formState === "submitting"}
+                      className={cn(
+                        "w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-sm",
+                        "font-mono text-micro uppercase tracking-wider",
+                        "transition-all duration-150",
+                        title.trim() && formState !== "submitting"
+                          ? "bg-[rgba(255,255,255,0.08)] text-ops-accent border border-[rgba(255,255,255,0.15)] hover:bg-ops-accent/30"
+                          : "bg-[rgba(255,255,255,0.04)] text-text-mute border border-[rgba(255,255,255,0.06)] cursor-not-allowed"
+                      )}
+                    >
+                      {formState === "submitting" ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <Send className="w-3 h-3" />
+                      )}
+                      {formState === "submitting"
+                        ? t("bugReport.sending")
+                        : t("bugReport.submit")}
+                    </button>
+                  </>
+                )}
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
-
-      {/* Bug button */}
-      <motion.button
-        onClick={handleOpen}
-        disabled={capturingScreenshot}
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={
-          prefersReducedMotion
-            ? { duration: 0 }
-            : { duration: 0.3, ease: [0.22, 1, 0.36, 1] }
-        }
-        className={cn(
-          "flex items-center gap-1.5 px-2 py-1.5 rounded-[5px]",
-          "glass-surface",
-          "hover:border-[rgba(255,255,255,0.18)]",
-          "transition-colors duration-150",
-          open && "!border-[rgba(255,255,255,0.20)]",
-          capturingScreenshot && "opacity-60 cursor-wait"
-        )}
-        title={t("bugReport.title")}
-      >
-        {capturingScreenshot ? (
-          <Loader2 className="w-[13px] h-[13px] text-text-mute animate-spin" />
-        ) : (
-          <Bug className="w-[13px] h-[13px] text-text-mute" />
-        )}
-        <span className="font-mono text-micro text-text-mute tracking-wider uppercase select-none">
-          {t("bugReport.label")}
-        </span>
-      </motion.button>
-    </div>
+    </>
   );
 }
