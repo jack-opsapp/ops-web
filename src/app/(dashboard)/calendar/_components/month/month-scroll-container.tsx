@@ -59,7 +59,12 @@ const EXTEND_STEP_MONTHS = 6;
 
 const MIN_CELL_HEIGHT = 80;
 const MAX_CELL_HEIGHT = 320;
-const DEFAULT_CELL_HEIGHT = 120;
+// Spec V2 (2026-05-02 / bug-5c19dc85): default density is too compressed on
+// laptop viewports (13–15", typically 1280–1470 wide × 700–900 tall). Bumped
+// from 120 → 140 so the default cell lands cleanly in the "standard" tier
+// with breathing room for 16px bars and 12px titles. Cmd-wheel zoom still
+// scales freely between MIN_CELL_HEIGHT and MAX_CELL_HEIGHT.
+const DEFAULT_CELL_HEIGHT = 140;
 const DAY_NUMBER_HEIGHT = 24;
 const SLOT_GAP = 2;
 const MORE_ROW_HEIGHT = 14;
@@ -107,14 +112,19 @@ function getDisplayLevel(cellHeight: number): DisplayLevel {
 
 function getSlotHeight(level: DisplayLevel, isSingleDay: boolean): number {
   if (level === "compact") return 10;
-  if (level === "standard") return 14;
-  return isSingleDay ? 42 : 14;
+  // Spec V2 (bug-5c19dc85): 14 → 16 in standard tier so 12px titles get
+  // proper line height on laptop viewports. Multi-day expanded bars match
+  // the standard slot height.
+  if (level === "standard") return 16;
+  return isSingleDay ? 42 : 16;
 }
 
 function getMaxSlots(cellHeight: number, level: DisplayLevel): number {
   const available = cellHeight - DAY_NUMBER_HEIGHT - MORE_ROW_HEIGHT;
   if (available <= 0) return 0;
-  const baseHeight = level === "compact" ? 10 : 14;
+  // Standard / expanded use the same multi-day base height (16) for slot
+  // packing math.
+  const baseHeight = level === "compact" ? 10 : 16;
   return Math.max(1, Math.floor((available + SLOT_GAP) / (baseHeight + SLOT_GAP)));
 }
 
@@ -719,7 +729,9 @@ export function MonthScrollContainer({
     }
   }, []);
 
-  const baseSlotHeight = displayLevel === "compact" ? 10 : 14;
+  // Mirrors getSlotHeight for placement math. 14 → 16 in standard/expanded
+  // (bug-5c19dc85).
+  const baseSlotHeight = displayLevel === "compact" ? 10 : 16;
 
   // Held for parity with week / day views; this view doesn't snap.
   useCalendarDragState();

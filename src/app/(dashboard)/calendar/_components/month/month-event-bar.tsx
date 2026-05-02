@@ -463,6 +463,9 @@ export function MonthEventBar({
   }
 
   // ── Level 2: Standard — short bar with single-line title ──
+  // Bug-5c19dc85: bumped from 14px height / 11px font to 16px / 12px so
+  // titles read cleanly on 13–15" laptop viewports without overflowing
+  // adjacent calendar columns.
   if (displayLevel === "standard") {
     const showStripe = !isPersonal && (span.isFirstSegment || span.isSingleDay);
     return (
@@ -471,7 +474,7 @@ export function MonthEventBar({
           ref={barRef}
           className="cursor-pointer truncate relative"
           style={{
-            height: 14,
+            height: 16,
             background: barBg,
             border: `1px solid ${barBorder}`,
             borderRadius,
@@ -498,7 +501,7 @@ export function MonthEventBar({
           {StripeAccent(showStripe)}
           {isPersonal && (
             <Star
-              size={9}
+              size={10}
               strokeWidth={1.5}
               style={{ color: PERSONAL_TEXT, fill: PERSONAL_TEXT, flexShrink: 0 }}
               aria-hidden="true"
@@ -506,12 +509,12 @@ export function MonthEventBar({
           )}
           <span
             className="font-mohave truncate"
-            style={{ fontSize: 11, lineHeight: "14px", color: barText }}
+            style={{ fontSize: 12, lineHeight: "16px", color: barText }}
           >
             {event.projectTitle ?? event.taskTitle}
           </span>
-          {showLeftHandle && <Handle edge="left" height={14} />}
-          {showRightHandle && <Handle edge="right" height={14} />}
+          {showLeftHandle && <Handle edge="left" height={16} />}
+          {showRightHandle && <Handle edge="right" height={16} />}
           {renderEdgePreview("left")}
           {renderEdgePreview("right")}
         </div>
@@ -521,7 +524,8 @@ export function MonthEventBar({
 
   // ── Level 3: Expanded ──
 
-  // Multi-day events stay 14px even at expanded level
+  // Multi-day events stay slim even at expanded level — bumped to 16px
+  // (bug-5c19dc85) for laptop legibility, matching standard-tier bars.
   if (!span.isSingleDay) {
     const showStripe = !isPersonal && span.isFirstSegment;
     const showStarLead = isPersonal && span.isFirstSegment;
@@ -531,7 +535,7 @@ export function MonthEventBar({
           ref={barRef}
           className="cursor-pointer truncate relative"
           style={{
-            height: 14,
+            height: 16,
             background: barBg,
             border: `1px solid ${barBorder}`,
             borderRadius,
@@ -558,7 +562,7 @@ export function MonthEventBar({
           {StripeAccent(showStripe)}
           {showStarLead && (
             <Star
-              size={9}
+              size={10}
               strokeWidth={1.5}
               style={{ color: PERSONAL_TEXT, fill: PERSONAL_TEXT, flexShrink: 0 }}
               aria-hidden="true"
@@ -566,12 +570,12 @@ export function MonthEventBar({
           )}
           <span
             className="font-mohave truncate"
-            style={{ fontSize: 11, lineHeight: "14px", color: barText }}
+            style={{ fontSize: 12, lineHeight: "16px", color: barText }}
           >
             {event.projectTitle ?? event.taskTitle}
           </span>
-          {showLeftHandle && <Handle edge="left" height={14} />}
-          {showRightHandle && <Handle edge="right" height={14} />}
+          {showLeftHandle && <Handle edge="left" height={16} />}
+          {showRightHandle && <Handle edge="right" height={16} />}
           {renderEdgePreview("left")}
           {renderEdgePreview("right")}
         </div>
