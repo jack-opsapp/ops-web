@@ -131,6 +131,7 @@ export function QuickActionsDrawer() {
               exit="exit"
               role="complementary"
               aria-label={t("drawer.ariaLabel")}
+              data-edge-tab-drawer="quick-actions"
               style={{
                 position: "absolute",
                 top: `calc(50% + ${STACK_OFFSET_QA - PANEL_H / 2}px)`,

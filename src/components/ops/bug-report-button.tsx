@@ -359,6 +359,7 @@ export function BugReportButton() {
               transition={{ duration: prefersReducedMotion ? 0.15 : 0.26, ease: [0.22, 1, 0.36, 1] }}
               role="dialog"
               aria-label={t("bugReport.title")}
+              data-edge-tab-drawer="bug-report"
               style={{
                 position: "absolute",
                 top: `calc(50% + ${STACK_OFFSET_BUG - PANEL_H / 2}px)`,

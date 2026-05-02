@@ -15,6 +15,7 @@ import { NotificationsDrawer } from "@/components/layouts/notifications-drawer";
 import { NotificationsTab } from "@/components/layouts/notifications-tab";
 import { QuickActionsDrawer } from "@/components/layouts/quick-actions-drawer";
 import { QuickActionsTab } from "@/components/layouts/quick-actions-tab";
+import { EdgeTabOutsideDismiss } from "@/components/layouts/edge-tab-outside-dismiss";
 import { DuplicateReviewSheet } from "@/components/ops/duplicate-review-sheet";
 import { useActionPrompts } from "@/hooks/useActionPrompts";
 import { useWindowStore } from "@/stores/window-store";
@@ -246,6 +247,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       <NotificationsTab />
       <QuickActionsDrawer />
       <QuickActionsTab />
+      <EdgeTabOutsideDismiss />
       <DuplicateReviewSheet />
       <WindowDock />
 

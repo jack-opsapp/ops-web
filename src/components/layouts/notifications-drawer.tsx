@@ -199,6 +199,7 @@ export function NotificationsDrawer() {
           exit="exit"
           role="complementary"
           aria-label={t("drawer.ariaLabel")}
+          data-edge-tab-drawer="notifications"
           style={{
             position: "fixed",
             top: 72,
