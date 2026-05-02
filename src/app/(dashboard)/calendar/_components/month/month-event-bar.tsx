@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import { format } from "date-fns";
+import { addDays, differenceInCalendarDays, format, parseISO } from "date-fns";
 import { Star } from "lucide-react";
 import { type InternalCalendarEvent } from "@/lib/utils/calendar-utils";
 import { useCalendarStore } from "@/stores/calendar-store";
@@ -73,7 +73,9 @@ function useEdgeResize(
   const [resize, setResize] = useState<{
     edge: "left" | "right";
     initialX: number;
-    deltaPx: number;
+    initialY: number;
+    clientX: number;
+    clientY: number;
   } | null>(null);
   const resizeRef = useRef(resize);
   resizeRef.current = resize;
@@ -88,11 +90,88 @@ function useEdgeResize(
     return rect.width / 7;
   }, [barRef]);
 
+  // Find the calendar day under a (clientX, clientY) cursor position by
+  // hit-testing every rendered week row in the document. Returns the date
+  // representing the day cell directly under the cursor, or null when the
+  // cursor sits outside any week row (e.g. above/below the calendar).
+  //
+  // This is what enables vertical-row crossing during resize: the user can
+  // drag the right edge down into the next week's row and the bar will
+  // extend by a full week (or more), instead of only tracking horizontal
+  // pixel delta on the original row.
+  const resolveDayUnderCursor = useCallback(
+    (clientX: number, clientY: number): Date | null => {
+      const el = barRef.current;
+      if (!el) return null;
+      const ownerDoc = el.ownerDocument ?? document;
+      const rows = Array.from(
+        ownerDoc.querySelectorAll<HTMLElement>("[data-month-week-row]")
+      );
+      if (rows.length === 0) return null;
+
+      // 1) Find the row whose vertical bounds contain clientY. If the cursor
+      //    sits above the top row or below the bottom row, snap to the
+      //    nearest row so an aggressive drag past the calendar still lands.
+      let chosenRow: HTMLElement | null = null;
+      let chosenRect: DOMRect | null = null;
+      for (const row of rows) {
+        const r = row.getBoundingClientRect();
+        if (clientY >= r.top && clientY <= r.bottom) {
+          chosenRow = row;
+          chosenRect = r;
+          break;
+        }
+      }
+      if (!chosenRow || !chosenRect) {
+        // Snap to closest by vertical distance.
+        let bestDist = Infinity;
+        for (const row of rows) {
+          const r = row.getBoundingClientRect();
+          const center = (r.top + r.bottom) / 2;
+          const dist = Math.abs(clientY - center);
+          if (dist < bestDist) {
+            bestDist = dist;
+            chosenRow = row;
+            chosenRect = r;
+          }
+        }
+      }
+      if (!chosenRow || !chosenRect) return null;
+
+      const weekStartAttr = chosenRow.getAttribute("data-week-start");
+      if (!weekStartAttr) return null;
+      let weekStart: Date;
+      try {
+        weekStart = parseISO(weekStartAttr);
+        if (Number.isNaN(weekStart.getTime())) return null;
+      } catch {
+        return null;
+      }
+
+      // 2) Within the chosen row, compute column index 0..6 from clientX.
+      const colWidth = chosenRect.width / 7;
+      if (!colWidth || colWidth <= 0) return null;
+      const offsetX = Math.max(
+        0,
+        Math.min(chosenRect.width - 1, clientX - chosenRect.left)
+      );
+      const colIdx = Math.max(0, Math.min(6, Math.floor(offsetX / colWidth)));
+      return addDays(weekStart, colIdx);
+    },
+    [barRef]
+  );
+
   const handleResizeStart = useCallback(
     (edge: "left" | "right") => (e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      setResize({ edge, initialX: e.clientX, deltaPx: 0 });
+      setResize({
+        edge,
+        initialX: e.clientX,
+        initialY: e.clientY,
+        clientX: e.clientX,
+        clientY: e.clientY,
+      });
     },
     []
   );
@@ -102,7 +181,7 @@ function useEdgeResize(
 
     const onMouseMove = (mv: MouseEvent) => {
       setResize((prev) =>
-        prev ? { ...prev, deltaPx: mv.clientX - prev.initialX } : null
+        prev ? { ...prev, clientX: mv.clientX, clientY: mv.clientY } : null
       );
     };
     const onMouseUp = () => {
@@ -111,9 +190,30 @@ function useEdgeResize(
       window.removeEventListener("mouseup", onMouseUp);
       setResize(null);
       if (!state) return;
+
+      // Two-pass commit:
+      // 1) Preferred path — locate the day cell directly under the cursor
+      //    and compute dayDelta as the absolute calendar difference between
+      //    that target day and the edge being dragged. This is what makes
+      //    vertical row-crossing work (extend +1 week by dragging into the
+      //    row below).
+      // 2) Fallback — if the cursor is somehow outside any rendered week
+      //    row, fall back to the legacy horizontal pixel-to-day calculation
+      //    so a single-row resize still commits.
+      const targetDay = resolveDayUnderCursor(state.clientX, state.clientY);
+      if (targetDay) {
+        const anchor =
+          state.edge === "right" ? event.endDate : event.startDate;
+        const dayDelta = differenceInCalendarDays(targetDay, anchor);
+        if (dayDelta === 0) return;
+        onResize?.(event, state.edge, dayDelta);
+        return;
+      }
+
       const colWidth = resolveDayColumnWidth();
       if (!colWidth || colWidth <= 0) return;
-      const dayDelta = Math.round(state.deltaPx / colWidth);
+      const deltaPx = state.clientX - state.initialX;
+      const dayDelta = Math.round(deltaPx / colWidth);
       if (dayDelta === 0) return;
       onResize?.(event, state.edge, dayDelta);
     };
@@ -123,14 +223,21 @@ function useEdgeResize(
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("mouseup", onMouseUp);
     };
-  }, [resize, resolveDayColumnWidth, onResize, event]);
+  }, [resize, resolveDayColumnWidth, resolveDayUnderCursor, onResize, event]);
 
-  // Live preview: snap the deltaPx to integer day units for visual feedback.
+  // Live preview: derive integer day delta from the cursor's position in the
+  // calendar. Mirrors the commit logic so the dashed overlay matches what
+  // will land on mouse-up — including row-crossing extensions.
   const previewDayDelta = (() => {
     if (!resize) return 0;
+    const targetDay = resolveDayUnderCursor(resize.clientX, resize.clientY);
+    if (targetDay) {
+      const anchor = resize.edge === "right" ? event.endDate : event.startDate;
+      return differenceInCalendarDays(targetDay, anchor);
+    }
     const colWidth = resolveDayColumnWidth();
     if (!colWidth || colWidth <= 0) return 0;
-    return Math.round(resize.deltaPx / colWidth);
+    return Math.round((resize.clientX - resize.initialX) / colWidth);
   })();
 
   return {

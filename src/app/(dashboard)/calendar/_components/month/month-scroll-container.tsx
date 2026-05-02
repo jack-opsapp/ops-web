@@ -831,6 +831,7 @@ export function MonthScrollContainer({
                 <div
                   key={weekKey}
                   data-month-week-row
+                  data-week-start={weekKey}
                   className="grid grid-cols-7 relative"
                   style={{
                     height: cellHeight,
