@@ -753,7 +753,19 @@ async function processInboundEmail(
     return false; // Matched by pattern
   }
 
-  // Unmatched — will be sent to AI classification if feature-gated
+  // Unmatched — upsert into email_threads so it appears in inbox,
+  // then send to AI classification if feature-gated.
+  try {
+    await EmailThreadService.upsertFromEmail({
+      companyId: connection.companyId,
+      connectionId: connection.id,
+      providerThreadId: email.threadId,
+      email,
+      direction: "inbound",
+    });
+  } catch (err) {
+    console.error("[sync-engine] upsertFromEmail failed for unmatched email (non-fatal):", err);
+  }
   return true;
 }
 

@@ -567,6 +567,32 @@ export const EmailThreadService = {
         }
       }
 
+      // If this thread links to a client whose name is still a raw email
+      // address, backfill it now that we have the sender's display name.
+      // Skip when senderName itself is an email (composeSenderName fallback).
+      const linkedClientId =
+        (update.client_id as string | undefined) ??
+        (existing.client_id as string | null) ??
+        null;
+      if (
+        linkedClientId &&
+        senderName &&
+        !senderName.includes("@") &&
+        direction === "inbound"
+      ) {
+        const { data: clientRow } = await supabase
+          .from("clients")
+          .select("id, name")
+          .eq("id", linkedClientId)
+          .single();
+        if (clientRow && clientRow.name?.includes("@")) {
+          await supabase
+            .from("clients")
+            .update({ name: senderName })
+            .eq("id", linkedClientId);
+        }
+      }
+
       const { data: updated, error: updError } = await supabase
         .from("email_threads")
         .update(update)
@@ -597,6 +623,28 @@ export const EmailThreadService = {
         Array.from(participants)
       )) ??
       null;
+
+    // If the matched client's name is still a raw email address, backfill
+    // it with the sender's display name now that we have it. Skip when
+    // senderName itself is an email (composeSenderName fallback).
+    if (
+      autoClientId &&
+      senderName &&
+      !senderName.includes("@") &&
+      direction === "inbound"
+    ) {
+      const { data: clientRow } = await supabase
+        .from("clients")
+        .select("id, name")
+        .eq("id", autoClientId)
+        .single();
+      if (clientRow && clientRow.name?.includes("@")) {
+        await supabase
+          .from("clients")
+          .update({ name: senderName })
+          .eq("id", autoClientId);
+      }
+    }
 
     const insert: Record<string, unknown> = {
       company_id: companyId,

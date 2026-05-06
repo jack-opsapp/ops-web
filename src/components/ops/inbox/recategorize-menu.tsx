@@ -21,6 +21,7 @@ import {
 import { useThreadActions } from "@/lib/hooks/use-inbox-threads";
 import { CategoryChip, categoryLabel } from "./category-chip";
 import { enqueueUndoToast } from "./undo-toast";
+import { toast } from "sonner";
 
 interface RecategorizeMenuProps {
   threadId: string;
@@ -84,22 +85,23 @@ export function RecategorizeMenu({
       setOpen(false);
       setNote("");
 
-      recategorize.mutate({
-        threadId,
-        toCategory: next,
-        note: noteToSend,
-      });
-
-      enqueueUndoToast({
-        message: `Marked as ${categoryLabel(next)}`,
-        detail: "Phase C will learn from this correction.",
-        onUndo: () => {
-          recategorize.mutate({
-            threadId,
-            toCategory: currentCategory,
-          });
-        },
-      });
+      recategorize.mutate(
+        { threadId, toCategory: next, note: noteToSend },
+        {
+          onSuccess: () => {
+            enqueueUndoToast({
+              message: `Marked as ${categoryLabel(next)}`,
+              detail: "Phase C will learn from this correction.",
+              onUndo: () => {
+                recategorize.mutate({ threadId, toCategory: currentCategory });
+              },
+            });
+          },
+          onError: () => {
+            toast.error("Failed to reclassify thread");
+          },
+        }
+      );
     },
     [note, recategorize, threadId, currentCategory, setOpen]
   );

@@ -165,6 +165,7 @@ function DraftPill({ source }: { source: "provider" | "ai" }) {
 
 function LabelChip({ label }: { label: EmailThreadLabel }) {
   const meta = LABEL_META[label];
+  if (!meta) return null;
   const Icon = meta.icon;
   const tone =
     meta.tone === "warn"
@@ -566,6 +567,7 @@ export function ConversationList({
   const isFetchingNextPage = draftMode ? false : threadsQuery.isFetchingNextPage;
   const hasNextPage = draftMode ? false : threadsQuery.hasNextPage;
   const fetchNextPage = threadsQuery.fetchNextPage;
+  const refetch = threadsQuery.refetch;
 
   const threads = useMemo(
     () => data?.pages.flatMap((p) => p.threads) ?? [],
@@ -809,16 +811,24 @@ export function ConversationList({
 
   if (isError) {
     return (
-      <div className="flex-1 flex flex-col items-start justify-start px-4 py-6">
-        <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-rose">
-          {"// Error"}
-        </p>
-        <p className="font-mohave text-[13px] text-text mt-1">
-          Couldn&apos;t load your inbox.
-        </p>
-        <p className="font-mohave text-[12px] text-text-3 mt-0.5">
-          Try again in a moment. If it keeps failing, sign out and back in.
-        </p>
+      <div className="flex-1 flex items-center justify-center p-6">
+        <div className="bg-[rgba(18,18,20,0.58)] backdrop-blur-[28px] border border-white/[0.09] rounded-[10px] p-6 flex flex-col items-start gap-3 max-w-[280px] w-full">
+          <AlertTriangle className="w-5 h-5 text-status-error" strokeWidth={1.5} />
+          <div>
+            <p className="font-cakemono font-light text-[11px] uppercase tracking-[0.18em] text-text">
+              {"// SYNC ERROR"}
+            </p>
+            <p className="font-mohave text-[13px] text-text-3 mt-1">
+              Inbox failed to load. Check your connection and try again.
+            </p>
+          </div>
+          <button
+            onClick={() => refetch()}
+            className="font-cakemono font-light text-[10px] uppercase tracking-[0.18em] border border-ops-accent text-ops-accent px-3 py-1.5 rounded-[5px] hover:bg-ops-accent hover:text-black transition-colors"
+          >
+            Retry
+          </button>
+        </div>
       </div>
     );
   }
