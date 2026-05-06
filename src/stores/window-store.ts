@@ -53,7 +53,7 @@ function getDefaultPosition(existingCount: number, size = DEFAULT_SIZE): { x: nu
 
 export const useWindowStore = create<WindowStoreState>()((set, get) => ({
   windows: [],
-  nextZIndex: 100,
+  nextZIndex: 2000,
 
   openWindow: ({ id, title, type, metadata }) => {
     const { windows, nextZIndex } = get();

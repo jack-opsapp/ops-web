@@ -298,15 +298,17 @@ export async function fetchPipelineMetrics(companyId: string): Promise<MetricCol
     .from("opportunities")
     .select("id, stage, estimated_value, stage_entered_at, created_at")
     .eq("company_id", companyId)
-    .is("deleted_at", null));
+    .is("deleted_at", null)
+    .is("archived_at", null));
 
-  const openStages = opportunities.filter((o) => o.stage !== "won" && o.stage !== "lost");
+  const openStages = opportunities.filter((o) => o.stage !== "won" && o.stage !== "lost" && o.stage !== "discarded");
   const pipelineValue = openStages.reduce((sum, o) => sum + Number(o.estimated_value ?? 0), 0);
   const won = opportunities.filter((o) => o.stage === "won");
   const lost = opportunities.filter((o) => o.stage === "lost");
   const winRate = (won.length + lost.length) > 0 ? (won.length / (won.length + lost.length)) * 100 : 0;
-  const avgDeal = openStages.length > 0
-    ? openStages.reduce((sum, o) => sum + Number(o.estimated_value ?? 0), 0) / openStages.length
+  const openWithValue = openStages.filter((o) => Number(o.estimated_value ?? 0) > 0);
+  const avgDeal = openWithValue.length > 0
+    ? openWithValue.reduce((sum, o) => sum + Number(o.estimated_value ?? 0), 0) / openWithValue.length
     : 0;
 
   const transitions = rows(await supabase

@@ -302,7 +302,7 @@ export default function EmployeeSetupPage() {
   return (
     <div className="w-full max-w-[480px] mx-auto">
       {/* Logo */}
-      <h1 className="text-text mb-4">
+      <h1 className="text-text mb-4 flex justify-center">
         <span className="sr-only">OPS</span>
         {/* Onboarding splash uses the horizontal lockup per logo ruleset
             (docs/brand/logo-system.md) — vertical-stack is reserved for

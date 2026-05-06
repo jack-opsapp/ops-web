@@ -626,13 +626,15 @@ export default function SetupPage() {
       <h1
         ref={headingRef}
         tabIndex={-1}
-        className="text-text mb-4 focus:outline-none"
+        className="text-text mb-4 focus:outline-none flex justify-center"
       >
         <span className="sr-only">OPS</span>
         {/* Setup splash uses the horizontal lockup per logo ruleset
             (docs/brand/logo-system.md) — vertical-stack is reserved for
-            full-screen hero contexts (locked, PIN, lockout). */}
-        <OpsLockup orientation="horizontal" className="h-16 w-auto mx-auto" title="" />
+            full-screen hero contexts (locked, PIN, lockout). The flex
+            wrapper centers the inline-block SVG; `mx-auto` alone has no
+            effect on inline-block. */}
+        <OpsLockup orientation="horizontal" className="h-16 w-auto" title="" />
       </h1>
 
       {/* Glass surface card */}

@@ -167,7 +167,7 @@ export const useInterviewStore = create<InterviewState>()(
       ...INITIAL_STATE,
 
       startInterview: () => {
-        set({ phase: "intro" });
+        set({ phase: "interviewing" });
       },
 
       addAgentMessage: (content: string, questionId?: string) => {

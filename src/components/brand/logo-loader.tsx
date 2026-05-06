@@ -41,27 +41,42 @@ export const LogoLoader: React.FC<LogoLoaderProps> = ({
   className,
 }) => {
   const reduced = useReducedMotion();
+  const [iframeFailed, setIframeFailed] = React.useState(false);
+  const iframeLoadedRef = React.useRef(false);
 
-  if (reduced) {
-    return (
-      <div
-        className={cn("inline-flex items-center justify-center", className)}
-        style={{ width: size, height: size }}
+  // If the iframe doesn't fire `load` within 1500ms, fall back to the static
+  // lockup. The Babel-in-iframe path can fail silently in some sandbox/CSP
+  // configurations, leaving a blank box where the loader should be.
+  React.useEffect(() => {
+    if (reduced) return;
+    const timer = setTimeout(() => {
+      if (!iframeLoadedRef.current) setIframeFailed(true);
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [reduced]);
+
+  const StaticLockup = (
+    <div
+      className={cn("inline-flex items-center justify-center", className)}
+      style={{ width: size, height: size }}
+    >
+      <motion.span
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.6, ease: EASE_SMOOTH }}
+        style={{ color: color ?? "#EDEDED", display: "inline-flex" }}
       >
-        <motion.span
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.6, ease: EASE_SMOOTH }}
-          style={{ color: color ?? "#EDEDED", display: "inline-flex" }}
-        >
-          <OpsLockup
-            orientation="horizontal"
-            title=""
-            style={{ height: "1em", width: "auto", color: "currentColor" }}
-          />
-        </motion.span>
-      </div>
-    );
+        <OpsLockup
+          orientation="horizontal"
+          title=""
+          style={{ height: "1em", width: "auto", color: "currentColor" }}
+        />
+      </motion.span>
+    </div>
+  );
+
+  if (reduced || iframeFailed) {
+    return StaticLockup;
   }
 
   // Build the iframe URL. Pass mode + colour overrides as query params; the
@@ -78,6 +93,10 @@ export const LogoLoader: React.FC<LogoLoaderProps> = ({
       <iframe
         src={src}
         title="OPS"
+        onLoad={() => {
+          iframeLoadedRef.current = true;
+        }}
+        onError={() => setIframeFailed(true)}
         style={{
           width: "100%",
           height: "100%",

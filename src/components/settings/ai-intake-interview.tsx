@@ -416,8 +416,7 @@ export function AiIntakeInterview({ onComplete }: AiIntakeInterviewProps) {
 
   const handleStartInterview = useCallback(() => {
     startInterview();
-    setPhase("interviewing");
-  }, [startInterview, setPhase]);
+  }, [startInterview]);
 
   const handleSubmit = useCallback(async () => {
     if (!inputValue.trim() || isProcessing || !currentQuestion) return;
