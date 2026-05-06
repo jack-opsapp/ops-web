@@ -332,14 +332,14 @@ Earth-tone tags ONLY when the color carries semantic meaning. Default is neutral
 
 ## Right-Edge Action Tabs
 
-The right edge of the canvas houses a stack of tactical action tabs — slim 28px vertical tabs flush against `right: 0`, each pairing with its own drawer. The current instances are **Notifications** (`N`) and **Quick Actions** (`Q`). Both render through the shared `<EdgeTab>` primitive at `src/components/ui/edge-tab.tsx`.
+The right edge of the canvas houses a stack of tactical action tabs — slim 28px vertical tabs flush against `right: 0`, each pairing with its own drawer. The current instances are **Notifications** (`N`), **Quick Actions** (`Q`), and **Bug Report** (`` ` ``). All three render through the shared `<EdgeTab>` primitive at `src/components/ui/edge-tab.tsx`.
 
 ### Anatomy
 
 | Element | Spec |
 |---------|------|
 | Tab width | `28px` always |
-| Tab rest height | Per instance — Notifications `180px`, Quick Actions `132px` |
+| Tab rest height | Per instance — Notifications `180px`, Quick Actions `132px`, Bug Report `100px` |
 | Tab expanded height (hover or open) | Matches paired drawer height (animates `top` + `height` simultaneously, never `bottom`/`transform`) |
 | Background | `var(--glass)` |
 | Backdrop | `blur(28px) saturate(1.3)` |
@@ -359,6 +359,7 @@ The left accent stripe is **always painted** — never empty. Color derives from
 |---|---|---|---|
 | Notifications | `--ops-accent` (steel blue) | `--rose` | `--tan` |
 | Quick Actions | `--ops-accent` (steel blue, always — actions have no severity tone) | — | — |
+| Bug Report | `--text-mute` (ambient — bug submission is voluntary, not urgent) | — | — |
 
 ### Stacking on the Right Edge
 
@@ -373,27 +374,39 @@ tab2.stackOffset = +(midpoint - tab2.restHeight/2)   // positive = below center
 
 For Notifications (180) + Quick Actions (132): `STACK_OFFSET_NOTIF = -94`, `STACK_OFFSET_QA = +94`. When a tab expands (hover or open), `top` and `height` interpolate smoothly to fill the paired drawer's footprint — `top` becomes `0` and `height` becomes `100%` of the rail anchor.
 
+**Bug Report (100px)** sits below Quick Actions in a three-stack arrangement:
+
+```
+Notifications  center −94 (above mid)   spans −184 → −4
+gap                       8 px
+Quick Actions  center +94 (below mid)   spans  +28 → +160
+gap                       8 px
+Bug Report     center +218               spans +168 → +268
+```
+
+`STACK_OFFSET_BUG = +218`. The third tab keeps the same 8px gap between siblings — it does not re-center the stack on the rail midpoint, so opening Bug Report doesn't shift the existing two tabs. On viewports where +268 would clip below the rail bottom, the EdgeTab's `maxHeight: calc(100vh - (railTop + railBottom))` clamp keeps everything visible.
+
 ### Drawer Pairing
 
 Each tab pairs with **one** drawer. Two drawers cannot be open simultaneously — `useEdgeTabStore` enforces single-slot mutual exclusion via `activeTab: string | null`. Opening Quick Actions atomically closes Notifications and vice versa.
 
-| Drawer style | Use when | Notifications | Quick Actions |
-|---|---|---|---|
-| **Full-rail** | Content needs vertical room (lists, filtering, scroll) | ✓ `top: 72; bottom: 16` | — |
-| **Panel-anchored** | Content is finite and static (action menus, settings) | — | ✓ 308×452, anchored to tab vertical center via `stackOffset` math |
+| Drawer style | Use when | Notifications | Quick Actions | Bug Report |
+|---|---|---|---|---|
+| **Full-rail** | Content needs vertical room (lists, filtering, scroll) | ✓ `top: 72; bottom: 16` | — | — |
+| **Panel-anchored** | Content is finite and static (action menus, settings, single forms) | — | ✓ 308×452, anchored to tab vertical center via `stackOffset` math | ✓ 360×520, anchored at `STACK_OFFSET_BUG` |
 
 ### Drawer Surface
 
-| Property | Full-rail (Notif) | Panel (Quick Actions) |
-|---|---|---|
-| Width | `min(360px, calc(100vw - 36px))` | `308px` |
-| Height | `calc(100vh - 88px)` (full rail) | `452px` (panel) |
-| Background | `var(--glass)` (0.58 alpha) | `rgba(32, 34, 38, 0.92)` (denser, slightly lighter tone — content is action-list dense, needs higher legibility) |
-| Border | `1px solid var(--glass-border)` (0.09) | `1px solid rgba(255,255,255,0.18)` (denser to match denser fill) |
-| Border-right | `none` | `none` |
-| Border-radius | `0` (flat against edge) | `0` (flat against edge) |
-| Top-edge highlight | `linear-gradient(180deg, rgba(255,255,255,0.04), transparent 40%)` | Same — both drawers carry the lit-from-above spec v2 highlight |
-| z-index | `1500` (floating-ui) | `1500` |
+| Property | Full-rail (Notif) | Panel (Quick Actions) | Panel (Bug Report) |
+|---|---|---|---|
+| Width | `min(360px, calc(100vw - 36px))` | `308px` | `360px` (clamped to viewport) |
+| Height | `calc(100vh - 88px)` (full rail) | `452px` (panel) | `520px` (panel) |
+| Background | `var(--glass)` (0.58 alpha) | `rgba(32, 34, 38, 0.92)` | `rgba(32, 34, 38, 0.92)` (matches QA — form-dense, needs legibility) |
+| Border | `1px solid var(--glass-border)` (0.09) | `1px solid rgba(255,255,255,0.18)` | `1px solid rgba(255,255,255,0.18)` |
+| Border-right | `none` | `none` | `none` |
+| Border-radius | `0` (flat against edge) | `0` (flat against edge) | `0` (flat against edge) |
+| Top-edge highlight | `linear-gradient(180deg, rgba(255,255,255,0.04), transparent 40%)` | Same | Same |
+| z-index | `1500` (floating-ui) | `1500` | `1500` |
 
 ### Open Animation
 
@@ -425,6 +438,7 @@ Single-letter, no modifier, registered globally with input/textarea/contentedita
 |---|---|
 | Notifications | `N` |
 | Quick Actions | `Q` |
+| Bug Report | `` ` `` (backtick) |
 
 `Escape` closes the active drawer. Both shortcuts mount via document keydown listener and check:
 
@@ -641,6 +655,52 @@ import { KeyHint } from "@/components/ui/key-hint";
 - Border: `border`
 - Color pattern: `text-{color} bg-{color}/15 border-{color}/30`
 - MUST use WidgetStatusBadge component — never hand-roll badge styling
+
+---
+
+## Calendar Badges (event bars in `/calendar`)
+
+The month, week, day, and crew views all render the same logical artifact — an event badge sitting on top of a day cell. The day cell carries weekend tinting, today highlight, and grid overlays, so the badge fill must opaque enough that none of those bleed through.
+
+**Task events (`kind === "task"`) — single rule across all sizes (sm / md / lg):**
+
+- Background: `rgba(255, 255, 255, 0.04)` (frosted-glass tint, neutral)
+- Border: 1px hairline of the badge's status hue at alpha 0.30 — derived from the type color via `hairlineBorder(typeColors.border)`
+- Text: status-tone color (`typeColors.text`)
+- The full-strength type stripe (3–4px) on the leading edge stays — it is the primary type signal
+- The right-side type chip stays uppercase Cake Mono Light at 9–10px
+
+### Special-event treatments (non-color signal)
+
+The special-events row in the crew view, plus any month/week/day rendering of personal or time-off events, MUST use the non-color signal below. Task type colors can land on any palette and would visually merge into special events otherwise.
+
+| Kind | Background | Border | Glyph | Text |
+|------|------------|--------|-------|------|
+| `personal` | `rgba(255, 255, 255, 0.10)` | `rgba(255, 255, 255, 0.20)` | Lucide `Star` (filled, 1.5px stroke) | `#FFFFFF` |
+| `time_off` | `rgba(196, 168, 104, 0.06)` | `rgba(196, 168, 104, 0.30)` (`--tan`) | Lucide `TreePalm` (1.5px stroke) | `#C4A868` (`--tan`) |
+
+Special events drop the type stripe and type chip. The leading glyph (Star or TreePalm) carries the kind signal. (Bugs `0342efaf` time-off, `89a5d774` personal.)
+
+**Status-locked badges** (completed / cancelled): full-strength border + dimming overlay overrides the hairline rule.
+
+The badge MUST use this surface — direct status-fill (`event.typeColors.bg` at 18% alpha) leaves day cells visible behind the bar and was retired (bug 7424ea4f).
+
+### Today cell (highlighted day in month / week / day / crew)
+
+The cell containing `today` reads with a frosted-glass tint of the primary accent so the operator can spot it at a glance even on a busy month grid. (Bug `a561f726`.)
+
+| Property | Value |
+|----------|-------|
+| Background | `var(--ops-accent-soft)` (`rgba(111, 148, 176, 0.12)`) |
+| Border / inset highlight | `var(--ops-accent-line)` (`rgba(111, 148, 176, 0.30)`) — month grid uses `box-shadow: inset 0 0 0 1px ...` to avoid replacing the cell's right grid border |
+| Drop-target hover (drag-over) | `rgba(111, 148, 176, 0.18)` — brightens above today fill so a drag indicator always reads as the strongest signal |
+| Today badge / chip (header) | `var(--ops-accent)` solid fill, black text, 4px radius |
+
+The previous 0.06-alpha tint read identical to the weekend tint and was indistinguishable on busy weeks. The new 0.12 + accent-line border keeps today readable without competing with task badges.
+
+### Unscheduled tray dock side
+
+The unscheduled tray docks **LEFT** in every view (month / week / day / crew). The tray is a secondary panel — left-side placement matches the sidebar / filter rail mental model and avoids the previous bouncing-across-views feel. (Bug `8620c037`.) Mounted in `src/app/(dashboard)/calendar/page.tsx` once and rendered ahead of the main calendar grid container.
 
 ---
 

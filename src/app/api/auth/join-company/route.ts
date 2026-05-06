@@ -58,7 +58,6 @@ function mapUserFromDb(row: Record<string, unknown>): User {
     onboardingCompleted: (row.onboarding_completed as User["onboardingCompleted"]) ?? {},
     hasCompletedAppTutorial: (row.has_completed_tutorial as boolean) ?? false,
     isCompanyAdmin: (row.is_company_admin as boolean) ?? false,
-    inventoryAccess: (row.inventory_access as boolean) ?? false,
     specialPermissions: (row.special_permissions as string[]) ?? [],
     setupProgress: (row.setup_progress as User["setupProgress"]) ?? null,
     stripeCustomerId: (row.stripe_customer_id as string) ?? null,
