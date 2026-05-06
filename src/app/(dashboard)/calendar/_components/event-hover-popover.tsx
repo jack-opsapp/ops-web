@@ -158,12 +158,14 @@ function PopoverBody({ event }: { event: InternalCalendarEvent }) {
             className="px-[6px] py-[2px] font-mono uppercase tracking-wider"
             style={{
               color: "#000",
-              // Completed → olive (positive/success token), cancelled → text-mute
-              // (decorative neutral). Both pulled from CSS custom properties so
-              // any future token shift propagates here automatically.
+              // Completed → status.task-completed (#95B07A — distinct
+              // status hue, not the generic --olive earth tone),
+              // cancelled → text-mute (decorative neutral). Both pulled
+              // from CSS custom properties so any future token shift
+              // propagates here automatically. (Bug 06e00bb2.)
               background:
                 event.statusKey === "completed"
-                  ? "var(--olive)"
+                  ? "var(--status-task-completed)"
                   : "var(--text-mute)",
               borderRadius: 4,
               fontSize: 10,

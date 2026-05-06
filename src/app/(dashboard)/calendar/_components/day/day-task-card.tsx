@@ -3,11 +3,47 @@
 import { useMemo, useCallback, useState, useRef, useEffect } from "react";
 import { format, differenceInCalendarDays, addDays } from "date-fns";
 import { motion } from "framer-motion";
+import { Star, TreePalm } from "lucide-react";
 import type { InternalCalendarEvent } from "@/lib/utils/calendar-utils";
 import { useCalendarStore } from "@/stores/calendar-store";
 import { useTeamMembers } from "@/lib/hooks";
 import { UserAvatar } from "@/components/ops/user-avatar";
 import { EventHoverPopover } from "../event-hover-popover";
+
+// ─── Calendar badge surface ─────────────────────────────────────────────────
+//
+// Spec: every calendar badge renders on a frosted-glass tint with a hairline
+// of the status hue, so the day cell's grid never bleeds through. See the
+// canonical comment in `month-event-bar.tsx`.
+const BADGE_BG = "rgba(255, 255, 255, 0.04)";
+const BADGE_BORDER_ALPHA = 0.3;
+function hairlineBorder(border: string): string {
+  const rgbMatch = border.match(/^rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/);
+  if (rgbMatch) {
+    const [, r, g, b] = rgbMatch;
+    return `rgba(${r}, ${g}, ${b}, ${BADGE_BORDER_ALPHA})`;
+  }
+  const rgbaMatch = border.match(
+    /^rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*[\d.]+\s*\)$/
+  );
+  if (rgbaMatch) {
+    const [, r, g, b] = rgbaMatch;
+    return `rgba(${r}, ${g}, ${b}, ${BADGE_BORDER_ALPHA})`;
+  }
+  return border;
+}
+
+// ─── Special-event surface tokens ───────────────────────────────────────────
+// Personal events (kind = "personal") use a non-color signal — Star icon +
+// white-on-white glass — distinct from any task-type bar (bug 89a5d774).
+// Time-off (kind = "time_off") uses TreePalm + tan hairline — the canonical
+// PTO signal (bug 0342efaf). Both override the type stripe.
+const PERSONAL_BG = "rgba(255, 255, 255, 0.10)";
+const PERSONAL_BORDER = "rgba(255, 255, 255, 0.20)";
+const PERSONAL_TEXT = "#FFFFFF";
+const TIMEOFF_BG = "rgba(196, 168, 104, 0.06)";
+const TIMEOFF_BORDER = "rgba(196, 168, 104, 0.30)";
+const TIMEOFF_TEXT = "#C4A868";
 
 // ── Props ──────────────────────────────────────────────────────────────────
 
@@ -215,8 +251,34 @@ export function DayTaskCard({
   // ── Display values ────────────────────────────────────────────────────
 
   const isUserEvent = event.kind !== "task";
+  const isPersonal = event.kind === "personal";
+  const isTimeOff = event.kind === "time_off";
   const primaryTitle = event.projectTitle ?? event.taskTitle;
   const formattedAddress = formatShortAddress(event.address);
+
+  // Special-event card surface — overrides the task-type fill / hairline /
+  // stripe with a non-color signal (Star + white for personal, TreePalm +
+  // tan for time-off). Task events keep the existing badge surface.
+  const cardBg = isPersonal
+    ? PERSONAL_BG
+    : isTimeOff
+      ? TIMEOFF_BG
+      : BADGE_BG;
+  const cardBorderColor = isPersonal
+    ? PERSONAL_BORDER
+    : isTimeOff
+      ? TIMEOFF_BORDER
+      : hairlineBorder(event.typeColors.border);
+  const cardBorderHighlighted = isPersonal
+    ? "rgba(255, 255, 255, 0.40)"
+    : isTimeOff
+      ? "rgba(196, 168, 104, 0.55)"
+      : event.typeColors.border;
+  const cardTitleColor = isPersonal
+    ? PERSONAL_TEXT
+    : isTimeOff
+      ? TIMEOFF_TEXT
+      : "var(--text)";
 
   // Status badge — only for completed/cancelled (matches iOS rule).
   const statusBadge = useMemo<{
@@ -227,7 +289,10 @@ export function DayTaskCard({
     if (event.statusKey === "completed") {
       return {
         label: "COMPLETED",
-        bg: "#9DB582", // olive solid (iOS statusColor for .completed)
+        // status.task-completed (spec v2 token) — distinct from
+        // generic --olive so completed reads as its own status.
+        // Bug 06e00bb2.
+        bg: "#95B07A",
         text: "#000",
       };
     }
@@ -279,14 +344,15 @@ export function DayTaskCard({
           minHeight: Math.max(64 + heightOffset, 64),
           borderRadius: 4,
           overflow: "hidden",
-          // Dark card body (matches iOS cardBackgroundDark). Type drives the
-          // stripe + badge — never the fill.
-          background: "var(--bg-card)",
-          border: resize
-            ? `1px solid ${event.typeColors.border}`
-            : highlightedByLegend
-              ? `1px solid ${event.typeColors.border}`
-              : "1px solid rgba(255, 255, 255, 0.10)",
+          // Frosted-glass fill so the day-grid background never bleeds
+          // through. Task events: full-strength type stripe + hairline of
+          // the type hue. Special events: white (personal) / tan (time-off)
+          // hairline with a leading glyph instead of a stripe.
+          background: cardBg,
+          border:
+            resize || highlightedByLegend
+              ? `1px solid ${cardBorderHighlighted}`
+              : `1px solid ${cardBorderColor}`,
           opacity: dimmedByLegend ? 0.18 : isHovered ? 1 : 0.96,
           filter: highlightedByLegend ? "brightness(1.2)" : "none",
           transition: resize
@@ -298,21 +364,24 @@ export function DayTaskCard({
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        {/* Left stripe — 4px, task type color */}
-        <div
-          aria-hidden="true"
-          style={{
-            position: "absolute",
-            left: 0,
-            top: 0,
-            bottom: 0,
-            width: 4,
-            background: event.typeColors.border,
-          }}
-        />
+        {/* Left stripe — task events only. Special events use a leading
+            Star/TreePalm glyph as their non-color signal. */}
+        {!isUserEvent && (
+          <div
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: 4,
+              background: event.typeColors.border,
+            }}
+          />
+        )}
 
-        {/* Top stripe — only on multi-day events */}
-        {multiDayInfo && (
+        {/* Top stripe — only on multi-day task events */}
+        {multiDayInfo && !isUserEvent && (
           <div
             aria-hidden="true"
             style={{
@@ -330,16 +399,40 @@ export function DayTaskCard({
         <div
           className="flex-1 flex flex-col justify-center min-w-0"
           style={{
-            padding: "12px 14px 12px 18px",
+            // Special events drop the 4px stripe gutter (no stripe rendered)
+            // and add a glyph-aligned 12px left padding instead.
+            padding: isUserEvent ? "12px 14px" : "12px 14px 12px 18px",
           }}
         >
-          {/* Line 1 — project.title (or user-event title) */}
-          <span
-            className="font-cakemono font-light text-[15px] uppercase truncate leading-tight"
-            style={{ color: "var(--text)" }}
-          >
-            {primaryTitle}
-          </span>
+          {/* Line 1 — project.title (or user-event title) with leading glyph */}
+          <div className="flex items-center gap-[8px] min-w-0">
+            {isPersonal && (
+              <Star
+                size={14}
+                strokeWidth={1.5}
+                style={{
+                  color: PERSONAL_TEXT,
+                  fill: PERSONAL_TEXT,
+                  flexShrink: 0,
+                }}
+                aria-hidden="true"
+              />
+            )}
+            {isTimeOff && (
+              <TreePalm
+                size={14}
+                strokeWidth={1.5}
+                style={{ color: TIMEOFF_TEXT, flexShrink: 0 }}
+                aria-hidden="true"
+              />
+            )}
+            <span
+              className="font-cakemono font-light text-[15px] uppercase truncate leading-tight"
+              style={{ color: cardTitleColor }}
+            >
+              {primaryTitle}
+            </span>
+          </div>
 
           {/* Line 2 — client.name */}
           {!isUserEvent && event.clientName && (
@@ -444,28 +537,33 @@ export function DayTaskCard({
           )}
         </div>
 
-        {/* Type badge — top-right */}
-        <div
-          aria-hidden="true"
-          style={{
-            position: "absolute",
-            top: 8,
-            right: 8,
-            padding: "2px 6px",
-            borderRadius: 2,
-            background: event.typeColors.bg,
-            border: `1px solid ${event.typeColors.border}`,
-            color: event.typeColors.text,
-            fontFamily: "var(--font-cakemono), sans-serif",
-            fontWeight: 300,
-            fontSize: 10,
-            letterSpacing: "0.04em",
-            textTransform: "uppercase",
-            lineHeight: 1.4,
-          }}
-        >
-          {event.typeLabel}
-        </div>
+        {/* Type badge — top-right (task events only). Special events skip the
+            type badge — the leading glyph + tinted hairline already encodes
+            the kind, and the type label would clash with the white/tan
+            override surfaces. */}
+        {!isUserEvent && (
+          <div
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              top: 8,
+              right: 8,
+              padding: "2px 6px",
+              borderRadius: 2,
+              background: event.typeColors.bg,
+              border: `1px solid ${event.typeColors.border}`,
+              color: event.typeColors.text,
+              fontFamily: "var(--font-cakemono), sans-serif",
+              fontWeight: 300,
+              fontSize: 10,
+              letterSpacing: "0.04em",
+              textTransform: "uppercase",
+              lineHeight: 1.4,
+            }}
+          >
+            {event.typeLabel}
+          </div>
+        )}
 
         {/* Status badge — bottom-right (completed/cancelled or time-off pending) */}
         {statusBadge && (

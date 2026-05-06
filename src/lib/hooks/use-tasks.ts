@@ -246,13 +246,39 @@ export function useUpdateTask() {
     }) => TaskService.updateTask(id, data),
 
     onMutate: async ({ id, data }) => {
-      await queryClient.cancelQueries({
-        queryKey: queryKeys.tasks.detail(id),
-      });
+      // Cancel every query that could overwrite our optimistic patch. The
+      // calendar grid reads from `calendar.scheduled` and the task lists read
+      // from `tasks.list` — if either refetches while drag is in flight,
+      // it'll snap the badge back to its old position before our update
+      // commits, then forward again on settle. Cancel all three to keep the
+      // optimistic state stable through the mutation lifecycle.
+      await Promise.all([
+        queryClient.cancelQueries({ queryKey: queryKeys.tasks.detail(id) }),
+        queryClient.cancelQueries({ queryKey: queryKeys.tasks.lists() }),
+        queryClient.cancelQueries({ queryKey: queryKeys.calendar.all }),
+      ]);
 
       const previousTask = queryClient.getQueryData<ProjectTask>(
         queryKeys.tasks.detail(id)
       );
+
+      // Snapshot every task-list query (tasks.list — keyed by company + filters)
+      // and every scheduled-calendar query (calendar.scheduled — keyed by
+      // company + range + scope). We patch the matching task in each cache
+      // entry so the calendar grid and any task-list view reflect the new
+      // position immediately.
+      const previousLists = queryClient.getQueriesData<{
+        tasks: ProjectTask[];
+        remaining: number;
+        count: number;
+      }>({ queryKey: queryKeys.tasks.lists() });
+
+      const previousCalendar = queryClient.getQueriesData<ProjectTask[]>({
+        queryKey: queryKeys.calendar.all,
+      });
+
+      const patchTask = (task: ProjectTask): ProjectTask =>
+        task.id === id ? { ...task, ...data } : task;
 
       if (previousTask) {
         queryClient.setQueryData(queryKeys.tasks.detail(id), {
@@ -261,7 +287,24 @@ export function useUpdateTask() {
         });
       }
 
-      return { previousTask };
+      // Patch every captured tasks.list cache entry.
+      for (const [key, value] of previousLists) {
+        if (!value) continue;
+        queryClient.setQueryData(key, {
+          ...value,
+          tasks: value.tasks.map(patchTask),
+        });
+      }
+
+      // Patch every captured calendar.scheduled cache entry. The shape is a
+      // raw ProjectTask[] (see useScheduledTasks). Skip non-array entries
+      // (e.g. recurrence trees) that share the calendar.all prefix.
+      for (const [key, value] of previousCalendar) {
+        if (!Array.isArray(value)) continue;
+        queryClient.setQueryData(key, value.map(patchTask));
+      }
+
+      return { previousTask, previousLists, previousCalendar };
     },
 
     onError: (_err, { id }, context) => {
@@ -270,6 +313,18 @@ export function useUpdateTask() {
           queryKeys.tasks.detail(id),
           context.previousTask
         );
+      }
+      // Restore every task-list snapshot.
+      if (context?.previousLists) {
+        for (const [key, value] of context.previousLists) {
+          queryClient.setQueryData(key, value);
+        }
+      }
+      // Restore every calendar snapshot.
+      if (context?.previousCalendar) {
+        for (const [key, value] of context.previousCalendar) {
+          queryClient.setQueryData(key, value);
+        }
       }
     },
 

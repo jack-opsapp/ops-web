@@ -165,6 +165,15 @@
     --rose-line:  rgba(181, 130, 137, 0.30);
     --brick-line: rgba(147, 50, 26, 0.50);
 
+    /* Status — task-completed is the spec-defined hue for "task done"
+       badges across calendar surfaces (month, week, day, crew, hover
+       popover). Distinct from --olive (the generic positive earth-tone)
+       so the completed badge reads as its own status, not as ambient
+       success. (Bug 06e00bb2.) */
+    --status-task-completed:      #95B07A;
+    --status-task-completed-soft: rgba(149, 176, 122, 0.12);
+    --status-task-completed-line: rgba(149, 176, 122, 0.30);
+
     /* Font stacks — mirror Tailwind fontFamily map for inline-style usage */
     --font-mohave:   "Mohave", system-ui, sans-serif;
     --font-mono:     "JetBrains Mono", "Fira Code", ui-monospace, monospace;

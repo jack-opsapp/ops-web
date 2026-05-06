@@ -39,6 +39,12 @@ import {
 } from "date-fns";
 import { motion } from "framer-motion";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
+import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   useCalendarDragState,
   useCalendarResizeContext,
@@ -100,21 +106,32 @@ interface MonthScrollContainerProps {
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 function getDisplayLevel(cellHeight: number): DisplayLevel {
-  if (cellHeight < 120) return "compact";
+  // Bug 5c19dc85 — bump the standard threshold so 13–15" laptop viewports
+  // (where DEFAULT_CELL_HEIGHT lands) get readable badges instead of the
+  // 10px-dot compact treatment, while keeping room for the 42px hero
+  // single-day card at "expanded" cellHeight ≥ 180px.
+  if (cellHeight < 100) return "compact";
   if (cellHeight < 180) return "standard";
   return "expanded";
 }
 
 function getSlotHeight(level: DisplayLevel, isSingleDay: boolean): number {
   if (level === "compact") return 10;
-  if (level === "standard") return 14;
-  return isSingleDay ? 42 : 14;
+  // Bug 5c19dc85 — multi-day bars on standard/expanded both get the
+  // tall (22px) chip treatment so titles + type badges have breathing
+  // room at laptop widths. Spec: "Multi-day bars should keep readable
+  // height (min 22px)."
+  if (level === "standard") return 22;
+  return isSingleDay ? 42 : 22;
 }
 
 function getMaxSlots(cellHeight: number, level: DisplayLevel): number {
   const available = cellHeight - DAY_NUMBER_HEIGHT - MORE_ROW_HEIGHT;
   if (available <= 0) return 0;
-  const baseHeight = level === "compact" ? 10 : 14;
+  // Slot baseline mirrors getSlotHeight (compact=10, standard=22, expanded=22
+  // for multi-day). Bug 5c19dc85 raised standard from 14 → 22 so the
+  // multi-day chips read at laptop widths.
+  const baseHeight = level === "compact" ? 10 : 22;
   return Math.max(1, Math.floor((available + SLOT_GAP) / (baseHeight + SLOT_GAP)));
 }
 
@@ -308,6 +325,252 @@ function groupIntoSections(weeks: ProcessedWeek[]): MonthSection[] {
   return sections;
 }
 
+// ─── Month picker popover ───────────────────────────────────────────────────
+//
+// Tap the month-name badge in the sticky overlay → opens a 12-month grid
+// scoped to the year shown on the badge. ChevronLeft / ChevronRight cycle
+// the visible year. Selecting a month calls `onJump(year, month)` and
+// closes the popover; the parent updates currentDate so the existing
+// scroll-to-month effect kicks in.
+
+interface MonthPickerProps {
+  monthStart: Date;
+  onJump: (target: Date) => void;
+}
+
+function MonthPickerBadge({ monthStart, onJump }: MonthPickerProps) {
+  const [open, setOpen] = useState(false);
+  const [pickerYear, setPickerYear] = useState(() => monthStart.getFullYear());
+
+  // When the popover re-opens, snap the picker year to whatever month the
+  // user is currently looking at — so the 12-month grid feels anchored to
+  // the current view.
+  useEffect(() => {
+    if (open) setPickerYear(monthStart.getFullYear());
+  }, [open, monthStart]);
+
+  const todayMonthIndex = new Date().getMonth();
+  const todayYear = new Date().getFullYear();
+  const activeMonthIndex = monthStart.getMonth();
+  const activeYear = monthStart.getFullYear();
+
+  const months = useMemo(
+    () =>
+      Array.from({ length: 12 }, (_, i) => ({
+        index: i,
+        label: format(new Date(pickerYear, i, 1), "MMM"),
+      })),
+    [pickerYear]
+  );
+
+  const handleSelect = (monthIdx: number) => {
+    onJump(new Date(pickerYear, monthIdx, 1));
+    setOpen(false);
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label={`Jump to month — currently ${format(monthStart, "MMMM yyyy")}`}
+          className="pointer-events-auto inline-flex items-baseline gap-2 px-3 py-1 cursor-pointer"
+          style={{
+            background: "rgba(18, 18, 20, 0.78)",
+            backdropFilter: "blur(28px) saturate(1.3)",
+            WebkitBackdropFilter: "blur(28px) saturate(1.3)",
+            border: "1px solid rgba(255, 255, 255, 0.09)",
+            borderRadius: 6,
+            transition:
+              "border-color 0.15s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.15s cubic-bezier(0.22, 1, 0.36, 1)",
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.borderColor =
+              "rgba(255, 255, 255, 0.18)";
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.borderColor =
+              "rgba(255, 255, 255, 0.09)";
+          }}
+        >
+          <CalendarDays
+            size={12}
+            strokeWidth={1.5}
+            style={{ color: "var(--text-2)", alignSelf: "center" }}
+          />
+          <span
+            className="font-cakemono font-light uppercase"
+            style={{
+              color: "var(--text)",
+              fontSize: 14,
+              letterSpacing: 0,
+              lineHeight: 1,
+            }}
+          >
+            {format(monthStart, "MMMM")}
+          </span>
+          <span
+            className="font-mono uppercase tracking-wider tabular-nums"
+            style={{
+              color: "var(--text-3)",
+              fontSize: 10,
+              fontFeatureSettings: '"tnum" 1, "zero" 1',
+              lineHeight: 1,
+            }}
+          >
+            {format(monthStart, "yyyy")}
+          </span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        sideOffset={6}
+        style={{
+          background: "rgba(18, 18, 20, 0.78)",
+          backdropFilter: "blur(28px) saturate(1.3)",
+          WebkitBackdropFilter: "blur(28px) saturate(1.3)",
+          border: "1px solid rgba(255, 255, 255, 0.09)",
+          borderRadius: 6,
+          padding: 12,
+          width: 240,
+        }}
+      >
+        {/* Year stepper */}
+        <div className="flex items-center justify-between mb-2">
+          <button
+            type="button"
+            aria-label="Previous year"
+            onClick={() => setPickerYear((y) => y - 1)}
+            className="flex items-center justify-center"
+            style={{
+              width: 22,
+              height: 22,
+              border: "1px solid rgba(255, 255, 255, 0.09)",
+              borderRadius: 4,
+              background: "transparent",
+              color: "var(--text-2)",
+              cursor: "pointer",
+              transition:
+                "background-color 0.15s cubic-bezier(0.22, 1, 0.36, 1), color 0.15s cubic-bezier(0.22, 1, 0.36, 1)",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.backgroundColor =
+                "rgba(255, 255, 255, 0.04)";
+              (e.currentTarget as HTMLButtonElement).style.color = "var(--text)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.backgroundColor =
+                "transparent";
+              (e.currentTarget as HTMLButtonElement).style.color = "var(--text-2)";
+            }}
+          >
+            <ChevronLeft size={12} strokeWidth={1.5} />
+          </button>
+          <span
+            className="font-mono uppercase tracking-wider tabular-nums"
+            style={{
+              color: "var(--text)",
+              fontSize: 11,
+              fontFeatureSettings: '"tnum" 1, "zero" 1',
+              letterSpacing: "0.08em",
+            }}
+          >
+            {pickerYear}
+          </span>
+          <button
+            type="button"
+            aria-label="Next year"
+            onClick={() => setPickerYear((y) => y + 1)}
+            className="flex items-center justify-center"
+            style={{
+              width: 22,
+              height: 22,
+              border: "1px solid rgba(255, 255, 255, 0.09)",
+              borderRadius: 4,
+              background: "transparent",
+              color: "var(--text-2)",
+              cursor: "pointer",
+              transition:
+                "background-color 0.15s cubic-bezier(0.22, 1, 0.36, 1), color 0.15s cubic-bezier(0.22, 1, 0.36, 1)",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.backgroundColor =
+                "rgba(255, 255, 255, 0.04)";
+              (e.currentTarget as HTMLButtonElement).style.color = "var(--text)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.backgroundColor =
+                "transparent";
+              (e.currentTarget as HTMLButtonElement).style.color = "var(--text-2)";
+            }}
+          >
+            <ChevronRight size={12} strokeWidth={1.5} />
+          </button>
+        </div>
+
+        {/* 12-month grid */}
+        <div
+          className="grid grid-cols-3 gap-[6px]"
+          role="grid"
+          aria-label="Select month"
+        >
+          {months.map((m) => {
+            const isActive =
+              pickerYear === activeYear && m.index === activeMonthIndex;
+            const isCurrent =
+              pickerYear === todayYear && m.index === todayMonthIndex;
+            return (
+              <button
+                key={m.index}
+                type="button"
+                role="gridcell"
+                aria-selected={isActive}
+                aria-current={isCurrent ? "date" : undefined}
+                onClick={() => handleSelect(m.index)}
+                className="font-mono uppercase tracking-wider"
+                style={{
+                  fontSize: 11,
+                  letterSpacing: "0.08em",
+                  padding: "8px 0",
+                  background: isActive
+                    ? "rgba(111, 148, 176, 0.10)"
+                    : "transparent",
+                  border: isActive
+                    ? "1px solid rgba(111, 148, 176, 0.30)"
+                    : isCurrent
+                      ? "1px solid rgba(255, 255, 255, 0.18)"
+                      : "1px solid rgba(255, 255, 255, 0.06)",
+                  borderRadius: 4,
+                  color: isActive ? "var(--ops-accent)" : "var(--text-2)",
+                  cursor: "pointer",
+                  transition:
+                    "background-color 0.15s cubic-bezier(0.22, 1, 0.36, 1), color 0.15s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.15s cubic-bezier(0.22, 1, 0.36, 1)",
+                }}
+                onMouseEnter={(e) => {
+                  if (isActive) return;
+                  (e.currentTarget as HTMLButtonElement).style.backgroundColor =
+                    "rgba(255, 255, 255, 0.04)";
+                  (e.currentTarget as HTMLButtonElement).style.color =
+                    "var(--text)";
+                }}
+                onMouseLeave={(e) => {
+                  if (isActive) return;
+                  (e.currentTarget as HTMLButtonElement).style.backgroundColor =
+                    "transparent";
+                  (e.currentTarget as HTMLButtonElement).style.color =
+                    "var(--text-2)";
+                }}
+              >
+                {m.label}
+              </button>
+            );
+          })}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 // ─── Day cell ───────────────────────────────────────────────────────────────
 
 function MonthDayCell({
@@ -335,13 +598,24 @@ function MonthDayCell({
       className="relative overflow-hidden group"
       style={{
         borderRight: "1px solid rgba(255,255,255,0.10)",
+        // Today cell — frosted glass tinted with primary accent (bug a561f726).
+        // Was 0.06 alpha which read identical to the weekend tint; bumping to
+        // var(--ops-accent-soft) (0.12) plus an accent-line border lets the
+        // operator spot today at a glance even on a busy month grid.
         backgroundColor: isOver
-          ? "rgba(111, 148, 176, 0.10)"
+          ? "rgba(111, 148, 176, 0.18)"
           : isCurrentDay
-            ? "rgba(111, 148, 176, 0.06)"
+            ? "var(--ops-accent-soft)"
             : isWeekend
               ? "rgba(255,255,255,0.02)"
               : undefined,
+        // Inset accent-line border on the today cell so the brighter fill
+        // reads as an intentional highlight, not a hover state. `box-shadow
+        // inset` is preferred over `border` here because the cell already
+        // owns its right border for the grid lines.
+        boxShadow: isCurrentDay
+          ? "inset 0 0 0 1px var(--ops-accent-line)"
+          : undefined,
       }}
     >
       <div
@@ -719,7 +993,9 @@ export function MonthScrollContainer({
     }
   }, []);
 
-  const baseSlotHeight = displayLevel === "compact" ? 10 : 14;
+  // Slot height tracks getSlotHeight — bug 5c19dc85 raised standard +
+  // multi-day expanded from 14 → 22px for laptop-width legibility.
+  const baseSlotHeight = displayLevel === "compact" ? 10 : 22;
 
   // Held for parity with week / day views; this view doesn't snap.
   useCalendarDragState();
@@ -787,40 +1063,16 @@ export function MonthScrollContainer({
               }}
             >
               <div
-                className="pointer-events-auto inline-flex items-baseline gap-2 px-3 py-1"
                 style={{
                   position: "absolute",
                   left: 12,
                   top: 8,
-                  background: "rgba(18, 18, 20, 0.78)",
-                  backdropFilter: "blur(28px) saturate(1.3)",
-                  WebkitBackdropFilter: "blur(28px) saturate(1.3)",
-                  border: "1px solid rgba(255, 255, 255, 0.09)",
-                  borderRadius: 6,
                 }}
               >
-                <span
-                  className="font-cakemono font-light uppercase"
-                  style={{
-                    color: "var(--text)",
-                    fontSize: 14,
-                    letterSpacing: 0,
-                    lineHeight: 1,
-                  }}
-                >
-                  {format(section.monthStart, "MMMM")}
-                </span>
-                <span
-                  className="font-mono uppercase tracking-wider tabular-nums"
-                  style={{
-                    color: "var(--text-3)",
-                    fontSize: 10,
-                    fontFeatureSettings: '"tnum" 1, "zero" 1',
-                    lineHeight: 1,
-                  }}
-                >
-                  {format(section.monthStart, "yyyy")}
-                </span>
+                <MonthPickerBadge
+                  monthStart={section.monthStart}
+                  onJump={onCurrentDateChange}
+                />
               </div>
             </div>
 

@@ -2,11 +2,48 @@
 
 import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import { differenceInCalendarDays, addDays, format } from "date-fns";
+import { Star, TreePalm } from "lucide-react";
 import { useDraggable } from "@dnd-kit/core";
 import type { InternalCalendarEvent } from "@/lib/utils/calendar-utils";
 import { CREW_ROW_HEIGHT } from "@/lib/utils/crew-constants";
 import { laneVerticalLayout } from "@/lib/utils/lane-assignment";
 import { EventHoverPopover } from "../event-hover-popover";
+import { useCalendarStore } from "@/stores/calendar-store";
+
+// ─── Calendar badge surface ─────────────────────────────────────────────────
+//
+// Spec: every calendar badge renders on a frosted-glass tint with a hairline
+// of the status hue, so the day cell's grid + weekend tint never bleeds
+// through the bar fill. See `month-event-bar.tsx` for the canonical comment.
+const BADGE_BG = "rgba(255, 255, 255, 0.04)";
+const BADGE_BORDER_ALPHA = 0.3;
+function hairlineBorder(border: string): string {
+  const rgbMatch = border.match(/^rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/);
+  if (rgbMatch) {
+    const [, r, g, b] = rgbMatch;
+    return `rgba(${r}, ${g}, ${b}, ${BADGE_BORDER_ALPHA})`;
+  }
+  const rgbaMatch = border.match(
+    /^rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*[\d.]+\s*\)$/
+  );
+  if (rgbaMatch) {
+    const [, r, g, b] = rgbaMatch;
+    return `rgba(${r}, ${g}, ${b}, ${BADGE_BORDER_ALPHA})`;
+  }
+  return border;
+}
+
+// ─── Special-event surface tokens ───────────────────────────────────────────
+// Personal events (kind = "personal") use a non-color signal — Star icon +
+// white-on-white glass — so they can't be confused with task-type bars on
+// any palette (bug 89a5d774). Time-off (kind = "time_off") uses TreePalm +
+// tan hairline — the canonical PTO signal (bug 0342efaf).
+const PERSONAL_BG = "rgba(255, 255, 255, 0.10)";
+const PERSONAL_BORDER = "rgba(255, 255, 255, 0.20)";
+const PERSONAL_TEXT = "#FFFFFF";
+const TIMEOFF_BG = "rgba(196, 168, 104, 0.06)";
+const TIMEOFF_BORDER = "rgba(196, 168, 104, 0.30)";
+const TIMEOFF_TEXT = "#C4A868";
 
 // ─── Props ──────────────────────────────────────────────────────────────────
 
@@ -55,6 +92,17 @@ export function CrewTaskBlock({
 }: CrewTaskBlockProps) {
   const [isHovered, setIsHovered] = useState(false);
   const blockRef = useRef<HTMLDivElement>(null);
+
+  // ── Legend / team-member hover-to-highlight (bug 324e6520) ───────────
+  // Hoisted ABOVE all early returns so the hook order stays stable across
+  // renders (`react-hooks/rules-of-hooks` — bug noticed during the
+  // calendar polish session). Mirror the logic in month-event-bar /
+  // day-task-card so crew blocks dim and brighten consistently when the
+  // toolbar dropdowns are hovered.
+  const highlightedTaskType = useCalendarStore((s) => s.highlightedTaskType);
+  const highlightedTeamMemberId = useCalendarStore(
+    (s) => s.highlightedTeamMemberId,
+  );
 
   // ── Resize state ────────────────────────────────────────────────────────
 
@@ -255,6 +303,42 @@ export function CrewTaskBlock({
 
   const popoverDisabled = isGhost || isDragging || !!resizeState;
 
+  // Legend / team-member hover-to-highlight (bug 324e6520) — derived
+  // booleans use the hooks hoisted above the early return.
+  const matchesType =
+    highlightedTaskType !== null && event.typeLabel === highlightedTaskType;
+  const matchesMember =
+    highlightedTeamMemberId !== null &&
+    event.crewIds.includes(highlightedTeamMemberId);
+  const dimmedByLegend =
+    (highlightedTaskType !== null && !matchesType) ||
+    (highlightedTeamMemberId !== null && !matchesMember);
+  const highlightedByLegend = matchesType || matchesMember;
+
+  // ── Special-event branching ───────────────────────────────────────────
+  // Personal / time-off events override task-type fill + stripe with their
+  // own non-color signal. The block layout and resize handles remain the
+  // same so drag/resize still works for special events.
+  const isPersonal = event.kind === "personal";
+  const isTimeOff = event.kind === "time_off";
+  const isSpecial = isPersonal || isTimeOff;
+
+  const blockBg = isPersonal
+    ? PERSONAL_BG
+    : isTimeOff
+      ? TIMEOFF_BG
+      : BADGE_BG;
+  const blockBorder = isPersonal
+    ? PERSONAL_BORDER
+    : isTimeOff
+      ? TIMEOFF_BORDER
+      : hairlineBorder(event.typeColors.border);
+  const blockText = isPersonal
+    ? PERSONAL_TEXT
+    : isTimeOff
+      ? TIMEOFF_TEXT
+      : "var(--text)";
+
   // ── Render ────────────────────────────────────────────────────────────
 
   return (
@@ -272,10 +356,22 @@ export function CrewTaskBlock({
         width: `${resizeAdjusted.widthPercent}%`,
         top: blockTop,
         height: blockHeight,
-        zIndex: isDragging ? 20 : resizeState ? 15 : isSelected ? 5 : isHovered ? 4 : 2,
+        zIndex: isDragging
+          ? 20
+          : resizeState
+            ? 15
+            : highlightedByLegend
+              ? 6
+              : isSelected
+                ? 5
+                : isHovered
+                  ? 4
+                  : 2,
         pointerEvents: isGhost ? "none" : "auto",
         cursor: isGhost ? "default" : resizeState ? "col-resize" : "grab",
-        opacity: isGhost ? 0.5 : 1,
+        opacity: isGhost ? 0.5 : dimmedByLegend ? 0.18 : 1,
+        transition:
+          "opacity 0.15s cubic-bezier(0.22, 1, 0.36, 1), filter 0.15s cubic-bezier(0.22, 1, 0.36, 1)",
         ...dragStyle,
       }}
       onClick={handleClick}
@@ -305,46 +401,82 @@ export function CrewTaskBlock({
         />
       )}
 
-      {/* Body — sibling-div stripe + status fill (no box-shadow crescent) */}
+      {/* Body — sibling-div stripe + frosted-glass fill (no box-shadow crescent) */}
       <div
         className="flex-1 relative flex items-center min-w-0"
         style={{
-          background: event.typeColors.bg,
-          border: `1px ${isGhost ? "dashed" : "solid"} ${event.typeColors.border}`,
+          background: blockBg,
+          border: `1px ${isGhost ? "dashed" : "solid"} ${blockBorder}`,
           borderRadius: 4,
-          paddingLeft: 11, // 8 (text) + 3 (stripe gutter)
+          // No type-color stripe gutter for special events — the leading
+          // glyph (Star / TreePalm) carries the signal instead.
+          paddingLeft: isSpecial ? 8 : 11, // task: 8 (text) + 3 (stripe gutter)
           paddingRight: 8,
           outline: isSelected ? "1px solid var(--ops-accent)" : "none",
           outlineOffset: isSelected ? 0 : undefined,
           transition: "filter 0.15s cubic-bezier(0.22, 1, 0.36, 1)",
-          filter: isHovered && !isGhost ? "brightness(1.18)" : "none",
+          filter: highlightedByLegend
+            ? "brightness(1.3)"
+            : isHovered && !isGhost
+              ? "brightness(1.18)"
+              : "none",
         }}
       >
-        {/* Type stripe */}
-        <div
-          aria-hidden="true"
-          style={{
-            position: "absolute",
-            left: 0,
-            top: 0,
-            bottom: 0,
-            width: 3,
-            background: event.typeColors.border,
-            borderRadius: "4px 0 0 4px",
-            pointerEvents: "none",
-          }}
-        />
+        {/* Type stripe — task events only. Special events override with a
+            leading glyph (Star or TreePalm) below. */}
+        {!isSpecial && (
+          <div
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: 3,
+              background: event.typeColors.border,
+              borderRadius: "4px 0 0 4px",
+              pointerEvents: "none",
+            }}
+          />
+        )}
 
         {/* Content — vertical stack: project, client, address (when wide enough) */}
         <div className="flex-1 flex items-stretch justify-between min-w-0 gap-[6px] py-[6px]">
-          <div className="flex flex-col justify-center min-w-0 overflow-hidden">
+          {/* Leading glyph — special events only (Star for personal, TreePalm
+              for time-off). Aligns with the title baseline so the row reads
+              clean even on narrow lanes. */}
+          {isPersonal && (
+            <div className="flex items-center shrink-0">
+              <Star
+                size={12}
+                strokeWidth={1.5}
+                style={{
+                  color: PERSONAL_TEXT,
+                  fill: PERSONAL_TEXT,
+                }}
+                aria-hidden="true"
+              />
+            </div>
+          )}
+          {isTimeOff && (
+            <div className="flex items-center shrink-0">
+              <TreePalm
+                size={12}
+                strokeWidth={1.5}
+                style={{ color: TIMEOFF_TEXT }}
+                aria-hidden="true"
+              />
+            </div>
+          )}
+
+          <div className="flex flex-col justify-center min-w-0 overflow-hidden flex-1">
             <span
               className="font-cakemono font-light text-[12px] uppercase truncate leading-tight"
-              style={{ color: "var(--text)", letterSpacing: 0 }}
+              style={{ color: blockText, letterSpacing: 0 }}
             >
               {primaryTitle}
             </span>
-            {!isNarrow && event.clientName && (
+            {!isNarrow && !isSpecial && event.clientName && (
               <span
                 className="font-mono text-[11px] truncate leading-tight mt-[1px]"
                 style={{ color: "var(--text-2)" }}
@@ -352,7 +484,7 @@ export function CrewTaskBlock({
                 {event.clientName}
               </span>
             )}
-            {!isNarrow && !event.clientName && subtitle && (
+            {!isNarrow && !isSpecial && !event.clientName && subtitle && (
               <span
                 className="font-mono text-[11px] truncate leading-tight mt-[1px]"
                 style={{ color: "var(--text-3)" }}
@@ -360,7 +492,7 @@ export function CrewTaskBlock({
                 {subtitle}
               </span>
             )}
-            {!isNarrow && event.address && (
+            {!isNarrow && !isSpecial && event.address && (
               <span
                 className="font-mono text-[10px] uppercase tracking-wider truncate leading-tight mt-[1px]"
                 style={{
@@ -371,11 +503,25 @@ export function CrewTaskBlock({
                 {event.address.split(",").slice(0, 2).map((s) => s.trim()).join(", ")}
               </span>
             )}
+            {/* Special-event subtitle (notes / reason when present). */}
+            {!isNarrow && isSpecial && subtitle && (
+              <span
+                className="font-mono text-[11px] truncate leading-tight mt-[1px]"
+                style={{
+                  color: isPersonal
+                    ? "rgba(255,255,255,0.65)"
+                    : "rgba(196,168,104,0.75)",
+                }}
+              >
+                {subtitle}
+              </span>
+            )}
           </div>
 
-          {/* Right cluster: time + type badge */}
+          {/* Right cluster: time + type badge (task events only — special
+              events use the leading glyph as their signal). */}
           <div className="flex flex-col items-end justify-between gap-[4px] shrink-0">
-            {!isNarrow && (
+            {!isNarrow && !isSpecial && (
               <div
                 className="px-[5px] py-[1px] font-cakemono font-light uppercase"
                 style={{
@@ -395,7 +541,11 @@ export function CrewTaskBlock({
               <span
                 className="font-mono text-[10px] tabular-nums"
                 style={{
-                  color: "var(--text-3)",
+                  color: isPersonal
+                    ? "rgba(255,255,255,0.65)"
+                    : isTimeOff
+                      ? "rgba(196,168,104,0.75)"
+                      : "var(--text-3)",
                   fontFeatureSettings: '"tnum" 1, "zero" 1',
                 }}
               >

@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import {
   startOfMonth,
@@ -36,6 +37,9 @@ import {
   calendarViewVariantsReduced,
 } from "@/lib/utils/motion";
 import { useCalendarStore } from "@/stores/calendar-store";
+import { useAuthStore } from "@/lib/store/auth-store";
+import { queryKeys } from "@/lib/api/query-client";
+import { getSupabaseClient } from "@/lib/supabase/client";
 import { UserRole, type TeamMember } from "@/lib/types/models";
 
 import { CalendarHeader } from "./_components/calendar-header";
@@ -76,6 +80,60 @@ export default function CalendarPage() {
   useEffect(() => {
     trackScreenView("calendar");
   }, []);
+
+  // ── Realtime sync (bug 71308894) ────────────────────────────────────────
+  //
+  // The calendar reads from `project_tasks` (via TanStack Query
+  // calendar.scheduled key) and `calendar_user_events` (via the user-events
+  // hook). Without realtime, edits made on the iOS app or by another
+  // operator only show up here on a manual refetch — which produces the
+  // "stale schedule" bug.
+  //
+  // Subscribe to both tables, scoped to the current company. On any
+  // INSERT / UPDATE / DELETE, invalidate the calendar.all tree so every
+  // visible window re-fetches. Tasks list is invalidated too because
+  // useScheduledTasks reads from the same task records as useTasks.
+  const company = useAuthStore((s) => s.company);
+  const companyId = company?.id ?? "";
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    if (!companyId) return;
+    const supabase = getSupabaseClient();
+    if (!supabase) return;
+
+    const channel = supabase
+      .channel(`calendar-realtime-${companyId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "project_tasks",
+          filter: `company_id=eq.${companyId}`,
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: queryKeys.calendar.all });
+          queryClient.invalidateQueries({ queryKey: queryKeys.tasks.lists() });
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "calendar_user_events",
+          filter: `company_id=eq.${companyId}`,
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: queryKeys.calendar.all });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [companyId, queryClient]);
 
   // Animation: reduced motion preference
   const prefersReducedMotion = useReducedMotion();
@@ -272,8 +330,13 @@ export default function CalendarPage() {
         {/* Filter sidebar (left) — hidden on mobile */}
         {!isMobile && <FilterSidebar />}
 
-        {/* Day view: tray docks LEFT (mirrors Jobber/Housecall) */}
-        {!isMobile && view === "day" && <UnscheduledTray view={view} />}
+        {/* Unscheduled tray — docks LEFT in every view (bug 8620c037).
+            Was previously LEFT only in day view and RIGHT in week/month/crew,
+            which made the tray feel like it was bouncing across views. The
+            tray is a secondary panel — left-side placement matches the
+            sidebar / filter rail mental model. Documented in
+            `.interface-design/system.md` § Calendar. */}
+        {!isMobile && <UnscheduledTray view={view} />}
 
         {/* Main calendar grid */}
         <div className="flex-1 flex flex-col min-h-0 min-w-0 relative">
@@ -368,9 +431,6 @@ export default function CalendarPage() {
             />
           )}
         </div>
-
-        {/* Week / Month / Crew view: tray docks RIGHT */}
-        {!isMobile && view !== "day" && <UnscheduledTray view={view} />}
 
       </div>
 

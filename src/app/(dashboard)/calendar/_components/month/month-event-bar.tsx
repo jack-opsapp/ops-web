@@ -2,18 +2,67 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { format } from "date-fns";
-import { Star } from "lucide-react";
+import { Star, TreePalm } from "lucide-react";
 import { type InternalCalendarEvent } from "@/lib/utils/calendar-utils";
 import { useCalendarStore } from "@/stores/calendar-store";
 import { EventHoverPopover } from "../event-hover-popover";
 
 // Personal events ride on the same color pool as task types, which makes
 // them visually indistinguishable from any task type using the same color.
-// Override their visual treatment: outline-only chip with a star icon and
-// white text/border — distinct from any task-type bar regardless of color.
-const PERSONAL_BG = "rgba(255, 255, 255, 0.04)";
-const PERSONAL_BORDER = "rgba(255, 255, 255, 0.55)";
+// Override their visual treatment with a NON-color signal (Star + white)
+// so they read distinctly regardless of the underlying task-type palette.
+// (Bug 89a5d774.)
+//
+// Spec: white-at-10% glass fill + white hairline at 0.20 alpha + Star icon.
+const PERSONAL_BG = "rgba(255, 255, 255, 0.10)";
+const PERSONAL_BORDER = "rgba(255, 255, 255, 0.20)";
 const PERSONAL_TEXT = "#FFFFFF";
+
+// Time-off events also can't ride task-type colors (they're not tasks). The
+// canonical PTO/vacation signal is `--tan` (#C4A868) hairline + TreePalm
+// glyph — keeps them recognizable at a glance and distinct from personal
+// events (Star + white). (Bug 0342efaf.)
+const TIMEOFF_BG = "rgba(196, 168, 104, 0.06)";
+const TIMEOFF_BORDER = "rgba(196, 168, 104, 0.30)";
+const TIMEOFF_TEXT = "#C4A868";
+
+// ─── Calendar badge surface ─────────────────────────────────────────────────
+//
+// Spec: every calendar badge (month / week / day / crew) renders on a
+// frosted-glass tint with a hairline of the status hue, so the day cell's
+// own grid + weekend tint never bleeds through the badge fill.
+//
+//   background: dense-glass alpha (rgba(255,255,255,0.04))
+//   border:     status hue at alpha 0.30 (hairline)
+//   text:       status-tone color (typeColors.text)
+//
+// The full-strength type stripe still renders on the leading edge as the
+// primary type signal — this rule changes the BAR FILL only.
+const BADGE_BG = "rgba(255, 255, 255, 0.04)";
+const BADGE_BORDER_ALPHA = 0.3;
+
+/**
+ * Reduce an `rgb(r, g, b)` or `rgba(...)` border value to its alpha-0.3
+ * hairline form. The badge stripe (full-strength) is still drawn separately;
+ * this is the bar's perimeter.
+ */
+function hairlineBorder(border: string): string {
+  // colorTripleFromHex emits `rgb(r, g, b)` for `border` — convert to rgba
+  // with the badge alpha. If a caller passes an rgba already, swap its alpha.
+  const rgbMatch = border.match(/^rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/);
+  if (rgbMatch) {
+    const [, r, g, b] = rgbMatch;
+    return `rgba(${r}, ${g}, ${b}, ${BADGE_BORDER_ALPHA})`;
+  }
+  const rgbaMatch = border.match(
+    /^rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*[\d.]+\s*\)$/
+  );
+  if (rgbaMatch) {
+    const [, r, g, b] = rgbaMatch;
+    return `rgba(${r}, ${g}, ${b}, ${BADGE_BORDER_ALPHA})`;
+  }
+  return border;
+}
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -35,8 +84,12 @@ interface MonthEventBarProps {
   /**
    * Edge resize callback. dayDelta is signed — positive extends, negative
    * shrinks. Edge "left" pulls the start; edge "right" pushes the end.
-   * Caller is responsible for applying the patch (typically via
-   * useCalendarResize).
+   *
+   * dayDelta is computed in CALENDAR SPACE — it accumulates both row and
+   * column offsets so dragging the right edge of a Saturday badge into
+   * the next week's Tuesday counts as +3 days (Sat→Sun→Mon→Tue), not
+   * "back to Tuesday in the current row." Caller is responsible for
+   * applying the patch (typically via useCalendarResize).
    *
    * Multi-day bars only render the matching handle on the boundary
    * segments: `left` on isFirstSegment, `right` on isLastSegment. Compact
@@ -55,9 +108,21 @@ const RESIZE_HANDLE_PX = 6;
 // ─── Resize hook ────────────────────────────────────────────────────────────
 
 /**
- * Tracks an active edge-drag for a Month event bar. dayDelta is computed by
- * dividing the pixel delta by the parent week row's day-column width (its
- * total width / 7).
+ * Tracks an active edge-drag for a Month event bar.
+ *
+ * dayDelta is computed in CALENDAR SPACE, not in cursor-pixel space. The
+ * pointer's live (clientX, clientY) is hit-tested against the month grid:
+ * we find the week row directly under the cursor, then divide its width
+ * by 7 to find the column index. dayDelta = (rowIndex - anchorRowIndex)
+ * * 7 + (colIndex - anchorColIndex). That makes dragging a Saturday-edge
+ * down into the next week's Tuesday count as +3 days, not "snap back to
+ * the same row's Tuesday."
+ *
+ * The anchor is captured at mousedown — the row + col of the edge cell
+ * being dragged. From there, every mouse event recomputes dayDelta from
+ * the current pointer position. No accumulated pixel delta — the value
+ * is always derived from where the cursor IS, never from where it has
+ * been. This is what makes cross-row resize work.
  */
 function useEdgeResize(
   barRef: React.RefObject<HTMLDivElement | null>,
@@ -72,38 +137,127 @@ function useEdgeResize(
 ) {
   const [resize, setResize] = useState<{
     edge: "left" | "right";
-    initialX: number;
-    deltaPx: number;
+    anchorRowIndex: number;
+    anchorColIndex: number;
+    dayDelta: number;
   } | null>(null);
   const resizeRef = useRef(resize);
   resizeRef.current = resize;
 
-  // Resolve the day-column width by walking up to the week row (data-attr).
-  const resolveDayColumnWidth = useCallback((): number | null => {
+  // Find every week row in document order. Used to resolve the row index
+  // (0-based) of any element relative to the full grid — not just the row
+  // the bar lives in.
+  const getWeekRows = useCallback((): HTMLElement[] => {
     const el = barRef.current;
-    if (!el) return null;
-    const weekRow = el.closest<HTMLElement>("[data-month-week-row]");
-    if (!weekRow) return null;
-    const rect = weekRow.getBoundingClientRect();
-    return rect.width / 7;
+    if (!el) return [];
+    // The scrollable parent is the section container; the rows live as
+    // descendants of any ancestor `<section>` that holds the month grid.
+    // Querying from document is fine: the data-attr is unique to this view.
+    return Array.from(
+      document.querySelectorAll<HTMLElement>("[data-month-week-row]")
+    );
   }, [barRef]);
+
+  // Resolve the (rowIndex, colIndex) the mouse is currently over.
+  // Returns null when the cursor is outside any week row (e.g. user
+  // dragged off the grid). When outside, we keep the last valid value via
+  // setResize's update guard so dayDelta doesn't oscillate.
+  const resolveCellFromPoint = useCallback(
+    (clientX: number, clientY: number): {
+      rowIndex: number;
+      colIndex: number;
+    } | null => {
+      const rows = getWeekRows();
+      if (rows.length === 0) return null;
+
+      // Find the row whose vertical band contains clientY. Use rect.top /
+      // rect.bottom directly — rows are stacked, so the test is exact.
+      let targetRow: HTMLElement | null = null;
+      let targetRowIndex = -1;
+      for (let i = 0; i < rows.length; i++) {
+        const r = rows[i].getBoundingClientRect();
+        if (clientY >= r.top && clientY < r.bottom) {
+          targetRow = rows[i];
+          targetRowIndex = i;
+          break;
+        }
+      }
+
+      // Cursor is above all rows or below all rows — clamp to the nearest
+      // edge row so dragging off the grid still produces a sane delta.
+      if (!targetRow) {
+        const firstRect = rows[0].getBoundingClientRect();
+        const lastRect = rows[rows.length - 1].getBoundingClientRect();
+        if (clientY < firstRect.top) {
+          targetRow = rows[0];
+          targetRowIndex = 0;
+        } else if (clientY >= lastRect.bottom) {
+          targetRow = rows[rows.length - 1];
+          targetRowIndex = rows.length - 1;
+        } else {
+          return null;
+        }
+      }
+
+      const rowRect = targetRow.getBoundingClientRect();
+      const colWidth = rowRect.width / 7;
+      if (colWidth <= 0) return null;
+      const rawCol = (clientX - rowRect.left) / colWidth;
+      const colIndex = Math.max(0, Math.min(6, Math.floor(rawCol)));
+      return { rowIndex: targetRowIndex, colIndex };
+    },
+    [getWeekRows]
+  );
+
+  // Resolve the anchor cell (where the drag starts). For the right edge,
+  // that's the LAST cell of the bar; for the left edge, the FIRST. We
+  // walk the same hit test using the bar's own bounding rect so the
+  // anchor lives inside the visible bar regardless of where the user
+  // clicked within the resize handle.
+  const resolveAnchorCell = useCallback(
+    (edge: "left" | "right"): { rowIndex: number; colIndex: number } | null => {
+      const el = barRef.current;
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      // Sample 1px inside the matching edge so we hit the bar, not the
+      // adjacent cell.
+      const x = edge === "right" ? r.right - 1 : r.left + 1;
+      const y = (r.top + r.bottom) / 2;
+      return resolveCellFromPoint(x, y);
+    },
+    [resolveCellFromPoint, barRef]
+  );
 
   const handleResizeStart = useCallback(
     (edge: "left" | "right") => (e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      setResize({ edge, initialX: e.clientX, deltaPx: 0 });
+      const anchor = resolveAnchorCell(edge);
+      if (!anchor) return;
+      setResize({
+        edge,
+        anchorRowIndex: anchor.rowIndex,
+        anchorColIndex: anchor.colIndex,
+        dayDelta: 0,
+      });
     },
-    []
+    [resolveAnchorCell]
   );
 
   useEffect(() => {
     if (!resize) return;
 
     const onMouseMove = (mv: MouseEvent) => {
-      setResize((prev) =>
-        prev ? { ...prev, deltaPx: mv.clientX - prev.initialX } : null
-      );
+      const cell = resolveCellFromPoint(mv.clientX, mv.clientY);
+      if (!cell) return;
+      setResize((prev) => {
+        if (!prev) return prev;
+        const dayDelta =
+          (cell.rowIndex - prev.anchorRowIndex) * 7 +
+          (cell.colIndex - prev.anchorColIndex);
+        if (dayDelta === prev.dayDelta) return prev;
+        return { ...prev, dayDelta };
+      });
     };
     const onMouseUp = () => {
       const state = resizeRef.current;
@@ -111,11 +265,8 @@ function useEdgeResize(
       window.removeEventListener("mouseup", onMouseUp);
       setResize(null);
       if (!state) return;
-      const colWidth = resolveDayColumnWidth();
-      if (!colWidth || colWidth <= 0) return;
-      const dayDelta = Math.round(state.deltaPx / colWidth);
-      if (dayDelta === 0) return;
-      onResize?.(event, state.edge, dayDelta);
+      if (state.dayDelta === 0) return;
+      onResize?.(event, state.edge, state.dayDelta);
     };
     window.addEventListener("mousemove", onMouseMove);
     window.addEventListener("mouseup", onMouseUp);
@@ -123,15 +274,9 @@ function useEdgeResize(
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("mouseup", onMouseUp);
     };
-  }, [resize, resolveDayColumnWidth, onResize, event]);
+  }, [resize, resolveCellFromPoint, onResize, event]);
 
-  // Live preview: snap the deltaPx to integer day units for visual feedback.
-  const previewDayDelta = (() => {
-    if (!resize) return 0;
-    const colWidth = resolveDayColumnWidth();
-    if (!colWidth || colWidth <= 0) return 0;
-    return Math.round(resize.deltaPx / colWidth);
-  })();
+  const previewDayDelta = resize?.dayDelta ?? 0;
 
   return {
     resize,
@@ -154,11 +299,31 @@ export function MonthEventBar({
 
   // Personal events render with a distinct white-outline + star treatment
   // so they're never confused with task-type bars (which can land on any
-  // color in the palette).
+  // color in the palette). Time-off events render with a tan hairline +
+  // palm-tree glyph (the obvious PTO signal). Both are non-color signals
+  // so the special-events row reads cleanly regardless of task-type palette.
   const isPersonal = event.kind === "personal";
-  const barBg = isPersonal ? PERSONAL_BG : event.typeColors.bg;
-  const barBorder = isPersonal ? PERSONAL_BORDER : event.typeColors.border;
-  const barText = isPersonal ? PERSONAL_TEXT : event.typeColors.text;
+  const isTimeOff = event.kind === "time_off";
+  const isSpecial = isPersonal || isTimeOff;
+  // All non-special badges share a frosted-glass fill so the underlying
+  // day cell (weekend tint, today highlight, gridlines) never bleeds
+  // through. The type stripe + type badge inside still carry the type
+  // signal; the bar perimeter is a hairline of the status hue.
+  const barBg = isPersonal
+    ? PERSONAL_BG
+    : isTimeOff
+      ? TIMEOFF_BG
+      : BADGE_BG;
+  const barBorder = isPersonal
+    ? PERSONAL_BORDER
+    : isTimeOff
+      ? TIMEOFF_BORDER
+      : hairlineBorder(event.typeColors.border);
+  const barText = isPersonal
+    ? PERSONAL_TEXT
+    : isTimeOff
+      ? TIMEOFF_TEXT
+      : event.typeColors.text;
 
   // Legend hover-to-highlight: dim non-matches, brighten matches. The "glow"
   // is brightness + opacity rather than a box-shadow (forbidden on dark
@@ -225,7 +390,18 @@ export function MonthEventBar({
   const renderEdgePreview = (edge: "left" | "right") => {
     if (!resize || resize.edge !== edge || previewDayDelta === 0) return null;
     const grow = previewDayDelta > 0;
-    const magnitude = Math.abs(previewDayDelta);
+    const magnitudeRaw = Math.abs(previewDayDelta);
+
+    // Cross-row deltas (bug da6204e1) can exceed a week. The preview
+    // overlay is rendered inside the current week-row's bar, so clamp the
+    // visual magnitude to whatever fits in the row from the bar's edge —
+    // the actual commit value still comes from the cell hit-test on
+    // mouseup, this is feedback only.
+    const colsAfterEnd = grow && edge === "right" ? 6 - span.endDayIndex : 6;
+    const colsBeforeStart = grow && edge === "left" ? span.startDayIndex : 6;
+    const visualCap =
+      edge === "right" ? Math.max(colsAfterEnd, 0) : Math.max(colsBeforeStart, 0);
+    const magnitude = Math.min(magnitudeRaw, Math.max(visualCap, 1));
 
     const barDayCount =
       span.endDayIndex - span.startDayIndex + 1; // 1 for single-day; N for multi-day
@@ -335,6 +511,31 @@ export function MonthEventBar({
         </EventHoverPopover>
       );
     }
+    if (isTimeOff) {
+      // Tan TreePalm glyph instead of color dot — recognizable PTO signal.
+      return (
+        <EventHoverPopover event={event} side="top">
+          <div
+            className="cursor-pointer shrink-0 flex items-center justify-center"
+            style={{
+              width: 10,
+              height: 10,
+              opacity: dimmedByLegend ? 0.18 : 1,
+              filter: highlightedByLegend ? "brightness(1.25)" : "none",
+              transition:
+                "opacity 0.15s cubic-bezier(0.22, 1, 0.36, 1), filter 0.15s cubic-bezier(0.22, 1, 0.36, 1)",
+            }}
+            onClick={handleClick}
+          >
+            <TreePalm
+              size={10}
+              strokeWidth={1.5}
+              style={{ color: TIMEOFF_TEXT }}
+            />
+          </div>
+        </EventHoverPopover>
+      );
+    }
     return (
       <EventHoverPopover event={event} side="top">
         <div
@@ -356,24 +557,27 @@ export function MonthEventBar({
   }
 
   // ── Level 2: Standard — short bar with single-line title ──
+  // Bug 5c19dc85 — height bumped 14 → 22px so titles and type badges
+  // read at laptop widths. Spec: "Multi-day bars should keep readable
+  // height (min 22px)."
   if (displayLevel === "standard") {
-    const showStripe = !isPersonal && (span.isFirstSegment || span.isSingleDay);
+    const showStripe = !isSpecial && (span.isFirstSegment || span.isSingleDay);
     return (
       <EventHoverPopover event={event} side="top" disabled={!!resize}>
         <div
           ref={barRef}
           className="cursor-pointer truncate relative"
           style={{
-            height: 14,
+            height: 22,
             background: barBg,
             border: `1px solid ${barBorder}`,
             borderRadius,
             color: barText,
-            paddingLeft: showStripe ? 7 : isPersonal ? 5 : 4,
-            paddingRight: 4,
+            paddingLeft: showStripe ? 9 : isSpecial ? 6 : 5,
+            paddingRight: 5,
             display: "flex",
             alignItems: "center",
-            gap: isPersonal ? 4 : 0,
+            gap: isSpecial ? 5 : 0,
             overflow: "visible",
             transition:
               "filter 0.15s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.15s cubic-bezier(0.22, 1, 0.36, 1)",
@@ -391,20 +595,28 @@ export function MonthEventBar({
           {StripeAccent(showStripe)}
           {isPersonal && (
             <Star
-              size={9}
+              size={10}
               strokeWidth={1.5}
               style={{ color: PERSONAL_TEXT, fill: PERSONAL_TEXT, flexShrink: 0 }}
               aria-hidden="true"
             />
           )}
+          {isTimeOff && (
+            <TreePalm
+              size={10}
+              strokeWidth={1.5}
+              style={{ color: TIMEOFF_TEXT, flexShrink: 0 }}
+              aria-hidden="true"
+            />
+          )}
           <span
             className="font-mohave truncate"
-            style={{ fontSize: 11, lineHeight: "14px", color: barText }}
+            style={{ fontSize: 12, lineHeight: "20px", color: barText }}
           >
             {event.projectTitle ?? event.taskTitle}
           </span>
-          {showLeftHandle && <Handle edge="left" height={14} />}
-          {showRightHandle && <Handle edge="right" height={14} />}
+          {showLeftHandle && <Handle edge="left" height={22} />}
+          {showRightHandle && <Handle edge="right" height={22} />}
           {renderEdgePreview("left")}
           {renderEdgePreview("right")}
         </div>
@@ -414,26 +626,28 @@ export function MonthEventBar({
 
   // ── Level 3: Expanded ──
 
-  // Multi-day events stay 14px even at expanded level
+  // Multi-day events render at 22px (bug 5c19dc85 — was 14px) so titles
+  // remain legible across the full row width at laptop screen sizes.
   if (!span.isSingleDay) {
-    const showStripe = !isPersonal && span.isFirstSegment;
+    const showStripe = !isSpecial && span.isFirstSegment;
     const showStarLead = isPersonal && span.isFirstSegment;
+    const showPalmLead = isTimeOff && span.isFirstSegment;
     return (
       <EventHoverPopover event={event} side="top" disabled={!!resize}>
         <div
           ref={barRef}
           className="cursor-pointer truncate relative"
           style={{
-            height: 14,
+            height: 22,
             background: barBg,
             border: `1px solid ${barBorder}`,
             borderRadius,
             color: barText,
-            paddingLeft: showStripe ? 7 : isPersonal ? 5 : 4,
-            paddingRight: 4,
+            paddingLeft: showStripe ? 9 : isSpecial ? 6 : 5,
+            paddingRight: 5,
             display: "flex",
             alignItems: "center",
-            gap: showStarLead ? 4 : 0,
+            gap: showStarLead || showPalmLead ? 5 : 0,
             overflow: "visible",
             transition:
               "filter 0.15s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.15s cubic-bezier(0.22, 1, 0.36, 1)",
@@ -451,20 +665,28 @@ export function MonthEventBar({
           {StripeAccent(showStripe)}
           {showStarLead && (
             <Star
-              size={9}
+              size={10}
               strokeWidth={1.5}
               style={{ color: PERSONAL_TEXT, fill: PERSONAL_TEXT, flexShrink: 0 }}
               aria-hidden="true"
             />
           )}
+          {showPalmLead && (
+            <TreePalm
+              size={10}
+              strokeWidth={1.5}
+              style={{ color: TIMEOFF_TEXT, flexShrink: 0 }}
+              aria-hidden="true"
+            />
+          )}
           <span
             className="font-mohave truncate"
-            style={{ fontSize: 11, lineHeight: "14px", color: barText }}
+            style={{ fontSize: 12, lineHeight: "20px", color: barText }}
           >
             {event.projectTitle ?? event.taskTitle}
           </span>
-          {showLeftHandle && <Handle edge="left" height={14} />}
-          {showRightHandle && <Handle edge="right" height={14} />}
+          {showLeftHandle && <Handle edge="left" height={22} />}
+          {showRightHandle && <Handle edge="right" height={22} />}
           {renderEdgePreview("left")}
           {renderEdgePreview("right")}
         </div>
@@ -496,7 +718,7 @@ export function MonthEventBar({
           border: `1px solid ${barBorder}`,
           borderRadius: "4px",
           color: barText,
-          paddingLeft: isPersonal ? 8 : 9,
+          paddingLeft: isSpecial ? 8 : 9,
           paddingRight: 6,
           paddingTop: 4,
           paddingBottom: 4,
@@ -511,12 +733,20 @@ export function MonthEventBar({
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        {StripeAccent(!isPersonal)}
+        {StripeAccent(!isSpecial)}
         {isPersonal && (
           <Star
             size={12}
             strokeWidth={1.5}
             style={{ color: PERSONAL_TEXT, fill: PERSONAL_TEXT, flexShrink: 0 }}
+            aria-hidden="true"
+          />
+        )}
+        {isTimeOff && (
+          <TreePalm
+            size={12}
+            strokeWidth={1.5}
+            style={{ color: TIMEOFF_TEXT, flexShrink: 0 }}
             aria-hidden="true"
           />
         )}
@@ -539,7 +769,11 @@ export function MonthEventBar({
               style={{
                 fontSize: 10,
                 lineHeight: "12px",
-                color: isPersonal ? "rgba(255,255,255,0.65)" : "var(--text-2)",
+                color: isPersonal
+                  ? "rgba(255,255,255,0.65)"
+                  : isTimeOff
+                    ? "rgba(196,168,104,0.75)"
+                    : "var(--text-2)",
               }}
             >
               {lineTwo}
@@ -555,7 +789,11 @@ export function MonthEventBar({
               style={{
                 fontSize: 10,
                 lineHeight: "12px",
-                color: isPersonal ? "rgba(255,255,255,0.65)" : "var(--text-3)",
+                color: isPersonal
+                  ? "rgba(255,255,255,0.65)"
+                  : isTimeOff
+                    ? "rgba(196,168,104,0.75)"
+                    : "var(--text-3)",
                 fontFeatureSettings: '"tnum" 1, "zero" 1',
               }}
             >

@@ -1,16 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState, useRef, useCallback } from "react";
-import { toast } from "sonner";
-import { isToday, differenceInCalendarDays, getHours, getMinutes, format } from "date-fns";
+import { useEffect, useState, useRef, useCallback } from "react";
 import {
-  DndContext,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  useDroppable,
-} from "@dnd-kit/core";
-import type { ProjectTask, TeamMember } from "@/lib/types/models";
+  isToday,
+  getHours,
+  getMinutes,
+  format,
+  differenceInCalendarDays,
+} from "date-fns";
+import { useDroppable } from "@dnd-kit/core";
+import type { TeamMember } from "@/lib/types/models";
 import type { InternalCalendarEvent } from "@/lib/utils/calendar-utils";
 import { UserRole } from "@/lib/types/models";
 import { CrewHeader } from "./crew-header";
@@ -19,23 +18,29 @@ import { CrewTaskBlock } from "./crew-task-block";
 import { EventContextMenu } from "../event-context-menu";
 import { InlineEditor } from "../inline-editor";
 import { useCalendarStore } from "@/stores/calendar-store";
-import { useRecurrenceEditPrompt } from "@/components/ui/recurrence-edit-prompt";
-import { useUpdateTask, useTasks, useRecurrenceEdit } from "@/lib/hooks";
-import { useCrewDnd } from "@/lib/hooks/use-crew-dnd";
+import { useUpdateTask } from "@/lib/hooks";
 import {
   CREW_DAYS_SHOWN,
-  CREW_DAY_MIN_WIDTH,
   CREW_GUTTER_WIDTH,
   CREW_ROW_HEIGHT,
 } from "@/lib/utils/crew-constants";
 import { assignLanes, rowHeightForLanes } from "@/lib/utils/lane-assignment";
 
-// ─── Unassigned Placeholder ─────────────────────────────────────────────────
+// ─── Special Events Placeholder ─────────────────────────────────────────────
+//
+// The bottom row in the crew view is reserved for SPECIAL EVENTS — non-task
+// calendar items (personal events, time-off requests) that don't belong to
+// a single crew member's swimlane. It also holds task events that lack any
+// crew assignment so they don't disappear from the schedule.
+//
+// Renamed from "Unassigned" (bug 1ceb0789) — the prior label only accepted
+// events with `teamMemberIds.length === 0`, hiding personal events with
+// crew assignments from the operator's view.
 
-const UNASSIGNED_MEMBER: TeamMember = {
-  id: "__unassigned__",
-  userId: "__unassigned__",
-  firstName: "Unassigned",
+const SPECIAL_EVENTS_MEMBER: TeamMember = {
+  id: "__special_events__",
+  userId: "__special_events__",
+  firstName: "Special Events",
   lastName: "",
   email: null,
   phone: null,
@@ -95,6 +100,13 @@ function DroppableCrewRow({
       type: "crew-row",
       teamMemberId: teamMember.id,
       gridWidth,
+      // Bug 1b2942d5: bridge crew-row droppables into the outer
+      // CalendarDndShell so unscheduled-tray drags (registered in the
+      // outer context) can target this row. Carrying startDate +
+      // daysShown lets the shell's handleDragEnd compute the dropped
+      // calendar day from horizontal pixel offset without prop-drilling.
+      startDate,
+      daysShown,
     },
   });
 
@@ -202,68 +214,14 @@ export function CrewGrid({
   } | null>(null);
 
   // ── Mutations ─────────────────────────────────────────────────────────
+  //
+  // Bug 1b2942d5: drag-and-drop is now owned by the outer
+  // CalendarDndShell so cross-context drags (unscheduled-tray →
+  // crew-row) work without forwarding. The crew-grid only handles the
+  // local resize callback below — every other drag path lives in the
+  // shell's handleDragEnd.
 
   const updateTask = useUpdateTask();
-  const recurrenceEdit = useRecurrenceEdit();
-  const recurrencePrompt = useRecurrenceEditPrompt();
-
-  // Phase 3 — full task lookup so the DnD hook can detect series membership.
-  const { data: taskData } = useTasks();
-  const tasksById = useMemo(() => {
-    const map = new Map<string, ProjectTask>();
-    for (const t of taskData?.tasks ?? []) {
-      map.set(t.id, t);
-    }
-    return map;
-  }, [taskData]);
-
-  const handleRecurringEdit = useCallback(
-    async ({
-      event,
-      patch,
-    }: {
-      event: InternalCalendarEvent;
-      patch: Partial<ProjectTask>;
-    }): Promise<boolean> => {
-      const task = tasksById.get(event.id);
-      if (!task) return false;
-      const scope = await recurrencePrompt.request({
-        description: "Move this occurrence, or shift the entire series?",
-      });
-      if (!scope) return false;
-      try {
-        await new Promise<void>((resolve, reject) => {
-          recurrenceEdit.mutate(
-            { task, scope, patch },
-            {
-              onSuccess: () => resolve(),
-              onError: (err) => reject(err),
-            }
-          );
-        });
-        return true;
-      } catch (err) {
-        const message = err instanceof Error ? err.message : "Unknown error";
-        toast.error("Failed to move recurring task", { description: message });
-        return false;
-      }
-    },
-    [tasksById, recurrencePrompt, recurrenceEdit]
-  );
-
-  // ── DnD ───────────────────────────────────────────────────────────────
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
-  );
-
-  const { handleDragStart, handleDragEnd, handleDragCancel } = useCrewDnd({
-    events,
-    startDate,
-    daysShown,
-    onRecurringEdit: handleRecurringEdit,
-    tasksById,
-  });
 
   // ── Resize callback ───────────────────────────────────────────────────
 
@@ -307,18 +265,37 @@ export function CrewGrid({
     [selectedTaskId, selectedTaskIds]
   );
 
-  // Group events by team member ID
+  // Group events by team member ID.
+  //
+  // Special Events row predicate (bug 1ceb0789):
+  //   - All events of kind = "personal" or "time_off" land here — regardless
+  //     of crew assignments. These are owner/operator-level items that don't
+  //     belong to a single crew swimlane.
+  //   - Task events with NO crew assignments also land here so they stay
+  //     visible (legacy "unassigned" behavior preserved).
+  //   - Task events WITH crew assignments still appear in each assigned
+  //     member's row (and ALSO in the special events row when their kind
+  //     is personal/time_off).
   const eventsByMember = useCallback(() => {
     const map = new Map<string, InternalCalendarEvent[]>();
 
     for (const event of events) {
-      if (event.teamMemberIds.length === 0) {
-        // Unassigned events
-        const existing = map.get(UNASSIGNED_MEMBER.id) ?? [];
+      const isSpecial = event.kind === "personal" || event.kind === "time_off";
+      const hasCrew = event.teamMemberIds.length > 0;
+
+      if (isSpecial || !hasCrew) {
+        // Personal / time_off events always show in Special Events. Tasks
+        // with no crew also fall here so they don't disappear.
+        const existing = map.get(SPECIAL_EVENTS_MEMBER.id) ?? [];
         existing.push(event);
-        map.set(UNASSIGNED_MEMBER.id, existing);
-      } else {
-        // Events with team members appear in EACH member's row
+        map.set(SPECIAL_EVENTS_MEMBER.id, existing);
+      }
+
+      if (hasCrew) {
+        // Events with team members appear in EACH member's row. Special
+        // events with crew assignments appear in BOTH the special row AND
+        // every assigned member's row — they're owner-level items the
+        // operator cares about across the whole grid.
         for (const memberId of event.teamMemberIds) {
           const existing = map.get(memberId) ?? [];
           existing.push(event);
@@ -340,12 +317,7 @@ export function CrewGrid({
   });
 
   return (
-    <DndContext
-      sensors={sensors}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
-      onDragCancel={handleDragCancel}
-    >
+    <>
       <div className="flex flex-col h-full overflow-hidden relative">
         {/* Header row — day labels */}
         <CrewHeader startDate={startDate} daysShown={daysShown} />
@@ -389,21 +361,23 @@ export function CrewGrid({
             );
           })}
 
-          {/* Unassigned row — only shown when tasks lack team member assignments */}
+          {/* Special Events row — personal events, time-off, and any task
+              without a crew assignment. (Renamed from "Unassigned" — bug
+              1ceb0789.) */}
           {(() => {
-            const unassignedEvents = grouped.get(UNASSIGNED_MEMBER.id) ?? [];
-            if (unassignedEvents.length === 0) return null;
-            const { lanes, laneCount } = assignLanes(unassignedEvents);
+            const specialEvents = grouped.get(SPECIAL_EVENTS_MEMBER.id) ?? [];
+            if (specialEvents.length === 0) return null;
+            const { lanes, laneCount } = assignLanes(specialEvents);
             const rowHeight = rowHeightForLanes(laneCount, CREW_ROW_HEIGHT);
             return (
               <DroppableCrewRow
-                teamMember={UNASSIGNED_MEMBER}
+                teamMember={SPECIAL_EVENTS_MEMBER}
                 startDate={startDate}
                 daysShown={daysShown}
                 isLast
                 rowHeight={rowHeight}
               >
-                {unassignedEvents.map((event) => (
+                {specialEvents.map((event) => (
                   <CrewTaskBlock
                     key={event.id}
                     event={event}
@@ -434,9 +408,6 @@ export function CrewGrid({
 
       {/* Inline editor overlay */}
       <InlineEditor />
-
-      {/* Phase 3 — recurrence scope prompt for drag-rescheduled series tasks */}
-      {recurrencePrompt.promptElement}
-    </DndContext>
+    </>
   );
 }

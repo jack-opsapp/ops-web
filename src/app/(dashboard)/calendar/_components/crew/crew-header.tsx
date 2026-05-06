@@ -58,7 +58,12 @@ export function CrewHeader({ startDate, daysShown }: CrewHeaderProps) {
                 // without horizontal overflow.
                 flex: "1 1 0%",
                 opacity: weekend ? 0.6 : 1,
-                background: today ? "rgba(111, 148, 176, 0.06)" : "transparent",
+                // Today header tint bumped 0.06 → var(--ops-accent-soft)
+                // (0.12) so the column reads clearly across crew + grid
+                // (bug a561f726).
+                background: today
+                  ? "var(--ops-accent-soft)"
+                  : "transparent",
                 borderTop: today ? "2px solid var(--ops-accent)" : "2px solid transparent",
               }}
             >

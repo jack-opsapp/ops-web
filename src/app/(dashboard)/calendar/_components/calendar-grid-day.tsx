@@ -132,7 +132,13 @@ export function CalendarGridDay({
       ref={setDayDroppableRef}
       className="flex flex-col flex-1 min-h-0"
       style={{
-        background: isOver ? "rgba(111, 148, 176, 0.06)" : undefined,
+        // Today canvas tint matches month/week/crew (bug a561f726).
+        // Drop indicator brightens further while a drag is over the panel.
+        background: isOver
+          ? "rgba(111, 148, 176, 0.18)"
+          : dayIsToday
+            ? "var(--ops-accent-soft)"
+            : undefined,
         transition: "background 0.15s cubic-bezier(0.22, 1, 0.36, 1)",
       }}
     >

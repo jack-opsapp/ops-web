@@ -95,10 +95,14 @@ export function WeekDayColumn({ day, events, onCardResize }: WeekDayColumnProps)
         // card titles inflate the column and bleed across siblings.
         flex: "1 1 0%",
         opacity: weekend ? 0.85 : 1,
+        // Today fill bumped from 0.06 → var(--ops-accent-soft) (0.12) so the
+        // column reads clearly against weekend tint + grid overlay (bug
+        // a561f726). Drop indicator stays brighter than today fill so a
+        // dragged event always reads as the strongest signal.
         background: isOver
-          ? "rgba(111, 148, 176, 0.10)"
+          ? "rgba(111, 148, 176, 0.18)"
           : today
-            ? "rgba(111, 148, 176, 0.06)"
+            ? "var(--ops-accent-soft)"
             : "transparent",
         borderRight: "1px solid var(--line)",
         // Today column: 2px accent top border (T14 — today indicator signal #2)

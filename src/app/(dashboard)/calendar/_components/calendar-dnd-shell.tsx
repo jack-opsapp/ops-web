@@ -180,17 +180,23 @@ export function CalendarDndShell({ children }: CalendarDndShellProps) {
         | {
             type?: string;
             event?: InternalCalendarEvent;
-            task?: { id: string; duration: number };
+            task?: { id: string; duration: number; teamMemberIds?: string[] };
           }
         | undefined;
       const overData = over.data?.current as
-        | { type?: string; day?: Date }
+        | {
+            type?: string;
+            day?: Date;
+            teamMemberId?: string;
+            startDate?: Date;
+            daysShown?: number;
+            gridWidth?: number;
+          }
         | undefined;
-      if (!activeData?.type || !overData?.day) return;
+      if (!activeData?.type) return;
 
-      const targetDay = overData.day;
-
-      // Recurrence-aware dispatcher
+      // Recurrence-aware dispatcher — hoisted above the per-target
+      // routing so crew-row handlers can use it for series tasks.
       const dispatchUpdate = async (
         sourceTaskId: string,
         patch: Partial<ProjectTask>,
@@ -221,6 +227,164 @@ export function CalendarDndShell({ children }: CalendarDndShellProps) {
           }
         );
       };
+
+      // ── Unscheduled-dock drop (bug cc515384) ─────────────────────────
+      //
+      // Dragging a SCHEDULED event onto the unscheduled tray clears
+      // start_date / end_date / start_time / end_time so the task
+      // returns to the unscheduled list. Unscheduled-task or
+      // project-drawer-task drags onto the tray are no-ops (they're
+      // already unscheduled).
+      if (overData?.type === "unscheduled-dock") {
+        const eventTypes = new Set([
+          "month-event",
+          "week-event",
+          "day-hourly-event",
+          "day-list-event",
+          "crew-event",
+        ]);
+        if (eventTypes.has(activeData.type) && activeData.event) {
+          const calEvent = activeData.event;
+          await dispatchUpdate(
+            calEvent.id,
+            {
+              startDate: null,
+              endDate: null,
+              startTime: null,
+              endTime: null,
+            },
+            "Unschedule this occurrence, or the entire series?",
+          );
+          return;
+        }
+        return;
+      }
+
+      // ── Crew-row drops (bug 1b2942d5) ────────────────────────────────
+      //
+      // Crew rows live inside the calendar grid but don't expose a
+      // single `day` value — the drop position resolves from the
+      // horizontal pixel offset relative to the row's grid origin. Route
+      // those here BEFORE the `!overData.day` guard so unscheduled-tray
+      // and project-drawer drags don't fizzle when the user drops onto
+      // a crew swimlane.
+      if (
+        overData?.type === "crew-row" &&
+        overData.teamMemberId &&
+        overData.startDate &&
+        typeof overData.daysShown === "number" &&
+        typeof overData.gridWidth === "number"
+      ) {
+        const crewStart = overData.startDate;
+        const crewDaysShown = overData.daysShown;
+        const dayColumnWidth =
+          overData.gridWidth > 0 ? overData.gridWidth / crewDaysShown : 0;
+        const dayDelta =
+          dayColumnWidth > 0 ? Math.round(delta.x / dayColumnWidth) : 0;
+        const targetDateClamped = addDays(
+          crewStart,
+          Math.max(0, Math.min(dayDelta, crewDaysShown - 1)),
+        );
+
+        // Unscheduled-task → schedule + auto-assign the crew row's member.
+        if (activeData.type === "unscheduled-task" && activeData.task) {
+          const task = activeData.task;
+          const storedDuration = Math.max(task.duration ?? 1, 1);
+          const newEnd = addDays(
+            targetDateClamped,
+            Math.max(storedDuration - 1, 0),
+          );
+          updateTask.mutate(
+            {
+              id: task.id,
+              data: {
+                startDate: targetDateClamped,
+                endDate: newEnd,
+                teamMemberIds: [overData.teamMemberId],
+              },
+            },
+            {
+              onError: (err) =>
+                toast.error("Failed to schedule task", {
+                  description: err.message,
+                }),
+            },
+          );
+          return;
+        }
+
+        // Project-drawer-task → same behavior as unscheduled.
+        if (activeData.type === "project-drawer-task" && activeData.task) {
+          const task = activeData.task;
+          const storedDuration = Math.max(task.duration ?? 1, 1);
+          const newEnd = addDays(
+            targetDateClamped,
+            Math.max(storedDuration - 1, 0),
+          );
+          updateTask.mutate(
+            {
+              id: task.id,
+              data: {
+                startDate: targetDateClamped,
+                endDate: newEnd,
+                teamMemberIds: [overData.teamMemberId],
+              },
+            },
+            {
+              onError: (err) =>
+                toast.error("Failed to schedule task", {
+                  description: err.message,
+                }),
+            },
+          );
+          return;
+        }
+
+        // crew-event drag — intra-crew reschedule + optional re-assign.
+        // Preserves event duration; new end = newStart + (oldEnd - oldStart).
+        if (activeData.type === "crew-event" && activeData.event) {
+          const calEvent = activeData.event;
+          const eventStart =
+            calEvent.startDate instanceof Date
+              ? calEvent.startDate
+              : new Date(calEvent.startDate);
+          const eventEnd =
+            calEvent.endDate instanceof Date
+              ? calEvent.endDate
+              : new Date(calEvent.endDate);
+          const durationDays = differenceInCalendarDays(eventEnd, eventStart);
+          const eventDayDelta =
+            dayColumnWidth > 0 ? Math.round(delta.x / dayColumnWidth) : 0;
+          const newStart = addDays(eventStart, eventDayDelta);
+          const newEnd = addDays(newStart, durationDays);
+
+          const memberChanged =
+            calEvent.teamMemberIds.length !== 1 ||
+            calEvent.teamMemberIds[0] !== overData.teamMemberId;
+          const dateUnchanged =
+            newStart.getTime() === eventStart.getTime() &&
+            newEnd.getTime() === eventEnd.getTime();
+          if (dateUnchanged && !memberChanged) return;
+
+          const patch: Partial<ProjectTask> = {
+            startDate: newStart,
+            endDate: newEnd,
+          };
+          if (memberChanged) {
+            patch.teamMemberIds = [overData.teamMemberId];
+          }
+          await dispatchUpdate(
+            calEvent.id,
+            patch,
+            "Move this occurrence, or shift the entire series?",
+          );
+          return;
+        }
+      }
+
+      if (!overData?.day) return;
+
+      const targetDay = overData.day;
 
       // ── month-event / week-event: whole-day reschedule ───────────────
       if (

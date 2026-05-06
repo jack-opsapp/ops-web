@@ -3,8 +3,8 @@
 import { useMemo } from "react";
 import { ChevronRight, ChevronLeft, GripVertical } from "lucide-react";
 import { SearchInput } from "@/components/ui/search-input";
-import { useDraggable } from "@dnd-kit/core";
-import { motion, AnimatePresence } from "framer-motion";
+import { useDraggable, useDroppable } from "@dnd-kit/core";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { useTasks } from "@/lib/hooks";
 import { TaskStatus, type ProjectTask } from "@/lib/types/models";
 import {
@@ -17,6 +17,19 @@ import type { SchedulerView } from "@/lib/types/scheduling";
 const EASE_SMOOTH: [number, number, number, number] = [0.22, 1, 0.36, 1];
 const COLLAPSED_WIDTH = 32;
 const EXPANDED_WIDTH = 280;
+// Bug 483cd85c — collapse/expand animation tuned to match the EdgeTab drawer
+// pattern (220-260ms EASE_SMOOTH). The previous mode="wait" pattern caused a
+// visible blank gap between the collapsed handle and the expanded panel.
+// The new pattern overlaps the cross-fade so there's never a moment where
+// neither variant is visible.
+const TRAY_TRANSITION_MS = 240;
+
+// Group sentinel keys — used when the underlying entity is missing (no
+// project assigned / RLS-filtered client / untyped task). Held at module
+// scope so the values are stable across renders. Bug e06445fe.
+const NO_PROJECT_KEY = "__no_project__";
+const NO_CLIENT_KEY = "__no_client__";
+const NO_TYPE_KEY = "__no_type__";
 
 // ─── Props ─────────────────────────────────────────────────────────────────
 
@@ -105,39 +118,95 @@ export function UnscheduledTray({ view }: UnscheduledTrayProps) {
   }, [filtered, unscheduledTraySort]);
 
   // Group
+  // Bug e06445fe — group-by-client wasn't surfacing client names because the
+  // group `label` was rendered as `// ${label}` while the keyOf() fallback
+  // ALSO emitted a `//` prefix ("// NO CLIENT"), and RLS-filtered embeds can
+  // leave `t.project.client` null even when the project has a clientId.
+  // Resolution:
+  //   1. Group key holds the canonical NAME only (no `//` prefix).
+  //   2. Empty/missing names fall back to a separate sentinel.
+  //   3. The renderer carries the `//` prefix exactly once.
+  // The sentinel is rendered as `// NO CLIENT` / `// NO PROJECT` /
+  // `// NO TYPE` so the operator still sees a labeled group.
   const groups = useMemo(() => {
     if (unscheduledTrayGroupBy === "none") {
       return [{ key: "all", label: "ALL", tasks: sorted }];
     }
-    const keyOf = (t: ProjectTask): string => {
+    const keyOf = (t: ProjectTask): { key: string; label: string } => {
       switch (unscheduledTrayGroupBy) {
-        case "project":
-          return t.project?.title ?? "// NO PROJECT";
-        case "client":
-          // task-service eager-loads project.client (see select clause), so
-          // group by the actual client name when present.
-          return t.project?.client?.name ?? "// NO CLIENT";
-        case "type":
-          return t.taskType?.display?.toUpperCase() ?? "// NO TYPE";
+        case "project": {
+          const name = t.project?.title?.trim();
+          return name
+            ? { key: name, label: name }
+            : { key: NO_PROJECT_KEY, label: "NO PROJECT" };
+        }
+        case "client": {
+          // task-service eager-loads project.client (see select clause).
+          // RLS on clients can suppress the embed; fall back to the bare
+          // clientId so the operator still gets a stable grouping (and a
+          // hint that the client row is access-restricted).
+          const clientName = t.project?.client?.name?.trim();
+          if (clientName) return { key: clientName, label: clientName };
+          const clientId =
+            t.project?.client?.id ?? t.project?.clientId ?? null;
+          if (clientId) {
+            // Compact id label so the group still has a stable sort key.
+            const short = clientId.slice(0, 8);
+            return {
+              key: `client:${clientId}`,
+              label: `CLIENT ${short.toUpperCase()}`,
+            };
+          }
+          return { key: NO_CLIENT_KEY, label: "NO CLIENT" };
+        }
+        case "type": {
+          const display = t.taskType?.display?.trim();
+          return display
+            ? { key: display.toUpperCase(), label: display.toUpperCase() }
+            : { key: NO_TYPE_KEY, label: "NO TYPE" };
+        }
       }
     };
 
-    const map = new Map<string, ProjectTask[]>();
+    const map = new Map<string, { label: string; tasks: ProjectTask[] }>();
     for (const t of sorted) {
-      const k = keyOf(t);
-      if (!map.has(k)) map.set(k, []);
-      map.get(k)!.push(t);
+      const { key, label } = keyOf(t);
+      const entry = map.get(key);
+      if (entry) {
+        entry.tasks.push(t);
+      } else {
+        map.set(key, { label, tasks: [t] });
+      }
     }
 
-    return Array.from(map.entries()).map(([key, tasks]) => ({
+    return Array.from(map.entries()).map(([key, { label, tasks }]) => ({
       key,
-      label: key,
+      label,
       tasks,
     }));
   }, [sorted, unscheduledTrayGroupBy]);
 
-  const dockSide: "left" | "right" = view === "day" ? "left" : "right";
+  // Bug 8620c037 — the unscheduled tray docks LEFT in every view (canonical
+  // side, documented in system.md Calendar section). Previously day docked
+  // left and week/month/crew docked right, which made the tray feel like it
+  // was bouncing around as the operator switched views. Locking it to the
+  // LEFT means the tray reads as a permanent secondary panel separate from
+  // the main calendar canvas — same affordance no matter the view. The
+  // `view` prop is still threaded through so future per-view tweaks (e.g.
+  // a wider tray on day view) can branch off it without re-plumbing.
+  void view;
   const count = allUnscheduled.length;
+  const reducedMotion = useReducedMotion();
+
+  // Drop target — calendar events dragged ONTO the tray are unscheduled
+  // (start_date / end_date / start_time / end_time → null). The task
+  // returns to the tray on the next render. (Bug cc515384.) Routed via
+  // CalendarDndShell.handleDragEnd.
+  const { setNodeRef: setUnscheduleDropRef, isOver: isUnscheduleOver } =
+    useDroppable({
+      id: "unscheduled-dock",
+      data: { type: "unscheduled-dock" },
+    });
 
   // ── Animated width container ────────────────────────────────────────────
   // A single motion.div animates between COLLAPSED_WIDTH and EXPANDED_WIDTH
@@ -147,19 +216,34 @@ export function UnscheduledTray({ view }: UnscheduledTrayProps) {
 
   return (
     <motion.div
+      ref={setUnscheduleDropRef}
       initial={false}
       animate={{
+        // Reduced motion: snap directly to target width with no tween.
         width: unscheduledTrayCollapsed ? COLLAPSED_WIDTH : EXPANDED_WIDTH,
       }}
-      transition={{ duration: 0.24, ease: EASE_SMOOTH }}
+      transition={
+        reducedMotion
+          ? { duration: 0 }
+          : { duration: TRAY_TRANSITION_MS / 1000, ease: EASE_SMOOTH }
+      }
       className="shrink-0 h-full flex flex-col min-h-0 overflow-hidden relative"
       style={{
         background: "var(--glass-bg)",
-        borderLeft: dockSide === "right" ? "1px solid var(--line)" : "none",
-        borderRight: dockSide === "left" ? "1px solid var(--line)" : "none",
+        // dockSide is locked to "left" (bug 8620c037) — the divider lives on
+        // the right edge to separate the tray from the main canvas.
+        borderRight: "1px solid var(--line)",
+        outline: isUnscheduleOver
+          ? "1px solid rgba(111, 148, 176, 0.4)"
+          : "none",
+        outlineOffset: -1,
       }}
     >
-      <AnimatePresence initial={false} mode="wait">
+      {/* AnimatePresence without mode="wait" — both variants overlap during
+          the cross-fade so the rail never goes blank. The exiting element
+          continues to occupy the absolute-positioned inset until its
+          opacity/scale animation finishes, then unmounts. */}
+      <AnimatePresence initial={false}>
         {unscheduledTrayCollapsed ? (
           <motion.button
             key="tray-collapsed"
@@ -168,7 +252,11 @@ export function UnscheduledTray({ view }: UnscheduledTrayProps) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.16, ease: EASE_SMOOTH }}
+            transition={
+              reducedMotion
+                ? { duration: 0 }
+                : { duration: 0.18, ease: EASE_SMOOTH }
+            }
             className="absolute inset-0 flex flex-col items-center justify-start gap-3 cursor-pointer group"
             style={{
               padding: "16px 0",
@@ -184,17 +272,11 @@ export function UnscheduledTray({ view }: UnscheduledTrayProps) {
             aria-label={`Show ${count} unscheduled tasks`}
             title={`// UNSCHEDULED [${count}]`}
           >
-            {dockSide === "right" ? (
-              <ChevronLeft
-                className="w-[14px] h-[14px]"
-                style={{ color: "var(--text-3)" }}
-              />
-            ) : (
-              <ChevronRight
-                className="w-[14px] h-[14px]"
-                style={{ color: "var(--text-3)" }}
-              />
-            )}
+            {/* Tray is LEFT-docked — collapsed handle hints "expand right". */}
+            <ChevronRight
+              className="w-[14px] h-[14px]"
+              style={{ color: "var(--text-3)" }}
+            />
             <div
               className="flex-1 flex items-center justify-center"
               style={{
@@ -223,7 +305,11 @@ export function UnscheduledTray({ view }: UnscheduledTrayProps) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.18, ease: EASE_SMOOTH, delay: 0.04 }}
+            transition={
+              reducedMotion
+                ? { duration: 0 }
+                : { duration: 0.22, ease: EASE_SMOOTH }
+            }
             className="absolute inset-0 flex flex-col min-h-0"
             style={{ width: EXPANDED_WIDTH }}
           >
@@ -248,17 +334,11 @@ export function UnscheduledTray({ view }: UnscheduledTrayProps) {
           aria-label="Collapse unscheduled tray"
           title="Collapse"
         >
-          {dockSide === "right" ? (
-            <ChevronRight
-              className="w-[14px] h-[14px]"
-              style={{ color: "var(--text-3)" }}
-            />
-          ) : (
-            <ChevronLeft
-              className="w-[14px] h-[14px]"
-              style={{ color: "var(--text-3)" }}
-            />
-          )}
+          {/* Tray is LEFT-docked — chevron points left to collapse. */}
+          <ChevronLeft
+            className="w-[14px] h-[14px]"
+            style={{ color: "var(--text-3)" }}
+          />
         </button>
       </div>
 
@@ -432,10 +512,13 @@ function UnscheduledTrayCard({ task }: { task: ProjectTask }) {
       </div>
       {clientName && (
         <div
-          className="font-mono text-[10px] uppercase tracking-wider truncate mt-1"
-          style={{ color: "var(--text-2)", letterSpacing: "0.04em" }}
+          className="font-mono text-[10px] uppercase truncate mt-1"
+          style={{
+            color: "var(--text-3)",
+            letterSpacing: "0.16em",
+          }}
         >
-          {clientName}
+          {`[${clientName}]`}
         </div>
       )}
       {customTitle && customTitle !== task.taskType?.display && (

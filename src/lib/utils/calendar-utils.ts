@@ -178,9 +178,15 @@ export function deriveTaskStatusKey(
   const start = task.startDate ? new Date(task.startDate) : null;
   let end = task.endDate ? new Date(task.endDate) : null;
 
-  // Fall back to start + duration when end_date is missing.
+  // Fall back to start + (duration - 1) when end_date is missing.
+  // OPS convention: endDate is the LAST day INCLUSIVELY, so a 1-day task has
+  // endDate === startDate. Treating duration exclusively here was the source
+  // of bug da108fb6 (1-day tasks rendered as 2-day spans on the month grid).
   if (!end && start && task.duration > 0) {
-    end = new Date(start.getTime() + task.duration * 24 * 60 * 60 * 1000);
+    const inclusiveOffsetDays = Math.max(task.duration - 1, 0);
+    end = new Date(
+      start.getTime() + inclusiveOffsetDays * 24 * 60 * 60 * 1000,
+    );
   }
 
   if (end && end < now) return "overdue";
@@ -256,7 +262,14 @@ export function mapTaskToInternalEvent(task: ProjectTask): InternalCalendarEvent
       if (!isNaN(h) && !isNaN(m)) endDate.setHours(h, m, 0, 0);
     }
   } else if (task.duration > 0) {
-    endDate = new Date(startDate.getTime() + task.duration * 24 * 60 * 60 * 1000);
+    // OPS convention: endDate is INCLUSIVE (`endDate === startDate` for a
+    // 1-day task). The earlier formula (`start + duration * 24h`) treated
+    // duration exclusively, so 1-day tasks fell through as 2-day spans on
+    // the month grid. Bug da108fb6.
+    const inclusiveOffsetDays = Math.max(task.duration - 1, 0);
+    endDate = new Date(
+      startDate.getTime() + inclusiveOffsetDays * 24 * 60 * 60 * 1000,
+    );
     // Single-day timed tasks honor endTime to set the closing wall-clock.
     if (!task.allDay && task.endTime && task.duration <= 1) {
       const [h, m] = task.endTime.split(":").map(Number);
