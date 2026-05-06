@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Shield,
   Check,
@@ -328,8 +329,36 @@ function PlanCard({
 
 export function SubscriptionTab() {
   const { t } = useDictionary("settings");
-  const { data: company, isLoading: isCompanyLoading } = useCompany();
+  const { data: company, isLoading: isCompanyLoading, refetch } = useCompany();
   const [upgradePlan, setUpgradePlan] = useState<SubscriptionPlan | null>(null);
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  // Stripe Checkout return — fires a confirmation toast and force-refetches
+  // company so the lockout overlay (which keys off `subscriptionStatus`)
+  // clears as soon as the webhook flips state. Strips the query so a refresh
+  // does not replay the toast.
+  useEffect(() => {
+    const result = searchParams.get("result");
+    if (!result) return;
+
+    if (result === "success") {
+      toast.success("Subscription active", {
+        description: "Welcome aboard. Refreshing your account…",
+      });
+      refetch();
+    } else if (result === "cancelled") {
+      toast("Checkout cancelled");
+    }
+
+    queueMicrotask(() => {
+      const params = new URLSearchParams(Array.from(searchParams.entries()));
+      params.delete("result");
+      params.delete("session_id");
+      const next = params.toString();
+      router.replace(next ? `/settings?${next}` : "/settings", { scroll: false });
+    });
+  }, [searchParams, router, refetch]);
 
   if (isCompanyLoading && !company) {
     return (

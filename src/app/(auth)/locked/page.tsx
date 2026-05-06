@@ -1,11 +1,14 @@
 "use client";
 
-import { ShieldOff, Check, Headphones, Zap, Crown, Building2 } from "lucide-react";
+import { useCallback, useState } from "react";
+import { ShieldOff, Check, Headphones, Zap, Crown, Building2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { TIER_CONFIG, type SubscriptionTier } from "@/lib/subscription";
 import { Button } from "@/components/ui/button";
 import { useDictionary } from "@/i18n/client";
 import { OpsLockup } from "@/components/brand";
+import { useAuthStore } from "@/lib/store/auth-store";
+import { toast } from "sonner";
 
 // ─── Tier Visual Config ──────────────────────────────────────────────────────
 
@@ -43,13 +46,64 @@ const TIER_DISPLAY: Record<Exclude<SubscriptionTier, "trial">, {
 
 // ─── Pricing Card ────────────────────────────────────────────────────────────
 
-function PricingCard({ tier }: { tier: Exclude<SubscriptionTier, "trial"> }) {
+function PricingCard({
+  tier,
+  companyId,
+}: {
+  tier: Exclude<SubscriptionTier, "trial">;
+  companyId: string | undefined;
+}) {
   const { t } = useDictionary("auth");
   const config = TIER_CONFIG[tier];
   const display = TIER_DISPLAY[tier];
+  const [loading, setLoading] = useState(false);
 
-  // Navigate to settings subscription tab to use the real subscribe flow
-  const checkoutUrl = `/settings?tab=subscription&plan=${tier}`;
+  // Initiate Stripe Checkout — webhook is the only writer of
+  // `companies.subscription_status='active'`, so abandoning the Stripe-hosted
+  // checkout leaves the lockout in place. This is the same fix as the
+  // CompactPricingCard inside the dashboard lockout overlay (bug
+  // ac030a6c-6022-46dd-8d7b-5d477baaec53).
+  const handleSubscribe = useCallback(async () => {
+    if (loading) return;
+    if (!companyId) {
+      toast.error(t("locked.subscribeFailed.title"), {
+        description: t("locked.subscribeFailed.noCompany"),
+      });
+      return;
+    }
+    setLoading(true);
+    try {
+      const { getIdToken } = await import("@/lib/firebase/auth");
+      const token = await getIdToken();
+      const res = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          companyId,
+          plan: tier,
+          period: "Monthly",
+        }),
+      });
+      const data = (await res.json()) as { url?: string; message?: string };
+      if (!res.ok || !data.url) {
+        toast.error(t("locked.subscribeFailed.title"), {
+          description: data.message ?? t("locked.subscribeFailed.generic"),
+        });
+        return;
+      }
+      window.location.href = data.url;
+    } catch (err) {
+      toast.error(t("locked.subscribeFailed.title"), {
+        description:
+          err instanceof Error ? err.message : t("locked.subscribeFailed.generic"),
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [loading, companyId, tier, t]);
 
   return (
     <div
@@ -103,15 +157,19 @@ function PricingCard({ tier }: { tier: Exclude<SubscriptionTier, "trial"> }) {
       </ul>
 
       {/* CTA */}
-      <a href={checkoutUrl} className="block">
-        <Button
-          variant={display.popular ? "accent" : "default"}
-          size="lg"
-          className="w-full"
-        >
-          {t("locked.subscribe")}
-        </Button>
-      </a>
+      <Button
+        variant={display.popular ? "accent" : "default"}
+        size="lg"
+        className="w-full"
+        onClick={handleSubscribe}
+        disabled={loading}
+      >
+        {loading ? (
+          <Loader2 className="w-[16px] h-[16px] animate-spin" />
+        ) : (
+          t("locked.subscribe")
+        )}
+      </Button>
     </div>
   );
 }
@@ -120,6 +178,8 @@ function PricingCard({ tier }: { tier: Exclude<SubscriptionTier, "trial"> }) {
 
 export default function LockedPage() {
   const { t } = useDictionary("auth");
+  const company = useAuthStore((s) => s.company);
+  const companyId = company?.id;
   return (
     <div className="flex flex-col items-center min-h-screen px-2 py-5">
       {/* Logo */}
@@ -161,9 +221,9 @@ export default function LockedPage() {
 
       {/* Pricing grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-2 w-full max-w-[900px] mb-4">
-        <PricingCard tier="starter" />
-        <PricingCard tier="team" />
-        <PricingCard tier="business" />
+        <PricingCard tier="starter" companyId={companyId} />
+        <PricingCard tier="team" companyId={companyId} />
+        <PricingCard tier="business" companyId={companyId} />
       </div>
 
       {/* Footer */}

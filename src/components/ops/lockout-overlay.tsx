@@ -3,12 +3,13 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { ShieldOff, UserX, Check, Headphones, Zap, Crown, Building2, Users } from "lucide-react";
+import { ShieldOff, UserX, Check, Headphones, Zap, Crown, Building2, Users, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
 import { useDictionary } from "@/i18n/client";
 import { useAuthStore, selectIsAdminOrOwner } from "@/lib/store/auth-store";
 import { requireSupabase } from "@/lib/supabase/helpers";
+import { toast } from "sonner";
 import {
   getLockoutReason,
   TIER_CONFIG,
@@ -256,11 +257,68 @@ const TIER_DISPLAY: Record<Exclude<SubscriptionTier, "trial">, {
   },
 };
 
-function CompactPricingCard({ tier }: { tier: Exclude<SubscriptionTier, "trial"> }) {
+function CompactPricingCard({
+  tier,
+  companyId,
+}: {
+  tier: Exclude<SubscriptionTier, "trial">;
+  companyId: string | undefined;
+}) {
   const { t } = useDictionary("auth");
   const config = TIER_CONFIG[tier];
   const display = TIER_DISPLAY[tier];
-  const checkoutUrl = `/settings?tab=subscription&plan=${tier}`;
+  const [loading, setLoading] = useState(false);
+
+  // Click handler — initiates a Stripe Checkout Session and redirects.
+  // The webhook (`/api/webhooks/stripe`) is the only writer of
+  // `companies.subscription_status = 'active'`. If the user closes the
+  // Stripe-hosted Checkout tab without paying, no DB state changes and
+  // the lockout continues to block access on every route. This is the
+  // fix for the bug where pressing the subscribe button granted access
+  // without payment info (admin landed on /settings — exempt route — and
+  // had full UI access).
+  const handleSubscribe = useCallback(async () => {
+    if (loading) return;
+    if (!companyId) {
+      toast.error(t("locked.subscribeFailed.title"), {
+        description: t("locked.subscribeFailed.noCompany"),
+      });
+      return;
+    }
+    setLoading(true);
+    try {
+      const { getIdToken } = await import("@/lib/firebase/auth");
+      const token = await getIdToken();
+      const res = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          companyId,
+          plan: tier,
+          period: "Monthly",
+        }),
+      });
+      const data = (await res.json()) as { url?: string; message?: string };
+      if (!res.ok || !data.url) {
+        toast.error(t("locked.subscribeFailed.title"), {
+          description: data.message ?? t("locked.subscribeFailed.generic"),
+        });
+        return;
+      }
+      // Hard navigation — leaves the app for Stripe-hosted Checkout.
+      window.location.href = data.url;
+    } catch (err) {
+      toast.error(t("locked.subscribeFailed.title"), {
+        description:
+          err instanceof Error ? err.message : t("locked.subscribeFailed.generic"),
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [loading, companyId, tier, t]);
 
   return (
     <div
@@ -308,15 +366,19 @@ function CompactPricingCard({ tier }: { tier: Exclude<SubscriptionTier, "trial">
         ))}
       </ul>
 
-      <a href={checkoutUrl} className="block">
-        <Button
-          variant={display.popular ? "accent" : "default"}
-          size="sm"
-          className="w-full"
-        >
-          {t("locked.subscribe")}
-        </Button>
-      </a>
+      <Button
+        variant={display.popular ? "accent" : "default"}
+        size="sm"
+        className="w-full"
+        onClick={handleSubscribe}
+        disabled={loading}
+      >
+        {loading ? (
+          <Loader2 className="w-[14px] h-[14px] animate-spin" />
+        ) : (
+          t("locked.subscribe")
+        )}
+      </Button>
     </div>
   );
 }
@@ -440,7 +502,7 @@ export function LockoutOverlay() {
       {lockoutReason && (
         <motion.div
           key="lockout-backdrop"
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-xl backdrop-saturate-150"
+          className="fixed inset-0 z-[9000] flex items-center justify-center bg-black/60 backdrop-blur-xl backdrop-saturate-150"
           role="alertdialog"
           aria-modal="true"
           aria-labelledby="lockout-heading"
@@ -489,9 +551,9 @@ export function LockoutOverlay() {
 
                 {/* Compact pricing grid */}
                 <div className="grid grid-cols-3 gap-2 mb-3">
-                  <CompactPricingCard tier="starter" />
-                  <CompactPricingCard tier="team" />
-                  <CompactPricingCard tier="business" />
+                  <CompactPricingCard tier="starter" companyId={companyId} />
+                  <CompactPricingCard tier="team" companyId={companyId} />
+                  <CompactPricingCard tier="business" companyId={companyId} />
                 </div>
 
                 <p className="font-mohave text-caption-sm text-text-3 mb-1">
