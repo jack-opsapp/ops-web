@@ -10,6 +10,19 @@ vi.mock("@/i18n/client", () => ({
 
 vi.mock("@/lib/hooks/use-quick-actions", () => ({
   useQuickActionsVisible: () => true,
+  useQuickActions: () => [],
+}));
+
+// QuickActionsTab now reads notifications + duplicate-review state for the
+// tinted-glass tab feature (bug 82cc08e5). Stub both so the test doesn't need
+// a QueryClient or a real Zustand store wired up.
+vi.mock("@/lib/hooks/use-notifications", () => ({
+  useNotifications: () => ({ data: [] }),
+}));
+
+vi.mock("@/stores/duplicate-review-store", () => ({
+  useDuplicateReviewStore: (selector: (s: { open: boolean }) => unknown) =>
+    selector({ open: false }),
 }));
 
 describe("<QuickActionsTab>", () => {
