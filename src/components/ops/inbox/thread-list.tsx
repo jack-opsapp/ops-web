@@ -5,15 +5,11 @@ import {
   groupThreads,
   GROUP_ORDER,
   type GroupKey,
-  type ThreadForGrouping,
 } from "@/lib/inbox/grouping";
+import { ThreadRow, type ThreadRowData } from "./thread-row";
 import { cn } from "@/lib/utils/cn";
 
-export interface ThreadListItem extends ThreadForGrouping {
-  clientName: string;
-  snippet: string;
-  unread: boolean;
-}
+export type ThreadListItem = ThreadRowData;
 
 interface ThreadListProps {
   threads: ThreadListItem[];
@@ -58,9 +54,10 @@ export function ThreadList({
             <ul className="flex flex-col">
               {items.map((thread) => (
                 <li key={thread.id}>
-                  <ThreadRowPlaceholder
+                  <ThreadRow
                     thread={thread}
                     selected={thread.id === selectedThreadId}
+                    now={now}
                     onSelect={onSelect}
                   />
                 </li>
@@ -70,46 +67,5 @@ export function ThreadList({
         );
       })}
     </div>
-  );
-}
-
-/**
- * Placeholder row used only until Task 2.4 lands the real <ThreadRow>.
- * Renders client name + snippet + ts as a button. Variants (urgent stripe,
- * AI-draft chevron, ?-pill, selected accent bar) come in 2.4.
- */
-function ThreadRowPlaceholder({
-  thread,
-  selected,
-  onSelect,
-}: {
-  thread: ThreadListItem;
-  selected: boolean;
-  onSelect: (id: string) => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={() => onSelect(thread.id)}
-      className={cn(
-        "flex w-full items-start gap-2 px-3.5 py-2 text-left",
-        "border-b border-line/40",
-        selected ? "bg-ops-accent/[0.07]" : "hover:bg-inbox-elev",
-      )}
-    >
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span
-          className={cn(
-            "truncate font-mohave text-[13px] tracking-[-0.003em]",
-            thread.unread ? "font-semibold text-text" : "font-medium text-text-2",
-          )}
-        >
-          {thread.clientName}
-        </span>
-        <span className="truncate font-mohave text-[12px] leading-[1.4] text-text-3">
-          {thread.snippet}
-        </span>
-      </div>
-    </button>
   );
 }
