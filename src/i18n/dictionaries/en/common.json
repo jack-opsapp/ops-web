@@ -72,6 +72,8 @@
   "bugReport.submit": "SUBMIT REPORT",
   "bugReport.sending": "SENDING...",
   "bugReport.submitted": "Bug report submitted. Thank you.",
+  "bugReport.tabWordmarkClosed": "REPORT",
+  "bugReport.tabWordmarkOpen": "CLOSE",
 
   "notification.confirmedTaskRescheduled.title": "CONFIRMED TASK RESCHEDULED",
   "notification.confirmedTaskRescheduled.body": "A previously-confirmed appointment was changed. Consider letting the client know.",

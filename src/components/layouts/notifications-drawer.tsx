@@ -44,6 +44,7 @@ export function NotificationsDrawer() {
   const openDuplicateSheet = useDuplicateReviewStore((s) => s.openSheet);
   const reducedMotion = useReducedMotion();
   const listRef = useRef<HTMLDivElement>(null);
+  const drawerRef = useRef<HTMLElement>(null);
 
   const [filter, setFilter] = useState<"all" | DrawerTone>("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -83,6 +84,40 @@ export function NotificationsDrawer() {
     }
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [open, close]);
+
+  // Outside-click dismiss (bug 5b653c30). Ignore clicks on:
+  //   - The drawer itself (drawerRef)
+  //   - The paired edge tab (`[data-edge-tab="notifications"]`)
+  //   - The Quick Actions tab (its toggle handler will close us — clicking
+  //     it should not double-close)
+  //   - Any portaled content the drawer owns (Radix popovers, dialogs) —
+  //     identified by `[data-edge-tab-detached]` or by lineage check via
+  //     `composedPath()` for Shadow DOM safety.
+  // Use `mousedown` (not click) capture so we beat any internal handlers.
+  useEffect(() => {
+    if (!open) return;
+    function handleOutsideMouseDown(e: MouseEvent) {
+      const target = e.target as Node | null;
+      if (!target) return;
+      const path = e.composedPath();
+
+      // 1. Click was inside the drawer body — keep open.
+      if (drawerRef.current && drawerRef.current.contains(target)) return;
+      if (drawerRef.current && path.includes(drawerRef.current)) return;
+
+      // 2. Click was on a tab button — let the tab's toggle handle state.
+      for (const node of path) {
+        if (!(node instanceof HTMLElement)) continue;
+        if (node.dataset?.edgeTab) return;
+        if (node.dataset?.edgeTabDetached === "true") return;
+      }
+
+      close(EDGE_TAB_ID);
+    }
+    document.addEventListener("mousedown", handleOutsideMouseDown, true);
+    return () =>
+      document.removeEventListener("mousedown", handleOutsideMouseDown, true);
   }, [open, close]);
 
   const counts = useMemo(() => {
@@ -192,6 +227,7 @@ export function NotificationsDrawer() {
     <AnimatePresence mode="wait">
       {open && (
         <motion.aside
+          ref={drawerRef}
           key="notifications-drawer"
           variants={variants}
           initial="hidden"

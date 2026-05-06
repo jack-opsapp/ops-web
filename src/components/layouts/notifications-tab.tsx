@@ -23,15 +23,27 @@ export function NotificationsTab() {
   const count = notifs.length;
 
   // Compute the accent from the highest-severity outstanding notification.
-  const accent = useMemo<EdgeTabAccent>(() => {
-    const topTone = notifs.reduce<EdgeTabAccent>((best, n) => {
+  const topTone = useMemo<EdgeTabAccent>(() => {
+    return notifs.reduce<EdgeTabAccent>((best, n) => {
       const tone = resolveTone(n.type);
       return toneRank[tone] > toneRank[best] ? tone : best;
     }, "ambient");
+  }, [notifs]);
+
+  const accent = useMemo<EdgeTabAccent>(() => {
     if (topTone === "critical") return "critical";
     if (topTone === "attn") return "attn";
     return "accent";
-  }, [notifs]);
+  }, [topTone]);
+
+  // Tinted glass — when an urgent or attention notification is outstanding,
+  // wash the tab in a 0.12-alpha rose glaze so the rail picks up the
+  // semantic hue alongside the brighter accent stripe. Default = neutral.
+  // (Bug 82cc08e5.)
+  const tint = useMemo<"neutral" | "rose" | "accent">(() => {
+    if (topTone === "critical" || topTone === "attn") return "rose";
+    return "neutral";
+  }, [topTone]);
 
   // Keyboard shortcut: N (no modifiers, not inside input/textarea/contenteditable)
   useEffect(() => {
@@ -55,6 +67,7 @@ export function NotificationsTab() {
       onToggle={() => toggle(EDGE_TAB_ID)}
       count={count}
       accent={accent}
+      tint={tint}
       restHeight={180}
       drawerWidth={360}
       stackOffset={STACK_OFFSET_NOTIF}

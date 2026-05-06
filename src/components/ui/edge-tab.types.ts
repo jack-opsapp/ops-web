@@ -54,6 +54,20 @@ export interface EdgeTabProps {
   fill?: string;
 
   /**
+   * Optional state-driven tint laid OVER the base `fill`. The tint is rendered
+   * as a pseudo-glaze so the dense-glass blur stays intact while the tab picks
+   * up a hue matching its current semantic state.
+   *
+   *   "neutral" → no tint (default)
+   *   "rose"    → rgba(181, 130, 137, 0.12) — critical/attention notifications
+   *   "accent"  → rgba(111, 148, 176, 0.12) — primary CTA / pending review
+   *
+   * The accent stripe still carries the strong-color signal — this overlay is
+   * a subtle ambient cue, not a replacement for the stripe. (See bug 82cc08e5.)
+   */
+  tint?: "neutral" | "rose" | "accent";
+
+  /**
    * When true, hovering the tab grows it to full drawer-area height (legibility
    * preview). When false, hover keeps the tab at rest height (prevents a
    * sibling tab from visually covering an active drawer).

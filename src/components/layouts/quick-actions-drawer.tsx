@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { useEdgeTabStore } from "@/stores/edge-tab-store";
@@ -22,13 +22,16 @@ import {
   quickActionsRowVariants,
   quickActionsRowVariantsReduced,
 } from "@/lib/utils/motion";
+import { computeQuickActionsPanelHeight } from "./quick-actions-tab";
 
 const EDGE_TAB_ID = "quick-actions";
 
-// Spec V1 (ops-design-system-v2/project/fab/variants.jsx):
-// 308×452 panel anchored to the tab's vertical center via stackOffset.
+// Panel sizing — width still 308px per Spec V1, but height now scales with
+// the visible action count (bug dd5659ed). Use the shared computation from
+// quick-actions-tab.tsx so the tab and panel stay aligned. The hard cap
+// (QA_MAX_PANEL_H = 452) preserves the original spec for users with long
+// custom action lists.
 const PANEL_W = 308;
-const PANEL_H = 452;
 const STACK_OFFSET_QA = 94;
 const RAIL_TOP = 72;
 const RAIL_BOTTOM = 16;
@@ -42,12 +45,17 @@ export function QuickActionsDrawer() {
   const openWindow = useWindowStore((s) => s.openWindow);
   const reducedMotion = useReducedMotion();
   const actions = useQuickActions();
+  const PANEL_H = computeQuickActionsPanelHeight(actions.length);
 
   // Setup gate — reused from the deleted FAB component
   const { isComplete, missingSteps } = useSetupGate();
   const [showInterception, setShowInterception] = useState(false);
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
   const [triggerAction, setTriggerActionState] = useState("projects");
+
+  // Drawer ref — used by the outside-click listener to ignore clicks
+  // landing inside the panel body. (Bug 5b653c30.)
+  const drawerRef = useRef<HTMLElement>(null);
 
   // Escape closes the drawer
   useEffect(() => {
@@ -61,6 +69,39 @@ export function QuickActionsDrawer() {
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [open, close]);
+
+  // Outside-click dismiss (bug 5b653c30). Mirrors notifications-drawer:
+  // ignore clicks on the drawer itself, on either edge tab, and on any
+  // detached portal content the drawer owns. The `SetupInterceptionModal`
+  // is a separate Radix-portaled dialog — clicks on it land outside the
+  // drawer node, so we explicitly skip the dismiss while it's mounted to
+  // avoid the modal's first interaction collapsing the drawer behind it.
+  useEffect(() => {
+    if (!open) return;
+    if (showInterception) return;
+    function handleOutsideMouseDown(e: MouseEvent) {
+      const target = e.target as Node | null;
+      if (!target) return;
+      const path = e.composedPath();
+
+      if (drawerRef.current && drawerRef.current.contains(target)) return;
+      if (drawerRef.current && path.includes(drawerRef.current)) return;
+
+      for (const node of path) {
+        if (!(node instanceof HTMLElement)) continue;
+        if (node.dataset?.edgeTab) return;
+        if (node.dataset?.edgeTabDetached === "true") return;
+        // Radix portals — used by the SetupInterceptionModal — sit at
+        // document.body. Skip them so the modal can interact freely.
+        if (node.getAttribute?.("role") === "dialog") return;
+      }
+
+      close(EDGE_TAB_ID);
+    }
+    document.addEventListener("mousedown", handleOutsideMouseDown, true);
+    return () =>
+      document.removeEventListener("mousedown", handleOutsideMouseDown, true);
+  }, [open, close, showInterception]);
 
   const gatedAction = useCallback(
     (run: () => void, triggerName: string) => {
@@ -107,6 +148,12 @@ export function QuickActionsDrawer() {
   // Use absolute positioning with `top: calc(50% + offset)` inside a rail-anchored wrapper.
   if (!visible) return null;
 
+  // Width clamp — keep the panel ≤ (viewport - 36px) on narrow screens so
+  // the drawer never extends past the viewport edge (bug edfdd057). Mirrors
+  // the notifications drawer pattern. The 36px reserve covers the tab's
+  // rounded outer edge (28px) + an 8px breathing margin.
+  const panelWidth = `min(${PANEL_W}px, calc(100vw - 36px))`;
+
   return (
     <>
       <AnimatePresence mode="wait">
@@ -118,12 +165,14 @@ export function QuickActionsDrawer() {
               top: RAIL_TOP,
               right: 0,
               bottom: RAIL_BOTTOM,
-              width: PANEL_W,
+              width: panelWidth,
+              maxWidth: "calc(100vw - 36px)",
               pointerEvents: "none",
               zIndex: 1500,
             }}
           >
             <motion.aside
+              ref={drawerRef}
               key="quick-actions-drawer"
               variants={variants}
               initial="hidden"
@@ -135,7 +184,8 @@ export function QuickActionsDrawer() {
                 position: "absolute",
                 top: `calc(50% + ${STACK_OFFSET_QA - PANEL_H / 2}px)`,
                 right: 0,
-                width: PANEL_W,
+                width: panelWidth,
+                maxWidth: "calc(100vw - 36px)",
                 height: PANEL_H,
                 display: "flex",
                 flexDirection: "column",

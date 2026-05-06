@@ -44,7 +44,9 @@ export function MapFilterRail() {
   const can = usePermissionStore((s) => s.can);
   const dashboardCustomizing = useDashboardCustomizeStore((s) => s.isCustomizing);
 
-  // Sidebar-fixed offset — matches bug-report-button.tsx (sidebarWidth = 72 + 12px gap)
+  // Sidebar-fixed offset — matches the dashboard sidebar geometry
+  // (sidebarWidth = 72 + 12px gap). Kept in sync with the layout's left
+  // padding so this rail anchors flush against the sidebar's right edge.
   const sidebarWidth = 72;
 
   // Route-scoped: only render on the dashboard (where the map lives)

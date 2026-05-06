@@ -61,11 +61,7 @@ interface NavItem {
 
 type NavEntry = NavItem | "divider";
 
-interface BuildNavOpts {
-  inventoryAccess?: boolean;
-}
-
-function buildNavItems(t: (key: string) => string, opts: BuildNavOpts = {}): NavEntry[] {
+function buildNavItems(t: (key: string) => string): NavEntry[] {
   return [
     { label: t("nav.dashboard"), href: "/dashboard", icon: LayoutDashboard },
     "divider",
@@ -83,9 +79,7 @@ function buildNavItems(t: (key: string) => string, opts: BuildNavOpts = {}): Nav
     { label: t("nav.invoices"), href: "/invoices", icon: Receipt, permission: "invoices.view" },
     "divider",
     { label: t("nav.products"), href: "/products", icon: Package, permission: "products.view" },
-    ...(opts.inventoryAccess
-      ? [{ label: t("nav.inventory"), href: "/inventory", icon: Boxes, permission: "inventory.view" } as NavItem]
-      : []),
+    { label: t("nav.inventory"), href: "/inventory", icon: Boxes, permission: "inventory.view" },
     { label: t("nav.accounting"), href: "/accounting", icon: Calculator, permission: "accounting.view" },
     "divider",
     { label: t("nav.agentQueue"), href: "/agent/queue", icon: BrainCircuit, permission: "admin" },
@@ -190,7 +184,6 @@ export function Sidebar() {
   const can = usePermissionStore((s) => s.can);
   const permissionsReady = usePermissionStore(selectPermissionsReady);
   const isPermissionUnlocked = useFeatureFlagsStore((s) => s.isPermissionUnlocked);
-  const hasInventoryAccess = currentUser?.inventoryAccess ?? false;
   const [accessModalOpen, setAccessModalOpen] = useState(false);
   const [accessModalFeature, setAccessModalFeature] = useState<{ label: string; slug: string } | null>(null);
   const { data: requestedSlugs, refetch: refetchRequests } = useFeatureAccessRequests(currentUser?.id);
@@ -213,10 +206,7 @@ export function Sidebar() {
   // Desktop: collapsed at rest, expanded on hover (overlay, no content push)
   // Mobile: always show expanded labels in the drawer
   const effectiveCollapsed = isMobileView ? false : !isHoverExpanded;
-  const allNavItems = useMemo(
-    () => buildNavItems(t, { inventoryAccess: hasInventoryAccess }),
-    [t, hasInventoryAccess]
-  );
+  const allNavItems = useMemo(() => buildNavItems(t), [t]);
 
   const navItems = useMemo(() => {
     if (!permissionsReady) return allNavItems;

@@ -72,6 +72,8 @@
   "bugReport.submit": "ENVIAR REPORTE",
   "bugReport.sending": "ENVIANDO...",
   "bugReport.submitted": "Reporte de error enviado. Gracias.",
+  "bugReport.tabWordmarkClosed": "REPORTAR",
+  "bugReport.tabWordmarkOpen": "CERRAR",
 
   "notification.confirmedTaskRescheduled.title": "TAREA CONFIRMADA REPROGRAMADA",
   "notification.confirmedTaskRescheduled.body": "Una cita previamente confirmada ha cambiado. Considera avisar al cliente.",

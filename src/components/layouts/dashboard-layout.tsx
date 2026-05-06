@@ -10,7 +10,8 @@ import { FloatingWindow } from "@/components/ops/floating-window";
 import { PreferencesApplier } from "@/components/ops/preferences-applier";
 import { LogoLoader } from "@/components/brand";
 import { WindowDock } from "@/components/ops/window-dock";
-import { BugReportButton } from "@/components/ops/bug-report-button";
+import { BugReportTab } from "@/components/ops/bug-report-tab";
+import { BugReportDrawer } from "@/components/ops/bug-report-drawer";
 import { NotificationsDrawer } from "@/components/layouts/notifications-drawer";
 import { NotificationsTab } from "@/components/layouts/notifications-tab";
 import { QuickActionsDrawer } from "@/components/layouts/quick-actions-drawer";
@@ -120,6 +121,7 @@ function FloatingWindows() {
           )}
           {win.type === "create-task" && (
             <CreateTaskForm
+              defaultProjectId={(win.metadata?.projectId as string | undefined) ?? undefined}
               onSuccess={() => closeWindow(win.id)}
               onCancel={() => closeWindow(win.id)}
             />
@@ -241,11 +243,12 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       <CommandPalette />
       <KeyboardShortcuts />
       <FloatingWindows />
-      <BugReportButton />
       <NotificationsDrawer />
       <NotificationsTab />
       <QuickActionsDrawer />
       <QuickActionsTab />
+      <BugReportDrawer />
+      <BugReportTab />
       <DuplicateReviewSheet />
       <WindowDock />
 

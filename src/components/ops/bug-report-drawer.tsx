@@ -1,11 +1,17 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
-import { usePathname } from "next/navigation";
+import {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+} from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { Bug, X, Send, CheckCircle2, Loader2, AlertCircle } from "lucide-react";
+import { Send, CheckCircle2, Loader2, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
+import { useEdgeTabStore } from "@/stores/edge-tab-store";
+import { useBugReportStore } from "@/stores/bug-report-store";
 import { useAuthStore } from "@/lib/store/auth-store";
 import {
   BugReportService,
@@ -19,6 +25,19 @@ import {
 } from "@/lib/utils/bug-context";
 import { useDictionary } from "@/i18n/client";
 import { Switch } from "@/components/ui/switch";
+import { EDGE_TAB_ID_BUG, STACK_OFFSET_BUG } from "./bug-report-tab";
+
+// ─── Drawer geometry ───────────────────────────────────────────────────────
+// Mirrors quick-actions-drawer.tsx — panel-anchored 360×520 right-edge
+// drawer. The expanded EdgeTab clamps to the same 520px so the tab + drawer
+// read as one shape.
+const PANEL_W = 360;
+const PANEL_H = 520;
+const RAIL_TOP = 72;
+const RAIL_BOTTOM = 16;
+const EASE_SMOOTH: [number, number, number, number] = [0.22, 1, 0.36, 1];
+
+// ─── Form types ────────────────────────────────────────────────────────────
 
 type FormState = "idle" | "submitting" | "success" | "error";
 type Severity = "blocker" | "major" | "minor";
@@ -37,17 +56,39 @@ const SEVERITY_OPTIONS: { value: Severity; labelKey: string }[] = [
   { value: "minor", labelKey: "bugReport.severity.minor" },
 ];
 
-// User-chosen severity maps to the triage `priority` column as a starting
-// signal. Admins can override during triage — this is a hint, not a verdict.
 const SEVERITY_TO_PRIORITY: Record<Severity, BugReportPriority> = {
   blocker: "urgent",
   major: "high",
   minor: "low",
 };
 
-export function BugReportButton() {
+// ─── Drawer ────────────────────────────────────────────────────────────────
+
+/**
+ * Bug-report drawer (bug b842f0ff) — replaces the legacy free-floating
+ * `BugReportButton` with a right-edge EdgeTab + drawer pairing.
+ *
+ * Form behavior is unchanged from the legacy button:
+ *   - Power user (canprojack@gmail.com) gets full triage controls
+ *     (category / severity / requires-my-input / screenshot toggle).
+ *   - Everyone else gets a single textarea + auto-attached screenshot.
+ *   - Screenshot is captured BEFORE the drawer renders via the
+ *     `useBugReportStore` token pattern, so the image shows what was
+ *     on-screen when the operator triggered the report.
+ *
+ * Drawer chrome (background, border, slide-in animation) mirrors
+ * `quick-actions-drawer.tsx` so all three right-rail drawers
+ * (notifications / quick-actions / bug-report) read as one system.
+ */
+export function BugReportDrawer() {
   const { t } = useDictionary("common");
-  const [open, setOpen] = useState(false);
+  const open = useEdgeTabStore((s) => s.activeTab === EDGE_TAB_ID_BUG);
+  const close = useEdgeTabStore((s) => s.close);
+  const reducedMotion = useReducedMotion();
+  const { currentUser, company } = useAuthStore();
+  const screenshotToken = useBugReportStore((s) => s.screenshotToken);
+
+  // ── Form state ──
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState<BugReportCategory>("bug");
@@ -58,33 +99,31 @@ export function BugReportButton() {
   const [screenshotBlob, setScreenshotBlob] = useState<Blob | null>(null);
   const [includeScreenshot, setIncludeScreenshot] = useState(true);
   const [capturingScreenshot, setCapturingScreenshot] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const prefersReducedMotion = useReducedMotion();
-  const pathname = usePathname();
-  const { currentUser, company } = useAuthStore();
-  const sidebarWidth = 72;
+  const drawerRef = useRef<HTMLElement>(null);
+  const lastCaptureToken = useRef<number>(-1);
 
-  // Minimal-form gate. Trades business owners get one textarea + submit;
-  // power user (the developer) gets full triage controls. Defaults applied
-  // for hidden fields: category='bug', severity=null, requiresHumanReview=false,
-  // screenshot=included.
+  // Power-user gate — same as legacy. Trades-business-owner default is the
+  // single-textarea form; power user (the developer) gets the full triage
+  // UI. Defaults applied for hidden fields: category='bug', severity=null,
+  // requiresHumanReview=false, screenshot=included.
   const isPowerUser = currentUser?.email === "canprojack@gmail.com";
 
+  // Initialize the bug-context capture once on mount (URL, breadcrumbs,
+  // console, etc.). Cheap idempotent — re-running just resets the buffer.
   useEffect(() => {
     initBugContext();
   }, []);
 
-  /**
-   * Capture the viewport BEFORE the bug form is visible, so the screenshot
-   * shows what the user was actually looking at when they hit the bug button.
-   * modern-screenshot handles backdrop-filter / custom fonts better than
-   * html2canvas, which is important for this app's frosted-glass surfaces.
-   */
-  const handleOpen = useCallback(async () => {
-    if (open) {
-      setOpen(false);
-      return;
-    }
+  // ── Screenshot capture ──
+  //
+  // Captures `document.body` to a PNG blob whenever:
+  //   1. The drawer opens (token incremented by the tab on toggle), OR
+  //   2. The user requests a fresh capture from inside the drawer.
+  //
+  // modern-screenshot is preferred over html2canvas — it handles backdrop-
+  // filter and custom fonts correctly, both of which are pervasive in this
+  // app's frosted-glass surfaces.
+  const captureScreenshot = useCallback(async () => {
     setCapturingScreenshot(true);
     try {
       const { domToBlob } = await import("modern-screenshot");
@@ -95,64 +134,88 @@ export function BugReportButton() {
         backgroundColor: "#0A0A0A",
         filter: (node) => {
           if (!(node instanceof HTMLElement)) return true;
-          // Skip the bug report button itself and anything that opts out
+          // Skip the bug report drawer + tab itself and anything that opts out.
           if (node.dataset?.bugReportIgnore === "true") return false;
+          if (node.dataset?.edgeTab === EDGE_TAB_ID_BUG) return false;
           return true;
         },
       });
       setScreenshotBlob(blob);
     } catch (err) {
-      // Screenshot is best-effort — the report still submits without it.
       console.warn("Bug report screenshot capture failed:", err);
       setScreenshotBlob(null);
     } finally {
       setCapturingScreenshot(false);
-      setOpen(true);
     }
-  }, [open]);
+  }, []);
 
-  // Close on outside click
   useEffect(() => {
     if (!open) return;
-    function handleClick(e: MouseEvent) {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(e.target as Node)
-      ) {
-        handleClose();
-      }
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [open]);
+    if (screenshotToken === lastCaptureToken.current) return;
+    lastCaptureToken.current = screenshotToken;
+    captureScreenshot();
+  }, [open, screenshotToken, captureScreenshot]);
 
-  // Close on Escape
+  // ── Outside-click dismiss ──
+  // Mirrors notifications/quick-actions drawers (bug 5b653c30). Skip if the
+  // click landed inside the drawer or on either tab in the rail.
   useEffect(() => {
     if (!open) return;
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === "Escape") handleClose();
-    }
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [open]);
-
-  function handleClose() {
     if (formState === "submitting") return;
-    setOpen(false);
-    // Reset after animation
-    setTimeout(() => {
-      setTitle("");
-      setDescription("");
-      setCategory("bug");
-      setSeverity(null);
-      setRequiresMyInput(false);
-      setFormState("idle");
-      setErrorMessage(null);
-      setScreenshotBlob(null);
-      setIncludeScreenshot(true);
-    }, 200);
-  }
 
+    function handleOutsideMouseDown(e: MouseEvent) {
+      const target = e.target as Node | null;
+      if (!target) return;
+      const path = e.composedPath();
+
+      if (drawerRef.current && drawerRef.current.contains(target)) return;
+      if (drawerRef.current && path.includes(drawerRef.current)) return;
+
+      for (const node of path) {
+        if (!(node instanceof HTMLElement)) continue;
+        if (node.dataset?.edgeTab) return;
+        if (node.dataset?.edgeTabDetached === "true") return;
+        if (node.getAttribute?.("role") === "dialog") return;
+      }
+
+      close(EDGE_TAB_ID_BUG);
+    }
+    document.addEventListener("mousedown", handleOutsideMouseDown, true);
+    return () =>
+      document.removeEventListener("mousedown", handleOutsideMouseDown, true);
+  }, [open, close, formState]);
+
+  // ── Escape closes the drawer (unless submitting) ──
+  useEffect(() => {
+    if (!open) return;
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key !== "Escape") return;
+      if (formState === "submitting") return;
+      close(EDGE_TAB_ID_BUG);
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [open, close, formState]);
+
+  // ── Reset form when the drawer closes ──
+  // Done in an effect rather than a setTimeout so re-opening immediately
+  // gives a clean form. The brief animation gap between close-trigger and
+  // unmount is covered by AnimatePresence — the form below stays visible
+  // through the fade-out.
+  useEffect(() => {
+    if (open) return;
+    setTitle("");
+    setDescription("");
+    setCategory("bug");
+    setSeverity(null);
+    setRequiresMyInput(false);
+    setFormState("idle");
+    setErrorMessage(null);
+    setScreenshotBlob(null);
+    setIncludeScreenshot(true);
+  }, [open]);
+
+  // ── Submit ──
   const handleSubmit = useCallback(async () => {
     if (!title.trim() || formState === "submitting") return;
 
@@ -173,12 +236,12 @@ export function BugReportButton() {
           isCompanyAdmin: currentUser.isCompanyAdmin ?? null,
         },
         customMetadata: {
-          submittedFrom: "bug-report-button",
+          submittedFrom: "bug-report-drawer",
         },
       });
 
-      // bug_reports.description is NOT NULL. Merge title + details so the
-      // column is always populated, and keep the user's title as a leading line.
+      // bug_reports.description is NOT NULL — merge title + details so the
+      // column is always populated, with the user's title as the lead line.
       const trimmedTitle = title.trim();
       const trimmedDetails = description.trim();
       const fullDescription = trimmedDetails
@@ -240,9 +303,10 @@ export function BugReportButton() {
 
       // Upload screenshot if we have one and the user didn't opt out — best
       // effort, doesn't block success. Goes through a server API because
-      // client-side storage writes fail the bug-reports bucket RLS: ops-web's
-      // Supabase client uses a Firebase JWT which does not produce the
-      // Postgres "authenticated" role that the bucket's INSERT policy requires.
+      // client-side storage writes fail the bug-reports bucket RLS:
+      // ops-web's Supabase client uses a Firebase JWT which does not
+      // produce the Postgres "authenticated" role required by the bucket's
+      // INSERT policy.
       if (screenshotBlob && includeScreenshot) {
         try {
           const { getFirebaseAuth } = await import("@/lib/firebase/config");
@@ -274,7 +338,7 @@ export function BugReportButton() {
 
       setFormState("success");
       setTimeout(() => {
-        handleClose();
+        close(EDGE_TAB_ID_BUG);
       }, 1200);
     } catch (err) {
       console.error("Bug report submission failed:", err);
@@ -283,56 +347,178 @@ export function BugReportButton() {
         err instanceof Error ? err.message : "Failed to submit bug report."
       );
     }
-  }, [title, description, category, severity, requiresMyInput, formState, currentUser, company, screenshotBlob, includeScreenshot]);
+  }, [
+    title,
+    description,
+    category,
+    severity,
+    requiresMyInput,
+    formState,
+    currentUser,
+    company,
+    screenshotBlob,
+    includeScreenshot,
+    close,
+  ]);
 
-  // Don't render on dashboard (map filter rail occupies bottom-left)
-  // Don't render on intel (full-bleed canvas, overlaps cluster legend)
-  if (pathname === "/dashboard" || pathname === "/intel") return null;
+  const variants = reducedMotion
+    ? {
+        hidden: { opacity: 0 },
+        visible: { opacity: 1, transition: { duration: 0.15 } },
+        exit: { opacity: 0, transition: { duration: 0.15 } },
+      }
+    : {
+        hidden: { x: PANEL_W, opacity: 0 },
+        visible: {
+          x: 0,
+          opacity: 1,
+          transition: { duration: 0.26, ease: EASE_SMOOTH },
+        },
+        exit: {
+          x: PANEL_W,
+          opacity: 0,
+          transition: { duration: 0.22, ease: EASE_SMOOTH },
+        },
+      };
+
+  // Width clamp — keeps the panel ≤ (viewport - 36px) on narrow screens so
+  // the drawer never extends past the viewport edge (matches notifications /
+  // quick-actions drawer behavior — bug edfdd057).
+  const panelWidth = `min(${PANEL_W}px, calc(100vw - 36px))`;
 
   return (
-    <div
-      ref={containerRef}
-      className="fixed z-[90]"
-      style={{ bottom: 16, left: sidebarWidth + 12 }}
-      data-bug-report-ignore="true"
-    >
-      {/* Popover form */}
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, y: 8, scale: 0.96 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 8, scale: 0.96 }}
-            transition={
-              prefersReducedMotion
-                ? { duration: 0 }
-                : { duration: 0.2, ease: [0.22, 1, 0.36, 1] }
-            }
-            className="absolute bottom-[44px] left-0 w-[320px] rounded-sm overflow-hidden"
+    <AnimatePresence mode="wait">
+      {open && (
+        <div
+          aria-hidden={false}
+          data-bug-report-ignore="true"
+          style={{
+            position: "fixed",
+            top: RAIL_TOP,
+            right: 0,
+            bottom: RAIL_BOTTOM,
+            width: panelWidth,
+            maxWidth: "calc(100vw - 36px)",
+            pointerEvents: "none",
+            zIndex: 1500,
+          }}
+        >
+          <motion.aside
+            ref={drawerRef}
+            key="bug-report-drawer"
+            variants={variants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            role="complementary"
+            aria-label={t("bugReport.title") ?? "Report a bug"}
+            data-bug-report-ignore="true"
             style={{
-              background: "var(--surface-glass)",
+              position: "absolute",
+              top: `calc(50% + ${STACK_OFFSET_BUG - PANEL_H / 2}px)`,
+              right: 0,
+              width: panelWidth,
+              maxWidth: "calc(100vw - 36px)",
+              height: PANEL_H,
+              maxHeight: `calc(100vh - ${RAIL_TOP + RAIL_BOTTOM}px)`,
+              display: "flex",
+              flexDirection: "column",
+              background: "rgba(32, 34, 38, 0.92)",
               backdropFilter: "blur(28px) saturate(1.3)",
               WebkitBackdropFilter: "blur(28px) saturate(1.3)",
-              border: "1px solid rgba(255, 255, 255, 0.08)",
+              border: "1px solid rgba(255, 255, 255, 0.18)",
+              borderRight: "none",
+              pointerEvents: "auto",
+              overflow: "hidden",
+              boxShadow: "inset 0 1px 0 0 rgba(255,255,255,0.04)",
             }}
           >
+            {/* Top-edge highlight gradient */}
+            <span
+              aria-hidden
+              style={{
+                position: "absolute",
+                inset: 0,
+                pointerEvents: "none",
+                background:
+                  "linear-gradient(180deg, rgba(255,255,255,0.04), transparent 40%)",
+              }}
+            />
+
             {/* Header */}
-            <div className="flex items-center justify-between px-3 py-2.5 border-b border-[rgba(255,255,255,0.08)]">
-              <span className="font-mono text-micro uppercase tracking-wider text-text-2">
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                padding: "14px 16px 12px",
+                borderBottom: "1px solid rgba(255,255,255,0.06)",
+                position: "relative",
+                zIndex: 1,
+              }}
+            >
+              <span
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 10,
+                  color: "var(--text-mute)",
+                  letterSpacing: "0.16em",
+                }}
+              >
+                {"//"}
+              </span>
+              <span
+                style={{
+                  fontFamily: "var(--font-cakemono)",
+                  fontWeight: 300,
+                  fontSize: 13,
+                  color: "var(--text)",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.08em",
+                  marginLeft: 6,
+                }}
+              >
                 {t("bugReport.title")}
               </span>
-              <button
-                onClick={handleClose}
-                className="p-1 text-text-mute hover:text-text-2 transition-colors duration-150"
+              <div style={{ flex: 1 }} />
+              <span
+                aria-hidden
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 9,
+                  color: "var(--text-2)",
+                  letterSpacing: 0,
+                  padding: "2px 6px",
+                  minWidth: 16,
+                  textAlign: "center",
+                  border: "1px solid rgba(255,255,255,0.14)",
+                  borderRadius: 3,
+                  background: "rgba(255,255,255,0.04)",
+                }}
               >
-                <X className="w-3 h-3" />
-              </button>
+                `
+              </span>
             </div>
 
-            {/* Body */}
-            <div className="p-3 space-y-2.5">
+            {/* Body — scrolls when the form overflows the panel */}
+            <div
+              className="hide-scrollbar"
+              style={{
+                flex: 1,
+                overflowY: "auto",
+                overflowX: "hidden",
+                padding: "12px 14px 14px",
+                position: "relative",
+                zIndex: 1,
+                display: "flex",
+                flexDirection: "column",
+                gap: 10,
+              }}
+            >
               {formState === "success" ? (
-                <div className="flex flex-col items-center justify-center py-4 gap-2">
+                <div
+                  className="flex flex-col items-center justify-center py-8 gap-2"
+                  style={{ flex: 1 }}
+                >
                   <CheckCircle2 className="w-5 h-5 text-ops-accent" />
                   <p className="font-mohave text-body-sm text-text-2 text-left">
                     {t("bugReport.submitted")}
@@ -341,8 +527,8 @@ export function BugReportButton() {
               ) : (
                 <>
                   {isPowerUser && (
-                    /* Category — required. Chip grid wraps to handle longer
-                        localizations (e.g. Spanish "FEATURE REQUEST"). */
+                    /* Category — required. Chip grid wraps to handle
+                       longer localizations (e.g. Spanish "FEATURE REQUEST"). */
                     <div>
                       <label className="font-mono text-micro uppercase tracking-wider text-text-3 mb-1 block">
                         {t("bugReport.category")}
@@ -377,7 +563,7 @@ export function BugReportButton() {
                     </div>
                   )}
 
-                  {/* Primary input — single field for minimal users
+                  {/* Primary input — single textarea for minimal users
                       (their text becomes the full report), title+description
                       pair for the power user. */}
                   {isPowerUser ? (
@@ -436,7 +622,7 @@ export function BugReportButton() {
                         value={title}
                         onChange={(e) => setTitle(e.target.value)}
                         placeholder={t("bugReport.titlePlaceholder")}
-                        rows={4}
+                        rows={5}
                         className={cn(
                           "w-full px-2.5 py-2 rounded-sm font-mohave text-body-sm text-text resize-none",
                           "bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)]",
@@ -450,8 +636,9 @@ export function BugReportButton() {
                   )}
 
                   {isPowerUser && (
-                    /* Severity — optional. Writes to `priority` as a hint; admin
-                        can override during triage. Click active chip to clear. */
+                    /* Severity — optional. Writes to `priority` as a hint;
+                       admin can override during triage. Click active chip to
+                       clear. */
                     <div>
                       <label className="font-mono text-micro uppercase tracking-wider text-text-3 mb-1 block">
                         {t("bugReport.severity")}
@@ -484,7 +671,7 @@ export function BugReportButton() {
 
                   {isPowerUser && (
                     /* Requires-my-input toggle. When on, the nightly triage
-                        agent skips this report (written to requires_human_review). */
+                       agent skips this report. */
                     <label
                       className={cn(
                         "w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-[4px] border transition-colors cursor-pointer",
@@ -510,11 +697,13 @@ export function BugReportButton() {
                     </label>
                   )}
 
-                  {/* Auto-captured context. Power user gets a screenshot toggle;
-                      minimal users get the screenshot attached silently. */}
+                  {/* Auto-captured context. Power user gets a screenshot
+                      toggle; minimal users get the screenshot attached
+                      silently. */}
                   <div className="space-y-1.5">
                     <p className="font-mono text-micro text-text-mute tracking-wider">
                       {t("bugReport.autoCapture")}
+                      {capturingScreenshot && " · CAPTURING..."}
                     </p>
                     {isPowerUser && screenshotBlob && (
                       <label
@@ -578,40 +767,9 @@ export function BugReportButton() {
                 </>
               )}
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Bug button */}
-      <motion.button
-        onClick={handleOpen}
-        disabled={capturingScreenshot}
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={
-          prefersReducedMotion
-            ? { duration: 0 }
-            : { duration: 0.3, ease: [0.22, 1, 0.36, 1] }
-        }
-        className={cn(
-          "flex items-center gap-1.5 px-2 py-1.5 rounded-[5px]",
-          "glass-surface",
-          "hover:border-[rgba(255,255,255,0.18)]",
-          "transition-colors duration-150",
-          open && "!border-[rgba(255,255,255,0.20)]",
-          capturingScreenshot && "opacity-60 cursor-wait"
-        )}
-        title={t("bugReport.title")}
-      >
-        {capturingScreenshot ? (
-          <Loader2 className="w-[13px] h-[13px] text-text-mute animate-spin" />
-        ) : (
-          <Bug className="w-[13px] h-[13px] text-text-mute" />
-        )}
-        <span className="font-mono text-micro text-text-mute tracking-wider uppercase select-none">
-          {t("bugReport.label")}
-        </span>
-      </motion.button>
-    </div>
+          </motion.aside>
+        </div>
+      )}
+    </AnimatePresence>
   );
 }

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useReducedMotion } from "framer-motion";
 import type { EdgeTabProps, EdgeTabAccent } from "./edge-tab.types";
+import { useEdgeTabStore } from "@/stores/edge-tab-store";
 
 const TAB_WIDTH = 28;
 const DEFAULT_REST_HEIGHT = 180;
@@ -18,6 +19,16 @@ const ACCENT_VAR: Record<EdgeTabAccent, string> = {
   ambient: "var(--text-mute)",
 };
 
+// Optional state-driven glaze laid over the base glass `fill`. Picks up the
+// hue tied to the tab's current semantic state without breaking the dense-
+// glass blur. (See bug 82cc08e5.) Values mirror `--rose-soft` and
+// `--ops-accent-soft` from globals.css — a 0.12-alpha veil over the glass.
+const TINT_VAR: Record<NonNullable<EdgeTabProps["tint"]>, string | null> = {
+  neutral: null,
+  rose: "var(--rose-soft)",
+  accent: "var(--ops-accent-soft)",
+};
+
 export function EdgeTab({
   id,
   open,
@@ -31,6 +42,7 @@ export function EdgeTab({
   railBottom = DEFAULT_RAIL_BOTTOM,
   stackOffset = 0,
   fill = "var(--glass)",
+  tint = "neutral",
   canHoverExpand = true,
   wordmark,
   wordmarkOpen = "CLOSE",
@@ -43,6 +55,54 @@ export function EdgeTab({
 }: EdgeTabProps) {
   const [hovered, setHovered] = useState(false);
   const reducedMotion = useReducedMotion();
+
+  // ─── Sibling-push translation (bug 85da1e52) ──────────────────────────────
+  //
+  // When another tab in the rail is hovered and expanding, this tab
+  // translates AWAY from it so the rail never visually overlaps. The
+  // direction is data-driven from each tab's stackOffset, registered in
+  // the edge-tab store at mount time:
+  //
+  //   sibling sits BELOW me (sibling.stackOffset > my.stackOffset)
+  //     → I translate UP by sibling.expansionDelta
+  //   sibling sits ABOVE me (sibling.stackOffset < my.stackOffset)
+  //     → I translate DOWN by sibling.expansionDelta
+  //
+  // Magnitude: `expandedHeight - restHeight` of the sibling. For tabs that
+  // expand to fill the rail (no `expandedHeight`), sibling's pre-registered
+  // expansionDelta carries an 80px fallback so the visual cue still fires.
+  // Reduced-motion users get no translation.
+  const setStoreHovered = useEdgeTabStore((s) => s.setHovered);
+  const registerGeometry = useEdgeTabStore((s) => s.registerGeometry);
+  const unregisterGeometry = useEdgeTabStore((s) => s.unregisterGeometry);
+  const siblingHoveredId = useEdgeTabStore((s) =>
+    s.hoveredTab !== null && s.hoveredTab !== id ? s.hoveredTab : null,
+  );
+  const siblingGeometry = useEdgeTabStore((s) =>
+    siblingHoveredId ? s.geometry[siblingHoveredId] ?? null : null,
+  );
+  const anotherTabActive = useEdgeTabStore(
+    (s) => s.activeTab !== null && s.activeTab !== id,
+  );
+
+  const myExpansionDelta =
+    typeof expandedHeight === "number"
+      ? Math.max(expandedHeight - restHeight, 0)
+      : 80;
+
+  useEffect(() => {
+    registerGeometry(id, {
+      stackOffset,
+      expansionDelta: myExpansionDelta,
+    });
+    return () => unregisterGeometry(id);
+  }, [id, stackOffset, myExpansionDelta, registerGeometry, unregisterGeometry]);
+
+  let siblingPushPx = 0;
+  if (siblingGeometry && !open && !anotherTabActive) {
+    const sign = siblingGeometry.stackOffset > stackOffset ? -1 : +1;
+    siblingPushPx = sign * siblingGeometry.expansionDelta;
+  }
 
   const expanded = open || (hovered && canHoverExpand);
 
@@ -106,6 +166,13 @@ export function EdgeTab({
     tabHeight = restHeight;
   }
 
+  // Right-edge offset for the tab when open — must track the drawer's
+  // actual rendered width, NOT the requested `drawerWidth`. On narrow
+  // viewports the drawer clamps to `calc(100vw - 36px)` (bug edfdd057), so
+  // a static `right: drawerWidth` would push the tab off-screen. Use the
+  // same min() clamp so the tab + drawer stay flush regardless of viewport.
+  const drawerRightOpen = `min(${drawerWidth}px, calc(100vw - ${TAB_WIDTH + 8}px))`;
+
   return (
     <div
       data-edge-tab-anchor={id}
@@ -133,16 +200,29 @@ export function EdgeTab({
             onToggle();
           }
         }}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-        onFocus={() => setHovered(true)}
-        onBlur={() => setHovered(false)}
+        onMouseEnter={() => {
+          setHovered(true);
+          setStoreHovered(id);
+        }}
+        onMouseLeave={() => {
+          setHovered(false);
+          setStoreHovered(null);
+        }}
+        onFocus={() => {
+          setHovered(true);
+          setStoreHovered(id);
+        }}
+        onBlur={() => {
+          setHovered(false);
+          setStoreHovered(null);
+        }}
         style={{
           position: "absolute",
           top: tabTop,
-          right: open ? drawerWidth : 0,
+          right: open ? drawerRightOpen : 0,
           width: TAB_WIDTH,
           height: tabHeight,
+          maxHeight: `calc(100vh - ${railTop + railBottom}px)`,
           boxSizing: "border-box",
           background: fill,
           backdropFilter: "blur(28px) saturate(1.3)",
@@ -164,12 +244,37 @@ export function EdgeTab({
           cursor: "pointer",
           pointerEvents: "auto",
           color: "var(--text)",
+          transform: reducedMotion
+            ? undefined
+            : `translateY(${siblingPushPx}px)`,
           transition: reducedMotion
             ? "opacity 150ms linear"
-            : `top 260ms ${EASE_SMOOTH_CSS}, height 260ms ${EASE_SMOOTH_CSS}, right 260ms ${EASE_SMOOTH_CSS}, background-color 180ms ${EASE_SMOOTH_CSS}`,
+            : `top 260ms ${EASE_SMOOTH_CSS}, height 260ms ${EASE_SMOOTH_CSS}, right 260ms ${EASE_SMOOTH_CSS}, transform 260ms ${EASE_SMOOTH_CSS}, background-color 180ms ${EASE_SMOOTH_CSS}`,
           outline: "none",
         }}
       >
+        {/* State-driven tint glaze — rendered as a positioned absolute layer
+            underneath the glyph + wordmark so the tab picks up a hue tied to
+            its semantic state without breaking the glass blur. Default
+            ("neutral") renders nothing. Inherits the tab's rounded outer
+            edge so the glaze tracks the half-pill profile. (Bug 82cc08e5.) */}
+        {TINT_VAR[tint] && (
+          <span
+            aria-hidden
+            style={{
+              position: "absolute",
+              inset: 0,
+              borderTopLeftRadius: TAB_WIDTH / 2,
+              borderBottomLeftRadius: TAB_WIDTH / 2,
+              background: TINT_VAR[tint] as string,
+              pointerEvents: "none",
+              transition: reducedMotion
+                ? "none"
+                : `background 220ms ${EASE_SMOOTH_CSS}, opacity 220ms ${EASE_SMOOTH_CSS}`,
+            }}
+          />
+        )}
+
         {/* Left accent stripe — top/bottom inset by half the tab width so the
             stripe stays inside the rounded outer edge (corners curl in by
             TAB_WIDTH/2 due to the half-pill profile). Data attribute for
@@ -250,7 +355,8 @@ export function EdgeTab({
           {open ? wordmarkOpen : wordmark}
         </span>
 
-        {/* Hover tooltip — closed state only */}
+        {/* Hover tooltip — closed state only. Clamped so it never bleeds
+            past the viewport on narrow screens (bug edfdd057). */}
         {hovered && !open && (
           <div
             role="tooltip"
@@ -270,6 +376,8 @@ export function EdgeTab({
               display: "flex",
               alignItems: "center",
               gap: 10,
+              maxWidth: `calc(100vw - ${TAB_WIDTH + 24}px)`,
+              overflow: "hidden",
             }}
           >
             <span style={{ fontFamily: "var(--font-mohave)", fontSize: 13, color: "var(--text)" }}>
