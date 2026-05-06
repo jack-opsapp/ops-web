@@ -44,6 +44,12 @@
   --fill-neutral: rgba(255, 255, 255, 0.14);
   --fill-neutral-dim: rgba(255, 255, 255, 0.06);
 
+  /* ── Inbox surface tokens (scoped to /inbox routes) ── */
+  --inbox-bg: #0E0F12;
+  --inbox-bg-deep: #08090B;
+  --inbox-panel: #16181C;
+  --inbox-elev: #1A1D22;
+
   /* ── Agent Provenance Palette — Claude-authored surfaces only ── */
   /* See .interface-design/system.md § Agent Provenance Palette for usage rules. */
   --agent: #8A7FB8;

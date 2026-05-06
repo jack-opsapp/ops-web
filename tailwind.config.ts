@@ -140,6 +140,17 @@ const config: Config = {
           input: "rgba(255, 255, 255, 0.04)",
         },
 
+        // === Inbox surface tokens (scoped to /inbox routes) ===
+        // Solid panels for the redesigned inbox. Glass remains the OPS-Web
+        // system-wide default; these tokens must NOT leak into glass-surface
+        // contexts. See docs/plans/2026-05-06-inbox-redesign.md.
+        inbox: {
+          bg: "#0E0F12",
+          "bg-deep": "#08090B",
+          panel: "#16181C",
+          elev: "#1A1D22",
+        },
+
         // === Agent Provenance Palette (Claude-authored surfaces only) ===
         // Reserved for AI-authored surfaces: summary band, "Claude drafted this"
         // labels, auto-sent banner, autonomy panel, AI-drafted bubbles & rows,
