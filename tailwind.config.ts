@@ -139,6 +139,23 @@ const config: Config = {
           active: "rgba(255, 255, 255, 0.08)",
           input: "rgba(255, 255, 255, 0.04)",
         },
+
+        // === Agent Provenance Palette (Claude-authored surfaces only) ===
+        // Reserved for AI-authored surfaces: summary band, "Claude drafted this"
+        // labels, auto-sent banner, autonomy panel, AI-drafted bubbles & rows,
+        // agent body text. Never on category chips, status pills, links, user
+        // drafts, opportunities, "Your turn" banner, or human-authored content.
+        // See .interface-design/system.md § Agent Provenance Palette.
+        agent: {
+          DEFAULT: "#8A7FB8",
+          hi: "#B5ABDC",
+          text: "#C9C0E6",
+          text2: "#A39CC9",
+          border: "rgba(138, 127, 184, 0.18)",
+          "border-hi": "rgba(138, 127, 184, 0.36)",
+          bg: "rgba(138, 127, 184, 0.04)",
+          "bg-hi": "rgba(138, 127, 184, 0.10)",
+        },
       },
 
       // === Typography ===
