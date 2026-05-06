@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils/cn";
 const Avatar = React.forwardRef<
   React.ComponentRef<typeof AvatarPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Root> & {
-    size?: "sm" | "md" | "lg";
+    size?: "sm" | "md" | "lg" | "xl";
     borderColor?: string;
   }
 >(({ className, size = "md", borderColor, style, ...props }, ref) => (
@@ -13,11 +13,12 @@ const Avatar = React.forwardRef<
     ref={ref}
     className={cn(
       "relative flex shrink-0 overflow-hidden rounded-full",
-      "border-2 border-[rgba(255,255,255,0.18)]",
+      "border border-[rgba(255,255,255,0.09)]",
       {
-        "h-[32px] w-[32px]": size === "sm",
-        "h-5 w-5": size === "md",
-        "h-7 w-7": size === "lg",
+        "h-[24px] w-[24px]": size === "sm",
+        "h-[32px] w-[32px]": size === "md",
+        "h-[40px] w-[40px]": size === "lg",
+        "h-[48px] w-[48px]": size === "xl",
       },
       className
     )}
@@ -52,8 +53,8 @@ const AvatarFallback = React.forwardRef<
     ref={ref}
     className={cn(
       "flex h-full w-full items-center justify-center rounded-full",
-      "text-text-2",
-      "font-mohave text-caption-bold uppercase",
+      "bg-[rgba(255,255,255,0.04)] text-text-2",
+      "font-mono text-[11px] uppercase tracking-wider",
       className
     )}
     style={color ? { ...style, color } : style}

@@ -265,7 +265,7 @@ export function ReviewTasksModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-[#0A0A0A] border border-[#2A2A2A] max-w-lg max-h-[85vh] flex flex-col">
+      <DialogContent className="bg-black border border-[#2A2A2A] max-w-lg max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="text-[#EDEDED] font-['Mohave'] text-lg">
             Review Tasks — {projectTitle}

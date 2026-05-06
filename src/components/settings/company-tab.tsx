@@ -251,7 +251,20 @@ export function CompanyTab() {
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <Building2 className="w-[24px] h-[24px] text-text-mute" />
+                  // Bug d0be7f4a — company-logo placeholder mirrors the
+                  // user/client avatar treatment: monochrome glass + JetBrains
+                  // Mono uppercase initials, never the generic Building2 icon.
+                  <span
+                    className="font-mono text-[15px] uppercase tracking-wider"
+                    style={{ color: "var(--text-2)" }}
+                  >
+                    {(companyName || company?.name || "?")
+                      .split(/\s+/)
+                      .filter(Boolean)
+                      .slice(0, 2)
+                      .map((w) => w.charAt(0).toUpperCase())
+                      .join("") || "?"}
+                  </span>
                 )}
               </div>
               <Button

@@ -156,7 +156,7 @@ export function SiteVisitDetail({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-lg bg-[#0A0A0A] border-l border-[#2A2A2A] flex flex-col">
+      <SheetContent className="w-full sm:max-w-lg bg-black border-l border-[#2A2A2A] flex flex-col">
         <SheetHeader className="shrink-0">
           <div className="flex items-center justify-between">
             <SheetTitle className="text-[#EDEDED] font-['Mohave'] text-xl">

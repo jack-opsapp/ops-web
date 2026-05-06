@@ -90,7 +90,10 @@ function ClientCard({ client, onClick, t }: { client: ClientListItem; onClick: (
               (rounded-full + border-2 rgba(255,255,255,0.18)) with size
               override via className for this card's 44px variant. */}
           <Avatar className="h-[44px] w-[44px]">
-            <AvatarFallback className="font-mohave text-body-lg text-text-2">
+            {/* Bug d0be7f4a — monochrome glass placeholder + JetBrains
+                Mono uppercase initials. Mirrors UserAvatar treatment so
+                client / company / user avatars all read the same. */}
+            <AvatarFallback className="font-mono text-[14px] uppercase tracking-wider">
               {getInitials(client.name) || "?"}
             </AvatarFallback>
           </Avatar>
@@ -212,9 +215,10 @@ function ClientTableRow({
       {/* Name + Company */}
       <td className="px-1.5 py-1">
         <div className="flex items-center gap-1">
-          {/* Design system v2 avatar — table row variant at 32px. */}
+          {/* Design system v2 avatar — table row variant at 32px.
+              Mono uppercase initials mirror UserAvatar (bug d0be7f4a). */}
           <Avatar className="h-[32px] w-[32px]">
-            <AvatarFallback className="font-mohave text-body-sm text-text-2">
+            <AvatarFallback className="font-mono text-[11px] uppercase tracking-wider">
               {getInitials(client.name) || "?"}
             </AvatarFallback>
           </Avatar>

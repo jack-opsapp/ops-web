@@ -174,13 +174,15 @@ function ProjectSelector({
 interface CreateTaskFormProps {
   onSuccess?: () => void;
   onCancel?: () => void;
+  /** Pre-fill the project picker — used when opening from a project's "Add Task" action. */
+  defaultProjectId?: string;
 }
 
-export function CreateTaskForm({ onSuccess, onCancel }: CreateTaskFormProps) {
+export function CreateTaskForm({ onSuccess, onCancel, defaultProjectId }: CreateTaskFormProps) {
   const { company } = useAuthStore();
   const companyId = company?.id ?? "";
 
-  const [projectId, setProjectId] = useState<string | null>(null);
+  const [projectId, setProjectId] = useState<string | null>(defaultProjectId ?? null);
   const [showCreateProject, setShowCreateProject] = useState(false);
 
   const { data: taskTypes } = useTaskTypes();

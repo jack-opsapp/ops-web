@@ -161,9 +161,10 @@ export default function NewClientPage() {
           <ArrowLeft className="w-[20px] h-[20px]" />
         </Button>
         <div className="flex items-center gap-1.5">
-          {/* Design system v2 avatar — new-client header preview at 40px. */}
+          {/* Design system v2 avatar — new-client header preview at 40px.
+              Mono uppercase initials (bug d0be7f4a). */}
           <Avatar className="h-[40px] w-[40px]">
-            <AvatarFallback className="font-mohave text-body-lg text-text-2">
+            <AvatarFallback className="font-mono text-[13px] uppercase tracking-wider">
               {initials}
             </AvatarFallback>
           </Avatar>

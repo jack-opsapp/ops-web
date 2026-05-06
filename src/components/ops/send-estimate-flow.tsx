@@ -68,7 +68,7 @@ export function SendEstimateFlow({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-[#0A0A0A] border border-[#2A2A2A] max-w-md">
+      <DialogContent className="bg-black border border-[#2A2A2A] max-w-md">
         <DialogHeader>
           <DialogTitle className="text-[#EDEDED] font-['Mohave'] text-lg">
             Send Estimate
@@ -129,7 +129,7 @@ export function SendEstimateFlow({
             <Button
               onClick={handleSend}
               disabled={sending || !email.trim()}
-              className="flex-1 bg-ops-accent hover:bg-[#4f8aae] text-white gap-2"
+              className="flex-1 bg-transparent text-ops-accent border-ops-accent hover:bg-ops-accent hover:text-black gap-2"
             >
               {sending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

@@ -22,14 +22,16 @@ import {
   Keyboard,
   RefreshCw,
   ClipboardList,
+  Target,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import { useFeatureFlagsStore } from "@/lib/store/feature-flags-store";
 import { useSignOutStore } from "@/stores/signout-store";
-import { useScopedProjects } from "@/lib/hooks/use-projects";
+import { useProjects } from "@/lib/hooks/use-projects";
 import { useClients } from "@/lib/hooks/use-clients";
 import { useTasks } from "@/lib/hooks/use-tasks";
+import { useOpportunities } from "@/lib/hooks/use-opportunities";
 import {
   CommandDialog,
   CommandInput,
@@ -60,46 +62,66 @@ export function CommandPalette() {
   const can = usePermissionStore((s) => s.can);
   const isPermissionUnlocked = useFeatureFlagsStore((s) => s.isPermissionUnlocked);
 
-  // Entity data for search (scope-aware to match cached data from app)
-  const { data: projectsData } = useScopedProjects(undefined, { enabled: open });
+  // Entity data for search — scope-AGNOSTIC across the whole company so
+  // the palette acts as a universal lookup. Bug ab3ace6e — the legacy
+  // useScopedProjects path silently dropped projects the operator wasn't
+  // assigned to.
+  const { data: projectsData } = useProjects(undefined, { enabled: open });
   const { data: clientsData } = useClients(undefined, { enabled: open });
   const { data: tasksData } = useTasks(undefined, { enabled: open });
+  const { data: opportunitiesData } = useOpportunities(undefined, {
+    enabled: open,
+  });
 
   const entityResults = useMemo(() => {
     const q = search.toLowerCase().trim();
-    if (q.length < 2) return { projects: [], clients: [], tasks: [] };
+    if (q.length < 2) {
+      return { projects: [], clients: [], tasks: [], opportunities: [] };
+    }
 
     const projects = (projectsData?.projects ?? [])
       .filter(
         (p) =>
           p.title?.toLowerCase().includes(q) ||
-          p.address?.toLowerCase().includes(q)
+          p.address?.toLowerCase().includes(q),
       )
-      .slice(0, 5);
+      .slice(0, 6);
 
     const clients = (clientsData?.clients ?? [])
       .filter(
         (c) =>
           c.name?.toLowerCase().includes(q) ||
-          c.email?.toLowerCase().includes(q)
+          c.email?.toLowerCase().includes(q) ||
+          c.phoneNumber?.toLowerCase().includes(q),
       )
-      .slice(0, 5);
+      .slice(0, 6);
 
     const tasks = (tasksData?.tasks ?? [])
       .filter(
         (t) =>
           t.customTitle?.toLowerCase().includes(q) ||
-          t.taskNotes?.toLowerCase().includes(q)
+          t.taskNotes?.toLowerCase().includes(q),
       )
-      .slice(0, 5);
+      .slice(0, 6);
 
-    return { projects, clients, tasks };
-  }, [search, projectsData, clientsData, tasksData]);
+    const opportunities = (opportunitiesData ?? [])
+      .filter(
+        (o) =>
+          o.title?.toLowerCase().includes(q) ||
+          o.description?.toLowerCase().includes(q) ||
+          o.contactName?.toLowerCase().includes(q) ||
+          o.contactEmail?.toLowerCase().includes(q),
+      )
+      .slice(0, 6);
+
+    return { projects, clients, tasks, opportunities };
+  }, [search, projectsData, clientsData, tasksData, opportunitiesData]);
 
   const hasEntityResults =
     entityResults.projects.length > 0 ||
     entityResults.clients.length > 0 ||
-    entityResults.tasks.length > 0;
+    entityResults.tasks.length > 0 ||
+    entityResults.opportunities.length > 0;
 
   // Toggle with Cmd+K / Ctrl+K or backslash
   useEffect(() => {
@@ -449,7 +471,7 @@ export function CommandPalette() {
   return (
     <CommandDialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setSearch(""); }}>
       <CommandInput
-        placeholder="Search projects, clients, tasks, or commands..."
+        placeholder="Search projects, clients, tasks, opportunities, or commands..."
         onClear={() => setOpen(false)}
         onValueChange={setSearch}
       />
@@ -518,6 +540,26 @@ export function CommandPalette() {
                   >
                     <ClipboardList className="w-[16px] h-[16px] text-text-3" />
                     <span className="truncate">{t.customTitle || "Untitled Task"}</span>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            )}
+            {entityResults.opportunities.length > 0 && (
+              <CommandGroup heading="Opportunities">
+                {entityResults.opportunities.map((o) => (
+                  <CommandItem
+                    key={`opp-${o.id}`}
+                    value={`opp-${o.id} ${o.title}`}
+                    onSelect={() => navigate(`/pipeline?opportunity=${o.id}`)}
+                    forceMount
+                  >
+                    <Target className="w-[16px] h-[16px] text-text-3" />
+                    <span className="truncate">{o.title}</span>
+                    {o.contactName && (
+                      <span className="ml-auto text-[11px] text-text-mute truncate max-w-[180px]">
+                        {o.contactName}
+                      </span>
+                    )}
                   </CommandItem>
                 ))}
               </CommandGroup>

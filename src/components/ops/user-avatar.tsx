@@ -23,37 +23,34 @@ function getInitials(name: string): string {
   return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
 }
 
-function stringToColor(str: string): string {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = str.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  const h = Math.abs(hash) % 360;
-  return `hsl(${h}, 40%, 45%)`;
-}
-
 export interface UserAvatarProps {
   name: string;
   imageUrl?: string | null;
   role?: UserRole;
   online?: boolean;
+  /**
+   * @deprecated OPS aesthetic is monochrome — color is intentionally ignored.
+   * Prop accepted for backwards compatibility with callers passing `userColor`.
+   */
   color?: string;
-  size?: "sm" | "md" | "lg";
+  size?: "sm" | "md" | "lg" | "xl";
   className?: string;
   showTooltip?: boolean;
 }
 
 const UserAvatar = React.forwardRef<HTMLDivElement, UserAvatarProps>(
-  ({ name, imageUrl, role, online, color, size = "md", className, showTooltip }, ref) => {
+  ({ name, imageUrl, role, online, size = "md", className, showTooltip }, ref) => {
+    // OPS aesthetic is monochrome — `color` prop is intentionally not destructured;
+    // it remains in the interface for backwards compatibility with callers passing
+    // `userColor` from the database.
     const initials = getInitials(name);
-    const fallbackColor = color || stringToColor(name);
     const roleColor = role ? ROLE_COLORS[role] : undefined;
 
     const avatarElement = (
       <div ref={ref} className={cn("relative inline-flex shrink-0", className)}>
-        <Avatar size={size} borderColor={fallbackColor}>
+        <Avatar size={size}>
           {imageUrl && <AvatarImage src={imageUrl} alt={name} />}
-          <AvatarFallback color={fallbackColor}>{initials}</AvatarFallback>
+          <AvatarFallback>{initials}</AvatarFallback>
         </Avatar>
 
         {/* Role indicator */}

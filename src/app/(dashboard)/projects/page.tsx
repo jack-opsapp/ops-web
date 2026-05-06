@@ -8,6 +8,7 @@ import { trackScreenView } from "@/lib/analytics/analytics";
 import { toast } from "@/components/ui/toast";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { usePermissionStore } from "@/lib/store/permissions-store";
+import { useWindowStore } from "@/stores/window-store";
 import {
   useScopedProjects,
   useUpdateProjectStatus,
@@ -546,10 +547,20 @@ export default function ProjectsPage() {
     [projectMap, openPopover]
   );
 
-  const handleAddTask = useCallback((_projectId: string) => {
-    // TODO: Open task creation form — integrate with existing window system
-    toast.info("Task creation coming soon");
-  }, []);
+  const openWindow = useWindowStore((s) => s.openWindow);
+  const handleAddTask = useCallback(
+    (projectId: string) => {
+      const project = projectMap.get(projectId);
+      const projectLabel = project?.title || project?.address?.split(",")[0] || "Project";
+      openWindow({
+        id: `create-task-${projectId}`,
+        title: `// NEW TASK :: ${projectLabel.toUpperCase()}`,
+        type: "create-task",
+        metadata: { projectId },
+      });
+    },
+    [openWindow, projectMap]
+  );
 
   const handleRecordPayment = useCallback((_projectId: string) => {
     // TODO: Open payment recording form

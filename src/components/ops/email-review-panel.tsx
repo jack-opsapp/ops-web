@@ -637,7 +637,7 @@ export function EmailReviewPanel({
           {/* Panel */}
           <motion.aside
             key="email-review-panel"
-            className="fixed inset-y-0 right-0 z-50 flex w-full max-w-[480px] flex-col border-l border-[rgba(255,255,255,0.10)] bg-[#0A0A0A]"
+            className="fixed inset-y-0 right-0 z-50 flex w-full max-w-[480px] flex-col border-l border-[rgba(255,255,255,0.10)] bg-black"
             initial={{ x: "100%" }}
             animate={{ x: 0 }}
             exit={{ x: "100%" }}

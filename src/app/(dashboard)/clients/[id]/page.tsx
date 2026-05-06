@@ -384,9 +384,10 @@ export default function ClientDetailPage() {
       <div className="flex items-start gap-2">
         <div className="flex-1">
           <div className="flex items-center gap-1.5">
-            {/* Design system v2 avatar — client detail header at 52px. */}
+            {/* Design system v2 avatar — client detail header at 52px.
+                Mono uppercase initials mirror UserAvatar (bug d0be7f4a). */}
             <Avatar className="h-[52px] w-[52px]">
-              <AvatarFallback className="font-mohave text-display text-text-2">
+              <AvatarFallback className="font-mono text-[16px] uppercase tracking-wider">
                 {getInitials(clientData.name) || "?"}
               </AvatarFallback>
             </Avatar>
@@ -676,9 +677,10 @@ export default function ClientDetailPage() {
                     >
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1">
-                          {/* Design system v2 avatar — sub-client list at 28px. */}
+                          {/* Design system v2 avatar — sub-client list at 28px.
+                              Mono uppercase initials (bug d0be7f4a). */}
                           <Avatar className="h-[28px] w-[28px]">
-                            <AvatarFallback className="font-mohave text-[11px] text-text-2">
+                            <AvatarFallback className="font-mono text-[10px] uppercase tracking-wider">
                               {getInitials(sc.name)}
                             </AvatarFallback>
                           </Avatar>

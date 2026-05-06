@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
-import { useAuthStore } from "@/lib/store/auth-store";
 import {
   useInventoryItems,
   useInventoryTags,
@@ -22,40 +21,16 @@ import { TagsUnitsTab } from "@/components/inventory/tags-units-tab";
 import { SnapshotsTab } from "@/components/inventory/snapshots-tab";
 import { ImportTab } from "@/components/inventory/import-tab";
 
-// ─── Permission Gate Wrapper ────────────────────────────────────────────────
-
 export default function InventoryPage() {
   usePageTitle("Inventory");
-  const router = useRouter();
-  const { currentUser } = useAuthStore();
-
-  useEffect(() => {
-    if (currentUser && !currentUser.inventoryAccess) {
-      router.replace("/dashboard");
-    }
-  }, [currentUser, router]);
-
-  if (!currentUser || !currentUser.inventoryAccess) {
-    return null;
-  }
-
-  return <InventoryContent />;
-}
-
-// ─── Content (only mounts when user has access) ─────────────────────────────
-
-function InventoryContent() {
   const searchParams = useSearchParams();
 
-  // Data hooks — only called when user has inventoryAccess
   const { data: items = [] } = useInventoryItems();
   const { data: tags = [] } = useInventoryTags();
   const { data: itemTags = [] } = useInventoryItemTags();
 
-  // ── Metrics header data ────────────────────────────────────────────
   const { data: inventoryMetrics = [], isLoading: inventoryMetricsLoading } = useInventoryMetrics();
 
-  // FAB ?action=new handling
   const action = searchParams.get("action");
   const [activeTab, setActiveTab] = useState(
     action === "new" ? "items" : "overview"
@@ -69,7 +44,6 @@ function InventoryContent() {
     }
   }, [action]);
 
-  // Stats
   const stats = useMemo(() => {
     let warningCount = 0;
     let criticalCount = 0;

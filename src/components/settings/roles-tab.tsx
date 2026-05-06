@@ -736,7 +736,7 @@ function PermissionBoard({
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="flex gap-0 min-h-[300px]">
+      <div className="flex gap-0 min-h-[300px] min-w-0 w-full">
         {/* Palette */}
         <PermissionPalette
           grantedModules={paletteGranted}
@@ -747,7 +747,7 @@ function PermissionBoard({
         />
 
         {/* Tier columns */}
-        <div className="flex-1 flex gap-1.5 p-1.5 overflow-x-auto">
+        <div className="flex-1 min-w-0 flex gap-1.5 p-1.5 overflow-x-auto">
           {(["view", "manage", "full"] as PermissionTier[]).map((tier) => (
             <TierColumn
               key={tier}
