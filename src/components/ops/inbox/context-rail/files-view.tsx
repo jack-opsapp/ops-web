@@ -1,0 +1,138 @@
+"use client";
+
+import { File, FileImage, FileSpreadsheet, FileText } from "lucide-react";
+import { cn } from "@/lib/utils/cn";
+
+export interface PhotoItem {
+  id: string;
+  url: string;
+  filename: string;
+}
+
+export type FileKind = "pdf" | "doc" | "spreadsheet" | "image" | "other";
+
+export interface FileItem {
+  id: string;
+  filename: string;
+  size: number;
+  kind: FileKind;
+  /** ISO date. Rendered as "MAR 14". */
+  updatedAt: string;
+}
+
+interface FilesViewProps {
+  photos: PhotoItem[];
+  documents: FileItem[];
+  onPhotoOpen?: (photo: PhotoItem) => void;
+  onFileOpen?: (file: FileItem) => void;
+  className?: string;
+}
+
+const KIND_ICON = {
+  pdf: FileText,
+  doc: FileText,
+  spreadsheet: FileSpreadsheet,
+  image: FileImage,
+  other: File,
+} as const;
+
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatDate(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" }).toUpperCase();
+}
+
+export function FilesView({
+  photos,
+  documents,
+  onPhotoOpen,
+  onFileOpen,
+  className,
+}: FilesViewProps) {
+  const empty = photos.length === 0 && documents.length === 0;
+
+  if (empty) {
+    return (
+      <p className={cn("font-mohave text-[12px] text-text-3", className)}>
+        no files attached
+      </p>
+    );
+  }
+
+  return (
+    <div className={cn("flex flex-col gap-4", className)}>
+      {photos.length > 0 && (
+        <section className="flex flex-col gap-2">
+          <h4 className="font-cakemono text-[9.5px] font-light uppercase leading-none tracking-[0.18em] text-text-3">
+            // IMAGES · {photos.length}
+          </h4>
+          <div data-testid="files-photo-grid" className="grid grid-cols-3 gap-1">
+            {photos.map((photo) => (
+              <button
+                key={photo.id}
+                type="button"
+                aria-label={`Open photo ${photo.filename}`}
+                onClick={() => onPhotoOpen?.(photo)}
+                className="group relative aspect-square overflow-hidden rounded-[6px] border border-line bg-inbox-bg-deep"
+              >
+                <img
+                  src={photo.url}
+                  alt={photo.filename}
+                  className="h-full w-full object-cover"
+                />
+                <span className="pointer-events-none absolute inset-x-0 bottom-0 truncate bg-black/[0.45] px-1.5 py-1 font-mono text-[8.5px] uppercase tracking-[0.3em] text-white/[0.85] opacity-0 group-hover:opacity-100">
+                  {photo.filename}
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {documents.length > 0 && (
+        <section className="flex flex-col gap-2">
+          <h4 className="font-cakemono text-[9.5px] font-light uppercase leading-none tracking-[0.18em] text-text-3">
+            // DOCUMENTS · {documents.length}
+          </h4>
+          <ul className="flex flex-col gap-1.5">
+            {documents.map((doc) => {
+              const Icon = KIND_ICON[doc.kind];
+              return (
+                <li key={doc.id}>
+                  <button
+                    type="button"
+                    onClick={() => onFileOpen?.(doc)}
+                    className="flex w-full items-center gap-2.5 rounded-[5px] border border-line bg-inbox-panel px-2.5 py-2 text-left hover:bg-inbox-elev"
+                  >
+                    <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-[4px] bg-inbox-bg-deep">
+                      <Icon
+                        aria-hidden
+                        className="h-3.5 w-3.5 text-text-3"
+                        strokeWidth={1.75}
+                      />
+                    </span>
+                    <span className="min-w-0 flex-1 truncate font-mohave text-[12px] text-text-2">
+                      {doc.filename}
+                    </span>
+                    <span
+                      className="shrink-0 font-mono text-[9.5px] tabular-nums uppercase tracking-[0.18em] text-text-mute"
+                      style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
+                    >
+                      {formatSize(doc.size)} · {formatDate(doc.updatedAt)}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
+    </div>
+  );
+}
