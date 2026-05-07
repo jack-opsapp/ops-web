@@ -46,16 +46,40 @@ describe("<Composer>", () => {
     expect(onSend).not.toHaveBeenCalled();
   });
 
-  it("clicking the SEND button fires onSend with current value", () => {
+  it("clicking the Send button fires onSend with current value", () => {
     const onSend = vi.fn();
     render(<Composer value="ready" onChange={noop} onSend={onSend} />);
-    fireEvent.click(screen.getByRole("button", { name: /^SEND$/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Send$/i }));
     expect(onSend).toHaveBeenCalledWith("ready");
   });
 
-  it("disables the SEND button when value is empty/whitespace", () => {
+  it("disables the Send button when value is empty/whitespace", () => {
     render(<Composer value="   " onChange={noop} onSend={noop} />);
-    expect(screen.getByRole("button", { name: /^SEND$/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /^Send$/i })).toBeDisabled();
+  });
+
+  it("shows the Edit button slot when onEditDraft is provided", () => {
+    render(
+      <Composer
+        value=""
+        onChange={noop}
+        onSend={noop}
+        onEditDraft={() => {}}
+      />,
+    );
+    expect(screen.getByRole("button", { name: /^Edit$/ })).toBeInTheDocument();
+  });
+
+  it("agent variant relabels the send button to 'Send AI draft'", () => {
+    render(
+      <Composer
+        value="ready"
+        onChange={noop}
+        onSend={noop}
+        sendVariant="agent"
+      />,
+    );
+    expect(screen.getByRole("button", { name: /Send AI draft/i })).toBeInTheDocument();
   });
 
   it("propagates typing via onChange", () => {
