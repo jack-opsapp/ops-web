@@ -3,10 +3,10 @@ import { describe, it, expect, vi } from "vitest";
 import { PhotoBubble, photoGridCols } from "../photo-bubble";
 
 const PHOTOS = [
-  { id: "p1", url: "/img/p1.jpg", filename: "roof-1.jpg" },
-  { id: "p2", url: "/img/p2.jpg", filename: "roof-2.jpg" },
-  { id: "p3", url: "/img/p3.jpg", filename: "roof-3.jpg" },
-  { id: "p4", url: "/img/p4.jpg", filename: "roof-4.jpg" },
+  { id: "p1", url: "/img/p1.jpg", alt: "roof-1.jpg" },
+  { id: "p2", url: "/img/p2.jpg", alt: "roof-2.jpg" },
+  { id: "p3", url: "/img/p3.jpg", alt: "roof-3.jpg" },
+  { id: "p4", url: "/img/p4.jpg", alt: "roof-4.jpg" },
 ];
 
 describe("photoGridCols", () => {
@@ -31,14 +31,14 @@ describe("photoGridCols", () => {
 describe("<PhotoBubble>", () => {
   it("renders nothing when photos array is empty", () => {
     const { container } = render(
-      <PhotoBubble direction="inbound" photos={[]} isLastOfRun />,
+      <PhotoBubble direction="inbound" photos={[]} senderName="Jeanne" />,
     );
     expect(container.firstChild).toBeNull();
   });
 
-  it("renders one image cell per photo", () => {
+  it("renders one image per photo", () => {
     render(
-      <PhotoBubble direction="inbound" photos={PHOTOS} isLastOfRun />,
+      <PhotoBubble direction="inbound" photos={PHOTOS} senderName="Jeanne" />,
     );
     const imgs = screen.getAllByRole("img");
     expect(imgs).toHaveLength(4);
@@ -46,10 +46,9 @@ describe("<PhotoBubble>", () => {
 
   it("uses 3-column grid for >= 3 photos", () => {
     render(
-      <PhotoBubble direction="inbound" photos={PHOTOS} isLastOfRun />,
+      <PhotoBubble direction="inbound" photos={PHOTOS} senderName="Jeanne" />,
     );
-    const grid = screen.getByTestId("photo-grid");
-    expect(grid.className).toMatch(/grid-cols-3/);
+    expect(screen.getByTestId("photo-grid").className).toMatch(/grid-cols-3/);
   });
 
   it("uses 1-column grid for a single photo", () => {
@@ -57,11 +56,10 @@ describe("<PhotoBubble>", () => {
       <PhotoBubble
         direction="inbound"
         photos={[PHOTOS[0]]}
-        isLastOfRun
+        senderName="Jeanne"
       />,
     );
-    const grid = screen.getByTestId("photo-grid");
-    expect(grid.className).toMatch(/grid-cols-1/);
+    expect(screen.getByTestId("photo-grid").className).toMatch(/grid-cols-1/);
   });
 
   it("calls onPhotoClick with photo + index when a cell is clicked", () => {
@@ -70,7 +68,7 @@ describe("<PhotoBubble>", () => {
       <PhotoBubble
         direction="inbound"
         photos={PHOTOS}
-        isLastOfRun
+        senderName="Jeanne"
         onPhotoClick={onPhotoClick}
       />,
     );
@@ -84,16 +82,16 @@ describe("<PhotoBubble>", () => {
       <PhotoBubble
         direction="inbound"
         photos={PHOTOS}
+        senderName="Jeanne"
         body="Here are the photos"
-        isLastOfRun
       />,
     );
     expect(screen.getByText("Here are the photos")).toBeInTheDocument();
   });
 
-  it("renders 'n photos' meta when isLastOfRun and >1 photo", () => {
+  it("surfaces the photo count in the meta row", () => {
     render(
-      <PhotoBubble direction="inbound" photos={PHOTOS} isLastOfRun />,
+      <PhotoBubble direction="inbound" photos={PHOTOS} senderName="Jeanne" />,
     );
     expect(screen.getByText(/4 photos/i)).toBeInTheDocument();
   });

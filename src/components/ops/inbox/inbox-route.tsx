@@ -309,6 +309,7 @@ function formatDue(d: Date): string {
 
 function toRenderableMessage(m: InboxThreadMessage): RenderableMessage {
   const ts = new Date(m.date).getTime();
+  const senderName = m.fromName ?? m.from ?? "—";
   return {
     id: m.id,
     authorId: m.from || m.id,
@@ -316,6 +317,9 @@ function toRenderableMessage(m: InboxThreadMessage): RenderableMessage {
     source: "human",
     direction: m.direction,
     body: m.cleanBodyText || m.bodyText || m.snippet || "",
+    senderName,
+    initials: senderName,
+    attachmentName: m.hasAttachments ? "attachment" : undefined,
     timestamp: new Date(ts).toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",

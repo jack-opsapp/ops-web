@@ -1,64 +1,87 @@
 "use client";
 
-import { useMemo } from "react";
-import {
-  annotateMessages,
-  type MessageForGrouping,
-} from "@/lib/inbox/message-grouping";
+/**
+ * MessageList — faithful to the simple `messages.map(m => <V3Bubble m={m}/>)`
+ * pattern in `reference/v4-detail.jsx :: V4Detail`. No run grouping or day
+ * separators in the canonical reference; bubbles are rendered uniformly with
+ * 14px gap between them. Photo bubbles can be inserted via the `inlinePhotos`
+ * prop (rendered after the message at `afterMessageIdx`).
+ */
+
+import { Fragment } from "react";
 import { MessageBubble } from "./message-bubble";
+import { PhotoBubble, type PhotoData } from "./photo-bubble";
 import { cn } from "@/lib/utils/cn";
+import type { MessageForGrouping } from "@/lib/inbox/message-grouping";
 
 export interface RenderableMessage extends MessageForGrouping {
   direction: "inbound" | "outbound";
   body: string;
-  /** Render-friendly time, e.g. "14:05". Only shown on the last bubble of a run. */
+  /** Display name shown in the meta row beneath the bubble. */
+  senderName: string;
+  /** Render-friendly time, e.g. "14:05". */
   timestamp?: string;
-  /** Optional avatar element rendered in the inbound gutter on run-tail bubbles. */
-  avatar?: React.ReactNode;
+  /** Initials for the avatar tile. */
+  initials?: string;
+  /** Filename surfaced as a paperclip indicator in the meta row. */
+  attachmentName?: string;
+}
+
+export interface InlinePhotoEntry {
+  /** Index of the message this photo group renders after. */
+  afterMessageIdx: number;
+  direction: "inbound" | "outbound";
+  senderName: string;
+  initials?: string;
+  timestamp?: string;
+  body?: string;
+  photos: PhotoData[];
 }
 
 interface MessageListProps {
   messages: RenderableMessage[];
+  inlinePhotos?: InlinePhotoEntry[];
   className?: string;
 }
 
-function formatDayLabel(ts: number): string {
-  return new Date(ts)
-    .toLocaleDateString("en-US", { month: "short", day: "numeric" })
-    .toUpperCase();
-}
-
-export function MessageList({ messages, className }: MessageListProps) {
-  const annotated = useMemo(() => annotateMessages(messages), [messages]);
-
+export function MessageList({
+  messages,
+  inlinePhotos = [],
+  className,
+}: MessageListProps) {
   return (
     <div
       className={cn(
-        "flex min-h-0 flex-1 flex-col overflow-y-auto scrollbar-hide py-3",
+        "flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto scrollbar-hide px-[18px] py-4",
         className,
       )}
     >
-      {annotated.map(({ message, isLastOfRun, dayBoundary }) => (
-        <div key={message.id}>
-          {dayBoundary && (
-            <div
-              data-testid="message-day-separator"
-              className="my-3 flex items-center justify-center font-mono text-[10px] uppercase tracking-[0.2em] text-text-mute"
-              style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
-            >
-              {formatDayLabel(message.ts)}
-            </div>
-          )}
-          <MessageBubble
-            direction={message.direction}
-            body={message.body}
-            source={message.source}
-            isLastOfRun={isLastOfRun}
-            timestamp={isLastOfRun ? message.timestamp : undefined}
-            avatar={message.avatar}
-          />
-        </div>
-      ))}
+      {messages.map((m, i) => {
+        const photoEntry = inlinePhotos.find((p) => p.afterMessageIdx === i);
+        return (
+          <Fragment key={m.id}>
+            <MessageBubble
+              direction={m.direction}
+              body={m.body}
+              source={m.source}
+              senderName={m.senderName}
+              timestamp={m.timestamp}
+              initials={m.initials}
+              attachmentName={m.attachmentName}
+            />
+            {photoEntry && (
+              <PhotoBubble
+                direction={photoEntry.direction}
+                senderName={photoEntry.senderName}
+                initials={photoEntry.initials}
+                timestamp={photoEntry.timestamp}
+                body={photoEntry.body}
+                photos={photoEntry.photos}
+              />
+            )}
+          </Fragment>
+        );
+      })}
     </div>
   );
 }

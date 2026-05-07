@@ -8,61 +8,72 @@ describe("<MessageBubble>", () => {
       <MessageBubble
         direction="inbound"
         body="Got it — the second-floor unit is OK."
-        isLastOfRun
+        senderName="Jeanne"
+        timestamp="14:05"
       />,
     );
     expect(screen.getByText(/second-floor unit/)).toBeInTheDocument();
   });
 
-  it("inbound bubbles left-align with panel background", () => {
-    render(<MessageBubble direction="inbound" body="hi" isLastOfRun />);
+  it("inbound bubbles use the panel background", () => {
+    render(
+      <MessageBubble
+        direction="inbound"
+        body="hi"
+        senderName="Jeanne"
+      />,
+    );
     const bubble = screen.getByTestId("message-bubble");
     expect(bubble.className).toMatch(/bg-inbox-panel/);
-    expect(bubble.parentElement?.className).toMatch(/justify-start/);
   });
 
-  it("outbound bubbles right-align with accent tint", () => {
-    render(<MessageBubble direction="outbound" body="hi" isLastOfRun />);
+  it("outbound human bubbles use accent tint", () => {
+    render(
+      <MessageBubble
+        direction="outbound"
+        body="hi"
+        senderName="Jackson"
+      />,
+    );
     const bubble = screen.getByTestId("message-bubble");
     expect(bubble.className).toMatch(/bg-ops-accent\//);
-    expect(bubble.parentElement?.className).toMatch(/justify-end/);
   });
 
-  it("AI-drafted bubbles use lavender background and 'sent by Claude' meta", () => {
+  it("AI-drafted (outbound + source ai) bubbles use lavender + 'Claude' meta", () => {
     render(
       <MessageBubble
         direction="outbound"
         body="hi"
         source="ai"
-        isLastOfRun
+        senderName="Claude"
       />,
     );
     const bubble = screen.getByTestId("message-bubble");
-    expect(bubble.className).toMatch(/bg-agent-bg-hi/);
-    expect(screen.getByText(/sent by Claude/i)).toBeInTheDocument();
+    expect(bubble.className).toMatch(/bg-agent\//);
+    expect(screen.getByText(/Claude/i)).toBeInTheDocument();
   });
 
-  it("collapses gap when not last of run (no tail meta)", () => {
+  it("renders the sender name and timestamp in the meta row", () => {
     render(
       <MessageBubble
         direction="inbound"
         body="hi"
-        isLastOfRun={false}
-        timestamp="14:01"
-      />,
-    );
-    expect(screen.queryByText(/14:01/)).not.toBeInTheDocument();
-  });
-
-  it("renders timestamp when last of run", () => {
-    render(
-      <MessageBubble
-        direction="inbound"
-        body="hi"
-        isLastOfRun
+        senderName="Jeanne"
         timestamp="14:05"
       />,
     );
-    expect(screen.getByText(/14:05/)).toBeInTheDocument();
+    expect(screen.getByText("Jeanne")).toBeInTheDocument();
+    expect(screen.getByText("14:05")).toBeInTheDocument();
+  });
+
+  it("renders the avatar with monogram derived from sender name", () => {
+    const { container } = render(
+      <MessageBubble
+        direction="inbound"
+        body="hi"
+        senderName="Jeanne Calloway"
+      />,
+    );
+    expect(container.textContent).toContain("JC");
   });
 });

@@ -10,6 +10,7 @@ const messages: RenderableMessage[] = [
     source: "human",
     ts: Date.parse("2026-05-06T10:00:00Z"),
     body: "Hello",
+    senderName: "Jeanne",
     timestamp: "10:00",
   },
   {
@@ -19,6 +20,7 @@ const messages: RenderableMessage[] = [
     source: "human",
     ts: Date.parse("2026-05-06T10:01:00Z"),
     body: "Quick follow-up",
+    senderName: "Jeanne",
     timestamp: "10:01",
   },
   {
@@ -28,6 +30,7 @@ const messages: RenderableMessage[] = [
     source: "ai",
     ts: Date.parse("2026-05-07T14:00:00Z"),
     body: "Thanks — got it.",
+    senderName: "Claude",
     timestamp: "14:00",
   },
 ];
@@ -39,15 +42,9 @@ describe("<MessageList>", () => {
     expect(bubbles).toHaveLength(3);
   });
 
-  it("renders a day separator on each new calendar day", () => {
+  it("every bubble surfaces its own timestamp", () => {
     render(<MessageList messages={messages} />);
-    const days = screen.getAllByTestId("message-day-separator");
-    expect(days).toHaveLength(2);
-  });
-
-  it("only the last bubble of an author run renders its timestamp", () => {
-    render(<MessageList messages={messages} />);
-    expect(screen.queryByText("10:00")).not.toBeInTheDocument();
+    expect(screen.getByText("10:00")).toBeInTheDocument();
     expect(screen.getByText("10:01")).toBeInTheDocument();
     expect(screen.getByText("14:00")).toBeInTheDocument();
   });
