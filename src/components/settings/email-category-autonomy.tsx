@@ -19,7 +19,7 @@ import {
 } from "@/lib/types/email-thread";
 import {
   categoryLabel,
-  categoryDotColor,
+  categoryDotClassName,
 } from "@/components/ops/inbox/category-chip";
 import { allowedLevelsFor } from "@/lib/api/services/phase-c-category-autonomy-service";
 
@@ -519,9 +519,11 @@ function PrimaryCategoryAutonomy({
             >
               <div className="flex-1 min-w-0 mr-3 flex items-center gap-2">
                 <span
-                  className="w-[6px] h-[6px] rounded-full shrink-0"
+                  className={cn(
+                    "w-[6px] h-[6px] rounded-full shrink-0",
+                    categoryDotClassName(cat)
+                  )}
                   aria-hidden
-                  style={{ backgroundColor: categoryDotColor(cat) }}
                 />
                 <span className="font-cakemono font-light uppercase text-[12px] tracking-[0.14em] text-text-2">
                   {categoryLabel(cat)}
