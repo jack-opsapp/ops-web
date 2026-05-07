@@ -44,7 +44,7 @@ export function MobileStackedShell({
             type="button"
             onClick={() => onPaneChange(BACK_TARGET[activePane])}
             aria-label={t("mobile.back", "Back")}
-            className="inline-flex h-7 w-7 items-center justify-center rounded-[4px] text-text-2 hover:bg-inbox-elev hover:text-text"
+            className="inline-flex h-7 w-7 items-center justify-center rounded-chip text-text-2 hover:bg-inbox-elev hover:text-text"
           >
             <ChevronLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           </button>

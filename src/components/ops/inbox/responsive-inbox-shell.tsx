@@ -108,7 +108,7 @@ export function ResponsiveInboxShell({
               type="button"
               onClick={() => setRightRailOpen(false)}
               aria-label={t("rail.closeDrawer", "Close context drawer")}
-              className="absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-[4px] text-text-3 hover:bg-inbox-elev hover:text-text-2"
+              className="absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-chip text-text-3 hover:bg-inbox-elev hover:text-text-2"
             >
               ×
             </button>

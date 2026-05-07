@@ -252,6 +252,7 @@ const config: Config = {
         modal: "12px",
         chip: "4px",
         bar: "2px",
+        sidebar: "6px",
       },
 
       // === Box Shadow (subtle elevation, no glows) ===

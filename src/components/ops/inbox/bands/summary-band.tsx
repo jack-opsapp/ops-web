@@ -63,7 +63,7 @@ export function SummaryBand({
           type="button"
           onClick={onHistory}
           aria-label={t("bands.summary.history", "Summary history")}
-          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[4px] text-text-3 hover:bg-agent-bg-hi hover:text-agent-hi"
+          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-chip text-text-3 hover:bg-agent-bg-hi hover:text-agent-hi"
         >
           <History aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         </button>

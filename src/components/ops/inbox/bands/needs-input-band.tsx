@@ -66,7 +66,7 @@ export function NeedsInputBand({
           <button
             type="button"
             onClick={() => onAction("provide-answer")}
-            className="inline-flex h-[28px] items-center rounded-[5px] border border-agent-border-hi bg-agent-bg-hi px-3 font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-agent-hi hover:bg-agent/[0.18]"
+            className="inline-flex h-[28px] items-center rounded-md border border-agent-border-hi bg-agent-bg-hi px-3 font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-agent-hi hover:bg-agent/[0.18]"
           >
             {t("bands.needsInput.provideAnswer", "PROVIDE ANSWER")}
           </button>

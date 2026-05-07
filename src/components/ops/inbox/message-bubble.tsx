@@ -35,15 +35,15 @@ export function MessageBubble({
   const isAi = source === "ai" && isOutbound;
 
   const bubbleClass = cn(
-    "max-w-[70%] rounded-[10px] px-3 py-2 font-mohave text-[13.5px] leading-[1.5] tracking-[-0.003em] text-text text-pretty",
+    "max-w-[70%] rounded-panel px-3 py-2 font-mohave text-[13.5px] leading-[1.5] tracking-[-0.003em] text-text text-pretty",
     isAi
       ? "bg-agent-bg-hi border border-agent-border-hi"
       : isOutbound
         ? "bg-ops-accent/[0.20] border border-ops-accent/[0.22]"
         : "bg-inbox-panel border border-line",
-    !isLastOfRun && "rounded-br-[10px] rounded-bl-[10px]",
-    isLastOfRun && isOutbound && "rounded-br-[4px]",
-    isLastOfRun && !isOutbound && "rounded-bl-[4px]",
+    !isLastOfRun && "rounded-br-panel rounded-bl-panel",
+    isLastOfRun && isOutbound && "rounded-br-chip",
+    isLastOfRun && !isOutbound && "rounded-bl-chip",
   );
 
   return (

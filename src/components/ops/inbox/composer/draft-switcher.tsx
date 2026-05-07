@@ -37,7 +37,7 @@ export function DraftSwitcher({
   return (
     <div
       className={cn(
-        "mb-2 flex flex-wrap items-center gap-2 rounded-[5px] border-b border-line bg-white/[0.02] px-2.5 py-2",
+        "mb-2 flex flex-wrap items-center gap-2 rounded-md border-b border-line bg-white/[0.02] px-2.5 py-2",
         className,
       )}
     >

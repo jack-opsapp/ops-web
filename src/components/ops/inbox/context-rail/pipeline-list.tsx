@@ -79,8 +79,8 @@ export function PipelineList({
                     data-testid={`pipeline-opp-${opp.id}`}
                     data-current={isCurrent ? "true" : "false"}
                     className={cn(
-                      "rounded-[6px] border border-line bg-inbox-panel px-2.5 py-2",
-                      isCurrent && "shadow-[inset_2px_0_0_var(--ops-accent,#6F94B0)]",
+                      "rounded-sidebar border border-line bg-inbox-panel px-2.5 py-2",
+                      isCurrent && "shadow-[inset_2px_0_0_rgb(var(--ops-accent-rgb))]",
                     )}
                   >
                     <div className="flex min-w-0 items-center gap-2">
@@ -125,7 +125,7 @@ export function PipelineList({
       <button
         type="button"
         onClick={onNewOpportunity}
-        className="inline-flex h-8 items-center justify-center gap-1.5 rounded-[5px] border border-dashed border-line bg-transparent px-3 font-cakemono text-[10px] font-light uppercase tracking-[0.14em] text-text-3 hover:border-border-medium hover:text-text-2"
+        className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-dashed border-line bg-transparent px-3 font-cakemono text-[10px] font-light uppercase tracking-[0.14em] text-text-3 hover:border-border-medium hover:text-text-2"
       >
         <Plus aria-hidden className="h-3 w-3" strokeWidth={1.75} />
         {t("pipeline.newOpportunity", "New opportunity")}

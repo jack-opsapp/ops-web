@@ -28,7 +28,7 @@ export function EditToolbar({
   return (
     <div
       className={cn(
-        "mt-2 flex flex-wrap items-center gap-2 rounded-[4px] border border-dashed border-line bg-white/[0.02] px-2.5 py-1.5",
+        "mt-2 flex flex-wrap items-center gap-2 rounded-chip border border-dashed border-line bg-white/[0.02] px-2.5 py-1.5",
         className,
       )}
     >

@@ -72,7 +72,7 @@ export function ProjectCard({
   return (
     <article
       className={cn(
-        "rounded-[8px] border border-line bg-inbox-panel transition-colors",
+        "rounded-lg border border-line bg-inbox-panel transition-colors",
         open ? "" : "hover:bg-inbox-elev",
       )}
     >
@@ -165,7 +165,7 @@ export function ProjectCard({
 
           <a
             href={`?project=${project.id}&thread=${threadId}`}
-            className="inline-flex items-center gap-1.5 rounded-[4px] border border-line px-2.5 py-1.5 font-cakemono text-[10px] font-light uppercase tracking-[0.14em] text-text-2 hover:bg-inbox-elev hover:text-text"
+            className="inline-flex items-center gap-1.5 rounded-chip border border-line px-2.5 py-1.5 font-cakemono text-[10px] font-light uppercase tracking-[0.14em] text-text-2 hover:bg-inbox-elev hover:text-text"
           >
             <ExternalLink aria-hidden className="h-3 w-3" strokeWidth={1.75} />
             {t("project.openProject", "Open project")}

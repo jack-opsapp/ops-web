@@ -87,7 +87,7 @@ export function FilesView({
                   photo.filename,
                 )}
                 onClick={() => onPhotoOpen?.(photo)}
-                className="group relative aspect-square overflow-hidden rounded-[6px] border border-line bg-inbox-bg-deep"
+                className="group relative aspect-square overflow-hidden rounded-sidebar border border-line bg-inbox-bg-deep"
               >
                 <img
                   src={photo.url}
@@ -119,9 +119,9 @@ export function FilesView({
                   <button
                     type="button"
                     onClick={() => onFileOpen?.(doc)}
-                    className="flex w-full items-center gap-2.5 rounded-[5px] border border-line bg-inbox-panel px-2.5 py-2 text-left hover:bg-inbox-elev"
+                    className="flex w-full items-center gap-2.5 rounded-md border border-line bg-inbox-panel px-2.5 py-2 text-left hover:bg-inbox-elev"
                   >
-                    <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-[4px] bg-inbox-bg-deep">
+                    <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-chip bg-inbox-bg-deep">
                       <Icon
                         aria-hidden
                         className="h-3.5 w-3.5 text-text-3"

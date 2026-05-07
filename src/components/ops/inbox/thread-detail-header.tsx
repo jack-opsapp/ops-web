@@ -28,7 +28,7 @@ interface ThreadDetailHeaderProps {
 }
 
 const iconBtn =
-  "inline-flex h-7 w-7 items-center justify-center rounded-[4px] text-text-3 transition-colors hover:bg-inbox-elev hover:text-text-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent";
+  "inline-flex h-7 w-7 items-center justify-center rounded-chip text-text-3 transition-colors hover:bg-inbox-elev hover:text-text-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent";
 
 export function ThreadDetailHeader({
   clientName,

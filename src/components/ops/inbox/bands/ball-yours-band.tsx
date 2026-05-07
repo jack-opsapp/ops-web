@@ -35,7 +35,7 @@ export function BallYoursBand({
       <button
         type="button"
         onClick={onReply}
-        className="inline-flex h-[28px] shrink-0 items-center rounded-[5px] border border-ops-accent bg-transparent px-3 font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-ops-accent hover:bg-ops-accent hover:text-black"
+        className="inline-flex h-[28px] shrink-0 items-center rounded-md border border-ops-accent bg-transparent px-3 font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-ops-accent hover:bg-ops-accent hover:text-black"
       >
         {t("bands.ballYours.reply", "Reply")}
       </button>

@@ -79,7 +79,7 @@ function InnerContextRail({
           type="button"
           onClick={onOpenClient}
           aria-label={t("rail.openClient", "Open client record")}
-          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[4px] text-text-3 hover:bg-inbox-elev hover:text-text-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
+          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-chip text-text-3 hover:bg-inbox-elev hover:text-text-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
         >
           <ExternalLink aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
         </button>

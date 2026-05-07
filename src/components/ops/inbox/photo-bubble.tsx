@@ -59,14 +59,14 @@ export function PhotoBubble({
   );
 
   const bubbleClass = cn(
-    "max-w-[360px] rounded-[10px] p-1 font-mohave text-[13.5px] leading-[1.5] tracking-[-0.003em] text-text",
+    "max-w-[360px] rounded-panel p-1 font-mohave text-[13.5px] leading-[1.5] tracking-[-0.003em] text-text",
     isAi
       ? "bg-agent-bg-hi border border-agent-border-hi"
       : isOutbound
         ? "bg-ops-accent/[0.20] border border-ops-accent/[0.22]"
         : "bg-inbox-panel border border-line",
-    isLastOfRun && isOutbound && "rounded-br-[4px]",
-    isLastOfRun && !isOutbound && "rounded-bl-[4px]",
+    isLastOfRun && isOutbound && "rounded-br-chip",
+    isLastOfRun && !isOutbound && "rounded-bl-chip",
   );
 
   return (
@@ -89,7 +89,7 @@ export function PhotoBubble({
                 type="button"
                 aria-label={`Open photo ${photo.filename}`}
                 onClick={() => onPhotoClick?.(photo, i)}
-                className="aspect-square overflow-hidden rounded-[6px] border border-line bg-inbox-bg-deep"
+                className="aspect-square overflow-hidden rounded-sidebar border border-line bg-inbox-bg-deep"
               >
                 <img
                   src={photo.url}
