@@ -9,7 +9,7 @@ const opps: PipelineOpp[] = [
     value: 8500,
     stage: "Lead",
     estimateRef: null,
-    confidence: 0.4,
+    confidence: "low",
     source: "Website",
     threadId: "th-other",
   },
@@ -19,7 +19,7 @@ const opps: PipelineOpp[] = [
     value: 22000,
     stage: "Quoted",
     estimateRef: "EST-091",
-    confidence: 0.7,
+    confidence: "high",
     source: "Inbound email",
     threadId: "th-current",
   },
@@ -29,7 +29,7 @@ const opps: PipelineOpp[] = [
     value: 4500,
     stage: "RFQ in",
     estimateRef: null,
-    confidence: 0.5,
+    confidence: "warm",
     source: "Phone",
     threadId: null,
   },
@@ -80,13 +80,13 @@ describe("<PipelineList>", () => {
     expect(onNew).toHaveBeenCalled();
   });
 
-  it("renders confidence as a percentage", () => {
+  it("renders confidence as a capitalized tier label", () => {
     render(
       <PipelineList opps={opps} threadId="th-current" onNewOpportunity={() => {}} />,
     );
-    expect(screen.getByText(/40%/)).toBeInTheDocument();
-    expect(screen.getByText(/70%/)).toBeInTheDocument();
-    expect(screen.getByText(/50%/)).toBeInTheDocument();
+    expect(screen.getByText("Low")).toBeInTheDocument();
+    expect(screen.getByText("High")).toBeInTheDocument();
+    expect(screen.getByText("Warm")).toBeInTheDocument();
   });
 
   it("renders empty state when no opps", () => {

@@ -63,13 +63,29 @@ describe("<ProjectCard>", () => {
     endDate: "2026-05-12",
     leadName: "Mateo G.",
     tasks: [
-      { id: "t1", label: "Order materials", done: true },
-      { id: "t2", label: "Schedule crew", done: true },
-      { id: "t3", label: "Walk site", done: false },
+      { id: "t1", label: "Order materials", status: "done" },
+      { id: "t2", label: "Schedule crew", status: "done" },
+      { id: "t3", label: "Walk site", status: "active" },
     ],
     accounting: { total: 12500, invoiced: 5000, paid: 5000 },
-    invoices: [{ id: "i1", number: "INV-118", amount: 5000, status: "paid" }],
-    estimates: [{ id: "e1", number: "EST-091", amount: 12500, status: "accepted" }],
+    invoices: [
+      {
+        id: "i1",
+        number: "INV-118",
+        label: "Deposit invoice",
+        amount: 5000,
+        status: "paid",
+      },
+    ],
+    estimates: [
+      {
+        id: "e1",
+        number: "EST-091",
+        label: "Roof replacement estimate",
+        amount: 12500,
+        status: "accepted",
+      },
+    ],
   };
 
   it("renders the title and value in collapsed state by default", () => {
@@ -81,8 +97,8 @@ describe("<ProjectCard>", () => {
   it("auto-opens when defaultOpen is true", () => {
     render(<ProjectCard project={project} threadId="th1" defaultOpen />);
     expect(screen.getByText(/Order materials/)).toBeInTheDocument();
-    expect(screen.getByText(/SCOPE/)).toBeInTheDocument();
-    expect(screen.getByText(/ACCOUNTING/)).toBeInTheDocument();
+    expect(screen.getByText(/Scope/i)).toBeInTheDocument();
+    expect(screen.getByText(/Accounting/i)).toBeInTheDocument();
   });
 
   it("toggles expansion on click", () => {
@@ -95,6 +111,11 @@ describe("<ProjectCard>", () => {
   it("renders the tasks-done counter as 'done/total'", () => {
     render(<ProjectCard project={project} threadId="th1" />);
     expect(screen.getByText(/2\/3/)).toBeInTheDocument();
+  });
+
+  it("renders the 'now' badge on active tasks", () => {
+    render(<ProjectCard project={project} threadId="th1" defaultOpen />);
+    expect(screen.getByText(/^now$/i)).toBeInTheDocument();
   });
 
   it("renders the Open project link with ?project=:id when expanded", () => {

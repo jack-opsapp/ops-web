@@ -1,21 +1,34 @@
 "use client";
 
-import { LinkIcon, Plus } from "lucide-react";
+/**
+ * PipelineList — faithful to `reference/v4-context-tabs.jsx :: PipelineList`.
+ *
+ * Stages render in canonical order (Lead → Discovery → RFQ in → Quoted),
+ * any other stages append in alphabetical order. Each stage shows the
+ * stage label on the left and the count on the right.
+ *
+ * Linked-to-current-thread opps get an inset 2px accent left bar AND
+ * surface a "↗ This thread" tag at the start of the meta row.
+ */
+
+import { Link as LinkIcon, Plus } from "lucide-react";
 import { useMemo } from "react";
 import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
 
+export type PipelineConfidence = "low" | "warm" | "high";
+
 export interface PipelineOpp {
   id: string;
   title: string;
-  value: number;
+  /** Null when the opportunity has no associated value yet. */
+  value: number | null;
   stage: string;
-  estimateRef: string | null;
-  /** 0–1 model confidence. Rendered as a rounded percentage. */
-  confidence: number;
-  source: string;
+  estimateRef?: string | null;
+  confidence?: PipelineConfidence | null;
+  source?: string | null;
   /** Thread id this opp was extracted from. Null when unattributed. */
-  threadId: string | null;
+  threadId?: string | null;
 }
 
 interface PipelineListProps {
@@ -30,7 +43,10 @@ interface PipelineListProps {
 const PRIMARY_ORDER = ["Lead", "Discovery", "RFQ in", "Quoted"] as const;
 
 const formatCurrency = (n: number) =>
-  `$${n.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  `$${n.toLocaleString("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  })}`;
 
 function compareStages(a: string, b: string): number {
   const ai = PRIMARY_ORDER.indexOf(a as (typeof PRIMARY_ORDER)[number]);
@@ -39,6 +55,10 @@ function compareStages(a: string, b: string): number {
   if (ai === -1) return 1;
   if (bi === -1) return -1;
   return ai - bi;
+}
+
+function capitalize(s: string): string {
+  return s.length === 0 ? s : s[0].toUpperCase() + s.slice(1);
 }
 
 export function PipelineList({
@@ -66,51 +86,74 @@ export function PipelineList({
         </p>
       ) : (
         grouped.map(([stage, list]) => (
-          <section key={stage} className="flex flex-col gap-1.5">
-            <h4 className="font-cakemono text-[9.5px] font-light uppercase leading-none tracking-[0.18em] text-text-3">
-              {stage}
-            </h4>
+          <section key={stage}>
+            <div className="flex items-baseline justify-between px-0.5 pb-1.5">
+              <h4 className="font-cakemono text-[9.5px] font-light uppercase leading-none tracking-[0.18em] text-text-3">
+                {stage}
+              </h4>
+              <span
+                className="font-mono text-[9.5px] tracking-[0.18em] text-text-mute"
+                style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
+              >
+                {list.length}
+              </span>
+            </div>
             <ul className="flex flex-col gap-1.5">
               {list.map((opp) => {
-                const isCurrent = opp.threadId === threadId;
+                const isLinked = opp.threadId === threadId;
                 return (
                   <li
                     key={opp.id}
                     data-testid={`pipeline-opp-${opp.id}`}
-                    data-current={isCurrent ? "true" : "false"}
+                    data-current={isLinked ? "true" : "false"}
                     className={cn(
-                      "rounded-sidebar border border-line bg-inbox-panel px-2.5 py-2",
-                      isCurrent && "shadow-[inset_2px_0_0_rgb(var(--ops-accent-rgb))]",
+                      "rounded-md border bg-inbox-panel px-3 py-2.5",
+                      isLinked
+                        ? "border-line-hi shadow-[inset_2px_0_0_rgb(var(--ops-accent-rgb))]"
+                        : "border-line",
                     )}
                   >
-                    <div className="flex min-w-0 items-center gap-2">
-                      <span className="min-w-0 flex-1 truncate font-mohave text-[12px] text-text">
+                    <div className="flex min-w-0 items-baseline gap-2">
+                      <span className="min-w-0 flex-1 truncate font-mohave text-[12px] leading-tight tracking-[-0.003em] text-text">
                         {opp.title}
                       </span>
-                      <span
-                        className="font-mono text-[11px] tabular-nums text-text-2"
-                        style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
-                      >
-                        {formatCurrency(opp.value)}
-                      </span>
+                      {opp.value != null && (
+                        <span
+                          className="shrink-0 font-mono text-[11px] tabular-nums text-text-2"
+                          style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
+                        >
+                          {formatCurrency(opp.value)}
+                        </span>
+                      )}
                     </div>
-                    <div className="mt-1 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.18em] text-text-mute">
-                      {opp.estimateRef && <span>{opp.estimateRef}</span>}
-                      <span
-                        className="tabular-nums"
-                        style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
-                      >
-                        {Math.round(opp.confidence * 100)}%
-                      </span>
-                      <span>{opp.source}</span>
-                      {isCurrent && (
-                        <span className="ml-auto inline-flex items-center gap-1 text-ops-accent">
+                    <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 font-mono text-[9.5px] tracking-[0.18em] text-text-3">
+                      {isLinked && (
+                        <span className="inline-flex items-center gap-1 text-ops-accent">
                           <LinkIcon
                             aria-hidden
                             className="h-2.5 w-2.5"
                             strokeWidth={1.75}
                           />
                           {t("pipeline.thisThread", "This thread")}
+                        </span>
+                      )}
+                      {opp.estimateRef && (
+                        <span
+                          style={{
+                            fontFeatureSettings: '"tnum" 1, "zero" 1',
+                          }}
+                        >
+                          {opp.estimateRef}
+                        </span>
+                      )}
+                      {opp.confidence && (
+                        <span className="normal-case tracking-normal">
+                          {capitalize(opp.confidence)}
+                        </span>
+                      )}
+                      {opp.source && (
+                        <span className="text-text-mute normal-case tracking-normal">
+                          · {opp.source}
                         </span>
                       )}
                     </div>
@@ -125,9 +168,9 @@ export function PipelineList({
       <button
         type="button"
         onClick={onNewOpportunity}
-        className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-dashed border-line bg-transparent px-3 font-cakemono text-[10px] font-light uppercase tracking-[0.14em] text-text-3 hover:border-border-medium hover:text-text-2"
+        className="inline-flex h-[26px] items-center justify-center gap-1.5 rounded-md border border-dashed border-line bg-transparent px-3 font-mohave text-[11px] text-text-3 hover:border-line-hi hover:text-text-2"
       >
-        <Plus aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+        <Plus aria-hidden className="h-2.5 w-2.5" strokeWidth={1.75} />
         {t("pipeline.newOpportunity", "New opportunity")}
       </button>
     </div>

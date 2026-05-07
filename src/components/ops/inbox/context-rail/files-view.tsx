@@ -82,20 +82,27 @@ export function FilesView({
               <button
                 key={photo.id}
                 type="button"
+                title={photo.filename}
                 aria-label={t("files.openPhoto", "Open photo {filename}").replace(
                   "{filename}",
                   photo.filename,
                 )}
                 onClick={() => onPhotoOpen?.(photo)}
-                className="group relative aspect-square overflow-hidden rounded-sidebar border border-line bg-inbox-bg-deep"
+                className="relative aspect-square overflow-hidden rounded-[4px] border border-line bg-inbox-bg-deep transition-transform hover:scale-[1.01]"
               >
                 <img
                   src={photo.url}
-                  alt={photo.filename}
-                  className="h-full w-full object-cover"
+                  alt=""
+                  className="absolute inset-0 h-full w-full object-cover"
                 />
-                <span className="pointer-events-none absolute inset-x-0 bottom-0 truncate bg-black/[0.45] px-1.5 py-1 font-mono text-[8.5px] uppercase tracking-[0.3em] text-white/[0.85] opacity-0 group-hover:opacity-100">
-                  {photo.filename}
+                <span
+                  className="absolute inset-x-1.5 bottom-1.5 truncate font-mono text-[8.5px] tracking-[0.3em] text-white/[0.85]"
+                  style={{
+                    textShadow: "0 1px 2px rgba(0,0,0,0.6)",
+                    fontFeatureSettings: '"tnum" 1, "zero" 1',
+                  }}
+                >
+                  {photo.filename.replace(/\.[^.]+$/, "")}
                 </span>
               </button>
             ))}

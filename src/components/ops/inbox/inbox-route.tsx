@@ -214,9 +214,17 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
 
   const filesCount = photos.length + docs.length;
 
+  const senderEmail =
+    detail?.messages.find((m) => m.direction === "inbound")?.from ?? null;
+
   const contextRail = clientId ? (
     <ContextRail
-      client={{ name: detail?.thread.clientName ?? "" }}
+      client={{
+        name: detail?.thread.clientName ?? "",
+        email: senderEmail,
+        phone: null,
+        tier: null,
+      }}
       threadId={threadId ?? ""}
       onOpenClient={() => router.push(`/clients/${clientId}`)}
       counts={{
@@ -386,23 +394,38 @@ function toProjectCardData(p: Project): ProjectCardData {
   };
 }
 
-function toUITask(t: DataProjectTask): { id: string; label: string; done: boolean } {
+function toUITask(t: DataProjectTask): {
+  id: string;
+  label: string;
+  status: "done" | "active" | "todo";
+} {
+  let status: "done" | "active" | "todo" = "todo";
+  if (t.status === TaskStatus.Completed) status = "done";
+  else if (t.status === TaskStatus.InProgress) status = "active";
   return {
     id: t.id,
     label: t.customTitle ?? "Task",
-    done: t.status === TaskStatus.Completed,
+    status,
   };
 }
 
 function toPipelineOpp(o: Opportunity): PipelineOpp {
+  // winProbability is 0..1 — collapse into a tactile string that matches the
+  // canonical Pipeline tab data contract.
+  let confidence: "low" | "warm" | "high" | null = null;
+  if (typeof o.winProbability === "number") {
+    if (o.winProbability >= 0.7) confidence = "high";
+    else if (o.winProbability >= 0.4) confidence = "warm";
+    else confidence = "low";
+  }
   return {
     id: o.id,
     title: o.title,
-    value: o.estimatedValue ?? 0,
+    value: o.estimatedValue ?? null,
     stage: String(o.stage),
     estimateRef: null,
-    confidence: o.winProbability ?? 0,
-    source: o.source ? String(o.source) : "—",
+    confidence,
+    source: o.source ? String(o.source) : null,
     threadId: null,
   };
 }
