@@ -15,7 +15,7 @@ import { ClosedBand } from "./bands/closed-band";
 
 export type DetailBandAction =
   | "reply"
-  | "revise"
+  | "take-over"
   | "history"
   | "provide-answer"
   | "type-reply"
@@ -29,8 +29,14 @@ interface DetailBandProps {
   /** Needs-input band — agent question text. */
   agentQuestion?: string;
   agentOptions?: NeedsInputOption[];
+  /** Needs-input band — minutes since Claude paused. */
+  agentPausedMinutesAgo?: number;
   /** Auto-sent band — hours since auto-send. */
   autoSentHoursAgo?: number;
+  /** Auto-sent band — short explanation line. */
+  autoSentDetail?: string;
+  /** Ball-yours band — relative last-reply meta ("Last reply · 2h"). */
+  ballYoursLastReplyLabel?: string;
   /** Closed band — ISO of close timestamp. */
   closedAt?: string | null;
   /** Renders relative timestamps; defaults to Date.now(). */
@@ -44,7 +50,10 @@ export function DetailBand({
   summaryUpdatedAt,
   agentQuestion,
   agentOptions,
+  agentPausedMinutesAgo,
   autoSentHoursAgo,
+  autoSentDetail,
+  ballYoursLastReplyLabel,
   closedAt,
   renderedAt,
   onAction,
@@ -67,6 +76,7 @@ export function DetailBand({
         <NeedsInputBand
           question={agentQuestion ?? ""}
           options={agentOptions}
+          pausedMinutesAgo={agentPausedMinutesAgo}
           onAction={(id) => onAction(id as DetailBandAction)}
         />
       );
@@ -74,6 +84,7 @@ export function DetailBand({
       return (
         <BallYoursBand
           clientName={clientName}
+          lastReplyLabel={ballYoursLastReplyLabel}
           onReply={() => onAction("reply")}
         />
       );
@@ -81,7 +92,8 @@ export function DetailBand({
       return (
         <AutoSentBand
           hoursAgo={autoSentHoursAgo ?? 0}
-          onRevise={() => onAction("revise")}
+          detail={autoSentDetail}
+          onTakeOver={() => onAction("take-over")}
         />
       );
     case "closed":

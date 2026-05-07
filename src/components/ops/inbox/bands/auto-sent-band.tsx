@@ -1,52 +1,84 @@
 "use client";
 
+/**
+ * AutoSentBand — faithful to `reference/v4-states.jsx :: V4AutoSentDetail`
+ * top ribbon. Lavender tint, calm and declarative.
+ *
+ *   ✦ **Claude replied for you** · 4 min ago
+ *   Auto-replied with receipt confirmation. No action required.
+ *                                                       [ Take over ]
+ */
+
+import { Sparkles } from "lucide-react";
 import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
 
 interface AutoSentBandProps {
+  /** Hours since the auto-send. Sub-1h values can pass `0`. */
   hoursAgo: number;
-  onRevise: () => void;
+  /** Optional explanation line ("Auto-replied with receipt confirmation."). */
+  detail?: string;
+  onTakeOver: () => void;
   className?: string;
+}
+
+function relativeAgo(hoursAgo: number): string {
+  if (hoursAgo < 1) {
+    const minutes = Math.max(1, Math.round(hoursAgo * 60));
+    return `${minutes} min ago`;
+  }
+  const rounded = Math.round(hoursAgo);
+  return `${rounded}h ago`;
 }
 
 export function AutoSentBand({
   hoursAgo,
-  onRevise,
+  detail,
+  onTakeOver,
   className,
 }: AutoSentBandProps) {
   const { t } = useDictionary("inbox");
-  // Body has the {hours}h embedded inline so the mono digits can keep their
-  // own typographic treatment. We split on the placeholder and render the
-  // pieces around it.
-  const template = t(
-    "bands.autoSent.body",
-    "Claude replied {hours}h ago — say something different?",
-  );
-  const [before, after] = template.split("{hours}h ago");
   return (
     <section
       aria-label={t("bands.autoSent.aria", "Claude auto-replied")}
       className={cn(
-        "flex shrink-0 items-center gap-2 border-b border-line bg-agent-bg px-[18px] py-2.5",
+        "flex shrink-0 items-center gap-2.5 border-b border-line bg-agent-bg px-[18px] py-2.5",
         className,
       )}
     >
-      <p className="font-mohave text-[12px] leading-[1.5] text-agent-text">
-        {before}
-        <span
-          className="font-mono text-[11px] tabular-nums"
-          style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
-        >
-          {hoursAgo}h ago
+      <Sparkles
+        aria-hidden
+        className="h-3.5 w-3.5 shrink-0 text-agent"
+        strokeWidth={1.75}
+      />
+      <div className="flex min-w-0 flex-1 flex-col">
+        <span className="font-mohave text-[12.5px] tracking-[-0.003em] text-text">
+          <strong className="font-semibold">
+            {t("bands.autoSent.title", "Claude replied for you")}
+          </strong>{" "}
+          ·{" "}
+          <span
+            className="font-mono text-[11px] tabular-nums text-text-2"
+            style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
+          >
+            {relativeAgo(hoursAgo)}
+          </span>
         </span>
-        {after}
-      </p>
+        {detail && (
+          <span
+            className="mt-0.5 font-mono text-[10px] tracking-[0.18em] text-text-3"
+            style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
+          >
+            {detail}
+          </span>
+        )}
+      </div>
       <button
         type="button"
-        onClick={onRevise}
-        className="ml-auto font-mohave text-[12px] text-agent-hi underline underline-offset-2 hover:text-agent-text"
+        onClick={onTakeOver}
+        className="inline-flex h-[26px] shrink-0 items-center rounded-md border border-line-hi bg-transparent px-3 font-mohave text-[11.5px] text-text-2 hover:bg-inbox-elev hover:text-text"
       >
-        {t("bands.autoSent.revise", "revise")}
+        {t("bands.autoSent.takeOver", "Take over")}
       </button>
     </section>
   );

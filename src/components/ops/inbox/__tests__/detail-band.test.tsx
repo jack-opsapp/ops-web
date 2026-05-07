@@ -31,7 +31,7 @@ describe("<DetailBand>", () => {
         onAction={() => {}}
       />,
     );
-    expect(screen.getByText(/YOUR MOVE/i)).toBeInTheDocument();
+    expect(screen.getByText(/Your move/i)).toBeInTheDocument();
     expect(screen.getByText(/follow-up due Friday/)).toBeInTheDocument();
   });
 
@@ -45,8 +45,8 @@ describe("<DetailBand>", () => {
         onAction={onAction}
       />,
     );
-    expect(screen.getByText(/CLAUDE NEEDS YOUR INPUT/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /PROVIDE ANSWER/ }));
+    expect(screen.getByText(/Claude needs your input/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Provide answer/i }));
     expect(onAction).toHaveBeenCalledWith("provide-answer");
   });
 
@@ -58,7 +58,7 @@ describe("<DetailBand>", () => {
         onAction={() => {}}
       />,
     );
-    expect(screen.getByText(/YOUR TURN/)).toBeInTheDocument();
+    expect(screen.getByText(/Your turn/i)).toBeInTheDocument();
     expect(screen.getByText(/Calloway is waiting/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Reply/i })).toBeInTheDocument();
   });
@@ -72,9 +72,9 @@ describe("<DetailBand>", () => {
         onAction={() => {}}
       />,
     );
-    expect(screen.getByText(/Claude replied/i)).toBeInTheDocument();
+    expect(screen.getByText(/Claude replied for you/i)).toBeInTheDocument();
     expect(screen.getByText(/3h ago/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /revise/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Take over/i })).toBeInTheDocument();
   });
 
   it("renders the closed band with a soft success indicator", () => {
