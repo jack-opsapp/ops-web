@@ -209,6 +209,23 @@ export const queryKeys = {
       [...queryKeys.projectNotes.all, projectId] as const,
   },
 
+  // Project Workspace — workspace-modal scoped reads
+  projectWorkspace: {
+    all: ["projectWorkspace"] as const,
+    activity: (projectId: string | null, limit: number) =>
+      [...queryKeys.projectWorkspace.all, "activity", projectId, limit] as const,
+    pipeline: (projectId: string | null) =>
+      [...queryKeys.projectWorkspace.all, "pipeline", projectId] as const,
+    ledger: (projectId: string | null) =>
+      [...queryKeys.projectWorkspace.all, "ledger", projectId] as const,
+    tasksGrouped: (projectId: string | null) =>
+      [...queryKeys.projectWorkspace.all, "tasksGrouped", projectId] as const,
+    crew: (projectId: string | null) =>
+      [...queryKeys.projectWorkspace.all, "crew", projectId] as const,
+    weather: (projectId: string | null) =>
+      [...queryKeys.projectWorkspace.all, "weather", projectId] as const,
+  },
+
   // Company Settings
   companySettings: {
     all: ["companySettings"] as const,
