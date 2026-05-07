@@ -1,6 +1,7 @@
 "use client";
 
 import { Sparkles } from "lucide-react";
+import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
 import type { MessageSource } from "@/lib/inbox/message-grouping";
 
@@ -42,12 +43,20 @@ export function PhotoBubble({
   timestamp,
   onPhotoClick,
 }: PhotoBubbleProps) {
+  const { t } = useDictionary("inbox");
   if (photos.length === 0) return null;
 
   const isOutbound = direction === "outbound";
   const isAi = source === "ai" && isOutbound;
   const cols = photoGridCols(photos.length) as 1 | 2 | 3;
   const count = photos.length;
+  const photoLabelKey =
+    count === 1 ? "messages.photo_one" : "messages.photo_other";
+  const photoLabelFallback = count === 1 ? "{count} photo" : "{count} photos";
+  const photoLabel = t(photoLabelKey, photoLabelFallback).replace(
+    "{count}",
+    String(count),
+  );
 
   const bubbleClass = cn(
     "max-w-[360px] rounded-[10px] p-1 font-mohave text-[13.5px] leading-[1.5] tracking-[-0.003em] text-text",
@@ -112,13 +121,11 @@ export function PhotoBubble({
                 className="h-2.5 w-2.5 text-agent-text-2"
                 strokeWidth={1.75}
               />
-              <span className="text-agent-text-2">sent by Claude</span>
+              <span className="text-agent-text-2">{t("messages.sentByClaude", "sent by Claude")}</span>
               <span aria-hidden>·</span>
             </>
           )}
-          <span>
-            {count} {count === 1 ? "photo" : "photos"}
-          </span>
+          <span>{photoLabel}</span>
           {timestamp && (
             <>
               <span aria-hidden>·</span>

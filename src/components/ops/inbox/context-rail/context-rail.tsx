@@ -7,6 +7,7 @@ import {
   type ContextTab,
   type ContextTabKey,
 } from "./tab-strip";
+import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
 
 interface ContextRailProps {
@@ -39,6 +40,7 @@ function InnerContextRail({
   files,
   className,
 }: Omit<ContextRailProps, "threadId">) {
+  const { t } = useDictionary("inbox");
   const [active, setActive] = useState<ContextTabKey>("projects");
 
   // Belt-and-braces: in case React keeps the instance for any reason, force
@@ -47,9 +49,17 @@ function InnerContextRail({
   useEffect(() => setActive("projects"), []);
 
   const tabs: ContextTab[] = [
-    { key: "projects", label: "Projects", count: counts.projects },
-    { key: "pipeline", label: "Pipeline", count: counts.pipeline },
-    { key: "files", label: "Files", count: counts.files },
+    {
+      key: "projects",
+      label: t("rail.tabs.projects", "Projects"),
+      count: counts.projects,
+    },
+    {
+      key: "pipeline",
+      label: t("rail.tabs.pipeline", "Pipeline"),
+      count: counts.pipeline,
+    },
+    { key: "files", label: t("rail.tabs.files", "Files"), count: counts.files },
   ];
 
   return (
@@ -68,7 +78,7 @@ function InnerContextRail({
         <button
           type="button"
           onClick={onOpenClient}
-          aria-label="Open client record"
+          aria-label={t("rail.openClient", "Open client record")}
           className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[4px] text-text-3 hover:bg-inbox-elev hover:text-text-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
         >
           <ExternalLink aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />

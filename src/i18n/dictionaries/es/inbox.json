@@ -1,6 +1,96 @@
 {
   "title": "Bandeja de entrada",
 
+  "todayBar.allClear": "// TODO LIBRE",
+  "todayBar.noCommitments": "sin compromisos hoy",
+  "todayBar.title": "// TE TOCA — HOY",
+
+  "groups.needsYourInput": "// NECESITA TU RESPUESTA",
+  "groups.urgent": "// URGENTE",
+  "groups.today": "// HOY",
+  "groups.thisWeek": "// ESTA SEMANA",
+  "groups.earlier": "// ANTES",
+
+  "row.aiDraft": "›BORRADOR-IA",
+
+  "header.previousThread": "Hilo anterior",
+  "header.nextThread": "Siguiente hilo",
+  "header.toggleContextRail": "Mostrar/ocultar contexto",
+  "header.archiveThread": "Archivar hilo",
+  "header.snoozeThread": "Posponer hilo",
+  "header.recategorize": "Recategorizar hilo",
+  "header.moreActions": "Más acciones",
+
+  "bands.summary.label": "// TU TURNO",
+  "bands.summary.updatedBy": "actualizado por Claude · hace {min} min",
+  "bands.summary.history": "Historial de resumen",
+  "bands.summary.aria": "Resumen de Claude",
+
+  "bands.needsInput.label": "// CLAUDE NECESITA TU RESPUESTA",
+  "bands.needsInput.provideAnswer": "RESPONDER",
+  "bands.needsInput.typeReply": "escribe una respuesta…",
+  "bands.needsInput.aria": "Claude necesita tu respuesta",
+
+  "bands.ballYours.label": "// TU TURNO — {client} está esperando",
+  "bands.ballYours.reply": "Responder",
+  "bands.ballYours.aria": "Tu turno",
+
+  "bands.autoSent.body": "Claude respondió hace {hours}h — ¿quieres decir algo distinto?",
+  "bands.autoSent.revise": "revisar",
+  "bands.autoSent.aria": "Claude respondió automáticamente",
+
+  "bands.closed.label": "Cerrado {date}",
+  "bands.closed.aria": "Hilo cerrado",
+
+  "messages.sentByClaude": "enviado por Claude",
+  "messages.photo_one": "{count} foto",
+  "messages.photo_other": "{count} fotos",
+
+  "composer.placeholder": "Escribe un mensaje...",
+  "composer.send": "ENVIAR",
+  "composer.sendAiDraft": "ENVIAR BORRADOR DE IA",
+  "composer.attachFile": "Adjuntar archivo",
+  "composer.attachImage": "Adjuntar imagen",
+  "composer.draftWithClaude": "Redactar con Claude",
+  "composer.scheduleSend": "Programar envío",
+
+  "drafts.label": "// BORRADORES",
+  "drafts.source.yours": "Tuyo",
+  "drafts.source.claude": "Claude",
+  "drafts.source.gmail": "Gmail",
+  "drafts.source.outlook": "Outlook",
+
+  "aiDraftBanner.label": "CLAUDE LO REDACTÓ · revisa",
+
+  "editToolbar.label": "editado del borrador de Claude",
+  "editToolbar.seeChanges": "Ver cambios",
+  "editToolbar.revert": "Revertir",
+  "editToolbar.regenerate": "Regenerar",
+
+  "rail.openClient": "Abrir ficha del cliente",
+  "rail.tabs.projects": "Proyectos",
+  "rail.tabs.pipeline": "Pipeline",
+  "rail.tabs.files": "Archivos",
+  "rail.closeDrawer": "Cerrar panel de contexto",
+
+  "project.scope": "// ALCANCE",
+  "project.accounting": "// CONTABILIDAD",
+  "project.openProject": "Abrir proyecto",
+
+  "pipeline.empty": "sin oportunidades abiertas",
+  "pipeline.thisThread": "Este hilo",
+  "pipeline.newOpportunity": "Nueva oportunidad",
+
+  "files.imagesLabel": "// IMÁGENES · {count}",
+  "files.documentsLabel": "// DOCUMENTOS · {count}",
+  "files.empty": "sin archivos adjuntos",
+  "files.openPhoto": "Abrir foto {filename}",
+
+  "mobile.back": "Atrás",
+  "mobile.thread": "// HILO",
+  "mobile.context": "// CONTEXTO",
+
+
   "filter.all": "Todos",
   "filter.email": "Correo",
   "filter.portal": "Portal",

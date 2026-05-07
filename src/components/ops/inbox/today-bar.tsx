@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
 
 export interface TodayCommitment {
@@ -17,6 +18,7 @@ interface TodayBarProps {
 }
 
 export function TodayBar({ commitments, className }: TodayBarProps) {
+  const { t } = useDictionary("inbox");
   const empty = commitments.length === 0;
   const next = commitments[0];
 
@@ -30,10 +32,10 @@ export function TodayBar({ commitments, className }: TodayBarProps) {
       {empty ? (
         <div className="flex min-w-0 flex-col gap-1">
           <span className="font-cakemono text-[10.5px] font-light uppercase leading-none tracking-[0.18em] text-text-2">
-            // ALL CLEAR
+            {t("todayBar.allClear", "// ALL CLEAR")}
           </span>
           <span className="font-mohave text-[12px] leading-tight text-text-3">
-            no commitments today
+            {t("todayBar.noCommitments", "no commitments today")}
           </span>
         </div>
       ) : (
@@ -41,7 +43,7 @@ export function TodayBar({ commitments, className }: TodayBarProps) {
           <div className="flex min-w-0 flex-1 flex-col gap-1">
             <div className="flex items-center gap-2">
               <span className="font-cakemono text-[10.5px] font-light uppercase leading-none tracking-[0.18em] text-text-2">
-                // BALL IN YOUR COURT — TODAY
+                {t("todayBar.title", "// BALL IN YOUR COURT — TODAY")}
               </span>
               {commitments.length > 1 && (
                 <span

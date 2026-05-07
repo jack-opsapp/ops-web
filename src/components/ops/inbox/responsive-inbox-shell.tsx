@@ -4,6 +4,7 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useState, type ReactNode } from "react";
 import { useViewportBreakpoint, type ViewportBreakpoint } from "@/lib/hooks/use-viewport-breakpoint";
 import { useInboxLayoutStore } from "@/stores/inbox-layout-store";
+import { useDictionary } from "@/i18n/client";
 import { EASE_SMOOTH } from "@/lib/utils/motion";
 import { cn } from "@/lib/utils/cn";
 import { InboxShell } from "./inbox-shell";
@@ -63,6 +64,7 @@ export function ResponsiveInboxShell({
   const userOpen = useInboxLayoutStore((s) => s.rightRailOpen);
   const setRightRailOpen = useInboxLayoutStore((s) => s.setRightRailOpen);
   const reduce = useReducedMotion();
+  const { t } = useDictionary("inbox");
 
   // Internal mobile pane fallback when parent doesn't manage it.
   const [internalPane, setInternalPane] = useState<MobileInboxPane>("list");
@@ -105,7 +107,7 @@ export function ResponsiveInboxShell({
             <button
               type="button"
               onClick={() => setRightRailOpen(false)}
-              aria-label="Close context drawer"
+              aria-label={t("rail.closeDrawer", "Close context drawer")}
               className="absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-[4px] text-text-3 hover:bg-inbox-elev hover:text-text-2"
             >
               ×

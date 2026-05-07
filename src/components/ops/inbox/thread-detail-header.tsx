@@ -11,6 +11,7 @@ import {
   Tag,
 } from "lucide-react";
 import { KeyHint } from "@/components/ui/key-hint";
+import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
 
 interface ThreadDetailHeaderProps {
@@ -41,6 +42,7 @@ export function ThreadDetailHeader({
   rightRailOpen,
   className,
 }: ThreadDetailHeaderProps) {
+  const { t } = useDictionary("inbox");
   return (
     <header
       className={cn(
@@ -52,7 +54,7 @@ export function ThreadDetailHeader({
         <button
           type="button"
           onClick={onPrev}
-          aria-label="Previous thread"
+          aria-label={t("header.previousThread", "Previous thread")}
           className={iconBtn}
         >
           <ChevronLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} />
@@ -60,7 +62,7 @@ export function ThreadDetailHeader({
         <button
           type="button"
           onClick={onNext}
-          aria-label="Next thread"
+          aria-label={t("header.nextThread", "Next thread")}
           className={iconBtn}
         >
           <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
@@ -71,7 +73,7 @@ export function ThreadDetailHeader({
         <button
           type="button"
           onClick={onToggleRail}
-          aria-label="Toggle context rail"
+          aria-label={t("header.toggleContextRail", "Toggle context rail")}
           aria-pressed={rightRailOpen}
           className={cn(iconBtn, "ml-1")}
         >
@@ -91,7 +93,7 @@ export function ThreadDetailHeader({
         <button
           type="button"
           onClick={onArchive}
-          aria-label="Archive thread"
+          aria-label={t("header.archiveThread", "Archive thread")}
           className={iconBtn}
         >
           <Archive aria-hidden className="h-4 w-4" strokeWidth={1.75} />
@@ -99,7 +101,7 @@ export function ThreadDetailHeader({
         <button
           type="button"
           onClick={onSnooze}
-          aria-label="Snooze thread"
+          aria-label={t("header.snoozeThread", "Snooze thread")}
           className={iconBtn}
         >
           <Clock aria-hidden className="h-4 w-4" strokeWidth={1.75} />
@@ -107,7 +109,7 @@ export function ThreadDetailHeader({
         <button
           type="button"
           onClick={onRecategorize}
-          aria-label="Recategorize thread"
+          aria-label={t("header.recategorize", "Recategorize thread")}
           className={iconBtn}
         >
           <Tag aria-hidden className="h-4 w-4" strokeWidth={1.75} />
@@ -115,7 +117,7 @@ export function ThreadDetailHeader({
         <button
           type="button"
           onClick={onMore}
-          aria-label="More actions"
+          aria-label={t("header.moreActions", "More actions")}
           className={iconBtn}
         >
           <MoreHorizontal aria-hidden className="h-4 w-4" strokeWidth={1.75} />

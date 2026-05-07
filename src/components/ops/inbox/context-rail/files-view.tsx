@@ -1,6 +1,7 @@
 "use client";
 
 import { File, FileImage, FileSpreadsheet, FileText } from "lucide-react";
+import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
 
 export interface PhotoItem {
@@ -55,12 +56,13 @@ export function FilesView({
   onFileOpen,
   className,
 }: FilesViewProps) {
+  const { t } = useDictionary("inbox");
   const empty = photos.length === 0 && documents.length === 0;
 
   if (empty) {
     return (
       <p className={cn("font-mohave text-[12px] text-text-3", className)}>
-        no files attached
+        {t("files.empty", "no files attached")}
       </p>
     );
   }
@@ -70,14 +72,20 @@ export function FilesView({
       {photos.length > 0 && (
         <section className="flex flex-col gap-2">
           <h4 className="font-cakemono text-[9.5px] font-light uppercase leading-none tracking-[0.18em] text-text-3">
-            // IMAGES · {photos.length}
+            {t("files.imagesLabel", "// IMAGES · {count}").replace(
+              "{count}",
+              String(photos.length),
+            )}
           </h4>
           <div data-testid="files-photo-grid" className="grid grid-cols-3 gap-1">
             {photos.map((photo) => (
               <button
                 key={photo.id}
                 type="button"
-                aria-label={`Open photo ${photo.filename}`}
+                aria-label={t("files.openPhoto", "Open photo {filename}").replace(
+                  "{filename}",
+                  photo.filename,
+                )}
                 onClick={() => onPhotoOpen?.(photo)}
                 className="group relative aspect-square overflow-hidden rounded-[6px] border border-line bg-inbox-bg-deep"
               >
@@ -98,7 +106,10 @@ export function FilesView({
       {documents.length > 0 && (
         <section className="flex flex-col gap-2">
           <h4 className="font-cakemono text-[9.5px] font-light uppercase leading-none tracking-[0.18em] text-text-3">
-            // DOCUMENTS · {documents.length}
+            {t("files.documentsLabel", "// DOCUMENTS · {count}").replace(
+              "{count}",
+              String(documents.length),
+            )}
           </h4>
           <ul className="flex flex-col gap-1.5">
             {documents.map((doc) => {

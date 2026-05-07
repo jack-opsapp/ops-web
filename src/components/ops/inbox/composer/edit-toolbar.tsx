@@ -1,6 +1,7 @@
 "use client";
 
 import { Pencil } from "lucide-react";
+import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
 
 interface EditToolbarProps {
@@ -23,6 +24,7 @@ export function EditToolbar({
   onRegenerate,
   className,
 }: EditToolbarProps) {
+  const { t } = useDictionary("inbox");
   return (
     <div
       className={cn(
@@ -32,7 +34,7 @@ export function EditToolbar({
     >
       <Pencil aria-hidden className="h-3 w-3 text-text-3" strokeWidth={1.75} />
       <span className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-text-3">
-        edited from Claude&apos;s draft
+        {t("editToolbar.label", "edited from Claude's draft")}
       </span>
       <span
         className="font-mono text-[10.5px] tabular-nums text-olive"
@@ -48,13 +50,13 @@ export function EditToolbar({
       </span>
       <div className="ml-auto flex items-center gap-2">
         <button type="button" onClick={onSeeChanges} className={ghostBtn}>
-          See changes
+          {t("editToolbar.seeChanges", "See changes")}
         </button>
         <button type="button" onClick={onRevert} className={ghostBtn}>
-          Revert
+          {t("editToolbar.revert", "Revert")}
         </button>
         <button type="button" onClick={onRegenerate} className={ghostBtn}>
-          Regenerate
+          {t("editToolbar.regenerate", "Regenerate")}
         </button>
       </div>
     </div>

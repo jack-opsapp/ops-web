@@ -2,6 +2,7 @@
 
 import { Calendar, Image, Paperclip, Send, Sparkles } from "lucide-react";
 import { useState } from "react";
+import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
 import { ComposerInput } from "./composer-input";
 
@@ -40,18 +41,22 @@ export function Composer({
   onAttachImage,
   onDraftWithClaude,
   onSchedule,
-  placeholder = "Type a message...",
+  placeholder,
   disabled,
   topAccessory,
   bottomAccessory,
   agentTinted,
-  sendLabel = "SEND",
+  sendLabel,
   sendVariant = "accent",
   className,
 }: ComposerProps) {
+  const { t } = useDictionary("inbox");
   const [focused, setFocused] = useState(false);
   const trimmed = value.trim();
   const canSend = trimmed.length > 0 && !disabled;
+  const resolvedPlaceholder =
+    placeholder ?? t("composer.placeholder", "Type a message...");
+  const resolvedSendLabel = sendLabel ?? t("composer.send", "SEND");
 
   function handleSend() {
     if (!canSend) return;
@@ -92,7 +97,7 @@ export function Composer({
           value={value}
           onChange={onChange}
           onSubmit={handleSend}
-          placeholder={placeholder}
+          placeholder={resolvedPlaceholder}
           disabled={disabled}
           agentTinted={agentTinted}
         />
@@ -100,7 +105,7 @@ export function Composer({
           <button
             type="button"
             onClick={onAttachFile}
-            aria-label="Attach file"
+            aria-label={t("composer.attachFile", "Attach file")}
             className={iconBtn}
           >
             <Paperclip aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
@@ -108,7 +113,7 @@ export function Composer({
           <button
             type="button"
             onClick={onAttachImage}
-            aria-label="Attach image"
+            aria-label={t("composer.attachImage", "Attach image")}
             className={iconBtn}
           >
             <Image aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
@@ -116,7 +121,7 @@ export function Composer({
           <button
             type="button"
             onClick={onDraftWithClaude}
-            aria-label="Draft with Claude"
+            aria-label={t("composer.draftWithClaude", "Draft with Claude")}
             className={iconBtn}
           >
             <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
@@ -124,7 +129,7 @@ export function Composer({
           <button
             type="button"
             onClick={onSchedule}
-            aria-label="Schedule send"
+            aria-label={t("composer.scheduleSend", "Schedule send")}
             className={iconBtn}
           >
             <Calendar aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
@@ -133,10 +138,10 @@ export function Composer({
             type="button"
             onClick={handleSend}
             disabled={!canSend}
-            aria-label={sendLabel}
+            aria-label={resolvedSendLabel}
             className={cn(sendBtnClass, "ml-auto")}
           >
-            {sendLabel}
+            {resolvedSendLabel}
             <Send aria-hidden className="h-2.5 w-2.5" strokeWidth={1.75} />
           </button>
         </div>

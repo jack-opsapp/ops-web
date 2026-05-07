@@ -1,6 +1,96 @@
 {
   "title": "Inbox",
 
+  "todayBar.allClear": "// ALL CLEAR",
+  "todayBar.noCommitments": "no commitments today",
+  "todayBar.title": "// BALL IN YOUR COURT — TODAY",
+
+  "groups.needsYourInput": "// NEEDS YOUR INPUT",
+  "groups.urgent": "// URGENT",
+  "groups.today": "// TODAY",
+  "groups.thisWeek": "// THIS WEEK",
+  "groups.earlier": "// EARLIER",
+
+  "row.aiDraft": "›AI-DRAFT",
+
+  "header.previousThread": "Previous thread",
+  "header.nextThread": "Next thread",
+  "header.toggleContextRail": "Toggle context rail",
+  "header.archiveThread": "Archive thread",
+  "header.snoozeThread": "Snooze thread",
+  "header.recategorize": "Recategorize thread",
+  "header.moreActions": "More actions",
+
+  "bands.summary.label": "// YOUR MOVE",
+  "bands.summary.updatedBy": "updated by Claude · {min} min ago",
+  "bands.summary.history": "Summary history",
+  "bands.summary.aria": "Claude summary",
+
+  "bands.needsInput.label": "// CLAUDE NEEDS YOUR INPUT",
+  "bands.needsInput.provideAnswer": "PROVIDE ANSWER",
+  "bands.needsInput.typeReply": "type a reply…",
+  "bands.needsInput.aria": "Claude needs your input",
+
+  "bands.ballYours.label": "// YOUR TURN — {client} is waiting",
+  "bands.ballYours.reply": "Reply",
+  "bands.ballYours.aria": "Your turn",
+
+  "bands.autoSent.body": "Claude replied {hours}h ago — say something different?",
+  "bands.autoSent.revise": "revise",
+  "bands.autoSent.aria": "Claude auto-replied",
+
+  "bands.closed.label": "Closed {date}",
+  "bands.closed.aria": "Thread closed",
+
+  "messages.sentByClaude": "sent by Claude",
+  "messages.photo_one": "{count} photo",
+  "messages.photo_other": "{count} photos",
+
+  "composer.placeholder": "Type a message...",
+  "composer.send": "SEND",
+  "composer.sendAiDraft": "SEND AI DRAFT",
+  "composer.attachFile": "Attach file",
+  "composer.attachImage": "Attach image",
+  "composer.draftWithClaude": "Draft with Claude",
+  "composer.scheduleSend": "Schedule send",
+
+  "drafts.label": "// DRAFTS",
+  "drafts.source.yours": "Yours",
+  "drafts.source.claude": "Claude",
+  "drafts.source.gmail": "Gmail",
+  "drafts.source.outlook": "Outlook",
+
+  "aiDraftBanner.label": "CLAUDE DRAFTED THIS · review",
+
+  "editToolbar.label": "edited from Claude's draft",
+  "editToolbar.seeChanges": "See changes",
+  "editToolbar.revert": "Revert",
+  "editToolbar.regenerate": "Regenerate",
+
+  "rail.openClient": "Open client record",
+  "rail.tabs.projects": "Projects",
+  "rail.tabs.pipeline": "Pipeline",
+  "rail.tabs.files": "Files",
+  "rail.closeDrawer": "Close context drawer",
+
+  "project.scope": "// SCOPE",
+  "project.accounting": "// ACCOUNTING",
+  "project.openProject": "Open project",
+
+  "pipeline.empty": "no open opportunities",
+  "pipeline.thisThread": "This thread",
+  "pipeline.newOpportunity": "New opportunity",
+
+  "files.imagesLabel": "// IMAGES · {count}",
+  "files.documentsLabel": "// DOCUMENTS · {count}",
+  "files.empty": "no files attached",
+  "files.openPhoto": "Open photo {filename}",
+
+  "mobile.back": "Back",
+  "mobile.thread": "// THREAD",
+  "mobile.context": "// CONTEXT",
+
+
   "filter.all": "All",
   "filter.email": "Email",
   "filter.portal": "Portal",

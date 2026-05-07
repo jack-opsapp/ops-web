@@ -64,11 +64,18 @@ export function useDictionary(namespace: Namespace) {
       });
   }, [locale, namespace]);
 
-  const t = useCallback((key: string) => {
-    const value = dict[key];
-    if (typeof value === 'string') return value;
-    return key;
-  }, [dict]);
+  const t = useCallback(
+    (key: string, fallbackOrParams?: string | Record<string, unknown>) => {
+      const value = dict[key];
+      if (typeof value === 'string') return value;
+      // When the second arg is a string, treat it as an English fallback
+      // for missing keys. When it's a params object (legacy callers), fall
+      // through to returning the key — historic behavior.
+      if (typeof fallbackOrParams === 'string') return fallbackOrParams;
+      return key;
+    },
+    [dict],
+  );
 
   return { t, dict };
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
 import type { ThreadForGrouping } from "@/lib/inbox/grouping";
 
@@ -41,6 +42,7 @@ function formatRelativeTime(ts: number, now: number): string {
 }
 
 export function ThreadRow({ thread, selected, now, onSelect }: ThreadRowProps) {
+  const { t } = useDictionary("inbox");
   const isUrgent = thread.labels.includes("URGENT");
   const isAiDraft = thread.phaseC === "ai_drafted";
   const needsInput = thread.agent.needsInput;
@@ -91,7 +93,7 @@ export function ThreadRow({ thread, selected, now, onSelect }: ThreadRowProps) {
 
           {isAiDraft && (
             <span className="shrink-0 font-cakemono text-[9.5px] font-light uppercase leading-none tracking-[0.16em] text-agent">
-              ›AI-DRAFT
+              {t("row.aiDraft", "›AI-DRAFT")}
             </span>
           )}
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { Sparkles } from "lucide-react";
+import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
 
 interface AiDraftBannerProps {
@@ -27,6 +28,7 @@ export function AiDraftBanner({
   renderedAt = Date.now(),
   className,
 }: AiDraftBannerProps) {
+  const { t } = useDictionary("inbox");
   const ts = formatRelative(draftedAt, renderedAt);
   return (
     <div
@@ -37,7 +39,7 @@ export function AiDraftBanner({
     >
       <Sparkles aria-hidden className="h-3 w-3 text-agent-hi" strokeWidth={1.75} />
       <span className="font-cakemono text-[10px] font-light uppercase leading-none tracking-[0.18em] text-agent-hi">
-        CLAUDE DRAFTED THIS · review
+        {t("aiDraftBanner.label", "CLAUDE DRAFTED THIS · review")}
       </span>
       {ts && (
         <span

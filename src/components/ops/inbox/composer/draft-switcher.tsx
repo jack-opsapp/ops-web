@@ -1,6 +1,7 @@
 "use client";
 
 import { Mail, Sparkles, User } from "lucide-react";
+import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
 
 export type DraftSource = "yours" | "claude" | "gmail" | "outlook";
@@ -30,6 +31,7 @@ export function DraftSwitcher({
   onSelect,
   className,
 }: DraftSwitcherProps) {
+  const { t } = useDictionary("inbox");
   if (sources.length === 0) return null;
 
   return (
@@ -40,7 +42,7 @@ export function DraftSwitcher({
       )}
     >
       <span className="font-cakemono text-[9.5px] font-light uppercase leading-none tracking-[0.18em] text-text-3">
-        // DRAFTS
+        {t("drafts.label", "// DRAFTS")}
       </span>
       <div className="flex flex-wrap items-center gap-1.5">
         {sources.map((src) => {

@@ -2,6 +2,7 @@
 
 import { LinkIcon, Plus } from "lucide-react";
 import { useMemo } from "react";
+import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
 
 export interface PipelineOpp {
@@ -46,6 +47,7 @@ export function PipelineList({
   onNewOpportunity,
   className,
 }: PipelineListProps) {
+  const { t } = useDictionary("inbox");
   const grouped = useMemo(() => {
     const map = new Map<string, PipelineOpp[]>();
     for (const opp of opps) {
@@ -60,7 +62,7 @@ export function PipelineList({
     <div className={cn("flex flex-col gap-3", className)}>
       {grouped.length === 0 ? (
         <p className="font-mohave text-[12px] text-text-3">
-          no open opportunities
+          {t("pipeline.empty", "no open opportunities")}
         </p>
       ) : (
         grouped.map(([stage, list]) => (
@@ -108,7 +110,7 @@ export function PipelineList({
                             className="h-2.5 w-2.5"
                             strokeWidth={1.75}
                           />
-                          This thread
+                          {t("pipeline.thisThread", "This thread")}
                         </span>
                       )}
                     </div>
@@ -126,7 +128,7 @@ export function PipelineList({
         className="inline-flex h-8 items-center justify-center gap-1.5 rounded-[5px] border border-dashed border-line bg-transparent px-3 font-cakemono text-[10px] font-light uppercase tracking-[0.14em] text-text-3 hover:border-border-medium hover:text-text-2"
       >
         <Plus aria-hidden className="h-3 w-3" strokeWidth={1.75} />
-        New opportunity
+        {t("pipeline.newOpportunity", "New opportunity")}
       </button>
     </div>
   );

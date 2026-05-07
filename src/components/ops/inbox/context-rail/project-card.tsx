@@ -2,6 +2,7 @@
 
 import { ChevronDown, ChevronRight, ExternalLink } from "lucide-react";
 import { useState } from "react";
+import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
 import { StatusPip, type ProjectStatus } from "./status-pip";
 import { AccountingBar } from "./accounting-bar";
@@ -63,8 +64,9 @@ export function ProjectCard({
   threadId,
   defaultOpen = false,
 }: ProjectCardProps) {
+  const { t } = useDictionary("inbox");
   const [open, setOpen] = useState(defaultOpen);
-  const done = project.tasks.filter((t) => t.done).length;
+  const done = project.tasks.filter((task) => task.done).length;
   const total = project.tasks.length;
 
   return (
@@ -112,7 +114,7 @@ export function ProjectCard({
             {project.stage} · {formatDate(project.startDate)} → {formatDate(project.endDate)} · {project.leadName}
           </p>
 
-          <Section label="// SCOPE">
+          <Section label={t("project.scope", "// SCOPE")}>
             <ul className="flex flex-col gap-1">
               {project.tasks.map((task) => (
                 <li
@@ -135,7 +137,7 @@ export function ProjectCard({
             </ul>
           </Section>
 
-          <Section label="// ACCOUNTING">
+          <Section label={t("project.accounting", "// ACCOUNTING")}>
             <AccountingBar
               total={project.accounting.total}
               invoiced={project.accounting.invoiced}
@@ -166,7 +168,7 @@ export function ProjectCard({
             className="inline-flex items-center gap-1.5 rounded-[4px] border border-line px-2.5 py-1.5 font-cakemono text-[10px] font-light uppercase tracking-[0.14em] text-text-2 hover:bg-inbox-elev hover:text-text"
           >
             <ExternalLink aria-hidden className="h-3 w-3" strokeWidth={1.75} />
-            Open project
+            {t("project.openProject", "Open project")}
           </a>
         </div>
       )}

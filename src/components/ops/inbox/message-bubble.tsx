@@ -2,6 +2,7 @@
 
 import { Sparkles } from "lucide-react";
 import type { ReactNode } from "react";
+import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
 import type { MessageSource } from "@/lib/inbox/message-grouping";
 
@@ -29,6 +30,7 @@ export function MessageBubble({
   avatar,
   children,
 }: MessageBubbleProps) {
+  const { t } = useDictionary("inbox");
   const isOutbound = direction === "outbound";
   const isAi = source === "ai" && isOutbound;
 
@@ -77,7 +79,7 @@ export function MessageBubble({
                 className="h-2.5 w-2.5 text-agent-text-2"
                 strokeWidth={1.75}
               />
-              <span className="text-agent-text-2">sent by Claude</span>
+              <span className="text-agent-text-2">{t("messages.sentByClaude", "sent by Claude")}</span>
             </>
           )}
           {isAi && timestamp && <span aria-hidden>·</span>}

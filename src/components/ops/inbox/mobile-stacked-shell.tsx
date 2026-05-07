@@ -2,6 +2,7 @@
 
 import { ChevronLeft } from "lucide-react";
 import type { ReactNode } from "react";
+import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
 
 export type MobileInboxPane = "list" | "detail" | "context";
@@ -29,6 +30,7 @@ export function MobileStackedShell({
   contextRail,
   className,
 }: MobileStackedShellProps) {
+  const { t } = useDictionary("inbox");
   return (
     <div
       className={cn(
@@ -41,13 +43,15 @@ export function MobileStackedShell({
           <button
             type="button"
             onClick={() => onPaneChange(BACK_TARGET[activePane])}
-            aria-label="Back"
+            aria-label={t("mobile.back", "Back")}
             className="inline-flex h-7 w-7 items-center justify-center rounded-[4px] text-text-2 hover:bg-inbox-elev hover:text-text"
           >
             <ChevronLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           </button>
           <span className="font-cakemono text-[10px] font-light uppercase leading-none tracking-[0.18em] text-text-3">
-            {activePane === "detail" ? "// THREAD" : "// CONTEXT"}
+            {activePane === "detail"
+              ? t("mobile.thread", "// THREAD")
+              : t("mobile.context", "// CONTEXT")}
           </span>
         </header>
       )}
