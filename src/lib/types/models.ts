@@ -250,6 +250,7 @@ export interface Project {
   teamMemberIds: string[];
   projectDescription: string | null;
   projectImages: string[];
+  visibility: "all" | "office" | "private";
   createdAt: Date | null;
   lastSyncedAt: Date | null;
   needsSync: boolean;

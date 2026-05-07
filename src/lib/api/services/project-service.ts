@@ -45,6 +45,10 @@ function serializeProjectStatus(status: ProjectStatus): string {
 
 // ─── Database ↔ TypeScript Mapping ────────────────────────────────────────────
 
+function parseProjectVisibility(raw: unknown): Project["visibility"] {
+  return raw === "office" || raw === "private" ? raw : "all";
+}
+
 function mapFromDb(row: Record<string, unknown>): Project {
   return {
     id: row.id as string,
@@ -63,6 +67,7 @@ function mapFromDb(row: Record<string, unknown>): Project {
     teamMemberIds: (row.team_member_ids as string[]) ?? [],
     projectDescription: (row.description as string) ?? null,
     projectImages: (row.project_images as string[]) ?? [],
+    visibility: parseProjectVisibility(row.visibility),
     opportunityId: (row.opportunity_id as string) ?? null,
     createdAt: parseDate(row.created_at),
     lastSyncedAt: null,
@@ -91,6 +96,7 @@ function mapToDb(data: Partial<Project>): Record<string, unknown> {
   if (data.teamMemberIds !== undefined) row.team_member_ids = data.teamMemberIds;
   if (data.projectDescription !== undefined) row.description = data.projectDescription;
   if (data.projectImages !== undefined) row.project_images = data.projectImages;
+  if (data.visibility !== undefined) row.visibility = data.visibility;
   if (data.opportunityId !== undefined) row.opportunity_id = data.opportunityId;
   return row;
 }

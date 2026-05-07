@@ -87,6 +87,11 @@ function mapClientFromDb(raw: unknown): import("@/lib/types/models").Client | nu
 function mapProjectFromDb(raw: unknown): import("@/lib/types/models").Project | null {
   if (!raw || typeof raw !== "object") return null;
   const r = raw as Record<string, unknown>;
+  const rawVisibility = r.visibility;
+  const visibility: import("@/lib/types/models").Project["visibility"] =
+    rawVisibility === "office" || rawVisibility === "private"
+      ? rawVisibility
+      : "all";
   return {
     id: r.id as string,
     title: r.title as string,
@@ -105,6 +110,7 @@ function mapProjectFromDb(raw: unknown): import("@/lib/types/models").Project | 
     teamMemberIds: (r.team_member_ids as string[]) ?? [],
     projectDescription: (r.project_description as string) ?? null,
     projectImages: (r.project_images as string[]) ?? [],
+    visibility,
     createdAt: parseDate(r.created_at),
     lastSyncedAt: null,
     needsSync: false,
