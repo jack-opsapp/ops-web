@@ -199,3 +199,11 @@ The PMF tracking deck is the operator's primary operating surface during the pre
 - Unit: `tests/unit/notifications/pmf-send.test.ts` (sender internals), `tests/unit/notifications/pmf-templates.test.ts` (email templates)
 - Integration: `tests/integration/pmf-*-cron.test.ts` (cron handlers), `tests/integration/notifications.test.ts` (transport boundary), `tests/integration/pmf-crud-routes.test.ts`, `tests/integration/pmf-attributions-seed.test.ts`, `tests/integration/stripe-webhook-billing-events.test.ts`
 - E2E: `tests/e2e/pmf-*.spec.ts` — admin-gated tests skipped unless `E2E_ADMIN_EMAIL`/`E2E_ADMIN_PASSWORD` set
+
+## Product Environment Variables
+
+Variables consumed by the main product surfaces (dashboards, modals, maps, geocoding). Distinct from the PMF block above.
+
+| Name | Purpose |
+|------|---------|
+| `NEXT_PUBLIC_MAPBOX_TOKEN` | Mapbox GL JS public access token. Required for the project workspace map (compact + expanded states) and address autocomplete. Free tier covers 50k map loads + 100k geocoding requests per month. URL allowlist recommended at `account.mapbox.com/access-tokens/` — currently unrestricted (accepted risk). |
