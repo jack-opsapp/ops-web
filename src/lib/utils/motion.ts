@@ -640,3 +640,69 @@ export const sparklineVariants: Variants = {
     transition: { duration: 0.7, ease: EASE_SMOOTH },
   },
 };
+
+// ─── Inbox redesign variants ────────────────────────────────────────────────
+
+/**
+ * 180ms width slide for the right context rail. Used at <1280 (overlay
+ * drawer) and at >=1280 when the rail is toggled docked/closed.
+ */
+export const inboxRailVariants: Variants = {
+  open: {
+    width: 360,
+    opacity: 1,
+    transition: { duration: 0.18, ease: EASE_SMOOTH },
+  },
+  closed: {
+    width: 0,
+    opacity: 0,
+    transition: { duration: 0.18, ease: EASE_SMOOTH },
+  },
+};
+
+export const inboxRailReducedVariants: Variants = {
+  open: {
+    opacity: 1,
+    transition: { duration: 0.12, ease: EASE_SMOOTH },
+  },
+  closed: {
+    opacity: 0,
+    transition: { duration: 0.12, ease: EASE_SMOOTH },
+  },
+};
+
+/**
+ * 120ms crossfade for the composer body when the active draft swaps
+ * (yours / claude / gmail).
+ */
+export const composerBodyFadeVariants: Variants = {
+  hidden: { opacity: 0, transition: { duration: 0.12, ease: EASE_SMOOTH } },
+  visible: { opacity: 1, transition: { duration: 0.12, ease: EASE_SMOOTH } },
+};
+
+/**
+ * 200ms olive milestone pulse. Used on ProjectCard (Done), EstimateRow
+ * (accepted), InvoiceRow (paid), and ThreadRow on close. Wrap the target
+ * in <MilestonePulse trigger={status}> and the pulse re-runs each time
+ * `trigger` transitions to a milestone state.
+ */
+export const milestonePulseVariants: Variants = {
+  initial: { boxShadow: "0 0 0 0 rgba(157, 181, 130, 0)" },
+  pulse: {
+    boxShadow: [
+      "0 0 0 0 rgba(157, 181, 130, 0)",
+      "0 0 0 4px rgba(157, 181, 130, 0.55)",
+      "0 0 0 0 rgba(157, 181, 130, 0)",
+    ],
+    transition: { duration: 0.2, ease: EASE_SMOOTH, times: [0, 0.5, 1] },
+  },
+};
+
+/** Reduced-motion equivalent — single opacity flash, no shadow ring. */
+export const milestonePulseReducedVariants: Variants = {
+  initial: { opacity: 1 },
+  pulse: {
+    opacity: [1, 0.85, 1],
+    transition: { duration: 0.15, ease: EASE_SMOOTH, times: [0, 0.5, 1] },
+  },
+};
