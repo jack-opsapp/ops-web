@@ -1,11 +1,8 @@
 "use client";
 
-import { motion, useReducedMotion } from "framer-motion";
+import { motion } from "framer-motion";
 import { type ReactNode, useEffect, useState } from "react";
-import {
-  milestonePulseReducedVariants,
-  milestonePulseVariants,
-} from "@/lib/utils/motion";
+import { useReducedInboxMotion } from "@/lib/utils/motion";
 
 interface MilestonePulseProps<T> {
   /** Trigger value. When this changes from one render to the next, the pulse
@@ -22,7 +19,7 @@ export function MilestonePulse<T>({
   className,
   children,
 }: MilestonePulseProps<T>) {
-  const reduce = useReducedMotion();
+  const m = useReducedInboxMotion();
   const [animateKey, setAnimateKey] = useState(0);
 
   useEffect(() => {
@@ -34,7 +31,7 @@ export function MilestonePulse<T>({
       key={animateKey}
       initial="initial"
       animate="pulse"
-      variants={reduce ? milestonePulseReducedVariants : milestonePulseVariants}
+      variants={m.milestone}
       className={className}
     >
       {children}

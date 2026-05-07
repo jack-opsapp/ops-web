@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // Framer Motion constants for the dashboard widget system
 // ---------------------------------------------------------------------------
-import type { Variants, Easing } from "framer-motion";
+import { useReducedMotion, type Variants, type Easing } from "framer-motion";
 
 export const EASE_SMOOTH: Easing = [0.22, 1, 0.36, 1];
 
@@ -706,3 +706,30 @@ export const milestonePulseReducedVariants: Variants = {
     transition: { duration: 0.15, ease: EASE_SMOOTH, times: [0, 0.5, 1] },
   },
 };
+
+/**
+ * Helper that returns the inbox motion variants matching the user's
+ * `prefers-reduced-motion` preference. Use this so every inbox motion
+ * touchpoint reads from the same source of truth without re-implementing
+ * the branching at each call site.
+ *
+ * Example:
+ *   const m = useReducedInboxMotion();
+ *   <motion.div variants={m.rail} animate={open ? "open" : "closed"} />
+ */
+export function useReducedInboxMotion(): {
+  reduced: boolean;
+  rail: Variants;
+  composerFade: Variants;
+  milestone: Variants;
+} {
+  const reduced = !!useReducedMotion();
+  return {
+    reduced,
+    rail: reduced ? inboxRailReducedVariants : inboxRailVariants,
+    // composerBodyFadeVariants is opacity-only either way, so it's safe
+    // for both modes — kept on the helper for API symmetry.
+    composerFade: composerBodyFadeVariants,
+    milestone: reduced ? milestonePulseReducedVariants : milestonePulseVariants,
+  };
+}
