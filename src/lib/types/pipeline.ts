@@ -401,6 +401,8 @@ export interface Opportunity {
 
   // Address
   address: string | null;
+  latitude: number | null;
+  longitude: number | null;
 
   // Email source
   sourceEmailId: string | null;

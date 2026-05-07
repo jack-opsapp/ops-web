@@ -247,6 +247,8 @@ export function CreateLeadForm({ onSuccess, onCancel }: CreateLeadFormProps) {
         lostNotes: null,
         quoteDeliveryMethod: null,
         address: data.address || null,
+        latitude: null,
+        longitude: null,
         tags: [],
       },
       {

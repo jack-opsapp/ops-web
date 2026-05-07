@@ -1286,6 +1286,8 @@ export default function PipelinePage() {
           lostNotes: null,
           quoteDeliveryMethod: null,
           address: null,
+          latitude: null,
+          longitude: null,
           tags: [],
         },
         {

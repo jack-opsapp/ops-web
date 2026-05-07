@@ -384,6 +384,8 @@ async function runImport(
           lostNotes: null,
           quoteDeliveryMethod: null,
           address: lead.clientAddress || null,
+          latitude: null,
+          longitude: null,
           correspondenceCount: lead.correspondenceCount || 0,
           outboundCount: lead.outboundCount || 0,
           inboundCount,
