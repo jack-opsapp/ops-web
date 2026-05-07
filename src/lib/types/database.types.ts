@@ -11011,6 +11011,22 @@ export type Database = {
         }[]
       }
       pmf_sparkline: { Args: { kind: string }; Returns: number[] }
+      project_pipeline_summary: {
+        Args: { p_project_id: string }
+        Returns: {
+          change_orders_count: number
+          days_aged: number
+          deposit_pct: number
+          invoiced_record_id: string
+          invoiced_total: number
+          outstanding_due_date: string
+          outstanding_total: number
+          quoted_record_id: string
+          quoted_total: number
+          received_record_id: string
+          received_total: number
+        }[]
+      }
       release_phase_c_lock: {
         Args: { p_holder: string; p_job_id: string }
         Returns: undefined
@@ -11273,4 +11289,3 @@ export const Constants = {
     },
   },
 } as const
-
