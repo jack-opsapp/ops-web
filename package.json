@@ -10,6 +10,7 @@
     "lint": "next lint",
     "type-check": "tsc --noEmit",
     "email:sync-versions": "tsx scripts/email-template-version-sync.ts",
+    "backfill:geocoding": "tsx scripts/backfill-project-geocoding.ts",
     "prebuild": "npm run email:sync-versions",
     "test": "vitest",
     "test:ui": "vitest --ui",
