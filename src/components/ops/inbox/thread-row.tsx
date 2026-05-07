@@ -1,14 +1,42 @@
 "use client";
 
+/**
+ * ThreadRow — faithful port of `reference/v3-columns.jsx :: V3FeedRow`.
+ *
+ * Anatomy (top → bottom inside a relative container with optional left stripe):
+ *   • title row: client name + message count + relative time
+ *   • subject line (font-weight tracks unread/read)
+ *   • snippet line with optional "AI DRAFT ·" / "DRAFT ·" cake prefix
+ *   • bottom signal row — only when at least one signal is present:
+ *       URGENT pill on the left; paperclip / dollar / receipt / user-plus
+ *       icons on the right
+ *
+ * The left stripe is decorative only. Width 2px normally, 3px when the row is
+ * the active selection. Color: rose for URGENT, lavender for AI-drafted, accent
+ * when selected, otherwise transparent. Opacity tracks unread.
+ *
+ * Avatar is square (radius 4) per V3Avatar — never round in this design.
+ */
+
+import {
+  DollarSign,
+  Paperclip,
+  Receipt,
+  UserPlus,
+} from "lucide-react";
 import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
 import type { ThreadForGrouping } from "@/lib/inbox/grouping";
 
 export interface ThreadRowData extends ThreadForGrouping {
   clientName: string;
+  subject: string;
   snippet: string;
   unread: boolean;
-  /** ISO avatar URL — optional. Falls back to monogram from clientName. */
+  /** Total messages in the thread. Renders inline as `· {n}` when > 1. */
+  messageCount: number;
+  /** Drives the snippet prefix tag. */
+  draftKind?: "ai" | "user" | null;
   avatarUrl?: string | null;
 }
 
@@ -35,8 +63,7 @@ function formatRelativeTime(ts: number, now: number): string {
   if (day < 7) return `${day}d`;
   const wk = Math.floor(day / 7);
   if (wk < 5) return `${wk}w`;
-  const date = new Date(ts);
-  return date
+  return new Date(ts)
     .toLocaleDateString("en-US", { month: "short", day: "numeric" })
     .toUpperCase();
 }
@@ -44,17 +71,25 @@ function formatRelativeTime(ts: number, now: number): string {
 export function ThreadRow({ thread, selected, now, onSelect }: ThreadRowProps) {
   const { t } = useDictionary("inbox");
   const isUrgent = thread.labels.includes("URGENT");
-  const isAiDraft = thread.phaseC === "ai_drafted";
-  const needsInput = thread.agent.needsInput;
+  const isAiDraft = thread.phaseC === "ai_drafted" || thread.draftKind === "ai";
+  const hasUserDraft = thread.draftKind === "user";
   const isUnread = thread.unread;
 
-  const stripeClass = selected
-    ? "bg-ops-accent w-[3px]"
+  const showSignalRow =
+    thread.labels.includes("URGENT") ||
+    thread.labels.includes("HAS_ATTACHMENT") ||
+    thread.labels.includes("HAS_QUOTE") ||
+    thread.labels.includes("HAS_INVOICE") ||
+    thread.labels.includes("FROM_NEW_SENDER");
+
+  // Stripe (decorative): width changes on selection, color reflects state.
+  const stripeColor = selected
+    ? "bg-ops-accent"
     : isUrgent
-      ? "bg-rose w-[2px]"
+      ? "bg-rose"
       : isAiDraft
-        ? "bg-agent w-[2px]"
-        : "bg-transparent w-[2px]";
+        ? "bg-agent"
+        : "bg-transparent";
 
   return (
     <button
@@ -62,53 +97,50 @@ export function ThreadRow({ thread, selected, now, onSelect }: ThreadRowProps) {
       onClick={() => onSelect(thread.id)}
       aria-pressed={selected}
       className={cn(
-        "group relative flex w-full items-start gap-2.5 px-3.5 py-2.5 text-left",
-        "border-b border-line/40",
-        selected ? "bg-ops-accent/[0.07]" : "hover:bg-inbox-elev",
+        "group relative flex w-full items-start gap-3 border-b border-line text-left",
+        "py-2.5 pl-[18px] pr-3.5",
+        selected
+          ? "bg-ops-accent/[0.07]"
+          : "hover:bg-inbox-elev/60",
       )}
     >
       <span
         data-testid="thread-row-stripe"
         aria-hidden
         className={cn(
-          "absolute left-0 top-0 h-full",
-          stripeClass,
+          "absolute left-0 top-2 bottom-2 rounded-r-[2px]",
+          stripeColor,
+          selected ? "w-[3px]" : "w-[2px]",
+          isUnread ? "opacity-90" : "opacity-50",
         )}
       />
 
       <Avatar name={thread.clientName} url={thread.avatarUrl ?? null} />
 
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+      <div className="flex min-w-0 flex-1 flex-col">
+        {/* Title row: name · count · time */}
         <div className="flex min-w-0 items-baseline gap-2">
           <span
             className={cn(
-              "min-w-0 truncate font-mohave text-[13px] tracking-[-0.003em]",
+              "min-w-0 flex-1 truncate font-mohave text-[13.5px] tracking-[-0.003em]",
               isUnread
                 ? "font-semibold text-text"
-                : "font-medium text-text-2",
+                : "font-normal text-text-2",
             )}
           >
             {thread.clientName}
           </span>
-
-          {isAiDraft && (
-            <span className="shrink-0 font-cakemono text-[9.5px] font-light uppercase leading-none tracking-[0.16em] text-agent">
-              {t("row.aiDraft", "›AI-DRAFT")}
-            </span>
-          )}
-
-          {needsInput && (
+          {thread.messageCount > 1 && (
             <span
-              data-testid="thread-row-needs-input"
-              className="shrink-0 rounded-chip border border-agent-border-hi px-1.5 py-px font-cakemono text-[9.5px] font-light uppercase leading-none tracking-[0.16em] text-agent"
+              className="shrink-0 font-mono text-[10px] text-text-mute"
+              style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
             >
-              ?
+              · {thread.messageCount}
             </span>
           )}
-
           <span
             className={cn(
-              "ml-auto shrink-0 font-mono text-[10.5px] uppercase leading-none tracking-[0.2em]",
+              "shrink-0 font-mono text-[10.5px] uppercase tracking-[0.2em]",
               isUnread ? "text-text-3" : "text-text-mute",
             )}
             style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
@@ -117,9 +149,61 @@ export function ThreadRow({ thread, selected, now, onSelect }: ThreadRowProps) {
           </span>
         </div>
 
-        <span className="truncate font-mohave text-[12px] leading-[1.4] text-text-3">
+        {/* Subject line */}
+        <div
+          className={cn(
+            "mt-0.5 truncate font-mohave text-[13px] tracking-[-0.003em]",
+            isUnread
+              ? "font-medium text-text"
+              : "font-normal text-text-2",
+          )}
+        >
+          {thread.subject || ""}
+        </div>
+
+        {/* Snippet line with optional draft prefix */}
+        <div className="mt-0.5 truncate font-mohave text-[12px] leading-[1.4] text-text-3">
+          {isAiDraft && (
+            <span className="mr-1.5 font-cakemono text-[9.5px] font-light uppercase tracking-[0.16em] text-agent">
+              {t("row.aiDraftPrefix", "AI DRAFT ·")}
+            </span>
+          )}
+          {!isAiDraft && hasUserDraft && (
+            <span className="mr-1.5 font-cakemono text-[9.5px] font-light uppercase tracking-[0.16em] text-text-3">
+              {t("row.draftPrefix", "DRAFT ·")}
+            </span>
+          )}
           {thread.snippet}
-        </span>
+        </div>
+
+        {/* Bottom signal row */}
+        {showSignalRow && (
+          <div className="mt-1.5 flex items-center gap-1.5">
+            {thread.labels.includes("URGENT") && (
+              <span
+                data-testid="thread-row-urgent"
+                className="inline-flex items-center gap-1 font-cakemono text-[9px] font-light uppercase tracking-[0.16em] text-rose"
+              >
+                <span aria-hidden className="leading-none">●</span>
+                <span>{t("row.urgent", "URGENT")}</span>
+              </span>
+            )}
+            <span className="ml-auto flex items-center gap-1 text-text-mute">
+              {thread.labels.includes("FROM_NEW_SENDER") && (
+                <UserPlus aria-hidden className="h-[11px] w-[11px]" strokeWidth={1.75} />
+              )}
+              {thread.labels.includes("HAS_ATTACHMENT") && (
+                <Paperclip aria-hidden className="h-[11px] w-[11px]" strokeWidth={1.75} />
+              )}
+              {thread.labels.includes("HAS_QUOTE") && (
+                <DollarSign aria-hidden className="h-[11px] w-[11px]" strokeWidth={1.75} />
+              )}
+              {thread.labels.includes("HAS_INVOICE") && (
+                <Receipt aria-hidden className="h-[11px] w-[11px]" strokeWidth={1.75} />
+              )}
+            </span>
+          </div>
+        )}
       </div>
     </button>
   );
@@ -132,14 +216,14 @@ function Avatar({ name, url }: { name: string; url: string | null }) {
         src={url}
         alt=""
         aria-hidden
-        className="size-8 shrink-0 rounded-full object-cover"
+        className="h-7 w-7 shrink-0 rounded-chip border border-line-hi object-cover"
       />
     );
   }
   return (
     <span
       aria-hidden
-      className="flex size-8 shrink-0 items-center justify-center rounded-full bg-inbox-elev font-mono text-[10px] uppercase tracking-[0.08em] text-text-2"
+      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-chip border border-line-hi bg-inbox-elev font-mohave text-[10.5px] tracking-[0.02em] text-text-2"
     >
       {monogram(name)}
     </span>

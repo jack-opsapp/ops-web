@@ -27,12 +27,17 @@ import { useClientProjects } from "@/lib/hooks/use-client-projects";
 import { useClientOpportunities } from "@/lib/hooks/use-client-opportunities";
 import { useClientFiles } from "@/lib/hooks/use-client-files";
 import { ResponsiveInboxShell } from "./responsive-inbox-shell";
+import { ThreadColumnHeader } from "./thread-column-header";
 import { TodayBar, type TodayCommitment } from "./today-bar";
 import { ThreadList, type ThreadListItem } from "./thread-list";
 import { ThreadDetail } from "./thread-detail";
 import { DetailBand } from "./detail-band";
 import { MessageList, type RenderableMessage } from "./message-list";
 import { Composer } from "./composer/composer";
+import {
+  categoryDotClassName,
+  categoryLabel as resolveCategoryLabel,
+} from "./category-chip";
 import { ContextRail } from "./context-rail/context-rail";
 import { ProjectCard, type ProjectCardData } from "./context-rail/project-card";
 import { PipelineList, type PipelineOpp } from "./context-rail/pipeline-list";
@@ -99,11 +104,12 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
 
   const threadList = (
     <div className="flex min-h-0 flex-1 flex-col">
+      <ThreadColumnHeader />
       <TodayBar commitments={commitments} />
       {threadsQuery.isLoading ? (
-        <EmptyState label={t("list.loading", "// LOADING")} />
+        <EmptyState label={t("list.loading", "Loading…")} />
       ) : rows.length === 0 ? (
-        <EmptyState label={t("list.empty", "// ALL CAUGHT UP")} />
+        <EmptyState label={t("list.empty", "All caught up")} />
       ) : (
         <ThreadList
           threads={rows}
@@ -117,16 +123,21 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
 
   const detailNode = detail ? (
     <ThreadDetail
-      client={{
-        name:
-          detail.thread.clientName ??
-          guessSenderName(detail.messages) ??
-          t("detail.unknownClient", "Unknown sender"),
-        phone: null,
-        email:
-          detail.messages.find((m) => m.direction === "inbound")?.from ?? null,
-        address: null,
+      subject={detail.thread.subject ?? t("detail.untitled", "(no subject)")}
+      category={{
+        label: resolveCategoryLabel(detail.thread.primaryCategory),
+        dotClassName: categoryDotClassName(detail.thread.primaryCategory),
       }}
+      senderName={
+        detail.thread.clientName ??
+        guessSenderName(detail.messages) ??
+        t("detail.unknownClient", "Unknown sender")
+      }
+      messageCount={detail.thread.messageCount ?? detail.messages.length}
+      clientType={null}
+      onOpenClient={
+        clientId ? () => router.push(`/clients/${clientId}`) : undefined
+      }
       rightRailOpen={railOpen}
       onPrev={onPrev}
       onNext={onNext}
@@ -259,8 +270,11 @@ function toThreadListItem(t: InboxThreadRow): ThreadListItem {
     phaseC: "none",
     closed: t.archivedAt !== null,
     clientName: t.clientName ?? t.latestSenderName ?? "Unknown",
+    subject: t.subject ?? "",
     snippet: t.latestSnippet ?? "",
     unread: t.unreadCount > 0,
+    messageCount: t.messageCount,
+    draftKind: null,
   };
 }
 

@@ -1,19 +1,16 @@
 "use client";
 
 import { useEffect, type ReactNode } from "react";
-import { ContactStrip } from "./contact-strip";
 import { ThreadDetailHeader } from "./thread-detail-header";
 import { cn } from "@/lib/utils/cn";
 
-interface ThreadClient {
-  name: string;
-  phone?: string | null;
-  email?: string | null;
-  address?: string | null;
-}
-
 interface ThreadDetailProps {
-  client: ThreadClient;
+  subject: string;
+  category?: { label: string; dotClassName: string } | null;
+  senderName: string;
+  messageCount: number;
+  clientType?: string | null;
+  onOpenClient?: () => void;
   rightRailOpen: boolean;
   onPrev: () => void;
   onNext: () => void;
@@ -35,7 +32,12 @@ function isTypingTarget(target: EventTarget | null): boolean {
 }
 
 export function ThreadDetail({
-  client,
+  subject,
+  category,
+  senderName,
+  messageCount,
+  clientType,
+  onOpenClient,
   rightRailOpen,
   onPrev,
   onNext,
@@ -64,22 +66,20 @@ export function ThreadDetail({
   }, [onNext, onPrev]);
 
   return (
-    <div className={cn("flex min-h-0 flex-1 flex-col", className)}>
+    <div className={cn("flex min-h-0 flex-1 flex-col bg-inbox-bg", className)}>
       <ThreadDetailHeader
-        clientName={client.name}
-        onPrev={onPrev}
-        onNext={onNext}
+        subject={subject}
+        category={category}
+        senderName={senderName}
+        messageCount={messageCount}
+        clientType={clientType}
+        onOpenClient={onOpenClient}
         onArchive={onArchive}
         onSnooze={onSnooze}
         onRecategorize={onRecategorize}
         onMore={onMore}
         onToggleRail={onToggleRail}
         rightRailOpen={rightRailOpen}
-      />
-      <ContactStrip
-        phone={client.phone}
-        email={client.email}
-        address={client.address}
       />
       <div className="flex min-h-0 flex-1 flex-col">{children}</div>
     </div>

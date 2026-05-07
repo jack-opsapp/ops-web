@@ -3,13 +3,13 @@ import { describe, it, expect } from "vitest";
 import { TodayBar } from "../today-bar";
 
 describe("<TodayBar>", () => {
-  it("renders the empty state when there are zero commitments", () => {
+  it("renders the empty state with 'All caught up' when there are zero commitments", () => {
     render(<TodayBar commitments={[]} />);
-    expect(screen.getByText(/ALL CLEAR/)).toBeInTheDocument();
-    expect(screen.getByText(/no commitments today/)).toBeInTheDocument();
+    expect(screen.getByText(/All caught up/i)).toBeInTheDocument();
+    expect(screen.getByText(/Nothing waiting on you/i)).toBeInTheDocument();
   });
 
-  it("shows the next commitment summary when one exists", () => {
+  it("shows the YOUR MOVE header and renders each commitment as a link", () => {
     render(
       <TodayBar
         commitments={[
@@ -20,16 +20,24 @@ describe("<TodayBar>", () => {
             threadId: "t1",
             urgent: true,
           },
+          {
+            id: "c2",
+            text: "Walk site & quote · Martinez",
+            due: "FRI 16:00",
+            threadId: "t2",
+            urgent: false,
+          },
         ]}
       />,
     );
-    expect(screen.getByText(/BALL IN YOUR COURT/)).toBeInTheDocument();
+    expect(screen.getByText(/YOUR MOVE/)).toBeInTheDocument();
     expect(
       screen.getByText(/Confirm revised start date · Calloway/),
     ).toBeInTheDocument();
+    expect(screen.getByText(/Walk site & quote · Martinez/)).toBeInTheDocument();
   });
 
-  it("links the next commitment to its thread", () => {
+  it("links each commitment to its thread", () => {
     render(
       <TodayBar
         commitments={[
@@ -37,13 +45,11 @@ describe("<TodayBar>", () => {
         ]}
       />,
     );
-    expect(screen.getByRole("link", { name: /X/ })).toHaveAttribute(
-      "href",
-      "/inbox/t-abc",
-    );
+    const link = screen.getByTestId("today-bar-commitment");
+    expect(link).toHaveAttribute("href", "/inbox/t-abc");
   });
 
-  it("shows the count when more than one commitment", () => {
+  it("renders an item count line ('3 items') when more than one commitment", () => {
     render(
       <TodayBar
         commitments={[
@@ -53,18 +59,21 @@ describe("<TodayBar>", () => {
         ]}
       />,
     );
-    expect(screen.getByText(/3/)).toBeInTheDocument();
+    expect(screen.getByText(/3 items/i)).toBeInTheDocument();
   });
 
-  it("renders the urgent indicator when next commitment is urgent", () => {
+  it("caps the rendered list at 3 commitments even when more are passed", () => {
     render(
       <TodayBar
-        commitments={[
-          { id: "c1", text: "A", due: "TODAY", threadId: "t1", urgent: true },
-        ]}
+        commitments={Array.from({ length: 5 }, (_, i) => ({
+          id: `c${i}`,
+          text: `Commit ${i}`,
+          due: "TODAY",
+          threadId: `t${i}`,
+          urgent: false,
+        }))}
       />,
     );
-    // urgent dot has data-testid for query
-    expect(screen.getByTestId("today-bar-urgent")).toBeInTheDocument();
+    expect(screen.getAllByTestId("today-bar-commitment")).toHaveLength(3);
   });
 });

@@ -1,17 +1,39 @@
 {
   "title": "Inbox",
 
-  "todayBar.allClear": "// ALL CLEAR",
-  "todayBar.noCommitments": "no commitments today",
-  "todayBar.title": "// BALL IN YOUR COURT — TODAY",
+  "todayBar.today": "Today",
+  "todayBar.yourMove": "Your move",
+  "todayBar.allCaughtUp": "All caught up",
+  "todayBar.allCaughtUpDetail": "Nothing waiting on you",
+  "todayBar.itemCount_one": "1 item",
+  "todayBar.itemCount_other": "{count} items",
 
-  "groups.needsYourInput": "// NEEDS YOUR INPUT",
-  "groups.urgent": "// URGENT",
-  "groups.today": "// TODAY",
-  "groups.thisWeek": "// THIS WEEK",
-  "groups.earlier": "// EARLIER",
+  "groups.needsYourInput": "Needs your input",
+  "groups.urgent": "Urgent",
+  "groups.today": "Today",
+  "groups.thisWeek": "This week",
+  "groups.earlier": "Earlier",
 
-  "row.aiDraft": "›AI-DRAFT",
+  "column.title": "Inbox",
+  "column.filter": "Filter inbox",
+  "column.filterAll": "All",
+  "column.more": "More options",
+  "column.search": "Search inbox",
+  "column.searchPlaceholder": "Search inbox…",
+
+  "list.loading": "Loading…",
+  "list.empty": "All caught up",
+
+  "row.aiDraft": "AI DRAFT",
+  "row.aiDraftPrefix": "AI DRAFT ·",
+  "row.draftPrefix": "DRAFT ·",
+  "row.urgent": "URGENT",
+
+  "detail.untitled": "(no subject)",
+  "detail.unknownClient": "Unknown sender",
+  "detail.openClient": "Open client",
+  "detail.oneMessage": "1 message",
+  "detail.nMessages": "{count} messages",
 
   "header.previousThread": "Previous thread",
   "header.nextThread": "Next thread",
@@ -21,17 +43,17 @@
   "header.recategorize": "Recategorize thread",
   "header.moreActions": "More actions",
 
-  "bands.summary.label": "// YOUR MOVE",
+  "bands.summary.label": "Your move",
   "bands.summary.updatedBy": "updated by Claude · {min} min ago",
   "bands.summary.history": "Summary history",
   "bands.summary.aria": "Claude summary",
 
-  "bands.needsInput.label": "// CLAUDE NEEDS YOUR INPUT",
+  "bands.needsInput.label": "Claude needs your input",
   "bands.needsInput.provideAnswer": "PROVIDE ANSWER",
   "bands.needsInput.typeReply": "type a reply…",
   "bands.needsInput.aria": "Claude needs your input",
 
-  "bands.ballYours.label": "// YOUR TURN — {client} is waiting",
+  "bands.ballYours.label": "Your turn — {client} is waiting",
   "bands.ballYours.reply": "Reply",
   "bands.ballYours.aria": "Your turn",
 
@@ -54,7 +76,7 @@
   "composer.draftWithClaude": "Draft with Claude",
   "composer.scheduleSend": "Schedule send",
 
-  "drafts.label": "// DRAFTS",
+  "drafts.label": "Drafts",
   "drafts.source.yours": "Yours",
   "drafts.source.claude": "Claude",
   "drafts.source.gmail": "Gmail",
@@ -73,16 +95,16 @@
   "rail.tabs.files": "Files",
   "rail.closeDrawer": "Close context drawer",
 
-  "project.scope": "// SCOPE",
-  "project.accounting": "// ACCOUNTING",
+  "project.scope": "Scope",
+  "project.accounting": "Accounting",
   "project.openProject": "Open project",
 
   "pipeline.empty": "no open opportunities",
   "pipeline.thisThread": "This thread",
   "pipeline.newOpportunity": "New opportunity",
 
-  "files.imagesLabel": "// IMAGES · {count}",
-  "files.documentsLabel": "// DOCUMENTS · {count}",
+  "files.imagesLabel": "Images · {count}",
+  "files.documentsLabel": "Documents · {count}",
   "files.empty": "no files attached",
   "files.openPhoto": "Open photo {filename}",
 

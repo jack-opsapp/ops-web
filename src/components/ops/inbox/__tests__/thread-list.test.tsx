@@ -13,8 +13,11 @@ const make = (id: string, over: Partial<ThreadListItem> = {}): ThreadListItem =>
   phaseC: "none",
   closed: false,
   clientName: id.toUpperCase(),
+  subject: `Subject ${id}`,
   snippet: "hello",
   unread: false,
+  messageCount: 1,
+  draftKind: null,
   ...over,
 });
 
@@ -32,11 +35,11 @@ describe("<ThreadList>", () => {
         onSelect={() => {}}
       />,
     );
-    expect(screen.getByText(/NEEDS YOUR INPUT/)).toBeInTheDocument();
-    expect(screen.getByText(/EARLIER/)).toBeInTheDocument();
-    expect(screen.queryByText(/^URGENT$/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/^TODAY$/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/THIS WEEK/)).not.toBeInTheDocument();
+    expect(screen.getByText(/Needs your input/i)).toBeInTheDocument();
+    expect(screen.getByText(/Earlier/i)).toBeInTheDocument();
+    expect(screen.queryByText(/^Urgent$/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Today$/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^This week$/i)).not.toBeInTheDocument();
   });
 
   it("renders one row per visible thread", () => {

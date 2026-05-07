@@ -3,12 +3,12 @@ import { describe, it, expect, vi } from "vitest";
 import { ThreadDetail } from "../thread-detail";
 
 const baseProps = {
-  client: {
-    name: "Calloway HVAC",
-    phone: "+1 (415) 555-0184",
-    email: "ops@calloway.com",
-    address: "123 Mission St, San Francisco, CA",
-  },
+  subject: "RFQ — kitchen remodel",
+  category: { label: "CLIENT", dotClassName: "bg-text-2" },
+  senderName: "Calloway HVAC",
+  messageCount: 4,
+  clientType: null,
+  rightRailOpen: true,
   onPrev: vi.fn(),
   onNext: vi.fn(),
   onArchive: vi.fn(),
@@ -16,31 +16,30 @@ const baseProps = {
   onRecategorize: vi.fn(),
   onMore: vi.fn(),
   onToggleRail: vi.fn(),
-  rightRailOpen: true,
 };
 
 describe("<ThreadDetail>", () => {
-  it("renders the client name in the header", () => {
+  it("renders the thread subject as the header title (not the sender)", () => {
     render(
       <ThreadDetail {...baseProps}>
         <div>messages</div>
       </ThreadDetail>,
     );
-    expect(screen.getByText("Calloway HVAC")).toBeInTheDocument();
+    expect(screen.getByText("RFQ — kitchen remodel")).toBeInTheDocument();
   });
 
-  it("renders contact strip entries with mono uppercase styling", () => {
+  it("meta strip surfaces category label, sender, and message count", () => {
     render(
       <ThreadDetail {...baseProps}>
         <div />
       </ThreadDetail>,
     );
-    expect(screen.getByText(/415\) 555-0184/)).toBeInTheDocument();
-    expect(screen.getByText(/ops@calloway\.com/)).toBeInTheDocument();
-    expect(screen.getByText(/Mission St/)).toBeInTheDocument();
+    expect(screen.getByText("CLIENT")).toBeInTheDocument();
+    expect(screen.getByText("Calloway HVAC")).toBeInTheDocument();
+    expect(screen.getByText("4 messages")).toBeInTheDocument();
   });
 
-  it("renders four right-side icon buttons: archive/snooze/recategorize/more", () => {
+  it("renders four right-side action buttons + rail toggle", () => {
     render(
       <ThreadDetail {...baseProps}>
         <div />
@@ -49,7 +48,8 @@ describe("<ThreadDetail>", () => {
     expect(screen.getByRole("button", { name: /archive/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /snooze/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /recategorize/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /more/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /more actions/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /toggle context/i })).toBeInTheDocument();
   });
 
   it("J advances next, K retreats prev (case-insensitive); ignores when typing in input", () => {
@@ -67,7 +67,6 @@ describe("<ThreadDetail>", () => {
     fireEvent.keyDown(window, { key: "k" });
     expect(onPrev).toHaveBeenCalledTimes(1);
 
-    // While focused in an input, the keys are ignored.
     const input = screen.getByTestId("input") as HTMLInputElement;
     input.focus();
     fireEvent.keyDown(input, { key: "j" });
@@ -87,7 +86,7 @@ describe("<ThreadDetail>", () => {
     expect(onArchive).toHaveBeenCalled();
   });
 
-  it("toggle rail button calls onToggleRail", () => {
+  it("rail toggle calls onToggleRail", () => {
     const onToggleRail = vi.fn();
     render(
       <ThreadDetail {...baseProps} onToggleRail={onToggleRail}>
@@ -105,5 +104,16 @@ describe("<ThreadDetail>", () => {
       </ThreadDetail>,
     );
     expect(screen.getByTestId("messages")).toBeInTheDocument();
+  });
+
+  it("Open client link fires onOpenClient when provided", () => {
+    const onOpenClient = vi.fn();
+    render(
+      <ThreadDetail {...baseProps} onOpenClient={onOpenClient}>
+        <div />
+      </ThreadDetail>,
+    );
+    screen.getByRole("button", { name: /open client/i }).click();
+    expect(onOpenClient).toHaveBeenCalled();
   });
 });
