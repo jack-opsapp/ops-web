@@ -158,6 +158,14 @@
     --map-fade-mid:  rgba(20, 20, 20, 0.55);
     --map-fade-end:  rgba(20, 20, 20, 0.95);
 
+    /* ── Floating-window shadows (sanctioned exceptions to "no shadow")
+     * Spec amendment 2026-05-07 (uploads/system.md): floating-window
+     * shells (workspace, future estimate/email composers) carry
+     * tokenized drop shadows for separation from canvas. Static UI
+     * surfaces remain shadow-free. */
+    --shadow-window:   0 24px 64px rgba(0, 0, 0, 0.65), 0 0 0 0.5px rgba(255, 255, 255, 0.04);
+    --shadow-dropdown: 0 12px 32px rgba(0, 0, 0, 0.55);
+
     /* ── OPS spec v2 brand tokens (canonical, see .interface-design/system.md) ── */
     /* Glass aliases without `-bg` suffix — preferred shorthand for inline styles */
     --glass: rgba(18, 18, 20, 0.58);

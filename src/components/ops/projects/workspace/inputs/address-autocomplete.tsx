@@ -190,7 +190,9 @@ export function AddressAutocomplete({
             WebkitBackdropFilter: "blur(12px)",
             border: "1px solid var(--line)",
             borderRadius: 5,
-            boxShadow: "0 12px 32px rgba(0,0,0,0.55)",
+            // --shadow-dropdown: floating dropdown over Mapbox tiles.
+            // Sanctioned exception per uploads/system.md 2026-05-07.
+            boxShadow: "var(--shadow-dropdown)",
           }}
         >
           {results.map((result, index) => {

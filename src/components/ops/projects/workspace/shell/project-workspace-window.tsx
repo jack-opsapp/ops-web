@@ -158,11 +158,11 @@ export function ProjectWorkspaceWindow<TTabId extends string = string>({
         width: liveSize.width,
         height: liveSize.height,
         zIndex,
-        // 0 24px 64px primary shadow + 0.5px hairline for the matte
-        // outline that separates dense glass from the canvas. Inline
-        // because Tailwind named shadows don't include this exact stack.
-        boxShadow:
-          "0 24px 64px rgba(0,0,0,0.65), 0 0 0 0.5px rgba(255,255,255,0.04)",
+        // --shadow-window: 0 24px 64px scrim + 0.5px hairline ring.
+        // Sanctioned exception to spec line 268 ("no shadow on dark
+        // backgrounds") — floating-window shells need separation from
+        // canvas. See uploads/system.md amendment 2026-05-07.
+        boxShadow: "var(--shadow-window)",
       }}
       className={cn(
         "fixed flex flex-col overflow-hidden",
