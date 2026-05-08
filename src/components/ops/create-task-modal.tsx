@@ -5,7 +5,7 @@ import { Search, X, Plus } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Input } from "@/components/ui/input";
 import { TaskForm, type TaskFormValues } from "@/components/ops/task-form";
-import { CreateProjectModal } from "@/components/ops/create-project-modal";
+import { useWindowStore } from "@/stores/window-store";
 import { useProjects } from "@/lib/hooks/use-projects";
 import { useTaskTypes } from "@/lib/hooks/use-task-types";
 import { useTeamMembers } from "@/lib/hooks/use-users";
@@ -183,7 +183,7 @@ export function CreateTaskForm({ onSuccess, onCancel, defaultProjectId }: Create
   const companyId = company?.id ?? "";
 
   const [projectId, setProjectId] = useState<string | null>(defaultProjectId ?? null);
-  const [showCreateProject, setShowCreateProject] = useState(false);
+  const openProjectWindow = useWindowStore((s) => s.openProjectWindow);
 
   const { data: taskTypes } = useTaskTypes();
   const { data: teamData } = useTeamMembers();
@@ -254,36 +254,38 @@ export function CreateTaskForm({ onSuccess, onCancel, defaultProjectId }: Create
   }
 
   return (
-    <>
-      <div className="space-y-2">
-        <ProjectSelector
-          value={projectId}
-          onChange={setProjectId}
-          onCreateNew={() => setShowCreateProject(true)}
-        />
-
-        {!projectId && (
-          <p className="font-mono text-[11px] text-text-mute">
-            Select a project to create a task for.
-          </p>
-        )}
-
-        {projectId && (
-          <TaskForm
-            taskTypes={taskTypes ?? []}
-            teamMembers={teamMembers}
-            isSubmitting={isPending}
-            onSubmit={handleSubmit}
-            onCancel={() => onCancel?.()}
-          />
-        )}
-      </div>
-
-      {/* Create Project Modal */}
-      <CreateProjectModal
-        open={showCreateProject}
-        onOpenChange={setShowCreateProject}
+    <div className="space-y-2">
+      <ProjectSelector
+        value={projectId}
+        onChange={setProjectId}
+        onCreateNew={() =>
+          // Opens the project workspace window in creating mode on top
+          // of the task modal. The task form stays mounted, so when the
+          // workspace finishes its create the new project id flows back
+          // through `onProjectCreated` and auto-selects in the picker.
+          openProjectWindow({
+            projectId: null,
+            mode: "creating",
+            onProjectCreated: (newId) => setProjectId(newId),
+          })
+        }
       />
-    </>
+
+      {!projectId && (
+        <p className="font-mono text-[11px] text-text-mute">
+          Select a project to create a task for.
+        </p>
+      )}
+
+      {projectId && (
+        <TaskForm
+          taskTypes={taskTypes ?? []}
+          teamMembers={teamMembers}
+          isSubmitting={isPending}
+          onSubmit={handleSubmit}
+          onCancel={() => onCancel?.()}
+        />
+      )}
+    </div>
   );
 }
