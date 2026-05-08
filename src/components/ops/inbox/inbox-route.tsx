@@ -52,6 +52,7 @@ import { useWindowStore } from "@/stores/window-store";
 import { ResponsiveInboxShell } from "./responsive-inbox-shell";
 import { ThreadColumnHeader } from "./thread-column-header";
 import { TodayBar, type TodayCommitment } from "./today-bar";
+import { computeStateTag } from "@/lib/inbox/format-wait";
 import { ThreadList, type ThreadListItem } from "./thread-list";
 import { ThreadDetail } from "./thread-detail";
 import {
@@ -681,14 +682,37 @@ function toCommitments(t: InboxThreadRow): TodayCommitment[] {
   ) {
     return [];
   }
-  const due = new Date(t.nextCommitmentDueAt);
+  const lastMessageMs = new Date(t.lastMessageAt).getTime();
+  const lastInboundAt =
+    t.latestDirection === "inbound" ? lastMessageMs : null;
+  const lastOutboundAt =
+    t.latestDirection === "outbound" ? lastMessageMs : null;
+  const stateResult = computeStateTag({
+    lastInboundAt,
+    lastOutboundAt,
+    hasAiDraft: t.phaseC === "ai_drafted",
+    sentByAgentRecently: t.phaseC === "auto_sent",
+    category: t.primaryCategory,
+    closed: t.archivedAt !== null,
+    now: Date.now(),
+  });
+  const waitingDays =
+    t.latestDirection === "inbound"
+      ? Math.floor((Date.now() - lastMessageMs) / 86_400_000)
+      : 0;
+  const clientName = t.clientName ?? t.latestSenderName ?? "Unknown";
   return [
     {
       id: t.nextCommitmentId,
       threadId: t.id,
-      text: `${t.clientName ?? t.latestSenderName ?? "Thread"} — ${t.subject ?? "—"}`,
-      due: formatDue(due),
-      urgent: t.labels.includes("URGENT"),
+      text: `${clientName} — ${t.subject ?? "—"}`,
+      clientName,
+      state: {
+        tone: stateResult.tone,
+        prefix: stateResult.prefix ?? "",
+        value: stateResult.value,
+      },
+      waitingDays,
     },
   ];
 }
