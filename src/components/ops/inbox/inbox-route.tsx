@@ -44,6 +44,8 @@ import {
 } from "./archive-confirm-modal";
 import { enqueueUndoToast } from "./undo-toast";
 import { useClientOpportunities } from "@/lib/hooks/use-client-opportunities";
+import { useClientProjects } from "@/lib/hooks/use-client-projects";
+import { useClientTasks } from "@/lib/hooks/use-client-tasks";
 import { useClientFiles } from "@/lib/hooks/use-client-files";
 import { useClient, useSubClients } from "@/lib/hooks/use-clients";
 import { useThreadOpportunityLinks } from "@/lib/hooks/use-thread-opportunity-links";
@@ -65,7 +67,8 @@ import {
   categoryLabel as resolveCategoryLabel,
 } from "./category-chip";
 import { ContextRail } from "./context-rail/context-rail";
-import { PipelineList, type PipelineOpp } from "./context-rail/pipeline-list";
+import { type PipelineOpp } from "./context-rail/pipeline-list";
+import { WorkView } from "./context-rail/work-view";
 import { FilesView, type FileItem, type PhotoItem } from "./context-rail/files-view";
 import type {
   InboxThreadRow,
@@ -160,6 +163,8 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
     activeDraft !== null && composerValue === activeDraft.bodyText;
 
   const opportunitiesQuery = useClientOpportunities(clientId);
+  const projectsQuery = useClientProjects(clientId);
+  const tasksQuery = useClientTasks(clientId);
   const filesQuery = useClientFiles(clientId);
   const clientQuery = useClient(clientId ?? undefined);
   const subClientsQuery = useSubClients(clientId ?? undefined);
@@ -491,6 +496,8 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
   );
 
   const opportunities = opportunitiesQuery.data ?? [];
+  const projects = projectsQuery.data ?? [];
+  const tasks = tasksQuery.data ?? [];
   const photoRows = filesQuery.data?.photos ?? [];
   const documentRows = filesQuery.data?.documents ?? [];
 
@@ -533,31 +540,42 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
       threadId={threadId ?? ""}
       onOpenClient={() => router.push(`/clients/${clientId}`)}
       counts={{
-        work: opportunities.length,
+        work: opportunities.length + projects.length,
         accounting: docs.length,
         files: filesCount,
       }}
       work={
-        pipelineOpps.length === 0 ? (
-          <EmptyState label={t("rail.empty.pipeline", "No open opportunities")} />
-        ) : (
-          <PipelineList
-            opps={pipelineOpps}
-            threadId={threadId ?? ""}
-            onNewOpportunity={() =>
-              openWindow({
-                id: clientId
-                  ? `create-lead-${clientId}`
-                  : `create-lead-${threadId ?? "new"}`,
-                title: t("pipeline.newOpportunity", "New opportunity"),
-                type: "create-lead",
-                metadata: clientId
-                  ? { clientId, sourceThreadId: threadId ?? null }
-                  : { sourceThreadId: threadId ?? null },
-              })
-            }
-          />
-        )
+        <WorkView
+          pipelineOpps={pipelineOpps}
+          projects={projects}
+          tasks={tasks}
+          currentThreadId={threadId ?? ""}
+          onNewOpportunity={() =>
+            openWindow({
+              id: clientId
+                ? `create-lead-${clientId}`
+                : `create-lead-${threadId ?? "new"}`,
+              title: t("pipeline.newOpportunity", "New opportunity"),
+              type: "create-lead",
+              metadata: clientId
+                ? { clientId, sourceThreadId: threadId ?? null }
+                : { sourceThreadId: threadId ?? null },
+            })
+          }
+          onNewProject={() =>
+            openWindow({
+              id: clientId
+                ? `create-project-${clientId}`
+                : `create-project-${threadId ?? "new"}`,
+              title: t("rail.addProject", "+ NEW PROJECT"),
+              type: "create-project",
+              metadata: clientId
+                ? { clientId, sourceThreadId: threadId ?? null }
+                : { sourceThreadId: threadId ?? null },
+            })
+          }
+          onOpenProject={(projectId) => router.push(`/projects/${projectId}`)}
+        />
       }
       accounting={
         <EmptyState label={t("rail.empty.files", "No files attached")} />
