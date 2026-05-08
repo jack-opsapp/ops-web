@@ -44,6 +44,9 @@ interface ThreadDetailHeaderProps {
   onSnooze?: () => void;
   onRecategorize?: () => void;
   onMore?: () => void;
+  /** Inline slot rendered in the meta strip after the message count.
+   *  Typically a `<ThreadPicker />` populated by the parent route. */
+  threadPickerSlot?: ReactNode;
   className?: string;
 }
 
@@ -85,6 +88,7 @@ export function ThreadDetailHeader({
   onSnooze,
   onRecategorize,
   onMore,
+  threadPickerSlot,
   className,
 }: ThreadDetailHeaderProps) {
   const { t } = useDictionary("inbox");
@@ -172,6 +176,14 @@ export function ThreadDetailHeader({
                 String(messageCount),
               )}
         </span>
+        {threadPickerSlot && (
+          <>
+            <span aria-hidden className="text-text-mute">
+              ·
+            </span>
+            {threadPickerSlot}
+          </>
+        )}
       </div>
     </header>
   );

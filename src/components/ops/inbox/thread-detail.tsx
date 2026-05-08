@@ -21,6 +21,9 @@ interface ThreadDetailProps {
   onSnooze?: () => void;
   onRecategorize?: () => void;
   onMore?: () => void;
+  /** Inline slot rendered in the detail-header meta strip after the message
+   *  count. Forwarded as-is to <ThreadDetailHeader>. */
+  threadPickerSlot?: ReactNode;
   className?: string;
   children?: ReactNode;
 }
@@ -48,6 +51,7 @@ export function ThreadDetail({
   onSnooze,
   onRecategorize,
   onMore,
+  threadPickerSlot,
   className,
   children,
 }: ThreadDetailProps) {
@@ -82,6 +86,7 @@ export function ThreadDetail({
         onSnooze={onSnooze}
         onRecategorize={onRecategorize}
         onMore={onMore}
+        threadPickerSlot={threadPickerSlot}
       />
       <div className="flex min-h-0 flex-1 flex-col">{children}</div>
     </div>
