@@ -299,7 +299,7 @@ describe("useProjectMutations", () => {
       expect(notificationCreateCalls[0]).toMatchObject({
         type: "system",
         projectId: "proj-1",
-        actionUrl: "/projects/proj-1",
+        actionUrl: "/?openProject=proj-1&mode=view",
       });
     });
   });
