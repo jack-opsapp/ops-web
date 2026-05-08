@@ -1,16 +1,10 @@
 "use client";
 
-import { useMemo, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import Link from "next/link";
-import { motion, useReducedMotion } from "framer-motion";
 import { Headphones } from "lucide-react";
 import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
-import {
-  lockoutShellChildVariants,
-  lockoutShellChildVariantsReduced,
-  lockoutShellStaggerVariants,
-} from "@/lib/utils/motion";
 
 export interface LockoutShellTagProps {
   tone: "rose" | "tan";
@@ -44,13 +38,6 @@ export function LockoutShell({
   showSwitchAccount = true,
 }: LockoutShellProps) {
   const { t } = useDictionary("auth");
-  const prefersReducedMotion = useReducedMotion();
-  const childVariants = useMemo(
-    () =>
-      prefersReducedMotion ? lockoutShellChildVariantsReduced : lockoutShellChildVariants,
-    [prefersReducedMotion]
-  );
-
   const isPage = variant === "page";
 
   return (
@@ -62,16 +49,8 @@ export function LockoutShell({
         "rounded-[5px] overflow-hidden"
       )}
     >
-      <motion.div
-        variants={lockoutShellStaggerVariants}
-        initial="hidden"
-        animate="visible"
-      >
       {/* Top rail */}
-      <motion.div
-        variants={childVariants}
-        className="flex items-center justify-between gap-3 mb-4"
-      >
+      <div className="flex items-center justify-between gap-3 mb-4">
         <span
           className={cn(
             "inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[2.5px] border font-mono text-[11px] uppercase tracking-[0.12em]",
@@ -87,10 +66,10 @@ export function LockoutShell({
           <span className="text-text-mute">{"// "}</span>
           {t("lockout.shared.contactSupport").toUpperCase()}
         </a>
-      </motion.div>
+      </div>
 
       {/* Hero */}
-      <motion.div variants={childVariants} className="mb-6">
+      <div className="mb-6">
         <h2
           id="lockout-heading"
           className="font-cakemono font-light text-[30px] uppercase tracking-tight text-text leading-none mb-3"
@@ -100,28 +79,23 @@ export function LockoutShell({
         <p className="font-mohave text-[14px] text-text-2 leading-[1.45]">
           {body}
         </p>
-      </motion.div>
+      </div>
 
       {/* Section divider */}
-      <motion.div
-        variants={childVariants}
-        className="flex items-center gap-3 mb-5"
-      >
+      <div className="flex items-center gap-3 mb-5">
         <span className="flex-1 h-px bg-[var(--line,rgba(255,255,255,0.10))]" />
         <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-3">
           <span className="text-text-mute">{"// "}</span>
           {sectionLabel}
         </span>
         <span className="flex-1 h-px bg-[var(--line,rgba(255,255,255,0.10))]" />
-      </motion.div>
+      </div>
 
       {/* State module slot */}
-      <motion.div variants={childVariants} className="mb-6">
-        {children}
-      </motion.div>
+      <div className="mb-6">{children}</div>
 
       {/* Footer */}
-      <motion.div variants={childVariants}>
+      <div>
         <div className="h-px bg-[var(--line,rgba(255,255,255,0.10))] mb-3" />
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3">
@@ -146,8 +120,7 @@ export function LockoutShell({
             {fingerprint}
           </span>
         </div>
-      </motion.div>
-      </motion.div>
+      </div>
     </div>
   );
 }

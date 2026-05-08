@@ -641,31 +641,8 @@ export const sparklineVariants: Variants = {
   },
 };
 
-// ── Lockout shell stagger (per spec 2026-05-07-lockout-redesign-design.md) ──
-
-/** Container variant: staggers child entrance after the card lands. */
-export const lockoutShellStaggerVariants: Variants = {
-  hidden: {},
-  visible: {
-    transition: {
-      staggerChildren: 0.05,
-      delayChildren: 0.1,
-    },
-  },
-};
-
-/** Per-row entrance: 4px slide-up + opacity. */
-export const lockoutShellChildVariants: Variants = {
-  hidden: { opacity: 0, y: 4 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.2, ease: EASE_SMOOTH },
-  },
-};
-
-/** Reduced-motion: opacity only, no transform. */
-export const lockoutShellChildVariantsReduced: Variants = {
-  hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { duration: 0.15 } },
-};
+// Lockout shell internal-stagger variants were removed 2026-05-07.
+// The original stagger never propagated hidden→visible to children
+// (children stayed at opacity:0). The overlay's card-level entrance
+// (`lockoutCardVariants` above) handles the entrance animation; the
+// inner shell renders content statically.
