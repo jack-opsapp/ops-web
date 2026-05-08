@@ -5,6 +5,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { ProjectStatus, PROJECT_STATUS_COLORS } from "@/lib/types/models";
 import { EASE_SMOOTH } from "@/lib/utils/motion";
 import { cn } from "@/lib/utils/cn";
+import { withAlpha } from "@/lib/utils/color";
 import { Mono } from "@/components/ops/projects/workspace/atoms/mono";
 
 // `ScheduleStrip` — compact `[ start ]══●══════[ end ]` strip below the map.
@@ -92,7 +93,7 @@ export function ScheduleStrip({
             data-testid="schedule-strip-fill"
             aria-hidden="true"
             className="absolute inset-y-0 left-0 rounded-bar"
-            style={{ width: tickLeft, background: `${statusColor}33` }}
+            style={{ width: tickLeft, background: withAlpha(statusColor, 20) }}
           />
         )}
         {tickLeft !== null && (
@@ -108,7 +109,7 @@ export function ScheduleStrip({
                 animate={PULSE_KEYFRAMES}
                 transition={PULSE_TRANSITION}
                 className="absolute -inset-2 rounded-full"
-                style={{ background: `${statusColor}55`, filter: "blur(4px)" }}
+                style={{ background: withAlpha(statusColor, 33), filter: "blur(4px)" }}
                 aria-hidden="true"
               />
             )}

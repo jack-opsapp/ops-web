@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { EASE_SMOOTH } from "@/lib/utils/motion";
 import { ProjectStatus, PROJECT_STATUS_COLORS } from "@/lib/types/models";
+import { withAlpha } from "@/lib/utils/color";
 import { ProjectMap, type OtherPin } from "@/components/ops/projects/workspace/map/project-map";
 
 // ─── Animation tokens ───────────────────────────────────────────────────────
@@ -327,10 +328,10 @@ function MapStatusPill({ color, label }: { color: string; label: string }) {
         color,
         padding: "6px 10px",
         // Soft status background — 14% opacity behind the pill, color-only border.
-        background: `${color}24`,
+        background: withAlpha(color, 14),
         backdropFilter: "blur(8px)",
         WebkitBackdropFilter: "blur(8px)",
-        border: `1px solid ${color}66`,
+        border: `1px solid ${withAlpha(color, 40)}`,
         borderRadius: PILL_RADIUS,
       }}
     >

@@ -3,6 +3,7 @@
 import Map, { Marker } from "react-map-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { useReducedMotion } from "framer-motion";
+import { withAlpha } from "@/lib/utils/color";
 
 export interface OtherPin {
   id: string;
@@ -93,7 +94,7 @@ function ProjectPin({ color, animate }: ProjectPinProps) {
           width: 28,
           height: 28,
           borderRadius: "50%",
-          background: `radial-gradient(circle, ${color}55 0%, ${color}00 70%)`,
+          background: `radial-gradient(circle, ${withAlpha(color, 33)} 0%, ${withAlpha(color, 0)} 70%)`,
           position: "absolute",
           top: -14,
           left: -14,
@@ -143,7 +144,7 @@ function OtherProjectPin({ color, label }: OtherProjectPinProps) {
         height: 8,
         borderRadius: "50%",
         background: color,
-        boxShadow: `0 0 6px ${color}80`,
+        boxShadow: `0 0 6px ${withAlpha(color, 50)}`,
         border: "1px solid var(--scrim-edge-stroke)",
         opacity: 0.72,
       }}
