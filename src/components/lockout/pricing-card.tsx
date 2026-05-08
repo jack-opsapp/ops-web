@@ -94,7 +94,7 @@ export function PricingCard({ tier, companyId, isRecommended }: PricingCardProps
         <Button
           variant={isRecommended ? "primary" : "default"}
           size="sm"
-          className="w-full"
+          className="flex w-full"
           onClick={handleSubscribe}
           disabled={loading}
           loading={loading}
