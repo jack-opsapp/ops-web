@@ -44,8 +44,8 @@ export function LockoutShell({
     <div
       className={cn(
         isPage
-          ? "glass-surface w-full max-w-[1080px] mx-auto p-8"
-          : "glass-dense w-full max-w-[520px] mx-auto p-6",
+          ? "glass-surface w-full max-w-[1080px] mx-auto p-6 md:p-8"
+          : "glass-dense w-full max-w-[1080px] mx-auto p-6 md:p-8",
         "rounded-[5px] overflow-hidden"
       )}
     >
