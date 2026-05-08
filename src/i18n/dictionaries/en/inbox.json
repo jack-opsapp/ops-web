@@ -365,6 +365,10 @@
   "groups.fyiLabel": "// FYI",
   "groups.closedLabel": "// CLOSED",
   "groups.scheduledLabel": "// SCHEDULED",
+  "groups.needsInputLabel": "// NEEDS INPUT",
+  "groups.draftsReadyLabel": "// DRAFTS READY",
+  "groups.awaitingThemLabel": "// AWAITING THEM",
+  "groups.laterLabel": "// LATER",
 
   "row.stateYoursHours": "YOURS · {hours}H",
   "row.stateYoursDays": "YOURS · {days}D",

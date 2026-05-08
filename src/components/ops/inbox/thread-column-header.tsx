@@ -3,18 +3,16 @@
 /**
  * ThreadColumnHeader — top of the left column.
  *
- * Faithful to `reference/v4-states.jsx :: V4Column` header block:
- *   • Title row: "Inbox" h2 (Mohave 17 / 500), filter pill, more button
- *   • Search bar below (compact 30px, ⌘K hint)
- *
- * The filter pill is a presentational shell here — actual filter wiring
- * is downstream of this component (the InboxRoute owns scope + filter).
+ * Phase B rebuild: tactical voice. Drops the boxed "Inbox" h2 + Filter/Search
+ * lucide icons. Header now reads as `// INBOX  [ALL ▾]  ⋯` with a single-line
+ * `[search threads — ⌘K]` placeholder button below. Brackets/glyphs carry the
+ * affordance — no decorative icons. Spec § 4 punch list rows.
  */
 
-import { ChevronDown, Filter, MoreHorizontal, Search } from "lucide-react";
+import { MoreHorizontal } from "lucide-react";
 import { useDictionary } from "@/i18n/client";
-import { KeyHint } from "@/components/ui/key-hint";
 import { cn } from "@/lib/utils/cn";
+import { SlashLabel } from "./voice/slash-label";
 
 interface ThreadColumnHeaderProps {
   filterLabel?: string;
@@ -35,51 +33,45 @@ export function ThreadColumnHeader({
   return (
     <div
       className={cn(
-        "shrink-0 border-b border-line bg-inbox-panel px-3.5 pb-2.5 pt-3.5",
+        "shrink-0 border-b border-line bg-inbox-panel",
         className,
       )}
     >
-      <div className="mb-2.5 flex items-baseline gap-2">
-        <h2 className="m-0 font-mohave text-[17px] font-medium tracking-[-0.005em] text-text">
-          {t("column.title", "Inbox")}
-        </h2>
-        <div className="flex-1" />
+      <div className="flex items-center gap-2 px-3.5 py-3.5">
+        <SlashLabel
+          label={t("panel.title", "// INBOX")}
+          size="sm"
+          tone="text-2"
+          className="flex-1"
+        />
         <button
           type="button"
           onClick={onOpenFilter}
           aria-label={t("column.filter", "Filter inbox")}
-          className="inline-flex h-[22px] items-center gap-1.5 rounded-chip border border-line bg-transparent px-2 font-mohave text-[11px] text-text-3 hover:border-line-hi hover:text-text-2"
+          className="inline-flex items-center gap-1 rounded-chip border border-line px-2 py-[3px] font-mono text-[11px] uppercase tracking-[0.16em] text-text-2 hover:border-line-hi hover:text-text"
+          style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
         >
-          {/* Icons kept at 11px / 9px to balance the 11px filter label inside the 22px chip — matching font weight beats spec floor here. */}
-          <Filter aria-hidden className="h-[11px] w-[11px]" strokeWidth={1.5} />
-          <span>{filterLabel ?? t("column.filterAll", "All")}</span>
-          <ChevronDown aria-hidden className="h-[9px] w-[9px]" strokeWidth={1.5} />
+          {filterLabel ?? t("filter.allChip", "[ALL ▾]")}
         </button>
         <button
           type="button"
           onClick={onOpenMore}
-          aria-label={t("column.more", "More options")}
-          className="inline-flex h-[22px] w-[22px] items-center justify-center rounded-chip border border-line bg-transparent text-text-3 hover:border-line-hi hover:text-text-2"
+          aria-label={t("more.actions", "More actions")}
+          className="text-text-mute hover:text-text-2 p-1"
         >
-          <MoreHorizontal aria-hidden className="h-3.5 w-3.5" strokeWidth={1.5} />
+          <MoreHorizontal aria-hidden className="h-4 w-4" strokeWidth={1.5} />
         </button>
       </div>
-      <button
-        type="button"
-        onClick={onOpenSearch}
-        aria-label={t("column.search", "Search inbox")}
-        className="flex h-[30px] w-full items-center gap-2 rounded-[5px] border border-line bg-inbox-bg-deep px-2.5 text-left transition-colors hover:border-line-hi"
-      >
-        <Search
-          aria-hidden
-          className="h-4 w-4 shrink-0 text-text-mute"
-          strokeWidth={1.5}
-        />
-        <span className="flex-1 truncate font-mohave text-[12px] text-text-mute">
-          {t("column.searchPlaceholder", "Search inbox…")}
-        </span>
-        <KeyHint keys={["⌘", "K"]} variant="chip" />
-      </button>
+      <div className="px-3.5 pb-3 -mt-1">
+        <button
+          type="button"
+          onClick={onOpenSearch}
+          aria-label={t("column.search", "Search inbox")}
+          className="block w-full rounded-[4px] border border-line bg-[rgba(255,255,255,0.03)] px-2.5 py-1.5 text-left font-mono text-[11px] text-text-mute hover:border-line-hi focus:border-line-hi focus:outline-none"
+        >
+          {t("search.tacticPlaceholder", "[search threads — ⌘K]")}
+        </button>
+      </div>
     </div>
   );
 }

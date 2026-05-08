@@ -46,8 +46,8 @@ describe("<ThreadList>", () => {
         onSelect={() => {}}
       />,
     );
-    expect(screen.getByText(/Needs your input/i)).toBeInTheDocument();
-    expect(screen.getByText(/Later/i)).toBeInTheDocument();
+    expect(screen.getByText(/\/\/ NEEDS INPUT/i)).toBeInTheDocument();
+    expect(screen.getByText(/\/\/ LATER/i)).toBeInTheDocument();
     expect(screen.queryByText(/^Urgent$/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/^Today$/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/^This week$/i)).not.toBeInTheDocument();
