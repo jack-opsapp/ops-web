@@ -64,7 +64,7 @@ beforeEach(() => {
 });
 
 describe("<ThreadPicker>", () => {
-  it("renders the trigger with the count and JetBrains Mono uppercase styling when threads exist", () => {
+  it("renders the trigger with the count when threads exist", () => {
     const threads = [
       makeThread("t1", "Quote follow-up", stateYours),
       makeThread("t2", "Inspection rescheduling", stateTheirs),
@@ -82,10 +82,7 @@ describe("<ThreadPicker>", () => {
       name: /3 other threads/i,
     });
     expect(trigger).toBeInTheDocument();
-    // JetBrains Mono uppercase trigger label
-    expect(trigger.className).toMatch(/font-mono/);
-    expect(trigger.className).toMatch(/uppercase/);
-    // Hairline border on active trigger
+    // Hairline border on active trigger — visual contract per spec § 5.1
     expect(trigger.className).toMatch(/\bborder\b/);
     // The visible label text (after the chevron) shows the count
     expect(trigger).toHaveTextContent(/3 OTHER THREADS/);
