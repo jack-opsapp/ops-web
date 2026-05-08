@@ -15,7 +15,7 @@
  * ThreadPickerThread[] via useClientThreads + computeStateTag.
  */
 
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -55,13 +55,10 @@ export function ThreadPicker({
 
   const count = threads.length;
 
-  const handleRowClick = useCallback(
-    (threadId: string) => {
-      router.push(`/inbox/${threadId}`);
-      setOpen(false);
-    },
-    [router],
-  );
+  function handleRowClick(threadId: string) {
+    router.push(`/inbox/${threadId}`);
+    setOpen(false);
+  }
 
   // Disabled mute label — no other threads
   if (count === 0) {
@@ -77,11 +74,12 @@ export function ThreadPicker({
     );
   }
 
-  // Strip the leading "▾ " from the dictionary value because we render the
-  // chevron icon ourselves via Lucide. Then interpolate the count.
-  const triggerLabel = t("picker.trigger", "▾ {count} OTHER THREADS")
-    .replace(/^▾\s*/, "")
-    .replace("{count}", String(count));
+  // The chevron is rendered separately via Lucide so it can flip on expand;
+  // the dictionary string carries only the count + label.
+  const triggerLabel = t("picker.trigger", "{count} OTHER THREADS").replace(
+    "{count}",
+    String(count),
+  );
 
   const ariaLabel = `Show ${count} other threads with ${clientName}`;
 
@@ -123,58 +121,22 @@ export function ThreadPicker({
           <SlashLabel label={headerLabel} tone="text-mute" size="sm" />
         </div>
 
-        {/* Thread rows */}
+        {/* Thread rows — empty case is handled by the early return above
+            (renders the disabled mute label instead of opening a popover). */}
         <div className="pt-1">
-          {threads.length === 0 ? (
-            <div className="px-2 py-2 font-mono text-[11px] text-text-mute">
-              [—] no other threads
-            </div>
-          ) : (
-            threads.map((thread) => {
-              const isCurrent = thread.id === currentThreadId;
-              const subjectClass = thread.unread ? "text-text" : "text-text-2";
+          {threads.map((thread) => {
+            const isCurrent = thread.id === currentThreadId;
+            const subjectClass = thread.unread ? "text-text" : "text-text-2";
 
-              if (isCurrent) {
-                return (
-                  <div
-                    key={thread.id}
-                    data-thread-row
-                    aria-disabled="true"
-                    className={cn(
-                      "flex items-center justify-between gap-2 rounded-chip px-2 py-2",
-                      "bg-ops-accent/[0.08]",
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        "min-w-0 flex-1 truncate font-mohave text-[13px]",
-                        subjectClass,
-                      )}
-                    >
-                      {thread.subject}
-                    </span>
-                    <StateTag
-                      tone={thread.state.tone}
-                      variant="bare"
-                      prefix={thread.state.prefix}
-                      value={thread.state.value}
-                    />
-                  </div>
-                );
-              }
-
+            if (isCurrent) {
               return (
-                <button
+                <div
                   key={thread.id}
-                  type="button"
                   data-thread-row
-                  onClick={() => handleRowClick(thread.id)}
-                  aria-label={thread.subject}
+                  aria-disabled="true"
                   className={cn(
-                    "flex w-full items-center justify-between gap-2 rounded-chip px-2 py-2 text-left",
-                    "transition-colors",
-                    "hover:bg-[rgba(255,255,255,0.04)]",
-                    "focus-visible:outline-none focus-visible:bg-[rgba(255,255,255,0.04)]",
+                    "flex items-center justify-between gap-2 rounded-chip px-2 py-2",
+                    "bg-ops-accent/[0.08]",
                   )}
                 >
                   <span
@@ -191,10 +153,41 @@ export function ThreadPicker({
                     prefix={thread.state.prefix}
                     value={thread.state.value}
                   />
-                </button>
+                </div>
               );
-            })
-          )}
+            }
+
+            return (
+              <button
+                key={thread.id}
+                type="button"
+                data-thread-row
+                onClick={() => handleRowClick(thread.id)}
+                aria-label={thread.subject}
+                className={cn(
+                  "flex w-full items-center justify-between gap-2 rounded-chip px-2 py-2 text-left",
+                  "transition-colors",
+                  "hover:bg-[rgba(255,255,255,0.04)]",
+                  "focus-visible:outline-none focus-visible:bg-[rgba(255,255,255,0.04)]",
+                )}
+              >
+                <span
+                  className={cn(
+                    "min-w-0 flex-1 truncate font-mohave text-[13px]",
+                    subjectClass,
+                  )}
+                >
+                  {thread.subject}
+                </span>
+                <StateTag
+                  tone={thread.state.tone}
+                  variant="bare"
+                  prefix={thread.state.prefix}
+                  value={thread.state.value}
+                />
+              </button>
+            );
+          })}
         </div>
       </PopoverContent>
     </Popover>
