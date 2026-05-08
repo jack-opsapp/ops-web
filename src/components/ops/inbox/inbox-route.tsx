@@ -456,7 +456,7 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
           );
         }}
         disabled={sendReply.isPending}
-        placeholder={t("composer.placeholder", "Reply to this thread…")}
+        placeholder={t("composer.tacticPlaceholder", "[type message — ⌘↵ to send]")}
         agentTinted={isAgentDraft && isPristineDraft}
         sendVariant={isAgentDraft && isPristineDraft ? "agent" : "accent"}
         topAccessory={

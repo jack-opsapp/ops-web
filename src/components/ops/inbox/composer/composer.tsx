@@ -21,6 +21,7 @@
 import { Calendar, Image, Paperclip, Send, Sparkles } from "lucide-react";
 import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
+import { KeyHint } from "@/components/ui/key-hint";
 import { ComposerInput } from "./composer-input";
 
 interface ComposerProps {
@@ -72,12 +73,12 @@ export function Composer({
   const trimmed = value.trim();
   const canSend = trimmed.length > 0 && !disabled;
   const resolvedPlaceholder =
-    placeholder ?? t("composer.placeholder", "Type a message…");
+    placeholder ?? t("composer.tacticPlaceholder", "[type message — ⌘↵ to send]");
   const resolvedSendLabel =
     sendLabel ??
     (sendVariant === "agent"
-      ? t("composer.sendAiDraft", "Send AI draft")
-      : t("composer.send", "Send"));
+      ? t("composer.sendClaude", "SEND CLAUDE DRAFT")
+      : t("composer.sendTactic", "SEND"));
 
   function handleSend() {
     if (!canSend) return;
@@ -120,6 +121,15 @@ export function Composer({
         <div className="mt-auto flex items-center gap-1">
           <button
             type="button"
+            onClick={onDraftWithClaude}
+            aria-label={t("composer.draftWithClaude", "Draft with Claude")}
+            className="inline-flex h-[26px] w-[26px] items-center justify-center rounded-chip text-agent transition-colors hover:bg-inbox-elev hover:text-agent-hi focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+          >
+            <Sparkles aria-hidden className="h-4 w-4" strokeWidth={1.5} />
+          </button>
+          <span aria-hidden className="mx-1.5 h-[18px] w-px bg-line" />
+          <button
+            type="button"
             onClick={onAttachFile}
             aria-label={t("composer.attachFile", "Attach file")}
             className={iconBtn}
@@ -136,14 +146,6 @@ export function Composer({
           </button>
           <button
             type="button"
-            onClick={onDraftWithClaude}
-            aria-label={t("composer.draftWithClaude", "Draft with Claude")}
-            className={iconBtn}
-          >
-            <Sparkles aria-hidden className="h-4 w-4" strokeWidth={1.5} />
-          </button>
-          <button
-            type="button"
             onClick={onSchedule}
             aria-label={t("composer.scheduleSend", "Schedule send")}
             className={iconBtn}
@@ -155,9 +157,9 @@ export function Composer({
             <button
               type="button"
               onClick={onEditDraft}
-              className="inline-flex h-[28px] items-center rounded-[2.5px] border border-line bg-transparent px-3 font-mohave text-[12px] text-text-2 hover:bg-inbox-elev hover:text-text"
+              className="inline-flex h-[28px] items-center rounded-[2.5px] border border-line bg-transparent px-3 font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-text-2 transition-colors hover:bg-inbox-elev hover:text-text"
             >
-              {t("composer.editDraft", "Edit")}
+              {t("composer.editDraftTactic", "EDIT DRAFT")}
             </button>
           )}
           <button
@@ -169,6 +171,7 @@ export function Composer({
           >
             <Send aria-hidden className="h-3.5 w-3.5" strokeWidth={1.5} />
             {resolvedSendLabel}
+            <KeyHint variant="inline" keys={["⌘", "↵"]} />
           </button>
         </div>
       </div>

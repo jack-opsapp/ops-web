@@ -67,10 +67,12 @@ describe("<Composer>", () => {
         onEditDraft={() => {}}
       />,
     );
-    expect(screen.getByRole("button", { name: /^Edit$/ })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /^EDIT DRAFT$/i }),
+    ).toBeInTheDocument();
   });
 
-  it("agent variant relabels the send button to 'Send AI draft'", () => {
+  it("agent variant labels the send button SEND CLAUDE DRAFT", () => {
     render(
       <Composer
         value="ready"
@@ -79,7 +81,32 @@ describe("<Composer>", () => {
         sendVariant="agent"
       />,
     );
-    expect(screen.getByRole("button", { name: /Send AI draft/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /SEND CLAUDE DRAFT/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("renders the toolbar with Sparkles first followed by a vertical divider", () => {
+    render(<Composer value="" onChange={noop} onSend={noop} />);
+    const sparkles = screen.getByRole("button", { name: /draft with claude/i });
+    const paperclip = screen.getByRole("button", { name: /attach file/i });
+    expect(
+      sparkles.compareDocumentPosition(paperclip) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("uses the tactical bracket placeholder when none is passed", () => {
+    render(<Composer value="" onChange={noop} onSend={noop} />);
+    expect(
+      screen.getByPlaceholderText("[type message — ⌘↵ to send]"),
+    ).toBeInTheDocument();
+  });
+
+  it("send button includes a ⌘↵ shortcut hint inline", () => {
+    render(<Composer value="ready" onChange={noop} onSend={noop} />);
+    const sendBtn = screen.getByRole("button", { name: /^SEND$/i });
+    // KeyHint renders as a <kbd> with [⌘↵]; the bracket text appears in textContent.
+    expect(sendBtn.textContent).toMatch(/\[⌘↵\]/);
   });
 
   it("propagates typing via onChange", () => {
