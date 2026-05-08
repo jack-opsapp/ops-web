@@ -3,12 +3,15 @@
 /**
  * CategoryChip — visual badge for the thread's primary category.
  *
- * Delegates all tonal inline-tag rendering to the `<StateTag>` primitive
- * (Task A2 consolidation). The outer wrapper retains its interactive shell
- * (size, forwarded ref, chevron, leading slot) while the label itself is
- * produced by StateTag solid variant.
+ * Outer shell owns all chip visual treatment: size, border-l accent stripe,
+ * bg tint, rounded-chip, hover state. Inner label is delegated to
+ * `<StateTag variant="bare">` (Task A2 consolidation) which contributes only
+ * the text color + JetBrains Mono font — no border, no bg, no padding of its
+ * own. Using "bare" prevents double-styling from "solid".
  *
- * Lavender (`agent.*`) is intentionally absent — Claude provenance only.
+ * Spec v2: every visual cue resolves to a design-system token. Tones map via
+ * TONE_CHIP_CLASS (keyed on StateTagTone). Lavender (`agent.*`) absent — Claude
+ * provenance only.
  */
 
 import { forwardRef } from "react";
@@ -36,11 +39,39 @@ const CATEGORY_META: Record<EmailThreadCategory, CategoryMeta> = {
   PLATFORM_BID: { tone: "tan",     label: "PLATFORM BID", dotClass: "bg-tan" },
   LEGAL:        { tone: "rose",    label: "LEGAL",        dotClass: "bg-rose" },
   COLLECTIONS:  { tone: "rose",    label: "COLLECTIONS",  dotClass: "bg-rose" },
+  // Fix 2 (confirmed, no visual regression): MARKETING/RECEIPT/PERSONAL/INTERNAL/OTHER
+  // use `neutral` (text-text-2, #B5B5B5) instead of the legacy `ambient` tone
+  // (text-mute, #6A6A6A). StateTag's vocabulary has no `ambient` tone; `neutral`
+  // is the closest low-priority tier. The visual delta (+brightness) is acceptable —
+  // both are firmly in the muted range. dotClass retains bg-text-mute so standalone
+  // colored dots stay at the darker legacy hue.
   MARKETING:    { tone: "neutral", label: "MARKETING",    dotClass: "bg-text-mute" },
   RECEIPT:      { tone: "neutral", label: "RECEIPT",      dotClass: "bg-text-mute" },
   PERSONAL:     { tone: "neutral", label: "PERSONAL",     dotClass: "bg-text-mute" },
   INTERNAL:     { tone: "neutral", label: "INTERNAL",     dotClass: "bg-text-mute" },
   OTHER:        { tone: "neutral", label: "OTHER",        dotClass: "bg-text-mute" },
+};
+
+// ─── Outer-shell tone → Tailwind class map ────────────────────────────────────
+//
+// Static class strings — Tailwind needs to see literals to compile them.
+// The outer shell IS the chip: border-l accent stripe, hairline borders on y/r,
+// and a soft bg tint. StateTag inside uses variant="bare" so it adds NO border,
+// bg, or padding — just the tonal text color and JetBrains Mono font.
+//
+// Tones used by CategoryChip (subset of StateTagTone; accent/olive/lavender unused):
+//   tan     → formerly "active" (CUSTOMER/LEAD/CLIENT) + "attention" (PLATFORM_BID)
+//   neutral → formerly "neutral" (VENDOR/SUBTRADE/JOB_SEEKER) + "ambient" (low-priority)
+//   rose    → formerly "negative" (LEGAL/COLLECTIONS)
+const TONE_CHIP_CLASS: Record<StateTagTone, string> = {
+  tan:      "border-y border-r border-l-2 border-tan/40     border-l-tan     bg-tan/[0.08]",
+  neutral:  "border-y border-r border-l-2 border-text-3/40  border-l-text-3  bg-text-3/[0.08]",
+  rose:     "border-y border-r border-l-2 border-rose/40    border-l-rose    bg-rose/[0.08]",
+  // Remaining tones are not used by CategoryChip but must be present for the
+  // Record<StateTagTone, string> constraint. Fallback to neutral shell treatment.
+  accent:   "border-y border-r border-l-2 border-ops-accent/40 border-l-ops-accent bg-ops-accent/[0.08]",
+  olive:    "border-y border-r border-l-2 border-olive/40   border-l-olive   bg-olive/[0.08]",
+  lavender: "border-y border-r border-l-2 border-agent-border-hi border-l-agent-hi bg-agent/[0.08]",
 };
 
 const FALLBACK_META: CategoryMeta = CATEGORY_META.OTHER;
@@ -108,10 +139,19 @@ export const CategoryChip = forwardRef<
   const meta = resolveMeta(category);
   const display = label ?? categoryLabel(category);
 
+  // Size controls the wrapper's height/padding only. The inner StateTag is fixed
+  // at 11px per spec — its font size comes from StateTag itself, not sizeClasses.
+  const sizeClasses =
+    size === "md"
+      ? "h-[22px] px-[7px]"
+      : "h-[18px] px-[6px]";
+
   const inner = (
     <>
       {leading}
-      <StateTag tone={meta.tone} variant="solid" prefix={display} bracketed />
+      {/* variant="bare" — outer shell owns border/bg/radius; StateTag provides
+          only tonal text color + JetBrains Mono (no double-styling). */}
+      <StateTag tone={meta.tone} variant="bare" prefix={display} bracketed />
       {interactive && (
         <ChevronDown
           className={cn(
@@ -125,8 +165,10 @@ export const CategoryChip = forwardRef<
   );
 
   const base = cn(
-    "inline-flex items-center gap-[4px]",
+    "inline-flex items-center gap-[4px] rounded-chip",
     "transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]",
+    sizeClasses,
+    TONE_CHIP_CLASS[meta.tone],
     manual && "ring-1 ring-white/[0.12]",
     className
   );
@@ -140,7 +182,7 @@ export const CategoryChip = forwardRef<
         title={title}
         className={cn(
           base,
-          "cursor-pointer focus:outline-none",
+          "cursor-pointer hover:brightness-125 focus:outline-none",
           "focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black"
         )}
         data-category={category}
