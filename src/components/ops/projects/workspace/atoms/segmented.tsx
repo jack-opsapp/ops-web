@@ -78,7 +78,7 @@ export const Segmented = React.forwardRef<HTMLDivElement, SegmentedProps>(
               className={cn(
                 "inline-flex items-center justify-center px-2 min-w-[64px]",
                 "font-mono uppercase tracking-[0.12em] text-[11px] leading-[1.3]",
-                "rounded-[3px] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                "rounded-bar transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]",
                 "cursor-pointer select-none focus:outline-none",
                 active
                   ? "text-text bg-[var(--ops-accent-soft)] border-b border-ops-accent"

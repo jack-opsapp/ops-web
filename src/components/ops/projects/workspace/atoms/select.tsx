@@ -75,7 +75,7 @@ export function Select({
             "relative z-[60] overflow-hidden",
             "min-w-[var(--radix-select-trigger-width)] max-h-[300px]",
             "bg-[var(--glass-dense)] backdrop-blur-[28px]",
-            "rounded-[8px] border border-glass-border",
+            "rounded-panel border border-glass-border",
             "p-0.5",
           )}
         >
