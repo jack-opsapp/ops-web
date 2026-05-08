@@ -64,7 +64,8 @@ export function PricingCard({ tier, companyId, isRecommended }: PricingCardProps
     <div className="relative flex flex-col">
       {isRecommended && (
         <p className="font-cakemono font-light text-[11px] uppercase tracking-[0.08em] text-text-3 mb-1">
-          // {t("lockout.pricing.recommended")}
+          {"// "}
+          {t("lockout.pricing.recommended")}
         </p>
       )}
       <div className="glass-surface rounded-[5px] p-4 flex flex-col flex-1">

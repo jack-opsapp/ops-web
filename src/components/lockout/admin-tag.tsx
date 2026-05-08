@@ -14,7 +14,7 @@ export function AdminTag({ admins }: AdminTagProps) {
 
   return (
     <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-3 mb-3">
-      <span className="text-text-mute">// </span>
+      <span className="text-text-mute">{"// "}</span>
       {t("lockout.shared.adminLabel")}
       <span className="text-text-mute"> :: </span>
       <span className="text-text">{primary.name.toUpperCase()}</span>

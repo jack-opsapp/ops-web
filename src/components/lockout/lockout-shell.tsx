@@ -82,7 +82,7 @@ export function LockoutShell({
           href="mailto:support@opsapp.co"
           className="inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-[0.16em] text-text-3 hover:text-text-2 transition-colors"
         >
-          <span className="text-text-mute">// </span>
+          <span className="text-text-mute">{"// "}</span>
           {t("lockout.shared.contactSupport").toUpperCase()}
         </a>
       </motion.div>
@@ -107,7 +107,7 @@ export function LockoutShell({
       >
         <span className="flex-1 h-px bg-[var(--line,rgba(255,255,255,0.10))]" />
         <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-3">
-          <span className="text-text-mute">// </span>
+          <span className="text-text-mute">{"// "}</span>
           {sectionLabel}
         </span>
         <span className="flex-1 h-px bg-[var(--line,rgba(255,255,255,0.10))]" />
@@ -135,7 +135,7 @@ export function LockoutShell({
                 href="/login"
                 className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-3 hover:text-text-2 transition-colors"
               >
-                <span className="text-text-mute">// </span>
+                <span className="text-text-mute">{"// "}</span>
                 {t("lockout.shared.switchAccount").toUpperCase()}
               </Link>
             )}
