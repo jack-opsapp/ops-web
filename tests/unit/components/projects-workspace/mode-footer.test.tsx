@@ -1,10 +1,23 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 
 import {
   ModeFooter,
   type ModeFooterConfig,
 } from "@/components/ops/projects/workspace/shell/mode-footer";
+
+// Phase 12.3 — the footer wraps each button slot in a motion.div with
+// layout={!reducedMotion}. We mock useReducedMotion default to false so
+// the FLIP path is exercised. A nested describe overrides per case.
+vi.mock("framer-motion", async () => {
+  const actual = await vi.importActual<typeof import("framer-motion")>("framer-motion");
+  return {
+    ...actual,
+    useReducedMotion: vi.fn(() => false),
+  };
+});
+
+import { useReducedMotion } from "framer-motion";
 
 // `ModeFooter` — bottom action bar of the workspace. Slot order is
 // strict: destructive | meta | spacer | secondary[] | ghost | primary.
@@ -202,5 +215,117 @@ describe("<ModeFooter>", () => {
     const btn = screen.getByRole("button", { name: "SUBMIT-EXTRA" });
     expect(btn).toHaveAttribute("type", "submit");
     expect(btn).toHaveAttribute("form", "x");
+  });
+
+  // Phase 12.3 — FLIP layout animation. Each button slot is a motion.div
+  // wrapper carrying a stable test id so we can assert the slots are
+  // present per mode and animate through layout transitions when modes
+  // swap. Reduced motion collapses to opacity-only / 0ms.
+  describe("FLIP layout animation (Phase 12.3)", () => {
+    it("renders a stable per-button slot wrapper for primary", () => {
+      render(
+        <ModeFooter
+          config={{
+            secondary: [],
+            primary: { label: "SAVE", onClick: vi.fn() },
+          }}
+        />,
+      );
+      expect(
+        screen.getByTestId("mode-footer-slot-primary:SAVE"),
+      ).toBeInTheDocument();
+    });
+
+    it("slot wrappers swap when the primary action changes label", async () => {
+      const { rerender } = render(
+        <ModeFooter
+          config={{
+            secondary: [],
+            primary: { label: "EDIT", onClick: vi.fn() },
+          }}
+        />,
+      );
+      expect(
+        screen.getByTestId("mode-footer-slot-primary:EDIT"),
+      ).toBeInTheDocument();
+
+      rerender(
+        <ModeFooter
+          config={{
+            secondary: [],
+            ghost: { label: "CANCEL", onClick: vi.fn() },
+            primary: { label: "SAVE", onClick: vi.fn() },
+          }}
+        />,
+      );
+      // AnimatePresence keeps the outgoing slot mounted during exit
+      // animation; the new slot mounts immediately (default mode, not
+      // wait). Wait for both: new slot present, old slot gone.
+      expect(
+        screen.getByTestId("mode-footer-slot-primary:SAVE"),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByTestId("mode-footer-slot-ghost:CANCEL"),
+      ).toBeInTheDocument();
+      await waitFor(() => {
+        expect(
+          screen.queryByTestId("mode-footer-slot-primary:EDIT"),
+        ).not.toBeInTheDocument();
+      });
+    });
+
+    it("destructive slot only renders when destructive action is supplied", () => {
+      const { rerender } = render(
+        <ModeFooter
+          config={{
+            secondary: [],
+            primary: { label: "SAVE", onClick: vi.fn() },
+          }}
+        />,
+      );
+      expect(
+        screen.queryByTestId(/^mode-footer-slot-destructive:/),
+      ).not.toBeInTheDocument();
+
+      rerender(
+        <ModeFooter
+          config={{
+            secondary: [],
+            destructive: { label: "ARCHIVE", onClick: vi.fn() },
+            primary: { label: "SAVE", onClick: vi.fn() },
+          }}
+        />,
+      );
+      expect(
+        screen.getByTestId("mode-footer-slot-destructive:ARCHIVE"),
+      ).toBeInTheDocument();
+    });
+
+    it("reduced motion still renders all slots (opt-out of layout animation)", () => {
+      vi.mocked(useReducedMotion).mockReturnValue(true);
+      render(
+        <ModeFooter
+          config={{
+            secondary: [{ label: "DISCARD", onClick: vi.fn() }],
+            ghost: { label: "CANCEL", onClick: vi.fn() },
+            primary: { label: "SAVE", onClick: vi.fn() },
+            destructive: { label: "ARCHIVE", onClick: vi.fn() },
+          }}
+        />,
+      );
+      expect(
+        screen.getByTestId("mode-footer-slot-destructive:ARCHIVE"),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByTestId("mode-footer-slot-secondary:DISCARD"),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByTestId("mode-footer-slot-ghost:CANCEL"),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByTestId("mode-footer-slot-primary:SAVE"),
+      ).toBeInTheDocument();
+      vi.mocked(useReducedMotion).mockReturnValue(false);
+    });
   });
 });

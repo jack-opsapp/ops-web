@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, act } from "@testing-library/react";
+import { render, screen, fireEvent, act, waitFor } from "@testing-library/react";
 
 import { ProjectWorkspaceWindow } from "@/components/ops/projects/workspace/shell/project-workspace-window";
 import { useWindowStore } from "@/stores/window-store";
@@ -17,9 +17,11 @@ vi.mock("framer-motion", async () => {
   const actual = await vi.importActual<typeof import("framer-motion")>("framer-motion");
   return {
     ...actual,
-    useReducedMotion: () => false,
+    useReducedMotion: vi.fn(() => false),
   };
 });
+
+import { useReducedMotion } from "framer-motion";
 
 const BASE_PROPS = {
   id: "project-workspace:p_42",
@@ -266,5 +268,164 @@ describe("<ProjectWorkspaceWindow>", () => {
     );
     expect(screen.getByTestId("rail")).toBeInTheDocument();
     expect(screen.getByTestId("body")).toBeInTheDocument();
+  });
+
+  // Phase 12.3 — mode transition cross-fade.
+  //
+  // The body slot is keyed on `mode` so AnimatePresence with mode="wait"
+  // unmounts the outgoing body before the incoming body mounts. We can't
+  // easily assert the 200ms fade timing in jsdom, so we assert the keying
+  // contract: the wrapper carries `data-mode={mode}` and the new body is
+  // present with the new mode after a re-render.
+  describe("mode transition cross-fade (Phase 12.3)", () => {
+    it("body slot wrapper exposes data-mode for the active mode (initial)", () => {
+      render(
+        <ProjectWorkspaceWindow {...BASE_PROPS} mode="viewing">
+          <div data-testid="body-viewing">VIEW</div>
+        </ProjectWorkspaceWindow>,
+      );
+      expect(screen.getByTestId("workspace-body-slot")).toHaveAttribute(
+        "data-mode",
+        "viewing",
+      );
+    });
+
+    it("body slot wrapper updates data-mode on mode swap (after exit settles)", async () => {
+      const { rerender } = render(
+        <ProjectWorkspaceWindow {...BASE_PROPS} mode="viewing">
+          <div data-testid="body-viewing">VIEW</div>
+        </ProjectWorkspaceWindow>,
+      );
+      rerender(
+        <ProjectWorkspaceWindow {...BASE_PROPS} mode="editing">
+          <div data-testid="body-editing">EDIT</div>
+        </ProjectWorkspaceWindow>,
+      );
+      // AnimatePresence mode="wait" runs the outgoing exit before the
+      // new wrapper mounts; waitFor lets the async exit settle in jsdom.
+      await waitFor(() => {
+        const slots = screen.getAllByTestId("workspace-body-slot");
+        const editing = slots.find(
+          (n) => n.getAttribute("data-mode") === "editing",
+        );
+        expect(editing).toBeDefined();
+      });
+    });
+
+    it("ModalTabs wrapper mounts only when tabs are provided", () => {
+      const { rerender } = render(
+        <ProjectWorkspaceWindow {...BASE_PROPS} mode="viewing">
+          <div />
+        </ProjectWorkspaceWindow>,
+      );
+      expect(
+        screen.queryByTestId("modal-tabs-wrapper"),
+      ).not.toBeInTheDocument();
+
+      const tabs = [
+        { id: "identity", label: "Identity" },
+        { id: "schedule", label: "Schedule" },
+      ] as const;
+      rerender(
+        <ProjectWorkspaceWindow
+          {...BASE_PROPS}
+          mode="editing"
+          tabs={tabs}
+          activeTabId="identity"
+          onTabChange={() => {}}
+        >
+          <div />
+        </ProjectWorkspaceWindow>,
+      );
+      expect(screen.getByTestId("modal-tabs-wrapper")).toBeInTheDocument();
+    });
+
+    it("right rail wrapper renders only when rightRail prop is supplied", () => {
+      render(
+        <ProjectWorkspaceWindow
+          {...BASE_PROPS}
+          rightRail={<aside data-testid="rail">RAIL</aside>}
+        >
+          <div />
+        </ProjectWorkspaceWindow>,
+      );
+      expect(
+        screen.getByTestId("workspace-right-rail-wrapper"),
+      ).toBeInTheDocument();
+      expect(screen.getByTestId("rail")).toBeInTheDocument();
+    });
+
+    it("right rail wrapper omitted when no rightRail prop", () => {
+      render(
+        <ProjectWorkspaceWindow {...BASE_PROPS}>
+          <div />
+        </ProjectWorkspaceWindow>,
+      );
+      expect(
+        screen.queryByTestId("workspace-right-rail-wrapper"),
+      ).not.toBeInTheDocument();
+    });
+  });
+});
+
+// ─── Reduced-motion path (Phase 12.3) ───────────────────────────────────────
+// Separate describe block with its own framer-motion mock so the path
+// where useReducedMotion → true is verified deterministically.
+describe("<ProjectWorkspaceWindow> reduced-motion path", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    useWindowStore.setState({ windows: [], nextZIndex: 2000 });
+    useWindowStore.setState((s) => ({
+      windows: [
+        ...s.windows,
+        {
+          id: BASE_PROPS.id,
+          title: BASE_PROPS.title,
+          type: "project-workspace",
+          isMinimized: false,
+          position: BASE_PROPS.position,
+          size: BASE_PROPS.size,
+          zIndex: BASE_PROPS.zIndex,
+          meta: { projectId: "p_42", initialMode: "viewing" },
+        },
+      ],
+    }));
+  });
+
+  it("with reduced motion the body slot wrapper omits opacity initial frames", () => {
+    vi.mocked(useReducedMotion).mockReturnValue(true);
+    render(
+      <ProjectWorkspaceWindow {...BASE_PROPS} mode="viewing">
+        <div data-testid="body-viewing">VIEW</div>
+      </ProjectWorkspaceWindow>,
+    );
+    const slot = screen.getByTestId("workspace-body-slot");
+    // Reduced motion → `initial={false}` so framer-motion skips writing
+    // the opacity:0 starting style. The element renders at full opacity
+    // immediately (no fade-in animation).
+    expect(slot.getAttribute("style") ?? "").not.toMatch(/opacity:\s*0/);
+    vi.mocked(useReducedMotion).mockReturnValue(false);
+  });
+
+  it("with reduced motion the mode swap completes without queued exit animation", async () => {
+    vi.mocked(useReducedMotion).mockReturnValue(true);
+    const { rerender } = render(
+      <ProjectWorkspaceWindow {...BASE_PROPS} mode="viewing">
+        <div data-testid="body-viewing">VIEW</div>
+      </ProjectWorkspaceWindow>,
+    );
+    rerender(
+      <ProjectWorkspaceWindow {...BASE_PROPS} mode="editing">
+        <div data-testid="body-editing">EDIT</div>
+      </ProjectWorkspaceWindow>,
+    );
+    await waitFor(() => {
+      const slots = screen.getAllByTestId("workspace-body-slot");
+      const editing = slots.find(
+        (n) => n.getAttribute("data-mode") === "editing",
+      );
+      expect(editing).toBeDefined();
+    });
+    vi.mocked(useReducedMotion).mockReturnValue(false);
   });
 });

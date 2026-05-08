@@ -1,7 +1,9 @@
 "use client";
 
 import * as React from "react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { cn } from "@/lib/utils/cn";
+import { EASE_SMOOTH } from "@/lib/utils/motion";
 import { useWindowStore } from "@/stores/window-store";
 import { WindowTitleBar } from "./window-title-bar";
 import { ModeFooter, type ModeFooterConfig } from "./mode-footer";
@@ -28,6 +30,17 @@ const ALL_RESIZE_DIRS: ResizeDirection[] = ["n", "s", "e", "w", "ne", "nw", "se"
 // Workspace-specific min size — the sidebar (Phase 7) needs room, so
 // the workspace bumps the global default 480x360 minimum to 780x600.
 const WORKSPACE_MIN_SIZE = { width: 780, height: 600 };
+
+// ─── Mode transition motion tokens (Phase 12.3) ─────────────────────────────
+// Body cross-fade: AnimatePresence mode="wait" — outgoing fades to 0
+// over 200ms before incoming fades in over 200ms. No overlap window, so
+// pointer-events stay safe without explicit gating.
+// Tab bar slot: when ModalTabs mounts (entering edit/create) it slides
+// from y:-8 + opacity 0 → 0/1 over 200ms. Reverse on viewing return.
+// Right rail mirrors the body fade so the sidebar dissolves on edit
+// entry instead of vanishing in one frame.
+const MODE_BODY_DURATION = 0.2;
+const MODE_TAB_DURATION = 0.2;
 
 export interface ProjectWorkspaceWindowProps<TTabId extends string = string> {
   /** Window id from useWindowStore — also the localStorage key. */
@@ -88,6 +101,14 @@ export function ProjectWorkspaceWindow<TTabId extends string = string>({
   children,
   className,
 }: ProjectWorkspaceWindowProps<TTabId>) {
+  const reducedMotion = useReducedMotion();
+  const bodyTransition = reducedMotion
+    ? { duration: 0 }
+    : { duration: MODE_BODY_DURATION, ease: EASE_SMOOTH };
+  const tabTransition = reducedMotion
+    ? { duration: 0 }
+    : { duration: MODE_TAB_DURATION, ease: EASE_SMOOTH };
+
   const closeWindow = useWindowStore((s) => s.closeWindow);
   const minimizeWindow = useWindowStore((s) => s.minimizeWindow);
   const focusWindow = useWindowStore((s) => s.focusWindow);
@@ -188,25 +209,73 @@ export function ProjectWorkspaceWindow<TTabId extends string = string>({
         onPointerDown={drag.onPointerDown}
       />
 
-      {tabs && activeTabId && onTabChange ? (
-        <ModalTabs<TTabId>
-          tabs={tabs}
-          activeId={activeTabId}
-          onChange={onTabChange}
-        />
-      ) : null}
+      {/* Tab strip slides in when entering edit/create, slides out when
+          returning to viewing. AnimatePresence keeps the exit animation
+          alive after the parent stops rendering ModalTabs. The body
+          height snaps as the tabs appear/disappear — accepted concession
+          per plan §12.3 (transform-only motion, no layout animation). */}
+      <AnimatePresence initial={false}>
+        {tabs && activeTabId !== undefined && onTabChange ? (
+          <motion.div
+            key="modal-tabs"
+            data-testid="modal-tabs-wrapper"
+            initial={reducedMotion ? false : { opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={reducedMotion ? { opacity: 0 } : { opacity: 0, y: -8 }}
+            transition={tabTransition}
+          >
+            <ModalTabs<TTabId>
+              tabs={tabs}
+              activeId={activeTabId}
+              onChange={onTabChange}
+            />
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
 
       {/* Body + optional right rail share a single horizontal lane so the
           rail sits flush against the right edge while the body scrolls
           independently. min-h-0 so the flex children can shrink below
-          their content size and let the body scroll. */}
+          their content size and let the body scroll.
+
+          Mode cross-fade (Phase 12.3): the body slot wraps in
+          AnimatePresence mode="wait" keyed on `mode` so the outgoing body
+          completes its 200ms exit before the incoming body mounts. No
+          overlap window means pointer-events handling is implicit — the
+          DOM only ever holds one body at a time.
+
+          Right rail (sidebar) mirrors the same fade so the sidebar
+          dissolves on edit entry rather than disappearing in one frame. */}
       <div className="flex flex-1 min-h-0">
-        <div className="flex-1 min-w-0 overflow-y-auto">{children}</div>
-        {rightRail ? (
-          <div className="shrink-0 border-l border-glass-border overflow-y-auto">
-            {rightRail}
-          </div>
-        ) : null}
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={mode}
+            data-testid="workspace-body-slot"
+            data-mode={mode}
+            initial={reducedMotion ? false : { opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={reducedMotion ? { opacity: 1 } : { opacity: 0 }}
+            transition={bodyTransition}
+            className="flex-1 min-w-0 overflow-y-auto"
+          >
+            {children}
+          </motion.div>
+        </AnimatePresence>
+        <AnimatePresence initial={false}>
+          {rightRail ? (
+            <motion.div
+              key="right-rail"
+              data-testid="workspace-right-rail-wrapper"
+              initial={reducedMotion ? false : { opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={reducedMotion ? { opacity: 0 } : { opacity: 0 }}
+              transition={bodyTransition}
+              className="shrink-0 border-l border-glass-border overflow-y-auto"
+            >
+              {rightRail}
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
       </div>
 
       <ModeFooter config={footerConfig} />
