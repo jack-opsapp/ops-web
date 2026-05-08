@@ -2037,7 +2037,14 @@ Commit.
 **Files:**
 - Modify: `OPS-Web/src/components/ops/projects/workspace/viewing/schedule-strip.tsx`
 
-The today-tick has a gentle glow pulse (3s ease-in-out infinite, box-shadow alpha 0.5 ↔ 0.9) — only when status is `InProgress` and only when reduced-motion is off.
+The today-tick has a gentle glow pulse — only when status is `InProgress` and only when reduced-motion is off.
+
+**Spec amendment 2026-05-08 (Phase 12.6 audit):** original spec called for `3s ease-in-out infinite, box-shadow alpha 0.5 ↔ 0.9`. The shipped Phase 7.2 implementation uses **1.6s EASE_SMOOTH infinite, opacity 1 → 0.5 → 1** on a status-tinted blurred radial halo (a small `motion.span` with `filter: blur(4px)` and 33%-alpha status background). Ratified for two reasons:
+
+1. **Compositor-only.** Opacity animations stay on the GPU; box-shadow alpha cycling triggers paint every frame. The 1.6s opacity pulse is meaningfully cheaper.
+2. **Cadence consistency.** The ModePill (editing/creating) also pulses 1.6s opacity 1 → 0.45 → 1. Keeping the today-tick on the same cadence means the workspace breathes as a single coherent system signal, not two competing rhythms.
+
+The visual result — a soft, status-tinted glow that breathes — matches the original emotional beat. WCAG 2.3.3 is satisfied either way (gated behind `useReducedMotion`).
 
 Commit.
 
