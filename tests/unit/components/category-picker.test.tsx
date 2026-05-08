@@ -7,7 +7,10 @@ import { CategoryPicker } from "@/components/ops/category-picker";
 // activating an item — without the stub, every popover interaction
 // crashes with "scrollIntoView is not a function".
 if (!("scrollIntoView" in Element.prototype)) {
-  Element.prototype.scrollIntoView = function () {};
+  // Cast through unknown so the assignment compiles under strict mode
+  // (Element.prototype's type doesn't include the method when missing).
+  (Element.prototype as unknown as { scrollIntoView: () => void }).scrollIntoView =
+    function () {};
 }
 
 // Stub the lookup hook with a static set so we don't need a real

@@ -7,7 +7,10 @@ import { UnitPicker } from "@/components/ops/unit-picker";
 // activating an item — without the stub, every popover interaction
 // crashes with "scrollIntoView is not a function".
 if (!("scrollIntoView" in Element.prototype)) {
-  Element.prototype.scrollIntoView = function () {};
+  // Cast through unknown so the assignment compiles under strict mode
+  // (Element.prototype's type doesn't include the method when missing).
+  (Element.prototype as unknown as { scrollIntoView: () => void }).scrollIntoView =
+    function () {};
 }
 
 vi.mock("@/lib/hooks/use-catalog-lookups", () => ({
