@@ -193,26 +193,23 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
   // direction stamps lastMessageAt, the other side gets null. This is the
   // best fidelity we have without a second join, and matches what the
   // sibling-context view already does.
-  const pickerThreads = useMemo<ThreadPickerThread[]>(() => {
-    const list = clientThreadsQuery.data ?? [];
-    return list.map((row) => {
-      const ts = row.lastMessageAt.getTime();
-      return {
-        id: row.id,
-        subject: row.subject ?? "",
-        unread: (row.unreadCount ?? 0) > 0,
-        state: computeStateTag({
-          lastInboundAt: row.latestDirection === "inbound" ? ts : null,
-          lastOutboundAt: row.latestDirection === "outbound" ? ts : null,
-          hasAiDraft: false,
-          sentByAgentRecently: false,
-          category: row.primaryCategory,
-          closed: row.archivedAt !== null,
-          now,
-        }),
-      };
-    });
-  }, [clientThreadsQuery.data, now]);
+  const pickerThreads: ThreadPickerThread[] = (clientThreadsQuery.data ?? []).map((row) => {
+    const ts = row.lastMessageAt.getTime();
+    return {
+      id: row.id,
+      subject: row.subject ?? "",
+      unread: (row.unreadCount ?? 0) > 0,
+      state: computeStateTag({
+        lastInboundAt: row.latestDirection === "inbound" ? ts : null,
+        lastOutboundAt: row.latestDirection === "outbound" ? ts : null,
+        hasAiDraft: false,
+        sentByAgentRecently: false,
+        category: row.primaryCategory,
+        closed: row.archivedAt !== null,
+        now,
+      }),
+    };
+  });
 
   const commitments = useMemo<TodayCommitment[]>(
     () => threads.flatMap(toCommitments).slice(0, 3),
