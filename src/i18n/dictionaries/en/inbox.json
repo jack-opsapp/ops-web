@@ -284,7 +284,7 @@
   "toast.archivedBack": "Moved back to inbox",
   "toast.snoozed": "Snoozed until {when}",
   "toast.recategorized": "Marked as {category}",
-  "toast.recategorizedDetail": "Phase C will learn from this correction.",
+  "toast.recategorizedDetail": "[—] phase c will learn from this correction.",
   "toast.undo": "Undo",
 
   "phaseC.drafted.primary": "Phase C drafted a reply for you",

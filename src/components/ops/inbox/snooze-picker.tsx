@@ -186,9 +186,9 @@ export function SnoozePicker({
       setOpen(false);
       snooze.mutate({ threadId, until });
       enqueueUndoToast({
-        message: t("toast.snoozed", "Snoozed until {when}").replace(
-          "{when}",
-          humanLabel,
+        message: t("toast.snoozedTactic", "SYS :: SNOOZED UNTIL {time}").replace(
+          "{time}",
+          humanLabel.toUpperCase(),
         ),
         onUndo: () => unsnooze.mutate(threadId),
       });

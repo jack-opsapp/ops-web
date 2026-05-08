@@ -95,13 +95,13 @@ export function RecategorizeMenu({
         {
           onSuccess: () => {
             enqueueUndoToast({
-              message: t("toast.recategorized", "Marked as {category}").replace(
+              message: t("toast.recategorizedTactic", "SYS :: MOVED TO {category}").replace(
                 "{category}",
                 categoryLabel(next),
               ),
               detail: t(
                 "toast.recategorizedDetail",
-                "Phase C will learn from this correction.",
+                "[—] phase c will learn from this correction.",
               ),
               onUndo: () => {
                 recategorize.mutate({ threadId, toCategory: currentCategory });

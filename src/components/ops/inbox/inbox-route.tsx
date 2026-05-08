@@ -283,7 +283,7 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
           return;
         }
         enqueueUndoToast({
-          message: t("toast.archived", "Archived"),
+          message: t("toast.archivedTactic", "SYS :: THREAD ARCHIVED"),
           onUndo: () => threadActions.unarchive.mutate(threadId),
         });
       },
@@ -636,7 +636,7 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
           setArchiveOpen(false);
           setArchiveContext(null);
           enqueueUndoToast({
-            message: t("toast.archived", "Archived"),
+            message: t("toast.archivedTactic", "SYS :: THREAD ARCHIVED"),
             onUndo: () =>
               threadActions.unarchiveBatch.mutate({
                 threadIds: args.threadIds,

@@ -220,6 +220,7 @@
 
   "toast.archived": "Archivado",
   "toast.archivedBack": "Devuelto a la bandeja",
+  "toast.recategorizedDetail": "[—] phase c aprenderá de esta corrección.",
   "toast.undo": "Deshacer",
 
   "phaseC.drafted.primary": "Phase C redactó una respuesta",
