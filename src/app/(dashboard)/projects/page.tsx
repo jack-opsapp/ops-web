@@ -209,8 +209,11 @@ export default function ProjectsPage() {
   const startDrag = useProjectCanvasStore((s) => s.startDrag);
   const endDrag = useProjectCanvasStore((s) => s.endDrag);
 
-  // ── Detail popover ──
-  const openPopover = useProjectDetailPopoverStore((s) => s.openPopover);
+  // ── Detail popover (legacy — Phase 10 deletes the store; the canvas
+  // now opens the project-workspace window via openProjectWindow). The
+  // import is retained as a no-op to keep the file buildable until
+  // Phase 10 sweeps it.
+  void useProjectDetailPopoverStore;
 
   // ── View mode ──
   const [viewMode, setViewMode] = useState<"canvas" | "spreadsheet">(() => {
@@ -536,15 +539,14 @@ export default function ProjectsPage() {
   }, []);
 
   // ── Card action callbacks ──
+  const openProjectWindow = useWindowStore((s) => s.openProjectWindow);
   const handleOpenDetail = useCallback(
     (projectId: string) => {
       const project = projectMap.get(projectId);
       if (!project) return;
-      const primaryLabel = project.title || project.address?.split(",")[0] || "Untitled Project";
-      const statusColor = PROJECT_STATUS_COLORS[project.status];
-      openPopover(projectId, { x: 400, y: 200 }, primaryLabel, statusColor);
+      openProjectWindow({ projectId, mode: "viewing" });
     },
-    [projectMap, openPopover]
+    [projectMap, openProjectWindow]
   );
 
   const openWindow = useWindowStore((s) => s.openWindow);
