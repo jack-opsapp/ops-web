@@ -24,6 +24,15 @@ const SECRET = "whsec_test_secret_for_pmf_billing_events";
 process.env.STRIPE_WEBHOOK_SECRET = SECRET;
 process.env.STRIPE_SECRET_KEY = "sk_test_placeholder_for_pmf_billing_events";
 
+// Static import (matches sendgrid-webhook.test.ts pattern). The previous
+// per-test `await import(...)` paid the route module's first-load compile
+// cost inside test 1 ("invoice.paid"), which spiked to 4+ seconds and tipped
+// past the 5000ms vitest default in CI. When test 1 timed out, its in-flight
+// POST kept running and pushed a late insertCalls entry AFTER beforeEach had
+// reset the array for test 2 ("charge.refunded"), making it see length 2.
+// Hoisting the import to module load amortizes the cost out of any test body.
+import { POST } from "@/app/api/webhooks/stripe/route";
+
 // Recorders shared with the mock client below — reset between tests.
 const insertCalls: Array<{ table: string; row: Record<string, unknown> }> = [];
 const updateCalls: Array<{
@@ -115,7 +124,6 @@ describe("Stripe webhook → billing_events", () => {
   });
 
   it("inserts a billing_events row for invoice.paid with the right shape", async () => {
-    const { POST } = await import("@/app/api/webhooks/stripe/route");
     const evt = {
       id: `evt_test_paid_${Date.now()}`,
       type: "invoice.paid",
@@ -148,7 +156,6 @@ describe("Stripe webhook → billing_events", () => {
   });
 
   it("inserts a billing_events row for charge.refunded using amount_refunded", async () => {
-    const { POST } = await import("@/app/api/webhooks/stripe/route");
     const evt = {
       id: `evt_test_refund_${Date.now()}`,
       type: "charge.refunded",
@@ -172,7 +179,6 @@ describe("Stripe webhook → billing_events", () => {
   });
 
   it("inserts billing_events for customer.subscription.created", async () => {
-    const { POST } = await import("@/app/api/webhooks/stripe/route");
     const evt = {
       id: `evt_test_sub_created_${Date.now()}`,
       type: "customer.subscription.created",
@@ -197,7 +203,6 @@ describe("Stripe webhook → billing_events", () => {
   });
 
   it("does NOT insert into billing_events for an untracked event type", async () => {
-    const { POST } = await import("@/app/api/webhooks/stripe/route");
     const evt = {
       id: `evt_test_other_${Date.now()}`,
       type: "customer.created",
@@ -213,7 +218,6 @@ describe("Stripe webhook → billing_events", () => {
   });
 
   it("does NOT insert into billing_events for payment_intent.succeeded (existing handler only)", async () => {
-    const { POST } = await import("@/app/api/webhooks/stripe/route");
     const evt = {
       id: `evt_test_pi_${Date.now()}`,
       type: "payment_intent.succeeded",
@@ -238,7 +242,6 @@ describe("Stripe webhook → billing_events", () => {
   });
 
   it("rejects with 400 on bad signature", async () => {
-    const { POST } = await import("@/app/api/webhooks/stripe/route");
     const req = new Request("http://localhost/api/webhooks/stripe", {
       method: "POST",
       headers: { "stripe-signature": "t=0,v1=deadbeef" },
@@ -252,7 +255,6 @@ describe("Stripe webhook → billing_events", () => {
   });
 
   it("rejects with 400 when stripe-signature header is missing", async () => {
-    const { POST } = await import("@/app/api/webhooks/stripe/route");
     const req = new Request("http://localhost/api/webhooks/stripe", {
       method: "POST",
       body: "{}",
