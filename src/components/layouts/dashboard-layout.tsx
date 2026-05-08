@@ -25,6 +25,7 @@ import { CreateTaskForm } from "@/components/ops/create-task-modal";
 import { CreateEstimateForm } from "@/components/ops/create-estimate-modal";
 import { CreateLeadForm } from "@/components/ops/create-lead-modal";
 import { ComposeEmailForm } from "@/components/ops/compose-email-form";
+import { ProjectWorkspaceContainer } from "@/components/ops/projects/workspace/project-workspace-container";
 import type { ComposeEmailData } from "@/lib/types/email-template";
 import { useGmailSyncNotifications } from "@/lib/hooks/use-gmail-sync-notifications";
 import { useDashboardPreferencesSync } from "@/lib/hooks/use-dashboard-preferences-sync";
@@ -103,9 +104,14 @@ function FloatingWindows() {
   const windows = useWindowStore((s) => s.windows);
   const closeWindow = useWindowStore((s) => s.closeWindow);
 
+  // Project-workspace windows render their own shell (ProjectWorkspaceWindow)
+  // via the container, so they bypass the legacy FloatingWindow chrome.
+  const legacyWindows = windows.filter((w) => w.type !== "project-workspace");
+  const workspaceWindows = windows.filter((w) => w.type === "project-workspace");
+
   return (
     <>
-      {windows.map((win) => (
+      {legacyWindows.map((win) => (
         <FloatingWindow key={win.id} window={win}>
           {win.type === "create-project" && (
             <CreateProjectForm
@@ -145,6 +151,9 @@ function FloatingWindows() {
             />
           )}
         </FloatingWindow>
+      ))}
+      {workspaceWindows.map((win) => (
+        <ProjectWorkspaceContainer key={win.id} windowId={win.id} />
       ))}
     </>
   );

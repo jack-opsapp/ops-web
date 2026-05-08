@@ -19,6 +19,12 @@ export interface ModeFooterAction {
   label: string;
   onClick: () => void;
   disabled?: boolean;
+  // Optional native button attributes — used by the workspace container
+  // to bind a footer CTA to the edit/create composer's form via the HTML
+  // `form="<id>"` association. The body's react-hook-form handler then
+  // owns submit dispatch without the footer needing a callback ref.
+  type?: "button" | "submit" | "reset";
+  form?: string;
 }
 
 export interface ModeFooterConfig {
@@ -84,6 +90,8 @@ export function ModeFooter({ config, className }: ModeFooterProps) {
           size="sm"
           onClick={action.onClick}
           disabled={action.disabled}
+          type={action.type}
+          form={action.form}
         >
           {action.label}
         </Btn>
@@ -94,6 +102,8 @@ export function ModeFooter({ config, className }: ModeFooterProps) {
           size="sm"
           onClick={ghost.onClick}
           disabled={ghost.disabled}
+          type={ghost.type}
+          form={ghost.form}
         >
           {ghost.label}
         </Btn>
@@ -104,6 +114,8 @@ export function ModeFooter({ config, className }: ModeFooterProps) {
           size="sm"
           onClick={primary.onClick}
           disabled={primary.disabled}
+          type={primary.type}
+          form={primary.form}
         >
           {primary.label}
         </Btn>

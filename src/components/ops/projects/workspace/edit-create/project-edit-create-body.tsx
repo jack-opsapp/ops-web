@@ -34,6 +34,14 @@ import { ScheduleTab } from "./schedule-tab";
 export type EditCreateMode = "editing" | "creating";
 export type EditCreateTabId = "identity" | "schedule";
 
+// Imperative handle the workspace footer's DISCARD CHANGES action grabs.
+// Resets the form's dirty values back to the editing defaults (or empty
+// for creating mode). Exposed via useImperativeHandle so the body owns
+// the form state, not the footer.
+export interface ProjectEditCreateBodyHandle {
+  discard: () => void;
+}
+
 export interface ProjectEditCreateBodyProps {
   mode: EditCreateMode;
   /** Required when mode is "editing"; null/undefined for "creating". */
@@ -44,6 +52,8 @@ export interface ProjectEditCreateBodyProps {
   formId: string;
   /** Fires after a successful save/create with the resulting project id. */
   onSaved?: (projectId: string) => void;
+  /** Ref the workspace container reads to trigger DISCARD CHANGES. */
+  discardRef?: React.Ref<ProjectEditCreateBodyHandle>;
   className?: string;
 }
 
@@ -149,6 +159,7 @@ export function ProjectEditCreateBody({
   tab,
   formId,
   onSaved,
+  discardRef,
   className,
 }: ProjectEditCreateBodyProps) {
   const can = usePermissionStore((s) => s.can);
@@ -197,6 +208,18 @@ export function ProjectEditCreateBody({
     lastSeededRef.current = project.id;
     form.reset(defaults);
   }, [isEditing, project, defaults, form]);
+
+  // Expose imperative `discard()` for the workspace footer's DISCARD
+  // CHANGES button. Editing mode resets to the loaded project's
+  // defaults; creating mode resets to the empty payload. Either way,
+  // dirty state clears.
+  React.useImperativeHandle(
+    discardRef,
+    () => ({
+      discard: () => form.reset(defaults),
+    }),
+    [form, defaults],
+  );
 
   const handleSubmit = form.handleSubmit(async (values) => {
     if (isEditing) {

@@ -158,4 +158,47 @@ describe("<ModeFooter>", () => {
     await userEvent.click(btn);
     expect(onClick).not.toHaveBeenCalled();
   });
+
+  // Phase 9.3 — primary/secondary actions can opt into native form-submit
+  // behaviour by declaring `type: "submit"` + `form: <id>`. The workspace
+  // container uses this to wire SAVE → the composer's react-hook-form
+  // without crossing the body/footer boundary with a callback ref.
+  it("primary forwards type+form attributes for form-submit binding", () => {
+    render(
+      <ModeFooter
+        config={{
+          secondary: [],
+          primary: {
+            label: "SAVE",
+            onClick: vi.fn(),
+            type: "submit",
+            form: "edit-create-form",
+          },
+        }}
+      />,
+    );
+    const btn = screen.getByRole("button", { name: "SAVE" });
+    expect(btn).toHaveAttribute("type", "submit");
+    expect(btn).toHaveAttribute("form", "edit-create-form");
+  });
+
+  it("secondary forwards type+form attributes the same way", () => {
+    render(
+      <ModeFooter
+        config={{
+          secondary: [
+            {
+              label: "SUBMIT-EXTRA",
+              onClick: vi.fn(),
+              type: "submit",
+              form: "x",
+            },
+          ],
+        }}
+      />,
+    );
+    const btn = screen.getByRole("button", { name: "SUBMIT-EXTRA" });
+    expect(btn).toHaveAttribute("type", "submit");
+    expect(btn).toHaveAttribute("form", "x");
+  });
 });

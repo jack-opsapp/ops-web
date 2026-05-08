@@ -60,6 +60,11 @@ interface WindowStoreState {
   restoreWindow: (id: string) => void;
   focusWindow: (id: string) => void;
   updatePosition: (id: string, position: { x: number; y: number }) => void;
+  // Replaces the project-workspace `meta` for an existing window. Used by
+  // the workspace container after a successful create — the new project
+  // id has to overwrite the `null` sentinel so subsequent re-opens
+  // (deep-link, dock-restore, FAB) hit the right window.
+  updateWindowMeta: (id: string, meta: ProjectWorkspaceWindowMeta) => void;
 }
 
 const DEFAULT_SIZE = { width: 560, height: 600 };
@@ -214,6 +219,14 @@ export const useWindowStore = create<WindowStoreState>()((set, get) => ({
       windows: get().windows.map((w) =>
         w.id === id ? { ...w, position } : w
       ),
+    });
+  },
+
+  updateWindowMeta: (id, meta) => {
+    const { windows } = get();
+    if (!windows.some((w) => w.id === id)) return;
+    set({
+      windows: windows.map((w) => (w.id === id ? { ...w, meta } : w)),
     });
   },
 }));

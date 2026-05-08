@@ -80,4 +80,36 @@ describe("useWindowStore", () => {
       expect(t).toBe("project-workspace");
     });
   });
+
+  describe("updateWindowMeta", () => {
+    // After a successful create, the workspace container needs to swap the
+    // window's meta from { projectId: null, initialMode: "creating" } to
+    // { projectId: <newId>, initialMode: "viewing" } so subsequent re-opens
+    // (FAB, deep-link, dock-restore) hit the correct window. Phase 9.3.
+
+    it("merges a partial meta patch into the target window", () => {
+      useWindowStore.getState().openProjectWindow({ mode: "creating" });
+      const id = useWindowStore.getState().windows[0].id;
+
+      useWindowStore.getState().updateWindowMeta(id, {
+        projectId: "p_new",
+        initialMode: "viewing",
+      });
+
+      const win = useWindowStore.getState().windows[0];
+      expect(win.meta).toEqual({
+        projectId: "p_new",
+        initialMode: "viewing",
+      });
+    });
+
+    it("is a no-op when the target window does not exist", () => {
+      const before = useWindowStore.getState().windows;
+      useWindowStore.getState().updateWindowMeta("nonexistent-window", {
+        projectId: "p_x",
+        initialMode: "viewing",
+      });
+      expect(useWindowStore.getState().windows).toBe(before);
+    });
+  });
 });

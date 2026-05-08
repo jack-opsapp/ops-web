@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import * as React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ProjectStatus } from "@/lib/types/models";
@@ -241,6 +242,64 @@ describe("<ProjectEditCreateBody>", () => {
       expect(onSaved).toHaveBeenCalledWith("new-project-id"),
     );
     expect(saveMutate).not.toHaveBeenCalled();
+  });
+
+  it("exposes a discard handle that resets dirty form values to the project's defaults (editing mode)", async () => {
+    // Phase 9.3 — the workspace footer's DISCARD CHANGES action drives a
+    // form.reset() on the composer. The composer exposes that via a
+    // React.RefObject<{ discard: () => void }> so the footer can trigger
+    // it without crossing the body/footer boundary with a callback.
+    const ref = React.createRef<{ discard: () => void }>();
+    render(
+      <ProjectEditCreateBody
+        mode="editing"
+        projectId={PROJECT_ID}
+        tab="identity"
+        formId={FORM_ID}
+        discardRef={ref}
+      />,
+    );
+
+    // Dirty the form via the hidden test probe.
+    const titleProbe = screen.getByTestId(
+      "project-edit-create-body-test-title",
+    ) as HTMLInputElement;
+    await userEvent.clear(titleProbe);
+    await userEvent.type(titleProbe, "Dirty Title");
+    expect(titleProbe.value).toBe("Dirty Title");
+
+    // Discard via the imperative handle — the form should reset to the
+    // editing defaults (the loaded project's title).
+    expect(ref.current).not.toBeNull();
+    ref.current!.discard();
+
+    await waitFor(() => {
+      expect(titleProbe.value).toBe(PROJECT.title);
+    });
+  });
+
+  it("discard handle resets to empty defaults in creating mode", async () => {
+    const ref = React.createRef<{ discard: () => void }>();
+    render(
+      <ProjectEditCreateBody
+        mode="creating"
+        projectId={null}
+        tab="identity"
+        formId={FORM_ID}
+        discardRef={ref}
+      />,
+    );
+    const titleProbe = screen.getByTestId(
+      "project-edit-create-body-test-title",
+    ) as HTMLInputElement;
+    await userEvent.type(titleProbe, "Halfway typed name");
+    expect(titleProbe.value).toBe("Halfway typed name");
+
+    ref.current!.discard();
+
+    await waitFor(() => {
+      expect(titleProbe.value).toBe("");
+    });
   });
 
   it("rejects submit when the title is blank in creating mode", async () => {
