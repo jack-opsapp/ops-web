@@ -36,20 +36,24 @@ const baseProps = {
   address: "1234 Industrial Way, Squamish, BC",
   statusColor: "#D99A3E",
   statusLabel: "IN PROGRESS",
+  projectId: "PROJ-00247",
+  projectName: "Greenway Townhomes — Phase 2",
 };
 
 describe("<MapHero>", () => {
-  it("compact mode renders address pill, status pill, expand hint — no collapse btn, no toolbar, no legend", () => {
+  it("compact mode renders address pill, status pill, expand hint — no collapse btn, toolbar, legend, crumb", () => {
     render(<MapHero {...baseProps} expanded={false} onToggleExpand={() => {}} />);
     expect(screen.getByTestId("map-address-pill")).toHaveTextContent(baseProps.address);
     expect(screen.getByTestId("map-status-pill")).toHaveTextContent(baseProps.statusLabel);
     expect(screen.getByTestId("map-expand-hint")).toBeInTheDocument();
+    expect(screen.getByTestId("map-expand-hint")).toHaveTextContent("EXPAND MAP");
     expect(screen.queryByTestId("map-collapse-button")).not.toBeInTheDocument();
     expect(screen.queryByTestId("map-toolbar")).not.toBeInTheDocument();
     expect(screen.queryByTestId("map-legend")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("map-project-crumb")).not.toBeInTheDocument();
   });
 
-  it("expanded mode renders collapse btn, toolbar, legend — no expand hint", () => {
+  it("expanded mode renders crumb, collapse btn, toolbar, legend — no expand hint, no standalone status pill", () => {
     render(
       <MapHero
         {...baseProps}
@@ -58,10 +62,11 @@ describe("<MapHero>", () => {
         legend={{ accepted: 4, completed: 12, rfq: 7 }}
       />,
     );
+    expect(screen.getByTestId("map-project-crumb")).toBeInTheDocument();
     expect(screen.getByTestId("map-collapse-button")).toBeInTheDocument();
+    expect(screen.getByTestId("map-collapse-button")).toHaveTextContent("COLLAPSE");
     const toolbar = screen.getByTestId("map-toolbar");
     expect(toolbar).toBeInTheDocument();
-    // Toolbar exposes the four documented controls.
     expect(toolbar.querySelector("[data-tool=zoom-in]")).toBeInTheDocument();
     expect(toolbar.querySelector("[data-tool=zoom-out]")).toBeInTheDocument();
     expect(toolbar.querySelector("[data-tool=crew]")).toBeInTheDocument();
@@ -73,6 +78,11 @@ describe("<MapHero>", () => {
     expect(legend).toHaveTextContent("12");
     expect(legend).toHaveTextContent("7");
     expect(screen.queryByTestId("map-expand-hint")).not.toBeInTheDocument();
+    // Standalone status pill is compact-only — the crumb's leading dot
+    // carries the status signal in expanded mode.
+    expect(screen.queryByTestId("map-status-pill")).not.toBeInTheDocument();
+    // Compact-only address pill is also gone — the crumb owns the address.
+    expect(screen.queryByTestId("map-address-pill")).not.toBeInTheDocument();
   });
 
   it("clicking the expand hint fires onToggleExpand", async () => {
@@ -146,5 +156,39 @@ describe("<MapHero>", () => {
     expect(onShowCrew).toHaveBeenCalledTimes(1);
     expect(onShowLayers).toHaveBeenCalledTimes(1);
     expect(onRecenter).toHaveBeenCalledTimes(1);
+  });
+
+  // ─── Review-required positional + crumb tests ───────────────────────────
+
+  it("project crumb renders projectId and projectName in expanded mode", () => {
+    render(<MapHero {...baseProps} expanded={true} onToggleExpand={() => {}} />);
+    const crumb = screen.getByTestId("map-project-crumb");
+    expect(screen.getByTestId("map-crumb-id")).toHaveTextContent(baseProps.projectId);
+    expect(screen.getByTestId("map-crumb-name")).toHaveTextContent(baseProps.projectName);
+    expect(screen.getByTestId("map-crumb-address")).toHaveTextContent(baseProps.address);
+    // Crumb is anchored to the top-left at OVERLAY_INSET (14px).
+    const wrapper = crumb.parentElement as HTMLElement;
+    expect(wrapper.style.top).toBe("14px");
+    expect(wrapper.style.left).toBe("14px");
+  });
+
+  it("legend is anchored to the bottom-right (handoff §MapHero — Expanded)", () => {
+    render(<MapHero {...baseProps} expanded={true} onToggleExpand={() => {}} />);
+    const legend = screen.getByTestId("map-legend");
+    const wrapper = legend.parentElement as HTMLElement;
+    expect(wrapper.style.bottom).toBe("14px");
+    expect(wrapper.style.right).toBe("14px");
+    // Make sure it's NOT in the old top-right slot.
+    expect(wrapper.style.top).toBe("");
+  });
+
+  it("toolbar is anchored to the left edge below the crumb (top: 70px, left: 14px)", () => {
+    render(<MapHero {...baseProps} expanded={true} onToggleExpand={() => {}} />);
+    const toolbar = screen.getByTestId("map-toolbar");
+    const wrapper = toolbar.parentElement as HTMLElement;
+    expect(wrapper.style.left).toBe("14px");
+    expect(wrapper.style.top).toBe("70px");
+    // Make sure it's NOT in the old right-mid slot.
+    expect(wrapper.style.right).toBe("");
   });
 });

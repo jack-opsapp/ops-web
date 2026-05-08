@@ -7,10 +7,12 @@ import {
   Users,
   Layers,
   Crosshair,
-  X,
-  ArrowUpRight,
+  ChevronUp,
+  Search,
+  MapPin,
 } from "lucide-react";
 import { EASE_SMOOTH } from "@/lib/utils/motion";
+import { ProjectStatus, PROJECT_STATUS_COLORS } from "@/lib/types/models";
 import { ProjectMap, type OtherPin } from "@/components/ops/projects/workspace/map/project-map";
 
 // ─── Animation tokens ───────────────────────────────────────────────────────
@@ -21,10 +23,17 @@ const OVERLAY_DURATION = 0.18;
 const COMPACT_HEIGHT = 220;
 
 // ─── Visual tokens (per Phase 4 plan handoff) ───────────────────────────────
+// The pill bg/border are intentionally NOT --glass — the handoff specifies a
+// black-tinted glass over the map so address text reads against busy tiles.
 const PILL_BG = "rgba(0, 0, 0, 0.65)";
 const PILL_BORDER = "1px solid rgba(255, 255, 255, 0.10)";
 const PILL_RADIUS = 5;
 const OVERLAY_INSET = 14;
+const TOOLBAR_TOP = 70;
+// Mapbox-specific dark canvas — same value the ProjectMap paints so the
+// height animation has no flash. No design-system token matches; this is
+// scoped to the map surface only.
+const MAP_CANVAS_BG = "#0a0d10";
 const FADE_GRADIENT =
   "linear-gradient(180deg, transparent 0%, transparent 55%, rgba(20,20,20,0.55) 80%, rgba(20,20,20,0.95) 100%)";
 
@@ -38,8 +47,14 @@ interface MapHeroProps {
   latitude: number;
   longitude: number;
   address: string;
+  /** Status hex used for pin glow + leading dots + address-pill icon. */
   statusColor: string;
+  /** Uppercase label, e.g. "IN PROGRESS". */
   statusLabel: string;
+  /** Display id for the expanded crumb, e.g. "PROJ-00247". */
+  projectId: string;
+  /** Display name for the expanded crumb, e.g. "Greenway Townhomes — Phase 2". */
+  projectName: string;
   expanded: boolean;
   onToggleExpand: () => void;
   otherPins?: OtherPin[];
@@ -57,6 +72,8 @@ export function MapHero({
   address,
   statusColor,
   statusLabel,
+  projectId,
+  projectName,
   expanded,
   onToggleExpand,
   otherPins,
@@ -83,7 +100,7 @@ export function MapHero({
       animate={{ height: expanded ? "100%" : COMPACT_HEIGHT }}
       transition={heroTransition}
       className="relative w-full overflow-hidden"
-      style={{ background: "#0a0d10" }}
+      style={{ background: MAP_CANVAS_BG }}
     >
       <div className="absolute inset-0">
         <ProjectMap
@@ -112,15 +129,46 @@ export function MapHero({
         )}
       </AnimatePresence>
 
-      {/* Top-left: status pill (always visible). */}
-      <div
-        className="absolute"
-        style={{ top: OVERLAY_INSET, left: OVERLAY_INSET }}
-      >
-        <MapStatusPill color={statusColor} label={statusLabel} />
-      </div>
+      {/* Top-left compact: status pill (status-only, no project info). */}
+      <AnimatePresence>
+        {!expanded && (
+          <motion.div
+            key="status-pill"
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={overlayTransition}
+            className="absolute"
+            style={{ top: OVERLAY_INSET, left: OVERLAY_INSET }}
+          >
+            <MapStatusPill color={statusColor} label={statusLabel} />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* Top-right: collapse button (expanded only). */}
+      {/* Top-left expanded: project crumb pill — // {projectId} · {projectName} | address. */}
+      <AnimatePresence>
+        {expanded && (
+          <motion.div
+            key="crumb"
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={overlayTransition}
+            className="absolute"
+            style={{ top: OVERLAY_INSET, left: OVERLAY_INSET, maxWidth: "62%" }}
+          >
+            <MapProjectCrumb
+              statusColor={statusColor}
+              projectId={projectId}
+              projectName={projectName}
+              address={address}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Top-right expanded: COLLAPSE chevron pill (replaces the X button). */}
       <AnimatePresence>
         {expanded && (
           <motion.div
@@ -137,17 +185,17 @@ export function MapHero({
         )}
       </AnimatePresence>
 
-      {/* Top-right (below collapse): legend (expanded only). */}
+      {/* Bottom-right expanded: legend (moved from top-right per handoff). */}
       <AnimatePresence>
         {expanded && (
           <motion.div
             key="legend"
-            initial={{ opacity: 0, y: -4 }}
+            initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
+            exit={{ opacity: 0, y: 4 }}
             transition={{ ...overlayTransition, delay: reducedMotion ? 0 : 0.04 }}
             className="absolute"
-            style={{ top: OVERLAY_INSET + 36, right: OVERLAY_INSET }}
+            style={{ bottom: OVERLAY_INSET, right: OVERLAY_INSET }}
           >
             <MapLegend
               statusColor={statusColor}
@@ -157,21 +205,17 @@ export function MapHero({
         )}
       </AnimatePresence>
 
-      {/* Right edge mid: toolbar (expanded only). */}
+      {/* Left edge below crumb: vertical toolbar (moved from right-mid per handoff). */}
       <AnimatePresence>
         {expanded && (
           <motion.div
             key="toolbar"
-            initial={{ opacity: 0, x: 8 }}
+            initial={{ opacity: 0, x: -8 }}
             animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 8 }}
+            exit={{ opacity: 0, x: -8 }}
             transition={overlayTransition}
             className="absolute"
-            style={{
-              right: OVERLAY_INSET,
-              top: "50%",
-              transform: "translateY(-50%)",
-            }}
+            style={{ left: OVERLAY_INSET, top: TOOLBAR_TOP }}
           >
             <MapToolbar
               onZoomIn={onZoomIn}
@@ -184,15 +228,24 @@ export function MapHero({
         )}
       </AnimatePresence>
 
-      {/* Bottom-left: address pill (always). */}
-      <div
-        className="absolute"
-        style={{ bottom: OVERLAY_INSET, left: OVERLAY_INSET, maxWidth: "70%" }}
-      >
-        <MapAddressPill address={address} />
-      </div>
+      {/* Bottom-left compact: address pill with leading status-colored MapPin. */}
+      <AnimatePresence>
+        {!expanded && (
+          <motion.div
+            key="address"
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 4 }}
+            transition={overlayTransition}
+            className="absolute"
+            style={{ bottom: OVERLAY_INSET, left: OVERLAY_INSET, maxWidth: "70%" }}
+          >
+            <MapAddressPill address={address} pinColor={statusColor} />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* Bottom-right: expand hint (compact only). */}
+      {/* Bottom-right compact: EXPAND MAP button. */}
       <AnimatePresence>
         {!expanded && (
           <motion.button
@@ -204,11 +257,11 @@ export function MapHero({
             exit={{ opacity: 0, y: 4 }}
             transition={overlayTransition}
             onClick={onToggleExpand}
-            className="absolute flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.18em] transition-colors hover:text-white"
+            className="absolute flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-[0.18em] transition-colors"
             style={{
               bottom: OVERLAY_INSET,
               right: OVERLAY_INSET,
-              color: "#B5B5B5",
+              color: "var(--text-2)",
               padding: "6px 8px",
               background: PILL_BG,
               backdropFilter: "blur(8px)",
@@ -217,8 +270,8 @@ export function MapHero({
               borderRadius: PILL_RADIUS,
             }}
           >
-            <span>// EXPAND</span>
-            <ArrowUpRight size={11} strokeWidth={1.5} />
+            <Search size={11} strokeWidth={1.5} aria-hidden="true" />
+            <span>EXPAND MAP</span>
           </motion.button>
         )}
       </AnimatePresence>
@@ -228,25 +281,36 @@ export function MapHero({
 
 // ─── MapAddressPill ─────────────────────────────────────────────────────────
 
-function MapAddressPill({ address }: { address: string }) {
+function MapAddressPill({ address, pinColor }: { address: string; pinColor: string }) {
   return (
     <div
       data-testid="map-address-pill"
-      className="font-mono text-[11px] uppercase tracking-[0.16em]"
+      className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.16em]"
       style={{
-        color: "#EDEDED",
+        color: "var(--text)",
         padding: "8px 10px",
         background: PILL_BG,
         backdropFilter: "blur(8px)",
         WebkitBackdropFilter: "blur(8px)",
         border: PILL_BORDER,
         borderRadius: PILL_RADIUS,
-        whiteSpace: "nowrap",
-        overflow: "hidden",
-        textOverflow: "ellipsis",
       }}
     >
-      {address}
+      <MapPin
+        size={12}
+        strokeWidth={1.5}
+        aria-hidden="true"
+        style={{ color: pinColor, flexShrink: 0 }}
+      />
+      <span
+        style={{
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+        }}
+      >
+        {address}
+      </span>
     </div>
   );
 }
@@ -259,7 +323,8 @@ function MapStatusPill({ color, label }: { color: string; label: string }) {
       data-testid="map-status-pill"
       className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.18em]"
       style={{
-        color: "#EDEDED",
+        // Status hex drives both the pill text and the dot — handoff spec.
+        color,
         padding: "6px 10px",
         // Soft status background — 14% opacity behind the pill, color-only border.
         background: `${color}24`,
@@ -285,7 +350,78 @@ function MapStatusPill({ color, label }: { color: string; label: string }) {
   );
 }
 
-// ─── MapCollapseButton ──────────────────────────────────────────────────────
+// ─── MapProjectCrumb (expanded) ─────────────────────────────────────────────
+
+function MapProjectCrumb({
+  statusColor,
+  projectId,
+  projectName,
+  address,
+}: {
+  statusColor: string;
+  projectId: string;
+  projectName: string;
+  address: string;
+}) {
+  return (
+    <div
+      data-testid="map-project-crumb"
+      className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.16em]"
+      style={{
+        color: "var(--text)",
+        padding: "8px 12px",
+        background: PILL_BG,
+        backdropFilter: "blur(8px)",
+        WebkitBackdropFilter: "blur(8px)",
+        border: PILL_BORDER,
+        borderRadius: PILL_RADIUS,
+      }}
+    >
+      {/* Leading status dot — replaces the standalone status pill in expanded. */}
+      <span
+        aria-hidden="true"
+        style={{
+          width: 6,
+          height: 6,
+          borderRadius: "50%",
+          background: statusColor,
+          boxShadow: `0 0 6px ${statusColor}`,
+          display: "inline-block",
+          flexShrink: 0,
+        }}
+      />
+      <span data-testid="map-crumb-id" style={{ color: "var(--text-3)" }}>
+        // {projectId}
+      </span>
+      <span style={{ color: "var(--text-mute)" }}>·</span>
+      <span data-testid="map-crumb-name" style={{ color: "var(--text)" }}>
+        {projectName}
+      </span>
+      <span
+        aria-hidden="true"
+        style={{
+          width: 1,
+          height: 12,
+          background: "rgba(255,255,255,0.14)",
+          margin: "0 4px",
+        }}
+      />
+      <span
+        data-testid="map-crumb-address"
+        style={{
+          color: "var(--text-2)",
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+        }}
+      >
+        {address}
+      </span>
+    </div>
+  );
+}
+
+// ─── MapCollapseButton (COLLAPSE chevron pill) ──────────────────────────────
 
 function MapCollapseButton({ onClick }: { onClick: () => void }) {
   return (
@@ -294,19 +430,19 @@ function MapCollapseButton({ onClick }: { onClick: () => void }) {
       data-testid="map-collapse-button"
       onClick={onClick}
       aria-label="Collapse map"
-      className="flex items-center justify-center transition-colors hover:bg-white/10"
+      className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.16em] transition-colors hover:bg-white/10"
       style={{
-        width: 28,
-        height: 28,
+        color: "var(--text)",
+        padding: "6px 10px",
         background: PILL_BG,
         backdropFilter: "blur(8px)",
         WebkitBackdropFilter: "blur(8px)",
         border: PILL_BORDER,
         borderRadius: PILL_RADIUS,
-        color: "#EDEDED",
       }}
     >
-      <X size={14} strokeWidth={1.5} />
+      <ChevronUp size={12} strokeWidth={1.5} aria-hidden="true" />
+      <span>COLLAPSE</span>
     </button>
   );
 }
@@ -372,7 +508,7 @@ function ToolButton({
       onClick={onClick}
       aria-label={label}
       className="flex items-center justify-center transition-colors hover:bg-white/10"
-      style={{ width: 32, height: 32, color: "#EDEDED" }}
+      style={{ width: 32, height: 32, color: "var(--text)" }}
     >
       {icon}
     </button>
@@ -406,7 +542,7 @@ function MapLegend({
       data-testid="map-legend"
       className="font-mono text-[10px] uppercase tracking-[0.16em]"
       style={{
-        color: "#B5B5B5",
+        color: "var(--text-2)",
         padding: "8px 10px",
         background: PILL_BG,
         backdropFilter: "blur(8px)",
@@ -427,11 +563,23 @@ function MapLegend({
             boxShadow: `0 0 6px ${statusColor}`,
           }}
         />
-        <span style={{ color: "#EDEDED" }}>// THIS PROJECT</span>
+        <span style={{ color: "var(--text)" }}>// THIS PROJECT</span>
       </div>
-      <LegendRow color="#9DB582" label="Accepted" count={counts.accepted} />
-      <LegendRow color="#B58289" label="Completed" count={counts.completed} />
-      <LegendRow color="#8F9AA3" label="RFQ" count={counts.rfq} />
+      <LegendRow
+        color={PROJECT_STATUS_COLORS[ProjectStatus.Accepted]}
+        label="Accepted"
+        count={counts.accepted}
+      />
+      <LegendRow
+        color={PROJECT_STATUS_COLORS[ProjectStatus.Completed]}
+        label="Completed"
+        count={counts.completed}
+      />
+      <LegendRow
+        color={PROJECT_STATUS_COLORS[ProjectStatus.RFQ]}
+        label="RFQ"
+        count={counts.rfq}
+      />
     </div>
   );
 }
@@ -452,7 +600,7 @@ function LegendRow({ color, label, count }: { color: string; label: string; coun
         />
         <span>{label}</span>
       </div>
-      <span data-count={count} style={{ color: "#EDEDED", fontVariantNumeric: "tabular-nums" }}>
+      <span data-count={count} style={{ color: "var(--text)", fontVariantNumeric: "tabular-nums" }}>
         {count}
       </span>
     </div>

@@ -41,6 +41,10 @@ vi.mock("react-map-gl", () => {
         {children}
       </div>
     ),
+    // NavigationControl was removed from ProjectMap (the custom MapToolbar
+    // owns zoom/recenter/etc.). The mock still exposes it so any accidental
+    // re-introduction would surface — the assertions below verify it never
+    // renders.
     NavigationControl: () => <div data-testid="mock-nav-control" />,
   };
 });
@@ -101,7 +105,7 @@ describe("<ProjectMap>", () => {
     expect(screen.queryByTestId("mock-nav-control")).not.toBeInTheDocument();
   });
 
-  it("enables interactivity, navigation control, and other-pin markers in expanded mode", () => {
+  it("enables interactivity and other-pin markers in expanded mode (no NavigationControl)", () => {
     render(
       <ProjectMap
         latitude={49.7016}
@@ -119,7 +123,9 @@ describe("<ProjectMap>", () => {
     expect(map).toHaveAttribute("data-drag-pan", "true");
     // Expanded zoom is 13 per the plan's design tokens.
     expect(map).toHaveAttribute("data-zoom", "13");
-    expect(screen.getByTestId("mock-nav-control")).toBeInTheDocument();
+    // The custom MapToolbar owns zoom/recenter — Mapbox's NavigationControl
+    // would be a duplicate, so it must never render.
+    expect(screen.queryByTestId("mock-nav-control")).not.toBeInTheDocument();
     // 1 primary pin + 2 other pins = 3 markers.
     expect(screen.getAllByTestId("mock-marker")).toHaveLength(3);
   });

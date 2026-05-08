@@ -1,6 +1,6 @@
 "use client";
 
-import Map, { Marker, NavigationControl } from "react-map-gl";
+import Map, { Marker } from "react-map-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { useReducedMotion } from "framer-motion";
 
@@ -24,6 +24,10 @@ interface ProjectMapProps {
 const MAP_STYLE = "mapbox://styles/mapbox/dark-v11";
 const COMPACT_ZOOM = 14;
 const EXPANDED_ZOOM = 13;
+// Mapbox-specific dark canvas behind tile loads. There is no design-system
+// token for "below the map surface" — this exists only to prevent a flash
+// of the page background while tiles paint.
+const MAP_CANVAS_BG = "#0a0d10";
 
 export function ProjectMap({
   latitude,
@@ -44,7 +48,7 @@ export function ProjectMap({
     <div
       onClick={!expanded ? onClick : undefined}
       className={`relative h-full w-full overflow-hidden ${!expanded ? "cursor-zoom-in" : ""}`}
-      style={{ background: "#0a0d10" }}
+      style={{ background: MAP_CANVAS_BG }}
     >
       <Map
         mapboxAccessToken={token}
@@ -61,7 +65,6 @@ export function ProjectMap({
         doubleClickZoom={expanded}
         reuseMaps
       >
-        {expanded && <NavigationControl position="top-left" showCompass={false} />}
         <Marker latitude={latitude} longitude={longitude} anchor="center">
           <ProjectPin color={pinColor} animate={!reducedMotion} />
         </Marker>
@@ -114,7 +117,7 @@ function ProjectPin({ color, animate }: ProjectPinProps) {
           width: 4,
           height: 4,
           borderRadius: "50%",
-          background: "#fff",
+          background: "var(--text)",
           position: "absolute",
           top: -2,
           left: -2,
@@ -151,8 +154,8 @@ function OtherProjectPin({ color, label }: OtherProjectPinProps) {
 function MapTokenMissing() {
   return (
     <div
-      className="flex h-full w-full items-center justify-center bg-[#0a0d10] text-[11px] uppercase tracking-[0.18em]"
-      style={{ color: "#8A8A8A" }}
+      className="flex h-full w-full items-center justify-center text-[11px] uppercase tracking-[0.18em]"
+      style={{ background: MAP_CANVAS_BG, color: "var(--text-3)" }}
     >
       <span className="font-mono">// MAP UNAVAILABLE — NEXT_PUBLIC_MAPBOX_TOKEN MISSING</span>
     </div>

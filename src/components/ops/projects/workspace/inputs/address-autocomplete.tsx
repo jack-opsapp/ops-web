@@ -134,7 +134,7 @@ export function AddressAutocomplete({
           size={14}
           strokeWidth={1.5}
           className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2"
-          style={{ color: "#8A8A8A" }}
+          style={{ color: "var(--text-3)" }}
           aria-hidden="true"
         />
         <input
@@ -162,7 +162,7 @@ export function AddressAutocomplete({
           onKeyDown={handleKeyDown}
           className="w-full bg-transparent font-mohave text-sm transition-colors focus:outline-none"
           style={{
-            color: "#EDEDED",
+            color: "var(--text)",
             paddingLeft: 32,
             paddingRight: 12,
             paddingTop: 9,
@@ -180,6 +180,9 @@ export function AddressAutocomplete({
           role="listbox"
           className="absolute left-0 right-0 z-50 mt-1 max-h-64 overflow-y-auto"
           style={{
+            // --glass-dense (rgba(18,18,20,0.78)) is the design-system
+            // dropdown surface; raised to 0.92 here to keep address rows
+            // readable over Mapbox tiles below.
             background: "rgba(18,18,20,0.92)",
             backdropFilter: "blur(12px)",
             WebkitBackdropFilter: "blur(12px)",
@@ -207,18 +210,18 @@ export function AddressAutocomplete({
                 style={{
                   padding: "8px 12px",
                   borderBottom: "1px solid rgba(255,255,255,0.04)",
-                  background: active ? "rgba(111,148,176,0.10)" : "transparent",
+                  background: active ? "var(--ops-accent-soft)" : "transparent",
                 }}
               >
                 <div
                   className="font-mohave text-[13px]"
-                  style={{ color: "#EDEDED" }}
+                  style={{ color: "var(--text)" }}
                 >
                   {result.shortAddress}
                 </div>
                 <div
                   className="font-mono text-[10px] uppercase tracking-[0.14em]"
-                  style={{ color: "#8A8A8A" }}
+                  style={{ color: "var(--text-3)" }}
                 >
                   {result.fullAddress}
                 </div>
@@ -231,7 +234,7 @@ export function AddressAutocomplete({
       {isFetching && (
         <span
           className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 font-mono text-[10px] uppercase tracking-[0.18em]"
-          style={{ color: "#6A6A6A" }}
+          style={{ color: "var(--text-mute)" }}
           aria-live="polite"
         >
           ...
