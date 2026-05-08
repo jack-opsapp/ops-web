@@ -1,166 +1,134 @@
 /**
  * useProjectActivity — workspace timeline reader.
  *
- * Reads `activities` for a single project, sorted newest first, then resolves
- * two side-channel joins that have no FK in the schema:
- *   - `created_by` → users.{first_name, last_name, user_color} (one query, distinct ids)
- *   - `attachment_ids[]` → project_photos.{url, thumbnail_url} (one query, flattened ids)
+ * project_notes is the iOS-canonical timeline source. event_kind discriminates
+ * user-authored notes (NULL → kind='note') from system events written by web
+ * (status_change, payment_received, project_archived, etc.). content_metadata
+ * carries each event's structured payload (the {from,to} of a status change,
+ * the {paymentId,amount,method} of a payment, etc.).
  *
- * The shape returned is what the workspace ACTIVITY tab consumes directly —
- * camelCased, with the user record collapsed to a `{ id, name, avatarColor }`
- * triple and attachments resolved to public URLs.
+ * iOS-additive contract: event_kind and content_metadata are nullable
+ * additions on project_notes (migration 20260507130000). iOS treats rows
+ * with event_kind set as plain notes until the next App Store release.
+ *
+ * Read shape: select project_notes ordered desc, then a single follow-up
+ * users query to hydrate author info (author_id has no FK).
  */
 
 import { useQuery } from "@tanstack/react-query";
 import { requireSupabase } from "@/lib/supabase/helpers";
 import { queryKeys } from "@/lib/api/query-client";
+import type { NoteAttachment } from "@/lib/types/pipeline";
 
-const ACTIVITY_TYPES = [
-  "note",
-  "email",
-  "call",
-  "meeting",
-  "estimate_sent",
-  "payment_received",
-  "won",
-  "lost",
-  "system",
-  "invoice_sent",
-  "task_completed",
-  "photo",
-  "expense",
-] as const;
+export type ProjectActivityKind =
+  | "note"
+  | "status_change"
+  | "estimate_sent"
+  | "estimate_approved"
+  | "estimate_declined"
+  | "invoice_sent"
+  | "payment_received"
+  | "expense_logged"
+  | "photo_uploaded"
+  | "project_created"
+  | "project_archived"
+  | "task_completed";
 
-export type ProjectActivityType = (typeof ACTIVITY_TYPES)[number];
-
-export interface ProjectActivityCreator {
+export interface ProjectActivityAuthor {
   id: string;
   name: string;
   avatarColor: string;
 }
 
-export interface ProjectActivityAttachment {
-  id: string;
-  url: string;
-  thumbnailUrl: string | null;
-}
-
 export interface ProjectActivityEntry {
   id: string;
-  type: ProjectActivityType;
-  subject: string | null;
-  content: string | null;
+  kind: ProjectActivityKind;
+  content: string;
   createdAt: string;
-  createdBy: ProjectActivityCreator | null;
-  attachments: ProjectActivityAttachment[];
+  author: ProjectActivityAuthor | null;
+  attachments: NoteAttachment[];
+  mentionedUserIds: string[];
+  /** Structured payload for system events. NULL for user notes.
+   *  Examples: status_change → { from, to }; payment_received → { paymentId, amount, method }. */
+  eventPayload: Record<string, unknown> | null;
 }
 
 const FALLBACK_AVATAR_COLOR = "#6F94B0";
 
-interface ActivityRow {
+interface NoteRow {
   id: string;
-  type: string;
-  subject: string | null;
   content: string | null;
+  content_metadata: Record<string, unknown> | null;
+  event_kind: string | null;
   created_at: string;
-  created_by: string | null;
-  attachment_ids: string[] | null;
+  attachments: NoteAttachment[] | null;
+  mentioned_user_ids: string[] | null;
+  author_id: string | null;
 }
 
 interface UserRow {
   id: string;
-  first_name: string;
-  last_name: string;
+  first_name: string | null;
+  last_name: string | null;
   user_color: string | null;
-}
-
-interface PhotoRow {
-  id: string;
-  url: string;
-  thumbnail_url: string | null;
 }
 
 export function useProjectActivity(projectId: string | null, limit = 25) {
   return useQuery({
     queryKey: queryKeys.projectWorkspace.activity(projectId, limit),
-    queryFn: async () => {
+    queryFn: async (): Promise<ProjectActivityEntry[]> => {
       if (!projectId) return [];
       const supabase = requireSupabase();
 
-      const { data: rawActivities, error: activitiesError } = await supabase
-        .from("activities")
+      const { data: rawNotes, error: notesError } = await supabase
+        .from("project_notes")
         .select(
-          "id, type, subject, content, created_at, created_by, attachment_ids"
+          "id, content, content_metadata, event_kind, created_at, attachments, mentioned_user_ids, author_id",
         )
         .eq("project_id", projectId)
+        .is("deleted_at", null)
         .order("created_at", { ascending: false })
         .limit(limit);
 
-      if (activitiesError) throw activitiesError;
-      const activities = (rawActivities ?? []) as ActivityRow[];
+      if (notesError) throw notesError;
+      const notes = (rawNotes ?? []) as NoteRow[];
 
-      const creatorIds = Array.from(
-        new Set(
-          activities
-            .map((a) => a.created_by)
-            .filter((id): id is string => !!id)
-        )
-      );
-      const photoIds = Array.from(
-        new Set(activities.flatMap((a) => a.attachment_ids ?? []))
+      const authorIds = Array.from(
+        new Set(notes.map((n) => n.author_id).filter((id): id is string => !!id)),
       );
 
-      const [creatorRows, photoRows] = await Promise.all([
-        creatorIds.length === 0
-          ? Promise.resolve<UserRow[]>([])
-          : supabase
+      const authorRows: UserRow[] =
+        authorIds.length === 0
+          ? []
+          : await supabase
               .from("users")
               .select("id, first_name, last_name, user_color")
-              .in("id", creatorIds)
+              .in("id", authorIds)
               .then((r) => {
                 if (r.error) throw r.error;
                 return (r.data ?? []) as UserRow[];
-              }),
-        photoIds.length === 0
-          ? Promise.resolve<PhotoRow[]>([])
-          : supabase
-              .from("project_photos")
-              .select("id, url, thumbnail_url")
-              .in("id", photoIds)
-              .then((r) => {
-                if (r.error) throw r.error;
-                return (r.data ?? []) as PhotoRow[];
-              }),
-      ]);
+              });
 
-      const creatorById = new Map(creatorRows.map((u) => [u.id, u]));
-      const photoById = new Map(photoRows.map((p) => [p.id, p]));
+      const authorById = new Map(authorRows.map((u) => [u.id, u]));
 
-      return activities.map<ProjectActivityEntry>((a) => {
-        const creator = a.created_by ? creatorById.get(a.created_by) : null;
-        const attachments = (a.attachment_ids ?? [])
-          .map((id) => photoById.get(id))
-          .filter((p): p is PhotoRow => !!p)
-          .map<ProjectActivityAttachment>((p) => ({
-            id: p.id,
-            url: p.url,
-            thumbnailUrl: p.thumbnail_url,
-          }));
-
+      return notes.map<ProjectActivityEntry>((n) => {
+        const author = n.author_id ? authorById.get(n.author_id) ?? null : null;
         return {
-          id: a.id,
-          type: a.type as ProjectActivityType,
-          subject: a.subject,
-          content: a.content,
-          createdAt: a.created_at,
-          createdBy: creator
+          id: n.id,
+          kind: (n.event_kind as ProjectActivityKind | null) ?? "note",
+          content: n.content ?? "",
+          createdAt: n.created_at,
+          author: author
             ? {
-                id: creator.id,
-                name: `${creator.first_name} ${creator.last_name}`.trim(),
-                avatarColor: creator.user_color ?? FALLBACK_AVATAR_COLOR,
+                id: author.id,
+                name:
+                  `${author.first_name ?? ""} ${author.last_name ?? ""}`.trim() || "Unknown",
+                avatarColor: author.user_color ?? FALLBACK_AVATAR_COLOR,
               }
             : null,
-          attachments,
+          attachments: n.attachments ?? [],
+          mentionedUserIds: n.mentioned_user_ids ?? [],
+          eventPayload: n.content_metadata ?? null,
         };
       });
     },
