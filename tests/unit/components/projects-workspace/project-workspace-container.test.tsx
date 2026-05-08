@@ -232,10 +232,14 @@ const storeState: {
   updateWindowMeta: vi.fn(),
 };
 
+const consumeProjectCreatedCallbackMock = vi.fn();
+
 vi.mock("@/stores/window-store", () => ({
   useWindowStore: <T,>(
     selector: (s: typeof storeState) => T,
   ) => selector(storeState),
+  consumeProjectCreatedCallback: (windowId: string, projectId: string) =>
+    consumeProjectCreatedCallbackMock(windowId, projectId),
 }));
 
 const { ProjectWorkspaceContainer } = await import(
@@ -284,6 +288,7 @@ describe("<ProjectWorkspaceContainer>", () => {
     storeState.windows = [];
     storeState.closeWindow.mockReset();
     storeState.updateWindowMeta.mockReset();
+    consumeProjectCreatedCallbackMock.mockReset();
     archiveMutate.mockReset();
     saveMutate.mockReset();
     createMutate.mockReset();
@@ -498,6 +503,33 @@ describe("<ProjectWorkspaceContainer>", () => {
       projectId: "created-project-id",
       initialMode: "viewing",
     });
+  });
+
+  it("fires consumeProjectCreatedCallback BEFORE the meta swap so the parent observes the new id first (10.1-fix)", async () => {
+    // Order matters: the in-task-modal flow expects the new project id
+    // to land in its <ProjectSelector> before the workspace transitions
+    // to viewing — otherwise the user sees a stale selector for a frame.
+    seedCreatingWindow();
+    mockProject.mockReturnValue({ data: undefined, isLoading: false });
+    render(<ProjectWorkspaceContainer windowId="project-workspace:new" />);
+
+    const composer = screen.getByTestId("edit-create-body-stub");
+    composer.dispatchEvent(
+      new Event("submit", { bubbles: true, cancelable: true }),
+    );
+
+    await waitFor(() => {
+      expect(consumeProjectCreatedCallbackMock).toHaveBeenCalledTimes(1);
+    });
+    expect(consumeProjectCreatedCallbackMock).toHaveBeenCalledWith(
+      "project-workspace:new",
+      "created-project-id",
+    );
+    // Order assertion: the callback fires BEFORE updateWindowMeta.
+    const cbOrder =
+      consumeProjectCreatedCallbackMock.mock.invocationCallOrder[0]!;
+    const metaOrder = storeState.updateWindowMeta.mock.invocationCallOrder[0]!;
+    expect(cbOrder).toBeLessThan(metaOrder);
   });
 
   // ── Tab change ──

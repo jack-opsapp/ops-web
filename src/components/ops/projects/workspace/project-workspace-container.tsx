@@ -1,7 +1,10 @@
 "use client";
 
 import * as React from "react";
-import { useWindowStore } from "@/stores/window-store";
+import {
+  useWindowStore,
+  consumeProjectCreatedCallback,
+} from "@/stores/window-store";
 import { useProject } from "@/lib/hooks/use-projects";
 import { useProjectMutations } from "@/lib/hooks/use-project-mutations";
 import { ProjectStatus } from "@/lib/types/models";
@@ -108,6 +111,17 @@ export function ProjectWorkspaceContainer({
   const handleSaved = React.useCallback(
     (savedProjectId: string) => {
       if (mode === "creating") {
+        // Fire the parent-supplied onProjectCreated callback first, so
+        // the parent surface (e.g. the in-task-modal project selector)
+        // observes the new id synchronously before this window swaps
+        // meta + transitions to viewing. Wrapped: a thrown callback
+        // must not block the meta swap — the parent owns its own
+        // failure handling.
+        try {
+          consumeProjectCreatedCallback(windowId, savedProjectId);
+        } catch (err) {
+          console.error("onProjectCreated callback threw", err);
+        }
         // Creating → viewing transition. Update the window meta so the
         // window's id sentinel ("project-workspace:new") points at the
         // freshly minted project, and any subsequent re-open from a
