@@ -6,11 +6,15 @@ import { cn } from "@/lib/utils/cn";
 import {
   type Project,
   ProjectStatus,
-  PROJECT_STATUS_COLORS,
   PROJECT_STATUS_SORT_ORDER,
 } from "@/lib/types/models";
 import { useUpdateProject, useUpdateProjectStatus, useDeleteProject } from "@/lib/hooks/use-projects";
+// Phase 9.4 — popover store import retained for the moment so any
+// in-flight refactors stay buildable; Phase 10 deletes both the store
+// and this import. Active row clicks now route through the workspace
+// window instead of the popover.
 import { useProjectDetailPopoverStore } from "./project-detail-popover-store";
+import { useWindowStore } from "@/stores/window-store";
 import { toast } from "@/components/ui/toast";
 import {
   type SpreadsheetSortDirection,
@@ -68,7 +72,10 @@ export function ProjectSpreadsheet({
   const updateProjectMutation = useUpdateProject();
   const updateStatusMutation = useUpdateProjectStatus();
   const deleteProjectMutation = useDeleteProject();
-  const openPopover = useProjectDetailPopoverStore((s) => s.openPopover);
+  // Legacy popover opener kept imported but unused — Phase 10 deletes
+  // both the call site and the store.
+  void useProjectDetailPopoverStore;
+  const openProjectWindow = useWindowStore((s) => s.openProjectWindow);
 
   // ── Sort state ──
   const [sortColumn, setSortColumn] = useState<string | null>(null);
@@ -258,11 +265,9 @@ export function ProjectSpreadsheet({
   const handleOpenDetail = useCallback((projectId: string) => {
     const project = displayProjects.find((p) => p.id === projectId);
     if (!project) return;
-    const label = project.title || project.address?.split(",")[0] || "Untitled Project";
-    const color = PROJECT_STATUS_COLORS[project.status];
-    openPopover(projectId, { x: window.innerWidth * 0.6, y: 200 }, label, color);
+    openProjectWindow({ projectId, mode: "viewing" });
     setActionMenu(null);
-  }, [displayProjects, openPopover]);
+  }, [displayProjects, openProjectWindow]);
 
   // ── Keyboard ──
   useEffect(() => {
