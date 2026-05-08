@@ -465,8 +465,16 @@ export function extractEmailAddress(from: string | null | undefined): string {
 // ─── Forward detection (shared by deterministic-internal-rule) ──────────────
 
 const FORWARD_SUBJECT_RE = /^\s*fwd?:\s*/i;
-const FORWARDED_MESSAGE_BODY_RE = /^-{5,}\s*Forwarded message\s*-{5,}/mi;
-const BEGIN_FORWARDED_BODY_RE = /^Begin forwarded message:/mi;
+// Each marker tolerates leading "> " quote prefixes — when a forward gets
+// re-forwarded (or replied to with quoting on), every line of the inlined
+// block ends up with `> ` in front and the bare anchored regex misses.
+const FORWARDED_MESSAGE_BODY_RE = /^>?\s*-{5,}\s*Forwarded message\s*-{5,}/mi;
+const BEGIN_FORWARDED_BODY_RE = /^>?\s*Begin forwarded message:/mi;
+// Outlook/M365: a contiguous "From: …\nSent: …\nTo: …" block at the start
+// of the inlined upstream message. Gmail produces this shape too when the
+// user picks "Show original" before forwarding. Same `> `-tolerant prefix.
+const OUTLOOK_FORWARD_HEADER_BLOCK_RE =
+  /^>?\s*From:\s.+\n>?\s*Sent:\s.+\n>?\s*To:\s/m;
 
 /**
  * True when the thread's subject or first-message body indicates a
@@ -482,4 +490,123 @@ export function isForwardMarker(subject: string, bodyText: string): boolean {
   if (FORWARDED_MESSAGE_BODY_RE.test(bodyText)) return true;
   if (BEGIN_FORWARDED_BODY_RE.test(bodyText)) return true;
   return false;
+}
+
+// ─── Forwarded-sender extraction ───────────────────────────────────────────
+//
+// When the operator forwards a lead from one of their own mailboxes (e.g.
+// victoria@canprodeckandrail.com auto-forwards to canprojack@gmail.com), the
+// outer From header on the inbound copy is the operator's own address — the
+// real customer email is buried in the body of the forward as "From: Name
+// <customer@example.com>". `latest_sender_email` ends up pointing at the
+// operator instead of the customer, which silently filters the thread out
+// of every "is this from a real lead" check (Phase C drafts, the inbox
+// FROM_NEW_SENDER label, the lead-archive prompt).
+//
+// Detection is permissive — three independent markers each suffice:
+//   1. Subject starts with Fwd: / FW: / Forwarded:
+//   2. Body has "---------- Forwarded message ---------" (Gmail) or
+//      "Begin forwarded message:" (Apple Mail) preamble
+//   3. Body has a header block "From: …\nSent: …\nTo: …" near the top
+//      (Outlook desktop / M365 inline forward)
+//
+// Extraction parses the FIRST `From:` line that appears after the forward
+// marker (or — if no marker is present — the first one in the first 2000
+// chars, which is the conservative reach for an Outlook-style block).
+
+/** Plain `<email>` extractor over a single From: line. Tolerates "Name
+ *  <email>" (RFC822), bare `email`, and "Name (Title) <email>". */
+function parseAddressFromHeaderLine(line: string): string | null {
+  if (!line) return null;
+  const angle = line.match(/<([^>\s]+@[^>\s]+)>/);
+  if (angle) return angle[1].trim().toLowerCase();
+  const bare = line.match(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/);
+  return bare ? bare[0].trim().toLowerCase() : null;
+}
+
+/**
+ * Extract the upstream sender email from a forwarded message body.
+ *
+ * Returns the lowercased email address found in the FIRST `From:` line that
+ * lives inside (or near) a forwarded block. Returns null when no forward
+ * marker is detected, or when a marker exists but no parseable email
+ * follows it.
+ *
+ * Bodies are normalized to LF newlines before scanning so Gmail/M365's
+ * mixed CRLF/LF output doesn't break the multi-line regexes. The search
+ * is bounded to the first 4000 chars after the marker — well past where any
+ * real "From:" line would appear and short enough that pathological bodies
+ * can't pin a CPU.
+ */
+export function extractForwardedSender(
+  subject: string,
+  bodyText: string,
+): string | null {
+  if (!bodyText) return null;
+  const body = bodyText.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+
+  // Locate where the forwarded block starts. Each marker has its own
+  // anchor so we can begin scanning AFTER the preamble for the upstream
+  // From: line — important on Outlook bodies where the operator's own
+  // commentary may sit above the forwarded block and contain a stray
+  // From: their-name reference that we want to skip past.
+  const markers: RegExp[] = [
+    FORWARDED_MESSAGE_BODY_RE,
+    BEGIN_FORWARDED_BODY_RE,
+    OUTLOOK_FORWARD_HEADER_BLOCK_RE,
+  ];
+
+  let scanFrom = -1;
+  for (const m of markers) {
+    const match = body.match(m);
+    if (match?.index !== undefined && (scanFrom === -1 || match.index < scanFrom)) {
+      scanFrom = match.index;
+    }
+  }
+
+  // If subject says forward but no body marker fired, scan from the top —
+  // some clients send a forward with the subject set to "Fwd: …" but no
+  // explicit body preamble (just a header block at the very top).
+  if (scanFrom === -1 && FORWARD_SUBJECT_RE.test(subject ?? "")) {
+    scanFrom = 0;
+  }
+  if (scanFrom === -1) return null;
+
+  const window = body.slice(scanFrom, scanFrom + 4000);
+  // First "From:" line inside the window. The leading-anchor `^` is
+  // important — bodies often contain "from:" inside prose ("a note from:
+  // the field crew") that should not match. The optional `>?\s*` lets us
+  // also pick up `> From: …` for re-forwarded / quoted bodies.
+  const fromLineMatch = window.match(/^>?\s*From:\s*(.+)$/m);
+  if (!fromLineMatch) return null;
+  return parseAddressFromHeaderLine(fromLineMatch[1]);
+}
+
+/**
+ * Pick the effective "real sender" of an inbound message.
+ *
+ * Priority:
+ *   1. Forwarded upstream sender, when extractable AND not equal to the
+ *      operator's own connection address — recovers the customer email
+ *      buried in a forwarded lead.
+ *   2. The raw From: header otherwise — current behavior for non-forwarded
+ *      mail.
+ *
+ * `connectionEmail` is the connected mailbox (operator's own) and is used
+ * only for the "don't return our own address as the upstream" guard. Pass
+ * lowercased; the comparison is case-sensitive on the assumption the
+ * caller normalized.
+ */
+export function resolveEffectiveSenderEmail(params: {
+  fromHeader: string;
+  subject: string;
+  bodyText: string;
+  connectionEmail: string | null;
+}): { email: string; source: "forwarded" | "from_header" } {
+  const headerEmail = extractEmailAddress(params.fromHeader).toLowerCase();
+  const fwd = extractForwardedSender(params.subject ?? "", params.bodyText ?? "");
+  if (fwd && fwd !== params.connectionEmail?.toLowerCase()) {
+    return { email: fwd, source: "forwarded" };
+  }
+  return { email: headerEmail, source: "from_header" };
 }

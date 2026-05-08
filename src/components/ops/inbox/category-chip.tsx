@@ -29,6 +29,7 @@ interface CategoryMeta {
 }
 
 const CATEGORY_META: Record<EmailThreadCategory, CategoryMeta> = {
+  CUSTOMER:     { tone: "active",    label: "CUSTOMER" },
   LEAD:         { tone: "active",    label: "LEAD" },
   CLIENT:       { tone: "active",    label: "CLIENT" },
   VENDOR:       { tone: "neutral",   label: "VENDOR" },

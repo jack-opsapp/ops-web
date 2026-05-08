@@ -61,6 +61,9 @@ export function allowedLevelsFor(
   category: EmailThreadCategory
 ): EmailThreadAutonomyLevel[] {
   switch (category) {
+    // CUSTOMER is the production category. LEAD + CLIENT are kept as legacy
+    // aliases for transitional rows; same allowed levels for all three.
+    case "CUSTOMER":
     case "LEAD":
       return ["off", "draft_on_request", "auto_draft", "auto_send", "auto_follow_up"];
     case "CLIENT":

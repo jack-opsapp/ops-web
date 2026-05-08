@@ -46,7 +46,12 @@ import {
   type ClassifyMessage,
   type LearnedRule,
 } from "./thread-classifier-service";
-import { isCommonEmailDomain, extractEmailAddress, stripQuotedContent } from "@/lib/utils/email-parsing";
+import {
+  isCommonEmailDomain,
+  extractEmailAddress,
+  stripQuotedContent,
+  resolveEffectiveSenderEmail,
+} from "@/lib/utils/email-parsing";
 import type { NormalizedEmail } from "./email-provider";
 
 // ─── Sender-name resolution ──────────────────────────────────────────────────
@@ -630,16 +635,55 @@ export const EmailThreadService = {
       throw new Error(`upsertFromEmail read failed: ${existingError.message}`);
     }
 
-    const senderEmail = extractEmailAddress(email.from).toLowerCase();
+    // Connection email — needed for both forwarded-sender extraction (so we
+    // don't "recover" the operator's own address as the upstream sender)
+    // AND the self-forward guard below. Cached per call; the lookup is one
+    // indexed point-read so the cost is negligible vs. the directory
+    // queries that follow.
+    const { data: connRow } = await supabase
+      .from("email_connections")
+      .select("email")
+      .eq("id", connectionId)
+      .maybeSingle();
+    const connectionEmail =
+      ((connRow?.email as string | null) ?? "").toLowerCase().trim() || null;
+
+    // Resolve the *effective* sender. When the message body looks like a
+    // forwarded lead (Fwd: subject, Gmail "Forwarded message" preamble,
+    // Outlook "From:/Sent:/To:" header block, or Apple Mail "Begin
+    // forwarded message:"), we prefer the upstream From: address so
+    // latest_sender_email points at the real customer rather than the
+    // operator's own mailbox.
+    const resolved = resolveEffectiveSenderEmail({
+      fromHeader: email.from,
+      subject: email.subject ?? "",
+      bodyText: email.bodyText ?? "",
+      connectionEmail,
+    });
+    const senderEmail = resolved.email;
+    // True when the resolved sender is still the operator's own mailbox
+    // (no recoverable upstream sender, AND the From header is the
+    // connection itself). Treated as "no real sender update" — we still
+    // bump message_count / last_message_at, but we leave the existing
+    // latest_sender_* fields alone so a stray draft sync or an outbound
+    // copy mis-tagged as inbound can't clobber the real customer's
+    // identity on the thread row.
+    const senderIsSelf =
+      direction === "inbound" &&
+      !!connectionEmail &&
+      senderEmail === connectionEmail;
+
     // Canonical name via directory lookup (clients/sub_clients/users),
     // falling through to the raw From display name when it isn't a generic
     // mailbox label, then the full email. Never the local part — that
-    // produces garbage like "canprojack" for bare-email senders.
+    // produces garbage like "canprojack" for bare-email senders. When the
+    // sender came from a forwarded body (no display name available), pass
+    // an empty fromName so the directory lookup is the only signal.
     const senderName = await composeSenderName(
       supabase,
       companyId,
       senderEmail,
-      email.fromName
+      resolved.source === "forwarded" ? "" : email.fromName
     );
     const snippet = (email.snippet || email.bodyText || "").slice(0, 400);
 
@@ -669,9 +713,18 @@ export const EmailThreadService = {
       if (isNewer) {
         update.last_message_at = emailDate.toISOString();
         update.latest_direction = direction;
-        update.latest_sender_email = senderEmail;
-        update.latest_sender_name = senderName;
-        update.latest_snippet = snippet;
+        // Self-forward guard: when the resolved sender is the operator's
+        // own mailbox (e.g. Gmail surfaced an outbound reply or a draft
+        // autosave under the INBOX label, or a forward whose upstream
+        // could not be parsed), skip the latest_sender_* / latest_snippet
+        // writes. Keeping the prior values means the thread row continues
+        // to point at the real customer's identity even though a junk
+        // "from-self" message just came in.
+        if (!senderIsSelf) {
+          update.latest_sender_email = senderEmail;
+          update.latest_sender_name = senderName;
+          update.latest_snippet = snippet;
+        }
         if (email.subject && (existing.subject as string).length === 0) {
           update.subject = email.subject;
         }
@@ -699,7 +752,9 @@ export const EmailThreadService = {
 
       // If this thread links to a client whose name is still a raw email
       // address, backfill it now that we have the sender's display name.
-      // Skip when senderName itself is an email (composeSenderName fallback).
+      // Skip when senderName itself is an email (composeSenderName fallback)
+      // OR when senderIsSelf (we'd clobber the customer's client.name with
+      // the operator's directory name).
       const linkedClientId =
         (update.client_id as string | undefined) ??
         (existing.client_id as string | null) ??
@@ -708,7 +763,8 @@ export const EmailThreadService = {
         linkedClientId &&
         senderName &&
         !senderName.includes("@") &&
-        direction === "inbound"
+        direction === "inbound" &&
+        !senderIsSelf
       ) {
         const { data: clientRow } = await supabase
           .from("clients")
@@ -756,12 +812,15 @@ export const EmailThreadService = {
 
     // If the matched client's name is still a raw email address, backfill
     // it with the sender's display name now that we have it. Skip when
-    // senderName itself is an email (composeSenderName fallback).
+    // senderName itself is an email (composeSenderName fallback) OR when
+    // senderIsSelf (we'd write the operator's name onto the customer's
+    // client row).
     if (
       autoClientId &&
       senderName &&
       !senderName.includes("@") &&
-      direction === "inbound"
+      direction === "inbound" &&
+      !senderIsSelf
     ) {
       const { data: clientRow } = await supabase
         .from("clients")

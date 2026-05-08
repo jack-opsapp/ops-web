@@ -54,6 +54,13 @@ export type RouterOutcome =
   | "auto_sent_scheduled"
   | "auto_archived"
   | "auto_follow_up_scheduled"
+  /**
+   * AIDraftService returned no draft because it needed operator input;
+   * the empty-response fallback formulated a question and wrote it to
+   * `email_threads.agent_blocking_question`. Surfaces in the inbox as
+   * the lavender NEEDS_INPUT band.
+   */
+  | "escalated_to_operator"
   | "error";
 
 export interface RouterResult {
@@ -195,6 +202,18 @@ export const PhaseCAutonomyRouter = {
     });
 
     if (!draft.available) {
+      // Empty-response escalation path — the AIDraftService asked Claude
+      // to formulate a question instead of a draft and wrote it to
+      // `email_threads.agent_blocking_question`. Surface that distinctly
+      // from generic errors so callers can log the success.
+      if (draft.escalated) {
+        return {
+          outcome: "escalated_to_operator",
+          category: thread.primaryCategory,
+          effectiveLevel: effective,
+          detail: draft.reason,
+        };
+      }
       return {
         outcome: "error",
         category: thread.primaryCategory,

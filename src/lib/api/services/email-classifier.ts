@@ -12,6 +12,7 @@
  */
 
 import OpenAI from "openai";
+import { sanitizeApiKey } from "./openai-clients";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -68,7 +69,7 @@ const PROTECTED_DOMAINS = new Set([
 let _openaiClient: OpenAI | null = null;
 
 function getOpenAIClient(): OpenAI | null {
-  const apiKey = process.env.OPENAI_API_KEY_IMPORT || process.env.OPENAI_API_KEY;
+  const apiKey = sanitizeApiKey(process.env.OPENAI_API_KEY_IMPORT) || sanitizeApiKey(process.env.OPENAI_API_KEY);
   if (!apiKey) return null;
   if (!_openaiClient) {
     _openaiClient = new OpenAI({ apiKey, timeout: 45_000 });
