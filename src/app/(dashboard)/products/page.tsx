@@ -20,6 +20,10 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { EmptyState } from "@/components/ops/empty-state";
 import { ProductBomEditor } from "@/components/ops/product-bom-editor";
+import { CategoryPicker } from "@/components/ops/category-picker";
+import { UnitPicker } from "@/components/ops/unit-picker";
+import { InlineCreateCategoryDialog } from "@/components/ops/inline-create-category-dialog";
+import { InlineCreateUnitDialog } from "@/components/ops/inline-create-unit-dialog";
 import {
   useProducts,
   useCreateProduct,
@@ -28,14 +32,11 @@ import {
   useTaskTypes,
   useProductMetrics,
   useCatalogLookups,
-  resolveCategoryId,
-  resolveUnitId,
 } from "@/lib/hooks";
 import { MetricsHeader } from "@/components/metrics";
 import {
   formatCurrency,
   calculateMargin,
-  UNIT_OPTIONS,
 } from "@/lib/types/pipeline";
 import type { Product, CreateProduct } from "@/lib/types/pipeline";
 import { useAuthStore } from "@/lib/store/auth-store";
@@ -331,10 +332,12 @@ function ProductFormModal({
   const { t } = useDictionary("dashboard");
   const isEditing = !!product;
   const { data: taskTypes = [] } = useTaskTypes();
-  // Best-effort name -> FK resolution. Stopgap for P0; replaced by real
-  // pickers in P0-2. When the typed value matches an existing catalog row
-  // (case-insensitive, trimmed) we write the FK alongside the legacy text;
-  // otherwise the FK is left NULL and only the legacy column is written.
+  // Catalog lookups feed the legacy-text reconciliation path: when an
+  // editing form opens with a free-text `unit` / `category` from a row
+  // that pre-dates the FK columns, we look it up by name on first
+  // render so the picker shows the matching row instead of the
+  // placeholder. New writes always carry the FK directly via the
+  // picker callbacks.
   const { categories: catalogCategories, units: catalogUnits } =
     useCatalogLookups();
 
@@ -343,10 +346,16 @@ function ProductFormModal({
   const [defaultPrice, setDefaultPrice] = useState(product?.defaultPrice ?? 0);
   const [unitCost, setUnitCost] = useState(product?.unitCost ?? 0);
   const [unit, setUnit] = useState(product?.unit ?? "each");
+  const [unitId, setUnitId] = useState<string | null>(product?.unitId ?? null);
   const [category, setCategory] = useState(product?.category ?? "");
+  const [categoryId, setCategoryId] = useState<string | null>(
+    product?.categoryId ?? null
+  );
   const [taskTypeId, setTaskTypeId] = useState<string | null>(product?.taskTypeId ?? null);
   const [isTaxable, setIsTaxable] = useState(product?.isTaxable ?? true);
   const [isActive, setIsActive] = useState(product?.isActive ?? true);
+  const [showNewCategoryDialog, setShowNewCategoryDialog] = useState(false);
+  const [showNewUnitDialog, setShowNewUnitDialog] = useState(false);
 
   // Reset form when product changes
   useEffect(() => {
@@ -356,7 +365,9 @@ function ProductFormModal({
       setDefaultPrice(product.defaultPrice);
       setUnitCost(product.unitCost ?? 0);
       setUnit(product.unit ?? "each");
+      setUnitId(product.unitId ?? null);
       setCategory(product.category ?? "");
+      setCategoryId(product.categoryId ?? null);
       setTaskTypeId(product.taskTypeId ?? null);
       setIsTaxable(product.isTaxable);
       setIsActive(product.isActive);
@@ -366,22 +377,46 @@ function ProductFormModal({
       setDefaultPrice(0);
       setUnitCost(0);
       setUnit("each");
+      setUnitId(null);
       setCategory("");
+      setCategoryId(null);
       setTaskTypeId(null);
       setIsTaxable(true);
       setIsActive(true);
     }
   }, [product]);
 
+  // Backfill FK ids from legacy free-text values for products that
+  // pre-date the FK columns. This only runs when the form has a text
+  // value but no id, and the lookup tables have loaded — once a match
+  // is found the picker reflects it. New rows skip this entirely
+  // because the picker writes the id at selection time.
+  useEffect(() => {
+    if (!categoryId && category.trim() && catalogCategories.length > 0) {
+      const trimmed = category.trim().toLowerCase();
+      const match = catalogCategories.find(
+        (c) => c.name.trim().toLowerCase() === trimmed
+      );
+      if (match) setCategoryId(match.id);
+    }
+  }, [categoryId, category, catalogCategories]);
+
+  useEffect(() => {
+    if (!unitId && unit.trim() && catalogUnits.length > 0) {
+      const trimmed = unit.trim().toLowerCase();
+      const match =
+        catalogUnits.find(
+          (u) => u.display.trim().toLowerCase() === trimmed
+        ) ??
+        catalogUnits.find(
+          (u) => (u.abbreviation ?? "").trim().toLowerCase() === trimmed
+        );
+      if (match) setUnitId(match.id);
+    }
+  }, [unitId, unit, catalogUnits]);
+
   const handleSubmit = () => {
     if (!name.trim()) return;
-
-    const trimmedCategory = category.trim() || null;
-    const resolvedCategoryId = resolveCategoryId(
-      trimmedCategory,
-      catalogCategories
-    );
-    const resolvedUnitId = resolveUnitId(unit, catalogUnits);
 
     const data = {
       name: name.trim(),
@@ -389,9 +424,9 @@ function ProductFormModal({
       defaultPrice,
       unitCost: unitCost || null,
       unit,
-      unitId: resolvedUnitId,
-      category: trimmedCategory,
-      categoryId: resolvedCategoryId,
+      unitId,
+      category: category.trim() || null,
+      categoryId,
       taskTypeId: taskTypeId || null,
       isTaxable,
       isActive,
@@ -475,27 +510,37 @@ function ProductFormModal({
           {/* Unit / Category */}
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-0.5">
-              <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">
+              <label
+                htmlFor="product-form-unit"
+                className="font-mono text-caption-sm text-text-3 uppercase tracking-widest"
+              >
                 {t("products.labelUnit")}
               </label>
-              <select
-                value={unit}
-                onChange={(e) => setUnit(e.target.value)}
-                className="w-full bg-fill-neutral-dim border border-border rounded px-2 py-1.5 font-mohave text-body text-text"
-              >
-                {UNIT_OPTIONS.map((u) => (
-                  <option key={u} value={u}>{u}</option>
-                ))}
-              </select>
+              <UnitPicker
+                id="product-form-unit"
+                value={unitId}
+                onChange={(id, display) => {
+                  setUnitId(id);
+                  if (display) setUnit(display);
+                }}
+                onCreateNew={() => setShowNewUnitDialog(true)}
+              />
             </div>
             <div className="space-y-0.5">
-              <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">
+              <label
+                htmlFor="product-form-category"
+                className="font-mono text-caption-sm text-text-3 uppercase tracking-widest"
+              >
                 {t("products.labelCategory")}
               </label>
-              <Input
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                placeholder={t("products.categoryPlaceholder")}
+              <CategoryPicker
+                id="product-form-category"
+                value={categoryId}
+                onChange={(id, name) => {
+                  setCategoryId(id);
+                  setCategory(name ?? "");
+                }}
+                onCreateNew={() => setShowNewCategoryDialog(true)}
               />
             </div>
           </div>
@@ -573,6 +618,26 @@ function ProductFormModal({
             </Button>
           </div>
         </div>
+
+        {/* Inline catalog create dialogs — opened from the picker rows. */}
+        <InlineCreateCategoryDialog
+          open={showNewCategoryDialog}
+          onOpenChange={setShowNewCategoryDialog}
+          companyId={companyId}
+          onCreated={(id, newName) => {
+            setCategoryId(id);
+            setCategory(newName);
+          }}
+        />
+        <InlineCreateUnitDialog
+          open={showNewUnitDialog}
+          onOpenChange={setShowNewUnitDialog}
+          companyId={companyId}
+          onCreated={(id, display) => {
+            setUnitId(id);
+            setUnit(display);
+          }}
+        />
       </DialogContent>
     </Dialog>
   );
