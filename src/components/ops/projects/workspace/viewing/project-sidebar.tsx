@@ -32,6 +32,7 @@ import { UserAvatar } from "@/components/ops/user-avatar";
 import { formatDate } from "@/lib/utils/date";
 import { formatCurrency, formatPhoneNumber } from "@/lib/utils/format";
 import { cn } from "@/lib/utils/cn";
+import { useDictionary } from "@/i18n/client";
 
 // `ProjectSidebar` — always-on workspace right rail. 7 sections in fixed
 // order (no toggle, no collapsing). NO Quick Actions: every action lives in
@@ -95,6 +96,7 @@ function MetricTile({
 }
 
 function HealthSection({ projectId }: { projectId: string }) {
+  const { t } = useDictionary("project-workspace");
   const tasks = useProjectTasksGrouped(projectId);
   const pipeline = useProjectPipeline(projectId);
   const can = usePermissionStore((s) => s.can);
@@ -111,7 +113,7 @@ function HealthSection({ projectId }: { projectId: string }) {
   }).length;
 
   return (
-    <Section title="HEALTH">
+    <Section title={t("sidebar.health.section")}>
       <Stack gap={1.5} className="pt-1">
         <div>
           <Inline justify="between" className="pb-1">
@@ -127,16 +129,16 @@ function HealthSection({ projectId }: { projectId: string }) {
           </div>
         </div>
         <div className="grid grid-cols-2 gap-1.5">
-          <MetricTile label="TASKS" value={`${totals.done}/${totals.total}`} />
+          <MetricTile label={t("sidebar.health.tasks")} value={`${totals.done}/${totals.total}`} />
           <MetricTile
-            label="OVERDUE"
+            label={t("sidebar.health.overdue")}
             value={String(overdueCount)}
             tone={overdueCount > 0 ? "rose" : "text-3"}
           />
           {canViewFinancials && (
             <>
               <MetricTile
-                label="INVOICED"
+                label={t("sidebar.health.invoiced")}
                 value={
                   pipeline.data && pipeline.data.invoiced.total > 0
                     ? formatCurrency(pipeline.data.invoiced.total)
@@ -145,7 +147,7 @@ function HealthSection({ projectId }: { projectId: string }) {
                 tone="tan"
               />
               <MetricTile
-                label="OUTSTANDING"
+                label={t("sidebar.health.outstanding")}
                 value={
                   pipeline.data && pipeline.data.outstanding.total > 0
                     ? formatCurrency(pipeline.data.outstanding.total)
@@ -170,12 +172,13 @@ function HealthSection({ projectId }: { projectId: string }) {
 // ─── CLIENT ────────────────────────────────────────────────────────────────────
 
 function ClientSection({ clientId }: { clientId: string | null }) {
+  const { t } = useDictionary("project-workspace");
   const { data: client } = useClient(clientId ?? undefined);
   return (
-    <Section title="CLIENT">
+    <Section title={t("sidebar.client.section")}>
       {!client ? (
         <Body size={14} color="text-3" className="pt-1">
-          Unassigned.
+          {t("sidebar.client.unassigned")}
         </Body>
       ) : (
         <Stack gap={1} className="pt-1">
@@ -217,14 +220,15 @@ function LocationSection({
   latitude: number | null;
   longitude: number | null;
 }) {
+  const { t } = useDictionary("project-workspace");
   const mapsHref = address
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`
     : null;
   return (
-    <Section title="LOCATION">
+    <Section title={t("sidebar.location.section")}>
       {!address ? (
         <Body size={14} color="text-3" className="pt-1">
-          No address.
+          {t("sidebar.location.empty")}
         </Body>
       ) : (
         <Stack gap={1} className="pt-1">
@@ -240,7 +244,7 @@ function LocationSection({
                 className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.16em] text-ops-accent hover:underline"
               >
                 <MapPin className="h-3 w-3" strokeWidth={1.5} aria-hidden="true" />
-                MAPS
+                {t("sidebar.location.maps")}
               </a>
             )}
             {latitude != null && longitude != null && (
@@ -256,15 +260,16 @@ function LocationSection({
 // ─── TEAM ──────────────────────────────────────────────────────────────────────
 
 function TeamSection({ projectId }: { projectId: string }) {
+  const { t } = useDictionary("project-workspace");
   const { members } = useProjectTeam(projectId);
   return (
     <Section
-      title="TEAM"
+      title={t("sidebar.team.section")}
       rightSlot={<Mono color="text-3" size={9}>{`${members.length}`}</Mono>}
     >
       {members.length === 0 ? (
         <Body size={14} color="text-3" className="py-2">
-          None.
+          {t("sidebar.team.empty")}
         </Body>
       ) : (
         <Stack gap={1.5} className="pt-1">
@@ -300,28 +305,29 @@ function DatesSection({
   endDate: Date | null;
   status: ProjectStatus;
 }) {
+  const { t } = useDictionary("project-workspace");
   const duration = (() => {
     if (!startDate || !endDate) return null;
     const ms = endDate.getTime() - startDate.getTime();
     return Math.max(1, Math.ceil(ms / (1000 * 60 * 60 * 24)));
   })();
   return (
-    <Section title="DATES">
+    <Section title={t("sidebar.dates.section")}>
       <Stack gap={1} className="pt-1">
         <Inline justify="between">
-          <Mono color="mute" size={9}>START</Mono>
+          <Mono color="mute" size={9}>{t("sidebar.dates.start")}</Mono>
           <Body size={12} color="text-2">
             {startDate ? formatDate(startDate, "MMM d, yyyy") : "—"}
           </Body>
         </Inline>
         <Inline justify="between">
-          <Mono color="mute" size={9}>END</Mono>
+          <Mono color="mute" size={9}>{t("sidebar.dates.end")}</Mono>
           <Body size={12} color="text-2">
             {endDate ? formatDate(endDate, "MMM d, yyyy") : "—"}
           </Body>
         </Inline>
         <Inline justify="between">
-          <Mono color="mute" size={9}>DURATION</Mono>
+          <Mono color="mute" size={9}>{t("sidebar.dates.duration")}</Mono>
           <Mono
             color="text-3"
             size={10}
@@ -383,25 +389,26 @@ function WeatherRow({ forecast }: { forecast: WeatherForecast }) {
 }
 
 function WeatherSection({ projectId, hasCoords }: { projectId: string; hasCoords: boolean }) {
+  const { t } = useDictionary("project-workspace");
   const { data, isLoading } = useWeather(hasCoords ? projectId : null);
   if (!hasCoords) {
     return (
-      <Section title="WEATHER">
+      <Section title={t("sidebar.weather.section")}>
         <Body size={12} color="text-3" className="pt-1">
-          No coordinates.
+          {t("sidebar.weather.noCoords")}
         </Body>
       </Section>
     );
   }
   return (
-    <Section title="WEATHER">
+    <Section title={t("sidebar.weather.section")}>
       {isLoading ? (
         <Body size={12} color="text-3" className="py-2">
-          Loading…
+          {t("sidebar.weather.loading")}
         </Body>
       ) : !data?.current ? (
         <Body size={12} color="text-3" className="py-2">
-          Unavailable.
+          {t("sidebar.weather.unavailable")}
         </Body>
       ) : (
         <Stack gap={1} className="pt-1">
@@ -436,15 +443,16 @@ function WeatherSection({ projectId, hasCoords }: { projectId: string; hasCoords
 // ─── LINKED ────────────────────────────────────────────────────────────────────
 
 function LinkedSection({ projectId }: { projectId: string }) {
+  const { t } = useDictionary("project-workspace");
   const can = usePermissionStore((s) => s.can);
   const canViewFinancials = can("invoices.view") || can("estimates.view");
   const ledger = useProjectLedger(canViewFinancials ? projectId : null);
 
   if (!canViewFinancials) {
     return (
-      <Section title="LINKED">
+      <Section title={t("sidebar.linked.section")}>
         <Body size={12} color="text-3" className="pt-1">
-          Restricted.
+          {t("sidebar.linked.restricted")}
         </Body>
       </Section>
     );
@@ -457,14 +465,14 @@ function LinkedSection({ projectId }: { projectId: string }) {
 
   return (
     <Section
-      title="LINKED"
+      title={t("sidebar.linked.section")}
       rightSlot={
         <Mono color="text-3" size={9}>{`${estimates.length}E · ${invoices.length}I`}</Mono>
       }
     >
       {top.length === 0 ? (
         <Body size={12} color="text-3" className="py-2">
-          None.
+          {t("sidebar.linked.empty")}
         </Body>
       ) : (
         <Stack gap={1} className="pt-1">

@@ -2,6 +2,10 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
+vi.mock("@/i18n/client", () => ({
+  useDictionary: () => ({ t: (k: string) => k }),
+}));
+
 // Mock ProjectMap so MapHero tests stay compositional.
 vi.mock("@/components/ops/projects/workspace/map/project-map", () => ({
   ProjectMap: ({
@@ -46,7 +50,8 @@ describe("<MapHero>", () => {
     expect(screen.getByTestId("map-address-pill")).toHaveTextContent(baseProps.address);
     expect(screen.getByTestId("map-status-pill")).toHaveTextContent(baseProps.statusLabel);
     expect(screen.getByTestId("map-expand-hint")).toBeInTheDocument();
-    expect(screen.getByTestId("map-expand-hint")).toHaveTextContent("EXPAND MAP");
+    // Resolves via t("map.expandHint") — mocked dict returns the key.
+    expect(screen.getByTestId("map-expand-hint")).toHaveTextContent("map.expandHint");
     expect(screen.queryByTestId("map-collapse-button")).not.toBeInTheDocument();
     expect(screen.queryByTestId("map-toolbar")).not.toBeInTheDocument();
     expect(screen.queryByTestId("map-legend")).not.toBeInTheDocument();
@@ -64,7 +69,8 @@ describe("<MapHero>", () => {
     );
     expect(screen.getByTestId("map-project-crumb")).toBeInTheDocument();
     expect(screen.getByTestId("map-collapse-button")).toBeInTheDocument();
-    expect(screen.getByTestId("map-collapse-button")).toHaveTextContent("COLLAPSE");
+    // Resolves via t("map.collapse") — mocked dict returns the key.
+    expect(screen.getByTestId("map-collapse-button")).toHaveTextContent("map.collapse");
     const toolbar = screen.getByTestId("map-toolbar");
     expect(toolbar).toBeInTheDocument();
     expect(toolbar.querySelector("[data-tool=zoom-in]")).toBeInTheDocument();

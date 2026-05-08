@@ -15,6 +15,7 @@ import { EASE_SMOOTH } from "@/lib/utils/motion";
 import { ProjectStatus, PROJECT_STATUS_COLORS } from "@/lib/types/models";
 import { withAlpha } from "@/lib/utils/color";
 import { ProjectMap, type OtherPin } from "@/components/ops/projects/workspace/map/project-map";
+import { useDictionary } from "@/i18n/client";
 
 // ─── Animation tokens ───────────────────────────────────────────────────────
 // Single 280ms ease per CLAUDE.md — no spring, no bounce. Reduced-motion
@@ -85,6 +86,7 @@ export function MapHero({
   onShowLayers,
   onRecenter,
 }: MapHeroProps) {
+  const { t } = useDictionary("project-workspace");
   const reducedMotion = useReducedMotion();
   const heroTransition = reducedMotion
     ? { duration: 0 }
@@ -272,7 +274,7 @@ export function MapHero({
             }}
           >
             <Search size={11} strokeWidth={1.5} aria-hidden="true" />
-            <span>EXPAND MAP</span>
+            <span>{t("map.expandHint")}</span>
           </motion.button>
         )}
       </AnimatePresence>
@@ -425,12 +427,13 @@ function MapProjectCrumb({
 // ─── MapCollapseButton (COLLAPSE chevron pill) ──────────────────────────────
 
 function MapCollapseButton({ onClick }: { onClick: () => void }) {
+  const { t } = useDictionary("project-workspace");
   return (
     <button
       type="button"
       data-testid="map-collapse-button"
       onClick={onClick}
-      aria-label="Collapse map"
+      aria-label={t("map.collapseAria")}
       className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.16em] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-white/10"
       style={{
         color: "var(--text)",
@@ -443,7 +446,7 @@ function MapCollapseButton({ onClick }: { onClick: () => void }) {
       }}
     >
       <ChevronUp size={12} strokeWidth={1.5} aria-hidden="true" />
-      <span>COLLAPSE</span>
+      <span>{t("map.collapse")}</span>
     </button>
   );
 }
@@ -465,6 +468,7 @@ function MapToolbar({
   onShowLayers,
   onRecenter,
 }: ToolbarProps) {
+  const { t } = useDictionary("project-workspace");
   return (
     <div
       data-testid="map-toolbar"
@@ -478,15 +482,15 @@ function MapToolbar({
         overflow: "hidden",
       }}
     >
-      <ToolButton tool="zoom-in" label="Zoom in" onClick={onZoomIn} icon={<ZoomIn size={14} strokeWidth={1.5} />} />
+      <ToolButton tool="zoom-in" label={t("map.toolbar.zoomIn")} onClick={onZoomIn} icon={<ZoomIn size={14} strokeWidth={1.5} />} />
       <ToolDivider />
-      <ToolButton tool="zoom-out" label="Zoom out" onClick={onZoomOut} icon={<ZoomOut size={14} strokeWidth={1.5} />} />
+      <ToolButton tool="zoom-out" label={t("map.toolbar.zoomOut")} onClick={onZoomOut} icon={<ZoomOut size={14} strokeWidth={1.5} />} />
       <ToolDivider />
-      <ToolButton tool="crew" label="Show crew" onClick={onShowCrew} icon={<Users size={14} strokeWidth={1.5} />} />
+      <ToolButton tool="crew" label={t("map.toolbar.crew")} onClick={onShowCrew} icon={<Users size={14} strokeWidth={1.5} />} />
       <ToolDivider />
-      <ToolButton tool="layers" label="Toggle layers" onClick={onShowLayers} icon={<Layers size={14} strokeWidth={1.5} />} />
+      <ToolButton tool="layers" label={t("map.toolbar.layers")} onClick={onShowLayers} icon={<Layers size={14} strokeWidth={1.5} />} />
       <ToolDivider />
-      <ToolButton tool="recenter" label="Recenter" onClick={onRecenter} icon={<Crosshair size={14} strokeWidth={1.5} />} />
+      <ToolButton tool="recenter" label={t("map.toolbar.recenter")} onClick={onRecenter} icon={<Crosshair size={14} strokeWidth={1.5} />} />
     </div>
   );
 }
@@ -538,6 +542,7 @@ function MapLegend({
   statusColor: string;
   counts: LegendCounts;
 }) {
+  const { t } = useDictionary("project-workspace");
   return (
     <div
       data-testid="map-legend"
@@ -564,21 +569,21 @@ function MapLegend({
             boxShadow: `0 0 6px ${statusColor}`,
           }}
         />
-        <span style={{ color: "var(--text)" }}>// THIS PROJECT</span>
+        <span style={{ color: "var(--text)" }}>{t("map.legend.thisProject")}</span>
       </div>
       <LegendRow
         color={PROJECT_STATUS_COLORS[ProjectStatus.Accepted]}
-        label="Accepted"
+        label={t("map.legend.accepted")}
         count={counts.accepted}
       />
       <LegendRow
         color={PROJECT_STATUS_COLORS[ProjectStatus.Completed]}
-        label="Completed"
+        label={t("map.legend.completed")}
         count={counts.completed}
       />
       <LegendRow
         color={PROJECT_STATUS_COLORS[ProjectStatus.RFQ]}
-        label="RFQ"
+        label={t("map.legend.rfq")}
         count={counts.rfq}
       />
     </div>

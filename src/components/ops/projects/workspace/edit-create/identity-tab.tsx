@@ -15,6 +15,7 @@ import { Select } from "@/components/ops/projects/workspace/atoms/select";
 import { Mono } from "@/components/ops/projects/workspace/atoms/mono";
 import { AddressAutocomplete } from "@/components/ops/projects/workspace/inputs/address-autocomplete";
 import { cn } from "@/lib/utils/cn";
+import { useDictionary } from "@/i18n/client";
 import type {
   EditCreateMode,
   ProjectEditCreateFormValues,
@@ -44,6 +45,7 @@ interface ClientPickerProps {
 }
 
 function ClientPicker({ value, onChange, required }: ClientPickerProps) {
+  const { t } = useDictionary("project-workspace");
   const { data, isLoading } = useClients();
   const clients = data?.clients ?? [];
   const linked = clients.find((c) => c.id === value) ?? null;
@@ -83,7 +85,7 @@ function ClientPicker({ value, onChange, required }: ClientPickerProps) {
   };
 
   return (
-    <Field label="CLIENT" optional={!required} required={required}>
+    <Field label={t("identity.client.label")} optional={!required} required={required}>
       <div ref={wrapperRef} className="relative">
         <button
           type="button"
@@ -103,7 +105,7 @@ function ClientPicker({ value, onChange, required }: ClientPickerProps) {
           {linked ? (
             <span className="truncate">{linked.name}</span>
           ) : (
-            <span data-testid="client-picker-empty">No client linked</span>
+            <span data-testid="client-picker-empty">{t("identity.client.empty")}</span>
           )}
           <Search size={12} strokeWidth={1.5} className="text-text-3 shrink-0" />
         </button>
@@ -126,7 +128,7 @@ function ClientPicker({ value, onChange, required }: ClientPickerProps) {
                 data-testid="client-picker-search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search clients"
+                placeholder={t("identity.client.search")}
                 autoComplete="off"
                 spellCheck={false}
                 className={cn(
@@ -149,19 +151,19 @@ function ClientPicker({ value, onChange, required }: ClientPickerProps) {
                     "hover:bg-[var(--surface-input)] hover:text-text-2 cursor-pointer",
                   )}
                 >
-                  Remove client
+                  {t("identity.client.remove")}
                 </button>
               )}
               {isLoading ? (
                 <div className="px-2 py-2">
                   <Mono size={11} color="text-3">
-                    LOADING…
+                    {t("identity.client.loading")}
                   </Mono>
                 </div>
               ) : filtered.length === 0 ? (
                 <div className="px-2 py-2">
                   <Mono size={11} color="text-3">
-                    NO CLIENTS FOUND
+                    {t("identity.client.noResults")}
                   </Mono>
                 </div>
               ) : (
@@ -202,11 +204,11 @@ function ClientPicker({ value, onChange, required }: ClientPickerProps) {
 
 // ─── IdentityTab ─────────────────────────────────────────────────────────────
 
-const TRADE_OPTIONS = [
-  { value: "roofing", label: "ROOFING" },
-  { value: "hvac", label: "HVAC" },
-  { value: "plumbing", label: "PLUMBING" },
-];
+const TRADE_VALUE_KEY: Record<string, string> = {
+  roofing: "identity.trade.options.roofing",
+  hvac: "identity.trade.options.hvac",
+  plumbing: "identity.trade.options.plumbing",
+};
 
 export interface IdentityTabProps {
   /** Drives the required/optional state of the Trade field — creating
@@ -216,6 +218,7 @@ export interface IdentityTabProps {
 }
 
 export function IdentityTab({ mode }: IdentityTabProps) {
+  const { t } = useDictionary("project-workspace");
   const {
     register,
     control,
@@ -224,18 +227,27 @@ export function IdentityTab({ mode }: IdentityTabProps) {
 
   const tradeRequired = mode === "creating";
 
+  const tradeOptions = React.useMemo(
+    () => [
+      { value: "roofing", label: t(TRADE_VALUE_KEY.roofing) },
+      { value: "hvac", label: t(TRADE_VALUE_KEY.hvac) },
+      { value: "plumbing", label: t(TRADE_VALUE_KEY.plumbing) },
+    ],
+    [t],
+  );
+
   return (
     <Stack gap={3} data-testid="identity-tab">
-      <Section title="IDENTITY">
+      <Section title={t("identity.section")}>
         <Stack gap={2}>
           <Field
-            label="PROJECT NAME"
+            label={t("identity.title.label")}
             required
             error={errors.title?.message}
           >
             <TextInput
               {...register("title")}
-              placeholder="e.g. Acme HQ Reroof"
+              placeholder={t("identity.title.placeholder")}
               autoComplete="off"
               spellCheck={false}
             />
@@ -262,20 +274,20 @@ export function IdentityTab({ mode }: IdentityTabProps) {
               name="trade"
               render={({ field }) => (
                 <Field
-                  label="TRADE"
+                  label={t("identity.trade.label")}
                   required={tradeRequired}
                   optional={!tradeRequired}
                   error={errors.trade?.message}
                 >
                   <Select
-                    options={TRADE_OPTIONS}
+                    options={tradeOptions}
                     value={field.value ?? undefined}
                     onChange={(v) =>
                       field.onChange(
                         v as ProjectEditCreateFormValues["trade"],
                       )
                     }
-                    placeholder="—"
+                    placeholder={t("identity.trade.placeholder")}
                     aria-invalid={errors.trade ? "true" : undefined}
                   />
                 </Field>
@@ -284,9 +296,9 @@ export function IdentityTab({ mode }: IdentityTabProps) {
           </FieldRow>
 
           <Field
-            label="SITE ADDRESS"
+            label={t("identity.address.label")}
             optional
-            hint="Pick from the list to capture coordinates"
+            hint={t("identity.address.hint")}
           >
             <Controller
               control={control}
@@ -307,14 +319,14 @@ export function IdentityTab({ mode }: IdentityTabProps) {
           </Field>
 
           <Field
-            label="DESCRIPTION"
+            label={t("identity.description.label")}
             optional
-            hint="WHAT WILL BE DONE"
+            hint={t("identity.description.hint")}
           >
             <TextArea
               {...register("projectDescription")}
               rows={3}
-              placeholder="Scope of work"
+              placeholder={t("identity.description.placeholder")}
             />
           </Field>
         </Stack>

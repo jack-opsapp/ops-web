@@ -7,6 +7,7 @@ import {
   GeocodingService,
   type GeocodingResult,
 } from "@/lib/api/services/geocoding-service";
+import { useDictionary } from "@/i18n/client";
 
 const DEBOUNCE_MS = 300;
 const MIN_QUERY_LENGTH = 3;
@@ -36,12 +37,15 @@ interface AddressAutocompleteProps {
 export function AddressAutocomplete({
   value,
   onChange,
-  placeholder = "Search address",
-  ariaLabel = "Address",
+  placeholder,
+  ariaLabel,
   disabled,
   id,
   className,
 }: AddressAutocompleteProps) {
+  const { t } = useDictionary("project-workspace");
+  const resolvedPlaceholder = placeholder ?? t("identity.address.placeholder");
+  const resolvedAriaLabel = ariaLabel ?? t("identity.address.aria");
   const [draft, setDraft] = React.useState(value);
   const [debouncedQuery, setDebouncedQuery] = React.useState("");
   const [isOpen, setIsOpen] = React.useState(false);
@@ -141,7 +145,7 @@ export function AddressAutocomplete({
           id={id}
           type="text"
           role="combobox"
-          aria-label={ariaLabel}
+          aria-label={resolvedAriaLabel}
           aria-expanded={showDropdown}
           aria-controls={listboxId}
           aria-autocomplete="list"
@@ -152,7 +156,7 @@ export function AddressAutocomplete({
           spellCheck={false}
           disabled={disabled}
           value={draft}
-          placeholder={placeholder}
+          placeholder={resolvedPlaceholder}
           onChange={(e) => {
             setDraft(e.target.value);
             setIsOpen(true);

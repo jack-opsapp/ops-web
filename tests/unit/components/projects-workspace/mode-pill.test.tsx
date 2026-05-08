@@ -20,6 +20,10 @@ vi.mock("framer-motion", async () => {
   };
 });
 
+vi.mock("@/i18n/client", () => ({
+  useDictionary: () => ({ t: (k: string) => k }),
+}));
+
 import { useReducedMotion } from "framer-motion";
 
 describe("<ModePill>", () => {
@@ -29,16 +33,17 @@ describe("<ModePill>", () => {
 
   it("renders the mode label uppercase + tracked", () => {
     render(<ModePill mode="viewing" />);
-    // Mode label is encoded "VIEWING" (uppercase already) — assert the
-    // accessible text is present, the Mono atom enforces casing.
-    expect(screen.getByText("VIEWING")).toBeInTheDocument();
+    // ModePill resolves the label via useDictionary — the test mock
+    // returns the key string, so we assert on the i18n key rather than
+    // the literal "VIEWING". The Mono atom still enforces uppercase.
+    expect(screen.getByText("mode.viewing")).toBeInTheDocument();
   });
 
   it.each(["viewing", "editing", "creating"] as const)(
     "renders the dot + label for mode=%s",
     (mode) => {
       render(<ModePill mode={mode} />);
-      expect(screen.getByText(mode.toUpperCase())).toBeInTheDocument();
+      expect(screen.getByText(`mode.${mode}`)).toBeInTheDocument();
       // Each pill has a leading status dot — easy DOM marker.
       expect(screen.getByTestId(`mode-pill-dot-${mode}`)).toBeInTheDocument();
     },

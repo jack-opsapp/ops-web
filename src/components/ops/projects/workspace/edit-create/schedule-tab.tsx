@@ -8,6 +8,7 @@ import { Field } from "@/components/ops/projects/workspace/atoms/field";
 import { FieldRow } from "@/components/ops/projects/workspace/atoms/field-row";
 import { TextInput } from "@/components/ops/projects/workspace/atoms/text-input";
 import { Segmented } from "@/components/ops/projects/workspace/atoms/segmented";
+import { useDictionary } from "@/i18n/client";
 import type { ProjectEditCreateFormValues } from "./project-edit-create-body";
 
 // `ScheduleTab` — workspace edit/create schedule surface.
@@ -25,11 +26,11 @@ import type { ProjectEditCreateFormValues } from "./project-edit-create-body";
 //
 // Visibility maps 1:1 to the iOS-mirrored enum on `projects.visibility`.
 
-const VISIBILITY_OPTIONS = [
-  { value: "all", label: "ALL" },
-  { value: "office", label: "OFFICE" },
-  { value: "private", label: "PRIVATE" },
-];
+const VISIBILITY_VALUE_KEY: Record<string, string> = {
+  all: "schedule.visibility.options.all",
+  office: "schedule.visibility.options.office",
+  private: "schedule.visibility.options.private",
+};
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -48,11 +49,21 @@ const MONO_INPUT_CLASS =
   "font-mono text-[13px] tracking-[0.04em] [font-feature-settings:'tnum'_1,'zero'_1]";
 
 export function ScheduleTab() {
+  const { t } = useDictionary("project-workspace");
   const {
     register,
     control,
     setValue,
   } = useFormContext<ProjectEditCreateFormValues>();
+
+  const visibilityOptions = React.useMemo(
+    () => [
+      { value: "all", label: t(VISIBILITY_VALUE_KEY.all) },
+      { value: "office", label: t(VISIBILITY_VALUE_KEY.office) },
+      { value: "private", label: t(VISIBILITY_VALUE_KEY.private) },
+    ],
+    [t],
+  );
 
   // Watch start + end so we can auto-fill duration. We only auto-fill
   // when the operator hasn't manually set duration — track that with a
@@ -74,7 +85,7 @@ export function ScheduleTab() {
 
   return (
     <Stack gap={3} data-testid="schedule-tab">
-      <Section title="SCHEDULE">
+      <Section title={t("schedule.section")}>
         <Stack gap={2}>
           <FieldRow
             gap={2}
@@ -82,7 +93,7 @@ export function ScheduleTab() {
             data-testid="schedule-grid"
           >
             <div data-testid="schedule-cell-start">
-              <Field label="START">
+              <Field label={t("schedule.start.label")}>
                 <TextInput
                   {...register("startDate")}
                   type="date"
@@ -93,10 +104,10 @@ export function ScheduleTab() {
 
             <div data-testid="schedule-cell-end">
               <Field
-                label="END"
+                label={t("schedule.end.label")}
                 error={
                   endIsBeforeStart
-                    ? "End date must be on or after start"
+                    ? t("schedule.end.errorBeforeStart")
                     : undefined
                 }
                 data-testid={
@@ -115,13 +126,13 @@ export function ScheduleTab() {
                   className="sr-only"
                   role="status"
                 >
-                  End is before start
+                  {t("schedule.end.srOnlyError")}
                 </span>
               )}
             </div>
 
             <div data-testid="schedule-cell-duration">
-              <Field label="DURATION" hint="DAYS">
+              <Field label={t("schedule.duration.label")} hint={t("schedule.duration.hint")}>
                 <TextInput
                   {...register("duration", {
                     onChange: () => {
@@ -139,13 +150,13 @@ export function ScheduleTab() {
             </div>
           </FieldRow>
 
-          <Field label="VISIBILITY">
+          <Field label={t("schedule.visibility.label")}>
             <Controller
               control={control}
               name="visibility"
               render={({ field }) => (
                 <Segmented
-                  options={VISIBILITY_OPTIONS}
+                  options={visibilityOptions}
                   value={field.value}
                   onChange={(v) =>
                     field.onChange(v as ProjectEditCreateFormValues["visibility"])

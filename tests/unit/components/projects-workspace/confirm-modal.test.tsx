@@ -1,6 +1,10 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 
+vi.mock("@/i18n/client", () => ({
+  useDictionary: () => ({ t: (k: string) => k }),
+}));
+
 import { ConfirmModal } from "@/components/ops/projects/workspace/confirm-modal";
 
 // `<ConfirmModal>` — workspace destructive confirmation dialog.
@@ -43,8 +47,10 @@ describe("<ConfirmModal>", () => {
     expect(
       screen.getByText("Archived projects move to the archive view."),
     ).toBeInTheDocument();
+    // ConfirmModal falls back to t("footer.cancel") when no cancelLabel
+    // prop is provided — the test mock returns the i18n key directly.
     expect(screen.getByTestId("confirm-modal-cancel")).toHaveTextContent(
-      "CANCEL",
+      "footer.cancel",
     );
     expect(screen.getByTestId("confirm-modal-confirm")).toHaveTextContent(
       "ARCHIVE",

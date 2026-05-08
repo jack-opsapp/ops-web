@@ -21,6 +21,10 @@ vi.mock("framer-motion", async () => {
   return { ...actual, useReducedMotion: () => false };
 });
 
+vi.mock("@/i18n/client", () => ({
+  useDictionary: () => ({ t: (k: string) => k }),
+}));
+
 const mockClients = vi.fn();
 
 vi.mock("@/lib/hooks/use-clients", () => ({
@@ -160,19 +164,24 @@ describe("<IdentityTab>", () => {
   it("renders the // IDENTITY section header", () => {
     render(<Harness />);
     expect(screen.getByTestId("identity-tab")).toBeInTheDocument();
-    expect(screen.getByText("IDENTITY")).toBeInTheDocument();
+    // Section title resolves via t("identity.section") — mocked dict
+    // returns the key directly.
+    expect(screen.getByText("identity.section")).toBeInTheDocument();
   });
 
   it("renders the project name input with the form's title value", () => {
     render(<Harness defaults={{ title: "Acme HQ Reroof" }} />);
-    const input = screen.getByLabelText(/project name/i) as HTMLInputElement;
+    // The PROJECT NAME label is now resolved via t("identity.title.label").
+    // The mock turns that into the key string, so byLabelText must match
+    // the key — the regex anchors to the end so the rose `*` doesn't fight.
+    const input = screen.getByLabelText(/identity\.title\.label/i) as HTMLInputElement;
     expect(input.value).toBe("Acme HQ Reroof");
   });
 
   it("writes typed input back to the form's title field", async () => {
     const onValuesChange = vi.fn();
     render(<Harness onValuesChange={onValuesChange} />);
-    const input = screen.getByLabelText(/project name/i);
+    const input = screen.getByLabelText(/identity\.title\.label/i);
     await userEvent.type(input, "New Project");
     const last = onValuesChange.mock.calls.at(-1)?.[0];
     expect(last?.title).toBe("New Project");
@@ -271,47 +280,59 @@ describe("<IdentityTab>", () => {
 
   it("renders the Trade field labelled and placed beside Client", () => {
     render(<Harness />);
-    expect(screen.getByLabelText(/trade/i)).toBeInTheDocument();
+    // Trade field label resolves via t("identity.trade.label") — mocked
+    // dict returns the key, so byLabelText matches the key string.
+    expect(screen.getByLabelText(/identity\.trade\.label/i)).toBeInTheDocument();
     expect(screen.getByTestId("identity-client-trade-row")).toBeInTheDocument();
   });
 
   it("marks Trade as [optional] in editing mode", () => {
     render(<Harness mode="editing" />);
-    const tradeLabel = screen.getByText(/^trade$/i);
-    expect(tradeLabel.parentElement).toHaveTextContent(/optional/i);
+    const tradeLabel = screen.getByText(/^identity\.trade\.label$/i);
+    // The "[optional]" tag now renders the i18n key "field.optional".
+    expect(tradeLabel.parentElement?.textContent).toContain("field.optional");
     expect(tradeLabel.parentElement?.textContent).not.toContain("*");
   });
 
   it("marks Trade as required in creating mode", () => {
     render(<Harness mode="creating" />);
-    const tradeLabel = screen.getByText(/^trade$/i);
+    const tradeLabel = screen.getByText(/^identity\.trade\.label$/i);
     expect(tradeLabel.parentElement?.textContent).toContain("*");
-    expect(tradeLabel.parentElement).not.toHaveTextContent(/optional/i);
+    expect(tradeLabel.parentElement?.textContent).not.toContain("field.optional");
   });
 
   it("exposes ROOFING, HVAC, and PLUMBING when the Trade Select is opened", async () => {
     render(<Harness />);
-    await userEvent.click(screen.getByLabelText(/trade/i));
+    await userEvent.click(screen.getByLabelText(/identity\.trade\.label/i));
     // Radix renders options in a portal — use role queries to scope.
+    // Trade option labels resolve via the dictionary; the mock returns
+    // the key strings.
     const options = screen.getAllByRole("option");
     const labels = options.map((o) => o.textContent?.trim());
-    expect(labels).toEqual(["ROOFING", "HVAC", "PLUMBING"]);
+    expect(labels).toEqual([
+      "identity.trade.options.roofing",
+      "identity.trade.options.hvac",
+      "identity.trade.options.plumbing",
+    ]);
   });
 
   it("writes the lowercase enum value to the form when an option is selected", async () => {
     const onValuesChange = vi.fn();
     render(<Harness onValuesChange={onValuesChange} />);
-    await userEvent.click(screen.getByLabelText(/trade/i));
-    await userEvent.click(screen.getByRole("option", { name: "HVAC" }));
+    await userEvent.click(screen.getByLabelText(/identity\.trade\.label/i));
+    await userEvent.click(
+      screen.getByRole("option", { name: "identity.trade.options.hvac" }),
+    );
     const last = onValuesChange.mock.calls.at(-1)?.[0];
     expect(last?.trade).toBe("hvac");
   });
 
   it("renders the seeded trade label uppercase when the form already has a value", () => {
     render(<Harness defaults={{ trade: "plumbing" }} />);
-    // Radix renders the selected option's text inside the trigger.
-    const trigger = screen.getByLabelText(/trade/i);
-    expect(trigger.textContent).toContain("PLUMBING");
+    // Radix renders the selected option's text inside the trigger; the
+    // option label is the dictionary key under the test mock.
+    const trigger = screen.getByLabelText(/identity\.trade\.label/i);
+    expect(trigger.textContent).toContain("identity.trade.options.plumbing");
   });
 
   it("blocks submit when trade is null in creating mode", async () => {

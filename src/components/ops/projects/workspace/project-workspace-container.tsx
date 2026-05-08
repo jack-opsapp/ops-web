@@ -9,6 +9,7 @@ import { useProject } from "@/lib/hooks/use-projects";
 import { useProjectMutations } from "@/lib/hooks/use-project-mutations";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import { ProjectStatus } from "@/lib/types/models";
+import { useDictionary } from "@/i18n/client";
 import { ProjectViewingBody } from "./viewing/project-viewing-body";
 import { ProjectSidebar } from "./viewing/project-sidebar";
 import {
@@ -37,10 +38,11 @@ interface ProjectWorkspaceContainerProps {
   windowId: string;
 }
 
-const EDIT_CREATE_TABS = [
-  { id: "identity" as const, label: "IDENTITY" },
-  { id: "schedule" as const, label: "SCHEDULE" },
-];
+const EDIT_CREATE_TAB_IDS = ["identity", "schedule"] as const;
+const EDIT_CREATE_TAB_KEY: Record<EditCreateTabId, string> = {
+  identity: "tabs.identity",
+  schedule: "tabs.schedule",
+};
 
 // Status → chip tone. Mirrors the dashboard's status-badge palette but
 // in the workspace's chip vocabulary (neutral / accent / olive / tan /
@@ -71,6 +73,7 @@ function asWorkspaceMode(m: ProjectWorkspaceMode): WorkspaceMode {
 export function ProjectWorkspaceContainer({
   windowId,
 }: ProjectWorkspaceContainerProps) {
+  const { t } = useDictionary("project-workspace");
   const win = useWindowStore((s) =>
     s.windows.find((w) => w.id === windowId && w.type === "project-workspace"),
   );
@@ -179,18 +182,18 @@ export function ProjectWorkspaceContainer({
   // Display chrome — derived from project for editing/viewing, static
   // placeholders for creating.
   const title = isCreating
-    ? "NEW PROJECT"
-    : project?.title ?? "Loading…";
+    ? t("title.newProject")
+    : project?.title ?? t("title.loading");
   // Crumb is rendered inside `<Mono>` which auto-uppercases via CSS, so
   // pass the natural-case title — let the atom handle the visual transform.
   const crumbLabel = isCreating
-    ? "New Project"
-    : project?.title ?? "Project";
+    ? t("crumb.newProject")
+    : project?.title ?? t("crumb.fallback");
   const projectIdLabel = projectId
     ? projectId.slice(0, 8).toUpperCase()
     : "—";
   const statusLabel = isCreating
-    ? "DRAFT"
+    ? t("status.draft")
     : project
       ? project.status.toUpperCase()
       : "—";
@@ -207,7 +210,7 @@ export function ProjectWorkspaceContainer({
     footerConfig = {
       secondary: [],
       primary: {
-        label: "EDIT",
+        label: t("footer.edit"),
         onClick: () => setMode("editing"),
         disabled: !project,
       },
@@ -220,23 +223,23 @@ export function ProjectWorkspaceContainer({
       // (gated upstream in ProjectEditCreateBody).
       destructive: canArchive
         ? {
-            label: "ARCHIVE",
+            label: t("footer.archive"),
             onClick: openConfirmArchive,
             disabled: !project || mutations.archiveProject.isPending,
           }
         : undefined,
       secondary: [
         {
-          label: "DISCARD CHANGES",
+          label: t("footer.discard"),
           onClick: () => composerRef.current?.discard(),
         },
       ],
       ghost: {
-        label: "CANCEL",
+        label: t("footer.cancel"),
         onClick: () => setMode("viewing"),
       },
       primary: {
-        label: "SAVE",
+        label: t("footer.save"),
         // type=submit + form= drives submission via the composer's
         // form association — no callback ref needed.
         type: "submit",
@@ -252,11 +255,11 @@ export function ProjectWorkspaceContainer({
     footerConfig = {
       secondary: [],
       ghost: {
-        label: "CANCEL",
+        label: t("footer.cancel"),
         onClick: () => closeWindow(windowId),
       },
       primary: {
-        label: "CREATE",
+        label: t("footer.create"),
         type: "submit",
         form: formId,
         onClick: () => {},
@@ -265,7 +268,11 @@ export function ProjectWorkspaceContainer({
     };
   }
 
-  const tabs = isViewing ? undefined : EDIT_CREATE_TABS;
+  const editCreateTabs = EDIT_CREATE_TAB_IDS.map((id) => ({
+    id,
+    label: t(EDIT_CREATE_TAB_KEY[id]),
+  }));
+  const tabs = isViewing ? undefined : editCreateTabs;
   const tabActiveId = isViewing ? undefined : activeTab;
   const tabHandler = isViewing ? undefined : setActiveTab;
 
@@ -308,13 +315,14 @@ export function ProjectWorkspaceContainer({
       <ConfirmModal
         open={confirmArchiveOpen}
         onOpenChange={setConfirmArchiveOpen}
-        title="// ARCHIVE PROJECT"
+        title={t("confirm.archive.title")}
         body={
           project
-            ? `${project.title} moves to the archive view and stops receiving notifications. This can be reversed.`
-            : "This project moves to the archive view and stops receiving notifications. This can be reversed."
+            ? t("confirm.archive.body").replace("{title}", project.title)
+            : t("confirm.archive.bodyFallback")
         }
-        confirmLabel="ARCHIVE"
+        confirmLabel={t("confirm.archive.confirm")}
+        cancelLabel={t("footer.cancel")}
         onConfirm={handleConfirmArchive}
         isConfirming={mutations.archiveProject.isPending}
       />

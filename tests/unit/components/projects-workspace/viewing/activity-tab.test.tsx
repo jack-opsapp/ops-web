@@ -42,6 +42,10 @@ vi.mock("@/components/ops/note-composer", () => ({
   ),
 }));
 
+vi.mock("@/i18n/client", () => ({
+  useDictionary: () => ({ t: (k: string) => k }),
+}));
+
 const { ActivityTab } = await import(
   "@/components/ops/projects/workspace/viewing/activity-tab"
 );
@@ -92,20 +96,23 @@ describe("<ActivityTab>", () => {
 
   it("renders the status_change row with the STATUS kind label", () => {
     render(<ActivityTab projectId="p1" />);
-    expect(screen.getByText("STATUS")).toBeInTheDocument();
+    // Kind label resolves via t("activity.kind.statusChange").
+    expect(screen.getByText("activity.kind.statusChange")).toBeInTheDocument();
     expect(screen.getByText(/Project moved from Accepted to In Progress/i)).toBeInTheDocument();
   });
 
   it("renders empty state when activity is empty", () => {
     mockActivity.mockReturnValue({ data: [], isLoading: false });
     render(<ActivityTab projectId="p1" />);
-    expect(screen.getByText(/No activity yet/i)).toBeInTheDocument();
+    // Empty state resolves via t("activity.empty").
+    expect(screen.getByText("activity.empty")).toBeInTheDocument();
   });
 
   it("renders loading state while activity is loading", () => {
     mockActivity.mockReturnValue({ data: [], isLoading: true });
     render(<ActivityTab projectId="p1" />);
-    expect(screen.getByText(/Loading…/)).toBeInTheDocument();
+    // Loading state resolves via t("activity.loading").
+    expect(screen.getByText("activity.loading")).toBeInTheDocument();
   });
 
   it("renders the NoteComposer when authed", () => {

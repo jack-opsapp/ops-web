@@ -1,5 +1,6 @@
 import * as React from "react";
 import { cn } from "@/lib/utils/cn";
+import { useDictionary } from "@/i18n/client";
 
 // `TrafficLight` — Mac-style window control. The chrome stays MONOCHROME
 // at rest (white-alpha bg + border) so the workspace title bar reads
@@ -16,10 +17,10 @@ const TONE_HOVER_BG: Record<TrafficLightTone, string> = {
   maximize: "hover:bg-[var(--macos-traffic-maximize)]",
 };
 
-const TONE_LABEL: Record<TrafficLightTone, string> = {
-  close: "Close",
-  minimize: "Minimize",
-  maximize: "Maximize",
+const TONE_KEY: Record<TrafficLightTone, string> = {
+  close: "traffic.close",
+  minimize: "traffic.minimize",
+  maximize: "traffic.maximize",
 };
 
 export interface TrafficLightProps
@@ -67,11 +68,13 @@ function ToneGlyph({ tone }: { tone: TrafficLightTone }) {
 }
 
 export const TrafficLight = React.forwardRef<HTMLButtonElement, TrafficLightProps>(
-  ({ tone, label, className, ...props }, ref) => (
+  ({ tone, label, className, ...props }, ref) => {
+    const { t } = useDictionary("project-workspace");
+    return (
     <button
       ref={ref}
       type="button"
-      aria-label={label ?? TONE_LABEL[tone]}
+      aria-label={label ?? t(TONE_KEY[tone])}
       // `group` lets the glyph (a child SVG) react to hover on the
       // wrapper button — necessary because the glyph is opacity-0 by
       // default and reveals via group-hover, the macOS pattern.
@@ -97,6 +100,7 @@ export const TrafficLight = React.forwardRef<HTMLButtonElement, TrafficLightProp
     >
       <ToneGlyph tone={tone} />
     </button>
-  ),
+    );
+  },
 );
 TrafficLight.displayName = "TrafficLight";

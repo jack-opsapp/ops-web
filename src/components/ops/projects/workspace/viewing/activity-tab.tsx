@@ -32,6 +32,7 @@ import { NoteComposer } from "@/components/ops/note-composer";
 import { formatRelativeTime } from "@/lib/utils/date";
 import { cn } from "@/lib/utils/cn";
 import { EASE_SMOOTH } from "@/lib/utils/motion";
+import { useDictionary } from "@/i18n/client";
 
 // `ActivityTab` — unified project_notes timeline. event_kind discriminates
 // user notes (NULL → "note") from system events (status_change,
@@ -59,19 +60,19 @@ interface ActivityTabProps {
   projectId: string;
 }
 
-const KIND_LABEL: Record<ProjectActivityKind, string> = {
-  note: "NOTE",
-  status_change: "STATUS",
-  estimate_sent: "ESTIMATE SENT",
-  estimate_approved: "ESTIMATE APPROVED",
-  estimate_declined: "ESTIMATE DECLINED",
-  invoice_sent: "INVOICE SENT",
-  payment_received: "PAYMENT",
-  expense_logged: "EXPENSE",
-  photo_uploaded: "PHOTO",
-  project_created: "CREATED",
-  project_archived: "ARCHIVED",
-  task_completed: "TASK DONE",
+const KIND_KEY: Record<ProjectActivityKind, string> = {
+  note: "activity.kind.note",
+  status_change: "activity.kind.statusChange",
+  estimate_sent: "activity.kind.estimateSent",
+  estimate_approved: "activity.kind.estimateApproved",
+  estimate_declined: "activity.kind.estimateDeclined",
+  invoice_sent: "activity.kind.invoiceSent",
+  payment_received: "activity.kind.paymentReceived",
+  expense_logged: "activity.kind.expenseLogged",
+  photo_uploaded: "activity.kind.photoUploaded",
+  project_created: "activity.kind.projectCreated",
+  project_archived: "activity.kind.projectArchived",
+  task_completed: "activity.kind.taskCompleted",
 };
 
 function KindIcon({ kind }: { kind: ProjectActivityKind }) {
@@ -107,9 +108,10 @@ interface ActivityRowProps {
   /** 0-based index within the rendered list — drives the stagger delay. */
   index: number;
   reducedMotion: boolean;
+  t: (key: string) => string;
 }
 
-function ActivityRow({ entry, index, reducedMotion }: ActivityRowProps) {
+function ActivityRow({ entry, index, reducedMotion, t }: ActivityRowProps) {
   const isSystem = entry.kind !== "note";
   // Cap the per-row delay at the 300ms total budget so long timelines
   // don't lag-load. Math.min keeps the seventh-and-onwards rows pinned
@@ -130,7 +132,7 @@ function ActivityRow({ entry, index, reducedMotion }: ActivityRowProps) {
       transition={transition}
       className="flex gap-3 py-3"
     >
-      <ActivityRowBody entry={entry} isSystem={isSystem} />
+      <ActivityRowBody entry={entry} isSystem={isSystem} t={t} />
     </motion.div>
   );
 }
@@ -138,9 +140,11 @@ function ActivityRow({ entry, index, reducedMotion }: ActivityRowProps) {
 function ActivityRowBody({
   entry,
   isSystem,
+  t,
 }: {
   entry: ProjectActivityEntry;
   isSystem: boolean;
+  t: (key: string) => string;
 }) {
   return (
     <>
@@ -158,11 +162,11 @@ function ActivityRowBody({
       <div className="min-w-0 flex-1">
         <Inline gap={1.5} align="baseline" wrap>
           <Body size={14} color="text">
-            {entry.author?.name ?? "System"}
+            {entry.author?.name ?? t("activity.author.system")}
           </Body>
           {isSystem && (
             <Mono color="text-3" size={9}>
-              {KIND_LABEL[entry.kind]}
+              {t(KIND_KEY[entry.kind])}
             </Mono>
           )}
           <Mono color="mute" size={9}>
@@ -197,6 +201,7 @@ function ActivityRowBody({
 }
 
 export function ActivityTab({ projectId }: ActivityTabProps) {
+  const { t } = useDictionary("project-workspace");
   const { currentUser, company } = useAuthStore();
   const { data: activity = [], isLoading } = useProjectActivity(projectId);
   const { data: teamData } = useTeamMembers();
@@ -207,14 +212,14 @@ export function ActivityTab({ projectId }: ActivityTabProps) {
 
   return (
     <Stack gap={3} className="px-4 py-3">
-      <Section title="ACTIVITY">
+      <Section title={t("activity.section")}>
         {isLoading ? (
           <Body size={14} color="text-3" className="py-6">
-            Loading…
+            {t("activity.loading")}
           </Body>
         ) : activity.length === 0 ? (
           <Body size={14} color="text-3" className="py-6">
-            No activity yet.
+            {t("activity.empty")}
           </Body>
         ) : (
           <div data-testid="activity-list" className="divide-y divide-glass-border">
@@ -233,6 +238,7 @@ export function ActivityTab({ projectId }: ActivityTabProps) {
                   entry={entry}
                   index={index}
                   reducedMotion={reducedMotion}
+                  t={t}
                 />
               ))}
             </AnimatePresence>
@@ -244,6 +250,7 @@ export function ActivityTab({ projectId }: ActivityTabProps) {
         <NoteComposer
           users={teamData?.users ?? []}
           isSubmitting={createNote.isPending}
+          placeholder={t("activity.composerPlaceholder")}
           onSubmit={(content, mentionedUserIds, attachments) => {
             if (!currentUser?.id || !company?.id) return;
             createNote.mutate({

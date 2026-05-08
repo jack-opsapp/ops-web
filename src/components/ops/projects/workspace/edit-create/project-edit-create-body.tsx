@@ -11,6 +11,7 @@ import { Body } from "@/components/ops/projects/workspace/atoms/body";
 import { Mono } from "@/components/ops/projects/workspace/atoms/mono";
 import { Stack } from "@/components/ops/projects/workspace/atoms/stack";
 import { cn } from "@/lib/utils/cn";
+import { useDictionary } from "@/i18n/client";
 import { IdentityTab } from "./identity-tab";
 import { ScheduleTab } from "./schedule-tab";
 
@@ -60,40 +61,56 @@ export interface ProjectEditCreateBodyProps {
 const VISIBILITY_VALUES = ["all", "office", "private"] as const;
 const TRADE_VALUES = ["roofing", "hvac", "plumbing"] as const;
 
-// Form schema — values follow the Project model. clientId is nullable
-// because creating-mode workflows can defer client linkage. Address is
-// optional but, when present, must travel with lat+lon (the autocomplete
-// hands them over together; manual entry without geocoding is not
-// supported by this surface).
+// Form schema factory — values follow the Project model. clientId is
+// nullable because creating-mode workflows can defer client linkage.
+// Address is optional but, when present, must travel with lat+lon (the
+// autocomplete hands them over together; manual entry without geocoding
+// is not supported by this surface).
 //
 // Trade is nullable in editing mode so legacy projects (created before
 // the column existed) save without forcing a backfill. Creating mode
-// requires it so every new project captures a category up front — see
-// `creatingSchema` below.
-const editingSchema = z.object({
-  title: z
-    .string()
-    .min(1, "Project name is required")
-    .max(200, "Name too long"),
-  clientId: z.string().nullable(),
-  address: z.string().nullable(),
-  latitude: z.number().nullable(),
-  longitude: z.number().nullable(),
-  projectDescription: z.string().nullable(),
-  trade: z.enum(TRADE_VALUES).nullable(),
-  startDate: z.string(),
-  endDate: z.string(),
-  duration: z.string(),
-  visibility: z.enum(VISIBILITY_VALUES),
-});
+// requires it so every new project captures a category up front.
+//
+// Schema is a factory because Zod messages need to land in the active
+// locale — the body resolves the t() function and re-builds the schema
+// on locale change via useMemo.
+function buildEditingSchema(messages: {
+  titleRequired: string;
+  titleTooLong: string;
+}) {
+  return z.object({
+    title: z
+      .string()
+      .min(1, messages.titleRequired)
+      .max(200, messages.titleTooLong),
+    clientId: z.string().nullable(),
+    address: z.string().nullable(),
+    latitude: z.number().nullable(),
+    longitude: z.number().nullable(),
+    projectDescription: z.string().nullable(),
+    trade: z.enum(TRADE_VALUES).nullable(),
+    startDate: z.string(),
+    endDate: z.string(),
+    duration: z.string(),
+    visibility: z.enum(VISIBILITY_VALUES),
+  });
+}
 
-const creatingSchema = editingSchema.extend({
-  trade: z.enum(TRADE_VALUES, {
-    errorMap: () => ({ message: "Trade is required" }),
-  }),
-});
+function buildCreatingSchema(messages: {
+  titleRequired: string;
+  titleTooLong: string;
+  tradeRequired: string;
+}) {
+  return buildEditingSchema(messages).extend({
+    trade: z.enum(TRADE_VALUES, {
+      errorMap: () => ({ message: messages.tradeRequired }),
+    }),
+  });
+}
 
-export type ProjectEditCreateFormValues = z.infer<typeof editingSchema>;
+export type ProjectEditCreateFormValues = z.infer<
+  ReturnType<typeof buildEditingSchema>
+>;
 
 const EMPTY_DEFAULTS: ProjectEditCreateFormValues = {
   title: "",
@@ -123,6 +140,7 @@ function fromIsoDate(value: string): Date | null {
 }
 
 function PermissionDeniedState() {
+  const { t } = useDictionary("project-workspace");
   return (
     <div
       data-testid="project-edit-create-body-denied"
@@ -130,10 +148,10 @@ function PermissionDeniedState() {
     >
       <Stack gap={1} align="center">
         <Mono size={11} color="text-3">
-          {"// ACCESS DENIED"}
+          {t("editCreate.accessDenied.title")}
         </Mono>
         <Body size={14} color="text-3">
-          You don&apos;t have permission to modify this project.
+          {t("editCreate.accessDenied.body")}
         </Body>
       </Stack>
     </div>
@@ -141,13 +159,14 @@ function PermissionDeniedState() {
 }
 
 function LoadingState() {
+  const { t } = useDictionary("project-workspace");
   return (
     <div
       data-testid="project-edit-create-body-loading"
       className="flex h-full items-center justify-center"
     >
       <Body size={14} color="text-3">
-        Loading…
+        {t("editCreate.loading")}
       </Body>
     </div>
   );
@@ -162,6 +181,7 @@ export function ProjectEditCreateBody({
   discardRef,
   className,
 }: ProjectEditCreateBodyProps) {
+  const { t } = useDictionary("project-workspace");
   const can = usePermissionStore((s) => s.can);
   const isEditing = mode === "editing";
   const isAllowed = isEditing ? can("projects.edit") : can("projects.create");
@@ -191,8 +211,19 @@ export function ProjectEditCreateBody({
     // The project reference is the cache key; safe to depend on directly.
   }, [isEditing, project]);
 
+  const schema = React.useMemo(() => {
+    const messages = {
+      titleRequired: t("editCreate.errors.titleRequired"),
+      titleTooLong: t("editCreate.errors.titleTooLong"),
+      tradeRequired: t("identity.trade.required"),
+    };
+    return isEditing
+      ? buildEditingSchema(messages)
+      : buildCreatingSchema(messages);
+  }, [isEditing, t]);
+
   const form = useForm<ProjectEditCreateFormValues>({
-    resolver: zodResolver(isEditing ? editingSchema : creatingSchema),
+    resolver: zodResolver(schema),
     defaultValues: defaults,
     // Re-validate on blur so error states match the field that just lost focus.
     mode: "onBlur",

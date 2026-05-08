@@ -20,6 +20,10 @@ vi.mock("framer-motion", async () => {
   return { ...actual, useReducedMotion: () => false };
 });
 
+vi.mock("@/i18n/client", () => ({
+  useDictionary: () => ({ t: (k: string) => k }),
+}));
+
 const archiveMutate = vi.fn();
 const saveMutate = vi.fn();
 const createMutate = vi.fn();
@@ -348,7 +352,9 @@ describe("<ProjectWorkspaceContainer>", () => {
     seedViewingWindow();
     render(<ProjectWorkspaceContainer windowId={WINDOW_ID} />);
     const editBtn = screen.getByTestId("footer-primary");
-    expect(editBtn).toHaveTextContent("EDIT");
+    // Container resolves footer label via t("footer.edit") — mocked dict
+    // returns the key string directly.
+    expect(editBtn).toHaveTextContent("footer.edit");
 
     await userEvent.click(editBtn);
     // mode flipped → window now reports editing + composer renders
@@ -408,7 +414,10 @@ describe("<ProjectWorkspaceContainer>", () => {
     seedViewingWindow();
     render(<ProjectWorkspaceContainer windowId={WINDOW_ID} />);
     await userEvent.click(screen.getByTestId("footer-primary")); // EDIT
-    await userEvent.click(screen.getByTestId("footer-secondary-DISCARD CHANGES"));
+    // Container resolves the secondary label via t("footer.discard");
+    // the stub mock window builds the testid suffix from that label,
+    // which under the test mock collapses to the dictionary key.
+    await userEvent.click(screen.getByTestId("footer-secondary-footer.discard"));
     const stub = screen.getByTestId("edit-create-body-stub");
     expect(stub.getAttribute("data-discarded")).toBe("true");
   });
@@ -503,7 +512,8 @@ describe("<ProjectWorkspaceContainer>", () => {
     mockProject.mockReturnValue({ data: undefined, isLoading: false });
     render(<ProjectWorkspaceContainer windowId="project-workspace:new" />);
     const primary = screen.getByTestId("footer-primary");
-    expect(primary).toHaveTextContent("CREATE");
+    // Creating mode primary CTA resolves via t("footer.create").
+    expect(primary).toHaveTextContent("footer.create");
     expect(primary).toHaveAttribute("data-type", "submit");
     const composerForm = screen.getByTestId("edit-create-body-stub");
     expect(primary.getAttribute("data-form")).toBe(

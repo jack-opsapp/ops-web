@@ -11,6 +11,10 @@ vi.mock("@/lib/hooks/use-project-ledger", () => ({
   useProjectLedger: () => mockLedger(),
 }));
 
+vi.mock("@/i18n/client", () => ({
+  useDictionary: () => ({ t: (k: string) => k }),
+}));
+
 const { AccountingTab } = await import(
   "@/components/ops/projects/workspace/viewing/accounting-tab"
 );
@@ -68,17 +72,26 @@ describe("<AccountingTab>", () => {
 
   it("renders invoiced change-order count when changeOrdersCount > 0", () => {
     render(<AccountingTab projectId="p1" />);
-    expect(screen.getByTestId("pipeline-cell-invoiced")).toHaveTextContent("+2 CO");
+    // Template resolves via t("accounting.pipeline.changeOrdersTemplate")
+    // — under the test mock the i18n key passes through. The {n}
+    // substitution is a no-op when the template returns the raw key.
+    expect(screen.getByTestId("pipeline-cell-invoiced")).toHaveTextContent(
+      "accounting.pipeline.changeOrdersTemplate",
+    );
   });
 
   it("renders received deposit pct when depositPct is set", () => {
     render(<AccountingTab projectId="p1" />);
-    expect(screen.getByTestId("pipeline-cell-received")).toHaveTextContent("50% DEPOSIT");
+    expect(screen.getByTestId("pipeline-cell-received")).toHaveTextContent(
+      "accounting.pipeline.depositTemplate",
+    );
   });
 
   it("renders outstanding age tag when daysAged > 0", () => {
     render(<AccountingTab projectId="p1" />);
-    expect(screen.getByTestId("pipeline-cell-outstanding")).toHaveTextContent("12D OVERDUE");
+    expect(screen.getByTestId("pipeline-cell-outstanding")).toHaveTextContent(
+      "accounting.pipeline.overdueTemplate",
+    );
   });
 
   it("renders an em-dash for zero-amount cells", () => {
@@ -123,6 +136,7 @@ describe("<AccountingTab>", () => {
   it("renders the empty ledger state when rows is empty", () => {
     mockLedger.mockReturnValue({ data: [], isLoading: false });
     render(<AccountingTab projectId="p1" />);
-    expect(screen.getByText(/No ledger entries yet/i)).toBeInTheDocument();
+    // Empty ledger copy resolves via t("accounting.ledger.empty").
+    expect(screen.getByText("accounting.ledger.empty")).toBeInTheDocument();
   });
 });

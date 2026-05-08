@@ -18,6 +18,10 @@ vi.mock("framer-motion", async () => {
   return { ...actual, useReducedMotion: () => false };
 });
 
+vi.mock("@/i18n/client", () => ({
+  useDictionary: () => ({ t: (k: string) => k }),
+}));
+
 const { ScheduleTab } = await import(
   "@/components/ops/projects/workspace/edit-create/schedule-tab"
 );
@@ -65,7 +69,9 @@ describe("<ScheduleTab>", () => {
   it("renders the // SCHEDULE section header", () => {
     render(<Harness />);
     expect(screen.getByTestId("schedule-tab")).toBeInTheDocument();
-    expect(screen.getByText("SCHEDULE")).toBeInTheDocument();
+    // Section title resolves via t("schedule.section") — mocked dict
+    // returns the key directly.
+    expect(screen.getByText("schedule.section")).toBeInTheDocument();
   });
 
   it("renders Start / End / Duration as a three-cell grid", () => {

@@ -35,7 +35,8 @@ export type Namespace =
   | 'notifications'
   | 'quick-actions'
   | 'server-emails'
-  | 'unsubscribe';
+  | 'unsubscribe'
+  | 'project-workspace';
 
 
 export type Dictionary = Record<string, string | string[] | Record<string, unknown>>;

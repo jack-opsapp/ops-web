@@ -29,6 +29,10 @@ vi.mock("@/lib/store/permissions-store", () => ({
     selector({ can: mockCan }),
 }));
 
+vi.mock("@/i18n/client", () => ({
+  useDictionary: () => ({ t: (k: string) => k }),
+}));
+
 const { ProjectSidebar } = await import(
   "@/components/ops/projects/workspace/viewing/project-sidebar"
 );
@@ -133,8 +137,18 @@ describe("<ProjectSidebar>", () => {
 
   it("renders all 7 section titles", () => {
     render(<ProjectSidebar projectId="p1" />);
-    for (const title of ["HEALTH", "CLIENT", "LOCATION", "TEAM", "DATES", "WEATHER", "LINKED"]) {
-      expect(screen.getByText(title)).toBeInTheDocument();
+    // Section titles resolve via the project-workspace dictionary; the
+    // test mock returns each key as the rendered text.
+    for (const key of [
+      "sidebar.health.section",
+      "sidebar.client.section",
+      "sidebar.location.section",
+      "sidebar.team.section",
+      "sidebar.dates.section",
+      "sidebar.weather.section",
+      "sidebar.linked.section",
+    ]) {
+      expect(screen.getByText(key)).toBeInTheDocument();
     }
   });
 
@@ -155,9 +169,13 @@ describe("<ProjectSidebar>", () => {
   it("renders the location with Maps link when address is present", () => {
     render(<ProjectSidebar projectId="p1" />);
     expect(screen.getByText("1234 Industry Way, Stockton CA")).toBeInTheDocument();
-    expect(screen.getByText("MAPS").closest("a")?.getAttribute("href")).toMatch(
-      /maps\/search/,
-    );
+    // MAPS link text resolves via t("sidebar.location.maps").
+    expect(
+      screen
+        .getByText("sidebar.location.maps")
+        .closest("a")
+        ?.getAttribute("href"),
+    ).toMatch(/maps\/search/);
   });
 
   it("renders all team members with task type assignments", () => {
@@ -168,9 +186,10 @@ describe("<ProjectSidebar>", () => {
 
   it("renders dates section with start, end, and computed duration", () => {
     render(<ProjectSidebar projectId="p1" />);
-    expect(screen.getByText("START")).toBeInTheDocument();
-    expect(screen.getByText("END")).toBeInTheDocument();
-    expect(screen.getByText("DURATION")).toBeInTheDocument();
+    // Dates labels resolve via the project-workspace dictionary.
+    expect(screen.getByText("sidebar.dates.start")).toBeInTheDocument();
+    expect(screen.getByText("sidebar.dates.end")).toBeInTheDocument();
+    expect(screen.getByText("sidebar.dates.duration")).toBeInTheDocument();
     expect(screen.getByText(/14D|15D/)).toBeInTheDocument();
   });
 
@@ -187,13 +206,15 @@ describe("<ProjectSidebar>", () => {
   it("renders the LINKED restricted state when financial perms are denied", () => {
     mockCan.mockReturnValue(false);
     render(<ProjectSidebar projectId="p1" />);
-    expect(screen.getByText("Restricted.")).toBeInTheDocument();
+    // Restricted message resolves via t("sidebar.linked.restricted").
+    expect(screen.getByText("sidebar.linked.restricted")).toBeInTheDocument();
   });
 
   it("hides the financial tiles in HEALTH when financial perms are denied", () => {
     mockCan.mockReturnValue(false);
     render(<ProjectSidebar projectId="p1" />);
-    expect(screen.queryByText("INVOICED")).not.toBeInTheDocument();
-    expect(screen.queryByText("OUTSTANDING")).not.toBeInTheDocument();
+    // Tile labels resolve via the project-workspace dictionary.
+    expect(screen.queryByText("sidebar.health.invoiced")).not.toBeInTheDocument();
+    expect(screen.queryByText("sidebar.health.outstanding")).not.toBeInTheDocument();
   });
 });

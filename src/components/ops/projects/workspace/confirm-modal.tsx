@@ -8,6 +8,7 @@ import { Btn } from "@/components/ops/projects/workspace/atoms/btn";
 import { Mono } from "@/components/ops/projects/workspace/atoms/mono";
 import { Body } from "@/components/ops/projects/workspace/atoms/body";
 import { EASE_SMOOTH } from "@/lib/utils/motion";
+import { useDictionary } from "@/i18n/client";
 
 // `<ConfirmModal>` — workspace-scoped destructive confirmation dialog.
 //
@@ -55,12 +56,14 @@ export function ConfirmModal({
   title,
   body,
   confirmLabel,
-  cancelLabel = "CANCEL",
+  cancelLabel,
   onConfirm,
   isConfirming = false,
   ...rest
 }: ConfirmModalProps) {
   const reducedMotion = useReducedMotion();
+  const { t } = useDictionary("project-workspace");
+  const resolvedCancelLabel = cancelLabel ?? t("footer.cancel");
   const testId = rest["data-testid"] ?? "confirm-modal";
 
   // 220ms is the system-wide modal cadence — fast enough that the operator
@@ -142,7 +145,7 @@ export function ConfirmModal({
                   onClick={() => onOpenChange(false)}
                   data-testid={`${testId}-cancel`}
                 >
-                  {cancelLabel}
+                  {resolvedCancelLabel}
                 </Btn>
                 <Btn
                   variant="destructive"

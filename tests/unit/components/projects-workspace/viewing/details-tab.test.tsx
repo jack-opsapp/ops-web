@@ -15,6 +15,10 @@ vi.mock("@/lib/hooks/use-project-tasks-grouped", () => ({
   useProjectTasksGrouped: () => mockTasks(),
 }));
 
+vi.mock("@/i18n/client", () => ({
+  useDictionary: () => ({ t: (k: string) => k }),
+}));
+
 const { DetailsTab } = await import(
   "@/components/ops/projects/workspace/viewing/details-tab"
 );
@@ -110,7 +114,8 @@ describe("<DetailsTab>", () => {
   it("renders the empty scope state when projectDescription is null", () => {
     mockProject.mockReturnValue({ data: { id: "p1", title: "x", projectDescription: null } });
     render(<DetailsTab projectId="p1" />);
-    expect(screen.getByText(/No scope written yet/i)).toBeInTheDocument();
+    // Empty state copy resolves via t("details.scope.empty").
+    expect(screen.getByText("details.scope.empty")).toBeInTheDocument();
   });
 
   it("renders one row per team member", () => {
@@ -127,7 +132,8 @@ describe("<DetailsTab>", () => {
 
   it("renders UNASSIGNED for members with no task type assignments", () => {
     render(<DetailsTab projectId="p1" />);
-    expect(screen.getByText("UNASSIGNED")).toBeInTheDocument();
+    // "UNASSIGNED" copy resolves via t("details.team.unassigned").
+    expect(screen.getByText("details.team.unassigned")).toBeInTheDocument();
   });
 
   it("partitions tasks into Active / Upcoming / Done groups", () => {
@@ -148,6 +154,7 @@ describe("<DetailsTab>", () => {
       isLoading: false,
     });
     render(<DetailsTab projectId="p1" />);
-    expect(screen.getByText(/No tasks scheduled/i)).toBeInTheDocument();
+    // Empty tasks copy resolves via t("details.tasks.empty").
+    expect(screen.getByText("details.tasks.empty")).toBeInTheDocument();
   });
 });

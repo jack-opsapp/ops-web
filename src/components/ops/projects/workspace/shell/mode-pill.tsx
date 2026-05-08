@@ -4,6 +4,7 @@ import * as React from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { cn } from "@/lib/utils/cn";
 import { EASE_SMOOTH } from "@/lib/utils/motion";
+import { useDictionary } from "@/i18n/client";
 
 // `ModePill` — VIEWING / EDITING / CREATING badge in the workspace title
 // bar. Encodes the workspace's emotional state at a glance:
@@ -44,10 +45,10 @@ const DOT_TONE: Record<WorkspaceMode, string> = {
   creating: "bg-ops-accent",
 };
 
-const MODE_LABEL: Record<WorkspaceMode, string> = {
-  viewing: "VIEWING",
-  editing: "EDITING",
-  creating: "CREATING",
+const MODE_KEY: Record<WorkspaceMode, string> = {
+  viewing: "mode.viewing",
+  editing: "mode.editing",
+  creating: "mode.creating",
 };
 
 // 1.6s pulse, opacity 1 → 0.45 → 1. ease-in-out (the default for keyed
@@ -67,6 +68,7 @@ export interface ModePillProps {
 
 export function ModePill({ mode, className }: ModePillProps) {
   const reducedMotion = useReducedMotion();
+  const { t } = useDictionary("project-workspace");
   const shouldPulse = (mode === "editing" || mode === "creating") && !reducedMotion;
 
   return (
@@ -94,7 +96,7 @@ export function ModePill({ mode, className }: ModePillProps) {
         )}
         aria-hidden
       />
-      {MODE_LABEL[mode]}
+      {t(MODE_KEY[mode])}
     </motion.span>
   );
 }

@@ -4,6 +4,7 @@ import Map, { Marker } from "react-map-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { useReducedMotion } from "framer-motion";
 import { withAlpha } from "@/lib/utils/color";
+import { useDictionary } from "@/i18n/client";
 
 export interface OtherPin {
   id: string;
@@ -153,12 +154,13 @@ function OtherProjectPin({ color, label }: OtherProjectPinProps) {
 }
 
 function MapTokenMissing() {
+  const { t } = useDictionary("project-workspace");
   return (
     <div
       className="flex h-full w-full items-center justify-center text-[11px] uppercase tracking-[0.18em]"
       style={{ background: MAP_CANVAS_BG, color: "var(--text-3)" }}
     >
-      <span className="font-mono">// MAP UNAVAILABLE — NEXT_PUBLIC_MAPBOX_TOKEN MISSING</span>
+      <span className="font-mono">{t("map.tokenMissing")}</span>
     </div>
   );
 }

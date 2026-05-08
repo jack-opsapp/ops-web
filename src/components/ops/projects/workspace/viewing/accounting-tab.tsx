@@ -21,6 +21,7 @@ import { Chip, type ChipVariant } from "@/components/ops/projects/workspace/atom
 import { formatCurrency } from "@/lib/utils/format";
 import { formatDate } from "@/lib/utils/date";
 import { cn } from "@/lib/utils/cn";
+import { useDictionary } from "@/i18n/client";
 
 // `AccountingTab` — 4-cell pipeline + chronological ledger.
 //
@@ -47,12 +48,12 @@ const STATUS_TONE_TO_CHIP: Record<LedgerStatusTone, ChipVariant> = {
   accent: "accent",
 };
 
-const SOURCE_LABEL: Record<LedgerRow["source"], string> = {
-  estimate: "ESTIMATE",
-  invoice: "INVOICE",
-  change_order: "CHANGE ORDER",
-  payment: "PAYMENT",
-  expense: "EXPENSE",
+const SOURCE_KEY: Record<LedgerRow["source"], string> = {
+  estimate: "accounting.source.estimate",
+  invoice: "accounting.source.invoice",
+  change_order: "accounting.source.changeOrder",
+  payment: "accounting.source.payment",
+  expense: "accounting.source.expense",
 };
 
 function moneyOrDash(amount: number | null): string {
@@ -102,6 +103,7 @@ function PipelineCell({
 }
 
 function PipelineGrid({ summary }: { summary: ProjectPipelineSummary }) {
+  const { t } = useDictionary("project-workspace");
   const ageMeta = (() => {
     if (!summary.outstanding.daysAged && !summary.outstanding.dueDate) return null;
     if (summary.outstanding.daysAged != null && summary.outstanding.daysAged > 0) {
@@ -109,12 +111,22 @@ function PipelineGrid({ summary }: { summary: ProjectPipelineSummary }) {
         <Mono
           color={summary.outstanding.daysAged > 30 ? "rose" : "tan"}
           size={9}
-        >{`${summary.outstanding.daysAged}D OVERDUE`}</Mono>
+        >
+          {t("accounting.pipeline.overdueTemplate").replace(
+            "{n}",
+            String(summary.outstanding.daysAged),
+          )}
+        </Mono>
       );
     }
     if (summary.outstanding.dueDate) {
       return (
-        <Mono color="text-3" size={9}>{`DUE ${formatDate(summary.outstanding.dueDate, "MMM d").toUpperCase()}`}</Mono>
+        <Mono color="text-3" size={9}>
+          {t("accounting.pipeline.dueTemplate").replace(
+            "{date}",
+            formatDate(summary.outstanding.dueDate, "MMM d").toUpperCase(),
+          )}
+        </Mono>
       );
     }
     return null;
@@ -127,7 +139,7 @@ function PipelineGrid({ summary }: { summary: ProjectPipelineSummary }) {
     >
       <PipelineCell
         testId="pipeline-cell-quoted"
-        label="QUOTED"
+        label={t("accounting.pipeline.quoted")}
         amount={summary.quoted.total}
         meta={
           summary.quoted.recordId ? (
@@ -137,11 +149,16 @@ function PipelineGrid({ summary }: { summary: ProjectPipelineSummary }) {
       />
       <PipelineCell
         testId="pipeline-cell-invoiced"
-        label="INVOICED"
+        label={t("accounting.pipeline.invoiced")}
         amount={summary.invoiced.total}
         meta={
           summary.invoiced.changeOrdersCount > 0 ? (
-            <Mono color="tan" size={9}>{`+${summary.invoiced.changeOrdersCount} CO`}</Mono>
+            <Mono color="tan" size={9}>
+              {t("accounting.pipeline.changeOrdersTemplate").replace(
+                "{n}",
+                String(summary.invoiced.changeOrdersCount),
+              )}
+            </Mono>
           ) : summary.invoiced.recordId ? (
             <Mono color="text-3" size={9}>{summary.invoiced.recordId}</Mono>
           ) : null
@@ -149,12 +166,17 @@ function PipelineGrid({ summary }: { summary: ProjectPipelineSummary }) {
       />
       <PipelineCell
         testId="pipeline-cell-received"
-        label="RECEIVED"
+        label={t("accounting.pipeline.received")}
         amount={summary.received.total}
         tone={summary.received.total > 0 ? "olive" : "default"}
         meta={
           summary.received.depositPct != null ? (
-            <Mono color="olive" size={9}>{`${Math.round(summary.received.depositPct)}% DEPOSIT`}</Mono>
+            <Mono color="olive" size={9}>
+              {t("accounting.pipeline.depositTemplate").replace(
+                "{pct}",
+                String(Math.round(summary.received.depositPct)),
+              )}
+            </Mono>
           ) : summary.received.recordId ? (
             <Mono color="text-3" size={9}>{summary.received.recordId}</Mono>
           ) : null
@@ -162,7 +184,7 @@ function PipelineGrid({ summary }: { summary: ProjectPipelineSummary }) {
       />
       <PipelineCell
         testId="pipeline-cell-outstanding"
-        label="OUTSTANDING"
+        label={t("accounting.pipeline.outstanding")}
         amount={summary.outstanding.total}
         tone={
           summary.outstanding.daysAged != null && summary.outstanding.daysAged > 30
@@ -182,13 +204,14 @@ function AmountColor(tone: LedgerAmountTone): string {
 }
 
 function LedgerRowItem({ row }: { row: LedgerRow }) {
+  const { t } = useDictionary("project-workspace");
   return (
     <div data-testid="ledger-row" data-source={row.source} className="flex items-center gap-3 py-2">
       <Mono color="mute" size={9} className="w-[60px] shrink-0">
         {row.date ? formatDate(row.date, "MMM d").toUpperCase() : "—"}
       </Mono>
       <Mono color="text-3" size={9} className="w-[112px] shrink-0">
-        {SOURCE_LABEL[row.source]}
+        {t(SOURCE_KEY[row.source])}
       </Mono>
       <div className="min-w-0 flex-1">
         <Inline gap={1.5} align="baseline" wrap>
@@ -216,6 +239,7 @@ function LedgerRowItem({ row }: { row: LedgerRow }) {
 }
 
 export function AccountingTab({ projectId }: AccountingTabProps) {
+  const { t } = useDictionary("project-workspace");
   const pipeline = useProjectPipeline(projectId);
   const ledger = useProjectLedger(projectId);
 
@@ -229,23 +253,23 @@ export function AccountingTab({ projectId }: AccountingTabProps) {
 
   return (
     <Stack gap={4} className="px-4 py-3">
-      <Section title="PIPELINE">
+      <Section title={t("accounting.pipeline.section")}>
         <div className="pt-1">
           <PipelineGrid summary={summary} />
         </div>
       </Section>
 
       <Section
-        title="LEDGER"
+        title={t("accounting.ledger.section")}
         rightSlot={<Mono color="text-3" size={9}>{`${rows.length}`}</Mono>}
       >
         {ledger.isLoading ? (
           <Body size={14} color="text-3" className="py-6">
-            Loading…
+            {t("accounting.ledger.loading")}
           </Body>
         ) : rows.length === 0 ? (
           <Body size={14} color="text-3" className="py-6">
-            No ledger entries yet.
+            {t("accounting.ledger.empty")}
           </Body>
         ) : (
           <>

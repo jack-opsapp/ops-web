@@ -17,6 +17,7 @@ import { Hairline } from "@/components/ops/projects/workspace/atoms/hairline";
 import { UserAvatar } from "@/components/ops/user-avatar";
 import { formatDate } from "@/lib/utils/date";
 import { cn } from "@/lib/utils/cn";
+import { useDictionary } from "@/i18n/client";
 
 // `DetailsTab` — Scope → Team → TaskList composition.
 //
@@ -37,15 +38,16 @@ interface DetailsTabProps {
 }
 
 function ScopeSection({ description }: { description: string | null }) {
+  const { t } = useDictionary("project-workspace");
   return (
-    <Section title="SCOPE">
+    <Section title={t("details.scope.section")}>
       {description && description.trim().length > 0 ? (
         <Body as="p" size={14} color="text" className="whitespace-pre-wrap break-words pt-1">
           {description}
         </Body>
       ) : (
         <Body size={14} color="text-3" className="pt-1">
-          No scope written yet.
+          {t("details.scope.empty")}
         </Body>
       )}
     </Section>
@@ -53,6 +55,7 @@ function ScopeSection({ description }: { description: string | null }) {
 }
 
 function TeamRow({ member }: { member: ProjectTeamMember }) {
+  const { t } = useDictionary("project-workspace");
   return (
     <div data-testid="team-row" className="flex items-center gap-3 py-2">
       <UserAvatar
@@ -70,7 +73,7 @@ function TeamRow({ member }: { member: ProjectTeamMember }) {
           </Mono>
         ) : (
           <Mono color="mute" size={9} className="block">
-            UNASSIGNED
+            {t("details.team.unassigned")}
           </Mono>
         )}
       </div>
@@ -79,15 +82,16 @@ function TeamRow({ member }: { member: ProjectTeamMember }) {
 }
 
 function TeamSection({ projectId }: { projectId: string }) {
+  const { t } = useDictionary("project-workspace");
   const { members } = useProjectTeam(projectId);
   return (
     <Section
-      title="TEAM"
+      title={t("details.team.section")}
       rightSlot={<Mono color="text-3" size={9}>{`${members.length}`}</Mono>}
     >
       {members.length === 0 ? (
         <Body size={14} color="text-3" className="py-3">
-          No one assigned.
+          {t("details.team.empty")}
         </Body>
       ) : (
         <div className="divide-y divide-glass-border">
@@ -149,15 +153,18 @@ function TaskRow({ task }: { task: ProjectTaskRow }) {
 }
 
 function TaskGroup({
+  groupId,
   label,
   tasks,
 }: {
+  /** Stable id for testing/styling — independent of the translated label. */
+  groupId: "active" | "upcoming" | "done";
   label: string;
   tasks: ProjectTaskRow[];
 }) {
   if (tasks.length === 0) return null;
   return (
-    <div data-testid={`task-group-${label.toLowerCase()}`}>
+    <div data-testid={`task-group-${groupId}`}>
       <Inline gap={1.5} className="pb-1.5">
         <Mono color="text-3" size={9}>{`// ${label}`}</Mono>
         <Mono color="mute" size={9}>{`${tasks.length}`}</Mono>
@@ -173,6 +180,7 @@ function TaskGroup({
 }
 
 function TasksSection({ projectId }: { projectId: string }) {
+  const { t } = useDictionary("project-workspace");
   const { data, isLoading } = useProjectTasksGrouped(projectId);
   const grouped = data ?? {
     done: [],
@@ -183,24 +191,24 @@ function TasksSection({ projectId }: { projectId: string }) {
 
   return (
     <Section
-      title="TASKS"
+      title={t("details.tasks.section")}
       rightSlot={
         <Mono color="text-3" size={9}>{`${grouped.totals.done}/${grouped.totals.total}`}</Mono>
       }
     >
       {isLoading ? (
         <Body size={14} color="text-3" className="py-6">
-          Loading…
+          {t("details.tasks.loading")}
         </Body>
       ) : grouped.totals.total === 0 ? (
         <Body size={14} color="text-3" className="py-6">
-          No tasks scheduled.
+          {t("details.tasks.empty")}
         </Body>
       ) : (
         <Stack gap={2} className="pt-1">
-          <TaskGroup label="ACTIVE" tasks={grouped.active} />
-          <TaskGroup label="UPCOMING" tasks={grouped.upcoming} />
-          <TaskGroup label="DONE" tasks={grouped.done} />
+          <TaskGroup groupId="active" label={t("details.tasks.group.active")} tasks={grouped.active} />
+          <TaskGroup groupId="upcoming" label={t("details.tasks.group.upcoming")} tasks={grouped.upcoming} />
+          <TaskGroup groupId="done" label={t("details.tasks.group.done")} tasks={grouped.done} />
         </Stack>
       )}
     </Section>

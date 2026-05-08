@@ -20,6 +20,10 @@ type MapProps = {
   children?: React.ReactNode;
 };
 
+vi.mock("@/i18n/client", () => ({
+  useDictionary: () => ({ t: (k: string) => k }),
+}));
+
 vi.mock("react-map-gl", () => {
   return {
     default: ({ children, mapStyle, initialViewState, interactive, dragPan, mapboxAccessToken }: MapProps) => (
@@ -174,8 +178,9 @@ describe("<ProjectMap>", () => {
       />,
     );
     expect(screen.queryByTestId("mock-map")).not.toBeInTheDocument();
-    expect(screen.getByText(/MAP UNAVAILABLE/i)).toBeInTheDocument();
-    expect(screen.getByText(/NEXT_PUBLIC_MAPBOX_TOKEN/i)).toBeInTheDocument();
+    // Token-missing copy resolves via t("map.tokenMissing") — the
+    // mocked dictionary returns the key string directly.
+    expect(screen.getByText("map.tokenMissing")).toBeInTheDocument();
   });
 
   it("forwards the access token to <Map>", () => {

@@ -17,6 +17,7 @@ import { AccountingTab } from "./accounting-tab";
 import { Body } from "@/components/ops/projects/workspace/atoms/body";
 import { Mono } from "@/components/ops/projects/workspace/atoms/mono";
 import { cn } from "@/lib/utils/cn";
+import { useDictionary } from "@/i18n/client";
 
 // `ProjectViewingBody` — orchestrator for the workspace viewing surface.
 // Layout (top → bottom):
@@ -51,13 +52,19 @@ interface ProjectViewingBodyProps {
   className?: string;
 }
 
-const TAB_ORDER: ReadonlyArray<{ id: ViewingTabId; label: string }> = [
-  { id: "activity", label: "ACTIVITY" },
-  { id: "details", label: "DETAILS" },
-  { id: "accounting", label: "ACCOUNTING" },
+const TAB_ORDER_IDS: ReadonlyArray<ViewingTabId> = [
+  "activity",
+  "details",
+  "accounting",
 ];
+const TAB_ORDER_KEY: Record<ViewingTabId, string> = {
+  activity: "tabs.activity",
+  details: "tabs.details",
+  accounting: "tabs.accounting",
+};
 
 function MapPlaceholder() {
+  const { t } = useDictionary("project-workspace");
   return (
     <div
       data-testid="map-placeholder"
@@ -67,7 +74,7 @@ function MapPlaceholder() {
       <span className="inline-flex items-center gap-2 text-text-3">
         <MapPinOff className="h-3 w-3" strokeWidth={1.5} aria-hidden="true" />
         <Mono color="text-3" size={9}>
-          NO COORDINATES SET
+          {t("map.placeholder.noCoordinates")}
         </Mono>
       </span>
     </div>
@@ -75,6 +82,7 @@ function MapPlaceholder() {
 }
 
 export function ProjectViewingBody({ projectId, className }: ProjectViewingBodyProps) {
+  const { t } = useDictionary("project-workspace");
   const { data: project, isLoading } = useProject(projectId);
   const can = usePermissionStore((s) => s.can);
   const canViewFinancials = can("invoices.view") || can("estimates.view");
@@ -97,7 +105,7 @@ export function ProjectViewingBody({ projectId, className }: ProjectViewingBodyP
         className={cn("flex h-full items-center justify-center", className)}
       >
         <Body size={14} color="text-3">
-          Loading…
+          {t("body.loading")}
         </Body>
       </div>
     );
@@ -109,10 +117,10 @@ export function ProjectViewingBody({ projectId, className }: ProjectViewingBodyP
   const projectIdLabel = project.id.slice(0, 8).toUpperCase();
   const hasCoords = project.latitude != null && project.longitude != null;
 
-  const tabs = TAB_ORDER.map((t) => ({
-    id: t.id,
-    label: t.label,
-    disabled: t.id === "accounting" && !canViewFinancials,
+  const tabs = TAB_ORDER_IDS.map((id) => ({
+    id,
+    label: t(TAB_ORDER_KEY[id]),
+    disabled: id === "accounting" && !canViewFinancials,
   }));
 
   return (

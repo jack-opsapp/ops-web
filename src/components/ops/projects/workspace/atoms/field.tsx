@@ -1,5 +1,8 @@
+"use client";
+
 import * as React from "react";
 import { cn } from "@/lib/utils/cn";
+import { useDictionary } from "@/i18n/client";
 
 // `Field` — label + child + optional/required/hint/error wrapper.
 // Owns the workspace label voice (Mono uppercase 11px tracked-out, the
@@ -34,6 +37,7 @@ export function Field({
   children,
   ...rest
 }: FieldProps) {
+  const { t } = useDictionary("project-workspace");
   const reactId = React.useId();
   // Allow the child to declare its own id; otherwise fall back to the
   // generated one so the label binds correctly either way.
@@ -74,7 +78,7 @@ export function Field({
         )}
         {optional && (
           <span className="text-text-mute lowercase tracking-normal">
-            [optional]
+            {t("field.optional")}
           </span>
         )}
       </label>

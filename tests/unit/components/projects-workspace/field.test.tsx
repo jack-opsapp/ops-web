@@ -1,5 +1,9 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+
+vi.mock("@/i18n/client", () => ({
+  useDictionary: () => ({ t: (k: string) => k }),
+}));
 
 import { Field } from "@/components/ops/projects/workspace/atoms/field";
 
@@ -51,7 +55,9 @@ describe("<Field>", () => {
         <input />
       </Field>,
     );
-    expect(screen.getByText("[optional]")).toBeInTheDocument();
+    // Field resolves the "[optional]" label via the project-workspace
+    // dictionary — the test mock returns the key string directly.
+    expect(screen.getByText("field.optional")).toBeInTheDocument();
   });
 
   it("renders a * required marker when required=true", () => {
