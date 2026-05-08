@@ -48,13 +48,19 @@ export interface ProjectEditCreateBodyProps {
 }
 
 const VISIBILITY_VALUES = ["all", "office", "private"] as const;
+const TRADE_VALUES = ["roofing", "hvac", "plumbing"] as const;
 
 // Form schema — values follow the Project model. clientId is nullable
 // because creating-mode workflows can defer client linkage. Address is
 // optional but, when present, must travel with lat+lon (the autocomplete
 // hands them over together; manual entry without geocoding is not
 // supported by this surface).
-const formSchema = z.object({
+//
+// Trade is nullable in editing mode so legacy projects (created before
+// the column existed) save without forcing a backfill. Creating mode
+// requires it so every new project captures a category up front — see
+// `creatingSchema` below.
+const editingSchema = z.object({
   title: z
     .string()
     .min(1, "Project name is required")
@@ -64,13 +70,20 @@ const formSchema = z.object({
   latitude: z.number().nullable(),
   longitude: z.number().nullable(),
   projectDescription: z.string().nullable(),
+  trade: z.enum(TRADE_VALUES).nullable(),
   startDate: z.string(),
   endDate: z.string(),
   duration: z.string(),
   visibility: z.enum(VISIBILITY_VALUES),
 });
 
-export type ProjectEditCreateFormValues = z.infer<typeof formSchema>;
+const creatingSchema = editingSchema.extend({
+  trade: z.enum(TRADE_VALUES, {
+    errorMap: () => ({ message: "Trade is required" }),
+  }),
+});
+
+export type ProjectEditCreateFormValues = z.infer<typeof editingSchema>;
 
 const EMPTY_DEFAULTS: ProjectEditCreateFormValues = {
   title: "",
@@ -79,6 +92,7 @@ const EMPTY_DEFAULTS: ProjectEditCreateFormValues = {
   latitude: null,
   longitude: null,
   projectDescription: null,
+  trade: null,
   startDate: "",
   endDate: "",
   duration: "",
@@ -157,6 +171,7 @@ export function ProjectEditCreateBody({
       latitude: project.latitude ?? null,
       longitude: project.longitude ?? null,
       projectDescription: project.projectDescription ?? null,
+      trade: project.trade ?? null,
       startDate: toIsoDate(project.startDate),
       endDate: toIsoDate(project.endDate),
       duration: project.duration != null ? String(project.duration) : "",
@@ -166,7 +181,7 @@ export function ProjectEditCreateBody({
   }, [isEditing, project]);
 
   const form = useForm<ProjectEditCreateFormValues>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(isEditing ? editingSchema : creatingSchema),
     defaultValues: defaults,
     // Re-validate on blur so error states match the field that just lost focus.
     mode: "onBlur",
@@ -195,6 +210,7 @@ export function ProjectEditCreateBody({
           latitude: values.latitude,
           longitude: values.longitude,
           projectDescription: values.projectDescription,
+          trade: values.trade,
           startDate: fromIsoDate(values.startDate),
           endDate: fromIsoDate(values.endDate),
           duration: values.duration ? Number(values.duration) : null,
@@ -212,6 +228,7 @@ export function ProjectEditCreateBody({
       latitude: values.latitude,
       longitude: values.longitude,
       projectDescription: values.projectDescription,
+      trade: values.trade,
       startDate: fromIsoDate(values.startDate),
       endDate: fromIsoDate(values.endDate),
       visibility: values.visibility,
@@ -236,22 +253,35 @@ export function ProjectEditCreateBody({
       className={cn("flex h-full min-h-0 flex-col", className)}
     >
       <FormProvider {...form}>
-        {/* Hidden test handle for harness-driven title input. Only rendered
+        {/* Hidden test handles for harness-driven inputs. Only rendered
             in test environments — keeps creating-mode submission unit-
-            testable without depending on the IdentityTab's inputs. */}
+            testable without depending on the IdentityTab's inputs.
+            Trade is text-registered here because creating-mode validation
+            requires it, and the Radix Select is not trivial to drive
+            from the body-level test stubs. */}
         {process.env.NODE_ENV === "test" && (
-          <input
-            type="text"
-            data-testid="project-edit-create-body-test-title"
-            {...form.register("title")}
-            style={{ position: "absolute", left: -9999, width: 1, height: 1 }}
-            aria-hidden="true"
-            tabIndex={-1}
-          />
+          <>
+            <input
+              type="text"
+              data-testid="project-edit-create-body-test-title"
+              {...form.register("title")}
+              style={{ position: "absolute", left: -9999, width: 1, height: 1 }}
+              aria-hidden="true"
+              tabIndex={-1}
+            />
+            <input
+              type="text"
+              data-testid="project-edit-create-body-test-trade"
+              {...form.register("trade")}
+              style={{ position: "absolute", left: -9999, width: 1, height: 1 }}
+              aria-hidden="true"
+              tabIndex={-1}
+            />
+          </>
         )}
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-          {tab === "identity" ? <IdentityTab /> : <ScheduleTab />}
+          {tab === "identity" ? <IdentityTab mode={mode} /> : <ScheduleTab />}
         </div>
       </FormProvider>
     </form>

@@ -8,25 +8,32 @@ import type { Client } from "@/lib/types/models";
 import { Section } from "@/components/ops/projects/workspace/atoms/section";
 import { Stack } from "@/components/ops/projects/workspace/atoms/stack";
 import { Field } from "@/components/ops/projects/workspace/atoms/field";
+import { FieldRow } from "@/components/ops/projects/workspace/atoms/field-row";
 import { TextInput } from "@/components/ops/projects/workspace/atoms/text-input";
 import { TextArea } from "@/components/ops/projects/workspace/atoms/text-area";
+import { Select } from "@/components/ops/projects/workspace/atoms/select";
 import { Mono } from "@/components/ops/projects/workspace/atoms/mono";
 import { AddressAutocomplete } from "@/components/ops/projects/workspace/inputs/address-autocomplete";
 import { cn } from "@/lib/utils/cn";
-import type { ProjectEditCreateFormValues } from "./project-edit-create-body";
+import type {
+  EditCreateMode,
+  ProjectEditCreateFormValues,
+} from "./project-edit-create-body";
 
 // `IdentityTab` — workspace edit/create identity surface.
 //
-// Reads the shared form context and registers four fields:
+// Reads the shared form context and registers five fields:
 //   title                 → projects.title          (required)
 //   clientId              → projects.client_id      (optional, picker)
+//   trade                 → projects.trade          (required when creating,
+//                            optional when editing legacy projects)
 //   address + lat + lon   → projects.{address,latitude,longitude}
 //                            written atomically by AddressAutocomplete
 //   projectDescription    → projects.description    (multi-line)
 //
-// Trade is intentionally absent — `projects.trade` does not exist in
-// the schema. Adding the column is a coordinated DB change that must
-// be owned by a phase that touches the schema layer; not Phase 8.
+// Trade values are lowercase (`roofing` / `hvac` / `plumbing`) to match
+// the `projects_trade_check` constraint; the Select labels uppercase
+// for the OPS tactical voice.
 
 // ─── ClientPicker (tab-local) ────────────────────────────────────────────────
 
@@ -193,12 +200,27 @@ function ClientPicker({ value, onChange, required }: ClientPickerProps) {
 
 // ─── IdentityTab ─────────────────────────────────────────────────────────────
 
-export function IdentityTab() {
+const TRADE_OPTIONS = [
+  { value: "roofing", label: "ROOFING" },
+  { value: "hvac", label: "HVAC" },
+  { value: "plumbing", label: "PLUMBING" },
+];
+
+export interface IdentityTabProps {
+  /** Drives the required/optional state of the Trade field — creating
+   *  requires a category up front, editing leaves NULL trades alone for
+   *  legacy projects. */
+  mode: EditCreateMode;
+}
+
+export function IdentityTab({ mode }: IdentityTabProps) {
   const {
     register,
     control,
     formState: { errors },
   } = useFormContext<ProjectEditCreateFormValues>();
+
+  const tradeRequired = mode === "creating";
 
   return (
     <Stack gap={3} data-testid="identity-tab">
@@ -217,16 +239,47 @@ export function IdentityTab() {
             />
           </Field>
 
-          <Controller
-            control={control}
-            name="clientId"
-            render={({ field }) => (
-              <ClientPicker
-                value={field.value}
-                onChange={(id) => field.onChange(id)}
-              />
-            )}
-          />
+          <FieldRow
+            gap={2}
+            columns={["2fr", "1fr"]}
+            data-testid="identity-client-trade-row"
+          >
+            <Controller
+              control={control}
+              name="clientId"
+              render={({ field }) => (
+                <ClientPicker
+                  value={field.value}
+                  onChange={(id) => field.onChange(id)}
+                />
+              )}
+            />
+
+            <Controller
+              control={control}
+              name="trade"
+              render={({ field }) => (
+                <Field
+                  label="TRADE"
+                  required={tradeRequired}
+                  optional={!tradeRequired}
+                  error={errors.trade?.message}
+                >
+                  <Select
+                    options={TRADE_OPTIONS}
+                    value={field.value ?? undefined}
+                    onChange={(v) =>
+                      field.onChange(
+                        v as ProjectEditCreateFormValues["trade"],
+                      )
+                    }
+                    placeholder="—"
+                    aria-invalid={errors.trade ? "true" : undefined}
+                  />
+                </Field>
+              )}
+            />
+          </FieldRow>
 
           <Field
             label="SITE ADDRESS"

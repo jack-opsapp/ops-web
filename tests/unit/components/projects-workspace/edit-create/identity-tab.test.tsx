@@ -3,14 +3,16 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import * as React from "react";
 import { FormProvider, useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 
 // `<IdentityTab>` — workspace edit/create identity surface.
-// Reads the shared form context via useFormContext() and registers four
-// fields: title, clientId, address (+ lat/lon), projectDescription.
+// Reads the shared form context via useFormContext() and registers five
+// fields: title, clientId, trade, address (+ lat/lon), projectDescription.
 //
-// Trade is intentionally absent — `projects.trade` does not exist in
-// the schema and adding it is out of scope for Phase 8 (surfaced to
-// reviewer).
+// Trade is required in creating mode (the column was added 2026-05-07,
+// every new project captures a category up front). Editing leaves it
+// optional so legacy NULL-trade rows save without forcing a backfill.
 
 vi.mock("framer-motion", async () => {
   const actual = await vi.importActual<typeof import("framer-motion")>(
@@ -61,7 +63,32 @@ const { IdentityTab } = await import(
   "@/components/ops/projects/workspace/edit-create/identity-tab"
 );
 
+// Mirror the production schemas so the harness validates the same way
+// ProjectEditCreateBody does. The IdentityTab itself doesn't know mode
+// for validation — that's the resolver's job — but it does read mode to
+// toggle the Trade label between [optional] and *required.
+const TRADE_VALUES = ["roofing", "hvac", "plumbing"] as const;
+const baseSchema = z.object({
+  title: z.string().min(1).max(200),
+  clientId: z.string().nullable(),
+  address: z.string().nullable(),
+  latitude: z.number().nullable(),
+  longitude: z.number().nullable(),
+  projectDescription: z.string().nullable(),
+  trade: z.enum(TRADE_VALUES).nullable(),
+  startDate: z.string(),
+  endDate: z.string(),
+  duration: z.string(),
+  visibility: z.enum(["all", "office", "private"]),
+});
+const creatingSchema = baseSchema.extend({
+  trade: z.enum(TRADE_VALUES, {
+    errorMap: () => ({ message: "Trade is required" }),
+  }),
+});
+
 interface HarnessProps {
+  mode?: "editing" | "creating";
   defaults?: Partial<{
     title: string;
     clientId: string | null;
@@ -69,14 +96,17 @@ interface HarnessProps {
     latitude: number | null;
     longitude: number | null;
     projectDescription: string | null;
+    trade: "roofing" | "hvac" | "plumbing" | null;
   }>;
   onValuesChange?: (
     values: Record<string, unknown>,
   ) => void;
+  onSubmit?: (values: Record<string, unknown>) => void;
 }
 
-function Harness({ defaults, onValuesChange }: HarnessProps) {
+function Harness({ mode = "editing", defaults, onValuesChange, onSubmit }: HarnessProps) {
   const form = useForm({
+    resolver: zodResolver(mode === "creating" ? creatingSchema : baseSchema),
     defaultValues: {
       title: "",
       clientId: null,
@@ -84,6 +114,7 @@ function Harness({ defaults, onValuesChange }: HarnessProps) {
       latitude: null,
       longitude: null,
       projectDescription: null,
+      trade: null,
       startDate: "",
       endDate: "",
       duration: "",
@@ -97,10 +128,16 @@ function Harness({ defaults, onValuesChange }: HarnessProps) {
   React.useEffect(() => {
     onValuesChange?.(values as Record<string, unknown>);
   }, [values, onValuesChange]);
+  const handleSubmit = form.handleSubmit((vals) => {
+    onSubmit?.(vals as Record<string, unknown>);
+  });
   return (
     <FormProvider {...form}>
-      <form>
-        <IdentityTab />
+      <form onSubmit={handleSubmit}>
+        <IdentityTab mode={mode} />
+        <button type="submit" data-testid="harness-submit">
+          submit
+        </button>
       </form>
     </FormProvider>
   );
@@ -228,5 +265,67 @@ describe("<IdentityTab>", () => {
     await userEvent.type(ta, "Replace roof.");
     const last = onValuesChange.mock.calls.at(-1)?.[0];
     expect(last?.projectDescription).toBe("Replace roof.");
+  });
+
+  // ── Trade field ────────────────────────────────────────────────────
+
+  it("renders the Trade field labelled and placed beside Client", () => {
+    render(<Harness />);
+    expect(screen.getByLabelText(/trade/i)).toBeInTheDocument();
+    expect(screen.getByTestId("identity-client-trade-row")).toBeInTheDocument();
+  });
+
+  it("marks Trade as [optional] in editing mode", () => {
+    render(<Harness mode="editing" />);
+    const tradeLabel = screen.getByText(/^trade$/i);
+    expect(tradeLabel.parentElement).toHaveTextContent(/optional/i);
+    expect(tradeLabel.parentElement?.textContent).not.toContain("*");
+  });
+
+  it("marks Trade as required in creating mode", () => {
+    render(<Harness mode="creating" />);
+    const tradeLabel = screen.getByText(/^trade$/i);
+    expect(tradeLabel.parentElement?.textContent).toContain("*");
+    expect(tradeLabel.parentElement).not.toHaveTextContent(/optional/i);
+  });
+
+  it("exposes ROOFING, HVAC, and PLUMBING when the Trade Select is opened", async () => {
+    render(<Harness />);
+    await userEvent.click(screen.getByLabelText(/trade/i));
+    // Radix renders options in a portal — use role queries to scope.
+    const options = screen.getAllByRole("option");
+    const labels = options.map((o) => o.textContent?.trim());
+    expect(labels).toEqual(["ROOFING", "HVAC", "PLUMBING"]);
+  });
+
+  it("writes the lowercase enum value to the form when an option is selected", async () => {
+    const onValuesChange = vi.fn();
+    render(<Harness onValuesChange={onValuesChange} />);
+    await userEvent.click(screen.getByLabelText(/trade/i));
+    await userEvent.click(screen.getByRole("option", { name: "HVAC" }));
+    const last = onValuesChange.mock.calls.at(-1)?.[0];
+    expect(last?.trade).toBe("hvac");
+  });
+
+  it("renders the seeded trade label uppercase when the form already has a value", () => {
+    render(<Harness defaults={{ trade: "plumbing" }} />);
+    // Radix renders the selected option's text inside the trigger.
+    const trigger = screen.getByLabelText(/trade/i);
+    expect(trigger.textContent).toContain("PLUMBING");
+  });
+
+  it("blocks submit when trade is null in creating mode", async () => {
+    const onSubmit = vi.fn();
+    render(<Harness mode="creating" onSubmit={onSubmit} defaults={{ title: "Acme HQ Reroof" }} />);
+    await userEvent.click(screen.getByTestId("harness-submit"));
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it("allows submit with null trade in editing mode (legacy projects)", async () => {
+    const onSubmit = vi.fn();
+    render(<Harness mode="editing" onSubmit={onSubmit} defaults={{ title: "Legacy Project" }} />);
+    await userEvent.click(screen.getByTestId("harness-submit"));
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    expect(onSubmit.mock.calls[0]![0]?.trade).toBeNull();
   });
 });

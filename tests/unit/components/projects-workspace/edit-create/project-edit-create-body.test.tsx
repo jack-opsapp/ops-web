@@ -42,7 +42,9 @@ vi.mock("@/lib/store/permissions-store", () => ({
 vi.mock(
   "@/components/ops/projects/workspace/edit-create/identity-tab",
   () => ({
-    IdentityTab: () => <div data-testid="identity-tab-stub" />,
+    IdentityTab: ({ mode }: { mode: "editing" | "creating" }) => (
+      <div data-testid="identity-tab-stub" data-mode={mode} />
+    ),
   }),
 );
 
@@ -69,6 +71,7 @@ const PROJECT = {
   status: ProjectStatus.InProgress,
   projectDescription: "Replace flat roof.",
   clientId: "client-001",
+  trade: "roofing" as const,
   visibility: "all" as const,
 };
 
@@ -190,6 +193,7 @@ describe("<ProjectEditCreateBody>", () => {
     expect(arg.patch.title).toBe(PROJECT.title);
     expect(arg.patch.clientId).toBe(PROJECT.clientId);
     expect(arg.patch.projectDescription).toBe(PROJECT.projectDescription);
+    expect(arg.patch.trade).toBe(PROJECT.trade);
     expect(arg.patch.visibility).toBe("all");
 
     await waitFor(() => expect(onSaved).toHaveBeenCalledWith(PROJECT_ID));
@@ -218,12 +222,19 @@ describe("<ProjectEditCreateBody>", () => {
     ) as HTMLInputElement;
     await userEvent.clear(titleProbe);
     await userEvent.type(titleProbe, "New Project");
+    // Creating mode requires trade — seed via the hidden test probe.
+    const tradeProbe = screen.getByTestId(
+      "project-edit-create-body-test-trade",
+    ) as HTMLInputElement;
+    await userEvent.clear(tradeProbe);
+    await userEvent.type(tradeProbe, "hvac");
 
     form.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
 
     await waitFor(() => expect(createMutate).toHaveBeenCalledTimes(1));
     const arg = createMutate.mock.calls[0]![0];
     expect(arg.title).toBe("New Project");
+    expect(arg.trade).toBe("hvac");
     expect(arg.visibility).toBe("all");
 
     await waitFor(() =>
