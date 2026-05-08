@@ -284,8 +284,18 @@ export const ProjectService = {
   /**
    * Update only the project status.
    * Fires stage change detection (fire-and-forget) for lifecycle automation.
+   *
+   * `changedByUserId` and `changedByName` flow through to
+   * ProjectLifecycleService.onProjectStageChange so it can credit the
+   * timeline event to the actor and dispatch a status-change notification
+   * to the rest of the team. Cron-driven callers can omit them.
    */
-  async updateProjectStatus(id: string, status: ProjectStatus): Promise<void> {
+  async updateProjectStatus(
+    id: string,
+    status: ProjectStatus,
+    changedByUserId?: string,
+    changedByName?: string,
+  ): Promise<void> {
     const supabase = requireSupabase();
 
     // Fetch old status before updating (for stage change detection)
@@ -314,7 +324,9 @@ export const ProjectService = {
             companyId,
             id,
             oldStatus,
-            newStatus
+            newStatus,
+            changedByUserId,
+            changedByName,
           )
         )
         .catch((err) =>

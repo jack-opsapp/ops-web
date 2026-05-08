@@ -10,6 +10,7 @@
 
 type NotificationEventType =
   | "project_assigned"
+  | "project_status_change"
   | "task_assigned"
   | "task_completed"
   | "schedule_change"
@@ -80,6 +81,38 @@ export function dispatchProjectAssignment(params: {
     actionLabel: "View Project",
     pushData: {
       type: "projectAssignment",
+      projectId: params.projectId,
+      screen: "projectDetails",
+    },
+  });
+}
+
+/**
+ * Notify the project team that a project's status has moved to a new stage.
+ * Called from ProjectLifecycleService.onProjectStageChange after the
+ * project_notes timeline event lands. The recipient list should already
+ * exclude the user who triggered the change.
+ */
+export function dispatchProjectStatusChange(params: {
+  projectId: string;
+  projectTitle: string;
+  fromStatus: string;
+  toStatus: string;
+  changedByName: string;
+  recipientUserIds: string[];
+  companyId: string;
+}): void {
+  dispatch({
+    eventType: "project_status_change",
+    recipientIds: params.recipientUserIds,
+    companyId: params.companyId,
+    title: `Status changed: ${params.fromStatus} → ${params.toStatus}`,
+    body: `${params.changedByName} moved ${params.projectTitle} from ${params.fromStatus} to ${params.toStatus}.`,
+    projectId: params.projectId,
+    actionUrl: `/?openProject=${params.projectId}&mode=view`,
+    actionLabel: "View Project",
+    pushData: {
+      type: "projectStatusChange",
       projectId: params.projectId,
       screen: "projectDetails",
     },

@@ -318,20 +318,26 @@ export const ProjectLifecycleService = {
     companyId: string,
     projectId: string,
     oldStage: string,
-    newStage: string
+    newStage: string,
+    changedByUserId?: string,
+    changedByName?: string,
   ): Promise<void> {
     // Always write a status_change row to the unified workspace timeline.
     // The phase_c gate below only governs the AI-driven approval-queue
     // proposals — the audit/timeline entry must fire regardless so the
     // workspace Activity tab reflects every status transition.
     try {
-      const adminUserId = await getCompanyAdminUserId(companyId);
-      if (adminUserId) {
+      // Prefer attributing the timeline event to the actor when known so
+      // the Activity tab surfaces the operator who moved the stage. Fall
+      // back to a company admin so cron-driven transitions still record.
+      const eventAuthorId =
+        changedByUserId ?? (await getCompanyAdminUserId(companyId));
+      if (eventAuthorId) {
         const { ProjectNoteService } = await import("./project-note-service");
         await ProjectNoteService.createSystemEvent({
           projectId,
           companyId,
-          authorId: adminUserId,
+          authorId: eventAuthorId,
           eventKind: "status_change",
           content: `Status: ${oldStage} → ${newStage}`,
           contentMetadata: { from: oldStage, to: newStage },
@@ -343,6 +349,48 @@ export const ProjectLifecycleService = {
         err,
       );
       // Non-fatal — keep going so the rest of the lifecycle flow still runs.
+    }
+
+    // Notify the project team so they see status moves in the rail without
+    // having to refresh the workspace. Only fires when we know who made the
+    // change (cron-driven transitions skip — there is no actor to credit and
+    // the timeline event already records the move).
+    if (changedByUserId && changedByName) {
+      try {
+        const supabase = requireSupabase();
+        const { data: project } = await supabase
+          .from("projects")
+          .select("title, team_member_ids")
+          .eq("id", projectId)
+          .single();
+
+        const projectTitle = (project?.title as string) ?? "Project";
+        const teamMemberIds = parseStringArray(project?.team_member_ids);
+        const recipientUserIds = teamMemberIds.filter(
+          (id) => id !== changedByUserId,
+        );
+
+        if (recipientUserIds.length > 0) {
+          const { dispatchProjectStatusChange } = await import(
+            "./notification-dispatch"
+          );
+          dispatchProjectStatusChange({
+            projectId,
+            projectTitle,
+            fromStatus: oldStage,
+            toStatus: newStage,
+            changedByName,
+            recipientUserIds,
+            companyId,
+          });
+        }
+      } catch (err) {
+        console.error(
+          "[project-lifecycle] Failed to dispatch status_change notification:",
+          err,
+        );
+        // Non-fatal — timeline event already landed.
+      }
     }
 
     // Gate behind phase_c
