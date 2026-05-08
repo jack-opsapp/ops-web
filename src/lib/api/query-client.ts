@@ -220,8 +220,8 @@ export const queryKeys = {
       [...queryKeys.projectWorkspace.all, "ledger", projectId] as const,
     tasksGrouped: (projectId: string | null) =>
       [...queryKeys.projectWorkspace.all, "tasksGrouped", projectId] as const,
-    crew: (projectId: string | null) =>
-      [...queryKeys.projectWorkspace.all, "crew", projectId] as const,
+    team: (projectId: string | null) =>
+      [...queryKeys.projectWorkspace.all, "team", projectId] as const,
     weather: (projectId: string | null) =>
       [...queryKeys.projectWorkspace.all, "weather", projectId] as const,
   },
