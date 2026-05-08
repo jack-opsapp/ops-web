@@ -21,9 +21,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 // ─── Mocks ──────────────────────────────────────────────────────────────────
 
-const updateProjectMock = vi.fn(() => Promise.resolve());
-const createSystemEventMock = vi.fn(() =>
-  Promise.resolve({ id: "note-1" }),
+const updateProjectMock = vi.fn<(id: unknown, data: unknown) => Promise<void>>(
+  () => Promise.resolve(),
+);
+const createSystemEventMock = vi.fn<(input: unknown) => Promise<{ id: string }>>(
+  () => Promise.resolve({ id: "note-1" }),
 );
 
 interface AssignmentCall {
@@ -36,13 +38,13 @@ const assignmentDispatches: AssignmentCall[] = [];
 
 vi.mock("@/lib/api/services/project-service", () => ({
   ProjectService: {
-    updateProject: (...args: unknown[]) => updateProjectMock(...args),
+    updateProject: (id: unknown, data: unknown) => updateProjectMock(id, data),
   },
 }));
 
 vi.mock("@/lib/api/services/project-note-service", () => ({
   ProjectNoteService: {
-    createSystemEvent: (...args: unknown[]) => createSystemEventMock(...args),
+    createSystemEvent: (input: unknown) => createSystemEventMock(input),
   },
 }));
 

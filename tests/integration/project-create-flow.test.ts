@@ -18,9 +18,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 // ─── Mock state ────────────────────────────────────────────────────────────
 
-const createProjectMock = vi.fn(() => Promise.resolve("p-new"));
-const createSystemEventMock = vi.fn(() =>
-  Promise.resolve({ id: "note-1" }),
+const createProjectMock = vi.fn<(input: unknown) => Promise<string>>(() =>
+  Promise.resolve("p-new"),
+);
+const createSystemEventMock = vi.fn<(input: unknown) => Promise<{ id: string }>>(
+  () => Promise.resolve({ id: "note-1" }),
 );
 
 interface AssignmentCall {
@@ -33,13 +35,13 @@ const assignmentDispatches: AssignmentCall[] = [];
 
 vi.mock("@/lib/api/services/project-service", () => ({
   ProjectService: {
-    createProject: (...args: unknown[]) => createProjectMock(...args),
+    createProject: (input: unknown) => createProjectMock(input),
   },
 }));
 
 vi.mock("@/lib/api/services/project-note-service", () => ({
   ProjectNoteService: {
-    createSystemEvent: (...args: unknown[]) => createSystemEventMock(...args),
+    createSystemEvent: (input: unknown) => createSystemEventMock(input),
   },
 }));
 
@@ -101,14 +103,14 @@ describe("useProjectMutations.createProject", () => {
 
     // (a) project row inserted
     expect(createProjectMock).toHaveBeenCalledOnce();
-    const createArgs = createProjectMock.mock.calls[0][0] as Record<string, unknown>;
+    const createArgs = createProjectMock.mock.calls[0]![0] as Record<string, unknown>;
     expect(createArgs.title).toBe("Re-roof, 410 Birch");
     expect(createArgs.teamMemberIds).toEqual(["u-1", "u-2", "u-3"]);
     expect(createArgs.companyId).toBe("co-1");
 
     // (b) timeline event written with project_created kind
     expect(createSystemEventMock).toHaveBeenCalledOnce();
-    const ev = createSystemEventMock.mock.calls[0][0] as Record<string, unknown>;
+    const ev = createSystemEventMock.mock.calls[0]![0] as Record<string, unknown>;
     expect(ev.eventKind).toBe("project_created");
     expect(ev.projectId).toBe("p-new");
     expect(ev.companyId).toBe("co-1");
