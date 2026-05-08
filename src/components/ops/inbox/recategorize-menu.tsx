@@ -11,7 +11,7 @@
  */
 
 import { useCallback, useMemo, useState } from "react";
-import { Check, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
@@ -20,7 +20,9 @@ import {
   type EmailThreadCategory,
 } from "@/lib/types/email-thread";
 import { useThreadActions } from "@/lib/hooks/use-inbox-threads";
-import { CategoryChip, categoryLabel } from "./category-chip";
+import { categoryLabel } from "./category-chip";
+import { SlashLabel } from "./voice/slash-label";
+import { KeyHint } from "@/components/ui/key-hint";
 import { enqueueUndoToast } from "./undo-toast";
 import { toast } from "sonner";
 
@@ -145,13 +147,16 @@ export function RecategorizeMenu({
         onKeyDown={handleKeyDown}
       >
         {/* Header */}
-        <div className="px-3 pt-2.5 pb-1.5 border-b border-line">
-          <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-text-mute">
-            {"// "}
-            {t("recategorize.prefix", "Reclassify")}
-          </p>
-          <p className="font-cakemono font-light uppercase text-[13px] tracking-[0.14em] text-text mt-0.5">
-            {t("recategorize.title", "Move thread to")}
+        <div className="px-3 pt-2.5 pb-2 border-b border-line">
+          <SlashLabel
+            label={t("modal.recat.title", "// RECATEGORIZE")}
+            size="md"
+          />
+          <p className="font-mono text-[11px] text-text-3 mt-1.5 leading-relaxed">
+            {t(
+              "modal.recat.body",
+              "[—] move this thread to a different group",
+            )}
           </p>
         </div>
 
@@ -168,23 +173,36 @@ export function RecategorizeMenu({
                 "focus:outline-none focus:bg-inbox-elev/60",
               )}
             >
-              <CategoryChip category={cat} size="sm" />
-              <span className="flex-1" />
-              <span className="font-mono text-[11px] text-text-mute tabular-nums">
-                {CATEGORY_HOTKEYS[cat]}
+              <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-text-2">
+                {categoryLabel(cat)}
               </span>
+              <span className="flex-1" />
+              <KeyHint
+                variant="inline"
+                keys={CATEGORY_HOTKEYS[cat]}
+                className="text-text-mute"
+              />
             </button>
           ))}
         </div>
 
-        {/* "Tell Phase C why" note */}
+        {/* "Tell Phase C why" note — Cake lavender authority label */}
         <div className="px-3 py-2 border-t border-line">
           <label
             htmlFor={`recat-note-${threadId}`}
-            className="flex items-center gap-1 font-mono text-[11px] uppercase tracking-[0.16em] text-text-mute mb-1"
+            className="flex items-center gap-1.5 mb-1"
           >
-            <Sparkles className="w-[14px] h-[14px]" strokeWidth={1.5} />
-            {t("recategorize.noteLabel", "Tell Phase C why (optional)")}
+            <Sparkles
+              className="w-[14px] h-[14px] text-agent-hi"
+              strokeWidth={1.5}
+            />
+            <SlashLabel
+              label={t(
+                "modal.recat.phaseCNote",
+                "// PHASE C NOTE — OPTIONAL",
+              )}
+              tone="agent"
+            />
           </label>
           <textarea
             id={`recat-note-${threadId}`}
@@ -202,15 +220,6 @@ export function RecategorizeMenu({
               "focus:outline-none focus:border-line-hi",
             )}
           />
-          <div className="flex items-center gap-1 mt-1">
-            <Check className="w-[14px] h-[14px] text-text-mute" strokeWidth={1.5} />
-            <p className="font-mono text-[11px] text-text-mute">
-              {t(
-                "recategorize.appliedNote",
-                "Applied to similar threads automatically.",
-              )}
-            </p>
-          </div>
         </div>
       </PopoverContent>
     </Popover>
