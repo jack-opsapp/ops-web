@@ -322,6 +322,22 @@ export const queryKeys = {
       [...queryKeys.productMaterials.all, productId] as const,
   },
 
+  // Product Options + Option Values (configurable knobs)
+  productOptions: {
+    all: ["productOptions"] as const,
+    byProduct: (productId: string) =>
+      [...queryKeys.productOptions.all, productId] as const,
+    valuesByProduct: (productId: string) =>
+      [...queryKeys.productOptions.all, "values", productId] as const,
+  },
+
+  // Product Pricing Modifiers (rules)
+  productPricingModifiers: {
+    all: ["productPricingModifiers"] as const,
+    byProduct: (productId: string) =>
+      [...queryKeys.productPricingModifiers.all, productId] as const,
+  },
+
   // Task Materials
   taskMaterials: {
     all: ["taskMaterials"] as const,
