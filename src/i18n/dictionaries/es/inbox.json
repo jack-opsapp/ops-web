@@ -384,8 +384,12 @@
   "composer.dismiss": "DESCARTAR",
 
   "draftSwitcher.gmailLabel": "{n} · GMAIL",
+  "draftSwitcher.outlookLabel": "{n} · OUTLOOK",
+  "draftSwitcher.yoursLabel": "{n} · TÚ",
+  "draftSwitcher.newLabel": "{n} · NUEVO",
   "draftSwitcher.claudeLabel": "✦ {n} · CLAUDE",
   "draftSwitcher.addNew": "[+]",
+  "draftSwitcher.addNewAria": "Añadir borrador",
 
   "rail.clientLabel": "// CLIENTE",
   "rail.clientUnlinked": "// CLIENTE :: SIN VINCULAR",

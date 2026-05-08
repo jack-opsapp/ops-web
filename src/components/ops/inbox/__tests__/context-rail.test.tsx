@@ -12,11 +12,10 @@ const baseProps = {
   },
   threadId: "t1",
   onOpenClient: () => {},
-  counts: { pipeline: 3, tasks: 2, files: 9, threads: 1 },
-  pipeline: <div data-testid="pipeline">L</div>,
-  tasks: <div data-testid="tasks">T</div>,
+  counts: { work: 3, accounting: 2, files: 9 },
+  work: <div data-testid="work">W</div>,
+  accounting: <div data-testid="accounting">A</div>,
   files: <div data-testid="files">F</div>,
-  threads: <div data-testid="threads">Th</div>,
 };
 
 describe("<ContextRail>", () => {
@@ -33,19 +32,18 @@ describe("<ContextRail>", () => {
     expect(screen.getByText(/5421 Ash St/)).toBeInTheDocument();
   });
 
-  it("defaults to the Pipeline tab on mount", () => {
+  it("defaults to the WORK tab on mount", () => {
     render(<ContextRail {...baseProps} />);
-    expect(screen.getByTestId("pipeline")).toBeInTheDocument();
-    expect(screen.queryByTestId("tasks")).not.toBeInTheDocument();
+    expect(screen.getByTestId("work")).toBeInTheDocument();
+    expect(screen.queryByTestId("accounting")).not.toBeInTheDocument();
     expect(screen.queryByTestId("files")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("threads")).not.toBeInTheDocument();
   });
 
-  it("switches to the Tasks tab on click", () => {
+  it("switches to the ACCOUNTING tab on click", () => {
     render(<ContextRail {...baseProps} />);
-    fireEvent.click(screen.getByRole("tab", { name: /Tasks/i }));
-    expect(screen.getByTestId("tasks")).toBeInTheDocument();
-    expect(screen.queryByTestId("pipeline")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: /accounting/i }));
+    expect(screen.getByTestId("accounting")).toBeInTheDocument();
+    expect(screen.queryByTestId("work")).not.toBeInTheDocument();
   });
 
   it("renders the count next to each non-zero tab label", () => {
@@ -53,15 +51,14 @@ describe("<ContextRail>", () => {
     expect(screen.getByText("3")).toBeInTheDocument();
     expect(screen.getByText("2")).toBeInTheDocument();
     expect(screen.getByText("9")).toBeInTheDocument();
-    expect(screen.getByText("1")).toBeInTheDocument();
   });
 
-  it("re-mounts to Pipeline when threadId changes (no cross-thread persistence)", () => {
+  it("re-mounts to WORK when threadId changes (no cross-thread persistence)", () => {
     const { rerender } = render(<ContextRail {...baseProps} threadId="t1" />);
-    fireEvent.click(screen.getByRole("tab", { name: /Files/i }));
+    fireEvent.click(screen.getByRole("tab", { name: /files/i }));
     expect(screen.getByTestId("files")).toBeInTheDocument();
     rerender(<ContextRail {...baseProps} threadId="t2" />);
-    expect(screen.getByTestId("pipeline")).toBeInTheDocument();
+    expect(screen.getByTestId("work")).toBeInTheDocument();
     expect(screen.queryByTestId("files")).not.toBeInTheDocument();
   });
 });

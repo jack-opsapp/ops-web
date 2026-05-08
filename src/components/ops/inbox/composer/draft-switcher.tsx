@@ -1,28 +1,32 @@
 "use client";
 
 /**
- * DraftSwitcher — faithful to `reference/v4-detail.jsx :: V4DraftSwitcher`.
+ * DraftSwitcher — tactical-tabs voice (spec § 5.5, Phase F).
  *
  *   ┌──────────────────────────────────────────────────────────────────┐
- *   │ Drafts  [ ✨ Claude · v1 ][ ✨ Claude · v2 ][ 👤 You · untitled ]  2 / 3 [‹] [›] │
+ *   │ 1 · GMAIL    2 · GMAIL    ✦ 3 · CLAUDE    [+]                    │
  *   └──────────────────────────────────────────────────────────────────┘
  *
- * The chip stack lives inside a `bgDeep / line / 5px` segmented-control
- * wrapper. Active chip: panel bg + line-hi border. Claude variant uses the
- * agent palette. Each chip can carry an optional variant label ("v1",
- * "untitled") rendered in muted mono on the right of the chip body.
+ * Tabs sit directly inside the outer hairline shell with a horizontal
+ * gap — no inner segmented-control wrapper. Each tab is JetBrains Mono
+ * uppercase 11, tracking-0.14em. Active tab gets text-1 + a 1.5px
+ * bottom border (accent for human sources, agent for Claude). The
+ * Claude tab carries a leading Lucide `Sparkles` glyph in `text-agent`.
+ *
+ * Hidden when 0 OR 1 drafts (spec — only renders for 2+).
  */
 
-import { ChevronLeft, ChevronRight, Mail, Sparkles, User } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
 
-export type DraftSource = "yours" | "claude" | "gmail" | "outlook";
+export type DraftSource = "yours" | "claude" | "gmail" | "outlook" | "new";
 
 export interface DraftEntry {
   id: string;
   source: DraftSource;
-  /** Variant label, e.g. "v1", "untitled", "Apr 19". */
+  /** Optional metadata — not rendered in the tactical-tabs layout, kept for
+   * downstream consumers (e.g. edit-toolbar) that may want it. */
   label?: string;
 }
 
@@ -30,128 +34,103 @@ interface DraftSwitcherProps {
   drafts: DraftEntry[];
   activeId: string | null;
   onSelect: (id: string) => void;
-  onPrev?: () => void;
-  onNext?: () => void;
+  /** Optional. When provided, an inactive `[+]` tab is rendered after the
+   * draft tabs. */
+  onAdd?: () => void;
   className?: string;
 }
 
-const SOURCE_ICON: Record<DraftSource, typeof User> = {
-  yours: User,
-  claude: Sparkles,
-  gmail: Mail,
-  outlook: Mail,
-};
+const TNUM_STYLE = { fontFeatureSettings: '"tnum" 1, "zero" 1' } as const;
 
 const SOURCE_LABEL_KEY: Record<DraftSource, string> = {
-  yours: "drafts.source.yours",
-  claude: "drafts.source.claude",
-  gmail: "drafts.source.gmail",
-  outlook: "drafts.source.outlook",
+  yours: "draftSwitcher.yoursLabel",
+  claude: "draftSwitcher.claudeLabel",
+  gmail: "draftSwitcher.gmailLabel",
+  outlook: "draftSwitcher.outlookLabel",
+  new: "draftSwitcher.newLabel",
 };
 
 const SOURCE_LABEL_FALLBACK: Record<DraftSource, string> = {
-  yours: "Yours",
-  claude: "Claude",
-  gmail: "Gmail",
-  outlook: "Outlook",
+  yours: "{n} · YOURS",
+  claude: "✦ {n} · CLAUDE",
+  gmail: "{n} · GMAIL",
+  outlook: "{n} · OUTLOOK",
+  new: "{n} · NEW",
 };
+
+/** For the Claude source, the i18n string carries a leading "✦ " unicode
+ * glyph as a fallback. We render the Lucide icon instead, so we strip the
+ * unicode prefix before display. */
+function stripClaudeGlyph(label: string): string {
+  // Strip leading "✦" + any whitespace.
+  return label.replace(/^✦\s*/, "").trim();
+}
 
 export function DraftSwitcher({
   drafts,
   activeId,
   onSelect,
-  onPrev,
-  onNext,
+  onAdd,
   className,
 }: DraftSwitcherProps) {
   const { t } = useDictionary("inbox");
-  if (drafts.length === 0) return null;
 
-  const activeIndex = Math.max(
-    0,
-    drafts.findIndex((d) => d.id === activeId),
-  );
-  const total = drafts.length;
-  const navBtn =
-    "inline-flex h-[22px] w-[22px] items-center justify-center rounded-[3px] border border-line bg-transparent text-text-3 hover:border-line-hi hover:text-text-2 disabled:cursor-not-allowed disabled:opacity-40";
+  // Spec: hidden when 0 or 1 drafts.
+  if (drafts.length < 2) return null;
 
   return (
     <div
       className={cn(
-        "mb-2 flex items-center gap-1.5 border-b border-line bg-inbox-elev px-2.5 py-2",
+        "mb-2 flex items-center gap-4 border-b border-line bg-inbox-elev px-2.5 py-2",
         className,
       )}
     >
-      <span className="mr-1 font-cakemono text-[11px] font-light uppercase leading-none tracking-[0.18em] text-text-3">
-        {t("drafts.label", "Drafts")}
-      </span>
-      <div className="flex items-center gap-0.5 rounded-[5px] border border-line bg-inbox-bg-deep p-0.5">
-        {drafts.map((draft) => {
-          const Icon = SOURCE_ICON[draft.source];
-          const isActive = draft.id === activeId;
-          const isClaude = draft.source === "claude";
-          return (
-            <button
-              key={draft.id}
-              type="button"
-              onClick={() => onSelect(draft.id)}
-              aria-pressed={isActive}
-              className={cn(
-                "inline-flex h-[22px] items-center gap-1.5 rounded-[3px] px-2 font-mohave text-[12px] tracking-[-0.003em] transition-colors",
-                isActive
-                  ? "border border-line-hi bg-inbox-panel text-text"
-                  : "border border-transparent text-text-3 hover:bg-inbox-elev hover:text-text-2",
-              )}
-            >
-              <Icon
+      {drafts.map((draft, index) => {
+        const isActive = draft.id === activeId;
+        const isClaude = draft.source === "claude";
+        const ordinal = index + 1;
+        const rawLabel = t(
+          SOURCE_LABEL_KEY[draft.source],
+          SOURCE_LABEL_FALLBACK[draft.source],
+        ).replace("{n}", String(ordinal));
+        const displayLabel = isClaude ? stripClaudeGlyph(rawLabel) : rawLabel;
+        const activeBorder = isClaude ? "border-agent" : "border-ops-accent";
+
+        return (
+          <button
+            key={draft.id}
+            type="button"
+            onClick={() => onSelect(draft.id)}
+            aria-pressed={isActive}
+            className={cn(
+              "inline-flex items-center gap-1.5 border-b-[1.5px] border-transparent pb-1 font-mono text-[11px] uppercase tracking-[0.14em] transition-colors",
+              isActive
+                ? cn("text-text", activeBorder)
+                : "text-text-3 hover:text-text-2",
+            )}
+            style={TNUM_STYLE}
+          >
+            {isClaude && (
+              <Sparkles
                 aria-hidden
-                className={cn(
-                  "h-3.5 w-3.5",
-                  isClaude ? "text-agent" : "text-text-3",
-                )}
+                className="h-3.5 w-3.5 text-agent"
                 strokeWidth={1.5}
               />
-              <span>{t(SOURCE_LABEL_KEY[draft.source], SOURCE_LABEL_FALLBACK[draft.source])}</span>
-              {draft.label && (
-                <span
-                  className="font-mono text-[11px] text-text-mute"
-                  style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
-                >
-                  {draft.label}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
-      <div className="flex-1" />
-      <span
-        className="font-mono text-[11px] tracking-[0.18em] text-text-mute"
-        style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
-      >
-        {activeIndex + 1} / {total}
-      </span>
-      {(onPrev || onNext) && (
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={onPrev}
-            disabled={!onPrev || activeIndex === 0}
-            aria-label={t("drafts.prev", "Previous draft")}
-            className={navBtn}
-          >
-            <ChevronLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.5} />
+            )}
+            <span>{displayLabel}</span>
           </button>
-          <button
-            type="button"
-            onClick={onNext}
-            disabled={!onNext || activeIndex === total - 1}
-            aria-label={t("drafts.next", "Next draft")}
-            className={navBtn}
-          >
-            <ChevronRight aria-hidden className="h-3.5 w-3.5" strokeWidth={1.5} />
-          </button>
-        </div>
+        );
+      })}
+      {onAdd && (
+        <button
+          type="button"
+          onClick={onAdd}
+          aria-label={t("draftSwitcher.addNewAria", "Add new draft")}
+          className="inline-flex items-center border-b-[1.5px] border-transparent pb-1 font-mono text-[11px] uppercase tracking-[0.14em] text-text-3 transition-colors hover:text-text-2"
+          style={TNUM_STYLE}
+        >
+          {t("draftSwitcher.addNew", "[+]")}
+        </button>
       )}
     </div>
   );

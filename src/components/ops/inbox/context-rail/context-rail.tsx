@@ -1,8 +1,8 @@
 "use client";
 
 /**
- * ContextRail — 4-tab production rail per the canonical mockup
- * (Pipeline · Tasks · Files · Threads).
+ * ContextRail — 3-tab production rail per spec § 6.1
+ * (WORK · ACCOUNTING · FILES).
  *
  * Header anatomy (mockup-faithful):
  *   ┌─────────────────────────────────────────────────────────┐
@@ -17,8 +17,11 @@
  * icons (1.5 stroke). The avatar is a circular monogram in the V3Avatar
  * pattern (panel-hi background, lineHi border, text-2 initials).
  *
- * Tabs: pipeline (default) / tasks / files / threads. State resets to
- * pipeline on every threadId change (see <ContextRail/> wrapper).
+ * Tabs: work (default) / accounting / files. State resets to work on
+ * every threadId change (see <ContextRail/> wrapper). The legacy
+ * Pipeline/Tasks/Threads tabs were collapsed in Phase D1 — pipeline +
+ * tasks fold into WORK; threads moves to the detail-header thread
+ * picker in Phase E.
  */
 
 import { ExternalLink, Mail, MapPin, Phone } from "lucide-react";
@@ -43,14 +46,13 @@ interface ContextRailProps {
     address?: string | null;
   };
   /** Source-of-truth thread id. Changing this re-mounts the inner state and
-   *  resets the active tab to "pipeline". */
+   *  resets the active tab to "work". */
   threadId: string;
   onOpenClient: () => void;
-  counts: { pipeline: number; tasks: number; files: number; threads: number };
-  pipeline: ReactNode;
-  tasks: ReactNode;
+  counts: { work: number; accounting: number; files: number };
+  work: ReactNode;
+  accounting: ReactNode;
   files: ReactNode;
-  threads: ReactNode;
   className?: string;
 }
 
@@ -62,40 +64,34 @@ function InnerContextRail({
   client,
   onOpenClient,
   counts,
-  pipeline,
-  tasks,
+  work,
+  accounting,
   files,
-  threads,
   className,
 }: Omit<ContextRailProps, "threadId">) {
   const { t } = useDictionary("inbox");
-  const [active, setActive] = useState<ContextTabKey>("pipeline");
+  const [active, setActive] = useState<ContextTabKey>("work");
 
   // Belt-and-braces: in case React keeps the instance for any reason, force
   // a state reset when counts change. The key prop on the wrapper is the
   // primary mechanism.
-  useEffect(() => setActive("pipeline"), []);
+  useEffect(() => setActive("work"), []);
 
   const tabs: ContextTab[] = [
     {
-      key: "pipeline",
-      label: t("rail.tabs.pipeline", "Pipeline"),
-      count: counts.pipeline,
+      key: "work",
+      label: t("rail.tabWork", "WORK"),
+      count: counts.work,
     },
     {
-      key: "tasks",
-      label: t("rail.tabs.tasks", "Tasks"),
-      count: counts.tasks,
+      key: "accounting",
+      label: t("rail.tabAccounting", "ACCOUNTING"),
+      count: counts.accounting,
     },
     {
       key: "files",
-      label: t("rail.tabs.files", "Files"),
+      label: t("rail.tabFiles", "FILES"),
       count: counts.files,
-    },
-    {
-      key: "threads",
-      label: t("rail.tabs.threads", "Threads"),
-      count: counts.threads,
     },
   ];
 
@@ -189,10 +185,9 @@ function InnerContextRail({
         role="tabpanel"
         className="flex min-h-0 flex-1 flex-col overflow-y-auto scrollbar-hide p-3"
       >
-        {active === "pipeline" && pipeline}
-        {active === "tasks" && tasks}
+        {active === "work" && work}
+        {active === "accounting" && accounting}
         {active === "files" && files}
-        {active === "threads" && threads}
       </div>
     </div>
   );
