@@ -54,17 +54,19 @@ export function LockoutShell({
   const isPage = variant === "page";
 
   return (
-    <motion.div
+    <div
       className={cn(
         isPage
-          ? "glass-surface w-full max-w-[720px] mx-auto p-8"
+          ? "glass-surface w-full max-w-[1080px] mx-auto p-8"
           : "glass-dense w-full max-w-[520px] mx-auto p-6",
         "rounded-[5px] overflow-hidden"
       )}
-      variants={lockoutShellStaggerVariants}
-      initial="hidden"
-      animate="visible"
     >
+      <motion.div
+        variants={lockoutShellStaggerVariants}
+        initial="hidden"
+        animate="visible"
+      >
       {/* Top rail */}
       <motion.div
         variants={childVariants}
@@ -145,6 +147,7 @@ export function LockoutShell({
           </span>
         </div>
       </motion.div>
-    </motion.div>
+      </motion.div>
+    </div>
   );
 }

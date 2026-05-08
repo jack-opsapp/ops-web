@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useDictionary } from "@/i18n/client";
+import { cn } from "@/lib/utils/cn";
 import {
   TIER_CONFIG,
   type SubscriptionTier,
@@ -62,13 +63,19 @@ export function PricingCard({ tier, companyId, isRecommended }: PricingCardProps
 
   return (
     <div className="relative flex flex-col">
-      {isRecommended && (
-        <p className="font-cakemono font-light text-[11px] uppercase tracking-[0.08em] text-text-3 mb-1">
-          {"// "}
-          {t("lockout.pricing.recommended")}
-        </p>
-      )}
-      <div className="glass-surface rounded-[5px] p-4 flex flex-col flex-1">
+      {/* Always render the label slot so all 3 cards align top-of-card.
+          Non-recommended cards render an invisible spacer to reserve height. */}
+      <p
+        className={cn(
+          "font-cakemono font-light text-[11px] uppercase tracking-[0.08em] mb-1",
+          isRecommended ? "text-text-3" : "invisible select-none"
+        )}
+        aria-hidden={!isRecommended}
+      >
+        {"// "}
+        {t("lockout.pricing.recommended")}
+      </p>
+      <div className="glass-surface rounded-[5px] p-5 flex flex-col flex-1">
         <h3 className="font-cakemono font-light text-[18px] uppercase tracking-tight text-text mb-2">
           {config.name}
         </h3>
@@ -83,9 +90,10 @@ export function PricingCard({ tier, companyId, isRecommended }: PricingCardProps
         <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-text-3 mb-2 [font-feature-settings:'tnum'_1,'zero'_1]">
           {config.maxSeats} {t("lockout.pricing.seatsLabel")}
         </p>
-        <p className="font-mohave text-[14px] text-text-2 mb-3 flex-1">{t(summaryKey)}</p>
+        <p className="font-mohave text-[14px] text-text-2 mb-4 flex-1">{t(summaryKey)}</p>
         <Button
           variant={isRecommended ? "primary" : "default"}
+          size="sm"
           className="w-full"
           onClick={handleSubscribe}
           disabled={loading}

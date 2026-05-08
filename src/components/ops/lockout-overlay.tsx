@@ -64,7 +64,7 @@ export function LockoutOverlay() {
         >
           <motion.div
             key="lockout-card"
-            className="mx-4 max-h-[90vh] overflow-y-auto"
+            className="mx-4 max-h-[90vh] overflow-y-auto md:max-h-none md:overflow-visible"
             variants={cardVariants}
             initial="hidden"
             animate="visible"
