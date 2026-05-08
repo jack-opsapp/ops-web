@@ -11,6 +11,7 @@ import { useTaskTypes } from "@/lib/hooks/use-task-types";
 import { useTeamMembers } from "@/lib/hooks/use-users";
 import { useCreateTask, useCreateTaskWithEvent } from "@/lib/hooks/use-tasks";
 import { useAuthStore } from "@/lib/store/auth-store";
+import { usePermissionStore } from "@/lib/store/permissions-store";
 import { toast } from "sonner";
 
 // ─── Project Selector ────────────────────────────────────────────────────────
@@ -26,6 +27,7 @@ function ProjectSelector({
 }) {
   const { data } = useProjects();
   const { data: taskTypesData } = useTaskTypes();
+  const canCreateProject = usePermissionStore((s) => s.can("projects.create"));
   const projects = data?.projects ?? [];
   const taskTypes = taskTypesData ?? [];
   const [search, setSearch] = useState("");
@@ -143,23 +145,25 @@ function ProjectSelector({
                   </>
                 )}
 
-                {/* Add to New Project option */}
-                <div className="border-t border-[rgba(255,255,255,0.08)]">
-                  <button
-                    type="button"
-                    onMouseDown={() => {
-                      onCreateNew(search);
-                      setShowDropdown(false);
-                      setSearch("");
-                    }}
-                    className="w-full flex items-center gap-[6px] px-1.5 py-1 text-left hover:bg-[rgba(255,255,255,0.05)] transition-colors"
-                  >
-                    <Plus className="w-[14px] h-[14px] text-text-2 shrink-0" />
-                    <span className="font-mohave text-body-sm text-text">
-                      Create new project{search.trim() ? `: "${search.trim()}"` : ""}
-                    </span>
-                  </button>
-                </div>
+                {/* Add to New Project option — gated by projects.create */}
+                {canCreateProject && (
+                  <div className="border-t border-[rgba(255,255,255,0.08)]">
+                    <button
+                      type="button"
+                      onMouseDown={() => {
+                        onCreateNew(search);
+                        setShowDropdown(false);
+                        setSearch("");
+                      }}
+                      className="w-full flex items-center gap-[6px] px-1.5 py-1 text-left hover:bg-[rgba(255,255,255,0.05)] transition-colors"
+                    >
+                      <Plus className="w-[14px] h-[14px] text-text-2 shrink-0" />
+                      <span className="font-mohave text-body-sm text-text">
+                        Create new project{search.trim() ? `: "${search.trim()}"` : ""}
+                      </span>
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>

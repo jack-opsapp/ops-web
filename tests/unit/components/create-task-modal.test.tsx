@@ -18,6 +18,15 @@ vi.mock("@/stores/window-store", () => ({
   ) => selector({ openProjectWindow: openProjectWindowMock }),
 }));
 
+// Permission gate: default to allow `projects.create`. Per-test overrides
+// reassign `permissionMockCan` to deny specific permissions.
+let permissionMockCan: (key: string) => boolean = () => true;
+vi.mock("@/lib/store/permissions-store", () => ({
+  usePermissionStore: <T,>(
+    selector: (s: { can: (key: string) => boolean }) => T,
+  ) => selector({ can: (key: string) => permissionMockCan(key) }),
+}));
+
 // Hooks are stubbed to keep this an isolated component test — we're
 // asserting on the create-new-project wiring, not on the data layer.
 vi.mock("@/lib/hooks/use-projects", () => ({
@@ -48,6 +57,7 @@ const { CreateTaskForm } = await import("@/components/ops/create-task-modal");
 describe("<CreateTaskForm>", () => {
   beforeEach(() => {
     openProjectWindowMock.mockReset();
+    permissionMockCan = () => true;
   });
 
   it("clicking 'Create new project' dispatches openProjectWindow with a creating-mode + onProjectCreated callback", async () => {
@@ -103,5 +113,17 @@ describe("<CreateTaskForm>", () => {
       .getAllByRole("button")
       .find((b) => b.querySelector("svg.lucide-x"));
     expect(unselectBtn).toBeDefined();
+  });
+
+  it("hides 'Create new project' affordance when projects.create is denied", async () => {
+    permissionMockCan = (key: string) => key !== "projects.create";
+    render(<CreateTaskForm />);
+
+    await userEvent.click(screen.getByPlaceholderText("Search projects..."));
+
+    // Existing project still appears in the dropdown — only the create-new
+    // affordance is suppressed.
+    expect(await screen.findByText("Acme Reroof")).toBeInTheDocument();
+    expect(screen.queryByText(/Create new project/i)).not.toBeInTheDocument();
   });
 });
