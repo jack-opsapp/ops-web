@@ -11,7 +11,7 @@ import {
 } from "./bands/needs-input-band";
 import { BallYoursBand } from "./bands/ball-yours-band";
 import { AutoSentBand } from "./bands/auto-sent-band";
-import { ClosedBand } from "./bands/closed-band";
+import { ClosedBand, type ClosedBandVariant } from "./bands/closed-band";
 
 export type DetailBandAction =
   | "reply"
@@ -35,10 +35,14 @@ interface DetailBandProps {
   autoSentHoursAgo?: number;
   /** Auto-sent band — short explanation line. */
   autoSentDetail?: string;
-  /** Ball-yours band — relative last-reply meta ("Last reply · 2h"). */
-  ballYoursLastReplyLabel?: string;
+  /** Ball-yours band — pre-formatted wait clock ("18H" / "12D" / "MAR 4"). */
+  ballYoursWaitDuration?: string;
   /** Closed band — ISO of close timestamp. */
   closedAt?: string | null;
+  /** Closed band — resolved-by-Claude vs archived-by-user. */
+  closedVariant?: ClosedBandVariant;
+  /** Closed band — optional secondary detail line. */
+  closedDetail?: string;
   /** Renders relative timestamps; defaults to Date.now(). */
   renderedAt?: number;
   onAction: (action: DetailBandAction) => void;
@@ -53,8 +57,10 @@ export function DetailBand({
   agentPausedMinutesAgo,
   autoSentHoursAgo,
   autoSentDetail,
-  ballYoursLastReplyLabel,
+  ballYoursWaitDuration,
   closedAt,
+  closedVariant,
+  closedDetail,
   renderedAt,
   onAction,
 }: DetailBandProps) {
@@ -84,7 +90,7 @@ export function DetailBand({
       {actionBand === "ball-yours" && (
         <BallYoursBand
           clientName={clientName}
-          lastReplyLabel={ballYoursLastReplyLabel}
+          waitDuration={ballYoursWaitDuration ?? ""}
           onReply={() => onAction("reply")}
         />
       )}
@@ -95,7 +101,13 @@ export function DetailBand({
           onTakeOver={() => onAction("take-over")}
         />
       )}
-      {actionBand === "closed" && <ClosedBand closedAt={closedAt ?? null} />}
+      {actionBand === "closed" && (
+        <ClosedBand
+          closedAt={closedAt ?? null}
+          variant={closedVariant}
+          detail={closedDetail}
+        />
+      )}
     </>
   );
 }
