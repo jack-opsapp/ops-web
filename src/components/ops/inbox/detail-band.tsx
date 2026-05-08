@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  selectBand,
+  selectActionBand,
   type BandThreadInput,
 } from "@/lib/inbox/band-selection";
 import { SummaryBand } from "./bands/summary-band";
@@ -58,45 +58,44 @@ export function DetailBand({
   renderedAt,
   onAction,
 }: DetailBandProps) {
-  const kind = selectBand(thread);
-  if (!kind) return null;
+  const showSummary = !thread.closed && !!thread.aiSummary;
+  const actionBand = selectActionBand(thread);
 
-  switch (kind) {
-    case "summary":
-      return (
+  if (!showSummary && actionBand === null) return null;
+
+  return (
+    <>
+      {showSummary && (
         <SummaryBand
           body={thread.aiSummary ?? ""}
           updatedAt={summaryUpdatedAt}
           renderedAt={renderedAt}
           onHistory={() => onAction("history")}
         />
-      );
-    case "needs-input":
-      return (
+      )}
+      {actionBand === "needs-input" && (
         <NeedsInputBand
           question={agentQuestion ?? ""}
           options={agentOptions}
           pausedMinutesAgo={agentPausedMinutesAgo}
           onAction={(id) => onAction(id as DetailBandAction)}
         />
-      );
-    case "ball-yours":
-      return (
+      )}
+      {actionBand === "ball-yours" && (
         <BallYoursBand
           clientName={clientName}
           lastReplyLabel={ballYoursLastReplyLabel}
           onReply={() => onAction("reply")}
         />
-      );
-    case "auto-sent":
-      return (
+      )}
+      {actionBand === "auto-sent" && (
         <AutoSentBand
           hoursAgo={autoSentHoursAgo ?? 0}
           detail={autoSentDetail}
           onTakeOver={() => onAction("take-over")}
         />
-      );
-    case "closed":
-      return <ClosedBand closedAt={closedAt ?? null} />;
-  }
+      )}
+      {actionBand === "closed" && <ClosedBand closedAt={closedAt ?? null} />}
+    </>
+  );
 }

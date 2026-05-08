@@ -36,3 +36,25 @@ export function selectBand(thread: BandThreadInput): BandKind | null {
   if (thread.ballInCourt === "user") return "ball-yours";
   return null;
 }
+
+export type ActionBandKind = Exclude<BandKind, "summary">;
+
+/**
+ * Returns the *action band* for a thread — the one that carries the obligation.
+ * Distinct from `selectBand`: this never returns "summary" (the summary band
+ * is selected independently and stacks above the action band per spec § 5.2).
+ *
+ * Precedence (top wins):
+ *   closed       → "closed"
+ *   needsInput   → "needs-input"
+ *   auto_sent    → "auto-sent"
+ *   ballInCourt  → "ball-yours"
+ *   else         → null
+ */
+export function selectActionBand(thread: BandThreadInput): ActionBandKind | null {
+  if (thread.closed) return "closed";
+  if (thread.agent.needsInput) return "needs-input";
+  if (thread.phaseC === "auto_sent") return "auto-sent";
+  if (thread.ballInCourt === "user") return "ball-yours";
+  return null;
+}

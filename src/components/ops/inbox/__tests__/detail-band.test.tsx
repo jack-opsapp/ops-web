@@ -106,4 +106,48 @@ describe("<DetailBand>", () => {
     fireEvent.click(screen.getByRole("button", { name: "Yes" }));
     expect(onAction).toHaveBeenCalledWith("answer:yes");
   });
+
+  it("stacks summary band above the action band when both apply", () => {
+    render(
+      <DetailBand
+        thread={{
+          closed: false,
+          agent: { needsInput: false },
+          phaseC: "none",
+          aiSummary: "Calloway accepted the revised quote, follow-up due Friday.",
+          ballInCourt: "user",
+        }}
+        clientName="Calloway"
+        summaryUpdatedAt="2026-05-06T14:55:00Z"
+        onAction={() => {}}
+      />,
+    );
+
+    const summary = screen.getByLabelText(/Claude summary/i);
+    const action = screen.getByLabelText(/Your turn/i);
+
+    expect(
+      summary.compareDocumentPosition(action) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("hides the summary band when the thread is closed", () => {
+    render(
+      <DetailBand
+        thread={{
+          closed: true,
+          agent: { needsInput: false },
+          phaseC: "none",
+          aiSummary: "Should not render — closed wins.",
+          ballInCourt: null,
+        }}
+        clientName="Calloway"
+        closedAt="2026-04-23T15:00:00Z"
+        onAction={() => {}}
+      />,
+    );
+
+    expect(screen.queryByLabelText(/Claude summary/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/Closed Apr 23/)).toBeInTheDocument();
+  });
 });
