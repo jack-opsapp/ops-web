@@ -519,7 +519,7 @@
 
   "claude.draftedBanner": "// CLAUDE DRAFTED THIS · {ago} · REVIEW",
   "claude.bubbleMeta": "// CLAUDE · {time}",
-  "claude.edited": "EDITED {ago} AGO",
+  "claude.edited": "EDITED {ago}",
   "claude.showDiff": "DIFF",
   "claude.hideDiff": "HIDE DIFF",
   "claude.diffHeader": "// SHOWING DIFF",

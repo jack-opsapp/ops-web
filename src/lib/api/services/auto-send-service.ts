@@ -547,6 +547,10 @@ export const AutoSendService = {
               opportunityId: pending.opportunityId,
               inReplyTo: pending.inReplyTo,
               threadId: pending.threadId,
+              // Plumb the draft_history_id through so the activity insert
+              // in the send route can record the link. Enables the inbox
+              // UI to surface an AI-edit diff toggle on this bubble.
+              draftHistoryId: pending.draftHistoryId,
             }),
           }
         );

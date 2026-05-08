@@ -489,7 +489,7 @@
 
   "claude.draftedBanner": "// CLAUDE LO REDACTÓ · hace {ago} · REVISAR",
   "claude.bubbleMeta": "// CLAUDE · {time}",
-  "claude.edited": "EDITADO hace {ago}",
+  "claude.edited": "EDITADO {ago}",
   "claude.showDiff": "DIFF",
   "claude.hideDiff": "OCULTAR DIFF",
   "claude.diffHeader": "// MOSTRANDO DIFERENCIAS",
