@@ -9,11 +9,6 @@ import {
   PROJECT_STATUS_SORT_ORDER,
 } from "@/lib/types/models";
 import { useUpdateProject, useUpdateProjectStatus, useDeleteProject } from "@/lib/hooks/use-projects";
-// Phase 9.4 — popover store import retained for the moment so any
-// in-flight refactors stay buildable; Phase 10 deletes both the store
-// and this import. Active row clicks now route through the workspace
-// window instead of the popover.
-import { useProjectDetailPopoverStore } from "./project-detail-popover-store";
 import { useWindowStore } from "@/stores/window-store";
 import { toast } from "@/components/ui/toast";
 import {
@@ -72,9 +67,6 @@ export function ProjectSpreadsheet({
   const updateProjectMutation = useUpdateProject();
   const updateStatusMutation = useUpdateProjectStatus();
   const deleteProjectMutation = useDeleteProject();
-  // Legacy popover opener kept imported but unused — Phase 10 deletes
-  // both the call site and the store.
-  void useProjectDetailPopoverStore;
   const openProjectWindow = useWindowStore((s) => s.openProjectWindow);
 
   // ── Sort state ──

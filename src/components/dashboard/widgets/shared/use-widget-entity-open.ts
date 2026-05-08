@@ -3,10 +3,6 @@
 import { useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useDetailPopoverStore } from "@/app/(dashboard)/pipeline/_components/detail-popover-store";
-// Phase 9.6 — project + task entity types now route through the unified
-// project-workspace window via useWindowStore.openProjectWindow.
-// useProjectDetailPopoverStore is no longer used here; Phase 10 deletes
-// the store entirely.
 import { useWindowStore } from "@/stores/window-store";
 import { useClientDetailPopoverStore } from "@/stores/client-detail-popover-store";
 import { useInvoiceDetailPopoverStore } from "@/stores/invoice-detail-popover-store";

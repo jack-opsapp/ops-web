@@ -53,9 +53,7 @@ import { ProjectContextMenu } from "./_components/project-context-menu";
 import { ProjectArchiveTray } from "./_components/project-archive-tray";
 import { ProjectFloatingToolbar } from "./_components/project-floating-toolbar";
 import { ProjectDragConfirmation } from "./_components/project-drag-confirmation";
-import { ProjectDetailPopover } from "./_components/project-detail-popover";
 import { ProjectSpreadsheet } from "./_components/project-spreadsheet";
-import { useProjectDetailPopoverStore } from "./_components/project-detail-popover-store";
 import { useSetupGate } from "@/hooks/useSetupGate";
 import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModal";
 
@@ -208,12 +206,6 @@ export default function ProjectsPage() {
   const selectCards = useProjectCanvasStore((s) => s.selectCards);
   const startDrag = useProjectCanvasStore((s) => s.startDrag);
   const endDrag = useProjectCanvasStore((s) => s.endDrag);
-
-  // ── Detail popover (legacy — Phase 10 deletes the store; the canvas
-  // now opens the project-workspace window via openProjectWindow). The
-  // import is retained as a no-op to keep the file buildable until
-  // Phase 10 sweeps it.
-  void useProjectDetailPopoverStore;
 
   // ── View mode ──
   const [viewMode, setViewMode] = useState<"canvas" | "spreadsheet">(() => {
@@ -891,11 +883,6 @@ export default function ProjectsPage() {
         onCancel={handleDragCancel}
       />
 
-      {/* Detail popovers */}
-      <ProjectDetailPopover
-        projects={projectMap}
-        clientNames={clientNameMap}
-      />
     </div>
   );
 }
