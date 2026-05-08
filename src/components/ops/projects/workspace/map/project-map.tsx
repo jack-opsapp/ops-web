@@ -27,7 +27,7 @@ const EXPANDED_ZOOM = 13;
 // Mapbox-specific dark canvas behind tile loads. There is no design-system
 // token for "below the map surface" — this exists only to prevent a flash
 // of the page background while tiles paint.
-const MAP_CANVAS_BG = "#0a0d10";
+const MAP_CANVAS_BG = "var(--map-canvas-bg)";
 
 export function ProjectMap({
   latitude,

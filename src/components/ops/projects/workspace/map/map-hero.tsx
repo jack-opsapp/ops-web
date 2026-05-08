@@ -31,11 +31,11 @@ const PILL_RADIUS = 5;
 const OVERLAY_INSET = 14;
 const TOOLBAR_TOP = 70;
 // Mapbox-specific dark canvas — same value the ProjectMap paints so the
-// height animation has no flash. No design-system token matches; this is
-// scoped to the map surface only.
-const MAP_CANVAS_BG = "#0a0d10";
+// height animation has no flash. Tokenized via --map-canvas-bg
+// (cleanup 2026-05-07); scoped to the map surface only.
+const MAP_CANVAS_BG = "var(--map-canvas-bg)";
 const FADE_GRADIENT =
-  "linear-gradient(180deg, transparent 0%, transparent 55%, rgba(20,20,20,0.55) 80%, rgba(20,20,20,0.95) 100%)";
+  "linear-gradient(180deg, transparent 0%, transparent 55%, var(--map-fade-mid) 80%, var(--map-fade-end) 100%)";
 
 interface LegendCounts {
   accepted: number;
