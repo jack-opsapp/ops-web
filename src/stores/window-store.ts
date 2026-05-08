@@ -218,6 +218,10 @@ export const useWindowStore = create<WindowStoreState>()((set, get) => ({
   },
 
   closeWindow: (id) => {
+    // Clear any pending onProjectCreated registration for this window —
+    // the user dismissed the workspace before saving, so the parent
+    // surface (e.g. the task modal) should not be invoked retroactively.
+    projectCreatedCallbacks.delete(id);
     set({ windows: get().windows.filter((w) => w.id !== id) });
   },
 

@@ -1,5 +1,8 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { useWindowStore } from "@/stores/window-store";
+import { describe, it, expect, beforeEach, vi } from "vitest";
+import {
+  useWindowStore,
+  consumeProjectCreatedCallback,
+} from "@/stores/window-store";
 
 // Phase 6.1 — useWindowStore extended with the `project-workspace` window
 // type and an `openProjectWindow` helper. The helper centralises window-id
@@ -78,6 +81,70 @@ describe("useWindowStore", () => {
       // Compile-time assertion that the union accepts 'project-workspace'.
       const t: import("@/stores/window-store").FloatingWindowType = "project-workspace";
       expect(t).toBe("project-workspace");
+    });
+  });
+
+  describe("onProjectCreated callback (Phase 10.1-fix)", () => {
+    // Callback registry lets the in-task-modal "Create new project"
+    // affordance auto-select the new project once the workspace finishes
+    // its create. Stored module-side (not in Zustand) so persist() can't
+    // drop it; consumed once by the container's handleSaved path.
+
+    it("registers and consumes a callback for a creating-mode window", () => {
+      const onProjectCreated = vi.fn();
+      useWindowStore.getState().openProjectWindow({
+        projectId: null,
+        mode: "creating",
+        onProjectCreated,
+      });
+      const id = useWindowStore.getState().windows[0].id;
+
+      consumeProjectCreatedCallback(id, "p_new_42");
+
+      expect(onProjectCreated).toHaveBeenCalledTimes(1);
+      expect(onProjectCreated).toHaveBeenCalledWith("p_new_42");
+    });
+
+    it("is idempotent — second consume is a no-op", () => {
+      const onProjectCreated = vi.fn();
+      useWindowStore.getState().openProjectWindow({
+        projectId: null,
+        mode: "creating",
+        onProjectCreated,
+      });
+      const id = useWindowStore.getState().windows[0].id;
+
+      consumeProjectCreatedCallback(id, "p_new_42");
+      // Second call must not throw and must not re-fire the callback.
+      expect(() => consumeProjectCreatedCallback(id, "p_new_42")).not.toThrow();
+      expect(onProjectCreated).toHaveBeenCalledTimes(1);
+    });
+
+    it("closeWindow clears any pending callback (no leak)", () => {
+      const onProjectCreated = vi.fn();
+      useWindowStore.getState().openProjectWindow({
+        projectId: null,
+        mode: "creating",
+        onProjectCreated,
+      });
+      const id = useWindowStore.getState().windows[0].id;
+
+      // User dismisses the workspace before saving.
+      useWindowStore.getState().closeWindow(id);
+      // Now the create completes (theoretically) — callback must NOT fire.
+      consumeProjectCreatedCallback(id, "p_new_42");
+      expect(onProjectCreated).not.toHaveBeenCalled();
+    });
+
+    it("does not register a callback when none is supplied (deep-link path)", () => {
+      // Deep-link / FAB / spreadsheet open paths don't pass a callback.
+      // Nothing to consume — call must be a no-op, never throw.
+      useWindowStore.getState().openProjectWindow({
+        projectId: "p_77",
+        mode: "viewing",
+      });
+      const id = useWindowStore.getState().windows[0].id;
+      expect(() => consumeProjectCreatedCallback(id, "p_77")).not.toThrow();
     });
   });
 
