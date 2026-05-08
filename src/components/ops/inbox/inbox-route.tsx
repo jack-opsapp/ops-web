@@ -47,7 +47,6 @@ import { useClientOpportunities } from "@/lib/hooks/use-client-opportunities";
 import { useClientFiles } from "@/lib/hooks/use-client-files";
 import { useClient, useSubClients } from "@/lib/hooks/use-clients";
 import { useThreadOpportunityLinks } from "@/lib/hooks/use-thread-opportunity-links";
-import { useClientTasks } from "@/lib/hooks/use-client-tasks";
 import { useWindowStore } from "@/stores/window-store";
 import { ResponsiveInboxShell } from "./responsive-inbox-shell";
 import { ThreadColumnHeader } from "./thread-column-header";
@@ -68,8 +67,6 @@ import {
 import { ContextRail } from "./context-rail/context-rail";
 import { PipelineList, type PipelineOpp } from "./context-rail/pipeline-list";
 import { FilesView, type FileItem, type PhotoItem } from "./context-rail/files-view";
-import { TasksView, type RailTask } from "./context-rail/tasks-view";
-import { ThreadsView, type RailRelatedThread } from "./context-rail/threads-view";
 import type {
   InboxThreadRow,
   InboxThreadMessage,
@@ -171,7 +168,6 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
     () => new Set(linkedOpsQuery.data ?? []),
     [linkedOpsQuery.data],
   );
-  const tasksQuery = useClientTasks(clientId ?? null);
 
   const now = Date.now();
 
@@ -513,34 +509,7 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
     [documentRows],
   );
 
-  const railTasks = useMemo<RailTask[]>(
-    () =>
-      (tasksQuery.data ?? []).map((t) => ({
-        id: t.id,
-        label: t.label,
-        assignee: t.assignee,
-        due: t.due,
-        status: t.status,
-        overdue: t.overdue,
-      })),
-    [tasksQuery.data],
-  );
 
-  // Related threads on the same client (excluding current). Already surfaced
-  // by the inbox detail wire as `siblingThreads` (server returns up to 5,
-  // most recent first, archived excluded).
-  const railThreads = useMemo<RailRelatedThread[]>(() => {
-    const siblings = detail?.siblingThreads ?? [];
-    const now = Date.now();
-    return siblings.map((s) => ({
-      id: s.id,
-      title: s.latestSenderName ?? s.subject ?? "—",
-      subject: s.subject ?? "",
-      messageCount: s.messageCount,
-      when: formatRelativeShort(new Date(s.lastMessageAt).getTime(), now),
-      unread: s.unreadCount > 0,
-    }));
-  }, [detail?.siblingThreads]);
 
   const filesCount = photos.length + docs.length;
 
@@ -564,12 +533,11 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
       threadId={threadId ?? ""}
       onOpenClient={() => router.push(`/clients/${clientId}`)}
       counts={{
-        pipeline: opportunities.length,
-        tasks: railTasks.length,
+        work: opportunities.length,
+        accounting: docs.length,
         files: filesCount,
-        threads: railThreads.length,
       }}
-      pipeline={
+      work={
         pipelineOpps.length === 0 ? (
           <EmptyState label={t("rail.empty.pipeline", "No open opportunities")} />
         ) : (
@@ -591,7 +559,9 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
           />
         )
       }
-      tasks={<TasksView tasks={railTasks} />}
+      accounting={
+        <EmptyState label={t("rail.empty.files", "No files attached")} />
+      }
       files={
         <FilesView
           photos={photos}
@@ -604,7 +574,6 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
           }}
         />
       }
-      threads={<ThreadsView threads={railThreads} />}
     />
   ) : (
     <EmptyState label={t("rail.empty.client", "No client linked")} />
@@ -693,22 +662,6 @@ function toCommitments(t: InboxThreadRow): TodayCommitment[] {
   ];
 }
 
-function formatRelativeShort(ts: number, now: number): string {
-  const diff = Math.max(0, now - ts);
-  const min = Math.floor(diff / 60_000);
-  if (min < 1) return "now";
-  if (min < 60) return `${min}m`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}h`;
-  const day = Math.floor(hr / 24);
-  if (day < 7) return `${day}d`;
-  const wk = Math.floor(day / 7);
-  if (wk < 5) return `${wk}w`;
-  return new Date(ts).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-  });
-}
 
 function formatDue(d: Date): string {
   const now = new Date();

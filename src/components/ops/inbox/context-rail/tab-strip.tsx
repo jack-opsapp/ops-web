@@ -1,14 +1,14 @@
 "use client";
 
 /**
- * TabStrip — 4-tab right-rail switcher per the production mockup
- * (Pipeline / Tasks / Files / Threads). Sentence-case labels, full-width
- * accent underline on active. Counts hidden when 0.
+ * TabStrip — 3-tab right-rail switcher per spec § 6.1
+ * (WORK / ACCOUNTING / FILES). Cake Mono Light uppercase 11 with
+ * 0.14em tracking, 2px text underline on active. Counts hidden when 0.
  */
 
 import { cn } from "@/lib/utils/cn";
 
-export type ContextTabKey = "pipeline" | "tasks" | "files" | "threads";
+export type ContextTabKey = "work" | "accounting" | "files";
 
 export interface ContextTab {
   key: ContextTabKey;
@@ -42,14 +42,17 @@ export function TabStrip({ tabs, active, onSelect, className }: TabStripProps) {
             aria-selected={isActive}
             onClick={() => onSelect(tab.key)}
             className={cn(
-              "relative flex flex-1 items-center justify-center gap-1.5 font-mohave text-[12px] tracking-[-0.003em] transition-colors",
+              "relative flex flex-1 items-center justify-center gap-1 font-cakemono text-[11px] font-light uppercase tracking-[0.14em] transition-colors",
               isActive ? "text-text" : "text-text-3 hover:text-text-2",
             )}
           >
             <span>{tab.label}</span>
             {tab.count > 0 && (
               <span
-                className="font-mono text-[11px] text-text-mute"
+                className={cn(
+                  "font-mono text-[11px]",
+                  isActive ? "text-text-2" : "text-text-mute",
+                )}
                 style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
               >
                 {tab.count}
