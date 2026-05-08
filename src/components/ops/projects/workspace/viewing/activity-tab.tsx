@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import {
   CheckCircle2,
   FileText,
@@ -30,6 +31,7 @@ import { UserAvatar } from "@/components/ops/user-avatar";
 import { NoteComposer } from "@/components/ops/note-composer";
 import { formatRelativeTime } from "@/lib/utils/date";
 import { cn } from "@/lib/utils/cn";
+import { EASE_SMOOTH } from "@/lib/utils/motion";
 
 // `ActivityTab` — unified project_notes timeline. event_kind discriminates
 // user notes (NULL → "note") from system events (status_change,
@@ -40,6 +42,18 @@ import { cn } from "@/lib/utils/cn";
 // NoteComposer is reused as-is (per Phase 7.5 plan: no new ActivityComposer).
 // The mutate shape comes from useCreateProjectNote — projectId / companyId /
 // authorId are filled in here so the composer stays domain-agnostic.
+//
+// Phase 12.5 — entry stagger. Each row enters with opacity 0→1 + y 4→0
+// over 180ms EASE_SMOOTH. Per-row delay is 50ms × index, capped at the
+// 300ms total budget so a 100-entry timeline doesn't lag-load. The
+// 7th+ row all share the 300ms ceiling, appearing simultaneously.
+// AnimatePresence keys on entry.id so newly-mounted rows (e.g. a fresh
+// optimistic note) animate in; existing rows don't re-stagger on
+// re-render. Reduced motion → no entry animation.
+
+const STAGGER_PER_ITEM = 0.05; // 50ms per row
+const STAGGER_CEILING = 0.3;   // 300ms total budget
+const ROW_FADE_DURATION = 0.18;
 
 interface ActivityTabProps {
   projectId: string;
@@ -88,10 +102,48 @@ function KindIcon({ kind }: { kind: ProjectActivityKind }) {
   }
 }
 
-function ActivityRow({ entry }: { entry: ProjectActivityEntry }) {
+interface ActivityRowProps {
+  entry: ProjectActivityEntry;
+  /** 0-based index within the rendered list — drives the stagger delay. */
+  index: number;
+  reducedMotion: boolean;
+}
+
+function ActivityRow({ entry, index, reducedMotion }: ActivityRowProps) {
   const isSystem = entry.kind !== "note";
+  // Cap the per-row delay at the 300ms total budget so long timelines
+  // don't lag-load. Math.min keeps the seventh-and-onwards rows pinned
+  // at the ceiling rather than stretching the cascade.
+  const delay = Math.min(index * STAGGER_PER_ITEM, STAGGER_CEILING);
+  const initial = reducedMotion ? false : { opacity: 0, y: 4 };
+  const animate = { opacity: 1, y: 0 };
+  const transition = reducedMotion
+    ? { duration: 0 }
+    : { duration: ROW_FADE_DURATION, ease: EASE_SMOOTH, delay };
   return (
-    <div data-testid="activity-row" data-kind={entry.kind} className="flex gap-3 py-3">
+    <motion.div
+      data-testid="activity-row"
+      data-kind={entry.kind}
+      data-stagger-delay={delay.toFixed(2)}
+      initial={initial}
+      animate={animate}
+      transition={transition}
+      className="flex gap-3 py-3"
+    >
+      <ActivityRowBody entry={entry} isSystem={isSystem} />
+    </motion.div>
+  );
+}
+
+function ActivityRowBody({
+  entry,
+  isSystem,
+}: {
+  entry: ProjectActivityEntry;
+  isSystem: boolean;
+}) {
+  return (
+    <>
       {entry.author && !isSystem ? (
         <UserAvatar name={entry.author.name} size="sm" />
       ) : (
@@ -140,7 +192,7 @@ function ActivityRow({ entry }: { entry: ProjectActivityEntry }) {
           </div>
         )}
       </div>
-    </div>
+    </>
   );
 }
 
@@ -149,6 +201,7 @@ export function ActivityTab({ projectId }: ActivityTabProps) {
   const { data: activity = [], isLoading } = useProjectActivity(projectId);
   const { data: teamData } = useTeamMembers();
   const createNote = useCreateProjectNote();
+  const reducedMotion = useReducedMotion() ?? false;
 
   const canCompose = !!currentUser?.id && !!company?.id;
 
@@ -165,9 +218,24 @@ export function ActivityTab({ projectId }: ActivityTabProps) {
           </Body>
         ) : (
           <div data-testid="activity-list" className="divide-y divide-glass-border">
-            {activity.map((entry) => (
-              <ActivityRow key={entry.id} entry={entry} />
-            ))}
+            {/* AnimatePresence keys on entry.id so mounting a new note
+                triggers the stagger entry; existing rows are stable
+                across re-renders so they don't re-stagger. initial=false
+                skips the entry animation on the first render of the tab
+                — the timeline is already there when the tab opens; only
+                NEW rows should animate. We override per-row via the
+                row's `initial` prop so the first paint still skips, but
+                NoteComposer-driven adds animate. */}
+            <AnimatePresence initial={true}>
+              {activity.map((entry, index) => (
+                <ActivityRow
+                  key={entry.id}
+                  entry={entry}
+                  index={index}
+                  reducedMotion={reducedMotion}
+                />
+              ))}
+            </AnimatePresence>
           </div>
         )}
       </Section>

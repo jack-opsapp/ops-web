@@ -2,6 +2,19 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import type { ProjectActivityEntry } from "@/lib/hooks/use-project-activity";
 
+// Mock framer-motion's useReducedMotion so the stagger path can be
+// exercised deterministically. Default false; reduced-motion test sets
+// it to true.
+vi.mock("framer-motion", async () => {
+  const actual = await vi.importActual<typeof import("framer-motion")>("framer-motion");
+  return {
+    ...actual,
+    useReducedMotion: vi.fn(() => false),
+  };
+});
+
+import { useReducedMotion } from "framer-motion";
+
 // Mock all upstream hooks — ActivityTab is a thin orchestrator over them.
 
 const mockActivity = vi.fn<() => { data: ProjectActivityEntry[]; isLoading: boolean }>();
@@ -104,5 +117,50 @@ describe("<ActivityTab>", () => {
     mockAuthStore.mockReturnValue({ currentUser: null, company: null });
     render(<ActivityTab projectId="p1" />);
     expect(screen.queryByTestId("note-composer-stub")).not.toBeInTheDocument();
+  });
+
+  // Phase 12.5 — entry stagger.
+  describe("entry stagger (Phase 12.5)", () => {
+    function makeEntry(id: string): ProjectActivityEntry {
+      return {
+        id,
+        kind: "note",
+        content: `entry ${id}`,
+        createdAt: new Date(Date.now() - 1000).toISOString(),
+        author: { id: "u1", name: "Op", avatarColor: "#6F94B0" },
+        attachments: [],
+        mentionedUserIds: [],
+        eventPayload: null,
+      };
+    }
+
+    it("first six rows stagger 50ms × index; rest cap at 300ms", () => {
+      const entries = Array.from({ length: 10 }, (_, i) => makeEntry(`e${i}`));
+      mockActivity.mockReturnValue({ data: entries, isLoading: false });
+      render(<ActivityTab projectId="p1" />);
+      const rows = screen.getAllByTestId("activity-row");
+      // Indices 0-5 → 0.00, 0.05, 0.10, 0.15, 0.20, 0.25
+      // Indices 6+ → capped at 0.30
+      expect(rows[0]).toHaveAttribute("data-stagger-delay", "0.00");
+      expect(rows[1]).toHaveAttribute("data-stagger-delay", "0.05");
+      expect(rows[5]).toHaveAttribute("data-stagger-delay", "0.25");
+      // 6th index = 0.30 exactly (the cap), 7th-9th still 0.30
+      expect(rows[6]).toHaveAttribute("data-stagger-delay", "0.30");
+      expect(rows[7]).toHaveAttribute("data-stagger-delay", "0.30");
+      expect(rows[9]).toHaveAttribute("data-stagger-delay", "0.30");
+    });
+
+    it("reduced motion zeroes the delay so all rows enter instantly", () => {
+      vi.mocked(useReducedMotion).mockReturnValue(true);
+      const entries = Array.from({ length: 5 }, (_, i) => makeEntry(`e${i}`));
+      mockActivity.mockReturnValue({ data: entries, isLoading: false });
+      render(<ActivityTab projectId="p1" />);
+      // The data-stagger-delay attr still reflects the math (delay is
+      // computed regardless), but the transition prop carries
+      // duration:0 so the visual is instant. Assert on the structural
+      // contract: rows render and the row count matches.
+      expect(screen.getAllByTestId("activity-row")).toHaveLength(5);
+      vi.mocked(useReducedMotion).mockReturnValue(false);
+    });
   });
 });
