@@ -184,6 +184,13 @@
     --d-hover: 150ms;
     --d-panel: 200ms;
     --d-page:  250ms;
+
+    /* macOS canonical traffic-light colours — fixed by Apple. Hoisted
+       here (not brand tokens) so the workspace TrafficLight chrome stays
+       hex-free and CLAUDE.md "no hex literals" stays absolute. */
+    --macos-traffic-close:    #FF5F57;
+    --macos-traffic-minimize: #FEBC2E;
+    --macos-traffic-maximize: #28C840;
   }
 
   * {

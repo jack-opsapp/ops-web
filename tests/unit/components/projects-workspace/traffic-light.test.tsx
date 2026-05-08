@@ -47,19 +47,25 @@ describe("<TrafficLight>", () => {
     expect(el.className).toContain("bg-[rgba(255,255,255,0.18)]");
   });
 
-  it("tints to its tone hue on hover (close=#FF5F57)", () => {
+  it("tints to its tone hue on hover (close=var(--macos-traffic-close))", () => {
     render(<TrafficLight tone="close" onClick={() => {}} />);
-    expect(screen.getByRole("button").className).toContain("hover:bg-[#FF5F57]");
+    expect(screen.getByRole("button").className).toContain(
+      "hover:bg-[var(--macos-traffic-close)]",
+    );
   });
 
-  it("tints to its tone hue on hover (minimize=#FEBC2E)", () => {
+  it("tints to its tone hue on hover (minimize=var(--macos-traffic-minimize))", () => {
     render(<TrafficLight tone="minimize" onClick={() => {}} />);
-    expect(screen.getByRole("button").className).toContain("hover:bg-[#FEBC2E]");
+    expect(screen.getByRole("button").className).toContain(
+      "hover:bg-[var(--macos-traffic-minimize)]",
+    );
   });
 
-  it("tints to its tone hue on hover (maximize=#28C840)", () => {
+  it("tints to its tone hue on hover (maximize=var(--macos-traffic-maximize))", () => {
     render(<TrafficLight tone="maximize" onClick={() => {}} />);
-    expect(screen.getByRole("button").className).toContain("hover:bg-[#28C840]");
+    expect(screen.getByRole("button").className).toContain(
+      "hover:bg-[var(--macos-traffic-maximize)]",
+    );
   });
 
   it("uses 120ms transition (per design spec)", () => {

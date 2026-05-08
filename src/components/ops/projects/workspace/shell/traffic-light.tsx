@@ -4,18 +4,16 @@ import { cn } from "@/lib/utils/cn";
 // `TrafficLight` — Mac-style window control. The chrome stays MONOCHROME
 // at rest (white-alpha bg + border) so the workspace title bar reads
 // quiet, then tints to the canonical macOS hue + reveals the glyph on
-// hover. Tone hex values are a deliberate exception to the no-hex rule:
-// they are the macOS system colours and have to match Apple's exact
-// values for the chrome to feel like a Mac window — they aren't brand
-// colours and don't belong in `globals.css`.
+// hover. The hue values are fixed by Apple, not brand tokens — they live
+// as `--macos-traffic-*` CSS variables in `globals.css` so this file
+// stays hex-free (CLAUDE.md "no hex literals" applies absolutely).
 
 export type TrafficLightTone = "close" | "minimize" | "maximize";
 
 const TONE_HOVER_BG: Record<TrafficLightTone, string> = {
-  // macOS canonical traffic-light colours — fixed by Apple, not brand tokens.
-  close: "hover:bg-[#FF5F57]",
-  minimize: "hover:bg-[#FEBC2E]",
-  maximize: "hover:bg-[#28C840]",
+  close: "hover:bg-[var(--macos-traffic-close)]",
+  minimize: "hover:bg-[var(--macos-traffic-minimize)]",
+  maximize: "hover:bg-[var(--macos-traffic-maximize)]",
 };
 
 const TONE_LABEL: Record<TrafficLightTone, string> = {
