@@ -566,3 +566,20 @@
   background: var(--text) !important;
   transition: background 150ms cubic-bezier(0.22, 1, 0.36, 1);
 }
+
+/* ─── PROJECT MAP — pin pulse ─────────────────────────────────────────────
+   Status-tinted glow that breathes under the project pin in compact MapHero.
+   Slow (2.4s) and shallow (1.0 → 1.1 scale) so it reads as a heartbeat, not
+   a beacon. EASE_SMOOTH per design system; reduced-motion drops it entirely. */
+@keyframes pin-pulse {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50%      { opacity: 0.85; transform: scale(1.1); }
+}
+.animate-pin-pulse {
+  animation: pin-pulse 2.4s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  will-change: transform, opacity;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-pin-pulse { animation: none; }
+}
+
