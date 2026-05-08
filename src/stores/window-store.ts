@@ -3,7 +3,6 @@
 import { create } from "zustand";
 
 export type FloatingWindowType =
-  | "create-project"
   | "create-client"
   | "create-task"
   | "create-estimate"
@@ -40,6 +39,37 @@ export interface FloatingWindowState {
 interface OpenProjectWindowOpts {
   projectId?: string | null;
   mode?: ProjectWorkspaceMode;
+  // Fired once with the freshly-created project id when the workspace
+  // body finishes a creating→viewing save. Lets a parent surface (e.g.
+  // the in-task-modal "Create new project" affordance) react to the
+  // create without subscribing to store internals.
+  //
+  // Stored module-side (see `projectCreatedCallbacks` below), NOT in
+  // Zustand state — functions don't survive `persist()` round-trips and
+  // would silently drop on rehydrate.
+  onProjectCreated?: (projectId: string) => void;
+}
+
+// Module-scoped callback registry. Keyed by derived window id so the
+// container can `consumeProjectCreatedCallback(windowId, newId)` from
+// inside `handleSaved` without threading the callback through window
+// metadata. Cleared on consume + on `closeWindow` to avoid leaks when
+// the user dismisses the workspace before saving.
+const projectCreatedCallbacks = new Map<string, (projectId: string) => void>();
+
+/**
+ * Invoked by `<ProjectWorkspaceContainer>` after a successful create.
+ * Fires the callback (if any) registered for `windowId` with the new
+ * project id, then deletes it. Idempotent: a second call is a no-op.
+ */
+export function consumeProjectCreatedCallback(
+  windowId: string,
+  projectId: string,
+): void {
+  const cb = projectCreatedCallbacks.get(windowId);
+  if (!cb) return;
+  projectCreatedCallbacks.delete(windowId);
+  cb(projectId);
 }
 
 interface WindowStoreState {
@@ -134,11 +164,18 @@ export const useWindowStore = create<WindowStoreState>()((set, get) => ({
     });
   },
 
-  openProjectWindow: ({ projectId = null, mode }) => {
+  openProjectWindow: ({ projectId = null, mode, onProjectCreated }) => {
     const initialMode: ProjectWorkspaceMode =
       mode ?? (projectId ? "viewing" : "creating");
     const id = deriveProjectWindowId(projectId);
     const meta: ProjectWorkspaceWindowMeta = { projectId, initialMode };
+    // Register before any state mutation so the container — which reads
+    // the callback inside `handleSaved` — never sees a window without
+    // its callback wired. Re-register on a refocus too: callers that
+    // re-open a creating-mode window can opt into a fresh callback.
+    if (onProjectCreated) {
+      projectCreatedCallbacks.set(id, onProjectCreated);
+    }
     const { windows, nextZIndex } = get();
     const existing = windows.find((w) => w.id === id);
     // Title is intentionally short here — the workspace title bar overrides

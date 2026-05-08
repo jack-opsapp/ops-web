@@ -19,7 +19,6 @@ import { QuickActionsTab } from "@/components/layouts/quick-actions-tab";
 import { DuplicateReviewSheet } from "@/components/ops/duplicate-review-sheet";
 import { useActionPrompts } from "@/hooks/useActionPrompts";
 import { useWindowStore } from "@/stores/window-store";
-import { CreateProjectForm } from "@/components/ops/create-project-modal";
 import { CreateClientForm } from "@/components/ops/create-client-modal";
 import { CreateTaskForm } from "@/components/ops/create-task-modal";
 import { CreateEstimateForm } from "@/components/ops/create-estimate-modal";
@@ -144,12 +143,6 @@ function FloatingWindows() {
     <>
       {legacyWindows.map((win) => (
         <FloatingWindow key={win.id} window={win}>
-          {win.type === "create-project" && (
-            <CreateProjectForm
-              onSuccess={() => closeWindow(win.id)}
-              onCancel={() => closeWindow(win.id)}
-            />
-          )}
           {win.type === "create-client" && (
             <CreateClientForm
               onSuccess={() => closeWindow(win.id)}
