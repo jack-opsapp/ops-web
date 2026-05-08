@@ -6,11 +6,16 @@
  * Renders a 6×6 dot + tone-colored label (mono 9.5/letterSpacing 0.2px).
  * Both dot and label share the tone color; the label sits inline with 5px gap.
  *
+ * The label path delegates to `<StateTag>` (Task A2 consolidation).
+ * The `dotOnly` escape hatch stays inline — it renders just the colored dot
+ * with no label, and does not go through StateTag.
+ *
  * Used by collapsed project headers, ledger rows (invoices / estimates),
  * and pipeline opportunity stage chips.
  */
 
 import { cn } from "@/lib/utils/cn";
+import { StateTag, type StateTagTone } from "../state-tag";
 
 export type StatusTone = "ops-accent" | "tan" | "olive" | "rose" | "muted" | "text-3";
 
@@ -72,13 +77,14 @@ const DOT_BG: Record<StatusTone, string> = {
   "text-3": "bg-text-3",
 };
 
-const LABEL_TEXT: Record<StatusTone, string> = {
-  "ops-accent": "text-ops-accent",
-  tan: "text-tan",
-  olive: "text-olive",
-  rose: "text-rose",
-  muted: "text-text-mute",
-  "text-3": "text-text-3",
+/** Map the local StatusTone vocabulary to the StateTagTone primitive vocabulary. */
+const STATUS_TONE_TO_TAG_TONE: Record<StatusTone, StateTagTone> = {
+  "ops-accent": "accent",
+  tan: "tan",
+  olive: "olive",
+  rose: "rose",
+  muted: "neutral",
+  "text-3": "neutral",
 };
 
 interface StatusPipProps {
@@ -102,6 +108,7 @@ export function StatusPip({
 }: StatusPipProps) {
   const resolvedTone =
     tone ?? (status ? projectStatusTone(status) : "muted");
+
   if (dotOnly) {
     return (
       <span
@@ -115,6 +122,9 @@ export function StatusPip({
       />
     );
   }
+
+  const tagTone = STATUS_TONE_TO_TAG_TONE[resolvedTone];
+
   return (
     <span
       data-testid="status-pip"
@@ -124,12 +134,7 @@ export function StatusPip({
         aria-hidden
         className={cn("h-1.5 w-1.5 shrink-0 rounded-full", DOT_BG[resolvedTone])}
       />
-      <span
-        className={cn("font-mono text-[11px]", LABEL_TEXT[resolvedTone])}
-        style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
-      >
-        {label}
-      </span>
+      <StateTag tone={tagTone} variant="bare" prefix={label} />
     </span>
   );
 }

@@ -29,6 +29,7 @@ import {
 import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
 import type { ThreadForGrouping } from "@/lib/inbox/grouping";
+import { StateTag } from "./state-tag";
 
 export interface ThreadRowData extends ThreadForGrouping {
   clientName: string;
@@ -167,13 +168,13 @@ export function ThreadRow({ thread, selected, now, onSelect }: ThreadRowProps) {
           {thread.labels.includes("URGENT") && (
             <span
               data-testid="thread-row-urgent"
-              className="inline-flex items-center gap-1 font-cakemono text-[11px] font-light uppercase tracking-[0.16em] text-rose"
+              className="inline-flex items-center gap-1"
             >
               <span
                 aria-hidden
                 className="h-[5px] w-[5px] shrink-0 rounded-full bg-rose"
               />
-              <span>{t("row.urgent", "URGENT")}</span>
+              <StateTag tone="rose" variant="bare" prefix={t("row.urgent", "URGENT")} />
             </span>
           )}
           <span className="ml-auto flex items-center gap-1 text-text-mute">

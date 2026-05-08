@@ -3,9 +3,11 @@
 /**
  * CategoryChip — visual badge for the thread's primary category.
  *
- * Spec v2 compliance: every visual cue is a Tailwind utility resolving to a
- * design-system token. Categories collapse into five tones (active / neutral /
- * attention / negative / ambient) so the chip never holds an arbitrary hex.
+ * Delegates all tonal inline-tag rendering to the `<StateTag>` primitive
+ * (Task A2 consolidation). The outer wrapper retains its interactive shell
+ * (size, forwarded ref, chevron, leading slot) while the label itself is
+ * produced by StateTag solid variant.
+ *
  * Lavender (`agent.*`) is intentionally absent — Claude provenance only.
  */
 
@@ -13,54 +15,32 @@ import { forwardRef } from "react";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import type { EmailThreadCategory } from "@/lib/types/email-thread";
+import { StateTag, type StateTagTone } from "./state-tag";
 
-// ─── Tone taxonomy ───────────────────────────────────────────────────────────
-
-type CategoryTone =
-  | "active"     // LEAD, CLIENT — live business contacts
-  | "neutral"    // VENDOR, SUBTRADE, JOB_SEEKER — non-pipeline contacts
-  | "attention"  // PLATFORM_BID — awaiting / pending action
-  | "negative"   // LEGAL, COLLECTIONS — escalation / overdue
-  | "ambient";   // MARKETING, RECEIPT, PERSONAL, INTERNAL, OTHER — low priority
+// ─── Category metadata ────────────────────────────────────────────────────────
 
 interface CategoryMeta {
-  tone: CategoryTone;
+  tone: StateTagTone;
   label: string;
+  /** Dot bg class for callers that render a standalone colored dot. */
+  dotClass: string;
 }
 
 const CATEGORY_META: Record<EmailThreadCategory, CategoryMeta> = {
-  CUSTOMER:     { tone: "active",    label: "CUSTOMER" },
-  LEAD:         { tone: "active",    label: "LEAD" },
-  CLIENT:       { tone: "active",    label: "CLIENT" },
-  VENDOR:       { tone: "neutral",   label: "VENDOR" },
-  SUBTRADE:     { tone: "neutral",   label: "SUBTRADE" },
-  JOB_SEEKER:   { tone: "neutral",   label: "JOB SEEKER" },
-  PLATFORM_BID: { tone: "attention", label: "PLATFORM BID" },
-  LEGAL:        { tone: "negative",  label: "LEGAL" },
-  COLLECTIONS:  { tone: "negative",  label: "COLLECTIONS" },
-  MARKETING:    { tone: "ambient",   label: "MARKETING" },
-  RECEIPT:      { tone: "ambient",   label: "RECEIPT" },
-  PERSONAL:     { tone: "ambient",   label: "PERSONAL" },
-  INTERNAL:     { tone: "ambient",   label: "INTERNAL" },
-  OTHER:        { tone: "ambient",   label: "OTHER" },
-};
-
-// Static class strings — Tailwind needs to see literals to compile them.
-// Keep this table in sync with `TONE_DOT_CLASS` below.
-const TONE_CHIP_CLASS: Record<CategoryTone, string> = {
-  active:    "border-y border-r border-l-2 border-text-2/40    border-l-text-2    bg-text-2/[0.08]",
-  neutral:   "border-y border-r border-l-2 border-text-3/40    border-l-text-3    bg-text-3/[0.08]",
-  attention: "border-y border-r border-l-2 border-tan/40       border-l-tan       bg-tan/[0.08]",
-  negative:  "border-y border-r border-l-2 border-rose/40      border-l-rose      bg-rose/[0.08]",
-  ambient:   "border-y border-r border-l-2 border-text-mute/40 border-l-text-mute bg-text-mute/[0.08]",
-};
-
-const TONE_DOT_CLASS: Record<CategoryTone, string> = {
-  active:    "bg-text-2",
-  neutral:   "bg-text-3",
-  attention: "bg-tan",
-  negative:  "bg-rose",
-  ambient:   "bg-text-mute",
+  CUSTOMER:     { tone: "tan",     label: "CUSTOMER",     dotClass: "bg-tan" },
+  LEAD:         { tone: "tan",     label: "LEAD",         dotClass: "bg-tan" },
+  CLIENT:       { tone: "tan",     label: "CLIENT",       dotClass: "bg-tan" },
+  VENDOR:       { tone: "neutral", label: "VENDOR",       dotClass: "bg-text-3" },
+  SUBTRADE:     { tone: "neutral", label: "SUBTRADE",     dotClass: "bg-text-3" },
+  JOB_SEEKER:   { tone: "neutral", label: "JOB SEEKER",   dotClass: "bg-text-3" },
+  PLATFORM_BID: { tone: "tan",     label: "PLATFORM BID", dotClass: "bg-tan" },
+  LEGAL:        { tone: "rose",    label: "LEGAL",        dotClass: "bg-rose" },
+  COLLECTIONS:  { tone: "rose",    label: "COLLECTIONS",  dotClass: "bg-rose" },
+  MARKETING:    { tone: "neutral", label: "MARKETING",    dotClass: "bg-text-mute" },
+  RECEIPT:      { tone: "neutral", label: "RECEIPT",      dotClass: "bg-text-mute" },
+  PERSONAL:     { tone: "neutral", label: "PERSONAL",     dotClass: "bg-text-mute" },
+  INTERNAL:     { tone: "neutral", label: "INTERNAL",     dotClass: "bg-text-mute" },
+  OTHER:        { tone: "neutral", label: "OTHER",        dotClass: "bg-text-mute" },
 };
 
 const FALLBACK_META: CategoryMeta = CATEGORY_META.OTHER;
@@ -87,7 +67,7 @@ export function categoryLabel(category: EmailThreadCategory): string {
  * inline `style={{ backgroundColor }}` because that path bypasses tokens.
  */
 export function categoryDotClassName(category: EmailThreadCategory): string {
-  return TONE_DOT_CLASS[resolveMeta(category).tone];
+  return resolveMeta(category).dotClass;
 }
 
 // ─── Chip props ──────────────────────────────────────────────────────────────
@@ -128,15 +108,10 @@ export const CategoryChip = forwardRef<
   const meta = resolveMeta(category);
   const display = label ?? categoryLabel(category);
 
-  const sizeClasses =
-    size === "md"
-      ? "h-[22px] px-[7px] text-[11px] tracking-[0.18em]"
-      : "h-[18px] px-[6px] text-[11px] tracking-[0.16em]";
-
   const inner = (
     <>
       {leading}
-      <span className="leading-none">{display}</span>
+      <StateTag tone={meta.tone} variant="solid" prefix={display} bracketed />
       {interactive && (
         <ChevronDown
           className={cn(
@@ -150,11 +125,8 @@ export const CategoryChip = forwardRef<
   );
 
   const base = cn(
-    "inline-flex items-center gap-[4px] rounded-chip",
-    "font-cakemono font-light uppercase text-text-2",
+    "inline-flex items-center gap-[4px]",
     "transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]",
-    sizeClasses,
-    TONE_CHIP_CLASS[meta.tone],
     manual && "ring-1 ring-white/[0.12]",
     className
   );
@@ -168,7 +140,7 @@ export const CategoryChip = forwardRef<
         title={title}
         className={cn(
           base,
-          "cursor-pointer hover:text-text focus:outline-none",
+          "cursor-pointer focus:outline-none",
           "focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black"
         )}
         data-category={category}
