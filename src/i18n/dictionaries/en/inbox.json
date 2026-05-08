@@ -419,8 +419,12 @@
   "composer.dismiss": "DISMISS",
 
   "draftSwitcher.gmailLabel": "{n} · GMAIL",
-  "draftSwitcher.claudeLabel": "✦ {n} · CLAUDE",
+  "draftSwitcher.outlookLabel": "{n} · OUTLOOK",
+  "draftSwitcher.yoursLabel": "{n} · YOURS",
+  "draftSwitcher.newLabel": "{n} · NEW",
+  "draftSwitcher.claudeLabel": "{n} · CLAUDE",
   "draftSwitcher.addNew": "[+]",
+  "draftSwitcher.addNewAria": "Add new draft",
 
   "rail.clientLabel": "// CLIENT",
   "rail.clientUnlinked": "// CLIENT :: UNLINKED",
