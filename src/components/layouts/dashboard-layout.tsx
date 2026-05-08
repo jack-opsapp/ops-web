@@ -100,10 +100,12 @@ function DashboardPreferencesSync() {
 }
 
 // Phase 9.7 — notification deep-link handler. Notifications dispatch with
-// `actionUrl: /?openProject=<id>&mode=view|edit`. When that URL lands on
-// any dashboard route, this effect opens the project-workspace window
-// for the requested project and strips the query params so a refresh
-// doesn't re-open the window.
+// `actionUrl: /dashboard?openProject=<id>&mode=view|edit` (P14-1: prefix
+// changed from `/` because the root → /dashboard redirect strips query
+// params). The handler is path-agnostic — when that URL lands on any
+// dashboard route, this effect opens the project-workspace window for the
+// requested project and strips the query params so a refresh doesn't
+// re-open the window.
 function ProjectWorkspaceDeepLinkHandler() {
   const router = useRouter();
   const pathname = usePathname();

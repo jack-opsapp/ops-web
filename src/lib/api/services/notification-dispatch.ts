@@ -78,7 +78,7 @@ export function dispatchProjectAssignment(params: {
     title: "Added to Project",
     body: `You've been added to "${params.projectTitle}"`,
     projectId: params.projectId,
-    actionUrl: `/?openProject=${params.projectId}&mode=view`,
+    actionUrl: `/dashboard?openProject=${params.projectId}&mode=view`,
     actionLabel: "View Project",
     pushData: {
       type: "projectAssignment",
@@ -107,7 +107,7 @@ export function dispatchProjectArchived(params: {
     title: `${params.projectTitle} archived`,
     body: `${params.archivedByName} archived ${params.projectTitle}.`,
     projectId: params.projectId,
-    actionUrl: `/?openProject=${params.projectId}&mode=view`,
+    actionUrl: `/dashboard?openProject=${params.projectId}&mode=view`,
     actionLabel: "View Project",
     pushData: {
       type: "projectArchived",
@@ -139,7 +139,7 @@ export function dispatchProjectStatusChange(params: {
     title: `Status changed: ${params.fromStatus} → ${params.toStatus}`,
     body: `${params.changedByName} moved ${params.projectTitle} from ${params.fromStatus} to ${params.toStatus}.`,
     projectId: params.projectId,
-    actionUrl: `/?openProject=${params.projectId}&mode=view`,
+    actionUrl: `/dashboard?openProject=${params.projectId}&mode=view`,
     actionLabel: "View Project",
     pushData: {
       type: "projectStatusChange",
@@ -170,7 +170,7 @@ export function dispatchTaskAssignment(params: {
     title: "New Task Assignment",
     body: `You've been assigned to "${params.taskTitle}" on ${params.projectTitle}`,
     projectId: params.projectId,
-    actionUrl: `/?openProject=${params.projectId}&mode=view`,
+    actionUrl: `/dashboard?openProject=${params.projectId}&mode=view`,
     actionLabel: "View Task",
     pushData: {
       type: "taskAssignment",
@@ -200,7 +200,7 @@ export function dispatchTaskCompleted(params: {
     title: "Task Completed",
     body: `${params.completedByName} completed "${params.taskTitle}" on ${params.projectTitle}`,
     projectId: params.projectId,
-    actionUrl: `/?openProject=${params.projectId}&mode=view`,
+    actionUrl: `/dashboard?openProject=${params.projectId}&mode=view`,
     actionLabel: "View Project",
     pushData: {
       type: "taskCompletion",
@@ -229,7 +229,7 @@ export function dispatchScheduleChange(params: {
     title: "Schedule Update",
     body: `"${params.taskTitle}" on ${params.projectTitle} has been rescheduled`,
     projectId: params.projectId,
-    actionUrl: `/?openProject=${params.projectId}&mode=view`,
+    actionUrl: `/dashboard?openProject=${params.projectId}&mode=view`,
     actionLabel: "View Task",
     pushData: {
       type: "scheduleChange",
@@ -264,7 +264,7 @@ export function dispatchMentionPush(params: {
     body: `"${params.notePreview.length > 80 ? params.notePreview.slice(0, 80) + "..." : params.notePreview}" on ${params.projectTitle}`,
     projectId: params.projectId,
     noteId: params.noteId,
-    actionUrl: `/?openProject=${params.projectId}&mode=view`,
+    actionUrl: `/dashboard?openProject=${params.projectId}&mode=view`,
     actionLabel: "View Note",
     pushData: {
       type: "projectNoteMention",
