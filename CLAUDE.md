@@ -48,6 +48,22 @@ Supplements the root `OPS LTD./CLAUDE.md`. Read both.
 - Access via `useDictionary("<namespace>")`
 - All user-facing strings must be in dictionaries, never hardcoded
 
+### Project Workspace Window
+
+Single mode-aware floating window for all project interactions (`src/components/ops/projects/workspace/`).
+
+- **Modes:** `viewing` (dossier with map + tabs) / `editing` (form tabs) / `creating` (form tabs, no project yet)
+- **Open via:** `useWindowStore.openProjectWindow({ projectId, mode, onProjectCreated? })`
+- **Mounts inside** `FloatingWindows` in `dashboard-layout.tsx` via `<ProjectWorkspaceContainer windowId={win.id} />`
+- **Position + size persist** to `localStorage` keyed by `opsWin:project-{projectId}`
+- **Status hex** from `PROJECT_STATUS_COLORS` (`@/lib/types/models`) drives map pin glow, schedule today-tick, active task highlight
+- **Map:** Mapbox GL JS via `<ProjectMap>` / `<MapHero>`. Token: `NEXT_PUBLIC_MAPBOX_TOKEN`
+- **Activity timeline:** `project_notes` table is iOS-canonical; `event_kind` discriminates user notes (NULL) from system events (`status_change`, `project_created`, `project_archived`, `photo_uploaded`, `payment_received`, etc.). Read via `useProjectActivity`.
+- **Notifications:** every project action dispatches via `notification-dispatch.ts` helpers (`dispatchProjectStatusChange`, `dispatchProjectArchived`, `dispatchProjectAssignment`, `dispatchMentionPush`). `actionUrl` follows the deep-link format `/?openProject={id}&mode=view` (Phase 9.7).
+- **i18n:** all strings via `useDictionary("project-workspace")` — en + es dictionaries at `src/i18n/dictionaries/{en,es}/project-workspace.json`
+- **Permissions:** `usePermissionStore.can("projects.{view|edit|create|archive}")` — never filter by role
+- **iOS sync constraint:** schema additions are all nullable; iOS app reads `event_kind`/`content_metadata`/`trade` as optional and ignores them until next App Store release
+
 ### State Management
 - Server state: TanStack Query hooks in `src/lib/hooks/`
 - Client state: Zustand stores in `src/stores/`
