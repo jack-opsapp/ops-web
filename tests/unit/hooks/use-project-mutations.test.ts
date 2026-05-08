@@ -30,6 +30,7 @@ const projectServiceDeleteCalls: string[] = [];
 const systemEventCalls: Array<Record<string, unknown>> = [];
 const userNoteCalls: Array<Record<string, unknown>> = [];
 const dispatchAssignmentCalls: Array<Record<string, unknown>> = [];
+const dispatchArchivedCalls: Array<Record<string, unknown>> = [];
 const notificationCreateCalls: Array<Record<string, unknown>> = [];
 
 vi.mock("@/lib/api/services/project-service", () => ({
@@ -63,6 +64,9 @@ vi.mock("@/lib/api/services/project-note-service", () => ({
 vi.mock("@/lib/api/services/notification-dispatch", () => ({
   dispatchProjectAssignment: vi.fn((params: Record<string, unknown>) => {
     dispatchAssignmentCalls.push(params);
+  }),
+  dispatchProjectArchived: vi.fn((params: Record<string, unknown>) => {
+    dispatchArchivedCalls.push(params);
   }),
 }));
 
@@ -101,6 +105,7 @@ beforeEach(() => {
   systemEventCalls.length = 0;
   userNoteCalls.length = 0;
   dispatchAssignmentCalls.length = 0;
+  dispatchArchivedCalls.length = 0;
   notificationCreateCalls.length = 0;
 });
 
@@ -291,16 +296,20 @@ describe("useProjectMutations", () => {
         authorId: "user-123",
       });
 
-      expect(notificationCreateCalls).toHaveLength(2);
-      expect(notificationCreateCalls.map((n) => n.userId).sort()).toEqual([
-        "u-crew-1",
-        "u-pm",
-      ]);
-      expect(notificationCreateCalls[0]).toMatchObject({
-        type: "system",
+      // Archive notifications now go through dispatchProjectArchived
+      // (Phase 11: centralized push + in-app dispatch). The dispatch route
+      // filters out the acting user server-side.
+      expect(dispatchArchivedCalls).toHaveLength(1);
+      expect(dispatchArchivedCalls[0]).toMatchObject({
         projectId: "proj-1",
-        actionUrl: "/?openProject=proj-1&mode=view",
+        projectTitle: "Driveway Sealing",
+        recipientUserIds: ["u-pm", "u-crew-1"],
+        companyId: "co-1",
       });
+      // archivedByName is composed from currentUser; "Jack" since lastName is omitted
+      expect(dispatchArchivedCalls[0].archivedByName).toBe("Jack");
+      // The hook no longer calls NotificationService.create directly for archive
+      expect(notificationCreateCalls).toHaveLength(0);
     });
   });
 
