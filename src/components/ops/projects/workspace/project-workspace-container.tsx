@@ -7,6 +7,7 @@ import {
 } from "@/stores/window-store";
 import { useProject } from "@/lib/hooks/use-projects";
 import { useProjectMutations } from "@/lib/hooks/use-project-mutations";
+import { usePermissionStore } from "@/lib/store/permissions-store";
 import { ProjectStatus } from "@/lib/types/models";
 import { ProjectViewingBody } from "./viewing/project-viewing-body";
 import { ProjectSidebar } from "./viewing/project-sidebar";
@@ -16,6 +17,7 @@ import {
   type ProjectEditCreateBodyHandle,
 } from "./edit-create/project-edit-create-body";
 import { ProjectWorkspaceWindow } from "./shell/project-workspace-window";
+import { ConfirmModal } from "./confirm-modal";
 import type { ModeFooterConfig } from "./shell/mode-footer";
 import type { ChipVariant } from "./atoms/chip";
 import type { WorkspaceMode } from "./shell/mode-pill";
@@ -136,13 +138,36 @@ export function ProjectWorkspaceContainer({
     [mode, updateWindowMeta, windowId],
   );
 
-  const handleArchive = React.useCallback(() => {
+  // Archive flow is a two-step gate: clicking the footer's destructive
+  // ARCHIVE button opens a ConfirmModal, the modal's confirm button fires
+  // the mutation. Decoupled state keeps the modal closeable mid-flight.
+  const [confirmArchiveOpen, setConfirmArchiveOpen] = React.useState(false);
+  const can = usePermissionStore((s) => s.can);
+  // projects.archive is the canonical permission for this action; if it's
+  // not granted to the operator, the destructive button is hidden entirely
+  // (not disabled — operators don't need to see actions they cannot take).
+  const canArchive = can("projects.archive");
+
+  const openConfirmArchive = React.useCallback(() => {
     if (!project || !projectId) return;
-    mutations.archiveProject.mutate({
-      projectId,
-      projectTitle: project.title,
-      notifyUserIds: project.teamMemberIds ?? [],
-    });
+    setConfirmArchiveOpen(true);
+  }, [project, projectId]);
+
+  const handleConfirmArchive = React.useCallback(() => {
+    if (!project || !projectId) return;
+    mutations.archiveProject.mutate(
+      {
+        projectId,
+        projectTitle: project.title,
+        notifyUserIds: project.teamMemberIds ?? [],
+      },
+      {
+        onSuccess: () => {
+          setConfirmArchiveOpen(false);
+          setMode("viewing");
+        },
+      },
+    );
   }, [mutations.archiveProject, project, projectId]);
 
   if (!win) return null;
@@ -189,11 +214,17 @@ export function ProjectWorkspaceContainer({
     };
   } else if (isEditing) {
     footerConfig = {
-      destructive: {
-        label: "ARCHIVE",
-        onClick: handleArchive,
-        disabled: !project || mutations.archiveProject.isPending,
-      },
+      // ARCHIVE is hidden — not just disabled — for operators without
+      // projects.archive. They don't need to see destructive surfaces
+      // they cannot trigger. Editing remains available via projects.edit
+      // (gated upstream in ProjectEditCreateBody).
+      destructive: canArchive
+        ? {
+            label: "ARCHIVE",
+            onClick: openConfirmArchive,
+            disabled: !project || mutations.archiveProject.isPending,
+          }
+        : undefined,
       secondary: [
         {
           label: "DISCARD CHANGES",
@@ -239,40 +270,55 @@ export function ProjectWorkspaceContainer({
   const tabHandler = isViewing ? undefined : setActiveTab;
 
   return (
-    <ProjectWorkspaceWindow<EditCreateTabId>
-      id={windowId}
-      title={title}
-      crumbLabel={crumbLabel}
-      projectIdLabel={projectIdLabel}
-      statusLabel={statusLabel}
-      statusTone={statusTone}
-      mode={asWorkspaceMode(mode)}
-      tabs={tabs}
-      activeTabId={tabActiveId}
-      onTabChange={tabHandler}
-      position={win.position}
-      size={win.size}
-      zIndex={win.zIndex}
-      footerConfig={footerConfig}
-      rightRail={
-        isViewing && projectId ? (
-          <ProjectSidebar projectId={projectId} />
-        ) : undefined
-      }
-    >
-      {isViewing && projectId ? (
-        <ProjectViewingBody projectId={projectId} />
-      ) : (
-        <ProjectEditCreateBody
-          mode={isCreating ? "creating" : "editing"}
-          projectId={isCreating ? null : projectId}
-          tab={activeTab}
-          formId={formId}
-          onSaved={handleSaved}
-          discardRef={composerRef}
-        />
-      )}
-    </ProjectWorkspaceWindow>
+    <>
+      <ProjectWorkspaceWindow<EditCreateTabId>
+        id={windowId}
+        title={title}
+        crumbLabel={crumbLabel}
+        projectIdLabel={projectIdLabel}
+        statusLabel={statusLabel}
+        statusTone={statusTone}
+        mode={asWorkspaceMode(mode)}
+        tabs={tabs}
+        activeTabId={tabActiveId}
+        onTabChange={tabHandler}
+        position={win.position}
+        size={win.size}
+        zIndex={win.zIndex}
+        footerConfig={footerConfig}
+        rightRail={
+          isViewing && projectId ? (
+            <ProjectSidebar projectId={projectId} />
+          ) : undefined
+        }
+      >
+        {isViewing && projectId ? (
+          <ProjectViewingBody projectId={projectId} />
+        ) : (
+          <ProjectEditCreateBody
+            mode={isCreating ? "creating" : "editing"}
+            projectId={isCreating ? null : projectId}
+            tab={activeTab}
+            formId={formId}
+            onSaved={handleSaved}
+            discardRef={composerRef}
+          />
+        )}
+      </ProjectWorkspaceWindow>
+      <ConfirmModal
+        open={confirmArchiveOpen}
+        onOpenChange={setConfirmArchiveOpen}
+        title="// ARCHIVE PROJECT"
+        body={
+          project
+            ? `${project.title} moves to the archive view and stops receiving notifications. This can be reversed.`
+            : "This project moves to the archive view and stops receiving notifications. This can be reversed."
+        }
+        confirmLabel="ARCHIVE"
+        onConfirm={handleConfirmArchive}
+        isConfirming={mutations.archiveProject.isPending}
+      />
+    </>
   );
 }
 

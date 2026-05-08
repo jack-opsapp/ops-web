@@ -413,17 +413,45 @@ describe("<ProjectWorkspaceContainer>", () => {
     expect(stub.getAttribute("data-discarded")).toBe("true");
   });
 
-  it("editing ARCHIVE destructive calls archiveProject with the project's team", async () => {
+  it("editing ARCHIVE opens the ConfirmModal and only fires archiveProject after confirm", async () => {
     seedViewingWindow();
     render(<ProjectWorkspaceContainer windowId={WINDOW_ID} />);
     await userEvent.click(screen.getByTestId("footer-primary")); // EDIT
     await userEvent.click(screen.getByTestId("footer-destructive"));
+
+    // Modal opens — archive mutation has NOT fired yet.
+    expect(screen.getByTestId("confirm-modal")).toBeInTheDocument();
+    expect(archiveMutate).not.toHaveBeenCalled();
+
+    // Confirm fires the mutation with the project's team.
+    await userEvent.click(screen.getByTestId("confirm-modal-confirm"));
     expect(archiveMutate).toHaveBeenCalledTimes(1);
     expect(archiveMutate.mock.calls[0]![0]).toEqual({
       projectId: PROJECT.id,
       projectTitle: PROJECT.title,
       notifyUserIds: PROJECT.teamMemberIds,
     });
+  });
+
+  it("editing ARCHIVE Cancel dismisses the modal without firing the mutation", async () => {
+    seedViewingWindow();
+    render(<ProjectWorkspaceContainer windowId={WINDOW_ID} />);
+    await userEvent.click(screen.getByTestId("footer-primary")); // EDIT
+    await userEvent.click(screen.getByTestId("footer-destructive"));
+    expect(screen.getByTestId("confirm-modal")).toBeInTheDocument();
+    await userEvent.click(screen.getByTestId("confirm-modal-cancel"));
+    await waitFor(() =>
+      expect(screen.queryByTestId("confirm-modal")).toBeNull(),
+    );
+    expect(archiveMutate).not.toHaveBeenCalled();
+  });
+
+  it("hides the ARCHIVE destructive button when projects.archive is missing", async () => {
+    mockCan.mockImplementation((perm: string) => perm !== "projects.archive");
+    seedViewingWindow();
+    render(<ProjectWorkspaceContainer windowId={WINDOW_ID} />);
+    await userEvent.click(screen.getByTestId("footer-primary")); // EDIT
+    expect(screen.queryByTestId("footer-destructive")).toBeNull();
   });
 
   it("flips back to viewing after a successful save (onSaved fires)", async () => {
