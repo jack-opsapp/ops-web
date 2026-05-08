@@ -14,7 +14,7 @@
  * silent pass-through, not an empty state.
  *
  * Tokens:
- *   - All radii from the design system (`rounded-md`)
+ *   - Radii from the OPS sharp-corners scale (2.5px buttons / 5px panels)
  *   - Rose for urgent, ops-accent for non-urgent (single-curve hover)
  *   - Stroke 1.5 on the Check icon (matches the inbox-wide convention)
  */
@@ -58,7 +58,7 @@ export function CommitmentPills({
         className,
       )}
     >
-      <span className="font-cakemono text-[9.5px] font-light uppercase leading-none tracking-[0.18em] text-text-3">
+      <span className="font-cakemono text-[11px] font-light uppercase leading-none tracking-[0.18em] text-text-3">
         {t("commitmentPills.label", "Open commitments")}
       </span>
       {commitments.map((c) => {
@@ -68,7 +68,7 @@ export function CommitmentPills({
             key={c.id}
             data-testid="commitment-pill"
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-md border bg-inbox-elev px-2 py-1 transition-opacity",
+              "inline-flex items-center gap-1.5 rounded-[2.5px] border bg-inbox-elev px-2 py-1 transition-opacity",
               c.urgent ? "border-rose/35" : "border-line-hi",
               resolving && "opacity-60",
             )}
@@ -85,7 +85,7 @@ export function CommitmentPills({
             </span>
             <span
               className={cn(
-                "shrink-0 font-mono text-[9.5px] tabular-nums uppercase tracking-[0.18em]",
+                "shrink-0 font-mono text-[11px] tabular-nums uppercase tracking-[0.18em]",
                 c.urgent ? "text-rose" : "text-text-mute",
               )}
               style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
@@ -103,11 +103,11 @@ export function CommitmentPills({
               title={t("commitmentPills.resolve", "Mark commitment resolved")}
               data-testid="commitment-pill-resolve"
               className={cn(
-                "flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-text-3 transition-colors",
+                "flex h-5 w-5 shrink-0 items-center justify-center rounded-[2.5px] text-text-3 transition-colors",
                 "hover:bg-olive/[0.18] hover:text-olive disabled:cursor-not-allowed",
               )}
             >
-              <Check aria-hidden className="h-3 w-3" strokeWidth={1.5} />
+              <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={1.5} />
             </button>
           </span>
         );

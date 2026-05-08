@@ -38,7 +38,7 @@ export function ThreadsView({ threads, className }: ThreadsViewProps) {
     return (
       <div
         className={cn(
-          "px-1 py-6 font-mono text-[10.5px] text-text-3",
+          "px-1 py-6 font-mono text-[11px] text-text-3",
           className,
         )}
       >
@@ -57,24 +57,24 @@ export function ThreadsView({ threads, className }: ThreadsViewProps) {
             <div className="flex min-w-0 items-baseline gap-2">
               <span
                 className={cn(
-                  "min-w-0 flex-1 truncate font-mohave text-[12.5px] tracking-[-0.003em]",
+                  "min-w-0 flex-1 truncate font-mohave text-[12px] tracking-[-0.003em]",
                   thread.unread ? "font-medium text-text" : "font-normal text-text-2",
                 )}
               >
                 {thread.title}
               </span>
               <span
-                className="shrink-0 font-mono text-[9.5px] text-text-mute"
+                className="shrink-0 font-mono text-[11px] text-text-mute"
                 style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
               >
                 {thread.when}
               </span>
             </div>
-            <div className="mt-0.5 truncate font-mohave text-[11.5px] text-text-3">
+            <div className="mt-0.5 truncate font-mohave text-[12px] text-text-3">
               {thread.subject}
             </div>
             <div
-              className="mt-1 font-mono text-[9.5px] text-text-mute"
+              className="mt-1 font-mono text-[11px] text-text-mute"
               style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
             >
               · {thread.messageCount}

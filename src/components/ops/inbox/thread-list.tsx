@@ -91,11 +91,11 @@ export function ThreadList({
                   GROUP_DOT_CLASS[key],
                 )}
               />
-              <h3 className="font-cakemono text-[10.5px] font-light uppercase leading-none tracking-[0.18em] text-text-2">
+              <h3 className="font-cakemono text-[11px] font-light uppercase leading-none tracking-[0.18em] text-text-2">
                 {label}
               </h3>
               <span
-                className="font-mono text-[10px] text-text-mute"
+                className="font-mono text-[11px] text-text-mute"
                 style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
               >
                 {items.length}

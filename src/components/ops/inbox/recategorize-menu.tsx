@@ -146,7 +146,7 @@ export function RecategorizeMenu({
       >
         {/* Header */}
         <div className="px-3 pt-2.5 pb-1.5 border-b border-line">
-          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-mute">
+          <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-text-mute">
             {"// "}
             {t("recategorize.prefix", "Reclassify")}
           </p>
@@ -170,7 +170,7 @@ export function RecategorizeMenu({
             >
               <CategoryChip category={cat} size="sm" />
               <span className="flex-1" />
-              <span className="font-mono text-[10px] text-text-mute tabular-nums">
+              <span className="font-mono text-[11px] text-text-mute tabular-nums">
                 {CATEGORY_HOTKEYS[cat]}
               </span>
             </button>
@@ -181,9 +181,9 @@ export function RecategorizeMenu({
         <div className="px-3 py-2 border-t border-line">
           <label
             htmlFor={`recat-note-${threadId}`}
-            className="flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute mb-1"
+            className="flex items-center gap-1 font-mono text-[11px] uppercase tracking-[0.16em] text-text-mute mb-1"
           >
-            <Sparkles className="w-[10px] h-[10px]" strokeWidth={1.5} />
+            <Sparkles className="w-[14px] h-[14px]" strokeWidth={1.5} />
             {t("recategorize.noteLabel", "Tell Phase C why (optional)")}
           </label>
           <textarea
@@ -196,15 +196,15 @@ export function RecategorizeMenu({
               "This domain is always a vendor…",
             )}
             className={cn(
-              "w-full resize-none rounded-md px-2 py-1.5",
+              "w-full resize-none rounded-[2.5px] px-2 py-1.5",
               "bg-inbox-bg-deep border border-line",
               "font-mohave text-[13px] text-text placeholder:text-text-3",
               "focus:outline-none focus:border-line-hi",
             )}
           />
           <div className="flex items-center gap-1 mt-1">
-            <Check className="w-[10px] h-[10px] text-text-mute" strokeWidth={1.5} />
-            <p className="font-mono text-[10px] text-text-mute">
+            <Check className="w-[14px] h-[14px] text-text-mute" strokeWidth={1.5} />
+            <p className="font-mono text-[11px] text-text-mute">
               {t(
                 "recategorize.appliedNote",
                 "Applied to similar threads automatically.",

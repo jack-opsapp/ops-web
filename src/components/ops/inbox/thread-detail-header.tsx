@@ -48,7 +48,7 @@ interface ThreadDetailHeaderProps {
 }
 
 const iconBtnClass =
-  "inline-flex h-7 w-7 items-center justify-center rounded-chip text-text-3 transition-colors hover:bg-inbox-elev hover:text-text-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent";
+  "inline-flex h-7 w-7 items-center justify-center rounded-chip text-text-3 transition-colors hover:bg-inbox-elev hover:text-text-2 focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black";
 
 const HeaderActionButton = forwardRef<
   HTMLButtonElement,
@@ -67,7 +67,7 @@ const HeaderActionButton = forwardRef<
       className={iconBtnClass}
       {...rest}
     >
-      <Icon aria-hidden className="h-[13px] w-[13px]" strokeWidth={1.5} />
+      <Icon aria-hidden className="h-3.5 w-3.5" strokeWidth={1.5} />
     </button>
   );
 });
@@ -140,7 +140,7 @@ export function ThreadDetailHeader({
 
       {/* Meta strip — category · sender · count */}
       <div
-        className="flex items-center gap-2.5 font-mono text-[10.5px] text-text-3"
+        className="flex items-center gap-2.5 font-mono text-[11px] text-text-3"
         style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
       >
         {category && (

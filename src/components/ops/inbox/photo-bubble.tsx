@@ -104,7 +104,7 @@ export function PhotoBubble({
               )}
               onClick={() => onPhotoClick?.(photo, i)}
               className={cn(
-                "shrink-0 overflow-hidden rounded-md border border-line bg-inbox-bg-deep transition-transform hover:scale-[1.01]",
+                "shrink-0 overflow-hidden rounded-[5px] border border-line bg-inbox-bg-deep transition-transform hover:scale-[1.01]",
                 TILE_HEIGHT[cols],
                 cols === 1 ? "w-full" : "",
               )}
@@ -120,7 +120,7 @@ export function PhotoBubble({
         {body && (
           <div
             className={cn(
-              "rounded-panel border px-3.5 py-2.5 font-mohave text-[13.5px] leading-[1.5] tracking-[-0.003em] text-pretty",
+              "rounded-panel border px-3.5 py-2.5 font-mohave text-[13px] leading-[1.5] tracking-[-0.003em] text-pretty",
               isOutbound
                 ? "border-ops-accent/[0.22] bg-ops-accent/[0.10] text-text"
                 : "border-line bg-inbox-panel text-text",
@@ -130,7 +130,7 @@ export function PhotoBubble({
           </div>
         )}
         <div
-          className="flex items-center gap-1.5 font-mono text-[10px] text-text-mute"
+          className="flex items-center gap-1.5 font-mono text-[11px] text-text-mute"
           style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
         >
           <span className="text-text-3">{senderName}</span>
@@ -144,7 +144,7 @@ export function PhotoBubble({
           <span className="inline-flex items-center gap-1 text-text-3">
             <ImageIcon
               aria-hidden
-              className="h-2.5 w-2.5"
+              className="h-3.5 w-3.5"
               strokeWidth={1.5}
             />
             {photoLabel}

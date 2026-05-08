@@ -30,7 +30,7 @@ interface InboxAvatarProps {
 }
 
 const SIZE_CLASS: Record<InboxAvatarSize, string> = {
-  26: "h-[26px] w-[26px] text-[10.5px]",
+  26: "h-[26px] w-[26px] text-[11px]",
   32: "h-8 w-8 text-[11px]",
   36: "h-9 w-9 text-[12px]",
 };

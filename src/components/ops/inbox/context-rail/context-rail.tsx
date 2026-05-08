@@ -106,12 +106,12 @@ function InnerContextRail({
         <div className="flex items-start gap-3">
           <InboxAvatar name={client.name} size={36} />
           <div className="min-w-0 flex-1">
-            <h2 className="truncate font-mohave text-[14.5px] font-medium tracking-[-0.005em] text-text">
+            <h2 className="truncate font-mohave text-[14px] font-medium tracking-[-0.005em] text-text">
               {client.name}
             </h2>
             {client.subtitle && (
               <p
-                className="mt-0.5 truncate font-mono text-[10.5px] text-text-3"
+                className="mt-0.5 truncate font-mono text-[11px] text-text-3"
                 style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
               >
                 {client.subtitle}
@@ -139,12 +139,12 @@ function InnerContextRail({
               <li>
                 <a
                   href={`tel:${client.phone}`}
-                  className="inline-flex items-center gap-2 font-mono text-[10.5px] text-text-2 transition-colors hover:text-text"
+                  className="inline-flex items-center gap-2 font-mono text-[11px] text-text-2 transition-colors hover:text-text"
                   style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
                 >
                   <Phone
                     aria-hidden
-                    className="h-3 w-3 shrink-0 text-text-mute"
+                    className="h-3.5 w-3.5 shrink-0 text-text-mute"
                     strokeWidth={1.5}
                   />
                   <span>{client.phone}</span>
@@ -155,11 +155,11 @@ function InnerContextRail({
               <li>
                 <a
                   href={`mailto:${client.email}`}
-                  className="inline-flex items-center gap-2 font-mono text-[10.5px] text-text-2 transition-colors hover:text-text"
+                  className="inline-flex items-center gap-2 font-mono text-[11px] text-text-2 transition-colors hover:text-text"
                 >
                   <Mail
                     aria-hidden
-                    className="h-3 w-3 shrink-0 text-text-mute"
+                    className="h-3.5 w-3.5 shrink-0 text-text-mute"
                     strokeWidth={1.5}
                   />
                   <span className="truncate">{client.email}</span>
@@ -169,12 +169,12 @@ function InnerContextRail({
             {client.address && (
               <li>
                 <span
-                  className="inline-flex items-center gap-2 font-mono text-[10.5px] text-text-2"
+                  className="inline-flex items-center gap-2 font-mono text-[11px] text-text-2"
                   style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
                 >
                   <MapPin
                     aria-hidden
-                    className="h-3 w-3 shrink-0 text-text-mute"
+                    className="h-3.5 w-3.5 shrink-0 text-text-mute"
                     strokeWidth={1.5}
                   />
                   <span className="truncate">{client.address}</span>

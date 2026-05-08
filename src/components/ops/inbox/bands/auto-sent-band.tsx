@@ -52,7 +52,7 @@ export function AutoSentBand({
         strokeWidth={1.5}
       />
       <div className="flex min-w-0 flex-1 flex-col">
-        <span className="font-mohave text-[12.5px] tracking-[-0.003em] text-text">
+        <span className="font-mohave text-[12px] tracking-[-0.003em] text-text">
           <strong className="font-semibold">
             {t("bands.autoSent.title", "Claude replied for you")}
           </strong>{" "}
@@ -66,7 +66,7 @@ export function AutoSentBand({
         </span>
         {detail && (
           <span
-            className="mt-0.5 font-mono text-[10px] tracking-[0.18em] text-text-3"
+            className="mt-0.5 font-mono text-[11px] tracking-[0.18em] text-text-3"
             style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
           >
             {detail}
@@ -76,7 +76,7 @@ export function AutoSentBand({
       <button
         type="button"
         onClick={onTakeOver}
-        className="inline-flex h-[26px] shrink-0 items-center rounded-md border border-line-hi bg-transparent px-3 font-mohave text-[11.5px] text-text-2 hover:bg-inbox-elev hover:text-text"
+        className="inline-flex h-[26px] shrink-0 items-center rounded-[2.5px] border border-line-hi bg-transparent px-3 font-mohave text-[12px] text-text-2 hover:bg-inbox-elev hover:text-text"
       >
         {t("bands.autoSent.takeOver", "Take over")}
       </button>

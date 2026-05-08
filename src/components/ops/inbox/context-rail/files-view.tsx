@@ -81,7 +81,7 @@ export function FilesView({
     <div className={cn("flex flex-col gap-4", className)}>
       {photos.length > 0 && (
         <section className="flex flex-col gap-2">
-          <h4 className="font-cakemono text-[9.5px] font-light uppercase leading-none tracking-[0.18em] text-text-3">
+          <h4 className="font-cakemono text-[11px] font-light uppercase leading-none tracking-[0.18em] text-text-3">
             {t("files.imagesLabel", "Images · {count}").replace(
               "{count}",
               String(photos.length),
@@ -106,7 +106,7 @@ export function FilesView({
                   className="absolute inset-0 h-full w-full object-cover"
                 />
                 <span
-                  className="absolute inset-x-1.5 bottom-1.5 truncate font-mono text-[8.5px] tracking-[0.3em] text-white/[0.85]"
+                  className="absolute inset-x-1.5 bottom-1.5 truncate font-mono text-[11px] tracking-[0.3em] text-white/[0.85]"
                   style={{
                     textShadow: "0 1px 2px rgba(0,0,0,0.6)",
                     fontFeatureSettings: '"tnum" 1, "zero" 1',
@@ -122,7 +122,7 @@ export function FilesView({
 
       {documents.length > 0 && (
         <section className="flex flex-col gap-2">
-          <h4 className="font-cakemono text-[9.5px] font-light uppercase leading-none tracking-[0.18em] text-text-3">
+          <h4 className="font-cakemono text-[11px] font-light uppercase leading-none tracking-[0.18em] text-text-3">
             {t("files.documentsLabel", "Documents · {count}").replace(
               "{count}",
               String(documents.length),
@@ -142,7 +142,7 @@ export function FilesView({
                   <button
                     type="button"
                     onClick={() => onFileOpen?.(doc)}
-                    className="flex w-full items-center gap-2.5 rounded-md border border-line bg-inbox-panel px-2.5 py-2 text-left hover:bg-inbox-elev"
+                    className="flex w-full items-center gap-2.5 rounded-[2.5px] border border-line bg-inbox-panel px-2.5 py-2 text-left hover:bg-inbox-elev"
                   >
                     <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-chip bg-inbox-bg-deep">
                       <Icon
@@ -156,13 +156,13 @@ export function FilesView({
                         {doc.filename}
                       </span>
                       {doc.status && (
-                        <span className="font-cakemono text-[9px] font-light uppercase leading-none tracking-[0.18em] text-text-3">
+                        <span className="font-cakemono text-[11px] font-light uppercase leading-none tracking-[0.18em] text-text-3">
                           {doc.status}
                         </span>
                       )}
                     </span>
                     <span
-                      className="shrink-0 font-mono text-[9.5px] tabular-nums uppercase tracking-[0.18em] text-text-mute"
+                      className="shrink-0 font-mono text-[11px] tabular-nums uppercase tracking-[0.18em] text-text-mute"
                       style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
                     >
                       {meta}

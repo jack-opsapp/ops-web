@@ -49,12 +49,12 @@ export function BallYoursBand({
         aria-hidden
         className="h-1.5 w-1.5 shrink-0 rounded-full bg-ops-accent"
       />
-      <span className="min-w-0 flex-1 truncate font-mohave text-[12.5px] tracking-[-0.003em] text-text">
+      <span className="min-w-0 flex-1 truncate font-mohave text-[12px] tracking-[-0.003em] text-text">
         {label}
       </span>
       {lastReplyLabel && (
         <span
-          className="shrink-0 font-mono text-[10.5px] tracking-[0.2em] text-text-3"
+          className="shrink-0 font-mono text-[11px] tracking-[0.2em] text-text-3"
           style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
         >
           {lastReplyLabel}
@@ -63,7 +63,7 @@ export function BallYoursBand({
       <button
         type="button"
         onClick={onReply}
-        className="inline-flex h-[26px] shrink-0 items-center rounded-md border border-ops-accent bg-transparent px-3 font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-ops-accent hover:bg-ops-accent hover:text-black"
+        className="inline-flex h-[26px] shrink-0 items-center rounded-[2.5px] border border-ops-accent bg-transparent px-3 font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-ops-accent hover:bg-ops-accent hover:text-black"
       >
         {t("bands.ballYours.reply", "Reply")}
       </button>

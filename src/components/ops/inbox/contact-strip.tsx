@@ -11,7 +11,7 @@ interface ContactStripProps {
 }
 
 const linkClass =
-  "inline-flex items-center gap-1.5 font-mono text-[10.5px] uppercase tracking-[0.2em] text-text-3 hover:text-text-2 transition-colors";
+  "inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.2em] text-text-3 hover:text-text-2 transition-colors";
 
 export function ContactStrip({
   phone,
@@ -29,19 +29,19 @@ export function ContactStrip({
     >
       {phone && (
         <a className={linkClass} href={`tel:${phone}`}>
-          <Phone aria-hidden className="h-[11px] w-[11px] text-text-mute" strokeWidth={1.5} />
+          <Phone aria-hidden className="h-[14px] w-[14px] text-text-mute" strokeWidth={1.5} />
           {phone}
         </a>
       )}
       {email && (
         <a className={linkClass} href={`mailto:${email}`}>
-          <Mail aria-hidden className="h-[11px] w-[11px] text-text-mute" strokeWidth={1.5} />
+          <Mail aria-hidden className="h-[14px] w-[14px] text-text-mute" strokeWidth={1.5} />
           {email}
         </a>
       )}
       {address && (
         <span className={linkClass}>
-          <Building2 aria-hidden className="h-[11px] w-[11px] text-text-mute" strokeWidth={1.5} />
+          <Building2 aria-hidden className="h-[14px] w-[14px] text-text-mute" strokeWidth={1.5} />
           {address}
         </span>
       )}

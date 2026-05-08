@@ -76,7 +76,7 @@ export function MessageBubble({
         <div
           data-testid="message-bubble"
           className={cn(
-            "rounded-panel border px-3.5 py-2.5 font-mohave text-[13.5px] leading-[1.5] tracking-[-0.003em] text-pretty",
+            "rounded-panel border px-3.5 py-2.5 font-mohave text-[13px] leading-[1.5] tracking-[-0.003em] text-pretty",
             isAi
               ? "border-agent-border-hi bg-agent/[0.10] text-agent-text"
               : isOutbound
@@ -88,12 +88,12 @@ export function MessageBubble({
           <p className="whitespace-pre-wrap break-words">{body}</p>
         </div>
         <div
-          className="flex items-center gap-1.5 font-mono text-[10px] text-text-mute"
+          className="flex items-center gap-1.5 font-mono text-[11px] text-text-mute"
           style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
         >
           {isAi ? (
             <span className="inline-flex items-center gap-1 text-agent-text-2">
-              <Sparkles aria-hidden className="h-2.5 w-2.5" strokeWidth={1.5} />
+              <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={1.5} />
               {t("messages.sentByClaude", "Claude")}
             </span>
           ) : (
@@ -113,7 +113,7 @@ export function MessageBubble({
               <span className="inline-flex items-center gap-1 text-text-3">
                 <Paperclip
                   aria-hidden
-                  className="h-2.5 w-2.5"
+                  className="h-3.5 w-3.5"
                   strokeWidth={1.5}
                 />
                 {attachmentName}

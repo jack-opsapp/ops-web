@@ -228,7 +228,7 @@ export function ArchiveConfirmModal({
     <Dialog open={open} onOpenChange={close}>
       <DialogContent className="max-w-[560px] p-0 max-h-[85vh] overflow-hidden flex flex-col">
         <div className="px-4 pt-4 pb-3 border-b border-line">
-          <p className="font-mono text-[10px] uppercase tracking-[0.20em] text-text-mute">
+          <p className="font-mono text-[11px] uppercase tracking-[0.20em] text-text-mute">
             {headerLabel}
           </p>
           <DialogTitle className="font-cakemono font-light uppercase text-[20px] tracking-[0.10em] text-text mt-1">
@@ -242,7 +242,7 @@ export function ArchiveConfirmModal({
         <div className="overflow-y-auto flex-1">
           {/* Locked current-thread row — communicates "this is what triggered the prompt" */}
           <div className="px-3 pt-3">
-            <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute mb-1.5 px-1">
+            <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-mute mb-1.5 px-1">
               {"// "}
               {t("archiveModal.section.thisThread", "THIS THREAD")}
             </p>
@@ -254,11 +254,11 @@ export function ArchiveConfirmModal({
             >
               <div
                 className={cn(
-                  "w-[28px] h-[28px] rounded-md flex items-center justify-center shrink-0",
+                  "w-[28px] h-[28px] rounded-[2.5px] flex items-center justify-center shrink-0",
                   "border border-line-hi bg-inbox-elev/80",
                 )}
               >
-                <Lock className="w-[12px] h-[12px] text-text-2" strokeWidth={1.5} />
+                <Lock className="w-[14px] h-[14px] text-text-2" strokeWidth={1.5} />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-mohave text-[13px] text-text truncate">
@@ -272,7 +272,7 @@ export function ArchiveConfirmModal({
                   )}
                 </p>
               </div>
-              <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-text-mute shrink-0 mt-1">
+              <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-text-mute shrink-0 mt-1">
                 {t("archiveModal.always", "Always")}
               </span>
             </div>
@@ -281,7 +281,7 @@ export function ArchiveConfirmModal({
           {/* Sibling threads — only rendered when present */}
           {hasSiblings && (
             <div className="px-3 pt-3">
-              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute mb-1.5 px-1">
+              <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-mute mb-1.5 px-1">
                 {"// "}
                 {t("archiveModal.section.siblings", "OTHER THREADS ON THIS LEAD")}
               </p>
@@ -303,7 +303,7 @@ export function ArchiveConfirmModal({
                     >
                       <div
                         className={cn(
-                          "w-[28px] h-[28px] rounded-md flex items-center justify-center shrink-0",
+                          "w-[28px] h-[28px] rounded-[2.5px] flex items-center justify-center shrink-0",
                           "border",
                           checked
                             ? "border-ops-accent bg-ops-accent"
@@ -313,7 +313,7 @@ export function ArchiveConfirmModal({
                         {checked ? (
                           <Check className="w-[14px] h-[14px] text-black" strokeWidth={1.5} />
                         ) : (
-                          <Mail className="w-[12px] h-[12px] text-text-2" strokeWidth={1.5} />
+                          <Mail className="w-[14px] h-[14px] text-text-2" strokeWidth={1.5} />
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -330,7 +330,7 @@ export function ArchiveConfirmModal({
                           {sib.latestSnippet ? ` · ${sib.latestSnippet}` : ""}
                         </p>
                       </div>
-                      <span className="font-mono text-[10px] tabular-nums uppercase tracking-[0.14em] text-text-mute shrink-0 mt-1">
+                      <span className="font-mono text-[11px] tabular-nums uppercase tracking-[0.14em] text-text-mute shrink-0 mt-1">
                         {formatRelative(sib.lastMessageAt)}
                       </span>
                     </button>
@@ -342,7 +342,7 @@ export function ArchiveConfirmModal({
 
           {/* Lead checkbox — distinct visual treatment to call out it's a different entity */}
           <div className="px-3 py-3">
-            <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute mb-1.5 px-1">
+            <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-mute mb-1.5 px-1">
               {"// "}
               {t("archiveModal.section.lead", "PIPELINE LEAD")}
             </p>
@@ -359,7 +359,7 @@ export function ArchiveConfirmModal({
             >
               <div
                 className={cn(
-                  "w-[28px] h-[28px] rounded-md flex items-center justify-center shrink-0",
+                  "w-[28px] h-[28px] rounded-[2.5px] flex items-center justify-center shrink-0",
                   "border",
                   archiveLead
                     ? "border-ops-accent bg-ops-accent"
@@ -369,7 +369,7 @@ export function ArchiveConfirmModal({
                 {archiveLead ? (
                   <Check className="w-[14px] h-[14px] text-black" strokeWidth={1.5} />
                 ) : (
-                  <Briefcase className="w-[12px] h-[12px] text-text-2" strokeWidth={1.5} />
+                  <Briefcase className="w-[14px] h-[14px] text-text-2" strokeWidth={1.5} />
                 )}
               </div>
               <div className="flex-1 min-w-0">
@@ -407,7 +407,7 @@ export function ArchiveConfirmModal({
         )}
 
         <div className="flex justify-between items-center gap-1.5 px-4 py-3 border-t border-line">
-          <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
+          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-mute">
             {totalCount === 1
               ? t("archiveModal.itemCount_one", "[1 item to archive]")
               : t(
@@ -421,7 +421,7 @@ export function ArchiveConfirmModal({
               onClick={() => close(false)}
               disabled={submitting}
               className={cn(
-                "px-3 py-1.5 rounded-md border border-line",
+                "px-3 py-1.5 rounded-[2.5px] border border-line",
                 "font-cakemono font-light uppercase text-[11px] tracking-[0.14em] text-text-2",
                 "hover:bg-inbox-elev/40 transition-colors duration-150",
                 "disabled:opacity-50 disabled:cursor-not-allowed",
@@ -434,7 +434,7 @@ export function ArchiveConfirmModal({
               onClick={submit}
               disabled={submitting}
               className={cn(
-                "px-3 py-1.5 rounded-md",
+                "px-3 py-1.5 rounded-[2.5px]",
                 "bg-ops-accent text-black",
                 "font-cakemono font-light uppercase text-[11px] tracking-[0.14em]",
                 "hover:bg-ops-accent/90 transition-colors duration-150",

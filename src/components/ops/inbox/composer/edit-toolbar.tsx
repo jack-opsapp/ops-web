@@ -36,7 +36,7 @@ const SOURCE_LABEL: Record<DraftSource, string> = {
 };
 
 const ghostBtn =
-  "font-mohave text-[11px] text-text-2 hover:text-text px-1 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent rounded-[2px]";
+  "font-mohave text-[11px] text-text-2 hover:text-text px-1 focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black rounded-[2px]";
 
 export function EditToolbar({
   added,
@@ -56,9 +56,9 @@ export function EditToolbar({
         className,
       )}
     >
-      <Pencil aria-hidden className="h-3 w-3 text-text-3" strokeWidth={1.5} />
+      <Pencil aria-hidden className="h-3.5 w-3.5 text-text-3" strokeWidth={1.5} />
       <span
-        className="font-mono text-[10.5px] tracking-[0.18em] text-text-3"
+        className="font-mono text-[11px] tracking-[0.18em] text-text-3"
         style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
       >
         {t("editToolbar.label", "edited from")}{" "}
@@ -67,17 +67,17 @@ export function EditToolbar({
         </span>
         {t("editToolbar.labelTail", "'s draft")}
       </span>
-      <span aria-hidden className="font-mono text-[10px] text-text-mute">
+      <span aria-hidden className="font-mono text-[11px] text-text-mute">
         ·
       </span>
       <span
-        className="font-mono text-[10px] tabular-nums tracking-[0.18em] text-olive"
+        className="font-mono text-[11px] tabular-nums tracking-[0.18em] text-olive"
         style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
       >
         +{added}
       </span>
       <span
-        className="font-mono text-[10px] tabular-nums tracking-[0.18em] text-rose"
+        className="font-mono text-[11px] tabular-nums tracking-[0.18em] text-rose"
         style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
       >
         −{removed}
@@ -86,13 +86,13 @@ export function EditToolbar({
         <button type="button" onClick={onSeeChanges} className={ghostBtn}>
           {t("editToolbar.seeChanges", "See changes")}
         </button>
-        <span aria-hidden className="font-mono text-[10px] text-text-mute">
+        <span aria-hidden className="font-mono text-[11px] text-text-mute">
           ·
         </span>
         <button type="button" onClick={onRevert} className={ghostBtn}>
           {t("editToolbar.revert", "Revert")}
         </button>
-        <span aria-hidden className="font-mono text-[10px] text-text-mute">
+        <span aria-hidden className="font-mono text-[11px] text-text-mute">
           ·
         </span>
         <button
@@ -103,7 +103,7 @@ export function EditToolbar({
             "inline-flex items-center gap-1 text-agent-hi hover:text-agent-text",
           )}
         >
-          <Sparkles aria-hidden className="h-2.5 w-2.5" strokeWidth={1.5} />
+          <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={1.5} />
           {t("editToolbar.regenerate", "Regenerate")}
         </button>
       </div>

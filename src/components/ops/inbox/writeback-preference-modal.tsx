@@ -129,7 +129,7 @@ export function WritebackPreferenceModal({
     <Dialog open={open} onOpenChange={close}>
       <DialogContent className="max-w-[520px] p-0">
         <div className="px-4 pt-4 pb-3 border-b border-line">
-          <p className="font-mono text-[10px] uppercase tracking-[0.20em] text-text-mute">
+          <p className="font-mono text-[11px] uppercase tracking-[0.20em] text-text-mute">
             {"// "}
             {t("writeback.prefix", "First archive")}
           </p>
@@ -163,7 +163,7 @@ export function WritebackPreferenceModal({
               >
                 <div
                   className={cn(
-                    "w-[28px] h-[28px] rounded-md flex items-center justify-center shrink-0",
+                    "w-[28px] h-[28px] rounded-[2.5px] flex items-center justify-center shrink-0",
                     "border",
                     isActive
                       ? "border-line-hi bg-inbox-elev/80"
@@ -188,7 +188,7 @@ export function WritebackPreferenceModal({
                     >
                       {t(opt.labelKey, opt.labelDefault)}
                     </p>
-                    <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-text-mute">
+                    <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-text-mute">
                       {t(opt.captionKey, opt.captionDefault)}
                     </span>
                   </div>
@@ -219,7 +219,7 @@ export function WritebackPreferenceModal({
             onClick={() => close(false)}
             disabled={submitting}
             className={cn(
-              "px-3 py-1.5 rounded-md border border-line",
+              "px-3 py-1.5 rounded-[2.5px] border border-line",
               "font-cakemono font-light uppercase text-[11px] tracking-[0.14em] text-text-2",
               "hover:bg-inbox-elev/40 transition-colors duration-150",
               "disabled:opacity-50 disabled:cursor-not-allowed",
@@ -232,7 +232,7 @@ export function WritebackPreferenceModal({
             onClick={confirm}
             disabled={submitting || !connectionId}
             className={cn(
-              "px-3 py-1.5 rounded-md",
+              "px-3 py-1.5 rounded-[2.5px]",
               "bg-ops-accent text-black",
               "font-cakemono font-light uppercase text-[11px] tracking-[0.14em]",
               "hover:bg-ops-accent/90 transition-colors duration-150",

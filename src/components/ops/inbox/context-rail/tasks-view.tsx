@@ -37,7 +37,7 @@ export function TasksView({ tasks, onToggle, className }: TasksViewProps) {
     return (
       <div
         className={cn(
-          "px-1 py-6 font-mono text-[10.5px] text-text-3",
+          "px-1 py-6 font-mono text-[11px] text-text-3",
           className,
         )}
       >
@@ -86,7 +86,7 @@ export function TasksView({ tasks, onToggle, className }: TasksViewProps) {
               <span className="min-w-0 flex-1">
                 <span
                   className={cn(
-                    "block truncate font-mohave text-[12.5px] tracking-[-0.003em]",
+                    "block truncate font-mohave text-[12px] tracking-[-0.003em]",
                     checked
                       ? "text-text-3 line-through"
                       : active
@@ -99,7 +99,7 @@ export function TasksView({ tasks, onToggle, className }: TasksViewProps) {
               </span>
               <span
                 className={cn(
-                  "shrink-0 font-mono text-[9.5px]",
+                  "shrink-0 font-mono text-[11px]",
                   task.overdue
                     ? "text-rose"
                     : task.assignee.toLowerCase() === "you"

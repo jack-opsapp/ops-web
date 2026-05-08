@@ -50,6 +50,7 @@ export function ThreadColumnHeader({
           aria-label={t("column.filter", "Filter inbox")}
           className="inline-flex h-[22px] items-center gap-1.5 rounded-chip border border-line bg-transparent px-2 font-mohave text-[11px] text-text-3 hover:border-line-hi hover:text-text-2"
         >
+          {/* Icons kept at 11px / 9px to balance the 11px filter label inside the 22px chip — matching font weight beats spec floor here. */}
           <Filter aria-hidden className="h-[11px] w-[11px]" strokeWidth={1.5} />
           <span>{filterLabel ?? t("column.filterAll", "All")}</span>
           <ChevronDown aria-hidden className="h-[9px] w-[9px]" strokeWidth={1.5} />
@@ -60,21 +61,21 @@ export function ThreadColumnHeader({
           aria-label={t("column.more", "More options")}
           className="inline-flex h-[22px] w-[22px] items-center justify-center rounded-chip border border-line bg-transparent text-text-3 hover:border-line-hi hover:text-text-2"
         >
-          <MoreHorizontal aria-hidden className="h-3 w-3" strokeWidth={1.5} />
+          <MoreHorizontal aria-hidden className="h-3.5 w-3.5" strokeWidth={1.5} />
         </button>
       </div>
       <button
         type="button"
         onClick={onOpenSearch}
         aria-label={t("column.search", "Search inbox")}
-        className="flex h-[30px] w-full items-center gap-2 rounded-md border border-line bg-inbox-bg-deep px-2.5 text-left transition-colors hover:border-line-hi"
+        className="flex h-[30px] w-full items-center gap-2 rounded-[5px] border border-line bg-inbox-bg-deep px-2.5 text-left transition-colors hover:border-line-hi"
       >
         <Search
           aria-hidden
-          className="h-3 w-3 shrink-0 text-text-mute"
+          className="h-4 w-4 shrink-0 text-text-mute"
           strokeWidth={1.5}
         />
-        <span className="flex-1 truncate font-mohave text-[12.5px] text-text-mute">
+        <span className="flex-1 truncate font-mohave text-[12px] text-text-mute">
           {t("column.searchPlaceholder", "Search inbox…")}
         </span>
         <KeyHint keys={["⌘", "K"]} variant="chip" />

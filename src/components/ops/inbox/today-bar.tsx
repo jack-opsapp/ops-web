@@ -76,11 +76,11 @@ export function TodayBar({
         )}
       >
         <div className="mb-1.5 flex items-baseline gap-2">
-          <span className="font-cakemono text-[10.5px] font-light uppercase leading-none tracking-[0.18em] text-text-2">
+          <span className="font-cakemono text-[11px] font-light uppercase leading-none tracking-[0.18em] text-text-2">
             {t("todayBar.today", "TODAY")}
           </span>
         </div>
-        <div className="flex items-center gap-2.5 rounded-md border border-olive/30 bg-olive/[0.06] px-3 py-2.5">
+        <div className="flex items-center gap-2.5 rounded-[2.5px] border border-olive/30 bg-olive/[0.06] px-3 py-2.5">
           <Check
             aria-hidden
             className="h-3.5 w-3.5 shrink-0 text-olive"
@@ -91,7 +91,7 @@ export function TodayBar({
               {t("todayBar.allCaughtUp", "All caught up")}
             </div>
             <div
-              className="mt-0.5 font-mono text-[10px] text-text-3"
+              className="mt-0.5 font-mono text-[11px] text-text-3"
               style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
             >
               {caughtUpDetail ?? t("todayBar.allCaughtUpDetail", "Nothing waiting on you")}
@@ -113,14 +113,14 @@ export function TodayBar({
       )}
     >
       <div className="mb-2 flex items-baseline gap-2">
-        <span className="font-cakemono text-[10.5px] font-light uppercase leading-none tracking-[0.18em] text-text-2">
+        <span className="font-cakemono text-[11px] font-light uppercase leading-none tracking-[0.18em] text-text-2">
           {t("todayBar.yourMove", "YOUR MOVE")}
         </span>
-        <span className="font-mono text-[10px] text-text-mute">
+        <span className="font-mono text-[11px] text-text-mute">
           · {t("todayBar.today", "today").toLowerCase()}
         </span>
         <span
-          className="ml-auto font-mono text-[10px] text-text-3"
+          className="ml-auto font-mono text-[11px] text-text-3"
           style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
         >
           {items.length === 1
@@ -139,7 +139,7 @@ export function TodayBar({
               key={c.id}
               data-testid="today-bar-commitment"
               className={cn(
-                "flex w-full items-center gap-2.5 rounded-md border pr-1.5 transition-colors",
+                "flex w-full items-center gap-2.5 rounded-[2.5px] border pr-1.5 transition-colors",
                 c.urgent
                   ? "border-rose/30 bg-rose/[0.08] hover:bg-rose/[0.12]"
                   : "border-line-hi bg-inbox-elev hover:bg-inbox-elev/80",
@@ -148,7 +148,7 @@ export function TodayBar({
             >
               <Link
                 href={`/inbox/${c.threadId}`}
-                className="flex min-w-0 flex-1 items-center gap-2.5 rounded-md py-2 pl-2.5 text-left"
+                className="flex min-w-0 flex-1 items-center gap-2.5 rounded-[2.5px] py-2 pl-2.5 text-left"
               >
                 <span
                   aria-hidden
@@ -158,12 +158,12 @@ export function TodayBar({
                   )}
                 />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate font-mohave text-[12.5px] tracking-[-0.003em] text-text">
+                  <span className="block truncate font-mohave text-[12px] tracking-[-0.003em] text-text">
                     {c.text}
                   </span>
                   <span
                     className={cn(
-                      "mt-0.5 block font-mono text-[10px]",
+                      "mt-0.5 block font-mono text-[11px]",
                       c.urgent ? "text-rose" : "text-text-3",
                     )}
                     style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
@@ -184,21 +184,21 @@ export function TodayBar({
                   )}
                   title={t("todayBar.resolve", "Mark commitment resolved")}
                   className={cn(
-                    "flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-md text-text-3 transition-colors",
+                    "flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-[2.5px] text-text-3 transition-colors",
                     "hover:bg-olive/[0.18] hover:text-olive disabled:cursor-not-allowed",
                   )}
                 >
-                  <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={1.5} />
+                  <Check aria-hidden className="h-4 w-4" strokeWidth={1.5} />
                 </button>
               )}
               <Link
                 href={`/inbox/${c.threadId}`}
                 aria-label={t("todayBar.openThread", "Open thread")}
-                className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-md text-text-3 hover:text-text-2"
+                className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-[2.5px] text-text-3 hover:text-text-2"
               >
                 <ArrowRight
                   aria-hidden
-                  className="h-[11px] w-[11px]"
+                  className="h-3.5 w-3.5"
                   strokeWidth={1.5}
                 />
               </Link>

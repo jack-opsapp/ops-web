@@ -209,7 +209,7 @@ export function SnoozePicker({
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
         <div className="px-3 pt-2.5 pb-1.5 border-b border-line">
-          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-mute">
+          <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-text-mute">
             {"// "}
             {t("snooze.label", "Snooze")}
           </p>
@@ -232,16 +232,16 @@ export function SnoozePicker({
                   "hover:bg-inbox-elev/40 transition-colors duration-150",
                 )}
               >
-                <Clock className="w-[12px] h-[12px] text-text-mute shrink-0" strokeWidth={1.5} />
+                <Clock className="w-[14px] h-[14px] text-text-mute shrink-0" strokeWidth={1.5} />
                 <div className="flex-1 min-w-0">
                   <p className="font-cakemono font-light uppercase text-[12px] tracking-[0.14em] text-text-2">
                     {t(preset.labelKey, preset.labelDefault)}
                   </p>
-                  <p className="font-mono text-[10px] text-text-mute mt-[1px]">
+                  <p className="font-mono text-[11px] text-text-mute mt-[1px]">
                     {t(preset.sublabelKey, preset.sublabelDefault)}
                   </p>
                 </div>
-                <span className="font-mono text-[10px] text-text-mute tabular-nums shrink-0">
+                <span className="font-mono text-[11px] text-text-mute tabular-nums shrink-0">
                   {formatPresetValue(computed)}
                 </span>
               </button>
@@ -252,9 +252,9 @@ export function SnoozePicker({
         <div className="px-3 pt-2 pb-2.5 border-t border-line">
           <label
             htmlFor={`snooze-custom-${threadId}`}
-            className="flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute mb-1"
+            className="flex items-center gap-1 font-mono text-[11px] uppercase tracking-[0.16em] text-text-mute mb-1"
           >
-            <CalendarIcon className="w-[10px] h-[10px]" strokeWidth={1.5} />
+            <CalendarIcon className="w-[14px] h-[14px]" strokeWidth={1.5} />
             {t("snooze.custom", "Pick date & time")}
           </label>
           <div className="flex items-stretch gap-1">
@@ -265,7 +265,7 @@ export function SnoozePicker({
               min={toLocalDatetimeInput(new Date(Date.now() + 60_000))}
               onChange={(e) => setCustomValue(e.target.value)}
               className={cn(
-                "flex-1 rounded-md px-2 py-1.5",
+                "flex-1 rounded-[2.5px] px-2 py-1.5",
                 "bg-inbox-bg-deep border border-line",
                 "font-mono text-[11px] text-text",
                 "focus:outline-none focus:border-line-hi",
@@ -275,7 +275,7 @@ export function SnoozePicker({
               type="button"
               onClick={onCustomCommit}
               className={cn(
-                "px-2.5 py-1.5 rounded-md border border-line-hi",
+                "px-2.5 py-1.5 rounded-[2.5px] border border-line-hi",
                 "bg-inbox-elev/80 hover:bg-inbox-elev",
                 "font-cakemono font-light uppercase text-[11px] tracking-[0.14em] text-text",
                 "transition-colors duration-150",

@@ -481,7 +481,7 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
       {composerError && (
         <p
           role="alert"
-          className="px-[18px] pb-2 font-mono text-[10px] text-rose"
+          className="px-[18px] pb-2 font-mono text-[11px] text-rose"
           style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
         >
           {composerError}
@@ -841,7 +841,7 @@ function toFileItem(d: ProjectDocument): FileItem {
 
 function EmptyState({ label }: { label: string }) {
   return (
-    <div className="flex h-full items-center justify-center px-6 py-12 font-mono text-[10.5px] text-text-3">
+    <div className="flex h-full items-center justify-center px-6 py-12 font-mono text-[11px] text-text-3">
       {label}
     </div>
   );

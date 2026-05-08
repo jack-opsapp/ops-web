@@ -111,7 +111,7 @@ export function ThreadRow({ thread, selected, now, onSelect }: ThreadRowProps) {
       <div className="flex min-w-0 items-baseline gap-2">
         <span
           className={cn(
-            "min-w-0 flex-1 truncate font-mohave text-[13.5px] tracking-[-0.003em]",
+            "min-w-0 flex-1 truncate font-mohave text-[13px] tracking-[-0.003em]",
             isUnread ? "font-semibold text-text" : "font-normal text-text-2",
           )}
         >
@@ -119,7 +119,7 @@ export function ThreadRow({ thread, selected, now, onSelect }: ThreadRowProps) {
         </span>
         {thread.messageCount > 1 && (
           <span
-            className="shrink-0 font-mono text-[10px] text-text-mute"
+            className="shrink-0 font-mono text-[11px] text-text-mute"
             style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
           >
             · {thread.messageCount}
@@ -127,7 +127,7 @@ export function ThreadRow({ thread, selected, now, onSelect }: ThreadRowProps) {
         )}
         <span
           className={cn(
-            "shrink-0 font-mono text-[10.5px]",
+            "shrink-0 font-mono text-[11px]",
             isUnread ? "text-text-3" : "text-text-mute",
           )}
           style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
@@ -149,12 +149,12 @@ export function ThreadRow({ thread, selected, now, onSelect }: ThreadRowProps) {
       {/* Snippet line with optional draft prefix */}
       <div className="mt-0.5 truncate font-mohave text-[12px] leading-[1.4] text-text-3">
         {isAiDraft && (
-          <span className="mr-1.5 font-cakemono text-[9.5px] font-light uppercase tracking-[0.16em] text-agent">
+          <span className="mr-1.5 font-cakemono text-[11px] font-light uppercase tracking-[0.16em] text-agent">
             {t("row.aiDraftPrefix", "AI DRAFT ·")}
           </span>
         )}
         {!isAiDraft && hasUserDraft && (
-          <span className="mr-1.5 font-cakemono text-[9.5px] font-light uppercase tracking-[0.16em] text-text-3">
+          <span className="mr-1.5 font-cakemono text-[11px] font-light uppercase tracking-[0.16em] text-text-3">
             {t("row.draftPrefix", "DRAFT ·")}
           </span>
         )}
@@ -167,7 +167,7 @@ export function ThreadRow({ thread, selected, now, onSelect }: ThreadRowProps) {
           {thread.labels.includes("URGENT") && (
             <span
               data-testid="thread-row-urgent"
-              className="inline-flex items-center gap-1 font-cakemono text-[9px] font-light uppercase tracking-[0.16em] text-rose"
+              className="inline-flex items-center gap-1 font-cakemono text-[11px] font-light uppercase tracking-[0.16em] text-rose"
             >
               <span
                 aria-hidden
@@ -180,28 +180,28 @@ export function ThreadRow({ thread, selected, now, onSelect }: ThreadRowProps) {
             {thread.labels.includes("FROM_NEW_SENDER") && (
               <UserPlus
                 aria-hidden
-                className="h-[11px] w-[11px]"
+                className="h-[14px] w-[14px]"
                 strokeWidth={1.5}
               />
             )}
             {thread.labels.includes("HAS_ATTACHMENT") && (
               <Paperclip
                 aria-hidden
-                className="h-[11px] w-[11px]"
+                className="h-[14px] w-[14px]"
                 strokeWidth={1.5}
               />
             )}
             {thread.labels.includes("HAS_QUOTE") && (
               <DollarSign
                 aria-hidden
-                className="h-[11px] w-[11px]"
+                className="h-[14px] w-[14px]"
                 strokeWidth={1.5}
               />
             )}
             {thread.labels.includes("HAS_INVOICE") && (
               <Receipt
                 aria-hidden
-                className="h-[11px] w-[11px]"
+                className="h-[14px] w-[14px]"
                 strokeWidth={1.5}
               />
             )}

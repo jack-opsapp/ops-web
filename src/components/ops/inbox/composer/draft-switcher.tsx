@@ -82,10 +82,10 @@ export function DraftSwitcher({
         className,
       )}
     >
-      <span className="mr-1 font-cakemono text-[9.5px] font-light uppercase leading-none tracking-[0.18em] text-text-3">
+      <span className="mr-1 font-cakemono text-[11px] font-light uppercase leading-none tracking-[0.18em] text-text-3">
         {t("drafts.label", "Drafts")}
       </span>
-      <div className="flex items-center gap-0.5 rounded-md border border-line bg-inbox-bg-deep p-0.5">
+      <div className="flex items-center gap-0.5 rounded-[5px] border border-line bg-inbox-bg-deep p-0.5">
         {drafts.map((draft) => {
           const Icon = SOURCE_ICON[draft.source];
           const isActive = draft.id === activeId;
@@ -97,7 +97,7 @@ export function DraftSwitcher({
               onClick={() => onSelect(draft.id)}
               aria-pressed={isActive}
               className={cn(
-                "inline-flex h-[22px] items-center gap-1.5 rounded-[3px] px-2 font-mohave text-[11.5px] tracking-[-0.003em] transition-colors",
+                "inline-flex h-[22px] items-center gap-1.5 rounded-[3px] px-2 font-mohave text-[12px] tracking-[-0.003em] transition-colors",
                 isActive
                   ? "border border-line-hi bg-inbox-panel text-text"
                   : "border border-transparent text-text-3 hover:bg-inbox-elev hover:text-text-2",
@@ -106,7 +106,7 @@ export function DraftSwitcher({
               <Icon
                 aria-hidden
                 className={cn(
-                  "h-2.5 w-2.5",
+                  "h-3.5 w-3.5",
                   isClaude ? "text-agent" : "text-text-3",
                 )}
                 strokeWidth={1.5}
@@ -114,7 +114,7 @@ export function DraftSwitcher({
               <span>{t(SOURCE_LABEL_KEY[draft.source], SOURCE_LABEL_FALLBACK[draft.source])}</span>
               {draft.label && (
                 <span
-                  className="font-mono text-[9.5px] text-text-mute"
+                  className="font-mono text-[11px] text-text-mute"
                   style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
                 >
                   {draft.label}
@@ -126,7 +126,7 @@ export function DraftSwitcher({
       </div>
       <div className="flex-1" />
       <span
-        className="font-mono text-[9.5px] tracking-[0.18em] text-text-mute"
+        className="font-mono text-[11px] tracking-[0.18em] text-text-mute"
         style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
       >
         {activeIndex + 1} / {total}
@@ -140,7 +140,7 @@ export function DraftSwitcher({
             aria-label={t("drafts.prev", "Previous draft")}
             className={navBtn}
           >
-            <ChevronLeft aria-hidden className="h-2.5 w-2.5" strokeWidth={1.5} />
+            <ChevronLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.5} />
           </button>
           <button
             type="button"
@@ -149,7 +149,7 @@ export function DraftSwitcher({
             aria-label={t("drafts.next", "Next draft")}
             className={navBtn}
           >
-            <ChevronRight aria-hidden className="h-2.5 w-2.5" strokeWidth={1.5} />
+            <ChevronRight aria-hidden className="h-3.5 w-3.5" strokeWidth={1.5} />
           </button>
         </div>
       )}

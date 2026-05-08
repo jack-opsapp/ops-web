@@ -125,7 +125,7 @@ export function StatusPip({
         className={cn("h-1.5 w-1.5 shrink-0 rounded-full", DOT_BG[resolvedTone])}
       />
       <span
-        className={cn("font-mono text-[9.5px]", LABEL_TEXT[resolvedTone])}
+        className={cn("font-mono text-[11px]", LABEL_TEXT[resolvedTone])}
         style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
       >
         {label}

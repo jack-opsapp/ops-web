@@ -49,7 +49,7 @@ export function TabStrip({ tabs, active, onSelect, className }: TabStripProps) {
             <span>{tab.label}</span>
             {tab.count > 0 && (
               <span
-                className="font-mono text-[10px] text-text-mute"
+                className="font-mono text-[11px] text-text-mute"
                 style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
               >
                 {tab.count}
@@ -58,7 +58,7 @@ export function TabStrip({ tabs, active, onSelect, className }: TabStripProps) {
             {isActive && (
               <span
                 aria-hidden
-                className="absolute inset-x-0 bottom-0 h-[2px] bg-ops-accent"
+                className="absolute inset-x-0 bottom-0 h-[2px] bg-text"
               />
             )}
           </button>

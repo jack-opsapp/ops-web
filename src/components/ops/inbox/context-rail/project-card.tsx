@@ -104,7 +104,7 @@ export function ProjectCard({
   const total = project.tasks.length;
 
   return (
-    <article className="overflow-hidden rounded-md border border-line bg-inbox-panel">
+    <article className="overflow-hidden rounded-[5px] border border-line bg-inbox-panel">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -113,26 +113,26 @@ export function ProjectCard({
       >
         <span className="mt-1 shrink-0 text-text-3">
           {open ? (
-            <ChevronDown aria-hidden className="h-3 w-3" strokeWidth={1.5} />
+            <ChevronDown aria-hidden className="h-4 w-4" strokeWidth={1.5} />
           ) : (
-            <ChevronRight aria-hidden className="h-3 w-3" strokeWidth={1.5} />
+            <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={1.5} />
           )}
         </span>
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <span className="truncate font-mohave text-[12.5px] leading-tight tracking-[-0.003em] text-text">
+          <span className="truncate font-mohave text-[12px] leading-tight tracking-[-0.003em] text-text">
             {project.title}
           </span>
           <div className="flex items-center gap-2.5">
             <StatusPip status={project.status} label={project.status} />
             <span
-              className="font-mono text-[9.5px] tabular-nums text-text-mute"
+              className="font-mono text-[11px] tabular-nums text-text-mute"
               style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
             >
               {formatCurrency(project.value)}
             </span>
             {total > 0 && (
               <span
-                className="ml-auto font-mono text-[9.5px] tabular-nums text-text-mute"
+                className="ml-auto font-mono text-[11px] tabular-nums text-text-mute"
                 style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
               >
                 {done}/{total}
@@ -145,7 +145,7 @@ export function ProjectCard({
       {open && (
         <div className="border-t border-line bg-inbox-bg px-3 pb-3">
           {/* Stage / dates / lead — wrapped chips with muted label prefixes */}
-          <div className="flex flex-wrap gap-x-3.5 gap-y-1 pt-2.5 font-mono text-[10px] tracking-[0.18em] text-text-3">
+          <div className="flex flex-wrap gap-x-3.5 gap-y-1 pt-2.5 font-mono text-[11px] tracking-[0.18em] text-text-3">
             <Detail label="Stage" value={dashOrEmpty(project.stage)} />
             <DateDetail
               start={dashOrEmpty(project.startDate)}
@@ -172,7 +172,7 @@ export function ProjectCard({
               {project.accounting.total > 0 && (
                 <div className="flex flex-col gap-1.5">
                   <div
-                    className="flex items-baseline justify-between font-mono text-[10px] tracking-[0.18em] text-text-3"
+                    className="flex items-baseline justify-between font-mono text-[11px] tracking-[0.18em] text-text-3"
                     style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
                   >
                     <span>
@@ -231,9 +231,9 @@ export function ProjectCard({
           {/* Open project */}
           <a
             href={`?project=${project.id}&thread=${threadId}`}
-            className="mt-3 inline-flex h-[26px] items-center gap-1.5 rounded-md border border-line bg-transparent px-2.5 font-mohave text-[11px] tracking-normal text-text-2 hover:bg-inbox-elev hover:text-text"
+            className="mt-3 inline-flex h-[26px] items-center gap-1.5 rounded-[2.5px] border border-line bg-transparent px-2.5 font-mohave text-[11px] tracking-normal text-text-2 hover:bg-inbox-elev hover:text-text"
           >
-            <ExternalLink aria-hidden className="h-2.5 w-2.5" strokeWidth={1.5} />
+            <ExternalLink aria-hidden className="h-3.5 w-3.5" strokeWidth={1.5} />
             {t("project.openProject", "Open project")}
           </a>
         </div>
@@ -253,7 +253,7 @@ function Section({
 }) {
   return (
     <div className="mt-3 flex flex-col gap-1.5">
-      <h4 className="font-cakemono text-[9.5px] font-light uppercase leading-none tracking-[0.18em] text-text-3">
+      <h4 className="font-cakemono text-[11px] font-light uppercase leading-none tracking-[0.18em] text-text-3">
         {label}
       </h4>
       {children}
@@ -323,14 +323,14 @@ function TaskRow({ task }: { task: ProjectTask }) {
       </span>
       <span
         className={cn(
-          "min-w-0 flex-1 truncate font-mohave text-[11.5px]",
+          "min-w-0 flex-1 truncate font-mohave text-[12px]",
           isDone ? "text-text-3 line-through" : "text-text-2",
         )}
       >
         {task.label}
       </span>
       {isActive && (
-        <span className="shrink-0 font-mono text-[9px] uppercase tracking-[0.4em] text-ops-accent">
+        <span className="shrink-0 font-mono text-[11px] uppercase tracking-[0.4em] text-ops-accent">
           now
         </span>
       )}
@@ -359,11 +359,11 @@ function LedgerRow({
     <li className="flex items-center gap-2 rounded-chip border border-line bg-inbox-panel px-2 py-1.5">
       <Icon
         aria-hidden
-        className="h-3 w-3 shrink-0 text-text-3"
+        className="h-3.5 w-3.5 shrink-0 text-text-3"
         strokeWidth={1.5}
       />
       <span
-        className="shrink-0 font-mono text-[10px] tracking-[0.18em] text-text-2"
+        className="shrink-0 font-mono text-[11px] tracking-[0.18em] text-text-2"
         style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
       >
         {number}
@@ -372,7 +372,7 @@ function LedgerRow({
         {label}
       </span>
       <span
-        className="shrink-0 font-mono text-[10px] tabular-nums text-text-2"
+        className="shrink-0 font-mono text-[11px] tabular-nums text-text-2"
         style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
       >
         {amount}

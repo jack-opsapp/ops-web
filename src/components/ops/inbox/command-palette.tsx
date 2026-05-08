@@ -148,7 +148,7 @@ export function CommandPalette({
                     <span className="font-mohave text-body-sm text-text truncate">
                       {thread.subject || t("detail.untitled", "(no subject)")}
                     </span>
-                    <span className="font-mono text-[10px] text-text-mute uppercase tracking-[0.14em] truncate">
+                    <span className="font-mono text-[11px] text-text-mute uppercase tracking-[0.14em] truncate">
                       {thread.clientName ??
                         thread.latestSenderName ??
                         thread.latestSenderEmail ??

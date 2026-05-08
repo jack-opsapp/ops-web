@@ -37,13 +37,13 @@ export function AiDraftBanner({
         className,
       )}
     >
-      <Sparkles aria-hidden className="h-3 w-3 text-agent-hi" strokeWidth={1.5} />
-      <span className="font-cakemono text-[10px] font-light uppercase leading-none tracking-[0.18em] text-agent-hi">
+      <Sparkles aria-hidden className="h-3.5 w-3.5 text-agent-hi" strokeWidth={1.5} />
+      <span className="font-cakemono text-[11px] font-light uppercase leading-none tracking-[0.18em] text-agent-hi">
         {t("aiDraftBanner.label", "CLAUDE DRAFTED THIS · review")}
       </span>
       {ts && (
         <span
-          className="font-mono text-[9.5px] uppercase tracking-[0.2em] text-text-mute"
+          className="font-mono text-[11px] uppercase tracking-[0.2em] text-text-mute"
           style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
         >
           {ts}

@@ -48,7 +48,7 @@ export function MobileStackedShell({
           >
             <ChevronLeft aria-hidden className="h-4 w-4" strokeWidth={1.5} />
           </button>
-          <span className="font-cakemono text-[10px] font-light uppercase leading-none tracking-[0.18em] text-text-3">
+          <span className="font-cakemono text-[11px] font-light uppercase leading-none tracking-[0.18em] text-text-3">
             {activePane === "detail"
               ? t("mobile.thread", "Thread")
               : t("mobile.context", "Context")}

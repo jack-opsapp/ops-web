@@ -71,19 +71,19 @@ export function SummaryBand({
       />
       <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
         <div className="flex items-baseline gap-2">
-          <span className="font-cakemono text-[10px] font-light uppercase leading-none tracking-[0.18em] text-text-2">
+          <span className="font-cakemono text-[11px] font-light uppercase leading-none tracking-[0.18em] text-text-2">
             {t("bands.summary.label", "Your move")}
           </span>
-          <span aria-hidden className="font-mono text-[9.5px] text-text-mute">
+          <span aria-hidden className="font-mono text-[11px] text-text-mute">
             ·
           </span>
           <span
-            className="inline-flex items-baseline gap-1 font-mono text-[9.5px] text-text-mute"
+            className="inline-flex items-baseline gap-1 font-mono text-[11px] text-text-mute"
             style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
           >
             <Sparkles
               aria-hidden
-              className="h-2.5 w-2.5 translate-y-[1px] text-agent"
+              className="h-3.5 w-3.5 translate-y-[1px] text-agent"
               strokeWidth={1.5}
             />
             <span>{provenance}</span>
@@ -93,13 +93,13 @@ export function SummaryBand({
               type="button"
               onClick={onHistory}
               aria-label={t("bands.summary.history", "Summary history")}
-              className="ml-auto font-mono text-[9.5px] text-text-3 hover:text-text-2"
+              className="ml-auto font-mono text-[11px] text-text-3 hover:text-text-2"
             >
               {t("bands.summary.historyLabel", "history")}
             </button>
           )}
         </div>
-        <p className="font-mohave text-[12.5px] leading-[1.5] tracking-[-0.003em] text-agent-text text-pretty">
+        <p className="font-mohave text-[12px] leading-[1.5] tracking-[-0.003em] text-agent-text text-pretty">
           {body}
         </p>
       </div>

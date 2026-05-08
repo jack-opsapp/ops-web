@@ -51,12 +51,12 @@ export function NeedsInputBand({
       />
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         <div className="flex items-center gap-2">
-          <span className="font-cakemono text-[10px] font-light uppercase leading-none tracking-[0.18em] text-agent-hi">
+          <span className="font-cakemono text-[11px] font-light uppercase leading-none tracking-[0.18em] text-agent-hi">
             {t("bands.needsInput.label", "Claude needs your input")}
           </span>
           {pausedMinutesAgo != null && (
             <span
-              className="font-mono text-[9.5px] tracking-[0.18em] text-text-mute"
+              className="font-mono text-[11px] tracking-[0.18em] text-text-mute"
               style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
             >
               ·{" "}
@@ -77,7 +77,7 @@ export function NeedsInputBand({
                 key={opt.id}
                 type="button"
                 onClick={() => onAction(`answer:${opt.id}`)}
-                className="inline-flex h-[26px] items-center rounded-md border border-line-hi bg-inbox-elev px-2.5 font-mohave text-[12px] tracking-[-0.003em] text-text-2 hover:bg-inbox-panel hover:text-text"
+                className="inline-flex h-[26px] items-center rounded-[2.5px] border border-line-hi bg-inbox-elev px-2.5 font-mohave text-[12px] tracking-[-0.003em] text-text-2 hover:bg-inbox-panel hover:text-text"
               >
                 {opt.label}
               </button>
@@ -85,7 +85,7 @@ export function NeedsInputBand({
             <button
               type="button"
               onClick={() => onAction("type-reply")}
-              className="inline-flex h-[26px] items-center rounded-md border border-line bg-transparent px-2.5 font-mohave text-[12px] italic text-text-3 hover:text-text-2"
+              className="inline-flex h-[26px] items-center rounded-[2.5px] border border-line bg-transparent px-2.5 font-mohave text-[12px] italic text-text-3 hover:text-text-2"
             >
               {t("bands.needsInput.typeReply", "type a reply…")}
             </button>
@@ -95,7 +95,7 @@ export function NeedsInputBand({
             <button
               type="button"
               onClick={() => onAction("provide-answer")}
-              className="inline-flex h-[28px] items-center rounded-md border border-agent bg-agent/[0.18] px-3 font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-agent-hi hover:bg-agent/[0.30]"
+              className="inline-flex h-[28px] items-center rounded-[2.5px] border border-agent bg-agent/[0.18] px-3 font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-agent-hi hover:bg-agent/[0.30]"
             >
               {t("bands.needsInput.provideAnswer", "Provide answer")}
             </button>

@@ -210,9 +210,9 @@ function ToastRow({ toast, onResolve }: ToastRowProps) {
         <button
           type="button"
           onClick={handleUndo}
-          className="flex items-center gap-1.5 shrink-0 px-2 py-1 rounded-md border border-line bg-inbox-elev/60 hover:bg-inbox-elev transition-colors"
+          className="flex items-center gap-1.5 shrink-0 px-2 py-1 rounded-[2.5px] border border-line bg-inbox-elev/60 hover:bg-inbox-elev transition-colors"
         >
-          <Undo2 className="w-[12px] h-[12px] text-text-2" strokeWidth={1.5} />
+          <Undo2 className="w-4 h-4 text-text-2" strokeWidth={1.5} />
           <span className="font-cakemono font-light uppercase text-[11px] tracking-[0.14em] text-text-2">
             {t("toast.undo", "Undo")}
           </span>

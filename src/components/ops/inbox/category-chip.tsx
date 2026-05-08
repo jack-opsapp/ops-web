@@ -131,7 +131,7 @@ export const CategoryChip = forwardRef<
   const sizeClasses =
     size === "md"
       ? "h-[22px] px-[7px] text-[11px] tracking-[0.18em]"
-      : "h-[18px] px-[6px] text-[10px] tracking-[0.16em]";
+      : "h-[18px] px-[6px] text-[11px] tracking-[0.16em]";
 
   const inner = (
     <>
@@ -169,7 +169,7 @@ export const CategoryChip = forwardRef<
         className={cn(
           base,
           "cursor-pointer hover:text-text focus:outline-none",
-          "focus-visible:ring-1 focus-visible:ring-ops-accent focus-visible:ring-offset-1 focus-visible:ring-offset-black"
+          "focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black"
         )}
         data-category={category}
       >

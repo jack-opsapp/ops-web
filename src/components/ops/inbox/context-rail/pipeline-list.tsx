@@ -88,11 +88,11 @@ export function PipelineList({
         grouped.map(([stage, list]) => (
           <section key={stage}>
             <div className="flex items-baseline justify-between px-0.5 pb-1.5">
-              <h4 className="font-cakemono text-[9.5px] font-light uppercase leading-none tracking-[0.18em] text-text-3">
+              <h4 className="font-cakemono text-[11px] font-light uppercase leading-none tracking-[0.18em] text-text-3">
                 {stage}
               </h4>
               <span
-                className="font-mono text-[9.5px] tracking-[0.18em] text-text-mute"
+                className="font-mono text-[11px] tracking-[0.18em] text-text-mute"
                 style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
               >
                 {list.length}
@@ -107,7 +107,7 @@ export function PipelineList({
                     data-testid={`pipeline-opp-${opp.id}`}
                     data-current={isLinked ? "true" : "false"}
                     className={cn(
-                      "rounded-md border bg-inbox-panel px-3 py-2.5",
+                      "rounded-[5px] border bg-inbox-panel px-3 py-2.5",
                       isLinked
                         ? "border-line-hi shadow-[inset_2px_0_0_rgb(var(--ops-accent-rgb))]"
                         : "border-line",
@@ -126,12 +126,12 @@ export function PipelineList({
                         </span>
                       )}
                     </div>
-                    <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 font-mono text-[9.5px] tracking-[0.18em] text-text-3">
+                    <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 font-mono text-[11px] tracking-[0.18em] text-text-3">
                       {isLinked && (
                         <span className="inline-flex items-center gap-1 text-ops-accent">
                           <LinkIcon
                             aria-hidden
-                            className="h-2.5 w-2.5"
+                            className="h-3.5 w-3.5"
                             strokeWidth={1.5}
                           />
                           {t("pipeline.thisThread", "This thread")}
@@ -168,9 +168,9 @@ export function PipelineList({
       <button
         type="button"
         onClick={onNewOpportunity}
-        className="inline-flex h-[26px] items-center justify-center gap-1.5 rounded-md border border-dashed border-line bg-transparent px-3 font-mohave text-[11px] text-text-3 hover:border-line-hi hover:text-text-2"
+        className="inline-flex h-[26px] items-center justify-center gap-1.5 rounded-[2.5px] border border-dashed border-line bg-transparent px-3 font-mohave text-[11px] text-text-3 hover:border-line-hi hover:text-text-2"
       >
-        <Plus aria-hidden className="h-2.5 w-2.5" strokeWidth={1.5} />
+        <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={1.5} />
         {t("pipeline.newOpportunity", "New opportunity")}
       </button>
     </div>

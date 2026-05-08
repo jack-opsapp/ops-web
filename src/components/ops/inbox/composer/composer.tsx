@@ -48,7 +48,7 @@ interface ComposerProps {
 }
 
 const iconBtn =
-  "inline-flex h-[26px] w-[26px] items-center justify-center rounded-chip text-text-3 transition-colors hover:bg-inbox-elev hover:text-text-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent";
+  "inline-flex h-[26px] w-[26px] items-center justify-center rounded-chip text-text-3 transition-colors hover:bg-inbox-elev hover:text-text-2 focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black";
 
 export function Composer({
   value,
@@ -85,19 +85,19 @@ export function Composer({
   }
 
   const innerBoxClass = cn(
-    "flex flex-col gap-2 rounded-md border bg-inbox-bg-deep px-3 py-2.5 transition-colors",
+    "flex flex-col gap-2 rounded-[5px] border bg-inbox-bg-deep px-3 py-2.5 transition-colors",
     agentTinted
       ? "border-agent-border-hi focus-within:border-agent"
       : "border-line-hi focus-within:border-ops-accent",
   );
 
   const sendBtnClass = cn(
-    "inline-flex h-[28px] shrink-0 items-center gap-1.5 rounded-md border px-3.5",
+    "inline-flex h-[28px] shrink-0 items-center gap-1.5 rounded-[2.5px] border px-3.5",
     "font-cakemono text-[11px] font-light uppercase tracking-[0.14em]",
     "transition-colors disabled:cursor-not-allowed disabled:opacity-40",
     sendVariant === "agent"
       ? "border-agent bg-agent/[0.18] text-agent-hi hover:bg-agent/[0.30]"
-      : "border-ops-accent bg-ops-accent/[0.16] text-text hover:bg-ops-accent hover:text-black",
+      : "border-ops-accent bg-transparent text-ops-accent hover:bg-ops-accent hover:text-black",
   );
 
   return (
@@ -124,7 +124,7 @@ export function Composer({
             aria-label={t("composer.attachFile", "Attach file")}
             className={iconBtn}
           >
-            <Paperclip aria-hidden className="h-3 w-3" strokeWidth={1.5} />
+            <Paperclip aria-hidden className="h-4 w-4" strokeWidth={1.5} />
           </button>
           <button
             type="button"
@@ -132,7 +132,7 @@ export function Composer({
             aria-label={t("composer.attachImage", "Attach image")}
             className={iconBtn}
           >
-            <Image aria-hidden className="h-3 w-3" strokeWidth={1.5} />
+            <Image aria-hidden className="h-4 w-4" strokeWidth={1.5} />
           </button>
           <button
             type="button"
@@ -140,7 +140,7 @@ export function Composer({
             aria-label={t("composer.draftWithClaude", "Draft with Claude")}
             className={iconBtn}
           >
-            <Sparkles aria-hidden className="h-3 w-3" strokeWidth={1.5} />
+            <Sparkles aria-hidden className="h-4 w-4" strokeWidth={1.5} />
           </button>
           <button
             type="button"
@@ -148,14 +148,14 @@ export function Composer({
             aria-label={t("composer.scheduleSend", "Schedule send")}
             className={iconBtn}
           >
-            <Calendar aria-hidden className="h-3 w-3" strokeWidth={1.5} />
+            <Calendar aria-hidden className="h-4 w-4" strokeWidth={1.5} />
           </button>
           <div className="flex-1" />
           {onEditDraft && (
             <button
               type="button"
               onClick={onEditDraft}
-              className="inline-flex h-[28px] items-center rounded-md border border-line bg-transparent px-3 font-mohave text-[12px] text-text-2 hover:bg-inbox-elev hover:text-text"
+              className="inline-flex h-[28px] items-center rounded-[2.5px] border border-line bg-transparent px-3 font-mohave text-[12px] text-text-2 hover:bg-inbox-elev hover:text-text"
             >
               {t("composer.editDraft", "Edit")}
             </button>
@@ -167,7 +167,7 @@ export function Composer({
             aria-label={resolvedSendLabel}
             className={sendBtnClass}
           >
-            <Send aria-hidden className="h-2.5 w-2.5" strokeWidth={1.5} />
+            <Send aria-hidden className="h-3.5 w-3.5" strokeWidth={1.5} />
             {resolvedSendLabel}
           </button>
         </div>
