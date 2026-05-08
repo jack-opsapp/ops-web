@@ -303,6 +303,7 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
         t("detail.unknownClient", "Unknown sender")
       }
       messageCount={detail.thread.messageCount ?? detail.messages.length}
+      otherThreadCount={0}
       onPrev={onPrev}
       onNext={onNext}
       onArchive={onArchiveClick}

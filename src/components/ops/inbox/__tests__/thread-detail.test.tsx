@@ -1,6 +1,7 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { ThreadDetail } from "../thread-detail";
+import { EmptyDetailHeader } from "../thread-detail-header";
 
 const baseProps = {
   subject: "RFQ — kitchen remodel",
@@ -31,9 +32,9 @@ describe("<ThreadDetail>", () => {
         <div />
       </ThreadDetail>,
     );
-    expect(screen.getByText("CLIENT")).toBeInTheDocument();
+    expect(screen.getByText("[CLIENT]")).toBeInTheDocument();
     expect(screen.getByText("Calloway HVAC")).toBeInTheDocument();
-    expect(screen.getByText("4 messages")).toBeInTheDocument();
+    expect(screen.getByText("4 MSG")).toBeInTheDocument();
   });
 
   it("renders the canonical four-button action cluster", () => {
@@ -95,5 +96,40 @@ describe("<ThreadDetail>", () => {
       </ThreadDetail>,
     );
     expect(screen.getByTestId("messages")).toBeInTheDocument();
+  });
+
+  it("does not render the thread-picker trigger when otherThreadCount is 0", () => {
+    render(
+      <ThreadDetail {...baseProps} otherThreadCount={0}>
+        <div />
+      </ThreadDetail>,
+    );
+    expect(screen.queryByTestId("thread-picker-trigger")).not.toBeInTheDocument();
+  });
+
+  it("renders the thread-picker trigger placeholder when otherThreadCount > 0", () => {
+    const onOpenThreadPicker = vi.fn();
+    render(
+      <ThreadDetail
+        {...baseProps}
+        otherThreadCount={3}
+        onOpenThreadPicker={onOpenThreadPicker}
+      >
+        <div />
+      </ThreadDetail>,
+    );
+    const trigger = screen.getByTestId("thread-picker-trigger");
+    expect(trigger).toBeInTheDocument();
+    expect(trigger.textContent).toMatch(/3 OTHER THREADS/);
+    fireEvent.click(trigger);
+    expect(onOpenThreadPicker).toHaveBeenCalled();
+  });
+});
+
+describe("<EmptyDetailHeader>", () => {
+  it("renders the // SELECT THREAD tactical empty state", () => {
+    render(<EmptyDetailHeader />);
+    expect(screen.getByText("// SELECT THREAD")).toBeInTheDocument();
+    expect(screen.getByText("[—] no thread loaded")).toBeInTheDocument();
   });
 });

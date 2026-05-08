@@ -1,22 +1,8 @@
 "use client";
 
-/**
- * ThreadDetailHeader — faithful to `reference/v4-detail.jsx :: V4Detail`
- * header block (lines 494–530) and `v4-states.jsx :: V4AutoSentDetail`.
- *
- * Two stacked rows inside a `bg-inbox-panel` band with a hairline border:
- *   1. Subject (Mohave 16 / 500 / -0.005em / text · truncated) on the left,
- *      then exactly four 28×28 action icons: archive · clock · tag · more.
- *      No rail toggle, no Open-client button — those sit elsewhere in
- *      this rebuild (rail edge / context-rail external icon).
- *   2. Meta strip (mono 10.5 / no tracking / text-3): category dot + label
- *      · sender · "{n} message(s)".
- *
- * Prev/Next is keyboard-only (J / K) — wired in <ThreadDetail/>.
- */
-
 import {
   Archive,
+  ChevronDown,
   Clock,
   MoreHorizontal,
   Tag,
@@ -25,12 +11,18 @@ import {
 import { forwardRef, type ReactNode } from "react";
 import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
+import { SlashLabel } from "./voice/slash-label";
+import { StateTag } from "./state-tag";
 
 interface ThreadDetailHeaderProps {
   subject: string;
   category?: { label: string; dotClassName: string } | null;
   senderName: string;
   messageCount: number;
+  /** Number of OTHER threads with the same client. When > 0, renders the picker trigger placeholder. Defaults to 0. */
+  otherThreadCount?: number;
+  /** Click handler for the thread-picker trigger placeholder (Phase E will route this to a popover). */
+  onOpenThreadPicker?: () => void;
   /** Render-prop slots — when provided, replace the default handler buttons.
    *  Used to wrap each action in its picker/popover (snooze, recategorize,
    *  archive-confirm). Each slot receives a ready-styled button that should
@@ -77,6 +69,8 @@ export function ThreadDetailHeader({
   category,
   senderName,
   messageCount,
+  otherThreadCount,
+  onOpenThreadPicker,
   archiveSlot,
   snoozeSlot,
   recategorizeSlot,
@@ -118,6 +112,18 @@ export function ThreadDetailHeader({
     />
   );
 
+  const metaCountText = t("detail.metaCount", "{count} MSG").replace(
+    "{count}",
+    String(messageCount),
+  );
+
+  const pickerCount = otherThreadCount ?? 0;
+  const pickerLabelRaw = t("picker.trigger", "{count} OTHER THREADS").replace(
+    "{count}",
+    String(pickerCount),
+  );
+  const pickerDisplayText = pickerLabelRaw.replace("▾ ", "");
+
   return (
     <header
       className={cn(
@@ -125,7 +131,6 @@ export function ThreadDetailHeader({
         className,
       )}
     >
-      {/* Title row — subject + 4 actions */}
       <div className="mb-1.5 flex items-center gap-2.5">
         <h1 className="m-0 min-w-0 flex-1 truncate font-mohave text-[16px] font-medium tracking-[-0.005em] text-text">
           {subject || t("detail.untitled", "(no subject)")}
@@ -138,23 +143,18 @@ export function ThreadDetailHeader({
         </div>
       </div>
 
-      {/* Meta strip — category · sender · count */}
       <div
         className="flex items-center gap-2.5 font-mono text-[11px] text-text-3"
         style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
       >
         {category && (
           <>
-            <span className="inline-flex items-center gap-1.5">
-              <span
-                aria-hidden
-                className={cn(
-                  "h-[5px] w-[5px] rounded-full opacity-90",
-                  category.dotClassName,
-                )}
-              />
-              <span>{category.label}</span>
-            </span>
+            <StateTag
+              tone="neutral"
+              variant="solid"
+              bracketed
+              prefix={category.label.toUpperCase()}
+            />
             <span aria-hidden className="text-text-mute">
               ·
             </span>
@@ -164,14 +164,48 @@ export function ThreadDetailHeader({
         <span aria-hidden className="text-text-mute">
           ·
         </span>
-        <span>
-          {messageCount === 1
-            ? t("detail.oneMessage", "1 message")
-            : t("detail.nMessages", "{count} messages").replace(
-                "{count}",
-                String(messageCount),
-              )}
+        <span className="uppercase tracking-[0.10em] text-text-3">
+          {metaCountText}
         </span>
+        {pickerCount > 0 && (
+          <>
+            <span aria-hidden className="text-text-mute">
+              ·
+            </span>
+            <button
+              type="button"
+              data-testid="thread-picker-trigger"
+              onClick={onOpenThreadPicker}
+              aria-label={pickerLabelRaw}
+              className="inline-flex h-[22px] items-center gap-1 rounded-[2.5px] border border-line bg-transparent px-2 font-mono text-[11px] uppercase tracking-[0.10em] text-text-2 transition-colors hover:border-line-hi hover:text-text"
+              style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
+            >
+              <ChevronDown aria-hidden className="h-3 w-3" strokeWidth={1.5} />
+              {pickerDisplayText}
+            </button>
+          </>
+        )}
+      </div>
+    </header>
+  );
+}
+
+export function EmptyDetailHeader({ className }: { className?: string }) {
+  const { t } = useDictionary("inbox");
+  return (
+    <header
+      className={cn(
+        "shrink-0 border-b border-line bg-inbox-panel px-4 py-6",
+        className,
+      )}
+    >
+      <SlashLabel
+        label={t("detail.selectThread", "// SELECT THREAD")}
+        tone="text-2"
+        size="md"
+      />
+      <div className="mt-2 font-mono text-[11px] text-text-3">
+        {t("detail.selectThreadBody", "[—] no thread loaded")}
       </div>
     </header>
   );
