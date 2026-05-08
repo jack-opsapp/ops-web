@@ -8,7 +8,7 @@
  * Metrics shown:
  *   - AUTO    — auto_send / auto_follow_up / auto_archive triggers this week
  *   - DRAFT   — drafts generated for user review (auto_draft outcomes)
- *   - SURFACED — new LEAD + URGENT + PLATFORM_BID threads surfaced
+ *   - SURFACED — new CUSTOMER + URGENT + PLATFORM_BID threads surfaced
  *
  * Per-category bars (MD+): horizontal stripe colored by autonomy level, one
  * row per non-off category. Click a row → deep-link to
@@ -72,7 +72,7 @@ async function fetchWeekData(companyId: string): Promise<PhaseCWeekData> {
     .eq("status", "drafted")
     .gte("created_at", sevenDaysAgo);
 
-  // 3. Surfaced = LEAD + PLATFORM_BID threads + threads with URGENT label,
+  // 3. Surfaced = CUSTOMER + PLATFORM_BID threads + threads with URGENT label,
   //    created in the last 7 days.
   const surfacedPromise = supabase
     .from("email_threads")
@@ -98,7 +98,7 @@ async function fetchWeekData(companyId: string): Promise<PhaseCWeekData> {
       primary_category: string;
       labels: string[] | null;
     }> | null) ?? []).filter((row) =>
-      row.primary_category === "LEAD" ||
+      row.primary_category === "CUSTOMER" ||
       row.primary_category === "PLATFORM_BID" ||
       (Array.isArray(row.labels) && row.labels.includes("URGENT"))
     ).length;

@@ -37,6 +37,8 @@ import {
   loadCompanyUsers,
   loadTeamForwarders,
 } from "./deterministic-internal-reads";
+import { tryDeterministicCustomer } from "./deterministic-customer-rule";
+import { loadOpportunityForCustomerRule } from "./deterministic-customer-reads";
 import {
   ThreadClassifier,
   type ClassifyMessage,
@@ -779,6 +781,54 @@ export const EmailThreadService = {
         return threadRow;
       }
       return mapEmailThreadFromDb(detUpdated);
+    }
+
+    // ── Deterministic CUSTOMER classification ──────────────────────────
+    // Threads linked to a non-terminal opportunity stage are — by definition
+    // — customer conversations. Skipping the LLM here also dodges the
+    // long-standing bug where the legacy prompt emitted LEAD/CLIENT (collapsed
+    // to CUSTOMER by migration 20260428061836) and the DB CHECK constraint
+    // rejected the UPDATE silently, leaving the thread frozen at OTHER.
+    if (threadRow.opportunityId && !threadRow.categoryManuallySet) {
+      const opp = await loadOpportunityForCustomerRule(threadRow.opportunityId);
+      const customer = tryDeterministicCustomer({
+        subject: threadRow.subject,
+        opportunityId: threadRow.opportunityId,
+        opportunityStage: opp?.stage ?? null,
+        opportunityArchivedAt: opp?.archivedAt ?? null,
+        categoryManuallySet: threadRow.categoryManuallySet,
+      });
+
+      if (customer) {
+        const custUpdate: Record<string, unknown> = {
+          labels: threadRow.labels, // preserve any existing labels
+          ai_summary: customer.summary,
+          category_classified_at: new Date().toISOString(),
+          category_classifier_version: customer.classifierVersion,
+          primary_category: customer.category,
+          category_confidence: customer.confidence,
+        };
+
+        const { data: custUpdated, error: custErr } = await supabase
+          .from("email_threads")
+          .update(custUpdate)
+          .eq("id", threadRow.id)
+          .select("*")
+          .single();
+
+        if (custErr) {
+          console.error(
+            "[email-thread-service] deterministic-customer update failed:",
+            custErr
+          );
+          return threadRow;
+        }
+
+        // Match the INTERNAL bypass: no notification hook, no Phase C
+        // autonomy router. Both fire only on the LLM path today; expanding
+        // them to deterministic categories is a separate change.
+        return mapEmailThreadFromDb(custUpdated);
+      }
     }
 
     const outboundCount = messages.filter((m) => m.direction === "outbound").length;
@@ -1623,8 +1673,13 @@ async function fireThreadNotifications(
   const userId = (connRow?.user_id as string | null) ?? null;
   if (!userId) return;
 
-  const wasLead = previous.primaryCategory === "LEAD";
-  const isLead = next.primaryCategory === "LEAD";
+  // CUSTOMER threads are the post-migration unification of LEAD + CLIENT
+  // (20260428061836_collapse_lead_client_to_customer). The notification still
+  // labels the event "New lead" because the operator-facing concept that
+  // matters is "a customer-side conversation just landed" — the inbound
+  // direction filter below preserves the semantic.
+  const wasCustomer = previous.primaryCategory === "CUSTOMER";
+  const isCustomer = next.primaryCategory === "CUSTOMER";
   const wasPlatform = previous.primaryCategory === "PLATFORM_BID";
   const isPlatform = next.primaryCategory === "PLATFORM_BID";
   const wasUrgent = previous.labels.includes("URGENT");
@@ -1639,8 +1694,9 @@ async function fireThreadNotifications(
 
   const { NotificationService } = await import("./notification-service");
 
-  // New LEAD
-  if (isLead && !wasLead) {
+  // Newly-classified CUSTOMER thread, only on inbound — outbound CUSTOMER
+  // transitions are us replying to ourselves and don't warrant a page.
+  if (isCustomer && !wasCustomer && next.latestDirection === "inbound") {
     await NotificationService.create({
       userId,
       companyId: next.companyId,

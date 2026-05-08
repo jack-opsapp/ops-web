@@ -50,7 +50,7 @@ const LIMIT_PER_RUN = 10;
 const LIMIT_HARD_MAX = 30;
 const CONCURRENCY = 2;
 const MAX_CALLS = 40; // safety ceiling across CONCURRENCY workers
-const TARGET_CATEGORIES: readonly EmailThreadCategory[] = ["LEAD", "CLIENT"];
+const TARGET_CATEGORIES: readonly EmailThreadCategory[] = ["CUSTOMER"];
 const LOOKBACK_DAYS = 90;
 
 interface BackfillResult {
@@ -75,14 +75,13 @@ interface BackfillResult {
  * Map `email_threads.primary_category` onto the coarser memory-service
  * `ClassifiedThread.classification`. memory-service uses this to steer
  * its extraction prompt (e.g. "client" vs "vendor"). We only ever
- * backfill LEAD + CLIENT today, so the mapping is trivial.
+ * backfill CUSTOMER today, so the mapping is trivial.
  */
 function mapCategoryToClassification(
   category: EmailThreadCategory
 ): ClassifiedThread["classification"] {
   switch (category) {
-    case "LEAD":
-    case "CLIENT":
+    case "CUSTOMER":
       return "client";
     case "VENDOR":
       return "vendor";

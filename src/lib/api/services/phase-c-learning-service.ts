@@ -201,8 +201,7 @@ async function writeMemoryFact(
 
 function toPhrase(category: EmailThreadCategory): string {
   const phrases: Record<EmailThreadCategory, string> = {
-    LEAD: "potential customer inquiries",
-    CLIENT: "existing customer correspondence",
+    CUSTOMER: "customer correspondence",
     VENDOR: "supplier / vendor communications",
     SUBTRADE: "subcontractor coordination",
     PLATFORM_BID: "construction platform bid invitations",

@@ -31,7 +31,7 @@ const STALE_DAYS = 7;
  * Other categories will either not have the setting or will no-op — scoping
  * the query here saves a lot of wasted work.
  */
-const FOLLOW_UP_CATEGORIES = ["LEAD", "CLIENT"] as const;
+const FOLLOW_UP_CATEGORIES = ["CUSTOMER"] as const;
 
 export async function GET(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;

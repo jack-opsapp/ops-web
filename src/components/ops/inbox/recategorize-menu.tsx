@@ -37,8 +37,7 @@ interface RecategorizeMenuProps {
 // Hotkey letters mirror the first letter of the category, with collisions
 // resolved deterministically. Rendered as a subtle [K] hint on the right.
 const CATEGORY_HOTKEYS: Record<EmailThreadCategory, string> = {
-  LEAD: "L",
-  CLIENT: "C",
+  CUSTOMER: "C",
   VENDOR: "V",
   SUBTRADE: "S",
   PLATFORM_BID: "B",
