@@ -431,7 +431,7 @@ function MapCollapseButton({ onClick }: { onClick: () => void }) {
       data-testid="map-collapse-button"
       onClick={onClick}
       aria-label="Collapse map"
-      className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.16em] transition-colors hover:bg-white/10"
+      className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.16em] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-white/10"
       style={{
         color: "var(--text)",
         padding: "6px 10px",
@@ -508,7 +508,7 @@ function ToolButton({
       data-tool={tool}
       onClick={onClick}
       aria-label={label}
-      className="flex items-center justify-center transition-colors hover:bg-white/10"
+      className="flex items-center justify-center transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-white/10"
       style={{ width: 32, height: 32, color: "var(--text)" }}
     >
       {icon}

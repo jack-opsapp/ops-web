@@ -210,7 +210,7 @@ export function AddressAutocomplete({
                   e.preventDefault();
                   handleSelect(result);
                 }}
-                className="cursor-pointer transition-colors"
+                className="cursor-pointer transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]"
                 style={{
                   padding: "8px 12px",
                   borderBottom: "1px solid var(--surface-input)",

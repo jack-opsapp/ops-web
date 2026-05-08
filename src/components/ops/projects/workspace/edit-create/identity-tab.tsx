@@ -145,6 +145,7 @@ function ClientPicker({ value, onChange, required }: ClientPickerProps) {
                   className={cn(
                     "flex w-full items-center justify-between rounded-chip py-1.5 pl-2 pr-2",
                     "font-mohave text-[14px] text-text-3",
+                    "transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]",
                     "hover:bg-[var(--surface-input)] hover:text-text-2 cursor-pointer",
                   )}
                 >
@@ -174,6 +175,7 @@ function ClientPicker({ value, onChange, required }: ClientPickerProps) {
                       className={cn(
                         "flex w-full items-center justify-between rounded-chip py-1.5 pl-2 pr-2",
                         "font-mohave text-[14px] text-text",
+                        "transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]",
                         "hover:bg-[var(--surface-input)] cursor-pointer",
                         active && "bg-[var(--surface-input)]",
                       )}

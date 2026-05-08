@@ -43,7 +43,7 @@ function ToneGlyph({ tone }: { tone: TrafficLightTone }) {
     strokeLinejoin: "round" as const,
     fill: "none",
     "aria-hidden": true,
-    className: "opacity-0 group-hover:opacity-100 transition-opacity duration-[120ms]",
+    className: "opacity-0 group-hover:opacity-100 transition-opacity duration-[120ms] ease-[cubic-bezier(0.22,1,0.36,1)]",
   };
   if (tone === "close") {
     return (
