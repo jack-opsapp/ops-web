@@ -214,6 +214,34 @@ Object.defineProperty(window, "scrollTo", {
   value: vi.fn(),
 });
 
+// ─── Polyfill: Pointer Capture + scrollIntoView (Radix popper testing) ─────
+//
+// jsdom 25 doesn't implement `Element.prototype.hasPointerCapture` /
+// `setPointerCapture` / `releasePointerCapture` or `scrollIntoView`.
+// Radix's Select / Dropdown / Popover internals call all of them when a
+// trigger is clicked. Without these stubs, every Radix-based component
+// test throws `target.hasPointerCapture is not a function` the moment the
+// user opens the menu.
+//
+// jsdom-typed-void shim so the assertions below are lossless.
+
+if (typeof Element !== "undefined") {
+  if (!Element.prototype.hasPointerCapture) {
+    Element.prototype.hasPointerCapture = function () {
+      return false;
+    };
+  }
+  if (!Element.prototype.setPointerCapture) {
+    Element.prototype.setPointerCapture = function () {};
+  }
+  if (!Element.prototype.releasePointerCapture) {
+    Element.prototype.releasePointerCapture = function () {};
+  }
+  if (!Element.prototype.scrollIntoView) {
+    Element.prototype.scrollIntoView = function () {};
+  }
+}
+
 // ─── Mock: URL.createObjectURL / revokeObjectURL ────────────────────────────
 
 if (typeof URL.createObjectURL === "undefined") {
