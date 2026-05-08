@@ -10,7 +10,10 @@ import {
   FileText,
 } from "lucide-react";
 import type React from "react";
-import type { FloatingWindowType } from "@/stores/window-store";
+import type {
+  FloatingWindowType,
+  ProjectWorkspaceMode,
+} from "@/stores/window-store";
 
 export interface FABAction {
   id: string;
@@ -22,6 +25,12 @@ export interface FABAction {
   handler: "window" | "route";
   target: FloatingWindowType | string;
   requiredPermission?: string;
+  /**
+   * Optional metadata passed to the open dispatcher. Currently only the
+   * project-workspace action uses it (initialMode = "creating"); other
+   * actions leave this undefined.
+   */
+  meta?: { initialMode?: ProjectWorkspaceMode };
 }
 
 /** Type guard: true when action.target is a valid FloatingWindowType */
@@ -35,7 +44,9 @@ export const ALL_ACTIONS: FABAction[] = [
   { id: "estimate",       label: "New Estimate",  hintCode: "EST", icon: Calculator,    triggerAction: "estimates",  handler: "window", target: "create-estimate",          requiredPermission: "estimates.create" },
   { id: "invoice",        label: "New Invoice",   hintCode: "INV", icon: FileText,      triggerAction: "invoices",   handler: "route",  target: "/invoices?action=new",     requiredPermission: "invoices.create" },
   { id: "client",         label: "New Client",    hintCode: "CLI", icon: Users,         triggerAction: "clients",    handler: "window", target: "create-client",            requiredPermission: "clients.create" },
-  { id: "project",        label: "New Project",   hintCode: "PRJ", icon: FolderKanban,  triggerAction: "projects",   handler: "window", target: "create-project",           requiredPermission: "projects.create" },
+  // Phase 9.1 — "New Project" routes through the unified workspace
+  // window in creating mode instead of the legacy create-project modal.
+  { id: "project",        label: "New Project",   hintCode: "PRJ", icon: FolderKanban,  triggerAction: "projects",   handler: "window", target: "project-workspace",        requiredPermission: "projects.create", meta: { initialMode: "creating" } },
   { id: "task",           label: "New Task",      hintCode: "TSK", icon: ClipboardList, triggerAction: "tasks",      handler: "window", target: "create-task",              requiredPermission: "tasks.create" },
   { id: "task-type",      label: "New Task Type", hintCode: "TTY", icon: Tag,           triggerAction: "task-types", handler: "route",  target: "/settings?tab=company",    requiredPermission: "settings.company" },
   { id: "inventory-item", label: "New Item",      hintCode: "ITM", icon: Boxes,         triggerAction: "inventory",  handler: "route",  target: "/inventory?action=new",    requiredPermission: "inventory.manage" },
