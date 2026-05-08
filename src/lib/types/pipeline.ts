@@ -483,7 +483,9 @@ export interface Product {
   defaultPrice: number;
   unitCost: number | null;
   unit: string;
+  unitId?: string | null;      // FK to catalog_units.id; nullable for legacy rows
   category: string | null;
+  categoryId?: string | null;  // FK to catalog_categories.id; nullable for legacy rows
   type: LineItemType;
   taskTypeId: string | null;
   isTaxable: boolean;
