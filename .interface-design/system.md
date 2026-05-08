@@ -801,3 +801,14 @@ These shared components MUST be used. Never hand-roll equivalent markup:
 | **modal** | 3000 | Portaled dialogs/sheets (Radix) |
 | **map-controls** | 5000 | Full-screen map page only |
 | **emergency** | 9000–9999 | Sign-out, lockout overlays |
+
+---
+
+### Project Workspace Patterns
+
+- **Mode pill:** VIEWING (quiet) / EDITING (tan + pulse) / CREATING (accent + pulse). Pulse = 1.6s opacity 1↔0.45 (compositor-only — see plan amendment 12.6).
+- **Mode-aware footer:** `ModeFooterConfig = { destructive | meta | spacer | secondary[] | ghost | primary }`. One primary per footer maximum.
+- **Floating window shell:** 8-direction resize, traffic lights, draggable header. Position+size persist to `opsWin:{key}`. Sanctioned `--shadow-window` token (exception to "no box-shadow on dark backgrounds" rule — see 2026-05-07 amendment).
+- **Status temperature drives chrome:** PROJECT_STATUS_COLORS hex bleeds into pin glow, schedule strip today-tick, active task highlight. Use `withAlpha(hex, percent)` utility (`src/lib/utils/color.ts`) instead of hex alpha-suffix.
+- **Activity timeline:** `project_notes` is the single canonical table. `event_kind` (nullable) discriminates user notes (NULL) from system events. Compose new entries via `<NoteComposer>` (reused across surfaces).
+- **ConfirmModal destructive variant:** glass-dense bg, rose accent stripe (`border-t-[var(--rose)]`), 12px modal radius, Cake Mono Light title, Mohave body, `--shadow-window` elevation. Used for archive; reusable for delete/revert/cancel flows.
