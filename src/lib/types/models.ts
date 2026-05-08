@@ -231,6 +231,11 @@ export const SUBSCRIPTION_PLAN_INFO: Record<SubscriptionPlan, SubscriptionPlanIn
 
 // ─── Entity Interfaces ────────────────────────────────────────────────────────
 
+/** Project trade category — lowercase enum-as-text. Matches the
+ *  `projects_trade_check` constraint added 2026-05-07. UI uppercases for
+ *  display ("ROOFING" / "HVAC" / "PLUMBING"). */
+export type ProjectTrade = "roofing" | "hvac" | "plumbing";
+
 /** Project entity - matches iOS Project model */
 export interface Project {
   id: string;
@@ -250,6 +255,8 @@ export interface Project {
   teamMemberIds: string[];
   projectDescription: string | null;
   projectImages: string[];
+  trade: ProjectTrade | null;
+  visibility: "all" | "office" | "private";
   createdAt: Date | null;
   lastSyncedAt: Date | null;
   needsSync: boolean;

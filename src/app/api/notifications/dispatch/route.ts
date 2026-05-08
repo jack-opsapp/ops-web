@@ -24,6 +24,8 @@ const ONESIGNAL_API_ENDPOINT = "https://onesignal.com/api/v1/notifications";
  */
 type NotificationEventType =
   | "project_assigned"
+  | "project_status_change"
+  | "project_archived"
   | "task_assigned"
   | "task_completed"
   | "schedule_change"
@@ -65,6 +67,8 @@ interface DispatchBody {
  */
 const CHANNEL_PREF_KEY: Record<NotificationEventType, string> = {
   project_assigned: "project_updates",
+  project_status_change: "project_updates",
+  project_archived: "project_updates",
   task_assigned: "task_assigned",
   task_completed: "task_completed",
   schedule_change: "schedule_changes",
@@ -79,6 +83,8 @@ const CHANNEL_PREF_KEY: Record<NotificationEventType, string> = {
  */
 const INAPP_TYPE: Record<NotificationEventType, string> = {
   project_assigned: "project_assigned",
+  project_status_change: "project_status_change",
+  project_archived: "project_archived",
   task_assigned: "task_assigned",
   task_completed: "task_completed",
   schedule_change: "schedule_change",

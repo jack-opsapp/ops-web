@@ -451,6 +451,8 @@ export async function POST(request: NextRequest) {
                 lostNotes: null,
                 quoteDeliveryMethod: null,
                 address: null,
+                latitude: null,
+                longitude: null,
                 tags: ["email-import"],
               });
               leadsCreated++;

@@ -53,9 +53,7 @@ import { ProjectContextMenu } from "./_components/project-context-menu";
 import { ProjectArchiveTray } from "./_components/project-archive-tray";
 import { ProjectFloatingToolbar } from "./_components/project-floating-toolbar";
 import { ProjectDragConfirmation } from "./_components/project-drag-confirmation";
-import { ProjectDetailPopover } from "./_components/project-detail-popover";
 import { ProjectSpreadsheet } from "./_components/project-spreadsheet";
-import { useProjectDetailPopoverStore } from "./_components/project-detail-popover-store";
 import { useSetupGate } from "@/hooks/useSetupGate";
 import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModal";
 
@@ -208,9 +206,6 @@ export default function ProjectsPage() {
   const selectCards = useProjectCanvasStore((s) => s.selectCards);
   const startDrag = useProjectCanvasStore((s) => s.startDrag);
   const endDrag = useProjectCanvasStore((s) => s.endDrag);
-
-  // ── Detail popover ──
-  const openPopover = useProjectDetailPopoverStore((s) => s.openPopover);
 
   // ── View mode ──
   const [viewMode, setViewMode] = useState<"canvas" | "spreadsheet">(() => {
@@ -536,15 +531,14 @@ export default function ProjectsPage() {
   }, []);
 
   // ── Card action callbacks ──
+  const openProjectWindow = useWindowStore((s) => s.openProjectWindow);
   const handleOpenDetail = useCallback(
     (projectId: string) => {
       const project = projectMap.get(projectId);
       if (!project) return;
-      const primaryLabel = project.title || project.address?.split(",")[0] || "Untitled Project";
-      const statusColor = PROJECT_STATUS_COLORS[project.status];
-      openPopover(projectId, { x: 400, y: 200 }, primaryLabel, statusColor);
+      openProjectWindow({ projectId, mode: "viewing" });
     },
-    [projectMap, openPopover]
+    [projectMap, openProjectWindow]
   );
 
   const openWindow = useWindowStore((s) => s.openWindow);
@@ -889,11 +883,6 @@ export default function ProjectsPage() {
         onCancel={handleDragCancel}
       />
 
-      {/* Detail popovers */}
-      <ProjectDetailPopover
-        projects={projectMap}
-        clientNames={clientNameMap}
-      />
     </div>
   );
 }

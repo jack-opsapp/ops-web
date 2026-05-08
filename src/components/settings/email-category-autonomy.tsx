@@ -355,15 +355,19 @@ interface PrimaryCategoryAutonomyProps {
   autoSendFeatureEnabled: boolean;
   /**
    * Category email counts per profile_type — used to compute a rough
-   * "ready to graduate" signal for primary categories (LEAD maps to
-   * client_new_inquiry + client_quoting profile types, etc.).
+   * "ready to graduate" signal for primary categories (CUSTOMER maps to
+   * client_new_inquiry + client_quoting + active/followup, etc.).
    */
   categoryCounts: Record<string, number>;
 }
 
 const PRIMARY_PROFILE_MAP: Partial<Record<EmailThreadCategory, string[]>> = {
-  LEAD: ["client_new_inquiry", "client_quoting"],
-  CLIENT: ["client_active_project", "client_followup"],
+  CUSTOMER: [
+    "client_new_inquiry",
+    "client_quoting",
+    "client_active_project",
+    "client_followup",
+  ],
   VENDOR: ["vendor_ordering", "vendor_inquiry"],
   SUBTRADE: ["subtrade_coordination"],
   PLATFORM_BID: ["client_new_inquiry"],

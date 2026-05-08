@@ -10,6 +10,8 @@
 
 type NotificationEventType =
   | "project_assigned"
+  | "project_status_change"
+  | "project_archived"
   | "task_assigned"
   | "task_completed"
   | "schedule_change"
@@ -76,10 +78,71 @@ export function dispatchProjectAssignment(params: {
     title: "Added to Project",
     body: `You've been added to "${params.projectTitle}"`,
     projectId: params.projectId,
-    actionUrl: `/projects/${params.projectId}`,
+    actionUrl: `/dashboard?openProject=${params.projectId}&mode=view`,
     actionLabel: "View Project",
     pushData: {
       type: "projectAssignment",
+      projectId: params.projectId,
+      screen: "projectDetails",
+    },
+  });
+}
+
+/**
+ * Notify the project team that a project has been archived.
+ * Goes through the dispatch route so push + in-app preferences both fire,
+ * and the archiver is auto-filtered out of recipients server-side.
+ */
+export function dispatchProjectArchived(params: {
+  projectId: string;
+  projectTitle: string;
+  archivedByName: string;
+  recipientUserIds: string[];
+  companyId: string;
+}): void {
+  dispatch({
+    eventType: "project_archived",
+    recipientIds: params.recipientUserIds,
+    companyId: params.companyId,
+    title: `${params.projectTitle} archived`,
+    body: `${params.archivedByName} archived ${params.projectTitle}.`,
+    projectId: params.projectId,
+    actionUrl: `/dashboard?openProject=${params.projectId}&mode=view`,
+    actionLabel: "View Project",
+    pushData: {
+      type: "projectArchived",
+      projectId: params.projectId,
+      screen: "projectDetails",
+    },
+  });
+}
+
+/**
+ * Notify the project team that a project's status has moved to a new stage.
+ * Called from ProjectLifecycleService.onProjectStageChange after the
+ * project_notes timeline event lands. The recipient list should already
+ * exclude the user who triggered the change.
+ */
+export function dispatchProjectStatusChange(params: {
+  projectId: string;
+  projectTitle: string;
+  fromStatus: string;
+  toStatus: string;
+  changedByName: string;
+  recipientUserIds: string[];
+  companyId: string;
+}): void {
+  dispatch({
+    eventType: "project_status_change",
+    recipientIds: params.recipientUserIds,
+    companyId: params.companyId,
+    title: `Status changed: ${params.fromStatus} → ${params.toStatus}`,
+    body: `${params.changedByName} moved ${params.projectTitle} from ${params.fromStatus} to ${params.toStatus}.`,
+    projectId: params.projectId,
+    actionUrl: `/dashboard?openProject=${params.projectId}&mode=view`,
+    actionLabel: "View Project",
+    pushData: {
+      type: "projectStatusChange",
       projectId: params.projectId,
       screen: "projectDetails",
     },
@@ -107,7 +170,7 @@ export function dispatchTaskAssignment(params: {
     title: "New Task Assignment",
     body: `You've been assigned to "${params.taskTitle}" on ${params.projectTitle}`,
     projectId: params.projectId,
-    actionUrl: `/projects/${params.projectId}`,
+    actionUrl: `/dashboard?openProject=${params.projectId}&mode=view`,
     actionLabel: "View Task",
     pushData: {
       type: "taskAssignment",
@@ -137,7 +200,7 @@ export function dispatchTaskCompleted(params: {
     title: "Task Completed",
     body: `${params.completedByName} completed "${params.taskTitle}" on ${params.projectTitle}`,
     projectId: params.projectId,
-    actionUrl: `/projects/${params.projectId}`,
+    actionUrl: `/dashboard?openProject=${params.projectId}&mode=view`,
     actionLabel: "View Project",
     pushData: {
       type: "taskCompletion",
@@ -166,7 +229,7 @@ export function dispatchScheduleChange(params: {
     title: "Schedule Update",
     body: `"${params.taskTitle}" on ${params.projectTitle} has been rescheduled`,
     projectId: params.projectId,
-    actionUrl: `/projects/${params.projectId}`,
+    actionUrl: `/dashboard?openProject=${params.projectId}&mode=view`,
     actionLabel: "View Task",
     pushData: {
       type: "scheduleChange",
@@ -201,7 +264,7 @@ export function dispatchMentionPush(params: {
     body: `"${params.notePreview.length > 80 ? params.notePreview.slice(0, 80) + "..." : params.notePreview}" on ${params.projectTitle}`,
     projectId: params.projectId,
     noteId: params.noteId,
-    actionUrl: `/projects/${params.projectId}`,
+    actionUrl: `/dashboard?openProject=${params.projectId}&mode=view`,
     actionLabel: "View Note",
     pushData: {
       type: "projectNoteMention",

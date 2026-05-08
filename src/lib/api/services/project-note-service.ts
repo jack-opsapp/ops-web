@@ -26,7 +26,40 @@ type ProjectNoteRow = {
   created_at: string;
   updated_at: string | null;
   deleted_at: string | null;
+  /** Web-side timeline discriminator. NULL = user-authored note. */
+  event_kind?: string | null;
+  /** Structured event payload for system events. NULL for user notes. */
+  content_metadata?: Record<string, unknown> | null;
 };
+
+/**
+ * System events that web writes to project_notes alongside user-authored
+ * notes. The discriminator lives in the `event_kind` column (added in
+ * migration 20260507130000) and is iOS-additive — iOS treats these as
+ * plain notes until the next App Store release.
+ */
+export type ProjectSystemEventKind =
+  | "status_change"
+  | "estimate_sent"
+  | "estimate_approved"
+  | "estimate_declined"
+  | "invoice_sent"
+  | "payment_received"
+  | "expense_logged"
+  | "photo_uploaded"
+  | "project_created"
+  | "project_archived"
+  | "task_completed";
+
+export interface CreateProjectSystemEvent {
+  projectId: string;
+  companyId: string;
+  authorId: string;
+  eventKind: ProjectSystemEventKind;
+  content: string;
+  contentMetadata?: Record<string, unknown> | null;
+  attachments?: NoteAttachment[];
+}
 
 export function mapRowToProjectNote(row: ProjectNoteRow): ProjectNote {
   return {
@@ -79,6 +112,34 @@ export const ProjectNoteService = {
       .single();
 
     if (error) throw new Error(`Failed to create note: ${error.message}`);
+    return mapRowToProjectNote(data);
+  },
+
+  /**
+   * Insert a system-event row on the unified timeline. Same table as user
+   * notes (iOS-canonical) — the `event_kind` column tags it for web-side
+   * rendering. Use for project_created, project_archived, status_change,
+   * payment_received, etc. — anything the workspace timeline needs to
+   * display as a system event.
+   */
+  async createSystemEvent(input: CreateProjectSystemEvent): Promise<ProjectNote> {
+    const supabase = requireSupabase();
+    const { data, error } = await supabase
+      .from("project_notes")
+      .insert({
+        project_id: input.projectId,
+        company_id: input.companyId,
+        author_id: input.authorId,
+        content: input.content,
+        attachments: input.attachments ?? [],
+        mentioned_user_ids: [],
+        event_kind: input.eventKind,
+        content_metadata: input.contentMetadata ?? null,
+      })
+      .select()
+      .single();
+
+    if (error) throw new Error(`Failed to create system event: ${error.message}`);
     return mapRowToProjectNote(data);
   },
 

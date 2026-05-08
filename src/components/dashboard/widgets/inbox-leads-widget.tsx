@@ -3,12 +3,15 @@
 /**
  * InboxLeadsWidget — Inbox v2 dashboard widget.
  *
- * Surfaces unread LEAD thread count + 7-day median response-time sparkline.
- * Clicking the widget opens /inbox filtered to LEAD.
+ * Surfaces unread CUSTOMER thread count + 7-day median response-time
+ * sparkline. Clicking the widget opens /inbox filtered to CUSTOMER. The
+ * widget keeps the "LEADS" display label because the operator-facing surface
+ * is still about new lead inflow — the underlying email category was just
+ * unified post-migration.
  *
- * Data source: Supabase `email_threads` (unread LEADs in the current
- * company) + `activities` (for response-time computation — each LEAD
- * thread's first outbound after the first inbound).
+ * Data source: Supabase `email_threads` (unread CUSTOMER threads in the
+ * current company) + `activities` (for response-time computation — each
+ * CUSTOMER thread's first outbound after the first inbound).
  *
  * Responsive:
  *   - XS: big number + "LEADS"
@@ -53,23 +56,23 @@ async function fetchInboxLeadsData(
   const now = new Date();
   const sevenDaysAgo = new Date(now.getTime() - 7 * 86_400_000);
 
-  // 1. Unread LEAD threads — current count.
+  // 1. Unread CUSTOMER threads — current count.
   const { data: unreadRows } = await supabase
     .from("email_threads")
     .select("id, first_message_at, last_message_at, unread_count")
     .eq("company_id", companyId)
-    .eq("primary_category", "LEAD")
+    .eq("primary_category", "CUSTOMER")
     .is("archived_at", null)
     .gt("unread_count", 0);
 
   const unreadCount = unreadRows?.length ?? 0;
 
-  // 2. All LEAD threads from the last 7 days — for sparkline + response time.
+  // 2. All CUSTOMER threads from the last 7 days — for sparkline + response time.
   const { data: weekRows } = await supabase
     .from("email_threads")
     .select("id, first_message_at, provider_thread_id")
     .eq("company_id", companyId)
-    .eq("primary_category", "LEAD")
+    .eq("primary_category", "CUSTOMER")
     .gte("first_message_at", sevenDaysAgo.toISOString())
     .order("first_message_at", { ascending: true });
 

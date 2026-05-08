@@ -426,7 +426,7 @@ async function executeReassignTask(
       title: "Task reassigned to you",
       body: `"${data.task_title}" on "${data.project_title}" has been reassigned to you.`,
       persistent: false,
-      actionUrl: `/projects/${data.project_id}`,
+      actionUrl: `/dashboard?openProject=${data.project_id}&mode=view`,
       actionLabel: "View Project",
     });
   } catch {
@@ -1313,7 +1313,7 @@ async function executeSendAppointmentConfirmation(
       title: "Appointment confirmation sent",
       body: `Confirmation sent to ${data.client_name} for ${data.project_title}`,
       persistent: false,
-      actionUrl: `/projects/${data.project_id}`,
+      actionUrl: `/dashboard?openProject=${data.project_id}&mode=view`,
       actionLabel: "View Project",
     });
   } catch {
@@ -1355,7 +1355,7 @@ async function executeSendDayBeforeReminder(
       title: "Day-before reminder sent",
       body: `Reminder sent to ${data.client_name} for ${data.project_title}`,
       persistent: false,
-      actionUrl: `/projects/${data.project_id}`,
+      actionUrl: `/dashboard?openProject=${data.project_id}&mode=view`,
       actionLabel: "View Project",
     });
   } catch {
@@ -1396,7 +1396,7 @@ async function executeSendScheduleChanged(
       title: "Schedule change notification sent",
       body: `Notified ${data.client_name} about the new date for ${data.project_title}`,
       persistent: false,
-      actionUrl: `/projects/${data.project_id}`,
+      actionUrl: `/dashboard?openProject=${data.project_id}&mode=view`,
       actionLabel: "View Project",
     });
   } catch {
@@ -1437,7 +1437,7 @@ async function executeSendSubcontractorCoordination(
       title: "Subcontractor coordination sent",
       body: `Coordination sent to ${data.subcontractor_name} for ${data.project_title}`,
       persistent: false,
-      actionUrl: `/projects/${data.project_id}`,
+      actionUrl: `/dashboard?openProject=${data.project_id}&mode=view`,
       actionLabel: "View Project",
     });
   } catch {
@@ -1579,7 +1579,7 @@ async function executeProcessRescheduleRequest(
       title: "Reschedule handled",
       body: `Replied to ${data.client_name} and ${taskUpdated ? "updated the task" : "acknowledged the request"}`,
       persistent: false,
-      actionUrl: `/projects/${data.project_id}`,
+      actionUrl: `/dashboard?openProject=${data.project_id}&mode=view`,
       actionLabel: "View Project",
     });
   } catch {

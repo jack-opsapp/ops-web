@@ -58,7 +58,9 @@ describe("unsubscribe-token", () => {
 
   it("(6) rejects a tampered signature", () => {
     const tok = signUnsubscribeToken({ email: "user@example.com" });
-    const tampered = tok.replace(/.$/, "X");
+    const last = tok.slice(-1);
+    const flipped = last === "A" ? "B" : "A";
+    const tampered = tok.slice(0, -1) + flipped;
     const r = verifyUnsubscribeToken(tampered);
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.reason).toBe("bad_signature");

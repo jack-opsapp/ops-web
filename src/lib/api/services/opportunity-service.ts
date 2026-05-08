@@ -106,6 +106,8 @@ function mapOpportunityFromDb(row: Record<string, unknown>): Opportunity {
 
     // Address
     address: (row.address as string) ?? null,
+    latitude: row.latitude != null ? Number(row.latitude) : null,
+    longitude: row.longitude != null ? Number(row.longitude) : null,
 
     // Denormalized
     lastActivityAt: parseDate(row.last_activity_at),
@@ -197,6 +199,8 @@ function mapOpportunityToDb(
 
   // Address
   if (data.address !== undefined) row.address = data.address;
+  if (data.latitude !== undefined) row.latitude = data.latitude;
+  if (data.longitude !== undefined) row.longitude = data.longitude;
 
   // Tags
   if (data.tags !== undefined) row.tags = data.tags;

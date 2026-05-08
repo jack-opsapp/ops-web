@@ -231,9 +231,14 @@ export function useUpdateProject() {
 
 /**
  * Update project status with optimistic update.
+ *
+ * Threads currentUser through to the service so the lifecycle handler can
+ * credit the timeline event and dispatch a status-change notification to
+ * the rest of the team without re-querying auth.
  */
 export function useUpdateProjectStatus() {
   const queryClient = useQueryClient();
+  const { currentUser } = useAuthStore();
 
   return useMutation({
     mutationFn: ({
@@ -242,7 +247,18 @@ export function useUpdateProjectStatus() {
     }: {
       id: string;
       status: ProjectStatus;
-    }) => ProjectService.updateProjectStatus(id, status),
+    }) => {
+      const changedByName = currentUser
+        ? `${currentUser.firstName ?? ""} ${currentUser.lastName ?? ""}`
+            .trim() || "A teammate"
+        : undefined;
+      return ProjectService.updateProjectStatus(
+        id,
+        status,
+        currentUser?.id,
+        changedByName,
+      );
+    },
 
     onMutate: async ({ id, status }) => {
       await queryClient.cancelQueries({

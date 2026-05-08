@@ -3,7 +3,7 @@
 import { useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useDetailPopoverStore } from "@/app/(dashboard)/pipeline/_components/detail-popover-store";
-import { useProjectDetailPopoverStore } from "@/app/(dashboard)/projects/_components/project-detail-popover-store";
+import { useWindowStore } from "@/stores/window-store";
 import { useClientDetailPopoverStore } from "@/stores/client-detail-popover-store";
 import { useInvoiceDetailPopoverStore } from "@/stores/invoice-detail-popover-store";
 import { useEstimateDetailPopoverStore } from "@/stores/estimate-detail-popover-store";
@@ -36,7 +36,7 @@ interface OpenEntityOptions {
 export function useWidgetEntityOpen() {
   const router = useRouter();
   const openPipelinePopover = useDetailPopoverStore((s) => s.openPopover);
-  const openProjectPopover = useProjectDetailPopoverStore((s) => s.openPopover);
+  const openProjectWindow = useWindowStore((s) => s.openProjectWindow);
   const openClientPopover = useClientDetailPopoverStore((s) => s.openPopover);
   const openInvoicePopover = useInvoiceDetailPopoverStore((s) => s.openPopover);
   const openEstimatePopover = useEstimateDetailPopoverStore((s) => s.openPopover);
@@ -56,7 +56,10 @@ export function useWidgetEntityOpen() {
           return;
 
         case "project":
-          openProjectPopover(entityId, screenPos, title, color ?? WT.accent);
+          // Phase 9.6 — projects open in the unified workspace window.
+          // Position/title/color are no longer relevant: the workspace
+          // owns its own chrome and derives them from the project.
+          openProjectWindow({ projectId: entityId, mode: "viewing" });
           return;
 
         case "client":
@@ -72,9 +75,11 @@ export function useWidgetEntityOpen() {
           return;
 
         case "task":
-          // Open the parent project's popover — tasks live within project context
+          // Tasks live inside a project — open the parent project's
+          // workspace. Falls back to the projects list when no parent
+          // is supplied.
           if (parentProjectId) {
-            openProjectPopover(parentProjectId, screenPos, title, color ?? WT.accent);
+            openProjectWindow({ projectId: parentProjectId, mode: "viewing" });
           } else {
             const path = fallbackPath ?? `/projects`;
             router.push(path);
@@ -88,7 +93,7 @@ export function useWidgetEntityOpen() {
         }
       }
     },
-    [router, openPipelinePopover, openProjectPopover, openClientPopover, openInvoicePopover, openEstimatePopover]
+    [router, openPipelinePopover, openProjectWindow, openClientPopover, openInvoicePopover, openEstimatePopover]
   );
 
   return openEntity;

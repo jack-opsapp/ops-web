@@ -9,10 +9,16 @@
 
 // ─── Enumerations ────────────────────────────────────────────────────────────
 
-/** Primary category — exactly one per thread. */
+/**
+ * Primary category — exactly one per thread.
+ *
+ * LEAD and CLIENT were collapsed into CUSTOMER by migration
+ * 20260428061836_collapse_lead_client_to_customer. The lead-vs-client
+ * distinction is now carried by the linked opportunity stage, not the thread
+ * category.
+ */
 export type EmailThreadCategory =
-  | "LEAD"
-  | "CLIENT"
+  | "CUSTOMER"
   | "VENDOR"
   | "SUBTRADE"
   | "PLATFORM_BID"
@@ -26,8 +32,7 @@ export type EmailThreadCategory =
   | "OTHER";
 
 export const EMAIL_THREAD_CATEGORIES: readonly EmailThreadCategory[] = [
-  "LEAD",
-  "CLIENT",
+  "CUSTOMER",
   "VENDOR",
   "SUBTRADE",
   "PLATFORM_BID",
@@ -64,7 +69,7 @@ export const EMAIL_THREAD_LABELS: readonly EmailThreadLabel[] = [
  * `email_connections.auto_send_settings.category_autonomy["primary:<CATEGORY>"]`.
  *
  * `auto_archive` only applies to RECEIPT/MARKETING/NEWSLETTER-style categories.
- * `auto_follow_up` only applies to LEAD (and optionally CLIENT).
+ * `auto_follow_up` only applies to CUSTOMER.
  * The UI caps allowed levels per category — see phase-c-category-autonomy-service.
  */
 export type EmailThreadAutonomyLevel =

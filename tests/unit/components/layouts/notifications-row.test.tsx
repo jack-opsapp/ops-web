@@ -20,7 +20,7 @@ const baseNotif: AppNotification = {
   noteId: null,
   isRead: false,
   persistent: false,
-  actionUrl: "/projects/00251",
+  actionUrl: "/dashboard?openProject=00251&mode=view",
   actionLabel: "OPEN",
   createdAt: new Date(Date.now() - 14 * 60_000),
 };

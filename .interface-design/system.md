@@ -9,7 +9,7 @@
 
 **Feel:** Command Deck — Apple-depth glass panels with tactical content. Uppercase Kosugi labels, `//` slash prefixes, JetBrains Mono data readouts, Mohave hero type. Earth-tone semantic palette. Military, measured, no nonsense. Every element earns its place.
 
-**Depth strategy:** Glass surfaces + borders only. Zero box-shadows on dark backgrounds. Top-edge gradient pseudo-element provides subtle lit-from-above quality. Stacked glass (dense variant) for modals/popovers over panels.
+**Depth strategy:** Glass surfaces + borders only on **static UI**. Top-edge gradient pseudo-element provides subtle lit-from-above quality. Stacked glass (dense variant) for modals/popovers over panels. **Floating-window shells** (workspace, future estimate/email composers) are the lone sanctioned `box-shadow` exception — see Depth Rules below.
 
 ---
 
@@ -265,9 +265,20 @@ Import from `@/components/ui/surface`. Variants: `default` (glass-surface), `den
 
 ### Depth Rules
 
-- Glass + borders only. Zero `box-shadow` anywhere on dark backgrounds.
-- No `shadow-card`, `shadow-elevated`, `shadow-floating`.
-- The top-edge gradient pseudo-element is the only depth cue.
+- Glass + borders only on **static UI surfaces** (cards, panels, widgets, sidebars, headers, tab strips). Zero `box-shadow`.
+- The top-edge gradient pseudo-element is the only depth cue on static surfaces.
+- No `shadow-card`, `shadow-elevated`, `shadow-floating` — these legacy tokens are deprecated.
+
+#### Floating-window exception (sanctioned 2026-05-07)
+
+**Floating-window shells** — the only `box-shadow`-bearing surfaces in OPS-Web — separate dense glass from the canvas where a borderless ring alone would not. Two tokens cover every approved use:
+
+| Token | Stack | Use |
+|-------|-------|-----|
+| `--shadow-window` | `0 24px 64px rgba(0,0,0,0.65), 0 0 0 0.5px rgba(255,255,255,0.04)` | Workspace shell; future estimate / email composer windows |
+| `--shadow-dropdown` | `0 12px 32px rgba(0,0,0,0.55)` | Floating dropdowns over busy underlayments (e.g. address autocomplete over Mapbox tiles) |
+
+These tokens are the **complete allowlist**. New shadow stacks are not permitted; reuse the closest token or escalate. Static UI inside the floating window (panels, rows, inputs) still keeps to glass + borders only.
 
 ---
 
@@ -790,3 +801,14 @@ These shared components MUST be used. Never hand-roll equivalent markup:
 | **modal** | 3000 | Portaled dialogs/sheets (Radix) |
 | **map-controls** | 5000 | Full-screen map page only |
 | **emergency** | 9000–9999 | Sign-out, lockout overlays |
+
+---
+
+### Project Workspace Patterns
+
+- **Mode pill:** VIEWING (quiet) / EDITING (tan + pulse) / CREATING (accent + pulse). Pulse = 1.6s opacity 1↔0.45 (compositor-only — see plan amendment 12.6).
+- **Mode-aware footer:** `ModeFooterConfig = { destructive | meta | spacer | secondary[] | ghost | primary }`. One primary per footer maximum.
+- **Floating window shell:** 8-direction resize, traffic lights, draggable header. Position+size persist to `opsWin:{key}`. Sanctioned `--shadow-window` token (exception to "no box-shadow on dark backgrounds" rule — see 2026-05-07 amendment).
+- **Status temperature drives chrome:** PROJECT_STATUS_COLORS hex bleeds into pin glow, schedule strip today-tick, active task highlight. Use `withAlpha(hex, percent)` utility (`src/lib/utils/color.ts`) instead of hex alpha-suffix.
+- **Activity timeline:** `project_notes` is the single canonical table. `event_kind` (nullable) discriminates user notes (NULL) from system events. Compose new entries via `<NoteComposer>` (reused across surfaces).
+- **ConfirmModal destructive variant:** glass-dense bg, rose accent stripe (`border-t-[var(--rose)]`), 12px modal radius, Cake Mono Light title, Mohave body, `--shadow-window` elevation. Used for archive; reusable for delete/revert/cancel flows.

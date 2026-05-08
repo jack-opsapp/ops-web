@@ -127,12 +127,44 @@
     /* ── Glass surface system (Command Deck spec) ── */
     --glass-bg: rgba(18, 18, 20, 0.58);
     --glass-bg-dense: rgba(18, 18, 20, 0.78);
+    --glass-bg-opaque: rgba(18, 18, 20, 0.92);
     --glass-bg-subtle: rgba(18, 18, 20, 0.40);
     --glass-border: rgba(255, 255, 255, 0.09);
+    --glass-border-active: rgba(255, 255, 255, 0.18);
     --glass-border-medium: rgba(255, 255, 255, 0.12);
     --glass-border-strong: rgba(255, 255, 255, 0.20);
     --glass-blur: 28px;
     --glass-saturate: 1.3;
+
+    /* ── Surface vignette (sub-input wash for card-on-glass) ── */
+    --surface-vignette: rgba(255, 255, 255, 0.02);
+
+    /* ── Scrim scale (black overlays — design-system gap addressed)
+     * Used for nested glass-over-glass tinting, dropdown washes over
+     * Mapbox tiles, and pin/stroke borders against light surfaces.
+     * Spec line 268 (uploads/system.md) reserves shadows for floating
+     * window shells; static UI keeps to glass + borders only. */
+    --scrim-strip-bg:      rgba(0, 0, 0, 0.18);
+    --scrim-overlay:       rgba(0, 0, 0, 0.32);
+    --scrim-input-bg:      rgba(0, 0, 0, 0.45);
+    --scrim-edge-stroke:   rgba(0, 0, 0, 0.55);
+    --scrim-window-shadow: rgba(0, 0, 0, 0.65);
+
+    /* ── Map-scoped tokens (Mapbox canvas + bottom fade)
+     * Slightly warmer (20,20,20) than the brand glass family
+     * (18,18,20) to bridge Mapbox tiles to the compact strip below.
+     * Map-only — not exposed via Tailwind classes. */
+    --map-canvas-bg: #0a0d10;
+    --map-fade-mid:  rgba(20, 20, 20, 0.55);
+    --map-fade-end:  rgba(20, 20, 20, 0.95);
+
+    /* ── Floating-window shadows (sanctioned exceptions to "no shadow")
+     * Spec amendment 2026-05-07 (uploads/system.md): floating-window
+     * shells (workspace, future estimate/email composers) carry
+     * tokenized drop shadows for separation from canvas. Static UI
+     * surfaces remain shadow-free. */
+    --shadow-window:   0 24px 64px rgba(0, 0, 0, 0.65), 0 0 0 0.5px rgba(255, 255, 255, 0.04);
+    --shadow-dropdown: 0 12px 32px rgba(0, 0, 0, 0.55);
 
     /* ── OPS spec v2 brand tokens (canonical, see .interface-design/system.md) ── */
     /* Glass aliases without `-bg` suffix — preferred shorthand for inline styles */
@@ -184,6 +216,13 @@
     --d-hover: 150ms;
     --d-panel: 200ms;
     --d-page:  250ms;
+
+    /* macOS canonical traffic-light colours — fixed by Apple. Hoisted
+       here (not brand tokens) so the workspace TrafficLight chrome stays
+       hex-free and CLAUDE.md "no hex literals" stays absolute. */
+    --macos-traffic-close:    #FF5F57;
+    --macos-traffic-minimize: #FEBC2E;
+    --macos-traffic-maximize: #28C840;
   }
 
   * {
@@ -566,3 +605,20 @@
   background: var(--text) !important;
   transition: background 150ms cubic-bezier(0.22, 1, 0.36, 1);
 }
+
+/* ─── PROJECT MAP — pin pulse ─────────────────────────────────────────────
+   Status-tinted glow that breathes under the project pin in compact MapHero.
+   Slow (2.4s) and shallow (1.0 → 1.1 scale) so it reads as a heartbeat, not
+   a beacon. EASE_SMOOTH per design system; reduced-motion drops it entirely. */
+@keyframes pin-pulse {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50%      { opacity: 0.85; transform: scale(1.1); }
+}
+.animate-pin-pulse {
+  animation: pin-pulse 2.4s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  will-change: transform, opacity;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-pin-pulse { animation: none; }
+}
+

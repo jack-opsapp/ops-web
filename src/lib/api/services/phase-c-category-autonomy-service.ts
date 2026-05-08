@@ -42,8 +42,12 @@ import {
 const CATEGORY_TO_PROFILE_TYPES: Partial<
   Record<EmailThreadCategory, string[]>
 > = {
-  LEAD: ["client_new_inquiry", "client_quoting"],
-  CLIENT: ["client_active_project", "client_followup"],
+  CUSTOMER: [
+    "client_new_inquiry",
+    "client_quoting",
+    "client_active_project",
+    "client_followup",
+  ],
   VENDOR: ["vendor_ordering", "vendor_inquiry"],
   SUBTRADE: ["subtrade_coordination"],
   PLATFORM_BID: ["client_new_inquiry"], // platform bids draft like inquiries
@@ -61,9 +65,7 @@ export function allowedLevelsFor(
   category: EmailThreadCategory
 ): EmailThreadAutonomyLevel[] {
   switch (category) {
-    case "LEAD":
-      return ["off", "draft_on_request", "auto_draft", "auto_send", "auto_follow_up"];
-    case "CLIENT":
+    case "CUSTOMER":
       return ["off", "draft_on_request", "auto_draft", "auto_send", "auto_follow_up"];
     case "VENDOR":
     case "SUBTRADE":

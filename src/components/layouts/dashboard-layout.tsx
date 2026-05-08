@@ -19,12 +19,12 @@ import { QuickActionsTab } from "@/components/layouts/quick-actions-tab";
 import { DuplicateReviewSheet } from "@/components/ops/duplicate-review-sheet";
 import { useActionPrompts } from "@/hooks/useActionPrompts";
 import { useWindowStore } from "@/stores/window-store";
-import { CreateProjectForm } from "@/components/ops/create-project-modal";
 import { CreateClientForm } from "@/components/ops/create-client-modal";
 import { CreateTaskForm } from "@/components/ops/create-task-modal";
 import { CreateEstimateForm } from "@/components/ops/create-estimate-modal";
 import { CreateLeadForm } from "@/components/ops/create-lead-modal";
 import { ComposeEmailForm } from "@/components/ops/compose-email-form";
+import { ProjectWorkspaceContainer } from "@/components/ops/projects/workspace/project-workspace-container";
 import type { ComposeEmailData } from "@/lib/types/email-template";
 import { useGmailSyncNotifications } from "@/lib/hooks/use-gmail-sync-notifications";
 import { useDashboardPreferencesSync } from "@/lib/hooks/use-dashboard-preferences-sync";
@@ -36,7 +36,7 @@ import { ExpenseBatchPopover } from "@/components/ops/expense-batch-popover";
 import { ExpenseReviewListPopover } from "@/components/ops/expense-review-list-popover";
 import { UnassignedRoleBanner } from "@/components/ops/unassigned-role-banner";
 import { useSetupGate } from "@/hooks/useSetupGate";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 
 // Leaflet map background + filter rail — client-only (no SSR)
 const DashboardMapBackground = dynamic(
@@ -99,20 +99,52 @@ function DashboardPreferencesSync() {
   return null;
 }
 
+// Phase 9.7 — notification deep-link handler. Notifications dispatch with
+// `actionUrl: /dashboard?openProject=<id>&mode=view|edit` (P14-1: prefix
+// changed from `/` because the root → /dashboard redirect strips query
+// params). The handler is path-agnostic — when that URL lands on any
+// dashboard route, this effect opens the project-workspace window for the
+// requested project and strips the query params so a refresh doesn't
+// re-open the window.
+function ProjectWorkspaceDeepLinkHandler() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const openProjectWindow = useWindowStore((s) => s.openProjectWindow);
+
+  useEffect(() => {
+    const projectId = searchParams.get("openProject");
+    if (!projectId) return;
+    const modeParam = searchParams.get("mode");
+    const mode = modeParam === "edit" ? "editing" : "viewing";
+    openProjectWindow({ projectId, mode });
+
+    // Strip the deep-link params while preserving anything else on the URL
+    // (e.g. tab filters). Use `router.replace` so the back button doesn't
+    // bounce the user back through the open transition.
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete("openProject");
+    next.delete("mode");
+    const query = next.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname);
+  }, [searchParams, pathname, router, openProjectWindow]);
+
+  return null;
+}
+
 function FloatingWindows() {
   const windows = useWindowStore((s) => s.windows);
   const closeWindow = useWindowStore((s) => s.closeWindow);
 
+  // Project-workspace windows render their own shell (ProjectWorkspaceWindow)
+  // via the container, so they bypass the legacy FloatingWindow chrome.
+  const legacyWindows = windows.filter((w) => w.type !== "project-workspace");
+  const workspaceWindows = windows.filter((w) => w.type === "project-workspace");
+
   return (
     <>
-      {windows.map((win) => (
+      {legacyWindows.map((win) => (
         <FloatingWindow key={win.id} window={win}>
-          {win.type === "create-project" && (
-            <CreateProjectForm
-              onSuccess={() => closeWindow(win.id)}
-              onCancel={() => closeWindow(win.id)}
-            />
-          )}
           {win.type === "create-client" && (
             <CreateClientForm
               onSuccess={() => closeWindow(win.id)}
@@ -145,6 +177,9 @@ function FloatingWindows() {
             />
           )}
         </FloatingWindow>
+      ))}
+      {workspaceWindows.map((win) => (
+        <ProjectWorkspaceContainer key={win.id} windowId={win.id} />
       ))}
     </>
   );
@@ -243,6 +278,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       <CommandPalette />
       <KeyboardShortcuts />
       <FloatingWindows />
+      <ProjectWorkspaceDeepLinkHandler />
       <NotificationsDrawer />
       <NotificationsTab />
       <QuickActionsDrawer />
