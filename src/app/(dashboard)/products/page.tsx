@@ -27,6 +27,9 @@ import {
   useDeleteProduct,
   useTaskTypes,
   useProductMetrics,
+  useCatalogLookups,
+  resolveCategoryId,
+  resolveUnitId,
 } from "@/lib/hooks";
 import { MetricsHeader } from "@/components/metrics";
 import {
@@ -328,6 +331,12 @@ function ProductFormModal({
   const { t } = useDictionary("dashboard");
   const isEditing = !!product;
   const { data: taskTypes = [] } = useTaskTypes();
+  // Best-effort name -> FK resolution. Stopgap for P0; replaced by real
+  // pickers in P0-2. When the typed value matches an existing catalog row
+  // (case-insensitive, trimmed) we write the FK alongside the legacy text;
+  // otherwise the FK is left NULL and only the legacy column is written.
+  const { categories: catalogCategories, units: catalogUnits } =
+    useCatalogLookups();
 
   const [name, setName] = useState(product?.name ?? "");
   const [description, setDescription] = useState(product?.description ?? "");
@@ -367,13 +376,22 @@ function ProductFormModal({
   const handleSubmit = () => {
     if (!name.trim()) return;
 
+    const trimmedCategory = category.trim() || null;
+    const resolvedCategoryId = resolveCategoryId(
+      trimmedCategory,
+      catalogCategories
+    );
+    const resolvedUnitId = resolveUnitId(unit, catalogUnits);
+
     const data = {
       name: name.trim(),
       description: description.trim() || null,
       defaultPrice,
       unitCost: unitCost || null,
       unit,
-      category: category.trim() || null,
+      unitId: resolvedUnitId,
+      category: trimmedCategory,
+      categoryId: resolvedCategoryId,
       taskTypeId: taskTypeId || null,
       isTaxable,
       isActive,
