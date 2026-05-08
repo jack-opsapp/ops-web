@@ -27,6 +27,19 @@ export type { FetchCalendarEventsOptions } from "./calendar-service";
 
 export { TaskTypeService } from "./task-type-service";
 
+export { CatalogCategoryService } from "./catalog-category-service";
+export type {
+  CatalogCategory,
+  CreateCatalogCategoryInput,
+} from "./catalog-category-service";
+
+export { CatalogUnitService, CATALOG_UNIT_DIMENSIONS } from "./catalog-unit-service";
+export type {
+  CatalogUnit,
+  CatalogUnitDimension,
+  CreateCatalogUnitInput,
+} from "./catalog-unit-service";
+
 export { uploadImage, uploadMultipleImages, ImageUploadError } from "./image-service";
 export type { ImageUploadErrorCode } from "./image-service";
 
@@ -110,6 +123,8 @@ export { ApprovalQueueService } from "./approval-queue-service";
 export type { ProposeActionParams, QueueFilters, QueueStats } from "@/lib/types/approval-queue";
 
 export { ProductMaterialsService } from "./product-materials-service";
+export { ProductOptionsService } from "./product-options-service";
+export { ProductPricingModifiersService } from "./product-pricing-modifiers-service";
 export { TaskMaterialsService } from "./task-materials-service";
 export { InventoryDeductionService } from "./inventory-deduction-service";
 export { LineItemMaterialsService } from "./line-item-materials-service";

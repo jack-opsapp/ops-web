@@ -126,11 +126,13 @@ export {
   useDeleteProduct,
 } from "./use-products";
 
-// Catalog lookups (categories + units; read-only)
+// Catalog lookups (categories + units; read + inline-create writes)
 export {
   useCatalogLookups,
   resolveCategoryId,
   resolveUnitId,
+  useCreateCatalogCategory,
+  useCreateCatalogUnit,
 } from "./use-catalog-lookups";
 export type {
   CatalogCategoryLookup,
