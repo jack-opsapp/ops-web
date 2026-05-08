@@ -30,7 +30,7 @@ export function ClosedBand({ closedAt, className }: ClosedBandProps) {
     <section
       aria-label={t("bands.closed.aria", "Thread closed")}
       className={cn(
-        "flex shrink-0 items-center gap-2 border-b border-line bg-inbox-bg px-[18px] py-2.5",
+        "flex shrink-0 items-center gap-2 border-b border-line bg-inbox-bg px-2 py-2.5",
         className,
       )}
     >

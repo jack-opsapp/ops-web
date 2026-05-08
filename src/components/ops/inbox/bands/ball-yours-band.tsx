@@ -37,7 +37,7 @@ export function BallYoursBand({
     <section
       aria-label={t("bands.ballYours.aria", "Your turn")}
       className={cn(
-        "relative flex shrink-0 items-center gap-2.5 border-b border-line bg-ops-accent/[0.06] px-[18px] py-2.5",
+        "relative flex shrink-0 items-center gap-2.5 border-b border-line bg-ops-accent/[0.06] px-2 py-2.5",
         className,
       )}
     >

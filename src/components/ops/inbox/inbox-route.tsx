@@ -481,7 +481,7 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
       {composerError && (
         <p
           role="alert"
-          className="px-[18px] pb-2 font-mono text-[11px] text-rose"
+          className="px-2 pb-2 font-mono text-[11px] text-rose"
           style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
         >
           {composerError}

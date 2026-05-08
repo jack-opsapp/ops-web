@@ -92,7 +92,7 @@ export function ThreadRow({ thread, selected, now, onSelect }: ThreadRowProps) {
       aria-pressed={selected}
       className={cn(
         "group relative block w-full border-b border-line text-left",
-        "py-2.5 pl-[18px] pr-3.5",
+        "py-2.5 pl-2 pr-3.5",
         selected ? "bg-ops-accent/[0.07]" : "hover:bg-inbox-elev/40",
       )}
     >

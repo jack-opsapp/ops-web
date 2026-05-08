@@ -23,7 +23,7 @@ export function ContactStrip({
   return (
     <div
       className={cn(
-        "flex shrink-0 flex-wrap items-center gap-x-5 gap-y-1.5 border-b border-line bg-inbox-bg px-[18px] py-2",
+        "flex shrink-0 flex-wrap items-center gap-x-5 gap-y-1.5 border-b border-line bg-inbox-bg px-2 py-2",
         className,
       )}
     >

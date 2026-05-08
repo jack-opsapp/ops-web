@@ -121,7 +121,7 @@ export function ThreadDetailHeader({
   return (
     <header
       className={cn(
-        "shrink-0 border-b border-line bg-inbox-panel px-[18px] pb-2.5 pt-3",
+        "shrink-0 border-b border-line bg-inbox-panel px-2 pb-2.5 pt-3",
         className,
       )}
     >

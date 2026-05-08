@@ -42,7 +42,7 @@ export function AutoSentBand({
     <section
       aria-label={t("bands.autoSent.aria", "Claude auto-replied")}
       className={cn(
-        "flex shrink-0 items-center gap-2.5 border-b border-line bg-agent-bg px-[18px] py-2.5",
+        "flex shrink-0 items-center gap-2.5 border-b border-line bg-agent-bg px-2 py-2.5",
         className,
       )}
     >

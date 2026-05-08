@@ -78,7 +78,7 @@ export function DraftSwitcher({
   return (
     <div
       className={cn(
-        "mb-2 flex items-center gap-1.5 border-b border-line bg-white/[0.02] px-2.5 py-2",
+        "mb-2 flex items-center gap-1.5 border-b border-line bg-inbox-elev px-2.5 py-2",
         className,
       )}
     >

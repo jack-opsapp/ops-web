@@ -61,7 +61,7 @@ export function SummaryBand({
     <section
       aria-label={t("bands.summary.aria", "Claude summary")}
       className={cn(
-        "flex shrink-0 items-start gap-2.5 border-b border-line bg-ops-accent/[0.06] px-[18px] py-2.5",
+        "flex shrink-0 items-start gap-2.5 border-b border-line bg-ops-accent/[0.06] px-2 py-2.5",
         className,
       )}
     >

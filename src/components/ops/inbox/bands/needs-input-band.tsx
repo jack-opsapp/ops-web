@@ -40,7 +40,7 @@ export function NeedsInputBand({
     <section
       aria-label={t("bands.needsInput.aria", "Claude needs your input")}
       className={cn(
-        "flex shrink-0 gap-2.5 border-b border-line bg-agent-bg px-[18px] py-3",
+        "flex shrink-0 gap-2.5 border-b border-line bg-agent-bg px-2 py-3",
         className,
       )}
     >

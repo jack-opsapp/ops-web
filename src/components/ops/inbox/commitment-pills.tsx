@@ -54,7 +54,7 @@ export function CommitmentPills({
     <section
       aria-label={t("commitmentPills.aria", "Open commitments on this thread")}
       className={cn(
-        "flex shrink-0 flex-wrap items-center gap-1.5 border-b border-line bg-inbox-panel/40 px-[18px] py-2.5",
+        "flex shrink-0 flex-wrap items-center gap-1.5 border-b border-line bg-inbox-panel/40 px-2 py-2.5",
         className,
       )}
     >

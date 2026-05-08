@@ -4,7 +4,7 @@
  * Composer — faithful to `reference/v3-messages.jsx :: V3Composer` and
  * `reference/v4-detail.jsx :: V4Composer`.
  *
- * Shell padding 12/18/14, panel bg, line border-top.
+ * Shell padding 12/16/14 (px-2 / py-3 on the 8pt grid), panel bg, line border-top.
  * Inner box: bgDeep, 6px radius, 10/12 padding, min-h 84.
  *   • Border becomes agent-border-hi when agentTinted.
  *   • Composer body (textarea) — Mohave 13 / 1.55 / -0.003em / text-pretty.
@@ -103,7 +103,7 @@ export function Composer({
   return (
     <div
       className={cn(
-        "shrink-0 border-t border-line bg-inbox-panel px-[18px] py-3",
+        "shrink-0 border-t border-line bg-inbox-panel px-2 py-3",
         className,
       )}
     >
