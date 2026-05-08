@@ -43,6 +43,9 @@ export function QuickActionsDrawer() {
   const open = useEdgeTabStore((s) => s.activeTab === EDGE_TAB_ID);
   const close = useEdgeTabStore((s) => s.close);
   const openWindow = useWindowStore((s) => s.openWindow);
+  // Phase 9.2 — project-workspace dispatch goes through the dedicated
+  // openProjectWindow helper (centralised id derivation + meta packaging).
+  const openProjectWindow = useWindowStore((s) => s.openProjectWindow);
   const reducedMotion = useReducedMotion();
   const actions = useQuickActions();
   const PANEL_H = computeQuickActionsPanelHeight(actions.length);
@@ -119,11 +122,21 @@ export function QuickActionsDrawer() {
   const handleAction = (action: FABAction) => {
     gatedAction(() => {
       if (isWindowAction(action)) {
-        openWindow({
-          id: action.target,
-          title: action.label,
-          type: action.target,
-        });
+        if (action.target === "project-workspace") {
+          // Project workspace uses its own opener so two clicks for the
+          // same project hit a single window. Mode comes from action.meta
+          // (defaulting to "creating" — that's how the FAB lands here).
+          openProjectWindow({
+            projectId: null,
+            mode: action.meta?.initialMode ?? "creating",
+          });
+        } else {
+          openWindow({
+            id: action.target,
+            title: action.label,
+            type: action.target,
+          });
+        }
       } else {
         router.push(action.target as string);
       }
