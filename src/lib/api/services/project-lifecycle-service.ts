@@ -320,6 +320,31 @@ export const ProjectLifecycleService = {
     oldStage: string,
     newStage: string
   ): Promise<void> {
+    // Always write a status_change row to the unified workspace timeline.
+    // The phase_c gate below only governs the AI-driven approval-queue
+    // proposals — the audit/timeline entry must fire regardless so the
+    // workspace Activity tab reflects every status transition.
+    try {
+      const adminUserId = await getCompanyAdminUserId(companyId);
+      if (adminUserId) {
+        const { ProjectNoteService } = await import("./project-note-service");
+        await ProjectNoteService.createSystemEvent({
+          projectId,
+          companyId,
+          authorId: adminUserId,
+          eventKind: "status_change",
+          content: `Status: ${oldStage} → ${newStage}`,
+          contentMetadata: { from: oldStage, to: newStage },
+        });
+      }
+    } catch (err) {
+      console.error(
+        "[project-lifecycle] Failed to write status_change timeline event:",
+        err,
+      );
+      // Non-fatal — keep going so the rest of the lifecycle flow still runs.
+    }
+
     // Gate behind phase_c
     const enabled = await AdminFeatureOverrideService.isAIFeatureEnabled(
       companyId,

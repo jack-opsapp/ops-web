@@ -1,123 +1,78 @@
 /**
  * useProjectMutations — workspace-driven project writes.
  *
- * Each mutation:
- *   1. Persists the project change
- *   2. Inserts an `activities` row (system event + optional content)
- *   3. Notifies the relevant audience (assignment dispatch or direct
- *      `notifications` insert depending on the event)
- *   4. Invalidates relevant query keys
+ * Thin coordinator over existing services:
+ *   - ProjectService for project CRUD
+ *   - ProjectNoteService.createSystemEvent for the unified timeline rows
+ *     (event_kind = project_created / project_archived / photo_uploaded)
+ *   - dispatchProjectAssignment for new-member push notifications
+ *   - NotificationService.create for archive notifications to existing team
+ *   - useCreateProjectNote (re-exported as `postNote`) for user notes
  *
- * Drift surfaced (recorded in commit + phase report):
- *   The existing useCreateProject / useUpdateProject / useUpdateProjectStatus
- *   in src/lib/hooks/use-projects.ts dispatch notifications but do NOT
- *   insert an activities row. These new hooks add the activity-insertion
- *   path; the old hooks remain intact for the surfaces that haven't
- *   migrated to the workspace yet.
+ * What this hook deliberately does NOT do:
+ *   - Status changes (those are owned by useUpdateProjectStatus, which
+ *     fires ProjectLifecycleService.onProjectStageChange — that service
+ *     writes the status_change project_notes row, not this hook)
+ *   - Task-level dispatches (taskAssigned, scheduleChange, etc.)
+ *   - Insert into the legacy `activities` table
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import * as React from "react";
-import { renderHook, waitFor, act } from "@testing-library/react";
+import { renderHook, act } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 // ─── Mock recorders ──────────────────────────────────────────────────────────
 
-interface ActivityInsert {
-  type: string;
-  subject: string | null;
-  content: string | null;
-  project_id: string;
-  company_id: string;
-  created_by: string | null;
-  attachment_ids?: string[] | null;
-}
+const projectServiceCreateCalls: Array<Record<string, unknown>> = [];
+const projectServiceUpdateCalls: Array<{ id: string; patch: Record<string, unknown> }> = [];
+const projectServiceDeleteCalls: string[] = [];
+const systemEventCalls: Array<Record<string, unknown>> = [];
+const userNoteCalls: Array<Record<string, unknown>> = [];
+const dispatchAssignmentCalls: Array<Record<string, unknown>> = [];
+const notificationCreateCalls: Array<Record<string, unknown>> = [];
 
-interface NotificationInsert {
-  user_id: string;
-  company_id: string;
-  type: string;
-  title: string;
-  body: string;
-  project_id: string | null;
-  action_url: string | null;
-  action_label: string | null;
-}
-
-const projectInserts: Record<string, unknown>[] = [];
-const projectUpdates: Array<{ id: string; patch: Record<string, unknown> }> = [];
-const activityInserts: ActivityInsert[] = [];
-const notificationInserts: NotificationInsert[] = [];
-const dispatchAssignments: Array<{
-  projectId: string;
-  newMemberIds: string[];
-  companyId: string;
-  projectTitle: string;
-}> = [];
-
-// ─── Mock supabase ────────────────────────────────────────────────────────────
-
-vi.mock("@/lib/supabase/helpers", () => ({
-  requireSupabase: () => ({
-    from: (table: string) => {
-      if (table === "projects") {
-        return {
-          insert: (row: Record<string, unknown>) => {
-            projectInserts.push(row);
-            return {
-              select: () => ({
-                single: () =>
-                  Promise.resolve({
-                    data: { id: "new-proj-id", ...row },
-                    error: null,
-                  }),
-              }),
-            };
-          },
-          update: (patch: Record<string, unknown>) => ({
-            eq: (_col: string, id: string) => {
-              projectUpdates.push({ id, patch });
-              return Promise.resolve({ error: null });
-            },
-          }),
-        };
-      }
-      if (table === "activities") {
-        return {
-          insert: (row: ActivityInsert) => {
-            activityInserts.push(row);
-            return Promise.resolve({ error: null });
-          },
-        };
-      }
-      if (table === "notifications") {
-        return {
-          insert: (row: NotificationInsert | NotificationInsert[]) => {
-            const rows = Array.isArray(row) ? row : [row];
-            for (const r of rows) notificationInserts.push(r);
-            return Promise.resolve({ error: null });
-          },
-        };
-      }
-      throw new Error(`unexpected table: ${table}`);
-    },
-  }),
-}));
-
-// ─── Mock notification-dispatch ───────────────────────────────────────────────
-
-vi.mock("@/lib/api/services/notification-dispatch", () => ({
-  dispatchProjectAssignment: (params: {
-    projectId: string;
-    newMemberIds: string[];
-    companyId: string;
-    projectTitle: string;
-  }) => {
-    dispatchAssignments.push(params);
+vi.mock("@/lib/api/services/project-service", () => ({
+  ProjectService: {
+    createProject: vi.fn(async (data: Record<string, unknown>) => {
+      projectServiceCreateCalls.push(data);
+      return "new-proj-id";
+    }),
+    updateProject: vi.fn(async (id: string, patch: Record<string, unknown>) => {
+      projectServiceUpdateCalls.push({ id, patch });
+    }),
+    deleteProject: vi.fn(async (id: string) => {
+      projectServiceDeleteCalls.push(id);
+    }),
   },
 }));
 
-// ─── Mock auth store ─────────────────────────────────────────────────────────
+vi.mock("@/lib/api/services/project-note-service", () => ({
+  ProjectNoteService: {
+    createSystemEvent: vi.fn(async (input: Record<string, unknown>) => {
+      systemEventCalls.push(input);
+      return { id: "evt-1", ...input };
+    }),
+    createNote: vi.fn(async (input: Record<string, unknown>) => {
+      userNoteCalls.push(input);
+      return { id: "note-1", ...input };
+    }),
+  },
+}));
+
+vi.mock("@/lib/api/services/notification-dispatch", () => ({
+  dispatchProjectAssignment: vi.fn((params: Record<string, unknown>) => {
+    dispatchAssignmentCalls.push(params);
+  }),
+}));
+
+vi.mock("@/lib/api/services/notification-service", () => ({
+  NotificationService: {
+    create: vi.fn(async (params: Record<string, unknown>) => {
+      notificationCreateCalls.push(params);
+    }),
+  },
+}));
 
 vi.mock("@/lib/store/auth-store", () => ({
   useAuthStore: () => ({
@@ -128,12 +83,8 @@ vi.mock("@/lib/store/auth-store", () => ({
 
 // ─── Test harness ────────────────────────────────────────────────────────────
 
-import {
-  useCreateProjectWithActivity,
-  useUpdateProjectStatusWithActivity,
-  usePostProjectNote,
-  useUploadProjectPhotoActivity,
-} from "@/lib/hooks/use-project-mutations";
+import { useProjectMutations } from "@/lib/hooks/use-project-mutations";
+import { ProjectStatus } from "@/lib/types/models";
 
 function makeWrapper() {
   const qc = new QueryClient({
@@ -144,173 +95,317 @@ function makeWrapper() {
 }
 
 beforeEach(() => {
-  projectInserts.length = 0;
-  projectUpdates.length = 0;
-  activityInserts.length = 0;
-  notificationInserts.length = 0;
-  dispatchAssignments.length = 0;
+  projectServiceCreateCalls.length = 0;
+  projectServiceUpdateCalls.length = 0;
+  projectServiceDeleteCalls.length = 0;
+  systemEventCalls.length = 0;
+  userNoteCalls.length = 0;
+  dispatchAssignmentCalls.length = 0;
+  notificationCreateCalls.length = 0;
 });
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
-describe("useCreateProjectWithActivity", () => {
-  it("creates the project, inserts a system activity, and dispatches assignment", async () => {
-    const { result } = renderHook(() => useCreateProjectWithActivity(), {
+describe("useProjectMutations", () => {
+  it("exposes the documented mutation set", () => {
+    const { result } = renderHook(() => useProjectMutations("proj-1"), {
       wrapper: makeWrapper(),
     });
+    expect(result.current.saveProject).toBeDefined();
+    expect(result.current.createProject).toBeDefined();
+    expect(result.current.archiveProject).toBeDefined();
+    expect(result.current.deleteProject).toBeDefined();
+    expect(result.current.postNote).toBeDefined();
+    expect(result.current.uploadPhoto).toBeDefined();
+  });
 
-    await act(async () => {
-      await result.current.mutateAsync({
+  describe("createProject", () => {
+    it("delegates to ProjectService.createProject + writes project_created event_kind + dispatches assignment", async () => {
+      const { result } = renderHook(() => useProjectMutations(null), {
+        wrapper: makeWrapper(),
+      });
+
+      await act(async () => {
+        await result.current.createProject.mutateAsync({
+          title: "Driveway Sealing — Block 7",
+          clientId: "client-1",
+          teamMemberIds: ["u-pm", "u-crew-1"],
+        });
+      });
+
+      // ProjectService called with mapped fields
+      expect(projectServiceCreateCalls).toHaveLength(1);
+      expect(projectServiceCreateCalls[0]).toMatchObject({
         title: "Driveway Sealing — Block 7",
-        client_id: null,
-        team_member_ids: ["u-pm", "u-crew-1"],
+        companyId: "co-1",
+        clientId: "client-1",
+        teamMemberIds: ["u-pm", "u-crew-1"],
+      });
+
+      // Timeline row written via createSystemEvent (NOT createNote — that's
+      // for user-authored notes; this is a system event)
+      expect(systemEventCalls).toHaveLength(1);
+      expect(systemEventCalls[0]).toMatchObject({
+        projectId: "new-proj-id",
+        companyId: "co-1",
+        authorId: "user-123",
+        eventKind: "project_created",
+      });
+
+      // Push notification dispatched to the new team members
+      expect(dispatchAssignmentCalls).toHaveLength(1);
+      expect(dispatchAssignmentCalls[0]).toMatchObject({
+        projectId: "new-proj-id",
+        projectTitle: "Driveway Sealing — Block 7",
+        newMemberIds: ["u-pm", "u-crew-1"],
+        companyId: "co-1",
       });
     });
 
-    expect(projectInserts).toHaveLength(1);
-    expect(projectInserts[0]).toMatchObject({
-      title: "Driveway Sealing — Block 7",
-      company_id: "co-1",
-    });
-
-    expect(activityInserts).toHaveLength(1);
-    expect(activityInserts[0]).toMatchObject({
-      type: "system",
-      project_id: "new-proj-id",
-      company_id: "co-1",
-      created_by: "user-123",
-    });
-    expect(activityInserts[0].subject).toMatch(/created/i);
-
-    expect(dispatchAssignments).toHaveLength(1);
-    expect(dispatchAssignments[0]).toMatchObject({
-      projectId: "new-proj-id",
-      projectTitle: "Driveway Sealing — Block 7",
-      newMemberIds: ["u-pm", "u-crew-1"],
-      companyId: "co-1",
-    });
-  });
-
-  it("skips assignment dispatch when there are no team members", async () => {
-    const { result } = renderHook(() => useCreateProjectWithActivity(), {
-      wrapper: makeWrapper(),
-    });
-
-    await act(async () => {
-      await result.current.mutateAsync({
-        title: "Solo project",
-        client_id: null,
-        team_member_ids: [],
+    it("skips assignment dispatch when no team members are added", async () => {
+      const { result } = renderHook(() => useProjectMutations(null), {
+        wrapper: makeWrapper(),
       });
+
+      await act(async () => {
+        await result.current.createProject.mutateAsync({
+          title: "Solo project",
+          teamMemberIds: [],
+        });
+      });
+
+      expect(systemEventCalls).toHaveLength(1);
+      expect(dispatchAssignmentCalls).toHaveLength(0);
     });
 
-    expect(activityInserts).toHaveLength(1);
-    expect(dispatchAssignments).toHaveLength(0);
+    it("does NOT call createNote (system events go through createSystemEvent)", async () => {
+      const { result } = renderHook(() => useProjectMutations(null), {
+        wrapper: makeWrapper(),
+      });
+
+      await act(async () => {
+        await result.current.createProject.mutateAsync({ title: "Test" });
+      });
+
+      expect(userNoteCalls).toHaveLength(0);
+    });
   });
-});
 
-describe("useUpdateProjectStatusWithActivity", () => {
-  it("updates status, writes a system activity, notifies assigned crew", async () => {
-    const { result } = renderHook(() => useUpdateProjectStatusWithActivity(), {
-      wrapper: makeWrapper(),
+  describe("saveProject", () => {
+    it("delegates to ProjectService.updateProject", async () => {
+      const { result } = renderHook(() => useProjectMutations("proj-1"), {
+        wrapper: makeWrapper(),
+      });
+
+      await act(async () => {
+        await result.current.saveProject.mutateAsync({
+          projectId: "proj-1",
+          patch: { title: "Updated title" },
+        });
+      });
+
+      expect(projectServiceUpdateCalls).toEqual([
+        { id: "proj-1", patch: { title: "Updated title" } },
+      ]);
     });
 
-    await act(async () => {
-      await result.current.mutateAsync({
+    it("dispatches assignment notification only for newly added team members", async () => {
+      const { result } = renderHook(() => useProjectMutations("proj-1"), {
+        wrapper: makeWrapper(),
+      });
+
+      await act(async () => {
+        await result.current.saveProject.mutateAsync({
+          projectId: "proj-1",
+          patch: {
+            title: "Driveway Sealing",
+            teamMemberIds: ["u-existing", "u-new-1", "u-new-2"],
+          },
+          previousTeamMemberIds: ["u-existing"],
+        });
+      });
+
+      expect(dispatchAssignmentCalls).toHaveLength(1);
+      expect(dispatchAssignmentCalls[0]).toMatchObject({
         projectId: "proj-1",
-        projectTitle: "Driveway Sealing",
-        newStatus: "Complete",
-        previousStatus: "InProgress",
-        notifyUserIds: ["u-pm", "u-crew-1"],
+        newMemberIds: ["u-new-1", "u-new-2"], // only the delta
+        companyId: "co-1",
       });
     });
 
-    expect(projectUpdates).toEqual([
-      { id: "proj-1", patch: { status: "Complete" } },
-    ]);
+    it("does NOT dispatch assignment when the team is unchanged", async () => {
+      const { result } = renderHook(() => useProjectMutations("proj-1"), {
+        wrapper: makeWrapper(),
+      });
 
-    expect(activityInserts).toHaveLength(1);
-    expect(activityInserts[0]).toMatchObject({
-      type: "system",
-      project_id: "proj-1",
-      company_id: "co-1",
-      created_by: "user-123",
+      await act(async () => {
+        await result.current.saveProject.mutateAsync({
+          projectId: "proj-1",
+          patch: { teamMemberIds: ["u-1", "u-2"] },
+          previousTeamMemberIds: ["u-1", "u-2"],
+        });
+      });
+
+      expect(dispatchAssignmentCalls).toHaveLength(0);
     });
-    expect(activityInserts[0].subject).toMatch(/Complete/);
 
-    expect(notificationInserts).toHaveLength(2);
-    expect(notificationInserts.map((n) => n.user_id).sort()).toEqual([
-      "u-crew-1",
-      "u-pm",
-    ]);
-    expect(notificationInserts[0]).toMatchObject({
-      type: "project_status_changed",
-      project_id: "proj-1",
-      action_url: "/projects/proj-1",
+    it("does NOT dispatch when previousTeamMemberIds is omitted (trivial save)", async () => {
+      const { result } = renderHook(() => useProjectMutations("proj-1"), {
+        wrapper: makeWrapper(),
+      });
+
+      await act(async () => {
+        await result.current.saveProject.mutateAsync({
+          projectId: "proj-1",
+          patch: { title: "Renamed" },
+        });
+      });
+
+      expect(dispatchAssignmentCalls).toHaveLength(0);
+      expect(systemEventCalls).toHaveLength(0);
     });
   });
-});
 
-describe("usePostProjectNote", () => {
-  it("inserts a 'note' activity and notifies the audience", async () => {
-    const { result } = renderHook(() => usePostProjectNote(), {
-      wrapper: makeWrapper(),
-    });
-
-    await act(async () => {
-      await result.current.mutateAsync({
-        projectId: "proj-1",
-        projectTitle: "Driveway Sealing",
-        content: "Crew arrived on site at 7am. All quiet.",
-        notifyUserIds: ["u-pm"],
+  describe("archiveProject", () => {
+    it("updates status to Archived, writes project_archived event, and notifies team", async () => {
+      const { result } = renderHook(() => useProjectMutations("proj-1"), {
+        wrapper: makeWrapper(),
       });
-    });
 
-    expect(activityInserts).toHaveLength(1);
-    expect(activityInserts[0]).toMatchObject({
-      type: "note",
-      project_id: "proj-1",
-      content: "Crew arrived on site at 7am. All quiet.",
-      created_by: "user-123",
-    });
+      await act(async () => {
+        await result.current.archiveProject.mutateAsync({
+          projectId: "proj-1",
+          projectTitle: "Driveway Sealing",
+          notifyUserIds: ["u-pm", "u-crew-1"],
+        });
+      });
 
-    expect(notificationInserts).toHaveLength(1);
-    expect(notificationInserts[0]).toMatchObject({
-      user_id: "u-pm",
-      type: "project_note_posted",
-      project_id: "proj-1",
+      expect(projectServiceUpdateCalls).toEqual([
+        { id: "proj-1", patch: { status: ProjectStatus.Archived } },
+      ]);
+
+      expect(systemEventCalls).toHaveLength(1);
+      expect(systemEventCalls[0]).toMatchObject({
+        projectId: "proj-1",
+        eventKind: "project_archived",
+        authorId: "user-123",
+      });
+
+      expect(notificationCreateCalls).toHaveLength(2);
+      expect(notificationCreateCalls.map((n) => n.userId).sort()).toEqual([
+        "u-crew-1",
+        "u-pm",
+      ]);
+      expect(notificationCreateCalls[0]).toMatchObject({
+        type: "system",
+        projectId: "proj-1",
+        actionUrl: "/projects/proj-1",
+      });
     });
   });
-});
 
-describe("useUploadProjectPhotoActivity", () => {
-  it("inserts a 'note' activity carrying attachment_ids", async () => {
-    const { result } = renderHook(() => useUploadProjectPhotoActivity(), {
-      wrapper: makeWrapper(),
+  describe("deleteProject", () => {
+    it("delegates to ProjectService.deleteProject", async () => {
+      const { result } = renderHook(() => useProjectMutations("proj-1"), {
+        wrapper: makeWrapper(),
+      });
+
+      await act(async () => {
+        await result.current.deleteProject.mutateAsync("proj-1");
+      });
+
+      expect(projectServiceDeleteCalls).toEqual(["proj-1"]);
+      // Soft delete writes no timeline event by design
+      expect(systemEventCalls).toHaveLength(0);
     });
+  });
 
-    await act(async () => {
-      await result.current.mutateAsync({
+  describe("uploadPhoto", () => {
+    it("writes photo_uploaded event with attachments", async () => {
+      const { result } = renderHook(() => useProjectMutations("proj-1"), {
+        wrapper: makeWrapper(),
+      });
+
+      const attachments = [
+        { url: "https://cdn.test/a.jpg", caption: null, markedUpUrl: null },
+        { url: "https://cdn.test/b.jpg", caption: "After", markedUpUrl: null },
+      ];
+
+      await act(async () => {
+        await result.current.uploadPhoto.mutateAsync({
+          projectId: "proj-1",
+          attachments,
+          caption: "Final shots",
+        });
+      });
+
+      expect(systemEventCalls).toHaveLength(1);
+      expect(systemEventCalls[0]).toMatchObject({
         projectId: "proj-1",
-        projectTitle: "Driveway Sealing",
-        photoIds: ["photo-A", "photo-B"],
-        caption: "After-shot",
-        notifyUserIds: ["u-pm"],
+        eventKind: "photo_uploaded",
+        authorId: "user-123",
+        content: "Final shots",
+        attachments,
+      });
+      expect(systemEventCalls[0].contentMetadata).toMatchObject({
+        photoCount: 2,
+        urls: ["https://cdn.test/a.jpg", "https://cdn.test/b.jpg"],
       });
     });
 
-    expect(activityInserts).toHaveLength(1);
-    expect(activityInserts[0]).toMatchObject({
-      type: "note",
-      project_id: "proj-1",
-      content: "After-shot",
-      attachment_ids: ["photo-A", "photo-B"],
+    it("falls back to '<n> photos added' when no caption is provided", async () => {
+      const { result } = renderHook(() => useProjectMutations("proj-1"), {
+        wrapper: makeWrapper(),
+      });
+
+      await act(async () => {
+        await result.current.uploadPhoto.mutateAsync({
+          projectId: "proj-1",
+          attachments: [
+            { url: "https://cdn.test/a.jpg", caption: null, markedUpUrl: null },
+          ],
+        });
+      });
+
+      expect(systemEventCalls[0]).toMatchObject({
+        eventKind: "photo_uploaded",
+        content: "1 photo added",
+      });
     });
 
-    expect(notificationInserts).toHaveLength(1);
-    expect(notificationInserts[0]).toMatchObject({
-      user_id: "u-pm",
-      type: "project_photo_added",
+    it("does NOT dispatch task-level events (taskCompleted, scheduleChange)", async () => {
+      // Sanity: this hook owns project events only. Task events are out of scope.
+      const { result } = renderHook(() => useProjectMutations("proj-1"), {
+        wrapper: makeWrapper(),
+      });
+      // No surface for it — we just confirm the public API doesn't include them.
+      expect((result.current as Record<string, unknown>).completeTask).toBeUndefined();
+      expect((result.current as Record<string, unknown>).changeSchedule).toBeUndefined();
+    });
+  });
+
+  describe("postNote (delegated to useCreateProjectNote)", () => {
+    it("calls ProjectNoteService.createNote (NOT createSystemEvent)", async () => {
+      const { result } = renderHook(() => useProjectMutations("proj-1"), {
+        wrapper: makeWrapper(),
+      });
+
+      await act(async () => {
+        await result.current.postNote.mutateAsync({
+          projectId: "proj-1",
+          companyId: "co-1",
+          authorId: "user-123",
+          content: "Crew arrived on site at 7am.",
+        });
+      });
+
+      expect(userNoteCalls).toHaveLength(1);
+      expect(userNoteCalls[0]).toMatchObject({
+        projectId: "proj-1",
+        content: "Crew arrived on site at 7am.",
+      });
+      // This is a user note — should NOT carry an event_kind
+      expect(systemEventCalls).toHaveLength(0);
     });
   });
 });
