@@ -76,8 +76,8 @@ export function WindowTitleBar({
       className={cn(
         "select-none cursor-grab",
         "px-[14px] pt-[9px] pb-[10px]",
-        "border-b border-[rgba(255,255,255,0.10)]",
-        "bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.01))]",
+        "border-b border-[var(--line)]",
+        "bg-[linear-gradient(180deg,var(--surface-hover),transparent)]",
         className,
       )}
     >
@@ -101,7 +101,7 @@ export function WindowTitleBar({
         {/* Vertical separator — same hairline tone as the bottom border. */}
         <span
           aria-hidden
-          className="block w-px h-[14px] bg-[rgba(255,255,255,0.10)]"
+          className="block w-px h-[14px] bg-[var(--line)]"
         />
 
         {/* Crumb — `// PROJECT · JX-4821` */}

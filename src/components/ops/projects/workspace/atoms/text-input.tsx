@@ -20,7 +20,7 @@ export const TextInput = React.forwardRef<HTMLInputElement, TextInputProps>(
         // base
         "w-full h-8 px-2",
         "font-mohave text-[14px] leading-[1.4] text-text",
-        "bg-[rgba(255,255,255,0.04)]",
+        "bg-[var(--surface-input)]",
         "rounded-[5px] border border-glass-border",
         // motion
         "transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]",

@@ -25,8 +25,8 @@ const COMPACT_HEIGHT = 220;
 // ─── Visual tokens (per Phase 4 plan handoff) ───────────────────────────────
 // The pill bg/border are intentionally NOT --glass — the handoff specifies a
 // black-tinted glass over the map so address text reads against busy tiles.
-const PILL_BG = "rgba(0, 0, 0, 0.65)";
-const PILL_BORDER = "1px solid rgba(255, 255, 255, 0.10)";
+const PILL_BG = "var(--scrim-window-shadow)";
+const PILL_BORDER = "1px solid var(--line)";
 const PILL_RADIUS = 5;
 const OVERLAY_INSET = 14;
 const TOOLBAR_TOP = 70;
@@ -402,7 +402,7 @@ function MapProjectCrumb({
         style={{
           width: 1,
           height: 12,
-          background: "rgba(255,255,255,0.14)",
+          background: "var(--fill-neutral)",
           margin: "0 4px",
         }}
       />
@@ -521,7 +521,7 @@ function ToolDivider() {
       aria-hidden="true"
       style={{
         height: 1,
-        background: "rgba(255,255,255,0.06)",
+        background: "var(--fill-neutral-dim)",
         margin: "0 6px",
       }}
     />

@@ -8,8 +8,9 @@ import { cn } from "@/lib/utils/cn";
 // tab gets a 1px bottom border in --text; inactive tabs render text-3
 // with a transparent border so the active underline is the sole signal.
 // Strip lives below the title bar and above the body — bg is
-// rgba(0,0,0,0.20) (a darker glass underlay so the underline reads
-// against the dense glass surface), bottom border in glass-border.
+// --scrim-strip-bg (0.18, consolidated from 0.20 per design-token
+// mapping 2026-05-07), a darker glass underlay so the underline reads
+// against the dense glass surface; bottom border in glass-border.
 
 export interface ModalTab<TId extends string = string> {
   id: TId;
@@ -34,7 +35,7 @@ export function ModalTabs<TId extends string>({
       role="tablist"
       className={cn(
         "flex items-stretch",
-        "bg-[rgba(0,0,0,0.20)]",
+        "bg-[var(--scrim-strip-bg)]",
         "border-b border-glass-border",
         className,
       )}

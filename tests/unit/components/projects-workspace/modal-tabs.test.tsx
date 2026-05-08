@@ -8,9 +8,10 @@ import { ModalTabs } from "@/components/ops/projects/workspace/shell/modal-tabs"
 // (Activity / Details / Accounting) and edit/create mode (Identity /
 // Schedule). Active tab gets a 1px bottom border in `text-text` colour;
 // inactive tabs render text-3 with a transparent border. Tab strip
-// background is rgba(0,0,0,0.20) (a darker glass underlay so the active
-// underline reads), bottom border `var(--line)` separates it from the
-// body. Mono font, 10.5px, tracking 0.16em uppercase.
+// background is `--scrim-strip-bg` (rgba(0,0,0,0.18) — consolidated
+// from 0.20 per design-token cleanup 2026-05-07; visual delta
+// undetectable on glass), bottom border `var(--line)` separates it
+// from the body. Mono font, 10.5px, tracking 0.16em uppercase.
 
 const TABS = [
   { id: "activity", label: "Activity" },
@@ -60,10 +61,10 @@ describe("<ModalTabs>", () => {
     expect(tab.className).toContain("py-[11px]");
   });
 
-  it("strip background uses rgba(0,0,0,0.20) and bottom border in glass-border", () => {
+  it("strip background uses --scrim-strip-bg token and bottom border in glass-border", () => {
     render(<ModalTabs tabs={TABS} activeId="activity" onChange={() => {}} />);
     const tablist = screen.getByRole("tablist");
-    expect(tablist.className).toContain("bg-[rgba(0,0,0,0.20)]");
+    expect(tablist.className).toContain("bg-[var(--scrim-strip-bg)]");
     // The plan refers to `var(--line)` — in this codebase the canonical
     // hairline token is `--glass-border` (rgba(255,255,255,0.09)).
     expect(tablist).toHaveClass("border-b");

@@ -62,7 +62,7 @@ function MapPlaceholder() {
     <div
       data-testid="map-placeholder"
       className="flex h-[220px] w-full items-center justify-center border-b border-glass-border"
-      style={{ background: "rgba(0,0,0,0.32)" }}
+      style={{ background: "var(--scrim-overlay)" }}
     >
       <span className="inline-flex items-center gap-2 text-text-3">
         <MapPinOff className="h-3 w-3" strokeWidth={1.5} aria-hidden="true" />

@@ -98,7 +98,7 @@ function ActivityRow({ entry }: { entry: ProjectActivityEntry }) {
         <div
           aria-hidden="true"
           className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full"
-          style={{ background: "rgba(255,255,255,0.06)", color: "var(--text-3)" }}
+          style={{ background: "var(--fill-neutral-dim)", color: "var(--text-3)" }}
         >
           <KindIcon kind={entry.kind} />
         </div>

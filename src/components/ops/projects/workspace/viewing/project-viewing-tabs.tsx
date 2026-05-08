@@ -52,7 +52,7 @@ export function ProjectViewingTabs({
       data-testid="project-viewing-tabs"
       className={cn(
         "flex items-stretch shrink-0",
-        "border-b border-glass-border bg-[rgba(0,0,0,0.16)]",
+        "border-b border-glass-border bg-[var(--scrim-strip-bg)]",
         className,
       )}
     >

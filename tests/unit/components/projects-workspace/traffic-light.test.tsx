@@ -43,8 +43,11 @@ describe("<TrafficLight>", () => {
   it("monochrome at rest — bg and border are white-alpha tokens, not the tone hue", () => {
     render(<TrafficLight tone="close" onClick={() => {}} />);
     const el = screen.getByRole("button");
-    // bg-[rgba(255,255,255,0.18)] (rest) — explicitly NOT the close red
-    expect(el.className).toContain("bg-[rgba(255,255,255,0.18)]");
+    // --glass-border-active = rgba(255,255,255,0.18) (rest) —
+    // explicitly NOT the close red. Token added per design-token
+    // cleanup 2026-05-07; spec lines 305 & 419 reference this exact
+    // value but it had no CSS variable until now.
+    expect(el.className).toContain("bg-[var(--glass-border-active)]");
   });
 
   it("tints to its tone hue on hover (close=var(--macos-traffic-close))", () => {

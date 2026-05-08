@@ -106,7 +106,7 @@ function ProjectPin({ color, animate }: ProjectPinProps) {
           borderRadius: "50%",
           background: color,
           boxShadow: `0 0 12px ${color}`,
-          border: "2px solid rgba(0,0,0,0.5)",
+          border: "2px solid var(--scrim-edge-stroke)",
           position: "absolute",
           top: -7,
           left: -7,
@@ -144,7 +144,7 @@ function OtherProjectPin({ color, label }: OtherProjectPinProps) {
         borderRadius: "50%",
         background: color,
         boxShadow: `0 0 6px ${color}80`,
-        border: "1px solid rgba(0,0,0,0.55)",
+        border: "1px solid var(--scrim-edge-stroke)",
         opacity: 0.72,
       }}
     />

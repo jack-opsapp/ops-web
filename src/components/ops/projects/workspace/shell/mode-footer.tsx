@@ -58,9 +58,11 @@ export function ModeFooter({ config, className }: ModeFooterProps) {
         "py-[10px] px-[18px]",
         "border-t border-glass-border",
         // Footer reads as a slightly heavier glass than the body — the
-        // 0.42 alpha + 12px blur produces enough contrast that the
-        // primary CTA outlined-accent border separates from the body.
-        "bg-[rgba(0,0,0,0.42)] backdrop-blur-[12px]",
+        // --scrim-input-bg (0.45) + 12px blur produces enough contrast
+        // that the primary CTA outlined-accent border separates from
+        // the body. (Consolidated from 0.42 → 0.45 per design-token
+        // mapping 2026-05-07; visual delta undetectable.)
+        "bg-[var(--scrim-input-bg)] backdrop-blur-[12px]",
         className,
       )}
     >

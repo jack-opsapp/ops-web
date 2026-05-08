@@ -167,9 +167,9 @@ export function AddressAutocomplete({
             paddingRight: 12,
             paddingTop: 9,
             paddingBottom: 9,
-            border: "1px solid rgba(255,255,255,0.10)",
+            border: "1px solid var(--line)",
             borderRadius: 5,
-            background: "rgba(0,0,0,0.45)",
+            background: "var(--scrim-input-bg)",
           }}
         />
       </div>
@@ -181,12 +181,14 @@ export function AddressAutocomplete({
           className="absolute left-0 right-0 z-50 mt-1 max-h-64 overflow-y-auto"
           style={{
             // --glass-dense (rgba(18,18,20,0.78)) is the design-system
-            // dropdown surface; raised to 0.92 here to keep address rows
-            // readable over Mapbox tiles below.
-            background: "rgba(18,18,20,0.92)",
+            // dropdown surface; --glass-bg-opaque (0.92) is the off-spec
+            // tier that keeps address rows readable over Mapbox tiles
+            // below. Shadow stack uses the sanctioned floating-window
+            // exception token (see uploads/system.md amendment).
+            background: "var(--glass-bg-opaque)",
             backdropFilter: "blur(12px)",
             WebkitBackdropFilter: "blur(12px)",
-            border: "1px solid rgba(255,255,255,0.10)",
+            border: "1px solid var(--line)",
             borderRadius: 5,
             boxShadow: "0 12px 32px rgba(0,0,0,0.55)",
           }}
@@ -209,7 +211,7 @@ export function AddressAutocomplete({
                 className="cursor-pointer transition-colors"
                 style={{
                   padding: "8px 12px",
-                  borderBottom: "1px solid rgba(255,255,255,0.04)",
+                  borderBottom: "1px solid var(--surface-input)",
                   background: active ? "var(--ops-accent-soft)" : "transparent",
                 }}
               >

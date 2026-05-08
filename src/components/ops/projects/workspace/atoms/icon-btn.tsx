@@ -21,7 +21,7 @@ export interface IconBtnProps extends React.ButtonHTMLAttributes<HTMLButtonEleme
 const VARIANT_CLASS: Record<IconBtnVariant, string> = {
   default: cn(
     "bg-transparent text-text-3 border border-transparent",
-    "hover:bg-[rgba(255,255,255,0.04)] hover:text-text-2",
+    "hover:bg-[var(--surface-input)] hover:text-text-2",
   ),
   destructive: cn(
     "bg-transparent text-[var(--rose)] border border-transparent",

@@ -32,11 +32,11 @@ const VARIANT_CLASS: Record<BtnVariant, string> = {
   ),
   secondary: cn(
     "bg-transparent text-text-2 border border-glass-border",
-    "hover:bg-[rgba(255,255,255,0.04)] hover:text-text",
+    "hover:bg-[var(--surface-input)] hover:text-text",
   ),
   ghost: cn(
     "bg-transparent text-text-2 border border-transparent",
-    "hover:bg-[rgba(255,255,255,0.04)] hover:text-text",
+    "hover:bg-[var(--surface-input)] hover:text-text",
   ),
   destructive: cn(
     "bg-transparent text-[var(--rose)] border border-[var(--rose-line)]",

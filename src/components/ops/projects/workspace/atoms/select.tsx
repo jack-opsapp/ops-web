@@ -50,7 +50,7 @@ export function Select({
         className={cn(
           "flex w-full h-8 items-center justify-between gap-1 px-2",
           "font-mohave text-[14px] leading-[1.4] text-text",
-          "bg-[rgba(255,255,255,0.04)]",
+          "bg-[var(--surface-input)]",
           "rounded-[5px] border border-glass-border",
           "transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]",
           "hover:border-glass-border-medium",
@@ -90,7 +90,7 @@ export function Select({
                   "rounded-chip py-1.5 pl-6 pr-2",
                   "font-mohave text-[14px] text-text",
                   "outline-none transition-colors duration-100",
-                  "focus:bg-[rgba(255,255,255,0.06)]",
+                  "focus:bg-[var(--fill-neutral-dim)]",
                   "data-[disabled]:pointer-events-none data-[disabled]:opacity-40",
                 )}
               >

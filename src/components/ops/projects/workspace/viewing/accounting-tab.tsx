@@ -123,7 +123,7 @@ function PipelineGrid({ summary }: { summary: ProjectPipelineSummary }) {
   return (
     <div
       data-testid="pipeline-grid"
-      className="grid grid-cols-4 rounded border border-glass-border bg-[rgba(255,255,255,0.02)]"
+      className="grid grid-cols-4 rounded border border-glass-border bg-[var(--surface-vignette)]"
     >
       <PipelineCell
         testId="pipeline-cell-quoted"

@@ -26,7 +26,9 @@ describe("<ModeFooter>", () => {
     expect(footer.className).toContain("px-[18px]");
     expect(footer).toHaveClass("border-t");
     expect(footer).toHaveClass("border-glass-border");
-    expect(footer.className).toContain("bg-[rgba(0,0,0,0.42)]");
+    // --scrim-input-bg = rgba(0,0,0,0.45); consolidated from 0.42 per
+    // design-token cleanup 2026-05-07 (visual delta undetectable).
+    expect(footer.className).toContain("bg-[var(--scrim-input-bg)]");
     expect(footer.className).toContain("backdrop-blur-[12px]");
   });
 

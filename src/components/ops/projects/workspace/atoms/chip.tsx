@@ -19,7 +19,7 @@ export interface ChipProps extends React.HTMLAttributes<HTMLSpanElement> {
 }
 
 const VARIANT_CLASS: Record<ChipVariant, string> = {
-  neutral: "bg-[rgba(255,255,255,0.04)] text-text-2 border border-glass-border",
+  neutral: "bg-[var(--surface-input)] text-text-2 border border-glass-border",
   accent: "bg-[var(--ops-accent-soft)] text-ops-accent border border-[var(--ops-accent-line)]",
   olive: "bg-[var(--olive-soft)] text-[var(--olive)] border border-[var(--olive-line)]",
   tan: "bg-[var(--tan-soft)] text-[var(--tan)] border border-[var(--tan-line)]",

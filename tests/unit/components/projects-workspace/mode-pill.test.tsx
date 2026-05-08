@@ -47,7 +47,7 @@ describe("<ModePill>", () => {
   it("viewing variant uses neutral white-alpha background + text-2 colour", () => {
     render(<ModePill mode="viewing" />);
     const pill = screen.getByTestId("mode-pill-viewing");
-    expect(pill.className).toContain("bg-[rgba(255,255,255,0.05)]");
+    expect(pill.className).toContain("bg-[var(--surface-hover)]");
     expect(pill.className).toContain("text-text-2");
   });
 

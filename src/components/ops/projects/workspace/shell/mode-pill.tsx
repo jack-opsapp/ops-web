@@ -25,8 +25,8 @@ export type WorkspaceMode = "viewing" | "editing" | "creating";
 
 const PILL_SURFACE: Record<WorkspaceMode, string> = {
   viewing: cn(
-    "bg-[rgba(255,255,255,0.05)] text-text-2",
-    "border border-[rgba(255,255,255,0.06)]",
+    "bg-[var(--surface-hover)] text-text-2",
+    "border border-[var(--fill-neutral-dim)]",
   ),
   editing: cn(
     "bg-[var(--tan-soft)] text-[var(--tan)]",

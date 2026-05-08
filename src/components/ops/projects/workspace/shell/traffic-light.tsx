@@ -38,7 +38,7 @@ function ToneGlyph({ tone }: { tone: TrafficLightTone }) {
     height: 7,
     viewBox: "0 0 7 7",
     strokeWidth: 1,
-    stroke: "rgba(0,0,0,0.55)",
+    stroke: "var(--scrim-edge-stroke)",
     strokeLinecap: "round" as const,
     strokeLinejoin: "round" as const,
     fill: "none",
@@ -80,10 +80,11 @@ export const TrafficLight = React.forwardRef<HTMLButtonElement, TrafficLightProp
         "w-[11px] h-[11px] rounded-full",
         // Rest tone — monochrome (per design spec). Border alpha matches
         // the inner shadow Apple uses on the resting dots.
-        "bg-[rgba(255,255,255,0.18)] border-[0.5px] border-[rgba(255,255,255,0.10)]",
+        "bg-[var(--glass-border-active)] border-[0.5px] border-[var(--line)]",
         // Hover — tint to the canonical macOS hue + tighten the border.
         TONE_HOVER_BG[tone],
-        "hover:border-[rgba(0,0,0,0.30)]",
+        // Hover border darkens (--scrim-overlay, consolidated 0.30 → 0.32).
+        "hover:border-[var(--scrim-overlay)]",
         // Spec: 120ms colour transition. Background + border only — no
         // transform (the dots don't grow on hover).
         "transition-colors duration-[120ms] ease-[cubic-bezier(0.22,1,0.36,1)]",

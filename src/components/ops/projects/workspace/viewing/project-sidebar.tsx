@@ -80,7 +80,7 @@ function MetricTile({
             ? "var(--text-3)"
             : "var(--text)";
   return (
-    <div className="flex flex-col gap-0.5 rounded border border-glass-border bg-[rgba(255,255,255,0.02)] px-2 py-1.5">
+    <div className="flex flex-col gap-0.5 rounded border border-glass-border bg-[var(--surface-vignette)] px-2 py-1.5">
       <Mono color="mute" size={9}>
         {label}
       </Mono>
@@ -118,7 +118,7 @@ function HealthSection({ projectId }: { projectId: string }) {
             <Mono color="text-3" size={10}>{`${progressPct}%`}</Mono>
             <Mono color="mute" size={9}>{`${totals.done}/${totals.total}`}</Mono>
           </Inline>
-          <div className="h-1.5 overflow-hidden rounded-bar bg-[rgba(255,255,255,0.06)]">
+          <div className="h-1.5 overflow-hidden rounded-bar bg-[var(--fill-neutral-dim)]">
             <div
               data-testid="health-progress"
               className="h-full bg-text-2 transition-all duration-300"

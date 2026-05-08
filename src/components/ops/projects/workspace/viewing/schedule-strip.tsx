@@ -79,14 +79,14 @@ export function ScheduleStrip({
       data-glow={String(showGlow)}
       className={cn(
         "flex items-center gap-3 px-4 py-2",
-        "border-b border-glass-border bg-[rgba(0,0,0,0.18)]",
+        "border-b border-glass-border bg-[var(--scrim-strip-bg)]",
         className,
       )}
     >
       <Mono color="text-3" size={10}>
         {formatStripDate(startDate)}
       </Mono>
-      <div className="relative flex-1 h-[6px] rounded-bar bg-[rgba(255,255,255,0.06)]">
+      <div className="relative flex-1 h-[6px] rounded-bar bg-[var(--fill-neutral-dim)]">
         {tickLeft !== null && (
           <div
             data-testid="schedule-strip-fill"

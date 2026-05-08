@@ -127,12 +127,28 @@
     /* ── Glass surface system (Command Deck spec) ── */
     --glass-bg: rgba(18, 18, 20, 0.58);
     --glass-bg-dense: rgba(18, 18, 20, 0.78);
+    --glass-bg-opaque: rgba(18, 18, 20, 0.92);
     --glass-bg-subtle: rgba(18, 18, 20, 0.40);
     --glass-border: rgba(255, 255, 255, 0.09);
+    --glass-border-active: rgba(255, 255, 255, 0.18);
     --glass-border-medium: rgba(255, 255, 255, 0.12);
     --glass-border-strong: rgba(255, 255, 255, 0.20);
     --glass-blur: 28px;
     --glass-saturate: 1.3;
+
+    /* ── Surface vignette (sub-input wash for card-on-glass) ── */
+    --surface-vignette: rgba(255, 255, 255, 0.02);
+
+    /* ── Scrim scale (black overlays — design-system gap addressed)
+     * Used for nested glass-over-glass tinting, dropdown washes over
+     * Mapbox tiles, and pin/stroke borders against light surfaces.
+     * Spec line 268 (uploads/system.md) reserves shadows for floating
+     * window shells; static UI keeps to glass + borders only. */
+    --scrim-strip-bg:      rgba(0, 0, 0, 0.18);
+    --scrim-overlay:       rgba(0, 0, 0, 0.32);
+    --scrim-input-bg:      rgba(0, 0, 0, 0.45);
+    --scrim-edge-stroke:   rgba(0, 0, 0, 0.55);
+    --scrim-window-shadow: rgba(0, 0, 0, 0.65);
 
     /* ── OPS spec v2 brand tokens (canonical, see .interface-design/system.md) ── */
     /* Glass aliases without `-bg` suffix — preferred shorthand for inline styles */
