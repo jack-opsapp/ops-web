@@ -4651,6 +4651,7 @@ export type Database = {
       }
       email_threads: {
         Row: {
+          agent_blocking_question: Json | null
           agent_paused_until: string | null
           ai_summary: string | null
           archived_at: string | null
@@ -4687,6 +4688,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          agent_blocking_question?: Json | null
           agent_paused_until?: string | null
           ai_summary?: string | null
           archived_at?: string | null
@@ -4723,6 +4725,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          agent_blocking_question?: Json | null
           agent_paused_until?: string | null
           ai_summary?: string | null
           archived_at?: string | null
@@ -5081,6 +5084,7 @@ export type Database = {
           review_notes: string | null
           reviewed_at: string | null
           reviewed_by: string | null
+          scope_project_id: string | null
           status: string
           submitted_by: string | null
           total_amount: number | null
@@ -5098,6 +5102,7 @@ export type Database = {
           review_notes?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          scope_project_id?: string | null
           status?: string
           submitted_by?: string | null
           total_amount?: number | null
@@ -5115,6 +5120,7 @@ export type Database = {
           review_notes?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          scope_project_id?: string | null
           status?: string
           submitted_by?: string | null
           total_amount?: number | null
@@ -7991,8 +7997,10 @@ export type Database = {
           author_id: string
           company_id: string
           content: string
+          content_metadata: Json | null
           created_at: string
           deleted_at: string | null
+          event_kind: string | null
           id: string
           mentioned_user_ids: string[]
           photo_url: string | null
@@ -8004,8 +8012,10 @@ export type Database = {
           author_id: string
           company_id: string
           content?: string
+          content_metadata?: Json | null
           created_at?: string
           deleted_at?: string | null
+          event_kind?: string | null
           id?: string
           mentioned_user_ids?: string[]
           photo_url?: string | null
@@ -8017,8 +8027,10 @@ export type Database = {
           author_id?: string
           company_id?: string
           content?: string
+          content_metadata?: Json | null
           created_at?: string
           deleted_at?: string | null
+          event_kind?: string | null
           id?: string
           mentioned_user_ids?: string[]
           photo_url?: string | null
@@ -8282,6 +8294,7 @@ export type Database = {
           status: string
           team_member_ids: string[] | null
           title: string
+          trade: string | null
           updated_at: string | null
           visibility: string | null
         }
@@ -8307,6 +8320,7 @@ export type Database = {
           status?: string
           team_member_ids?: string[] | null
           title: string
+          trade?: string | null
           updated_at?: string | null
           visibility?: string | null
         }
@@ -8332,6 +8346,7 @@ export type Database = {
           status?: string
           team_member_ids?: string[] | null
           title?: string
+          trade?: string | null
           updated_at?: string | null
           visibility?: string | null
         }
@@ -10849,6 +10864,39 @@ export type Database = {
         Args: { p_company_id: string }
         Returns: string
       }
+      get_or_create_open_batch: {
+        Args: {
+          p_company_id: string
+          p_period_end: string
+          p_period_start: string
+          p_scope_project_id?: string
+          p_submitted_by: string
+        }
+        Returns: {
+          amendment_number: number
+          approved_amount: number | null
+          batch_number: string
+          company_id: string
+          created_at: string | null
+          id: string
+          parent_batch_id: string | null
+          period_end: string | null
+          period_start: string | null
+          review_notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          scope_project_id: string | null
+          status: string
+          submitted_by: string | null
+          total_amount: number | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "expense_batches"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       get_user_company_id: { Args: never; Returns: string }
       get_user_id: { Args: never; Returns: string }
       has_permission: {
@@ -10988,6 +11036,68 @@ export type Database = {
           source: string
         }[]
       }
+      move_opportunity_stage: {
+        Args: {
+          p_opportunity_id: string
+          p_to_stage: string
+          p_user_id: string
+        }
+        Returns: {
+          actual_close_date: string | null
+          actual_value: number | null
+          address: string | null
+          ai_stage_confidence: number | null
+          ai_stage_signals: string[] | null
+          ai_summary: string | null
+          archived_at: string | null
+          assigned_to: string | null
+          client_id: string | null
+          client_ref: string | null
+          company_id: string
+          contact_email: string | null
+          contact_name: string | null
+          contact_phone: string | null
+          correspondence_count: number
+          created_at: string
+          deleted_at: string | null
+          description: string | null
+          detected_value: number | null
+          estimated_value: number | null
+          expected_close_date: string | null
+          id: string
+          images: string[] | null
+          inbound_count: number
+          last_activity_at: string | null
+          last_inbound_at: string | null
+          last_message_direction: string | null
+          last_outbound_at: string | null
+          latitude: number | null
+          longitude: number | null
+          lost_notes: string | null
+          lost_reason: string | null
+          next_follow_up_at: string | null
+          outbound_count: number
+          priority: string | null
+          project_id: string | null
+          project_ref: string | null
+          quote_delivery_method: string | null
+          source: string | null
+          source_email_id: string | null
+          stage: string
+          stage_entered_at: string
+          stage_manually_set: boolean
+          tags: string[] | null
+          title: string
+          updated_at: string
+          win_probability: number | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "opportunities"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       pmf_count_retained_saas: { Args: never; Returns: number }
       pmf_count_tier_a_paid_delivered: { Args: never; Returns: number }
       pmf_is_admin: { Args: { user_email: string }; Returns: boolean }
@@ -11026,6 +11136,10 @@ export type Database = {
           received_record_id: string
           received_total: number
         }[]
+      }
+      recalculate_expense_batch_total: {
+        Args: { p_batch_id: string }
+        Returns: number
       }
       release_phase_c_lock: {
         Args: { p_holder: string; p_job_id: string }
@@ -11070,6 +11184,14 @@ export type Database = {
           active: boolean
           jobname: string
         }[]
+      }
+      users_with_permission: {
+        Args: {
+          p_company_id: string
+          p_permission: string
+          p_required_scope?: string
+        }
+        Returns: string[]
       }
     }
     Enums: {
@@ -11289,3 +11411,4 @@ export const Constants = {
     },
   },
 } as const
+

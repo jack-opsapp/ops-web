@@ -8,7 +8,7 @@
 
 import { requireSupabase, parseDate } from "@/lib/supabase/helpers";
 import { ProjectStatus } from "../../types/models";
-import type { Project } from "../../types/models";
+import type { Project, ProjectTrade } from "../../types/models";
 
 // ─── Status Mapping (DB snake_case ↔ TypeScript enum) ────────────────────────
 
@@ -49,6 +49,10 @@ function parseProjectVisibility(raw: unknown): Project["visibility"] {
   return raw === "office" || raw === "private" ? raw : "all";
 }
 
+function parseProjectTrade(raw: unknown): ProjectTrade | null {
+  return raw === "roofing" || raw === "hvac" || raw === "plumbing" ? raw : null;
+}
+
 function mapFromDb(row: Record<string, unknown>): Project {
   return {
     id: row.id as string,
@@ -67,6 +71,7 @@ function mapFromDb(row: Record<string, unknown>): Project {
     teamMemberIds: (row.team_member_ids as string[]) ?? [],
     projectDescription: (row.description as string) ?? null,
     projectImages: (row.project_images as string[]) ?? [],
+    trade: parseProjectTrade(row.trade),
     visibility: parseProjectVisibility(row.visibility),
     opportunityId: (row.opportunity_id as string) ?? null,
     createdAt: parseDate(row.created_at),
@@ -96,6 +101,7 @@ function mapToDb(data: Partial<Project>): Record<string, unknown> {
   if (data.teamMemberIds !== undefined) row.team_member_ids = data.teamMemberIds;
   if (data.projectDescription !== undefined) row.description = data.projectDescription;
   if (data.projectImages !== undefined) row.project_images = data.projectImages;
+  if (data.trade !== undefined) row.trade = data.trade;
   if (data.visibility !== undefined) row.visibility = data.visibility;
   if (data.opportunityId !== undefined) row.opportunity_id = data.opportunityId;
   return row;

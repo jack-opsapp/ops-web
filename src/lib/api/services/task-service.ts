@@ -110,6 +110,10 @@ function mapProjectFromDb(raw: unknown): import("@/lib/types/models").Project | 
     teamMemberIds: (r.team_member_ids as string[]) ?? [],
     projectDescription: (r.project_description as string) ?? null,
     projectImages: (r.project_images as string[]) ?? [],
+    trade:
+      r.trade === "roofing" || r.trade === "hvac" || r.trade === "plumbing"
+        ? (r.trade as "roofing" | "hvac" | "plumbing")
+        : null,
     visibility,
     createdAt: parseDate(r.created_at),
     lastSyncedAt: null,

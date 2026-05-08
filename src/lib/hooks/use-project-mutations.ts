@@ -35,7 +35,7 @@ import {
 } from "@/lib/api/services/project-note-service";
 import { dispatchProjectAssignment } from "@/lib/api/services/notification-dispatch";
 import { useCreateProjectNote } from "@/lib/hooks/use-project-notes";
-import { ProjectStatus, type Project } from "@/lib/types/models";
+import { ProjectStatus, type Project, type ProjectTrade } from "@/lib/types/models";
 import type { NoteAttachment } from "@/lib/types/pipeline";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -65,6 +65,7 @@ export interface CreateProjectInput {
   latitude?: number | null;
   longitude?: number | null;
   projectDescription?: string | null;
+  trade?: ProjectTrade | null;
   visibility?: Project["visibility"];
   notes?: string | null;
   opportunityId?: string | null;
@@ -116,6 +117,7 @@ export function useProjectMutations(projectId: string | null) {
         latitude: input.latitude ?? null,
         longitude: input.longitude ?? null,
         projectDescription: input.projectDescription ?? null,
+        trade: input.trade ?? null,
         visibility: input.visibility ?? "all",
         notes: input.notes ?? null,
         opportunityId: input.opportunityId ?? null,
