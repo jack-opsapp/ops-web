@@ -33,7 +33,10 @@ import {
   ProjectNoteService,
   type CreateProjectSystemEvent,
 } from "@/lib/api/services/project-note-service";
-import { dispatchProjectAssignment } from "@/lib/api/services/notification-dispatch";
+import {
+  dispatchProjectAssignment,
+  dispatchProjectArchived,
+} from "@/lib/api/services/notification-dispatch";
 import { useCreateProjectNote } from "@/lib/hooks/use-project-notes";
 import { ProjectStatus, type Project, type ProjectTrade } from "@/lib/types/models";
 import type { NoteAttachment } from "@/lib/types/pipeline";
@@ -198,23 +201,18 @@ export function useProjectMutations(projectId: string | null) {
         contentMetadata: {},
       });
 
-      const { NotificationService } = await import(
-        "@/lib/api/services/notification-service"
-      );
-      await Promise.all(
-        input.notifyUserIds.map((userId) =>
-          NotificationService.create({
-            userId,
-            companyId: company.id,
-            type: "system",
-            title: `${input.projectTitle} archived`,
-            body: "This project has been archived.",
-            projectId: input.projectId,
-            actionUrl: `/?openProject=${input.projectId}&mode=view`,
-            actionLabel: "View Project",
-          }),
-        ),
-      );
+      const archivedByName =
+        `${currentUser.firstName ?? ""} ${currentUser.lastName ?? ""}`
+          .trim() || "A teammate";
+      dispatchProjectArchived({
+        projectId: input.projectId,
+        projectTitle: input.projectTitle,
+        archivedByName,
+        // The dispatch route filters out the acting user server-side, so
+        // we can pass the full team without manually excluding currentUser.
+        recipientUserIds: input.notifyUserIds,
+        companyId: company.id,
+      });
 
       return input.projectId;
     },

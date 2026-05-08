@@ -11,6 +11,7 @@
 type NotificationEventType =
   | "project_assigned"
   | "project_status_change"
+  | "project_archived"
   | "task_assigned"
   | "task_completed"
   | "schedule_change"
@@ -81,6 +82,35 @@ export function dispatchProjectAssignment(params: {
     actionLabel: "View Project",
     pushData: {
       type: "projectAssignment",
+      projectId: params.projectId,
+      screen: "projectDetails",
+    },
+  });
+}
+
+/**
+ * Notify the project team that a project has been archived.
+ * Goes through the dispatch route so push + in-app preferences both fire,
+ * and the archiver is auto-filtered out of recipients server-side.
+ */
+export function dispatchProjectArchived(params: {
+  projectId: string;
+  projectTitle: string;
+  archivedByName: string;
+  recipientUserIds: string[];
+  companyId: string;
+}): void {
+  dispatch({
+    eventType: "project_archived",
+    recipientIds: params.recipientUserIds,
+    companyId: params.companyId,
+    title: `${params.projectTitle} archived`,
+    body: `${params.archivedByName} archived ${params.projectTitle}.`,
+    projectId: params.projectId,
+    actionUrl: `/?openProject=${params.projectId}&mode=view`,
+    actionLabel: "View Project",
+    pushData: {
+      type: "projectArchived",
       projectId: params.projectId,
       screen: "projectDetails",
     },
