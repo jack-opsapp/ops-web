@@ -1,19 +1,26 @@
 /**
  * OPS Web - Catalog Lookups Hook
  *
- * Lightweight read-only fetcher for `catalog_categories` and `catalog_units`
- * scoped to the active company. Used by the products form to resolve a
- * user-typed `category` / `unit` string into its FK id when an exact match
- * exists in the catalog (case-insensitive, trimmed). When no match, the
- * caller leaves the FK NULL and writes only the legacy free-text column.
+ * Read-side fetcher for `catalog_categories` and `catalog_units` scoped
+ * to the active company. Powers the FK-backed pickers on the products
+ * form (and inline-create dialogs reuse it for the post-insert refresh).
  *
- * This is a stopgap for the P0 FK-write parity with iOS. Replace with real
- * pickers (Menu/Combobox over both tables) in P0-2.
+ * The legacy `resolveCategoryId` / `resolveUnitId` helpers remain exported
+ * for backward-compat fallback paths but are no longer the primary route —
+ * pickers hand the FK directly to the form.
  */
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { requireSupabase } from "@/lib/supabase/helpers";
 import { useAuthStore } from "@/lib/store/auth-store";
+import {
+  CatalogCategoryService,
+  type CreateCatalogCategoryInput,
+} from "@/lib/api/services/catalog-category-service";
+import {
+  CatalogUnitService,
+  type CreateCatalogUnitInput,
+} from "@/lib/api/services/catalog-unit-service";
 
 export interface CatalogCategoryLookup {
   id: string;
@@ -119,4 +126,42 @@ export function resolveUnitId(
     (u) => (u.abbreviation ?? "").trim().toLowerCase() === trimmed
   );
   return byAbbrev?.id ?? null;
+}
+
+// ─── Mutations ────────────────────────────────────────────────────────────────
+
+/**
+ * Create a new `catalog_categories` row, then invalidate the cached
+ * lookup so the picker reactively shows the new entry. Returns the
+ * inserted row so callers (the inline-create dialog) can hand the new
+ * id back to the parent picker without waiting for the refetch.
+ */
+export function useCreateCatalogCategory() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateCatalogCategoryInput) =>
+      CatalogCategoryService.create(input),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["catalog-categories", variables.companyId],
+      });
+    },
+  });
+}
+
+/**
+ * Create a new `catalog_units` row, then invalidate the cached lookup so
+ * the picker reactively shows the new entry. Returns the inserted row.
+ */
+export function useCreateCatalogUnit() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateCatalogUnitInput) =>
+      CatalogUnitService.create(input),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["catalog-units", variables.companyId],
+      });
+    },
+  });
 }

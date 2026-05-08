@@ -27,6 +27,19 @@ export type { FetchCalendarEventsOptions } from "./calendar-service";
 
 export { TaskTypeService } from "./task-type-service";
 
+export { CatalogCategoryService } from "./catalog-category-service";
+export type {
+  CatalogCategory,
+  CreateCatalogCategoryInput,
+} from "./catalog-category-service";
+
+export { CatalogUnitService, CATALOG_UNIT_DIMENSIONS } from "./catalog-unit-service";
+export type {
+  CatalogUnit,
+  CatalogUnitDimension,
+  CreateCatalogUnitInput,
+} from "./catalog-unit-service";
+
 export { uploadImage, uploadMultipleImages, ImageUploadError } from "./image-service";
 export type { ImageUploadErrorCode } from "./image-service";
 
