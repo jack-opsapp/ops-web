@@ -126,6 +126,17 @@ export {
   useDeleteProduct,
 } from "./use-products";
 
+// Catalog lookups (categories + units; read-only)
+export {
+  useCatalogLookups,
+  resolveCategoryId,
+  resolveUnitId,
+} from "./use-catalog-lookups";
+export type {
+  CatalogCategoryLookup,
+  CatalogUnitLookup,
+} from "./use-catalog-lookups";
+
 // Estimates
 export {
   useEstimates,
