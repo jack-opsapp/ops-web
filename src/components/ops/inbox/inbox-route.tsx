@@ -653,9 +653,23 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
 // ─── Adapters ────────────────────────────────────────────────────────────────
 
 function toThreadListItem(t: InboxThreadRow): ThreadListItem {
+  const lastMessageMs = new Date(t.lastMessageAt).getTime();
+  const lastInboundAt =
+    t.latestDirection === "inbound" ? lastMessageMs : null;
+  const lastOutboundAt =
+    t.latestDirection === "outbound" ? lastMessageMs : null;
+  const state = computeStateTag({
+    lastInboundAt,
+    lastOutboundAt,
+    hasAiDraft: t.phaseC === "ai_drafted",
+    sentByAgentRecently: t.phaseC === "auto_sent",
+    category: t.primaryCategory,
+    closed: t.archivedAt !== null,
+    now: Date.now(),
+  });
   return {
     id: t.id,
-    ts: new Date(t.lastMessageAt).getTime(),
+    ts: lastMessageMs,
     labels: t.labels,
     agent: { needsInput: t.agentBlockingQuestion !== null },
     phaseC: t.phaseC,
@@ -663,9 +677,12 @@ function toThreadListItem(t: InboxThreadRow): ThreadListItem {
     clientName: t.clientName ?? t.latestSenderName ?? "Unknown",
     subject: t.subject ?? "",
     snippet: t.latestSnippet ?? "",
+    aiSummary: t.aiSummary,
     unread: t.unreadCount > 0,
     messageCount: t.messageCount,
     draftKind: null,
+    state,
+    lastInboundAt,
   };
 }
 
