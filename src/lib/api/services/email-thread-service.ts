@@ -32,6 +32,10 @@ import {
   type ListInboxThreadsParams,
   type ListInboxThreadsResult,
 } from "@/lib/types/email-thread";
+import {
+  derivePhaseC,
+  type PhaseCDraftRow,
+} from "@/lib/inbox/phase-c-derivation";
 import { tryDeterministicInternal } from "./deterministic-internal-rule";
 import {
   loadCompanyUsers,
@@ -369,6 +373,124 @@ export interface UpsertFromEmailResult {
   isNew: boolean;
 }
 
+// ─── Phase C draft-state enrichment ─────────────────────────────────────────
+//
+// Overlays the derived `phaseC` field on each thread by joining the page
+// against the latest matching `ai_draft_history` row. The pure derivation
+// rules live in `@/lib/inbox/phase-c-derivation`; this function is only the
+// orchestration: gather IDs, run one batched query, dedupe, dispatch.
+//
+// Defensive: if the join query fails for any reason, log and return the
+// threads unchanged (phaseC stays the mapper's default of "none"). The
+// inbox must keep rendering even when ai_draft_history is unreachable.
+
+interface DraftHistoryQueryRow extends PhaseCDraftRow {
+  connection_id: string;
+  thread_id: string;
+  created_at: string;
+}
+
+async function enrichWithPhaseC(threads: EmailThread[]): Promise<EmailThread[]> {
+  if (threads.length === 0) return threads;
+  const supabase = requireSupabase();
+
+  const connectionIds = Array.from(new Set(threads.map((t) => t.connectionId)));
+  const providerThreadIds = Array.from(
+    new Set(threads.map((t) => t.providerThreadId))
+  );
+
+  // Single batched lookup. Page size is bounded (≤ LIST_LIMIT_MAX) so the
+  // IN-list stays small. Order DESC by created_at and dedupe in JS — keeping
+  // the latest row per (connection_id, thread_id). A Postgres-side DISTINCT ON
+  // would be cleaner but requires a custom RPC; this is fine at page-scale.
+  // Index: idx_ai_draft_history_thread_lookup (connection_id, thread_id, created_at DESC).
+  const { data, error } = await supabase
+    .from("ai_draft_history")
+    .select("connection_id, thread_id, status, sent_without_changes, created_at")
+    .in("connection_id", connectionIds)
+    .in("thread_id", providerThreadIds)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error(
+      "[email-thread-service] enrichWithPhaseC query failed:",
+      error.message
+    );
+    return threads;
+  }
+
+  const latest = new Map<string, DraftHistoryQueryRow>();
+  for (const row of (data ?? []) as DraftHistoryQueryRow[]) {
+    const key = `${row.connection_id}::${row.thread_id}`;
+    if (!latest.has(key)) latest.set(key, row);
+  }
+
+  return threads.map((t) => {
+    const key = `${t.connectionId}::${t.providerThreadId}`;
+    const row = latest.get(key) ?? null;
+    const phaseC = derivePhaseC({ latestDirection: t.latestDirection }, row);
+    return phaseC === "none" ? t : { ...t, phaseC };
+  });
+}
+
+// ─── Next-commitment id enrichment ──────────────────────────────────────────
+//
+// `email_threads.next_commitment_due_at` is denormalized via DB trigger but
+// the underlying `agent_memories.id` isn't — and the today-bar's inline ✓
+// resolve affordance needs that id to PATCH /api/inbox/commitments/:id.
+//
+// One batched query against agent_memories per page, scoped to threads that
+// the trigger already flagged via `has_unresolved_commitments`. The query
+// touches the indexed (company_id, source_id, category, resolved_at)
+// surface — bounded both in input (page-size threads) and output (one
+// memory per thread on the result set after dedupe).
+
+async function enrichWithNextCommitmentId(
+  threads: EmailThread[],
+): Promise<EmailThread[]> {
+  const candidates = threads.filter((t) => t.hasUnresolvedCommitments);
+  if (candidates.length === 0) return threads;
+  const supabase = requireSupabase();
+
+  const threadIds = candidates.map((t) => t.id);
+  const companyId = candidates[0].companyId;
+
+  const { data, error } = await supabase
+    .from("agent_memories")
+    .select("id, source_id, due_date")
+    .eq("company_id", companyId)
+    .eq("category", "commitment")
+    .is("resolved_at", null)
+    .in("source_id", threadIds)
+    .order("due_date", { ascending: true, nullsFirst: false });
+
+  if (error) {
+    console.error(
+      "[email-thread-service] enrichWithNextCommitmentId query failed:",
+      error.message,
+    );
+    return threads;
+  }
+
+  // Dedupe by source_id keeping the earliest-due row. The query already
+  // returned them ordered by due_date ASC, so a "first wins" pass is
+  // equivalent to a window function pick.
+  const idByThread = new Map<string, string>();
+  for (const row of (data ?? []) as Array<{
+    id: string;
+    source_id: string;
+  }>) {
+    if (!idByThread.has(row.source_id)) {
+      idByThread.set(row.source_id, row.id);
+    }
+  }
+
+  return threads.map((t) => {
+    const id = idByThread.get(t.id);
+    return id ? { ...t, nextCommitmentId: id } : t;
+  });
+}
+
 // ─── List query ──────────────────────────────────────────────────────────────
 
 const LIST_LIMIT_DEFAULT = 50;
@@ -471,7 +593,15 @@ async function listThreads(
       : page[page.length - 1].lastMessageAt.toISOString()
     : null;
 
-  return { threads: page, nextCursor };
+  // Overlay derived fields on the page (two batched queries — one for
+  // ai_draft_history, one for agent_memories). Both run after the cursor
+  // is computed so a join hiccup never affects pagination semantics.
+  // Sequenced — phaseC pass first then commitment-id — so each
+  // enricher operates on the canonical EmailThread shape.
+  const withPhaseC = await enrichWithPhaseC(page);
+  const enriched = await enrichWithNextCommitmentId(withPhaseC);
+
+  return { threads: enriched, nextCursor };
 }
 
 // ─── Service export ──────────────────────────────────────────────────────────
@@ -1495,7 +1625,12 @@ export const EmailThreadService = {
       .eq("company_id", companyId)
       .maybeSingle();
     if (error || !data) return null;
-    return mapEmailThreadFromDb(data);
+    const mapped = mapEmailThreadFromDb(data);
+    // Single-thread enrichment uses the same batched helpers (n=1) so the
+    // mapping logic stays in one place across list and detail paths.
+    const [withPhaseC] = await enrichWithPhaseC([mapped]);
+    const [enriched] = await enrichWithNextCommitmentId([withPhaseC]);
+    return enriched;
   },
 
   /**

@@ -29,19 +29,19 @@ export function ContactStrip({
     >
       {phone && (
         <a className={linkClass} href={`tel:${phone}`}>
-          <Phone aria-hidden className="h-[11px] w-[11px] text-text-mute" strokeWidth={1.75} />
+          <Phone aria-hidden className="h-[11px] w-[11px] text-text-mute" strokeWidth={1.5} />
           {phone}
         </a>
       )}
       {email && (
         <a className={linkClass} href={`mailto:${email}`}>
-          <Mail aria-hidden className="h-[11px] w-[11px] text-text-mute" strokeWidth={1.75} />
+          <Mail aria-hidden className="h-[11px] w-[11px] text-text-mute" strokeWidth={1.5} />
           {email}
         </a>
       )}
       {address && (
         <span className={linkClass}>
-          <Building2 aria-hidden className="h-[11px] w-[11px] text-text-mute" strokeWidth={1.75} />
+          <Building2 aria-hidden className="h-[11px] w-[11px] text-text-mute" strokeWidth={1.5} />
           {address}
         </span>
       )}

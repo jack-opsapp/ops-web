@@ -4,13 +4,15 @@
  * PhotoBubble — faithful to `reference/v4-detail.jsx :: V4PhotoBubble`.
  *
  * Renders a 1/2/3-column photo grid (max-w 360) above an optional body
- * bubble. Avatar always present (square 26px). Meta row directly under the
- * stack: sender · time · "{n} photos" with image icon.
+ * bubble. Avatar always present (round 26px via shared InboxAvatar). Meta
+ * row directly under the stack: sender · time · "{n} photos" with image
+ * icon. Mono meta uses canonical `letterSpacing: 0.2px` (drop em tracking).
  */
 
-import { Image as ImageIcon, Sparkles } from "lucide-react";
+import { Image as ImageIcon } from "lucide-react";
 import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
+import { InboxAvatar } from "./avatar";
 
 export interface PhotoData {
   id: string;
@@ -48,12 +50,6 @@ const TILE_HEIGHT: Record<1 | 2 | 3, string> = {
   3: "h-[96px]",
 };
 
-function safeInitials(value: string | undefined, fallback: string): string {
-  const seed = (value && value.trim()) || fallback;
-  const parts = seed.split(/\s+/).slice(0, 2);
-  return parts.map((p) => p[0]?.toUpperCase() ?? "").join("") || "·";
-}
-
 export function PhotoBubble({
   direction,
   photos,
@@ -82,21 +78,12 @@ export function PhotoBubble({
         isOutbound ? "flex-row-reverse" : "flex-row",
       )}
     >
-      {agent ? (
-        <span
-          aria-hidden
-          className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-chip border border-agent-border-hi bg-agent/[0.15] text-agent"
-        >
-          <Sparkles aria-hidden className="h-3 w-3" strokeWidth={1.75} />
-        </span>
-      ) : (
-        <span
-          aria-hidden
-          className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-chip border border-line-hi bg-inbox-elev font-mohave text-[10.5px] tracking-[0.02em] text-text-2"
-        >
-          {safeInitials(initials, senderName)}
-        </span>
-      )}
+      <InboxAvatar
+        name={senderName}
+        initials={initials}
+        size={26}
+        agent={agent}
+      />
       <div
         className={cn(
           "flex max-w-[360px] flex-col gap-1.5",
@@ -143,7 +130,7 @@ export function PhotoBubble({
           </div>
         )}
         <div
-          className="flex items-center gap-1.5 font-mono text-[10px] tracking-[0.2em] text-text-mute"
+          className="flex items-center gap-1.5 font-mono text-[10px] text-text-mute"
           style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
         >
           <span className="text-text-3">{senderName}</span>
@@ -158,7 +145,7 @@ export function PhotoBubble({
             <ImageIcon
               aria-hidden
               className="h-2.5 w-2.5"
-              strokeWidth={1.75}
+              strokeWidth={1.5}
             />
             {photoLabel}
           </span>

@@ -50,9 +50,9 @@ export function ThreadColumnHeader({
           aria-label={t("column.filter", "Filter inbox")}
           className="inline-flex h-[22px] items-center gap-1.5 rounded-chip border border-line bg-transparent px-2 font-mohave text-[11px] text-text-3 hover:border-line-hi hover:text-text-2"
         >
-          <Filter aria-hidden className="h-[11px] w-[11px]" strokeWidth={1.75} />
+          <Filter aria-hidden className="h-[11px] w-[11px]" strokeWidth={1.5} />
           <span>{filterLabel ?? t("column.filterAll", "All")}</span>
-          <ChevronDown aria-hidden className="h-[9px] w-[9px]" strokeWidth={2} />
+          <ChevronDown aria-hidden className="h-[9px] w-[9px]" strokeWidth={1.5} />
         </button>
         <button
           type="button"
@@ -60,7 +60,7 @@ export function ThreadColumnHeader({
           aria-label={t("column.more", "More options")}
           className="inline-flex h-[22px] w-[22px] items-center justify-center rounded-chip border border-line bg-transparent text-text-3 hover:border-line-hi hover:text-text-2"
         >
-          <MoreHorizontal aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+          <MoreHorizontal aria-hidden className="h-3 w-3" strokeWidth={1.5} />
         </button>
       </div>
       <button
@@ -72,7 +72,7 @@ export function ThreadColumnHeader({
         <Search
           aria-hidden
           className="h-3 w-3 shrink-0 text-text-mute"
-          strokeWidth={1.75}
+          strokeWidth={1.5}
         />
         <span className="flex-1 truncate font-mohave text-[12.5px] text-text-mute">
           {t("column.searchPlaceholder", "Search inbox…")}

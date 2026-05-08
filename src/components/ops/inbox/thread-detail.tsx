@@ -9,16 +9,18 @@ interface ThreadDetailProps {
   category?: { label: string; dotClassName: string } | null;
   senderName: string;
   messageCount: number;
-  clientType?: string | null;
-  onOpenClient?: () => void;
-  rightRailOpen: boolean;
   onPrev: () => void;
   onNext: () => void;
-  onArchive: () => void;
-  onSnooze: () => void;
-  onRecategorize: () => void;
-  onMore: () => void;
-  onToggleRail: () => void;
+  /** Render-slot for the archive button (wraps a styled button). */
+  archiveSlot?: (button: ReactNode) => ReactNode;
+  snoozeSlot?: (button: ReactNode) => ReactNode;
+  recategorizeSlot?: (button: ReactNode) => ReactNode;
+  moreSlot?: (button: ReactNode) => ReactNode;
+  /** Fallback handlers when no slot is provided. */
+  onArchive?: () => void;
+  onSnooze?: () => void;
+  onRecategorize?: () => void;
+  onMore?: () => void;
   className?: string;
   children?: ReactNode;
 }
@@ -36,16 +38,16 @@ export function ThreadDetail({
   category,
   senderName,
   messageCount,
-  clientType,
-  onOpenClient,
-  rightRailOpen,
   onPrev,
   onNext,
+  archiveSlot,
+  snoozeSlot,
+  recategorizeSlot,
+  moreSlot,
   onArchive,
   onSnooze,
   onRecategorize,
   onMore,
-  onToggleRail,
   className,
   children,
 }: ThreadDetailProps) {
@@ -72,14 +74,14 @@ export function ThreadDetail({
         category={category}
         senderName={senderName}
         messageCount={messageCount}
-        clientType={clientType}
-        onOpenClient={onOpenClient}
+        archiveSlot={archiveSlot}
+        snoozeSlot={snoozeSlot}
+        recategorizeSlot={recategorizeSlot}
+        moreSlot={moreSlot}
         onArchive={onArchive}
         onSnooze={onSnooze}
         onRecategorize={onRecategorize}
         onMore={onMore}
-        onToggleRail={onToggleRail}
-        rightRailOpen={rightRailOpen}
       />
       <div className="flex min-h-0 flex-1 flex-col">{children}</div>
     </div>

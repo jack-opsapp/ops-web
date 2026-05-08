@@ -14,6 +14,7 @@ import { useCallback, useMemo, useState } from "react";
 import { Check, Sparkles } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils/cn";
+import { useDictionary } from "@/i18n/client";
 import {
   EMAIL_THREAD_CATEGORIES,
   type EmailThreadCategory,
@@ -71,6 +72,7 @@ export function RecategorizeMenu({
     [isControlled, onOpenChange]
   );
 
+  const { t } = useDictionary("inbox");
   const [note, setNote] = useState("");
   const { recategorize } = useThreadActions();
 
@@ -90,20 +92,28 @@ export function RecategorizeMenu({
         {
           onSuccess: () => {
             enqueueUndoToast({
-              message: `Marked as ${categoryLabel(next)}`,
-              detail: "Phase C will learn from this correction.",
+              message: t("toast.recategorized", "Marked as {category}").replace(
+                "{category}",
+                categoryLabel(next),
+              ),
+              detail: t(
+                "toast.recategorizedDetail",
+                "Phase C will learn from this correction.",
+              ),
               onUndo: () => {
                 recategorize.mutate({ threadId, toCategory: currentCategory });
               },
             });
           },
           onError: () => {
-            toast.error("Failed to reclassify thread");
+            toast.error(
+              t("recategorize.error", "Failed to reclassify thread"),
+            );
           },
-        }
+        },
       );
     },
-    [note, recategorize, threadId, currentCategory, setOpen]
+    [note, recategorize, threadId, currentCategory, setOpen, t],
   );
 
   const handleKeyDown = useCallback(
@@ -134,12 +144,13 @@ export function RecategorizeMenu({
         onKeyDown={handleKeyDown}
       >
         {/* Header */}
-        <div className="px-3 pt-2.5 pb-1.5 border-b border-border-subtle">
+        <div className="px-3 pt-2.5 pb-1.5 border-b border-line">
           <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-mute">
-            {"// Reclassify"}
+            {"// "}
+            {t("recategorize.prefix", "Reclassify")}
           </p>
           <p className="font-cakemono font-light uppercase text-[13px] tracking-[0.14em] text-text mt-0.5">
-            Move thread to
+            {t("recategorize.title", "Move thread to")}
           </p>
         </div>
 
@@ -152,8 +163,8 @@ export function RecategorizeMenu({
               onClick={() => commit(cat)}
               className={cn(
                 "flex items-center gap-2 w-full px-3 py-1.5 text-left",
-                "hover:bg-[rgba(255,255,255,0.05)] transition-colors duration-150",
-                "focus:outline-none focus:bg-[rgba(255,255,255,0.06)]"
+                "hover:bg-inbox-elev/40 transition-colors duration-150",
+                "focus:outline-none focus:bg-inbox-elev/60",
               )}
             >
               <CategoryChip category={cat} size="sm" />
@@ -166,31 +177,37 @@ export function RecategorizeMenu({
         </div>
 
         {/* "Tell Phase C why" note */}
-        <div className="px-3 py-2 border-t border-border-subtle">
+        <div className="px-3 py-2 border-t border-line">
           <label
             htmlFor={`recat-note-${threadId}`}
             className="flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute mb-1"
           >
-            <Sparkles className="w-[10px] h-[10px]" strokeWidth={1.75} />
-            Tell Phase C why (optional)
+            <Sparkles className="w-[10px] h-[10px]" strokeWidth={1.5} />
+            {t("recategorize.noteLabel", "Tell Phase C why (optional)")}
           </label>
           <textarea
             id={`recat-note-${threadId}`}
             value={note}
             onChange={(e) => setNote(e.target.value)}
             rows={2}
-            placeholder="This domain is always a vendor…"
+            placeholder={t(
+              "recategorize.notePlaceholder",
+              "This domain is always a vendor…",
+            )}
             className={cn(
-              "w-full resize-none rounded-[5px] px-2 py-1.5",
-              "bg-surface-input border border-border-subtle",
+              "w-full resize-none rounded-md px-2 py-1.5",
+              "bg-inbox-bg-deep border border-line",
               "font-mohave text-[13px] text-text placeholder:text-text-3",
-              "focus:outline-none focus:border-[rgba(255,255,255,0.20)]"
+              "focus:outline-none focus:border-line-hi",
             )}
           />
           <div className="flex items-center gap-1 mt-1">
-            <Check className="w-[10px] h-[10px] text-text-mute" strokeWidth={2} />
+            <Check className="w-[10px] h-[10px] text-text-mute" strokeWidth={1.5} />
             <p className="font-mono text-[10px] text-text-mute">
-              Applied to similar threads automatically.
+              {t(
+                "recategorize.appliedNote",
+                "Applied to similar threads automatically.",
+              )}
             </p>
           </div>
         </div>

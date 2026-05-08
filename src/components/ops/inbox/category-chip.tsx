@@ -142,7 +142,7 @@ export const CategoryChip = forwardRef<
             "shrink-0",
             size === "md" ? "h-[11px] w-[11px]" : "h-[10px] w-[10px]"
           )}
-          strokeWidth={1.75}
+          strokeWidth={1.5}
         />
       )}
     </>

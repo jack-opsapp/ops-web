@@ -1,37 +1,43 @@
 /**
  * Pure thread-grouping function for the redesigned inbox left column.
  *
- * Groups (top → bottom):
- *   NEEDS_YOUR_INPUT  → threads where Claude is blocked waiting on the user
- *   URGENT            → threads explicitly labelled URGENT
- *   TODAY             → recency: ts is in the same calendar day as `now`
- *   THIS_WEEK         → recency: ts within last 7 days but not today
- *   EARLIER           → everything older
+ * Groups (top → bottom) — state-based, faithful to canonical V4Column
+ * (`design_handoff_inbox_redesign/reference/v4-states.jsx:132-138`).
+ * The column sorts by ball-in-court state, not recency.
  *
- * Suppressed by default:
- *   - threads with `phaseC === "auto_sent"`  (Claude already replied; quiet pile)
- *   - threads with `closed === true`         (resolved; archived from list)
+ *   NEEDS_INPUT     → agent.needsInput true; Claude blocked, owes user a question
+ *   NEEDS_REPLY     → unread inbound; the operator owes a reply
+ *   DRAFTS_READY    → Claude or operator has a draft sitting in the slot
+ *   AWAITING_THEM   → operator already replied, ball with counterparty (recent)
+ *   LATER           → quiet / older threads
  *
- * Within each group, threads are sorted newest-first by `ts`.
+ * Suppressed entirely:
+ *   - threads with `phaseC === "auto_sent"` (Claude already replied; quiet pile)
+ *   - threads with `closed === true`        (resolved; archived from list)
  *
- * Group precedence: NEEDS_YOUR_INPUT wins over URGENT wins over recency.
+ * Group precedence is the order above — first match wins. Within each group,
+ * threads sort newest-first by `ts`.
  */
 
-export type PhaseC = "none" | "ai_drafted" | "auto_sent";
+// Re-exported from the domain layer so component code can import either path.
+// The canonical definition lives with EmailThread so the wire shape, the
+// service derivation, and the grouping/band consumers can never drift apart.
+export type { PhaseC } from "@/lib/types/email-thread";
+import type { PhaseC } from "@/lib/types/email-thread";
 
 export type GroupKey =
-  | "NEEDS_YOUR_INPUT"
-  | "URGENT"
-  | "TODAY"
-  | "THIS_WEEK"
-  | "EARLIER";
+  | "NEEDS_INPUT"
+  | "NEEDS_REPLY"
+  | "DRAFTS_READY"
+  | "AWAITING_THEM"
+  | "LATER";
 
 export const GROUP_ORDER: readonly GroupKey[] = [
-  "NEEDS_YOUR_INPUT",
-  "URGENT",
-  "TODAY",
-  "THIS_WEEK",
-  "EARLIER",
+  "NEEDS_INPUT",
+  "NEEDS_REPLY",
+  "DRAFTS_READY",
+  "AWAITING_THEM",
+  "LATER",
 ] as const;
 
 export interface ThreadForGrouping {
@@ -42,28 +48,24 @@ export interface ThreadForGrouping {
   agent: { needsInput: boolean };
   phaseC: PhaseC;
   closed: boolean;
+  /** True when there is at least one unread inbound message. */
+  unread: boolean;
+  /** Set when the thread has a saved draft. Drives DRAFTS_READY when phaseC is "none". */
+  draftKind?: "ai" | "user" | null;
 }
 
 const DAY_MS = 1000 * 60 * 60 * 24;
-
-function isSameCalendarDay(a: number, b: number): boolean {
-  const da = new Date(a);
-  const db = new Date(b);
-  return (
-    da.getUTCFullYear() === db.getUTCFullYear() &&
-    da.getUTCMonth() === db.getUTCMonth() &&
-    da.getUTCDate() === db.getUTCDate()
-  );
-}
+const RECENT_WINDOW_MS = 14 * DAY_MS;
 
 function classify(thread: ThreadForGrouping, now: number): GroupKey | null {
   if (thread.closed) return null;
   if (thread.phaseC === "auto_sent") return null;
-  if (thread.agent.needsInput) return "NEEDS_YOUR_INPUT";
-  if (thread.labels.includes("URGENT")) return "URGENT";
-  if (isSameCalendarDay(thread.ts, now)) return "TODAY";
-  if (now - thread.ts <= 7 * DAY_MS) return "THIS_WEEK";
-  return "EARLIER";
+  if (thread.agent.needsInput) return "NEEDS_INPUT";
+  if (thread.phaseC === "ai_drafted") return "DRAFTS_READY";
+  if (thread.draftKind === "ai" || thread.draftKind === "user") return "DRAFTS_READY";
+  if (thread.unread) return "NEEDS_REPLY";
+  if (now - thread.ts <= RECENT_WINDOW_MS) return "AWAITING_THEM";
+  return "LATER";
 }
 
 export function groupThreads<T extends ThreadForGrouping>(

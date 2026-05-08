@@ -1,7 +1,20 @@
 "use client";
 
+/**
+ * StatusPip — faithful to `reference/v4-context-tabs.jsx :: StatusPip`.
+ *
+ * Renders a 6×6 dot + tone-colored label (mono 9.5/letterSpacing 0.2px).
+ * Both dot and label share the tone color; the label sits inline with 5px gap.
+ *
+ * Used by collapsed project headers, ledger rows (invoices / estimates),
+ * and pipeline opportunity stage chips.
+ */
+
 import { cn } from "@/lib/utils/cn";
 
+export type StatusTone = "ops-accent" | "tan" | "olive" | "rose" | "muted" | "text-3";
+
+/** UI status values the inbox surfaces use. */
 export type ProjectStatus =
   | "On site"
   | "Quoted"
@@ -10,9 +23,16 @@ export type ProjectStatus =
   | "Paid"
   | "Scheduled";
 
-export type StatusPipColor = "ops-accent" | "tan" | "olive" | "text-mute";
+export type LedgerStatus =
+  | "paid"
+  | "accepted"
+  | "scheduled"
+  | "sent"
+  | "overdue"
+  | "draft"
+  | "expired";
 
-export function statusPipColor(status: ProjectStatus): StatusPipColor {
+export function projectStatusTone(status: ProjectStatus): StatusTone {
   switch (status) {
     case "On site":
       return "ops-accent";
@@ -23,33 +43,93 @@ export function statusPipColor(status: ProjectStatus): StatusPipColor {
       return "olive";
     case "Quoted":
     case "Scheduled":
-      return "text-mute";
+      return "muted";
   }
 }
 
-const COLOR_BG: Record<StatusPipColor, string> = {
+export function ledgerStatusTone(status: LedgerStatus): StatusTone {
+  switch (status) {
+    case "paid":
+    case "accepted":
+      return "olive";
+    case "scheduled":
+    case "sent":
+      return "muted";
+    case "overdue":
+    case "expired":
+      return "rose";
+    case "draft":
+      return "text-3";
+  }
+}
+
+const DOT_BG: Record<StatusTone, string> = {
   "ops-accent": "bg-ops-accent",
   tan: "bg-tan",
   olive: "bg-olive",
-  "text-mute": "bg-text-mute",
+  rose: "bg-rose",
+  muted: "bg-text-mute",
+  "text-3": "bg-text-3",
+};
+
+const LABEL_TEXT: Record<StatusTone, string> = {
+  "ops-accent": "text-ops-accent",
+  tan: "text-tan",
+  olive: "text-olive",
+  rose: "text-rose",
+  muted: "text-text-mute",
+  "text-3": "text-text-3",
 };
 
 interface StatusPipProps {
-  status: ProjectStatus;
+  /** Pre-tinted variant — explicit tone. */
+  tone?: StatusTone;
+  /** Convenience: pass a project-status string and let the helper resolve tone. */
+  status?: ProjectStatus;
+  /** Visible label. Uppercase rendering is the caller's choice (CSS). */
+  label: string;
+  /** Hide the label and render the dot only. */
+  dotOnly?: boolean;
   className?: string;
 }
 
-export function StatusPip({ status, className }: StatusPipProps) {
-  const color = statusPipColor(status);
+export function StatusPip({
+  tone,
+  status,
+  label,
+  dotOnly,
+  className,
+}: StatusPipProps) {
+  const resolvedTone =
+    tone ?? (status ? projectStatusTone(status) : "muted");
+  if (dotOnly) {
+    return (
+      <span
+        data-testid="status-pip"
+        aria-label={label}
+        className={cn(
+          "h-1.5 w-1.5 shrink-0 rounded-full",
+          DOT_BG[resolvedTone],
+          className,
+        )}
+      />
+    );
+  }
   return (
     <span
       data-testid="status-pip"
-      aria-label={status}
-      className={cn(
-        "h-1.5 w-1.5 shrink-0 rounded-full",
-        COLOR_BG[color],
-        className,
-      )}
-    />
+      className={cn("inline-flex items-center gap-1.5", className)}
+    >
+      <span
+        aria-hidden
+        className={cn("h-1.5 w-1.5 shrink-0 rounded-full", DOT_BG[resolvedTone])}
+      />
+      <span
+        className={cn("font-mono text-[9.5px]", LABEL_TEXT[resolvedTone])}
+        style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
+      >
+        {label}
+      </span>
+    </span>
   );
 }

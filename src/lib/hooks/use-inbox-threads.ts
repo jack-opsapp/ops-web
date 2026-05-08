@@ -20,6 +20,7 @@ import {
 } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/api/query-client";
 import type {
+  AgentBlockingQuestion,
   ArchiveLeadPreference,
   ArchiveWritebackPreference,
   DraftSource,
@@ -28,7 +29,11 @@ import type {
   InboxDraftRow,
   InboxRail,
   InboxScope,
+  PhaseC,
 } from "@/lib/types/email-thread";
+
+// Re-export so consumers can import alongside the other inbox wire types.
+export type { PhaseC, AgentBlockingQuestion } from "@/lib/types/email-thread";
 
 /**
  * Wire shape for a sibling thread surfaced in the archive-confirmation modal.
@@ -91,6 +96,29 @@ export interface InboxThreadRow {
   nextCommitmentDueAt: string | null;
   /** True when at least one unresolved commitment memory targets this thread. */
   hasUnresolvedCommitments: boolean;
+  /**
+   * `agent_memories.id` of the earliest-due unresolved commitment for this
+   * thread. Drives the today-bar's inline ✓ resolve affordance — the row
+   * patches THIS id, not the thread id, when the operator clicks ✓.
+   * Null when no commitment, or when the derivation query was unreachable.
+   */
+  nextCommitmentId: string | null;
+  /**
+   * Derived from the latest `ai_draft_history` row matching this thread:
+   *   - "ai_drafted" when Claude has a pending draft for the user to review
+   *   - "auto_sent"  when Claude autonomously sent the most recent reply and
+   *                  no inbound has come back yet
+   *   - "none"       otherwise (no draft, discarded, or superseded by reply)
+   *
+   * Drives column grouping via `grouping.ts` and detail-band selection.
+   */
+  phaseC: PhaseC;
+  /**
+   * Phase C escalation — populated when Claude is blocked waiting on the
+   * operator. Null on the steady state. Drives `agent.needsInput` in the
+   * grouping/band layer; cleared via the answer endpoint.
+   */
+  agentBlockingQuestion: AgentBlockingQuestion | null;
 }
 
 export interface InboxThreadMessage {
@@ -181,6 +209,13 @@ export interface InboxThreadDetail {
     clientId: string | null;
     /** Canonical client name, null when unmatched. Server-resolved via clients.id. */
     clientName: string | null;
+    /** Latest message direction — drives the auto_sent freshness check and the
+     *  ball-in-court band. Null when the thread has no messages classified yet. */
+    latestDirection: "inbound" | "outbound" | null;
+    /** Phase C draft state (see InboxThreadRow.phaseC). Drives detail-band selection. */
+    phaseC: PhaseC;
+    /** Phase C escalation (see InboxThreadRow.agentBlockingQuestion). */
+    agentBlockingQuestion: AgentBlockingQuestion | null;
   };
   messages: InboxThreadMessage[];
   /**
@@ -730,4 +765,123 @@ export function useThreadActions() {
     archiveBatch,
     unarchiveBatch,
   };
+}
+
+// ─── Agent blocking-question answer mutation ───────────────────────────────
+//
+// Hits POST /api/inbox/threads/:id/agent-question/answer. Clears the
+// `email_threads.agent_blocking_question` column and records the answer
+// to `agent_memories` so Phase C can pick it up on the next draft pass.
+//
+// `optionId` is set when the user picked a quick-pick chip; `answer` is
+// the full text (the chip's label, or whatever the user typed). Sending
+// both keeps the audit trail unambiguous.
+
+export interface AnswerAgentQuestionArgs {
+  threadId: string;
+  /** Free-form text answer. For chip picks, pass the chip's label. */
+  answer: string;
+  /** Set when the user clicked a pre-canned option. */
+  optionId?: string;
+}
+
+export function useAnswerAgentQuestion() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: AnswerAgentQuestionArgs): Promise<void> => {
+      const headers = {
+        ...(await authHeaders()),
+        "Content-Type": "application/json",
+      };
+      const res = await fetch(
+        `/api/inbox/threads/${args.threadId}/agent-question/answer`,
+        {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            answer: args.answer,
+            optionId: args.optionId ?? null,
+          }),
+        },
+      );
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({}));
+        throw new Error(e.error || `answer failed (${res.status})`);
+      }
+    },
+    onSuccess: (_res, args) => {
+      qc.invalidateQueries({
+        queryKey: queryKeys.inbox.threadDetail(args.threadId),
+      });
+      qc.invalidateQueries({ queryKey: queryKeys.inbox.threadsAll() });
+    },
+  });
+}
+
+// ─── Send reply mutation ────────────────────────────────────────────────────
+//
+// Posts to /api/integrations/email/send. The route resolves the user's
+// active email connection server-side, sends via Gmail/M365 provider, writes
+// the outbound activity, updates correspondence counts, and stamps the OPS
+// label. Caller passes the originating thread id so we can invalidate both
+// the thread detail and the list on success — the sync engine will reconcile
+// the actual message back into Supabase on the next cycle, but the optimistic
+// invalidation keeps the UI responsive.
+
+export interface SendReplyArgs {
+  threadId: string;
+  to: string[];
+  cc?: string[];
+  subject: string;
+  body: string;
+  /** Provider message-id of the message being replied to (RFC 2822 In-Reply-To). */
+  inReplyTo?: string | null;
+  /** Provider thread-id (Gmail thread, M365 conversation). */
+  providerThreadId?: string | null;
+  /** Linked opportunity for correspondence-count bump. */
+  opportunityId?: string | null;
+  /** Format hint for the route — markdown bodies get HTML-converted server-side. */
+  format?: "markdown" | "text";
+}
+
+export function useSendReply() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: {
+      userId: string;
+      companyId: string;
+      payload: SendReplyArgs;
+    }) => {
+      const headers = {
+        ...(await authHeaders()),
+        "Content-Type": "application/json",
+      };
+      const res = await fetch(`/api/integrations/email/send`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          userId: args.userId,
+          companyId: args.companyId,
+          to: args.payload.to,
+          cc: args.payload.cc ?? [],
+          subject: args.payload.subject,
+          body: args.payload.body,
+          format: args.payload.format ?? "markdown",
+          opportunityId: args.payload.opportunityId ?? null,
+          inReplyTo: args.payload.inReplyTo ?? null,
+          threadId: args.payload.providerThreadId ?? null,
+        }),
+      });
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({}));
+        throw new Error(e.error || `send failed (${res.status})`);
+      }
+      return res.json() as Promise<{ messageId: string; threadId: string }>;
+    },
+    onSuccess: (_res, args) => {
+      qc.invalidateQueries({ queryKey: queryKeys.inbox.threadDetail(args.payload.threadId) });
+      qc.invalidateQueries({ queryKey: queryKeys.inbox.threadsAll() });
+      qc.invalidateQueries({ queryKey: queryKeys.inbox.drafts("own") });
+    },
+  });
 }

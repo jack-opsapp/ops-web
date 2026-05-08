@@ -49,7 +49,7 @@ export function AutoSentBand({
       <Sparkles
         aria-hidden
         className="h-3.5 w-3.5 shrink-0 text-agent"
-        strokeWidth={1.75}
+        strokeWidth={1.5}
       />
       <div className="flex min-w-0 flex-1 flex-col">
         <span className="font-mohave text-[12.5px] tracking-[-0.003em] text-text">

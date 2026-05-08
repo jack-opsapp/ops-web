@@ -13,6 +13,7 @@ import { useCallback, useMemo, useState } from "react";
 import { Clock, Calendar as CalendarIcon } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils/cn";
+import { useDictionary } from "@/i18n/client";
 import { useThreadActions } from "@/lib/hooks/use-inbox-threads";
 import { enqueueUndoToast } from "./undo-toast";
 
@@ -26,9 +27,15 @@ interface SnoozePickerProps {
 
 interface SnoozePreset {
   id: string;
-  label: string;
-  sublabel: string;
-  compute: (now: Date) => Date | null;  // null = hide this preset
+  /** Dictionary key for the primary label. */
+  labelKey: string;
+  /** Default English fallback for the label. */
+  labelDefault: string;
+  /** Dictionary key for the sublabel. */
+  sublabelKey: string;
+  /** Default English fallback for the sublabel. */
+  sublabelDefault: string;
+  compute: (now: Date) => Date | null; // null = hide this preset
 }
 
 // ─── Preset computations ─────────────────────────────────────────────────────
@@ -76,36 +83,46 @@ function nextMonth(now: Date): Date {
   return t;
 }
 
-function buildPresets(now: Date): SnoozePreset[] {
+function buildPresets(): SnoozePreset[] {
   return [
     {
       id: "later-today",
-      label: "Later today",
-      sublabel: "in 3 hours",
+      labelKey: "snooze.laterToday",
+      labelDefault: "Later today",
+      sublabelKey: "snooze.laterToday.sub",
+      sublabelDefault: "in 3 hours",
       compute: laterToday,
     },
     {
       id: "tomorrow",
-      label: "Tomorrow",
-      sublabel: "8:00 AM",
+      labelKey: "snooze.tomorrow",
+      labelDefault: "Tomorrow",
+      sublabelKey: "snooze.tomorrow.sub",
+      sublabelDefault: "8:00 AM",
       compute: tomorrowMorning,
     },
     {
       id: "weekend",
-      label: "This weekend",
-      sublabel: "Sat 9:00 AM",
+      labelKey: "snooze.weekend",
+      labelDefault: "This weekend",
+      sublabelKey: "snooze.weekend.sub",
+      sublabelDefault: "Sat 9:00 AM",
       compute: thisWeekend,
     },
     {
       id: "next-week",
-      label: "Next week",
-      sublabel: "Mon 8:00 AM",
+      labelKey: "snooze.nextWeek",
+      labelDefault: "Next week",
+      sublabelKey: "snooze.nextWeek.sub",
+      sublabelDefault: "Mon 8:00 AM",
       compute: nextWeek,
     },
     {
       id: "next-month",
-      label: "Next month",
-      sublabel: "1st at 8:00 AM",
+      labelKey: "snooze.nextMonth",
+      labelDefault: "Next month",
+      sublabelKey: "snooze.nextMonth.sub",
+      sublabelDefault: "1st at 8:00 AM",
       compute: nextMonth,
     },
   ];
@@ -149,9 +166,10 @@ export function SnoozePicker({
     [isControlled, onOpenChange]
   );
 
+  const { t } = useDictionary("inbox");
   const { snooze, unsnooze } = useThreadActions();
   const now = useMemo(() => new Date(), [isOpen]);
-  const presets = useMemo(() => buildPresets(now), [now]);
+  const presets = useMemo(() => buildPresets(), []);
 
   const defaultCustom = useMemo(() => {
     const d = new Date(now);
@@ -165,11 +183,14 @@ export function SnoozePicker({
       setOpen(false);
       snooze.mutate({ threadId, until });
       enqueueUndoToast({
-        message: `Snoozed until ${humanLabel}`,
+        message: t("toast.snoozed", "Snoozed until {when}").replace(
+          "{when}",
+          humanLabel,
+        ),
         onUndo: () => unsnooze.mutate(threadId),
       });
     },
-    [snooze, unsnooze, threadId, setOpen]
+    [snooze, unsnooze, threadId, setOpen, t],
   );
 
   const onCustomCommit = useCallback(() => {
@@ -187,12 +208,13 @@ export function SnoozePicker({
         className="w-[260px] p-0"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
-        <div className="px-3 pt-2.5 pb-1.5 border-b border-border-subtle">
+        <div className="px-3 pt-2.5 pb-1.5 border-b border-line">
           <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-mute">
-            {"// Snooze"}
+            {"// "}
+            {t("snooze.label", "Snooze")}
           </p>
           <p className="font-cakemono font-light uppercase text-[13px] tracking-[0.14em] text-text mt-0.5">
-            Come back when
+            {t("snooze.title", "Come back when")}
           </p>
         </div>
 
@@ -207,16 +229,16 @@ export function SnoozePicker({
                 onClick={() => commit(computed, formatPresetValue(computed))}
                 className={cn(
                   "flex items-center gap-2 w-full px-3 py-1.5 text-left",
-                  "hover:bg-[rgba(255,255,255,0.05)] transition-colors duration-150"
+                  "hover:bg-inbox-elev/40 transition-colors duration-150",
                 )}
               >
-                <Clock className="w-[12px] h-[12px] text-text-mute shrink-0" strokeWidth={1.75} />
+                <Clock className="w-[12px] h-[12px] text-text-mute shrink-0" strokeWidth={1.5} />
                 <div className="flex-1 min-w-0">
                   <p className="font-cakemono font-light uppercase text-[12px] tracking-[0.14em] text-text-2">
-                    {preset.label}
+                    {t(preset.labelKey, preset.labelDefault)}
                   </p>
                   <p className="font-mono text-[10px] text-text-mute mt-[1px]">
-                    {preset.sublabel}
+                    {t(preset.sublabelKey, preset.sublabelDefault)}
                   </p>
                 </div>
                 <span className="font-mono text-[10px] text-text-mute tabular-nums shrink-0">
@@ -227,13 +249,13 @@ export function SnoozePicker({
           })}
         </div>
 
-        <div className="px-3 pt-2 pb-2.5 border-t border-border-subtle">
+        <div className="px-3 pt-2 pb-2.5 border-t border-line">
           <label
             htmlFor={`snooze-custom-${threadId}`}
             className="flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute mb-1"
           >
-            <CalendarIcon className="w-[10px] h-[10px]" strokeWidth={1.75} />
-            Pick date & time
+            <CalendarIcon className="w-[10px] h-[10px]" strokeWidth={1.5} />
+            {t("snooze.custom", "Pick date & time")}
           </label>
           <div className="flex items-stretch gap-1">
             <input
@@ -243,23 +265,23 @@ export function SnoozePicker({
               min={toLocalDatetimeInput(new Date(Date.now() + 60_000))}
               onChange={(e) => setCustomValue(e.target.value)}
               className={cn(
-                "flex-1 rounded-[5px] px-2 py-1.5",
-                "bg-surface-input border border-border-subtle",
+                "flex-1 rounded-md px-2 py-1.5",
+                "bg-inbox-bg-deep border border-line",
                 "font-mono text-[11px] text-text",
-                "focus:outline-none focus:border-[rgba(255,255,255,0.20)]"
+                "focus:outline-none focus:border-line-hi",
               )}
             />
             <button
               type="button"
               onClick={onCustomCommit}
               className={cn(
-                "px-2.5 py-1.5 rounded-[5px] border border-[rgba(255,255,255,0.18)]",
-                "bg-[rgba(255,255,255,0.08)] hover:bg-[rgba(255,255,255,0.12)]",
+                "px-2.5 py-1.5 rounded-md border border-line-hi",
+                "bg-inbox-elev/80 hover:bg-inbox-elev",
                 "font-cakemono font-light uppercase text-[11px] tracking-[0.14em] text-text",
-                "transition-colors duration-150"
+                "transition-colors duration-150",
               )}
             >
-              Snooze
+              {t("snooze.label", "Snooze")}
             </button>
           </div>
         </div>

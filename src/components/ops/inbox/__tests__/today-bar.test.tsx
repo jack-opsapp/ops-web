@@ -45,8 +45,55 @@ describe("<TodayBar>", () => {
         ]}
       />,
     );
-    const link = screen.getByTestId("today-bar-commitment");
-    expect(link).toHaveAttribute("href", "/inbox/t-abc");
+    // The row is a <li> wrapper now (so we can split the navigate Link
+    // from the inline ✓ resolve button). Both the body Link and the arrow
+    // Link inside should target the same thread.
+    const row = screen.getByTestId("today-bar-commitment");
+    const links = row.querySelectorAll("a");
+    expect(links.length).toBeGreaterThan(0);
+    for (const link of links) {
+      expect(link).toHaveAttribute("href", "/inbox/t-abc");
+    }
+  });
+
+  it("renders an inline ✓ resolve button when onResolve is provided", () => {
+    const calls: string[] = [];
+    render(
+      <TodayBar
+        commitments={[
+          { id: "c1", text: "X", due: "TODAY", threadId: "t1", urgent: false },
+        ]}
+        onResolve={(id) => calls.push(id)}
+      />,
+    );
+    const button = screen.getByTestId("today-bar-resolve");
+    button.click();
+    expect(calls).toEqual(["c1"]);
+  });
+
+  it("disables the resolve button when the commitment id is in pendingResolveIds", () => {
+    render(
+      <TodayBar
+        commitments={[
+          { id: "c1", text: "X", due: "TODAY", threadId: "t1", urgent: false },
+        ]}
+        onResolve={() => {}}
+        pendingResolveIds={new Set(["c1"])}
+      />,
+    );
+    const button = screen.getByTestId("today-bar-resolve") as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+  });
+
+  it("omits the resolve button entirely when no onResolve handler is passed", () => {
+    render(
+      <TodayBar
+        commitments={[
+          { id: "c1", text: "X", due: "TODAY", threadId: "t1", urgent: false },
+        ]}
+      />,
+    );
+    expect(screen.queryByTestId("today-bar-resolve")).toBeNull();
   });
 
   it("renders an item count line ('3 items') when more than one commitment", () => {

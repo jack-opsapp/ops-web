@@ -18,41 +18,53 @@ const makeThread = (
   agent: { needsInput: false },
   phaseC: "none",
   closed: false,
+  unread: false,
+  draftKind: null,
   ...overrides,
 });
 
 describe("groupThreads", () => {
-  it("places agent-blocked threads in NEEDS_YOUR_INPUT", () => {
+  it("places agent-blocked threads in NEEDS_INPUT", () => {
     const t = makeThread("a", { agent: { needsInput: true } });
     const groups = groupThreads([t], NOW);
-    expect(groups.get("NEEDS_YOUR_INPUT")).toEqual([t]);
+    expect(groups.get("NEEDS_INPUT")).toEqual([t]);
   });
 
-  it("places URGENT-labelled threads in URGENT", () => {
-    const t = makeThread("b", { labels: ["URGENT"] });
+  it("places unread threads in NEEDS_REPLY", () => {
+    const t = makeThread("b", { unread: true });
     const groups = groupThreads([t], NOW);
-    expect(groups.get("URGENT")).toEqual([t]);
+    expect(groups.get("NEEDS_REPLY")).toEqual([t]);
   });
 
-  it("buckets by recency: today vs this week vs earlier", () => {
-    const today = makeThread("t", { ts: NOW - 1000 * 60 * 60 * 2 }); // 2h ago
-    const thisWeek = makeThread("w", { ts: NOW - 1000 * 60 * 60 * 24 * 3 }); // 3d ago
-    const earlier = makeThread("e", { ts: NOW - 1000 * 60 * 60 * 24 * 30 }); // 30d ago
-    const groups = groupThreads([today, thisWeek, earlier], NOW);
-    expect(groups.get("TODAY")?.[0].id).toBe("t");
-    expect(groups.get("THIS_WEEK")?.[0].id).toBe("w");
-    expect(groups.get("EARLIER")?.[0].id).toBe("e");
+  it("places ai-drafted threads in DRAFTS_READY (overrides unread)", () => {
+    const t = makeThread("d", { phaseC: "ai_drafted", unread: true });
+    const groups = groupThreads([t], NOW);
+    expect(groups.get("DRAFTS_READY")).toEqual([t]);
   });
 
-  it("orders groups: needs-input → urgent → today → this-week → earlier", () => {
+  it("places user-drafted threads in DRAFTS_READY", () => {
+    const t = makeThread("u", { draftKind: "user" });
+    const groups = groupThreads([t], NOW);
+    expect(groups.get("DRAFTS_READY")).toEqual([t]);
+  });
+
+  it("buckets non-unread reads: recent → AWAITING_THEM, old → LATER", () => {
+    const recent = makeThread("r", { ts: NOW - 1000 * 60 * 60 * 24 * 3 }); // 3d ago
+    const old = makeThread("o", { ts: NOW - 1000 * 60 * 60 * 24 * 30 }); // 30d ago
+    const groups = groupThreads([recent, old], NOW);
+    expect(groups.get("AWAITING_THEM")?.[0].id).toBe("r");
+    expect(groups.get("LATER")?.[0].id).toBe("o");
+  });
+
+  it("orders groups: needs-input → needs-reply → drafts-ready → awaiting-them → later", () => {
     const keys = Array.from(groupThreads([], NOW).keys()) as GroupKey[];
     expect(keys).toEqual(GROUP_ORDER);
     expect(GROUP_ORDER).toEqual([
-      "NEEDS_YOUR_INPUT",
-      "URGENT",
-      "TODAY",
-      "THIS_WEEK",
-      "EARLIER",
+      "NEEDS_INPUT",
+      "NEEDS_REPLY",
+      "DRAFTS_READY",
+      "AWAITING_THEM",
+      "LATER",
     ]);
   });
 
@@ -68,21 +80,30 @@ describe("groupThreads", () => {
     expect([...groups.values()].flat()).toEqual([]);
   });
 
-  it("needs-input takes precedence over URGENT label", () => {
+  it("needs-input takes precedence over unread", () => {
     const t = makeThread("p", {
       agent: { needsInput: true },
-      labels: ["URGENT"],
+      unread: true,
     });
     const groups = groupThreads([t], NOW);
-    expect(groups.get("NEEDS_YOUR_INPUT")).toEqual([t]);
-    expect(groups.get("URGENT") ?? []).toEqual([]);
+    expect(groups.get("NEEDS_INPUT")).toEqual([t]);
+    expect(groups.get("NEEDS_REPLY") ?? []).toEqual([]);
   });
 
   it("orders threads within a group newest-first", () => {
-    const a = makeThread("a", { ts: NOW - 1000 * 60 * 60 * 1 });
-    const b = makeThread("b", { ts: NOW - 1000 * 60 * 60 * 5 });
-    const c = makeThread("c", { ts: NOW - 1000 * 60 * 30 });
+    const a = makeThread("a", {
+      unread: true,
+      ts: NOW - 1000 * 60 * 60 * 1,
+    });
+    const b = makeThread("b", {
+      unread: true,
+      ts: NOW - 1000 * 60 * 60 * 5,
+    });
+    const c = makeThread("c", {
+      unread: true,
+      ts: NOW - 1000 * 60 * 30,
+    });
     const groups = groupThreads([a, b, c], NOW);
-    expect(groups.get("TODAY")?.map((t) => t.id)).toEqual(["c", "a", "b"]);
+    expect(groups.get("NEEDS_REPLY")?.map((t) => t.id)).toEqual(["c", "a", "b"]);
   });
 });

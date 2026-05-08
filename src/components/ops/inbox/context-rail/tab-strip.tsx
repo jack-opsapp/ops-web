@@ -1,8 +1,14 @@
 "use client";
 
+/**
+ * TabStrip — 4-tab right-rail switcher per the production mockup
+ * (Pipeline / Tasks / Files / Threads). Sentence-case labels, full-width
+ * accent underline on active. Counts hidden when 0.
+ */
+
 import { cn } from "@/lib/utils/cn";
 
-export type ContextTabKey = "projects" | "pipeline" | "files";
+export type ContextTabKey = "pipeline" | "tasks" | "files" | "threads";
 
 export interface ContextTab {
   key: ContextTabKey;
@@ -36,23 +42,23 @@ export function TabStrip({ tabs, active, onSelect, className }: TabStripProps) {
             aria-selected={isActive}
             onClick={() => onSelect(tab.key)}
             className={cn(
-              "relative flex flex-1 items-center justify-center gap-1.5 font-mohave text-[11.5px] uppercase tracking-[0.2em] transition-colors",
-              isActive
-                ? "text-text"
-                : "text-text-3 hover:text-text-2",
+              "relative flex flex-1 items-center justify-center gap-1.5 font-mohave text-[12px] tracking-[-0.003em] transition-colors",
+              isActive ? "text-text" : "text-text-3 hover:text-text-2",
             )}
           >
             <span>{tab.label}</span>
-            <span
-              className="font-mono text-[10px] tabular-nums text-text-mute"
-              style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
-            >
-              {tab.count}
-            </span>
+            {tab.count > 0 && (
+              <span
+                className="font-mono text-[10px] text-text-mute"
+                style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
+              >
+                {tab.count}
+              </span>
+            )}
             {isActive && (
               <span
                 aria-hidden
-                className="absolute bottom-0 left-3 right-3 h-[2px] bg-ops-accent"
+                className="absolute inset-x-0 bottom-0 h-[2px] bg-ops-accent"
               />
             )}
           </button>

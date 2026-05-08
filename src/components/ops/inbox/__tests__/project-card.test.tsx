@@ -2,33 +2,42 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
 import {
   StatusPip,
-  statusPipColor,
+  projectStatusTone,
   type ProjectStatus,
 } from "../context-rail/status-pip";
 import { AccountingBar } from "../context-rail/accounting-bar";
 import { ProjectCard, type ProjectCardData } from "../context-rail/project-card";
 
-describe("statusPipColor", () => {
-  it("maps statuses to expected color tokens", () => {
+describe("projectStatusTone", () => {
+  it("maps statuses to expected tone tokens", () => {
     const cases: [ProjectStatus, string][] = [
       ["On site", "ops-accent"],
-      ["Quoted", "text-mute"],
+      ["Quoted", "muted"],
       ["Awaiting acceptance", "tan"],
       ["Done", "olive"],
       ["Paid", "olive"],
-      ["Scheduled", "text-mute"],
+      ["Scheduled", "muted"],
     ];
     for (const [status, token] of cases) {
-      expect(statusPipColor(status)).toBe(token);
+      expect(projectStatusTone(status)).toBe(token);
     }
   });
 });
 
 describe("<StatusPip>", () => {
-  it("renders a 6px round dot with the mapped color", () => {
-    render(<StatusPip status="Done" />);
+  it("renders a tone-tinted dot + label by default", () => {
+    render(<StatusPip status="Done" label="Done" />);
     const pip = screen.getByTestId("status-pip");
-    expect(pip.className).toMatch(/bg-olive/);
+    expect(pip).toBeInTheDocument();
+    expect(pip.querySelector("span[aria-hidden]")?.className).toMatch(/bg-olive/);
+    expect(screen.getByText("Done")).toBeInTheDocument();
+  });
+
+  it("dotOnly variant skips the label", () => {
+    render(<StatusPip status="On site" label="On site" dotOnly />);
+    const pip = screen.getByTestId("status-pip");
+    expect(pip.className).toMatch(/bg-ops-accent/);
+    expect(screen.queryByText("On site")).not.toBeInTheDocument();
   });
 });
 

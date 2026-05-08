@@ -132,7 +132,7 @@ export function PipelineList({
                           <LinkIcon
                             aria-hidden
                             className="h-2.5 w-2.5"
-                            strokeWidth={1.75}
+                            strokeWidth={1.5}
                           />
                           {t("pipeline.thisThread", "This thread")}
                         </span>
@@ -170,7 +170,7 @@ export function PipelineList({
         onClick={onNewOpportunity}
         className="inline-flex h-[26px] items-center justify-center gap-1.5 rounded-md border border-dashed border-line bg-transparent px-3 font-mohave text-[11px] text-text-3 hover:border-line-hi hover:text-text-2"
       >
-        <Plus aria-hidden className="h-2.5 w-2.5" strokeWidth={1.75} />
+        <Plus aria-hidden className="h-2.5 w-2.5" strokeWidth={1.5} />
         {t("pipeline.newOpportunity", "New opportunity")}
       </button>
     </div>

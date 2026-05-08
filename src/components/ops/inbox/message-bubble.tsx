@@ -4,10 +4,11 @@
  * MessageBubble — faithful to `reference/v3-messages.jsx :: V3Bubble`.
  *
  * One bubble per message. No run-tail logic, no shared avatar gutter — every
- * message renders its avatar (square, 26px). Outbound bubbles use the accent
- * fill (`rgba(111,148,176,0.10)`); AI-authored outbound bubbles use the agent
- * fill. Meta row (sender · time · optional attachment) sits directly under
- * the bubble in the same column, gap 4.
+ * message renders its avatar (round, 26px). Outbound bubbles use the accent
+ * fill (`rgba(111,148,176,0.10)`); AI-authored outbound bubbles use the
+ * agent fill. Meta row (sender · time · optional attachment) sits directly
+ * under the bubble in the same column, gap 4. Mono meta uses canonical
+ * `letterSpacing: 0.2px` (drop the wide em tracking).
  *
  * Children render INSIDE the bubble above the body — for inline photo grids.
  */
@@ -17,6 +18,7 @@ import type { ReactNode } from "react";
 import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
 import type { MessageSource } from "@/lib/inbox/message-grouping";
+import { InboxAvatar } from "./avatar";
 
 interface MessageBubbleProps {
   direction: "inbound" | "outbound";
@@ -34,12 +36,6 @@ interface MessageBubbleProps {
   /** Children render inside the bubble above the body — used for photo grids. */
   children?: ReactNode;
   className?: string;
-}
-
-function safeInitials(value: string | undefined, fallback: string): string {
-  const seed = (value && value.trim()) || fallback;
-  const parts = seed.split(/\s+/).slice(0, 2);
-  return parts.map((p) => p[0]?.toUpperCase() ?? "").join("") || "·";
 }
 
 export function MessageBubble({
@@ -65,7 +61,12 @@ export function MessageBubble({
         className,
       )}
     >
-      <Avatar initials={safeInitials(initials, senderName)} agent={isAi} />
+      <InboxAvatar
+        name={senderName}
+        initials={initials}
+        size={26}
+        agent={isAi}
+      />
       <div
         className={cn(
           "flex max-w-[78%] flex-col gap-1",
@@ -87,12 +88,12 @@ export function MessageBubble({
           <p className="whitespace-pre-wrap break-words">{body}</p>
         </div>
         <div
-          className="flex items-center gap-1.5 font-mono text-[10px] tracking-[0.2em] text-text-mute"
+          className="flex items-center gap-1.5 font-mono text-[10px] text-text-mute"
           style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
         >
           {isAi ? (
             <span className="inline-flex items-center gap-1 text-agent-text-2">
-              <Sparkles aria-hidden className="h-2.5 w-2.5" strokeWidth={1.75} />
+              <Sparkles aria-hidden className="h-2.5 w-2.5" strokeWidth={1.5} />
               {t("messages.sentByClaude", "Claude")}
             </span>
           ) : (
@@ -106,9 +107,15 @@ export function MessageBubble({
           )}
           {attachmentName && (
             <>
-              <span aria-hidden className="ml-1">·</span>
+              <span aria-hidden className="ml-1">
+                ·
+              </span>
               <span className="inline-flex items-center gap-1 text-text-3">
-                <Paperclip aria-hidden className="h-2.5 w-2.5" strokeWidth={1.75} />
+                <Paperclip
+                  aria-hidden
+                  className="h-2.5 w-2.5"
+                  strokeWidth={1.5}
+                />
                 {attachmentName}
               </span>
             </>
@@ -116,26 +123,5 @@ export function MessageBubble({
         </div>
       </div>
     </div>
-  );
-}
-
-function Avatar({ initials, agent }: { initials: string; agent: boolean }) {
-  if (agent) {
-    return (
-      <span
-        aria-hidden
-        className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-chip border border-agent-border-hi bg-agent/[0.15] text-agent"
-      >
-        <Sparkles aria-hidden className="h-3 w-3" strokeWidth={1.75} />
-      </span>
-    );
-  }
-  return (
-    <span
-      aria-hidden
-      className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-chip border border-line-hi bg-inbox-elev font-mohave text-[10.5px] tracking-[0.02em] text-text-2"
-    >
-      {initials}
-    </span>
   );
 }

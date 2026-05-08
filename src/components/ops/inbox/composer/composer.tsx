@@ -19,7 +19,6 @@
  */
 
 import { Calendar, Image, Paperclip, Send, Sparkles } from "lucide-react";
-import { useState } from "react";
 import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
 import { ComposerInput } from "./composer-input";
@@ -70,7 +69,6 @@ export function Composer({
   className,
 }: ComposerProps) {
   const { t } = useDictionary("inbox");
-  const [focused, setFocused] = useState(false);
   const trimmed = value.trim();
   const canSend = trimmed.length > 0 && !disabled;
   const resolvedPlaceholder =
@@ -87,12 +85,10 @@ export function Composer({
   }
 
   const innerBoxClass = cn(
-    "flex flex-col gap-2 rounded-md border bg-inbox-bg-deep px-3 py-2.5 transition-shadow",
-    agentTinted ? "border-agent-border-hi" : "border-line-hi",
-    focused &&
-      (agentTinted
-        ? "shadow-[0_0_0_1px_var(--agent-border-hi)]"
-        : "shadow-[0_0_0_1px_rgb(var(--ops-accent-rgb)/0.4)]"),
+    "flex flex-col gap-2 rounded-md border bg-inbox-bg-deep px-3 py-2.5 transition-colors",
+    agentTinted
+      ? "border-agent-border-hi focus-within:border-agent"
+      : "border-line-hi focus-within:border-ops-accent",
   );
 
   const sendBtnClass = cn(
@@ -110,10 +106,6 @@ export function Composer({
         "shrink-0 border-t border-line bg-inbox-panel px-[18px] py-3",
         className,
       )}
-      onFocusCapture={() => setFocused(true)}
-      onBlurCapture={(e) => {
-        if (!e.currentTarget.contains(e.relatedTarget as Node)) setFocused(false);
-      }}
     >
       {topAccessory}
       <div className={innerBoxClass}>
@@ -132,7 +124,7 @@ export function Composer({
             aria-label={t("composer.attachFile", "Attach file")}
             className={iconBtn}
           >
-            <Paperclip aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+            <Paperclip aria-hidden className="h-3 w-3" strokeWidth={1.5} />
           </button>
           <button
             type="button"
@@ -140,7 +132,7 @@ export function Composer({
             aria-label={t("composer.attachImage", "Attach image")}
             className={iconBtn}
           >
-            <Image aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+            <Image aria-hidden className="h-3 w-3" strokeWidth={1.5} />
           </button>
           <button
             type="button"
@@ -148,7 +140,7 @@ export function Composer({
             aria-label={t("composer.draftWithClaude", "Draft with Claude")}
             className={iconBtn}
           >
-            <Sparkles aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+            <Sparkles aria-hidden className="h-3 w-3" strokeWidth={1.5} />
           </button>
           <button
             type="button"
@@ -156,7 +148,7 @@ export function Composer({
             aria-label={t("composer.scheduleSend", "Schedule send")}
             className={iconBtn}
           >
-            <Calendar aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+            <Calendar aria-hidden className="h-3 w-3" strokeWidth={1.5} />
           </button>
           <div className="flex-1" />
           {onEditDraft && (
@@ -175,7 +167,7 @@ export function Composer({
             aria-label={resolvedSendLabel}
             className={sendBtnClass}
           >
-            <Send aria-hidden className="h-2.5 w-2.5" strokeWidth={1.75} />
+            <Send aria-hidden className="h-2.5 w-2.5" strokeWidth={1.5} />
             {resolvedSendLabel}
           </button>
         </div>

@@ -113,9 +113,9 @@ export function ProjectCard({
       >
         <span className="mt-1 shrink-0 text-text-3">
           {open ? (
-            <ChevronDown aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+            <ChevronDown aria-hidden className="h-3 w-3" strokeWidth={1.5} />
           ) : (
-            <ChevronRight aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+            <ChevronRight aria-hidden className="h-3 w-3" strokeWidth={1.5} />
           )}
         </span>
         <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -123,7 +123,7 @@ export function ProjectCard({
             {project.title}
           </span>
           <div className="flex items-center gap-2.5">
-            <StatusPip status={project.status} />
+            <StatusPip status={project.status} label={project.status} />
             <span
               className="font-mono text-[9.5px] tabular-nums text-text-mute"
               style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
@@ -203,16 +203,6 @@ export function ProjectCard({
               )}
               {(project.invoices.length > 0 || project.estimates.length > 0) && (
                 <ul className="flex flex-col gap-1">
-                  {project.estimates.map((e) => (
-                    <LedgerRow
-                      key={e.id}
-                      icon="estimate"
-                      number={e.number}
-                      label={e.label}
-                      amount={formatCurrency(e.amount)}
-                      meta={e.status}
-                    />
-                  ))}
                   {project.invoices.map((i) => (
                     <LedgerRow
                       key={i.id}
@@ -221,6 +211,16 @@ export function ProjectCard({
                       label={i.label}
                       amount={formatCurrency(i.amount)}
                       meta={i.status}
+                    />
+                  ))}
+                  {project.estimates.map((e) => (
+                    <LedgerRow
+                      key={e.id}
+                      icon="estimate"
+                      number={e.number}
+                      label={e.label}
+                      amount={formatCurrency(e.amount)}
+                      meta={e.status}
                     />
                   ))}
                 </ul>
@@ -233,7 +233,7 @@ export function ProjectCard({
             href={`?project=${project.id}&thread=${threadId}`}
             className="mt-3 inline-flex h-[26px] items-center gap-1.5 rounded-md border border-line bg-transparent px-2.5 font-mohave text-[11px] tracking-normal text-text-2 hover:bg-inbox-elev hover:text-text"
           >
-            <ExternalLink aria-hidden className="h-2.5 w-2.5" strokeWidth={1.75} />
+            <ExternalLink aria-hidden className="h-2.5 w-2.5" strokeWidth={1.5} />
             {t("project.openProject", "Open project")}
           </a>
         </div>
@@ -317,7 +317,7 @@ function TaskRow({ task }: { task: ProjectTask }) {
           <Check
             aria-hidden
             className="h-2 w-2 text-inbox-bg-deep"
-            strokeWidth={2.5}
+            strokeWidth={1.5}
           />
         )}
       </span>
@@ -354,15 +354,16 @@ function LedgerRow({
   meta: string;
 }) {
   const Icon = icon === "invoice" ? Receipt : FileText;
+  const tone = ledgerStatusToneSafe(meta);
   return (
-    <li className="flex items-center gap-2 rounded-[4px] border border-line bg-inbox-panel px-2 py-1.5">
+    <li className="flex items-center gap-2 rounded-chip border border-line bg-inbox-panel px-2 py-1.5">
       <Icon
         aria-hidden
         className="h-3 w-3 shrink-0 text-text-3"
-        strokeWidth={1.75}
+        strokeWidth={1.5}
       />
       <span
-        className="shrink-0 font-mono text-[10px] tracking-[0.3em] text-text-2"
+        className="shrink-0 font-mono text-[10px] tracking-[0.18em] text-text-2"
         style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
       >
         {number}
@@ -376,9 +377,18 @@ function LedgerRow({
       >
         {amount}
       </span>
-      <span className="shrink-0 font-mono text-[9.5px] uppercase tracking-[0.18em] text-text-3">
-        {meta}
-      </span>
+      <StatusPip tone={tone} label={meta} className="shrink-0" />
     </li>
   );
+}
+
+/** Soft mapping for free-text meta strings; unknown statuses fall back to muted. */
+function ledgerStatusToneSafe(
+  meta: string,
+): "olive" | "muted" | "rose" | "text-3" {
+  const m = meta.toLowerCase();
+  if (m.includes("paid") || m.includes("accepted")) return "olive";
+  if (m.includes("overdue") || m.includes("expired")) return "rose";
+  if (m.includes("draft")) return "text-3";
+  return "muted";
 }

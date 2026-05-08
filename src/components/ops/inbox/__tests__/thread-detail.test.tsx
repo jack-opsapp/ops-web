@@ -7,15 +7,12 @@ const baseProps = {
   category: { label: "CLIENT", dotClassName: "bg-text-2" },
   senderName: "Calloway HVAC",
   messageCount: 4,
-  clientType: null,
-  rightRailOpen: true,
   onPrev: vi.fn(),
   onNext: vi.fn(),
   onArchive: vi.fn(),
   onSnooze: vi.fn(),
   onRecategorize: vi.fn(),
   onMore: vi.fn(),
-  onToggleRail: vi.fn(),
 };
 
 describe("<ThreadDetail>", () => {
@@ -39,7 +36,7 @@ describe("<ThreadDetail>", () => {
     expect(screen.getByText("4 messages")).toBeInTheDocument();
   });
 
-  it("renders four right-side action buttons + rail toggle", () => {
+  it("renders the canonical four-button action cluster", () => {
     render(
       <ThreadDetail {...baseProps}>
         <div />
@@ -49,7 +46,12 @@ describe("<ThreadDetail>", () => {
     expect(screen.getByRole("button", { name: /snooze/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /recategorize/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /more actions/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /toggle context/i })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /toggle context/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /open client/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("J advances next, K retreats prev (case-insensitive); ignores when typing in input", () => {
@@ -86,17 +88,6 @@ describe("<ThreadDetail>", () => {
     expect(onArchive).toHaveBeenCalled();
   });
 
-  it("rail toggle calls onToggleRail", () => {
-    const onToggleRail = vi.fn();
-    render(
-      <ThreadDetail {...baseProps} onToggleRail={onToggleRail}>
-        <div />
-      </ThreadDetail>,
-    );
-    screen.getByRole("button", { name: /toggle context/i }).click();
-    expect(onToggleRail).toHaveBeenCalled();
-  });
-
   it("renders children in the body", () => {
     render(
       <ThreadDetail {...baseProps}>
@@ -104,16 +95,5 @@ describe("<ThreadDetail>", () => {
       </ThreadDetail>,
     );
     expect(screen.getByTestId("messages")).toBeInTheDocument();
-  });
-
-  it("Open client link fires onOpenClient when provided", () => {
-    const onOpenClient = vi.fn();
-    render(
-      <ThreadDetail {...baseProps} onOpenClient={onOpenClient}>
-        <div />
-      </ThreadDetail>,
-    );
-    screen.getByRole("button", { name: /open client/i }).click();
-    expect(onOpenClient).toHaveBeenCalled();
   });
 });

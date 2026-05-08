@@ -19,6 +19,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils/cn";
+import { useDictionary } from "@/i18n/client";
 import { useThreadActions } from "@/lib/hooks/use-inbox-threads";
 import type { ArchiveWritebackPreference } from "@/lib/types/email-thread";
 
@@ -35,32 +36,47 @@ interface WritebackPreferenceModalProps {
 interface PreferenceOption {
   id: Exclude<ArchiveWritebackPreference, "ask">;
   icon: typeof ArchiveRestore;
-  label: string;
-  detail: string;
-  caption: string;
+  /** Dictionary key (e.g. "writeback.archive") + fallback English string. */
+  labelKey: string;
+  labelDefault: string;
+  detailKey: string;
+  detailDefault: string;
+  captionKey: string;
+  captionDefault: string;
 }
 
 const OPTIONS: readonly PreferenceOption[] = [
   {
     id: "archive_in_gmail",
     icon: ArchiveRestore,
-    label: "Archive in Gmail / Outlook",
-    detail: "Cleanest. Thread leaves your provider inbox too.",
-    caption: "Recommended",
+    labelKey: "writeback.archive",
+    labelDefault: "Archive in Gmail / Outlook",
+    detailKey: "writeback.archive.detail",
+    detailDefault: "Cleanest. Thread leaves your provider inbox too.",
+    captionKey: "writeback.archive.caption",
+    captionDefault: "Recommended",
   },
   {
     id: "mark_read_only",
     icon: Eye,
-    label: "Just mark as read",
-    detail: "Keeps the thread in your Gmail / Outlook inbox, but silences it there.",
-    caption: "Safer for starters",
+    labelKey: "writeback.markRead",
+    labelDefault: "Just mark as read",
+    detailKey: "writeback.markRead.detail",
+    detailDefault:
+      "Keeps the thread in your Gmail / Outlook inbox, but silences it there.",
+    captionKey: "writeback.markRead.caption",
+    captionDefault: "Safer for starters",
   },
   {
     id: "ops_only",
     icon: ServerOff,
-    label: "Only inside OPS",
-    detail: "Leaves Gmail / Outlook untouched. Archive is local to OPS.",
-    caption: "Maximum control",
+    labelKey: "writeback.opsOnly",
+    labelDefault: "Only inside OPS",
+    detailKey: "writeback.opsOnly.detail",
+    detailDefault:
+      "Leaves Gmail / Outlook untouched. Archive is local to OPS.",
+    captionKey: "writeback.opsOnly.caption",
+    captionDefault: "Maximum control",
   },
 ] as const;
 
@@ -71,6 +87,7 @@ export function WritebackPreferenceModal({
   onConfirmed,
   onCancel,
 }: WritebackPreferenceModalProps) {
+  const { t } = useDictionary("inbox");
   const [selected, setSelected] =
     useState<Exclude<ArchiveWritebackPreference, "ask">>("archive_in_gmail");
   const [submitting, setSubmitting] = useState(false);
@@ -100,22 +117,30 @@ export function WritebackPreferenceModal({
       onConfirmed(selected);
     } catch (err) {
       setSubmitting(false);
-      setError(err instanceof Error ? err.message : "Could not save preference.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : t("writeback.error", "Could not save preference."),
+      );
     }
-  }, [connectionId, selected, setWritebackPreference, onOpenChange, onConfirmed]);
+  }, [connectionId, selected, setWritebackPreference, onOpenChange, onConfirmed, t]);
 
   return (
     <Dialog open={open} onOpenChange={close}>
       <DialogContent className="max-w-[520px] p-0">
-        <div className="px-4 pt-4 pb-3 border-b border-border-subtle">
+        <div className="px-4 pt-4 pb-3 border-b border-line">
           <p className="font-mono text-[10px] uppercase tracking-[0.20em] text-text-mute">
-            {"// First archive"}
+            {"// "}
+            {t("writeback.prefix", "First archive")}
           </p>
           <DialogTitle className="font-cakemono font-light uppercase text-[20px] tracking-[0.10em] text-text mt-1">
-            What should archive do?
+            {t("writeback.title", "What should archive do?")}
           </DialogTitle>
           <DialogDescription className="font-mohave text-[13px] text-text-2 mt-1">
-            OPS can keep your Gmail or Outlook inbox in sync when you archive in here. Pick once — you can change it later in Settings.
+            {t(
+              "writeback.description",
+              "OPS can keep your Gmail or Outlook inbox in sync when you archive in here. Pick once — you can change it later in Settings.",
+            )}
           </DialogDescription>
         </div>
 
@@ -129,25 +154,28 @@ export function WritebackPreferenceModal({
                 type="button"
                 onClick={() => setSelected(opt.id)}
                 className={cn(
-                  "flex items-start gap-2.5 w-full p-3 rounded-[6px] text-left",
+                  "flex items-start gap-2.5 w-full p-3 rounded-sidebar text-left",
                   "border transition-colors duration-150",
                   isActive
-                    ? "border-[rgba(255,255,255,0.22)] bg-[rgba(255,255,255,0.06)]"
-                    : "border-border-subtle bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(255,255,255,0.04)]"
+                    ? "border-line-hi bg-inbox-elev/60"
+                    : "border-line bg-inbox-bg-deep hover:bg-inbox-elev/40",
                 )}
               >
                 <div
                   className={cn(
-                    "w-[28px] h-[28px] rounded-[5px] flex items-center justify-center shrink-0",
+                    "w-[28px] h-[28px] rounded-md flex items-center justify-center shrink-0",
                     "border",
                     isActive
-                      ? "border-[rgba(255,255,255,0.20)] bg-[rgba(255,255,255,0.08)]"
-                      : "border-border-subtle bg-[rgba(255,255,255,0.04)]"
+                      ? "border-line-hi bg-inbox-elev/80"
+                      : "border-line bg-inbox-elev/40",
                   )}
                 >
                   <Icon
-                    className={cn("w-[14px] h-[14px]", isActive ? "text-text" : "text-text-2")}
-                    strokeWidth={1.75}
+                    className={cn(
+                      "w-[14px] h-[14px]",
+                      isActive ? "text-text" : "text-text-2",
+                    )}
+                    strokeWidth={1.5}
                   />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -155,21 +183,24 @@ export function WritebackPreferenceModal({
                     <p
                       className={cn(
                         "font-cakemono font-light uppercase text-[12px] tracking-[0.14em]",
-                        isActive ? "text-text" : "text-text-2"
+                        isActive ? "text-text" : "text-text-2",
                       )}
                     >
-                      {opt.label}
+                      {t(opt.labelKey, opt.labelDefault)}
                     </p>
                     <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-text-mute">
-                      {opt.caption}
+                      {t(opt.captionKey, opt.captionDefault)}
                     </span>
                   </div>
                   <p className="font-mohave text-[12px] text-text-3 mt-0.5 leading-snug">
-                    {opt.detail}
+                    {t(opt.detailKey, opt.detailDefault)}
                   </p>
                 </div>
                 {isActive && (
-                  <Check className="w-[14px] h-[14px] text-text shrink-0 mt-1" strokeWidth={2} />
+                  <Check
+                    className="w-[14px] h-[14px] text-text shrink-0 mt-1"
+                    strokeWidth={1.5}
+                  />
                 )}
               </button>
             );
@@ -182,33 +213,35 @@ export function WritebackPreferenceModal({
           </div>
         )}
 
-        <div className="flex justify-end gap-1.5 px-4 pb-4 pt-1 border-t border-border-subtle">
+        <div className="flex justify-end gap-1.5 px-4 pb-4 pt-1 border-t border-line">
           <button
             type="button"
             onClick={() => close(false)}
             disabled={submitting}
             className={cn(
-              "px-3 py-1.5 rounded-[5px] border border-border-subtle",
+              "px-3 py-1.5 rounded-md border border-line",
               "font-cakemono font-light uppercase text-[11px] tracking-[0.14em] text-text-2",
-              "hover:bg-[rgba(255,255,255,0.04)] transition-colors duration-150",
-              "disabled:opacity-50 disabled:cursor-not-allowed"
+              "hover:bg-inbox-elev/40 transition-colors duration-150",
+              "disabled:opacity-50 disabled:cursor-not-allowed",
             )}
           >
-            Not now
+            {t("writeback.notNow", "Not now")}
           </button>
           <button
             type="button"
             onClick={confirm}
             disabled={submitting || !connectionId}
             className={cn(
-              "px-3 py-1.5 rounded-[5px]",
+              "px-3 py-1.5 rounded-md",
               "bg-ops-accent text-black",
               "font-cakemono font-light uppercase text-[11px] tracking-[0.14em]",
               "hover:bg-ops-accent/90 transition-colors duration-150",
-              "disabled:opacity-50 disabled:cursor-not-allowed"
+              "disabled:opacity-50 disabled:cursor-not-allowed",
             )}
           >
-            {submitting ? "Saving…" : "Save & archive"}
+            {submitting
+              ? t("writeback.saving", "Saving…")
+              : t("writeback.confirm", "Save & archive")}
           </button>
         </div>
       </DialogContent>

@@ -37,7 +37,7 @@ export function AiDraftBanner({
         className,
       )}
     >
-      <Sparkles aria-hidden className="h-3 w-3 text-agent-hi" strokeWidth={1.75} />
+      <Sparkles aria-hidden className="h-3 w-3 text-agent-hi" strokeWidth={1.5} />
       <span className="font-cakemono text-[10px] font-light uppercase leading-none tracking-[0.18em] text-agent-hi">
         {t("aiDraftBanner.label", "CLAUDE DRAFTED THIS · review")}
       </span>

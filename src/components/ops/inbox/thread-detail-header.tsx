@@ -2,28 +2,27 @@
 
 /**
  * ThreadDetailHeader — faithful to `reference/v4-detail.jsx :: V4Detail`
- * (and `reference/v3-messages.jsx :: V3MessagesPane`) header block.
+ * header block (lines 494–530) and `v4-states.jsx :: V4AutoSentDetail`.
  *
  * Two stacked rows inside a `bg-inbox-panel` band with a hairline border:
  *   1. Subject (Mohave 16 / 500 / -0.005em / text · truncated) on the left,
- *      then 4 action icons (archive · clock · tag · more) and the rail
- *      toggle on the right.
- *   2. Meta strip (mono 10.5 / 0.2em / text-3): category dot + label · sender
- *      · message count, with optional clientType + Open client at the right.
+ *      then exactly four 28×28 action icons: archive · clock · tag · more.
+ *      No rail toggle, no Open-client button — those sit elsewhere in
+ *      this rebuild (rail edge / context-rail external icon).
+ *   2. Meta strip (mono 10.5 / no tracking / text-3): category dot + label
+ *      · sender · "{n} message(s)".
  *
- * Prev/Next is keyboard only (J / K) — the spec mocks don't render arrow
- * buttons in this header. Cmd+K opens the global command palette.
+ * Prev/Next is keyboard-only (J / K) — wired in <ThreadDetail/>.
  */
 
 import {
   Archive,
   Clock,
-  ExternalLink,
   MoreHorizontal,
-  PanelRightClose,
-  PanelRightOpen,
   Tag,
+  type LucideIcon,
 } from "lucide-react";
+import { forwardRef, type ReactNode } from "react";
 import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
 
@@ -32,36 +31,93 @@ interface ThreadDetailHeaderProps {
   category?: { label: string; dotClassName: string } | null;
   senderName: string;
   messageCount: number;
-  clientType?: string | null;
-  onOpenClient?: () => void;
-  onArchive: () => void;
-  onSnooze: () => void;
-  onRecategorize: () => void;
-  onMore: () => void;
-  onToggleRail: () => void;
-  rightRailOpen: boolean;
+  /** Render-prop slots — when provided, replace the default handler buttons.
+   *  Used to wrap each action in its picker/popover (snooze, recategorize,
+   *  archive-confirm). Each slot receives a ready-styled button that should
+   *  be wrapped (e.g. via PopoverTrigger asChild). */
+  archiveSlot?: (button: ReactNode) => ReactNode;
+  snoozeSlot?: (button: ReactNode) => ReactNode;
+  recategorizeSlot?: (button: ReactNode) => ReactNode;
+  moreSlot?: (button: ReactNode) => ReactNode;
+  /** Fallback handlers when slots aren't provided. Called on click. */
+  onArchive?: () => void;
+  onSnooze?: () => void;
+  onRecategorize?: () => void;
+  onMore?: () => void;
   className?: string;
 }
 
-const iconBtn =
+const iconBtnClass =
   "inline-flex h-7 w-7 items-center justify-center rounded-chip text-text-3 transition-colors hover:bg-inbox-elev hover:text-text-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent";
+
+const HeaderActionButton = forwardRef<
+  HTMLButtonElement,
+  {
+    icon: LucideIcon;
+    label: string;
+    onClick?: () => void;
+  } & React.ButtonHTMLAttributes<HTMLButtonElement>
+>(function HeaderActionButton({ icon: Icon, label, onClick, ...rest }, ref) {
+  return (
+    <button
+      ref={ref}
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      className={iconBtnClass}
+      {...rest}
+    >
+      <Icon aria-hidden className="h-[13px] w-[13px]" strokeWidth={1.5} />
+    </button>
+  );
+});
 
 export function ThreadDetailHeader({
   subject,
   category,
   senderName,
   messageCount,
-  clientType,
-  onOpenClient,
+  archiveSlot,
+  snoozeSlot,
+  recategorizeSlot,
+  moreSlot,
   onArchive,
   onSnooze,
   onRecategorize,
   onMore,
-  onToggleRail,
-  rightRailOpen,
   className,
 }: ThreadDetailHeaderProps) {
   const { t } = useDictionary("inbox");
+
+  const archiveBtn = (
+    <HeaderActionButton
+      icon={Archive}
+      label={t("header.archiveThread", "Archive thread")}
+      onClick={onArchive}
+    />
+  );
+  const snoozeBtn = (
+    <HeaderActionButton
+      icon={Clock}
+      label={t("header.snoozeThread", "Snooze thread")}
+      onClick={onSnooze}
+    />
+  );
+  const recategorizeBtn = (
+    <HeaderActionButton
+      icon={Tag}
+      label={t("header.recategorize", "Recategorize thread")}
+      onClick={onRecategorize}
+    />
+  );
+  const moreBtn = (
+    <HeaderActionButton
+      icon={MoreHorizontal}
+      label={t("header.moreActions", "More actions")}
+      onClick={onMore}
+    />
+  );
+
   return (
     <header
       className={cn(
@@ -69,63 +125,22 @@ export function ThreadDetailHeader({
         className,
       )}
     >
-      {/* Title row */}
+      {/* Title row — subject + 4 actions */}
       <div className="mb-1.5 flex items-center gap-2.5">
         <h1 className="m-0 min-w-0 flex-1 truncate font-mohave text-[16px] font-medium tracking-[-0.005em] text-text">
           {subject || t("detail.untitled", "(no subject)")}
         </h1>
         <div className="flex shrink-0 items-center gap-1">
-          <button
-            type="button"
-            onClick={onArchive}
-            aria-label={t("header.archiveThread", "Archive thread")}
-            className={iconBtn}
-          >
-            <Archive aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          </button>
-          <button
-            type="button"
-            onClick={onSnooze}
-            aria-label={t("header.snoozeThread", "Snooze thread")}
-            className={iconBtn}
-          >
-            <Clock aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          </button>
-          <button
-            type="button"
-            onClick={onRecategorize}
-            aria-label={t("header.recategorize", "Recategorize thread")}
-            className={iconBtn}
-          >
-            <Tag aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          </button>
-          <button
-            type="button"
-            onClick={onMore}
-            aria-label={t("header.moreActions", "More actions")}
-            className={iconBtn}
-          >
-            <MoreHorizontal aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          </button>
-          <button
-            type="button"
-            onClick={onToggleRail}
-            aria-label={t("header.toggleContextRail", "Toggle context rail")}
-            aria-pressed={rightRailOpen}
-            className={cn(iconBtn, "ml-1")}
-          >
-            {rightRailOpen ? (
-              <PanelRightClose aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-            ) : (
-              <PanelRightOpen aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-            )}
-          </button>
+          {archiveSlot ? archiveSlot(archiveBtn) : archiveBtn}
+          {snoozeSlot ? snoozeSlot(snoozeBtn) : snoozeBtn}
+          {recategorizeSlot ? recategorizeSlot(recategorizeBtn) : recategorizeBtn}
+          {moreSlot ? moreSlot(moreBtn) : moreBtn}
         </div>
       </div>
 
-      {/* Meta strip */}
+      {/* Meta strip — category · sender · count */}
       <div
-        className="flex items-center gap-2.5 font-mono text-[10.5px] tracking-[0.2em] text-text-3"
+        className="flex items-center gap-2.5 font-mono text-[10.5px] text-text-3"
         style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
       >
         {category && (
@@ -140,11 +155,15 @@ export function ThreadDetailHeader({
               />
               <span>{category.label}</span>
             </span>
-            <span aria-hidden className="text-text-mute">·</span>
+            <span aria-hidden className="text-text-mute">
+              ·
+            </span>
           </>
         )}
         <span className="truncate">{senderName}</span>
-        <span aria-hidden className="text-text-mute">·</span>
+        <span aria-hidden className="text-text-mute">
+          ·
+        </span>
         <span>
           {messageCount === 1
             ? t("detail.oneMessage", "1 message")
@@ -153,28 +172,6 @@ export function ThreadDetailHeader({
                 String(messageCount),
               )}
         </span>
-        {(clientType || onOpenClient) && (
-          <>
-            <div className="flex-1" />
-            {clientType && (
-              <span className="text-text-mute normal-case">{clientType}</span>
-            )}
-            {onOpenClient && (
-              <button
-                type="button"
-                onClick={onOpenClient}
-                className="inline-flex items-center gap-1 font-mohave text-[11px] tracking-normal text-text-3 hover:text-text-2"
-              >
-                <ExternalLink
-                  aria-hidden
-                  className="h-2.5 w-2.5"
-                  strokeWidth={1.75}
-                />
-                {t("detail.openClient", "Open client")}
-              </button>
-            )}
-          </>
-        )}
       </div>
     </header>
   );

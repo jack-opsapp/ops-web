@@ -3,14 +3,15 @@
 /**
  * ThreadList — feed body. Renders the grouped sections beneath the column
  * header + today strip. Faithful to `reference/v4-states.jsx :: V4Column`
- * groups (no sticky headers, plain padding, leading dot per group).
+ * (state-based groups, no sticky headers, plain padding, leading dot).
  *
- * Group dot color encodes the group's spatial weight:
- *   needsInput → lavender (agent)
- *   urgent     → rose
- *   today      → accent
- *   thisWeek   → text-3
- *   earlier    → text-mute
+ * Group dot color encodes the group's ball-in-court weight (canonical
+ * v4-states.jsx:132-138):
+ *   needsInput     → lavender (agent)
+ *   needsReply     → accent (steel blue)
+ *   draftsReady    → text-3
+ *   awaitingThem   → muted
+ *   later          → muted
  *
  * Each group header: 12/14/6 padding, dot + Cake 10.5px label + count.
  */
@@ -36,27 +37,27 @@ interface ThreadListProps {
 }
 
 const GROUP_DICT_KEY: Record<GroupKey, string> = {
-  NEEDS_YOUR_INPUT: "groups.needsYourInput",
-  URGENT: "groups.urgent",
-  TODAY: "groups.today",
-  THIS_WEEK: "groups.thisWeek",
-  EARLIER: "groups.earlier",
+  NEEDS_INPUT: "groups.needsInput",
+  NEEDS_REPLY: "groups.needsReply",
+  DRAFTS_READY: "groups.draftsReady",
+  AWAITING_THEM: "groups.awaitingThem",
+  LATER: "groups.later",
 };
 
 const GROUP_FALLBACK: Record<GroupKey, string> = {
-  NEEDS_YOUR_INPUT: "Needs your input",
-  URGENT: "Urgent",
-  TODAY: "Today",
-  THIS_WEEK: "This week",
-  EARLIER: "Earlier",
+  NEEDS_INPUT: "Needs your input",
+  NEEDS_REPLY: "Needs reply",
+  DRAFTS_READY: "Drafts ready",
+  AWAITING_THEM: "Awaiting them",
+  LATER: "Later",
 };
 
 const GROUP_DOT_CLASS: Record<GroupKey, string> = {
-  NEEDS_YOUR_INPUT: "bg-agent",
-  URGENT: "bg-rose",
-  TODAY: "bg-ops-accent",
-  THIS_WEEK: "bg-text-3",
-  EARLIER: "bg-text-mute",
+  NEEDS_INPUT: "bg-agent",
+  NEEDS_REPLY: "bg-ops-accent",
+  DRAFTS_READY: "bg-text-3",
+  AWAITING_THEM: "bg-text-mute",
+  LATER: "bg-text-mute",
 };
 
 export function ThreadList({

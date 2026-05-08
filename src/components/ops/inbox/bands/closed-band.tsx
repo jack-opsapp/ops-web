@@ -34,7 +34,7 @@ export function ClosedBand({ closedAt, className }: ClosedBandProps) {
         className,
       )}
     >
-      <Check aria-hidden className="h-3.5 w-3.5 text-olive" strokeWidth={1.75} />
+      <Check aria-hidden className="h-3.5 w-3.5 text-olive" strokeWidth={1.5} />
       <span className="font-mohave text-[12px] leading-tight text-text-3">
         {label}
       </span>

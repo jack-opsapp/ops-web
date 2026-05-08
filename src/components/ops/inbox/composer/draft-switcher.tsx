@@ -109,7 +109,7 @@ export function DraftSwitcher({
                   "h-2.5 w-2.5",
                   isClaude ? "text-agent" : "text-text-3",
                 )}
-                strokeWidth={1.75}
+                strokeWidth={1.5}
               />
               <span>{t(SOURCE_LABEL_KEY[draft.source], SOURCE_LABEL_FALLBACK[draft.source])}</span>
               {draft.label && (
@@ -140,7 +140,7 @@ export function DraftSwitcher({
             aria-label={t("drafts.prev", "Previous draft")}
             className={navBtn}
           >
-            <ChevronLeft aria-hidden className="h-2.5 w-2.5" strokeWidth={2} />
+            <ChevronLeft aria-hidden className="h-2.5 w-2.5" strokeWidth={1.5} />
           </button>
           <button
             type="button"
@@ -149,7 +149,7 @@ export function DraftSwitcher({
             aria-label={t("drafts.next", "Next draft")}
             className={navBtn}
           >
-            <ChevronRight aria-hidden className="h-2.5 w-2.5" strokeWidth={2} />
+            <ChevronRight aria-hidden className="h-2.5 w-2.5" strokeWidth={1.5} />
           </button>
         </div>
       )}

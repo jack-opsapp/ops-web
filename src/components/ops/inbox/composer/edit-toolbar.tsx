@@ -56,7 +56,7 @@ export function EditToolbar({
         className,
       )}
     >
-      <Pencil aria-hidden className="h-3 w-3 text-text-3" strokeWidth={1.75} />
+      <Pencil aria-hidden className="h-3 w-3 text-text-3" strokeWidth={1.5} />
       <span
         className="font-mono text-[10.5px] tracking-[0.18em] text-text-3"
         style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
@@ -103,7 +103,7 @@ export function EditToolbar({
             "inline-flex items-center gap-1 text-agent-hi hover:text-agent-text",
           )}
         >
-          <Sparkles aria-hidden className="h-2.5 w-2.5" strokeWidth={1.75} />
+          <Sparkles aria-hidden className="h-2.5 w-2.5" strokeWidth={1.5} />
           {t("editToolbar.regenerate", "Regenerate")}
         </button>
       </div>

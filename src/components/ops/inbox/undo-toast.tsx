@@ -30,6 +30,7 @@ import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { Undo2 } from "lucide-react";
 import { EASE_SMOOTH } from "@/lib/utils/motion";
 import { KeyHint } from "@/components/ui/key-hint";
+import { useDictionary } from "@/i18n/client";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -127,6 +128,7 @@ interface ToastRowProps {
 }
 
 function ToastRow({ toast, onResolve }: ToastRowProps) {
+  const { t } = useDictionary("inbox");
   const reduceMotion = useReducedMotion();
   const id = useId();
   const timerRef = useRef<number | null>(null);
@@ -208,11 +210,11 @@ function ToastRow({ toast, onResolve }: ToastRowProps) {
         <button
           type="button"
           onClick={handleUndo}
-          className="flex items-center gap-1.5 shrink-0 px-2 py-1 rounded-[5px] border border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.10)] transition-colors"
+          className="flex items-center gap-1.5 shrink-0 px-2 py-1 rounded-md border border-line bg-inbox-elev/60 hover:bg-inbox-elev transition-colors"
         >
-          <Undo2 className="w-[12px] h-[12px] text-text-2" />
+          <Undo2 className="w-[12px] h-[12px] text-text-2" strokeWidth={1.5} />
           <span className="font-cakemono font-light uppercase text-[11px] tracking-[0.14em] text-text-2">
-            Undo
+            {t("toast.undo", "Undo")}
           </span>
           <KeyHint keys="Z" variant="inline" className="text-text-mute" />
         </button>
@@ -314,6 +316,7 @@ export function UndoToastHost() {
         <div
           className="pointer-events-none fixed top-[72px] right-6 z-[3000] flex flex-col items-end gap-2"
           aria-label="Undo notifications"
+          data-testid="undo-toast-host"
         >
           <AnimatePresence initial={false}>
             {toasts.map((toast) => (

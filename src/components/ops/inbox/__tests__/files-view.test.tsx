@@ -15,14 +15,14 @@ const docs: FileItem[] = [
 ];
 
 describe("<FilesView>", () => {
-  it("renders the // IMAGES section label with count", () => {
+  it("renders the Images section label with count", () => {
     render(<FilesView photos={photos} documents={docs} />);
-    expect(screen.getByText(/\/\/ IMAGES · 4/)).toBeInTheDocument();
+    expect(screen.getByText(/Images · 4/)).toBeInTheDocument();
   });
 
-  it("renders the // DOCUMENTS section label with count", () => {
+  it("renders the Documents section label with count", () => {
     render(<FilesView photos={photos} documents={docs} />);
-    expect(screen.getByText(/\/\/ DOCUMENTS · 2/)).toBeInTheDocument();
+    expect(screen.getByText(/Documents · 2/)).toBeInTheDocument();
   });
 
   it("renders one image cell per photo in a 3-col grid", () => {
@@ -46,16 +46,16 @@ describe("<FilesView>", () => {
     expect(screen.getByText("permit-app.docx")).toBeInTheDocument();
   });
 
-  it("hides the IMAGES section when zero photos", () => {
+  it("hides the Images section when zero photos", () => {
     render(<FilesView photos={[]} documents={docs} />);
-    expect(screen.queryByText(/\/\/ IMAGES/)).not.toBeInTheDocument();
-    expect(screen.getByText(/\/\/ DOCUMENTS/)).toBeInTheDocument();
+    expect(screen.queryByText(/Images/)).not.toBeInTheDocument();
+    expect(screen.getByText(/Documents/)).toBeInTheDocument();
   });
 
-  it("hides the DOCUMENTS section when zero docs", () => {
+  it("hides the Documents section when zero docs", () => {
     render(<FilesView photos={photos} documents={[]} />);
-    expect(screen.queryByText(/\/\/ DOCUMENTS/)).not.toBeInTheDocument();
-    expect(screen.getByText(/\/\/ IMAGES/)).toBeInTheDocument();
+    expect(screen.queryByText(/Documents/)).not.toBeInTheDocument();
+    expect(screen.getByText(/Images/)).toBeInTheDocument();
   });
 
   it("renders an empty state when neither photos nor docs", () => {

@@ -46,12 +46,12 @@ export function MobileStackedShell({
             aria-label={t("mobile.back", "Back")}
             className="inline-flex h-7 w-7 items-center justify-center rounded-chip text-text-2 hover:bg-inbox-elev hover:text-text"
           >
-            <ChevronLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            <ChevronLeft aria-hidden className="h-4 w-4" strokeWidth={1.5} />
           </button>
           <span className="font-cakemono text-[10px] font-light uppercase leading-none tracking-[0.18em] text-text-3">
             {activePane === "detail"
-              ? t("mobile.thread", "// THREAD")
-              : t("mobile.context", "// CONTEXT")}
+              ? t("mobile.thread", "Thread")
+              : t("mobile.context", "Context")}
           </span>
         </header>
       )}

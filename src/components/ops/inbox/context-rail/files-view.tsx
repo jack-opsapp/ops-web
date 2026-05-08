@@ -15,10 +15,20 @@ export type FileKind = "pdf" | "doc" | "spreadsheet" | "image" | "other";
 export interface FileItem {
   id: string;
   filename: string;
-  size: number;
+  /** Bytes. Optional — unset when the source doesn't track file size
+   *  (e.g. server-rendered estimate/invoice PDFs). When omitted, the
+   *  metadata line drops the size segment entirely. */
+  size?: number;
   kind: FileKind;
   /** ISO date. Rendered as "MAR 14". */
   updatedAt: string;
+  /** Optional deep-link target. When set, clicking the file navigates
+   *  here in addition to firing onFileOpen. */
+  href?: string;
+  /** Optional short status label rendered under the filename — e.g.
+   *  "PAID" / "DRAFT" for invoices. Cake-mono uppercase, sentence-case
+   *  values get UPPERCASED by the component. */
+  status?: string | null;
 }
 
 interface FilesViewProps {
@@ -72,7 +82,7 @@ export function FilesView({
       {photos.length > 0 && (
         <section className="flex flex-col gap-2">
           <h4 className="font-cakemono text-[9.5px] font-light uppercase leading-none tracking-[0.18em] text-text-3">
-            {t("files.imagesLabel", "// IMAGES · {count}").replace(
+            {t("files.imagesLabel", "Images · {count}").replace(
               "{count}",
               String(photos.length),
             )}
@@ -113,7 +123,7 @@ export function FilesView({
       {documents.length > 0 && (
         <section className="flex flex-col gap-2">
           <h4 className="font-cakemono text-[9.5px] font-light uppercase leading-none tracking-[0.18em] text-text-3">
-            {t("files.documentsLabel", "// DOCUMENTS · {count}").replace(
+            {t("files.documentsLabel", "Documents · {count}").replace(
               "{count}",
               String(documents.length),
             )}
@@ -121,6 +131,12 @@ export function FilesView({
           <ul className="flex flex-col gap-1.5">
             {documents.map((doc) => {
               const Icon = KIND_ICON[doc.kind];
+              const sizeSegment =
+                typeof doc.size === "number" ? formatSize(doc.size) : null;
+              const dateSegment = formatDate(doc.updatedAt);
+              const meta = sizeSegment
+                ? `${sizeSegment} · ${dateSegment}`
+                : dateSegment;
               return (
                 <li key={doc.id}>
                   <button
@@ -132,17 +148,24 @@ export function FilesView({
                       <Icon
                         aria-hidden
                         className="h-3.5 w-3.5 text-text-3"
-                        strokeWidth={1.75}
+                        strokeWidth={1.5}
                       />
                     </span>
-                    <span className="min-w-0 flex-1 truncate font-mohave text-[12px] text-text-2">
-                      {doc.filename}
+                    <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                      <span className="truncate font-mohave text-[12px] text-text-2">
+                        {doc.filename}
+                      </span>
+                      {doc.status && (
+                        <span className="font-cakemono text-[9px] font-light uppercase leading-none tracking-[0.18em] text-text-3">
+                          {doc.status}
+                        </span>
+                      )}
                     </span>
                     <span
                       className="shrink-0 font-mono text-[9.5px] tabular-nums uppercase tracking-[0.18em] text-text-mute"
                       style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
                     >
-                      {formatSize(doc.size)} · {formatDate(doc.updatedAt)}
+                      {meta}
                     </span>
                   </button>
                 </li>
