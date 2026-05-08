@@ -48,21 +48,23 @@ const SIZE_CLASS: Record<BodySize, string> = {
   18: "text-[18px] leading-[1.4]",
 };
 
+// Polymorphic `as` makes ref typing intractable with `forwardRef<HTMLElement>`
+// (TS narrows the ref to `never`). The forwardRef wrapper returns
+// `unknown`-typed ref under the hood; cast to the element-agnostic shape on
+// the way out so callers still get a sensible ref type at the call site.
 export const Body = React.forwardRef<HTMLElement, BodyProps>(
   ({ size = 14, color = "text-2", as = "span", className, ...props }, ref) => {
     const Tag = as as React.ElementType;
-    return (
-      <Tag
-        ref={ref}
-        className={cn(
-          "font-mohave",
-          SIZE_CLASS[size],
-          COLOR_CLASS[color],
-          className,
-        )}
-        {...props}
-      />
-    );
+    return React.createElement(Tag, {
+      ref,
+      className: cn(
+        "font-mohave",
+        SIZE_CLASS[size],
+        COLOR_CLASS[color],
+        className,
+      ),
+      ...props,
+    });
   },
 );
 Body.displayName = "Body";
