@@ -2,7 +2,6 @@
 
 import { useState, useMemo } from "react";
 import { Search, X, Plus } from "lucide-react";
-import { cn } from "@/lib/utils/cn";
 import { Input } from "@/components/ui/input";
 import { TaskForm, type TaskFormValues } from "@/components/ops/task-form";
 import { useWindowStore } from "@/stores/window-store";
