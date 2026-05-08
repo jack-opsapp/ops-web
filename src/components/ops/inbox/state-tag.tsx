@@ -10,7 +10,7 @@ export type StateTagTone =
 
 export type StateTagVariant = "bare" | "outline" | "solid";
 
-interface StateTagProps {
+export interface StateTagProps {
   tone: StateTagTone;
   variant?: StateTagVariant;
   /** First content slot — typically the lead label (e.g. "YOURS", "+38D"). */
@@ -37,7 +37,7 @@ const TONE_BG: Record<StateTagTone, string> = {
   olive: "bg-olive/[0.10]",
   tan: "bg-tan/[0.10]",
   lavender: "bg-agent/[0.10]",
-  neutral: "bg-[rgba(255,255,255,0.04)]",
+  neutral: "bg-surface-input",
 };
 
 const TONE_BORDER: Record<StateTagTone, string> = {

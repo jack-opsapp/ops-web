@@ -23,12 +23,26 @@ describe("<StateTag>", () => {
     const el = screen.getByText("[HIGH]");
     expect(el).toHaveClass("text-tan");
     expect(el).toHaveClass("border");
+    expect(el).not.toHaveClass("bg-tan/[0.10]");
   });
 
   it("renders a DRAFT READY lavender solid tag", () => {
     render(<StateTag tone="lavender" variant="solid" prefix="DRAFT READY" />);
     const el = screen.getByText("DRAFT READY");
     expect(el).toHaveClass("text-agent-hi");
+  });
+
+  it("renders an olive bare tag with text-olive", () => {
+    render(<StateTag tone="olive" variant="bare" prefix="DONE" />);
+    expect(screen.getByText("DONE")).toHaveClass("text-olive");
+  });
+
+  it("renders a neutral solid tag with text-text-2 and the correct neutral bg token", () => {
+    render(<StateTag tone="neutral" variant="solid" prefix="FYI" bracketed />);
+    const el = screen.getByText("[FYI]");
+    expect(el).toHaveClass("text-text-2");
+    expect(el).toHaveClass("border");
+    expect(el).toHaveClass("bg-surface-input");
   });
 
   it("uses tabular-lining numerals via font-feature-settings", () => {
