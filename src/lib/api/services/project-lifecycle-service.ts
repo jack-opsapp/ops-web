@@ -1073,7 +1073,7 @@ export const ProjectLifecycleService = {
             title: "Overdue task — no available team",
             body: `"${taskTitle}" on "${projectTitle}" is ${daysOverdue} day${daysOverdue > 1 ? "s" : ""} overdue. No team members available for reassignment.`,
             persistent: false,
-            actionUrl: `/projects/${projectId}`,
+            actionUrl: `/?openProject=${projectId}&mode=view`,
             actionLabel: "View Project",
           });
         } catch {

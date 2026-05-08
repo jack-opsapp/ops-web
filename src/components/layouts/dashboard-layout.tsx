@@ -37,7 +37,7 @@ import { ExpenseBatchPopover } from "@/components/ops/expense-batch-popover";
 import { ExpenseReviewListPopover } from "@/components/ops/expense-review-list-popover";
 import { UnassignedRoleBanner } from "@/components/ops/unassigned-role-banner";
 import { useSetupGate } from "@/hooks/useSetupGate";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 
 // Leaflet map background + filter rail — client-only (no SSR)
 const DashboardMapBackground = dynamic(
@@ -97,6 +97,37 @@ function GmailSyncNotifier() {
 
 function DashboardPreferencesSync() {
   useDashboardPreferencesSync();
+  return null;
+}
+
+// Phase 9.7 — notification deep-link handler. Notifications dispatch with
+// `actionUrl: /?openProject=<id>&mode=view|edit`. When that URL lands on
+// any dashboard route, this effect opens the project-workspace window
+// for the requested project and strips the query params so a refresh
+// doesn't re-open the window.
+function ProjectWorkspaceDeepLinkHandler() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const openProjectWindow = useWindowStore((s) => s.openProjectWindow);
+
+  useEffect(() => {
+    const projectId = searchParams.get("openProject");
+    if (!projectId) return;
+    const modeParam = searchParams.get("mode");
+    const mode = modeParam === "edit" ? "editing" : "viewing";
+    openProjectWindow({ projectId, mode });
+
+    // Strip the deep-link params while preserving anything else on the URL
+    // (e.g. tab filters). Use `router.replace` so the back button doesn't
+    // bounce the user back through the open transition.
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete("openProject");
+    next.delete("mode");
+    const query = next.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname);
+  }, [searchParams, pathname, router, openProjectWindow]);
+
   return null;
 }
 
@@ -252,6 +283,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       <CommandPalette />
       <KeyboardShortcuts />
       <FloatingWindows />
+      <ProjectWorkspaceDeepLinkHandler />
       <NotificationsDrawer />
       <NotificationsTab />
       <QuickActionsDrawer />

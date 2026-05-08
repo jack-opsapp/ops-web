@@ -210,7 +210,7 @@ export function useProjectMutations(projectId: string | null) {
             title: `${input.projectTitle} archived`,
             body: "This project has been archived.",
             projectId: input.projectId,
-            actionUrl: `/projects/${input.projectId}`,
+            actionUrl: `/?openProject=${input.projectId}&mode=view`,
             actionLabel: "View Project",
           }),
         ),
