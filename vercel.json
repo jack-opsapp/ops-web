@@ -2,6 +2,18 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "regions": ["iad1"],
+  "git": {
+    "deploymentEnabled": {
+      "feat/inbox-rework-phase-a": false,
+      "feat/inbox-rework-phase-b": false,
+      "feat/inbox-rework-phase-c": false,
+      "feat/inbox-rework-phase-d": false,
+      "feat/inbox-rework-phase-e": false,
+      "feat/inbox-rework-phase-e-pr": false,
+      "feat/inbox-rework-phase-f": false,
+      "feat/inbox-rework-phase-g": false
+    }
+  },
   "headers": [
     {
       "source": "/(.*)",
