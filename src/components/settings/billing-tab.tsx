@@ -223,7 +223,7 @@ function AddCardForm({ onSuccess, onCancel }: { onSuccess: () => void; onCancel:
           {t("billing.saveCard")}
         </Button>
         <Button type="button" variant="ghost" onClick={onCancel} disabled={submitting}>
-          Cancel
+          {t("billing.cancel")}
         </Button>
       </div>
     </form>
@@ -253,7 +253,10 @@ function InvoiceStatusBadge({ status }: { status: string | null }) {
   };
 
   return (
-    <span className={`font-mono text-micro uppercase tracking-wider px-[6px] py-[2px] rounded-full ${className}`}>
+    <span
+      className={`font-mono text-micro uppercase tracking-wider px-[6px] py-[2px] ${className}`}
+      style={{ borderRadius: 4 }}
+    >
       {statusLabels[s] ?? s}
     </span>
   );

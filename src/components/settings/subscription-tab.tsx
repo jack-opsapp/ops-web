@@ -270,7 +270,10 @@ function PlanCard({
                 {info.displayName}
               </h4>
               {isCurrent && (
-                <span className="font-mono text-micro text-text bg-[rgba(255,255,255,0.08)] px-[6px] py-[2px] rounded-full uppercase tracking-wider shrink-0">
+                <span
+                  className="font-mono text-micro text-text bg-[rgba(255,255,255,0.08)] px-[6px] py-[2px] uppercase tracking-wider shrink-0"
+                  style={{ borderRadius: 4 }}
+                >
                   {t("subscription.currentBadge")}
                 </span>
               )}
@@ -344,7 +347,7 @@ export function SubscriptionTab() {
 
     if (result === "success") {
       toast.success("Subscription active", {
-        description: "Welcome aboard. Refreshing your account…",
+        description: "Refreshing account state.",
       });
       refetch();
     } else if (result === "cancelled") {
