@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import {
   Plus,
@@ -10,6 +11,7 @@ import {
   Pencil,
   Sliders,
   Trash2,
+  Star,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,13 +36,20 @@ import {
   useTaskTypes,
   useProductMetrics,
   useCatalogLookups,
+  resolveCategoryId,
+  resolveUnitId,
 } from "@/lib/hooks";
 import { MetricsHeader } from "@/components/metrics";
 import {
   formatCurrency,
   calculateMargin,
 } from "@/lib/types/pipeline";
-import type { Product, CreateProduct } from "@/lib/types/pipeline";
+import type {
+  Product,
+  CreateProduct,
+  LineItemType,
+  ProductKind,
+} from "@/lib/types/pipeline";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import { cn } from "@/lib/utils/cn";
@@ -184,17 +193,43 @@ export default function ProductsPage() {
                   key={product.id}
                   className="border-b border-border last:border-b-0 hover:bg-[rgba(255,255,255,0.02)] transition-colors"
                 >
-                  {/* Name + Description */}
+                  {/* Name + Description (with thumbnail) */}
                   <td className="px-2 py-1.5">
-                    <div>
-                      <span className="font-mohave text-body text-text block">
-                        {product.name}
-                      </span>
-                      {product.description && (
-                        <span className="font-mono text-micro text-text-mute truncate block max-w-[300px]">
-                          {product.description}
+                    <div className="flex items-center gap-2">
+                      <div
+                        className={cn(
+                          "relative w-[40px] h-[40px] shrink-0 rounded-[4px] border border-border overflow-hidden",
+                          "bg-[rgba(255,255,255,0.02)] flex items-center justify-center"
+                        )}
+                      >
+                        {product.thumbnailUrl ? (
+                          <Image
+                            src={product.thumbnailUrl}
+                            alt=""
+                            fill
+                            sizes="40px"
+                            className="object-cover"
+                          />
+                        ) : (
+                          <Package className="w-[16px] h-[16px] text-text-mute" />
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <span className="font-mohave text-body text-text block truncate">
+                          {product.isFavorite && (
+                            <Star
+                              aria-hidden
+                              className="inline-block w-[12px] h-[12px] mr-1 fill-current text-status-warning align-[-1px]"
+                            />
+                          )}
+                          {product.name}
                         </span>
-                      )}
+                        {product.description && (
+                          <span className="font-mono text-micro text-text-mute truncate block max-w-[280px]">
+                            {product.description}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </td>
 
@@ -368,6 +403,39 @@ function ProductFormModal({
   const [showNewCategoryDialog, setShowNewCategoryDialog] = useState(false);
   const [showNewUnitDialog, setShowNewUnitDialog] = useState(false);
 
+  // iOS DTO parity — kind and type need a non-null default at create time
+  // because the DB columns are NOT NULL. The user always sees an explicitly
+  // selected value the moment the modal opens; nothing is left ambiguous.
+  const [kind, setKind] = useState<ProductKind>(
+    (product?.kind ?? "service") as ProductKind
+  );
+  const [type, setType] = useState<LineItemType>(product?.type ?? "LABOR");
+
+  // SKU is uppercased on input to match the iOS QuickAddProductSheet pattern.
+  // Minimum charge/quantity are string-typed so an empty field maps to null
+  // on save — plain numeric state would force a 0 which is a real value.
+  const [sku, setSku] = useState(product?.sku ?? "");
+  const [minimumCharge, setMinimumCharge] = useState<string>(
+    product?.minimumCharge != null ? String(product.minimumCharge) : ""
+  );
+  const [minimumQuantity, setMinimumQuantity] = useState<string>(
+    product?.minimumQuantity != null ? String(product.minimumQuantity) : ""
+  );
+  const minimumChargeError =
+    minimumCharge.trim() !== "" &&
+    !(Number.isFinite(Number(minimumCharge)) && Number(minimumCharge) >= 0);
+  const minimumQuantityError =
+    minimumQuantity.trim() !== "" &&
+    !(Number.isFinite(Number(minimumQuantity)) && Number(minimumQuantity) >= 0);
+
+  // Favorite pins the product to the top of the list (mirrors iOS).
+  // Show-BOM-on-estimate surfaces this product's recipe materials on
+  // customer-facing estimates; default false to match iOS opt-in behavior.
+  const [isFavorite, setIsFavorite] = useState(product?.isFavorite ?? false);
+  const [showBomOnEstimate, setShowBomOnEstimate] = useState(
+    product?.showBomOnEstimate ?? false
+  );
+
   // Reset form when product changes
   useEffect(() => {
     if (product) {
@@ -382,6 +450,17 @@ function ProductFormModal({
       setTaskTypeId(product.taskTypeId ?? null);
       setIsTaxable(product.isTaxable);
       setIsActive(product.isActive);
+      setKind((product.kind ?? "service") as ProductKind);
+      setType(product.type ?? "LABOR");
+      setSku(product.sku ?? "");
+      setMinimumCharge(
+        product.minimumCharge != null ? String(product.minimumCharge) : ""
+      );
+      setMinimumQuantity(
+        product.minimumQuantity != null ? String(product.minimumQuantity) : ""
+      );
+      setIsFavorite(product.isFavorite ?? false);
+      setShowBomOnEstimate(product.showBomOnEstimate ?? false);
     } else {
       setName("");
       setDescription("");
@@ -394,6 +473,13 @@ function ProductFormModal({
       setTaskTypeId(null);
       setIsTaxable(true);
       setIsActive(true);
+      setKind("service");
+      setType("LABOR");
+      setSku("");
+      setMinimumCharge("");
+      setMinimumQuantity("");
+      setIsFavorite(false);
+      setShowBomOnEstimate(false);
     }
   }, [product]);
 
@@ -428,6 +514,15 @@ function ProductFormModal({
 
   const handleSubmit = () => {
     if (!name.trim()) return;
+    if (minimumChargeError || minimumQuantityError) return;
+
+    const trimmedCategory = category.trim() || null;
+    const trimmedSku = sku.trim();
+    const resolvedCategoryId = categoryId ?? resolveCategoryId(
+      trimmedCategory,
+      catalogCategories
+    );
+    const resolvedUnitId = unitId ?? resolveUnitId(unit, catalogUnits);
 
     const data = {
       name: name.trim(),
@@ -435,12 +530,21 @@ function ProductFormModal({
       defaultPrice,
       unitCost: unitCost || null,
       unit,
-      unitId,
-      category: category.trim() || null,
-      categoryId,
+      unitId: resolvedUnitId,
+      category: trimmedCategory,
+      categoryId: resolvedCategoryId,
       taskTypeId: taskTypeId || null,
       isTaxable,
       isActive,
+      kind,
+      type,
+      sku: trimmedSku === "" ? null : trimmedSku,
+      minimumCharge:
+        minimumCharge.trim() === "" ? null : Number(minimumCharge),
+      minimumQuantity:
+        minimumQuantity.trim() === "" ? null : Number(minimumQuantity),
+      isFavorite,
+      showBomOnEstimate,
     };
 
     if (isEditing && product) {
@@ -455,6 +559,8 @@ function ProductFormModal({
 
   const margin = calculateMargin(defaultPrice, unitCost || null);
 
+  const thumbnailUrl = product?.thumbnailUrl ?? null;
+
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-[500px]">
@@ -465,6 +571,43 @@ function ProductFormModal({
         </DialogHeader>
 
         <div className="space-y-3 mt-2">
+          {/* Thumbnail preview — display-only on web; upload UX lives on iOS.
+              Phase 4 of the thumbnail plan didn't cover web upload, so the
+              modal mirrors what's on the server and labels the affordance
+              gap explicitly. */}
+          {isEditing && (
+            <div className="space-y-1">
+              <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">
+                {t("products.thumbnailHeading")}
+              </label>
+              <div className="flex items-center gap-2">
+                <div
+                  className={cn(
+                    "relative w-[96px] h-[96px] shrink-0 rounded-[5px] border border-border overflow-hidden",
+                    "bg-[rgba(255,255,255,0.02)] flex items-center justify-center"
+                  )}
+                >
+                  {thumbnailUrl ? (
+                    <Image
+                      src={thumbnailUrl}
+                      alt={product?.name ?? ""}
+                      fill
+                      sizes="96px"
+                      className="object-cover"
+                    />
+                  ) : (
+                    <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
+                      {t("products.noImage")}
+                    </span>
+                  )}
+                </div>
+                <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
+                  {t("products.thumbnailUploadHint")}
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* Name */}
           <div className="space-y-0.5">
             <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">
@@ -579,7 +722,7 @@ function ProductFormModal({
           </div>
 
           {/* Toggles */}
-          <div className="flex gap-4">
+          <div className="flex flex-wrap gap-x-4 gap-y-1.5">
             <label className="flex items-center gap-1.5 cursor-pointer">
               <input
                 type="checkbox"
@@ -598,6 +741,37 @@ function ProductFormModal({
               />
               <span className="font-mono text-caption text-text-2">{t("products.activeLabel")}</span>
             </label>
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isFavorite}
+                onChange={(e) => setIsFavorite(e.target.checked)}
+                className="rounded border-border"
+              />
+              <span className="inline-flex items-center gap-1 font-mono text-caption text-text-2">
+                <Star
+                  className={cn(
+                    "w-[12px] h-[12px]",
+                    isFavorite ? "fill-current text-status-warning" : "text-text-mute"
+                  )}
+                />
+                {t("products.favorite")}
+              </span>
+            </label>
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showBomOnEstimate}
+                onChange={(e) => setShowBomOnEstimate(e.target.checked)}
+                className="rounded border-border"
+              />
+              <span
+                className="font-mono text-caption text-text-2"
+                title={t("products.showBomOnEstimateHelp")}
+              >
+                {t("products.showBomOnEstimate")}
+              </span>
+            </label>
           </div>
 
           {/* Margin display */}
@@ -611,6 +785,128 @@ function ProductFormModal({
               </span>
             </div>
           )}
+
+          {/* Advanced section — kind / type segmented pickers.
+              Mirrors the iOS QuickAddProductSheet "// ADVANCED" disclosure so a
+              product authored on iOS round-trips its kind + line-item type
+              through web edits without losing either. */}
+          <details className="group border-t border-border pt-2">
+            <summary
+              className={cn(
+                "flex items-center justify-between cursor-pointer list-none",
+                "font-cakemono font-light uppercase text-caption-sm tracking-[0.08em] text-text-3",
+                "hover:text-text-2 transition-colors"
+              )}
+            >
+              <span>{t("products.advancedSection")}</span>
+              <span className="font-mono text-micro text-text-mute group-open:rotate-90 transition-transform">
+                [+]
+              </span>
+            </summary>
+
+            <div className="space-y-3 mt-2">
+              {/* Kind */}
+              <div className="space-y-0.5">
+                <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">
+                  {t("products.labelKind")}
+                </label>
+                <SegmentedControl<ProductKind>
+                  value={kind}
+                  onChange={setKind}
+                  options={[
+                    { value: "service", label: t("products.kindService") },
+                    { value: "good", label: t("products.kindGood") },
+                  ]}
+                  ariaLabel={t("products.labelKind")}
+                />
+              </div>
+
+              {/* Line item type */}
+              <div className="space-y-0.5">
+                <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">
+                  {t("products.labelType")}
+                </label>
+                <SegmentedControl<LineItemType>
+                  value={type}
+                  onChange={setType}
+                  options={[
+                    { value: "LABOR", label: t("products.typeLabor") },
+                    { value: "MATERIAL", label: t("products.typeMaterial") },
+                    { value: "OTHER", label: t("products.typeOther") },
+                  ]}
+                  ariaLabel={t("products.labelType")}
+                />
+              </div>
+
+              {/* SKU + Minimum charge */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-0.5">
+                  <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">
+                    {t("products.labelSku")}
+                  </label>
+                  <Input
+                    value={sku}
+                    onChange={(e) => setSku(e.target.value.toUpperCase())}
+                    placeholder={t("products.skuPlaceholder")}
+                    autoCorrect="off"
+                    autoCapitalize="characters"
+                    spellCheck={false}
+                    className="font-mono"
+                  />
+                </div>
+                <div className="space-y-0.5">
+                  <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">
+                    {t("products.labelMinimumCharge")}
+                  </label>
+                  <div className="relative">
+                    <span
+                      aria-hidden
+                      className="absolute left-2 top-1/2 -translate-y-1/2 font-mono text-caption text-text-mute pointer-events-none"
+                    >
+                      $
+                    </span>
+                    <Input
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      value={minimumCharge}
+                      onChange={(e) => setMinimumCharge(e.target.value)}
+                      placeholder="0.00"
+                      className={cn("pl-5", minimumChargeError && "border-status-error")}
+                      aria-invalid={minimumChargeError || undefined}
+                    />
+                  </div>
+                  {!minimumChargeError && (
+                    <p className="font-mono text-micro text-text-mute">
+                      {t("products.minimumChargeHelp")}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Minimum quantity */}
+              <div className="space-y-0.5">
+                <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">
+                  {t("products.labelMinimumQuantity")}
+                </label>
+                <Input
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  value={minimumQuantity}
+                  onChange={(e) => setMinimumQuantity(e.target.value)}
+                  placeholder="0"
+                  className={cn(minimumQuantityError && "border-status-error")}
+                  aria-invalid={minimumQuantityError || undefined}
+                />
+                {!minimumQuantityError && (
+                  <p className="font-mono text-micro text-text-mute">
+                    {t("products.minimumQuantityHelp")}
+                  </p>
+                )}
+              </div>
+            </div>
+          </details>
 
           {/* Bill of Materials — only for saved products */}
           {isEditing && product && (
@@ -644,7 +940,14 @@ function ProductFormModal({
             <Button variant="ghost" size="sm" onClick={onClose}>
               {t("products.cancel")}
             </Button>
-            <Button variant="default" size="sm" onClick={handleSubmit} disabled={!name.trim()}>
+            <Button
+              variant="default"
+              size="sm"
+              onClick={handleSubmit}
+              disabled={
+                !name.trim() || minimumChargeError || minimumQuantityError
+              }
+            >
               {isEditing ? t("products.update") : t("products.create")}
             </Button>
           </div>
@@ -671,5 +974,63 @@ function ProductFormModal({
         />
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ─── Segmented Control ─────────────────────────────────────────────────────
+//
+// A small button-group used for the Kind and Line-item-type fields. Active
+// segment fills with the subdued white-8% background + 18% border pattern
+// borrowed from `SplitInboxTabs` — spec v2 reserves the steel-blue accent
+// for the primary CTA + focus ring only, so segment selection stays
+// monochrome.
+//
+// Generic over `T extends string` so the consumer keeps full type safety:
+// `<SegmentedControl<ProductKind> value={kind} onChange={setKind}>`.
+
+interface SegmentedControlOption<T extends string> {
+  value: T;
+  label: string;
+}
+
+function SegmentedControl<T extends string>({
+  value,
+  onChange,
+  options,
+  ariaLabel,
+}: {
+  value: T;
+  onChange: (next: T) => void;
+  options: ReadonlyArray<SegmentedControlOption<T>>;
+  ariaLabel?: string;
+}) {
+  return (
+    <div
+      role="radiogroup"
+      aria-label={ariaLabel}
+      className="inline-flex items-stretch gap-0.5 p-0.5 rounded-[5px] border border-border bg-[rgba(255,255,255,0.02)]"
+    >
+      {options.map((option) => {
+        const isActive = option.value === value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            role="radio"
+            aria-checked={isActive}
+            onClick={() => onChange(option.value)}
+            className={cn(
+              "px-2.5 py-1 rounded-[4px] border transition-colors duration-150",
+              "font-cakemono font-light uppercase text-[11px] tracking-[0.08em] leading-none",
+              isActive
+                ? "border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.08)] text-text"
+                : "border-transparent text-text-3 hover:text-text-2 hover:bg-[rgba(255,255,255,0.04)]"
+            )}
+          >
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
   );
 }
