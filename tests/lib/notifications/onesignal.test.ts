@@ -27,14 +27,17 @@ describe("sendOneSignalPush", () => {
     });
 
     expect(global.fetch).not.toHaveBeenCalled();
-    expect(result).toBeUndefined();
+    expect(result).toMatchObject({
+      ok: false,
+      category: "env_missing",
+    });
   });
 
   it("no-ops when playerIds is empty", async () => {
     process.env.ONESIGNAL_APP_ID = "app-id";
     process.env.ONESIGNAL_REST_API_KEY = "api-key";
 
-    await sendOneSignalPush({
+    const result = await sendOneSignalPush({
       playerIds: [],
       title: "Test",
       body: "Body",
@@ -42,6 +45,7 @@ describe("sendOneSignalPush", () => {
     });
 
     expect(global.fetch).not.toHaveBeenCalled();
+    expect(result).toEqual({ ok: true });
   });
 
   it("calls OneSignal REST API with correct payload", async () => {
@@ -85,15 +89,19 @@ describe("sendOneSignalPush", () => {
       new Error("network down")
     );
 
-    await expect(
-      sendOneSignalPush({
-        playerIds: ["abc"],
-        title: "T",
-        body: "B",
-        data: {},
-      })
-    ).resolves.toBeUndefined();
-  });
+    const result = await sendOneSignalPush({
+      playerIds: ["abc"],
+      title: "T",
+      body: "B",
+      data: {},
+    });
+
+    expect(result).toMatchObject({
+      ok: false,
+      category: "network",
+      message: "network down",
+    });
+  }, 10_000);
 
   it("logs but does not throw on non-ok response", async () => {
     process.env.ONESIGNAL_APP_ID = "app-id";
@@ -104,13 +112,18 @@ describe("sendOneSignalPush", () => {
       text: async () => "invalid auth",
     });
 
-    await expect(
-      sendOneSignalPush({
-        playerIds: ["abc"],
-        title: "T",
-        body: "B",
-        data: {},
-      })
-    ).resolves.toBeUndefined();
+    const result = await sendOneSignalPush({
+      playerIds: ["abc"],
+      title: "T",
+      body: "B",
+      data: {},
+    });
+
+    expect(result).toMatchObject({
+      ok: false,
+      category: "non_retryable",
+      status: 401,
+      message: "invalid auth",
+    });
   });
 });
