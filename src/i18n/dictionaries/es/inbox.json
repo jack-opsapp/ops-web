@@ -334,6 +334,10 @@
   "groups.fyiLabel": "// INFORMATIVO",
   "groups.closedLabel": "// CERRADO",
   "groups.scheduledLabel": "// PROGRAMADO",
+  "groups.needsInputLabel": "// NECESITA TU RESPUESTA",
+  "groups.draftsReadyLabel": "// BORRADORES LISTOS",
+  "groups.awaitingThemLabel": "// ESPERANDO RESPUESTA",
+  "groups.laterLabel": "// DESPUÉS",
 
   "row.stateYoursHours": "TU TURNO · {hours}H",
   "row.stateYoursDays": "TU TURNO · {days}D",

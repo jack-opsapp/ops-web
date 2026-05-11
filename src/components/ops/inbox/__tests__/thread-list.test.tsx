@@ -2,8 +2,16 @@ import { render, screen } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { ThreadList } from "../thread-list";
 import type { ThreadListItem } from "../thread-list";
+import type { StateTagResult } from "@/lib/inbox/format-wait";
 
 const NOW = new Date("2026-05-06T15:00:00Z").getTime();
+
+const FYI_STATE: StateTagResult = {
+  kind: "fyi",
+  tone: "neutral",
+  prefix: "FYI",
+  alarmStrip: false,
+};
 
 const make = (id: string, over: Partial<ThreadListItem> = {}): ThreadListItem => ({
   id,
@@ -15,9 +23,12 @@ const make = (id: string, over: Partial<ThreadListItem> = {}): ThreadListItem =>
   clientName: id.toUpperCase(),
   subject: `Subject ${id}`,
   snippet: "hello",
+  aiSummary: null,
   unread: false,
   messageCount: 1,
   draftKind: null,
+  state: FYI_STATE,
+  lastInboundAt: null,
   ...over,
 });
 
@@ -35,8 +46,8 @@ describe("<ThreadList>", () => {
         onSelect={() => {}}
       />,
     );
-    expect(screen.getByText(/Needs your input/i)).toBeInTheDocument();
-    expect(screen.getByText(/Later/i)).toBeInTheDocument();
+    expect(screen.getByText(/\/\/ NEEDS INPUT/i)).toBeInTheDocument();
+    expect(screen.getByText(/\/\/ LATER/i)).toBeInTheDocument();
     expect(screen.queryByText(/^Urgent$/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/^Today$/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/^This week$/i)).not.toBeInTheDocument();
