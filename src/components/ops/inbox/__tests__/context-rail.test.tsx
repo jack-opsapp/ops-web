@@ -1,5 +1,5 @@
 import { render, screen, fireEvent } from "@testing-library/react";
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { ContextRail } from "../context-rail/context-rail";
 
 const baseProps = {
@@ -25,8 +25,30 @@ describe("<ContextRail>", () => {
     expect(screen.getByText(/Property mgmt/)).toBeInTheDocument();
   });
 
-  it("renders contact lines (phone / email / address)", () => {
+  it("renders the // CLIENT label above the avatar row", () => {
     render(<ContextRail {...baseProps} />);
+    expect(screen.getByText("// CLIENT")).toBeInTheDocument();
+  });
+
+  it("renders the OPEN text button (with ExternalLink icon)", () => {
+    const onOpenClient = vi.fn();
+    render(<ContextRail {...baseProps} onOpenClient={onOpenClient} />);
+    const openButton = screen.getByRole("button", { name: /open client/i });
+    expect(openButton).toHaveTextContent("OPEN");
+    // Lucide icons are rendered as inline SVGs with aria-hidden — assert one
+    // is nested inside the button rather than checking textual label.
+    expect(openButton.querySelector("svg")).not.toBeNull();
+    fireEvent.click(openButton);
+    expect(onOpenClient).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders contact lines (phone / email / address) with bracket labels", () => {
+    render(<ContextRail {...baseProps} />);
+    // bracket labels
+    expect(screen.getByText("[PHONE]")).toBeInTheDocument();
+    expect(screen.getByText("[EMAIL]")).toBeInTheDocument();
+    expect(screen.getByText("[ADDR]")).toBeInTheDocument();
+    // values
     expect(screen.getByText("(604) 555-0184")).toBeInTheDocument();
     expect(screen.getByText("jeanne@callowayroof.co")).toBeInTheDocument();
     expect(screen.getByText(/5421 Ash St/)).toBeInTheDocument();
@@ -60,5 +82,65 @@ describe("<ContextRail>", () => {
     rerender(<ContextRail {...baseProps} threadId="t2" />);
     expect(screen.getByTestId("work")).toBeInTheDocument();
     expect(screen.queryByTestId("files")).not.toBeInTheDocument();
+  });
+
+  // ─── Unlinked state ──────────────────────────────────────────────────────
+
+  describe("unlinked state (no client linked)", () => {
+    const unlinkedProps = {
+      threadId: "t1",
+      counts: { work: 0, accounting: 0, files: 0 },
+      work: <div data-testid="work">W</div>,
+      accounting: <div data-testid="accounting">A</div>,
+      files: <div data-testid="files">F</div>,
+    };
+
+    it("renders // CLIENT :: UNLINKED in the header", () => {
+      render(<ContextRail {...unlinkedProps} />);
+      expect(screen.getByText("// CLIENT :: UNLINKED")).toBeInTheDocument();
+    });
+
+    it("renders the unlinked body marker", () => {
+      render(<ContextRail {...unlinkedProps} />);
+      expect(
+        screen.getByText("[—] thread has no client attached"),
+      ).toBeInTheDocument();
+    });
+
+    it("renders the LINK CLIENT button and fires onLinkClient on click", () => {
+      const onLinkClient = vi.fn();
+      render(<ContextRail {...unlinkedProps} onLinkClient={onLinkClient} />);
+      const linkBtn = screen.getByRole("button", { name: /link client/i });
+      expect(linkBtn).toHaveTextContent("LINK CLIENT");
+      fireEvent.click(linkBtn);
+      expect(onLinkClient).toHaveBeenCalledTimes(1);
+    });
+
+    it("dims the tab strip wrapper to 40% opacity", () => {
+      render(<ContextRail {...unlinkedProps} />);
+      const wrap = screen.getByTestId("rail-tabstrip-wrap");
+      expect(wrap.className).toContain("opacity-40");
+      expect(wrap.className).toContain("pointer-events-none");
+    });
+
+    it("renders the unlinked empty body in the tabpanel (not the linked tab content)", () => {
+      render(<ContextRail {...unlinkedProps} />);
+      expect(
+        screen.getByText("[—] link a client to see context"),
+      ).toBeInTheDocument();
+      expect(screen.queryByTestId("work")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("accounting")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("files")).not.toBeInTheDocument();
+    });
+
+    it("does not render contact lines or OPEN button when unlinked", () => {
+      render(<ContextRail {...unlinkedProps} />);
+      expect(screen.queryByText("[PHONE]")).not.toBeInTheDocument();
+      expect(screen.queryByText("[EMAIL]")).not.toBeInTheDocument();
+      expect(screen.queryByText("[ADDR]")).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: /open client/i }),
+      ).not.toBeInTheDocument();
+    });
   });
 });

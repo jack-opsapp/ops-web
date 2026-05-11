@@ -524,17 +524,35 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
     ? `${subClientCount} ${subClientCount === 1 ? t("rail.subclient", "subclient") : t("rail.subclients", "subclients")}`
     : null;
 
-  const contextRail = clientId ? (
+  // <ContextRail> is now always mounted. It renders the unlinked-state
+  // header internally when `client` is undefined — see context-rail.tsx
+  // § "Header anatomy". This replaces the previous EmptyState shortcircuit
+  // and keeps the tab strip + tab bodies discoverable (dimmed) even when
+  // no client is attached.
+  const contextRail = (
     <ContextRail
-      client={{
-        name: client?.name ?? detail?.thread.clientName ?? "",
-        subtitle,
-        email: client?.email ?? senderEmail,
-        phone: client?.phoneNumber ?? null,
-        address: client?.address ?? null,
-      }}
+      client={
+        clientId
+          ? {
+              name: client?.name ?? detail?.thread.clientName ?? "",
+              subtitle,
+              email: client?.email ?? senderEmail,
+              phone: client?.phoneNumber ?? null,
+              address: client?.address ?? null,
+            }
+          : undefined
+      }
       threadId={threadId ?? ""}
-      onOpenClient={() => router.push(`/clients/${clientId}`)}
+      onOpenClient={
+        clientId ? () => router.push(`/clients/${clientId}`) : undefined
+      }
+      // Link-client wiring deferred — the affordance is in place. Product
+      // to decide whether to open a floating window or route to a picker.
+      // `link-client` is not yet a FloatingWindowType (see window-store.ts),
+      // so the button renders but does not yet trigger a window.
+      onLinkClient={() => {
+        /* no-op until link-client UX is specified */
+      }}
       counts={{
         work: opportunities.length + projects.length,
         accounting: documentRows.length,
@@ -605,8 +623,6 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
         />
       }
     />
-  ) : (
-    <EmptyState label={t("rail.empty.client", "No client linked")} />
   );
 
   return (
