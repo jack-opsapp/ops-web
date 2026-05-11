@@ -508,6 +508,11 @@ async function createSyncNotification(
   const userId = connection.userId;
   if (!userId) return;
 
+  // Bug bb63c37e — the prior body ("3 new leads · 5 matched") was abstract:
+  // the user couldn't tell what to do or what was actually waiting for them.
+  // Build a sender-flavored detail line so the notification names the
+  // highest-signal item (the most recent unmatched email or the freshest new
+  // lead) and points the action button at the right destination.
   const parts: string[] = [];
   if (result.newLeads > 0)
     parts.push(
@@ -524,17 +529,61 @@ async function createSyncNotification(
 
   if (parts.length === 0) return;
 
+  const summary = parts.join(" · ");
+
+  // Pull the most recent inbound activity for this connection so we can name
+  // a real sender / subject in the body. Best-effort: if the read fails or
+  // there's nothing fresh, fall back to the count summary alone.
   const supabase = requireSupabase();
+  let recentDetail: string | null = null;
+  try {
+    const { data: latest } = await supabase
+      .from("activities")
+      .select("from_email, from_name, subject")
+      .eq("company_id", connection.companyId)
+      .eq("direction", "inbound")
+      .not("email_message_id", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (latest) {
+      const sender =
+        (latest.from_name as string | null) ||
+        (latest.from_email as string | null) ||
+        null;
+      const subject = latest.subject as string | null;
+      if (sender && subject) {
+        const trimmedSubject =
+          subject.length > 60 ? subject.slice(0, 57) + "…" : subject;
+        recentDetail = `Latest: ${sender} — ${trimmedSubject}`;
+      } else if (sender) {
+        recentDetail = `Latest sender: ${sender}`;
+      }
+    }
+  } catch (err) {
+    console.warn("[sync-engine] recent-detail lookup failed:", err);
+  }
+
+  // Prefer a clear count-led title with the connection's mailbox so the user
+  // knows which inbox the result came from (multi-mailbox accounts).
+  const mailbox = connection.email || "Inbox";
+  const body = recentDetail ? `${summary}. ${recentDetail}` : summary;
+
+  // `email_sync_complete` is the canonical type — both web (drawer registry
+  // via NOTIF_TYPE_META) and iOS (NotificationListView icon table + deep
+  // link) recognize it. Action lands on /pipeline since iOS has no inbox.
   await supabase.from("notifications").insert({
     user_id: userId,
     company_id: connection.companyId,
-    type: "mention",
-    title: "Email sync complete",
-    body: parts.join(" · "),
+    type: "email_sync_complete",
+    title: `Email sync · ${mailbox}`,
+    body,
     is_read: false,
     persistent: false,
-    action_url: "/pipeline",
-    action_label: "View Pipeline",
+    deep_link_type: "inbox",
+    action_url: "/inbox",
+    action_label: "Review Inbox",
   });
 }
 

@@ -24,7 +24,9 @@ function mapProductFromDb(row: Record<string, unknown>): Product {
     defaultPrice: Number(row.default_price ?? 0),
     unitCost: row.unit_cost != null ? Number(row.unit_cost) : null,
     unit: (row.unit as string) ?? "each",
+    unitId: (row.unit_id as string) ?? null,
     category: (row.category as string) ?? null,
+    categoryId: (row.category_id as string) ?? null,
     isTaxable: (row.is_taxable as boolean) ?? false,
     isActive: (row.is_active as boolean) ?? true,
     type: ((row.type as string) ?? "LABOR") as LineItemType,
@@ -46,7 +48,9 @@ function mapProductToDb(
   if (data.defaultPrice !== undefined) row.default_price = data.defaultPrice;
   if (data.unitCost !== undefined) row.unit_cost = data.unitCost;
   if (data.unit !== undefined) row.unit = data.unit;
+  if (data.unitId !== undefined) row.unit_id = data.unitId ?? null;
   if (data.category !== undefined) row.category = data.category;
+  if (data.categoryId !== undefined) row.category_id = data.categoryId ?? null;
   if (data.isTaxable !== undefined) row.is_taxable = data.isTaxable;
   if (data.isActive !== undefined) row.is_active = data.isActive;
   if (data.type !== undefined) row.type = data.type;

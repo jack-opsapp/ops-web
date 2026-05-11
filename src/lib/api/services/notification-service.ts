@@ -5,6 +5,7 @@ export type NotificationType =
   | "role_needed"
   | "pipeline_complete"
   | "gmail_sync"
+  | "email_sync_complete"
   | "intel_available"
   | "setup_prompt"
   | "leads_waiting"
@@ -21,7 +22,8 @@ export type NotificationType =
   | "trial_expiry"
   | "payment_review_stack"
   | "task_review_stack"
-  | "unscheduled_review_stack";
+  | "unscheduled_review_stack"
+  | "projects_needing_tasks";
 
 export interface AppNotification {
   id: string;

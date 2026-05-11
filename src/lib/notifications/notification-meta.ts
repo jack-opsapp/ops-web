@@ -59,6 +59,8 @@ export const NOTIF_TYPE_META: Record<NotificationType, NotificationMeta> = {
   payment_review_stack: { label: "PAY REV", icon: "layers", tone: "attn" },
   task_review_stack: { label: "TASK REV", icon: "list-checks", tone: "attn" },
   unscheduled_review_stack: { label: "UNSCHED", icon: "calendar-x", tone: "attn" },
+  email_sync_complete: { label: "INBOX", icon: "inbox", tone: "accent" },
+  projects_needing_tasks: { label: "PLAN", icon: "list-checks", tone: "attn" },
 };
 
 export const toneRank: Record<NotificationTone, number> = {
