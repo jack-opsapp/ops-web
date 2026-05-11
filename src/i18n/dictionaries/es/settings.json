@@ -335,6 +335,10 @@
   "billing.toast.addFailed": "Error al agregar tarjeta",
   "billing.toast.added": "Método de pago agregado",
   "billing.toast.unknownError": "Error desconocido",
+  "billing.error.paymentMethodsTitle": "No se pudieron cargar los métodos de pago",
+  "billing.error.invoicesTitle": "No se pudo cargar el historial de facturación",
+  "billing.error.generic": "Algo salió mal de nuestro lado. Inténtalo de nuevo o contacta a soporte si el problema continúa.",
+  "billing.error.retry": "Reintentar",
 
   "integrations.companyGmail": "Correo Empresarial",
   "integrations.myGmail": "Mi Gmail",

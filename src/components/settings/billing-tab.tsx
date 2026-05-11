@@ -10,6 +10,8 @@ import {
   Plus,
   Check,
   Trash2,
+  AlertTriangle,
+  RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -204,8 +206,22 @@ export function BillingTab() {
   const can = usePermissionStore((s) => s.can);
   const { locale } = useLocale();
   const { company } = useAuthStore();
-  const { data: methods, isLoading: methodsLoading, refetch: refetchMethods } = usePaymentMethods();
-  const { data: invoices, isLoading: invoicesLoading } = useStripeInvoices();
+  const {
+    data: methods,
+    isLoading: methodsLoading,
+    isError: methodsError,
+    error: methodsErrorObj,
+    isFetching: methodsFetching,
+    refetch: refetchMethods,
+  } = usePaymentMethods();
+  const {
+    data: invoices,
+    isLoading: invoicesLoading,
+    isError: invoicesError,
+    error: invoicesErrorObj,
+    isFetching: invoicesFetching,
+    refetch: refetchInvoices,
+  } = useStripeInvoices();
   const removeMethod = useRemovePaymentMethod();
   const [showAddCard, setShowAddCard] = useState(false);
 
@@ -235,6 +251,35 @@ export function BillingTab() {
           {methodsLoading ? (
             <div className="flex items-center justify-center py-4">
               <Loader2 className="w-[20px] h-[20px] text-text-2 animate-spin" />
+            </div>
+          ) : methodsError ? (
+            <div className="flex flex-col items-start gap-1 py-2">
+              <div className="flex items-center gap-1.5">
+                <AlertTriangle className="w-[18px] h-[18px] text-ops-error shrink-0" />
+                <div>
+                  <p className="font-mohave text-body text-text">
+                    {t("billing.error.paymentMethodsTitle")}
+                  </p>
+                  <p className="font-mono text-[11px] text-text-mute">
+                    {methodsErrorObj instanceof Error && methodsErrorObj.message
+                      ? methodsErrorObj.message
+                      : t("billing.error.generic")}
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="secondary"
+                className="gap-[6px] mt-1"
+                onClick={() => refetchMethods()}
+                disabled={methodsFetching}
+              >
+                {methodsFetching ? (
+                  <Loader2 className="w-[14px] h-[14px] animate-spin" />
+                ) : (
+                  <RefreshCw className="w-[14px] h-[14px]" />
+                )}
+                {t("billing.error.retry")}
+              </Button>
             </div>
           ) : hasPaymentMethod ? (
             <div className="space-y-0">
@@ -300,6 +345,35 @@ export function BillingTab() {
           {invoicesLoading ? (
             <div className="flex items-center justify-center py-4">
               <Loader2 className="w-[20px] h-[20px] text-text-2 animate-spin" />
+            </div>
+          ) : invoicesError ? (
+            <div className="flex flex-col items-start gap-1 py-2">
+              <div className="flex items-center gap-1.5">
+                <AlertTriangle className="w-[18px] h-[18px] text-ops-error shrink-0" />
+                <div>
+                  <p className="font-mohave text-body text-text">
+                    {t("billing.error.invoicesTitle")}
+                  </p>
+                  <p className="font-mono text-[11px] text-text-mute">
+                    {invoicesErrorObj instanceof Error && invoicesErrorObj.message
+                      ? invoicesErrorObj.message
+                      : t("billing.error.generic")}
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="secondary"
+                className="gap-[6px] mt-1"
+                onClick={() => refetchInvoices()}
+                disabled={invoicesFetching}
+              >
+                {invoicesFetching ? (
+                  <Loader2 className="w-[14px] h-[14px] animate-spin" />
+                ) : (
+                  <RefreshCw className="w-[14px] h-[14px]" />
+                )}
+                {t("billing.error.retry")}
+              </Button>
             </div>
           ) : invoices && invoices.length > 0 ? (
             <div className="space-y-0">

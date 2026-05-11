@@ -335,6 +335,10 @@
   "billing.toast.addFailed": "Failed to add card",
   "billing.toast.added": "Payment method added",
   "billing.toast.unknownError": "Unknown error",
+  "billing.error.paymentMethodsTitle": "Couldn't load payment methods",
+  "billing.error.invoicesTitle": "Couldn't load billing history",
+  "billing.error.generic": "Something went wrong on our side. Try again, or contact support if the problem continues.",
+  "billing.error.retry": "Retry",
 
   "integrations.companyGmail": "Business Email",
   "integrations.myGmail": "My Gmail",
