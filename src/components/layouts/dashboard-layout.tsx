@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
 import { Sidebar } from "./sidebar";
 import { TopBar } from "./top-bar";
@@ -37,6 +37,8 @@ import { ExpenseReviewListPopover } from "@/components/ops/expense-review-list-p
 import { UnassignedRoleBanner } from "@/components/ops/unassigned-role-banner";
 import { useSetupGate } from "@/hooks/useSetupGate";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { useSidebarStore } from "@/stores/sidebar-store";
+import { useEdgeTabStore } from "@/stores/edge-tab-store";
 
 // Leaflet map background + filter rail — client-only (no SSR)
 const DashboardMapBackground = dynamic(
@@ -190,6 +192,36 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const needsOnboarding = needsEmployeeOnboarding || needsWebSetup;
+
+  // Mutual-exclusion between the mobile sidebar drawer and the right-edge
+  // drawer rail (notifications / quick actions / bug report). Stacking both
+  // on a 390px viewport leaves operators with overlapping navigation layers
+  // and an ambiguous close target. Whichever layer opens second wins; the
+  // earlier one closes automatically. (Bug 637c9aef.)
+  const sidebarMobileOpen = useSidebarStore((s) => s.isMobileOpen);
+  const closeSidebarMobile = useSidebarStore((s) => s.closeMobile);
+  const activeEdgeTab = useEdgeTabStore((s) => s.activeTab);
+  const closeAllEdgeTabs = useEdgeTabStore((s) => s.closeAll);
+
+  // Track previous values so we can detect direction of change and avoid
+  // both effects firing in the same render and closing both layers.
+  const prevSidebarOpen = useRef(sidebarMobileOpen);
+  const prevActiveEdgeTab = useRef(activeEdgeTab);
+
+  useEffect(() => {
+    const sidebarJustOpened = sidebarMobileOpen && !prevSidebarOpen.current;
+    const edgeJustOpened =
+      activeEdgeTab !== null && prevActiveEdgeTab.current === null;
+
+    if (sidebarJustOpened && activeEdgeTab !== null) {
+      closeAllEdgeTabs();
+    } else if (edgeJustOpened && sidebarMobileOpen) {
+      closeSidebarMobile();
+    }
+
+    prevSidebarOpen.current = sidebarMobileOpen;
+    prevActiveEdgeTab.current = activeEdgeTab;
+  }, [sidebarMobileOpen, activeEdgeTab, closeAllEdgeTabs, closeSidebarMobile]);
 
   const fullHeightMode = resolveFullHeightMode(pathname);
   const isFullHeight = fullHeightMode !== null;
