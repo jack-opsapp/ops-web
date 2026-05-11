@@ -102,6 +102,38 @@ export async function POST(request: NextRequest) {
       status: "active",
     });
 
+    // ─── Resolve the persistent "Pipeline import complete" notification ─
+    // The import route inserts a persistent notification with action_url
+    // "/settings?tab=integrations" and action_label "Activate Sync".
+    // Activation is the resolving action — mark any matching unresolved
+    // notifications as read so the rail stops telling the operator there
+    // is pending work. We target by user/company + title because the
+    // import notification does not carry a connection_id reference.
+    try {
+      const connectionUserId = connection.userId ?? null;
+      if (connectionUserId) {
+        const { error: resolveErr } = await supabase
+          .from("notifications")
+          .update({ is_read: true })
+          .eq("user_id", connectionUserId)
+          .eq("company_id", companyId)
+          .eq("title", "Pipeline import complete")
+          .eq("is_read", false);
+        if (resolveErr) {
+          console.error(
+            "[email-activate] Failed to resolve import-complete notification:",
+            resolveErr.message,
+          );
+        }
+      }
+    } catch (notifErr) {
+      // Never fail activation because of a notification cleanup hiccup.
+      console.error(
+        "[email-activate] Unexpected error resolving import notification:",
+        notifErr,
+      );
+    }
+
     return NextResponse.json({
       ok: true,
       labelId,
