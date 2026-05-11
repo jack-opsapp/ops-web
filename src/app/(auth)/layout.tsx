@@ -75,10 +75,10 @@ function AuthRouteGate({ children }: { children: React.ReactNode }) {
           </div>
           <div>
             <h2 className="font-cakemono text-xl font-light text-text uppercase tracking-wide">
-              AUTHENTICATION REQUIRED
+              {t("authRequired.title")}
             </h2>
             <p className="font-mono text-[11px] text-text-3 mt-2">
-              [you must be logged in to access this page]
+              {t("authRequired.body")}
             </p>
           </div>
           <div className="flex flex-col gap-3">
@@ -86,13 +86,13 @@ function AuthRouteGate({ children }: { children: React.ReactNode }) {
               onClick={() => router.push("/login")}
               className="w-full py-3 bg-text-primary rounded font-cakemono text-[14px] font-light text-background uppercase tracking-wide transition-colors hover:bg-white"
             >
-              LOG IN
+              {t("authRequired.logIn")}
             </button>
             <button
               onClick={() => router.push("/register")}
               className="w-full py-3 bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.1)] rounded font-cakemono text-[14px] font-light text-text-2 uppercase tracking-wide transition-colors hover:bg-[rgba(255,255,255,0.08)]"
             >
-              CREATE ACCOUNT
+              {t("authRequired.createAccount")}
             </button>
           </div>
         </div>
