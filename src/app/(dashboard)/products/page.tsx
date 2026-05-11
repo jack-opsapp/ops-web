@@ -9,6 +9,7 @@ import {
   Package,
   Pencil,
   Trash2,
+  Star,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -210,6 +211,12 @@ export default function ProductsPage() {
                       </div>
                       <div className="min-w-0">
                         <span className="font-mohave text-body text-text block truncate">
+                          {product.isFavorite && (
+                            <Star
+                              aria-hidden
+                              className="inline-block w-[12px] h-[12px] mr-1 fill-current text-status-warning align-[-1px]"
+                            />
+                          )}
                           {product.name}
                         </span>
                         {product.description && (
@@ -399,6 +406,14 @@ function ProductFormModal({
     minimumQuantity.trim() !== "" &&
     !(Number.isFinite(Number(minimumQuantity)) && Number(minimumQuantity) >= 0);
 
+  // Favorite pins the product to the top of the list (mirrors iOS).
+  // Show-BOM-on-estimate surfaces this product's recipe materials on
+  // customer-facing estimates; default false to match iOS opt-in behavior.
+  const [isFavorite, setIsFavorite] = useState(product?.isFavorite ?? false);
+  const [showBomOnEstimate, setShowBomOnEstimate] = useState(
+    product?.showBomOnEstimate ?? false
+  );
+
   // Reset form when product changes
   useEffect(() => {
     if (product) {
@@ -420,6 +435,8 @@ function ProductFormModal({
       setMinimumQuantity(
         product.minimumQuantity != null ? String(product.minimumQuantity) : ""
       );
+      setIsFavorite(product.isFavorite ?? false);
+      setShowBomOnEstimate(product.showBomOnEstimate ?? false);
     } else {
       setName("");
       setDescription("");
@@ -435,6 +452,8 @@ function ProductFormModal({
       setSku("");
       setMinimumCharge("");
       setMinimumQuantity("");
+      setIsFavorite(false);
+      setShowBomOnEstimate(false);
     }
   }, [product]);
 
@@ -469,6 +488,8 @@ function ProductFormModal({
         minimumCharge.trim() === "" ? null : Number(minimumCharge),
       minimumQuantity:
         minimumQuantity.trim() === "" ? null : Number(minimumQuantity),
+      isFavorite,
+      showBomOnEstimate,
     };
 
     if (isEditing && product) {
@@ -636,7 +657,7 @@ function ProductFormModal({
           </div>
 
           {/* Toggles */}
-          <div className="flex gap-4">
+          <div className="flex flex-wrap gap-x-4 gap-y-1.5">
             <label className="flex items-center gap-1.5 cursor-pointer">
               <input
                 type="checkbox"
@@ -654,6 +675,37 @@ function ProductFormModal({
                 className="rounded border-border"
               />
               <span className="font-mono text-caption text-text-2">{t("products.activeLabel")}</span>
+            </label>
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isFavorite}
+                onChange={(e) => setIsFavorite(e.target.checked)}
+                className="rounded border-border"
+              />
+              <span className="inline-flex items-center gap-1 font-mono text-caption text-text-2">
+                <Star
+                  className={cn(
+                    "w-[12px] h-[12px]",
+                    isFavorite ? "fill-current text-status-warning" : "text-text-mute"
+                  )}
+                />
+                {t("products.favorite")}
+              </span>
+            </label>
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showBomOnEstimate}
+                onChange={(e) => setShowBomOnEstimate(e.target.checked)}
+                className="rounded border-border"
+              />
+              <span
+                className="font-mono text-caption text-text-2"
+                title={t("products.showBomOnEstimateHelp")}
+              >
+                {t("products.showBomOnEstimate")}
+              </span>
             </label>
           </div>
 
