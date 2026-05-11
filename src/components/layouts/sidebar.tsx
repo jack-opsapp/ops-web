@@ -82,7 +82,7 @@ function buildNavItems(t: (key: string) => string): NavEntry[] {
     { label: t("nav.inventory"), href: "/inventory", icon: Boxes, permission: "inventory.view" },
     { label: t("nav.accounting"), href: "/accounting", icon: Calculator, permission: "accounting.view" },
     "divider",
-    { label: t("nav.agentQueue"), href: "/agent/queue", icon: BrainCircuit, permission: "admin" },
+    { label: t("nav.agentQueue"), href: "/agent/queue", icon: BrainCircuit, permission: "agent.queue.view" },
     "divider",
     { label: t("nav.settings"), href: "/settings", icon: Settings },
   ];

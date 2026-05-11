@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { useDictionary, useLocale } from "@/i18n/client";
@@ -206,8 +206,17 @@ export default function InvoicesPage() {
     return map;
   }, [projects]);
 
+  // Project filter pulled from the URL — set when the projects canvas
+  // hands off to the invoices page for a "Record payment" workflow
+  // (bug 272b3751). Kept reactive on every query-string change so the
+  // user can clear it via the back button without an extra re-route.
+  const projectIdFilter = searchParams.get("projectId");
+
   const filtered = useMemo(() => {
     let list = [...invoices];
+    if (projectIdFilter) {
+      list = list.filter((i) => i.projectId === projectIdFilter);
+    }
     if (filterStatus !== "all") {
       list = list.filter((i) => i.status === filterStatus);
     }
@@ -220,7 +229,34 @@ export default function InvoicesPage() {
       );
     }
     return list;
-  }, [invoices, filterStatus, searchQuery, clientMap]);
+  }, [invoices, projectIdFilter, filterStatus, searchQuery, clientMap]);
+
+  // Auto-open the record-payment modal when the project canvas routes
+  // here with action=recordPayment AND there's exactly one outstanding
+  // invoice for the project — the common case. If there's more than
+  // one, we leave the user on the filtered list to choose.
+  const autoPaymentRanRef = useRef(false);
+  useEffect(() => {
+    if (autoPaymentRanRef.current) return;
+    if (searchParams.get("action") !== "recordPayment") return;
+    if (!projectIdFilter) return;
+    if (!can("invoices.record_payment")) return;
+    const outstanding = invoices.filter(
+      (i) =>
+        i.projectId === projectIdFilter &&
+        i.status !== InvoiceStatus.Paid &&
+        i.status !== InvoiceStatus.Void &&
+        i.status !== InvoiceStatus.Draft,
+    );
+    if (outstanding.length === 1) {
+      setPaymentInvoice(outstanding[0]);
+      autoPaymentRanRef.current = true;
+    } else if (outstanding.length === 0 && invoices.length > 0) {
+      // No outstanding invoices to apply payment to — tell the user.
+      toast.info(t("invoices.payment.noOutstanding"));
+      autoPaymentRanRef.current = true;
+    }
+  }, [searchParams, projectIdFilter, invoices, can, t]);
 
   const metrics = useMemo(() => {
     // Drafts are not yet sent and therefore not "outstanding" — exclude them

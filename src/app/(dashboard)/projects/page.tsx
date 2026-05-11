@@ -2,7 +2,9 @@
 
 import { useState, useCallback, useMemo, useEffect, useRef, memo } from "react";
 import { Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useDictionary } from "@/i18n/client";
+import { QueryErrorState } from "@/components/ops/query-error-state";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { trackScreenView } from "@/lib/analytics/analytics";
 import { toast } from "@/components/ui/toast";
@@ -174,6 +176,7 @@ export default function ProjectsPage() {
   usePageTitle("Projects");
   const { t } = useDictionary("projects-canvas");
   const { can } = usePermissionStore();
+  const router = useRouter();
   const { isComplete: setupComplete, needsWebSetup, missingSteps } = useSetupGate();
   const [showSetupModal, setShowSetupModal] = useState(false);
 
@@ -181,11 +184,20 @@ export default function ProjectsPage() {
   const canManage = can("projects.edit");
   const canViewAccounting = can("accounting.view");
   const canCreateTasks = can("tasks.create");
-  const canRecordPayment = can("accounting.edit");
+  // Record-payment lives on the invoices surface — gate the project
+  // canvas action on the same permission the destination page enforces
+  // so we never advertise an action a user can't complete (bug 272b3751).
+  const canRecordPayment = can("invoices.record_payment");
   const canDelete = can("projects.delete");
 
   // ── Data fetching ──
-  const { data: projectsData, isLoading } = useScopedProjects();
+  const {
+    data: projectsData,
+    isLoading,
+    isError: projectsError,
+    isFetching: projectsFetching,
+    refetch: refetchProjects,
+  } = useScopedProjects();
   const { data: clientsData } = useClients();
   const { data: teamData } = useTeamMembers();
   const { data: invoicesData } = useInvoices();
@@ -556,10 +568,20 @@ export default function ProjectsPage() {
     [openWindow, projectMap]
   );
 
-  const handleRecordPayment = useCallback((_projectId: string) => {
-    // TODO: Open payment recording form
-    toast.info("Payment recording coming soon");
-  }, []);
+  // Hand off to the invoices page filtered to this project with the
+  // record-payment intent. The invoices page auto-opens the payment
+  // modal when there's exactly one outstanding invoice and toasts a
+  // clear message when there are none — that's a real workflow rather
+  // than the previous "Payment recording coming soon" dead end
+  // (bug 272b3751).
+  const handleRecordPayment = useCallback(
+    (projectId: string) => {
+      router.push(
+        `/invoices?projectId=${encodeURIComponent(projectId)}&action=recordPayment`,
+      );
+    },
+    [router],
+  );
 
   const handleArchive = useCallback(
     (projectId: string) => {
@@ -682,6 +704,25 @@ export default function ProjectsPage() {
   const batchCount = activeCardId && useProjectCanvasStore.getState().selectedCardIds.has(activeCardId)
     ? selectedCount
     : 1;
+
+  // ── Error ──
+  // Surface a retry path on full failure so the canvas isn't stuck on
+  // the spinner state (bug 03241853). We only swap in the error pane
+  // when there's no cached data — if we already have a previous result
+  // the canvas renders that and the background refetch continues silently.
+  if (projectsError && !projectsData) {
+    return (
+      <div className="flex flex-col h-full items-center justify-center gap-3 p-4">
+        <QueryErrorState
+          title="Could not load projects."
+          description="The project canvas couldn't reach the server. Try again — your unsaved layout edits are preserved locally."
+          errorCode="PROJECTS_CANVAS"
+          onRetry={() => refetchProjects()}
+          isRetrying={projectsFetching}
+        />
+      </div>
+    );
+  }
 
   // ── Loading ──
   if (isLoading) {

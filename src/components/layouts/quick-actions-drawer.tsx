@@ -14,6 +14,7 @@ import { useSetupGate } from "@/hooks/useSetupGate";
 import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModal";
 import {
   isWindowAction,
+  resolveActionLabel,
   type FABAction,
 } from "@/lib/constants/fab-actions";
 import {
@@ -133,7 +134,7 @@ export function QuickActionsDrawer() {
         } else {
           openWindow({
             id: action.target,
-            title: action.label,
+            title: resolveActionLabel(action, t),
             type: action.target,
           });
         }
@@ -354,7 +355,7 @@ export function QuickActionsDrawer() {
                           whiteSpace: "nowrap",
                         }}
                       >
-                        {action.label}
+                        {resolveActionLabel(action, t)}
                       </span>
                       <span
                         aria-hidden

@@ -211,6 +211,7 @@
   "invoices.payment.method": "Method",
   "invoices.payment.reference": "Reference #",
   "invoices.payment.notes": "Notes",
+  "invoices.payment.noOutstanding": "No outstanding invoices on this project — payment cannot be recorded.",
   "invoices.actions.downloadPdf": "Download PDF",
   "invoices.actions.send": "Send",
   "invoices.actions.recordPayment": "Record Payment",

@@ -97,9 +97,18 @@ function taskStatusToKey(status: TaskStatus): StatusBadgeTaskStatus {
   }
 }
 
+// Project task statuses available in the inline status menu.
+// project_tasks.status has a CHECK constraint of ('active','completed','cancelled')
+// — In Progress is intentionally NOT a persistable slot at the DB layer
+// (the migrate_task_status_to_active migration collapsed Booked+InProgress
+// into a single 'active' state, see task-service.ts:serializeTaskStatus).
+// Exposing it in the menu caused users to "set" In Progress only to have
+// the value collapse to active on write and read back as Booked on the
+// next refetch (bug 452d7865). The TS enum keeps the value for iOS
+// parity but no surface should offer it for project tasks until the
+// constraint is widened in a future migration.
 const STATUS_OPTIONS: { value: TaskStatus; label: string }[] = [
   { value: TaskStatus.Booked, label: "Booked" },
-  { value: TaskStatus.InProgress, label: "In Progress" },
   { value: TaskStatus.Completed, label: "Completed" },
   { value: TaskStatus.Cancelled, label: "Cancelled" },
 ];
@@ -208,8 +217,11 @@ function TaskRow({
         {title}
       </p>
 
-      {/* Assignee avatars */}
-      <div className="hidden sm:flex items-center shrink-0">
+      {/* Assignee avatars — visible at every breakpoint so phone users
+          can re-assign or open the team picker directly from the row.
+          Was previously `hidden sm:flex`, which hid the control on mobile
+          and made the row a dead end for field crews (bug 29fcbf09). */}
+      <div className="flex items-center shrink-0">
         {assignedMembers.length > 0 ? (
           <div className="flex items-center">
             {assignedMembers.slice(0, 3).map((member, idx) => (
@@ -244,8 +256,11 @@ function TaskRow({
         )}
       </div>
 
-      {/* Date range */}
-      <div className="hidden sm:flex items-center shrink-0">
+      {/* Date range — visible at every breakpoint so the unscheduled
+          badge / mini-calendar popover stays reachable on mobile. The
+          start/end date string itself is short (e.g. "Jul 14") and
+          collapses gracefully alongside the truncating task title. */}
+      <div className="flex items-center shrink-0">
         {hasStartDate ? (
           <span
             className={cn(
@@ -300,12 +315,17 @@ function TaskRow({
         </SelectContent>
       </Select>
 
-      {/* Overflow menu */}
+      {/* Overflow menu — always visible. Touch devices have no hover
+          state, so the previous `opacity-0 group-hover:opacity-100`
+          treatment made Edit/Delete unreachable on phones (bug 29fcbf09).
+          Trigger is always rendered; pointer-fine devices simply see the
+          full-opacity glyph at rest. */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
-            className="p-[4px] text-text-mute hover:text-text-3 transition-colors shrink-0 opacity-0 group-hover:opacity-100"
+            className="p-[4px] text-text-3 hover:text-text transition-colors shrink-0"
             onClick={(e) => e.stopPropagation()}
+            aria-label="Task actions"
           >
             <MoreVertical className="w-[14px] h-[14px]" />
           </button>
@@ -499,6 +519,16 @@ function TaskList({ projectId, companyId, className }: TaskListProps) {
     (values: TaskFormValues) => {
       if (!editingTask) return;
 
+      // Schedule fields come from the form as `YYYY-MM-DD` strings (or "").
+      // Convert to Date | null so the update mirrors the shape of
+      // ProjectTask.startDate/endDate. Sending undefined here would let the
+      // partial update skip these fields entirely — the bug (c0d4abe7) was
+      // dispatchers editing the schedule and the new dates never persisting.
+      const startDate = values.startDate
+        ? new Date(values.startDate)
+        : null;
+      const endDate = values.endDate ? new Date(values.endDate) : null;
+
       updateTaskMutation.mutate(
         {
           id: editingTask.id,
@@ -507,6 +537,8 @@ function TaskList({ projectId, companyId, className }: TaskListProps) {
             taskTypeId: values.taskTypeId,
             taskColor: values.taskColor || "#59779F",
             teamMemberIds: values.teamMemberIds || [],
+            startDate,
+            endDate,
           },
         },
         {

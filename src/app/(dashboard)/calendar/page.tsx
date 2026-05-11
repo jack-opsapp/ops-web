@@ -42,6 +42,7 @@ import { queryKeys } from "@/lib/api/query-client";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { UserRole, type TeamMember } from "@/lib/types/models";
 
+import { QueryErrorState } from "@/components/ops/query-error-state";
 import { CalendarHeader } from "./_components/calendar-header";
 import { CalendarToolbar } from "./_components/calendar-toolbar";
 import { CrewScrollContainer } from "./_components/crew/crew-scroll-container";
@@ -209,10 +210,13 @@ export default function CalendarPage() {
 
   const { data: calendarMetrics = [], isLoading: calendarMetricsLoading } = useCalendarMetrics();
 
-  const { data: scheduledTasks, isLoading } = useScheduledTasks(
-    rangeStart,
-    rangeEnd
-  );
+  const {
+    data: scheduledTasks,
+    isLoading,
+    isError: scheduledTasksError,
+    isFetching: scheduledTasksFetching,
+    refetch: refetchScheduledTasks,
+  } = useScheduledTasks(rangeStart, rangeEnd);
 
   // Personal events + time-off requests in the visible range. Mirrors the iOS
   // CalendarViewModel, which renders ProjectTask + CalendarUserEvent together.
@@ -363,7 +367,7 @@ export default function CalendarPage() {
                 month/week/day reuses the previous range's data via
                 placeholderData on useScheduledTasks — so the calendar stays
                 mounted and the user never sees a flash. */}
-            {isLoading && events.length === 0 && (
+            {isLoading && events.length === 0 && !scheduledTasksError && (
               <div className="flex flex-col items-center justify-center flex-1 min-h-[200px] gap-3">
                 <Loader2 className="w-[32px] h-[32px] text-text-2 animate-spin" />
                 <p className="font-mohave text-body-sm text-text-3">
@@ -371,7 +375,18 @@ export default function CalendarPage() {
                 </p>
               </div>
             )}
-            {(!isLoading || events.length > 0) && (
+            {scheduledTasksError && events.length === 0 && (
+              <div className="flex flex-col items-center justify-center flex-1 min-h-[200px] gap-3 p-4">
+                <QueryErrorState
+                  title="Could not load schedule."
+                  description="The schedule query failed. Check your connection — the calendar will reload as soon as it can talk to the server again."
+                  errorCode="CALENDAR_SCHEDULED_TASKS"
+                  onRetry={() => refetchScheduledTasks()}
+                  isRetrying={scheduledTasksFetching}
+                />
+              </div>
+            )}
+            {(!isLoading || events.length > 0) && !scheduledTasksError && (
               <AnimatePresence mode="wait" initial={false}>
                 <motion.div
                   key={view}
