@@ -499,6 +499,16 @@ function TaskList({ projectId, companyId, className }: TaskListProps) {
     (values: TaskFormValues) => {
       if (!editingTask) return;
 
+      // Schedule fields come from the form as `YYYY-MM-DD` strings (or "").
+      // Convert to Date | null so the update mirrors the shape of
+      // ProjectTask.startDate/endDate. Sending undefined here would let the
+      // partial update skip these fields entirely — the bug (c0d4abe7) was
+      // dispatchers editing the schedule and the new dates never persisting.
+      const startDate = values.startDate
+        ? new Date(values.startDate)
+        : null;
+      const endDate = values.endDate ? new Date(values.endDate) : null;
+
       updateTaskMutation.mutate(
         {
           id: editingTask.id,
@@ -507,6 +517,8 @@ function TaskList({ projectId, companyId, className }: TaskListProps) {
             taskTypeId: values.taskTypeId,
             taskColor: values.taskColor || "#59779F",
             teamMemberIds: values.teamMemberIds || [],
+            startDate,
+            endDate,
           },
         },
         {
