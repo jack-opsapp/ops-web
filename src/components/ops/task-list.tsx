@@ -208,8 +208,11 @@ function TaskRow({
         {title}
       </p>
 
-      {/* Assignee avatars */}
-      <div className="hidden sm:flex items-center shrink-0">
+      {/* Assignee avatars — visible at every breakpoint so phone users
+          can re-assign or open the team picker directly from the row.
+          Was previously `hidden sm:flex`, which hid the control on mobile
+          and made the row a dead end for field crews (bug 29fcbf09). */}
+      <div className="flex items-center shrink-0">
         {assignedMembers.length > 0 ? (
           <div className="flex items-center">
             {assignedMembers.slice(0, 3).map((member, idx) => (
@@ -244,8 +247,11 @@ function TaskRow({
         )}
       </div>
 
-      {/* Date range */}
-      <div className="hidden sm:flex items-center shrink-0">
+      {/* Date range — visible at every breakpoint so the unscheduled
+          badge / mini-calendar popover stays reachable on mobile. The
+          start/end date string itself is short (e.g. "Jul 14") and
+          collapses gracefully alongside the truncating task title. */}
+      <div className="flex items-center shrink-0">
         {hasStartDate ? (
           <span
             className={cn(
@@ -300,12 +306,17 @@ function TaskRow({
         </SelectContent>
       </Select>
 
-      {/* Overflow menu */}
+      {/* Overflow menu — always visible. Touch devices have no hover
+          state, so the previous `opacity-0 group-hover:opacity-100`
+          treatment made Edit/Delete unreachable on phones (bug 29fcbf09).
+          Trigger is always rendered; pointer-fine devices simply see the
+          full-opacity glyph at rest. */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
-            className="p-[4px] text-text-mute hover:text-text-3 transition-colors shrink-0 opacity-0 group-hover:opacity-100"
+            className="p-[4px] text-text-3 hover:text-text transition-colors shrink-0"
             onClick={(e) => e.stopPropagation()}
+            aria-label="Task actions"
           >
             <MoreVertical className="w-[14px] h-[14px]" />
           </button>
