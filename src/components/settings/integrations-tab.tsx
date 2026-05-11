@@ -325,7 +325,15 @@ export function IntegrationsTab() {
   // Invalidate connections query when wizard analysis starts (via onComplete or page load)
   const queryClient = useQueryClient();
 
-  const openWizard = useCallback(() => {
+  // Tracks whether the operator opened the wizard via the "re-scan"
+  // affordance on an already-active connection. The wizard reads this
+  // flag and starts a fresh analyze run at step 2 instead of jumping to
+  // the activation confirmation (step 5). Reset to false whenever the
+  // wizard closes so the next normal open goes back to default behavior.
+  const [wizardRescan, setWizardRescan] = useState(false);
+
+  const openWizard = useCallback((opts?: { rescan?: boolean }) => {
+    setWizardRescan(!!opts?.rescan);
     setWizardOpen(true);
   }, []);
 
@@ -334,11 +342,16 @@ export function IntegrationsTab() {
       {/* Import Pipeline Wizard */}
       <ImportPipelineWizard
         open={wizardOpen}
-        onOpenChange={setWizardOpen}
+        onOpenChange={(o) => {
+          setWizardOpen(o);
+          if (!o) setWizardRescan(false);
+        }}
         connectionId={companyConnections[0]?.id}
         companyId={companyId}
+        rescan={wizardRescan}
         onComplete={async () => {
           setWizardOpen(false);
+          setWizardRescan(false);
           toast.success("Pipeline import complete");
           // Await both invalidation AND refetch so the tile re-renders with the
           // post-activation connection data (status='active', syncFilters.wizardCompleted=true)
@@ -581,7 +594,7 @@ export function IntegrationsTab() {
                     Pipeline sync is active
                   </span>
                   <button
-                    onClick={() => openWizard()}
+                    onClick={() => openWizard({ rescan: true })}
                     className="ml-auto font-mono text-micro text-text-mute/50 hover:text-text-mute transition-colors"
                   >
                     re-scan

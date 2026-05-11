@@ -80,6 +80,14 @@ interface ImportPipelineWizardProps {
   connectionId?: string;
   companyId: string;
   onComplete?: () => void;
+  /**
+   * When true, the wizard treats the opening as a fresh scan request even
+   * for connections that have already completed the wizard. The "active +
+   * wizardCompleted → jump to step 5" early return is skipped and the
+   * wizard starts a brand new analyze run at step 2. Wired by the
+   * integrations tab's "re-scan" button.
+   */
+  rescan?: boolean;
 }
 
 export function ImportPipelineWizard({
@@ -88,6 +96,7 @@ export function ImportPipelineWizard({
   connectionId: initialConnectionId,
   companyId,
   onComplete,
+  rescan = false,
 }: ImportPipelineWizardProps) {
   const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(
     initialConnectionId ? 2 : 1
@@ -301,6 +310,27 @@ export function ImportPipelineWizard({
         const conn = await res.json();
         const filters = conn.syncFilters || {};
 
+        // Re-scan mode: the operator clicked "re-scan" on an already-
+        // active connection. We intentionally do NOT restore the stale
+        // analyze/import job — the wizard lands on step 2 (AnalyzeStep
+        // with no existingJobId) which auto-fires a fresh /analyze call.
+        // Wizard state (analysisResult, import results, review decisions)
+        // is reset on the next render via the open/close cycle.
+        if (rescan && conn.status === "active") {
+          setExistingJobId(null);
+          setAnalysisResult(null);
+          setConfirmedSources([]);
+          setConfirmedLeads([]);
+          setImportResult(null);
+          setImportJobId(null);
+          setRunningJobId(null);
+          setRunningJobType(null);
+          setBgProgress({ percent: 0, message: "Working..." });
+          setDirection(1);
+          setStep(2);
+          return;
+        }
+
         // ── Early guard: connection is already active ────────────────────
         // Without this, a user reopening the wizard for an already-active
         // connection would fall through to step 2's AnalyzeStep, which auto-
@@ -308,7 +338,14 @@ export function ImportPipelineWizard({
         // produces phantom job rows. Gate on status='active' so the wizard
         // always lands on step 5 (the activation confirmation) for set-up
         // connections, regardless of what the job IDs look like.
-        if (filters.wizardCompleted && conn.status === "active") {
+        //
+        // EXCEPTION — re-scan: the integrations tab's "re-scan" button
+        // explicitly asks to refresh leads on an active connection. In
+        // that mode we skip this jump-to-step-5 path and start a fresh
+        // analyze run at step 2 (the AnalyzeStep auto-starts a new job
+        // because lastScanJobId stays untouched but startedRef on the
+        // step is fresh on mount).
+        if (!rescan && filters.wizardCompleted && conn.status === "active") {
           let loadedImportResult: ImportResult | null = null;
 
           // Load existing scan/import data so step 5 renders real numbers
@@ -359,8 +396,10 @@ export function ImportPipelineWizard({
         }
 
         // Wizard marked complete but connection isn't active (edge case —
-        // probably a deactivated or errored connection). Nothing to restore.
-        if (filters.wizardCompleted) return;
+        // probably a deactivated or errored connection). Nothing to
+        // restore. In re-scan mode we DO fall through so a fresh analyze
+        // run kicks off rather than stalling on the dead wizard state.
+        if (filters.wizardCompleted && !rescan) return;
 
         // ── Check for import job first (higher wizard step) ──────────────
         if (filters.lastImportJobId) {
