@@ -390,6 +390,24 @@ export {
 
 // Product-Inventory Bridge
 export { useProductMaterials, useSetProductBom } from "./use-product-materials";
+export {
+  useProductOptions,
+  useProductOptionValues,
+  useCreateProductOption,
+  useUpdateProductOption,
+  useReorderProductOptions,
+  useDeleteProductOption,
+  useCreateProductOptionValue,
+  useUpdateProductOptionValue,
+  useReorderProductOptionValues,
+  useDeleteProductOptionValue,
+} from "./use-product-options";
+export {
+  useProductPricingModifiers,
+  useCreateProductPricingModifier,
+  useUpdateProductPricingModifier,
+  useDeleteProductPricingModifier,
+} from "./use-product-pricing-modifiers";
 export { useTaskMaterials, useSetTaskMaterials } from "./use-task-materials";
 export { useLineItemMaterials, useSetLineItemMaterials } from "./use-line-item-materials";
 export { useProjectDeductions, useTaskDeductions } from "./use-inventory-deductions";

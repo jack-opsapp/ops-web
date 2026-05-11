@@ -123,6 +123,8 @@ export { ApprovalQueueService } from "./approval-queue-service";
 export type { ProposeActionParams, QueueFilters, QueueStats } from "@/lib/types/approval-queue";
 
 export { ProductMaterialsService } from "./product-materials-service";
+export { ProductOptionsService } from "./product-options-service";
+export { ProductPricingModifiersService } from "./product-pricing-modifiers-service";
 export { TaskMaterialsService } from "./task-materials-service";
 export { InventoryDeductionService } from "./inventory-deduction-service";
 export { LineItemMaterialsService } from "./line-item-materials-service";

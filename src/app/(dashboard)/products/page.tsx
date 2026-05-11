@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import Link from "next/link";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import {
   Plus,
   Search,
   Package,
   Pencil,
+  Sliders,
   Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -258,6 +260,15 @@ export default function ProductsPage() {
                   {/* Actions */}
                   <td className="px-2 py-1.5 text-right">
                     <div className="flex items-center justify-end gap-0.5">
+                      {can("products.manage") && (
+                        <Link
+                          href={`/products/${product.id}/options`}
+                          className="p-1 rounded text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.05)] transition-colors"
+                          title="Options & modifiers"
+                        >
+                          <Sliders className="w-[14px] h-[14px]" />
+                        </Link>
+                      )}
                       {can("products.manage") && (
                         <button
                           onClick={() => setEditingProduct(product)}
@@ -605,6 +616,26 @@ function ProductFormModal({
           {isEditing && product && (
             <div className="border-t border-border pt-3">
               <ProductBomEditor productId={product.id} productUnit={unit} />
+            </div>
+          )}
+
+          {/* Options & Pricing Modifiers — only for saved products */}
+          {isEditing && product && (
+            <div className="border-t border-border pt-3">
+              <Link
+                href={`/products/${product.id}/options`}
+                className="flex items-center justify-between gap-2 px-2 py-1.5 border border-border rounded bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(255,255,255,0.05)] hover:border-ops-accent transition-colors"
+              >
+                <div className="flex items-center gap-1.5">
+                  <Sliders className="w-[14px] h-[14px] text-text-3" />
+                  <span className="font-cakemono font-light text-body uppercase tracking-wider text-text">
+                    {"// OPTIONS & PRICING MODIFIERS"}
+                  </span>
+                </div>
+                <span className="font-mono text-caption-sm uppercase tracking-widest text-text-mute">
+                  [EDIT →]
+                </span>
+              </Link>
             </div>
           )}
 
