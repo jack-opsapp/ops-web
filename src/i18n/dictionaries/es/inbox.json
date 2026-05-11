@@ -220,6 +220,7 @@
 
   "toast.archived": "Archivado",
   "toast.archivedBack": "Devuelto a la bandeja",
+  "toast.recategorizedDetail": "[—] phase c aprenderá de esta corrección.",
   "toast.undo": "Deshacer",
 
   "phaseC.drafted.primary": "Phase C redactó una respuesta",
@@ -334,6 +335,10 @@
   "groups.fyiLabel": "// INFORMATIVO",
   "groups.closedLabel": "// CERRADO",
   "groups.scheduledLabel": "// PROGRAMADO",
+  "groups.needsInputLabel": "// NECESITA TU RESPUESTA",
+  "groups.draftsReadyLabel": "// BORRADORES LISTOS",
+  "groups.awaitingThemLabel": "// ESPERANDO RESPUESTA",
+  "groups.laterLabel": "// DESPUÉS",
 
   "row.stateYoursHours": "TU TURNO · {hours}H",
   "row.stateYoursDays": "TU TURNO · {days}D",
@@ -430,12 +435,12 @@
   "rail.oppMetaThisThread": "↗ este hilo",
   "rail.photosCount": "{n} FOTOS",
 
-  "modal.archive.title": "// ARCHIVAR HILO",
+  "modal.archive.title": "// ARCHIVAR",
   "modal.archive.body": "[—] este hilo se moverá al archivo. nada se elimina.",
   "modal.archive.cancel": "CANCELAR",
   "modal.archive.confirm": "ARCHIVAR",
 
-  "modal.snooze.title": "// POSPONER HILO",
+  "modal.snooze.title": "// POSPONER",
   "modal.snooze.body": "[—] ocultar hasta · vuelve a la bandeja automáticamente",
   "modal.snooze.preset1H": "[1H]",
   "modal.snooze.preset4H": "[4H]",
@@ -443,6 +448,7 @@
   "modal.snooze.presetTomorrow": "[MAÑANA 8AM]",
   "modal.snooze.presetWeekend": "[FIN DE SEMANA]",
   "modal.snooze.presetNextMon": "[PRÓX LUN]",
+  "modal.snooze.presetNextMonth": "[PRÓX MES]",
   "modal.snooze.presetCustom": "elige fecha y hora…",
 
   "modal.recat.title": "// RECATEGORIZAR",

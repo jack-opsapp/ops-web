@@ -284,7 +284,7 @@
   "toast.archivedBack": "Moved back to inbox",
   "toast.snoozed": "Snoozed until {when}",
   "toast.recategorized": "Marked as {category}",
-  "toast.recategorizedDetail": "Phase C will learn from this correction.",
+  "toast.recategorizedDetail": "[—] phase c will learn from this correction.",
   "toast.undo": "Undo",
 
   "phaseC.drafted.primary": "Phase C drafted a reply for you",
@@ -365,6 +365,10 @@
   "groups.fyiLabel": "// FYI",
   "groups.closedLabel": "// CLOSED",
   "groups.scheduledLabel": "// SCHEDULED",
+  "groups.needsInputLabel": "// NEEDS INPUT",
+  "groups.draftsReadyLabel": "// DRAFTS READY",
+  "groups.awaitingThemLabel": "// AWAITING THEM",
+  "groups.laterLabel": "// LATER",
 
   "row.stateYoursHours": "YOURS · {hours}H",
   "row.stateYoursDays": "YOURS · {days}D",
@@ -461,12 +465,12 @@
   "rail.oppMetaThisThread": "↗ this thread",
   "rail.photosCount": "{n} PHOTOS",
 
-  "modal.archive.title": "// ARCHIVE THREAD",
+  "modal.archive.title": "// ARCHIVE",
   "modal.archive.body": "[—] this thread will move to archive. nothing is deleted.",
   "modal.archive.cancel": "CANCEL",
   "modal.archive.confirm": "ARCHIVE",
 
-  "modal.snooze.title": "// SNOOZE THREAD",
+  "modal.snooze.title": "// SNOOZE",
   "modal.snooze.body": "[—] hide until · returns to inbox automatically",
   "modal.snooze.preset1H": "[1H]",
   "modal.snooze.preset4H": "[4H]",
@@ -474,6 +478,7 @@
   "modal.snooze.presetTomorrow": "[TOMORROW 8AM]",
   "modal.snooze.presetWeekend": "[WEEKEND]",
   "modal.snooze.presetNextMon": "[NEXT MON]",
+  "modal.snooze.presetNextMonth": "[NEXT MONTH]",
   "modal.snooze.presetCustom": "pick a date and time…",
 
   "modal.recat.title": "// RECATEGORIZE",

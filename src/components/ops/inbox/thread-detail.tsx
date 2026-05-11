@@ -9,6 +9,8 @@ interface ThreadDetailProps {
   category?: { label: string; dotClassName: string } | null;
   senderName: string;
   messageCount: number;
+  otherThreadCount?: number;
+  onOpenThreadPicker?: () => void;
   onPrev: () => void;
   onNext: () => void;
   /** Render-slot for the archive button (wraps a styled button). */
@@ -41,6 +43,8 @@ export function ThreadDetail({
   category,
   senderName,
   messageCount,
+  otherThreadCount,
+  onOpenThreadPicker,
   onPrev,
   onNext,
   archiveSlot,
@@ -78,6 +82,8 @@ export function ThreadDetail({
         category={category}
         senderName={senderName}
         messageCount={messageCount}
+        otherThreadCount={otherThreadCount}
+        onOpenThreadPicker={onOpenThreadPicker}
         archiveSlot={archiveSlot}
         snoozeSlot={snoozeSlot}
         recategorizeSlot={recategorizeSlot}

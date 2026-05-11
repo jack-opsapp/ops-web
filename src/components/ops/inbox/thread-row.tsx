@@ -1,23 +1,22 @@
 "use client";
 
 /**
- * ThreadRow — faithful port of `reference/v3-columns.jsx :: V3FeedRow`.
+ * ThreadRow — Phase B2 brand-intent rebuild.
  *
- * Canonical anatomy (no avatar — V3FeedRow has none):
- *   • title row: client name + message count + relative time (lowercase mono)
+ * Anatomy (top-down):
+ *   • alarm strip (only when state.alarmStrip === true) — rose `// {N}D · UNANSWERED`
+ *   • title row: client name + optional `· {messageCount}` + inline <StateTag> + relative time
  *   • subject line (font-weight tracks unread/read)
- *   • snippet line with optional "AI DRAFT ·" / "DRAFT ·" Cake prefix
- *   • bottom signal row — only when at least one signal is present:
- *       URGENT pill on the left; paperclip / dollar / receipt / user-plus
- *       icons on the right
+ *   • snippet line — body is `aiSummary ?? snippet`, with optional `// CLAUDE DRAFT ·` (AI)
+ *     or `DRAFT ·` (operator) Cake-prefix
+ *   • bottom signal row — only when at least one of attachment / quote / invoice / new-sender
+ *     is present. The legacy URGENT pill is gone — the inline <StateTag> now carries urgency.
  *
- * The left stripe is decorative only. Width 2px normal, 3px when selected.
- * Color: rose for URGENT, lavender for AI-drafted, accent when selected,
- * otherwise transparent. Opacity tracks unread (0.85 / 0.4).
+ * Stripe color is derived from `state.kind`, NOT the legacy URGENT label:
+ *   selected → accent · alarmed/overdue → rose · ai-drafted → lavender · else → transparent
  *
- * Layout: `position: relative` container with absolute-positioned stripe
- * sitting at left:0 top:8 bottom:8, and 18px left padding so content
- * sits flush after the stripe.
+ * Overdue/alarmed rows tint the entire row body rose (`bg-rose/[0.04]` → `bg-rose/[0.08]` on
+ * hover) so they read as urgent even at a glance, not just at the stripe.
  */
 
 import {
@@ -29,14 +28,25 @@ import {
 import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
 import type { ThreadForGrouping } from "@/lib/inbox/grouping";
+import type { StateTagResult } from "@/lib/inbox/format-wait";
 import { StateTag } from "./state-tag";
 
 export interface ThreadRowData extends ThreadForGrouping {
   clientName: string;
   subject: string;
+  /** Raw provider snippet — the fallback when AI summary isn't available. */
   snippet: string;
+  /** Server-side AI summary; renders in preference to `snippet` when present. */
+  aiSummary: string | null;
   /** Total messages in the thread. Renders inline as `· {n}` when > 1. */
   messageCount: number;
+  /** Pre-computed state-tag result — drives the inline tag, the row stripe, and the alarm strip. */
+  state: StateTagResult;
+  /**
+   * Unix ms of the most recent inbound message — used to compute the alarm strip's day count.
+   * Null when latest direction is outbound or unknown.
+   */
+  lastInboundAt: number | null;
 }
 
 interface ThreadRowProps {
@@ -65,14 +75,14 @@ function formatRelativeTime(ts: number, now: number): string {
 
 export function ThreadRow({ thread, selected, now, onSelect }: ThreadRowProps) {
   const { t } = useDictionary("inbox");
-  const isUrgent = thread.labels.includes("URGENT");
   const isAiDraft =
     thread.phaseC === "ai_drafted" || thread.draftKind === "ai";
   const hasUserDraft = thread.draftKind === "user";
   const isUnread = thread.unread;
+  const isOverdue =
+    thread.state.kind === "alarmed" || thread.state.kind === "overdue";
 
   const showSignalRow =
-    thread.labels.includes("URGENT") ||
     thread.labels.includes("HAS_ATTACHMENT") ||
     thread.labels.includes("HAS_QUOTE") ||
     thread.labels.includes("HAS_INVOICE") ||
@@ -80,11 +90,16 @@ export function ThreadRow({ thread, selected, now, onSelect }: ThreadRowProps) {
 
   const stripeColor = selected
     ? "bg-ops-accent"
-    : isUrgent
+    : isOverdue
       ? "bg-rose"
       : isAiDraft
         ? "bg-agent"
         : "bg-transparent";
+
+  const alarmDays =
+    thread.state.alarmStrip && thread.lastInboundAt !== null
+      ? Math.floor((now - thread.lastInboundAt) / 86_400_000)
+      : 0;
 
   return (
     <button
@@ -94,7 +109,11 @@ export function ThreadRow({ thread, selected, now, onSelect }: ThreadRowProps) {
       className={cn(
         "group relative block w-full border-b border-line text-left",
         "py-2.5 pl-2 pr-3.5",
-        selected ? "bg-ops-accent/[0.07]" : "hover:bg-inbox-elev/40",
+        selected
+          ? "bg-ops-accent/[0.07]"
+          : isOverdue
+            ? "bg-rose/[0.04] hover:bg-rose/[0.08]"
+            : "hover:bg-inbox-elev/40",
       )}
     >
       <span
@@ -108,7 +127,20 @@ export function ThreadRow({ thread, selected, now, onSelect }: ThreadRowProps) {
         )}
       />
 
-      {/* Title row: name · count · time */}
+      {/* Alarm strip — rose, only on alarmed (>14d unanswered) threads */}
+      {thread.state.alarmStrip && thread.lastInboundAt !== null && (
+        <div
+          className="mb-1 font-mono text-[11px] uppercase tracking-[0.16em] text-rose"
+          style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
+        >
+          {t("row.alarmStrip", "// {days}D · UNANSWERED").replace(
+            "{days}",
+            String(alarmDays),
+          )}
+        </div>
+      )}
+
+      {/* Title row: name · count · state-tag · time */}
       <div className="flex min-w-0 items-baseline gap-2">
         <span
           className={cn(
@@ -126,6 +158,12 @@ export function ThreadRow({ thread, selected, now, onSelect }: ThreadRowProps) {
             · {thread.messageCount}
           </span>
         )}
+        <StateTag
+          tone={thread.state.tone}
+          variant="bare"
+          prefix={thread.state.prefix}
+          value={thread.state.value}
+        />
         <span
           className={cn(
             "shrink-0 font-mono text-[11px]",
@@ -147,11 +185,11 @@ export function ThreadRow({ thread, selected, now, onSelect }: ThreadRowProps) {
         {thread.subject || ""}
       </div>
 
-      {/* Snippet line with optional draft prefix */}
+      {/* Snippet line with optional draft prefix — prefers AI summary over raw snippet */}
       <div className="mt-0.5 truncate font-mohave text-[12px] leading-[1.4] text-text-3">
         {isAiDraft && (
           <span className="mr-1.5 font-cakemono text-[11px] font-light uppercase tracking-[0.16em] text-agent">
-            {t("row.aiDraftPrefix", "AI DRAFT ·")}
+            {t("row.claudeDraftPrefix", "// CLAUDE DRAFT ·")}
           </span>
         )}
         {!isAiDraft && hasUserDraft && (
@@ -159,24 +197,12 @@ export function ThreadRow({ thread, selected, now, onSelect }: ThreadRowProps) {
             {t("row.draftPrefix", "DRAFT ·")}
           </span>
         )}
-        {thread.snippet}
+        {thread.aiSummary ?? thread.snippet}
       </div>
 
-      {/* Bottom signal row */}
+      {/* Bottom signal row — attachments / quotes / invoices / new senders only */}
       {showSignalRow && (
         <div className="mt-1.5 flex items-center gap-1.5">
-          {thread.labels.includes("URGENT") && (
-            <span
-              data-testid="thread-row-urgent"
-              className="inline-flex items-center gap-1"
-            >
-              <span
-                aria-hidden
-                className="h-[5px] w-[5px] shrink-0 rounded-full bg-rose"
-              />
-              <StateTag tone="rose" variant="bare" prefix={t("row.urgent", "URGENT")} />
-            </span>
-          )}
           <span className="ml-auto flex items-center gap-1 text-text-mute">
             {thread.labels.includes("FROM_NEW_SENDER") && (
               <UserPlus

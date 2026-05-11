@@ -1,38 +1,35 @@
 "use client";
 
-/**
- * BallYoursBand — non-AI fallback for "your turn".
- *
- * Per the handoff README: "accent left bar, plain panel body, accent CTA".
- * The V3MessagesPane variant adds an inline last-reply timestamp; we surface
- * that on the right when provided.
- *
- *   |  ●  Your turn — Jeanne is waiting on a reply       Last reply · 2h
- *
- * (where `|` is the 2px accent left bar, `●` an accent dot.)
- */
-
 import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
+import { SlashLabel } from "../voice/slash-label";
+import { KeyHint } from "@/components/ui/key-hint";
 
 interface BallYoursBandProps {
   clientName: string;
-  lastReplyLabel?: string;
+  /** Pre-formatted wait clock — "18H" / "12D" / "MAR 4". */
+  waitDuration: string;
   onReply: () => void;
   className?: string;
 }
 
 export function BallYoursBand({
   clientName,
-  lastReplyLabel,
+  waitDuration,
   onReply,
   className,
 }: BallYoursBandProps) {
   const { t } = useDictionary("inbox");
-  const label = t(
-    "bands.ballYours.label",
-    "Your turn — {client} is waiting",
-  ).replace("{client}", clientName);
+  const title = t("bands.ballYours.title", "// YOUR TURN :: {client}").replace(
+    "{client}",
+    clientName.toUpperCase(),
+  );
+  const wait = waitDuration
+    ? t("bands.ballYours.wait", "WAITING · {duration}").replace(
+        "{duration}",
+        waitDuration,
+      )
+    : t("bands.ballYours.waitNone", "WAITING");
   return (
     <section
       aria-label={t("bands.ballYours.aria", "Your turn")}
@@ -41,31 +38,21 @@ export function BallYoursBand({
         className,
       )}
     >
+      <span aria-hidden className="absolute left-0 top-0 h-full w-[3px] bg-ops-accent" />
+      <SlashLabel label={title} tone="accent" className="flex-shrink-0" />
       <span
-        aria-hidden
-        className="absolute left-0 top-0 h-full w-[2px] bg-ops-accent"
-      />
-      <span
-        aria-hidden
-        className="h-1.5 w-1.5 shrink-0 rounded-full bg-ops-accent"
-      />
-      <span className="min-w-0 flex-1 truncate font-mohave text-[12px] tracking-[-0.003em] text-text">
-        {label}
+        className="font-mono text-[11px] uppercase tracking-[0.10em] text-text-2"
+        style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
+      >
+        {wait}
       </span>
-      {lastReplyLabel && (
-        <span
-          className="shrink-0 font-mono text-[11px] tracking-[0.2em] text-text-3"
-          style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
-        >
-          {lastReplyLabel}
-        </span>
-      )}
       <button
         type="button"
         onClick={onReply}
-        className="inline-flex h-[26px] shrink-0 items-center rounded-[2.5px] border border-ops-accent bg-transparent px-3 font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-ops-accent hover:bg-ops-accent hover:text-black"
+        className="ml-auto inline-flex h-[26px] shrink-0 items-center gap-1.5 rounded-[2.5px] border border-ops-accent bg-transparent px-3 font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-ops-accent transition-colors hover:bg-ops-accent hover:text-black"
       >
-        {t("bands.ballYours.reply", "Reply")}
+        {t("bands.ballYours.reply", "REPLY")}
+        <KeyHint variant="inline" keys={["⌘", "↵"]} />
       </button>
     </section>
   );

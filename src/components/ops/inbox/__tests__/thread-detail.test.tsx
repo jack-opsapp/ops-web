@@ -1,6 +1,7 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { ThreadDetail } from "../thread-detail";
+import { EmptyDetailHeader } from "../thread-detail-header";
 
 const baseProps = {
   subject: "RFQ — kitchen remodel",
@@ -31,9 +32,9 @@ describe("<ThreadDetail>", () => {
         <div />
       </ThreadDetail>,
     );
-    expect(screen.getByText("CLIENT")).toBeInTheDocument();
+    expect(screen.getByText("[CLIENT]")).toBeInTheDocument();
     expect(screen.getByText("Calloway HVAC")).toBeInTheDocument();
-    expect(screen.getByText("4 messages")).toBeInTheDocument();
+    expect(screen.getByText("4 MSG")).toBeInTheDocument();
   });
 
   it("renders the canonical four-button action cluster", () => {
@@ -95,5 +96,39 @@ describe("<ThreadDetail>", () => {
       </ThreadDetail>,
     );
     expect(screen.getByTestId("messages")).toBeInTheDocument();
+  });
+
+  it("does not render the thread-picker slot when threadPickerSlot is not provided", () => {
+    render(
+      <ThreadDetail {...baseProps}>
+        <div />
+      </ThreadDetail>,
+    );
+    expect(screen.queryByTestId("thread-picker-slot")).not.toBeInTheDocument();
+  });
+
+  it("renders the thread-picker slot when threadPickerSlot is provided", () => {
+    render(
+      <ThreadDetail
+        {...baseProps}
+        threadPickerSlot={
+          <span data-testid="thread-picker-slot">3 OTHER THREADS</span>
+        }
+      >
+        <div />
+      </ThreadDetail>,
+    );
+    expect(screen.getByTestId("thread-picker-slot")).toBeInTheDocument();
+    expect(screen.getByTestId("thread-picker-slot").textContent).toMatch(
+      /3 OTHER THREADS/,
+    );
+  });
+});
+
+describe("<EmptyDetailHeader>", () => {
+  it("renders the // SELECT THREAD tactical empty state", () => {
+    render(<EmptyDetailHeader />);
+    expect(screen.getByText("// SELECT THREAD")).toBeInTheDocument();
+    expect(screen.getByText("[—] no thread loaded")).toBeInTheDocument();
   });
 });

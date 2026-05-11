@@ -55,6 +55,7 @@ import { useWindowStore } from "@/stores/window-store";
 import { ResponsiveInboxShell } from "./responsive-inbox-shell";
 import { ThreadColumnHeader } from "./thread-column-header";
 import { TodayBar, type TodayCommitment } from "./today-bar";
+import { computeStateTag } from "@/lib/inbox/format-wait";
 import { ThreadList, type ThreadListItem } from "./thread-list";
 import { ThreadDetail } from "./thread-detail";
 import {
@@ -314,7 +315,7 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
           return;
         }
         enqueueUndoToast({
-          message: t("toast.archived", "Archived"),
+          message: t("toast.archivedTactic", "SYS :: THREAD ARCHIVED"),
           onUndo: () => threadActions.unarchive.mutate(threadId),
         });
       },
@@ -334,6 +335,7 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
         t("detail.unknownClient", "Unknown sender")
       }
       messageCount={detail.thread.messageCount ?? detail.messages.length}
+      otherThreadCount={0}
       onPrev={onPrev}
       onNext={onNext}
       onArchive={onArchiveClick}
@@ -499,7 +501,7 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
           );
         }}
         disabled={sendReply.isPending}
-        placeholder={t("composer.placeholder", "Reply to this thread…")}
+        placeholder={t("composer.tacticPlaceholder", "[type message — ⌘↵ to send]")}
         agentTinted={isAgentDraft && isPristineDraft}
         sendVariant={isAgentDraft && isPristineDraft ? "agent" : "accent"}
         topAccessory={
@@ -680,7 +682,7 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
           setArchiveOpen(false);
           setArchiveContext(null);
           enqueueUndoToast({
-            message: t("toast.archived", "Archived"),
+            message: t("toast.archivedTactic", "SYS :: THREAD ARCHIVED"),
             onUndo: () =>
               threadActions.unarchiveBatch.mutate({
                 threadIds: args.threadIds,
@@ -696,9 +698,23 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
 // ─── Adapters ────────────────────────────────────────────────────────────────
 
 function toThreadListItem(t: InboxThreadRow): ThreadListItem {
+  const lastMessageMs = new Date(t.lastMessageAt).getTime();
+  const lastInboundAt =
+    t.latestDirection === "inbound" ? lastMessageMs : null;
+  const lastOutboundAt =
+    t.latestDirection === "outbound" ? lastMessageMs : null;
+  const state = computeStateTag({
+    lastInboundAt,
+    lastOutboundAt,
+    hasAiDraft: t.phaseC === "ai_drafted",
+    sentByAgentRecently: t.phaseC === "auto_sent",
+    category: t.primaryCategory,
+    closed: t.archivedAt !== null,
+    now: Date.now(),
+  });
   return {
     id: t.id,
-    ts: new Date(t.lastMessageAt).getTime(),
+    ts: lastMessageMs,
     labels: t.labels,
     agent: { needsInput: t.agentBlockingQuestion !== null },
     phaseC: t.phaseC,
@@ -706,9 +722,12 @@ function toThreadListItem(t: InboxThreadRow): ThreadListItem {
     clientName: t.clientName ?? t.latestSenderName ?? "Unknown",
     subject: t.subject ?? "",
     snippet: t.latestSnippet ?? "",
+    aiSummary: t.aiSummary,
     unread: t.unreadCount > 0,
     messageCount: t.messageCount,
     draftKind: null,
+    state,
+    lastInboundAt,
   };
 }
 
@@ -725,14 +744,37 @@ function toCommitments(t: InboxThreadRow): TodayCommitment[] {
   ) {
     return [];
   }
-  const due = new Date(t.nextCommitmentDueAt);
+  const lastMessageMs = new Date(t.lastMessageAt).getTime();
+  const lastInboundAt =
+    t.latestDirection === "inbound" ? lastMessageMs : null;
+  const lastOutboundAt =
+    t.latestDirection === "outbound" ? lastMessageMs : null;
+  const stateResult = computeStateTag({
+    lastInboundAt,
+    lastOutboundAt,
+    hasAiDraft: t.phaseC === "ai_drafted",
+    sentByAgentRecently: t.phaseC === "auto_sent",
+    category: t.primaryCategory,
+    closed: t.archivedAt !== null,
+    now: Date.now(),
+  });
+  const waitingDays =
+    t.latestDirection === "inbound"
+      ? Math.floor((Date.now() - lastMessageMs) / 86_400_000)
+      : 0;
+  const clientName = t.clientName ?? t.latestSenderName ?? "Unknown";
   return [
     {
       id: t.nextCommitmentId,
       threadId: t.id,
-      text: `${t.clientName ?? t.latestSenderName ?? "Thread"} — ${t.subject ?? "—"}`,
-      due: formatDue(due),
-      urgent: t.labels.includes("URGENT"),
+      text: `${clientName} — ${t.subject ?? "—"}`,
+      clientName,
+      state: {
+        tone: stateResult.tone,
+        prefix: stateResult.prefix ?? "",
+        value: stateResult.value,
+      },
+      waitingDays,
     },
   ];
 }
