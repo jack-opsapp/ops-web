@@ -301,6 +301,21 @@ const reportsModule: PermissionModule = {
   ],
 };
 
+// The agent queue surfaces proposed financial actions (invoices, payment
+// reminders, etc.) with full client/project context. The API gate at
+// /api/agent/queue uses requireAdminOrOwner — only account holders and
+// company admins should see the nav entry or reach the page. Adding the
+// permission here also keeps the route gate, sidebar, and ALL_PERMISSIONS
+// lookup consistent (bug 63d0cf8d — previously the sidebar used the
+// non-existent "admin" key and the route gate fell back to pipeline.view).
+const agentModule: PermissionModule = {
+  id: "agent",
+  label: "Agent",
+  actions: [
+    { id: "agent.queue.view", label: "View agent action queue", scopes: ["all"] },
+  ],
+};
+
 // ─── Category Groupings ──────────────────────────────────────────────────────
 
 export const PERMISSION_CATEGORIES: PermissionCategory[] = [
@@ -327,7 +342,7 @@ export const PERMISSION_CATEGORIES: PermissionCategory[] = [
   {
     id: "admin",
     label: "Admin",
-    modules: [settingsModule, emailModule, inboxModule, portalModule, reportsModule],
+    modules: [settingsModule, emailModule, inboxModule, portalModule, reportsModule, agentModule],
   },
 ];
 
