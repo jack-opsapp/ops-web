@@ -82,6 +82,7 @@
   "rail.tabs.projects": "Proyectos",
   "rail.tabs.pipeline": "Pipeline",
   "rail.tabs.files": "Archivos",
+  "rail.empty.accounting": "[—] sin documentos financieros",
   "rail.closeDrawer": "Cerrar panel de contexto",
 
   "project.scope": "// ALCANCE",

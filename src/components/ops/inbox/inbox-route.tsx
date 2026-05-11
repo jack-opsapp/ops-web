@@ -44,10 +44,11 @@ import {
 } from "./archive-confirm-modal";
 import { enqueueUndoToast } from "./undo-toast";
 import { useClientOpportunities } from "@/lib/hooks/use-client-opportunities";
+import { useClientProjects } from "@/lib/hooks/use-client-projects";
+import { useClientTasks } from "@/lib/hooks/use-client-tasks";
 import { useClientFiles } from "@/lib/hooks/use-client-files";
 import { useClient, useSubClients } from "@/lib/hooks/use-clients";
 import { useThreadOpportunityLinks } from "@/lib/hooks/use-thread-opportunity-links";
-import { useClientTasks } from "@/lib/hooks/use-client-tasks";
 import { useClientThreads } from "@/lib/hooks/use-client-threads";
 import { ThreadPicker, type ThreadPickerThread } from "./thread-picker";
 import { computeStateTag } from "@/lib/inbox/format-wait";
@@ -69,17 +70,15 @@ import {
   categoryLabel as resolveCategoryLabel,
 } from "./category-chip";
 import { ContextRail } from "./context-rail/context-rail";
-import { PipelineList, type PipelineOpp } from "./context-rail/pipeline-list";
-import { FilesView, type FileItem, type PhotoItem } from "./context-rail/files-view";
-import { TasksView, type RailTask } from "./context-rail/tasks-view";
-import { ThreadsView, type RailRelatedThread } from "./context-rail/threads-view";
+import { type PipelineOpp } from "./context-rail/pipeline-list";
+import { WorkView } from "./context-rail/work-view";
+import { AccountingView } from "./context-rail/accounting-view";
+import { FilesViewV3 } from "./context-rail/files-view-v3";
 import type {
   InboxThreadRow,
   InboxThreadMessage,
 } from "@/lib/hooks/use-inbox-threads";
 import type { Opportunity } from "@/lib/types/pipeline";
-import type { ProjectPhoto } from "@/lib/types/pipeline";
-import type { ProjectDocument } from "@/lib/api/services/project-file-service";
 
 interface InboxRouteProps {
   threadId?: string;
@@ -166,7 +165,9 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
     activeDraft !== null && composerValue === activeDraft.bodyText;
 
   const opportunitiesQuery = useClientOpportunities(clientId);
-  const filesQuery = useClientFiles(clientId);
+  const projectsQuery = useClientProjects(clientId);
+  const tasksQuery = useClientTasks(clientId);
+  const filesQuery = useClientFiles(clientId, threadId);
   const clientQuery = useClient(clientId ?? undefined);
   const subClientsQuery = useSubClients(clientId ?? undefined);
   const clientThreadsQuery = useClientThreads(clientId, {
@@ -177,7 +178,6 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
     () => new Set(linkedOpsQuery.data ?? []),
     [linkedOpsQuery.data],
   );
-  const tasksQuery = useClientTasks(clientId ?? null);
 
   const now = Date.now();
 
@@ -540,54 +540,26 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
   );
 
   const opportunities = opportunitiesQuery.data ?? [];
-  const photoRows = filesQuery.data?.photos ?? [];
+  const projects = projectsQuery.data ?? [];
+  const tasks = tasksQuery.data ?? [];
+  const photos = filesQuery.data?.photos ?? [];
   const documentRows = filesQuery.data?.documents ?? [];
+  const threadOnlyPhotos = filesQuery.data?.threadOnlyPhotos ?? [];
 
   const pipelineOpps = useMemo<PipelineOpp[]>(
     () => opportunities.map((o) => toPipelineOpp(o, linkedOppIds, threadId)),
     [opportunities, linkedOppIds, threadId],
   );
 
-  const photos = useMemo<PhotoItem[]>(
-    () => photoRows.map(toPhotoItem),
-    [photoRows],
-  );
-
-  const docs = useMemo<FileItem[]>(
-    () => documentRows.map(toFileItem),
-    [documentRows],
-  );
-
-  const railTasks = useMemo<RailTask[]>(
-    () =>
-      (tasksQuery.data ?? []).map((t) => ({
-        id: t.id,
-        label: t.label,
-        assignee: t.assignee,
-        due: t.due,
-        status: t.status,
-        overdue: t.overdue,
-      })),
-    [tasksQuery.data],
-  );
-
-  // Related threads on the same client (excluding current). Already surfaced
-  // by the inbox detail wire as `siblingThreads` (server returns up to 5,
-  // most recent first, archived excluded).
-  const railThreads = useMemo<RailRelatedThread[]>(() => {
-    const siblings = detail?.siblingThreads ?? [];
-    const now = Date.now();
-    return siblings.map((s) => ({
-      id: s.id,
-      title: s.latestSenderName ?? s.subject ?? "—",
-      subject: s.subject ?? "",
-      messageCount: s.messageCount,
-      when: formatRelativeShort(new Date(s.lastMessageAt).getTime(), now),
-      unread: s.unreadCount > 0,
-    }));
-  }, [detail?.siblingThreads]);
-
-  const filesCount = photos.length + docs.length;
+  // FilesViewV3 consumes the raw ProjectDocument / ProjectPhoto shapes —
+  // no adapter step needed. The total surfaced to the tab strip counts
+  // every non-financial doc + every photo bucket; estimates/invoices live
+  // on the ACCOUNTING tab and are excluded from the FILES count so the
+  // two badges don't double-count the same record.
+  const otherDocsCount = documentRows.filter(
+    (d) => d.sourceType !== "estimate" && d.sourceType !== "invoice",
+  ).length;
+  const filesCount = otherDocsCount + photos.length + threadOnlyPhotos.length;
 
   const senderEmail =
     detail?.messages.find((m) => m.direction === "inbound")?.from ?? null;
@@ -597,62 +569,105 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
     ? `${subClientCount} ${subClientCount === 1 ? t("rail.subclient", "subclient") : t("rail.subclients", "subclients")}`
     : null;
 
-  const contextRail = clientId ? (
+  // <ContextRail> is now always mounted. It renders the unlinked-state
+  // header internally when `client` is undefined — see context-rail.tsx
+  // § "Header anatomy". This replaces the previous EmptyState shortcircuit
+  // and keeps the tab strip + tab bodies discoverable (dimmed) even when
+  // no client is attached.
+  const contextRail = (
     <ContextRail
-      client={{
-        name: client?.name ?? detail?.thread.clientName ?? "",
-        subtitle,
-        email: client?.email ?? senderEmail,
-        phone: client?.phoneNumber ?? null,
-        address: client?.address ?? null,
-      }}
-      threadId={threadId ?? ""}
-      onOpenClient={() => router.push(`/clients/${clientId}`)}
-      counts={{
-        pipeline: opportunities.length,
-        tasks: railTasks.length,
-        files: filesCount,
-        threads: railThreads.length,
-      }}
-      pipeline={
-        pipelineOpps.length === 0 ? (
-          <EmptyState label={t("rail.empty.pipeline", "No open opportunities")} />
-        ) : (
-          <PipelineList
-            opps={pipelineOpps}
-            threadId={threadId ?? ""}
-            onNewOpportunity={() =>
-              openWindow({
-                id: clientId
-                  ? `create-lead-${clientId}`
-                  : `create-lead-${threadId ?? "new"}`,
-                title: t("pipeline.newOpportunity", "New opportunity"),
-                type: "create-lead",
-                metadata: clientId
-                  ? { clientId, sourceThreadId: threadId ?? null }
-                  : { sourceThreadId: threadId ?? null },
-              })
+      client={
+        clientId
+          ? {
+              name: client?.name ?? detail?.thread.clientName ?? "",
+              subtitle,
+              email: client?.email ?? senderEmail,
+              phone: client?.phoneNumber ?? null,
+              address: client?.address ?? null,
             }
-          />
-        )
+          : undefined
       }
-      tasks={<TasksView tasks={railTasks} />}
-      files={
-        <FilesView
-          photos={photos}
-          documents={docs}
-          onFileOpen={(file) => {
-            // pdf_storage_path is a fully qualified S3 URL — open in a new
-            // tab rather than client-routing inside the SPA. No-op when
-            // unset (PDF not yet generated).
-            if (file.href) window.open(file.href, "_blank", "noopener");
+      threadId={threadId ?? ""}
+      onOpenClient={
+        clientId ? () => router.push(`/clients/${clientId}`) : undefined
+      }
+      // Link-client wiring deferred — the affordance is in place. Product
+      // to decide whether to open a floating window or route to a picker.
+      // `link-client` is not yet a FloatingWindowType (see window-store.ts),
+      // so the button renders but does not yet trigger a window.
+      onLinkClient={() => {
+        /* no-op until link-client UX is specified */
+      }}
+      counts={{
+        work: opportunities.length + projects.length,
+        accounting: documentRows.length,
+        files: filesCount,
+      }}
+      work={
+        <WorkView
+          pipelineOpps={pipelineOpps}
+          projects={projects}
+          tasks={tasks}
+          currentThreadId={threadId ?? ""}
+          onNewOpportunity={() =>
+            openWindow({
+              id: clientId
+                ? `create-lead-${clientId}`
+                : `create-lead-${threadId ?? "new"}`,
+              title: t("pipeline.newOpportunity", "New opportunity"),
+              type: "create-lead",
+              metadata: clientId
+                ? { clientId, sourceThreadId: threadId ?? null }
+                : { sourceThreadId: threadId ?? null },
+            })
+          }
+          onNewProject={() =>
+            openWindow({
+              id: clientId
+                ? `create-project-${clientId}`
+                : `create-project-${threadId ?? "new"}`,
+              title: t("rail.addProject", "+ NEW PROJECT"),
+              type: "create-project",
+              metadata: clientId
+                ? { clientId, sourceThreadId: threadId ?? null }
+                : { sourceThreadId: threadId ?? null },
+            })
+          }
+          onOpenProject={(projectId) => router.push(`/projects/${projectId}`)}
+        />
+      }
+      accounting={
+        <AccountingView
+          documents={documentRows}
+          onOpenDocument={(doc) => {
+            // pdf_storage_path is the same fully qualified S3 URL the
+            // files tab consumes — open in a new tab. No-op when the
+            // PDF hasn't been rendered yet.
+            if (doc.pdfStoragePath) {
+              window.open(doc.pdfStoragePath, "_blank", "noopener");
+            }
           }}
         />
       }
-      threads={<ThreadsView threads={railThreads} />}
+      files={
+        <FilesViewV3
+          documents={documentRows}
+          photos={photos}
+          threadOnlyPhotos={threadOnlyPhotos}
+          projects={projects}
+          onFileOpen={(file) => {
+            // pdf_storage_path is a fully qualified S3 URL — open in a new
+            // tab rather than client-routing inside the SPA. No-op when
+            // unset (PDF not yet generated). Estimates/invoices live in the
+            // ACCOUNTING tab now; FilesViewV3 filters those out internally,
+            // so this handler only fires for non-financial docs.
+            if (file.pdfStoragePath) {
+              window.open(file.pdfStoragePath, "_blank", "noopener");
+            }
+          }}
+        />
+      }
     />
-  ) : (
-    <EmptyState label={t("rail.empty.client", "No client linked")} />
   );
 
   return (
@@ -778,22 +793,6 @@ function toCommitments(t: InboxThreadRow): TodayCommitment[] {
   ];
 }
 
-function formatRelativeShort(ts: number, now: number): string {
-  const diff = Math.max(0, now - ts);
-  const min = Math.floor(diff / 60_000);
-  if (min < 1) return "now";
-  if (min < 60) return `${min}m`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}h`;
-  const day = Math.floor(hr / 24);
-  if (day < 7) return `${day}d`;
-  const wk = Math.floor(day / 7);
-  if (wk < 5) return `${wk}w`;
-  return new Date(ts).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-  });
-}
 
 function formatDue(d: Date): string {
   const now = new Date();
@@ -870,14 +869,6 @@ function toPipelineOpp(
   };
 }
 
-function toPhotoItem(p: ProjectPhoto): PhotoItem {
-  return {
-    id: p.id,
-    url: p.thumbnailUrl ?? p.url,
-    filename: p.caption ?? "Photo",
-  };
-}
-
 function toCommitmentPillItem(c: {
   id: string;
   content: string;
@@ -901,24 +892,6 @@ function toCommitmentPillItem(c: {
     content: c.content || "—",
     due,
     urgent,
-  };
-}
-
-function toFileItem(d: ProjectDocument): FileItem {
-  // Estimates and invoices both render as PDFs in the rail, even when the
-  // pdf hasn't been generated yet (drafts) — the icon stays consistent
-  // with the operator's mental model. `pdf_storage_path` is a fully
-  // qualified public S3 URL today (see /api/documents/generate-pdf), so
-  // it can serve as the click target directly. When the PDF hasn't been
-  // generated yet, omit the href — the click becomes a no-op rather than
-  // a broken navigation to the list page.
-  return {
-    id: d.id,
-    filename: d.filename,
-    kind: "pdf",
-    updatedAt: d.updatedAt,
-    href: d.pdfStoragePath ?? undefined,
-    status: d.status,
   };
 }
 

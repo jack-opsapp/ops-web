@@ -11,6 +11,8 @@ import { TaskStatus } from "@/lib/types/models";
 /** Compact wire shape the inbox right-rail Tasks tab consumes. */
 export interface ClientTaskRow {
   id: string;
+  /** Owning project id — used by the WORK tab to group tasks under their project. */
+  projectId: string;
   label: string;
   /** Display name of the assignee — "You" when matched against current user, else the user's full name. */
   assignee: string;
@@ -112,6 +114,7 @@ export function useClientTasks(
           );
           return {
             id: t.id,
+            projectId: t.projectId,
             label: t.customTitle ?? "Task",
             assignee,
             due,
