@@ -729,11 +729,28 @@ export function ImportPipelineWizard({
       }
     }
 
-    // Reconcile triage decisions: include all leads (discarded are imported with stage=discarded for analytics)
+    // Reconcile triage decisions: discarded leads are EXCLUDED from the
+    // import payload to match the confirm step copy ("won't be imported").
+    // Effective stage comes from the triage decision (overrides AI). A lead
+    // is discarded if (a) the user explicitly picked "discard" in triage,
+    // or (b) the AI marked stage="discarded" and the user didn't override.
     const importLeads = confirmedLeads.filter((lead) => {
       if (!lead.enabled) return false;
-      // Include all triaged leads — discarded get stage="discarded"
+      // Unreviewed needs-review leads are blocked.
       if (lead.needsReview && !triageDecisions.has(lead.id)) return false;
+      // Compute effective stage and drop discards so they never reach the
+      // server — previously they were imported with stage="discarded" which
+      // contradicted the UI promise.
+      const decision = triageDecisions.get(lead.id);
+      const effectiveStage =
+        decision === "won"
+          ? "won"
+          : decision === "lost"
+            ? "lost"
+            : decision === "discard"
+              ? "discarded"
+              : lead.stage;
+      if (effectiveStage === "discarded") return false;
       return true;
     });
 
