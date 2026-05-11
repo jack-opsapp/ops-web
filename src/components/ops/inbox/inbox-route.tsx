@@ -70,14 +70,12 @@ import { ContextRail } from "./context-rail/context-rail";
 import { type PipelineOpp } from "./context-rail/pipeline-list";
 import { WorkView } from "./context-rail/work-view";
 import { AccountingView } from "./context-rail/accounting-view";
-import { FilesView, type FileItem, type PhotoItem } from "./context-rail/files-view";
+import { FilesViewV3 } from "./context-rail/files-view-v3";
 import type {
   InboxThreadRow,
   InboxThreadMessage,
 } from "@/lib/hooks/use-inbox-threads";
 import type { Opportunity } from "@/lib/types/pipeline";
-import type { ProjectPhoto } from "@/lib/types/pipeline";
-import type { ProjectDocument } from "@/lib/api/services/project-file-service";
 
 interface InboxRouteProps {
   threadId?: string;
@@ -166,7 +164,7 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
   const opportunitiesQuery = useClientOpportunities(clientId);
   const projectsQuery = useClientProjects(clientId);
   const tasksQuery = useClientTasks(clientId);
-  const filesQuery = useClientFiles(clientId);
+  const filesQuery = useClientFiles(clientId, threadId);
   const clientQuery = useClient(clientId ?? undefined);
   const subClientsQuery = useSubClients(clientId ?? undefined);
   const linkedOpsQuery = useThreadOpportunityLinks(threadId ?? null);
@@ -499,27 +497,24 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
   const opportunities = opportunitiesQuery.data ?? [];
   const projects = projectsQuery.data ?? [];
   const tasks = tasksQuery.data ?? [];
-  const photoRows = filesQuery.data?.photos ?? [];
+  const photos = filesQuery.data?.photos ?? [];
   const documentRows = filesQuery.data?.documents ?? [];
+  const threadOnlyPhotos = filesQuery.data?.threadOnlyPhotos ?? [];
 
   const pipelineOpps = useMemo<PipelineOpp[]>(
     () => opportunities.map((o) => toPipelineOpp(o, linkedOppIds, threadId)),
     [opportunities, linkedOppIds, threadId],
   );
 
-  const photos = useMemo<PhotoItem[]>(
-    () => photoRows.map(toPhotoItem),
-    [photoRows],
-  );
-
-  const docs = useMemo<FileItem[]>(
-    () => documentRows.map(toFileItem),
-    [documentRows],
-  );
-
-
-
-  const filesCount = photos.length + docs.length;
+  // FilesViewV3 consumes the raw ProjectDocument / ProjectPhoto shapes —
+  // no adapter step needed. The total surfaced to the tab strip counts
+  // every non-financial doc + every photo bucket; estimates/invoices live
+  // on the ACCOUNTING tab and are excluded from the FILES count so the
+  // two badges don't double-count the same record.
+  const otherDocsCount = documentRows.filter(
+    (d) => d.sourceType !== "estimate" && d.sourceType !== "invoice",
+  ).length;
+  const filesCount = otherDocsCount + photos.length + threadOnlyPhotos.length;
 
   const senderEmail =
     detail?.messages.find((m) => m.direction === "inbound")?.from ?? null;
@@ -542,7 +537,7 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
       onOpenClient={() => router.push(`/clients/${clientId}`)}
       counts={{
         work: opportunities.length + projects.length,
-        accounting: docs.length,
+        accounting: documentRows.length,
         files: filesCount,
       }}
       work={
@@ -592,14 +587,20 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
         />
       }
       files={
-        <FilesView
+        <FilesViewV3
+          documents={documentRows}
           photos={photos}
-          documents={docs}
+          threadOnlyPhotos={threadOnlyPhotos}
+          projects={projects}
           onFileOpen={(file) => {
             // pdf_storage_path is a fully qualified S3 URL — open in a new
             // tab rather than client-routing inside the SPA. No-op when
-            // unset (PDF not yet generated).
-            if (file.href) window.open(file.href, "_blank", "noopener");
+            // unset (PDF not yet generated). Estimates/invoices live in the
+            // ACCOUNTING tab now; FilesViewV3 filters those out internally,
+            // so this handler only fires for non-financial docs.
+            if (file.pdfStoragePath) {
+              window.open(file.pdfStoragePath, "_blank", "noopener");
+            }
           }}
         />
       }
@@ -767,14 +768,6 @@ function toPipelineOpp(
   };
 }
 
-function toPhotoItem(p: ProjectPhoto): PhotoItem {
-  return {
-    id: p.id,
-    url: p.thumbnailUrl ?? p.url,
-    filename: p.caption ?? "Photo",
-  };
-}
-
 function toCommitmentPillItem(c: {
   id: string;
   content: string;
@@ -798,24 +791,6 @@ function toCommitmentPillItem(c: {
     content: c.content || "—",
     due,
     urgent,
-  };
-}
-
-function toFileItem(d: ProjectDocument): FileItem {
-  // Estimates and invoices both render as PDFs in the rail, even when the
-  // pdf hasn't been generated yet (drafts) — the icon stays consistent
-  // with the operator's mental model. `pdf_storage_path` is a fully
-  // qualified public S3 URL today (see /api/documents/generate-pdf), so
-  // it can serve as the click target directly. When the PDF hasn't been
-  // generated yet, omit the href — the click becomes a no-op rather than
-  // a broken navigation to the list page.
-  return {
-    id: d.id,
-    filename: d.filename,
-    kind: "pdf",
-    updatedAt: d.updatedAt,
-    href: d.pdfStoragePath ?? undefined,
-    status: d.status,
   };
 }
 
