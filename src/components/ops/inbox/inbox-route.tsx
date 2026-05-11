@@ -69,6 +69,7 @@ import {
 import { ContextRail } from "./context-rail/context-rail";
 import { type PipelineOpp } from "./context-rail/pipeline-list";
 import { WorkView } from "./context-rail/work-view";
+import { AccountingView } from "./context-rail/accounting-view";
 import { FilesView, type FileItem, type PhotoItem } from "./context-rail/files-view";
 import type {
   InboxThreadRow,
@@ -578,7 +579,17 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
         />
       }
       accounting={
-        <EmptyState label={t("rail.empty.files", "No files attached")} />
+        <AccountingView
+          documents={documentRows}
+          onOpenDocument={(doc) => {
+            // pdf_storage_path is the same fully qualified S3 URL the
+            // files tab consumes — open in a new tab. No-op when the
+            // PDF hasn't been rendered yet.
+            if (doc.pdfStoragePath) {
+              window.open(doc.pdfStoragePath, "_blank", "noopener");
+            }
+          }}
+        />
       }
       files={
         <FilesView

@@ -42,6 +42,12 @@ export interface ProjectDocument {
   pdfStoragePath: string | null;
   /** ISO-8601. Drives the "MAR 14" timestamp in the rail. */
   updatedAt: string;
+  /** Monetary value in dollars — the canonical `total` column on the
+   *  underlying estimates/invoices row (both store as `numeric` dollars,
+   *  not cents — confirmed via information_schema 2026-05-10). Null when
+   *  the source row hasn't filled in a total yet (e.g. a fresh draft).
+   *  Drives the ACCOUNTING tab totals strip without re-querying. */
+  value: number | null;
 }
 
 interface EstimateRow {
@@ -50,6 +56,7 @@ interface EstimateRow {
   status: string | null;
   pdf_storage_path: string | null;
   updated_at: string;
+  total: number | null;
 }
 
 interface InvoiceRow {
@@ -58,6 +65,7 @@ interface InvoiceRow {
   status: string | null;
   pdf_storage_path: string | null;
   updated_at: string;
+  total: number | null;
 }
 
 function safeFilename(prefix: string, number: string | null, id: string): string {
@@ -67,6 +75,15 @@ function safeFilename(prefix: string, number: string | null, id: string): string
   const trimmed = (number ?? "").trim();
   if (trimmed) return `${prefix} ${trimmed}.pdf`;
   return `${prefix} ${id.slice(0, 8)}.pdf`;
+}
+
+function coerceMoney(value: number | string | null | undefined): number | null {
+  // Supabase returns `numeric` as either number (in range) or string
+  // (high-precision values). Normalize both into a finite number, with
+  // null fallback so callers can branch on "no value" without parsing.
+  if (value === null || value === undefined) return null;
+  const n = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(n) ? n : null;
 }
 
 export const ProjectFileService = {
@@ -93,14 +110,14 @@ export const ProjectFileService = {
     const [estimatesRes, invoicesRes] = await Promise.all([
       supabase
         .from("estimates")
-        .select("id, estimate_number, status, pdf_storage_path, updated_at")
+        .select("id, estimate_number, status, pdf_storage_path, updated_at, total")
         .eq("company_id", companyId)
         .eq("client_id", clientId)
         .order("updated_at", { ascending: false })
         .limit(limit),
       supabase
         .from("invoices")
-        .select("id, invoice_number, status, pdf_storage_path, updated_at")
+        .select("id, invoice_number, status, pdf_storage_path, updated_at, total")
         .eq("company_id", companyId)
         .eq("client_id", clientId)
         .order("updated_at", { ascending: false })
@@ -120,6 +137,11 @@ export const ProjectFileService = {
       );
     }
 
+    // Both estimates.total and invoices.total are `numeric` (dollars, not
+    // cents) per information_schema — no conversion needed. The Supabase
+    // client returns `numeric` columns as JS numbers when in range; we
+    // coerce defensively to handle the string fallback path and treat
+    // unparseable values as null so the totals strip just drops the row.
     const estimates: ProjectDocument[] = ((estimatesRes.data ?? []) as EstimateRow[]).map(
       (r) => ({
         id: `estimate:${r.id}`,
@@ -129,6 +151,7 @@ export const ProjectFileService = {
         status: r.status,
         pdfStoragePath: r.pdf_storage_path,
         updatedAt: parseDateRequired(r.updated_at).toISOString(),
+        value: coerceMoney(r.total),
       }),
     );
 
@@ -141,6 +164,7 @@ export const ProjectFileService = {
         status: r.status,
         pdfStoragePath: r.pdf_storage_path,
         updatedAt: parseDateRequired(r.updated_at).toISOString(),
+        value: coerceMoney(r.total),
       }),
     );
 

@@ -110,6 +110,7 @@
   "rail.tabs.files": "Files",
   "rail.tabs.threads": "Threads",
   "rail.closeDrawer": "Close context drawer",
+  "rail.empty.accounting": "[—] no financial documents",
   "rail.empty.pipeline": "No open opportunities",
   "rail.empty.tasks": "No tasks for this thread",
   "rail.empty.files": "No files attached",
