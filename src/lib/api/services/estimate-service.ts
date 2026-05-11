@@ -428,18 +428,37 @@ export const EstimateService = {
     if (error) throw new Error(`Failed to delete estimate: ${error.message}`);
   },
 
-  async sendEstimate(id: string): Promise<void> {
-    const supabase = requireSupabase();
+  /**
+   * Send the estimate to the client over email and stamp status = sent on
+   * success. Delegates to POST /api/estimates/[id]/send which:
+   *   - resolves the client + company + portal branding,
+   *   - mints a portal magic-link token,
+   *   - sends the actual email via SendGrid (sendEstimateReady),
+   *   - updates the estimate's status + sent_at AFTER the email succeeds.
+   *
+   * The route requires a recipient email — pass one explicitly when the
+   * client record's email is missing.
+   *
+   * (Bug a0bd0021 — previously this method only wrote DB columns and never
+   * emailed the customer.)
+   */
+  async sendEstimate(id: string, email?: string): Promise<void> {
+    const { getIdToken } = await import("@/lib/firebase/auth");
+    const token = await getIdToken();
 
-    const { error } = await supabase
-      .from("estimates")
-      .update({
-        status: EstimateStatus.Sent,
-        sent_at: new Date().toISOString(),
-      })
-      .eq("id", id);
+    const res = await fetch(`/api/estimates/${id}/send`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(email ? { email } : {}),
+    });
 
-    if (error) throw new Error(`Failed to send estimate: ${error.message}`);
+    if (!res.ok) {
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      throw new Error(data.error ?? "Failed to send estimate");
+    }
   },
 
   /**

@@ -402,18 +402,37 @@ export const InvoiceService = {
     if (error) throw new Error(`Failed to delete invoice: ${error.message}`);
   },
 
-  async sendInvoice(id: string): Promise<void> {
-    const supabase = requireSupabase();
+  /**
+   * Send the invoice to the client over email and stamp status = sent on
+   * success. Delegates to POST /api/invoices/[id]/send which:
+   *   - resolves the client + company + portal branding,
+   *   - mints a portal magic-link token,
+   *   - sends the actual email via SendGrid (sendInvoiceReady),
+   *   - updates the invoice's status + sent_at AFTER the email succeeds.
+   *
+   * If `email` is omitted the route falls back to the client's email on file
+   * and rejects with 400 if neither is present.
+   *
+   * (Bug a0bd0021 — previously this method only wrote DB columns and never
+   * emailed the customer.)
+   */
+  async sendInvoice(id: string, email?: string): Promise<void> {
+    const { getIdToken } = await import("@/lib/firebase/auth");
+    const token = await getIdToken();
 
-    const { error } = await supabase
-      .from("invoices")
-      .update({
-        status: InvoiceStatus.Sent,
-        sent_at: new Date().toISOString(),
-      })
-      .eq("id", id);
+    const res = await fetch(`/api/invoices/${id}/send`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(email ? { email } : {}),
+    });
 
-    if (error) throw new Error(`Failed to send invoice: ${error.message}`);
+    if (!res.ok) {
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      throw new Error(data.error ?? "Failed to send invoice");
+    }
   },
 
   async voidInvoice(id: string): Promise<void> {
