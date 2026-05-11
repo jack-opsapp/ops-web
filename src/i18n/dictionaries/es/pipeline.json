@@ -191,6 +191,7 @@
   "invoices.payment.method": "Método",
   "invoices.payment.reference": "Referencia #",
   "invoices.payment.notes": "Notas",
+  "invoices.payment.noOutstanding": "No hay facturas pendientes en este proyecto — no se puede registrar el pago.",
   "invoices.actions.downloadPdf": "Descargar PDF",
   "invoices.actions.send": "Enviar",
   "invoices.actions.recordPayment": "Registrar pago",
