@@ -154,6 +154,52 @@ export function colorTripleFromHex(hex: string | null | undefined): TaskTypeColo
   };
 }
 
+// ─── Frosted Badge Style ────────────────────────────────────────────────────
+
+/**
+ * Spec v2: Calendar event badges/bars use a frosted-glass-tinted fill so the
+ * content behind them never bleeds through and hurts legibility. Layered
+ * background = type tint over a glass-dense (`rgba(18,18,20,0.78)`) base, plus
+ * `backdrop-filter: blur(28px) saturate(1.3)` matching the global glass-dense
+ * surface from `.interface-design/system.md`.
+ *
+ * Use this helper everywhere a calendar event chip/bar/card paints its body
+ * fill so the frosted treatment stays consistent across Day, Week, Month,
+ * Crew and the hover popover.
+ */
+export function frostedBadgeStyle(
+  typeColors: TaskTypeColors,
+  baseAlpha: number = 0.78
+): {
+  background: string;
+  backdropFilter: string;
+  WebkitBackdropFilter: string;
+} {
+  return frostedBadgeStyleFromBg(typeColors.bg, baseAlpha);
+}
+
+/**
+ * Same frosted-glass treatment as `frostedBadgeStyle` but accepts an arbitrary
+ * tint color (e.g. status-driven fills used by the Day hourly grid). Stacks
+ * the tint over `rgba(18, 18, 20, baseAlpha)` and applies the standard
+ * 28px blur / 1.3 saturation backdrop-filter.
+ */
+export function frostedBadgeStyleFromBg(
+  tint: string,
+  baseAlpha: number = 0.78
+): {
+  background: string;
+  backdropFilter: string;
+  WebkitBackdropFilter: string;
+} {
+  const base = `rgba(18, 18, 20, ${baseAlpha})`;
+  return {
+    background: `linear-gradient(${tint}, ${tint}), ${base}`,
+    backdropFilter: "blur(28px) saturate(1.3)",
+    WebkitBackdropFilter: "blur(28px) saturate(1.3)",
+  };
+}
+
 // ─── Status Derivation ──────────────────────────────────────────────────────
 
 /**

@@ -494,7 +494,12 @@ export function CommandPalette() {
                 {entityResults.projects.map((p) => (
                   <CommandItem
                     key={`project-${p.id}`}
-                    value={`project-${p.id} ${p.title}`}
+                    // cmdk scores on `value`. Including the UUID prefix
+                    // collapsed scores to 0 for matches mid-string, so the
+                    // item rendered hidden even with forceMount. Use only the
+                    // user-meaningful searchable text; cmdk dedupes by ref so
+                    // duplicate titles still render distinctly via React key.
+                    value={`project ${p.title} ${p.address ?? ""}`}
                     onSelect={() => navigate(`/projects/${p.id}`)}
                     forceMount
                   >
@@ -514,7 +519,7 @@ export function CommandPalette() {
                 {entityResults.clients.map((c) => (
                   <CommandItem
                     key={`client-${c.id}`}
-                    value={`client-${c.id} ${c.name}`}
+                    value={`client ${c.name} ${c.email ?? ""}`}
                     onSelect={() => navigate(`/clients/${c.id}`)}
                     forceMount
                   >
@@ -534,7 +539,7 @@ export function CommandPalette() {
                 {entityResults.tasks.map((t) => (
                   <CommandItem
                     key={`task-${t.id}`}
-                    value={`task-${t.id} ${t.customTitle ?? ""}`}
+                    value={`task ${t.customTitle ?? ""} ${t.taskNotes ?? ""}`}
                     onSelect={() => navigate(`/projects/${t.projectId}`)}
                     forceMount
                   >

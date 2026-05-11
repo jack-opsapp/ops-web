@@ -156,6 +156,11 @@ function FloatingWindows() {
               defaultProjectId={(win.metadata?.projectId as string | undefined) ?? undefined}
               onSuccess={() => closeWindow(win.id)}
               onCancel={() => closeWindow(win.id)}
+              initialProjectId={
+                typeof win.metadata?.projectId === "string"
+                  ? win.metadata.projectId
+                  : null
+              }
             />
           )}
           {win.type === "create-estimate" && (
