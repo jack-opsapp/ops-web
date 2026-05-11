@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Mail, Zap, MessageCircle, CheckCircle, Minimize2 } from "lucide-react";
+import { Search, Mail, Zap, MessageCircle, CheckCircle, Minimize2, RefreshCw } from "lucide-react";
 import { authedFetch } from "@/lib/utils/authed-fetch";
 import type { AnalysisResult } from "@/lib/types/email-import";
 
@@ -27,9 +27,14 @@ interface AnalyzeStepProps {
   onMinimize?: () => void;
   onJobStarted?: (jobId: string) => void;
   onProgressUpdate?: (percent: number, message: string, status: string) => void;
+  /**
+   * Optional back/cancel hook — wired by the wizard parent so the user
+   * can step back to the connection step when analysis fails outright.
+   */
+  onCancel?: () => void;
 }
 
-export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete, onMinimize, onJobStarted, onProgressUpdate }: AnalyzeStepProps) {
+export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete, onMinimize, onJobStarted, onProgressUpdate, onCancel }: AnalyzeStepProps) {
   const [jobId, setJobId] = useState<string | null>(existingJobId || null);
   const [status, setStatus] = useState<string>(existingJobId ? "analyzing_sent" : "pending");
   const [serverProgress, setServerProgress] = useState(0);
@@ -105,7 +110,48 @@ export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete
     }
   }, [serverProgress]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Start analysis (or reconnect to existing job)
+  // Start analysis — extracted so the inline error UI can re-invoke on
+  // retry without remounting the whole step.
+  const startAnalysis = useCallback(async () => {
+    try {
+      const res = await fetch("/api/integrations/email/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ connectionId, companyId }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        setError(data.error);
+        return;
+      }
+      setJobId(data.jobId);
+      onJobStartedRef.current?.(data.jobId);
+    } catch {
+      setError("Failed to start analysis. Check your connection and retry.");
+    }
+  }, [connectionId, companyId]);
+
+  // Reset all per-run state and re-fire the analysis. Used by the inline
+  // retry button on the error panel.
+  const handleRetry = useCallback(() => {
+    if (pollRef.current) clearTimeout(pollRef.current);
+    if (interpolateRef.current) clearInterval(interpolateRef.current);
+    setError(null);
+    setJobId(null);
+    setStatus("pending");
+    setServerProgress(0);
+    setDisplayProgress(0);
+    setMessage("Restarting analysis...");
+    setCompletedStages(new Set());
+    setIsComplete(false);
+    setLeadCount(0);
+    setDiscoveredNames([]);
+    setVisibleName(null);
+    nameIndexRef.current = 0;
+    completeResultRef.current = null;
+    startAnalysis();
+  }, [startAnalysis]);
+
   useEffect(() => {
     if (startedRef.current) return;
     startedRef.current = true;
@@ -115,27 +161,8 @@ export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete
       return;
     }
 
-    const startAnalysis = async () => {
-      try {
-        const res = await fetch("/api/integrations/email/analyze", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ connectionId, companyId }),
-        });
-        const data = await res.json();
-        if (data.error) {
-          setError(data.error);
-          return;
-        }
-        setJobId(data.jobId);
-        onJobStartedRef.current?.(data.jobId);
-      } catch {
-        setError("Failed to start analysis");
-      }
-    };
-
     startAnalysis();
-  }, [connectionId, companyId, existingJobId]);
+  }, [existingJobId, startAnalysis]);
 
   // Poll for status
   const pollCallback = useCallback(async (currentJobId: string) => {
@@ -227,8 +254,38 @@ export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete
       </p>
 
       {error ? (
-        <div className="p-4 border border-[#93321A]/30 bg-[#93321A]/10" style={{ borderRadius: 3 }}>
+        <div
+          className="p-4 border border-[#93321A]/30 bg-[#93321A]/10"
+          style={{ borderRadius: 3 }}
+          role="alert"
+          aria-live="assertive"
+        >
           <p className="font-mohave text-[14px] text-[#FF6B4A]">{error}</p>
+          <p className="font-mohave text-[12px] text-[#8A8A8A] mt-2">
+            Most analysis failures are transient — retry, or step back to
+            reconnect the inbox if the error persists.
+          </p>
+          <div className="mt-4 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleRetry}
+              className="inline-flex items-center gap-2 px-3 py-1.5 font-cakemono font-light text-[12px] uppercase tracking-[0.18em] text-ops-accent border border-ops-accent hover:bg-ops-accent hover:text-black transition-colors"
+              style={{ borderRadius: 5 }}
+            >
+              <RefreshCw size={12} />
+              Retry analysis
+            </button>
+            {onCancel ? (
+              <button
+                type="button"
+                onClick={onCancel}
+                className="px-3 py-1.5 font-cakemono font-light text-[12px] uppercase tracking-[0.18em] text-[#8A8A8A] border border-white/10 hover:text-[#EDEDED] hover:border-white/25 transition-colors"
+                style={{ borderRadius: 5 }}
+              >
+                Back to connection
+              </button>
+            ) : null}
+          </div>
         </div>
       ) : (
         <div className="space-y-4">
