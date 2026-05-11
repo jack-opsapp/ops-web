@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // Framer Motion constants for the dashboard widget system
 // ---------------------------------------------------------------------------
-import type { Variants, Easing } from "framer-motion";
+import { useReducedMotion, type Variants, type Easing } from "framer-motion";
 
 export const EASE_SMOOTH: Easing = [0.22, 1, 0.36, 1];
 
@@ -640,3 +640,96 @@ export const sparklineVariants: Variants = {
     transition: { duration: 0.7, ease: EASE_SMOOTH },
   },
 };
+
+// ─── Inbox redesign variants ────────────────────────────────────────────────
+
+/**
+ * 180ms width slide for the right context rail. Used at <1280 (overlay
+ * drawer) and at >=1280 when the rail is toggled docked/closed.
+ */
+export const inboxRailVariants: Variants = {
+  open: {
+    width: 360,
+    opacity: 1,
+    transition: { duration: 0.18, ease: EASE_SMOOTH },
+  },
+  closed: {
+    width: 0,
+    opacity: 0,
+    transition: { duration: 0.18, ease: EASE_SMOOTH },
+  },
+};
+
+export const inboxRailReducedVariants: Variants = {
+  open: {
+    opacity: 1,
+    transition: { duration: 0.12, ease: EASE_SMOOTH },
+  },
+  closed: {
+    opacity: 0,
+    transition: { duration: 0.12, ease: EASE_SMOOTH },
+  },
+};
+
+/**
+ * 120ms crossfade for the composer body when the active draft swaps
+ * (yours / claude / gmail).
+ */
+export const composerBodyFadeVariants: Variants = {
+  hidden: { opacity: 0, transition: { duration: 0.12, ease: EASE_SMOOTH } },
+  visible: { opacity: 1, transition: { duration: 0.12, ease: EASE_SMOOTH } },
+};
+
+/**
+ * 200ms olive milestone pulse. Used on ProjectCard (Done), EstimateRow
+ * (accepted), InvoiceRow (paid), and ThreadRow on close. Wrap the target
+ * in <MilestonePulse trigger={status}> and the pulse re-runs each time
+ * `trigger` transitions to a milestone state.
+ */
+export const milestonePulseVariants: Variants = {
+  initial: { boxShadow: "0 0 0 0 rgba(157, 181, 130, 0)" },
+  pulse: {
+    boxShadow: [
+      "0 0 0 0 rgba(157, 181, 130, 0)",
+      "0 0 0 4px rgba(157, 181, 130, 0.55)",
+      "0 0 0 0 rgba(157, 181, 130, 0)",
+    ],
+    transition: { duration: 0.2, ease: EASE_SMOOTH, times: [0, 0.5, 1] },
+  },
+};
+
+/** Reduced-motion equivalent — single opacity flash, no shadow ring. */
+export const milestonePulseReducedVariants: Variants = {
+  initial: { opacity: 1 },
+  pulse: {
+    opacity: [1, 0.85, 1],
+    transition: { duration: 0.15, ease: EASE_SMOOTH, times: [0, 0.5, 1] },
+  },
+};
+
+/**
+ * Helper that returns the inbox motion variants matching the user's
+ * `prefers-reduced-motion` preference. Use this so every inbox motion
+ * touchpoint reads from the same source of truth without re-implementing
+ * the branching at each call site.
+ *
+ * Example:
+ *   const m = useReducedInboxMotion();
+ *   <motion.div variants={m.rail} animate={open ? "open" : "closed"} />
+ */
+export function useReducedInboxMotion(): {
+  reduced: boolean;
+  rail: Variants;
+  composerFade: Variants;
+  milestone: Variants;
+} {
+  const reduced = !!useReducedMotion();
+  return {
+    reduced,
+    rail: reduced ? inboxRailReducedVariants : inboxRailVariants,
+    // composerBodyFadeVariants is opacity-only either way, so it's safe
+    // for both modes — kept on the helper for API symmetry.
+    composerFade: composerBodyFadeVariants,
+    milestone: reduced ? milestonePulseReducedVariants : milestonePulseVariants,
+  };
+}

@@ -22,6 +22,9 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils/cn";
+import { useDictionary } from "@/i18n/client";
+import { SlashLabel } from "./voice/slash-label";
+import { KeyHint } from "@/components/ui/key-hint";
 import type { ArchiveLeadPreference } from "@/lib/types/email-thread";
 import type {
   ArchiveLinkedOpportunity,
@@ -90,6 +93,7 @@ export function ArchiveConfirmModal({
   onConfirm,
   onCancel,
 }: ArchiveConfirmModalProps) {
+  const { t } = useDictionary("inbox");
   // Default state per spec: every sibling checked, lead checked unless the
   // user has previously saved 'leave' (in which case respect their default).
   const initialSelectedSiblings = useMemo<Set<string>>(() => {
@@ -172,16 +176,24 @@ export function ArchiveConfirmModal({
       setSeenContextId(null);
     } catch (err) {
       setSubmitting(false);
-      setError(err instanceof Error ? err.message : "Could not archive.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : t("archiveModal.error", "Could not archive."),
+      );
     }
-  }, [context, selectedSiblings, archiveLead, onConfirm, onOpenChange]);
+  }, [context, selectedSiblings, archiveLead, onConfirm, onOpenChange, t]);
 
   if (!context) {
     return (
       <Dialog open={open} onOpenChange={close}>
         <DialogContent className="max-w-[560px] p-0">
-          <DialogTitle className="sr-only">Archive</DialogTitle>
-          <DialogDescription className="sr-only">Loading</DialogDescription>
+          <DialogTitle className="sr-only">
+            {t("action.archive", "Archive")}
+          </DialogTitle>
+          <DialogDescription className="sr-only">
+            {t("archiveModal.loading", "Loading")}
+          </DialogDescription>
         </DialogContent>
       </Dialog>
     );
@@ -189,58 +201,66 @@ export function ArchiveConfirmModal({
 
   const { currentThread, linkedOpportunity, siblingThreads } = context;
   const hasSiblings = siblingThreads.length > 0;
-  const headerLabel = hasSiblings ? "// ARCHIVE" : "// FIRST OPP-LINKED ARCHIVE";
-  const headerTitle = hasSiblings ? "What else should we archive?" : "Archive the lead too?";
-  const headerDescription = hasSiblings
-    ? `This thread is part of a lead with ${siblingThreads.length} other open ${siblingThreads.length === 1 ? "thread" : "threads"}. Pick what to clean up.`
-    : "OPS noticed this thread is tied to a pipeline lead. Want the lead archived alongside the thread? We'll remember your answer.";
-  const buttonLabel = `Archive (${totalCount})`;
+  const archiveTitle = t("modal.archive.title", "// ARCHIVE");
+  const archiveBody = t(
+    "modal.archive.body",
+    "[—] this thread will move to archive. nothing is deleted.",
+  );
 
   return (
     <Dialog open={open} onOpenChange={close}>
       <DialogContent className="max-w-[560px] p-0 max-h-[85vh] overflow-hidden flex flex-col">
-        <div className="px-4 pt-4 pb-3 border-b border-border-subtle">
-          <p className="font-mono text-[10px] uppercase tracking-[0.20em] text-text-mute">
-            {headerLabel}
+        <DialogTitle className="sr-only">
+          {t("action.archive", "Archive")}
+        </DialogTitle>
+        <DialogDescription className="sr-only">
+          {t(
+            "archiveModal.a11yDescription",
+            "Confirm archive action.",
+          )}
+        </DialogDescription>
+        <div className="px-4 pt-4 pb-3 border-b border-line">
+          <SlashLabel label={archiveTitle} size="md" />
+          <p className="font-mono text-[11px] text-text-3 mt-2 leading-relaxed">
+            {archiveBody}
           </p>
-          <DialogTitle className="font-cakemono font-light uppercase text-[20px] tracking-[0.10em] text-text mt-1">
-            {headerTitle}
-          </DialogTitle>
-          <DialogDescription className="font-mohave text-[13px] text-text-2 mt-1">
-            {headerDescription}
-          </DialogDescription>
         </div>
 
         <div className="overflow-y-auto flex-1">
           {/* Locked current-thread row — communicates "this is what triggered the prompt" */}
           <div className="px-3 pt-3">
-            <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute mb-1.5 px-1">
-              {"// THIS THREAD"}
+            <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-mute mb-1.5 px-1">
+              {"// "}
+              {t("archiveModal.section.thisThread", "THIS THREAD")}
             </p>
             <div
               className={cn(
-                "flex items-start gap-2.5 w-full p-3 rounded-[6px]",
-                "border border-[rgba(255,255,255,0.16)] bg-[rgba(255,255,255,0.05)]"
+                "flex items-start gap-2.5 w-full p-3 rounded-sidebar",
+                "border border-line-hi bg-inbox-elev/40",
               )}
             >
               <div
                 className={cn(
-                  "w-[28px] h-[28px] rounded-[5px] flex items-center justify-center shrink-0",
-                  "border border-[rgba(255,255,255,0.20)] bg-[rgba(255,255,255,0.08)]"
+                  "w-[28px] h-[28px] rounded-[2.5px] flex items-center justify-center shrink-0",
+                  "border border-line-hi bg-inbox-elev/80",
                 )}
               >
-                <Lock className="w-[12px] h-[12px] text-text-2" strokeWidth={1.75} />
+                <Lock className="w-[14px] h-[14px] text-text-2" strokeWidth={1.5} />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-mohave text-[13px] text-text truncate">
-                  {currentThread.subject || "(no subject)"}
+                  {currentThread.subject ||
+                    t("detail.untitled", "(no subject)")}
                 </p>
                 <p className="font-mono text-[11px] text-text-mute truncate mt-0.5">
-                  {senderLabel(currentThread.latestSenderName, currentThread.latestSenderEmail)}
+                  {senderLabel(
+                    currentThread.latestSenderName,
+                    currentThread.latestSenderEmail,
+                  )}
                 </p>
               </div>
-              <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-text-mute shrink-0 mt-1">
-                Always
+              <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-text-mute shrink-0 mt-1">
+                {t("archiveModal.always", "Always")}
               </span>
             </div>
           </div>
@@ -248,8 +268,9 @@ export function ArchiveConfirmModal({
           {/* Sibling threads — only rendered when present */}
           {hasSiblings && (
             <div className="px-3 pt-3">
-              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute mb-1.5 px-1">
-                {"// OTHER THREADS ON THIS LEAD"}
+              <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-mute mb-1.5 px-1">
+                {"// "}
+                {t("archiveModal.section.siblings", "OTHER THREADS ON THIS LEAD")}
               </p>
               <div className="space-y-1.5">
                 {siblingThreads.map((sib) => {
@@ -260,33 +281,33 @@ export function ArchiveConfirmModal({
                       type="button"
                       onClick={() => toggleSibling(sib.id)}
                       className={cn(
-                        "flex items-start gap-2.5 w-full p-3 rounded-[6px] text-left",
+                        "flex items-start gap-2.5 w-full p-3 rounded-sidebar text-left",
                         "border transition-colors duration-150",
                         checked
-                          ? "border-[rgba(255,255,255,0.22)] bg-[rgba(255,255,255,0.06)]"
-                          : "border-border-subtle bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(255,255,255,0.04)]"
+                          ? "border-line-hi bg-inbox-elev/60"
+                          : "border-line bg-inbox-bg-deep hover:bg-inbox-elev/40",
                       )}
                     >
                       <div
                         className={cn(
-                          "w-[28px] h-[28px] rounded-[5px] flex items-center justify-center shrink-0",
+                          "w-[28px] h-[28px] rounded-[2.5px] flex items-center justify-center shrink-0",
                           "border",
                           checked
                             ? "border-ops-accent bg-ops-accent"
-                            : "border-border-subtle bg-[rgba(255,255,255,0.04)]"
+                            : "border-line bg-inbox-elev/40",
                         )}
                       >
                         {checked ? (
-                          <Check className="w-[14px] h-[14px] text-black" strokeWidth={2.5} />
+                          <Check className="w-[14px] h-[14px] text-black" strokeWidth={1.5} />
                         ) : (
-                          <Mail className="w-[12px] h-[12px] text-text-2" strokeWidth={1.75} />
+                          <Mail className="w-[14px] h-[14px] text-text-2" strokeWidth={1.5} />
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p
                           className={cn(
                             "font-mohave text-[13px] truncate",
-                            checked ? "text-text" : "text-text-2"
+                            checked ? "text-text" : "text-text-2",
                           )}
                         >
                           {sib.subject}
@@ -296,7 +317,7 @@ export function ArchiveConfirmModal({
                           {sib.latestSnippet ? ` · ${sib.latestSnippet}` : ""}
                         </p>
                       </div>
-                      <span className="font-mono text-[10px] tabular-nums uppercase tracking-[0.14em] text-text-mute shrink-0 mt-1">
+                      <span className="font-mono text-[11px] tabular-nums uppercase tracking-[0.14em] text-text-mute shrink-0 mt-1">
                         {formatRelative(sib.lastMessageAt)}
                       </span>
                     </button>
@@ -308,51 +329,58 @@ export function ArchiveConfirmModal({
 
           {/* Lead checkbox — distinct visual treatment to call out it's a different entity */}
           <div className="px-3 py-3">
-            <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute mb-1.5 px-1">
-              {"// PIPELINE LEAD"}
+            <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-mute mb-1.5 px-1">
+              {"// "}
+              {t("archiveModal.section.lead", "PIPELINE LEAD")}
             </p>
             <button
               type="button"
               onClick={() => setArchiveLead((v) => !v)}
               className={cn(
-                "flex items-start gap-2.5 w-full p-3 rounded-[6px] text-left",
+                "flex items-start gap-2.5 w-full p-3 rounded-sidebar text-left",
                 "border transition-colors duration-150",
                 archiveLead
                   ? "border-ops-accent/50 bg-ops-accent/[0.06]"
-                  : "border-border-subtle bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(255,255,255,0.04)]"
+                  : "border-line bg-inbox-bg-deep hover:bg-inbox-elev/40",
               )}
             >
               <div
                 className={cn(
-                  "w-[28px] h-[28px] rounded-[5px] flex items-center justify-center shrink-0",
+                  "w-[28px] h-[28px] rounded-[2.5px] flex items-center justify-center shrink-0",
                   "border",
                   archiveLead
                     ? "border-ops-accent bg-ops-accent"
-                    : "border-border-subtle bg-[rgba(255,255,255,0.04)]"
+                    : "border-line bg-inbox-elev/40",
                 )}
               >
                 {archiveLead ? (
-                  <Check className="w-[14px] h-[14px] text-black" strokeWidth={2.5} />
+                  <Check className="w-[14px] h-[14px] text-black" strokeWidth={1.5} />
                 ) : (
-                  <Briefcase className="w-[12px] h-[12px] text-text-2" strokeWidth={1.75} />
+                  <Briefcase className="w-[14px] h-[14px] text-text-2" strokeWidth={1.5} />
                 )}
               </div>
               <div className="flex-1 min-w-0">
                 <p
                   className={cn(
                     "font-cakemono font-light uppercase text-[12px] tracking-[0.14em]",
-                    archiveLead ? "text-text" : "text-text-2"
+                    archiveLead ? "text-text" : "text-text-2",
                   )}
                 >
-                  Archive lead
+                  {t("archiveModal.archiveLead", "Archive lead")}
                 </p>
                 <p className="font-mohave text-[13px] text-text mt-0.5 truncate">
                   {linkedOpportunity.title}
                 </p>
                 <p className="font-mono text-[11px] text-text-mute mt-0.5">
                   {archiveLead
-                    ? "[lead will be removed from active pipeline]"
-                    : "[lead stays open in pipeline]"}
+                    ? t(
+                        "archiveModal.leadHint.willArchive",
+                        "[lead will be removed from active pipeline]",
+                      )
+                    : t(
+                        "archiveModal.leadHint.willStay",
+                        "[lead stays open in pipeline]",
+                      )}
                 </p>
               </div>
             </button>
@@ -360,16 +388,19 @@ export function ArchiveConfirmModal({
         </div>
 
         {error && (
-          <div className="px-4 pb-2 border-t border-border-subtle pt-2">
+          <div className="px-4 pb-2 border-t border-line pt-2">
             <p className="font-mono text-[11px] text-rose">{error}</p>
           </div>
         )}
 
-        <div className="flex justify-between items-center gap-1.5 px-4 py-3 border-t border-border-subtle">
-          <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
+        <div className="flex justify-between items-center gap-1.5 px-4 py-3 border-t border-line">
+          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-mute">
             {totalCount === 1
-              ? "[1 item to archive]"
-              : `[${totalCount} items to archive]`}
+              ? t("archiveModal.itemCount_one", "[1 item to archive]")
+              : t(
+                  "archiveModal.itemCount_other",
+                  "[{count} items to archive]",
+                ).replace("{count}", String(totalCount))}
           </p>
           <div className="flex gap-1.5">
             <button
@@ -377,27 +408,39 @@ export function ArchiveConfirmModal({
               onClick={() => close(false)}
               disabled={submitting}
               className={cn(
-                "px-3 py-1.5 rounded-[5px] border border-border-subtle",
+                "px-3 py-1.5 rounded-[2.5px] border border-line",
                 "font-cakemono font-light uppercase text-[11px] tracking-[0.14em] text-text-2",
-                "hover:bg-[rgba(255,255,255,0.04)] transition-colors duration-150",
-                "disabled:opacity-50 disabled:cursor-not-allowed"
+                "hover:bg-inbox-elev/40 transition-colors duration-150",
+                "disabled:opacity-50 disabled:cursor-not-allowed",
               )}
             >
-              Cancel
+              {t("modal.archive.cancel", "CANCEL")}
             </button>
             <button
               type="button"
               onClick={submit}
               disabled={submitting}
               className={cn(
-                "px-3 py-1.5 rounded-[5px]",
-                "bg-ops-accent text-black",
+                "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[2.5px]",
+                "border border-ops-accent text-ops-accent",
                 "font-cakemono font-light uppercase text-[11px] tracking-[0.14em]",
-                "hover:bg-ops-accent/90 transition-colors duration-150",
-                "disabled:opacity-50 disabled:cursor-not-allowed"
+                "hover:bg-ops-accent hover:text-black transition-colors duration-150",
+                "disabled:opacity-50 disabled:cursor-not-allowed",
               )}
             >
-              {submitting ? "Archiving…" : buttonLabel}
+              {submitting ? (
+                t("archiveModal.submitting", "Archiving…")
+              ) : (
+                <>
+                  <span>{t("modal.archive.confirm", "ARCHIVE")}</span>
+                  {totalCount > 1 && (
+                    <span className="font-mono tabular-nums opacity-80">
+                      ({totalCount})
+                    </span>
+                  )}
+                  <KeyHint variant="inline" keys={["⌘", "↵"]} />
+                </>
+              )}
             </button>
           </div>
         </div>

@@ -53,6 +53,21 @@
 | `rose` | `#B58289` (6.2:1) | Negative: error, overdue, cost |
 | `brick` | `#93321A` (2.5:1) | Destructive: borders/dots only, never text on black |
 
+### Agent Provenance Palette — Claude-authored surfaces only
+
+| Token | Value | Use |
+|-------|-------|-----|
+| `agent` | `#8A7FB8` | Base agent fill, borders, AI-draft chevron tag |
+| `agent-hi` | `#B5ABDC` | Emphasis text on agent surfaces |
+| `agent-text` | `#C9C0E6` | Body text Claude wrote |
+| `agent-text-2` | `#A39CC9` | Secondary / provenance lines ("Edited from Claude draft · 12s ago") |
+| `agent-border` | `rgba(138,127,184,0.18)` | Dividers / outlines on agent cards |
+| `agent-border-hi` | `rgba(138,127,184,0.36)` | Emphasis borders |
+| `agent-bg` | `rgba(138,127,184,0.04)` | Tinted backgrounds |
+| `agent-bg-hi` | `rgba(138,127,184,0.10)` | Hover / active agent surfaces |
+
+**Rule.** Lavender is reserved for Claude-authored surfaces. Allowed: AI summary band, "Claude drafted this" labels, auto-sent banner, autonomy panel, AI-drafted bubble fills, AI-drafted thread row indicator, agent body text. Forbidden: category chips, status pills, links, drafts authored by user / Gmail, opportunities, "Your turn" banner, anything human-authored. If a surface mixes user + Claude content (edited Claude draft), use neutral text and surface agent provenance with a small `agent-text-2` provenance line.
+
 ### Financial
 
 | Token | Value | Use |

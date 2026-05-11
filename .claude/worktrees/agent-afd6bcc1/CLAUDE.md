@@ -19,7 +19,7 @@ Supplements the root `OPS LTD./CLAUDE.md`. Read both.
 
 ## Design System
 
-- Read and follow `.interface-design/system.md` for every UI decision
+- Read and follow `ops-design-system/project/uploads/system.md` for every UI decision. Agent brief: `ops-design-system/project/README.md`.
 - Frosted glass surfaces: `rgba(10, 10, 10, 0.70)` + `backdrop-blur(20px) saturate(1.2)` + `1px solid rgba(255, 255, 255, 0.08)`
 - Accent `#597794` — used sparingly, never as decoration
 - Border radius: 2-4px (sharp, not rounded)

@@ -21,6 +21,32 @@ function getOpenAI() {
   return getDraftingOpenAI();
 }
 
+// ─── Output Sanitization ────────────────────────────────────────────────────
+
+/**
+ * Strip stray markdown code fences from LLM-generated draft output.
+ *
+ * Even with explicit prompt rules forbidding fences, models occasionally
+ * wrap the entire body in ```markdown ... ``` (the prompt used to ask for
+ * "markdown format" which the model interpreted as "wrap as code"). We
+ * strip defensively at the boundary so a model regression cannot leak
+ * fences into the database, the composer, or outbound email.
+ *
+ * Idempotent: text without fences passes through unchanged. Fence-only
+ * detection is anchored — fences inside the body (e.g. an inline code
+ * block the user actually wants) survive.
+ */
+export function stripMarkdownFences(text: string): string {
+  if (!text) return text;
+  let s = text.trim();
+  // Leading fence: ``` optionally followed by a language tag (markdown,
+  // text, plain, etc.) and a newline.
+  s = s.replace(/^```[a-zA-Z0-9_-]*\n?/, "");
+  // Trailing fence.
+  s = s.replace(/\n?```\s*$/, "");
+  return s.trim();
+}
+
 // ─── Profile Type Detection ─────────────────────────────────────────────────
 
 /**
@@ -82,6 +108,42 @@ export interface AIDraftResult {
   available: boolean;
   reason?: string;
   profileType?: string;
+  /**
+   * True when the empty-response fallback path successfully escalated to
+   * the operator (formulated a question + wrote it to
+   * `email_threads.agent_blocking_question`). When set, callers should
+   * surface the escalation rather than treat the unavailable draft as an
+   * error.
+   */
+  escalated?: boolean;
+}
+
+/**
+ * Context the escalation flow needs to formulate a useful operator
+ * question. All fields are optional so the function degrades gracefully
+ * when the calling site has incomplete state — but with too little
+ * context Claude tends to ask vague questions, so prefer to pass at
+ * minimum `lastInboundBody` and either `threadSubject` or
+ * `opportunityContext`.
+ */
+export interface EscalationContext {
+  companyId: string;
+  /** Internal `email_threads.id` (uuid). Required to write back. */
+  threadInternalId: string;
+  clientName?: string;
+  clientEmail?: string;
+  threadSubject?: string;
+  lastInboundBody?: string;
+  /** Formatted "oldest first" thread history string, optional. */
+  threadHistory?: string;
+  opportunityContext?: string;
+}
+
+export interface EscalationResult {
+  written: boolean;
+  question?: string;
+  options?: Array<{ id: string; label: string }>;
+  reason?: string;
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -225,7 +287,7 @@ Only include systematic patterns, not one-off edits. substitutions should be wor
         },
       ],
       temperature: 0.1,
-      max_tokens: 200,
+      max_completion_tokens: 200,
       response_format: { type: "json_object" },
     });
 
@@ -236,6 +298,152 @@ Only include systematic patterns, not one-off edits. substitutions should be wor
     console.error("[ai-draft] GPT edit analysis failed:", err);
     return null;
   }
+}
+
+// ─── Operator escalation ────────────────────────────────────────────────────
+//
+// Called from the empty-response fallback path when the LLM returned no
+// usable draft. Asks the model to formulate a single thread-specific
+// question (with optional 2-3 quick-pick options) and writes it to
+// `email_threads.agent_blocking_question`. The lavender NEEDS_INPUT band
+// in the inbox renders off that column.
+//
+// Defensive throughout: any failure returns `{ written: false }` with a
+// reason and the caller falls back to its existing "draft unavailable"
+// behavior. The escalation must never throw — `generateDraft` is hot in
+// the autonomy router path and we don't want a second-call failure to
+// surface as a visible error to the operator.
+
+export async function escalateToOperatorQuestion(
+  ctx: EscalationContext,
+): Promise<EscalationResult> {
+  const {
+    companyId,
+    threadInternalId,
+    clientName,
+    clientEmail,
+    threadSubject,
+    lastInboundBody,
+    threadHistory,
+    opportunityContext,
+  } = ctx;
+
+  if (!companyId || !threadInternalId) {
+    return { written: false, reason: "missing companyId or threadInternalId" };
+  }
+
+  // Build context block. Cap each field so we don't blow the prompt budget
+  // on threads with massive bodies. The empty-response path means the
+  // primary draft already failed — keep this call cheap.
+  const contextBlock = [
+    clientName || clientEmail
+      ? `Client: ${clientName ?? ""}${clientEmail ? ` <${clientEmail}>` : ""}`
+      : "",
+    threadSubject ? `Subject: ${threadSubject}` : "",
+    opportunityContext ? `Opportunity:\n${opportunityContext.slice(0, 500)}` : "",
+    lastInboundBody ? `Latest inbound message:\n${lastInboundBody.slice(0, 1500)}` : "",
+    threadHistory ? `Thread history (oldest first):\n${threadHistory.slice(0, 2000)}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+
+  if (!contextBlock.trim()) {
+    return { written: false, reason: "no context available to escalate" };
+  }
+
+  const systemPrompt = `You looked at an email thread but could not draft a reply. The operator needs to provide one piece of information so you can finish the draft.
+
+Your job: formulate the SINGLE most important question to ask the operator. If the question has a clear set of likely answers (e.g., a deposit amount, a date, a yes/no), include 2-3 quick-pick options the operator can tap.
+
+Rules:
+- Question must be specific to this thread, not generic.
+- Question must be answerable in one short reply (a number, a date, a name, a yes/no, etc.).
+- Do not ask for general guidance — pick the SINGLE blocker.
+- Quick-pick options are optional. Include them only when the answer space is naturally bounded.
+- Return JSON: { "question": string, "options": [{ "id": string, "label": string }] | null }
+- "id" should be a short slug like "opt-50-percent" or "opt-may-18".
+- Maximum 3 options. Omit the field entirely or set it to null when free-form is the right ask.`;
+
+  let parsed: { question?: unknown; options?: unknown } | null = null;
+  try {
+    const response = await getOpenAI().chat.completions.create({
+      model: "gpt-5.4-mini",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: contextBlock },
+      ],
+      temperature: 0.2,
+      max_completion_tokens: 300,
+      response_format: { type: "json_object" },
+    });
+    const content = response.choices[0]?.message?.content ?? "";
+    if (!content) {
+      return { written: false, reason: "escalation LLM returned empty content" };
+    }
+    parsed = JSON.parse(content);
+  } catch (err) {
+    console.error("[ai-draft] escalation LLM call failed:", err);
+    return {
+      written: false,
+      reason: err instanceof Error ? err.message : "escalation LLM call failed",
+    };
+  }
+
+  if (!parsed) {
+    return { written: false, reason: "escalation LLM returned unparseable JSON" };
+  }
+
+  const question = typeof parsed.question === "string" ? parsed.question.trim() : "";
+  if (!question) {
+    return { written: false, reason: "escalation LLM omitted question field" };
+  }
+
+  // Sanitize options. Anything non-conforming is silently dropped — better
+  // to fall through to free-form than to render a malformed chip strip.
+  let options: Array<{ id: string; label: string }> | undefined;
+  if (Array.isArray(parsed.options)) {
+    options = parsed.options
+      .map((o) => {
+        if (!o || typeof o !== "object") return null;
+        const opt = o as Record<string, unknown>;
+        const id = typeof opt.id === "string" ? opt.id.trim() : "";
+        const label = typeof opt.label === "string" ? opt.label.trim() : "";
+        if (!id || !label) return null;
+        return { id, label };
+      })
+      .filter((o): o is { id: string; label: string } => o !== null)
+      .slice(0, 3);
+    if (options.length === 0) options = undefined;
+  }
+
+  // Persist. We don't gate on prior agent_blocking_question — overwriting
+  // is the right call: if the LLM has new context (newer thread reply),
+  // its newer question is what should drive the band. The
+  // /agent-question/answer endpoint clears the column when the operator
+  // answers, so we won't write into an already-answered window.
+  const supabase = requireSupabase();
+  const askedAt = new Date().toISOString();
+  const payload = options
+    ? { question, options, asked_at: askedAt }
+    : { question, asked_at: askedAt };
+
+  const { error } = await supabase
+    .from("email_threads")
+    .update({ agent_blocking_question: payload })
+    .eq("id", threadInternalId)
+    .eq("company_id", companyId);
+
+  if (error) {
+    console.error("[ai-draft] escalation write failed:", error);
+    return {
+      written: false,
+      question,
+      options,
+      reason: `db write failed: ${error.message}`,
+    };
+  }
+
+  return { written: true, question, options };
 }
 
 // ─── Service ────────────────────────────────────────────────────────────────
@@ -582,7 +790,7 @@ RULES:
 - Match their hedging level — if they're direct, be direct; if they hedge, hedge similarly
 - Use their preferred word substitutions if listed above
 - Include relevant business details if available from context
-- Write in markdown format
+- Output ONLY the email body itself. Do NOT wrap the response in markdown code fences (\`\`\`), do NOT prefix with "Here's the draft:" or similar intros, do NOT include a subject line
 - Replace {name} in greeting with the client's first name`;
 
     // ── Build user prompt ──────────────────────────────────────────────
@@ -619,19 +827,58 @@ ${opportunityContext ? `\nContext:\n${opportunityContext}` : ""}`;
         { role: "user", content: userPrompt },
       ],
       temperature: 0.7,
-      max_tokens: 800,
+      max_completion_tokens: 800,
     });
 
-    const draft = response.choices[0]?.message?.content || "";
+    const draft = stripMarkdownFences(response.choices[0]?.message?.content || "");
 
     if (!draft) {
+      // Empty draft — try to escalate to the operator with a thread-specific
+      // question instead of silently failing. Only attempts when we have a
+      // resolvable internal thread.id (we get the provider thread id from
+      // the request and have to look up the row). Skipping the lookup when
+      // we don't know companyId/threadId leaves the existing
+      // "AI returned empty response" behavior in place.
+      let escalated = false;
+      if (threadId) {
+        const { data: threadRow } = await supabase
+          .from("email_threads")
+          .select("id")
+          .eq("company_id", companyId)
+          .eq("provider_thread_id", threadId)
+          .maybeSingle();
+        const threadInternalId = (threadRow?.id as string | undefined) ?? null;
+        if (threadInternalId) {
+          // Reuse the same context we built for the draft prompt — no need
+          // to refetch. The escalation function caps each field internally
+          // so passing the full bodies is safe.
+          const lastInbound = threadMessages
+            .filter((m) => m.direction === "inbound")
+            .pop();
+          const formattedHistory = threadMessages
+            .map((m) => `[${m.direction}] ${m.subject}\n${m.body_text?.slice(0, 400) || ""}`)
+            .join("\n\n");
+          const result = await escalateToOperatorQuestion({
+            companyId,
+            threadInternalId,
+            clientName,
+            clientEmail,
+            threadSubject: lastInbound?.subject || threadMessages[0]?.subject,
+            lastInboundBody: lastInbound?.body_text,
+            threadHistory: formattedHistory,
+            opportunityContext,
+          });
+          escalated = result.written;
+        }
+      }
       return {
         draft: "",
         draftHistoryId: "",
         confidence,
         sources,
         available: false,
-        reason: "AI returned empty response",
+        reason: escalated ? "escalated_to_operator" : "AI returned empty response",
+        escalated,
       };
     }
 

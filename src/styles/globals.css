@@ -44,6 +44,23 @@
   --fill-neutral: rgba(255, 255, 255, 0.14);
   --fill-neutral-dim: rgba(255, 255, 255, 0.06);
 
+  /* ── Inbox surface tokens (scoped to /inbox routes) ── */
+  --inbox-bg: #0E0F12;
+  --inbox-bg-deep: #08090B;
+  --inbox-panel: #16181C;
+  --inbox-elev: #1A1D22;
+
+  /* ── Agent Provenance Palette — Claude-authored surfaces only ── */
+  /* See .interface-design/system.md § Agent Provenance Palette for usage rules. */
+  --agent: #8A7FB8;
+  --agent-hi: #B5ABDC;
+  --agent-text: #C9C0E6;
+  --agent-text-2: #A39CC9;
+  --agent-border: rgba(138, 127, 184, 0.18);
+  --agent-border-hi: rgba(138, 127, 184, 0.36);
+  --agent-bg: rgba(138, 127, 184, 0.04);
+  --agent-bg-hi: rgba(138, 127, 184, 0.10);
+
   /* ── Z-index scale — see OPS-Web/CLAUDE.md § Z-Index Scale ── */
   --z-content:        1;
   --z-interactive:    100;

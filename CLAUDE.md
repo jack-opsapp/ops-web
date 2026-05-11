@@ -27,7 +27,7 @@ Supplements the root `OPS LTD./CLAUDE.md`. Read both.
 
 ## Design System (spec v2 — 2026-04-17)
 
-- Read and follow `.interface-design/system.md` for every UI decision (canonical source)
+- Read and follow `ops-design-system/project/uploads/system.md` for every UI decision (canonical spec). Agent brief: `ops-design-system/project/README.md`. UI kit: `ops-design-system/project/ui_kits/ops-web/`.
 - Canvas: pure `#000000`
 - Glass surfaces (Command Deck spec): `rgba(18, 18, 20, 0.58)` + `backdrop-blur(28px) saturate(1.3)` + `1px solid rgba(255, 255, 255, 0.09)`. `.glass-dense` variant uses `0.78` alpha for stacked layers (modals / popovers / toasts).
 - **Accent `#6F94B0`** (steel blue) — primary CTA and focus ring ONLY. Never on links, toggles, nav, tabs, tags. One element per screen maximum.

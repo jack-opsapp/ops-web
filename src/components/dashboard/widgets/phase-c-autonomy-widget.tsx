@@ -34,7 +34,7 @@ import {
   type EmailThreadCategory,
 } from "@/lib/types/email-thread";
 import {
-  categoryDotColor,
+  categoryDotClassName,
   categoryLabel,
 } from "@/components/ops/inbox/category-chip";
 
@@ -263,8 +263,10 @@ export function PhaseCAutonomyWidget({ size, config: _config }: PhaseCAutonomyWi
                   >
                     <span
                       aria-hidden
-                      className="w-[6px] h-[6px] rounded-full shrink-0"
-                      style={{ backgroundColor: categoryDotColor(cat) }}
+                      className={cn(
+                        "w-[6px] h-[6px] rounded-full shrink-0",
+                        categoryDotClassName(cat)
+                      )}
                     />
                     <span className="font-cakemono font-light uppercase text-[11px] tracking-[0.14em] text-text-2 min-w-[110px]">
                       {categoryLabel(cat)}

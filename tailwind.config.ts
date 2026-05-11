@@ -139,6 +139,53 @@ const config: Config = {
           active: "rgba(255, 255, 255, 0.08)",
           input: "rgba(255, 255, 255, 0.04)",
         },
+
+        // === Earth-tone top-level aliases ===
+        // These match the spec v2 names (system.md § Earth Tones) so callers
+        // can write `bg-olive`/`text-rose` etc. directly. Values trace to the
+        // status palette (status.success, status.warning, status.error) and
+        // their CSS variables in globals.css.
+        olive: "#9DB582",
+        tan: "#C4A868",
+        rose: "#B58289",
+        brick: "#93321A",
+        // Top-level alias for the spec v2 `text.mute` token so callers can use
+        // it as a background or border (e.g. status pips that need the muted
+        // gray fill: `bg-text-mute`). Mirrors text.mute exactly.
+        "text-mute": "#6A6A6A",
+        // Top-level alias for spec v2 border-medium so `border-border-medium`
+        // resolves directly without dipping into surface-active overlap.
+        "border-medium": "rgba(255, 255, 255, 0.18)",
+        line: "rgba(255, 255, 255, 0.10)",
+        "line-hi": "rgba(255, 255, 255, 0.18)",
+
+        // === Inbox surface tokens (scoped to /inbox routes) ===
+        // Solid panels for the redesigned inbox. Glass remains the OPS-Web
+        // system-wide default; these tokens must NOT leak into glass-surface
+        // contexts. See docs/plans/2026-05-06-inbox-redesign.md.
+        inbox: {
+          bg: "#0E0F12",
+          "bg-deep": "#08090B",
+          panel: "#16181C",
+          elev: "#1A1D22",
+        },
+
+        // === Agent Provenance Palette (Claude-authored surfaces only) ===
+        // Reserved for AI-authored surfaces: summary band, "Claude drafted this"
+        // labels, auto-sent banner, autonomy panel, AI-drafted bubbles & rows,
+        // agent body text. Never on category chips, status pills, links, user
+        // drafts, opportunities, "Your turn" banner, or human-authored content.
+        // See .interface-design/system.md § Agent Provenance Palette.
+        agent: {
+          DEFAULT: "#8A7FB8",
+          hi: "#B5ABDC",
+          text: "#C9C0E6",
+          text2: "#A39CC9",
+          border: "rgba(138, 127, 184, 0.18)",
+          "border-hi": "rgba(138, 127, 184, 0.36)",
+          bg: "rgba(138, 127, 184, 0.04)",
+          "bg-hi": "rgba(138, 127, 184, 0.10)",
+        },
       },
 
       // === Typography ===
@@ -205,6 +252,7 @@ const config: Config = {
         modal: "12px",
         chip: "4px",
         bar: "2px",
+        sidebar: "6px",
       },
 
       // === Box Shadow (subtle elevation, no glows) ===

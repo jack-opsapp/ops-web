@@ -166,6 +166,9 @@ export async function GET(request: NextRequest) {
         clientName: t.clientId ? clientNameById.get(t.clientId) ?? null : null,
         nextCommitmentDueAt: t.nextCommitmentDueAt?.toISOString() ?? null,
         hasUnresolvedCommitments: t.hasUnresolvedCommitments,
+        nextCommitmentId: t.nextCommitmentId,
+        phaseC: t.phaseC,
+        agentBlockingQuestion: t.agentBlockingQuestion,
       })),
       nextCursor: result.nextCursor,
     });

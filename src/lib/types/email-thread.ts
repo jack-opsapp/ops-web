@@ -12,13 +12,18 @@
 /**
  * Primary category — exactly one per thread.
  *
- * LEAD and CLIENT were collapsed into CUSTOMER by migration
- * 20260428061836_collapse_lead_client_to_customer. The lead-vs-client
- * distinction is now carried by the linked opportunity stage, not the thread
- * category.
+ * `CUSTOMER` is the production category enforced by the DB check constraint
+ * on `email_threads.primary_category`. The legacy `LEAD` / `CLIENT` values
+ * are retained in the union for transitional code that hasn't been
+ * migrated yet, but new writes should always use `CUSTOMER`. The
+ * deterministic-internal classifier rule + the human classifier path now
+ * emit `CUSTOMER` directly. Tracking issue: cross-codebase rename of
+ * LEAD/CLIENT → CUSTOMER references in widgets, tests, and chip mappings.
  */
 export type EmailThreadCategory =
   | "CUSTOMER"
+  | "LEAD"
+  | "CLIENT"
   | "VENDOR"
   | "SUBTRADE"
   | "PLATFORM_BID"
@@ -33,6 +38,8 @@ export type EmailThreadCategory =
 
 export const EMAIL_THREAD_CATEGORIES: readonly EmailThreadCategory[] = [
   "CUSTOMER",
+  "LEAD",
+  "CLIENT",
   "VENDOR",
   "SUBTRADE",
   "PLATFORM_BID",
@@ -69,7 +76,7 @@ export const EMAIL_THREAD_LABELS: readonly EmailThreadLabel[] = [
  * `email_connections.auto_send_settings.category_autonomy["primary:<CATEGORY>"]`.
  *
  * `auto_archive` only applies to RECEIPT/MARKETING/NEWSLETTER-style categories.
- * `auto_follow_up` only applies to CUSTOMER.
+ * `auto_follow_up` only applies to LEAD (and optionally CLIENT).
  * The UI caps allowed levels per category — see phase-c-category-autonomy-service.
  */
 export type EmailThreadAutonomyLevel =
@@ -142,6 +149,34 @@ export interface InboxDraftRow {
 /** Inbox scope — own mailbox vs. all company mailboxes (permission-gated). */
 export type InboxScope = "own" | "company";
 
+/**
+ * Phase C draft state for a thread, derived from `ai_draft_history`. Drives
+ * column grouping (`grouping.ts`) and detail-band selection (`band-selection.ts`).
+ *
+ *   - `none`       — no AI draft, or the latest one was discarded / superseded
+ *                    by a fresh inbound reply
+ *   - `ai_drafted` — Claude has a draft pending for the user to review/send
+ *   - `auto_sent`  — Claude autonomously sent the latest reply (no user edits)
+ *                    AND nothing has come back yet
+ */
+export type PhaseC = "none" | "ai_drafted" | "auto_sent";
+
+/**
+ * Phase C escalation when Claude cannot draft a reply without operator
+ * input. Stored on `email_threads.agent_blocking_question` (jsonb). Drives
+ * the lavender NEEDS_INPUT band and the column-top NEEDS_INPUT group.
+ *
+ * `options` is optional — when present, the band renders quick-pick
+ * buttons; when absent, it renders a single "Provide answer" free-form
+ * CTA that focuses the composer.
+ */
+export interface AgentBlockingQuestion {
+  question: string;
+  options?: Array<{ id: string; label: string }>;
+  /** ISO 8601. When the question was first recorded by Phase C. */
+  askedAt: string;
+}
+
 // ─── Core record ─────────────────────────────────────────────────────────────
 
 export interface EmailThread {
@@ -186,6 +221,24 @@ export interface EmailThread {
   // mirrors the indexed boolean used by the COMMITMENTS rail filter.
   nextCommitmentDueAt: Date | null;
   hasUnresolvedCommitments: boolean;
+  // Earliest-due unresolved commitment's `agent_memories.id` for this
+  // thread, derived per-page by `EmailThreadService.list` / `getThread`.
+  // The today-bar uses this to wire its inline ✓ resolve affordance to
+  // the correct memory row without a second round-trip per click.
+  // Null when the thread has no unresolved commitments (or when the
+  // derivation query is unreachable — UI degrades to navigate-only).
+  nextCommitmentId: string | null;
+
+  // Phase C draft state — derived per-thread by `EmailThreadService.list` /
+  // `getThread` from the latest `ai_draft_history` row matching
+  // (connection_id, provider_thread_id). `mapEmailThreadFromDb` defaults
+  // this to "none"; the service overlays the real value before returning.
+  phaseC: PhaseC;
+
+  // Phase C escalation — populated when Claude is blocked waiting on the
+  // operator. Null on the steady-state (and for legacy rows before the
+  // column existed). Cleared when the operator answers.
+  agentBlockingQuestion: AgentBlockingQuestion | null;
 
   createdAt: Date;
   updatedAt: Date;
@@ -249,9 +302,51 @@ export function mapEmailThreadFromDb(row: Record<string, unknown>): EmailThread 
     clientId: (row.client_id as string | null) ?? null,
     nextCommitmentDueAt: parseDateOrNull(row.next_commitment_due_at),
     hasUnresolvedCommitments: Boolean(row.has_unresolved_commitments),
+    // The service overlays the real id after the agent_memories join.
+    // Bare callers (upsertFromEmail and friends) get null safely.
+    nextCommitmentId: null,
+    // Default to "none" — the service overlays the derived value after the
+    // ai_draft_history join. Bare callers (e.g., upsertFromEmail) get a safe
+    // default so they never see undefined.
+    phaseC: "none",
+    agentBlockingQuestion: parseAgentBlockingQuestion(row.agent_blocking_question),
     createdAt: parseDate(row.created_at),
     updatedAt: parseDate(row.updated_at),
   };
+}
+
+/**
+ * Defensive jsonb parse. Migration 20260507000002 introduced the column;
+ * pre-migration rows return undefined here. We also tolerate rows where
+ * Phase C wrote something that doesn't quite match the agreed shape — a
+ * malformed escalation should silently degrade to "no escalation" rather
+ * than throw and break the inbox list.
+ */
+function parseAgentBlockingQuestion(
+  raw: unknown,
+): AgentBlockingQuestion | null {
+  if (!raw || typeof raw !== "object") return null;
+  const obj = raw as Record<string, unknown>;
+  const question = typeof obj.question === "string" ? obj.question.trim() : "";
+  const askedAt = typeof obj.asked_at === "string" ? obj.asked_at : "";
+  if (!question || !askedAt) return null;
+
+  let options: AgentBlockingQuestion["options"];
+  if (Array.isArray(obj.options)) {
+    options = obj.options
+      .map((o) => {
+        if (!o || typeof o !== "object") return null;
+        const opt = o as Record<string, unknown>;
+        const id = typeof opt.id === "string" ? opt.id : "";
+        const label = typeof opt.label === "string" ? opt.label : "";
+        if (!id || !label) return null;
+        return { id, label };
+      })
+      .filter((o): o is { id: string; label: string } => o !== null);
+    if (options.length === 0) options = undefined;
+  }
+
+  return options ? { question, options, askedAt } : { question, askedAt };
 }
 
 export function mapCategoryCorrectionFromDb(
