@@ -116,7 +116,19 @@ export enum FollowUpStatus {
 
 /** Payment method */
 /** Line item / product type */
-export type LineItemType = "LABOR" | "MATERIAL";
+export type LineItemType = "LABOR" | "MATERIAL" | "OTHER";
+
+/** Product kind — service offering or physical good */
+export type ProductKind = "service" | "good";
+
+/** Pricing unit / unit-of-sale for products and line items */
+export type ProductPricingUnit =
+  | "flat_rate"
+  | "each"
+  | "linear_foot"
+  | "sqft"
+  | "hour"
+  | "day";
 
 /** Site visit status */
 export enum SiteVisitStatus {
@@ -474,7 +486,13 @@ export interface PipelineStageConfig {
   deletedAt: Date | null;
 }
 
-/** Products/services catalog item */
+/** Products/services catalog item.
+ *
+ * Field set mirrors the iOS `ProductDTO` (see
+ * `ops-ios/OPS/Network/Supabase/DTOs/ProductDTOs.swift`). Web reads/writes
+ * every column iOS does so a product authored on one client round-trips
+ * through the other without losing data.
+ */
 export interface Product {
   id: string;
   companyId: string;
@@ -490,6 +508,30 @@ export interface Product {
   taskTypeId: string | null;
   isTaxable: boolean;
   isActive: boolean;
+  // iOS DTO parity fields ─────────────────────────────────────────────────
+  /** Pricing unit — flat_rate / each / linear_foot / sqft / hour / day */
+  pricingUnit?: ProductPricingUnit | null;
+  /** Stock keeping unit; uppercase free text */
+  sku?: string | null;
+  /** Supabase Storage public URL; nullable until iOS upload completes */
+  thumbnailUrl?: string | null;
+  /** Service offering vs physical good */
+  kind?: ProductKind | null;
+  /** Floor charge applied when computed line total falls below this value */
+  minimumCharge?: number | null;
+  /** Floor quantity applied when user-entered quantity falls below this value */
+  minimumQuantity?: number | null;
+  /** When true, the product's recipe materials surface on customer-facing estimates */
+  showBomOnEstimate?: boolean;
+  /** Whether the item is published in the public storefront. Authored from /admin/shop, not the catalog form. */
+  showInStorefront?: boolean;
+  /** Pinned to top of the catalog list */
+  isFavorite?: boolean;
+  /** jsonb passthrough — preserved on round-trip without strong typing */
+  tieredPricing?: unknown;
+  /** FK to task_types; the modern column. `taskTypeId` is the legacy text column. */
+  taskTypeRef?: string | null;
+  // ──────────────────────────────────────────────────────────────────────
   createdAt: Date | null;
   updatedAt: Date | null;
   deletedAt: Date | null;
