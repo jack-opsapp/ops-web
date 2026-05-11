@@ -7,7 +7,31 @@ import { NotificationService } from "@/lib/api/services/notification-service";
 import { dispatchMentionPush } from "@/lib/api/services/notification-dispatch";
 import { requireSupabase } from "@/lib/supabase/helpers";
 import { useAuthStore } from "@/lib/store/auth-store";
-import type { CreateProjectNote, UpdateProjectNote } from "@/lib/types/pipeline";
+import type {
+  CreateProjectNote,
+  UpdateProjectNote,
+  ProjectNote,
+} from "@/lib/types/pipeline";
+
+/**
+ * Result shape for create-note: the saved note (flat — so `result.id`
+ * still resolves to the note id, preserving the prior return contract)
+ * plus a snapshot of mention notification delivery hung off
+ * `mentionNotifications`. The note save is the source of truth — if it
+ * fails the mutation rejects. Mention fan-out is reported separately so
+ * the UI can warn the operator without rolling back the note.
+ */
+export interface MentionDispatchSnapshot {
+  attempted: number;
+  inAppFailed: boolean;
+  pushFailed: boolean;
+  /** Human-readable reason populated when either channel failed. */
+  error?: string;
+}
+
+export type CreateProjectNoteResult = ProjectNote & {
+  mentionNotifications: MentionDispatchSnapshot;
+};
 
 export function useProjectNotes(projectId: string | undefined) {
   const { company } = useAuthStore();
@@ -25,54 +49,100 @@ export function useCreateProjectNote() {
   const queryClient = useQueryClient();
   const { currentUser } = useAuthStore();
 
-  return useMutation({
+  return useMutation<CreateProjectNoteResult, Error, CreateProjectNote>({
     mutationFn: async (input: CreateProjectNote) => {
       const note = await ProjectNoteService.createNote(input);
 
       // Fan out mention notifications + push when the author tagged anyone.
-      // Looked-up project title gives us a readable context line for the
-      // notification body. All side effects below are best-effort — the
-      // note is already saved, so we don't fail the mutation if the rail
-      // entries or push fail to land.
+      // The note save is committed first; mention fan-out failures are
+      // reported back to the caller via `mentionNotifications` so the UI
+      // can warn the operator instead of silently dropping the alert.
       const mentioned = input.mentionedUserIds ?? [];
-      if (mentioned.length > 0) {
-        try {
-          const supabase = requireSupabase();
-          const { data: project } = await supabase
-            .from("projects")
-            .select("title")
-            .eq("id", input.projectId)
-            .single();
-          const projectTitle =
-            (project?.title as string) ?? "this project";
-          const authorName =
-            `${currentUser?.firstName ?? ""} ${currentUser?.lastName ?? ""}`
-              .trim() || "A teammate";
+      const mentionStatus: MentionDispatchSnapshot = {
+        attempted: mentioned.length,
+        inAppFailed: false,
+        pushFailed: false,
+      };
 
-          await NotificationService.createMentionNotifications({
-            mentionedUserIds: mentioned,
-            authorName,
-            projectId: input.projectId,
-            projectTitle,
-            noteId: note.id,
-            companyId: input.companyId,
-          });
-
-          dispatchMentionPush({
-            mentionedUserIds: mentioned,
-            authorName,
-            notePreview: input.content,
-            projectId: input.projectId,
-            projectTitle,
-            noteId: note.id,
-            companyId: input.companyId,
-          });
-        } catch (err) {
-          console.error("[use-project-notes] Mention dispatch failed:", err);
-        }
+      if (mentioned.length === 0) {
+        return { ...note, mentionNotifications: mentionStatus };
       }
 
-      return note;
+      const errorParts: string[] = [];
+
+      // Resolve project title for the notification body. A failure here
+      // means we never even attempted dispatch — treat both channels as
+      // failed and surface the reason.
+      let projectTitle = "this project";
+      try {
+        const supabase = requireSupabase();
+        const { data: project, error } = await supabase
+          .from("projects")
+          .select("title")
+          .eq("id", input.projectId)
+          .single();
+        if (error) throw error;
+        if (project?.title) projectTitle = project.title as string;
+      } catch (err) {
+        console.error(
+          "[use-project-notes] Could not resolve project title for mention dispatch:",
+          err,
+        );
+        mentionStatus.inAppFailed = true;
+        mentionStatus.pushFailed = true;
+        mentionStatus.error =
+          err instanceof Error ? err.message : "Could not resolve project context";
+        return { ...note, mentionNotifications: mentionStatus };
+      }
+
+      const authorName =
+        `${currentUser?.firstName ?? ""} ${currentUser?.lastName ?? ""}`
+          .trim() || "A teammate";
+
+      // In-app rail notifications (one row per recipient). Wrapped so a
+      // throw here doesn't skip the push channel below.
+      try {
+        await NotificationService.createMentionNotifications({
+          mentionedUserIds: mentioned,
+          authorName,
+          projectId: input.projectId,
+          projectTitle,
+          noteId: note.id,
+          companyId: input.companyId,
+        });
+      } catch (err) {
+        console.error(
+          "[use-project-notes] In-app mention notifications failed:",
+          err,
+        );
+        mentionStatus.inAppFailed = true;
+        errorParts.push(
+          err instanceof Error ? err.message : "In-app notification failed",
+        );
+      }
+
+      // Push channel — dispatch returns a structured result; we await it
+      // so we can report on the same mutation cycle.
+      const pushResult = await dispatchMentionPush({
+        mentionedUserIds: mentioned,
+        authorName,
+        notePreview: input.content,
+        projectId: input.projectId,
+        projectTitle,
+        noteId: note.id,
+        companyId: input.companyId,
+      });
+
+      if (!pushResult.ok) {
+        mentionStatus.pushFailed = true;
+        errorParts.push(pushResult.error ?? "Push delivery failed");
+      }
+
+      if (errorParts.length > 0) {
+        mentionStatus.error = errorParts.join("; ");
+      }
+
+      return { ...note, mentionNotifications: mentionStatus };
     },
     onSuccess: (_result, input) => {
       queryClient.invalidateQueries({
