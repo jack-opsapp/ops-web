@@ -10,11 +10,11 @@
  */
 
 import { useCallback, useMemo, useState } from "react";
-import { Clock, Calendar as CalendarIcon } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
 import { useThreadActions } from "@/lib/hooks/use-inbox-threads";
+import { SlashLabel } from "./voice/slash-label";
 import { enqueueUndoToast } from "./undo-toast";
 
 interface SnoozePickerProps {
@@ -84,43 +84,46 @@ function nextMonth(now: Date): Date {
 }
 
 function buildPresets(): SnoozePreset[] {
+  // Tactical voice — bracketed JetBrains Mono uppercase labels per § 7.
+  // The dictionary keys live under `modal.snooze.preset*` (Phase A) but we
+  // keep the legacy `snooze.*.sub` sublabel keys (preserved presets, not new).
   return [
     {
       id: "later-today",
-      labelKey: "snooze.laterToday",
-      labelDefault: "Later today",
+      labelKey: "modal.snooze.presetLaterToday",
+      labelDefault: "[LATER TODAY]",
       sublabelKey: "snooze.laterToday.sub",
       sublabelDefault: "in 3 hours",
       compute: laterToday,
     },
     {
       id: "tomorrow",
-      labelKey: "snooze.tomorrow",
-      labelDefault: "Tomorrow",
+      labelKey: "modal.snooze.presetTomorrow",
+      labelDefault: "[TOMORROW 8AM]",
       sublabelKey: "snooze.tomorrow.sub",
       sublabelDefault: "8:00 AM",
       compute: tomorrowMorning,
     },
     {
       id: "weekend",
-      labelKey: "snooze.weekend",
-      labelDefault: "This weekend",
+      labelKey: "modal.snooze.presetWeekend",
+      labelDefault: "[WEEKEND]",
       sublabelKey: "snooze.weekend.sub",
       sublabelDefault: "Sat 9:00 AM",
       compute: thisWeekend,
     },
     {
       id: "next-week",
-      labelKey: "snooze.nextWeek",
-      labelDefault: "Next week",
+      labelKey: "modal.snooze.presetNextMon",
+      labelDefault: "[NEXT MON]",
       sublabelKey: "snooze.nextWeek.sub",
       sublabelDefault: "Mon 8:00 AM",
       compute: nextWeek,
     },
     {
       id: "next-month",
-      labelKey: "snooze.nextMonth",
-      labelDefault: "Next month",
+      labelKey: "modal.snooze.presetNextMonth",
+      labelDefault: "[NEXT MONTH]",
       sublabelKey: "snooze.nextMonth.sub",
       sublabelDefault: "1st at 8:00 AM",
       compute: nextMonth,
@@ -183,9 +186,9 @@ export function SnoozePicker({
       setOpen(false);
       snooze.mutate({ threadId, until });
       enqueueUndoToast({
-        message: t("toast.snoozed", "Snoozed until {when}").replace(
-          "{when}",
-          humanLabel,
+        message: t("toast.snoozedTactic", "SYS :: SNOOZED UNTIL {time}").replace(
+          "{time}",
+          humanLabel.toUpperCase(),
         ),
         onUndo: () => unsnooze.mutate(threadId),
       });
@@ -205,16 +208,16 @@ export function SnoozePicker({
       <PopoverContent
         align={align}
         sideOffset={6}
-        className="w-[260px] p-0"
+        className="w-[280px] p-0"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
-        <div className="px-3 pt-2.5 pb-1.5 border-b border-line">
-          <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-text-mute">
-            {"// "}
-            {t("snooze.label", "Snooze")}
-          </p>
-          <p className="font-cakemono font-light uppercase text-[13px] tracking-[0.14em] text-text mt-0.5">
-            {t("snooze.title", "Come back when")}
+        <div className="px-3 pt-2.5 pb-2 border-b border-line">
+          <SlashLabel label={t("modal.snooze.title", "// SNOOZE")} size="md" />
+          <p className="font-mono text-[11px] text-text-3 mt-1.5 leading-relaxed">
+            {t(
+              "modal.snooze.body",
+              "[—] hide until · returns to inbox automatically",
+            )}
           </p>
         </div>
 
@@ -232,15 +235,10 @@ export function SnoozePicker({
                   "hover:bg-inbox-elev/40 transition-colors duration-150",
                 )}
               >
-                <Clock className="w-[14px] h-[14px] text-text-mute shrink-0" strokeWidth={1.5} />
-                <div className="flex-1 min-w-0">
-                  <p className="font-cakemono font-light uppercase text-[12px] tracking-[0.14em] text-text-2">
-                    {t(preset.labelKey, preset.labelDefault)}
-                  </p>
-                  <p className="font-mono text-[11px] text-text-mute mt-[1px]">
-                    {t(preset.sublabelKey, preset.sublabelDefault)}
-                  </p>
-                </div>
+                <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-text-2 shrink-0">
+                  {t(preset.labelKey, preset.labelDefault)}
+                </span>
+                <span className="flex-1" />
                 <span className="font-mono text-[11px] text-text-mute tabular-nums shrink-0">
                   {formatPresetValue(computed)}
                 </span>
@@ -252,10 +250,9 @@ export function SnoozePicker({
         <div className="px-3 pt-2 pb-2.5 border-t border-line">
           <label
             htmlFor={`snooze-custom-${threadId}`}
-            className="flex items-center gap-1 font-mono text-[11px] uppercase tracking-[0.16em] text-text-mute mb-1"
+            className="block font-mohave italic text-[12px] text-text-3 lowercase mb-1"
           >
-            <CalendarIcon className="w-[14px] h-[14px]" strokeWidth={1.5} />
-            {t("snooze.custom", "Pick date & time")}
+            {t("modal.snooze.presetCustom", "pick a date and time…")}
           </label>
           <div className="flex items-stretch gap-1">
             <input
