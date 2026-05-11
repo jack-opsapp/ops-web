@@ -398,7 +398,7 @@
   "draftSwitcher.outlookLabel": "{n} · OUTLOOK",
   "draftSwitcher.yoursLabel": "{n} · TÚ",
   "draftSwitcher.newLabel": "{n} · NUEVO",
-  "draftSwitcher.claudeLabel": "{n} · CLAUDE",
+  "draftSwitcher.claudeLabel": "✦ {n} · CLAUDE",
   "draftSwitcher.addNew": "[+]",
   "draftSwitcher.addNewAria": "Añadir borrador",
 

@@ -57,11 +57,16 @@ const SOURCE_LABEL_KEY: Record<DraftSource, string> = {
 
 const SOURCE_LABEL_FALLBACK: Record<DraftSource, string> = {
   yours: "{n} · YOURS",
-  claude: "{n} · CLAUDE",
+  claude: "✦ {n} · CLAUDE",
   gmail: "{n} · GMAIL",
   outlook: "{n} · OUTLOOK",
   new: "{n} · NEW",
 };
+
+/** The Claude source uses a Lucide icon, so strip glyph fallbacks from text. */
+function stripClaudeGlyph(label: string): string {
+  return label.replace(/^✦\s*/, "").trim();
+}
 
 /** Shared base classes for every tactical tab + the trailing `[+]` button.
  * State-conditional classes (active text/border colors, hover) are merged
@@ -94,10 +99,11 @@ export function DraftSwitcher({
         const isActive = draft.id === activeId;
         const isClaude = draft.source === "claude";
         const ordinal = index + 1;
-        const displayLabel = t(
+        const rawLabel = t(
           SOURCE_LABEL_KEY[draft.source],
           SOURCE_LABEL_FALLBACK[draft.source],
         ).replace("{n}", String(ordinal));
+        const displayLabel = isClaude ? stripClaudeGlyph(rawLabel) : rawLabel;
         const activeBorder = isClaude ? "border-agent" : "border-ops-accent";
 
         return (
