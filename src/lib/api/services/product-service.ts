@@ -11,6 +11,8 @@ import type {
   CreateProduct,
   UpdateProduct,
   LineItemType,
+  ProductKind,
+  ProductPricingUnit,
 } from "@/lib/types/pipeline";
 
 // ─── Database ↔ TypeScript Mapping ────────────────────────────────────────────
@@ -31,6 +33,21 @@ function mapProductFromDb(row: Record<string, unknown>): Product {
     isActive: (row.is_active as boolean) ?? true,
     type: ((row.type as string) ?? "LABOR") as LineItemType,
     taskTypeId: (row.task_type_id as string) ?? null,
+    // iOS DTO parity fields ─────────────────────────────────────────────
+    pricingUnit: (row.pricing_unit as ProductPricingUnit) ?? null,
+    sku: (row.sku as string) ?? null,
+    thumbnailUrl: (row.thumbnail_url as string) ?? null,
+    kind: (row.kind as ProductKind) ?? null,
+    minimumCharge:
+      row.minimum_charge != null ? Number(row.minimum_charge) : null,
+    minimumQuantity:
+      row.minimum_quantity != null ? Number(row.minimum_quantity) : null,
+    showBomOnEstimate: (row.show_bom_on_estimate as boolean) ?? false,
+    showInStorefront: (row.show_in_storefront as boolean) ?? false,
+    isFavorite: (row.is_favorite as boolean) ?? false,
+    tieredPricing: row.tiered_pricing ?? null,
+    taskTypeRef: (row.task_type_ref as string) ?? null,
+    // ────────────────────────────────────────────────────────────────────
     createdAt: parseDate(row.created_at),
     updatedAt: parseDate(row.updated_at),
     deletedAt: parseDate(row.deleted_at),
@@ -42,6 +59,9 @@ function mapProductToDb(
 ): Record<string, unknown> {
   const row: Record<string, unknown> = {};
 
+  // Sparse-update pattern: only emit fields the caller explicitly set so an
+  // update path never force-writes NULL over a server-owned value it didn't
+  // touch (e.g. thumbnail_url after iOS uploads finish).
   if (data.companyId !== undefined) row.company_id = data.companyId;
   if (data.name !== undefined) row.name = data.name;
   if (data.description !== undefined) row.description = data.description;
@@ -55,6 +75,24 @@ function mapProductToDb(
   if (data.isActive !== undefined) row.is_active = data.isActive;
   if (data.type !== undefined) row.type = data.type;
   if (data.taskTypeId !== undefined) row.task_type_id = data.taskTypeId;
+  // iOS DTO parity fields ─────────────────────────────────────────────
+  if (data.pricingUnit !== undefined) row.pricing_unit = data.pricingUnit ?? null;
+  if (data.sku !== undefined) row.sku = data.sku ?? null;
+  if (data.thumbnailUrl !== undefined)
+    row.thumbnail_url = data.thumbnailUrl ?? null;
+  if (data.kind !== undefined) row.kind = data.kind ?? null;
+  if (data.minimumCharge !== undefined)
+    row.minimum_charge = data.minimumCharge ?? null;
+  if (data.minimumQuantity !== undefined)
+    row.minimum_quantity = data.minimumQuantity ?? null;
+  if (data.showBomOnEstimate !== undefined)
+    row.show_bom_on_estimate = data.showBomOnEstimate;
+  if (data.showInStorefront !== undefined)
+    row.show_in_storefront = data.showInStorefront;
+  if (data.isFavorite !== undefined) row.is_favorite = data.isFavorite;
+  if (data.tieredPricing !== undefined) row.tiered_pricing = data.tieredPricing;
+  if (data.taskTypeRef !== undefined)
+    row.task_type_ref = data.taskTypeRef ?? null;
 
   return row;
 }
