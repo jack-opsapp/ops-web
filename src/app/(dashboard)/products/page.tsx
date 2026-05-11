@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import Image from "next/image";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import {
   Plus,
@@ -186,17 +187,37 @@ export default function ProductsPage() {
                   key={product.id}
                   className="border-b border-border last:border-b-0 hover:bg-[rgba(255,255,255,0.02)] transition-colors"
                 >
-                  {/* Name + Description */}
+                  {/* Name + Description (with thumbnail) */}
                   <td className="px-2 py-1.5">
-                    <div>
-                      <span className="font-mohave text-body text-text block">
-                        {product.name}
-                      </span>
-                      {product.description && (
-                        <span className="font-mono text-micro text-text-mute truncate block max-w-[300px]">
-                          {product.description}
+                    <div className="flex items-center gap-2">
+                      <div
+                        className={cn(
+                          "relative w-[40px] h-[40px] shrink-0 rounded-[4px] border border-border overflow-hidden",
+                          "bg-[rgba(255,255,255,0.02)] flex items-center justify-center"
+                        )}
+                      >
+                        {product.thumbnailUrl ? (
+                          <Image
+                            src={product.thumbnailUrl}
+                            alt=""
+                            fill
+                            sizes="40px"
+                            className="object-cover"
+                          />
+                        ) : (
+                          <Package className="w-[16px] h-[16px] text-text-mute" />
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <span className="font-mohave text-body text-text block truncate">
+                          {product.name}
                         </span>
-                      )}
+                        {product.description && (
+                          <span className="font-mono text-micro text-text-mute truncate block max-w-[280px]">
+                            {product.description}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </td>
 
@@ -462,6 +483,8 @@ function ProductFormModal({
 
   const margin = calculateMargin(defaultPrice, unitCost || null);
 
+  const thumbnailUrl = product?.thumbnailUrl ?? null;
+
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-[500px]">
@@ -472,6 +495,43 @@ function ProductFormModal({
         </DialogHeader>
 
         <div className="space-y-3 mt-2">
+          {/* Thumbnail preview — display-only on web; upload UX lives on iOS.
+              Phase 4 of the thumbnail plan didn't cover web upload, so the
+              modal mirrors what's on the server and labels the affordance
+              gap explicitly. */}
+          {isEditing && (
+            <div className="space-y-1">
+              <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">
+                {t("products.thumbnailHeading")}
+              </label>
+              <div className="flex items-center gap-2">
+                <div
+                  className={cn(
+                    "relative w-[96px] h-[96px] shrink-0 rounded-[5px] border border-border overflow-hidden",
+                    "bg-[rgba(255,255,255,0.02)] flex items-center justify-center"
+                  )}
+                >
+                  {thumbnailUrl ? (
+                    <Image
+                      src={thumbnailUrl}
+                      alt={product?.name ?? ""}
+                      fill
+                      sizes="96px"
+                      className="object-cover"
+                    />
+                  ) : (
+                    <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
+                      {t("products.noImage")}
+                    </span>
+                  )}
+                </div>
+                <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
+                  {t("products.thumbnailUploadHint")}
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* Name */}
           <div className="space-y-0.5">
             <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">

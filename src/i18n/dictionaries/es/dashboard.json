@@ -568,6 +568,9 @@
   "products.labelMinimumQuantity": "Cantidad mínima",
   "products.minimumChargeHelp": "Cargo mínimo aplicado cuando el total de la línea está por debajo de este valor",
   "products.minimumQuantityHelp": "Cantidad mínima aplicada cuando la cantidad ingresada está por debajo de este valor",
+  "products.thumbnailHeading": "// MINIATURA",
+  "products.thumbnailUploadHint": "[ SUBIDA DE MINIATURA DISPONIBLE EN iOS ]",
+  "products.noImage": "// SIN IMAGEN",
 
   "projectStatusChart.title": "Estado de Proyectos",
   "projectStatusChart.total": "total",

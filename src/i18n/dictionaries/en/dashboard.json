@@ -605,6 +605,9 @@
   "products.labelMinimumQuantity": "Minimum quantity",
   "products.minimumChargeHelp": "Floor charge applied when line total is below this value",
   "products.minimumQuantityHelp": "Floor quantity applied when entered quantity is below this value",
+  "products.thumbnailHeading": "// THUMBNAIL",
+  "products.thumbnailUploadHint": "[ THUMBNAIL UPLOAD AVAILABLE ON iOS ]",
+  "products.noImage": "// NO IMAGE",
 
   "projectStatusChart.title": "Project Status",
   "projectStatusChart.total": "total",
