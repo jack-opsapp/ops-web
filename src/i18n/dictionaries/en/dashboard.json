@@ -599,6 +599,12 @@
   "products.typeLabor": "Labor",
   "products.typeMaterial": "Material",
   "products.typeOther": "Other",
+  "products.labelSku": "SKU",
+  "products.skuPlaceholder": "Optional",
+  "products.labelMinimumCharge": "Minimum charge",
+  "products.labelMinimumQuantity": "Minimum quantity",
+  "products.minimumChargeHelp": "Floor charge applied when line total is below this value",
+  "products.minimumQuantityHelp": "Floor quantity applied when entered quantity is below this value",
 
   "projectStatusChart.title": "Project Status",
   "projectStatusChart.total": "total",

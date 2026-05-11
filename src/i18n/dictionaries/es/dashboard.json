@@ -562,6 +562,12 @@
   "products.typeLabor": "Mano de obra",
   "products.typeMaterial": "Material",
   "products.typeOther": "Otro",
+  "products.labelSku": "SKU",
+  "products.skuPlaceholder": "Opcional",
+  "products.labelMinimumCharge": "Cargo mínimo",
+  "products.labelMinimumQuantity": "Cantidad mínima",
+  "products.minimumChargeHelp": "Cargo mínimo aplicado cuando el total de la línea está por debajo de este valor",
+  "products.minimumQuantityHelp": "Cantidad mínima aplicada cuando la cantidad ingresada está por debajo de este valor",
 
   "projectStatusChart.title": "Estado de Proyectos",
   "projectStatusChart.total": "total",

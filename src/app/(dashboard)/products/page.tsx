@@ -361,6 +361,23 @@ function ProductFormModal({
   );
   const [type, setType] = useState<LineItemType>(product?.type ?? "LABOR");
 
+  // SKU is uppercased on input to match the iOS QuickAddProductSheet pattern.
+  // Minimum charge/quantity are string-typed so an empty field maps to null
+  // on save — plain numeric state would force a 0 which is a real value.
+  const [sku, setSku] = useState(product?.sku ?? "");
+  const [minimumCharge, setMinimumCharge] = useState<string>(
+    product?.minimumCharge != null ? String(product.minimumCharge) : ""
+  );
+  const [minimumQuantity, setMinimumQuantity] = useState<string>(
+    product?.minimumQuantity != null ? String(product.minimumQuantity) : ""
+  );
+  const minimumChargeError =
+    minimumCharge.trim() !== "" &&
+    !(Number.isFinite(Number(minimumCharge)) && Number(minimumCharge) >= 0);
+  const minimumQuantityError =
+    minimumQuantity.trim() !== "" &&
+    !(Number.isFinite(Number(minimumQuantity)) && Number(minimumQuantity) >= 0);
+
   // Reset form when product changes
   useEffect(() => {
     if (product) {
@@ -375,6 +392,13 @@ function ProductFormModal({
       setIsActive(product.isActive);
       setKind((product.kind ?? "service") as ProductKind);
       setType(product.type ?? "LABOR");
+      setSku(product.sku ?? "");
+      setMinimumCharge(
+        product.minimumCharge != null ? String(product.minimumCharge) : ""
+      );
+      setMinimumQuantity(
+        product.minimumQuantity != null ? String(product.minimumQuantity) : ""
+      );
     } else {
       setName("");
       setDescription("");
@@ -387,13 +411,18 @@ function ProductFormModal({
       setIsActive(true);
       setKind("service");
       setType("LABOR");
+      setSku("");
+      setMinimumCharge("");
+      setMinimumQuantity("");
     }
   }, [product]);
 
   const handleSubmit = () => {
     if (!name.trim()) return;
+    if (minimumChargeError || minimumQuantityError) return;
 
     const trimmedCategory = category.trim() || null;
+    const trimmedSku = sku.trim();
     const resolvedCategoryId = resolveCategoryId(
       trimmedCategory,
       catalogCategories
@@ -414,6 +443,11 @@ function ProductFormModal({
       isActive,
       kind,
       type,
+      sku: trimmedSku === "" ? null : trimmedSku,
+      minimumCharge:
+        minimumCharge.trim() === "" ? null : Number(minimumCharge),
+      minimumQuantity:
+        minimumQuantity.trim() === "" ? null : Number(minimumQuantity),
     };
 
     if (isEditing && product) {
@@ -626,6 +660,74 @@ function ProductFormModal({
                   ariaLabel={t("products.labelType")}
                 />
               </div>
+
+              {/* SKU + Minimum charge */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-0.5">
+                  <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">
+                    {t("products.labelSku")}
+                  </label>
+                  <Input
+                    value={sku}
+                    onChange={(e) => setSku(e.target.value.toUpperCase())}
+                    placeholder={t("products.skuPlaceholder")}
+                    autoCorrect="off"
+                    autoCapitalize="characters"
+                    spellCheck={false}
+                    className="font-mono"
+                  />
+                </div>
+                <div className="space-y-0.5">
+                  <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">
+                    {t("products.labelMinimumCharge")}
+                  </label>
+                  <div className="relative">
+                    <span
+                      aria-hidden
+                      className="absolute left-2 top-1/2 -translate-y-1/2 font-mono text-caption text-text-mute pointer-events-none"
+                    >
+                      $
+                    </span>
+                    <Input
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      value={minimumCharge}
+                      onChange={(e) => setMinimumCharge(e.target.value)}
+                      placeholder="0.00"
+                      className={cn("pl-5", minimumChargeError && "border-status-error")}
+                      aria-invalid={minimumChargeError || undefined}
+                    />
+                  </div>
+                  {!minimumChargeError && (
+                    <p className="font-mono text-micro text-text-mute">
+                      {t("products.minimumChargeHelp")}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Minimum quantity */}
+              <div className="space-y-0.5">
+                <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">
+                  {t("products.labelMinimumQuantity")}
+                </label>
+                <Input
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  value={minimumQuantity}
+                  onChange={(e) => setMinimumQuantity(e.target.value)}
+                  placeholder="0"
+                  className={cn(minimumQuantityError && "border-status-error")}
+                  aria-invalid={minimumQuantityError || undefined}
+                />
+                {!minimumQuantityError && (
+                  <p className="font-mono text-micro text-text-mute">
+                    {t("products.minimumQuantityHelp")}
+                  </p>
+                )}
+              </div>
             </div>
           </details>
 
@@ -641,7 +743,14 @@ function ProductFormModal({
             <Button variant="ghost" size="sm" onClick={onClose}>
               {t("products.cancel")}
             </Button>
-            <Button variant="default" size="sm" onClick={handleSubmit} disabled={!name.trim()}>
+            <Button
+              variant="default"
+              size="sm"
+              onClick={handleSubmit}
+              disabled={
+                !name.trim() || minimumChargeError || minimumQuantityError
+              }
+            >
               {isEditing ? t("products.update") : t("products.create")}
             </Button>
           </div>
