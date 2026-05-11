@@ -1,6 +1,9 @@
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import path from "path";
+import { createRequire } from "module";
+
+const require = createRequire(import.meta.url);
 
 export default defineConfig({
   plugins: [react()],
@@ -47,10 +50,11 @@ export default defineConfig({
       //
       // Background: `server-only` is a marker module Next.js bundles
       // internally and does not hoist to the top-level `node_modules`.
-      "server-only": path.resolve(
-        __dirname,
-        "./node_modules/next/dist/compiled/server-only/empty.js"
-      ),
+      // Use `require.resolve` so Node's standard module resolution walks
+      // up from this file to find `node_modules/next` — works equivalently
+      // whether vitest runs from the main checkout (local `node_modules`)
+      // or a git worktree (which shares `node_modules` with the parent).
+      "server-only": require.resolve("next/dist/compiled/server-only/empty.js"),
     },
   },
 });
