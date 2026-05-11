@@ -239,6 +239,14 @@ export interface FetchTasksOptions {
   startDateFrom?: Date;
   /** Filter tasks starting on or before this date */
   startDateTo?: Date;
+  /**
+   * Filter tasks whose span overlaps the visible window. Sets
+   * `start_date <= rangeEnd AND (end_date >= rangeStart OR end_date IS NULL
+   * AND start_date >= rangeStart)`. Mutually exclusive with startDateFrom /
+   * startDateTo — use one or the other.
+   */
+  overlapRangeStart?: Date;
+  overlapRangeEnd?: Date;
   /** Only return tasks that have a start_date (scheduled) */
   scheduledOnly?: boolean;
   /** Sort field (snake_case column name) */
@@ -309,6 +317,24 @@ export const TaskService = {
 
     if (options.startDateTo) {
       query = query.lte("start_date", options.startDateTo.toISOString());
+    }
+
+    if (options.overlapRangeStart && options.overlapRangeEnd) {
+      // Range-overlap filter for multi-day tasks. Without this a task that
+      // spans Mon→Fri but starts before the visible Wed→Sun window would
+      // vanish from the calendar even though it's actively in flight.
+      // Postgres-side: start_date <= rangeEnd AND
+      //   (end_date >= rangeStart OR (end_date IS NULL AND start_date >= rangeStart))
+      // Single-day tasks (end_date IS NULL) still surface because the
+      // start_date upper bound is the rangeEnd; the OR catches them when
+      // their start sits inside the window.
+      const rangeStartISO = options.overlapRangeStart.toISOString();
+      const rangeEndISO = options.overlapRangeEnd.toISOString();
+      query = query
+        .lte("start_date", rangeEndISO)
+        .or(
+          `end_date.gte.${rangeStartISO},and(end_date.is.null,start_date.gte.${rangeStartISO})`,
+        );
     }
 
     if (options.sortField) {
@@ -601,7 +627,16 @@ export const TaskService = {
     companyId: string,
     startDate: Date,
     endDate: Date,
-    options: Omit<FetchTasksOptions, "startDateFrom" | "startDateTo" | "scheduledOnly" | "limit" | "cursor"> = {}
+    options: Omit<
+      FetchTasksOptions,
+      | "startDateFrom"
+      | "startDateTo"
+      | "overlapRangeStart"
+      | "overlapRangeEnd"
+      | "scheduledOnly"
+      | "limit"
+      | "cursor"
+    > = {}
   ): Promise<ProjectTask[]> {
     const allTasks: ProjectTask[] = [];
     let offset = 0;
@@ -610,8 +645,11 @@ export const TaskService = {
     while (hasMore) {
       const result = await TaskService.fetchTasks(companyId, {
         ...options,
-        startDateFrom: startDate,
-        startDateTo: endDate,
+        // Range-overlap (not just start_date BETWEEN) so multi-day work
+        // that begins before the window but is still active inside it
+        // still surfaces on the calendar.
+        overlapRangeStart: startDate,
+        overlapRangeEnd: endDate,
         scheduledOnly: true,
         sortField: "start_date",
         limit: 100,
