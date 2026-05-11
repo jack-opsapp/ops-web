@@ -93,6 +93,7 @@ export async function POST(request: NextRequest) {
       opportunityId,
       inReplyTo,
       threadId,
+      draftHistoryId,
     } = payload;
 
     // ── Validate required fields ──────────────────────────────────────────
@@ -237,6 +238,11 @@ export async function POST(request: NextRequest) {
       attachment_count: 0,
       is_read: true,
       created_by: userId,
+      // Link back to ai_draft_history when this send originated from an AI draft.
+      // Populated by the auto-send cron via the draft_history_id field on
+      // pending_auto_sends. Manual sends omit this. Requires migration
+      // 20260508120000_activities_draft_history_link.sql to be applied.
+      draft_history_id: draftHistoryId || null,
     });
 
     // ── Update correspondence counts on linked opportunity ────────────────

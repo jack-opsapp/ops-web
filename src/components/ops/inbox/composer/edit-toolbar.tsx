@@ -33,6 +33,7 @@ const SOURCE_LABEL: Record<DraftSource, string> = {
   claude: "Claude",
   gmail: "Gmail",
   outlook: "Outlook",
+  new: "draft",
 };
 
 const ghostBtn =

@@ -31,7 +31,7 @@ describe("<DetailBand>", () => {
         onAction={() => {}}
       />,
     );
-    expect(screen.getByText(/Your move/i)).toBeInTheDocument();
+    expect(screen.getByText(/SUMMARY/i)).toBeInTheDocument();
     expect(screen.getByText(/follow-up due Friday/)).toBeInTheDocument();
   });
 
@@ -45,8 +45,8 @@ describe("<DetailBand>", () => {
         onAction={onAction}
       />,
     );
-    expect(screen.getByText(/Claude needs your input/i)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /Provide answer/i }));
+    expect(screen.getByText(/CLAUDE NEEDS INPUT/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /PROVIDE ANSWER/i }));
     expect(onAction).toHaveBeenCalledWith("provide-answer");
   });
 
@@ -55,12 +55,13 @@ describe("<DetailBand>", () => {
       <DetailBand
         thread={{ ...base, ballInCourt: "user" }}
         clientName="Calloway"
+        ballYoursWaitDuration="18H"
         onAction={() => {}}
       />,
     );
-    expect(screen.getByText(/Your turn/i)).toBeInTheDocument();
-    expect(screen.getByText(/Calloway is waiting/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Reply/i })).toBeInTheDocument();
+    expect(screen.getByText(/YOUR TURN :: CALLOWAY/i)).toBeInTheDocument();
+    expect(screen.getByText(/WAITING · 18H/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /REPLY/i })).toBeInTheDocument();
   });
 
   it("renders the auto-sent band when phaseC === auto_sent", () => {
@@ -72,9 +73,9 @@ describe("<DetailBand>", () => {
         onAction={() => {}}
       />,
     );
-    expect(screen.getByText(/Claude replied for you/i)).toBeInTheDocument();
-    expect(screen.getByText(/3h ago/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Take over/i })).toBeInTheDocument();
+    expect(screen.getByText(/AUTO-SENT BY CLAUDE/i)).toBeInTheDocument();
+    expect(screen.getByText(/3H AGO/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /TAKE OVER/i })).toBeInTheDocument();
   });
 
   it("renders the closed band with a soft success indicator", () => {
@@ -86,7 +87,7 @@ describe("<DetailBand>", () => {
         onAction={() => {}}
       />,
     );
-    expect(screen.getByText(/Closed Apr 23/)).toBeInTheDocument();
+    expect(screen.getByText(/CLOSED :: APR 23/i)).toBeInTheDocument();
   });
 
   it("needs-input band renders provided options as ghost buttons", () => {
@@ -103,7 +104,73 @@ describe("<DetailBand>", () => {
         onAction={onAction}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Yes" }));
+    fireEvent.click(screen.getByRole("button", { name: /YES/i }));
     expect(onAction).toHaveBeenCalledWith("answer:yes");
+  });
+
+  it("stacks summary band above the action band when both apply", () => {
+    render(
+      <DetailBand
+        thread={{
+          closed: false,
+          agent: { needsInput: false },
+          phaseC: "none",
+          aiSummary: "Calloway accepted the revised quote, follow-up due Friday.",
+          ballInCourt: "user",
+        }}
+        clientName="Calloway"
+        summaryUpdatedAt="2026-05-06T14:55:00Z"
+        ballYoursWaitDuration="18H"
+        onAction={() => {}}
+      />,
+    );
+
+    const summary = screen.getByLabelText(/Claude summary/i);
+    const action = screen.getByLabelText(/Your turn/i);
+
+    expect(
+      summary.compareDocumentPosition(action) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("hides the summary band when the thread is closed", () => {
+    render(
+      <DetailBand
+        thread={{
+          closed: true,
+          agent: { needsInput: false },
+          phaseC: "none",
+          aiSummary: "Should not render — closed wins.",
+          ballInCourt: null,
+        }}
+        clientName="Calloway"
+        closedAt="2026-04-23T15:00:00Z"
+        onAction={() => {}}
+      />,
+    );
+
+    expect(screen.queryByLabelText(/Claude summary/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/CLOSED :: APR 23/i)).toBeInTheDocument();
+  });
+
+  it("renders olive resolved variant when closedVariant === 'resolved'", () => {
+    render(
+      <DetailBand
+        thread={{
+          closed: true,
+          agent: { needsInput: false },
+          phaseC: "none",
+          aiSummary: null,
+          ballInCourt: null,
+        }}
+        clientName="Calloway"
+        closedAt="2026-04-30T15:00:00Z"
+        closedVariant="resolved"
+        onAction={() => {}}
+      />,
+    );
+    expect(
+      screen.getByText(/CLOSED :: APR 30 · RESOLVED BY CLAUDE/i),
+    ).toBeInTheDocument();
   });
 });

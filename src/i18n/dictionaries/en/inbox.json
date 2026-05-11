@@ -74,8 +74,12 @@
   "bands.closed.aria": "Thread closed",
 
   "messages.sentByClaude": "sent by Claude",
-  "messages.photo_one": "{count} photo",
-  "messages.photo_other": "{count} photos",
+  "messages.photoCountTactic_one": "{count} PHOTO",
+  "messages.photoCountTactic_other": "{count} PHOTOS",
+  "messages.photoOverflow": "+{count} MORE",
+  "messages.fileCount_one": "{count} FILE",
+  "messages.fileCount_other": "{count} FILES",
+  "messages.openFile": "Open {filename} ({size})",
 
   "composer.placeholder": "Type a message…",
   "composer.send": "Send",
@@ -135,6 +139,7 @@
   "files.documentsLabel": "Documents · {count}",
   "files.empty": "no files attached",
   "files.openPhoto": "Open photo {filename}",
+  "files.openPhotoOverflow": "Open photo {filename} (+{count} more)",
 
   "mobile.back": "Back",
   "mobile.thread": "Thread",
@@ -285,7 +290,7 @@
   "toast.archivedBack": "Moved back to inbox",
   "toast.snoozed": "Snoozed until {when}",
   "toast.recategorized": "Marked as {category}",
-  "toast.recategorizedDetail": "Phase C will learn from this correction.",
+  "toast.recategorizedDetail": "[—] phase c will learn from this correction.",
   "toast.undo": "Undo",
 
   "phaseC.drafted.primary": "Phase C drafted a reply for you",
@@ -366,6 +371,10 @@
   "groups.fyiLabel": "// FYI",
   "groups.closedLabel": "// CLOSED",
   "groups.scheduledLabel": "// SCHEDULED",
+  "groups.needsInputLabel": "// NEEDS INPUT",
+  "groups.draftsReadyLabel": "// DRAFTS READY",
+  "groups.awaitingThemLabel": "// AWAITING THEM",
+  "groups.laterLabel": "// LATER",
 
   "row.stateYoursHours": "YOURS · {hours}H",
   "row.stateYoursDays": "YOURS · {days}D",
@@ -386,7 +395,7 @@
   "detail.selectThreadBody": "[—] no thread loaded",
   "detail.metaCount": "{count} MSG",
 
-  "picker.trigger": "▾ {count} OTHER THREADS",
+  "picker.trigger": "{count} OTHER THREADS",
   "picker.triggerNone": "· 0 OTHER THREADS",
   "picker.header": "// THREADS WITH {client} · {count}",
 
@@ -416,8 +425,12 @@
   "composer.dismiss": "DISMISS",
 
   "draftSwitcher.gmailLabel": "{n} · GMAIL",
-  "draftSwitcher.claudeLabel": "✦ {n} · CLAUDE",
+  "draftSwitcher.outlookLabel": "{n} · OUTLOOK",
+  "draftSwitcher.yoursLabel": "{n} · YOURS",
+  "draftSwitcher.newLabel": "{n} · NEW",
+  "draftSwitcher.claudeLabel": "{n} · CLAUDE",
   "draftSwitcher.addNew": "[+]",
+  "draftSwitcher.addNewAria": "Add new draft",
 
   "rail.clientLabel": "// CLIENT",
   "rail.clientUnlinked": "// CLIENT :: UNLINKED",
@@ -462,12 +475,12 @@
   "rail.oppMetaThisThread": "↗ this thread",
   "rail.photosCount": "{n} PHOTOS",
 
-  "modal.archive.title": "// ARCHIVE THREAD",
+  "modal.archive.title": "// ARCHIVE",
   "modal.archive.body": "[—] this thread will move to archive. nothing is deleted.",
   "modal.archive.cancel": "CANCEL",
   "modal.archive.confirm": "ARCHIVE",
 
-  "modal.snooze.title": "// SNOOZE THREAD",
+  "modal.snooze.title": "// SNOOZE",
   "modal.snooze.body": "[—] hide until · returns to inbox automatically",
   "modal.snooze.preset1H": "[1H]",
   "modal.snooze.preset4H": "[4H]",
@@ -475,6 +488,7 @@
   "modal.snooze.presetTomorrow": "[TOMORROW 8AM]",
   "modal.snooze.presetWeekend": "[WEEKEND]",
   "modal.snooze.presetNextMon": "[NEXT MON]",
+  "modal.snooze.presetNextMonth": "[NEXT MONTH]",
   "modal.snooze.presetCustom": "pick a date and time…",
 
   "modal.recat.title": "// RECATEGORIZE",
@@ -511,7 +525,7 @@
 
   "claude.draftedBanner": "// CLAUDE DRAFTED THIS · {ago} · REVIEW",
   "claude.bubbleMeta": "// CLAUDE · {time}",
-  "claude.edited": "EDITED {ago} AGO",
+  "claude.edited": "EDITED {ago}",
   "claude.showDiff": "DIFF",
   "claude.hideDiff": "HIDE DIFF",
   "claude.diffHeader": "// SHOWING DIFF",

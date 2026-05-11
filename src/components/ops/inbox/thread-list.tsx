@@ -2,18 +2,11 @@
 
 /**
  * ThreadList — feed body. Renders the grouped sections beneath the column
- * header + today strip. Faithful to `reference/v4-states.jsx :: V4Column`
- * (state-based groups, no sticky headers, plain padding, leading dot).
+ * header + today strip.
  *
- * Group dot color encodes the group's ball-in-court weight (canonical
- * v4-states.jsx:132-138):
- *   needsInput     → lavender (agent)
- *   needsReply     → accent (steel blue)
- *   draftsReady    → text-3
- *   awaitingThem   → muted
- *   later          → muted
- *
- * Each group header: 12/14/6 padding, dot + Cake 10.5px label + count.
+ * Phase B rebuild: group dividers are now slash-prefixed Cake labels via
+ * `<SlashLabel>` (e.g. `// NEEDS REPLY · 9`). Color-dot prefix removed —
+ * group identity is carried by the // label, not by a colored disc.
  */
 
 import { useMemo } from "react";
@@ -24,6 +17,7 @@ import {
 } from "@/lib/inbox/grouping";
 import { useDictionary } from "@/i18n/client";
 import { ThreadRow, type ThreadRowData } from "./thread-row";
+import { SlashLabel } from "./voice/slash-label";
 import { cn } from "@/lib/utils/cn";
 
 export type ThreadListItem = ThreadRowData;
@@ -37,27 +31,19 @@ interface ThreadListProps {
 }
 
 const GROUP_DICT_KEY: Record<GroupKey, string> = {
-  NEEDS_INPUT: "groups.needsInput",
-  NEEDS_REPLY: "groups.needsReply",
-  DRAFTS_READY: "groups.draftsReady",
-  AWAITING_THEM: "groups.awaitingThem",
-  LATER: "groups.later",
+  NEEDS_INPUT: "groups.needsInputLabel",
+  NEEDS_REPLY: "groups.needsReplyLabel",
+  DRAFTS_READY: "groups.draftsReadyLabel",
+  AWAITING_THEM: "groups.awaitingThemLabel",
+  LATER: "groups.laterLabel",
 };
 
 const GROUP_FALLBACK: Record<GroupKey, string> = {
-  NEEDS_INPUT: "Needs your input",
-  NEEDS_REPLY: "Needs reply",
-  DRAFTS_READY: "Drafts ready",
-  AWAITING_THEM: "Awaiting them",
-  LATER: "Later",
-};
-
-const GROUP_DOT_CLASS: Record<GroupKey, string> = {
-  NEEDS_INPUT: "bg-agent",
-  NEEDS_REPLY: "bg-ops-accent",
-  DRAFTS_READY: "bg-text-3",
-  AWAITING_THEM: "bg-text-mute",
-  LATER: "bg-text-mute",
+  NEEDS_INPUT: "// NEEDS INPUT",
+  NEEDS_REPLY: "// NEEDS REPLY",
+  DRAFTS_READY: "// DRAFTS READY",
+  AWAITING_THEM: "// AWAITING THEM",
+  LATER: "// LATER",
 };
 
 export function ThreadList({
@@ -84,21 +70,14 @@ export function ThreadList({
         return (
           <section key={key} aria-label={label}>
             <div className="flex items-baseline gap-2 px-3.5 pb-1.5 pt-3">
-              <span
-                aria-hidden
-                className={cn(
-                  "h-1.5 w-1.5 rounded-full opacity-90",
-                  GROUP_DOT_CLASS[key],
-                )}
-              />
-              <h3 className="font-cakemono text-[11px] font-light uppercase leading-none tracking-[0.18em] text-text-2">
-                {label}
+              <h3 className="m-0">
+                <SlashLabel label={label} tone="text-3" />
               </h3>
               <span
                 className="font-mono text-[11px] text-text-mute"
                 style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
               >
-                {items.length}
+                · {items.length}
               </span>
             </div>
             <ul className="flex flex-col">

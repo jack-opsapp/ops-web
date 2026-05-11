@@ -23,6 +23,8 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
+import { SlashLabel } from "./voice/slash-label";
+import { KeyHint } from "@/components/ui/key-hint";
 import type { ArchiveLeadPreference } from "@/lib/types/email-thread";
 import type {
   ArchiveLinkedOpportunity,
@@ -199,44 +201,29 @@ export function ArchiveConfirmModal({
 
   const { currentThread, linkedOpportunity, siblingThreads } = context;
   const hasSiblings = siblingThreads.length > 0;
-  const headerLabel = hasSiblings
-    ? `// ${t("archiveModal.prefix.siblings", "ARCHIVE")}`
-    : `// ${t("archiveModal.prefix.firstLead", "FIRST OPP-LINKED ARCHIVE")}`;
-  const headerTitle = hasSiblings
-    ? t("archiveModal.title.siblings", "What else should we archive?")
-    : t("archiveModal.title.firstLead", "Archive the lead too?");
-  const siblingsCount = siblingThreads.length;
-  const headerDescription = hasSiblings
-    ? t(
-        siblingsCount === 1
-          ? "archiveModal.description.siblings_one"
-          : "archiveModal.description.siblings_other",
-        siblingsCount === 1
-          ? "This thread is part of a lead with 1 other open thread. Pick what to clean up."
-          : "This thread is part of a lead with {count} other open threads. Pick what to clean up.",
-      ).replace("{count}", String(siblingsCount))
-    : t(
-        "archiveModal.description.firstLead",
-        "OPS noticed this thread is tied to a pipeline lead. Want the lead archived alongside the thread? We'll remember your answer.",
-      );
-  const buttonLabel = t("archiveModal.confirm", "Archive ({count})").replace(
-    "{count}",
-    String(totalCount),
+  const archiveTitle = t("modal.archive.title", "// ARCHIVE");
+  const archiveBody = t(
+    "modal.archive.body",
+    "[—] this thread will move to archive. nothing is deleted.",
   );
 
   return (
     <Dialog open={open} onOpenChange={close}>
       <DialogContent className="max-w-[560px] p-0 max-h-[85vh] overflow-hidden flex flex-col">
+        <DialogTitle className="sr-only">
+          {t("action.archive", "Archive")}
+        </DialogTitle>
+        <DialogDescription className="sr-only">
+          {t(
+            "archiveModal.a11yDescription",
+            "Confirm archive action.",
+          )}
+        </DialogDescription>
         <div className="px-4 pt-4 pb-3 border-b border-line">
-          <p className="font-mono text-[11px] uppercase tracking-[0.20em] text-text-mute">
-            {headerLabel}
+          <SlashLabel label={archiveTitle} size="md" />
+          <p className="font-mono text-[11px] text-text-3 mt-2 leading-relaxed">
+            {archiveBody}
           </p>
-          <DialogTitle className="font-cakemono font-light uppercase text-[20px] tracking-[0.10em] text-text mt-1">
-            {headerTitle}
-          </DialogTitle>
-          <DialogDescription className="font-mohave text-[13px] text-text-2 mt-1">
-            {headerDescription}
-          </DialogDescription>
         </div>
 
         <div className="overflow-y-auto flex-1">
@@ -427,23 +414,33 @@ export function ArchiveConfirmModal({
                 "disabled:opacity-50 disabled:cursor-not-allowed",
               )}
             >
-              {t("archiveModal.cancel", "Cancel")}
+              {t("modal.archive.cancel", "CANCEL")}
             </button>
             <button
               type="button"
               onClick={submit}
               disabled={submitting}
               className={cn(
-                "px-3 py-1.5 rounded-[2.5px]",
-                "bg-ops-accent text-black",
+                "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[2.5px]",
+                "border border-ops-accent text-ops-accent",
                 "font-cakemono font-light uppercase text-[11px] tracking-[0.14em]",
-                "hover:bg-ops-accent/90 transition-colors duration-150",
+                "hover:bg-ops-accent hover:text-black transition-colors duration-150",
                 "disabled:opacity-50 disabled:cursor-not-allowed",
               )}
             >
-              {submitting
-                ? t("archiveModal.submitting", "Archiving…")
-                : buttonLabel}
+              {submitting ? (
+                t("archiveModal.submitting", "Archiving…")
+              ) : (
+                <>
+                  <span>{t("modal.archive.confirm", "ARCHIVE")}</span>
+                  {totalCount > 1 && (
+                    <span className="font-mono tabular-nums opacity-80">
+                      ({totalCount})
+                    </span>
+                  )}
+                  <KeyHint variant="inline" keys={["⌘", "↵"]} />
+                </>
+              )}
             </button>
           </div>
         </div>

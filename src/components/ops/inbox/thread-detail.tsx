@@ -9,6 +9,8 @@ interface ThreadDetailProps {
   category?: { label: string; dotClassName: string } | null;
   senderName: string;
   messageCount: number;
+  otherThreadCount?: number;
+  onOpenThreadPicker?: () => void;
   onPrev: () => void;
   onNext: () => void;
   /** Render-slot for the archive button (wraps a styled button). */
@@ -21,6 +23,9 @@ interface ThreadDetailProps {
   onSnooze?: () => void;
   onRecategorize?: () => void;
   onMore?: () => void;
+  /** Inline slot rendered in the detail-header meta strip after the message
+   *  count. Forwarded as-is to <ThreadDetailHeader>. */
+  threadPickerSlot?: ReactNode;
   className?: string;
   children?: ReactNode;
 }
@@ -38,6 +43,8 @@ export function ThreadDetail({
   category,
   senderName,
   messageCount,
+  otherThreadCount,
+  onOpenThreadPicker,
   onPrev,
   onNext,
   archiveSlot,
@@ -48,6 +55,7 @@ export function ThreadDetail({
   onSnooze,
   onRecategorize,
   onMore,
+  threadPickerSlot,
   className,
   children,
 }: ThreadDetailProps) {
@@ -74,6 +82,8 @@ export function ThreadDetail({
         category={category}
         senderName={senderName}
         messageCount={messageCount}
+        otherThreadCount={otherThreadCount}
+        onOpenThreadPicker={onOpenThreadPicker}
         archiveSlot={archiveSlot}
         snoozeSlot={snoozeSlot}
         recategorizeSlot={recategorizeSlot}
@@ -82,6 +92,7 @@ export function ThreadDetail({
         onSnooze={onSnooze}
         onRecategorize={onRecategorize}
         onMore={onMore}
+        threadPickerSlot={threadPickerSlot}
       />
       <div className="flex min-h-0 flex-1 flex-col">{children}</div>
     </div>

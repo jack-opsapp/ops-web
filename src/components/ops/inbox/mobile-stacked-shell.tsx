@@ -4,6 +4,7 @@ import { ChevronLeft } from "lucide-react";
 import type { ReactNode } from "react";
 import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
+import { SlashLabel } from "@/components/ops/inbox/voice/slash-label";
 
 export type MobileInboxPane = "list" | "detail" | "context";
 
@@ -31,6 +32,12 @@ export function MobileStackedShell({
   className,
 }: MobileStackedShellProps) {
   const { t } = useDictionary("inbox");
+  const paneLabel =
+    activePane === "list"
+      ? t("mobile.listPane", "// LIST")
+      : activePane === "detail"
+        ? t("mobile.threadPane", "// THREAD")
+        : t("mobile.contextPane", "// CONTEXT");
   return (
     <div
       className={cn(
@@ -38,8 +45,8 @@ export function MobileStackedShell({
         className,
       )}
     >
-      {activePane !== "list" && (
-        <header className="flex h-12 shrink-0 items-center gap-2 border-b border-line bg-inbox-panel px-3">
+      <header className="flex h-12 shrink-0 items-center gap-2 border-b border-line bg-inbox-panel px-3">
+        {activePane !== "list" && (
           <button
             type="button"
             onClick={() => onPaneChange(BACK_TARGET[activePane])}
@@ -48,13 +55,9 @@ export function MobileStackedShell({
           >
             <ChevronLeft aria-hidden className="h-4 w-4" strokeWidth={1.5} />
           </button>
-          <span className="font-cakemono text-[11px] font-light uppercase leading-none tracking-[0.18em] text-text-3">
-            {activePane === "detail"
-              ? t("mobile.thread", "Thread")
-              : t("mobile.context", "Context")}
-          </span>
-        </header>
-      )}
+        )}
+        <SlashLabel label={paneLabel} tone="text-2" />
+      </header>
       <div className="flex min-h-0 flex-1 flex-col">
         {activePane === "list" && threadList}
         {activePane === "detail" && detail}

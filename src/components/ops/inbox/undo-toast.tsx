@@ -27,7 +27,6 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { Undo2 } from "lucide-react";
 import { EASE_SMOOTH } from "@/lib/utils/motion";
 import { KeyHint } from "@/components/ui/key-hint";
 import { useDictionary } from "@/i18n/client";
@@ -193,16 +192,17 @@ function ToastRow({ toast, onResolve }: ToastRowProps) {
       aria-labelledby={`${id}-msg`}
       className="pointer-events-auto glass-dense relative w-[340px] overflow-hidden"
     >
-      <div className="flex items-center gap-3 px-3 py-2">
+      <div className="flex items-center gap-2 px-3 py-2">
         <div className="min-w-0 flex-1">
           <p
             id={`${id}-msg`}
-            className="font-cakemono font-light uppercase text-[12px] tracking-[0.12em] text-text leading-tight"
+            className="font-mono uppercase text-[11px] tracking-[0.14em] text-text-2 leading-tight"
           >
             {toast.message}
+            <span aria-hidden className="text-text-mute"> · </span>
           </p>
           {toast.detail && (
-            <p className="font-mono text-[11px] text-text-3 mt-0.5 truncate">
+            <p className="font-mohave text-[12px] text-text-3 mt-0.5 truncate lowercase">
               {toast.detail}
             </p>
           )}
@@ -210,11 +210,10 @@ function ToastRow({ toast, onResolve }: ToastRowProps) {
         <button
           type="button"
           onClick={handleUndo}
-          className="flex items-center gap-1.5 shrink-0 px-2 py-1 rounded-[2.5px] border border-line bg-inbox-elev/60 hover:bg-inbox-elev transition-colors"
+          className="flex items-center gap-1.5 shrink-0 px-2 py-1 border border-line-hi hover:bg-inbox-elev transition-colors"
         >
-          <Undo2 className="w-4 h-4 text-text-2" strokeWidth={1.5} />
-          <span className="font-cakemono font-light uppercase text-[11px] tracking-[0.14em] text-text-2">
-            {t("toast.undo", "Undo")}
+          <span className="font-mono uppercase text-[11px] tracking-[0.14em] text-text leading-none">
+            {t("toast.undoTactic", "UNDO")}
           </span>
           <KeyHint keys="Z" variant="inline" className="text-text-mute" />
         </button>

@@ -50,8 +50,12 @@
   "bands.closed.aria": "Hilo cerrado",
 
   "messages.sentByClaude": "enviado por Claude",
-  "messages.photo_one": "{count} foto",
-  "messages.photo_other": "{count} fotos",
+  "messages.photoCountTactic_one": "{count} FOTO",
+  "messages.photoCountTactic_other": "{count} FOTOS",
+  "messages.photoOverflow": "+{count} MÁS",
+  "messages.fileCount_one": "{count} ARCHIVO",
+  "messages.fileCount_other": "{count} ARCHIVOS",
+  "messages.openFile": "Abrir {filename} ({size})",
 
   "composer.placeholder": "Escribe un mensaje...",
   "composer.send": "ENVIAR",
@@ -93,6 +97,7 @@
   "files.documentsLabel": "// DOCUMENTOS · {count}",
   "files.empty": "sin archivos adjuntos",
   "files.openPhoto": "Abrir foto {filename}",
+  "files.openPhotoOverflow": "Abrir foto {filename} (+{count} más)",
 
   "mobile.back": "Atrás",
   "mobile.thread": "// HILO",
@@ -221,6 +226,7 @@
 
   "toast.archived": "Archivado",
   "toast.archivedBack": "Devuelto a la bandeja",
+  "toast.recategorizedDetail": "[—] phase c aprenderá de esta corrección.",
   "toast.undo": "Deshacer",
 
   "phaseC.drafted.primary": "Phase C redactó una respuesta",
@@ -335,6 +341,10 @@
   "groups.fyiLabel": "// INFORMATIVO",
   "groups.closedLabel": "// CERRADO",
   "groups.scheduledLabel": "// PROGRAMADO",
+  "groups.needsInputLabel": "// NECESITA TU RESPUESTA",
+  "groups.draftsReadyLabel": "// BORRADORES LISTOS",
+  "groups.awaitingThemLabel": "// ESPERANDO RESPUESTA",
+  "groups.laterLabel": "// DESPUÉS",
 
   "row.stateYoursHours": "TU TURNO · {hours}H",
   "row.stateYoursDays": "TU TURNO · {days}D",
@@ -355,7 +365,7 @@
   "detail.selectThreadBody": "[—] sin hilo cargado",
   "detail.metaCount": "{count} MSG",
 
-  "picker.trigger": "▾ {count} OTROS HILOS",
+  "picker.trigger": "{count} OTROS HILOS",
   "picker.triggerNone": "· 0 OTROS HILOS",
   "picker.header": "// HILOS CON {client} · {count}",
 
@@ -385,8 +395,12 @@
   "composer.dismiss": "DESCARTAR",
 
   "draftSwitcher.gmailLabel": "{n} · GMAIL",
-  "draftSwitcher.claudeLabel": "✦ {n} · CLAUDE",
+  "draftSwitcher.outlookLabel": "{n} · OUTLOOK",
+  "draftSwitcher.yoursLabel": "{n} · TÚ",
+  "draftSwitcher.newLabel": "{n} · NUEVO",
+  "draftSwitcher.claudeLabel": "{n} · CLAUDE",
   "draftSwitcher.addNew": "[+]",
+  "draftSwitcher.addNewAria": "Añadir borrador",
 
   "rail.clientLabel": "// CLIENTE",
   "rail.clientUnlinked": "// CLIENTE :: SIN VINCULAR",
@@ -431,12 +445,12 @@
   "rail.oppMetaThisThread": "↗ este hilo",
   "rail.photosCount": "{n} FOTOS",
 
-  "modal.archive.title": "// ARCHIVAR HILO",
+  "modal.archive.title": "// ARCHIVAR",
   "modal.archive.body": "[—] este hilo se moverá al archivo. nada se elimina.",
   "modal.archive.cancel": "CANCELAR",
   "modal.archive.confirm": "ARCHIVAR",
 
-  "modal.snooze.title": "// POSPONER HILO",
+  "modal.snooze.title": "// POSPONER",
   "modal.snooze.body": "[—] ocultar hasta · vuelve a la bandeja automáticamente",
   "modal.snooze.preset1H": "[1H]",
   "modal.snooze.preset4H": "[4H]",
@@ -444,6 +458,7 @@
   "modal.snooze.presetTomorrow": "[MAÑANA 8AM]",
   "modal.snooze.presetWeekend": "[FIN DE SEMANA]",
   "modal.snooze.presetNextMon": "[PRÓX LUN]",
+  "modal.snooze.presetNextMonth": "[PRÓX MES]",
   "modal.snooze.presetCustom": "elige fecha y hora…",
 
   "modal.recat.title": "// RECATEGORIZAR",
@@ -480,7 +495,7 @@
 
   "claude.draftedBanner": "// CLAUDE LO REDACTÓ · hace {ago} · REVISAR",
   "claude.bubbleMeta": "// CLAUDE · {time}",
-  "claude.edited": "EDITADO hace {ago}",
+  "claude.edited": "EDITADO {ago}",
   "claude.showDiff": "DIFF",
   "claude.hideDiff": "OCULTAR DIFF",
   "claude.diffHeader": "// MOSTRANDO DIFERENCIAS",
