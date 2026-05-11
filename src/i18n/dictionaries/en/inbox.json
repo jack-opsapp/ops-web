@@ -74,8 +74,12 @@
   "bands.closed.aria": "Thread closed",
 
   "messages.sentByClaude": "sent by Claude",
-  "messages.photo_one": "{count} photo",
-  "messages.photo_other": "{count} photos",
+  "messages.photoCountTactic_one": "{count} PHOTO",
+  "messages.photoCountTactic_other": "{count} PHOTOS",
+  "messages.photoOverflow": "+{count} MORE",
+  "messages.fileCount_one": "{count} FILE",
+  "messages.fileCount_other": "{count} FILES",
+  "messages.openFile": "Open {filename} ({size})",
 
   "composer.placeholder": "Type a message…",
   "composer.send": "Send",
@@ -134,6 +138,7 @@
   "files.documentsLabel": "Documents · {count}",
   "files.empty": "no files attached",
   "files.openPhoto": "Open photo {filename}",
+  "files.openPhotoOverflow": "Open photo {filename} (+{count} more)",
 
   "mobile.back": "Back",
   "mobile.thread": "Thread",
@@ -419,8 +424,12 @@
   "composer.dismiss": "DISMISS",
 
   "draftSwitcher.gmailLabel": "{n} · GMAIL",
-  "draftSwitcher.claudeLabel": "✦ {n} · CLAUDE",
+  "draftSwitcher.outlookLabel": "{n} · OUTLOOK",
+  "draftSwitcher.yoursLabel": "{n} · YOURS",
+  "draftSwitcher.newLabel": "{n} · NEW",
+  "draftSwitcher.claudeLabel": "{n} · CLAUDE",
   "draftSwitcher.addNew": "[+]",
+  "draftSwitcher.addNewAria": "Add new draft",
 
   "rail.clientLabel": "// CLIENT",
   "rail.clientUnlinked": "// CLIENT :: UNLINKED",
@@ -515,7 +524,7 @@
 
   "claude.draftedBanner": "// CLAUDE DRAFTED THIS · {ago} · REVIEW",
   "claude.bubbleMeta": "// CLAUDE · {time}",
-  "claude.edited": "EDITED {ago} AGO",
+  "claude.edited": "EDITED {ago}",
   "claude.showDiff": "DIFF",
   "claude.hideDiff": "HIDE DIFF",
   "claude.diffHeader": "// SHOWING DIFF",

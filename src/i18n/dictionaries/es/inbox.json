@@ -50,8 +50,12 @@
   "bands.closed.aria": "Hilo cerrado",
 
   "messages.sentByClaude": "enviado por Claude",
-  "messages.photo_one": "{count} foto",
-  "messages.photo_other": "{count} fotos",
+  "messages.photoCountTactic_one": "{count} FOTO",
+  "messages.photoCountTactic_other": "{count} FOTOS",
+  "messages.photoOverflow": "+{count} MÁS",
+  "messages.fileCount_one": "{count} ARCHIVO",
+  "messages.fileCount_other": "{count} ARCHIVOS",
+  "messages.openFile": "Abrir {filename} ({size})",
 
   "composer.placeholder": "Escribe un mensaje...",
   "composer.send": "ENVIAR",
@@ -92,6 +96,7 @@
   "files.documentsLabel": "// DOCUMENTOS · {count}",
   "files.empty": "sin archivos adjuntos",
   "files.openPhoto": "Abrir foto {filename}",
+  "files.openPhotoOverflow": "Abrir foto {filename} (+{count} más)",
 
   "mobile.back": "Atrás",
   "mobile.thread": "// HILO",
@@ -389,8 +394,12 @@
   "composer.dismiss": "DESCARTAR",
 
   "draftSwitcher.gmailLabel": "{n} · GMAIL",
-  "draftSwitcher.claudeLabel": "✦ {n} · CLAUDE",
+  "draftSwitcher.outlookLabel": "{n} · OUTLOOK",
+  "draftSwitcher.yoursLabel": "{n} · TÚ",
+  "draftSwitcher.newLabel": "{n} · NUEVO",
+  "draftSwitcher.claudeLabel": "{n} · CLAUDE",
   "draftSwitcher.addNew": "[+]",
+  "draftSwitcher.addNewAria": "Añadir borrador",
 
   "rail.clientLabel": "// CLIENTE",
   "rail.clientUnlinked": "// CLIENTE :: SIN VINCULAR",
@@ -485,7 +494,7 @@
 
   "claude.draftedBanner": "// CLAUDE LO REDACTÓ · hace {ago} · REVISAR",
   "claude.bubbleMeta": "// CLAUDE · {time}",
-  "claude.edited": "EDITADO hace {ago}",
+  "claude.edited": "EDITADO {ago}",
   "claude.showDiff": "DIFF",
   "claude.hideDiff": "OCULTAR DIFF",
   "claude.diffHeader": "// MOSTRANDO DIFERENCIAS",

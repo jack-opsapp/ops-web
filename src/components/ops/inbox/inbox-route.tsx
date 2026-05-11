@@ -55,7 +55,6 @@ import { useWindowStore } from "@/stores/window-store";
 import { ResponsiveInboxShell } from "./responsive-inbox-shell";
 import { ThreadColumnHeader } from "./thread-column-header";
 import { TodayBar, type TodayCommitment } from "./today-bar";
-import { computeStateTag } from "@/lib/inbox/format-wait";
 import { ThreadList, type ThreadListItem } from "./thread-list";
 import { ThreadDetail } from "./thread-detail";
 import {
