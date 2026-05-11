@@ -3,13 +3,15 @@
 import { cn } from "@/lib/utils/cn";
 import { Card, CardContent } from "@/components/ui/card";
 import { useAuthStore } from "@/lib/store/auth-store";
-import { ALL_ACTIONS, DEFAULT_ACTION_IDS } from "@/lib/constants/fab-actions";
+import { ALL_ACTIONS, DEFAULT_ACTION_IDS, resolveActionLabel } from "@/lib/constants/fab-actions";
+import { useDictionary } from "@/i18n/client";
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function QuickActionsTab() {
   const { currentUser, updateFabActions } = useAuthStore();
   const activeIds: string[] = currentUser?.fabActions ?? DEFAULT_ACTION_IDS;
+  const { t } = useDictionary("quick-actions");
 
   function toggle(id: string) {
     const isActive = activeIds.includes(id);
@@ -38,6 +40,7 @@ export function QuickActionsTab() {
             const Icon = action.icon;
             const isActive = activeIds.includes(action.id);
             const isLast = index === ALL_ACTIONS.length - 1;
+            const label = resolveActionLabel(action, t);
 
             return (
               <div
@@ -49,7 +52,7 @@ export function QuickActionsTab() {
               >
                 <Icon className="w-[16px] h-[16px] text-text-2 shrink-0" />
                 <span className="font-mohave text-[14px] text-text flex-1">
-                  {action.label}
+                  {label}
                 </span>
                 <button
                   onClick={() => toggle(action.id)}
@@ -59,7 +62,7 @@ export function QuickActionsTab() {
                     "disabled:opacity-40 disabled:cursor-not-allowed",
                     isActive ? "bg-text-2" : "bg-fill-neutral-dim"
                   )}
-                  aria-label={isActive ? `Remove ${action.label}` : `Add ${action.label}`}
+                  aria-label={`${isActive ? t("actions.remove") : t("actions.add")} ${label}`}
                 >
                   <span
                     className={cn(

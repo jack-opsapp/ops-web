@@ -12,5 +12,18 @@
   "footer.customize": "CUSTOMIZE",
   "footer.customizeAriaLabel": "Customize quick actions",
 
-  "empty.noActions": "[ no actions available ]"
+  "empty.noActions": "[ no actions available ]",
+
+  "actions.expense.label": "ADD EXPENSE",
+  "actions.lead.label": "NEW LEAD",
+  "actions.estimate.label": "NEW ESTIMATE",
+  "actions.invoice.label": "NEW INVOICE",
+  "actions.client.label": "NEW CLIENT",
+  "actions.project.label": "NEW PROJECT",
+  "actions.task.label": "NEW TASK",
+  "actions.task-type.label": "NEW TASK TYPE",
+  "actions.inventory-item.label": "NEW ITEM",
+
+  "actions.add": "Add",
+  "actions.remove": "Remove"
 }

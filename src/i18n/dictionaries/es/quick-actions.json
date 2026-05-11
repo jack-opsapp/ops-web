@@ -13,5 +13,18 @@
   "footer.customize": "CUSTOMIZE",
   "footer.customizeAriaLabel": "Customize quick actions",
 
-  "empty.noActions": "[ no actions available ]"
+  "empty.noActions": "[ no actions available ]",
+
+  "actions.expense.label": "AÑADIR GASTO",
+  "actions.lead.label": "NUEVO LEAD",
+  "actions.estimate.label": "NUEVA ESTIMACIÓN",
+  "actions.invoice.label": "NUEVA FACTURA",
+  "actions.client.label": "NUEVO CLIENTE",
+  "actions.project.label": "NUEVO PROYECTO",
+  "actions.task.label": "NUEVA TAREA",
+  "actions.task-type.label": "NUEVO TIPO DE TAREA",
+  "actions.inventory-item.label": "NUEVO ARTÍCULO",
+
+  "actions.add": "Añadir",
+  "actions.remove": "Quitar"
 }

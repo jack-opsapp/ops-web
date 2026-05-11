@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCompanySettings, useUpdateCompanySettings } from "@/lib/hooks";
 import { usePreferencesStore, type DashboardLayoutId, type SchedulingTypeId } from "@/stores/preferences-store";
 import { useAuthStore } from "@/lib/store/auth-store";
-import { ALL_ACTIONS, DEFAULT_ACTION_IDS } from "@/lib/constants/fab-actions";
+import { ALL_ACTIONS, DEFAULT_ACTION_IDS, resolveActionLabel } from "@/lib/constants/fab-actions";
 import { toast } from "sonner";
 import { useLocale, useDictionary } from "@/i18n/client";
 import type { Locale } from "@/i18n/types";
@@ -172,6 +172,7 @@ function LifecycleSettings() {
 
 function QuickActionsCard() {
   const { t } = useDictionary("settings");
+  const { t: tQa } = useDictionary("quick-actions");
   const { currentUser, updateFabActions } = useAuthStore();
   const activeIds: string[] = currentUser?.fabActions ?? DEFAULT_ACTION_IDS;
 
@@ -212,7 +213,7 @@ function QuickActionsCard() {
             >
               <Icon className="w-[16px] h-[16px] text-text-2 shrink-0" />
               <span className="font-mohave text-[14px] text-text flex-1">
-                {action.label}
+                {resolveActionLabel(action, tQa)}
               </span>
               <button
                 onClick={() => toggle(action.id)}
