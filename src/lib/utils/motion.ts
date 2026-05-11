@@ -733,3 +733,9 @@ export function useReducedInboxMotion(): {
     milestone: reduced ? milestonePulseReducedVariants : milestonePulseVariants,
   };
 }
+
+// Lockout shell internal-stagger variants were removed 2026-05-07.
+// The original stagger never propagated hidden→visible to children
+// (children stayed at opacity:0). The overlay's card-level entrance
+// (`lockoutCardVariants` above) handles the entrance animation; the
+// inner shell renders content statically.
