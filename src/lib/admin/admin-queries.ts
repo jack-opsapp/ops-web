@@ -830,6 +830,33 @@ export async function updateBugReportPriority(id: string, priority: string) {
  */
 export async function getBugReportScreenshotSignedUrl(path: string | null): Promise<string | null> {
   if (!path) return null;
+
+  // Storage migration (Supabase → S3): values written after the Phase 1
+  // cutover use an `s3:` URI scheme prefix to mark the underlying
+  // backend. Older values are bucket-relative Supabase Storage paths.
+  if (path.startsWith("s3:")) {
+    const key = path.slice("s3:".length);
+    // Defer the S3 imports so admin queries that never resolve a
+    // screenshot don't pay the SDK init cost.
+    const { GetObjectCommand } = await import("@aws-sdk/client-s3");
+    const { getSignedUrl } = await import("@aws-sdk/s3-request-presigner");
+    const { getS3Client, S3_BUCKET } = await import("@/lib/s3/client");
+    try {
+      const url = await getSignedUrl(
+        getS3Client(),
+        new GetObjectCommand({ Bucket: S3_BUCKET, Key: key }),
+        { expiresIn: 3600 }
+      );
+      return url;
+    } catch (err) {
+      console.error(
+        "[getBugReportScreenshotSignedUrl] S3 presign failed:",
+        err instanceof Error ? err.message : err
+      );
+      return null;
+    }
+  }
+
   const { data, error } = await db().storage.from("bug-reports").createSignedUrl(path, 3600);
   if (error) return null;
   return data?.signedUrl ?? null;

@@ -1,23 +1,52 @@
 /**
  * POST /api/bug-reports/screenshot
  *
- * Uploads a bug report screenshot to the private `bug-reports` bucket on the
- * user's behalf. Client code cannot write to storage directly because the
- * ops-web Supabase client authenticates via a Firebase JWT, and the storage
- * RLS policy on `bug-reports` requires the Postgres `authenticated` role,
- * which the Firebase bridge does not produce for storage requests.
+ * Uploads a bug report screenshot on the user's behalf. Client code
+ * cannot write to storage directly because the ops-web Supabase client
+ * authenticates via a Firebase JWT, and the legacy storage RLS policy
+ * on the `bug-reports` Supabase bucket required the Postgres
+ * `authenticated` role — which the Firebase bridge does not produce.
  *
- * Security: verifies the caller's Firebase ID token and only allows writes
- * into the caller's own company prefix, so one company cannot clobber
- * another's screenshots.
+ * Phase 1 storage migration:
+ *   - Default backend is `s3`. Screenshots land in
+ *     `ops-app-files-prod` under
+ *     `bug-reports/{companyId}/{reportId}/screenshot.{ext}`.
+ *   - The stored `bug_reports.screenshot_url` value uses an `s3:` URI
+ *     scheme prefix (e.g. `s3:bug-reports/<co>/<rid>/screenshot.jpg`)
+ *     so the read-side resolver in `BugReportService.getScreenshotUrl`
+ *     can tell new S3-backed paths apart from legacy Supabase paths
+ *     during the cutover. Legacy values keep their bucket-relative
+ *     form (no `s3:` prefix) until Phase 2 backfills them.
+ *   - STORAGE_BACKEND=supabase reverts to the legacy private-bucket
+ *     write path (no scheme prefix; resolver falls through to Supabase
+ *     signing).
+ *
+ * Security: verifies the caller's auth token (Supabase or Firebase),
+ * checks the user actually belongs to the company in the request, and
+ * checks the bug report row was created by the same caller.
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { verifyAuthToken } from "@/lib/firebase/admin-verify";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
+import {
+  getS3Client,
+  S3_BUCKET,
+  getStorageBackend,
+} from "@/lib/s3/client";
 
 const MAX_SIZE = 8 * 1024 * 1024; // 8MB
 const ALLOWED_TYPES = ["image/png", "image/jpeg"] as const;
+
+/**
+ * URI-scheme prefix written into `bug_reports.screenshot_url` for
+ * objects that live in S3. The reader (`BugReportService.
+ * getScreenshotUrl`) uses this to decide whether to S3-presign or
+ * Supabase-presign the path. Phase 2 backfill will rewrite legacy
+ * (no-prefix) values to the `s3:` form.
+ */
+const S3_SCHEME = "s3:";
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
@@ -91,26 +120,58 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const path = `${companyId}/${reportId}/screenshot.${ext}`;
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    const { error: uploadErr } = await supabase.storage
-      .from("bug-reports")
-      .upload(path, buffer, { contentType: file.type, upsert: true });
+    let storedValue: string;
 
-    if (uploadErr) {
-      console.error("[bug-reports/screenshot] Upload failed:", uploadErr.message);
-      return NextResponse.json({ error: uploadErr.message }, { status: 500 });
+    if (getStorageBackend() === "s3") {
+      // Bug-report screenshots are private. We don't need a bucket-level
+      // public-read policy; the read side calls `getSignedUrl` to issue a
+      // short-lived GET URL on demand.
+      const key = `bug-reports/${path}`;
+      try {
+        await getS3Client().send(
+          new PutObjectCommand({
+            Bucket: S3_BUCKET,
+            Key: key,
+            Body: buffer,
+            ContentType: file.type,
+          })
+        );
+      } catch (err) {
+        console.error(
+          "[bug-reports/screenshot] S3 upload failed:",
+          err instanceof Error ? err.message : err
+        );
+        return NextResponse.json(
+          { error: "Screenshot upload failed" },
+          { status: 500 }
+        );
+      }
+      storedValue = `${S3_SCHEME}${key}`;
+    } else {
+      // Legacy Supabase path retained for STORAGE_BACKEND=supabase rollback.
+      const { error: uploadErr } = await supabase.storage
+        .from("bug-reports")
+        .upload(path, buffer, { contentType: file.type, upsert: true });
+
+      if (uploadErr) {
+        console.error("[bug-reports/screenshot] Supabase upload failed:", uploadErr.message);
+        return NextResponse.json({ error: uploadErr.message }, { status: 500 });
+      }
+      storedValue = path;
     }
 
-    // Persist the path on the row so the admin view can resolve it later.
+    // Persist the storage reference on the row so the admin view can
+    // resolve it later via `BugReportService.getScreenshotUrl`.
     const { error: updateErr } = await supabase
       .from("bug_reports")
-      .update({ screenshot_url: path, updated_at: new Date().toISOString() })
+      .update({ screenshot_url: storedValue, updated_at: new Date().toISOString() })
       .eq("id", reportId);
 
     if (updateErr) {
       console.error("[bug-reports/screenshot] Failed to persist path:", updateErr.message);
     }
 
-    return NextResponse.json({ success: true, path });
+    return NextResponse.json({ success: true, path: storedValue });
   } catch (err) {
     console.error("[api/bug-reports/screenshot] Error:", err);
     return NextResponse.json(
