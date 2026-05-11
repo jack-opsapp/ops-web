@@ -95,22 +95,39 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: "No active subscription found" }, { status: 404 });
     }
 
-    // Cancel at period end
-    await stripe.subscriptions.update(subscriptionId, {
+    // Schedule the subscription to cancel at the end of the current paid
+    // period. Stripe keeps the subscription status as "active" until the
+    // period ends, then fires customer.subscription.deleted — that webhook
+    // (and ONLY that webhook) is the authoritative writer of
+    // subscription_status='cancelled' on companies.
+    //
+    // We deliberately do NOT write subscription_status here. Writing it as
+    // 'cancelled' immediately would lock the customer out of the app the
+    // instant they scheduled cancellation, even though they have already
+    // paid for the remaining days in the period. (Bug e67562e5.)
+    const updated = await stripe.subscriptions.update(subscriptionId, {
       cancel_at_period_end: true,
     });
 
-    // Update company status in Supabase
-    const { error: updateError } = await supabase
-      .from("companies")
-      .update({ subscription_status: "cancelled" })
-      .eq("id", companyId);
+    // Return the scheduled cancellation date so the UI can show "Cancels on
+    // <date>" without needing to read it back from Stripe separately.
+    // `cancel_at` is a unix seconds timestamp once cancellation is scheduled;
+    // fall back to current_period_end if Stripe hasn't populated cancel_at yet.
+    const cancelAtUnix =
+      updated.cancel_at ??
+      (updated as unknown as { current_period_end?: number | null })
+        .current_period_end ??
+      null;
+    const cancelAtIso =
+      cancelAtUnix !== null && cancelAtUnix !== undefined
+        ? new Date(cancelAtUnix * 1000).toISOString()
+        : null;
 
-    if (updateError) {
-      console.error("[stripe/cancel] Failed to update subscription_status:", updateError.message);
-    }
-
-    return NextResponse.json({ success: true });
+    return NextResponse.json({
+      success: true,
+      cancelAtPeriodEnd: true,
+      cancelAt: cancelAtIso,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to cancel subscription";
     console.error("[stripe/cancel] Error:", error);
