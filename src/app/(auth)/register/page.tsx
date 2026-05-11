@@ -317,8 +317,9 @@ export default function RegisterPage() {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="text-text-3 hover:text-text-2 transition-colors"
-                tabIndex={-1}
+                className="flex items-center justify-center min-w-[44px] min-h-[44px] -my-2 -mr-2 text-text-3 hover:text-text-2 transition-colors"
+                aria-label={showPassword ? t("passwordToggle.hide") : t("passwordToggle.show")}
+                aria-pressed={showPassword}
               >
                 {showPassword ? (
                   <EyeOff className="w-[16px] h-[16px]" />
