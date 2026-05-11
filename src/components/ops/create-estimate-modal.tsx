@@ -93,22 +93,23 @@ export function CreateEstimateForm({ onSuccess, onCancel }: CreateEstimateFormPr
       companyId,
     }));
 
+    // Total math — match LineItemEditor's displayed totals exactly. (Bug
+    // ea8510df.) lineTotal already includes the per-line discount, so we
+    // never subtract it again. Optional+deselected items are excluded so
+    // submit matches display.
     const totals = lineItems.reduce(
       (acc, li) => {
+        if (li.isOptional && !li.isSelected) return acc;
         const amt = computeAmount(li);
         return {
           subtotal: acc.subtotal + amt.lineTotal,
           taxAmount: acc.taxAmount + amt.tax,
-          discountAmount:
-            acc.discountAmount +
-            (li.discountPercent > 0
-              ? (li.quantity * li.unitPrice * li.discountPercent) / 100
-              : 0),
         };
       },
-      { subtotal: 0, taxAmount: 0, discountAmount: 0 }
+      { subtotal: 0, taxAmount: 0 }
     );
-    const total = totals.subtotal + totals.taxAmount - totals.discountAmount;
+    const discountAmount = 0;
+    const total = Math.round((totals.subtotal + totals.taxAmount - discountAmount) * 100) / 100;
 
     const formData: Partial<CreateEstimate> & { companyId: string } = {
       companyId,
@@ -121,7 +122,7 @@ export function CreateEstimateForm({ onSuccess, onCancel }: CreateEstimateFormPr
       terms: termsAndConditions || null,
       subtotal: totals.subtotal,
       taxAmount: totals.taxAmount,
-      discountAmount: totals.discountAmount,
+      discountAmount,
       total,
       status: EstimateStatus.Draft,
     };

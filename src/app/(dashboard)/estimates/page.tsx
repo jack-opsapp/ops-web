@@ -612,18 +612,35 @@ function EstimateFormModal({
       };
     });
 
+    // Total math — mirror LineItemEditor's display reduce EXACTLY so what
+    // the user sees on screen is what gets saved. (Bug ea8510df.)
+    //
+    // Two bugs were fused into the old reducer:
+    //   1. lineTotal is already discounted per-line (calculateLineTotal
+    //      multiplies by (1 - discountPercent/100)). The old code then also
+    //      computed sum(qty * price * pct/100) into discountAmount AND
+    //      subtracted that from total — so every line-level discount was
+    //      applied twice.
+    //   2. The reducer iterated every line, including optional items the
+    //      user deselected. The display filtered them out, so submit totals
+    //      were higher than what the customer saw.
+    //
+    // discountAmount stays at 0 here because the modal exposes no
+    // document-level discount input. If/when one is added it should be
+    // persisted from its own piece of state and subtracted ONCE.
     const totals = lineItems.reduce(
       (acc, li) => {
+        if (li.isOptional && !li.isSelected) return acc;
         const amt = computeAmount(li);
         return {
           subtotal: acc.subtotal + amt.lineTotal,
           taxAmount: acc.taxAmount + amt.tax,
-          discountAmount: acc.discountAmount + (li.discountPercent > 0 ? (li.quantity * li.unitPrice * li.discountPercent / 100) : 0),
         };
       },
-      { subtotal: 0, taxAmount: 0, discountAmount: 0 }
+      { subtotal: 0, taxAmount: 0 }
     );
-    const total = totals.subtotal + totals.taxAmount - totals.discountAmount;
+    const discountAmount = 0;
+    const total = Math.round((totals.subtotal + totals.taxAmount - discountAmount) * 100) / 100;
 
     const formData: Partial<CreateEstimate> & { companyId: string } = {
       companyId,
@@ -636,7 +653,7 @@ function EstimateFormModal({
       terms: termsAndConditions || null,
       subtotal: totals.subtotal,
       taxAmount: totals.taxAmount,
-      discountAmount: totals.discountAmount,
+      discountAmount,
       total,
       status: estimate?.status ?? EstimateStatus.Draft,
     };

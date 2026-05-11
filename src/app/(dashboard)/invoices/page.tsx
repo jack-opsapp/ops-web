@@ -619,14 +619,23 @@ function InvoiceFormModal({
       };
     });
 
+    // Total math — mirror LineItemEditor's display reduce so the screen
+    // matches what we save. (Bug ea8510df.) Optional+deselected items were
+    // included in submit totals while being hidden from the displayed total;
+    // also tax was always 0 here even when isTaxable flags were set on lines.
     const totals = mappedLineItems.reduce(
       (acc, li) => {
+        if (li.isOptional && !li.isSelected) return acc;
         const lineTotal = calculateLineTotal(li.quantity, li.unitPrice, li.discountPercent);
-        return { subtotal: acc.subtotal + lineTotal, taxAmount: acc.taxAmount, discountAmount: acc.discountAmount };
+        return {
+          subtotal: acc.subtotal + lineTotal,
+          taxAmount: acc.taxAmount,
+        };
       },
-      { subtotal: 0, taxAmount: 0, discountAmount: 0 }
+      { subtotal: 0, taxAmount: 0 }
     );
-    const total = totals.subtotal + totals.taxAmount - totals.discountAmount;
+    const discountAmount = 0;
+    const total = Math.round((totals.subtotal + totals.taxAmount - discountAmount) * 100) / 100;
 
     const formData: Partial<CreateInvoice> & { companyId: string } = {
       companyId,
@@ -639,7 +648,7 @@ function InvoiceFormModal({
       internalNotes: internalNotes || null,
       subtotal: totals.subtotal,
       taxAmount: totals.taxAmount,
-      discountAmount: totals.discountAmount,
+      discountAmount,
       total,
       status: invoice?.status ?? InvoiceStatus.Draft,
     };
