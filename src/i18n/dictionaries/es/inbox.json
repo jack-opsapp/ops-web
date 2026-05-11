@@ -50,8 +50,9 @@
   "bands.closed.aria": "Hilo cerrado",
 
   "messages.sentByClaude": "enviado por Claude",
-  "messages.photo_one": "{count} foto",
-  "messages.photo_other": "{count} fotos",
+  "messages.photoCountTactic_one": "{count} FOTO",
+  "messages.photoCountTactic_other": "{count} FOTOS",
+  "messages.photoOverflow": "+{count} MÁS",
 
   "composer.placeholder": "Escribe un mensaje...",
   "composer.send": "ENVIAR",
@@ -92,6 +93,7 @@
   "files.documentsLabel": "// DOCUMENTOS · {count}",
   "files.empty": "sin archivos adjuntos",
   "files.openPhoto": "Abrir foto {filename}",
+  "files.openPhotoOverflow": "Abrir foto {filename} (+{count} más)",
 
   "mobile.back": "Atrás",
   "mobile.thread": "// HILO",
