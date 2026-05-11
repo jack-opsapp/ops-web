@@ -304,6 +304,7 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
         t("detail.unknownClient", "Unknown sender")
       }
       messageCount={detail.thread.messageCount ?? detail.messages.length}
+      otherThreadCount={0}
       onPrev={onPrev}
       onNext={onNext}
       onArchive={onArchiveClick}
@@ -456,7 +457,7 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
           );
         }}
         disabled={sendReply.isPending}
-        placeholder={t("composer.placeholder", "Reply to this thread…")}
+        placeholder={t("composer.tacticPlaceholder", "[type message — ⌘↵ to send]")}
         agentTinted={isAgentDraft && isPristineDraft}
         sendVariant={isAgentDraft && isPristineDraft ? "agent" : "accent"}
         topAccessory={
