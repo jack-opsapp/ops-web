@@ -25,6 +25,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ops/confirm-dialog";
+import { QueryErrorState } from "@/components/ops/query-error-state";
 import { InviteModal } from "@/components/ops/invite-modal";
 import {
   useTeamMembers,
@@ -486,7 +487,13 @@ export default function TeamPage() {
   useEffect(() => { trackScreenView("team"); }, []);
 
   // ─── Data hooks ──────────────────────────────────────────────────────────
-  const { data: teamData, isLoading } = useTeamMembers();
+  const {
+    data: teamData,
+    isLoading,
+    isError: teamError,
+    isFetching: teamFetching,
+    refetch: refetchTeam,
+  } = useTeamMembers();
   const updateRoleMutation = useUpdateUserRole();
   const removeEmployeeMutation = useRemoveSeatedEmployee();
 
@@ -610,7 +617,17 @@ export default function TeamPage() {
       </div>
 
       {/* Content */}
-      {isLoading ? (
+      {teamError && !teamData ? (
+        <div className="py-4">
+          <QueryErrorState
+            title="Could not load the team roster."
+            description="The directory query failed. Roles and seat counts may be stale until you retry."
+            errorCode="TEAM_DIRECTORY"
+            onRetry={() => refetchTeam()}
+            isRetrying={teamFetching}
+          />
+        </div>
+      ) : isLoading ? (
         <LoadingSkeleton />
       ) : filteredTeam.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-8">

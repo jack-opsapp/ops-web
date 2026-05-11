@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils/cn";
 import { useScopedProjects } from "@/lib/hooks/use-projects";
 import { useMapMetrics } from "@/lib/hooks";
 import { MetricsHeader } from "@/components/metrics";
+import { QueryErrorState } from "@/components/ops/query-error-state";
 import {
   ProjectStatus,
   PROJECT_STATUS_COLORS,
@@ -134,7 +135,13 @@ export default function MapPage() {
   const [showSidebar, setShowSidebar] = useState(true);
 
   const { data: mapMetrics = [], isLoading: mapMetricsLoading } = useMapMetrics();
-  const { data, isLoading } = useScopedProjects();
+  const {
+    data,
+    isLoading,
+    isError: projectsError,
+    isFetching: projectsFetching,
+    refetch: refetchProjects,
+  } = useScopedProjects();
   const projects = useMemo(() => data?.projects ?? [], [data]);
 
   const STATUS_FILTERS: { value: "all" | "active" | ProjectStatus; label: string }[] = useMemo(() => [
@@ -273,7 +280,17 @@ export default function MapPage() {
 
         {/* Project list */}
         <div className="flex-1 overflow-y-auto p-1 space-y-[4px]">
-          {isLoading ? (
+          {projectsError && !data ? (
+            <div className="py-3 px-1">
+              <QueryErrorState
+                title="Could not load projects."
+                description="The map could not reach the project list. Pins may be missing or stale until you retry."
+                errorCode="MAP_PROJECTS"
+                onRetry={() => refetchProjects()}
+                isRetrying={projectsFetching}
+              />
+            </div>
+          ) : isLoading ? (
             <div className="flex flex-col items-center justify-center py-6">
               <Loader2 className="w-[20px] h-[20px] text-text-2 animate-spin" />
               <span className="font-mono text-micro text-text-mute mt-1">

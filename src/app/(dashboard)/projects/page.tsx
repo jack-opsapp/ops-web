@@ -3,6 +3,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef, memo } from "react";
 import { Loader2 } from "lucide-react";
 import { useDictionary } from "@/i18n/client";
+import { QueryErrorState } from "@/components/ops/query-error-state";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { trackScreenView } from "@/lib/analytics/analytics";
 import { toast } from "@/components/ui/toast";
@@ -185,7 +186,13 @@ export default function ProjectsPage() {
   const canDelete = can("projects.delete");
 
   // ── Data fetching ──
-  const { data: projectsData, isLoading } = useScopedProjects();
+  const {
+    data: projectsData,
+    isLoading,
+    isError: projectsError,
+    isFetching: projectsFetching,
+    refetch: refetchProjects,
+  } = useScopedProjects();
   const { data: clientsData } = useClients();
   const { data: teamData } = useTeamMembers();
   const { data: invoicesData } = useInvoices();
@@ -682,6 +689,25 @@ export default function ProjectsPage() {
   const batchCount = activeCardId && useProjectCanvasStore.getState().selectedCardIds.has(activeCardId)
     ? selectedCount
     : 1;
+
+  // ── Error ──
+  // Surface a retry path on full failure so the canvas isn't stuck on
+  // the spinner state (bug 03241853). We only swap in the error pane
+  // when there's no cached data — if we already have a previous result
+  // the canvas renders that and the background refetch continues silently.
+  if (projectsError && !projectsData) {
+    return (
+      <div className="flex flex-col h-full items-center justify-center gap-3 p-4">
+        <QueryErrorState
+          title="Could not load projects."
+          description="The project canvas couldn't reach the server. Try again — your unsaved layout edits are preserved locally."
+          errorCode="PROJECTS_CANVAS"
+          onRetry={() => refetchProjects()}
+          isRetrying={projectsFetching}
+        />
+      </div>
+    );
+  }
 
   // ── Loading ──
   if (isLoading) {
