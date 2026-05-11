@@ -59,6 +59,7 @@ import {
 } from "@/lib/types/pipeline";
 import type { Invoice, Product, CreateInvoice, CreateLineItem, CreatePayment } from "@/lib/types/pipeline";
 import { useAuthStore } from "@/lib/store/auth-store";
+import { createInvoiceSchema } from "@/lib/schemas";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import { useSetupGate } from "@/hooks/useSetupGate";
 import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModal";
@@ -571,6 +572,39 @@ function InvoiceFormModal({
   }, [invoice, loading]);
 
   const handleSubmit = () => {
+    // Validate against the Zod schema BEFORE mapping/persisting. (Bug
+    // ce6495b9 — previously empty client + blank line items + zero totals
+    // would still save.)
+    const validation = createInvoiceSchema.safeParse({
+      companyId,
+      clientId: clientId || undefined,
+      issueDate: date ? new Date(date) : new Date(),
+      dueDate: dueDate ? new Date(dueDate) : undefined,
+      paymentTerms,
+      clientMessage: notes || null,
+      internalNotes: internalNotes || null,
+      lineItems: lineItems.map((li) => ({
+        name: li.name,
+        description: null,
+        quantity: li.quantity,
+        unit: li.unit,
+        unitPrice: li.unitPrice,
+        isTaxable: li.isTaxable,
+        discountPercent: li.discountPercent,
+        productId: li.productId ?? null,
+        isOptional: li.isOptional,
+        isSelected: li.isSelected,
+      })),
+    });
+    if (!validation.success) {
+      const first = validation.error.issues[0];
+      const path = first?.path?.join(".") ?? "form";
+      toast.error("Can't save invoice", {
+        description: `${path}: ${first?.message ?? "Invalid input"}`,
+      });
+      return;
+    }
+
     const mappedLineItems = lineItems.map((li, index) => {
       const amt = computeAmount(li);
       return {
@@ -585,14 +619,23 @@ function InvoiceFormModal({
       };
     });
 
+    // Total math — mirror LineItemEditor's display reduce so the screen
+    // matches what we save. (Bug ea8510df.) Optional+deselected items were
+    // included in submit totals while being hidden from the displayed total;
+    // also tax was always 0 here even when isTaxable flags were set on lines.
     const totals = mappedLineItems.reduce(
       (acc, li) => {
+        if (li.isOptional && !li.isSelected) return acc;
         const lineTotal = calculateLineTotal(li.quantity, li.unitPrice, li.discountPercent);
-        return { subtotal: acc.subtotal + lineTotal, taxAmount: acc.taxAmount, discountAmount: acc.discountAmount };
+        return {
+          subtotal: acc.subtotal + lineTotal,
+          taxAmount: acc.taxAmount,
+        };
       },
-      { subtotal: 0, taxAmount: 0, discountAmount: 0 }
+      { subtotal: 0, taxAmount: 0 }
     );
-    const total = totals.subtotal + totals.taxAmount - totals.discountAmount;
+    const discountAmount = 0;
+    const total = Math.round((totals.subtotal + totals.taxAmount - discountAmount) * 100) / 100;
 
     const formData: Partial<CreateInvoice> & { companyId: string } = {
       companyId,
@@ -605,7 +648,7 @@ function InvoiceFormModal({
       internalNotes: internalNotes || null,
       subtotal: totals.subtotal,
       taxAmount: totals.taxAmount,
-      discountAmount: totals.discountAmount,
+      discountAmount,
       total,
       status: invoice?.status ?? InvoiceStatus.Draft,
     };

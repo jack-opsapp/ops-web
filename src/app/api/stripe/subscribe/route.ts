@@ -114,12 +114,21 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     // N2 — Refuse to create a second subscription while one is already live.
     // Without this check, a UI bug, stale tab, or confused user clicking
-    // "Upgrade" twice would create two Stripe subscriptions on the same
+    // "Upgrade" twice would create two paid Stripe subscriptions on the same
     // customer and double-bill them. Plan changes should go through a
     // dedicated upgrade/downgrade route (not yet built).
+    //
+    // IMPORTANT: 'trial' is NOT a Stripe subscription — it's the free in-app
+    // trial granted on signup. Trial companies have no Stripe subscription
+    // yet and MUST be allowed to convert to a paid plan. Rejecting them here
+    // was the bug (9f55103f): SubscriptionTab sent trial users to /subscribe
+    // and the route refused them with 409, blocking conversion entirely.
+    //
+    // 'grace' is a real paid subscription in past_due/paused state. Keep
+    // rejecting it — they need to update payment, not create a second sub.
     if (
       company.subscription_status &&
-      ["active", "trial", "grace"].includes(company.subscription_status)
+      ["active", "grace"].includes(company.subscription_status)
     ) {
       return NextResponse.json(
         {

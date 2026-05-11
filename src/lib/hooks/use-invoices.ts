@@ -112,8 +112,14 @@ export function useSendInvoice() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: string) => InvoiceService.sendInvoice(id),
-    onSettled: (_data, _error, id) => {
+    mutationFn: (input: string | { id: string; email?: string }) => {
+      if (typeof input === "string") {
+        return InvoiceService.sendInvoice(input);
+      }
+      return InvoiceService.sendInvoice(input.id, input.email);
+    },
+    onSettled: (_data, _error, input) => {
+      const id = typeof input === "string" ? input : input.id;
       queryClient.invalidateQueries({ queryKey: queryKeys.invoices.detail(id) });
       queryClient.invalidateQueries({ queryKey: queryKeys.invoices.lists() });
     },

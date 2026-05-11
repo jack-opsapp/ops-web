@@ -334,23 +334,31 @@ export function SubscriptionTab() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  // Stripe Checkout return — fires a confirmation toast and force-refetches
-  // company so the lockout overlay (which keys off `subscriptionStatus`)
-  // clears as soon as the webhook flips state. Strips the query so a refresh
-  // does not replay the toast.
+  // Stripe Checkout return — handle the result query param.
+  //
+  // For ?result=success we must NOT claim "Subscription active" until we have
+  // actually observed companies.subscription_status flip to 'active' (or
+  // 'grace', which is also entitled). The Stripe webhook is the only writer
+  // of that column, so there is unavoidable lag between Checkout completion
+  // and the DB update — anywhere from ~200ms to several seconds, occasionally
+  // longer under retry. Previously this effect optimistically showed success
+  // and called refetch() once, so a user landing back on /settings during
+  // webhook lag would see "Subscription active" AND a lockout overlay at the
+  // same time. (Bug f920326c.)
+  //
+  // New behaviour: show a loading toast, poll the company row every 2s up to
+  // 30s, push every fetched company into the auth store (so the lockout
+  // overlay re-evaluates without waiting on Realtime), and only swap to the
+  // success toast when status is active/grace AND a paid plan is present.
+  // If we time out we surface a soft "still finalizing" message and keep
+  // refetching in the background — the Realtime listener in LockoutOverlay
+  // will still pick up the eventual update.
+  const setAuthCompany = useAuthStore((s) => s.setCompany);
   useEffect(() => {
     const result = searchParams.get("result");
     if (!result) return;
 
-    if (result === "success") {
-      toast.success("Subscription active", {
-        description: "Welcome aboard. Refreshing your account…",
-      });
-      refetch();
-    } else if (result === "cancelled") {
-      toast("Checkout cancelled");
-    }
-
+    // Strip query first so a refresh or back-nav does not replay either flow.
     queueMicrotask(() => {
       const params = new URLSearchParams(Array.from(searchParams.entries()));
       params.delete("result");
@@ -358,7 +366,82 @@ export function SubscriptionTab() {
       const next = params.toString();
       router.replace(next ? `/settings?${next}` : "/settings", { scroll: false });
     });
-  }, [searchParams, router, refetch]);
+
+    if (result === "cancelled") {
+      toast("Checkout cancelled");
+      return;
+    }
+
+    if (result !== "success") return;
+
+    // Treat status as "entitled" if Stripe webhook has written an active or
+    // grace status AND a real paid plan name (not 'trial'). Grace counts as
+    // entitled because the lockout overlay treats it as active access.
+    const isEntitled = (c: { subscriptionStatus?: unknown; subscriptionPlan?: unknown } | null | undefined) => {
+      if (!c) return false;
+      const status = c.subscriptionStatus as SubscriptionStatus | null;
+      const plan = c.subscriptionPlan as SubscriptionPlan | null;
+      const statusOk =
+        status === SubscriptionStatus.Active ||
+        status === SubscriptionStatus.Grace;
+      const planOk =
+        plan === SubscriptionPlan.Starter ||
+        plan === SubscriptionPlan.Team ||
+        plan === SubscriptionPlan.Business;
+      return statusOk && planOk;
+    };
+
+    let cancelled = false;
+    const verifyingToastId = toast.loading("Finalizing your subscription", {
+      description: "Waiting for payment to clear…",
+    });
+
+    const POLL_INTERVAL_MS = 2000;
+    const POLL_TIMEOUT_MS = 30000;
+    const start = Date.now();
+
+    async function pollOnce() {
+      if (cancelled) return;
+      try {
+        const result = await refetch();
+        const fresh = result.data;
+        if (fresh) {
+          // Push into the auth store so LockoutOverlay re-evaluates lockout
+          // reason without waiting on the Realtime channel.
+          setAuthCompany(fresh);
+          if (isEntitled(fresh)) {
+            toast.success("Subscription active", {
+              id: verifyingToastId,
+              description: "Welcome aboard.",
+            });
+            cancelled = true;
+            return;
+          }
+        }
+      } catch {
+        // ignore transient errors; keep polling until timeout
+      }
+
+      if (Date.now() - start >= POLL_TIMEOUT_MS) {
+        toast("Still finalizing your subscription", {
+          id: verifyingToastId,
+          description:
+            "Payment is processing. This page will update automatically once it clears.",
+        });
+        cancelled = true;
+        return;
+      }
+
+      setTimeout(pollOnce, POLL_INTERVAL_MS);
+    }
+
+    pollOnce();
+
+    return () => {
+      cancelled = true;
+      toast.dismiss(verifyingToastId);
+    };
+  }, [searchParams, router, refetch, setAuthCompany]);
 
   if (isCompanyLoading && !company) {
     return (

@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { queryKeys } from "../api/query-client";
 import { EmailService } from "../api/services/email-service";
 import { useAuthStore } from "../store/auth-store";
+import { authedFetch } from "../utils/authed-fetch";
 import type { UpdateEmailConnection } from "../types/email-connection";
 
 /**
@@ -76,7 +77,7 @@ export function useTriggerEmailSync() {
 
   return useMutation({
     mutationFn: async (connectionId: string) => {
-      const response = await fetch("/api/integrations/email/manual-sync", {
+      const response = await authedFetch("/api/integrations/email/manual-sync", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ connectionId }),

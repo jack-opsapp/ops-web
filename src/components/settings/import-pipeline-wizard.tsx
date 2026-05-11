@@ -154,7 +154,7 @@ export function ImportPipelineWizard({
     if (fingerprint === lastSaveFingerprintRef.current) return;
 
     try {
-      await fetch("/api/integrations/email/connection", {
+      await authedFetch("/api/integrations/email/connection", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -296,7 +296,7 @@ export function ImportPipelineWizard({
 
     const checkWizardState = async () => {
       try {
-        const res = await fetch(`/api/integrations/email/connection?id=${initialConnectionId}`);
+        const res = await authedFetch(`/api/integrations/email/connection?id=${initialConnectionId}`);
         if (!res.ok) return;
         const conn = await res.json();
         const filters = conn.syncFilters || {};
@@ -788,7 +788,7 @@ export function ImportPipelineWizard({
         },
       };
 
-      const res = await fetch("/api/integrations/email/import", {
+      const res = await authedFetch("/api/integrations/email/import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -851,7 +851,7 @@ export function ImportPipelineWizard({
         },
       };
 
-      const res = await fetch("/api/integrations/email/activate", {
+      const res = await authedFetch("/api/integrations/email/activate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(activationPayload),

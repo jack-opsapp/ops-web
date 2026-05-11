@@ -1,13 +1,28 @@
 "use client";
 
-import { useCallback, useState } from "react";
-import { ShieldOff, Check, Headphones, Zap, Crown, Building2, Loader2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  ShieldOff,
+  UserX,
+  Check,
+  Headphones,
+  Zap,
+  Crown,
+  Building2,
+  Users,
+  Loader2,
+} from "lucide-react";
 import { cn } from "@/lib/utils/cn";
-import { TIER_CONFIG, type SubscriptionTier } from "@/lib/subscription";
+import {
+  getLockoutReason,
+  TIER_CONFIG,
+  type SubscriptionTier,
+} from "@/lib/subscription";
 import { Button } from "@/components/ui/button";
 import { useDictionary } from "@/i18n/client";
 import { OpsLockup } from "@/components/brand";
-import { useAuthStore } from "@/lib/store/auth-store";
+import { useAuthStore, selectIsAdminOrOwner } from "@/lib/store/auth-store";
+import { requireSupabase } from "@/lib/supabase/helpers";
 import { toast } from "sonner";
 
 // ─── Tier Visual Config ──────────────────────────────────────────────────────
@@ -44,7 +59,155 @@ const TIER_DISPLAY: Record<Exclude<SubscriptionTier, "trial">, {
   },
 };
 
-// ─── Pricing Card ────────────────────────────────────────────────────────────
+// ─── Admin Name Hook (mirrors LockoutOverlay.useAdminNames) ──────────────────
+
+function useAdminNames(adminIds: string[] | undefined) {
+  const [admins, setAdmins] = useState<{ id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    if (!adminIds?.length) return;
+
+    let cancelled = false;
+
+    async function fetchAdminNames() {
+      try {
+        const supabase = requireSupabase();
+        const { data } = await supabase
+          .from("users")
+          .select("id, first_name, last_name")
+          .in("id", adminIds!);
+
+        if (cancelled || !data) return;
+
+        setAdmins(
+          data.map((u: { id: string; first_name: string; last_name: string }) => ({
+            id: u.id,
+            name: [u.first_name, u.last_name].filter(Boolean).join(" ") || "Admin",
+          }))
+        );
+      } catch {
+        // Silently fail — admin names are cosmetic
+      }
+    }
+
+    fetchAdminNames();
+    return () => { cancelled = true; };
+  }, [adminIds]);
+
+  return admins;
+}
+
+// ─── Cooldown helpers (mirrors LockoutOverlay) ───────────────────────────────
+
+const COOLDOWN_MS = 24 * 60 * 60 * 1000;
+
+function getCooldownKey(userId: string): string {
+  return `ops-lockout-request-${userId}`;
+}
+
+function isWithinCooldown(userId: string): boolean {
+  if (typeof window === "undefined") return false;
+  const stored = localStorage.getItem(getCooldownKey(userId));
+  if (!stored) return false;
+  try {
+    const { timestamp } = JSON.parse(stored);
+    return Date.now() - timestamp < COOLDOWN_MS;
+  } catch {
+    return false;
+  }
+}
+
+function setCooldown(userId: string, reason: "subscription_expired" | "unseated"): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(
+    getCooldownKey(userId),
+    JSON.stringify({ timestamp: Date.now(), reason })
+  );
+}
+
+// ─── Request Button ──────────────────────────────────────────────────────────
+
+function RequestButton({
+  label,
+  sentLabel,
+  userId,
+  adminIds,
+  companyId,
+  userName,
+  reason,
+}: {
+  label: string;
+  sentLabel: string;
+  userId: string;
+  adminIds: string[];
+  companyId: string;
+  userName: string;
+  reason: "subscription_expired" | "unseated";
+}) {
+  const [sent, setSent] = useState(() => isWithinCooldown(userId));
+  const [sending, setSending] = useState(false);
+
+  const noAdmins = adminIds.length === 0;
+
+  const handleRequest = useCallback(async () => {
+    if (sent || sending || noAdmins) return;
+    setSending(true);
+
+    try {
+      const supabase = requireSupabase();
+      const isReactivation = reason === "subscription_expired";
+
+      const rows = adminIds.map((adminId) => ({
+        user_id: adminId,
+        company_id: companyId,
+        type: "role_needed" as const,
+        title: isReactivation ? "Reactivation Request" : "Access Request",
+        body: isReactivation
+          ? `${userName} is requesting subscription reactivation`
+          : `${userName} is requesting seat restoration`,
+        is_read: false,
+        persistent: true,
+        action_url: isReactivation ? "/settings?tab=subscription" : "/team",
+        action_label: isReactivation ? "Manage Subscription" : "Manage Team",
+      }));
+
+      const { error } = await supabase.from("notifications").insert(rows);
+      if (!error) {
+        setCooldown(userId, reason);
+        setSent(true);
+      }
+    } catch {
+      // Silently fail
+    } finally {
+      setSending(false);
+    }
+  }, [sent, sending, noAdmins, adminIds, companyId, userName, reason, userId]);
+
+  if (noAdmins) return null;
+
+  return (
+    <Button
+      variant="primary"
+      size="lg"
+      className="w-full"
+      onClick={handleRequest}
+      disabled={sent || sending}
+    >
+      {sent ? (
+        <span className="flex items-center gap-1">
+          <Check className="w-[16px] h-[16px]" />
+          {sentLabel}
+        </span>
+      ) : sending ? (
+        <span className="animate-pulse-live">{label}</span>
+      ) : (
+        label
+      )}
+    </Button>
+  );
+}
+
+// ─── Pricing Card (admin expired state) ──────────────────────────────────────
 
 function PricingCard({
   tier,
@@ -60,9 +223,7 @@ function PricingCard({
 
   // Initiate Stripe Checkout — webhook is the only writer of
   // `companies.subscription_status='active'`, so abandoning the Stripe-hosted
-  // checkout leaves the lockout in place. This is the same fix as the
-  // CompactPricingCard inside the dashboard lockout overlay (bug
-  // ac030a6c-6022-46dd-8d7b-5d477baaec53).
+  // checkout leaves the lockout in place.
   const handleSubscribe = useCallback(async () => {
     if (loading) return;
     if (!companyId) {
@@ -114,7 +275,6 @@ function PricingCard({
         display.popular && "ring-1 ring-ops-amber/20"
       )}
     >
-      {/* Popular badge */}
       {display.popular && (
         <div className="absolute -top-[12px] left-1/2 -translate-x-1/2">
           <span className="font-mono text-micro uppercase tracking-[0.2em] bg-ops-amber text-text-inverse px-1.5 py-0.5 rounded-sm">
@@ -123,7 +283,6 @@ function PricingCard({
         </div>
       )}
 
-      {/* Header */}
       <div className="flex items-center gap-1 mb-2">
         <div className={cn("p-1 rounded bg-fill-neutral-dim", display.accentClass)}>
           {display.icon}
@@ -133,7 +292,6 @@ function PricingCard({
         </div>
       </div>
 
-      {/* Price */}
       <div className="flex items-baseline gap-0.5 mb-2">
         <span className="font-mono text-[36px] leading-none text-text tracking-tight">
           ${config.price}
@@ -141,12 +299,10 @@ function PricingCard({
         <span className="font-mohave text-body-sm text-text-3">/mo</span>
       </div>
 
-      {/* Seat count */}
       <div className={cn("inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-caption-sm font-mono mb-2 w-fit", display.badgeClass)}>
         {config.maxSeats} {t("locked.seatsIncluded")}
       </div>
 
-      {/* Features */}
       <ul className="flex flex-col gap-1 mb-3 flex-1">
         {config.features.map((feature) => (
           <li key={feature} className="flex items-start gap-1">
@@ -156,7 +312,6 @@ function PricingCard({
         ))}
       </ul>
 
-      {/* CTA */}
       <Button
         variant={display.popular ? "accent" : "default"}
         size="lg"
@@ -174,12 +329,108 @@ function PricingCard({
   );
 }
 
+// ─── Admin Display ───────────────────────────────────────────────────────────
+
+function AdminDisplay({
+  admins,
+}: {
+  admins: { id: string; name: string }[];
+}) {
+  const { t } = useDictionary("auth");
+
+  if (admins.length === 0) return null;
+
+  const primaryAdmin = admins[0];
+  const othersCount = admins.length - 1;
+
+  return (
+    <div className="flex items-center gap-1 mt-2 mb-3">
+      <span className="font-mono text-[11px] uppercase tracking-[0.15em] text-text-3">
+        {t("lockout.adminLabel")}:
+      </span>
+      <span className="font-mohave text-body text-text font-medium">
+        {primaryAdmin.name}
+      </span>
+      {othersCount > 0 && (
+        <span className="font-mohave text-body-sm text-text-3">
+          (+{othersCount} {t("lockout.adminOthers")})
+        </span>
+      )}
+    </div>
+  );
+}
+
+// ─── Footer ──────────────────────────────────────────────────────────────────
+
+function PageFooter({ sysMessageKey }: { sysMessageKey: string }) {
+  const { t } = useDictionary("auth");
+  return (
+    <div className="text-center space-y-1">
+      <p className="font-mohave text-body-sm text-text-3">
+        {t("locked.guarantee")}
+      </p>
+      <div className="flex items-center justify-center gap-2">
+        <a
+          href="mailto:support@opsapp.co"
+          className="inline-flex items-center gap-0.5 font-mohave text-body-sm text-text-2 hover:text-text underline underline-offset-4 transition-colors"
+        >
+          <Headphones className="w-[14px] h-[14px]" />
+          {t("locked.contactSupport")}
+        </a>
+        <span className="text-text-mute">|</span>
+        <a
+          href="/login"
+          className="font-mohave text-body-sm text-text-3 hover:text-text-2 underline underline-offset-4 transition-colors"
+        >
+          {t("locked.differentAccount")}
+        </a>
+      </div>
+      <p className="font-mono text-micro text-text-mute tracking-wider mt-2 opacity-40">
+        {t(sysMessageKey)}
+      </p>
+    </div>
+  );
+}
+
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function LockedPage() {
   const { t } = useDictionary("auth");
   const company = useAuthStore((s) => s.company);
+  const currentUser = useAuthStore((s) => s.currentUser);
+  const isAdmin = useAuthStore(selectIsAdminOrOwner);
+
   const companyId = company?.id;
+  const userId = currentUser?.id ?? null;
+  const userName = currentUser
+    ? [currentUser.firstName, currentUser.lastName].filter(Boolean).join(" ") || "A team member"
+    : "A team member";
+
+  // Compute actual lockout reason. Returns null if not locked at all,
+  // or "subscription_expired" / "unseated" otherwise.
+  const lockoutReason = useMemo(
+    () => getLockoutReason(company, userId),
+    [company, userId]
+  );
+
+  const admins = useAdminNames(company?.adminIds);
+
+  // Default state: no concrete reason yet (auth/company still loading, or no
+  // lockout at all). Fall back to the expired-admin pricing layout — same as
+  // the legacy behavior — so the page is never blank, but the heading is
+  // generic and we don't claim a specific reason we haven't proven.
+  const showAdminExpired =
+    lockoutReason === "subscription_expired" && isAdmin;
+  const showMemberExpired =
+    lockoutReason === "subscription_expired" && !isAdmin;
+  const showAdminUnseated = lockoutReason === "unseated" && isAdmin;
+  const showMemberUnseated = lockoutReason === "unseated" && !isAdmin;
+  const showFallbackPricing =
+    !showAdminExpired &&
+    !showMemberExpired &&
+    !showAdminUnseated &&
+    !showMemberUnseated;
+
   return (
     <div className="flex flex-col items-center min-h-screen px-2 py-5">
       {/* Logo */}
@@ -193,66 +444,159 @@ export default function LockedPage() {
         </p>
       </div>
 
-      {/* Status indicator */}
+      {/* Status icon — color depends on reason */}
       <div className="flex items-center gap-1 mb-2">
-        <div className="p-1 rounded-full bg-ops-error/15">
-          <ShieldOff className="w-[24px] h-[24px] text-ops-error" />
+        <div
+          className={cn(
+            "p-1 rounded-full",
+            lockoutReason === "unseated"
+              ? "bg-ops-amber/15"
+              : "bg-ops-error/15"
+          )}
+        >
+          {showAdminUnseated && (
+            <Users className="w-[24px] h-[24px] text-ops-amber" />
+          )}
+          {showMemberUnseated && (
+            <UserX className="w-[24px] h-[24px] text-ops-amber" />
+          )}
+          {(showAdminExpired || showMemberExpired || showFallbackPricing) && (
+            <ShieldOff className="w-[24px] h-[24px] text-ops-error" />
+          )}
         </div>
       </div>
 
-      {/* Heading */}
-      <div className="text-center mb-1 max-w-[600px]">
-        <h2 className="font-mohave text-display text-text mb-1">
-          {t("locked.title")}
-        </h2>
-        <p className="font-mohave text-body text-text-2 leading-relaxed">
-          {t("locked.description")}
-        </p>
-      </div>
+      {/* ── State A: Admin / Owner with expired subscription ── */}
+      {(showAdminExpired || showFallbackPricing) && (
+        <>
+          <div className="text-center mb-1 max-w-[600px]">
+            <h2 className="font-mohave text-display text-text mb-1">
+              {t(
+                showAdminExpired
+                  ? "lockout.expiredAdmin.title"
+                  : "locked.title"
+              )}
+            </h2>
+            <p className="font-mohave text-body text-text-2 leading-relaxed">
+              {t(
+                showAdminExpired
+                  ? "lockout.expiredAdmin.body"
+                  : "locked.description"
+              )}
+            </p>
+          </div>
 
-      {/* Divider */}
-      <div className="w-full max-w-[800px] flex items-center gap-2 my-3">
-        <div className="flex-1 h-px bg-border" />
-        <span className="font-mono text-[11px] uppercase tracking-[0.3em] text-text-3">
-          {t("locked.selectPlan")}
-        </span>
-        <div className="flex-1 h-px bg-border" />
-      </div>
+          <div className="w-full max-w-[800px] flex items-center gap-2 my-3">
+            <div className="flex-1 h-px bg-border" />
+            <span className="font-mono text-[11px] uppercase tracking-[0.3em] text-text-3">
+              {t("locked.selectPlan")}
+            </span>
+            <div className="flex-1 h-px bg-border" />
+          </div>
 
-      {/* Pricing grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-2 w-full max-w-[900px] mb-4">
-        <PricingCard tier="starter" companyId={companyId} />
-        <PricingCard tier="team" companyId={companyId} />
-        <PricingCard tier="business" companyId={companyId} />
-      </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2 w-full max-w-[900px] mb-4">
+            <PricingCard tier="starter" companyId={companyId} />
+            <PricingCard tier="team" companyId={companyId} />
+            <PricingCard tier="business" companyId={companyId} />
+          </div>
 
-      {/* Footer */}
-      <div className="text-center space-y-1">
-        <p className="font-mohave text-body-sm text-text-3">
-          {t("locked.guarantee")}
-        </p>
-        <div className="flex items-center justify-center gap-2">
-          <a
-            href="mailto:support@opsapp.co"
-            className="inline-flex items-center gap-0.5 font-mohave text-body-sm text-text-2 hover:text-text underline underline-offset-4 transition-colors"
-          >
-            <Headphones className="w-[14px] h-[14px]" />
-            {t("locked.contactSupport")}
-          </a>
-          <span className="text-text-mute">|</span>
-          <a
-            href="/login"
-            className="font-mohave text-body-sm text-text-3 hover:text-text-2 underline underline-offset-4 transition-colors"
-          >
-            {t("locked.differentAccount")}
-          </a>
+          <PageFooter
+            sysMessageKey={
+              showAdminExpired
+                ? "lockout.expiredAdmin.sysMessage"
+                : "locked.sysMessage"
+            }
+          />
+        </>
+      )}
+
+      {/* ── State B: Non-admin / non-owner with expired subscription ── */}
+      {showMemberExpired && (
+        <div className="w-full max-w-[520px] flex flex-col">
+          <div className="text-center mb-1">
+            <h2 className="font-mohave text-display text-text mb-1">
+              {t("lockout.expiredMember.title")}
+            </h2>
+            <p className="font-mohave text-body text-text-2 leading-relaxed">
+              {t("lockout.expiredMember.body")}
+            </p>
+          </div>
+
+          <AdminDisplay admins={admins} />
+
+          {userId && companyId && (
+            <RequestButton
+              label={t("lockout.expiredMember.requestReactivation")}
+              sentLabel={t("lockout.expiredMember.requestSent")}
+              userId={userId}
+              adminIds={company?.adminIds ?? []}
+              companyId={companyId}
+              userName={userName}
+              reason="subscription_expired"
+            />
+          )}
+
+          <div className="mt-4">
+            <PageFooter sysMessageKey="lockout.expiredMember.sysMessage" />
+          </div>
         </div>
+      )}
 
-        {/* System fingerprint for defense-tech aesthetic */}
-        <p className="font-mono text-micro text-text-mute tracking-wider mt-2 opacity-40">
-          {t("locked.sysMessage")}
-        </p>
-      </div>
+      {/* ── State C: Admin / Owner who is unseated ── */}
+      {showAdminUnseated && (
+        <div className="w-full max-w-[520px] flex flex-col">
+          <div className="text-center mb-1">
+            <h2 className="font-mohave text-display text-text mb-1">
+              {t("lockout.unseatedAdmin.title")}
+            </h2>
+            <p className="font-mohave text-body text-text-2 leading-relaxed">
+              {t("lockout.unseatedAdmin.body")}
+            </p>
+          </div>
+
+          <a href="/team" className="block mt-3">
+            <Button variant="primary" size="lg" className="w-full">
+              {t("lockout.unseatedAdmin.manageTeam")}
+            </Button>
+          </a>
+
+          <div className="mt-4">
+            <PageFooter sysMessageKey="lockout.unseatedAdmin.sysMessage" />
+          </div>
+        </div>
+      )}
+
+      {/* ── State D: Non-admin who is unseated ── */}
+      {showMemberUnseated && (
+        <div className="w-full max-w-[520px] flex flex-col">
+          <div className="text-center mb-1">
+            <h2 className="font-mohave text-display text-text mb-1">
+              {t("lockout.unseated.title")}
+            </h2>
+            <p className="font-mohave text-body text-text-2 leading-relaxed">
+              {t("lockout.unseated.body")}
+            </p>
+          </div>
+
+          <AdminDisplay admins={admins} />
+
+          {userId && companyId && (
+            <RequestButton
+              label={t("lockout.unseated.requestAccess")}
+              sentLabel={t("lockout.unseated.requestSent")}
+              userId={userId}
+              adminIds={company?.adminIds ?? []}
+              companyId={companyId}
+              userName={userName}
+              reason="unseated"
+            />
+          )}
+
+          <div className="mt-4">
+            <PageFooter sysMessageKey="lockout.unseated.sysMessage" />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

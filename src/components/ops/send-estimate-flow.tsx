@@ -54,7 +54,7 @@ export function SendEstimateFlow({
 
     setSending(true);
     try {
-      await sendEstimate.mutateAsync(estimate.id);
+      await sendEstimate.mutateAsync({ id: estimate.id, email: email.trim() });
       toast.success(`Estimate ${estimate.estimateNumber} sent`);
       onSent();
     } catch (err) {

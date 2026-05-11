@@ -7,6 +7,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "../store/auth-store";
 import { CompanyService } from "../api/services";
+import { authedFetch } from "../utils/authed-fetch";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -45,7 +46,7 @@ export function usePaymentMethods() {
   return useQuery({
     queryKey: billingKeys.paymentMethods(companyId),
     queryFn: async (): Promise<PaymentMethod[]> => {
-      const res = await fetch(`/api/stripe/payment-methods?companyId=${companyId}`);
+      const res = await authedFetch(`/api/stripe/payment-methods?companyId=${companyId}`);
       if (!res.ok) throw new Error("Failed to fetch payment methods");
       const data = await res.json();
       return data.methods;
@@ -61,7 +62,7 @@ export function useStripeInvoices() {
   return useQuery({
     queryKey: billingKeys.invoices(companyId),
     queryFn: async (): Promise<StripeInvoice[]> => {
-      const res = await fetch(`/api/stripe/invoices?companyId=${companyId}`);
+      const res = await authedFetch(`/api/stripe/invoices?companyId=${companyId}`);
       if (!res.ok) throw new Error("Failed to fetch invoices");
       const data = await res.json();
       return data.invoices;
@@ -86,7 +87,7 @@ export function useRemovePaymentMethod() {
 
   return useMutation({
     mutationFn: async (paymentMethodId: string) => {
-      const res = await fetch("/api/stripe/payment-methods", {
+      const res = await authedFetch("/api/stripe/payment-methods", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ paymentMethodId }),

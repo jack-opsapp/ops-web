@@ -99,8 +99,14 @@ export function useSendEstimate() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: string) => EstimateService.sendEstimate(id),
-    onSettled: (_data, _error, id) => {
+    mutationFn: (input: string | { id: string; email?: string }) => {
+      if (typeof input === "string") {
+        return EstimateService.sendEstimate(input);
+      }
+      return EstimateService.sendEstimate(input.id, input.email);
+    },
+    onSettled: (_data, _error, input) => {
+      const id = typeof input === "string" ? input : input.id;
       queryClient.invalidateQueries({ queryKey: queryKeys.estimates.detail(id) });
       queryClient.invalidateQueries({ queryKey: queryKeys.estimates.lists() });
     },
