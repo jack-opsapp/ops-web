@@ -33,6 +33,7 @@ import { formatRelativeTime } from "@/lib/utils/date";
 import { cn } from "@/lib/utils/cn";
 import { EASE_SMOOTH } from "@/lib/utils/motion";
 import { useDictionary } from "@/i18n/client";
+import { toast } from "sonner";
 
 // `ActivityTab` — unified project_notes timeline. event_kind discriminates
 // user notes (NULL → "note") from system events (status_change,
@@ -253,14 +254,39 @@ export function ActivityTab({ projectId }: ActivityTabProps) {
           placeholder={t("activity.composerPlaceholder")}
           onSubmit={(content, mentionedUserIds, attachments) => {
             if (!currentUser?.id || !company?.id) return;
-            createNote.mutate({
-              projectId,
-              companyId: company.id,
-              authorId: currentUser.id,
-              content,
-              mentionedUserIds,
-              attachments,
-            });
+            createNote.mutate(
+              {
+                projectId,
+                companyId: company.id,
+                authorId: currentUser.id,
+                content,
+                mentionedUserIds,
+                attachments,
+              },
+              {
+                // Note saves regardless; we only flag mention fan-out
+                // failures so the operator knows the @-targets may not
+                // see the alert and can re-ping in person.
+                onSuccess: (result) => {
+                  const m = result.mentionNotifications;
+                  if (m && m.attempted > 0 && (m.inAppFailed || m.pushFailed)) {
+                    toast.warning(
+                      t("activity.mentionFailedTitle"),
+                      {
+                        description:
+                          t("activity.mentionFailedDescription") +
+                          (m.error ? ` (${m.error})` : ""),
+                      },
+                    );
+                  }
+                },
+                onError: (err) => {
+                  toast.error(t("activity.noteFailedTitle"), {
+                    description: err.message,
+                  });
+                },
+              },
+            );
           }}
         />
       )}

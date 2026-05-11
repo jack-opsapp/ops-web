@@ -2,9 +2,21 @@
  * OPS Web - Client-side Notification Dispatch
  *
  * Typed helper functions for dispatching multi-channel notifications
- * via the /api/notifications/dispatch route. Each function is fire-and-forget:
- * notification failures never break the calling mutation.
+ * via the /api/notifications/dispatch route. Helpers return a
+ * `DispatchResult` so callers that care (e.g. @mentions on notes) can
+ * surface failure to the operator; callers that don't can ignore the
+ * returned promise and keep the fire-and-forget behavior.
  */
+
+export interface DispatchResult {
+  ok: boolean;
+  /** Number of recipients targeted (0 when nothing to do). */
+  attempted: number;
+  /** Human-readable reason populated when `ok === false`. */
+  error?: string;
+  /** HTTP status when the route was reached; absent for network errors. */
+  status?: number;
+}
 
 // ─── Types (mirrors the dispatch route's DispatchBody) ───────────────────────
 
@@ -36,12 +48,16 @@ interface DispatchParams {
 // ─── Core Dispatcher ─────────────────────────────────────────────────────────
 
 /**
- * Fire-and-forget notification dispatch. Never throws — logs errors to console.
- * The server route handles auth via cookies, self-notification filtering,
- * and notification preference checks.
+ * Notification dispatch. Never throws — returns a structured result that
+ * callers can inspect to surface failure to the operator. Callers that
+ * don't care can ignore the returned promise and rely on the logged
+ * error. The server route handles auth via cookies, self-notification
+ * filtering, and notification preference checks.
  */
-async function dispatch(params: DispatchParams): Promise<void> {
-  if (!params.recipientIds.length) return;
+async function dispatch(params: DispatchParams): Promise<DispatchResult> {
+  if (!params.recipientIds.length) {
+    return { ok: true, attempted: 0 };
+  }
 
   try {
     const res = await fetch("/api/notifications/dispatch", {
@@ -52,10 +68,33 @@ async function dispatch(params: DispatchParams): Promise<void> {
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      console.error(`[notification-dispatch] ${params.eventType} failed:`, err);
+      const reason =
+        (err && typeof err === "object" && "error" in err
+          ? String((err as { error: unknown }).error)
+          : `HTTP ${res.status}`);
+      console.error(
+        `[notification-dispatch] ${params.eventType} failed:`,
+        { status: res.status, error: err, recipients: params.recipientIds.length },
+      );
+      return {
+        ok: false,
+        attempted: params.recipientIds.length,
+        error: reason,
+        status: res.status,
+      };
     }
+
+    return { ok: true, attempted: params.recipientIds.length, status: res.status };
   } catch (err) {
-    console.error(`[notification-dispatch] ${params.eventType} error:`, err);
+    console.error(
+      `[notification-dispatch] ${params.eventType} error:`,
+      { error: err, recipients: params.recipientIds.length },
+    );
+    return {
+      ok: false,
+      attempted: params.recipientIds.length,
+      error: err instanceof Error ? err.message : "Network error",
+    };
   }
 }
 
@@ -70,8 +109,8 @@ export function dispatchProjectAssignment(params: {
   projectTitle: string;
   newMemberIds: string[];
   companyId: string;
-}): void {
-  dispatch({
+}): Promise<DispatchResult> {
+  return dispatch({
     eventType: "project_assigned",
     recipientIds: params.newMemberIds,
     companyId: params.companyId,
@@ -99,8 +138,8 @@ export function dispatchProjectArchived(params: {
   archivedByName: string;
   recipientUserIds: string[];
   companyId: string;
-}): void {
-  dispatch({
+}): Promise<DispatchResult> {
+  return dispatch({
     eventType: "project_archived",
     recipientIds: params.recipientUserIds,
     companyId: params.companyId,
@@ -131,8 +170,8 @@ export function dispatchProjectStatusChange(params: {
   changedByName: string;
   recipientUserIds: string[];
   companyId: string;
-}): void {
-  dispatch({
+}): Promise<DispatchResult> {
+  return dispatch({
     eventType: "project_status_change",
     recipientIds: params.recipientUserIds,
     companyId: params.companyId,
@@ -162,8 +201,8 @@ export function dispatchTaskAssignment(params: {
   projectTitle: string;
   newMemberIds: string[];
   companyId: string;
-}): void {
-  dispatch({
+}): Promise<DispatchResult> {
+  return dispatch({
     eventType: "task_assigned",
     recipientIds: params.newMemberIds,
     companyId: params.companyId,
@@ -192,8 +231,8 @@ export function dispatchTaskCompleted(params: {
   completedByName: string;
   teamMemberIds: string[];
   companyId: string;
-}): void {
-  dispatch({
+}): Promise<DispatchResult> {
+  return dispatch({
     eventType: "task_completed",
     recipientIds: params.teamMemberIds,
     companyId: params.companyId,
@@ -221,8 +260,8 @@ export function dispatchScheduleChange(params: {
   projectTitle: string;
   teamMemberIds: string[];
   companyId: string;
-}): void {
-  dispatch({
+}): Promise<DispatchResult> {
+  return dispatch({
     eventType: "schedule_change",
     recipientIds: params.teamMemberIds,
     companyId: params.companyId,
@@ -255,8 +294,8 @@ export function dispatchMentionPush(params: {
   projectTitle: string;
   noteId: string;
   companyId: string;
-}): void {
-  dispatch({
+}): Promise<DispatchResult> {
+  return dispatch({
     eventType: "mention",
     recipientIds: params.mentionedUserIds,
     companyId: params.companyId,
@@ -287,8 +326,8 @@ export function dispatchExpenseSubmitted(params: {
   companyId: string;
   projectId?: string;
   actionUrl?: string;
-}): void {
-  dispatch({
+}): Promise<DispatchResult> {
+  return dispatch({
     eventType: "expense_submitted",
     recipientIds: params.approverIds,
     companyId: params.companyId,
@@ -312,8 +351,8 @@ export function dispatchExpenseApproved(params: {
   submitterId: string;
   companyId: string;
   actionUrl?: string;
-}): void {
-  dispatch({
+}): Promise<DispatchResult> {
+  return dispatch({
     eventType: "expense_approved",
     recipientIds: [params.submitterId],
     companyId: params.companyId,

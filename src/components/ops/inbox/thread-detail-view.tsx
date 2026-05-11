@@ -31,6 +31,8 @@ import {
   Paperclip,
   Pencil,
   Trash2,
+  AlertCircle,
+  RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { EASE_SMOOTH } from "@/lib/utils/motion";
@@ -379,7 +381,7 @@ export function ThreadDetailView({
 }: ThreadDetailViewProps) {
   const { t } = useDictionary("inbox");
   const reduceMotion = useReducedMotion();
-  const { data, isLoading } = useInboxThread(threadId);
+  const { data, isLoading, error, refetch, isRefetching } = useInboxThread(threadId);
   const { archive, unarchive, unarchiveBatch, markRead } = useThreadActions();
 
   const [recatOpen, setRecatOpen] = useState(false);
@@ -806,6 +808,46 @@ export function ThreadDetailView({
           </div>
         )}
 
+        {/* Failed-detail state — surfaces query errors that were
+            previously invisible. The thread row still renders (it comes
+            from the list cache), so we scope this to the message stack
+            and offer an inline retry that re-runs the TanStack Query
+            fetch without rebuilding the pane. */}
+        {!isLoading && error && messagesWithDates.length === 0 && (
+          <div
+            className="flex flex-col items-start gap-3 py-8 px-1"
+            role="alert"
+            aria-live="assertive"
+          >
+            <div className="flex items-center gap-2">
+              <AlertCircle size={14} className="text-[#B58289]" />
+              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#B58289]">
+                {"// Thread failed to load"}
+              </p>
+            </div>
+            <p className="font-mohave text-[13px] text-text">
+              We could not load this conversation. The connection may have
+              dropped or the server is unreachable.
+            </p>
+            <p className="font-mono text-[10px] text-text-mute uppercase tracking-[0.14em]">
+              [{(error instanceof Error ? error.message : "Unknown error").slice(0, 140)}]
+            </p>
+            <button
+              type="button"
+              onClick={() => refetch()}
+              disabled={isRefetching}
+              className="inline-flex items-center gap-2 px-3 py-1.5 font-cakemono font-light text-[12px] uppercase tracking-[0.18em] text-ops-accent border border-ops-accent hover:bg-ops-accent hover:text-black transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ borderRadius: 5 }}
+            >
+              <RefreshCw
+                size={12}
+                className={isRefetching ? "animate-spin" : ""}
+              />
+              {isRefetching ? "Retrying..." : "Retry"}
+            </button>
+          </div>
+        )}
+
         {!isLoading &&
           messagesWithDates.map((m) => {
             // Trust the server-derived direction. It was computed against the
@@ -838,7 +880,7 @@ export function ThreadDetailView({
             );
           })}
 
-        {!isLoading && messagesWithDates.length === 0 && (
+        {!isLoading && !error && messagesWithDates.length === 0 && (
           <div className="flex flex-col items-start justify-start py-8">
             <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
               {"// Empty thread"}
