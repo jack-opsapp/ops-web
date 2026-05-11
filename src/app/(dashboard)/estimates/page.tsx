@@ -57,6 +57,7 @@ import {
 } from "@/lib/types/pipeline";
 import type { Estimate, Product, CreateEstimate, CreateLineItem } from "@/lib/types/pipeline";
 import { useAuthStore } from "@/lib/store/auth-store";
+import { createEstimateSchema } from "@/lib/schemas";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import { useSetupGate } from "@/hooks/useSetupGate";
 import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModal";
@@ -560,6 +561,39 @@ function EstimateFormModal({
   }, [estimate, loading]);
 
   const handleSubmit = () => {
+    // Validate against the Zod schema BEFORE mapping/persisting. Without this
+    // the form happily submitted blank line items, empty client, and zero
+    // totals — leading to unusable customer-facing estimates. (Bug ce6495b9.)
+    const validation = createEstimateSchema.safeParse({
+      companyId,
+      clientId: clientId || undefined,
+      issueDate: date ? new Date(date) : new Date(),
+      expirationDate: expirationDate ? new Date(expirationDate) : null,
+      clientMessage: notes || null,
+      internalNotes: internalNotes || null,
+      terms: termsAndConditions || null,
+      lineItems: lineItems.map((li) => ({
+        name: li.name,
+        description: null,
+        quantity: li.quantity,
+        unit: li.unit,
+        unitPrice: li.unitPrice,
+        isTaxable: li.isTaxable,
+        discountPercent: li.discountPercent,
+        productId: li.productId ?? null,
+        isOptional: li.isOptional,
+        isSelected: li.isSelected,
+      })),
+    });
+    if (!validation.success) {
+      const first = validation.error.issues[0];
+      const path = first?.path?.join(".") ?? "form";
+      toast.error("Can't save estimate", {
+        description: `${path}: ${first?.message ?? "Invalid input"}`,
+      });
+      return;
+    }
+
     const mappedLineItems: Partial<CreateLineItem>[] = lineItems.map((li, index) => {
       return {
         name: li.name,

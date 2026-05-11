@@ -59,6 +59,7 @@ import {
 } from "@/lib/types/pipeline";
 import type { Invoice, Product, CreateInvoice, CreateLineItem, CreatePayment } from "@/lib/types/pipeline";
 import { useAuthStore } from "@/lib/store/auth-store";
+import { createInvoiceSchema } from "@/lib/schemas";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import { useSetupGate } from "@/hooks/useSetupGate";
 import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModal";
@@ -571,6 +572,39 @@ function InvoiceFormModal({
   }, [invoice, loading]);
 
   const handleSubmit = () => {
+    // Validate against the Zod schema BEFORE mapping/persisting. (Bug
+    // ce6495b9 — previously empty client + blank line items + zero totals
+    // would still save.)
+    const validation = createInvoiceSchema.safeParse({
+      companyId,
+      clientId: clientId || undefined,
+      issueDate: date ? new Date(date) : new Date(),
+      dueDate: dueDate ? new Date(dueDate) : undefined,
+      paymentTerms,
+      clientMessage: notes || null,
+      internalNotes: internalNotes || null,
+      lineItems: lineItems.map((li) => ({
+        name: li.name,
+        description: null,
+        quantity: li.quantity,
+        unit: li.unit,
+        unitPrice: li.unitPrice,
+        isTaxable: li.isTaxable,
+        discountPercent: li.discountPercent,
+        productId: li.productId ?? null,
+        isOptional: li.isOptional,
+        isSelected: li.isSelected,
+      })),
+    });
+    if (!validation.success) {
+      const first = validation.error.issues[0];
+      const path = first?.path?.join(".") ?? "form";
+      toast.error("Can't save invoice", {
+        description: `${path}: ${first?.message ?? "Invalid input"}`,
+      });
+      return;
+    }
+
     const mappedLineItems = lineItems.map((li, index) => {
       const amt = computeAmount(li);
       return {
