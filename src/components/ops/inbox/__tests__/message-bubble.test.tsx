@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { MessageBubble } from "../message-bubble";
 
 describe("<MessageBubble>", () => {
@@ -270,5 +270,213 @@ describe("<MessageBubble>", () => {
     const provenance = screen.getByTestId("diff-provenance");
     expect(provenance.textContent).toMatch(/MAYA/);
     expect(provenance.textContent).toMatch(/2M AGO/);
+  });
+
+  // ── File attachment rows (Phase F4) ────────────────────────────────────
+
+  it("does NOT render file rows when attachments is undefined", () => {
+    render(
+      <MessageBubble
+        direction="inbound"
+        body="hi"
+        senderName="Jeanne"
+      />,
+    );
+    expect(screen.queryByTestId("bubble-attachments")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("bubble-file-count")).not.toBeInTheDocument();
+  });
+
+  it("does NOT render file rows when attachments is empty", () => {
+    render(
+      <MessageBubble
+        direction="inbound"
+        body="hi"
+        senderName="Jeanne"
+        attachments={[]}
+      />,
+    );
+    expect(screen.queryByTestId("bubble-attachments")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("bubble-file-count")).not.toBeInTheDocument();
+  });
+
+  it("renders one row per attachment with filename and size", () => {
+    render(
+      <MessageBubble
+        direction="inbound"
+        body="hi"
+        senderName="Jeanne"
+        attachments={[
+          { id: "a", filename: "scope_v3.pdf", size: "2.4 MB" },
+          { id: "b", filename: "site_plan.dwg", size: "184 KB" },
+        ]}
+      />,
+    );
+
+    const rows = screen.getAllByTestId("bubble-attachment-row");
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toHaveTextContent("scope_v3.pdf");
+    expect(rows[0]).toHaveTextContent("2.4 MB");
+    expect(rows[1]).toHaveTextContent("site_plan.dwg");
+    expect(rows[1]).toHaveTextContent("184 KB");
+  });
+
+  it("filename column has the uppercase class so mixed-case names render upper", () => {
+    render(
+      <MessageBubble
+        direction="inbound"
+        body="hi"
+        senderName="Jeanne"
+        attachments={[
+          { id: "a", filename: "Scope_v3.pdf", size: "2.4 MB" },
+        ]}
+      />,
+    );
+
+    const filenameSpan = screen.getByText("Scope_v3.pdf");
+    expect(filenameSpan.className).toMatch(/uppercase/);
+  });
+
+  it("each file row contains a Paperclip lucide icon", () => {
+    const { container } = render(
+      <MessageBubble
+        direction="inbound"
+        body="hi"
+        senderName="Jeanne"
+        attachments={[
+          { id: "a", filename: "scope_v3.pdf", size: "2.4 MB" },
+          { id: "b", filename: "site_plan.dwg", size: "184 KB" },
+        ]}
+      />,
+    );
+
+    // Lucide Paperclip renders as <svg class="lucide lucide-paperclip ...">
+    const paperclips = container.querySelectorAll("svg.lucide-paperclip");
+    // One per row (two rows here). The legacy attachmentName icon is not rendered.
+    expect(paperclips.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("when onClick is provided the row is a button and fires the callback", () => {
+    const handleClick = vi.fn();
+    render(
+      <MessageBubble
+        direction="inbound"
+        body="hi"
+        senderName="Jeanne"
+        attachments={[
+          {
+            id: "a",
+            filename: "scope_v3.pdf",
+            size: "2.4 MB",
+            onClick: handleClick,
+          },
+        ]}
+      />,
+    );
+
+    const row = screen.getByTestId("bubble-attachment-row");
+    expect(row.tagName.toLowerCase()).toBe("button");
+    expect(row).toHaveAttribute("type", "button");
+    fireEvent.click(row);
+    expect(handleClick).toHaveBeenCalledTimes(1);
+  });
+
+  it("when onClick is absent the row is NOT a button", () => {
+    render(
+      <MessageBubble
+        direction="inbound"
+        body="hi"
+        senderName="Jeanne"
+        attachments={[
+          { id: "a", filename: "scope_v3.pdf", size: "2.4 MB" },
+        ]}
+      />,
+    );
+
+    const row = screen.getByTestId("bubble-attachment-row");
+    expect(row.tagName.toLowerCase()).toBe("div");
+    // No button role for this filename
+    expect(
+      screen.queryByRole("button", { name: /scope_v3\.pdf/i }),
+    ).toBeNull();
+  });
+
+  it("meta line appends '· N FILES' when multiple attachments are present", () => {
+    render(
+      <MessageBubble
+        direction="inbound"
+        body="hi"
+        senderName="Jeanne"
+        timestamp="14:05"
+        attachments={[
+          { id: "a", filename: "scope_v3.pdf", size: "2.4 MB" },
+          { id: "b", filename: "site_plan.dwg", size: "184 KB" },
+        ]}
+      />,
+    );
+
+    const fileCount = screen.getByTestId("bubble-file-count");
+    expect(fileCount).toHaveTextContent("2 FILES");
+  });
+
+  it("meta line uses singular '1 FILE' when exactly one attachment", () => {
+    render(
+      <MessageBubble
+        direction="inbound"
+        body="hi"
+        senderName="Jeanne"
+        timestamp="14:05"
+        attachments={[
+          { id: "a", filename: "scope_v3.pdf", size: "2.4 MB" },
+        ]}
+      />,
+    );
+
+    const fileCount = screen.getByTestId("bubble-file-count");
+    expect(fileCount).toHaveTextContent("1 FILE");
+    expect(fileCount.textContent).not.toMatch(/FILES/);
+  });
+
+  it("body text still renders normally below the file rows", () => {
+    render(
+      <MessageBubble
+        direction="inbound"
+        body="Got it — second-floor unit is OK."
+        senderName="Jeanne"
+        attachments={[
+          { id: "a", filename: "scope_v3.pdf", size: "2.4 MB" },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText(/second-floor unit/)).toBeInTheDocument();
+    expect(screen.getByTestId("bubble-attachments")).toBeInTheDocument();
+  });
+
+  it("F4 + F2 interaction: DIFF toggle and file rows both render together", () => {
+    render(
+      <MessageBubble
+        direction="outbound"
+        body="Hi Jeanne — sounds good."
+        source="ai"
+        senderName="Claude"
+        originalAiBody="Hello Jeanne — sounds great."
+        attachments={[
+          { id: "a", filename: "scope_v3.pdf", size: "2.4 MB" },
+        ]}
+      />,
+    );
+
+    // Both surfaces present.
+    expect(screen.getByTestId("diff-toggle")).toBeInTheDocument();
+    expect(screen.getByTestId("bubble-attachments")).toBeInTheDocument();
+    expect(screen.getByTestId("bubble-file-count")).toHaveTextContent(
+      "1 FILE",
+    );
+
+    // Diff still functional with attachments present.
+    fireEvent.click(screen.getByTestId("diff-toggle"));
+    expect(screen.getByTestId("diff-header")).toBeInTheDocument();
+    // File rows persist while diff is open.
+    expect(screen.getByTestId("bubble-attachments")).toBeInTheDocument();
   });
 });

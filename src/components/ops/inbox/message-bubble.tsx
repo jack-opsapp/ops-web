@@ -29,6 +29,20 @@ import { cn } from "@/lib/utils/cn";
 import { EASE_SMOOTH } from "@/lib/utils/motion";
 import { InboxAvatar } from "./avatar";
 
+/**
+ * Non-image file attachment shown as a tactical row above the body of a
+ * MessageBubble. Image-type attachments belong in <PhotoBubble>; the parent
+ * filters by MIME and decides which surface each attachment renders on.
+ */
+export interface BubbleAttachment {
+  id: string;
+  filename: string;
+  /** Human-readable size, pre-formatted, e.g. "2.4 MB" or "184 KB". */
+  size: string;
+  /** Optional click handler — when provided, the row becomes a button. */
+  onClick?: () => void;
+}
+
 interface MessageBubbleProps {
   direction: "inbound" | "outbound";
   body: string;
@@ -61,6 +75,12 @@ interface MessageBubbleProps {
    * to the diff toolbar provenance line. Provided by parent.
    */
   editedAgo?: string;
+  /**
+   * Non-image file attachments rendered as tactical rows above the body.
+   * For inline-image attachments use <PhotoBubble> instead. The bubble's meta
+   * line appends `· {N} FILES` when this array is non-empty.
+   */
+  attachments?: BubbleAttachment[];
 }
 
 export function MessageBubble({
@@ -76,6 +96,7 @@ export function MessageBubble({
   originalAiBody,
   operatorName,
   editedAgo,
+  attachments,
 }: MessageBubbleProps) {
   const { t } = useDictionary("inbox");
   const reducedMotion = useReducedMotion();
@@ -143,6 +164,69 @@ export function MessageBubble({
               : "border",
           )}
         >
+          {attachments && attachments.length > 0 && (
+            <div
+              className="mb-2 flex flex-col gap-1.5"
+              data-testid="bubble-attachments"
+            >
+              {attachments.map((file) => {
+                const rowBase =
+                  "flex w-full items-center gap-2 rounded-bar border border-line bg-white/[0.02] px-2.5 py-1.5 transition-colors";
+                const interactiveExtras =
+                  "hover:border-line-hi hover:bg-white/[0.04] focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black";
+
+                const inner = (
+                  <>
+                    <Paperclip
+                      aria-hidden
+                      className="h-3.5 w-3.5 shrink-0 text-text-3"
+                      strokeWidth={1.5}
+                    />
+                    <span className="flex-1 min-w-0 truncate font-mono text-[11px] uppercase text-text-2">
+                      {file.filename}
+                    </span>
+                    <span
+                      className="flex-shrink-0 font-mono text-[11px] text-text-3"
+                      style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
+                    >
+                      {file.size}
+                    </span>
+                  </>
+                );
+
+                if (file.onClick) {
+                  return (
+                    <button
+                      key={file.id}
+                      type="button"
+                      onClick={file.onClick}
+                      aria-label={t(
+                        "messages.openFile",
+                        "Open {filename} ({size})",
+                      )
+                        .replace("{filename}", file.filename)
+                        .replace("{size}", file.size)}
+                      className={cn(rowBase, interactiveExtras)}
+                      data-testid="bubble-attachment-row"
+                    >
+                      {inner}
+                    </button>
+                  );
+                }
+
+                return (
+                  <div
+                    key={file.id}
+                    className={rowBase}
+                    data-testid="bubble-attachment-row"
+                  >
+                    {inner}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           {children}
 
           <AnimatePresence initial={false}>
@@ -278,6 +362,19 @@ export function MessageBubble({
                 ? t("claude.hideDiff", "HIDE DIFF")
                 : t("claude.showDiff", "DIFF")}
             </button>
+          )}
+          {attachments && attachments.length > 0 && (
+            <>
+              <span aria-hidden>·</span>
+              <span className="text-text-3" data-testid="bubble-file-count">
+                {t(
+                  attachments.length === 1
+                    ? "messages.fileCount_one"
+                    : "messages.fileCount_other",
+                  attachments.length === 1 ? "{count} FILE" : "{count} FILES",
+                ).replace("{count}", String(attachments.length))}
+              </span>
+            </>
           )}
           {attachmentName && (
             <>

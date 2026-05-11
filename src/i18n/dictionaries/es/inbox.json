@@ -53,6 +53,9 @@
   "messages.photoCountTactic_one": "{count} FOTO",
   "messages.photoCountTactic_other": "{count} FOTOS",
   "messages.photoOverflow": "+{count} MÁS",
+  "messages.fileCount_one": "{count} ARCHIVO",
+  "messages.fileCount_other": "{count} ARCHIVOS",
+  "messages.openFile": "Abrir {filename} ({size})",
 
   "composer.placeholder": "Escribe un mensaje...",
   "composer.send": "ENVIAR",
