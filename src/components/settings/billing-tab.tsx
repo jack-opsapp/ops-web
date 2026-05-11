@@ -18,6 +18,7 @@ import {
   useStripeInvoices,
   useCreateSetupIntent,
   useRemovePaymentMethod,
+  useSetDefaultPaymentMethod,
   type PaymentMethod,
 } from "@/lib/hooks/use-billing";
 import { useAuthStore } from "@/lib/store/auth-store";
@@ -52,7 +53,19 @@ const BRAND_KEYS: Record<string, string> = {
 
 // ─── Payment Method Card ─────────────────────────────────────────────────────
 
-function PaymentMethodCard({ method, onRemove, isRemoving }: { method: PaymentMethod; onRemove: (id: string) => void; isRemoving: boolean }) {
+function PaymentMethodCard({
+  method,
+  onRemove,
+  isRemoving,
+  onSetDefault,
+  isSettingDefault,
+}: {
+  method: PaymentMethod;
+  onRemove: (id: string) => void;
+  isRemoving: boolean;
+  onSetDefault: (id: string) => void;
+  isSettingDefault: boolean;
+}) {
   const { t } = useDictionary("settings");
   const brandDisplay = BRAND_KEYS[method.brand] ? t(BRAND_KEYS[method.brand]) : method.brand.charAt(0).toUpperCase() + method.brand.slice(1);
   return (
@@ -69,10 +82,28 @@ function PaymentMethodCard({ method, onRemove, isRemoving }: { method: PaymentMe
         </div>
       </div>
       <div className="flex items-center gap-1">
-        {method.isDefault && (
-          <span className="font-mono text-micro text-text bg-[rgba(255,255,255,0.08)] px-[6px] py-[2px] rounded-full uppercase tracking-wider">
+        {method.isDefault ? (
+          <span className="font-mono text-micro text-text bg-[rgba(255,255,255,0.08)] px-[6px] py-[2px] uppercase tracking-wider" style={{ borderRadius: 4 }}>
             {t("billing.defaultBadge")}
           </span>
+        ) : (
+          // Non-default cards get an explicit Set-default action — this is
+          // the recovery path when a customer has cards on file but none
+          // is default, which would otherwise block subscribe / recover.
+          <button
+            type="button"
+            onClick={() => onSetDefault(method.id)}
+            disabled={isSettingDefault}
+            className="font-mono text-micro uppercase tracking-wider px-[6px] py-[2px] text-text-2 hover:text-ops-accent border border-white/10 hover:border-ops-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{ borderRadius: 4 }}
+            title="Set this card as the default for subscription charges"
+          >
+            {isSettingDefault ? (
+              <Loader2 className="w-[12px] h-[12px] animate-spin inline" />
+            ) : (
+              "Set as default"
+            )}
+          </button>
         )}
         <button
           onClick={() => onRemove(method.id)}
@@ -99,6 +130,8 @@ function AddCardForm({ onSuccess, onCancel }: { onSuccess: () => void; onCancel:
   const stripe = useStripe();
   const elements = useElements();
   const createSetupIntent = useCreateSetupIntent();
+  const setDefaultPaymentMethod = useSetDefaultPaymentMethod();
+  const { data: existingMethods } = usePaymentMethods();
   const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -115,16 +148,45 @@ function AddCardForm({ onSuccess, onCancel }: { onSuccess: () => void; onCancel:
       const cardElement = elements.getElement(CardElement);
       if (!cardElement) throw new Error("Card element not found");
 
-      const { error } = await stripe.confirmCardSetup(clientSecret, {
+      const { error, setupIntent } = await stripe.confirmCardSetup(clientSecret, {
         payment_method: { card: cardElement },
       });
 
       if (error) {
         toast.error(error.message ?? t("billing.toast.addFailed"));
-      } else {
-        toast.success(t("billing.toast.added"));
-        onSuccess();
+        return;
       }
+
+      // Critical for billing recovery: promote the new card to default
+      // when the customer has no default yet. Without this, the subscribe
+      // / recover flows fail because they need a paymentMethodId or a
+      // customer default — adding a card via SetupIntent alone leaves
+      // the customer locked out.
+      const newPaymentMethodId =
+        typeof setupIntent?.payment_method === "string"
+          ? setupIntent.payment_method
+          : setupIntent?.payment_method?.id ?? null;
+      const hasExistingDefault = (existingMethods ?? []).some((m) => m.isDefault);
+
+      if (newPaymentMethodId && !hasExistingDefault) {
+        try {
+          await setDefaultPaymentMethod.mutateAsync(newPaymentMethodId);
+        } catch (defErr) {
+          // Surface the failure but don't roll back the card add — the
+          // card is attached and the operator can still hit "Set as
+          // default" on the listed card. This keeps state consistent.
+          console.error("[AddCardForm] Set-default failed:", defErr);
+          toast.warning(t("billing.toast.added"), {
+            description:
+              "Card added but could not be set as default automatically. Use 'Set as default' on the card to enable subscription recovery.",
+          });
+          onSuccess();
+          return;
+        }
+      }
+
+      toast.success(t("billing.toast.added"));
+      onSuccess();
     } catch (err) {
       toast.error(t("billing.toast.addFailed"), {
         description: err instanceof Error ? err.message : t("billing.toast.unknownError"),
@@ -207,6 +269,7 @@ export function BillingTab() {
   const { data: methods, isLoading: methodsLoading, refetch: refetchMethods } = usePaymentMethods();
   const { data: invoices, isLoading: invoicesLoading } = useStripeInvoices();
   const removeMethod = useRemovePaymentMethod();
+  const setDefaultMethod = useSetDefaultPaymentMethod();
   const [showAddCard, setShowAddCard] = useState(false);
 
   const handleCardAdded = useCallback(() => {
@@ -219,6 +282,20 @@ export function BillingTab() {
     removeMethod.mutate(paymentMethodId, {
       onSuccess: () => toast.success(t("billing.toast.removed") ?? "Payment method removed"),
       onError: (err) => toast.error(t("billing.toast.removeFailed") ?? "Failed to remove", { description: err.message }),
+    });
+  }
+
+  function handleSetDefault(paymentMethodId: string) {
+    if (!can("settings.billing")) return;
+    setDefaultMethod.mutate(paymentMethodId, {
+      onSuccess: () =>
+        toast.success("Default card updated", {
+          description: "Future subscription charges will use this card.",
+        }),
+      onError: (err) =>
+        toast.error("Could not set default card", {
+          description: err instanceof Error ? err.message : "Unknown error",
+        }),
     });
   }
 
@@ -239,7 +316,17 @@ export function BillingTab() {
           ) : hasPaymentMethod ? (
             <div className="space-y-0">
               {methods.map((method) => (
-                <PaymentMethodCard key={method.id} method={method} onRemove={handleRemoveCard} isRemoving={removeMethod.isPending} />
+                <PaymentMethodCard
+                  key={method.id}
+                  method={method}
+                  onRemove={handleRemoveCard}
+                  isRemoving={removeMethod.isPending}
+                  onSetDefault={handleSetDefault}
+                  isSettingDefault={
+                    setDefaultMethod.isPending &&
+                    setDefaultMethod.variables === method.id
+                  }
+                />
               ))}
               {!showAddCard && (
                 <Button
