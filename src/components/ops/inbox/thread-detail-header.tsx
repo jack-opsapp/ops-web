@@ -2,7 +2,6 @@
 
 import {
   Archive,
-  ChevronDown,
   Clock,
   MoreHorizontal,
   Tag,
@@ -19,9 +18,9 @@ interface ThreadDetailHeaderProps {
   category?: { label: string; dotClassName: string } | null;
   senderName: string;
   messageCount: number;
-  /** Number of OTHER threads with the same client. When > 0, renders the picker trigger placeholder. Defaults to 0. */
+  /** @deprecated Use `threadPickerSlot` instead. Held for backward compat with existing call sites; ignored at render time. */
   otherThreadCount?: number;
-  /** Click handler for the thread-picker trigger placeholder (Phase E will route this to a popover). */
+  /** @deprecated Use `threadPickerSlot` instead. Held for backward compat with existing call sites; ignored at render time. */
   onOpenThreadPicker?: () => void;
   /** Render-prop slots — when provided, replace the default handler buttons.
    *  Used to wrap each action in its picker/popover (snooze, recategorize,
@@ -36,6 +35,9 @@ interface ThreadDetailHeaderProps {
   onSnooze?: () => void;
   onRecategorize?: () => void;
   onMore?: () => void;
+  /** Inline slot rendered in the meta strip after the message count.
+   *  Typically a `<ThreadPicker />` populated by the parent route. */
+  threadPickerSlot?: ReactNode;
   className?: string;
 }
 
@@ -69,8 +71,6 @@ export function ThreadDetailHeader({
   category,
   senderName,
   messageCount,
-  otherThreadCount,
-  onOpenThreadPicker,
   archiveSlot,
   snoozeSlot,
   recategorizeSlot,
@@ -79,6 +79,7 @@ export function ThreadDetailHeader({
   onSnooze,
   onRecategorize,
   onMore,
+  threadPickerSlot,
   className,
 }: ThreadDetailHeaderProps) {
   const { t } = useDictionary("inbox");
@@ -116,13 +117,6 @@ export function ThreadDetailHeader({
     "{count}",
     String(messageCount),
   );
-
-  const pickerCount = otherThreadCount ?? 0;
-  const pickerLabelRaw = t("picker.trigger", "{count} OTHER THREADS").replace(
-    "{count}",
-    String(pickerCount),
-  );
-  const pickerDisplayText = pickerLabelRaw.replace("▾ ", "");
 
   return (
     <header
@@ -167,22 +161,12 @@ export function ThreadDetailHeader({
         <span className="uppercase tracking-[0.10em] text-text-3">
           {metaCountText}
         </span>
-        {pickerCount > 0 && (
+        {threadPickerSlot && (
           <>
             <span aria-hidden className="text-text-mute">
               ·
             </span>
-            <button
-              type="button"
-              data-testid="thread-picker-trigger"
-              onClick={onOpenThreadPicker}
-              aria-label={pickerLabelRaw}
-              className="inline-flex h-[22px] items-center gap-1 rounded-[2.5px] border border-line bg-transparent px-2 font-mono text-[11px] uppercase tracking-[0.10em] text-text-2 transition-colors hover:border-line-hi hover:text-text"
-              style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
-            >
-              <ChevronDown aria-hidden className="h-3 w-3" strokeWidth={1.5} />
-              {pickerDisplayText}
-            </button>
+            {threadPickerSlot}
           </>
         )}
       </div>

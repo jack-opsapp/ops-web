@@ -359,7 +359,7 @@
   "detail.selectThreadBody": "[—] sin hilo cargado",
   "detail.metaCount": "{count} MSG",
 
-  "picker.trigger": "▾ {count} OTROS HILOS",
+  "picker.trigger": "{count} OTROS HILOS",
   "picker.triggerNone": "· 0 OTROS HILOS",
   "picker.header": "// HILOS CON {client} · {count}",
 

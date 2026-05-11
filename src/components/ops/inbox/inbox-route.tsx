@@ -48,6 +48,9 @@ import { useClientFiles } from "@/lib/hooks/use-client-files";
 import { useClient, useSubClients } from "@/lib/hooks/use-clients";
 import { useThreadOpportunityLinks } from "@/lib/hooks/use-thread-opportunity-links";
 import { useClientTasks } from "@/lib/hooks/use-client-tasks";
+import { useClientThreads } from "@/lib/hooks/use-client-threads";
+import { ThreadPicker, type ThreadPickerThread } from "./thread-picker";
+import { computeStateTag } from "@/lib/inbox/format-wait";
 import { useWindowStore } from "@/stores/window-store";
 import { ResponsiveInboxShell } from "./responsive-inbox-shell";
 import { ThreadColumnHeader } from "./thread-column-header";
@@ -167,6 +170,9 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
   const filesQuery = useClientFiles(clientId);
   const clientQuery = useClient(clientId ?? undefined);
   const subClientsQuery = useSubClients(clientId ?? undefined);
+  const clientThreadsQuery = useClientThreads(clientId, {
+    excludeId: threadId ?? null,
+  });
   const linkedOpsQuery = useThreadOpportunityLinks(threadId ?? null);
   const linkedOppIds = useMemo(
     () => new Set(linkedOpsQuery.data ?? []),
@@ -180,6 +186,31 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
     () => threads.map(toThreadListItem),
     [threads],
   );
+
+  // ThreadPicker feed — map sibling EmailThread rows to the picker's
+  // ThreadPickerThread shape via computeStateTag. Per-row inbound/outbound
+  // timestamps don't exist on EmailThread (only `lastMessageAt` +
+  // `latestDirection`), so we derive both timestamps from those: the
+  // direction stamps lastMessageAt, the other side gets null. This is the
+  // best fidelity we have without a second join, and matches what the
+  // sibling-context view already does.
+  const pickerThreads: ThreadPickerThread[] = (clientThreadsQuery.data ?? []).map((row) => {
+    const ts = row.lastMessageAt.getTime();
+    return {
+      id: row.id,
+      subject: row.subject ?? "",
+      unread: (row.unreadCount ?? 0) > 0,
+      state: computeStateTag({
+        lastInboundAt: row.latestDirection === "inbound" ? ts : null,
+        lastOutboundAt: row.latestDirection === "outbound" ? ts : null,
+        hasAiDraft: false,
+        sentByAgentRecently: false,
+        category: row.primaryCategory,
+        closed: row.archivedAt !== null,
+        now,
+      }),
+    };
+  });
 
   const commitments = useMemo<TodayCommitment[]>(
     () => threads.flatMap(toCommitments).slice(0, 3),
@@ -326,6 +357,19 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
         ) : (
           button
         )
+      }
+      threadPickerSlot={
+        threadId && clientId ? (
+          <ThreadPicker
+            threads={pickerThreads}
+            currentThreadId={threadId}
+            clientName={
+              detail.thread.clientName ??
+              guessSenderName(detail.messages) ??
+              ""
+            }
+          />
+        ) : undefined
       }
     >
       <CommitmentPills

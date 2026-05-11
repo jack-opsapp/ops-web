@@ -389,7 +389,7 @@
   "detail.selectThreadBody": "[—] no thread loaded",
   "detail.metaCount": "{count} MSG",
 
-  "picker.trigger": "▾ {count} OTHER THREADS",
+  "picker.trigger": "{count} OTHER THREADS",
   "picker.triggerNone": "· 0 OTHER THREADS",
   "picker.header": "// THREADS WITH {client} · {count}",
 

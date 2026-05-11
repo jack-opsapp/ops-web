@@ -98,31 +98,30 @@ describe("<ThreadDetail>", () => {
     expect(screen.getByTestId("messages")).toBeInTheDocument();
   });
 
-  it("does not render the thread-picker trigger when otherThreadCount is 0", () => {
+  it("does not render the thread-picker slot when threadPickerSlot is not provided", () => {
     render(
-      <ThreadDetail {...baseProps} otherThreadCount={0}>
+      <ThreadDetail {...baseProps}>
         <div />
       </ThreadDetail>,
     );
-    expect(screen.queryByTestId("thread-picker-trigger")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("thread-picker-slot")).not.toBeInTheDocument();
   });
 
-  it("renders the thread-picker trigger placeholder when otherThreadCount > 0", () => {
-    const onOpenThreadPicker = vi.fn();
+  it("renders the thread-picker slot when threadPickerSlot is provided", () => {
     render(
       <ThreadDetail
         {...baseProps}
-        otherThreadCount={3}
-        onOpenThreadPicker={onOpenThreadPicker}
+        threadPickerSlot={
+          <span data-testid="thread-picker-slot">3 OTHER THREADS</span>
+        }
       >
         <div />
       </ThreadDetail>,
     );
-    const trigger = screen.getByTestId("thread-picker-trigger");
-    expect(trigger).toBeInTheDocument();
-    expect(trigger.textContent).toMatch(/3 OTHER THREADS/);
-    fireEvent.click(trigger);
-    expect(onOpenThreadPicker).toHaveBeenCalled();
+    expect(screen.getByTestId("thread-picker-slot")).toBeInTheDocument();
+    expect(screen.getByTestId("thread-picker-slot").textContent).toMatch(
+      /3 OTHER THREADS/,
+    );
   });
 });
 
