@@ -97,6 +97,7 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
   const resolveCommitment = useResolveCommitment();
   const draftsQuery = useInboxDrafts("own");
   const openWindow = useWindowStore((s) => s.openWindow);
+  const openProjectWindow = useWindowStore((s) => s.openProjectWindow);
   const [composerValue, setComposerValue] = useState("");
   const [composerError, setComposerError] = useState<string | null>(null);
   const [activeDraftId, setActiveDraftId] = useState<string | null>(null);
@@ -622,15 +623,9 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
             })
           }
           onNewProject={() =>
-            openWindow({
-              id: clientId
-                ? `create-project-${clientId}`
-                : `create-project-${threadId ?? "new"}`,
-              title: t("rail.addProject", "+ NEW PROJECT"),
-              type: "create-project",
-              metadata: clientId
-                ? { clientId, sourceThreadId: threadId ?? null }
-                : { sourceThreadId: threadId ?? null },
+            openProjectWindow({
+              projectId: null,
+              mode: "creating",
             })
           }
           onOpenProject={(projectId) => router.push(`/projects/${projectId}`)}

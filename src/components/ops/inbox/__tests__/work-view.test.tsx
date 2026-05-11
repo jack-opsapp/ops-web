@@ -24,6 +24,8 @@ const baseProject = (overrides: Partial<Project>): Project => ({
   teamMemberIds: [],
   projectDescription: null,
   projectImages: [],
+  trade: null,
+  visibility: "all",
   createdAt: null,
   lastSyncedAt: null,
   needsSync: false,
