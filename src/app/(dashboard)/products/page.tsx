@@ -37,7 +37,12 @@ import {
   calculateMargin,
   UNIT_OPTIONS,
 } from "@/lib/types/pipeline";
-import type { Product, CreateProduct } from "@/lib/types/pipeline";
+import type {
+  Product,
+  CreateProduct,
+  LineItemType,
+  ProductKind,
+} from "@/lib/types/pipeline";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import { cn } from "@/lib/utils/cn";
@@ -348,6 +353,14 @@ function ProductFormModal({
   const [isTaxable, setIsTaxable] = useState(product?.isTaxable ?? true);
   const [isActive, setIsActive] = useState(product?.isActive ?? true);
 
+  // iOS DTO parity — kind and type need a non-null default at create time
+  // because the DB columns are NOT NULL. The user always sees an explicitly
+  // selected value the moment the modal opens; nothing is left ambiguous.
+  const [kind, setKind] = useState<ProductKind>(
+    (product?.kind ?? "service") as ProductKind
+  );
+  const [type, setType] = useState<LineItemType>(product?.type ?? "LABOR");
+
   // Reset form when product changes
   useEffect(() => {
     if (product) {
@@ -360,6 +373,8 @@ function ProductFormModal({
       setTaskTypeId(product.taskTypeId ?? null);
       setIsTaxable(product.isTaxable);
       setIsActive(product.isActive);
+      setKind((product.kind ?? "service") as ProductKind);
+      setType(product.type ?? "LABOR");
     } else {
       setName("");
       setDescription("");
@@ -370,6 +385,8 @@ function ProductFormModal({
       setTaskTypeId(null);
       setIsTaxable(true);
       setIsActive(true);
+      setKind("service");
+      setType("LABOR");
     }
   }, [product]);
 
@@ -395,6 +412,8 @@ function ProductFormModal({
       taskTypeId: taskTypeId || null,
       isTaxable,
       isActive,
+      kind,
+      type,
     };
 
     if (isEditing && product) {
@@ -556,6 +575,60 @@ function ProductFormModal({
             </div>
           )}
 
+          {/* Advanced section — kind / type segmented pickers.
+              Mirrors the iOS QuickAddProductSheet "// ADVANCED" disclosure so a
+              product authored on iOS round-trips its kind + line-item type
+              through web edits without losing either. */}
+          <details className="group border-t border-border pt-2">
+            <summary
+              className={cn(
+                "flex items-center justify-between cursor-pointer list-none",
+                "font-cakemono font-light uppercase text-caption-sm tracking-[0.08em] text-text-3",
+                "hover:text-text-2 transition-colors"
+              )}
+            >
+              <span>{t("products.advancedSection")}</span>
+              <span className="font-mono text-micro text-text-mute group-open:rotate-90 transition-transform">
+                [+]
+              </span>
+            </summary>
+
+            <div className="space-y-3 mt-2">
+              {/* Kind */}
+              <div className="space-y-0.5">
+                <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">
+                  {t("products.labelKind")}
+                </label>
+                <SegmentedControl<ProductKind>
+                  value={kind}
+                  onChange={setKind}
+                  options={[
+                    { value: "service", label: t("products.kindService") },
+                    { value: "good", label: t("products.kindGood") },
+                  ]}
+                  ariaLabel={t("products.labelKind")}
+                />
+              </div>
+
+              {/* Line item type */}
+              <div className="space-y-0.5">
+                <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">
+                  {t("products.labelType")}
+                </label>
+                <SegmentedControl<LineItemType>
+                  value={type}
+                  onChange={setType}
+                  options={[
+                    { value: "LABOR", label: t("products.typeLabor") },
+                    { value: "MATERIAL", label: t("products.typeMaterial") },
+                    { value: "OTHER", label: t("products.typeOther") },
+                  ]}
+                  ariaLabel={t("products.labelType")}
+                />
+              </div>
+            </div>
+          </details>
+
           {/* Bill of Materials — only for saved products */}
           {isEditing && product && (
             <div className="border-t border-border pt-3">
@@ -575,5 +648,63 @@ function ProductFormModal({
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ─── Segmented Control ─────────────────────────────────────────────────────
+//
+// A small button-group used for the Kind and Line-item-type fields. Active
+// segment fills with the subdued white-8% background + 18% border pattern
+// borrowed from `SplitInboxTabs` — spec v2 reserves the steel-blue accent
+// for the primary CTA + focus ring only, so segment selection stays
+// monochrome.
+//
+// Generic over `T extends string` so the consumer keeps full type safety:
+// `<SegmentedControl<ProductKind> value={kind} onChange={setKind}>`.
+
+interface SegmentedControlOption<T extends string> {
+  value: T;
+  label: string;
+}
+
+function SegmentedControl<T extends string>({
+  value,
+  onChange,
+  options,
+  ariaLabel,
+}: {
+  value: T;
+  onChange: (next: T) => void;
+  options: ReadonlyArray<SegmentedControlOption<T>>;
+  ariaLabel?: string;
+}) {
+  return (
+    <div
+      role="radiogroup"
+      aria-label={ariaLabel}
+      className="inline-flex items-stretch gap-0.5 p-0.5 rounded-[5px] border border-border bg-[rgba(255,255,255,0.02)]"
+    >
+      {options.map((option) => {
+        const isActive = option.value === value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            role="radio"
+            aria-checked={isActive}
+            onClick={() => onChange(option.value)}
+            className={cn(
+              "px-2.5 py-1 rounded-[4px] border transition-colors duration-150",
+              "font-cakemono font-light uppercase text-[11px] tracking-[0.08em] leading-none",
+              isActive
+                ? "border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.08)] text-text"
+                : "border-transparent text-text-3 hover:text-text-2 hover:bg-[rgba(255,255,255,0.04)]"
+            )}
+          >
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
   );
 }
