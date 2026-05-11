@@ -97,9 +97,18 @@ function taskStatusToKey(status: TaskStatus): StatusBadgeTaskStatus {
   }
 }
 
+// Project task statuses available in the inline status menu.
+// project_tasks.status has a CHECK constraint of ('active','completed','cancelled')
+// — In Progress is intentionally NOT a persistable slot at the DB layer
+// (the migrate_task_status_to_active migration collapsed Booked+InProgress
+// into a single 'active' state, see task-service.ts:serializeTaskStatus).
+// Exposing it in the menu caused users to "set" In Progress only to have
+// the value collapse to active on write and read back as Booked on the
+// next refetch (bug 452d7865). The TS enum keeps the value for iOS
+// parity but no surface should offer it for project tasks until the
+// constraint is widened in a future migration.
 const STATUS_OPTIONS: { value: TaskStatus; label: string }[] = [
   { value: TaskStatus.Booked, label: "Booked" },
-  { value: TaskStatus.InProgress, label: "In Progress" },
   { value: TaskStatus.Completed, label: "Completed" },
   { value: TaskStatus.Cancelled, label: "Cancelled" },
 ];

@@ -230,7 +230,13 @@ function StatusDropdown({
 
         {open && (
           <div className="absolute z-[60] left-0 right-0 top-full mt-[4px] bg-[rgba(13,13,13,0.9)] backdrop-blur-xl border border-[rgba(255,255,255,0.08)] rounded-sm max-h-[200px] overflow-y-auto">
-            {Object.values(TaskStatus).map((s) => (
+            {/* In Progress is omitted: project_tasks.status has no DB slot
+                for it (collapses to active on write, reads back as Booked).
+                See task-list.tsx STATUS_OPTIONS and task-service.ts comment
+                for context (bug 452d7865). */}
+            {Object.values(TaskStatus)
+              .filter((s) => s !== TaskStatus.InProgress)
+              .map((s) => (
               <button
                 key={s}
                 type="button"
