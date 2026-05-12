@@ -101,13 +101,10 @@ import { MyExpensesWidget } from "@/components/dashboard/widgets/my-expenses-wid
 import type { Invoice, Estimate, Opportunity } from "@/lib/types/pipeline";
 
 // ---------------------------------------------------------------------------
-// Greeting helper
+// Operator label helper
 // ---------------------------------------------------------------------------
-function getGreeting(t: (key: string) => string): string {
-  const hour = new Date().getHours();
-  if (hour < 12) return t("greeting.morning");
-  if (hour < 17) return t("greeting.afternoon");
-  return t("greeting.evening");
+function getOperatorLabel(t: (key: string) => string, firstName: string): string {
+  return `${t("greeting.operator")} :: ${firstName.toUpperCase()}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -745,11 +742,11 @@ export default function DashboardPage() {
             >
               {contentReady ? (
                 <TypewriterText
-                  text={`${getGreeting(t)}, ${firstName}`}
+                  text={getOperatorLabel(t, firstName)}
                   typingSpeed={35}
                 />
               ) : (
-                <span className="opacity-0">{getGreeting(t)}, {firstName}</span>
+                <span className="opacity-0">{getOperatorLabel(t, firstName)}</span>
               )}
             </p>
             <p

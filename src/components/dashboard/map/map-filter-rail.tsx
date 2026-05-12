@@ -18,6 +18,7 @@ import {
 } from "@/stores/map-filter-store";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import { useDashboardCustomizeStore } from "@/stores/dashboard-customize-store";
+import { useDictionary } from "@/i18n/client";
 
 // ── Config ──
 
@@ -25,29 +26,26 @@ interface FilterItem {
   id: string;
   value: MapViewFilter;
   icon: React.ComponentType<{ className?: string }>;
-  label: string;
+  labelKey: string;
+  fallback: string;
 }
 
 const VIEW_FILTERS: FilterItem[] = [
-  { id: "today", value: "today", icon: CalendarClock, label: "TODAY" },
-  { id: "active", value: "active", icon: FolderKanban, label: "ACTIVE" },
-  { id: "all", value: "all", icon: Layers, label: "ALL" },
+  { id: "today", value: "today", icon: CalendarClock, labelKey: "mapFilter.today", fallback: "TODAY" },
+  { id: "active", value: "active", icon: FolderKanban, labelKey: "mapFilter.active", fallback: "ACTIVE" },
+  { id: "all", value: "all", icon: Layers, labelKey: "mapFilter.all", fallback: "ALL" },
 ];
 
 // ── Component ──
 
 export function MapFilterRail() {
+  const { t } = useDictionary("dashboard");
   const pathname = usePathname();
   const { view, showCrew, setView, toggleCrew } = useMapFilterStore();
   const map = useMapInstanceStore((s) => s.map);
   const userLocation = useMapInstanceStore((s) => s.userLocation);
   const can = usePermissionStore((s) => s.can);
   const dashboardCustomizing = useDashboardCustomizeStore((s) => s.isCustomizing);
-
-  // Sidebar-fixed offset — matches the dashboard sidebar geometry
-  // (sidebarWidth = 72 + 12px gap). Kept in sync with the layout's left
-  // padding so this rail anchors flush against the sidebar's right edge.
-  const sidebarWidth = 72;
 
   // Route-scoped: only render on the dashboard (where the map lives)
   if (pathname !== "/dashboard") return null;
@@ -77,26 +75,26 @@ export function MapFilterRail() {
       }}
       transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
       className={cn(
-        "fixed bottom-3 z-[5]", // content layer per spec v2 z-scale
-        "flex items-center gap-[8px] px-[6px] py-[3px]",
+        "fixed bottom-3 left-[84px] max-[640px]:left-3 max-[640px]:right-3 z-[5]", // content layer per spec v2 z-scale
+        "flex max-w-[calc(100vw-24px)] items-center gap-[8px] overflow-x-auto px-[6px] py-[3px] scrollbar-hide",
         "glass-surface",
         dashboardCustomizing ? "pointer-events-none" : "pointer-events-auto"
       )}
-      style={{ left: sidebarWidth + 12 }}
     >
       {/* View filters */}
       {VIEW_FILTERS.map((f) => {
         const Icon = f.icon;
+        const label = t(f.labelKey, f.fallback);
         return (
           <ToolbarAction
             key={f.id}
             onClick={() => setView(f.value)}
             isActive={view === f.value}
-            title={f.label}
+            title={label}
           >
             <Icon className="w-[13px] h-[13px]" />
             <span className="font-mono text-micro uppercase tracking-wider">
-              {f.label}
+              {label}
             </span>
           </ToolbarAction>
         );
@@ -104,27 +102,27 @@ export function MapFilterRail() {
 
       {showCrewToggle && (
         <>
-          <div className="w-[1px] h-[18px] bg-border-subtle" />
+          <div className="h-[18px] w-[1px] shrink-0 bg-border-subtle" />
           <ToolbarAction
             onClick={toggleCrew}
             isActive={showCrew}
-            title="CREW"
+            title={t("mapFilter.crew", "CREW")}
           >
             <Users className="w-[13px] h-[13px]" />
             <span className="font-mono text-micro uppercase tracking-wider">
-              CREW
+              {t("mapFilter.crew", "CREW")}
             </span>
           </ToolbarAction>
         </>
       )}
 
-      <div className="w-[1px] h-[18px] bg-border-subtle" />
+      <div className="h-[18px] w-[1px] shrink-0 bg-border-subtle" />
 
       {/* Zoom controls — icon-only ToolbarActions */}
-      <ToolbarAction onClick={handleZoomIn} title="Zoom in">
+      <ToolbarAction onClick={handleZoomIn} title={t("mapFilter.zoomIn", "Zoom in")}>
         <Plus className="w-[13px] h-[13px]" />
       </ToolbarAction>
-      <ToolbarAction onClick={handleZoomOut} title="Zoom out">
+      <ToolbarAction onClick={handleZoomOut} title={t("mapFilter.zoomOut", "Zoom out")}>
         <Minus className="w-[13px] h-[13px]" />
       </ToolbarAction>
     </motion.div>
@@ -147,7 +145,7 @@ function ToolbarAction({
   return (
     <button
       className={cn(
-        "flex items-center gap-[5px] px-[8px] py-[5px] rounded-sm transition-colors duration-150 cursor-pointer",
+        "flex shrink-0 items-center gap-[5px] px-[8px] py-[5px] rounded-sm transition-colors duration-150 cursor-pointer",
         isActive
           ? "text-text bg-[rgba(255,255,255,0.08)] border border-[rgba(255,255,255,0.18)]"
           : "text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.04)] border border-transparent"
