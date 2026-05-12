@@ -73,7 +73,7 @@ const SelectContent = React.forwardRef<
       className={cn(
         "relative z-[60] max-h-[300px] min-w-[8rem] overflow-hidden",
         "glass-dense",
-        "data-[state=open]:animate-scale-in",
+        "motion-safe:data-[state=open]:animate-anchored-in",
         position === "popper" &&
           "data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1",
         className

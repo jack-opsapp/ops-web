@@ -20,7 +20,7 @@ const PopoverContent = React.forwardRef<
       className={cn(
         "z-50 outline-none",
         "glass-dense",
-        "animate-scale-in",
+        "motion-safe:animate-anchored-in",
         "data-[state=closed]:animate-fade-out",
         className
       )}

@@ -288,6 +288,10 @@ const config: Config = {
           from: { transform: "translate(-50%, -50%) scale(0.95)", opacity: "0" },
           to: { transform: "translate(-50%, -50%) scale(1)", opacity: "1" },
         },
+        "anchored-in": {
+          from: { opacity: "0" },
+          to: { opacity: "1" },
+        },
         "accordion-down": {
           from: { height: "0" },
           to: { height: "var(--radix-accordion-content-height)" },
@@ -321,6 +325,7 @@ const config: Config = {
         "slide-in-left": "slide-in-left 0.3s ease-out",
         "slide-up": "slide-up 0.2s ease-out",
         "scale-in": "scale-in 0.15s ease-out",
+        "anchored-in": "anchored-in 0.15s cubic-bezier(0.22, 1, 0.36, 1)",
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         typewriter: "typewriter 1.5s steps(30) forwards",

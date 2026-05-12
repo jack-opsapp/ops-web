@@ -19,7 +19,7 @@ const TooltipContent = React.forwardRef<
         "glass-dense",
         "px-1.5 py-[6px]",
         "font-mohave text-caption-sm text-text",
-        "animate-scale-in",
+        "motion-safe:animate-anchored-in",
         className
       )}
       {...props}

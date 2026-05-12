@@ -294,7 +294,7 @@ function PlanCard({
 
       {/* Expanded content — features + upgrade */}
       {expanded && (
-        <div className="px-2 pb-2 pt-0 border-t border-[rgba(255,255,255,0.04)] animate-scale-in">
+        <div className="px-2 pb-2 pt-0 border-t border-[rgba(255,255,255,0.04)] motion-safe:animate-anchored-in">
           <div className="space-y-[6px] py-1.5">
             {features.map((f) => (
               <div key={f} className="flex items-center gap-[6px]">
