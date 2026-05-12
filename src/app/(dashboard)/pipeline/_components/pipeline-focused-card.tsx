@@ -55,62 +55,57 @@ export const PipelineFocusedCard = memo(function PipelineFocusedCard({
     usePipelineModeStore.getState().openDetailPanel(opportunity.id);
   }, [opportunity.id]);
 
-  const handleClick = useCallback(
-    (event: React.MouseEvent) => {
-      event.stopPropagation();
-      openDetailPanel();
-    },
-    [openDetailPanel]
-  );
-
   const dragStyle = transform
     ? {
         transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
       }
     : undefined;
+  const openDetailLabel = `${t("focused.openDetail.label")}: ${opportunity.title || clientName}`;
 
   return (
     <article
       ref={setNodeRef}
       className={cn(
-        "relative w-full select-none",
+        "relative flex w-full select-none items-stretch gap-1",
         isDragging && "opacity-60"
       )}
       style={dragStyle}
-      onClick={handleClick}
     >
       <button
         ref={setActivatorNodeRef}
         type="button"
         aria-label={t("focused.dragHandle.label")}
-        className="absolute right-1 top-1 z-[2] flex h-3 w-3 items-center justify-center rounded text-text-3 transition-colors duration-150 hover:bg-surface-hover hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent disabled:pointer-events-none disabled:opacity-40"
+        className="flex min-h-11 w-11 shrink-0 items-center justify-center rounded-panel border border-line bg-surface-input text-text-3 transition-colors duration-150 hover:bg-surface-hover hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent disabled:pointer-events-none disabled:opacity-40"
         disabled={!canManage}
         onClick={(event) => event.stopPropagation()}
         {...attributes}
         {...listeners}
       >
-        <GripVertical className="h-2 w-2" strokeWidth={1.5} />
+        <GripVertical className="h-4 w-4" strokeWidth={1.5} />
       </button>
 
-      <PipelineCardContent
-        opportunity={opportunity}
-        clientName={clientName}
-        stageColor={stageColor}
-        stalenessOpacity={stalenessOpacity}
-        density="comfortable"
-        canManage={canManage}
-        isHovered={isDragging}
-        onLogCall={onLogCall}
-        onLogText={onLogText}
-        onAddNote={onAddNote}
-        onArchive={onArchive}
-        onDiscard={onDiscard}
-        onMarkWon={onMarkWon}
-        onMarkLost={onMarkLost}
-        onAssign={onAssign}
-        onScheduleFollowUp={onScheduleFollowUp}
-        onOpenDetail={openDetailPanel}
-      />
+      <div className="min-w-0 flex-1">
+        <PipelineCardContent
+          opportunity={opportunity}
+          clientName={clientName}
+          stageColor={stageColor}
+          stalenessOpacity={stalenessOpacity}
+          density="comfortable"
+          canManage={canManage}
+          isHovered={isDragging}
+          openDetailLabel={openDetailLabel}
+          onLogCall={onLogCall}
+          onLogText={onLogText}
+          onAddNote={onAddNote}
+          onArchive={onArchive}
+          onDiscard={onDiscard}
+          onMarkWon={onMarkWon}
+          onMarkLost={onMarkLost}
+          onAssign={onAssign}
+          onScheduleFollowUp={onScheduleFollowUp}
+          onOpenDetail={openDetailPanel}
+        />
+      </div>
     </article>
   );
 });

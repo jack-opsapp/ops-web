@@ -226,6 +226,7 @@
   "card.viewDetails": "View full details",
   "card.advanceStage": "Move to {stage}",
   "card.retreatStage": "Back to {stage}",
+  "focused.openDetail.label": "Open deal details",
   "focused.dragHandle.label": "Drag deal",
   "actions.call": "Call",
   "actions.text": "Text",
