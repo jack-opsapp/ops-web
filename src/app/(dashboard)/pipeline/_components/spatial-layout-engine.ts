@@ -2,7 +2,6 @@ import type { Opportunity } from "@/lib/types/pipeline";
 import {
   OpportunityStage,
   getActiveStages,
-  isTerminalStage,
   OPPORTUNITY_STAGE_SORT_ORDER,
   getDaysInStage,
 } from "@/lib/types/pipeline";
@@ -89,7 +88,7 @@ export function calculateCanvasLayout(
   opportunities: Opportunity[],
   sortBy: SortOption,
   clientNames: Map<string, string>,
-  stageSortOverrides?: Map<string, SortOption>
+  stageSortOverrides?: Map<OpportunityStage, SortOption>
 ): CanvasLayout {
   const activeStages = getActiveStages();
 

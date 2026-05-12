@@ -80,6 +80,7 @@ import {
   CARD_WIDTH,
   CARD_HEIGHT,
 } from "./_components/spatial-canvas-store";
+import { usePipelineModeStore } from "./_components/pipeline-mode-store";
 import { OPPORTUNITY_STAGE_COLORS } from "@/lib/types/pipeline";
 
 // ---------------------------------------------------------------------------
@@ -265,8 +266,8 @@ function SpatialCanvasDesktop({
   onDeletePermanently: (id: string) => void;
 }) {
   const { t: tPipeline } = useDictionary("pipeline");
-  const sortBy = useSpatialCanvasStore((s) => s.sortBy);
-  const stageSortOverrides = useSpatialCanvasStore((s) => s.stageSortOverrides);
+  const sortBy = usePipelineModeStore((s) => s.sortBy);
+  const stageSortOverrides = usePipelineModeStore((s) => s.stageSortOverrides);
   const selectedCardIds = useSpatialCanvasStore((s) => s.selectedCardIds);
   const clearSelection = useSpatialCanvasStore((s) => s.clearSelection);
   const showContextMenu = useSpatialCanvasStore((s) => s.showContextMenu);
@@ -421,7 +422,7 @@ function SpatialCanvasDesktop({
       const rect = container?.getBoundingClientRect();
       const { viewportX, viewportY, zoom } = useSpatialCanvasStore.getState();
 
-      let hitStage: string | null = null;
+      let hitStage: OpportunityStage | null = null;
 
       if (rect) {
         const canvasX = (e.clientX - rect.left - viewportX) / zoom;
@@ -939,8 +940,8 @@ export default function PipelinePage() {
   }, [filteredOpportunities]);
 
   // ── Card positions map for tether overlay ──────────────────────────────
-  const sortBy = useSpatialCanvasStore((s) => s.sortBy);
-  const stageSortOverrides = useSpatialCanvasStore((s) => s.stageSortOverrides);
+  const sortBy = usePipelineModeStore((s) => s.sortBy);
+  const stageSortOverrides = usePipelineModeStore((s) => s.stageSortOverrides);
   const parentLayout = useMemo(
     () => calculateCanvasLayout(filteredOpportunities, sortBy, clientNameMap, stageSortOverrides),
     [filteredOpportunities, sortBy, clientNameMap, stageSortOverrides]

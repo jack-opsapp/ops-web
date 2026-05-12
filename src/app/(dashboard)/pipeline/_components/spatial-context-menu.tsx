@@ -24,7 +24,9 @@ import {
   getStageDisplayName,
   OPPORTUNITY_STAGE_COLORS,
 } from "@/lib/types/pipeline";
-import { useSpatialCanvasStore, type ContextMenuState, type SortOption } from "./spatial-canvas-store";
+import { usePipelineModeStore } from "./pipeline-mode-store";
+import type { SortOption } from "./pipeline-mode-types";
+import { useSpatialCanvasStore } from "./spatial-canvas-store";
 import {
   spatialContextMenuVariants,
   spatialContextMenuVariantsReduced,
@@ -67,9 +69,15 @@ export function SpatialContextMenu({
   const contextMenu = useSpatialCanvasStore((s) => s.contextMenu);
   const hideContextMenu = useSpatialCanvasStore((s) => s.hideContextMenu);
   const selectedCardIds = useSpatialCanvasStore((s) => s.selectedCardIds);
-  const setSortBy = useSpatialCanvasStore((s) => s.setSortBy);
-  const setStageSortBy = useSpatialCanvasStore((s) => s.setStageSortBy);
-  const resetLayout = useSpatialCanvasStore((s) => s.resetLayout);
+  const resetSpatialLayout = useSpatialCanvasStore((s) => s.resetLayout);
+  const setSortBy = usePipelineModeStore((s) => s.setSortBy);
+  const setStageSortBy = usePipelineModeStore((s) => s.setStageSortBy);
+  const resetPipelineLayout = usePipelineModeStore((s) => s.resetLayout);
+
+  const resetLayout = useCallback(() => {
+    resetPipelineLayout();
+    resetSpatialLayout();
+  }, [resetPipelineLayout, resetSpatialLayout]);
 
   const menuRef = useRef<HTMLDivElement>(null);
   const [showStageSubmenu, setShowStageSubmenu] = useState(false);
@@ -164,13 +172,13 @@ export function SpatialContextMenu({
                   <>
                     <div
                       className="w-[6px] h-[6px] rounded-[2px] shrink-0"
-                      style={{ backgroundColor: OPPORTUNITY_STAGE_COLORS[contextMenu.stage as OpportunityStage] ?? "#8F9AA3" }}
+                      style={{ backgroundColor: OPPORTUNITY_STAGE_COLORS[contextMenu.stage] ?? "#8F9AA3" }}
                     />
                     <span
                       className="font-mono text-micro uppercase tracking-widest"
-                      style={{ color: OPPORTUNITY_STAGE_COLORS[contextMenu.stage as OpportunityStage] ?? "#8F9AA3" }}
+                      style={{ color: OPPORTUNITY_STAGE_COLORS[contextMenu.stage] ?? "#8F9AA3" }}
                     >
-                      in {getStageDisplayName(contextMenu.stage as OpportunityStage)}
+                      in {getStageDisplayName(contextMenu.stage)}
                     </span>
                   </>
                 ) : (
@@ -398,9 +406,9 @@ function CanvasSortMenu({
   onItemClick,
   t,
 }: {
-  stage: string | null;
+  stage: OpportunityStage | null;
   setSortBy: (sort: SortOption) => void;
-  setStageSortBy: (stage: string, sort: SortOption) => void;
+  setStageSortBy: (stage: OpportunityStage, sort: SortOption) => void;
   resetLayout: () => void;
   onSelectAll: (stage?: string | null) => void;
   onItemClick: (action: () => void) => void;
