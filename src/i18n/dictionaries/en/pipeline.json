@@ -228,6 +228,7 @@
   "card.retreatStage": "Back to {stage}",
   "focused.openDetail.label": "Open deal details",
   "focused.dragHandle.label": "Drag deal",
+  "focused.spineLabel": "{stage}, {count} opportunities",
   "actions.call": "Call",
   "actions.text": "Text",
   "actions.note": "Note",

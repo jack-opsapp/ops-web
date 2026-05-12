@@ -208,6 +208,7 @@
   "card.retreatStage": "Regresar a {stage}",
   "focused.openDetail.label": "Abrir detalles del trato",
   "focused.dragHandle.label": "Arrastrar trato",
+  "focused.spineLabel": "{stage}, {count} oportunidades",
   "actions.call": "Llamar",
   "actions.text": "Mensaje",
   "actions.note": "Nota",
