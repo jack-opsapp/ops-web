@@ -30,6 +30,12 @@ export function NoteCard({
   onPhotoClick,
 }: NoteCardProps) {
   const isOwn = note.authorId === currentUserId;
+  const photoAttachments = note.attachments
+    .map((att) => {
+      const url = att.markedUpUrl?.trim() || att.url?.trim();
+      return url ? { ...att, url } : null;
+    })
+    .filter(Boolean) as Array<(typeof note.attachments)[number] & { url: string }>;
   // When we can't resolve the author (soft-deleted user, left company), fall
   // back to "Former member" rather than the ambiguous "Unknown User" — the
   // live-loading case is handled by the parent's skeleton state.
@@ -93,16 +99,17 @@ export function NoteCard({
       </div>
 
       {/* Attachments (photos) */}
-      {note.attachments.length > 0 && (
+      {photoAttachments.length > 0 && (
         <div className="px-4 pb-3 flex flex-wrap gap-2">
-          {note.attachments.map((att, i) => (
+          {photoAttachments.map((att, i) => (
             <button
               key={i}
-              onClick={() => onPhotoClick?.(att.markedUpUrl ?? att.url)}
+              onClick={() => onPhotoClick?.(att.url)}
               className="group/photo relative overflow-hidden rounded-panel"
             >
+              {/* eslint-disable-next-line @next/next/no-img-element -- signed attachment URLs are not guaranteed to match next/image remote patterns */}
               <img
-                src={att.markedUpUrl ?? att.url}
+                src={att.url}
                 alt={att.caption ?? "Attached photo"}
                 className="h-32 w-32 object-cover transition group-hover/photo:brightness-75"
               />
