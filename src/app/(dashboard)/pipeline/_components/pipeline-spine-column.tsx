@@ -128,7 +128,7 @@ export const PipelineSpineColumn = memo(function PipelineSpineColumn({
               aria-hidden="true"
               data-testid="pipeline-spine-overflow"
               className={cn(
-                "relative flex h-1.5 w-full shrink-0 items-center justify-center overflow-hidden rounded-bar font-mono text-[11px] text-text",
+                "relative flex h-3 min-h-3 w-full shrink-0 items-center justify-center overflow-hidden rounded-bar font-mono text-[11px] leading-none text-text",
                 transitionClasses
               )}
               style={NUMBER_STYLE}

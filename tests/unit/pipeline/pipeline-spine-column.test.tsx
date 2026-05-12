@@ -118,7 +118,10 @@ describe("<PipelineSpineColumn>", () => {
       container.querySelectorAll("[data-testid='pipeline-spine-silhouette']")
     ).toHaveLength(30);
     expect(screen.getAllByTestId("pipeline-spine-overflow")).toHaveLength(1);
-    expect(screen.getByTestId("pipeline-spine-overflow")).toHaveTextContent("30+");
+    const overflowBlock = screen.getByTestId("pipeline-spine-overflow");
+
+    expect(overflowBlock).toHaveTextContent("30+");
+    expect(overflowBlock).toHaveClass("h-3", "min-h-3", "leading-none");
   });
 
   it("renders as an unselected spine tab", () => {
