@@ -112,6 +112,7 @@ export function ProjectWorkspaceWindow<TTabId extends string = string>({
   const closeWindow = useWindowStore((s) => s.closeWindow);
   const minimizeWindow = useWindowStore((s) => s.minimizeWindow);
   const focusWindow = useWindowStore((s) => s.focusWindow);
+  const [isMobile, setIsMobile] = React.useState(false);
 
   // Live position + size — the drag/resize hooks mutate these locally
   // for 60fps frames, then the store gets the final value via the
@@ -120,6 +121,15 @@ export function ProjectWorkspaceWindow<TTabId extends string = string>({
   // the store.
   const [livePosition, setLivePosition] = React.useState(initialPosition);
   const [liveSize, setLiveSize] = React.useState(initialSize);
+
+  React.useEffect(() => {
+    if (typeof globalThis.matchMedia !== "function") return;
+    const mq = globalThis.matchMedia("(max-width: 767px)");
+    const sync = () => setIsMobile(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
 
   // Hydrate from localStorage on first mount. We want the loaded snapshot
   // to override the props once, but not reset every time the parent
@@ -174,10 +184,10 @@ export function ProjectWorkspaceWindow<TTabId extends string = string>({
       data-testid="project-workspace-window"
       onPointerDown={handleShellPointerDown}
       style={{
-        left: livePosition.x,
-        top: livePosition.y,
-        width: liveSize.width,
-        height: liveSize.height,
+        left: isMobile ? 8 : livePosition.x,
+        top: isMobile ? 64 : livePosition.y,
+        width: isMobile ? "calc(100vw - 16px)" : liveSize.width,
+        height: isMobile ? "calc(100dvh - 72px)" : liveSize.height,
         zIndex,
         // --shadow-window: 0 24px 64px scrim + 0.5px hairline ring.
         // Sanctioned exception to spec line 268 ("no shadow on dark
@@ -270,7 +280,7 @@ export function ProjectWorkspaceWindow<TTabId extends string = string>({
               animate={{ opacity: 1 }}
               exit={reducedMotion ? { opacity: 0 } : { opacity: 0 }}
               transition={bodyTransition}
-              className="shrink-0 border-l border-glass-border overflow-y-auto"
+              className="hidden shrink-0 border-l border-glass-border overflow-y-auto md:block"
             >
               {rightRail}
             </motion.div>
@@ -282,7 +292,7 @@ export function ProjectWorkspaceWindow<TTabId extends string = string>({
 
       {/* 8 resize handles — absolute-positioned over the shell border.
           Corners win in overlap regions via z-index inside ResizeHandle. */}
-      {ALL_RESIZE_DIRS.map((dir) => (
+      {!isMobile && ALL_RESIZE_DIRS.map((dir) => (
         <ResizeHandle key={dir} direction={dir} onPointerDown={resize.beginResize} />
       ))}
     </div>
