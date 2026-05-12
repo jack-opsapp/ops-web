@@ -2,6 +2,9 @@
   "name": "ops-web",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "brand:generate": "node scripts/generate-brand-assets.mjs",
     "dev": "next dev --turbopack",

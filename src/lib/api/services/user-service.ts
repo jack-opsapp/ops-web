@@ -261,7 +261,7 @@ export const UserService = {
 
   /**
    * Sync user after Firebase authentication.
-   * Calls POST /api/session/sync-user to upsert user record in Supabase.
+   * Calls POST /api/auth/sync-user to upsert user record in Supabase.
    */
   async syncUser(
     idToken: string,
@@ -276,7 +276,7 @@ export const UserService = {
     const controller = new AbortController();
     const timeout = globalThis.setTimeout(() => controller.abort(), 15_000);
 
-    const response = await fetch("/api/session/sync-user", {
+    const response = await fetch("/api/auth/sync-user", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       signal: controller.signal,
