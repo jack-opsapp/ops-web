@@ -57,7 +57,7 @@ const SOURCE_LABEL_KEY: Record<DraftSource, string> = {
 
 const SOURCE_LABEL_FALLBACK: Record<DraftSource, string> = {
   yours: "{n} · YOURS",
-  claude: "✦ {n} · CLAUDE",
+  claude: "{n} · CLAUDE",
   gmail: "{n} · GMAIL",
   outlook: "{n} · OUTLOOK",
   new: "{n} · NEW",
