@@ -16,6 +16,7 @@ import {
   TERMINAL_COLS,
   TERMINAL_GAP,
 } from "./spatial-canvas-store";
+import type { SortOption } from "./pipeline-mode-types";
 
 // ── Types ──
 
@@ -44,7 +45,7 @@ export interface CanvasLayout {
 
 function sortOpportunities(
   opps: Opportunity[],
-  sortBy: "value" | "name" | "date" | "days_in_stage",
+  sortBy: SortOption,
   clientNames: Map<string, string>
 ): Opportunity[] {
   const sorted = [...opps];
@@ -86,9 +87,9 @@ function sortOpportunities(
 
 export function calculateCanvasLayout(
   opportunities: Opportunity[],
-  sortBy: "value" | "name" | "date" | "days_in_stage",
+  sortBy: SortOption,
   clientNames: Map<string, string>,
-  stageSortOverrides?: Map<string, "value" | "name" | "date" | "days_in_stage">
+  stageSortOverrides?: Map<string, SortOption>
 ): CanvasLayout {
   const activeStages = getActiveStages();
 
