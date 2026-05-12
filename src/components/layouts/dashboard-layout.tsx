@@ -74,10 +74,12 @@ const FULL_HEIGHT_ROUTES: Record<string, FullHeightMode> = {
   "/inbox": "padded",
   "/map": "bleed",
   "/calendar": "padded",
+  "/projects": "bleed",
   "/settings/integrations/ai-setup": "padded",
 };
 
 function resolveFullHeightMode(pathname: string): FullHeightMode | null {
+  if (pathname === "/projects/new") return null;
   for (const [route, mode] of Object.entries(FULL_HEIGHT_ROUTES)) {
     if (pathname === route || pathname.startsWith(route + "/")) return mode;
   }

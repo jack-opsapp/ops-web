@@ -6,7 +6,6 @@ import { useDictionary } from "@/i18n/client";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { trackScreenView } from "@/lib/analytics/analytics";
 import { toast } from "@/components/ui/toast";
-import { useAuthStore } from "@/lib/store/auth-store";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import { useWindowStore } from "@/stores/window-store";
 import {
@@ -56,15 +55,6 @@ import { ProjectDragConfirmation } from "./_components/project-drag-confirmation
 import { ProjectSpreadsheet } from "./_components/project-spreadsheet";
 import { useSetupGate } from "@/hooks/useSetupGate";
 import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModal";
-
-// ── Active statuses for the canvas columns ──
-const ACTIVE_STATUSES: ProjectStatus[] = [
-  ProjectStatus.RFQ,
-  ProjectStatus.Estimated,
-  ProjectStatus.Accepted,
-  ProjectStatus.InProgress,
-  ProjectStatus.Completed,
-];
 
 // ── Per-card wrapper — prevents parent re-renders on store changes ──
 const ProjectCardWrapper = memo(function ProjectCardWrapper({
@@ -174,7 +164,7 @@ export default function ProjectsPage() {
   usePageTitle("Projects");
   const { t } = useDictionary("projects-canvas");
   const { can } = usePermissionStore();
-  const { isComplete: setupComplete, needsWebSetup, missingSteps } = useSetupGate();
+  const { missingSteps } = useSetupGate();
   const [showSetupModal, setShowSetupModal] = useState(false);
 
   // ── Permissions ──
@@ -199,7 +189,6 @@ export default function ProjectsPage() {
   const zoom = useProjectCanvasStore((s) => s.zoom);
   const sortBy = useProjectCanvasStore((s) => s.sortBy);
   const statusSortOverrides = useProjectCanvasStore((s) => s.statusSortOverrides);
-  const isDragging = useProjectCanvasStore((s) => s.isDragging);
   const firstDragConfirmed = useProjectCanvasStore((s) => s.firstDragConfirmed);
   const setFirstDragConfirmed = useProjectCanvasStore((s) => s.setFirstDragConfirmed);
   const fitAll = useProjectCanvasStore((s) => s.fitAll);
@@ -695,7 +684,7 @@ export default function ProjectsPage() {
 
   // ── Render ──
   return (
-    <div ref={containerRef} className="relative h-screen min-w-0">
+    <div ref={containerRef} className="relative h-full min-w-0 overflow-hidden">
       {/* Setup gate */}
       {showSetupModal && (
         <SetupInterceptionModal
@@ -835,7 +824,7 @@ export default function ProjectsPage() {
           <MetricsHeader variant="compact" tabId="projects" title="Projects" metrics={projectMetrics ?? []} />
         </div>
         <div className="pointer-events-auto px-3 py-1.5">
-          <div className="inline-flex w-fit py-[2px] rounded-[4px] border border-[rgba(255,255,255,0.08)]"
+          <div className="inline-flex max-w-full overflow-x-auto overscroll-x-contain py-[2px] rounded-[4px] border border-[rgba(255,255,255,0.08)]"
             style={{
               background: "rgba(10, 10, 10, 0.50)",
               backdropFilter: "blur(12px) saturate(1.1)",
