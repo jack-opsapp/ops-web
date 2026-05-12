@@ -206,6 +206,7 @@
   "card.viewDetails": "Ver detalles completos",
   "card.advanceStage": "Mover a {stage}",
   "card.retreatStage": "Regresar a {stage}",
+  "focused.dragHandle.label": "Arrastrar trato",
   "actions.call": "Llamar",
   "actions.text": "Mensaje",
   "actions.note": "Nota",

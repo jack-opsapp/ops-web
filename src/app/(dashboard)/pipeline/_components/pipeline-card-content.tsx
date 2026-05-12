@@ -15,7 +15,7 @@ import { PipelineCardActions } from "./pipeline-card-actions";
 
 type PipelineCardDensity = "compact" | "comfortable";
 
-type PipelineCardActionHandlers = {
+export type PipelineCardActionHandlers = {
   onLogCall: () => void;
   onLogText: () => void;
   onAddNote: (note: string) => void;
