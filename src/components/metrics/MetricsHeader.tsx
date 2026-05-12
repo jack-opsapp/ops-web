@@ -21,7 +21,7 @@ interface MetricsHeaderCompactProps {
   variant: "compact";
   tabId: string;
   title: string;
-  metrics: InlineMetricConfig[];
+  metrics: InlineMetricConfig[] | MetricColumnConfig[];
   isLoading?: boolean;
   actions?: React.ReactNode;
   className?: string;

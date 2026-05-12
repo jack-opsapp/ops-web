@@ -30,4 +30,5 @@ export interface InlineMetricConfig {
   value: string | number;
   label: string;
   color?: string;
+  formatType?: FormatType;
 }
