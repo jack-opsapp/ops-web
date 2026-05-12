@@ -1047,6 +1047,8 @@ export function MonthScrollContainer({
             key={sectionKey}
             ref={setSectionRef(sectionKey)}
             data-month-key={sectionKey}
+            aria-hidden={sectionKey !== activeMonthKey}
+            inert={sectionKey !== activeMonthKey ? true : undefined}
             className="relative"
           >
             {/* Floating month-label overlay. The sticky container is

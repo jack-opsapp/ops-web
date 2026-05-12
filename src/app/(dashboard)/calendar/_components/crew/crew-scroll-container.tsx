@@ -194,11 +194,14 @@ export function CrewScrollContainer({
     >
       {weeks.map((w) => {
         const key = format(w, "yyyy-MM-dd");
+        const isActivePanel = isSameWeek(w, activeWeek, WEEK_OPTS);
         return (
           <div
             key={key}
             ref={setPanelRef(key)}
             data-week-key={key}
+            aria-hidden={!isActivePanel}
+            inert={!isActivePanel ? true : undefined}
             className="shrink-0 flex flex-col"
             style={{
               width: "100%",

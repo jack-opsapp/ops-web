@@ -205,11 +205,14 @@ export function DayScrollContainer({
     >
       {days.map((d) => {
         const key = format(d, "yyyy-MM-dd");
+        const isActivePanel = isSameDay(d, activeDay);
         return (
           <div
             key={key}
             ref={setPanelRef(key)}
             data-day-key={key}
+            aria-hidden={!isActivePanel}
+            inert={!isActivePanel ? true : undefined}
             className="shrink-0 flex flex-col"
             style={{
               width: "100%",
