@@ -619,7 +619,7 @@ function TaskList({ projectId, companyId, className }: TaskListProps) {
             <PopoverContent
               side="bottom"
               align="end"
-              className="w-[480px] p-0"
+              className="w-[min(480px,calc(100vw-32px))] max-h-[calc(100svh-160px)] overflow-y-auto p-0"
               collisionPadding={16}
             >
               <TaskForm

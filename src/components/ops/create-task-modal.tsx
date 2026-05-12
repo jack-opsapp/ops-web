@@ -27,8 +27,8 @@ function ProjectSelector({
   const { data } = useProjects();
   const { data: taskTypesData } = useTaskTypes();
   const canCreateProject = usePermissionStore((s) => s.can("projects.create"));
-  const projects = data?.projects ?? [];
-  const taskTypes = taskTypesData ?? [];
+  const projects = useMemo(() => data?.projects ?? [], [data?.projects]);
+  const taskTypes = useMemo(() => taskTypesData ?? [], [taskTypesData]);
   const [search, setSearch] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
 
@@ -257,7 +257,7 @@ export function CreateTaskForm({ onSuccess, onCancel, defaultProjectId }: Create
   }
 
   return (
-    <div className="space-y-2">
+    <div className="max-h-full space-y-2 overflow-y-auto">
       <ProjectSelector
         value={projectId}
         onChange={setProjectId}
