@@ -19,6 +19,16 @@ import {
 import { TaskStatus } from "@/lib/types/models";
 import type { ProjectTask, CalendarUserEvent } from "@/lib/types/models";
 
+const UUID_LIKE_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UNMAPPED_TASK_TYPE_LABEL = "Unmapped type";
+
+function cleanTaskTypeLabel(value: string | null | undefined): string | null {
+  const label = value?.trim();
+  if (!label || UUID_LIKE_RE.test(label)) return null;
+  return label;
+}
+
 // ─── Internal Event Type ─────────────────────────────────────────────────────
 
 /**
@@ -338,7 +348,8 @@ export function mapTaskToInternalEvent(task: ProjectTask): InternalCalendarEvent
   // Three-source title rule:
   //   primary display = projectTitle ?? taskTitle (taskTitle = customTitle ?? typeLabel)
   const projectTitle: string | null = task.project?.title ?? null;
-  const typeLabel = task.taskType?.display ?? "Task";
+  const typeLabel =
+    cleanTaskTypeLabel(task.taskType?.display) ?? UNMAPPED_TASK_TYPE_LABEL;
   const taskTitle = task.customTitle ?? typeLabel;
   const displayTitle = projectTitle ?? taskTitle;
 
@@ -356,7 +367,9 @@ export function mapTaskToInternalEvent(task: ProjectTask): InternalCalendarEvent
   // Keep a stable categorical key for the toolbar legend / filtering. Prefer
   // the real type display (e.g. 'Vinyl Install'); fall back to the legacy
   // bucket for tasks missing taskType.
-  const taskTypeKey = task.taskType?.display ?? deriveTaskType(taskTitle, task.taskColor);
+  const taskTypeKey =
+    cleanTaskTypeLabel(task.taskType?.display) ??
+    deriveTaskType(taskTitle, task.taskColor);
 
   // Status-derived palette (body fill + border)
   const statusKey = deriveTaskStatusKey(task);

@@ -60,7 +60,8 @@ function DrawerTaskCard({
   taskTypes: TaskType[];
   showConnector: boolean;
 }) {
-  const taskType = taskTypes.find((tt) => tt.id === task.taskTypeId) ?? null;
+  const taskType =
+    taskTypes.find((tt) => tt.id === task.taskTypeId) ?? task.taskType ?? null;
   const title = getTaskDisplayTitle(task, taskType);
   const color = getTaskEffectiveColor(task, taskType);
   const dateRange = formatTaskDateRange(
