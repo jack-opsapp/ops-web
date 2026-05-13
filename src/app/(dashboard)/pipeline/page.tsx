@@ -73,7 +73,7 @@ import { SpatialCardExpanded } from "./_components/spatial-card-expanded";
 import { SpatialDragOverlay } from "./_components/spatial-drag-overlay";
 import {
   SpatialMarqueeSelect,
-  isCardInMarquee,
+  getMarqueeSelectedOpportunityIds,
 } from "./_components/spatial-marquee-select";
 import { SpatialContextMenu } from "./_components/spatial-context-menu";
 import { SpatialTerminalRegion } from "./_components/spatial-terminal-region";
@@ -90,6 +90,10 @@ import { PipelineFocusedShell } from "./_components/pipeline-focused-shell";
 import { PipelineFocusedToolbar } from "./_components/pipeline-focused-toolbar";
 import { PipelineFilterRow } from "./_components/pipeline-filter-row";
 import { usePipelineModeShortcut } from "./_components/pipeline-mode-shortcuts";
+import {
+  resolvePipelineDragEnd,
+  type PipelineDropData,
+} from "./_components/pipeline-dnd-resolution";
 import { PipelineCardContent } from "./_components/pipeline-card-content";
 import {
   useSpatialCanvasStore,
@@ -104,12 +108,6 @@ import {
 } from "./_components/pipeline-mode-store";
 import type { PipelineMode } from "./_components/pipeline-mode-types";
 import { OPPORTUNITY_STAGE_COLORS } from "@/lib/types/pipeline";
-
-type PipelineDropData = {
-  mode?: "focused" | "spatial";
-  stage?: OpportunityStage;
-  isTerminal?: boolean;
-};
 
 type PipelineModeTransitionRole = "static" | "entering";
 
@@ -594,11 +592,13 @@ function SpatialCanvasDesktop({
         ...layout.stacks.flatMap((s) => s.cardPositions),
         ...layout.terminalRegions.flatMap((r) => r.cardPositions),
       ];
-      return allPositions
-        .filter((pos) =>
-          isCardInMarquee(pos.x, pos.y, CARD_WIDTH, CARD_HEIGHT, start, end)
-        )
-        .map((pos) => pos.opportunityId);
+      return getMarqueeSelectedOpportunityIds(
+        allPositions,
+        CARD_WIDTH,
+        CARD_HEIGHT,
+        start,
+        end
+      );
     },
     [layout]
   );
@@ -1583,26 +1583,32 @@ export default function PipelinePage() {
       const { selectedCardIds, clearSelection, endDrag } =
         useSpatialCanvasStore.getState();
       const data = over?.data.current as PipelineDropData | undefined;
+      const drop = resolvePipelineDragEnd({
+        mode,
+        draggedId,
+        selectedCardIds,
+        dropData: data,
+      });
 
       if (mode === "focused") {
-        if (data?.mode === "focused" && data.stage) {
+        if (drop.type === "focused-stage") {
           const opportunity = filteredOpportunities.find(
             (o) => o.id === draggedId
           );
 
-          if (data.isTerminal && opportunity) {
-            if (data.stage === OpportunityStage.Won) {
+          if (drop.isTerminal && opportunity) {
+            if (drop.stage === OpportunityStage.Won) {
               handleMarkWon(opportunity);
-            } else if (data.stage === OpportunityStage.Lost) {
+            } else if (drop.stage === OpportunityStage.Lost) {
               handleMarkLost(opportunity);
             }
           } else {
-            handleMoveStage(draggedId, data.stage);
+            handleMoveStage(drop.opportunityId, drop.stage);
           }
 
           setFocusedDragLiveMessage(
             formatPipelineTemplate(t("focused.dragLive.dropped"), {
-              stage: getStageDisplayName(data.stage),
+              stage: getStageDisplayName(drop.stage),
             })
           );
         } else {
@@ -1616,30 +1622,27 @@ export default function PipelinePage() {
 
       setFocusedDragLiveMessage("");
 
-      if (data?.stage) {
-        const ids =
-          selectedCardIds.has(draggedId)
-            ? Array.from(selectedCardIds)
-            : [draggedId];
-
-        if (data.isTerminal) {
-          for (const id of ids) {
+      if (drop.type === "spatial-stage") {
+        if (drop.isTerminal) {
+          for (const id of drop.opportunityIds) {
             const opportunity = filteredOpportunities.find((o) => o.id === id);
             if (!opportunity) continue;
 
-            if (data.stage === OpportunityStage.Won) {
+            if (drop.stage === OpportunityStage.Won) {
               handleMarkWon(opportunity);
-            } else if (data.stage === OpportunityStage.Lost) {
+            } else if (drop.stage === OpportunityStage.Lost) {
               handleMarkLost(opportunity);
             }
           }
         } else {
-          for (const id of ids) {
-            handleMoveStage(id, data.stage);
+          for (const id of drop.opportunityIds) {
+            handleMoveStage(id, drop.stage);
           }
         }
 
         if (mode === "spatial") clearSelection();
+      } else {
+        // Drop on empty space cancels. Spatial mode no longer preserves free positions.
       }
 
       setActiveDragId(null);

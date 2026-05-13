@@ -6,6 +6,14 @@ import { useSpatialCanvasStore } from "./spatial-canvas-store";
 
 type SpatialMarqueeSelectProps = Record<string, never>;
 
+type MarqueePoint = { x: number; y: number };
+
+export type MarqueeCardPosition = {
+  opportunityId: string;
+  x: number;
+  y: number;
+};
+
 // ── Component ──
 
 export function SpatialMarqueeSelect(_props: SpatialMarqueeSelectProps) {
@@ -63,4 +71,25 @@ export function isCardInMarquee(
     cardY < my + mh &&
     cardY + cardHeight > my
   );
+}
+
+export function getMarqueeSelectedOpportunityIds(
+  positions: readonly MarqueeCardPosition[],
+  cardWidth: number,
+  cardHeight: number,
+  marqueeStart: MarqueePoint,
+  marqueeEnd: MarqueePoint
+): string[] {
+  return positions
+    .filter((pos) =>
+      isCardInMarquee(
+        pos.x,
+        pos.y,
+        cardWidth,
+        cardHeight,
+        marqueeStart,
+        marqueeEnd
+      )
+    )
+    .map((pos) => pos.opportunityId);
 }

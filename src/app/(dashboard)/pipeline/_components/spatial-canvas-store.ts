@@ -202,5 +202,21 @@ export const useSpatialCanvasStore = create<SpatialCanvasState>()((set, get) => 
     set({ zoom, viewportX, viewportY });
   },
 
-  resetLayout: () => undefined,
+  resetLayout: () =>
+    set({
+      viewportX: 0,
+      viewportY: 0,
+      zoom: DEFAULT_ZOOM,
+      selectedCardIds: new Set(),
+      hoveredCardId: null,
+      isDragging: false,
+      dragCardIds: [],
+      dragOrigin: null,
+      isMarqueeActive: false,
+      marqueeStart: null,
+      marqueeEnd: null,
+      contextMenu: null,
+      isArchiveTrayOpen: false,
+      isDiscardTrayOpen: false,
+    }),
 }));
