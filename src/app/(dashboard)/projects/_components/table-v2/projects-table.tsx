@@ -3,7 +3,18 @@
 import { useCallback, useMemo, useRef, useState, type TouchEventHandler, type WheelEventHandler } from "react";
 import { getCoreRowModel, useReactTable, type ColumnDef } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { PROJECT_TABLE_COLUMNS, type ProjectTableColumnConfig, type ProjectTableColumnId, type ProjectTableRow, type ProjectTableSort, type ProjectTableViewDefinition } from "@/lib/types/project-table";
+import type { ProjectTableSaveState } from "@/lib/hooks/projects-table/use-cell-edit";
+import { useTableKeyboardNav } from "@/lib/hooks/projects-table/use-table-keyboard-nav";
+import {
+  PROJECT_TABLE_COLUMNS,
+  type ProjectTableColumnConfig,
+  type ProjectTableColumnId,
+  type ProjectTableEditableColumnId,
+  type ProjectTableEditValue,
+  type ProjectTableRow,
+  type ProjectTableSort,
+  type ProjectTableViewDefinition,
+} from "@/lib/types/project-table";
 import { useWindowStore } from "@/stores/window-store";
 import { ProjectsTableHeader } from "./projects-table-header";
 import { ProjectsTableRow } from "./projects-table-row";
@@ -48,6 +59,10 @@ export function ProjectsTable({
   fetchNextPage,
   hasNextPage,
   isFetchingNextPage,
+  saveStates,
+  onCommitCell,
+  onUndoLatest,
+  onFocusSearch,
   onWheel,
   onBeginPinch,
   onUpdatePinch,
@@ -63,6 +78,14 @@ export function ProjectsTable({
   fetchNextPage: () => void;
   hasNextPage: boolean;
   isFetchingNextPage: boolean;
+  saveStates: Map<string, ProjectTableSaveState>;
+  onCommitCell: (
+    row: ProjectTableRow,
+    columnId: ProjectTableEditableColumnId,
+    value: ProjectTableEditValue,
+  ) => Promise<void>;
+  onUndoLatest: () => void;
+  onFocusSearch: () => void;
   onWheel: WheelEventHandler<HTMLDivElement>;
   onBeginPinch: (distance: number) => void;
   onUpdatePinch: (distance: number) => void;
@@ -73,6 +96,19 @@ export function ProjectsTable({
   const openProjectWindow = useWindowStore((s) => s.openProjectWindow);
 
   const visibleColumns = useMemo(() => getVisibleColumns(view), [view]);
+  const {
+    activeCell,
+    editingCell,
+    setActiveCell,
+    beginEdit,
+    cancelEdit,
+    handleCellKeyDown,
+  } = useTableKeyboardNav({
+    rows,
+    columns: visibleColumns,
+    onUndo: onUndoLatest,
+    onFocusSearch,
+  });
 
   const columnLayouts = useMemo<ProjectTableColumnLayout[]>(() => {
     let stickyOffset = 0;
@@ -146,6 +182,26 @@ export function ProjectsTable({
     [openProjectWindow],
   );
 
+  const handleBeginEdit = useCallback((rowId: string, columnId: ProjectTableEditableColumnId) => {
+    beginEdit(rowId, columnId);
+  }, [beginEdit]);
+
+  const handleCancelEdit = useCallback(() => {
+    cancelEdit();
+  }, [cancelEdit]);
+
+  const handleCommitCell = useCallback(
+    async (
+      row: ProjectTableRow,
+      columnId: ProjectTableEditableColumnId,
+      value: ProjectTableEditValue,
+    ) => {
+      await onCommitCell(row, columnId, value);
+      cancelEdit({ rowId: row.id, columnId });
+    },
+    [cancelEdit, onCommitCell],
+  );
+
   const getTouchDistance = (touches: { length: number; item: (index: number) => { clientX: number; clientY: number } | null }): number | null => {
     if (touches.length < 2) return null;
     const a = touches.item(0);
@@ -216,8 +272,16 @@ export function ProjectsTable({
                 selected={selectedIds.has(row.id)}
                 virtualStart={virtualRow.start}
                 totalWidth={totalWidth}
+                activeCell={activeCell}
+                editingCell={editingCell}
+                saveStates={saveStates}
                 onToggleRow={onToggleRow}
                 onOpenProject={handleOpenProject}
+                setActiveCell={setActiveCell}
+                onBeginEdit={handleBeginEdit}
+                onCancelEdit={handleCancelEdit}
+                onCellKeyDown={handleCellKeyDown}
+                onCommitCell={handleCommitCell}
               />
             );
           })}

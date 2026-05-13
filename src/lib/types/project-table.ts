@@ -56,6 +56,41 @@ export const PROJECT_TABLE_COLUMN_IDS = [
   "updated_at",
 ] as const satisfies readonly ProjectTableColumnId[];
 
+export type ProjectTableEditableColumnId =
+  | "name"
+  | "status"
+  | "address"
+  | "start_date"
+  | "end_date";
+
+export const PROJECT_TABLE_EDITABLE_COLUMN_IDS = [
+  "name",
+  "status",
+  "address",
+  "start_date",
+  "end_date",
+] as const satisfies readonly ProjectTableEditableColumnId[];
+
+export type ProjectTableEditValue = string | null | ProjectStatus;
+
+export type ProjectTableDirectEditColumnId = Exclude<ProjectTableEditableColumnId, "status">;
+
+export const PROJECT_TABLE_DIRECT_EDIT_FIELD_MAP = {
+  name: "title",
+  address: "address",
+  start_date: "start_date",
+  end_date: "end_date",
+} as const satisfies Record<
+  ProjectTableDirectEditColumnId,
+  keyof Database["public"]["Tables"]["projects"]["Update"]
+>;
+
+export function isProjectTableEditableColumn(
+  columnId: ProjectTableColumnId,
+): columnId is ProjectTableEditableColumnId {
+  return (PROJECT_TABLE_EDITABLE_COLUMN_IDS as readonly string[]).includes(columnId);
+}
+
 export type ProjectTableCellKind =
   | "select"
   | "text"
@@ -74,6 +109,7 @@ export interface ProjectTableColumnConfig {
   kind: ProjectTableCellKind;
   frozen?: boolean;
   sortable?: boolean;
+  editable?: boolean;
   minWidth: number;
   width: number;
   maxWidth: number;
@@ -83,15 +119,15 @@ export interface ProjectTableColumnConfig {
 
 export const PROJECT_TABLE_COLUMNS: ProjectTableColumnConfig[] = [
   { id: "select", labelKey: "table.column.select", kind: "select", frozen: true, minWidth: 42, width: 42, maxWidth: 42 },
-  { id: "name", labelKey: "table.column.name", dbField: "title", kind: "text", frozen: true, sortable: true, minWidth: 200, width: 280, maxWidth: 480 },
-  { id: "status", labelKey: "table.column.status", dbField: "status", kind: "status", frozen: true, sortable: true, minWidth: 96, width: 112, maxWidth: 128 },
+  { id: "name", labelKey: "table.column.name", dbField: "title", kind: "text", frozen: true, sortable: true, editable: true, minWidth: 200, width: 280, maxWidth: 480 },
+  { id: "status", labelKey: "table.column.status", dbField: "status", kind: "status", frozen: true, sortable: true, editable: true, minWidth: 96, width: 112, maxWidth: 128 },
   { id: "client", labelKey: "table.column.client", dbField: "client_name", kind: "relation", sortable: true, minWidth: 140, width: 180, maxWidth: 320 },
   { id: "client_email", labelKey: "table.column.clientEmail", dbField: "client_email", kind: "text", sortable: true, minWidth: 160, width: 220, maxWidth: 320 },
   { id: "client_phone", labelKey: "table.column.clientPhone", dbField: "client_phone", kind: "text", sortable: true, minWidth: 130, width: 150, maxWidth: 200 },
-  { id: "address", labelKey: "table.column.address", dbField: "address", kind: "text", sortable: true, minWidth: 180, width: 260, maxWidth: 420 },
+  { id: "address", labelKey: "table.column.address", dbField: "address", kind: "text", sortable: true, editable: true, minWidth: 180, width: 260, maxWidth: 420 },
   { id: "team", labelKey: "table.column.team", dbField: "team_member_ids", kind: "text", minWidth: 120, width: 160, maxWidth: 240 },
-  { id: "start_date", labelKey: "table.column.startDate", dbField: "start_date", kind: "date", sortable: true, minWidth: 110, width: 130, maxWidth: 160 },
-  { id: "end_date", labelKey: "table.column.endDate", dbField: "end_date", kind: "date", sortable: true, minWidth: 110, width: 130, maxWidth: 160 },
+  { id: "start_date", labelKey: "table.column.startDate", dbField: "start_date", kind: "date", sortable: true, editable: true, minWidth: 110, width: 130, maxWidth: 160 },
+  { id: "end_date", labelKey: "table.column.endDate", dbField: "end_date", kind: "date", sortable: true, editable: true, minWidth: 110, width: 130, maxWidth: 160 },
   { id: "duration", labelKey: "table.column.duration", dbField: "duration", kind: "number", sortable: true, minWidth: 90, width: 110, maxWidth: 140, align: "right" },
   { id: "progress", labelKey: "table.column.progress", dbField: "progress", kind: "progress", sortable: true, minWidth: 100, width: 140, maxWidth: 200 },
   { id: "next_task", labelKey: "table.column.nextTask", dbField: "next_task", kind: "text", sortable: true, minWidth: 160, width: 220, maxWidth: 320 },
@@ -135,6 +171,24 @@ export interface ProjectTableRow {
   margin: number | null;
   photoCount: number;
   updatedAt: string | null;
+}
+
+export function getProjectTableEditValue(
+  row: ProjectTableRow,
+  columnId: ProjectTableEditableColumnId,
+): ProjectTableEditValue {
+  switch (columnId) {
+    case "name":
+      return row.title;
+    case "status":
+      return row.status;
+    case "address":
+      return row.address;
+    case "start_date":
+      return row.startDate;
+    case "end_date":
+      return row.endDate;
+  }
 }
 
 export type ProjectTableDensity = "compact" | "comfortable" | "spacious";

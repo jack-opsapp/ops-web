@@ -115,6 +115,21 @@ vi.mock("@/stores/window-store", () => ({
     selector({ openProjectWindow }),
 }));
 
+vi.mock("@/lib/hooks/projects-table/use-cell-edit", () => ({
+  useCellEdit: () => ({
+    commitEdit: vi.fn(),
+    undoLatest: vi.fn(),
+    saveStates: new Map(),
+    latestUndo: null,
+    clearLatestUndo: vi.fn(),
+    conflict: null,
+    resolveConflictUseMine: vi.fn(),
+    resolveConflictUseCurrent: vi.fn(),
+    cancelConflict: vi.fn(),
+    isSaving: false,
+  }),
+}));
+
 vi.mock("@/lib/hooks/projects-table/use-projects-table-v2-flag", () => ({
   useProjectsTableV2Flag: () => true,
 }));

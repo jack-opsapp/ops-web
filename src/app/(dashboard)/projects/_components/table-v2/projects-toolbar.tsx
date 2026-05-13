@@ -1,6 +1,7 @@
 "use client";
 
 import { Search, Rows3, ZoomIn } from "lucide-react";
+import type { RefObject } from "react";
 import { useDictionary } from "@/i18n/client";
 
 export function ProjectsToolbar({
@@ -9,12 +10,14 @@ export function ProjectsToolbar({
   rowCount,
   totalCount,
   zoom,
+  searchInputRef,
 }: {
   search: string;
   onSearchChange: (value: string) => void;
   rowCount: number;
   totalCount: number;
   zoom: number;
+  searchInputRef?: RefObject<HTMLInputElement | null>;
 }) {
   const { t } = useDictionary("projects");
 
@@ -23,6 +26,7 @@ export function ProjectsToolbar({
       <label className="flex min-w-[220px] flex-1 items-center gap-2 rounded-[5px] border border-border bg-surface-input px-2 py-1.5 focus-within:border-ops-accent">
         <Search className="h-4 w-4 shrink-0 text-text-3" />
         <input
+          ref={searchInputRef}
           value={search}
           onChange={(event) => onSearchChange(event.target.value)}
           placeholder={t("table.toolbar.searchPlaceholder")}

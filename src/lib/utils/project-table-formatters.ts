@@ -33,6 +33,25 @@ export function parseProjectTableStatus(raw: string | null): ProjectStatus {
   }
 }
 
+export function serializeProjectTableStatus(status: ProjectStatus): string {
+  switch (status) {
+    case ProjectStatus.RFQ:
+      return "rfq";
+    case ProjectStatus.Estimated:
+      return "estimated";
+    case ProjectStatus.Accepted:
+      return "accepted";
+    case ProjectStatus.InProgress:
+      return "in_progress";
+    case ProjectStatus.Completed:
+      return "completed";
+    case ProjectStatus.Closed:
+      return "closed";
+    case ProjectStatus.Archived:
+      return "archived";
+  }
+}
+
 export function formatProjectStatusLabel(status: ProjectStatus): string {
   return status === ProjectStatus.InProgress ? "In Progress" : status;
 }

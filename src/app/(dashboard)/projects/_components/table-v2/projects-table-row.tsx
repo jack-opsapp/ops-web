@@ -1,8 +1,22 @@
 "use client";
 
+import { ChevronRight } from "lucide-react";
 import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
+import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
-import type { ProjectTableColumnConfig, ProjectTableRow } from "@/lib/types/project-table";
+import type { ProjectTableSaveState } from "@/lib/hooks/projects-table/use-cell-edit";
+import type {
+  ProjectTableActiveCell,
+  ProjectTableEditingCell,
+} from "@/lib/hooks/projects-table/use-table-keyboard-nav";
+import {
+  isProjectTableEditableColumn,
+  type ProjectTableColumnConfig,
+  type ProjectTableColumnId,
+  type ProjectTableEditableColumnId,
+  type ProjectTableEditValue,
+  type ProjectTableRow,
+} from "@/lib/types/project-table";
 import { CellCurrency } from "./cells/cell-currency";
 import { CellDate } from "./cells/cell-date";
 import { CellNumber } from "./cells/cell-number";
@@ -11,6 +25,9 @@ import { CellProgress } from "./cells/cell-progress";
 import { CellRelation } from "./cells/cell-relation";
 import { CellStatus } from "./cells/cell-status";
 import { CellText } from "./cells/cell-text";
+import { EditableCellDate } from "./cells/editable-cell-date";
+import { EditableCellStatus } from "./cells/editable-cell-status";
+import { EditableCellText } from "./cells/editable-cell-text";
 import type { ProjectTableColumnLayout, ProjectsTableMetrics } from "./projects-table";
 
 function renderReadOnlyCell(row: ProjectTableRow, column: ProjectTableColumnConfig): ReactNode {
@@ -64,6 +81,11 @@ function renderReadOnlyCell(row: ProjectTableRow, column: ProjectTableColumnConf
   }
 }
 
+function shouldIgnoreBubbledKeyDown(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) return false;
+  return Boolean(target.closest("input, textarea, select, [contenteditable='true'], [role='option']"));
+}
+
 export function ProjectsTableRow({
   row,
   columns,
@@ -71,8 +93,16 @@ export function ProjectsTableRow({
   selected,
   virtualStart,
   totalWidth,
+  activeCell,
+  editingCell,
+  saveStates,
   onToggleRow,
   onOpenProject,
+  setActiveCell,
+  onBeginEdit,
+  onCancelEdit,
+  onCellKeyDown,
+  onCommitCell,
 }: {
   row: ProjectTableRow;
   columns: ProjectTableColumnLayout[];
@@ -80,29 +110,108 @@ export function ProjectsTableRow({
   selected: boolean;
   virtualStart: number;
   totalWidth: number;
+  activeCell: ProjectTableActiveCell | null;
+  editingCell: ProjectTableEditingCell | null;
+  saveStates: Map<string, ProjectTableSaveState>;
   onToggleRow: (rowId: string, mode: "single" | "toggle" | "range") => void;
   onOpenProject: (rowId: string) => void;
+  setActiveCell: (cell: ProjectTableActiveCell) => void;
+  onBeginEdit: (rowId: string, columnId: ProjectTableEditableColumnId) => void;
+  onCancelEdit: () => void;
+  onCellKeyDown: (
+    rowId: string,
+    columnId: ProjectTableColumnId,
+    event: KeyboardEvent<HTMLElement>,
+  ) => void;
+  onCommitCell: (
+    row: ProjectTableRow,
+    columnId: ProjectTableEditableColumnId,
+    value: ProjectTableEditValue,
+  ) => Promise<void>;
 }) {
-  const handleOpen = () => onOpenProject(row.id);
-
-  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key !== "Enter" && event.key !== " ") return;
-    event.preventDefault();
-    handleOpen();
-  };
+  const { t } = useDictionary("projects");
 
   const handleSelect = (event: MouseEvent<HTMLInputElement>) => {
     event.stopPropagation();
     onToggleRow(row.id, event.shiftKey ? "range" : "toggle");
   };
 
+  const handleOpenProject = (event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    onOpenProject(row.id);
+  };
+  const isEditingRow = editingCell?.rowId === row.id;
+
+  const renderCell = (column: ProjectTableColumnConfig): ReactNode => {
+    if (!isProjectTableEditableColumn(column.id)) return renderReadOnlyCell(row, column);
+
+    const editableColumnId = column.id;
+    const saveState = saveStates.get(`${row.id}:${editableColumnId}`) ?? "idle";
+    const isEditing = editingCell?.rowId === row.id && editingCell.columnId === editableColumnId;
+    const beginEdit = () => onBeginEdit(row.id, editableColumnId);
+    const commit = (value: ProjectTableEditValue) => onCommitCell(row, editableColumnId, value);
+
+    switch (editableColumnId) {
+      case "name":
+        return (
+          <EditableCellText
+            value={row.title}
+            columnId={editableColumnId}
+            required
+            saveState={saveState}
+            editing={isEditing}
+            onBeginEdit={beginEdit}
+            onCancelEdit={onCancelEdit}
+            onCommit={commit}
+          />
+        );
+      case "address":
+        return (
+          <EditableCellText
+            value={row.address}
+            columnId={editableColumnId}
+            saveState={saveState}
+            editing={isEditing}
+            onBeginEdit={beginEdit}
+            onCancelEdit={onCancelEdit}
+            onCommit={commit}
+          />
+        );
+      case "start_date":
+      case "end_date":
+        return (
+          <EditableCellDate
+            value={editableColumnId === "start_date" ? row.startDate : row.endDate}
+            columnId={editableColumnId}
+            saveState={saveState}
+            editing={isEditing}
+            onBeginEdit={beginEdit}
+            onCancelEdit={onCancelEdit}
+            onCommit={commit}
+          />
+        );
+      case "status":
+        return (
+          <EditableCellStatus
+            status={row.status}
+            saveState={saveState}
+            editing={isEditing}
+            onBeginEdit={beginEdit}
+            onCancelEdit={onCancelEdit}
+            onCommit={(status) => commit(status)}
+          />
+        );
+    }
+  };
+
   return (
     <div
-      role="button"
-      tabIndex={0}
-      onClick={handleOpen}
-      onKeyDown={handleKeyDown}
-      className={cn("absolute left-0 top-0 flex outline-none hover:bg-surface-hover focus-visible:ring-1 focus-visible:ring-ops-accent", selected && "bg-surface-active")}
+      role="row"
+      className={cn(
+        "group absolute left-0 top-0 flex outline-none hover:bg-surface-hover",
+        selected && "bg-surface-active",
+        isEditingRow && "z-[120]",
+      )}
       style={{
         height: metrics.rowHeight,
         width: totalWidth,
@@ -110,36 +219,75 @@ export function ProjectsTableRow({
         fontSize: metrics.fontSize,
       }}
     >
-      {columns.map(({ column, width, stickyLeft }) => (
-        <div
-          key={column.id}
-          className={cn(
-            "flex min-w-0 shrink-0 items-center border-b border-r border-border-subtle px-2",
-            column.align === "right" && "justify-end",
-            stickyLeft != null && "sticky z-10 bg-background",
-            selected && stickyLeft != null && "bg-surface-active",
-          )}
-          style={{
-            width,
-            minWidth: width,
-            maxWidth: width,
-            height: metrics.rowHeight,
-            left: stickyLeft ?? undefined,
-          }}
-        >
-          {column.id === "select" ? (
-            <input
-              type="checkbox"
-              checked={selected}
-              readOnly
-              onClick={handleSelect}
-              className="h-3.5 w-3.5 rounded-[3px] border border-border bg-surface-input accent-ops-accent"
-            />
-          ) : (
-            renderReadOnlyCell(row, column)
-          )}
-        </div>
-      ))}
+      {columns.map(({ column, width, stickyLeft }) => {
+        const isActiveCell = activeCell?.rowId === row.id && activeCell.columnId === column.id;
+        const isEditingCell = editingCell?.rowId === row.id && editingCell.columnId === column.id;
+
+        return (
+          <div
+            key={column.id}
+            role={column.id === "select" ? undefined : "gridcell"}
+            tabIndex={isActiveCell ? 0 : -1}
+            data-project-table-row-id={row.id}
+            data-project-table-column-id={column.id}
+            onFocus={() => setActiveCell({ rowId: row.id, columnId: column.id })}
+            onKeyDown={(event) => {
+              if (event.target !== event.currentTarget && shouldIgnoreBubbledKeyDown(event.target)) {
+                return;
+              }
+              onCellKeyDown(row.id, column.id, event);
+            }}
+            onClick={() => {
+              if (column.id === "select") return;
+              setActiveCell({ rowId: row.id, columnId: column.id });
+              if (isProjectTableEditableColumn(column.id)) {
+                onBeginEdit(row.id, column.id);
+              }
+            }}
+            className={cn(
+              "relative flex min-w-0 shrink-0 items-center border-b border-r border-border-subtle px-2 outline-none",
+              column.align === "right" && "justify-end",
+              stickyLeft != null && "sticky z-10 bg-background",
+              selected && stickyLeft != null && "bg-surface-active",
+              isActiveCell && "bg-surface-active focus-visible:ring-1 focus-visible:ring-ops-accent",
+              isEditingCell && "z-[120]",
+              column.id === "name" && "gap-1 pl-1",
+            )}
+            style={{
+              width,
+              minWidth: width,
+              maxWidth: width,
+              height: metrics.rowHeight,
+              left: stickyLeft ?? undefined,
+            }}
+          >
+            {column.id === "select" ? (
+              <input
+                type="checkbox"
+                checked={selected}
+                readOnly
+                onClick={handleSelect}
+                className="h-3.5 w-3.5 rounded-[3px] border border-border bg-surface-input accent-ops-accent"
+              />
+            ) : (
+              <>
+                {column.id === "name" ? (
+                  <button
+                    type="button"
+                    aria-label={`${t("detail.project")}: ${row.title}`}
+                    onClick={handleOpenProject}
+                    onKeyDown={(event) => event.stopPropagation()}
+                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-[5px] text-text-3 opacity-0 outline-none transition-colors hover:bg-surface-hover hover:text-text-2 focus-visible:opacity-100 focus-visible:ring-1 focus-visible:ring-ops-accent group-hover:opacity-100"
+                  >
+                    <ChevronRight className="h-3.5 w-3.5" strokeWidth={1.5} />
+                  </button>
+                ) : null}
+                <div className="min-w-0 flex-1">{renderCell(column)}</div>
+              </>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

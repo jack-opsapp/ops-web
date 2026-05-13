@@ -1,11 +1,21 @@
 import { requireSupabase } from "@/lib/supabase/helpers";
+import { ProjectStatus } from "@/lib/types/models";
+import type { Database } from "@/lib/types/database.types";
+import {
+  PROJECT_TABLE_DIRECT_EDIT_FIELD_MAP,
+  type ProjectTableDirectEditColumnId,
+  type ProjectTableEditValue,
+} from "@/lib/types/project-table";
 import type {
   ProjectTableDataParams,
   ProjectTableRow,
   ProjectTableSort,
 } from "@/lib/types/project-table";
 import { buildProjectTableFilterInstructions } from "@/lib/utils/project-filter-to-sql";
-import { mapProjectTableRow } from "@/lib/utils/project-table-formatters";
+import {
+  mapProjectTableRow,
+  serializeProjectTableStatus,
+} from "@/lib/utils/project-table-formatters";
 
 const SORT_FIELD_MAP: Record<string, string> = {
   name: "title",
@@ -49,6 +59,38 @@ function escapeIlikeSearch(value: string): string {
     .replace(/\s+/g, " ")
     .trim();
 }
+
+export class ProjectTableMutationError extends Error {
+  constructor(
+    message: string,
+    public readonly code: "P0001" | "42501" | "22023" | "NETWORK" | "UNKNOWN",
+  ) {
+    super(message);
+    this.name = "ProjectTableMutationError";
+  }
+}
+
+function normalizeMutationError(error: { code?: string; message?: string } | null): ProjectTableMutationError {
+  if (!error) return new ProjectTableMutationError("Project conflict", "P0001");
+  if (error.code === "P0001" || error.code === "42501" || error.code === "22023") {
+    return new ProjectTableMutationError(error.message ?? "Project edit failed", error.code);
+  }
+  return new ProjectTableMutationError(error.message ?? "Project edit failed", "UNKNOWN");
+}
+
+function normalizeDirectValue(
+  columnId: ProjectTableDirectEditColumnId,
+  value: ProjectTableEditValue,
+): string | null {
+  if (value == null) return null;
+  const text = String(value).trim();
+  if (columnId === "name" && text.length === 0) {
+    throw new ProjectTableMutationError("Project name is required", "22023");
+  }
+  return text.length === 0 ? null : text;
+}
+
+type ProjectUpdatePayload = Database["public"]["Tables"]["projects"]["Update"];
 
 export const ProjectTableService = {
   async fetchRows(
@@ -102,5 +144,52 @@ export const ProjectTableService = {
     const nextPage = to + 1 < total ? page + 1 : null;
 
     return { rows, count: total, nextPage };
+  },
+
+  async updateProjectField(params: {
+    projectId: string;
+    columnId: ProjectTableDirectEditColumnId;
+    value: ProjectTableEditValue;
+    expectedUpdatedAt: string;
+  }): Promise<{ updatedAt: string }> {
+    const supabase = requireSupabase();
+    const dbField = PROJECT_TABLE_DIRECT_EDIT_FIELD_MAP[params.columnId];
+    const payload = {
+      [dbField]: normalizeDirectValue(params.columnId, params.value),
+    } satisfies ProjectUpdatePayload;
+
+    const { data, error } = await supabase
+      .from("projects")
+      .update(payload)
+      .eq("id", params.projectId)
+      .eq("updated_at", params.expectedUpdatedAt)
+      .select("updated_at")
+      .maybeSingle();
+
+    if (error) throw normalizeMutationError(error);
+    if (!data?.updated_at) throw new ProjectTableMutationError("Project conflict", "P0001");
+    return { updatedAt: data.updated_at };
+  },
+
+  async changeProjectStatus(params: {
+    projectId: string;
+    status: ProjectStatus;
+    expectedUpdatedAt: string;
+  }): Promise<{ updatedAt: string }> {
+    const supabase = requireSupabase();
+    const { data, error } = await supabase.rpc("change_project_status", {
+      p_project_id: params.projectId,
+      p_new_status: serializeProjectTableStatus(params.status),
+      p_expected_updated_at: params.expectedUpdatedAt,
+    });
+
+    if (error) throw normalizeMutationError(error);
+    const updatedAt = typeof data === "object" && data && "updated_at" in data
+      ? String((data as { updated_at: unknown }).updated_at)
+      : "";
+    if (!updatedAt) {
+      throw new ProjectTableMutationError("Project status response missing updated_at", "UNKNOWN");
+    }
+    return { updatedAt };
   },
 };

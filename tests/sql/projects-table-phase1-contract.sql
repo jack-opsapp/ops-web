@@ -137,10 +137,36 @@ select
     and not has_table_privilege('anon', 'public.project_table_rows', 'DELETE')
   ) as project_table_rows_anon_dml_not_granted_for_firebase_bridge,
   (
-    not has_function_privilege('anon', 'public.change_project_status(uuid, text, timestamp with time zone)', 'EXECUTE')
-    and not has_function_privilege('anon', 'public.assign_project_team_member(uuid, uuid, uuid[], timestamp with time zone)', 'EXECUTE')
+    not has_function_privilege('anon', 'public.assign_project_team_member(uuid, uuid, uuid[], timestamp with time zone)', 'EXECUTE')
     and not has_function_privilege('anon', 'public.remove_project_team_member(uuid, uuid, uuid[], timestamp with time zone)', 'EXECUTE')
-  ) as project_table_mutation_rpcs_anon_execute_not_granted;
+  ) as project_table_team_mutation_rpcs_anon_execute_not_granted;
+
+-- Phase 3 edit-core auth contract.
+select
+  'projects_role_scope_update_public_restrictive' as check_name,
+  exists (
+    select 1
+    from pg_policy pol
+    join pg_class cls on cls.oid = pol.polrelid
+    join pg_namespace ns on ns.oid = cls.relnamespace
+    where ns.nspname = 'public'
+      and cls.relname = 'projects'
+      and pol.polname = 'role_scope_update'
+      and pol.polcmd = 'w'
+      and pol.polpermissive = false
+      and pol.polroles = array['0'::oid]
+  ) as passed;
+
+select
+  'projects_table_v2_anon_status_rpc_only' as check_name,
+  has_function_privilege('anon', 'public.change_project_status(uuid, text, timestamp with time zone)', 'EXECUTE')
+  and not has_function_privilege('anon', 'public.assign_project_team_member(uuid, uuid, uuid[], timestamp with time zone)', 'EXECUTE')
+  and not has_function_privilege('anon', 'public.remove_project_team_member(uuid, uuid, uuid[], timestamp with time zone)', 'EXECUTE')
+  as passed;
+
+select
+  'projects_table_v2_anon_edit_helper_execute' as check_name,
+  has_function_privilege('anon', 'private.current_user_can_edit_project(uuid)', 'EXECUTE') as passed;
 
 -- 3. Fixture-backed contracts. Safe shape: all writes roll back.
 begin;
