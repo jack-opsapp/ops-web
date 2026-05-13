@@ -1,7 +1,10 @@
 import { act } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { OpportunityStage } from "@/lib/types/pipeline";
-import { usePipelineModeStore } from "@/app/(dashboard)/pipeline/_components/pipeline-mode-store";
+import {
+  PIPELINE_MODE_WILL_CHANGE_EVENT,
+  usePipelineModeStore,
+} from "@/app/(dashboard)/pipeline/_components/pipeline-mode-store";
 
 describe("pipeline-mode-store", () => {
   beforeEach(() => {
@@ -32,6 +35,22 @@ describe("pipeline-mode-store", () => {
 
     act(() => usePipelineModeStore.getState().toggleMode());
     expect(usePipelineModeStore.getState().mode).toBe("focused");
+  });
+
+  it("dispatches the mode-change event before state updates", () => {
+    const listener = vi.fn((event: Event) => {
+      expect(usePipelineModeStore.getState().mode).toBe("focused");
+      expect((event as CustomEvent).detail).toEqual({
+        from: "focused",
+        to: "spatial",
+      });
+    });
+    window.addEventListener(PIPELINE_MODE_WILL_CHANGE_EVENT, listener);
+
+    act(() => usePipelineModeStore.getState().setMode("spatial"));
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    window.removeEventListener(PIPELINE_MODE_WILL_CHANGE_EVENT, listener);
   });
 
   it("setStageSortBy stores per-stage override", () => {

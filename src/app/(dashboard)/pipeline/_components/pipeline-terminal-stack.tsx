@@ -102,6 +102,7 @@ function TerminalItem({
     <button
       ref={setNodeRef}
       type="button"
+      data-pipeline-stage-fallback={stage}
       aria-label={ariaLabel}
       aria-pressed={isSelected}
       className={cn(
@@ -131,6 +132,7 @@ function TerminalItem({
             <span
               key={opportunity.id}
               aria-hidden="true"
+              data-pipeline-spine-card-id={opportunity.id}
               className={cn("h-1.5 w-full shrink-0 rounded-bar", transitionClasses)}
               style={{ backgroundColor: stageColor, opacity: visualOpacity }}
             />

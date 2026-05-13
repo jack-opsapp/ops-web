@@ -1,10 +1,21 @@
 "use client";
 
-import { useState, useCallback, useMemo, useEffect, useRef, memo } from "react";
+import {
+  useState,
+  useCallback,
+  useMemo,
+  useEffect,
+  useRef,
+  memo,
+  useLayoutEffect,
+  type CSSProperties,
+} from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Mail, X, Loader2 } from "lucide-react";
+import { useReducedMotion } from "framer-motion";
 import { useDictionary } from "@/i18n/client";
+import { cn } from "@/lib/utils/cn";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { trackScreenView } from "@/lib/analytics/analytics";
 import { useUndoStore } from "@/stores/undo-store";
@@ -79,13 +90,19 @@ import { PipelineFocusedShell } from "./_components/pipeline-focused-shell";
 import { PipelineFocusedToolbar } from "./_components/pipeline-focused-toolbar";
 import { PipelineFilterRow } from "./_components/pipeline-filter-row";
 import { usePipelineModeShortcut } from "./_components/pipeline-mode-shortcuts";
+import { PipelineCardContent } from "./_components/pipeline-card-content";
 import {
   useSpatialCanvasStore,
   BIRD_EYE_THRESHOLD,
   CARD_WIDTH,
   CARD_HEIGHT,
 } from "./_components/spatial-canvas-store";
-import { usePipelineModeStore } from "./_components/pipeline-mode-store";
+import {
+  PIPELINE_MODE_WILL_CHANGE_EVENT,
+  usePipelineModeStore,
+  type PipelineModeWillChangeDetail,
+} from "./_components/pipeline-mode-store";
+import type { PipelineMode } from "./_components/pipeline-mode-types";
 import { OPPORTUNITY_STAGE_COLORS } from "@/lib/types/pipeline";
 
 type PipelineDropData = {
@@ -93,6 +110,52 @@ type PipelineDropData = {
   stage?: OpportunityStage;
   isTerminal?: boolean;
 };
+
+type PipelineModeTransitionRole = "static" | "entering";
+
+type TransitionRect = {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+};
+
+type PendingModeTransition = {
+  id: number;
+  from: PipelineMode;
+  to: PipelineMode;
+  sourceRects: Map<string, TransitionRect>;
+  sourceClone: HTMLElement | null;
+};
+
+type TransitionCard = {
+  opportunity: Opportunity;
+  clientName: string;
+  stageColor: string;
+  stalenessOpacity: number;
+  density: "compact" | "comfortable";
+  isSilhouetteTarget: boolean;
+  from: TransitionRect;
+  to: TransitionRect;
+};
+
+type ModeTransitionState = PendingModeTransition & {
+  cards: TransitionCard[];
+  durationMs: number;
+};
+
+type TransitionCardStyle = CSSProperties & {
+  "--pipeline-from-x": string;
+  "--pipeline-from-y": string;
+  "--pipeline-from-scale-x": number;
+  "--pipeline-from-scale-y": number;
+  "--pipeline-to-scale-x": number;
+  "--pipeline-to-scale-y": number;
+  "--pipeline-to-opacity": number;
+};
+
+const MODE_TRANSITION_DURATION_MS = 360;
+const MODE_TRANSITION_EASING = "cubic-bezier(0.22, 1, 0.36, 1)";
 
 function formatPipelineTemplate(
   template: string,
@@ -102,6 +165,117 @@ function formatPipelineTemplate(
     (result, [key, value]) => result.replaceAll(`{${key}}`, String(value)),
     template
   );
+}
+
+function transitionRectFromElement(element: Element): TransitionRect {
+  const rect = element.getBoundingClientRect();
+  return {
+    left: rect.left,
+    top: rect.top,
+    width: rect.width,
+    height: rect.height,
+  };
+}
+
+function fallbackRectFromStage(rect: TransitionRect): TransitionRect {
+  const width = Math.max(10, Math.min(40, rect.width * 0.5));
+  const height = 8;
+
+  return {
+    left: rect.left + rect.width / 2 - width / 2,
+    top: rect.top + Math.min(Math.max(16, rect.height * 0.35), rect.height - height),
+    width,
+    height,
+  };
+}
+
+function readModeTransitionRects(
+  scope: HTMLElement | null,
+  opportunities: Opportunity[]
+): Map<string, TransitionRect> {
+  const rects = new Map<string, TransitionRect>();
+  if (!scope) return rects;
+
+  scope
+    .querySelectorAll<HTMLElement>(
+      "[data-pipeline-transition-card][data-opportunity-id]"
+    )
+    .forEach((element) => {
+      const opportunityId = element.dataset.opportunityId;
+      if (!opportunityId) return;
+      rects.set(opportunityId, transitionRectFromElement(element));
+    });
+
+  scope
+    .querySelectorAll<HTMLElement>("[data-pipeline-spine-card-id]")
+    .forEach((element) => {
+      const opportunityId = element.dataset.pipelineSpineCardId;
+      if (!opportunityId || rects.has(opportunityId)) return;
+      rects.set(opportunityId, transitionRectFromElement(element));
+    });
+
+  const stageRects = new Map<OpportunityStage, TransitionRect>();
+  scope
+    .querySelectorAll<HTMLElement>("[data-pipeline-stage-fallback]")
+    .forEach((element) => {
+      const stage = element.dataset.pipelineStageFallback;
+      if (!stage) return;
+      stageRects.set(stage as OpportunityStage, transitionRectFromElement(element));
+    });
+
+  for (const opportunity of opportunities) {
+    if (rects.has(opportunity.id)) continue;
+    const stageRect = stageRects.get(opportunity.stage);
+    if (!stageRect) continue;
+    rects.set(opportunity.id, fallbackRectFromStage(stageRect));
+  }
+
+  return rects;
+}
+
+function cloneModeSurface(
+  scope: HTMLElement | null,
+  mode: PipelineMode,
+  durationMs: number
+): HTMLElement | null {
+  const surface = scope?.querySelector<HTMLElement>(
+    `[data-pipeline-mode-surface="${mode}"]`
+  );
+  if (!surface) return null;
+
+  const rect = surface.getBoundingClientRect();
+  const clone = surface.cloneNode(true) as HTMLElement;
+
+  clone.setAttribute("aria-hidden", "true");
+  clone.querySelectorAll<HTMLElement>("[id]").forEach((element) => {
+    element.removeAttribute("id");
+  });
+  clone
+    .querySelectorAll<HTMLElement>("button,a,input,textarea,select,[tabindex]")
+    .forEach((element) => {
+      element.setAttribute("tabindex", "-1");
+    });
+  clone
+    .querySelectorAll<HTMLElement>("[data-pipeline-transition-card]")
+    .forEach((element) => {
+      element.style.opacity = "0";
+    });
+
+  Object.assign(clone.style, {
+    position: "fixed",
+    left: `${rect.left}px`,
+    top: `${rect.top}px`,
+    width: `${rect.width}px`,
+    height: `${rect.height}px`,
+    margin: "0",
+    pointerEvents: "none",
+    opacity: "1",
+    overflow: "hidden",
+    zIndex: "1",
+    transition: `opacity ${durationMs}ms ${MODE_TRANSITION_EASING}`,
+  });
+
+  return clone;
 }
 
 // ---------------------------------------------------------------------------
@@ -168,6 +342,7 @@ const SpatialCardWrapperComponent = memo(function SpatialCardWrapperComponent({
   return (
     <div
       data-spatial-card
+      data-pipeline-transition-card
       data-opportunity-id={opportunity.id}
       className={flow ? "relative" : "absolute"}
       style={{
@@ -268,6 +443,7 @@ function SpatialCanvasDesktop({
   onRestore,
   onDeletePermanently,
   activeDragId,
+  transitionRole = "static",
 }: {
   opportunities: Opportunity[];
   clientNameMap: Map<string, string>;
@@ -288,6 +464,7 @@ function SpatialCanvasDesktop({
   onRestore: (id: string) => void;
   onDeletePermanently: (id: string) => void;
   activeDragId: string | null;
+  transitionRole?: PipelineModeTransitionRole;
 }) {
   const { t: tPipeline } = useDictionary("pipeline");
   const sortBy = usePipelineModeStore((s) => s.sortBy);
@@ -519,6 +696,7 @@ function SpatialCanvasDesktop({
       <SpatialCanvas
         canvasWidth={layout.canvasWidth}
         canvasHeight={layout.canvasHeight}
+        transitionRole={transitionRole}
         onCanvasContextMenu={handleCanvasContextMenu}
         onMarqueeUpdate={handleMarqueeUpdate}
         onMarqueeEnd={handleMarqueeEnd}
@@ -624,6 +802,107 @@ function SpatialCanvasDesktop({
   );
 }
 
+function PipelineModeTransitionOverlay({
+  transition,
+  onComplete,
+}: {
+  transition: ModeTransitionState;
+  onComplete: () => void;
+}) {
+  const cloneHostRef = useRef<HTMLDivElement>(null);
+  const onCompleteRef = useRef(onComplete);
+
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
+
+  useLayoutEffect(() => {
+    const cloneHost = cloneHostRef.current;
+    const clone = transition.sourceClone;
+    if (cloneHost && clone) {
+      cloneHost.appendChild(clone);
+      requestAnimationFrame(() => {
+        clone.style.opacity = "0";
+      });
+    }
+
+    const timeoutId = window.setTimeout(
+      () => onCompleteRef.current(),
+      transition.durationMs + 40
+    );
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      clone?.remove();
+    };
+  }, [transition]);
+
+  return (
+    <div
+      aria-hidden="true"
+      className="pointer-events-none fixed inset-0 z-[1]"
+    >
+      <style>{`
+        @keyframes pipeline-mode-card-travel {
+          from {
+            opacity: 1;
+            transform: translate3d(var(--pipeline-from-x), var(--pipeline-from-y), 0) scale(var(--pipeline-from-scale-x), var(--pipeline-from-scale-y));
+          }
+          to {
+            opacity: var(--pipeline-to-opacity);
+            transform: translate3d(0, 0, 0) scale(var(--pipeline-to-scale-x), var(--pipeline-to-scale-y));
+          }
+        }
+        @keyframes pipeline-mode-surface-enter {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+      `}</style>
+      <div ref={cloneHostRef} />
+      {transition.cards.map((card) => {
+        const baseWidth = card.isSilhouetteTarget
+          ? CARD_WIDTH
+          : Math.max(1, card.to.width);
+        const baseHeight = card.isSilhouetteTarget
+          ? CARD_HEIGHT
+          : Math.max(1, card.to.height);
+        const style: TransitionCardStyle = {
+          position: "fixed",
+          left: card.to.left,
+          top: card.to.top,
+          width: baseWidth,
+          minHeight: baseHeight,
+          transformOrigin: "top left",
+          animation: `pipeline-mode-card-travel ${transition.durationMs}ms ${MODE_TRANSITION_EASING} both`,
+          zIndex: 2,
+          "--pipeline-from-x": `${card.from.left - card.to.left}px`,
+          "--pipeline-from-y": `${card.from.top - card.to.top}px`,
+          "--pipeline-from-scale-x": card.from.width / baseWidth,
+          "--pipeline-from-scale-y": card.from.height / baseHeight,
+          "--pipeline-to-scale-x": card.to.width / baseWidth,
+          "--pipeline-to-scale-y": card.to.height / baseHeight,
+          "--pipeline-to-opacity": card.isSilhouetteTarget ? 0 : 1,
+        };
+
+        return (
+          <div key={card.opportunity.id} style={style}>
+            <PipelineCardContent
+              opportunity={card.opportunity}
+              clientName={card.clientName}
+              stageColor={card.stageColor}
+              stalenessOpacity={card.stalenessOpacity}
+              density={card.density}
+              canManage={false}
+              isHovered={false}
+              isExpanded={false}
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Loading Skeleton
 // ---------------------------------------------------------------------------
@@ -719,6 +998,7 @@ export default function PipelinePage() {
   const { t } = useDictionary("pipeline");
   const router = useRouter();
   const isMobile = useIsMobile();
+  const reducedMotion = useReducedMotion();
   const mode = usePipelineModeStore((state) => state.mode);
   const detailPanelOpportunityId = usePipelineModeStore(
     (state) => state.detailPanelOpportunityId
@@ -728,6 +1008,13 @@ export default function PipelinePage() {
   );
   const previousModeRef = useRef(mode);
   const pipelineScopeRef = useRef<HTMLDivElement>(null);
+  const pendingModeTransitionRef = useRef<PendingModeTransition | null>(null);
+  const transitionSequenceRef = useRef(0);
+  const filteredOpportunitiesRef = useRef<Opportunity[]>([]);
+  const isMobileRef = useRef(isMobile);
+  const reducedMotionRef = useRef(Boolean(reducedMotion));
+  const [modeTransition, setModeTransition] =
+    useState<ModeTransitionState | null>(null);
   const [originatingOpportunityId, setOriginatingOpportunityId] = useState<
     string | null
   >(null);
@@ -908,6 +1195,122 @@ export default function PipelinePage() {
     assigneeFilter,
     searchQuery,
     clientNameMap,
+  ]);
+
+  const transitionStalenessMap = useMemo(
+    () => calculateBatchStaleness(filteredOpportunities),
+    [filteredOpportunities]
+  );
+
+  useEffect(() => {
+    filteredOpportunitiesRef.current = filteredOpportunities;
+  }, [filteredOpportunities]);
+
+  useEffect(() => {
+    isMobileRef.current = isMobile;
+    reducedMotionRef.current = Boolean(reducedMotion);
+  }, [isMobile, reducedMotion]);
+
+  useEffect(() => {
+    function handleModeWillChange(event: Event) {
+      const detail = (event as CustomEvent<PipelineModeWillChangeDetail>)
+        .detail;
+      if (!detail || detail.from === detail.to) return;
+      if (isMobileRef.current || reducedMotionRef.current) {
+        pendingModeTransitionRef.current = null;
+        return;
+      }
+
+      const scope = pipelineScopeRef.current;
+      const opportunitiesForSnapshot = filteredOpportunitiesRef.current;
+      pendingModeTransitionRef.current = {
+        id: transitionSequenceRef.current + 1,
+        from: detail.from,
+        to: detail.to,
+        sourceRects: readModeTransitionRects(scope, opportunitiesForSnapshot),
+        sourceClone: cloneModeSurface(
+          scope,
+          detail.from,
+          MODE_TRANSITION_DURATION_MS
+        ),
+      };
+      transitionSequenceRef.current += 1;
+    }
+
+    window.addEventListener(
+      PIPELINE_MODE_WILL_CHANGE_EVENT,
+      handleModeWillChange
+    );
+    return () =>
+      window.removeEventListener(
+        PIPELINE_MODE_WILL_CHANGE_EVENT,
+        handleModeWillChange
+      );
+  }, []);
+
+  useLayoutEffect(() => {
+    const pending = pendingModeTransitionRef.current;
+    if (!pending || pending.to !== mode) return;
+
+    pendingModeTransitionRef.current = null;
+
+    if (isMobile || reducedMotion) {
+      pending.sourceClone?.remove();
+      setModeTransition(null);
+      return;
+    }
+
+    const targetRects = readModeTransitionRects(
+      pipelineScopeRef.current,
+      filteredOpportunities
+    );
+    const cards = filteredOpportunities.flatMap((opportunity) => {
+      const from = pending.sourceRects.get(opportunity.id);
+      const to = targetRects.get(opportunity.id);
+      if (!from || !to) return [];
+
+      const isSilhouetteTarget = to.width < 120 || to.height < 24;
+      return [
+        {
+          opportunity,
+          clientName:
+            clientNameMap.get(opportunity.clientId ?? "") ??
+            opportunity.contactName ??
+            t("card.unknown"),
+          stageColor:
+            OPPORTUNITY_STAGE_COLORS[opportunity.stage] ??
+            OPPORTUNITY_STAGE_COLORS[OpportunityStage.NewLead],
+          stalenessOpacity: transitionStalenessMap.get(opportunity.id) ?? 1,
+          density:
+            !isSilhouetteTarget && to.width > CARD_WIDTH + 80
+              ? "comfortable"
+              : "compact",
+          isSilhouetteTarget,
+          from,
+          to,
+        } satisfies TransitionCard,
+      ];
+    });
+
+    if (cards.length === 0) {
+      pending.sourceClone?.remove();
+      setModeTransition(null);
+      return;
+    }
+
+    setModeTransition({
+      ...pending,
+      cards,
+      durationMs: MODE_TRANSITION_DURATION_MS,
+    });
+  }, [
+    clientNameMap,
+    filteredOpportunities,
+    isMobile,
+    mode,
+    reducedMotion,
+    t,
+    transitionStalenessMap,
   ]);
 
   const detailPanelOpportunity = useMemo(() => {
@@ -1479,6 +1882,25 @@ export default function PipelinePage() {
     canManage,
   } as const;
 
+  const transitionRole: PipelineModeTransitionRole = modeTransition
+    ? "entering"
+    : "static";
+  const modeSurfaceStyle: CSSProperties | undefined = modeTransition
+    ? {
+        animation: `pipeline-mode-surface-enter ${
+          modeTransition.durationMs
+        }ms ${MODE_TRANSITION_EASING} both`,
+      }
+    : undefined;
+  const modeSurfaceClassName = cn(
+    "absolute inset-0",
+    modeTransition &&
+      "pointer-events-none [&_[data-pipeline-transition-card]]:opacity-0"
+  );
+  const handleModeTransitionComplete = () => {
+    setModeTransition(null);
+  };
+
   return (
     <div
       ref={pipelineScopeRef}
@@ -1497,55 +1919,70 @@ export default function PipelinePage() {
             onDragEnd={handlePipelineDragEnd}
             onDragCancel={handlePipelineDragCancel}
           >
-            {mode === "focused" ? (
-              <PipelineFocusedShell
-                opportunities={filteredOpportunities}
-                clientNameMap={clientNameMap}
-                canManage={canManage}
-                filtersActive={filtersActive}
-                dragAnnouncement={focusedDragAnnouncement}
-                onAddLead={gatedOpenCreate}
-                onClearFilters={handleClearFilters}
-                onLogCall={handleLogCall}
-                onLogText={handleLogText}
-                onAddNote={handleAddNote}
-                onArchive={handleArchive}
-                onDiscard={handleDiscard}
-                onMarkWon={handleMarkWon}
-                onMarkLost={handleMarkLost}
-                onAdvanceStage={handleAdvanceStage}
-                onAssign={handleAssign}
-                onScheduleFollowUp={handleScheduleFollowUp}
-                onDelete={(id) => deleteMutation.mutate(id)}
-              />
-            ) : (
-              <SpatialCanvasDesktop
-                opportunities={filteredOpportunities}
-                clientNameMap={clientNameMap}
-                canManage={canManage}
-                onMoveStage={handleMoveStage}
-                onLogCall={handleLogCall}
-                onLogText={handleLogText}
-                onAddNote={handleAddNote}
-                onArchive={handleArchive}
-                onDiscard={handleDiscard}
-                onMarkWon={handleMarkWon}
-                onMarkLost={handleMarkLost}
-                onOpenDetail={handleOpenDetail}
-                onAssign={handleAssign}
-                onScheduleFollowUp={handleScheduleFollowUp}
-                archivedOpportunities={
-                  opportunities?.filter((o) => !!o.archivedAt) ?? []
-                }
-                discardedOpportunities={
-                  opportunities?.filter(
-                    (o) =>
-                      o.stage === OpportunityStage.Discarded && !o.archivedAt
-                  ) ?? []
-                }
-                onRestore={(id) => unarchiveMutation.mutate(id)}
-                onDeletePermanently={(id) => deleteMutation.mutate(id)}
-                activeDragId={activeDragId}
+            <div
+              data-pipeline-mode-surface={mode}
+              className={modeSurfaceClassName}
+              style={modeSurfaceStyle}
+            >
+              {mode === "focused" ? (
+                <PipelineFocusedShell
+                  opportunities={filteredOpportunities}
+                  clientNameMap={clientNameMap}
+                  canManage={canManage}
+                  filtersActive={filtersActive}
+                  dragAnnouncement={focusedDragAnnouncement}
+                  transitionRole={transitionRole}
+                  onAddLead={gatedOpenCreate}
+                  onClearFilters={handleClearFilters}
+                  onLogCall={handleLogCall}
+                  onLogText={handleLogText}
+                  onAddNote={handleAddNote}
+                  onArchive={handleArchive}
+                  onDiscard={handleDiscard}
+                  onMarkWon={handleMarkWon}
+                  onMarkLost={handleMarkLost}
+                  onAdvanceStage={handleAdvanceStage}
+                  onAssign={handleAssign}
+                  onScheduleFollowUp={handleScheduleFollowUp}
+                  onDelete={(id) => deleteMutation.mutate(id)}
+                />
+              ) : (
+                <SpatialCanvasDesktop
+                  opportunities={filteredOpportunities}
+                  clientNameMap={clientNameMap}
+                  canManage={canManage}
+                  transitionRole={transitionRole}
+                  onMoveStage={handleMoveStage}
+                  onLogCall={handleLogCall}
+                  onLogText={handleLogText}
+                  onAddNote={handleAddNote}
+                  onArchive={handleArchive}
+                  onDiscard={handleDiscard}
+                  onMarkWon={handleMarkWon}
+                  onMarkLost={handleMarkLost}
+                  onOpenDetail={handleOpenDetail}
+                  onAssign={handleAssign}
+                  onScheduleFollowUp={handleScheduleFollowUp}
+                  archivedOpportunities={
+                    opportunities?.filter((o) => !!o.archivedAt) ?? []
+                  }
+                  discardedOpportunities={
+                    opportunities?.filter(
+                      (o) =>
+                        o.stage === OpportunityStage.Discarded &&
+                        !o.archivedAt
+                    ) ?? []
+                  }
+                  onRestore={(id) => unarchiveMutation.mutate(id)}
+                  onDeletePermanently={(id) => deleteMutation.mutate(id)}
+                  activeDragId={activeDragId}
+                />
+              )}
+            </div>
+            {modeTransition && (
+              <PipelineModeTransitionOverlay
+                transition={modeTransition}
+                onComplete={handleModeTransitionComplete}
               />
             )}
           </PipelineDndProvider>

@@ -85,6 +85,7 @@ export const PipelineSpineColumn = memo(function PipelineSpineColumn({
     <button
       ref={setNodeRef}
       type="button"
+      data-pipeline-stage-fallback={stage}
       role="tab"
       id={tabId}
       aria-selected={false}
@@ -135,6 +136,7 @@ export const PipelineSpineColumn = memo(function PipelineSpineColumn({
             <div
               key={opportunity.id}
               aria-hidden="true"
+              data-pipeline-spine-card-id={opportunity.id}
               data-testid="pipeline-spine-silhouette"
               className={cn("h-1.5 w-full shrink-0 rounded-bar", transitionClasses)}
               style={{ backgroundColor: stageColor, opacity: visualOpacity }}

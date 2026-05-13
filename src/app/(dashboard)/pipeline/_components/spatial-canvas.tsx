@@ -13,6 +13,7 @@ interface SpatialCanvasProps {
   children: ReactNode;
   canvasWidth: number;
   canvasHeight: number;
+  transitionRole?: "static" | "entering";
   onCanvasContextMenu?: (e: React.MouseEvent) => void;
   onMarqueeUpdate?: (start: { x: number; y: number }, end: { x: number; y: number }) => void;
   onMarqueeEnd?: (start: { x: number; y: number }, end: { x: number; y: number }) => void;
@@ -22,6 +23,7 @@ export function SpatialCanvas({
   children,
   canvasWidth,
   canvasHeight,
+  transitionRole = "static",
   onCanvasContextMenu,
   onMarqueeUpdate,
   onMarqueeEnd,
@@ -238,6 +240,7 @@ export function SpatialCanvas({
     <div
       ref={containerRef}
       data-spatial-canvas
+      data-pipeline-transition-role={transitionRole}
       className="relative w-full h-full overflow-hidden bg-background select-none"
       style={{ touchAction: "none", cursor }}
       onPointerDown={handlePointerDown}

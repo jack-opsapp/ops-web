@@ -44,6 +44,7 @@ export interface PipelineFocusedShellProps extends FocusedShellActionHandlers {
   canManage: boolean;
   filtersActive: boolean;
   dragAnnouncement: string;
+  transitionRole?: "static" | "entering";
   onAddLead: () => void;
   onClearFilters: () => void;
 }
@@ -129,6 +130,7 @@ export function PipelineFocusedShell({
   canManage,
   filtersActive,
   dragAnnouncement,
+  transitionRole = "static",
   onAddLead,
   onClearFilters,
   onLogCall,
@@ -420,6 +422,7 @@ export function PipelineFocusedShell({
   return (
     <div
       ref={shellRef}
+      data-pipeline-transition-role={transitionRole}
       className="h-full min-h-0 w-full overflow-hidden bg-background"
       onWheel={handleWheel}
     >

@@ -137,6 +137,7 @@ function ToolbarAction({
   return (
     <button
       type="button"
+      data-pipeline-mode-toggle={isModeToggle ? "true" : undefined}
       className={cn(
         "flex cursor-pointer items-center gap-[5px] rounded px-[8px] py-[5px] transition-colors duration-150",
         isModeToggle

@@ -64,6 +64,8 @@ export const PipelineFocusedCard = memo(function PipelineFocusedCard({
   return (
     <article
       ref={setNodeRef}
+      data-pipeline-transition-card
+      data-opportunity-id={opportunity.id}
       className={cn(
         "relative w-full select-none",
         isDragging && "z-[1]"

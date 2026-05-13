@@ -24,6 +24,27 @@ type PipelineModeActions = {
 
 type Store = PipelineModeState & PipelineModeActions;
 
+export const PIPELINE_MODE_WILL_CHANGE_EVENT = "pipeline:mode-will-change";
+
+export type PipelineModeWillChangeDetail = {
+  from: PipelineMode;
+  to: PipelineMode;
+};
+
+function dispatchModeWillChange(from: PipelineMode, to: PipelineMode): void {
+  if (from === to) return;
+  if (typeof window === "undefined") return;
+
+  window.dispatchEvent(
+    new CustomEvent<PipelineModeWillChangeDetail>(
+      PIPELINE_MODE_WILL_CHANGE_EVENT,
+      {
+        detail: { from, to },
+      }
+    )
+  );
+}
+
 const mapReplacer = (_key: string, value: unknown) =>
   value instanceof Map ? { __map: Array.from(value.entries()) } : value;
 
@@ -44,10 +65,19 @@ export const usePipelineModeStore = create<Store>()(
       detailPanelActiveTab: "correspondence",
       sortBy: "value",
       stageSortOverrides: new Map(),
-      setMode: (mode) => set({ mode }),
+      setMode: (mode) =>
+        set((state) => {
+          dispatchModeWillChange(state.mode, mode);
+          return { mode };
+        }),
       toggleMode: () =>
         set((state) => ({
-          mode: state.mode === "focused" ? "spatial" : "focused",
+          mode: (() => {
+            const nextMode =
+              state.mode === "focused" ? "spatial" : "focused";
+            dispatchModeWillChange(state.mode, nextMode);
+            return nextMode;
+          })(),
         })),
       setFocusedStage: (focusedStage) => set({ focusedStage }),
       openDetailPanel: (opportunityId) =>
