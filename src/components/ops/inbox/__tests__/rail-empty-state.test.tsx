@@ -62,4 +62,58 @@ describe("<RailEmptyState>", () => {
       "ALL",
     );
   });
+
+  // ─── Search-miss variant ──────────────────────────────────────────────────
+  // When the operator has typed into the inbox header search input and the
+  // current rail returns zero matches, the empty state must NOT show the
+  // rail's caught-up copy (that would lie — the rail isn't quiet, the query
+  // missed). It must show // NO MATCHES with the query echoed.
+
+  it("renders the NO MATCHES variant on YOUR_MOVE when searchActive and the query echoed", () => {
+    render(
+      <RailEmptyState rail="YOUR_MOVE" searchActive searchQuery="acme" />,
+    );
+    expect(screen.getByText("// NO MATCHES")).toBeInTheDocument();
+    expect(screen.getByText('[—] nothing matches "acme"')).toBeInTheDocument();
+    expect(screen.queryByText("// CAUGHT UP")).not.toBeInTheDocument();
+    const node = screen.getByTestId("rail-empty-state");
+    expect(node).toHaveAttribute("data-rail", "YOUR_MOVE");
+    expect(node).toHaveAttribute("data-search-active", "true");
+  });
+
+  it("renders the NO MATCHES variant on WAITING when searchActive", () => {
+    render(
+      <RailEmptyState rail="WAITING" searchActive searchQuery="invoice" />,
+    );
+    expect(screen.getByText("// NO MATCHES")).toBeInTheDocument();
+    expect(
+      screen.getByText('[—] nothing matches "invoice"'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("// QUIET")).not.toBeInTheDocument();
+  });
+
+  it("renders the NO MATCHES variant on ARCHIVED when searchActive", () => {
+    render(<RailEmptyState rail="ARCHIVED" searchActive searchQuery="acme" />);
+    expect(screen.getByText("// NO MATCHES")).toBeInTheDocument();
+    expect(screen.queryByText("// EMPTY")).not.toBeInTheDocument();
+  });
+
+  it("renders the NO MATCHES variant on ALL when searchActive", () => {
+    render(<RailEmptyState rail="ALL" searchActive searchQuery="quote" />);
+    expect(screen.getByText("// NO MATCHES")).toBeInTheDocument();
+    expect(screen.getByText('[—] nothing matches "quote"')).toBeInTheDocument();
+    expect(screen.queryByText("// NO THREADS")).not.toBeInTheDocument();
+  });
+
+  it("falls back to the rail's caught-up copy when searchActive is false even if a query was passed", () => {
+    render(
+      <RailEmptyState
+        rail="YOUR_MOVE"
+        searchActive={false}
+        searchQuery="acme"
+      />,
+    );
+    expect(screen.getByText("// CAUGHT UP")).toBeInTheDocument();
+    expect(screen.queryByText("// NO MATCHES")).not.toBeInTheDocument();
+  });
 });

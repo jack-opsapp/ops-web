@@ -321,6 +321,8 @@
   "more.archive": "HILOS ARCHIVADOS",
 
   "search.tacticPlaceholder": "[buscar hilos — ⌘K]",
+  "empty.searchMiss.header": "// SIN COINCIDENCIAS",
+  "empty.searchMiss.body": "[—] nada coincide con \"{query}\"",
 
   "header.draftsChipLabel": "BORRADORES",
   "header.draftsChipAria": "{count} borradores sin enviar",

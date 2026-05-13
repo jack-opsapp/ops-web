@@ -350,6 +350,8 @@
   "more.archive": "ARCHIVED THREADS",
 
   "search.tacticPlaceholder": "[search threads — ⌘K]",
+  "empty.searchMiss.header": "// NO MATCHES",
+  "empty.searchMiss.body": "[—] nothing matches \"{query}\"",
 
   "header.draftsChipLabel": "DRAFTS",
   "header.draftsChipAria": "{count} unsent drafts",
