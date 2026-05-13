@@ -52,7 +52,7 @@ const TERMINAL_STAGE_ORDER = [OpportunityStage.Won, OpportunityStage.Lost];
 const SNAP_DURATION_MS = 280;
 const SNAP_EASING = "cubic-bezier(0.22, 1, 0.36, 1)";
 const SNAP_DEBOUNCE_MS = 150;
-const SPINE_RAIL_CHROME = "h-full pt-[148px] pb-0";
+const SPINE_RAIL_CHROME = "h-full pt-[128px] pb-0";
 
 function sortOpportunities(
   opportunities: Opportunity[],
