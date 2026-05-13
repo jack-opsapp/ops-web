@@ -17,8 +17,11 @@
  */
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useDictionary } from "@/i18n/client";
+import { queryKeys } from "@/lib/api/query-client";
+import type { InboxRail } from "@/lib/types/email-thread";
 import { useBreadcrumbStore } from "@/stores/breadcrumb-store";
 import { useAuthStore, selectUserId, selectCompanyId } from "@/lib/store/auth-store";
 import {
@@ -29,6 +32,7 @@ import {
   useThreadActions,
   useAnswerAgentQuestion,
   useResolveCommitment,
+  useSaveDraft,
 } from "@/lib/hooks/use-inbox-threads";
 import {
   DraftSwitcher,
@@ -54,6 +58,7 @@ import { ThreadPicker, type ThreadPickerThread } from "./thread-picker";
 import { computeStateTag } from "@/lib/inbox/format-wait";
 import { useWindowStore } from "@/stores/window-store";
 import { ResponsiveInboxShell } from "./responsive-inbox-shell";
+import type { MobileInboxPane } from "./mobile-stacked-shell";
 import { ThreadColumnHeader } from "./thread-column-header";
 import { TodayBar, type TodayCommitment } from "./today-bar";
 import { ThreadList, type ThreadListItem } from "./thread-list";
@@ -79,12 +84,13 @@ import type {
   InboxThreadMessage,
 } from "@/lib/hooks/use-inbox-threads";
 import type { Opportunity } from "@/lib/types/pipeline";
+import { inboxThreadHref, threadIdFromInboxPathname } from "./inbox-navigation";
 
 interface InboxRouteProps {
   threadId?: string;
 }
 
-export function InboxRoute({ threadId }: InboxRouteProps) {
+export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
   const router = useRouter();
   const { t } = useDictionary("inbox");
   const setEntityName = useBreadcrumbStore((s) => s.setEntityName);
@@ -104,21 +110,55 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [archiveContext, setArchiveContext] =
     useState<ArchiveConfirmContext | null>(null);
+  const [filter, setFilter] = useState<InboxRail>("everything");
+  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(
+    () => initialThreadId ?? null,
+  );
+  const [mobilePane, setMobilePane] = useState<MobileInboxPane>(
+    () => (initialThreadId ? "detail" : "list"),
+  );
+  const qc = useQueryClient();
 
-  const threadsQuery = useInboxThreads({ scope: "own", filter: "everything" });
-  const threadDetail = useInboxThread(threadId ?? null);
+  const threadsQuery = useInboxThreads({ scope: "own", filter });
+  const threadDetail = useInboxThread(selectedThreadId);
+
+  useEffect(() => {
+    const nextThreadId =
+      initialThreadId ?? threadIdFromInboxPathname(window.location.pathname);
+    setSelectedThreadId(nextThreadId);
+    setMobilePane(nextThreadId ? "detail" : "list");
+  }, [initialThreadId]);
+
+  useEffect(() => {
+    const syncFromLocation = () => {
+      const nextThreadId = threadIdFromInboxPathname(window.location.pathname);
+      setSelectedThreadId(nextThreadId);
+      setMobilePane(nextThreadId ? "detail" : "list");
+    };
+    window.addEventListener("popstate", syncFromLocation);
+    return () => window.removeEventListener("popstate", syncFromLocation);
+  }, []);
+
+  const navigateToThread = useCallback((id: string) => {
+    const href = inboxThreadHref(id);
+    setSelectedThreadId(id);
+    setMobilePane("detail");
+    if (window.location.pathname !== href) {
+      window.history.pushState(window.history.state, "", href);
+    }
+  }, []);
 
   // Surface the thread subject in the dashboard breadcrumb instead of the
   // raw UUID. Falls back to "—" while the detail is still loading.
   const subject = threadDetail.data?.thread.subject ?? null;
   useEffect(() => {
-    if (!threadId) {
+    if (!selectedThreadId) {
       clearEntityName();
       return;
     }
     setEntityName(subject ?? "—");
     return () => clearEntityName();
-  }, [threadId, subject, setEntityName, clearEntityName]);
+  }, [selectedThreadId, subject, setEntityName, clearEntityName]);
 
   const threads = threadsQuery.data?.pages?.[0]?.threads ?? [];
   const detail = threadDetail.data ?? null;
@@ -126,7 +166,7 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
   // providerThreadId lives on InboxThreadRow but not on InboxThreadDetail.
   // Cross-reference the list to recover it for outbound send threading.
   const providerThreadId =
-    threads.find((row) => row.id === threadId)?.providerThreadId ?? null;
+    threads.find((row) => row.id === selectedThreadId)?.providerThreadId ?? null;
 
   // Drafts scoped to the current thread (provider thread id match).
   const allDrafts = draftsQuery.data ?? [];
@@ -165,16 +205,109 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
   const isPristineDraft =
     activeDraft !== null && composerValue === activeDraft.bodyText;
 
+  // ─── Auto-save ──────────────────────────────────────────────────────────
+  // Debounced provider-side draft save. Fires whenever the composer body has
+  // settled for AUTOSAVE_DELAY_MS and a non-empty value is being held against
+  // a real thread. The first save provisions a new provider draft and we
+  // stash the returned id in `autoSaveDraftIdRef` so subsequent ticks PATCH
+  // the same row. When the thread changes, the ref resets so we don't
+  // accidentally overwrite a draft on the WRONG thread.
+  //
+  // Skipped when:
+  //   - selectedThreadId or detail is not yet loaded
+  //   - composer is empty (whitespace-only)
+  //   - the user is currently viewing a pristine AI draft (the AI row is
+  //     authoritative; auto-save would mirror it pointlessly)
+  //   - the saved body matches what we last successfully shipped
+  const saveDraft = useSaveDraft();
+  const autoSaveDraftIdRef = useRef<string | null>(null);
+  const lastSavedBodyRef = useRef<string>("");
+  const lastSavedThreadIdRef = useRef<string | null>(null);
+  const AUTOSAVE_DELAY_MS = 1500;
+
+  // Reset the saved-draft tracking whenever the open thread changes. Without
+  // this, switching threads would treat the new thread's first keystroke as
+  // an update to the previous thread's draft id.
+  useEffect(() => {
+    if (lastSavedThreadIdRef.current !== selectedThreadId) {
+      autoSaveDraftIdRef.current = null;
+      lastSavedBodyRef.current = "";
+      lastSavedThreadIdRef.current = selectedThreadId;
+    }
+  }, [selectedThreadId]);
+
+  // Seed the auto-save draft id from the currently-active provider draft so
+  // subsequent edits update the existing row rather than creating a new one
+  // alongside it. AI drafts deliberately do NOT seed — they live on a
+  // different table and aren't routable through the provider update path.
+  useEffect(() => {
+    if (activeDraft?.source === "provider") {
+      autoSaveDraftIdRef.current = activeDraft.id;
+      lastSavedBodyRef.current = activeDraft.bodyText;
+    }
+  }, [activeDraft]);
+
+  useEffect(() => {
+    if (!selectedThreadId || !detail) return;
+    if (!composerValue.trim()) return;
+    if (isAgentDraft && isPristineDraft) return;
+    if (composerValue === lastSavedBodyRef.current) return;
+
+    // Detail wire shape doesn't expose connectionId — only the list row does.
+    // Fall back gracefully when the row isn't in the current page (deep-link
+    // to a thread that's outside the first cursor window).
+    const conn = threads.find((row) => row.id === selectedThreadId)?.connectionId ?? null;
+    if (!conn) return;
+
+    const lastInbound = [...detail.messages]
+      .reverse()
+      .find((m) => m.direction === "inbound");
+    const recipient = lastInbound?.from ?? null;
+    if (!recipient) return;
+
+    const subjectBase = detail.thread.subject ?? "";
+    const replySubject = /^re:/i.test(subjectBase)
+      ? subjectBase
+      : subjectBase
+        ? `Re: ${subjectBase}`
+        : "(no subject)";
+
+    const handle = window.setTimeout(() => {
+      const valueAtFire = composerValue;
+      saveDraft.mutate(
+        {
+          connectionId: conn,
+          to: recipient,
+          subject: replySubject,
+          body: valueAtFire,
+          providerThreadId: providerThreadId ?? null,
+          draftId: autoSaveDraftIdRef.current,
+        },
+        {
+          onSuccess: (res) => {
+            autoSaveDraftIdRef.current = res.draftId;
+            lastSavedBodyRef.current = valueAtFire;
+          },
+        },
+      );
+    }, AUTOSAVE_DELAY_MS);
+
+    return () => window.clearTimeout(handle);
+    // saveDraft.mutate is referentially stable from useMutation; intentionally
+    // excluded so the timer doesn't re-arm on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [composerValue, selectedThreadId, detail, isAgentDraft, isPristineDraft, providerThreadId, threads]);
+
   const opportunitiesQuery = useClientOpportunities(clientId);
   const projectsQuery = useClientProjects(clientId);
   const tasksQuery = useClientTasks(clientId);
-  const filesQuery = useClientFiles(clientId, threadId);
+  const filesQuery = useClientFiles(clientId, selectedThreadId);
   const clientQuery = useClient(clientId ?? undefined);
   const subClientsQuery = useSubClients(clientId ?? undefined);
   const clientThreadsQuery = useClientThreads(clientId, {
-    excludeId: threadId ?? null,
+    excludeId: selectedThreadId,
   });
-  const linkedOpsQuery = useThreadOpportunityLinks(threadId ?? null);
+  const linkedOpsQuery = useThreadOpportunityLinks(selectedThreadId);
   const linkedOppIds = useMemo(
     () => new Set(linkedOpsQuery.data ?? []),
     [linkedOpsQuery.data],
@@ -205,7 +338,7 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
         lastOutboundAt: row.latestDirection === "outbound" ? ts : null,
         hasAiDraft: false,
         sentByAgentRecently: false,
-        category: row.primaryCategory,
+        labels: row.labels ?? [],
         closed: row.archivedAt !== null,
         now,
       }),
@@ -250,21 +383,66 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
   };
 
   const onSelectThread = (id: string) => {
-    router.push(`/inbox/${id}`);
+    navigateToThread(id);
   };
 
   const onPrev = () => {
-    const idx = rows.findIndex((r) => r.id === threadId);
-    if (idx > 0) router.push(`/inbox/${rows[idx - 1].id}`);
+    const idx = rows.findIndex((r) => r.id === selectedThreadId);
+    if (idx > 0) navigateToThread(rows[idx - 1].id);
   };
   const onNext = () => {
-    const idx = rows.findIndex((r) => r.id === threadId);
-    if (idx >= 0 && idx < rows.length - 1) router.push(`/inbox/${rows[idx + 1].id}`);
+    const idx = rows.findIndex((r) => r.id === selectedThreadId);
+    if (idx >= 0 && idx < rows.length - 1) navigateToThread(rows[idx + 1].id);
   };
+
+  const onDismissAwaitingReply = (id: string) => {
+    threadActions.dismissAwaitingReply.mutate(id, {
+      onSuccess: () => {
+        enqueueUndoToast({
+          message: t("toast.dismissedTactic", "SYS :: MARKED NO REPLY NEEDED"),
+          onUndo: () => threadActions.restoreAwaitingReply.mutate(id),
+        });
+      },
+      onError: () => {
+        // Failure path — the optimistic update has already rolled back inside
+        // the mutation. No undo is meaningful here; we render a transient
+        // failure toast whose "undo" is a retry that re-fires the dismiss.
+        enqueueUndoToast({
+          message: t("toast.dismissFailedTactic", "SYS :: DISMISS FAILED"),
+          onUndo: () => threadActions.dismissAwaitingReply.mutate(id),
+        });
+      },
+    });
+  };
+
+  const onOpenSearch = () => {
+    // The canonical search surface is the global ⌘K command palette mounted
+    // in dashboard-layout.tsx (`<CommandPalette />`). It owns its own open
+    // state via a window keydown listener (see command-palette.tsx). We
+    // trigger it here by dispatching a synthetic ⌘K keydown; the listener
+    // toggles open without us having to lift state into a shared store.
+    window.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "k", metaKey: true }),
+    );
+  };
+
+  const onRefresh = () => {
+    qc.invalidateQueries({ queryKey: queryKeys.inbox.threadsAll() });
+  };
+
+  const onOpenArchived = () => router.push("/inbox?view=archived");
+  const onOpenSettings = () => router.push("/settings/inbox");
 
   const threadList = (
     <div className="flex min-h-0 flex-1 flex-col">
-      <ThreadColumnHeader />
+      <ThreadColumnHeader
+        filter={filter}
+        onFilterChange={setFilter}
+        onOpenSearch={onOpenSearch}
+        onRefresh={onRefresh}
+        onOpenArchived={onOpenArchived}
+        onOpenSettings={onOpenSettings}
+      />
       <TodayBar
         commitments={commitments}
         onResolve={(commitmentId) => {
@@ -282,21 +460,22 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
         <ThreadList
           threads={rows}
           now={now}
-          selectedThreadId={threadId ?? null}
+          selectedThreadId={selectedThreadId}
           onSelect={onSelectThread}
+          onDismissAwaitingReply={onDismissAwaitingReply}
         />
       )}
     </div>
   );
 
   const onArchiveClick = () => {
-    if (!threadId || !detail) return;
-    threadActions.archive.mutate(threadId, {
+    if (!selectedThreadId || !detail) return;
+    threadActions.archive.mutate(selectedThreadId, {
       onSuccess: (res) => {
         if (res.needsConfirmation) {
           setArchiveContext({
             currentThread: {
-              id: threadId,
+              id: selectedThreadId,
               subject: detail.thread.subject ?? "",
               latestSenderName: guessSenderName(detail.messages),
               latestSenderEmail:
@@ -316,7 +495,7 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
         }
         enqueueUndoToast({
           message: t("toast.archivedTactic", "SYS :: THREAD ARCHIVED"),
-          onUndo: () => threadActions.unarchive.mutate(threadId),
+          onUndo: () => threadActions.unarchive.mutate(selectedThreadId),
         });
       },
     });
@@ -340,16 +519,16 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
       onNext={onNext}
       onArchive={onArchiveClick}
       snoozeSlot={(button) =>
-        threadId ? (
-          <SnoozePicker threadId={threadId} trigger={button} align="end" />
+        selectedThreadId ? (
+          <SnoozePicker threadId={selectedThreadId} trigger={button} align="end" />
         ) : (
           button
         )
       }
       recategorizeSlot={(button) =>
-        threadId ? (
+        selectedThreadId ? (
           <RecategorizeMenu
-            threadId={threadId}
+            threadId={selectedThreadId}
             currentCategory={detail.thread.primaryCategory}
             trigger={button}
             align="end"
@@ -359,10 +538,11 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
         )
       }
       threadPickerSlot={
-        threadId && clientId ? (
+        selectedThreadId && clientId ? (
           <ThreadPicker
             threads={pickerThreads}
-            currentThreadId={threadId}
+            currentThreadId={selectedThreadId}
+            onSelectThread={navigateToThread}
             clientName={
               detail.thread.clientName ??
               guessSenderName(detail.messages) ??
@@ -375,8 +555,8 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
       <CommitmentPills
         commitments={detail.commitments.map(toCommitmentPillItem)}
         onResolve={(commitmentId) => {
-          if (!threadId) return;
-          onResolveCommitment(commitmentId, threadId);
+          if (!selectedThreadId) return;
+          onResolveCommitment(commitmentId, selectedThreadId);
         }}
         pendingResolveIds={resolvingIds}
       />
@@ -414,8 +594,18 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
         }
         clientName={detail.thread.clientName ?? ""}
         renderedAt={now}
+        ballYoursOnAcknowledge={
+          selectedThreadId ? () => onDismissAwaitingReply(selectedThreadId) : undefined
+        }
+        ballYoursSnoozeSlot={(button) =>
+          selectedThreadId ? (
+            <SnoozePicker threadId={selectedThreadId} trigger={button} align="end" />
+          ) : (
+            button
+          )
+        }
         onAction={(action) => {
-          if (!threadId || !detail.thread.agentBlockingQuestion) return;
+          if (!selectedThreadId || !detail.thread.agentBlockingQuestion) return;
           const q = detail.thread.agentBlockingQuestion;
 
           if (action.startsWith("answer:")) {
@@ -426,7 +616,7 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
             const option = q.options?.find((o) => o.id === optionId);
             if (!option) return;
             answerAgentQuestion.mutate({
-              threadId,
+              threadId: selectedThreadId,
               answer: option.label,
               optionId: option.id,
             });
@@ -449,14 +639,14 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
           if (composerError) setComposerError(null);
         }}
         onSend={(value) => {
-          if (!userId || !companyId || !threadId) return;
+          if (!userId || !companyId || !selectedThreadId) return;
           // Free-form answer path: when an unresolved agent question is
           // attached to this thread, treat the operator's typed reply as
           // both the email body AND the question's answer. Fire-and-forget
           // — answering shouldn't block the email send if it fails (the
           // band stays up and the operator can retry from the chip).
           if (detail.thread.agentBlockingQuestion) {
-            answerAgentQuestion.mutate({ threadId, answer: value });
+            answerAgentQuestion.mutate({ threadId: selectedThreadId, answer: value });
           }
           const lastInbound = [...detail.messages]
             .reverse()
@@ -479,7 +669,7 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
               userId,
               companyId,
               payload: {
-                threadId,
+                threadId: selectedThreadId,
                 to: [recipient],
                 subject: replySubject,
                 body: value,
@@ -490,7 +680,16 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
               },
             },
             {
-              onSuccess: () => setComposerValue(""),
+              onSuccess: () => {
+                setComposerValue("");
+                // Once the send lands, the provider auto-removes the draft
+                // it was based on (Gmail drafts.send / Graph sendDraft both
+                // do this). Clear our local tracking so the next typed reply
+                // provisions a fresh draft instead of trying to PATCH a row
+                // that no longer exists.
+                autoSaveDraftIdRef.current = null;
+                lastSavedBodyRef.current = "";
+              },
               onError: (e) =>
                 setComposerError(
                   e instanceof Error
@@ -534,7 +733,7 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
         </p>
       )}
     </ThreadDetail>
-  ) : threadId ? (
+  ) : selectedThreadId ? (
     <EmptyState label={t("detail.loading", "Loading thread")} />
   ) : (
     <EmptyState label={t("detail.empty", "Pick a thread from the list")} />
@@ -548,8 +747,8 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
   const threadOnlyPhotos = filesQuery.data?.threadOnlyPhotos ?? [];
 
   const pipelineOpps = useMemo<PipelineOpp[]>(
-    () => opportunities.map((o) => toPipelineOpp(o, linkedOppIds, threadId)),
-    [opportunities, linkedOppIds, threadId],
+    () => opportunities.map((o) => toPipelineOpp(o, linkedOppIds, selectedThreadId ?? undefined)),
+    [opportunities, linkedOppIds, selectedThreadId],
   );
 
   // FilesViewV3 consumes the raw ProjectDocument / ProjectPhoto shapes —
@@ -588,7 +787,7 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
             }
           : undefined
       }
-      threadId={threadId ?? ""}
+      threadId={selectedThreadId ?? ""}
       onOpenClient={
         clientId ? () => router.push(`/clients/${clientId}`) : undefined
       }
@@ -609,17 +808,17 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
           pipelineOpps={pipelineOpps}
           projects={projects}
           tasks={tasks}
-          currentThreadId={threadId ?? ""}
+          currentThreadId={selectedThreadId ?? ""}
           onNewOpportunity={() =>
             openWindow({
               id: clientId
                 ? `create-lead-${clientId}`
-                : `create-lead-${threadId ?? "new"}`,
+                : `create-lead-${selectedThreadId ?? "new"}`,
               title: t("pipeline.newOpportunity", "New opportunity"),
               type: "create-lead",
               metadata: clientId
-                ? { clientId, sourceThreadId: threadId ?? null }
-                : { sourceThreadId: threadId ?? null },
+                ? { clientId, sourceThreadId: selectedThreadId }
+                : { sourceThreadId: selectedThreadId },
             })
           }
           onNewProject={() =>
@@ -668,7 +867,9 @@ export function InboxRoute({ threadId }: InboxRouteProps) {
   return (
     <>
       <ResponsiveInboxShell
-        threadId={threadId ?? ""}
+        threadId={selectedThreadId ?? ""}
+        mobilePane={mobilePane}
+        onMobilePaneChange={setMobilePane}
         threadList={threadList}
         detail={detailNode}
         contextRail={contextRail}
@@ -717,7 +918,7 @@ function toThreadListItem(t: InboxThreadRow): ThreadListItem {
     lastOutboundAt,
     hasAiDraft: t.phaseC === "ai_drafted",
     sentByAgentRecently: t.phaseC === "auto_sent",
-    category: t.primaryCategory,
+    labels: t.labels,
     closed: t.archivedAt !== null,
     now: Date.now(),
   });
@@ -763,7 +964,7 @@ function toCommitments(t: InboxThreadRow): TodayCommitment[] {
     lastOutboundAt,
     hasAiDraft: t.phaseC === "ai_drafted",
     sentByAgentRecently: t.phaseC === "auto_sent",
-    category: t.primaryCategory,
+    labels: t.labels,
     closed: t.archivedAt !== null,
     now: Date.now(),
   });

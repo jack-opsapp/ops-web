@@ -169,11 +169,37 @@ describe("<ThreadPicker>", () => {
     await user.click(screen.getByRole("button", { name: /2 other threads/i }));
     expect(screen.getByText("Quote follow-up")).toBeInTheDocument();
 
-    const row = screen.getByRole("button", { name: "Quote follow-up" });
+    const row = screen.getByRole("link", { name: /Quote follow-up/i });
     await user.click(row);
 
     expect(push).toHaveBeenCalledWith("/inbox/t1");
     // Popover closed → header text no longer in DOM
+    expect(
+      screen.queryByText("// THREADS WITH ACME · 2"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("uses the in-place selector when provided", async () => {
+    const user = userEvent.setup();
+    const onSelectThread = vi.fn();
+    const threads = [
+      makeThread("t1", "Quote follow-up", stateYours),
+      makeThread("t2", "Inspection rescheduling", stateTheirs),
+    ];
+    render(
+      <ThreadPicker
+        threads={threads}
+        currentThreadId="current"
+        clientName="ACME"
+        onSelectThread={onSelectThread}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /2 other threads/i }));
+    await user.click(screen.getByRole("link", { name: /Quote follow-up/i }));
+
+    expect(onSelectThread).toHaveBeenCalledWith("t1");
+    expect(push).not.toHaveBeenCalled();
     expect(
       screen.queryByText("// THREADS WITH ACME · 2"),
     ).not.toBeInTheDocument();

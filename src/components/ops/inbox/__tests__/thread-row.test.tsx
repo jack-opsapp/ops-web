@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { ThreadRow, type ThreadRowData } from "../thread-row";
 import type { StateTagResult } from "@/lib/inbox/format-wait";
+import { shouldHandleInPlaceThreadNavigation } from "../inbox-navigation";
 
 const NOW = new Date("2026-05-06T15:00:00Z").getTime();
 
@@ -236,7 +237,30 @@ describe("<ThreadRow>", () => {
   it("calls onSelect on click", () => {
     const onSelect = vi.fn();
     render(<ThreadRow thread={make()} selected={false} now={NOW} onSelect={onSelect} />);
-    screen.getByRole("button").click();
+    screen.getByRole("link", { name: /Calloway.*Roof RFQ/i }).click();
     expect(onSelect).toHaveBeenCalledWith("t1");
+  });
+
+  it("renders a deep-link href for native new-tab gestures", () => {
+    render(<ThreadRow thread={make()} selected={false} now={NOW} onSelect={() => {}} />);
+    expect(screen.getByRole("link", { name: /Calloway.*Roof RFQ/i })).toHaveAttribute(
+      "href",
+      "/inbox/t1",
+    );
+  });
+
+  it("classifies modified and auxiliary clicks as native link gestures", () => {
+    const base = {
+      defaultPrevented: false,
+      button: 0,
+      metaKey: false,
+      ctrlKey: false,
+      shiftKey: false,
+      altKey: false,
+    };
+
+    expect(shouldHandleInPlaceThreadNavigation(base)).toBe(true);
+    expect(shouldHandleInPlaceThreadNavigation({ ...base, metaKey: true })).toBe(false);
+    expect(shouldHandleInPlaceThreadNavigation({ ...base, button: 1 })).toBe(false);
   });
 });
