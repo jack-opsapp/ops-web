@@ -73,11 +73,16 @@ export function BugReportTab() {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [toggle]);
 
-  // Hide on routes that own the full-bleed canvas (dashboard map, intel).
-  // Both routes already have edge-anchored controls that would compete with
-  // the bug tab, and the previous floating button was hidden on these
-  // routes for the same reason.
-  if (pathname === "/dashboard" || pathname === "/intel") return null;
+  // Hide on the /intel route, which owns the full-bleed canvas and has
+  // edge-anchored controls that would compete with the bug tab.
+  //
+  // Previously /dashboard was also excluded here, inherited from the
+  // legacy bottom-left floating button era where the dashboard map filter
+  // rail collided with it. The current bug tab lives on the right edge,
+  // so that rationale doesn't apply — and reporters expect to file a bug
+  // from the dashboard itself (the surface they spend most of their day
+  // on). (bug a2dabd69)
+  if (pathname === "/intel") return null;
 
   const handleToggle = () => {
     // When opening, queue a fresh screenshot request — captured by the
