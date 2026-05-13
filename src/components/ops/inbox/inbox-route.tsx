@@ -59,6 +59,7 @@ import { useThreadOpportunityLinks } from "@/lib/hooks/use-thread-opportunity-li
 import { useClientThreads } from "@/lib/hooks/use-client-threads";
 import { ThreadPicker, type ThreadPickerThread } from "./thread-picker";
 import { computeStateTag } from "@/lib/inbox/format-wait";
+import { deriveStripContact } from "@/lib/inbox/derive-strip-contact";
 import { useWindowStore } from "@/stores/window-store";
 import { ResponsiveInboxShell } from "./responsive-inbox-shell";
 import type { MobileInboxPane } from "./mobile-stacked-shell";
@@ -774,6 +775,15 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
   const senderEmail =
     detail?.messages.find((m) => m.direction === "inbound")?.from ?? null;
   const client = clientQuery.data ?? null;
+  const stripContact = useMemo(
+    () =>
+      deriveStripContact({
+        client,
+        opportunities: [...opportunities, ...wonOpportunities],
+        projects,
+      }),
+    [client, opportunities, wonOpportunities, projects],
+  );
   const subClientCount = subClientsQuery.data?.length ?? 0;
   const subtitle = subClientCount > 0
     ? `${subClientCount} ${subClientCount === 1 ? t("rail.subclient", "subclient") : t("rail.subclients", "subclients")}`
@@ -792,8 +802,8 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
               name: client?.name ?? detail?.thread.clientName ?? "",
               subtitle,
               email: client?.email ?? senderEmail,
-              phone: client?.phoneNumber ?? null,
-              address: client?.address ?? null,
+              phone: stripContact.phone,
+              address: stripContact.address,
             }
           : undefined
       }
