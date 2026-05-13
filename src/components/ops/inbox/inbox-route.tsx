@@ -739,13 +739,6 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
             needsInput: detail.thread.agentBlockingQuestion !== null,
           },
           closed: detail.thread.archivedAt !== null,
-          // Prefer the server-resolved latestDirection; fall back to walking
-          // the message list when the wire field is absent (older payloads).
-          ballInCourt:
-            (detail.thread.latestDirection ??
-              detail.messages.at(-1)?.direction ?? null) === "inbound"
-              ? "user"
-              : "them",
         }}
         agentQuestion={detail.thread.agentBlockingQuestion?.question}
         agentOptions={detail.thread.agentBlockingQuestion?.options}
@@ -763,18 +756,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
               )
             : undefined
         }
-        clientName={detail.thread.clientName ?? ""}
         renderedAt={now}
-        ballYoursOnAcknowledge={
-          selectedThreadId ? () => onDismissAwaitingReply(selectedThreadId) : undefined
-        }
-        ballYoursSnoozeSlot={(button) =>
-          selectedThreadId ? (
-            <SnoozePicker threadId={selectedThreadId} trigger={button} align="end" />
-          ) : (
-            button
-          )
-        }
         onAction={(action) => {
           if (!selectedThreadId || !detail.thread.agentBlockingQuestion) return;
           const q = detail.thread.agentBlockingQuestion;

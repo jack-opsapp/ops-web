@@ -59,10 +59,6 @@
   "bands.needsInput.aria": "Phase C needs your input",
   "bands.needsInput.pausedAgo": "paused {min} min ago",
 
-  "bands.ballYours.label": "Your turn — {client} is waiting",
-  "bands.ballYours.reply": "Reply",
-  "bands.ballYours.aria": "Your turn",
-
   "floatingBadge.label": "// YOUR TURN",
   "floatingBadge.aria": "Your turn",
   "floatingBadge.acknowledge": "Mark no reply needed",
@@ -409,13 +405,6 @@
   "picker.trigger": "{count} OTHER THREADS",
   "picker.triggerNone": "· 0 OTHER THREADS",
   "picker.header": "// THREADS WITH {client} · {count}",
-
-  "bands.ballYours.title": "// YOUR TURN :: {client}",
-  "bands.ballYours.wait": "WAITING · {duration}",
-  "bands.ballYours.waitNone": "WAITING",
-  "bands.ballYours.reply": "REPLY",
-  "bands.ballYours.acknowledge": "Mark no reply needed",
-  "bands.ballYours.snooze": "Snooze thread",
 
   "bands.summary.title": "// SUMMARY",
   "bands.summary.provenance": "updated by Phase C · {minutes} MIN AGO",

@@ -6,8 +6,12 @@
  *   needsInput   → "needs-input"     (Claude is blocked waiting on user)
  *   auto_sent    → "auto-sent"       (Claude already replied; banner)
  *   aiSummary    → "summary"         (lavender summary band)
- *   ballInCourt  → "ball-yours"      (your turn — accent CTA band)
  *   else         → null              (no band)
+ *
+ * "Your turn" is no longer a band — it surfaces through
+ * <FloatingYourTurnBadge>, which is mounted by InboxRoute based on the
+ * rail predicate (`classifyRail(...) === "YOUR_MOVE"`) and floats above
+ * the message list instead of displacing it.
  */
 
 import type { PhaseC } from "@/lib/inbox/grouping";
@@ -15,7 +19,6 @@ import type { PhaseC } from "@/lib/inbox/grouping";
 export type BandKind =
   | "summary"
   | "needs-input"
-  | "ball-yours"
   | "auto-sent"
   | "closed";
 
@@ -24,8 +27,6 @@ export interface BandThreadInput {
   agent: { needsInput: boolean };
   phaseC: PhaseC;
   aiSummary: string | null;
-  /** Who owes the next move. "user" surfaces the "Your turn" CTA band. */
-  ballInCourt: "user" | "them" | null;
 }
 
 export function selectBand(thread: BandThreadInput): BandKind | null {
@@ -33,7 +34,6 @@ export function selectBand(thread: BandThreadInput): BandKind | null {
   if (thread.agent.needsInput) return "needs-input";
   if (thread.phaseC === "auto_sent") return "auto-sent";
   if (thread.aiSummary) return "summary";
-  if (thread.ballInCourt === "user") return "ball-yours";
   return null;
 }
 
@@ -48,13 +48,11 @@ export type ActionBandKind = Exclude<BandKind, "summary">;
  *   closed       → "closed"
  *   needsInput   → "needs-input"
  *   auto_sent    → "auto-sent"
- *   ballInCourt  → "ball-yours"
  *   else         → null
  */
 export function selectActionBand(thread: BandThreadInput): ActionBandKind | null {
   if (thread.closed) return "closed";
   if (thread.agent.needsInput) return "needs-input";
   if (thread.phaseC === "auto_sent") return "auto-sent";
-  if (thread.ballInCourt === "user") return "ball-yours";
   return null;
 }
