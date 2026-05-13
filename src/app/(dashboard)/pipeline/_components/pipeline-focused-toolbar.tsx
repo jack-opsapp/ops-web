@@ -48,7 +48,7 @@ export function PipelineFocusedToolbar({
         </>
       )}
 
-      <ToolbarAction onClick={toggleMode}>
+      <ToolbarAction onClick={toggleMode} isModeToggle>
         <Maximize2 className="h-[13px] w-[13px]" strokeWidth={1.5} />
         <span className="font-mono text-micro uppercase tracking-wider">
           {t("focused.modeButton.spatial")}
@@ -62,19 +62,23 @@ function ToolbarAction({
   children,
   onClick,
   isActive,
+  isModeToggle,
 }: {
   children: React.ReactNode;
   onClick: () => void;
   isActive?: boolean;
+  isModeToggle?: boolean;
 }) {
   return (
     <button
       type="button"
       className={cn(
         "flex h-[30px] items-center gap-[5px] rounded border px-2 transition-colors duration-150",
-        isActive
-          ? "border-line-hi bg-surface-active text-text"
-          : "border-transparent text-text-3 hover:bg-surface-hover hover:text-text"
+        isModeToggle
+          ? "border-ops-accent text-ops-accent hover:bg-ops-accent hover:text-background"
+          : isActive
+            ? "border-line-hi bg-surface-active text-text"
+            : "border-transparent text-text-3 hover:bg-surface-hover hover:text-text"
       )}
       onClick={onClick}
     >

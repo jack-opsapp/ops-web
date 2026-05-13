@@ -36,7 +36,9 @@ export function SpatialFloatingToolbar({
   const isArchiveTrayOpen = useSpatialCanvasStore((s) => s.isArchiveTrayOpen);
   const toggleDiscardTray = useSpatialCanvasStore((s) => s.toggleDiscardTray);
   const isDiscardTrayOpen = useSpatialCanvasStore((s) => s.isDiscardTrayOpen);
+  const mode = usePipelineModeStore((s) => s.mode);
   const toggleMode = usePipelineModeStore((s) => s.toggleMode);
+  const ModeIcon = mode === "focused" ? Maximize2 : Minimize2;
 
   const handleFitAll = useCallback(() => {
     const canvas = document.querySelector("[data-spatial-canvas]");
@@ -67,40 +69,54 @@ export function SpatialFloatingToolbar({
         </>
       )}
 
-      <ToolbarAction onClick={toggleMode}>
-        <Minimize2 className="h-[13px] w-[13px]" strokeWidth={1.5} />
+      <ToolbarAction onClick={toggleMode} isModeToggle>
+        <ModeIcon className="h-[13px] w-[13px]" strokeWidth={1.5} />
         <span className="font-mono text-micro uppercase tracking-wider">
-          {t("focused.modeButton.focused")}
+          {t(
+            mode === "focused"
+              ? "focused.modeButton.spatial"
+              : "focused.modeButton.focused"
+          )}
         </span>
       </ToolbarAction>
 
-      <div className="h-[18px] w-px bg-border-subtle" />
+      {mode === "spatial" && (
+        <>
+          <div className="h-[18px] w-px bg-border-subtle" />
 
-      {/* Canvas tools */}
-      <ToolbarAction onClick={handleFitAll}>
-        <Maximize2 className="h-[13px] w-[13px]" strokeWidth={1.5} />
-        <span className="font-mono text-micro uppercase tracking-wider">
-          {t("spatial.fitAll")}
-        </span>
-      </ToolbarAction>
+          {/* Canvas tools */}
+          <ToolbarAction onClick={handleFitAll}>
+            <Maximize2 className="h-[13px] w-[13px]" strokeWidth={1.5} />
+            <span className="font-mono text-micro uppercase tracking-wider">
+              {t("spatial.fitAll")}
+            </span>
+          </ToolbarAction>
 
-      <div className="h-[18px] w-px bg-border-subtle" />
+          <div className="h-[18px] w-px bg-border-subtle" />
 
-      <ToolbarAction onClick={toggleArchiveTray} isActive={isArchiveTrayOpen}>
-        <Archive className="h-[13px] w-[13px]" strokeWidth={1.5} />
-        <span className="font-mono text-micro uppercase tracking-wider">
-          {t("spatial.archivedDeals")}
-        </span>
-      </ToolbarAction>
+          <ToolbarAction
+            onClick={toggleArchiveTray}
+            isActive={isArchiveTrayOpen}
+          >
+            <Archive className="h-[13px] w-[13px]" strokeWidth={1.5} />
+            <span className="font-mono text-micro uppercase tracking-wider">
+              {t("spatial.archivedDeals")}
+            </span>
+          </ToolbarAction>
 
-      <div className="h-[18px] w-px bg-border-subtle" />
+          <div className="h-[18px] w-px bg-border-subtle" />
 
-      <ToolbarAction onClick={toggleDiscardTray} isActive={isDiscardTrayOpen}>
-        <Trash2 className="h-[13px] w-[13px]" strokeWidth={1.5} />
-        <span className="font-mono text-micro uppercase tracking-wider">
-          {t("spatial.discardedDeals")}
-        </span>
-      </ToolbarAction>
+          <ToolbarAction
+            onClick={toggleDiscardTray}
+            isActive={isDiscardTrayOpen}
+          >
+            <Trash2 className="h-[13px] w-[13px]" strokeWidth={1.5} />
+            <span className="font-mono text-micro uppercase tracking-wider">
+              {t("spatial.discardedDeals")}
+            </span>
+          </ToolbarAction>
+        </>
+      )}
     </motion.div>
   );
 }
@@ -111,19 +127,23 @@ function ToolbarAction({
   children,
   onClick,
   isActive,
+  isModeToggle,
 }: {
   children: React.ReactNode;
   onClick: () => void;
   isActive?: boolean;
+  isModeToggle?: boolean;
 }) {
   return (
     <button
       type="button"
       className={cn(
         "flex cursor-pointer items-center gap-[5px] rounded px-[8px] py-[5px] transition-colors duration-150",
-        isActive
-          ? "border border-line-hi bg-surface-active text-text"
-          : "border border-transparent text-text-3 hover:bg-surface-hover hover:text-text"
+        isModeToggle
+          ? "border border-ops-accent text-ops-accent hover:bg-ops-accent hover:text-background"
+          : isActive
+            ? "border border-line-hi bg-surface-active text-text"
+            : "border border-transparent text-text-3 hover:bg-surface-hover hover:text-text"
       )}
       onClick={onClick}
     >
