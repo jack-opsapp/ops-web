@@ -67,8 +67,9 @@ export function CommitmentPills({
           <span
             key={c.id}
             data-testid="commitment-pill"
+            title={c.content}
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-[2.5px] border bg-inbox-elev px-1.5 py-0.5 transition-opacity",
+              "inline-flex max-w-full items-center gap-1.5 rounded-[2.5px] border bg-inbox-elev px-1.5 py-0.5 transition-opacity",
               c.urgent ? "border-rose/35" : "border-line-hi",
               resolving && "opacity-60",
             )}
@@ -80,7 +81,10 @@ export function CommitmentPills({
                 c.urgent ? "bg-rose" : "bg-ops-accent",
               )}
             />
-            <span className="max-w-[260px] truncate font-mohave text-[12px] tracking-[-0.003em] text-text-2">
+            <span
+              data-testid="commitment-pill-content"
+              className="min-w-0 max-w-[420px] flex-1 truncate font-mohave text-[12px] tracking-[-0.003em] text-text-2"
+            >
               {c.content}
             </span>
             <span

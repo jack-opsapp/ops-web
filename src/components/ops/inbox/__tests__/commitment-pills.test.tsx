@@ -62,4 +62,37 @@ describe("<CommitmentPills>", () => {
     const btn = screen.getByTestId("commitment-pill-resolve") as HTMLButtonElement;
     expect(btn.disabled).toBe(true);
   });
+
+  it("exposes the full commitment text via the pill's title attribute for hover-reveal when truncated", () => {
+    const longContent =
+      "Confirm Friday's roof inspection at 1234 Main Street Drive, " +
+      "Suite 200, before EOD Tuesday with the updated scope and pricing";
+    render(
+      <CommitmentPills
+        commitments={[
+          { id: "m-long", content: longContent, due: "TUE", urgent: false },
+        ]}
+        onResolve={() => {}}
+      />,
+    );
+    const pill = screen.getByTestId("commitment-pill");
+    expect(pill.getAttribute("title")).toBe(longContent);
+    const content = screen.getByTestId("commitment-pill-content");
+    expect(content.className).toMatch(/\btruncate\b/);
+    expect(content.textContent).toBe(longContent);
+  });
+
+  it("inner content span uses flex-1 + min-w-0 so it shrinks before the due-meta and ✓ button", () => {
+    render(
+      <CommitmentPills
+        commitments={[
+          { id: "m-1", content: "Short", due: "FRI", urgent: false },
+        ]}
+        onResolve={() => {}}
+      />,
+    );
+    const content = screen.getByTestId("commitment-pill-content");
+    expect(content.className).toMatch(/\bflex-1\b/);
+    expect(content.className).toMatch(/\bmin-w-0\b/);
+  });
 });
