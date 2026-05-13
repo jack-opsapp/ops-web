@@ -60,11 +60,17 @@ import { SpatialCard } from "./_components/spatial-card";
 import { SpatialCardHoverMetrics } from "./_components/spatial-card-hover-metrics";
 import { SpatialCardExpanded } from "./_components/spatial-card-expanded";
 import { SpatialDragOverlay } from "./_components/spatial-drag-overlay";
-import { SpatialMarqueeSelect, isCardInMarquee } from "./_components/spatial-marquee-select";
+import {
+  SpatialMarqueeSelect,
+  isCardInMarquee,
+} from "./_components/spatial-marquee-select";
 import { SpatialContextMenu } from "./_components/spatial-context-menu";
 import { SpatialTerminalRegion } from "./_components/spatial-terminal-region";
 import { SpatialFloatingToolbar } from "./_components/spatial-floating-toolbar";
-import { SpatialArchiveTray, SpatialDiscardTray } from "./_components/spatial-archive-tray";
+import {
+  SpatialArchiveTray,
+  SpatialDiscardTray,
+} from "./_components/spatial-archive-tray";
 import { calculateCanvasLayout } from "./_components/spatial-layout-engine";
 import { calculateBatchStaleness } from "./_components/spatial-staleness";
 import { PipelineDndProvider } from "./_components/pipeline-dnd-provider";
@@ -121,9 +127,15 @@ const SpatialCardWrapperComponent = memo(function SpatialCardWrapperComponent({
   tUnknown: string;
 }) {
   // Read reactive state directly from the store — only this component re-renders
-  const isSelected = useSpatialCanvasStore((s) => s.selectedCardIds.has(opportunity.id));
-  const isExpanded = useSpatialCanvasStore((s) => s.expandedCardIds.has(opportunity.id));
-  const isHovered = useSpatialCanvasStore((s) => s.hoveredCardId === opportunity.id);
+  const isSelected = useSpatialCanvasStore((s) =>
+    s.selectedCardIds.has(opportunity.id)
+  );
+  const isExpanded = useSpatialCanvasStore((s) =>
+    s.expandedCardIds.has(opportunity.id)
+  );
+  const isHovered = useSpatialCanvasStore(
+    (s) => s.hoveredCardId === opportunity.id
+  );
   const isBirdEye = useSpatialCanvasStore((s) => s.zoom < BIRD_EYE_THRESHOLD);
   const toggleCardExpanded = useSpatialCanvasStore((s) => s.toggleCardExpanded);
   const setHoveredCard = useSpatialCanvasStore((s) => s.setHoveredCard);
@@ -149,7 +161,8 @@ const SpatialCardWrapperComponent = memo(function SpatialCardWrapperComponent({
               left: position.x,
               top: position.y,
               width: CARD_WIDTH,
-              transition: "left 0.3s cubic-bezier(0.22, 1, 0.36, 1), top 0.3s cubic-bezier(0.22, 1, 0.36, 1)",
+              transition:
+                "left 0.3s cubic-bezier(0.22, 1, 0.36, 1), top 0.3s cubic-bezier(0.22, 1, 0.36, 1)",
             }),
         zIndex: isExpanded ? 20 : isHovered ? 10 : 1,
       }}
@@ -270,7 +283,13 @@ function SpatialCanvasDesktop({
 
   // Calculate layout
   const layout = useMemo(
-    () => calculateCanvasLayout(opportunities, sortBy, clientNameMap, stageSortOverrides),
+    () =>
+      calculateCanvasLayout(
+        opportunities,
+        sortBy,
+        clientNameMap,
+        stageSortOverrides
+      ),
     [opportunities, sortBy, clientNameMap, stageSortOverrides]
   );
 
@@ -297,7 +316,7 @@ function SpatialCanvasDesktop({
   );
 
   const activeOpportunity = activeDragId
-    ? opportunities.find((o) => o.id === activeDragId) ?? null
+    ? (opportunities.find((o) => o.id === activeDragId) ?? null)
     : null;
 
   // Context menu handlers
@@ -308,7 +327,10 @@ function SpatialCanvasDesktop({
         visible: true,
         x: e.clientX,
         y: e.clientY,
-        type: selectedCardIds.size > 1 && selectedCardIds.has(id) ? "selection" : "card",
+        type:
+          selectedCardIds.size > 1 && selectedCardIds.has(id)
+            ? "selection"
+            : "card",
         targetCardId: id,
         stage: opp?.stage ?? null,
       });
@@ -332,7 +354,12 @@ function SpatialCanvasDesktop({
         // Check active stage regions
         for (const stack of layout.stacks) {
           const b = stack.regionBounds;
-          if (canvasX >= b.x && canvasX <= b.x + b.width && canvasY >= b.y && canvasY <= b.y + b.height) {
+          if (
+            canvasX >= b.x &&
+            canvasX <= b.x + b.width &&
+            canvasY >= b.y &&
+            canvasY <= b.y + b.height
+          ) {
             hitStage = stack.stage;
             break;
           }
@@ -342,7 +369,12 @@ function SpatialCanvasDesktop({
         if (!hitStage) {
           for (const region of layout.terminalRegions) {
             const b = region.bounds;
-            if (canvasX >= b.x && canvasX <= b.x + b.width && canvasY >= b.y && canvasY <= b.y + b.height) {
+            if (
+              canvasX >= b.x &&
+              canvasX <= b.x + b.width &&
+              canvasY >= b.y &&
+              canvasY <= b.y + b.height
+            ) {
               hitStage = region.stage;
               break;
             }
@@ -427,7 +459,12 @@ function SpatialCanvasDesktop({
   // Render card helper — returns a wrapper that reads reactive state from the store
   // This avoids recreating renderCard on every hover/selection/expand change
   const renderCard = useCallback(
-    (opportunity: Opportunity, position: { x: number; y: number }, draggable = true, flow = false) => (
+    (
+      opportunity: Opportunity,
+      position: { x: number; y: number },
+      draggable = true,
+      flow = false
+    ) => (
       <SpatialCardWrapperComponent
         key={opportunity.id}
         opportunity={opportunity}
@@ -456,9 +493,10 @@ function SpatialCanvasDesktop({
     return map;
   }, [opportunities]);
 
-  const batchCount = activeDragId && selectedCardIds.has(activeDragId)
-    ? selectedCardIds.size
-    : 1;
+  const batchCount =
+    activeDragId && selectedCardIds.has(activeDragId)
+      ? selectedCardIds.size
+      : 1;
 
   return (
     <div className="relative h-full w-full">
@@ -478,7 +516,9 @@ function SpatialCanvasDesktop({
             layout={stackLayout}
             isBirdEye={isBirdEye}
             activeId={activeDragId}
-            renderCard={(opp, pos, draggable, flow) => renderCard(opp, pos, draggable, flow)}
+            renderCard={(opp, pos, draggable, flow) =>
+              renderCard(opp, pos, draggable, flow)
+            }
           />
         ))}
 
@@ -486,7 +526,9 @@ function SpatialCanvasDesktop({
         {layout.terminalRegions.map((regionLayout) => (
           <SpatialTerminalRegion
             key={regionLayout.stage}
-            stage={regionLayout.stage as OpportunityStage.Won | OpportunityStage.Lost}
+            stage={
+              regionLayout.stage as OpportunityStage.Won | OpportunityStage.Lost
+            }
             opportunities={oppsByStage.get(regionLayout.stage) ?? []}
             layout={regionLayout}
             isBirdEye={isBirdEye}
@@ -503,9 +545,9 @@ function SpatialCanvasDesktop({
         activeOpportunity={activeOpportunity}
         clientName={
           activeOpportunity
-            ? clientNameMap.get(activeOpportunity.clientId ?? "") ??
+            ? (clientNameMap.get(activeOpportunity.clientId ?? "") ??
               activeOpportunity.contactName ??
-              tPipeline("card.unknown")
+              tPipeline("card.unknown"))
             : ""
         }
         batchCount={batchCount}
@@ -520,7 +562,9 @@ function SpatialCanvasDesktop({
         onArchive={onArchive}
         onArchiveBatch={(ids) => ids.forEach(onArchive)}
         onDelete={onDiscard}
-        onMoveToStage={(ids, stage) => ids.forEach((id) => onMoveStage(id, stage))}
+        onMoveToStage={(ids, stage) =>
+          ids.forEach((id) => onMoveStage(id, stage))
+        }
         onAssign={(ids) => ids.forEach(onAssign)}
         onMarkWon={(ids) => {
           for (const id of ids) {
@@ -536,7 +580,9 @@ function SpatialCanvasDesktop({
         }}
         onSelectAll={(stage) => {
           if (stage) {
-            selectCards(opportunities.filter((o) => o.stage === stage).map((o) => o.id));
+            selectCards(
+              opportunities.filter((o) => o.stage === stage).map((o) => o.id)
+            );
           } else {
             selectCards(opportunities.map((o) => o.id));
           }
@@ -570,7 +616,7 @@ function PipelineSkeleton() {
   const stages = PIPELINE_STAGES_DEFAULT;
 
   return (
-    <div className="flex flex-col h-full space-y-2 min-w-0">
+    <div className="flex h-full min-w-0 flex-col space-y-2">
       {/* Header skeleton */}
       <div className="shrink-0 space-y-1">
         <div className="flex items-center justify-between">
@@ -580,12 +626,12 @@ function PipelineSkeleton() {
         </div>
 
         {/* Metrics skeleton */}
-        <div className="bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)] border border-[rgba(255,255,255,0.06)] rounded-[4px]">
+        <div className="rounded-[4px] border border-[rgba(255,255,255,0.06)] bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)]">
           <div className="flex items-center gap-[16px] px-3 py-[8px]">
             {[1, 2, 3].map((i) => (
               <div key={i} className="flex flex-col gap-[2px]">
-                <div className="h-[18px] w-[60px] bg-fill-neutral-dim rounded animate-pulse" />
-                <div className="h-[10px] w-[40px] bg-fill-neutral-dim rounded animate-pulse" />
+                <div className="h-[18px] w-[60px] animate-pulse rounded bg-fill-neutral-dim" />
+                <div className="h-[10px] w-[40px] animate-pulse rounded bg-fill-neutral-dim" />
               </div>
             ))}
           </div>
@@ -594,14 +640,11 @@ function PipelineSkeleton() {
 
       {/* Board skeleton */}
       <div className="flex-1 overflow-x-auto pb-2">
-        <div className="flex gap-2 min-w-min">
+        <div className="flex min-w-min gap-2">
           {stages.slice(0, 6).map((stage) => (
-            <div
-              key={stage.slug}
-              className="flex flex-col w-[280px] shrink-0"
-            >
+            <div key={stage.slug} className="flex w-[280px] shrink-0 flex-col">
               <div
-                className="border-t-2 rounded-t-sm px-1.5 py-1 bg-glass glass-surface border border-border border-b-0"
+                className="glass-surface rounded-t-sm border border-b-0 border-t-2 border-border bg-glass px-1.5 py-1"
                 style={{ borderTopColor: stage.color }}
               >
                 <div className="flex items-center gap-1">
@@ -611,20 +654,20 @@ function PipelineSkeleton() {
                   >
                     {stage.name}
                   </h3>
-                  <span className="font-mono text-[11px] text-text-mute bg-fill-neutral-dim px-[6px] py-[2px] rounded-sm">
+                  <span className="rounded-sm bg-fill-neutral-dim px-[6px] py-[2px] font-mono text-[11px] text-text-mute">
                     --
                   </span>
                 </div>
               </div>
-              <div className="flex-1 border border-border border-t-0 rounded-b p-1 space-y-1 min-h-[200px] bg-[rgba(10,10,10,0.5)]">
+              <div className="min-h-[200px] flex-1 space-y-1 rounded-b border border-t-0 border-border bg-[rgba(10,10,10,0.5)] p-1">
                 {[1, 2].map((j) => (
                   <div
                     key={j}
-                    className="bg-glass glass-surface border border-[rgba(255,255,255,0.2)] rounded-[5px] p-1.5 space-y-1.5 animate-pulse"
+                    className="glass-surface animate-pulse space-y-1.5 rounded-[5px] border border-[rgba(255,255,255,0.2)] bg-glass p-1.5"
                   >
-                    <div className="h-[14px] w-3/4 bg-fill-neutral-dim rounded" />
-                    <div className="h-[10px] w-1/2 bg-fill-neutral-dim rounded" />
-                    <div className="h-[10px] w-1/3 bg-fill-neutral-dim rounded" />
+                    <div className="h-[14px] w-3/4 rounded bg-fill-neutral-dim" />
+                    <div className="h-[10px] w-1/2 rounded bg-fill-neutral-dim" />
+                    <div className="h-[10px] w-1/3 rounded bg-fill-neutral-dim" />
                   </div>
                 ))}
               </div>
@@ -749,7 +792,8 @@ export default function PipelinePage() {
   }, [setupComplete, openWindow]);
 
   // ── Metrics header data ────────────────────────────────────────────
-  const { data: pipelineMetrics = [], isLoading: pipelineMetricsLoading } = usePipelineMetrics();
+  const { data: pipelineMetrics = [], isLoading: pipelineMetricsLoading } =
+    usePipelineMetrics();
 
   // ── Data fetching ─────────────────────────────────────────────────────
   const { data: opportunities, isLoading: oppsLoading } = useOpportunities();
@@ -806,9 +850,7 @@ export default function PipelinePage() {
   // ── Active (non-deleted, non-archived) opportunities ──────────────────
   const activeOpportunities = useMemo(() => {
     if (!opportunities) return [];
-    return opportunities.filter(
-      (o) => !o.deletedAt && !o.archivedAt
-    );
+    return opportunities.filter((o) => !o.deletedAt && !o.archivedAt);
   }, [opportunities]);
 
   // ── Filtered opportunities ────────────────────────────────────────────
@@ -843,7 +885,13 @@ export default function PipelinePage() {
     }
 
     return result;
-  }, [activeOpportunities, stageFilter, assigneeFilter, searchQuery, clientNameMap]);
+  }, [
+    activeOpportunities,
+    stageFilter,
+    assigneeFilter,
+    searchQuery,
+    clientNameMap,
+  ]);
 
   const detailPanelOpportunity = useMemo(() => {
     if (!detailPanelOpportunityId) return null;
@@ -959,7 +1007,9 @@ export default function PipelinePage() {
       archiveMutation.mutate(opportunityId);
       pushUndo({
         label,
-        inverseFn: async () => { await unarchiveMutation.mutateAsync(opportunityId); },
+        inverseFn: async () => {
+          await unarchiveMutation.mutateAsync(opportunityId);
+        },
       });
     },
     [archiveMutation, unarchiveMutation, activeOpportunities, pushUndo]
@@ -992,22 +1042,31 @@ export default function PipelinePage() {
 
       // Normal stage move
       const previousStage = opp.stage;
-      const clientName = clientNameMap.get(opp.clientId ?? "") ?? opp.contactName ?? opp.title ?? "";
+      const clientName =
+        clientNameMap.get(opp.clientId ?? "") ??
+        opp.contactName ??
+        opp.title ??
+        "";
       moveStage.mutate(
         { id, stage: newStage, userId: currentUser?.id },
         {
           onSuccess: () => {
-            const value = opp.estimatedValue ? formatCurrency(opp.estimatedValue) : "";
+            const value = opp.estimatedValue
+              ? formatCurrency(opp.estimatedValue)
+              : "";
             const fromStage = getStageDisplayName(previousStage);
             const toStage = getStageDisplayName(newStage);
-            toast.success(
-              `${clientName}${value ? ` · ${value}` : ""}`,
-              { description: `${fromStage} → ${toStage}` }
-            );
+            toast.success(`${clientName}${value ? ` · ${value}` : ""}`, {
+              description: `${fromStage} → ${toStage}`,
+            });
             pushUndo({
               label: `${clientName} → ${toStage}`,
               inverseFn: async () => {
-                await moveStage.mutateAsync({ id, stage: previousStage, userId: currentUser?.id });
+                await moveStage.mutateAsync({
+                  id,
+                  stage: previousStage,
+                  userId: currentUser?.id,
+                });
               },
             });
           },
@@ -1022,7 +1081,15 @@ export default function PipelinePage() {
         }
       );
     },
-    [activeOpportunities, moveStage, currentUser, can, t, clientNameMap, pushUndo]
+    [
+      activeOpportunities,
+      moveStage,
+      currentUser,
+      can,
+      t,
+      clientNameMap,
+      pushUndo,
+    ]
   );
 
   /** Mark won — opens transition dialog */
@@ -1114,13 +1181,10 @@ export default function PipelinePage() {
     ]
   );
 
-  const handlePipelineDragCancel = useCallback(
-    (_event: DragCancelEvent) => {
-      setActiveDragId(null);
-      useSpatialCanvasStore.getState().endDrag();
-    },
-    []
-  );
+  const handlePipelineDragCancel = useCallback((_event: DragCancelEvent) => {
+    setActiveDragId(null);
+    useSpatialCanvasStore.getState().endDrag();
+  }, []);
 
   /** Discard — direct stage move, no confirmation dialog needed */
   const handleDiscard = useCallback(
@@ -1180,7 +1244,11 @@ export default function PipelinePage() {
             pushUndo({
               label: `${clientName} → ${toStage}`,
               inverseFn: async () => {
-                await moveStage.mutateAsync({ id, stage: previousStage, userId: currentUser?.id });
+                await moveStage.mutateAsync({
+                  id,
+                  stage: previousStage,
+                  userId: currentUser?.id,
+                });
               },
             });
           },
@@ -1222,7 +1290,8 @@ export default function PipelinePage() {
   /** Open detail panel for an opportunity */
   const handleOpenDetail = useCallback((opp: Opportunity) => {
     // Collapse the inline card expansion before opening the detail panel.
-    const { expandedCardIds, toggleCardExpanded } = useSpatialCanvasStore.getState();
+    const { expandedCardIds, toggleCardExpanded } =
+      useSpatialCanvasStore.getState();
     if (expandedCardIds.has(opp.id)) {
       toggleCardExpanded(opp.id);
     }
@@ -1388,7 +1457,10 @@ export default function PipelinePage() {
                   opportunities?.filter((o) => !!o.archivedAt) ?? []
                 }
                 discardedOpportunities={
-                  opportunities?.filter((o) => o.stage === OpportunityStage.Discarded && !o.archivedAt) ?? []
+                  opportunities?.filter(
+                    (o) =>
+                      o.stage === OpportunityStage.Discarded && !o.archivedAt
+                  ) ?? []
                 }
                 onRestore={(id) => unarchiveMutation.mutate(id)}
                 onDeletePermanently={(id) => deleteMutation.mutate(id)}
@@ -1400,52 +1472,51 @@ export default function PipelinePage() {
       </div>
 
       {/* ── Page HUD — metrics, toolbar, banners float on top of canvas ── */}
-      <div className="absolute left-0 right-0 top-0 z-[2] pointer-events-none">
+      <div className="pointer-events-none absolute left-0 right-0 top-0 z-[2]">
         <div className="pointer-events-auto">
-          <MetricsHeader variant="full" tabId="pipeline" title="Pipeline" metrics={pipelineMetrics} isLoading={pipelineMetricsLoading} />
+          <MetricsHeader
+            variant="full"
+            tabId="pipeline"
+            title="Pipeline"
+            metrics={pipelineMetrics}
+            isLoading={pipelineMetricsLoading}
+          />
         </div>
-        {mode !== "focused" && (
-          <>
-            <div className="pointer-events-auto px-3 py-1.5">
-              <div className="inline-flex w-fit py-[2px] rounded-[4px] border border-[rgba(255,255,255,0.08)]"
-                style={{
-                  background: "rgba(10, 10, 10, 0.50)",
-                  backdropFilter: "blur(12px) saturate(1.1)",
-                  WebkitBackdropFilter: "blur(12px) saturate(1.1)",
-                }}
-              >
-                <SpatialFloatingToolbar
-                  onAddLead={gatedOpenCreate}
-                  reviewCount={reviewCount}
-                  onReviewEmails={() => setReviewPanelOpen(true)}
-                />
-              </div>
+        {!isMobile && mode !== "focused" && (
+          <div className="pointer-events-auto px-3 py-1.5">
+            <div className="inline-flex w-fit rounded-chip border border-border-subtle bg-glass-subtle py-[2px] backdrop-blur-[12px] backdrop-saturate-[1.1]">
+              <SpatialFloatingToolbar
+                reviewCount={reviewCount}
+                onReviewEmails={() => setReviewPanelOpen(true)}
+              />
             </div>
-            <div className="pointer-events-auto px-3 pb-1">
-              <div className="inline-flex w-fit rounded-[4px] border border-[rgba(255,255,255,0.08)] bg-[rgba(10,10,10,0.50)] px-1.5 py-1 backdrop-blur-[12px] backdrop-saturate-[1.1]">
-                <PipelineFilterRow
-                  searchQuery={searchQuery}
-                  onSearchChange={setSearchQuery}
-                  stageFilter={stageFilter}
-                  onStageFilterChange={setStageFilter}
-                  assigneeFilter={assigneeFilter}
-                  onAssigneeFilterChange={setAssigneeFilter}
-                  teamMembers={teamMembers}
-                  onAddLead={gatedOpenCreate}
-                  canManage={canManage}
-                />
-              </div>
+          </div>
+        )}
+        {!isMobile && (
+          <div className="pointer-events-auto px-3 pb-1">
+            <div className="inline-flex w-fit rounded-chip border border-border-subtle bg-glass-subtle px-1.5 py-1 backdrop-blur-[12px] backdrop-saturate-[1.1]">
+              <PipelineFilterRow
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
+                stageFilter={stageFilter}
+                onStageFilterChange={setStageFilter}
+                assigneeFilter={assigneeFilter}
+                onAssigneeFilterChange={setAssigneeFilter}
+                teamMembers={teamMembers}
+                onAddLead={gatedOpenCreate}
+                canManage={canManage}
+              />
             </div>
-          </>
+          </div>
         )}
         {/* Banners */}
         <div className="pointer-events-auto flex flex-col gap-1 px-3">
           {gmailConnections.length === 0 && !gmailBannerDismissed && (
-            <div className="flex items-center gap-2 px-2 py-1.5 rounded-[4px] bg-[rgba(65,115,148,0.08)] border border-[rgba(111, 148, 176,0.2)] animate-fade-in">
-              <div className="w-[32px] h-[32px] rounded bg-[rgba(111, 148, 176,0.15)] flex items-center justify-center shrink-0">
-                <Mail className="w-[16px] h-[16px] text-[#6F94B0]" />
+            <div className="border-[rgba(111, 148, 176,0.2)] flex animate-fade-in items-center gap-2 rounded-[4px] border bg-[rgba(65,115,148,0.08)] px-2 py-1.5">
+              <div className="bg-[rgba(111, 148, 176,0.15)] flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded">
+                <Mail className="h-[16px] w-[16px] text-[#6F94B0]" />
               </div>
-              <div className="flex-1 min-w-0">
+              <div className="min-w-0 flex-1">
                 <p className="font-mohave text-body text-text">
                   {t("gmail.connectBanner")}
                 </p>
@@ -1453,13 +1524,15 @@ export default function PipelinePage() {
                   {t("gmail.connectDesc")}
                 </p>
               </div>
-              <div className="flex items-center gap-1 shrink-0">
+              <div className="flex shrink-0 items-center gap-1">
                 <Button
                   size="sm"
                   className="gap-[6px]"
                   onClick={() => {
                     if (!currentUser?.id) {
-                      console.error("[pipeline] No current user — cannot initiate OAuth");
+                      console.error(
+                        "[pipeline] No current user — cannot initiate OAuth"
+                      );
                       return;
                     }
                     const params = new URLSearchParams({
@@ -1470,15 +1543,15 @@ export default function PipelinePage() {
                     window.location.href = `/api/integrations/gmail?${params}`;
                   }}
                 >
-                  <Mail className="w-[14px] h-[14px]" />
+                  <Mail className="h-[14px] w-[14px]" />
                   {t("gmail.connect")}
                 </Button>
                 <button
                   onClick={() => setGmailBannerDismissed(true)}
-                  className="p-[6px] text-text-mute hover:text-text-3 transition-colors"
+                  className="p-[6px] text-text-mute transition-colors hover:text-text-3"
                   title={t("gmail.dismiss")}
                 >
-                  <X className="w-[14px] h-[14px]" />
+                  <X className="h-[14px] w-[14px]" />
                 </button>
               </div>
             </div>
@@ -1493,8 +1566,8 @@ export default function PipelinePage() {
             />
           )}
           {moveStage.isPending && (
-            <div className="flex items-center gap-1.5 px-2 py-1 rounded-[4px] bg-[rgba(111, 148, 176,0.12)] border border-[rgba(111, 148, 176,0.25)]">
-              <Loader2 className="w-[14px] h-[14px] text-[#6F94B0] animate-spin" />
+            <div className="bg-[rgba(111, 148, 176,0.12)] border-[rgba(111, 148, 176,0.25)] flex items-center gap-1.5 rounded-[4px] border px-2 py-1">
+              <Loader2 className="h-[14px] w-[14px] animate-spin text-[#6F94B0]" />
               <span className="font-mono text-[11px] text-[#6F94B0]">
                 {t("column.updating")}
               </span>
@@ -1505,24 +1578,8 @@ export default function PipelinePage() {
 
       {!isMobile && mode === "focused" && (
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[3] flex justify-center px-3">
-          <div
-            className="pointer-events-auto inline-flex max-w-full overflow-x-auto rounded-[4px] border border-[rgba(255,255,255,0.08)] py-[2px] scrollbar-hide"
-            style={{
-              background: "rgba(10, 10, 10, 0.50)",
-              backdropFilter: "blur(12px) saturate(1.1)",
-              WebkitBackdropFilter: "blur(12px) saturate(1.1)",
-            }}
-          >
+          <div className="scrollbar-hide pointer-events-auto inline-flex max-w-full overflow-x-auto rounded-chip border border-border-subtle bg-glass-subtle py-[2px] backdrop-blur-[12px] backdrop-saturate-[1.1]">
             <PipelineFocusedToolbar
-              searchQuery={searchQuery}
-              onSearchChange={setSearchQuery}
-              stageFilter={stageFilter}
-              onStageFilterChange={setStageFilter}
-              assigneeFilter={assigneeFilter}
-              onAssigneeFilterChange={setAssigneeFilter}
-              teamMembers={teamMembers}
-              onAddLead={gatedOpenCreate}
-              canManage={canManage}
               reviewCount={reviewCount}
               onReviewEmails={() => setReviewPanelOpen(true)}
             />
@@ -1578,7 +1635,11 @@ export default function PipelinePage() {
         isOpen={showSetupModal}
         onComplete={() => {
           setShowSetupModal(false);
-          openWindow({ id: "create-lead", title: "New Lead", type: "create-lead" });
+          openWindow({
+            id: "create-lead",
+            title: "New Lead",
+            type: "create-lead",
+          });
         }}
         onDismiss={() => {
           setShowSetupModal(false);

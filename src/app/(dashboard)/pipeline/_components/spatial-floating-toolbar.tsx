@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import { Maximize2, Minimize2, Plus, Archive, Trash2, Mail } from "lucide-react";
+import { Maximize2, Minimize2, Archive, Trash2, Mail } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
 import { useSpatialCanvasStore } from "./spatial-canvas-store";
@@ -15,7 +15,6 @@ import {
 // ── Types ──
 
 interface SpatialFloatingToolbarProps {
-  onAddLead: () => void;
   reviewCount?: number;
   onReviewEmails?: () => void;
 }
@@ -23,7 +22,6 @@ interface SpatialFloatingToolbarProps {
 // ── Component ──
 
 export function SpatialFloatingToolbar({
-  onAddLead,
   reviewCount = 0,
   onReviewEmails,
 }: SpatialFloatingToolbarProps) {
@@ -57,57 +55,48 @@ export function SpatialFloatingToolbar({
       {reviewCount > 0 && onReviewEmails && (
         <>
           <ToolbarAction onClick={onReviewEmails}>
-            <Mail className="w-[13px] h-[13px] text-text-2" />
-            <span className="font-mono text-micro text-text-2 uppercase tracking-wider">
+            <Mail className="h-[13px] w-[13px]" strokeWidth={1.5} />
+            <span className="font-mono text-micro uppercase tracking-wider">
               {t("gmail.reviewEmails")}
             </span>
-            <span className="inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-[4px] border border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.08)] font-mono text-micro text-text">
+            <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-chip border border-line-hi bg-surface-active px-1 font-mono text-micro text-text">
               {reviewCount > 99 ? "99+" : reviewCount}
             </span>
           </ToolbarAction>
-          <div className="w-[1px] h-[18px] bg-border-subtle" />
+          <div className="h-[18px] w-px bg-border-subtle" />
         </>
       )}
 
       <ToolbarAction onClick={toggleMode}>
-        <Minimize2 className="w-[13px] h-[13px]" />
+        <Minimize2 className="h-[13px] w-[13px]" strokeWidth={1.5} />
         <span className="font-mono text-micro uppercase tracking-wider">
           {t("focused.modeButton.focused")}
         </span>
       </ToolbarAction>
 
-      <div className="w-[1px] h-[18px] bg-border-subtle" />
+      <div className="h-[18px] w-px bg-border-subtle" />
 
       {/* Canvas tools */}
       <ToolbarAction onClick={handleFitAll}>
-        <Maximize2 className="w-[13px] h-[13px]" />
+        <Maximize2 className="h-[13px] w-[13px]" strokeWidth={1.5} />
         <span className="font-mono text-micro uppercase tracking-wider">
           {t("spatial.fitAll")}
         </span>
       </ToolbarAction>
 
-      <div className="w-[1px] h-[18px] bg-border-subtle" />
-
-      <ToolbarAction onClick={onAddLead}>
-        <Plus className="w-[13px] h-[13px]" />
-        <span className="font-mono text-micro uppercase tracking-wider">
-          {t("spatial.newLead")}
-        </span>
-      </ToolbarAction>
-
-      <div className="w-[1px] h-[18px] bg-border-subtle" />
+      <div className="h-[18px] w-px bg-border-subtle" />
 
       <ToolbarAction onClick={toggleArchiveTray} isActive={isArchiveTrayOpen}>
-        <Archive className="w-[13px] h-[13px]" />
+        <Archive className="h-[13px] w-[13px]" strokeWidth={1.5} />
         <span className="font-mono text-micro uppercase tracking-wider">
           {t("spatial.archivedDeals")}
         </span>
       </ToolbarAction>
 
-      <div className="w-[1px] h-[18px] bg-border-subtle" />
+      <div className="h-[18px] w-px bg-border-subtle" />
 
       <ToolbarAction onClick={toggleDiscardTray} isActive={isDiscardTrayOpen}>
-        <Trash2 className="w-[13px] h-[13px]" />
+        <Trash2 className="h-[13px] w-[13px]" strokeWidth={1.5} />
         <span className="font-mono text-micro uppercase tracking-wider">
           {t("spatial.discardedDeals")}
         </span>
@@ -129,11 +118,12 @@ function ToolbarAction({
 }) {
   return (
     <button
+      type="button"
       className={cn(
-        "flex items-center gap-[5px] px-[8px] py-[5px] rounded-sm transition-colors duration-150 cursor-pointer",
+        "flex cursor-pointer items-center gap-[5px] rounded px-[8px] py-[5px] transition-colors duration-150",
         isActive
-          ? "text-text bg-[rgba(255,255,255,0.08)] border border-[rgba(255,255,255,0.18)]"
-          : "text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.04)] border border-transparent"
+          ? "border border-line-hi bg-surface-active text-text"
+          : "border border-transparent text-text-3 hover:bg-surface-hover hover:text-text"
       )}
       onClick={onClick}
     >

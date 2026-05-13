@@ -37,8 +37,8 @@ const DROPDOWN_SURFACE =
 
 const DROPDOWN_ITEM =
   "flex items-center gap-[8px] w-full px-[10px] py-[6px] " +
-  "font-mohave text-body-sm text-left whitespace-nowrap " +
-  "hover:bg-[rgba(255,255,255,0.06)] transition-colors cursor-pointer";
+  "font-mono text-caption-sm text-left whitespace-nowrap " +
+  "hover:bg-surface-hover transition-colors cursor-pointer";
 
 // ---------------------------------------------------------------------------
 // Stage Dropdown
@@ -50,7 +50,11 @@ interface StageDropdownProps {
   allStagesLabel: string;
 }
 
-function StageDropdown({ value, onChange, allStagesLabel }: StageDropdownProps) {
+function StageDropdown({
+  value,
+  onChange,
+  allStagesLabel,
+}: StageDropdownProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -58,7 +62,10 @@ function StageDropdown({ value, onChange, allStagesLabel }: StageDropdownProps) 
   useEffect(() => {
     if (!open) return;
     function handlePointerDown(e: PointerEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
         setOpen(false);
       }
     }
@@ -81,26 +88,24 @@ function StageDropdown({ value, onChange, allStagesLabel }: StageDropdownProps) 
         type="button"
         onClick={() => setOpen((prev) => !prev)}
         className={cn(
-          "flex items-center gap-[6px] h-[30px] px-[10px]",
-          "bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)]",
-          "border border-[rgba(255,255,255,0.06)] rounded-[4px]",
-          "font-mohave text-body-sm text-text",
-          "hover:border-[rgba(255,255,255,0.14)] transition-colors cursor-pointer",
-          open && "border-[rgba(255,255,255,0.14)]"
+          "flex h-[30px] items-center gap-[6px] rounded border border-border bg-fill-neutral-dim px-[10px]",
+          "font-mono text-caption-sm text-text",
+          "cursor-pointer transition-colors hover:border-line-hi",
+          open && "border-line-hi"
         )}
         aria-haspopup="listbox"
         aria-expanded={open}
       >
         {activeDotColor && (
           <span
-            className="w-[6px] h-[6px] rounded-full shrink-0"
+            className="h-[6px] w-[6px] shrink-0 rounded-full"
             style={{ backgroundColor: activeDotColor }}
           />
         )}
         <span className="whitespace-nowrap">{labelText}</span>
         <ChevronDown
           className={cn(
-            "w-[12px] h-[12px] text-text-3 shrink-0 transition-transform duration-150",
+            "h-[12px] w-[12px] shrink-0 text-text-3 transition-transform duration-150",
             open && "rotate-180"
           )}
         />
@@ -108,7 +113,11 @@ function StageDropdown({ value, onChange, allStagesLabel }: StageDropdownProps) 
 
       {/* Dropdown */}
       {open && (
-        <div className={DROPDOWN_SURFACE} role="listbox" aria-label="Stage filter">
+        <div
+          className={DROPDOWN_SURFACE}
+          role="listbox"
+          aria-label={allStagesLabel}
+        >
           {/* All Stages option */}
           <button
             type="button"
@@ -123,7 +132,7 @@ function StageDropdown({ value, onChange, allStagesLabel }: StageDropdownProps) 
               setOpen(false);
             }}
           >
-            <span className="w-[6px] h-[6px] rounded-full bg-[rgba(255,255,255,0.18)] shrink-0" />
+            <span className="h-[6px] w-[6px] shrink-0 rounded-full bg-fill-neutral" />
             {allStagesLabel}
           </button>
 
@@ -143,7 +152,7 @@ function StageDropdown({ value, onChange, allStagesLabel }: StageDropdownProps) 
               }}
             >
               <span
-                className="w-[6px] h-[6px] rounded-full shrink-0"
+                className="h-[6px] w-[6px] shrink-0 rounded-full"
                 style={{ backgroundColor: OPPORTUNITY_STAGE_COLORS[stage] }}
               />
               {getStageDisplayName(stage)}
@@ -179,7 +188,10 @@ function AssigneeDropdown({
   useEffect(() => {
     if (!open) return;
     function handlePointerDown(e: PointerEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
         setOpen(false);
       }
     }
@@ -190,10 +202,9 @@ function AssigneeDropdown({
   const activeMember =
     value !== "all" ? teamMembers.find((m) => m.id === value) : undefined;
 
-  const labelText =
-    activeMember
-      ? `${activeMember.firstName} ${activeMember.lastName}`
-      : everyoneLabel;
+  const labelText = activeMember
+    ? `${activeMember.firstName} ${activeMember.lastName}`
+    : everyoneLabel;
 
   return (
     <div ref={containerRef} className="relative shrink-0">
@@ -202,12 +213,10 @@ function AssigneeDropdown({
         type="button"
         onClick={() => setOpen((prev) => !prev)}
         className={cn(
-          "flex items-center gap-[6px] h-[30px] px-[10px]",
-          "bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)]",
-          "border border-[rgba(255,255,255,0.06)] rounded-[4px]",
-          "font-mohave text-body-sm text-text",
-          "hover:border-[rgba(255,255,255,0.14)] transition-colors cursor-pointer",
-          open && "border-[rgba(255,255,255,0.14)]"
+          "flex h-[30px] items-center gap-[6px] rounded border border-border bg-fill-neutral-dim px-[10px]",
+          "font-mono text-caption-sm text-text",
+          "cursor-pointer transition-colors hover:border-line-hi",
+          open && "border-line-hi"
         )}
         aria-haspopup="listbox"
         aria-expanded={open}
@@ -215,7 +224,7 @@ function AssigneeDropdown({
         <span className="whitespace-nowrap">{labelText}</span>
         <ChevronDown
           className={cn(
-            "w-[12px] h-[12px] text-text-3 shrink-0 transition-transform duration-150",
+            "h-[12px] w-[12px] shrink-0 text-text-3 transition-transform duration-150",
             open && "rotate-180"
           )}
         />
@@ -223,7 +232,11 @@ function AssigneeDropdown({
 
       {/* Dropdown */}
       {open && (
-        <div className={DROPDOWN_SURFACE} role="listbox" aria-label="Assignee filter">
+        <div
+          className={DROPDOWN_SURFACE}
+          role="listbox"
+          aria-label={everyoneLabel}
+        >
           {/* Everyone option */}
           <button
             type="button"
@@ -281,19 +294,22 @@ export function PipelineFilterRow({
   canManage,
 }: PipelineFilterRowProps) {
   const { t } = useDictionary("pipeline");
-  const searchPlaceholder = t("focused.search.placeholder", "search pipeline...");
+  const searchPlaceholder = t("focused.search.placeholder");
 
   return (
-    <div className="flex items-center gap-[8px]">
-      <label className="flex h-[30px] min-w-[220px] items-center gap-[6px] rounded-[4px] border border-line bg-surface-input px-[10px] transition-colors focus-within:border-line-hi">
-        <Search className="h-[13px] w-[13px] shrink-0 text-text-3" strokeWidth={1.5} />
+    <div className="flex flex-wrap items-center gap-[8px]">
+      <label className="flex h-[30px] w-full min-w-[220px] items-center gap-[6px] rounded border border-border bg-fill-neutral-dim px-[10px] transition-colors focus-within:border-line-hi sm:w-[240px] sm:min-w-[240px]">
+        <Search
+          className="h-[13px] w-[13px] shrink-0 text-text-3"
+          strokeWidth={1.5}
+        />
         <input
           type="search"
           value={searchQuery}
           onChange={(event) => onSearchChange(event.target.value)}
           placeholder={searchPlaceholder}
           aria-label={searchPlaceholder}
-          className="h-full min-w-0 flex-1 bg-transparent font-mohave text-body-sm text-text outline-none placeholder:text-text-3"
+          className="h-full min-w-0 flex-1 bg-transparent font-mono text-caption-sm text-text outline-none placeholder:text-text-3"
         />
       </label>
 
@@ -318,13 +334,12 @@ export function PipelineFilterRow({
           type="button"
           onClick={onAddLead}
           className={cn(
-            "flex items-center gap-[6px] h-[30px] px-3 shrink-0",
-            "bg-ops-accent hover:bg-ops-accent/90",
-            "font-mohave text-body-sm text-white",
-            "rounded-[4px] transition-colors cursor-pointer"
+            "flex h-[30px] shrink-0 items-center gap-[6px] rounded border border-ops-accent px-3",
+            "font-mono text-caption-sm uppercase text-ops-accent",
+            "cursor-pointer transition-colors hover:bg-ops-accent hover:text-background"
           )}
         >
-          <Plus className="w-[14px] h-[14px] shrink-0" />
+          <Plus className="h-[14px] w-[14px] shrink-0" strokeWidth={1.5} />
           {t("newLead")}
         </button>
       )}
