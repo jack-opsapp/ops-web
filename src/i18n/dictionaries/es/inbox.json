@@ -475,13 +475,6 @@
   "modal.recat.title": "// RECATEGORIZAR",
   "modal.recat.body": "[—] mover este hilo a otro grupo",
   "modal.recat.phaseCNote": "// NOTA FASE C — OPCIONAL",
-  "modal.recat.optNeedsReply": "NECESITA RESPUESTA",
-  "modal.recat.optFyi": "INFORMATIVO",
-  "modal.recat.optScheduled": "PROGRAMADO",
-  "modal.recat.optClosed": "CERRADO",
-  "modal.recat.optSpam": "SPAM",
-  "modal.recat.optCustomer": "CLIENTE",
-  "modal.recat.optLead": "LEAD",
 
   "modal.writeback.title": "// PREFERENCIA DE SINCRONIZACIÓN",
   "modal.writeback.body": "[—] al archivar, ¿qué debe ocurrir en tu bandeja conectada?",

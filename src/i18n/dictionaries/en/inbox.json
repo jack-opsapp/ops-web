@@ -504,13 +504,6 @@
   "modal.recat.title": "// RECATEGORIZE",
   "modal.recat.body": "[—] move this thread to a different group",
   "modal.recat.phaseCNote": "// PHASE C NOTE — OPTIONAL",
-  "modal.recat.optNeedsReply": "NEEDS REPLY",
-  "modal.recat.optFyi": "FYI",
-  "modal.recat.optScheduled": "SCHEDULED",
-  "modal.recat.optClosed": "CLOSED",
-  "modal.recat.optSpam": "SPAM",
-  "modal.recat.optCustomer": "CUSTOMER",
-  "modal.recat.optLead": "LEAD",
 
   "modal.writeback.title": "// WRITEBACK PREFERENCE",
   "modal.writeback.body": "[—] when you archive, what should happen in your connected inbox?",
