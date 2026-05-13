@@ -53,7 +53,7 @@ const SNAP_DURATION_MS = 280;
 const SNAP_EASING = "cubic-bezier(0.22, 1, 0.36, 1)";
 const SNAP_DEBOUNCE_MS = 150;
 const SPINE_RAIL_CHROME =
-  "h-full pt-[clamp(144px,16vh,168px)] pb-3";
+  "h-full pt-[clamp(82px,9vh,96px)] pb-1.5";
 
 function sortOpportunities(
   opportunities: Opportunity[],
@@ -270,7 +270,7 @@ export function PipelineFocusedShell({
 
   return (
     <div
-      className="h-full min-h-0 w-full overflow-hidden bg-background px-[44px]"
+      className="h-full min-h-0 w-full overflow-hidden bg-background"
       onWheel={handleWheel}
     >
       <div className="flex h-full min-h-0 w-full items-stretch gap-2 overflow-hidden">
