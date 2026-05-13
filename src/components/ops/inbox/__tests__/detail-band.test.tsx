@@ -8,13 +8,12 @@ const base: BandThreadInput = {
   agent: { needsInput: false },
   phaseC: "none",
   aiSummary: null,
-  ballInCourt: null,
 };
 
 describe("<DetailBand>", () => {
   it("renders nothing when no band applies", () => {
     const { container } = render(
-      <DetailBand thread={base} clientName="Calloway" onAction={() => {}} />,
+      <DetailBand thread={base} onAction={() => {}} />,
     );
     expect(container.firstChild).toBeNull();
   });
@@ -26,7 +25,6 @@ describe("<DetailBand>", () => {
           ...base,
           aiSummary: "Calloway accepted the revised quote, follow-up due Friday.",
         }}
-        clientName="Calloway"
         summaryUpdatedAt="2026-05-06T14:55:00Z"
         onAction={() => {}}
       />,
@@ -43,7 +41,6 @@ describe("<DetailBand>", () => {
     render(
       <DetailBand
         thread={{ ...base, agent: { needsInput: true } }}
-        clientName="Calloway"
         agentQuestion="Should I follow up with the second-floor unit?"
         onAction={onAction}
       />,
@@ -53,25 +50,10 @@ describe("<DetailBand>", () => {
     expect(onAction).toHaveBeenCalledWith("provide-answer");
   });
 
-  it("renders the ball-yours band when ballInCourt === user", () => {
-    render(
-      <DetailBand
-        thread={{ ...base, ballInCourt: "user" }}
-        clientName="Calloway"
-        ballYoursWaitDuration="18H"
-        onAction={() => {}}
-      />,
-    );
-    expect(screen.getByText(/YOUR TURN :: CALLOWAY/i)).toBeInTheDocument();
-    expect(screen.getByText(/WAITING · 18H/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /REPLY/i })).toBeInTheDocument();
-  });
-
   it("renders the auto-sent band when phaseC === auto_sent", () => {
     render(
       <DetailBand
         thread={{ ...base, phaseC: "auto_sent" }}
-        clientName="Calloway"
         autoSentHoursAgo={3}
         onAction={() => {}}
       />,
@@ -85,7 +67,6 @@ describe("<DetailBand>", () => {
     render(
       <DetailBand
         thread={{ ...base, closed: true }}
-        clientName="Calloway"
         closedAt="2026-04-23T15:00:00Z"
         onAction={() => {}}
       />,
@@ -98,7 +79,6 @@ describe("<DetailBand>", () => {
     render(
       <DetailBand
         thread={{ ...base, agent: { needsInput: true } }}
-        clientName="Calloway"
         agentQuestion="Which option?"
         agentOptions={[
           { id: "yes", label: "Yes" },
@@ -116,20 +96,18 @@ describe("<DetailBand>", () => {
       <DetailBand
         thread={{
           closed: false,
-          agent: { needsInput: false },
+          agent: { needsInput: true },
           phaseC: "none",
           aiSummary: "Calloway accepted the revised quote, follow-up due Friday.",
-          ballInCourt: "user",
         }}
-        clientName="Calloway"
         summaryUpdatedAt="2026-05-06T14:55:00Z"
-        ballYoursWaitDuration="18H"
+        agentQuestion="Should I follow up with the second-floor unit?"
         onAction={() => {}}
       />,
     );
 
     const summary = screen.getByLabelText(/Phase C summary/i);
-    const action = screen.getByLabelText(/Your turn/i);
+    const action = screen.getByLabelText(/Phase C needs your input/i);
 
     expect(
       summary.compareDocumentPosition(action) & Node.DOCUMENT_POSITION_FOLLOWING,
@@ -144,9 +122,7 @@ describe("<DetailBand>", () => {
           agent: { needsInput: false },
           phaseC: "none",
           aiSummary: "Should not render — closed wins.",
-          ballInCourt: null,
         }}
-        clientName="Calloway"
         closedAt="2026-04-23T15:00:00Z"
         onAction={() => {}}
       />,
@@ -164,9 +140,7 @@ describe("<DetailBand>", () => {
           agent: { needsInput: false },
           phaseC: "none",
           aiSummary: null,
-          ballInCourt: null,
         }}
-        clientName="Calloway"
         closedAt="2026-04-30T15:00:00Z"
         closedVariant="resolved"
         onAction={() => {}}

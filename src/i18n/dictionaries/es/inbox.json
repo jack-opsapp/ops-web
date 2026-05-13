@@ -37,9 +37,9 @@
   "bands.needsInput.aria": "Phase C necesita tu respuesta",
   "bands.needsInput.pausedAgo": "pausado hace {min} min",
 
-  "bands.ballYours.label": "// TU TURNO — {client} está esperando",
-  "bands.ballYours.reply": "Responder",
-  "bands.ballYours.aria": "Tu turno",
+  "floatingBadge.label": "// TU TURNO",
+  "floatingBadge.aria": "Tu turno",
+  "floatingBadge.acknowledge": "Marcar sin respuesta necesaria",
 
   "bands.autoSent.body": "Phase C respondió hace {hours}h — ¿quieres decir algo distinto?",
   "bands.autoSent.revise": "revisar",
@@ -377,13 +377,6 @@
   "picker.trigger": "{count} OTROS HILOS",
   "picker.triggerNone": "· 0 OTROS HILOS",
   "picker.header": "// HILOS CON {client} · {count}",
-
-  "bands.ballYours.title": "// TU TURNO :: {client}",
-  "bands.ballYours.wait": "ESPERANDO · {duration}",
-  "bands.ballYours.waitNone": "ESPERANDO",
-  "bands.ballYours.reply": "RESPONDER",
-  "bands.ballYours.acknowledge": "Marcar sin respuesta necesaria",
-  "bands.ballYours.snooze": "Posponer hilo",
 
   "bands.summary.title": "// RESUMEN",
   "bands.summary.provenance": "actualizado por Phase C · hace {minutes} MIN",

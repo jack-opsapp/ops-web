@@ -9,7 +9,6 @@ const base: BandThreadInput = {
   agent: { needsInput: false },
   phaseC: "none",
   aiSummary: null,
-  ballInCourt: null,
 };
 
 describe("selectBand", () => {
@@ -21,7 +20,6 @@ describe("selectBand", () => {
         agent: { needsInput: true },
         phaseC: "ai_drafted",
         aiSummary: "x",
-        ballInCourt: "user",
       }),
     ).toBe("closed");
   });
@@ -33,7 +31,6 @@ describe("selectBand", () => {
         agent: { needsInput: true },
         phaseC: "auto_sent",
         aiSummary: "x",
-        ballInCourt: "user",
       }),
     ).toBe("needs-input");
   });
@@ -44,7 +41,6 @@ describe("selectBand", () => {
         ...base,
         phaseC: "auto_sent",
         aiSummary: "x",
-        ballInCourt: "user",
       }),
     ).toBe("auto-sent");
   });
@@ -54,25 +50,11 @@ describe("selectBand", () => {
       selectBand({
         ...base,
         aiSummary: "Summary text",
-        ballInCourt: "user",
       }),
     ).toBe("summary");
   });
 
-  it("returns 'ball-yours' when ballInCourt === 'user' and no summary", () => {
-    expect(
-      selectBand({
-        ...base,
-        ballInCourt: "user",
-      }),
-    ).toBe("ball-yours");
-  });
-
   it("returns null when nothing applies", () => {
     expect(selectBand(base)).toBeNull();
-  });
-
-  it("ball-yours requires actual 'user' value (not 'them')", () => {
-    expect(selectBand({ ...base, ballInCourt: "them" })).toBeNull();
   });
 });
