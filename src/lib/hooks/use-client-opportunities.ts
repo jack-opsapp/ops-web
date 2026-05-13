@@ -3,15 +3,14 @@
 import { useQuery, type UseQueryOptions } from "@tanstack/react-query";
 import { queryKeys } from "../api/query-client";
 import { OpportunityService } from "../api/services/opportunity-service";
-import type { Opportunity } from "../types/pipeline";
+import { getActiveStages, type Opportunity } from "../types/pipeline";
 import { useAuthStore } from "../store/auth-store";
 
 /**
- * Fetch all open opportunities scoped to a single client. Returns an empty
- * array when `clientId` is null/undefined (query disabled).
- *
- * Used by the inbox right rail's Pipeline tab to surface the open pipeline
- * for the thread's client.
+ * Fetch open opportunities scoped to a single client. Terminal stages
+ * (Won / Lost / Discarded) are excluded so the inbox rail's WORK tab only
+ * surfaces leads still in flight. Returns an empty array when `clientId`
+ * is null/undefined (query disabled).
  */
 export function useClientOpportunities(
   clientId: string | null | undefined,
@@ -23,10 +22,14 @@ export function useClientOpportunities(
   return useQuery({
     queryKey: queryKeys.opportunities.list(companyId, {
       clientId: clientId ?? null,
+      openOnly: true,
     }),
     queryFn: async () => {
       if (!clientId) return [] as Opportunity[];
-      return OpportunityService.fetchOpportunities(companyId, { clientId });
+      return OpportunityService.fetchOpportunities(companyId, {
+        clientId,
+        stages: getActiveStages(),
+      });
     },
     enabled: !!clientId && !!companyId,
     ...queryOptions,
