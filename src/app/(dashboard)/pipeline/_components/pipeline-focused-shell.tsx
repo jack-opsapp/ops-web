@@ -43,6 +43,7 @@ export interface PipelineFocusedShellProps extends FocusedShellActionHandlers {
   clientNameMap: Map<string, string>;
   canManage: boolean;
   filtersActive: boolean;
+  dragAnnouncement: string;
   onAddLead: () => void;
   onClearFilters: () => void;
 }
@@ -106,6 +107,7 @@ export function PipelineFocusedShell({
   clientNameMap,
   canManage,
   filtersActive,
+  dragAnnouncement,
   onAddLead,
   onClearFilters,
   onLogCall,
@@ -337,6 +339,14 @@ export function PipelineFocusedShell({
       className="h-full min-h-0 w-full overflow-hidden bg-background"
       onWheel={handleWheel}
     >
+      <div
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        className="sr-only"
+      >
+        {dragAnnouncement}
+      </div>
       <div className="flex h-full min-h-0 w-full items-stretch gap-2 overflow-hidden">
         <div className={`flex min-h-0 shrink-0 items-stretch gap-2 ${SPINE_RAIL_CHROME}`}>
           {leftStages.map((stage) => (

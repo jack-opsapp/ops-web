@@ -88,6 +88,22 @@ import {
 import { usePipelineModeStore } from "./_components/pipeline-mode-store";
 import { OPPORTUNITY_STAGE_COLORS } from "@/lib/types/pipeline";
 
+type PipelineDropData = {
+  mode?: "focused" | "spatial";
+  stage?: OpportunityStage;
+  isTerminal?: boolean;
+};
+
+function formatPipelineTemplate(
+  template: string,
+  values: Record<string, string | number>
+) {
+  return Object.entries(values).reduce(
+    (result, [key, value]) => result.replaceAll(`{${key}}`, String(value)),
+    template
+  );
+}
+
 // ---------------------------------------------------------------------------
 // SpatialCardWrapper — reads reactive store state per-card for efficient re-renders
 // ---------------------------------------------------------------------------
@@ -757,6 +773,7 @@ export default function PipelinePage() {
     stage: OpportunityStage;
   } | null>(null);
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
+  const [focusedDragAnnouncement, setFocusedDragAnnouncement] = useState("");
   usePipelineModeShortcut(activeDragId !== null);
 
   // ── Undo store ────────────────────────────────────────────────────────
@@ -1108,12 +1125,21 @@ export default function PipelinePage() {
     [handleMoveStage]
   );
 
+  const setFocusedDragLiveMessage = useCallback((message: string) => {
+    setFocusedDragAnnouncement((current) =>
+      current === message ? current : message
+    );
+  }, []);
+
   const handlePipelineDragStart = useCallback(
     (event: DragStartEvent) => {
       const id = String(event.active.id);
       setActiveDragId(id);
 
-      if (mode !== "spatial") return;
+      if (mode === "focused") {
+        setFocusedDragLiveMessage(t("focused.dragLive.started"));
+        return;
+      }
 
       const { selectedCardIds, startDrag, clearSelection } =
         useSpatialCanvasStore.getState();
@@ -1125,12 +1151,26 @@ export default function PipelinePage() {
         startDrag([id], { x: 0, y: 0 });
       }
     },
-    [mode]
+    [mode, setFocusedDragLiveMessage, t]
   );
 
   const handlePipelineDragOver = useCallback(
-    (_event: DragOverEvent) => undefined,
-    []
+    (event: DragOverEvent) => {
+      if (mode !== "focused") return;
+
+      const data = event.over?.data.current as PipelineDropData | undefined;
+      if (data?.mode !== "focused" || !data.stage) {
+        setFocusedDragLiveMessage("");
+        return;
+      }
+
+      setFocusedDragLiveMessage(
+        formatPipelineTemplate(t("focused.dragLive.target"), {
+          stage: getStageDisplayName(data.stage),
+        })
+      );
+    },
+    [mode, setFocusedDragLiveMessage, t]
   );
 
   const handlePipelineDragEnd = useCallback(
@@ -1139,13 +1179,43 @@ export default function PipelinePage() {
       const draggedId = String(event.active.id);
       const { selectedCardIds, clearSelection, endDrag } =
         useSpatialCanvasStore.getState();
-      const data = over?.data.current as
-        | { stage?: OpportunityStage; isTerminal?: boolean }
-        | undefined;
+      const data = over?.data.current as PipelineDropData | undefined;
+
+      if (mode === "focused") {
+        if (data?.mode === "focused" && data.stage) {
+          const opportunity = filteredOpportunities.find(
+            (o) => o.id === draggedId
+          );
+
+          if (data.isTerminal && opportunity) {
+            if (data.stage === OpportunityStage.Won) {
+              handleMarkWon(opportunity);
+            } else if (data.stage === OpportunityStage.Lost) {
+              handleMarkLost(opportunity);
+            }
+          } else {
+            handleMoveStage(draggedId, data.stage);
+          }
+
+          setFocusedDragLiveMessage(
+            formatPipelineTemplate(t("focused.dragLive.dropped"), {
+              stage: getStageDisplayName(data.stage),
+            })
+          );
+        } else {
+          setFocusedDragLiveMessage(t("focused.dragLive.cancelled"));
+        }
+
+        setActiveDragId(null);
+        endDrag();
+        return;
+      }
+
+      setFocusedDragLiveMessage("");
 
       if (data?.stage) {
         const ids =
-          mode === "spatial" && selectedCardIds.has(draggedId)
+          selectedCardIds.has(draggedId)
             ? Array.from(selectedCardIds)
             : [draggedId];
 
@@ -1178,13 +1248,23 @@ export default function PipelinePage() {
       handleMarkWon,
       handleMoveStage,
       mode,
+      setFocusedDragLiveMessage,
+      t,
     ]
   );
 
-  const handlePipelineDragCancel = useCallback((_event: DragCancelEvent) => {
-    setActiveDragId(null);
-    useSpatialCanvasStore.getState().endDrag();
-  }, []);
+  const handlePipelineDragCancel = useCallback(
+    (_event: DragCancelEvent) => {
+      setActiveDragId(null);
+      if (mode === "focused") {
+        setFocusedDragLiveMessage(t("focused.dragLive.cancelled"));
+      } else {
+        setFocusedDragLiveMessage("");
+      }
+      useSpatialCanvasStore.getState().endDrag();
+    },
+    [mode, setFocusedDragLiveMessage, t]
+  );
 
   /** Discard — direct stage move, no confirmation dialog needed */
   const handleDiscard = useCallback(
@@ -1423,6 +1503,7 @@ export default function PipelinePage() {
                 clientNameMap={clientNameMap}
                 canManage={canManage}
                 filtersActive={filtersActive}
+                dragAnnouncement={focusedDragAnnouncement}
                 onAddLead={gatedOpenCreate}
                 onClearFilters={handleClearFilters}
                 onLogCall={handleLogCall}
