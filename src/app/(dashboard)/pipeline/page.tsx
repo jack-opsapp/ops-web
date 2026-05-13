@@ -73,6 +73,7 @@ import { calculateCanvasLayout } from "./_components/spatial-layout-engine";
 import { calculateBatchStaleness } from "./_components/spatial-staleness";
 import { PipelineDndProvider } from "./_components/pipeline-dnd-provider";
 import { PipelineFocusedShell } from "./_components/pipeline-focused-shell";
+import { PipelineFilterRow } from "./_components/pipeline-filter-row";
 import {
   useSpatialCanvasStore,
   BIRD_EYE_THRESHOLD,
@@ -238,7 +239,6 @@ function SpatialCanvasDesktop({
   onOpenDetail,
   onAssign,
   onScheduleFollowUp,
-  onAddLead,
   archivedOpportunities,
   discardedOpportunities,
   onRestore,
@@ -259,7 +259,6 @@ function SpatialCanvasDesktop({
   onOpenDetail: (opportunity: Opportunity) => void;
   onAssign: (id: string) => void;
   onScheduleFollowUp: (id: string) => void;
-  onAddLead: () => void;
   archivedOpportunities: Opportunity[];
   discardedOpportunities: Opportunity[];
   onRestore: (id: string) => void;
@@ -1430,7 +1429,6 @@ export default function PipelinePage() {
                 onOpenDetail={handleOpenDetail}
                 onAssign={handleAssign}
                 onScheduleFollowUp={handleScheduleFollowUp}
-                onAddLead={gatedOpenCreate}
                 archivedOpportunities={
                   opportunities?.filter((o) => !!o.archivedAt) ?? []
                 }
@@ -1463,6 +1461,21 @@ export default function PipelinePage() {
               onAddLead={gatedOpenCreate}
               reviewCount={reviewCount}
               onReviewEmails={() => setReviewPanelOpen(true)}
+            />
+          </div>
+        </div>
+        <div className="pointer-events-auto px-3 pb-1">
+          <div className="inline-flex w-fit rounded-[4px] border border-[rgba(255,255,255,0.08)] bg-[rgba(10,10,10,0.50)] px-1.5 py-1 backdrop-blur-[12px] backdrop-saturate-[1.1]">
+            <PipelineFilterRow
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              stageFilter={stageFilter}
+              onStageFilterChange={setStageFilter}
+              assigneeFilter={assigneeFilter}
+              onAssigneeFilterChange={setAssigneeFilter}
+              teamMembers={teamMembers}
+              onAddLead={gatedOpenCreate}
+              canManage={canManage}
             />
           </div>
         </div>
