@@ -415,7 +415,50 @@ export function PipelineFocusedShell({
   const wonOpportunities = opportunitiesByStage.get(OpportunityStage.Won) ?? [];
   const lostOpportunities =
     opportunitiesByStage.get(OpportunityStage.Lost) ?? [];
+  const isTerminalFocusedStage = TERMINAL_STAGE_ORDER.includes(
+    safeFocusedStage
+  );
   const focusedHeaderTabId = `pipeline-focused-tab-${safeFocusedStage}`;
+  const selectedFocusedTabId = isTerminalFocusedStage
+    ? `pipeline-terminal-tab-${safeFocusedStage}`
+    : focusedHeaderTabId;
+
+  const renderFocusedHeader = (isTab: boolean) => (
+    <div
+      role="presentation"
+      className={cn(
+        "z-[3] col-start-2 row-start-1 min-h-0 min-w-[460px]",
+        detailOpenInFocusedStage &&
+          "min-[1280px]:w-[840px] min-[1280px]:shrink-0"
+      )}
+    >
+      <div className="flex h-full min-h-0 gap-2">
+        <div
+          className={cn(
+            "relative min-h-0 min-w-0 flex-1",
+            detailOpenInFocusedStage &&
+              "min-[1280px]:shrink-0 min-[1280px]:grow-0 min-[1280px]:basis-1/2"
+          )}
+        >
+          <FocusedStageTab
+            ref={isTab ? registerFocusedTab(safeFocusedStage) : undefined}
+            stage={safeFocusedStage}
+            opportunities={focusedOpportunities}
+            isLoading={opportunitiesLoading || isOpportunitiesError}
+            isTab={isTab}
+            tabId={focusedHeaderTabId}
+            panelId={focusedPanelId}
+          />
+        </div>
+        {detailOpenInFocusedStage && (
+          <div
+            role="presentation"
+            className="hidden min-h-0 min-w-0 min-[1280px]:block min-[1280px]:shrink-0 min-[1280px]:basis-1/2"
+          />
+        )}
+      </div>
+    </div>
+  );
 
   useEffect(() => {
     if (!detailPanelOpportunityId) {
@@ -497,39 +540,7 @@ export function PipelineFocusedShell({
             ))}
           </div>
 
-          <div
-            role="presentation"
-            className={cn(
-              "z-[3] col-start-2 row-start-1 min-h-0 min-w-[460px]",
-              detailOpenInFocusedStage &&
-                "min-[1280px]:w-[840px] min-[1280px]:shrink-0"
-            )}
-          >
-            <div className="flex h-full min-h-0 gap-2">
-              <div
-                className={cn(
-                  "relative min-h-0 min-w-0 flex-1",
-                  detailOpenInFocusedStage &&
-                    "min-[1280px]:shrink-0 min-[1280px]:grow-0 min-[1280px]:basis-1/2"
-                )}
-              >
-                <FocusedStageTab
-                  ref={registerFocusedTab(safeFocusedStage)}
-                  stage={safeFocusedStage}
-                  opportunities={focusedOpportunities}
-                  isLoading={opportunitiesLoading || isOpportunitiesError}
-                  tabId={focusedHeaderTabId}
-                  panelId={focusedPanelId}
-                />
-              </div>
-              {detailOpenInFocusedStage && (
-                <div
-                  role="presentation"
-                  className="hidden min-h-0 min-w-0 min-[1280px]:block min-[1280px]:shrink-0 min-[1280px]:basis-1/2"
-                />
-              )}
-            </div>
-          </div>
+          {!isTerminalFocusedStage && renderFocusedHeader(true)}
 
           <div
             role="presentation"
@@ -566,6 +577,8 @@ export function PipelineFocusedShell({
           </div>
         </div>
 
+        {isTerminalFocusedStage && renderFocusedHeader(false)}
+
         <motion.div
           ref={focusedColumnRef}
           layout={!reduced}
@@ -593,7 +606,7 @@ export function PipelineFocusedShell({
                 clientNameMap={clientNameMap}
                 canManage={canManage}
                 filtersActive={filtersActive}
-                focusedTabId={focusedHeaderTabId}
+                focusedTabId={selectedFocusedTabId}
                 focusedPanelId={focusedPanelId}
                 isLoading={opportunitiesLoading}
                 isError={isOpportunitiesError}
@@ -639,13 +652,14 @@ type FocusedStageTabProps = {
   stage: OpportunityStage;
   opportunities: Opportunity[];
   isLoading: boolean;
+  isTab: boolean;
   tabId: string;
   panelId: string;
 };
 
 const FocusedStageTab = memo(
   forwardRef<HTMLDivElement, FocusedStageTabProps>(function FocusedStageTab(
-    { stage, opportunities, isLoading, tabId, panelId },
+    { stage, opportunities, isLoading, isTab, tabId, panelId },
     ref
   ) {
     const { t } = useDictionary("pipeline");
@@ -672,15 +686,22 @@ const FocusedStageTab = memo(
     const countValue = isLoading ? "—" : String(opportunities.length);
     const valueMetric = isLoading ? "—" : formatCurrency(totalEstimatedValue);
     const avgDaysValue = isLoading || avgDays === null ? "—" : `${avgDays}d`;
+    const tabProps = isTab
+      ? {
+          role: "tab" as const,
+          id: tabId,
+          "aria-selected": true,
+          "aria-controls": panelId,
+          tabIndex: 0,
+        }
+      : {
+          "aria-hidden": true,
+        };
 
     return (
       <div
         ref={ref}
-        role="tab"
-        id={tabId}
-        aria-selected={true}
-        aria-controls={panelId}
-        tabIndex={0}
+        {...tabProps}
         className="glass-dense absolute left-0 right-0 top-[112px] isolate z-[2] min-h-[52px] cursor-default overflow-hidden px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
         style={{
           background: "var(--surface-glass-dense)",

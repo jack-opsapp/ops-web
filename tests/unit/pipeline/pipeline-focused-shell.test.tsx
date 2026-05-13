@@ -264,6 +264,53 @@ describe("<PipelineFocusedShell>", () => {
     expect(within(tablist).queryByRole("tabpanel")).not.toBeInTheDocument();
   });
 
+  it.each([OpportunityStage.Won, OpportunityStage.Lost])(
+    "uses the %s terminal tab as the only selected roving tab",
+    (stage) => {
+      usePipelineModeStore.setState({
+        focusedStage: stage,
+      });
+
+      renderFocusedShell([
+        makeOpportunity("opp-won", OpportunityStage.Won),
+        makeOpportunity("opp-lost", OpportunityStage.Lost),
+      ]);
+
+      const tablist = screen.getByRole("tablist", {
+        name: "Pipeline stages",
+      });
+      const tabs = within(tablist).getAllByRole("tab");
+      const selectedTabs = tabs.filter(
+        (tab) => tab.getAttribute("aria-selected") === "true"
+      );
+      const rovingTabs = tabs.filter(
+        (tab) => tab.getAttribute("tabindex") === "0"
+      );
+      const [selectedTab] = selectedTabs;
+      const [rovingTab] = rovingTabs;
+      const panel = screen.getByRole("tabpanel");
+
+      expect(selectedTabs).toHaveLength(1);
+      expect(rovingTabs).toHaveLength(1);
+      expect(selectedTab).toBe(rovingTab);
+      expect(selectedTab).toHaveAttribute(
+        "id",
+        `pipeline-terminal-tab-${stage}`
+      );
+      expect(selectedTab).toHaveAttribute(
+        "aria-controls",
+        "pipeline-focused-panel"
+      );
+      expect(panel).toHaveAttribute(
+        "aria-labelledby",
+        `pipeline-terminal-tab-${stage}`
+      );
+      expect(
+        tablist.querySelector(`#pipeline-focused-tab-${stage}`)
+      ).not.toBeInTheDocument();
+    }
+  );
+
   it("focuses the newly active tab after arrow stage navigation", async () => {
     renderFocusedShell([
       makeOpportunity("opp-1", OpportunityStage.NewLead),
