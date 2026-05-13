@@ -130,6 +130,23 @@ export interface ImageAttachmentMeta {
   fromEmail: string;
 }
 
+/**
+ * Full metadata for any attachment surfaced from a provider thread. Superset
+ * of `ImageAttachmentMeta` — adds `date` (the parent message's send/receive
+ * time) so the inbox right-rail can sort and format-render without a second
+ * thread fetch. Used by `getAttachmentsFromThread`.
+ */
+export interface EmailAttachmentMeta {
+  messageId: string;
+  attachmentId: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+  fromEmail: string;
+  /** Send/receive time of the message that owns this attachment. */
+  date: Date;
+}
+
 // ─── Draft Types ─────────────────────────────────────────────────────────────
 
 /**
@@ -217,6 +234,17 @@ export interface EmailProviderInterface {
 
   // Attachments — scan threads for images and download them
   getImageAttachmentsFromThread(threadId: string): Promise<ImageAttachmentMeta[]>;
+  /**
+   * Like `getImageAttachmentsFromThread` but returns ALL attachments on the
+   * thread (images + PDFs + every other MIME type). Inline images below the
+   * 5KB heuristic (signature decorations) are still skipped — they are noise
+   * regardless of where they're displayed.
+   *
+   * Returned items carry the parent message's date so the inbox FILES tab
+   * can sort newest-first and render the "MMM DD" stamp without a follow-up
+   * thread fetch.
+   */
+  getAttachmentsFromThread(threadId: string): Promise<EmailAttachmentMeta[]>;
   fetchAttachment(messageId: string, attachmentId: string): Promise<Buffer>;
 
   // Labels/categories

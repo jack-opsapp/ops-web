@@ -13,6 +13,7 @@ import {
   ProviderAuthError,
   ProviderScopeError,
   SyncTokenExpiredError,
+  type EmailAttachmentMeta,
   type EmailProviderInterface,
   type ImageAttachmentMeta,
   type NormalizedDraft,
@@ -712,14 +713,23 @@ export class Microsoft365Provider implements EmailProviderInterface {
   }
 
   async getImageAttachmentsFromThread(threadId: string): Promise<ImageAttachmentMeta[]> {
-    // M365: fetch all messages in the conversation, then check each for image attachments
+    const all = await this.getAttachmentsFromThread(threadId);
+    return all
+      .filter((a) => a.mimeType.startsWith("image/"))
+      .map(({ date: _date, ...rest }) => rest);
+  }
+
+  async getAttachmentsFromThread(threadId: string): Promise<EmailAttachmentMeta[]> {
+    // Fetch the full thread once so we have both the message date and a
+    // way to skip messages that the provider already flagged as
+    // attachment-free (avoids a per-message attachment fetch on threads
+    // dominated by short replies).
     const messages = await this.fetchThread(threadId);
-    const images: ImageAttachmentMeta[] = [];
+    const out: EmailAttachmentMeta[] = [];
 
     for (const msg of messages) {
       if (!msg.hasAttachments) continue;
 
-      // Fetch attachments for this message
       const data = await this.graphFetch(`/me/messages/${msg.id}/attachments`);
       const attachments = (data.value as Array<Record<string, unknown>>) || [];
 
@@ -729,26 +739,28 @@ export class Microsoft365Provider implements EmailProviderInterface {
         const size = (att.size as number) || 0;
         const attId = att.id as string;
 
-        // Only image attachments above 5KB (skip inline signature images)
-        if (
-          contentType.startsWith("image/") &&
-          attId &&
-          name &&
-          size > 5000
-        ) {
-          images.push({
-            messageId: msg.id,
-            attachmentId: attId,
-            filename: name,
-            mimeType: contentType,
-            size,
-            fromEmail: msg.from.toLowerCase(),
-          });
-        }
+        if (!attId || !name) continue;
+
+        // Mirror the Gmail walker's signature-image guard: drop image parts
+        // <= 5KB (these are nearly always inline signature/decorations), let
+        // every other MIME type through regardless of size.
+        const isImage = contentType.startsWith("image/");
+        const passesSignatureGuard = !isImage || size > 5000;
+        if (!passesSignatureGuard) continue;
+
+        out.push({
+          messageId: msg.id,
+          attachmentId: attId,
+          filename: name,
+          mimeType: contentType,
+          size,
+          fromEmail: msg.from.toLowerCase(),
+          date: msg.date,
+        });
       }
     }
 
-    return images;
+    return out;
   }
 
   async fetchAttachment(messageId: string, attachmentId: string): Promise<Buffer> {

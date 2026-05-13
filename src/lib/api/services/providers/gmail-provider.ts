@@ -14,6 +14,7 @@ import {
   ProviderAuthError,
   ProviderScopeError,
   SyncTokenExpiredError,
+  type EmailAttachmentMeta,
   type EmailProviderInterface,
   type ImageAttachmentMeta,
   type NormalizedDraft,
@@ -681,58 +682,85 @@ export class GmailProvider implements EmailProviderInterface {
    * Returns metadata only — call fetchAttachment() to get the actual bytes.
    */
   async getImageAttachmentsFromThread(threadId: string): Promise<ImageAttachmentMeta[]> {
+    const all = await this.getAttachmentsFromThread(threadId);
+    return all
+      .filter((a) => GmailProvider.IMAGE_MIMES.has(a.mimeType.toLowerCase()))
+      .map(({ date: _date, ...rest }) => rest);
+  }
+
+  /**
+   * Scan a thread's messages for ALL attachments (images + PDFs + everything
+   * else). Inline image parts under 5KB are still suppressed — they are
+   * almost always signature/decoration artifacts and would clutter the FILES
+   * tab the same way they clutter the photo extractor.
+   */
+  async getAttachmentsFromThread(threadId: string): Promise<EmailAttachmentMeta[]> {
     const res = await this.gmailFetch(`/threads/${threadId}?format=full`);
     const data = await res.json();
-    const images: ImageAttachmentMeta[] = [];
+    const out: EmailAttachmentMeta[] = [];
 
     for (const msg of (data.messages || [])) {
       const msgId = msg.id as string;
-      // Extract sender email from message headers
       const headers = ((msg.payload?.headers || []) as Array<{ name: string; value: string }>);
       const fromHeader = headers.find((h: { name: string }) => h.name.toLowerCase() === "from")?.value || "";
       const emailMatch = fromHeader.match(/<([^>]+)>/) || [null, fromHeader];
       const fromEmail = (emailMatch[1] || fromHeader).toLowerCase().trim();
-      this.collectImageParts(msg.payload, msgId, fromEmail, images);
+
+      // Gmail returns internalDate as a string of ms-since-epoch on each
+      // message. Use it directly — the per-message Date header is less
+      // reliable (some senders ship it in the future / past).
+      const internalDateMs = Number(msg.internalDate);
+      const date = Number.isFinite(internalDateMs)
+        ? new Date(internalDateMs)
+        : new Date();
+
+      this.collectAttachmentParts(msg.payload, msgId, fromEmail, date, out);
     }
 
-    return images;
+    return out;
   }
 
-  /** Recursively collect image attachment parts from a Gmail message payload */
-  private collectImageParts(
+  /**
+   * Recursively walk a Gmail message payload and collect every part that
+   * looks like a downloadable attachment. Inline images below 5KB are
+   * dropped — see `getAttachmentsFromThread` for rationale.
+   */
+  private collectAttachmentParts(
     payload: Record<string, unknown> | undefined,
     messageId: string,
     fromEmail: string,
-    out: ImageAttachmentMeta[]
+    date: Date,
+    out: EmailAttachmentMeta[]
   ): void {
     if (!payload) return;
 
-    const mimeType = (payload.mimeType as string) || "";
+    const mimeType = ((payload.mimeType as string) || "").toLowerCase();
     const filename = (payload.filename as string) || "";
     const body = payload.body as { attachmentId?: string; size?: number } | undefined;
 
-    // Check if this part is an image attachment (not inline signature images which are tiny)
-    if (
-      GmailProvider.IMAGE_MIMES.has(mimeType.toLowerCase()) &&
-      body?.attachmentId &&
-      filename &&
-      (body.size || 0) > 5000 // Skip tiny inline signature images (<5KB)
-    ) {
-      out.push({
-        messageId,
-        attachmentId: body.attachmentId,
-        filename,
-        mimeType: mimeType.toLowerCase(),
-        size: body.size || 0,
-        fromEmail,
-      });
+    if (body?.attachmentId && filename) {
+      const size = body.size || 0;
+      const isImage = GmailProvider.IMAGE_MIMES.has(mimeType);
+      // Drop tiny inline images only — every other attachment (PDFs, CSVs,
+      // Word docs, etc.) passes through regardless of size.
+      const passesSignatureGuard = !isImage || size > 5000;
+      if (passesSignatureGuard) {
+        out.push({
+          messageId,
+          attachmentId: body.attachmentId,
+          filename,
+          mimeType,
+          size,
+          fromEmail,
+          date,
+        });
+      }
     }
 
-    // Recurse into nested parts
     const parts = payload.parts as Array<Record<string, unknown>> | undefined;
     if (parts) {
       for (const part of parts) {
-        this.collectImageParts(part, messageId, fromEmail, out);
+        this.collectAttachmentParts(part, messageId, fromEmail, date, out);
       }
     }
   }
