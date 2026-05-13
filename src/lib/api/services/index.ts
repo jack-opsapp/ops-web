@@ -98,9 +98,6 @@ export type { MatchResultV2 } from "./email-matching-service-v2";
 export { matchPlatform, isFormSubmissionSubject } from "./known-platforms";
 export type { PlatformMatch } from "./known-platforms";
 
-export { SyncEngine } from "./sync-engine";
-export type { SyncCycleResult } from "./sync-engine";
-
 export { StageEvaluator } from "./stage-evaluator";
 export type { ThreadState, StageEvaluation } from "./stage-evaluator";
 
