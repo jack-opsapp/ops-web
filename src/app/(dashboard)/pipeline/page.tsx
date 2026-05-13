@@ -42,14 +42,11 @@ import {
 } from "@/lib/types/pipeline";
 // motion variants removed — archive undo toast replaced by universal undo
 
-import {
-  DndContext,
-  closestCenter,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type DragStartEvent,
-  type DragEndEvent,
+import type {
+  DragCancelEvent,
+  DragEndEvent,
+  DragOverEvent,
+  DragStartEvent,
 } from "@dnd-kit/core";
 import { PipelineMobile } from "./_components/pipeline-mobile";
 import { useDetailPopoverStore } from "./_components/detail-popover-store";
@@ -74,6 +71,7 @@ import { SpatialFloatingToolbar } from "./_components/spatial-floating-toolbar";
 import { SpatialArchiveTray, SpatialDiscardTray } from "./_components/spatial-archive-tray";
 import { calculateCanvasLayout } from "./_components/spatial-layout-engine";
 import { calculateBatchStaleness } from "./_components/spatial-staleness";
+import { PipelineDndProvider } from "./_components/pipeline-dnd-provider";
 import {
   useSpatialCanvasStore,
   BIRD_EYE_THRESHOLD,
@@ -244,6 +242,7 @@ function SpatialCanvasDesktop({
   discardedOpportunities,
   onRestore,
   onDeletePermanently,
+  activeDragId,
 }: {
   opportunities: Opportunity[];
   clientNameMap: Map<string, string>;
@@ -264,16 +263,14 @@ function SpatialCanvasDesktop({
   discardedOpportunities: Opportunity[];
   onRestore: (id: string) => void;
   onDeletePermanently: (id: string) => void;
+  activeDragId: string | null;
 }) {
   const { t: tPipeline } = useDictionary("pipeline");
   const sortBy = usePipelineModeStore((s) => s.sortBy);
   const stageSortOverrides = usePipelineModeStore((s) => s.stageSortOverrides);
   const selectedCardIds = useSpatialCanvasStore((s) => s.selectedCardIds);
-  const clearSelection = useSpatialCanvasStore((s) => s.clearSelection);
   const showContextMenu = useSpatialCanvasStore((s) => s.showContextMenu);
   const selectCards = useSpatialCanvasStore((s) => s.selectCards);
-  const startDrag = useSpatialCanvasStore((s) => s.startDrag);
-  const endDrag = useSpatialCanvasStore((s) => s.endDrag);
   const isBirdEye = useSpatialCanvasStore((s) => s.zoom < BIRD_EYE_THRESHOLD);
 
   // Calculate layout
@@ -304,100 +301,9 @@ function SpatialCanvasDesktop({
     [opportunities]
   );
 
-  // Active drag state
-  const [activeId, setActiveId] = useState<string | null>(null);
-  const activeOpportunity = activeId
-    ? opportunities.find((o) => o.id === activeId) ?? null
+  const activeOpportunity = activeDragId
+    ? opportunities.find((o) => o.id === activeDragId) ?? null
     : null;
-
-  // dnd-kit sensors
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
-  );
-
-  const handleDragStart = useCallback(
-    (event: DragStartEvent) => {
-      const id = String(event.active.id);
-      setActiveId(id);
-      if (selectedCardIds.has(id)) {
-        // Dragging a selected card — drag all selected
-        startDrag(Array.from(selectedCardIds), { x: 0, y: 0 });
-      } else {
-        // Dragging an unselected card — clear selection, drag just this one
-        clearSelection();
-        startDrag([id], { x: 0, y: 0 });
-      }
-    },
-    [selectedCardIds, startDrag, clearSelection]
-  );
-
-  const handleDragEnd = useCallback(
-    (event: DragEndEvent) => {
-      const { over } = event;
-      const draggedId = String(event.active.id);
-
-      if (over) {
-        const data = over.data.current as { stage?: OpportunityStage; isTerminal?: boolean } | undefined;
-        if (data?.stage) {
-          // Check if dropping on a terminal region — trigger transition dialog
-          if (data.isTerminal) {
-            const ids = selectedCardIds.has(draggedId)
-              ? Array.from(selectedCardIds)
-              : [draggedId];
-            for (const id of ids) {
-              const opp = opportunities.find((o) => o.id === id);
-              if (opp) {
-                if (data.stage === OpportunityStage.Won) {
-                  onMarkWon(opp);
-                } else if (data.stage === OpportunityStage.Lost) {
-                  onMarkLost(opp);
-                }
-              }
-            }
-            clearSelection();
-          } else {
-            // Move dragged cards to this stage
-            const ids = selectedCardIds.has(draggedId)
-              ? Array.from(selectedCardIds)
-              : [draggedId];
-            for (const id of ids) {
-              onMoveStage(id, data.stage);
-            }
-            clearSelection();
-          }
-        }
-      } else {
-        // Dropped on empty canvas — save as free-form position (Finder-style)
-        const { setCustomPosition, customPositions, zoom } = useSpatialCanvasStore.getState();
-        const draggedIds = selectedCardIds.has(draggedId)
-          ? Array.from(selectedCardIds)
-          : [draggedId];
-
-        const { delta } = event;
-
-        const allPositions = [
-          ...layout.stacks.flatMap((s) => s.cardPositions),
-          ...layout.terminalRegions.flatMap((r) => r.cardPositions),
-        ];
-
-        for (const id of draggedIds) {
-          const currentPos = allPositions.find((p) => p.opportunityId === id);
-          const existingCustom = customPositions.get(id);
-          const basePos = existingCustom ?? (currentPos ? { x: currentPos.x, y: currentPos.y } : null);
-          if (basePos) {
-            setCustomPosition(id, {
-              x: basePos.x + delta.x / zoom,
-              y: basePos.y + delta.y / zoom,
-            });
-          }
-        }
-      }
-
-      setActiveId(null);
-      endDrag();
-    },
-    [selectedCardIds, onMoveStage, onMarkWon, onMarkLost, clearSelection, endDrag, opportunities, layout]
-  );
 
   // Context menu handlers
   const handleCardContextMenu = useCallback(
@@ -558,67 +464,60 @@ function SpatialCanvasDesktop({
     return map;
   }, [opportunities]);
 
-  const batchCount = activeId && selectedCardIds.has(activeId)
+  const batchCount = activeDragId && selectedCardIds.has(activeDragId)
     ? selectedCardIds.size
     : 1;
 
   return (
     <div className="relative h-full w-full">
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
+      <SpatialCanvas
+        canvasWidth={layout.canvasWidth}
+        canvasHeight={layout.canvasHeight}
+        onCanvasContextMenu={handleCanvasContextMenu}
+        onMarqueeUpdate={handleMarqueeUpdate}
+        onMarqueeEnd={handleMarqueeEnd}
       >
-        <SpatialCanvas
-          canvasWidth={layout.canvasWidth}
-          canvasHeight={layout.canvasHeight}
-          onCanvasContextMenu={handleCanvasContextMenu}
-          onMarqueeUpdate={handleMarqueeUpdate}
-          onMarqueeEnd={handleMarqueeEnd}
-        >
-          {/* Active stage stacks */}
-          {layout.stacks.map((stackLayout) => (
-            <SpatialStageStack
-              key={stackLayout.stage}
-              stage={stackLayout.stage}
-              opportunities={oppsByStage.get(stackLayout.stage) ?? []}
-              layout={stackLayout}
-              isBirdEye={isBirdEye}
-              activeId={activeId}
-              renderCard={(opp, pos, draggable, flow) => renderCard(opp, pos, draggable, flow)}
-            />
-          ))}
+        {/* Active stage stacks */}
+        {layout.stacks.map((stackLayout) => (
+          <SpatialStageStack
+            key={stackLayout.stage}
+            stage={stackLayout.stage}
+            opportunities={oppsByStage.get(stackLayout.stage) ?? []}
+            layout={stackLayout}
+            isBirdEye={isBirdEye}
+            activeId={activeDragId}
+            renderCard={(opp, pos, draggable, flow) => renderCard(opp, pos, draggable, flow)}
+          />
+        ))}
 
-          {/* Terminal regions (Won/Lost) */}
-          {layout.terminalRegions.map((regionLayout) => (
-            <SpatialTerminalRegion
-              key={regionLayout.stage}
-              stage={regionLayout.stage as OpportunityStage.Won | OpportunityStage.Lost}
-              opportunities={oppsByStage.get(regionLayout.stage) ?? []}
-              layout={regionLayout}
-              isBirdEye={isBirdEye}
-              renderCard={(opp, pos) => renderCard(opp, pos, false)}
-            />
-          ))}
+        {/* Terminal regions (Won/Lost) */}
+        {layout.terminalRegions.map((regionLayout) => (
+          <SpatialTerminalRegion
+            key={regionLayout.stage}
+            stage={regionLayout.stage as OpportunityStage.Won | OpportunityStage.Lost}
+            opportunities={oppsByStage.get(regionLayout.stage) ?? []}
+            layout={regionLayout}
+            isBirdEye={isBirdEye}
+            renderCard={(opp, pos) => renderCard(opp, pos, false)}
+          />
+        ))}
 
-          {/* Marquee selection */}
-          <SpatialMarqueeSelect />
-        </SpatialCanvas>
+        {/* Marquee selection */}
+        <SpatialMarqueeSelect />
+      </SpatialCanvas>
 
-        {/* Drag overlay */}
-        <SpatialDragOverlay
-          activeOpportunity={activeOpportunity}
-          clientName={
-            activeOpportunity
-              ? clientNameMap.get(activeOpportunity.clientId ?? "") ??
-                activeOpportunity.contactName ??
-                tPipeline("card.unknown")
-              : ""
-          }
-          batchCount={batchCount}
-        />
-      </DndContext>
+      {/* Drag overlay */}
+      <SpatialDragOverlay
+        activeOpportunity={activeOpportunity}
+        clientName={
+          activeOpportunity
+            ? clientNameMap.get(activeOpportunity.clientId ?? "") ??
+              activeOpportunity.contactName ??
+              tPipeline("card.unknown")
+            : ""
+        }
+        batchCount={batchCount}
+      />
 
       {/* Context menu */}
       <SpatialContextMenu
@@ -804,6 +703,7 @@ export default function PipelinePage() {
     id: string;
     stage: OpportunityStage;
   } | null>(null);
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
 
   // ── Undo store ────────────────────────────────────────────────────────
   const pushUndo = useUndoStore((s) => s.pushUndo);
@@ -1135,6 +1035,114 @@ export default function PipelinePage() {
     [handleMoveStage]
   );
 
+  const handlePipelineDragStart = useCallback((event: DragStartEvent) => {
+    const id = String(event.active.id);
+    setActiveDragId(id);
+
+    const { selectedCardIds, startDrag, clearSelection } =
+      useSpatialCanvasStore.getState();
+
+    if (selectedCardIds.has(id)) {
+      startDrag(Array.from(selectedCardIds), { x: 0, y: 0 });
+    } else {
+      clearSelection();
+      startDrag([id], { x: 0, y: 0 });
+    }
+  }, []);
+
+  const handlePipelineDragOver = useCallback(
+    (_event: DragOverEvent) => undefined,
+    []
+  );
+
+  const handlePipelineDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const { over } = event;
+      const draggedId = String(event.active.id);
+      const { selectedCardIds, clearSelection, endDrag } =
+        useSpatialCanvasStore.getState();
+
+      if (over) {
+        const data = over.data.current as
+          | { stage?: OpportunityStage; isTerminal?: boolean }
+          | undefined;
+
+        if (data?.stage) {
+          const ids = selectedCardIds.has(draggedId)
+            ? Array.from(selectedCardIds)
+            : [draggedId];
+
+          if (data.isTerminal) {
+            for (const id of ids) {
+              const opportunity = filteredOpportunities.find((o) => o.id === id);
+              if (!opportunity) continue;
+
+              if (data.stage === OpportunityStage.Won) {
+                handleMarkWon(opportunity);
+              } else if (data.stage === OpportunityStage.Lost) {
+                handleMarkLost(opportunity);
+              }
+            }
+          } else {
+            for (const id of ids) {
+              handleMoveStage(id, data.stage);
+            }
+          }
+
+          clearSelection();
+        }
+      } else {
+        const { setCustomPosition, customPositions, zoom } =
+          useSpatialCanvasStore.getState();
+        const draggedIds = selectedCardIds.has(draggedId)
+          ? Array.from(selectedCardIds)
+          : [draggedId];
+        const { delta } = event;
+        const allPositions = [
+          ...parentLayout.stacks.flatMap((stack) => stack.cardPositions),
+          ...parentLayout.terminalRegions.flatMap(
+            (region) => region.cardPositions
+          ),
+        ];
+
+        for (const id of draggedIds) {
+          const currentPos = allPositions.find(
+            (position) => position.opportunityId === id
+          );
+          const existingCustom = customPositions.get(id);
+          const basePos =
+            existingCustom ??
+            (currentPos ? { x: currentPos.x, y: currentPos.y } : null);
+
+          if (basePos) {
+            setCustomPosition(id, {
+              x: basePos.x + delta.x / zoom,
+              y: basePos.y + delta.y / zoom,
+            });
+          }
+        }
+      }
+
+      setActiveDragId(null);
+      endDrag();
+    },
+    [
+      filteredOpportunities,
+      handleMarkLost,
+      handleMarkWon,
+      handleMoveStage,
+      parentLayout,
+    ]
+  );
+
+  const handlePipelineDragCancel = useCallback(
+    (_event: DragCancelEvent) => {
+      setActiveDragId(null);
+      useSpatialCanvasStore.getState().endDrag();
+    },
+    []
+  );
+
   /** Discard — direct stage move, no confirmation dialog needed */
   const handleDiscard = useCallback(
     (opportunityId: string) => {
@@ -1356,31 +1364,41 @@ export default function PipelinePage() {
         {isMobile ? (
           <PipelineMobile {...sharedBoardProps} />
         ) : (
-          <SpatialCanvasDesktop
-            opportunities={filteredOpportunities}
-            clientNameMap={clientNameMap}
-            canManage={canManage}
-            onMoveStage={handleMoveStage}
-            onLogCall={handleLogCall}
-            onLogText={handleLogText}
-            onAddNote={handleAddNote}
-            onArchive={handleArchive}
-            onDiscard={handleDiscard}
-            onMarkWon={handleMarkWon}
-            onMarkLost={handleMarkLost}
-            onOpenDetail={handleOpenDetail}
-            onAssign={handleAssign}
-            onScheduleFollowUp={handleScheduleFollowUp}
-            onAddLead={gatedOpenCreate}
-            archivedOpportunities={
-              opportunities?.filter((o) => !!o.archivedAt) ?? []
-            }
-            discardedOpportunities={
-              opportunities?.filter((o) => o.stage === OpportunityStage.Discarded && !o.archivedAt) ?? []
-            }
-            onRestore={(id) => unarchiveMutation.mutate(id)}
-            onDeletePermanently={(id) => deleteMutation.mutate(id)}
-          />
+          <PipelineDndProvider
+            mode="spatial"
+            activeDragId={activeDragId}
+            onDragStart={handlePipelineDragStart}
+            onDragOver={handlePipelineDragOver}
+            onDragEnd={handlePipelineDragEnd}
+            onDragCancel={handlePipelineDragCancel}
+          >
+            <SpatialCanvasDesktop
+              opportunities={filteredOpportunities}
+              clientNameMap={clientNameMap}
+              canManage={canManage}
+              onMoveStage={handleMoveStage}
+              onLogCall={handleLogCall}
+              onLogText={handleLogText}
+              onAddNote={handleAddNote}
+              onArchive={handleArchive}
+              onDiscard={handleDiscard}
+              onMarkWon={handleMarkWon}
+              onMarkLost={handleMarkLost}
+              onOpenDetail={handleOpenDetail}
+              onAssign={handleAssign}
+              onScheduleFollowUp={handleScheduleFollowUp}
+              onAddLead={gatedOpenCreate}
+              archivedOpportunities={
+                opportunities?.filter((o) => !!o.archivedAt) ?? []
+              }
+              discardedOpportunities={
+                opportunities?.filter((o) => o.stage === OpportunityStage.Discarded && !o.archivedAt) ?? []
+              }
+              onRestore={(id) => unarchiveMutation.mutate(id)}
+              onDeletePermanently={(id) => deleteMutation.mutate(id)}
+              activeDragId={activeDragId}
+            />
+          </PipelineDndProvider>
         )}
       </div>
 
