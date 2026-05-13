@@ -15,6 +15,9 @@ interface PipelineTerminalStackProps {
   wonOpportunities: Opportunity[];
   lostOpportunities: Opportunity[];
   focusedStage: OpportunityStage;
+  isLoading?: boolean;
+  panelId: string;
+  registerTab?: (stage: OpportunityStage) => (node: HTMLElement | null) => void;
   onSelectStage: (stage: OpportunityStage.Won | OpportunityStage.Lost) => void;
 }
 
@@ -40,6 +43,9 @@ export const PipelineTerminalStack = memo(function PipelineTerminalStack({
   wonOpportunities,
   lostOpportunities,
   focusedStage,
+  isLoading = false,
+  panelId,
+  registerTab,
   onSelectStage,
 }: PipelineTerminalStackProps) {
   const { t } = useDictionary("pipeline");
@@ -50,6 +56,7 @@ export const PipelineTerminalStack = memo(function PipelineTerminalStack({
 
   return (
     <div
+      role="presentation"
       className="flex h-full min-h-0 w-[72px] shrink-0 flex-col gap-2"
       aria-label={t("focused.terminalStack.label", "Terminal stages")}
     >
@@ -59,6 +66,10 @@ export const PipelineTerminalStack = memo(function PipelineTerminalStack({
           stage={stage}
           opportunities={opportunities}
           isSelected={focusedStage === stage}
+          isLoading={isLoading}
+          tabId={`pipeline-terminal-tab-${stage}`}
+          panelId={panelId}
+          tabRef={registerTab?.(stage)}
           onSelectStage={onSelectStage}
           itemLabelTemplate={t(
             "focused.terminalStack.itemLabel",
@@ -74,12 +85,20 @@ function TerminalItem({
   stage,
   opportunities,
   isSelected,
+  isLoading,
+  tabId,
+  panelId,
+  tabRef,
   onSelectStage,
   itemLabelTemplate,
 }: {
   stage: OpportunityStage.Won | OpportunityStage.Lost;
   opportunities: Opportunity[];
   isSelected: boolean;
+  isLoading: boolean;
+  tabId: string;
+  panelId: string;
+  tabRef?: (node: HTMLElement | null) => void;
   onSelectStage: (stage: OpportunityStage.Won | OpportunityStage.Lost) => void;
   itemLabelTemplate: string;
 }) {
@@ -91,20 +110,29 @@ function TerminalItem({
     disabled: false,
   });
   const count = opportunities.length;
+  const renderedCount = isLoading ? "—" : String(count);
+  const { t } = useDictionary("pipeline");
   const visibleOpportunities = opportunities.slice(0, MAX_SILHOUETTES);
   const ariaLabel = formatTemplate(itemLabelTemplate, {
     stage: stageName,
-    count,
+    count: isLoading ? t("focused.loading.count", "loading") : count,
   });
   const visualOpacity = isSelected || isOver ? 0.8 : 0.45;
 
   return (
     <button
-      ref={setNodeRef}
+      ref={(node) => {
+        setNodeRef(node);
+        tabRef?.(node);
+      }}
       type="button"
       data-pipeline-stage-fallback={stage}
+      role="tab"
+      id={tabId}
       aria-label={ariaLabel}
-      aria-pressed={isSelected}
+      aria-selected={isSelected}
+      aria-controls={panelId}
+      tabIndex={isSelected ? 0 : -1}
       className={cn(
         "relative flex min-h-0 flex-1 overflow-hidden rounded-sidebar border border-line bg-transparent px-1 py-2 text-left",
         transitionClasses,
@@ -116,7 +144,10 @@ function TerminalItem({
     >
       <span
         aria-hidden="true"
-        className={cn("absolute left-0 top-0 h-full w-[2px]", transitionClasses)}
+        className={cn(
+          "absolute left-0 top-0 h-full w-[2px]",
+          transitionClasses
+        )}
         style={{ backgroundColor: stageColor, opacity: visualOpacity }}
       />
 
@@ -125,7 +156,7 @@ function TerminalItem({
           {stageName}
         </span>
         <span className="font-mono text-data-sm text-text" style={NUMBER_STYLE}>
-          {count}
+          {renderedCount}
         </span>
         <div className="flex min-h-0 w-full flex-1 flex-col gap-[2px] overflow-hidden pt-1">
           {visibleOpportunities.map((opportunity) => (
@@ -133,7 +164,10 @@ function TerminalItem({
               key={opportunity.id}
               aria-hidden="true"
               data-pipeline-spine-card-id={opportunity.id}
-              className={cn("h-1.5 w-full shrink-0 rounded-bar", transitionClasses)}
+              className={cn(
+                "h-1.5 w-full shrink-0 rounded-bar",
+                transitionClasses
+              )}
               style={{ backgroundColor: stageColor, opacity: visualOpacity }}
             />
           ))}

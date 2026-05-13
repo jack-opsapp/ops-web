@@ -1,10 +1,7 @@
 import { describe, expect, it, beforeEach, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import {
-  type Opportunity,
-  OpportunityStage,
-} from "@/lib/types/pipeline";
+import { type Opportunity, OpportunityStage } from "@/lib/types/pipeline";
 import { PipelineTerminalStack } from "@/app/(dashboard)/pipeline/_components/pipeline-terminal-stack";
 
 const dndMocks = vi.hoisted(() => ({
@@ -92,6 +89,7 @@ describe("<PipelineTerminalStack>", () => {
         wonOpportunities={[makeOpportunity("won-1", OpportunityStage.Won)]}
         lostOpportunities={[makeOpportunity("lost-1", OpportunityStage.Lost)]}
         focusedStage={OpportunityStage.NewLead}
+        panelId="pipeline-focused-panel"
         onSelectStage={vi.fn()}
       />
     );
@@ -125,12 +123,34 @@ describe("<PipelineTerminalStack>", () => {
         wonOpportunities={[makeOpportunity("won-1", OpportunityStage.Won)]}
         lostOpportunities={[]}
         focusedStage={OpportunityStage.NewLead}
+        panelId="pipeline-focused-panel"
         onSelectStage={onSelectStage}
       />
     );
 
-    await user.click(screen.getByRole("button", { name: "Won, 1 opportunities" }));
+    await user.click(screen.getByRole("tab", { name: "Won, 1 opportunities" }));
 
     expect(onSelectStage).toHaveBeenCalledWith(OpportunityStage.Won);
+  });
+
+  it("renders terminal entries as roving tabs controlling the focused panel", () => {
+    render(
+      <PipelineTerminalStack
+        wonOpportunities={[makeOpportunity("won-1", OpportunityStage.Won)]}
+        lostOpportunities={[]}
+        focusedStage={OpportunityStage.Won}
+        panelId="pipeline-focused-panel"
+        onSelectStage={vi.fn()}
+      />
+    );
+
+    const wonTab = screen.getByRole("tab", { name: "Won, 1 opportunities" });
+    const lostTab = screen.getByRole("tab", { name: "Lost, 0 opportunities" });
+
+    expect(wonTab).toHaveAttribute("aria-selected", "true");
+    expect(wonTab).toHaveAttribute("aria-controls", "pipeline-focused-panel");
+    expect(wonTab).toHaveAttribute("tabindex", "0");
+    expect(lostTab).toHaveAttribute("aria-selected", "false");
+    expect(lostTab).toHaveAttribute("tabindex", "-1");
   });
 });

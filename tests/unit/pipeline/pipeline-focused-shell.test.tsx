@@ -1,10 +1,14 @@
 import React from "react";
-import { act, fireEvent, render, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  type Opportunity,
-  OpportunityStage,
-} from "@/lib/types/pipeline";
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { type Opportunity, OpportunityStage } from "@/lib/types/pipeline";
 import { usePipelineModeStore } from "@/app/(dashboard)/pipeline/_components/pipeline-mode-store";
 import { PipelineFocusedShell } from "@/app/(dashboard)/pipeline/_components/pipeline-focused-shell";
 
@@ -20,9 +24,7 @@ vi.mock("framer-motion", () => ({
     }: React.HTMLAttributes<HTMLDivElement> & {
       layout?: boolean;
       transition?: unknown;
-    }) => (
-      <div {...props}>{children}</div>
-    ),
+    }) => <div {...props}>{children}</div>,
   },
   useReducedMotion: () => true,
 }));
@@ -33,53 +35,111 @@ vi.mock("@/i18n/client", () => ({
   }),
 }));
 
-vi.mock(
-  "@/app/(dashboard)/pipeline/_components/pipeline-dnd-provider",
-  () => ({
-    usePipelineDndState: () => ({ isDragging: mockDndState.isDragging }),
-  })
-);
+vi.mock("@/app/(dashboard)/pipeline/_components/pipeline-dnd-provider", () => ({
+  usePipelineDndState: () => ({ isDragging: mockDndState.isDragging }),
+}));
 
 vi.mock(
   "@/app/(dashboard)/pipeline/_components/pipeline-focused-column",
   () => ({
-    PipelineFocusedColumn: ({ stage }: { stage: OpportunityStage }) => (
-      <section data-testid="focused-column" data-stage={stage} />
+    PipelineFocusedColumn: ({
+      stage,
+      focusedPanelId,
+      focusedTabId,
+    }: {
+      stage: OpportunityStage;
+      focusedPanelId: string;
+      focusedTabId: string;
+    }) => (
+      <section
+        id={focusedPanelId}
+        role="tabpanel"
+        aria-labelledby={focusedTabId}
+        data-testid="focused-column"
+        data-stage={stage}
+      />
     ),
   })
 );
 
-vi.mock(
-  "@/app/(dashboard)/pipeline/_components/pipeline-detail-panel",
-  () => ({
-    PipelineDetailPanel: () => (
-      <aside data-keyboard-scope="modal-or-menu" data-testid="detail-panel" />
-    ),
-  })
-);
+vi.mock("@/app/(dashboard)/pipeline/_components/pipeline-detail-panel", () => ({
+  PipelineDetailPanel: () => (
+    <aside data-keyboard-scope="modal-or-menu" data-testid="detail-panel" />
+  ),
+}));
 
-vi.mock(
-  "@/app/(dashboard)/pipeline/_components/pipeline-spine-column",
-  () => ({
-    PipelineSpineColumn: ({ stage }: { stage: OpportunityStage }) => (
-      <button type="button" data-testid={`spine-${stage}`} />
-    ),
-  })
-);
+vi.mock("@/app/(dashboard)/pipeline/_components/pipeline-spine-column", () => ({
+  PipelineSpineColumn: ({
+    stage,
+    tabId,
+    panelId,
+    tabRef,
+    onFocusStage,
+  }: {
+    stage: OpportunityStage;
+    tabId: string;
+    panelId: string;
+    tabRef?: (node: HTMLButtonElement | null) => void;
+    onFocusStage?: (stage: OpportunityStage) => void;
+  }) => (
+    <button
+      ref={tabRef}
+      type="button"
+      role="tab"
+      id={tabId}
+      aria-selected={false}
+      aria-controls={panelId}
+      tabIndex={-1}
+      data-testid={`spine-${stage}`}
+      onClick={() => onFocusStage?.(stage)}
+    />
+  ),
+}));
 
 vi.mock(
   "@/app/(dashboard)/pipeline/_components/pipeline-terminal-stack",
   () => ({
-    PipelineTerminalStack: () => <div data-testid="terminal-stack" />,
+    PipelineTerminalStack: ({
+      focusedStage,
+      panelId,
+      registerTab,
+      onSelectStage,
+    }: {
+      focusedStage: OpportunityStage;
+      panelId: string;
+      registerTab?: (
+        stage: OpportunityStage
+      ) => (node: HTMLElement | null) => void;
+      onSelectStage: (
+        stage: OpportunityStage.Won | OpportunityStage.Lost
+      ) => void;
+    }) => (
+      <div role="presentation" data-testid="terminal-stack">
+        {[OpportunityStage.Won, OpportunityStage.Lost].map((stage) => (
+          <button
+            key={stage}
+            ref={registerTab?.(stage)}
+            type="button"
+            role="tab"
+            id={`pipeline-terminal-tab-${stage}`}
+            aria-selected={focusedStage === stage}
+            aria-controls={panelId}
+            tabIndex={focusedStage === stage ? 0 : -1}
+            onClick={() =>
+              onSelectStage(
+                stage as OpportunityStage.Won | OpportunityStage.Lost
+              )
+            }
+          />
+        ))}
+      </div>
+    ),
   })
 );
 
 const NOW = new Date("2026-05-12T12:00:00.000Z");
 
-function makeOpportunity(
-  id: string,
-  stage: OpportunityStage
-): Opportunity {
+function makeOpportunity(id: string, stage: OpportunityStage): Opportunity {
   return {
     id,
     companyId: "company-1",
@@ -172,6 +232,51 @@ describe("<PipelineFocusedShell>", () => {
       detailPanelActiveTab: "correspondence",
       sortBy: "value",
       stageSortOverrides: new Map(),
+    });
+  });
+
+  it("renders a valid focused tablist with the focused panel as a sibling", () => {
+    renderFocusedShell([
+      makeOpportunity("opp-1", OpportunityStage.NewLead),
+      makeOpportunity("opp-2", OpportunityStage.Qualifying),
+      makeOpportunity("opp-3", OpportunityStage.Won),
+    ]);
+
+    const tablist = screen.getByRole("tablist", {
+      name: "Pipeline stages",
+    });
+    const tabs = within(tablist).getAllByRole("tab");
+    const selectedTab = within(tablist).getByRole("tab", { selected: true });
+    const panel = screen.getByRole("tabpanel");
+
+    expect(tabs.length).toBeGreaterThan(1);
+    expect(selectedTab).toHaveAttribute("id", "pipeline-focused-tab-new_lead");
+    expect(selectedTab).toHaveAttribute(
+      "aria-controls",
+      "pipeline-focused-panel"
+    );
+    expect(selectedTab).toHaveAttribute("tabindex", "0");
+    expect(panel).toHaveAttribute("id", "pipeline-focused-panel");
+    expect(panel).toHaveAttribute(
+      "aria-labelledby",
+      "pipeline-focused-tab-new_lead"
+    );
+    expect(within(tablist).queryByRole("tabpanel")).not.toBeInTheDocument();
+  });
+
+  it("focuses the newly active tab after arrow stage navigation", async () => {
+    renderFocusedShell([
+      makeOpportunity("opp-1", OpportunityStage.NewLead),
+      makeOpportunity("opp-2", OpportunityStage.Qualifying),
+    ]);
+
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+
+    await waitFor(() => {
+      expect(document.activeElement).toHaveAttribute(
+        "id",
+        "pipeline-focused-tab-qualifying"
+      );
     });
   });
 

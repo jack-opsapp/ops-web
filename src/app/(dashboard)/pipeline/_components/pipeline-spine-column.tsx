@@ -22,6 +22,8 @@ export interface PipelineSpineColumnProps {
   tabId: string;
   panelId: string;
   isFocusedTab?: false;
+  isLoading?: boolean;
+  tabRef?: (node: HTMLButtonElement | null) => void;
   onFocusStage?: (stage: OpportunityStage) => void;
 }
 
@@ -58,6 +60,8 @@ export const PipelineSpineColumn = memo(function PipelineSpineColumn({
   isHovered,
   tabId,
   panelId,
+  isLoading = false,
+  tabRef,
   onFocusStage,
 }: PipelineSpineColumnProps) {
   const { t } = useDictionary("pipeline");
@@ -69,21 +73,26 @@ export const PipelineSpineColumn = memo(function PipelineSpineColumn({
     disabled: false,
   });
   const count = opportunities.length;
+  const renderedCount = isLoading ? "—" : String(count);
+  const ariaCount = isLoading ? t("focused.loading.count", "loading") : count;
   const visualOpacity = isHovered
     ? DRAG_HOVER_OPACITY
     : isOver
-    ? DRAG_HOVER_OPACITY
-    : VISUAL_OPACITY_BY_DISTANCE[distanceFromFocus];
+      ? DRAG_HOVER_OPACITY
+      : VISUAL_OPACITY_BY_DISTANCE[distanceFromFocus];
   const visibleOpportunities = opportunities.slice(0, MAX_SILHOUETTES);
   const hasOverflow = count > MAX_SILHOUETTES;
   const ariaLabel = formatTemplate(
     t("focused.spineLabel", "{stage}, {count} opportunities"),
-    { stage: stageName, count }
+    { stage: stageName, count: ariaCount }
   );
 
   return (
     <button
-      ref={setNodeRef}
+      ref={(node) => {
+        setNodeRef(node);
+        tabRef?.(node);
+      }}
       type="button"
       data-pipeline-stage-fallback={stage}
       role="tab"
@@ -116,7 +125,10 @@ export const PipelineSpineColumn = memo(function PipelineSpineColumn({
       />
       <div
         aria-hidden="true"
-        className={cn("absolute left-0 top-0 h-full w-[2px]", transitionClasses)}
+        className={cn(
+          "absolute left-0 top-0 h-full w-[2px]",
+          transitionClasses
+        )}
         style={{ backgroundColor: stageColor, opacity: visualOpacity }}
       />
 
@@ -127,8 +139,11 @@ export const PipelineSpineColumn = memo(function PipelineSpineColumn({
           </span>
         </div>
 
-        <span className="shrink-0 font-mono text-data-sm text-text" style={NUMBER_STYLE}>
-          {count}
+        <span
+          className="shrink-0 font-mono text-data-sm text-text"
+          style={NUMBER_STYLE}
+        >
+          {renderedCount}
         </span>
 
         <div className="flex min-h-0 w-full flex-1 flex-col gap-[2px] overflow-hidden px-0.5 pt-1">
@@ -138,7 +153,10 @@ export const PipelineSpineColumn = memo(function PipelineSpineColumn({
               aria-hidden="true"
               data-pipeline-spine-card-id={opportunity.id}
               data-testid="pipeline-spine-silhouette"
-              className={cn("h-1.5 w-full shrink-0 rounded-bar", transitionClasses)}
+              className={cn(
+                "h-1.5 w-full shrink-0 rounded-bar",
+                transitionClasses
+              )}
               style={{ backgroundColor: stageColor, opacity: visualOpacity }}
             />
           ))}
@@ -148,7 +166,7 @@ export const PipelineSpineColumn = memo(function PipelineSpineColumn({
               aria-hidden="true"
               data-testid="pipeline-spine-overflow"
               className={cn(
-                "relative flex h-3 min-h-3 w-full shrink-0 items-center justify-center overflow-hidden rounded-bar font-mono text-[11px] leading-none text-text",
+                "relative flex h-3 min-h-3 w-full shrink-0 items-center justify-center overflow-hidden rounded-bar font-mono text-micro leading-none text-text",
                 transitionClasses
               )}
               style={NUMBER_STYLE}

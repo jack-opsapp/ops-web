@@ -1,20 +1,27 @@
 "use client";
 
 import {
+  forwardRef,
+  memo,
   useCallback,
   useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
+  type CSSProperties,
 } from "react";
 import { motion, useReducedMotion } from "framer-motion";
+import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
 import {
   type Opportunity,
   OpportunityStage,
+  OPPORTUNITY_STAGE_COLORS,
   PIPELINE_STAGES_DEFAULT,
+  formatCurrency,
   getDaysInStage,
   isActiveStage,
+  getStageDisplayName,
 } from "@/lib/types/pipeline";
 import type { SortOption } from "./pipeline-mode-types";
 import { usePipelineModeStore } from "./pipeline-mode-store";
@@ -43,8 +50,13 @@ export interface PipelineFocusedShellProps extends FocusedShellActionHandlers {
   clientNameMap: Map<string, string>;
   canManage: boolean;
   filtersActive: boolean;
+  opportunitiesLoading?: boolean;
+  clientsLoading?: boolean;
+  opportunitiesError?: unknown;
+  isOpportunitiesError?: boolean;
   dragAnnouncement: string;
   transitionRole?: "static" | "entering";
+  onRetryOpportunities?: () => void;
   onAddLead: () => void;
   onClearFilters: () => void;
 }
@@ -63,6 +75,10 @@ const FOCUSED_PINCH_MIN_ZOOM = 0.5;
 const FOCUSED_PINCH_SPATIAL_THRESHOLD = 0.6;
 const REDUCED_MOTION_DURATION = 0.001;
 const SPINE_RAIL_CHROME = "h-full pt-[112px] pb-0";
+const NUMBER_STYLE: CSSProperties = {
+  fontVariantNumeric: "tabular-nums",
+  fontFeatureSettings: '"tnum" 1, "zero" 1',
+};
 
 function sortOpportunities(
   opportunities: Opportunity[],
@@ -129,8 +145,11 @@ export function PipelineFocusedShell({
   clientNameMap,
   canManage,
   filtersActive,
+  opportunitiesLoading = false,
+  isOpportunitiesError = false,
   dragAnnouncement,
   transitionRole = "static",
+  onRetryOpportunities,
   onAddLead,
   onClearFilters,
   onLogCall,
@@ -145,6 +164,7 @@ export function PipelineFocusedShell({
   onScheduleFollowUp,
   onDelete,
 }: PipelineFocusedShellProps) {
+  const { t } = useDictionary("pipeline");
   const reduced = useReducedMotion();
   const focusedStage = usePipelineModeStore((state) => state.focusedStage);
   const setFocusedStage = usePipelineModeStore(
@@ -170,6 +190,19 @@ export function PipelineFocusedShell({
   const lastSnapAtRef = useRef(0);
   const virtualZoomRef = useRef(1);
   const animationRef = useRef<Animation | null>(null);
+  const pendingTabFocusRef = useRef<OpportunityStage | null>(null);
+  const focusedStageTabRefs = useRef(new Map<OpportunityStage, HTMLElement>());
+
+  const registerFocusedTab = useCallback(
+    (stage: OpportunityStage) => (node: HTMLElement | null) => {
+      if (node) {
+        focusedStageTabRefs.current.set(stage, node);
+      } else {
+        focusedStageTabRefs.current.delete(stage);
+      }
+    },
+    []
+  );
 
   const opportunitiesByStage = useMemo(() => {
     const byStage = new Map<OpportunityStage, Opportunity[]>();
@@ -199,7 +232,6 @@ export function PipelineFocusedShell({
     ACTIVE_STAGE_ORDER.indexOf(safeFocusedStage) === -1
       ? ACTIVE_STAGE_ORDER.length
       : ACTIVE_STAGE_ORDER.indexOf(safeFocusedStage);
-  const focusedTabId = `pipeline-focused-tab-${safeFocusedStage}`;
   const focusedPanelId = "pipeline-focused-panel";
 
   const snapToStage = useCallback(
@@ -209,6 +241,7 @@ export function PipelineFocusedShell({
       animationRef.current?.cancel();
       pendingFlipRectRef.current =
         focusedColumnRef.current?.getBoundingClientRect() ?? null;
+      pendingTabFocusRef.current = nextStage;
       setFocusedStage(nextStage);
     },
     [isDragging, safeFocusedStage, setFocusedStage]
@@ -260,6 +293,13 @@ export function PipelineFocusedShell({
       animationRef.current = null;
     };
   }, [safeFocusedStage, reduced]);
+
+  useEffect(() => {
+    if (pendingTabFocusRef.current !== safeFocusedStage) return;
+
+    pendingTabFocusRef.current = null;
+    focusedStageTabRefs.current.get(safeFocusedStage)?.focus();
+  }, [safeFocusedStage]);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -340,8 +380,7 @@ export function PipelineFocusedShell({
         return;
       }
 
-      const horizontalIntent =
-        Math.abs(event.deltaX) > Math.abs(event.deltaY);
+      const horizontalIntent = Math.abs(event.deltaX) > Math.abs(event.deltaY);
       const shiftedWheelIntent =
         event.shiftKey && Math.abs(event.deltaY) > 0 && event.deltaX === 0;
 
@@ -365,8 +404,7 @@ export function PipelineFocusedShell({
   const rightStages = ACTIVE_STAGE_ORDER.filter(
     (stage) => ACTIVE_STAGE_ORDER.indexOf(stage) > focusedIndex
   );
-  const focusedOpportunities =
-    opportunitiesByStage.get(safeFocusedStage) ?? [];
+  const focusedOpportunities = opportunitiesByStage.get(safeFocusedStage) ?? [];
   const detailOpportunity = detailPanelOpportunityId
     ? (opportunities.find(
         (opportunity) => opportunity.id === detailPanelOpportunityId
@@ -374,10 +412,10 @@ export function PipelineFocusedShell({
     : null;
   const detailOpenInFocusedStage =
     detailOpportunity?.stage === safeFocusedStage;
-  const wonOpportunities =
-    opportunitiesByStage.get(OpportunityStage.Won) ?? [];
+  const wonOpportunities = opportunitiesByStage.get(OpportunityStage.Won) ?? [];
   const lostOpportunities =
     opportunitiesByStage.get(OpportunityStage.Lost) ?? [];
+  const focusedHeaderTabId = `pipeline-focused-tab-${safeFocusedStage}`;
 
   useEffect(() => {
     if (!detailPanelOpportunityId) {
@@ -434,19 +472,98 @@ export function PipelineFocusedShell({
       >
         {dragAnnouncement}
       </div>
-      <div className="flex h-full min-h-0 w-full items-stretch gap-2 overflow-hidden">
-        <div className={`flex min-h-0 shrink-0 items-stretch gap-2 ${SPINE_RAIL_CHROME}`}>
-          {leftStages.map((stage) => (
-            <SpineSlot
-              key={stage}
-              stage={stage}
-              focusedIndex={focusedIndex}
-              stageIndex={ACTIVE_STAGE_ORDER.indexOf(stage)}
-              opportunities={opportunitiesByStage.get(stage) ?? []}
+      <div className="grid h-full min-h-0 w-full grid-cols-[auto_minmax(460px,1fr)_auto_auto] items-stretch gap-2 overflow-hidden">
+        <div
+          role="tablist"
+          aria-label={t("focused.tablist.label", "Pipeline stages")}
+          className="contents"
+        >
+          <div
+            role="presentation"
+            className={`col-start-1 row-start-1 flex min-h-0 shrink-0 items-stretch gap-2 ${SPINE_RAIL_CHROME}`}
+          >
+            {leftStages.map((stage) => (
+              <SpineSlot
+                key={stage}
+                stage={stage}
+                focusedIndex={focusedIndex}
+                stageIndex={ACTIVE_STAGE_ORDER.indexOf(stage)}
+                opportunities={opportunitiesByStage.get(stage) ?? []}
+                panelId={focusedPanelId}
+                isLoading={opportunitiesLoading}
+                registerTab={registerFocusedTab}
+                onFocusStage={snapToStage}
+              />
+            ))}
+          </div>
+
+          <div
+            role="presentation"
+            className={cn(
+              "z-[3] col-start-2 row-start-1 min-h-0 min-w-[460px]",
+              detailOpenInFocusedStage &&
+                "min-[1280px]:w-[840px] min-[1280px]:shrink-0"
+            )}
+          >
+            <div className="flex h-full min-h-0 gap-2">
+              <div
+                className={cn(
+                  "relative min-h-0 min-w-0 flex-1",
+                  detailOpenInFocusedStage &&
+                    "min-[1280px]:shrink-0 min-[1280px]:grow-0 min-[1280px]:basis-1/2"
+                )}
+              >
+                <FocusedStageTab
+                  ref={registerFocusedTab(safeFocusedStage)}
+                  stage={safeFocusedStage}
+                  opportunities={focusedOpportunities}
+                  isLoading={opportunitiesLoading || isOpportunitiesError}
+                  tabId={focusedHeaderTabId}
+                  panelId={focusedPanelId}
+                />
+              </div>
+              {detailOpenInFocusedStage && (
+                <div
+                  role="presentation"
+                  className="hidden min-h-0 min-w-0 min-[1280px]:block min-[1280px]:shrink-0 min-[1280px]:basis-1/2"
+                />
+              )}
+            </div>
+          </div>
+
+          <div
+            role="presentation"
+            className={`col-start-3 row-start-1 flex min-h-0 shrink-0 items-stretch gap-2 ${SPINE_RAIL_CHROME}`}
+          >
+            {rightStages.map((stage) => (
+              <SpineSlot
+                key={stage}
+                stage={stage}
+                focusedIndex={focusedIndex}
+                stageIndex={ACTIVE_STAGE_ORDER.indexOf(stage)}
+                opportunities={opportunitiesByStage.get(stage) ?? []}
+                panelId={focusedPanelId}
+                isLoading={opportunitiesLoading}
+                registerTab={registerFocusedTab}
+                onFocusStage={snapToStage}
+              />
+            ))}
+          </div>
+
+          <div
+            role="presentation"
+            className={`col-start-4 row-start-1 ${SPINE_RAIL_CHROME}`}
+          >
+            <PipelineTerminalStack
+              wonOpportunities={wonOpportunities}
+              lostOpportunities={lostOpportunities}
+              focusedStage={safeFocusedStage}
+              isLoading={opportunitiesLoading}
               panelId={focusedPanelId}
-              onFocusStage={snapToStage}
+              registerTab={registerFocusedTab}
+              onSelectStage={snapToStage}
             />
-          ))}
+          </div>
         </div>
 
         <motion.div
@@ -457,9 +574,9 @@ export function PipelineFocusedShell({
             ease: [0.22, 1, 0.36, 1],
           }}
           className={cn(
-            "min-h-0 min-w-[460px] flex-1",
+            "z-[1] col-start-2 row-start-1 min-h-0 min-w-[460px]",
             detailOpenInFocusedStage &&
-              "min-[1280px]:grow-0 min-[1280px]:basis-[840px] min-[1280px]:shrink-0"
+              "min-[1280px]:w-[840px] min-[1280px]:shrink-0"
           )}
         >
           <div className="flex h-full min-h-0 gap-2">
@@ -467,7 +584,7 @@ export function PipelineFocusedShell({
               className={cn(
                 "min-h-0 min-w-0 flex-1",
                 detailOpenInFocusedStage &&
-                  "min-[1280px]:basis-1/2 min-[1280px]:grow-0 min-[1280px]:shrink-0"
+                  "min-[1280px]:shrink-0 min-[1280px]:grow-0 min-[1280px]:basis-1/2"
               )}
             >
               <PipelineFocusedColumn
@@ -476,8 +593,11 @@ export function PipelineFocusedShell({
                 clientNameMap={clientNameMap}
                 canManage={canManage}
                 filtersActive={filtersActive}
-                focusedTabId={focusedTabId}
+                focusedTabId={focusedHeaderTabId}
                 focusedPanelId={focusedPanelId}
+                isLoading={opportunitiesLoading}
+                isError={isOpportunitiesError}
+                onRetry={onRetryOpportunities}
                 onAddLead={onAddLead}
                 onClearFilters={onClearFilters}
                 onLogCall={onLogCall}
@@ -493,7 +613,7 @@ export function PipelineFocusedShell({
             </div>
 
             {detailOpportunity && detailOpenInFocusedStage && (
-              <div className="hidden min-h-0 min-w-0 min-[1280px]:block min-[1280px]:basis-1/2 min-[1280px]:shrink-0">
+              <div className="hidden min-h-0 min-w-0 min-[1280px]:block min-[1280px]:shrink-0 min-[1280px]:basis-1/2">
                 <PipelineDetailPanel
                   opportunity={detailOpportunity}
                   canManage={canManage}
@@ -510,33 +630,96 @@ export function PipelineFocusedShell({
             )}
           </div>
         </motion.div>
-
-        <div className={`flex min-h-0 shrink-0 items-stretch gap-2 ${SPINE_RAIL_CHROME}`}>
-          {rightStages.map((stage) => (
-            <SpineSlot
-              key={stage}
-              stage={stage}
-              focusedIndex={focusedIndex}
-              stageIndex={ACTIVE_STAGE_ORDER.indexOf(stage)}
-              opportunities={opportunitiesByStage.get(stage) ?? []}
-              panelId={focusedPanelId}
-              onFocusStage={snapToStage}
-            />
-          ))}
-        </div>
-
-        <div className={SPINE_RAIL_CHROME}>
-          <PipelineTerminalStack
-            wonOpportunities={wonOpportunities}
-            lostOpportunities={lostOpportunities}
-            focusedStage={safeFocusedStage}
-            onSelectStage={snapToStage}
-          />
-        </div>
       </div>
     </div>
   );
 }
+
+type FocusedStageTabProps = {
+  stage: OpportunityStage;
+  opportunities: Opportunity[];
+  isLoading: boolean;
+  tabId: string;
+  panelId: string;
+};
+
+const FocusedStageTab = memo(
+  forwardRef<HTMLDivElement, FocusedStageTabProps>(function FocusedStageTab(
+    { stage, opportunities, isLoading, tabId, panelId },
+    ref
+  ) {
+    const { t } = useDictionary("pipeline");
+    const stageName = getStageDisplayName(stage);
+    const stageColor =
+      OPPORTUNITY_STAGE_COLORS[stage] ??
+      OPPORTUNITY_STAGE_COLORS[OpportunityStage.NewLead];
+    const totalEstimatedValue = useMemo(
+      () =>
+        opportunities.reduce(
+          (sum, opportunity) => sum + (opportunity.estimatedValue ?? 0),
+          0
+        ),
+      [opportunities]
+    );
+    const avgDays = useMemo(() => {
+      if (opportunities.length === 0) return null;
+      const totalDays = opportunities.reduce(
+        (sum, opportunity) => sum + getDaysInStage(opportunity),
+        0
+      );
+      return Math.round(totalDays / opportunities.length);
+    }, [opportunities]);
+    const countValue = isLoading ? "—" : String(opportunities.length);
+    const valueMetric = isLoading ? "—" : formatCurrency(totalEstimatedValue);
+    const avgDaysValue = isLoading || avgDays === null ? "—" : `${avgDays}d`;
+
+    return (
+      <div
+        ref={ref}
+        role="tab"
+        id={tabId}
+        aria-selected={true}
+        aria-controls={panelId}
+        tabIndex={0}
+        className="glass-dense absolute left-0 right-0 top-[112px] isolate z-[2] min-h-[52px] cursor-default overflow-hidden px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
+        style={{
+          background: "var(--surface-glass-dense)",
+          backdropFilter:
+            "blur(var(--glass-blur)) saturate(var(--glass-saturate))",
+          WebkitBackdropFilter:
+            "blur(var(--glass-blur)) saturate(var(--glass-saturate))",
+        }}
+      >
+        <span
+          aria-hidden="true"
+          className="absolute bottom-2 left-0 top-2 w-[2px]"
+          style={{ backgroundColor: stageColor }}
+        />
+
+        <div className="relative z-[1] flex min-h-[36px] items-center justify-between gap-4">
+          <span className="min-w-0 truncate font-cakemono text-heading font-light uppercase leading-none text-text">
+            {stageName}
+          </span>
+
+          <dl className="grid w-[280px] shrink-0 grid-cols-3 gap-2">
+            <Metric
+              label={t("focused.metrics.count", "COUNT")}
+              value={countValue}
+            />
+            <Metric
+              label={t("focused.metrics.value", "VALUE")}
+              value={valueMetric}
+            />
+            <Metric
+              label={t("focused.metrics.avgDays", "AVG DAYS")}
+              value={avgDaysValue}
+            />
+          </dl>
+        </div>
+      </div>
+    );
+  })
+);
 
 function SpineSlot({
   stage,
@@ -544,6 +727,8 @@ function SpineSlot({
   stageIndex,
   focusedIndex,
   panelId,
+  isLoading,
+  registerTab,
   onFocusStage,
 }: {
   stage: OpportunityStage;
@@ -551,6 +736,8 @@ function SpineSlot({
   stageIndex: number;
   focusedIndex: number;
   panelId: string;
+  isLoading: boolean;
+  registerTab: (stage: OpportunityStage) => (node: HTMLElement | null) => void;
   onFocusStage: (stage: OpportunityStage) => void;
 }) {
   const distance = Math.min(
@@ -568,8 +755,26 @@ function SpineSlot({
         isHovered={false}
         tabId={`pipeline-spine-tab-${stage}`}
         panelId={panelId}
+        isLoading={isLoading}
+        tabRef={registerTab(stage)}
         onFocusStage={onFocusStage}
       />
+    </div>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0">
+      <dt className="truncate font-mono text-micro uppercase text-text-3">
+        {label}
+      </dt>
+      <dd
+        className="truncate font-mono text-data-sm text-text"
+        style={NUMBER_STYLE}
+      >
+        {value}
+      </dd>
     </div>
   );
 }
