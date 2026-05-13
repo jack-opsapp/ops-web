@@ -152,6 +152,15 @@ function renderFocusedShell(opportunities: Opportunity[]) {
   );
 }
 
+function getShellElement(container: HTMLElement): HTMLElement {
+  const shell = container.firstElementChild;
+  if (!(shell instanceof HTMLElement)) {
+    throw new Error("Expected focused shell root element");
+  }
+
+  return shell;
+}
+
 describe("<PipelineFocusedShell>", () => {
   beforeEach(() => {
     localStorage.clear();
@@ -360,6 +369,93 @@ describe("<PipelineFocusedShell>", () => {
     expect(usePipelineModeStore.getState().mode).toBe("focused");
     expect(usePipelineModeStore.getState().detailPanelOpportunityId).toBe(
       "opp-1"
+    );
+  });
+
+  it("uses horizontal wheel intent to advance focused stages", () => {
+    const { container } = renderFocusedShell([
+      makeOpportunity("opp-1", OpportunityStage.NewLead),
+      makeOpportunity("opp-2", OpportunityStage.Qualifying),
+    ]);
+
+    fireEvent.wheel(getShellElement(container), { deltaX: 80, deltaY: 8 });
+
+    expect(usePipelineModeStore.getState().focusedStage).toBe(
+      OpportunityStage.Qualifying
+    );
+  });
+
+  it("lets vertical wheel intent scroll the focused card list", () => {
+    const { container } = renderFocusedShell([
+      makeOpportunity("opp-1", OpportunityStage.NewLead),
+      makeOpportunity("opp-2", OpportunityStage.Qualifying),
+    ]);
+
+    fireEvent.wheel(getShellElement(container), { deltaX: 3, deltaY: 80 });
+
+    expect(usePipelineModeStore.getState().focusedStage).toBe(
+      OpportunityStage.NewLead
+    );
+  });
+
+  it("uses Shift+wheel as a mouse fallback for stage navigation", () => {
+    const { container } = renderFocusedShell([
+      makeOpportunity("opp-1", OpportunityStage.NewLead),
+      makeOpportunity("opp-2", OpportunityStage.Qualifying),
+    ]);
+
+    fireEvent.wheel(getShellElement(container), {
+      deltaX: 0,
+      deltaY: 80,
+      shiftKey: true,
+    });
+
+    expect(usePipelineModeStore.getState().focusedStage).toBe(
+      OpportunityStage.Qualifying
+    );
+  });
+
+  it("debounces wheel stage commits by 150ms", () => {
+    const nowSpy = vi.spyOn(Date, "now");
+    nowSpy.mockReturnValue(1000);
+    const { container } = renderFocusedShell([
+      makeOpportunity("opp-1", OpportunityStage.NewLead),
+      makeOpportunity("opp-2", OpportunityStage.Qualifying),
+      makeOpportunity("opp-3", OpportunityStage.Quoting),
+    ]);
+    const shell = getShellElement(container);
+
+    fireEvent.wheel(shell, { deltaX: 80, deltaY: 4 });
+    expect(usePipelineModeStore.getState().focusedStage).toBe(
+      OpportunityStage.Qualifying
+    );
+
+    nowSpy.mockReturnValue(1149);
+    fireEvent.wheel(shell, { deltaX: 80, deltaY: 4 });
+    expect(usePipelineModeStore.getState().focusedStage).toBe(
+      OpportunityStage.Qualifying
+    );
+
+    nowSpy.mockReturnValue(1150);
+    fireEvent.wheel(shell, { deltaX: 80, deltaY: 4 });
+    expect(usePipelineModeStore.getState().focusedStage).toBe(
+      OpportunityStage.Quoting
+    );
+
+    nowSpy.mockRestore();
+  });
+
+  it("suppresses wheel stage navigation while dragging", () => {
+    mockDndState.isDragging = true;
+    const { container } = renderFocusedShell([
+      makeOpportunity("opp-1", OpportunityStage.NewLead),
+      makeOpportunity("opp-2", OpportunityStage.Qualifying),
+    ]);
+
+    fireEvent.wheel(getShellElement(container), { deltaX: 80, deltaY: 4 });
+
+    expect(usePipelineModeStore.getState().focusedStage).toBe(
+      OpportunityStage.NewLead
     );
   });
 
