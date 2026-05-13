@@ -41,6 +41,10 @@
   "bands.ballYours.reply": "Responder",
   "bands.ballYours.aria": "Tu turno",
 
+  "floatingBadge.label": "// TU TURNO",
+  "floatingBadge.aria": "Tu turno",
+  "floatingBadge.acknowledge": "Marcar sin respuesta necesaria",
+
   "bands.autoSent.body": "Phase C respondió hace {hours}h — ¿quieres decir algo distinto?",
   "bands.autoSent.revise": "revisar",
   "bands.autoSent.aria": "Phase C respondió automáticamente",

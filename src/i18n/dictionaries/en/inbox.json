@@ -63,6 +63,10 @@
   "bands.ballYours.reply": "Reply",
   "bands.ballYours.aria": "Your turn",
 
+  "floatingBadge.label": "// YOUR TURN",
+  "floatingBadge.aria": "Your turn",
+  "floatingBadge.acknowledge": "Mark no reply needed",
+
   "bands.autoSent.body": "Phase C replied {hours}h ago — say something different?",
   "bands.autoSent.revise": "revise",
   "bands.autoSent.aria": "Phase C auto-replied",

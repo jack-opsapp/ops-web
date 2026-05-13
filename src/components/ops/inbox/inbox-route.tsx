@@ -21,7 +21,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useDictionary } from "@/i18n/client";
 import { queryKeys } from "@/lib/api/query-client";
-import type { RailFilter } from "@/lib/inbox/rail-predicates";
+import { classifyRail, type RailFilter } from "@/lib/inbox/rail-predicates";
+import { formatWaitClock } from "@/lib/inbox/format-wait";
+import { resolveTriageTone } from "@/lib/inbox/triage-tone-coordination";
 import { useBreadcrumbStore } from "@/stores/breadcrumb-store";
 import { useAuthStore, selectUserId, selectCompanyId } from "@/lib/store/auth-store";
 import {
@@ -67,6 +69,7 @@ import type { MobileInboxPane } from "./mobile-stacked-shell";
 import { ThreadColumnHeader } from "./thread-column-header";
 import { DraftsChip } from "./drafts-chip";
 import { SnoozedChip } from "./snoozed-chip";
+import { FloatingYourTurnBadge } from "./floating-your-turn-badge";
 import { TodayBar, type TodayCommitment } from "./today-bar";
 import { RailEmptyState } from "./rail-empty-state";
 import { ThreadList, type ThreadListItem } from "./thread-list";
@@ -560,13 +563,11 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
     });
   };
 
-  // Triage state for the detail-header chip. Mirrors the inline StateTag on
-  // <ThreadRow>: walks detail.messages to find the most recent inbound /
-  // outbound timestamps (more accurate than `latestDirection + lastMessageAt`
-  // because it surfaces the actual ball-in-court even when latestDirection
-  // points at an auto-send), then feeds computeStateTag the rest of the
-  // signals from detail.thread. `null` while detail hasn't loaded yet.
-  const triageStateForDetail = detail
+  // Walks detail.messages once to find the most recent inbound + outbound
+  // timestamps. Used by both the triage chip computation (header) and the
+  // floating-badge wait clock — keeping a single traversal avoids drift
+  // between the two surfaces.
+  const detailDirectionTimestamps = detail
     ? (() => {
         let lastInboundAt: number | null = null;
         let lastOutboundAt: number | null = null;
@@ -579,17 +580,83 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
             if (lastOutboundAt === null || ts > lastOutboundAt) lastOutboundAt = ts;
           }
         }
-        return computeStateTag({
-          lastInboundAt,
-          lastOutboundAt,
+        return { lastInboundAt, lastOutboundAt };
+      })()
+    : null;
+
+  // Triage state for the detail-header chip. Mirrors the inline StateTag on
+  // <ThreadRow>, feeding computeStateTag the walked inbound/outbound
+  // timestamps + the rest of the signals from detail.thread. `null` while
+  // detail hasn't loaded yet.
+  const triageStateForDetail =
+    detail && detailDirectionTimestamps
+      ? computeStateTag({
+          lastInboundAt: detailDirectionTimestamps.lastInboundAt,
+          lastOutboundAt: detailDirectionTimestamps.lastOutboundAt,
           hasAiDraft: detail.thread.phaseC === "ai_drafted",
           sentByAgentRecently: detail.thread.phaseC === "auto_sent",
           labels: detail.thread.labels,
           closed: detail.thread.archivedAt !== null,
           now,
-        });
-      })()
-    : null;
+        })
+      : null;
+
+  // Floating YOUR TURN badge — mounts whenever the active thread classifies
+  // as YOUR_MOVE (per the rail predicate union: unresolved commitments,
+  // AWAITING_REPLY label, unread inbound, or Phase C blocking question).
+  // Broader than the legacy `ball-yours` band trigger; matches the rail
+  // semantics.
+  //
+  // `detail.thread` doesn't carry the denormalized `hasUnresolvedCommitments`
+  // flag — the detail endpoint instead returns the full commitments array.
+  // Derive the boolean from that array's presence so the rail predicate has
+  // the right signal; falls back to the list-row's flag when the row is
+  // present (covers any race where commitments haven't loaded yet).
+  const detailThreadListRow = threads.find((row) => row.id === selectedThreadId) ?? null;
+  const hasUnresolvedCommitmentsForDetail = detail !== null
+    ? detail.commitments.length > 0 ||
+      (detailThreadListRow?.hasUnresolvedCommitments ?? false)
+    : false;
+
+  const floatingBadgeActive =
+    detail !== null &&
+    classifyRail(
+      {
+        archived_at: detail.thread.archivedAt,
+        snoozed_until: detail.thread.snoozedUntil,
+        has_unresolved_commitments: hasUnresolvedCommitmentsForDetail,
+        labels: detail.thread.labels,
+        latest_direction: detail.thread.latestDirection,
+        unread_count: detail.thread.unreadCount,
+        agent_blocking_question: detail.thread.agentBlockingQuestion,
+      },
+      now,
+    ) === "YOUR_MOVE";
+
+  // Wait clock for the badge. Uses the most-recent inbound timestamp when
+  // present (the canonical "operator owes a reply" axis); falls back to
+  // omitting the duration tail for commitment-driven / blocking-question
+  // YOUR_MOVE states where elapsed wait isn't the salient dimension.
+  const floatingBadgeWait =
+    floatingBadgeActive && detailDirectionTimestamps?.lastInboundAt
+      ? formatWaitClock(now - detailDirectionTimestamps.lastInboundAt)
+      : undefined;
+
+  // Inline ✓ on the badge reuses the existing AWAITING_REPLY dismiss path —
+  // same backend route, same optimistic update, same toast. Only surface
+  // the affordance on threads that actually carry the label.
+  const floatingBadgeOnAcknowledge =
+    floatingBadgeActive &&
+    selectedThreadId &&
+    detail?.thread.labels.includes("AWAITING_REPLY")
+      ? () => onDismissAwaitingReply(selectedThreadId)
+      : undefined;
+
+  // Accent-slot coordination — see `resolveTriageTone` for the rule.
+  const triageTone = resolveTriageTone(
+    triageStateForDetail?.tone,
+    floatingBadgeActive,
+  );
 
   const detailNode = detail ? (
     <ThreadDetail
@@ -639,14 +706,21 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
         ) : undefined
       }
       triageSlot={
-        triageStateForDetail ? (
+        triageStateForDetail && triageTone ? (
           <StateTag
-            tone={triageStateForDetail.tone}
+            tone={triageTone}
             variant="bare"
             prefix={triageStateForDetail.prefix}
             value={triageStateForDetail.value}
           />
         ) : undefined
+      }
+      floatingBadgeSlot={
+        <FloatingYourTurnBadge
+          show={floatingBadgeActive}
+          waitDuration={floatingBadgeWait}
+          onAcknowledge={floatingBadgeOnAcknowledge}
+        />
       }
     >
       <CommitmentPills

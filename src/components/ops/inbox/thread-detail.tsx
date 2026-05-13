@@ -38,6 +38,13 @@ interface ThreadDetailProps {
    * thread's labels + direction + phaseC via `computeStateTag`.
    */
   triageSlot?: ReactNode;
+  /**
+   * Absolutely-positioned floating affordance mounted above the message
+   * list — typically the `<FloatingYourTurnBadge>`. Rendered inside the
+   * messages-wrapper (which carries `position: relative`) so the badge
+   * anchors to the messages region rather than the header.
+   */
+  floatingBadgeSlot?: ReactNode;
   className?: string;
   children?: ReactNode;
 }
@@ -69,6 +76,7 @@ export function ThreadDetail({
   onMore,
   threadPickerSlot,
   triageSlot,
+  floatingBadgeSlot,
   className,
   children,
 }: ThreadDetailProps) {
@@ -108,7 +116,10 @@ export function ThreadDetail({
         threadPickerSlot={threadPickerSlot}
         triageSlot={triageSlot}
       />
-      <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        {children}
+        {floatingBadgeSlot}
+      </div>
     </div>
   );
 }
