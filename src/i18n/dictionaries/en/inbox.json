@@ -375,6 +375,14 @@
   "draftsPanel.discard": "DISCARD",
   "draftsPanel.empty": "[—] nothing unsent",
 
+  "header.snoozedChipLabel": "SNOOZED",
+  "header.snoozedChipAria": "{count} snoozed threads",
+  "snoozedPanel.title": "// SNOOZED",
+  "snoozedPanel.body": "[—] threads paused until their snooze fires",
+  "snoozedPanel.untilSuffix": "UNTIL {when}",
+  "snoozedPanel.unsnooze": "UNSNOOZE",
+  "snoozedPanel.empty": "[—] nothing snoozed",
+
 
   "todayBar.yourMoveOverdue": "// YOUR MOVE :: {overdue} OVERDUE · {today} TODAY",
   "todayBar.yourMoveTodayOnly": "// YOUR MOVE :: {today} TODAY",

@@ -345,6 +345,14 @@
   "draftsPanel.discard": "DESCARTAR",
   "draftsPanel.empty": "[—] nada sin enviar",
 
+  "header.snoozedChipLabel": "EN PAUSA",
+  "header.snoozedChipAria": "{count} hilos en pausa",
+  "snoozedPanel.title": "// EN PAUSA",
+  "snoozedPanel.body": "[—] hilos en pausa hasta que se active la espera",
+  "snoozedPanel.untilSuffix": "HASTA {when}",
+  "snoozedPanel.unsnooze": "REACTIVAR",
+  "snoozedPanel.empty": "[—] nada en pausa",
+
 
   "todayBar.yourMoveOverdue": "// TE TOCA :: {overdue} VENCIDOS · {today} HOY",
   "todayBar.yourMoveTodayOnly": "// TE TOCA :: {today} HOY",

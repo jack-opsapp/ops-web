@@ -65,6 +65,7 @@ import { ResponsiveInboxShell } from "./responsive-inbox-shell";
 import type { MobileInboxPane } from "./mobile-stacked-shell";
 import { ThreadColumnHeader } from "./thread-column-header";
 import { DraftsChip } from "./drafts-chip";
+import { SnoozedChip } from "./snoozed-chip";
 import { TodayBar, type TodayCommitment } from "./today-bar";
 import { ThreadList, type ThreadListItem } from "./thread-list";
 import { ThreadDetail } from "./thread-detail";
@@ -449,7 +450,10 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
         onOpenArchived={onOpenArchived}
         onOpenSettings={onOpenSettings}
         headerChipSlot={
-          <DraftsChip scope="own" onOpenThread={navigateToThread} />
+          <>
+            <SnoozedChip scope="own" onOpenThread={navigateToThread} />
+            <DraftsChip scope="own" onOpenThread={navigateToThread} />
+          </>
         }
       />
       <TodayBar
