@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Plus, ChevronDown } from "lucide-react";
+import { Plus, ChevronDown, Search } from "lucide-react";
 import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
 import {
@@ -270,8 +270,8 @@ function AssigneeDropdown({
 // ---------------------------------------------------------------------------
 
 export function PipelineFilterRow({
-  searchQuery: _searchQuery,
-  onSearchChange: _onSearchChange,
+  searchQuery,
+  onSearchChange,
   stageFilter,
   onStageFilterChange,
   assigneeFilter,
@@ -281,9 +281,22 @@ export function PipelineFilterRow({
   canManage,
 }: PipelineFilterRowProps) {
   const { t } = useDictionary("pipeline");
+  const searchPlaceholder = t("focused.search.placeholder", "search pipeline...");
 
   return (
     <div className="flex items-center gap-[8px]">
+      <label className="flex h-[30px] min-w-[220px] items-center gap-[6px] rounded-[4px] border border-line bg-surface-input px-[10px] transition-colors focus-within:border-line-hi">
+        <Search className="h-[13px] w-[13px] shrink-0 text-text-3" strokeWidth={1.5} />
+        <input
+          type="search"
+          value={searchQuery}
+          onChange={(event) => onSearchChange(event.target.value)}
+          placeholder={searchPlaceholder}
+          aria-label={searchPlaceholder}
+          className="h-full min-w-0 flex-1 bg-transparent font-mohave text-body-sm text-text outline-none placeholder:text-text-3"
+        />
+      </label>
+
       {/* Stage filter */}
       <StageDropdown
         value={stageFilter}
