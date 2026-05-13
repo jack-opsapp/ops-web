@@ -14,6 +14,7 @@
 import { Link as LinkIcon, Plus } from "lucide-react";
 import { useMemo } from "react";
 import { useDictionary } from "@/i18n/client";
+import { pipelineOppDisplayTitle } from "@/lib/inbox/opp-display";
 import { cn } from "@/lib/utils/cn";
 
 export type PipelineConfidence = "low" | "warm" | "high";
@@ -21,6 +22,9 @@ export type PipelineConfidence = "low" | "warm" | "high";
 export interface PipelineOpp {
   id: string;
   title: string;
+  /** Long-form description used as a fallback when `title` is empty
+   *  (email-sourced opps frequently land with no subject). */
+  description?: string | null;
   /** Null when the opportunity has no associated value yet. */
   value: number | null;
   stage: string;
@@ -101,6 +105,10 @@ export function PipelineList({
             <ul className="flex flex-col gap-1.5">
               {list.map((opp) => {
                 const isLinked = opp.threadId === threadId;
+                const displayTitle = pipelineOppDisplayTitle(
+                  opp,
+                  t("pipeline.untitledOpportunity", "[UNTITLED OPPORTUNITY]"),
+                );
                 return (
                   <li
                     key={opp.id}
@@ -115,7 +123,7 @@ export function PipelineList({
                   >
                     <div className="flex min-w-0 items-baseline gap-2">
                       <span className="min-w-0 flex-1 truncate font-mohave text-[12px] leading-tight tracking-[-0.003em] text-text">
-                        {opp.title}
+                        {displayTitle}
                       </span>
                       {opp.value != null && (
                         <span

@@ -1058,6 +1058,7 @@ function toPipelineOpp(
   return {
     id: o.id,
     title: o.title,
+    description: o.description,
     value: o.estimatedValue ?? null,
     stage: String(o.stage),
     estimateRef: null,

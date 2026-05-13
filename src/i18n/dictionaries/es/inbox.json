@@ -92,6 +92,7 @@
   "pipeline.empty": "sin oportunidades abiertas",
   "pipeline.thisThread": "Este hilo",
   "pipeline.newOpportunity": "Nueva oportunidad",
+  "pipeline.untitledOpportunity": "[OPORTUNIDAD SIN TÍTULO]",
 
   "files.imagesLabel": "// IMÁGENES · {count}",
   "files.documentsLabel": "// DOCUMENTOS · {count}",

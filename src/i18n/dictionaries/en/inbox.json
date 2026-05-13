@@ -134,6 +134,7 @@
   "pipeline.empty": "no open opportunities",
   "pipeline.thisThread": "This thread",
   "pipeline.newOpportunity": "New opportunity",
+  "pipeline.untitledOpportunity": "[UNTITLED OPPORTUNITY]",
 
   "files.imagesLabel": "Images · {count}",
   "files.documentsLabel": "Documents · {count}",
