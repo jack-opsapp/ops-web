@@ -1577,7 +1577,7 @@ export default function PipelinePage() {
       )}
 
       {!isMobile && mode === "focused" && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[2] h-24 bg-gradient-to-t from-background via-background/85 to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[2] h-10 bg-gradient-to-t from-background via-background/60 to-transparent" />
       )}
 
       {/* Detail Popover Tether Lines */}
