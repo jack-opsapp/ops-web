@@ -247,6 +247,23 @@ export interface EmailProviderInterface {
   ): Promise<string>;
 
   /**
+   * Replace the contents of an existing provider draft. Used by the inbox
+   * composer's debounced auto-save once a draft has been created — subsequent
+   * keystrokes patch the same draft id rather than churn through delete+create.
+   *
+   * `threadId` is required on Gmail for reply-drafts (so the draft stays
+   * pinned to the conversation); M365 ignores it (the draft already lives in
+   * its parent conversation).
+   */
+  updateDraft(
+    draftId: string,
+    to: string,
+    subject: string,
+    body: string,
+    threadId?: string
+  ): Promise<void>;
+
+  /**
    * List every draft currently sitting in the user's provider Drafts folder.
    * Includes both reply-drafts (with threadId) and new-compose drafts. Used
    * by /api/inbox/drafts to merge provider-side drafts with OPS AI drafts.

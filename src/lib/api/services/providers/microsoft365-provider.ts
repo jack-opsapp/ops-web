@@ -570,6 +570,28 @@ export class Microsoft365Provider implements EmailProviderInterface {
     return data.id as string;
   }
 
+  async updateDraft(
+    draftId: string,
+    to: string,
+    subject: string,
+    body: string,
+    _threadId?: string
+  ): Promise<void> {
+    // Graph drafts live as regular messages in the Drafts folder; PATCH on
+    // the message id replaces the writable fields without disturbing
+    // conversationId. We deliberately omit `_threadId` from the payload —
+    // the conversation linkage was set on create and is read-only on update.
+    void _threadId;
+    await this.graphFetch(`/me/messages/${draftId}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        subject,
+        body: { contentType: "text", content: body },
+        toRecipients: [{ emailAddress: { address: to } }],
+      }),
+    });
+  }
+
   async listDrafts(): Promise<NormalizedDraft[]> {
     // The Drafts well-known folder surfaces exactly what the user sees in
     // Outlook's Drafts view. $select keeps the payload tight; $top=100 caps

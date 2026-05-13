@@ -17,6 +17,7 @@ import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
 import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 import { EmailService } from "@/lib/api/services/email-service";
 import { markdownToEmailHtml } from "@/lib/utils/markdown-to-email-html";
+import { extractEmailAddress } from "@/lib/utils/email-parsing";
 import { getSubscriptionInfo } from "@/lib/subscription";
 import {
   SubscriptionPlan,
@@ -26,12 +27,17 @@ import {
 
 export const maxDuration = 60;
 
-// RFC 5322 email address validation (simplified — covers real-world addresses)
+// RFC 5322 addr-spec regex (the bare `local@domain` part). The inbox
+// composer forwards `from` strings straight from the provider, which return
+// either a bare address or the full mailbox format `Display Name <addr>`
+// when the sender has a display name. `isValidEmail` strips the optional
+// display-name prefix before applying the regex so both forms validate.
 const EMAIL_RE =
   /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
 
-function isValidEmail(email: string): boolean {
-  return EMAIL_RE.test(email) && email.length <= 254;
+function isValidEmail(value: string): boolean {
+  const addr = extractEmailAddress(value);
+  return EMAIL_RE.test(addr) && addr.length <= 254;
 }
 
 // Rate limit: max sends per user per hour

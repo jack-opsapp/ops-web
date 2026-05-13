@@ -488,6 +488,32 @@ export class GmailProvider implements EmailProviderInterface {
     return data.id;
   }
 
+  async updateDraft(
+    draftId: string,
+    to: string,
+    subject: string,
+    body: string,
+    threadId?: string
+  ): Promise<void> {
+    // Gmail's drafts.update takes the same payload shape as drafts.create and
+    // replaces the underlying message wholesale. The HTTP verb is PUT (not
+    // PATCH) per the v1 API contract — there is no partial-update path.
+    const raw = this.buildRawEmail(to, subject, body);
+    const res = await this.gmailFetch(`/drafts/${draftId}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        message: {
+          raw,
+          threadId: threadId || undefined,
+        },
+      }),
+    });
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({}));
+      throwForGmailError(res.status, errBody, "drafts.update");
+    }
+  }
+
   async listDrafts(): Promise<NormalizedDraft[]> {
     // /drafts returns id + minimal metadata only; the message body/headers
     // require a second fetch per draft. We cap at the 15 most recent to
