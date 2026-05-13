@@ -58,6 +58,7 @@ import { useClient, useSubClients } from "@/lib/hooks/use-clients";
 import { useThreadOpportunityLinks } from "@/lib/hooks/use-thread-opportunity-links";
 import { useClientThreads } from "@/lib/hooks/use-client-threads";
 import { ThreadPicker, type ThreadPickerThread } from "./thread-picker";
+import { StateTag } from "./state-tag";
 import { computeStateTag } from "@/lib/inbox/format-wait";
 import { deriveStripContact } from "@/lib/inbox/derive-strip-contact";
 import { useWindowStore } from "@/stores/window-store";
@@ -559,6 +560,37 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
     });
   };
 
+  // Triage state for the detail-header chip. Mirrors the inline StateTag on
+  // <ThreadRow>: walks detail.messages to find the most recent inbound /
+  // outbound timestamps (more accurate than `latestDirection + lastMessageAt`
+  // because it surfaces the actual ball-in-court even when latestDirection
+  // points at an auto-send), then feeds computeStateTag the rest of the
+  // signals from detail.thread. `null` while detail hasn't loaded yet.
+  const triageStateForDetail = detail
+    ? (() => {
+        let lastInboundAt: number | null = null;
+        let lastOutboundAt: number | null = null;
+        for (const m of detail.messages) {
+          const ts = Date.parse(m.date);
+          if (Number.isNaN(ts)) continue;
+          if (m.direction === "inbound") {
+            if (lastInboundAt === null || ts > lastInboundAt) lastInboundAt = ts;
+          } else if (m.direction === "outbound") {
+            if (lastOutboundAt === null || ts > lastOutboundAt) lastOutboundAt = ts;
+          }
+        }
+        return computeStateTag({
+          lastInboundAt,
+          lastOutboundAt,
+          hasAiDraft: detail.thread.phaseC === "ai_drafted",
+          sentByAgentRecently: detail.thread.phaseC === "auto_sent",
+          labels: detail.thread.labels,
+          closed: detail.thread.archivedAt !== null,
+          now,
+        });
+      })()
+    : null;
+
   const detailNode = detail ? (
     <ThreadDetail
       subject={detail.thread.subject ?? t("detail.untitled", "(no subject)")}
@@ -603,6 +635,16 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
               guessSenderName(detail.messages) ??
               ""
             }
+          />
+        ) : undefined
+      }
+      triageSlot={
+        triageStateForDetail ? (
+          <StateTag
+            tone={triageStateForDetail.tone}
+            variant="bare"
+            prefix={triageStateForDetail.prefix}
+            value={triageStateForDetail.value}
           />
         ) : undefined
       }

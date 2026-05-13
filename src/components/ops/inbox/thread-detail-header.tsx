@@ -46,6 +46,15 @@ interface ThreadDetailHeaderProps {
   /** Inline slot rendered in the meta strip after the message count.
    *  Typically a `<ThreadPicker />` populated by the parent route. */
   threadPickerSlot?: ReactNode;
+  /**
+   * Triage chip rendered in the title row between the subject and the
+   * action-button cluster. Surfaces the active ball-in-court signal
+   * (`YOURS · 18H`, `THEIRS · 5D`, `+12D · WAITING`, `DRAFT READY`,
+   * `AUTO-SENT`, `CLOSED`, `FYI`) so the operator sees the same state
+   * the row carries inline. Driven by computeStateTag in the parent.
+   * Omit on rails / states where the chip adds noise.
+   */
+  triageSlot?: ReactNode;
   className?: string;
 }
 
@@ -88,6 +97,7 @@ export function ThreadDetailHeader({
   onRecategorize,
   onMore,
   threadPickerSlot,
+  triageSlot,
   className,
 }: ThreadDetailHeaderProps) {
   const { t } = useDictionary("inbox");
@@ -137,6 +147,11 @@ export function ThreadDetailHeader({
         <h1 className="m-0 min-w-0 flex-1 truncate font-mohave text-[15px] font-medium leading-tight tracking-[-0.005em] text-text">
           {subject || t("detail.untitled", "(no subject)")}
         </h1>
+        {triageSlot && (
+          <div className="flex shrink-0 items-center" data-testid="triage-slot">
+            {triageSlot}
+          </div>
+        )}
         <div className="flex shrink-0 items-center gap-0.5">
           {archiveSlot ? archiveSlot(archiveBtn) : archiveBtn}
           {snoozeSlot ? snoozeSlot(snoozeBtn) : snoozeBtn}

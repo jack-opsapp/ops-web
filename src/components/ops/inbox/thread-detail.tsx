@@ -31,6 +31,13 @@ interface ThreadDetailProps {
   /** Inline slot rendered in the detail-header meta strip after the message
    *  count. Forwarded as-is to <ThreadDetailHeader>. */
   threadPickerSlot?: ReactNode;
+  /**
+   * Triage chip rendered in the title row of the detail header (between
+   * subject and the action cluster). Forwarded as-is to
+   * `<ThreadDetailHeader>`. Typically a `<StateTag>` computed from the
+   * thread's labels + direction + phaseC via `computeStateTag`.
+   */
+  triageSlot?: ReactNode;
   className?: string;
   children?: ReactNode;
 }
@@ -61,6 +68,7 @@ export function ThreadDetail({
   onRecategorize,
   onMore,
   threadPickerSlot,
+  triageSlot,
   className,
   children,
 }: ThreadDetailProps) {
@@ -98,6 +106,7 @@ export function ThreadDetail({
         onRecategorize={onRecategorize}
         onMore={onMore}
         threadPickerSlot={threadPickerSlot}
+        triageSlot={triageSlot}
       />
       <div className="flex min-h-0 flex-1 flex-col">{children}</div>
     </div>
