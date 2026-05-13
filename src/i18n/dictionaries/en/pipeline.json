@@ -243,6 +243,8 @@
   "focused.dragLive.target": "Drag: {stage} stage. Press Space to drop.",
   "focused.dragLive.dropped": "Dropped on {stage}.",
   "focused.dragLive.cancelled": "Drag cancelled.",
+  "focused.tablist.label": "Pipeline stages",
+  "focused.loading.count": "loading",
   "focused.spineLabel": "{stage}, {count} opportunities",
   "focused.terminalStack.label": "Terminal stages",
   "focused.terminalStack.itemLabel": "{stage}, {count} opportunities",
