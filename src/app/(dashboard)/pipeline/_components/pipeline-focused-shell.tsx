@@ -268,7 +268,7 @@ export function PipelineFocusedShell({
 
   return (
     <div
-      className="h-full w-full overflow-hidden bg-background px-[44px] pb-[36px] pt-[176px]"
+      className="h-full min-h-0 w-full overflow-hidden bg-background px-[44px] pb-[36px] pt-[258px]"
       onWheel={handleWheel}
     >
       <div className="flex h-full min-h-0 items-stretch justify-center gap-2 overflow-hidden">

@@ -1381,9 +1381,9 @@ export default function PipelinePage() {
   } as const;
 
   return (
-    <div className="relative h-screen min-w-0">
+    <div className="relative h-full min-h-0 min-w-0 flex-1 overflow-hidden">
       {/* ── Canvas — fills entire viewport, renders behind HUD ── */}
-      <div className="absolute inset-0">
+      <div className="absolute inset-0 overflow-hidden">
         {isMobile ? (
           <PipelineMobile {...sharedBoardProps} />
         ) : (

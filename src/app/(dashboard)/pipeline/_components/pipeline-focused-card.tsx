@@ -66,7 +66,7 @@ export const PipelineFocusedCard = memo(function PipelineFocusedCard({
     <article
       ref={setNodeRef}
       className={cn(
-        "relative flex w-full select-none items-stretch gap-1",
+        "group/focused-card relative w-full select-none",
         isDragging && "opacity-60"
       )}
       style={dragStyle}
@@ -75,7 +75,15 @@ export const PipelineFocusedCard = memo(function PipelineFocusedCard({
         ref={setActivatorNodeRef}
         type="button"
         aria-label={t("focused.dragHandle.label")}
-        className="flex min-h-11 w-11 shrink-0 items-center justify-center rounded-panel border border-line bg-surface-input text-text-3 transition-colors duration-150 hover:bg-surface-hover hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent disabled:pointer-events-none disabled:opacity-40"
+        className={cn(
+          "absolute left-2 top-1/2 z-[2] flex h-8 w-8 -translate-x-2 -translate-y-1/2 items-center justify-center rounded-[5px] border border-line bg-[var(--surface-glass-dense)] text-text-3 opacity-0 backdrop-blur-[20px] backdrop-saturate-[1.2]",
+          "transition-[opacity,transform,background-color,border-color,color] duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]",
+          "hover:border-line-hi hover:bg-surface-hover hover:text-text",
+          "focus-visible:translate-x-0 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent",
+          "group-hover/focused-card:translate-x-0 group-hover/focused-card:opacity-100 group-focus-within/focused-card:translate-x-0 group-focus-within/focused-card:opacity-100",
+          "motion-reduce:transition-none disabled:pointer-events-none disabled:opacity-0",
+          isDragging && "translate-x-0 opacity-100"
+        )}
         disabled={!canManage}
         onClick={(event) => event.stopPropagation()}
         {...attributes}
@@ -84,7 +92,7 @@ export const PipelineFocusedCard = memo(function PipelineFocusedCard({
         <GripVertical className="h-4 w-4" strokeWidth={1.5} />
       </button>
 
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0">
         <PipelineCardContent
           opportunity={opportunity}
           clientName={clientName}

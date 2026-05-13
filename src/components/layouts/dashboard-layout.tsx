@@ -74,6 +74,7 @@ const FULL_HEIGHT_ROUTES: Record<string, FullHeightMode> = {
   "/inbox": "padded",
   "/map": "bleed",
   "/calendar": "padded",
+  "/pipeline": "padded",
   "/projects": "bleed",
   "/settings/integrations/ai-setup": "padded",
 };
