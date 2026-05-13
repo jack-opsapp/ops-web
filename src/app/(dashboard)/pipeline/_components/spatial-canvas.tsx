@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   useSpatialCanvasStore,
-  ZOOM_STEP,
   MIN_ZOOM,
   MAX_ZOOM,
 } from "./spatial-canvas-store";
+import { usePipelineDndState } from "./pipeline-dnd-provider";
+import { usePipelineModeStore } from "./pipeline-mode-store";
 
 interface SpatialCanvasProps {
   children: ReactNode;
@@ -42,6 +43,8 @@ export function SpatialCanvas({
   const startMarquee = useSpatialCanvasStore((s) => s.startMarquee);
   const updateMarquee = useSpatialCanvasStore((s) => s.updateMarquee);
   const endMarquee = useSpatialCanvasStore((s) => s.endMarquee);
+  const setMode = usePipelineModeStore((s) => s.setMode);
+  const { isDragging } = usePipelineDndState();
 
   // Sync canvas dimensions from layout engine
   useEffect(() => {
@@ -60,11 +63,20 @@ export function SpatialCanvas({
       // Mouse wheel sends larger deltaY without ctrlKey — use lower sensitivity
       const sensitivity = e.ctrlKey ? 0.005 : 0.002;
       const delta = -e.deltaY * sensitivity;
+      const currentZoom = useSpatialCanvasStore.getState().zoom;
+      const nextZoom = Math.max(
+        MIN_ZOOM,
+        Math.min(MAX_ZOOM, currentZoom + delta)
+      );
       const centerX = e.clientX - rect.left;
       const centerY = e.clientY - rect.top;
       zoomBy(delta, centerX, centerY);
+
+      if (e.ctrlKey && !isDragging && currentZoom < 1 && nextZoom >= 1) {
+        setMode("focused");
+      }
     },
-    [zoomBy]
+    [isDragging, setMode, zoomBy]
   );
 
   useEffect(() => {

@@ -57,6 +57,9 @@ const TERMINAL_STAGE_ORDER = [OpportunityStage.Won, OpportunityStage.Lost];
 const SNAP_DURATION_MS = 280;
 const SNAP_EASING = "cubic-bezier(0.22, 1, 0.36, 1)";
 const SNAP_DEBOUNCE_MS = 150;
+const PINCH_ZOOM_SENSITIVITY = 0.005;
+const FOCUSED_PINCH_MIN_ZOOM = 0.5;
+const FOCUSED_PINCH_SPATIAL_THRESHOLD = 0.6;
 const REDUCED_MOTION_DURATION = 0.001;
 const SPINE_RAIL_CHROME = "h-full pt-[112px] pb-0";
 
@@ -145,6 +148,7 @@ export function PipelineFocusedShell({
   const closeDetailPanel = usePipelineModeStore(
     (state) => state.closeDetailPanel
   );
+  const setMode = usePipelineModeStore((state) => state.setMode);
   const toggleMode = usePipelineModeStore((state) => state.toggleMode);
   const { isDragging } = usePipelineDndState();
   const shellRef = useRef<HTMLDivElement>(null);
@@ -152,6 +156,7 @@ export function PipelineFocusedShell({
   const pendingFlipRectRef = useRef<DOMRect | null>(null);
   const stageSyncedDetailIdRef = useRef<string | null>(null);
   const lastSnapAtRef = useRef(0);
+  const virtualZoomRef = useRef(1);
   const animationRef = useRef<Animation | null>(null);
 
   const opportunitiesByStage = useMemo(() => {
@@ -304,6 +309,23 @@ export function PipelineFocusedShell({
 
   const handleWheel = useCallback(
     (event: React.WheelEvent<HTMLDivElement>) => {
+      if (event.ctrlKey) {
+        if (isDragging) return;
+
+        event.preventDefault();
+        const delta = -event.deltaY * PINCH_ZOOM_SENSITIVITY;
+        virtualZoomRef.current = Math.max(
+          FOCUSED_PINCH_MIN_ZOOM,
+          Math.min(1, virtualZoomRef.current + delta)
+        );
+
+        if (virtualZoomRef.current <= FOCUSED_PINCH_SPATIAL_THRESHOLD) {
+          virtualZoomRef.current = 1;
+          setMode("spatial");
+        }
+        return;
+      }
+
       const horizontalIntent =
         Math.abs(event.deltaX) > Math.abs(event.deltaY);
       const shiftedWheelIntent =
@@ -320,7 +342,7 @@ export function PipelineFocusedShell({
       const delta = horizontalIntent ? event.deltaX : event.deltaY;
       snapByDirection(delta > 0 ? 1 : -1);
     },
-    [isDragging, snapByDirection]
+    [isDragging, setMode, snapByDirection]
   );
 
   const leftStages = ACTIVE_STAGE_ORDER.filter(

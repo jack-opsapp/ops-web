@@ -459,6 +459,33 @@ describe("<PipelineFocusedShell>", () => {
     );
   });
 
+  it("switches to spatial mode when focused pinch-out crosses the virtual zoom threshold", () => {
+    const { container } = renderFocusedShell([
+      makeOpportunity("opp-1", OpportunityStage.NewLead),
+    ]);
+
+    fireEvent.wheel(getShellElement(container), {
+      ctrlKey: true,
+      deltaY: 81,
+    });
+
+    expect(usePipelineModeStore.getState().mode).toBe("spatial");
+  });
+
+  it("ignores focused pinch mode switching while dragging", () => {
+    mockDndState.isDragging = true;
+    const { container } = renderFocusedShell([
+      makeOpportunity("opp-1", OpportunityStage.NewLead),
+    ]);
+
+    fireEvent.wheel(getShellElement(container), {
+      ctrlKey: true,
+      deltaY: 100,
+    });
+
+    expect(usePipelineModeStore.getState().mode).toBe("focused");
+  });
+
   it("renders focused DnD announcements in a polite live region", () => {
     render(
       <PipelineFocusedShell
