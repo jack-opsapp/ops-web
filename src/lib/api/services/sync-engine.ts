@@ -2,6 +2,7 @@
 // Core sync cycle — runs on every sync trigger (cron, manual, webhook).
 // Implements the 12-step flow from spec Section 4C.
 
+import { after } from "next/server";
 import { requireSupabase } from "@/lib/supabase/helpers";
 import { EmailService } from "./email-service";
 import { EmailMatchingServiceV2 } from "./email-matching-service-v2";
@@ -288,7 +289,11 @@ async function createActivity(
   //
   // Every email flows through this function, so it's the single integration
   // point for the new inbox's per-thread state. We upsert first (fast), then
-  // fire-and-forget classification so an OpenAI call never blocks sync.
+  // defer classification to after the response so an OpenAI call never blocks
+  // sync — Next.js `after()` keeps the function alive past the response so
+  // the in-flight OpenAI + Supabase UPDATE aren't aborted when the serverless
+  // container freezes (the pre-`after()` `.catch()` form left ~95% of threads
+  // with NULL `ai_summary` because the UPDATE never reached Postgres).
   //
   // A failure here must not break the sync loop — swallow errors into the
   // log and keep going.
@@ -308,19 +313,24 @@ async function createActivity(
       (direction === "inbound" && !threadRow.categoryManuallySet);
 
     if (needsClassify) {
-      EmailThreadService.classifyAndUpdate(threadRow).catch((err) => {
-        console.error(
-          "[sync-engine] thread classify failed (non-fatal) for",
-          threadRow.id,
-          err instanceof Error ? err.message : err
-        );
+      after(async () => {
+        try {
+          await EmailThreadService.classifyAndUpdate(threadRow);
+        } catch (err) {
+          console.error(
+            "[sync-engine] thread classify failed (non-fatal) for",
+            threadRow.id,
+            err instanceof Error ? err.message : err
+          );
+        }
       });
     } else if (direction === "inbound") {
       // New inbound on an already-classified thread — no need to reclassify,
       // but Phase C still needs to decide whether to draft/send/archive.
-      import("./phase-c-autonomy-router")
-        .then(({ PhaseCAutonomyRouter }) => PhaseCAutonomyRouter.route(threadRow))
-        .then((result) => {
+      after(async () => {
+        try {
+          const { PhaseCAutonomyRouter } = await import("./phase-c-autonomy-router");
+          const result = await PhaseCAutonomyRouter.route(threadRow);
           if (
             result.outcome !== "noop_off" &&
             result.outcome !== "noop_draft_on_request"
@@ -332,13 +342,13 @@ async function createActivity(
               result.effectiveLevel
             );
           }
-        })
-        .catch((err) =>
+        } catch (err) {
           console.error(
             "[phase-c-router] sync-engine inbound route failed (non-fatal):",
             err instanceof Error ? err.message : err
-          )
-        );
+          );
+        }
+      });
     }
   } catch (err) {
     console.error(
