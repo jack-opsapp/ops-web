@@ -47,7 +47,7 @@ export const PipelineTerminalStack = memo(function PipelineTerminalStack({
 
   return (
     <div
-      className="flex h-full min-h-[320px] w-[72px] shrink-0 flex-col gap-2"
+      className="flex h-full min-h-0 w-[72px] shrink-0 flex-col gap-2"
       aria-label={t("focused.terminalStack.label", "Terminal stages")}
     >
       {items.map(({ stage, opportunities }) => (

@@ -100,7 +100,7 @@ export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
   const emptyActionHandler = filtersActive ? onClearFilters : onAddLead;
 
   return (
-    <section className="flex h-full w-[420px] shrink-0 flex-col gap-2">
+    <section className="relative h-full w-[520px] shrink-0">
       <button
         type="button"
         role="tab"
@@ -108,77 +108,75 @@ export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
         aria-selected={true}
         aria-controls={focusedPanelId}
         tabIndex={0}
-        className="glass-dense relative overflow-hidden rounded-panel border border-line px-4 py-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
+        className="absolute left-0 right-0 top-[184px] z-[2] overflow-hidden rounded-panel bg-background px-1 py-1 pl-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
       >
         <span
           aria-hidden="true"
-          className="absolute left-0 top-0 h-full w-[2px]"
+          className="absolute bottom-1 left-0 top-1 w-[2px]"
           style={{ backgroundColor: stageColor }}
         />
 
-        <span className="block font-cakemono text-heading font-light uppercase text-text">
-          {stageName}
-        </span>
+        <div className="flex items-end justify-between gap-4">
+          <span className="min-w-0 truncate font-cakemono text-heading font-light uppercase text-text">
+            {stageName}
+          </span>
 
-        <dl className="mt-3 grid grid-cols-3 gap-2">
-          <Metric
-            label={t("focused.metrics.count", "COUNT")}
-            value={String(opportunities.length)}
-          />
-          <Metric
-            label={t("focused.metrics.value", "VALUE")}
-            value={formatCurrency(totalEstimatedValue)}
-          />
-          <Metric
-            label={t("focused.metrics.avgDays", "AVG DAYS")}
-            value={avgDays === null ? "—" : `${avgDays}d`}
-          />
-        </dl>
+          <dl className="grid w-[260px] shrink-0 grid-cols-3 gap-2">
+            <Metric
+              label={t("focused.metrics.count", "COUNT")}
+              value={String(opportunities.length)}
+            />
+            <Metric
+              label={t("focused.metrics.value", "VALUE")}
+              value={formatCurrency(totalEstimatedValue)}
+            />
+            <Metric
+              label={t("focused.metrics.avgDays", "AVG DAYS")}
+              value={avgDays === null ? "—" : `${avgDays}d`}
+            />
+          </dl>
+        </div>
       </button>
 
       <div
         id={focusedPanelId}
         role="tabpanel"
         aria-labelledby={focusedTabId}
-        className="min-h-0 flex-1 overflow-hidden rounded-panel border border-line bg-surface-input"
+        className="h-full min-h-0 overflow-y-auto pr-1 pt-[238px] scrollbar-hide"
       >
         {opportunities.length > 0 ? (
-          <div className="h-full overflow-y-auto px-2 py-2 scrollbar-hide">
-            <div className="flex flex-col gap-2">
-              {opportunities.map((opportunity) => {
-                const clientName =
-                  clientNameMap.get(opportunity.clientId ?? "") ??
-                  opportunity.contactName ??
-                  t("card.unknown", "Unknown");
-                const cardStageColor =
-                  OPPORTUNITY_STAGE_COLORS[opportunity.stage] ?? stageColor;
+          <div className="flex min-h-full flex-col gap-2 pb-[120px]">
+            {opportunities.map((opportunity) => {
+              const clientName =
+                clientNameMap.get(opportunity.clientId ?? "") ??
+                opportunity.contactName ??
+                t("card.unknown", "Unknown");
+              const cardStageColor =
+                OPPORTUNITY_STAGE_COLORS[opportunity.stage] ?? stageColor;
 
-                return (
-                  <PipelineFocusedCard
-                    key={opportunity.id}
-                    opportunity={opportunity}
-                    clientName={clientName}
-                    stageColor={cardStageColor}
-                    stalenessOpacity={stalenessMap.get(opportunity.id) ?? 1}
-                    canManage={canManage}
-                    onLogCall={() => onLogCall(opportunity.id)}
-                    onLogText={() => onLogText(opportunity.id)}
-                    onAddNote={(note) => onAddNote(opportunity.id, note)}
-                    onArchive={() => onArchive(opportunity.id)}
-                    onDiscard={() => onDiscard(opportunity.id)}
-                    onMarkWon={() => onMarkWon(opportunity)}
-                    onMarkLost={() => onMarkLost(opportunity)}
-                    onAssign={() => onAssign(opportunity.id)}
-                    onScheduleFollowUp={() =>
-                      onScheduleFollowUp(opportunity.id)
-                    }
-                  />
-                );
-              })}
-            </div>
+              return (
+                <PipelineFocusedCard
+                  key={opportunity.id}
+                  opportunity={opportunity}
+                  clientName={clientName}
+                  stageColor={cardStageColor}
+                  stalenessOpacity={stalenessMap.get(opportunity.id) ?? 1}
+                  canManage={canManage}
+                  onLogCall={() => onLogCall(opportunity.id)}
+                  onLogText={() => onLogText(opportunity.id)}
+                  onAddNote={(note) => onAddNote(opportunity.id, note)}
+                  onArchive={() => onArchive(opportunity.id)}
+                  onDiscard={() => onDiscard(opportunity.id)}
+                  onMarkWon={() => onMarkWon(opportunity)}
+                  onMarkLost={() => onMarkLost(opportunity)}
+                  onAssign={() => onAssign(opportunity.id)}
+                  onScheduleFollowUp={() => onScheduleFollowUp(opportunity.id)}
+                />
+              );
+            })}
           </div>
         ) : (
-          <div className="flex h-full flex-col items-start justify-center gap-3 px-6">
+          <div className="flex min-h-full flex-col items-start gap-3 pb-[120px] pt-[24px]">
             <p className="font-mono text-caption-sm uppercase text-text">
               {emptyTitle}
             </p>

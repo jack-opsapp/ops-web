@@ -268,7 +268,7 @@ export function PipelineFocusedShell({
 
   return (
     <div
-      className="h-full min-h-0 w-full overflow-hidden bg-background px-[44px] pb-[36px] pt-[258px]"
+      className="h-full min-h-0 w-full overflow-hidden bg-background px-[44px]"
       onWheel={handleWheel}
     >
       <div className="flex h-full min-h-0 items-stretch justify-center gap-2 overflow-hidden">
@@ -356,7 +356,7 @@ function SpineSlot({
   const compactHidden = distance >= 2 ? "max-[1279px]:hidden" : "";
 
   return (
-    <div className={compactHidden}>
+    <div className={`h-full ${compactHidden}`}>
       <PipelineSpineColumn
         stage={stage}
         opportunities={opportunities}

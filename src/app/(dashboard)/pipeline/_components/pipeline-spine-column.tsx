@@ -83,7 +83,7 @@ export const PipelineSpineColumn = memo(function PipelineSpineColumn({
       aria-label={ariaLabel}
       tabIndex={-1}
       className={cn(
-        "relative flex h-full min-h-[320px] w-[64px] shrink-0 overflow-hidden rounded-sidebar border border-line bg-transparent px-0 py-1 text-left",
+        "relative flex h-full min-h-0 w-[64px] shrink-0 overflow-hidden rounded-sidebar border border-line bg-transparent px-0 py-1 text-left",
         "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent",
         transitionClasses
       )}
