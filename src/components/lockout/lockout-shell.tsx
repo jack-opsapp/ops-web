@@ -1,10 +1,12 @@
 "use client";
 
-import { type ReactNode } from "react";
-import Link from "next/link";
+import { type ReactNode, useCallback, useRef } from "react";
 import { Headphones } from "lucide-react";
 import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
+import { useAuthStore } from "@/lib/store/auth-store";
+import { useSetupStore } from "@/stores/setup-store";
+import { signOut } from "@/lib/firebase/auth";
 
 export interface LockoutShellTagProps {
   tone: "rose" | "tan";
@@ -39,6 +41,37 @@ export function LockoutShell({
 }: LockoutShellProps) {
   const { t } = useDictionary("auth");
   const isPage = variant === "page";
+  const switchingRef = useRef(false);
+
+  // Clearing the session before navigating /login is mandatory. The middleware
+  // sees the still-valid Firebase cookies (__session / ops-auth-token) and
+  // redirects /login -> /dashboard, which re-mounts this same lockout dialog.
+  // Mirrors the cleanup sequence in src/components/ops/sign-out-overlay.tsx.
+  // (bug a1cc9a86)
+  const handleSwitchAccount = useCallback(async () => {
+    if (switchingRef.current) return;
+    switchingRef.current = true;
+
+    // Clear the two auth cookies up front so the middleware can't read them
+    // on the way to /login.
+    document.cookie = "ops-auth-token=; path=/; max-age=0";
+    document.cookie = "__session=; path=/; max-age=0";
+
+    // Clear client stores so nothing flashes back.
+    useSetupStore.getState().reset();
+    useAuthStore.getState().logout();
+
+    try {
+      await signOut();
+    } catch {
+      // Best-effort — proceed to /login regardless. The cookies are already
+      // cleared, so middleware will not bounce us back.
+    }
+
+    // Full document navigation to drop any in-memory React state that the
+    // lockout dialog mounted from.
+    window.location.href = "/login";
+  }, []);
 
   return (
     <div
@@ -111,13 +144,14 @@ export function LockoutShell({
               {t("lockout.shared.contactSupport").toUpperCase()}
             </a>
             {showSwitchAccount && (
-              <Link
-                href="/login"
-                className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-3 hover:text-text-2 transition-colors"
+              <button
+                type="button"
+                onClick={handleSwitchAccount}
+                className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-3 hover:text-text-2 transition-colors cursor-pointer"
               >
                 <span className="text-text-mute">{"// "}</span>
                 {t("lockout.shared.switchAccount").toUpperCase()}
-              </Link>
+              </button>
             )}
           </div>
           <span className="font-mono text-[11px] tracking-[0.12em] text-text-mute">

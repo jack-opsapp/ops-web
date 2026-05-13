@@ -98,7 +98,11 @@ function mapToDb(data: Partial<Project>): Record<string, unknown> {
   if (data.companyId !== undefined) row.company_id = data.companyId;
   if (data.clientId !== undefined) row.client_id = data.clientId;
   if (data.allDay !== undefined) row.all_day = data.allDay;
-  if (data.teamMemberIds !== undefined) row.team_member_ids = data.teamMemberIds;
+  // NOTE: projects.team_member_ids is server-derived from project_tasks.team_member_ids
+  // via a recompute trigger. Writes here are silently overwritten on the next task edit.
+  // Team mutations must go through the assign_project_team_member / remove_project_team_member RPCs,
+  // which mutate task-level assignments. Reads of teamMemberIds remain valid because the column
+  // stays in sync via the trigger. (bug 7c90758b)
   if (data.projectDescription !== undefined) row.description = data.projectDescription;
   if (data.projectImages !== undefined) row.project_images = data.projectImages;
   if (data.trade !== undefined) row.trade = data.trade;

@@ -29,6 +29,160 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const maxDuration = 300;
 
+// ─── Title derivation ──────────────────────────────────────────────────────
+//
+// opportunities.title is NOT NULL. The wizard payload's lead.title is only
+// populated when the client has MORE than one lead in the same import
+// (used as a distinguishing label) — otherwise it's null, and the previous
+// write path satisfied the NOT NULL constraint with an empty string. That
+// produced lead-card rows with no readable title (bug 36f8a964).
+//
+// The fallback chain, in priority order:
+//   1. lead.title (operator-confirmed in the wizard) — explicit wins.
+//   2. The email thread subject, stripped of "Re:" / "Fwd:" / "FW:" prefixes.
+//      Looked up directly from the email_threads row by thread id.
+//   3. The first sentence (up to 80 chars) of the AI-generated description.
+//   4. A tactical fallback: `[OPPORTUNITY · {client} · {YYYY-MM-DD}]`.
+//
+// Steps 1 and 4 always work synchronously. Steps 2 and 3 are best-effort —
+// failures fall through to the next tier. Result is always a non-empty
+// trimmed string, which is what the NOT NULL constraint actually wants.
+// (bug 36f8a964)
+
+const SUBJECT_PREFIX_RE = /^\s*(re|fwd?|fw):\s*/i;
+
+function stripSubjectPrefixes(subject: string): string {
+  let s = subject;
+  // Strip multiple stacked Re: Fwd: Re: prefixes — common on long threads.
+  for (let i = 0; i < 5; i++) {
+    const next = s.replace(SUBJECT_PREFIX_RE, "");
+    if (next === s) break;
+    s = next;
+  }
+  return s.trim();
+}
+
+function firstSentence(text: string, max: number): string | null {
+  const trimmed = text.trim();
+  if (!trimmed) return null;
+  // Sentence delimiter or newline — whichever comes first.
+  const match = trimmed.match(/^[^.!?\n]+/);
+  const candidate = (match ? match[0] : trimmed).trim();
+  if (!candidate) return null;
+  if (candidate.length <= max) return candidate;
+  return candidate.slice(0, max - 1).trimEnd() + "…";
+}
+
+function tacticalFallbackTitle(clientName: string | null | undefined): string {
+  const safeName = (clientName ?? "").trim() || "UNKNOWN CLIENT";
+  const today = new Date().toISOString().slice(0, 10);
+  return `[OPPORTUNITY · ${safeName} · ${today}]`;
+}
+
+async function deriveOpportunityTitle(
+  supabase: SupabaseClient,
+  args: {
+    explicitTitle: string | null;
+    threadId: string | null | undefined;
+    description: string | null | undefined;
+    clientName: string | null | undefined;
+  },
+): Promise<string> {
+  // Tier 1 — explicit title from the wizard payload.
+  const explicit = (args.explicitTitle ?? "").trim();
+  if (explicit) return explicit;
+
+  // Tier 2 — email thread subject. Best-effort: a missing row or a
+  // permission failure falls through silently.
+  if (args.threadId) {
+    try {
+      const { data: thread } = await supabase
+        .from("email_threads")
+        .select("subject")
+        .eq("id", args.threadId)
+        .maybeSingle();
+      const subject = ((thread?.subject as string) ?? "").trim();
+      const cleaned = stripSubjectPrefixes(subject);
+      if (cleaned) return cleaned;
+    } catch (err) {
+      console.error(
+        `[email-import] Title derivation: thread lookup failed for ${args.threadId}:`,
+        err,
+      );
+    }
+  }
+
+  // Tier 3 — first sentence of the AI description.
+  if (args.description) {
+    const sentence = firstSentence(args.description, 80);
+    if (sentence) return sentence;
+  }
+
+  // Tier 4 — deterministic fallback in OPS tactical voice.
+  return tacticalFallbackTitle(args.clientName);
+}
+
+// ─── Client contact backfill ───────────────────────────────────────────────
+//
+// clients.phone_number / clients.address are NULL for many clients even when
+// the matching opportunity row carries the contact info (the quote-form
+// submissions populate opportunities.contact_phone / opportunities.address
+// from the form payload, but the previous write path skipped updating the
+// already-existing client row). Operators saw blank contact details on the
+// client surface even though the lead they were looking at had a phone
+// number. (bug f64aa932)
+//
+// On every confirmed lead, we now check whether the linked client row is
+// missing phone or address and the lead payload carries those values — if
+// so we update the client row in place. This is fill-blanks only; we never
+// overwrite an existing client phone/address with import payload values
+// (the merge flow above is the canonical "overwrite" path).
+async function backfillClientContact(
+  supabase: SupabaseClient,
+  args: {
+    clientId: string;
+    leadPhone: string | null;
+    leadAddress: string | null;
+  },
+): Promise<void> {
+  if (!args.leadPhone && !args.leadAddress) return;
+  try {
+    const { data: row } = await supabase
+      .from("clients")
+      .select("phone_number, address")
+      .eq("id", args.clientId)
+      .maybeSingle();
+    if (!row) return;
+
+    const update: Record<string, string> = {};
+    const currentPhone = ((row.phone_number as string | null) ?? "").trim();
+    const currentAddress = ((row.address as string | null) ?? "").trim();
+
+    if (!currentPhone && args.leadPhone && args.leadPhone.trim()) {
+      update.phone_number = args.leadPhone.trim();
+    }
+    if (!currentAddress && args.leadAddress && args.leadAddress.trim()) {
+      update.address = args.leadAddress.trim();
+    }
+    if (Object.keys(update).length === 0) return;
+
+    const { error } = await supabase
+      .from("clients")
+      .update(update)
+      .eq("id", args.clientId);
+    if (error) {
+      console.error(
+        `[email-import] Client contact backfill failed for ${args.clientId}: ${error.message}`,
+      );
+    }
+  } catch (err) {
+    console.error(
+      `[email-import] Client contact backfill threw for ${args.clientId}:`,
+      err,
+    );
+  }
+}
+
 export async function POST(request: NextRequest) {
   const payload: ImportPayload = await request.json();
   const { connectionId, companyId, leads } = payload;
@@ -319,6 +473,18 @@ async function runImport(
       // Track for merge
       mergeMap.set(lead.id, clientId);
 
+      // Backfill clients.phone_number / clients.address from the lead
+      // payload when the client row is empty. Covers every branch above
+      // (merge, link, create_subclient, mergeWithLeadId, create_new)
+      // because they all converge on a single clientId at this point.
+      // Fill-blanks only — never overwrites an existing client value.
+      // (bug f64aa932)
+      await backfillClientContact(supabase, {
+        clientId,
+        leadPhone: lead.clientPhone,
+        leadAddress: lead.clientAddress,
+      });
+
       // Map stage string to OpportunityStage enum value
       const stageMap: Record<string, OpportunityStage> = {
         new_lead: OpportunityStage.NewLead,
@@ -334,7 +500,22 @@ async function runImport(
       const stage = stageMap[lead.stage] || OpportunityStage.NewLead;
       const isTerminal = stage === OpportunityStage.Won || stage === OpportunityStage.Lost || stage === OpportunityStage.Discarded;
 
-      // Check for existing open opportunity for this client
+      // Check for an existing opportunity for this client that we should
+      // attach the incoming thread to instead of creating a new row.
+      //
+      // Bug ffa94025: the previous dedup window only matched the open
+      // pipeline stages — new_lead through negotiation — and excluded the
+      // terminal `won` stage. The result was that every fresh inbound email
+      // for a client whose last lead was already marked won spawned a brand
+      // new won opportunity (the wizard auto-classifies long-running
+      // threads as won). Same client, same job, four rows.
+      //
+      // The dedup window now includes `won` so a subsequent inbound on a
+      // client who already has a won opportunity falls onto the existing
+      // row. `lost` and `discarded` are intentionally excluded — those are
+      // dead-end terminal states where a new inbound legitimately
+      // represents a new opportunity. We also filter out archived rows so
+      // the archive flow stays opt-in.
       const { data: existingOpps } = await supabase
         .from("opportunities")
         .select("id")
@@ -347,8 +528,10 @@ async function runImport(
           "quoted",
           "follow_up",
           "negotiation",
+          "won",
         ])
         .is("deleted_at", null)
+        .is("archived_at", null)
         .limit(1);
 
       let opportunityId: string;
@@ -360,10 +543,17 @@ async function runImport(
         const lastMessageDate = lead.lastMessageDate ? new Date(lead.lastMessageDate) : null;
         const isOutbound = (lead.outboundCount || 0) > 0 && inboundCount === 0;
 
+        const derivedTitle = await deriveOpportunityTitle(supabase, {
+          explicitTitle: lead.title,
+          threadId: lead.threadId,
+          description: lead.description,
+          clientName: lead.clientName,
+        });
+
         const opp = await OpportunityService.createOpportunity({
           companyId,
           clientId,
-          title: lead.title || "",
+          title: derivedTitle,
           stage,
           source: OpportunitySource.Email,
           contactName: lead.clientName,

@@ -4,9 +4,10 @@ import * as React from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useProject } from "@/lib/hooks/use-projects";
+import { useProject, useUpdateProjectStatus } from "@/lib/hooks/use-projects";
 import { useProjectMutations } from "@/lib/hooks/use-project-mutations";
 import { usePermissionStore } from "@/lib/store/permissions-store";
+import { ProjectStatus } from "@/lib/types/models";
 import { Body } from "@/components/ops/projects/workspace/atoms/body";
 import { Mono } from "@/components/ops/projects/workspace/atoms/mono";
 import { Stack } from "@/components/ops/projects/workspace/atoms/stack";
@@ -60,6 +61,17 @@ export interface ProjectEditCreateBodyProps {
 
 const VISIBILITY_VALUES = ["all", "office", "private"] as const;
 const TRADE_VALUES = ["roofing", "hvac", "plumbing"] as const;
+// Status values the editor can write. Archived is intentionally excluded —
+// archive has its own footer action and notification flow via
+// useProjectMutations.archiveProject. (bug 9b0f2305)
+const STATUS_VALUES = [
+  ProjectStatus.RFQ,
+  ProjectStatus.Estimated,
+  ProjectStatus.Accepted,
+  ProjectStatus.InProgress,
+  ProjectStatus.Completed,
+  ProjectStatus.Closed,
+] as const;
 
 // Form schema factory — values follow the Project model. clientId is
 // nullable because creating-mode workflows can defer client linkage.
@@ -93,6 +105,7 @@ function buildEditingSchema(messages: {
     endDate: z.string(),
     duration: z.string(),
     visibility: z.enum(VISIBILITY_VALUES),
+    status: z.enum(STATUS_VALUES),
   });
 }
 
@@ -124,6 +137,9 @@ const EMPTY_DEFAULTS: ProjectEditCreateFormValues = {
   endDate: "",
   duration: "",
   visibility: "all",
+  // Default new projects to RFQ — matches useProjectMutations.createProject's
+  // status fallback so the editor and the mutation agree.
+  status: ProjectStatus.RFQ,
 };
 
 function toIsoDate(value: Date | null | undefined): string {
@@ -192,6 +208,11 @@ export function ProjectEditCreateBody({
     isEditing && projectId ? projectId : undefined,
   );
   const mutations = useProjectMutations(projectId);
+  // Status changes go through the dedicated hook so the lifecycle handler
+  // (notifications + status_change activity row) fires consistently with
+  // every other surface that changes status. Don't fold this into the
+  // generic project patch — that path skips the lifecycle plumbing.
+  const updateStatus = useUpdateProjectStatus();
 
   const defaults = React.useMemo<ProjectEditCreateFormValues>(() => {
     if (!isEditing || !project) return EMPTY_DEFAULTS;
@@ -207,6 +228,15 @@ export function ProjectEditCreateBody({
       endDate: toIsoDate(project.endDate),
       duration: project.duration != null ? String(project.duration) : "",
       visibility: project.visibility ?? "all",
+      // Archived projects shouldn't normally route through the editor at all,
+      // but if they do we fall back to RFQ in the picker (the schema doesn't
+      // accept Archived as a writable option). The display title bar still
+      // reads the actual status from the loaded project.
+      status: STATUS_VALUES.includes(
+        project.status as (typeof STATUS_VALUES)[number],
+      )
+        ? (project.status as (typeof STATUS_VALUES)[number])
+        : ProjectStatus.RFQ,
     };
     // The project reference is the cache key; safe to depend on directly.
   }, [isEditing, project]);
@@ -271,6 +301,16 @@ export function ProjectEditCreateBody({
           visibility: values.visibility,
         },
       });
+      // Status flips go through the lifecycle hook so the activity timeline +
+      // notifications fire identically to every other surface that updates
+      // status. Only call it when the operator actually changed the value to
+      // avoid spurious status_change events / notifications. (bug 9b0f2305)
+      if (project && values.status !== project.status) {
+        await updateStatus.mutateAsync({
+          id: projectId,
+          status: values.status,
+        });
+      }
       onSaved?.(projectId);
       return;
     }
@@ -286,6 +326,7 @@ export function ProjectEditCreateBody({
       startDate: fromIsoDate(values.startDate),
       endDate: fromIsoDate(values.endDate),
       visibility: values.visibility,
+      status: values.status,
     });
     onSaved?.(created.id);
   });
@@ -335,7 +376,11 @@ export function ProjectEditCreateBody({
         )}
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-          {tab === "identity" ? <IdentityTab mode={mode} /> : <ScheduleTab />}
+          {tab === "identity" ? (
+            <IdentityTab mode={mode} />
+          ) : (
+            <ScheduleTab mode={mode} projectId={projectId} />
+          )}
         </div>
       </FormProvider>
     </form>
