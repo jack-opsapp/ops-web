@@ -21,6 +21,7 @@ export interface PipelineSpineColumnProps {
   tabId: string;
   panelId: string;
   isFocusedTab?: false;
+  onFocusStage?: (stage: OpportunityStage) => void;
 }
 
 const MAX_SILHOUETTES = 30;
@@ -56,6 +57,7 @@ export const PipelineSpineColumn = memo(function PipelineSpineColumn({
   isHovered,
   tabId,
   panelId,
+  onFocusStage,
 }: PipelineSpineColumnProps) {
   const { t } = useDictionary("pipeline");
   const stageName = getStageDisplayName(stage);
@@ -88,7 +90,14 @@ export const PipelineSpineColumn = memo(function PipelineSpineColumn({
       style={{
         borderColor: isHovered ? stageColor : undefined,
       }}
-      onClick={() => usePipelineModeStore.getState().setFocusedStage(stage)}
+      onClick={() => {
+        if (onFocusStage) {
+          onFocusStage(stage);
+          return;
+        }
+
+        usePipelineModeStore.getState().setFocusedStage(stage);
+      }}
     >
       <div
         aria-hidden="true"
