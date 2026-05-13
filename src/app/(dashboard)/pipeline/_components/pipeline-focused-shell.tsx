@@ -53,7 +53,7 @@ const SNAP_DURATION_MS = 280;
 const SNAP_EASING = "cubic-bezier(0.22, 1, 0.36, 1)";
 const SNAP_DEBOUNCE_MS = 150;
 const SPINE_RAIL_CHROME =
-  "h-full pt-[clamp(128px,15vh,152px)] pb-0";
+  "h-full pt-[clamp(144px,16vh,168px)] pb-3";
 
 function sortOpportunities(
   opportunities: Opportunity[],

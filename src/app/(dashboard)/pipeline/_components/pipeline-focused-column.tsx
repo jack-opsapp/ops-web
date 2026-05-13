@@ -101,25 +101,25 @@ export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
 
   return (
     <section className="relative h-full w-full min-w-0">
-      <button
-        type="button"
-        role="tab"
-        id={focusedTabId}
-        aria-selected={true}
-        aria-controls={focusedPanelId}
-        tabIndex={0}
-        className="glass-dense absolute left-0 right-0 top-[clamp(128px,15vh,152px)] z-[2] min-h-[76px] overflow-hidden px-4 py-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
-      >
+      <header className="glass-dense absolute left-0 right-0 top-[clamp(144px,16vh,168px)] z-[2] isolate min-h-[88px] overflow-hidden px-4 py-3 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ops-accent">
         <span
           aria-hidden="true"
-          className="absolute bottom-2 left-0 top-2 w-[2px]"
+          className="absolute bottom-3 left-0 top-3 w-[2px]"
           style={{ backgroundColor: stageColor }}
         />
 
-        <div className="flex items-end justify-between gap-4">
-          <span className="min-w-0 truncate font-cakemono text-[24px] font-light uppercase leading-none text-text">
+        <div className="relative z-[1] flex min-h-[62px] items-end justify-between gap-4">
+          <button
+            type="button"
+            role="tab"
+            id={focusedTabId}
+            aria-selected={true}
+            aria-controls={focusedPanelId}
+            tabIndex={0}
+            className="min-w-0 truncate rounded-[5px] text-left font-cakemono text-[28px] font-light uppercase leading-none text-text focus-visible:outline-none"
+          >
             {stageName}
-          </span>
+          </button>
 
           <dl className="grid w-[280px] shrink-0 grid-cols-3 gap-2">
             <Metric
@@ -136,16 +136,16 @@ export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
             />
           </dl>
         </div>
-      </button>
+      </header>
 
       <div
         id={focusedPanelId}
         role="tabpanel"
         aria-labelledby={focusedTabId}
-        className="h-full min-h-0 overflow-y-auto pr-1 pt-[clamp(216px,24vh,240px)] scrollbar-hide"
+        className="h-full min-h-0 overflow-y-auto pr-1 pt-[clamp(244px,26vh,272px)] scrollbar-hide"
       >
         {opportunities.length > 0 ? (
-          <div className="flex min-h-full flex-col gap-2 pb-[120px]">
+          <div className="flex min-h-full flex-col gap-2 pb-[88px]">
             {opportunities.map((opportunity) => {
               const clientName =
                 clientNameMap.get(opportunity.clientId ?? "") ??
@@ -176,7 +176,7 @@ export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
             })}
           </div>
         ) : (
-          <div className="flex min-h-full flex-col items-start gap-3 pb-[120px] pt-[24px]">
+          <div className="flex min-h-full flex-col items-start gap-3 pb-[88px] pt-[24px]">
             <p className="font-mono text-caption-sm uppercase text-text">
               {emptyTitle}
             </p>
