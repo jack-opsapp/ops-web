@@ -102,7 +102,7 @@ export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
   return (
     <section className="relative h-full w-full min-w-0">
       <header
-        className="glass-dense absolute left-0 right-0 top-[112px] z-[2] isolate min-h-[52px] overflow-hidden px-3 py-2 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ops-accent"
+        className="glass-dense absolute left-0 right-0 top-[112px] z-[2] isolate min-h-[52px] overflow-hidden px-3 py-2"
         style={{
           background: "var(--surface-glass-dense)",
           backdropFilter:
@@ -125,7 +125,7 @@ export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
             aria-selected={true}
             aria-controls={focusedPanelId}
             tabIndex={0}
-            className="min-w-0 truncate rounded-[5px] text-left font-cakemono text-[22px] font-light uppercase leading-none text-text focus-visible:outline-none"
+            className="m-0 min-w-0 cursor-default appearance-none truncate rounded-[5px] border-0 bg-transparent p-0 text-left font-cakemono text-[22px] font-light uppercase leading-none text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
           >
             {stageName}
           </button>
