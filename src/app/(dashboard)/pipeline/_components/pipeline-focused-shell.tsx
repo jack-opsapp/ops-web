@@ -113,6 +113,16 @@ function isTypingTarget(target: EventTarget | null): boolean {
   );
 }
 
+function hasNavigationModifier(event: KeyboardEvent): boolean {
+  return (
+    event.altKey ||
+    event.ctrlKey ||
+    event.metaKey ||
+    event.shiftKey ||
+    event.isComposing
+  );
+}
+
 export function PipelineFocusedShell({
   opportunities,
   clientNameMap,
@@ -274,6 +284,8 @@ export function PipelineFocusedShell({
         return;
       }
 
+      if (hasNavigationModifier(event)) return;
+
       if (event.key === "ArrowLeft") {
         event.preventDefault();
         snapByDirection(-1);
@@ -309,7 +321,7 @@ export function PipelineFocusedShell({
 
   const handleWheel = useCallback(
     (event: React.WheelEvent<HTMLDivElement>) => {
-      if (event.ctrlKey) {
+      if (event.ctrlKey && event.deltaY > 0) {
         if (isDragging) return;
 
         event.preventDefault();

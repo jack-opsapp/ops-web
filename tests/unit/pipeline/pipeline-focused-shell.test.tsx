@@ -242,6 +242,23 @@ describe("<PipelineFocusedShell>", () => {
     );
   });
 
+  it("does not handle modified arrow keys", () => {
+    renderFocusedShell([
+      makeOpportunity("opp-1", OpportunityStage.NewLead),
+      makeOpportunity("opp-2", OpportunityStage.Qualifying),
+    ]);
+
+    fireEvent.keyDown(window, { key: "ArrowRight", altKey: true });
+    fireEvent.keyDown(window, { key: "ArrowRight", metaKey: true });
+    fireEvent.keyDown(window, { key: "ArrowRight", ctrlKey: true });
+    fireEvent.keyDown(window, { key: "ArrowRight", shiftKey: true });
+    fireEvent.keyDown(window, { key: "ArrowRight", isComposing: true });
+
+    expect(usePipelineModeStore.getState().focusedStage).toBe(
+      OpportunityStage.NewLead
+    );
+  });
+
   it("toggles mode with V and closes the detail panel with Escape", () => {
     usePipelineModeStore.setState({
       detailPanelOpportunityId: "opp-1",
@@ -470,6 +487,23 @@ describe("<PipelineFocusedShell>", () => {
     });
 
     expect(usePipelineModeStore.getState().mode).toBe("spatial");
+  });
+
+  it("does not consume focused ctrl+wheel pinch-in gestures", () => {
+    const { container } = renderFocusedShell([
+      makeOpportunity("opp-1", OpportunityStage.NewLead),
+    ]);
+    const event = new WheelEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      ctrlKey: true,
+      deltaY: -80,
+    });
+
+    getShellElement(container).dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(false);
+    expect(usePipelineModeStore.getState().mode).toBe("focused");
   });
 
   it("ignores focused pinch mode switching while dragging", () => {

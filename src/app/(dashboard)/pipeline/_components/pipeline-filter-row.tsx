@@ -82,7 +82,11 @@ function StageDropdown({
     value !== "all" ? OPPORTUNITY_STAGE_COLORS[value] : undefined;
 
   return (
-    <div ref={containerRef} className="relative shrink-0">
+    <div
+      ref={containerRef}
+      className="relative shrink-0"
+      data-keyboard-scope="modal-or-menu"
+    >
       {/* Trigger */}
       <button
         type="button"
@@ -115,6 +119,7 @@ function StageDropdown({
       {open && (
         <div
           className={DROPDOWN_SURFACE}
+          data-keyboard-scope="modal-or-menu"
           role="listbox"
           aria-label={allStagesLabel}
         >
@@ -207,7 +212,11 @@ function AssigneeDropdown({
     : everyoneLabel;
 
   return (
-    <div ref={containerRef} className="relative shrink-0">
+    <div
+      ref={containerRef}
+      className="relative shrink-0"
+      data-keyboard-scope="modal-or-menu"
+    >
       {/* Trigger */}
       <button
         type="button"
@@ -234,6 +243,7 @@ function AssigneeDropdown({
       {open && (
         <div
           className={DROPDOWN_SURFACE}
+          data-keyboard-scope="modal-or-menu"
           role="listbox"
           aria-label={everyoneLabel}
         >

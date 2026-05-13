@@ -83,4 +83,34 @@ describe("<PipelineFilterRow>", () => {
 
     expect(onSearchChange).toHaveBeenLastCalledWith("deck");
   });
+
+  it("scopes dropdown triggers and surfaces out of global keyboard navigation", async () => {
+    const user = userEvent.setup();
+    renderFilterRow();
+
+    const stageTrigger = screen.getByRole("button", { name: "All Stages" });
+    const assigneeTrigger = screen.getByRole("button", { name: "Everyone" });
+
+    expect(stageTrigger.closest("[data-keyboard-scope='modal-or-menu']")).not
+      .toBeNull();
+    expect(
+      assigneeTrigger.closest("[data-keyboard-scope='modal-or-menu']")
+    ).not.toBeNull();
+
+    await user.click(stageTrigger);
+
+    const stageListbox = screen.getByRole("listbox", { name: "All Stages" });
+    expect(stageListbox).toHaveAttribute(
+      "data-keyboard-scope",
+      "modal-or-menu"
+    );
+
+    await user.click(assigneeTrigger);
+
+    const assigneeListbox = screen.getByRole("listbox", { name: "Everyone" });
+    expect(assigneeListbox).toHaveAttribute(
+      "data-keyboard-scope",
+      "modal-or-menu"
+    );
+  });
 });
