@@ -607,6 +607,44 @@ async function enrichWithActivitySnippets(
 const LIST_LIMIT_DEFAULT = 50;
 const LIST_LIMIT_MAX = 200;
 
+/**
+ * Build the PostgREST `.or(...)` expression for the inbox header's in-place
+ * search input. The search ILIKEs across subject + latest snippet + sender
+ * name + sender email so the operator's "acme" hits any of those signals.
+ *
+ * Two layers of escaping have to compose correctly to keep arbitrary user
+ * input safe:
+ *
+ *   1. SQL ILIKE pattern — `\` is the escape, `%` and `_` are wildcards.
+ *      The user's literal `%` must become `\%`, etc., so we don't promote
+ *      it to a wildcard.
+ *   2. PostgREST quoted value — `,`, `.`, `(`, `)` are reserved in `.or()`
+ *      expressions, so the value is double-quoted. Inside the quotes, `\`
+ *      and `"` need backslash-escaping.
+ *
+ * Without this, a query like `a, b` truncates the filter list (the comma
+ * becomes a separator) and a query like `100%` matches every row (the `%`
+ * becomes a wildcard).
+ *
+ * Exported for unit testing.
+ */
+export function buildSearchOrExpression(raw: string): string {
+  const ilikePattern = raw
+    .replace(/\\/g, "\\\\")
+    .replace(/%/g, "\\%")
+    .replace(/_/g, "\\_");
+  const quoted = ilikePattern
+    .replace(/\\/g, "\\\\")
+    .replace(/"/g, '\\"');
+  const value = `"%${quoted}%"`;
+  return [
+    `subject.ilike.${value}`,
+    `latest_snippet.ilike.${value}`,
+    `latest_sender_name.ilike.${value}`,
+    `latest_sender_email.ilike.${value}`,
+  ].join(",");
+}
+
 async function listThreads(
   companyId: string,
   userConnectionIds: string[],
@@ -639,10 +677,7 @@ async function listThreads(
   }
 
   if (params.search && params.search.trim().length > 0) {
-    const s = params.search.trim();
-    query = query.or(
-      `subject.ilike.%${s}%,latest_snippet.ilike.%${s}%,latest_sender_name.ilike.%${s}%,latest_sender_email.ilike.%${s}%`
-    );
+    query = query.or(buildSearchOrExpression(params.search.trim()));
   }
 
   // Every rail sorts DESC on last_message_at (most recent first). The
