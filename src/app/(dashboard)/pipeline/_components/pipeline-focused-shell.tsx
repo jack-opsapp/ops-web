@@ -53,7 +53,7 @@ const SNAP_DURATION_MS = 280;
 const SNAP_EASING = "cubic-bezier(0.22, 1, 0.36, 1)";
 const SNAP_DEBOUNCE_MS = 150;
 const SPINE_RAIL_CHROME =
-  "h-full pt-[clamp(104px,13vh,128px)] pb-[clamp(76px,9vh,104px)]";
+  "h-full pt-[clamp(128px,15vh,152px)] pb-0";
 
 function sortOpportunities(
   opportunities: Opportunity[],
@@ -273,7 +273,7 @@ export function PipelineFocusedShell({
       className="h-full min-h-0 w-full overflow-hidden bg-background px-[44px]"
       onWheel={handleWheel}
     >
-      <div className="flex h-full min-h-0 items-stretch justify-center gap-2 overflow-hidden">
+      <div className="flex h-full min-h-0 w-full items-stretch gap-2 overflow-hidden">
         <div className={`flex min-h-0 shrink-0 items-stretch gap-2 ${SPINE_RAIL_CHROME}`}>
           {leftStages.map((stage) => (
             <SpineSlot
@@ -288,7 +288,7 @@ export function PipelineFocusedShell({
           ))}
         </div>
 
-        <div ref={focusedColumnRef} className="min-h-0 shrink-0">
+        <div ref={focusedColumnRef} className="min-h-0 min-w-[460px] flex-1">
           <PipelineFocusedColumn
             stage={safeFocusedStage}
             opportunities={focusedOpportunities}

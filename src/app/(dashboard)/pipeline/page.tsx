@@ -1550,7 +1550,7 @@ export default function PipelinePage() {
       </div>
 
       {!isMobile && mode === "focused" && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-4 z-[3] flex justify-center px-3">
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[3] flex justify-center px-3">
           <div
             className="pointer-events-auto inline-flex max-w-full overflow-x-auto rounded-[4px] border border-[rgba(255,255,255,0.08)] py-[2px] scrollbar-hide"
             style={{

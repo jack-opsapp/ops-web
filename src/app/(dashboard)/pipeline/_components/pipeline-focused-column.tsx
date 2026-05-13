@@ -100,7 +100,7 @@ export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
   const emptyActionHandler = filtersActive ? onClearFilters : onAddLead;
 
   return (
-    <section className="relative h-full w-[520px] shrink-0">
+    <section className="relative h-full w-full min-w-0">
       <button
         type="button"
         role="tab"
@@ -108,7 +108,7 @@ export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
         aria-selected={true}
         aria-controls={focusedPanelId}
         tabIndex={0}
-        className="glass-dense absolute left-0 top-[clamp(104px,13vh,128px)] z-[2] w-full max-w-[460px] overflow-hidden rounded-[4px] px-3 py-2 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
+        className="glass-dense absolute left-0 right-0 top-[clamp(128px,15vh,152px)] z-[2] min-h-[76px] overflow-hidden px-4 py-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
       >
         <span
           aria-hidden="true"
@@ -116,12 +116,12 @@ export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
           style={{ backgroundColor: stageColor }}
         />
 
-        <div className="flex items-center gap-3">
-          <span className="inline-flex shrink-0 items-center rounded-chip border border-line bg-surface-hover px-1.5 py-0.5 font-mono text-micro uppercase tracking-[0.12em] text-text">
+        <div className="flex items-end justify-between gap-4">
+          <span className="min-w-0 truncate font-cakemono text-[24px] font-light uppercase leading-none text-text">
             {stageName}
           </span>
 
-          <dl className="grid min-w-0 flex-1 grid-cols-3 gap-2">
+          <dl className="grid w-[280px] shrink-0 grid-cols-3 gap-2">
             <Metric
               label={t("focused.metrics.count", "COUNT")}
               value={String(opportunities.length)}
@@ -142,7 +142,7 @@ export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
         id={focusedPanelId}
         role="tabpanel"
         aria-labelledby={focusedTabId}
-        className="h-full min-h-0 overflow-y-auto pr-1 pt-[clamp(164px,19vh,188px)] scrollbar-hide"
+        className="h-full min-h-0 overflow-y-auto pr-1 pt-[clamp(216px,24vh,240px)] scrollbar-hide"
       >
         {opportunities.length > 0 ? (
           <div className="flex min-h-full flex-col gap-2 pb-[120px]">
