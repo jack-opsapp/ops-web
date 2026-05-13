@@ -89,16 +89,12 @@ describe("<FloatingYourTurnBadge>", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("anchors top-center with floating-ui z-index", () => {
+  it("renders as a flow chip for the reserved status stack", () => {
     render(<FloatingYourTurnBadge show />);
     const badge = screen.getByTestId("floating-your-turn-badge");
-    // Position is owned by the component (so the consumer can rely on it).
-    // Verify the canonical class set is present.
-    expect(badge.className).toContain("absolute");
-    expect(badge.className).toContain("left-1/2");
-    expect(badge.className).toContain("top-2");
-    expect(badge.className).toContain("z-[1500]");
-    expect(badge.className).toContain("-translate-x-1/2");
+    expect(badge.className).toContain("inline-flex");
+    expect(badge.className).not.toContain("absolute");
+    expect(badge.firstElementChild?.className).toContain("glass-dense");
   });
 
   it("renders without a transform shift when reduced motion is ON", () => {
@@ -127,6 +123,13 @@ describe("<FloatingYourTurnBadge>", () => {
     render(<FloatingYourTurnBadge show waitDuration="18H" />);
     const label = screen.getByTestId("floating-your-turn-badge-label");
     expect(label.className).toContain("text-ops-accent");
+  });
+
+  it("keeps the acknowledge control compact for desktop", () => {
+    render(<FloatingYourTurnBadge show onAcknowledge={vi.fn()} />);
+    const btn = screen.getByTestId("floating-your-turn-badge-acknowledge");
+    expect(btn.className).toContain("h-[18px]");
+    expect(btn.className).toContain("w-[18px]");
   });
 
   it("unmounts cleanly when show flips false (AnimatePresence exit completes)", async () => {

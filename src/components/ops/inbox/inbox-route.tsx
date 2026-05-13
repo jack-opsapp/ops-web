@@ -284,6 +284,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
   const autoSaveDraftIdRef = useRef<string | null>(null);
   const lastSavedBodyRef = useRef<string>("");
   const lastSavedThreadIdRef = useRef<string | null>(null);
+  const composerInputRef = useRef<HTMLTextAreaElement | null>(null);
   const AUTOSAVE_DELAY_MS = 1500;
 
   // Reset the saved-draft tracking whenever the open thread changes. Without
@@ -716,11 +717,13 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
         ) : undefined
       }
       floatingBadgeSlot={
-        <FloatingYourTurnBadge
-          show={floatingBadgeActive}
-          waitDuration={floatingBadgeWait}
-          onAcknowledge={floatingBadgeOnAcknowledge}
-        />
+        floatingBadgeActive ? (
+          <FloatingYourTurnBadge
+            show
+            waitDuration={floatingBadgeWait}
+            onAcknowledge={floatingBadgeOnAcknowledge}
+          />
+        ) : undefined
       }
     >
       <CommitmentPills
@@ -776,16 +779,14 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
             return;
           }
 
-          // "provide-answer" / "type-reply": the user is opting to type a
-          // free-form reply. We don't clear the column here — that happens
-          // when they actually hit send below (the composer.onSend hook
-          // forwards the typed body to the answer endpoint when an open
-          // question is still attached). The band stays put as a marker
-          // until the answer lands.
+          // "provide-answer" / "type-reply": focus the live composer. The
+          // question clears only after the operator sends the answer below.
+          composerInputRef.current?.focus();
         }}
       />
       <MessageList messages={detail.messages.map(toRenderableMessage)} />
       <Composer
+        inputRef={composerInputRef}
         value={composerValue}
         onChange={(next) => {
           setComposerValue(next);

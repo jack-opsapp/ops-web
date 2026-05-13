@@ -59,7 +59,7 @@ interface ThreadDetailHeaderProps {
 }
 
 const iconBtnClass =
-  "inline-flex h-6 w-6 items-center justify-center rounded-chip text-text-3 transition-colors hover:bg-inbox-elev hover:text-text-2 focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black";
+  "inline-flex h-[18px] w-[18px] items-center justify-center rounded-[2px] text-text-3 transition-colors hover:bg-inbox-elev hover:text-text-2 focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black";
 
 const HeaderActionButton = forwardRef<
   HTMLButtonElement,
@@ -144,7 +144,7 @@ export function ThreadDetailHeader({
       )}
     >
       <div className="mb-1 flex items-center gap-2.5">
-        <h1 className="m-0 min-w-0 flex-1 truncate font-mohave text-[15px] font-medium leading-tight tracking-[-0.005em] text-text">
+        <h1 className="m-0 min-w-0 flex-1 truncate font-mohave text-[15px] font-medium leading-tight text-text">
           {subject || t("detail.untitled", "(no subject)")}
         </h1>
         {triageSlot && (

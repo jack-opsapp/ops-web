@@ -7,7 +7,6 @@ import { SlashLabel } from "../voice/slash-label";
 interface AutoSentBandProps {
   hoursAgo: number;
   detail?: string;
-  onTakeOver: () => void;
   className?: string;
 }
 
@@ -22,7 +21,6 @@ function relativeAgo(hoursAgo: number): string {
 export function AutoSentBand({
   hoursAgo,
   detail,
-  onTakeOver,
   className,
 }: AutoSentBandProps) {
   const { t } = useDictionary("inbox");
@@ -50,13 +48,6 @@ export function AutoSentBand({
           {body}
         </span>
       </div>
-      <button
-        type="button"
-        onClick={onTakeOver}
-        className="inline-flex h-[26px] shrink-0 items-center rounded-[2.5px] border border-line-hi bg-transparent px-3 font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-text-2 transition-colors hover:bg-inbox-elev hover:text-text"
-      >
-        {t("bands.autoSent.takeOver", "TAKE OVER")}
-      </button>
     </section>
   );
 }

@@ -13,8 +13,6 @@ import { AutoSentBand } from "./bands/auto-sent-band";
 import { ClosedBand, type ClosedBandVariant } from "./bands/closed-band";
 
 export type DetailBandAction =
-  | "reply"
-  | "take-over"
   | "provide-answer"
   | "type-reply"
   | `answer:${string}`;
@@ -83,7 +81,6 @@ export function DetailBand({
         <AutoSentBand
           hoursAgo={autoSentHoursAgo ?? 0}
           detail={autoSentDetail}
-          onTakeOver={() => onAction("take-over")}
         />
       )}
       {actionBand === "closed" && (

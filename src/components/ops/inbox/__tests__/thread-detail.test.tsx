@@ -146,6 +146,37 @@ describe("<ThreadDetail>", () => {
     expect(wrapper).toBeInTheDocument();
     expect(screen.getByTestId("triage-chip").textContent).toMatch(/YOURS · 18H/);
   });
+
+  it("keeps header action controls compact for desktop", () => {
+    render(
+      <ThreadDetail {...baseProps}>
+        <div />
+      </ThreadDetail>,
+    );
+    const archive = screen.getByRole("button", { name: /archive/i });
+    expect(archive.className).toContain("h-[18px]");
+    expect(archive.className).toContain("w-[18px]");
+  });
+
+  it("renders the floating badge in a reserved row before commitments", () => {
+    render(
+      <ThreadDetail
+        {...baseProps}
+        floatingBadgeSlot={<span data-testid="badge-probe">// YOUR TURN</span>}
+      >
+        <section data-testid="commitments-probe">commitments</section>
+      </ThreadDetail>,
+    );
+
+    const stack = screen.getByTestId("detail-status-stack");
+    const commitments = screen.getByTestId("commitments-probe");
+    expect(stack).toContainElement(screen.getByTestId("badge-probe"));
+    expect(stack.className).toContain("justify-center");
+    expect(
+      stack.compareDocumentPosition(commitments) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
 });
 
 describe("<EmptyDetailHeader>", () => {

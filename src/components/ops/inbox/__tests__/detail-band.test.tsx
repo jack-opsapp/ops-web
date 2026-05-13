@@ -50,17 +50,19 @@ describe("<DetailBand>", () => {
     expect(onAction).toHaveBeenCalledWith("provide-answer");
   });
 
-  it("renders the auto-sent band when phaseC === auto_sent", () => {
+  it("renders the auto-sent band without a dead take-over control", () => {
+    const onAction = vi.fn();
     render(
       <DetailBand
         thread={{ ...base, phaseC: "auto_sent" }}
         autoSentHoursAgo={3}
-        onAction={() => {}}
+        onAction={onAction}
       />,
     );
     expect(screen.getByText(/AUTO-SENT BY PHASE C/i)).toBeInTheDocument();
     expect(screen.getByText(/3H AGO/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /TAKE OVER/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /TAKE OVER/i })).toBeNull();
+    expect(onAction).not.toHaveBeenCalled();
   });
 
   it("renders the closed band with a soft success indicator", () => {

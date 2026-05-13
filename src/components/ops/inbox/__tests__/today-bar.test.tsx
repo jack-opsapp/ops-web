@@ -20,13 +20,13 @@ const today: TodayCommitment = {
 };
 
 describe("<TodayBar>", () => {
-  it("uses brick-tinted gradient when any row waiting > 7d", () => {
+  it("uses the brick token when any row waiting > 7d", () => {
     render(<TodayBar commitments={[overdue, today]} />);
     const bar = screen.getByTestId("today-bar");
-    expect(bar.className).toMatch(/bg-\[linear-gradient.*147,\s*50,\s*26/);
+    expect(bar.className).toContain("bg-brick/[0.10]");
   });
 
-  it("uses accent gradient when no row waiting > 7d", () => {
+  it("uses the tan token, not the accent, when no row waiting > 7d", () => {
     const yoursToday: TodayCommitment = {
       id: "c3",
       threadId: "t3",
@@ -37,7 +37,8 @@ describe("<TodayBar>", () => {
     };
     render(<TodayBar commitments={[yoursToday]} />);
     const bar = screen.getByTestId("today-bar");
-    expect(bar.className).toMatch(/bg-\[linear-gradient.*111,\s*148,\s*176/);
+    expect(bar.className).toContain("bg-tan/[0.06]");
+    expect(bar.className).not.toContain("ops-accent");
   });
 
   it("renders // YOUR MOVE :: 2 OVERDUE · 0 TODAY header when both are overdue", () => {
@@ -73,7 +74,10 @@ describe("<TodayBar>", () => {
   it("renders an inline ✓ resolve button when onResolve is provided + fires with id", () => {
     const onResolve = vi.fn();
     render(<TodayBar commitments={[overdue]} onResolve={onResolve} />);
-    screen.getByTestId("today-bar-resolve").click();
+    const button = screen.getByTestId("today-bar-resolve");
+    expect(button.className).toContain("h-[18px]");
+    expect(button.className).toContain("w-[18px]");
+    button.click();
     expect(onResolve).toHaveBeenCalledWith("c1");
   });
 

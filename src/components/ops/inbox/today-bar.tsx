@@ -33,12 +33,9 @@ import { cn } from "@/lib/utils/cn";
 import { StateTag, type StateTagTone } from "./state-tag";
 import { SlashLabel } from "./voice/slash-label";
 
-const BG_OVERDUE =
-  "bg-[linear-gradient(180deg,rgba(147,50,26,0.10)_0%,rgba(147,50,26,0.02)_100%)]";
-const BG_TODAY =
-  "bg-[linear-gradient(180deg,rgba(111,148,176,0.06)_0%,transparent_100%)]";
-const BG_EMPTY =
-  "bg-[linear-gradient(180deg,rgba(157,181,130,0.04)_0%,transparent_100%)]";
+const BG_OVERDUE = "bg-brick/[0.10]";
+const BG_TODAY = "bg-tan/[0.06]";
+const BG_EMPTY = "bg-olive/[0.04]";
 
 export interface TodayCommitment {
   /** `agent_memories.id` — the row to PATCH when ✓ is clicked. */
@@ -145,16 +142,16 @@ export function TodayBar({
               key={c.id}
               aria-label={c.text}
               className={cn(
-                "flex w-full items-center gap-2.5 rounded-[2.5px] border pr-1.5 transition-colors",
+                "flex w-full items-center gap-2 rounded-[2.5px] border pr-1.5 transition-colors",
                 toneClass,
                 resolving && "opacity-60",
               )}
             >
               <Link
                 href={`/inbox/${c.threadId}`}
-                className="flex min-w-0 flex-1 items-center gap-2.5 rounded-[2.5px] py-2 pl-2.5 text-left"
+                className="flex min-w-0 flex-1 items-center gap-2 rounded-[2.5px] py-2 pl-2.5 text-left"
               >
-                <span className="min-w-0 flex-1 truncate font-mohave text-[12px] tracking-[-0.003em] text-text">
+                <span className="min-w-0 flex-1 truncate font-mohave text-[12px] text-text">
                   {c.clientName}
                 </span>
                 <StateTag
@@ -176,21 +173,21 @@ export function TodayBar({
                   )}
                   title={t("todayBar.resolve", "Mark commitment resolved")}
                   className={cn(
-                    "flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-[2.5px] text-text-3 transition-colors",
+                    "flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[2px] text-text-3 transition-colors",
                     "hover:bg-olive/[0.18] hover:text-olive disabled:cursor-not-allowed",
                   )}
                 >
-                  <Check aria-hidden className="h-4 w-4" strokeWidth={1.5} />
+                  <Check aria-hidden className="h-3 w-3" strokeWidth={1.5} />
                 </button>
               )}
               <Link
                 href={`/inbox/${c.threadId}`}
                 aria-label={t("todayBar.openThread", "Open thread")}
-                className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-[2.5px] text-text-3 hover:text-text-2"
+                className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[2px] text-text-3 hover:text-text-2"
               >
                 <ArrowRight
                   aria-hidden
-                  className="h-3.5 w-3.5"
+                  className="h-3 w-3"
                   strokeWidth={1.5}
                 />
               </Link>

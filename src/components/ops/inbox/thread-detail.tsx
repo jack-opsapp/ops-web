@@ -39,10 +39,9 @@ interface ThreadDetailProps {
    */
   triageSlot?: ReactNode;
   /**
-   * Absolutely-positioned floating affordance mounted above the message
-   * list — typically the `<FloatingYourTurnBadge>`. Rendered inside the
-   * messages-wrapper (which carries `position: relative`) so the badge
-   * anchors to the messages region rather than the header.
+   * Reserved status affordance mounted below the detail header — typically
+   * the `<FloatingYourTurnBadge>`. It stays in flow so it cannot collide
+   * with commitments, bands, or the message list.
    */
   floatingBadgeSlot?: ReactNode;
   className?: string;
@@ -116,9 +115,16 @@ export function ThreadDetail({
         threadPickerSlot={threadPickerSlot}
         triageSlot={triageSlot}
       />
-      <div className="relative flex min-h-0 flex-1 flex-col">
+      <div className="flex min-h-0 flex-1 flex-col">
+        {floatingBadgeSlot && (
+          <div
+            data-testid="detail-status-stack"
+            className="flex shrink-0 items-center justify-center border-b border-line bg-inbox-panel/40 px-2 py-1.5"
+          >
+            {floatingBadgeSlot}
+          </div>
+        )}
         {children}
-        {floatingBadgeSlot}
       </div>
     </div>
   );

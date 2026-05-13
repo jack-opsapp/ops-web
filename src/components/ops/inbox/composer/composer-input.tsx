@@ -56,7 +56,7 @@ export const ComposerInput = forwardRef<HTMLTextAreaElement, ComposerInputProps>
         disabled={disabled}
         rows={1}
         className={cn(
-          "w-full resize-none bg-transparent font-mohave text-[13px] leading-[1.55] tracking-[-0.003em]",
+          "w-full resize-none bg-transparent font-mohave text-[13px] leading-[1.55]",
           "placeholder:text-text-mute focus:outline-none",
           agentTinted ? "text-agent-text" : "text-text",
           className,

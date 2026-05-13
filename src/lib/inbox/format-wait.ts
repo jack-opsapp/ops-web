@@ -156,7 +156,12 @@ export function computeStateTag(input: StateTagInputs): StateTagResult {
     const elapsed = now - lastOutboundAt;
     return {
       kind: "theirs",
-      tone: elapsed > WEEK_MS ? "tan" : "neutral",
+      tone:
+        elapsed > TWO_WEEKS_MS
+          ? "rose"
+          : elapsed > WEEK_MS
+            ? "tan"
+            : "neutral",
       prefix: "THEIRS",
       value: formatWaitClock(elapsed),
       alarmStrip: false,

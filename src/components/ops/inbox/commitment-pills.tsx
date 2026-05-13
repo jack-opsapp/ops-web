@@ -5,7 +5,7 @@
  * to the open thread. Sits between the detail header and the DetailBand.
  *
  * Each pill carries:
- *   - urgency dot (rose when due ≤ 24h, accent otherwise)
+ *   - urgency dot (rose when due ≤ 24h, tan otherwise)
  *   - the fact text Phase C extracted (truncated)
  *   - due-date meta in tactical mono (TODAY 18:00 / FRI MAY 9)
  *   - inline ✓ resolve button — patches `agent_memories.id` directly
@@ -15,7 +15,7 @@
  *
  * Tokens:
  *   - Radii from the OPS sharp-corners scale (2.5px buttons / 5px panels)
- *   - Rose for urgent, ops-accent for non-urgent (single-curve hover)
+ *   - Rose for urgent, tan for non-urgent (single-curve hover)
  *   - Stroke 1.5 on the Check icon (matches the inbox-wide convention)
  */
 
@@ -58,7 +58,7 @@ export function CommitmentPills({
         className,
       )}
     >
-      <span className="font-cakemono text-[10px] font-light uppercase leading-none tracking-[0.18em] text-text-mute">
+      <span className="font-cakemono text-[11px] font-light uppercase leading-none tracking-[0.18em] text-text-mute">
         {t("commitmentPills.label", "Open commitments")}
       </span>
       {commitments.map((c) => {
@@ -78,12 +78,12 @@ export function CommitmentPills({
               aria-hidden
               className={cn(
                 "h-1.5 w-1.5 shrink-0 rounded-full",
-                c.urgent ? "bg-rose" : "bg-ops-accent",
+                c.urgent ? "bg-rose" : "bg-tan",
               )}
             />
             <span
               data-testid="commitment-pill-content"
-              className="min-w-0 max-w-[420px] flex-1 truncate font-mohave text-[12px] tracking-[-0.003em] text-text-2"
+              className="min-w-0 max-w-[420px] flex-1 truncate font-mohave text-[12px] text-text-2"
             >
               {c.content}
             </span>

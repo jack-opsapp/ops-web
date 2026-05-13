@@ -1,10 +1,10 @@
 "use client";
 
 /**
- * FloatingYourTurnBadge — top-center floating chip that surfaces the
- * "your turn" signal on YOUR_MOVE-classified threads. Replaces the
- * full-width <BallYoursBand> with an absolutely-positioned affordance
- * that does not displace the message list.
+ * FloatingYourTurnBadge — compact chip that surfaces the "your turn"
+ * signal on YOUR_MOVE-classified threads. Replaces the full-width
+ * <BallYoursBand> with a reserved desktop status affordance that keeps
+ * commitments, the subject row, and the message list in stable flow.
  *
  *   ┌───────────────────────────────┐
  *   │  //  YOUR TURN  ·  18H    ✓   │
@@ -19,9 +19,8 @@
  *   the obligation without sending a reply).
  * - Mount/unmount via `<AnimatePresence>`. Honors `prefers-reduced-motion`.
  *
- * Positioning is owned by the consumer — wrap the badge in an absolute
- * container so the messages-wrapper layout decides the anchor point. See
- * <ThreadDetail>'s `floatingBadgeSlot` for the canonical mount.
+ * Positioning is owned by the consumer. See <ThreadDetail>'s
+ * `floatingBadgeSlot` for the canonical reserved status-row mount.
  */
 
 import { Check } from "lucide-react";
@@ -80,15 +79,13 @@ export function FloatingYourTurnBadge({
           animate="visible"
           exit="exit"
           className={cn(
-            "pointer-events-auto absolute left-1/2 top-2 z-[1500] -translate-x-1/2",
+            "pointer-events-auto inline-flex",
             className,
           )}
         >
           <div
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-chip border border-line",
-              "bg-[rgba(18,18,20,0.78)] px-2.5 py-1.5",
-              "backdrop-blur-[28px] [backdrop-saturate:1.3]",
+              "glass-dense inline-flex items-center gap-1.5 rounded-chip px-2.5 py-1.5",
             )}
             style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
           >

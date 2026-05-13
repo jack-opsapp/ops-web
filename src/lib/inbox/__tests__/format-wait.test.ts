@@ -122,4 +122,55 @@ describe("computeStateTag", () => {
     expect(tag.kind).toBe("closed");
     expect(tag.tone).toBe("neutral");
   });
+
+  it("keeps recent THEIRS neutral before the stale threshold", () => {
+    const now = Date.parse("2026-05-13T12:00:00Z");
+    const tag = computeStateTag({
+      lastInboundAt: null,
+      lastOutboundAt: now - 3 * 86400_000,
+      hasAiDraft: false,
+      sentByAgentRecently: false,
+      labels: [],
+      closed: false,
+      now,
+    });
+    expect(tag.kind).toBe("theirs");
+    expect(tag.tone).toBe("neutral");
+    expect(tag.prefix).toBe("THEIRS");
+    expect(tag.value).toBe("3D");
+  });
+
+  it("escalates stale THEIRS to tan after one week", () => {
+    const now = Date.parse("2026-05-13T12:00:00Z");
+    const tag = computeStateTag({
+      lastInboundAt: null,
+      lastOutboundAt: now - 8 * 86400_000,
+      hasAiDraft: false,
+      sentByAgentRecently: false,
+      labels: [],
+      closed: false,
+      now,
+    });
+    expect(tag.kind).toBe("theirs");
+    expect(tag.tone).toBe("tan");
+    expect(tag.prefix).toBe("THEIRS");
+    expect(tag.value).toBe("8D");
+  });
+
+  it("escalates severely stale THEIRS to rose after two weeks", () => {
+    const now = Date.parse("2026-05-13T12:00:00Z");
+    const tag = computeStateTag({
+      lastInboundAt: null,
+      lastOutboundAt: now - 23 * 86400_000,
+      hasAiDraft: false,
+      sentByAgentRecently: false,
+      labels: [],
+      closed: false,
+      now,
+    });
+    expect(tag.kind).toBe("theirs");
+    expect(tag.tone).toBe("rose");
+    expect(tag.prefix).toBe("THEIRS");
+    expect(tag.value).toBe("23D");
+  });
 });

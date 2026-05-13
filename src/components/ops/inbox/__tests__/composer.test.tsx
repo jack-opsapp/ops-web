@@ -95,6 +95,22 @@ describe("<Composer>", () => {
     ).toBeTruthy();
   });
 
+  it("keeps composer utility icon controls compact for desktop", () => {
+    render(<Composer value="" onChange={noop} onSend={noop} />);
+    for (const name of [
+      /draft with phase c/i,
+      /attach file/i,
+      /attach image/i,
+      /schedule/i,
+    ]) {
+      const button = screen.getByRole("button", { name });
+      expect(button.className).toContain("h-5");
+      expect(button.className).toContain("w-5");
+      expect(button.className).not.toContain("h-[26px]");
+      expect(button.className).not.toContain("w-[26px]");
+    }
+  });
+
   it("uses the tactical bracket placeholder when none is passed", () => {
     render(<Composer value="" onChange={noop} onSend={noop} />);
     expect(
