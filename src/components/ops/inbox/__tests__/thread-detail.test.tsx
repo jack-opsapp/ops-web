@@ -5,7 +5,7 @@ import { EmptyDetailHeader } from "../thread-detail-header";
 
 const baseProps = {
   subject: "RFQ — kitchen remodel",
-  category: { label: "CUSTOMER", dotClassName: "bg-text-2" },
+  category: "CUSTOMER" as const,
   senderName: "Calloway HVAC",
   messageCount: 4,
   onPrev: vi.fn(),
@@ -122,6 +122,29 @@ describe("<ThreadDetail>", () => {
     expect(screen.getByTestId("thread-picker-slot").textContent).toMatch(
       /3 OTHER THREADS/,
     );
+  });
+
+  it("does not render the triage slot when triageSlot is not provided", () => {
+    render(
+      <ThreadDetail {...baseProps}>
+        <div />
+      </ThreadDetail>,
+    );
+    expect(screen.queryByTestId("triage-slot")).not.toBeInTheDocument();
+  });
+
+  it("renders the triage slot in the title row when provided", () => {
+    render(
+      <ThreadDetail
+        {...baseProps}
+        triageSlot={<span data-testid="triage-chip">YOURS · 18H</span>}
+      >
+        <div />
+      </ThreadDetail>,
+    );
+    const wrapper = screen.getByTestId("triage-slot");
+    expect(wrapper).toBeInTheDocument();
+    expect(screen.getByTestId("triage-chip").textContent).toMatch(/YOURS · 18H/);
   });
 });
 

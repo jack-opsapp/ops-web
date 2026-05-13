@@ -8,7 +8,6 @@ interface SummaryBandProps {
   body: string;
   updatedAt?: string | null;
   renderedAt?: number;
-  onHistory?: () => void;
   className?: string;
 }
 
@@ -23,7 +22,6 @@ export function SummaryBand({
   body,
   updatedAt,
   renderedAt = Date.now(),
-  onHistory,
   className,
 }: SummaryBandProps) {
   const { t } = useDictionary("inbox");
@@ -40,9 +38,10 @@ export function SummaryBand({
     <section
       aria-label={t("bands.summary.aria", "Phase C summary")}
       className={cn(
-        // Compact single-row treatment: sparkle + body inline, provenance + HISTORY
-        // collapsed to a hover-revealed trailing affordance via the parent group.
-        // The summary is informational chrome — it shouldn't claim a second row.
+        // Compact single-row treatment: sparkle + body inline, provenance
+        // collapsed to a hover-revealed trailing affordance via the parent
+        // group. The summary is informational chrome — it shouldn't claim
+        // a second row.
         "group/summary relative flex shrink-0 items-center gap-2 border-b border-line bg-agent-bg py-1.5 pl-2.5 pr-2",
         className,
       )}
@@ -57,16 +56,6 @@ export function SummaryBand({
       >
         {provenance}
       </span>
-      {onHistory && (
-        <button
-          type="button"
-          onClick={onHistory}
-          aria-label={t("bands.summary.history", "Summary history")}
-          className="hidden shrink-0 font-cakemono text-[11px] font-light uppercase leading-none tracking-[0.14em] text-text-3 transition-colors hover:text-text-2 group-hover/summary:inline-flex"
-        >
-          {t("bands.summary.historyButton", "HISTORY")}
-        </button>
-      )}
     </section>
   );
 }

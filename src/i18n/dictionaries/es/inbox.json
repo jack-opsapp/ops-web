@@ -29,7 +29,6 @@
 
   "bands.summary.label": "// TU TURNO",
   "bands.summary.updatedBy": "actualizado por Phase C · hace {min} min",
-  "bands.summary.history": "Historial de resumen",
   "bands.summary.aria": "Resumen de Phase C",
 
   "bands.needsInput.label": "// PHASE C NECESITA TU RESPUESTA",
@@ -388,7 +387,6 @@
 
   "bands.summary.title": "// RESUMEN",
   "bands.summary.provenance": "actualizado por Phase C · hace {minutes} MIN",
-  "bands.summary.historyButton": "HISTORIAL",
 
   "bands.autoSent.title": "// AUTO-ENVIADO POR PHASE C",
   "bands.autoSent.body": "[—] {detail} · hace {ago}",

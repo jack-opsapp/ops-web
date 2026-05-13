@@ -51,8 +51,6 @@
   "bands.summary.label": "Your move",
   "bands.summary.updatedBy": "updated by Phase C · {min} min ago",
   "bands.summary.updatedByNow": "updated by Phase C",
-  "bands.summary.history": "Summary history",
-  "bands.summary.historyLabel": "history",
   "bands.summary.aria": "Phase C summary",
 
   "bands.needsInput.label": "Phase C needs your input",
@@ -417,7 +415,6 @@
 
   "bands.summary.title": "// SUMMARY",
   "bands.summary.provenance": "updated by Phase C · {minutes} MIN AGO",
-  "bands.summary.historyButton": "HISTORY",
 
   "bands.autoSent.title": "// AUTO-SENT BY PHASE C",
   "bands.autoSent.body": "[—] {detail} · {ago}",
