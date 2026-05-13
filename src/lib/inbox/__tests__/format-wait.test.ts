@@ -26,7 +26,7 @@ describe("computeStateTag", () => {
       lastOutboundAt: null,
       hasAiDraft: true,
       sentByAgentRecently: false,
-      category: "NEEDS_REPLY",
+      labels: ["AWAITING_REPLY"],
       closed: false,
       now: Date.now(),
     });
@@ -39,20 +39,20 @@ describe("computeStateTag", () => {
       lastOutboundAt: Date.now() - 1 * 3600_000,
       hasAiDraft: false,
       sentByAgentRecently: true,
-      category: "NEEDS_REPLY",
+      labels: ["AWAITING_REPLY"],
       closed: false,
       now: Date.now(),
     });
     expect(tag.kind).toBe("auto_sent");
   });
 
-  it("returns OVERDUE rose at 8d unreplied inbound", () => {
+  it("returns OVERDUE rose at 8d unreplied inbound with AWAITING_REPLY", () => {
     const tag = computeStateTag({
       lastInboundAt: Date.now() - 8 * 86400_000,
       lastOutboundAt: Date.now() - 30 * 86400_000,
       hasAiDraft: false,
       sentByAgentRecently: false,
-      category: "NEEDS_REPLY",
+      labels: ["AWAITING_REPLY"],
       closed: false,
       now: Date.now(),
     });
@@ -62,13 +62,13 @@ describe("computeStateTag", () => {
     expect(tag.value).toBe("WAITING");
   });
 
-  it("returns YOURS accent at 18h unreplied inbound", () => {
+  it("returns YOURS accent at 18h unreplied inbound with AWAITING_REPLY", () => {
     const tag = computeStateTag({
       lastInboundAt: Date.now() - 18 * 3600_000,
       lastOutboundAt: null,
       hasAiDraft: false,
       sentByAgentRecently: false,
-      category: "NEEDS_REPLY",
+      labels: ["AWAITING_REPLY"],
       closed: false,
       now: Date.now(),
     });
@@ -77,13 +77,45 @@ describe("computeStateTag", () => {
     expect(tag.value).toBe("18H");
   });
 
-  it("returns CLOSED text-mute when thread closed", () => {
+  it("collapses to FYI when inbound is unreplied but AWAITING_REPLY is absent", () => {
+    // Auto-notification / forwarded form / receipt: classifier saw the inbound
+    // message but decided no reply is expected. The new precedence treats this
+    // as FYI even though timestamps look like an outstanding inbound.
+    const tag = computeStateTag({
+      lastInboundAt: Date.now() - 18 * 3600_000,
+      lastOutboundAt: null,
+      hasAiDraft: false,
+      sentByAgentRecently: false,
+      labels: [],
+      closed: false,
+      now: Date.now(),
+    });
+    expect(tag.kind).toBe("fyi");
+    expect(tag.tone).toBe("neutral");
+    expect(tag.prefix).toBe("FYI");
+  });
+
+  it("collapses to FYI on a 30d-old inbound without AWAITING_REPLY (no alarm escalation)", () => {
+    const tag = computeStateTag({
+      lastInboundAt: Date.now() - 30 * 86400_000,
+      lastOutboundAt: null,
+      hasAiDraft: false,
+      sentByAgentRecently: false,
+      labels: [],
+      closed: false,
+      now: Date.now(),
+    });
+    expect(tag.kind).toBe("fyi");
+    expect(tag.alarmStrip).toBe(false);
+  });
+
+  it("returns CLOSED when thread closed", () => {
     const tag = computeStateTag({
       lastInboundAt: Date.now() - 5 * 86400_000,
       lastOutboundAt: null,
       hasAiDraft: false,
       sentByAgentRecently: false,
-      category: "CLOSED",
+      labels: ["AWAITING_REPLY"],
       closed: true,
       now: Date.now(),
     });

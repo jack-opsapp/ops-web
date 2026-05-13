@@ -327,7 +327,9 @@ type ThreadAction =
   | { action: "snooze"; until: string }
   | { action: "unsnooze" }
   | { action: "recategorize"; toCategory: EmailThreadCategory; note?: string }
-  | { action: "markRead"; isRead: boolean };
+  | { action: "markRead"; isRead: boolean }
+  | { action: "dismissAwaitingReply" }
+  | { action: "restoreAwaitingReply" };
 
 const ACTION_PERMISSIONS: Record<string, string> = {
   archive: "inbox.archive",
@@ -336,6 +338,12 @@ const ACTION_PERMISSIONS: Record<string, string> = {
   unsnooze: "inbox.snooze",
   recategorize: "inbox.categorize",
   markRead: "inbox.view",
+  // Operator-level triage action — anyone who can see the inbox can mark a
+  // thread as "no reply needed" (or undo the dismiss). Mirrors snooze's
+  // permission scope rather than recategorize, since it doesn't teach the
+  // classifier.
+  dismissAwaitingReply: "inbox.snooze",
+  restoreAwaitingReply: "inbox.snooze",
 };
 
 export async function PATCH(
@@ -470,6 +478,20 @@ export async function PATCH(
           EmailThreadService.markRead(id, Boolean(body.isRead))
         );
         return NextResponse.json({ ok: true });
+      }
+
+      case "dismissAwaitingReply": {
+        const labels = await runWithSupabase(supabase, () =>
+          EmailThreadService.dismissAwaitingReply(id, companyId)
+        );
+        return NextResponse.json({ ok: true, labels });
+      }
+
+      case "restoreAwaitingReply": {
+        const labels = await runWithSupabase(supabase, () =>
+          EmailThreadService.restoreAwaitingReply(id, companyId)
+        );
+        return NextResponse.json({ ok: true, labels });
       }
 
       default: {

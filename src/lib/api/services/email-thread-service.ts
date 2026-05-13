@@ -1706,6 +1706,73 @@ export const EmailThreadService = {
       .eq("id", threadId);
   },
 
+  /**
+   * Operator override: clear the `AWAITING_REPLY` label on a thread, signalling
+   * "the classifier said this needs a reply, but it doesn't." Drives the
+   * hover-X affordance on the YOURS state-tag — collapses the thread from
+   * YOURS → FYI on the next list refetch (computeStateTag gates YOURS on
+   * this label).
+   *
+   * Idempotent: no-op when the label is already absent. Does NOT touch the
+   * provider — labels are an OPS-side concept on `email_threads.labels`.
+   * Returns the resulting label array so the caller can update local cache
+   * without a refetch round-trip.
+   */
+  async dismissAwaitingReply(
+    threadId: string,
+    companyId: string
+  ): Promise<EmailThreadLabel[]> {
+    const supabase = requireSupabase();
+    const { data: row } = await supabase
+      .from("email_threads")
+      .select("id, labels")
+      .eq("id", threadId)
+      .eq("company_id", companyId)
+      .maybeSingle();
+
+    if (!row) return [];
+
+    const current = ((row.labels as EmailThreadLabel[] | null) ?? []) as EmailThreadLabel[];
+    if (!current.includes("AWAITING_REPLY")) return current;
+
+    const next = current.filter((l) => l !== "AWAITING_REPLY");
+    await supabase
+      .from("email_threads")
+      .update({ labels: next })
+      .eq("id", threadId);
+    return next;
+  },
+
+  /**
+   * Counterpart to `dismissAwaitingReply` — re-applies `AWAITING_REPLY` to
+   * the thread's label array. Used as the undo path for the dismiss action.
+   * Idempotent: no-op when the label is already present.
+   */
+  async restoreAwaitingReply(
+    threadId: string,
+    companyId: string
+  ): Promise<EmailThreadLabel[]> {
+    const supabase = requireSupabase();
+    const { data: row } = await supabase
+      .from("email_threads")
+      .select("id, labels")
+      .eq("id", threadId)
+      .eq("company_id", companyId)
+      .maybeSingle();
+
+    if (!row) return [];
+
+    const current = ((row.labels as EmailThreadLabel[] | null) ?? []) as EmailThreadLabel[];
+    if (current.includes("AWAITING_REPLY")) return current;
+
+    const next: EmailThreadLabel[] = [...current, "AWAITING_REPLY"];
+    await supabase
+      .from("email_threads")
+      .update({ labels: next })
+      .eq("id", threadId);
+    return next;
+  },
+
   async setWritebackPreference(
     connectionId: string,
     preference: ArchiveWritebackPreference

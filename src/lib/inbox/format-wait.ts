@@ -1,5 +1,6 @@
 // src/lib/inbox/format-wait.ts
 import type { StateTagTone } from "@/components/ops/inbox/state-tag";
+import type { EmailThreadLabel } from "@/lib/types/email-thread";
 
 const MIN_MS = 60_000;
 const HOUR_MS = 3600_000;
@@ -66,8 +67,14 @@ export interface StateTagInputs {
   hasAiDraft: boolean;
   /** True if the last outbound was sent by the AI agent within the last 24h. */
   sentByAgentRecently: boolean;
-  /** ThreadCategory enum value (string — enum is defined in email-thread.ts). */
-  category: string;
+  /**
+   * Secondary labels emitted by the Phase C classifier. The presence of
+   * `AWAITING_REPLY` is the canonical signal that the operator is on the hook
+   * for a reply — without it, an unreplied inbound is treated as FYI rather
+   * than escalating through YOURS/OVERDUE/ALARMED. Pass the thread's full
+   * label array; computeStateTag only inspects `AWAITING_REPLY`.
+   */
+  labels: ReadonlyArray<EmailThreadLabel>;
   closed: boolean;
   now: number;
 }
@@ -76,10 +83,14 @@ export interface StateTagInputs {
  * Derives the state-tag from a thread's runtime signals.
  *
  * Precedence (highest to lowest):
- *   closed > draft_ready > auto_sent > fyi > overdue/alarmed > yours > theirs > fyi(fallback)
+ *   closed > draft_ready > auto_sent > overdue/alarmed > yours > theirs > fyi
  *
- * SYS detection: The ThreadCategory enum currently does not have a `SYS` value.
- * The `OTHER` path below is a placeholder — refine when SYS enum lands in Phase B2.
+ * "Is this thread on the operator?" — gated on the classifier's
+ * `AWAITING_REPLY` label, not on raw inbound/outbound timestamps. Auto-
+ * notifications, forwarded form submissions, and receipts have an unreplied
+ * inbound but no AWAITING_REPLY label; they collapse to FYI here so the
+ * operator's NEEDS REPLY band only contains threads that actually need a
+ * reply.
  */
 export function computeStateTag(input: StateTagInputs): StateTagResult {
   const {
@@ -87,7 +98,7 @@ export function computeStateTag(input: StateTagInputs): StateTagResult {
     lastOutboundAt,
     hasAiDraft,
     sentByAgentRecently,
-    category,
+    labels,
     closed,
     now,
   } = input;
@@ -101,18 +112,8 @@ export function computeStateTag(input: StateTagInputs): StateTagResult {
   if (sentByAgentRecently) {
     return { kind: "auto_sent", tone: "lavender", prefix: "AUTO-SENT", alarmStrip: false };
   }
-  if (category === "FYI") {
-    return { kind: "fyi", tone: "neutral", prefix: "FYI", alarmStrip: false };
-  }
 
-  // SYS detection placeholder — refine when SYS enum lands in Phase B2.
-  // `OTHER` is the closest current category; this path will be narrowed to `SYS` only.
-  if (category === "SYS" || category === "OTHER") {
-    if (lastOutboundAt && (!lastInboundAt || lastOutboundAt > lastInboundAt)) {
-      return { kind: "sys", tone: "neutral", prefix: "SYS", alarmStrip: false };
-    }
-  }
-
+  const awaitingReply = labels.includes("AWAITING_REPLY");
   const inboundUnreplied =
     lastInboundAt !== null &&
     (!lastOutboundAt || lastInboundAt > lastOutboundAt);
@@ -120,7 +121,7 @@ export function computeStateTag(input: StateTagInputs): StateTagResult {
     lastOutboundAt !== null &&
     (!lastInboundAt || lastOutboundAt > lastInboundAt);
 
-  if (inboundUnreplied && lastInboundAt !== null) {
+  if (inboundUnreplied && lastInboundAt !== null && awaitingReply) {
     const elapsed = now - lastInboundAt;
     if (elapsed > TWO_WEEKS_MS) {
       const days = Math.floor(elapsed / DAY_MS);
