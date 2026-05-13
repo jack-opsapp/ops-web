@@ -53,6 +53,8 @@ import { ProjectArchiveTray } from "./_components/project-archive-tray";
 import { ProjectFloatingToolbar } from "./_components/project-floating-toolbar";
 import { ProjectDragConfirmation } from "./_components/project-drag-confirmation";
 import { ProjectSpreadsheet } from "./_components/project-spreadsheet";
+import { ProjectsTableShell } from "./_components/table-v2/projects-table-shell";
+import { useProjectsTableV2Flag } from "@/lib/hooks/projects-table/use-projects-table-v2-flag";
 import { useSetupGate } from "@/hooks/useSetupGate";
 import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModal";
 
@@ -173,6 +175,7 @@ export default function ProjectsPage() {
   const canCreateTasks = can("tasks.create");
   const canRecordPayment = can("accounting.edit");
   const canDelete = can("projects.delete");
+  const projectsTableV2Enabled = useProjectsTableV2Flag();
 
   // ── Data fetching ──
   const { data: projectsData, isLoading } = useScopedProjects();
@@ -197,16 +200,34 @@ export default function ProjectsPage() {
   const endDrag = useProjectCanvasStore((s) => s.endDrag);
 
   // ── View mode ──
-  const [viewMode, setViewMode] = useState<"canvas" | "spreadsheet">(() => {
+  const storedViewModeRef = useRef<"canvas" | "spreadsheet" | null>(null);
+  const [viewMode, setViewModeState] = useState<"canvas" | "spreadsheet">(() => {
     if (typeof window === "undefined") return "canvas";
-    return (localStorage.getItem("ops_projects_view_mode") as "canvas" | "spreadsheet") ?? "canvas";
+    const stored = localStorage.getItem("ops_projects_view_mode");
+    if (stored === "canvas" || stored === "spreadsheet") {
+      storedViewModeRef.current = stored;
+      return stored;
+    }
+    return "canvas";
   });
   const [spreadsheetStatusFilter, setSpreadsheetStatusFilter] = useState<"active" | "archived" | "closed">("active");
   const [spreadsheetSelectedIds, setSpreadsheetSelectedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    localStorage.setItem("ops_projects_view_mode", viewMode);
-  }, [viewMode]);
+    if (!projectsTableV2Enabled || typeof window === "undefined") return;
+    if (storedViewModeRef.current) return;
+    storedViewModeRef.current = "spreadsheet";
+    localStorage.setItem("ops_projects_view_mode", "spreadsheet");
+    setViewModeState("spreadsheet");
+  }, [projectsTableV2Enabled]);
+
+  const setViewMode = useCallback((nextViewMode: "canvas" | "spreadsheet") => {
+    storedViewModeRef.current = nextViewMode;
+    if (typeof window !== "undefined") {
+      localStorage.setItem("ops_projects_view_mode", nextViewMode);
+    }
+    setViewModeState(nextViewMode);
+  }, []);
 
   // Clear spreadsheet selection when switching to canvas
   useEffect(() => {
@@ -793,7 +814,13 @@ export default function ProjectsPage() {
       </div>}
 
       {/* ── Spreadsheet — alternative view ── */}
-      {viewMode === "spreadsheet" && (
+      {viewMode === "spreadsheet" && projectsTableV2Enabled && (
+        <div className="absolute inset-0 top-[156px] bottom-0 px-3 overflow-hidden flex flex-col">
+          <ProjectsTableShell />
+        </div>
+      )}
+
+      {viewMode === "spreadsheet" && !projectsTableV2Enabled && (
         <div className="absolute inset-0 top-[156px] bottom-0 px-3 overflow-hidden flex flex-col">
           <ProjectSpreadsheet
             projects={filteredProjects.filter((p) => p.status !== ProjectStatus.Archived && p.status !== ProjectStatus.Closed)}

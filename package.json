@@ -64,6 +64,8 @@
     "@supabase/supabase-js": "^2.95.3",
     "@tanstack/react-query": "^5.62.0",
     "@tanstack/react-query-devtools": "^5.62.0",
+    "@tanstack/react-table": "^8.21.3",
+    "@tanstack/react-virtual": "^3.13.24",
     "@tavily/core": "^0.7.2",
     "@types/diff": "^7.0.2",
     "@zxcvbn-ts/core": "^3.0.4",

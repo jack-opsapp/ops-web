@@ -1,0 +1,171 @@
+import type { ColumnDef } from "@tanstack/react-table";
+import type { Database, Json } from "@/lib/types/database.types";
+import { ProjectStatus } from "@/lib/types/models";
+
+export type ProjectTableDbRow = Database["public"]["Views"]["project_table_rows"]["Row"];
+export type ProjectViewDbRow = Database["public"]["Tables"]["project_views"]["Row"];
+
+export type ProjectTableColumnId =
+  | "select"
+  | "name"
+  | "status"
+  | "client"
+  | "client_email"
+  | "client_phone"
+  | "address"
+  | "team"
+  | "start_date"
+  | "end_date"
+  | "duration"
+  | "progress"
+  | "next_task"
+  | "task_count"
+  | "days_in_status"
+  | "estimate_total"
+  | "invoice_total"
+  | "paid_total"
+  | "value"
+  | "project_cost"
+  | "margin"
+  | "photos"
+  | "updated_at";
+
+export const PROJECT_TABLE_COLUMN_IDS = [
+  "select",
+  "name",
+  "status",
+  "client",
+  "client_email",
+  "client_phone",
+  "address",
+  "team",
+  "start_date",
+  "end_date",
+  "duration",
+  "progress",
+  "next_task",
+  "task_count",
+  "days_in_status",
+  "estimate_total",
+  "invoice_total",
+  "paid_total",
+  "value",
+  "project_cost",
+  "margin",
+  "photos",
+  "updated_at",
+] as const satisfies readonly ProjectTableColumnId[];
+
+export type ProjectTableCellKind =
+  | "select"
+  | "text"
+  | "status"
+  | "relation"
+  | "number"
+  | "percent"
+  | "currency"
+  | "date"
+  | "progress";
+
+export interface ProjectTableColumnConfig {
+  id: ProjectTableColumnId;
+  labelKey: string;
+  dbField?: keyof ProjectTableDbRow;
+  kind: ProjectTableCellKind;
+  frozen?: boolean;
+  sortable?: boolean;
+  minWidth: number;
+  width: number;
+  maxWidth: number;
+  align?: "left" | "right";
+  requiresPermission?: "projects.view_financials";
+}
+
+export const PROJECT_TABLE_COLUMNS: ProjectTableColumnConfig[] = [
+  { id: "select", labelKey: "table.column.select", kind: "select", frozen: true, minWidth: 42, width: 42, maxWidth: 42 },
+  { id: "name", labelKey: "table.column.name", dbField: "title", kind: "text", frozen: true, sortable: true, minWidth: 200, width: 280, maxWidth: 480 },
+  { id: "status", labelKey: "table.column.status", dbField: "status", kind: "status", frozen: true, sortable: true, minWidth: 96, width: 112, maxWidth: 128 },
+  { id: "client", labelKey: "table.column.client", dbField: "client_name", kind: "relation", sortable: true, minWidth: 140, width: 180, maxWidth: 320 },
+  { id: "client_email", labelKey: "table.column.clientEmail", dbField: "client_email", kind: "text", sortable: true, minWidth: 160, width: 220, maxWidth: 320 },
+  { id: "client_phone", labelKey: "table.column.clientPhone", dbField: "client_phone", kind: "text", sortable: true, minWidth: 130, width: 150, maxWidth: 200 },
+  { id: "address", labelKey: "table.column.address", dbField: "address", kind: "text", sortable: true, minWidth: 180, width: 260, maxWidth: 420 },
+  { id: "team", labelKey: "table.column.team", dbField: "team_member_ids", kind: "text", minWidth: 120, width: 160, maxWidth: 240 },
+  { id: "start_date", labelKey: "table.column.startDate", dbField: "start_date", kind: "date", sortable: true, minWidth: 110, width: 130, maxWidth: 160 },
+  { id: "end_date", labelKey: "table.column.endDate", dbField: "end_date", kind: "date", sortable: true, minWidth: 110, width: 130, maxWidth: 160 },
+  { id: "duration", labelKey: "table.column.duration", dbField: "duration", kind: "number", sortable: true, minWidth: 90, width: 110, maxWidth: 140, align: "right" },
+  { id: "progress", labelKey: "table.column.progress", dbField: "progress", kind: "progress", sortable: true, minWidth: 100, width: 140, maxWidth: 200 },
+  { id: "next_task", labelKey: "table.column.nextTask", dbField: "next_task", kind: "text", sortable: true, minWidth: 160, width: 220, maxWidth: 320 },
+  { id: "task_count", labelKey: "table.column.tasks", dbField: "task_count", kind: "number", sortable: true, minWidth: 80, width: 90, maxWidth: 120, align: "right" },
+  { id: "days_in_status", labelKey: "table.column.days", dbField: "days_in_status", kind: "number", sortable: true, minWidth: 100, width: 130, maxWidth: 160, align: "right" },
+  { id: "estimate_total", labelKey: "table.column.estimate", dbField: "estimate_total", kind: "currency", sortable: true, minWidth: 110, width: 130, maxWidth: 180, align: "right", requiresPermission: "projects.view_financials" },
+  { id: "invoice_total", labelKey: "table.column.invoiced", dbField: "invoice_total", kind: "currency", sortable: true, minWidth: 110, width: 130, maxWidth: 180, align: "right", requiresPermission: "projects.view_financials" },
+  { id: "paid_total", labelKey: "table.column.paid", dbField: "paid_total", kind: "currency", sortable: true, minWidth: 110, width: 130, maxWidth: 180, align: "right", requiresPermission: "projects.view_financials" },
+  { id: "value", labelKey: "table.column.value", dbField: "value", kind: "currency", sortable: true, minWidth: 110, width: 130, maxWidth: 180, align: "right", requiresPermission: "projects.view_financials" },
+  { id: "project_cost", labelKey: "table.column.cost", dbField: "project_cost", kind: "currency", sortable: true, minWidth: 110, width: 130, maxWidth: 180, align: "right", requiresPermission: "projects.view_financials" },
+  { id: "margin", labelKey: "table.column.margin", dbField: "margin", kind: "percent", sortable: true, minWidth: 90, width: 110, maxWidth: 140, align: "right", requiresPermission: "projects.view_financials" },
+  { id: "photos", labelKey: "table.column.photos", dbField: "photo_count", kind: "number", sortable: true, minWidth: 80, width: 100, maxWidth: 140, align: "right" },
+  { id: "updated_at", labelKey: "table.column.updated", dbField: "updated_at", kind: "date", sortable: true, minWidth: 120, width: 150, maxWidth: 190 },
+];
+
+export interface ProjectTableRow {
+  id: string;
+  companyId: string;
+  title: string;
+  status: ProjectStatus;
+  rawStatus: string;
+  clientId: string | null;
+  clientName: string | null;
+  clientEmail: string | null;
+  clientPhone: string | null;
+  address: string | null;
+  teamMemberIds: string[];
+  startDate: string | null;
+  endDate: string | null;
+  duration: number | null;
+  progress: number | null;
+  nextTask: string | null;
+  taskCount: number;
+  taskCompletedCount: number;
+  daysInStatus: number | null;
+  estimateTotal: number | null;
+  invoiceTotal: number | null;
+  paidTotal: number | null;
+  value: number | null;
+  projectCost: number | null;
+  margin: number | null;
+  photoCount: number;
+  updatedAt: string | null;
+}
+
+export type ProjectTableDensity = "compact" | "comfortable" | "spacious";
+
+export interface ProjectTableViewDefinition {
+  id: string;
+  name: string;
+  icon: string | null;
+  permissionKey: string | null;
+  columns: ProjectTableColumnId[];
+  filters: Json;
+  sort: ProjectTableSort[];
+  density: ProjectTableDensity;
+  zoomLevel: number;
+  isDefault: boolean;
+  sortPosition: number;
+  updatedAt: string;
+}
+
+export interface ProjectTableSort {
+  field: ProjectTableColumnId | keyof ProjectTableDbRow;
+  direction: "asc" | "desc";
+}
+
+export interface ProjectTableDataParams {
+  companyId: string;
+  userId: string;
+  view: ProjectTableViewDefinition;
+  search: string;
+  sorting: ProjectTableSort[];
+  pageSize: number;
+}
+
+export type ProjectTableColumnDef = ColumnDef<ProjectTableRow>;

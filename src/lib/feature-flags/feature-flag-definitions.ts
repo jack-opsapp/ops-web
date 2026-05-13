@@ -55,6 +55,7 @@ export const FEATURE_FLAG_PERMISSIONS: Record<string, string[]> = {
   // ai_email_review removed — all AI gating now on phase_c.
   phase_c: ["email.configure_ai"],
   deck_builder: ["deck_builder.view", "deck_builder.create", "deck_builder.edit"],
+  projects_table_v2: [],
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

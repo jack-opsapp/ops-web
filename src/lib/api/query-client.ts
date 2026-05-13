@@ -21,6 +21,10 @@ export const queryKeys = {
       [...queryKeys.projects.lists(), companyId, filters] as const,
     userList: (userId: string, companyId: string) =>
       [...queryKeys.projects.lists(), "user", userId, companyId] as const,
+    tableRows: (params: Record<string, unknown>) =>
+      [...queryKeys.projects.all, "tableRows", params] as const,
+    tableViews: (companyId: string, userId: string) =>
+      [...queryKeys.projects.all, "tableViews", companyId, userId] as const,
     details: () => [...queryKeys.projects.all, "detail"] as const,
     detail: (id: string) => [...queryKeys.projects.details(), id] as const,
   },
