@@ -38,8 +38,10 @@ export const PipelineFocusedCard = memo(function PipelineFocusedCard({
 }: PipelineFocusedCardProps) {
   const { t } = useDictionary("pipeline");
   const {
+    attributes,
     listeners,
     setNodeRef,
+    setActivatorNodeRef,
     transform,
     isDragging,
   } = useDraggable({
@@ -64,11 +66,9 @@ export const PipelineFocusedCard = memo(function PipelineFocusedCard({
       ref={setNodeRef}
       className={cn(
         "relative w-full select-none",
-        canManage && "cursor-grab touch-none active:cursor-grabbing",
-        isDragging && "opacity-60"
+        isDragging && "z-[1]"
       )}
       style={dragStyle}
-      {...listeners}
     >
       <div className="min-w-0">
         <PipelineCardContent
@@ -90,6 +90,32 @@ export const PipelineFocusedCard = memo(function PipelineFocusedCard({
           onAssign={onAssign}
           onScheduleFollowUp={onScheduleFollowUp}
           onOpenDetail={openDetailPanel}
+          leadingAccessory={
+            <button
+              ref={setActivatorNodeRef}
+              type="button"
+              aria-label={t(
+                "focused.dragHandle.label",
+                "Drag card to another stage"
+              )}
+              disabled={!canManage}
+              className="group flex min-h-11 w-11 shrink-0 cursor-grab touch-none appearance-none items-center justify-center rounded-sm border border-transparent bg-transparent text-text-mute transition-colors duration-150 hover:bg-surface-hover hover:text-text-2 focus-visible:bg-surface-hover focus-visible:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent active:cursor-grabbing disabled:cursor-not-allowed disabled:text-text-mute"
+              {...(canManage ? attributes : {})}
+              {...(canManage ? listeners : {})}
+            >
+              <span
+                aria-hidden="true"
+                className="grid grid-cols-2 gap-1 text-current"
+              >
+                {Array.from({ length: 6 }).map((_, index) => (
+                  <span
+                    key={index}
+                    className="h-1 w-1 rounded-full border border-current bg-transparent transition-colors duration-150 group-hover:bg-current group-focus-visible:bg-current"
+                  />
+                ))}
+              </span>
+            </button>
+          }
         />
       </div>
     </article>

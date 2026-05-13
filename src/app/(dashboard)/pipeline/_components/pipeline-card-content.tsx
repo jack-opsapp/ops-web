@@ -40,6 +40,7 @@ export interface PipelineCardContentProps
   isHovered?: boolean;
   isExpanded?: boolean;
   openDetailLabel?: string;
+  leadingAccessory?: React.ReactNode;
   children?: React.ReactNode;
 }
 
@@ -62,6 +63,7 @@ export const PipelineCardContent = memo(function PipelineCardContent({
   isHovered = false,
   isExpanded = false,
   openDetailLabel,
+  leadingAccessory,
   onLogCall = noop,
   onLogText = noop,
   onAddNote = noop,
@@ -153,71 +155,84 @@ export const PipelineCardContent = memo(function PipelineCardContent({
         style={{ opacity: staleSurfaceOpacity }}
       />
 
-      <div className="relative z-[1] flex flex-col gap-1 p-2 pl-3">
-        <button
-          type="button"
-          aria-label={openDetailLabel ?? t("card.viewDetails")}
-          className="block w-full rounded-sm text-left transition-colors duration-150 hover:bg-surface-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
-          onClick={(event) => {
-            event.stopPropagation();
-            onOpenDetail();
-          }}
+      <div className="relative z-[1] flex min-w-0">
+        {leadingAccessory ? (
+          <div className="flex w-12 shrink-0 items-center justify-center py-2 pl-1">
+            {leadingAccessory}
+          </div>
+        ) : null}
+
+        <div
+          className={cn(
+            "flex min-w-0 flex-1 flex-col gap-1 p-2",
+            leadingAccessory ? "pl-1" : "pl-3"
+          )}
         >
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <p className="truncate font-cakemono text-caption-sm font-light uppercase text-text">
-                {displayTitle}
-              </p>
-              <p className="truncate font-mohave text-body-sm text-text-2">
-                {clientName}
-              </p>
+          <button
+            type="button"
+            aria-label={openDetailLabel ?? t("card.viewDetails")}
+            className="block w-full rounded-sm text-left transition-colors duration-150 hover:bg-surface-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
+            onClick={(event) => {
+              event.stopPropagation();
+              onOpenDetail();
+            }}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="truncate font-cakemono text-caption-sm font-light uppercase text-text">
+                  {displayTitle}
+                </p>
+                <p className="truncate font-mohave text-body-sm text-text-2">
+                  {clientName}
+                </p>
+              </div>
+              <span className="shrink-0 font-mono text-data-sm text-text">
+                {opportunity.estimatedValue
+                  ? formatCurrency(opportunity.estimatedValue)
+                  : "—"}
+              </span>
             </div>
-            <span className="shrink-0 font-mono text-data-sm text-text">
-              {opportunity.estimatedValue
-                ? formatCurrency(opportunity.estimatedValue)
-                : "—"}
-            </span>
-          </div>
 
-          <div className="grid grid-cols-3 gap-1 border-t border-line pt-1">
-            <Metric label={stageName} value={`${daysInStage}d`} />
-            <Metric
-              label={t("spatial.emailCount").replace(
-                "{count}",
-                String(opportunity.correspondenceCount)
-              )}
-              value={
-                lastCorrespondence
-                  ? formatTimeAgo(lastCorrespondence)
-                  : "—"
-              }
-            />
-            <Metric
-              label={t("card.followUpDate").replace("{date}", "")}
-              value={
-                opportunity.nextFollowUpAt
-                  ? formatTimeAgo(opportunity.nextFollowUpAt)
-                  : "—"
-              }
-            />
-          </div>
-        </button>
+            <div className="grid grid-cols-3 gap-1 border-t border-line pt-1">
+              <Metric label={stageName} value={`${daysInStage}d`} />
+              <Metric
+                label={t("spatial.emailCount").replace(
+                  "{count}",
+                  String(opportunity.correspondenceCount)
+                )}
+                value={
+                  lastCorrespondence
+                    ? formatTimeAgo(lastCorrespondence)
+                    : "—"
+                }
+              />
+              <Metric
+                label={t("card.followUpDate").replace("{date}", "")}
+                value={
+                  opportunity.nextFollowUpAt
+                    ? formatTimeAgo(opportunity.nextFollowUpAt)
+                    : "—"
+                }
+              />
+            </div>
+          </button>
 
-        <PipelineCardActions
-          opportunityId={opportunity.id}
-          stage={opportunity.stage}
-          canManage={canManage}
-          onLogCall={onLogCall}
-          onLogText={onLogText}
-          onAddNote={onAddNote}
-          onArchive={onArchive}
-          onMarkWon={onMarkWon}
-          onMarkLost={onMarkLost}
-          onDiscard={onDiscard}
-          onAssign={onAssign}
-          onScheduleFollowUp={onScheduleFollowUp}
-          onOpenDetail={onOpenDetail}
-        />
+          <PipelineCardActions
+            opportunityId={opportunity.id}
+            stage={opportunity.stage}
+            canManage={canManage}
+            onLogCall={onLogCall}
+            onLogText={onLogText}
+            onAddNote={onAddNote}
+            onArchive={onArchive}
+            onMarkWon={onMarkWon}
+            onMarkLost={onMarkLost}
+            onDiscard={onDiscard}
+            onAssign={onAssign}
+            onScheduleFollowUp={onScheduleFollowUp}
+            onOpenDetail={onOpenDetail}
+          />
+        </div>
       </div>
     </div>
   );
