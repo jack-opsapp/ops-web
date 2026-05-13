@@ -51,7 +51,7 @@ export function usePipelineModeShortcut(isDragging: boolean, enabled = true) {
       usePipelineModeStore.getState().toggleMode();
     }
 
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [enabled, isDragging]);
 }
