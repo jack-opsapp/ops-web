@@ -170,6 +170,7 @@ export const PipelineCardContent = memo(function PipelineCardContent({
         >
           <button
             type="button"
+            data-opportunity-card-id={opportunity.id}
             aria-label={openDetailLabel ?? t("card.viewDetails")}
             className="block w-full rounded-sm text-left transition-colors duration-150 hover:bg-surface-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
             onClick={(event) => {

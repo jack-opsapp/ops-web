@@ -111,6 +111,7 @@ export const SpatialCard = memo(function SpatialCard({
     return (
       <div
         ref={setNodeRef}
+        data-opportunity-card-id={opportunity.id}
         {...(draggable ? listeners : {})}
         {...(draggable ? attributes : {})}
         className="relative cursor-pointer"
@@ -141,6 +142,7 @@ export const SpatialCard = memo(function SpatialCard({
   return (
     <div
       ref={setNodeRef}
+      data-opportunity-card-id={opportunity.id}
       {...(draggable ? listeners : {})}
       {...(draggable ? attributes : {})}
       role="button"

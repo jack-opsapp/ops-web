@@ -7,7 +7,8 @@ import {
   useMemo,
   useRef,
 } from "react";
-import { useReducedMotion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
+import { cn } from "@/lib/utils/cn";
 import {
   type Opportunity,
   OpportunityStage,
@@ -19,6 +20,7 @@ import type { SortOption } from "./pipeline-mode-types";
 import { usePipelineModeStore } from "./pipeline-mode-store";
 import { usePipelineDndState } from "./pipeline-dnd-provider";
 import { PipelineFocusedColumn } from "./pipeline-focused-column";
+import { PipelineDetailPanel } from "./pipeline-detail-panel";
 import { PipelineSpineColumn } from "./pipeline-spine-column";
 import { PipelineTerminalStack } from "./pipeline-terminal-stack";
 
@@ -30,8 +32,10 @@ type FocusedShellActionHandlers = {
   onDiscard: (id: string) => void;
   onMarkWon: (opportunity: Opportunity) => void;
   onMarkLost: (opportunity: Opportunity) => void;
+  onAdvanceStage: (opportunity: Opportunity) => void;
   onAssign: (id: string) => void;
   onScheduleFollowUp: (id: string) => void;
+  onDelete: (id: string) => void;
 };
 
 export interface PipelineFocusedShellProps extends FocusedShellActionHandlers {
@@ -108,8 +112,10 @@ export function PipelineFocusedShell({
   onDiscard,
   onMarkWon,
   onMarkLost,
+  onAdvanceStage,
   onAssign,
   onScheduleFollowUp,
+  onDelete,
 }: PipelineFocusedShellProps) {
   const reduced = useReducedMotion();
   const focusedStage = usePipelineModeStore((state) => state.focusedStage);
@@ -120,7 +126,14 @@ export function PipelineFocusedShell({
   const stageSortOverrides = usePipelineModeStore(
     (state) => state.stageSortOverrides
   );
+  const detailPanelOpportunityId = usePipelineModeStore(
+    (state) => state.detailPanelOpportunityId
+  );
+  const closeDetailPanel = usePipelineModeStore(
+    (state) => state.closeDetailPanel
+  );
   const { isDragging } = usePipelineDndState();
+  const shellRef = useRef<HTMLDivElement>(null);
   const focusedColumnRef = useRef<HTMLDivElement>(null);
   const pendingFlipRectRef = useRef<DOMRect | null>(null);
   const lastSnapAtRef = useRef(0);
@@ -262,13 +275,33 @@ export function PipelineFocusedShell({
   );
   const focusedOpportunities =
     opportunitiesByStage.get(safeFocusedStage) ?? [];
+  const detailOpportunity = detailPanelOpportunityId
+    ? (opportunities.find(
+        (opportunity) => opportunity.id === detailPanelOpportunityId
+      ) ?? null)
+    : null;
+  const detailOpenInFocusedStage =
+    detailOpportunity?.stage === safeFocusedStage;
   const wonOpportunities =
     opportunitiesByStage.get(OpportunityStage.Won) ?? [];
   const lostOpportunities =
     opportunitiesByStage.get(OpportunityStage.Lost) ?? [];
 
+  useEffect(() => {
+    if (!detailPanelOpportunityId) return;
+    if (!detailOpportunity || detailOpportunity.stage !== safeFocusedStage) {
+      closeDetailPanel();
+    }
+  }, [
+    closeDetailPanel,
+    detailOpportunity,
+    detailPanelOpportunityId,
+    safeFocusedStage,
+  ]);
+
   return (
     <div
+      ref={shellRef}
       className="h-full min-h-0 w-full overflow-hidden bg-background"
       onWheel={handleWheel}
     >
@@ -287,28 +320,64 @@ export function PipelineFocusedShell({
           ))}
         </div>
 
-        <div ref={focusedColumnRef} className="min-h-0 min-w-[460px] flex-1">
-          <PipelineFocusedColumn
-            stage={safeFocusedStage}
-            opportunities={focusedOpportunities}
-            clientNameMap={clientNameMap}
-            canManage={canManage}
-            filtersActive={filtersActive}
-            focusedTabId={focusedTabId}
-            focusedPanelId={focusedPanelId}
-            onAddLead={onAddLead}
-            onClearFilters={onClearFilters}
-            onLogCall={onLogCall}
-            onLogText={onLogText}
-            onAddNote={onAddNote}
-            onArchive={onArchive}
-            onDiscard={onDiscard}
-            onMarkWon={onMarkWon}
-            onMarkLost={onMarkLost}
-            onAssign={onAssign}
-            onScheduleFollowUp={onScheduleFollowUp}
-          />
-        </div>
+        <motion.div
+          ref={focusedColumnRef}
+          layout={!reduced}
+          transition={{ duration: reduced ? 0.15 : 0.24, ease: [0.22, 1, 0.36, 1] }}
+          className={cn(
+            "min-h-0 min-w-[460px] flex-1",
+            detailOpenInFocusedStage &&
+              "min-[1280px]:grow-0 min-[1280px]:basis-[840px] min-[1280px]:shrink-0"
+          )}
+        >
+          <div className="flex h-full min-h-0 gap-2">
+            <div
+              className={cn(
+                "min-h-0 min-w-0 flex-1",
+                detailOpenInFocusedStage &&
+                  "min-[1280px]:basis-1/2 min-[1280px]:grow-0 min-[1280px]:shrink-0"
+              )}
+            >
+              <PipelineFocusedColumn
+                stage={safeFocusedStage}
+                opportunities={focusedOpportunities}
+                clientNameMap={clientNameMap}
+                canManage={canManage}
+                filtersActive={filtersActive}
+                focusedTabId={focusedTabId}
+                focusedPanelId={focusedPanelId}
+                onAddLead={onAddLead}
+                onClearFilters={onClearFilters}
+                onLogCall={onLogCall}
+                onLogText={onLogText}
+                onAddNote={onAddNote}
+                onArchive={onArchive}
+                onDiscard={onDiscard}
+                onMarkWon={onMarkWon}
+                onMarkLost={onMarkLost}
+                onAssign={onAssign}
+                onScheduleFollowUp={onScheduleFollowUp}
+              />
+            </div>
+
+            {detailOpportunity && detailOpenInFocusedStage && (
+              <div className="hidden min-h-0 min-w-0 min-[1280px]:block min-[1280px]:basis-1/2 min-[1280px]:shrink-0">
+                <PipelineDetailPanel
+                  opportunity={detailOpportunity}
+                  canManage={canManage}
+                  originatingOpportunityId={detailPanelOpportunityId}
+                  scopeRef={shellRef}
+                  onAdvanceStage={onAdvanceStage}
+                  onMarkWon={onMarkWon}
+                  onMarkLost={onMarkLost}
+                  onArchive={onArchive}
+                  onDiscard={onDiscard}
+                  onDelete={onDelete}
+                />
+              </div>
+            )}
+          </div>
+        </motion.div>
 
         <div className={`flex min-h-0 shrink-0 items-stretch gap-2 ${SPINE_RAIL_CHROME}`}>
           {rightStages.map((stage) => (

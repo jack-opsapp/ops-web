@@ -670,6 +670,13 @@ export default function PipelinePage() {
   const router = useRouter();
   const isMobile = useIsMobile();
   const mode = usePipelineModeStore((state) => state.mode);
+  const detailPanelOpportunityId = usePipelineModeStore(
+    (state) => state.detailPanelOpportunityId
+  );
+  const closeDetailPanel = usePipelineModeStore(
+    (state) => state.closeDetailPanel
+  );
+  const previousModeRef = useRef(mode);
 
   // ── Filter / search state ─────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState("");
@@ -845,6 +852,28 @@ export default function PipelinePage() {
 
     return result;
   }, [activeOpportunities, stageFilter, assigneeFilter, searchQuery, clientNameMap]);
+
+  const detailPanelOpportunity = useMemo(() => {
+    if (!detailPanelOpportunityId) return null;
+    return (
+      filteredOpportunities.find(
+        (opportunity) => opportunity.id === detailPanelOpportunityId
+      ) ?? null
+    );
+  }, [detailPanelOpportunityId, filteredOpportunities]);
+
+  useEffect(() => {
+    if (detailPanelOpportunityId && !detailPanelOpportunity) {
+      closeDetailPanel();
+    }
+  }, [closeDetailPanel, detailPanelOpportunity, detailPanelOpportunityId]);
+
+  useEffect(() => {
+    if (previousModeRef.current !== mode) {
+      if (detailPanelOpportunityId) closeDetailPanel();
+      previousModeRef.current = mode;
+    }
+  }, [closeDetailPanel, detailPanelOpportunityId, mode]);
 
   // ── Board opportunities (active stages only — Won/Lost live in metrics bar)
   const boardOpportunities = useMemo(() => {
@@ -1411,8 +1440,10 @@ export default function PipelinePage() {
                 onDiscard={handleDiscard}
                 onMarkWon={handleMarkWon}
                 onMarkLost={handleMarkLost}
+                onAdvanceStage={handleAdvanceStage}
                 onAssign={handleAssign}
                 onScheduleFollowUp={handleScheduleFollowUp}
+                onDelete={(id) => deleteMutation.mutate(id)}
               />
             ) : (
               <SpatialCanvasDesktop
