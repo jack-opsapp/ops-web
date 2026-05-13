@@ -704,11 +704,10 @@ async function listThreads(
       : page[page.length - 1].lastMessageAt.toISOString()
     : null;
 
-  // Overlay derived fields on the page (two batched queries — one for
-  // ai_draft_history, one for agent_memories). Both run after the cursor
-  // is computed so a join hiccup never affects pagination semantics.
-  // Sequenced — phaseC pass first then commitment-id — so each
-  // enricher operates on the canonical EmailThread shape.
+  // Overlay derived fields on the page after the cursor is computed so a
+  // join hiccup never affects pagination semantics. The snippet pass repairs
+  // legacy blank/stale cached snippets from activities, then Phase C and
+  // commitment enrichers add their per-page derived state.
   const withActivitySnippets = await enrichWithActivitySnippets(page);
   const withPhaseC = await enrichWithPhaseC(withActivitySnippets);
   const enriched = await enrichWithNextCommitmentId(withPhaseC);
