@@ -44,11 +44,18 @@
   --fill-neutral: rgba(255, 255, 255, 0.14);
   --fill-neutral-dim: rgba(255, 255, 255, 0.06);
 
-  /* ── Inbox surface tokens (scoped to /inbox routes) ── */
-  --inbox-bg: #0E0F12;
-  --inbox-bg-deep: #08090B;
-  --inbox-panel: #16181C;
-  --inbox-elev: #1A1D22;
+  /* ── Inbox surface tokens (scoped to /inbox routes) ──
+   *  Per spec v2 the inbox columns blend into the canvas — visual structure
+   *  is carried by the hairline column borders, not by an elevated panel
+   *  fill. `--inbox-bg` and `--inbox-bg-deep` therefore match the page
+   *  canvas (#000). `--inbox-panel` (header band) and `--inbox-elev` (row
+   *  hover / today-bar tint) keep a slight elevation to read as interactive
+   *  surfaces, but every step stays inside the design-system surface
+   *  ladder (≤ 6% white). */
+  --inbox-bg: #000000;
+  --inbox-bg-deep: #000000;
+  --inbox-panel: #0D0E10;
+  --inbox-elev: #14161A;
 
   /* ── Agent Provenance Palette — Claude-authored surfaces only ── */
   /* See .interface-design/system.md § Agent Provenance Palette for usage rules. */
