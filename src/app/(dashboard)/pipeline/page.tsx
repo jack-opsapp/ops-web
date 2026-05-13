@@ -2,7 +2,6 @@
 
 import { useState, useCallback, useMemo, useEffect, useRef, memo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { Mail, X, Loader2 } from "lucide-react";
 import { useDictionary } from "@/i18n/client";
@@ -49,9 +48,6 @@ import type {
   DragStartEvent,
 } from "@dnd-kit/core";
 import { PipelineMobile } from "./_components/pipeline-mobile";
-import { useDetailPopoverStore } from "./_components/detail-popover-store";
-import { DetailPopover } from "./_components/detail-popover";
-import { DetailPopoverTether } from "./_components/detail-popover-tether";
 import { StageTransitionDialog } from "./_components/stage-transition-dialog";
 import { useWindowStore } from "@/stores/window-store";
 import { InboxLeadsQueue } from "@/components/ops/inbox-leads-queue";
@@ -72,6 +68,7 @@ import { SpatialArchiveTray, SpatialDiscardTray } from "./_components/spatial-ar
 import { calculateCanvasLayout } from "./_components/spatial-layout-engine";
 import { calculateBatchStaleness } from "./_components/spatial-staleness";
 import { PipelineDndProvider } from "./_components/pipeline-dnd-provider";
+import { PipelineDetailPanel } from "./_components/pipeline-detail-panel";
 import { PipelineFocusedShell } from "./_components/pipeline-focused-shell";
 import { PipelineFocusedToolbar } from "./_components/pipeline-focused-toolbar";
 import { PipelineFilterRow } from "./_components/pipeline-filter-row";
@@ -677,6 +674,10 @@ export default function PipelinePage() {
     (state) => state.closeDetailPanel
   );
   const previousModeRef = useRef(mode);
+  const pipelineScopeRef = useRef<HTMLDivElement>(null);
+  const [originatingOpportunityId, setOriginatingOpportunityId] = useState<
+    string | null
+  >(null);
 
   // ── Filter / search state ─────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState("");
@@ -707,10 +708,6 @@ export default function PipelinePage() {
 
   // ── Gmail banner ──────────────────────────────────────────────────────
   const [gmailBannerDismissed, setGmailBannerDismissed] = useState(false);
-
-  // ── Detail popovers ──────────────────────────────────────────────────
-  const openPopover = useDetailPopoverStore((s) => s.openPopover);
-  const popoversMap = useDetailPopoverStore((s) => s.popovers);
 
   // ── Stage transition dialog ───────────────────────────────────────────
   const [transitionType, setTransitionType] = useState<"won" | "lost" | null>(
@@ -875,44 +872,24 @@ export default function PipelinePage() {
     }
   }, [closeDetailPanel, detailPanelOpportunityId, mode]);
 
+  useEffect(() => {
+    if (!detailPanelOpportunityId) {
+      setOriginatingOpportunityId(null);
+    }
+  }, [detailPanelOpportunityId]);
+
   // ── Board opportunities (active stages only — Won/Lost live in metrics bar)
   const boardOpportunities = useMemo(() => {
     return filteredOpportunities.filter((o) => isActiveStage(o.stage));
   }, [filteredOpportunities]);
 
-  // ── Card positions map for tether overlay ──────────────────────────────
+  // ── Spatial canvas layout ──────────────────────────────────────────────
   const sortBy = usePipelineModeStore((s) => s.sortBy);
   const stageSortOverrides = usePipelineModeStore((s) => s.stageSortOverrides);
   const parentLayout = useMemo(
     () => calculateCanvasLayout(filteredOpportunities, sortBy, clientNameMap, stageSortOverrides),
     [filteredOpportunities, sortBy, clientNameMap, stageSortOverrides]
   );
-  const cardPositionsMap = useMemo(() => {
-    const map = new Map<string, { x: number; y: number }>();
-    const allPositions = [
-      ...parentLayout.stacks.flatMap((s) => s.cardPositions),
-      ...parentLayout.terminalRegions.flatMap((r) => r.cardPositions),
-    ];
-    for (const pos of allPositions) {
-      map.set(pos.opportunityId, { x: pos.x, y: pos.y });
-    }
-    return map;
-  }, [parentLayout]);
-
-  // ── Close orphaned popovers when opportunities are deleted ───────────
-  const popoverCount = useDetailPopoverStore((s) => s.popovers.size);
-
-  useEffect(() => {
-    if (!opportunities || popoverCount === 0) return;
-    const { popovers, closePopover: close } = useDetailPopoverStore.getState();
-    const oppIds = new Set(opportunities.map((o) => o.id));
-    for (const id of popovers.keys()) {
-      if (!oppIds.has(id)) {
-        close(id);
-      }
-    }
-  }, [opportunities, popoverCount]);
-
   // ── Handlers ──────────────────────────────────────────────────────────
 
   /** Toggle card expand — only one at a time */
@@ -1293,23 +1270,17 @@ export default function PipelinePage() {
     setPendingStageMove(null);
   }, []);
 
-  /** Open detail popover for an opportunity */
+  /** Open detail panel for an opportunity */
   const handleOpenDetail = useCallback((opp: Opportunity) => {
-    // Collapse the inline card expansion before opening the popover
+    // Collapse the inline card expansion before opening the detail panel.
     const { expandedCardIds, toggleCardExpanded } = useSpatialCanvasStore.getState();
     if (expandedCardIds.has(opp.id)) {
       toggleCardExpanded(opp.id);
     }
 
-    // Get card position for popover placement (read BEFORE collapse animation)
-    const cardEl = document.querySelector(`[data-spatial-card][data-opportunity-id="${opp.id}"]`);
-    const rect = cardEl?.getBoundingClientRect();
-    const screenPos = rect
-      ? { x: rect.right + 20, y: rect.top }
-      : { x: globalThis.innerWidth / 2 - 190, y: 100 };
-    const stageColor = OPPORTUNITY_STAGE_COLORS[opp.stage] ?? "#8F9AA3";
-    openPopover(opp.id, screenPos, opp.title, stageColor);
-  }, [openPopover]);
+    setOriginatingOpportunityId(opp.id);
+    usePipelineModeStore.getState().openDetailPanel(opp.id);
+  }, []);
 
   /** Handle quick advance: move to next stage */
   const handleAdvanceStage = useCallback(
@@ -1364,7 +1335,7 @@ export default function PipelinePage() {
     [company, currentUser, createOpportunity, t]
   );
 
-  /** Placeholder: assign (opens detail popover) */
+  /** Placeholder: assign (opens detail panel) */
   const handleAssign = useCallback(
     (opportunityId: string) => {
       const opp = activeOpportunities.find((o) => o.id === opportunityId);
@@ -1373,7 +1344,7 @@ export default function PipelinePage() {
     [activeOpportunities, handleOpenDetail]
   );
 
-  /** Placeholder: schedule follow-up (opens detail popover) */
+  /** Placeholder: schedule follow-up (opens detail panel) */
   const handleScheduleFollowUp = useCallback(
     (opportunityId: string) => {
       const opp = activeOpportunities.find((o) => o.id === opportunityId);
@@ -1411,7 +1382,10 @@ export default function PipelinePage() {
   } as const;
 
   return (
-    <div className="relative h-full min-h-0 min-w-0 flex-1 overflow-hidden">
+    <div
+      ref={pipelineScopeRef}
+      className="relative h-full min-h-0 min-w-0 flex-1 overflow-hidden"
+    >
       {/* ── Canvas — fills entire viewport, renders behind HUD ── */}
       <div className="absolute inset-0 overflow-hidden">
         {isMobile ? (
@@ -1611,29 +1585,22 @@ export default function PipelinePage() {
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[2] h-10 bg-gradient-to-t from-background via-background/60 to-transparent" />
       )}
 
-      {/* Detail Popover Tether Lines */}
-      <DetailPopoverTether cardPositions={cardPositionsMap} />
-
-      {/* Detail Popovers */}
-      <AnimatePresence>
-        {Array.from(popoversMap.entries()).map(([oppId, popoverState]) => {
-          const opp = opportunities?.find((o) => o.id === oppId);
-          if (!opp) return null;
-          return (
-            <DetailPopover
-              key={oppId}
-              popoverState={popoverState}
-              opportunity={opp}
-              canManage={canManage}
-              onAdvanceStage={() => handleAdvanceStage(opp)}
-              onMarkWon={() => handleMoveStage(opp.id, OpportunityStage.Won)}
-              onMarkLost={() => handleMoveStage(opp.id, OpportunityStage.Lost)}
-              onArchive={() => handleArchive(opp.id)}
-              onDelete={() => deleteMutation.mutate(opp.id)}
-            />
-          );
-        })}
-      </AnimatePresence>
+      {!isMobile && mode === "spatial" && detailPanelOpportunity && (
+        <PipelineDetailPanel
+          opportunity={detailPanelOpportunity}
+          canManage={canManage}
+          originatingOpportunityId={
+            originatingOpportunityId ?? detailPanelOpportunityId
+          }
+          scopeRef={pipelineScopeRef}
+          onAdvanceStage={handleAdvanceStage}
+          onMarkWon={handleMarkWon}
+          onMarkLost={handleMarkLost}
+          onArchive={handleArchive}
+          onDiscard={handleDiscard}
+          onDelete={(id) => deleteMutation.mutate(id)}
+        />
+      )}
 
       {/* Stage Transition Dialog (Won/Lost prompts) */}
       <StageTransitionDialog

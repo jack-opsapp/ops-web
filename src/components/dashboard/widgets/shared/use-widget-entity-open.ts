@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { useDetailPopoverStore } from "@/app/(dashboard)/pipeline/_components/detail-popover-store";
+import { usePipelineModeStore } from "@/app/(dashboard)/pipeline/_components/pipeline-mode-store";
 import { useWindowStore } from "@/stores/window-store";
 import { useClientDetailPopoverStore } from "@/stores/client-detail-popover-store";
 import { useInvoiceDetailPopoverStore } from "@/stores/invoice-detail-popover-store";
@@ -17,25 +17,26 @@ interface OpenEntityOptions {
   entityType: EntityType;
   entityId: string;
   title: string;
-  /** Color for the popover dock pill (defaults to WT.accent) */
+  /** Color for legacy floating detail surfaces (defaults to WT.accent) */
   color?: string;
-  /** Mouse event for positioning the popover near the click */
+  /** Mouse event for positioning floating detail surfaces near the click */
   event?: React.MouseEvent;
-  /** Fallback URL if no popover exists for this entity type */
+  /** Fallback URL if no floating detail surface exists for this entity type */
   fallbackPath?: string;
-  /** For task entities: the parent project ID to open the project popover */
+  /** For task entities: the parent project ID to open the project workspace */
   parentProjectId?: string;
 }
 
 // ── Hook ─────────────────────────────────────────────────────────────
 
 /**
- * Opens entity detail popovers from widget line items.
- * Supports all entity types via their respective popover stores.
+ * Opens entity detail surfaces from widget line items.
+ * Opportunities route into the pipeline panel; other entities use their
+ * existing workspace or floating detail surfaces.
  */
 export function useWidgetEntityOpen() {
   const router = useRouter();
-  const openPipelinePopover = useDetailPopoverStore((s) => s.openPopover);
+  const openPipelineDetail = usePipelineModeStore((s) => s.openDetailPanel);
   const openProjectWindow = useWindowStore((s) => s.openProjectWindow);
   const openClientPopover = useClientDetailPopoverStore((s) => s.openPopover);
   const openInvoicePopover = useInvoiceDetailPopoverStore((s) => s.openPopover);
@@ -52,7 +53,8 @@ export function useWidgetEntityOpen() {
 
       switch (entityType) {
         case "opportunity":
-          openPipelinePopover(entityId, screenPos, title, color ?? WT.accent);
+          openPipelineDetail(entityId);
+          router.push(fallbackPath ?? "/pipeline");
           return;
 
         case "project":
@@ -93,7 +95,14 @@ export function useWidgetEntityOpen() {
         }
       }
     },
-    [router, openPipelinePopover, openProjectWindow, openClientPopover, openInvoicePopover, openEstimatePopover]
+    [
+      router,
+      openPipelineDetail,
+      openProjectWindow,
+      openClientPopover,
+      openInvoicePopover,
+      openEstimatePopover,
+    ]
   );
 
   return openEntity;

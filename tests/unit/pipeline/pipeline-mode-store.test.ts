@@ -73,13 +73,23 @@ describe("pipeline-mode-store", () => {
     expect(usePipelineModeStore.getState().detailPanelOpportunityId).toBeNull();
   });
 
-  it("partialize does not persist detailPanelOpportunityId", () => {
-    act(() => usePipelineModeStore.getState().openDetailPanel("opp-1"));
+  it("setDetailPanelActiveTab updates the active detail tab", () => {
+    act(() => usePipelineModeStore.getState().setDetailPanelActiveTab("photos"));
+
+    expect(usePipelineModeStore.getState().detailPanelActiveTab).toBe("photos");
+  });
+
+  it("partialize does not persist transient detail panel state", () => {
+    act(() => {
+      usePipelineModeStore.getState().openDetailPanel("opp-1");
+      usePipelineModeStore.getState().setDetailPanelActiveTab("photos");
+    });
 
     const raw = localStorage.getItem("opsPipeline:v3");
     expect(raw).not.toBeNull();
 
     const parsed = JSON.parse(raw!);
     expect(parsed.state.detailPanelOpportunityId).toBeUndefined();
+    expect(parsed.state.detailPanelActiveTab).toBeUndefined();
   });
 });
