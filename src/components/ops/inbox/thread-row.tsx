@@ -157,12 +157,12 @@ export function ThreadRow({
     <div
       className={cn(
         "group relative block w-full cursor-pointer border-b border-line text-left",
-        "py-2.5 pl-2 pr-3.5",
+        "py-2 pl-2 pr-3",
         selected
           ? "bg-ops-accent/[0.07]"
           : isOverdue
-            ? "bg-rose/[0.04] hover:bg-rose/[0.08]"
-            : "hover:bg-inbox-elev/40",
+            ? "bg-rose/[0.025] hover:bg-rose/[0.05]"
+            : "hover:bg-surface-hover-subtle",
       )}
     >
       <a
@@ -202,7 +202,7 @@ export function ThreadRow({
           <span
             id={clientNameId}
             className={cn(
-              "min-w-0 flex-1 truncate font-mohave text-[13px] tracking-[-0.003em]",
+              "min-w-0 flex-1 truncate font-mohave text-[13px]",
               isUnread ? "font-semibold text-text" : "font-normal text-text-2",
             )}
           >
@@ -244,7 +244,7 @@ export function ThreadRow({
         <div
           id={subjectId}
           className={cn(
-            "mt-0.5 truncate font-mohave text-[13px] tracking-[-0.003em]",
+            "mt-0.5 truncate font-mohave text-[13px]",
             isUnread ? "font-medium text-text" : "font-normal text-text-2",
           )}
         >
@@ -268,7 +268,7 @@ export function ThreadRow({
 
         {/* Bottom signal row — attachments / quotes / invoices / new senders only */}
         {showSignalRow && (
-          <div className="mt-1.5 flex items-center gap-1.5">
+          <div className="mt-1 flex items-center gap-1.5">
             <span
               className="ml-auto flex items-center gap-1 text-text-mute"
             >

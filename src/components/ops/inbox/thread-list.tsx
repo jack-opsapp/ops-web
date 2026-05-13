@@ -76,7 +76,7 @@ export function ThreadList({
         const label = t(GROUP_DICT_KEY[key], GROUP_FALLBACK[key]);
         return (
           <section key={key} aria-label={label}>
-            <div className="flex items-baseline gap-2 px-3.5 pb-1.5 pt-3">
+            <div className="flex items-baseline gap-2 px-3 pb-1 pt-2.5">
               <h3 className="m-0">
                 <SlashLabel label={label} tone="text-3" />
               </h3>

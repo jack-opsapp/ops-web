@@ -30,11 +30,10 @@ describe("<ContextRail>", () => {
     expect(screen.getByText("// CLIENT")).toBeInTheDocument();
   });
 
-  it("renders the OPEN text button (with ExternalLink icon)", () => {
+  it("renders a compact open-client icon action", () => {
     const onOpenClient = vi.fn();
     render(<ContextRail {...baseProps} onOpenClient={onOpenClient} />);
     const openButton = screen.getByRole("button", { name: /open client/i });
-    expect(openButton).toHaveTextContent("OPEN");
     // Lucide icons are rendered as inline SVGs with aria-hidden — assert one
     // is nested inside the button rather than checking textual label.
     expect(openButton.querySelector("svg")).not.toBeNull();

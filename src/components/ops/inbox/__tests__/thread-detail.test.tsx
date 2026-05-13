@@ -171,7 +171,8 @@ describe("<ThreadDetail>", () => {
     const stack = screen.getByTestId("detail-status-stack");
     const commitments = screen.getByTestId("commitments-probe");
     expect(stack).toContainElement(screen.getByTestId("badge-probe"));
-    expect(stack.className).toContain("justify-center");
+    expect(stack.className).toContain("items-center");
+    expect(stack.className).not.toContain("justify-center");
     expect(
       stack.compareDocumentPosition(commitments) &
         Node.DOCUMENT_POSITION_FOLLOWING,

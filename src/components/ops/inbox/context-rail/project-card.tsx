@@ -119,7 +119,7 @@ export function ProjectCard({
           )}
         </span>
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <span className="truncate font-mohave text-[12px] leading-tight tracking-[-0.003em] text-text">
+          <span className="truncate font-mohave text-[12px] leading-tight text-text">
             {project.title}
           </span>
           <div className="flex items-center gap-2.5">
@@ -231,7 +231,7 @@ export function ProjectCard({
           {/* Open project */}
           <a
             href={`?project=${project.id}&thread=${threadId}`}
-            className="mt-3 inline-flex h-[26px] items-center gap-1.5 rounded-[2.5px] border border-line bg-transparent px-2.5 font-mohave text-[11px] tracking-normal text-text-2 hover:bg-inbox-elev hover:text-text"
+            className="mt-3 inline-flex h-6 items-center gap-1.5 rounded-[2.5px] border border-line bg-transparent px-2.5 font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-text-2 hover:bg-inbox-elev hover:text-text"
           >
             <ExternalLink aria-hidden className="h-3.5 w-3.5" strokeWidth={1.5} />
             {t("project.openProject", "Open project")}

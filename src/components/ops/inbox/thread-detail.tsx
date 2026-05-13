@@ -119,7 +119,7 @@ export function ThreadDetail({
         {floatingBadgeSlot && (
           <div
             data-testid="detail-status-stack"
-            className="flex shrink-0 items-center justify-center border-b border-line bg-inbox-panel/40 px-2 py-1.5"
+            className="flex shrink-0 items-center border-b border-line bg-inbox-bg px-3 py-1"
           >
             {floatingBadgeSlot}
           </div>

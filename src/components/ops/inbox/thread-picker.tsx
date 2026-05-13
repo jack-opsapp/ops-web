@@ -106,11 +106,11 @@ export function ThreadPicker({
           type="button"
           aria-label={ariaLabel}
           className={cn(
-            "inline-flex h-[26px] items-center gap-1 rounded-chip border px-1.5 py-0.5",
+            "inline-flex shrink-0 items-center gap-1 rounded-chip border px-1.5 py-[2px]",
             "font-mono uppercase tracking-[0.10em] text-[11px] text-text-2",
-            "border-[rgba(255,255,255,0.10)]",
+            "border-line",
             "transition-colors",
-            "hover:border-[rgba(255,255,255,0.20)] hover:text-text",
+            "hover:border-line-hi hover:text-text",
             "focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black",
             className,
           )}
@@ -176,10 +176,10 @@ export function ThreadPicker({
                 data-thread-row
                 onClick={(e) => handleRowClick(e, thread.id)}
                 className={cn(
-                  "flex w-full items-center justify-between gap-2 rounded-chip px-2 py-2 text-left",
+                  "flex w-full items-center justify-between gap-2 rounded-chip px-2 py-1.5 text-left",
                   "transition-colors",
-                  "hover:bg-[rgba(255,255,255,0.04)]",
-                  "focus-visible:outline-none focus-visible:bg-[rgba(255,255,255,0.04)]",
+                  "hover:bg-surface-input",
+                  "focus-visible:bg-surface-input focus-visible:outline-none",
                 )}
               >
                 <span

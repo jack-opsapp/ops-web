@@ -116,8 +116,8 @@
   "rail.empty.tasks": "No tasks for this thread",
   "rail.empty.files": "No files attached",
   "rail.empty.threads": "No related threads",
-  "rail.subclient": "subclient",
-  "rail.subclients": "subclients",
+  "rail.subclient": "SUBCLIENT",
+  "rail.subclients": "SUBCLIENTS",
   "threadsView.msg": " msg",
   "threadsView.msgs": " msgs",
 
@@ -130,7 +130,7 @@
 
   "pipeline.empty": "no open opportunities",
   "pipeline.thisThread": "This thread",
-  "pipeline.newOpportunity": "New opportunity",
+  "pipeline.newOpportunity": "NEW OPPORTUNITY",
   "pipeline.untitledOpportunity": "[UNTITLED OPPORTUNITY]",
   "pipeline.wonTag": "WON",
 
@@ -459,7 +459,7 @@
   "rail.filesToggleFiles": "[FILES]",
   "rail.filesTogglePhotos": "[PHOTOS]",
   "rail.addLead": "+ NEW LEAD",
-  "rail.addProject": "+ NEW PROJECT",
+  "rail.addProject": "NEW PROJECT",
   "rail.addTask": "+ NEW TASK",
   "rail.emptyFiles": "[—] no other files attached",
   "rail.emptyPhotos": "[—] no photos attached",

@@ -88,14 +88,14 @@ export function Composer({
   }
 
   const innerBoxClass = cn(
-    "flex flex-col gap-2 rounded-[5px] border bg-inbox-bg-deep px-3 py-2.5 transition-colors",
+    "flex flex-col gap-1.5 rounded-[5px] border bg-inbox-bg-deep px-2.5 py-2 transition-colors",
     agentTinted
       ? "border-agent-border-hi focus-within:border-agent"
       : "border-line-hi focus-within:border-ops-accent",
   );
 
   const sendBtnClass = cn(
-    "inline-flex h-[28px] shrink-0 items-center gap-1.5 rounded-[2.5px] border px-3.5",
+    "inline-flex h-6 shrink-0 items-center gap-1.5 rounded-[2.5px] border px-3",
     "font-cakemono text-[11px] font-light uppercase tracking-[0.14em]",
     "transition-colors disabled:cursor-not-allowed disabled:opacity-40",
     sendVariant === "agent"
@@ -106,7 +106,7 @@ export function Composer({
   return (
     <div
       className={cn(
-        "shrink-0 border-t border-line bg-inbox-panel px-2 py-3",
+        "shrink-0 border-t border-line bg-inbox-panel px-2 py-2",
         className,
       )}
     >
@@ -160,7 +160,7 @@ export function Composer({
             <button
               type="button"
               onClick={onEditDraft}
-              className="inline-flex h-[28px] items-center rounded-[2.5px] border border-line bg-transparent px-3 font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-text-2 transition-colors hover:bg-inbox-elev hover:text-text"
+              className="inline-flex h-6 items-center rounded-[2.5px] border border-line bg-transparent px-2.5 font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-text-2 transition-colors hover:bg-inbox-elev hover:text-text"
             >
               {t("composer.editDraftTactic", "EDIT DRAFT")}
             </button>

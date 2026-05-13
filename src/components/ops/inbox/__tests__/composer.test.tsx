@@ -106,8 +106,6 @@ describe("<Composer>", () => {
       const button = screen.getByRole("button", { name });
       expect(button.className).toContain("h-5");
       expect(button.className).toContain("w-5");
-      expect(button.className).not.toContain("h-[26px]");
-      expect(button.className).not.toContain("w-[26px]");
     }
   });
 

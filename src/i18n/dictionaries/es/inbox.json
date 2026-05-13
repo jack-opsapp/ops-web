@@ -83,6 +83,8 @@
   "rail.tabs.files": "Archivos",
   "rail.empty.accounting": "[—] sin documentos financieros",
   "rail.closeDrawer": "Cerrar panel de contexto",
+  "rail.subclient": "SUBCLIENTE",
+  "rail.subclients": "SUBCLIENTES",
 
   "project.scope": "// ALCANCE",
   "project.accounting": "// CONTABILIDAD",
@@ -90,7 +92,7 @@
 
   "pipeline.empty": "sin oportunidades abiertas",
   "pipeline.thisThread": "Este hilo",
-  "pipeline.newOpportunity": "Nueva oportunidad",
+  "pipeline.newOpportunity": "NUEVA OPORTUNIDAD",
   "pipeline.untitledOpportunity": "[OPORTUNIDAD SIN TÍTULO]",
   "pipeline.wonTag": "GANADO",
 
@@ -431,7 +433,7 @@
   "rail.filesToggleFiles": "[ARCHIVOS]",
   "rail.filesTogglePhotos": "[FOTOS]",
   "rail.addLead": "+ NUEVO LEAD",
-  "rail.addProject": "+ NUEVO PROYECTO",
+  "rail.addProject": "NUEVO PROYECTO",
   "rail.addTask": "+ NUEVA TAREA",
   "rail.emptyFiles": "[—] sin archivos adjuntos",
   "rail.emptyPhotos": "[—] sin fotos adjuntas",

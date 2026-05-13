@@ -152,7 +152,7 @@ function ProjectGroup({
         ))}
       </div>
       {footnote && (
-        <p className="px-0.5 font-mono text-[10px] text-text-mute">{footnote}</p>
+        <p className="px-0.5 font-mono text-[11px] text-text-mute">{footnote}</p>
       )}
     </section>
   );

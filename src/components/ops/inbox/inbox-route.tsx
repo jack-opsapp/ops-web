@@ -935,7 +935,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
   );
   const subClientCount = subClientsQuery.data?.length ?? 0;
   const subtitle = subClientCount > 0
-    ? `${subClientCount} ${subClientCount === 1 ? t("rail.subclient", "subclient") : t("rail.subclients", "subclients")}`
+    ? `${subClientCount} ${subClientCount === 1 ? t("rail.subclient", "SUBCLIENT") : t("rail.subclients", "SUBCLIENTS")}`
     : null;
 
   // <ContextRail> is now always mounted. It renders the unlinked-state

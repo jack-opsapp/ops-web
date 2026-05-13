@@ -94,7 +94,7 @@ describe("<FloatingYourTurnBadge>", () => {
     const badge = screen.getByTestId("floating-your-turn-badge");
     expect(badge.className).toContain("inline-flex");
     expect(badge.className).not.toContain("absolute");
-    expect(badge.firstElementChild?.className).toContain("glass-dense");
+    expect(badge.firstElementChild?.className).toContain("bg-inbox-panel");
   });
 
   it("renders without a transform shift when reduced motion is ON", () => {
@@ -119,10 +119,10 @@ describe("<FloatingYourTurnBadge>", () => {
     );
   });
 
-  it("the slash label uses the accent text token (owns the screen accent slot)", () => {
+  it("the slash label stays neutral in the compact status stack", () => {
     render(<FloatingYourTurnBadge show waitDuration="18H" />);
     const label = screen.getByTestId("floating-your-turn-badge-label");
-    expect(label.className).toContain("text-ops-accent");
+    expect(label.className).toContain("text-text-2");
   });
 
   it("keeps the acknowledge control compact for desktop", () => {

@@ -111,7 +111,7 @@ export function ThreadColumnHeader({
         className,
       )}
     >
-      <div className="flex items-center gap-2 px-3.5 py-3.5">
+      <div className="flex items-center gap-1.5 px-3 py-2.5">
         <SlashLabel
           label={t("panel.title", "// INBOX")}
           size="sm"
@@ -123,7 +123,7 @@ export function ThreadColumnHeader({
             <button
               type="button"
               aria-label={t("column.filter", "Filter inbox")}
-              className="inline-flex items-center gap-1 rounded-chip border border-line px-2 py-[3px] font-mono text-[11px] uppercase tracking-[0.16em] text-text-2 hover:border-line-hi hover:text-text data-[state=open]:border-line-hi data-[state=open]:text-text"
+              className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-chip border border-line px-1.5 py-[2px] font-mono text-[11px] uppercase tracking-[0.16em] text-text-2 hover:border-line-hi hover:text-text data-[state=open]:border-line-hi data-[state=open]:text-text"
               style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
             >
               [{activeLabel} ▾]
@@ -154,9 +154,9 @@ export function ThreadColumnHeader({
             <button
               type="button"
               aria-label={t("more.menuLabel", "More inbox actions")}
-              className="text-text-mute hover:text-text-2 data-[state=open]:text-text-2 p-1"
+              className="p-0.5 text-text-mute hover:text-text-2 data-[state=open]:text-text-2"
             >
-              <MoreHorizontal aria-hidden className="h-4 w-4" strokeWidth={1.5} />
+              <MoreHorizontal aria-hidden className="h-3.5 w-3.5" strokeWidth={1.5} />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" sideOffset={6} className="min-w-[200px]">
@@ -182,7 +182,7 @@ export function ThreadColumnHeader({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      <div className="px-3.5 pb-3 -mt-1">
+      <div className="px-3 pb-2">
         <div className="relative">
           <input
             type="text"
@@ -196,7 +196,7 @@ export function ThreadColumnHeader({
             }}
             aria-label={t("column.search", "Search inbox")}
             placeholder={t("search.tacticPlaceholder", "[search threads]")}
-            className="block w-full rounded-[4px] border border-line bg-[rgba(255,255,255,0.03)] px-2.5 py-1.5 pr-7 text-left font-mono text-[11px] text-text placeholder:text-text-mute hover:border-line-hi focus:border-line-hi focus:outline-none"
+            className="block h-7 w-full rounded-[4px] border border-line bg-surface-hover-subtle px-2 pr-6 text-left font-mono text-[11px] text-text placeholder:text-text-mute hover:border-line-hi focus:border-line-hi focus:outline-none"
             spellCheck={false}
             autoComplete="off"
             autoCorrect="off"
@@ -207,7 +207,7 @@ export function ThreadColumnHeader({
               type="button"
               onClick={() => onSearchChange("")}
               aria-label={t("search.clear", "Clear search")}
-              className="absolute right-1.5 top-1/2 -translate-y-1/2 inline-flex h-4 w-4 items-center justify-center text-text-mute hover:text-text-2"
+              className="absolute right-1.5 top-1/2 inline-flex -translate-y-1/2 items-center justify-center text-text-mute hover:text-text-2"
             >
               <X aria-hidden className="h-3 w-3" strokeWidth={1.5} />
             </button>

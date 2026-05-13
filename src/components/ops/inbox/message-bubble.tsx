@@ -4,8 +4,8 @@
  * MessageBubble — faithful to `reference/v3-messages.jsx :: V3Bubble`.
  *
  * One bubble per message. No run-tail logic, no shared avatar gutter — every
- * message renders its avatar (round, 26px). Outbound bubbles use the accent
- * fill (`rgba(111,148,176,0.10)`); AI-authored outbound bubbles use the
+ * message renders its avatar. Outbound bubbles use the accent
+ * fill token; AI-authored outbound bubbles use the
  * agent fill. Meta row (sender · time · optional attachment) sits directly
  * under the bubble in the same column, gap 4. Mono meta uses canonical
  * `letterSpacing: 0.2px` (drop the wide em tracking).
@@ -138,12 +138,12 @@ export function MessageBubble({
       <InboxAvatar
         name={senderName}
         initials={initials}
-        size={26}
+        size={24}
         agent={isAi}
       />
       <div
         className={cn(
-          "flex max-w-[78%] flex-col gap-1",
+          "flex max-w-[68%] flex-col gap-1",
           isOutbound ? "items-end" : "items-start",
         )}
       >
@@ -152,7 +152,7 @@ export function MessageBubble({
           layout={!reducedMotion}
           transition={motionTransition}
           className={cn(
-            "rounded-panel px-3.5 py-2.5 font-mohave text-[13px] leading-[1.5] tracking-[-0.003em] text-pretty",
+            "rounded-[8px] px-3 py-2 font-mohave text-[13px] leading-[1.45] text-pretty",
             isAi
               ? "border-agent-border-hi bg-agent/[0.10] text-agent-text"
               : isOutbound
@@ -345,7 +345,7 @@ export function MessageBubble({
               type="button"
               onClick={() => setDiffOpen((o) => !o)}
               className={cn(
-                "ml-1 inline-flex items-center gap-1 rounded-[2px] border px-[5px] py-[1px] font-mono text-[10px] uppercase tracking-[0.14em] transition-colors",
+                "ml-1 inline-flex items-center gap-1 rounded-[2px] border px-[5px] py-[1px] font-mono text-[11px] uppercase tracking-[0.14em] transition-colors",
                 diffOpen
                   ? "border-line-hi text-text"
                   : "border-agent-border-hi text-agent-hi",

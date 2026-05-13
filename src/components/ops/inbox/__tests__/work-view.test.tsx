@@ -126,7 +126,7 @@ describe("<WorkView>", () => {
     expect(screen.getByText("Heater swap")).toBeInTheDocument();
   });
 
-  it("renders only the leads section + the [+ NEW PROJECT] button when projects is empty", () => {
+  it("renders only the leads section + the NEW PROJECT button when projects is empty", () => {
     render(
       <WorkView
         pipelineOpps={opps}
@@ -139,7 +139,7 @@ describe("<WorkView>", () => {
     );
     expect(screen.getByText("Annual maintenance")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /\+ NEW PROJECT/i }),
+      screen.getByRole("button", { name: /NEW PROJECT/i }),
     ).toBeInTheDocument();
     // No project group rendered
     expect(screen.queryByTestId(/project-group-/)).not.toBeInTheDocument();
@@ -210,7 +210,7 @@ describe("<WorkView>", () => {
     expect(hrefs).toContain("?project=p2");
   });
 
-  it("calls onNewProject when the [+ NEW PROJECT] button is pressed", () => {
+  it("calls onNewProject when the NEW PROJECT button is pressed", () => {
     const onNewProject = vi.fn();
     render(
       <WorkView
@@ -223,7 +223,7 @@ describe("<WorkView>", () => {
       />,
     );
     fireEvent.click(
-      screen.getByRole("button", { name: /\+ NEW PROJECT/i }),
+      screen.getByRole("button", { name: /NEW PROJECT/i }),
     );
     expect(onNewProject).toHaveBeenCalledTimes(1);
   });

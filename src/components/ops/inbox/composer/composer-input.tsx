@@ -15,7 +15,7 @@ interface ComposerInputProps {
   className?: string;
 }
 
-const MAX_HEIGHT = 200;
+const MAX_HEIGHT = 128;
 
 export const ComposerInput = forwardRef<HTMLTextAreaElement, ComposerInputProps>(
   function ComposerInput(
@@ -56,7 +56,7 @@ export const ComposerInput = forwardRef<HTMLTextAreaElement, ComposerInputProps>
         disabled={disabled}
         rows={1}
         className={cn(
-          "w-full resize-none bg-transparent font-mohave text-[13px] leading-[1.55]",
+          "w-full resize-none bg-transparent font-mohave text-[13px] leading-[1.45]",
           "placeholder:text-text-mute focus:outline-none",
           agentTinted ? "text-agent-text" : "text-text",
           className,

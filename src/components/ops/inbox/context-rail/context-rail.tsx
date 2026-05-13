@@ -152,22 +152,22 @@ function LinkedHeader({
   onOpenClient?: () => void;
 }) {
   return (
-    <header className="shrink-0 border-b border-line bg-inbox-panel px-4 pb-3 pt-3.5">
+    <header className="shrink-0 border-b border-line bg-inbox-panel px-3.5 pb-3 pt-3">
       {/* // CLIENT label */}
       <p className="font-cakemono text-[11px] font-light uppercase leading-none tracking-[0.18em] text-text-mute">
         {t("rail.clientLabel", "// CLIENT")}
       </p>
 
       {/* Identity row — avatar + name/subtitle + OPEN button */}
-      <div className="mt-2.5 flex items-start gap-3">
-        <InboxAvatar name={client.name} size={36} />
+      <div className="mt-2.5 flex items-start gap-2.5">
+        <InboxAvatar name={client.name} size={32} />
         <div className="min-w-0 flex-1">
-          <h2 className="truncate font-mohave text-[14px] font-medium tracking-[-0.005em] text-text">
+          <h2 className="truncate font-mohave text-[14px] font-medium text-text">
             {client.name}
           </h2>
           {client.subtitle && (
             <p
-              className="mt-0.5 truncate font-mono text-[11px] text-text-3"
+              className="mt-0.5 font-mono text-[11px] uppercase tracking-[0.10em] text-text-3"
               style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
             >
               {client.subtitle}
@@ -178,14 +178,14 @@ function LinkedHeader({
           type="button"
           onClick={onOpenClient}
           aria-label={t("rail.openClient", "Open client")}
-          className="inline-flex shrink-0 items-center gap-1 rounded-[2px] border border-line px-2 py-1 font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-text-2 transition-colors hover:bg-inbox-elev"
+          title={t("rail.openClient", "Open client")}
+          className="inline-flex shrink-0 items-center justify-center rounded-[2px] border border-line p-1 text-text-2 transition-colors hover:bg-inbox-elev hover:text-text"
         >
           <ExternalLink
             aria-hidden
             className="h-3.5 w-3.5"
             strokeWidth={1.5}
           />
-          {t("rail.openButton", "OPEN")}
         </button>
       </div>
 
@@ -246,7 +246,7 @@ function UnlinkedHeader({
   onLinkClient?: () => void;
 }) {
   return (
-    <header className="shrink-0 border-b border-line bg-inbox-panel px-4 pb-3 pt-3.5">
+    <header className="shrink-0 border-b border-line bg-inbox-panel px-3.5 pb-3 pt-3">
       <p className="font-cakemono text-[11px] font-light uppercase leading-none tracking-[0.18em] text-text-2">
         {t("rail.clientUnlinked", "// CLIENT :: UNLINKED")}
       </p>

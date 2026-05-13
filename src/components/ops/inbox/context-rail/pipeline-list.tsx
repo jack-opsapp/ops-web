@@ -131,10 +131,10 @@ export function PipelineList({
       <button
         type="button"
         onClick={onNewOpportunity}
-        className="inline-flex h-[26px] items-center justify-center gap-1.5 rounded-[2.5px] border border-dashed border-line bg-transparent px-3 font-mohave text-[11px] text-text-3 hover:border-line-hi hover:text-text-2"
+        className="inline-flex h-6 items-center justify-center gap-1.5 rounded-[2.5px] border border-dashed border-line bg-transparent px-2.5 font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-text-3 hover:border-line-hi hover:text-text-2"
       >
-        <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={1.5} />
-        {t("pipeline.newOpportunity", "New opportunity")}
+        <Plus aria-hidden className="h-3 w-3" strokeWidth={1.5} />
+        {t("pipeline.newOpportunity", "NEW OPPORTUNITY")}
       </button>
     </div>
   );
@@ -178,7 +178,7 @@ export function PipelineOppCard({
       <div className="flex min-w-0 items-baseline gap-2">
         <span
           className={cn(
-            "min-w-0 flex-1 truncate font-mohave text-[12px] leading-tight tracking-[-0.003em]",
+            "min-w-0 flex-1 truncate font-mohave text-[12px] leading-tight",
             isWon ? "text-text-2" : "text-text",
           )}
         >

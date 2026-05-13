@@ -33,7 +33,7 @@ import { cn } from "@/lib/utils/cn";
 import { StateTag, type StateTagTone } from "./state-tag";
 import { SlashLabel } from "./voice/slash-label";
 
-const BG_OVERDUE = "bg-brick/[0.10]";
+const BG_OVERDUE = "bg-brick/[0.06]";
 const BG_TODAY = "bg-tan/[0.06]";
 const BG_EMPTY = "bg-olive/[0.04]";
 
@@ -81,7 +81,7 @@ export function TodayBar({
       <div
         data-testid="today-bar"
         className={cn(
-          "shrink-0 border-b border-line px-3.5 pb-3.5 pt-4",
+          "shrink-0 border-b border-line px-3 pb-2.5 pt-3",
           BG_EMPTY,
           className,
         )}
@@ -120,7 +120,7 @@ export function TodayBar({
     <div
       data-testid="today-bar"
       className={cn(
-        "shrink-0 border-b border-line px-3.5 pb-3.5 pt-3",
+        "shrink-0 border-b border-line px-3 pb-2.5 pt-2.5",
         anyOverdue ? BG_OVERDUE : BG_TODAY,
         className,
       )}
@@ -133,7 +133,7 @@ export function TodayBar({
           const resolving = pendingResolveIds?.has(c.id) ?? false;
           const toneClass =
             c.state.tone === "rose"
-              ? "border-rose/30 bg-rose/[0.08] hover:bg-rose/[0.12]"
+              ? "border-rose/25 bg-rose/[0.04] hover:bg-rose/[0.07]"
               : c.state.tone === "tan"
                 ? "border-tan/30 bg-tan/[0.08]"
                 : "border-line-hi bg-inbox-elev hover:bg-inbox-elev/80";
@@ -149,7 +149,7 @@ export function TodayBar({
             >
               <Link
                 href={`/inbox/${c.threadId}`}
-                className="flex min-w-0 flex-1 items-center gap-2 rounded-[2.5px] py-2 pl-2.5 text-left"
+                className="flex min-w-0 flex-1 items-center gap-2 rounded-[2.5px] py-1.5 pl-2.5 text-left"
               >
                 <span className="min-w-0 flex-1 truncate font-mohave text-[12px] text-text">
                   {c.clientName}

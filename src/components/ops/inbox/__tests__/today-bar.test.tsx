@@ -23,7 +23,7 @@ describe("<TodayBar>", () => {
   it("uses the brick token when any row waiting > 7d", () => {
     render(<TodayBar commitments={[overdue, today]} />);
     const bar = screen.getByTestId("today-bar");
-    expect(bar.className).toContain("bg-brick/[0.10]");
+    expect(bar.className).toContain("bg-brick/[0.06]");
   });
 
   it("uses the tan token, not the accent, when no row waiting > 7d", () => {

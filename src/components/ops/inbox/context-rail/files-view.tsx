@@ -106,9 +106,8 @@ export function FilesView({
                   className="absolute inset-0 h-full w-full object-cover"
                 />
                 <span
-                  className="absolute inset-x-1.5 bottom-1.5 truncate font-mono text-[11px] tracking-[0.3em] text-white/[0.85]"
+                  className="absolute inset-x-1.5 bottom-1.5 truncate rounded-[2px] bg-inbox-bg-deep/70 px-1 font-mono text-[11px] tracking-[0.3em] text-text-2"
                   style={{
-                    textShadow: "0 1px 2px rgba(0,0,0,0.6)",
                     fontFeatureSettings: '"tnum" 1, "zero" 1',
                   }}
                 >
@@ -144,7 +143,7 @@ export function FilesView({
                     onClick={() => onFileOpen?.(doc)}
                     className="flex w-full items-center gap-2.5 rounded-[2.5px] border border-line bg-inbox-panel px-2.5 py-2 text-left hover:bg-inbox-elev"
                   >
-                    <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-chip bg-inbox-bg-deep">
+                    <span className="flex h-6 w-[24px] shrink-0 items-center justify-center rounded-chip bg-inbox-bg-deep">
                       <Icon
                         aria-hidden
                         className="h-3.5 w-3.5 text-text-3"

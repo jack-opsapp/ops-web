@@ -106,12 +106,12 @@ export function PhotoBubble({
       <InboxAvatar
         name={senderName}
         initials={initials}
-        size={26}
+        size={24}
         agent={agent}
       />
       <div
         className={cn(
-          "flex max-w-[360px] flex-col gap-1.5",
+          "flex max-w-[336px] flex-col gap-1.5",
           isOutbound ? "items-end" : "items-start",
         )}
       >
@@ -168,7 +168,7 @@ export function PhotoBubble({
         {body && (
           <div
             className={cn(
-              "rounded-panel border px-3.5 py-2.5 font-mohave text-[13px] leading-[1.5] tracking-[-0.003em] text-pretty",
+              "rounded-[8px] border px-3 py-2 font-mohave text-[13px] leading-[1.45] text-pretty",
               isOutbound
                 ? "border-ops-accent/[0.22] bg-ops-accent/[0.10] text-text"
                 : "border-line bg-inbox-panel text-text",

@@ -47,7 +47,7 @@ export function SummaryBand({
       )}
     >
       <Sparkles aria-hidden className="h-3.5 w-3.5 shrink-0 text-agent-hi" strokeWidth={1.5} />
-      <p className="min-w-0 flex-1 truncate font-mohave text-[12.5px] leading-[1.4] tracking-[-0.003em] text-agent-text">
+      <p className="min-w-0 flex-1 truncate font-mohave text-[12.5px] leading-[1.4] text-agent-text">
         {body}
       </p>
       <span

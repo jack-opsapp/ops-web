@@ -85,12 +85,12 @@ export function FloatingYourTurnBadge({
         >
           <div
             className={cn(
-              "glass-dense inline-flex items-center gap-1.5 rounded-chip px-2.5 py-1.5",
+              "inline-flex items-center gap-1.5 rounded-chip border border-line bg-inbox-panel px-2 py-[3px]",
             )}
             style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
           >
             <span
-              className="font-cakemono text-[11px] font-light uppercase leading-none tracking-[0.14em] text-ops-accent"
+              className="font-cakemono text-[11px] font-light uppercase leading-none tracking-[0.14em] text-text-2"
               data-testid="floating-your-turn-badge-label"
             >
               {t("floatingBadge.label", "// YOUR TURN")}
@@ -127,7 +127,7 @@ export function FloatingYourTurnBadge({
                 className={cn(
                   "ml-0.5 inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[2px]",
                   "text-text-3 transition-colors",
-                  "hover:bg-ops-accent/[0.18] hover:text-ops-accent",
+                  "hover:bg-surface-hover hover:text-text",
                   "focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent",
                 )}
               >

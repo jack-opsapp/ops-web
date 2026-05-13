@@ -47,7 +47,7 @@ export const HeaderChip = forwardRef<HTMLButtonElement, HeaderChipProps>(
         aria-label={ariaLabel}
         data-state={open ? "open" : "closed"}
         className={cn(
-          "inline-flex items-center gap-1 rounded-chip border border-line px-2 py-[3px]",
+          "inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-chip border border-line px-1.5 py-[2px]",
           "font-mono text-[11px] uppercase tracking-[0.16em] text-text-2",
           "hover:border-line-hi hover:text-text",
           "data-[state=open]:border-line-hi data-[state=open]:text-text",

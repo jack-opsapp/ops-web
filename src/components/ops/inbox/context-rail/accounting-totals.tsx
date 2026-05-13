@@ -104,7 +104,7 @@ function Cell({ label, value, valueClassName, labelClassName, testId }: CellProp
     <div data-testid={testId} className="flex flex-col gap-1">
       <span
         className={cn(
-          "font-mono text-[10px] uppercase tracking-[0.14em]",
+          "font-mono text-[11px] uppercase tracking-[0.14em]",
           labelClassName ?? "text-text-mute",
         )}
         style={TNUM_ZERO}

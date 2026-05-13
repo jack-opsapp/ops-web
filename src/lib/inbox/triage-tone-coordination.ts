@@ -2,7 +2,7 @@
  * Accent-slot coordination between the floating YOUR TURN badge and the
  * detail-header triage chip.
  *
- * The OPS design system allows one steel-blue accent (`#6F94B0`) per
+ * The OPS design system allows one steel-blue accent slot per
  * screen, maximum. When the `<FloatingYourTurnBadge>` is mounted it claims
  * that slot — any other surface on the same screen that would otherwise
  * render with `tone="accent"` must demote.
