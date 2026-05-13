@@ -255,14 +255,14 @@ export function MessageBubble({
                   className="font-cakemono text-[11px] font-light uppercase tracking-[0.18em] text-agent"
                   data-testid="diff-header"
                 >
-                  {t("claude.diffHeader", "// SHOWING DIFF")}
+                  {t("phaseC.diffHeader", "// SHOWING DIFF")}
                 </div>
                 <div
                   className="font-mono text-[11px] text-text-3"
                   style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
                   data-testid="diff-provenance"
                 >
-                  {t("claude.diffProvenance", "CLAUDE → {operator} · {ago}")
+                  {t("phaseC.diffProvenance", "PHASE C → {operator} · {ago}")
                     .replace("{operator}", operator)
                     .replace("{ago}", editedAgo ?? "")}
                 </div>
@@ -318,7 +318,7 @@ export function MessageBubble({
           {isAi ? (
             <span className="inline-flex items-center gap-1 text-agent-text-2">
               <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={1.5} />
-              {t("messages.sentByClaude", "Claude")}
+              {t("messages.sentByPhaseC", "Phase C")}
             </span>
           ) : (
             <span className="text-text-3">{senderName}</span>
@@ -333,7 +333,7 @@ export function MessageBubble({
             <>
               <span aria-hidden>·</span>
               <span className="text-text-3">
-                {t("claude.edited", "EDITED {ago}").replace(
+                {t("phaseC.edited", "EDITED {ago}").replace(
                   "{ago}",
                   editedAgo,
                 )}
@@ -359,8 +359,8 @@ export function MessageBubble({
                 strokeWidth={1.5}
               />
               {diffOpen
-                ? t("claude.hideDiff", "HIDE DIFF")
-                : t("claude.showDiff", "DIFF")}
+                ? t("phaseC.hideDiff", "HIDE DIFF")
+                : t("phaseC.showDiff", "DIFF")}
             </button>
           )}
           {attachments && attachments.length > 0 && (

@@ -49,7 +49,7 @@ const TNUM_STYLE = { fontFeatureSettings: '"tnum" 1, "zero" 1' } as const;
 
 const SOURCE_LABEL_KEY: Record<DraftSource, string> = {
   yours: "draftSwitcher.yoursLabel",
-  claude: "draftSwitcher.claudeLabel",
+  claude: "draftSwitcher.phaseCLabel",
   gmail: "draftSwitcher.gmailLabel",
   outlook: "draftSwitcher.outlookLabel",
   new: "draftSwitcher.newLabel",
@@ -57,7 +57,7 @@ const SOURCE_LABEL_KEY: Record<DraftSource, string> = {
 
 const SOURCE_LABEL_FALLBACK: Record<DraftSource, string> = {
   yours: "{n} · YOURS",
-  claude: "✦ {n} · CLAUDE",
+  claude: "✦ {n} · PHASE C",
   gmail: "{n} · GMAIL",
   outlook: "{n} · OUTLOOK",
   new: "{n} · NEW",

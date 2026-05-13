@@ -35,14 +35,14 @@ export function AutoSentBand({
 
   return (
     <section
-      aria-label={t("bands.autoSent.aria", "Claude auto-replied")}
+      aria-label={t("bands.autoSent.aria", "Phase C auto-replied")}
       className={cn(
         "flex shrink-0 items-center gap-2.5 border-b border-line bg-agent-bg px-2 py-2.5",
         className,
       )}
     >
       <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
-        <SlashLabel label={t("bands.autoSent.title", "// AUTO-SENT BY CLAUDE")} tone="agent" />
+        <SlashLabel label={t("bands.autoSent.title", "// AUTO-SENT BY PHASE C")} tone="agent" />
         <span
           className="font-mono text-[11px] uppercase tracking-[0.10em] text-text-3"
           style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}

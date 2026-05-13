@@ -39,18 +39,18 @@ describe("<MessageBubble>", () => {
     expect(bubble.className).toMatch(/bg-ops-accent\//);
   });
 
-  it("AI-drafted (outbound + source ai) bubbles use lavender + 'Claude' meta", () => {
+  it("AI-drafted (outbound + source ai) bubbles use lavender + 'Phase C' meta", () => {
     render(
       <MessageBubble
         direction="outbound"
         body="hi"
         source="ai"
-        senderName="Claude"
+        senderName="Phase C"
       />,
     );
     const bubble = screen.getByTestId("message-bubble");
     expect(bubble.className).toMatch(/bg-agent\//);
-    expect(screen.getByText(/Claude/i)).toBeInTheDocument();
+    expect(screen.getByText(/Phase C/i)).toBeInTheDocument();
   });
 
   it("renders the sender name and timestamp in the meta row", () => {
@@ -97,7 +97,7 @@ describe("<MessageBubble>", () => {
         direction="outbound"
         body="hello"
         source="ai"
-        senderName="Claude"
+        senderName="Phase C"
       />,
     );
     expect(screen.queryByTestId("diff-toggle")).not.toBeInTheDocument();
@@ -109,7 +109,7 @@ describe("<MessageBubble>", () => {
         direction="outbound"
         body="same content"
         source="ai"
-        senderName="Claude"
+        senderName="Phase C"
         originalAiBody="same content"
       />,
     );
@@ -122,7 +122,7 @@ describe("<MessageBubble>", () => {
         direction="outbound"
         body="Hi Jeanne — sounds good."
         source="ai"
-        senderName="Claude"
+        senderName="Phase C"
         originalAiBody="Hello Jeanne — sounds great."
       />,
     );
@@ -138,7 +138,7 @@ describe("<MessageBubble>", () => {
         direction="outbound"
         body="Hi Jeanne — sounds good."
         source="ai"
-        senderName="Claude"
+        senderName="Phase C"
         originalAiBody="Hello Jeanne — sounds great."
         operatorName="JACKSON"
         editedAgo="23S AGO"
@@ -149,7 +149,7 @@ describe("<MessageBubble>", () => {
 
     expect(screen.getByTestId("diff-header")).toHaveTextContent(/SHOWING DIFF/);
     const provenance = screen.getByTestId("diff-provenance");
-    expect(provenance).toHaveTextContent(/CLAUDE/);
+    expect(provenance).toHaveTextContent(/PHASE C/);
     expect(provenance).toHaveTextContent(/JACKSON/);
     expect(provenance).toHaveTextContent(/23S AGO/);
   });
@@ -160,7 +160,7 @@ describe("<MessageBubble>", () => {
         direction="outbound"
         body="Hi Jeanne"
         source="ai"
-        senderName="Claude"
+        senderName="Phase C"
         originalAiBody="Hello Jeanne"
       />,
     );
@@ -177,7 +177,7 @@ describe("<MessageBubble>", () => {
         direction="outbound"
         body="Hi Jeanne"
         source="ai"
-        senderName="Claude"
+        senderName="Phase C"
         originalAiBody="Hello Jeanne"
       />,
     );
@@ -193,7 +193,7 @@ describe("<MessageBubble>", () => {
         direction="outbound"
         body="Hi Jeanne"
         source="ai"
-        senderName="Claude"
+        senderName="Phase C"
         originalAiBody="Hello Jeanne"
       />,
     );
@@ -213,7 +213,7 @@ describe("<MessageBubble>", () => {
         direction="outbound"
         body="Hi Jeanne"
         source="ai"
-        senderName="Claude"
+        senderName="Phase C"
         originalAiBody="Hello Jeanne"
       />,
     );
@@ -234,7 +234,7 @@ describe("<MessageBubble>", () => {
         direction="outbound"
         body="Hi Jeanne"
         source="ai"
-        senderName="Claude"
+        senderName="Phase C"
         originalAiBody="Hello Jeanne"
       />,
     );
@@ -259,7 +259,7 @@ describe("<MessageBubble>", () => {
         direction="outbound"
         body="Hi Jeanne"
         source="ai"
-        senderName="Claude"
+        senderName="Phase C"
         originalAiBody="Hello Jeanne"
         operatorName="MAYA"
         editedAgo="2M AGO"
@@ -458,7 +458,7 @@ describe("<MessageBubble>", () => {
         direction="outbound"
         body="Hi Jeanne — sounds good."
         source="ai"
-        senderName="Claude"
+        senderName="Phase C"
         originalAiBody="Hello Jeanne — sounds great."
         attachments={[
           { id: "a", filename: "scope_v3.pdf", size: "2.4 MB" },

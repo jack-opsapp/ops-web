@@ -77,7 +77,7 @@ export function Composer({
   const resolvedSendLabel =
     sendLabel ??
     (sendVariant === "agent"
-      ? t("composer.sendClaude", "SEND CLAUDE DRAFT")
+      ? t("composer.sendPhaseC", "SEND PHASE C DRAFT")
       : t("composer.sendTactic", "SEND"));
 
   function handleSend() {
@@ -122,7 +122,7 @@ export function Composer({
           <button
             type="button"
             onClick={onDraftWithClaude}
-            aria-label={t("composer.draftWithClaude", "Draft with Claude")}
+            aria-label={t("composer.draftWithPhaseC", "Draft with Phase C")}
             className="inline-flex h-[26px] w-[26px] items-center justify-center rounded-chip text-agent transition-colors hover:bg-inbox-elev hover:text-agent-hi focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black"
           >
             <Sparkles aria-hidden className="h-4 w-4" strokeWidth={1.5} />

@@ -31,12 +31,12 @@ export function NeedsInputBand({
   const min = pausedMinutesAgo ?? 0;
   const title = t(
     "bands.needsInput.title",
-    "// CLAUDE NEEDS INPUT :: PAUSED {minutes} MIN AGO",
+    "// PHASE C NEEDS INPUT :: PAUSED {minutes} MIN AGO",
   ).replace("{minutes}", String(min));
 
   return (
     <section
-      aria-label={t("bands.needsInput.aria", "Claude needs your input")}
+      aria-label={t("bands.needsInput.aria", "Phase C needs your input")}
       className={cn(
         "relative flex shrink-0 gap-2.5 border-b border-line bg-agent-bg-hi px-2 py-3",
         className,

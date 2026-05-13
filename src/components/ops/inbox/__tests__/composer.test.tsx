@@ -18,7 +18,7 @@ describe("<Composer>", () => {
     render(<Composer value="" onChange={noop} onSend={noop} />);
     expect(screen.getByRole("button", { name: /attach file/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /attach image/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /draft with claude/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /draft with phase c/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /schedule/i })).toBeInTheDocument();
   });
 
@@ -72,7 +72,7 @@ describe("<Composer>", () => {
     ).toBeInTheDocument();
   });
 
-  it("agent variant labels the send button SEND CLAUDE DRAFT", () => {
+  it("agent variant labels the send button SEND PHASE C DRAFT", () => {
     render(
       <Composer
         value="ready"
@@ -82,13 +82,13 @@ describe("<Composer>", () => {
       />,
     );
     expect(
-      screen.getByRole("button", { name: /SEND CLAUDE DRAFT/i }),
+      screen.getByRole("button", { name: /SEND PHASE C DRAFT/i }),
     ).toBeInTheDocument();
   });
 
   it("renders the toolbar with Sparkles first followed by a vertical divider", () => {
     render(<Composer value="" onChange={noop} onSend={noop} />);
-    const sparkles = screen.getByRole("button", { name: /draft with claude/i });
+    const sparkles = screen.getByRole("button", { name: /draft with phase c/i });
     const paperclip = screen.getByRole("button", { name: /attach file/i });
     expect(
       sparkles.compareDocumentPosition(paperclip) & Node.DOCUMENT_POSITION_FOLLOWING,

@@ -30,7 +30,7 @@ interface EditToolbarProps {
 
 const SOURCE_LABEL: Record<DraftSource, string> = {
   yours: "yours",
-  claude: "Claude",
+  claude: "Phase C",
   gmail: "Gmail",
   outlook: "Outlook",
   new: "draft",

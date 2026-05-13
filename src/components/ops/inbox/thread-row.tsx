@@ -8,7 +8,7 @@
  *   • title row: client name + optional `· {messageCount}` + inline <StateTag>
  *     + relative time (only when StateTag doesn't already carry a time value)
  *   • subject line (font-weight tracks unread/read)
- *   • snippet line — body is `aiSummary ?? snippet`, with optional `// CLAUDE DRAFT ·` (AI)
+ *   • snippet line — body is `aiSummary ?? snippet`, with optional `// PHASE C DRAFT ·` (AI)
  *     or `DRAFT ·` (operator) Cake-prefix
  *   • bottom signal row — only when at least one of attachment / quote / invoice / new-sender
  *     is present. The legacy URGENT pill is gone — the inline <StateTag> now carries urgency.
@@ -254,7 +254,7 @@ export function ThreadRow({
         <div className="mt-0.5 truncate font-mohave text-[12px] leading-[1.4] text-text-3">
           {isAiDraft && (
             <span className="mr-1.5 font-cakemono text-[11px] font-light uppercase tracking-[0.16em] text-agent">
-              {t("row.claudeDraftPrefix", "// CLAUDE DRAFT ·")}
+              {t("row.phaseCDraftPrefix", "// PHASE C DRAFT ·")}
             </span>
           )}
           {!isAiDraft && hasUserDraft && (

@@ -30,7 +30,7 @@ const messages: RenderableMessage[] = [
     source: "ai",
     ts: Date.parse("2026-05-07T14:00:00Z"),
     body: "Thanks — got it.",
-    senderName: "Claude",
+    senderName: "Phase C",
     timestamp: "14:00",
   },
 ];

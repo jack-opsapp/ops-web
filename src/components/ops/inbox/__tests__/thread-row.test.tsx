@@ -91,7 +91,7 @@ describe("<ThreadRow>", () => {
     expect(name.className).toMatch(/text-text-2\b/);
   });
 
-  it("AI-drafted snippet carries // CLAUDE DRAFT · prefix in lavender", () => {
+  it("AI-drafted snippet carries // PHASE C DRAFT · prefix in lavender", () => {
     const draftReady: StateTagResult = {
       kind: "draft_ready",
       tone: "lavender",
@@ -106,7 +106,7 @@ describe("<ThreadRow>", () => {
         onSelect={() => {}}
       />,
     );
-    const tag = screen.getByText("// CLAUDE DRAFT ·");
+    const tag = screen.getByText("// PHASE C DRAFT ·");
     expect(tag.className).toMatch(/text-agent\b/);
   });
 

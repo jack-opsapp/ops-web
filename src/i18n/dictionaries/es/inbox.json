@@ -28,28 +28,28 @@
   "header.moreActions": "Más acciones",
 
   "bands.summary.label": "// TU TURNO",
-  "bands.summary.updatedBy": "actualizado por Claude · hace {min} min",
+  "bands.summary.updatedBy": "actualizado por Phase C · hace {min} min",
   "bands.summary.history": "Historial de resumen",
-  "bands.summary.aria": "Resumen de Claude",
+  "bands.summary.aria": "Resumen de Phase C",
 
-  "bands.needsInput.label": "// CLAUDE NECESITA TU RESPUESTA",
+  "bands.needsInput.label": "// PHASE C NECESITA TU RESPUESTA",
   "bands.needsInput.provideAnswer": "RESPONDER",
   "bands.needsInput.typeReply": "escribe una respuesta…",
-  "bands.needsInput.aria": "Claude necesita tu respuesta",
+  "bands.needsInput.aria": "Phase C necesita tu respuesta",
   "bands.needsInput.pausedAgo": "pausado hace {min} min",
 
   "bands.ballYours.label": "// TU TURNO — {client} está esperando",
   "bands.ballYours.reply": "Responder",
   "bands.ballYours.aria": "Tu turno",
 
-  "bands.autoSent.body": "Claude respondió hace {hours}h — ¿quieres decir algo distinto?",
+  "bands.autoSent.body": "Phase C respondió hace {hours}h — ¿quieres decir algo distinto?",
   "bands.autoSent.revise": "revisar",
-  "bands.autoSent.aria": "Claude respondió automáticamente",
+  "bands.autoSent.aria": "Phase C respondió automáticamente",
 
   "bands.closed.label": "Cerrado {date}",
   "bands.closed.aria": "Hilo cerrado",
 
-  "messages.sentByClaude": "enviado por Claude",
+  "messages.sentByPhaseC": "enviado por Phase C",
   "messages.photoCountTactic_one": "{count} FOTO",
   "messages.photoCountTactic_other": "{count} FOTOS",
   "messages.photoOverflow": "+{count} MÁS",
@@ -62,18 +62,18 @@
   "composer.sendAiDraft": "ENVIAR BORRADOR DE IA",
   "composer.attachFile": "Adjuntar archivo",
   "composer.attachImage": "Adjuntar imagen",
-  "composer.draftWithClaude": "Redactar con Claude",
+  "composer.draftWithPhaseC": "Redactar con Phase C",
   "composer.scheduleSend": "Programar envío",
 
   "drafts.label": "// BORRADORES",
   "drafts.source.yours": "Tuyo",
-  "drafts.source.claude": "Claude",
+  "drafts.source.phaseC": "Phase C",
   "drafts.source.gmail": "Gmail",
   "drafts.source.outlook": "Outlook",
 
-  "aiDraftBanner.label": "CLAUDE LO REDACTÓ · revisa",
+  "aiDraftBanner.label": "PHASE C LO REDACTÓ · revisa",
 
-  "editToolbar.label": "editado del borrador de Claude",
+  "editToolbar.label": "editado del borrador de Phase C",
   "editToolbar.seeChanges": "Ver cambios",
   "editToolbar.revert": "Revertir",
   "editToolbar.regenerate": "Regenerar",
@@ -367,7 +367,7 @@
   "row.stateClosed": "CERRADO · {date}",
   "row.stateDraftReady": "BORRADOR LISTO",
   "row.alarmStrip": "// {days}D · SIN RESPUESTA",
-  "row.claudeDraftPrefix": "// BORRADOR DE CLAUDE ·",
+  "row.phaseCDraftPrefix": "// BORRADOR DE PHASE C ·",
   "row.dismissAwaitingReply": "Marcar sin respuesta necesaria",
   "row.queueEmpty": "// COLA VACÍA",
   "row.queueEmptyBody": "[—] bandeja calibrada",
@@ -388,23 +388,23 @@
   "bands.ballYours.snooze": "Posponer hilo",
 
   "bands.summary.title": "// RESUMEN",
-  "bands.summary.provenance": "actualizado por Claude · hace {minutes} MIN",
+  "bands.summary.provenance": "actualizado por Phase C · hace {minutes} MIN",
   "bands.summary.historyButton": "HISTORIAL",
 
-  "bands.autoSent.title": "// AUTO-ENVIADO POR CLAUDE",
+  "bands.autoSent.title": "// AUTO-ENVIADO POR PHASE C",
   "bands.autoSent.body": "[—] {detail} · hace {ago}",
   "bands.autoSent.takeOver": "TOMAR CONTROL",
 
-  "bands.needsInput.title": "// CLAUDE NECESITA RESPUESTA :: PAUSADO {minutes} MIN",
+  "bands.needsInput.title": "// PHASE C NECESITA RESPUESTA :: PAUSADO {minutes} MIN",
   "bands.needsInput.typeReplyEscape": "escribe una respuesta…",
   "bands.needsInput.provideAnswerButton": "RESPONDER",
 
-  "bands.closedResolved": "// CERRADO :: {date} · RESUELTO POR CLAUDE",
+  "bands.closedResolved": "// CERRADO :: {date} · RESUELTO POR PHASE C",
   "bands.closedArchived": "// CERRADO :: {date} · ARCHIVADO POR TI",
 
   "composer.tacticPlaceholder": "[escribe mensaje — ⌘↵ para enviar]",
   "composer.sendTactic": "ENVIAR",
-  "composer.sendClaude": "ENVIAR BORRADOR DE CLAUDE",
+  "composer.sendPhaseC": "ENVIAR BORRADOR DE PHASE C",
   "composer.editDraftTactic": "EDITAR BORRADOR",
   "composer.dismiss": "DESCARTAR",
 
@@ -412,7 +412,7 @@
   "draftSwitcher.outlookLabel": "{n} · OUTLOOK",
   "draftSwitcher.yoursLabel": "{n} · TÚ",
   "draftSwitcher.newLabel": "{n} · NUEVO",
-  "draftSwitcher.claudeLabel": "✦ {n} · CLAUDE",
+  "draftSwitcher.phaseCLabel": "✦ {n} · PHASE C",
   "draftSwitcher.addNew": "[+]",
   "draftSwitcher.addNewAria": "Añadir borrador",
 
@@ -509,13 +509,13 @@
   "mobile.threadPane": "// HILO",
   "mobile.contextPane": "// CONTEXTO",
 
-  "claude.draftedBanner": "// CLAUDE LO REDACTÓ · hace {ago} · REVISAR",
-  "claude.bubbleMeta": "// CLAUDE · {time}",
-  "claude.edited": "EDITADO {ago}",
-  "claude.showDiff": "DIFF",
-  "claude.hideDiff": "OCULTAR DIFF",
-  "claude.diffHeader": "// MOSTRANDO DIFERENCIAS",
-  "claude.diffProvenance": "CLAUDE → {operator} · hace {ago}",
-  "claude.editedFromDraft": "[editado del borrador · hace {ago}]",
-  "claude.autoDraftedPrefix": "// CLAUDE LO REDACTÓ"
+  "phaseC.draftedBanner": "// PHASE C LO REDACTÓ · hace {ago} · REVISAR",
+  "phaseC.bubbleMeta": "// PHASE C · {time}",
+  "phaseC.edited": "EDITADO {ago}",
+  "phaseC.showDiff": "DIFF",
+  "phaseC.hideDiff": "OCULTAR DIFF",
+  "phaseC.diffHeader": "// MOSTRANDO DIFERENCIAS",
+  "phaseC.diffProvenance": "PHASE C → {operator} · hace {ago}",
+  "phaseC.editedFromDraft": "[editado del borrador · hace {ago}]",
+  "phaseC.autoDraftedPrefix": "// PHASE C LO REDACTÓ"
 }

@@ -30,15 +30,15 @@ export function SummaryBand({
   const min = minutesAgo(updatedAt, renderedAt);
   const provenance =
     min !== null
-      ? t("bands.summary.provenance", "updated by Claude · {minutes} MIN AGO").replace(
+      ? t("bands.summary.provenance", "updated by Phase C · {minutes} MIN AGO").replace(
           "{minutes}",
           String(min),
         )
-      : t("bands.summary.updatedByNow", "updated by Claude");
+      : t("bands.summary.updatedByNow", "updated by Phase C");
 
   return (
     <section
-      aria-label={t("bands.summary.aria", "Claude summary")}
+      aria-label={t("bands.summary.aria", "Phase C summary")}
       className={cn(
         // Compact single-row treatment: sparkle + body inline, provenance + HISTORY
         // collapsed to a hover-revealed trailing affordance via the parent group.

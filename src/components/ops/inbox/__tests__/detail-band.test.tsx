@@ -34,7 +34,7 @@ describe("<DetailBand>", () => {
     // The compact band drops the explicit `// SUMMARY` label — the
     // agent-tinted bg + sparkle icon carry the provenance. We identify the
     // band by its aria-label and confirm the body renders.
-    expect(screen.getByLabelText(/Claude summary/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Phase C summary/i)).toBeInTheDocument();
     expect(screen.getByText(/follow-up due Friday/)).toBeInTheDocument();
   });
 
@@ -48,7 +48,7 @@ describe("<DetailBand>", () => {
         onAction={onAction}
       />,
     );
-    expect(screen.getByText(/CLAUDE NEEDS INPUT/i)).toBeInTheDocument();
+    expect(screen.getByText(/PHASE C NEEDS INPUT/i)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /PROVIDE ANSWER/i }));
     expect(onAction).toHaveBeenCalledWith("provide-answer");
   });
@@ -76,7 +76,7 @@ describe("<DetailBand>", () => {
         onAction={() => {}}
       />,
     );
-    expect(screen.getByText(/AUTO-SENT BY CLAUDE/i)).toBeInTheDocument();
+    expect(screen.getByText(/AUTO-SENT BY PHASE C/i)).toBeInTheDocument();
     expect(screen.getByText(/3H AGO/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /TAKE OVER/i })).toBeInTheDocument();
   });
@@ -128,7 +128,7 @@ describe("<DetailBand>", () => {
       />,
     );
 
-    const summary = screen.getByLabelText(/Claude summary/i);
+    const summary = screen.getByLabelText(/Phase C summary/i);
     const action = screen.getByLabelText(/Your turn/i);
 
     expect(
@@ -152,7 +152,7 @@ describe("<DetailBand>", () => {
       />,
     );
 
-    expect(screen.queryByLabelText(/Claude summary/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Phase C summary/i)).not.toBeInTheDocument();
     expect(screen.getByText(/CLOSED :: APR 23/i)).toBeInTheDocument();
   });
 
@@ -173,7 +173,7 @@ describe("<DetailBand>", () => {
       />,
     );
     expect(
-      screen.getByText(/CLOSED :: APR 30 · RESOLVED BY CLAUDE/i),
+      screen.getByText(/CLOSED :: APR 30 · RESOLVED BY PHASE C/i),
     ).toBeInTheDocument();
   });
 });
