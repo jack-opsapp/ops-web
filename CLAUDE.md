@@ -2,6 +2,21 @@
 
 Supplements the root `OPS LTD./CLAUDE.md`. Read both.
 
+## Git Commit Guidelines
+
+- **You may commit without asking first.** The default "ask before committing" behavior is overridden — make atomic commits as work lands. **Pushes still require explicit permission** (`git push`, force-push, rebase against shared history, branch deletion, tag-write).
+- **Don't step on parallel agent work.** This repo regularly has multiple Claude sessions / worktrees running in parallel (`git worktree list` shows current ones). Before acting on shared state:
+  - Do **not** stash, reset, restore, or `git add` files that have pre-existing uncommitted WIP you did not create.
+  - Do **not** rebase or rewrite history on a branch a sibling worktree is using.
+  - Do **not** delete, rename, or move files another session is mid-edit on.
+  - Do **not** modify migrations / lockfiles / dictionaries that a parallel session may have staged.
+  - When uncertain whether parallelism applies, ask before acting.
+- **Atomic commits.** One logical change per commit. Do not mix unrelated scopes (e.g. a feature + a docs update) in a single commit; split them, even within the same branch.
+- **Branch scope discipline.** A feature branch (e.g. `nightly/...`, `feat/...`) is for that feature only. Drop unrelated commits (docs, policy, tooling) onto `main` directly or on their own short-lived branch — not onto someone else's feature branch.
+- **Never include Claude as co-author.** No `Co-Authored-By: Claude`, no `noreply@anthropic.com`, no AI attribution of any kind in commit messages or trailers.
+- **Stage by name, not bulk.** Never `git add -A` or `git add .` — name the specific files. Bulk-staging risks pulling in unrelated WIP, secrets (`.env*`), or another session's files.
+- **Conventional-commit style.** `feat(scope): …`, `fix(scope): …`, `docs(scope): …`, `refactor(scope): …`. Describe what changed and why, not how.
+
 ## Tech Stack
 
 - Next.js 14 (App Router), TypeScript, Tailwind CSS
