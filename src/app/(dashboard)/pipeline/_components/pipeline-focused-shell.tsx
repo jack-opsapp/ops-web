@@ -17,6 +17,7 @@ import {
 } from "@/lib/types/pipeline";
 import type { SortOption } from "./pipeline-mode-types";
 import { usePipelineModeStore } from "./pipeline-mode-store";
+import { usePipelineDndState } from "./pipeline-dnd-provider";
 import { PipelineFocusedColumn } from "./pipeline-focused-column";
 import { PipelineSpineColumn } from "./pipeline-spine-column";
 import { PipelineTerminalStack } from "./pipeline-terminal-stack";
@@ -118,6 +119,7 @@ export function PipelineFocusedShell({
   const stageSortOverrides = usePipelineModeStore(
     (state) => state.stageSortOverrides
   );
+  const { isDragging } = usePipelineDndState();
   const focusedColumnRef = useRef<HTMLDivElement>(null);
   const pendingFlipRectRef = useRef<DOMRect | null>(null);
   const lastSnapAtRef = useRef(0);
@@ -156,13 +158,14 @@ export function PipelineFocusedShell({
 
   const snapToStage = useCallback(
     (nextStage: OpportunityStage) => {
+      if (isDragging) return;
       if (nextStage === safeFocusedStage) return;
       animationRef.current?.cancel();
       pendingFlipRectRef.current =
         focusedColumnRef.current?.getBoundingClientRect() ?? null;
       setFocusedStage(nextStage);
     },
-    [safeFocusedStage, setFocusedStage]
+    [isDragging, safeFocusedStage, setFocusedStage]
   );
 
   const snapByDirection = useCallback(
@@ -215,6 +218,7 @@ export function PipelineFocusedShell({
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
       if (isTypingTarget(event.target)) return;
+      if (isDragging) return;
       if (event.key === "ArrowLeft") {
         event.preventDefault();
         snapByDirection(-1);
@@ -226,7 +230,7 @@ export function PipelineFocusedShell({
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [snapByDirection]);
+  }, [isDragging, snapByDirection]);
 
   const handleWheel = useCallback(
     (event: React.WheelEvent<HTMLDivElement>) => {
@@ -236,6 +240,7 @@ export function PipelineFocusedShell({
         event.shiftKey && Math.abs(event.deltaY) > 0 && event.deltaX === 0;
 
       if (!horizontalIntent && !shiftedWheelIntent) return;
+      if (isDragging) return;
 
       const now = Date.now();
       if (now - lastSnapAtRef.current < SNAP_DEBOUNCE_MS) return;
@@ -245,7 +250,7 @@ export function PipelineFocusedShell({
       const delta = horizontalIntent ? event.deltaX : event.deltaY;
       snapByDirection(delta > 0 ? 1 : -1);
     },
-    [snapByDirection]
+    [isDragging, snapByDirection]
   );
 
   const leftStages = ACTIVE_STAGE_ORDER.filter(
