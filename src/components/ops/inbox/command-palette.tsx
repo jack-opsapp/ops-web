@@ -7,7 +7,7 @@
  *   - When the query is empty: groups of "commands" (archive thread, snooze,
  *     recategorize, compose new, jump to rail, etc.).
  *   - When the user types: a "threads" group appears above commands, showing
- *     live search hits from useInboxThreads({ filter: "everything", search }).
+ *     live search hits from useInboxThreads({ filter: "ALL", search }).
  *
  * Selecting a thread opens it. Selecting a command invokes the provided
  * handler — most commands require a current thread and are hidden when none
@@ -23,7 +23,6 @@ import {
   Archive,
   Clock,
   Inbox,
-  CheckCircle2,
   Mail,
   Plus,
   Sparkles,
@@ -44,8 +43,8 @@ import { useDictionary } from "@/i18n/client";
 import {
   EMAIL_THREAD_CATEGORIES,
   type EmailThreadCategory,
-  type InboxRail,
 } from "@/lib/types/email-thread";
+import type { RailFilter } from "@/lib/inbox/rail-predicates";
 import { useInboxThreads } from "@/lib/hooks/use-inbox-threads";
 import { categoryLabel } from "./category-chip";
 
@@ -53,7 +52,7 @@ import { categoryLabel } from "./category-chip";
 
 export interface CommandPaletteHandlers {
   onOpenThread: (threadId: string) => void;
-  onSwitchRail: (rail: InboxRail) => void;
+  onSwitchRail: (rail: RailFilter) => void;
   onFilterCategory: (category: EmailThreadCategory | null) => void;
   onArchive?: () => void;
   onSnooze?: () => void;
@@ -94,7 +93,7 @@ export function CommandPalette({
   const searching = trimmed.length >= 2;
   const { data: searchPages, isFetching: searchLoading } = useInboxThreads({
     scope,
-    filter: "everything",
+    filter: "ALL",
     search: searching ? trimmed : undefined,
   });
 
@@ -248,53 +247,53 @@ export function CommandPalette({
           heading={t("commandPalette.heading.navigate", "Navigate")}
         >
           <CommandItem
-            value="needs reply 1"
-            onSelect={() => run(() => handlers.onSwitchRail("needs_reply"))}
+            value="all 1"
+            onSelect={() => run(() => handlers.onSwitchRail("ALL"))}
           >
             <Inbox
               className="w-[14px] h-[14px] text-text-3"
               strokeWidth={1.5}
             />
-            {t("commandPalette.nav.needsReply", "Go to Needs Reply")}
+            {t("commandPalette.nav.all", "Go to All")}
             <span className="ml-auto">
               <KeyHint keys="1" />
             </span>
           </CommandItem>
           <CommandItem
-            value="everything 2"
-            onSelect={() => run(() => handlers.onSwitchRail("everything"))}
+            value="your move 2"
+            onSelect={() => run(() => handlers.onSwitchRail("YOUR_MOVE"))}
           >
             <Inbox
               className="w-[14px] h-[14px] text-text-3"
               strokeWidth={1.5}
             />
-            {t("commandPalette.nav.everything", "Go to Everything")}
+            {t("commandPalette.nav.yourMove", "Go to Your Move")}
             <span className="ml-auto">
               <KeyHint keys="2" />
             </span>
           </CommandItem>
           <CommandItem
-            value="scheduled 3"
-            onSelect={() => run(() => handlers.onSwitchRail("scheduled"))}
+            value="waiting 3"
+            onSelect={() => run(() => handlers.onSwitchRail("WAITING"))}
           >
             <Clock
               className="w-[14px] h-[14px] text-text-3"
               strokeWidth={1.5}
             />
-            {t("commandPalette.nav.scheduled", "Go to Scheduled")}
+            {t("commandPalette.nav.waiting", "Go to Waiting")}
             <span className="ml-auto">
               <KeyHint keys="3" />
             </span>
           </CommandItem>
           <CommandItem
-            value="done 4"
-            onSelect={() => run(() => handlers.onSwitchRail("done"))}
+            value="archived 4"
+            onSelect={() => run(() => handlers.onSwitchRail("ARCHIVED"))}
           >
-            <CheckCircle2
+            <Archive
               className="w-[14px] h-[14px] text-text-3"
               strokeWidth={1.5}
             />
-            {t("commandPalette.nav.done", "Go to Done")}
+            {t("commandPalette.nav.archived", "Go to Archived")}
             <span className="ml-auto">
               <KeyHint keys="4" />
             </span>

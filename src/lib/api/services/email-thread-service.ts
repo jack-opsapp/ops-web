@@ -27,11 +27,11 @@ import {
   type EmailThread,
   type EmailThreadCategory,
   type EmailThreadLabel,
-  type InboxRail,
   type InboxScope,
   type ListInboxThreadsParams,
   type ListInboxThreadsResult,
 } from "@/lib/types/email-thread";
+import { applyRailPredicate } from "@/lib/inbox/rail-predicates";
 import {
   derivePhaseC,
   type PhaseCDraftRow,
@@ -628,38 +628,11 @@ async function listThreads(
     query = query.in("connection_id", userConnectionIds);
   }
 
-  // Rail filter. Commitments rail sorts/paginates on next_commitment_due_at
-  // instead of last_message_at, because the user cares about urgency
-  // (earliest due first) rather than recency of correspondence.
-  const isCommitmentsRail = params.filter === "commitments";
-
-  switch (params.filter) {
-    case "needs_reply":
-      query = query
-        .is("archived_at", null)
-        .or("snoozed_until.is.null,snoozed_until.lt." + new Date().toISOString())
-        .contains("labels", ["AWAITING_REPLY"]);
-      break;
-    case "everything":
-      query = query
-        .is("archived_at", null)
-        .or("snoozed_until.is.null,snoozed_until.lt." + new Date().toISOString());
-      break;
-    case "scheduled":
-      query = query
-        .is("archived_at", null)
-        .not("snoozed_until", "is", null)
-        .gt("snoozed_until", new Date().toISOString());
-      break;
-    case "done":
-      query = query.not("archived_at", "is", null);
-      break;
-    case "commitments":
-      query = query
-        .eq("has_unresolved_commitments", true)
-        .is("archived_at", null);
-      break;
-  }
+  // Rail filter. The four operator-facing rails (ALL/YOUR_MOVE/WAITING/
+  // ARCHIVED) plus the internal SNOOZED filter share one predicate module
+  // so the SQL, the in-memory partition test, and any downstream consumer
+  // can't drift. `applyRailPredicate` returns the narrowed builder.
+  query = applyRailPredicate(query, params.filter, new Date().toISOString());
 
   if (params.category) {
     query = query.eq("primary_category", params.category);
@@ -672,20 +645,13 @@ async function listThreads(
     );
   }
 
-  // Commitments rail sorts ASC on next_commitment_due_at (soonest due first).
-  // All other rails sort DESC on last_message_at (most recent first).
-  if (isCommitmentsRail) {
-    query = query
-      .order("next_commitment_due_at", { ascending: true })
-      .limit(limit + 1);
-    if (params.cursor) {
-      query = query.gt("next_commitment_due_at", params.cursor);
-    }
-  } else {
-    query = query.order("last_message_at", { ascending: false }).limit(limit + 1);
-    if (params.cursor) {
-      query = query.lt("last_message_at", params.cursor);
-    }
+  // Every rail sorts DESC on last_message_at (most recent first). The
+  // operator-facing urgency surface for commitments lives on the TodayBar
+  // at the top of the list — it pulls `next_commitment_due_at` directly,
+  // so the conversation list itself doesn't need to re-sort around it.
+  query = query.order("last_message_at", { ascending: false }).limit(limit + 1);
+  if (params.cursor) {
+    query = query.lt("last_message_at", params.cursor);
   }
 
   const { data, error } = await query;
@@ -694,14 +660,8 @@ async function listThreads(
   const rows = (data ?? []).map(mapEmailThreadFromDb);
   const hasMore = rows.length > limit;
   const page = hasMore ? rows.slice(0, limit) : rows;
-  // Cursor matches the sort column. Commitments rail paginates on due
-  // date ASC; every other rail uses lastMessageAt DESC. A mismatch here
-  // would silently break infinite scroll (client would re-request the
-  // same page) so keep them coupled.
   const nextCursor = hasMore
-    ? isCommitmentsRail
-      ? page[page.length - 1].nextCommitmentDueAt?.toISOString() ?? null
-      : page[page.length - 1].lastMessageAt.toISOString()
+    ? page[page.length - 1].lastMessageAt.toISOString()
     : null;
 
   // Overlay derived fields on the page after the cursor is computed so a
@@ -2010,8 +1970,7 @@ export function extractSubjectKeywords(subject: string): string[] {
   return Array.from(new Set(words)).slice(0, 8);
 }
 
-// Suppress unused helper warning — `listThreads` uses scope from params
-export type { InboxRail, InboxScope };
+export type { RailFilter, InboxScope } from "@/lib/types/email-thread";
 
 // ─── Notification hook ──────────────────────────────────────────────────────
 // Fired after classifyAndUpdate. Only notifies on meaningful transitions:

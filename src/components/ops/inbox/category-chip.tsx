@@ -31,8 +31,6 @@ interface CategoryMeta {
 
 const CATEGORY_META: Record<EmailThreadCategory, CategoryMeta> = {
   CUSTOMER:     { tone: "tan",     label: "CUSTOMER",     dotClass: "bg-tan" },
-  LEAD:         { tone: "tan",     label: "LEAD",         dotClass: "bg-tan" },
-  CLIENT:       { tone: "tan",     label: "CLIENT",       dotClass: "bg-tan" },
   VENDOR:       { tone: "neutral", label: "VENDOR",       dotClass: "bg-text-3" },
   SUBTRADE:     { tone: "neutral", label: "SUBTRADE",     dotClass: "bg-text-3" },
   JOB_SEEKER:   { tone: "neutral", label: "JOB SEEKER",   dotClass: "bg-text-3" },
@@ -60,9 +58,9 @@ const CATEGORY_META: Record<EmailThreadCategory, CategoryMeta> = {
 // bg, or padding — just the tonal text color and JetBrains Mono font.
 //
 // Tones used by CategoryChip (subset of StateTagTone; accent/olive/lavender unused):
-//   tan     → formerly "active" (CUSTOMER/LEAD/CLIENT) + "attention" (PLATFORM_BID)
-//   neutral → formerly "neutral" (VENDOR/SUBTRADE/JOB_SEEKER) + "ambient" (low-priority)
-//   rose    → formerly "negative" (LEGAL/COLLECTIONS)
+//   tan     → CUSTOMER + PLATFORM_BID
+//   neutral → VENDOR / SUBTRADE / JOB_SEEKER + low-priority (MARKETING / RECEIPT / PERSONAL / INTERNAL / OTHER)
+//   rose    → LEGAL / COLLECTIONS
 const TONE_CHIP_CLASS: Record<StateTagTone, string> = {
   tan:      "border-y border-r border-l-2 border-tan/40     border-l-tan     bg-tan/[0.08]",
   neutral:  "border-y border-r border-l-2 border-text-3/40  border-l-text-3  bg-text-3/[0.08]",

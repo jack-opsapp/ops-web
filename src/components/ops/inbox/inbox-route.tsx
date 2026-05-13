@@ -21,7 +21,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useDictionary } from "@/i18n/client";
 import { queryKeys } from "@/lib/api/query-client";
-import type { InboxRail } from "@/lib/types/email-thread";
+import type { RailFilter } from "@/lib/inbox/rail-predicates";
 import { useBreadcrumbStore } from "@/stores/breadcrumb-store";
 import { useAuthStore, selectUserId, selectCompanyId } from "@/lib/store/auth-store";
 import {
@@ -64,7 +64,10 @@ import { useWindowStore } from "@/stores/window-store";
 import { ResponsiveInboxShell } from "./responsive-inbox-shell";
 import type { MobileInboxPane } from "./mobile-stacked-shell";
 import { ThreadColumnHeader } from "./thread-column-header";
+import { DraftsChip } from "./drafts-chip";
+import { SnoozedChip } from "./snoozed-chip";
 import { TodayBar, type TodayCommitment } from "./today-bar";
+import { RailEmptyState } from "./rail-empty-state";
 import { ThreadList, type ThreadListItem } from "./thread-list";
 import { ThreadDetail } from "./thread-detail";
 import {
@@ -114,7 +117,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [archiveContext, setArchiveContext] =
     useState<ArchiveConfirmContext | null>(null);
-  const [filter, setFilter] = useState<InboxRail>("everything");
+  const [filter, setFilter] = useState<RailFilter>("YOUR_MOVE");
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(
     () => initialThreadId ?? null,
   );
@@ -435,7 +438,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
     qc.invalidateQueries({ queryKey: queryKeys.inbox.threadsAll() });
   };
 
-  const onOpenArchived = () => router.push("/inbox?view=archived");
+  const onOpenArchived = () => setFilter("ARCHIVED");
   const onOpenSettings = () => router.push("/settings/inbox");
 
   const threadList = (
@@ -447,6 +450,12 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
         onRefresh={onRefresh}
         onOpenArchived={onOpenArchived}
         onOpenSettings={onOpenSettings}
+        headerChipSlot={
+          <>
+            <SnoozedChip scope="own" onOpenThread={navigateToThread} />
+            <DraftsChip scope="own" onOpenThread={navigateToThread} />
+          </>
+        }
       />
       <TodayBar
         commitments={commitments}
@@ -460,7 +469,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
       {threadsQuery.isLoading ? (
         <EmptyState label={t("list.loading", "Loading…")} />
       ) : rows.length === 0 ? (
-        <EmptyState label={t("list.empty", "All caught up")} />
+        <RailEmptyState rail={filter} />
       ) : (
         <ThreadList
           threads={rows}

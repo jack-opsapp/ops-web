@@ -23,22 +23,19 @@ import { EmailThreadService } from "@/lib/api/services/email-thread-service";
 import {
   EMAIL_THREAD_CATEGORIES,
   type EmailThreadCategory,
-  type InboxRail,
   type InboxScope,
 } from "@/lib/types/email-thread";
+import { parseRailFilter } from "@/lib/inbox/rail-predicates";
 
-const VALID_FILTERS = new Set<InboxRail>([
-  "needs_reply",
-  "everything",
-  "scheduled",
-  "done",
-  "commitments",
-]);
 const CATEGORY_SET = new Set<string>(EMAIL_THREAD_CATEGORIES);
 
-function parseFilter(raw: string | null): InboxRail {
-  if (raw && VALID_FILTERS.has(raw as InboxRail)) return raw as InboxRail;
-  return "everything";
+// `parseRailFilter` accepts the canonical values (ALL / YOUR_MOVE / WAITING
+// / ARCHIVED / SNOOZED) and degrades legacy bookmarks (everything,
+// needs_reply, commitments, drafts, scheduled, done) into their nearest
+// post-collapse equivalent. Unknown / missing values fall through to ALL —
+// the firehose — so the operator never lands on an empty rail by accident.
+function parseFilter(raw: string | null) {
+  return parseRailFilter(raw, "ALL");
 }
 
 function parseCategory(raw: string | null): EmailThreadCategory | undefined {

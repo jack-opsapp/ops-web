@@ -52,11 +52,11 @@ describe("<RecategorizeMenu>", () => {
     );
     // CUSTOMER label appears (not as a chip — as plain mono text)
     expect(screen.getByText("CUSTOMER")).toBeInTheDocument();
-    // The hotkey hint for CUSTOMER is "U", rendered via inline KeyHint as [U]
-    expect(screen.getByText("[U]")).toBeInTheDocument();
-    // LEAD + [L]
-    expect(screen.getByText("LEAD")).toBeInTheDocument();
-    expect(screen.getByText("[L]")).toBeInTheDocument();
+    // The hotkey hint for CUSTOMER is "C", rendered via inline KeyHint as [C]
+    expect(screen.getByText("[C]")).toBeInTheDocument();
+    // VENDOR + [V]
+    expect(screen.getByText("VENDOR")).toBeInTheDocument();
+    expect(screen.getByText("[V]")).toBeInTheDocument();
   });
 
   it("excludes the current category from the list", () => {

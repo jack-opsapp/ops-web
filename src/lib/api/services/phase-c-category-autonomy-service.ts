@@ -10,10 +10,9 @@
  *
  * Example stored value:
  *   {
- *     "primary:LEAD":    "auto_draft",
- *     "primary:CLIENT":  "auto_send",
- *     "primary:VENDOR":  "auto_archive",
- *     "primary:LEGAL":   "off",
+ *     "primary:CUSTOMER": "auto_send",
+ *     "primary:VENDOR":   "auto_archive",
+ *     "primary:LEGAL":    "off",
  *     "client_new_inquiry": "auto_send",   // legacy key retained
  *     "vendor_ordering":   "auto_draft",   // legacy key retained
  *     …
@@ -42,8 +41,14 @@ import {
 const CATEGORY_TO_PROFILE_TYPES: Partial<
   Record<EmailThreadCategory, string[]>
 > = {
-  LEAD: ["client_new_inquiry", "client_quoting"],
-  CLIENT: ["client_active_project", "client_followup"],
+  // CUSTOMER is the single profile spanning lead → won → repeat — the
+  // legacy LEAD/CLIENT split was collapsed in migration 20260428061836.
+  CUSTOMER: [
+    "client_new_inquiry",
+    "client_quoting",
+    "client_active_project",
+    "client_followup",
+  ],
   VENDOR: ["vendor_ordering", "vendor_inquiry"],
   SUBTRADE: ["subtrade_coordination"],
   PLATFORM_BID: ["client_new_inquiry"], // platform bids draft like inquiries
@@ -61,13 +66,14 @@ export function allowedLevelsFor(
   category: EmailThreadCategory
 ): EmailThreadAutonomyLevel[] {
   switch (category) {
-    // CUSTOMER is the production category. LEAD + CLIENT are kept as legacy
-    // aliases for transitional rows; same allowed levels for all three.
     case "CUSTOMER":
-    case "LEAD":
-      return ["off", "draft_on_request", "auto_draft", "auto_send", "auto_follow_up"];
-    case "CLIENT":
-      return ["off", "draft_on_request", "auto_draft", "auto_send", "auto_follow_up"];
+      return [
+        "off",
+        "draft_on_request",
+        "auto_draft",
+        "auto_send",
+        "auto_follow_up",
+      ];
     case "VENDOR":
     case "SUBTRADE":
       return ["off", "draft_on_request", "auto_draft", "auto_send"];
@@ -117,7 +123,7 @@ export interface GraduationStatus {
 export const PhaseCCategoryAutonomy = {
   /**
    * Read the per-category autonomy map for a connection. Missing keys fall
-   * back to defaults. Always returns all 13 categories.
+   * back to defaults. Always returns all 12 categories.
    */
   async get(connectionId: string): Promise<CategoryAutonomyMap> {
     const supabase = requireSupabase();
