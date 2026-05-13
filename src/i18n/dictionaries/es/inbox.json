@@ -320,7 +320,8 @@
   "more.settings": "AJUSTES DE BANDEJA",
   "more.archive": "HILOS ARCHIVADOS",
 
-  "search.tacticPlaceholder": "[buscar hilos — ⌘K]",
+  "search.tacticPlaceholder": "[buscar hilos]",
+  "search.clear": "Borrar búsqueda",
   "empty.searchMiss.header": "// SIN COINCIDENCIAS",
   "empty.searchMiss.body": "[—] nada coincide con \"{query}\"",
 

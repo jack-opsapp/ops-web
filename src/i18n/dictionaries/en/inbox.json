@@ -349,7 +349,8 @@
   "more.settings": "INBOX SETTINGS",
   "more.archive": "ARCHIVED THREADS",
 
-  "search.tacticPlaceholder": "[search threads — ⌘K]",
+  "search.tacticPlaceholder": "[search threads]",
+  "search.clear": "Clear search",
   "empty.searchMiss.header": "// NO MATCHES",
   "empty.searchMiss.body": "[—] nothing matches \"{query}\"",
 
