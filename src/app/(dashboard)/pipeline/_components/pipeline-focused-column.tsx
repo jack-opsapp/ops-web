@@ -151,7 +151,7 @@ export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
         id={focusedPanelId}
         role="tabpanel"
         aria-labelledby={focusedTabId}
-        className="h-full min-h-0 overflow-y-auto pr-1 pt-[188px] scrollbar-hide"
+        className="h-full min-h-0 overflow-y-auto pt-[188px] scrollbar-hide"
       >
         {opportunities.length > 0 ? (
           <div className="flex min-h-full flex-col gap-2 pb-[44px]">
