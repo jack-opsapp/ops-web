@@ -124,9 +124,29 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
   const [mobilePane, setMobilePane] = useState<MobileInboxPane>(
     () => (initialThreadId ? "detail" : "list"),
   );
+  // Search state lives in URL (?q=…) so the operator can back-button to drop
+  // the filter and bookmark/share filtered views. The raw input updates on
+  // every keystroke; `debouncedSearch` is what reaches the threads query and
+  // the URL, so we don't refetch (or thrash history.replaceState) per
+  // keypress. Both seeds read the URL synchronously on mount so a deep-link
+  // to `?q=acme` shows filtered results on first paint instead of after a
+  // 250ms ghost frame.
+  const SEARCH_DEBOUNCE_MS = 250;
+  const [searchInput, setSearchInput] = useState<string>(() => {
+    if (typeof window === "undefined") return "";
+    return new URLSearchParams(window.location.search).get("q") ?? "";
+  });
+  const [debouncedSearch, setDebouncedSearch] = useState<string>(() => {
+    if (typeof window === "undefined") return "";
+    return (new URLSearchParams(window.location.search).get("q") ?? "").trim();
+  });
   const qc = useQueryClient();
 
-  const threadsQuery = useInboxThreads({ scope: "own", filter });
+  const threadsQuery = useInboxThreads({
+    scope: "own",
+    filter,
+    search: debouncedSearch.length > 0 ? debouncedSearch : undefined,
+  });
   const threadDetail = useInboxThread(selectedThreadId);
 
   useEffect(() => {
@@ -141,10 +161,44 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
       const nextThreadId = threadIdFromInboxPathname(window.location.pathname);
       setSelectedThreadId(nextThreadId);
       setMobilePane(nextThreadId ? "detail" : "list");
+      const nextSearch =
+        new URLSearchParams(window.location.search).get("q") ?? "";
+      setSearchInput(nextSearch);
+      setDebouncedSearch(nextSearch.trim());
     };
     window.addEventListener("popstate", syncFromLocation);
     return () => window.removeEventListener("popstate", syncFromLocation);
   }, []);
+
+  // Debounce keystrokes into `debouncedSearch`. Both the threads query and
+  // the URL writeback consume the debounced value — keystrokes don't refetch
+  // and don't bloat browser history.
+  useEffect(() => {
+    const trimmed = searchInput.trim();
+    if (trimmed === debouncedSearch) return;
+    const handle = window.setTimeout(() => {
+      setDebouncedSearch(trimmed);
+    }, SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(handle);
+  }, [searchInput, debouncedSearch]);
+
+  // Write `?q=` into the URL when the debounced value changes. `replaceState`
+  // (not `pushState`) is intentional: each character typed shouldn't add a
+  // history entry. The single entry the operator navigated TO the inbox with
+  // is still revertable by the back button, which restores the empty query.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    const current = url.searchParams.get("q") ?? "";
+    if (debouncedSearch.length > 0) {
+      if (current === debouncedSearch) return;
+      url.searchParams.set("q", debouncedSearch);
+    } else {
+      if (!url.searchParams.has("q")) return;
+      url.searchParams.delete("q");
+    }
+    window.history.replaceState(window.history.state, "", url.toString());
+  }, [debouncedSearch]);
 
   const navigateToThread = useCallback((id: string) => {
     const href = inboxThreadHref(id);
@@ -423,17 +477,6 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
     });
   };
 
-  const onOpenSearch = () => {
-    // The canonical search surface is the global ⌘K command palette mounted
-    // in dashboard-layout.tsx (`<CommandPalette />`). It owns its own open
-    // state via a window keydown listener (see command-palette.tsx). We
-    // trigger it here by dispatching a synthetic ⌘K keydown; the listener
-    // toggles open without us having to lift state into a shared store.
-    window.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "k", metaKey: true }),
-    );
-  };
-
   const onRefresh = () => {
     qc.invalidateQueries({ queryKey: queryKeys.inbox.threadsAll() });
   };
@@ -446,7 +489,8 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
       <ThreadColumnHeader
         filter={filter}
         onFilterChange={setFilter}
-        onOpenSearch={onOpenSearch}
+        searchValue={searchInput}
+        onSearchChange={setSearchInput}
         onRefresh={onRefresh}
         onOpenArchived={onOpenArchived}
         onOpenSettings={onOpenSettings}
@@ -469,7 +513,11 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
       {threadsQuery.isLoading ? (
         <EmptyState label={t("list.loading", "Loading…")} />
       ) : rows.length === 0 ? (
-        <RailEmptyState rail={filter} />
+        <RailEmptyState
+          rail={filter}
+          searchActive={debouncedSearch.length > 0}
+          searchQuery={debouncedSearch}
+        />
       ) : (
         <ThreadList
           threads={rows}
