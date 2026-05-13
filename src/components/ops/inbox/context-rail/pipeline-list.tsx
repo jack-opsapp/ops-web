@@ -9,6 +9,10 @@
  *
  * Linked-to-current-thread opps get an inset 2px accent left bar AND
  * surface a "↗ This thread" tag at the start of the meta row.
+ *
+ * The card primitive is exported as `PipelineOppCard` so the WORK tab's
+ * WON sub-section can reuse it with `variant="won"` for muted, tagged
+ * closed-business rows.
  */
 
 import { Link as LinkIcon, Plus } from "lucide-react";
@@ -16,6 +20,7 @@ import { useMemo } from "react";
 import { useDictionary } from "@/i18n/client";
 import { pipelineOppDisplayTitle } from "@/lib/inbox/opp-display";
 import { cn } from "@/lib/utils/cn";
+import { StateTag } from "../state-tag";
 
 export type PipelineConfidence = "low" | "warm" | "high";
 
@@ -42,6 +47,11 @@ interface PipelineListProps {
   threadId: string;
   onNewOpportunity: () => void;
   className?: string;
+  /** When true, the "no open opportunities" empty message is hidden — the
+   *  +New opportunity button still renders. Used by the WORK tab when a
+   *  client has 0 open leads but ≥1 won deal: rendering both the empty
+   *  message AND a populated WON section would contradict itself. */
+  suppressEmpty?: boolean;
 }
 
 const PRIMARY_ORDER = ["Lead", "Discovery", "RFQ in", "Quoted"] as const;
@@ -70,6 +80,7 @@ export function PipelineList({
   threadId,
   onNewOpportunity,
   className,
+  suppressEmpty,
 }: PipelineListProps) {
   const { t } = useDictionary("inbox");
   const grouped = useMemo(() => {
@@ -85,9 +96,11 @@ export function PipelineList({
   return (
     <div className={cn("flex flex-col gap-3", className)}>
       {grouped.length === 0 ? (
-        <p className="font-mohave text-[12px] text-text-3">
-          {t("pipeline.empty", "no open opportunities")}
-        </p>
+        suppressEmpty ? null : (
+          <p className="font-mohave text-[12px] text-text-3">
+            {t("pipeline.empty", "no open opportunities")}
+          </p>
+        )
       ) : (
         grouped.map(([stage, list]) => (
           <section key={stage}>
@@ -103,71 +116,13 @@ export function PipelineList({
               </span>
             </div>
             <ul className="flex flex-col gap-1.5">
-              {list.map((opp) => {
-                const isLinked = opp.threadId === threadId;
-                const displayTitle = pipelineOppDisplayTitle(
-                  opp,
-                  t("pipeline.untitledOpportunity", "[UNTITLED OPPORTUNITY]"),
-                );
-                return (
-                  <li
-                    key={opp.id}
-                    data-testid={`pipeline-opp-${opp.id}`}
-                    data-current={isLinked ? "true" : "false"}
-                    className={cn(
-                      "rounded-[5px] border bg-inbox-panel px-3 py-2.5",
-                      isLinked
-                        ? "border-line-hi shadow-[inset_2px_0_0_rgb(var(--ops-accent-rgb))]"
-                        : "border-line",
-                    )}
-                  >
-                    <div className="flex min-w-0 items-baseline gap-2">
-                      <span className="min-w-0 flex-1 truncate font-mohave text-[12px] leading-tight tracking-[-0.003em] text-text">
-                        {displayTitle}
-                      </span>
-                      {opp.value != null && (
-                        <span
-                          className="shrink-0 font-mono text-[11px] tabular-nums text-text-2"
-                          style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
-                        >
-                          {formatCurrency(opp.value)}
-                        </span>
-                      )}
-                    </div>
-                    <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 font-mono text-[11px] tracking-[0.18em] text-text-3">
-                      {isLinked && (
-                        <span className="inline-flex items-center gap-1 text-ops-accent">
-                          <LinkIcon
-                            aria-hidden
-                            className="h-3.5 w-3.5"
-                            strokeWidth={1.5}
-                          />
-                          {t("pipeline.thisThread", "This thread")}
-                        </span>
-                      )}
-                      {opp.estimateRef && (
-                        <span
-                          style={{
-                            fontFeatureSettings: '"tnum" 1, "zero" 1',
-                          }}
-                        >
-                          {opp.estimateRef}
-                        </span>
-                      )}
-                      {opp.confidence && (
-                        <span className="normal-case tracking-normal">
-                          {capitalize(opp.confidence)}
-                        </span>
-                      )}
-                      {opp.source && (
-                        <span className="text-text-mute normal-case tracking-normal">
-                          · {opp.source}
-                        </span>
-                      )}
-                    </div>
-                  </li>
-                );
-              })}
+              {list.map((opp) => (
+                <PipelineOppCard
+                  key={opp.id}
+                  opp={opp}
+                  currentThreadId={threadId}
+                />
+              ))}
             </ul>
           </section>
         ))
@@ -182,5 +137,92 @@ export function PipelineList({
         {t("pipeline.newOpportunity", "New opportunity")}
       </button>
     </div>
+  );
+}
+
+export interface PipelineOppCardProps {
+  opp: PipelineOpp;
+  /** When set, paints the accent left-bar + "This thread" tag if opp.threadId
+   *  matches. Pass an empty string to disable the linked treatment. */
+  currentThreadId: string;
+  /** "won" dims the title to text-2 and renders an inline WON state tag.
+   *  Won cards never participate in the linked-to-thread treatment (closed
+   *  business is not the "current thread" by definition). */
+  variant?: "open" | "won";
+}
+
+export function PipelineOppCard({
+  opp,
+  currentThreadId,
+  variant = "open",
+}: PipelineOppCardProps) {
+  const { t } = useDictionary("inbox");
+  const isWon = variant === "won";
+  const isLinked = !isWon && opp.threadId === currentThreadId;
+  const displayTitle = pipelineOppDisplayTitle(
+    opp,
+    t("pipeline.untitledOpportunity", "[UNTITLED OPPORTUNITY]"),
+  );
+  return (
+    <li
+      data-testid={`pipeline-opp-${opp.id}`}
+      data-current={isLinked ? "true" : "false"}
+      data-variant={variant}
+      className={cn(
+        "rounded-[5px] border bg-inbox-panel px-3 py-2.5",
+        isLinked
+          ? "border-line-hi shadow-[inset_2px_0_0_rgb(var(--ops-accent-rgb))]"
+          : "border-line",
+      )}
+    >
+      <div className="flex min-w-0 items-baseline gap-2">
+        <span
+          className={cn(
+            "min-w-0 flex-1 truncate font-mohave text-[12px] leading-tight tracking-[-0.003em]",
+            isWon ? "text-text-2" : "text-text",
+          )}
+        >
+          {displayTitle}
+        </span>
+        {isWon && (
+          <StateTag
+            tone="olive"
+            variant="solid"
+            prefix={t("pipeline.wonTag", "WON")}
+          />
+        )}
+        {opp.value != null && (
+          <span
+            className="shrink-0 font-mono text-[11px] tabular-nums text-text-2"
+            style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
+          >
+            {formatCurrency(opp.value)}
+          </span>
+        )}
+      </div>
+      <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 font-mono text-[11px] tracking-[0.18em] text-text-3">
+        {isLinked && (
+          <span className="inline-flex items-center gap-1 text-ops-accent">
+            <LinkIcon aria-hidden className="h-3.5 w-3.5" strokeWidth={1.5} />
+            {t("pipeline.thisThread", "This thread")}
+          </span>
+        )}
+        {opp.estimateRef && (
+          <span style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}>
+            {opp.estimateRef}
+          </span>
+        )}
+        {opp.confidence && (
+          <span className="normal-case tracking-normal">
+            {capitalize(opp.confidence)}
+          </span>
+        )}
+        {opp.source && (
+          <span className="text-text-mute normal-case tracking-normal">
+            · {opp.source}
+          </span>
+        )}
+      </div>
+    </li>
   );
 }

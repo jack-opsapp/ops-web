@@ -263,4 +263,114 @@ describe("<WorkView>", () => {
     const groupP2 = screen.getByTestId("project-group-p2");
     expect(within(groupP2).getByText("0/1")).toBeInTheDocument();
   });
+
+  // ── WON section ───────────────────────────────────────────────────────────
+  // The WORK tab now surfaces closed-business opportunities under a separate
+  // // WON sub-section. These cases cover the three states the user can land
+  // in (open-only, won-only, mixed) plus the empty-state suppression rule
+  // that keeps the rail from contradicting itself.
+
+  const wonOpps: PipelineOpp[] = [
+    {
+      id: "won1",
+      title: "Skylight install",
+      value: 12000,
+      stage: "won",
+      confidence: "high",
+      source: "Referral",
+      threadId: null,
+      estimateRef: null,
+    },
+    {
+      id: "won2",
+      title: "Gutter cleanup",
+      value: 800,
+      stage: "won",
+      confidence: "high",
+      source: "Email",
+      threadId: null,
+      estimateRef: null,
+    },
+  ];
+
+  it("hides the WON sub-section when wonOpps is empty (open-only case)", () => {
+    render(
+      <WorkView
+        pipelineOpps={opps}
+        wonOpps={[]}
+        projects={projects}
+        tasks={tasks}
+        currentThreadId="th-current"
+        onNewOpportunity={() => {}}
+        onNewProject={() => {}}
+      />,
+    );
+    expect(screen.queryByTestId("work-view-won")).not.toBeInTheDocument();
+    expect(screen.queryByText(/\/\/ WON/)).not.toBeInTheDocument();
+  });
+
+  it("renders the WON sub-section when wonOpps is non-empty and surfaces a WON tag on each card", () => {
+    render(
+      <WorkView
+        pipelineOpps={opps}
+        wonOpps={wonOpps}
+        projects={projects}
+        tasks={tasks}
+        currentThreadId="th-current"
+        onNewOpportunity={() => {}}
+        onNewProject={() => {}}
+      />,
+    );
+    const wonSection = screen.getByTestId("work-view-won");
+    expect(within(wonSection).getByText(/\/\/ WON/)).toBeInTheDocument();
+    expect(within(wonSection).getByText("Skylight install")).toBeInTheDocument();
+    expect(within(wonSection).getByText("Gutter cleanup")).toBeInTheDocument();
+    // Both cards expose data-variant="won" so downstream styling tests can
+    // assert against the markup without relying on Tailwind class strings.
+    expect(
+      within(wonSection).getByTestId("pipeline-opp-won1").getAttribute("data-variant"),
+    ).toBe("won");
+    // The StateTag renders the chip label once per card.
+    expect(within(wonSection).getAllByText(/^WON$/)).toHaveLength(2);
+  });
+
+  it("suppresses the LEADS empty body when there are 0 open + N won (no contradiction)", () => {
+    render(
+      <WorkView
+        pipelineOpps={[]}
+        wonOpps={wonOpps}
+        projects={[]}
+        tasks={[]}
+        currentThreadId="th-current"
+        onNewOpportunity={() => {}}
+        onNewProject={() => {}}
+      />,
+    );
+    // Empty body is gone — the WON section is the truth.
+    expect(screen.queryByText(/no open opportunities/i)).not.toBeInTheDocument();
+    // WON section + cards still render.
+    expect(screen.getByTestId("work-view-won")).toBeInTheDocument();
+    expect(screen.getByText("Skylight install")).toBeInTheDocument();
+    // The +New opportunity button stays reachable so the operator can still
+    // create a lead.
+    expect(
+      screen.getByRole("button", { name: /New opportunity/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("still shows the LEADS empty body when both opps and wonOpps are empty", () => {
+    render(
+      <WorkView
+        pipelineOpps={[]}
+        wonOpps={[]}
+        projects={[]}
+        tasks={[]}
+        currentThreadId="th-current"
+        onNewOpportunity={() => {}}
+        onNewProject={() => {}}
+      />,
+    );
+    expect(screen.getByText(/no open opportunities/i)).toBeInTheDocument();
+    expect(screen.queryByTestId("work-view-won")).not.toBeInTheDocument();
+  });
 });

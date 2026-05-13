@@ -135,6 +135,7 @@
   "pipeline.thisThread": "This thread",
   "pipeline.newOpportunity": "New opportunity",
   "pipeline.untitledOpportunity": "[UNTITLED OPPORTUNITY]",
+  "pipeline.wonTag": "WON",
 
   "files.imagesLabel": "Images · {count}",
   "files.documentsLabel": "Documents · {count}",
@@ -459,6 +460,7 @@
   "rail.tabAccounting": "ACCOUNTING",
   "rail.tabFiles": "FILES",
   "rail.sectionLeads": "// LEADS",
+  "rail.sectionWon": "// WON",
   "rail.sectionProjects": "// PROJECTS",
   "rail.sectionEstimates": "// ESTIMATES",
   "rail.sectionInvoices": "// INVOICES",

@@ -47,7 +47,10 @@ import {
   type ArchiveConfirmContext,
 } from "./archive-confirm-modal";
 import { enqueueUndoToast } from "./undo-toast";
-import { useClientOpportunities } from "@/lib/hooks/use-client-opportunities";
+import {
+  useClientOpportunities,
+  useClientOpportunitiesWon,
+} from "@/lib/hooks/use-client-opportunities";
 import { useClientProjects } from "@/lib/hooks/use-client-projects";
 import { useClientTasks } from "@/lib/hooks/use-client-tasks";
 import { useClientFiles } from "@/lib/hooks/use-client-files";
@@ -299,6 +302,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
   }, [composerValue, selectedThreadId, detail, isAgentDraft, isPristineDraft, providerThreadId, threads]);
 
   const opportunitiesQuery = useClientOpportunities(clientId);
+  const wonOpportunitiesQuery = useClientOpportunitiesWon(clientId);
   const projectsQuery = useClientProjects(clientId);
   const tasksQuery = useClientTasks(clientId);
   const filesQuery = useClientFiles(clientId, selectedThreadId);
@@ -740,6 +744,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
   );
 
   const opportunities = opportunitiesQuery.data ?? [];
+  const wonOpportunities = wonOpportunitiesQuery.data ?? [];
   const projects = projectsQuery.data ?? [];
   const tasks = tasksQuery.data ?? [];
   const photos = filesQuery.data?.photos ?? [];
@@ -749,6 +754,11 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
   const pipelineOpps = useMemo<PipelineOpp[]>(
     () => opportunities.map((o) => toPipelineOpp(o, linkedOppIds, selectedThreadId ?? undefined)),
     [opportunities, linkedOppIds, selectedThreadId],
+  );
+
+  const wonPipelineOpps = useMemo<PipelineOpp[]>(
+    () => wonOpportunities.map((o) => toPipelineOpp(o, linkedOppIds, selectedThreadId ?? undefined)),
+    [wonOpportunities, linkedOppIds, selectedThreadId],
   );
 
   // FilesViewV3 consumes the raw ProjectDocument / ProjectPhoto shapes —
@@ -799,13 +809,14 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
         /* no-op until link-client UX is specified */
       }}
       counts={{
-        work: opportunities.length + projects.length,
+        work: opportunities.length + wonOpportunities.length + projects.length,
         accounting: documentRows.length,
         files: filesCount,
       }}
       work={
         <WorkView
           pipelineOpps={pipelineOpps}
+          wonOpps={wonPipelineOpps}
           projects={projects}
           tasks={tasks}
           currentThreadId={selectedThreadId ?? ""}

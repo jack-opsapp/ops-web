@@ -1,6 +1,10 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
-import { PipelineList, type PipelineOpp } from "../context-rail/pipeline-list";
+import {
+  PipelineList,
+  PipelineOppCard,
+  type PipelineOpp,
+} from "../context-rail/pipeline-list";
 
 const opps: PipelineOpp[] = [
   {
@@ -97,5 +101,82 @@ describe("<PipelineList>", () => {
     expect(
       screen.getByRole("button", { name: /New opportunity/i }),
     ).toBeInTheDocument();
+  });
+
+  it("suppresses the empty body when suppressEmpty is set, but keeps the +New button", () => {
+    render(
+      <PipelineList
+        opps={[]}
+        threadId="th"
+        onNewOpportunity={() => {}}
+        suppressEmpty
+      />,
+    );
+    expect(screen.queryByText(/no open opportunities/i)).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /New opportunity/i }),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("<PipelineOppCard>", () => {
+  const oppFixture: PipelineOpp = {
+    id: "won-1",
+    title: "Skylight install",
+    value: 12000,
+    stage: "won",
+    estimateRef: null,
+    confidence: "high",
+    source: "Referral",
+    threadId: null,
+  };
+
+  it("renders the WON state tag and dims the title when variant='won'", () => {
+    const { container } = render(
+      <ul>
+        <PipelineOppCard
+          opp={oppFixture}
+          currentThreadId=""
+          variant="won"
+        />
+      </ul>,
+    );
+    const card = screen.getByTestId("pipeline-opp-won-1");
+    expect(card.getAttribute("data-variant")).toBe("won");
+    // Linked treatment is forbidden on WON cards even if the threadId
+    // happens to match — closed business isn't "the current thread".
+    expect(card.getAttribute("data-current")).toBe("false");
+    expect(within(card).getByText(/^WON$/)).toBeInTheDocument();
+    // Title leans on text-text-2 (dimmer than the open variant's text-text).
+    const titleSpan = container.querySelector("span.text-text-2");
+    expect(titleSpan?.textContent).toBe("Skylight install");
+  });
+
+  it("renders the standard open card when variant is omitted", () => {
+    render(
+      <ul>
+        <PipelineOppCard opp={oppFixture} currentThreadId="" />
+      </ul>,
+    );
+    const card = screen.getByTestId("pipeline-opp-won-1");
+    expect(card.getAttribute("data-variant")).toBe("open");
+    expect(screen.queryByText(/^WON$/)).not.toBeInTheDocument();
+  });
+
+  it("never renders the linked-thread treatment on a WON card even when threadIds match", () => {
+    const matched: PipelineOpp = { ...oppFixture, threadId: "th-current" };
+    render(
+      <ul>
+        <PipelineOppCard
+          opp={matched}
+          currentThreadId="th-current"
+          variant="won"
+        />
+      </ul>,
+    );
+    expect(
+      screen.getByTestId("pipeline-opp-won-1").getAttribute("data-current"),
+    ).toBe("false");
+    expect(screen.queryByText(/This thread/i)).not.toBeInTheDocument();
   });
 });

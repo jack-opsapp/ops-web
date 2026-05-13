@@ -89,6 +89,7 @@ vi.mock("@/lib/hooks/use-inbox-threads", () => ({
 
 vi.mock("@/lib/hooks/use-client-opportunities", () => ({
   useClientOpportunities: () => ({ data: [] }),
+  useClientOpportunitiesWon: () => ({ data: [] }),
 }));
 
 vi.mock("@/lib/hooks/use-client-projects", () => ({
