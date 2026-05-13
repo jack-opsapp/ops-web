@@ -9,9 +9,11 @@ import {
 import {
   DndContext,
   PointerSensor,
+  pointerWithin,
   closestCenter,
   useSensor,
   useSensors,
+  type CollisionDetection,
   type DragCancelEvent,
   type DragEndEvent,
   type DragOverEvent,
@@ -41,6 +43,11 @@ const PipelineDndStateContext = createContext<PipelineDndState>({
   mode: "focused",
 });
 
+const pipelineCollisionDetection: CollisionDetection = (args) => {
+  const pointerCollisions = pointerWithin(args);
+  return pointerCollisions.length > 0 ? pointerCollisions : closestCenter(args);
+};
+
 export function PipelineDndProvider({
   mode,
   children,
@@ -66,7 +73,7 @@ export function PipelineDndProvider({
     <PipelineDndStateContext.Provider value={state}>
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCenter}
+        collisionDetection={pipelineCollisionDetection}
         onDragStart={onDragStart}
         onDragOver={onDragOver}
         onDragEnd={onDragEnd}

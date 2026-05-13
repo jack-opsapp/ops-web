@@ -1,6 +1,7 @@
 "use client";
 
 import { memo, type CSSProperties } from "react";
+import { useDroppable } from "@dnd-kit/core";
 import { useDictionary } from "@/i18n/client";
 import {
   type Opportunity,
@@ -82,16 +83,22 @@ function TerminalItem({
 }) {
   const stageName = getStageDisplayName(stage);
   const stageColor = OPPORTUNITY_STAGE_COLORS[stage];
+  const { setNodeRef, isOver } = useDroppable({
+    id: `focused-terminal-${stage}`,
+    data: { stage, isTerminal: true, mode: "focused" },
+    disabled: false,
+  });
   const count = opportunities.length;
   const visibleOpportunities = opportunities.slice(0, MAX_SILHOUETTES);
   const ariaLabel = formatTemplate(itemLabelTemplate, {
     stage: stageName,
     count,
   });
-  const visualOpacity = isSelected ? 0.8 : 0.45;
+  const visualOpacity = isSelected || isOver ? 0.8 : 0.45;
 
   return (
     <button
+      ref={setNodeRef}
       type="button"
       aria-label={ariaLabel}
       aria-pressed={isSelected}
@@ -99,9 +106,9 @@ function TerminalItem({
         "relative flex min-h-0 flex-1 overflow-hidden rounded-sidebar border border-line bg-transparent px-1 py-2 text-left",
         "transition-[border-color,background-color] duration-[120ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
         "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent",
-        isSelected && "bg-surface-active"
+        (isSelected || isOver) && "bg-surface-active"
       )}
-      style={{ borderColor: isSelected ? stageColor : undefined }}
+      style={{ borderColor: isSelected || isOver ? stageColor : undefined }}
       onClick={() => onSelectStage(stage)}
     >
       <span

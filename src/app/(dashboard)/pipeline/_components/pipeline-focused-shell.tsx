@@ -56,6 +56,7 @@ const TERMINAL_STAGE_ORDER = [OpportunityStage.Won, OpportunityStage.Lost];
 const SNAP_DURATION_MS = 280;
 const SNAP_EASING = "cubic-bezier(0.22, 1, 0.36, 1)";
 const SNAP_DEBOUNCE_MS = 150;
+const REDUCED_MOTION_DURATION = 0.001;
 const SPINE_RAIL_CHROME = "h-full pt-[112px] pb-0";
 
 function sortOpportunities(
@@ -354,7 +355,10 @@ export function PipelineFocusedShell({
         <motion.div
           ref={focusedColumnRef}
           layout={!reduced}
-          transition={{ duration: reduced ? 0.15 : 0.24, ease: [0.22, 1, 0.36, 1] }}
+          transition={{
+            duration: reduced ? REDUCED_MOTION_DURATION : 0.24,
+            ease: [0.22, 1, 0.36, 1],
+          }}
           className={cn(
             "min-h-0 min-w-[460px] flex-1",
             detailOpenInFocusedStage &&

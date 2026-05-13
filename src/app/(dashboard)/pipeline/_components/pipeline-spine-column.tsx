@@ -1,6 +1,7 @@
 "use client";
 
 import { memo, type CSSProperties } from "react";
+import { useDroppable } from "@dnd-kit/core";
 import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
 import {
@@ -62,8 +63,15 @@ export const PipelineSpineColumn = memo(function PipelineSpineColumn({
   const { t } = useDictionary("pipeline");
   const stageName = getStageDisplayName(stage);
   const stageColor = OPPORTUNITY_STAGE_COLORS[stage];
+  const { setNodeRef, isOver } = useDroppable({
+    id: `focused-stage-${stage}`,
+    data: { stage, mode: "focused" },
+    disabled: false,
+  });
   const count = opportunities.length;
   const visualOpacity = isHovered
+    ? DRAG_HOVER_OPACITY
+    : isOver
     ? DRAG_HOVER_OPACITY
     : VISUAL_OPACITY_BY_DISTANCE[distanceFromFocus];
   const visibleOpportunities = opportunities.slice(0, MAX_SILHOUETTES);
@@ -75,6 +83,7 @@ export const PipelineSpineColumn = memo(function PipelineSpineColumn({
 
   return (
     <button
+      ref={setNodeRef}
       type="button"
       role="tab"
       id={tabId}
@@ -88,7 +97,7 @@ export const PipelineSpineColumn = memo(function PipelineSpineColumn({
         transitionClasses
       )}
       style={{
-        borderColor: isHovered ? stageColor : undefined,
+        borderColor: isHovered || isOver ? stageColor : undefined,
       }}
       onClick={() => {
         if (onFocusStage) {

@@ -54,7 +54,7 @@ export function useWidgetEntityOpen() {
       switch (entityType) {
         case "opportunity":
           openPipelineDetail(entityId);
-          router.push(fallbackPath ?? "/pipeline");
+          router.push("/pipeline");
           return;
 
         case "project":

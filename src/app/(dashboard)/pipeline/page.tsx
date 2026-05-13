@@ -72,6 +72,7 @@ import { PipelineDetailPanel } from "./_components/pipeline-detail-panel";
 import { PipelineFocusedShell } from "./_components/pipeline-focused-shell";
 import { PipelineFocusedToolbar } from "./_components/pipeline-focused-toolbar";
 import { PipelineFilterRow } from "./_components/pipeline-filter-row";
+import { usePipelineModeShortcut } from "./_components/pipeline-mode-shortcuts";
 import {
   useSpatialCanvasStore,
   BIRD_EYE_THRESHOLD,
@@ -127,10 +128,6 @@ const SpatialCardWrapperComponent = memo(function SpatialCardWrapperComponent({
   const toggleCardExpanded = useSpatialCanvasStore((s) => s.toggleCardExpanded);
   const setHoveredCard = useSpatialCanvasStore((s) => s.setHoveredCard);
   const toggleCardSelected = useSpatialCanvasStore((s) => s.toggleCardSelected);
-  const customPos = useSpatialCanvasStore((s) => s.customPositions.get(opportunity.id));
-
-  // Use custom (free-form) position if set, otherwise fall back to layout position
-  const effectivePosition = customPos ?? position;
 
   const clientName =
     clientNameMap.get(opportunity.clientId ?? "") ??
@@ -149,8 +146,8 @@ const SpatialCardWrapperComponent = memo(function SpatialCardWrapperComponent({
         ...(flow
           ? { width: CARD_WIDTH }
           : {
-              left: effectivePosition.x,
-              top: effectivePosition.y,
+              left: position.x,
+              top: position.y,
               width: CARD_WIDTH,
               transition: "left 0.3s cubic-bezier(0.22, 1, 0.36, 1), top 0.3s cubic-bezier(0.22, 1, 0.36, 1)",
             }),
@@ -365,20 +362,17 @@ function SpatialCanvasDesktop({
     [showContextMenu, layout]
   );
 
-  // Marquee selection → compute which cards fall inside the rectangle
-  // Uses custom positions when present so marquee matches visual card locations
+  // Marquee selection → compute which cards fall inside the rectangle.
   const computeMarqueeSelection = useCallback(
     (start: { x: number; y: number }, end: { x: number; y: number }) => {
-      const { customPositions } = useSpatialCanvasStore.getState();
       const allPositions = [
         ...layout.stacks.flatMap((s) => s.cardPositions),
         ...layout.terminalRegions.flatMap((r) => r.cardPositions),
       ];
       return allPositions
-        .filter((pos) => {
-          const effective = customPositions.get(pos.opportunityId) ?? pos;
-          return isCardInMarquee(effective.x, effective.y, CARD_WIDTH, CARD_HEIGHT, start, end);
-        })
+        .filter((pos) =>
+          isCardInMarquee(pos.x, pos.y, CARD_WIDTH, CARD_HEIGHT, start, end)
+        )
         .map((pos) => pos.opportunityId);
     },
     [layout]
@@ -720,6 +714,7 @@ export default function PipelinePage() {
     stage: OpportunityStage;
   } | null>(null);
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
+  usePipelineModeShortcut(activeDragId !== null);
 
   // ── Undo store ────────────────────────────────────────────────────────
   const pushUndo = useUndoStore((s) => s.pushUndo);
@@ -883,13 +878,6 @@ export default function PipelinePage() {
     return filteredOpportunities.filter((o) => isActiveStage(o.stage));
   }, [filteredOpportunities]);
 
-  // ── Spatial canvas layout ──────────────────────────────────────────────
-  const sortBy = usePipelineModeStore((s) => s.sortBy);
-  const stageSortOverrides = usePipelineModeStore((s) => s.stageSortOverrides);
-  const parentLayout = useMemo(
-    () => calculateCanvasLayout(filteredOpportunities, sortBy, clientNameMap, stageSortOverrides),
-    [filteredOpportunities, sortBy, clientNameMap, stageSortOverrides]
-  );
   // ── Handlers ──────────────────────────────────────────────────────────
 
   /** Toggle card expand — only one at a time */
@@ -1080,76 +1068,38 @@ export default function PipelinePage() {
 
   const handlePipelineDragEnd = useCallback(
     (event: DragEndEvent) => {
-      if (mode !== "spatial") {
-        setActiveDragId(null);
-        useSpatialCanvasStore.getState().endDrag();
-        return;
-      }
-
       const { over } = event;
       const draggedId = String(event.active.id);
       const { selectedCardIds, clearSelection, endDrag } =
         useSpatialCanvasStore.getState();
+      const data = over?.data.current as
+        | { stage?: OpportunityStage; isTerminal?: boolean }
+        | undefined;
 
-      if (over) {
-        const data = over.data.current as
-          | { stage?: OpportunityStage; isTerminal?: boolean }
-          | undefined;
-
-        if (data?.stage) {
-          const ids = selectedCardIds.has(draggedId)
+      if (data?.stage) {
+        const ids =
+          mode === "spatial" && selectedCardIds.has(draggedId)
             ? Array.from(selectedCardIds)
             : [draggedId];
 
-          if (data.isTerminal) {
-            for (const id of ids) {
-              const opportunity = filteredOpportunities.find((o) => o.id === id);
-              if (!opportunity) continue;
+        if (data.isTerminal) {
+          for (const id of ids) {
+            const opportunity = filteredOpportunities.find((o) => o.id === id);
+            if (!opportunity) continue;
 
-              if (data.stage === OpportunityStage.Won) {
-                handleMarkWon(opportunity);
-              } else if (data.stage === OpportunityStage.Lost) {
-                handleMarkLost(opportunity);
-              }
-            }
-          } else {
-            for (const id of ids) {
-              handleMoveStage(id, data.stage);
+            if (data.stage === OpportunityStage.Won) {
+              handleMarkWon(opportunity);
+            } else if (data.stage === OpportunityStage.Lost) {
+              handleMarkLost(opportunity);
             }
           }
-
-          clearSelection();
-        }
-      } else {
-        const { setCustomPosition, customPositions, zoom } =
-          useSpatialCanvasStore.getState();
-        const draggedIds = selectedCardIds.has(draggedId)
-          ? Array.from(selectedCardIds)
-          : [draggedId];
-        const { delta } = event;
-        const allPositions = [
-          ...parentLayout.stacks.flatMap((stack) => stack.cardPositions),
-          ...parentLayout.terminalRegions.flatMap(
-            (region) => region.cardPositions
-          ),
-        ];
-
-        for (const id of draggedIds) {
-          const currentPos = allPositions.find(
-            (position) => position.opportunityId === id
-          );
-          const existingCustom = customPositions.get(id);
-          const basePos =
-            existingCustom ??
-            (currentPos ? { x: currentPos.x, y: currentPos.y } : null);
-
-          if (basePos) {
-            setCustomPosition(id, {
-              x: basePos.x + delta.x / zoom,
-              y: basePos.y + delta.y / zoom,
-            });
+        } else {
+          for (const id of ids) {
+            handleMoveStage(id, data.stage);
           }
         }
+
+        if (mode === "spatial") clearSelection();
       }
 
       setActiveDragId(null);
@@ -1161,7 +1111,6 @@ export default function PipelinePage() {
       handleMarkWon,
       handleMoveStage,
       mode,
-      parentLayout,
     ]
   );
 

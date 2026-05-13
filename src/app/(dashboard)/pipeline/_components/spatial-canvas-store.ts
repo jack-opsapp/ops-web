@@ -64,9 +64,6 @@ interface SpatialCanvasState {
   // Context menu
   contextMenu: ContextMenuState | null;
 
-  // Custom positions (Finder-style free positioning)
-  customPositions: Map<string, CardPosition>;
-
   // Trays
   isArchiveTrayOpen: boolean;
   isDiscardTrayOpen: boolean;
@@ -90,8 +87,6 @@ interface SpatialCanvasState {
   endMarquee: () => void;
   showContextMenu: (menu: ContextMenuState) => void;
   hideContextMenu: () => void;
-  setCustomPosition: (id: string, pos: CardPosition) => void;
-  clearCustomPositions: () => void;
   toggleArchiveTray: () => void;
   toggleDiscardTray: () => void;
   fitAll: (viewportWidth: number, viewportHeight: number) => void;
@@ -115,7 +110,6 @@ export const useSpatialCanvasStore = create<SpatialCanvasState>()((set, get) => 
   marqueeStart: null,
   marqueeEnd: null,
   contextMenu: null,
-  customPositions: new Map(),
   isArchiveTrayOpen: false,
   isDiscardTrayOpen: false,
 
@@ -189,15 +183,6 @@ export const useSpatialCanvasStore = create<SpatialCanvasState>()((set, get) => 
 
   hideContextMenu: () => set({ contextMenu: null }),
 
-  setCustomPosition: (id, pos) =>
-    set((state) => {
-      const next = new Map(state.customPositions);
-      next.set(id, pos);
-      return { customPositions: next };
-    }),
-
-  clearCustomPositions: () => set({ customPositions: new Map() }),
-
   toggleArchiveTray: () =>
     set((state) => ({ isArchiveTrayOpen: !state.isArchiveTrayOpen, isDiscardTrayOpen: false })),
 
@@ -217,5 +202,5 @@ export const useSpatialCanvasStore = create<SpatialCanvasState>()((set, get) => 
     set({ zoom, viewportX, viewportY });
   },
 
-  resetLayout: () => set({ customPositions: new Map() }),
+  resetLayout: () => undefined,
 }));

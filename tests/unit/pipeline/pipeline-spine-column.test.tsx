@@ -8,6 +8,18 @@ import {
 import { usePipelineModeStore } from "@/app/(dashboard)/pipeline/_components/pipeline-mode-store";
 import { PipelineSpineColumn } from "@/app/(dashboard)/pipeline/_components/pipeline-spine-column";
 
+const dndMocks = vi.hoisted(() => ({
+  setNodeRef: vi.fn(),
+  useDroppable: vi.fn(() => ({
+    setNodeRef: vi.fn(),
+    isOver: false,
+  })),
+}));
+
+vi.mock("@dnd-kit/core", () => ({
+  useDroppable: dndMocks.useDroppable,
+}));
+
 vi.mock("@/i18n/client", () => ({
   useDictionary: () => ({
     t: (key: string, fallback?: string | Record<string, unknown>) => {
@@ -91,6 +103,7 @@ function renderSpine(opportunities: Opportunity[]) {
 
 describe("<PipelineSpineColumn>", () => {
   beforeEach(() => {
+    dndMocks.useDroppable.mockClear();
     localStorage.clear();
     usePipelineModeStore.setState({
       mode: "focused",
@@ -148,5 +161,15 @@ describe("<PipelineSpineColumn>", () => {
     expect(usePipelineModeStore.getState().focusedStage).toBe(
       OpportunityStage.Quoted
     );
+  });
+
+  it("registers the rail as a focused-mode drop target", () => {
+    renderSpine(makeOpportunities(1));
+
+    expect(dndMocks.useDroppable).toHaveBeenCalledWith({
+      id: `focused-stage-${OpportunityStage.Quoted}`,
+      data: { stage: OpportunityStage.Quoted, mode: "focused" },
+      disabled: false,
+    });
   });
 });

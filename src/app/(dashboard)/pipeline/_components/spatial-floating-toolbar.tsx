@@ -2,10 +2,11 @@
 
 import { useCallback } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import { Maximize2, Plus, Archive, Trash2, Mail } from "lucide-react";
+import { Maximize2, Minimize2, Plus, Archive, Trash2, Mail } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
 import { useSpatialCanvasStore } from "./spatial-canvas-store";
+import { usePipelineModeStore } from "./pipeline-mode-store";
 import {
   spatialToolbarVariants,
   spatialToolbarVariantsReduced,
@@ -37,6 +38,7 @@ export function SpatialFloatingToolbar({
   const isArchiveTrayOpen = useSpatialCanvasStore((s) => s.isArchiveTrayOpen);
   const toggleDiscardTray = useSpatialCanvasStore((s) => s.toggleDiscardTray);
   const isDiscardTrayOpen = useSpatialCanvasStore((s) => s.isDiscardTrayOpen);
+  const toggleMode = usePipelineModeStore((s) => s.toggleMode);
 
   const handleFitAll = useCallback(() => {
     const canvas = document.querySelector("[data-spatial-canvas]");
@@ -66,6 +68,15 @@ export function SpatialFloatingToolbar({
           <div className="w-[1px] h-[18px] bg-border-subtle" />
         </>
       )}
+
+      <ToolbarAction onClick={toggleMode}>
+        <Minimize2 className="w-[13px] h-[13px]" />
+        <span className="font-mono text-micro uppercase tracking-wider">
+          {t("focused.modeButton.focused")}
+        </span>
+      </ToolbarAction>
+
+      <div className="w-[1px] h-[18px] bg-border-subtle" />
 
       {/* Canvas tools */}
       <ToolbarAction onClick={handleFitAll}>

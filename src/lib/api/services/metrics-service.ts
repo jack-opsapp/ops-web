@@ -16,6 +16,60 @@ function rows<T>(result: { data: T[] | null }): T[] {
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
+const MS_PER_DAY = 86_400_000;
+
+export function intervalToDays(duration: unknown): number {
+  if (duration == null) return 0;
+
+  if (typeof duration === "number") {
+    return Number.isFinite(duration) ? Math.max(0, duration / MS_PER_DAY) : 0;
+  }
+
+  const raw = String(duration).trim();
+  if (!raw) return 0;
+
+  const numeric = Number(raw);
+  if (Number.isFinite(numeric)) {
+    return Math.max(0, numeric / MS_PER_DAY);
+  }
+
+  let total = 0;
+  let matched = false;
+  const unitPattern =
+    /([+-]?\d+(?:\.\d+)?)\s*(years?|yrs?|mons?|months?|weeks?|days?|hours?|hrs?|minutes?|mins?|seconds?|secs?|milliseconds?|msecs?|ms|microseconds?|usecs?|us)/gi;
+
+  for (const match of raw.matchAll(unitPattern)) {
+    const amount = Number(match[1]);
+    if (!Number.isFinite(amount)) continue;
+
+    matched = true;
+    const unit = match[2].toLowerCase();
+    if (unit.startsWith("year") || unit.startsWith("yr")) total += amount * 365;
+    else if (unit.startsWith("mon")) total += amount * 30;
+    else if (unit.startsWith("week")) total += amount * 7;
+    else if (unit.startsWith("day")) total += amount;
+    else if (unit.startsWith("hour") || unit.startsWith("hr")) total += amount / 24;
+    else if (unit.startsWith("minute") || unit.startsWith("min")) total += amount / 1440;
+    else if (unit.startsWith("millisecond") || unit.startsWith("msec") || unit === "ms") total += amount / MS_PER_DAY;
+    else if (unit.startsWith("microsecond") || unit.startsWith("usec") || unit === "us") total += amount / 86_400_000_000;
+    else if (unit.startsWith("second") || unit.startsWith("sec")) total += amount / 86400;
+  }
+
+  const timeMatch = raw.match(/([+-])?(\d+):([0-5]?\d)(?::([0-5]?\d(?:\.\d+)?))?/);
+  if (timeMatch) {
+    matched = true;
+    const sign = timeMatch[1] === "-" ? -1 : 1;
+    const hours = Number(timeMatch[2]);
+    const minutes = Number(timeMatch[3]);
+    const seconds = Number(timeMatch[4] ?? 0);
+    if ([hours, minutes, seconds].every(Number.isFinite)) {
+      total += sign * (hours / 24 + minutes / 1440 + seconds / 86400);
+    }
+  }
+
+  return matched && Number.isFinite(total) ? Math.max(0, total) : 0;
+}
+
 function trend(current: number, previous: number): { direction: "up" | "down" | "flat"; value: string; sentiment: "positive" | "negative" | "neutral" } | undefined {
   if (previous === 0 && current === 0) return undefined;
   if (previous === 0) return { direction: "up", value: "new", sentiment: "positive" };
@@ -316,15 +370,21 @@ export async function fetchPipelineMetrics(companyId: string): Promise<MetricCol
     .select("from_stage, to_stage, duration_in_stage")
     .eq("company_id", companyId));
 
-  const avgVelocity = transitions.length > 0
-    ? transitions.reduce((sum, t) => sum + Number(t.duration_in_stage ?? 0), 0) / transitions.length / 86400000
+  const transitionDurations = transitions.map((t) =>
+    intervalToDays(t.duration_in_stage)
+  );
+  const avgVelocity = transitionDurations.length > 0
+    ? transitionDurations.reduce((sum, days) => sum + days, 0) / transitionDurations.length
     : 0;
 
   const stageNames = ["new_lead", "qualifying", "quoting", "quoted", "follow_up"];
   const stageDurations = stageNames.map((stage) => {
     const stageTransitions = transitions.filter((t) => t.from_stage === stage);
     if (stageTransitions.length === 0) return 0;
-    return stageTransitions.reduce((sum, t) => sum + Number(t.duration_in_stage ?? 0), 0) / stageTransitions.length / 86400000;
+    return stageTransitions.reduce(
+      (sum, t) => sum + intervalToDays(t.duration_in_stage),
+      0
+    ) / stageTransitions.length;
   });
 
   const valueTrend = await dailyTrend("opportunities", "created_at", "estimated_value", companyId, 30);

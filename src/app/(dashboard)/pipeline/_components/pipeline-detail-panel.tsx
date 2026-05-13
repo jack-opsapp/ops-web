@@ -69,6 +69,7 @@ type Bounds = {
 };
 
 const EASE_SMOOTH: [number, number, number, number] = [0.22, 1, 0.36, 1];
+const REDUCED_MOTION_DURATION = 0.001;
 const DRAWER_WIDTH = 420;
 const FOCUSABLE_SELECTOR =
   'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
@@ -172,14 +173,21 @@ export const PipelineDetailPanel = memo(function PipelineDetailPanel({
   }, [scopeRef, shouldUseDrawer]);
 
   useEffect(() => {
-    const panel = panelRef.current;
-    if (!panel) return;
+    if (shouldUseDrawer && (!mounted || !bounds)) return;
 
-    const focusable = panel.querySelector<HTMLElement>(FOCUSABLE_SELECTOR);
     requestAnimationFrame(() => {
+      const panel = panelRef.current;
+      if (!panel) return;
+
+      const focusable = panel.querySelector<HTMLElement>(FOCUSABLE_SELECTOR);
       (focusable ?? panel).focus({ preventScroll: true });
     });
-  }, [detailPanelOpportunityId, shouldUseDrawer]);
+  }, [
+    bounds,
+    detailPanelOpportunityId,
+    mounted,
+    shouldUseDrawer,
+  ]);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -216,7 +224,7 @@ export const PipelineDetailPanel = memo(function PipelineDetailPanel({
         initial={reduced ? { opacity: 0 } : { opacity: 0, x: 12 }}
         animate={{ opacity: 1, x: 0 }}
         exit={reduced ? { opacity: 0 } : { opacity: 0, x: 12 }}
-        transition={{ duration: reduced ? 0.15 : 0.24, ease: EASE_SMOOTH }}
+        transition={{ duration: reduced ? REDUCED_MOTION_DURATION : 0.24, ease: EASE_SMOOTH }}
         className="h-full min-h-0 w-full"
       >
         {panel}
@@ -251,7 +259,7 @@ export const PipelineDetailPanel = memo(function PipelineDetailPanel({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        transition={{ duration: reduced ? 0.15 : 0.24, ease: EASE_SMOOTH }}
+        transition={{ duration: reduced ? REDUCED_MOTION_DURATION : 0.24, ease: EASE_SMOOTH }}
         onClick={handleClose}
       />
       <motion.aside
@@ -261,7 +269,7 @@ export const PipelineDetailPanel = memo(function PipelineDetailPanel({
         initial={reduced ? { opacity: 0 } : { x: 420 }}
         animate={reduced ? { opacity: 1 } : { x: 0 }}
         exit={reduced ? { opacity: 0 } : { x: 420 }}
-        transition={{ duration: reduced ? 0.15 : 0.24, ease: EASE_SMOOTH }}
+        transition={{ duration: reduced ? REDUCED_MOTION_DURATION : 0.24, ease: EASE_SMOOTH }}
       >
         {panel}
       </motion.aside>

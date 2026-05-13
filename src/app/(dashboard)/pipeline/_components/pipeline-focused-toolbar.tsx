@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, Mail, Plus, Search } from "lucide-react";
+import { ChevronDown, Mail, Maximize2, Plus, Search } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
@@ -15,6 +15,7 @@ import {
   spatialToolbarVariants,
   spatialToolbarVariantsReduced,
 } from "@/lib/utils/motion";
+import { usePipelineModeStore } from "./pipeline-mode-store";
 
 interface PipelineFocusedToolbarProps {
   searchQuery: string;
@@ -55,6 +56,7 @@ export function PipelineFocusedToolbar({
     : spatialToolbarVariants;
   const [showSearch, setShowSearch] = useState(searchQuery.length > 0);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const toggleMode = usePipelineModeStore((state) => state.toggleMode);
   const searchLabel = t("focused.search.action", "Search");
   const searchPlaceholder = t("focused.search.placeholder", "search pipeline...");
 
@@ -87,6 +89,15 @@ export function PipelineFocusedToolbar({
           <Divider />
         </>
       )}
+
+      <ToolbarAction onClick={toggleMode}>
+        <Maximize2 className="h-[13px] w-[13px]" strokeWidth={1.5} />
+        <span className="font-mono text-micro uppercase tracking-wider">
+          {t("focused.modeButton.spatial")}
+        </span>
+      </ToolbarAction>
+
+      <Divider />
 
       <ToolbarAction
         onClick={() => {
