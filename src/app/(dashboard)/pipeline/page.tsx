@@ -72,6 +72,7 @@ import { SpatialArchiveTray, SpatialDiscardTray } from "./_components/spatial-ar
 import { calculateCanvasLayout } from "./_components/spatial-layout-engine";
 import { calculateBatchStaleness } from "./_components/spatial-staleness";
 import { PipelineDndProvider } from "./_components/pipeline-dnd-provider";
+import { PipelineFocusedShell } from "./_components/pipeline-focused-shell";
 import {
   useSpatialCanvasStore,
   BIRD_EYE_THRESHOLD,
@@ -668,6 +669,7 @@ export default function PipelinePage() {
   const { t } = useDictionary("pipeline");
   const router = useRouter();
   const isMobile = useIsMobile();
+  const mode = usePipelineModeStore((state) => state.mode);
 
   // ── Filter / search state ─────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState("");
@@ -675,6 +677,16 @@ export default function PipelinePage() {
     "all"
   );
   const [assigneeFilter, setAssigneeFilter] = useState<string | "all">("all");
+  const filtersActive =
+    searchQuery.trim().length > 0 ||
+    stageFilter !== "all" ||
+    assigneeFilter !== "all";
+
+  const handleClearFilters = useCallback(() => {
+    setSearchQuery("");
+    setStageFilter("all");
+    setAssigneeFilter("all");
+  }, []);
 
   // ── Card expand state (single card accordion) ─────────────────────────
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
@@ -1035,20 +1047,25 @@ export default function PipelinePage() {
     [handleMoveStage]
   );
 
-  const handlePipelineDragStart = useCallback((event: DragStartEvent) => {
-    const id = String(event.active.id);
-    setActiveDragId(id);
+  const handlePipelineDragStart = useCallback(
+    (event: DragStartEvent) => {
+      const id = String(event.active.id);
+      setActiveDragId(id);
 
-    const { selectedCardIds, startDrag, clearSelection } =
-      useSpatialCanvasStore.getState();
+      if (mode !== "spatial") return;
 
-    if (selectedCardIds.has(id)) {
-      startDrag(Array.from(selectedCardIds), { x: 0, y: 0 });
-    } else {
-      clearSelection();
-      startDrag([id], { x: 0, y: 0 });
-    }
-  }, []);
+      const { selectedCardIds, startDrag, clearSelection } =
+        useSpatialCanvasStore.getState();
+
+      if (selectedCardIds.has(id)) {
+        startDrag(Array.from(selectedCardIds), { x: 0, y: 0 });
+      } else {
+        clearSelection();
+        startDrag([id], { x: 0, y: 0 });
+      }
+    },
+    [mode]
+  );
 
   const handlePipelineDragOver = useCallback(
     (_event: DragOverEvent) => undefined,
@@ -1057,6 +1074,12 @@ export default function PipelinePage() {
 
   const handlePipelineDragEnd = useCallback(
     (event: DragEndEvent) => {
+      if (mode !== "spatial") {
+        setActiveDragId(null);
+        useSpatialCanvasStore.getState().endDrag();
+        return;
+      }
+
       const { over } = event;
       const draggedId = String(event.active.id);
       const { selectedCardIds, clearSelection, endDrag } =
@@ -1131,6 +1154,7 @@ export default function PipelinePage() {
       handleMarkLost,
       handleMarkWon,
       handleMoveStage,
+      mode,
       parentLayout,
     ]
   );
@@ -1365,39 +1389,59 @@ export default function PipelinePage() {
           <PipelineMobile {...sharedBoardProps} />
         ) : (
           <PipelineDndProvider
-            mode="spatial"
+            mode={mode}
             activeDragId={activeDragId}
             onDragStart={handlePipelineDragStart}
             onDragOver={handlePipelineDragOver}
             onDragEnd={handlePipelineDragEnd}
             onDragCancel={handlePipelineDragCancel}
           >
-            <SpatialCanvasDesktop
-              opportunities={filteredOpportunities}
-              clientNameMap={clientNameMap}
-              canManage={canManage}
-              onMoveStage={handleMoveStage}
-              onLogCall={handleLogCall}
-              onLogText={handleLogText}
-              onAddNote={handleAddNote}
-              onArchive={handleArchive}
-              onDiscard={handleDiscard}
-              onMarkWon={handleMarkWon}
-              onMarkLost={handleMarkLost}
-              onOpenDetail={handleOpenDetail}
-              onAssign={handleAssign}
-              onScheduleFollowUp={handleScheduleFollowUp}
-              onAddLead={gatedOpenCreate}
-              archivedOpportunities={
-                opportunities?.filter((o) => !!o.archivedAt) ?? []
-              }
-              discardedOpportunities={
-                opportunities?.filter((o) => o.stage === OpportunityStage.Discarded && !o.archivedAt) ?? []
-              }
-              onRestore={(id) => unarchiveMutation.mutate(id)}
-              onDeletePermanently={(id) => deleteMutation.mutate(id)}
-              activeDragId={activeDragId}
-            />
+            {mode === "focused" ? (
+              <PipelineFocusedShell
+                opportunities={filteredOpportunities}
+                clientNameMap={clientNameMap}
+                canManage={canManage}
+                filtersActive={filtersActive}
+                onAddLead={gatedOpenCreate}
+                onClearFilters={handleClearFilters}
+                onLogCall={handleLogCall}
+                onLogText={handleLogText}
+                onAddNote={handleAddNote}
+                onArchive={handleArchive}
+                onDiscard={handleDiscard}
+                onMarkWon={handleMarkWon}
+                onMarkLost={handleMarkLost}
+                onAssign={handleAssign}
+                onScheduleFollowUp={handleScheduleFollowUp}
+              />
+            ) : (
+              <SpatialCanvasDesktop
+                opportunities={filteredOpportunities}
+                clientNameMap={clientNameMap}
+                canManage={canManage}
+                onMoveStage={handleMoveStage}
+                onLogCall={handleLogCall}
+                onLogText={handleLogText}
+                onAddNote={handleAddNote}
+                onArchive={handleArchive}
+                onDiscard={handleDiscard}
+                onMarkWon={handleMarkWon}
+                onMarkLost={handleMarkLost}
+                onOpenDetail={handleOpenDetail}
+                onAssign={handleAssign}
+                onScheduleFollowUp={handleScheduleFollowUp}
+                onAddLead={gatedOpenCreate}
+                archivedOpportunities={
+                  opportunities?.filter((o) => !!o.archivedAt) ?? []
+                }
+                discardedOpportunities={
+                  opportunities?.filter((o) => o.stage === OpportunityStage.Discarded && !o.archivedAt) ?? []
+                }
+                onRestore={(id) => unarchiveMutation.mutate(id)}
+                onDeletePermanently={(id) => deleteMutation.mutate(id)}
+                activeDragId={activeDragId}
+              />
+            )}
           </PipelineDndProvider>
         )}
       </div>
