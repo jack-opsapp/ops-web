@@ -93,11 +93,19 @@ function sortOpportunities(
 }
 
 function isTypingTarget(target: EventTarget | null): boolean {
-  const element = target as HTMLElement | null;
-  if (!element) return false;
+  if (!(target instanceof Element)) return false;
+
+  const editable = target.closest("[contenteditable]");
+  if (
+    editable instanceof HTMLElement &&
+    editable.getAttribute("contenteditable") !== "false"
+  ) {
+    return true;
+  }
+
   return Boolean(
-    element.closest(
-      "input, textarea, select, [contenteditable='true'], [data-keyboard-scope='modal-or-menu']"
+    target.closest(
+      "input, textarea, select, [data-keyboard-scope='modal-or-menu']"
     )
   );
 }
@@ -137,6 +145,7 @@ export function PipelineFocusedShell({
   const closeDetailPanel = usePipelineModeStore(
     (state) => state.closeDetailPanel
   );
+  const toggleMode = usePipelineModeStore((state) => state.toggleMode);
   const { isDragging } = usePipelineDndState();
   const shellRef = useRef<HTMLDivElement>(null);
   const focusedColumnRef = useRef<HTMLDivElement>(null);
@@ -239,18 +248,59 @@ export function PipelineFocusedShell({
     function handleKeyDown(event: KeyboardEvent) {
       if (isTypingTarget(event.target)) return;
       if (isDragging) return;
+
+      if (
+        event.key.toLowerCase() === "v" &&
+        !event.altKey &&
+        !event.ctrlKey &&
+        !event.metaKey &&
+        !event.isComposing
+      ) {
+        event.preventDefault();
+        toggleMode();
+        return;
+      }
+
+      if (event.key === "Escape") {
+        if (detailPanelOpportunityId) {
+          event.preventDefault();
+          closeDetailPanel();
+        }
+        return;
+      }
+
       if (event.key === "ArrowLeft") {
         event.preventDefault();
         snapByDirection(-1);
       } else if (event.key === "ArrowRight") {
         event.preventDefault();
         snapByDirection(1);
+      } else if (
+        safeFocusedStage === OpportunityStage.Won &&
+        event.key === "ArrowDown"
+      ) {
+        event.preventDefault();
+        snapToStage(OpportunityStage.Lost);
+      } else if (
+        safeFocusedStage === OpportunityStage.Lost &&
+        event.key === "ArrowUp"
+      ) {
+        event.preventDefault();
+        snapToStage(OpportunityStage.Won);
       }
     }
 
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isDragging, snapByDirection]);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [
+    closeDetailPanel,
+    detailPanelOpportunityId,
+    isDragging,
+    safeFocusedStage,
+    snapByDirection,
+    snapToStage,
+    toggleMode,
+  ]);
 
   const handleWheel = useCallback(
     (event: React.WheelEvent<HTMLDivElement>) => {

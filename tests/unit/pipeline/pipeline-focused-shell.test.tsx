@@ -8,6 +8,8 @@ import {
 import { usePipelineModeStore } from "@/app/(dashboard)/pipeline/_components/pipeline-mode-store";
 import { PipelineFocusedShell } from "@/app/(dashboard)/pipeline/_components/pipeline-focused-shell";
 
+const mockDndState = vi.hoisted(() => ({ isDragging: false }));
+
 vi.mock("framer-motion", () => ({
   motion: {
     div: ({
@@ -34,7 +36,7 @@ vi.mock("@/i18n/client", () => ({
 vi.mock(
   "@/app/(dashboard)/pipeline/_components/pipeline-dnd-provider",
   () => ({
-    usePipelineDndState: () => ({ isDragging: false }),
+    usePipelineDndState: () => ({ isDragging: mockDndState.isDragging }),
   })
 );
 
@@ -153,6 +155,7 @@ function renderFocusedShell(opportunities: Opportunity[]) {
 describe("<PipelineFocusedShell>", () => {
   beforeEach(() => {
     localStorage.clear();
+    mockDndState.isDragging = false;
     usePipelineModeStore.setState({
       mode: "focused",
       focusedStage: OpportunityStage.NewLead,
@@ -161,6 +164,87 @@ describe("<PipelineFocusedShell>", () => {
       sortBy: "value",
       stageSortOverrides: new Map(),
     });
+  });
+
+  it("moves linearly through active stages and terminal stages with left and right arrows", () => {
+    renderFocusedShell([
+      makeOpportunity("opp-1", OpportunityStage.NewLead),
+      makeOpportunity("opp-2", OpportunityStage.Negotiation),
+      makeOpportunity("opp-3", OpportunityStage.Won),
+      makeOpportunity("opp-4", OpportunityStage.Lost),
+    ]);
+
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    expect(usePipelineModeStore.getState().focusedStage).toBe(
+      OpportunityStage.Qualifying
+    );
+
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    expect(usePipelineModeStore.getState().focusedStage).toBe(
+      OpportunityStage.Quoting
+    );
+
+    act(() => {
+      usePipelineModeStore
+        .getState()
+        .setFocusedStage(OpportunityStage.Negotiation);
+    });
+
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    expect(usePipelineModeStore.getState().focusedStage).toBe(
+      OpportunityStage.Won
+    );
+
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    expect(usePipelineModeStore.getState().focusedStage).toBe(
+      OpportunityStage.Lost
+    );
+
+    fireEvent.keyDown(window, { key: "ArrowLeft" });
+    expect(usePipelineModeStore.getState().focusedStage).toBe(
+      OpportunityStage.Won
+    );
+  });
+
+  it("uses up and down only to move inside the Won/Lost terminal stack", () => {
+    renderFocusedShell([
+      makeOpportunity("opp-1", OpportunityStage.NewLead),
+      makeOpportunity("opp-2", OpportunityStage.Won),
+      makeOpportunity("opp-3", OpportunityStage.Lost),
+    ]);
+
+    fireEvent.keyDown(window, { key: "ArrowDown" });
+    expect(usePipelineModeStore.getState().focusedStage).toBe(
+      OpportunityStage.NewLead
+    );
+
+    act(() => {
+      usePipelineModeStore.getState().setFocusedStage(OpportunityStage.Won);
+    });
+
+    fireEvent.keyDown(window, { key: "ArrowDown" });
+    expect(usePipelineModeStore.getState().focusedStage).toBe(
+      OpportunityStage.Lost
+    );
+
+    fireEvent.keyDown(window, { key: "ArrowUp" });
+    expect(usePipelineModeStore.getState().focusedStage).toBe(
+      OpportunityStage.Won
+    );
+  });
+
+  it("toggles mode with V and closes the detail panel with Escape", () => {
+    usePipelineModeStore.setState({
+      detailPanelOpportunityId: "opp-1",
+    });
+
+    renderFocusedShell([makeOpportunity("opp-1", OpportunityStage.NewLead)]);
+
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(usePipelineModeStore.getState().detailPanelOpportunityId).toBeNull();
+
+    fireEvent.keyDown(window, { key: "v" });
+    expect(usePipelineModeStore.getState().mode).toBe("spatial");
   });
 
   it("snaps focusedStage to the loaded detail opportunity stage", async () => {
@@ -228,6 +312,55 @@ describe("<PipelineFocusedShell>", () => {
       OpportunityStage.NewLead
     );
     scopedTarget.remove();
+  });
+
+  it("does not handle shortcuts from typing or contenteditable targets", () => {
+    renderFocusedShell([
+      makeOpportunity("opp-1", OpportunityStage.NewLead),
+      makeOpportunity("opp-2", OpportunityStage.Qualifying),
+    ]);
+
+    const input = document.createElement("input");
+    document.body.appendChild(input);
+    fireEvent.keyDown(input, { key: "ArrowRight" });
+
+    expect(usePipelineModeStore.getState().focusedStage).toBe(
+      OpportunityStage.NewLead
+    );
+
+    const editable = document.createElement("div");
+    editable.setAttribute("contenteditable", "");
+    document.body.appendChild(editable);
+    fireEvent.keyDown(editable, { key: "v" });
+
+    expect(usePipelineModeStore.getState().mode).toBe("focused");
+
+    input.remove();
+    editable.remove();
+  });
+
+  it("suppresses keyboard navigation and mode switching while dragging", () => {
+    mockDndState.isDragging = true;
+    usePipelineModeStore.setState({
+      detailPanelOpportunityId: "opp-1",
+    });
+
+    renderFocusedShell([
+      makeOpportunity("opp-1", OpportunityStage.NewLead),
+      makeOpportunity("opp-2", OpportunityStage.Qualifying),
+    ]);
+
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    fireEvent.keyDown(window, { key: "v" });
+    fireEvent.keyDown(window, { key: "Escape" });
+
+    expect(usePipelineModeStore.getState().focusedStage).toBe(
+      OpportunityStage.NewLead
+    );
+    expect(usePipelineModeStore.getState().mode).toBe("focused");
+    expect(usePipelineModeStore.getState().detailPanelOpportunityId).toBe(
+      "opp-1"
+    );
   });
 
   it("renders focused DnD announcements in a polite live region", () => {

@@ -774,7 +774,7 @@ export default function PipelinePage() {
   } | null>(null);
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const [focusedDragAnnouncement, setFocusedDragAnnouncement] = useState("");
-  usePipelineModeShortcut(activeDragId !== null);
+  usePipelineModeShortcut(activeDragId !== null, mode === "spatial");
 
   // ── Undo store ────────────────────────────────────────────────────────
   const pushUndo = useUndoStore((s) => s.pushUndo);

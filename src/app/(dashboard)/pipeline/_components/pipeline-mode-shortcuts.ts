@@ -9,12 +9,19 @@ export type PipelineModeShortcutEvent = Pick<
 >;
 
 function isTypingOrScopedTarget(target: EventTarget | null): boolean {
-  const element = target as HTMLElement | null;
-  if (!element) return false;
+  if (!(target instanceof Element)) return false;
+
+  const editable = target.closest("[contenteditable]");
+  if (
+    editable instanceof HTMLElement &&
+    editable.getAttribute("contenteditable") !== "false"
+  ) {
+    return true;
+  }
 
   return Boolean(
-    element.closest(
-      "input, textarea, select, [contenteditable='true'], [data-keyboard-scope='modal-or-menu']"
+    target.closest(
+      "input, textarea, select, [data-keyboard-scope='modal-or-menu']"
     )
   );
 }
@@ -32,10 +39,13 @@ export function shouldHandlePipelineModeShortcut(
   return true;
 }
 
-export function usePipelineModeShortcut(isDragging: boolean) {
+export function usePipelineModeShortcut(isDragging: boolean, enabled = true) {
   useEffect(() => {
+    if (!enabled) return;
+    if (isDragging) return;
+
     function handleKeyDown(event: KeyboardEvent) {
-      if (!shouldHandlePipelineModeShortcut(event, isDragging)) return;
+      if (!shouldHandlePipelineModeShortcut(event, false)) return;
 
       event.preventDefault();
       usePipelineModeStore.getState().toggleMode();
@@ -43,5 +53,5 @@ export function usePipelineModeShortcut(isDragging: boolean) {
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isDragging]);
+  }, [enabled, isDragging]);
 }
