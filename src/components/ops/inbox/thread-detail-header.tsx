@@ -42,7 +42,7 @@ interface ThreadDetailHeaderProps {
 }
 
 const iconBtnClass =
-  "inline-flex h-7 w-7 items-center justify-center rounded-chip text-text-3 transition-colors hover:bg-inbox-elev hover:text-text-2 focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black";
+  "inline-flex h-6 w-6 items-center justify-center rounded-chip text-text-3 transition-colors hover:bg-inbox-elev hover:text-text-2 focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black";
 
 const HeaderActionButton = forwardRef<
   HTMLButtonElement,
@@ -121,15 +121,15 @@ export function ThreadDetailHeader({
   return (
     <header
       className={cn(
-        "shrink-0 border-b border-line bg-inbox-panel px-2 pb-2.5 pt-3",
+        "shrink-0 border-b border-line bg-inbox-panel px-2.5 pb-1.5 pt-2",
         className,
       )}
     >
-      <div className="mb-1.5 flex items-center gap-2.5">
-        <h1 className="m-0 min-w-0 flex-1 truncate font-mohave text-[16px] font-medium tracking-[-0.005em] text-text">
+      <div className="mb-1 flex items-center gap-2.5">
+        <h1 className="m-0 min-w-0 flex-1 truncate font-mohave text-[15px] font-medium leading-tight tracking-[-0.005em] text-text">
           {subject || t("detail.untitled", "(no subject)")}
         </h1>
-        <div className="flex shrink-0 items-center gap-1">
+        <div className="flex shrink-0 items-center gap-0.5">
           {archiveSlot ? archiveSlot(archiveBtn) : archiveBtn}
           {snoozeSlot ? snoozeSlot(snoozeBtn) : snoozeBtn}
           {recategorizeSlot ? recategorizeSlot(recategorizeBtn) : recategorizeBtn}
@@ -138,7 +138,7 @@ export function ThreadDetailHeader({
       </div>
 
       <div
-        className="flex items-center gap-2.5 font-mono text-[11px] text-text-3"
+        className="flex items-center gap-2 font-mono text-[11px] leading-none text-text-3"
         style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
       >
         {category && (

@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import {
   selectActionBand,
   type BandThreadInput,
@@ -37,6 +38,18 @@ interface DetailBandProps {
   autoSentDetail?: string;
   /** Ball-yours band — pre-formatted wait clock ("18H" / "12D" / "MAR 4"). */
   ballYoursWaitDuration?: string;
+  /**
+   * Ball-yours band — clears AWAITING_REPLY for this thread. Hidden when
+   * omitted (e.g. on rails where the override doesn't make sense). The
+   * BallYoursBand renders an inline `✓` button when this is provided.
+   */
+  ballYoursOnAcknowledge?: () => void;
+  /**
+   * Ball-yours band — render-prop that wraps the snooze icon in the shared
+   * `<SnoozePicker>` popover, mirroring the detail-header's snoozeSlot
+   * pattern. Hidden when omitted.
+   */
+  ballYoursSnoozeSlot?: (button: ReactNode) => ReactNode;
   /** Closed band — ISO of close timestamp. */
   closedAt?: string | null;
   /** Closed band — resolved-by-Claude vs archived-by-user. */
@@ -58,6 +71,8 @@ export function DetailBand({
   autoSentHoursAgo,
   autoSentDetail,
   ballYoursWaitDuration,
+  ballYoursOnAcknowledge,
+  ballYoursSnoozeSlot,
   closedAt,
   closedVariant,
   closedDetail,
@@ -92,6 +107,8 @@ export function DetailBand({
           clientName={clientName}
           waitDuration={ballYoursWaitDuration ?? ""}
           onReply={() => onAction("reply")}
+          onAcknowledge={ballYoursOnAcknowledge}
+          snoozeSlot={ballYoursSnoozeSlot}
         />
       )}
       {actionBand === "auto-sent" && (

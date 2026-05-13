@@ -54,11 +54,11 @@ export function CommitmentPills({
     <section
       aria-label={t("commitmentPills.aria", "Open commitments on this thread")}
       className={cn(
-        "flex shrink-0 flex-wrap items-center gap-1.5 border-b border-line bg-inbox-panel/40 px-2 py-2.5",
+        "flex shrink-0 flex-wrap items-center gap-1.5 border-b border-line bg-inbox-panel/40 px-2.5 py-1.5",
         className,
       )}
     >
-      <span className="font-cakemono text-[11px] font-light uppercase leading-none tracking-[0.18em] text-text-3">
+      <span className="font-cakemono text-[10px] font-light uppercase leading-none tracking-[0.18em] text-text-mute">
         {t("commitmentPills.label", "Open commitments")}
       </span>
       {commitments.map((c) => {
@@ -68,7 +68,7 @@ export function CommitmentPills({
             key={c.id}
             data-testid="commitment-pill"
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-[2.5px] border bg-inbox-elev px-2 py-1 transition-opacity",
+              "inline-flex items-center gap-1.5 rounded-[2.5px] border bg-inbox-elev px-1.5 py-0.5 transition-opacity",
               c.urgent ? "border-rose/35" : "border-line-hi",
               resolving && "opacity-60",
             )}

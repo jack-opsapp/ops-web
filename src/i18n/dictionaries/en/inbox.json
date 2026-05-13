@@ -357,13 +357,23 @@
   "panel.title": "// INBOX",
 
   "filter.allChip": "[ALL ▾]",
+  "filter.rail.everything": "ALL",
+  "filter.rail.needsReply": "NEEDS REPLY",
+  "filter.rail.drafts": "DRAFTS",
+  "filter.rail.commitments": "COMMITMENTS",
+  "filter.rail.scheduled": "SCHEDULED",
+  "filter.rail.done": "DONE",
+  "more.menuLabel": "More inbox actions",
+  "more.refresh": "REFRESH",
+  "more.settings": "INBOX SETTINGS",
+  "more.archive": "ARCHIVED THREADS",
 
   "search.tacticPlaceholder": "[search threads — ⌘K]",
 
   "todayBar.yourMoveOverdue": "// YOUR MOVE :: {overdue} OVERDUE · {today} TODAY",
   "todayBar.yourMoveTodayOnly": "// YOUR MOVE :: {today} TODAY",
   "todayBar.caughtUpHeader": "// CAUGHT UP",
-  "todayBar.caughtUpBody": "[—] no open commitments · {sentToday} sent today",
+  "todayBar.caughtUpBody": "[—] no open commitments",
   "todayBar.stateWaiting": "+{days}D · WAITING",
   "todayBar.stateToday": "TODAY · {time}",
 
@@ -388,6 +398,7 @@
   "row.stateDraftReady": "DRAFT READY",
   "row.alarmStrip": "// {days}D · UNANSWERED",
   "row.claudeDraftPrefix": "// CLAUDE DRAFT ·",
+  "row.dismissAwaitingReply": "Mark no reply needed",
   "row.queueEmpty": "// QUEUE EMPTY",
   "row.queueEmptyBody": "[—] inbox is calibrated",
 
@@ -401,7 +412,10 @@
 
   "bands.ballYours.title": "// YOUR TURN :: {client}",
   "bands.ballYours.wait": "WAITING · {duration}",
+  "bands.ballYours.waitNone": "WAITING",
   "bands.ballYours.reply": "REPLY",
+  "bands.ballYours.acknowledge": "Mark no reply needed",
+  "bands.ballYours.snooze": "Snooze thread",
 
   "bands.summary.title": "// SUMMARY",
   "bands.summary.provenance": "updated by Claude · {minutes} MIN AGO",
@@ -517,6 +531,8 @@
   "toast.archivedTactic": "SYS :: THREAD ARCHIVED",
   "toast.snoozedTactic": "SYS :: SNOOZED UNTIL {time}",
   "toast.recategorizedTactic": "SYS :: MOVED TO {category}",
+  "toast.dismissedTactic": "SYS :: MARKED NO REPLY NEEDED",
+  "toast.dismissFailedTactic": "SYS :: DISMISS FAILED",
   "toast.undoTactic": "UNDO",
 
   "mobile.listPane": "// LIST",

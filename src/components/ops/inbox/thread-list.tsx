@@ -27,6 +27,12 @@ interface ThreadListProps {
   now: number;
   selectedThreadId: string | null;
   onSelect: (id: string) => void;
+  /**
+   * Passed through to each ThreadRow. When set, the inline YOURS chip
+   * reveals a hover-X that fires this callback with the row's thread id.
+   * Wire to `useThreadActions().dismissAwaitingReply` at the route layer.
+   */
+  onDismissAwaitingReply?: (threadId: string) => void;
   className?: string;
 }
 
@@ -51,6 +57,7 @@ export function ThreadList({
   now,
   selectedThreadId,
   onSelect,
+  onDismissAwaitingReply,
   className,
 }: ThreadListProps) {
   const { t } = useDictionary("inbox");
@@ -88,6 +95,7 @@ export function ThreadList({
                     selected={thread.id === selectedThreadId}
                     now={now}
                     onSelect={onSelect}
+                    onDismissAwaitingReply={onDismissAwaitingReply}
                   />
                 </li>
               ))}

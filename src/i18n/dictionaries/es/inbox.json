@@ -327,13 +327,23 @@
   "panel.title": "// BANDEJA",
 
   "filter.allChip": "[TODO ▾]",
+  "filter.rail.everything": "TODO",
+  "filter.rail.needsReply": "NECESITA RESPUESTA",
+  "filter.rail.drafts": "BORRADORES",
+  "filter.rail.commitments": "COMPROMISOS",
+  "filter.rail.scheduled": "PROGRAMADO",
+  "filter.rail.done": "HECHO",
+  "more.menuLabel": "Más acciones",
+  "more.refresh": "ACTUALIZAR",
+  "more.settings": "AJUSTES DE BANDEJA",
+  "more.archive": "HILOS ARCHIVADOS",
 
   "search.tacticPlaceholder": "[buscar hilos — ⌘K]",
 
   "todayBar.yourMoveOverdue": "// TE TOCA :: {overdue} VENCIDOS · {today} HOY",
   "todayBar.yourMoveTodayOnly": "// TE TOCA :: {today} HOY",
   "todayBar.caughtUpHeader": "// AL DÍA",
-  "todayBar.caughtUpBody": "[—] sin compromisos abiertos · {sentToday} enviados hoy",
+  "todayBar.caughtUpBody": "[—] sin compromisos abiertos",
   "todayBar.stateWaiting": "+{days}D · ESPERANDO",
   "todayBar.stateToday": "HOY · {time}",
 
@@ -358,6 +368,7 @@
   "row.stateDraftReady": "BORRADOR LISTO",
   "row.alarmStrip": "// {days}D · SIN RESPUESTA",
   "row.claudeDraftPrefix": "// BORRADOR DE CLAUDE ·",
+  "row.dismissAwaitingReply": "Marcar sin respuesta necesaria",
   "row.queueEmpty": "// COLA VACÍA",
   "row.queueEmptyBody": "[—] bandeja calibrada",
 
@@ -371,7 +382,10 @@
 
   "bands.ballYours.title": "// TU TURNO :: {client}",
   "bands.ballYours.wait": "ESPERANDO · {duration}",
+  "bands.ballYours.waitNone": "ESPERANDO",
   "bands.ballYours.reply": "RESPONDER",
+  "bands.ballYours.acknowledge": "Marcar sin respuesta necesaria",
+  "bands.ballYours.snooze": "Posponer hilo",
 
   "bands.summary.title": "// RESUMEN",
   "bands.summary.provenance": "actualizado por Claude · hace {minutes} MIN",
@@ -487,6 +501,8 @@
   "toast.archivedTactic": "SYS :: HILO ARCHIVADO",
   "toast.snoozedTactic": "SYS :: POSPUESTO HASTA {time}",
   "toast.recategorizedTactic": "SYS :: MOVIDO A {category}",
+  "toast.dismissedTactic": "SYS :: MARCADO SIN RESPUESTA NECESARIA",
+  "toast.dismissFailedTactic": "SYS :: FALLO AL DESCARTAR",
   "toast.undoTactic": "DESHACER",
 
   "mobile.listPane": "// LISTA",

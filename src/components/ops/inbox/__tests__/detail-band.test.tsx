@@ -31,7 +31,10 @@ describe("<DetailBand>", () => {
         onAction={() => {}}
       />,
     );
-    expect(screen.getByText(/SUMMARY/i)).toBeInTheDocument();
+    // The compact band drops the explicit `// SUMMARY` label — the
+    // agent-tinted bg + sparkle icon carry the provenance. We identify the
+    // band by its aria-label and confirm the body renders.
+    expect(screen.getByLabelText(/Claude summary/i)).toBeInTheDocument();
     expect(screen.getByText(/follow-up due Friday/)).toBeInTheDocument();
   });
 

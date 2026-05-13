@@ -3,7 +3,6 @@
 import { Sparkles } from "lucide-react";
 import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
-import { SlashLabel } from "../voice/slash-label";
 
 interface SummaryBandProps {
   body: string;
@@ -41,35 +40,33 @@ export function SummaryBand({
     <section
       aria-label={t("bands.summary.aria", "Claude summary")}
       className={cn(
-        "flex shrink-0 items-start gap-2.5 border-b border-line bg-agent-bg px-2 py-2.5",
+        // Compact single-row treatment: sparkle + body inline, provenance + HISTORY
+        // collapsed to a hover-revealed trailing affordance via the parent group.
+        // The summary is informational chrome — it shouldn't claim a second row.
+        "group/summary relative flex shrink-0 items-center gap-2 border-b border-line bg-agent-bg py-1.5 pl-2.5 pr-2",
         className,
       )}
     >
-      <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
-        <div className="flex items-center gap-2">
-          <SlashLabel label={t("bands.summary.title", "// SUMMARY")} tone="agent" />
-          <Sparkles aria-hidden className="h-3.5 w-3.5 shrink-0 text-agent-hi" strokeWidth={1.5} />
-          <span
-            className="font-mono text-[11px] uppercase tracking-[0.10em] text-text-3"
-            style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
-          >
-            {provenance}
-          </span>
-          {onHistory && (
-            <button
-              type="button"
-              onClick={onHistory}
-              aria-label={t("bands.summary.history", "Summary history")}
-              className="ml-auto font-cakemono text-[11px] font-light uppercase leading-none tracking-[0.14em] text-text-3 transition-colors hover:text-text-2"
-            >
-              {t("bands.summary.historyButton", "HISTORY")}
-            </button>
-          )}
-        </div>
-        <p className="font-mohave text-[12.5px] leading-[1.5] tracking-[-0.003em] text-agent-text text-pretty">
-          {body}
-        </p>
-      </div>
+      <Sparkles aria-hidden className="h-3.5 w-3.5 shrink-0 text-agent-hi" strokeWidth={1.5} />
+      <p className="min-w-0 flex-1 truncate font-mohave text-[12.5px] leading-[1.4] tracking-[-0.003em] text-agent-text">
+        {body}
+      </p>
+      <span
+        className="hidden shrink-0 font-mono text-[11px] uppercase tracking-[0.10em] text-text-3 group-hover/summary:inline"
+        style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
+      >
+        {provenance}
+      </span>
+      {onHistory && (
+        <button
+          type="button"
+          onClick={onHistory}
+          aria-label={t("bands.summary.history", "Summary history")}
+          className="hidden shrink-0 font-cakemono text-[11px] font-light uppercase leading-none tracking-[0.14em] text-text-3 transition-colors hover:text-text-2 group-hover/summary:inline-flex"
+        >
+          {t("bands.summary.historyButton", "HISTORY")}
+        </button>
+      )}
     </section>
   );
 }

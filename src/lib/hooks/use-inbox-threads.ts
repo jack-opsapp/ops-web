@@ -358,7 +358,15 @@ export function useInboxThread(threadId: string | null) {
 
 interface ActionArgs {
   threadId: string;
-  action: "archive" | "unarchive" | "snooze" | "unsnooze" | "recategorize" | "markRead";
+  action:
+    | "archive"
+    | "unarchive"
+    | "snooze"
+    | "unsnooze"
+    | "recategorize"
+    | "markRead"
+    | "dismissAwaitingReply"
+    | "restoreAwaitingReply";
   until?: string;
   toCategory?: EmailThreadCategory;
   note?: string;
@@ -379,6 +387,8 @@ export interface ActionResponse {
   linkedOpportunity?: ArchiveLinkedOpportunity;
   /** archive (needsConfirmation): other open threads on the same opportunity. */
   siblingThreads?: ArchiveSiblingThread[];
+  /** dismissAwaitingReply: the thread's new label array after AWAITING_REPLY is cleared. */
+  labels?: EmailThreadLabel[];
 }
 
 async function runThreadAction(args: ActionArgs): Promise<ActionResponse> {
@@ -539,6 +549,67 @@ export function useInboxDrafts(scope: InboxScope) {
     refetchInterval: 60_000,
     staleTime: 30_000,
     retry: 1,
+  });
+}
+
+/**
+ * Auto-save a provider draft. First call (no `draftId`) hits POST /api/inbox/drafts
+ * and provisions a new row in the connection's Drafts folder; subsequent calls
+ * pass back the returned id so the same row is updated in-place. The composer
+ * debounces calls — see `inbox-route.tsx`.
+ *
+ * Returns the canonical `draftId` so the caller can stash it for the next tick.
+ * Errors are surfaced but do not retry — auto-save is best-effort; if the
+ * provider is unreachable the user can still send (which uses a different code
+ * path) or copy their text out. The hook intentionally does NOT invalidate the
+ * drafts query on every save — that would refetch the entire merged list on
+ * every keystroke pause. Invalidation only fires on the FIRST save (when the
+ * row is newly created and needs to surface in the switcher).
+ */
+export interface SaveDraftArgs {
+  connectionId: string;
+  to: string;
+  subject: string;
+  body: string;
+  providerThreadId: string | null;
+  /** Existing provider draft id; omit on the first save for a thread. */
+  draftId: string | null;
+}
+
+export interface SaveDraftResponse {
+  ok: true;
+  draftId: string;
+  source: "provider";
+}
+
+export function useSaveDraft() {
+  const qc = useQueryClient();
+  return useMutation<SaveDraftResponse, Error, SaveDraftArgs>({
+    mutationFn: async (args) => {
+      const headers = {
+        ...(await authHeaders()),
+        "Content-Type": "application/json",
+      };
+      const res = await fetch(`/api/inbox/drafts`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(args),
+      });
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({}));
+        throw new Error(e.error || `save failed (${res.status})`);
+      }
+      return (await res.json()) as SaveDraftResponse;
+    },
+    onSuccess: (_res, args) => {
+      // Only refresh the drafts list when a brand-new row is created — the
+      // switcher needs it to appear. In-place updates don't change the list
+      // shape so refetching would be pure noise.
+      if (!args.draftId) {
+        qc.invalidateQueries({ queryKey: queryKeys.inbox.drafts("own") });
+        qc.invalidateQueries({ queryKey: queryKeys.inbox.drafts("company") });
+      }
+    },
   });
 }
 
@@ -714,6 +785,120 @@ export function useThreadActions() {
     },
   });
 
+  /**
+   * Clear the AWAITING_REPLY label on a thread — the hover-X affordance on
+   * the YOURS state-tag. Optimistically removes the label from every page
+   * in the threads infinite cache so the chip flips from YOURS → FYI without
+   * waiting for the refetch. On error, rolls back the optimistic update.
+   *
+   * onSuccess invalidates the lists for a real refresh; the optimistic
+   * update is purely a perceived-latency improvement.
+   */
+  const dismissAwaitingReply = useMutation({
+    mutationFn: (threadId: string) =>
+      runThreadAction({ threadId, action: "dismissAwaitingReply" }),
+    onMutate: async (threadId) => {
+      // Cancel any in-flight refetch so it doesn't clobber the optimistic
+      // mutation before the server response lands.
+      await qc.cancelQueries({ queryKey: queryKeys.inbox.threadsAll() });
+      const snapshot = qc.getQueriesData({
+        queryKey: queryKeys.inbox.threadsAll(),
+      });
+
+      // Strip AWAITING_REPLY from the matching row across every cached page
+      // of every list query (own/company × every filter). We treat the cache
+      // as opaque structurally and only touch the labels array on the row.
+      qc.setQueriesData(
+        { queryKey: queryKeys.inbox.threadsAll() },
+        (old: unknown) => {
+          if (!old || typeof old !== "object") return old;
+          const data = old as {
+            pages?: Array<{ threads: InboxThreadRow[]; nextCursor: string | null }>;
+            pageParams?: unknown;
+          };
+          if (!Array.isArray(data.pages)) return old;
+          return {
+            ...data,
+            pages: data.pages.map((page) => ({
+              ...page,
+              threads: page.threads.map((t) =>
+                t.id === threadId
+                  ? { ...t, labels: t.labels.filter((l) => l !== "AWAITING_REPLY") }
+                  : t,
+              ),
+            })),
+          };
+        },
+      );
+
+      return { snapshot };
+    },
+    onError: (_err, _threadId, ctx) => {
+      // Roll back every cache entry we touched.
+      if (ctx?.snapshot) {
+        for (const [key, value] of ctx.snapshot) {
+          qc.setQueryData(key, value);
+        }
+      }
+    },
+    onSuccess: (_res, threadId) => {
+      invalidateLists();
+      invalidateDetail(threadId);
+    },
+  });
+
+  /**
+   * Undo path for `dismissAwaitingReply`. Re-adds AWAITING_REPLY to the
+   * thread's labels. Optimistically writes the cache so the YOURS chip
+   * reappears immediately; rolls back on error.
+   */
+  const restoreAwaitingReply = useMutation({
+    mutationFn: (threadId: string) =>
+      runThreadAction({ threadId, action: "restoreAwaitingReply" }),
+    onMutate: async (threadId) => {
+      await qc.cancelQueries({ queryKey: queryKeys.inbox.threadsAll() });
+      const snapshot = qc.getQueriesData({
+        queryKey: queryKeys.inbox.threadsAll(),
+      });
+
+      qc.setQueriesData(
+        { queryKey: queryKeys.inbox.threadsAll() },
+        (old: unknown) => {
+          if (!old || typeof old !== "object") return old;
+          const data = old as {
+            pages?: Array<{ threads: InboxThreadRow[]; nextCursor: string | null }>;
+            pageParams?: unknown;
+          };
+          if (!Array.isArray(data.pages)) return old;
+          return {
+            ...data,
+            pages: data.pages.map((page) => ({
+              ...page,
+              threads: page.threads.map((t) =>
+                t.id === threadId && !t.labels.includes("AWAITING_REPLY")
+                  ? { ...t, labels: [...t.labels, "AWAITING_REPLY" as EmailThreadLabel] }
+                  : t,
+              ),
+            })),
+          };
+        },
+      );
+
+      return { snapshot };
+    },
+    onError: (_err, _threadId, ctx) => {
+      if (ctx?.snapshot) {
+        for (const [key, value] of ctx.snapshot) {
+          qc.setQueryData(key, value);
+        }
+      }
+    },
+    onSuccess: (_res, threadId) => {
+      invalidateLists();
+      invalidateDetail(threadId);
+    },
+  });
+
   const setWritebackPreference = useMutation({
     mutationFn: setWritebackPreferenceRequest,
     onSuccess: () => {
@@ -760,6 +945,8 @@ export function useThreadActions() {
     unsnooze,
     recategorize,
     markRead,
+    dismissAwaitingReply,
+    restoreAwaitingReply,
     setWritebackPreference,
     setLeadArchivePreference,
     archiveBatch,

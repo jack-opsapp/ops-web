@@ -82,7 +82,7 @@ describe("<ThreadList>", () => {
         onSelect={onSelect}
       />,
     );
-    screen.getByRole("button", { name: /Gamma/i }).click();
+    screen.getByRole("link", { name: /Gamma.*Subject xyz/i }).click();
     expect(onSelect).toHaveBeenCalledWith("xyz");
   });
 
