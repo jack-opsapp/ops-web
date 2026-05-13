@@ -2,11 +2,16 @@
 
 import { useEffect, type ReactNode } from "react";
 import { ThreadDetailHeader } from "./thread-detail-header";
+import type { EmailThreadCategory } from "@/lib/types/email-thread";
 import { cn } from "@/lib/utils/cn";
 
 interface ThreadDetailProps {
   subject: string;
-  category?: { label: string; dotClassName: string } | null;
+  /**
+   * Raw classifier category. Forwarded to `<ThreadDetailHeader>` which
+   * renders it through `<CategoryChip>` for canonical tone-per-category.
+   */
+  category?: EmailThreadCategory | null;
   senderName: string;
   messageCount: number;
   otherThreadCount?: number;

@@ -5,7 +5,7 @@ import { EmptyDetailHeader } from "../thread-detail-header";
 
 const baseProps = {
   subject: "RFQ — kitchen remodel",
-  category: { label: "CUSTOMER", dotClassName: "bg-text-2" },
+  category: "CUSTOMER" as const,
   senderName: "Calloway HVAC",
   messageCount: 4,
   onPrev: vi.fn(),

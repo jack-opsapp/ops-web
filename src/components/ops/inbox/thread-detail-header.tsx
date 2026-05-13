@@ -10,12 +10,20 @@ import {
 import { forwardRef, type ReactNode } from "react";
 import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
+import type { EmailThreadCategory } from "@/lib/types/email-thread";
 import { SlashLabel } from "./voice/slash-label";
-import { StateTag } from "./state-tag";
+import { CategoryChip } from "./category-chip";
 
 interface ThreadDetailHeaderProps {
   subject: string;
-  category?: { label: string; dotClassName: string } | null;
+  /**
+   * Raw classifier category. Renders through `<CategoryChip>` so the chip
+   * carries the canonical tone-per-category (tan for CUSTOMER, rose for LEGAL,
+   * neutral for low-priority MARKETING/RECEIPT/etc.). Pass `null` when the
+   * thread hasn't been classified yet — the chip is skipped and the meta
+   * strip still renders sender + count.
+   */
+  category?: EmailThreadCategory | null;
   senderName: string;
   messageCount: number;
   /** @deprecated Use `threadPickerSlot` instead. Held for backward compat with existing call sites; ignored at render time. */
@@ -143,12 +151,7 @@ export function ThreadDetailHeader({
       >
         {category && (
           <>
-            <StateTag
-              tone="neutral"
-              variant="solid"
-              bracketed
-              prefix={category.label.toUpperCase()}
-            />
+            <CategoryChip category={category} size="sm" />
             <span aria-hidden className="text-text-mute">
               ·
             </span>

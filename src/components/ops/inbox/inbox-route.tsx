@@ -77,10 +77,6 @@ import {
 import { DetailBand } from "./detail-band";
 import { MessageList, type RenderableMessage } from "./message-list";
 import { Composer } from "./composer/composer";
-import {
-  categoryDotClassName,
-  categoryLabel as resolveCategoryLabel,
-} from "./category-chip";
 import { ContextRail } from "./context-rail/context-rail";
 import { type PipelineOpp } from "./context-rail/pipeline-list";
 import { WorkView } from "./context-rail/work-view";
@@ -566,10 +562,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
   const detailNode = detail ? (
     <ThreadDetail
       subject={detail.thread.subject ?? t("detail.untitled", "(no subject)")}
-      category={{
-        label: resolveCategoryLabel(detail.thread.primaryCategory),
-        dotClassName: categoryDotClassName(detail.thread.primaryCategory),
-      }}
+      category={detail.thread.primaryCategory}
       senderName={
         detail.thread.clientName ??
         guessSenderName(detail.messages) ??
