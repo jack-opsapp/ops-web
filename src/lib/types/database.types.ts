@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.1"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       ab_config: {
@@ -342,6 +367,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           direction: string | null
+          draft_history_id: string | null
           duration_minutes: number | null
           email_message_id: string | null
           email_thread_id: string | null
@@ -377,6 +403,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           direction?: string | null
+          draft_history_id?: string | null
           duration_minutes?: number | null
           email_message_id?: string | null
           email_thread_id?: string | null
@@ -412,6 +439,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           direction?: string | null
+          draft_history_id?: string | null
           duration_minutes?: number | null
           email_message_id?: string | null
           email_thread_id?: string | null
@@ -434,6 +462,13 @@ export type Database = {
           type?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "activities_draft_history_id_fkey"
+            columns: ["draft_history_id"]
+            isOneToOne: false
+            referencedRelation: "ai_draft_history"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "activities_estimate_id_fkey"
             columns: ["estimate_id"]
@@ -2131,6 +2166,13 @@ export type Database = {
             foreignKeyName: "calendar_events_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
+            referencedRelation: "project_table_rows"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calendar_events_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
             referencedRelation: "projects"
             referencedColumns: ["id"]
           },
@@ -3773,6 +3815,13 @@ export type Database = {
             foreignKeyName: "deck_designs_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
+            referencedRelation: "project_table_rows"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deck_designs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
             referencedRelation: "projects"
             referencedColumns: ["id"]
           },
@@ -4974,6 +5023,13 @@ export type Database = {
             foreignKeyName: "estimates_project_ref_fkey"
             columns: ["project_ref"]
             isOneToOne: false
+            referencedRelation: "project_table_rows"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "estimates_project_ref_fkey"
+            columns: ["project_ref"]
+            isOneToOne: false
             referencedRelation: "projects"
             referencedColumns: ["id"]
           },
@@ -5206,6 +5262,9 @@ export type Database = {
           auto_approve_threshold: number | null
           company_id: string
           created_at: string | null
+          forecast_balance_updated_at: string | null
+          forecast_current_balance: number | null
+          forecast_low_water_threshold: number | null
           id: string
           require_project_assignment: boolean | null
           require_receipt_photo: boolean | null
@@ -5217,6 +5276,9 @@ export type Database = {
           auto_approve_threshold?: number | null
           company_id: string
           created_at?: string | null
+          forecast_balance_updated_at?: string | null
+          forecast_current_balance?: number | null
+          forecast_low_water_threshold?: number | null
           id?: string
           require_project_assignment?: boolean | null
           require_receipt_photo?: boolean | null
@@ -5228,6 +5290,9 @@ export type Database = {
           auto_approve_threshold?: number | null
           company_id?: string
           created_at?: string | null
+          forecast_balance_updated_at?: string | null
+          forecast_current_balance?: number | null
+          forecast_low_water_threshold?: number | null
           id?: string
           require_project_assignment?: boolean | null
           require_receipt_photo?: boolean | null
@@ -5541,6 +5606,44 @@ export type Database = {
           },
         ]
       }
+      forecast_alerts: {
+        Row: {
+          company_id: string
+          dismissed_until_balance: number | null
+          last_cleared_at: string | null
+          last_dip_min_balance: number | null
+          last_dip_min_week_start: string | null
+          last_dip_notified_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          dismissed_until_balance?: number | null
+          last_cleared_at?: string | null
+          last_dip_min_balance?: number | null
+          last_dip_min_week_start?: string | null
+          last_dip_notified_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          dismissed_until_balance?: number | null
+          last_cleared_at?: string | null
+          last_dip_min_balance?: number | null
+          last_dip_min_week_start?: string | null
+          last_dip_notified_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "forecast_alerts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       gmail_import_jobs: {
         Row: {
           clients_created: number | null
@@ -5787,6 +5890,13 @@ export type Database = {
             foreignKeyName: "inventory_deductions_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
+            referencedRelation: "project_table_rows"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_deductions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
             referencedRelation: "projects"
             referencedColumns: ["id"]
           },
@@ -5943,6 +6053,13 @@ export type Database = {
             columns: ["opportunity_id"]
             isOneToOne: false
             referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_project_ref_fkey"
+            columns: ["project_ref"]
+            isOneToOne: false
+            referencedRelation: "project_table_rows"
             referencedColumns: ["id"]
           },
           {
@@ -6878,6 +6995,13 @@ export type Database = {
             foreignKeyName: "opportunities_project_ref_fkey"
             columns: ["project_ref"]
             isOneToOne: false
+            referencedRelation: "project_table_rows"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunities_project_ref_fkey"
+            columns: ["project_ref"]
+            isOneToOne: false
             referencedRelation: "projects"
             referencedColumns: ["id"]
           },
@@ -6962,6 +7086,7 @@ export type Database = {
         Row: {
           amount: number
           estimate_id: string
+          expected_date: string | null
           id: string
           invoice_id: string | null
           name: string
@@ -6973,6 +7098,7 @@ export type Database = {
         Insert: {
           amount: number
           estimate_id: string
+          expected_date?: string | null
           id?: string
           invoice_id?: string | null
           name: string
@@ -6984,6 +7110,7 @@ export type Database = {
         Update: {
           amount?: number
           estimate_id?: string
+          expected_date?: string | null
           id?: string
           invoice_id?: string | null
           name?: string
@@ -7630,6 +7757,64 @@ export type Database = {
         }
         Relationships: []
       }
+      product_bundle_items: {
+        Row: {
+          bundle_product_id: string
+          child_product_id: string
+          company_id: string
+          created_at: string
+          deleted_at: string | null
+          display_order: number
+          id: string
+          quantity: number
+          updated_at: string
+        }
+        Insert: {
+          bundle_product_id: string
+          child_product_id: string
+          company_id: string
+          created_at?: string
+          deleted_at?: string | null
+          display_order?: number
+          id?: string
+          quantity?: number
+          updated_at?: string
+        }
+        Update: {
+          bundle_product_id?: string
+          child_product_id?: string
+          company_id?: string
+          created_at?: string
+          deleted_at?: string | null
+          display_order?: number
+          id?: string
+          quantity?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_bundle_items_bundle_product_id_fkey"
+            columns: ["bundle_product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_bundle_items_child_product_id_fkey"
+            columns: ["child_product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_bundle_items_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_materials: {
         Row: {
           catalog_item_id: string | null
@@ -7896,7 +8081,9 @@ export type Database = {
       products: {
         Row: {
           base_price: number
+          bundle_pricing_mode: string | null
           category: string | null
+          category_id: string | null
           company_id: string
           created_at: string | null
           default_price: number
@@ -7907,6 +8094,7 @@ export type Database = {
           is_favorite: boolean
           is_taxable: boolean | null
           kind: string
+          linked_catalog_item_id: string | null
           minimum_charge: number | null
           minimum_quantity: number | null
           name: string
@@ -7916,6 +8104,7 @@ export type Database = {
           sku: string | null
           task_type_id: string | null
           task_type_ref: string | null
+          thumbnail_url: string | null
           tiered_pricing: Json
           type: string
           unit: string | null
@@ -7925,7 +8114,9 @@ export type Database = {
         }
         Insert: {
           base_price?: number
+          bundle_pricing_mode?: string | null
           category?: string | null
+          category_id?: string | null
           company_id: string
           created_at?: string | null
           default_price?: number
@@ -7936,6 +8127,7 @@ export type Database = {
           is_favorite?: boolean
           is_taxable?: boolean | null
           kind?: string
+          linked_catalog_item_id?: string | null
           minimum_charge?: number | null
           minimum_quantity?: number | null
           name: string
@@ -7945,6 +8137,7 @@ export type Database = {
           sku?: string | null
           task_type_id?: string | null
           task_type_ref?: string | null
+          thumbnail_url?: string | null
           tiered_pricing?: Json
           type?: string
           unit?: string | null
@@ -7954,7 +8147,9 @@ export type Database = {
         }
         Update: {
           base_price?: number
+          bundle_pricing_mode?: string | null
           category?: string | null
+          category_id?: string | null
           company_id?: string
           created_at?: string | null
           default_price?: number
@@ -7965,6 +8160,7 @@ export type Database = {
           is_favorite?: boolean
           is_taxable?: boolean | null
           kind?: string
+          linked_catalog_item_id?: string | null
           minimum_charge?: number | null
           minimum_quantity?: number | null
           name?: string
@@ -7974,6 +8170,7 @@ export type Database = {
           sku?: string | null
           task_type_id?: string | null
           task_type_ref?: string | null
+          thumbnail_url?: string | null
           tiered_pricing?: Json
           type?: string
           unit?: string | null
@@ -7982,6 +8179,20 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "products_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_linked_catalog_item_id_fkey"
+            columns: ["linked_catalog_item_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_items"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "products_task_type_ref_fkey"
             columns: ["task_type_ref"]
@@ -8046,6 +8257,7 @@ export type Database = {
           company_id: string
           created_at: string
           deleted_at: string | null
+          dimensions: Json | null
           id: string
           note: string | null
           photo_url: string
@@ -8058,6 +8270,7 @@ export type Database = {
           company_id: string
           created_at?: string
           deleted_at?: string | null
+          dimensions?: Json | null
           id?: string
           note?: string | null
           photo_url: string
@@ -8070,6 +8283,7 @@ export type Database = {
           company_id?: string
           created_at?: string
           deleted_at?: string | null
+          dimensions?: Json | null
           id?: string
           note?: string | null
           photo_url?: string
@@ -8149,11 +8363,13 @@ export type Database = {
           end_time: string | null
           id: string
           inventory_deducted: boolean
+          paired_from_task_id: string | null
           project_id: string
           recurrence_id: string | null
           recurrence_origin_date: string | null
           schedule_confirmed_at: string | null
           schedule_confirmed_by: string | null
+          schedule_locked: boolean
           source_estimate_id: string | null
           source_line_item_id: string | null
           start_date: string | null
@@ -8179,11 +8395,13 @@ export type Database = {
           end_time?: string | null
           id?: string
           inventory_deducted?: boolean
+          paired_from_task_id?: string | null
           project_id: string
           recurrence_id?: string | null
           recurrence_origin_date?: string | null
           schedule_confirmed_at?: string | null
           schedule_confirmed_by?: string | null
+          schedule_locked?: boolean
           source_estimate_id?: string | null
           source_line_item_id?: string | null
           start_date?: string | null
@@ -8209,11 +8427,13 @@ export type Database = {
           end_time?: string | null
           id?: string
           inventory_deducted?: boolean
+          paired_from_task_id?: string | null
           project_id?: string
           recurrence_id?: string | null
           recurrence_origin_date?: string | null
           schedule_confirmed_at?: string | null
           schedule_confirmed_by?: string | null
+          schedule_locked?: boolean
           source_estimate_id?: string | null
           source_line_item_id?: string | null
           start_date?: string | null
@@ -8231,6 +8451,20 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_tasks_paired_from_task_id_fkey"
+            columns: ["paired_from_task_id"]
+            isOneToOne: false
+            referencedRelation: "project_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_tasks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "project_table_rows"
             referencedColumns: ["id"]
           },
           {
@@ -8271,6 +8505,87 @@ export type Database = {
         }
         Relationships: []
       }
+      project_views: {
+        Row: {
+          columns: Json
+          company_id: string
+          created_at: string
+          created_by: string | null
+          density: string
+          description: string | null
+          filters: Json
+          icon: string | null
+          id: string
+          is_archived: boolean
+          is_default: boolean
+          name: string
+          owner_id: string
+          owner_type: string
+          permission_key: string | null
+          sort: Json
+          sort_position: number
+          updated_at: string
+          zoom_level: number
+        }
+        Insert: {
+          columns: Json
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          density?: string
+          description?: string | null
+          filters: Json
+          icon?: string | null
+          id?: string
+          is_archived?: boolean
+          is_default?: boolean
+          name: string
+          owner_id: string
+          owner_type: string
+          permission_key?: string | null
+          sort: Json
+          sort_position?: number
+          updated_at?: string
+          zoom_level?: number
+        }
+        Update: {
+          columns?: Json
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          density?: string
+          description?: string | null
+          filters?: Json
+          icon?: string | null
+          id?: string
+          is_archived?: boolean
+          is_default?: boolean
+          name?: string
+          owner_id?: string
+          owner_type?: string
+          permission_key?: string | null
+          sort?: Json
+          sort_position?: number
+          updated_at?: string
+          zoom_level?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_views_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_views_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       projects: {
         Row: {
           address: string | null
@@ -8280,6 +8595,7 @@ export type Database = {
           company_id: string
           completed_at: string | null
           created_at: string | null
+          created_by: string | null
           deleted_at: string | null
           description: string | null
           duration: number | null
@@ -8306,6 +8622,7 @@ export type Database = {
           company_id: string
           completed_at?: string | null
           created_at?: string | null
+          created_by?: string | null
           deleted_at?: string | null
           description?: string | null
           duration?: number | null
@@ -8332,6 +8649,7 @@ export type Database = {
           company_id?: string
           completed_at?: string | null
           created_at?: string | null
+          created_by?: string | null
           deleted_at?: string | null
           description?: string | null
           duration?: number | null
@@ -8600,6 +8918,79 @@ export type Database = {
           version_availability?: string[]
         }
         Relationships: []
+      }
+      recurring_expenses: {
+        Row: {
+          amount: number
+          cadence: string
+          category_id: string | null
+          company_id: string
+          created_at: string
+          created_by: string | null
+          currency: string
+          deleted_at: string | null
+          end_date: string | null
+          id: string
+          name: string
+          next_due_date: string
+          notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          cadence: string
+          category_id?: string | null
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          deleted_at?: string | null
+          end_date?: string | null
+          id?: string
+          name: string
+          next_due_date: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          cadence?: string
+          category_id?: string | null
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          deleted_at?: string | null
+          end_date?: string | null
+          id?: string
+          name?: string
+          next_due_date?: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recurring_expenses_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "expense_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurring_expenses_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurring_expenses_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       role_permissions: {
         Row: {
@@ -9233,6 +9624,13 @@ export type Database = {
             foreignKeyName: "site_visits_project_ref_fkey"
             columns: ["project_ref"]
             isOneToOne: false
+            referencedRelation: "project_table_rows"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_visits_project_ref_fkey"
+            columns: ["project_ref"]
+            isOneToOne: false
             referencedRelation: "projects"
             referencedColumns: ["id"]
           },
@@ -9580,6 +9978,13 @@ export type Database = {
             foreignKeyName: "task_recurrences_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
+            referencedRelation: "project_table_rows"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_recurrences_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
             referencedRelation: "projects"
             referencedColumns: ["id"]
           },
@@ -9588,6 +9993,84 @@ export type Database = {
             columns: ["task_type_id"]
             isOneToOne: false
             referencedRelation: "task_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_reminders: {
+        Row: {
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          company_id: string
+          created_at: string
+          deleted_at: string | null
+          dismissed_at: string | null
+          fire_time_local: string
+          fires_at: string | null
+          id: string
+          label: string
+          lead_time_days: number
+          notified_at: string | null
+          recipient_config: Json
+          recipient_mode: string
+          requires_ack: boolean
+          source_template_id: string | null
+          task_id: string
+          updated_at: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          company_id: string
+          created_at?: string
+          deleted_at?: string | null
+          dismissed_at?: string | null
+          fire_time_local?: string
+          fires_at?: string | null
+          id?: string
+          label: string
+          lead_time_days: number
+          notified_at?: string | null
+          recipient_config?: Json
+          recipient_mode: string
+          requires_ack: boolean
+          source_template_id?: string | null
+          task_id: string
+          updated_at?: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          company_id?: string
+          created_at?: string
+          deleted_at?: string | null
+          dismissed_at?: string | null
+          fire_time_local?: string
+          fires_at?: string | null
+          id?: string
+          label?: string
+          lead_time_days?: number
+          notified_at?: string | null
+          recipient_config?: Json
+          recipient_mode?: string
+          requires_ack?: boolean
+          source_template_id?: string | null
+          task_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_reminders_source_template_id_fkey"
+            columns: ["source_template_id"]
+            isOneToOne: false
+            referencedRelation: "task_type_reminders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_reminders_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "project_tasks"
             referencedColumns: ["id"]
           },
         ]
@@ -9660,12 +10143,69 @@ export type Database = {
           },
         ]
       }
+      task_type_reminders: {
+        Row: {
+          company_id: string
+          created_at: string
+          deleted_at: string | null
+          display_order: number
+          fire_time_local: string
+          id: string
+          label: string
+          lead_time_days: number
+          recipient_config: Json
+          recipient_mode: string
+          requires_ack: boolean
+          task_type_id: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          deleted_at?: string | null
+          display_order?: number
+          fire_time_local?: string
+          id?: string
+          label: string
+          lead_time_days?: number
+          recipient_config?: Json
+          recipient_mode?: string
+          requires_ack?: boolean
+          task_type_id: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          deleted_at?: string | null
+          display_order?: number
+          fire_time_local?: string
+          id?: string
+          label?: string
+          lead_time_days?: number
+          recipient_config?: Json
+          recipient_mode?: string
+          requires_ack?: boolean
+          task_type_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_type_reminders_task_type_id_fkey"
+            columns: ["task_type_id"]
+            isOneToOne: false
+            referencedRelation: "task_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       task_types: {
         Row: {
           bubble_id: string | null
           color: string
           company_id: string
           created_at: string | null
+          default_duration: number
           default_team_member_ids: string[] | null
           deleted_at: string | null
           dependencies: Json | null
@@ -9681,6 +10221,7 @@ export type Database = {
           color?: string
           company_id: string
           created_at?: string | null
+          default_duration?: number
           default_team_member_ids?: string[] | null
           deleted_at?: string | null
           dependencies?: Json | null
@@ -9696,6 +10237,7 @@ export type Database = {
           color?: string
           company_id?: string
           created_at?: string | null
+          default_duration?: number
           default_team_member_ids?: string[] | null
           deleted_at?: string | null
           dependencies?: Json | null
@@ -10277,6 +10819,13 @@ export type Database = {
             foreignKeyName: "weather_forecasts_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
+            referencedRelation: "project_table_rows"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weather_forecasts_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
             referencedRelation: "projects"
             referencedColumns: ["id"]
           },
@@ -10735,11 +11284,70 @@ export type Database = {
           },
         ]
       }
+      project_table_rows: {
+        Row: {
+          address: string | null
+          client_email: string | null
+          client_id: string | null
+          client_name: string | null
+          client_phone: string | null
+          company_id: string | null
+          completed_at: string | null
+          created_at: string | null
+          days_in_status: number | null
+          duration: number | null
+          end_date: string | null
+          estimate_total: number | null
+          id: string | null
+          invoice_total: number | null
+          margin: number | null
+          next_task: string | null
+          notes: string | null
+          paid_total: number | null
+          photo_count: number | null
+          progress: number | null
+          project_cost: number | null
+          start_date: string | null
+          status: string | null
+          task_completed_count: number | null
+          task_count: number | null
+          team_member_ids: string[] | null
+          title: string | null
+          trade: string | null
+          updated_at: string | null
+          value: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "projects_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       acquire_phase_c_lock: {
         Args: { p_holder: string; p_job_id: string; p_lease_seconds?: number }
         Returns: boolean
+      }
+      assign_project_team_member: {
+        Args: {
+          p_expected_updated_at: string
+          p_project_id: string
+          p_task_ids: string[]
+          p_user_id: string
+        }
+        Returns: Json
       }
       campaign_engagement_stats: {
         Args: { p_campaign_id: string }
@@ -10751,6 +11359,22 @@ export type Database = {
           stage: string
           value: number
         }[]
+      }
+      catalog_import_apply: {
+        Args: { p_company_id: string; p_payload: Json }
+        Returns: Json
+      }
+      catalog_import_validate: {
+        Args: { p_company_id: string; p_payload: Json }
+        Returns: Json
+      }
+      change_project_status: {
+        Args: {
+          p_expected_updated_at: string
+          p_new_status: string
+          p_project_id: string
+        }
+        Returns: Json
       }
       check_pending_invites: { Args: { p_email: string }; Returns: Json }
       check_user_exists_by_email: {
@@ -10769,6 +11393,15 @@ export type Database = {
           retry_count: number
           template_payload: Json
         }[]
+      }
+      compute_reminder_fires_at: {
+        Args: {
+          p_company_id: string
+          p_fire_time_local: string
+          p_lead_time_days: number
+          p_task_start_date: string
+        }
+        Returns: string
       }
       convert_estimate_to_invoice: {
         Args: { p_due_date?: string; p_estimate_id: string }
@@ -10834,6 +11467,7 @@ export type Database = {
           domain: string
         }[]
       }
+      fire_due_task_reminders: { Args: never; Returns: number }
       generate_product_sku: {
         Args: { p_category: string; p_company_id: string; p_kind: string }
         Returns: string
@@ -10895,6 +11529,28 @@ export type Database = {
           to: "expense_batches"
           isOneToOne: true
           isSetofReturn: false
+        }
+      }
+      get_photo_annotations_since: {
+        Args: { p_since?: string }
+        Returns: {
+          annotation_url: string | null
+          author_id: string
+          company_id: string
+          created_at: string
+          deleted_at: string | null
+          dimensions: Json | null
+          id: string
+          note: string | null
+          photo_url: string
+          project_id: string
+          updated_at: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "project_photo_annotations"
+          isOneToOne: false
+          isSetofReturn: true
         }
       }
       get_user_company_id: { Args: never; Returns: string }
@@ -11121,6 +11777,14 @@ export type Database = {
         }[]
       }
       pmf_sparkline: { Args: { kind: string }; Returns: number[] }
+      products_import_apply: {
+        Args: { p_company_id: string; p_payload: Json }
+        Returns: Json
+      }
+      products_import_validate: {
+        Args: { p_company_id: string; p_payload: Json }
+        Returns: Json
+      }
       project_pipeline_summary: {
         Args: { p_project_id: string }
         Returns: {
@@ -11145,6 +11809,15 @@ export type Database = {
         Args: { p_holder: string; p_job_id: string }
         Returns: undefined
       }
+      remove_project_team_member: {
+        Args: {
+          p_expected_updated_at?: string
+          p_project_id: string
+          p_task_ids?: string[]
+          p_user_id: string
+        }
+        Returns: Json
+      }
       remove_seated_employee: {
         Args: { p_company_id: string; p_user_id: string }
         Returns: undefined
@@ -11152,6 +11825,15 @@ export type Database = {
       resolve_product_price: {
         Args: { p_client_id: string; p_product_id: string }
         Returns: number
+      }
+      resolve_task_reminder_recipients: {
+        Args: {
+          p_company_id: string
+          p_recipient_config: Json
+          p_recipient_mode: string
+          p_task_team_members: string[]
+        }
+        Returns: string[]
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
@@ -11233,7 +11915,12 @@ export type Database = {
       enrollment_status: "active" | "completed" | "expired" | "purchased"
       gmail_connection_type: "company" | "individual"
       lesson_progress_status: "not_started" | "in_progress" | "completed"
-      photo_source: "site_visit" | "in_progress" | "completion" | "other"
+      photo_source:
+        | "site_visit"
+        | "in_progress"
+        | "completion"
+        | "other"
+        | "measurement"
       quiz_question_type: "multiple_choice" | "scenario" | "true_false"
       site_visit_status: "scheduled" | "in_progress" | "completed" | "cancelled"
     }
@@ -11361,6 +12048,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       assessment_type: ["quiz", "assignment", "test"],
@@ -11405,10 +12095,15 @@ export const Constants = {
       enrollment_status: ["active", "completed", "expired", "purchased"],
       gmail_connection_type: ["company", "individual"],
       lesson_progress_status: ["not_started", "in_progress", "completed"],
-      photo_source: ["site_visit", "in_progress", "completion", "other"],
+      photo_source: [
+        "site_visit",
+        "in_progress",
+        "completion",
+        "other",
+        "measurement",
+      ],
       quiz_question_type: ["multiple_choice", "scenario", "true_false"],
       site_visit_status: ["scheduled", "in_progress", "completed", "cancelled"],
     },
   },
 } as const
-
