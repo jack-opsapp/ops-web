@@ -67,6 +67,7 @@ import { ThreadColumnHeader } from "./thread-column-header";
 import { DraftsChip } from "./drafts-chip";
 import { SnoozedChip } from "./snoozed-chip";
 import { TodayBar, type TodayCommitment } from "./today-bar";
+import { RailEmptyState } from "./rail-empty-state";
 import { ThreadList, type ThreadListItem } from "./thread-list";
 import { ThreadDetail } from "./thread-detail";
 import {
@@ -468,7 +469,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
       {threadsQuery.isLoading ? (
         <EmptyState label={t("list.loading", "Loading…")} />
       ) : rows.length === 0 ? (
-        <EmptyState label={t("list.empty", "All caught up")} />
+        <RailEmptyState rail={filter} />
       ) : (
         <ThreadList
           threads={rows}
