@@ -1,14 +1,11 @@
 "use client";
 
-import { memo, useMemo, type CSSProperties } from "react";
+import { memo, useMemo } from "react";
 import { useDictionary } from "@/i18n/client";
 import {
   type Opportunity,
   OpportunityStage,
   OPPORTUNITY_STAGE_COLORS,
-  formatCurrency,
-  getDaysInStage,
-  getStageDisplayName,
 } from "@/lib/types/pipeline";
 import { calculateBatchStaleness } from "./spatial-staleness";
 import { PipelineFocusedCard } from "./pipeline-focused-card";
@@ -25,8 +22,7 @@ type FocusedColumnActionHandlers = {
   onScheduleFollowUp: (id: string) => void;
 };
 
-export interface PipelineFocusedColumnProps
-  extends FocusedColumnActionHandlers {
+export interface PipelineFocusedColumnProps extends FocusedColumnActionHandlers {
   stage: OpportunityStage;
   opportunities: Opportunity[];
   clientNameMap: Map<string, string>;
@@ -34,22 +30,11 @@ export interface PipelineFocusedColumnProps
   filtersActive: boolean;
   focusedTabId: string;
   focusedPanelId: string;
+  isLoading?: boolean;
+  isError?: boolean;
+  onRetry?: () => void;
   onAddLead: () => void;
   onClearFilters: () => void;
-}
-
-const NUMBER_STYLE: CSSProperties = {
-  fontVariantNumeric: "tabular-nums",
-  fontFeatureSettings: '"tnum" 1, "zero" 1',
-};
-
-function averageDaysInStage(opportunities: Opportunity[]): number | null {
-  if (opportunities.length === 0) return null;
-  const totalDays = opportunities.reduce(
-    (sum, opportunity) => sum + getDaysInStage(opportunity),
-    0
-  );
-  return Math.round(totalDays / opportunities.length);
 }
 
 export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
@@ -60,6 +45,9 @@ export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
   filtersActive,
   focusedTabId,
   focusedPanelId,
+  isLoading = false,
+  isError = false,
+  onRetry,
   onAddLead,
   onClearFilters,
   onLogCall,
@@ -73,20 +61,9 @@ export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
   onScheduleFollowUp,
 }: PipelineFocusedColumnProps) {
   const { t } = useDictionary("pipeline");
-  const stageName = getStageDisplayName(stage);
-  const stageColor = OPPORTUNITY_STAGE_COLORS[stage] ?? "#8F9AA3";
-  const totalEstimatedValue = useMemo(
-    () =>
-      opportunities.reduce(
-        (sum, opportunity) => sum + (opportunity.estimatedValue ?? 0),
-        0
-      ),
-    [opportunities]
-  );
-  const avgDays = useMemo(
-    () => averageDaysInStage(opportunities),
-    [opportunities]
-  );
+  const stageColor =
+    OPPORTUNITY_STAGE_COLORS[stage] ??
+    OPPORTUNITY_STAGE_COLORS[OpportunityStage.NewLead];
   const stalenessMap = useMemo(
     () => calculateBatchStaleness(opportunities),
     [opportunities]
@@ -100,118 +77,107 @@ export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
   const emptyActionHandler = filtersActive ? onClearFilters : onAddLead;
 
   return (
-    <section className="relative h-full w-full min-w-0">
-      <header
-        className="glass-dense absolute left-0 right-0 top-[112px] z-[2] isolate min-h-[52px] overflow-hidden px-3 py-2"
-        style={{
-          background: "var(--surface-glass-dense)",
-          backdropFilter:
-            "blur(var(--glass-blur)) saturate(var(--glass-saturate))",
-          WebkitBackdropFilter:
-            "blur(var(--glass-blur)) saturate(var(--glass-saturate))",
-        }}
-      >
-        <span
-          aria-hidden="true"
-          className="absolute bottom-2 left-0 top-2 w-[2px]"
-          style={{ backgroundColor: stageColor }}
-        />
-
-        <div className="relative z-[1] flex min-h-[36px] items-center justify-between gap-4">
+    <section
+      id={focusedPanelId}
+      role="tabpanel"
+      aria-labelledby={focusedTabId}
+      aria-busy={isLoading ? true : undefined}
+      className="scrollbar-hide h-full min-h-0 overflow-y-auto pt-[188px]"
+    >
+      {isError ? (
+        <div
+          role="alert"
+          data-testid="pipeline-focused-error"
+          className="flex min-h-full flex-col items-start gap-3 pb-[44px] pt-[24px]"
+        >
+          <p className="font-mono text-caption-sm uppercase text-text">
+            {t("focused.error.title", "// PIPELINE UNREACHABLE")}
+          </p>
           <button
             type="button"
-            role="tab"
-            id={focusedTabId}
-            aria-selected={true}
-            aria-controls={focusedPanelId}
-            tabIndex={0}
-            className="m-0 min-w-0 cursor-default appearance-none truncate rounded-[5px] border-0 bg-transparent p-0 text-left font-cakemono text-[22px] font-light uppercase leading-none text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
+            className="rounded-chip border border-line px-3 py-2 font-cakemono text-caption-sm font-light uppercase text-text-2 transition-colors duration-150 hover:bg-surface-hover hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
+            onClick={() => {
+              onRetry?.();
+            }}
           >
-            {stageName}
+            {t("focused.error.action", "[RETRY]")}
           </button>
-
-          <dl className="grid w-[280px] shrink-0 grid-cols-3 gap-2">
-            <Metric
-              label={t("focused.metrics.count", "COUNT")}
-              value={String(opportunities.length)}
-            />
-            <Metric
-              label={t("focused.metrics.value", "VALUE")}
-              value={formatCurrency(totalEstimatedValue)}
-            />
-            <Metric
-              label={t("focused.metrics.avgDays", "AVG DAYS")}
-              value={avgDays === null ? "—" : `${avgDays}d`}
-            />
-          </dl>
         </div>
-      </header>
+      ) : isLoading ? (
+        <div className="flex min-h-full flex-col gap-2 pb-[44px]">
+          {[0, 1, 2].map((index) => (
+            <FocusedLoadingCard key={index} stageColor={stageColor} />
+          ))}
+        </div>
+      ) : opportunities.length > 0 ? (
+        <div className="flex min-h-full flex-col gap-2 pb-[44px]">
+          {opportunities.map((opportunity) => {
+            const clientName =
+              clientNameMap.get(opportunity.clientId ?? "") ??
+              opportunity.contactName ??
+              t("card.unknown", "Unknown");
+            const cardStageColor =
+              OPPORTUNITY_STAGE_COLORS[opportunity.stage] ?? stageColor;
 
-      <div
-        id={focusedPanelId}
-        role="tabpanel"
-        aria-labelledby={focusedTabId}
-        className="h-full min-h-0 overflow-y-auto pt-[188px] scrollbar-hide"
-      >
-        {opportunities.length > 0 ? (
-          <div className="flex min-h-full flex-col gap-2 pb-[44px]">
-            {opportunities.map((opportunity) => {
-              const clientName =
-                clientNameMap.get(opportunity.clientId ?? "") ??
-                opportunity.contactName ??
-                t("card.unknown", "Unknown");
-              const cardStageColor =
-                OPPORTUNITY_STAGE_COLORS[opportunity.stage] ?? stageColor;
-
-              return (
-                <PipelineFocusedCard
-                  key={opportunity.id}
-                  opportunity={opportunity}
-                  clientName={clientName}
-                  stageColor={cardStageColor}
-                  stalenessOpacity={stalenessMap.get(opportunity.id) ?? 1}
-                  canManage={canManage}
-                  onLogCall={() => onLogCall(opportunity.id)}
-                  onLogText={() => onLogText(opportunity.id)}
-                  onAddNote={(note) => onAddNote(opportunity.id, note)}
-                  onArchive={() => onArchive(opportunity.id)}
-                  onDiscard={() => onDiscard(opportunity.id)}
-                  onMarkWon={() => onMarkWon(opportunity)}
-                  onMarkLost={() => onMarkLost(opportunity)}
-                  onAssign={() => onAssign(opportunity.id)}
-                  onScheduleFollowUp={() => onScheduleFollowUp(opportunity.id)}
-                />
-              );
-            })}
-          </div>
-        ) : (
-          <div className="flex min-h-full flex-col items-start gap-3 pb-[44px] pt-[24px]">
-            <p className="font-mono text-caption-sm uppercase text-text">
-              {emptyTitle}
-            </p>
-            <button
-              type="button"
-              className="rounded-chip border border-line px-3 py-2 font-cakemono text-caption-sm font-light uppercase text-text-2 transition-colors duration-150 hover:bg-surface-hover hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
-              onClick={emptyActionHandler}
-            >
-              {emptyAction}
-            </button>
-          </div>
-        )}
-      </div>
+            return (
+              <PipelineFocusedCard
+                key={opportunity.id}
+                opportunity={opportunity}
+                clientName={clientName}
+                stageColor={cardStageColor}
+                stalenessOpacity={stalenessMap.get(opportunity.id) ?? 1}
+                canManage={canManage}
+                onLogCall={() => onLogCall(opportunity.id)}
+                onLogText={() => onLogText(opportunity.id)}
+                onAddNote={(note) => onAddNote(opportunity.id, note)}
+                onArchive={() => onArchive(opportunity.id)}
+                onDiscard={() => onDiscard(opportunity.id)}
+                onMarkWon={() => onMarkWon(opportunity)}
+                onMarkLost={() => onMarkLost(opportunity)}
+                onAssign={() => onAssign(opportunity.id)}
+                onScheduleFollowUp={() => onScheduleFollowUp(opportunity.id)}
+              />
+            );
+          })}
+        </div>
+      ) : (
+        <div className="flex min-h-full flex-col items-start gap-3 pb-[44px] pt-[24px]">
+          <p className="font-mono text-caption-sm uppercase text-text">
+            {emptyTitle}
+          </p>
+          <button
+            type="button"
+            className="rounded-chip border border-line px-3 py-2 font-cakemono text-caption-sm font-light uppercase text-text-2 transition-colors duration-150 hover:bg-surface-hover hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
+            onClick={emptyActionHandler}
+          >
+            {emptyAction}
+          </button>
+        </div>
+      )}
     </section>
   );
 });
 
-function Metric({ label, value }: { label: string; value: string }) {
+function FocusedLoadingCard({ stageColor }: { stageColor: string }) {
   return (
-    <div className="min-w-0">
-      <dt className="truncate font-mono text-micro uppercase text-text-3">
-        {label}
-      </dt>
-      <dd className="truncate font-mono text-data-sm text-text" style={NUMBER_STYLE}>
-        {value}
-      </dd>
+    <div
+      data-testid="pipeline-focused-loading-card"
+      className="glass-surface relative isolate min-h-[116px] overflow-hidden rounded-panel border border-border p-2"
+    >
+      <span
+        aria-hidden="true"
+        className="absolute bottom-2 left-0 top-2 w-[2px]"
+        style={{ backgroundColor: stageColor }}
+      />
+      <div className="flex h-full animate-pulse flex-col gap-2 pl-2">
+        <div className="h-[18px] w-2/3 rounded-bar bg-fill-neutral-dim" />
+        <div className="h-[12px] w-1/2 rounded-bar bg-fill-neutral-dim" />
+        <div className="mt-auto grid grid-cols-3 gap-2">
+          <div className="h-[22px] rounded-bar bg-fill-neutral-dim" />
+          <div className="h-[22px] rounded-bar bg-fill-neutral-dim" />
+          <div className="h-[22px] rounded-bar bg-fill-neutral-dim" />
+        </div>
+      </div>
     </div>
   );
 }

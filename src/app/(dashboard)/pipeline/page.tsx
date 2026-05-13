@@ -181,7 +181,9 @@ function fallbackRectFromStage(rect: TransitionRect): TransitionRect {
 
   return {
     left: rect.left + rect.width / 2 - width / 2,
-    top: rect.top + Math.min(Math.max(16, rect.height * 0.35), rect.height - height),
+    top:
+      rect.top +
+      Math.min(Math.max(16, rect.height * 0.35), rect.height - height),
     width,
     height,
   };
@@ -218,7 +220,10 @@ function readModeTransitionRects(
     .forEach((element) => {
       const stage = element.dataset.pipelineStageFallback;
       if (!stage) return;
-      stageRects.set(stage as OpportunityStage, transitionRectFromElement(element));
+      stageRects.set(
+        stage as OpportunityStage,
+        transitionRectFromElement(element)
+      );
     });
 
   for (const opportunity of opportunities) {
@@ -333,7 +338,9 @@ const SpatialCardWrapperComponent = memo(function SpatialCardWrapperComponent({
     clientNameMap.get(opportunity.clientId ?? "") ??
     opportunity.contactName ??
     tUnknown;
-  const stageColor = OPPORTUNITY_STAGE_COLORS[opportunity.stage] ?? "#8F9AA3";
+  const stageColor =
+    OPPORTUNITY_STAGE_COLORS[opportunity.stage] ??
+    OPPORTUNITY_STAGE_COLORS[OpportunityStage.NewLead];
   const stalenessOpacity = stalenessMap.get(opportunity.id) ?? 1.0;
   const cb = callbacksRef.current;
 
@@ -838,10 +845,7 @@ function PipelineModeTransitionOverlay({
   }, [transition]);
 
   return (
-    <div
-      aria-hidden="true"
-      className="pointer-events-none fixed inset-0 z-[1]"
-    >
+    <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-[1]">
       <style>{`
         @keyframes pipeline-mode-card-travel {
           from {
@@ -921,7 +925,7 @@ function PipelineSkeleton() {
         </div>
 
         {/* Metrics skeleton */}
-        <div className="rounded-[4px] border border-[rgba(255,255,255,0.06)] bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)]">
+        <div className="rounded-chip border border-border-subtle bg-fill-neutral-dim backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)]">
           <div className="flex items-center gap-[16px] px-3 py-[8px]">
             {[1, 2, 3].map((i) => (
               <div key={i} className="flex flex-col gap-[2px]">
@@ -949,16 +953,16 @@ function PipelineSkeleton() {
                   >
                     {stage.name}
                   </h3>
-                  <span className="rounded-sm bg-fill-neutral-dim px-[6px] py-[2px] font-mono text-[11px] text-text-mute">
+                  <span className="rounded-bar bg-fill-neutral-dim px-[6px] py-[2px] font-mono text-micro text-text-mute">
                     --
                   </span>
                 </div>
               </div>
-              <div className="min-h-[200px] flex-1 space-y-1 rounded-b border border-t-0 border-border bg-[rgba(10,10,10,0.5)] p-1">
+              <div className="min-h-[200px] flex-1 space-y-1 rounded-b border border-t-0 border-border bg-glass p-1">
                 {[1, 2].map((j) => (
                   <div
                     key={j}
-                    className="glass-surface animate-pulse space-y-1.5 rounded-[5px] border border-[rgba(255,255,255,0.2)] bg-glass p-1.5"
+                    className="glass-surface animate-pulse space-y-1.5 rounded border border-border-medium bg-glass p-1.5"
                   >
                     <div className="h-[14px] w-3/4 rounded bg-fill-neutral-dim" />
                     <div className="h-[10px] w-1/2 rounded bg-fill-neutral-dim" />
@@ -1100,7 +1104,13 @@ export default function PipelinePage() {
     usePipelineMetrics();
 
   // ── Data fetching ─────────────────────────────────────────────────────
-  const { data: opportunities, isLoading: oppsLoading } = useOpportunities();
+  const {
+    data: opportunities,
+    isLoading: oppsLoading,
+    isError: oppsError,
+    error: opportunitiesError,
+    refetch: refetchOpportunities,
+  } = useOpportunities();
   const { data: clientsData, isLoading: clientsLoading } = useClients();
   const { data: teamData } = useTeamMembers();
   const { data: gmailConnections = [] } = useGmailConnections();
@@ -1858,7 +1868,7 @@ export default function PipelinePage() {
   );
 
   // ── Loading state ─────────────────────────────────────────────────────
-  if (isLoading) {
+  if (isLoading && (isMobile || mode !== "focused")) {
     return <PipelineSkeleton />;
   }
 
@@ -1933,8 +1943,15 @@ export default function PipelinePage() {
                   clientNameMap={clientNameMap}
                   canManage={canManage}
                   filtersActive={filtersActive}
+                  opportunitiesLoading={oppsLoading}
+                  clientsLoading={clientsLoading}
+                  isOpportunitiesError={oppsError}
+                  opportunitiesError={opportunitiesError}
                   dragAnnouncement={focusedDragAnnouncement}
                   transitionRole={transitionRole}
+                  onRetryOpportunities={() => {
+                    void refetchOpportunities();
+                  }}
                   onAddLead={gatedOpenCreate}
                   onClearFilters={handleClearFilters}
                   onLogCall={handleLogCall}
@@ -1972,8 +1989,7 @@ export default function PipelinePage() {
                   discardedOpportunities={
                     opportunities?.filter(
                       (o) =>
-                        o.stage === OpportunityStage.Discarded &&
-                        !o.archivedAt
+                        o.stage === OpportunityStage.Discarded && !o.archivedAt
                     ) ?? []
                   }
                   onRestore={(id) => unarchiveMutation.mutate(id)}
@@ -2033,15 +2049,15 @@ export default function PipelinePage() {
         {/* Banners */}
         <div className="pointer-events-auto flex flex-col gap-1 px-3">
           {gmailConnections.length === 0 && !gmailBannerDismissed && (
-            <div className="border-[rgba(111, 148, 176,0.2)] flex animate-fade-in items-center gap-2 rounded-[4px] border bg-[rgba(65,115,148,0.08)] px-2 py-1.5">
-              <div className="bg-[rgba(111, 148, 176,0.15)] flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded">
-                <Mail className="h-[16px] w-[16px] text-[#6F94B0]" />
+            <div className="flex animate-fade-in items-center gap-2 rounded-chip border border-ops-accent/20 bg-ops-accent/10 px-2 py-1.5">
+              <div className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded bg-ops-accent/15">
+                <Mail className="h-[16px] w-[16px] text-ops-accent" />
               </div>
               <div className="min-w-0 flex-1">
                 <p className="font-mohave text-body text-text">
                   {t("gmail.connectBanner")}
                 </p>
-                <p className="font-mono text-[11px] text-text-mute">
+                <p className="font-mono text-micro text-text-mute">
                   {t("gmail.connectDesc")}
                 </p>
               </div>
@@ -2087,9 +2103,9 @@ export default function PipelinePage() {
             />
           )}
           {moveStage.isPending && (
-            <div className="bg-[rgba(111, 148, 176,0.12)] border-[rgba(111, 148, 176,0.25)] flex items-center gap-1.5 rounded-[4px] border px-2 py-1">
-              <Loader2 className="h-[14px] w-[14px] animate-spin text-[#6F94B0]" />
-              <span className="font-mono text-[11px] text-[#6F94B0]">
+            <div className="flex items-center gap-1.5 rounded-chip border border-ops-accent/25 bg-ops-accent/10 px-2 py-1">
+              <Loader2 className="h-[14px] w-[14px] animate-spin text-ops-accent" />
+              <span className="font-mono text-micro text-ops-accent">
                 {t("column.updating")}
               </span>
             </div>
