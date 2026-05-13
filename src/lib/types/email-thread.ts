@@ -10,20 +10,15 @@
 // ─── Enumerations ────────────────────────────────────────────────────────────
 
 /**
- * Primary category — exactly one per thread.
- *
- * `CUSTOMER` is the production category enforced by the DB check constraint
- * on `email_threads.primary_category`. The legacy `LEAD` / `CLIENT` values
- * are retained in the union for transitional code that hasn't been
- * migrated yet, but new writes should always use `CUSTOMER`. The
- * deterministic-internal classifier rule + the human classifier path now
- * emit `CUSTOMER` directly. Tracking issue: cross-codebase rename of
- * LEAD/CLIENT → CUSTOMER references in widgets, tests, and chip mappings.
+ * Primary category — exactly one per thread. Twelve values, matching the
+ * DB CHECK constraint on `email_threads.primary_category` post
+ * 20260428061836_collapse_lead_client_to_customer. The legacy LEAD/CLIENT
+ * values were dropped from this union 2026-05-12 — they had zero rows in
+ * production for months and the audit-driven rail collapse cleaned up
+ * every downstream consumer.
  */
 export type EmailThreadCategory =
   | "CUSTOMER"
-  | "LEAD"
-  | "CLIENT"
   | "VENDOR"
   | "SUBTRADE"
   | "PLATFORM_BID"
@@ -38,8 +33,6 @@ export type EmailThreadCategory =
 
 export const EMAIL_THREAD_CATEGORIES: readonly EmailThreadCategory[] = [
   "CUSTOMER",
-  "LEAD",
-  "CLIENT",
   "VENDOR",
   "SUBTRADE",
   "PLATFORM_BID",

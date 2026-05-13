@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * RecategorizeMenu — popover with all 13 primary categories + optional
+ * RecategorizeMenu — popover with all 12 primary categories + optional
  * "Tell Phase C why" note. Fires the `recategorize` mutation, shows an
  * undo toast, and (on undo) reverses the change via another recategorize
  * call back to the original category.
@@ -40,9 +40,7 @@ interface RecategorizeMenuProps {
 // Hotkey letters mirror the first letter of the category, with collisions
 // resolved deterministically. Rendered as a subtle [K] hint on the right.
 const CATEGORY_HOTKEYS: Record<EmailThreadCategory, string> = {
-  CUSTOMER: "U",
-  LEAD: "L",
-  CLIENT: "C",
+  CUSTOMER: "C",
   VENDOR: "V",
   SUBTRADE: "S",
   PLATFORM_BID: "B",

@@ -5,7 +5,7 @@ import { EmptyDetailHeader } from "../thread-detail-header";
 
 const baseProps = {
   subject: "RFQ — kitchen remodel",
-  category: { label: "CLIENT", dotClassName: "bg-text-2" },
+  category: { label: "CUSTOMER", dotClassName: "bg-text-2" },
   senderName: "Calloway HVAC",
   messageCount: 4,
   onPrev: vi.fn(),
@@ -32,7 +32,7 @@ describe("<ThreadDetail>", () => {
         <div />
       </ThreadDetail>,
     );
-    expect(screen.getByText("[CLIENT]")).toBeInTheDocument();
+    expect(screen.getByText("[CUSTOMER]")).toBeInTheDocument();
     expect(screen.getByText("Calloway HVAC")).toBeInTheDocument();
     expect(screen.getByText("4 MSG")).toBeInTheDocument();
   });
