@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element -- Pipeline photos use arbitrary signed/provider URLs outside the Next image allowlist. */
+
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { Camera } from "lucide-react";
 import { useDictionary, useLocale } from "@/i18n/client";
@@ -22,6 +24,7 @@ function collectPhotos(
   activities: Activity[],
   siteVisits: Array<{ photos: string[]; scheduledAt: Date | string }>,
   locale: Locale,
+  t: (key: string, fallback?: string) => string,
 ): PhotoRecord[] {
   const photos: PhotoRecord[] = [];
 
@@ -33,7 +36,7 @@ function collectPhotos(
         photos.push({
           url,
           date: d,
-          source: `Email — ${d.toLocaleDateString(getDateLocale(locale), { month: "short", day: "numeric" })}`,
+          source: `${t("detail.photoEmailSource", "Email")} — ${d.toLocaleDateString(getDateLocale(locale), { month: "short", day: "numeric" })}`,
         });
       }
     }
@@ -45,7 +48,7 @@ function collectPhotos(
       photos.push({
         url,
         date: d,
-        source: `Site visit — ${d.toLocaleDateString(getDateLocale(locale), { month: "short", day: "numeric" })}`,
+        source: `${t("detail.photoSiteVisitSource", "Site visit")} — ${d.toLocaleDateString(getDateLocale(locale), { month: "short", day: "numeric" })}`,
       });
     }
   }
@@ -80,14 +83,14 @@ function PhotoLightbox({
 
   return (
     <div
-      className="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center"
+      className="fixed inset-0 z-[3000] flex items-center justify-center bg-background/80"
       onClick={onClose}
     >
       {/* Left arrow */}
       {activeIndex > 0 && (
         <button
           onClick={(e) => { e.stopPropagation(); onNavigate(activeIndex - 1); }}
-          className="absolute left-4 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-[rgba(255,255,255,0.1)] flex items-center justify-center text-white/60 hover:text-white hover:bg-[rgba(255,255,255,0.2)] transition-colors"
+          className="absolute left-4 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded border border-border bg-fill-neutral-dim text-text-2 transition-colors hover:bg-surface-active hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
         >
           <span className="font-mono text-[14px]">&lsaquo;</span>
         </button>
@@ -104,14 +107,14 @@ function PhotoLightbox({
       {activeIndex < photos.length - 1 && (
         <button
           onClick={(e) => { e.stopPropagation(); onNavigate(activeIndex + 1); }}
-          className="absolute right-4 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-[rgba(255,255,255,0.1)] flex items-center justify-center text-white/60 hover:text-white hover:bg-[rgba(255,255,255,0.2)] transition-colors"
+          className="absolute right-4 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded border border-border bg-fill-neutral-dim text-text-2 transition-colors hover:bg-surface-active hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
         >
           <span className="font-mono text-[14px]">&rsaquo;</span>
         </button>
       )}
 
       {/* Counter */}
-      <span className="absolute bottom-4 left-1/2 -translate-x-1/2 font-mono text-[11px] text-white/50">
+      <span className="absolute bottom-4 left-1/2 -translate-x-1/2 font-mono text-[11px] text-text-2">
         {activeIndex + 1} / {photos.length}
       </span>
     </div>
@@ -120,13 +123,13 @@ function PhotoLightbox({
 
 // ── Exported tab ──
 
-interface DetailPopoverPhotosTabProps {
+interface PipelineDetailPhotosTabProps {
   opportunityId: string;
 }
 
-export function DetailPopoverPhotosTab({
+export function PipelineDetailPhotosTab({
   opportunityId,
-}: DetailPopoverPhotosTabProps) {
+}: PipelineDetailPhotosTabProps) {
   const { t } = useDictionary("pipeline");
   const { locale } = useLocale();
   const { data: activities } = useOpportunityActivities(opportunityId);
@@ -134,8 +137,8 @@ export function DetailPopoverPhotosTab({
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   const photos = useMemo(
-    () => collectPhotos(activities ?? [], siteVisits ?? [], locale),
-    [activities, siteVisits, locale]
+    () => collectPhotos(activities ?? [], siteVisits ?? [], locale, t),
+    [activities, siteVisits, locale, t]
   );
 
   const handleNavigate = useCallback((idx: number) => {
@@ -163,7 +166,7 @@ export function DetailPopoverPhotosTab({
           <button
             key={`${photo.url}-${idx}`}
             onClick={() => setLightboxIndex(idx)}
-            className="group relative aspect-square rounded-panel overflow-hidden border border-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.20)] transition-colors"
+            className="group relative aspect-square overflow-hidden rounded-panel border border-border transition-colors hover:border-border-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
           >
             <img
               src={photo.url}

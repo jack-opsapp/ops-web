@@ -97,6 +97,8 @@
   "detail.moreFollowUps": "more",
   "detail.you": "You",
   "detail.unknown": "Unknown",
+  "detail.photoEmailSource": "Email",
+  "detail.photoSiteVisitSource": "Site visit",
 
   "transition.wonTitle": "Deal Won!",
   "transition.wonDescription": "Congratulations on closing",

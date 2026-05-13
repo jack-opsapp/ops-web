@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element -- Pipeline attachments use arbitrary signed/provider URLs outside the Next image allowlist. */
+
 import { useState, useMemo } from "react";
 import { Mail, Paperclip } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
@@ -91,7 +93,7 @@ function buildThreads(emails: Activity[]): Thread[] {
 function Lightbox({ src, onClose }: { src: string; onClose: () => void }) {
   return (
     <div
-      className="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center cursor-pointer"
+      className="fixed inset-0 z-[3000] flex cursor-pointer items-center justify-center bg-background/80"
       onClick={onClose}
     >
       <img
@@ -132,8 +134,8 @@ function MessageBubble({
         className={cn(
           "rounded-[4px] px-2.5 py-2",
           isOut
-            ? "bg-[rgba(111, 148, 176,0.08)] border border-[rgba(111, 148, 176,0.12)]"
-            : "bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)]"
+            ? "border border-border bg-surface-input"
+            : "border border-border-subtle bg-fill-neutral-dim"
         )}
       >
         {/* Sender + time */}
@@ -141,14 +143,14 @@ function MessageBubble({
           <div
             className={cn(
               "w-[3px] h-3 rounded-full shrink-0",
-              isOut ? "bg-[#6889A8]" : "bg-[#8BA87C]"
+              isOut ? "bg-text-3" : "bg-text-mute"
             )}
           />
           <Mail className="w-2.5 h-2.5 text-text-mute shrink-0" />
           <span
             className={cn(
               "font-mohave text-[12px] font-medium truncate",
-              isOut ? "text-[#8BAAC4]" : "text-text"
+              isOut ? "text-text-2" : "text-text"
             )}
           >
             {isOut ? t("detail.you") : senderName(msg.fromEmail)}
@@ -176,7 +178,7 @@ function MessageBubble({
               <button
                 key={url}
                 onClick={(e) => { e.stopPropagation(); onImageClick(url); }}
-                className="w-10 h-10 rounded-panel overflow-hidden border border-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.20)] transition-colors shrink-0"
+                className="h-10 w-10 shrink-0 overflow-hidden rounded-panel border border-border transition-colors hover:border-border-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
               >
                 <img
                   src={url}
@@ -228,8 +230,8 @@ function ThreadPicker({
           className={cn(
             "shrink-0 px-2 py-1 rounded-panel font-mohave text-[11px] transition-colors max-w-[180px] truncate",
             thread.id === activeId
-              ? "bg-[rgba(255,255,255,0.08)] text-text"
-              : "text-text-mute hover:text-text-3 hover:bg-[rgba(255,255,255,0.03)]"
+              ? "bg-surface-active text-text"
+              : "text-text-mute hover:bg-surface-hover-subtle hover:text-text-3"
           )}
         >
           {thread.subject}
@@ -244,13 +246,13 @@ function ThreadPicker({
 
 // ── Exported tab ──
 
-interface DetailPopoverCorrespondenceTabProps {
+interface PipelineDetailCorrespondenceTabProps {
   opportunityId: string;
 }
 
-export function DetailPopoverCorrespondenceTab({
+export function PipelineDetailCorrespondenceTab({
   opportunityId,
-}: DetailPopoverCorrespondenceTabProps) {
+}: PipelineDetailCorrespondenceTabProps) {
   const { t } = useDictionary("pipeline");
   const { locale } = useLocale();
   const { data: activities } = useOpportunityActivities(opportunityId);
@@ -290,11 +292,11 @@ export function DetailPopoverCorrespondenceTab({
             key={`sep-${d.toISOString()}`}
             className="flex items-center gap-2 py-2"
           >
-            <div className="flex-1 border-t border-[rgba(255,255,255,0.05)]" />
+            <div className="flex-1 border-t border-border-subtle" />
             <span className="font-mono text-micro text-text-mute uppercase shrink-0">
               {dateSeparatorLabel(d, locale)}
             </span>
-            <div className="flex-1 border-t border-[rgba(255,255,255,0.05)]" />
+            <div className="flex-1 border-t border-border-subtle" />
           </div>
         );
       }

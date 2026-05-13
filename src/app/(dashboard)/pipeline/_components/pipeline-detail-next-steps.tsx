@@ -159,15 +159,15 @@ const COLOR_MAP = {
   disabled: "text-text-mute",
 } as const;
 
-interface DetailPopoverNextStepsProps {
+interface PipelineDetailNextStepsProps {
   opportunityId: string;
   opportunity: Opportunity;
 }
 
-export function DetailPopoverNextSteps({
+export function PipelineDetailNextSteps({
   opportunityId,
   opportunity,
-}: DetailPopoverNextStepsProps) {
+}: PipelineDetailNextStepsProps) {
   const { t } = useDictionary("pipeline");
   const [expanded, setExpanded] = useState(false);
 
@@ -207,7 +207,7 @@ export function DetailPopoverNextSteps({
   const remaining = signals.slice(1);
 
   return (
-    <div className="px-3 py-1.5 border-b border-[rgba(255,255,255,0.06)] shrink-0">
+    <div className="shrink-0 border-b border-border-subtle px-3 py-1.5">
       {!primary ? (
         <div className="flex items-center gap-1.5">
           <CheckCircle className="w-3 h-3 text-text-mute shrink-0" />
@@ -236,7 +236,7 @@ export function DetailPopoverNextSteps({
                 <button
                   onClick={() => handleComplete(primary.followUpId!)}
                   disabled={completeFollowUp.isPending}
-                  className="w-4 h-4 rounded-[2px] flex items-center justify-center text-text-mute hover:text-status-success hover:bg-[rgba(255,255,255,0.06)] transition-colors"
+                  className="flex h-4 w-4 items-center justify-center rounded-[2px] text-text-mute transition-colors hover:bg-fill-neutral-dim hover:text-status-success"
                 >
                   <Check className="w-2.5 h-2.5" />
                 </button>
@@ -273,7 +273,7 @@ export function DetailPopoverNextSteps({
                     <button
                       onClick={() => handleComplete(signal.followUpId!)}
                       disabled={completeFollowUp.isPending}
-                      className="w-4 h-4 rounded-[2px] flex items-center justify-center text-text-mute hover:text-status-success hover:bg-[rgba(255,255,255,0.06)] transition-colors"
+                      className="flex h-4 w-4 items-center justify-center rounded-[2px] text-text-mute transition-colors hover:bg-fill-neutral-dim hover:text-status-success"
                     >
                       <Check className="w-2.5 h-2.5" />
                     </button>

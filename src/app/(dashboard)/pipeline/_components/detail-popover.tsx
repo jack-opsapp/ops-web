@@ -16,7 +16,6 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
-import { useAuthStore } from "@/lib/store/auth-store";
 import {
   type Opportunity,
   getStageDisplayName,
@@ -30,11 +29,12 @@ import {
   useDetailPopoverStore,
   type DetailPopoverState,
 } from "./detail-popover-store";
-import { DetailPopoverNextSteps } from "./detail-popover-next-steps";
-import { DetailPopoverTabBar } from "./detail-popover-tab-bar";
-import { DetailPopoverCorrespondenceTab } from "./detail-popover-correspondence-tab";
-import { DetailPopoverTimelineTab } from "./detail-popover-timeline-tab";
-import { DetailPopoverPhotosTab } from "./detail-popover-photos-tab";
+import { usePipelineModeStore } from "./pipeline-mode-store";
+import { PipelineDetailNextSteps } from "./pipeline-detail-next-steps";
+import { PipelineDetailTabBar } from "./pipeline-detail-tab-bar";
+import { PipelineDetailCorrespondenceTab } from "./pipeline-detail-correspondence-tab";
+import { PipelineDetailTimelineTab } from "./pipeline-detail-timeline-tab";
+import { PipelineDetailPhotosTab } from "./pipeline-detail-photos-tab";
 
 // ── Easing ──
 const EASE_SMOOTH: [number, number, number, number] = [0.22, 1, 0.36, 1];
@@ -63,8 +63,8 @@ export const DetailPopover = memo(function DetailPopover({
   onDelete,
 }: DetailPopoverProps) {
   const { t } = useDictionary("pipeline");
-  const { company } = useAuthStore();
   const reduced = useReducedMotion();
+  const detailActiveTab = usePipelineModeStore((s) => s.detailPanelActiveTab);
 
   const {
     closePopover,
@@ -375,27 +375,24 @@ export const DetailPopover = memo(function DetailPopover({
       )}
 
       {/* ── Next Steps ── */}
-      <DetailPopoverNextSteps
+      <PipelineDetailNextSteps
         opportunityId={popoverState.id}
         opportunity={opportunity}
       />
 
       {/* ── Tab bar ── */}
-      <DetailPopoverTabBar
-        popoverId={popoverState.id}
-        activeTab={popoverState.activeTab}
-      />
+      <PipelineDetailTabBar />
 
       {/* ── Tab content ── */}
       <div className="flex-1 overflow-y-auto scrollbar-hide p-3">
-        {popoverState.activeTab === "correspondence" && (
-          <DetailPopoverCorrespondenceTab opportunityId={popoverState.id} />
+        {detailActiveTab === "correspondence" && (
+          <PipelineDetailCorrespondenceTab opportunityId={popoverState.id} />
         )}
-        {popoverState.activeTab === "timeline" && (
-          <DetailPopoverTimelineTab opportunityId={popoverState.id} />
+        {detailActiveTab === "timeline" && (
+          <PipelineDetailTimelineTab opportunityId={popoverState.id} />
         )}
-        {popoverState.activeTab === "photos" && (
-          <DetailPopoverPhotosTab opportunityId={popoverState.id} />
+        {detailActiveTab === "photos" && (
+          <PipelineDetailPhotosTab opportunityId={popoverState.id} />
         )}
       </div>
 

@@ -16,7 +16,6 @@ import {
   Receipt,
   Paperclip,
 } from "lucide-react";
-import { cn } from "@/lib/utils/cn";
 import { useDictionary, useLocale } from "@/i18n/client";
 import { getDateLocale } from "@/i18n/date-utils";
 import type { Locale } from "@/i18n/types";
@@ -132,7 +131,7 @@ function buildTimelineNodes(
       date: new Date(a.createdAt),
       type: a.type,
       label,
-      color: ACTIVITY_TYPE_COLORS[a.type] ?? "#9CA3AF",
+      color: ACTIVITY_TYPE_COLORS[a.type] ?? "var(--text-3)",
       isSystem: isSystemEvent(a.type),
       subject: a.subject,
       content: a.content,
@@ -176,7 +175,7 @@ function buildTimelineNodes(
 
 function DetailCard({ node }: { node: TimelineNode }) {
   return (
-    <div className="absolute left-full top-0 ml-2 z-10 w-[200px] bg-[var(--surface-glass-dense)] backdrop-blur-xl border border-[rgba(255,255,255,0.10)] rounded-[4px] p-2.5 pointer-events-none">
+    <div className="pointer-events-none absolute left-full top-0 z-10 ml-2 w-[200px] rounded-[4px] border border-border bg-[var(--surface-glass-dense)] p-2.5 backdrop-blur-xl">
       {node.subject && (
         <p className="font-mohave text-[12px] text-text mb-1 truncate">
           {node.subject}
@@ -211,13 +210,13 @@ function DetailCard({ node }: { node: TimelineNode }) {
 
 // ── Exported tab ──
 
-interface DetailPopoverTimelineTabProps {
+interface PipelineDetailTimelineTabProps {
   opportunityId: string;
 }
 
-export function DetailPopoverTimelineTab({
+export function PipelineDetailTimelineTab({
   opportunityId,
-}: DetailPopoverTimelineTabProps) {
+}: PipelineDetailTimelineTabProps) {
   const { t } = useDictionary("pipeline");
   const { locale } = useLocale();
   const { data: activities } = useOpportunityActivities(opportunityId);
@@ -243,7 +242,7 @@ export function DetailPopoverTimelineTab({
   return (
     <div className="relative">
       {/* Vertical timeline line */}
-      <div className="absolute left-[9px] top-2 bottom-2 w-px bg-[rgba(255,255,255,0.06)]" />
+      <div className="absolute bottom-2 left-[9px] top-2 w-px bg-fill-neutral-dim" />
 
       <div className="space-y-0">
         {nodes.map((node) => {

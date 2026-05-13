@@ -77,6 +77,8 @@
   "detail.noFollowUps": "Sin seguimientos pendientes",
   "detail.noVisits": "Sin visitas",
   "detail.newVisit": "Programar Visita",
+  "detail.photoEmailSource": "Correo",
+  "detail.photoSiteVisitSource": "Visita al sitio",
 
   "transition.wonTitle": "¡Trato ganado!",
   "transition.wonDescription": "Felicidades por cerrar",
