@@ -1,0 +1,231 @@
+import React from "react";
+import { act, fireEvent, render, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  type Opportunity,
+  OpportunityStage,
+} from "@/lib/types/pipeline";
+import { usePipelineModeStore } from "@/app/(dashboard)/pipeline/_components/pipeline-mode-store";
+import { PipelineFocusedShell } from "@/app/(dashboard)/pipeline/_components/pipeline-focused-shell";
+
+vi.mock("framer-motion", () => ({
+  motion: {
+    div: ({
+      children,
+      layout: _layout,
+      transition: _transition,
+      ...props
+    }: React.HTMLAttributes<HTMLDivElement> & {
+      layout?: boolean;
+      transition?: unknown;
+    }) => (
+      <div {...props}>{children}</div>
+    ),
+  },
+  useReducedMotion: () => true,
+}));
+
+vi.mock("@/i18n/client", () => ({
+  useDictionary: () => ({
+    t: (key: string, fallback?: string) => fallback ?? key,
+  }),
+}));
+
+vi.mock(
+  "@/app/(dashboard)/pipeline/_components/pipeline-dnd-provider",
+  () => ({
+    usePipelineDndState: () => ({ isDragging: false }),
+  })
+);
+
+vi.mock(
+  "@/app/(dashboard)/pipeline/_components/pipeline-focused-column",
+  () => ({
+    PipelineFocusedColumn: ({ stage }: { stage: OpportunityStage }) => (
+      <section data-testid="focused-column" data-stage={stage} />
+    ),
+  })
+);
+
+vi.mock(
+  "@/app/(dashboard)/pipeline/_components/pipeline-detail-panel",
+  () => ({
+    PipelineDetailPanel: () => (
+      <aside data-keyboard-scope="modal-or-menu" data-testid="detail-panel" />
+    ),
+  })
+);
+
+vi.mock(
+  "@/app/(dashboard)/pipeline/_components/pipeline-spine-column",
+  () => ({
+    PipelineSpineColumn: ({ stage }: { stage: OpportunityStage }) => (
+      <button type="button" data-testid={`spine-${stage}`} />
+    ),
+  })
+);
+
+vi.mock(
+  "@/app/(dashboard)/pipeline/_components/pipeline-terminal-stack",
+  () => ({
+    PipelineTerminalStack: () => <div data-testid="terminal-stack" />,
+  })
+);
+
+const NOW = new Date("2026-05-12T12:00:00.000Z");
+
+function makeOpportunity(
+  id: string,
+  stage: OpportunityStage
+): Opportunity {
+  return {
+    id,
+    companyId: "company-1",
+    clientId: null,
+    title: `Lead ${id}`,
+    description: null,
+    contactName: null,
+    contactEmail: null,
+    contactPhone: null,
+    stage,
+    source: null,
+    assignedTo: null,
+    priority: null,
+    estimatedValue: null,
+    actualValue: null,
+    winProbability: 60,
+    expectedCloseDate: null,
+    actualCloseDate: null,
+    stageEnteredAt: NOW,
+    projectId: null,
+    lostReason: null,
+    lostNotes: null,
+    quoteDeliveryMethod: null,
+    address: null,
+    latitude: null,
+    longitude: null,
+    sourceEmailId: null,
+    correspondenceCount: 0,
+    outboundCount: 0,
+    inboundCount: 0,
+    lastInboundAt: null,
+    lastOutboundAt: null,
+    lastMessageDirection: null,
+    aiSummary: null,
+    aiStageConfidence: null,
+    aiStageSignals: null,
+    detectedValue: null,
+    lastActivityAt: null,
+    nextFollowUpAt: null,
+    tags: [],
+    createdAt: NOW,
+    updatedAt: NOW,
+    deletedAt: null,
+    archivedAt: null,
+  };
+}
+
+function renderFocusedShell(opportunities: Opportunity[]) {
+  return render(
+    <PipelineFocusedShell
+      opportunities={opportunities}
+      clientNameMap={new Map()}
+      canManage={true}
+      filtersActive={false}
+      onAddLead={vi.fn()}
+      onClearFilters={vi.fn()}
+      onLogCall={vi.fn()}
+      onLogText={vi.fn()}
+      onAddNote={vi.fn()}
+      onArchive={vi.fn()}
+      onDiscard={vi.fn()}
+      onMarkWon={vi.fn()}
+      onMarkLost={vi.fn()}
+      onAdvanceStage={vi.fn()}
+      onAssign={vi.fn()}
+      onScheduleFollowUp={vi.fn()}
+      onDelete={vi.fn()}
+    />
+  );
+}
+
+describe("<PipelineFocusedShell>", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    usePipelineModeStore.setState({
+      mode: "focused",
+      focusedStage: OpportunityStage.NewLead,
+      detailPanelOpportunityId: null,
+      detailPanelActiveTab: "correspondence",
+      sortBy: "value",
+      stageSortOverrides: new Map(),
+    });
+  });
+
+  it("snaps focusedStage to the loaded detail opportunity stage", async () => {
+    usePipelineModeStore.setState({
+      detailPanelOpportunityId: "opp-quoted",
+    });
+
+    renderFocusedShell([
+      makeOpportunity("opp-quoted", OpportunityStage.Quoted),
+    ]);
+
+    await waitFor(() => {
+      expect(usePipelineModeStore.getState().focusedStage).toBe(
+        OpportunityStage.Quoted
+      );
+    });
+    expect(usePipelineModeStore.getState().detailPanelOpportunityId).toBe(
+      "opp-quoted"
+    );
+  });
+
+  it("closes an aligned detail panel when focusedStage changes afterward", async () => {
+    usePipelineModeStore.setState({
+      focusedStage: OpportunityStage.Quoted,
+      detailPanelOpportunityId: "opp-quoted",
+    });
+
+    renderFocusedShell([
+      makeOpportunity("opp-quoted", OpportunityStage.Quoted),
+      makeOpportunity("opp-follow-up", OpportunityStage.FollowUp),
+    ]);
+
+    await waitFor(() => {
+      expect(usePipelineModeStore.getState().detailPanelOpportunityId).toBe(
+        "opp-quoted"
+      );
+    });
+
+    act(() => {
+      usePipelineModeStore
+        .getState()
+        .setFocusedStage(OpportunityStage.FollowUp);
+    });
+
+    await waitFor(() => {
+      expect(
+        usePipelineModeStore.getState().detailPanelOpportunityId
+      ).toBeNull();
+    });
+  });
+
+  it("does not handle stage arrow keys from modal-or-menu scopes", () => {
+    renderFocusedShell([
+      makeOpportunity("opp-1", OpportunityStage.NewLead),
+      makeOpportunity("opp-2", OpportunityStage.Qualifying),
+    ]);
+
+    const scopedTarget = document.createElement("div");
+    scopedTarget.setAttribute("data-keyboard-scope", "modal-or-menu");
+    document.body.appendChild(scopedTarget);
+
+    fireEvent.keyDown(scopedTarget, { key: "ArrowRight" });
+
+    expect(usePipelineModeStore.getState().focusedStage).toBe(
+      OpportunityStage.NewLead
+    );
+    scopedTarget.remove();
+  });
+});

@@ -94,7 +94,9 @@ function isTypingTarget(target: EventTarget | null): boolean {
   const element = target as HTMLElement | null;
   if (!element) return false;
   return Boolean(
-    element.closest("input, textarea, select, [contenteditable='true']")
+    element.closest(
+      "input, textarea, select, [contenteditable='true'], [data-keyboard-scope='modal-or-menu']"
+    )
   );
 }
 
@@ -136,6 +138,7 @@ export function PipelineFocusedShell({
   const shellRef = useRef<HTMLDivElement>(null);
   const focusedColumnRef = useRef<HTMLDivElement>(null);
   const pendingFlipRectRef = useRef<DOMRect | null>(null);
+  const stageSyncedDetailIdRef = useRef<string | null>(null);
   const lastSnapAtRef = useRef(0);
   const animationRef = useRef<Animation | null>(null);
 
@@ -288,15 +291,43 @@ export function PipelineFocusedShell({
     opportunitiesByStage.get(OpportunityStage.Lost) ?? [];
 
   useEffect(() => {
-    if (!detailPanelOpportunityId) return;
-    if (!detailOpportunity || detailOpportunity.stage !== safeFocusedStage) {
-      closeDetailPanel();
+    if (!detailPanelOpportunityId) {
+      stageSyncedDetailIdRef.current = null;
+      return;
     }
+
+    if (!detailOpportunity) {
+      stageSyncedDetailIdRef.current = null;
+      closeDetailPanel();
+      return;
+    }
+
+    if (!focusableStages.includes(detailOpportunity.stage)) {
+      stageSyncedDetailIdRef.current = null;
+      closeDetailPanel();
+      return;
+    }
+
+    if (detailOpportunity.stage === safeFocusedStage) {
+      stageSyncedDetailIdRef.current = detailPanelOpportunityId;
+      return;
+    }
+
+    if (stageSyncedDetailIdRef.current === detailPanelOpportunityId) {
+      stageSyncedDetailIdRef.current = null;
+      closeDetailPanel();
+      return;
+    }
+
+    stageSyncedDetailIdRef.current = detailPanelOpportunityId;
+    setFocusedStage(detailOpportunity.stage);
   }, [
     closeDetailPanel,
     detailOpportunity,
     detailPanelOpportunityId,
+    focusableStages,
     safeFocusedStage,
+    setFocusedStage,
   ]);
 
   return (
