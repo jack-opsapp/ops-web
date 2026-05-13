@@ -101,14 +101,14 @@ export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
 
   return (
     <section className="relative h-full w-full min-w-0">
-      <header className="glass-dense absolute left-0 right-0 top-[clamp(82px,9vh,96px)] z-[2] isolate min-h-[56px] overflow-hidden px-3 py-2 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ops-accent">
+      <header className="glass-dense absolute left-0 right-0 top-[148px] z-[2] isolate min-h-[52px] overflow-hidden px-3 py-2 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ops-accent">
         <span
           aria-hidden="true"
           className="absolute bottom-2 left-0 top-2 w-[2px]"
           style={{ backgroundColor: stageColor }}
         />
 
-        <div className="relative z-[1] flex min-h-[40px] items-center justify-between gap-4">
+        <div className="relative z-[1] flex min-h-[36px] items-center justify-between gap-4">
           <button
             type="button"
             role="tab"
@@ -116,7 +116,7 @@ export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
             aria-selected={true}
             aria-controls={focusedPanelId}
             tabIndex={0}
-            className="min-w-0 truncate rounded-[5px] text-left font-cakemono text-[24px] font-light uppercase leading-none text-text focus-visible:outline-none"
+            className="min-w-0 truncate rounded-[5px] text-left font-cakemono text-[22px] font-light uppercase leading-none text-text focus-visible:outline-none"
           >
             {stageName}
           </button>
@@ -142,10 +142,10 @@ export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
         id={focusedPanelId}
         role="tabpanel"
         aria-labelledby={focusedTabId}
-        className="h-full min-h-0 overflow-y-auto pr-1 pt-[clamp(148px,16vh,160px)] scrollbar-hide"
+        className="h-full min-h-0 overflow-y-auto pr-1 pt-[208px] scrollbar-hide"
       >
         {opportunities.length > 0 ? (
-          <div className="flex min-h-full flex-col gap-2 pb-[56px]">
+          <div className="flex min-h-full flex-col gap-2 pb-[44px]">
             {opportunities.map((opportunity) => {
               const clientName =
                 clientNameMap.get(opportunity.clientId ?? "") ??
@@ -176,7 +176,7 @@ export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
             })}
           </div>
         ) : (
-          <div className="flex min-h-full flex-col items-start gap-3 pb-[56px] pt-[24px]">
+          <div className="flex min-h-full flex-col items-start gap-3 pb-[44px] pt-[24px]">
             <p className="font-mono text-caption-sm uppercase text-text">
               {emptyTitle}
             </p>
