@@ -3,9 +3,12 @@
 /**
  * ThreadColumnHeader — top of the left column.
  *
- * Phase B rebuild: tactical voice. Drops the boxed "Inbox" h2 + Filter/Search
- * lucide icons. Header reads as `// INBOX  [ALL ▾]  ⋯` with a single-line
- * `[search threads — ⌘K]` placeholder button below.
+ * Reads as `// INBOX  [ALL ▾]  ⋯` with a single-line `[search threads — ⌘K]`
+ * placeholder button below. The filter dropdown selects between the four
+ * operator-facing rails — ALL / YOUR MOVE / WAITING / ARCHIVED. SNOOZED
+ * lives behind the header chip surface (see thread-column-snooze-chip,
+ * commit 4 of the rail-collapse series); DRAFTS lives behind the dedicated
+ * drafts header chip (commit 3).
  *
  * Filter + More buttons render Radix DropdownMenus inline so the header is
  * self-contained — the parent passes the *current* filter and the change
@@ -26,53 +29,57 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import type { InboxRail } from "@/lib/types/email-thread";
+import {
+  RAIL_NAV_OPTIONS,
+  type RailFilter,
+} from "@/lib/inbox/rail-predicates";
 import { SlashLabel } from "./voice/slash-label";
 
 interface ThreadColumnHeaderProps {
   /**
-   * Current rail filter. The chip's label tracks this — `everything → ALL`,
-   * `needs_reply → NEEDS REPLY`, etc.
+   * Current rail filter. The chip's label tracks this — `ALL → ALL`,
+   * `YOUR_MOVE → YOUR MOVE`, etc.
    */
-  filter: InboxRail;
-  onFilterChange: (filter: InboxRail) => void;
+  filter: RailFilter;
+  onFilterChange: (filter: RailFilter) => void;
   /** Invoked when the operator wants to search threads — fires ⌘K. */
   onOpenSearch: () => void;
   /** Manual refresh — invalidates the threads query. */
   onRefresh: () => void;
-  /** Navigate to the archived rail (filter='done' with archived view). */
+  /** Navigate to the archived rail. */
   onOpenArchived: () => void;
   /** Navigate to inbox settings. */
   onOpenSettings: () => void;
+  /**
+   * Optional slot rendered between the filter dropdown and the More menu.
+   * Used by InboxRoute to insert the header chips for DRAFTS and SNOOZED
+   * (counter pills shown only when their respective counts exceed zero —
+   * see commits 3 and 4 in the rail-collapse series).
+   */
+  headerChipSlot?: React.ReactNode;
   className?: string;
 }
 
-const FILTER_LABEL_KEY: Record<InboxRail, string> = {
-  everything: "filter.rail.everything",
-  needs_reply: "filter.rail.needsReply",
-  drafts: "filter.rail.drafts",
-  commitments: "filter.rail.commitments",
-  scheduled: "filter.rail.scheduled",
-  done: "filter.rail.done",
+const NAV_LABEL_KEY: Record<Exclude<RailFilter, "SNOOZED">, string> = {
+  ALL: "filter.rail.all",
+  YOUR_MOVE: "filter.rail.yourMove",
+  WAITING: "filter.rail.waiting",
+  ARCHIVED: "filter.rail.archived",
 };
 
-const FILTER_LABEL_FALLBACK: Record<InboxRail, string> = {
-  everything: "ALL",
-  needs_reply: "NEEDS REPLY",
-  drafts: "DRAFTS",
-  commitments: "COMMITMENTS",
-  scheduled: "SCHEDULED",
-  done: "DONE",
+const NAV_LABEL_FALLBACK: Record<Exclude<RailFilter, "SNOOZED">, string> = {
+  ALL: "ALL",
+  YOUR_MOVE: "YOUR MOVE",
+  WAITING: "WAITING",
+  ARCHIVED: "ARCHIVED",
 };
 
-const FILTER_OPTIONS: ReadonlyArray<InboxRail> = [
-  "everything",
-  "needs_reply",
-  "drafts",
-  "commitments",
-  "scheduled",
-  "done",
-];
+function navRail(filter: RailFilter): Exclude<RailFilter, "SNOOZED"> {
+  // SNOOZED is not a rail tab — when the route reports it (popover-driven),
+  // the operator-visible chip still shows the previous rail context, which
+  // defaults to ALL for an unknown landing.
+  return filter === "SNOOZED" ? "ALL" : filter;
+}
 
 export function ThreadColumnHeader({
   filter,
@@ -81,13 +88,12 @@ export function ThreadColumnHeader({
   onRefresh,
   onOpenArchived,
   onOpenSettings,
+  headerChipSlot,
   className,
 }: ThreadColumnHeaderProps) {
   const { t } = useDictionary("inbox");
-  const activeLabel = t(
-    FILTER_LABEL_KEY[filter],
-    FILTER_LABEL_FALLBACK[filter],
-  );
+  const navFilter = navRail(filter);
+  const activeLabel = t(NAV_LABEL_KEY[navFilter], NAV_LABEL_FALLBACK[navFilter]);
   return (
     <div
       className={cn(
@@ -115,21 +121,23 @@ export function ThreadColumnHeader({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" sideOffset={6} className="min-w-[180px]">
             <DropdownMenuRadioGroup
-              value={filter}
-              onValueChange={(v) => onFilterChange(v as InboxRail)}
+              value={navFilter}
+              onValueChange={(v) => onFilterChange(v as RailFilter)}
             >
-              {FILTER_OPTIONS.map((rail) => (
+              {RAIL_NAV_OPTIONS.map((rail) => (
                 <DropdownMenuRadioItem
                   key={rail}
                   value={rail}
                   className="font-mono text-[11px] uppercase tracking-[0.16em]"
                 >
-                  {t(FILTER_LABEL_KEY[rail], FILTER_LABEL_FALLBACK[rail])}
+                  {t(NAV_LABEL_KEY[rail], NAV_LABEL_FALLBACK[rail])}
                 </DropdownMenuRadioItem>
               ))}
             </DropdownMenuRadioGroup>
           </DropdownMenuContent>
         </DropdownMenu>
+
+        {headerChipSlot}
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

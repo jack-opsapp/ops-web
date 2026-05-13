@@ -27,10 +27,10 @@ import type {
   EmailThreadCategory,
   EmailThreadLabel,
   InboxDraftRow,
-  InboxRail,
   InboxScope,
   PhaseC,
 } from "@/lib/types/email-thread";
+import type { RailFilter } from "@/lib/inbox/rail-predicates";
 
 // Re-export so consumers can import alongside the other inbox wire types.
 export type { PhaseC, AgentBlockingQuestion } from "@/lib/types/email-thread";
@@ -251,7 +251,7 @@ async function authHeaders(): Promise<HeadersInit> {
 
 export interface UseInboxThreadsParams {
   scope: InboxScope;
-  filter: InboxRail;
+  filter: RailFilter;
   category?: EmailThreadCategory;
   search?: string;
   /**
@@ -296,7 +296,7 @@ async function fetchThreadDetail(threadId: string): Promise<InboxThreadDetail> {
 
 async function fetchUnreadCount(): Promise<number> {
   const headers = await authHeaders();
-  const res = await fetch(`/api/inbox/threads?scope=own&filter=needs_reply&limit=50`, {
+  const res = await fetch(`/api/inbox/threads?scope=own&filter=YOUR_MOVE&limit=50`, {
     headers,
   });
   if (!res.ok) return 0;
@@ -308,7 +308,9 @@ async function fetchUnreadCount(): Promise<number> {
 
 /**
  * Badge-ready unread count across the user's own inbox. Summed from the
- * first page of the `needs_reply` rail. Refreshes every 60s.
+ * first page of the YOUR MOVE rail — the union of commitments / unread
+ * inbound / AWAITING_REPLY / agent-blocked threads, which lines up with
+ * what the operator means by "things waiting on me". Refreshes every 60s.
  */
 export function useInboxUnreadCount() {
   return useQuery({

@@ -103,14 +103,13 @@ export type ArchiveWritebackPreference =
  */
 export type ArchiveLeadPreference = "ask" | "archive" | "leave";
 
-/** Split-inbox rail. */
-export type InboxRail =
-  | "needs_reply"
-  | "everything"
-  | "scheduled"
-  | "done"
-  | "drafts"
-  | "commitments";
+// Rail filter type lives in `@/lib/inbox/rail-predicates`. Re-exported here
+// so callers can continue to import alongside the other inbox wire types
+// without a second module hop. The legacy `InboxRail` alias retains the
+// old name in case any external consumer leans on it; the canonical
+// identifier is `RailFilter`.
+export type { RailFilter, RailFilter as InboxRail } from "@/lib/inbox/rail-predicates";
+import type { RailFilter } from "@/lib/inbox/rail-predicates";
 
 // ─── Drafts (shared wire shape) ─────────────────────────────────────────────
 // Wire shape used by /api/inbox/drafts and consumed by useInboxDrafts on the
@@ -377,7 +376,7 @@ export function mapCategoryCorrectionFromDb(
 
 export interface ListInboxThreadsParams {
   scope: InboxScope;
-  filter: InboxRail;
+  filter: RailFilter;
   category?: EmailThreadCategory;
   search?: string;
   cursor?: string | null;
