@@ -222,6 +222,7 @@
   "focused.terminalStack.itemLabel": "{stage}, {count} oportunidades",
   "focused.modeButton.spatial": "[ MODO: ESPACIAL ▸ ]",
   "focused.modeButton.focused": "[ MODO: ENFOCADO ▸ ]",
+  "focused.search.action": "Buscar",
   "focused.search.placeholder": "buscar pipeline...",
   "actions.call": "Llamar",
   "actions.text": "Mensaje",

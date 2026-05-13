@@ -52,6 +52,8 @@ const TERMINAL_STAGE_ORDER = [OpportunityStage.Won, OpportunityStage.Lost];
 const SNAP_DURATION_MS = 280;
 const SNAP_EASING = "cubic-bezier(0.22, 1, 0.36, 1)";
 const SNAP_DEBOUNCE_MS = 150;
+const SPINE_RAIL_CHROME =
+  "h-full pt-[clamp(104px,13vh,128px)] pb-[clamp(76px,9vh,104px)]";
 
 function sortOpportunities(
   opportunities: Opportunity[],
@@ -272,7 +274,7 @@ export function PipelineFocusedShell({
       onWheel={handleWheel}
     >
       <div className="flex h-full min-h-0 items-stretch justify-center gap-2 overflow-hidden">
-        <div className="flex min-h-0 shrink-0 items-stretch gap-2">
+        <div className={`flex min-h-0 shrink-0 items-stretch gap-2 ${SPINE_RAIL_CHROME}`}>
           {leftStages.map((stage) => (
             <SpineSlot
               key={stage}
@@ -309,7 +311,7 @@ export function PipelineFocusedShell({
           />
         </div>
 
-        <div className="flex min-h-0 shrink-0 items-stretch gap-2">
+        <div className={`flex min-h-0 shrink-0 items-stretch gap-2 ${SPINE_RAIL_CHROME}`}>
           {rightStages.map((stage) => (
             <SpineSlot
               key={stage}
@@ -323,12 +325,14 @@ export function PipelineFocusedShell({
           ))}
         </div>
 
-        <PipelineTerminalStack
-          wonOpportunities={wonOpportunities}
-          lostOpportunities={lostOpportunities}
-          focusedStage={safeFocusedStage}
-          onSelectStage={snapToStage}
-        />
+        <div className={SPINE_RAIL_CHROME}>
+          <PipelineTerminalStack
+            wonOpportunities={wonOpportunities}
+            lostOpportunities={lostOpportunities}
+            focusedStage={safeFocusedStage}
+            onSelectStage={snapToStage}
+          />
+        </div>
       </div>
     </div>
   );

@@ -242,6 +242,7 @@
   "focused.terminalStack.itemLabel": "{stage}, {count} opportunities",
   "focused.modeButton.spatial": "[ MODE: SPATIAL ▸ ]",
   "focused.modeButton.focused": "[ MODE: FOCUSED ▸ ]",
+  "focused.search.action": "Search",
   "focused.search.placeholder": "search pipeline...",
   "actions.call": "Call",
   "actions.text": "Text",

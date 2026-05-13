@@ -108,20 +108,20 @@ export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
         aria-selected={true}
         aria-controls={focusedPanelId}
         tabIndex={0}
-        className="absolute left-0 right-0 top-[184px] z-[2] overflow-hidden rounded-panel bg-background px-1 py-1 pl-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
+        className="glass-dense absolute left-0 top-[clamp(104px,13vh,128px)] z-[2] w-full max-w-[460px] overflow-hidden rounded-[4px] px-3 py-2 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
       >
         <span
           aria-hidden="true"
-          className="absolute bottom-1 left-0 top-1 w-[2px]"
+          className="absolute bottom-2 left-0 top-2 w-[2px]"
           style={{ backgroundColor: stageColor }}
         />
 
-        <div className="flex items-end justify-between gap-4">
-          <span className="min-w-0 truncate font-cakemono text-heading font-light uppercase text-text">
+        <div className="flex items-center gap-3">
+          <span className="inline-flex shrink-0 items-center rounded-chip border border-line bg-surface-hover px-1.5 py-0.5 font-mono text-micro uppercase tracking-[0.12em] text-text">
             {stageName}
           </span>
 
-          <dl className="grid w-[260px] shrink-0 grid-cols-3 gap-2">
+          <dl className="grid min-w-0 flex-1 grid-cols-3 gap-2">
             <Metric
               label={t("focused.metrics.count", "COUNT")}
               value={String(opportunities.length)}
@@ -142,7 +142,7 @@ export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
         id={focusedPanelId}
         role="tabpanel"
         aria-labelledby={focusedTabId}
-        className="h-full min-h-0 overflow-y-auto pr-1 pt-[238px] scrollbar-hide"
+        className="h-full min-h-0 overflow-y-auto pr-1 pt-[clamp(164px,19vh,188px)] scrollbar-hide"
       >
         {opportunities.length > 0 ? (
           <div className="flex min-h-full flex-col gap-2 pb-[120px]">

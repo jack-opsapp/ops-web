@@ -73,6 +73,7 @@ import { calculateCanvasLayout } from "./_components/spatial-layout-engine";
 import { calculateBatchStaleness } from "./_components/spatial-staleness";
 import { PipelineDndProvider } from "./_components/pipeline-dnd-provider";
 import { PipelineFocusedShell } from "./_components/pipeline-focused-shell";
+import { PipelineFocusedToolbar } from "./_components/pipeline-focused-toolbar";
 import { PipelineFilterRow } from "./_components/pipeline-filter-row";
 import {
   useSpatialCanvasStore,
@@ -1449,36 +1450,40 @@ export default function PipelinePage() {
         <div className="pointer-events-auto">
           <MetricsHeader variant="full" tabId="pipeline" title="Pipeline" metrics={pipelineMetrics} isLoading={pipelineMetricsLoading} />
         </div>
-        <div className="pointer-events-auto px-3 py-1.5">
-          <div className="inline-flex w-fit py-[2px] rounded-[4px] border border-[rgba(255,255,255,0.08)]"
-            style={{
-              background: "rgba(10, 10, 10, 0.50)",
-              backdropFilter: "blur(12px) saturate(1.1)",
-              WebkitBackdropFilter: "blur(12px) saturate(1.1)",
-            }}
-          >
-            <SpatialFloatingToolbar
-              onAddLead={gatedOpenCreate}
-              reviewCount={reviewCount}
-              onReviewEmails={() => setReviewPanelOpen(true)}
-            />
-          </div>
-        </div>
-        <div className="pointer-events-auto px-3 pb-1">
-          <div className="inline-flex w-fit rounded-[4px] border border-[rgba(255,255,255,0.08)] bg-[rgba(10,10,10,0.50)] px-1.5 py-1 backdrop-blur-[12px] backdrop-saturate-[1.1]">
-            <PipelineFilterRow
-              searchQuery={searchQuery}
-              onSearchChange={setSearchQuery}
-              stageFilter={stageFilter}
-              onStageFilterChange={setStageFilter}
-              assigneeFilter={assigneeFilter}
-              onAssigneeFilterChange={setAssigneeFilter}
-              teamMembers={teamMembers}
-              onAddLead={gatedOpenCreate}
-              canManage={canManage}
-            />
-          </div>
-        </div>
+        {mode !== "focused" && (
+          <>
+            <div className="pointer-events-auto px-3 py-1.5">
+              <div className="inline-flex w-fit py-[2px] rounded-[4px] border border-[rgba(255,255,255,0.08)]"
+                style={{
+                  background: "rgba(10, 10, 10, 0.50)",
+                  backdropFilter: "blur(12px) saturate(1.1)",
+                  WebkitBackdropFilter: "blur(12px) saturate(1.1)",
+                }}
+              >
+                <SpatialFloatingToolbar
+                  onAddLead={gatedOpenCreate}
+                  reviewCount={reviewCount}
+                  onReviewEmails={() => setReviewPanelOpen(true)}
+                />
+              </div>
+            </div>
+            <div className="pointer-events-auto px-3 pb-1">
+              <div className="inline-flex w-fit rounded-[4px] border border-[rgba(255,255,255,0.08)] bg-[rgba(10,10,10,0.50)] px-1.5 py-1 backdrop-blur-[12px] backdrop-saturate-[1.1]">
+                <PipelineFilterRow
+                  searchQuery={searchQuery}
+                  onSearchChange={setSearchQuery}
+                  stageFilter={stageFilter}
+                  onStageFilterChange={setStageFilter}
+                  assigneeFilter={assigneeFilter}
+                  onAssigneeFilterChange={setAssigneeFilter}
+                  teamMembers={teamMembers}
+                  onAddLead={gatedOpenCreate}
+                  canManage={canManage}
+                />
+              </div>
+            </div>
+          </>
+        )}
         {/* Banners */}
         <div className="pointer-events-auto flex flex-col gap-1 px-3">
           {gmailConnections.length === 0 && !gmailBannerDismissed && (
@@ -1543,6 +1548,33 @@ export default function PipelinePage() {
           )}
         </div>
       </div>
+
+      {!isMobile && mode === "focused" && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-4 z-[3] flex justify-center px-3">
+          <div
+            className="pointer-events-auto inline-flex max-w-full overflow-x-auto rounded-[4px] border border-[rgba(255,255,255,0.08)] py-[2px] scrollbar-hide"
+            style={{
+              background: "rgba(10, 10, 10, 0.50)",
+              backdropFilter: "blur(12px) saturate(1.1)",
+              WebkitBackdropFilter: "blur(12px) saturate(1.1)",
+            }}
+          >
+            <PipelineFocusedToolbar
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              stageFilter={stageFilter}
+              onStageFilterChange={setStageFilter}
+              assigneeFilter={assigneeFilter}
+              onAssigneeFilterChange={setAssigneeFilter}
+              teamMembers={teamMembers}
+              onAddLead={gatedOpenCreate}
+              canManage={canManage}
+              reviewCount={reviewCount}
+              onReviewEmails={() => setReviewPanelOpen(true)}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Detail Popover Tether Lines */}
       <DetailPopoverTether cardPositions={cardPositionsMap} />
