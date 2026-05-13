@@ -149,15 +149,8 @@ export function ThreadDetailHeader({
         className="flex items-center gap-2 font-mono text-[11px] leading-none text-text-3"
         style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
       >
-        {category && (
-          <>
-            <CategoryChip category={category} size="sm" />
-            <span aria-hidden className="text-text-mute">
-              ·
-            </span>
-          </>
-        )}
-        <span className="truncate">{senderName}</span>
+        {category && <CategoryChip category={category} size="sm" />}
+        <span className="min-w-0 flex-1 truncate">{senderName}</span>
         <span aria-hidden className="text-text-mute">
           ·
         </span>
