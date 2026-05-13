@@ -64,6 +64,7 @@ import { useWindowStore } from "@/stores/window-store";
 import { ResponsiveInboxShell } from "./responsive-inbox-shell";
 import type { MobileInboxPane } from "./mobile-stacked-shell";
 import { ThreadColumnHeader } from "./thread-column-header";
+import { DraftsChip } from "./drafts-chip";
 import { TodayBar, type TodayCommitment } from "./today-bar";
 import { ThreadList, type ThreadListItem } from "./thread-list";
 import { ThreadDetail } from "./thread-detail";
@@ -447,6 +448,9 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
         onRefresh={onRefresh}
         onOpenArchived={onOpenArchived}
         onOpenSettings={onOpenSettings}
+        headerChipSlot={
+          <DraftsChip scope="own" onOpenThread={navigateToThread} />
+        }
       />
       <TodayBar
         commitments={commitments}

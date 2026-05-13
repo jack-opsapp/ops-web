@@ -368,6 +368,14 @@
 
   "search.tacticPlaceholder": "[search threads — ⌘K]",
 
+  "header.draftsChipLabel": "DRAFTS",
+  "header.draftsChipAria": "{count} unsent drafts",
+  "draftsPanel.title": "// DRAFTS",
+  "draftsPanel.body": "[—] unsent drafts across every thread",
+  "draftsPanel.discard": "DISCARD",
+  "draftsPanel.empty": "[—] nothing unsent",
+
+
   "todayBar.yourMoveOverdue": "// YOUR MOVE :: {overdue} OVERDUE · {today} TODAY",
   "todayBar.yourMoveTodayOnly": "// YOUR MOVE :: {today} TODAY",
   "todayBar.caughtUpHeader": "// CAUGHT UP",
