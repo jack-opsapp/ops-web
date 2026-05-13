@@ -246,6 +246,8 @@
   "focused.modeButton.focused": "[ MODE: FOCUSED ▸ ]",
   "focused.search.action": "Search",
   "focused.search.placeholder": "search pipeline...",
+  "focused.detailPanel.label": "Deal detail panel",
+  "focused.detailPanel.close": "Close detail panel",
   "actions.call": "Call",
   "actions.text": "Text",
   "actions.note": "Note",
