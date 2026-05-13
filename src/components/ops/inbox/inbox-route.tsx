@@ -913,6 +913,8 @@ function toThreadListItem(t: InboxThreadRow): ThreadListItem {
     t.latestDirection === "inbound" ? lastMessageMs : null;
   const lastOutboundAt =
     t.latestDirection === "outbound" ? lastMessageMs : null;
+  const aiSummary = t.aiSummary?.trim() || null;
+  const snippet = t.latestSnippet?.trim() || "";
   const state = computeStateTag({
     lastInboundAt,
     lastOutboundAt,
@@ -931,8 +933,8 @@ function toThreadListItem(t: InboxThreadRow): ThreadListItem {
     closed: t.archivedAt !== null,
     clientName: t.clientName ?? t.latestSenderName ?? "Unknown",
     subject: t.subject ?? "",
-    snippet: t.latestSnippet ?? "",
-    aiSummary: t.aiSummary,
+    snippet,
+    aiSummary,
     unread: t.unreadCount > 0,
     messageCount: t.messageCount,
     draftKind: null,

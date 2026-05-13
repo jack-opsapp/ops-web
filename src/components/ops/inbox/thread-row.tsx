@@ -8,7 +8,7 @@
  *   • title row: client name + optional `· {messageCount}` + inline <StateTag>
  *     + relative time (only when StateTag doesn't already carry a time value)
  *   • subject line (font-weight tracks unread/read)
- *   • snippet line — body is `aiSummary ?? snippet`, with optional `// PHASE C DRAFT ·` (AI)
+ *   • snippet line — body is `aiSummary || snippet`, with optional `// PHASE C DRAFT ·` (AI)
  *     or `DRAFT ·` (operator) Cake-prefix
  *   • bottom signal row — only when at least one of attachment / quote / invoice / new-sender
  *     is present. The legacy URGENT pill is gone — the inline <StateTag> now carries urgency.
@@ -151,6 +151,7 @@ export function ThreadRow({
     onDismissAwaitingReply && thread.state.kind === "yours"
       ? () => onDismissAwaitingReply(thread.id)
       : undefined;
+  const snippetText = thread.aiSummary?.trim() || thread.snippet;
 
   return (
     <div
@@ -262,7 +263,7 @@ export function ThreadRow({
               {t("row.draftPrefix", "DRAFT ·")}
             </span>
           )}
-          {thread.aiSummary ?? thread.snippet}
+          {snippetText}
         </div>
 
         {/* Bottom signal row — attachments / quotes / invoices / new senders only */}

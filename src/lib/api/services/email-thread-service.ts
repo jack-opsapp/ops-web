@@ -117,6 +117,13 @@ function setCachedSenderName(key: string, name: string) {
   });
 }
 
+function snippetFromMessage(
+  snippet: string | null | undefined,
+  bodyText: string | null | undefined
+): string {
+  return ((snippet ?? "").trim() || (bodyText ?? "").trim()).slice(0, 400);
+}
+
 /**
  * Look up a canonical name for `senderEmail` in this company's directory.
  * Priority: clients → sub_clients → users. Returns "" (empty) when no row
@@ -498,6 +505,103 @@ async function enrichWithNextCommitmentId(
   });
 }
 
+async function enrichWithActivitySnippets(
+  threads: EmailThread[]
+): Promise<EmailThread[]> {
+  const candidates = threads.filter(
+    (t) => !t.latestSnippet?.trim() || t.latestDirection === "inbound"
+  );
+  if (candidates.length === 0) return threads;
+
+  const supabase = requireSupabase();
+  const companyId = threads[0].companyId;
+  const providerThreadIds = Array.from(
+    new Set(candidates.map((t) => t.providerThreadId).filter(Boolean))
+  );
+  const connectionIds = Array.from(
+    new Set(candidates.map((t) => t.connectionId).filter(Boolean))
+  );
+  if (providerThreadIds.length === 0) return threads;
+
+  const [activityRes, connectionRes] = await Promise.all([
+    supabase
+      .from("activities")
+      .select("email_thread_id, from_email, body_text, content, created_at")
+      .eq("company_id", companyId)
+      .eq("type", "email")
+      .in("email_thread_id", providerThreadIds)
+      .order("created_at", { ascending: false }),
+    connectionIds.length > 0
+      ? supabase
+          .from("email_connections")
+          .select("id, email")
+          .in("id", connectionIds)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+
+  if (activityRes.error || connectionRes.error) {
+    console.error(
+      "[email-thread-service] enrichWithActivitySnippets query failed:",
+      activityRes.error?.message ?? connectionRes.error?.message,
+    );
+    return threads;
+  }
+
+  const connectionEmailById = new Map<string, string>();
+  for (const row of (connectionRes.data ?? []) as Array<{
+    id: string;
+    email: string | null;
+  }>) {
+    const email = row.email?.toLowerCase().trim();
+    if (email) connectionEmailById.set(row.id, email);
+  }
+
+  const latestActivityByThread = new Map<
+    string,
+    { snippet: string; fromEmail: string | null; createdAt: Date | null }
+  >();
+  for (const row of (activityRes.data ?? []) as Array<{
+    email_thread_id: string | null;
+    from_email: string | null;
+    body_text: string | null;
+    content: string | null;
+    created_at: string | null;
+  }>) {
+    const threadId = row.email_thread_id;
+    if (!threadId || latestActivityByThread.has(threadId)) continue;
+    const snippet = snippetFromMessage(row.content, row.body_text);
+    if (!snippet) continue;
+    latestActivityByThread.set(threadId, {
+      snippet,
+      fromEmail: row.from_email?.toLowerCase().trim() || null,
+      createdAt: row.created_at ? new Date(row.created_at) : null,
+    });
+  }
+
+  return threads.map((t) => {
+    const activity = latestActivityByThread.get(t.providerThreadId);
+    if (!activity) return t;
+
+    const cachedSnippetIsBlank = !t.latestSnippet?.trim();
+    const connectionEmail = connectionEmailById.get(t.connectionId) ?? null;
+    const latestActivityIsFromConnection =
+      !!connectionEmail && activity.fromEmail === connectionEmail;
+    const activityMatchesThreadLast =
+      activity.createdAt === null ||
+      activity.createdAt.getTime() >= t.lastMessageAt.getTime() - 300_000;
+
+    if (
+      !cachedSnippetIsBlank &&
+      (!latestActivityIsFromConnection || !activityMatchesThreadLast)
+    ) {
+      return t;
+    }
+
+    if (t.latestSnippet === activity.snippet) return t;
+    return { ...t, latestSnippet: activity.snippet };
+  });
+}
+
 // ─── List query ──────────────────────────────────────────────────────────────
 
 const LIST_LIMIT_DEFAULT = 50;
@@ -605,7 +709,8 @@ async function listThreads(
   // is computed so a join hiccup never affects pagination semantics.
   // Sequenced — phaseC pass first then commitment-id — so each
   // enricher operates on the canonical EmailThread shape.
-  const withPhaseC = await enrichWithPhaseC(page);
+  const withActivitySnippets = await enrichWithActivitySnippets(page);
+  const withPhaseC = await enrichWithPhaseC(withActivitySnippets);
   const enriched = await enrichWithNextCommitmentId(withPhaseC);
 
   return { threads: enriched, nextCursor };
@@ -687,7 +792,7 @@ export const EmailThreadService = {
       senderEmail,
       resolved.source === "forwarded" ? "" : email.fromName
     );
-    const snippet = (email.snippet || email.bodyText || "").slice(0, 400);
+    const snippet = snippetFromMessage(email.snippet, email.bodyText);
 
     if (existing) {
       // Merge participants (union)
@@ -715,17 +820,17 @@ export const EmailThreadService = {
       if (isNewer) {
         update.last_message_at = emailDate.toISOString();
         update.latest_direction = direction;
+        update.latest_snippet = snippet;
         // Self-forward guard: when the resolved sender is the operator's
         // own mailbox (e.g. Gmail surfaced an outbound reply or a draft
         // autosave under the INBOX label, or a forward whose upstream
-        // could not be parsed), skip the latest_sender_* / latest_snippet
-        // writes. Keeping the prior values means the thread row continues
-        // to point at the real customer's identity even though a junk
-        // "from-self" message just came in.
+        // could not be parsed), skip the latest_sender_* writes. Keeping
+        // the prior values means the thread row continues to point at the
+        // real customer's identity even though a junk "from-self" message
+        // just came in.
         if (!senderIsSelf) {
           update.latest_sender_email = senderEmail;
           update.latest_sender_name = senderName;
-          update.latest_snippet = snippet;
         }
         if (email.subject && (existing.subject as string).length === 0) {
           update.subject = email.subject;

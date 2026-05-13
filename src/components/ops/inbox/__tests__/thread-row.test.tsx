@@ -77,6 +77,18 @@ describe("<ThreadRow>", () => {
     expect(screen.getByText(/raw provider snippet/)).toBeInTheDocument();
   });
 
+  it("snippet falls back to raw snippet when aiSummary is empty", () => {
+    render(
+      <ThreadRow
+        thread={make({ aiSummary: "", snippet: "raw provider snippet" })}
+        selected={false}
+        now={NOW}
+        onSelect={() => {}}
+      />,
+    );
+    expect(screen.getByText(/raw provider snippet/)).toBeInTheDocument();
+  });
+
   it("unread state uses font-semibold + text-text on the client name", () => {
     render(<ThreadRow thread={make({ unread: true })} selected={false} now={NOW} onSelect={() => {}} />);
     const name = screen.getByText("Calloway");
