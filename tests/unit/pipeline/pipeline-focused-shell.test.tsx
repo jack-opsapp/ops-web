@@ -132,6 +132,7 @@ function renderFocusedShell(opportunities: Opportunity[]) {
       clientNameMap={new Map()}
       canManage={true}
       filtersActive={false}
+      dragAnnouncement=""
       onAddLead={vi.fn()}
       onClearFilters={vi.fn()}
       onLogCall={vi.fn()}
@@ -227,5 +228,38 @@ describe("<PipelineFocusedShell>", () => {
       OpportunityStage.NewLead
     );
     scopedTarget.remove();
+  });
+
+  it("renders focused DnD announcements in a polite live region", () => {
+    render(
+      <PipelineFocusedShell
+        opportunities={[makeOpportunity("opp-1", OpportunityStage.NewLead)]}
+        clientNameMap={new Map()}
+        canManage={true}
+        filtersActive={false}
+        dragAnnouncement="Drag: Quoted stage. Press Space to drop."
+        onAddLead={vi.fn()}
+        onClearFilters={vi.fn()}
+        onLogCall={vi.fn()}
+        onLogText={vi.fn()}
+        onAddNote={vi.fn()}
+        onArchive={vi.fn()}
+        onDiscard={vi.fn()}
+        onMarkWon={vi.fn()}
+        onMarkLost={vi.fn()}
+        onAdvanceStage={vi.fn()}
+        onAssign={vi.fn()}
+        onScheduleFollowUp={vi.fn()}
+        onDelete={vi.fn()}
+      />
+    );
+
+    const liveRegion = document.querySelector("[role='status']");
+
+    expect(liveRegion).toHaveAttribute("aria-live", "polite");
+    expect(liveRegion).toHaveAttribute("aria-atomic", "true");
+    expect(liveRegion).toHaveTextContent(
+      "Drag: Quoted stage. Press Space to drop."
+    );
   });
 });
