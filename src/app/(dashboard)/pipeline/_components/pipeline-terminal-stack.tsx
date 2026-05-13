@@ -23,6 +23,8 @@ const NUMBER_STYLE: CSSProperties = {
   fontVariantNumeric: "tabular-nums",
   fontFeatureSettings: '"tnum" 1, "zero" 1',
 };
+const transitionClasses =
+  "transition-[border-color,opacity] duration-[120ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none";
 
 function formatTemplate(
   template: string,
@@ -104,16 +106,16 @@ function TerminalItem({
       aria-pressed={isSelected}
       className={cn(
         "relative flex min-h-0 flex-1 overflow-hidden rounded-sidebar border border-line bg-transparent px-1 py-2 text-left",
-        "transition-[border-color,background-color] duration-[120ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+        transitionClasses,
         "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent",
-        (isSelected || isOver) && "bg-surface-active"
+        isSelected && "bg-surface-active"
       )}
       style={{ borderColor: isSelected || isOver ? stageColor : undefined }}
       onClick={() => onSelectStage(stage)}
     >
       <span
         aria-hidden="true"
-        className="absolute left-0 top-0 h-full w-[2px]"
+        className={cn("absolute left-0 top-0 h-full w-[2px]", transitionClasses)}
         style={{ backgroundColor: stageColor, opacity: visualOpacity }}
       />
 
@@ -129,7 +131,7 @@ function TerminalItem({
             <span
               key={opportunity.id}
               aria-hidden="true"
-              className="h-1.5 w-full shrink-0 rounded-bar"
+              className={cn("h-1.5 w-full shrink-0 rounded-bar", transitionClasses)}
               style={{ backgroundColor: stageColor, opacity: visualOpacity }}
             />
           ))}
