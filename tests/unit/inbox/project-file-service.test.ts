@@ -81,6 +81,7 @@ describe("ProjectFileService.listClientDocuments", () => {
         status: "sent",
         pdf_storage_path: "https://s3/estimate-1042.pdf",
         updated_at: "2026-05-07T12:00:00Z",
+        total: 1042.5,
       },
     ];
     const svc = await load();
@@ -94,6 +95,7 @@ describe("ProjectFileService.listClientDocuments", () => {
         status: "sent",
         pdfStoragePath: "https://s3/estimate-1042.pdf",
         updatedAt: "2026-05-07T12:00:00.000Z",
+        value: 1042.5,
       },
     ]);
   });
@@ -106,6 +108,7 @@ describe("ProjectFileService.listClientDocuments", () => {
         status: "paid",
         pdf_storage_path: null,
         updated_at: "2026-05-06T08:00:00Z",
+        total: "9001.99",
       },
     ];
     const svc = await load();
@@ -119,8 +122,33 @@ describe("ProjectFileService.listClientDocuments", () => {
         status: "paid",
         pdfStoragePath: null,
         updatedAt: "2026-05-06T08:00:00.000Z",
+        value: 9001.99,
       },
     ]);
+  });
+
+  it("coerces missing or unparseable totals to null", async () => {
+    supabaseMock.estimates = [
+      {
+        id: "est-no-total",
+        estimate_number: "9",
+        status: "draft",
+        pdf_storage_path: null,
+        updated_at: "2026-05-07T12:00:00Z",
+        // total intentionally omitted — fresh-draft path
+      },
+      {
+        id: "est-bad-total",
+        estimate_number: "10",
+        status: "draft",
+        pdf_storage_path: null,
+        updated_at: "2026-05-06T12:00:00Z",
+        total: "not-a-number",
+      },
+    ];
+    const svc = await load();
+    const out = await svc.listClientDocuments("client", "co");
+    expect(out.map((d) => d.value)).toEqual([null, null]);
   });
 
   it("merges and sorts both sources newest-first", async () => {
