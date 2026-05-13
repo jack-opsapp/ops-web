@@ -17,7 +17,6 @@ import { ClosedBand, type ClosedBandVariant } from "./bands/closed-band";
 export type DetailBandAction =
   | "reply"
   | "take-over"
-  | "history"
   | "provide-answer"
   | "type-reply"
   | `answer:${string}`;
@@ -91,7 +90,6 @@ export function DetailBand({
           body={thread.aiSummary ?? ""}
           updatedAt={summaryUpdatedAt}
           renderedAt={renderedAt}
-          onHistory={() => onAction("history")}
         />
       )}
       {actionBand === "needs-input" && (
