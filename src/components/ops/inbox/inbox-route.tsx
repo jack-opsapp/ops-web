@@ -1312,6 +1312,7 @@ function toPipelineOpp(
     stage: String(o.stage),
     estimateRef: null,
     confidence,
+    priority: o.priority as PipelineOpp["priority"],
     source: o.source ? String(o.source) : null,
     threadId: isLinked ? (currentThreadId ?? null) : null,
   };

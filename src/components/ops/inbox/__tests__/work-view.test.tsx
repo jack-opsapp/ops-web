@@ -41,6 +41,7 @@ const opps: PipelineOpp[] = [
     value: 8500,
     stage: "Lead",
     confidence: "low",
+    priority: "high",
     source: "Website",
     threadId: "th-current",
     estimateRef: null,
@@ -277,6 +278,7 @@ describe("<WorkView>", () => {
       value: 12000,
       stage: "won",
       confidence: "high",
+      priority: "medium",
       source: "Referral",
       threadId: null,
       estimateRef: null,
@@ -287,6 +289,7 @@ describe("<WorkView>", () => {
       value: 800,
       stage: "won",
       confidence: "high",
+      priority: "low",
       source: "Email",
       threadId: null,
       estimateRef: null,
@@ -330,8 +333,38 @@ describe("<WorkView>", () => {
     expect(
       within(wonSection).getByTestId("pipeline-opp-won1").getAttribute("data-variant"),
     ).toBe("won");
-    // The StateTag renders the chip label once per card.
+    // Each WON row renders a single quiet WON marker.
     expect(within(wonSection).getAllByText(/^WON$/)).toHaveLength(2);
+  });
+
+  it("keeps WON cards visually lower priority than active leads", () => {
+    render(
+      <WorkView
+        pipelineOpps={opps}
+        wonOpps={wonOpps}
+        projects={projects}
+        tasks={tasks}
+        currentThreadId="th-current"
+        onNewOpportunity={() => {}}
+        onNewProject={() => {}}
+      />,
+    );
+    const activeCard = screen.getByTestId("pipeline-opp-opp1");
+    const wonCard = screen.getByTestId("pipeline-opp-won1");
+    expect(activeCard.getAttribute("data-current")).toBe("true");
+    expect(within(activeCard).getByTestId("pipeline-opp-title-opp1")).toHaveClass(
+      "text-text",
+    );
+    expect(within(activeCard).getByTestId("pipeline-opp-value-opp1")).toHaveClass(
+      "text-text-2",
+    );
+    expect(wonCard).toHaveClass("bg-transparent");
+    expect(within(wonCard).getByTestId("pipeline-opp-title-won1")).toHaveClass(
+      "text-text-3",
+    );
+    expect(within(wonCard).getByTestId("pipeline-opp-stage-won1")).toHaveTextContent(
+      "WON",
+    );
   });
 
   it("suppresses the LEADS empty body when there are 0 open + N won (no contradiction)", () => {

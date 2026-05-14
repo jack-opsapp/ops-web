@@ -154,13 +154,27 @@ test.describe("inbox redesign - populated visual verification", () => {
       composerBox!.y
     );
 
-    await expect(
-      contextRail.getByRole("tab", { name: /WORK\s+3/i })
-    ).toBeVisible();
+    const workTab = contextRail.getByRole("tab", { name: /WORK\s+3/i });
+    await expect(workTab).toBeVisible();
+    await workTab.click();
+    await expect(workTab).toHaveAttribute("aria-selected", "true");
     await expect(contextRail.getByTestId("work-view-leads")).toBeVisible();
     await expect(
       contextRail.getByText("Bay three curb flashing")
     ).toBeVisible();
+    const activeLead = contextRail.getByTestId(
+      `pipeline-opp-${inboxPopulatedFixture.opportunityId}`
+    );
+    await expect(activeLead).toBeVisible();
+    await expect(activeLead.getByText("QUOTING", { exact: true })).toBeVisible();
+    await expect(activeLead.getByText("HIGH", { exact: true })).toBeVisible();
+    await expect(activeLead.getByText("EMAIL", { exact: true })).toBeVisible();
+    await expect(activeLead.getByText("[THIS THREAD]")).toBeVisible();
+    const wonLead = contextRail.getByTestId(
+      `pipeline-opp-${inboxPopulatedFixture.wonOpportunityId}`
+    );
+    await expect(wonLead).toBeVisible();
+    await expect(wonLead.getByText("WON", { exact: true })).toBeVisible();
     await expect(contextRail.getByTestId("work-view-projects")).toBeVisible();
     await expect(
       contextRail.getByTestId(

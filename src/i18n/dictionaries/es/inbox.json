@@ -91,10 +91,16 @@
   "project.openProject": "Abrir proyecto",
 
   "pipeline.empty": "sin oportunidades abiertas",
-  "pipeline.thisThread": "Este hilo",
+  "pipeline.thisThread": "[ESTE HILO]",
   "pipeline.newOpportunity": "NUEVA OPORTUNIDAD",
   "pipeline.untitledOpportunity": "[OPORTUNIDAD SIN TÍTULO]",
   "pipeline.wonTag": "GANADO",
+  "pipeline.priority.high": "ALTA",
+  "pipeline.priority.medium": "MEDIA",
+  "pipeline.priority.low": "BAJA",
+  "pipeline.confidence.high": "INTENCIÓN ALTA",
+  "pipeline.confidence.warm": "INTENCIÓN TIBIA",
+  "pipeline.confidence.low": "INTENCIÓN BAJA",
 
   "files.imagesLabel": "// IMÁGENES · {count}",
   "files.documentsLabel": "// DOCUMENTOS · {count}",

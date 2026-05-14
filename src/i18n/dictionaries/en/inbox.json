@@ -129,10 +129,16 @@
   "project.ofTotal": "of {total}",
 
   "pipeline.empty": "no open opportunities",
-  "pipeline.thisThread": "This thread",
+  "pipeline.thisThread": "[THIS THREAD]",
   "pipeline.newOpportunity": "NEW OPPORTUNITY",
   "pipeline.untitledOpportunity": "[UNTITLED OPPORTUNITY]",
   "pipeline.wonTag": "WON",
+  "pipeline.priority.high": "HIGH",
+  "pipeline.priority.medium": "MED",
+  "pipeline.priority.low": "LOW",
+  "pipeline.confidence.high": "HIGH INTENT",
+  "pipeline.confidence.warm": "WARM INTENT",
+  "pipeline.confidence.low": "LOW INTENT",
 
   "files.imagesLabel": "Images · {count}",
   "files.documentsLabel": "Documents · {count}",

@@ -14,6 +14,7 @@ const opps: PipelineOpp[] = [
     stage: "Lead",
     estimateRef: null,
     confidence: "low",
+    priority: "medium",
     source: "Website",
     threadId: "th-other",
   },
@@ -24,6 +25,7 @@ const opps: PipelineOpp[] = [
     stage: "Quoted",
     estimateRef: "EST-091",
     confidence: "high",
+    priority: "high",
     source: "Inbound email",
     threadId: "th-current",
   },
@@ -34,6 +36,7 @@ const opps: PipelineOpp[] = [
     stage: "RFQ in",
     estimateRef: null,
     confidence: "warm",
+    priority: "low",
     source: "Phone",
     threadId: null,
   },
@@ -44,10 +47,11 @@ describe("<PipelineList>", () => {
     render(
       <PipelineList opps={opps} threadId="th-current" onNewOpportunity={() => {}} />,
     );
-    expect(screen.getByText(/^Lead$/)).toBeInTheDocument();
-    expect(screen.getByText(/^Quoted$/)).toBeInTheDocument();
-    expect(screen.getByText(/^RFQ in$/)).toBeInTheDocument();
-    expect(screen.queryByText(/Discovery/)).not.toBeInTheDocument();
+    const headers = Array.from(document.querySelectorAll("h4")).map(
+      (h) => h.textContent,
+    );
+    expect(headers).toEqual(["LEAD", "RFQ IN", "QUOTED"]);
+    expect(screen.queryByText(/DISCOVERY/)).not.toBeInTheDocument();
   });
 
   it("orders stages: Lead → Discovery → RFQ in → Quoted → others", () => {
@@ -56,23 +60,51 @@ describe("<PipelineList>", () => {
     );
     const headers = container.querySelectorAll("h4");
     const labels = Array.from(headers).map((h) => h.textContent);
-    expect(labels).toEqual(["Lead", "RFQ in", "Quoted"]);
+    expect(labels).toEqual(["LEAD", "RFQ IN", "QUOTED"]);
   });
 
-  it("shows 'This thread' tag on opps linked to current threadId", () => {
+  it("shows a quiet linked-thread signal on opps linked to current threadId", () => {
     render(
       <PipelineList opps={opps} threadId="th-current" onNewOpportunity={() => {}} />,
     );
-    const tags = screen.getAllByText(/This thread/i);
+    const tags = screen.getAllByText(/\[THIS THREAD\]/i);
     expect(tags.length).toBe(1);
+    const card = screen.getByTestId("pipeline-opp-o2");
+    expect(within(card).getByTestId("pipeline-opp-linked-o2")).toHaveClass(
+      "text-text-2",
+    );
   });
 
-  it("applies the accent left-bar inset shadow to the linked opp card", () => {
+  it("marks the linked opp card without the old accent inset shadow", () => {
     render(
       <PipelineList opps={opps} threadId="th-current" onNewOpportunity={() => {}} />,
     );
     const card = screen.getByTestId("pipeline-opp-o2");
     expect(card.getAttribute("data-current")).toBe("true");
+    expect(card.className).not.toContain("shadow-");
+    expect(card).toHaveClass("border-line-hi");
+  });
+
+  it("renders active card hierarchy: title, stage, value, priority, and source", () => {
+    render(
+      <PipelineList opps={opps} threadId="th-current" onNewOpportunity={() => {}} />,
+    );
+    const card = screen.getByTestId("pipeline-opp-o2");
+    expect(within(card).getByTestId("pipeline-opp-title-o2")).toHaveTextContent(
+      "Roof replacement quote",
+    );
+    expect(within(card).getByTestId("pipeline-opp-value-o2")).toHaveTextContent(
+      "$22,000",
+    );
+    expect(within(card).getByTestId("pipeline-opp-stage-o2")).toHaveTextContent(
+      "QUOTED",
+    );
+    expect(
+      within(card).getByTestId("pipeline-opp-priority-o2"),
+    ).toHaveTextContent("HIGH");
+    expect(within(card).getByTestId("pipeline-opp-source-o2")).toHaveTextContent(
+      "INBOUND EMAIL",
+    );
   });
 
   it("renders the +New opportunity button at bottom", () => {
@@ -84,13 +116,16 @@ describe("<PipelineList>", () => {
     expect(onNew).toHaveBeenCalled();
   });
 
-  it("renders confidence as a capitalized tier label", () => {
+  it("renders confidence as an intent label when priority is absent", () => {
+    const confidenceOnly = [{ ...opps[1], priority: null }];
     render(
-      <PipelineList opps={opps} threadId="th-current" onNewOpportunity={() => {}} />,
+      <PipelineList
+        opps={confidenceOnly}
+        threadId="th-current"
+        onNewOpportunity={() => {}}
+      />,
     );
-    expect(screen.getByText("Low")).toBeInTheDocument();
-    expect(screen.getByText("High")).toBeInTheDocument();
-    expect(screen.getByText("Warm")).toBeInTheDocument();
+    expect(screen.getByText("HIGH INTENT")).toBeInTheDocument();
   });
 
   it("renders empty state when no opps", () => {
@@ -127,12 +162,13 @@ describe("<PipelineOppCard>", () => {
     stage: "won",
     estimateRef: null,
     confidence: "high",
+    priority: "high",
     source: "Referral",
     threadId: null,
   };
 
-  it("renders the WON state tag and dims the title when variant='won'", () => {
-    const { container } = render(
+  it("renders a muted WON history row when variant='won'", () => {
+    render(
       <ul>
         <PipelineOppCard
           opp={oppFixture}
@@ -147,15 +183,23 @@ describe("<PipelineOppCard>", () => {
     // happens to match — closed business isn't "the current thread".
     expect(card.getAttribute("data-current")).toBe("false");
     expect(within(card).getByText(/^WON$/)).toBeInTheDocument();
-    // Title leans on text-text-2 (dimmer than the open variant's text-text).
-    const titleSpan = container.querySelector("span.text-text-2");
-    expect(titleSpan?.textContent).toBe("Skylight install");
+    expect(card).toHaveClass("bg-transparent");
+    expect(card).toHaveClass("border-line/60");
+    expect(within(card).getByTestId("pipeline-opp-title-won-1")).toHaveClass(
+      "text-text-3",
+    );
+    expect(within(card).getByTestId("pipeline-opp-value-won-1")).toHaveClass(
+      "text-text-3",
+    );
   });
 
   it("renders the standard open card when variant is omitted", () => {
     render(
       <ul>
-        <PipelineOppCard opp={oppFixture} currentThreadId="" />
+        <PipelineOppCard
+          opp={{ ...oppFixture, stage: "Lead" }}
+          currentThreadId=""
+        />
       </ul>,
     );
     const card = screen.getByTestId("pipeline-opp-won-1");
@@ -177,6 +221,6 @@ describe("<PipelineOppCard>", () => {
     expect(
       screen.getByTestId("pipeline-opp-won-1").getAttribute("data-current"),
     ).toBe("false");
-    expect(screen.queryByText(/This thread/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/THIS THREAD/i)).not.toBeInTheDocument();
   });
 });
