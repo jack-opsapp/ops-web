@@ -214,7 +214,7 @@ export function ThreadRow({
             id={clientNameId}
             className={cn(
               "min-w-0 flex-1 truncate font-mohave text-[13px]",
-              isUnread ? "font-semibold text-text" : "font-normal text-text-3",
+              isUnread ? "font-semibold text-text" : "font-normal text-text-mute",
             )}
           >
             {thread.clientName}
@@ -256,7 +256,7 @@ export function ThreadRow({
           id={subjectId}
           className={cn(
             "mt-0.5 truncate font-mohave text-[13px]",
-            isUnread ? "font-medium text-text" : "font-normal text-text-3",
+            isUnread ? "font-medium text-text" : "font-normal text-text-mute",
           )}
         >
           {thread.subject || ""}

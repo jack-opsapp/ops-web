@@ -196,7 +196,7 @@ export function ThreadColumnHeader({
             aria-label={t("column.search", "Search inbox")}
             placeholder={t("search.tacticPlaceholder", "[search threads]")}
             wrapperClassName="w-full"
-            className="h-6 !py-0 pr-6 leading-6"
+            className="!h-5 !py-0 pr-6 !leading-5"
             spellCheck={false}
             autoComplete="off"
             autoCorrect="off"

@@ -73,8 +73,8 @@ describe("<TodayBar>", () => {
     expect(screen.queryByTestId("today-bar-resolve")).toBeNull();
   });
 
-  it("caps the rendered list at 3 commitments and shows overflow count", () => {
-    const many: TodayCommitment[] = Array.from({ length: 5 }, (_, i) => ({
+  it("caps the rendered list at 5 commitments and shows overflow count", () => {
+    const many: TodayCommitment[] = Array.from({ length: 7 }, (_, i) => ({
       id: `c${i}`,
       threadId: `t${i}`,
       text: `Commit ${i}`,
@@ -83,7 +83,7 @@ describe("<TodayBar>", () => {
       state: { tone: "accent", prefix: "YOURS", value: "1H" },
     }));
     render(<TodayBar commitments={many} />);
-    expect(screen.getAllByRole("link")).toHaveLength(3);
+    expect(screen.getAllByRole("link")).toHaveLength(5);
     expect(screen.getByTestId("today-bar-overflow")).toHaveTextContent(
       "+2 MORE IN YOUR MOVE",
     );

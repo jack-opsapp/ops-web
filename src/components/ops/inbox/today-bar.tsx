@@ -14,7 +14,7 @@ import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
 import { StateTag, type StateTagTone } from "./state-tag";
 
-const MAX_VISIBLE_OBLIGATIONS = 3;
+const MAX_VISIBLE_OBLIGATIONS = 5;
 
 export interface TodayCommitment {
   /** `agent_memories.id` — the row to PATCH when ✓ is clicked. */

@@ -127,9 +127,9 @@ describe("<ThreadRow>", () => {
     const name = screen.getByText("Calloway");
     const subject = screen.getByText("Roof RFQ — revised quote");
     expect(name.className).toMatch(/font-normal/);
-    expect(name.className).toMatch(/text-text-3\b/);
+    expect(name.className).toMatch(/text-text-mute\b/);
     expect(subject.className).toMatch(/font-normal/);
-    expect(subject.className).toMatch(/text-text-3\b/);
+    expect(subject.className).toMatch(/text-text-mute\b/);
     expect(screen.getByTestId("thread-row").className).not.toContain(
       "bg-inbox-elev/45",
     );
