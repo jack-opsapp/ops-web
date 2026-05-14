@@ -125,6 +125,34 @@ test.describe("inbox redesign - populated visual verification", () => {
     await expect(
       page.getByRole("button", { name: "SEND", exact: true })
     ).toBeVisible();
+    const floatingComposer = page.getByTestId("floating-composer-frame");
+    await expect(floatingComposer).toBeVisible();
+    await expect
+      .poll(
+        () =>
+          floatingComposer.evaluate((el) => {
+            const parent = el.parentElement;
+            if (!parent) return 0;
+            return Number.parseFloat(
+              getComputedStyle(parent)
+                .getPropertyValue("--inbox-floating-composer-height")
+                .trim()
+            );
+          }),
+        { timeout: 5_000 }
+      )
+      .toBeGreaterThan(0);
+
+    const composerBox = await floatingComposer.boundingBox();
+    const lastBubbleBox = await page
+      .getByTestId("message-bubble")
+      .last()
+      .boundingBox();
+    expect(composerBox).not.toBeNull();
+    expect(lastBubbleBox).not.toBeNull();
+    expect(lastBubbleBox!.y + lastBubbleBox!.height).toBeLessThanOrEqual(
+      composerBox!.y
+    );
 
     await expect(
       contextRail.getByRole("tab", { name: /WORK\s+3/i })

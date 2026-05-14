@@ -109,6 +109,16 @@ describe("<Composer>", () => {
     }
   });
 
+  it("can render as a floating dense-glass command surface", () => {
+    const { container } = render(
+      <Composer value="" onChange={noop} onSend={noop} surface="floating" />,
+    );
+    const shell = container.firstElementChild;
+    expect(shell).toHaveClass("glass-dense");
+    expect(shell).toHaveClass("rounded-modal");
+    expect(shell?.className).not.toContain("border-t");
+  });
+
   it("uses the tactical bracket placeholder when none is passed", () => {
     render(<Composer value="" onChange={noop} onSend={noop} />);
     expect(

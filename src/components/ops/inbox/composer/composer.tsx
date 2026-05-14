@@ -46,6 +46,7 @@ interface ComposerProps {
   agentTinted?: boolean;
   sendLabel?: string;
   sendVariant?: "accent" | "agent";
+  surface?: "docked" | "floating";
   className?: string;
 }
 
@@ -69,6 +70,7 @@ export function Composer({
   agentTinted,
   sendLabel,
   sendVariant = "accent",
+  surface = "docked",
   className,
 }: ComposerProps) {
   const { t } = useDictionary("inbox");
@@ -106,7 +108,9 @@ export function Composer({
   return (
     <div
       className={cn(
-        "shrink-0 border-t border-line bg-inbox-panel px-2 py-2",
+        surface === "floating"
+          ? "glass-dense shrink-0 overflow-hidden rounded-modal border border-glass-border px-2 py-2"
+          : "shrink-0 border-t border-line bg-inbox-panel px-2 py-2",
         className,
       )}
     >

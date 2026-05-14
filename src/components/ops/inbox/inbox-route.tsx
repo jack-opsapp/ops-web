@@ -17,10 +17,18 @@
  */
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useDictionary } from "@/i18n/client";
 import { queryKeys } from "@/lib/api/query-client";
+import { useViewportBreakpoint } from "@/lib/hooks/use-viewport-breakpoint";
 import { classifyRail, type RailFilter } from "@/lib/inbox/rail-predicates";
 import { formatWaitClock } from "@/lib/inbox/format-wait";
 import { resolveTriageTone } from "@/lib/inbox/triage-tone-coordination";
@@ -100,6 +108,8 @@ interface InboxRouteProps {
 export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
   const router = useRouter();
   const { t } = useDictionary("inbox");
+  const viewportBp = useViewportBreakpoint();
+  const shouldFloatComposer = viewportBp !== "mobile";
   const setEntityName = useBreadcrumbStore((s) => s.setEntityName);
   const clearEntityName = useBreadcrumbStore((s) => s.clearEntityName);
   const userId = useAuthStore(selectUserId);
@@ -285,7 +295,43 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
   const lastSavedBodyRef = useRef<string>("");
   const lastSavedThreadIdRef = useRef<string | null>(null);
   const composerInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const floatingComposerFrameRef = useRef<HTMLDivElement | null>(null);
+  const [floatingComposerHeight, setFloatingComposerHeight] = useState(0);
   const AUTOSAVE_DELAY_MS = 1500;
+
+  useEffect(() => {
+    if (!shouldFloatComposer) {
+      setFloatingComposerHeight(0);
+      return;
+    }
+
+    const el = floatingComposerFrameRef.current;
+    if (!el) {
+      setFloatingComposerHeight(0);
+      return;
+    }
+
+    const measure = () => {
+      const next = Math.ceil(el.getBoundingClientRect().height);
+      setFloatingComposerHeight((prev) => (prev === next ? prev : next));
+    };
+
+    measure();
+
+    if (typeof ResizeObserver === "undefined") return;
+
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [
+    shouldFloatComposer,
+    selectedThreadId,
+    composerError,
+    activeDraftId,
+    draftEntries.length,
+    isAgentDraft,
+    isPristineDraft,
+  ]);
 
   // Reset the saved-draft tracking whenever the open thread changes. Without
   // this, switching threads would treat the new thread's first keystroke as
@@ -659,6 +705,120 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
     floatingBadgeActive,
   );
 
+  const floatingComposerStyle = {
+    "--inbox-floating-composer-height": `${floatingComposerHeight}px`,
+  } as CSSProperties;
+
+  const composerErrorAccessory = composerError ? (
+    <p
+      role="alert"
+      className="mt-2 px-1 font-mono text-[11px] text-rose"
+      style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
+    >
+      {composerError}
+    </p>
+  ) : null;
+
+  const renderComposer = (
+    currentDetail: NonNullable<typeof detail>,
+    surface: "docked" | "floating",
+  ) => (
+    <Composer
+      inputRef={composerInputRef}
+      value={composerValue}
+      onChange={(next) => {
+        setComposerValue(next);
+        if (composerError) setComposerError(null);
+      }}
+      onSend={(value) => {
+        if (!userId || !companyId || !selectedThreadId) return;
+        // Free-form answer path: when an unresolved agent question is
+        // attached to this thread, treat the operator's typed reply as
+        // both the email body AND the question's answer. Fire-and-forget
+        // — answering shouldn't block the email send if it fails (the
+        // band stays up and the operator can retry from the chip).
+        if (currentDetail.thread.agentBlockingQuestion) {
+          answerAgentQuestion.mutate({ threadId: selectedThreadId, answer: value });
+        }
+        const lastInbound = [...currentDetail.messages]
+          .reverse()
+          .find((m) => m.direction === "inbound");
+        const recipient = lastInbound?.from ?? null;
+        if (!recipient) {
+          setComposerError(
+            t("composer.error.noRecipient", "Cannot resolve recipient address."),
+          );
+          return;
+        }
+        const subjectBase = currentDetail.thread.subject ?? "";
+        const replySubject = /^re:/i.test(subjectBase)
+          ? subjectBase
+          : subjectBase
+            ? `Re: ${subjectBase}`
+            : "(no subject)";
+        sendReply.mutate(
+          {
+            userId,
+            companyId,
+            payload: {
+              threadId: selectedThreadId,
+              to: [recipient],
+              subject: replySubject,
+              body: value,
+              inReplyTo: lastInbound?.id ?? null,
+              providerThreadId: providerThreadId ?? null,
+              opportunityId: currentDetail.thread.opportunityId,
+              format: "markdown",
+            },
+          },
+          {
+            onSuccess: () => {
+              setComposerValue("");
+              // Once the send lands, the provider auto-removes the draft
+              // it was based on (Gmail drafts.send / Graph sendDraft both
+              // do this). Clear our local tracking so the next typed reply
+              // provisions a fresh draft instead of trying to PATCH a row
+              // that no longer exists.
+              autoSaveDraftIdRef.current = null;
+              lastSavedBodyRef.current = "";
+            },
+            onError: (e) =>
+              setComposerError(
+                e instanceof Error
+                  ? e.message
+                  : t("composer.error.sendFailed", "Send failed"),
+              ),
+          },
+        );
+      }}
+      disabled={sendReply.isPending}
+      placeholder={t("composer.tacticPlaceholder", "[type message — ⌘↵ to send]")}
+      agentTinted={isAgentDraft && isPristineDraft}
+      sendVariant={isAgentDraft && isPristineDraft ? "agent" : "accent"}
+      surface={surface}
+      bottomAccessory={composerErrorAccessory}
+      topAccessory={
+        <>
+          {draftEntries.length > 0 && (
+            <DraftSwitcher
+              drafts={draftEntries}
+              activeId={activeDraftId}
+              onSelect={(id) => {
+                const picked = threadDrafts.find((d) => d.id === id);
+                if (!picked) return;
+                setActiveDraftId(id);
+                setComposerValue(picked.bodyText);
+              }}
+            />
+          )}
+          {isAgentDraft && isPristineDraft && activeDraft && (
+            <AiDraftBanner draftedAt={activeDraft.updatedAt} />
+          )}
+        </>
+      }
+    />
+  );
+
   const detailNode = detail ? (
     <ThreadDetail
       subject={detail.thread.subject ?? t("detail.untitled", "(no subject)")}
@@ -784,107 +944,30 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
           composerInputRef.current?.focus();
         }}
       />
-      <MessageList messages={detail.messages.map(toRenderableMessage)} />
-      <Composer
-        inputRef={composerInputRef}
-        value={composerValue}
-        onChange={(next) => {
-          setComposerValue(next);
-          if (composerError) setComposerError(null);
-        }}
-        onSend={(value) => {
-          if (!userId || !companyId || !selectedThreadId) return;
-          // Free-form answer path: when an unresolved agent question is
-          // attached to this thread, treat the operator's typed reply as
-          // both the email body AND the question's answer. Fire-and-forget
-          // — answering shouldn't block the email send if it fails (the
-          // band stays up and the operator can retry from the chip).
-          if (detail.thread.agentBlockingQuestion) {
-            answerAgentQuestion.mutate({ threadId: selectedThreadId, answer: value });
-          }
-          const lastInbound = [...detail.messages]
-            .reverse()
-            .find((m) => m.direction === "inbound");
-          const recipient = lastInbound?.from ?? null;
-          if (!recipient) {
-            setComposerError(
-              t("composer.error.noRecipient", "Cannot resolve recipient address."),
-            );
-            return;
-          }
-          const subjectBase = detail.thread.subject ?? "";
-          const replySubject = /^re:/i.test(subjectBase)
-            ? subjectBase
-            : subjectBase
-              ? `Re: ${subjectBase}`
-              : "(no subject)";
-          sendReply.mutate(
-            {
-              userId,
-              companyId,
-              payload: {
-                threadId: selectedThreadId,
-                to: [recipient],
-                subject: replySubject,
-                body: value,
-                inReplyTo: lastInbound?.id ?? null,
-                providerThreadId: providerThreadId ?? null,
-                opportunityId: detail.thread.opportunityId,
-                format: "markdown",
-              },
-            },
-            {
-              onSuccess: () => {
-                setComposerValue("");
-                // Once the send lands, the provider auto-removes the draft
-                // it was based on (Gmail drafts.send / Graph sendDraft both
-                // do this). Clear our local tracking so the next typed reply
-                // provisions a fresh draft instead of trying to PATCH a row
-                // that no longer exists.
-                autoSaveDraftIdRef.current = null;
-                lastSavedBodyRef.current = "";
-              },
-              onError: (e) =>
-                setComposerError(
-                  e instanceof Error
-                    ? e.message
-                    : t("composer.error.sendFailed", "Send failed"),
-                ),
-            },
-          );
-        }}
-        disabled={sendReply.isPending}
-        placeholder={t("composer.tacticPlaceholder", "[type message — ⌘↵ to send]")}
-        agentTinted={isAgentDraft && isPristineDraft}
-        sendVariant={isAgentDraft && isPristineDraft ? "agent" : "accent"}
-        topAccessory={
-          <>
-            {draftEntries.length > 0 && (
-              <DraftSwitcher
-                drafts={draftEntries}
-                activeId={activeDraftId}
-                onSelect={(id) => {
-                  const picked = threadDrafts.find((d) => d.id === id);
-                  if (!picked) return;
-                  setActiveDraftId(id);
-                  setComposerValue(picked.bodyText);
-                }}
-              />
-            )}
-            {isAgentDraft && isPristineDraft && activeDraft && (
-              <AiDraftBanner draftedAt={activeDraft.updatedAt} />
-            )}
-          </>
-        }
-      />
-      {composerError && (
-        <p
-          role="alert"
-          className="px-2 pb-2 font-mono text-[11px] text-rose"
-          style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
+      {shouldFloatComposer ? (
+        <div
+          className="relative flex min-h-0 flex-1 flex-col overflow-hidden"
+          style={floatingComposerStyle}
         >
-          {composerError}
-        </p>
+          <MessageList
+            messages={detail.messages.map(toRenderableMessage)}
+            className="pb-[calc(var(--inbox-floating-composer-height)_+_12px)]"
+          />
+          <div
+            ref={floatingComposerFrameRef}
+            data-testid="floating-composer-frame"
+            className="pointer-events-none absolute inset-x-0 bottom-0 z-floating-ui flex justify-center px-2.5 pb-2"
+          >
+            <div className="pointer-events-auto w-full max-w-[720px]">
+              {renderComposer(detail, "floating")}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <>
+          <MessageList messages={detail.messages.map(toRenderableMessage)} />
+          {renderComposer(detail, "docked")}
+        </>
       )}
     </ThreadDetail>
   ) : selectedThreadId ? (
