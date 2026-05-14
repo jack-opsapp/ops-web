@@ -2,11 +2,18 @@ import React from "react";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { analyticsService } from "@/lib/analytics/analytics-service";
 import { queryKeys } from "@/lib/api/query-client";
 import { ProjectTableService } from "@/lib/api/services/project-table-service";
 import { useCellEdit } from "@/lib/hooks/projects-table/use-cell-edit";
 import { ProjectStatus } from "@/lib/types/models";
 import type { ProjectTableRow } from "@/lib/types/project-table";
+
+vi.mock("@/lib/analytics/analytics-service", () => ({
+  analyticsService: {
+    track: vi.fn(),
+  },
+}));
 
 type InfiniteRowsData = {
   pages: Array<{ rows: ProjectTableRow[]; count: number; nextPage: number | null }>;
@@ -322,6 +329,95 @@ describe("useCellEdit", () => {
     });
     expect(firstRow(queryClient)?.status).toBe(ProjectStatus.InProgress);
     expect(ProjectTableService.updateProjectField).not.toHaveBeenCalled();
+  });
+
+  it("tracks bulk undo invocation when the latest undo entry is bulk", async () => {
+    const queryClient = makeQueryClient();
+    const changedRow = {
+      ...baseRow,
+      status: ProjectStatus.InProgress,
+      rawStatus: "in_progress",
+    };
+    seedTableRows(queryClient, changedRow);
+    vi.spyOn(ProjectTableService, "bulkUpdateProjects").mockResolvedValue({
+      success: [
+        {
+          projectId: "p-1",
+          action: "status",
+          updatedAt: "2026-05-13T02:00:00Z",
+        },
+      ],
+      failed: [],
+      successCount: 1,
+      failedCount: 0,
+    });
+
+    const { result } = renderHook(
+      () =>
+        useCellEdit({
+          rows: [changedRow],
+          refetchRows: vi.fn(),
+        }),
+      { wrapper: makeWrapper(queryClient) },
+    );
+
+    act(() => {
+      result.current.pushBulkUndo({
+        id: "bulk-undo-1",
+        kind: "bulk",
+        action: "status",
+        projectIds: ["p-1"],
+        before: [
+          {
+            projectId: "p-1",
+            columnId: "status",
+            value: ProjectStatus.Accepted,
+            updatedAt: "2026-05-13T00:00:00Z",
+          },
+        ],
+        after: [
+          {
+            projectId: "p-1",
+            value: ProjectStatus.InProgress,
+            updatedAt: "2026-05-13T01:00:00Z",
+          },
+        ],
+        labelKey: "table.bulk.undo.status",
+        createdAt: Date.now(),
+        columnId: "status",
+        projectTitle: "Deck rebuild",
+        undoOperations: [
+          {
+            action: "status",
+            projectId: "p-1",
+            status: ProjectStatus.Accepted,
+            expectedUpdatedAt: "2026-05-13T01:00:00Z",
+          },
+        ],
+      });
+    });
+
+    await act(async () => {
+      await result.current.undoLatest();
+    });
+
+    expect(analyticsService.track).toHaveBeenCalledWith(
+      "action",
+      "project_table_undo_invoked",
+      {
+        action: "bulk",
+      },
+    );
+    expect(ProjectTableService.bulkUpdateProjects).toHaveBeenCalledWith({
+      operations: [
+        {
+          action: "status",
+          projectId: "p-1",
+          status: ProjectStatus.Accepted,
+          expectedUpdatedAt: "2026-05-13T01:00:00Z",
+        },
+      ],
+    });
   });
 
   it("refetches and marks the cell error when updatedAt is missing", async () => {

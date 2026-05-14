@@ -56,6 +56,8 @@ export function ProjectsTable({
   metrics,
   selectedIds,
   onToggleRow,
+  onSelectAllVisible,
+  onClearSelection,
   fetchNextPage,
   hasNextPage,
   isFetchingNextPage,
@@ -75,6 +77,8 @@ export function ProjectsTable({
   metrics: ProjectsTableMetrics;
   selectedIds: Set<string>;
   onToggleRow: (rowId: string, mode: "single" | "toggle" | "range") => void;
+  onSelectAllVisible: () => void;
+  onClearSelection: () => void;
   fetchNextPage: () => void;
   hasNextPage: boolean;
   isFetchingNextPage: boolean;
@@ -108,6 +112,8 @@ export function ProjectsTable({
     columns: visibleColumns,
     onUndo: onUndoLatest,
     onFocusSearch,
+    onSelectAllVisible,
+    onClearSelection,
   });
 
   const columnLayouts = useMemo<ProjectTableColumnLayout[]>(() => {

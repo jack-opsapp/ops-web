@@ -1,10 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-export function useTableSelection(visibleRowIds: string[]) {
+export function useTableSelection(visibleRowIds: string[], resetKey?: string) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const lastSelectedRef = useRef<string | null>(null);
+  const resetKeyRef = useRef(resetKey);
 
   const visibleSet = useMemo(() => new Set(visibleRowIds), [visibleRowIds]);
+
+  useEffect(() => {
+    if (resetKeyRef.current === resetKey) return;
+    resetKeyRef.current = resetKey;
+    lastSelectedRef.current = null;
+    setSelectedIds(new Set());
+  }, [resetKey]);
 
   useEffect(() => {
     if (lastSelectedRef.current && !visibleSet.has(lastSelectedRef.current)) {
@@ -20,6 +28,11 @@ export function useTableSelection(visibleRowIds: string[]) {
     lastSelectedRef.current = null;
     setSelectedIds(new Set());
   }, []);
+
+  const selectAllVisible = useCallback(() => {
+    lastSelectedRef.current = visibleRowIds.at(-1) ?? null;
+    setSelectedIds(new Set(visibleRowIds));
+  }, [visibleRowIds]);
 
   const toggleRow = useCallback(
     (rowId: string, mode: "single" | "toggle" | "range") => {
@@ -47,5 +60,11 @@ export function useTableSelection(visibleRowIds: string[]) {
     [visibleRowIds],
   );
 
-  return { selectedIds, selectedCount: selectedIds.size, toggleRow, clearSelection };
+  return {
+    selectedIds,
+    selectedCount: selectedIds.size,
+    toggleRow,
+    clearSelection,
+    selectAllVisible,
+  };
 }

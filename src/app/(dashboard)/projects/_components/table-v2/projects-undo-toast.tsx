@@ -49,11 +49,20 @@ export function ProjectsUndoToast({
 
   const body = useMemo(() => {
     if (!entry) return "";
+    if ("kind" in entry && entry.kind === "bulk") {
+      return interpolateDictionaryTemplate(t("table.bulk.undoBody"), {
+        count: String(entry.projectIds.length),
+      });
+    }
     return interpolateDictionaryTemplate(t("table.undo.body"), {
       column: t(COLUMN_LABEL_KEYS[entry.columnId]),
       project: entry.projectTitle,
     });
   }, [entry, t]);
+
+  const title = entry && "kind" in entry && entry.kind === "bulk"
+    ? t("table.bulk.undoTitle")
+    : t("table.undo.toastTitle");
 
   function handleBlur(event: FocusEvent<HTMLDivElement>) {
     if (
@@ -81,7 +90,7 @@ export function ProjectsUndoToast({
       <div className="relative flex min-w-0 flex-1 flex-col gap-2 p-2.5">
         <div className="min-w-0">
           <p className="font-mono text-micro uppercase tracking-wider text-text">
-            {t("table.undo.toastTitle")}
+            {title}
           </p>
           <p className="mt-0.5 truncate font-mohave text-body-sm text-text-2">
             {body}

@@ -9,6 +9,7 @@ import { useProjectsTableData } from "@/lib/hooks/projects-table/use-projects-ta
 import { useTableSelection } from "@/lib/hooks/projects-table/use-table-selection";
 import { useTableZoom } from "@/lib/hooks/projects-table/use-table-zoom";
 import { ProjectsConflictOverlay } from "./projects-conflict-overlay";
+import { ProjectsBulkBar } from "./projects-bulk-bar";
 import { ProjectsEmptyState } from "./projects-empty-state";
 import { ProjectsTable } from "./projects-table";
 import { ProjectsToolbar } from "./projects-toolbar";
@@ -26,7 +27,21 @@ export function ProjectsTableShell() {
   const zoom = useTableZoom(activeView?.zoomLevel ?? 1);
 
   const visibleRowIds = useMemo(() => tableQuery.rows.map((row) => row.id), [tableQuery.rows]);
-  const selection = useTableSelection(visibleRowIds);
+  const selectionResetKey = useMemo(
+    () =>
+      JSON.stringify({
+        activeViewId,
+        search,
+        sorting,
+        filters: activeView?.filters ?? null,
+      }),
+    [activeView?.filters, activeViewId, search, sorting],
+  );
+  const selection = useTableSelection(visibleRowIds, selectionResetKey);
+  const visibleSelectedCount = useMemo(
+    () => visibleRowIds.filter((rowId) => selection.selectedIds.has(rowId)).length,
+    [selection.selectedIds, visibleRowIds],
+  );
   const views = viewsQuery.data ?? [];
   const isLoading = viewsQuery.isLoading || (Boolean(activeView) && tableQuery.isLoading);
   const isError = viewsQuery.isError || tableQuery.isError;
@@ -43,9 +58,10 @@ export function ProjectsTableShell() {
     void tableQuery.refetch();
   };
 
+  const { undoLatest } = cellEdit;
   const handleUndoLatest = useCallback(() => {
-    void cellEdit.undoLatest();
-  }, [cellEdit.undoLatest]);
+    void undoLatest();
+  }, [undoLatest]);
 
   const handleFocusSearch = useCallback(() => {
     searchInputRef.current?.focus();
@@ -71,6 +87,8 @@ export function ProjectsTableShell() {
         metrics={zoom.metrics}
         selectedIds={selection.selectedIds}
         onToggleRow={selection.toggleRow}
+        onSelectAllVisible={selection.selectAllVisible}
+        onClearSelection={selection.clearSelection}
         saveStates={cellEdit.saveStates}
         onCommitCell={cellEdit.commitEdit}
         onUndoLatest={handleUndoLatest}
@@ -100,6 +118,14 @@ export function ProjectsTableShell() {
         searchInputRef={searchInputRef}
       />
       {body}
+      {visibleSelectedCount > 0 ? (
+        <ProjectsBulkBar
+          visibleRows={tableQuery.rows}
+          selectedIds={selection.selectedIds}
+          onClearSelection={selection.clearSelection}
+          recordBulkUndo={cellEdit.pushBulkUndo}
+        />
+      ) : null}
       <ProjectsUndoToast
         entry={cellEdit.latestUndo}
         onUndo={handleUndoLatest}

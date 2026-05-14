@@ -33,13 +33,24 @@ function escapeAttributeValue(value: string) {
   return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 }
 
+function noop() {}
+
 export function useTableKeyboardNav(args: {
   rows: ProjectTableRow[];
   columns: ProjectTableColumnConfig[];
   onUndo: () => void;
   onFocusSearch: () => void;
+  onSelectAllVisible?: () => void;
+  onClearSelection?: () => void;
 }) {
-  const { rows, columns, onUndo, onFocusSearch } = args;
+  const {
+    rows,
+    columns,
+    onUndo,
+    onFocusSearch,
+    onSelectAllVisible = noop,
+    onClearSelection = noop,
+  } = args;
   const [activeCell, setActiveCell] = useState<ProjectTableActiveCell | null>(null);
   const [editingCell, setEditingCell] = useState<ProjectTableEditingCell | null>(null);
   const focusPendingRef = useRef(false);
@@ -173,6 +184,12 @@ export function useTableKeyboardNav(args: {
         return;
       }
 
+      if (commandKey && key === "a") {
+        event.preventDefault();
+        onSelectAllVisible();
+        return;
+      }
+
       if (commandKey && key === "f") {
         event.preventDefault();
         onFocusSearch();
@@ -180,9 +197,11 @@ export function useTableKeyboardNav(args: {
       }
 
       if (event.key === "Escape") {
+        event.preventDefault();
         if (editingCell) {
-          event.preventDefault();
           cancelEdit();
+        } else {
+          onClearSelection();
         }
         return;
       }
@@ -232,7 +251,9 @@ export function useTableKeyboardNav(args: {
       editingCell,
       moveActiveCell,
       moveByTab,
+      onClearSelection,
       onFocusSearch,
+      onSelectAllVisible,
       onUndo,
       resolveOrigin,
     ],

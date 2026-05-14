@@ -21,9 +21,11 @@ import { CellCurrency } from "./cells/cell-currency";
 import { CellDate } from "./cells/cell-date";
 import { CellNumber } from "./cells/cell-number";
 import { CellPercent } from "./cells/cell-percent";
+import { CellPhotos } from "./cells/cell-photos";
 import { CellProgress } from "./cells/cell-progress";
 import { CellRelation } from "./cells/cell-relation";
 import { CellStatus } from "./cells/cell-status";
+import { CellTeam } from "./cells/cell-team";
 import { CellText } from "./cells/cell-text";
 import { EditableCellDate } from "./cells/editable-cell-date";
 import { EditableCellStatus } from "./cells/editable-cell-status";
@@ -45,7 +47,7 @@ function renderReadOnlyCell(row: ProjectTableRow, column: ProjectTableColumnConf
     case "address":
       return <CellText value={row.address} className="text-text-2" />;
     case "team":
-      return <CellNumber value={row.teamMemberIds.length > 0 ? row.teamMemberIds.length : null} />;
+      return <CellTeam row={row} />;
     case "start_date":
       return <CellDate value={row.startDate} />;
     case "end_date":
@@ -73,7 +75,7 @@ function renderReadOnlyCell(row: ProjectTableRow, column: ProjectTableColumnConf
     case "margin":
       return <CellPercent value={row.margin} />;
     case "photos":
-      return <CellNumber value={row.photoCount} />;
+      return <CellPhotos row={row} />;
     case "updated_at":
       return <CellDate value={row.updatedAt} />;
     default:

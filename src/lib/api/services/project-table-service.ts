@@ -3,6 +3,10 @@ import { ProjectStatus } from "@/lib/types/models";
 import type { Database } from "@/lib/types/database.types";
 import {
   PROJECT_TABLE_DIRECT_EDIT_FIELD_MAP,
+  type ProjectTableBulkOperation,
+  type ProjectTableBulkResult,
+  type ProjectTableBulkSuccess,
+  type ProjectTableBulkFailure,
   type ProjectTableDirectEditColumnId,
   type ProjectTableEditValue,
 } from "@/lib/types/project-table";
@@ -70,7 +74,9 @@ export class ProjectTableMutationError extends Error {
   }
 }
 
-function normalizeMutationError(error: { code?: string; message?: string } | null): ProjectTableMutationError {
+export function normalizeProjectTableMutationError(
+  error: { code?: string; message?: string } | null,
+): ProjectTableMutationError {
   if (!error) return new ProjectTableMutationError("Project conflict", "P0001");
   if (error.code === "P0001" || error.code === "42501" || error.code === "22023") {
     return new ProjectTableMutationError(error.message ?? "Project edit failed", error.code);
@@ -91,6 +97,86 @@ function normalizeDirectValue(
 }
 
 type ProjectUpdatePayload = Database["public"]["Tables"]["projects"]["Update"];
+type ProjectTableBulkRpcOperation = Record<string, unknown> & {
+  action: string;
+  project_id: string;
+  expected_updated_at: string;
+};
+
+function serializeBulkOperation(operation: ProjectTableBulkOperation): ProjectTableBulkRpcOperation {
+  const base = {
+    action: operation.action,
+    project_id: operation.projectId,
+    expected_updated_at: operation.expectedUpdatedAt,
+  };
+
+  switch (operation.action) {
+    case "status":
+      return {
+        ...base,
+        status: serializeProjectTableStatus(operation.status),
+      };
+    case "date":
+      return {
+        ...base,
+        field: operation.field,
+        value: operation.value,
+      };
+    case "assign_team":
+      return {
+        ...base,
+        user_id: operation.userId,
+        task_ids: operation.taskIds,
+      };
+    case "remove_team":
+      return {
+        ...base,
+        user_id: operation.userId,
+        task_ids: operation.taskIds,
+      };
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function normalizeBulkSuccess(value: unknown): ProjectTableBulkSuccess | null {
+  if (!isRecord(value)) return null;
+  const projectId = typeof value.project_id === "string" ? value.project_id : "";
+  if (!projectId) return null;
+  return {
+    projectId,
+    action: typeof value.action === "string" ? value.action : "",
+    updatedAt: typeof value.updated_at === "string" ? value.updated_at : null,
+  };
+}
+
+function normalizeBulkFailure(value: unknown): ProjectTableBulkFailure | null {
+  if (!isRecord(value)) return null;
+  const projectId = typeof value.project_id === "string" ? value.project_id : "";
+  if (!projectId) return null;
+  return {
+    projectId,
+    action: typeof value.action === "string" ? value.action : "",
+    code: typeof value.code === "string" ? value.code : "UNKNOWN",
+    message: typeof value.message === "string" ? value.message : "Project edit failed",
+  };
+}
+
+function normalizeBulkResult(data: unknown): ProjectTableBulkResult {
+  const record = isRecord(data) ? data : {};
+  const success = Array.isArray(record.success)
+    ? record.success.map(normalizeBulkSuccess).filter((item): item is ProjectTableBulkSuccess => item !== null)
+    : [];
+  const failed = Array.isArray(record.failed)
+    ? record.failed.map(normalizeBulkFailure).filter((item): item is ProjectTableBulkFailure => item !== null)
+    : [];
+  const successCount = typeof record.success_count === "number" ? record.success_count : success.length;
+  const failedCount = typeof record.failed_count === "number" ? record.failed_count : failed.length;
+
+  return { success, failed, successCount, failedCount };
+}
 
 export const ProjectTableService = {
   async fetchRows(
@@ -166,7 +252,7 @@ export const ProjectTableService = {
       .select("updated_at")
       .maybeSingle();
 
-    if (error) throw normalizeMutationError(error);
+    if (error) throw normalizeProjectTableMutationError(error);
     if (!data?.updated_at) throw new ProjectTableMutationError("Project conflict", "P0001");
     return { updatedAt: data.updated_at };
   },
@@ -183,7 +269,7 @@ export const ProjectTableService = {
       p_expected_updated_at: params.expectedUpdatedAt,
     });
 
-    if (error) throw normalizeMutationError(error);
+    if (error) throw normalizeProjectTableMutationError(error);
     const updatedAt = typeof data === "object" && data && "updated_at" in data
       ? String((data as { updated_at: unknown }).updated_at)
       : "";
@@ -191,5 +277,17 @@ export const ProjectTableService = {
       throw new ProjectTableMutationError("Project status response missing updated_at", "UNKNOWN");
     }
     return { updatedAt };
+  },
+
+  async bulkUpdateProjects(params: {
+    operations: ProjectTableBulkOperation[];
+  }): Promise<ProjectTableBulkResult> {
+    const supabase = requireSupabase();
+    const { data, error } = await supabase.rpc("bulk_update_project_table", {
+      p_operations: params.operations.map(serializeBulkOperation),
+    });
+
+    if (error) throw normalizeProjectTableMutationError(error);
+    return normalizeBulkResult(data);
   },
 };

@@ -25,6 +25,12 @@ export const queryKeys = {
       [...queryKeys.projects.all, "tableRows", params] as const,
     tableViews: (companyId: string, userId: string) =>
       [...queryKeys.projects.all, "tableViews", companyId, userId] as const,
+    tableTeam: (projectId: string) =>
+      [...queryKeys.projects.all, "tableTeam", projectId] as const,
+    tableTeamMembers: (companyId: string) =>
+      [...queryKeys.projects.all, "tableTeamMembers", companyId] as const,
+    tablePhotos: (projectId: string) =>
+      [...queryKeys.projects.all, "tablePhotos", projectId] as const,
     details: () => [...queryKeys.projects.all, "detail"] as const,
     detail: (id: string) => [...queryKeys.projects.details(), id] as const,
   },

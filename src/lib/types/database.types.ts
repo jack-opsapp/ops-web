@@ -11349,6 +11349,7 @@ export type Database = {
         }
         Returns: Json
       }
+      bulk_update_project_table: { Args: { p_operations: Json }; Returns: Json }
       campaign_engagement_stats: {
         Args: { p_campaign_id: string }
         Returns: Json
@@ -11428,6 +11429,14 @@ export type Database = {
       create_progress_invoice: {
         Args: { p_estimate_id: string; p_line_item_selections: Json }
         Returns: string
+      }
+      create_project_table_assignment_task: {
+        Args: {
+          p_expected_updated_at: string
+          p_project_id: string
+          p_title: string
+        }
+        Returns: Json
       }
       email_audience_clause_to_sql: {
         Args: {

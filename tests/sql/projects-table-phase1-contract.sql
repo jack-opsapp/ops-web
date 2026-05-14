@@ -137,9 +137,9 @@ select
     and not has_table_privilege('anon', 'public.project_table_rows', 'DELETE')
   ) as project_table_rows_anon_dml_not_granted_for_firebase_bridge,
   (
-    not has_function_privilege('anon', 'public.assign_project_team_member(uuid, uuid, uuid[], timestamp with time zone)', 'EXECUTE')
-    and not has_function_privilege('anon', 'public.remove_project_team_member(uuid, uuid, uuid[], timestamp with time zone)', 'EXECUTE')
-  ) as project_table_team_mutation_rpcs_anon_execute_not_granted;
+    has_function_privilege('anon', 'public.assign_project_team_member(uuid, uuid, uuid[], timestamp with time zone)', 'EXECUTE')
+    and has_function_privilege('anon', 'public.remove_project_team_member(uuid, uuid, uuid[], timestamp with time zone)', 'EXECUTE')
+  ) as project_table_team_mutation_rpcs_anon_execute_granted;
 
 -- Phase 3 edit-core auth contract.
 select
@@ -158,15 +158,115 @@ select
   ) as passed;
 
 select
-  'projects_table_v2_anon_status_rpc_only' as check_name,
+  'projects_table_v2_phase4_anon_mutation_rpc_execute' as check_name,
   has_function_privilege('anon', 'public.change_project_status(uuid, text, timestamp with time zone)', 'EXECUTE')
-  and not has_function_privilege('anon', 'public.assign_project_team_member(uuid, uuid, uuid[], timestamp with time zone)', 'EXECUTE')
-  and not has_function_privilege('anon', 'public.remove_project_team_member(uuid, uuid, uuid[], timestamp with time zone)', 'EXECUTE')
+  and has_function_privilege('anon', 'public.assign_project_team_member(uuid, uuid, uuid[], timestamp with time zone)', 'EXECUTE')
+  and has_function_privilege('anon', 'public.remove_project_team_member(uuid, uuid, uuid[], timestamp with time zone)', 'EXECUTE')
   as passed;
 
 select
   'projects_table_v2_anon_edit_helper_execute' as check_name,
   has_function_privilege('anon', 'private.current_user_can_edit_project(uuid)', 'EXECUTE') as passed;
+
+select
+  'projects_table_v2_phase4_anon_team_rpc_execute' as check_name,
+  has_function_privilege('anon', 'public.assign_project_team_member(uuid, uuid, uuid[], timestamp with time zone)', 'EXECUTE')
+  and has_function_privilege('anon', 'public.remove_project_team_member(uuid, uuid, uuid[], timestamp with time zone)', 'EXECUTE')
+  as passed;
+
+select
+  'projects_table_v2_phase4_bulk_rpc_execute' as check_name,
+  has_function_privilege('anon', 'public.bulk_update_project_table(jsonb)', 'EXECUTE')
+  and has_function_privilege('authenticated', 'public.bulk_update_project_table(jsonb)', 'EXECUTE')
+  as passed;
+
+select
+  'projects_table_v2_phase4_create_assignment_task_rpc_execute' as check_name,
+  has_function_privilege('anon', 'public.create_project_table_assignment_task(uuid, text, timestamp with time zone)', 'EXECUTE')
+  and has_function_privilege('authenticated', 'public.create_project_table_assignment_task(uuid, text, timestamp with time zone)', 'EXECUTE')
+  as passed;
+
+select
+  'projects_table_v2_phase4_ios_anon_project_tasks_insert' as check_name,
+  has_table_privilege('anon', 'public.project_tasks', 'INSERT')
+  as passed;
+
+select
+  'projects_table_v2_phase4_ios_no_anon_project_tasks_delete' as check_name,
+  not has_table_privilege('anon', 'public.project_tasks', 'DELETE')
+  as passed;
+
+select
+  'projects_table_v2_phase4_ios_project_tasks_insert_rls' as check_name,
+  exists (
+    select 1
+    from pg_policy pol
+    join pg_class cls on cls.oid = pol.polrelid
+    join pg_namespace ns on ns.oid = cls.relnamespace
+    where ns.nspname = 'public'
+      and cls.relname = 'project_tasks'
+      and pol.polname = 'role_scope_insert'
+      and pol.polcmd = 'a'
+      and pol.polpermissive = false
+      and coalesce(pg_get_expr(pol.polwithcheck, pol.polrelid), '') like '%tasks.create%'
+  )
+  and exists (
+    select 1
+    from pg_policy pol
+    join pg_class cls on cls.oid = pol.polrelid
+    join pg_namespace ns on ns.oid = cls.relnamespace
+    where ns.nspname = 'public'
+      and cls.relname = 'project_tasks'
+      and pol.polname = 'project tasks insert requires same-company project'
+      and pol.polcmd = 'a'
+      and pol.polpermissive = false
+      and coalesce(pg_get_expr(pol.polwithcheck, pol.polrelid), '') like '%projects%'
+      and coalesce(pg_get_expr(pol.polwithcheck, pol.polrelid), '') like '%get_user_company_id%'
+  ) as passed;
+
+select
+  'projects_table_v2_phase4_project_photos_soft_delete_only' as check_name,
+  has_table_privilege('anon', 'public.project_photos', 'INSERT')
+  and has_column_privilege('anon', 'public.project_photos', 'deleted_at', 'UPDATE')
+  and has_column_privilege('anon', 'public.project_photos', 'caption', 'UPDATE')
+  and has_column_privilege('anon', 'public.project_photos', 'is_client_visible', 'UPDATE')
+  and not has_column_privilege('anon', 'public.project_photos', 'url', 'UPDATE')
+  and not has_table_privilege('anon', 'public.project_photos', 'DELETE')
+  as passed;
+
+select
+  'projects_table_v2_phase4_project_photos_storage_bucket' as check_name,
+  exists (
+    select 1
+    from storage.buckets
+    where id = 'project-photos'
+      and public = true
+      and file_size_limit = 10485760
+  ) as passed;
+
+select
+  'projects_table_v2_phase4_photo_source_other_valid' as check_name,
+  exists (
+    select 1
+    from pg_type t
+    join pg_enum e on e.enumtypid = t.oid
+    join pg_namespace n on n.oid = t.typnamespace
+    where n.nspname = 'public'
+      and t.typname = 'photo_source'
+      and e.enumlabel = 'other'
+  ) as passed;
+
+select
+  'projects_table_v2_phase4_photo_source_deck_design_valid' as check_name,
+  exists (
+    select 1
+    from pg_type t
+    join pg_enum e on e.enumtypid = t.oid
+    join pg_namespace n on n.oid = t.typnamespace
+    where n.nspname = 'public'
+      and t.typname = 'photo_source'
+      and e.enumlabel = 'deck_design'
+  ) as passed;
 
 -- 3. Fixture-backed contracts. Safe shape: all writes roll back.
 begin;

@@ -94,6 +94,7 @@ export function isProjectTableEditableColumn(
 export type ProjectTableCellKind =
   | "select"
   | "text"
+  | "team"
   | "status"
   | "relation"
   | "number"
@@ -125,7 +126,7 @@ export const PROJECT_TABLE_COLUMNS: ProjectTableColumnConfig[] = [
   { id: "client_email", labelKey: "table.column.clientEmail", dbField: "client_email", kind: "text", sortable: true, minWidth: 160, width: 220, maxWidth: 320 },
   { id: "client_phone", labelKey: "table.column.clientPhone", dbField: "client_phone", kind: "text", sortable: true, minWidth: 130, width: 150, maxWidth: 200 },
   { id: "address", labelKey: "table.column.address", dbField: "address", kind: "text", sortable: true, editable: true, minWidth: 180, width: 260, maxWidth: 420 },
-  { id: "team", labelKey: "table.column.team", dbField: "team_member_ids", kind: "text", minWidth: 120, width: 160, maxWidth: 240 },
+  { id: "team", labelKey: "table.column.team", dbField: "team_member_ids", kind: "team", minWidth: 120, width: 160, maxWidth: 240 },
   { id: "start_date", labelKey: "table.column.startDate", dbField: "start_date", kind: "date", sortable: true, editable: true, minWidth: 110, width: 130, maxWidth: 160 },
   { id: "end_date", labelKey: "table.column.endDate", dbField: "end_date", kind: "date", sortable: true, editable: true, minWidth: 110, width: 130, maxWidth: 160 },
   { id: "duration", labelKey: "table.column.duration", dbField: "duration", kind: "number", sortable: true, minWidth: 90, width: 110, maxWidth: 140, align: "right" },
@@ -220,6 +221,54 @@ export interface ProjectTableDataParams {
   search: string;
   sorting: ProjectTableSort[];
   pageSize: number;
+}
+
+export type ProjectTableBulkAction = "status" | "date" | "assign_team" | "remove_team";
+
+interface ProjectTableBulkOperationBase {
+  projectId: string;
+  expectedUpdatedAt: string;
+}
+
+export type ProjectTableBulkOperation =
+  | (ProjectTableBulkOperationBase & {
+      action: "status";
+      status: ProjectStatus;
+    })
+  | (ProjectTableBulkOperationBase & {
+      action: "date";
+      field: "start_date" | "end_date";
+      value: string | null;
+    })
+  | (ProjectTableBulkOperationBase & {
+      action: "assign_team";
+      userId: string;
+      taskIds: string[];
+    })
+  | (ProjectTableBulkOperationBase & {
+      action: "remove_team";
+      userId: string;
+      taskIds: string[] | null;
+    });
+
+export interface ProjectTableBulkSuccess {
+  projectId: string;
+  action: ProjectTableBulkAction | string;
+  updatedAt: string | null;
+}
+
+export interface ProjectTableBulkFailure {
+  projectId: string;
+  action: ProjectTableBulkAction | string;
+  code: string;
+  message: string;
+}
+
+export interface ProjectTableBulkResult {
+  success: ProjectTableBulkSuccess[];
+  failed: ProjectTableBulkFailure[];
+  successCount: number;
+  failedCount: number;
 }
 
 export type ProjectTableColumnDef = ColumnDef<ProjectTableRow>;

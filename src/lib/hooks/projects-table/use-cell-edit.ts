@@ -1,10 +1,12 @@
 import { useCallback, useMemo, useState } from "react";
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
+import { analyticsService } from "@/lib/analytics/analytics-service";
 import { queryKeys } from "@/lib/api/query-client";
 import { ProjectTableService } from "@/lib/api/services/project-table-service";
 import { ProjectStatus } from "@/lib/types/models";
 import {
   getProjectTableEditValue,
+  type ProjectTableBulkOperation,
   type ProjectTableDirectEditColumnId,
   type ProjectTableEditableColumnId,
   type ProjectTableEditValue,
@@ -19,7 +21,7 @@ export interface ProjectTableCellKey {
   columnId: ProjectTableEditableColumnId;
 }
 
-export interface ProjectTableUndoEntry {
+export interface ProjectTableCellUndoEntry {
   id: string;
   rowId: string;
   columnId: ProjectTableEditableColumnId;
@@ -29,6 +31,35 @@ export interface ProjectTableUndoEntry {
   expectedUpdatedAt: string;
   savedUpdatedAt: string;
 }
+
+export interface ProjectTableBulkUndoPoint {
+  projectId: string;
+  columnId: "status" | "start_date" | "end_date" | "team";
+  value: unknown;
+  updatedAt: string | null;
+}
+
+export interface ProjectTableBulkUndoAfterPoint {
+  projectId: string;
+  value: unknown;
+  updatedAt: string | null;
+}
+
+export interface ProjectTableBulkUndoEntry {
+  id: string;
+  kind: "bulk";
+  action: "status" | "date" | "assign_team" | "remove_team";
+  projectIds: string[];
+  before: ProjectTableBulkUndoPoint[];
+  after: ProjectTableBulkUndoAfterPoint[];
+  labelKey: string;
+  createdAt: number;
+  columnId: ProjectTableEditableColumnId;
+  projectTitle: string;
+  undoOperations?: ProjectTableBulkOperation[];
+}
+
+export type ProjectTableUndoEntry = ProjectTableCellUndoEntry | ProjectTableBulkUndoEntry;
 
 export interface ProjectTableConflict {
   rowId: string;
@@ -170,7 +201,7 @@ function isDirectEditColumn(
   return columnId !== "status";
 }
 
-function isProjectStatus(value: ProjectTableEditValue): value is ProjectStatus {
+function isProjectStatus(value: unknown): value is ProjectStatus {
   return Object.values(ProjectStatus).includes(value as ProjectStatus);
 }
 
@@ -192,6 +223,36 @@ function applyEditValue(
     case "status":
       return isProjectStatus(value)
         ? { ...row, status: value, rawStatus: serializeProjectTableStatus(value), updatedAt }
+        : row;
+  }
+}
+
+function applyBulkUndoValue(
+  row: ProjectTableRow,
+  point: ProjectTableBulkUndoPoint,
+  updatedAt: string | null = row.updatedAt,
+): ProjectTableRow {
+  switch (point.columnId) {
+    case "status":
+      return isProjectStatus(point.value)
+        ? {
+            ...row,
+            status: point.value,
+            rawStatus: serializeProjectTableStatus(point.value),
+            updatedAt,
+          }
+        : row;
+    case "start_date":
+      return { ...row, startDate: point.value == null ? null : String(point.value), updatedAt };
+    case "end_date":
+      return { ...row, endDate: point.value == null ? null : String(point.value), updatedAt };
+    case "team":
+      return Array.isArray(point.value)
+        ? {
+            ...row,
+            teamMemberIds: point.value.filter((id): id is string => typeof id === "string"),
+            updatedAt,
+          }
         : row;
   }
 }
@@ -243,6 +304,52 @@ function pushUndoEntry(
   entry: ProjectTableUndoEntry,
 ) {
   return [...entries, entry].slice(-UNDO_STACK_LIMIT);
+}
+
+function isBulkUndoEntry(entry: ProjectTableUndoEntry): entry is ProjectTableBulkUndoEntry {
+  return "kind" in entry && entry.kind === "bulk";
+}
+
+function afterPointForProject(entry: ProjectTableBulkUndoEntry, projectId: string) {
+  return entry.after.find((point) => point.projectId === projectId) ?? null;
+}
+
+function buildBulkUndoOperations(
+  entry: ProjectTableBulkUndoEntry,
+  findLatestRow: (rowId: string) => ProjectTableRow | null,
+): ProjectTableBulkOperation[] {
+  if (entry.undoOperations?.length) return entry.undoOperations;
+
+  return entry.before
+    .map((point): ProjectTableBulkOperation | null => {
+      const expectedUpdatedAt =
+        afterPointForProject(entry, point.projectId)?.updatedAt ??
+        findLatestRow(point.projectId)?.updatedAt ??
+        null;
+      if (!expectedUpdatedAt) return null;
+
+      if (point.columnId === "status" && isProjectStatus(point.value)) {
+        return {
+          action: "status",
+          projectId: point.projectId,
+          status: point.value,
+          expectedUpdatedAt,
+        };
+      }
+
+      if (point.columnId === "start_date" || point.columnId === "end_date") {
+        return {
+          action: "date",
+          projectId: point.projectId,
+          field: point.columnId,
+          value: point.value == null ? null : String(point.value),
+          expectedUpdatedAt,
+        };
+      }
+
+      return null;
+    })
+    .filter((operation): operation is ProjectTableBulkOperation => operation !== null);
 }
 
 export function useCellEdit(args: {
@@ -470,9 +577,54 @@ export function useCellEdit(args: {
     [runSave],
   );
 
+  const pushBulkUndo = useCallback((entry: ProjectTableBulkUndoEntry) => {
+    setUndoStack((current) => pushUndoEntry(current, entry));
+    setVisibleUndoId(entry.id);
+  }, []);
+
+  const undoBulk = useCallback(
+    async (entry: ProjectTableBulkUndoEntry) => {
+      const operations = buildBulkUndoOperations(entry, (rowId) => findLatestRow(rowId));
+      if (operations.length === 0) return;
+
+      analyticsService?.track?.("action", "project_table_undo_invoked", {
+        action: "bulk",
+      });
+
+      const result = await ProjectTableService.bulkUpdateProjects({ operations });
+      const successfulIds = new Set(result.success.map((success) => success.projectId));
+
+      updateRowsInCache(
+        queryClient,
+        (cachedRow) => {
+          if (!successfulIds.has(cachedRow.id)) return cachedRow;
+          const beforePoint = entry.before.find((point) => point.projectId === cachedRow.id);
+          if (!beforePoint) return cachedRow;
+          const updatedAt =
+            result.success.find((success) => success.projectId === cachedRow.id)?.updatedAt ??
+            cachedRow.updatedAt;
+          return applyBulkUndoValue(cachedRow, beforePoint, updatedAt);
+        },
+        args.tableQueryKeyPrefix,
+      );
+
+      if (result.failedCount === 0) {
+        setUndoStack((current) => current.filter((candidate) => candidate.id !== entry.id));
+        setVisibleUndoId((current) => (current === entry.id ? null : current));
+      }
+    },
+    [args.tableQueryKeyPrefix, findLatestRow, queryClient],
+  );
+
   const undoLatest = useCallback(async () => {
     const entry = undoStack.at(-1);
     if (!entry) return;
+
+    if (isBulkUndoEntry(entry)) {
+      await undoBulk(entry);
+      return;
+    }
+
     const latestRow = findLatestRow(entry.rowId);
     await runSave({
       rowId: entry.rowId,
@@ -482,7 +634,7 @@ export function useCellEdit(args: {
       recordUndo: false,
       consumeUndoEntryId: entry.id,
     });
-  }, [findLatestRow, runSave, undoStack]);
+  }, [findLatestRow, runSave, undoBulk, undoStack]);
 
   const clearLatestUndo = useCallback(() => {
     setVisibleUndoId(null);
@@ -527,6 +679,8 @@ export function useCellEdit(args: {
   return {
     commitEdit,
     undoLatest,
+    undoBulk,
+    pushBulkUndo,
     saveStates,
     undoStack,
     latestUndo,
