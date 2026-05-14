@@ -97,6 +97,24 @@ test.describe("inbox redesign - populated visual verification", () => {
     ).toBeVisible();
 
     const center = page.getByTestId("inbox-center");
+
+    await center.getByRole("button", { name: /more actions/i }).click();
+    await expect(page.getByTestId("thread-detail-more-menu")).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: /mark read/i })).toBeVisible();
+    await expect(
+      page.getByRole("menuitem", { name: /copy thread link/i })
+    ).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: /refresh thread/i })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("thread-detail-more-menu")).toBeHidden();
+
+    await center.getByRole("button", { name: /archive thread/i }).click();
+    await expect(page.getByText("// ARCHIVE")).toBeVisible();
+    await expect(page.getByText("// THIS THREAD")).toBeVisible();
+    await expect(page.getByText("// PIPELINE LEAD")).toBeVisible();
+    await page.getByRole("button", { name: "CANCEL", exact: true }).click();
+    await expect(page.getByText("// ARCHIVE")).toBeHidden();
+
     await center.getByRole("button", { name: /snooze thread/i }).click();
     await expect(page.getByText("// SNOOZE")).toBeVisible();
     await expect(page.getByText("[CUSTOM]")).toBeVisible();

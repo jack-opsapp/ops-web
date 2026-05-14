@@ -596,7 +596,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
   };
 
   const onOpenArchived = () => setFilter("ARCHIVED");
-  const onOpenSettings = () => router.push("/settings/inbox");
+  const onOpenSettings = () => router.push("/settings?tab=integrations");
 
   const threadList = (
     <div className="flex min-h-0 flex-1 flex-col">

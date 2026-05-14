@@ -14,12 +14,38 @@ describe("<Composer>", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders the four attach affordances by aria label", () => {
+  it("does not render utility controls when no handler is wired", () => {
     render(<Composer value="" onChange={noop} onSend={noop} />);
-    expect(screen.getByRole("button", { name: /attach file/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /attach image/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /draft with phase c/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /schedule/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /attach file/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /attach image/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /draft with phase c/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /schedule/i })).not.toBeInTheDocument();
+  });
+
+  it("renders wired utility controls and fires their handlers", () => {
+    const onDraftWithClaude = vi.fn();
+    const onAttachFile = vi.fn();
+    const onAttachImage = vi.fn();
+    const onSchedule = vi.fn();
+    render(
+      <Composer
+        value=""
+        onChange={noop}
+        onSend={noop}
+        onDraftWithClaude={onDraftWithClaude}
+        onAttachFile={onAttachFile}
+        onAttachImage={onAttachImage}
+        onSchedule={onSchedule}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /draft with phase c/i }));
+    fireEvent.click(screen.getByRole("button", { name: /attach file/i }));
+    fireEvent.click(screen.getByRole("button", { name: /attach image/i }));
+    fireEvent.click(screen.getByRole("button", { name: /schedule/i }));
+    expect(onDraftWithClaude).toHaveBeenCalledTimes(1);
+    expect(onAttachFile).toHaveBeenCalledTimes(1);
+    expect(onAttachImage).toHaveBeenCalledTimes(1);
+    expect(onSchedule).toHaveBeenCalledTimes(1);
   });
 
   it("Cmd+Enter on textarea fires onSend with current value", () => {
@@ -87,7 +113,15 @@ describe("<Composer>", () => {
   });
 
   it("renders the toolbar with Sparkles first followed by a vertical divider", () => {
-    render(<Composer value="" onChange={noop} onSend={noop} />);
+    render(
+      <Composer
+        value=""
+        onChange={noop}
+        onSend={noop}
+        onDraftWithClaude={noop}
+        onAttachFile={noop}
+      />,
+    );
     const sparkles = screen.getByRole("button", { name: /draft with phase c/i });
     const paperclip = screen.getByRole("button", { name: /attach file/i });
     expect(
@@ -96,7 +130,17 @@ describe("<Composer>", () => {
   });
 
   it("keeps composer utility icon controls compact for desktop", () => {
-    render(<Composer value="" onChange={noop} onSend={noop} />);
+    render(
+      <Composer
+        value=""
+        onChange={noop}
+        onSend={noop}
+        onDraftWithClaude={noop}
+        onAttachFile={noop}
+        onAttachImage={noop}
+        onSchedule={noop}
+      />,
+    );
     for (const name of [
       /draft with phase c/i,
       /attach file/i,

@@ -2,6 +2,7 @@
 
 import { Group, Panel, Separator, type Layout } from "react-resizable-panels";
 import { useEffect, type ReactNode } from "react";
+import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
 import {
   DEFAULT_INBOX_LAYOUT,
@@ -32,6 +33,7 @@ export function InboxShell({
   resizable = true,
   className,
 }: InboxShellProps) {
+  const { t } = useDictionary("inbox");
   const storedOpen = useInboxLayoutStore((s) => s.rightRailOpen);
   const leftPct = useInboxLayoutStore((s) => s.leftPct);
   const rightPct = useInboxLayoutStore((s) => s.rightPct);
@@ -56,7 +58,7 @@ export function InboxShell({
       >
         <aside
           role="complementary"
-          aria-label="Thread list"
+          aria-label={t("shell.threadList", "Thread list")}
           className="flex w-[360px] shrink-0 flex-col border-r border-line bg-inbox-bg"
         >
           {threadList}
@@ -67,7 +69,7 @@ export function InboxShell({
         {open && (
           <aside
             role="complementary"
-            aria-label="Thread context"
+            aria-label={t("shell.threadContext", "Thread context")}
             className="flex w-[360px] shrink-0 flex-col border-l border-line bg-inbox-bg-deep"
           >
             {contextRail}
@@ -103,7 +105,7 @@ export function InboxShell({
       >
         <aside
           role="complementary"
-          aria-label="Thread list"
+          aria-label={t("shell.threadList", "Thread list")}
           className="flex h-full min-h-0 flex-col border-r border-line bg-inbox-bg"
         >
           {threadList}
@@ -145,7 +147,7 @@ export function InboxShell({
         >
           <aside
             role="complementary"
-            aria-label="Thread context"
+            aria-label={t("shell.threadContext", "Thread context")}
             className="flex h-full min-h-0 flex-col border-l border-line bg-inbox-bg-deep"
           >
             {contextRail}
@@ -161,6 +163,7 @@ interface ResizeHandleProps {
 }
 
 function ResizeHandle({ onDoubleClick }: ResizeHandleProps) {
+  const { t } = useDictionary("inbox");
   return (
     <Separator
       onDoubleClick={onDoubleClick}
@@ -168,7 +171,7 @@ function ResizeHandle({ onDoubleClick }: ResizeHandleProps) {
         "group relative w-1 shrink-0 cursor-col-resize bg-transparent",
         "transition-colors hover:bg-line-hi",
       )}
-      aria-label="Resize panel"
+      aria-label={t("shell.resizePanel", "Resize panel")}
     >
       <span
         aria-hidden

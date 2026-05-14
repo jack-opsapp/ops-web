@@ -83,6 +83,12 @@ export function Composer({
     (sendVariant === "agent"
       ? t("composer.sendPhaseC", "SEND PHASE C DRAFT")
       : t("composer.sendTactic", "SEND"));
+  const showDraftWithPhaseC = typeof onDraftWithClaude === "function";
+  const showAttachFile = typeof onAttachFile === "function";
+  const showAttachImage = typeof onAttachImage === "function";
+  const showSchedule = typeof onSchedule === "function";
+  const showAttachmentDivider =
+    showDraftWithPhaseC && (showAttachFile || showAttachImage || showSchedule);
 
   function handleSend() {
     if (!canSend) return;
@@ -126,39 +132,49 @@ export function Composer({
           agentTinted={agentTinted}
         />
         <div className="mt-auto flex items-center gap-1">
-          <button
-            type="button"
-            onClick={onDraftWithClaude}
-            aria-label={t("composer.draftWithPhaseC", "Draft with Phase C")}
-            className="inline-flex h-5 w-5 items-center justify-center rounded-[2px] text-agent transition-colors hover:bg-inbox-elev hover:text-agent-hi focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black"
-          >
-            <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={1.5} />
-          </button>
-          <span aria-hidden className="mx-1.5 h-[18px] w-px bg-line" />
-          <button
-            type="button"
-            onClick={onAttachFile}
-            aria-label={t("composer.attachFile", "Attach file")}
-            className={iconBtn}
-          >
-            <Paperclip aria-hidden className="h-3.5 w-3.5" strokeWidth={1.5} />
-          </button>
-          <button
-            type="button"
-            onClick={onAttachImage}
-            aria-label={t("composer.attachImage", "Attach image")}
-            className={iconBtn}
-          >
-            <Image aria-hidden className="h-3.5 w-3.5" strokeWidth={1.5} />
-          </button>
-          <button
-            type="button"
-            onClick={onSchedule}
-            aria-label={t("composer.scheduleSend", "Schedule send")}
-            className={iconBtn}
-          >
-            <Calendar aria-hidden className="h-3.5 w-3.5" strokeWidth={1.5} />
-          </button>
+          {showDraftWithPhaseC && (
+            <button
+              type="button"
+              onClick={onDraftWithClaude}
+              aria-label={t("composer.draftWithPhaseC", "Draft with Phase C")}
+              className="inline-flex h-5 w-5 items-center justify-center rounded-[2px] text-agent transition-colors hover:bg-inbox-elev hover:text-agent-hi focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+            >
+              <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={1.5} />
+            </button>
+          )}
+          {showAttachmentDivider && (
+            <span aria-hidden className="mx-1.5 h-[18px] w-px bg-line" />
+          )}
+          {showAttachFile && (
+            <button
+              type="button"
+              onClick={onAttachFile}
+              aria-label={t("composer.attachFile", "Attach file")}
+              className={iconBtn}
+            >
+              <Paperclip aria-hidden className="h-3.5 w-3.5" strokeWidth={1.5} />
+            </button>
+          )}
+          {showAttachImage && (
+            <button
+              type="button"
+              onClick={onAttachImage}
+              aria-label={t("composer.attachImage", "Attach image")}
+              className={iconBtn}
+            >
+              <Image aria-hidden className="h-3.5 w-3.5" strokeWidth={1.5} />
+            </button>
+          )}
+          {showSchedule && (
+            <button
+              type="button"
+              onClick={onSchedule}
+              aria-label={t("composer.scheduleSend", "Schedule send")}
+              className={iconBtn}
+            >
+              <Calendar aria-hidden className="h-3.5 w-3.5" strokeWidth={1.5} />
+            </button>
+          )}
           <div className="flex-1" />
           {onEditDraft && (
             <button

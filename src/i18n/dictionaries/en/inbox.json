@@ -36,6 +36,8 @@
 
   "detail.untitled": "(no subject)",
   "detail.unknownClient": "Unknown sender",
+  "detail.loading": "Loading thread",
+  "detail.empty": "Pick a thread from the list",
   "detail.openClient": "Open client",
   "detail.oneMessage": "1 message",
   "detail.nMessages": "{count} messages",
@@ -226,6 +228,8 @@
   "recategorize.notePlaceholder": "This domain is always a vendor…",
 
   "writeback.title": "What should archive do?",
+  "writeback.a11yTitle": "Writeback preference",
+  "writeback.a11yDescription": "Pick how archive should behave in your connected inbox.",
   "writeback.prefix": "First archive",
   "writeback.description": "OPS can keep your Gmail or Outlook inbox in sync when you archive in here. Pick once — you can change it later in Settings.",
   "writeback.archive": "Archive in Gmail / Outlook",
@@ -323,6 +327,9 @@
   "recategorize.error": "Failed to reclassify thread",
 
   "panel.title": "// INBOX",
+  "shell.threadList": "Thread list",
+  "shell.threadContext": "Thread context",
+  "shell.resizePanel": "Resize panel",
 
   "filter.allChip": "[ALL ▾]",
   "filter.rail.all": "ALL",
@@ -331,7 +338,7 @@
   "filter.rail.archived": "ARCHIVED",
   "more.menuLabel": "More inbox actions",
   "more.refresh": "REFRESH",
-  "more.settings": "INBOX SETTINGS",
+  "more.settings": "EMAIL SETTINGS",
   "more.archive": "ARCHIVED THREADS",
 
   "search.tacticPlaceholder": "[search threads]",
@@ -541,6 +548,7 @@
 
   "archiveModal.loading": "Loading",
   "archiveModal.error": "Could not archive.",
+  "archiveModal.a11yDescription": "Confirm archive action.",
   "archiveModal.prefix.siblings": "ARCHIVE",
   "archiveModal.prefix.firstLead": "FIRST OPP-LINKED ARCHIVE",
   "archiveModal.title.siblings": "What else should we archive?",

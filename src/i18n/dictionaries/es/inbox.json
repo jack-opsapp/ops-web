@@ -17,7 +17,13 @@
   "groups.awaitingThem": "Esperando respuesta",
   "groups.later": "Después",
 
+  "column.filter": "Filtrar bandeja",
+  "column.search": "Buscar en bandeja",
+
+  "list.loading": "Cargando…",
+
   "row.aiDraft": "›BORRADOR-IA",
+  "row.draftPrefix": "BORRADOR ·",
 
   "header.previousThread": "Hilo anterior",
   "header.nextThread": "Siguiente hilo",
@@ -29,6 +35,7 @@
 
   "bands.summary.label": "// TU TURNO",
   "bands.summary.updatedBy": "actualizado por Phase C · hace {min} min",
+  "bands.summary.updatedByNow": "actualizado por Phase C",
   "bands.summary.aria": "Resumen de Phase C",
 
   "bands.needsInput.label": "// PHASE C NECESITA TU RESPUESTA",
@@ -63,6 +70,8 @@
   "composer.attachImage": "Adjuntar imagen",
   "composer.draftWithPhaseC": "Redactar con Phase C",
   "composer.scheduleSend": "Programar envío",
+  "composer.error.noRecipient": "No se pudo resolver el destinatario.",
+  "composer.error.sendFailed": "No se pudo enviar",
 
   "drafts.label": "// BORRADORES",
   "drafts.source.yours": "Tuyo",
@@ -72,7 +81,8 @@
 
   "aiDraftBanner.label": "PHASE C LO REDACTÓ · revisa",
 
-  "editToolbar.label": "editado del borrador de Phase C",
+  "editToolbar.label": "editado desde",
+  "editToolbar.labelTail": "",
   "editToolbar.seeChanges": "Ver cambios",
   "editToolbar.revert": "Revertir",
   "editToolbar.regenerate": "Regenerar",
@@ -82,6 +92,7 @@
   "rail.tabs.pipeline": "Pipeline",
   "rail.tabs.files": "Archivos",
   "rail.empty.accounting": "[—] sin documentos financieros",
+  "rail.empty.tasks": "[—] sin tareas para este hilo",
   "rail.closeDrawer": "Cerrar panel de contexto",
   "rail.subclient": "SUBCLIENTE",
   "rail.subclients": "SUBCLIENTES",
@@ -89,6 +100,9 @@
   "project.scope": "// ALCANCE",
   "project.accounting": "// CONTABILIDAD",
   "project.openProject": "Abrir proyecto",
+  "project.paid": "pagado",
+  "project.due": "pendiente",
+  "project.ofTotal": "de {total}",
 
   "pipeline.empty": "sin oportunidades abiertas",
   "pipeline.thisThread": "[ESTE HILO]",
@@ -153,6 +167,11 @@
   "date.today": "Hoy",
   "date.yesterday": "Ayer",
 
+  "detail.untitled": "(sin asunto)",
+  "detail.unknownClient": "Remitente desconocido",
+  "detail.loading": "Cargando hilo",
+  "detail.empty": "Elige un hilo de la lista",
+
   "thread.back": "Volver a la bandeja",
   "thread.aiSummary": "Resumen IA",
   "thread.reply": "Responder",
@@ -184,6 +203,8 @@
   "recategorize.notePlaceholder": "Este dominio siempre es un proveedor…",
 
   "writeback.title": "¿Qué hace archivar?",
+  "writeback.a11yTitle": "Preferencia de sincronización",
+  "writeback.a11yDescription": "Elige cómo debe comportarse archivar en tu bandeja conectada.",
   "writeback.prefix": "Primer archivo",
   "writeback.description": "OPS puede mantener sincronizada tu bandeja de Gmail u Outlook al archivar aquí. Elige una vez — luego lo cambias en Ajustes.",
   "writeback.archive": "Archivar en Gmail / Outlook",
@@ -191,6 +212,8 @@
   "writeback.opsOnly": "Solo dentro de OPS",
   "writeback.notNow": "Ahora no",
   "writeback.confirm": "Guardar y archivar",
+  "writeback.saving": "Guardando…",
+  "writeback.error": "No se pudo guardar la preferencia.",
 
   "palette.placeholder": "Busca hilos · ejecuta un comando",
   "palette.threads": "Hilos",
@@ -259,6 +282,7 @@
 
   "archiveModal.loading": "Cargando",
   "archiveModal.error": "No se pudo archivar.",
+  "archiveModal.a11yDescription": "Confirmar acción de archivo.",
   "archiveModal.prefix.siblings": "ARCHIVAR",
   "archiveModal.prefix.firstLead": "PRIMER ARCHIVADO CON OPORTUNIDAD",
   "archiveModal.title.siblings": "¿Qué más archivamos?",
@@ -302,6 +326,9 @@
   "commandPalette.filter.only": "Mostrar solo {category}",
 
   "panel.title": "// BANDEJA",
+  "shell.threadList": "Lista de hilos",
+  "shell.threadContext": "Contexto del hilo",
+  "shell.resizePanel": "Redimensionar panel",
 
   "filter.allChip": "[TODO ▾]",
   "filter.rail.all": "TODO",
@@ -310,7 +337,7 @@
   "filter.rail.archived": "ARCHIVADO",
   "more.menuLabel": "Más acciones",
   "more.refresh": "ACTUALIZAR",
-  "more.settings": "AJUSTES DE BANDEJA",
+  "more.settings": "AJUSTES DE EMAIL",
   "more.archive": "HILOS ARCHIVADOS",
 
   "search.tacticPlaceholder": "[buscar hilos]",

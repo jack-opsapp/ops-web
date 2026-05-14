@@ -682,7 +682,42 @@ function routeForApi(
   seen: Set<InboxPopulatedInterceptKey>
 ) {
   const path = url.pathname;
+  const method = route.request().method();
   const filter = url.searchParams.get("filter");
+
+  if (path === `/api/inbox/threads/${inboxPopulatedFixture.threadId}`) {
+    if (method === "PATCH") {
+      const body = route.request().postDataJSON() as { action?: string };
+      if (body.action === "archive") {
+        return fulfillJson(route, {
+          needsConfirmation: true,
+          connectionId: inboxPopulatedFixture.connectionId,
+          leadPreference: "ask",
+          linkedOpportunity: {
+            id: inboxPopulatedFixture.opportunityId,
+            title: "Bay three curb flashing",
+          },
+          siblingThreads: [
+            {
+              id: "e2e-thread-calloway-invoice-closeout",
+              subject: "Invoice closeout for maintenance block",
+              latestSenderName: "OPS",
+              latestSenderEmail: "ops@maverickprojects.test",
+              latestSnippet: "Sent the closeout package and invoice PDF.",
+              lastMessageAt: iso(-5 * DAY),
+            },
+          ],
+        });
+      }
+
+      return fulfillJson(route, { ok: true });
+    }
+
+    if (method === "GET") {
+      seen.add("api:thread-detail");
+      return fulfillJson(route, threadDetail());
+    }
+  }
 
   if (
     path === `/api/inbox/threads/${inboxPopulatedFixture.threadId}/attachments`
@@ -714,11 +749,6 @@ function routeForApi(
         },
       ],
     });
-  }
-
-  if (path === `/api/inbox/threads/${inboxPopulatedFixture.threadId}`) {
-    seen.add("api:thread-detail");
-    return fulfillJson(route, threadDetail());
   }
 
   if (path === "/api/inbox/threads") {

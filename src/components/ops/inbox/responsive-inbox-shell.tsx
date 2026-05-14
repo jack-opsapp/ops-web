@@ -102,7 +102,7 @@ export function ResponsiveInboxShell({
             animate={reduce ? { opacity: 1 } : { x: 0, opacity: 1 }}
             exit={reduce ? { opacity: 0 } : { x: 360, opacity: 0 }}
             transition={{ duration: 0.18, ease: EASE_SMOOTH }}
-            className="absolute inset-y-0 right-0 z-[1500] flex w-[360px] flex-col border-l border-line bg-inbox-bg-deep shadow-elevated"
+            className="absolute inset-y-0 right-0 z-[1500] flex w-[360px] flex-col border-l border-line bg-inbox-bg-deep"
           >
             <button
               type="button"
