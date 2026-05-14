@@ -3,8 +3,8 @@
 /**
  * ThreadColumnHeader — top of the left column.
  *
- * Reads as `// INBOX  [ALL ▾]  ⋯` with a live search input below that filters
- * threads in-place within the active rail. The filter dropdown selects
+ * Compact rail controls + a live search input that filters threads in-place
+ * within the active rail. The filter dropdown selects
  * between the four operator-facing rails — ALL / YOUR MOVE / WAITING /
  * ARCHIVED. SNOOZED lives behind the header chip surface (see
  * thread-column-snooze-chip); DRAFTS lives behind the dedicated drafts
@@ -33,11 +33,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { SearchInput } from "@/components/ui/search-input";
 import {
   RAIL_NAV_OPTIONS,
   type RailFilter,
 } from "@/lib/inbox/rail-predicates";
-import { SlashLabel } from "./voice/slash-label";
 
 interface ThreadColumnHeaderProps {
   /**
@@ -106,55 +106,55 @@ export function ThreadColumnHeader({
   const activeLabel = t(NAV_LABEL_KEY[navFilter], NAV_LABEL_FALLBACK[navFilter]);
   return (
     <div
+      data-inbox-debug-id="B1"
+      data-inbox-debug-label="THREAD FILTERS + SEARCH"
       className={cn(
         "shrink-0 border-b border-line bg-inbox-panel",
         className,
       )}
     >
-      <div className="flex items-center gap-1.5 px-3 py-2.5">
-        <SlashLabel
-          label={t("panel.title", "// INBOX")}
-          size="sm"
-          tone="text-2"
-          className="flex-1"
-        />
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              aria-label={t("column.filter", "Filter inbox")}
-              className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-chip border border-line px-1.5 py-[2px] font-mono text-[11px] uppercase tracking-[0.16em] text-text-2 hover:border-line-hi hover:text-text data-[state=open]:border-line-hi data-[state=open]:text-text"
-              style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
-            >
-              [{activeLabel} ▾]
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" sideOffset={6} className="min-w-[180px]">
-            <DropdownMenuRadioGroup
-              value={navFilter}
-              onValueChange={(v) => onFilterChange(v as RailFilter)}
-            >
-              {RAIL_NAV_OPTIONS.map((rail) => (
-                <DropdownMenuRadioItem
-                  key={rail}
-                  value={rail}
-                  className="font-mono text-[11px] uppercase tracking-[0.16em]"
-                >
-                  {t(NAV_LABEL_KEY[rail], NAV_LABEL_FALLBACK[rail])}
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
+      <div className="flex min-w-0 items-center gap-1 px-2.5 py-1.5">
+        <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                aria-label={t("column.filter", "Filter inbox")}
+                className="inline-flex min-w-0 shrink-0 items-center gap-1 overflow-hidden rounded-chip border border-line px-1.5 py-[2px] font-mono text-[11px] uppercase tracking-[0.16em] text-text-2 hover:border-line-hi hover:text-text data-[state=open]:border-line-hi data-[state=open]:text-text"
+                style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
+              >
+                <span className="truncate">[{activeLabel} ▾]</span>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" sideOffset={6} className="min-w-[180px]">
+              <DropdownMenuRadioGroup
+                value={navFilter}
+                onValueChange={(v) => onFilterChange(v as RailFilter)}
+              >
+                {RAIL_NAV_OPTIONS.map((rail) => (
+                  <DropdownMenuRadioItem
+                    key={rail}
+                    value={rail}
+                    className="font-mono text-[11px] uppercase tracking-[0.16em]"
+                  >
+                    {t(NAV_LABEL_KEY[rail], NAV_LABEL_FALLBACK[rail])}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
-        {headerChipSlot}
+          <div className="flex min-w-0 items-center gap-1 overflow-hidden">
+            {headerChipSlot}
+          </div>
+        </div>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
               type="button"
               aria-label={t("more.menuLabel", "More inbox actions")}
-              className="p-0.5 text-text-mute hover:text-text-2 data-[state=open]:text-text-2"
+              className="shrink-0 p-0.5 text-text-mute hover:text-text-2 data-[state=open]:text-text-2"
             >
               <MoreHorizontal aria-hidden className="h-3.5 w-3.5" strokeWidth={1.5} />
             </button>
@@ -182,10 +182,9 @@ export function ThreadColumnHeader({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      <div className="px-3 pb-2">
+      <div className="px-2.5 pb-1.5">
         <div className="relative">
-          <input
-            type="text"
+          <SearchInput
             value={searchValue}
             onChange={(e) => onSearchChange(e.target.value)}
             onKeyDown={(e) => {
@@ -196,7 +195,8 @@ export function ThreadColumnHeader({
             }}
             aria-label={t("column.search", "Search inbox")}
             placeholder={t("search.tacticPlaceholder", "[search threads]")}
-            className="block h-7 w-full rounded-[4px] border border-line bg-surface-hover-subtle px-2 pr-6 text-left font-mono text-[11px] text-text placeholder:text-text-mute hover:border-line-hi focus:border-line-hi focus:outline-none"
+            wrapperClassName="w-full"
+            className="h-6 !py-0 pr-6 leading-6"
             spellCheck={false}
             autoComplete="off"
             autoCorrect="off"

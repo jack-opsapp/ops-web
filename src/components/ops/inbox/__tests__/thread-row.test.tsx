@@ -1,6 +1,10 @@
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
-import { ThreadRow, type ThreadRowData } from "../thread-row";
+import {
+  resolveThreadRowPreview,
+  ThreadRow,
+  type ThreadRowData,
+} from "../thread-row";
 import type { StateTagResult } from "@/lib/inbox/format-wait";
 import { shouldHandleInPlaceThreadNavigation } from "../inbox-navigation";
 
@@ -65,6 +69,22 @@ describe("<ThreadRow>", () => {
     expect(screen.queryByText(/raw provider snippet/)).toBeNull();
   });
 
+  it("preview helper trims aiSummary before falling back to raw snippet", () => {
+    expect(
+      resolveThreadRowPreview(
+        make({
+          aiSummary: "  Operator owes a revised quote.  ",
+          snippet: "raw provider snippet",
+        }),
+      ),
+    ).toBe("Operator owes a revised quote.");
+    expect(
+      resolveThreadRowPreview(
+        make({ aiSummary: "   ", snippet: " raw provider snippet " }),
+      ),
+    ).toBe("raw provider snippet");
+  });
+
   it("snippet falls back to raw snippet when aiSummary is null", () => {
     render(
       <ThreadRow
@@ -94,13 +114,25 @@ describe("<ThreadRow>", () => {
     const name = screen.getByText("Calloway");
     expect(name.className).toMatch(/font-semibold/);
     expect(name.className).toMatch(/text-text\b/);
+    expect(screen.getByTestId("thread-row").className).toContain(
+      "bg-inbox-elev/45",
+    );
+    expect(screen.getByTestId("thread-row-stripe").className).toMatch(
+      /bg-line-hi/,
+    );
   });
 
-  it("read state uses font-normal + text-text-2", () => {
+  it("read state reduces weight and contrast on title + subject", () => {
     render(<ThreadRow thread={make({ unread: false })} selected={false} now={NOW} onSelect={() => {}} />);
     const name = screen.getByText("Calloway");
+    const subject = screen.getByText("Roof RFQ — revised quote");
     expect(name.className).toMatch(/font-normal/);
-    expect(name.className).toMatch(/text-text-2\b/);
+    expect(name.className).toMatch(/text-text-3\b/);
+    expect(subject.className).toMatch(/font-normal/);
+    expect(subject.className).toMatch(/text-text-3\b/);
+    expect(screen.getByTestId("thread-row").className).not.toContain(
+      "bg-inbox-elev/45",
+    );
   });
 
   it("AI-drafted snippet carries // PHASE C DRAFT · prefix in lavender", () => {

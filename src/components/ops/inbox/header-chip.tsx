@@ -47,7 +47,7 @@ export const HeaderChip = forwardRef<HTMLButtonElement, HeaderChipProps>(
         aria-label={ariaLabel}
         data-state={open ? "open" : "closed"}
         className={cn(
-          "inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-chip border border-line px-1.5 py-[2px]",
+          "inline-flex min-w-0 shrink items-center gap-1 overflow-hidden whitespace-nowrap rounded-chip border border-line px-1.5 py-[2px]",
           "font-mono text-[11px] uppercase tracking-[0.16em] text-text-2",
           "hover:border-line-hi hover:text-text",
           "data-[state=open]:border-line-hi data-[state=open]:text-text",
@@ -56,7 +56,10 @@ export const HeaderChip = forwardRef<HTMLButtonElement, HeaderChipProps>(
         )}
         style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
       >
-        // {count} {label} ▾
+        <span aria-hidden>//</span>
+        <span className="shrink-0">{count}</span>
+        <span className="truncate">{label}</span>
+        <span aria-hidden>▾</span>
       </button>
     );
   },

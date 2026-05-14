@@ -17,6 +17,7 @@ import {
 } from "@/lib/inbox/grouping";
 import { useDictionary } from "@/i18n/client";
 import { ThreadRow, type ThreadRowData } from "./thread-row";
+import { TodayBar, type TodayCommitment } from "./today-bar";
 import { SlashLabel } from "./voice/slash-label";
 import { cn } from "@/lib/utils/cn";
 
@@ -33,6 +34,9 @@ interface ThreadListProps {
    * Wire to `useThreadActions().dismissAwaitingReply` at the route layer.
    */
   onDismissAwaitingReply?: (threadId: string) => void;
+  obligations?: TodayCommitment[];
+  onResolveObligation?: (commitmentId: string) => void;
+  pendingResolveIds?: ReadonlySet<string>;
   className?: string;
 }
 
@@ -58,6 +62,9 @@ export function ThreadList({
   selectedThreadId,
   onSelect,
   onDismissAwaitingReply,
+  obligations = [],
+  onResolveObligation,
+  pendingResolveIds,
   className,
 }: ThreadListProps) {
   const { t } = useDictionary("inbox");
@@ -65,11 +72,17 @@ export function ThreadList({
 
   return (
     <div
+      data-testid="thread-list-scroll"
       className={cn(
         "flex min-h-0 flex-1 flex-col overflow-y-auto scrollbar-hide",
         className,
       )}
     >
+      <TodayBar
+        commitments={obligations}
+        onResolve={onResolveObligation}
+        pendingResolveIds={pendingResolveIds}
+      />
       {GROUP_ORDER.map((key) => {
         const items = groups.get(key) ?? [];
         if (items.length === 0) return null;

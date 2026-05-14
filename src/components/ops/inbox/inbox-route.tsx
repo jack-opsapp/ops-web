@@ -86,7 +86,7 @@ import { ThreadDetailMoreMenu } from "./thread-detail-more-menu";
 import { DraftsChip } from "./drafts-chip";
 import { SnoozedChip } from "./snoozed-chip";
 import { FloatingYourTurnBadge } from "./floating-your-turn-badge";
-import { TodayBar, type TodayCommitment } from "./today-bar";
+import { type TodayCommitment } from "./today-bar";
 import { RailEmptyState } from "./rail-empty-state";
 import { ThreadList, type ThreadListItem } from "./thread-list";
 import { ThreadDetail } from "./thread-detail";
@@ -615,32 +615,36 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
           </>
         }
       />
-      <TodayBar
-        commitments={commitments}
-        onResolve={(commitmentId) => {
-          const target = commitments.find((c) => c.id === commitmentId);
-          if (!target) return;
-          onResolveCommitment(commitmentId, target.threadId);
-        }}
-        pendingResolveIds={resolvingIds}
-      />
-      {threadsQuery.isLoading ? (
-        <EmptyState label={t("list.loading", "Loading…")} />
-      ) : rows.length === 0 ? (
-        <RailEmptyState
-          rail={filter}
-          searchActive={debouncedSearch.length > 0}
-          searchQuery={debouncedSearch}
-        />
-      ) : (
-        <ThreadList
-          threads={rows}
-          now={now}
-          selectedThreadId={selectedThreadId}
-          onSelect={onSelectThread}
-          onDismissAwaitingReply={onDismissAwaitingReply}
-        />
-      )}
+      <div
+        data-inbox-debug-id="B3"
+        data-inbox-debug-label="THREAD ROWS"
+        className="flex min-h-0 flex-1 flex-col"
+      >
+        {threadsQuery.isLoading ? (
+          <EmptyState label={t("list.loading", "Loading…")} />
+        ) : rows.length === 0 ? (
+          <RailEmptyState
+            rail={filter}
+            searchActive={debouncedSearch.length > 0}
+            searchQuery={debouncedSearch}
+          />
+        ) : (
+          <ThreadList
+            threads={rows}
+            now={now}
+            selectedThreadId={selectedThreadId}
+            onSelect={onSelectThread}
+            onDismissAwaitingReply={onDismissAwaitingReply}
+            obligations={commitments}
+            onResolveObligation={(commitmentId) => {
+              const target = commitments.find((c) => c.id === commitmentId);
+              if (!target) return;
+              onResolveCommitment(commitmentId, target.threadId);
+            }}
+            pendingResolveIds={resolvingIds}
+          />
+        )}
+      </div>
     </div>
   );
 

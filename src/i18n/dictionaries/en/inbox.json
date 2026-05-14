@@ -367,6 +367,7 @@
   "todayBar.caughtUpBody": "[—] no open commitments",
   "todayBar.stateWaiting": "+{days}D · WAITING",
   "todayBar.stateToday": "TODAY · {time}",
+  "todayBar.moreObligations": "+{count} MORE IN YOUR MOVE",
 
   "groups.needsReplyLabel": "// NEEDS REPLY",
   "groups.fyiLabel": "// FYI",

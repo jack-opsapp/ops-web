@@ -68,6 +68,12 @@ interface ThreadRowProps {
   onDismissAwaitingReply?: (threadId: string) => void;
 }
 
+export function resolveThreadRowPreview(
+  thread: Pick<ThreadRowData, "aiSummary" | "snippet">,
+): string {
+  return thread.aiSummary?.trim() || thread.snippet.trim();
+}
+
 function formatRelativeTime(ts: number, now: number): string {
   const diff = Math.max(0, now - ts);
   const min = Math.floor(diff / 60_000);
@@ -128,7 +134,9 @@ export function ThreadRow({
       ? "bg-rose"
       : isAiDraft
         ? "bg-agent"
-        : "bg-transparent";
+        : isUnread
+          ? "bg-line-hi"
+          : "bg-transparent";
 
   const alarmDays =
     thread.state.alarmStrip && thread.lastInboundAt !== null
@@ -151,10 +159,11 @@ export function ThreadRow({
     onDismissAwaitingReply && thread.state.kind === "yours"
       ? () => onDismissAwaitingReply(thread.id)
       : undefined;
-  const snippetText = thread.aiSummary?.trim() || thread.snippet;
+  const snippetText = resolveThreadRowPreview(thread);
 
   return (
     <div
+      data-testid="thread-row"
       className={cn(
         "group relative block w-full cursor-pointer border-b border-line text-left",
         "py-2 pl-2 pr-3",
@@ -162,7 +171,9 @@ export function ThreadRow({
           ? "bg-ops-accent/[0.07]"
           : isOverdue
             ? "bg-rose/[0.025] hover:bg-rose/[0.05]"
-            : "hover:bg-surface-hover-subtle",
+            : isUnread
+              ? "bg-inbox-elev/45 hover:bg-inbox-elev/65"
+              : "hover:bg-surface-hover-subtle",
       )}
     >
       <a
@@ -203,7 +214,7 @@ export function ThreadRow({
             id={clientNameId}
             className={cn(
               "min-w-0 flex-1 truncate font-mohave text-[13px]",
-              isUnread ? "font-semibold text-text" : "font-normal text-text-2",
+              isUnread ? "font-semibold text-text" : "font-normal text-text-3",
             )}
           >
             {thread.clientName}
@@ -245,14 +256,19 @@ export function ThreadRow({
           id={subjectId}
           className={cn(
             "mt-0.5 truncate font-mohave text-[13px]",
-            isUnread ? "font-medium text-text" : "font-normal text-text-2",
+            isUnread ? "font-medium text-text" : "font-normal text-text-3",
           )}
         >
           {thread.subject || ""}
         </div>
 
         {/* Snippet line with optional draft prefix — prefers AI summary over raw snippet */}
-        <div className="mt-0.5 truncate font-mohave text-[12px] leading-[1.4] text-text-3">
+        <div
+          className={cn(
+            "mt-0.5 truncate font-mohave text-[12px] leading-[1.4]",
+            isUnread ? "text-text-3" : "text-text-mute",
+          )}
+        >
           {isAiDraft && (
             <span className="mr-1.5 font-cakemono text-[11px] font-light uppercase tracking-[0.16em] text-agent">
               {t("row.phaseCDraftPrefix", "// PHASE C DRAFT ·")}

@@ -71,6 +71,32 @@ describe("<ThreadList>", () => {
     expect(screen.getByText("Beta")).toBeInTheDocument();
   });
 
+  it("renders obligations inside the thread-list scroll surface", () => {
+    const threads = [make("a", { clientName: "Acme" })];
+    render(
+      <ThreadList
+        threads={threads}
+        now={NOW}
+        selectedThreadId={null}
+        onSelect={() => {}}
+        obligations={[
+          {
+            id: "c1",
+            threadId: "a",
+            text: "Acme — send revised quote",
+            clientName: "Acme Construction",
+            waitingDays: 2,
+            state: { tone: "accent", prefix: "YOURS", value: "2H" },
+          },
+        ]}
+      />,
+    );
+    const scroll = screen.getByTestId("thread-list-scroll");
+    const strip = screen.getByTestId("today-bar");
+    expect(scroll).toContainElement(strip);
+    expect(strip).toHaveAttribute("data-inbox-debug-id", "B2");
+  });
+
   it("calls onSelect with thread id when row clicked", async () => {
     const onSelect = vi.fn();
     const threads = [make("xyz", { clientName: "Gamma" })];

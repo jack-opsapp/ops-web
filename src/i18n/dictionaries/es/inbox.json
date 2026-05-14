@@ -366,6 +366,7 @@
   "todayBar.caughtUpBody": "[—] sin compromisos abiertos",
   "todayBar.stateWaiting": "+{days}D · ESPERANDO",
   "todayBar.stateToday": "HOY · {time}",
+  "todayBar.moreObligations": "+{count} MÁS PENDIENTES",
 
   "groups.needsReplyLabel": "// NECESITA RESPUESTA",
   "groups.fyiLabel": "// INFORMATIVO",
