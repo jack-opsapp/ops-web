@@ -114,6 +114,7 @@ describe("<ThreadRow>", () => {
     const name = screen.getByText("Calloway");
     expect(name.className).toMatch(/font-semibold/);
     expect(name.className).toMatch(/text-text\b/);
+    expect(screen.getByTestId("thread-row-new-badge")).toHaveTextContent("NEW");
     expect(screen.getByTestId("thread-row").className).toContain(
       "bg-inbox-elev/45",
     );
@@ -130,6 +131,7 @@ describe("<ThreadRow>", () => {
     expect(name.className).toMatch(/text-text-mute\b/);
     expect(subject.className).toMatch(/font-normal/);
     expect(subject.className).toMatch(/text-text-mute\b/);
+    expect(screen.queryByTestId("thread-row-new-badge")).toBeNull();
     expect(screen.getByTestId("thread-row").className).not.toContain(
       "bg-inbox-elev/45",
     );
@@ -276,6 +278,22 @@ describe("<ThreadRow>", () => {
     );
     const icons = container.querySelectorAll("svg");
     expect(icons.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("renders unknown sender as a question mark next to the sender name", () => {
+    const { container } = render(
+      <ThreadRow
+        thread={make({ labels: ["FROM_NEW_SENDER"] })}
+        selected={false}
+        now={NOW}
+        onSelect={() => {}}
+      />,
+    );
+    expect(screen.getByTestId("thread-row-unknown-sender")).toHaveAttribute(
+      "aria-label",
+      "Unconfirmed sender",
+    );
+    expect(container.querySelectorAll("svg")).toHaveLength(1);
   });
 
   it("calls onSelect on click", () => {

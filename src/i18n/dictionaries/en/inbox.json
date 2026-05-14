@@ -390,6 +390,8 @@
   "row.stateDraftReady": "DRAFT READY",
   "row.alarmStrip": "// {days}D · UNANSWERED",
   "row.phaseCDraftPrefix": "// PHASE C DRAFT ·",
+  "row.newBadge": "NEW",
+  "row.unknownSender": "Unconfirmed sender",
   "row.dismissAwaitingReply": "Mark no reply needed",
 
   "detail.selectThread": "// SELECT THREAD",

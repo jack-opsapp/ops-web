@@ -389,6 +389,8 @@
   "row.stateDraftReady": "BORRADOR LISTO",
   "row.alarmStrip": "// {days}D · SIN RESPUESTA",
   "row.phaseCDraftPrefix": "// BORRADOR DE PHASE C ·",
+  "row.newBadge": "NUEVO",
+  "row.unknownSender": "Remitente sin confirmar",
   "row.dismissAwaitingReply": "Marcar sin respuesta necesaria",
 
   "detail.selectThread": "// SELECCIONA HILO",

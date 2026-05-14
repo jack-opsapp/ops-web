@@ -22,10 +22,10 @@
 
 import { useId, type MouseEvent } from "react";
 import {
+  CircleHelp,
   DollarSign,
   Paperclip,
   Receipt,
-  UserPlus,
 } from "lucide-react";
 import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
@@ -121,12 +121,12 @@ export function ThreadRow({
   const isUnread = thread.unread;
   const isOverdue =
     thread.state.kind === "alarmed" || thread.state.kind === "overdue";
+  const hasUnknownSender = thread.labels.includes("FROM_NEW_SENDER");
 
   const showSignalRow =
     thread.labels.includes("HAS_ATTACHMENT") ||
     thread.labels.includes("HAS_QUOTE") ||
-    thread.labels.includes("HAS_INVOICE") ||
-    thread.labels.includes("FROM_NEW_SENDER");
+    thread.labels.includes("HAS_INVOICE");
 
   const stripeColor = selected
     ? "bg-ops-accent"
@@ -219,6 +219,25 @@ export function ThreadRow({
           >
             {thread.clientName}
           </span>
+          {hasUnknownSender && (
+            <span
+              data-testid="thread-row-unknown-sender"
+              aria-label={t("row.unknownSender", "Unconfirmed sender")}
+              title={t("row.unknownSender", "Unconfirmed sender")}
+              className="shrink-0 text-text-3"
+            >
+              <CircleHelp aria-hidden className="h-3 w-3" strokeWidth={1.5} />
+            </span>
+          )}
+          {isUnread && (
+            <span
+              data-testid="thread-row-new-badge"
+              className="shrink-0 rounded-[2px] border border-line-hi bg-inbox-elev px-1 font-mono text-[11px] uppercase tracking-[0.10em] text-text"
+              style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
+            >
+              {t("row.newBadge", "NEW")}
+            </span>
+          )}
           {thread.messageCount > 1 && (
             <span
               className="shrink-0 font-mono text-[11px] text-text-mute"
@@ -282,19 +301,12 @@ export function ThreadRow({
           {snippetText}
         </div>
 
-        {/* Bottom signal row — attachments / quotes / invoices / new senders only */}
+        {/* Bottom signal row — attachments / quotes / invoices only */}
         {showSignalRow && (
           <div className="mt-1 flex items-center gap-1.5">
             <span
               className="ml-auto flex items-center gap-1 text-text-mute"
             >
-              {thread.labels.includes("FROM_NEW_SENDER") && (
-                <UserPlus
-                  aria-hidden
-                  className="h-[14px] w-[14px]"
-                  strokeWidth={1.5}
-                />
-              )}
               {thread.labels.includes("HAS_ATTACHMENT") && (
                 <Paperclip
                   aria-hidden
