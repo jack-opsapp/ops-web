@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
+import { PHASE_DEVELOPMENT_SERVER } from "next/constants";
 
-const nextConfig: NextConfig = {
+const baseNextConfig: NextConfig = {
   eslint: {
     // Warnings from other agents' unused imports break the Vercel build.
     // tsc --noEmit catches real errors. Lint cleanup is a separate task.
@@ -57,5 +58,12 @@ const nextConfig: NextConfig = {
     ];
   },
 };
+
+const nextConfig = (phase: string): NextConfig => ({
+  ...baseNextConfig,
+  // Keep dev-server writes out of the production build directory so local
+  // previews cannot overwrite build manifests while release gates run.
+  distDir: phase === PHASE_DEVELOPMENT_SERVER ? ".next-dev" : ".next",
+});
 
 export default nextConfig;
