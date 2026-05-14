@@ -898,8 +898,24 @@ function routeForSupabase(
           updated_at: iso(-4 * DAY),
           total: 9400,
         },
+        {
+          id: "e2e-invoice-paid-retainer",
+          invoice_number: "INV-1189",
+          status: "paid",
+          pdf_storage_path: "/documents/INV-1189.pdf",
+          updated_at: iso(-12 * DAY),
+          total: 3200,
+        },
+        {
+          id: "e2e-invoice-overdue-closeout",
+          invoice_number: "INV-1190",
+          status: "overdue",
+          pdf_storage_path: "/documents/INV-1190.pdf",
+          updated_at: iso(-31 * DAY),
+          total: 1800,
+        },
       ],
-      1
+      3
     );
   }
 

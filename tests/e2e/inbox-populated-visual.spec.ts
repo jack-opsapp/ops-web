@@ -74,7 +74,9 @@ async function removeNextDevOverlay(page: import("@playwright/test").Page) {
 
   await page.evaluate(() => {
     for (const selector of ["nextjs-portal", "nextjs-toast"]) {
-      document.querySelectorAll(selector).forEach((element) => element.remove());
+      document
+        .querySelectorAll(selector)
+        .forEach((element) => element.remove());
     }
   });
 }
@@ -166,7 +168,9 @@ test.describe("inbox redesign - populated visual verification", () => {
       `pipeline-opp-${inboxPopulatedFixture.opportunityId}`
     );
     await expect(activeLead).toBeVisible();
-    await expect(activeLead.getByText("QUOTING", { exact: true })).toBeVisible();
+    await expect(
+      activeLead.getByText("QUOTING", { exact: true })
+    ).toBeVisible();
     await expect(activeLead.getByText("HIGH", { exact: true })).toBeVisible();
     await expect(activeLead.getByText("EMAIL", { exact: true })).toBeVisible();
     await expect(activeLead.getByText("[THIS THREAD]")).toBeVisible();
@@ -183,6 +187,47 @@ test.describe("inbox redesign - populated visual verification", () => {
     ).toBeVisible();
     await expect(
       contextRail.getByRole("tab", { name: /FILES\s+3/i })
+    ).toBeVisible();
+    const accountingTab = contextRail.getByRole("tab", {
+      name: /ACCOUNTING\s+4/i,
+    });
+    await expect(accountingTab).toBeVisible();
+    await accountingTab.click();
+    await expect(accountingTab).toHaveAttribute("aria-selected", "true");
+    const totals = contextRail.getByTestId("accounting-totals");
+    await expect(totals).toBeVisible();
+    await expect(
+      contextRail.getByTestId("accounting-totals-estimates")
+    ).toContainText("$18,400");
+    await expect(
+      contextRail.getByTestId("accounting-totals-invoices")
+    ).toContainText("$14,400");
+    await expect(
+      contextRail.getByTestId("accounting-totals-outstanding")
+    ).toContainText("$9,400");
+    await expect(
+      contextRail.getByTestId("accounting-totals-paid")
+    ).toContainText("$3,200");
+    await expect(
+      contextRail.getByTestId("accounting-totals-overdue")
+    ).toContainText("$1,800");
+    await expect(
+      contextRail.getByTestId("accounting-view-estimates")
+    ).toBeVisible();
+    await expect(
+      contextRail.getByText("EST-2041", { exact: true })
+    ).toBeVisible();
+    await expect(
+      contextRail.getByTestId("accounting-view-invoices")
+    ).toBeVisible();
+    await expect(
+      contextRail.getByText("INV-1188", { exact: true })
+    ).toBeVisible();
+    await expect(
+      contextRail.getByText("INV-1189", { exact: true })
+    ).toBeVisible();
+    await expect(
+      contextRail.getByText("INV-1190", { exact: true })
     ).toBeVisible();
 
     await expect

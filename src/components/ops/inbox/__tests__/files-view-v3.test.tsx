@@ -7,7 +7,7 @@ import { ProjectStatus, type Project } from "@/lib/types/models";
 
 /** Build a synthetic ProjectDocument. */
 function doc(
-  overrides: Partial<ProjectDocument> & Pick<ProjectDocument, "id">,
+  overrides: Partial<ProjectDocument> & Pick<ProjectDocument, "id">
 ): ProjectDocument {
   return {
     id: overrides.id,
@@ -23,7 +23,7 @@ function doc(
 
 /** Build a synthetic ProjectPhoto. */
 function photo(
-  overrides: Partial<ProjectPhoto> & Pick<ProjectPhoto, "id" | "projectId">,
+  overrides: Partial<ProjectPhoto> & Pick<ProjectPhoto, "id" | "projectId">
 ): ProjectPhoto {
   return {
     id: overrides.id,
@@ -80,7 +80,7 @@ describe("<FilesViewV3>", () => {
         photos={[]}
         threadOnlyPhotos={[]}
         projects={[]}
-      />,
+      />
     );
     const filesToggle = screen.getByTestId("files-toggle-files");
     const photosToggle = screen.getByTestId("files-toggle-photos");
@@ -95,11 +95,15 @@ describe("<FilesViewV3>", () => {
         photos={[]}
         threadOnlyPhotos={[]}
         projects={[]}
-      />,
+      />
     );
     fireEvent.click(screen.getByTestId("files-toggle-photos"));
-    expect(screen.getByTestId("files-toggle-photos").getAttribute("data-active")).toBe("true");
-    expect(screen.getByTestId("files-toggle-files").getAttribute("data-active")).toBe("false");
+    expect(
+      screen.getByTestId("files-toggle-photos").getAttribute("data-active")
+    ).toBe("true");
+    expect(
+      screen.getByTestId("files-toggle-files").getAttribute("data-active")
+    ).toBe("false");
   });
 
   it("FILES sub-view shows the empty state when documents contains only estimates+invoices", () => {
@@ -112,8 +116,9 @@ describe("<FilesViewV3>", () => {
         photos={[]}
         threadOnlyPhotos={[]}
         projects={[]}
-      />,
+      />
     );
+    expect(screen.getByTestId("files-toggle-files")).toHaveTextContent("0");
     expect(screen.getByTestId("files-empty")).toBeInTheDocument();
     expect(screen.queryByTestId("files-contracts")).not.toBeInTheDocument();
   });
@@ -135,7 +140,7 @@ describe("<FilesViewV3>", () => {
         threadOnlyPhotos={[]}
         projects={[]}
         onFileOpen={onFileOpen}
-      />,
+      />
     );
 
     expect(screen.getByTestId("files-contracts")).toBeInTheDocument();
@@ -156,7 +161,7 @@ describe("<FilesViewV3>", () => {
         ]}
         threadOnlyPhotos={[]}
         projects={[p1, p2]}
-      />,
+      />
     );
     fireEvent.click(screen.getByTestId("files-toggle-photos"));
 
@@ -185,7 +190,7 @@ describe("<FilesViewV3>", () => {
           photo({ id: "tp2", projectId: "" }),
         ]}
         projects={[]}
-      />,
+      />
     );
     fireEvent.click(screen.getByTestId("files-toggle-photos"));
     const thisThread = screen.getByTestId("photos-group-this-thread");
@@ -202,10 +207,12 @@ describe("<FilesViewV3>", () => {
         photos={[photo({ id: "ph1", projectId: "proj-1" })]}
         threadOnlyPhotos={[]}
         projects={[p1]}
-      />,
+      />
     );
     fireEvent.click(screen.getByTestId("files-toggle-photos"));
-    expect(screen.queryByTestId("photos-group-this-thread")).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("photos-group-this-thread")
+    ).not.toBeInTheDocument();
   });
 
   it("PHOTOS sub-view shows the empty state when all three buckets are empty", () => {
@@ -215,7 +222,7 @@ describe("<FilesViewV3>", () => {
         photos={[]}
         threadOnlyPhotos={[]}
         projects={[]}
-      />,
+      />
     );
     fireEvent.click(screen.getByTestId("files-toggle-photos"));
     expect(screen.getByText(/no photos attached/i)).toBeInTheDocument();
@@ -235,7 +242,7 @@ describe("<FilesViewV3>", () => {
         threadOnlyPhotos={[]}
         projects={[p1]}
         onPhotoOpen={onPhotoOpen}
-      />,
+      />
     );
     fireEvent.click(screen.getByTestId("files-toggle-photos"));
     const grid = screen.getByTestId("photos-group-proj-1-grid");
