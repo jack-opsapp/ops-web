@@ -411,7 +411,6 @@
   "rail.clientLabel": "// CLIENTE",
   "rail.clientUnlinked": "// CLIENTE :: SIN VINCULAR",
   "rail.clientUnlinkedBody": "[—] hilo sin cliente vinculado",
-  "rail.linkClient": "VINCULAR CLIENTE",
   "rail.openButton": "ABRIR",
   "rail.contactPhone": "[TEL]",
   "rail.contactEmail": "[EMAIL]",

@@ -14,6 +14,7 @@ export interface ContextTab {
   key: ContextTabKey;
   label: string;
   count: number;
+  disabled?: boolean;
 }
 
 interface TabStripProps {
@@ -39,11 +40,17 @@ export function TabStrip({ tabs, active, onSelect, className }: TabStripProps) {
             key={tab.key}
             role="tab"
             type="button"
+            disabled={tab.disabled}
+            aria-disabled={tab.disabled ? "true" : undefined}
             aria-selected={isActive}
             onClick={() => onSelect(tab.key)}
             className={cn(
               "relative flex flex-1 items-center justify-center gap-1 font-cakemono text-[11px] font-light uppercase tracking-[0.14em] transition-colors",
-              isActive ? "text-text" : "text-text-3 hover:text-text-2",
+              tab.disabled
+                ? "cursor-default text-text-mute opacity-45"
+                : isActive
+                  ? "text-text"
+                  : "text-text-3 hover:text-text-2",
             )}
           >
             <span>{tab.label}</span>

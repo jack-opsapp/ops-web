@@ -437,7 +437,6 @@
   "rail.clientLabel": "// CLIENT",
   "rail.clientUnlinked": "// CLIENT :: UNLINKED",
   "rail.clientUnlinkedBody": "[—] thread has no client attached",
-  "rail.linkClient": "LINK CLIENT",
   "rail.openButton": "OPEN",
   "rail.contactPhone": "[PHONE]",
   "rail.contactEmail": "[EMAIL]",

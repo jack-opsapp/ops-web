@@ -41,6 +41,35 @@ describe("<ContextRail>", () => {
     expect(onOpenClient).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps the linked header readable without truncating contact values", () => {
+    render(
+      <ContextRail
+        {...baseProps}
+        client={{
+          ...baseProps.client,
+          name: "Calloway Roofing Co. North Shore Emergency Service Division",
+          email: "dispatch.north-shore-emergency@callowayroof.example",
+          address: "5421 Ash Street, Unit 1400, Vancouver BC V6M 3K2",
+        }}
+      />,
+    );
+
+    const heading = screen.getByRole("heading", {
+      name: /Calloway Roofing Co. North Shore/i,
+    });
+    expect(heading.className).toContain("line-clamp-2");
+
+    const email = screen.getByText(
+      "dispatch.north-shore-emergency@callowayroof.example",
+    );
+    expect(email.className).toContain("break-all");
+    expect(email.className).not.toContain("truncate");
+
+    const address = screen.getByText(/5421 Ash Street/);
+    expect(address.className).toContain("break-words");
+    expect(address.className).not.toContain("truncate");
+  });
+
   it("renders contact lines (phone / email / address) with bracket labels", () => {
     render(<ContextRail {...baseProps} />);
     // bracket labels
@@ -106,15 +135,6 @@ describe("<ContextRail>", () => {
       ).toBeInTheDocument();
     });
 
-    it("renders the LINK CLIENT button and fires onLinkClient on click", () => {
-      const onLinkClient = vi.fn();
-      render(<ContextRail {...unlinkedProps} onLinkClient={onLinkClient} />);
-      const linkBtn = screen.getByRole("button", { name: /link client/i });
-      expect(linkBtn).toHaveTextContent("LINK CLIENT");
-      fireEvent.click(linkBtn);
-      expect(onLinkClient).toHaveBeenCalledTimes(1);
-    });
-
     it("dims the tab strip wrapper to 40% opacity", () => {
       render(<ContextRail {...unlinkedProps} />);
       const wrap = screen.getByTestId("rail-tabstrip-wrap");
@@ -132,7 +152,7 @@ describe("<ContextRail>", () => {
       expect(screen.queryByTestId("files")).not.toBeInTheDocument();
     });
 
-    it("does not render contact lines or OPEN button when unlinked", () => {
+    it("does not render contact lines, OPEN, or inert LINK CLIENT controls when unlinked", () => {
       render(<ContextRail {...unlinkedProps} />);
       expect(screen.queryByText("[PHONE]")).not.toBeInTheDocument();
       expect(screen.queryByText("[EMAIL]")).not.toBeInTheDocument();
@@ -140,6 +160,27 @@ describe("<ContextRail>", () => {
       expect(
         screen.queryByRole("button", { name: /open client/i }),
       ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: /link client/i }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("keeps FILES available on unlinked threads when attachments exist", () => {
+      render(
+        <ContextRail
+          {...unlinkedProps}
+          counts={{ work: 0, accounting: 0, files: 2 }}
+          files={<div data-testid="files">Thread files</div>}
+        />,
+      );
+
+      expect(screen.getByTestId("files")).toBeInTheDocument();
+      expect(screen.getByRole("tab", { name: /work/i })).toBeDisabled();
+      expect(screen.getByRole("tab", { name: /accounting/i })).toBeDisabled();
+      expect(screen.getByRole("tab", { name: /files\s+2/i })).not.toBeDisabled();
+      expect(screen.getByTestId("rail-tabstrip-wrap").className).not.toContain(
+        "pointer-events-none",
+      );
     });
   });
 });

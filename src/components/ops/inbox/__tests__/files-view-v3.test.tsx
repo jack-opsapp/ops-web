@@ -118,6 +118,31 @@ describe("<FilesViewV3>", () => {
     expect(screen.queryByTestId("files-contracts")).not.toBeInTheDocument();
   });
 
+  it("FILES sub-view renders provider thread attachments as contracts", () => {
+    const onFileOpen = vi.fn();
+    const attachment = doc({
+      id: "email-att-1",
+      filename: "curb-flashing-field-measure.pdf",
+      sourceType: "email_attachment",
+      status: null,
+      pdfStoragePath: "/api/inbox/threads/thread-1/attachments/att-1",
+      updatedAt: "2026-05-07T12:00:00.000Z",
+    });
+    render(
+      <FilesViewV3
+        documents={[attachment]}
+        photos={[]}
+        threadOnlyPhotos={[]}
+        projects={[]}
+        onFileOpen={onFileOpen}
+      />,
+    );
+
+    expect(screen.getByTestId("files-contracts")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /curb-flashing/i }));
+    expect(onFileOpen).toHaveBeenCalledWith(attachment);
+  });
+
   it("PHOTOS sub-view groups photos by project and renders project name headers", () => {
     const p1 = project("proj-1", "Roof replacement");
     const p2 = project("proj-2", "Boiler swap");

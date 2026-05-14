@@ -983,6 +983,9 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
   const photos = filesQuery.data?.photos ?? [];
   const documentRows = filesQuery.data?.documents ?? [];
   const threadOnlyPhotos = filesQuery.data?.threadOnlyPhotos ?? [];
+  const accountingDocuments = documentRows.filter(
+    (d) => d.sourceType === "estimate" || d.sourceType === "invoice",
+  );
 
   const pipelineOpps = useMemo<PipelineOpp[]>(
     () => opportunities.map((o) => toPipelineOpp(o, linkedOppIds, selectedThreadId ?? undefined)),
@@ -1043,16 +1046,9 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
       onOpenClient={
         clientId ? () => router.push(`/clients/${clientId}`) : undefined
       }
-      // Link-client wiring deferred — the affordance is in place. Product
-      // to decide whether to open a floating window or route to a picker.
-      // `link-client` is not yet a FloatingWindowType (see window-store.ts),
-      // so the button renders but does not yet trigger a window.
-      onLinkClient={() => {
-        /* no-op until link-client UX is specified */
-      }}
       counts={{
         work: opportunities.length + wonOpportunities.length + projects.length,
-        accounting: documentRows.length,
+        accounting: accountingDocuments.length,
         files: filesCount,
       }}
       work={
@@ -1085,7 +1081,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
       }
       accounting={
         <AccountingView
-          documents={documentRows}
+          documents={accountingDocuments}
           onOpenDocument={(doc) => {
             // pdf_storage_path is the same fully qualified S3 URL the
             // files tab consumes — open in a new tab. No-op when the
