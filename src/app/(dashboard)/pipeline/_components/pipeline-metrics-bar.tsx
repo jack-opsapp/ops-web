@@ -164,8 +164,6 @@ function WinRateRing({ rate }: { rate: number }) {
       ? circumference * (1 - rate / 100)
       : circumference * (1 - rate / 100);
 
-  const initialOffset = !mounted ? circumference : undefined;
-
   return (
     <div className="flex flex-col items-center gap-[4px]">
       <svg viewBox="0 0 44 44" className="w-[44px] h-[44px]">

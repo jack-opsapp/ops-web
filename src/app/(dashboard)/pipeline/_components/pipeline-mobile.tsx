@@ -257,7 +257,7 @@ export function PipelineMobile({
   onOpenDetail,
   onAssign,
   onScheduleFollowUp,
-  onAddLead,
+  onAddLead: _onAddLead,
   canManage,
 }: PipelineMobileProps) {
   const { t } = useDictionary("pipeline");

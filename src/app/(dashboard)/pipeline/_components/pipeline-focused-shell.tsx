@@ -362,7 +362,7 @@ export function PipelineFocusedShell({
   ]);
 
   const handleWheel = useCallback(
-    (event: React.WheelEvent<HTMLDivElement>) => {
+    (event: WheelEvent) => {
       if (event.ctrlKey && event.deltaY > 0) {
         if (isDragging) return;
 
@@ -398,6 +398,14 @@ export function PipelineFocusedShell({
     [isDragging, setMode, snapByDirection]
   );
 
+  useEffect(() => {
+    const shell = shellRef.current;
+    if (!shell) return;
+
+    shell.addEventListener("wheel", handleWheel, { passive: false });
+    return () => shell.removeEventListener("wheel", handleWheel);
+  }, [handleWheel]);
+
   const leftStages = ACTIVE_STAGE_ORDER.filter(
     (stage) => ACTIVE_STAGE_ORDER.indexOf(stage) < focusedIndex
   );
@@ -427,7 +435,7 @@ export function PipelineFocusedShell({
     <div
       role="presentation"
       className={cn(
-        "z-[3] col-start-2 row-start-1 min-h-0 min-w-[460px]",
+        "pointer-events-none z-[3] col-start-2 row-start-1 min-h-0 min-w-[460px]",
         detailOpenInFocusedStage &&
           "min-[1280px]:w-[840px] min-[1280px]:shrink-0"
       )}
@@ -435,7 +443,7 @@ export function PipelineFocusedShell({
       <div className="flex h-full min-h-0 gap-2">
         <div
           className={cn(
-            "relative min-h-0 min-w-0 flex-1",
+            "pointer-events-none relative min-h-0 min-w-0 flex-1",
             detailOpenInFocusedStage &&
               "min-[1280px]:shrink-0 min-[1280px]:grow-0 min-[1280px]:basis-1/2"
           )}
@@ -453,7 +461,7 @@ export function PipelineFocusedShell({
         {detailOpenInFocusedStage && (
           <div
             role="presentation"
-            className="hidden min-h-0 min-w-0 min-[1280px]:block min-[1280px]:shrink-0 min-[1280px]:basis-1/2"
+            className="pointer-events-none hidden min-h-0 min-w-0 min-[1280px]:block min-[1280px]:shrink-0 min-[1280px]:basis-1/2"
           />
         )}
       </div>
@@ -505,7 +513,6 @@ export function PipelineFocusedShell({
       ref={shellRef}
       data-pipeline-transition-role={transitionRole}
       className="h-full min-h-0 w-full overflow-hidden bg-background"
-      onWheel={handleWheel}
     >
       <div
         role="status"
@@ -702,7 +709,7 @@ const FocusedStageTab = memo(
       <div
         ref={ref}
         {...tabProps}
-        className="glass-dense absolute left-0 right-0 top-[112px] isolate z-[2] min-h-[52px] cursor-default overflow-hidden px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
+        className="glass-dense pointer-events-auto absolute left-0 right-0 top-[112px] isolate z-[2] min-h-[52px] cursor-default overflow-hidden px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
         style={{
           background: "var(--surface-glass-dense)",
           backdropFilter:
