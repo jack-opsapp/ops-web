@@ -1,7 +1,14 @@
 import { render, screen, fireEvent } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi } from "vitest";
 import { ThreadDetail } from "../thread-detail";
 import { EmptyDetailHeader } from "../thread-detail-header";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const baseProps = {
   subject: "RFQ — kitchen remodel",
@@ -53,6 +60,31 @@ describe("<ThreadDetail>", () => {
     expect(
       screen.queryByRole("button", { name: /open client/i }),
     ).not.toBeInTheDocument();
+  });
+
+  it("opens the More actions menu when the header button is wrapped by a slot", async () => {
+    const user = userEvent.setup();
+    render(
+      <ThreadDetail
+        {...baseProps}
+        moreSlot={(button) => (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>{button}</DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem>MARK READ</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      >
+        <div />
+      </ThreadDetail>,
+    );
+
+    await user.click(screen.getByRole("button", { name: /more actions/i }));
+
+    expect(
+      await screen.findByRole("menuitem", { name: /mark read/i }),
+    ).toBeInTheDocument();
   });
 
   it("J advances next, K retreats prev (case-insensitive); ignores when typing in input", () => {

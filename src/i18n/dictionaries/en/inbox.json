@@ -388,6 +388,11 @@
   "detail.selectThreadBody": "[—] no thread loaded",
   "detail.metaCount": "{count} MSG",
 
+  "detailMore.markRead": "MARK READ",
+  "detailMore.markUnread": "MARK UNREAD",
+  "detailMore.copyLink": "COPY THREAD LINK",
+  "detailMore.refresh": "REFRESH THREAD",
+
   "picker.trigger": "{count} OTHER THREADS",
   "picker.triggerNone": "· 0 OTHER THREADS",
   "picker.header": "// THREADS WITH {client} · {count}",
@@ -512,6 +517,12 @@
   "toast.recategorizedTactic": "SYS :: MOVED TO {category}",
   "toast.dismissedTactic": "SYS :: MARKED NO REPLY NEEDED",
   "toast.dismissFailedTactic": "SYS :: DISMISS FAILED",
+  "toast.threadMarkedReadTactic": "SYS :: THREAD MARKED READ",
+  "toast.threadMarkedUnreadTactic": "SYS :: THREAD MARKED UNREAD",
+  "toast.threadReadStateFailedTactic": "SYS :: READ STATE FAILED",
+  "toast.threadLinkCopiedTactic": "SYS :: THREAD LINK COPIED",
+  "toast.threadLinkCopyFailedTactic": "SYS :: COPY FAILED",
+  "toast.threadRefreshedTactic": "SYS :: THREAD REFRESHED",
   "toast.undoTactic": "UNDO",
 
   "mobile.listPane": "// LIST",

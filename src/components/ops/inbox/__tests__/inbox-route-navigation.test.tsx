@@ -2,6 +2,7 @@ import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { queryKeys } from "@/lib/api/query-client";
 import type {
   ActionResponse,
   InboxThreadDetail,
@@ -17,6 +18,8 @@ const unarchiveMutate = vi.fn();
 const archiveBatchMutateAsync = vi.fn();
 const unarchiveBatchMutate = vi.fn();
 const setLeadArchivePreferenceMutateAsync = vi.fn();
+const markReadMutate = vi.fn();
+const clipboardWriteText = vi.fn();
 let detailByThreadId = new Map<string, InboxThreadDetail>();
 
 type ArchiveMutationOptions = {
@@ -32,6 +35,13 @@ vi.mock("next/navigation", () => ({
     forward: vi.fn(),
     refresh: vi.fn(),
   }),
+}));
+
+vi.mock("sonner", () => ({
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+  },
 }));
 
 vi.mock("@/i18n/client", () => ({
@@ -101,6 +111,7 @@ vi.mock("@/lib/hooks/use-inbox-threads", () => ({
     setLeadArchivePreference: {
       mutateAsync: setLeadArchivePreferenceMutateAsync,
     },
+    markRead: { mutate: markReadMutate },
     dismissAwaitingReply: { mutate: vi.fn() },
     restoreAwaitingReply: { mutate: vi.fn() },
   }),
@@ -279,14 +290,27 @@ vi.mock("../thread-detail", () => ({
   ThreadDetail: ({
     children,
     onArchive,
+    moreSlot,
   }: {
     children?: React.ReactNode;
     onArchive?: () => void;
+    moreSlot?: (button: React.ReactNode) => React.ReactNode;
   }) => (
     <div data-testid="thread-detail">
       <button type="button" aria-label="Archive thread" onClick={onArchive}>
         Archive
       </button>
+      {moreSlot ? (
+        moreSlot(
+          <button type="button" aria-label="More actions">
+            More
+          </button>
+        )
+      ) : (
+        <button type="button" aria-label="More actions">
+          More
+        </button>
+      )}
       {children}
     </div>
   ),
@@ -412,11 +436,13 @@ function renderRoute(threadId?: string) {
       mutations: { retry: false },
     },
   });
-  return render(
+  const invalidateSpy = vi.spyOn(qc, "invalidateQueries");
+  const utils = render(
     <QueryClientProvider client={qc}>
       <InboxRoute threadId={threadId} />
     </QueryClientProvider>
   );
+  return { ...utils, invalidateSpy, queryClient: qc };
 }
 
 beforeEach(() => {
@@ -429,6 +455,21 @@ beforeEach(() => {
   archiveBatchMutateAsync.mockReset();
   unarchiveBatchMutate.mockReset();
   setLeadArchivePreferenceMutateAsync.mockReset();
+  markReadMutate.mockReset();
+  clipboardWriteText.mockReset();
+  clipboardWriteText.mockResolvedValue(undefined);
+  if (window.navigator.clipboard) {
+    vi.spyOn(window.navigator.clipboard, "writeText").mockImplementation(
+      clipboardWriteText
+    );
+  } else {
+    Object.defineProperty(window.navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: clipboardWriteText,
+      },
+    });
+  }
   detailByThreadId = new Map();
   window.history.replaceState(null, "", "/inbox");
 });
@@ -596,5 +637,65 @@ describe("<InboxRoute> thread navigation", () => {
 
     expect(archiveMutate).toHaveBeenCalledTimes(1);
     expect(archiveMutate.mock.calls[0][0]).toBe("thread-a");
+  });
+
+  it("detail More actions call the real selected-thread handlers", async () => {
+    const user = userEvent.setup();
+    detailByThreadId.set("thread-a", makeThreadDetail("thread-a"));
+    const { invalidateSpy } = renderRoute("thread-a");
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await user.click(await screen.findByRole("menuitem", { name: "MARK READ" }));
+
+    expect(markReadMutate).toHaveBeenCalledWith(
+      { threadId: "thread-a", isRead: true },
+      expect.objectContaining({
+        onSuccess: expect.any(Function),
+        onError: expect.any(Function),
+      })
+    );
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await user.click(
+      await screen.findByRole("menuitem", { name: "COPY THREAD LINK" })
+    );
+
+    await waitFor(() => {
+      expect(clipboardWriteText).toHaveBeenCalledWith(
+        `${window.location.origin}/inbox/thread-a`
+      );
+    });
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await user.click(
+      await screen.findByRole("menuitem", { name: "REFRESH THREAD" })
+    );
+
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: queryKeys.inbox.threadDetail("thread-a"),
+    });
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: queryKeys.inbox.threadsAll(),
+    });
+  });
+
+  it("detail More switches to mark unread when the thread is already read", async () => {
+    const user = userEvent.setup();
+    const detail = makeThreadDetail("thread-a");
+    detail.thread.unreadCount = 0;
+    detail.messages = detail.messages.map((message) => ({
+      ...message,
+      isRead: true,
+    }));
+    detailByThreadId.set("thread-a", detail);
+    renderRoute("thread-a");
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await user.click(await screen.findByRole("menuitem", { name: "MARK UNREAD" }));
+
+    expect(markReadMutate).toHaveBeenCalledWith(
+      { threadId: "thread-a", isRead: false },
+      expect.any(Object)
+    );
   });
 });

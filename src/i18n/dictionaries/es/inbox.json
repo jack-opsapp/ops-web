@@ -367,6 +367,11 @@
   "detail.selectThreadBody": "[—] sin hilo cargado",
   "detail.metaCount": "{count} MSG",
 
+  "detailMore.markRead": "MARCAR LEÍDO",
+  "detailMore.markUnread": "MARCAR NO LEÍDO",
+  "detailMore.copyLink": "COPIAR LINK DEL HILO",
+  "detailMore.refresh": "ACTUALIZAR HILO",
+
   "picker.trigger": "{count} OTROS HILOS",
   "picker.triggerNone": "· 0 OTROS HILOS",
   "picker.header": "// HILOS CON {client} · {count}",
@@ -491,6 +496,12 @@
   "toast.recategorizedTactic": "SYS :: MOVIDO A {category}",
   "toast.dismissedTactic": "SYS :: MARCADO SIN RESPUESTA NECESARIA",
   "toast.dismissFailedTactic": "SYS :: FALLO AL DESCARTAR",
+  "toast.threadMarkedReadTactic": "SYS :: HILO MARCADO LEÍDO",
+  "toast.threadMarkedUnreadTactic": "SYS :: HILO MARCADO NO LEÍDO",
+  "toast.threadReadStateFailedTactic": "SYS :: FALLO ESTADO LECTURA",
+  "toast.threadLinkCopiedTactic": "SYS :: LINK DEL HILO COPIADO",
+  "toast.threadLinkCopyFailedTactic": "SYS :: COPIA FALLIDA",
+  "toast.threadRefreshedTactic": "SYS :: HILO ACTUALIZADO",
   "toast.undoTactic": "DESHACER",
 
   "mobile.listPane": "// LISTA",

@@ -26,6 +26,7 @@ import {
   type CSSProperties,
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { useDictionary } from "@/i18n/client";
 import { queryKeys } from "@/lib/api/query-client";
 import { useViewportBreakpoint } from "@/lib/hooks/use-viewport-breakpoint";
@@ -81,6 +82,7 @@ import { useWindowStore } from "@/stores/window-store";
 import { ResponsiveInboxShell } from "./responsive-inbox-shell";
 import type { MobileInboxPane } from "./mobile-stacked-shell";
 import { ThreadColumnHeader } from "./thread-column-header";
+import { ThreadDetailMoreMenu } from "./thread-detail-more-menu";
 import { DraftsChip } from "./drafts-chip";
 import { SnoozedChip } from "./snoozed-chip";
 import { FloatingYourTurnBadge } from "./floating-your-turn-badge";
@@ -748,6 +750,52 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
     requestArchive(buildArchiveTarget(selectedThreadId, detail));
   }, [buildArchiveTarget, detail, requestArchive, selectedThreadId]);
 
+  const onDetailMarkReadChange = useCallback(
+    (isRead: boolean) => {
+      if (!selectedThreadId) return;
+      threadActions.markRead.mutate(
+        { threadId: selectedThreadId, isRead },
+        {
+          onSuccess: () => {
+            toast.success(
+              isRead
+                ? t("toast.threadMarkedReadTactic", "SYS :: THREAD MARKED READ")
+                : t(
+                    "toast.threadMarkedUnreadTactic",
+                    "SYS :: THREAD MARKED UNREAD"
+                  )
+            );
+          },
+          onError: () => {
+            toast.error(
+              t("toast.threadReadStateFailedTactic", "SYS :: READ STATE FAILED")
+            );
+          },
+        }
+      );
+    },
+    [selectedThreadId, t, threadActions.markRead]
+  );
+
+  const onCopyThreadLink = useCallback(() => {
+    if (!selectedThreadId) return;
+    void copyTextToClipboard(absoluteInboxThreadUrl(selectedThreadId)).then(
+      () => {
+        toast.success(t("toast.threadLinkCopiedTactic", "SYS :: THREAD LINK COPIED"));
+      },
+      () => {
+        toast.error(t("toast.threadLinkCopyFailedTactic", "SYS :: COPY FAILED"));
+      }
+    );
+  }, [selectedThreadId, t]);
+
+  const onRefreshSelectedThread = useCallback(() => {
+    if (!selectedThreadId) return;
+    qc.invalidateQueries({ queryKey: queryKeys.inbox.threadDetail(selectedThreadId) });
+    qc.invalidateQueries({ queryKey: queryKeys.inbox.threadsAll() });
+    toast.success(t("toast.threadRefreshedTactic", "SYS :: THREAD REFRESHED"));
+  }, [qc, selectedThreadId, t]);
+
   // Walks detail.messages once to find the most recent inbound + outbound
   // timestamps. Used by both the triage chip computation (header) and the
   // floating-badge wait clock — keeping a single traversal avoids drift
@@ -981,6 +1029,22 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
       onPrev={onPrev}
       onNext={onNext}
       onArchive={onArchiveClick}
+      moreSlot={(button) =>
+        selectedThreadId ? (
+          <ThreadDetailMoreMenu
+            trigger={button}
+            isUnread={
+              (detail.thread.unreadCount ?? 0) > 0 ||
+              detail.messages.some((message) => !message.isRead)
+            }
+            onMarkReadChange={onDetailMarkReadChange}
+            onCopyLink={onCopyThreadLink}
+            onRefresh={onRefreshSelectedThread}
+          />
+        ) : (
+          button
+        )
+      }
       snoozeSlot={(button) =>
         selectedThreadId ? (
           <SnoozePicker
@@ -1482,6 +1546,44 @@ function guessSenderName(messages: InboxThreadMessage[]): string | null {
     if (m.direction === "inbound") return m.from;
   }
   return null;
+}
+
+function absoluteInboxThreadUrl(threadId: string): string {
+  const href = inboxThreadHref(threadId);
+  if (typeof window === "undefined") return href;
+  return new URL(href, window.location.origin).toString();
+}
+
+async function copyTextToClipboard(text: string): Promise<void> {
+  const clipboard =
+    typeof window !== "undefined"
+      ? window.navigator.clipboard
+      : typeof navigator !== "undefined"
+        ? navigator.clipboard
+        : undefined;
+  if (clipboard?.writeText) {
+    await clipboard.writeText(text);
+    return;
+  }
+
+  if (typeof document === "undefined") {
+    throw new Error("Clipboard unavailable");
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.left = "-1000px";
+  textarea.style.top = "-1000px";
+  document.body.appendChild(textarea);
+  textarea.select();
+
+  const copied = document.execCommand("copy");
+  document.body.removeChild(textarea);
+  if (!copied) {
+    throw new Error("Clipboard unavailable");
+  }
 }
 
 function toPipelineOpp(
