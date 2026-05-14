@@ -15,6 +15,7 @@ import {
 } from "./fixtures/inbox-populated";
 
 const SCREENSHOT_PATH = "output/inbox-p4-9-populated-verification.png";
+const POPOVER_SCREENSHOT_PATH = "output/inbox-p5-1-popovers-verification.png";
 
 const REQUIRED_INTERCEPTS: InboxPopulatedInterceptKey[] = [
   "api:threads",
@@ -83,6 +84,53 @@ async function removeNextDevOverlay(page: import("@playwright/test").Page) {
 
 test.describe("inbox redesign - populated visual verification", () => {
   test.setTimeout(60_000);
+
+  test("captures dense snooze and recategorize popovers", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await installInboxPopulatedFixture(page);
+
+    await openPopulatedInbox(page);
+    await expect(
+      page
+        .getByTestId("inbox-center")
+        .getByRole("heading", { name: inboxPopulatedFixture.subject })
+    ).toBeVisible();
+
+    const center = page.getByTestId("inbox-center");
+    await center.getByRole("button", { name: /snooze thread/i }).click();
+    await expect(page.getByText("// SNOOZE")).toBeVisible();
+    await expect(page.getByText("[CUSTOM]")).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "SET", exact: true })
+    ).toBeVisible();
+    const snoozePreset = page.getByRole("button", {
+      name: /\[TOMORROW 8AM\]/,
+    });
+    await expect(snoozePreset).toBeVisible();
+    const snoozePresetBox = await snoozePreset.boundingBox();
+    expect(snoozePresetBox).not.toBeNull();
+    expect(snoozePresetBox!.height).toBeLessThan(32);
+
+    await page.keyboard.press("Escape");
+    await expect(page.getByText("// SNOOZE")).toBeHidden();
+
+    await center.getByRole("button", { name: /recategorize thread/i }).click();
+    await expect(page.getByText("// RECATEGORIZE")).toBeVisible();
+    await expect(page.getByText("// CLASSIFIER NOTE — OPTIONAL")).toBeVisible();
+    const vendorRow = page.getByRole("button", { name: /VENDOR/i });
+    await expect(vendorRow).toBeVisible();
+    const vendorRowBox = await vendorRow.boundingBox();
+    expect(vendorRowBox).not.toBeNull();
+    expect(vendorRowBox!.height).toBeLessThan(32);
+
+    await page.evaluate(() => document.fonts.ready);
+    await removeNextDevOverlay(page);
+    mkdirSync("output", { recursive: true });
+    await page.screenshot({
+      path: POPOVER_SCREENSHOT_PATH,
+      fullPage: false,
+    });
+  });
 
   test("captures selected YOUR MOVE thread with linked context", async ({
     page,

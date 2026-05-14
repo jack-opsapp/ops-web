@@ -181,20 +181,7 @@
   "action.aiDraft": "Borrador IA",
   "action.compose": "Redactar",
 
-  "snooze.title": "Vuelve cuando",
-  "snooze.label": "Posponer",
-  "snooze.laterToday": "Hoy más tarde",
-  "snooze.tomorrow": "Mañana",
-  "snooze.weekend": "Este fin de semana",
-  "snooze.nextWeek": "La próxima semana",
-  "snooze.nextMonth": "El próximo mes",
-  "snooze.custom": "Elige fecha y hora",
-
-  "recategorize.title": "Mover hilo a",
-  "recategorize.prefix": "Reclasificar",
-  "recategorize.noteLabel": "Dile a Phase C por qué (opcional)",
   "recategorize.notePlaceholder": "Este dominio siempre es un proveedor…",
-  "recategorize.appliedNote": "Se aplica a hilos similares automáticamente.",
 
   "writeback.title": "¿Qué hace archivar?",
   "writeback.prefix": "Primer archivo",
@@ -475,18 +462,17 @@
 
   "modal.snooze.title": "// POSPONER",
   "modal.snooze.body": "[—] ocultar hasta · vuelve a la bandeja automáticamente",
-  "modal.snooze.preset1H": "[1H]",
-  "modal.snooze.preset4H": "[4H]",
   "modal.snooze.presetLaterToday": "[MÁS TARDE HOY]",
   "modal.snooze.presetTomorrow": "[MAÑANA 8AM]",
   "modal.snooze.presetWeekend": "[FIN DE SEMANA]",
   "modal.snooze.presetNextMon": "[PRÓX LUN]",
   "modal.snooze.presetNextMonth": "[PRÓX MES]",
-  "modal.snooze.presetCustom": "elige fecha y hora…",
+  "modal.snooze.presetCustom": "[PERSONAL]",
+  "modal.snooze.customCommit": "FIJAR",
 
   "modal.recat.title": "// RECATEGORIZAR",
   "modal.recat.body": "[—] mover este hilo a otro grupo",
-  "modal.recat.phaseCNote": "// NOTA FASE C — OPCIONAL",
+  "modal.recat.noteTitle": "// NOTA CLASIFICADOR — OPCIONAL",
 
   "modal.writeback.title": "// PREFERENCIA DE SINCRONIZACIÓN",
   "modal.writeback.body": "[—] al archivar, ¿qué debe ocurrir en tu bandeja conectada?",

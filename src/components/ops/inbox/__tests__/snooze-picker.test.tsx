@@ -33,11 +33,15 @@ describe("<SnoozePicker>", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-05-08T10:00:00")); // weekday morning
     render(
-      <SnoozePicker threadId="t-1" trigger={<button>Snooze</button>} open={true} />,
+      <SnoozePicker
+        threadId="t-1"
+        trigger={<button>Snooze</button>}
+        open={true}
+      />
     );
     expect(screen.getByText("// SNOOZE")).toBeInTheDocument();
     expect(
-      screen.getByText(/hide until · returns to inbox automatically/i),
+      screen.getByText(/hide until · returns to inbox automatically/i)
     ).toBeInTheDocument();
   });
 
@@ -45,7 +49,11 @@ describe("<SnoozePicker>", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-05-08T10:00:00"));
     render(
-      <SnoozePicker threadId="t-1" trigger={<button>Snooze</button>} open={true} />,
+      <SnoozePicker
+        threadId="t-1"
+        trigger={<button>Snooze</button>}
+        open={true}
+      />
     );
     expect(screen.getByText("[LATER TODAY]")).toBeInTheDocument();
     expect(screen.getByText("[TOMORROW 8AM]")).toBeInTheDocument();
@@ -58,7 +66,11 @@ describe("<SnoozePicker>", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-05-08T19:30:00")); // 7:30pm
     render(
-      <SnoozePicker threadId="t-1" trigger={<button>Snooze</button>} open={true} />,
+      <SnoozePicker
+        threadId="t-1"
+        trigger={<button>Snooze</button>}
+        open={true}
+      />
     );
     expect(screen.queryByText("[LATER TODAY]")).toBeNull();
     // tomorrow still shows
@@ -70,29 +82,60 @@ describe("<SnoozePicker>", () => {
     // 2026-05-09 is a Saturday
     vi.setSystemTime(new Date("2026-05-09T10:00:00"));
     render(
-      <SnoozePicker threadId="t-1" trigger={<button>Snooze</button>} open={true} />,
+      <SnoozePicker
+        threadId="t-1"
+        trigger={<button>Snooze</button>}
+        open={true}
+      />
     );
     expect(screen.queryByText("[WEEKEND]")).toBeNull();
   });
 
-  it("renders the custom datetime row with 'pick a date and time…'", () => {
+  it("renders the custom datetime row with dense tactical labels", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-05-08T10:00:00"));
     render(
-      <SnoozePicker threadId="t-1" trigger={<button>Snooze</button>} open={true} />,
+      <SnoozePicker
+        threadId="t-1"
+        trigger={<button>Snooze</button>}
+        open={true}
+      />
     );
-    expect(screen.getByText(/pick a date and time/i)).toBeInTheDocument();
+    expect(screen.getByText("[CUSTOM]")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "SET" })).toBeInTheDocument();
+  });
+
+  it("uses dense token-backed row treatment instead of inflated modal spacing", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-08T10:00:00"));
+    render(
+      <SnoozePicker
+        threadId="t-1"
+        trigger={<button>Snooze</button>}
+        open={true}
+      />
+    );
+    const tomorrow = screen.getByRole("button", { name: /\[TOMORROW 8AM\]/i });
+    expect(tomorrow.className).toContain("py-0.5");
+    expect(tomorrow.className).toContain("hover:bg-surface-hover");
   });
 
   it("clicking a preset commits via useThreadActions().snooze.mutate", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-05-08T10:00:00"));
     render(
-      <SnoozePicker threadId="t-1" trigger={<button>Snooze</button>} open={true} />,
+      <SnoozePicker
+        threadId="t-1"
+        trigger={<button>Snooze</button>}
+        open={true}
+      />
     );
     fireEvent.click(screen.getByText("[TOMORROW 8AM]"));
     expect(snoozeMutate).toHaveBeenCalledTimes(1);
-    const arg = snoozeMutate.mock.calls[0][0] as { threadId: string; until: Date };
+    const arg = snoozeMutate.mock.calls[0][0] as {
+      threadId: string;
+      until: Date;
+    };
     expect(arg.threadId).toBe("t-1");
     expect(arg.until).toBeInstanceOf(Date);
     expect(enqueueMock).toHaveBeenCalledTimes(1);

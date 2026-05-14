@@ -10,7 +10,11 @@
  */
 
 import { useCallback, useMemo, useState } from "react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
 import { useThreadActions } from "@/lib/hooks/use-inbox-threads";
@@ -31,10 +35,6 @@ interface SnoozePreset {
   labelKey: string;
   /** Default English fallback for the label. */
   labelDefault: string;
-  /** Dictionary key for the sublabel. */
-  sublabelKey: string;
-  /** Default English fallback for the sublabel. */
-  sublabelDefault: string;
   compute: (now: Date) => Date | null; // null = hide this preset
 }
 
@@ -44,7 +44,8 @@ function laterToday(now: Date): Date | null {
   const target = new Date(now);
   target.setHours(now.getHours() + 3, 0, 0, 0);
   // Only show if the result is still today AND before 20:00 local.
-  const stillToday = target.getDate() === now.getDate() && target.getHours() < 20;
+  const stillToday =
+    target.getDate() === now.getDate() && target.getHours() < 20;
   return stillToday ? target : null;
 }
 
@@ -84,48 +85,35 @@ function nextMonth(now: Date): Date {
 }
 
 function buildPresets(): SnoozePreset[] {
-  // Tactical voice — bracketed JetBrains Mono uppercase labels per § 7.
-  // The dictionary keys live under `modal.snooze.preset*` (Phase A) but we
-  // keep the legacy `snooze.*.sub` sublabel keys (preserved presets, not new).
   return [
     {
       id: "later-today",
       labelKey: "modal.snooze.presetLaterToday",
       labelDefault: "[LATER TODAY]",
-      sublabelKey: "snooze.laterToday.sub",
-      sublabelDefault: "in 3 hours",
       compute: laterToday,
     },
     {
       id: "tomorrow",
       labelKey: "modal.snooze.presetTomorrow",
       labelDefault: "[TOMORROW 8AM]",
-      sublabelKey: "snooze.tomorrow.sub",
-      sublabelDefault: "8:00 AM",
       compute: tomorrowMorning,
     },
     {
       id: "weekend",
       labelKey: "modal.snooze.presetWeekend",
       labelDefault: "[WEEKEND]",
-      sublabelKey: "snooze.weekend.sub",
-      sublabelDefault: "Sat 9:00 AM",
       compute: thisWeekend,
     },
     {
       id: "next-week",
       labelKey: "modal.snooze.presetNextMon",
       labelDefault: "[NEXT MON]",
-      sublabelKey: "snooze.nextWeek.sub",
-      sublabelDefault: "Mon 8:00 AM",
       compute: nextWeek,
     },
     {
       id: "next-month",
       labelKey: "modal.snooze.presetNextMonth",
       labelDefault: "[NEXT MONTH]",
-      sublabelKey: "snooze.nextMonth.sub",
-      sublabelDefault: "1st at 8:00 AM",
       compute: nextMonth,
     },
   ];
@@ -186,14 +174,14 @@ export function SnoozePicker({
       setOpen(false);
       snooze.mutate({ threadId, until });
       enqueueUndoToast({
-        message: t("toast.snoozedTactic", "SYS :: SNOOZED UNTIL {time}").replace(
-          "{time}",
-          humanLabel.toUpperCase(),
-        ),
+        message: t(
+          "toast.snoozedTactic",
+          "SYS :: SNOOZED UNTIL {time}"
+        ).replace("{time}", humanLabel.toUpperCase()),
         onUndo: () => unsnooze.mutate(threadId),
       });
     },
-    [snooze, unsnooze, threadId, setOpen, t],
+    [snooze, unsnooze, threadId, setOpen, t]
   );
 
   const onCustomCommit = useCallback(() => {
@@ -208,20 +196,20 @@ export function SnoozePicker({
       <PopoverContent
         align={align}
         sideOffset={6}
-        className="w-[280px] p-0"
+        className="w-[300px] overflow-hidden p-0"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
-        <div className="px-3 pt-2.5 pb-2 border-b border-line">
+        <div className="border-b border-line px-1.5 py-1">
           <SlashLabel label={t("modal.snooze.title", "// SNOOZE")} size="md" />
-          <p className="font-mono text-[11px] text-text-3 mt-1.5 leading-relaxed">
+          <p className="mt-0.5 font-mono text-micro leading-snug text-text-3">
             {t(
               "modal.snooze.body",
-              "[—] hide until · returns to inbox automatically",
+              "[—] hide until · returns to inbox automatically"
             )}
           </p>
         </div>
 
-        <div className="py-1">
+        <div className="py-0.5">
           {presets.map((preset) => {
             const computed = preset.compute(now);
             if (!computed) return null;
@@ -231,15 +219,15 @@ export function SnoozePicker({
                 type="button"
                 onClick={() => commit(computed, formatPresetValue(computed))}
                 className={cn(
-                  "flex items-center gap-2 w-full px-3 py-1.5 text-left",
-                  "hover:bg-inbox-elev/40 transition-colors duration-150",
+                  "grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-1 px-1.5 py-0.5 text-left",
+                  "transition-colors duration-150",
+                  "hover:bg-surface-hover focus-visible:bg-surface-active focus-visible:outline-none"
                 )}
               >
-                <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-text-2 shrink-0">
+                <span className="min-w-0 truncate font-mono text-micro uppercase tracking-wider text-text-2">
                   {t(preset.labelKey, preset.labelDefault)}
                 </span>
-                <span className="flex-1" />
-                <span className="font-mono text-[11px] text-text-mute tabular-nums shrink-0">
+                <span className="shrink-0 font-mono text-micro tabular-nums text-text-mute">
                   {formatPresetValue(computed)}
                 </span>
               </button>
@@ -247,14 +235,14 @@ export function SnoozePicker({
           })}
         </div>
 
-        <div className="px-3 pt-2 pb-2.5 border-t border-line">
+        <div className="border-t border-line px-1.5 py-1">
           <label
             htmlFor={`snooze-custom-${threadId}`}
-            className="block font-mohave italic text-[12px] text-text-3 lowercase mb-1"
+            className="mb-0.5 block font-mono text-micro uppercase tracking-wider text-text-3"
           >
-            {t("modal.snooze.presetCustom", "pick a date and time…")}
+            {t("modal.snooze.presetCustom", "[CUSTOM]")}
           </label>
-          <div className="flex items-stretch gap-1">
+          <div className="flex items-stretch gap-0.5">
             <input
               id={`snooze-custom-${threadId}`}
               type="datetime-local"
@@ -262,23 +250,23 @@ export function SnoozePicker({
               min={toLocalDatetimeInput(new Date(Date.now() + 60_000))}
               onChange={(e) => setCustomValue(e.target.value)}
               className={cn(
-                "flex-1 rounded-[2.5px] px-2 py-1.5",
-                "bg-inbox-bg-deep border border-line",
-                "font-mono text-[11px] text-text",
-                "focus:outline-none focus:border-line-hi",
+                "min-w-0 flex-1 rounded border border-line bg-surface-input px-1 py-0.5",
+                "font-mono text-micro text-text",
+                "focus:border-line-hi focus:outline-none"
               )}
             />
             <button
               type="button"
               onClick={onCustomCommit}
               className={cn(
-                "px-2.5 py-1.5 rounded-[2.5px] border border-line-hi",
-                "bg-inbox-elev/80 hover:bg-inbox-elev",
-                "font-cakemono font-light uppercase text-[11px] tracking-[0.14em] text-text",
-                "transition-colors duration-150",
+                "shrink-0 rounded border border-line bg-transparent px-1 py-0.5",
+                "font-cakemono text-micro font-light uppercase tracking-wider text-text-2",
+                "hover:bg-surface-hover hover:text-text focus-visible:outline-none",
+                "focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black",
+                "transition-colors duration-150"
               )}
             >
-              {t("snooze.label", "Snooze")}
+              {t("modal.snooze.customCommit", "SET")}
             </button>
           </div>
         </div>
