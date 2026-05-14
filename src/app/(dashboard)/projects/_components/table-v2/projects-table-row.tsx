@@ -32,7 +32,11 @@ import { EditableCellStatus } from "./cells/editable-cell-status";
 import { EditableCellText } from "./cells/editable-cell-text";
 import type { ProjectTableColumnLayout, ProjectsTableMetrics } from "./projects-table";
 
-function renderReadOnlyCell(row: ProjectTableRow, column: ProjectTableColumnConfig): ReactNode {
+function renderReadOnlyCell(
+  row: ProjectTableRow,
+  column: ProjectTableColumnConfig,
+  metrics: ProjectsTableMetrics,
+): ReactNode {
   switch (column.id) {
     case "name":
       return <CellText value={row.title} />;
@@ -47,7 +51,7 @@ function renderReadOnlyCell(row: ProjectTableRow, column: ProjectTableColumnConf
     case "address":
       return <CellText value={row.address} className="text-text-2" />;
     case "team":
-      return <CellTeam row={row} />;
+      return <CellTeam row={row} avatarSize={metrics.avatarSize} />;
     case "start_date":
       return <CellDate value={row.startDate} />;
     case "end_date":
@@ -145,7 +149,7 @@ export function ProjectsTableRow({
   const isEditingRow = editingCell?.rowId === row.id;
 
   const renderCell = (column: ProjectTableColumnConfig): ReactNode => {
-    if (!isProjectTableEditableColumn(column.id)) return renderReadOnlyCell(row, column);
+    if (!isProjectTableEditableColumn(column.id)) return renderReadOnlyCell(row, column, metrics);
 
     const editableColumnId = column.id;
     const saveState = saveStates.get(`${row.id}:${editableColumnId}`) ?? "idle";

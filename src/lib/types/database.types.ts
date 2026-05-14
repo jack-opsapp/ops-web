@@ -11340,6 +11340,36 @@ export type Database = {
         Args: { p_holder: string; p_job_id: string; p_lease_seconds?: number }
         Returns: boolean
       }
+      archive_project_table_view: {
+        Args: { p_view_id: string }
+        Returns: {
+          columns: Json
+          company_id: string
+          created_at: string
+          created_by: string | null
+          density: string
+          description: string | null
+          filters: Json
+          icon: string | null
+          id: string
+          is_archived: boolean
+          is_default: boolean
+          name: string
+          owner_id: string
+          owner_type: string
+          permission_key: string | null
+          sort: Json
+          sort_position: number
+          updated_at: string
+          zoom_level: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "project_views"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       assign_project_team_member: {
         Args: {
           p_expected_updated_at: string
@@ -11437,6 +11467,36 @@ export type Database = {
           p_title: string
         }
         Returns: Json
+      }
+      create_project_table_view: {
+        Args: { p_definition: Json; p_name: string; p_source_view_id: string }
+        Returns: {
+          columns: Json
+          company_id: string
+          created_at: string
+          created_by: string | null
+          density: string
+          description: string | null
+          filters: Json
+          icon: string | null
+          id: string
+          is_archived: boolean
+          is_default: boolean
+          name: string
+          owner_id: string
+          owner_type: string
+          permission_key: string | null
+          sort: Json
+          sort_position: number
+          updated_at: string
+          zoom_level: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "project_views"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       email_audience_clause_to_sql: {
         Args: {
@@ -11831,6 +11891,66 @@ export type Database = {
         Args: { p_company_id: string; p_user_id: string }
         Returns: undefined
       }
+      rename_project_table_view: {
+        Args: { p_name: string; p_view_id: string }
+        Returns: {
+          columns: Json
+          company_id: string
+          created_at: string
+          created_by: string | null
+          density: string
+          description: string | null
+          filters: Json
+          icon: string | null
+          id: string
+          is_archived: boolean
+          is_default: boolean
+          name: string
+          owner_id: string
+          owner_type: string
+          permission_key: string | null
+          sort: Json
+          sort_position: number
+          updated_at: string
+          zoom_level: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "project_views"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      reset_project_table_view: {
+        Args: { p_view_id: string }
+        Returns: {
+          columns: Json
+          company_id: string
+          created_at: string
+          created_by: string | null
+          density: string
+          description: string | null
+          filters: Json
+          icon: string | null
+          id: string
+          is_archived: boolean
+          is_default: boolean
+          name: string
+          owner_id: string
+          owner_type: string
+          permission_key: string | null
+          sort: Json
+          sort_position: number
+          updated_at: string
+          zoom_level: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "project_views"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       resolve_product_price: {
         Args: { p_client_id: string; p_product_id: string }
         Returns: number
@@ -11843,6 +11963,36 @@ export type Database = {
           p_task_team_members: string[]
         }
         Returns: string[]
+      }
+      share_project_table_view: {
+        Args: { p_view_id: string }
+        Returns: {
+          columns: Json
+          company_id: string
+          created_at: string
+          created_by: string | null
+          density: string
+          description: string | null
+          filters: Json
+          icon: string | null
+          id: string
+          is_archived: boolean
+          is_default: boolean
+          name: string
+          owner_id: string
+          owner_type: string
+          permission_key: string | null
+          sort: Json
+          sort_position: number
+          updated_at: string
+          zoom_level: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "project_views"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
@@ -11875,6 +12025,36 @@ export type Database = {
           active: boolean
           jobname: string
         }[]
+      }
+      update_project_table_view_definition: {
+        Args: { p_definition: Json; p_view_id: string }
+        Returns: {
+          columns: Json
+          company_id: string
+          created_at: string
+          created_by: string | null
+          density: string
+          description: string | null
+          filters: Json
+          icon: string | null
+          id: string
+          is_archived: boolean
+          is_default: boolean
+          name: string
+          owner_id: string
+          owner_type: string
+          permission_key: string | null
+          sort: Json
+          sort_position: number
+          updated_at: string
+          zoom_level: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "project_views"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       users_with_permission: {
         Args: {
@@ -11930,6 +12110,7 @@ export type Database = {
         | "completion"
         | "other"
         | "measurement"
+        | "deck_design"
       quiz_question_type: "multiple_choice" | "scenario" | "true_false"
       site_visit_status: "scheduled" | "in_progress" | "completed" | "cancelled"
     }
@@ -12110,6 +12291,7 @@ export const Constants = {
         "completion",
         "other",
         "measurement",
+        "deck_design",
       ],
       quiz_question_type: ["multiple_choice", "scenario", "true_false"],
       site_visit_status: ["scheduled", "in_progress", "completed", "cancelled"],

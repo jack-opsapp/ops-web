@@ -7,10 +7,16 @@ export function useProjectViewsList() {
   const companyId = useAuthStore((s) => s.company?.id ?? "");
   const userId = useAuthStore((s) => s.currentUser?.id ?? "");
 
-  return useQuery({
+  const query = useQuery({
     queryKey: queryKeys.projects.tableViews(companyId, userId),
     queryFn: () => ProjectViewsService.fetchViews(companyId),
     enabled: Boolean(companyId && userId),
     staleTime: 30_000,
   });
+
+  return {
+    ...query,
+    companyId,
+    userId,
+  };
 }

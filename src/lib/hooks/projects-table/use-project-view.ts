@@ -1,42 +1,173 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import type { ProjectTableViewDefinition } from "@/lib/types/project-table";
+"use client";
 
-const STORAGE_KEY = "ops_projects_table_v2_view_id";
+import { useMemo } from "react";
+import { useSearchParams } from "next/navigation";
+import type { Json } from "@/lib/types/database.types";
+import {
+  PROJECT_TABLE_COLUMN_IDS,
+  type ProjectTableColumnId,
+  type ProjectTableSort,
+  type ProjectTableViewDefinition,
+} from "@/lib/types/project-table";
+import { useProjectViewUrlState } from "@/lib/hooks/projects-table/use-project-view-url-state";
 
-function pickInitialView(
-  views: ProjectTableViewDefinition[],
-  storedId: string | null,
-): ProjectTableViewDefinition | null {
-  if (views.length === 0) return null;
-  const stored = storedId ? views.find((view) => view.id === storedId) : null;
-  if (stored) return stored;
-  return views.find((view) => view.name === "My Active Work") ?? views[0];
+export {
+  PROJECT_VIEW_STORAGE_KEY,
+  type UnavailableProjectViewState,
+} from "@/lib/hooks/projects-table/use-project-view-url-state";
+
+const PROJECT_STATUS_FILTER_PRESETS: Record<string, Json> = {
+  active: { field: "status", op: "not_in", value: ["closed", "archived"] },
+  open: { field: "status", op: "not_in", value: ["closed", "archived"] },
+};
+
+function isColumnId(value: unknown): value is ProjectTableColumnId {
+  return (
+    typeof value === "string" &&
+    (PROJECT_TABLE_COLUMN_IDS as readonly string[]).includes(value)
+  );
+}
+
+function sanitizeColumns(columns: readonly unknown[] | undefined): ProjectTableColumnId[] {
+  if (!columns) return [];
+  const seen = new Set<ProjectTableColumnId>();
+  const safeColumns: ProjectTableColumnId[] = [];
+
+  for (const column of columns) {
+    if (!isColumnId(column) || column === "select" || seen.has(column)) continue;
+    seen.add(column);
+    safeColumns.push(column);
+  }
+
+  return safeColumns;
+}
+
+function normalizeSortItem(value: unknown): ProjectTableSort | null {
+  if (!value || typeof value !== "object") return null;
+  const candidate = value as { field?: unknown; direction?: unknown };
+  if (!isColumnId(candidate.field) || candidate.field === "select") return null;
+  if (candidate.direction !== "asc" && candidate.direction !== "desc") return null;
+  return { field: candidate.field, direction: candidate.direction };
+}
+
+function normalizeSort(value: unknown): ProjectTableSort[] {
+  if (Array.isArray(value)) {
+    return value
+      .map(normalizeSortItem)
+      .filter((item): item is ProjectTableSort => item !== null);
+  }
+
+  const sortItem = normalizeSortItem(value);
+  return sortItem ? [sortItem] : [];
+}
+
+function parseDelimitedSort(value: string): ProjectTableSort[] {
+  const sort: ProjectTableSort[] = [];
+
+  for (const token of value.split(",")) {
+    const [field, direction = "asc"] = token.split(":");
+    const candidate = normalizeSortItem({ field, direction });
+    if (candidate) sort.push(candidate);
+  }
+
+  return sort;
+}
+
+function parseSortOverride(value: string | null): ProjectTableSort[] | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
+    try {
+      const parsed = JSON.parse(trimmed) as unknown;
+      const sort = normalizeSort(parsed);
+      return sort.length > 0 ? sort : null;
+    } catch {
+      return null;
+    }
+  }
+
+  const sort = parseDelimitedSort(trimmed);
+  return sort.length > 0 ? sort : null;
+}
+
+function parseFilterOverride(value: string | null): Json | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+    try {
+      return JSON.parse(trimmed) as Json;
+    } catch {
+      return null;
+    }
+  }
+
+  return PROJECT_STATUS_FILTER_PRESETS[trimmed.toLowerCase()] ?? null;
+}
+
+function isEmptyFilter(value: Json | null | undefined) {
+  if (value == null) return true;
+  if (Array.isArray(value)) return value.length === 0;
+  if (typeof value === "object") return Object.keys(value).length === 0;
+  return false;
+}
+
+function filtersEqual(left: Json, right: Json) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function layerFilters(savedFilter: Json, overrideFilter: Json | null): Json {
+  if (isEmptyFilter(overrideFilter)) return savedFilter;
+  if (isEmptyFilter(savedFilter)) return overrideFilter as Json;
+  if (filtersEqual(savedFilter, overrideFilter as Json)) return savedFilter;
+
+  if (
+    savedFilter &&
+    typeof savedFilter === "object" &&
+    !Array.isArray(savedFilter) &&
+    Array.isArray((savedFilter as { and?: unknown }).and) &&
+    (savedFilter as { and: Json[] }).and.some((child) => filtersEqual(child, overrideFilter as Json))
+  ) {
+    return savedFilter;
+  }
+
+  return { and: [savedFilter, overrideFilter as Json] };
 }
 
 export function useProjectView(views: ProjectTableViewDefinition[] | undefined) {
-  const [activeViewId, setActiveViewIdState] = useState<string | null>(() => {
-    if (typeof window === "undefined") return null;
-    return window.localStorage.getItem(STORAGE_KEY);
-  });
+  const searchParams = useSearchParams();
+  const viewState = useProjectViewUrlState(views);
+  const sortOverride = useMemo(
+    () => parseSortOverride(searchParams.get("sort")),
+    [searchParams],
+  );
+  const filterOverride = useMemo(
+    () => parseFilterOverride(searchParams.get("filter") ?? searchParams.get("filters")),
+    [searchParams],
+  );
 
-  const activeView = useMemo(() => {
-    return pickInitialView(views ?? [], activeViewId);
-  }, [views, activeViewId]);
+  const activeView = useMemo<ProjectTableViewDefinition | null>(() => {
+    if (!viewState.activeView) return null;
 
-  useEffect(() => {
-    if (!activeView || activeView.id === activeViewId) return;
-    setActiveViewIdState(activeView.id);
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(STORAGE_KEY, activeView.id);
-    }
-  }, [activeView, activeViewId]);
+    return {
+      ...viewState.activeView,
+      columns: sanitizeColumns(viewState.activeView.columns),
+      filters: layerFilters(viewState.activeView.filters, filterOverride),
+      sort: sortOverride ?? normalizeSort(viewState.activeView.sort),
+    };
+  }, [filterOverride, sortOverride, viewState.activeView]);
 
-  const setActiveViewId = useCallback((viewId: string) => {
-    setActiveViewIdState(viewId);
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(STORAGE_KEY, viewId);
-    }
-  }, []);
-
-  return { activeView, activeViewId: activeView?.id ?? null, setActiveViewId };
+  return {
+    ...viewState,
+    activeView,
+    savedView: viewState.activeView,
+    urlOverrides: {
+      filters: filterOverride,
+      sort: sortOverride,
+      hasOverrides: Boolean(filterOverride || sortOverride),
+    },
+  };
 }

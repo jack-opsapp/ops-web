@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import * as React from "react";
 import { render, screen, waitFor, within } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import userEvent from "@testing-library/user-event";
 import { ProjectStatus } from "@/lib/types/models";
 import type { ProjectTableRow, ProjectTableViewDefinition } from "@/lib/types/project-table";
@@ -190,6 +191,23 @@ vi.mock("@/lib/hooks/projects-table/use-projects-table-data", () => ({
   }),
 }));
 
+function makeQueryClient() {
+  return new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
+  });
+}
+
+function renderShell() {
+  return render(
+    <QueryClientProvider client={makeQueryClient()}>
+      <ProjectsTableShell />
+    </QueryClientProvider>,
+  );
+}
+
 describe("Projects table v2 edit core", () => {
   beforeEach(() => {
     rows = createRows();
@@ -206,7 +224,7 @@ describe("Projects table v2 edit core", () => {
 
   it("clicking a name cell opens inline edit instead of the project window", async () => {
     const user = userEvent.setup();
-    render(<ProjectsTableShell />);
+    renderShell();
 
     await user.click(screen.getByText("Deck rebuild"));
 
@@ -216,7 +234,7 @@ describe("Projects table v2 edit core", () => {
 
   it("the hover detail chevron opens the project window in viewing mode", async () => {
     const user = userEvent.setup();
-    render(<ProjectsTableShell />);
+    renderShell();
 
     await user.hover(screen.getByText("Deck rebuild"));
     await user.click(screen.getByRole("button", { name: "Project: Deck rebuild" }));
@@ -232,14 +250,18 @@ describe("Projects table v2 edit core", () => {
       );
     });
 
-    const { rerender } = render(<ProjectsTableShell />);
+    const { rerender } = renderShell();
     await user.click(screen.getByText("Deck rebuild"));
 
     const input = screen.getByDisplayValue("Deck rebuild");
     await user.clear(input);
     await user.type(input, "Deck rebuild north");
     await user.keyboard("{Enter}");
-    rerender(<ProjectsTableShell />);
+    rerender(
+      <QueryClientProvider client={makeQueryClient()}>
+        <ProjectsTableShell />
+      </QueryClientProvider>,
+    );
 
     expect(commitEditMock).toHaveBeenCalledWith(expect.objectContaining({ id: "p-1" }), "name", "Deck rebuild north");
     expect(await screen.findByText("Deck rebuild north")).toBeInTheDocument();
@@ -247,7 +269,7 @@ describe("Projects table v2 edit core", () => {
 
   it("escape cancels a text edit and restores the original value", async () => {
     const user = userEvent.setup();
-    render(<ProjectsTableShell />);
+    renderShell();
 
     await user.click(screen.getByText("Deck rebuild"));
     const input = screen.getByDisplayValue("Deck rebuild");
@@ -262,7 +284,7 @@ describe("Projects table v2 edit core", () => {
 
   it("keeps arrow keys inside an active text editor", async () => {
     const user = userEvent.setup();
-    render(<ProjectsTableShell />);
+    renderShell();
 
     await user.click(screen.getByText("Deck rebuild"));
     const input = screen.getByDisplayValue("Deck rebuild");
@@ -276,7 +298,7 @@ describe("Projects table v2 edit core", () => {
 
   it("status popover uses the canonical status labels and calls commitEdit", async () => {
     const user = userEvent.setup();
-    render(<ProjectsTableShell />);
+    renderShell();
 
     await user.click(screen.getByText("In Progress"));
 
@@ -309,7 +331,7 @@ describe("Projects table v2 edit core", () => {
       savedUpdatedAt: "2026-05-13T01:00:00Z",
     };
 
-    render(<ProjectsTableShell />);
+    renderShell();
 
     expect(screen.getByText("// CHANGE SAVED")).toBeInTheDocument();
     expect(screen.getByText("Name updated on Deck rebuild.")).toBeInTheDocument();
@@ -331,7 +353,7 @@ describe("Projects table v2 edit core", () => {
       previousValue: ProjectStatus.InProgress,
     };
 
-    render(<ProjectsTableShell />);
+    renderShell();
 
     const dialog = screen.getByRole("dialog", { name: "// PROJECT CHANGED" });
     expect(within(dialog).getByText("Current value changed before save.")).toBeInTheDocument();
@@ -360,7 +382,7 @@ describe("Projects table v2 edit core", () => {
       previousValue: "Deck rebuild",
     };
 
-    render(<ProjectsTableShell />);
+    renderShell();
 
     const dialog = screen.getByRole("dialog", { name: "// PROJECT CHANGED" });
     await waitFor(() =>
@@ -380,7 +402,7 @@ describe("Projects table v2 edit core", () => {
       previousValue: "12 Site Rd",
     };
 
-    render(<ProjectsTableShell />);
+    renderShell();
 
     const dialog = screen.getByRole("dialog", { name: "// PROJECT CHANGED" });
     expect(within(dialog).getByText("32 New Rd")).toBeInTheDocument();

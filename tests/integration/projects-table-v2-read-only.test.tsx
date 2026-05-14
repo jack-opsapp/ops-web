@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import * as React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import userEvent from "@testing-library/user-event";
 import { ProjectStatus } from "@/lib/types/models";
 import type { ProjectTableRow, ProjectTableViewDefinition } from "@/lib/types/project-table";
@@ -174,9 +175,26 @@ vi.mock("@/lib/hooks/projects-table/use-projects-table-data", () => ({
   },
 }));
 
+function makeQueryClient() {
+  return new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
+  });
+}
+
+function renderShell() {
+  return render(
+    <QueryClientProvider client={makeQueryClient()}>
+      <ProjectsTableShell />
+    </QueryClientProvider>,
+  );
+}
+
 describe("Projects table v2 read-only shell", () => {
   it("renders saved views and read-only table rows", async () => {
-    render(<ProjectsTableShell />);
+    renderShell();
 
     expect(screen.getByRole("button", { name: /My Active Work/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /All Active/i })).toBeInTheDocument();
@@ -190,7 +208,7 @@ describe("Projects table v2 read-only shell", () => {
 
   it("switches the active saved view from the tab rail", async () => {
     const user = userEvent.setup();
-    render(<ProjectsTableShell />);
+    renderShell();
 
     const allActive = screen.getByRole("button", { name: /All Active/i });
     await user.click(allActive);
@@ -200,7 +218,7 @@ describe("Projects table v2 read-only shell", () => {
 
   it("renders filtered empty state from table search and no mobile card list", async () => {
     const user = userEvent.setup();
-    render(<ProjectsTableShell />);
+    renderShell();
 
     await user.type(screen.getByPlaceholderText("Search projects..."), "closed");
 

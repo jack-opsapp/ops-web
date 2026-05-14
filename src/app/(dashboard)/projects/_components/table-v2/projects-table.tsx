@@ -1,11 +1,21 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState, type TouchEventHandler, type WheelEventHandler } from "react";
+import {
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEventHandler,
+  type TouchEventHandler,
+  type WheelEventHandler,
+} from "react";
 import { getCoreRowModel, useReactTable, type ColumnDef } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { useDictionary } from "@/i18n/client";
 import type { ProjectTableSaveState } from "@/lib/hooks/projects-table/use-cell-edit";
 import { useTableKeyboardNav } from "@/lib/hooks/projects-table/use-table-keyboard-nav";
 import {
+  PROJECT_TABLE_COLUMN_IDS,
   PROJECT_TABLE_COLUMNS,
   type ProjectTableColumnConfig,
   type ProjectTableColumnId,
@@ -28,6 +38,7 @@ export interface ProjectsTableMetrics {
   headerHeight: number;
   fontSize: number;
   microFontSize: number;
+  avatarSize: number;
   columnScale: number;
 }
 
@@ -42,8 +53,19 @@ function getColumnWidth(column: ProjectTableColumnConfig, scale: number): number
   return Math.min(column.maxWidth, Math.max(column.minWidth, scaled));
 }
 
+function isColumnId(value: unknown): value is ProjectTableColumnId {
+  return (
+    typeof value === "string" &&
+    (PROJECT_TABLE_COLUMN_IDS as readonly string[]).includes(value)
+  );
+}
+
 function getVisibleColumns(view: ProjectTableViewDefinition): ProjectTableColumnConfig[] {
-  const viewColumnIds = view.columns.length > 0 ? view.columns : FALLBACK_COLUMN_IDS;
+  const safeColumnIds = view.columns.filter(
+    (columnId): columnId is ProjectTableColumnId =>
+      isColumnId(columnId) && columnId !== "select",
+  );
+  const viewColumnIds = safeColumnIds.length > 0 ? safeColumnIds : FALLBACK_COLUMN_IDS;
   const visibleSet = new Set<ProjectTableColumnId>(viewColumnIds);
   return PROJECT_TABLE_COLUMNS.filter((column) => column.id === "select" || visibleSet.has(column.id));
 }
@@ -66,6 +88,7 @@ export function ProjectsTable({
   onUndoLatest,
   onFocusSearch,
   onWheel,
+  onZoomKeyDown,
   onBeginPinch,
   onUpdatePinch,
   onEndPinch,
@@ -91,10 +114,12 @@ export function ProjectsTable({
   onUndoLatest: () => void;
   onFocusSearch: () => void;
   onWheel: WheelEventHandler<HTMLDivElement>;
+  onZoomKeyDown: KeyboardEventHandler<HTMLDivElement>;
   onBeginPinch: (distance: number) => void;
   onUpdatePinch: (distance: number) => void;
   onEndPinch: () => void;
 }) {
+  const { t } = useDictionary("projects");
   const scrollRef = useRef<HTMLDivElement>(null);
   const [, setOpenActionRowId] = useState<string | null>(null);
   const openProjectWindow = useWindowStore((s) => s.openProjectWindow);
@@ -242,8 +267,13 @@ export function ProjectsTable({
   return (
     <div
       ref={scrollRef}
+      role="grid"
+      aria-label={t("table.gridLabel")}
+      aria-rowcount={rows.length}
+      tabIndex={0}
       onScroll={handleScroll}
       onWheel={onWheel}
+      onKeyDown={onZoomKeyDown}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}

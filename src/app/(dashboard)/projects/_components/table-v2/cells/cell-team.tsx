@@ -79,20 +79,28 @@ function stopPointer(event: MouseEvent<HTMLElement>) {
   event.stopPropagation();
 }
 
-function MemberAvatar({ member }: { member: ProjectTableTeamMember }) {
+function MemberAvatar({
+  member,
+  size = 20,
+}: {
+  member: ProjectTableTeamMember;
+  size?: number;
+}) {
   const initials = memberInitials(member);
+  const fontSize = Math.max(10, Math.round(size * 0.52));
 
   return (
     <span
       aria-hidden="true"
       className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-border bg-surface-input font-mono text-[11px] uppercase leading-none text-text-2"
+      style={{ height: size, width: size, fontSize }}
     >
       {member.profileImageUrl ? (
         <Image
           src={member.profileImageUrl}
           alt=""
-          width={20}
-          height={20}
+          width={size}
+          height={size}
           className="h-full w-full rounded-full object-cover"
         />
       ) : (
@@ -102,7 +110,13 @@ function MemberAvatar({ member }: { member: ProjectTableTeamMember }) {
   );
 }
 
-export function CellTeam({ row }: { row: ProjectTableRow }) {
+export function CellTeam({
+  row,
+  avatarSize = 20,
+}: {
+  row: ProjectTableRow;
+  avatarSize?: number;
+}) {
   const { t } = useDictionary("projects");
   const [open, setOpen] = useState(false);
   const [memberSearch, setMemberSearch] = useState("");
@@ -249,13 +263,23 @@ export function CellTeam({ row }: { row: ProjectTableRow }) {
             <span className="flex min-w-0 items-center">
               {assignedMembers.slice(0, 3).map((member, index) => (
                 <span key={member.id} className={cn(index > 0 && "-ml-1")}>
-                  <MemberAvatar member={member} />
+                  <MemberAvatar member={member} size={avatarSize} />
                 </span>
               ))}
             </span>
           ) : (
-            <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-border bg-surface-input text-text-3">
-              <UserPlus className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+            <span
+              className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-border bg-surface-input text-text-3"
+              style={{ height: avatarSize, width: avatarSize }}
+            >
+              <UserPlus
+                style={{
+                  height: Math.max(12, Math.round(avatarSize * 0.7)),
+                  width: Math.max(12, Math.round(avatarSize * 0.7)),
+                }}
+                strokeWidth={1.5}
+                aria-hidden="true"
+              />
             </span>
           )}
           <span className="font-mono text-micro tabular-nums text-text-2">{assignedCount}</span>
@@ -303,7 +327,7 @@ export function CellTeam({ row }: { row: ProjectTableRow }) {
                       key={member.id}
                       className="flex min-w-0 items-center gap-2 rounded-[5px] border border-border bg-surface-input px-2 py-1.5"
                     >
-                      <MemberAvatar member={member} />
+                      <MemberAvatar member={member} size={avatarSize} />
                       <span className="min-w-0 flex-1 truncate font-mohave text-body-sm text-text">
                         {member.name}
                       </span>
@@ -352,7 +376,7 @@ export function CellTeam({ row }: { row: ProjectTableRow }) {
                           : "border-transparent text-text-2",
                       )}
                     >
-                      <MemberAvatar member={member} />
+                      <MemberAvatar member={member} size={avatarSize} />
                       <span className="min-w-0 flex-1 truncate font-mohave text-body-sm">
                         {member.name}
                       </span>

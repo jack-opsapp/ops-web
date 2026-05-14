@@ -1400,30 +1400,35 @@ test.describe("Projects Table V2 Phase 4 browser gate", () => {
       }
 
       const targetRowId = projectId(500);
-      for (let attempt = 1; attempt <= 8; attempt += 1) {
-        await page.locator("[data-project-table-row-id]").first().evaluate(
-          (node, nextTop) => {
-            const scroller = node.closest(".overflow-auto") as HTMLElement | null;
-            if (!scroller) throw new Error("projects table scroller not found");
+      const grid = page.getByRole("grid", { name: "Projects table" });
+      const measuredRowHeight = await tableCell(page, projectId(1), "name").evaluate(
+        (cell) => Math.max(32, Math.round((cell as HTMLElement).getBoundingClientRect().height)),
+      );
+      const targetTop = measuredRowHeight * 492;
+      for (let attempt = 1; attempt <= 10; attempt += 1) {
+        await grid.evaluate((scroller) => {
+          scroller.scrollTop = scroller.scrollHeight;
+          scroller.dispatchEvent(new Event("scroll", { bubbles: true }));
+        });
+        await page.waitForTimeout(500);
+        await grid.evaluate(
+          (scroller, nextTop) => {
             scroller.scrollTop = nextTop;
             scroller.dispatchEvent(new Event("scroll", { bubbles: true }));
           },
-          attempt * 6000,
+          targetTop,
         );
         if (await tableCell(page, targetRowId, "name").isVisible().catch(() => false)) {
           break;
         }
-        await page.waitForTimeout(300);
+        await page.waitForTimeout(500);
       }
 
       await expect(tableCell(page, targetRowId, "name")).toContainText(
         "Phase 4 Project 500",
-        { timeout: 10000 },
+        { timeout: 15000 },
       );
-      await page.locator("[data-project-table-row-id]").first().evaluate(() => {
-        const node = document.querySelector("[data-project-table-row-id]");
-        const scroller = node?.closest(".overflow-auto") as HTMLElement | null;
-        if (!scroller) throw new Error("projects table scroller not found");
+      await grid.evaluate((scroller) => {
         scroller.scrollLeft = 900;
         scroller.dispatchEvent(new Event("scroll", { bubbles: true }));
       });

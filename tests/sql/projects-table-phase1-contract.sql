@@ -186,6 +186,33 @@ select
   and has_function_privilege('authenticated', 'public.create_project_table_assignment_task(uuid, text, timestamp with time zone)', 'EXECUTE')
   as passed;
 
+with expected_functions(signature) as (
+  values
+    ('public.create_project_table_view(text, uuid, jsonb)'),
+    ('public.rename_project_table_view(uuid, text)'),
+    ('public.archive_project_table_view(uuid)'),
+    ('public.reset_project_table_view(uuid)'),
+    ('public.share_project_table_view(uuid)'),
+    ('public.update_project_table_view_definition(uuid, jsonb)')
+),
+function_contract as (
+  select
+    p.oid,
+    p.prosecdef,
+    p.proconfig
+  from expected_functions ef
+  join pg_proc p on p.oid = to_regprocedure(ef.signature)
+)
+select
+  'projects_table_v2_phase5_saved_view_rpc_contract' as check_name,
+  count(*) = 6
+  and bool_and(prosecdef)
+  and bool_and(coalesce(proconfig, array[]::text[]) @> array['search_path=public, pg_temp'])
+  and bool_and(has_function_privilege('anon', oid, 'EXECUTE'))
+  and bool_and(has_function_privilege('authenticated', oid, 'EXECUTE'))
+  as passed
+from function_contract;
+
 select
   'projects_table_v2_phase4_ios_anon_project_tasks_insert' as check_name,
   has_table_privilege('anon', 'public.project_tasks', 'INSERT')

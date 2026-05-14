@@ -193,18 +193,54 @@ export function getProjectTableEditValue(
 }
 
 export type ProjectTableDensity = "compact" | "comfortable" | "spacious";
+export type ProjectTableViewOwnerType = "company" | "user";
+export type ProjectTableViewMutationErrorCode =
+  | "DUPLICATE_NAME"
+  | "PERMISSION_DENIED"
+  | "INVALID_INPUT"
+  | "UNKNOWN";
+
+export interface ProjectTableViewDensityInput {
+  density: ProjectTableDensity;
+  zoomLevel: number;
+}
+
+export interface ProjectTableViewDefinitionInput {
+  columns?: ProjectTableColumnId[];
+  filters?: Json;
+  sort?: ProjectTableSort[];
+  density?: ProjectTableDensity;
+  zoomLevel?: number;
+}
+
+export interface ProjectTableViewCreateInput {
+  name: string;
+  sourceView?: ProjectTableViewDefinition | null;
+  definition?: ProjectTableViewDefinitionInput | null;
+}
+
+export interface ProjectTableViewUpdateInput {
+  viewId: string;
+  name?: string;
+  sourceView?: ProjectTableViewDefinition | null;
+  definition?: ProjectTableViewDefinitionInput | null;
+  canManageViews?: boolean;
+}
 
 export interface ProjectTableViewDefinition {
   id: string;
   name: string;
   icon: string | null;
   permissionKey: string | null;
+  ownerType?: ProjectTableViewOwnerType;
+  ownerId?: string;
   columns: ProjectTableColumnId[];
   filters: Json;
   sort: ProjectTableSort[];
   density: ProjectTableDensity;
   zoomLevel: number;
   isDefault: boolean;
+  isArchived?: boolean;
   sortPosition: number;
   updatedAt: string;
 }
