@@ -33,7 +33,11 @@ import { classifyRail, type RailFilter } from "@/lib/inbox/rail-predicates";
 import { formatWaitClock } from "@/lib/inbox/format-wait";
 import { resolveTriageTone } from "@/lib/inbox/triage-tone-coordination";
 import { useBreadcrumbStore } from "@/stores/breadcrumb-store";
-import { useAuthStore, selectUserId, selectCompanyId } from "@/lib/store/auth-store";
+import {
+  useAuthStore,
+  selectUserId,
+  selectCompanyId,
+} from "@/lib/store/auth-store";
 import {
   useInboxThreads,
   useInboxThread,
@@ -56,6 +60,8 @@ import {
   ArchiveConfirmModal,
   type ArchiveConfirmContext,
 } from "./archive-confirm-modal";
+import { WritebackPreferenceModal } from "./writeback-preference-modal";
+import { CommandPalette } from "./command-palette";
 import { enqueueUndoToast } from "./undo-toast";
 import {
   useClientOpportunities,
@@ -82,10 +88,7 @@ import { TodayBar, type TodayCommitment } from "./today-bar";
 import { RailEmptyState } from "./rail-empty-state";
 import { ThreadList, type ThreadListItem } from "./thread-list";
 import { ThreadDetail } from "./thread-detail";
-import {
-  CommitmentPills,
-  type CommitmentPillItem,
-} from "./commitment-pills";
+import { CommitmentPills, type CommitmentPillItem } from "./commitment-pills";
 import { DetailBand } from "./detail-band";
 import { MessageList, type RenderableMessage } from "./message-list";
 import { Composer } from "./composer/composer";
@@ -95,6 +98,7 @@ import { WorkView } from "./context-rail/work-view";
 import { AccountingView } from "./context-rail/accounting-view";
 import { FilesViewV3 } from "./context-rail/files-view-v3";
 import type {
+  InboxThreadDetail,
   InboxThreadRow,
   InboxThreadMessage,
 } from "@/lib/hooks/use-inbox-threads";
@@ -103,6 +107,14 @@ import { inboxThreadHref, threadIdFromInboxPathname } from "./inbox-navigation";
 
 interface InboxRouteProps {
   threadId?: string;
+}
+
+interface ArchiveTarget {
+  threadId: string;
+  subject: string;
+  latestSenderName: string | null;
+  latestSenderEmail: string | null;
+  opportunityId: string | null;
 }
 
 export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
@@ -127,12 +139,19 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [archiveContext, setArchiveContext] =
     useState<ArchiveConfirmContext | null>(null);
+  const [writebackOpen, setWritebackOpen] = useState(false);
+  const [writebackConnectionId, setWritebackConnectionId] = useState<
+    string | null
+  >(null);
+  const [pendingArchiveTarget, setPendingArchiveTarget] =
+    useState<ArchiveTarget | null>(null);
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [filter, setFilter] = useState<RailFilter>("YOUR_MOVE");
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(
-    () => initialThreadId ?? null,
+    () => initialThreadId ?? null
   );
-  const [mobilePane, setMobilePane] = useState<MobileInboxPane>(
-    () => (initialThreadId ? "detail" : "list"),
+  const [mobilePane, setMobilePane] = useState<MobileInboxPane>(() =>
+    initialThreadId ? "detail" : "list"
   );
   // Search state lives in URL (?q=…) so the operator can back-button to drop
   // the filter and bookmark/share filtered views. The raw input updates on
@@ -219,6 +238,37 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
     }
   }, []);
 
+  const navigateToInboxRoot = useCallback(() => {
+    setSelectedThreadId(null);
+    setMobilePane("list");
+    const url = new URL(window.location.href);
+    if (url.pathname !== "/inbox") {
+      url.pathname = "/inbox";
+      window.history.pushState(
+        window.history.state,
+        "",
+        `${url.pathname}${url.search}`
+      );
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleCommandPaletteKey = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey)) return;
+      if (event.key.toLowerCase() !== "k") return;
+      if (archiveOpen || writebackOpen) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      setCommandPaletteOpen((open) => !open);
+    };
+
+    window.addEventListener("keydown", handleCommandPaletteKey, true);
+    return () =>
+      window.removeEventListener("keydown", handleCommandPaletteKey, true);
+  }, [archiveOpen, writebackOpen]);
+
   // Surface the thread subject in the dashboard breadcrumb instead of the
   // raw UUID. Falls back to "—" while the detail is still loading.
   const subject = threadDetail.data?.thread.subject ?? null;
@@ -237,7 +287,8 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
   // providerThreadId lives on InboxThreadRow but not on InboxThreadDetail.
   // Cross-reference the list to recover it for outbound send threading.
   const providerThreadId =
-    threads.find((row) => row.id === selectedThreadId)?.providerThreadId ?? null;
+    threads.find((row) => row.id === selectedThreadId)?.providerThreadId ??
+    null;
 
   // Drafts scoped to the current thread (provider thread id match).
   const allDrafts = draftsQuery.data ?? [];
@@ -246,11 +297,11 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
       providerThreadId
         ? allDrafts.filter((d) => d.threadId === providerThreadId)
         : [],
-    [allDrafts, providerThreadId],
+    [allDrafts, providerThreadId]
   );
   const activeDraft = useMemo(
     () => threadDrafts.find((d) => d.id === activeDraftId) ?? null,
-    [threadDrafts, activeDraftId],
+    [threadDrafts, activeDraftId]
   );
   const draftEntries = useMemo<DraftEntry[]>(
     () =>
@@ -261,7 +312,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
         source: (d.source === "ai" ? "claude" : "yours") as UIDraftSource,
         label: d.subject?.replace(/^re:\s*/i, "").slice(0, 24) || undefined,
       })),
-    [threadDrafts],
+    [threadDrafts]
   );
 
   // Keep activeDraftId valid when the drafts list changes.
@@ -364,7 +415,8 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
     // Detail wire shape doesn't expose connectionId — only the list row does.
     // Fall back gracefully when the row isn't in the current page (deep-link
     // to a thread that's outside the first cursor window).
-    const conn = threads.find((row) => row.id === selectedThreadId)?.connectionId ?? null;
+    const conn =
+      threads.find((row) => row.id === selectedThreadId)?.connectionId ?? null;
     if (!conn) return;
 
     const lastInbound = [...detail.messages]
@@ -396,7 +448,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
             autoSaveDraftIdRef.current = res.draftId;
             lastSavedBodyRef.current = valueAtFire;
           },
-        },
+        }
       );
     }, AUTOSAVE_DELAY_MS);
 
@@ -404,7 +456,15 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
     // saveDraft.mutate is referentially stable from useMutation; intentionally
     // excluded so the timer doesn't re-arm on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [composerValue, selectedThreadId, detail, isAgentDraft, isPristineDraft, providerThreadId, threads]);
+  }, [
+    composerValue,
+    selectedThreadId,
+    detail,
+    isAgentDraft,
+    isPristineDraft,
+    providerThreadId,
+    threads,
+  ]);
 
   const opportunitiesQuery = useClientOpportunities(clientId);
   const wonOpportunitiesQuery = useClientOpportunitiesWon(clientId);
@@ -419,14 +479,14 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
   const linkedOpsQuery = useThreadOpportunityLinks(selectedThreadId);
   const linkedOppIds = useMemo(
     () => new Set(linkedOpsQuery.data ?? []),
-    [linkedOpsQuery.data],
+    [linkedOpsQuery.data]
   );
 
   const now = Date.now();
 
   const rows = useMemo<ThreadListItem[]>(
     () => threads.map(toThreadListItem),
-    [threads],
+    [threads]
   );
 
   // ThreadPicker feed — map sibling EmailThread rows to the picker's
@@ -436,7 +496,9 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
   // direction stamps lastMessageAt, the other side gets null. This is the
   // best fidelity we have without a second join, and matches what the
   // sibling-context view already does.
-  const pickerThreads: ThreadPickerThread[] = (clientThreadsQuery.data ?? []).map((row) => {
+  const pickerThreads: ThreadPickerThread[] = (
+    clientThreadsQuery.data ?? []
+  ).map((row) => {
     const ts = row.lastMessageAt.getTime();
     return {
       id: row.id,
@@ -456,7 +518,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
 
   const commitments = useMemo<TodayCommitment[]>(
     () => threads.flatMap(toCommitments).slice(0, 3),
-    [threads],
+    [threads]
   );
 
   // Tracks the per-row pending state for the inline ✓ resolve affordance.
@@ -464,10 +526,13 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
   // useMutation collapses concurrent invocations into one global flag —
   // the today-bar needs per-id granularity so only the clicked row dims.
   const [resolvingIds, setResolvingIds] = useState<ReadonlySet<string>>(
-    () => new Set<string>(),
+    () => new Set<string>()
   );
 
-  const onResolveCommitment = (commitmentId: string, threadIdForResolve: string) => {
+  const onResolveCommitment = (
+    commitmentId: string,
+    threadIdForResolve: string
+  ) => {
     setResolvingIds((prev) => {
       const next = new Set(prev);
       next.add(commitmentId);
@@ -487,7 +552,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
             return next;
           });
         },
-      },
+      }
     );
   };
 
@@ -577,38 +642,111 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
     </div>
   );
 
-  const onArchiveClick = () => {
-    if (!selectedThreadId || !detail) return;
-    threadActions.archive.mutate(selectedThreadId, {
-      onSuccess: (res) => {
-        if (res.needsConfirmation) {
-          setArchiveContext({
-            currentThread: {
-              id: selectedThreadId,
-              subject: detail.thread.subject ?? "",
-              latestSenderName: guessSenderName(detail.messages),
-              latestSenderEmail:
-                detail.messages.find((m) => m.direction === "inbound")?.from ??
-                null,
-            },
-            linkedOpportunity: res.linkedOpportunity ?? {
-              id: detail.thread.opportunityId ?? "",
-              title: "",
-            },
-            siblingThreads: res.siblingThreads ?? [],
-            leadPreference: res.leadPreference ?? "ask",
-            connectionId: res.connectionId ?? "",
+  const moveSelectionAwayFrom = useCallback(
+    (threadIds: readonly string[]) => {
+      if (!selectedThreadId) return;
+      const removed = new Set(threadIds);
+      if (!removed.has(selectedThreadId)) return;
+
+      const currentIndex = rows.findIndex((row) => row.id === selectedThreadId);
+      const forward = currentIndex >= 0 ? rows.slice(currentIndex + 1) : rows;
+      const backward =
+        currentIndex > 0 ? rows.slice(0, currentIndex).reverse() : [];
+      const next = [...forward, ...backward].find(
+        (row) => !removed.has(row.id)
+      );
+
+      if (next) {
+        navigateToThread(next.id);
+      } else {
+        navigateToInboxRoot();
+      }
+    },
+    [navigateToInboxRoot, navigateToThread, rows, selectedThreadId]
+  );
+
+  const moveSelectionAfterArchive = useCallback(
+    (threadIds: readonly string[]) => {
+      if (filter === "ALL" || filter === "ARCHIVED") return;
+      moveSelectionAwayFrom(threadIds);
+    },
+    [filter, moveSelectionAwayFrom]
+  );
+
+  const moveSelectionAfterUnarchive = useCallback(
+    (threadIds: readonly string[]) => {
+      if (filter !== "ARCHIVED") return;
+      moveSelectionAwayFrom(threadIds);
+    },
+    [filter, moveSelectionAwayFrom]
+  );
+
+  const buildArchiveTarget = useCallback(
+    (threadId: string, currentDetail: InboxThreadDetail): ArchiveTarget => ({
+      threadId,
+      subject: currentDetail.thread.subject ?? "",
+      latestSenderName: guessSenderName(currentDetail.messages),
+      latestSenderEmail:
+        currentDetail.messages.find((m) => m.direction === "inbound")?.from ??
+        null,
+      opportunityId: currentDetail.thread.opportunityId,
+    }),
+    []
+  );
+
+  const requestArchive = useCallback(
+    (target: ArchiveTarget) => {
+      threadActions.archive.mutate(target.threadId, {
+        onSuccess: (res) => {
+          if (res.needsPreference) {
+            setPendingArchiveTarget(target);
+            setWritebackConnectionId(res.connectionId ?? null);
+            setWritebackOpen(true);
+            return;
+          }
+          if (res.needsConfirmation) {
+            setArchiveContext({
+              currentThread: {
+                id: target.threadId,
+                subject: target.subject,
+                latestSenderName: target.latestSenderName,
+                latestSenderEmail: target.latestSenderEmail,
+              },
+              linkedOpportunity: res.linkedOpportunity ?? {
+                id: target.opportunityId ?? "",
+                title: "",
+              },
+              siblingThreads: res.siblingThreads ?? [],
+              leadPreference: res.leadPreference ?? "ask",
+              connectionId: res.connectionId ?? "",
+            });
+            setArchiveOpen(true);
+            return;
+          }
+          moveSelectionAfterArchive([target.threadId]);
+          enqueueUndoToast({
+            message: t("toast.archivedTactic", "SYS :: THREAD ARCHIVED"),
+            onUndo: () =>
+              threadActions.unarchive.mutate(target.threadId, {
+                onSuccess: () => moveSelectionAfterUnarchive([target.threadId]),
+              }),
           });
-          setArchiveOpen(true);
-          return;
-        }
-        enqueueUndoToast({
-          message: t("toast.archivedTactic", "SYS :: THREAD ARCHIVED"),
-          onUndo: () => threadActions.unarchive.mutate(selectedThreadId),
-        });
-      },
-    });
-  };
+        },
+      });
+    },
+    [
+      moveSelectionAfterArchive,
+      moveSelectionAfterUnarchive,
+      t,
+      threadActions.archive,
+      threadActions.unarchive,
+    ]
+  );
+
+  const onArchiveClick = useCallback(() => {
+    if (!selectedThreadId || !detail) return;
+    requestArchive(buildArchiveTarget(selectedThreadId, detail));
+  }, [buildArchiveTarget, detail, requestArchive, selectedThreadId]);
 
   // Walks detail.messages once to find the most recent inbound + outbound
   // timestamps. Used by both the triage chip computation (header) and the
@@ -622,9 +760,11 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
           const ts = Date.parse(m.date);
           if (Number.isNaN(ts)) continue;
           if (m.direction === "inbound") {
-            if (lastInboundAt === null || ts > lastInboundAt) lastInboundAt = ts;
+            if (lastInboundAt === null || ts > lastInboundAt)
+              lastInboundAt = ts;
           } else if (m.direction === "outbound") {
-            if (lastOutboundAt === null || ts > lastOutboundAt) lastOutboundAt = ts;
+            if (lastOutboundAt === null || ts > lastOutboundAt)
+              lastOutboundAt = ts;
           }
         }
         return { lastInboundAt, lastOutboundAt };
@@ -659,11 +799,13 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
   // Derive the boolean from that array's presence so the rail predicate has
   // the right signal; falls back to the list-row's flag when the row is
   // present (covers any race where commitments haven't loaded yet).
-  const detailThreadListRow = threads.find((row) => row.id === selectedThreadId) ?? null;
-  const hasUnresolvedCommitmentsForDetail = detail !== null
-    ? detail.commitments.length > 0 ||
-      (detailThreadListRow?.hasUnresolvedCommitments ?? false)
-    : false;
+  const detailThreadListRow =
+    threads.find((row) => row.id === selectedThreadId) ?? null;
+  const hasUnresolvedCommitmentsForDetail =
+    detail !== null
+      ? detail.commitments.length > 0 ||
+        (detailThreadListRow?.hasUnresolvedCommitments ?? false)
+      : false;
 
   const floatingBadgeActive =
     detail !== null &&
@@ -677,7 +819,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
         unread_count: detail.thread.unreadCount,
         agent_blocking_question: detail.thread.agentBlockingQuestion,
       },
-      now,
+      now
     ) === "YOUR_MOVE";
 
   // Wait clock for the badge. Uses the most-recent inbound timestamp when
@@ -702,7 +844,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
   // Accent-slot coordination — see `resolveTriageTone` for the rule.
   const triageTone = resolveTriageTone(
     triageStateForDetail?.tone,
-    floatingBadgeActive,
+    floatingBadgeActive
   );
 
   const floatingComposerStyle = {
@@ -721,7 +863,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
 
   const renderComposer = (
     currentDetail: NonNullable<typeof detail>,
-    surface: "docked" | "floating",
+    surface: "docked" | "floating"
   ) => (
     <Composer
       inputRef={composerInputRef}
@@ -738,7 +880,10 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
         // — answering shouldn't block the email send if it fails (the
         // band stays up and the operator can retry from the chip).
         if (currentDetail.thread.agentBlockingQuestion) {
-          answerAgentQuestion.mutate({ threadId: selectedThreadId, answer: value });
+          answerAgentQuestion.mutate({
+            threadId: selectedThreadId,
+            answer: value,
+          });
         }
         const lastInbound = [...currentDetail.messages]
           .reverse()
@@ -746,7 +891,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
         const recipient = lastInbound?.from ?? null;
         if (!recipient) {
           setComposerError(
-            t("composer.error.noRecipient", "Cannot resolve recipient address."),
+            t("composer.error.noRecipient", "Cannot resolve recipient address.")
           );
           return;
         }
@@ -786,13 +931,16 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
               setComposerError(
                 e instanceof Error
                   ? e.message
-                  : t("composer.error.sendFailed", "Send failed"),
+                  : t("composer.error.sendFailed", "Send failed")
               ),
-          },
+          }
         );
       }}
       disabled={sendReply.isPending}
-      placeholder={t("composer.tacticPlaceholder", "[type message — ⌘↵ to send]")}
+      placeholder={t(
+        "composer.tacticPlaceholder",
+        "[type message — ⌘↵ to send]"
+      )}
       agentTinted={isAgentDraft && isPristineDraft}
       sendVariant={isAgentDraft && isPristineDraft ? "agent" : "accent"}
       surface={surface}
@@ -835,7 +983,11 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
       onArchive={onArchiveClick}
       snoozeSlot={(button) =>
         selectedThreadId ? (
-          <SnoozePicker threadId={selectedThreadId} trigger={button} align="end" />
+          <SnoozePicker
+            threadId={selectedThreadId}
+            trigger={button}
+            align="end"
+          />
         ) : (
           button
         )
@@ -859,9 +1011,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
             currentThreadId={selectedThreadId}
             onSelectThread={navigateToThread}
             clientName={
-              detail.thread.clientName ??
-              guessSenderName(detail.messages) ??
-              ""
+              detail.thread.clientName ?? guessSenderName(detail.messages) ?? ""
             }
           />
         ) : undefined
@@ -912,10 +1062,10 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
                 Math.round(
                   (now -
                     new Date(
-                      detail.thread.agentBlockingQuestion.askedAt,
+                      detail.thread.agentBlockingQuestion.askedAt
                     ).getTime()) /
-                    60_000,
-                ),
+                    60_000
+                )
               )
             : undefined
         }
@@ -956,7 +1106,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
           <div
             ref={floatingComposerFrameRef}
             data-testid="floating-composer-frame"
-            className="pointer-events-none absolute inset-x-0 bottom-0 z-floating-ui flex justify-center px-2.5 pb-2"
+            className="z-floating-ui pointer-events-none absolute inset-x-0 bottom-0 flex justify-center px-2.5 pb-2"
           >
             <div className="pointer-events-auto w-full max-w-[720px]">
               {renderComposer(detail, "floating")}
@@ -984,17 +1134,23 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
   const documentRows = filesQuery.data?.documents ?? [];
   const threadOnlyPhotos = filesQuery.data?.threadOnlyPhotos ?? [];
   const accountingDocuments = documentRows.filter(
-    (d) => d.sourceType === "estimate" || d.sourceType === "invoice",
+    (d) => d.sourceType === "estimate" || d.sourceType === "invoice"
   );
 
   const pipelineOpps = useMemo<PipelineOpp[]>(
-    () => opportunities.map((o) => toPipelineOpp(o, linkedOppIds, selectedThreadId ?? undefined)),
-    [opportunities, linkedOppIds, selectedThreadId],
+    () =>
+      opportunities.map((o) =>
+        toPipelineOpp(o, linkedOppIds, selectedThreadId ?? undefined)
+      ),
+    [opportunities, linkedOppIds, selectedThreadId]
   );
 
   const wonPipelineOpps = useMemo<PipelineOpp[]>(
-    () => wonOpportunities.map((o) => toPipelineOpp(o, linkedOppIds, selectedThreadId ?? undefined)),
-    [wonOpportunities, linkedOppIds, selectedThreadId],
+    () =>
+      wonOpportunities.map((o) =>
+        toPipelineOpp(o, linkedOppIds, selectedThreadId ?? undefined)
+      ),
+    [wonOpportunities, linkedOppIds, selectedThreadId]
   );
 
   // FilesViewV3 consumes the raw ProjectDocument / ProjectPhoto shapes —
@@ -1003,7 +1159,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
   // on the ACCOUNTING tab and are excluded from the FILES count so the
   // two badges don't double-count the same record.
   const otherDocsCount = documentRows.filter(
-    (d) => d.sourceType !== "estimate" && d.sourceType !== "invoice",
+    (d) => d.sourceType !== "estimate" && d.sourceType !== "invoice"
   ).length;
   const filesCount = otherDocsCount + photos.length + threadOnlyPhotos.length;
 
@@ -1017,12 +1173,13 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
         opportunities: [...opportunities, ...wonOpportunities],
         projects,
       }),
-    [client, opportunities, wonOpportunities, projects],
+    [client, opportunities, wonOpportunities, projects]
   );
   const subClientCount = subClientsQuery.data?.length ?? 0;
-  const subtitle = subClientCount > 0
-    ? `${subClientCount} ${subClientCount === 1 ? t("rail.subclient", "SUBCLIENT") : t("rail.subclients", "SUBCLIENTS")}`
-    : null;
+  const subtitle =
+    subClientCount > 0
+      ? `${subClientCount} ${subClientCount === 1 ? t("rail.subclient", "SUBCLIENT") : t("rail.subclients", "SUBCLIENTS")}`
+      : null;
 
   // <ContextRail> is now always mounted. It renders the unlinked-state
   // header internally when `client` is undefined — see context-rail.tsx
@@ -1134,22 +1291,57 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
               preference: args.saveLeadPreference,
             });
           }
-          await threadActions.archiveBatch.mutateAsync({
+          const result = await threadActions.archiveBatch.mutateAsync({
             threadIds: args.threadIds,
             archiveOpportunityId: args.archiveOpportunityId,
           });
           setArchiveOpen(false);
           setArchiveContext(null);
+          moveSelectionAfterArchive(result.archivedThreadIds);
           enqueueUndoToast({
             message: t("toast.archivedTactic", "SYS :: THREAD ARCHIVED"),
             onUndo: () =>
-              threadActions.unarchiveBatch.mutate({
-                threadIds: args.threadIds,
-                unarchiveOpportunityId: args.archiveOpportunityId,
-              }),
+              threadActions.unarchiveBatch.mutate(
+                {
+                  threadIds: args.threadIds,
+                  unarchiveOpportunityId: args.archiveOpportunityId,
+                },
+                {
+                  onSuccess: () => moveSelectionAfterUnarchive(args.threadIds),
+                }
+              ),
           });
         }}
       />
+      <WritebackPreferenceModal
+        open={writebackOpen}
+        onOpenChange={setWritebackOpen}
+        connectionId={writebackConnectionId}
+        onConfirmed={() => {
+          const target = pendingArchiveTarget;
+          setWritebackOpen(false);
+          setPendingArchiveTarget(null);
+          setWritebackConnectionId(null);
+          if (target) requestArchive(target);
+        }}
+        onCancel={() => {
+          setPendingArchiveTarget(null);
+          setWritebackConnectionId(null);
+        }}
+      />
+      {commandPaletteOpen && (
+        <CommandPalette
+          open={commandPaletteOpen}
+          onOpenChange={setCommandPaletteOpen}
+          scope="own"
+          selectedThreadId={selectedThreadId}
+          handlers={{
+            onOpenThread: navigateToThread,
+            onSwitchRail: setFilter,
+            onArchive: onArchiveClick,
+          }}
+        />
+      )}
     </>
   );
 }
@@ -1158,8 +1350,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
 
 function toThreadListItem(t: InboxThreadRow): ThreadListItem {
   const lastMessageMs = new Date(t.lastMessageAt).getTime();
-  const lastInboundAt =
-    t.latestDirection === "inbound" ? lastMessageMs : null;
+  const lastInboundAt = t.latestDirection === "inbound" ? lastMessageMs : null;
   const lastOutboundAt =
     t.latestDirection === "outbound" ? lastMessageMs : null;
   const aiSummary = t.aiSummary?.trim() || null;
@@ -1206,8 +1397,7 @@ function toCommitments(t: InboxThreadRow): TodayCommitment[] {
     return [];
   }
   const lastMessageMs = new Date(t.lastMessageAt).getTime();
-  const lastInboundAt =
-    t.latestDirection === "inbound" ? lastMessageMs : null;
+  const lastInboundAt = t.latestDirection === "inbound" ? lastMessageMs : null;
   const lastOutboundAt =
     t.latestDirection === "outbound" ? lastMessageMs : null;
   const stateResult = computeStateTag({
@@ -1240,7 +1430,6 @@ function toCommitments(t: InboxThreadRow): TodayCommitment[] {
   ];
 }
 
-
 function formatDue(d: Date): string {
   const now = new Date();
   const sameDay =
@@ -1248,11 +1437,19 @@ function formatDue(d: Date): string {
     d.getMonth() === now.getMonth() &&
     d.getDate() === now.getDate();
   const time = d
-    .toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })
+    .toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    })
     .toUpperCase();
   if (sameDay) return `TODAY ${time}`;
   return d
-    .toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
+    .toLocaleDateString("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    })
     .toUpperCase();
 }
 
@@ -1290,7 +1487,7 @@ function guessSenderName(messages: InboxThreadMessage[]): string | null {
 function toPipelineOpp(
   o: Opportunity,
   linkedOppIds: Set<string>,
-  currentThreadId: string | undefined,
+  currentThreadId: string | undefined
 ): PipelineOpp {
   // winProbability is 0..1 — collapse into a tactile string that matches the
   // canonical Pipeline tab data contract.

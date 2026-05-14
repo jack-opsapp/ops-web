@@ -1,12 +1,27 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type {
+  ActionResponse,
+  InboxThreadDetail,
+  InboxThreadRow,
+} from "@/lib/hooks/use-inbox-threads";
 
 const push = vi.fn();
 const setEntityName = vi.fn();
 const clearEntityName = vi.fn();
 const useInboxThreadSpy = vi.fn();
+const archiveMutate = vi.fn();
+const unarchiveMutate = vi.fn();
+const archiveBatchMutateAsync = vi.fn();
+const unarchiveBatchMutate = vi.fn();
+const setLeadArchivePreferenceMutateAsync = vi.fn();
+let detailByThreadId = new Map<string, InboxThreadDetail>();
+
+type ArchiveMutationOptions = {
+  onSuccess?: (response: ActionResponse) => void;
+};
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
@@ -28,24 +43,29 @@ vi.mock("@/i18n/client", () => ({
 }));
 
 vi.mock("@/stores/breadcrumb-store", () => ({
-  useBreadcrumbStore: (selector: (state: {
-    setEntityName: typeof setEntityName;
-    clearEntityName: typeof clearEntityName;
-  }) => unknown) => selector({ setEntityName, clearEntityName }),
+  useBreadcrumbStore: (
+    selector: (state: {
+      setEntityName: typeof setEntityName;
+      clearEntityName: typeof clearEntityName;
+    }) => unknown
+  ) => selector({ setEntityName, clearEntityName }),
 }));
 
 vi.mock("@/lib/store/auth-store", () => ({
   selectUserId: (state: { userId: string }) => state.userId,
   selectCompanyId: (state: { companyId: string }) => state.companyId,
-  useAuthStore: (selector: (state: { userId: string; companyId: string }) => unknown) =>
-    selector({ userId: "user-1", companyId: "company-1" }),
+  useAuthStore: (
+    selector: (state: { userId: string; companyId: string }) => unknown
+  ) => selector({ userId: "user-1", companyId: "company-1" }),
 }));
 
 vi.mock("@/stores/window-store", () => ({
-  useWindowStore: (selector: (state: {
-    openWindow: () => void;
-    openProjectWindow: () => void;
-  }) => unknown) =>
+  useWindowStore: (
+    selector: (state: {
+      openWindow: () => void;
+      openProjectWindow: () => void;
+    }) => unknown
+  ) =>
     selector({
       openWindow: vi.fn(),
       openProjectWindow: vi.fn(),
@@ -69,16 +89,18 @@ vi.mock("@/lib/hooks/use-inbox-threads", () => ({
   }),
   useInboxThread: (threadId: string | null) => {
     useInboxThreadSpy(threadId);
-    return { data: null };
+    return { data: threadId ? (detailByThreadId.get(threadId) ?? null) : null };
   },
   useInboxDrafts: () => ({ data: [] }),
   useSendReply: () => ({ mutate: vi.fn(), isPending: false }),
   useThreadActions: () => ({
-    archive: { mutate: vi.fn() },
-    unarchive: { mutate: vi.fn() },
-    archiveBatch: { mutateAsync: vi.fn() },
-    unarchiveBatch: { mutate: vi.fn() },
-    setLeadArchivePreference: { mutateAsync: vi.fn() },
+    archive: { mutate: archiveMutate },
+    unarchive: { mutate: unarchiveMutate },
+    archiveBatch: { mutateAsync: archiveBatchMutateAsync },
+    unarchiveBatch: { mutate: unarchiveBatchMutate },
+    setLeadArchivePreference: {
+      mutateAsync: setLeadArchivePreferenceMutateAsync,
+    },
     dismissAwaitingReply: { mutate: vi.fn() },
     restoreAwaitingReply: { mutate: vi.fn() },
   }),
@@ -101,7 +123,9 @@ vi.mock("@/lib/hooks/use-client-tasks", () => ({
 }));
 
 vi.mock("@/lib/hooks/use-client-files", () => ({
-  useClientFiles: () => ({ data: { photos: [], documents: [], threadOnlyPhotos: [] } }),
+  useClientFiles: () => ({
+    data: { photos: [], documents: [], threadOnlyPhotos: [] },
+  }),
 }));
 
 vi.mock("@/lib/hooks/use-clients", () => ({
@@ -133,7 +157,10 @@ vi.mock("../thread-list", () => ({
     selectedThreadId: string | null;
     onSelect: (id: string) => void;
   }) => (
-    <div data-testid="thread-list" data-selected-thread-id={selectedThreadId ?? ""}>
+    <div
+      data-testid="thread-list"
+      data-selected-thread-id={selectedThreadId ?? ""}
+    >
       <button type="button" onClick={() => onSelect("thread-b")}>
         Open Bravo
       </button>
@@ -172,7 +199,56 @@ vi.mock("../context-rail/context-rail", () => ({
 }));
 
 vi.mock("../archive-confirm-modal", () => ({
-  ArchiveConfirmModal: () => null,
+  ArchiveConfirmModal: ({
+    open,
+    onConfirm,
+  }: {
+    open: boolean;
+    onConfirm: (args: {
+      threadIds: string[];
+      archiveOpportunityId: string | null;
+      saveLeadPreference: null;
+    }) => Promise<void>;
+  }) =>
+    open ? (
+      <button
+        type="button"
+        onClick={() =>
+          void onConfirm({
+            threadIds: ["thread-a", "thread-b"],
+            archiveOpportunityId: "opp-1",
+            saveLeadPreference: null,
+          })
+        }
+      >
+        Confirm archive batch
+      </button>
+    ) : null,
+}));
+
+vi.mock("../writeback-preference-modal", () => ({
+  WritebackPreferenceModal: ({
+    open,
+    connectionId,
+    onConfirmed,
+  }: {
+    open: boolean;
+    connectionId: string | null;
+    onConfirmed: () => void;
+  }) =>
+    open ? (
+      <button type="button" onClick={onConfirmed}>
+        Save writeback {connectionId}
+      </button>
+    ) : null,
+}));
+
+vi.mock("../command-palette", () => ({
+  CommandPalette: ({ handlers }: { handlers: { onArchive?: () => void } }) => (
+    <button type="button" onClick={() => handlers.onArchive?.()}>
+      Palette Archive
+    </button>
+  ),
 }));
 
 vi.mock("../undo-toast", () => ({
@@ -200,8 +276,19 @@ vi.mock("../thread-picker", () => ({
 }));
 
 vi.mock("../thread-detail", () => ({
-  ThreadDetail: ({ children }: { children?: React.ReactNode }) => (
-    <div data-testid="thread-detail">{children}</div>
+  ThreadDetail: ({
+    children,
+    onArchive,
+  }: {
+    children?: React.ReactNode;
+    onArchive?: () => void;
+  }) => (
+    <div data-testid="thread-detail">
+      <button type="button" aria-label="Archive thread" onClick={onArchive}>
+        Archive
+      </button>
+      {children}
+    </div>
   ),
 }));
 
@@ -240,28 +327,81 @@ vi.mock("../category-chip", () => ({
 
 import { InboxRoute } from "../inbox-route";
 
-function makeThreadRow(id: string, clientName: string) {
+function makeThreadRow(id: string, clientName: string): InboxThreadRow {
   return {
     id,
     providerThreadId: `provider-${id}`,
     connectionId: `connection-${id}`,
-    clientName,
-    latestSenderName: clientName,
-    subject: `${clientName} subject`,
-    latestSnippet: `${clientName} snippet`,
-    aiSummary: null,
+    primaryCategory: "CUSTOMER",
+    categoryConfidence: 0.93,
+    categoryManuallySet: false,
     labels: [],
-    agentBlockingQuestion: null,
-    phaseC: "none",
     archivedAt: null,
+    snoozedUntil: null,
+    priorityScore: 0,
+    clientName,
+    clientId: null,
+    latestSenderName: clientName,
+    latestSenderEmail: `${id}@example.com`,
+    subject: `${clientName} subject`,
+    participants: [`${id}@example.com`],
+    firstMessageAt: "2026-05-06T15:00:00Z",
     lastMessageAt: "2026-05-06T15:00:00Z",
-    latestDirection: "inbound",
-    unreadCount: 0,
     messageCount: 1,
+    unreadCount: 0,
+    latestDirection: "inbound",
+    latestSnippet: `${clientName} snippet`,
+    opportunityId: null,
+    aiSummary: null,
+    phaseC: "none",
+    agentBlockingQuestion: null,
     hasUnresolvedCommitments: false,
     nextCommitmentDueAt: null,
     nextCommitmentId: null,
-    primaryCategory: "general",
+  };
+}
+
+function makeThreadDetail(id: string): InboxThreadDetail {
+  return {
+    thread: {
+      id,
+      primaryCategory: "CUSTOMER",
+      categoryConfidence: 0.93,
+      categoryManuallySet: false,
+      labels: ["AWAITING_REPLY"],
+      archivedAt: null,
+      snoozedUntil: null,
+      aiSummary: null,
+      subject: `${id} subject`,
+      participants: ["client@example.com"],
+      messageCount: 1,
+      unreadCount: 1,
+      opportunityId: null,
+      clientId: null,
+      clientName: "Alpha",
+      latestDirection: "inbound",
+      phaseC: "none",
+      agentBlockingQuestion: null,
+    },
+    messages: [
+      {
+        id: `msg-${id}`,
+        from: "client@example.com",
+        fromName: "Client",
+        to: ["ops@example.com"],
+        cc: [],
+        subject: `${id} subject`,
+        snippet: "Need a number.",
+        bodyText: "Need a number.",
+        cleanBodyText: "Need a number.",
+        direction: "inbound",
+        date: "2026-05-06T15:00:00Z",
+        isRead: false,
+        hasAttachments: false,
+      },
+    ],
+    siblingThreads: [],
+    commitments: [],
   };
 }
 
@@ -275,7 +415,7 @@ function renderRoute(threadId?: string) {
   return render(
     <QueryClientProvider client={qc}>
       <InboxRoute threadId={threadId} />
-    </QueryClientProvider>,
+    </QueryClientProvider>
   );
 }
 
@@ -284,6 +424,12 @@ beforeEach(() => {
   setEntityName.mockReset();
   clearEntityName.mockReset();
   useInboxThreadSpy.mockReset();
+  archiveMutate.mockReset();
+  unarchiveMutate.mockReset();
+  archiveBatchMutateAsync.mockReset();
+  unarchiveBatchMutate.mockReset();
+  setLeadArchivePreferenceMutateAsync.mockReset();
+  detailByThreadId = new Map();
   window.history.replaceState(null, "", "/inbox");
 });
 
@@ -298,11 +444,11 @@ describe("<InboxRoute> thread navigation", () => {
     expect(window.location.pathname).toBe("/inbox/thread-b");
     expect(screen.getByTestId("responsive-shell")).toHaveAttribute(
       "data-thread-id",
-      "thread-b",
+      "thread-b"
     );
     expect(screen.getByTestId("responsive-shell")).toHaveAttribute(
       "data-mobile-pane",
-      "detail",
+      "detail"
     );
     expect(useInboxThreadSpy).toHaveBeenLastCalledWith("thread-b");
   });
@@ -318,8 +464,137 @@ describe("<InboxRoute> thread navigation", () => {
 
     expect(screen.getByTestId("responsive-shell")).toHaveAttribute(
       "data-thread-id",
-      "thread-b",
+      "thread-b"
     );
     expect(useInboxThreadSpy).toHaveBeenLastCalledWith("thread-b");
+  });
+
+  it("header Archive invokes the real archive mutation path for the selected thread", async () => {
+    const user = userEvent.setup();
+    detailByThreadId.set("thread-a", makeThreadDetail("thread-a"));
+    renderRoute("thread-a");
+
+    await user.click(screen.getByRole("button", { name: "Archive thread" }));
+
+    expect(archiveMutate).toHaveBeenCalledTimes(1);
+    expect(archiveMutate.mock.calls[0][0]).toBe("thread-a");
+    expect(archiveMutate.mock.calls[0][1]).toMatchObject({
+      onSuccess: expect.any(Function),
+    });
+  });
+
+  it("moves selected-thread state after archiving out of an active rail", async () => {
+    const user = userEvent.setup();
+    detailByThreadId.set("thread-a", makeThreadDetail("thread-a"));
+    archiveMutate.mockImplementation(
+      (_threadId: string, options?: ArchiveMutationOptions) => {
+        options?.onSuccess?.({ ok: true });
+      }
+    );
+    renderRoute("thread-a");
+
+    await user.click(screen.getByRole("button", { name: "Archive thread" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("responsive-shell")).toHaveAttribute(
+        "data-thread-id",
+        "thread-b"
+      );
+    });
+    expect(window.location.pathname).toBe("/inbox/thread-b");
+  });
+
+  it("resumes the same archive path after the first-archive writeback prompt", async () => {
+    const user = userEvent.setup();
+    detailByThreadId.set("thread-a", makeThreadDetail("thread-a"));
+    archiveMutate.mockImplementation(
+      (_threadId: string, options?: ArchiveMutationOptions) => {
+        if (archiveMutate.mock.calls.length === 1) {
+          options?.onSuccess?.({
+            needsPreference: true,
+            connectionId: "conn-1",
+          });
+          return;
+        }
+        options?.onSuccess?.({ ok: true });
+      }
+    );
+    renderRoute("thread-a");
+
+    await user.click(screen.getByRole("button", { name: "Archive thread" }));
+    await user.click(
+      screen.getByRole("button", { name: "Save writeback conn-1" })
+    );
+
+    expect(archiveMutate).toHaveBeenCalledTimes(2);
+    expect(archiveMutate.mock.calls[0][0]).toBe("thread-a");
+    expect(archiveMutate.mock.calls[1][0]).toBe("thread-a");
+  });
+
+  it("linked-opportunity confirmation commits through batch archive and updates selection", async () => {
+    const user = userEvent.setup();
+    const detail = makeThreadDetail("thread-a");
+    detail.thread.opportunityId = "opp-1";
+    detailByThreadId.set("thread-a", detail);
+    archiveMutate.mockImplementation(
+      (_threadId: string, options?: ArchiveMutationOptions) => {
+        options?.onSuccess?.({
+          needsConfirmation: true,
+          connectionId: "conn-1",
+          leadPreference: "ask",
+          linkedOpportunity: { id: "opp-1", title: "Alpha lead" },
+          siblingThreads: [
+            {
+              id: "thread-b",
+              subject: "Sibling",
+              lastMessageAt: "2026-05-06T15:00:00Z",
+              latestSenderName: "Bravo",
+              latestSenderEmail: "bravo@example.com",
+              latestSnippet: "Follow up",
+            },
+          ],
+        });
+      }
+    );
+    archiveBatchMutateAsync.mockResolvedValue({
+      ok: true,
+      archivedThreadIds: ["thread-a", "thread-b"],
+      failedThreadIds: [],
+      leadArchivedOpportunityId: "opp-1",
+    });
+    renderRoute("thread-a");
+
+    await user.click(screen.getByRole("button", { name: "Archive thread" }));
+    await user.click(
+      screen.getByRole("button", { name: "Confirm archive batch" })
+    );
+
+    expect(archiveBatchMutateAsync).toHaveBeenCalledWith({
+      threadIds: ["thread-a", "thread-b"],
+      archiveOpportunityId: "opp-1",
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("responsive-shell")).toHaveAttribute(
+        "data-thread-id",
+        ""
+      );
+    });
+    expect(window.location.pathname).toBe("/inbox");
+  });
+
+  it("command palette Archive uses the same selected-thread archive path", async () => {
+    const user = userEvent.setup();
+    detailByThreadId.set("thread-a", makeThreadDetail("thread-a"));
+    renderRoute("thread-a");
+
+    act(() => {
+      window.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "k", metaKey: true, bubbles: true })
+      );
+    });
+    await user.click(screen.getByRole("button", { name: "Palette Archive" }));
+
+    expect(archiveMutate).toHaveBeenCalledTimes(1);
+    expect(archiveMutate.mock.calls[0][0]).toBe("thread-a");
   });
 });
