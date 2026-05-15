@@ -17,6 +17,8 @@ import {
   useMutation,
   useQuery,
   useQueryClient,
+  type QueryClient,
+  type QueryKey,
 } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/api/query-client";
 import type {
@@ -30,7 +32,7 @@ import type {
   InboxScope,
   PhaseC,
 } from "@/lib/types/email-thread";
-import type { RailFilter } from "@/lib/inbox/rail-predicates";
+import { isRailFilter, type RailFilter } from "@/lib/inbox/rail-predicates";
 
 // Re-export so consumers can import alongside the other inbox wire types.
 export type { PhaseC, AgentBlockingQuestion } from "@/lib/types/email-thread";
@@ -236,6 +238,77 @@ export interface InboxThreadDetail {
 export interface InboxThreadsPage {
   threads: InboxThreadRow[];
   nextCursor: string | null;
+}
+
+type InboxThreadsInfiniteCache = {
+  pages: Array<{
+    threads: InboxThreadRow[];
+    nextCursor: string | null;
+  }>;
+  pageParams?: unknown;
+};
+
+function isInboxThreadsInfiniteCache(
+  value: unknown,
+): value is InboxThreadsInfiniteCache {
+  return (
+    !!value &&
+    typeof value === "object" &&
+    Array.isArray((value as { pages?: unknown }).pages)
+  );
+}
+
+function threadListFilterFromQueryKey(queryKey: QueryKey): RailFilter | null {
+  const params = queryKey[3];
+  if (!params || typeof params !== "object" || Array.isArray(params)) {
+    return null;
+  }
+  const filter = (params as { filter?: unknown }).filter;
+  return isRailFilter(filter) ? filter : null;
+}
+
+function withoutAwaitingReply(
+  labels: EmailThreadLabel[],
+): EmailThreadLabel[] {
+  return labels.includes("AWAITING_REPLY")
+    ? labels.filter((label) => label !== "AWAITING_REPLY")
+    : labels;
+}
+
+function rowMatchesYourMove(row: InboxThreadRow): boolean {
+  return (
+    row.hasUnresolvedCommitments ||
+    row.labels.includes("AWAITING_REPLY") ||
+    (row.latestDirection === "inbound" && row.unreadCount > 0) ||
+    row.agentBlockingQuestion !== null
+  );
+}
+
+function updateInboxThreadListCaches(
+  qc: QueryClient,
+  mapRow: (row: InboxThreadRow) => InboxThreadRow,
+) {
+  const entries = qc.getQueriesData({
+    queryKey: queryKeys.inbox.threadsAll(),
+  });
+  for (const [queryKey] of entries) {
+    const filter = threadListFilterFromQueryKey(queryKey);
+    qc.setQueryData(queryKey, (old: unknown) => {
+      if (!isInboxThreadsInfiniteCache(old)) return old;
+      return {
+        ...old,
+        pages: old.pages.map((page) => ({
+          ...page,
+          threads: page.threads
+            .map(mapRow)
+            .filter(
+              (thread) =>
+                filter !== "YOUR_MOVE" || rowMatchesYourMove(thread),
+            ),
+        })),
+      };
+    });
+  }
 }
 
 // ─── Auth helper ─────────────────────────────────────────────────────────────
@@ -687,6 +760,55 @@ export function useResolveCommitment() {
         throw new Error(e.error || `resolve failed (${res.status})`);
       }
     },
+    onMutate: async (args) => {
+      await qc.cancelQueries({ queryKey: queryKeys.inbox.threadsAll() });
+      await qc.cancelQueries({
+        queryKey: queryKeys.inbox.threadDetail(args.threadId),
+      });
+
+      const listSnapshot = qc.getQueriesData({
+        queryKey: queryKeys.inbox.threadsAll(),
+      });
+      const detailKey = queryKeys.inbox.threadDetail(args.threadId);
+      const detailSnapshot = qc.getQueryData(detailKey);
+
+      if (args.resolvedAt !== null) {
+        updateInboxThreadListCaches(qc, (row) => {
+          if (row.id !== args.threadId || row.nextCommitmentId !== args.id) {
+            return row;
+          }
+          return {
+            ...row,
+            hasUnresolvedCommitments: false,
+            nextCommitmentDueAt: null,
+            nextCommitmentId: null,
+          };
+        });
+
+        qc.setQueryData(detailKey, (old: unknown) => {
+          if (!old || typeof old !== "object") return old;
+          const detail = old as InboxThreadDetail;
+          return {
+            ...detail,
+            commitments: detail.commitments.filter(
+              (commitment) => commitment.id !== args.id,
+            ),
+          };
+        });
+      }
+
+      return { listSnapshot, detailKey, detailSnapshot };
+    },
+    onError: (_err, _args, ctx) => {
+      if (ctx?.listSnapshot) {
+        for (const [key, value] of ctx.listSnapshot) {
+          qc.setQueryData(key, value);
+        }
+      }
+      if (ctx?.detailKey) {
+        qc.setQueryData(ctx.detailKey, ctx.detailSnapshot);
+      }
+    },
     onSuccess: (_res, args) => {
       // Invalidate both the thread detail (pill disappears) and the list
       // (rail sort + unread signal may shift).
@@ -1100,6 +1222,16 @@ export interface SendReplyArgs {
   format?: "markdown" | "text";
 }
 
+export interface SendReplyResponse {
+  ok?: true;
+  messageId: string;
+  threadId: string;
+  from?: string;
+  sentAt?: string;
+  labels?: EmailThreadLabel[];
+  latestDirection?: "inbound" | "outbound" | null;
+}
+
 export function useSendReply() {
   const qc = useQueryClient();
   return useMutation({
@@ -1107,7 +1239,7 @@ export function useSendReply() {
       userId: string;
       companyId: string;
       payload: SendReplyArgs;
-    }) => {
+    }): Promise<SendReplyResponse> => {
       const headers = {
         ...(await authHeaders()),
         "Content-Type": "application/json",
@@ -1132,9 +1264,49 @@ export function useSendReply() {
         const e = await res.json().catch(() => ({}));
         throw new Error(e.error || `send failed (${res.status})`);
       }
-      return res.json() as Promise<{ messageId: string; threadId: string }>;
+      return res.json() as Promise<SendReplyResponse>;
     },
-    onSuccess: (_res, args) => {
+    onSuccess: (res, args) => {
+      if ((res.latestDirection ?? "outbound") !== "outbound") {
+        qc.invalidateQueries({
+          queryKey: queryKeys.inbox.threadDetail(args.payload.threadId),
+        });
+        qc.invalidateQueries({ queryKey: queryKeys.inbox.threadsAll() });
+        qc.invalidateQueries({ queryKey: queryKeys.inbox.drafts("own") });
+        return;
+      }
+      const sentAt = res.sentAt ?? new Date().toISOString();
+      const latestSnippet = args.payload.body.trim().slice(0, 400);
+      const applyOutboundState = (row: InboxThreadRow): InboxThreadRow => {
+        if (row.id !== args.payload.threadId) return row;
+        return {
+          ...row,
+          labels: withoutAwaitingReply(res.labels ?? row.labels),
+          lastMessageAt: sentAt,
+          messageCount: row.messageCount + 1,
+          latestDirection: "outbound",
+          latestSnippet: latestSnippet || row.latestSnippet,
+          latestSenderEmail: res.from ?? row.latestSenderEmail,
+        };
+      };
+
+      updateInboxThreadListCaches(qc, applyOutboundState);
+      qc.setQueryData(
+        queryKeys.inbox.threadDetail(args.payload.threadId),
+        (old: unknown) => {
+          if (!old || typeof old !== "object") return old;
+          const detail = old as InboxThreadDetail;
+          return {
+            ...detail,
+            thread: {
+              ...detail.thread,
+              labels: withoutAwaitingReply(res.labels ?? detail.thread.labels),
+              latestDirection: "outbound",
+              messageCount: detail.thread.messageCount + 1,
+            },
+          };
+        },
+      );
       qc.invalidateQueries({ queryKey: queryKeys.inbox.threadDetail(args.payload.threadId) });
       qc.invalidateQueries({ queryKey: queryKeys.inbox.threadsAll() });
       qc.invalidateQueries({ queryKey: queryKeys.inbox.drafts("own") });

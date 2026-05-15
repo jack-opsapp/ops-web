@@ -16,6 +16,7 @@ import { setSupabaseOverride } from "@/lib/supabase/helpers";
 import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
 import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 import { EmailService } from "@/lib/api/services/email-service";
+import { EmailThreadService } from "@/lib/api/services/email-thread-service";
 import { markdownToEmailHtml } from "@/lib/utils/markdown-to-email-html";
 import { extractEmailAddress } from "@/lib/utils/email-parsing";
 import { getSubscriptionInfo } from "@/lib/subscription";
@@ -221,6 +222,7 @@ export async function POST(request: NextRequest) {
       inReplyTo,
       threadId,
     });
+    const sentAt = new Date();
 
     // ── Create outbound activity ──────────────────────────────────────────
     // Uses direct insert (like sync-engine) to populate extended fields
@@ -250,6 +252,35 @@ export async function POST(request: NextRequest) {
       // 20260508120000_activities_draft_history_link.sql to be applied.
       draft_history_id: draftHistoryId || null,
     });
+
+    const { threadRow } = await EmailThreadService.upsertFromEmail({
+      companyId,
+      connectionId: connection.id,
+      providerThreadId: sendResult.threadId,
+      email: {
+        id: sendResult.messageId,
+        threadId: sendResult.threadId,
+        from: connection.email,
+        fromName: connection.email,
+        to,
+        cc: cc || [],
+        subject,
+        snippet: emailBody,
+        bodyText: emailBody,
+        date: sentAt,
+        labelIds: [],
+        isRead: true,
+        hasAttachments: false,
+        sizeEstimate: emailBody.length,
+      },
+      direction: "outbound",
+      opportunityId: opportunityId || null,
+    });
+    const outboundIsLatest = threadRow.latestDirection === "outbound";
+    const labels =
+      outboundIsLatest && threadRow.labels.includes("AWAITING_REPLY")
+        ? await EmailThreadService.dismissAwaitingReply(threadRow.id, companyId)
+        : threadRow.labels;
 
     // ── Update correspondence counts on linked opportunity ────────────────
     if (opportunityId) {
@@ -310,6 +341,9 @@ export async function POST(request: NextRequest) {
       messageId: sendResult.messageId,
       threadId: sendResult.threadId,
       from: connection.email,
+      sentAt: sentAt.toISOString(),
+      labels,
+      latestDirection: threadRow.latestDirection,
     });
   } catch (err) {
     console.error("[email-send]", err);
