@@ -6,7 +6,7 @@
  * The column sorts by ball-in-court state, not recency.
  *
  *   NEEDS_INPUT     → agent.needsInput true; Claude blocked, owes user a question
- *   NEEDS_REPLY     → unread inbound; the operator owes a reply
+ *   NEEDS_REPLY     → AWAITING_REPLY; the operator owes a reply
  *   DRAFTS_READY    → Claude or operator has a draft sitting in the slot
  *   AWAITING_THEM   → operator already replied, ball with counterparty (recent)
  *   LATER           → quiet / older threads
@@ -48,7 +48,7 @@ export interface ThreadForGrouping {
   agent: { needsInput: boolean };
   phaseC: PhaseC;
   closed: boolean;
-  /** True when there is at least one unread inbound message. */
+  /** True when there is at least one unread inbound message. Visual state only. */
   unread: boolean;
   /** Set when the thread has a saved draft. Drives DRAFTS_READY when phaseC is "none". */
   draftKind?: "ai" | "user" | null;
@@ -63,7 +63,7 @@ function classify(thread: ThreadForGrouping, now: number): GroupKey | null {
   if (thread.agent.needsInput) return "NEEDS_INPUT";
   if (thread.phaseC === "ai_drafted") return "DRAFTS_READY";
   if (thread.draftKind === "ai" || thread.draftKind === "user") return "DRAFTS_READY";
-  if (thread.unread) return "NEEDS_REPLY";
+  if (thread.labels.includes("AWAITING_REPLY")) return "NEEDS_REPLY";
   if (now - thread.ts <= RECENT_WINDOW_MS) return "AWAITING_THEM";
   return "LATER";
 }

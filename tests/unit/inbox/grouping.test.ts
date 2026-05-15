@@ -30,14 +30,24 @@ describe("groupThreads", () => {
     expect(groups.get("NEEDS_INPUT")).toEqual([t]);
   });
 
-  it("places unread threads in NEEDS_REPLY", () => {
-    const t = makeThread("b", { unread: true });
+  it("places awaiting-reply threads in NEEDS_REPLY even after they are read", () => {
+    const t = makeThread("b", { labels: ["AWAITING_REPLY"], unread: false });
     const groups = groupThreads([t], NOW);
     expect(groups.get("NEEDS_REPLY")).toEqual([t]);
   });
 
-  it("places ai-drafted threads in DRAFTS_READY (overrides unread)", () => {
-    const t = makeThread("d", { phaseC: "ai_drafted", unread: true });
+  it("does not use unread alone as the NEEDS_REPLY signal", () => {
+    const t = makeThread("u", { unread: true });
+    const groups = groupThreads([t], NOW);
+    expect(groups.get("NEEDS_REPLY")).toEqual([]);
+    expect(groups.get("AWAITING_THEM")).toEqual([t]);
+  });
+
+  it("places ai-drafted threads in DRAFTS_READY (overrides awaiting reply)", () => {
+    const t = makeThread("d", {
+      phaseC: "ai_drafted",
+      labels: ["AWAITING_REPLY"],
+    });
     const groups = groupThreads([t], NOW);
     expect(groups.get("DRAFTS_READY")).toEqual([t]);
   });
@@ -80,10 +90,10 @@ describe("groupThreads", () => {
     expect([...groups.values()].flat()).toEqual([]);
   });
 
-  it("needs-input takes precedence over unread", () => {
+  it("needs-input takes precedence over awaiting reply", () => {
     const t = makeThread("p", {
       agent: { needsInput: true },
-      unread: true,
+      labels: ["AWAITING_REPLY"],
     });
     const groups = groupThreads([t], NOW);
     expect(groups.get("NEEDS_INPUT")).toEqual([t]);
@@ -92,15 +102,15 @@ describe("groupThreads", () => {
 
   it("orders threads within a group newest-first", () => {
     const a = makeThread("a", {
-      unread: true,
+      labels: ["AWAITING_REPLY"],
       ts: NOW - 1000 * 60 * 60 * 1,
     });
     const b = makeThread("b", {
-      unread: true,
+      labels: ["AWAITING_REPLY"],
       ts: NOW - 1000 * 60 * 60 * 5,
     });
     const c = makeThread("c", {
-      unread: true,
+      labels: ["AWAITING_REPLY"],
       ts: NOW - 1000 * 60 * 30,
     });
     const groups = groupThreads([a, b, c], NOW);
