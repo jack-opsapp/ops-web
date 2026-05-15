@@ -97,10 +97,13 @@ test.describe("inbox redesign - populated visual verification", () => {
     ).toBeVisible();
 
     const center = page.getByTestId("inbox-center");
+    await expect(page.getByTestId("thread-row-new-badge")).toHaveCount(0);
 
     await center.getByRole("button", { name: /more actions/i }).click();
     await expect(page.getByTestId("thread-detail-more-menu")).toBeVisible();
-    await expect(page.getByRole("menuitem", { name: /mark read/i })).toBeVisible();
+    await expect(
+      page.getByRole("menuitem", { name: /mark unread/i })
+    ).toBeVisible();
     await expect(
       page.getByRole("menuitem", { name: /copy thread link/i })
     ).toBeVisible();
