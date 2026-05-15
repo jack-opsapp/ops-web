@@ -21,12 +21,7 @@
  */
 
 import { useId, type MouseEvent } from "react";
-import {
-  CircleHelp,
-  DollarSign,
-  Paperclip,
-  Receipt,
-} from "lucide-react";
+import { DollarSign, Paperclip, Receipt } from "lucide-react";
 import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
 import type { ThreadForGrouping } from "@/lib/inbox/grouping";
@@ -210,25 +205,29 @@ export function ThreadRow({
 
         {/* Title row: name · count · state-tag · time */}
         <div className="flex min-w-0 items-baseline gap-2">
-          <span
-            id={clientNameId}
-            className={cn(
-              "min-w-0 flex-1 truncate font-mohave text-[13px]",
-              isUnread ? "font-semibold text-text" : "font-normal text-text-mute",
-            )}
-          >
-            {thread.clientName}
-          </span>
-          {hasUnknownSender && (
+          <span className="flex min-w-0 flex-1 items-baseline gap-0.5">
             <span
-              data-testid="thread-row-unknown-sender"
-              aria-label={t("row.unknownSender", "Unconfirmed sender")}
-              title={t("row.unknownSender", "Unconfirmed sender")}
-              className="shrink-0 text-text-3"
+              id={clientNameId}
+              className={cn(
+                "min-w-0 truncate font-mohave text-[13px]",
+                isUnread
+                  ? "font-semibold text-text"
+                  : "font-normal text-text-mute",
+              )}
             >
-              <CircleHelp aria-hidden className="h-3 w-3" strokeWidth={1.5} />
+              {thread.clientName}
             </span>
-          )}
+            {hasUnknownSender && (
+              <span
+                data-testid="thread-row-unknown-sender"
+                aria-label={t("row.unknownSender", "Unconfirmed sender")}
+                title={t("row.unknownSender", "Unconfirmed sender")}
+                className="shrink-0 font-mono text-[11px] text-text-3"
+              >
+                ?
+              </span>
+            )}
+          </span>
           {isUnread && (
             <span
               data-testid="thread-row-new-badge"

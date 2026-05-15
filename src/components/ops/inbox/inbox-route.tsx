@@ -179,6 +179,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
     search: debouncedSearch.length > 0 ? debouncedSearch : undefined,
   });
   const threadDetail = useInboxThread(selectedThreadId);
+  const autoReadTargetRef = useRef<string | null>(selectedThreadId);
 
   useEffect(() => {
     const nextThreadId =
@@ -286,6 +287,33 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
   const threads = threadsQuery.data?.pages?.[0]?.threads ?? [];
   const detail = threadDetail.data ?? null;
   const clientId = detail?.thread.clientId ?? null;
+
+  useEffect(() => {
+    autoReadTargetRef.current = selectedThreadId;
+  }, [selectedThreadId]);
+
+  useEffect(() => {
+    if (!selectedThreadId) return;
+    if (autoReadTargetRef.current !== selectedThreadId) return;
+
+    const selectedRow = threads.find((row) => row.id === selectedThreadId);
+    const readStateKnown = selectedRow !== undefined || detail !== null;
+    if (!readStateKnown) return;
+
+    const unreadCount = Math.max(
+      selectedRow?.unreadCount ?? 0,
+      detail?.thread.unreadCount ?? 0,
+    );
+    autoReadTargetRef.current = null;
+
+    if (unreadCount > 0) {
+      threadActions.markRead.mutate({
+        threadId: selectedThreadId,
+        isRead: true,
+      });
+    }
+  }, [detail, selectedThreadId, threadActions.markRead, threads]);
+
   // providerThreadId lives on InboxThreadRow but not on InboxThreadDetail.
   // Cross-reference the list to recover it for outbound send threading.
   const providerThreadId =

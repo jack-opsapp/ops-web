@@ -47,6 +47,10 @@ export interface InboxPopulatedFixtureRoutes {
   seen: Set<InboxPopulatedInterceptKey>;
 }
 
+type InboxPopulatedFixtureState = {
+  unreadCount: number;
+};
+
 function iso(offsetMs = 0): string {
   return new Date(Date.now() + offsetMs).toISOString();
 }
@@ -303,7 +307,7 @@ function routeForAuthAndShell(route: Route, url: URL) {
   return route.fallback();
 }
 
-function selectedThreadRow() {
+function selectedThreadRow(state: InboxPopulatedFixtureState) {
   return {
     id: inboxPopulatedFixture.threadId,
     connectionId: inboxPopulatedFixture.connectionId,
@@ -325,7 +329,7 @@ function selectedThreadRow() {
     firstMessageAt: iso(-3 * HOUR),
     lastMessageAt: iso(-2 * HOUR),
     messageCount: 4,
-    unreadCount: 1,
+    unreadCount: state.unreadCount,
     latestDirection: "inbound" as const,
     latestSenderEmail: inboxPopulatedFixture.inboundSenderEmail,
     latestSenderName: inboxPopulatedFixture.inboundSenderName,
@@ -381,7 +385,7 @@ function siblingThreadRow() {
   };
 }
 
-function threadDetail() {
+function threadDetail(state: InboxPopulatedFixtureState) {
   return {
     thread: {
       id: inboxPopulatedFixture.threadId,
@@ -399,7 +403,7 @@ function threadDetail() {
         "ops@maverickprojects.test",
       ],
       messageCount: 4,
-      unreadCount: 1,
+      unreadCount: state.unreadCount,
       opportunityId: inboxPopulatedFixture.opportunityId,
       clientId: inboxPopulatedFixture.clientId,
       clientName: inboxPopulatedFixture.clientName,
@@ -459,7 +463,7 @@ function threadDetail() {
           "Need the final flashing call before we pour.\n\nCrew is holding at bay three until you confirm the detail and delivery window.",
         direction: "inbound",
         date: iso(-2 * HOUR),
-        isRead: false,
+        isRead: state.unreadCount === 0,
         hasAttachments: true,
       },
     ],
@@ -679,7 +683,8 @@ function taskRows() {
 function routeForApi(
   route: Route,
   url: URL,
-  seen: Set<InboxPopulatedInterceptKey>
+  seen: Set<InboxPopulatedInterceptKey>,
+  state: InboxPopulatedFixtureState
 ) {
   const path = url.pathname;
   const method = route.request().method();
@@ -687,7 +692,10 @@ function routeForApi(
 
   if (path === `/api/inbox/threads/${inboxPopulatedFixture.threadId}`) {
     if (method === "PATCH") {
-      const body = route.request().postDataJSON() as { action?: string };
+      const body = route.request().postDataJSON() as {
+        action?: string;
+        isRead?: boolean;
+      };
       if (body.action === "archive") {
         return fulfillJson(route, {
           needsConfirmation: true,
@@ -710,12 +718,16 @@ function routeForApi(
         });
       }
 
+      if (body.action === "markRead" && typeof body.isRead === "boolean") {
+        state.unreadCount = body.isRead ? 0 : 1;
+      }
+
       return fulfillJson(route, { ok: true });
     }
 
     if (method === "GET") {
       seen.add("api:thread-detail");
-      return fulfillJson(route, threadDetail());
+      return fulfillJson(route, threadDetail(state));
     }
   }
 
@@ -757,7 +769,7 @@ function routeForApi(
       return fulfillJson(route, { threads: [], nextCursor: null });
     }
     return fulfillJson(route, {
-      threads: [selectedThreadRow()],
+      threads: [selectedThreadRow(state)],
       nextCursor: null,
     });
   }
@@ -974,6 +986,7 @@ export async function installInboxPopulatedFixture(
   page: Page
 ): Promise<InboxPopulatedFixtureRoutes> {
   const seen = new Set<InboxPopulatedInterceptKey>();
+  const state: InboxPopulatedFixtureState = { unreadCount: 1 };
 
   await page.addInitScript(
     ({ apiKeys, authToken, company, user, userId }) => {
@@ -1093,7 +1106,7 @@ export async function installInboxPopulatedFixture(
 
   await page.route("**/api/inbox/**", (route) => {
     const url = new URL(route.request().url());
-    return routeForApi(route, url, seen);
+    return routeForApi(route, url, seen, state);
   });
 
   await page.route("**/rest/v1/**", (route) => {

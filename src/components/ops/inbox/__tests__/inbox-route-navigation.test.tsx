@@ -639,6 +639,18 @@ describe("<InboxRoute> thread navigation", () => {
     expect(archiveMutate.mock.calls[0][0]).toBe("thread-a");
   });
 
+  it("quietly marks an unread thread read when opened", async () => {
+    detailByThreadId.set("thread-a", makeThreadDetail("thread-a"));
+    renderRoute("thread-a");
+
+    await waitFor(() => {
+      expect(markReadMutate).toHaveBeenCalledWith({
+        threadId: "thread-a",
+        isRead: true,
+      });
+    });
+  });
+
   it("detail More actions call the real selected-thread handlers", async () => {
     const user = userEvent.setup();
     detailByThreadId.set("thread-a", makeThreadDetail("thread-a"));

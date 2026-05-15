@@ -281,7 +281,7 @@ describe("<ThreadRow>", () => {
   });
 
   it("renders unknown sender as a question mark next to the sender name", () => {
-    const { container } = render(
+    render(
       <ThreadRow
         thread={make({ labels: ["FROM_NEW_SENDER"] })}
         selected={false}
@@ -293,7 +293,9 @@ describe("<ThreadRow>", () => {
       "aria-label",
       "Unconfirmed sender",
     );
-    expect(container.querySelectorAll("svg")).toHaveLength(1);
+    expect(screen.getByTestId("thread-row-unknown-sender")).toHaveTextContent(
+      "?",
+    );
   });
 
   it("calls onSelect on click", () => {

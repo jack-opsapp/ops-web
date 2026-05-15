@@ -781,6 +781,73 @@ export function useThreadActions() {
         action: "markRead",
         isRead: args.isRead,
       }),
+    onMutate: async (args) => {
+      await qc.cancelQueries({ queryKey: queryKeys.inbox.threadsAll() });
+      await qc.cancelQueries({
+        queryKey: queryKeys.inbox.threadDetail(args.threadId),
+      });
+
+      const listSnapshot = qc.getQueriesData({
+        queryKey: queryKeys.inbox.threadsAll(),
+      });
+      const detailKey = queryKeys.inbox.threadDetail(args.threadId);
+      const detailSnapshot = qc.getQueryData(detailKey);
+      const nextUnreadCount = args.isRead ? 0 : 1;
+
+      qc.setQueriesData(
+        { queryKey: queryKeys.inbox.threadsAll() },
+        (old: unknown) => {
+          if (!old || typeof old !== "object") return old;
+          const data = old as {
+            pages?: Array<{
+              threads: InboxThreadRow[];
+              nextCursor: string | null;
+            }>;
+            pageParams?: unknown;
+          };
+          if (!Array.isArray(data.pages)) return old;
+          return {
+            ...data,
+            pages: data.pages.map((page) => ({
+              ...page,
+              threads: page.threads.map((t) =>
+                t.id === args.threadId
+                  ? { ...t, unreadCount: nextUnreadCount }
+                  : t,
+              ),
+            })),
+          };
+        },
+      );
+
+      qc.setQueryData(detailKey, (old: unknown) => {
+        if (!old || typeof old !== "object") return old;
+        const detail = old as InboxThreadDetail;
+        return {
+          ...detail,
+          thread: {
+            ...detail.thread,
+            unreadCount: nextUnreadCount,
+          },
+          messages: detail.messages.map((message) => ({
+            ...message,
+            isRead: args.isRead,
+          })),
+        };
+      });
+
+      return { listSnapshot, detailKey, detailSnapshot };
+    },
+    onError: (_err, _args, ctx) => {
+      if (ctx?.listSnapshot) {
+        for (const [key, value] of ctx.listSnapshot) {
+          qc.setQueryData(key, value);
+        }
+      }
+      if (ctx?.detailKey) {
+        qc.setQueryData(ctx.detailKey, ctx.detailSnapshot);
+      }
+    },
     onSuccess: (_res, args) => {
       invalidateLists();
       invalidateDetail(args.threadId);
