@@ -1,11 +1,27 @@
 /**
- * Sliding-window rate limit backed by Vercel KV (Upstash Redis).
+ * Sliding-window rate limit backed by Vercel KV (Upstash Redis), with an
+ * in-memory fallback when KV credentials are not present.
  *
- * Falls back to in-memory counter in non-production environments where
- * KV credentials are not configured. The in-memory fallback is per-process
- * — fine for `next dev`, useless in serverless production. We refuse to
- * silently fall back when NODE_ENV === 'production' so misconfiguration
- * fails loudly.
+ * Backend selection:
+ *   - If `KV_REST_API_URL` and `KV_REST_API_TOKEN` are set, every check
+ *     pipelines INCR/EXPIRE/TTL against KV. This is the canonical mode
+ *     when the project has a Vercel KV (Upstash Redis) integration
+ *     attached — strict cross-instance enforcement.
+ *   - If either env var is missing, the check falls back to a per-process
+ *     in-memory counter. Per-Vercel-function-instance enforcement only —
+ *     a determined attacker spreading requests across cold-started
+ *     instances can exceed the configured cap. Acceptable at current OPS
+ *     scale (small authenticated user base, no abuse observed). To
+ *     re-enable strict KV-backed enforcement, attach a Vercel KV
+ *     integration to the project and the env vars auto-populate.
+ *
+ * History: a previous revision threw in production when KV creds were
+ * missing, on the theory that misconfiguration should fail loudly.
+ * Reverted on 2026-05-15 after the May-12 photo upload outage was traced
+ * to this throw — the project never had KV provisioned, and every
+ * /api/uploads/presign call was returning 500 instead of degrading
+ * gracefully. Soft fallback is now the prod path; restore strict
+ * enforcement by attaching KV, not by re-throwing.
  */
 
 interface RateLimitOptions {
