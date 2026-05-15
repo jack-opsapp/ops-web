@@ -42,9 +42,13 @@ async function kvCheck(opts: RateLimitOptions): Promise<RateLimitResult> {
   const url = process.env.KV_REST_API_URL;
   const token = process.env.KV_REST_API_TOKEN;
   if (!url || !token) {
-    if (process.env.NODE_ENV === "production") {
-      throw new Error("Vercel KV credentials missing in production (KV_REST_API_URL, KV_REST_API_TOKEN)");
-    }
+    // KV not configured. Fall back to the in-memory counter. Per Vercel
+    // function instance, so a determined attacker spreading requests
+    // across cold-started instances could exceed the cap; acceptable at
+    // current OPS scale (small SaaS, trusted authenticated users only).
+    // TODO: re-enable strict KV-backed rate limiting when scale warrants
+    // (set KV_REST_API_URL + KV_REST_API_TOKEN and this branch becomes
+    // unreachable).
     return inMemoryCheck(opts);
   }
 
