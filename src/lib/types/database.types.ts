@@ -8050,6 +8050,7 @@ export type Database = {
           note: string | null
           photo_url: string
           project_id: string
+          rendered_photo_url: string | null
           updated_at: string | null
         }
         Insert: {
@@ -8062,6 +8063,7 @@ export type Database = {
           note?: string | null
           photo_url: string
           project_id: string
+          rendered_photo_url?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -8074,6 +8076,7 @@ export type Database = {
           note?: string | null
           photo_url?: string
           project_id?: string
+          rendered_photo_url?: string | null
           updated_at?: string | null
         }
         Relationships: []
@@ -8087,6 +8090,7 @@ export type Database = {
           id: string
           is_client_visible: boolean
           project_id: string
+          rendered_url: string | null
           site_visit_id: string | null
           source: Database["public"]["Enums"]["photo_source"]
           taken_at: string | null
@@ -8102,6 +8106,7 @@ export type Database = {
           id?: string
           is_client_visible?: boolean
           project_id: string
+          rendered_url?: string | null
           site_visit_id?: string | null
           source?: Database["public"]["Enums"]["photo_source"]
           taken_at?: string | null
@@ -8117,6 +8122,7 @@ export type Database = {
           id?: string
           is_client_visible?: boolean
           project_id?: string
+          rendered_url?: string | null
           site_visit_id?: string | null
           source?: Database["public"]["Enums"]["photo_source"]
           taken_at?: string | null
@@ -11411,4 +11417,3 @@ export const Constants = {
     },
   },
 } as const
-
