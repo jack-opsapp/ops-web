@@ -88,7 +88,7 @@ describe("<ThreadPicker>", () => {
     expect(trigger).toHaveTextContent(/3 OTHER THREADS/);
   });
 
-  it("renders the disabled mute label and no button when threads is empty", () => {
+  it("renders the disabled mute label without a leading separator and no button when threads is empty", () => {
     render(
       <ThreadPicker
         threads={[]}
@@ -97,7 +97,8 @@ describe("<ThreadPicker>", () => {
       />,
     );
 
-    expect(screen.getByText("· 0 OTHER THREADS")).toBeInTheDocument();
+    expect(screen.getByText("0 OTHER THREADS")).toBeInTheDocument();
+    expect(screen.queryByText("· 0 OTHER THREADS")).not.toBeInTheDocument();
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 

@@ -83,6 +83,7 @@ async function removeNextDevOverlay(page: import("@playwright/test").Page) {
 }
 
 test.describe("inbox redesign - populated visual verification", () => {
+  test.describe.configure({ mode: "serial" });
   test.setTimeout(60_000);
 
   test("captures dense snooze and recategorize popovers", async ({ page }) => {
@@ -158,6 +159,15 @@ test.describe("inbox redesign - populated visual verification", () => {
   }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     const routes = await installInboxPopulatedFixture(page);
+    const attachmentFailures: string[] = [];
+    page.on("response", (response) => {
+      if (
+        response.url().includes("/api/integrations/email/attachment") &&
+        response.status() >= 400
+      ) {
+        attachmentFailures.push(`${response.status()} ${response.url()}`);
+      }
+    });
 
     await openPopulatedInbox(page);
 
@@ -188,16 +198,35 @@ test.describe("inbox redesign - populated visual verification", () => {
 
     await expect(page.getByTestId("message-bubble")).toHaveCount(3);
     await expect(page.getByText(/Need the final flashing call/i)).toBeVisible();
+    await expect(page.getByTestId("draft-bubble")).toBeVisible();
     await expect(
-      page.getByText("attachment", { exact: true }).first()
+      page.getByText(/Use the standing seam curb flashing/i)
     ).toBeVisible();
+    await expect(
+      page.getByTestId("inbox-center").getByTestId("bubble-attachment-row")
+    ).toBeVisible();
+    await expect(page.getByTestId("photo-grid")).toBeVisible();
+    const inlinePhoto = page.getByRole("img", {
+      name: "bay-three-curb-photo.jpg",
+    });
+    await expect(inlinePhoto).toBeVisible();
+    await expect
+      .poll(
+        () =>
+          inlinePhoto.evaluate(
+            (node) => (node as HTMLImageElement).naturalWidth,
+          ),
+        { timeout: 5_000 },
+      )
+      .toBeGreaterThan(0);
+    expect(attachmentFailures).toEqual([]);
 
     await expect(page.getByPlaceholder(/\[type message/i)).toBeVisible();
-    await expect(
-      page.getByRole("button", { name: "SEND", exact: true })
-    ).toBeVisible();
     const floatingComposer = page.getByTestId("floating-composer-frame");
     await expect(floatingComposer).toBeVisible();
+    await expect(
+      floatingComposer.getByRole("button", { name: "SEND", exact: true })
+    ).toBeVisible();
     await expect
       .poll(
         () =>
@@ -215,13 +244,10 @@ test.describe("inbox redesign - populated visual verification", () => {
       .toBeGreaterThan(0);
 
     const composerBox = await floatingComposer.boundingBox();
-    const lastBubbleBox = await page
-      .getByTestId("message-bubble")
-      .last()
-      .boundingBox();
+    const terminalC5Box = await page.getByTestId("draft-bubble").boundingBox();
     expect(composerBox).not.toBeNull();
-    expect(lastBubbleBox).not.toBeNull();
-    expect(lastBubbleBox!.y + lastBubbleBox!.height).toBeLessThanOrEqual(
+    expect(terminalC5Box).not.toBeNull();
+    expect(terminalC5Box!.y + terminalC5Box!.height).toBeLessThanOrEqual(
       composerBox!.y
     );
 

@@ -403,7 +403,7 @@
   "detailMore.refresh": "ACTUALIZAR HILO",
 
   "picker.trigger": "{count} OTROS HILOS",
-  "picker.triggerNone": "· 0 OTROS HILOS",
+  "picker.triggerNone": "0 OTROS HILOS",
   "picker.header": "// HILOS CON {client} · {count}",
 
   "bands.summary.title": "// RESUMEN",
@@ -433,6 +433,13 @@
   "draftSwitcher.phaseCLabel": "✦ {n} · PHASE C",
   "draftSwitcher.addNew": "[+]",
   "draftSwitcher.addNewAria": "Añadir borrador",
+  "draftBubble.label": "// BORRADOR",
+  "draftBubble.pickerLabel": "Borradores",
+  "draftBubble.pickerItem": "{index}",
+  "draftBubble.edit": "EDITAR",
+  "draftBubble.send": "ENVIAR",
+  "draftBubble.phaseC": "PHASE C",
+  "draftBubble.provider": "TÚ",
 
   "rail.clientLabel": "// CLIENTE",
   "rail.clientUnlinked": "// CLIENTE :: SIN VINCULAR",

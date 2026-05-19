@@ -81,7 +81,7 @@ export function ThreadPicker({
           className,
         )}
       >
-        {t("picker.triggerNone", "· 0 OTHER THREADS")}
+        {t("picker.triggerNone", "0 OTHER THREADS")}
       </span>
     );
   }

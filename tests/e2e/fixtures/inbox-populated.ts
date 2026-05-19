@@ -10,6 +10,8 @@ const E2E_ORIGIN =
   process.env.E2E_BASE_URL ??
   `http://localhost:${process.env.E2E_PORT ?? "3000"}`;
 const FIREBASE_FALLBACK_API_KEY = "ops-e2e-api-key";
+const INLINE_PHOTO_PNG_BASE64 =
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
 
 export const inboxPopulatedFixture = {
   companyId: "e2e-company-maverick-projects",
@@ -88,6 +90,30 @@ async function fulfillJson(route: Route, body: unknown, count?: number) {
     status: 200,
     headers: postgrestHeaders(count),
     body: JSON.stringify(body),
+  });
+}
+
+async function fulfillAttachmentBinary(route: Route, url: URL) {
+  const attachmentId = url.searchParams.get("attachmentId");
+  if (attachmentId === "att-site-photo") {
+    await route.fulfill({
+      status: 200,
+      headers: {
+        "cache-control": "no-store",
+        "content-type": "image/png",
+      },
+      body: Buffer.from(INLINE_PHOTO_PNG_BASE64, "base64"),
+    });
+    return;
+  }
+
+  await route.fulfill({
+    status: 200,
+    headers: {
+      "cache-control": "no-store",
+      "content-type": "application/pdf",
+    },
+    body: "%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n",
   });
 }
 
@@ -1102,6 +1128,11 @@ export async function installInboxPopulatedFixture(
   await page.route("**/api/duplicates**", (route) => {
     const url = new URL(route.request().url());
     return routeForAuthAndShell(route, url);
+  });
+
+  await page.route("**/api/integrations/email/attachment**", (route) => {
+    const url = new URL(route.request().url());
+    return fulfillAttachmentBinary(route, url);
   });
 
   await page.route("**/api/inbox/**", (route) => {

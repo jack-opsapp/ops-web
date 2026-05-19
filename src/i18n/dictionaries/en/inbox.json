@@ -404,7 +404,7 @@
   "detailMore.refresh": "REFRESH THREAD",
 
   "picker.trigger": "{count} OTHER THREADS",
-  "picker.triggerNone": "· 0 OTHER THREADS",
+  "picker.triggerNone": "0 OTHER THREADS",
   "picker.header": "// THREADS WITH {client} · {count}",
 
   "bands.summary.title": "// SUMMARY",
@@ -434,6 +434,13 @@
   "draftSwitcher.phaseCLabel": "✦ {n} · PHASE C",
   "draftSwitcher.addNew": "[+]",
   "draftSwitcher.addNewAria": "Add new draft",
+  "draftBubble.label": "// DRAFT",
+  "draftBubble.pickerLabel": "Drafts",
+  "draftBubble.pickerItem": "{index}",
+  "draftBubble.edit": "EDIT",
+  "draftBubble.send": "SEND",
+  "draftBubble.phaseC": "PHASE C",
+  "draftBubble.provider": "YOURS",
 
   "rail.clientLabel": "// CLIENT",
   "rail.clientUnlinked": "// CLIENT :: UNLINKED",

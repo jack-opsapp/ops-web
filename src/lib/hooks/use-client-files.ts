@@ -40,6 +40,12 @@ export interface ClientFilesResult {
   photos: ProjectPhoto[];
   documents: ProjectDocument[];
   /**
+   * Raw provider attachment rows for the selected thread. The FILES rail
+   * consumes the adapted photo/document buckets above; C5 uses this canonical
+   * messageId-keyed shape to render inline message attachments in context.
+   */
+  threadAttachments: ThreadAttachmentDto[];
+  /**
    * Image attachments on the current thread that are NOT assigned to any
    * project — rendered as the trailing "// THIS THREAD" bucket inside the
    * PHOTOS sub-view.
@@ -133,6 +139,7 @@ export function useClientFiles(
       return {
         photos,
         documents,
+        threadAttachments,
         threadOnlyPhotos,
         total: photos.length + documents.length + threadOnlyPhotos.length,
       };

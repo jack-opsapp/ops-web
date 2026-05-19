@@ -49,11 +49,6 @@ import {
   useResolveCommitment,
   useSaveDraft,
 } from "@/lib/hooks/use-inbox-threads";
-import {
-  DraftSwitcher,
-  type DraftEntry,
-  type DraftSource as UIDraftSource,
-} from "./composer/draft-switcher";
 import { AiDraftBanner } from "./composer/ai-draft-banner";
 import { SnoozePicker } from "./snooze-picker";
 import { RecategorizeMenu } from "./recategorize-menu";
@@ -92,7 +87,13 @@ import { ThreadList, type ThreadListItem } from "./thread-list";
 import { ThreadDetail } from "./thread-detail";
 import { CommitmentPills, type CommitmentPillItem } from "./commitment-pills";
 import { DetailBand } from "./detail-band";
-import { MessageList, type RenderableMessage } from "./message-list";
+import {
+  MessageList,
+  type InlinePhotoEntry,
+  type RenderableDraft,
+  type RenderableMessage,
+} from "./message-list";
+import type { BubbleAttachment } from "./message-bubble";
 import { Composer } from "./composer/composer";
 import { ContextRail } from "./context-rail/context-rail";
 import { type PipelineOpp } from "./context-rail/pipeline-list";
@@ -104,6 +105,7 @@ import type {
   InboxThreadRow,
   InboxThreadMessage,
 } from "@/lib/hooks/use-inbox-threads";
+import type { ThreadAttachmentDto } from "@/lib/inbox/adapt-thread-attachment";
 import type { Opportunity } from "@/lib/types/pipeline";
 import { inboxThreadHref, threadIdFromInboxPathname } from "./inbox-navigation";
 
@@ -137,6 +139,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
   const openProjectWindow = useWindowStore((s) => s.openProjectWindow);
   const [composerValue, setComposerValue] = useState("");
   const [composerError, setComposerError] = useState<string | null>(null);
+  const [sendCompletedAt, setSendCompletedAt] = useState<number | null>(null);
   const [activeDraftId, setActiveDraftId] = useState<string | null>(null);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [archiveContext, setArchiveContext] =
@@ -333,18 +336,6 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
     () => threadDrafts.find((d) => d.id === activeDraftId) ?? null,
     [threadDrafts, activeDraftId]
   );
-  const draftEntries = useMemo<DraftEntry[]>(
-    () =>
-      threadDrafts.map((d) => ({
-        id: d.id,
-        // The wire shape splits provider vs ai. We don't disambiguate
-        // Gmail vs Outlook here — both render as the generic "Yours" chip.
-        source: (d.source === "ai" ? "claude" : "yours") as UIDraftSource,
-        label: d.subject?.replace(/^re:\s*/i, "").slice(0, 24) || undefined,
-      })),
-    [threadDrafts]
-  );
-
   // Keep activeDraftId valid when the drafts list changes.
   useEffect(() => {
     if (!activeDraftId) return;
@@ -409,7 +400,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
     selectedThreadId,
     composerError,
     activeDraftId,
-    draftEntries.length,
+    threadDrafts.length,
     isAgentDraft,
     isPristineDraft,
   ]);
@@ -510,6 +501,33 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
   const linkedOppIds = useMemo(
     () => new Set(linkedOpsQuery.data ?? []),
     [linkedOpsQuery.data]
+  );
+  const threadAttachments = filesQuery.data?.threadAttachments ?? [];
+  const openThreadAttachment = useCallback((url: string) => {
+    window.open(url, "_blank", "noopener");
+  }, []);
+  const messageAttachmentsById = useMemo(
+    () =>
+      buildMessageAttachmentMap(threadAttachments, openThreadAttachment),
+    [openThreadAttachment, threadAttachments]
+  );
+  const inlinePhotoEntries = useMemo<InlinePhotoEntry[]>(
+    () =>
+      detail
+        ? buildInlinePhotoEntries(detail.messages, threadAttachments)
+        : [],
+    [detail, threadAttachments]
+  );
+  const messageDrafts = useMemo<RenderableDraft[]>(
+    () =>
+      threadDrafts.map((draft) => ({
+        id: draft.id,
+        source: draft.source,
+        body: draft.bodyText,
+        fromEmail: draft.fromEmail,
+        updatedAt: draft.updatedAt,
+      })),
+    [threadDrafts]
   );
 
   const now = Date.now();
@@ -931,6 +949,84 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
     "--inbox-floating-composer-height": `${floatingComposerHeight}px`,
   } as CSSProperties;
 
+  const sendThreadReply = useCallback(
+    (value: string, currentDetail: NonNullable<typeof detail>) => {
+      if (!userId || !companyId || !selectedThreadId) return;
+      // Free-form answer path: when an unresolved agent question is
+      // attached to this thread, treat the operator's typed reply as
+      // both the email body AND the question's answer. Fire-and-forget
+      // — answering shouldn't block the email send if it fails (the
+      // band stays up and the operator can retry from the chip).
+      if (currentDetail.thread.agentBlockingQuestion) {
+        answerAgentQuestion.mutate({
+          threadId: selectedThreadId,
+          answer: value,
+        });
+      }
+      const lastInbound = [...currentDetail.messages]
+        .reverse()
+        .find((m) => m.direction === "inbound");
+      const recipient = lastInbound?.from ?? null;
+      if (!recipient) {
+        setComposerError(
+          t("composer.error.noRecipient", "Cannot resolve recipient address.")
+        );
+        return;
+      }
+      const subjectBase = currentDetail.thread.subject ?? "";
+      const replySubject = /^re:/i.test(subjectBase)
+        ? subjectBase
+        : subjectBase
+          ? `Re: ${subjectBase}`
+          : "(no subject)";
+      sendReply.mutate(
+        {
+          userId,
+          companyId,
+          payload: {
+            threadId: selectedThreadId,
+            to: [recipient],
+            subject: replySubject,
+            body: value,
+            inReplyTo: lastInbound?.id ?? null,
+            providerThreadId: providerThreadId ?? null,
+            opportunityId: currentDetail.thread.opportunityId,
+            format: "markdown",
+          },
+        },
+        {
+          onSuccess: () => {
+            setComposerValue("");
+            setActiveDraftId(null);
+            setSendCompletedAt(Date.now());
+            // Once the send lands, the provider auto-removes the draft
+            // it was based on (Gmail drafts.send / Graph sendDraft both
+            // do this). Clear our local tracking so the next typed reply
+            // provisions a fresh draft instead of trying to PATCH a row
+            // that no longer exists.
+            autoSaveDraftIdRef.current = null;
+            lastSavedBodyRef.current = "";
+          },
+          onError: (e) =>
+            setComposerError(
+              e instanceof Error
+                ? e.message
+                : t("composer.error.sendFailed", "Send failed")
+            ),
+        }
+      );
+    },
+    [
+      answerAgentQuestion,
+      companyId,
+      providerThreadId,
+      selectedThreadId,
+      sendReply,
+      t,
+      userId,
+    ]
+  );
+
   const composerErrorAccessory = composerError ? (
     <p
       role="alert"
@@ -952,70 +1048,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
         setComposerValue(next);
         if (composerError) setComposerError(null);
       }}
-      onSend={(value) => {
-        if (!userId || !companyId || !selectedThreadId) return;
-        // Free-form answer path: when an unresolved agent question is
-        // attached to this thread, treat the operator's typed reply as
-        // both the email body AND the question's answer. Fire-and-forget
-        // — answering shouldn't block the email send if it fails (the
-        // band stays up and the operator can retry from the chip).
-        if (currentDetail.thread.agentBlockingQuestion) {
-          answerAgentQuestion.mutate({
-            threadId: selectedThreadId,
-            answer: value,
-          });
-        }
-        const lastInbound = [...currentDetail.messages]
-          .reverse()
-          .find((m) => m.direction === "inbound");
-        const recipient = lastInbound?.from ?? null;
-        if (!recipient) {
-          setComposerError(
-            t("composer.error.noRecipient", "Cannot resolve recipient address.")
-          );
-          return;
-        }
-        const subjectBase = currentDetail.thread.subject ?? "";
-        const replySubject = /^re:/i.test(subjectBase)
-          ? subjectBase
-          : subjectBase
-            ? `Re: ${subjectBase}`
-            : "(no subject)";
-        sendReply.mutate(
-          {
-            userId,
-            companyId,
-            payload: {
-              threadId: selectedThreadId,
-              to: [recipient],
-              subject: replySubject,
-              body: value,
-              inReplyTo: lastInbound?.id ?? null,
-              providerThreadId: providerThreadId ?? null,
-              opportunityId: currentDetail.thread.opportunityId,
-              format: "markdown",
-            },
-          },
-          {
-            onSuccess: () => {
-              setComposerValue("");
-              // Once the send lands, the provider auto-removes the draft
-              // it was based on (Gmail drafts.send / Graph sendDraft both
-              // do this). Clear our local tracking so the next typed reply
-              // provisions a fresh draft instead of trying to PATCH a row
-              // that no longer exists.
-              autoSaveDraftIdRef.current = null;
-              lastSavedBodyRef.current = "";
-            },
-            onError: (e) =>
-              setComposerError(
-                e instanceof Error
-                  ? e.message
-                  : t("composer.error.sendFailed", "Send failed")
-              ),
-          }
-        );
-      }}
+      onSend={(value) => sendThreadReply(value, currentDetail)}
       disabled={sendReply.isPending}
       placeholder={t(
         "composer.tacticPlaceholder",
@@ -1027,18 +1060,6 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
       bottomAccessory={composerErrorAccessory}
       topAccessory={
         <>
-          {draftEntries.length > 0 && (
-            <DraftSwitcher
-              drafts={draftEntries}
-              activeId={activeDraftId}
-              onSelect={(id) => {
-                const picked = threadDrafts.find((d) => d.id === id);
-                if (!picked) return;
-                setActiveDraftId(id);
-                setComposerValue(picked.bodyText);
-              }}
-            />
-          )}
           {isAgentDraft && isPristineDraft && activeDraft && (
             <AiDraftBanner draftedAt={activeDraft.updatedAt} />
           )}
@@ -1196,7 +1217,22 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
           style={floatingComposerStyle}
         >
           <MessageList
-            messages={detail.messages.map(toRenderableMessage)}
+            threadId={selectedThreadId}
+            messages={detail.messages.map((message) =>
+              toRenderableMessage(message, messageAttachmentsById)
+            )}
+            inlinePhotos={inlinePhotoEntries}
+            drafts={messageDrafts}
+            onEditDraft={(draft) => {
+              setActiveDraftId(draft.id);
+              setComposerValue(draft.body);
+              setComposerError(null);
+              composerInputRef.current?.focus();
+            }}
+            onSendDraft={(draft) => sendThreadReply(draft.body, detail)}
+            isDraftSending={sendReply.isPending}
+            sendCompletedAt={sendCompletedAt}
+            scrollAnchorSignal={floatingComposerHeight}
             className="pb-[calc(var(--inbox-floating-composer-height)_+_12px)]"
           />
           <div
@@ -1211,7 +1247,23 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
         </div>
       ) : (
         <>
-          <MessageList messages={detail.messages.map(toRenderableMessage)} />
+          <MessageList
+            threadId={selectedThreadId}
+            messages={detail.messages.map((message) =>
+              toRenderableMessage(message, messageAttachmentsById)
+            )}
+            inlinePhotos={inlinePhotoEntries}
+            drafts={messageDrafts}
+            onEditDraft={(draft) => {
+              setActiveDraftId(draft.id);
+              setComposerValue(draft.body);
+              setComposerError(null);
+              composerInputRef.current?.focus();
+            }}
+            onSendDraft={(draft) => sendThreadReply(draft.body, detail)}
+            isDraftSending={sendReply.isPending}
+            sendCompletedAt={sendCompletedAt}
+          />
           {renderComposer(detail, "docked")}
         </>
       )}
@@ -1549,7 +1601,10 @@ function formatDue(d: Date): string {
     .toUpperCase();
 }
 
-function toRenderableMessage(m: InboxThreadMessage): RenderableMessage {
+function toRenderableMessage(
+  m: InboxThreadMessage,
+  attachmentsByMessageId?: ReadonlyMap<string, BubbleAttachment[]>
+): RenderableMessage {
   const ts = new Date(m.date).getTime();
   const senderName = m.fromName ?? m.from ?? "—";
   return {
@@ -1561,13 +1616,87 @@ function toRenderableMessage(m: InboxThreadMessage): RenderableMessage {
     body: m.cleanBodyText || m.bodyText || m.snippet || "",
     senderName,
     initials: senderName,
-    attachmentName: m.hasAttachments ? "attachment" : undefined,
+    attachments: attachmentsByMessageId?.get(m.id) ?? [],
     timestamp: new Date(ts).toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
       hour12: false,
     }),
   };
+}
+
+function buildMessageAttachmentMap(
+  attachments: ThreadAttachmentDto[],
+  onOpenAttachment: (url: string) => void
+): Map<string, BubbleAttachment[]> {
+  const map = new Map<string, BubbleAttachment[]>();
+  for (const att of attachments) {
+    if (isImageAttachment(att)) continue;
+    const rows = map.get(att.messageId) ?? [];
+    const row: BubbleAttachment = {
+      id: att.id,
+      filename: att.filename,
+      size: formatAttachmentSize(att.size),
+    };
+    if (att.url) {
+      row.onClick = () => onOpenAttachment(att.url);
+    }
+    rows.push(row);
+    map.set(att.messageId, rows);
+  }
+  return map;
+}
+
+function buildInlinePhotoEntries(
+  messages: InboxThreadMessage[],
+  attachments: ThreadAttachmentDto[]
+): InlinePhotoEntry[] {
+  const photosByMessageId = new Map<string, ThreadAttachmentDto[]>();
+  for (const att of attachments) {
+    if (!isImageAttachment(att)) continue;
+    const photos = photosByMessageId.get(att.messageId) ?? [];
+    photos.push(att);
+    photosByMessageId.set(att.messageId, photos);
+  }
+
+  return messages.flatMap((message, index) => {
+    const photos = photosByMessageId.get(message.id) ?? [];
+    if (photos.length === 0) return [];
+    const ts = new Date(message.date).getTime();
+    const senderName = message.fromName ?? message.from ?? "—";
+    return [
+      {
+        afterMessageIdx: index,
+        direction: message.direction,
+        senderName,
+        initials: senderName,
+        timestamp: Number.isNaN(ts)
+          ? undefined
+          : new Date(ts).toLocaleTimeString("en-US", {
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: false,
+            }),
+        photos: photos.map((photo) => ({
+          id: photo.id,
+          url: photo.url,
+          alt: photo.filename,
+        })),
+      },
+    ];
+  });
+}
+
+function isImageAttachment(att: ThreadAttachmentDto): boolean {
+  return att.mimeType.toLowerCase().startsWith("image/");
+}
+
+function formatAttachmentSize(size: number): string {
+  if (!Number.isFinite(size) || size <= 0) return "—";
+  if (size < 1_000) return `${size} B`;
+  if (size < 1_000_000) return `${Math.round(size / 1_000)} KB`;
+  const value = size / 1_000_000;
+  return `${value >= 10 ? Math.round(value) : value.toFixed(1)} MB`;
 }
 
 function guessSenderName(messages: InboxThreadMessage[]): string | null {

@@ -7,7 +7,7 @@ import {
   Tag,
   type LucideIcon,
 } from "lucide-react";
-import { forwardRef, type ReactNode } from "react";
+import { Fragment, forwardRef, type ReactNode } from "react";
 import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
 import type { EmailThreadCategory } from "@/lib/types/email-thread";
@@ -135,9 +135,38 @@ export function ThreadDetailHeader({
     "{count}",
     String(messageCount),
   );
+  const metaItems: Array<{ key: string; node: ReactNode }> = [];
+  if (category) {
+    metaItems.push({
+      key: "category",
+      node: <CategoryChip category={category} size="sm" />,
+    });
+  }
+  if (senderName.trim().length > 0) {
+    metaItems.push({
+      key: "sender",
+      node: <span className="min-w-0 flex-1 truncate">{senderName}</span>,
+    });
+  }
+  metaItems.push({
+    key: "count",
+    node: (
+      <span className="uppercase tracking-[0.10em] text-text-3">
+        {metaCountText}
+      </span>
+    ),
+  });
+  if (threadPickerSlot) {
+    metaItems.push({
+      key: "thread-picker",
+      node: threadPickerSlot,
+    });
+  }
 
   return (
     <header
+      data-inbox-debug-id="C2"
+      data-inbox-debug-label="DETAIL HEADER"
       className={cn(
         "shrink-0 border-b border-line bg-inbox-panel px-2.5 pb-1.5 pt-2",
         className,
@@ -161,25 +190,24 @@ export function ThreadDetailHeader({
       </div>
 
       <div
+        data-testid="detail-header-meta"
         className="flex items-center gap-2 font-mono text-[11px] leading-none text-text-3"
         style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
       >
-        {category && <CategoryChip category={category} size="sm" />}
-        <span className="min-w-0 flex-1 truncate">{senderName}</span>
-        <span aria-hidden className="text-text-mute">
-          ·
-        </span>
-        <span className="uppercase tracking-[0.10em] text-text-3">
-          {metaCountText}
-        </span>
-        {threadPickerSlot && (
-          <>
-            <span aria-hidden className="text-text-mute">
+        {metaItems.map((item, index) => (
+          <Fragment key={item.key}>
+            {index > 0 && (
+              <span
+                aria-hidden
+                data-testid="detail-header-meta-separator"
+                className="text-text-mute"
+              >
               ·
-            </span>
-            {threadPickerSlot}
-          </>
-        )}
+              </span>
+            )}
+            {item.node}
+          </Fragment>
+        ))}
       </div>
     </header>
   );

@@ -2,7 +2,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi } from "vitest";
 import { ThreadDetail } from "../thread-detail";
-import { EmptyDetailHeader } from "../thread-detail-header";
+import { EmptyDetailHeader, ThreadDetailHeader } from "../thread-detail-header";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -154,6 +154,44 @@ describe("<ThreadDetail>", () => {
     expect(screen.getByTestId("thread-picker-slot").textContent).toMatch(
       /3 OTHER THREADS/,
     );
+  });
+
+  it("does not render meta separators around missing sender content", () => {
+    render(
+      <ThreadDetailHeader
+        subject="RFQ"
+        category={null}
+        senderName=""
+        messageCount={4}
+      />,
+    );
+
+    const meta = screen.getByTestId("detail-header-meta");
+    expect(meta).toHaveTextContent("4 MSG");
+    expect(
+      screen.queryAllByTestId("detail-header-meta-separator"),
+    ).toHaveLength(0);
+    expect(meta.textContent).not.toMatch(/·\s*·/);
+  });
+
+  it("renders one separator between message count and a real thread picker slot", () => {
+    render(
+      <ThreadDetailHeader
+        subject="RFQ"
+        category={null}
+        senderName=""
+        messageCount={4}
+        threadPickerSlot={<span>1 OTHER THREADS</span>}
+      />,
+    );
+
+    const meta = screen.getByTestId("detail-header-meta");
+    expect(meta).toHaveTextContent("4 MSG");
+    expect(meta).toHaveTextContent("1 OTHER THREADS");
+    expect(
+      screen.queryAllByTestId("detail-header-meta-separator"),
+    ).toHaveLength(1);
+    expect(meta.textContent).not.toMatch(/·\s*·/);
   });
 
   it("does not render the triage slot when triageSlot is not provided", () => {
