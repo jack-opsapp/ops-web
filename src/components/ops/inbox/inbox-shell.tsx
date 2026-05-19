@@ -51,23 +51,33 @@ export function InboxShell({
   if (!resizable) {
     return (
       <div
+        data-inbox-debug-id="A2"
+        data-inbox-debug-label="INBOX WORKSPACE"
         className={cn(
           "flex h-full min-h-0 w-full bg-inbox-bg text-text",
           className,
         )}
       >
         <aside
+          data-inbox-debug-id="B0"
+          data-inbox-debug-label="THREAD COLUMN"
           role="complementary"
           aria-label={t("shell.threadList", "Thread list")}
           className="flex w-[360px] shrink-0 flex-col border-r border-line bg-inbox-bg"
         >
           {threadList}
         </aside>
-        <main className="flex min-w-0 flex-1 flex-col bg-inbox-bg">
+        <main
+          data-inbox-debug-id="C0"
+          data-inbox-debug-label="DETAIL COLUMN"
+          className="flex min-w-0 flex-1 flex-col bg-inbox-bg"
+        >
           {detail}
         </main>
         {open && (
           <aside
+            data-inbox-debug-id="D0"
+            data-inbox-debug-label="CONTEXT RAIL"
             role="complementary"
             aria-label={t("shell.threadContext", "Thread context")}
             className="flex w-[360px] shrink-0 flex-col border-l border-line bg-inbox-bg-deep"
@@ -90,6 +100,8 @@ export function InboxShell({
 
   return (
     <Group
+      data-inbox-debug-id="A2"
+      data-inbox-debug-label="INBOX WORKSPACE"
       orientation="horizontal"
       onLayoutChange={handleLayoutChange}
       className={cn(
@@ -104,6 +116,8 @@ export function InboxShell({
         maxSize={`${LEFT_PCT_BOUNDS[1]}%`}
       >
         <aside
+          data-inbox-debug-id="B0"
+          data-inbox-debug-label="THREAD COLUMN"
           role="complementary"
           aria-label={t("shell.threadList", "Thread list")}
           className="flex h-full min-h-0 flex-col border-r border-line bg-inbox-bg"
@@ -122,7 +136,11 @@ export function InboxShell({
       />
 
       <Panel id="inbox-center">
-        <main className="flex h-full min-h-0 flex-col bg-inbox-bg">
+        <main
+          data-inbox-debug-id="C0"
+          data-inbox-debug-label="DETAIL COLUMN"
+          className="flex h-full min-h-0 flex-col bg-inbox-bg"
+        >
           {detail}
         </main>
       </Panel>
@@ -146,6 +164,8 @@ export function InboxShell({
           maxSize={`${RIGHT_PCT_BOUNDS[1]}%`}
         >
           <aside
+            data-inbox-debug-id="D0"
+            data-inbox-debug-label="CONTEXT RAIL"
             role="complementary"
             aria-label={t("shell.threadContext", "Thread context")}
             className="flex h-full min-h-0 flex-col border-l border-line bg-inbox-bg-deep"

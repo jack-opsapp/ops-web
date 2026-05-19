@@ -122,13 +122,19 @@ function InnerContextRail({
   };
 
   return (
-    <div className={cn("flex min-h-0 flex-1 flex-col bg-inbox-bg-deep", className)}>
+    <div
+      data-inbox-debug-id="D1"
+      data-inbox-debug-label="CONTEXT RAIL CONTENT"
+      className={cn("flex min-h-0 flex-1 flex-col bg-inbox-bg-deep", className)}
+    >
       {isUnlinked ? (
         <UnlinkedHeader t={t} />
       ) : (
         <LinkedHeader t={t} client={client} onOpenClient={onOpenClient} />
       )}
       <div
+        data-inbox-debug-id="D3"
+        data-inbox-debug-label="CONTEXT TABS"
         data-testid="rail-tabstrip-wrap"
         className={cn(
           isUnlinked && !unlinkedFilesAvailable && "pointer-events-none opacity-40",
@@ -137,6 +143,8 @@ function InnerContextRail({
         <TabStrip tabs={tabs} active={active} onSelect={onTabSelect} />
       </div>
       <div
+        data-inbox-debug-id="D4"
+        data-inbox-debug-label="CONTEXT BODY"
         role="tabpanel"
         className="flex min-h-0 flex-1 flex-col overflow-y-auto scrollbar-hide p-3"
       >
@@ -172,7 +180,11 @@ function LinkedHeader({
   onOpenClient?: () => void;
 }) {
   return (
-    <header className="shrink-0 border-b border-line bg-inbox-panel px-3.5 pb-2.5 pt-2.5">
+    <header
+      data-inbox-debug-id="D2"
+      data-inbox-debug-label="CLIENT HEADER"
+      className="shrink-0 border-b border-line bg-inbox-panel px-3.5 pb-2.5 pt-2.5"
+    >
       {/* // CLIENT label */}
       <p className="font-cakemono text-[11px] font-light uppercase leading-none tracking-[0.18em] text-text-mute">
         {t("rail.clientLabel", "// CLIENT")}
@@ -284,7 +296,11 @@ function UnlinkedHeader({
   t: TFn;
 }) {
   return (
-    <header className="shrink-0 border-b border-line bg-inbox-panel px-3.5 pb-3 pt-3">
+    <header
+      data-inbox-debug-id="D2"
+      data-inbox-debug-label="UNLINKED CLIENT HEADER"
+      className="shrink-0 border-b border-line bg-inbox-panel px-3.5 pb-3 pt-3"
+    >
       <p className="font-cakemono text-[11px] font-light uppercase leading-none tracking-[0.18em] text-text-2">
         {t("rail.clientUnlinked", "// CLIENT :: UNLINKED")}
       </p>

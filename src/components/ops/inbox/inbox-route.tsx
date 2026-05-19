@@ -96,6 +96,7 @@ import {
 import type { BubbleAttachment } from "./message-bubble";
 import { Composer } from "./composer/composer";
 import { ContextRail } from "./context-rail/context-rail";
+import { InboxDebugLabels } from "./inbox-debug-labels";
 import { type PipelineOpp } from "./context-rail/pipeline-list";
 import { WorkView } from "./context-rail/work-view";
 import { AccountingView } from "./context-rail/accounting-view";
@@ -1269,9 +1270,21 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
       )}
     </ThreadDetail>
   ) : selectedThreadId ? (
-    <EmptyState label={t("detail.loading", "Loading thread")} />
+    <div
+      data-inbox-debug-id="C1"
+      data-inbox-debug-label="LOADING DETAIL STATE"
+      className="flex min-h-0 flex-1 flex-col"
+    >
+      <EmptyState label={t("detail.loading", "Loading thread")} />
+    </div>
   ) : (
-    <EmptyState label={t("detail.empty", "Pick a thread from the list")} />
+    <div
+      data-inbox-debug-id="C1"
+      data-inbox-debug-label="EMPTY DETAIL STATE"
+      className="flex min-h-0 flex-1 flex-col"
+    >
+      <EmptyState label={t("detail.empty", "Pick a thread from the list")} />
+    </div>
   );
 
   const opportunities = opportunitiesQuery.data ?? [];
@@ -1428,6 +1441,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
         detail={detailNode}
         contextRail={contextRail}
       />
+      <InboxDebugLabels />
       <ArchiveConfirmModal
         open={archiveOpen}
         onOpenChange={setArchiveOpen}

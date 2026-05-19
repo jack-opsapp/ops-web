@@ -96,7 +96,11 @@ export function ThreadDetail({
   }, [onNext, onPrev]);
 
   return (
-    <div className={cn("flex min-h-0 flex-1 flex-col bg-inbox-bg", className)}>
+    <div
+      data-inbox-debug-id="C1"
+      data-inbox-debug-label="THREAD DETAIL SURFACE"
+      className={cn("flex min-h-0 flex-1 flex-col bg-inbox-bg", className)}
+    >
       <ThreadDetailHeader
         subject={subject}
         category={category}
@@ -115,9 +119,15 @@ export function ThreadDetail({
         threadPickerSlot={threadPickerSlot}
         triageSlot={triageSlot}
       />
-      <div className="flex min-h-0 flex-1 flex-col">
+      <div
+        data-inbox-debug-id="C4"
+        data-inbox-debug-label="MESSAGES + COMPOSER AREA"
+        className="flex min-h-0 flex-1 flex-col"
+      >
         {floatingBadgeSlot && (
           <div
+            data-inbox-debug-id="C3"
+            data-inbox-debug-label="DETAIL STATUS STRIP"
             data-testid="detail-status-stack"
             className="flex shrink-0 items-center border-b border-line bg-inbox-bg px-3 py-1"
           >

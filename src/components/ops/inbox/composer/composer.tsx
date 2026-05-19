@@ -113,6 +113,10 @@ export function Composer({
 
   return (
     <div
+      data-inbox-debug-id="C6"
+      data-inbox-debug-label={
+        surface === "floating" ? "FLOATING COMPOSER" : "DOCKED COMPOSER"
+      }
       className={cn(
         surface === "floating"
           ? "glass-dense shrink-0 overflow-hidden rounded-modal border border-glass-border px-2 py-2"
