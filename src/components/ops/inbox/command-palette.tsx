@@ -27,6 +27,7 @@ import {
   Sparkles,
   Tag,
   Hash,
+  Users,
 } from "lucide-react";
 import {
   CommandDialog,
@@ -266,7 +267,33 @@ export function CommandPalette({
           heading={t("commandPalette.heading.navigate", "Navigate")}
         >
           <CommandItem
-            value="all 1"
+            value="clients 1"
+            onSelect={() => run(() => handlers.onSwitchRail("CLIENTS"))}
+          >
+            <Users
+              className="h-[14px] w-[14px] text-text-3"
+              strokeWidth={1.5}
+            />
+            {t("commandPalette.nav.clients", "Go to Clients")}
+            <span className="ml-auto">
+              <KeyHint keys="1" />
+            </span>
+          </CommandItem>
+          <CommandItem
+            value="everything else operations 2"
+            onSelect={() => run(() => handlers.onSwitchRail("EVERYTHING_ELSE"))}
+          >
+            <Mail
+              className="h-[14px] w-[14px] text-text-3"
+              strokeWidth={1.5}
+            />
+            {t("commandPalette.nav.everythingElse", "Go to Everything Else")}
+            <span className="ml-auto">
+              <KeyHint keys="2" />
+            </span>
+          </CommandItem>
+          <CommandItem
+            value="all 3"
             onSelect={() => run(() => handlers.onSwitchRail("ALL"))}
           >
             <Inbox
@@ -275,46 +302,7 @@ export function CommandPalette({
             />
             {t("commandPalette.nav.all", "Go to All")}
             <span className="ml-auto">
-              <KeyHint keys="1" />
-            </span>
-          </CommandItem>
-          <CommandItem
-            value="your move 2"
-            onSelect={() => run(() => handlers.onSwitchRail("YOUR_MOVE"))}
-          >
-            <Inbox
-              className="h-[14px] w-[14px] text-text-3"
-              strokeWidth={1.5}
-            />
-            {t("commandPalette.nav.yourMove", "Go to Your Move")}
-            <span className="ml-auto">
-              <KeyHint keys="2" />
-            </span>
-          </CommandItem>
-          <CommandItem
-            value="waiting 3"
-            onSelect={() => run(() => handlers.onSwitchRail("WAITING"))}
-          >
-            <Clock
-              className="h-[14px] w-[14px] text-text-3"
-              strokeWidth={1.5}
-            />
-            {t("commandPalette.nav.waiting", "Go to Waiting")}
-            <span className="ml-auto">
               <KeyHint keys="3" />
-            </span>
-          </CommandItem>
-          <CommandItem
-            value="archived 4"
-            onSelect={() => run(() => handlers.onSwitchRail("ARCHIVED"))}
-          >
-            <Archive
-              className="h-[14px] w-[14px] text-text-3"
-              strokeWidth={1.5}
-            />
-            {t("commandPalette.nav.archived", "Go to Archived")}
-            <span className="ml-auto">
-              <KeyHint keys="4" />
             </span>
           </CommandItem>
           {handlers.onFilterCategory && (

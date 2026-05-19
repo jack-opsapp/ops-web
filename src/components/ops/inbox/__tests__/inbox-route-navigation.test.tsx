@@ -3,6 +3,10 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { queryKeys } from "@/lib/api/query-client";
+import {
+  DEFAULT_INBOX_LAYOUT,
+  useInboxLayoutStore,
+} from "@/stores/inbox-layout-store";
 import type {
   ActionResponse,
   InboxThreadDetail,
@@ -12,6 +16,7 @@ import type {
 const push = vi.fn();
 const setEntityName = vi.fn();
 const clearEntityName = vi.fn();
+const useInboxThreadsSpy = vi.fn();
 const useInboxThreadSpy = vi.fn();
 const archiveMutate = vi.fn();
 const unarchiveMutate = vi.fn();
@@ -83,7 +88,9 @@ vi.mock("@/stores/window-store", () => ({
 }));
 
 vi.mock("@/lib/hooks/use-inbox-threads", () => ({
-  useInboxThreads: () => ({
+  useInboxThreads: (params: unknown) => {
+    useInboxThreadsSpy(params);
+    return {
     data: {
       pages: [
         {
@@ -96,7 +103,8 @@ vi.mock("@/lib/hooks/use-inbox-threads", () => ({
       ],
     },
     isLoading: false,
-  }),
+    };
+  },
   useInboxThread: (threadId: string | null) => {
     useInboxThreadSpy(threadId);
     return { data: threadId ? (detailByThreadId.get(threadId) ?? null) : null };
@@ -153,7 +161,33 @@ vi.mock("@/lib/hooks/use-client-threads", () => ({
 }));
 
 vi.mock("../thread-column-header", () => ({
-  ThreadColumnHeader: () => <div data-testid="thread-column-header" />,
+  ThreadColumnHeader: ({
+    filter,
+    defaultFilter,
+    onFilterChange,
+    onDefaultFilterChange,
+  }: {
+    filter: string;
+    defaultFilter: string;
+    onFilterChange: (filter: string) => void;
+    onDefaultFilterChange: (filter: string) => void;
+  }) => (
+    <div
+      data-testid="thread-column-header"
+      data-filter={filter}
+      data-default-filter={defaultFilter}
+    >
+      <button type="button" onClick={() => onFilterChange("ALL")}>
+        Show all
+      </button>
+      <button
+        type="button"
+        onClick={() => onDefaultFilterChange("EVERYTHING_ELSE")}
+      >
+        Set Everything Else default
+      </button>
+    </div>
+  ),
 }));
 
 vi.mock("../today-bar", () => ({
@@ -449,6 +483,7 @@ beforeEach(() => {
   push.mockReset();
   setEntityName.mockReset();
   clearEntityName.mockReset();
+  useInboxThreadsSpy.mockReset();
   useInboxThreadSpy.mockReset();
   archiveMutate.mockReset();
   unarchiveMutate.mockReset();
@@ -471,10 +506,45 @@ beforeEach(() => {
     });
   }
   detailByThreadId = new Map();
+  useInboxLayoutStore.setState({ ...DEFAULT_INBOX_LAYOUT });
   window.history.replaceState(null, "", "/inbox");
 });
 
 describe("<InboxRoute> thread navigation", () => {
+  it("defaults to the starred inbox rail from the inbox layout preference store", () => {
+    useInboxLayoutStore.setState({
+      ...DEFAULT_INBOX_LAYOUT,
+      defaultRailFilter: "EVERYTHING_ELSE",
+    });
+
+    renderRoute();
+
+    expect(screen.getByTestId("thread-column-header")).toHaveAttribute(
+      "data-filter",
+      "EVERYTHING_ELSE",
+    );
+    expect(useInboxThreadsSpy).toHaveBeenLastCalledWith(
+      expect.objectContaining({ filter: "EVERYTHING_ELSE" }),
+    );
+  });
+
+  it("persists the starred inbox rail through the existing inbox preference store", async () => {
+    const user = userEvent.setup();
+    renderRoute();
+
+    await user.click(
+      screen.getByRole("button", { name: "Set Everything Else default" }),
+    );
+
+    expect(useInboxLayoutStore.getState().defaultRailFilter).toBe(
+      "EVERYTHING_ELSE",
+    );
+    expect(screen.getByTestId("thread-column-header")).toHaveAttribute(
+      "data-default-filter",
+      "EVERYTHING_ELSE",
+    );
+  });
+
   it("selects a thread in place and writes the deep-link URL without router.push", async () => {
     const user = userEvent.setup();
     renderRoute();

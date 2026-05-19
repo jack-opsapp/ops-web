@@ -18,7 +18,6 @@ import {
   useQuery,
   useQueryClient,
   type QueryClient,
-  type QueryKey,
 } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/api/query-client";
 import type {
@@ -32,7 +31,7 @@ import type {
   InboxScope,
   PhaseC,
 } from "@/lib/types/email-thread";
-import { isRailFilter, type RailFilter } from "@/lib/inbox/rail-predicates";
+import { type RailFilter } from "@/lib/inbox/rail-predicates";
 
 // Re-export so consumers can import alongside the other inbox wire types.
 export type { PhaseC, AgentBlockingQuestion } from "@/lib/types/email-thread";
@@ -258,30 +257,12 @@ function isInboxThreadsInfiniteCache(
   );
 }
 
-function threadListFilterFromQueryKey(queryKey: QueryKey): RailFilter | null {
-  const params = queryKey[3];
-  if (!params || typeof params !== "object" || Array.isArray(params)) {
-    return null;
-  }
-  const filter = (params as { filter?: unknown }).filter;
-  return isRailFilter(filter) ? filter : null;
-}
-
 function withoutAwaitingReply(
   labels: EmailThreadLabel[],
 ): EmailThreadLabel[] {
   return labels.includes("AWAITING_REPLY")
     ? labels.filter((label) => label !== "AWAITING_REPLY")
     : labels;
-}
-
-function rowMatchesYourMove(row: InboxThreadRow): boolean {
-  return (
-    row.hasUnresolvedCommitments ||
-    row.labels.includes("AWAITING_REPLY") ||
-    (row.latestDirection === "inbound" && row.unreadCount > 0) ||
-    row.agentBlockingQuestion !== null
-  );
 }
 
 function updateInboxThreadListCaches(
@@ -292,19 +273,13 @@ function updateInboxThreadListCaches(
     queryKey: queryKeys.inbox.threadsAll(),
   });
   for (const [queryKey] of entries) {
-    const filter = threadListFilterFromQueryKey(queryKey);
     qc.setQueryData(queryKey, (old: unknown) => {
       if (!isInboxThreadsInfiniteCache(old)) return old;
       return {
         ...old,
         pages: old.pages.map((page) => ({
           ...page,
-          threads: page.threads
-            .map(mapRow)
-            .filter(
-              (thread) =>
-                filter !== "YOUR_MOVE" || rowMatchesYourMove(thread),
-            ),
+          threads: page.threads.map(mapRow),
         })),
       };
     });
@@ -369,7 +344,7 @@ async function fetchThreadDetail(threadId: string): Promise<InboxThreadDetail> {
 
 async function fetchUnreadCount(): Promise<number> {
   const headers = await authHeaders();
-  const res = await fetch(`/api/inbox/threads?scope=own&filter=YOUR_MOVE&limit=50`, {
+  const res = await fetch(`/api/inbox/threads?scope=own&filter=ALL&limit=50`, {
     headers,
   });
   if (!res.ok) return 0;
@@ -381,9 +356,9 @@ async function fetchUnreadCount(): Promise<number> {
 
 /**
  * Badge-ready unread count across the user's own inbox. Summed from the
- * first page of the YOUR MOVE rail — the union of commitments / unread
- * inbound / AWAITING_REPLY / agent-blocked threads, which lines up with
- * what the operator means by "things waiting on me". Refreshes every 60s.
+ * first page of the ALL rail. Unread is visual-only state; reply debt stays
+ * with `AWAITING_REPLY` and row-level state, not top-level rail membership.
+ * Refreshes every 60s.
  */
 export function useInboxUnreadCount() {
   return useQuery({

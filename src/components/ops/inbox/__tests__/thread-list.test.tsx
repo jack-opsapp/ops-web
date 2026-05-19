@@ -33,10 +33,11 @@ const make = (id: string, over: Partial<ThreadListItem> = {}): ThreadListItem =>
 });
 
 describe("<ThreadList>", () => {
-  it("renders only group headers for groups with threads", () => {
+  it("renders the active rail as a flat feed without state section headers", () => {
     const threads = [
       make("a", { agent: { needsInput: true } }),
-      make("b", { ts: NOW - 1000 * 60 * 60 * 24 * 30 }),
+      make("b", { labels: ["AWAITING_REPLY"] }),
+      make("c", { phaseC: "ai_drafted" }),
     ];
     render(
       <ThreadList
@@ -46,8 +47,14 @@ describe("<ThreadList>", () => {
         onSelect={() => {}}
       />,
     );
-    expect(screen.getByText(/\/\/ NEEDS INPUT/i)).toBeInTheDocument();
-    expect(screen.getByText(/\/\/ LATER/i)).toBeInTheDocument();
+    expect(screen.queryByText(/\/\/ NEEDS INPUT/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/\/\/ NEEDS REPLY/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/\/\/ DRAFTS READY/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/\/\/ AWAITING THEM/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/\/\/ LATER/i)).not.toBeInTheDocument();
+    expect(screen.getByText("A")).toBeInTheDocument();
+    expect(screen.getByText("B")).toBeInTheDocument();
+    expect(screen.getByText("C")).toBeInTheDocument();
     expect(screen.queryByText(/^Urgent$/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/^Today$/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/^This week$/i)).not.toBeInTheDocument();
@@ -112,11 +119,12 @@ describe("<ThreadList>", () => {
     expect(onSelect).toHaveBeenCalledWith("xyz");
   });
 
-  it("hides closed and auto-sent threads", () => {
+  it("does not remove threads based on old state-group membership", () => {
     const threads = [
-      make("a", { closed: true, clientName: "Closed" }),
-      make("b", { phaseC: "auto_sent", clientName: "AutoSent" }),
-      make("c", { clientName: "Visible" }),
+      make("a", { labels: ["AWAITING_REPLY"], clientName: "ReplyDebt" }),
+      make("b", { phaseC: "ai_drafted", clientName: "DraftReady" }),
+      make("c", { phaseC: "auto_sent", clientName: "AutoSent" }),
+      make("d", { closed: true, clientName: "Archived" }),
     ];
     render(
       <ThreadList
@@ -126,8 +134,9 @@ describe("<ThreadList>", () => {
         onSelect={() => {}}
       />,
     );
-    expect(screen.queryByText("Closed")).not.toBeInTheDocument();
-    expect(screen.queryByText("AutoSent")).not.toBeInTheDocument();
-    expect(screen.getByText("Visible")).toBeInTheDocument();
+    expect(screen.getByText("ReplyDebt")).toBeInTheDocument();
+    expect(screen.getByText("DraftReady")).toBeInTheDocument();
+    expect(screen.getByText("AutoSent")).toBeInTheDocument();
+    expect(screen.getByText("Archived")).toBeInTheDocument();
   });
 });

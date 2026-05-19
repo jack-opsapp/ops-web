@@ -1,21 +1,17 @@
 /**
  * OPS Web — Inbox Rail Predicates (single source of truth)
  *
- * The inbox collapsed from six tabs (everything / needs_reply / drafts /
- * commitments / scheduled / done) to **ALL + three ball-in-court rails +
- * ARCHIVED**. Snoozed and unsent drafts are now thread-row state surfaced
- * through header chips, not rails of their own.
+ * The inbox left rail is organized by audience, not reply state:
  *
- *   ALL        — every thread the operator has access to (firehose).
- *   YOUR_MOVE  — ball in operator's court. Owes a reply, owes a commitment,
- *                Phase C is blocked, or the inbound is unread.
- *   WAITING    — ball in counterparty's court. Operator sent the last move
- *                and is waiting on the other side.
- *   ARCHIVED   — explicitly closed.
- *   SNOOZED    — internal-only; not a rail button. Fed to the header chip
- *                that lists snoozed threads, so the operator can recover
- *                them without flipping rails. Snoozed threads stay hidden
- *                from YOUR_MOVE/WAITING until `snoozed_until` passes.
+ *   CLIENTS          — client-linked, opportunity-linked, customer, and
+ *                      platform-bid threads.
+ *   EVERYTHING_ELSE  — non-client operational mail.
+ *   ALL              — both CLIENTS and EVERYTHING_ELSE.
+ *
+ * Reply debt (AWAITING_REPLY / commitments / unread inbound / Phase C blocked)
+ * is still computed here for row-level state, but it does not decide top-level
+ * rail membership. ARCHIVED and SNOOZED remain internal utility filters used by
+ * More actions and header chips, not primary rail buttons.
  *
  * The predicate logic lives in this module so the server-side Supabase
  * filter (read path), the in-memory partition test, the caught-up state
@@ -25,35 +21,52 @@
 
 // ─── Type union ──────────────────────────────────────────────────────────────
 
-/**
- * Active rail filter. `ALL` / `YOUR_MOVE` / `WAITING` / `ARCHIVED` are the
- * four buttons the operator sees. `SNOOZED` is internal — the snoozed-list
- * popover queries it, but the rail nav never offers it as a selectable tab.
- */
+/** Primary rail filters the operator sees, in display order. */
+export type InboxPrimaryRail = "CLIENTS" | "EVERYTHING_ELSE" | "ALL";
+
+/** Utility filters opened from secondary affordances, never rendered as primary rail buttons. */
+export type InboxUtilityRail = "ARCHIVED" | "SNOOZED";
+
+/** Active list filter. */
 export type RailFilter =
-  | "ALL"
+  | InboxPrimaryRail
+  | InboxUtilityRail;
+
+/** Row-level thread state bucket. Not a top-level rail. */
+export type ThreadStateBucket =
   | "YOUR_MOVE"
   | "WAITING"
+  | "ALL"
   | "ARCHIVED"
   | "SNOOZED";
 
-/** Rail buttons the UI renders, in display order. SNOOZED is intentionally absent. */
-export const RAIL_NAV_OPTIONS: ReadonlyArray<Exclude<RailFilter, "SNOOZED">> = [
+export const DEFAULT_RAIL_FILTER: InboxPrimaryRail = "CLIENTS";
+
+/** Rail buttons the UI renders, in display order. Utility filters are intentionally absent. */
+export const RAIL_NAV_OPTIONS: ReadonlyArray<InboxPrimaryRail> = [
+  "CLIENTS",
+  "EVERYTHING_ELSE",
   "ALL",
-  "YOUR_MOVE",
-  "WAITING",
-  "ARCHIVED",
 ] as const;
 
 const ALL_RAILS: ReadonlyArray<RailFilter> = [
+  "CLIENTS",
+  "EVERYTHING_ELSE",
   "ALL",
-  "YOUR_MOVE",
-  "WAITING",
   "ARCHIVED",
   "SNOOZED",
 ] as const;
 
 const RAIL_SET = new Set<string>(ALL_RAILS);
+
+export const CLIENT_FACING_PRIMARY_CATEGORIES = [
+  "CUSTOMER",
+  "PLATFORM_BID",
+] as const;
+
+const CLIENT_FACING_PRIMARY_CATEGORY_SET = new Set<string>(
+  CLIENT_FACING_PRIMARY_CATEGORIES,
+);
 
 /** Type guard — accept only the known rail strings. */
 export function isRailFilter(value: unknown): value is RailFilter {
@@ -62,29 +75,34 @@ export function isRailFilter(value: unknown): value is RailFilter {
 
 /**
  * Tolerant parser for URL/query-string values. Returns the matched rail or
- * the supplied fallback (defaults to YOUR_MOVE — the default landing tab).
- * Recognizes the legacy six-tab strings so existing bookmarks/links degrade
- * gracefully:
- *   - everything     → ALL
- *   - needs_reply    → YOUR_MOVE
- *   - commitments    → YOUR_MOVE
- *   - drafts         → ALL  (drafts are no longer a rail; the firehose surfaces them)
- *   - scheduled      → ALL  (snooze is an action; the firehose surfaces snoozed threads)
- *   - done           → ARCHIVED
+ * the supplied fallback (defaults to CLIENTS — the default landing tab).
+ * Recognizes legacy state rails so old bookmarks degrade to broad list views
+ * instead of preserving reply/draft state as top-level IA:
+ *   - everything                         → ALL
+ *   - needs_reply / commitments / drafts → ALL
+ *   - scheduled                          → ALL
+ *   - done                               → ARCHIVED
+ *   - YOUR_MOVE / WAITING                → ALL
  */
 export function parseRailFilter(
   raw: string | null | undefined,
-  fallback: RailFilter = "YOUR_MOVE",
+  fallback: RailFilter = DEFAULT_RAIL_FILTER,
 ): RailFilter {
   if (!raw) return fallback;
   const upper = raw.toUpperCase();
   if (RAIL_SET.has(upper)) return upper as RailFilter;
+  switch (upper) {
+    case "YOUR_MOVE":
+    case "WAITING":
+      return "ALL";
+    default:
+      break;
+  }
   switch (raw) {
     case "everything":
       return "ALL";
     case "needs_reply":
     case "commitments":
-      return "YOUR_MOVE";
     case "drafts":
     case "scheduled":
       return "ALL";
@@ -105,6 +123,9 @@ export function parseRailFilter(
 export interface RailPredicateThread {
   archived_at: Date | string | null;
   snoozed_until: Date | string | null;
+  primary_category?: string | null;
+  client_id?: string | null;
+  opportunity_id?: string | null;
   has_unresolved_commitments: boolean;
   labels: ReadonlyArray<string>;
   latest_direction: "inbound" | "outbound" | null;
@@ -117,6 +138,29 @@ function toMillis(value: Date | string | null): number | null {
   if (value instanceof Date) return value.getTime();
   const t = Date.parse(value);
   return Number.isNaN(t) ? null : t;
+}
+
+/** True when a thread belongs in the CLIENTS top-level bucket. */
+export function isClientFacingThread(
+  thread: Pick<
+    RailPredicateThread,
+    "primary_category" | "client_id" | "opportunity_id"
+  >,
+): boolean {
+  if (thread.client_id) return true;
+  if (thread.opportunity_id) return true;
+  const category = thread.primary_category?.toUpperCase() ?? null;
+  return category !== null && CLIENT_FACING_PRIMARY_CATEGORY_SET.has(category);
+}
+
+/** Classify a thread into the visible primary IA rail, excluding ALL. */
+export function classifyRail(
+  thread: Pick<
+    RailPredicateThread,
+    "primary_category" | "client_id" | "opportunity_id"
+  >,
+): Exclude<InboxPrimaryRail, "ALL"> {
+  return isClientFacingThread(thread) ? "CLIENTS" : "EVERYTHING_ELSE";
 }
 
 /** Does this thread land in YOUR_MOVE? Pure function; ignores ALL/SNOOZED/ARCHIVED. */
@@ -152,11 +196,11 @@ export function isArchived(thread: RailPredicateThread): boolean {
   return toMillis(thread.archived_at) !== null;
 }
 
-/** Categorise a thread into the rail it belongs in, excluding ALL. */
-export function classifyRail(
+/** Categorise a thread into its row-level state bucket, excluding ALL. */
+export function classifyThreadState(
   thread: RailPredicateThread,
   now: number,
-): Exclude<RailFilter, "ALL"> {
+): Exclude<ThreadStateBucket, "ALL"> {
   if (isArchived(thread)) return "ARCHIVED";
   if (isSnoozed(thread, now)) return "SNOOZED";
   return isYourMove(thread, now) ? "YOUR_MOVE" : "WAITING";
@@ -190,9 +234,10 @@ interface RailQueryBuilder<Q extends RailQueryBuilder<Q>> {
  * Apply the rail predicate to a Supabase query builder. Returns the
  * narrowed builder so the caller can chain `.order(...).limit(...)` etc.
  *
- * Implementation note: PostgREST has no native compound-boolean DSL, so
- * we build YOUR_MOVE / WAITING as one `.or(...)` string that the server
- * parses. Every term is grounded in an indexed column on `email_threads`.
+ * Implementation note: PostgREST has no native compound-boolean DSL, so the
+ * CLIENTS inclusion branch and EVERYTHING_ELSE null-or-operational branch use
+ * `.or(...)` strings the server parses. Every term is grounded in columns on
+ * `email_threads`.
  */
 export function applyRailPredicate<Q extends RailQueryBuilder<Q>>(
   query: Q,
@@ -200,28 +245,26 @@ export function applyRailPredicate<Q extends RailQueryBuilder<Q>>(
   nowIso: string,
 ): Q {
   switch (rail) {
+    case "CLIENTS":
+      return query
+        .is("archived_at", null)
+        .or(
+          `client_id.not.is.null,` +
+            `opportunity_id.not.is.null,` +
+            `primary_category.in.(${CLIENT_FACING_PRIMARY_CATEGORIES.join(",")})`,
+        );
+    case "EVERYTHING_ELSE":
+      return query
+        .is("archived_at", null)
+        .is("client_id", null)
+        .is("opportunity_id", null)
+        .or(
+          `primary_category.is.null,` +
+            `primary_category.not.in.(${CLIENT_FACING_PRIMARY_CATEGORIES.join(",")})`,
+        );
     case "ALL":
-      return query;
-    case "YOUR_MOVE":
       return query
-        .is("archived_at", null)
-        .or(`snoozed_until.is.null,snoozed_until.lte.${nowIso}`)
-        .or(
-          `has_unresolved_commitments.eq.true,` +
-            `labels.cs.{AWAITING_REPLY},` +
-            `and(latest_direction.eq.inbound,unread_count.gt.0),` +
-            `agent_blocking_question.not.is.null`,
-        );
-    case "WAITING":
-      return query
-        .is("archived_at", null)
-        .or(`snoozed_until.is.null,snoozed_until.lte.${nowIso}`)
-        .eq("has_unresolved_commitments", false)
-        .not("labels", "cs", "{AWAITING_REPLY}")
-        .is("agent_blocking_question", null)
-        .or(
-          `latest_direction.is.null,latest_direction.eq.outbound,unread_count.eq.0`,
-        );
+        .is("archived_at", null);
     case "ARCHIVED":
       return query.not("archived_at", "is", null);
     case "SNOOZED":

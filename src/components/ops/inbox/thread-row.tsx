@@ -24,7 +24,7 @@ import { useId, type MouseEvent } from "react";
 import { DollarSign, Paperclip, Receipt } from "lucide-react";
 import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
-import type { ThreadForGrouping } from "@/lib/inbox/grouping";
+import type { PhaseC } from "@/lib/types/email-thread";
 import type { StateTagResult } from "@/lib/inbox/format-wait";
 import { StateTag } from "./state-tag";
 import {
@@ -32,7 +32,18 @@ import {
   shouldHandleInPlaceThreadNavigation,
 } from "./inbox-navigation";
 
-export interface ThreadRowData extends ThreadForGrouping {
+export interface ThreadRowData {
+  id: string;
+  /** Unix milliseconds — most recent activity. */
+  ts: number;
+  labels: string[];
+  agent: { needsInput: boolean };
+  phaseC: PhaseC;
+  closed: boolean;
+  /** True when there is at least one unread inbound message. Visual state only. */
+  unread: boolean;
+  /** Set when the thread has a saved draft. Drives the row-level draft indicator. */
+  draftKind?: "ai" | "user" | null;
   clientName: string;
   subject: string;
   /** Raw provider snippet — the fallback when AI summary isn't available. */

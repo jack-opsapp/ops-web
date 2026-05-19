@@ -29,11 +29,11 @@ import { parseRailFilter } from "@/lib/inbox/rail-predicates";
 
 const CATEGORY_SET = new Set<string>(EMAIL_THREAD_CATEGORIES);
 
-// `parseRailFilter` accepts the canonical values (ALL / YOUR_MOVE / WAITING
-// / ARCHIVED / SNOOZED) and degrades legacy bookmarks (everything,
-// needs_reply, commitments, drafts, scheduled, done) into their nearest
-// post-collapse equivalent. Unknown / missing values fall through to ALL —
-// the firehose — so the operator never lands on an empty rail by accident.
+// `parseRailFilter` accepts the canonical audience rails (CLIENTS /
+// EVERYTHING_ELSE / ALL) plus utility ARCHIVED / SNOOZED, and degrades legacy
+// reply-state bookmarks into broad list views. Unknown / missing API values
+// fall through to ALL so direct endpoint calls never land on a narrow rail by
+// accident; the UI applies the starred default before calling this route.
 function parseFilter(raw: string | null) {
   return parseRailFilter(raw, "ALL");
 }

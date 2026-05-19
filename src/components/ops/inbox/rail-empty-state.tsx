@@ -5,14 +5,14 @@
  *
  * The audit (docs/superpowers/research/2026-05-12-inbox-category-audit.md § 6)
  * collapsed three conflicting "empty" framings (`empty.title: "Inbox zero"`,
- * `empty.status.title`, `row.queueEmpty`) into one per-rail design. Each rail
- * owns its own tactical header + body so the operator's emotional payoff
- * tracks the rail's meaning:
+ * `empty.status.title`, `row.queueEmpty`) into one per-rail design. The rail
+ * now follows audience IA, so reply debt stays in rows and empty states track
+ * who the mail is from:
  *
- *   YOUR_MOVE → // CAUGHT UP   — the celebratory inbox-zero moment
- *   WAITING   → // QUIET       — no replies owed; stillness, not celebration
- *   ARCHIVED  → // EMPTY       — neutral; the most common production state
- *   ALL       → // NO THREADS  — degenerate fallback for brand-new operators
+ *   CLIENTS          -> // NO CLIENT THREADS
+ *   EVERYTHING_ELSE  -> // NO OPS MAIL
+ *   ALL              -> // NO THREADS
+ *   ARCHIVED         -> // EMPTY
  *
  * SNOOZED is internal-only — the chip popover renders its own empty, the rail
  * nav never offers it as a tab. If a stray SNOOZED filter ever lands here it
@@ -26,36 +26,36 @@
  */
 
 import { useDictionary } from "@/i18n/client";
-import type { RailFilter } from "@/lib/inbox/rail-predicates";
+import type { InboxPrimaryRail, RailFilter } from "@/lib/inbox/rail-predicates";
 import { SlashLabel } from "./voice/slash-label";
 
-type VisibleRail = Exclude<RailFilter, "SNOOZED">;
+type VisibleRail = InboxPrimaryRail | "ARCHIVED";
 
 const HEADER_KEY: Record<VisibleRail, string> = {
+  CLIENTS: "empty.clients.header",
+  EVERYTHING_ELSE: "empty.everythingElse.header",
   ALL: "empty.all.header",
-  YOUR_MOVE: "empty.yourMove.header",
-  WAITING: "empty.waiting.header",
   ARCHIVED: "empty.archived.header",
 };
 
 const BODY_KEY: Record<VisibleRail, string> = {
+  CLIENTS: "empty.clients.body",
+  EVERYTHING_ELSE: "empty.everythingElse.body",
   ALL: "empty.all.body",
-  YOUR_MOVE: "empty.yourMove.body",
-  WAITING: "empty.waiting.body",
   ARCHIVED: "empty.archived.body",
 };
 
 const HEADER_FALLBACK: Record<VisibleRail, string> = {
+  CLIENTS: "// NO CLIENT THREADS",
+  EVERYTHING_ELSE: "// NO OPS MAIL",
   ALL: "// NO THREADS",
-  YOUR_MOVE: "// CAUGHT UP",
-  WAITING: "// QUIET",
   ARCHIVED: "// EMPTY",
 };
 
 const BODY_FALLBACK: Record<VisibleRail, string> = {
+  CLIENTS: "[—] no client mail in this view",
+  EVERYTHING_ELSE: "[—] no operational mail in this view",
   ALL: "[—] inbox is empty",
-  YOUR_MOVE: "[—] nothing waiting on you",
-  WAITING: "[—] no replies owed",
   ARCHIVED: "[—] nothing archived yet",
 };
 

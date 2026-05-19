@@ -666,10 +666,11 @@ async function listThreads(
     query = query.in("connection_id", userConnectionIds);
   }
 
-  // Rail filter. The four operator-facing rails (ALL/YOUR_MOVE/WAITING/
-  // ARCHIVED) plus the internal SNOOZED filter share one predicate module
-  // so the SQL, the in-memory partition test, and any downstream consumer
-  // can't drift. `applyRailPredicate` returns the narrowed builder.
+  // Rail filter. The three operator-facing audience rails
+  // (CLIENTS/EVERYTHING_ELSE/ALL) plus utility ARCHIVED/SNOOZED share one
+  // predicate module so the SQL, the in-memory classification test, and any
+  // downstream consumer can't drift. `applyRailPredicate` returns the
+  // narrowed builder.
   query = applyRailPredicate(query, params.filter, new Date().toISOString());
 
   if (params.category) {

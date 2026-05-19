@@ -117,21 +117,21 @@ describe("search + rail predicate composition", () => {
     return { recorder, calls };
   }
 
-  it("YOUR_MOVE composes with search — both predicates produce independent .or() calls", () => {
+  it("CLIENTS composes with search — both predicates produce independent .or() calls", () => {
     const { recorder, calls } = makeRecorder();
     let q = recorder as unknown as Parameters<typeof applyRailPredicate>[0];
 
     // Apply the rail predicate first (as the production path does).
-    q = applyRailPredicate(q, "YOUR_MOVE", NOW);
+    q = applyRailPredicate(q, "CLIENTS", NOW);
     // Then apply the search filter (as the production path does).
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (q as any).or(buildSearchOrExpression("acme"));
 
     const orCalls = calls.filter((c) => c.method === "or");
-    // YOUR_MOVE emits TWO .or() calls (snooze guard + ball-in-court union);
-    // the search filter adds a THIRD. Treating them as independent strings
+    // CLIENTS emits one .or() call for linked/client-facing classification;
+    // the search filter adds a second. Treating them as independent strings
     // is exactly what we want — PostgREST ANDs them.
-    expect(orCalls.length).toBe(3);
+    expect(orCalls.length).toBe(2);
 
     const searchOr = orCalls[orCalls.length - 1].args[0] as string;
     expect(searchOr).toContain("subject.ilike.");
@@ -143,15 +143,15 @@ describe("search + rail predicate composition", () => {
     // Sanity: the search expression must NOT mention any rail-predicate
     // columns. If we ever accidentally merge the two predicates into one
     // string we'd lose AND semantics.
-    expect(searchOr).not.toContain("has_unresolved_commitments");
-    expect(searchOr).not.toContain("agent_blocking_question");
+    expect(searchOr).not.toContain("client_id");
+    expect(searchOr).not.toContain("primary_category");
   });
 
-  it("WAITING composes with search — search filter is appended, predicate columns untouched", () => {
+  it("EVERYTHING_ELSE composes with search — search filter is appended, predicate columns untouched", () => {
     const { recorder, calls } = makeRecorder();
     let q = recorder as unknown as Parameters<typeof applyRailPredicate>[0];
 
-    q = applyRailPredicate(q, "WAITING", NOW);
+    q = applyRailPredicate(q, "EVERYTHING_ELSE", NOW);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (q as any).or(buildSearchOrExpression("invoice"));
 
@@ -159,12 +159,11 @@ describe("search + rail predicate composition", () => {
     const searchOr = orCalls[orCalls.length - 1].args[0] as string;
     expect(searchOr).toContain('"%invoice%"');
 
-    // WAITING applies `archived_at IS NULL`, the snooze guard `.or`, an
-    // equality on `has_unresolved_commitments`, a NOT-contains on labels,
-    // an `agent_blocking_question IS NULL`, AND the direction `.or` — none
-    // of those columns should appear in the search expression.
+    // EVERYTHING_ELSE applies null-link guards and a category exclusion —
+    // none of those columns should appear in the search expression.
     expect(searchOr).not.toContain("archived_at");
-    expect(searchOr).not.toContain("latest_direction");
+    expect(searchOr).not.toContain("client_id");
+    expect(searchOr).not.toContain("primary_category");
   });
 
   it("ARCHIVED composes with search — the only rail predicate call is `archived_at IS NOT NULL`", () => {

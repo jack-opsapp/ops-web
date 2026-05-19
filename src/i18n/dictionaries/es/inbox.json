@@ -11,12 +11,6 @@
   "commitmentPills.resolve": "Marcar compromiso como resuelto",
   "commitmentPills.aria": "Compromisos abiertos en este hilo",
 
-  "groups.needsInput": "Necesita tu respuesta",
-  "groups.needsReply": "Te toca responder",
-  "groups.draftsReady": "Borradores listos",
-  "groups.awaitingThem": "Esperando respuesta",
-  "groups.later": "Después",
-
   "column.filter": "Filtrar bandeja",
   "column.search": "Buscar en bandeja",
 
@@ -157,6 +151,10 @@
 
   "empty.all.header": "// SIN HILOS",
   "empty.all.body": "[—] bandeja vacía",
+  "empty.clients.header": "// SIN HILOS DE CLIENTES",
+  "empty.clients.body": "[—] sin correo de clientes en esta vista",
+  "empty.everythingElse.header": "// SIN CORREO OPS",
+  "empty.everythingElse.body": "[—] sin correo operativo en esta vista",
   "empty.yourMove.header": "// AL DÍA",
   "empty.yourMove.body": "[—] nada esperando por ti",
   "empty.waiting.header": "// QUIETO",
@@ -318,6 +316,8 @@
   "commandPalette.cmd.markUnread": "Marcar como no leído",
   "commandPalette.cmd.aiDraft": "Pedir a Phase C que redacte una respuesta",
   "commandPalette.cmd.composeNew": "Redactar email nuevo",
+  "commandPalette.nav.clients": "Ir a Clientes",
+  "commandPalette.nav.everythingElse": "Ir a Todo lo demás",
   "commandPalette.nav.all": "Ir a Todo",
   "commandPalette.nav.yourMove": "Ir a Tu Turno",
   "commandPalette.nav.waiting": "Ir a En Espera",
@@ -331,10 +331,14 @@
   "shell.resizePanel": "Redimensionar panel",
 
   "filter.allChip": "[TODO ▾]",
+  "filter.rail.clients": "CLIENTES",
+  "filter.rail.everythingElse": "TODO LO DEMÁS",
   "filter.rail.all": "TODO",
   "filter.rail.yourMove": "TU TURNO",
   "filter.rail.waiting": "EN ESPERA",
   "filter.rail.archived": "ARCHIVADO",
+  "filter.setDefault": "Fijar {filter} como vista inicial",
+  "filter.defaultCurrent": "Vista inicial: {filter}",
   "more.menuLabel": "Más acciones",
   "more.refresh": "ACTUALIZAR",
   "more.settings": "AJUSTES DE EMAIL",
@@ -367,15 +371,6 @@
   "todayBar.stateWaiting": "+{days}D · ESPERANDO",
   "todayBar.stateToday": "HOY · {time}",
   "todayBar.moreObligations": "+{count} MÁS PENDIENTES",
-
-  "groups.needsReplyLabel": "// NECESITA RESPUESTA",
-  "groups.fyiLabel": "// INFORMATIVO",
-  "groups.closedLabel": "// CERRADO",
-  "groups.scheduledLabel": "// PROGRAMADO",
-  "groups.needsInputLabel": "// NECESITA TU RESPUESTA",
-  "groups.draftsReadyLabel": "// BORRADORES LISTOS",
-  "groups.awaitingThemLabel": "// ESPERANDO RESPUESTA",
-  "groups.laterLabel": "// DESPUÉS",
 
   "row.stateYoursHours": "TU TURNO · {hours}H",
   "row.stateYoursDays": "TU TURNO · {days}D",

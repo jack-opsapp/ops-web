@@ -11,7 +11,7 @@ import {
   type InboxThreadRow,
   type InboxThreadsPage,
 } from "../use-inbox-threads";
-import { classifyRail } from "@/lib/inbox/rail-predicates";
+import { classifyThreadState } from "@/lib/inbox/rail-predicates";
 
 vi.mock("@/lib/firebase/auth", () => ({
   getIdToken: vi.fn(async () => "token-1"),
@@ -186,7 +186,7 @@ describe("useResolveCommitment", () => {
     const qc = makeQueryClient();
     const listKey = queryKeys.inbox.threads({
       scope: "own",
-      filter: "YOUR_MOVE",
+      filter: "CLIENTS",
       category: null,
       search: null,
       limit: null,
@@ -294,7 +294,7 @@ describe("useResolveCommitment", () => {
     const qc = makeQueryClient();
     const listKey = queryKeys.inbox.threads({
       scope: "own",
-      filter: "YOUR_MOVE",
+      filter: "CLIENTS",
       category: null,
       search: null,
       limit: null,
@@ -380,11 +380,11 @@ describe("useSendReply", () => {
     vi.restoreAllMocks();
   });
 
-  it("moves a reply-debt thread out of YOUR_MOVE after outbound send success without changing unread state", async () => {
+  it("keeps a reply-debt thread in CLIENTS after outbound send while clearing reply debt", async () => {
     const qc = makeQueryClient();
     const listKey = queryKeys.inbox.threads({
       scope: "own",
-      filter: "YOUR_MOVE",
+      filter: "CLIENTS",
       category: null,
       search: null,
       limit: null,
@@ -449,14 +449,19 @@ describe("useSendReply", () => {
       pages: InboxThreadsPage[];
       pageParams: unknown[];
     }>(listKey);
-    expect(list?.pages[0]?.threads).toEqual([]);
+    expect(list?.pages[0]?.threads).toHaveLength(1);
+    expect(list?.pages[0]?.threads[0]?.labels).not.toContain(
+      "AWAITING_REPLY",
+    );
+    expect(list?.pages[0]?.threads[0]?.primaryCategory).toBe("CUSTOMER");
+    expect(list?.pages[0]?.threads[0]?.clientId).toBe("client-1");
 
     const detail = qc.getQueryData<InboxThreadDetail>(detailKey);
     expect(detail?.thread.labels).not.toContain("AWAITING_REPLY");
     expect(detail?.thread.latestDirection).toBe("outbound");
     expect(detail?.thread.unreadCount).toBe(1);
     expect(
-      classifyRail(
+      classifyThreadState(
         {
           archived_at: detail?.thread.archivedAt ?? null,
           snoozed_until: detail?.thread.snoozedUntil ?? null,

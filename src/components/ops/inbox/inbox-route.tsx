@@ -30,10 +30,11 @@ import { toast } from "sonner";
 import { useDictionary } from "@/i18n/client";
 import { queryKeys } from "@/lib/api/query-client";
 import { useViewportBreakpoint } from "@/lib/hooks/use-viewport-breakpoint";
-import { classifyRail, type RailFilter } from "@/lib/inbox/rail-predicates";
+import { isYourMove, type RailFilter } from "@/lib/inbox/rail-predicates";
 import { formatWaitClock } from "@/lib/inbox/format-wait";
 import { resolveTriageTone } from "@/lib/inbox/triage-tone-coordination";
 import { useBreadcrumbStore } from "@/stores/breadcrumb-store";
+import { useInboxLayoutStore } from "@/stores/inbox-layout-store";
 import {
   useAuthStore,
   selectUserId,
@@ -138,6 +139,10 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
   const draftsQuery = useInboxDrafts("own");
   const openWindow = useWindowStore((s) => s.openWindow);
   const openProjectWindow = useWindowStore((s) => s.openProjectWindow);
+  const defaultRailFilter = useInboxLayoutStore((s) => s.defaultRailFilter);
+  const setDefaultRailFilter = useInboxLayoutStore(
+    (s) => s.setDefaultRailFilter,
+  );
   const [composerValue, setComposerValue] = useState("");
   const [composerError, setComposerError] = useState<string | null>(null);
   const [sendCompletedAt, setSendCompletedAt] = useState<number | null>(null);
@@ -152,7 +157,9 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
   const [pendingArchiveTarget, setPendingArchiveTarget] =
     useState<ArchiveTarget | null>(null);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
-  const [filter, setFilter] = useState<RailFilter>("YOUR_MOVE");
+  const [filter, setFilter] = useState<RailFilter>(
+    () => useInboxLayoutStore.getState().defaultRailFilter,
+  );
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(
     () => initialThreadId ?? null
   );
@@ -649,6 +656,8 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
     <div className="flex min-h-0 flex-1 flex-col">
       <ThreadColumnHeader
         filter={filter}
+        defaultFilter={defaultRailFilter}
+        onDefaultFilterChange={setDefaultRailFilter}
         onFilterChange={setFilter}
         searchValue={searchInput}
         onSearchChange={setSearchInput}
@@ -887,11 +896,10 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
         })
       : null;
 
-  // Floating YOUR TURN badge — mounts whenever the active thread classifies
-  // as YOUR_MOVE (per the rail predicate union: unresolved commitments,
-  // AWAITING_REPLY label, unread inbound, or Phase C blocking question).
-  // Broader than the legacy `ball-yours` band trigger; matches the rail
-  // semantics.
+  // Floating YOUR TURN badge — mounts whenever the active thread has reply
+  // debt (unresolved commitments, AWAITING_REPLY label, unread inbound, or
+  // Phase C blocking question). Reply debt stays row/detail-level and does
+  // not define top-level rail membership.
   //
   // `detail.thread` doesn't carry the denormalized `hasUnresolvedCommitments`
   // flag — the detail endpoint instead returns the full commitments array.
@@ -908,7 +916,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
 
   const floatingBadgeActive =
     detail !== null &&
-    classifyRail(
+    isYourMove(
       {
         archived_at: detail.thread.archivedAt,
         snoozed_until: detail.thread.snoozedUntil,
@@ -919,7 +927,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
         agent_blocking_question: detail.thread.agentBlockingQuestion,
       },
       now
-    ) === "YOUR_MOVE";
+    );
 
   // Wait clock for the badge. Uses the most-recent inbound timestamp when
   // present (the canonical "operator owes a reply" axis); falls back to

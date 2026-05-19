@@ -10,11 +10,11 @@
  *
  * "Your turn" is no longer a band — it surfaces through
  * <FloatingYourTurnBadge>, which is mounted by InboxRoute based on the
- * rail predicate (`classifyRail(...) === "YOUR_MOVE"`) and floats above
- * the message list instead of displacing it.
+ * row-state predicate (`isYourMove(...)`) and floats above the message list
+ * instead of displacing it.
  */
 
-import type { PhaseC } from "@/lib/inbox/grouping";
+import type { PhaseC } from "@/lib/types/email-thread";
 
 export type BandKind =
   | "summary"

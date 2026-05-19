@@ -14,23 +14,27 @@ vi.mock("@/i18n/client", () => ({
 }));
 
 describe("<RailEmptyState>", () => {
-  it("renders the YOUR MOVE celebratory copy on the inbox-zero rail", () => {
-    render(<RailEmptyState rail="YOUR_MOVE" />);
-    expect(screen.getByText("// CAUGHT UP")).toBeInTheDocument();
-    expect(screen.getByText("[—] nothing waiting on you")).toBeInTheDocument();
+  it("renders the CLIENTS copy on the client-facing rail", () => {
+    render(<RailEmptyState rail="CLIENTS" />);
+    expect(screen.getByText("// NO CLIENT THREADS")).toBeInTheDocument();
+    expect(
+      screen.getByText("[—] no client mail in this view"),
+    ).toBeInTheDocument();
     expect(screen.getByTestId("rail-empty-state")).toHaveAttribute(
       "data-rail",
-      "YOUR_MOVE",
+      "CLIENTS",
     );
   });
 
-  it("renders the WAITING stillness copy when the operator owes nothing back", () => {
-    render(<RailEmptyState rail="WAITING" />);
-    expect(screen.getByText("// QUIET")).toBeInTheDocument();
-    expect(screen.getByText("[—] no replies owed")).toBeInTheDocument();
+  it("renders the EVERYTHING ELSE copy on the operational rail", () => {
+    render(<RailEmptyState rail="EVERYTHING_ELSE" />);
+    expect(screen.getByText("// NO OPS MAIL")).toBeInTheDocument();
+    expect(
+      screen.getByText("[—] no operational mail in this view"),
+    ).toBeInTheDocument();
     expect(screen.getByTestId("rail-empty-state")).toHaveAttribute(
       "data-rail",
-      "WAITING",
+      "EVERYTHING_ELSE",
     );
   });
 
@@ -66,30 +70,34 @@ describe("<RailEmptyState>", () => {
   // ─── Search-miss variant ──────────────────────────────────────────────────
   // When the operator has typed into the inbox header search input and the
   // current rail returns zero matches, the empty state must NOT show the
-  // rail's caught-up copy (that would lie — the rail isn't quiet, the query
-  // missed). It must show // NO MATCHES with the query echoed.
+  // rail's empty-audience copy. It must show // NO MATCHES with the query
+  // echoed.
 
-  it("renders the NO MATCHES variant on YOUR_MOVE when searchActive and the query echoed", () => {
+  it("renders the NO MATCHES variant on CLIENTS when searchActive and the query echoed", () => {
     render(
-      <RailEmptyState rail="YOUR_MOVE" searchActive searchQuery="acme" />,
+      <RailEmptyState rail="CLIENTS" searchActive searchQuery="acme" />,
     );
     expect(screen.getByText("// NO MATCHES")).toBeInTheDocument();
     expect(screen.getByText('[—] nothing matches "acme"')).toBeInTheDocument();
-    expect(screen.queryByText("// CAUGHT UP")).not.toBeInTheDocument();
+    expect(screen.queryByText("// NO CLIENT THREADS")).not.toBeInTheDocument();
     const node = screen.getByTestId("rail-empty-state");
-    expect(node).toHaveAttribute("data-rail", "YOUR_MOVE");
+    expect(node).toHaveAttribute("data-rail", "CLIENTS");
     expect(node).toHaveAttribute("data-search-active", "true");
   });
 
-  it("renders the NO MATCHES variant on WAITING when searchActive", () => {
+  it("renders the NO MATCHES variant on EVERYTHING ELSE when searchActive", () => {
     render(
-      <RailEmptyState rail="WAITING" searchActive searchQuery="invoice" />,
+      <RailEmptyState
+        rail="EVERYTHING_ELSE"
+        searchActive
+        searchQuery="invoice"
+      />,
     );
     expect(screen.getByText("// NO MATCHES")).toBeInTheDocument();
     expect(
       screen.getByText('[—] nothing matches "invoice"'),
     ).toBeInTheDocument();
-    expect(screen.queryByText("// QUIET")).not.toBeInTheDocument();
+    expect(screen.queryByText("// NO OPS MAIL")).not.toBeInTheDocument();
   });
 
   it("renders the NO MATCHES variant on ARCHIVED when searchActive", () => {
@@ -108,12 +116,12 @@ describe("<RailEmptyState>", () => {
   it("falls back to the rail's caught-up copy when searchActive is false even if a query was passed", () => {
     render(
       <RailEmptyState
-        rail="YOUR_MOVE"
+        rail="CLIENTS"
         searchActive={false}
         searchQuery="acme"
       />,
     );
-    expect(screen.getByText("// CAUGHT UP")).toBeInTheDocument();
+    expect(screen.getByText("// NO CLIENT THREADS")).toBeInTheDocument();
     expect(screen.queryByText("// NO MATCHES")).not.toBeInTheDocument();
   });
 });

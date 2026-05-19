@@ -3,12 +3,11 @@
 /**
  * ThreadColumnHeader — top of the left column.
  *
- * Compact rail controls + a live search input that filters threads in-place
- * within the active rail. The filter dropdown selects
- * between the four operator-facing rails — ALL / YOUR MOVE / WAITING /
- * ARCHIVED. SNOOZED lives behind the header chip surface (see
- * thread-column-snooze-chip); DRAFTS lives behind the dedicated drafts
- * header chip.
+ * Compact audience rails + a live search input that filters threads in-place
+ * within the active rail. The filter dropdown selects between the three
+ * primary IA rails — CLIENTS / EVERYTHING ELSE / ALL. SNOOZED lives behind
+ * the header chip surface; ARCHIVED remains a More action. DRAFTS lives
+ * behind the dedicated drafts header chip.
  *
  * Search behavior — header input filters the current rail in place
  * (subject / latest snippet / sender name / sender email ILIKE). The global
@@ -21,31 +20,34 @@
  * the change callbacks.
  */
 
-import { X, MoreHorizontal } from "lucide-react";
+import { X, MoreHorizontal, Star } from "lucide-react";
+import { useRef } from "react";
 import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { SearchInput } from "@/components/ui/search-input";
 import {
   RAIL_NAV_OPTIONS,
+  type InboxPrimaryRail,
   type RailFilter,
 } from "@/lib/inbox/rail-predicates";
 
 interface ThreadColumnHeaderProps {
   /**
-   * Current rail filter. The chip's label tracks this — `ALL → ALL`,
-   * `YOUR_MOVE → YOUR MOVE`, etc.
+   * Current rail filter. The chip's label tracks this — `CLIENTS → CLIENTS`,
+   * `EVERYTHING_ELSE → EVERYTHING ELSE`, etc.
    */
   filter: RailFilter;
   onFilterChange: (filter: RailFilter) => void;
+  /** Primary rail starred as the default-open view. */
+  defaultFilter: InboxPrimaryRail;
+  onDefaultFilterChange: (filter: InboxPrimaryRail) => void;
   /**
    * Current value of the in-place search input. The parent owns the debounced
    * URL writeback + threads-query trigger; this component is purely
@@ -69,30 +71,31 @@ interface ThreadColumnHeaderProps {
   className?: string;
 }
 
-const NAV_LABEL_KEY: Record<Exclude<RailFilter, "SNOOZED">, string> = {
+const NAV_LABEL_KEY: Record<InboxPrimaryRail | "ARCHIVED", string> = {
+  CLIENTS: "filter.rail.clients",
+  EVERYTHING_ELSE: "filter.rail.everythingElse",
   ALL: "filter.rail.all",
-  YOUR_MOVE: "filter.rail.yourMove",
-  WAITING: "filter.rail.waiting",
   ARCHIVED: "filter.rail.archived",
 };
 
-const NAV_LABEL_FALLBACK: Record<Exclude<RailFilter, "SNOOZED">, string> = {
+const NAV_LABEL_FALLBACK: Record<InboxPrimaryRail | "ARCHIVED", string> = {
+  CLIENTS: "CLIENTS",
+  EVERYTHING_ELSE: "EVERYTHING ELSE",
   ALL: "ALL",
-  YOUR_MOVE: "YOUR MOVE",
-  WAITING: "WAITING",
   ARCHIVED: "ARCHIVED",
 };
 
-function navRail(filter: RailFilter): Exclude<RailFilter, "SNOOZED"> {
-  // SNOOZED is not a rail tab — when the route reports it (popover-driven),
-  // the operator-visible chip still shows the previous rail context, which
-  // defaults to ALL for an unknown landing.
+function activeRailLabel(filter: RailFilter): InboxPrimaryRail | "ARCHIVED" {
+  // SNOOZED is not a rail tab — when a utility surface reports it, the
+  // operator-visible chip degrades to ALL because snooze is row state.
   return filter === "SNOOZED" ? "ALL" : filter;
 }
 
 export function ThreadColumnHeader({
   filter,
   onFilterChange,
+  defaultFilter,
+  onDefaultFilterChange,
   searchValue,
   onSearchChange,
   onRefresh,
@@ -102,8 +105,28 @@ export function ThreadColumnHeader({
   className,
 }: ThreadColumnHeaderProps) {
   const { t } = useDictionary("inbox");
-  const navFilter = navRail(filter);
-  const activeLabel = t(NAV_LABEL_KEY[navFilter], NAV_LABEL_FALLBACK[navFilter]);
+  const suppressRailSelectRef = useRef(false);
+  const activeRail = activeRailLabel(filter);
+  const activeLabel = t(NAV_LABEL_KEY[activeRail], NAV_LABEL_FALLBACK[activeRail]);
+  const defaultLabel = t(
+    NAV_LABEL_KEY[defaultFilter],
+    NAV_LABEL_FALLBACK[defaultFilter],
+  );
+  const activePrimaryFilter: InboxPrimaryRail | null =
+    filter === "CLIENTS" || filter === "EVERYTHING_ELSE" || filter === "ALL"
+      ? filter
+      : null;
+  const canStarActive = activePrimaryFilter !== null;
+  const activeDefaultLabel =
+    activePrimaryFilter !== null && defaultFilter !== activePrimaryFilter
+      ? t(
+          "filter.setDefault",
+          "Set {filter} as default inbox view",
+        ).replace("{filter}", activeLabel)
+      : t(
+          "filter.defaultCurrent",
+          "Default inbox view: {filter}",
+        ).replace("{filter}", defaultLabel);
   return (
     <div
       data-inbox-debug-id="B1"
@@ -127,22 +150,99 @@ export function ThreadColumnHeader({
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" sideOffset={6} className="min-w-[180px]">
-              <DropdownMenuRadioGroup
-                value={navFilter}
-                onValueChange={(v) => onFilterChange(v as RailFilter)}
-              >
-                {RAIL_NAV_OPTIONS.map((rail) => (
-                  <DropdownMenuRadioItem
+              {RAIL_NAV_OPTIONS.map((rail) => {
+                const label = t(NAV_LABEL_KEY[rail], NAV_LABEL_FALLBACK[rail]);
+                const isDefault = defaultFilter === rail;
+                return (
+                  <DropdownMenuItem
                     key={rail}
-                    value={rail}
-                    className="font-mono text-[11px] uppercase tracking-[0.16em]"
+                    onSelect={(event) => {
+                      if (suppressRailSelectRef.current) {
+                        suppressRailSelectRef.current = false;
+                        event.preventDefault();
+                        return;
+                      }
+                      onFilterChange(rail);
+                    }}
+                    className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.16em]"
                   >
-                    {t(NAV_LABEL_KEY[rail], NAV_LABEL_FALLBACK[rail])}
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
+                    <span className="min-w-0 flex-1 truncate">{label}</span>
+                    <button
+                      data-default-filter-star
+                      type="button"
+                      aria-label={t(
+                        "filter.setDefault",
+                        "Set {filter} as default inbox view",
+                      ).replace("{filter}", label)}
+                      aria-pressed={isDefault}
+                      title={t(
+                        "filter.setDefault",
+                        "Set {filter} as default inbox view",
+                      ).replace("{filter}", label)}
+                      onPointerDown={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        suppressRailSelectRef.current = true;
+                        onDefaultFilterChange(rail);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key !== "Enter" && event.key !== " ") return;
+                        event.preventDefault();
+                        event.stopPropagation();
+                        suppressRailSelectRef.current = true;
+                        onDefaultFilterChange(rail);
+                      }}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                      }}
+                      className={cn(
+                        "pointer-events-auto inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-[2px] text-text-mute hover:text-text",
+                        isDefault && "text-text",
+                      )}
+                    >
+                      <Star
+                        aria-hidden
+                        className={cn("h-3 w-3", isDefault && "fill-current")}
+                        strokeWidth={1.5}
+                      />
+                    </button>
+                  </DropdownMenuItem>
+                );
+              })}
             </DropdownMenuContent>
           </DropdownMenu>
+
+          <button
+            type="button"
+            aria-label={activeDefaultLabel}
+            aria-pressed={
+              activePrimaryFilter !== null && defaultFilter === activePrimaryFilter
+            }
+            title={activeDefaultLabel}
+            onClick={() => {
+              if (activePrimaryFilter !== null) {
+                onDefaultFilterChange(activePrimaryFilter);
+              }
+            }}
+            className={cn(
+              "inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-[2px] text-text-mute hover:text-text",
+              activePrimaryFilter !== null &&
+                defaultFilter === activePrimaryFilter &&
+                "text-text",
+            )}
+          >
+            <Star
+              aria-hidden
+              className={cn(
+                "h-3 w-3",
+                activePrimaryFilter !== null &&
+                  defaultFilter === activePrimaryFilter &&
+                  "fill-current",
+              )}
+              strokeWidth={1.5}
+            />
+          </button>
 
           <div className="flex min-w-0 items-center gap-1 overflow-hidden">
             {headerChipSlot}
