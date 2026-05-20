@@ -397,7 +397,10 @@
   "detailMore.refresh": "REFRESH THREAD",
 
   "picker.trigger": "{count} OTHER THREADS",
+  "picker.triggerOne": "1 OTHER THREAD",
   "picker.triggerNone": "0 OTHER THREADS",
+  "picker.ariaLabel": "Show {count} other threads with {client}",
+  "picker.ariaLabelOne": "Show 1 other thread with {client}",
   "picker.header": "// THREADS WITH {client} · {count}",
 
   "bands.summary.title": "// SUMMARY",

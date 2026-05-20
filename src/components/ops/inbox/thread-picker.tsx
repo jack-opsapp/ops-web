@@ -88,12 +88,19 @@ export function ThreadPicker({
 
   // The chevron is rendered separately via Lucide so it can flip on expand;
   // the dictionary string carries only the count + label.
-  const triggerLabel = t("picker.trigger", "{count} OTHER THREADS").replace(
-    "{count}",
-    String(count),
-  );
+  const triggerLabel = t(
+    count === 1 ? "picker.triggerOne" : "picker.trigger",
+    count === 1 ? "1 OTHER THREAD" : "{count} OTHER THREADS",
+  ).replace("{count}", String(count));
 
-  const ariaLabel = `Show ${count} other threads with ${clientName}`;
+  const ariaLabel = t(
+    count === 1 ? "picker.ariaLabelOne" : "picker.ariaLabel",
+    count === 1
+      ? "Show 1 other thread with {client}"
+      : "Show {count} other threads with {client}",
+  )
+    .replace("{count}", String(count))
+    .replace("{client}", clientName);
 
   const headerLabel = t("picker.header", "// THREADS WITH {client} · {count}")
     .replace("{client}", clientName)

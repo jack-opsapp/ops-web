@@ -399,7 +399,10 @@
   "detailMore.refresh": "ACTUALIZAR HILO",
 
   "picker.trigger": "{count} OTROS HILOS",
+  "picker.triggerOne": "1 OTRO HILO",
   "picker.triggerNone": "0 OTROS HILOS",
+  "picker.ariaLabel": "Mostrar {count} otros hilos con {client}",
+  "picker.ariaLabelOne": "Mostrar 1 otro hilo con {client}",
   "picker.header": "// HILOS CON {client} · {count}",
 
   "bands.summary.title": "// RESUMEN",

@@ -88,6 +88,22 @@ describe("<ThreadPicker>", () => {
     expect(trigger).toHaveTextContent(/3 OTHER THREADS/);
   });
 
+  it("uses the singular trigger label for one sibling thread", () => {
+    render(
+      <ThreadPicker
+        threads={[makeThread("t1", "Quote follow-up", stateYours)]}
+        currentThreadId="current"
+        clientName="ACME"
+      />,
+    );
+
+    const trigger = screen.getByRole("button", {
+      name: /1 other thread with acme/i,
+    });
+    expect(trigger).toHaveTextContent("1 OTHER THREAD");
+    expect(trigger).not.toHaveTextContent("1 OTHER THREADS");
+  });
+
   it("renders the disabled mute label without a leading separator and no button when threads is empty", () => {
     render(
       <ThreadPicker

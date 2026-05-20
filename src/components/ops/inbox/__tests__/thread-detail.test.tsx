@@ -181,13 +181,13 @@ describe("<ThreadDetail>", () => {
         category={null}
         senderName=""
         messageCount={4}
-        threadPickerSlot={<span>1 OTHER THREADS</span>}
+        threadPickerSlot={<span>1 OTHER THREAD</span>}
       />,
     );
 
     const meta = screen.getByTestId("detail-header-meta");
     expect(meta).toHaveTextContent("4 MSG");
-    expect(meta).toHaveTextContent("1 OTHER THREADS");
+    expect(meta).toHaveTextContent("1 OTHER THREAD");
     expect(
       screen.queryAllByTestId("detail-header-meta-separator"),
     ).toHaveLength(1);
