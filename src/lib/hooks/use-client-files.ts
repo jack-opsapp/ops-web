@@ -124,8 +124,8 @@ export function useClientFiles(
       // Split thread attachments by MIME type. Anything image/* lights up
       // the // THIS THREAD bucket in the PHOTOS sub-view; everything else
       // (PDFs, CSVs, .docx, etc.) joins the documents list as
-      // `sourceType: "email_attachment"` so the FILES sub-view's CONTRACTS
-      // section can render them alongside any future non-financial docs.
+      // `sourceType: "email_attachment"` so FILES can render it alongside
+      // any future non-financial project/client docs.
       const { threadOnlyPhotos, documents: threadDocuments } =
         partitionThreadAttachments(threadAttachments, threadId ?? "", companyId);
 

@@ -77,6 +77,9 @@ export function adaptNonImageAttachmentToDocument(
     sourceId: att.id,
     status: null,
     pdfStoragePath: att.url,
+    mimeType: att.mimeType,
+    sizeBytes: att.size,
+    sourceLabel: "email",
     updatedAt: att.date,
     value: null,
   };

@@ -280,9 +280,8 @@ test.describe("inbox redesign - populated visual verification", () => {
         `project-group-${inboxPopulatedFixture.projectId}`
       )
     ).toBeVisible();
-    await expect(
-      contextRail.getByRole("tab", { name: /FILES\s+3/i })
-    ).toBeVisible();
+    const filesTab = contextRail.getByRole("tab", { name: /FILES\s+3/i });
+    await expect(filesTab).toBeVisible();
     const accountingTab = contextRail.getByRole("tab", {
       name: /ACCOUNTING\s+4/i,
     });
@@ -324,6 +323,21 @@ test.describe("inbox redesign - populated visual verification", () => {
     await expect(
       contextRail.getByText("INV-1190", { exact: true })
     ).toBeVisible();
+
+    await filesTab.click();
+    await expect(filesTab).toHaveAttribute("aria-selected", "true");
+    await expect(contextRail.getByText(/CONTRACTS/i)).toHaveCount(0);
+    const filesList = contextRail.getByTestId("files-list");
+    await expect(filesList).toBeVisible();
+    const providerAttachment = contextRail.getByTestId(
+      "files-row-email-att:msg-003:att-flashing-pdf"
+    );
+    await expect(providerAttachment).toContainText(
+      "curb-flashing-field-measure.pdf"
+    );
+    await expect(providerAttachment).toContainText("PDF");
+    await expect(providerAttachment).toContainText("EMAIL");
+    await expect(providerAttachment).toContainText("822 KB");
 
     await expect
       .poll(() => [...routes.seen].sort(), {

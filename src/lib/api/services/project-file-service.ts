@@ -6,15 +6,10 @@
  * Files tab (and any future "all client documents" surface) can render
  * without needing to know about the originating tables.
  *
- * "Documents" today means the PDFs OPS itself has produced for this
- * client — estimates and invoices. Both tables carry `client_id` and a
- * `pdf_storage_path`, so they're cheap to surface together.
- *
- * Email attachments are NOT yet a source: `activities.attachments` is
- * declared but the sync engine doesn't currently populate it (every row
- * we sampled returned `[]` despite `has_attachments=true`). When that
- * upstream gap closes, this service is the right place to fan in those
- * rows behind the same wire shape.
+ * "Documents" today means OPS-produced PDFs for the current client
+ * (estimates and invoices) plus transient provider attachments adapted by
+ * the inbox thread-attachment proxy. Financial documents render in
+ * ACCOUNTING; non-financial attachments render in FILES.
  */
 
 import { requireSupabase, parseDateRequired } from "@/lib/supabase/helpers";
@@ -48,6 +43,15 @@ export interface ProjectDocument {
    *  For `email_attachment` this is a same-origin proxy URL that streams
    *  the live bytes from the provider via cookie-authed GET. */
   pdfStoragePath: string | null;
+  /** MIME type when the source exposes it. Provider attachments set this;
+   *  OPS-produced PDFs can leave it null because `sourceType` carries the
+   *  financial classification and ACCOUNTING owns their display. */
+  mimeType?: string | null;
+  /** Size in bytes when available. Provider attachments expose it; generated
+   *  estimate/invoice PDFs do not currently track this in the rail query. */
+  sizeBytes?: number | null;
+  /** Short source label for non-financial file rows, e.g. "email". */
+  sourceLabel?: string | null;
   /** ISO-8601. Drives the "MAR 14" timestamp in the rail. */
   updatedAt: string;
   /** Monetary value in dollars — the canonical `total` column on the

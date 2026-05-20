@@ -120,19 +120,24 @@ describe("<FilesViewV3>", () => {
     );
     expect(screen.getByTestId("files-toggle-files")).toHaveTextContent("0");
     expect(screen.getByTestId("files-empty")).toBeInTheDocument();
-    expect(screen.queryByTestId("files-contracts")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("files-list")).not.toBeInTheDocument();
   });
 
-  it("FILES sub-view renders provider thread attachments as contracts", () => {
+  it("FILES sub-view renders provider thread attachments in a flat operational list", () => {
     const onFileOpen = vi.fn();
-    const attachment = doc({
-      id: "email-att-1",
-      filename: "curb-flashing-field-measure.pdf",
-      sourceType: "email_attachment",
-      status: null,
-      pdfStoragePath: "/api/inbox/threads/thread-1/attachments/att-1",
-      updatedAt: "2026-05-07T12:00:00.000Z",
-    });
+    const attachment = {
+      ...doc({
+        id: "email-att-1",
+        filename: "curb-flashing-field-measure.pdf",
+        sourceType: "email_attachment",
+        status: null,
+        pdfStoragePath: "/api/inbox/threads/thread-1/attachments/att-1",
+        updatedAt: "2026-05-07T12:00:00.000Z",
+      }),
+      mimeType: "application/pdf",
+      sizeBytes: 842_112,
+      sourceLabel: "email",
+    } as ProjectDocument;
     render(
       <FilesViewV3
         documents={[attachment]}
@@ -143,7 +148,14 @@ describe("<FilesViewV3>", () => {
       />
     );
 
-    expect(screen.getByTestId("files-contracts")).toBeInTheDocument();
+    expect(screen.queryByText(/CONTRACTS/i)).not.toBeInTheDocument();
+    expect(screen.getByTestId("files-list")).toBeInTheDocument();
+    const row = screen.getByTestId("files-row-email-att-1");
+    expect(row).toHaveTextContent("curb-flashing-field-measure.pdf");
+    expect(row).toHaveTextContent("PDF");
+    expect(row).toHaveTextContent("EMAIL");
+    expect(row).toHaveTextContent("822 KB");
+    expect(row).toHaveTextContent("MAY 7");
     fireEvent.click(screen.getByRole("button", { name: /curb-flashing/i }));
     expect(onFileOpen).toHaveBeenCalledWith(attachment);
   });

@@ -4,7 +4,7 @@
  * `ProjectPhoto` / `ProjectDocument` shapes the FILES tab consumes.
  *
  * These adapters are the single transformation point that decides what
- * lights up the // THIS THREAD photo bucket vs. the FILES sub-view's
+ * lights up the // THIS THREAD photo bucket vs. the FILES tab's flat
  * non-financial documents list, so they're worth proving piece-by-piece.
  */
 
@@ -82,6 +82,9 @@ describe("adaptNonImageAttachmentToDocument", () => {
       sourceId: "msg-2:att-2",
       status: null,
       pdfStoragePath: expect.stringContaining("/api/integrations/email/attachment"),
+      mimeType: "application/pdf",
+      sizeBytes: 1_400_000,
+      sourceLabel: "email",
       updatedAt: ISO_MAY_06,
       value: null,
     });
