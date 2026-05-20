@@ -15,53 +15,57 @@ interface ComposerInputProps {
   className?: string;
 }
 
-const MAX_HEIGHT = 128;
+const MIN_HEIGHT = 24;
+const MAX_HEIGHT = 144;
 
-export const ComposerInput = forwardRef<HTMLTextAreaElement, ComposerInputProps>(
-  function ComposerInput(
-    { value, onChange, onSubmit, placeholder, agentTinted, disabled, className },
-    ref,
-  ) {
-    const localRef = useRef<HTMLTextAreaElement | null>(null);
+export const ComposerInput = forwardRef<
+  HTMLTextAreaElement,
+  ComposerInputProps
+>(function ComposerInput(
+  { value, onChange, onSubmit, placeholder, agentTinted, disabled, className },
+  ref
+) {
+  const localRef = useRef<HTMLTextAreaElement | null>(null);
 
-    function setRef(el: HTMLTextAreaElement | null) {
-      localRef.current = el;
-      if (typeof ref === "function") ref(el);
-      else if (ref) (ref as React.MutableRefObject<HTMLTextAreaElement | null>).current = el;
+  function setRef(el: HTMLTextAreaElement | null) {
+    localRef.current = el;
+    if (typeof ref === "function") ref(el);
+    else if (ref)
+      (ref as React.MutableRefObject<HTMLTextAreaElement | null>).current = el;
+  }
+
+  useEffect(() => {
+    const el = localRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    const next = Math.max(MIN_HEIGHT, Math.min(el.scrollHeight, MAX_HEIGHT));
+    el.style.height = `${next}px`;
+    el.style.overflowY = el.scrollHeight > MAX_HEIGHT ? "auto" : "hidden";
+  }, [value]);
+
+  function handleKey(e: KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      onSubmit();
     }
+  }
 
-    useEffect(() => {
-      const el = localRef.current;
-      if (!el) return;
-      el.style.height = "auto";
-      const next = Math.min(el.scrollHeight, MAX_HEIGHT);
-      el.style.height = `${next}px`;
-      el.style.overflowY = el.scrollHeight > MAX_HEIGHT ? "auto" : "hidden";
-    }, [value]);
-
-    function handleKey(e: KeyboardEvent<HTMLTextAreaElement>) {
-      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        onSubmit();
-      }
-    }
-
-    return (
-      <textarea
-        ref={setRef}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onKeyDown={handleKey}
-        placeholder={placeholder}
-        disabled={disabled}
-        rows={1}
-        className={cn(
-          "w-full resize-none bg-transparent font-mohave text-[13px] leading-[1.45]",
-          "placeholder:text-text-mute focus:outline-none",
-          agentTinted ? "text-agent-text" : "text-text",
-          className,
-        )}
-      />
-    );
-  },
-);
+  return (
+    <textarea
+      ref={setRef}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      onKeyDown={handleKey}
+      placeholder={placeholder}
+      disabled={disabled}
+      rows={1}
+      className={cn(
+        "w-full min-w-0 resize-none bg-transparent font-mohave text-[13px] leading-[1.45]",
+        "max-h-[144px] min-h-[24px]",
+        "placeholder:text-text-mute focus:outline-none",
+        agentTinted ? "text-agent-text" : "text-text",
+        className
+      )}
+    />
+  );
+});

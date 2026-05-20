@@ -60,6 +60,7 @@
   "composer.placeholder": "Escribe un mensaje...",
   "composer.send": "ENVIAR",
   "composer.sendAiDraft": "ENVIAR BORRADOR DE IA",
+  "composer.editDraft": "Editar",
   "composer.attachFile": "Adjuntar archivo",
   "composer.attachImage": "Adjuntar imagen",
   "composer.draftWithPhaseC": "Redactar con Phase C",
@@ -419,6 +420,8 @@
   "composer.sendTactic": "ENVIAR",
   "composer.sendPhaseC": "ENVIAR BORRADOR DE PHASE C",
   "composer.editDraftTactic": "EDITAR BORRADOR",
+  "composer.formatBold": "Negrita",
+  "composer.formatItalic": "Cursiva",
   "composer.dismiss": "DESCARTAR",
 
   "draftSwitcher.gmailLabel": "{n} · GMAIL",

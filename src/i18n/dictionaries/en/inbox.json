@@ -418,6 +418,8 @@
   "composer.sendTactic": "SEND",
   "composer.sendPhaseC": "SEND PHASE C DRAFT",
   "composer.editDraftTactic": "EDIT DRAFT",
+  "composer.formatBold": "Bold",
+  "composer.formatItalic": "Italic",
   "composer.dismiss": "DISMISS",
 
   "draftSwitcher.gmailLabel": "{n} · GMAIL",

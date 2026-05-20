@@ -7,19 +7,30 @@ const noop = () => {};
 describe("<Composer>", () => {
   it("renders an empty textarea with placeholder", () => {
     render(
-      <Composer value="" onChange={noop} onSend={noop} placeholder="Type a message..." />,
+      <Composer
+        value=""
+        onChange={noop}
+        onSend={noop}
+        placeholder="Type a message..."
+      />
     );
-    expect(
-      screen.getByPlaceholderText(/Type a message/i),
-    ).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/Type a message/i)).toBeInTheDocument();
   });
 
   it("does not render utility controls when no handler is wired", () => {
     render(<Composer value="" onChange={noop} onSend={noop} />);
-    expect(screen.queryByRole("button", { name: /attach file/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /attach image/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /draft with phase c/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /schedule/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /attach file/i })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /attach image/i })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /draft with phase c/i })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /schedule/i })
+    ).not.toBeInTheDocument();
   });
 
   it("renders wired utility controls and fires their handlers", () => {
@@ -36,9 +47,11 @@ describe("<Composer>", () => {
         onAttachFile={onAttachFile}
         onAttachImage={onAttachImage}
         onSchedule={onSchedule}
-      />,
+      />
     );
-    fireEvent.click(screen.getByRole("button", { name: /draft with phase c/i }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /draft with phase c/i })
+    );
     fireEvent.click(screen.getByRole("button", { name: /attach file/i }));
     fireEvent.click(screen.getByRole("button", { name: /attach image/i }));
     fireEvent.click(screen.getByRole("button", { name: /schedule/i }));
@@ -86,15 +99,10 @@ describe("<Composer>", () => {
 
   it("shows the Edit button slot when onEditDraft is provided", () => {
     render(
-      <Composer
-        value=""
-        onChange={noop}
-        onSend={noop}
-        onEditDraft={() => {}}
-      />,
+      <Composer value="" onChange={noop} onSend={noop} onEditDraft={() => {}} />
     );
     expect(
-      screen.getByRole("button", { name: /^EDIT DRAFT$/i }),
+      screen.getByRole("button", { name: /^EDIT DRAFT$/i })
     ).toBeInTheDocument();
   });
 
@@ -105,10 +113,10 @@ describe("<Composer>", () => {
         onChange={noop}
         onSend={noop}
         sendVariant="agent"
-      />,
+      />
     );
     expect(
-      screen.getByRole("button", { name: /SEND PHASE C DRAFT/i }),
+      screen.getByRole("button", { name: /SEND PHASE C DRAFT/i })
     ).toBeInTheDocument();
   });
 
@@ -120,12 +128,15 @@ describe("<Composer>", () => {
         onSend={noop}
         onDraftWithClaude={noop}
         onAttachFile={noop}
-      />,
+      />
     );
-    const sparkles = screen.getByRole("button", { name: /draft with phase c/i });
+    const sparkles = screen.getByRole("button", {
+      name: /draft with phase c/i,
+    });
     const paperclip = screen.getByRole("button", { name: /attach file/i });
     expect(
-      sparkles.compareDocumentPosition(paperclip) & Node.DOCUMENT_POSITION_FOLLOWING,
+      sparkles.compareDocumentPosition(paperclip) &
+        Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy();
   });
 
@@ -139,7 +150,7 @@ describe("<Composer>", () => {
         onAttachFile={noop}
         onAttachImage={noop}
         onSchedule={noop}
-      />,
+      />
     );
     for (const name of [
       /draft with phase c/i,
@@ -155,7 +166,7 @@ describe("<Composer>", () => {
 
   it("can render as a floating dense-glass command surface", () => {
     const { container } = render(
-      <Composer value="" onChange={noop} onSend={noop} surface="floating" />,
+      <Composer value="" onChange={noop} onSend={noop} surface="floating" />
     );
     const shell = container.firstElementChild;
     expect(shell).toHaveClass("glass-dense");
@@ -163,10 +174,40 @@ describe("<Composer>", () => {
     expect(shell?.className).not.toContain("border-t");
   });
 
+  it("keeps the floating composer as one command surface without a nested input panel", () => {
+    const { container } = render(
+      <Composer value="" onChange={noop} onSend={noop} surface="floating" />
+    );
+    const shell = container.firstElementChild as HTMLElement;
+    const nestedPanel = Array.from(shell.querySelectorAll("div")).find((el) =>
+      el.className.includes("bg-inbox-bg-deep")
+    );
+
+    expect(nestedPanel).toBeUndefined();
+  });
+
+  it("formats the selected composer text with real markdown controls", () => {
+    const onChange = vi.fn();
+    render(
+      <Composer
+        value="tight reply"
+        onChange={onChange}
+        onSend={noop}
+        surface="floating"
+      />
+    );
+    const textarea = screen.getByRole("textbox") as HTMLTextAreaElement;
+    textarea.setSelectionRange(0, 5);
+
+    fireEvent.click(screen.getByRole("button", { name: /bold/i }));
+
+    expect(onChange).toHaveBeenCalledWith("**tight** reply");
+  });
+
   it("uses the tactical bracket placeholder when none is passed", () => {
     render(<Composer value="" onChange={noop} onSend={noop} />);
     expect(
-      screen.getByPlaceholderText("[type message — ⌘↵ to send]"),
+      screen.getByPlaceholderText("[type message — ⌘↵ to send]")
     ).toBeInTheDocument();
   });
 
