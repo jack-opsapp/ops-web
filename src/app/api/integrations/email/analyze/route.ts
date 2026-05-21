@@ -35,6 +35,7 @@ import { EmailMatchingServiceV2 } from "@/lib/api/services/email-matching-servic
 import { matchPlatform, PLATFORM_DOMAINS } from "@/lib/api/services/known-platforms";
 import { PUBLIC_EMAIL_DOMAINS } from "@/lib/types/pipeline";
 import { getImportOpenAI } from "@/lib/api/services/openai-clients";
+import { extractContactFormSubmission } from "@/lib/utils/email-parsing";
 import type { EmailConnection } from "@/lib/types/email-connection";
 import type { AnalyzedLead } from "@/lib/types/email-import";
 import type { NormalizedEmail } from "@/lib/api/services/email-provider";
@@ -754,6 +755,15 @@ async function extractClientFromFormBody(
   if (!bodyText && !snippet) return null;
 
   const text = bodyText || snippet;
+  const deterministic = extractContactFormSubmission("", text);
+  if (deterministic) {
+    return {
+      name: deterministic.name || deterministic.email.split("@")[0],
+      email: deterministic.email,
+      phone: deterministic.phone,
+      message: deterministic.message,
+    };
+  }
 
   // Quick check — does this even look like a form submission?
   // Look for at least one email address in the body
@@ -1109,4 +1119,3 @@ function normalizeSubject(subject: string): string {
     .replace(/^(re|fwd|fw)\s*:\s*/gi, '')
     .trim();
 }
-

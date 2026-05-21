@@ -135,6 +135,44 @@ describe("extractForwardedSender", () => {
 });
 
 describe("resolveEffectiveSenderEmail", () => {
+  const WIX_CONTACT_FORM_FORWARD = `Thanks,
+Jared Jerome
+778-268-3324
+Canpro Deck and Rail
+
+Sent from my iPhone
+
+Begin forwarded message:
+
+From: Canpro Deck and Rail <notifications@wix-forms.com>
+Date: May 20, 2026 at 14:46:39 MDT
+To: jared@example-contractors.com
+Subject: Contact Us 3 got a new submission
+Reply-To: "marcel.mercier@example.com" <marcel.mercier@example.com>
+
+A site visitor just submitted your form Contact Us 3 on example-contractors
+
+Submission summary:
+
+Full Name:
+Marcel Mercier
+
+Phone:
+12505388340
+
+Email:
+marcel.mercier@example.com
+
+Address:
+1182 Hewlett Place, Oak Bay
+
+How can we help?:
+We need someone to renovate and replace two existing roof decks.
+
+View Submissions
+
+This email was sent as a notification from this site.`;
+
   it("prefers forwarded upstream sender over the From header", () => {
     const r = resolveEffectiveSenderEmail({
       fromHeader: "Jackson Sweet <canprojack@gmail.com>",
@@ -144,6 +182,100 @@ describe("resolveEffectiveSenderEmail", () => {
     });
     expect(r.email).toBe("judy55love@gmail.com");
     expect(r.source).toBe("forwarded");
+  });
+
+  it("prefers a contact-form submitter over the internal forwarder and platform sender", () => {
+    const r = resolveEffectiveSenderEmail({
+      fromHeader: "Jared Jerome <jared@example-contractors.com>",
+      subject: "Fwd: Contact Us 3 got a new submission",
+      bodyText: WIX_CONTACT_FORM_FORWARD,
+      connectionEmail: "office@example-contractors.com",
+    }) as ReturnType<typeof resolveEffectiveSenderEmail> & {
+      name?: string;
+      phone?: string | null;
+    };
+
+    expect(r.email).toBe("marcel.mercier@example.com");
+    expect(r.name).toBe("Marcel Mercier");
+    expect(r.phone).toBe("12505388340");
+    expect(r.source).toBe("contact_form");
+  });
+
+  it("uses partial contact-form fields without inventing missing phone values", () => {
+    const body = `New contact form submission
+
+Name: Priya Shah
+Email: priya@example.net
+Message: Need a quote for deck resurfacing.`;
+
+    const r = resolveEffectiveSenderEmail({
+      fromHeader: "Website <notifications@forms.example>",
+      subject: "New contact form",
+      bodyText: body,
+      connectionEmail: "office@example-contractors.com",
+    }) as ReturnType<typeof resolveEffectiveSenderEmail> & {
+      name?: string;
+      phone?: string | null;
+    };
+
+    expect(r.email).toBe("priya@example.net");
+    expect(r.name).toBe("Priya Shah");
+    expect(r.phone).toBeNull();
+    expect(r.source).toBe("contact_form");
+  });
+
+  it("matches longer contact-form labels before shorter prefix labels", () => {
+    const body = `New contact form submission
+
+Name: John Smith
+Email Address: john@example.com
+Phone Number: 604-555-0101
+Message: Need a quote`;
+
+    const r = resolveEffectiveSenderEmail({
+      fromHeader: "Website <notifications@forms.example>",
+      subject: "New contact form",
+      bodyText: body,
+      connectionEmail: "office@example-contractors.com",
+    }) as ReturnType<typeof resolveEffectiveSenderEmail> & {
+      name?: string;
+      phone?: string | null;
+      message?: string | null;
+    };
+
+    expect(r.email).toBe("john@example.com");
+    expect(r.name).toBe("John Smith");
+    expect(r.phone).toBe("604-555-0101");
+    expect(r.message).toBe("Need a quote");
+    expect(r.source).toBe("contact_form");
+  });
+
+  it("stops multiline first-name collection at inline downstream labels", () => {
+    const body = `New contact form submission
+
+First Name:
+John
+Last Name: Smith
+Email: john@example.com
+Phone: 604-555-0101
+Message: Need a quote`;
+
+    const r = resolveEffectiveSenderEmail({
+      fromHeader: "Website <notifications@forms.example>",
+      subject: "New contact form",
+      bodyText: body,
+      connectionEmail: "office@example-contractors.com",
+    }) as ReturnType<typeof resolveEffectiveSenderEmail> & {
+      name?: string;
+      phone?: string | null;
+      message?: string | null;
+    };
+
+    expect(r.email).toBe("john@example.com");
+    expect(r.name).toBe("John Smith");
+    expect(r.phone).toBe("604-555-0101");
+    expect(r.message).toBe("Need a quote");
+    expect(r.source).toBe("contact_form");
   });
 
   it("falls back to From header when no forward marker is present", () => {

@@ -789,7 +789,11 @@ export const EmailThreadService = {
       supabase,
       companyId,
       senderEmail,
-      resolved.source === "forwarded" ? "" : email.fromName
+      resolved.source === "contact_form"
+        ? resolved.name ?? ""
+        : resolved.source === "forwarded"
+          ? ""
+          : email.fromName
     );
     const snippet = snippetFromMessage(email.snippet, email.bodyText);
 
@@ -802,6 +806,7 @@ export const EmailThreadService = {
         const extracted = extractEmailAddress(addr).toLowerCase();
         if (extracted) existingParticipants.add(extracted);
       }
+      if (senderEmail) existingParticipants.add(senderEmail);
 
       const emailDate = email.date instanceof Date ? email.date : new Date(email.date);
       const existingLastMsg = parseDateRequired(existing.last_message_at);
@@ -903,6 +908,7 @@ export const EmailThreadService = {
       const extracted = extractEmailAddress(addr).toLowerCase();
       if (extracted) participants.add(extracted);
     }
+    if (senderEmail) participants.add(senderEmail);
 
     // Auto-link to a client on insert if caller didn't pass one. Same
     // directory lookup the update path uses — keeps the two branches
