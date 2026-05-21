@@ -602,6 +602,16 @@ export interface ContactFormSubmissionIdentity {
   message: string | null;
 }
 
+export interface ContactFormSubmissionDiagnostics {
+  identity: ContactFormSubmissionIdentity;
+  warnings: string[];
+}
+
+export const CONTACT_FORM_PHONE_SANITIZED_WARNING =
+  "Phone field sanitized before proposed write";
+export const CONTACT_FORM_PHONE_DROPPED_WARNING =
+  "Phone field dropped before proposed write";
+
 export interface EffectiveSenderIdentity {
   email: string;
   source: "contact_form" | "forwarded" | "from_header";
@@ -652,6 +662,42 @@ function cleanContactFormValue(value: string | null): string | null {
     .replace(/\s+\n/g, "\n")
     .trim();
   return cleaned || null;
+}
+
+const CONTACT_FORM_PHONE_TOKEN_RE = /\+?\d[\d\s().-]{5,}\d/g;
+
+function normalizePhoneToken(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function digitCount(value: string): number {
+  return value.replace(/\D/g, "").length;
+}
+
+export function sanitizeContactFormPhoneValue(
+  value: string | null | undefined
+): {
+  phone: string | null;
+  warning: string | null;
+} {
+  const raw = cleanContactFormValue(value ?? null);
+  if (!raw) return { phone: null, warning: null };
+
+  for (const match of raw.matchAll(CONTACT_FORM_PHONE_TOKEN_RE)) {
+    const token = normalizePhoneToken(match[0]);
+    const digits = digitCount(token);
+    if (digits >= 7 && digits <= 15) {
+      return {
+        phone: token,
+        warning: token === raw ? null : CONTACT_FORM_PHONE_SANITIZED_WARNING,
+      };
+    }
+  }
+
+  return {
+    phone: null,
+    warning: CONTACT_FORM_PHONE_DROPPED_WARNING,
+  };
 }
 
 function extractFormField(text: string, labels: string[]): string | null {
@@ -730,6 +776,15 @@ export function extractContactFormSubmission(
   subject: string,
   bodyText: string,
 ): ContactFormSubmissionIdentity | null {
+  return (
+    extractContactFormSubmissionDiagnostics(subject, bodyText)?.identity ?? null
+  );
+}
+
+export function extractContactFormSubmissionDiagnostics(
+  subject: string,
+  bodyText: string,
+): ContactFormSubmissionDiagnostics | null {
   if (!bodyText) return null;
   const body = normalizeFormSubmissionText(bodyText);
   if (!looksLikeContactFormSubmission(subject ?? "", body)) return null;
@@ -759,12 +814,21 @@ export function extractContactFormSubmission(
     cleanContactFormValue(replyToName) ??
     localPartName(email) ??
     null;
+  const phoneSanitization = sanitizeContactFormPhoneValue(
+    extractFormField(body, CONTACT_FORM_PHONE_LABELS)
+  );
+  const warnings = phoneSanitization.warning ? [phoneSanitization.warning] : [];
 
   return {
-    name,
-    email,
-    phone: cleanContactFormValue(extractFormField(body, CONTACT_FORM_PHONE_LABELS)),
-    message: cleanContactFormValue(extractFormField(body, CONTACT_FORM_MESSAGE_LABELS)),
+    identity: {
+      name,
+      email,
+      phone: phoneSanitization.phone,
+      message: cleanContactFormValue(
+        extractFormField(body, CONTACT_FORM_MESSAGE_LABELS)
+      ),
+    },
+    warnings,
   };
 }
 

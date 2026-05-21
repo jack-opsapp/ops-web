@@ -14,6 +14,8 @@
  */
 import { describe, it, expect } from "vitest";
 import {
+  extractContactFormSubmission,
+  extractContactFormSubmissionDiagnostics,
   extractForwardedSender,
   resolveEffectiveSenderEmail,
 } from "@/lib/utils/email-parsing";
@@ -248,6 +250,50 @@ Message: Need a quote`;
     expect(r.phone).toBe("604-555-0101");
     expect(r.message).toBe("Need a quote");
     expect(r.source).toBe("contact_form");
+  });
+
+  it("sanitizes live multiline contact-form phone fields before downstream labels", () => {
+    const cases = [
+      {
+        phone: "7786773812",
+        city: "sooke bc",
+        railing: "glass rail",
+      },
+      {
+        phone: "7785840514",
+        city: "Victoria",
+        railing: "Full deck replacement",
+      },
+    ];
+
+    for (const item of cases) {
+      const body = `New contact form submission
+
+Full Name:
+Sarah Client
+
+Email:
+sarah@example.com
+
+Phone:
+${item.phone}
+City Location:
+${item.city}
+Railing / Vinyl or Full D:
+${item.railing}`;
+
+      const submission = extractContactFormSubmission("New contact form", body);
+      const diagnostics = extractContactFormSubmissionDiagnostics(
+        "New contact form",
+        body
+      );
+
+      expect(submission?.email).toBe("sarah@example.com");
+      expect(submission?.phone).toBe(item.phone);
+      expect(diagnostics?.warnings).toContain(
+        "Phone field sanitized before proposed write"
+      );
+    }
   });
 
   it("stops multiline first-name collection at inline downstream labels", () => {
