@@ -8,8 +8,9 @@
  *   • title row: client name + optional `· {messageCount}` + inline <StateTag>
  *     + relative time (only when StateTag doesn't already carry a time value)
  *   • subject line (font-weight tracks unread/read)
- *   • snippet line — body is `aiSummary || snippet`, with optional `// PHASE C DRAFT ·` (AI)
- *     or `DRAFT ·` (operator) Cake-prefix
+ *   • snippet line — body is the resolved preview, with optional `// PHASE C DRAFT ·` (AI)
+ *     or `DRAFT ·` (operator) Cake-prefix. Generic form-submission summaries
+ *     never mask parsed form content.
  *   • bottom signal row — only when at least one of attachment / quote / invoice / new-sender
  *     is present. The legacy URGENT pill is gone — the inline <StateTag> now carries urgency.
  *
@@ -33,6 +34,7 @@ import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
 import type { PhaseC } from "@/lib/types/email-thread";
 import type { StateTagResult } from "@/lib/inbox/format-wait";
+import { resolveThreadPreview } from "@/lib/inbox/thread-preview";
 import { StateTag } from "./state-tag";
 import {
   inboxThreadHref,
@@ -53,9 +55,9 @@ export interface ThreadRowData {
   draftKind?: "ai" | "user" | null;
   clientName: string;
   subject: string;
-  /** Raw provider snippet — the fallback when AI summary isn't available. */
+  /** Raw provider snippet or parsed form preview. Used when it is more specific than the summary. */
   snippet: string;
-  /** Server-side AI summary; renders in preference to `snippet` when present. */
+  /** Server-side AI summary; renders in preference to `snippet` unless it is a stale form wrapper. */
   aiSummary: string | null;
   /** Total messages in the thread. Renders inline as `· {n}` when > 1. */
   messageCount: number;
@@ -88,7 +90,10 @@ interface ThreadRowProps {
 export function resolveThreadRowPreview(
   thread: Pick<ThreadRowData, "aiSummary" | "snippet">,
 ): string {
-  return thread.aiSummary?.trim() || thread.snippet.trim();
+  return resolveThreadPreview({
+    aiSummary: thread.aiSummary,
+    fallback: thread.snippet,
+  });
 }
 
 function formatRelativeTime(ts: number, now: number): string {
@@ -186,7 +191,7 @@ export function ThreadRow({
     : t("row.markUnread", "Mark unread");
   const archiveLabel = t("row.archiveThread", "Archive thread");
   const quickButtonClass =
-    "inline-flex h-[18px] w-[18px] items-center justify-center rounded-[2px] border border-line text-text-3 transition-colors hover:border-line-hi hover:bg-inbox-elev hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black";
+    "inline-flex h-[18px] w-[18px] items-center justify-center rounded-[2px] border border-line text-text-3 transition-colors hover:border-line-hi hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black";
 
   const stopQuickAction = (e: MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
@@ -200,12 +205,12 @@ export function ThreadRow({
         "group relative block w-full cursor-pointer border-b border-line text-left",
         "py-2 pl-2 pr-3",
         selected
-          ? "bg-ops-accent/[0.07]"
+          ? "border-line-hi"
           : isOverdue
-            ? "bg-rose/[0.025] hover:bg-rose/[0.05]"
+            ? "hover:border-rose/35"
             : isUnread
-              ? "bg-inbox-elev/45 hover:bg-inbox-elev/65"
-              : "hover:bg-surface-hover-subtle",
+              ? "hover:border-line-hi"
+              : "hover:border-line-hi",
       )}
     >
       <a
@@ -268,7 +273,7 @@ export function ThreadRow({
           {isUnread && (
             <span
               data-testid="thread-row-new-badge"
-              className="shrink-0 rounded-[2px] border border-line-hi bg-inbox-elev px-1 font-mono text-[11px] uppercase tracking-[0.10em] text-text"
+              className="shrink-0 rounded-[2px] border border-line-hi bg-transparent px-1 font-mono text-[11px] uppercase tracking-[0.10em] text-text"
               style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
             >
               {t("row.newBadge", "NEW")}

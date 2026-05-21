@@ -4,6 +4,7 @@ import {
   selectActionBand,
   type BandThreadInput,
 } from "@/lib/inbox/band-selection";
+import { resolveThreadPreview } from "@/lib/inbox/thread-preview";
 import { SummaryBand } from "./bands/summary-band";
 import {
   NeedsInputBand,
@@ -55,7 +56,11 @@ export function DetailBand({
   renderedAt,
   onAction,
 }: DetailBandProps) {
-  const showSummary = !thread.closed && !!thread.aiSummary;
+  const summaryBody = resolveThreadPreview({
+    aiSummary: thread.aiSummary,
+    fallback: thread.summaryFallback,
+  });
+  const showSummary = !thread.closed && !!thread.aiSummary?.trim();
   const actionBand = selectActionBand(thread);
 
   if (!showSummary && actionBand === null) return null;
@@ -64,7 +69,7 @@ export function DetailBand({
     <>
       {showSummary && (
         <SummaryBand
-          body={thread.aiSummary ?? ""}
+          body={summaryBody}
           updatedAt={summaryUpdatedAt}
           renderedAt={renderedAt}
         />

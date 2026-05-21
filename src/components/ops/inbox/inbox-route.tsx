@@ -416,6 +416,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
   }, [
     shouldFloatComposer,
     selectedThreadId,
+    composerValue,
     composerError,
     activeDraftId,
     threadDrafts.length,
@@ -1216,6 +1217,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
       <DetailBand
         thread={{
           aiSummary: detail.thread.aiSummary,
+          summaryFallback: latestDetailMessagePreview(detail.messages),
           phaseC: detail.thread.phaseC,
           agent: {
             needsInput: detail.thread.agentBlockingQuestion !== null,
@@ -1285,7 +1287,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
             isDraftSending={sendReply.isPending}
             sendCompletedAt={sendCompletedAt}
             scrollAnchorSignal={floatingComposerHeight}
-            className="pb-[calc(var(--inbox-floating-composer-height)_+_12px)]"
+            className="pb-[calc(var(--inbox-floating-composer-height)_+_24px)]"
           />
           <div
             ref={floatingComposerFrameRef}
@@ -1688,6 +1690,21 @@ function toRenderableMessage(
       hour12: false,
     }),
   };
+}
+
+function latestDetailMessagePreview(
+  messages: InboxThreadMessage[],
+): string | null {
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const message = messages[i];
+    if (!message) continue;
+    const text =
+      message.cleanBodyText?.trim() ||
+      message.bodyText?.trim() ||
+      message.snippet?.trim();
+    if (text) return text;
+  }
+  return null;
 }
 
 function buildMessageAttachmentMap(

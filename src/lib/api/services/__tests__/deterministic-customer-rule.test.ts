@@ -60,6 +60,25 @@ describe("tryDeterministicCustomer — matches every live stage", () => {
     expect(result!.summary).toContain("Canpro Deck and Rail Estimate");
   });
 
+  it("uses submitted form content instead of a generic form-submission subject when available", () => {
+    const result = tryDeterministicCustomer({
+      ...baseInput({
+        subject: "Contact Us 3 got a new submission",
+        opportunityStage: "new_lead",
+      }),
+      messagePreview: `Full Name:
+Marcel Mercier
+
+How can we help?:
+We need someone to renovate and replace two existing roof decks.`,
+    });
+
+    expect(result!.summary).toContain(
+      "renovate and replace two existing roof decks"
+    );
+    expect(result!.summary).not.toContain("got a new submission");
+  });
+
   it("substitutes (no subject) when subject is blank", () => {
     const result = tryDeterministicCustomer(baseInput({ subject: "   " }));
     expect(result!.summary).toContain("(no subject)");

@@ -18,6 +18,7 @@ import {
   extractContactFormSubmissionDiagnostics,
   extractForwardedSender,
   resolveEffectiveSenderEmail,
+  stripQuotedContent,
 } from "@/lib/utils/email-parsing";
 
 const GMAIL_FORWARDED = `Hi team — forwarding this lead. Take a look.
@@ -201,6 +202,20 @@ This email was sent as a notification from this site.`;
     expect(r.name).toBe("Marcel Mercier");
     expect(r.phone).toBe("12505388340");
     expect(r.source).toBe("contact_form");
+  });
+
+  it("strips the forwarded wrapper but keeps the submitted contact-form fields for display", () => {
+    const display = stripQuotedContent(WIX_CONTACT_FORM_FORWARD);
+
+    expect(display).toContain("Full Name:");
+    expect(display).toContain("Marcel Mercier");
+    expect(display).toContain("How can we help?:");
+    expect(display).toContain(
+      "We need someone to renovate and replace two existing roof decks."
+    );
+    expect(display).not.toContain("Sent from my iPhone");
+    expect(display).not.toContain("Begin forwarded message:");
+    expect(display).not.toContain("View Submissions");
   });
 
   it("prefers the submitted email field over a Wix relay Reply-To address", () => {

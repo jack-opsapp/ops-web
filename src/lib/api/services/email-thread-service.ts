@@ -50,6 +50,7 @@ import {
 } from "./thread-classifier-service";
 import {
   isCommonEmailDomain,
+  extractContactFormSubmissionPreviewText,
   extractEmailAddress,
   stripQuotedContent,
   resolveEffectiveSenderEmail,
@@ -119,8 +120,14 @@ function setCachedSenderName(key: string, name: string) {
 
 function snippetFromMessage(
   snippet: string | null | undefined,
-  bodyText: string | null | undefined
+  bodyText: string | null | undefined,
+  subject: string | null | undefined = ""
 ): string {
+  const formSnippet = extractContactFormSubmissionPreviewText(
+    subject ?? "",
+    bodyText ?? snippet ?? ""
+  );
+  if (formSnippet) return formSnippet.slice(0, 400);
   return ((snippet ?? "").trim() || (bodyText ?? "").trim()).slice(0, 400);
 }
 
@@ -530,7 +537,7 @@ async function enrichWithActivitySnippets(
   const [activityRes, connectionRes] = await Promise.all([
     supabase
       .from("activities")
-      .select("email_thread_id, from_email, body_text, content, created_at")
+      .select("email_thread_id, from_email, subject, body_text, content, created_at")
       .eq("company_id", companyId)
       .eq("type", "email")
       .in("email_thread_id", providerThreadIds)
@@ -567,13 +574,14 @@ async function enrichWithActivitySnippets(
   for (const row of (activityRes.data ?? []) as Array<{
     email_thread_id: string | null;
     from_email: string | null;
+    subject: string | null;
     body_text: string | null;
     content: string | null;
     created_at: string | null;
   }>) {
     const threadId = row.email_thread_id;
     if (!threadId || latestActivityByThread.has(threadId)) continue;
-    const snippet = snippetFromMessage(row.content, row.body_text);
+    const snippet = snippetFromMessage(row.content, row.body_text, row.subject);
     if (!snippet) continue;
     latestActivityByThread.set(threadId, {
       snippet,
@@ -795,7 +803,11 @@ export const EmailThreadService = {
           ? ""
           : email.fromName
     );
-    const snippet = snippetFromMessage(email.snippet, email.bodyText);
+    const snippet = snippetFromMessage(
+      email.snippet,
+      email.bodyText,
+      email.subject
+    );
 
     if (existing) {
       // Merge participants (union)
@@ -1004,15 +1016,21 @@ export const EmailThreadService = {
 
     const messages: ClassifyMessage[] = ((msgs ?? []) as Array<Record<string, unknown>>)
       .reverse()
-      .map((row) => ({
-        from: (row.from_email as string) || "",
-        fromName: "",
-        to: (row.to_emails as string[]) ?? [],
-        cc: (row.cc_emails as string[]) ?? [],
-        direction: (row.direction as "inbound" | "outbound") ?? "inbound",
-        date: parseDateRequired(row.created_at).toISOString(),
-        bodyText: stripQuotedContent((row.body_text as string) || (row.content as string) || ""),
-      }));
+      .map((row) => {
+        const messageSubject =
+          ((row.subject as string | null) ?? threadRow.subject ?? "").trim();
+        const rawBody =
+          (row.body_text as string) || (row.content as string) || "";
+        return {
+          from: (row.from_email as string) || "",
+          fromName: "",
+          to: (row.to_emails as string[]) ?? [],
+          cc: (row.cc_emails as string[]) ?? [],
+          direction: (row.direction as "inbound" | "outbound") ?? "inbound",
+          date: parseDateRequired(row.created_at).toISOString(),
+          bodyText: stripQuotedContent(rawBody, messageSubject),
+        };
+      });
 
     const senderEmail = threadRow.latestSenderEmail;
     const senderDomain = domainOf(senderEmail);
@@ -1090,8 +1108,23 @@ export const EmailThreadService = {
     // rejected the UPDATE silently, leaving the thread frozen at OTHER.
     if (threadRow.opportunityId && !threadRow.categoryManuallySet) {
       const opp = await loadOpportunityForCustomerRule(threadRow.opportunityId);
+      const messagePreview =
+        [...messages]
+          .reverse()
+          .map((message) =>
+            extractContactFormSubmissionPreviewText(
+              threadRow.subject,
+              message.bodyText
+            )
+          )
+          .find((preview): preview is string => Boolean(preview)) ??
+        extractContactFormSubmissionPreviewText(
+          threadRow.subject,
+          threadRow.latestSnippet ?? ""
+        );
       const customer = tryDeterministicCustomer({
         subject: threadRow.subject,
+        messagePreview,
         opportunityId: threadRow.opportunityId,
         opportunityStage: opp?.stage ?? null,
         opportunityArchivedAt: opp?.archivedAt ?? null,

@@ -91,7 +91,7 @@ export function DraftSwitcher({
       role="tablist"
       aria-label={t("drafts.label", "Drafts")}
       className={cn(
-        "mb-2 flex items-center gap-4 border-b border-line bg-inbox-elev px-2.5 py-2",
+        "mb-2 flex items-center gap-4 border-b border-line bg-transparent px-2.5 py-2",
         className,
       )}
     >

@@ -11,7 +11,7 @@
  *
  * Renders nothing while count is zero — keeps the header quiet by default
  * (which matches the audit's observed usage). Clicking the chip opens a
- * glass-dense popover listing snoozed threads with unsnooze + open
+ * Transparent hairline popover listing snoozed threads with unsnooze + open
  * affordances. Re-uses `useInboxThreads({ filter: "SNOOZED" })` so the
  * predicate, sort, and pagination all flow through rail-predicates.ts.
  */
@@ -79,7 +79,7 @@ export function SnoozedChip({ scope, onOpenThread }: SnoozedChipProps) {
       <PopoverContent
         align="end"
         sideOffset={6}
-        className="w-[320px] p-0 glass-dense rounded-[12px]"
+        className="w-[320px] rounded-[12px] border border-line bg-transparent p-0"
       >
         <div className="px-3 pt-2.5 pb-2 border-b border-line">
           <SlashLabel label={t("snoozedPanel.title", "// SNOOZED")} size="md" />
@@ -103,7 +103,7 @@ export function SnoozedChip({ scope, onOpenThread }: SnoozedChipProps) {
             return (
               <div
                 key={thread.id}
-                className="flex items-start gap-2 px-3 py-2 hover:bg-inbox-elev/40 transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]"
+                className="flex items-start gap-2 px-3 py-2 transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:text-text"
               >
                 <button
                   type="button"

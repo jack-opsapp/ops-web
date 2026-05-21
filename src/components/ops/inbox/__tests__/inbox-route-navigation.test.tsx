@@ -25,6 +25,7 @@ const unarchiveBatchMutate = vi.fn();
 const setLeadArchivePreferenceMutateAsync = vi.fn();
 const markReadMutate = vi.fn();
 const clipboardWriteText = vi.fn();
+const messageListSpy = vi.fn();
 let detailByThreadId = new Map<string, InboxThreadDetail>();
 
 type ArchiveMutationOptions = {
@@ -372,7 +373,10 @@ vi.mock("../detail-band", () => ({
 }));
 
 vi.mock("../message-list", () => ({
-  MessageList: () => null,
+  MessageList: (props: { className?: string }) => {
+    messageListSpy(props);
+    return <div data-testid="message-list" className={props.className} />;
+  },
 }));
 
 vi.mock("../composer/composer", () => ({
@@ -505,6 +509,7 @@ beforeEach(() => {
   setLeadArchivePreferenceMutateAsync.mockReset();
   markReadMutate.mockReset();
   clipboardWriteText.mockReset();
+  messageListSpy.mockReset();
   clipboardWriteText.mockResolvedValue(undefined);
   if (window.navigator.clipboard) {
     vi.spyOn(window.navigator.clipboard, "writeText").mockImplementation(
@@ -605,6 +610,17 @@ describe("<InboxRoute> thread navigation", () => {
     expect(archiveMutate.mock.calls[0][1]).toMatchObject({
       onSuccess: expect.any(Function),
     });
+  });
+
+  it("pads the message list beyond the measured floating composer height", () => {
+    detailByThreadId.set("thread-a", makeThreadDetail("thread-a"));
+    renderRoute("thread-a");
+
+    expect(messageListSpy).toHaveBeenCalled();
+    const lastCall = messageListSpy.mock.calls[messageListSpy.mock.calls.length - 1];
+    expect(lastCall?.[0].className).toContain(
+      "pb-[calc(var(--inbox-floating-composer-height)_+_24px)]"
+    );
   });
 
   it("thread row quick mark read/unread uses the real mutation path", async () => {

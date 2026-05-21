@@ -5,7 +5,7 @@
  * `reference/v4-detail.jsx :: V4Composer`.
  *
  * Docked keeps the mobile-safe stacked shell. Floating is a desktop command
- * surface: one dense-glass row, no nested input card, real utility controls
+ * surface: one compact command row, no nested input card, real utility controls
  * only, and Cmd+Enter sends.
  */
 
@@ -51,10 +51,10 @@ interface ComposerProps {
 }
 
 const iconBtn =
-  "inline-flex h-5 w-5 items-center justify-center rounded-[2px] text-text-3 transition-colors hover:bg-inbox-elev hover:text-text-2 focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black";
+  "inline-flex h-5 w-5 items-center justify-center rounded-[2px] text-text-3 transition-colors hover:text-text-2 focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black";
 
 const floatingIconBtn =
-  "inline-flex h-5 w-5 items-center justify-center rounded-[2px] text-text-3 transition-colors hover:bg-inbox-elev hover:text-text-2 focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black";
+  "inline-flex h-4 w-4 items-center justify-center rounded-[2px] text-text-3 transition-colors hover:text-text-2 focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black";
 
 export function Composer({
   inputRef,
@@ -134,7 +134,7 @@ export function Composer({
   }
 
   const innerBoxClass = cn(
-    "flex flex-col gap-1.5 rounded-[5px] border bg-inbox-bg-deep px-2.5 py-2 transition-colors",
+    "flex flex-col gap-1.5 rounded-[5px] border bg-transparent px-2.5 py-2 transition-colors",
     agentTinted
       ? "border-agent-border-hi focus-within:border-agent"
       : "border-line-hi focus-within:border-ops-accent"
@@ -142,9 +142,9 @@ export function Composer({
 
   const sendBtnClass = isFloating
     ? cn(
-        "inline-flex h-6 shrink-0 items-center justify-center gap-1 rounded-[5px] border px-2",
+        "inline-flex h-5 shrink-0 items-center justify-center gap-1 rounded-[3px] border px-1.5",
         "font-cakemono text-[11px] font-light uppercase tracking-[0.14em]",
-        "border-line bg-transparent text-text-2 transition-colors hover:bg-inbox-elev hover:text-text",
+        "border-line bg-transparent text-text-2 transition-colors hover:border-line-hi hover:text-text",
         "disabled:cursor-not-allowed disabled:text-text-mute disabled:opacity-50"
       )
     : cn(
@@ -162,107 +162,100 @@ export function Composer({
         data-inbox-debug-id="C6"
         data-inbox-debug-label="FLOATING COMPOSER"
         className={cn(
-          "glass-dense shrink-0 overflow-hidden rounded-modal border border-glass-border px-2 py-1.5",
-          "focus-within:border-ops-accent",
+          "shrink-0 overflow-hidden border border-line bg-transparent px-2 py-1",
+          "focus-within:border-line-hi",
           className
         )}
       >
         {topAccessory}
         <div className="flex items-end gap-1.5">
-          <div className="flex shrink-0 items-end gap-1 pb-[2px]">
-            {showDraftWithPhaseC && (
-              <button
-                type="button"
-                onClick={onDraftWithClaude}
-                aria-label={t("composer.draftWithPhaseC", "Draft with Phase C")}
-                className={cn(
-                  floatingIconBtn,
-                  "text-agent hover:text-agent-hi"
-                )}
-              >
-                <Sparkles
-                  aria-hidden
-                  className="h-3.5 w-3.5"
-                  strokeWidth={1.5}
-                />
-              </button>
-            )}
-            {showDraftWithPhaseC && (
-              <span aria-hidden className="mx-1 h-[18px] w-px bg-line" />
-            )}
-            <button
-              type="button"
-              onClick={() => applyMarkdownWrap("**", "**")}
-              aria-label={t("composer.formatBold", "Bold")}
-              className={floatingIconBtn}
+          <div className="min-w-0 flex-1">
+            <ComposerInput
+              ref={setInputRef}
+              value={value}
+              onChange={onChange}
+              onSubmit={handleSend}
+              placeholder={resolvedPlaceholder}
+              disabled={disabled}
+              agentTinted={agentTinted}
+              className="px-0 py-0"
+            />
+            <div
+              data-testid="floating-composer-toolbar"
+              className="mt-0.5 flex items-center gap-1"
             >
-              <Bold aria-hidden className="h-3.5 w-3.5" strokeWidth={1.5} />
-            </button>
-            <button
-              type="button"
-              onClick={() => applyMarkdownWrap("*", "*")}
-              aria-label={t("composer.formatItalic", "Italic")}
-              className={floatingIconBtn}
-            >
-              <Italic aria-hidden className="h-3.5 w-3.5" strokeWidth={1.5} />
-            </button>
-            {(showAttachFile || showAttachImage || showSchedule) && (
-              <span aria-hidden className="mx-1 h-[18px] w-px bg-line" />
-            )}
-            {showAttachFile && (
+              {showDraftWithPhaseC && (
+                <button
+                  type="button"
+                  onClick={onDraftWithClaude}
+                  aria-label={t("composer.draftWithPhaseC", "Draft with Phase C")}
+                  className={cn(
+                    floatingIconBtn,
+                    "text-agent hover:text-agent-hi"
+                  )}
+                >
+                  <Sparkles aria-hidden className="h-3 w-3" strokeWidth={1.5} />
+                </button>
+              )}
+              {showDraftWithPhaseC && (
+                <span aria-hidden className="mx-0.5 h-[14px] w-px bg-line" />
+              )}
               <button
                 type="button"
-                onClick={onAttachFile}
-                aria-label={t("composer.attachFile", "Attach file")}
+                onClick={() => applyMarkdownWrap("**", "**")}
+                aria-label={t("composer.formatBold", "Bold")}
                 className={floatingIconBtn}
               >
-                <Paperclip
-                  aria-hidden
-                  className="h-3.5 w-3.5"
-                  strokeWidth={1.5}
-                />
+                <Bold aria-hidden className="h-3 w-3" strokeWidth={1.5} />
               </button>
-            )}
-            {showAttachImage && (
               <button
                 type="button"
-                onClick={onAttachImage}
-                aria-label={t("composer.attachImage", "Attach image")}
+                onClick={() => applyMarkdownWrap("*", "*")}
+                aria-label={t("composer.formatItalic", "Italic")}
                 className={floatingIconBtn}
               >
-                <Image aria-hidden className="h-3.5 w-3.5" strokeWidth={1.5} />
+                <Italic aria-hidden className="h-3 w-3" strokeWidth={1.5} />
               </button>
-            )}
-            {showSchedule && (
-              <button
-                type="button"
-                onClick={onSchedule}
-                aria-label={t("composer.scheduleSend", "Schedule send")}
-                className={floatingIconBtn}
-              >
-                <Calendar
-                  aria-hidden
-                  className="h-3.5 w-3.5"
-                  strokeWidth={1.5}
-                />
-              </button>
-            )}
+              {(showAttachFile || showAttachImage || showSchedule) && (
+                <span aria-hidden className="mx-0.5 h-[14px] w-px bg-line" />
+              )}
+              {showAttachFile && (
+                <button
+                  type="button"
+                  onClick={onAttachFile}
+                  aria-label={t("composer.attachFile", "Attach file")}
+                  className={floatingIconBtn}
+                >
+                  <Paperclip aria-hidden className="h-3 w-3" strokeWidth={1.5} />
+                </button>
+              )}
+              {showAttachImage && (
+                <button
+                  type="button"
+                  onClick={onAttachImage}
+                  aria-label={t("composer.attachImage", "Attach image")}
+                  className={floatingIconBtn}
+                >
+                  <Image aria-hidden className="h-3 w-3" strokeWidth={1.5} />
+                </button>
+              )}
+              {showSchedule && (
+                <button
+                  type="button"
+                  onClick={onSchedule}
+                  aria-label={t("composer.scheduleSend", "Schedule send")}
+                  className={floatingIconBtn}
+                >
+                  <Calendar aria-hidden className="h-3 w-3" strokeWidth={1.5} />
+                </button>
+              )}
+            </div>
           </div>
-          <ComposerInput
-            ref={setInputRef}
-            value={value}
-            onChange={onChange}
-            onSubmit={handleSend}
-            placeholder={resolvedPlaceholder}
-            disabled={disabled}
-            agentTinted={agentTinted}
-            className="flex-1 px-1 py-[2px]"
-          />
           {onEditDraft && (
             <button
               type="button"
               onClick={onEditDraft}
-              className="mb-[2px] inline-flex h-6 shrink-0 items-center rounded-[5px] border border-line bg-transparent px-2 font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-text-2 transition-colors hover:bg-inbox-elev hover:text-text"
+              className="mb-[1px] inline-flex h-5 shrink-0 items-center rounded-[3px] border border-line bg-transparent px-1.5 font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-text-2 transition-colors hover:border-line-hi hover:text-text"
             >
               {t("composer.editDraftTactic", "EDIT DRAFT")}
             </button>
@@ -272,7 +265,7 @@ export function Composer({
             onClick={handleSend}
             disabled={!canSend}
             aria-label={resolvedSendLabel}
-            className={cn(sendBtnClass, "mb-[2px]")}
+            className={cn(sendBtnClass, "mb-[1px]")}
           >
             <Send aria-hidden className="h-3.5 w-3.5" strokeWidth={1.5} />
             <KeyHint variant="inline" keys={["⌘", "↵"]} />
@@ -288,7 +281,7 @@ export function Composer({
       data-inbox-debug-id="C6"
       data-inbox-debug-label="DOCKED COMPOSER"
       className={cn(
-        "shrink-0 border-t border-line bg-inbox-panel px-2 py-2",
+        "shrink-0 border-t border-line bg-transparent px-2 py-2",
         className
       )}
     >
@@ -309,7 +302,7 @@ export function Composer({
               type="button"
               onClick={onDraftWithClaude}
               aria-label={t("composer.draftWithPhaseC", "Draft with Phase C")}
-              className="inline-flex h-5 w-5 items-center justify-center rounded-[2px] text-agent transition-colors hover:bg-inbox-elev hover:text-agent-hi focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+              className="inline-flex h-5 w-5 items-center justify-center rounded-[2px] text-agent transition-colors hover:text-agent-hi focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black"
             >
               <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={1.5} />
             </button>
@@ -356,7 +349,7 @@ export function Composer({
             <button
               type="button"
               onClick={onEditDraft}
-              className="inline-flex h-6 items-center rounded-[2.5px] border border-line bg-transparent px-2.5 font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-text-2 transition-colors hover:bg-inbox-elev hover:text-text"
+              className="inline-flex h-6 items-center rounded-[2.5px] border border-line bg-transparent px-2.5 font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-text-2 transition-colors hover:border-line-hi hover:text-text"
             >
               {t("composer.editDraftTactic", "EDIT DRAFT")}
             </button>

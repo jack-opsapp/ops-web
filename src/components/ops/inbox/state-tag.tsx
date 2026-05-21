@@ -56,7 +56,7 @@ const TONE_BG: Record<StateTagTone, string> = {
   olive: "bg-olive/[0.10]",
   tan: "bg-tan/[0.10]",
   lavender: "bg-agent/[0.10]",
-  neutral: "bg-surface-input",
+  neutral: "bg-transparent",
 };
 
 const TONE_BORDER: Record<StateTagTone, string> = {

@@ -221,7 +221,7 @@ export function SnoozePicker({
                 className={cn(
                   "grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-1 px-1.5 py-0.5 text-left",
                   "transition-colors duration-150",
-                  "hover:bg-surface-hover focus-visible:bg-surface-active focus-visible:outline-none"
+                  "hover:text-text focus-visible:outline-none"
                 )}
               >
                 <span className="min-w-0 truncate font-mono text-micro uppercase tracking-wider text-text-2">
@@ -250,7 +250,7 @@ export function SnoozePicker({
               min={toLocalDatetimeInput(new Date(Date.now() + 60_000))}
               onChange={(e) => setCustomValue(e.target.value)}
               className={cn(
-                "min-w-0 flex-1 rounded border border-line bg-surface-input px-1 py-0.5",
+                "min-w-0 flex-1 rounded border border-line bg-transparent px-1 py-0.5",
                 "font-mono text-micro text-text",
                 "focus:border-line-hi focus:outline-none"
               )}
@@ -261,7 +261,7 @@ export function SnoozePicker({
               className={cn(
                 "shrink-0 rounded border border-line bg-transparent px-1 py-0.5",
                 "font-cakemono text-micro font-light uppercase tracking-wider text-text-2",
-                "hover:bg-surface-hover hover:text-text focus-visible:outline-none",
+                "hover:border-line-hi hover:text-text focus-visible:outline-none",
                 "focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black",
                 "transition-colors duration-150"
               )}

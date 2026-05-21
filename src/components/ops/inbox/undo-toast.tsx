@@ -11,7 +11,7 @@
  * The toast host is a singleton mounted once at the inbox page level — other
  * pages can also mount it if they need undo semantics.
  *
- * Design: frosted glass-dense surface, 12px radius, left-aligned text,
+ * Design: transparent hairline surface, 12px radius, left-aligned text,
  * ops-amber countdown bar, no shadows. Reduced-motion fallback: opacity only.
  */
 
@@ -190,7 +190,7 @@ function ToastRow({ toast, onResolve }: ToastRowProps) {
       role="status"
       aria-live="polite"
       aria-labelledby={`${id}-msg`}
-      className="pointer-events-auto glass-dense relative w-[340px] overflow-hidden"
+      className="pointer-events-auto relative w-[340px] overflow-hidden rounded-[12px] border border-line bg-transparent"
     >
       <div className="flex items-center gap-2 px-3 py-2">
         <div className="min-w-0 flex-1">
@@ -210,7 +210,7 @@ function ToastRow({ toast, onResolve }: ToastRowProps) {
         <button
           type="button"
           onClick={handleUndo}
-          className="flex items-center gap-1.5 shrink-0 px-2 py-1 border border-line-hi hover:bg-inbox-elev transition-colors"
+          className="flex shrink-0 items-center gap-1.5 border border-line-hi px-2 py-1 transition-colors hover:text-text"
         >
           <span className="font-mono uppercase text-[11px] tracking-[0.14em] text-text leading-none">
             {t("toast.undoTactic", "UNDO")}

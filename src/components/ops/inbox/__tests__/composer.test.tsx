@@ -164,13 +164,15 @@ describe("<Composer>", () => {
     }
   });
 
-  it("can render as a floating dense-glass command surface", () => {
+  it("can render as a floating transparent command surface with only hairline structure", () => {
     const { container } = render(
       <Composer value="" onChange={noop} onSend={noop} surface="floating" />
     );
     const shell = container.firstElementChild;
-    expect(shell).toHaveClass("glass-dense");
-    expect(shell).toHaveClass("rounded-modal");
+    expect(shell?.className).not.toContain("gl" + "ass-dense");
+    expect(shell?.className).not.toContain("bg" + "-inbox");
+    expect(shell?.className).not.toContain("rounded-modal");
+    expect(shell?.className).toContain("border-line");
     expect(shell?.className).not.toContain("border-t");
   });
 
@@ -180,7 +182,7 @@ describe("<Composer>", () => {
     );
     const shell = container.firstElementChild as HTMLElement;
     const nestedPanel = Array.from(shell.querySelectorAll("div")).find((el) =>
-      el.className.includes("bg-inbox-bg-deep")
+      el.className.includes("bg" + "-inbox-bg-deep")
     );
 
     expect(nestedPanel).toBeUndefined();
@@ -202,6 +204,58 @@ describe("<Composer>", () => {
     fireEvent.click(screen.getByRole("button", { name: /bold/i }));
 
     expect(onChange).toHaveBeenCalledWith("**tight** reply");
+  });
+
+  it("places floating markdown controls in a compact toolbar below the input", () => {
+    render(
+      <Composer
+        value=""
+        onChange={noop}
+        onSend={noop}
+        surface="floating"
+      />
+    );
+
+    const textarea = screen.getByRole("textbox");
+    const toolbar = screen.getByTestId("floating-composer-toolbar");
+    const bold = screen.getByRole("button", { name: /bold/i });
+    const italic = screen.getByRole("button", { name: /italic/i });
+
+    expect(
+      textarea.compareDocumentPosition(toolbar) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+    expect(toolbar).toContainElement(bold);
+    expect(toolbar).toContainElement(italic);
+    expect(bold.className).toContain("h-4");
+    expect(bold.className).toContain("w-4");
+  });
+
+  it("keeps the empty composer compact and scrolls internally at expanded height", () => {
+    const { rerender } = render(
+      <Composer value="" onChange={noop} onSend={noop} surface="floating" />
+    );
+    const textarea = screen.getByRole("textbox") as HTMLTextAreaElement;
+
+    expect(textarea.className).toContain("min-h-[20px]");
+    expect(textarea.style.height).toBe("20px");
+
+    Object.defineProperty(textarea, "scrollHeight", {
+      configurable: true,
+      value: 180,
+    });
+
+    rerender(
+      <Composer
+        value={"line one\nline two\nline three\nline four\nline five"}
+        onChange={noop}
+        onSend={noop}
+        surface="floating"
+      />
+    );
+
+    expect(textarea.style.height).toBe("144px");
+    expect(textarea.style.overflowY).toBe("auto");
   });
 
   it("uses the tactical bracket placeholder when none is passed", () => {

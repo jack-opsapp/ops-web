@@ -102,13 +102,13 @@ export function ResponsiveInboxShell({
             animate={reduce ? { opacity: 1 } : { x: 0, opacity: 1 }}
             exit={reduce ? { opacity: 0 } : { x: 360, opacity: 0 }}
             transition={{ duration: 0.18, ease: EASE_SMOOTH }}
-            className="absolute inset-y-0 right-0 z-[1500] flex w-[360px] flex-col border-l border-line bg-inbox-bg-deep"
+            className="absolute inset-y-0 right-0 z-[1500] flex w-[360px] flex-col border-l border-line bg-transparent"
           >
             <button
               type="button"
               onClick={() => setRightRailOpen(false)}
               aria-label={t("rail.closeDrawer", "Close context drawer")}
-              className="absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-chip text-text-3 hover:bg-inbox-elev hover:text-text-2"
+              className="absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-chip text-text-3 hover:text-text-2"
             >
               ×
             </button>

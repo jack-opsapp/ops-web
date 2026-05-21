@@ -15,7 +15,7 @@ describe("<MessageBubble>", () => {
     expect(screen.getByText(/second-floor unit/)).toBeInTheDocument();
   });
 
-  it("inbound bubbles use the panel background", () => {
+  it("inbound bubbles stay transparent with only hairline structure", () => {
     render(
       <MessageBubble
         direction="inbound"
@@ -24,10 +24,11 @@ describe("<MessageBubble>", () => {
       />,
     );
     const bubble = screen.getByTestId("message-bubble");
-    expect(bubble.className).toMatch(/bg-inbox-panel/);
+    expect(bubble.className).toContain("bg-transparent");
+    expect(bubble.className).not.toContain("bg" + "-inbox-panel");
   });
 
-  it("outbound human bubbles use accent tint", () => {
+  it("outbound human bubbles keep accent structure without a fill", () => {
     render(
       <MessageBubble
         direction="outbound"
@@ -36,10 +37,11 @@ describe("<MessageBubble>", () => {
       />,
     );
     const bubble = screen.getByTestId("message-bubble");
-    expect(bubble.className).toMatch(/bg-ops-accent\//);
+    expect(bubble.className).toContain("border-ops-accent");
+    expect(bubble.className).not.toContain("bg-ops-accent");
   });
 
-  it("AI-drafted (outbound + source ai) bubbles use lavender + 'Phase C' meta", () => {
+  it("AI-drafted bubbles use lavender structure without a fill", () => {
     render(
       <MessageBubble
         direction="outbound"
@@ -49,7 +51,8 @@ describe("<MessageBubble>", () => {
       />,
     );
     const bubble = screen.getByTestId("message-bubble");
-    expect(bubble.className).toMatch(/bg-agent\//);
+    expect(bubble.className).toContain("border-agent");
+    expect(bubble.className).not.toContain("bg-agent");
     expect(screen.getByText(/Phase C/i)).toBeInTheDocument();
   });
 
@@ -75,6 +78,23 @@ describe("<MessageBubble>", () => {
       />,
     );
     expect(container.textContent).toContain("JC");
+  });
+
+  it("uses a stable square circular avatar contract", () => {
+    render(
+      <MessageBubble
+        direction="inbound"
+        body="hi"
+        senderName="Jeanne Calloway"
+      />,
+    );
+    const avatar = screen.getByTestId("inbox-avatar");
+    expect(avatar.className).toContain("rounded-full");
+    expect(avatar.className).toContain("shrink-0");
+    expect(avatar.className).toContain("h-[24px]");
+    expect(avatar.className).toContain("w-[24px]");
+    expect(avatar.className).not.toContain("h-6");
+    expect(avatar.className).not.toContain("w-6");
   });
 
   // ── DIFF toggle (Phase F2) ─────────────────────────────────────────────

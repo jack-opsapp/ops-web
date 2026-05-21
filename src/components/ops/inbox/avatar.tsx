@@ -8,8 +8,8 @@
  * surfaces only — never on user content.
  *
  * Per spec: avatars are the ONE place 999px / fully-round radii are allowed
- * (system.md: "No 999px pills except avatars"). Border + bg use the V3 panel
- * tokens; initials in Mohave with mild positive tracking.
+ * (system.md: "No 999px pills except avatars"). Hairline border + token text
+ * carry the treatment; initials render in Mohave with mild positive tracking.
  */
 
 import { Sparkles } from "lucide-react";
@@ -30,9 +30,9 @@ interface InboxAvatarProps {
 }
 
 const SIZE_CLASS: Record<InboxAvatarSize, string> = {
-  24: "h-6 w-[24px] text-[11px]",
-  32: "h-8 w-8 text-[11px]",
-  36: "h-9 w-9 text-[12px]",
+  24: "h-[24px] w-[24px] text-[11px]",
+  32: "h-[32px] w-[32px] text-[11px]",
+  36: "h-[36px] w-[36px] text-[12px]",
 };
 
 const SPARKLE_SIZE: Record<InboxAvatarSize, string> = {
@@ -62,7 +62,7 @@ export function InboxAvatar({
         data-testid="inbox-avatar"
         aria-hidden
         className={cn(
-          "flex shrink-0 items-center justify-center rounded-full border border-agent-border-hi bg-agent/[0.15] text-agent",
+          "flex shrink-0 items-center justify-center rounded-full border border-agent-border-hi bg-transparent text-agent",
           SIZE_CLASS[size],
           className,
         )}
@@ -80,7 +80,7 @@ export function InboxAvatar({
       data-testid="inbox-avatar"
       aria-hidden
       className={cn(
-        "flex shrink-0 items-center justify-center rounded-full border border-line-hi bg-inbox-elev font-mohave tracking-[0.02em] text-text-2",
+        "flex shrink-0 items-center justify-center rounded-full border border-line-hi bg-transparent font-mohave tracking-[0.02em] text-text-2",
         SIZE_CLASS[size],
         className,
       )}

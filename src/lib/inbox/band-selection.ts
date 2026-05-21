@@ -27,6 +27,12 @@ export interface BandThreadInput {
   agent: { needsInput: boolean };
   phaseC: PhaseC;
   aiSummary: string | null;
+  /**
+   * Deterministic preview source used when a stored AI summary is a stale,
+   * generic form-submission wrapper. This does not create a summary band by
+   * itself; it only replaces bad summary copy when `aiSummary` exists.
+   */
+  summaryFallback?: string | null;
 }
 
 export function selectBand(thread: BandThreadInput): BandKind | null {

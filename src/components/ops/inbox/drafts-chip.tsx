@@ -82,7 +82,7 @@ export function DraftsChip({ scope, onOpenThread }: DraftsChipProps) {
       <PopoverContent
         align="end"
         sideOffset={6}
-        className="w-[320px] p-0 glass-dense rounded-[12px]"
+        className="w-[320px] rounded-[12px] border border-line bg-transparent p-0"
       >
         <div className="px-3 pt-2.5 pb-2 border-b border-line">
           <SlashLabel label={t("draftsPanel.title", "// DRAFTS")} size="md" />
@@ -101,7 +101,7 @@ export function DraftsChip({ scope, onOpenThread }: DraftsChipProps) {
             return (
               <div
                 key={`${draft.source}-${draft.id}`}
-                className="flex items-start gap-2 px-3 py-2 hover:bg-inbox-elev/40 transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]"
+                className="flex items-start gap-2 px-3 py-2 transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:text-text"
               >
                 <button
                   type="button"

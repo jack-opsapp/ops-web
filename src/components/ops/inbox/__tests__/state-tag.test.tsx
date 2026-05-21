@@ -37,12 +37,12 @@ describe("<StateTag>", () => {
     expect(screen.getByText("DONE")).toHaveClass("text-olive");
   });
 
-  it("renders a neutral solid tag with text-text-2 and the correct neutral bg token", () => {
+  it("renders a neutral solid tag with text-text-2 and transparent structure", () => {
     render(<StateTag tone="neutral" variant="solid" prefix="FYI" bracketed />);
     const el = screen.getByText("[FYI]");
     expect(el).toHaveClass("text-text-2");
     expect(el).toHaveClass("border");
-    expect(el).toHaveClass("bg-surface-input");
+    expect(el).toHaveClass("bg-transparent");
   });
 
   it("uses tabular-lining numerals via font-feature-settings", () => {

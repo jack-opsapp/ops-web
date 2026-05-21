@@ -65,6 +65,8 @@ const LIVE_STAGE_SET = new Set<string>(LIVE_CUSTOMER_OPPORTUNITY_STAGES);
 
 export interface DeterministicCustomerInput {
   subject: string;
+  /** Parsed latest-message preview, when the subject is only a wrapper. */
+  messagePreview?: string | null;
   /** Null when the thread has no linked opportunity. */
   opportunityId: string | null;
   /** Stage of the linked opportunity. Null when opportunityId is null. */
@@ -95,7 +97,7 @@ export function tryDeterministicCustomer(
 
   return {
     category: "CUSTOMER",
-    summary: buildSummary(stage, input.subject),
+    summary: buildSummary(stage, input.subject, input.messagePreview),
     classifierVersion: "customer-deterministic-v1",
     confidence: 1,
   };
@@ -103,8 +105,51 @@ export function tryDeterministicCustomer(
 
 // ─── Summary template ────────────────────────────────────────────────────────
 
-function buildSummary(stage: string, subject: string): string {
-  const topic = subject.trim() || "(no subject)";
+function buildSummary(
+  stage: string,
+  subject: string,
+  messagePreview?: string | null
+): string {
+  const fallbackTopic = subject.trim() || "(no subject)";
+  const topic = cleanMessagePreview(messagePreview) ?? fallbackTopic;
   const stageLabel = stage.replace(/_/g, " ");
   return `Linked to a ${stageLabel} opportunity — ${topic}.`;
+}
+
+function cleanMessagePreview(messagePreview?: string | null): string | null {
+  if (!messagePreview) return null;
+  const lines = messagePreview
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (lines.length === 0) return null;
+
+  const messageLabelIndex = lines.findIndex((line) =>
+    /^(?:how can we help\??|message|comments|project details|tell us about your project|details|inquiry)\s*:?\s*$/i.test(
+      line
+    )
+  );
+  if (messageLabelIndex >= 0) {
+    const collected: string[] = [];
+    for (const line of lines.slice(messageLabelIndex + 1)) {
+      if (/^[A-Za-z][A-Za-z0-9 /?'-]{1,42}:\s*$/.test(line)) break;
+      collected.push(line);
+    }
+    const cleaned = compactSummary(collected.join(" "));
+    if (cleaned) return cleaned;
+  }
+
+  return compactSummary(lines.join(" "));
+}
+
+function compactSummary(value: string): string | null {
+  const cleaned = value
+    .replace(/\s+/g, " ")
+    .replace(/\s+([.,;:!?])/g, "$1")
+    .replace(/[.。]+$/g, "")
+    .trim();
+  if (!cleaned) return null;
+  return cleaned.length > 220 ? `${cleaned.slice(0, 217).trim()}...` : cleaned;
 }

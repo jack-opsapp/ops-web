@@ -103,8 +103,8 @@ export function ProjectGroup({
       data-testid={`project-group-${project.id}`}
       data-current={linked ? "true" : "false"}
       className={cn(
-        "relative rounded-[5px] border border-line bg-inbox-panel",
-        linked && "bg-ops-accent/[0.04]",
+        "relative rounded-[5px] border border-line bg-transparent",
+        linked && "border-line-hi",
         className,
       )}
     >
@@ -162,7 +162,7 @@ export function ProjectGroup({
             type="button"
             onClick={() => onOpen(project.id)}
             aria-label={`Open project ${project.name}`}
-            className="inline-flex shrink-0 items-center gap-1 rounded-[2px] border border-line bg-transparent px-1.5 py-[2px] font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-text-2 transition-colors hover:bg-inbox-elev"
+            className="inline-flex shrink-0 items-center gap-1 rounded-[2px] border border-line bg-transparent px-1.5 py-[2px] font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-text-2 transition-colors hover:border-line-hi hover:text-text"
           >
             {t("rail.openButton", "OPEN")}
             <ExternalLink
@@ -175,7 +175,7 @@ export function ProjectGroup({
           <Link
             href={`?project=${project.id}`}
             aria-label={`Open project ${project.name}`}
-            className="inline-flex shrink-0 items-center gap-1 rounded-[2px] border border-line bg-transparent px-1.5 py-[2px] font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-text-2 transition-colors hover:bg-inbox-elev"
+            className="inline-flex shrink-0 items-center gap-1 rounded-[2px] border border-line bg-transparent px-1.5 py-[2px] font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-text-2 transition-colors hover:border-line-hi hover:text-text"
           >
             {t("rail.openButton", "OPEN")}
             <ExternalLink
@@ -191,7 +191,7 @@ export function ProjectGroup({
       {open && (
         <ul
           data-testid={`project-group-${project.id}-tasks`}
-          className="border-t border-line/50 bg-surface-hover-subtle py-1"
+          className="border-t border-line/50 bg-transparent py-1"
         >
           {tasks.length === 0 ? (
             <li className="pl-8 pr-3.5 py-1.5 font-mono text-[11px] text-text-3">

@@ -98,7 +98,7 @@ export function FilesView({
                   photo.filename,
                 )}
                 onClick={() => onPhotoOpen?.(photo)}
-                className="relative aspect-square overflow-hidden rounded-[4px] border border-line bg-inbox-bg-deep transition-transform hover:scale-[1.01]"
+                className="relative aspect-square overflow-hidden rounded-[4px] border border-line bg-transparent transition-transform hover:scale-[1.01]"
               >
                 <img
                   src={photo.url}
@@ -106,7 +106,7 @@ export function FilesView({
                   className="absolute inset-0 h-full w-full object-cover"
                 />
                 <span
-                  className="absolute inset-x-1.5 bottom-1.5 truncate rounded-[2px] bg-inbox-bg-deep/70 px-1 font-mono text-[11px] tracking-[0.3em] text-text-2"
+                  className="absolute inset-x-1.5 bottom-1.5 truncate rounded-[2px] border border-line bg-transparent px-1 font-mono text-[11px] tracking-[0.3em] text-text-2"
                   style={{
                     fontFeatureSettings: '"tnum" 1, "zero" 1',
                   }}
@@ -141,9 +141,9 @@ export function FilesView({
                   <button
                     type="button"
                     onClick={() => onFileOpen?.(doc)}
-                    className="flex w-full items-center gap-2.5 rounded-[2.5px] border border-line bg-inbox-panel px-2.5 py-2 text-left hover:bg-inbox-elev"
+                    className="flex w-full items-center gap-2.5 rounded-[2.5px] border border-line bg-transparent px-2.5 py-2 text-left hover:border-line-hi"
                   >
-                    <span className="flex h-6 w-[24px] shrink-0 items-center justify-center rounded-chip bg-inbox-bg-deep">
+                    <span className="flex h-6 w-[24px] shrink-0 items-center justify-center rounded-chip border border-line bg-transparent">
                       <Icon
                         aria-hidden
                         className="h-3.5 w-3.5 text-text-3"

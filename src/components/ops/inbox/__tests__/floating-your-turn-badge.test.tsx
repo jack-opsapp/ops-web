@@ -94,7 +94,7 @@ describe("<FloatingYourTurnBadge>", () => {
     const badge = screen.getByTestId("floating-your-turn-badge");
     expect(badge.className).toContain("inline-flex");
     expect(badge.className).not.toContain("absolute");
-    expect(badge.firstElementChild?.className).toContain("bg-inbox-panel");
+    expect(badge.firstElementChild?.className).toContain("bg-transparent");
   });
 
   it("renders without a transform shift when reduced motion is ON", () => {

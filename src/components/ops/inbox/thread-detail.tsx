@@ -99,7 +99,7 @@ export function ThreadDetail({
     <div
       data-inbox-debug-id="C1"
       data-inbox-debug-label="THREAD DETAIL SURFACE"
-      className={cn("flex min-h-0 flex-1 flex-col bg-inbox-bg", className)}
+      className={cn("flex min-h-0 flex-1 flex-col bg-transparent", className)}
     >
       <ThreadDetailHeader
         subject={subject}
@@ -129,7 +129,7 @@ export function ThreadDetail({
             data-inbox-debug-id="C3"
             data-inbox-debug-label="DETAIL STATUS STRIP"
             data-testid="detail-status-stack"
-            className="flex shrink-0 items-center border-b border-line bg-inbox-bg px-3 py-1"
+            className="flex shrink-0 items-center border-b border-line bg-transparent px-3 py-1"
           >
             {floatingBadgeSlot}
           </div>

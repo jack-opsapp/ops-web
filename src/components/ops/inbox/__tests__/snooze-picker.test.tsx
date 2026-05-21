@@ -117,7 +117,7 @@ describe("<SnoozePicker>", () => {
     );
     const tomorrow = screen.getByRole("button", { name: /\[TOMORROW 8AM\]/i });
     expect(tomorrow.className).toContain("py-0.5");
-    expect(tomorrow.className).toContain("hover:bg-surface-hover");
+    expect(tomorrow.className).toContain("hover:text-text");
   });
 
   it("clicking a preset commits via useThreadActions().snooze.mutate", () => {

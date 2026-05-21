@@ -15,7 +15,7 @@ interface ComposerInputProps {
   className?: string;
 }
 
-const MIN_HEIGHT = 24;
+const MIN_HEIGHT = 20;
 const MAX_HEIGHT = 144;
 
 export const ComposerInput = forwardRef<
@@ -61,7 +61,7 @@ export const ComposerInput = forwardRef<
       rows={1}
       className={cn(
         "w-full min-w-0 resize-none bg-transparent font-mohave text-[13px] leading-[1.45]",
-        "max-h-[144px] min-h-[24px]",
+        "max-h-[144px] min-h-[20px]",
         "placeholder:text-text-mute focus:outline-none",
         agentTinted ? "text-agent-text" : "text-text",
         className

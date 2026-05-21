@@ -153,8 +153,8 @@ export function WritebackPreferenceModal({
                   "flex items-start gap-2.5 w-full text-left",
                   "rounded-[2.5px] border px-3.5 py-3 transition-colors duration-150",
                   isActive
-                    ? "border-line-hi bg-inbox-elev/60"
-                    : "border-line bg-inbox-bg-deep hover:bg-inbox-elev/40",
+                    ? "border-line-hi bg-transparent"
+                    : "border-line bg-transparent hover:border-line-hi",
                 )}
               >
                 <div className="flex-1 min-w-0">
@@ -195,7 +195,7 @@ export function WritebackPreferenceModal({
             className={cn(
               "px-3 py-1.5 rounded-[2.5px] border border-line",
               "font-cakemono font-light uppercase text-[11px] tracking-[0.14em] text-text-2",
-              "hover:bg-inbox-elev/40 transition-colors duration-150",
+              "hover:border-line-hi hover:text-text transition-colors duration-150",
               "disabled:opacity-50 disabled:cursor-not-allowed",
             )}
           >

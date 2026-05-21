@@ -100,7 +100,7 @@ describe("<RecategorizeMenu>", () => {
     );
     const customer = screen.getByRole("button", { name: /CUSTOMER/i });
     expect(customer.className).toContain("py-0.5");
-    expect(customer.className).toContain("hover:bg-surface-hover");
+    expect(customer.className).toContain("hover:text-text");
   });
 
   it("clicking a category fires recategorize.mutate with the right args", () => {

@@ -141,7 +141,7 @@ export function PhotoBubble({
                 aria-label={ariaLabel}
                 onClick={() => onPhotoClick?.(photo, i)}
                 className={cn(
-                  "relative shrink-0 overflow-hidden rounded-[5px] border border-line bg-inbox-bg-deep transition-transform hover:scale-[1.01]",
+                  "relative shrink-0 overflow-hidden rounded-[5px] border border-line bg-transparent transition-transform hover:scale-[1.01]",
                   TILE_HEIGHT[tileSize],
                   cols === 1 ? "w-full" : "",
                 )}
@@ -170,8 +170,8 @@ export function PhotoBubble({
             className={cn(
               "rounded-[8px] border px-3 py-2 font-mohave text-[13px] leading-[1.45] text-pretty",
               isOutbound
-                ? "border-ops-accent/[0.22] bg-ops-accent/[0.10] text-text"
-                : "border-line bg-inbox-panel text-text",
+                ? "border-ops-accent/[0.32] bg-transparent text-text"
+                : "border-line bg-transparent text-text",
             )}
           >
             <p className="whitespace-pre-wrap break-words">{body}</p>

@@ -174,7 +174,7 @@ function PhotoThumb({ photo, onPhotoOpen }: PhotoThumbProps) {
       title={caption}
       aria-label={`Open photo ${caption}`}
       onClick={() => onPhotoOpen?.(photo)}
-      className="relative aspect-square overflow-hidden rounded-[4px] border border-line bg-inbox-bg-deep transition-transform hover:scale-[1.01]"
+      className="relative aspect-square overflow-hidden rounded-[4px] border border-line bg-transparent transition-transform hover:scale-[1.01]"
     >
       <img
         src={url}

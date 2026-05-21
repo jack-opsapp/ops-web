@@ -70,10 +70,10 @@ export function TodayBar({
           const resolving = pendingResolveIds?.has(c.id) ?? false;
           const rowToneClass =
             c.state.tone === "rose"
-              ? "bg-rose/[0.025] hover:bg-rose/[0.05]"
+              ? "hover:border-rose/35"
               : c.state.tone === "tan"
-                ? "bg-tan/[0.035] hover:bg-tan/[0.06]"
-                : "bg-inbox-elev/35 hover:bg-inbox-elev/60";
+                ? "hover:border-tan/35"
+                : "hover:border-line-hi";
           const stripeClass =
             c.state.tone === "rose"
               ? "bg-rose"

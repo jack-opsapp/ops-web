@@ -23,6 +23,7 @@ import { EmailThreadService } from "@/lib/api/services/email-thread-service";
 import { EmailService } from "@/lib/api/services/email-service";
 import { PhaseCLearningService } from "@/lib/api/services/phase-c-learning-service";
 import {
+  extractContactFormSubmissionDisplayText,
   extractEmailAddress,
   stripQuotedContent,
   stripPriorMessageOverlap,
@@ -119,10 +120,15 @@ export async function GET(
           //   2. plain-text regex stripping via stripQuotedContent
           //   3. cross-message overlap — applied below once all messages are in hand.
           const providerClean = m.bodyTextClean?.trim();
+          const contactFormClean = extractContactFormSubmissionDisplayText(
+            m.subject,
+            rawBody
+          );
           const initialClean =
-            providerClean && providerClean.length > 0
+            contactFormClean ??
+            (providerClean && providerClean.length > 0
               ? providerClean
-              : stripQuotedContent(rawBody);
+              : stripQuotedContent(rawBody, m.subject));
           return {
             id: m.id,
             from: m.from,
@@ -160,7 +166,7 @@ export async function GET(
         // Activities fallback has no provider-clean body stored — regex layer
         // only. Cross-message pass still runs below to catch cases where the
         // regex missed.
-        const cleanBody = stripQuotedContent(rawBody);
+        const cleanBody = stripQuotedContent(rawBody, (r.subject as string) ?? "");
         return {
           id: r.id,
           from: r.from_email,

@@ -47,7 +47,9 @@ describe("<ContextRail>", () => {
     render(<ContextRail {...baseProps} />);
     const avatar = screen.getByTestId("inbox-avatar");
     expect(avatar.className).toContain("rounded-full");
-    expect(avatar.className).toContain("bg-inbox-elev");
+    expect(avatar.className).toContain("bg-transparent");
+    expect(avatar.className).toContain("h-[24px]");
+    expect(avatar.className).toContain("w-[24px]");
   });
 
   it("keeps the linked header readable without truncating contact values", () => {

@@ -287,8 +287,8 @@ function DraftBubble({
           className={cn(
             "rounded-[8px] border border-dashed px-3 py-2 font-mohave text-[13px] leading-[1.45] text-pretty",
             isAi
-              ? "border-agent-border-hi bg-agent/[0.10] text-agent-text"
-              : "border-line-hi bg-inbox-panel text-text",
+              ? "border-agent-border-hi bg-transparent text-agent-text"
+              : "border-line-hi bg-transparent text-text",
           )}
         >
           <div className="mb-2 flex items-center justify-between gap-3">
@@ -353,7 +353,7 @@ function DraftBubble({
                 <button
                   type="button"
                   onClick={() => onEditDraft(selectedDraft)}
-                  className="inline-flex h-6 items-center gap-1 rounded-[2.5px] border border-line bg-transparent px-2 font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-text-2 transition-colors hover:bg-inbox-elev hover:text-text focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+                  className="inline-flex h-6 items-center gap-1 rounded-[2.5px] border border-line bg-transparent px-2 font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-text-2 transition-colors hover:border-line-hi hover:text-text focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black"
                 >
                   <Pencil aria-hidden className="h-3 w-3" strokeWidth={1.5} />
                   {t("draftBubble.edit", "EDIT")}

@@ -44,7 +44,7 @@ export function AccountingTotals({
     <div
       data-testid="accounting-totals"
       className={cn(
-        "border-y border-line bg-inbox-panel px-3 py-2.5",
+        "border-y border-line bg-transparent px-3 py-2.5",
         className
       )}
     >

@@ -166,7 +166,7 @@ export function RecategorizeMenu({
               className={cn(
                 "grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-1 px-1.5 py-0.5 text-left",
                 "transition-colors duration-150",
-                "hover:bg-surface-hover focus-visible:bg-surface-active focus-visible:outline-none"
+                "hover:text-text focus-visible:outline-none"
               )}
             >
               <span className="min-w-0 truncate font-mono text-micro uppercase tracking-wider text-text-2">
@@ -204,7 +204,7 @@ export function RecategorizeMenu({
               "This domain is always a vendor…"
             )}
             className={cn(
-              "w-full resize-none rounded border border-line bg-surface-input px-1 py-0.5",
+              "w-full resize-none rounded border border-line bg-transparent px-1 py-0.5",
               "font-mohave text-caption-sm text-text placeholder:text-text-3",
               "focus:border-line-hi focus:outline-none"
             )}

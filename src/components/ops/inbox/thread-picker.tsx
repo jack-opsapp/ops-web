@@ -7,7 +7,7 @@
  * Spec § 5.1 (plan Phase E1):
  *   - Trigger: chevron-prefixed JetBrains Mono uppercase 11 with hairline
  *     border. Disabled (mute, no border, no chevron) when no other threads.
- *   - Popover: glass-dense, 12px radius (inherited from .glass-dense), anchored
+ *   - Popover: transparent hairline surface, 12px radius, anchored
  *     to the trigger's right edge, ~340px wide. Header SlashLabel + thread
  *     rows. Click row opens the thread and closes the popover.
  *
@@ -185,8 +185,8 @@ export function ThreadPicker({
                 className={cn(
                   "flex w-full items-center justify-between gap-2 rounded-chip px-2 py-1.5 text-left",
                   "transition-colors",
-                  "hover:bg-surface-input",
-                  "focus-visible:bg-surface-input focus-visible:outline-none",
+                  "hover:text-text",
+                  "focus-visible:outline-none",
                 )}
               >
                 <span

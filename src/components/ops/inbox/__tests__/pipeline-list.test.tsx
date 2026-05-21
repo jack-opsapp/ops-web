@@ -83,6 +83,8 @@ describe("<PipelineList>", () => {
     expect(card.getAttribute("data-current")).toBe("true");
     expect(card.className).not.toContain("shadow-");
     expect(card).toHaveClass("border-line-hi");
+    expect(card.className).not.toContain("bg" + "-inbox");
+    expect(card.className).toContain("bg-transparent");
   });
 
   it("renders active card hierarchy: title, stage, value, priority, and source", () => {

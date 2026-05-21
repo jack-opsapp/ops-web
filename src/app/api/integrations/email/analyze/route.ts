@@ -454,7 +454,7 @@ async function runPhaseA(
         to: e.to,
         date: e.date.toISOString(),
         direction: (safe(e.from).includes(ownerEmailLower) ? 'outbound' : 'inbound') as 'inbound' | 'outbound',
-        body: stripQuotedContent(e.bodyText || e.snippet || ''),
+        body: stripQuotedContent(e.bodyText || e.snippet || '', e.subject || t.subject),
       })),
     };
   });

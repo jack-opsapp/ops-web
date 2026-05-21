@@ -60,7 +60,7 @@ export function NeedsInputBand({
                 key={opt.id}
                 type="button"
                 onClick={() => onAction(`answer:${opt.id}`)}
-                className="inline-flex h-6 items-center rounded-chip border border-line-hi bg-transparent px-2.5 transition-colors hover:bg-inbox-elev"
+                className="inline-flex h-6 items-center rounded-chip border border-line-hi bg-transparent px-2.5 transition-colors hover:text-text"
               >
                 <StateTag
                   tone="neutral"

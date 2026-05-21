@@ -36,6 +36,27 @@ describe("<DetailBand>", () => {
     expect(screen.getByText(/follow-up due Friday/)).toBeInTheDocument();
   });
 
+  it("uses parsed form content when stored aiSummary is a stale form wrapper", () => {
+    render(
+      <DetailBand
+        thread={{
+          ...base,
+          aiSummary:
+            "Linked to a new lead opportunity — quote form got a new submission.",
+          summaryFallback:
+            "Marcel Mercier: We need someone to renovate and replace two existing roof decks.",
+        }}
+        onAction={() => {}}
+      />,
+    );
+
+    expect(screen.getByLabelText(/Phase C summary/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/renovate and replace two existing roof decks/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/quote form got a new submission/)).toBeNull();
+  });
+
   it("renders the needs-input band with PROVIDE ANSWER CTA when no options", () => {
     const onAction = vi.fn();
     render(

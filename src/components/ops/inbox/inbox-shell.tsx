@@ -54,7 +54,7 @@ export function InboxShell({
         data-inbox-debug-id="A2"
         data-inbox-debug-label="INBOX WORKSPACE"
         className={cn(
-          "flex h-full min-h-0 w-full bg-inbox-bg text-text",
+          "flex h-full min-h-0 w-full bg-transparent text-text",
           className,
         )}
       >
@@ -63,14 +63,14 @@ export function InboxShell({
           data-inbox-debug-label="THREAD COLUMN"
           role="complementary"
           aria-label={t("shell.threadList", "Thread list")}
-          className="flex w-[360px] shrink-0 flex-col border-r border-line bg-inbox-bg"
+          className="flex w-[360px] shrink-0 flex-col border-r border-line bg-transparent"
         >
           {threadList}
         </aside>
         <main
           data-inbox-debug-id="C0"
           data-inbox-debug-label="DETAIL COLUMN"
-          className="flex min-w-0 flex-1 flex-col bg-inbox-bg"
+          className="flex min-w-0 flex-1 flex-col bg-transparent"
         >
           {detail}
         </main>
@@ -80,7 +80,7 @@ export function InboxShell({
             data-inbox-debug-label="CONTEXT RAIL"
             role="complementary"
             aria-label={t("shell.threadContext", "Thread context")}
-            className="flex w-[360px] shrink-0 flex-col border-l border-line bg-inbox-bg-deep"
+            className="flex w-[360px] shrink-0 flex-col border-l border-line bg-transparent"
           >
             {contextRail}
           </aside>
@@ -105,7 +105,7 @@ export function InboxShell({
       orientation="horizontal"
       onLayoutChange={handleLayoutChange}
       className={cn(
-        "flex h-full min-h-0 w-full bg-inbox-bg text-text",
+        "flex h-full min-h-0 w-full bg-transparent text-text",
         className,
       )}
     >
@@ -120,7 +120,7 @@ export function InboxShell({
           data-inbox-debug-label="THREAD COLUMN"
           role="complementary"
           aria-label={t("shell.threadList", "Thread list")}
-          className="flex h-full min-h-0 flex-col border-r border-line bg-inbox-bg"
+          className="flex h-full min-h-0 flex-col border-r border-line bg-transparent"
         >
           {threadList}
         </aside>
@@ -139,7 +139,7 @@ export function InboxShell({
         <main
           data-inbox-debug-id="C0"
           data-inbox-debug-label="DETAIL COLUMN"
-          className="flex h-full min-h-0 flex-col bg-inbox-bg"
+          className="flex h-full min-h-0 flex-col bg-transparent"
         >
           {detail}
         </main>
@@ -168,7 +168,7 @@ export function InboxShell({
             data-inbox-debug-label="CONTEXT RAIL"
             role="complementary"
             aria-label={t("shell.threadContext", "Thread context")}
-            className="flex h-full min-h-0 flex-col border-l border-line bg-inbox-bg-deep"
+            className="flex h-full min-h-0 flex-col border-l border-line bg-transparent"
           >
             {contextRail}
           </aside>

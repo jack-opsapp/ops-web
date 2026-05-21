@@ -54,7 +54,7 @@ export function CommitmentPills({
     <section
       aria-label={t("commitmentPills.aria", "Open commitments on this thread")}
       className={cn(
-        "flex shrink-0 flex-wrap items-center gap-1.5 border-b border-line bg-inbox-panel/40 px-2.5 py-1.5",
+        "flex shrink-0 flex-wrap items-center gap-1.5 border-b border-line bg-transparent px-2.5 py-1.5",
         className,
       )}
     >
@@ -69,7 +69,7 @@ export function CommitmentPills({
             data-testid="commitment-pill"
             title={c.content}
             className={cn(
-              "inline-flex max-w-full items-center gap-1.5 rounded-[2.5px] border bg-inbox-elev px-1.5 py-0.5 transition-opacity",
+              "inline-flex max-w-full items-center gap-1.5 rounded-[2.5px] border bg-transparent px-1.5 py-0.5 transition-opacity",
               c.urgent ? "border-rose/35" : "border-line-hi",
               resolving && "opacity-60",
             )}

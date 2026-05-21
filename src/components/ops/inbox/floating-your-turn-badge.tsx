@@ -85,7 +85,7 @@ export function FloatingYourTurnBadge({
         >
           <div
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-chip border border-line bg-inbox-panel px-2 py-[3px]",
+              "inline-flex items-center gap-1.5 rounded-chip border border-line bg-transparent px-2 py-[3px]",
             )}
             style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
           >
@@ -127,7 +127,7 @@ export function FloatingYourTurnBadge({
                 className={cn(
                   "ml-0.5 inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[2px]",
                   "text-text-3 transition-colors",
-                  "hover:bg-surface-hover hover:text-text",
+                  "hover:text-text",
                   "focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent",
                 )}
               >

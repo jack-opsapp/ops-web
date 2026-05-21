@@ -191,7 +191,7 @@ function DocumentRow({
       type="button"
       data-testid={`accounting-document-row-${doc.id}`}
       onClick={() => onOpenDocument?.(doc)}
-      className="grid w-full grid-cols-[minmax(0,1fr)_auto] gap-x-2 gap-y-1 px-1.5 py-2 text-left transition-colors hover:bg-inbox-elev focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+      className="grid w-full grid-cols-[minmax(0,1fr)_auto] gap-x-2 gap-y-1 px-1.5 py-2 text-left transition-colors hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black"
     >
       <span className="min-w-0 font-mono text-[11px] uppercase tracking-[0.12em] text-text-mute">
         {kindLabel}

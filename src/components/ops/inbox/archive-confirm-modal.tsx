@@ -236,13 +236,13 @@ export function ArchiveConfirmModal({
             <div
               className={cn(
                 "flex items-start gap-2.5 w-full p-3 rounded-sidebar",
-                "border border-line-hi bg-inbox-elev/40",
+                "border border-line-hi bg-transparent",
               )}
             >
               <div
                 className={cn(
                   "w-[28px] h-[28px] rounded-[2.5px] flex items-center justify-center shrink-0",
-                  "border border-line-hi bg-inbox-elev/80",
+                  "border border-line-hi bg-transparent",
                 )}
               >
                 <Lock className="w-[14px] h-[14px] text-text-2" strokeWidth={1.5} />
@@ -284,8 +284,8 @@ export function ArchiveConfirmModal({
                         "flex items-start gap-2.5 w-full p-3 rounded-sidebar text-left",
                         "border transition-colors duration-150",
                         checked
-                          ? "border-line-hi bg-inbox-elev/60"
-                          : "border-line bg-inbox-bg-deep hover:bg-inbox-elev/40",
+                          ? "border-line-hi bg-transparent"
+                          : "border-line bg-transparent hover:border-line-hi",
                       )}
                     >
                       <div
@@ -294,7 +294,7 @@ export function ArchiveConfirmModal({
                           "border",
                           checked
                             ? "border-ops-accent bg-ops-accent"
-                            : "border-line bg-inbox-elev/40",
+                            : "border-line bg-transparent",
                         )}
                       >
                         {checked ? (
@@ -341,7 +341,7 @@ export function ArchiveConfirmModal({
                 "border transition-colors duration-150",
                 archiveLead
                   ? "border-ops-accent/50 bg-ops-accent/[0.06]"
-                  : "border-line bg-inbox-bg-deep hover:bg-inbox-elev/40",
+                  : "border-line bg-transparent hover:border-line-hi",
               )}
             >
               <div
@@ -350,7 +350,7 @@ export function ArchiveConfirmModal({
                   "border",
                   archiveLead
                     ? "border-ops-accent bg-ops-accent"
-                    : "border-line bg-inbox-elev/40",
+                    : "border-line bg-transparent",
                 )}
               >
                 {archiveLead ? (
@@ -410,7 +410,7 @@ export function ArchiveConfirmModal({
               className={cn(
                 "px-3 py-1.5 rounded-[2.5px] border border-line",
                 "font-cakemono font-light uppercase text-[11px] tracking-[0.14em] text-text-2",
-                "hover:bg-inbox-elev/40 transition-colors duration-150",
+                "hover:border-line-hi hover:text-text transition-colors duration-150",
                 "disabled:opacity-50 disabled:cursor-not-allowed",
               )}
             >

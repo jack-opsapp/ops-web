@@ -211,7 +211,7 @@ function LinkedHeader({
           onClick={onOpenClient}
           aria-label={t("rail.openClient", "Open client")}
           title={t("rail.openClient", "Open client")}
-          className="inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[2px] border border-line text-text-3 transition-colors hover:bg-inbox-elev hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+          className="inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[2px] border border-line text-text-3 transition-colors hover:border-line-hi hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black"
         >
           <ExternalLink
             aria-hidden

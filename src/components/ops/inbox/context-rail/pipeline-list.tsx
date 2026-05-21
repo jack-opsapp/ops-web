@@ -280,8 +280,8 @@ export function PipelineOppCard({
         "rounded-[4px] border px-2.5 py-1.5",
         isWon
           ? "border-line/60 bg-transparent"
-          : "border-line bg-inbox-panel",
-        isLinked && "border-line-hi bg-inbox-elev/60",
+          : "border-line bg-transparent",
+        isLinked && "border-line-hi bg-transparent",
       )}
     >
       <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">

@@ -49,6 +49,29 @@ describe("<MessageList>", () => {
     expect(screen.getByText("14:00")).toBeInTheDocument();
   });
 
+  it("renders submitted contact-form fields in the message stream", () => {
+    render(
+      <MessageList
+        messages={[
+          {
+            ...messages[0],
+            body: `Full Name:
+Marcel Mercier
+
+How can we help?:
+We need someone to renovate and replace two existing roof decks.`,
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText(/Full Name:/)).toBeInTheDocument();
+    expect(screen.getByText(/Marcel Mercier/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/renovate and replace two existing roof decks/),
+    ).toBeInTheDocument();
+  });
+
   it("scrolls to the most recent message when a thread opens", () => {
     const { rerender } = render(
       <MessageList threadId={null} messages={messages.slice(0, 1)} />,
@@ -166,7 +189,10 @@ describe("<MessageList>", () => {
     );
 
     expect(screen.getAllByTestId("message-bubble")).toHaveLength(3);
-    expect(screen.getByTestId("draft-bubble")).toBeInTheDocument();
+    const draftBubble = screen.getByTestId("draft-bubble");
+    expect(draftBubble).toBeInTheDocument();
+    expect(draftBubble.className).toContain("bg-transparent");
+    expect(draftBubble.className).not.toContain("bg" + "-inbox-panel");
     expect(screen.getByText("Provider draft body")).toBeInTheDocument();
   });
 

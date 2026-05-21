@@ -206,6 +206,12 @@ describe("EmailThreadService.upsertFromEmail contact-form sender identity", () =
       latest_sender_name: "Marcel Mercier",
       client_id: "client-marcel",
     });
+    expect(state.insertedThreads[0].latest_snippet).toContain(
+      "We need someone to renovate and replace two existing roof decks."
+    );
+    expect(state.insertedThreads[0].latest_snippet).not.toContain(
+      "A site visitor just submitted your form"
+    );
     expect(state.insertedThreads[0].participants).toContain(
       "marcel.mercier@example.com"
     );

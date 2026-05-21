@@ -57,7 +57,7 @@ describe("<ThreadRow>", () => {
     expect(screen.queryByText("· 1")).not.toBeInTheDocument();
   });
 
-  it("snippet prefers aiSummary when present", () => {
+  it("snippet prefers aiSummary when present and specific", () => {
     render(
       <ThreadRow
         thread={make({ aiSummary: "Operator owes a revised quote.", snippet: "raw provider snippet" })}
@@ -68,6 +68,25 @@ describe("<ThreadRow>", () => {
     );
     expect(screen.getByText(/Operator owes a revised quote/)).toBeInTheDocument();
     expect(screen.queryByText(/raw provider snippet/)).toBeNull();
+  });
+
+  it("uses parsed form content when a stale generic form summary would mask it", () => {
+    render(
+      <ThreadRow
+        thread={make({
+          aiSummary: "Linked to a new lead opportunity — quote form got a new submission.",
+          snippet: "Marcel Mercier: We need someone to renovate and replace two existing roof decks.",
+        })}
+        selected={false}
+        now={NOW}
+        onSelect={() => {}}
+      />,
+    );
+
+    expect(
+      screen.getByText(/renovate and replace two existing roof decks/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/quote form got a new submission/)).toBeNull();
   });
 
   it("preview helper trims aiSummary before falling back to raw snippet", () => {
@@ -84,6 +103,32 @@ describe("<ThreadRow>", () => {
         make({ aiSummary: "   ", snippet: " raw provider snippet " }),
       ),
     ).toBe("raw provider snippet");
+  });
+
+  it("preview helper rejects generic form summaries when parsed form content exists", () => {
+    expect(
+      resolveThreadRowPreview({
+        aiSummary:
+          "Linked to a new lead opportunity — Contact Us 3 got a new submission.",
+        snippet:
+          "Marcel Mercier: We need someone to renovate and replace two existing roof decks.",
+      }),
+    ).toBe(
+      "Marcel Mercier: We need someone to renovate and replace two existing roof decks.",
+    );
+  });
+
+  it("preview helper keeps specific opportunity summaries even when the snippet mentions form work", () => {
+    expect(
+      resolveThreadRowPreview({
+        aiSummary:
+          "Linked to a lead opportunity for roof deck replacement; owner wants a site visit next week.",
+        snippet:
+          "Marcel Mercier: We need someone to renovate and replace two existing roof decks.",
+      }),
+    ).toBe(
+      "Linked to a lead opportunity for roof deck replacement; owner wants a site visit next week.",
+    );
   });
 
   it("snippet falls back to raw snippet when aiSummary is null", () => {
@@ -160,8 +205,11 @@ describe("<ThreadRow>", () => {
     expect(name.className).toMatch(/font-semibold/);
     expect(name.className).toMatch(/text-text\b/);
     expect(screen.getByTestId("thread-row-new-badge")).toHaveTextContent("NEW");
-    expect(screen.getByTestId("thread-row").className).toContain(
-      "bg-inbox-elev/45",
+    expect(screen.getByTestId("thread-row").className).not.toContain(
+      "bg" + "-inbox",
+    );
+    expect(screen.getByTestId("thread-row-new-badge").className).toContain(
+      "bg-transparent",
     );
     expect(screen.getByTestId("thread-row-stripe").className).toMatch(
       /bg-line-hi/,
@@ -178,7 +226,7 @@ describe("<ThreadRow>", () => {
     expect(subject.className).toMatch(/text-text-mute\b/);
     expect(screen.queryByTestId("thread-row-new-badge")).toBeNull();
     expect(screen.getByTestId("thread-row").className).not.toContain(
-      "bg-inbox-elev/45",
+      "bg" + "-inbox",
     );
   });
 

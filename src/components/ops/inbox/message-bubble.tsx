@@ -154,10 +154,10 @@ export function MessageBubble({
           className={cn(
             "rounded-[8px] px-3 py-2 font-mohave text-[13px] leading-[1.45] text-pretty",
             isAi
-              ? "border-agent-border-hi bg-agent/[0.10] text-agent-text"
+              ? "border-agent-border-hi bg-transparent text-agent-text"
               : isOutbound
-                ? "border-ops-accent/[0.22] bg-ops-accent/[0.10] text-text"
-                : "border-line bg-inbox-panel text-text",
+                ? "border-ops-accent/[0.32] bg-transparent text-text"
+                : "border-line bg-transparent text-text",
             // Closed: solid 1px border. Open: 1.5px dashed border, same hue.
             hasDiff && diffOpen
               ? "border-[1.5px] border-dashed"
@@ -171,9 +171,9 @@ export function MessageBubble({
             >
               {attachments.map((file) => {
                 const rowBase =
-                  "flex w-full items-center gap-2 rounded-bar border border-line bg-white/[0.02] px-2.5 py-1.5 transition-colors";
+                  "flex w-full items-center gap-2 rounded-bar border border-line bg-transparent px-2.5 py-1.5 transition-colors";
                 const interactiveExtras =
-                  "hover:border-line-hi hover:bg-white/[0.04] focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black";
+                  "hover:border-line-hi focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black";
 
                 const inner = (
                   <>
