@@ -203,6 +203,39 @@ This email was sent as a notification from this site.`;
     expect(r.source).toBe("contact_form");
   });
 
+  it("prefers the submitted email field over a Wix relay Reply-To address", () => {
+    const body = `Begin forwarded message:
+
+From: Catherine Audet <reply-to+fc582f9694e9@wixforms.com>
+Date: February 24, 2026 at 14:26:05 MST
+To: jared@example-contractors.com
+Subject: [canpro-deck-and-rail] Free Quote form - new submission
+Reply-To: Catherine Audet <d9e3d0ba-32c6-4fed-bd8a-cc589ab2c391@ascend.wix.com>
+
+Catherine Audet just submitted your form: Free Quote form
+
+Message Details:
+
+Name: Catherine Audet
+
+Phone Number: 2502662446
+
+Email Address: cath.audet@example.com
+
+Location: Salt Spring Island
+
+How Can We Help?: Deck quote request`;
+
+    const submission = extractContactFormSubmission(
+      "Fwd: [canpro-deck-and-rail] Free Quote form - new submission",
+      body
+    );
+
+    expect(submission?.email).toBe("cath.audet@example.com");
+    expect(submission?.name).toBe("Catherine Audet");
+    expect(submission?.phone).toBe("2502662446");
+  });
+
   it("uses partial contact-form fields without inventing missing phone values", () => {
     const body = `New contact form submission
 

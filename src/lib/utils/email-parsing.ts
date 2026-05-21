@@ -553,12 +553,15 @@ const CONTACT_FORM_NAME_LABELS = [
 ];
 const CONTACT_FORM_FIRST_NAME_LABELS = ["first name", "given name"];
 const CONTACT_FORM_LAST_NAME_LABELS = ["last name", "surname", "family name"];
-const CONTACT_FORM_EMAIL_LABELS = [
+const CONTACT_FORM_SUBMITTED_EMAIL_LABELS = [
   "email",
   "email address",
   "e-mail",
   "e-mail address",
   "your email",
+];
+const CONTACT_FORM_EMAIL_LABELS = [
+  ...CONTACT_FORM_SUBMITTED_EMAIL_LABELS,
   "reply-to",
 ];
 const CONTACT_FORM_PHONE_LABELS = [
@@ -789,7 +792,7 @@ export function extractContactFormSubmissionDiagnostics(
   const body = normalizeFormSubmissionText(bodyText);
   if (!looksLikeContactFormSubmission(subject ?? "", body)) return null;
 
-  const emailField = extractFormField(body, CONTACT_FORM_EMAIL_LABELS);
+  const emailField = extractFormField(body, CONTACT_FORM_SUBMITTED_EMAIL_LABELS);
   const replyToLine = extractHeaderLine(body, "Reply-To");
   const replyToEmail = replyToLine ? parseAddressFromHeaderLine(replyToLine) : null;
   const fieldEmail = emailField ? parseAddressFromHeaderLine(emailField) : null;
