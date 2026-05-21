@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi } from "vitest";
 import { ThreadList } from "../thread-list";
 import type { ThreadListItem } from "../thread-list";
@@ -117,6 +118,29 @@ describe("<ThreadList>", () => {
     );
     screen.getByRole("link", { name: /Gamma.*Subject xyz/i }).click();
     expect(onSelect).toHaveBeenCalledWith("xyz");
+  });
+
+  it("passes quick-action handlers through to each row", async () => {
+    const user = userEvent.setup();
+    const onMarkReadChange = vi.fn();
+    const onArchiveThread = vi.fn();
+    const threads = [make("xyz", { clientName: "Gamma", unread: true })];
+    render(
+      <ThreadList
+        threads={threads}
+        now={NOW}
+        selectedThreadId={null}
+        onSelect={() => {}}
+        onMarkReadChange={onMarkReadChange}
+        onArchiveThread={onArchiveThread}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Mark read" }));
+    await user.click(screen.getByRole("button", { name: "Archive thread" }));
+
+    expect(onMarkReadChange).toHaveBeenCalledWith("xyz", true);
+    expect(onArchiveThread).toHaveBeenCalledWith("xyz");
   });
 
   it("does not remove threads based on old state-group membership", () => {

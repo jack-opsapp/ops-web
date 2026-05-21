@@ -50,7 +50,7 @@ interface ThreadDetailHeaderProps {
    * Triage chip rendered in the title row between the subject and the
    * action-button cluster. Surfaces the active ball-in-court signal
    * (`YOURS · 18H`, `THEIRS · 5D`, `+12D · WAITING`, `DRAFT READY`,
-   * `AUTO-SENT`, `CLOSED`, `FYI`) so the operator sees the same state
+   * `AUTO-SENT`, `CLOSED`) so the operator sees the same actionable state
    * the row carries inline. Driven by computeStateTag in the parent.
    * Omit on rails / states where the chip adds noise.
    */
@@ -168,7 +168,7 @@ export function ThreadDetailHeader({
       data-inbox-debug-id="C2"
       data-inbox-debug-label="DETAIL HEADER"
       className={cn(
-        "shrink-0 border-b border-line bg-inbox-panel px-2.5 pb-1.5 pt-2",
+        "shrink-0 border-b border-line px-2.5 pb-1.5 pt-2",
         className,
       )}
     >
@@ -218,7 +218,7 @@ export function EmptyDetailHeader({ className }: { className?: string }) {
   return (
     <header
       className={cn(
-        "shrink-0 border-b border-line bg-inbox-panel px-4 py-6",
+        "shrink-0 border-b border-line px-4 py-6",
         className,
       )}
     >

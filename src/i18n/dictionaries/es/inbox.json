@@ -388,6 +388,9 @@
   "row.newBadge": "NUEVO",
   "row.unknownSender": "Remitente sin confirmar",
   "row.dismissAwaitingReply": "Marcar sin respuesta necesaria",
+  "row.markRead": "Marcar leído",
+  "row.markUnread": "Marcar no leído",
+  "row.archiveThread": "Archivar hilo",
 
   "detail.selectThread": "// SELECCIONA HILO",
   "detail.selectThreadBody": "[—] sin hilo cargado",

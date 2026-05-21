@@ -20,7 +20,10 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { buildSearchOrExpression } from "@/lib/api/services/email-thread-service";
+import {
+  buildSearchOrExpression,
+  shouldRepairLatestSnippetFromActivities,
+} from "@/lib/api/services/email-thread-service";
 import { applyRailPredicate } from "@/lib/inbox/rail-predicates";
 
 const NOW = "2026-05-12T15:00:00Z";
@@ -84,6 +87,32 @@ describe("buildSearchOrExpression — user input escaping", () => {
   it("escapes embedded double quotes so the PostgREST quoted value parses", () => {
     const expr = buildSearchOrExpression('a"b');
     expect(expr).toContain('"%a\\"b%"');
+  });
+});
+
+describe("activity snippet repair candidates", () => {
+  it("repairs outbound-latest rows even when the cached snippet is populated", () => {
+    expect(
+      shouldRepairLatestSnippetFromActivities({
+        latestSnippet: "Old inbound provider snippet",
+        latestDirection: "outbound",
+      }),
+    ).toBe(true);
+  });
+
+  it("repairs blank snippets and leaves unknown-direction populated snippets alone", () => {
+    expect(
+      shouldRepairLatestSnippetFromActivities({
+        latestSnippet: "   ",
+        latestDirection: null,
+      }),
+    ).toBe(true);
+    expect(
+      shouldRepairLatestSnippetFromActivities({
+        latestSnippet: "Already specific",
+        latestDirection: null,
+      }),
+    ).toBe(false);
   });
 });
 

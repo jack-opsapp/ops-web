@@ -36,9 +36,18 @@ describe("<ContextRail>", () => {
     const openButton = screen.getByRole("button", { name: /open client/i });
     // Lucide icons are rendered as inline SVGs with aria-hidden — assert one
     // is nested inside the button rather than checking textual label.
+    expect(openButton.className).toContain("h-[18px]");
+    expect(openButton.className).toContain("w-[18px]");
     expect(openButton.querySelector("svg")).not.toBeNull();
     fireEvent.click(openButton);
     expect(onOpenClient).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses the canonical circular inbox avatar in the client header", () => {
+    render(<ContextRail {...baseProps} />);
+    const avatar = screen.getByTestId("inbox-avatar");
+    expect(avatar.className).toContain("rounded-full");
+    expect(avatar.className).toContain("bg-inbox-elev");
   });
 
   it("keeps the linked header readable without truncating contact values", () => {

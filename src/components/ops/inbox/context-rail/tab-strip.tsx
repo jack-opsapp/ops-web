@@ -29,7 +29,7 @@ export function TabStrip({ tabs, active, onSelect, className }: TabStripProps) {
     <div
       role="tablist"
       className={cn(
-        "flex h-[38px] shrink-0 items-stretch border-b border-line bg-inbox-panel",
+        "flex h-[38px] shrink-0 items-stretch border-b border-line",
         className,
       )}
     >

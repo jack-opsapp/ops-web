@@ -386,6 +386,9 @@
   "row.newBadge": "NEW",
   "row.unknownSender": "Unconfirmed sender",
   "row.dismissAwaitingReply": "Mark no reply needed",
+  "row.markRead": "Mark read",
+  "row.markUnread": "Mark unread",
+  "row.archiveThread": "Archive thread",
 
   "detail.selectThread": "// SELECT THREAD",
   "detail.selectThreadBody": "[—] no thread loaded",

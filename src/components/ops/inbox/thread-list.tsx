@@ -26,6 +26,10 @@ interface ThreadListProps {
    * Wire to `useThreadActions().dismissAwaitingReply` at the route layer.
    */
   onDismissAwaitingReply?: (threadId: string) => void;
+  /** Row quick action: mark read/unread through route-owned mutation. */
+  onMarkReadChange?: (threadId: string, isRead: boolean) => void;
+  /** Row quick action: archive through route-owned archive flow. */
+  onArchiveThread?: (threadId: string) => void;
   obligations?: TodayCommitment[];
   onResolveObligation?: (commitmentId: string) => void;
   pendingResolveIds?: ReadonlySet<string>;
@@ -38,6 +42,8 @@ export function ThreadList({
   selectedThreadId,
   onSelect,
   onDismissAwaitingReply,
+  onMarkReadChange,
+  onArchiveThread,
   obligations = [],
   onResolveObligation,
   pendingResolveIds,
@@ -65,6 +71,8 @@ export function ThreadList({
               now={now}
               onSelect={onSelect}
               onDismissAwaitingReply={onDismissAwaitingReply}
+              onMarkReadChange={onMarkReadChange}
+              onArchive={onArchiveThread}
             />
           </li>
         ))}

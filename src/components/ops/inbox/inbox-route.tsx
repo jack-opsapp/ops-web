@@ -123,6 +123,16 @@ interface ArchiveTarget {
   opportunityId: string | null;
 }
 
+function buildArchiveTargetFromRow(row: InboxThreadRow): ArchiveTarget {
+  return {
+    threadId: row.id,
+    subject: row.subject ?? "",
+    latestSenderName: row.latestSenderName,
+    latestSenderEmail: row.latestSenderEmail,
+    opportunityId: row.opportunityId,
+  };
+}
+
 export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
   const router = useRouter();
   const { t } = useDictionary("inbox");
@@ -651,6 +661,37 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
 
   const onOpenArchived = () => setFilter("ARCHIVED");
   const onOpenSettings = () => router.push("/settings?tab=integrations");
+  const onThreadMarkReadChange = useCallback(
+    (id: string, isRead: boolean) => {
+      threadActions.markRead.mutate(
+        { threadId: id, isRead },
+        {
+          onSuccess: () => {
+            toast.success(
+              isRead
+                ? t("toast.threadMarkedReadTactic", "SYS :: THREAD MARKED READ")
+                : t(
+                    "toast.threadMarkedUnreadTactic",
+                    "SYS :: THREAD MARKED UNREAD"
+                  )
+            );
+          },
+          onError: () => {
+            toast.error(
+              t("toast.threadReadStateFailedTactic", "SYS :: READ STATE FAILED")
+            );
+          },
+        }
+      );
+    },
+    [t, threadActions.markRead]
+  );
+
+  function onArchiveThread(id: string) {
+    const targetRow = threads.find((row) => row.id === id);
+    if (!targetRow) return;
+    requestArchive(buildArchiveTargetFromRow(targetRow));
+  }
 
   const threadList = (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -691,6 +732,8 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
             selectedThreadId={selectedThreadId}
             onSelect={onSelectThread}
             onDismissAwaitingReply={onDismissAwaitingReply}
+            onMarkReadChange={onThreadMarkReadChange}
+            onArchiveThread={onArchiveThread}
             obligations={commitments}
             onResolveObligation={(commitmentId) => {
               const target = commitments.find((c) => c.id === commitmentId);
@@ -1143,7 +1186,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
         ) : undefined
       }
       triageSlot={
-        triageStateForDetail && triageTone ? (
+        triageStateForDetail && triageStateForDetail.kind !== "fyi" && triageTone ? (
           <StateTag
             tone={triageTone}
             variant="bare"

@@ -125,7 +125,7 @@ function InnerContextRail({
     <div
       data-inbox-debug-id="D1"
       data-inbox-debug-label="CONTEXT RAIL CONTENT"
-      className={cn("flex min-h-0 flex-1 flex-col bg-inbox-bg-deep", className)}
+      className={cn("flex min-h-0 flex-1 flex-col", className)}
     >
       {isUnlinked ? (
         <UnlinkedHeader t={t} />
@@ -183,7 +183,7 @@ function LinkedHeader({
     <header
       data-inbox-debug-id="D2"
       data-inbox-debug-label="CLIENT HEADER"
-      className="shrink-0 border-b border-line bg-inbox-panel px-3.5 pb-2.5 pt-2.5"
+      className="shrink-0 border-b border-line px-3.5 pb-2.5 pt-2.5"
     >
       {/* // CLIENT label */}
       <p className="font-cakemono text-[11px] font-light uppercase leading-none tracking-[0.18em] text-text-mute">
@@ -211,7 +211,7 @@ function LinkedHeader({
           onClick={onOpenClient}
           aria-label={t("rail.openClient", "Open client")}
           title={t("rail.openClient", "Open client")}
-          className="inline-flex shrink-0 items-center justify-center rounded-[2px] border border-line p-0.5 text-text-3 transition-colors hover:bg-inbox-elev hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+          className="inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[2px] border border-line text-text-3 transition-colors hover:bg-inbox-elev hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black"
         >
           <ExternalLink
             aria-hidden
@@ -299,7 +299,7 @@ function UnlinkedHeader({
     <header
       data-inbox-debug-id="D2"
       data-inbox-debug-label="UNLINKED CLIENT HEADER"
-      className="shrink-0 border-b border-line bg-inbox-panel px-3.5 pb-3 pt-3"
+      className="shrink-0 border-b border-line px-3.5 pb-3 pt-3"
     >
       <p className="font-cakemono text-[11px] font-light uppercase leading-none tracking-[0.18em] text-text-2">
         {t("rail.clientUnlinked", "// CLIENT :: UNLINKED")}

@@ -40,7 +40,7 @@ describe("<ThreadColumnHeader>", () => {
     expect(screen.queryByRole("menuitem", { name: /^ARCHIVED/ })).toBeNull();
   });
 
-  it("offers a compact star action for setting any primary filter as default", async () => {
+  it("offers compact pin actions for setting any primary filter as default", async () => {
     const user = userEvent.setup();
     const onDefaultFilterChange = vi.fn();
     const onFilterChange = vi.fn();
@@ -59,6 +59,8 @@ describe("<ThreadColumnHeader>", () => {
     );
 
     await user.click(screen.getByRole("button", { name: "Filter inbox" }));
+    expect(document.body.querySelector("[data-default-filter-star]")).toBeNull();
+    expect(document.body.querySelectorAll("[data-default-filter-pin]")).toHaveLength(3);
     await user.click(
       screen.getByRole("button", {
         name: "Set EVERYTHING ELSE as default inbox view",
@@ -69,7 +71,7 @@ describe("<ThreadColumnHeader>", () => {
     expect(onFilterChange).not.toHaveBeenCalled();
   });
 
-  it("marks the starred filter without inflating the header hit target", () => {
+  it("does not render a standalone default control beside the rail chip", () => {
     render(
       <ThreadColumnHeader
         filter="EVERYTHING_ELSE"
@@ -84,10 +86,8 @@ describe("<ThreadColumnHeader>", () => {
       />,
     );
 
-    const currentDefault = screen.getByRole("button", {
+    expect(screen.queryByRole("button", {
       name: "Default inbox view: EVERYTHING ELSE",
-    });
-    expect(currentDefault.className).toContain("h-4");
-    expect(currentDefault.className).toContain("w-4");
+    })).not.toBeInTheDocument();
   });
 });

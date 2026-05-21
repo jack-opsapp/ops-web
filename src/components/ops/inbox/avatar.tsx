@@ -59,6 +59,7 @@ export function InboxAvatar({
   if (agent) {
     return (
       <span
+        data-testid="inbox-avatar"
         aria-hidden
         className={cn(
           "flex shrink-0 items-center justify-center rounded-full border border-agent-border-hi bg-agent/[0.15] text-agent",
@@ -76,6 +77,7 @@ export function InboxAvatar({
   }
   return (
     <span
+      data-testid="inbox-avatar"
       aria-hidden
       className={cn(
         "flex shrink-0 items-center justify-center rounded-full border border-line-hi bg-inbox-elev font-mohave tracking-[0.02em] text-text-2",

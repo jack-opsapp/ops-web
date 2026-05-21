@@ -21,7 +21,14 @@
  */
 
 import { useId, type MouseEvent } from "react";
-import { DollarSign, Paperclip, Receipt } from "lucide-react";
+import {
+  Archive,
+  DollarSign,
+  Mail,
+  MailOpen,
+  Paperclip,
+  Receipt,
+} from "lucide-react";
 import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
 import type { PhaseC } from "@/lib/types/email-thread";
@@ -72,6 +79,10 @@ interface ThreadRowProps {
    * Omit on rails where the override doesn't make sense (e.g. archived list).
    */
   onDismissAwaitingReply?: (threadId: string) => void;
+  /** Compact row-level read-state action. Uses the same mutation path as detail. */
+  onMarkReadChange?: (threadId: string, isRead: boolean) => void;
+  /** Compact row-level archive action. Must route through the real archive flow. */
+  onArchive?: (threadId: string) => void;
 }
 
 export function resolveThreadRowPreview(
@@ -119,6 +130,8 @@ export function ThreadRow({
   now,
   onSelect,
   onDismissAwaitingReply,
+  onMarkReadChange,
+  onArchive,
 }: ThreadRowProps) {
   const { t } = useDictionary("inbox");
   const isAiDraft =
@@ -133,6 +146,8 @@ export function ThreadRow({
     thread.labels.includes("HAS_ATTACHMENT") ||
     thread.labels.includes("HAS_QUOTE") ||
     thread.labels.includes("HAS_INVOICE");
+  const showStateTag = thread.state.kind !== "fyi";
+  const showQuickActions = Boolean(onMarkReadChange || onArchive);
 
   const stripeColor = selected
     ? "bg-ops-accent"
@@ -162,10 +177,21 @@ export function ThreadRow({
   };
 
   const tagDismiss =
-    onDismissAwaitingReply && thread.state.kind === "yours"
+    showStateTag && onDismissAwaitingReply && thread.state.kind === "yours"
       ? () => onDismissAwaitingReply(thread.id)
       : undefined;
   const snippetText = resolveThreadRowPreview(thread);
+  const markReadLabel = isUnread
+    ? t("row.markRead", "Mark read")
+    : t("row.markUnread", "Mark unread");
+  const archiveLabel = t("row.archiveThread", "Archive thread");
+  const quickButtonClass =
+    "inline-flex h-[18px] w-[18px] items-center justify-center rounded-[2px] border border-line text-text-3 transition-colors hover:border-line-hi hover:bg-inbox-elev hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black";
+
+  const stopQuickAction = (e: MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
 
   return (
     <div
@@ -256,17 +282,19 @@ export function ThreadRow({
               · {thread.messageCount}
             </span>
           )}
-          <StateTag
-            tone={thread.state.tone}
-            variant="bare"
-            prefix={thread.state.prefix}
-            value={thread.state.value}
-            onDismiss={tagDismiss}
-            dismissLabel={t(
-              "row.dismissAwaitingReply",
-              "Mark no reply needed",
-            )}
-          />
+          {showStateTag && (
+            <StateTag
+              tone={thread.state.tone}
+              variant="bare"
+              prefix={thread.state.prefix}
+              value={thread.state.value}
+              onDismiss={tagDismiss}
+              dismissLabel={t(
+                "row.dismissAwaitingReply",
+                "Mark no reply needed",
+              )}
+            />
+          )}
           {showTrailingTime && (
             <span
               className={cn(
@@ -276,6 +304,48 @@ export function ThreadRow({
               style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
             >
               {formatRelativeTime(thread.ts, now)}
+            </span>
+          )}
+          {showQuickActions && (
+            <span
+              data-testid="thread-row-quick-actions"
+              className={cn(
+                "pointer-events-auto ml-0.5 flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                "group-hover:opacity-100 group-focus-within:opacity-100",
+              )}
+            >
+              {onMarkReadChange && (
+                <button
+                  type="button"
+                  aria-label={markReadLabel}
+                  title={markReadLabel}
+                  className={quickButtonClass}
+                  onClick={(event) => {
+                    stopQuickAction(event);
+                    onMarkReadChange(thread.id, isUnread);
+                  }}
+                >
+                  {isUnread ? (
+                    <MailOpen aria-hidden className="h-3 w-3" strokeWidth={1.5} />
+                  ) : (
+                    <Mail aria-hidden className="h-3 w-3" strokeWidth={1.5} />
+                  )}
+                </button>
+              )}
+              {onArchive && (
+                <button
+                  type="button"
+                  aria-label={archiveLabel}
+                  title={archiveLabel}
+                  className={quickButtonClass}
+                  onClick={(event) => {
+                    stopQuickAction(event);
+                    onArchive(thread.id);
+                  }}
+                >
+                  <Archive aria-hidden className="h-3 w-3" strokeWidth={1.5} />
+                </button>
+              )}
             </span>
           )}
         </div>

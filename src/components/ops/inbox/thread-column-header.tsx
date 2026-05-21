@@ -20,7 +20,7 @@
  * the change callbacks.
  */
 
-import { X, MoreHorizontal, Star } from "lucide-react";
+import { X, MoreHorizontal, Pin } from "lucide-react";
 import { useRef } from "react";
 import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
@@ -45,7 +45,7 @@ interface ThreadColumnHeaderProps {
    */
   filter: RailFilter;
   onFilterChange: (filter: RailFilter) => void;
-  /** Primary rail starred as the default-open view. */
+  /** Primary rail pinned as the default-open view. */
   defaultFilter: InboxPrimaryRail;
   onDefaultFilterChange: (filter: InboxPrimaryRail) => void;
   /**
@@ -108,31 +108,12 @@ export function ThreadColumnHeader({
   const suppressRailSelectRef = useRef(false);
   const activeRail = activeRailLabel(filter);
   const activeLabel = t(NAV_LABEL_KEY[activeRail], NAV_LABEL_FALLBACK[activeRail]);
-  const defaultLabel = t(
-    NAV_LABEL_KEY[defaultFilter],
-    NAV_LABEL_FALLBACK[defaultFilter],
-  );
-  const activePrimaryFilter: InboxPrimaryRail | null =
-    filter === "CLIENTS" || filter === "EVERYTHING_ELSE" || filter === "ALL"
-      ? filter
-      : null;
-  const canStarActive = activePrimaryFilter !== null;
-  const activeDefaultLabel =
-    activePrimaryFilter !== null && defaultFilter !== activePrimaryFilter
-      ? t(
-          "filter.setDefault",
-          "Set {filter} as default inbox view",
-        ).replace("{filter}", activeLabel)
-      : t(
-          "filter.defaultCurrent",
-          "Default inbox view: {filter}",
-        ).replace("{filter}", defaultLabel);
   return (
     <div
       data-inbox-debug-id="B1"
       data-inbox-debug-label="THREAD FILTERS + SEARCH"
       className={cn(
-        "shrink-0 border-b border-line bg-inbox-panel",
+        "shrink-0 overflow-hidden border-b border-line",
         className,
       )}
     >
@@ -168,17 +149,31 @@ export function ThreadColumnHeader({
                   >
                     <span className="min-w-0 flex-1 truncate">{label}</span>
                     <button
-                      data-default-filter-star
+                      data-default-filter-pin
                       type="button"
-                      aria-label={t(
-                        "filter.setDefault",
-                        "Set {filter} as default inbox view",
-                      ).replace("{filter}", label)}
+                      aria-label={
+                        isDefault
+                          ? t(
+                              "filter.defaultCurrent",
+                              "Default inbox view: {filter}",
+                            ).replace("{filter}", label)
+                          : t(
+                              "filter.setDefault",
+                              "Set {filter} as default inbox view",
+                            ).replace("{filter}", label)
+                      }
                       aria-pressed={isDefault}
-                      title={t(
-                        "filter.setDefault",
-                        "Set {filter} as default inbox view",
-                      ).replace("{filter}", label)}
+                      title={
+                        isDefault
+                          ? t(
+                              "filter.defaultCurrent",
+                              "Default inbox view: {filter}",
+                            ).replace("{filter}", label)
+                          : t(
+                              "filter.setDefault",
+                              "Set {filter} as default inbox view",
+                            ).replace("{filter}", label)
+                      }
                       onPointerDown={(event) => {
                         event.preventDefault();
                         event.stopPropagation();
@@ -201,7 +196,7 @@ export function ThreadColumnHeader({
                         isDefault && "text-text",
                       )}
                     >
-                      <Star
+                      <Pin
                         aria-hidden
                         className={cn("h-3 w-3", isDefault && "fill-current")}
                         strokeWidth={1.5}
@@ -212,37 +207,6 @@ export function ThreadColumnHeader({
               })}
             </DropdownMenuContent>
           </DropdownMenu>
-
-          <button
-            type="button"
-            aria-label={activeDefaultLabel}
-            aria-pressed={
-              activePrimaryFilter !== null && defaultFilter === activePrimaryFilter
-            }
-            title={activeDefaultLabel}
-            onClick={() => {
-              if (activePrimaryFilter !== null) {
-                onDefaultFilterChange(activePrimaryFilter);
-              }
-            }}
-            className={cn(
-              "inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-[2px] text-text-mute hover:text-text",
-              activePrimaryFilter !== null &&
-                defaultFilter === activePrimaryFilter &&
-                "text-text",
-            )}
-          >
-            <Star
-              aria-hidden
-              className={cn(
-                "h-3 w-3",
-                activePrimaryFilter !== null &&
-                  defaultFilter === activePrimaryFilter &&
-                  "fill-current",
-              )}
-              strokeWidth={1.5}
-            />
-          </button>
 
           <div className="flex min-w-0 items-center gap-1 overflow-hidden">
             {headerChipSlot}

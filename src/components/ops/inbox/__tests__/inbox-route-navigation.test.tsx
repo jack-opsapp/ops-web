@@ -198,9 +198,13 @@ vi.mock("../thread-list", () => ({
   ThreadList: ({
     selectedThreadId,
     onSelect,
+    onMarkReadChange,
+    onArchiveThread,
   }: {
     selectedThreadId: string | null;
     onSelect: (id: string) => void;
+    onMarkReadChange?: (id: string, isRead: boolean) => void;
+    onArchiveThread?: (id: string) => void;
   }) => (
     <div
       data-testid="thread-list"
@@ -208,6 +212,15 @@ vi.mock("../thread-list", () => ({
     >
       <button type="button" onClick={() => onSelect("thread-b")}>
         Open Bravo
+      </button>
+      <button
+        type="button"
+        onClick={() => onMarkReadChange?.("thread-b", false)}
+      >
+        Row mark unread
+      </button>
+      <button type="button" onClick={() => onArchiveThread?.("thread-b")}>
+        Row archive
       </button>
     </div>
   ),
@@ -589,6 +602,34 @@ describe("<InboxRoute> thread navigation", () => {
 
     expect(archiveMutate).toHaveBeenCalledTimes(1);
     expect(archiveMutate.mock.calls[0][0]).toBe("thread-a");
+    expect(archiveMutate.mock.calls[0][1]).toMatchObject({
+      onSuccess: expect.any(Function),
+    });
+  });
+
+  it("thread row quick mark read/unread uses the real mutation path", async () => {
+    const user = userEvent.setup();
+    renderRoute();
+
+    await user.click(screen.getByRole("button", { name: "Row mark unread" }));
+
+    expect(markReadMutate).toHaveBeenCalledWith(
+      { threadId: "thread-b", isRead: false },
+      expect.objectContaining({
+        onSuccess: expect.any(Function),
+        onError: expect.any(Function),
+      }),
+    );
+  });
+
+  it("thread row quick archive uses the real archive flow for that row", async () => {
+    const user = userEvent.setup();
+    renderRoute();
+
+    await user.click(screen.getByRole("button", { name: "Row archive" }));
+
+    expect(archiveMutate).toHaveBeenCalledTimes(1);
+    expect(archiveMutate.mock.calls[0][0]).toBe("thread-b");
     expect(archiveMutate.mock.calls[0][1]).toMatchObject({
       onSuccess: expect.any(Function),
     });

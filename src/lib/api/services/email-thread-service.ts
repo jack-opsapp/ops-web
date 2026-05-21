@@ -505,12 +505,16 @@ async function enrichWithNextCommitmentId(
   });
 }
 
+export function shouldRepairLatestSnippetFromActivities(
+  thread: Pick<EmailThread, "latestSnippet" | "latestDirection">
+): boolean {
+  return !thread.latestSnippet?.trim() || thread.latestDirection !== null;
+}
+
 async function enrichWithActivitySnippets(
   threads: EmailThread[]
 ): Promise<EmailThread[]> {
-  const candidates = threads.filter(
-    (t) => !t.latestSnippet?.trim() || t.latestDirection === "inbound"
-  );
+  const candidates = threads.filter(shouldRepairLatestSnippetFromActivities);
   if (candidates.length === 0) return threads;
 
   const supabase = requireSupabase();

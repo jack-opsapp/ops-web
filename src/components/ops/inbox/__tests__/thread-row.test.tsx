@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi } from "vitest";
 import {
   resolveThreadRowPreview,
@@ -107,6 +108,50 @@ describe("<ThreadRow>", () => {
       />,
     );
     expect(screen.getByText(/raw provider snippet/)).toBeInTheDocument();
+  });
+
+  it("renders the outbound latest preview when the latest activity is from the operator", () => {
+    render(
+      <ThreadRow
+        thread={make({
+          aiSummary: null,
+          snippet: "I sent the revised number. Can start Monday.",
+          state: {
+            kind: "theirs",
+            tone: "neutral",
+            prefix: "THEIRS",
+            value: "2M",
+            alarmStrip: false,
+          },
+          lastInboundAt: null,
+        })}
+        selected={false}
+        now={NOW}
+        onSelect={() => {}}
+      />,
+    );
+
+    expect(screen.getByText(/I sent the revised number/)).toBeInTheDocument();
+  });
+
+  it("does not render the fallback FYI tag on the row", () => {
+    render(
+      <ThreadRow
+        thread={make({
+          state: {
+            kind: "fyi",
+            tone: "neutral",
+            prefix: "FYI",
+            alarmStrip: false,
+          },
+        })}
+        selected={false}
+        now={NOW}
+        onSelect={() => {}}
+      />,
+    );
+
+    expect(screen.queryByText("FYI")).not.toBeInTheDocument();
   });
 
   it("unread state uses font-semibold + text-text on the client name", () => {
@@ -296,6 +341,55 @@ describe("<ThreadRow>", () => {
     expect(screen.getByTestId("thread-row-unknown-sender")).toHaveTextContent(
       "?",
     );
+  });
+
+  it("renders compact quick actions that reveal on hover and focus", async () => {
+    const user = userEvent.setup();
+    const onMarkReadChange = vi.fn();
+    const onArchive = vi.fn();
+    render(
+      <ThreadRow
+        thread={make({ unread: false })}
+        selected={false}
+        now={NOW}
+        onSelect={() => {}}
+        onMarkReadChange={onMarkReadChange}
+        onArchive={onArchive}
+      />,
+    );
+
+    const actions = screen.getByTestId("thread-row-quick-actions");
+    expect(actions.className).toContain("opacity-0");
+    expect(actions.className).toContain("group-hover:opacity-100");
+    expect(actions.className).toContain("group-focus-within:opacity-100");
+
+    await user.tab();
+    await user.tab();
+    expect(screen.getByRole("button", { name: "Mark unread" })).toHaveFocus();
+  });
+
+  it("wires mark read/unread and archive quick actions without selecting the row", async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    const onMarkReadChange = vi.fn();
+    const onArchive = vi.fn();
+    render(
+      <ThreadRow
+        thread={make({ unread: true })}
+        selected={false}
+        now={NOW}
+        onSelect={onSelect}
+        onMarkReadChange={onMarkReadChange}
+        onArchive={onArchive}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Mark read" }));
+    await user.click(screen.getByRole("button", { name: "Archive thread" }));
+
+    expect(onMarkReadChange).toHaveBeenCalledWith("t1", true);
+    expect(onArchive).toHaveBeenCalledWith("t1");
+    expect(onSelect).not.toHaveBeenCalled();
   });
 
   it("calls onSelect on click", () => {
