@@ -18,6 +18,7 @@ import { runWithSupabase } from "@/lib/supabase/helpers";
 import { EmailService } from "@/lib/api/services/email-service";
 import { ClientService } from "@/lib/api/services/client-service";
 import { OpportunityService } from "@/lib/api/services/opportunity-service";
+import { buildEmailOpportunityTitle } from "@/lib/email/opportunity-title";
 import {
   ActivityType,
   OpportunityStage,
@@ -28,6 +29,27 @@ import type { ImportPayload, ImportResult } from "@/lib/types/email-import";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const maxDuration = 300;
+
+function buildImportedLeadOpportunityTitle(
+  lead: ImportPayload["leads"][number],
+  syncProfile: Partial<ImportPayload["syncProfile"]> | undefined
+): string {
+  return buildEmailOpportunityTitle({
+    kind: "estimate",
+    candidates: [
+      {
+        source: "contact",
+        name: lead.clientName,
+        email: lead.clientEmail,
+      },
+    ],
+    unsafe: {
+      emails: syncProfile?.userEmailAddresses,
+      domains: syncProfile?.companyDomains,
+      platformEmails: syncProfile?.knownPlatformSenders,
+    },
+  });
+}
 
 export async function POST(request: NextRequest) {
   const payload: ImportPayload = await request.json();
@@ -363,7 +385,7 @@ async function runImport(
         const opp = await OpportunityService.createOpportunity({
           companyId,
           clientId,
-          title: lead.title || "",
+          title: buildImportedLeadOpportunityTitle(lead, payload.syncProfile),
           stage,
           source: OpportunitySource.Email,
           contactName: lead.clientName,

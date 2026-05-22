@@ -2,6 +2,7 @@
 // Core sync cycle — runs on every sync trigger (cron, manual, webhook).
 // Implements the 12-step flow from spec Section 4C.
 
+import { after } from "next/server";
 import { requireSupabase } from "@/lib/supabase/helpers";
 import { EmailService } from "./email-service";
 import { EmailMatchingServiceV2 } from "./email-matching-service-v2";
@@ -17,6 +18,17 @@ import { AIDraftService } from "./ai-draft-service";
 import { AutonomyMilestoneService } from "./autonomy-milestone-service";
 import { maybeSuggestProject } from "./project-suggestion-service";
 import { EmailThreadService } from "./email-thread-service";
+import {
+  buildEmailOpportunityTitle,
+  identityCandidateFromMailbox,
+  type EmailOpportunityIdentityCandidate,
+  type EmailOpportunityTitleKind,
+  type EmailOpportunityUnsafeIdentity,
+} from "@/lib/email/opportunity-title";
+import {
+  extractContactFormSubmission,
+  type ContactFormSubmissionIdentity,
+} from "@/lib/utils/email-parsing";
 import type {
   EmailConnection,
   SyncProfile,
@@ -58,6 +70,62 @@ function matchesPattern(email: NormalizedEmail, profile: SyncProfile): boolean {
 function extractSenderEmail(from: string): string {
   const match = from.match(/<([^>]+)>/);
   return (match ? match[1] : from).toLowerCase().trim();
+}
+
+interface CreateOpportunityTitleOptions {
+  kind?: EmailOpportunityTitleKind;
+  candidates?: EmailOpportunityIdentityCandidate[];
+  unsafe?: EmailOpportunityUnsafeIdentity;
+}
+
+function syncTitleUnsafeIdentity(
+  connection: EmailConnection,
+  profile: SyncProfile
+): EmailOpportunityUnsafeIdentity {
+  return {
+    emails: [connection.email, ...(profile.userEmailAddresses ?? [])],
+    domains: profile.companyDomains ?? [],
+    platformEmails: profile.knownPlatformSenders ?? [],
+  };
+}
+
+function contactFormTitleCandidate(
+  submitter: ContactFormSubmissionIdentity | null
+): EmailOpportunityIdentityCandidate[] {
+  if (!submitter) return [];
+  return [
+    {
+      source: "contact_form",
+      name: submitter.name,
+      email: submitter.email,
+    },
+  ];
+}
+
+function mailboxHeader(email: string, name: string | null | undefined): string {
+  const display = (name ?? "").trim();
+  if (!display) return email;
+  return `${display.replace(/"/g, "")} <${email}>`;
+}
+
+function applyContactFormSubmitterIdentity(email: NormalizedEmail): {
+  email: NormalizedEmail;
+  submitter: ContactFormSubmissionIdentity | null;
+} {
+  const submitter = extractContactFormSubmission(
+    email.subject,
+    email.bodyText || email.snippet || "",
+  );
+  if (!submitter) return { email, submitter: null };
+
+  return {
+    email: {
+      ...email,
+      from: mailboxHeader(submitter.email, submitter.name),
+      fromName: submitter.name ?? submitter.email,
+    },
+    submitter,
+  };
 }
 
 /**
@@ -114,10 +182,12 @@ function emptyResult(): SyncCycleResult {
 
 async function createClient(
   email: NormalizedEmail,
-  companyId: string
+  companyId: string,
+  submitter?: ContactFormSubmissionIdentity | null
 ): Promise<string> {
   const supabase = requireSupabase();
-  const senderEmail = extractSenderEmail(email.from);
+  const senderEmail = submitter?.email ?? extractSenderEmail(email.from);
+  const senderName = submitter?.name || email.fromName || senderEmail.split("@")[0];
 
   // Check for existing client first to avoid duplicates
   const { data: existingClients } = await supabase
@@ -136,8 +206,9 @@ async function createClient(
     .from("clients")
     .insert({
       company_id: companyId,
-      name: email.fromName || senderEmail.split("@")[0],
+      name: senderName,
       email: senderEmail,
+      phone_number: submitter?.phone ?? null,
     })
     .select("id")
     .single();
@@ -147,10 +218,12 @@ async function createClient(
 async function createSubClient(
   email: NormalizedEmail,
   clientId: string,
-  companyId: string
+  companyId: string,
+  submitter?: ContactFormSubmissionIdentity | null
 ): Promise<void> {
   const supabase = requireSupabase();
-  const senderEmail = extractSenderEmail(email.from);
+  const senderEmail = submitter?.email ?? extractSenderEmail(email.from);
+  const senderName = submitter?.name || email.fromName || senderEmail.split("@")[0];
 
   // Check for existing sub-client to avoid duplicates
   const { data: existingSub } = await supabase
@@ -166,26 +239,62 @@ async function createSubClient(
   await supabase.from("sub_clients").insert({
     company_id: companyId,
     client_id: clientId,
-    name: email.fromName || senderEmail.split("@")[0],
+    name: senderName,
     email: senderEmail,
+    phone_number: submitter?.phone ?? null,
   });
+}
+
+async function getClientOpportunityTitleCandidate(
+  clientId: string
+): Promise<EmailOpportunityIdentityCandidate | null> {
+  const supabase = requireSupabase();
+  const { data: client } = await supabase
+    .from("clients")
+    .select("name, email")
+    .eq("id", clientId)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (!client) return null;
+  return {
+    source: "client",
+    name: (client.name as string | null) ?? null,
+    email: (client.email as string | null) ?? null,
+  };
 }
 
 async function createOpportunity(
   email: NormalizedEmail,
   clientId: string,
   companyId: string,
-  stage: string
+  stage: string,
+  titleOptions: CreateOpportunityTitleOptions = {}
 ): Promise<string> {
   const supabase = requireSupabase();
   const isOutbound = stage === "qualifying"; // sent folder leads start at qualifying
   const startedAt = Date.now();
+  const clientCandidate = await getClientOpportunityTitleCandidate(clientId);
+  const senderCandidate = identityCandidateFromMailbox(
+    "inbound_sender",
+    email.from,
+    email.fromName
+  );
+  const candidates = [
+    ...(titleOptions.candidates ?? []),
+    senderCandidate,
+    clientCandidate,
+  ].filter(Boolean) as EmailOpportunityIdentityCandidate[];
   const { data } = await supabase
     .from("opportunities")
     .insert({
       company_id: companyId,
       client_id: clientId,
-      title: `${email.fromName || "New Lead"} — Email Inquiry`,
+      title: buildEmailOpportunityTitle({
+        kind: titleOptions.kind ?? "email_inquiry",
+        candidates,
+        unsafe: titleOptions.unsafe,
+      }),
       stage,
       source: "email",
       correspondence_count: 1,
@@ -216,7 +325,8 @@ async function createOpportunity(
 async function getOrCreateOpportunity(
   clientId: string,
   companyId: string,
-  email: NormalizedEmail
+  email: NormalizedEmail,
+  titleOptions: CreateOpportunityTitleOptions = {}
 ): Promise<string> {
   const supabase = requireSupabase();
 
@@ -232,7 +342,7 @@ async function getOrCreateOpportunity(
 
   if (existing && existing.length > 0) return existing[0].id;
 
-  return createOpportunity(email, clientId, companyId, "new_lead");
+  return createOpportunity(email, clientId, companyId, "new_lead", titleOptions);
 }
 
 async function linkThread(
@@ -288,7 +398,11 @@ async function createActivity(
   //
   // Every email flows through this function, so it's the single integration
   // point for the new inbox's per-thread state. We upsert first (fast), then
-  // fire-and-forget classification so an OpenAI call never blocks sync.
+  // defer classification to after the response so an OpenAI call never blocks
+  // sync — Next.js `after()` keeps the function alive past the response so
+  // the in-flight OpenAI + Supabase UPDATE aren't aborted when the serverless
+  // container freezes (the pre-`after()` `.catch()` form left ~95% of threads
+  // with NULL `ai_summary` because the UPDATE never reached Postgres).
   //
   // A failure here must not break the sync loop — swallow errors into the
   // log and keep going.
@@ -308,19 +422,24 @@ async function createActivity(
       (direction === "inbound" && !threadRow.categoryManuallySet);
 
     if (needsClassify) {
-      EmailThreadService.classifyAndUpdate(threadRow).catch((err) => {
-        console.error(
-          "[sync-engine] thread classify failed (non-fatal) for",
-          threadRow.id,
-          err instanceof Error ? err.message : err
-        );
+      after(async () => {
+        try {
+          await EmailThreadService.classifyAndUpdate(threadRow);
+        } catch (err) {
+          console.error(
+            "[sync-engine] thread classify failed (non-fatal) for",
+            threadRow.id,
+            err instanceof Error ? err.message : err
+          );
+        }
       });
     } else if (direction === "inbound") {
       // New inbound on an already-classified thread — no need to reclassify,
       // but Phase C still needs to decide whether to draft/send/archive.
-      import("./phase-c-autonomy-router")
-        .then(({ PhaseCAutonomyRouter }) => PhaseCAutonomyRouter.route(threadRow))
-        .then((result) => {
+      after(async () => {
+        try {
+          const { PhaseCAutonomyRouter } = await import("./phase-c-autonomy-router");
+          const result = await PhaseCAutonomyRouter.route(threadRow);
           if (
             result.outcome !== "noop_off" &&
             result.outcome !== "noop_draft_on_request"
@@ -332,13 +451,13 @@ async function createActivity(
               result.effectiveLevel
             );
           }
-        })
-        .catch((err) =>
+        } catch (err) {
           console.error(
             "[phase-c-router] sync-engine inbound route failed (non-fatal):",
             err instanceof Error ? err.message : err
-          )
-        );
+          );
+        }
+      });
     }
   } catch (err) {
     console.error(
@@ -659,6 +778,11 @@ async function processInboundEmail(
 
   if (existing && existing.length > 0) return false;
 
+  const {
+    email: effectiveEmail,
+    submitter: contactFormSubmitter,
+  } = applyContactFormSubmitterIdentity(email);
+
   // Thread inheritance — is this thread already linked to an OPS lead?
   const { data: threadLink } = await supabase
     .from("opportunity_email_threads")
@@ -669,7 +793,7 @@ async function processInboundEmail(
 
   if (threadLink && threadLink.length > 0) {
     await createActivity(
-      email,
+      effectiveEmail,
       connection,
       threadLink[0].opportunity_id,
       "inbound"
@@ -688,13 +812,13 @@ async function processInboundEmail(
 
     // ── E5: Auto-draft / auto-send trigger (fire-and-forget) ───────────
     // Never awaited — AI inference must not block the sync loop.
-    maybeAutoGenerateDraft(email, connection, threadLink[0].opportunity_id)
+    maybeAutoGenerateDraft(effectiveEmail, connection, threadLink[0].opportunity_id)
       .catch((err) => console.error("[sync-engine] Auto-draft error (non-fatal):", err));
 
     // ── S2.3: Reschedule request detection (fire-and-forget) ───────────
     // Looks up the just-created activity row and runs the reschedule
     // classifier (phase_c gated + heuristic + GPT). Never blocks sync.
-    maybeDetectRescheduleRequest(email, connection, threadLink[0].opportunity_id)
+    maybeDetectRescheduleRequest(effectiveEmail, connection, threadLink[0].opportunity_id)
       .catch((err) =>
         console.error("[sync-engine] Reschedule detection error (non-fatal):", err)
       );
@@ -703,34 +827,43 @@ async function processInboundEmail(
   }
 
   // Pattern matching
+  const senderEmail = extractSenderEmail(email.from);
   const isPatternMatch = matchesPattern(email, profile);
-  const isPlatformMatch = matchPlatform(email.from) !== null;
+  const isPlatformMatch = matchPlatform(senderEmail) !== null;
   const isForwarderMatch =
     profile.teamForwarders?.some((f) =>
-      email.from.toLowerCase().includes(f.toLowerCase())
+      senderEmail.includes(f.toLowerCase())
     ) && isFormSubmissionSubject(email.subject);
 
   if (isPatternMatch || isPlatformMatch || isForwarderMatch) {
     const matchResult = await EmailMatchingServiceV2.match(
       connection.companyId,
-      extractSenderEmail(email.from),
+      extractSenderEmail(effectiveEmail.from),
       {
         threadId: email.threadId,
-        name: email.fromName,
+        name: effectiveEmail.fromName,
         connectionId: connection.id,
       }
     );
 
     if (matchResult.action === "create_new") {
-      const clientId = await createClient(email, connection.companyId);
+      const clientId = await createClient(
+        effectiveEmail,
+        connection.companyId,
+        contactFormSubmitter
+      );
       const oppId = await createOpportunity(
-        email,
+        effectiveEmail,
         clientId,
         connection.companyId,
-        "new_lead"
+        "new_lead",
+        {
+          candidates: contactFormTitleCandidate(contactFormSubmitter),
+          unsafe: syncTitleUnsafeIdentity(connection, profile),
+        }
       );
       await linkThread(oppId, email.threadId, connection.id);
-      await createActivity(email, connection, oppId, "inbound");
+      await createActivity(effectiveEmail, connection, oppId, "inbound");
       await applyLabel(email.threadId, connection, result);
       result.newLeads++;
       result.activitiesCreated++;
@@ -744,7 +877,7 @@ async function processInboundEmail(
         ).then((enabled) => {
           if (!enabled) return;
           maybeSuggestProject({
-            email,
+            email: effectiveEmail,
             companyId: connection.companyId,
             userId: connection.userId!,
             clientId,
@@ -763,10 +896,14 @@ async function processInboundEmail(
       const oppId = await getOrCreateOpportunity(
         matchResult.clientId!,
         connection.companyId,
-        email
+        effectiveEmail,
+        {
+          candidates: contactFormTitleCandidate(contactFormSubmitter),
+          unsafe: syncTitleUnsafeIdentity(connection, profile),
+        }
       );
       await linkThread(oppId, email.threadId, connection.id);
-      await createActivity(email, connection, oppId, "inbound");
+      await createActivity(effectiveEmail, connection, oppId, "inbound");
       await updateCorrespondenceCounts(
         oppId,
         "inbound",
@@ -781,17 +918,18 @@ async function processInboundEmail(
 
       if (matchResult.action === "create_subclient") {
         await createSubClient(
-          email,
+          effectiveEmail,
           matchResult.clientId!,
-          connection.companyId
+          connection.companyId,
+          contactFormSubmitter
         );
       }
 
       // ── E5: Auto-draft / auto-send (fire-and-forget) ─────────────────
-      maybeAutoGenerateDraft(email, connection, oppId)
+      maybeAutoGenerateDraft(effectiveEmail, connection, oppId)
         .catch((err) => console.error("[sync-engine] Auto-draft error (non-fatal):", err));
     } else if (matchResult.action === "review") {
-      await createActivity(email, connection, null, "inbound", {
+      await createActivity(effectiveEmail, connection, null, "inbound", {
         matchNeedsReview: true,
         suggestedClientId: matchResult.suggestedClientId,
         matchConfidence: matchResult.confidence,
@@ -809,7 +947,7 @@ async function processInboundEmail(
       companyId: connection.companyId,
       connectionId: connection.id,
       providerThreadId: email.threadId,
-      email,
+      email: effectiveEmail,
       direction: "inbound",
     });
   } catch (err) {
@@ -878,7 +1016,11 @@ async function processSentEmail(
   for (const recipient of allRecipients) {
     if (threadLinkedByThisEmail) break; // One thread link per email
 
-    const recipientEmail = extractSenderEmail(recipient);
+    const recipientCandidate = identityCandidateFromMailbox(
+      "outbound_recipient",
+      recipient
+    );
+    const recipientEmail = recipientCandidate.email || extractSenderEmail(recipient);
     const recipientDomain = recipientEmail.split("@")[1]?.toLowerCase();
 
     // Skip internal/company emails
@@ -905,19 +1047,25 @@ async function processSentEmail(
       );
 
       if (matchResult.action === "create_new") {
+        const effectiveRecipientEmail: NormalizedEmail = {
+          ...email,
+          from: recipientEmail,
+          fromName: recipientCandidate.name ?? recipientEmail.split("@")[0],
+        };
         const clientId = await createClient(
-          {
-            ...email,
-            from: recipientEmail,
-            fromName: recipientEmail.split("@")[0],
-          },
+          effectiveRecipientEmail,
           connection.companyId
         );
         const oppId = await createOpportunity(
-          email,
+          effectiveRecipientEmail,
           clientId,
           connection.companyId,
-          "qualifying"
+          "qualifying",
+          {
+            kind: "estimate",
+            candidates: [recipientCandidate],
+            unsafe: syncTitleUnsafeIdentity(connection, profile),
+          }
         );
         await linkThread(oppId, email.threadId, connection.id);
         await createActivity(email, connection, oppId, "outbound");
@@ -929,7 +1077,12 @@ async function processSentEmail(
         const oppId = await getOrCreateOpportunity(
           matchResult.clientId,
           connection.companyId,
-          email
+          email,
+          {
+            kind: "estimate",
+            candidates: [recipientCandidate],
+            unsafe: syncTitleUnsafeIdentity(connection, profile),
+          }
         );
         await linkThread(oppId, email.threadId, connection.id);
         await createActivity(email, connection, oppId, "outbound");
@@ -1419,7 +1572,17 @@ export const SyncEngine = {
                 classified.email,
                 clientId,
                 connection.companyId,
-                classified.stage
+                classified.stage,
+                {
+                  candidates: [
+                    {
+                      source: "contact",
+                      name: classified.clientName,
+                      email: classified.clientEmail,
+                    },
+                  ],
+                  unsafe: syncTitleUnsafeIdentity(connection, profile),
+                }
               );
               await linkThread(oppId, classified.email.threadId, connection.id);
               await createActivity(classified.email, connection, oppId, "inbound", {
