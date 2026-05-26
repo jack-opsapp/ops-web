@@ -273,9 +273,13 @@ export const UserService = {
     /** If false, returns error instead of auto-creating user row. Default true. */
     createIfMissing = true
   ): Promise<{ user: User; company: Company | null }> {
+    const controller = new AbortController();
+    const timeout = globalThis.setTimeout(() => controller.abort(), 15_000);
+
     const response = await fetch("/api/auth/sync-user", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      signal: controller.signal,
       body: JSON.stringify({
         idToken,
         email,
@@ -285,7 +289,7 @@ export const UserService = {
         photoURL,
         createIfMissing,
       }),
-    });
+    }).finally(() => globalThis.clearTimeout(timeout));
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ error: "Sync failed" }));

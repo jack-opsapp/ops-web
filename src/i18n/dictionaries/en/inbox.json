@@ -428,7 +428,7 @@
   "draftSwitcher.outlookLabel": "{n} · OUTLOOK",
   "draftSwitcher.yoursLabel": "{n} · YOURS",
   "draftSwitcher.newLabel": "{n} · NEW",
-  "draftSwitcher.claudeLabel": "✦ {n} · CLAUDE",
+  "draftSwitcher.claudeLabel": "{n} · CLAUDE",
   "draftSwitcher.addNew": "[+]",
   "draftSwitcher.addNewAria": "Add new draft",
 
