@@ -103,8 +103,8 @@ export function ProjectGroup({
       data-testid={`project-group-${project.id}`}
       data-current={linked ? "true" : "false"}
       className={cn(
-        "relative rounded-[5px] border border-line bg-inbox-panel",
-        linked && "bg-ops-accent/[0.04]",
+        "relative rounded-[5px] border border-line bg-transparent",
+        linked && "border-line-hi",
         className,
       )}
     >
@@ -138,7 +138,7 @@ export function ProjectGroup({
         <button
           type="button"
           onClick={() => setOpen((prev) => !prev)}
-          className="min-w-0 flex-1 truncate text-left font-mohave text-[13px] font-medium tracking-[-0.005em] text-text"
+          className="min-w-0 flex-1 truncate text-left font-mohave text-[13px] font-medium text-text"
         >
           {project.name}
         </button>
@@ -162,7 +162,7 @@ export function ProjectGroup({
             type="button"
             onClick={() => onOpen(project.id)}
             aria-label={`Open project ${project.name}`}
-            className="inline-flex shrink-0 items-center gap-1 rounded-[2px] border border-line bg-transparent px-1.5 py-[2px] font-cakemono text-[10px] font-light uppercase tracking-[0.14em] text-text-2 transition-colors hover:bg-inbox-elev"
+            className="inline-flex shrink-0 items-center gap-1 rounded-[2px] border border-line bg-transparent px-1.5 py-[2px] font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-text-2 transition-colors hover:border-line-hi hover:text-text"
           >
             {t("rail.openButton", "OPEN")}
             <ExternalLink
@@ -175,7 +175,7 @@ export function ProjectGroup({
           <Link
             href={`?project=${project.id}`}
             aria-label={`Open project ${project.name}`}
-            className="inline-flex shrink-0 items-center gap-1 rounded-[2px] border border-line bg-transparent px-1.5 py-[2px] font-cakemono text-[10px] font-light uppercase tracking-[0.14em] text-text-2 transition-colors hover:bg-inbox-elev"
+            className="inline-flex shrink-0 items-center gap-1 rounded-[2px] border border-line bg-transparent px-1.5 py-[2px] font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-text-2 transition-colors hover:border-line-hi hover:text-text"
           >
             {t("rail.openButton", "OPEN")}
             <ExternalLink
@@ -191,7 +191,7 @@ export function ProjectGroup({
       {open && (
         <ul
           data-testid={`project-group-${project.id}-tasks`}
-          className="bg-[rgba(255,255,255,0.02)] border-t border-line/50 py-1"
+          className="border-t border-line/50 bg-transparent py-1"
         >
           {tasks.length === 0 ? (
             <li className="pl-8 pr-3.5 py-1.5 font-mono text-[11px] text-text-3">
@@ -230,7 +230,7 @@ export function ProjectGroup({
                   </span>
                   <span
                     className={cn(
-                      "flex-1 truncate font-mohave text-[12px] tracking-[-0.003em]",
+                      "flex-1 truncate font-mohave text-[12px]",
                       checked
                         ? "text-text-mute line-through"
                         : active

@@ -1,6 +1,7 @@
 "use client";
 
 import { type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { X } from "lucide-react";
 
@@ -35,11 +36,11 @@ export function SidePanelShell({
         exit: { x: 320 },
       };
 
-  const springTransition = prefersReducedMotion
+  const slideTransition = prefersReducedMotion
     ? { duration: 0.15 }
-    : { type: "spring" as const, stiffness: 300, damping: 30 };
+    : { duration: 0.2, ease: [0.22, 1, 0.36, 1] as const };
 
-  return (
+  const panel = (
     <AnimatePresence mode="wait">
       {isOpen && (
         <motion.aside
@@ -48,12 +49,17 @@ export function SidePanelShell({
           initial="initial"
           animate="animate"
           exit="exit"
-          transition={springTransition}
-          className="fixed top-0 right-0 z-50 h-full w-[320px] flex flex-col"
+          transition={slideTransition}
+          className="fixed top-0 right-0 z-[2000] h-dvh w-full max-w-[360px] flex flex-col"
           style={{
-            backgroundColor: "#0D0D0D",
+            backgroundColor: "var(--surface-glass-dense)",
+            backdropFilter: "blur(28px) saturate(1.3)",
+            WebkitBackdropFilter: "blur(28px) saturate(1.3)",
             borderLeft: "1px solid rgba(255,255,255,0.10)",
           }}
+          role="dialog"
+          aria-modal="true"
+          aria-label={title}
         >
           {/* Header */}
           <div
@@ -82,4 +88,7 @@ export function SidePanelShell({
       )}
     </AnimatePresence>
   );
+
+  if (typeof document === "undefined") return null;
+  return createPortal(panel, document.body);
 }

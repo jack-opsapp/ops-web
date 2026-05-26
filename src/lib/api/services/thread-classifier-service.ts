@@ -5,8 +5,21 @@
  * immediately after a new email is persisted on a thread, and on-demand from
  * the recategorize flow when a correction propagates to similar threads.
  *
- * Output: primary_category (13 values), category_confidence, secondary labels,
- * ai_summary (for threads with 10+ messages only), and short reasoning.
+ * Output: primary_category (12 values — CUSTOMER + 11 others; LEAD/CLIENT
+ * are legacy aliases retained only for the rail-collapse transition),
+ * category_confidence, secondary labels including AWAITING_REPLY,
+ * ball_in_court ('operator' | 'counterparty' | 'none'), ai_summary, and
+ * short reasoning.
+ *
+ * `ball_in_court` is the audit-driven addition (rail collapse, P3-1-1):
+ * the LLM resolves whose turn it is BEFORE deciding the AWAITING_REPLY
+ * label, so the rail predicates can trust the label as a real
+ * ball-in-court signal instead of the conservative pre-v3 reading that
+ * missed ~1,651 unread inbound threads. The classifier post-processes its
+ * own output: ball_in_court='operator' forces AWAITING_REPLY in, and
+ * 'counterparty'/'none' forces it out. The value is not persisted to a
+ * column; it lives in the ClassifyResult for telemetry and the labels
+ * array carries the operational signal.
  *
  * Model: gpt-5.4-mini via OPENAI_API_KEY_SYNC (same key used by stage
  * evaluation, memory extraction, and writing profile analysis — billing stays
@@ -64,11 +77,23 @@ export interface ClassifyInput {
   senderIsNew: boolean;
 }
 
+/**
+ * Whose turn it is on this thread. Surfaced for analytics + post-processing.
+ *   - 'operator'     — the operator owes the next action. Forces AWAITING_REPLY in.
+ *   - 'counterparty' — operator has moved last; waiting on the other side.
+ *                      Forces AWAITING_REPLY out.
+ *   - 'none'         — system/marketing/receipt; no human owes a turn.
+ *                      Forces AWAITING_REPLY out.
+ */
+export type BallInCourt = "operator" | "counterparty" | "none";
+
 export interface ClassifyResult {
   threadId: string;
   primaryCategory: EmailThreadCategory;
   confidence: number;
   labels: EmailThreadLabel[];
+  /** Ball-in-court resolution emitted by the LLM. Drives label coherence. */
+  ballInCourt: BallInCourt;
   /** One sentence describing conversation state + what's owed. Always populated. */
   aiSummary: string;
   reasoning: string;
@@ -76,11 +101,17 @@ export interface ClassifyResult {
 
 // ─── System prompt ───────────────────────────────────────────────────────────
 
+// v3 (2026-05-12): added explicit ball_in_court resolution. The LLM
+// decides whose turn it is BEFORE setting AWAITING_REPLY so the rail
+// predicate (P3-1-1 rail collapse) can trust the label without falling
+// back to the unread-inbound heuristic. ball_in_court is post-processed
+// to enforce AWAITING_REPLY coherence — operator='in', else='out'.
+//
 // v2 (2026-05-07): merged LEAD + CLIENT into CUSTOMER to align with the
 // 20260428061836_collapse_lead_client_to_customer migration. Pre-v2 the LLM
 // kept emitting LEAD/CLIENT, validateCategory passed them through, the DB
 // CHECK constraint rejected the UPDATE, and threads stayed pinned at OTHER.
-const CLASSIFIER_VERSION = "v2";
+const CLASSIFIER_VERSION = "v3";
 
 const SYSTEM_PROMPT = `You are Phase C — an email triage agent for a trades/construction business (decking, roofing, HVAC, plumbing, electrical, landscaping, etc.).
 
@@ -120,7 +151,7 @@ SECONDARY LABELS — multi-select, attach any that clearly apply
 
 URGENT            Explicit time pressure: "by Friday", "ASAP", "urgent", emergency repair calls, blocking a crew, imminent deadline. Do NOT apply to cold sales urgency ("limited time offer").
 
-AWAITING_REPLY    The LAST message in the thread is inbound AND asks a direct question or requests action from the owner. Only apply if a reply is reasonably expected (client asking about scheduling, vendor asking for PO number, GC asking for updated bid).
+AWAITING_REPLY    Apply when ball_in_court='operator'. Strip when ball_in_court is 'counterparty' or 'none'. Decide ball_in_court FIRST (see below), then this label follows mechanically.
 
 HAS_ATTACHMENT    Thread has one or more non-trivial attachments — PDFs, images, CAD drawings, contracts. Do NOT apply for tracking pixels or email signatures.
 
@@ -129,6 +160,24 @@ HAS_QUOTE         Thread contains pricing/estimate/quote content — either outb
 HAS_INVOICE       Thread contains an invoice, paid or unpaid, from the company or to it.
 
 FROM_NEW_SENDER   Set senderIsNew=true indicates no prior conversation history with this sender. Apply on the first thread from that sender only.
+
+═══════════════════════════════════════════════════════════════
+BALL IN COURT — required output field; decide BEFORE labels
+═══════════════════════════════════════════════════════════════
+
+Determine whose turn it is on this thread, then return that as ball_in_court. The AWAITING_REPLY label is derived from this resolution, not the other way around.
+
+  "operator"     — The operator (the trades business owner) owes the next action. Apply when the LAST message is inbound AND any of these are true:
+                     · it asks a direct question, requests action, or requires a decision
+                     · it is a meaningful customer / vendor / subtrade / GC message where ignoring it would harm the working relationship
+                     · the thread carries an explicit deadline within ~7 days that hasn't been met
+                     · operator's mental model for a CUSTOMER/VENDOR/SUBTRADE/PLATFORM_BID/COLLECTIONS/LEGAL thread is "any unread inbound is owed a look" — lean toward 'operator' when the category is one of those AND the latest message is inbound.
+
+  "counterparty" — The operator has already replied / sent / acted and is waiting on the other side. Apply when the LAST message is outbound from the operator AND there is no fresher inbound that contradicts it.
+
+  "none"         — No human owes a turn. Apply for receipts, shipping notifications, marketing blasts, newsletter sends, automated platform alerts, and informational FYIs the operator has already absorbed.
+
+When the latest direction is genuinely unclear, default to 'none' — only commit to 'operator' or 'counterparty' when the evidence supports it.
 
 ═══════════════════════════════════════════════════════════════
 LEARNED RULES — weight heavily
@@ -163,6 +212,7 @@ Respond with a single JSON object, no prose, no code fences:
   "primaryCategory": "CUSTOMER" | "VENDOR" | "SUBTRADE" | "PLATFORM_BID" | "LEGAL" | "JOB_SEEKER" | "COLLECTIONS" | "MARKETING" | "RECEIPT" | "PERSONAL" | "INTERNAL" | "OTHER",
   "confidence": 0.0-1.0,
   "labels": ["URGENT", "AWAITING_REPLY", "HAS_ATTACHMENT", "HAS_QUOTE", "HAS_INVOICE", "FROM_NEW_SENDER"],
+  "ballInCourt": "operator" | "counterparty" | "none",
   "aiSummary": "...",  // one sentence, always non-empty
   "reasoning": "one short sentence"
 }
@@ -244,6 +294,42 @@ function validateConfidence(raw: unknown): number {
   return Math.max(0, Math.min(1, n));
 }
 
+const BALL_IN_COURT_SET = new Set<BallInCourt>([
+  "operator",
+  "counterparty",
+  "none",
+]);
+
+function validateBallInCourt(raw: unknown): BallInCourt {
+  if (typeof raw === "string" && BALL_IN_COURT_SET.has(raw as BallInCourt)) {
+    return raw as BallInCourt;
+  }
+  return "none";
+}
+
+/**
+ * Enforce label coherence with ball_in_court. The LLM occasionally emits an
+ * AWAITING_REPLY label that contradicts its own ball_in_court decision; we
+ * trust ball_in_court as authoritative (the prompt instructs the model to
+ * decide it first) and rewrite the label set to match. This is what makes
+ * the new YOUR_MOVE rail honest — the predicate trusts the label.
+ *
+ * Exported for unit-test coverage; not part of the public surface.
+ */
+export function reconcileLabelsToBallInCourt(
+  labels: EmailThreadLabel[],
+  ball: BallInCourt,
+): EmailThreadLabel[] {
+  const has = labels.includes("AWAITING_REPLY");
+  if (ball === "operator" && !has) {
+    return [...labels, "AWAITING_REPLY"];
+  }
+  if (ball !== "operator" && has) {
+    return labels.filter((l) => l !== "AWAITING_REPLY");
+  }
+  return labels;
+}
+
 function parseResult(
   raw: Record<string, unknown>,
   threadId: string,
@@ -252,7 +338,11 @@ function parseResult(
   void messageCount; // parameter retained for future heuristics
   const primaryCategory = validateCategory(raw.primaryCategory);
   const confidence = validateConfidence(raw.confidence);
-  const labels = validateLabels(raw.labels);
+  const ballInCourt = validateBallInCourt(raw.ballInCourt);
+  const labels = reconcileLabelsToBallInCourt(
+    validateLabels(raw.labels),
+    ballInCourt,
+  );
   const rawSummary = typeof raw.aiSummary === "string" ? raw.aiSummary.trim() : "";
   const aiSummary =
     rawSummary.length > 0
@@ -266,6 +356,7 @@ function parseResult(
     primaryCategory,
     confidence,
     labels,
+    ballInCourt,
     aiSummary,
     reasoning,
   };
@@ -277,6 +368,7 @@ function fallbackResult(threadId: string): ClassifyResult {
     primaryCategory: "OTHER",
     confidence: 0.3,
     labels: [],
+    ballInCourt: "none",
     aiSummary: "Classification unavailable — open the thread to read it directly.",
     reasoning: "classification_failed",
   };

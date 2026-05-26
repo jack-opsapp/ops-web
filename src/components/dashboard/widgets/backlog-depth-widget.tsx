@@ -194,7 +194,7 @@ export function BacklogDepthWidget({
           </span>
           <WidgetEmptyState
             message={t("backlogDepth.noPending") ?? "No signed projects pending"}
-            cta={{ label: t("backlogDepth.viewProjects") ?? "View Projects", onClick: () => onNavigate("/projects") }}
+            cta={size === "xs" ? undefined : { label: t("backlogDepth.viewProjects") ?? "View Projects", onClick: () => onNavigate("/projects") }}
             className="flex-1"
           />
         </div>

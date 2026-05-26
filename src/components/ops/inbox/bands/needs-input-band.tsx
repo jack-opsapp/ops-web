@@ -31,12 +31,12 @@ export function NeedsInputBand({
   const min = pausedMinutesAgo ?? 0;
   const title = t(
     "bands.needsInput.title",
-    "// CLAUDE NEEDS INPUT :: PAUSED {minutes} MIN AGO",
+    "// PHASE C NEEDS INPUT :: PAUSED {minutes} MIN AGO",
   ).replace("{minutes}", String(min));
 
   return (
     <section
-      aria-label={t("bands.needsInput.aria", "Claude needs your input")}
+      aria-label={t("bands.needsInput.aria", "Phase C needs your input")}
       className={cn(
         "relative flex shrink-0 gap-2.5 border-b border-line bg-agent-bg-hi px-2 py-3",
         className,
@@ -50,7 +50,7 @@ export function NeedsInputBand({
       />
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         <SlashLabel label={title} tone="agent" />
-        <p className="font-mohave text-[13px] leading-[1.5] tracking-[-0.003em] text-agent-text text-pretty">
+        <p className="font-mohave text-[13px] leading-[1.5] text-agent-text text-pretty">
           {question}
         </p>
         {hasOptions ? (
@@ -60,7 +60,7 @@ export function NeedsInputBand({
                 key={opt.id}
                 type="button"
                 onClick={() => onAction(`answer:${opt.id}`)}
-                className="inline-flex h-[26px] items-center rounded-chip border border-line-hi bg-transparent px-2.5 transition-colors hover:bg-inbox-elev"
+                className="inline-flex h-6 items-center rounded-chip border border-line-hi bg-transparent px-2.5 transition-colors hover:text-text"
               >
                 <StateTag
                   tone="neutral"
@@ -73,7 +73,7 @@ export function NeedsInputBand({
             <button
               type="button"
               onClick={() => onAction("type-reply")}
-              className="inline-flex h-[26px] items-center rounded-[2.5px] px-2.5 font-mohave text-[12px] italic text-text-3 transition-colors hover:text-text-2"
+              className="inline-flex h-6 items-center rounded-[2.5px] px-2.5 font-mohave text-[12px] italic text-text-3 transition-colors hover:text-text-2"
             >
               {t("bands.needsInput.typeReplyEscape", "type a reply…")}
             </button>

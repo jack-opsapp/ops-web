@@ -41,17 +41,17 @@ export function MobileStackedShell({
   return (
     <div
       className={cn(
-        "flex h-full min-h-0 w-full flex-col bg-inbox-bg text-text",
+        "flex h-full min-h-0 w-full flex-col bg-transparent text-text",
         className,
       )}
     >
-      <header className="flex h-12 shrink-0 items-center gap-2 border-b border-line bg-inbox-panel px-3">
+      <header className="flex h-12 shrink-0 items-center gap-2 border-b border-line bg-transparent px-3">
         {activePane !== "list" && (
           <button
             type="button"
             onClick={() => onPaneChange(BACK_TARGET[activePane])}
             aria-label={t("mobile.back", "Back")}
-            className="inline-flex h-7 w-7 items-center justify-center rounded-chip text-text-2 hover:bg-inbox-elev hover:text-text"
+            className="inline-flex h-7 w-7 items-center justify-center rounded-chip text-text-2 hover:text-text"
           >
             <ChevronLeft aria-hidden className="h-4 w-4" strokeWidth={1.5} />
           </button>

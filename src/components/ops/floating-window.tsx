@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState, type MouseEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
 import { Minus, X } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useWindowStore, type FloatingWindowState } from "@/stores/window-store";
@@ -14,7 +14,17 @@ export function FloatingWindow({ window: win, children }: FloatingWindowProps) {
   const { closeWindow, minimizeWindow, focusWindow, updatePosition } =
     useWindowStore();
   const [isDragging, setIsDragging] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const dragOffset = useRef({ x: 0, y: 0 });
+
+  useEffect(() => {
+    if (typeof globalThis.matchMedia !== "function") return;
+    const mq = globalThis.matchMedia("(max-width: 767px)");
+    const sync = () => setIsMobile(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
 
   const handleMouseDown = useCallback(
     (e: MouseEvent) => {
@@ -68,10 +78,10 @@ export function FloatingWindow({ window: win, children }: FloatingWindowProps) {
         isDragging && "select-none"
       )}
       style={{
-        left: win.position.x,
-        top: win.position.y,
-        width: win.size.width,
-        height: win.size.height,
+        left: isMobile ? 8 : win.position.x,
+        top: isMobile ? 64 : win.position.y,
+        width: isMobile ? "calc(100vw - 16px)" : win.size.width,
+        height: isMobile ? "calc(100dvh - 72px)" : win.size.height,
         zIndex: win.zIndex,
       }}
       onMouseDown={() => focusWindow(win.id)}
@@ -103,7 +113,7 @@ export function FloatingWindow({ window: win, children }: FloatingWindowProps) {
       </div>
 
       {/* Content area */}
-      <div className="flex-1 overflow-y-auto p-2">{children}</div>
+      <div className="flex-1 min-h-0 overflow-y-auto p-2">{children}</div>
     </div>
   );
 }

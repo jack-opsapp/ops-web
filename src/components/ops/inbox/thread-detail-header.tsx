@@ -7,15 +7,23 @@ import {
   Tag,
   type LucideIcon,
 } from "lucide-react";
-import { forwardRef, type ReactNode } from "react";
+import { Fragment, forwardRef, type ReactNode } from "react";
 import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
+import type { EmailThreadCategory } from "@/lib/types/email-thread";
 import { SlashLabel } from "./voice/slash-label";
-import { StateTag } from "./state-tag";
+import { CategoryChip } from "./category-chip";
 
 interface ThreadDetailHeaderProps {
   subject: string;
-  category?: { label: string; dotClassName: string } | null;
+  /**
+   * Raw classifier category. Renders through `<CategoryChip>` so the chip
+   * carries the canonical tone-per-category (tan for CUSTOMER, rose for LEGAL,
+   * neutral for low-priority MARKETING/RECEIPT/etc.). Pass `null` when the
+   * thread hasn't been classified yet — the chip is skipped and the meta
+   * strip still renders sender + count.
+   */
+  category?: EmailThreadCategory | null;
   senderName: string;
   messageCount: number;
   /** @deprecated Use `threadPickerSlot` instead. Held for backward compat with existing call sites; ignored at render time. */
@@ -38,11 +46,20 @@ interface ThreadDetailHeaderProps {
   /** Inline slot rendered in the meta strip after the message count.
    *  Typically a `<ThreadPicker />` populated by the parent route. */
   threadPickerSlot?: ReactNode;
+  /**
+   * Triage chip rendered in the title row between the subject and the
+   * action-button cluster. Surfaces the active ball-in-court signal
+   * (`YOURS · 18H`, `THEIRS · 5D`, `+12D · WAITING`, `DRAFT READY`,
+   * `AUTO-SENT`, `CLOSED`) so the operator sees the same actionable state
+   * the row carries inline. Driven by computeStateTag in the parent.
+   * Omit on rails / states where the chip adds noise.
+   */
+  triageSlot?: ReactNode;
   className?: string;
 }
 
 const iconBtnClass =
-  "inline-flex h-7 w-7 items-center justify-center rounded-chip text-text-3 transition-colors hover:bg-inbox-elev hover:text-text-2 focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black";
+  "inline-flex h-[18px] w-[18px] items-center justify-center rounded-[2px] text-text-3 transition-colors hover:text-text-2 focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black";
 
 const HeaderActionButton = forwardRef<
   HTMLButtonElement,
@@ -80,6 +97,7 @@ export function ThreadDetailHeader({
   onRecategorize,
   onMore,
   threadPickerSlot,
+  triageSlot,
   className,
 }: ThreadDetailHeaderProps) {
   const { t } = useDictionary("inbox");
@@ -117,19 +135,53 @@ export function ThreadDetailHeader({
     "{count}",
     String(messageCount),
   );
+  const metaItems: Array<{ key: string; node: ReactNode }> = [];
+  if (category) {
+    metaItems.push({
+      key: "category",
+      node: <CategoryChip category={category} size="sm" />,
+    });
+  }
+  if (senderName.trim().length > 0) {
+    metaItems.push({
+      key: "sender",
+      node: <span className="min-w-0 flex-1 truncate">{senderName}</span>,
+    });
+  }
+  metaItems.push({
+    key: "count",
+    node: (
+      <span className="uppercase tracking-[0.10em] text-text-3">
+        {metaCountText}
+      </span>
+    ),
+  });
+  if (threadPickerSlot) {
+    metaItems.push({
+      key: "thread-picker",
+      node: threadPickerSlot,
+    });
+  }
 
   return (
     <header
+      data-inbox-debug-id="C2"
+      data-inbox-debug-label="DETAIL HEADER"
       className={cn(
-        "shrink-0 border-b border-line bg-inbox-panel px-2 pb-2.5 pt-3",
+        "shrink-0 border-b border-line px-2.5 pb-1.5 pt-2",
         className,
       )}
     >
-      <div className="mb-1.5 flex items-center gap-2.5">
-        <h1 className="m-0 min-w-0 flex-1 truncate font-mohave text-[16px] font-medium tracking-[-0.005em] text-text">
+      <div className="mb-1 flex items-center gap-2.5">
+        <h1 className="m-0 min-w-0 flex-1 truncate font-mohave text-[15px] font-medium leading-tight text-text">
           {subject || t("detail.untitled", "(no subject)")}
         </h1>
-        <div className="flex shrink-0 items-center gap-1">
+        {triageSlot && (
+          <div className="flex shrink-0 items-center" data-testid="triage-slot">
+            {triageSlot}
+          </div>
+        )}
+        <div className="flex shrink-0 items-center gap-0.5">
           {archiveSlot ? archiveSlot(archiveBtn) : archiveBtn}
           {snoozeSlot ? snoozeSlot(snoozeBtn) : snoozeBtn}
           {recategorizeSlot ? recategorizeSlot(recategorizeBtn) : recategorizeBtn}
@@ -138,37 +190,24 @@ export function ThreadDetailHeader({
       </div>
 
       <div
-        className="flex items-center gap-2.5 font-mono text-[11px] text-text-3"
+        data-testid="detail-header-meta"
+        className="flex items-center gap-2 font-mono text-[11px] leading-none text-text-3"
         style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
       >
-        {category && (
-          <>
-            <StateTag
-              tone="neutral"
-              variant="solid"
-              bracketed
-              prefix={category.label.toUpperCase()}
-            />
-            <span aria-hidden className="text-text-mute">
+        {metaItems.map((item, index) => (
+          <Fragment key={item.key}>
+            {index > 0 && (
+              <span
+                aria-hidden
+                data-testid="detail-header-meta-separator"
+                className="text-text-mute"
+              >
               ·
-            </span>
-          </>
-        )}
-        <span className="truncate">{senderName}</span>
-        <span aria-hidden className="text-text-mute">
-          ·
-        </span>
-        <span className="uppercase tracking-[0.10em] text-text-3">
-          {metaCountText}
-        </span>
-        {threadPickerSlot && (
-          <>
-            <span aria-hidden className="text-text-mute">
-              ·
-            </span>
-            {threadPickerSlot}
-          </>
-        )}
+              </span>
+            )}
+            {item.node}
+          </Fragment>
+        ))}
       </div>
     </header>
   );
@@ -179,7 +218,7 @@ export function EmptyDetailHeader({ className }: { className?: string }) {
   return (
     <header
       className={cn(
-        "shrink-0 border-b border-line bg-inbox-panel px-4 py-6",
+        "shrink-0 border-b border-line px-4 py-6",
         className,
       )}
     >

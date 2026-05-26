@@ -2,6 +2,7 @@
 
 import { Group, Panel, Separator, type Layout } from "react-resizable-panels";
 import { useEffect, type ReactNode } from "react";
+import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
 import {
   DEFAULT_INBOX_LAYOUT,
@@ -32,6 +33,7 @@ export function InboxShell({
   resizable = true,
   className,
 }: InboxShellProps) {
+  const { t } = useDictionary("inbox");
   const storedOpen = useInboxLayoutStore((s) => s.rightRailOpen);
   const leftPct = useInboxLayoutStore((s) => s.leftPct);
   const rightPct = useInboxLayoutStore((s) => s.rightPct);
@@ -49,26 +51,36 @@ export function InboxShell({
   if (!resizable) {
     return (
       <div
+        data-inbox-debug-id="A2"
+        data-inbox-debug-label="INBOX WORKSPACE"
         className={cn(
-          "flex h-full min-h-0 w-full bg-inbox-bg text-text",
+          "flex h-full min-h-0 w-full bg-transparent text-text",
           className,
         )}
       >
         <aside
+          data-inbox-debug-id="B0"
+          data-inbox-debug-label="THREAD COLUMN"
           role="complementary"
-          aria-label="Thread list"
-          className="flex w-[360px] shrink-0 flex-col border-r border-line bg-inbox-bg"
+          aria-label={t("shell.threadList", "Thread list")}
+          className="flex w-[360px] shrink-0 flex-col border-r border-line bg-transparent"
         >
           {threadList}
         </aside>
-        <main className="flex min-w-0 flex-1 flex-col bg-inbox-bg">
+        <main
+          data-inbox-debug-id="C0"
+          data-inbox-debug-label="DETAIL COLUMN"
+          className="flex min-w-0 flex-1 flex-col bg-transparent"
+        >
           {detail}
         </main>
         {open && (
           <aside
+            data-inbox-debug-id="D0"
+            data-inbox-debug-label="CONTEXT RAIL"
             role="complementary"
-            aria-label="Thread context"
-            className="flex w-[360px] shrink-0 flex-col border-l border-line bg-inbox-bg-deep"
+            aria-label={t("shell.threadContext", "Thread context")}
+            className="flex w-[360px] shrink-0 flex-col border-l border-line bg-transparent"
           >
             {contextRail}
           </aside>
@@ -88,10 +100,12 @@ export function InboxShell({
 
   return (
     <Group
+      data-inbox-debug-id="A2"
+      data-inbox-debug-label="INBOX WORKSPACE"
       orientation="horizontal"
       onLayoutChange={handleLayoutChange}
       className={cn(
-        "flex h-full min-h-0 w-full bg-inbox-bg text-text",
+        "flex h-full min-h-0 w-full bg-transparent text-text",
         className,
       )}
     >
@@ -102,9 +116,11 @@ export function InboxShell({
         maxSize={`${LEFT_PCT_BOUNDS[1]}%`}
       >
         <aside
+          data-inbox-debug-id="B0"
+          data-inbox-debug-label="THREAD COLUMN"
           role="complementary"
-          aria-label="Thread list"
-          className="flex h-full min-h-0 flex-col border-r border-line bg-inbox-bg"
+          aria-label={t("shell.threadList", "Thread list")}
+          className="flex h-full min-h-0 flex-col border-r border-line bg-transparent"
         >
           {threadList}
         </aside>
@@ -120,7 +136,11 @@ export function InboxShell({
       />
 
       <Panel id="inbox-center">
-        <main className="flex h-full min-h-0 flex-col bg-inbox-bg">
+        <main
+          data-inbox-debug-id="C0"
+          data-inbox-debug-label="DETAIL COLUMN"
+          className="flex h-full min-h-0 flex-col bg-transparent"
+        >
           {detail}
         </main>
       </Panel>
@@ -144,9 +164,11 @@ export function InboxShell({
           maxSize={`${RIGHT_PCT_BOUNDS[1]}%`}
         >
           <aside
+            data-inbox-debug-id="D0"
+            data-inbox-debug-label="CONTEXT RAIL"
             role="complementary"
-            aria-label="Thread context"
-            className="flex h-full min-h-0 flex-col border-l border-line bg-inbox-bg-deep"
+            aria-label={t("shell.threadContext", "Thread context")}
+            className="flex h-full min-h-0 flex-col border-l border-line bg-transparent"
           >
             {contextRail}
           </aside>
@@ -161,6 +183,7 @@ interface ResizeHandleProps {
 }
 
 function ResizeHandle({ onDoubleClick }: ResizeHandleProps) {
+  const { t } = useDictionary("inbox");
   return (
     <Separator
       onDoubleClick={onDoubleClick}
@@ -168,7 +191,7 @@ function ResizeHandle({ onDoubleClick }: ResizeHandleProps) {
         "group relative w-1 shrink-0 cursor-col-resize bg-transparent",
         "transition-colors hover:bg-line-hi",
       )}
-      aria-label="Resize panel"
+      aria-label={t("shell.resizePanel", "Resize panel")}
     >
       <span
         aria-hidden

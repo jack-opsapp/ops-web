@@ -1,7 +1,13 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi } from "vitest";
-import { ThreadRow, type ThreadRowData } from "../thread-row";
+import {
+  resolveThreadRowPreview,
+  ThreadRow,
+  type ThreadRowData,
+} from "../thread-row";
 import type { StateTagResult } from "@/lib/inbox/format-wait";
+import { shouldHandleInPlaceThreadNavigation } from "../inbox-navigation";
 
 const NOW = new Date("2026-05-06T15:00:00Z").getTime();
 
@@ -51,7 +57,7 @@ describe("<ThreadRow>", () => {
     expect(screen.queryByText("· 1")).not.toBeInTheDocument();
   });
 
-  it("snippet prefers aiSummary when present", () => {
+  it("snippet prefers aiSummary when present and specific", () => {
     render(
       <ThreadRow
         thread={make({ aiSummary: "Operator owes a revised quote.", snippet: "raw provider snippet" })}
@@ -62,6 +68,67 @@ describe("<ThreadRow>", () => {
     );
     expect(screen.getByText(/Operator owes a revised quote/)).toBeInTheDocument();
     expect(screen.queryByText(/raw provider snippet/)).toBeNull();
+  });
+
+  it("uses parsed form content when a stale generic form summary would mask it", () => {
+    render(
+      <ThreadRow
+        thread={make({
+          aiSummary: "Linked to a new lead opportunity — quote form got a new submission.",
+          snippet: "Marcel Mercier: We need someone to renovate and replace two existing roof decks.",
+        })}
+        selected={false}
+        now={NOW}
+        onSelect={() => {}}
+      />,
+    );
+
+    expect(
+      screen.getByText(/renovate and replace two existing roof decks/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/quote form got a new submission/)).toBeNull();
+  });
+
+  it("preview helper trims aiSummary before falling back to raw snippet", () => {
+    expect(
+      resolveThreadRowPreview(
+        make({
+          aiSummary: "  Operator owes a revised quote.  ",
+          snippet: "raw provider snippet",
+        }),
+      ),
+    ).toBe("Operator owes a revised quote.");
+    expect(
+      resolveThreadRowPreview(
+        make({ aiSummary: "   ", snippet: " raw provider snippet " }),
+      ),
+    ).toBe("raw provider snippet");
+  });
+
+  it("preview helper rejects generic form summaries when parsed form content exists", () => {
+    expect(
+      resolveThreadRowPreview({
+        aiSummary:
+          "Linked to a new lead opportunity — Contact Us 3 got a new submission.",
+        snippet:
+          "Marcel Mercier: We need someone to renovate and replace two existing roof decks.",
+      }),
+    ).toBe(
+      "Marcel Mercier: We need someone to renovate and replace two existing roof decks.",
+    );
+  });
+
+  it("preview helper keeps specific opportunity summaries even when the snippet mentions form work", () => {
+    expect(
+      resolveThreadRowPreview({
+        aiSummary:
+          "Linked to a lead opportunity for roof deck replacement; owner wants a site visit next week.",
+        snippet:
+          "Marcel Mercier: We need someone to renovate and replace two existing roof decks.",
+      }),
+    ).toBe(
+      "Linked to a lead opportunity for roof deck replacement; owner wants a site visit next week.",
+    );
   });
 
   it("snippet falls back to raw snippet when aiSummary is null", () => {
@@ -76,21 +143,94 @@ describe("<ThreadRow>", () => {
     expect(screen.getByText(/raw provider snippet/)).toBeInTheDocument();
   });
 
+  it("snippet falls back to raw snippet when aiSummary is empty", () => {
+    render(
+      <ThreadRow
+        thread={make({ aiSummary: "", snippet: "raw provider snippet" })}
+        selected={false}
+        now={NOW}
+        onSelect={() => {}}
+      />,
+    );
+    expect(screen.getByText(/raw provider snippet/)).toBeInTheDocument();
+  });
+
+  it("renders the outbound latest preview when the latest activity is from the operator", () => {
+    render(
+      <ThreadRow
+        thread={make({
+          aiSummary: null,
+          snippet: "I sent the revised number. Can start Monday.",
+          state: {
+            kind: "theirs",
+            tone: "neutral",
+            prefix: "THEIRS",
+            value: "2M",
+            alarmStrip: false,
+          },
+          lastInboundAt: null,
+        })}
+        selected={false}
+        now={NOW}
+        onSelect={() => {}}
+      />,
+    );
+
+    expect(screen.getByText(/I sent the revised number/)).toBeInTheDocument();
+  });
+
+  it("does not render the fallback FYI tag on the row", () => {
+    render(
+      <ThreadRow
+        thread={make({
+          state: {
+            kind: "fyi",
+            tone: "neutral",
+            prefix: "FYI",
+            alarmStrip: false,
+          },
+        })}
+        selected={false}
+        now={NOW}
+        onSelect={() => {}}
+      />,
+    );
+
+    expect(screen.queryByText("FYI")).not.toBeInTheDocument();
+  });
+
   it("unread state uses font-semibold + text-text on the client name", () => {
     render(<ThreadRow thread={make({ unread: true })} selected={false} now={NOW} onSelect={() => {}} />);
     const name = screen.getByText("Calloway");
     expect(name.className).toMatch(/font-semibold/);
     expect(name.className).toMatch(/text-text\b/);
+    expect(screen.getByTestId("thread-row-new-badge")).toHaveTextContent("NEW");
+    expect(screen.getByTestId("thread-row").className).not.toContain(
+      "bg" + "-inbox",
+    );
+    expect(screen.getByTestId("thread-row-new-badge").className).toContain(
+      "bg-transparent",
+    );
+    expect(screen.getByTestId("thread-row-stripe").className).toMatch(
+      /bg-line-hi/,
+    );
   });
 
-  it("read state uses font-normal + text-text-2", () => {
+  it("read state reduces weight and contrast on title + subject", () => {
     render(<ThreadRow thread={make({ unread: false })} selected={false} now={NOW} onSelect={() => {}} />);
     const name = screen.getByText("Calloway");
+    const subject = screen.getByText("Roof RFQ — revised quote");
     expect(name.className).toMatch(/font-normal/);
-    expect(name.className).toMatch(/text-text-2\b/);
+    expect(name.className).toMatch(/text-text-mute\b/);
+    expect(subject.className).toMatch(/font-normal/);
+    expect(subject.className).toMatch(/text-text-mute\b/);
+    expect(screen.queryByTestId("thread-row-new-badge")).toBeNull();
+    expect(screen.getByTestId("thread-row").className).not.toContain(
+      "bg" + "-inbox",
+    );
   });
 
-  it("AI-drafted snippet carries // CLAUDE DRAFT · prefix in lavender", () => {
+  it("AI-drafted snippet carries // PHASE C DRAFT · prefix in lavender", () => {
     const draftReady: StateTagResult = {
       kind: "draft_ready",
       tone: "lavender",
@@ -105,7 +245,7 @@ describe("<ThreadRow>", () => {
         onSelect={() => {}}
       />,
     );
-    const tag = screen.getByText("// CLAUDE DRAFT ·");
+    const tag = screen.getByText("// PHASE C DRAFT ·");
     expect(tag.className).toMatch(/text-agent\b/);
   });
 
@@ -233,10 +373,100 @@ describe("<ThreadRow>", () => {
     expect(icons.length).toBeGreaterThanOrEqual(3);
   });
 
+  it("renders unknown sender as a question mark next to the sender name", () => {
+    render(
+      <ThreadRow
+        thread={make({ labels: ["FROM_NEW_SENDER"] })}
+        selected={false}
+        now={NOW}
+        onSelect={() => {}}
+      />,
+    );
+    expect(screen.getByTestId("thread-row-unknown-sender")).toHaveAttribute(
+      "aria-label",
+      "Unconfirmed sender",
+    );
+    expect(screen.getByTestId("thread-row-unknown-sender")).toHaveTextContent(
+      "?",
+    );
+  });
+
+  it("renders compact quick actions that reveal on hover and focus", async () => {
+    const user = userEvent.setup();
+    const onMarkReadChange = vi.fn();
+    const onArchive = vi.fn();
+    render(
+      <ThreadRow
+        thread={make({ unread: false })}
+        selected={false}
+        now={NOW}
+        onSelect={() => {}}
+        onMarkReadChange={onMarkReadChange}
+        onArchive={onArchive}
+      />,
+    );
+
+    const actions = screen.getByTestId("thread-row-quick-actions");
+    expect(actions.className).toContain("opacity-0");
+    expect(actions.className).toContain("group-hover:opacity-100");
+    expect(actions.className).toContain("group-focus-within:opacity-100");
+
+    await user.tab();
+    await user.tab();
+    expect(screen.getByRole("button", { name: "Mark unread" })).toHaveFocus();
+  });
+
+  it("wires mark read/unread and archive quick actions without selecting the row", async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    const onMarkReadChange = vi.fn();
+    const onArchive = vi.fn();
+    render(
+      <ThreadRow
+        thread={make({ unread: true })}
+        selected={false}
+        now={NOW}
+        onSelect={onSelect}
+        onMarkReadChange={onMarkReadChange}
+        onArchive={onArchive}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Mark read" }));
+    await user.click(screen.getByRole("button", { name: "Archive thread" }));
+
+    expect(onMarkReadChange).toHaveBeenCalledWith("t1", true);
+    expect(onArchive).toHaveBeenCalledWith("t1");
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
   it("calls onSelect on click", () => {
     const onSelect = vi.fn();
     render(<ThreadRow thread={make()} selected={false} now={NOW} onSelect={onSelect} />);
-    screen.getByRole("button").click();
+    screen.getByRole("link", { name: /Calloway.*Roof RFQ/i }).click();
     expect(onSelect).toHaveBeenCalledWith("t1");
+  });
+
+  it("renders a deep-link href for native new-tab gestures", () => {
+    render(<ThreadRow thread={make()} selected={false} now={NOW} onSelect={() => {}} />);
+    expect(screen.getByRole("link", { name: /Calloway.*Roof RFQ/i })).toHaveAttribute(
+      "href",
+      "/inbox/t1",
+    );
+  });
+
+  it("classifies modified and auxiliary clicks as native link gestures", () => {
+    const base = {
+      defaultPrevented: false,
+      button: 0,
+      metaKey: false,
+      ctrlKey: false,
+      shiftKey: false,
+      altKey: false,
+    };
+
+    expect(shouldHandleInPlaceThreadNavigation(base)).toBe(true);
+    expect(shouldHandleInPlaceThreadNavigation({ ...base, metaKey: true })).toBe(false);
+    expect(shouldHandleInPlaceThreadNavigation({ ...base, button: 1 })).toBe(false);
   });
 });

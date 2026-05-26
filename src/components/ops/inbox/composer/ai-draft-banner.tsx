@@ -39,7 +39,7 @@ export function AiDraftBanner({
     >
       <Sparkles aria-hidden className="h-3.5 w-3.5 text-agent-hi" strokeWidth={1.5} />
       <span className="font-cakemono text-[11px] font-light uppercase leading-none tracking-[0.18em] text-agent-hi">
-        {t("aiDraftBanner.label", "CLAUDE DRAFTED THIS · review")}
+        {t("aiDraftBanner.label", "PHASE C DRAFTED THIS · review")}
       </span>
       {ts && (
         <span

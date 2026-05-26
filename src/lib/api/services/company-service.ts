@@ -8,6 +8,7 @@
 
 import { requireSupabase, parseDate } from "@/lib/supabase/helpers";
 import type { Company, SubscriptionStatus, SubscriptionPlan, PaymentSchedule } from "../../types/models";
+import { normalizeImageUrl } from "@/lib/utils/image-url";
 
 // ─── Database ↔ TypeScript Mapping ────────────────────────────────────────────
 
@@ -15,7 +16,7 @@ function mapFromDb(row: Record<string, unknown>): Company {
   return {
     id: row.id as string,
     name: row.name as string,
-    logoURL: (row.logo_url as string) ?? null,
+    logoURL: normalizeImageUrl((row.logo_url as string) ?? null),
     externalId: (row.external_id as string) ?? null,
     companyCode: (row.company_code as string) ?? null,
     companyDescription: (row.description as string) ?? null,

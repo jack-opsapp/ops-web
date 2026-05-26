@@ -15,7 +15,7 @@ describe("<MessageBubble>", () => {
     expect(screen.getByText(/second-floor unit/)).toBeInTheDocument();
   });
 
-  it("inbound bubbles use the panel background", () => {
+  it("inbound bubbles stay transparent with only hairline structure", () => {
     render(
       <MessageBubble
         direction="inbound"
@@ -24,10 +24,11 @@ describe("<MessageBubble>", () => {
       />,
     );
     const bubble = screen.getByTestId("message-bubble");
-    expect(bubble.className).toMatch(/bg-inbox-panel/);
+    expect(bubble.className).toContain("bg-transparent");
+    expect(bubble.className).not.toContain("bg" + "-inbox-panel");
   });
 
-  it("outbound human bubbles use accent tint", () => {
+  it("outbound human bubbles keep accent structure without a fill", () => {
     render(
       <MessageBubble
         direction="outbound"
@@ -36,21 +37,23 @@ describe("<MessageBubble>", () => {
       />,
     );
     const bubble = screen.getByTestId("message-bubble");
-    expect(bubble.className).toMatch(/bg-ops-accent\//);
+    expect(bubble.className).toContain("border-ops-accent");
+    expect(bubble.className).not.toContain("bg-ops-accent");
   });
 
-  it("AI-drafted (outbound + source ai) bubbles use lavender + 'Claude' meta", () => {
+  it("AI-drafted bubbles use lavender structure without a fill", () => {
     render(
       <MessageBubble
         direction="outbound"
         body="hi"
         source="ai"
-        senderName="Claude"
+        senderName="Phase C"
       />,
     );
     const bubble = screen.getByTestId("message-bubble");
-    expect(bubble.className).toMatch(/bg-agent\//);
-    expect(screen.getByText(/Claude/i)).toBeInTheDocument();
+    expect(bubble.className).toContain("border-agent");
+    expect(bubble.className).not.toContain("bg-agent");
+    expect(screen.getByText(/Phase C/i)).toBeInTheDocument();
   });
 
   it("renders the sender name and timestamp in the meta row", () => {
@@ -77,6 +80,23 @@ describe("<MessageBubble>", () => {
     expect(container.textContent).toContain("JC");
   });
 
+  it("uses a stable square circular avatar contract", () => {
+    render(
+      <MessageBubble
+        direction="inbound"
+        body="hi"
+        senderName="Jeanne Calloway"
+      />,
+    );
+    const avatar = screen.getByTestId("inbox-avatar");
+    expect(avatar.className).toContain("rounded-full");
+    expect(avatar.className).toContain("shrink-0");
+    expect(avatar.className).toContain("h-[24px]");
+    expect(avatar.className).toContain("w-[24px]");
+    expect(avatar.className).not.toContain("h-6");
+    expect(avatar.className).not.toContain("w-6");
+  });
+
   // ── DIFF toggle (Phase F2) ─────────────────────────────────────────────
 
   it("does NOT render a DIFF toggle when source is not 'ai'", () => {
@@ -97,7 +117,7 @@ describe("<MessageBubble>", () => {
         direction="outbound"
         body="hello"
         source="ai"
-        senderName="Claude"
+        senderName="Phase C"
       />,
     );
     expect(screen.queryByTestId("diff-toggle")).not.toBeInTheDocument();
@@ -109,7 +129,7 @@ describe("<MessageBubble>", () => {
         direction="outbound"
         body="same content"
         source="ai"
-        senderName="Claude"
+        senderName="Phase C"
         originalAiBody="same content"
       />,
     );
@@ -122,7 +142,7 @@ describe("<MessageBubble>", () => {
         direction="outbound"
         body="Hi Jeanne — sounds good."
         source="ai"
-        senderName="Claude"
+        senderName="Phase C"
         originalAiBody="Hello Jeanne — sounds great."
       />,
     );
@@ -138,7 +158,7 @@ describe("<MessageBubble>", () => {
         direction="outbound"
         body="Hi Jeanne — sounds good."
         source="ai"
-        senderName="Claude"
+        senderName="Phase C"
         originalAiBody="Hello Jeanne — sounds great."
         operatorName="JACKSON"
         editedAgo="23S AGO"
@@ -149,7 +169,7 @@ describe("<MessageBubble>", () => {
 
     expect(screen.getByTestId("diff-header")).toHaveTextContent(/SHOWING DIFF/);
     const provenance = screen.getByTestId("diff-provenance");
-    expect(provenance).toHaveTextContent(/CLAUDE/);
+    expect(provenance).toHaveTextContent(/PHASE C/);
     expect(provenance).toHaveTextContent(/JACKSON/);
     expect(provenance).toHaveTextContent(/23S AGO/);
   });
@@ -160,7 +180,7 @@ describe("<MessageBubble>", () => {
         direction="outbound"
         body="Hi Jeanne"
         source="ai"
-        senderName="Claude"
+        senderName="Phase C"
         originalAiBody="Hello Jeanne"
       />,
     );
@@ -177,7 +197,7 @@ describe("<MessageBubble>", () => {
         direction="outbound"
         body="Hi Jeanne"
         source="ai"
-        senderName="Claude"
+        senderName="Phase C"
         originalAiBody="Hello Jeanne"
       />,
     );
@@ -193,7 +213,7 @@ describe("<MessageBubble>", () => {
         direction="outbound"
         body="Hi Jeanne"
         source="ai"
-        senderName="Claude"
+        senderName="Phase C"
         originalAiBody="Hello Jeanne"
       />,
     );
@@ -213,7 +233,7 @@ describe("<MessageBubble>", () => {
         direction="outbound"
         body="Hi Jeanne"
         source="ai"
-        senderName="Claude"
+        senderName="Phase C"
         originalAiBody="Hello Jeanne"
       />,
     );
@@ -234,7 +254,7 @@ describe("<MessageBubble>", () => {
         direction="outbound"
         body="Hi Jeanne"
         source="ai"
-        senderName="Claude"
+        senderName="Phase C"
         originalAiBody="Hello Jeanne"
       />,
     );
@@ -259,7 +279,7 @@ describe("<MessageBubble>", () => {
         direction="outbound"
         body="Hi Jeanne"
         source="ai"
-        senderName="Claude"
+        senderName="Phase C"
         originalAiBody="Hello Jeanne"
         operatorName="MAYA"
         editedAgo="2M AGO"
@@ -458,7 +478,7 @@ describe("<MessageBubble>", () => {
         direction="outbound"
         body="Hi Jeanne — sounds good."
         source="ai"
-        senderName="Claude"
+        senderName="Phase C"
         originalAiBody="Hello Jeanne — sounds great."
         attachments={[
           { id: "a", filename: "scope_v3.pdf", size: "2.4 MB" },

@@ -7,7 +7,6 @@ import { SlashLabel } from "../voice/slash-label";
 interface AutoSentBandProps {
   hoursAgo: number;
   detail?: string;
-  onTakeOver: () => void;
   className?: string;
 }
 
@@ -22,7 +21,6 @@ function relativeAgo(hoursAgo: number): string {
 export function AutoSentBand({
   hoursAgo,
   detail,
-  onTakeOver,
   className,
 }: AutoSentBandProps) {
   const { t } = useDictionary("inbox");
@@ -35,14 +33,14 @@ export function AutoSentBand({
 
   return (
     <section
-      aria-label={t("bands.autoSent.aria", "Claude auto-replied")}
+      aria-label={t("bands.autoSent.aria", "Phase C auto-replied")}
       className={cn(
         "flex shrink-0 items-center gap-2.5 border-b border-line bg-agent-bg px-2 py-2.5",
         className,
       )}
     >
       <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
-        <SlashLabel label={t("bands.autoSent.title", "// AUTO-SENT BY CLAUDE")} tone="agent" />
+        <SlashLabel label={t("bands.autoSent.title", "// AUTO-SENT BY PHASE C")} tone="agent" />
         <span
           className="font-mono text-[11px] uppercase tracking-[0.10em] text-text-3"
           style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
@@ -50,13 +48,6 @@ export function AutoSentBand({
           {body}
         </span>
       </div>
-      <button
-        type="button"
-        onClick={onTakeOver}
-        className="inline-flex h-[26px] shrink-0 items-center rounded-[2.5px] border border-line-hi bg-transparent px-3 font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-text-2 transition-colors hover:bg-inbox-elev hover:text-text"
-      >
-        {t("bands.autoSent.takeOver", "TAKE OVER")}
-      </button>
     </section>
   );
 }

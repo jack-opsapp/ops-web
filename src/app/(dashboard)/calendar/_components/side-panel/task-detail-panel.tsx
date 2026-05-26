@@ -39,6 +39,15 @@ const STATUS_OPTIONS: { value: TaskStatus; label: string }[] = [
   { value: TaskStatus.Cancelled, label: "Cancelled" },
 ];
 
+const UUID_LIKE_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function cleanPanelLabel(value: string | null | undefined): string | null {
+  const label = value?.trim();
+  if (!label || UUID_LIKE_RE.test(label)) return null;
+  return label;
+}
+
 // ─── Styled Select ──────────────────────────────────────────────────────────
 
 function DarkSelect({
@@ -64,7 +73,9 @@ function DarkSelect({
   }, []);
 
   const selectedLabel =
-    options.find((o) => o.value === value)?.label ?? value;
+    cleanPanelLabel(options.find((o) => o.value === value)?.label) ??
+    cleanPanelLabel(value) ??
+    "Unmapped type";
 
   return (
     <div ref={ref} className="relative">
@@ -221,6 +232,26 @@ export function TaskDetailPanel() {
   const taskColor = useMemo(() => {
     return taskType?.color ?? task?.taskColor ?? "#6F94B0";
   }, [taskType, task]);
+
+  const taskTypeOptions = useMemo(() => {
+    const base =
+      taskTypes?.map((tt) => ({
+        value: tt.id,
+        label: tt.display,
+      })) ?? [];
+
+    if (!task?.taskTypeId || base.some((opt) => opt.value === task.taskTypeId)) {
+      return base;
+    }
+
+    return [
+      {
+        value: task.taskTypeId,
+        label: cleanPanelLabel(taskType?.display) ?? "Unmapped type",
+      },
+      ...base,
+    ];
+  }, [task?.taskTypeId, taskType?.display, taskTypes]);
 
   // Dependencies
   const dependencies = useMemo(() => {
@@ -768,7 +799,7 @@ export function TaskDetailPanel() {
                 </button>
               )}
             </div>
-            {taskType && (
+            {(taskType || task?.taskTypeId) && (
               <span
                 className="inline-block font-mono text-micro uppercase tracking-[0.08em] px-[6px] py-[2px] rounded-[2px] ml-[16px]"
                 style={{
@@ -777,7 +808,7 @@ export function TaskDetailPanel() {
                   border: `1px solid ${taskColor}40`,
                 }}
               >
-                {taskType.display}
+                {cleanPanelLabel(taskType?.display) ?? "Unmapped type"}
               </span>
             )}
           </div>
@@ -804,12 +835,7 @@ export function TaskDetailPanel() {
             <DarkSelect
               value={task?.taskTypeId ?? ""}
               onChange={handleTaskTypeChange}
-              options={
-                taskTypes?.map((tt) => ({
-                  value: tt.id,
-                  label: tt.display,
-                })) ?? []
-              }
+              options={taskTypeOptions}
             />
           </div>
 

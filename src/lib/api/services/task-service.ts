@@ -45,12 +45,16 @@ function serializeTaskStatus(status: TaskStatus): string {
 // ─── Database ↔ TypeScript Mapping ────────────────────────────────────────────
 
 function mapTaskTypeFromDb(raw: unknown): TaskType | null {
-  if (!raw || typeof raw !== "object") return null;
-  const r = raw as Record<string, unknown>;
+  const source = Array.isArray(raw) ? raw[0] : raw;
+  if (!source || typeof source !== "object") return null;
+  const r = source as Record<string, unknown>;
+  const id = typeof r.id === "string" ? r.id : "";
+  const display = typeof r.display === "string" ? r.display.trim() : "";
+  if (!id || !display) return null;
   return {
-    id: r.id as string,
-    display: r.display as string,
-    color: r.color as string,
+    id,
+    display,
+    color: (r.color as string) ?? "#6F94B0",
     icon: (r.icon as string) ?? null,
     isDefault: (r.is_default as boolean) ?? false,
     companyId: r.company_id as string,
@@ -193,7 +197,7 @@ function mapFromDb(row: Record<string, unknown>): ProjectTask {
     lastSyncedAt: null,
     needsSync: false,
     deletedAt: parseDate(row.deleted_at),
-    taskType: mapTaskTypeFromDb(row.task_type),
+    taskType: mapTaskTypeFromDb(row.task_type ?? row.task_types),
     project: mapProjectFromDb(row.project),
   };
 }

@@ -7,15 +7,14 @@
  *   - When the query is empty: groups of "commands" (archive thread, snooze,
  *     recategorize, compose new, jump to rail, etc.).
  *   - When the user types: a "threads" group appears above commands, showing
- *     live search hits from useInboxThreads({ filter: "everything", search }).
+ *     live search hits from useInboxThreads({ filter: "ALL", search }).
  *
  * Selecting a thread opens it. Selecting a command invokes the provided
  * handler — most commands require a current thread and are hidden when none
  * is selected. Pressing Escape or clicking outside closes.
  *
- * The palette registers its own Cmd+K listener so any page that mounts it
- * gets the shortcut for free (as long as focus isn't inside an input that
- * already handles Cmd+K itself).
+ * The route owns the Cmd+K listener so it can suppress the dashboard-wide
+ * command palette while the inbox is mounted.
  */
 
 import { useEffect, useMemo, useState } from "react";
@@ -23,12 +22,12 @@ import {
   Archive,
   Clock,
   Inbox,
-  CheckCircle2,
   Mail,
   Plus,
   Sparkles,
   Tag,
   Hash,
+  Users,
 } from "lucide-react";
 import {
   CommandDialog,
@@ -44,8 +43,8 @@ import { useDictionary } from "@/i18n/client";
 import {
   EMAIL_THREAD_CATEGORIES,
   type EmailThreadCategory,
-  type InboxRail,
 } from "@/lib/types/email-thread";
+import type { RailFilter } from "@/lib/inbox/rail-predicates";
 import { useInboxThreads } from "@/lib/hooks/use-inbox-threads";
 import { categoryLabel } from "./category-chip";
 
@@ -53,14 +52,14 @@ import { categoryLabel } from "./category-chip";
 
 export interface CommandPaletteHandlers {
   onOpenThread: (threadId: string) => void;
-  onSwitchRail: (rail: InboxRail) => void;
-  onFilterCategory: (category: EmailThreadCategory | null) => void;
+  onSwitchRail: (rail: RailFilter) => void;
+  onFilterCategory?: (category: EmailThreadCategory | null) => void;
   onArchive?: () => void;
   onSnooze?: () => void;
   onRecategorizeOpen?: () => void;
   onMarkUnread?: () => void;
   onAIDraft?: () => void;
-  onComposeNew: () => void;
+  onComposeNew?: () => void;
 }
 
 interface CommandPaletteProps {
@@ -94,7 +93,7 @@ export function CommandPalette({
   const searching = trimmed.length >= 2;
   const { data: searchPages, isFetching: searchLoading } = useInboxThreads({
     scope,
-    filter: "everything",
+    filter: "ALL",
     search: searching ? trimmed : undefined,
   });
 
@@ -118,7 +117,7 @@ export function CommandPalette({
         onValueChange={setQuery}
         placeholder={t(
           "commandPalette.placeholder",
-          "Search threads · run a command",
+          "Search threads · run a command"
         )}
         onClear={query ? () => setQuery("") : undefined}
       />
@@ -133,7 +132,9 @@ export function CommandPalette({
         {/* Thread search hits */}
         {searching && searchHits.length > 0 && (
           <>
-            <CommandGroup heading={t("commandPalette.heading.threads", "Threads")}>
+            <CommandGroup
+              heading={t("commandPalette.heading.threads", "Threads")}
+            >
               {searchHits.map((thread) => (
                 <CommandItem
                   key={thread.id}
@@ -141,14 +142,14 @@ export function CommandPalette({
                   onSelect={() => run(() => handlers.onOpenThread(thread.id))}
                 >
                   <Mail
-                    className="w-[14px] h-[14px] text-text-3 shrink-0"
+                    className="h-[14px] w-[14px] shrink-0 text-text-3"
                     strokeWidth={1.5}
                   />
-                  <div className="flex flex-col flex-1 min-w-0">
-                    <span className="font-mohave text-body-sm text-text truncate">
+                  <div className="flex min-w-0 flex-1 flex-col">
+                    <span className="truncate font-mohave text-body-sm text-text">
                       {thread.subject || t("detail.untitled", "(no subject)")}
                     </span>
-                    <span className="font-mono text-[11px] text-text-mute uppercase tracking-[0.14em] truncate">
+                    <span className="truncate font-mono text-[11px] uppercase tracking-[0.14em] text-text-mute">
                       {thread.clientName ??
                         thread.latestSenderName ??
                         thread.latestSenderEmail ??
@@ -165,194 +166,210 @@ export function CommandPalette({
         )}
 
         {/* Thread actions (require a selected thread) */}
-        {selectedThreadId && (
-          <>
-            <CommandGroup
-              heading={t("commandPalette.heading.thisThread", "This thread")}
-            >
-              <CommandItem
-                value="archive thread e"
-                onSelect={() => run(handlers.onArchive)}
+        {selectedThreadId &&
+          (handlers.onArchive ||
+            handlers.onSnooze ||
+            handlers.onRecategorizeOpen ||
+            handlers.onMarkUnread ||
+            handlers.onAIDraft) && (
+            <>
+              <CommandGroup
+                heading={t("commandPalette.heading.thisThread", "This thread")}
               >
-                <Archive
-                  className="w-[14px] h-[14px] text-text-3"
-                  strokeWidth={1.5}
-                />
-                {t("commandPalette.cmd.archive", "Archive thread")}
-                <span className="ml-auto">
-                  <KeyHint keys="E" />
-                </span>
-              </CommandItem>
-              <CommandItem
-                value="snooze thread s"
-                onSelect={() => run(handlers.onSnooze)}
-              >
-                <Clock
-                  className="w-[14px] h-[14px] text-text-3"
-                  strokeWidth={1.5}
-                />
-                {t("commandPalette.cmd.snooze", "Snooze thread")}
-                <span className="ml-auto">
-                  <KeyHint keys="S" />
-                </span>
-              </CommandItem>
-              <CommandItem
-                value="recategorize thread l"
-                onSelect={() => run(handlers.onRecategorizeOpen)}
-              >
-                <Tag
-                  className="w-[14px] h-[14px] text-text-3"
-                  strokeWidth={1.5}
-                />
-                {t("commandPalette.cmd.recategorize", "Recategorize thread")}
-                <span className="ml-auto">
-                  <KeyHint keys="L" />
-                </span>
-              </CommandItem>
-              <CommandItem
-                value="mark unread u"
-                onSelect={() => run(handlers.onMarkUnread)}
-              >
-                <Mail
-                  className="w-[14px] h-[14px] text-text-3"
-                  strokeWidth={1.5}
-                />
-                {t("commandPalette.cmd.markUnread", "Mark as unread")}
-                <span className="ml-auto">
-                  <KeyHint keys="U" />
-                </span>
-              </CommandItem>
-              <CommandItem
-                value="ai draft phase c"
-                onSelect={() => run(handlers.onAIDraft)}
-              >
-                <Sparkles
-                  className="w-[14px] h-[14px] text-text-3"
-                  strokeWidth={1.5}
-                />
-                {t(
-                  "commandPalette.cmd.aiDraft",
-                  "Ask Phase C to draft a reply",
+                {handlers.onArchive && (
+                  <CommandItem
+                    value="archive thread e"
+                    onSelect={() => run(handlers.onArchive)}
+                  >
+                    <Archive
+                      className="h-[14px] w-[14px] text-text-3"
+                      strokeWidth={1.5}
+                    />
+                    {t("commandPalette.cmd.archive", "Archive thread")}
+                    <span className="ml-auto">
+                      <KeyHint keys="E" />
+                    </span>
+                  </CommandItem>
                 )}
-                <span className="ml-auto">
-                  <KeyHint keys={["⇧", "D"]} />
-                </span>
-              </CommandItem>
-            </CommandGroup>
-            <CommandSeparator />
-          </>
-        )}
+                {handlers.onSnooze && (
+                  <CommandItem
+                    value="snooze thread s"
+                    onSelect={() => run(handlers.onSnooze)}
+                  >
+                    <Clock
+                      className="h-[14px] w-[14px] text-text-3"
+                      strokeWidth={1.5}
+                    />
+                    {t("commandPalette.cmd.snooze", "Snooze thread")}
+                    <span className="ml-auto">
+                      <KeyHint keys="S" />
+                    </span>
+                  </CommandItem>
+                )}
+                {handlers.onRecategorizeOpen && (
+                  <CommandItem
+                    value="recategorize thread l"
+                    onSelect={() => run(handlers.onRecategorizeOpen)}
+                  >
+                    <Tag
+                      className="h-[14px] w-[14px] text-text-3"
+                      strokeWidth={1.5}
+                    />
+                    {t(
+                      "commandPalette.cmd.recategorize",
+                      "Recategorize thread"
+                    )}
+                    <span className="ml-auto">
+                      <KeyHint keys="L" />
+                    </span>
+                  </CommandItem>
+                )}
+                {handlers.onMarkUnread && (
+                  <CommandItem
+                    value="mark unread u"
+                    onSelect={() => run(handlers.onMarkUnread)}
+                  >
+                    <Mail
+                      className="h-[14px] w-[14px] text-text-3"
+                      strokeWidth={1.5}
+                    />
+                    {t("commandPalette.cmd.markUnread", "Mark as unread")}
+                    <span className="ml-auto">
+                      <KeyHint keys="U" />
+                    </span>
+                  </CommandItem>
+                )}
+                {handlers.onAIDraft && (
+                  <CommandItem
+                    value="ai draft phase c"
+                    onSelect={() => run(handlers.onAIDraft)}
+                  >
+                    <Sparkles
+                      className="h-[14px] w-[14px] text-text-3"
+                      strokeWidth={1.5}
+                    />
+                    {t(
+                      "commandPalette.cmd.aiDraft",
+                      "Ask Phase C to draft a reply"
+                    )}
+                    <span className="ml-auto">
+                      <KeyHint keys={["⇧", "D"]} />
+                    </span>
+                  </CommandItem>
+                )}
+              </CommandGroup>
+              <CommandSeparator />
+            </>
+          )}
 
         {/* Navigation */}
         <CommandGroup
           heading={t("commandPalette.heading.navigate", "Navigate")}
         >
           <CommandItem
-            value="needs reply 1"
-            onSelect={() => run(() => handlers.onSwitchRail("needs_reply"))}
+            value="clients 1"
+            onSelect={() => run(() => handlers.onSwitchRail("CLIENTS"))}
           >
-            <Inbox
-              className="w-[14px] h-[14px] text-text-3"
+            <Users
+              className="h-[14px] w-[14px] text-text-3"
               strokeWidth={1.5}
             />
-            {t("commandPalette.nav.needsReply", "Go to Needs Reply")}
+            {t("commandPalette.nav.clients", "Go to Clients")}
             <span className="ml-auto">
               <KeyHint keys="1" />
             </span>
           </CommandItem>
           <CommandItem
-            value="everything 2"
-            onSelect={() => run(() => handlers.onSwitchRail("everything"))}
+            value="everything else operations 2"
+            onSelect={() => run(() => handlers.onSwitchRail("EVERYTHING_ELSE"))}
           >
-            <Inbox
-              className="w-[14px] h-[14px] text-text-3"
+            <Mail
+              className="h-[14px] w-[14px] text-text-3"
               strokeWidth={1.5}
             />
-            {t("commandPalette.nav.everything", "Go to Everything")}
+            {t("commandPalette.nav.everythingElse", "Go to Everything Else")}
             <span className="ml-auto">
               <KeyHint keys="2" />
             </span>
           </CommandItem>
           <CommandItem
-            value="scheduled 3"
-            onSelect={() => run(() => handlers.onSwitchRail("scheduled"))}
+            value="all 3"
+            onSelect={() => run(() => handlers.onSwitchRail("ALL"))}
           >
-            <Clock
-              className="w-[14px] h-[14px] text-text-3"
+            <Inbox
+              className="h-[14px] w-[14px] text-text-3"
               strokeWidth={1.5}
             />
-            {t("commandPalette.nav.scheduled", "Go to Scheduled")}
+            {t("commandPalette.nav.all", "Go to All")}
             <span className="ml-auto">
               <KeyHint keys="3" />
             </span>
           </CommandItem>
-          <CommandItem
-            value="done 4"
-            onSelect={() => run(() => handlers.onSwitchRail("done"))}
-          >
-            <CheckCircle2
-              className="w-[14px] h-[14px] text-text-3"
-              strokeWidth={1.5}
-            />
-            {t("commandPalette.nav.done", "Go to Done")}
-            <span className="ml-auto">
-              <KeyHint keys="4" />
-            </span>
-          </CommandItem>
-          <CommandItem
-            value="all categories"
-            onSelect={() => run(() => handlers.onFilterCategory(null))}
-          >
-            <Hash
-              className="w-[14px] h-[14px] text-text-3"
-              strokeWidth={1.5}
-            />
-            {t("commandPalette.nav.clearFilter", "Clear category filter")}
-          </CommandItem>
-        </CommandGroup>
-
-        <CommandSeparator />
-
-        {/* Category filters */}
-        <CommandGroup
-          heading={t("commandPalette.heading.filterCategory", "Filter category")}
-        >
-          {EMAIL_THREAD_CATEGORIES.map((cat) => (
+          {handlers.onFilterCategory && (
             <CommandItem
-              key={cat}
-              value={`filter ${categoryLabel(cat)}`}
-              onSelect={() => run(() => handlers.onFilterCategory(cat))}
+              value="all categories"
+              onSelect={() => run(() => handlers.onFilterCategory?.(null))}
             >
               <Hash
-                className="w-[14px] h-[14px] text-text-3"
+                className="h-[14px] w-[14px] text-text-3"
                 strokeWidth={1.5}
               />
-              {t("commandPalette.filter.only", "Only show {category}").replace(
-                "{category}",
-                categoryLabel(cat),
-              )}
+              {t("commandPalette.nav.clearFilter", "Clear category filter")}
             </CommandItem>
-          ))}
+          )}
         </CommandGroup>
 
-        <CommandSeparator />
+        {handlers.onFilterCategory && (
+          <>
+            <CommandSeparator />
+
+            {/* Category filters */}
+            <CommandGroup
+              heading={t(
+                "commandPalette.heading.filterCategory",
+                "Filter category"
+              )}
+            >
+              {EMAIL_THREAD_CATEGORIES.map((cat) => (
+                <CommandItem
+                  key={cat}
+                  value={`filter ${categoryLabel(cat)}`}
+                  onSelect={() => run(() => handlers.onFilterCategory?.(cat))}
+                >
+                  <Hash
+                    className="h-[14px] w-[14px] text-text-3"
+                    strokeWidth={1.5}
+                  />
+                  {t(
+                    "commandPalette.filter.only",
+                    "Only show {category}"
+                  ).replace("{category}", categoryLabel(cat))}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </>
+        )}
+
+        {handlers.onComposeNew && <CommandSeparator />}
 
         {/* Other */}
-        <CommandGroup heading={t("commandPalette.heading.create", "Create")}>
-          <CommandItem
-            value="compose new email c"
-            onSelect={() => run(handlers.onComposeNew)}
-          >
-            <Plus
-              className="w-[14px] h-[14px] text-text-3"
-              strokeWidth={1.5}
-            />
-            {t("commandPalette.cmd.composeNew", "Compose new email")}
-            <span className="ml-auto">
-              <KeyHint keys="C" />
-            </span>
-          </CommandItem>
-        </CommandGroup>
+        {handlers.onComposeNew && (
+          <CommandGroup heading={t("commandPalette.heading.create", "Create")}>
+            <CommandItem
+              value="compose new email c"
+              onSelect={() => run(handlers.onComposeNew)}
+            >
+              <Plus
+                className="h-[14px] w-[14px] text-text-3"
+                strokeWidth={1.5}
+              />
+              {t("commandPalette.cmd.composeNew", "Compose new email")}
+              <span className="ml-auto">
+                <KeyHint keys="C" />
+              </span>
+            </CommandItem>
+          </CommandGroup>
+        )}
       </CommandList>
     </CommandDialog>
   );

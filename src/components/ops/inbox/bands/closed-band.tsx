@@ -34,7 +34,7 @@ export function ClosedBand({
     variant === "resolved" ? "bands.closedResolved" : "bands.closedArchived";
   const titleFallback =
     variant === "resolved"
-      ? "// CLOSED :: {date} · RESOLVED BY CLAUDE"
+      ? "// CLOSED :: {date} · RESOLVED BY PHASE C"
       : "// CLOSED :: {date} · ARCHIVED BY YOU";
   const title = t(titleKey, titleFallback).replace("{date}", dateLabel);
 

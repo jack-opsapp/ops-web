@@ -23,6 +23,7 @@ import { EmailThreadService } from "@/lib/api/services/email-thread-service";
 import { EmailService } from "@/lib/api/services/email-service";
 import { PhaseCLearningService } from "@/lib/api/services/phase-c-learning-service";
 import {
+  extractContactFormSubmissionDisplayText,
   extractEmailAddress,
   stripQuotedContent,
   stripPriorMessageOverlap,
@@ -119,10 +120,15 @@ export async function GET(
           //   2. plain-text regex stripping via stripQuotedContent
           //   3. cross-message overlap — applied below once all messages are in hand.
           const providerClean = m.bodyTextClean?.trim();
+          const contactFormClean = extractContactFormSubmissionDisplayText(
+            m.subject,
+            rawBody
+          );
           const initialClean =
-            providerClean && providerClean.length > 0
+            contactFormClean ??
+            (providerClean && providerClean.length > 0
               ? providerClean
-              : stripQuotedContent(rawBody);
+              : stripQuotedContent(rawBody, m.subject));
           return {
             id: m.id,
             from: m.from,
@@ -160,7 +166,7 @@ export async function GET(
         // Activities fallback has no provider-clean body stored — regex layer
         // only. Cross-message pass still runs below to catch cases where the
         // regex missed.
-        const cleanBody = stripQuotedContent(rawBody);
+        const cleanBody = stripQuotedContent(rawBody, (r.subject as string) ?? "");
         return {
           id: r.id,
           from: r.from_email,
@@ -327,7 +333,9 @@ type ThreadAction =
   | { action: "snooze"; until: string }
   | { action: "unsnooze" }
   | { action: "recategorize"; toCategory: EmailThreadCategory; note?: string }
-  | { action: "markRead"; isRead: boolean };
+  | { action: "markRead"; isRead: boolean }
+  | { action: "dismissAwaitingReply" }
+  | { action: "restoreAwaitingReply" };
 
 const ACTION_PERMISSIONS: Record<string, string> = {
   archive: "inbox.archive",
@@ -336,6 +344,12 @@ const ACTION_PERMISSIONS: Record<string, string> = {
   unsnooze: "inbox.snooze",
   recategorize: "inbox.categorize",
   markRead: "inbox.view",
+  // Operator-level triage action — anyone who can see the inbox can mark a
+  // thread as "no reply needed" (or undo the dismiss). Mirrors snooze's
+  // permission scope rather than recategorize, since it doesn't teach the
+  // classifier.
+  dismissAwaitingReply: "inbox.snooze",
+  restoreAwaitingReply: "inbox.snooze",
 };
 
 export async function PATCH(
@@ -470,6 +484,20 @@ export async function PATCH(
           EmailThreadService.markRead(id, Boolean(body.isRead))
         );
         return NextResponse.json({ ok: true });
+      }
+
+      case "dismissAwaitingReply": {
+        const labels = await runWithSupabase(supabase, () =>
+          EmailThreadService.dismissAwaitingReply(id, companyId)
+        );
+        return NextResponse.json({ ok: true, labels });
+      }
+
+      case "restoreAwaitingReply": {
+        const labels = await runWithSupabase(supabase, () =>
+          EmailThreadService.restoreAwaitingReply(id, companyId)
+        );
+        return NextResponse.json({ ok: true, labels });
       }
 
       default: {

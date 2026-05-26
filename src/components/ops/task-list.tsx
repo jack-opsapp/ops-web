@@ -5,7 +5,6 @@ import { getDateLocale } from "@/i18n/date-utils";
 import type { Locale } from "@/i18n/types";
 import { useState, useMemo, useCallback } from "react";
 import {
-  Plus,
   Trash2,
   Edit3,
   MoreVertical,
@@ -44,12 +43,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -365,14 +358,12 @@ function TaskListSkeleton() {
 
 function TaskList({ projectId, companyId, className }: TaskListProps) {
   const { t } = useDictionary("projects");
-  const { locale } = useLocale();
   const canCreateTask = usePermissionStore((s) => s.can("tasks.create"));
 
   // ── State ─────────────────────────────────────────────────────
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingTask, setEditingTask] = useState<ProjectTask | null>(null);
   const [deletingTask, setDeletingTask] = useState<ProjectTask | null>(null);
-  const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
 
   // ── Data Hooks ────────────────────────────────────────────────
   const { data: tasks, isLoading: isLoadingTasks } = useProjectTasks(projectId);
@@ -574,32 +565,11 @@ function TaskList({ projectId, companyId, className }: TaskListProps) {
   return (
     <div className={cn("space-y-2", className)}>
       {/* Toolbar */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="mb-4 flex items-center justify-between gap-2">
         <div className="flex items-center gap-0">
-          <button
-            onClick={() => setViewMode("list")}
-            className={cn(
-              "font-mohave text-body-sm rounded-panel px-3 py-1.5 transition-colors",
-              viewMode === "list"
-                ? "bg-glass glass-surface border border-border text-text"
-                : "border border-border-subtle text-text-3 hover:text-text-2"
-            )}
-          >
+          <span className="font-mohave text-body-sm rounded-panel px-3 py-1.5 bg-glass glass-surface border border-border text-text">
             {t("taskList.list")}
-          </button>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  disabled
-                  className="font-mohave text-body-sm rounded-panel px-3 py-1.5 border border-border-subtle text-text-mute cursor-not-allowed"
-                >
-                  {t("taskList.calendar")}
-                </button>
-              </TooltipTrigger>
-              <TooltipContent>{t("taskList.calendarSoon")}</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          </span>
         </div>
         {canCreateTask && !editingTask && (
           <Popover
@@ -619,7 +589,7 @@ function TaskList({ projectId, companyId, className }: TaskListProps) {
             <PopoverContent
               side="bottom"
               align="end"
-              className="w-[480px] p-0"
+              className="w-[min(480px,calc(100vw-32px))] max-h-[calc(100svh-160px)] overflow-y-auto p-0"
               collisionPadding={16}
             >
               <TaskForm

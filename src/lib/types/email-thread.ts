@@ -10,20 +10,15 @@
 // ─── Enumerations ────────────────────────────────────────────────────────────
 
 /**
- * Primary category — exactly one per thread.
- *
- * `CUSTOMER` is the production category enforced by the DB check constraint
- * on `email_threads.primary_category`. The legacy `LEAD` / `CLIENT` values
- * are retained in the union for transitional code that hasn't been
- * migrated yet, but new writes should always use `CUSTOMER`. The
- * deterministic-internal classifier rule + the human classifier path now
- * emit `CUSTOMER` directly. Tracking issue: cross-codebase rename of
- * LEAD/CLIENT → CUSTOMER references in widgets, tests, and chip mappings.
+ * Primary category — exactly one per thread. Twelve values, matching the
+ * DB CHECK constraint on `email_threads.primary_category` post
+ * 20260428061836_collapse_lead_client_to_customer. The legacy LEAD/CLIENT
+ * values were dropped from this union 2026-05-12 — they had zero rows in
+ * production for months and the audit-driven rail collapse cleaned up
+ * every downstream consumer.
  */
 export type EmailThreadCategory =
   | "CUSTOMER"
-  | "LEAD"
-  | "CLIENT"
   | "VENDOR"
   | "SUBTRADE"
   | "PLATFORM_BID"
@@ -38,8 +33,6 @@ export type EmailThreadCategory =
 
 export const EMAIL_THREAD_CATEGORIES: readonly EmailThreadCategory[] = [
   "CUSTOMER",
-  "LEAD",
-  "CLIENT",
   "VENDOR",
   "SUBTRADE",
   "PLATFORM_BID",
@@ -103,14 +96,13 @@ export type ArchiveWritebackPreference =
  */
 export type ArchiveLeadPreference = "ask" | "archive" | "leave";
 
-/** Split-inbox rail. */
-export type InboxRail =
-  | "needs_reply"
-  | "everything"
-  | "scheduled"
-  | "done"
-  | "drafts"
-  | "commitments";
+// Rail filter type lives in `@/lib/inbox/rail-predicates`. Re-exported here
+// so callers can continue to import alongside the other inbox wire types
+// without a second module hop. The legacy `InboxRail` alias retains the
+// old name in case any external consumer leans on it; the canonical
+// identifier is `RailFilter`.
+export type { RailFilter, RailFilter as InboxRail } from "@/lib/inbox/rail-predicates";
+import type { RailFilter } from "@/lib/inbox/rail-predicates";
 
 // ─── Drafts (shared wire shape) ─────────────────────────────────────────────
 // Wire shape used by /api/inbox/drafts and consumed by useInboxDrafts on the
@@ -377,7 +369,7 @@ export function mapCategoryCorrectionFromDb(
 
 export interface ListInboxThreadsParams {
   scope: InboxScope;
-  filter: InboxRail;
+  filter: RailFilter;
   category?: EmailThreadCategory;
   search?: string;
   cursor?: string | null;

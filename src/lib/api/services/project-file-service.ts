@@ -6,15 +6,10 @@
  * Files tab (and any future "all client documents" surface) can render
  * without needing to know about the originating tables.
  *
- * "Documents" today means the PDFs OPS itself has produced for this
- * client — estimates and invoices. Both tables carry `client_id` and a
- * `pdf_storage_path`, so they're cheap to surface together.
- *
- * Email attachments are NOT yet a source: `activities.attachments` is
- * declared but the sync engine doesn't currently populate it (every row
- * we sampled returned `[]` despite `has_attachments=true`). When that
- * upstream gap closes, this service is the right place to fan in those
- * rows behind the same wire shape.
+ * "Documents" today means OPS-produced PDFs for the current client
+ * (estimates and invoices) plus transient provider attachments adapted by
+ * the inbox thread-attachment proxy. Financial documents render in
+ * ACCOUNTING; non-financial attachments render in FILES.
  */
 
 import { requireSupabase, parseDateRequired } from "@/lib/supabase/helpers";
@@ -24,28 +19,46 @@ import { requireSupabase, parseDateRequired } from "@/lib/supabase/helpers";
  * `sourceType`/`sourceId` pair lets the UI deep-link to the originating
  * record (e.g. /estimates/{id}) without the rail needing to construct
  * URLs from raw database fields.
+ *
+ * `email_attachment` is the per-thread variant: it represents a non-image
+ * file (PDF, CSV, etc.) attached to a message on the currently-open thread.
+ * Email attachments are not persisted to OPS storage — `pdfStoragePath`
+ * holds a same-origin proxy URL that streams the bytes from Gmail/M365 on
+ * demand. See `/api/inbox/threads/[id]/attachments`.
  */
 export interface ProjectDocument {
   id: string;
   /** Human-readable filename — e.g. "Estimate #1042.pdf". */
   filename: string;
   /** Originating record type. Drives the navigation target on click. */
-  sourceType: "estimate" | "invoice";
+  sourceType: "estimate" | "invoice" | "email_attachment";
   /** Originating record id. Pair with sourceType to build a route. */
   sourceId: string;
   /** Status of the source record (e.g. "draft", "sent", "paid"). Surfaced
    *  alongside the filename so the operator can see "is this paid?" at a
-   *  glance without opening the doc. */
+   *  glance without opening the doc. Always null for `email_attachment`. */
   status: string | null;
   /** Storage path of the rendered PDF when present; null when the PDF
-   *  hasn't been generated yet (drafts can predate the render step). */
+   *  hasn't been generated yet (drafts can predate the render step).
+   *  For `email_attachment` this is a same-origin proxy URL that streams
+   *  the live bytes from the provider via cookie-authed GET. */
   pdfStoragePath: string | null;
+  /** MIME type when the source exposes it. Provider attachments set this;
+   *  OPS-produced PDFs can leave it null because `sourceType` carries the
+   *  financial classification and ACCOUNTING owns their display. */
+  mimeType?: string | null;
+  /** Size in bytes when available. Provider attachments expose it; generated
+   *  estimate/invoice PDFs do not currently track this in the rail query. */
+  sizeBytes?: number | null;
+  /** Short source label for non-financial file rows, e.g. "email". */
+  sourceLabel?: string | null;
   /** ISO-8601. Drives the "MAR 14" timestamp in the rail. */
   updatedAt: string;
   /** Monetary value in dollars — the canonical `total` column on the
    *  underlying estimates/invoices row (both store as `numeric` dollars,
    *  not cents — confirmed via information_schema 2026-05-10). Null when
-   *  the source row hasn't filled in a total yet (e.g. a fresh draft).
+   *  the source row hasn't filled in a total yet (e.g. a fresh draft),
+   *  and always null for `email_attachment`.
    *  Drives the ACCOUNTING tab totals strip without re-querying. */
   value: number | null;
 }

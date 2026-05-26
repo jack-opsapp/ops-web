@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
+import { PHASE_DEVELOPMENT_SERVER } from "next/constants";
 
-const nextConfig: NextConfig = {
+const baseNextConfig: NextConfig = {
   eslint: {
     // Warnings from other agents' unused imports break the Vercel build.
     // tsc --noEmit catches real errors. Lint cleanup is a separate task.
@@ -23,6 +24,14 @@ const nextConfig: NextConfig = {
       {
         protocol: "https",
         hostname: "lh3.googleusercontent.com",
+      },
+      // Legacy Bubble-hosted logos and profile images. Some existing rows
+      // still store protocol-relative URLs; service mappers normalize them
+      // to https before they reach next/image.
+      {
+        protocol: "https",
+        hostname: "**.cdn.bubble.io",
+        pathname: "/**",
       },
       // Supabase Storage — legacy company logos and user uploads that haven't
       // migrated to S3 yet. Scoped to the public storage path so a misconfigured
@@ -57,5 +66,12 @@ const nextConfig: NextConfig = {
     ];
   },
 };
+
+const nextConfig = (phase: string): NextConfig => ({
+  ...baseNextConfig,
+  // Keep dev-server writes out of the production build directory so local
+  // previews cannot overwrite build manifests while release gates run.
+  distDir: phase === PHASE_DEVELOPMENT_SERVER ? ".next-dev" : ".next",
+});
 
 export default nextConfig;

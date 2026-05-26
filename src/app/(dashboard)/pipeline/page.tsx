@@ -1,11 +1,21 @@
 "use client";
 
-import { useState, useCallback, useMemo, useEffect, useRef, memo } from "react";
+import {
+  useState,
+  useCallback,
+  useMemo,
+  useEffect,
+  useRef,
+  memo,
+  useLayoutEffect,
+  type CSSProperties,
+} from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { Mail, X, Loader2 } from "lucide-react";
+import { useReducedMotion } from "framer-motion";
 import { useDictionary } from "@/i18n/client";
+import { cn } from "@/lib/utils/cn";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { trackScreenView } from "@/lib/analytics/analytics";
 import { useUndoStore } from "@/stores/undo-store";
@@ -42,19 +52,13 @@ import {
 } from "@/lib/types/pipeline";
 // motion variants removed — archive undo toast replaced by universal undo
 
-import {
-  DndContext,
-  closestCenter,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type DragStartEvent,
-  type DragEndEvent,
+import type {
+  DragCancelEvent,
+  DragEndEvent,
+  DragOverEvent,
+  DragStartEvent,
 } from "@dnd-kit/core";
 import { PipelineMobile } from "./_components/pipeline-mobile";
-import { useDetailPopoverStore } from "./_components/detail-popover-store";
-import { DetailPopover } from "./_components/detail-popover";
-import { DetailPopoverTether } from "./_components/detail-popover-tether";
 import { StageTransitionDialog } from "./_components/stage-transition-dialog";
 import { useWindowStore } from "@/stores/window-store";
 import { InboxLeadsQueue } from "@/components/ops/inbox-leads-queue";
@@ -67,20 +71,216 @@ import { SpatialCard } from "./_components/spatial-card";
 import { SpatialCardHoverMetrics } from "./_components/spatial-card-hover-metrics";
 import { SpatialCardExpanded } from "./_components/spatial-card-expanded";
 import { SpatialDragOverlay } from "./_components/spatial-drag-overlay";
-import { SpatialMarqueeSelect, isCardInMarquee } from "./_components/spatial-marquee-select";
+import {
+  SpatialMarqueeSelect,
+  getMarqueeSelectedOpportunityIds,
+} from "./_components/spatial-marquee-select";
 import { SpatialContextMenu } from "./_components/spatial-context-menu";
 import { SpatialTerminalRegion } from "./_components/spatial-terminal-region";
 import { SpatialFloatingToolbar } from "./_components/spatial-floating-toolbar";
-import { SpatialArchiveTray, SpatialDiscardTray } from "./_components/spatial-archive-tray";
+import {
+  SpatialArchiveTray,
+  SpatialDiscardTray,
+} from "./_components/spatial-archive-tray";
 import { calculateCanvasLayout } from "./_components/spatial-layout-engine";
 import { calculateBatchStaleness } from "./_components/spatial-staleness";
+import { PipelineDndProvider } from "./_components/pipeline-dnd-provider";
+import { PipelineDetailPanel } from "./_components/pipeline-detail-panel";
+import { PipelineFocusedDragOverlay } from "./_components/pipeline-focused-drag-overlay";
+import { PipelineFocusedShell } from "./_components/pipeline-focused-shell";
+import { PipelineFocusedToolbar } from "./_components/pipeline-focused-toolbar";
+import { PipelineFilterRow } from "./_components/pipeline-filter-row";
+import { usePipelineModeShortcut } from "./_components/pipeline-mode-shortcuts";
+import {
+  resolvePipelineDragEnd,
+  type PipelineDropData,
+} from "./_components/pipeline-dnd-resolution";
+import { PipelineCardContent } from "./_components/pipeline-card-content";
 import {
   useSpatialCanvasStore,
   BIRD_EYE_THRESHOLD,
   CARD_WIDTH,
   CARD_HEIGHT,
 } from "./_components/spatial-canvas-store";
+import {
+  PIPELINE_MODE_WILL_CHANGE_EVENT,
+  usePipelineModeStore,
+  type PipelineModeWillChangeDetail,
+} from "./_components/pipeline-mode-store";
+import type { PipelineMode } from "./_components/pipeline-mode-types";
 import { OPPORTUNITY_STAGE_COLORS } from "@/lib/types/pipeline";
+
+type PipelineModeTransitionRole = "static" | "entering";
+
+type TransitionRect = {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+};
+
+type PendingModeTransition = {
+  id: number;
+  from: PipelineMode;
+  to: PipelineMode;
+  sourceRects: Map<string, TransitionRect>;
+  sourceClone: HTMLElement | null;
+};
+
+type TransitionCard = {
+  opportunity: Opportunity;
+  clientName: string;
+  stageColor: string;
+  stalenessOpacity: number;
+  density: "compact" | "comfortable";
+  isSilhouetteTarget: boolean;
+  from: TransitionRect;
+  to: TransitionRect;
+};
+
+type ModeTransitionState = PendingModeTransition & {
+  cards: TransitionCard[];
+  durationMs: number;
+};
+
+type TransitionCardStyle = CSSProperties & {
+  "--pipeline-from-x": string;
+  "--pipeline-from-y": string;
+  "--pipeline-from-scale-x": number;
+  "--pipeline-from-scale-y": number;
+  "--pipeline-to-scale-x": number;
+  "--pipeline-to-scale-y": number;
+  "--pipeline-to-opacity": number;
+};
+
+const MODE_TRANSITION_DURATION_MS = 360;
+const MODE_TRANSITION_EASING = "cubic-bezier(0.22, 1, 0.36, 1)";
+
+function formatPipelineTemplate(
+  template: string,
+  values: Record<string, string | number>
+) {
+  return Object.entries(values).reduce(
+    (result, [key, value]) => result.replaceAll(`{${key}}`, String(value)),
+    template
+  );
+}
+
+function transitionRectFromElement(element: Element): TransitionRect {
+  const rect = element.getBoundingClientRect();
+  return {
+    left: rect.left,
+    top: rect.top,
+    width: rect.width,
+    height: rect.height,
+  };
+}
+
+function fallbackRectFromStage(rect: TransitionRect): TransitionRect {
+  const width = Math.max(10, Math.min(40, rect.width * 0.5));
+  const height = 8;
+
+  return {
+    left: rect.left + rect.width / 2 - width / 2,
+    top:
+      rect.top +
+      Math.min(Math.max(16, rect.height * 0.35), rect.height - height),
+    width,
+    height,
+  };
+}
+
+function readModeTransitionRects(
+  scope: HTMLElement | null,
+  opportunities: Opportunity[]
+): Map<string, TransitionRect> {
+  const rects = new Map<string, TransitionRect>();
+  if (!scope) return rects;
+
+  scope
+    .querySelectorAll<HTMLElement>(
+      "[data-pipeline-transition-card][data-opportunity-id]"
+    )
+    .forEach((element) => {
+      const opportunityId = element.dataset.opportunityId;
+      if (!opportunityId) return;
+      rects.set(opportunityId, transitionRectFromElement(element));
+    });
+
+  scope
+    .querySelectorAll<HTMLElement>("[data-pipeline-spine-card-id]")
+    .forEach((element) => {
+      const opportunityId = element.dataset.pipelineSpineCardId;
+      if (!opportunityId || rects.has(opportunityId)) return;
+      rects.set(opportunityId, transitionRectFromElement(element));
+    });
+
+  const stageRects = new Map<OpportunityStage, TransitionRect>();
+  scope
+    .querySelectorAll<HTMLElement>("[data-pipeline-stage-fallback]")
+    .forEach((element) => {
+      const stage = element.dataset.pipelineStageFallback;
+      if (!stage) return;
+      stageRects.set(
+        stage as OpportunityStage,
+        transitionRectFromElement(element)
+      );
+    });
+
+  for (const opportunity of opportunities) {
+    if (rects.has(opportunity.id)) continue;
+    const stageRect = stageRects.get(opportunity.stage);
+    if (!stageRect) continue;
+    rects.set(opportunity.id, fallbackRectFromStage(stageRect));
+  }
+
+  return rects;
+}
+
+function cloneModeSurface(
+  scope: HTMLElement | null,
+  mode: PipelineMode,
+  durationMs: number
+): HTMLElement | null {
+  const surface = scope?.querySelector<HTMLElement>(
+    `[data-pipeline-mode-surface="${mode}"]`
+  );
+  if (!surface) return null;
+
+  const rect = surface.getBoundingClientRect();
+  const clone = surface.cloneNode(true) as HTMLElement;
+
+  clone.setAttribute("aria-hidden", "true");
+  clone.querySelectorAll<HTMLElement>("[id]").forEach((element) => {
+    element.removeAttribute("id");
+  });
+  clone
+    .querySelectorAll<HTMLElement>("button,a,input,textarea,select,[tabindex]")
+    .forEach((element) => {
+      element.setAttribute("tabindex", "-1");
+    });
+  clone
+    .querySelectorAll<HTMLElement>("[data-pipeline-transition-card]")
+    .forEach((element) => {
+      element.style.opacity = "0";
+    });
+
+  Object.assign(clone.style, {
+    position: "fixed",
+    left: `${rect.left}px`,
+    top: `${rect.top}px`,
+    width: `${rect.width}px`,
+    height: `${rect.height}px`,
+    margin: "0",
+    pointerEvents: "none",
+    opacity: "1",
+    overflow: "hidden",
+    zIndex: "1",
+    transition: `opacity ${durationMs}ms ${MODE_TRANSITION_EASING}`,
+  });
+
+  return clone;
+}
 
 // ---------------------------------------------------------------------------
 // SpatialCardWrapper — reads reactive store state per-card for efficient re-renders
@@ -121,39 +321,45 @@ const SpatialCardWrapperComponent = memo(function SpatialCardWrapperComponent({
   tUnknown: string;
 }) {
   // Read reactive state directly from the store — only this component re-renders
-  const isSelected = useSpatialCanvasStore((s) => s.selectedCardIds.has(opportunity.id));
-  const isExpanded = useSpatialCanvasStore((s) => s.expandedCardIds.has(opportunity.id));
-  const isHovered = useSpatialCanvasStore((s) => s.hoveredCardId === opportunity.id);
+  const isSelected = useSpatialCanvasStore((s) =>
+    s.selectedCardIds.has(opportunity.id)
+  );
+  const isExpanded = useSpatialCanvasStore((s) =>
+    s.expandedCardIds.has(opportunity.id)
+  );
+  const isHovered = useSpatialCanvasStore(
+    (s) => s.hoveredCardId === opportunity.id
+  );
   const isBirdEye = useSpatialCanvasStore((s) => s.zoom < BIRD_EYE_THRESHOLD);
   const toggleCardExpanded = useSpatialCanvasStore((s) => s.toggleCardExpanded);
   const setHoveredCard = useSpatialCanvasStore((s) => s.setHoveredCard);
   const toggleCardSelected = useSpatialCanvasStore((s) => s.toggleCardSelected);
-  const customPos = useSpatialCanvasStore((s) => s.customPositions.get(opportunity.id));
-
-  // Use custom (free-form) position if set, otherwise fall back to layout position
-  const effectivePosition = customPos ?? position;
 
   const clientName =
     clientNameMap.get(opportunity.clientId ?? "") ??
     opportunity.contactName ??
     tUnknown;
-  const stageColor = OPPORTUNITY_STAGE_COLORS[opportunity.stage] ?? "#8F9AA3";
+  const stageColor =
+    OPPORTUNITY_STAGE_COLORS[opportunity.stage] ??
+    OPPORTUNITY_STAGE_COLORS[OpportunityStage.NewLead];
   const stalenessOpacity = stalenessMap.get(opportunity.id) ?? 1.0;
   const cb = callbacksRef.current;
 
   return (
     <div
       data-spatial-card
+      data-pipeline-transition-card
       data-opportunity-id={opportunity.id}
       className={flow ? "relative" : "absolute"}
       style={{
         ...(flow
           ? { width: CARD_WIDTH }
           : {
-              left: effectivePosition.x,
-              top: effectivePosition.y,
+              left: position.x,
+              top: position.y,
               width: CARD_WIDTH,
-              transition: "left 0.3s cubic-bezier(0.22, 1, 0.36, 1), top 0.3s cubic-bezier(0.22, 1, 0.36, 1)",
+              transition:
+                "left 0.3s cubic-bezier(0.22, 1, 0.36, 1), top 0.3s cubic-bezier(0.22, 1, 0.36, 1)",
             }),
         zIndex: isExpanded ? 20 : isHovered ? 10 : 1,
       }}
@@ -238,11 +444,12 @@ function SpatialCanvasDesktop({
   onOpenDetail,
   onAssign,
   onScheduleFollowUp,
-  onAddLead,
   archivedOpportunities,
   discardedOpportunities,
   onRestore,
   onDeletePermanently,
+  activeDragId,
+  transitionRole = "static",
 }: {
   opportunities: Opportunity[];
   clientNameMap: Map<string, string>;
@@ -258,26 +465,30 @@ function SpatialCanvasDesktop({
   onOpenDetail: (opportunity: Opportunity) => void;
   onAssign: (id: string) => void;
   onScheduleFollowUp: (id: string) => void;
-  onAddLead: () => void;
   archivedOpportunities: Opportunity[];
   discardedOpportunities: Opportunity[];
   onRestore: (id: string) => void;
   onDeletePermanently: (id: string) => void;
+  activeDragId: string | null;
+  transitionRole?: PipelineModeTransitionRole;
 }) {
   const { t: tPipeline } = useDictionary("pipeline");
-  const sortBy = useSpatialCanvasStore((s) => s.sortBy);
-  const stageSortOverrides = useSpatialCanvasStore((s) => s.stageSortOverrides);
+  const sortBy = usePipelineModeStore((s) => s.sortBy);
+  const stageSortOverrides = usePipelineModeStore((s) => s.stageSortOverrides);
   const selectedCardIds = useSpatialCanvasStore((s) => s.selectedCardIds);
-  const clearSelection = useSpatialCanvasStore((s) => s.clearSelection);
   const showContextMenu = useSpatialCanvasStore((s) => s.showContextMenu);
   const selectCards = useSpatialCanvasStore((s) => s.selectCards);
-  const startDrag = useSpatialCanvasStore((s) => s.startDrag);
-  const endDrag = useSpatialCanvasStore((s) => s.endDrag);
   const isBirdEye = useSpatialCanvasStore((s) => s.zoom < BIRD_EYE_THRESHOLD);
 
   // Calculate layout
   const layout = useMemo(
-    () => calculateCanvasLayout(opportunities, sortBy, clientNameMap, stageSortOverrides),
+    () =>
+      calculateCanvasLayout(
+        opportunities,
+        sortBy,
+        clientNameMap,
+        stageSortOverrides
+      ),
     [opportunities, sortBy, clientNameMap, stageSortOverrides]
   );
 
@@ -303,100 +514,9 @@ function SpatialCanvasDesktop({
     [opportunities]
   );
 
-  // Active drag state
-  const [activeId, setActiveId] = useState<string | null>(null);
-  const activeOpportunity = activeId
-    ? opportunities.find((o) => o.id === activeId) ?? null
+  const activeOpportunity = activeDragId
+    ? (opportunities.find((o) => o.id === activeDragId) ?? null)
     : null;
-
-  // dnd-kit sensors
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
-  );
-
-  const handleDragStart = useCallback(
-    (event: DragStartEvent) => {
-      const id = String(event.active.id);
-      setActiveId(id);
-      if (selectedCardIds.has(id)) {
-        // Dragging a selected card — drag all selected
-        startDrag(Array.from(selectedCardIds), { x: 0, y: 0 });
-      } else {
-        // Dragging an unselected card — clear selection, drag just this one
-        clearSelection();
-        startDrag([id], { x: 0, y: 0 });
-      }
-    },
-    [selectedCardIds, startDrag, clearSelection]
-  );
-
-  const handleDragEnd = useCallback(
-    (event: DragEndEvent) => {
-      const { over } = event;
-      const draggedId = String(event.active.id);
-
-      if (over) {
-        const data = over.data.current as { stage?: OpportunityStage; isTerminal?: boolean } | undefined;
-        if (data?.stage) {
-          // Check if dropping on a terminal region — trigger transition dialog
-          if (data.isTerminal) {
-            const ids = selectedCardIds.has(draggedId)
-              ? Array.from(selectedCardIds)
-              : [draggedId];
-            for (const id of ids) {
-              const opp = opportunities.find((o) => o.id === id);
-              if (opp) {
-                if (data.stage === OpportunityStage.Won) {
-                  onMarkWon(opp);
-                } else if (data.stage === OpportunityStage.Lost) {
-                  onMarkLost(opp);
-                }
-              }
-            }
-            clearSelection();
-          } else {
-            // Move dragged cards to this stage
-            const ids = selectedCardIds.has(draggedId)
-              ? Array.from(selectedCardIds)
-              : [draggedId];
-            for (const id of ids) {
-              onMoveStage(id, data.stage);
-            }
-            clearSelection();
-          }
-        }
-      } else {
-        // Dropped on empty canvas — save as free-form position (Finder-style)
-        const { setCustomPosition, customPositions, zoom } = useSpatialCanvasStore.getState();
-        const draggedIds = selectedCardIds.has(draggedId)
-          ? Array.from(selectedCardIds)
-          : [draggedId];
-
-        const { delta } = event;
-
-        const allPositions = [
-          ...layout.stacks.flatMap((s) => s.cardPositions),
-          ...layout.terminalRegions.flatMap((r) => r.cardPositions),
-        ];
-
-        for (const id of draggedIds) {
-          const currentPos = allPositions.find((p) => p.opportunityId === id);
-          const existingCustom = customPositions.get(id);
-          const basePos = existingCustom ?? (currentPos ? { x: currentPos.x, y: currentPos.y } : null);
-          if (basePos) {
-            setCustomPosition(id, {
-              x: basePos.x + delta.x / zoom,
-              y: basePos.y + delta.y / zoom,
-            });
-          }
-        }
-      }
-
-      setActiveId(null);
-      endDrag();
-    },
-    [selectedCardIds, onMoveStage, onMarkWon, onMarkLost, clearSelection, endDrag, opportunities, layout]
-  );
 
   // Context menu handlers
   const handleCardContextMenu = useCallback(
@@ -406,7 +526,10 @@ function SpatialCanvasDesktop({
         visible: true,
         x: e.clientX,
         y: e.clientY,
-        type: selectedCardIds.size > 1 && selectedCardIds.has(id) ? "selection" : "card",
+        type:
+          selectedCardIds.size > 1 && selectedCardIds.has(id)
+            ? "selection"
+            : "card",
         targetCardId: id,
         stage: opp?.stage ?? null,
       });
@@ -421,7 +544,7 @@ function SpatialCanvasDesktop({
       const rect = container?.getBoundingClientRect();
       const { viewportX, viewportY, zoom } = useSpatialCanvasStore.getState();
 
-      let hitStage: string | null = null;
+      let hitStage: OpportunityStage | null = null;
 
       if (rect) {
         const canvasX = (e.clientX - rect.left - viewportX) / zoom;
@@ -430,7 +553,12 @@ function SpatialCanvasDesktop({
         // Check active stage regions
         for (const stack of layout.stacks) {
           const b = stack.regionBounds;
-          if (canvasX >= b.x && canvasX <= b.x + b.width && canvasY >= b.y && canvasY <= b.y + b.height) {
+          if (
+            canvasX >= b.x &&
+            canvasX <= b.x + b.width &&
+            canvasY >= b.y &&
+            canvasY <= b.y + b.height
+          ) {
             hitStage = stack.stage;
             break;
           }
@@ -440,7 +568,12 @@ function SpatialCanvasDesktop({
         if (!hitStage) {
           for (const region of layout.terminalRegions) {
             const b = region.bounds;
-            if (canvasX >= b.x && canvasX <= b.x + b.width && canvasY >= b.y && canvasY <= b.y + b.height) {
+            if (
+              canvasX >= b.x &&
+              canvasX <= b.x + b.width &&
+              canvasY >= b.y &&
+              canvasY <= b.y + b.height
+            ) {
               hitStage = region.stage;
               break;
             }
@@ -460,21 +593,20 @@ function SpatialCanvasDesktop({
     [showContextMenu, layout]
   );
 
-  // Marquee selection → compute which cards fall inside the rectangle
-  // Uses custom positions when present so marquee matches visual card locations
+  // Marquee selection → compute which cards fall inside the rectangle.
   const computeMarqueeSelection = useCallback(
     (start: { x: number; y: number }, end: { x: number; y: number }) => {
-      const { customPositions } = useSpatialCanvasStore.getState();
       const allPositions = [
         ...layout.stacks.flatMap((s) => s.cardPositions),
         ...layout.terminalRegions.flatMap((r) => r.cardPositions),
       ];
-      return allPositions
-        .filter((pos) => {
-          const effective = customPositions.get(pos.opportunityId) ?? pos;
-          return isCardInMarquee(effective.x, effective.y, CARD_WIDTH, CARD_HEIGHT, start, end);
-        })
-        .map((pos) => pos.opportunityId);
+      return getMarqueeSelectedOpportunityIds(
+        allPositions,
+        CARD_WIDTH,
+        CARD_HEIGHT,
+        start,
+        end
+      );
     },
     [layout]
   );
@@ -528,7 +660,12 @@ function SpatialCanvasDesktop({
   // Render card helper — returns a wrapper that reads reactive state from the store
   // This avoids recreating renderCard on every hover/selection/expand change
   const renderCard = useCallback(
-    (opportunity: Opportunity, position: { x: number; y: number }, draggable = true, flow = false) => (
+    (
+      opportunity: Opportunity,
+      position: { x: number; y: number },
+      draggable = true,
+      flow = false
+    ) => (
       <SpatialCardWrapperComponent
         key={opportunity.id}
         opportunity={opportunity}
@@ -557,67 +694,66 @@ function SpatialCanvasDesktop({
     return map;
   }, [opportunities]);
 
-  const batchCount = activeId && selectedCardIds.has(activeId)
-    ? selectedCardIds.size
-    : 1;
+  const batchCount =
+    activeDragId && selectedCardIds.has(activeDragId)
+      ? selectedCardIds.size
+      : 1;
 
   return (
     <div className="relative h-full w-full">
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
+      <SpatialCanvas
+        canvasWidth={layout.canvasWidth}
+        canvasHeight={layout.canvasHeight}
+        transitionRole={transitionRole}
+        onCanvasContextMenu={handleCanvasContextMenu}
+        onMarqueeUpdate={handleMarqueeUpdate}
+        onMarqueeEnd={handleMarqueeEnd}
       >
-        <SpatialCanvas
-          canvasWidth={layout.canvasWidth}
-          canvasHeight={layout.canvasHeight}
-          onCanvasContextMenu={handleCanvasContextMenu}
-          onMarqueeUpdate={handleMarqueeUpdate}
-          onMarqueeEnd={handleMarqueeEnd}
-        >
-          {/* Active stage stacks */}
-          {layout.stacks.map((stackLayout) => (
-            <SpatialStageStack
-              key={stackLayout.stage}
-              stage={stackLayout.stage}
-              opportunities={oppsByStage.get(stackLayout.stage) ?? []}
-              layout={stackLayout}
-              isBirdEye={isBirdEye}
-              activeId={activeId}
-              renderCard={(opp, pos, draggable, flow) => renderCard(opp, pos, draggable, flow)}
-            />
-          ))}
+        {/* Active stage stacks */}
+        {layout.stacks.map((stackLayout) => (
+          <SpatialStageStack
+            key={stackLayout.stage}
+            stage={stackLayout.stage}
+            opportunities={oppsByStage.get(stackLayout.stage) ?? []}
+            layout={stackLayout}
+            isBirdEye={isBirdEye}
+            activeId={activeDragId}
+            renderCard={(opp, pos, draggable, flow) =>
+              renderCard(opp, pos, draggable, flow)
+            }
+          />
+        ))}
 
-          {/* Terminal regions (Won/Lost) */}
-          {layout.terminalRegions.map((regionLayout) => (
-            <SpatialTerminalRegion
-              key={regionLayout.stage}
-              stage={regionLayout.stage as OpportunityStage.Won | OpportunityStage.Lost}
-              opportunities={oppsByStage.get(regionLayout.stage) ?? []}
-              layout={regionLayout}
-              isBirdEye={isBirdEye}
-              renderCard={(opp, pos) => renderCard(opp, pos, false)}
-            />
-          ))}
+        {/* Terminal regions (Won/Lost) */}
+        {layout.terminalRegions.map((regionLayout) => (
+          <SpatialTerminalRegion
+            key={regionLayout.stage}
+            stage={
+              regionLayout.stage as OpportunityStage.Won | OpportunityStage.Lost
+            }
+            opportunities={oppsByStage.get(regionLayout.stage) ?? []}
+            layout={regionLayout}
+            isBirdEye={isBirdEye}
+            renderCard={(opp, pos) => renderCard(opp, pos, false)}
+          />
+        ))}
 
-          {/* Marquee selection */}
-          <SpatialMarqueeSelect />
-        </SpatialCanvas>
+        {/* Marquee selection */}
+        <SpatialMarqueeSelect />
+      </SpatialCanvas>
 
-        {/* Drag overlay */}
-        <SpatialDragOverlay
-          activeOpportunity={activeOpportunity}
-          clientName={
-            activeOpportunity
-              ? clientNameMap.get(activeOpportunity.clientId ?? "") ??
-                activeOpportunity.contactName ??
-                tPipeline("card.unknown")
-              : ""
-          }
-          batchCount={batchCount}
-        />
-      </DndContext>
+      {/* Drag overlay */}
+      <SpatialDragOverlay
+        activeOpportunity={activeOpportunity}
+        clientName={
+          activeOpportunity
+            ? (clientNameMap.get(activeOpportunity.clientId ?? "") ??
+              activeOpportunity.contactName ??
+              tPipeline("card.unknown"))
+            : ""
+        }
+        batchCount={batchCount}
+      />
 
       {/* Context menu */}
       <SpatialContextMenu
@@ -628,7 +764,9 @@ function SpatialCanvasDesktop({
         onArchive={onArchive}
         onArchiveBatch={(ids) => ids.forEach(onArchive)}
         onDelete={onDiscard}
-        onMoveToStage={(ids, stage) => ids.forEach((id) => onMoveStage(id, stage))}
+        onMoveToStage={(ids, stage) =>
+          ids.forEach((id) => onMoveStage(id, stage))
+        }
         onAssign={(ids) => ids.forEach(onAssign)}
         onMarkWon={(ids) => {
           for (const id of ids) {
@@ -644,7 +782,9 @@ function SpatialCanvasDesktop({
         }}
         onSelectAll={(stage) => {
           if (stage) {
-            selectCards(opportunities.filter((o) => o.stage === stage).map((o) => o.id));
+            selectCards(
+              opportunities.filter((o) => o.stage === stage).map((o) => o.id)
+            );
           } else {
             selectCards(opportunities.map((o) => o.id));
           }
@@ -670,6 +810,104 @@ function SpatialCanvasDesktop({
   );
 }
 
+function PipelineModeTransitionOverlay({
+  transition,
+  onComplete,
+}: {
+  transition: ModeTransitionState;
+  onComplete: () => void;
+}) {
+  const cloneHostRef = useRef<HTMLDivElement>(null);
+  const onCompleteRef = useRef(onComplete);
+
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
+
+  useLayoutEffect(() => {
+    const cloneHost = cloneHostRef.current;
+    const clone = transition.sourceClone;
+    if (cloneHost && clone) {
+      cloneHost.appendChild(clone);
+      requestAnimationFrame(() => {
+        clone.style.opacity = "0";
+      });
+    }
+
+    const timeoutId = window.setTimeout(
+      () => onCompleteRef.current(),
+      transition.durationMs + 40
+    );
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      clone?.remove();
+    };
+  }, [transition]);
+
+  return (
+    <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-[1]">
+      <style>{`
+        @keyframes pipeline-mode-card-travel {
+          from {
+            opacity: 1;
+            transform: translate3d(var(--pipeline-from-x), var(--pipeline-from-y), 0) scale(var(--pipeline-from-scale-x), var(--pipeline-from-scale-y));
+          }
+          to {
+            opacity: var(--pipeline-to-opacity);
+            transform: translate3d(0, 0, 0) scale(var(--pipeline-to-scale-x), var(--pipeline-to-scale-y));
+          }
+        }
+        @keyframes pipeline-mode-surface-enter {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+      `}</style>
+      <div ref={cloneHostRef} />
+      {transition.cards.map((card) => {
+        const baseWidth = card.isSilhouetteTarget
+          ? CARD_WIDTH
+          : Math.max(1, card.to.width);
+        const baseHeight = card.isSilhouetteTarget
+          ? CARD_HEIGHT
+          : Math.max(1, card.to.height);
+        const style: TransitionCardStyle = {
+          position: "fixed",
+          left: card.to.left,
+          top: card.to.top,
+          width: baseWidth,
+          minHeight: baseHeight,
+          transformOrigin: "top left",
+          animation: `pipeline-mode-card-travel ${transition.durationMs}ms ${MODE_TRANSITION_EASING} both`,
+          zIndex: 2,
+          "--pipeline-from-x": `${card.from.left - card.to.left}px`,
+          "--pipeline-from-y": `${card.from.top - card.to.top}px`,
+          "--pipeline-from-scale-x": card.from.width / baseWidth,
+          "--pipeline-from-scale-y": card.from.height / baseHeight,
+          "--pipeline-to-scale-x": card.to.width / baseWidth,
+          "--pipeline-to-scale-y": card.to.height / baseHeight,
+          "--pipeline-to-opacity": card.isSilhouetteTarget ? 0 : 1,
+        };
+
+        return (
+          <div key={card.opportunity.id} style={style}>
+            <PipelineCardContent
+              opportunity={card.opportunity}
+              clientName={card.clientName}
+              stageColor={card.stageColor}
+              stalenessOpacity={card.stalenessOpacity}
+              density={card.density}
+              canManage={false}
+              isHovered={false}
+              isExpanded={false}
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Loading Skeleton
 // ---------------------------------------------------------------------------
@@ -678,7 +916,7 @@ function PipelineSkeleton() {
   const stages = PIPELINE_STAGES_DEFAULT;
 
   return (
-    <div className="flex flex-col h-full space-y-2 min-w-0">
+    <div className="flex h-full min-w-0 flex-col space-y-2">
       {/* Header skeleton */}
       <div className="shrink-0 space-y-1">
         <div className="flex items-center justify-between">
@@ -688,12 +926,12 @@ function PipelineSkeleton() {
         </div>
 
         {/* Metrics skeleton */}
-        <div className="bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)] border border-[rgba(255,255,255,0.06)] rounded-[4px]">
+        <div className="rounded-chip border border-border-subtle bg-fill-neutral-dim backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)]">
           <div className="flex items-center gap-[16px] px-3 py-[8px]">
             {[1, 2, 3].map((i) => (
               <div key={i} className="flex flex-col gap-[2px]">
-                <div className="h-[18px] w-[60px] bg-fill-neutral-dim rounded animate-pulse" />
-                <div className="h-[10px] w-[40px] bg-fill-neutral-dim rounded animate-pulse" />
+                <div className="h-[18px] w-[60px] animate-pulse rounded bg-fill-neutral-dim" />
+                <div className="h-[10px] w-[40px] animate-pulse rounded bg-fill-neutral-dim" />
               </div>
             ))}
           </div>
@@ -702,14 +940,11 @@ function PipelineSkeleton() {
 
       {/* Board skeleton */}
       <div className="flex-1 overflow-x-auto pb-2">
-        <div className="flex gap-2 min-w-min">
+        <div className="flex min-w-min gap-2">
           {stages.slice(0, 6).map((stage) => (
-            <div
-              key={stage.slug}
-              className="flex flex-col w-[280px] shrink-0"
-            >
+            <div key={stage.slug} className="flex w-[280px] shrink-0 flex-col">
               <div
-                className="border-t-2 rounded-t-sm px-1.5 py-1 bg-glass glass-surface border border-border border-b-0"
+                className="glass-surface rounded-t-sm border border-b-0 border-t-2 border-border bg-glass px-1.5 py-1"
                 style={{ borderTopColor: stage.color }}
               >
                 <div className="flex items-center gap-1">
@@ -719,20 +954,20 @@ function PipelineSkeleton() {
                   >
                     {stage.name}
                   </h3>
-                  <span className="font-mono text-[11px] text-text-mute bg-fill-neutral-dim px-[6px] py-[2px] rounded-sm">
+                  <span className="rounded-bar bg-fill-neutral-dim px-[6px] py-[2px] font-mono text-micro text-text-mute">
                     --
                   </span>
                 </div>
               </div>
-              <div className="flex-1 border border-border border-t-0 rounded-b p-1 space-y-1 min-h-[200px] bg-[rgba(10,10,10,0.5)]">
+              <div className="min-h-[200px] flex-1 space-y-1 rounded-b border border-t-0 border-border bg-glass p-1">
                 {[1, 2].map((j) => (
                   <div
                     key={j}
-                    className="bg-glass glass-surface border border-[rgba(255,255,255,0.2)] rounded-[5px] p-1.5 space-y-1.5 animate-pulse"
+                    className="glass-surface animate-pulse space-y-1.5 rounded border border-border-medium bg-glass p-1.5"
                   >
-                    <div className="h-[14px] w-3/4 bg-fill-neutral-dim rounded" />
-                    <div className="h-[10px] w-1/2 bg-fill-neutral-dim rounded" />
-                    <div className="h-[10px] w-1/3 bg-fill-neutral-dim rounded" />
+                    <div className="h-[14px] w-3/4 rounded bg-fill-neutral-dim" />
+                    <div className="h-[10px] w-1/2 rounded bg-fill-neutral-dim" />
+                    <div className="h-[10px] w-1/3 rounded bg-fill-neutral-dim" />
                   </div>
                 ))}
               </div>
@@ -768,6 +1003,26 @@ export default function PipelinePage() {
   const { t } = useDictionary("pipeline");
   const router = useRouter();
   const isMobile = useIsMobile();
+  const reducedMotion = useReducedMotion();
+  const mode = usePipelineModeStore((state) => state.mode);
+  const detailPanelOpportunityId = usePipelineModeStore(
+    (state) => state.detailPanelOpportunityId
+  );
+  const closeDetailPanel = usePipelineModeStore(
+    (state) => state.closeDetailPanel
+  );
+  const previousModeRef = useRef(mode);
+  const pipelineScopeRef = useRef<HTMLDivElement>(null);
+  const pendingModeTransitionRef = useRef<PendingModeTransition | null>(null);
+  const transitionSequenceRef = useRef(0);
+  const filteredOpportunitiesRef = useRef<Opportunity[]>([]);
+  const isMobileRef = useRef(isMobile);
+  const reducedMotionRef = useRef(Boolean(reducedMotion));
+  const [modeTransition, setModeTransition] =
+    useState<ModeTransitionState | null>(null);
+  const [originatingOpportunityId, setOriginatingOpportunityId] = useState<
+    string | null
+  >(null);
 
   // ── Filter / search state ─────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState("");
@@ -775,6 +1030,16 @@ export default function PipelinePage() {
     "all"
   );
   const [assigneeFilter, setAssigneeFilter] = useState<string | "all">("all");
+  const filtersActive =
+    searchQuery.trim().length > 0 ||
+    stageFilter !== "all" ||
+    assigneeFilter !== "all";
+
+  const handleClearFilters = useCallback(() => {
+    setSearchQuery("");
+    setStageFilter("all");
+    setAssigneeFilter("all");
+  }, []);
 
   // ── Card expand state (single card accordion) ─────────────────────────
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
@@ -789,10 +1054,6 @@ export default function PipelinePage() {
   // ── Gmail banner ──────────────────────────────────────────────────────
   const [gmailBannerDismissed, setGmailBannerDismissed] = useState(false);
 
-  // ── Detail popovers ──────────────────────────────────────────────────
-  const openPopover = useDetailPopoverStore((s) => s.openPopover);
-  const popoversMap = useDetailPopoverStore((s) => s.popovers);
-
   // ── Stage transition dialog ───────────────────────────────────────────
   const [transitionType, setTransitionType] = useState<"won" | "lost" | null>(
     null
@@ -803,6 +1064,9 @@ export default function PipelinePage() {
     id: string;
     stage: OpportunityStage;
   } | null>(null);
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
+  const [focusedDragAnnouncement, setFocusedDragAnnouncement] = useState("");
+  usePipelineModeShortcut(activeDragId !== null, mode === "spatial");
 
   // ── Undo store ────────────────────────────────────────────────────────
   const pushUndo = useUndoStore((s) => s.pushUndo);
@@ -837,10 +1101,17 @@ export default function PipelinePage() {
   }, [setupComplete, openWindow]);
 
   // ── Metrics header data ────────────────────────────────────────────
-  const { data: pipelineMetrics = [], isLoading: pipelineMetricsLoading } = usePipelineMetrics();
+  const { data: pipelineMetrics = [], isLoading: pipelineMetricsLoading } =
+    usePipelineMetrics();
 
   // ── Data fetching ─────────────────────────────────────────────────────
-  const { data: opportunities, isLoading: oppsLoading } = useOpportunities();
+  const {
+    data: opportunities,
+    isLoading: oppsLoading,
+    isError: oppsError,
+    error: opportunitiesError,
+    refetch: refetchOpportunities,
+  } = useOpportunities();
   const { data: clientsData, isLoading: clientsLoading } = useClients();
   const { data: teamData } = useTeamMembers();
   const { data: gmailConnections = [] } = useGmailConnections();
@@ -894,9 +1165,7 @@ export default function PipelinePage() {
   // ── Active (non-deleted, non-archived) opportunities ──────────────────
   const activeOpportunities = useMemo(() => {
     if (!opportunities) return [];
-    return opportunities.filter(
-      (o) => !o.deletedAt && !o.archivedAt
-    );
+    return opportunities.filter((o) => !o.deletedAt && !o.archivedAt);
   }, [opportunities]);
 
   // ── Filtered opportunities ────────────────────────────────────────────
@@ -931,45 +1200,162 @@ export default function PipelinePage() {
     }
 
     return result;
-  }, [activeOpportunities, stageFilter, assigneeFilter, searchQuery, clientNameMap]);
+  }, [
+    activeOpportunities,
+    stageFilter,
+    assigneeFilter,
+    searchQuery,
+    clientNameMap,
+  ]);
+
+  const transitionStalenessMap = useMemo(
+    () => calculateBatchStaleness(filteredOpportunities),
+    [filteredOpportunities]
+  );
+
+  useEffect(() => {
+    filteredOpportunitiesRef.current = filteredOpportunities;
+  }, [filteredOpportunities]);
+
+  useEffect(() => {
+    isMobileRef.current = isMobile;
+    reducedMotionRef.current = Boolean(reducedMotion);
+  }, [isMobile, reducedMotion]);
+
+  useEffect(() => {
+    function handleModeWillChange(event: Event) {
+      const detail = (event as CustomEvent<PipelineModeWillChangeDetail>)
+        .detail;
+      if (!detail || detail.from === detail.to) return;
+      if (isMobileRef.current || reducedMotionRef.current) {
+        pendingModeTransitionRef.current = null;
+        return;
+      }
+
+      const scope = pipelineScopeRef.current;
+      const opportunitiesForSnapshot = filteredOpportunitiesRef.current;
+      pendingModeTransitionRef.current = {
+        id: transitionSequenceRef.current + 1,
+        from: detail.from,
+        to: detail.to,
+        sourceRects: readModeTransitionRects(scope, opportunitiesForSnapshot),
+        sourceClone: cloneModeSurface(
+          scope,
+          detail.from,
+          MODE_TRANSITION_DURATION_MS
+        ),
+      };
+      transitionSequenceRef.current += 1;
+    }
+
+    window.addEventListener(
+      PIPELINE_MODE_WILL_CHANGE_EVENT,
+      handleModeWillChange
+    );
+    return () =>
+      window.removeEventListener(
+        PIPELINE_MODE_WILL_CHANGE_EVENT,
+        handleModeWillChange
+      );
+  }, []);
+
+  useLayoutEffect(() => {
+    const pending = pendingModeTransitionRef.current;
+    if (!pending || pending.to !== mode) return;
+
+    pendingModeTransitionRef.current = null;
+
+    if (isMobile || reducedMotion) {
+      pending.sourceClone?.remove();
+      setModeTransition(null);
+      return;
+    }
+
+    const targetRects = readModeTransitionRects(
+      pipelineScopeRef.current,
+      filteredOpportunities
+    );
+    const cards = filteredOpportunities.flatMap((opportunity) => {
+      const from = pending.sourceRects.get(opportunity.id);
+      const to = targetRects.get(opportunity.id);
+      if (!from || !to) return [];
+
+      const isSilhouetteTarget = to.width < 120 || to.height < 24;
+      return [
+        {
+          opportunity,
+          clientName:
+            clientNameMap.get(opportunity.clientId ?? "") ??
+            opportunity.contactName ??
+            t("card.unknown"),
+          stageColor:
+            OPPORTUNITY_STAGE_COLORS[opportunity.stage] ??
+            OPPORTUNITY_STAGE_COLORS[OpportunityStage.NewLead],
+          stalenessOpacity: transitionStalenessMap.get(opportunity.id) ?? 1,
+          density:
+            !isSilhouetteTarget && to.width > CARD_WIDTH + 80
+              ? "comfortable"
+              : "compact",
+          isSilhouetteTarget,
+          from,
+          to,
+        } satisfies TransitionCard,
+      ];
+    });
+
+    if (cards.length === 0) {
+      pending.sourceClone?.remove();
+      setModeTransition(null);
+      return;
+    }
+
+    setModeTransition({
+      ...pending,
+      cards,
+      durationMs: MODE_TRANSITION_DURATION_MS,
+    });
+  }, [
+    clientNameMap,
+    filteredOpportunities,
+    isMobile,
+    mode,
+    reducedMotion,
+    t,
+    transitionStalenessMap,
+  ]);
+
+  const detailPanelOpportunity = useMemo(() => {
+    if (!detailPanelOpportunityId) return null;
+    return (
+      filteredOpportunities.find(
+        (opportunity) => opportunity.id === detailPanelOpportunityId
+      ) ?? null
+    );
+  }, [detailPanelOpportunityId, filteredOpportunities]);
+
+  useEffect(() => {
+    if (detailPanelOpportunityId && !detailPanelOpportunity) {
+      closeDetailPanel();
+    }
+  }, [closeDetailPanel, detailPanelOpportunity, detailPanelOpportunityId]);
+
+  useEffect(() => {
+    if (previousModeRef.current !== mode) {
+      if (detailPanelOpportunityId) closeDetailPanel();
+      previousModeRef.current = mode;
+    }
+  }, [closeDetailPanel, detailPanelOpportunityId, mode]);
+
+  useEffect(() => {
+    if (!detailPanelOpportunityId) {
+      setOriginatingOpportunityId(null);
+    }
+  }, [detailPanelOpportunityId]);
 
   // ── Board opportunities (active stages only — Won/Lost live in metrics bar)
   const boardOpportunities = useMemo(() => {
     return filteredOpportunities.filter((o) => isActiveStage(o.stage));
   }, [filteredOpportunities]);
-
-  // ── Card positions map for tether overlay ──────────────────────────────
-  const sortBy = useSpatialCanvasStore((s) => s.sortBy);
-  const stageSortOverrides = useSpatialCanvasStore((s) => s.stageSortOverrides);
-  const parentLayout = useMemo(
-    () => calculateCanvasLayout(filteredOpportunities, sortBy, clientNameMap, stageSortOverrides),
-    [filteredOpportunities, sortBy, clientNameMap, stageSortOverrides]
-  );
-  const cardPositionsMap = useMemo(() => {
-    const map = new Map<string, { x: number; y: number }>();
-    const allPositions = [
-      ...parentLayout.stacks.flatMap((s) => s.cardPositions),
-      ...parentLayout.terminalRegions.flatMap((r) => r.cardPositions),
-    ];
-    for (const pos of allPositions) {
-      map.set(pos.opportunityId, { x: pos.x, y: pos.y });
-    }
-    return map;
-  }, [parentLayout]);
-
-  // ── Close orphaned popovers when opportunities are deleted ───────────
-  const popoverCount = useDetailPopoverStore((s) => s.popovers.size);
-
-  useEffect(() => {
-    if (!opportunities || popoverCount === 0) return;
-    const { popovers, closePopover: close } = useDetailPopoverStore.getState();
-    const oppIds = new Set(opportunities.map((o) => o.id));
-    for (const id of popovers.keys()) {
-      if (!oppIds.has(id)) {
-        close(id);
-      }
-    }
-  }, [opportunities, popoverCount]);
 
   // ── Handlers ──────────────────────────────────────────────────────────
 
@@ -1052,7 +1438,9 @@ export default function PipelinePage() {
       archiveMutation.mutate(opportunityId);
       pushUndo({
         label,
-        inverseFn: async () => { await unarchiveMutation.mutateAsync(opportunityId); },
+        inverseFn: async () => {
+          await unarchiveMutation.mutateAsync(opportunityId);
+        },
       });
     },
     [archiveMutation, unarchiveMutation, activeOpportunities, pushUndo]
@@ -1085,22 +1473,31 @@ export default function PipelinePage() {
 
       // Normal stage move
       const previousStage = opp.stage;
-      const clientName = clientNameMap.get(opp.clientId ?? "") ?? opp.contactName ?? opp.title ?? "";
+      const clientName =
+        clientNameMap.get(opp.clientId ?? "") ??
+        opp.contactName ??
+        opp.title ??
+        "";
       moveStage.mutate(
         { id, stage: newStage, userId: currentUser?.id },
         {
           onSuccess: () => {
-            const value = opp.estimatedValue ? formatCurrency(opp.estimatedValue) : "";
+            const value = opp.estimatedValue
+              ? formatCurrency(opp.estimatedValue)
+              : "";
             const fromStage = getStageDisplayName(previousStage);
             const toStage = getStageDisplayName(newStage);
-            toast.success(
-              `${clientName}${value ? ` · ${value}` : ""}`,
-              { description: `${fromStage} → ${toStage}` }
-            );
+            toast.success(`${clientName}${value ? ` · ${value}` : ""}`, {
+              description: `${fromStage} → ${toStage}`,
+            });
             pushUndo({
               label: `${clientName} → ${toStage}`,
               inverseFn: async () => {
-                await moveStage.mutateAsync({ id, stage: previousStage, userId: currentUser?.id });
+                await moveStage.mutateAsync({
+                  id,
+                  stage: previousStage,
+                  userId: currentUser?.id,
+                });
               },
             });
           },
@@ -1115,7 +1512,15 @@ export default function PipelinePage() {
         }
       );
     },
-    [activeOpportunities, moveStage, currentUser, can, t, clientNameMap, pushUndo]
+    [
+      activeOpportunities,
+      moveStage,
+      currentUser,
+      can,
+      t,
+      clientNameMap,
+      pushUndo,
+    ]
   );
 
   /** Mark won — opens transition dialog */
@@ -1140,6 +1545,176 @@ export default function PipelinePage() {
       handleMoveStage(opportunityId, OpportunityStage.Discarded);
     },
     [handleMoveStage]
+  );
+
+  const setFocusedDragLiveMessage = useCallback((message: string) => {
+    setFocusedDragAnnouncement((current) =>
+      current === message ? current : message
+    );
+  }, []);
+
+  const handlePipelineDragStart = useCallback(
+    (event: DragStartEvent) => {
+      const id = String(event.active.id);
+      setActiveDragId(id);
+
+      if (mode === "focused") {
+        setFocusedDragLiveMessage(t("focused.dragLive.started"));
+        return;
+      }
+
+      const { selectedCardIds, startDrag, clearSelection } =
+        useSpatialCanvasStore.getState();
+
+      if (selectedCardIds.has(id)) {
+        startDrag(Array.from(selectedCardIds), { x: 0, y: 0 });
+      } else {
+        clearSelection();
+        startDrag([id], { x: 0, y: 0 });
+      }
+    },
+    [mode, setFocusedDragLiveMessage, t]
+  );
+
+  const handlePipelineDragOver = useCallback(
+    (event: DragOverEvent) => {
+      if (mode !== "focused") return;
+
+      const data = event.over?.data.current as PipelineDropData | undefined;
+      if (
+        data?.mode === "focused" &&
+        data.focusedDropIntent === "archive-target"
+      ) {
+        setFocusedDragLiveMessage(t("actions.archive"));
+        return;
+      }
+
+      if (
+        data?.mode === "focused" &&
+        data.focusedDropIntent === "discard-target"
+      ) {
+        setFocusedDragLiveMessage(t("actions.discard"));
+        return;
+      }
+
+      if (data?.mode !== "focused" || !data.stage) {
+        setFocusedDragLiveMessage("");
+        return;
+      }
+
+      setFocusedDragLiveMessage(
+        formatPipelineTemplate(t("focused.dragLive.target"), {
+          stage: getStageDisplayName(data.stage),
+        })
+      );
+    },
+    [mode, setFocusedDragLiveMessage, t]
+  );
+
+  const handlePipelineDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const { over } = event;
+      const draggedId = String(event.active.id);
+      const { selectedCardIds, clearSelection, endDrag } =
+        useSpatialCanvasStore.getState();
+      const data = over?.data.current as PipelineDropData | undefined;
+      const drop = resolvePipelineDragEnd({
+        mode,
+        draggedId,
+        selectedCardIds,
+        dropData: data,
+      });
+
+      if (mode === "focused") {
+        if (drop.type === "focused-action") {
+          if (drop.action === "archive") {
+            handleArchive(drop.opportunityId);
+            setFocusedDragLiveMessage(t("actions.archived"));
+          } else {
+            handleDiscard(drop.opportunityId);
+            setFocusedDragLiveMessage(t("actions.discard"));
+          }
+        } else if (drop.type === "focused-stage") {
+          const opportunity = filteredOpportunities.find(
+            (o) => o.id === draggedId
+          );
+
+          if (drop.isTerminal && opportunity) {
+            if (drop.stage === OpportunityStage.Won) {
+              handleMarkWon(opportunity);
+            } else if (drop.stage === OpportunityStage.Lost) {
+              handleMarkLost(opportunity);
+            }
+          } else {
+            handleMoveStage(drop.opportunityId, drop.stage);
+          }
+
+          setFocusedDragLiveMessage(
+            formatPipelineTemplate(t("focused.dragLive.dropped"), {
+              stage: getStageDisplayName(drop.stage),
+            })
+          );
+        } else {
+          setFocusedDragLiveMessage(t("focused.dragLive.cancelled"));
+        }
+
+        setActiveDragId(null);
+        endDrag();
+        return;
+      }
+
+      setFocusedDragLiveMessage("");
+
+      if (drop.type === "spatial-stage") {
+        if (drop.isTerminal) {
+          for (const id of drop.opportunityIds) {
+            const opportunity = filteredOpportunities.find((o) => o.id === id);
+            if (!opportunity) continue;
+
+            if (drop.stage === OpportunityStage.Won) {
+              handleMarkWon(opportunity);
+            } else if (drop.stage === OpportunityStage.Lost) {
+              handleMarkLost(opportunity);
+            }
+          }
+        } else {
+          for (const id of drop.opportunityIds) {
+            handleMoveStage(id, drop.stage);
+          }
+        }
+
+        if (mode === "spatial") clearSelection();
+      } else {
+        // Drop on empty space cancels. Spatial mode no longer preserves free positions.
+      }
+
+      setActiveDragId(null);
+      endDrag();
+    },
+    [
+      filteredOpportunities,
+      handleArchive,
+      handleDiscard,
+      handleMarkLost,
+      handleMarkWon,
+      handleMoveStage,
+      mode,
+      setFocusedDragLiveMessage,
+      t,
+    ]
+  );
+
+  const handlePipelineDragCancel = useCallback(
+    (_event: DragCancelEvent) => {
+      setActiveDragId(null);
+      if (mode === "focused") {
+        setFocusedDragLiveMessage(t("focused.dragLive.cancelled"));
+      } else {
+        setFocusedDragLiveMessage("");
+      }
+      useSpatialCanvasStore.getState().endDrag();
+    },
+    [mode, setFocusedDragLiveMessage, t]
   );
 
   /** Confirm Won/Lost transition */
@@ -1192,7 +1767,11 @@ export default function PipelinePage() {
             pushUndo({
               label: `${clientName} → ${toStage}`,
               inverseFn: async () => {
-                await moveStage.mutateAsync({ id, stage: previousStage, userId: currentUser?.id });
+                await moveStage.mutateAsync({
+                  id,
+                  stage: previousStage,
+                  userId: currentUser?.id,
+                });
               },
             });
           },
@@ -1231,23 +1810,18 @@ export default function PipelinePage() {
     setPendingStageMove(null);
   }, []);
 
-  /** Open detail popover for an opportunity */
+  /** Open detail panel for an opportunity */
   const handleOpenDetail = useCallback((opp: Opportunity) => {
-    // Collapse the inline card expansion before opening the popover
-    const { expandedCardIds, toggleCardExpanded } = useSpatialCanvasStore.getState();
+    // Collapse the inline card expansion before opening the detail panel.
+    const { expandedCardIds, toggleCardExpanded } =
+      useSpatialCanvasStore.getState();
     if (expandedCardIds.has(opp.id)) {
       toggleCardExpanded(opp.id);
     }
 
-    // Get card position for popover placement (read BEFORE collapse animation)
-    const cardEl = document.querySelector(`[data-spatial-card][data-opportunity-id="${opp.id}"]`);
-    const rect = cardEl?.getBoundingClientRect();
-    const screenPos = rect
-      ? { x: rect.right + 20, y: rect.top }
-      : { x: globalThis.innerWidth / 2 - 190, y: 100 };
-    const stageColor = OPPORTUNITY_STAGE_COLORS[opp.stage] ?? "#8F9AA3";
-    openPopover(opp.id, screenPos, opp.title, stageColor);
-  }, [openPopover]);
+    setOriginatingOpportunityId(opp.id);
+    usePipelineModeStore.getState().openDetailPanel(opp.id);
+  }, []);
 
   /** Handle quick advance: move to next stage */
   const handleAdvanceStage = useCallback(
@@ -1302,7 +1876,7 @@ export default function PipelinePage() {
     [company, currentUser, createOpportunity, t]
   );
 
-  /** Placeholder: assign (opens detail popover) */
+  /** Placeholder: assign (opens detail panel) */
   const handleAssign = useCallback(
     (opportunityId: string) => {
       const opp = activeOpportunities.find((o) => o.id === opportunityId);
@@ -1311,7 +1885,7 @@ export default function PipelinePage() {
     [activeOpportunities, handleOpenDetail]
   );
 
-  /** Placeholder: schedule follow-up (opens detail popover) */
+  /** Placeholder: schedule follow-up (opens detail panel) */
   const handleScheduleFollowUp = useCallback(
     (opportunityId: string) => {
       const opp = activeOpportunities.find((o) => o.id === opportunityId);
@@ -1321,7 +1895,7 @@ export default function PipelinePage() {
   );
 
   // ── Loading state ─────────────────────────────────────────────────────
-  if (isLoading) {
+  if (isLoading && (isMobile || mode !== "focused")) {
     return <PipelineSkeleton />;
   }
 
@@ -1348,83 +1922,218 @@ export default function PipelinePage() {
     canManage,
   } as const;
 
+  const transitionRole: PipelineModeTransitionRole = modeTransition
+    ? "entering"
+    : "static";
+  const modeSurfaceStyle: CSSProperties | undefined = modeTransition
+    ? {
+        animation: `pipeline-mode-surface-enter ${
+          modeTransition.durationMs
+        }ms ${MODE_TRANSITION_EASING} both`,
+      }
+    : undefined;
+  const modeSurfaceClassName = cn(
+    "absolute inset-0",
+    modeTransition &&
+      "pointer-events-none [&_[data-pipeline-transition-card]]:opacity-0"
+  );
+  const focusedActiveOpportunity =
+    mode === "focused" && activeDragId
+      ? (filteredOpportunities.find(
+          (opportunity) => opportunity.id === activeDragId
+        ) ?? null)
+      : null;
+  const focusedActiveClientName = focusedActiveOpportunity
+    ? (clientNameMap.get(focusedActiveOpportunity.clientId ?? "") ??
+      focusedActiveOpportunity.contactName ??
+      t("card.unknown"))
+    : "";
+  const focusedActiveStaleness = focusedActiveOpportunity
+    ? (transitionStalenessMap.get(focusedActiveOpportunity.id) ?? 1)
+    : 1;
+  const isFocusedDesktop = !isMobile && mode === "focused";
+  const handleModeTransitionComplete = () => {
+    setModeTransition(null);
+  };
+
   return (
-    <div className="relative h-screen min-w-0">
+    <div
+      ref={pipelineScopeRef}
+      className="relative h-full min-h-0 min-w-0 flex-1 overflow-hidden"
+    >
       {/* ── Canvas — fills entire viewport, renders behind HUD ── */}
-      <div className="absolute inset-0">
+      <div className="absolute inset-0 overflow-hidden">
         {isMobile ? (
           <PipelineMobile {...sharedBoardProps} />
         ) : (
-          <SpatialCanvasDesktop
-            opportunities={filteredOpportunities}
-            clientNameMap={clientNameMap}
-            canManage={canManage}
-            onMoveStage={handleMoveStage}
-            onLogCall={handleLogCall}
-            onLogText={handleLogText}
-            onAddNote={handleAddNote}
-            onArchive={handleArchive}
-            onDiscard={handleDiscard}
-            onMarkWon={handleMarkWon}
-            onMarkLost={handleMarkLost}
-            onOpenDetail={handleOpenDetail}
-            onAssign={handleAssign}
-            onScheduleFollowUp={handleScheduleFollowUp}
-            onAddLead={gatedOpenCreate}
-            archivedOpportunities={
-              opportunities?.filter((o) => !!o.archivedAt) ?? []
-            }
-            discardedOpportunities={
-              opportunities?.filter((o) => o.stage === OpportunityStage.Discarded && !o.archivedAt) ?? []
-            }
-            onRestore={(id) => unarchiveMutation.mutate(id)}
-            onDeletePermanently={(id) => deleteMutation.mutate(id)}
-          />
+          <PipelineDndProvider
+            mode={mode}
+            activeDragId={activeDragId}
+            onDragStart={handlePipelineDragStart}
+            onDragOver={handlePipelineDragOver}
+            onDragEnd={handlePipelineDragEnd}
+            onDragCancel={handlePipelineDragCancel}
+          >
+            <div
+              data-pipeline-mode-surface={mode}
+              className={modeSurfaceClassName}
+              style={modeSurfaceStyle}
+            >
+              {mode === "focused" ? (
+                <PipelineFocusedShell
+                  opportunities={filteredOpportunities}
+                  clientNameMap={clientNameMap}
+                  canManage={canManage}
+                  filtersActive={filtersActive}
+                  opportunitiesLoading={oppsLoading}
+                  clientsLoading={clientsLoading}
+                  isOpportunitiesError={oppsError}
+                  opportunitiesError={opportunitiesError}
+                  dragAnnouncement={focusedDragAnnouncement}
+                  transitionRole={transitionRole}
+                  onRetryOpportunities={() => {
+                    void refetchOpportunities();
+                  }}
+                  onAddLead={gatedOpenCreate}
+                  onClearFilters={handleClearFilters}
+                  onLogCall={handleLogCall}
+                  onLogText={handleLogText}
+                  onAddNote={handleAddNote}
+                  onArchive={handleArchive}
+                  onDiscard={handleDiscard}
+                  onMarkWon={handleMarkWon}
+                  onMarkLost={handleMarkLost}
+                  onAdvanceStage={handleAdvanceStage}
+                  onMoveStage={handleMoveStage}
+                  onAssign={handleAssign}
+                  onScheduleFollowUp={handleScheduleFollowUp}
+                  onDelete={(id) => deleteMutation.mutate(id)}
+                />
+              ) : (
+                <SpatialCanvasDesktop
+                  opportunities={filteredOpportunities}
+                  clientNameMap={clientNameMap}
+                  canManage={canManage}
+                  transitionRole={transitionRole}
+                  onMoveStage={handleMoveStage}
+                  onLogCall={handleLogCall}
+                  onLogText={handleLogText}
+                  onAddNote={handleAddNote}
+                  onArchive={handleArchive}
+                  onDiscard={handleDiscard}
+                  onMarkWon={handleMarkWon}
+                  onMarkLost={handleMarkLost}
+                  onOpenDetail={handleOpenDetail}
+                  onAssign={handleAssign}
+                  onScheduleFollowUp={handleScheduleFollowUp}
+                  archivedOpportunities={
+                    opportunities?.filter((o) => !!o.archivedAt) ?? []
+                  }
+                  discardedOpportunities={
+                    opportunities?.filter(
+                      (o) =>
+                        o.stage === OpportunityStage.Discarded && !o.archivedAt
+                    ) ?? []
+                  }
+                  onRestore={(id) => unarchiveMutation.mutate(id)}
+                  onDeletePermanently={(id) => deleteMutation.mutate(id)}
+                  activeDragId={activeDragId}
+                />
+              )}
+            </div>
+            {modeTransition && (
+              <PipelineModeTransitionOverlay
+                transition={modeTransition}
+                onComplete={handleModeTransitionComplete}
+              />
+            )}
+            {mode === "focused" && (
+              <PipelineFocusedDragOverlay
+                activeOpportunity={focusedActiveOpportunity}
+                clientName={focusedActiveClientName}
+                stalenessOpacity={focusedActiveStaleness}
+              />
+            )}
+          </PipelineDndProvider>
         )}
       </div>
 
       {/* ── Page HUD — metrics, toolbar, banners float on top of canvas ── */}
-      <div className="absolute top-[62px] left-0 right-0 z-[2] pointer-events-none">
+      <div className="pointer-events-none absolute left-0 right-0 top-0 z-[2]">
         <div className="pointer-events-auto">
-          <MetricsHeader variant="full" tabId="pipeline" title="Pipeline" metrics={pipelineMetrics} isLoading={pipelineMetricsLoading} />
+          <MetricsHeader
+            variant="full"
+            tabId="pipeline"
+            title="Pipeline"
+            metrics={pipelineMetrics}
+            isLoading={pipelineMetricsLoading}
+          />
         </div>
-        <div className="pointer-events-auto px-3 py-1.5">
-          <div className="inline-flex w-fit py-[2px] rounded-[4px] border border-[rgba(255,255,255,0.08)]"
-            style={{
-              background: "rgba(10, 10, 10, 0.50)",
-              backdropFilter: "blur(12px) saturate(1.1)",
-              WebkitBackdropFilter: "blur(12px) saturate(1.1)",
-            }}
-          >
-            <SpatialFloatingToolbar
-              onAddLead={gatedOpenCreate}
-              reviewCount={reviewCount}
-              onReviewEmails={() => setReviewPanelOpen(true)}
-            />
+        {!isMobile && mode !== "focused" && (
+          <div className="pointer-events-auto px-3 py-1.5">
+            <div className="inline-flex w-fit rounded-chip border border-border-subtle bg-glass-subtle py-[2px] backdrop-blur-[12px] backdrop-saturate-[1.1]">
+              <SpatialFloatingToolbar
+                reviewCount={reviewCount}
+                onReviewEmails={() => setReviewPanelOpen(true)}
+              />
+            </div>
           </div>
-        </div>
+        )}
+        {!isMobile && mode !== "focused" && (
+          <div className="pointer-events-auto px-3 pb-1">
+            <div className="inline-flex w-fit rounded-chip border border-border-subtle bg-glass-subtle px-1.5 py-1 backdrop-blur-[12px] backdrop-saturate-[1.1]">
+              <PipelineFilterRow
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
+                stageFilter={stageFilter}
+                onStageFilterChange={setStageFilter}
+                assigneeFilter={assigneeFilter}
+                onAssigneeFilterChange={setAssigneeFilter}
+                teamMembers={teamMembers}
+                onAddLead={gatedOpenCreate}
+                canManage={canManage}
+              />
+            </div>
+          </div>
+        )}
         {/* Banners */}
-        <div className="pointer-events-auto flex flex-col gap-1 px-3">
+        <div
+          className={cn(
+            "pointer-events-auto flex flex-col gap-1 px-3",
+            isFocusedDesktop &&
+              "fixed bottom-[54px] left-[84px] z-[9997] w-[min(560px,calc(100vw-108px))] px-0"
+          )}
+        >
           {gmailConnections.length === 0 && !gmailBannerDismissed && (
-            <div className="flex items-center gap-2 px-2 py-1.5 rounded-[4px] bg-[rgba(65,115,148,0.08)] border border-[rgba(111, 148, 176,0.2)] animate-fade-in">
-              <div className="w-[32px] h-[32px] rounded bg-[rgba(111, 148, 176,0.15)] flex items-center justify-center shrink-0">
-                <Mail className="w-[16px] h-[16px] text-[#6F94B0]" />
+            <div
+              className="glass-dense flex animate-fade-in items-center gap-2 rounded-panel border px-2 py-1.5 [&::before]:rounded-panel"
+              style={{
+                background: "var(--surface-glass-dense)",
+                backdropFilter: "blur(28px) saturate(1.3)",
+                WebkitBackdropFilter: "blur(28px) saturate(1.3)",
+                borderColor: "rgba(111, 148, 176, 0.26)",
+              }}
+            >
+              <div className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-[5px] border border-ops-accent/20 bg-ops-accent/10">
+                <Mail className="h-[16px] w-[16px] text-ops-accent" />
               </div>
-              <div className="flex-1 min-w-0">
+              <div className="min-w-0 flex-1">
                 <p className="font-mohave text-body text-text">
                   {t("gmail.connectBanner")}
                 </p>
-                <p className="font-mono text-[11px] text-text-mute">
+                <p className="font-mono text-micro text-text-mute">
                   {t("gmail.connectDesc")}
                 </p>
               </div>
-              <div className="flex items-center gap-1 shrink-0">
+              <div className="flex shrink-0 items-center gap-1">
                 <Button
                   size="sm"
                   className="gap-[6px]"
                   onClick={() => {
                     if (!currentUser?.id) {
-                      console.error("[pipeline] No current user — cannot initiate OAuth");
+                      console.error(
+                        "[pipeline] No current user — cannot initiate OAuth"
+                      );
                       return;
                     }
                     const params = new URLSearchParams({
@@ -1435,15 +2144,15 @@ export default function PipelinePage() {
                     window.location.href = `/api/integrations/gmail?${params}`;
                   }}
                 >
-                  <Mail className="w-[14px] h-[14px]" />
+                  <Mail className="h-[14px] w-[14px]" />
                   {t("gmail.connect")}
                 </Button>
                 <button
                   onClick={() => setGmailBannerDismissed(true)}
-                  className="p-[6px] text-text-mute hover:text-text-3 transition-colors"
+                  className="p-[6px] text-text-mute transition-colors hover:text-text-3"
                   title={t("gmail.dismiss")}
                 >
-                  <X className="w-[14px] h-[14px]" />
+                  <X className="h-[14px] w-[14px]" />
                 </button>
               </div>
             </div>
@@ -1458,9 +2167,9 @@ export default function PipelinePage() {
             />
           )}
           {moveStage.isPending && (
-            <div className="flex items-center gap-1.5 px-2 py-1 rounded-[4px] bg-[rgba(111, 148, 176,0.12)] border border-[rgba(111, 148, 176,0.25)]">
-              <Loader2 className="w-[14px] h-[14px] text-[#6F94B0] animate-spin" />
-              <span className="font-mono text-[11px] text-[#6F94B0]">
+            <div className="flex items-center gap-1.5 rounded-chip border border-ops-accent/25 bg-ops-accent/10 px-2 py-1">
+              <Loader2 className="h-[14px] w-[14px] animate-spin text-ops-accent" />
+              <span className="font-mono text-micro text-ops-accent">
                 {t("column.updating")}
               </span>
             </div>
@@ -1468,29 +2177,61 @@ export default function PipelinePage() {
         </div>
       </div>
 
-      {/* Detail Popover Tether Lines */}
-      <DetailPopoverTether cardPositions={cardPositionsMap} />
-
-      {/* Detail Popovers */}
-      <AnimatePresence>
-        {Array.from(popoversMap.entries()).map(([oppId, popoverState]) => {
-          const opp = opportunities?.find((o) => o.id === oppId);
-          if (!opp) return null;
-          return (
-            <DetailPopover
-              key={oppId}
-              popoverState={popoverState}
-              opportunity={opp}
-              canManage={canManage}
-              onAdvanceStage={() => handleAdvanceStage(opp)}
-              onMarkWon={() => handleMoveStage(opp.id, OpportunityStage.Won)}
-              onMarkLost={() => handleMoveStage(opp.id, OpportunityStage.Lost)}
-              onArchive={() => handleArchive(opp.id)}
-              onDelete={() => deleteMutation.mutate(opp.id)}
+      {!isMobile && mode === "focused" && (
+        <div
+          className="pointer-events-none fixed bottom-[12px] left-[84px] right-[12px] z-[9998] flex justify-start"
+        >
+          <div
+            className="glass-dense scrollbar-hide pointer-events-auto inline-flex max-w-full items-center gap-[3px] overflow-x-auto rounded-[10px] border px-[3px] py-[3px] [&::before]:rounded-[10px]"
+            style={{
+              background: "var(--surface-glass-dense)",
+              backdropFilter: "blur(28px) saturate(1.3)",
+              WebkitBackdropFilter: "blur(28px) saturate(1.3)",
+              borderColor: "var(--glass-border)",
+              borderRadius: "10px",
+            }}
+          >
+            <PipelineFocusedToolbar
+              reviewCount={reviewCount}
+              onReviewEmails={() => setReviewPanelOpen(true)}
             />
-          );
-        })}
-      </AnimatePresence>
+            <div className="mx-[3px] h-[16px] w-px shrink-0 bg-border-subtle" />
+            <PipelineFilterRow
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              stageFilter={stageFilter}
+              onStageFilterChange={setStageFilter}
+              assigneeFilter={assigneeFilter}
+              onAssigneeFilterChange={setAssigneeFilter}
+              teamMembers={teamMembers}
+              onAddLead={gatedOpenCreate}
+              canManage={canManage}
+              variant="toolbar"
+            />
+          </div>
+        </div>
+      )}
+
+      {!isMobile && mode === "focused" && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[30] h-12 bg-gradient-to-t from-background via-background/60 to-transparent" />
+      )}
+
+      {!isMobile && mode === "spatial" && detailPanelOpportunity && (
+        <PipelineDetailPanel
+          opportunity={detailPanelOpportunity}
+          canManage={canManage}
+          originatingOpportunityId={
+            originatingOpportunityId ?? detailPanelOpportunityId
+          }
+          scopeRef={pipelineScopeRef}
+          onAdvanceStage={handleAdvanceStage}
+          onMarkWon={handleMarkWon}
+          onMarkLost={handleMarkLost}
+          onArchive={handleArchive}
+          onDiscard={handleDiscard}
+          onDelete={(id) => deleteMutation.mutate(id)}
+        />
+      )}
 
       {/* Stage Transition Dialog (Won/Lost prompts) */}
       <StageTransitionDialog
@@ -1519,7 +2260,11 @@ export default function PipelinePage() {
         isOpen={showSetupModal}
         onComplete={() => {
           setShowSetupModal(false);
-          openWindow({ id: "create-lead", title: "New Lead", type: "create-lead" });
+          openWindow({
+            id: "create-lead",
+            title: "New Lead",
+            type: "create-lead",
+          });
         }}
         onDismiss={() => {
           setShowSetupModal(false);

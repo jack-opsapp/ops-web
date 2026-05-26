@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
+import { Plus } from "lucide-react";
 import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
 import {
   type Project,
   ProjectStatus,
+  PROJECT_STATUS_COLORS,
   PROJECT_STATUS_SORT_ORDER,
 } from "@/lib/types/models";
 import { useUpdateProject, useUpdateProjectStatus, useDeleteProject } from "@/lib/hooks/use-projects";
@@ -18,6 +20,7 @@ import {
 } from "./spreadsheet/spreadsheet-columns";
 import { SpreadsheetHeader } from "./spreadsheet/spreadsheet-header";
 import { SpreadsheetRow } from "./spreadsheet/spreadsheet-row";
+import { getProjectStatusDisplayName } from "./project-stage-stack";
 
 export type SpreadsheetStatusFilter = "active" | "archived" | "closed";
 
@@ -226,28 +229,6 @@ export function ProjectSpreadsheet({
     });
   }, [updateStatusMutation, t]);
 
-  // ── Bulk actions ──
-  const handleBulkChangeStatus = useCallback((status: ProjectStatus) => {
-    for (const id of selectedIds) {
-      updateStatusMutation.mutate({ id, status });
-    }
-    onSelectedIdsChange(new Set());
-  }, [selectedIds, updateStatusMutation]);
-
-  const handleBulkArchive = useCallback(() => {
-    for (const id of selectedIds) {
-      updateStatusMutation.mutate({ id, status: ProjectStatus.Archived });
-    }
-    onSelectedIdsChange(new Set());
-  }, [selectedIds, updateStatusMutation]);
-
-  const handleBulkDelete = useCallback(() => {
-    for (const id of selectedIds) {
-      deleteProjectMutation.mutate(id);
-    }
-    onSelectedIdsChange(new Set());
-  }, [selectedIds, deleteProjectMutation]);
-
   // ── Action menu handlers ──
   const handleOpenActionMenu = useCallback((projectId: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -271,10 +252,26 @@ export function ProjectSpreadsheet({
     }
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [onSelectedIdsChange]);
 
   // ── Counts ──
   const totalCount = allFilteredProjects.length;
+
+  const formatShortAddress = useCallback((address: string | null): string => {
+    if (!address) return "—";
+    const parts = address.split(",").map((s) => s.trim()).filter(Boolean);
+    if (parts.length >= 2) return `${parts[0]}, ${parts[1]}`;
+    return parts[0] || "—";
+  }, []);
+
+  const formatCurrency = useCallback((value: number): string => {
+    if (!value) return "—";
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      maximumFractionDigits: 0,
+    }).format(value);
+  }, []);
 
   // ── Empty state ──
   if (displayProjects.length === 0) {
@@ -294,8 +291,115 @@ export function ProjectSpreadsheet({
 
   return (
     <div className="flex flex-col gap-1.5 h-full">
+      {/* Mobile list — the spreadsheet data model without the desktop table width. */}
+      <div className="flex-1 min-h-0 space-y-2 overflow-y-auto md:hidden">
+        {displayProjects.map((project) => {
+          const completedTasks = projectTaskCountMap.completed.get(project.id) ?? 0;
+          const totalTasks = projectTaskCountMap.total.get(project.id) ?? 0;
+          const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : null;
+          const statusColor = PROJECT_STATUS_COLORS[project.status];
+          const title = project.title || t("card.untitledProject");
+          const clientName = clientNameMap.get(project.clientId ?? "") || "—";
+          const estimateTotal = estimateTotalMap.get(project.id) ?? 0;
+          const invoiceTotal = projectValueMap.get(project.id) ?? 0;
+
+          return (
+            <article
+              key={project.id}
+              className={cn(
+                "glass-surface rounded-panel border border-border p-3",
+                selectedIds.has(project.id) && "border-[rgba(255,255,255,0.22)] bg-[rgba(255,255,255,0.08)]",
+                project.status === ProjectStatus.Archived && "opacity-50",
+              )}
+              style={{ borderLeft: `3px solid ${statusColor}` }}
+            >
+              <button
+                type="button"
+                onClick={() => handleOpenDetail(project.id)}
+                className="block w-full min-w-0 text-left"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="min-w-0 truncate font-mohave text-body text-text">
+                    {title}
+                  </span>
+                  <span className="shrink-0 font-mono text-micro uppercase tracking-wider text-text-3">
+                    {getProjectStatusDisplayName(project.status)}
+                  </span>
+                </div>
+                <div className="mt-1 grid grid-cols-1 gap-0.5">
+                  <span className="truncate font-mohave text-body-sm text-text-2">
+                    {clientName}
+                  </span>
+                  <span className="truncate font-mono text-micro text-text-3">
+                    {formatShortAddress(project.address)}
+                  </span>
+                </div>
+              </button>
+
+              <div className="mt-3 grid grid-cols-3 gap-2 border-t border-border-subtle pt-2">
+                <div>
+                  <span className="block font-mono text-micro uppercase tracking-wider text-text-mute">
+                    Progress
+                  </span>
+                  <span className="font-mono text-data-sm text-text-2">
+                    {progress == null ? "—" : `${progress}%`}
+                  </span>
+                </div>
+                <div>
+                  <span className="block font-mono text-micro uppercase tracking-wider text-text-mute">
+                    Tasks
+                  </span>
+                  <span className="font-mono text-data-sm text-text-2">
+                    {totalTasks > 0 ? `${completedTasks}/${totalTasks}` : "—"}
+                  </span>
+                </div>
+                {canViewAccounting ? (
+                  <div>
+                    <span className="block font-mono text-micro uppercase tracking-wider text-text-mute">
+                      Value
+                    </span>
+                    <span className="font-mono text-data-sm text-text-2">
+                      {formatCurrency(invoiceTotal || estimateTotal)}
+                    </span>
+                  </div>
+                ) : (
+                  <div>
+                    <span className="block font-mono text-micro uppercase tracking-wider text-text-mute">
+                      ID
+                    </span>
+                    <span className="font-mono text-data-sm text-text-2">
+                      {project.id.slice(0, 4).toUpperCase()}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-2 flex items-center justify-end gap-1">
+                {canCreateTasks && (
+                  <button
+                    type="button"
+                    onClick={() => onAddTask(project.id)}
+                    className="flex items-center gap-1 rounded-sm border border-border-subtle px-2 py-1 font-mono text-micro uppercase tracking-wider text-text-3 transition-colors hover:bg-[rgba(255,255,255,0.05)] hover:text-text"
+                  >
+                    <Plus className="h-3 w-3" />
+                    Add task
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={(e) => handleSelect(project.id, e)}
+                  className="rounded-sm border border-border-subtle px-2 py-1 font-mono text-micro uppercase tracking-wider text-text-3 transition-colors hover:bg-[rgba(255,255,255,0.05)] hover:text-text"
+                >
+                  {selectedIds.has(project.id) ? "Selected" : "Select"}
+                </button>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+
       {/* Table with bottom fade */}
-      <div className="relative flex-1 min-h-0">
+      <div className="relative hidden flex-1 min-h-0 md:block">
         <div className="h-full overflow-auto rounded border-y border-r border-border">
           <table className="w-full border-collapse">
             <SpreadsheetHeader

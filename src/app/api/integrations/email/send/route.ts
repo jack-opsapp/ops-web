@@ -16,7 +16,9 @@ import { setSupabaseOverride } from "@/lib/supabase/helpers";
 import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
 import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 import { EmailService } from "@/lib/api/services/email-service";
+import { EmailThreadService } from "@/lib/api/services/email-thread-service";
 import { markdownToEmailHtml } from "@/lib/utils/markdown-to-email-html";
+import { extractEmailAddress } from "@/lib/utils/email-parsing";
 import { getSubscriptionInfo } from "@/lib/subscription";
 import {
   SubscriptionPlan,
@@ -26,12 +28,17 @@ import {
 
 export const maxDuration = 60;
 
-// RFC 5322 email address validation (simplified — covers real-world addresses)
+// RFC 5322 addr-spec regex (the bare `local@domain` part). The inbox
+// composer forwards `from` strings straight from the provider, which return
+// either a bare address or the full mailbox format `Display Name <addr>`
+// when the sender has a display name. `isValidEmail` strips the optional
+// display-name prefix before applying the regex so both forms validate.
 const EMAIL_RE =
   /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
 
-function isValidEmail(email: string): boolean {
-  return EMAIL_RE.test(email) && email.length <= 254;
+function isValidEmail(value: string): boolean {
+  const addr = extractEmailAddress(value);
+  return EMAIL_RE.test(addr) && addr.length <= 254;
 }
 
 // Rate limit: max sends per user per hour
@@ -215,6 +222,7 @@ export async function POST(request: NextRequest) {
       inReplyTo,
       threadId,
     });
+    const sentAt = new Date();
 
     // ── Create outbound activity ──────────────────────────────────────────
     // Uses direct insert (like sync-engine) to populate extended fields
@@ -244,6 +252,35 @@ export async function POST(request: NextRequest) {
       // 20260508120000_activities_draft_history_link.sql to be applied.
       draft_history_id: draftHistoryId || null,
     });
+
+    const { threadRow } = await EmailThreadService.upsertFromEmail({
+      companyId,
+      connectionId: connection.id,
+      providerThreadId: sendResult.threadId,
+      email: {
+        id: sendResult.messageId,
+        threadId: sendResult.threadId,
+        from: connection.email,
+        fromName: connection.email,
+        to,
+        cc: cc || [],
+        subject,
+        snippet: emailBody,
+        bodyText: emailBody,
+        date: sentAt,
+        labelIds: [],
+        isRead: true,
+        hasAttachments: false,
+        sizeEstimate: emailBody.length,
+      },
+      direction: "outbound",
+      opportunityId: opportunityId || null,
+    });
+    const outboundIsLatest = threadRow.latestDirection === "outbound";
+    const labels =
+      outboundIsLatest && threadRow.labels.includes("AWAITING_REPLY")
+        ? await EmailThreadService.dismissAwaitingReply(threadRow.id, companyId)
+        : threadRow.labels;
 
     // ── Update correspondence counts on linked opportunity ────────────────
     if (opportunityId) {
@@ -304,6 +341,9 @@ export async function POST(request: NextRequest) {
       messageId: sendResult.messageId,
       threadId: sendResult.threadId,
       from: connection.email,
+      sentAt: sentAt.toISOString(),
+      labels,
+      latestDirection: threadRow.latestDirection,
     });
   } catch (err) {
     console.error("[email-send]", err);

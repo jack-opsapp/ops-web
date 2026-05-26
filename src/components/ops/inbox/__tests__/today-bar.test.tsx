@@ -20,60 +20,39 @@ const today: TodayCommitment = {
 };
 
 describe("<TodayBar>", () => {
-  it("uses brick-tinted gradient when any row waiting > 7d", () => {
+  it("renders urgent obligations as fixed list-integrated rows", () => {
     render(<TodayBar commitments={[overdue, today]} />);
     const bar = screen.getByTestId("today-bar");
-    expect(bar.className).toMatch(/bg-\[linear-gradient.*147,\s*50,\s*26/);
-  });
-
-  it("uses accent gradient when no row waiting > 7d", () => {
-    const yoursToday: TodayCommitment = {
-      id: "c3",
-      threadId: "t3",
-      text: "Mia — siding",
-      clientName: "Mia Vasquez",
-      waitingDays: 1,
-      state: { tone: "accent", prefix: "YOURS", value: "18H" },
-    };
-    render(<TodayBar commitments={[yoursToday]} />);
-    const bar = screen.getByTestId("today-bar");
-    expect(bar.className).toMatch(/bg-\[linear-gradient.*111,\s*148,\s*176/);
-  });
-
-  it("renders // YOUR MOVE :: 2 OVERDUE · 0 TODAY header when both are overdue", () => {
-    render(<TodayBar commitments={[overdue, today]} />);
-    expect(screen.getByText(/YOUR MOVE :: 2 OVERDUE · 0 TODAY/)).toBeInTheDocument();
-  });
-
-  it("renders // CAUGHT UP empty state without a checkmark icon", () => {
-    const { container } = render(<TodayBar commitments={[]} />);
-    expect(screen.getByText("// CAUGHT UP")).toBeInTheDocument();
-    // The Check icon was the canonical empty-state visual — verify it's gone.
-    // Lucide renders Check as an SVG; assert no SVG sits inside the empty bar.
-    const bar = container.querySelector('[data-testid="today-bar"]');
-    expect(bar?.querySelector("svg")).toBeNull();
-  });
-
-  it("renders simplified row anatomy (name + tag, no subject line)", () => {
-    render(<TodayBar commitments={[overdue]} />);
+    expect(bar.className).not.toContain("px-3");
+    expect(bar.className).not.toContain("bg-brick");
+    expect(screen.queryByText(/YOUR MOVE ::/)).toBeNull();
     expect(screen.getByText("Karen Etheridge")).toBeInTheDocument();
-    expect(screen.getByText("+38D · WAITING")).toBeInTheDocument();
-    expect(screen.queryByText("Karen — vinyl")).toBeNull();
+    expect(screen.getByText("Clara Walden")).toBeInTheDocument();
+    expect(screen.getAllByLabelText("Karen — vinyl")[0].className).toContain(
+      "h-7",
+    );
   });
 
-  it("links each commitment row to its thread", () => {
+  it("renders no strip when there are no obligations", () => {
+    const { container } = render(<TodayBar commitments={[]} />);
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it("links each obligation row to its thread", () => {
     render(<TodayBar commitments={[overdue]} />);
-    const links = screen.getAllByRole("link");
-    expect(links.length).toBeGreaterThan(0);
-    for (const link of links) {
-      expect(link).toHaveAttribute("href", "/inbox/t1");
-    }
+    expect(screen.getByRole("link", { name: /Karen — vinyl/i })).toHaveAttribute(
+      "href",
+      "/inbox/t1",
+    );
   });
 
-  it("renders an inline ✓ resolve button when onResolve is provided + fires with id", () => {
+  it("renders a compact inline resolve button when onResolve is provided + fires with id", () => {
     const onResolve = vi.fn();
     render(<TodayBar commitments={[overdue]} onResolve={onResolve} />);
-    screen.getByTestId("today-bar-resolve").click();
+    const button = screen.getByTestId("today-bar-resolve");
+    expect(button.className).toContain("h-4");
+    expect(button.className).toContain("w-4");
+    button.click();
     expect(onResolve).toHaveBeenCalledWith("c1");
   });
 
@@ -94,8 +73,8 @@ describe("<TodayBar>", () => {
     expect(screen.queryByTestId("today-bar-resolve")).toBeNull();
   });
 
-  it("caps the rendered list at 3 commitments", () => {
-    const many: TodayCommitment[] = Array.from({ length: 5 }, (_, i) => ({
+  it("caps the rendered list at 5 commitments and shows overflow count", () => {
+    const many: TodayCommitment[] = Array.from({ length: 7 }, (_, i) => ({
       id: `c${i}`,
       threadId: `t${i}`,
       text: `Commit ${i}`,
@@ -104,7 +83,9 @@ describe("<TodayBar>", () => {
       state: { tone: "accent", prefix: "YOURS", value: "1H" },
     }));
     render(<TodayBar commitments={many} />);
-    // The list elements have role="listitem" inside the ul. Just count them.
-    expect(screen.getAllByRole("link")).toHaveLength(3 * 2); // each row has 2 links (body + arrow)
+    expect(screen.getAllByRole("link")).toHaveLength(5);
+    expect(screen.getByTestId("today-bar-overflow")).toHaveTextContent(
+      "+2 MORE IN YOUR MOVE",
+    );
   });
 });

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Plus, ChevronDown } from "lucide-react";
+import { Plus, ChevronDown, Search } from "lucide-react";
 import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
 import {
@@ -25,6 +25,7 @@ interface PipelineFilterRowProps {
   teamMembers: { id: string; firstName: string; lastName: string }[];
   onAddLead: () => void;
   canManage: boolean;
+  variant?: "surface" | "toolbar";
 }
 
 // ---------------------------------------------------------------------------
@@ -37,8 +38,8 @@ const DROPDOWN_SURFACE =
 
 const DROPDOWN_ITEM =
   "flex items-center gap-[8px] w-full px-[10px] py-[6px] " +
-  "font-mohave text-body-sm text-left whitespace-nowrap " +
-  "hover:bg-[rgba(255,255,255,0.06)] transition-colors cursor-pointer";
+  "font-mono text-caption-sm text-left whitespace-nowrap " +
+  "hover:bg-surface-hover transition-colors cursor-pointer";
 
 // ---------------------------------------------------------------------------
 // Stage Dropdown
@@ -48,9 +49,15 @@ interface StageDropdownProps {
   value: OpportunityStage | "all";
   onChange: (stage: OpportunityStage | "all") => void;
   allStagesLabel: string;
+  variant?: "surface" | "toolbar";
 }
 
-function StageDropdown({ value, onChange, allStagesLabel }: StageDropdownProps) {
+function StageDropdown({
+  value,
+  onChange,
+  allStagesLabel,
+  variant = "surface",
+}: StageDropdownProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -58,7 +65,10 @@ function StageDropdown({ value, onChange, allStagesLabel }: StageDropdownProps) 
   useEffect(() => {
     if (!open) return;
     function handlePointerDown(e: PointerEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
         setOpen(false);
       }
     }
@@ -73,34 +83,43 @@ function StageDropdown({ value, onChange, allStagesLabel }: StageDropdownProps) 
 
   const activeDotColor =
     value !== "all" ? OPPORTUNITY_STAGE_COLORS[value] : undefined;
+  const isToolbar = variant === "toolbar";
 
   return (
-    <div ref={containerRef} className="relative shrink-0">
+    <div
+      ref={containerRef}
+      className="relative shrink-0"
+      data-keyboard-scope="modal-or-menu"
+    >
       {/* Trigger */}
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
         className={cn(
-          "flex items-center gap-[6px] h-[30px] px-[10px]",
-          "bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)]",
-          "border border-[rgba(255,255,255,0.06)] rounded-[4px]",
-          "font-mohave text-body-sm text-text",
-          "hover:border-[rgba(255,255,255,0.14)] transition-colors cursor-pointer",
-          open && "border-[rgba(255,255,255,0.14)]"
+          "flex items-center gap-[5px] rounded-[4px] px-[8px] font-mono transition-colors",
+          isToolbar
+            ? "h-[26px] whitespace-nowrap uppercase leading-none tracking-[0.12em] [font-size:10px]"
+            : "h-[30px] border border-border bg-fill-neutral-dim text-caption-sm",
+          isToolbar
+            ? open || value !== "all"
+              ? "bg-white/[0.04] text-text hover:bg-white/[0.06]"
+              : "text-text-2 hover:bg-white/[0.04] hover:text-text"
+            : "border-border text-text hover:border-line-hi",
+          !isToolbar && open && "border-line-hi"
         )}
         aria-haspopup="listbox"
         aria-expanded={open}
       >
         {activeDotColor && (
           <span
-            className="w-[6px] h-[6px] rounded-full shrink-0"
+            className="h-[5px] w-[5px] shrink-0 rounded-full"
             style={{ backgroundColor: activeDotColor }}
           />
         )}
         <span className="whitespace-nowrap">{labelText}</span>
         <ChevronDown
           className={cn(
-            "w-[12px] h-[12px] text-text-3 shrink-0 transition-transform duration-150",
+            "h-[10px] w-[10px] shrink-0 text-text-3 transition-transform duration-150",
             open && "rotate-180"
           )}
         />
@@ -108,7 +127,12 @@ function StageDropdown({ value, onChange, allStagesLabel }: StageDropdownProps) 
 
       {/* Dropdown */}
       {open && (
-        <div className={DROPDOWN_SURFACE} role="listbox" aria-label="Stage filter">
+        <div
+          className={DROPDOWN_SURFACE}
+          data-keyboard-scope="modal-or-menu"
+          role="listbox"
+          aria-label={allStagesLabel}
+        >
           {/* All Stages option */}
           <button
             type="button"
@@ -123,7 +147,7 @@ function StageDropdown({ value, onChange, allStagesLabel }: StageDropdownProps) 
               setOpen(false);
             }}
           >
-            <span className="w-[6px] h-[6px] rounded-full bg-[rgba(255,255,255,0.18)] shrink-0" />
+            <span className="h-[6px] w-[6px] shrink-0 rounded-full bg-fill-neutral" />
             {allStagesLabel}
           </button>
 
@@ -143,7 +167,7 @@ function StageDropdown({ value, onChange, allStagesLabel }: StageDropdownProps) 
               }}
             >
               <span
-                className="w-[6px] h-[6px] rounded-full shrink-0"
+                className="h-[6px] w-[6px] shrink-0 rounded-full"
                 style={{ backgroundColor: OPPORTUNITY_STAGE_COLORS[stage] }}
               />
               {getStageDisplayName(stage)}
@@ -164,6 +188,7 @@ interface AssigneeDropdownProps {
   onChange: (userId: string | "all") => void;
   teamMembers: { id: string; firstName: string; lastName: string }[];
   everyoneLabel: string;
+  variant?: "surface" | "toolbar";
 }
 
 function AssigneeDropdown({
@@ -171,6 +196,7 @@ function AssigneeDropdown({
   onChange,
   teamMembers,
   everyoneLabel,
+  variant = "surface",
 }: AssigneeDropdownProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -179,7 +205,10 @@ function AssigneeDropdown({
   useEffect(() => {
     if (!open) return;
     function handlePointerDown(e: PointerEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
         setOpen(false);
       }
     }
@@ -190,24 +219,32 @@ function AssigneeDropdown({
   const activeMember =
     value !== "all" ? teamMembers.find((m) => m.id === value) : undefined;
 
-  const labelText =
-    activeMember
-      ? `${activeMember.firstName} ${activeMember.lastName}`
-      : everyoneLabel;
+  const labelText = activeMember
+    ? `${activeMember.firstName} ${activeMember.lastName}`
+    : everyoneLabel;
+  const isToolbar = variant === "toolbar";
 
   return (
-    <div ref={containerRef} className="relative shrink-0">
+    <div
+      ref={containerRef}
+      className="relative shrink-0"
+      data-keyboard-scope="modal-or-menu"
+    >
       {/* Trigger */}
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
         className={cn(
-          "flex items-center gap-[6px] h-[30px] px-[10px]",
-          "bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)]",
-          "border border-[rgba(255,255,255,0.06)] rounded-[4px]",
-          "font-mohave text-body-sm text-text",
-          "hover:border-[rgba(255,255,255,0.14)] transition-colors cursor-pointer",
-          open && "border-[rgba(255,255,255,0.14)]"
+          "flex items-center gap-[5px] rounded-[4px] px-[8px] font-mono transition-colors",
+          isToolbar
+            ? "h-[26px] whitespace-nowrap uppercase leading-none tracking-[0.12em] [font-size:10px]"
+            : "h-[30px] border border-border bg-fill-neutral-dim text-caption-sm",
+          isToolbar
+            ? open || value !== "all"
+              ? "bg-white/[0.04] text-text hover:bg-white/[0.06]"
+              : "text-text-2 hover:bg-white/[0.04] hover:text-text"
+            : "border-border text-text hover:border-line-hi",
+          !isToolbar && open && "border-line-hi"
         )}
         aria-haspopup="listbox"
         aria-expanded={open}
@@ -215,7 +252,7 @@ function AssigneeDropdown({
         <span className="whitespace-nowrap">{labelText}</span>
         <ChevronDown
           className={cn(
-            "w-[12px] h-[12px] text-text-3 shrink-0 transition-transform duration-150",
+            "h-[10px] w-[10px] shrink-0 text-text-3 transition-transform duration-150",
             open && "rotate-180"
           )}
         />
@@ -223,7 +260,12 @@ function AssigneeDropdown({
 
       {/* Dropdown */}
       {open && (
-        <div className={DROPDOWN_SURFACE} role="listbox" aria-label="Assignee filter">
+        <div
+          className={DROPDOWN_SURFACE}
+          data-keyboard-scope="modal-or-menu"
+          role="listbox"
+          aria-label={everyoneLabel}
+        >
           {/* Everyone option */}
           <button
             type="button"
@@ -270,8 +312,8 @@ function AssigneeDropdown({
 // ---------------------------------------------------------------------------
 
 export function PipelineFilterRow({
-  searchQuery: _searchQuery,
-  onSearchChange: _onSearchChange,
+  searchQuery,
+  onSearchChange,
   stageFilter,
   onStageFilterChange,
   assigneeFilter,
@@ -279,17 +321,59 @@ export function PipelineFilterRow({
   teamMembers,
   onAddLead,
   canManage,
+  variant = "surface",
 }: PipelineFilterRowProps) {
   const { t } = useDictionary("pipeline");
+  const searchPlaceholder = t("focused.search.placeholder");
+  const isToolbar = variant === "toolbar";
 
   return (
-    <div className="flex items-center gap-[8px]">
+    <div
+      className={cn(
+        "flex items-center",
+        isToolbar ? "min-w-max flex-nowrap gap-[10px]" : "flex-wrap gap-[8px]"
+      )}
+      data-pipeline-filter-row={variant}
+    >
+      <label
+        className={cn(
+          "flex items-center gap-[5px] rounded-[4px] px-[8px] transition-colors",
+          isToolbar
+            ? "h-[26px] w-[150px] min-w-[145px] bg-transparent focus-within:bg-white/[0.04]"
+            : "h-[30px] w-full min-w-[220px] border border-border bg-fill-neutral-dim focus-within:border-line-hi sm:w-[240px] sm:min-w-[240px]",
+          isToolbar && searchQuery.length > 0 && "bg-white/[0.04]"
+        )}
+      >
+        <Search
+          className="h-[11px] w-[11px] shrink-0 text-text-3"
+          strokeWidth={1.5}
+        />
+        <input
+          type="search"
+          value={searchQuery}
+          onChange={(event) => onSearchChange(event.target.value)}
+          placeholder={searchPlaceholder}
+          aria-label={searchPlaceholder}
+          className={cn(
+            "h-full min-w-0 flex-1 bg-transparent font-mono text-text outline-none placeholder:text-text-3",
+            isToolbar
+              ? "uppercase leading-none tracking-[0.12em] [font-size:10px]"
+              : "text-caption-sm"
+          )}
+        />
+      </label>
+
+      {isToolbar && <ToolbarDivider />}
+
       {/* Stage filter */}
       <StageDropdown
         value={stageFilter}
         onChange={onStageFilterChange}
         allStagesLabel={t("filter.allStages")}
+        variant={variant}
       />
+
+      {isToolbar && <ToolbarDivider />}
 
       {/* Assignee filter */}
       <AssigneeDropdown
@@ -297,7 +381,10 @@ export function PipelineFilterRow({
         onChange={onAssigneeFilterChange}
         teamMembers={teamMembers}
         everyoneLabel={t("filter.everyone")}
+        variant={variant}
       />
+
+      {isToolbar && canManage && <ToolbarDivider />}
 
       {/* New Lead button */}
       {canManage && (
@@ -305,16 +392,25 @@ export function PipelineFilterRow({
           type="button"
           onClick={onAddLead}
           className={cn(
-            "flex items-center gap-[6px] h-[30px] px-3 shrink-0",
-            "bg-ops-accent hover:bg-ops-accent/90",
-            "font-mohave text-body-sm text-white",
-            "rounded-[4px] transition-colors cursor-pointer"
+            "flex shrink-0 items-center gap-[5px] rounded-[4px] border px-[8px] font-mono uppercase transition-colors",
+            isToolbar
+              ? "h-[26px] whitespace-nowrap border-ops-accent/45 bg-ops-accent/10 leading-none tracking-[0.12em] text-ops-accent hover:border-ops-accent/70 hover:bg-ops-accent/15 hover:text-text [font-size:10px]"
+              : "h-[30px] border-ops-accent text-caption-sm text-ops-accent hover:bg-ops-accent hover:text-background"
           )}
         >
-          <Plus className="w-[14px] h-[14px] shrink-0" />
+          <Plus className="h-[11px] w-[11px] shrink-0" strokeWidth={1.5} />
           {t("newLead")}
         </button>
       )}
     </div>
+  );
+}
+
+function ToolbarDivider() {
+  return (
+    <div
+      aria-hidden="true"
+      className="h-[14px] w-px shrink-0 bg-border-subtle opacity-70"
+    />
   );
 }

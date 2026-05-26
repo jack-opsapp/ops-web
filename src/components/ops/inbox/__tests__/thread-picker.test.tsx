@@ -88,7 +88,23 @@ describe("<ThreadPicker>", () => {
     expect(trigger).toHaveTextContent(/3 OTHER THREADS/);
   });
 
-  it("renders the disabled mute label and no button when threads is empty", () => {
+  it("uses the singular trigger label for one sibling thread", () => {
+    render(
+      <ThreadPicker
+        threads={[makeThread("t1", "Quote follow-up", stateYours)]}
+        currentThreadId="current"
+        clientName="ACME"
+      />,
+    );
+
+    const trigger = screen.getByRole("button", {
+      name: /1 other thread with acme/i,
+    });
+    expect(trigger).toHaveTextContent("1 OTHER THREAD");
+    expect(trigger).not.toHaveTextContent("1 OTHER THREADS");
+  });
+
+  it("renders the disabled mute label without a leading separator and no button when threads is empty", () => {
     render(
       <ThreadPicker
         threads={[]}
@@ -97,7 +113,8 @@ describe("<ThreadPicker>", () => {
       />,
     );
 
-    expect(screen.getByText("· 0 OTHER THREADS")).toBeInTheDocument();
+    expect(screen.getByText("0 OTHER THREADS")).toBeInTheDocument();
+    expect(screen.queryByText("· 0 OTHER THREADS")).not.toBeInTheDocument();
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 
@@ -169,11 +186,37 @@ describe("<ThreadPicker>", () => {
     await user.click(screen.getByRole("button", { name: /2 other threads/i }));
     expect(screen.getByText("Quote follow-up")).toBeInTheDocument();
 
-    const row = screen.getByRole("button", { name: "Quote follow-up" });
+    const row = screen.getByRole("link", { name: /Quote follow-up/i });
     await user.click(row);
 
     expect(push).toHaveBeenCalledWith("/inbox/t1");
     // Popover closed → header text no longer in DOM
+    expect(
+      screen.queryByText("// THREADS WITH ACME · 2"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("uses the in-place selector when provided", async () => {
+    const user = userEvent.setup();
+    const onSelectThread = vi.fn();
+    const threads = [
+      makeThread("t1", "Quote follow-up", stateYours),
+      makeThread("t2", "Inspection rescheduling", stateTheirs),
+    ];
+    render(
+      <ThreadPicker
+        threads={threads}
+        currentThreadId="current"
+        clientName="ACME"
+        onSelectThread={onSelectThread}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /2 other threads/i }));
+    await user.click(screen.getByRole("link", { name: /Quote follow-up/i }));
+
+    expect(onSelectThread).toHaveBeenCalledWith("t1");
+    expect(push).not.toHaveBeenCalled();
     expect(
       screen.queryByText("// THREADS WITH ACME · 2"),
     ).not.toBeInTheDocument();

@@ -43,7 +43,7 @@ const DropdownMenuSubContent = React.forwardRef<
       "z-50 min-w-[180px] overflow-hidden",
       "glass-dense",
       "p-0.5",
-      "data-[state=open]:animate-scale-in",
+      "motion-safe:data-[state=open]:animate-anchored-in",
       className
     )}
     {...props}
@@ -63,7 +63,7 @@ const DropdownMenuContent = React.forwardRef<
         "z-50 min-w-[180px] overflow-hidden",
         "glass-dense",
         "p-0.5",
-        "data-[state=open]:animate-scale-in",
+        "motion-safe:data-[state=open]:animate-anchored-in",
         className
       )}
       {...props}

@@ -9,7 +9,7 @@ Supplements the root `OPS LTD./CLAUDE.md`. Read both.
 - TanStack Query (data fetching, caching, optimistic updates)
 - Zustand (client state)
 - Framer Motion (animations)
-- Lucide React (icons)
+- IBM Carbon (`@carbon/icons-react`) (icons)
 - dnd-kit (drag and drop)
 
 ## Fonts

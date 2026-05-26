@@ -21,7 +21,7 @@ interface MetricsHeaderCompactProps {
   variant: "compact";
   tabId: string;
   title: string;
-  metrics: InlineMetricConfig[];
+  metrics: InlineMetricConfig[] | MetricColumnConfig[];
   isLoading?: boolean;
   actions?: React.ReactNode;
   className?: string;
@@ -145,7 +145,7 @@ function CompactMetricsHeader({ tabId, title: _title, metrics, isLoading, action
   return (
     <div
       className={cn(
-        "border border-white/[0.06] px-4 py-1.5 rounded-[4px]",
+        "max-w-full overflow-x-auto overflow-y-hidden border border-white/[0.06] px-4 py-1.5 rounded-[4px] scrollbar-hide",
         className,
       )}
       style={{
@@ -154,7 +154,7 @@ function CompactMetricsHeader({ tabId, title: _title, metrics, isLoading, action
         WebkitBackdropFilter: "blur(16px) saturate(1.2)",
       }}
     >
-      <div className="flex items-center gap-5">
+      <div className="flex min-w-max items-center gap-5">
         {actions && actions}
 
         {showSkeleton ? (

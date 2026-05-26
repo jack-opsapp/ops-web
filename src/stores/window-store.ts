@@ -8,6 +8,7 @@ export type FloatingWindowType =
   | "create-estimate"
   | "create-lead"
   | "compose-email"
+  | "pipeline-detail"
   | "project-workspace";
 
 // Mode passed into the project workspace shell on open. The body composer
@@ -64,7 +65,7 @@ const projectCreatedCallbacks = new Map<string, (projectId: string) => void>();
  */
 export function consumeProjectCreatedCallback(
   windowId: string,
-  projectId: string,
+  projectId: string
 ): void {
   const cb = projectCreatedCallbacks.get(windowId);
   if (!cb) return;
@@ -99,9 +100,12 @@ interface WindowStoreState {
 
 const DEFAULT_SIZE = { width: 560, height: 600 };
 
-const SIZE_BY_TYPE: Partial<Record<FloatingWindowType, { width: number; height: number }>> = {
+const SIZE_BY_TYPE: Partial<
+  Record<FloatingWindowType, { width: number; height: number }>
+> = {
   "create-estimate": { width: 780, height: 700 },
   "compose-email": { width: 620, height: 680 },
+  "pipeline-detail": { width: 780, height: 680 },
   // Project workspace ships at 1080×760 — wide enough for the schedule
   // strip + sidebar at default zoom; tall enough for ~6 timeline rows
   // before the body needs to scroll. Min size 780×600 (Phase 6.10).
@@ -112,11 +116,20 @@ function getSizeForType(type: FloatingWindowType) {
   return SIZE_BY_TYPE[type] ?? DEFAULT_SIZE;
 }
 
-function getDefaultPosition(existingCount: number, size = DEFAULT_SIZE): { x: number; y: number } {
+function getDefaultPosition(
+  existingCount: number,
+  size = DEFAULT_SIZE
+): { x: number; y: number } {
   const offset = existingCount * 30;
   return {
-    x: Math.max(20, Math.min(200 + offset, window.innerWidth - size.width - 40)),
-    y: Math.max(20, Math.min(100 + offset, window.innerHeight - size.height - 40)),
+    x: Math.max(
+      20,
+      Math.min(200 + offset, window.innerWidth - size.width - 40)
+    ),
+    y: Math.max(
+      20,
+      Math.min(100 + offset, window.innerHeight - size.height - 40)
+    ),
   };
 }
 
@@ -136,7 +149,12 @@ export const useWindowStore = create<WindowStoreState>()((set, get) => ({
       set({
         windows: windows.map((w) =>
           w.id === id
-            ? { ...w, isMinimized: false, zIndex: nextZIndex, ...(metadata ? { metadata } : {}) }
+            ? {
+                ...w,
+                isMinimized: false,
+                zIndex: nextZIndex,
+                ...(metadata ? { metadata } : {}),
+              }
             : w
         ),
         nextZIndex: nextZIndex + 1,
@@ -145,7 +163,10 @@ export const useWindowStore = create<WindowStoreState>()((set, get) => ({
     }
 
     const size = getSizeForType(type);
-    const position = getDefaultPosition(windows.filter((w) => !w.isMinimized).length, size);
+    const position = getDefaultPosition(
+      windows.filter((w) => !w.isMinimized).length,
+      size
+    );
     set({
       windows: [
         ...windows,
@@ -237,9 +258,7 @@ export const useWindowStore = create<WindowStoreState>()((set, get) => ({
     const { windows, nextZIndex } = get();
     set({
       windows: windows.map((w) =>
-        w.id === id
-          ? { ...w, isMinimized: false, zIndex: nextZIndex }
-          : w
+        w.id === id ? { ...w, isMinimized: false, zIndex: nextZIndex } : w
       ),
       nextZIndex: nextZIndex + 1,
     });
@@ -257,9 +276,7 @@ export const useWindowStore = create<WindowStoreState>()((set, get) => ({
 
   updatePosition: (id, position) => {
     set({
-      windows: get().windows.map((w) =>
-        w.id === id ? { ...w, position } : w
-      ),
+      windows: get().windows.map((w) => (w.id === id ? { ...w, position } : w)),
     });
   },
 

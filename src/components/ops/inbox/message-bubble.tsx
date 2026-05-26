@@ -4,8 +4,8 @@
  * MessageBubble — faithful to `reference/v3-messages.jsx :: V3Bubble`.
  *
  * One bubble per message. No run-tail logic, no shared avatar gutter — every
- * message renders its avatar (round, 26px). Outbound bubbles use the accent
- * fill (`rgba(111,148,176,0.10)`); AI-authored outbound bubbles use the
+ * message renders its avatar. Outbound bubbles use the accent
+ * fill token; AI-authored outbound bubbles use the
  * agent fill. Meta row (sender · time · optional attachment) sits directly
  * under the bubble in the same column, gap 4. Mono meta uses canonical
  * `letterSpacing: 0.2px` (drop the wide em tracking).
@@ -138,12 +138,12 @@ export function MessageBubble({
       <InboxAvatar
         name={senderName}
         initials={initials}
-        size={26}
+        size={24}
         agent={isAi}
       />
       <div
         className={cn(
-          "flex max-w-[78%] flex-col gap-1",
+          "flex max-w-[68%] flex-col gap-1",
           isOutbound ? "items-end" : "items-start",
         )}
       >
@@ -152,12 +152,12 @@ export function MessageBubble({
           layout={!reducedMotion}
           transition={motionTransition}
           className={cn(
-            "rounded-panel px-3.5 py-2.5 font-mohave text-[13px] leading-[1.5] tracking-[-0.003em] text-pretty",
+            "rounded-[8px] px-3 py-2 font-mohave text-[13px] leading-[1.45] text-pretty",
             isAi
-              ? "border-agent-border-hi bg-agent/[0.10] text-agent-text"
+              ? "border-agent-border-hi bg-transparent text-agent-text"
               : isOutbound
-                ? "border-ops-accent/[0.22] bg-ops-accent/[0.10] text-text"
-                : "border-line bg-inbox-panel text-text",
+                ? "border-ops-accent/[0.32] bg-transparent text-text"
+                : "border-line bg-transparent text-text",
             // Closed: solid 1px border. Open: 1.5px dashed border, same hue.
             hasDiff && diffOpen
               ? "border-[1.5px] border-dashed"
@@ -171,9 +171,9 @@ export function MessageBubble({
             >
               {attachments.map((file) => {
                 const rowBase =
-                  "flex w-full items-center gap-2 rounded-bar border border-line bg-white/[0.02] px-2.5 py-1.5 transition-colors";
+                  "flex w-full items-center gap-2 rounded-bar border border-line bg-transparent px-2.5 py-1.5 transition-colors";
                 const interactiveExtras =
-                  "hover:border-line-hi hover:bg-white/[0.04] focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black";
+                  "hover:border-line-hi focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black";
 
                 const inner = (
                   <>
@@ -255,14 +255,14 @@ export function MessageBubble({
                   className="font-cakemono text-[11px] font-light uppercase tracking-[0.18em] text-agent"
                   data-testid="diff-header"
                 >
-                  {t("claude.diffHeader", "// SHOWING DIFF")}
+                  {t("phaseC.diffHeader", "// SHOWING DIFF")}
                 </div>
                 <div
                   className="font-mono text-[11px] text-text-3"
                   style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
                   data-testid="diff-provenance"
                 >
-                  {t("claude.diffProvenance", "CLAUDE → {operator} · {ago}")
+                  {t("phaseC.diffProvenance", "PHASE C → {operator} · {ago}")
                     .replace("{operator}", operator)
                     .replace("{ago}", editedAgo ?? "")}
                 </div>
@@ -318,7 +318,7 @@ export function MessageBubble({
           {isAi ? (
             <span className="inline-flex items-center gap-1 text-agent-text-2">
               <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={1.5} />
-              {t("messages.sentByClaude", "Claude")}
+              {t("messages.sentByPhaseC", "Phase C")}
             </span>
           ) : (
             <span className="text-text-3">{senderName}</span>
@@ -333,7 +333,7 @@ export function MessageBubble({
             <>
               <span aria-hidden>·</span>
               <span className="text-text-3">
-                {t("claude.edited", "EDITED {ago}").replace(
+                {t("phaseC.edited", "EDITED {ago}").replace(
                   "{ago}",
                   editedAgo,
                 )}
@@ -345,7 +345,7 @@ export function MessageBubble({
               type="button"
               onClick={() => setDiffOpen((o) => !o)}
               className={cn(
-                "ml-1 inline-flex items-center gap-1 rounded-[2px] border px-[5px] py-[1px] font-mono text-[10px] uppercase tracking-[0.14em] transition-colors",
+                "ml-1 inline-flex items-center gap-1 rounded-[2px] border px-[5px] py-[1px] font-mono text-[11px] uppercase tracking-[0.14em] transition-colors",
                 diffOpen
                   ? "border-line-hi text-text"
                   : "border-agent-border-hi text-agent-hi",
@@ -359,8 +359,8 @@ export function MessageBubble({
                 strokeWidth={1.5}
               />
               {diffOpen
-                ? t("claude.hideDiff", "HIDE DIFF")
-                : t("claude.showDiff", "DIFF")}
+                ? t("phaseC.hideDiff", "HIDE DIFF")
+                : t("phaseC.showDiff", "DIFF")}
             </button>
           )}
           {attachments && attachments.length > 0 && (

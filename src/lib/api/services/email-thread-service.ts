@@ -27,11 +27,11 @@ import {
   type EmailThread,
   type EmailThreadCategory,
   type EmailThreadLabel,
-  type InboxRail,
   type InboxScope,
   type ListInboxThreadsParams,
   type ListInboxThreadsResult,
 } from "@/lib/types/email-thread";
+import { applyRailPredicate } from "@/lib/inbox/rail-predicates";
 import {
   derivePhaseC,
   type PhaseCDraftRow,
@@ -50,6 +50,7 @@ import {
 } from "./thread-classifier-service";
 import {
   isCommonEmailDomain,
+  extractContactFormSubmissionPreviewText,
   extractEmailAddress,
   stripQuotedContent,
   resolveEffectiveSenderEmail,
@@ -115,6 +116,19 @@ function setCachedSenderName(key: string, name: string) {
     name,
     expiresAt: Date.now() + SENDER_NAME_CACHE_TTL_MS,
   });
+}
+
+function snippetFromMessage(
+  snippet: string | null | undefined,
+  bodyText: string | null | undefined,
+  subject: string | null | undefined = ""
+): string {
+  const formSnippet = extractContactFormSubmissionPreviewText(
+    subject ?? "",
+    bodyText ?? snippet ?? ""
+  );
+  if (formSnippet) return formSnippet.slice(0, 400);
+  return ((snippet ?? "").trim() || (bodyText ?? "").trim()).slice(0, 400);
 }
 
 /**
@@ -498,10 +512,150 @@ async function enrichWithNextCommitmentId(
   });
 }
 
+export function shouldRepairLatestSnippetFromActivities(
+  thread: Pick<EmailThread, "latestSnippet" | "latestDirection">
+): boolean {
+  return !thread.latestSnippet?.trim() || thread.latestDirection !== null;
+}
+
+async function enrichWithActivitySnippets(
+  threads: EmailThread[]
+): Promise<EmailThread[]> {
+  const candidates = threads.filter(shouldRepairLatestSnippetFromActivities);
+  if (candidates.length === 0) return threads;
+
+  const supabase = requireSupabase();
+  const companyId = threads[0].companyId;
+  const providerThreadIds = Array.from(
+    new Set(candidates.map((t) => t.providerThreadId).filter(Boolean))
+  );
+  const connectionIds = Array.from(
+    new Set(candidates.map((t) => t.connectionId).filter(Boolean))
+  );
+  if (providerThreadIds.length === 0) return threads;
+
+  const [activityRes, connectionRes] = await Promise.all([
+    supabase
+      .from("activities")
+      .select("email_thread_id, from_email, subject, body_text, content, created_at")
+      .eq("company_id", companyId)
+      .eq("type", "email")
+      .in("email_thread_id", providerThreadIds)
+      .order("created_at", { ascending: false }),
+    connectionIds.length > 0
+      ? supabase
+          .from("email_connections")
+          .select("id, email")
+          .in("id", connectionIds)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+
+  if (activityRes.error || connectionRes.error) {
+    console.error(
+      "[email-thread-service] enrichWithActivitySnippets query failed:",
+      activityRes.error?.message ?? connectionRes.error?.message,
+    );
+    return threads;
+  }
+
+  const connectionEmailById = new Map<string, string>();
+  for (const row of (connectionRes.data ?? []) as Array<{
+    id: string;
+    email: string | null;
+  }>) {
+    const email = row.email?.toLowerCase().trim();
+    if (email) connectionEmailById.set(row.id, email);
+  }
+
+  const latestActivityByThread = new Map<
+    string,
+    { snippet: string; fromEmail: string | null; createdAt: Date | null }
+  >();
+  for (const row of (activityRes.data ?? []) as Array<{
+    email_thread_id: string | null;
+    from_email: string | null;
+    subject: string | null;
+    body_text: string | null;
+    content: string | null;
+    created_at: string | null;
+  }>) {
+    const threadId = row.email_thread_id;
+    if (!threadId || latestActivityByThread.has(threadId)) continue;
+    const snippet = snippetFromMessage(row.content, row.body_text, row.subject);
+    if (!snippet) continue;
+    latestActivityByThread.set(threadId, {
+      snippet,
+      fromEmail: row.from_email?.toLowerCase().trim() || null,
+      createdAt: row.created_at ? new Date(row.created_at) : null,
+    });
+  }
+
+  return threads.map((t) => {
+    const activity = latestActivityByThread.get(t.providerThreadId);
+    if (!activity) return t;
+
+    const cachedSnippetIsBlank = !t.latestSnippet?.trim();
+    const connectionEmail = connectionEmailById.get(t.connectionId) ?? null;
+    const latestActivityIsFromConnection =
+      !!connectionEmail && activity.fromEmail === connectionEmail;
+    const activityMatchesThreadLast =
+      activity.createdAt === null ||
+      activity.createdAt.getTime() >= t.lastMessageAt.getTime() - 300_000;
+
+    if (
+      !cachedSnippetIsBlank &&
+      (!latestActivityIsFromConnection || !activityMatchesThreadLast)
+    ) {
+      return t;
+    }
+
+    if (t.latestSnippet === activity.snippet) return t;
+    return { ...t, latestSnippet: activity.snippet };
+  });
+}
+
 // ─── List query ──────────────────────────────────────────────────────────────
 
 const LIST_LIMIT_DEFAULT = 50;
 const LIST_LIMIT_MAX = 200;
+
+/**
+ * Build the PostgREST `.or(...)` expression for the inbox header's in-place
+ * search input. The search ILIKEs across subject + latest snippet + sender
+ * name + sender email so the operator's "acme" hits any of those signals.
+ *
+ * Two layers of escaping have to compose correctly to keep arbitrary user
+ * input safe:
+ *
+ *   1. SQL ILIKE pattern — `\` is the escape, `%` and `_` are wildcards.
+ *      The user's literal `%` must become `\%`, etc., so we don't promote
+ *      it to a wildcard.
+ *   2. PostgREST quoted value — `,`, `.`, `(`, `)` are reserved in `.or()`
+ *      expressions, so the value is double-quoted. Inside the quotes, `\`
+ *      and `"` need backslash-escaping.
+ *
+ * Without this, a query like `a, b` truncates the filter list (the comma
+ * becomes a separator) and a query like `100%` matches every row (the `%`
+ * becomes a wildcard).
+ *
+ * Exported for unit testing.
+ */
+export function buildSearchOrExpression(raw: string): string {
+  const ilikePattern = raw
+    .replace(/\\/g, "\\\\")
+    .replace(/%/g, "\\%")
+    .replace(/_/g, "\\_");
+  const quoted = ilikePattern
+    .replace(/\\/g, "\\\\")
+    .replace(/"/g, '\\"');
+  const value = `"%${quoted}%"`;
+  return [
+    `subject.ilike.${value}`,
+    `latest_snippet.ilike.${value}`,
+    `latest_sender_name.ilike.${value}`,
+    `latest_sender_email.ilike.${value}`,
+  ].join(",");
+}
 
 async function listThreads(
   companyId: string,
@@ -524,64 +678,28 @@ async function listThreads(
     query = query.in("connection_id", userConnectionIds);
   }
 
-  // Rail filter. Commitments rail sorts/paginates on next_commitment_due_at
-  // instead of last_message_at, because the user cares about urgency
-  // (earliest due first) rather than recency of correspondence.
-  const isCommitmentsRail = params.filter === "commitments";
-
-  switch (params.filter) {
-    case "needs_reply":
-      query = query
-        .is("archived_at", null)
-        .or("snoozed_until.is.null,snoozed_until.lt." + new Date().toISOString())
-        .contains("labels", ["AWAITING_REPLY"]);
-      break;
-    case "everything":
-      query = query
-        .is("archived_at", null)
-        .or("snoozed_until.is.null,snoozed_until.lt." + new Date().toISOString());
-      break;
-    case "scheduled":
-      query = query
-        .is("archived_at", null)
-        .not("snoozed_until", "is", null)
-        .gt("snoozed_until", new Date().toISOString());
-      break;
-    case "done":
-      query = query.not("archived_at", "is", null);
-      break;
-    case "commitments":
-      query = query
-        .eq("has_unresolved_commitments", true)
-        .is("archived_at", null);
-      break;
-  }
+  // Rail filter. The three operator-facing audience rails
+  // (CLIENTS/EVERYTHING_ELSE/ALL) plus utility ARCHIVED/SNOOZED share one
+  // predicate module so the SQL, the in-memory classification test, and any
+  // downstream consumer can't drift. `applyRailPredicate` returns the
+  // narrowed builder.
+  query = applyRailPredicate(query, params.filter, new Date().toISOString());
 
   if (params.category) {
     query = query.eq("primary_category", params.category);
   }
 
   if (params.search && params.search.trim().length > 0) {
-    const s = params.search.trim();
-    query = query.or(
-      `subject.ilike.%${s}%,latest_snippet.ilike.%${s}%,latest_sender_name.ilike.%${s}%,latest_sender_email.ilike.%${s}%`
-    );
+    query = query.or(buildSearchOrExpression(params.search.trim()));
   }
 
-  // Commitments rail sorts ASC on next_commitment_due_at (soonest due first).
-  // All other rails sort DESC on last_message_at (most recent first).
-  if (isCommitmentsRail) {
-    query = query
-      .order("next_commitment_due_at", { ascending: true })
-      .limit(limit + 1);
-    if (params.cursor) {
-      query = query.gt("next_commitment_due_at", params.cursor);
-    }
-  } else {
-    query = query.order("last_message_at", { ascending: false }).limit(limit + 1);
-    if (params.cursor) {
-      query = query.lt("last_message_at", params.cursor);
-    }
+  // Every rail sorts DESC on last_message_at (most recent first). The
+  // operator-facing urgency surface for commitments lives on the TodayBar
+  // at the top of the list — it pulls `next_commitment_due_at` directly,
+  // so the conversation list itself doesn't need to re-sort around it.
+  query = query.order("last_message_at", { ascending: false }).limit(limit + 1);
+  if (params.cursor) {
+    query = query.lt("last_message_at", params.cursor);
   }
 
   const { data, error } = await query;
@@ -590,22 +708,16 @@ async function listThreads(
   const rows = (data ?? []).map(mapEmailThreadFromDb);
   const hasMore = rows.length > limit;
   const page = hasMore ? rows.slice(0, limit) : rows;
-  // Cursor matches the sort column. Commitments rail paginates on due
-  // date ASC; every other rail uses lastMessageAt DESC. A mismatch here
-  // would silently break infinite scroll (client would re-request the
-  // same page) so keep them coupled.
   const nextCursor = hasMore
-    ? isCommitmentsRail
-      ? page[page.length - 1].nextCommitmentDueAt?.toISOString() ?? null
-      : page[page.length - 1].lastMessageAt.toISOString()
+    ? page[page.length - 1].lastMessageAt.toISOString()
     : null;
 
-  // Overlay derived fields on the page (two batched queries — one for
-  // ai_draft_history, one for agent_memories). Both run after the cursor
-  // is computed so a join hiccup never affects pagination semantics.
-  // Sequenced — phaseC pass first then commitment-id — so each
-  // enricher operates on the canonical EmailThread shape.
-  const withPhaseC = await enrichWithPhaseC(page);
+  // Overlay derived fields on the page after the cursor is computed so a
+  // join hiccup never affects pagination semantics. The snippet pass repairs
+  // legacy blank/stale cached snippets from activities, then Phase C and
+  // commitment enrichers add their per-page derived state.
+  const withActivitySnippets = await enrichWithActivitySnippets(page);
+  const withPhaseC = await enrichWithPhaseC(withActivitySnippets);
   const enriched = await enrichWithNextCommitmentId(withPhaseC);
 
   return { threads: enriched, nextCursor };
@@ -685,9 +797,17 @@ export const EmailThreadService = {
       supabase,
       companyId,
       senderEmail,
-      resolved.source === "forwarded" ? "" : email.fromName
+      resolved.source === "contact_form"
+        ? resolved.name ?? ""
+        : resolved.source === "forwarded"
+          ? ""
+          : email.fromName
     );
-    const snippet = (email.snippet || email.bodyText || "").slice(0, 400);
+    const snippet = snippetFromMessage(
+      email.snippet,
+      email.bodyText,
+      email.subject
+    );
 
     if (existing) {
       // Merge participants (union)
@@ -698,6 +818,7 @@ export const EmailThreadService = {
         const extracted = extractEmailAddress(addr).toLowerCase();
         if (extracted) existingParticipants.add(extracted);
       }
+      if (senderEmail) existingParticipants.add(senderEmail);
 
       const emailDate = email.date instanceof Date ? email.date : new Date(email.date);
       const existingLastMsg = parseDateRequired(existing.last_message_at);
@@ -715,17 +836,17 @@ export const EmailThreadService = {
       if (isNewer) {
         update.last_message_at = emailDate.toISOString();
         update.latest_direction = direction;
+        update.latest_snippet = snippet;
         // Self-forward guard: when the resolved sender is the operator's
         // own mailbox (e.g. Gmail surfaced an outbound reply or a draft
         // autosave under the INBOX label, or a forward whose upstream
-        // could not be parsed), skip the latest_sender_* / latest_snippet
-        // writes. Keeping the prior values means the thread row continues
-        // to point at the real customer's identity even though a junk
-        // "from-self" message just came in.
+        // could not be parsed), skip the latest_sender_* writes. Keeping
+        // the prior values means the thread row continues to point at the
+        // real customer's identity even though a junk "from-self" message
+        // just came in.
         if (!senderIsSelf) {
           update.latest_sender_email = senderEmail;
           update.latest_sender_name = senderName;
-          update.latest_snippet = snippet;
         }
         if (email.subject && (existing.subject as string).length === 0) {
           update.subject = email.subject;
@@ -799,6 +920,7 @@ export const EmailThreadService = {
       const extracted = extractEmailAddress(addr).toLowerCase();
       if (extracted) participants.add(extracted);
     }
+    if (senderEmail) participants.add(senderEmail);
 
     // Auto-link to a client on insert if caller didn't pass one. Same
     // directory lookup the update path uses — keeps the two branches
@@ -894,15 +1016,21 @@ export const EmailThreadService = {
 
     const messages: ClassifyMessage[] = ((msgs ?? []) as Array<Record<string, unknown>>)
       .reverse()
-      .map((row) => ({
-        from: (row.from_email as string) || "",
-        fromName: "",
-        to: (row.to_emails as string[]) ?? [],
-        cc: (row.cc_emails as string[]) ?? [],
-        direction: (row.direction as "inbound" | "outbound") ?? "inbound",
-        date: parseDateRequired(row.created_at).toISOString(),
-        bodyText: stripQuotedContent((row.body_text as string) || (row.content as string) || ""),
-      }));
+      .map((row) => {
+        const messageSubject =
+          ((row.subject as string | null) ?? threadRow.subject ?? "").trim();
+        const rawBody =
+          (row.body_text as string) || (row.content as string) || "";
+        return {
+          from: (row.from_email as string) || "",
+          fromName: "",
+          to: (row.to_emails as string[]) ?? [],
+          cc: (row.cc_emails as string[]) ?? [],
+          direction: (row.direction as "inbound" | "outbound") ?? "inbound",
+          date: parseDateRequired(row.created_at).toISOString(),
+          bodyText: stripQuotedContent(rawBody, messageSubject),
+        };
+      });
 
     const senderEmail = threadRow.latestSenderEmail;
     const senderDomain = domainOf(senderEmail);
@@ -980,8 +1108,23 @@ export const EmailThreadService = {
     // rejected the UPDATE silently, leaving the thread frozen at OTHER.
     if (threadRow.opportunityId && !threadRow.categoryManuallySet) {
       const opp = await loadOpportunityForCustomerRule(threadRow.opportunityId);
+      const messagePreview =
+        [...messages]
+          .reverse()
+          .map((message) =>
+            extractContactFormSubmissionPreviewText(
+              threadRow.subject,
+              message.bodyText
+            )
+          )
+          .find((preview): preview is string => Boolean(preview)) ??
+        extractContactFormSubmissionPreviewText(
+          threadRow.subject,
+          threadRow.latestSnippet ?? ""
+        );
       const customer = tryDeterministicCustomer({
         subject: threadRow.subject,
+        messagePreview,
         opportunityId: threadRow.opportunityId,
         opportunityStage: opp?.stage ?? null,
         opportunityArchivedAt: opp?.archivedAt ?? null,
@@ -1706,6 +1849,73 @@ export const EmailThreadService = {
       .eq("id", threadId);
   },
 
+  /**
+   * Operator override: clear the `AWAITING_REPLY` label on a thread, signalling
+   * "the classifier said this needs a reply, but it doesn't." Drives the
+   * hover-X affordance on the YOURS state-tag — collapses the thread from
+   * YOURS → FYI on the next list refetch (computeStateTag gates YOURS on
+   * this label).
+   *
+   * Idempotent: no-op when the label is already absent. Does NOT touch the
+   * provider — labels are an OPS-side concept on `email_threads.labels`.
+   * Returns the resulting label array so the caller can update local cache
+   * without a refetch round-trip.
+   */
+  async dismissAwaitingReply(
+    threadId: string,
+    companyId: string
+  ): Promise<EmailThreadLabel[]> {
+    const supabase = requireSupabase();
+    const { data: row } = await supabase
+      .from("email_threads")
+      .select("id, labels")
+      .eq("id", threadId)
+      .eq("company_id", companyId)
+      .maybeSingle();
+
+    if (!row) return [];
+
+    const current = ((row.labels as EmailThreadLabel[] | null) ?? []) as EmailThreadLabel[];
+    if (!current.includes("AWAITING_REPLY")) return current;
+
+    const next = current.filter((l) => l !== "AWAITING_REPLY");
+    await supabase
+      .from("email_threads")
+      .update({ labels: next })
+      .eq("id", threadId);
+    return next;
+  },
+
+  /**
+   * Counterpart to `dismissAwaitingReply` — re-applies `AWAITING_REPLY` to
+   * the thread's label array. Used as the undo path for the dismiss action.
+   * Idempotent: no-op when the label is already present.
+   */
+  async restoreAwaitingReply(
+    threadId: string,
+    companyId: string
+  ): Promise<EmailThreadLabel[]> {
+    const supabase = requireSupabase();
+    const { data: row } = await supabase
+      .from("email_threads")
+      .select("id, labels")
+      .eq("id", threadId)
+      .eq("company_id", companyId)
+      .maybeSingle();
+
+    if (!row) return [];
+
+    const current = ((row.labels as EmailThreadLabel[] | null) ?? []) as EmailThreadLabel[];
+    if (current.includes("AWAITING_REPLY")) return current;
+
+    const next: EmailThreadLabel[] = [...current, "AWAITING_REPLY"];
+    await supabase
+      .from("email_threads")
+      .update({ labels: next })
+      .eq("id", threadId);
+    return next;
+  },
+
   async setWritebackPreference(
     connectionId: string,
     preference: ArchiveWritebackPreference
@@ -1839,8 +2049,7 @@ export function extractSubjectKeywords(subject: string): string[] {
   return Array.from(new Set(words)).slice(0, 8);
 }
 
-// Suppress unused helper warning — `listThreads` uses scope from params
-export type { InboxRail, InboxScope };
+export type { RailFilter, InboxScope } from "@/lib/types/email-thread";
 
 // ─── Notification hook ──────────────────────────────────────────────────────
 // Fired after classifyAndUpdate. Only notifies on meaningful transitions:

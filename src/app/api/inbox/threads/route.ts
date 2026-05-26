@@ -23,22 +23,19 @@ import { EmailThreadService } from "@/lib/api/services/email-thread-service";
 import {
   EMAIL_THREAD_CATEGORIES,
   type EmailThreadCategory,
-  type InboxRail,
   type InboxScope,
 } from "@/lib/types/email-thread";
+import { parseRailFilter } from "@/lib/inbox/rail-predicates";
 
-const VALID_FILTERS = new Set<InboxRail>([
-  "needs_reply",
-  "everything",
-  "scheduled",
-  "done",
-  "commitments",
-]);
 const CATEGORY_SET = new Set<string>(EMAIL_THREAD_CATEGORIES);
 
-function parseFilter(raw: string | null): InboxRail {
-  if (raw && VALID_FILTERS.has(raw as InboxRail)) return raw as InboxRail;
-  return "everything";
+// `parseRailFilter` accepts the canonical audience rails (CLIENTS /
+// EVERYTHING_ELSE / ALL) plus utility ARCHIVED / SNOOZED, and degrades legacy
+// reply-state bookmarks into broad list views. Unknown / missing API values
+// fall through to ALL so direct endpoint calls never land on a narrow rail by
+// accident; the UI applies the starred default before calling this route.
+function parseFilter(raw: string | null) {
+  return parseRailFilter(raw, "ALL");
 }
 
 function parseCategory(raw: string | null): EmailThreadCategory | undefined {

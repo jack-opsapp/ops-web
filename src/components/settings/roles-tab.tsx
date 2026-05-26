@@ -1526,7 +1526,7 @@ function RoleEditor({
           <CardContent>
             {/* Add member dropdown */}
             {showAddMember && (
-              <div className="mb-1.5 p-1 bg-[rgba(255,255,255,0.02)] border border-border rounded animate-scale-in">
+              <div className="mb-1.5 p-1 bg-[rgba(255,255,255,0.02)] border border-border rounded motion-safe:animate-anchored-in">
                 {unassignedMembers.length === 0 ? (
                   <p className="font-mono text-[11px] text-text-mute px-1 py-[6px]">
                     {t("roles.allMembersAssigned")}
@@ -2205,7 +2205,7 @@ export function RolesTab() {
 
           {/* Create form */}
           {showCreate && (
-            <div className="flex items-end gap-1 p-1.5 mb-1.5 bg-[rgba(255,255,255,0.02)] border border-border rounded animate-scale-in">
+            <div className="flex items-end gap-1 p-1.5 mb-1.5 bg-[rgba(255,255,255,0.02)] border border-border rounded motion-safe:animate-anchored-in">
               <Input
                 label={t("roles.nameLabel")}
                 value={newName}

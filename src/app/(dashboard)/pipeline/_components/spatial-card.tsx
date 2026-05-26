@@ -1,12 +1,12 @@
 "use client";
 
 import { memo, useCallback } from "react";
-import { useReducedMotion } from "framer-motion";
 import { useDraggable } from "@dnd-kit/core";
 import { cn } from "@/lib/utils/cn";
 import type { Opportunity } from "@/lib/types/pipeline";
 import { formatCurrency } from "@/lib/types/pipeline";
 import { CARD_WIDTH, CARD_HEIGHT, CARD_PILL_HEIGHT } from "./spatial-canvas-store";
+import { PipelineCardContent } from "./pipeline-card-content";
 
 // ── Types ──
 
@@ -60,21 +60,20 @@ export const SpatialCard = memo(function SpatialCard({
   onHoverEnd,
   onSelect,
   onContextMenu,
-  onAdvance,
-  onRetreat,
-  onLogCall,
-  onLogText,
-  onAddNote,
-  onArchive,
-  onDiscard,
-  onMarkWon,
-  onMarkLost,
-  onOpenDetail,
-  onAssign,
-  onScheduleFollowUp,
+  onAdvance: _onAdvance,
+  onRetreat: _onRetreat,
+  onLogCall: _onLogCall,
+  onLogText: _onLogText,
+  onAddNote: _onAddNote,
+  onArchive: _onArchive,
+  onDiscard: _onDiscard,
+  onMarkWon: _onMarkWon,
+  onMarkLost: _onMarkLost,
+  onOpenDetail: _onOpenDetail,
+  onAssign: _onAssign,
+  onScheduleFollowUp: _onScheduleFollowUp,
   expandedContent,
 }: SpatialCardProps) {
-  const reduced = useReducedMotion();
   const {
     attributes,
     listeners,
@@ -112,6 +111,7 @@ export const SpatialCard = memo(function SpatialCard({
     return (
       <div
         ref={setNodeRef}
+        data-opportunity-card-id={opportunity.id}
         {...(draggable ? listeners : {})}
         {...(draggable ? attributes : {})}
         className="relative cursor-pointer"
@@ -138,15 +138,11 @@ export const SpatialCard = memo(function SpatialCard({
 
   // ── Normal rendering ──
   const effectiveOpacity = isHovered || isDragging || isExpanded ? 1.0 : stalenessOpacity;
-  const cardEdgeBorder = isSelected
-    ? `2px solid ${stageColor}`
-    : isHovered || isExpanded
-      ? `1px solid ${stageColor}50`
-      : "1px solid rgba(255,255,255,0.08)";
 
   return (
     <div
       ref={setNodeRef}
+      data-opportunity-card-id={opportunity.id}
       {...(draggable ? listeners : {})}
       {...(draggable ? attributes : {})}
       role="button"
@@ -176,37 +172,16 @@ export const SpatialCard = memo(function SpatialCard({
       onBlur={onHoverEnd}
     >
       {/* Card surface */}
-      <div
-        className={cn(
-          "w-full rounded-[4px]",
-          !reduced && "transition-[border-color,box-shadow] duration-150"
-        )}
-        style={{
-          background: "rgba(13,13,13,0.6)",
-          backdropFilter: "blur(28px) saturate(1.3)",
-          WebkitBackdropFilter: "blur(28px) saturate(1.3)",
-          borderTop: cardEdgeBorder,
-          borderRight: cardEdgeBorder,
-          borderBottom: cardEdgeBorder,
-          borderLeft: `3px solid ${stageColor}`,
-          boxShadow: isSelected
-            ? `0 0 12px ${stageColor}40`
-            : undefined,
-          padding: "8px 10px",
-        }}
+      <PipelineCardContent
+        opportunity={opportunity}
+        clientName={clientName}
+        stageColor={stageColor}
+        stalenessOpacity={stalenessOpacity}
+        density="compact"
+        isSelected={isSelected}
+        isHovered={isHovered}
+        isExpanded={isExpanded}
       >
-        {/* Collapsed content — name + value */}
-        <div className="flex items-center justify-between gap-2">
-          <span className="font-mohave text-body-sm font-medium text-text truncate">
-            {clientName}
-          </span>
-          <span className="font-mohave text-body-sm text-text-2 whitespace-nowrap">
-            {opportunity.estimatedValue
-              ? formatCurrency(opportunity.estimatedValue)
-              : "$--"}
-          </span>
-        </div>
-
         {/* Expanded content — CSS grid height transition (no FM measurement issues) */}
         {expandedContent && (
           <div
@@ -222,7 +197,7 @@ export const SpatialCard = memo(function SpatialCard({
             </div>
           </div>
         )}
-      </div>
+      </PipelineCardContent>
     </div>
   );
 });

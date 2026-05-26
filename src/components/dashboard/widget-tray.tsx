@@ -78,7 +78,7 @@ function DraggableSpacerButton({ onAdd }: { onAdd: () => void }) {
       {...attributes}
       {...listeners}
       className={cn(
-        "flex items-center gap-2 px-3 py-[6px] rounded-[4px]",
+        "flex min-w-0 items-center gap-2 px-3 py-[6px] rounded-[4px]",
         "border border-dashed border-[rgba(255,255,255,0.15)]",
         "hover:border-[rgba(255,255,255,0.25)]",
         "bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.06)]",
@@ -87,7 +87,7 @@ function DraggableSpacerButton({ onAdd }: { onAdd: () => void }) {
       )}
     >
       <Maximize2 className="w-[14px] h-[14px] text-text-mute" />
-      <span className="font-mohave text-body-sm text-text-2">{t("tray.addSpacer")}</span>
+      <span className="truncate font-mohave text-body-sm text-text-2">{t("tray.addSpacer")}</span>
       <button
         onClick={(e) => {
           e.stopPropagation();
@@ -270,9 +270,8 @@ export function WidgetTray({ open, onClose, onDone, onCancel }: WidgetTrayProps)
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 12 }}
             transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-            className="fixed right-0 z-40 flex items-center justify-between px-3 py-[6px] pointer-events-auto"
+            className="fixed right-0 left-[72px] max-[640px]:left-0 z-40 flex items-center justify-between gap-2 px-3 py-[6px] pointer-events-auto max-[640px]:flex-wrap max-[640px]:items-stretch max-[640px]:bg-[var(--surface-glass-dense)] max-[640px]:backdrop-blur-[28px] max-[640px]:max-h-[156px] max-[640px]:overflow-y-auto scrollbar-hide"
             style={{
-              left: sidebarWidth,
               bottom: toolbarBottom,
               transition: "left 0.2s ease-out",
             }}
@@ -282,13 +281,13 @@ export function WidgetTray({ open, onClose, onDone, onCancel }: WidgetTrayProps)
 
             {/* Widget gap selector */}
             <div
-              className="flex items-center gap-[6px] ml-auto mr-3"
+              className="flex min-w-0 items-center gap-[6px] ml-auto mr-3 max-[640px]:order-3 max-[640px]:ml-0 max-[640px]:mr-0 max-[640px]:w-full"
               onPointerDown={(e) => e.stopPropagation()}
             >
               <span className="font-mono text-micro text-text-mute uppercase tracking-wider select-none">
                 {t("tray.gap")}
               </span>
-              <div className="flex items-center rounded-[4px] border border-[rgba(255,255,255,0.1)] bg-[rgba(10,10,10,0.5)] backdrop-blur-sm overflow-hidden">
+              <div className="flex min-w-0 flex-1 items-center rounded-[4px] border border-[rgba(255,255,255,0.1)] bg-[rgba(10,10,10,0.5)] backdrop-blur-sm overflow-hidden">
                 {(["none", "tight", "normal", "relaxed"] as WidgetGapId[]).map((gapId) => {
                   const isActive = widgetGap === gapId;
                   return (
@@ -296,7 +295,7 @@ export function WidgetTray({ open, onClose, onDone, onCancel }: WidgetTrayProps)
                       key={gapId}
                       onClick={() => setWidgetGap(gapId)}
                       className={cn(
-                        "px-[8px] py-[4px] font-mono text-micro transition-all duration-150 border-r border-[rgba(255,255,255,0.06)] last:border-r-0",
+                        "min-w-0 flex-1 px-[8px] py-[4px] font-mono text-micro transition-all duration-150 border-r border-[rgba(255,255,255,0.06)] last:border-r-0",
                         isActive
                           ? "bg-[rgba(255,255,255,0.08)] text-text"
                           : "text-text-mute hover:text-text-2"
@@ -311,7 +310,7 @@ export function WidgetTray({ open, onClose, onDone, onCancel }: WidgetTrayProps)
             </div>
 
             {/* Done / Cancel */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 max-[640px]:ml-auto">
               <button
                 onClick={onCancel}
                 onPointerDown={(e) => e.stopPropagation()}

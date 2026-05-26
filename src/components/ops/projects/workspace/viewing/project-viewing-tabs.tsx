@@ -52,6 +52,7 @@ export function ProjectViewingTabs({
       data-testid="project-viewing-tabs"
       className={cn(
         "flex items-stretch shrink-0",
+        "overflow-x-auto overscroll-x-contain",
         "border-b border-glass-border bg-[var(--scrim-strip-bg)]",
         className,
       )}
@@ -72,6 +73,7 @@ export function ProjectViewingTabs({
             }}
             className={cn(
               "relative font-mono uppercase tracking-[0.16em] text-[10.5px] leading-[1]",
+              "shrink-0",
               "px-[14px] py-[11px]",
               "transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]",
               "focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black",

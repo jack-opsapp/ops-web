@@ -24,6 +24,7 @@ interface PipelineCardActionsProps {
   opportunityId: string;
   stage: OpportunityStage;
   canManage: boolean;
+  stageActions?: React.ReactNode;
   onLogCall: () => void;
   onLogText: () => void;
   onAddNote: (note: string) => void;
@@ -40,6 +41,7 @@ export function PipelineCardActions({
   opportunityId: _opportunityId,
   stage,
   canManage,
+  stageActions,
   onLogCall,
   onLogText,
   onAddNote,
@@ -115,43 +117,55 @@ export function PipelineCardActions({
   return (
     <div onClick={stop} onMouseDown={stop}>
       {/* Compact icon action row */}
-      <div className="flex items-center gap-[2px]">
-        <ActionIcon
-          icon={<Phone className="w-[12px] h-[12px]" />}
-          label={t("actions.logCall")}
-          onClick={(e) => { e.stopPropagation(); if (canManage) onLogCall(); }}
-          disabled={!canManage}
-        />
-        <ActionIcon
-          icon={<MessageSquare className="w-[12px] h-[12px]" />}
-          label={t("actions.logText")}
-          onClick={(e) => { e.stopPropagation(); if (canManage) onLogText(); }}
-          disabled={!canManage}
-        />
-        <ActionIcon
-          icon={<ExternalLink className="w-[12px] h-[12px]" />}
-          label={t("actions.openDetail")}
-          onClick={(e) => { e.stopPropagation(); onOpenDetail(); }}
-        />
-        <ActionIcon
-          icon={<StickyNote className="w-[12px] h-[12px]" />}
-          label={t("actions.addNote")}
-          onClick={(e) => {
-            e.stopPropagation();
-            if (canManage) setShowNoteInput((prev) => !prev);
-          }}
-          disabled={!canManage}
-          isActive={showNoteInput}
-        />
-
-        {/* Spacer pushes More to the right */}
-        <div className="flex-1" />
+      <div
+        data-testid="pipeline-card-action-row"
+        className="grid min-w-0 grid-cols-[1fr_auto_1fr] items-center gap-4"
+      >
+        <div className="flex min-w-0 items-center gap-[6px]">
+          <ActionIcon
+            icon={<Phone className="w-[12px] h-[12px]" />}
+            label={t("actions.logCall", "Log call")}
+            onClick={(e) => { e.stopPropagation(); if (canManage) onLogCall(); }}
+            disabled={!canManage}
+          />
+          <ActionIcon
+            icon={<MessageSquare className="w-[12px] h-[12px]" />}
+            label={t("actions.logText", "Log text")}
+            onClick={(e) => { e.stopPropagation(); if (canManage) onLogText(); }}
+            disabled={!canManage}
+          />
+          <ActionIcon
+            icon={<ExternalLink className="w-[12px] h-[12px]" />}
+            label={t("actions.openDetail", "Details")}
+            onClick={(e) => { e.stopPropagation(); onOpenDetail(); }}
+          />
+          <ActionIcon
+            icon={<StickyNote className="w-[12px] h-[12px]" />}
+            label={t("actions.addNote", "Add note")}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (canManage) setShowNoteInput((prev) => !prev);
+            }}
+            disabled={!canManage}
+            isActive={showNoteInput}
+          />
+        </div>
+        {stageActions ? (
+          <div
+            data-testid="pipeline-card-stage-actions"
+            className="flex min-w-0 items-center justify-center gap-[6px]"
+          >
+            {stageActions}
+          </div>
+        ) : (
+          <div />
+        )}
 
         {/* More menu */}
-        <div ref={moreContainerRef} className="relative">
+        <div ref={moreContainerRef} className="relative flex justify-end">
           <ActionIcon
             icon={<MoreHorizontal className="w-[12px] h-[12px]" />}
-            label={t("actions.more")}
+            label={t("actions.more", "More")}
             onClick={(e) => { e.stopPropagation(); if (canManage) setShowMore((prev) => !prev); }}
             disabled={!canManage}
             isActive={showMore}
@@ -164,12 +178,12 @@ export function PipelineCardActions({
             >
               <DropdownItem
                 icon={<Calendar size={13} />}
-                label={t("actions.scheduleFollowUp")}
+                label={t("actions.scheduleFollowUp", "Schedule follow-up")}
                 onClick={(e) => handleDropdownAction(e, onScheduleFollowUp)}
               />
               <DropdownItem
                 icon={<UserPlus size={13} />}
-                label={t("actions.assignTo")}
+                label={t("actions.assignTo", "Assign to")}
                 onClick={(e) => handleDropdownAction(e, onAssign)}
               />
               {isActiveStage(stage) && (
@@ -177,17 +191,17 @@ export function PipelineCardActions({
                   <div className="my-[2px] border-t border-[rgba(255,255,255,0.06)]" />
                   <DropdownItem
                     icon={<Trophy size={13} />}
-                    label={t("actions.markWon")}
+                    label={t("actions.markWon", "Mark won")}
                     onClick={(e) => handleDropdownAction(e, onMarkWon)}
                   />
                   <DropdownItem
                     icon={<XCircle size={13} />}
-                    label={t("actions.markLost")}
+                    label={t("actions.markLost", "Mark lost")}
                     onClick={(e) => handleDropdownAction(e, onMarkLost)}
                   />
                   <DropdownItem
                     icon={<Ban size={13} />}
-                    label={t("actions.discard")}
+                    label={t("actions.discard", "Discard")}
                     onClick={(e) => handleDropdownAction(e, onDiscard)}
                   />
                 </>
@@ -195,7 +209,7 @@ export function PipelineCardActions({
               <div className="my-[2px] border-t border-[rgba(255,255,255,0.06)]" />
               <DropdownItem
                 icon={<Archive size={13} />}
-                label={t("actions.archive")}
+                label={t("actions.archive", "Archive")}
                 onClick={(e) => handleDropdownAction(e, onArchive)}
               />
             </PortaledDropdown>,
@@ -215,12 +229,12 @@ export function PipelineCardActions({
             onChange={(e) => setNoteValue(e.target.value)}
             onClick={stop}
             onKeyDown={handleNoteKeyDown}
-            placeholder={t("actions.notePlaceholder")}
+            placeholder={t("actions.notePlaceholder", "Type a note...")}
             className="w-full pl-[6px] pr-[26px] py-[4px] rounded-panel bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] font-mohave text-caption-sm text-text placeholder:text-text-3 focus:border-[rgba(255,255,255,0.2)] focus:outline-none"
           />
           <button
             type="button"
-            aria-label={t("spatial.confirm")}
+            aria-label={t("spatial.confirm", "Confirm")}
             onClick={(e) => {
               e.stopPropagation();
               if (!noteValue.trim()) return;

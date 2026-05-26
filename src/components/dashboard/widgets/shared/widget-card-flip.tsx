@@ -43,6 +43,7 @@ export function WidgetCardFlip({
       <div className="relative h-full w-full">
         <div
           className="absolute inset-0"
+          aria-hidden={isFlipped}
           style={{
             opacity: isFlipped ? 0 : 1,
             pointerEvents: isFlipped ? "none" : "auto",
@@ -53,6 +54,7 @@ export function WidgetCardFlip({
         </div>
         <div
           className="absolute inset-0"
+          aria-hidden={!isFlipped}
           style={{
             opacity: isFlipped ? 1 : 0,
             pointerEvents: isFlipped ? "auto" : "none",
@@ -79,6 +81,7 @@ export function WidgetCardFlip({
         {/* Front face */}
         <div
           className="absolute inset-0"
+          aria-hidden={isFlipped}
           style={{ backfaceVisibility: "hidden" }}
         >
           {front}
@@ -86,6 +89,7 @@ export function WidgetCardFlip({
         {/* Back face */}
         <div
           className="absolute inset-0"
+          aria-hidden={!isFlipped}
           style={{
             backfaceVisibility: "hidden",
             transform: "rotateY(180deg)",

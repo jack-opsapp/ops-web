@@ -721,7 +721,7 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
                     title: getOpportunityPrimary(opp, t("pipelineList.unknown")),
                     color: OPPORTUNITY_STAGE_COLORS[opp.stage],
                     event: e,
-                    fallbackPath: `/pipeline/${opp.id}`,
+                    fallbackPath: "/pipeline",
                   })}
                 />
               ))}

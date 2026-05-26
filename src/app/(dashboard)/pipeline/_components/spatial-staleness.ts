@@ -3,7 +3,6 @@ import {
   getDaysInStage,
   isTerminalStage,
   PIPELINE_STAGES_DEFAULT,
-  OpportunityStage,
 } from "@/lib/types/pipeline";
 
 /**

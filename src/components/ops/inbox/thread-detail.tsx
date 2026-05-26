@@ -2,11 +2,16 @@
 
 import { useEffect, type ReactNode } from "react";
 import { ThreadDetailHeader } from "./thread-detail-header";
+import type { EmailThreadCategory } from "@/lib/types/email-thread";
 import { cn } from "@/lib/utils/cn";
 
 interface ThreadDetailProps {
   subject: string;
-  category?: { label: string; dotClassName: string } | null;
+  /**
+   * Raw classifier category. Forwarded to `<ThreadDetailHeader>` which
+   * renders it through `<CategoryChip>` for canonical tone-per-category.
+   */
+  category?: EmailThreadCategory | null;
   senderName: string;
   messageCount: number;
   otherThreadCount?: number;
@@ -26,6 +31,19 @@ interface ThreadDetailProps {
   /** Inline slot rendered in the detail-header meta strip after the message
    *  count. Forwarded as-is to <ThreadDetailHeader>. */
   threadPickerSlot?: ReactNode;
+  /**
+   * Triage chip rendered in the title row of the detail header (between
+   * subject and the action cluster). Forwarded as-is to
+   * `<ThreadDetailHeader>`. Typically a `<StateTag>` computed from the
+   * thread's labels + direction + phaseC via `computeStateTag`.
+   */
+  triageSlot?: ReactNode;
+  /**
+   * Reserved status affordance mounted below the detail header — typically
+   * the `<FloatingYourTurnBadge>`. It stays in flow so it cannot collide
+   * with commitments, bands, or the message list.
+   */
+  floatingBadgeSlot?: ReactNode;
   className?: string;
   children?: ReactNode;
 }
@@ -56,6 +74,8 @@ export function ThreadDetail({
   onRecategorize,
   onMore,
   threadPickerSlot,
+  triageSlot,
+  floatingBadgeSlot,
   className,
   children,
 }: ThreadDetailProps) {
@@ -76,7 +96,11 @@ export function ThreadDetail({
   }, [onNext, onPrev]);
 
   return (
-    <div className={cn("flex min-h-0 flex-1 flex-col bg-inbox-bg", className)}>
+    <div
+      data-inbox-debug-id="C1"
+      data-inbox-debug-label="THREAD DETAIL SURFACE"
+      className={cn("flex min-h-0 flex-1 flex-col bg-transparent", className)}
+    >
       <ThreadDetailHeader
         subject={subject}
         category={category}
@@ -93,8 +117,25 @@ export function ThreadDetail({
         onRecategorize={onRecategorize}
         onMore={onMore}
         threadPickerSlot={threadPickerSlot}
+        triageSlot={triageSlot}
       />
-      <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+      <div
+        data-inbox-debug-id="C4"
+        data-inbox-debug-label="MESSAGES + COMPOSER AREA"
+        className="flex min-h-0 flex-1 flex-col"
+      >
+        {floatingBadgeSlot && (
+          <div
+            data-inbox-debug-id="C3"
+            data-inbox-debug-label="DETAIL STATUS STRIP"
+            data-testid="detail-status-stack"
+            className="flex shrink-0 items-center border-b border-line bg-transparent px-3 py-1"
+          >
+            {floatingBadgeSlot}
+          </div>
+        )}
+        {children}
+      </div>
     </div>
   );
 }

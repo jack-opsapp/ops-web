@@ -16,9 +16,9 @@
  *
  * The header has two modes:
  *   - linked   → render the avatar, name/subtitle, OPEN button, contact rows
- *   - unlinked → render `// CLIENT :: UNLINKED` + body line + `LINK CLIENT`
- *                button. Tab strip dims to 40% opacity and tab bodies are
- *                replaced by `[—] link a client to see context`.
+ *   - unlinked → render `// CLIENT :: UNLINKED` + body line. WORK /
+ *                ACCOUNTING stay client-gated; FILES remains available when
+ *                the current provider thread has attachments.
  *
  * Tabs: work (default) / accounting / files. State resets to work on every
  * threadId change (see <ContextRail/> wrapper). The legacy Pipeline/Tasks/
@@ -54,8 +54,6 @@ interface ContextRailProps {
    *  resets the active tab to "work". */
   threadId: string;
   onOpenClient?: () => void;
-  /** Fired by the LINK CLIENT button in the unlinked state. */
-  onLinkClient?: () => void;
   counts: { work: number; accounting: number; files: number };
   work: ReactNode;
   accounting: ReactNode;
@@ -70,7 +68,6 @@ export function ContextRail(props: ContextRailProps) {
 function InnerContextRail({
   client,
   onOpenClient,
-  onLinkClient,
   counts,
   work,
   accounting,
@@ -78,51 +75,80 @@ function InnerContextRail({
   className,
 }: Omit<ContextRailProps, "threadId">) {
   const { t } = useDictionary("inbox");
-  const [active, setActive] = useState<ContextTabKey>("work");
-
-  // Belt-and-braces: in case React keeps the instance for any reason, force
-  // a state reset when counts change. The key prop on the wrapper is the
-  // primary mechanism.
-  useEffect(() => setActive("work"), []);
-
   const isUnlinked = !client;
+  const unlinkedFilesAvailable = isUnlinked && counts.files > 0;
+  const [active, setActive] = useState<ContextTabKey>(() =>
+    unlinkedFilesAvailable ? "files" : "work",
+  );
+
+  // The wrapper key resets state on thread changes. This effect handles the
+  // second step: provider attachments arrive after the unlinked rail mounts,
+  // and FILES should become the visible tab as soon as they exist.
+  useEffect(() => {
+    if (unlinkedFilesAvailable) {
+      setActive("files");
+      return;
+    }
+    if (isUnlinked) {
+      setActive("work");
+    }
+  }, [isUnlinked, unlinkedFilesAvailable]);
 
   const tabs: ContextTab[] = [
     {
       key: "work",
       label: t("rail.tabWork", "WORK"),
       count: counts.work,
+      disabled: isUnlinked,
     },
     {
       key: "accounting",
       label: t("rail.tabAccounting", "ACCOUNTING"),
       count: counts.accounting,
+      disabled: isUnlinked,
     },
     {
       key: "files",
       label: t("rail.tabFiles", "FILES"),
       count: counts.files,
+      disabled: isUnlinked && !unlinkedFilesAvailable,
     },
   ];
 
+  const onTabSelect = (key: ContextTabKey) => {
+    if (isUnlinked && key !== "files") return;
+    if (isUnlinked && key === "files" && !unlinkedFilesAvailable) return;
+    setActive(key);
+  };
+
   return (
-    <div className={cn("flex min-h-0 flex-1 flex-col bg-inbox-bg-deep", className)}>
+    <div
+      data-inbox-debug-id="D1"
+      data-inbox-debug-label="CONTEXT RAIL CONTENT"
+      className={cn("flex min-h-0 flex-1 flex-col", className)}
+    >
       {isUnlinked ? (
-        <UnlinkedHeader t={t} onLinkClient={onLinkClient} />
+        <UnlinkedHeader t={t} />
       ) : (
         <LinkedHeader t={t} client={client} onOpenClient={onOpenClient} />
       )}
       <div
+        data-inbox-debug-id="D3"
+        data-inbox-debug-label="CONTEXT TABS"
         data-testid="rail-tabstrip-wrap"
-        className={cn(isUnlinked && "pointer-events-none opacity-40")}
+        className={cn(
+          isUnlinked && !unlinkedFilesAvailable && "pointer-events-none opacity-40",
+        )}
       >
-        <TabStrip tabs={tabs} active={active} onSelect={setActive} />
+        <TabStrip tabs={tabs} active={active} onSelect={onTabSelect} />
       </div>
       <div
+        data-inbox-debug-id="D4"
+        data-inbox-debug-label="CONTEXT BODY"
         role="tabpanel"
         className="flex min-h-0 flex-1 flex-col overflow-y-auto scrollbar-hide p-3"
       >
-        {isUnlinked ? (
+        {isUnlinked && !(active === "files" && unlinkedFilesAvailable) ? (
           <p className="font-mono text-[11px] text-text-mute">
             {t("rail.emptyUnlinkedBody", "[—] link a client to see context")}
           </p>
@@ -142,6 +168,8 @@ function InnerContextRail({
 
 type TFn = (key: string, fallback: string) => string;
 
+const TNUM_ZERO = { fontFeatureSettings: '"tnum" 1, "zero" 1' };
+
 function LinkedHeader({
   t,
   client,
@@ -152,23 +180,27 @@ function LinkedHeader({
   onOpenClient?: () => void;
 }) {
   return (
-    <header className="shrink-0 border-b border-line bg-inbox-panel px-4 pb-3 pt-3.5">
+    <header
+      data-inbox-debug-id="D2"
+      data-inbox-debug-label="CLIENT HEADER"
+      className="shrink-0 border-b border-line px-3.5 pb-2.5 pt-2.5"
+    >
       {/* // CLIENT label */}
       <p className="font-cakemono text-[11px] font-light uppercase leading-none tracking-[0.18em] text-text-mute">
         {t("rail.clientLabel", "// CLIENT")}
       </p>
 
       {/* Identity row — avatar + name/subtitle + OPEN button */}
-      <div className="mt-2.5 flex items-start gap-3">
-        <InboxAvatar name={client.name} size={36} />
+      <div className="mt-2 flex items-start gap-2">
+        <InboxAvatar name={client.name} size={24} />
         <div className="min-w-0 flex-1">
-          <h2 className="truncate font-mohave text-[14px] font-medium tracking-[-0.005em] text-text">
+          <h2 className="line-clamp-2 break-words font-mohave text-[14px] font-medium leading-[1.05] text-text">
             {client.name}
           </h2>
           {client.subtitle && (
             <p
-              className="mt-0.5 truncate font-mono text-[11px] text-text-3"
-              style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
+              className="mt-0.5 break-words font-mono text-[11px] uppercase leading-[1.2] tracking-[0.10em] text-text-3"
+              style={TNUM_ZERO}
             >
               {client.subtitle}
             </p>
@@ -178,59 +210,42 @@ function LinkedHeader({
           type="button"
           onClick={onOpenClient}
           aria-label={t("rail.openClient", "Open client")}
-          className="inline-flex shrink-0 items-center gap-1 rounded-[2px] border border-line px-2 py-1 font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-text-2 transition-colors hover:bg-inbox-elev"
+          title={t("rail.openClient", "Open client")}
+          className="inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[2px] border border-line text-text-3 transition-colors hover:border-line-hi hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black"
         >
           <ExternalLink
             aria-hidden
-            className="h-3.5 w-3.5"
+            className="h-3 w-3"
             strokeWidth={1.5}
           />
-          {t("rail.openButton", "OPEN")}
         </button>
       </div>
 
       {/* Contact lines — [PHONE] / [EMAIL] / [ADDR] bracket labels */}
       {(client.phone || client.email || client.address) && (
-        <ul className="mt-3 flex flex-col gap-1.5">
+        <ul className="mt-2.5 grid gap-1">
           {client.phone && (
-            <li>
-              <a
-                href={`tel:${client.phone}`}
-                className="inline-flex items-baseline gap-2 font-mono text-[11px] text-text-2 transition-colors hover:text-text"
-                style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
-              >
-                <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-text-mute">
-                  {t("rail.contactPhone", "[PHONE]")}
-                </span>
-                <span>{client.phone}</span>
-              </a>
-            </li>
+            <ContactLine
+              label={t("rail.contactPhone", "[PHONE]")}
+              value={client.phone}
+              href={`tel:${client.phone}`}
+              valueClassName="whitespace-nowrap"
+            />
           )}
           {client.email && (
-            <li>
-              <a
-                href={`mailto:${client.email}`}
-                className="inline-flex items-baseline gap-2 font-mono text-[11px] text-text-2 transition-colors hover:text-text"
-              >
-                <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-text-mute">
-                  {t("rail.contactEmail", "[EMAIL]")}
-                </span>
-                <span className="truncate">{client.email}</span>
-              </a>
-            </li>
+            <ContactLine
+              label={t("rail.contactEmail", "[EMAIL]")}
+              value={client.email}
+              href={`mailto:${client.email}`}
+              valueClassName="break-all"
+            />
           )}
           {client.address && (
-            <li>
-              <span
-                className="inline-flex items-baseline gap-2 font-mono text-[11px] text-text-2"
-                style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
-              >
-                <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-text-mute">
-                  {t("rail.contactAddr", "[ADDR]")}
-                </span>
-                <span className="truncate">{client.address}</span>
-              </span>
-            </li>
+            <ContactLine
+              label={t("rail.contactAddr", "[ADDR]")}
+              value={client.address}
+              valueClassName="break-words"
+            />
           )}
         </ul>
       )}
@@ -238,28 +253,60 @@ function LinkedHeader({
   );
 }
 
+function ContactLine({
+  label,
+  value,
+  href,
+  valueClassName,
+}: {
+  label: string;
+  value: string;
+  href?: string;
+  valueClassName?: string;
+}) {
+  const className = cn(
+    "grid grid-cols-[48px_minmax(0,1fr)] items-baseline gap-2 font-mono text-[11px] leading-[1.25] text-text-2",
+    href && "transition-colors hover:text-text",
+  );
+  const content = (
+    <>
+      <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-text-mute">
+        {label}
+      </span>
+      <span className={cn("min-w-0", valueClassName)}>{value}</span>
+    </>
+  );
+
+  return (
+    <li style={TNUM_ZERO}>
+      {href ? (
+        <a href={href} className={className}>
+          {content}
+        </a>
+      ) : (
+        <span className={className}>{content}</span>
+      )}
+    </li>
+  );
+}
+
 function UnlinkedHeader({
   t,
-  onLinkClient,
 }: {
   t: TFn;
-  onLinkClient?: () => void;
 }) {
   return (
-    <header className="shrink-0 border-b border-line bg-inbox-panel px-4 pb-3 pt-3.5">
+    <header
+      data-inbox-debug-id="D2"
+      data-inbox-debug-label="UNLINKED CLIENT HEADER"
+      className="shrink-0 border-b border-line px-3.5 pb-3 pt-3"
+    >
       <p className="font-cakemono text-[11px] font-light uppercase leading-none tracking-[0.18em] text-text-2">
         {t("rail.clientUnlinked", "// CLIENT :: UNLINKED")}
       </p>
       <p className="mt-2 font-mono text-[11px] text-text-3">
         {t("rail.clientUnlinkedBody", "[—] thread has no client attached")}
       </p>
-      <button
-        type="button"
-        onClick={onLinkClient}
-        className="mt-3 inline-flex items-center gap-1 rounded-[2px] border border-line-hi px-3 py-1.5 font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-text-2 transition-colors hover:bg-inbox-elev"
-      >
-        {t("rail.linkClient", "LINK CLIENT")}
-      </button>
     </header>
   );
 }

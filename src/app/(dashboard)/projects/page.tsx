@@ -6,7 +6,6 @@ import { useDictionary } from "@/i18n/client";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { trackScreenView } from "@/lib/analytics/analytics";
 import { toast } from "@/components/ui/toast";
-import { useAuthStore } from "@/lib/store/auth-store";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import { useWindowStore } from "@/stores/window-store";
 import {
@@ -54,17 +53,10 @@ import { ProjectArchiveTray } from "./_components/project-archive-tray";
 import { ProjectFloatingToolbar } from "./_components/project-floating-toolbar";
 import { ProjectDragConfirmation } from "./_components/project-drag-confirmation";
 import { ProjectSpreadsheet } from "./_components/project-spreadsheet";
+import { ProjectsTableShell } from "./_components/table-v2/projects-table-shell";
+import { useProjectsTableV2Flag } from "@/lib/hooks/projects-table/use-projects-table-v2-flag";
 import { useSetupGate } from "@/hooks/useSetupGate";
 import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModal";
-
-// ── Active statuses for the canvas columns ──
-const ACTIVE_STATUSES: ProjectStatus[] = [
-  ProjectStatus.RFQ,
-  ProjectStatus.Estimated,
-  ProjectStatus.Accepted,
-  ProjectStatus.InProgress,
-  ProjectStatus.Completed,
-];
 
 // ── Per-card wrapper — prevents parent re-renders on store changes ──
 const ProjectCardWrapper = memo(function ProjectCardWrapper({
@@ -174,7 +166,7 @@ export default function ProjectsPage() {
   usePageTitle("Projects");
   const { t } = useDictionary("projects-canvas");
   const { can } = usePermissionStore();
-  const { isComplete: setupComplete, needsWebSetup, missingSteps } = useSetupGate();
+  const { missingSteps } = useSetupGate();
   const [showSetupModal, setShowSetupModal] = useState(false);
 
   // ── Permissions ──
@@ -183,6 +175,7 @@ export default function ProjectsPage() {
   const canCreateTasks = can("tasks.create");
   const canRecordPayment = can("accounting.edit");
   const canDelete = can("projects.delete");
+  const projectsTableV2Enabled = useProjectsTableV2Flag();
 
   // ── Data fetching ──
   const { data: projectsData, isLoading } = useScopedProjects();
@@ -199,7 +192,6 @@ export default function ProjectsPage() {
   const zoom = useProjectCanvasStore((s) => s.zoom);
   const sortBy = useProjectCanvasStore((s) => s.sortBy);
   const statusSortOverrides = useProjectCanvasStore((s) => s.statusSortOverrides);
-  const isDragging = useProjectCanvasStore((s) => s.isDragging);
   const firstDragConfirmed = useProjectCanvasStore((s) => s.firstDragConfirmed);
   const setFirstDragConfirmed = useProjectCanvasStore((s) => s.setFirstDragConfirmed);
   const fitAll = useProjectCanvasStore((s) => s.fitAll);
@@ -208,16 +200,34 @@ export default function ProjectsPage() {
   const endDrag = useProjectCanvasStore((s) => s.endDrag);
 
   // ── View mode ──
-  const [viewMode, setViewMode] = useState<"canvas" | "spreadsheet">(() => {
+  const storedViewModeRef = useRef<"canvas" | "spreadsheet" | null>(null);
+  const [viewMode, setViewModeState] = useState<"canvas" | "spreadsheet">(() => {
     if (typeof window === "undefined") return "canvas";
-    return (localStorage.getItem("ops_projects_view_mode") as "canvas" | "spreadsheet") ?? "canvas";
+    const stored = localStorage.getItem("ops_projects_view_mode");
+    if (stored === "canvas" || stored === "spreadsheet") {
+      storedViewModeRef.current = stored;
+      return stored;
+    }
+    return "canvas";
   });
   const [spreadsheetStatusFilter, setSpreadsheetStatusFilter] = useState<"active" | "archived" | "closed">("active");
   const [spreadsheetSelectedIds, setSpreadsheetSelectedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    localStorage.setItem("ops_projects_view_mode", viewMode);
-  }, [viewMode]);
+    if (!projectsTableV2Enabled || typeof window === "undefined") return;
+    if (storedViewModeRef.current) return;
+    storedViewModeRef.current = "spreadsheet";
+    localStorage.setItem("ops_projects_view_mode", "spreadsheet");
+    setViewModeState("spreadsheet");
+  }, [projectsTableV2Enabled]);
+
+  const setViewMode = useCallback((nextViewMode: "canvas" | "spreadsheet") => {
+    storedViewModeRef.current = nextViewMode;
+    if (typeof window !== "undefined") {
+      localStorage.setItem("ops_projects_view_mode", nextViewMode);
+    }
+    setViewModeState(nextViewMode);
+  }, []);
 
   // Clear spreadsheet selection when switching to canvas
   useEffect(() => {
@@ -695,7 +705,7 @@ export default function ProjectsPage() {
 
   // ── Render ──
   return (
-    <div ref={containerRef} className="relative h-screen min-w-0">
+    <div ref={containerRef} className="relative h-full min-w-0 overflow-hidden">
       {/* Setup gate */}
       {showSetupModal && (
         <SetupInterceptionModal
@@ -804,7 +814,16 @@ export default function ProjectsPage() {
       </div>}
 
       {/* ── Spreadsheet — alternative view ── */}
-      {viewMode === "spreadsheet" && (
+      {viewMode === "spreadsheet" && projectsTableV2Enabled && (
+        <div className="absolute inset-0 flex flex-col overflow-hidden p-3">
+          <MetricsHeader variant="compact" tabId="projects" title="Projects" metrics={projectMetrics ?? []} />
+          <div className="mt-2 min-h-0 flex-1">
+            <ProjectsTableShell />
+          </div>
+        </div>
+      )}
+
+      {viewMode === "spreadsheet" && !projectsTableV2Enabled && (
         <div className="absolute inset-0 top-[156px] bottom-0 px-3 overflow-hidden flex flex-col">
           <ProjectSpreadsheet
             projects={filteredProjects.filter((p) => p.status !== ProjectStatus.Archived && p.status !== ProjectStatus.Closed)}
@@ -830,51 +849,53 @@ export default function ProjectsPage() {
       )}
 
       {/* ── Page HUD — metrics + toolbar float on top of canvas ── */}
-      <div className="absolute top-[62px] left-0 right-0 z-[2] pointer-events-none">
-        <div className="pointer-events-auto">
-          <MetricsHeader variant="compact" tabId="projects" title="Projects" metrics={projectMetrics ?? []} />
-        </div>
-        <div className="pointer-events-auto px-3 py-1.5">
-          <div className="inline-flex w-fit py-[2px] rounded-[4px] border border-[rgba(255,255,255,0.08)]"
-            style={{
-              background: "rgba(10, 10, 10, 0.50)",
-              backdropFilter: "blur(12px) saturate(1.1)",
-              WebkitBackdropFilter: "blur(12px) saturate(1.1)",
-            }}
-          >
-            <ProjectFloatingToolbar
-              searchQuery={searchQuery}
-              onSearchChange={setSearchQuery}
-              teamMembers={teamMemberList}
-              clients={clientList}
-              selectedMemberId={selectedMemberId}
-              onMemberFilterChange={setSelectedMemberId}
-              selectedClientId={selectedClientId}
-              onClientFilterChange={setSelectedClientId}
-              canViewAccounting={canViewAccounting}
-              canManage={canManage}
-              canDelete={canDelete}
-              viewMode={viewMode}
-              onViewModeChange={setViewMode}
-              onArchivedToggle={viewMode === "canvas"
-                ? () => useProjectCanvasStore.getState().toggleArchiveTray()
-                : () => setSpreadsheetStatusFilter((prev) => prev === "archived" ? "active" : "archived")
-              }
-              isArchivedActive={viewMode === "canvas"
-                ? useProjectCanvasStore.getState().isArchiveTrayOpen
-                : spreadsheetStatusFilter === "archived"
-              }
-              onClosedToggle={() => setSpreadsheetStatusFilter((prev) => prev === "closed" ? "active" : "closed")}
-              isClosedActive={spreadsheetStatusFilter === "closed"}
-              selectedCount={spreadsheetSelectedIds.size}
-              onBulkChangeStatus={handleSpreadsheetBulkChangeStatus}
-              onBulkArchive={handleSpreadsheetBulkArchive}
-              onBulkDelete={handleSpreadsheetBulkDelete}
-              onBulkClear={() => setSpreadsheetSelectedIds(new Set())}
-            />
+      {(viewMode === "canvas" || !projectsTableV2Enabled) && (
+        <div className="absolute top-[62px] left-0 right-0 z-[2] pointer-events-none">
+          <div className="pointer-events-auto">
+            <MetricsHeader variant="compact" tabId="projects" title="Projects" metrics={projectMetrics ?? []} />
+          </div>
+          <div className="pointer-events-auto px-3 py-1.5">
+            <div className="inline-flex max-w-full overflow-x-auto overscroll-x-contain py-[2px] rounded-[4px] border border-[rgba(255,255,255,0.08)]"
+              style={{
+                background: "rgba(10, 10, 10, 0.50)",
+                backdropFilter: "blur(12px) saturate(1.1)",
+                WebkitBackdropFilter: "blur(12px) saturate(1.1)",
+              }}
+            >
+              <ProjectFloatingToolbar
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
+                teamMembers={teamMemberList}
+                clients={clientList}
+                selectedMemberId={selectedMemberId}
+                onMemberFilterChange={setSelectedMemberId}
+                selectedClientId={selectedClientId}
+                onClientFilterChange={setSelectedClientId}
+                canViewAccounting={canViewAccounting}
+                canManage={canManage}
+                canDelete={canDelete}
+                viewMode={viewMode}
+                onViewModeChange={setViewMode}
+                onArchivedToggle={viewMode === "canvas"
+                  ? () => useProjectCanvasStore.getState().toggleArchiveTray()
+                  : () => setSpreadsheetStatusFilter((prev) => prev === "archived" ? "active" : "archived")
+                }
+                isArchivedActive={viewMode === "canvas"
+                  ? useProjectCanvasStore.getState().isArchiveTrayOpen
+                  : spreadsheetStatusFilter === "archived"
+                }
+                onClosedToggle={() => setSpreadsheetStatusFilter((prev) => prev === "closed" ? "active" : "closed")}
+                isClosedActive={spreadsheetStatusFilter === "closed"}
+                selectedCount={spreadsheetSelectedIds.size}
+                onBulkChangeStatus={handleSpreadsheetBulkChangeStatus}
+                onBulkArchive={handleSpreadsheetBulkArchive}
+                onBulkDelete={handleSpreadsheetBulkDelete}
+                onBulkClear={() => setSpreadsheetSelectedIds(new Set())}
+              />
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Drag confirmation dialog */}
       <ProjectDragConfirmation

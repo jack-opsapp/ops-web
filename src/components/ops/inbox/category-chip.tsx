@@ -31,8 +31,6 @@ interface CategoryMeta {
 
 const CATEGORY_META: Record<EmailThreadCategory, CategoryMeta> = {
   CUSTOMER:     { tone: "tan",     label: "CUSTOMER",     dotClass: "bg-tan" },
-  LEAD:         { tone: "tan",     label: "LEAD",         dotClass: "bg-tan" },
-  CLIENT:       { tone: "tan",     label: "CLIENT",       dotClass: "bg-tan" },
   VENDOR:       { tone: "neutral", label: "VENDOR",       dotClass: "bg-text-3" },
   SUBTRADE:     { tone: "neutral", label: "SUBTRADE",     dotClass: "bg-text-3" },
   JOB_SEEKER:   { tone: "neutral", label: "JOB SEEKER",   dotClass: "bg-text-3" },
@@ -40,8 +38,8 @@ const CATEGORY_META: Record<EmailThreadCategory, CategoryMeta> = {
   LEGAL:        { tone: "rose",    label: "LEGAL",        dotClass: "bg-rose" },
   COLLECTIONS:  { tone: "rose",    label: "COLLECTIONS",  dotClass: "bg-rose" },
   // Fix 2 (confirmed, no visual regression): MARKETING/RECEIPT/PERSONAL/INTERNAL/OTHER
-  // use `neutral` (text-text-2, #B5B5B5) instead of the legacy `ambient` tone
-  // (text-mute, #6A6A6A). StateTag's vocabulary has no `ambient` tone; `neutral`
+  // use the neutral text tier instead of the legacy ambient tone.
+  // StateTag's vocabulary has no `ambient` tone; `neutral`
   // is the closest low-priority tier. The visual delta (+brightness) is acceptable —
   // both are firmly in the muted range. dotClass retains bg-text-mute so standalone
   // colored dots stay at the darker legacy hue.
@@ -60,9 +58,9 @@ const CATEGORY_META: Record<EmailThreadCategory, CategoryMeta> = {
 // bg, or padding — just the tonal text color and JetBrains Mono font.
 //
 // Tones used by CategoryChip (subset of StateTagTone; accent/olive/lavender unused):
-//   tan     → formerly "active" (CUSTOMER/LEAD/CLIENT) + "attention" (PLATFORM_BID)
-//   neutral → formerly "neutral" (VENDOR/SUBTRADE/JOB_SEEKER) + "ambient" (low-priority)
-//   rose    → formerly "negative" (LEGAL/COLLECTIONS)
+//   tan     → CUSTOMER + PLATFORM_BID
+//   neutral → VENDOR / SUBTRADE / JOB_SEEKER + low-priority (MARKETING / RECEIPT / PERSONAL / INTERNAL / OTHER)
+//   rose    → LEGAL / COLLECTIONS
 const TONE_CHIP_CLASS: Record<StateTagTone, string> = {
   tan:      "border-y border-r border-l-2 border-tan/40     border-l-tan     bg-tan/[0.08]",
   neutral:  "border-y border-r border-l-2 border-text-3/40  border-l-text-3  bg-text-3/[0.08]",

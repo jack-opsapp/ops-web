@@ -21,6 +21,8 @@ export function formatMetricCurrency(amount: number): string {
  * Format a metric value based on its type.
  */
 export function formatMetricValue(value: number, formatType: "currency" | "percentage" | "count" | "days"): string {
+  if (!Number.isFinite(value)) return "—";
+
   switch (formatType) {
     case "currency":
       return formatMetricCurrency(value);

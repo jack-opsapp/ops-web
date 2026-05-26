@@ -33,7 +33,11 @@ import type { Project } from "@/lib/types/models";
 import { ProjectStatus } from "@/lib/types/models";
 import { cn } from "@/lib/utils/cn";
 import { SlashLabel } from "../voice/slash-label";
-import { PipelineList, type PipelineOpp } from "./pipeline-list";
+import {
+  PipelineList,
+  PipelineOppCard,
+  type PipelineOpp,
+} from "./pipeline-list";
 import {
   ProjectGroup,
   type ProjectGroupStage,
@@ -43,6 +47,11 @@ import type { ClientTaskRow } from "@/lib/hooks/use-client-tasks";
 
 interface WorkViewProps {
   pipelineOpps: PipelineOpp[];
+  /** Won (closed-business) opportunities for this client. Surfaced under a
+   *  separate `// WON` sub-section so closed work stays visible without
+   *  cluttering the active-leads list. Defaults to an empty array; when
+   *  empty the WON section is suppressed entirely. */
+  wonOpps?: PipelineOpp[];
   projects: Project[];
   tasks: ClientTaskRow[];
   currentThreadId: string;
@@ -90,6 +99,7 @@ function toGroupTask(row: ClientTaskRow): ProjectGroupTask {
 
 export function WorkView({
   pipelineOpps,
+  wonOpps = [],
   projects,
   tasks,
   currentThreadId,
@@ -130,14 +140,38 @@ export function WorkView({
         />
         {/* PipelineList owns its own empty body ("no open opportunities") +
          *  the +New opportunity button. We just provide the SlashLabel +
-         *  count header above it. */}
+         *  count header above it. When the WON section is non-empty we
+         *  suppress the empty body so the rail doesn't contradict itself
+         *  (saying "no opportunities" while rendering 4 won cards below). */}
         <PipelineList
           opps={pipelineOpps}
           threadId={currentThreadId}
           onNewOpportunity={onNewOpportunity}
           className="mt-2"
+          suppressEmpty={wonOpps.length > 0}
         />
       </section>
+
+      {/* ── WON section ───────────────────────────────────────────── */}
+      {wonOpps.length > 0 && (
+        <section data-testid="work-view-won">
+          <SectionHeader
+            label={t("rail.sectionWon", "// WON")}
+            count={wonOpps.length}
+            tone="olive"
+          />
+          <ul className="mt-2 flex flex-col gap-1.5">
+            {wonOpps.map((opp) => (
+              <PipelineOppCard
+                key={opp.id}
+                opp={opp}
+                currentThreadId={currentThreadId}
+                variant="won"
+              />
+            ))}
+          </ul>
+        </section>
+      )}
 
       {/* ── PROJECTS section ──────────────────────────────────────── */}
       <section data-testid="work-view-projects">
@@ -181,10 +215,10 @@ export function WorkView({
         <button
           type="button"
           onClick={onNewProject}
-          className="mt-2 inline-flex h-[26px] w-full items-center justify-center gap-1.5 rounded-[2.5px] border border-dashed border-line bg-transparent px-3 font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-text-2 transition-colors hover:border-line-hi hover:text-text"
+          className="mt-2 inline-flex h-6 w-full items-center justify-center gap-1.5 rounded-[2.5px] border border-dashed border-line bg-transparent px-2.5 font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-text-2 transition-colors hover:border-line-hi hover:text-text"
         >
-          <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={1.5} />
-          {t("rail.addProject", "+ NEW PROJECT")}
+          <Plus aria-hidden className="h-3 w-3" strokeWidth={1.5} />
+          {t("rail.addProject", "NEW PROJECT")}
         </button>
       </section>
     </div>
@@ -194,12 +228,16 @@ export function WorkView({
 interface SectionHeaderProps {
   label: string;
   count: number;
+  /** Defaults to "text-2". `olive` paints the WON section header in the
+   *  positive-state earth tone so closed business reads as healthy at a
+   *  glance. */
+  tone?: "text-2" | "olive";
 }
 
-function SectionHeader({ label, count }: SectionHeaderProps) {
+function SectionHeader({ label, count, tone = "text-2" }: SectionHeaderProps) {
   return (
     <div className="flex items-baseline justify-between px-0.5 pb-1">
-      <SlashLabel label={label} tone="text-2" />
+      <SlashLabel label={label} tone={tone} />
       <span
         className="font-mono text-[11px] tracking-[0.18em] text-text-mute"
         style={TNUM_ZERO}

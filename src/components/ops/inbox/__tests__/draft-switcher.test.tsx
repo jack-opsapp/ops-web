@@ -39,7 +39,7 @@ describe("<DraftSwitcher>", () => {
       />,
     );
     expect(screen.getByRole("tab", { name: /1 · GMAIL/ })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: /2 · CLAUDE/ })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /2 · PHASE C/ })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: /3 · YOURS/ })).toBeInTheDocument();
   });
 
@@ -71,7 +71,7 @@ describe("<DraftSwitcher>", () => {
     }
   });
 
-  it("does not render the unicode ✦ glyph for the Claude tab", () => {
+  it("does not render the unicode ✦ glyph for the Phase C tab", () => {
     render(
       <DraftSwitcher
         drafts={drafts}
@@ -79,12 +79,12 @@ describe("<DraftSwitcher>", () => {
         onSelect={() => {}}
       />,
     );
-    const claudeTab = screen.getByRole("tab", { name: /CLAUDE/ });
+    const claudeTab = screen.getByRole("tab", { name: /PHASE C/ });
     expect(claudeTab.textContent).not.toMatch(/✦/);
-    expect(claudeTab.textContent).toMatch(/2 · CLAUDE/);
+    expect(claudeTab.textContent).toMatch(/2 · PHASE C/);
   });
 
-  it("renders a Lucide Sparkles icon prefix on the Claude tab only", () => {
+  it("renders a Lucide Sparkles icon prefix on the Phase C tab only", () => {
     const { container } = render(
       <DraftSwitcher
         drafts={drafts}
@@ -92,7 +92,7 @@ describe("<DraftSwitcher>", () => {
         onSelect={() => {}}
       />,
     );
-    const claudeTab = screen.getByRole("tab", { name: /CLAUDE/ });
+    const claudeTab = screen.getByRole("tab", { name: /PHASE C/ });
     const gmailTab = screen.getByRole("tab", { name: /GMAIL/ });
     const yoursTab = screen.getByRole("tab", { name: /YOURS/ });
     expect(claudeTab.querySelector("svg.lucide-sparkles")).toBeTruthy();
@@ -110,7 +110,7 @@ describe("<DraftSwitcher>", () => {
       />,
     );
     const inactiveSparkles = screen
-      .getByRole("tab", { name: /CLAUDE/ })
+      .getByRole("tab", { name: /PHASE C/ })
       .querySelector("svg.lucide-sparkles");
     expect(inactiveSparkles?.getAttribute("class") ?? "").toMatch(/text-agent/);
 
@@ -122,7 +122,7 @@ describe("<DraftSwitcher>", () => {
       />,
     );
     const activeSparkles = screen
-      .getByRole("tab", { name: /CLAUDE/ })
+      .getByRole("tab", { name: /PHASE C/ })
       .querySelector("svg.lucide-sparkles");
     expect(activeSparkles?.getAttribute("class") ?? "").toMatch(/text-agent/);
   });
@@ -142,7 +142,7 @@ describe("<DraftSwitcher>", () => {
     expect(gmailTab.className).toMatch(/border-ops-accent/);
   });
 
-  it("active tab uses agent border for Claude source", () => {
+  it("active tab uses agent border for Phase C source", () => {
     render(
       <DraftSwitcher
         drafts={drafts}
@@ -150,7 +150,7 @@ describe("<DraftSwitcher>", () => {
         onSelect={() => {}}
       />,
     );
-    const claudeTab = screen.getByRole("tab", { name: /CLAUDE/ });
+    const claudeTab = screen.getByRole("tab", { name: /PHASE C/ });
     expect(claudeTab.getAttribute("aria-selected")).toBe("true");
     expect(claudeTab.className).toMatch(/border-agent/);
     expect(claudeTab.className).not.toMatch(/border-ops-accent\b/);
@@ -192,7 +192,7 @@ describe("<DraftSwitcher>", () => {
         onSelect={() => {}}
       />,
     );
-    const claudeTab = screen.getByRole("tab", { name: /CLAUDE/ });
+    const claudeTab = screen.getByRole("tab", { name: /PHASE C/ });
     expect(claudeTab.getAttribute("aria-selected")).toBe("false");
     expect(claudeTab.className).toMatch(/text-text-3/);
   });
@@ -226,7 +226,7 @@ describe("<DraftSwitcher>", () => {
         onSelect={onSelect}
       />,
     );
-    fireEvent.click(screen.getByRole("tab", { name: /CLAUDE/ }));
+    fireEvent.click(screen.getByRole("tab", { name: /PHASE C/ }));
     expect(onSelect).toHaveBeenCalledWith("d-claude-1");
   });
 

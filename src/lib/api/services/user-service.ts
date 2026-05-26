@@ -10,6 +10,7 @@
 import { requireSupabase, parseDate } from "@/lib/supabase/helpers";
 import type { Company, User, UserRole } from "../../types/models";
 import { UserRole as UserRoleEnum } from "../../types/models";
+import { normalizeImageUrl } from "@/lib/utils/image-url";
 
 // ─── Database ↔ TypeScript Mapping ────────────────────────────────────────────
 
@@ -20,7 +21,7 @@ function mapFromDb(row: Record<string, unknown>): User {
     lastName: row.last_name as string,
     email: (row.email as string) ?? null,
     phone: (row.phone as string) ?? null,
-    profileImageURL: (row.profile_image_url as string) ?? null,
+    profileImageURL: normalizeImageUrl((row.profile_image_url as string) ?? null),
     role: (row.role as UserRole) ?? UserRoleEnum.Unassigned,
     companyId: (row.company_id as string) ?? null,
     userType: (row.user_type as User["userType"]) ?? null,

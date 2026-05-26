@@ -25,7 +25,16 @@ import type { ChipVariant } from "@/components/ops/projects/workspace/atoms/chip
 // (edit/create) compose `<ProjectViewingBody>` and
 // `<ProjectEditCreateBody>` inside it.
 
-const ALL_RESIZE_DIRS: ResizeDirection[] = ["n", "s", "e", "w", "ne", "nw", "se", "sw"];
+const ALL_RESIZE_DIRS: ResizeDirection[] = [
+  "n",
+  "s",
+  "e",
+  "w",
+  "ne",
+  "nw",
+  "se",
+  "sw",
+];
 
 // Workspace-specific min size — the sidebar (Phase 7) needs room, so
 // the workspace bumps the global default 480x360 minimum to 780x600.
@@ -41,6 +50,10 @@ const WORKSPACE_MIN_SIZE = { width: 780, height: 600 };
 // entry instead of vanishing in one frame.
 const MODE_BODY_DURATION = 0.2;
 const MODE_TAB_DURATION = 0.2;
+const WINDOW_GLASS_FILL_CLASS =
+  "bg-[var(--glass-bg-dense)] backdrop-blur-[var(--glass-blur)] backdrop-saturate-[var(--glass-saturate)]";
+const WINDOW_GLASS_TOP_EDGE_CLASS =
+  "before:pointer-events-none before:absolute before:inset-0 before:bg-[linear-gradient(180deg,rgba(255,255,255,0.03),transparent_35%)]";
 
 export interface ProjectWorkspaceWindowProps<TTabId extends string = string> {
   /** Window id from useWindowStore — also the localStorage key. */
@@ -75,6 +88,10 @@ export interface ProjectWorkspaceWindowProps<TTabId extends string = string> {
   footerConfig: ModeFooterConfig;
   /** Optional right rail (always-on sidebar in viewing mode). */
   rightRail?: React.ReactNode;
+  /** Optional close override for workspace-shell consumers that own external state. */
+  onRequestClose?: () => void;
+  /** Optional keyboard scope marker for windows owned by shortcut-heavy canvases. */
+  keyboardScope?: "modal-or-menu";
   /** Body content — Phase 7/8 compose the actual viewing / edit body. */
   children: React.ReactNode;
   className?: string;
@@ -98,6 +115,8 @@ export function ProjectWorkspaceWindow<TTabId extends string = string>({
   zIndex,
   footerConfig,
   rightRail,
+  onRequestClose,
+  keyboardScope,
   children,
   className,
 }: ProjectWorkspaceWindowProps<TTabId>) {
@@ -112,6 +131,7 @@ export function ProjectWorkspaceWindow<TTabId extends string = string>({
   const closeWindow = useWindowStore((s) => s.closeWindow);
   const minimizeWindow = useWindowStore((s) => s.minimizeWindow);
   const focusWindow = useWindowStore((s) => s.focusWindow);
+  const [isMobile, setIsMobile] = React.useState(false);
 
   // Live position + size — the drag/resize hooks mutate these locally
   // for 60fps frames, then the store gets the final value via the
@@ -121,12 +141,25 @@ export function ProjectWorkspaceWindow<TTabId extends string = string>({
   const [livePosition, setLivePosition] = React.useState(initialPosition);
   const [liveSize, setLiveSize] = React.useState(initialSize);
 
+  React.useEffect(() => {
+    if (typeof globalThis.matchMedia !== "function") return;
+    const mq = globalThis.matchMedia("(max-width: 767px)");
+    const sync = () => setIsMobile(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+
   // Hydrate from localStorage on first mount. We want the loaded snapshot
   // to override the props once, but not reset every time the parent
   // re-renders — useState initialiser would also be wrong because it
   // can't read the persistence hook's loaded value. A useEffect with
   // an empty-ish dep array does the job.
-  const persistence = useWindowPersistence({ key: id, position: livePosition, size: liveSize });
+  const persistence = useWindowPersistence({
+    key: id,
+    position: livePosition,
+    size: liveSize,
+  });
   const hasHydratedRef = React.useRef(false);
   React.useEffect(() => {
     if (hasHydratedRef.current) return;
@@ -160,10 +193,17 @@ export function ProjectWorkspaceWindow<TTabId extends string = string>({
     focusWindow(id);
   }, [focusWindow, id]);
 
-  const handleClose = React.useCallback(() => closeWindow(id), [closeWindow, id]);
+  const handleClose = React.useCallback(() => {
+    if (onRequestClose) {
+      onRequestClose();
+      return;
+    }
+
+    closeWindow(id);
+  }, [closeWindow, id, onRequestClose]);
   const handleMinimize = React.useCallback(
     () => minimizeWindow(id),
-    [minimizeWindow, id],
+    [minimizeWindow, id]
   );
   // Maximize is wired in Phase 12 (animation arc). For now it's a no-op
   // hook so the traffic-light still renders the cursor + glyph reveal.
@@ -172,12 +212,13 @@ export function ProjectWorkspaceWindow<TTabId extends string = string>({
   return (
     <div
       data-testid="project-workspace-window"
+      data-keyboard-scope={keyboardScope}
       onPointerDown={handleShellPointerDown}
       style={{
-        left: livePosition.x,
-        top: livePosition.y,
-        width: liveSize.width,
-        height: liveSize.height,
+        left: isMobile ? 8 : livePosition.x,
+        top: isMobile ? 64 : livePosition.y,
+        width: isMobile ? "calc(100vw - 16px)" : liveSize.width,
+        height: isMobile ? "calc(100dvh - 72px)" : liveSize.height,
         zIndex,
         // --shadow-window: 0 24px 64px scrim + 0.5px hairline ring.
         // Sanctioned exception to spec line 268 ("no shadow on dark
@@ -187,11 +228,11 @@ export function ProjectWorkspaceWindow<TTabId extends string = string>({
       }}
       className={cn(
         "fixed flex flex-col overflow-hidden",
-        "glass-dense rounded-modal",
+        "rounded-modal border border-glass-border bg-transparent",
         // While dragging or resizing, kill text-selection so the cursor
         // stays committed to the action.
         (drag.isDragging || resize.isResizing) && "select-none",
-        className,
+        className
       )}
     >
       <WindowTitleBar
@@ -207,6 +248,7 @@ export function ProjectWorkspaceWindow<TTabId extends string = string>({
         onMinimize={handleMinimize}
         onMaximize={handleMaximize}
         onPointerDown={drag.onPointerDown}
+        className={cn(WINDOW_GLASS_FILL_CLASS, WINDOW_GLASS_TOP_EDGE_CLASS)}
       />
 
       {/* Tab strip slides in when entering edit/create, slides out when
@@ -246,7 +288,10 @@ export function ProjectWorkspaceWindow<TTabId extends string = string>({
 
           Right rail (sidebar) mirrors the same fade so the sidebar
           dissolves on edit entry rather than disappearing in one frame. */}
-      <div className="flex flex-1 min-h-0">
+      <div
+        data-testid="workspace-body-region"
+        className="relative z-[1] flex min-h-0 flex-1 bg-transparent"
+      >
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={mode}
@@ -256,7 +301,11 @@ export function ProjectWorkspaceWindow<TTabId extends string = string>({
             animate={{ opacity: 1 }}
             exit={reducedMotion ? { opacity: 1 } : { opacity: 0 }}
             transition={bodyTransition}
-            className="flex-1 min-w-0 overflow-y-auto"
+            className={cn(
+              "relative min-w-0 flex-1 overflow-y-auto",
+              WINDOW_GLASS_FILL_CLASS,
+              WINDOW_GLASS_TOP_EDGE_CLASS
+            )}
           >
             {children}
           </motion.div>
@@ -270,7 +319,11 @@ export function ProjectWorkspaceWindow<TTabId extends string = string>({
               animate={{ opacity: 1 }}
               exit={reducedMotion ? { opacity: 0 } : { opacity: 0 }}
               transition={bodyTransition}
-              className="shrink-0 border-l border-glass-border overflow-y-auto"
+              className={cn(
+                "relative hidden shrink-0 overflow-y-auto border-l border-glass-border md:block",
+                WINDOW_GLASS_FILL_CLASS,
+                WINDOW_GLASS_TOP_EDGE_CLASS
+              )}
             >
               {rightRail}
             </motion.div>
@@ -282,9 +335,14 @@ export function ProjectWorkspaceWindow<TTabId extends string = string>({
 
       {/* 8 resize handles — absolute-positioned over the shell border.
           Corners win in overlap regions via z-index inside ResizeHandle. */}
-      {ALL_RESIZE_DIRS.map((dir) => (
-        <ResizeHandle key={dir} direction={dir} onPointerDown={resize.beginResize} />
-      ))}
+      {!isMobile &&
+        ALL_RESIZE_DIRS.map((dir) => (
+          <ResizeHandle
+            key={dir}
+            direction={dir}
+            onPointerDown={resize.beginResize}
+          />
+        ))}
     </div>
   );
 }

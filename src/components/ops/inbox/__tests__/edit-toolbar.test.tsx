@@ -3,7 +3,7 @@ import { describe, it, expect, vi } from "vitest";
 import { EditToolbar } from "../composer/edit-toolbar";
 
 describe("<EditToolbar>", () => {
-  it("renders 'edited from {Claude}'s draft' with the source name in lavender", () => {
+  it("renders 'edited from {Phase C}'s draft' with the source name in lavender", () => {
     render(
       <EditToolbar
         added={3}
@@ -15,8 +15,8 @@ describe("<EditToolbar>", () => {
       />,
     );
     expect(screen.getByText(/edited from/i)).toBeInTheDocument();
-    const claude = screen.getByText("Claude");
-    expect(claude.className).toMatch(/text-agent-hi/);
+    const phaseC = screen.getByText("Phase C");
+    expect(phaseC.className).toMatch(/text-agent-hi/);
   });
 
   it("renders +added in olive and -removed in rose", () => {
@@ -58,7 +58,7 @@ describe("<EditToolbar>", () => {
     expect(onRegenerate).toHaveBeenCalled();
   });
 
-  it("shows the source name as text-2 (neutral) for non-Claude sources", () => {
+  it("shows the source name as text-2 (neutral) for non-Phase-C sources", () => {
     render(
       <EditToolbar
         added={1}

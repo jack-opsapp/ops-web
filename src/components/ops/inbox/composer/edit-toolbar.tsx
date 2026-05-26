@@ -30,7 +30,7 @@ interface EditToolbarProps {
 
 const SOURCE_LABEL: Record<DraftSource, string> = {
   yours: "yours",
-  claude: "Claude",
+  claude: "Phase C",
   gmail: "Gmail",
   outlook: "Outlook",
   new: "draft",
@@ -53,7 +53,7 @@ export function EditToolbar({
   return (
     <div
       className={cn(
-        "mt-2 flex flex-wrap items-center gap-2 rounded-[4px] border border-dashed border-line bg-inbox-elev px-2.5 py-1.5",
+        "mt-2 flex flex-wrap items-center gap-2 rounded-[4px] border border-dashed border-line bg-transparent px-2.5 py-1.5",
         className,
       )}
     >

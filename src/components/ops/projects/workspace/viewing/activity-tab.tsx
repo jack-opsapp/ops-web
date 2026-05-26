@@ -146,6 +146,13 @@ function ActivityRowBody({
   isSystem: boolean;
   t: (key: string) => string;
 }) {
+  const photoAttachments = entry.attachments
+    .map((attachment) => {
+      const url = attachment.markedUpUrl?.trim() || attachment.url?.trim();
+      return url ? { ...attachment, url } : null;
+    })
+    .filter(Boolean) as Array<(typeof entry.attachments)[number] & { url: string }>;
+
   return (
     <>
       {entry.author && !isSystem ? (
@@ -183,12 +190,13 @@ function ActivityRowBody({
             {entry.content}
           </Body>
         )}
-        {entry.attachments.length > 0 && (
+        {photoAttachments.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-2">
-            {entry.attachments.map((a, i) => (
+            {photoAttachments.map((a, i) => (
+              // eslint-disable-next-line @next/next/no-img-element -- signed attachment URLs are not guaranteed to match next/image remote patterns
               <img
                 key={i}
-                src={a.markedUpUrl ?? a.url}
+                src={a.url}
                 alt={a.caption ?? ""}
                 className="h-16 w-16 rounded border border-glass-border object-cover"
               />

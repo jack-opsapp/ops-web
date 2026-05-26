@@ -1,6 +1,5 @@
 "use client";
 
-import { useCallback } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { X, Trash2 } from "lucide-react";
 import { useDictionary } from "@/i18n/client";

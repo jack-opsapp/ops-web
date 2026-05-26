@@ -3,9 +3,9 @@ import { describe, it, expect } from "vitest";
 import { AiDraftBanner } from "../composer/ai-draft-banner";
 
 describe("<AiDraftBanner>", () => {
-  it("renders the CLAUDE DRAFTED THIS · review label", () => {
+  it("renders the PHASE C DRAFTED THIS · review label", () => {
     render(<AiDraftBanner draftedAt="2026-05-06T14:55:00Z" />);
-    expect(screen.getByText(/CLAUDE DRAFTED THIS/)).toBeInTheDocument();
+    expect(screen.getByText(/PHASE C DRAFTED THIS/)).toBeInTheDocument();
     expect(screen.getByText(/review/i)).toBeInTheDocument();
   });
 

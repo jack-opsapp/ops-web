@@ -74,10 +74,13 @@ const FULL_HEIGHT_ROUTES: Record<string, FullHeightMode> = {
   "/inbox": "padded",
   "/map": "bleed",
   "/calendar": "padded",
+  "/pipeline": "padded",
+  "/projects": "bleed",
   "/settings/integrations/ai-setup": "padded",
 };
 
 function resolveFullHeightMode(pathname: string): FullHeightMode | null {
+  if (pathname === "/projects/new") return null;
   for (const [route, mode] of Object.entries(FULL_HEIGHT_ROUTES)) {
     if (pathname === route || pathname.startsWith(route + "/")) return mode;
   }
@@ -138,8 +141,12 @@ function FloatingWindows() {
 
   // Project-workspace windows render their own shell (ProjectWorkspaceWindow)
   // via the container, so they bypass the legacy FloatingWindow chrome.
-  const legacyWindows = windows.filter((w) => w.type !== "project-workspace");
-  const workspaceWindows = windows.filter((w) => w.type === "project-workspace");
+  const legacyWindows = windows.filter(
+    (w) => w.type !== "project-workspace" && w.type !== "pipeline-detail"
+  );
+  const workspaceWindows = windows.filter(
+    (w) => w.type === "project-workspace"
+  );
 
   return (
     <>
@@ -153,7 +160,9 @@ function FloatingWindows() {
           )}
           {win.type === "create-task" && (
             <CreateTaskForm
-              defaultProjectId={(win.metadata?.projectId as string | undefined) ?? undefined}
+              defaultProjectId={
+                (win.metadata?.projectId as string | undefined) ?? undefined
+              }
               onSuccess={() => closeWindow(win.id)}
               onCancel={() => closeWindow(win.id)}
             />
@@ -206,7 +215,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   // Block all dashboard rendering while onboarding is needed.
   if (needsOnboarding) {
     return (
-      <div className="flex items-center justify-center h-screen bg-background">
+      <div className="flex h-screen items-center justify-center bg-background">
         <LogoLoader size={120} />
       </div>
     );
@@ -218,19 +227,19 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
           <main> is a flex column so scrollable and full-height pages can coexist:
           scrollable pages host their scroll on the inner wrapper; full-height
           pages use flex-1 min-h-0 to fill remaining space after the banner. */}
-      <main className="relative z-[1] h-screen w-full pl-0 md:pl-[72px] flex flex-col overflow-hidden">
+      <main className="relative z-[1] flex h-screen w-full flex-col overflow-hidden pl-0 md:pl-[72px]">
         <UnassignedRoleBanner />
 
         {fullHeightMode === "padded" ? (
-          <div className="flex-1 min-h-0 pt-[68px] pb-3 px-3 flex flex-col">
+          <div className="flex min-h-0 flex-1 flex-col px-3 pb-3 pt-[68px]">
             {children}
           </div>
         ) : fullHeightMode === "bleed" ? (
-          <div className="flex-1 min-h-0 pt-[56px] flex flex-col">
+          <div className="flex min-h-0 flex-1 flex-col pt-[56px]">
             {children}
           </div>
         ) : (
-          <div className="flex-1 min-h-0 pt-[68px] pb-32 px-3 space-y-3 overflow-y-auto overflow-x-auto">
+          <div className="min-h-0 flex-1 space-y-3 overflow-x-auto overflow-y-auto px-3 pb-32 pt-[68px]">
             {children}
           </div>
         )}
@@ -240,7 +249,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
           Hidden on full-height pages where there is no fold. */}
       {!isFullHeight && (
         <div
-          className="fixed bottom-0 right-0 left-0 md:left-[72px] h-24 pointer-events-none z-[5]"
+          className="pointer-events-none fixed bottom-0 left-0 right-0 z-[5] h-24 md:left-[72px]"
           style={{
             background:
               "linear-gradient(to bottom, transparent 0%, hsl(var(--background)) 100%)",
@@ -252,7 +261,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
 
       {/* TopBar — fixed glass overlay, starts after sidebar */}
       <div
-        className="fixed top-0 right-0 z-10 h-[56px] left-0 md:left-[72px]"
+        className="fixed left-0 right-0 top-0 z-10 h-[56px] md:left-[72px]"
         style={{
           background: "var(--surface-glass)",
           backdropFilter: "blur(28px) saturate(1.3)",

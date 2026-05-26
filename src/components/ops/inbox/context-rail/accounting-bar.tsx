@@ -28,7 +28,7 @@ export function AccountingBar({
     <div
       data-testid="accounting-bar"
       className={cn(
-        "relative h-1 w-full overflow-hidden rounded-[2.5px] bg-inbox-bg-deep",
+        "relative h-1 w-full overflow-hidden rounded-[2.5px] border border-line bg-transparent",
         className,
       )}
       role="progressbar"

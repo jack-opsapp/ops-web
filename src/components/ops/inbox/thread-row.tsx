@@ -5,10 +5,12 @@
  *
  * Anatomy (top-down):
  *   • alarm strip (only when state.alarmStrip === true) — rose `// {N}D · UNANSWERED`
- *   • title row: client name + optional `· {messageCount}` + inline <StateTag> + relative time
+ *   • title row: client name + optional `· {messageCount}` + inline <StateTag>
+ *     + relative time (only when StateTag doesn't already carry a time value)
  *   • subject line (font-weight tracks unread/read)
- *   • snippet line — body is `aiSummary ?? snippet`, with optional `// CLAUDE DRAFT ·` (AI)
- *     or `DRAFT ·` (operator) Cake-prefix
+ *   • snippet line — body is the resolved preview, with optional `// PHASE C DRAFT ·` (AI)
+ *     or `DRAFT ·` (operator) Cake-prefix. Generic form-submission summaries
+ *     never mask parsed form content.
  *   • bottom signal row — only when at least one of attachment / quote / invoice / new-sender
  *     is present. The legacy URGENT pill is gone — the inline <StateTag> now carries urgency.
  *
@@ -19,24 +21,43 @@
  * hover) so they read as urgent even at a glance, not just at the stripe.
  */
 
+import { useId, type MouseEvent } from "react";
 import {
+  Archive,
   DollarSign,
+  Mail,
+  MailOpen,
   Paperclip,
   Receipt,
-  UserPlus,
 } from "lucide-react";
 import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
-import type { ThreadForGrouping } from "@/lib/inbox/grouping";
+import type { PhaseC } from "@/lib/types/email-thread";
 import type { StateTagResult } from "@/lib/inbox/format-wait";
+import { resolveThreadPreview } from "@/lib/inbox/thread-preview";
 import { StateTag } from "./state-tag";
+import {
+  inboxThreadHref,
+  shouldHandleInPlaceThreadNavigation,
+} from "./inbox-navigation";
 
-export interface ThreadRowData extends ThreadForGrouping {
+export interface ThreadRowData {
+  id: string;
+  /** Unix milliseconds — most recent activity. */
+  ts: number;
+  labels: string[];
+  agent: { needsInput: boolean };
+  phaseC: PhaseC;
+  closed: boolean;
+  /** True when there is at least one unread inbound message. Visual state only. */
+  unread: boolean;
+  /** Set when the thread has a saved draft. Drives the row-level draft indicator. */
+  draftKind?: "ai" | "user" | null;
   clientName: string;
   subject: string;
-  /** Raw provider snippet — the fallback when AI summary isn't available. */
+  /** Raw provider snippet or parsed form preview. Used when it is more specific than the summary. */
   snippet: string;
-  /** Server-side AI summary; renders in preference to `snippet` when present. */
+  /** Server-side AI summary; renders in preference to `snippet` unless it is a stale form wrapper. */
   aiSummary: string | null;
   /** Total messages in the thread. Renders inline as `· {n}` when > 1. */
   messageCount: number;
@@ -54,6 +75,25 @@ interface ThreadRowProps {
   selected: boolean;
   now: number;
   onSelect: (id: string) => void;
+  /**
+   * When provided AND state.kind === "yours", the StateTag reveals a hover-X
+   * that clears AWAITING_REPLY on the thread (see `useThreadActions.dismissAwaitingReply`).
+   * Omit on rails where the override doesn't make sense (e.g. archived list).
+   */
+  onDismissAwaitingReply?: (threadId: string) => void;
+  /** Compact row-level read-state action. Uses the same mutation path as detail. */
+  onMarkReadChange?: (threadId: string, isRead: boolean) => void;
+  /** Compact row-level archive action. Must route through the real archive flow. */
+  onArchive?: (threadId: string) => void;
+}
+
+export function resolveThreadRowPreview(
+  thread: Pick<ThreadRowData, "aiSummary" | "snippet">,
+): string {
+  return resolveThreadPreview({
+    aiSummary: thread.aiSummary,
+    fallback: thread.snippet,
+  });
 }
 
 function formatRelativeTime(ts: number, now: number): string {
@@ -73,7 +113,31 @@ function formatRelativeTime(ts: number, now: number): string {
   });
 }
 
-export function ThreadRow({ thread, selected, now, onSelect }: ThreadRowProps) {
+/**
+ * State kinds whose StateTag already carries the time information (e.g.
+ * `YOURS · 34M`, `THEIRS · 2H`, `+8D · WAITING`). For these the trailing
+ * relative-time stamp is suppressed — without this guard the row reads
+ * `Office Victoria · YOURS · 34M · 34m`, with two near-identical clocks.
+ *
+ * `fyi`, `closed`, `draft_ready`, `auto_sent`, `sys` carry no time, so the
+ * trailing relative time still renders for those.
+ */
+const STATE_OWNS_TIME = new Set<StateTagResult["kind"]>([
+  "yours",
+  "theirs",
+  "overdue",
+  "alarmed",
+]);
+
+export function ThreadRow({
+  thread,
+  selected,
+  now,
+  onSelect,
+  onDismissAwaitingReply,
+  onMarkReadChange,
+  onArchive,
+}: ThreadRowProps) {
   const { t } = useDictionary("inbox");
   const isAiDraft =
     thread.phaseC === "ai_drafted" || thread.draftKind === "ai";
@@ -81,12 +145,14 @@ export function ThreadRow({ thread, selected, now, onSelect }: ThreadRowProps) {
   const isUnread = thread.unread;
   const isOverdue =
     thread.state.kind === "alarmed" || thread.state.kind === "overdue";
+  const hasUnknownSender = thread.labels.includes("FROM_NEW_SENDER");
 
   const showSignalRow =
     thread.labels.includes("HAS_ATTACHMENT") ||
     thread.labels.includes("HAS_QUOTE") ||
-    thread.labels.includes("HAS_INVOICE") ||
-    thread.labels.includes("FROM_NEW_SENDER");
+    thread.labels.includes("HAS_INVOICE");
+  const showStateTag = thread.state.kind !== "fyi";
+  const showQuickActions = Boolean(onMarkReadChange || onArchive);
 
   const stripeColor = selected
     ? "bg-ops-accent"
@@ -94,28 +160,66 @@ export function ThreadRow({ thread, selected, now, onSelect }: ThreadRowProps) {
       ? "bg-rose"
       : isAiDraft
         ? "bg-agent"
-        : "bg-transparent";
+        : isUnread
+          ? "bg-line-hi"
+          : "bg-transparent";
 
   const alarmDays =
     thread.state.alarmStrip && thread.lastInboundAt !== null
       ? Math.floor((now - thread.lastInboundAt) / 86_400_000)
       : 0;
 
+  const showTrailingTime = !STATE_OWNS_TIME.has(thread.state.kind);
+  const clientNameId = useId();
+  const subjectId = useId();
+  const href = inboxThreadHref(thread.id);
+
+  const handleSelect = (e: MouseEvent<HTMLAnchorElement>) => {
+    if (shouldHandleInPlaceThreadNavigation(e)) {
+      e.preventDefault();
+      onSelect(thread.id);
+    }
+  };
+
+  const tagDismiss =
+    showStateTag && onDismissAwaitingReply && thread.state.kind === "yours"
+      ? () => onDismissAwaitingReply(thread.id)
+      : undefined;
+  const snippetText = resolveThreadRowPreview(thread);
+  const markReadLabel = isUnread
+    ? t("row.markRead", "Mark read")
+    : t("row.markUnread", "Mark unread");
+  const archiveLabel = t("row.archiveThread", "Archive thread");
+  const quickButtonClass =
+    "inline-flex h-[18px] w-[18px] items-center justify-center rounded-[2px] border border-line text-text-3 transition-colors hover:border-line-hi hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black";
+
+  const stopQuickAction = (e: MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
   return (
-    <button
-      type="button"
-      onClick={() => onSelect(thread.id)}
-      aria-pressed={selected}
+    <div
+      data-testid="thread-row"
       className={cn(
-        "group relative block w-full border-b border-line text-left",
-        "py-2.5 pl-2 pr-3.5",
+        "group relative block w-full cursor-pointer border-b border-line text-left",
+        "py-2 pl-2 pr-3",
         selected
-          ? "bg-ops-accent/[0.07]"
+          ? "border-line-hi"
           : isOverdue
-            ? "bg-rose/[0.04] hover:bg-rose/[0.08]"
-            : "hover:bg-inbox-elev/40",
+            ? "hover:border-rose/35"
+            : isUnread
+              ? "hover:border-line-hi"
+              : "hover:border-line-hi",
       )}
     >
+      <a
+        href={href}
+        onClick={handleSelect}
+        aria-current={selected ? "page" : undefined}
+        aria-labelledby={`${clientNameId} ${subjectId}`}
+        className="absolute inset-0 z-10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
+      />
       <span
         data-testid="thread-row-stripe"
         aria-hidden
@@ -127,114 +231,192 @@ export function ThreadRow({ thread, selected, now, onSelect }: ThreadRowProps) {
         )}
       />
 
-      {/* Alarm strip — rose, only on alarmed (>14d unanswered) threads */}
-      {thread.state.alarmStrip && thread.lastInboundAt !== null && (
-        <div
-          className="mb-1 font-mono text-[11px] uppercase tracking-[0.16em] text-rose"
-          style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
-        >
-          {t("row.alarmStrip", "// {days}D · UNANSWERED").replace(
-            "{days}",
-            String(alarmDays),
-          )}
-        </div>
-      )}
-
-      {/* Title row: name · count · state-tag · time */}
-      <div className="flex min-w-0 items-baseline gap-2">
-        <span
-          className={cn(
-            "min-w-0 flex-1 truncate font-mohave text-[13px] tracking-[-0.003em]",
-            isUnread ? "font-semibold text-text" : "font-normal text-text-2",
-          )}
-        >
-          {thread.clientName}
-        </span>
-        {thread.messageCount > 1 && (
-          <span
-            className="shrink-0 font-mono text-[11px] text-text-mute"
+      <div className="relative z-20 pointer-events-none">
+        {/* Alarm strip — rose, only on alarmed (>14d unanswered) threads */}
+        {thread.state.alarmStrip && thread.lastInboundAt !== null && (
+          <div
+            className="mb-1 font-mono text-[11px] uppercase tracking-[0.16em] text-rose"
             style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
           >
-            · {thread.messageCount}
-          </span>
+            {t("row.alarmStrip", "// {days}D · UNANSWERED").replace(
+              "{days}",
+              String(alarmDays),
+            )}
+          </div>
         )}
-        <StateTag
-          tone={thread.state.tone}
-          variant="bare"
-          prefix={thread.state.prefix}
-          value={thread.state.value}
-        />
-        <span
+
+        {/* Title row: name · count · state-tag · time */}
+        <div className="flex min-w-0 items-baseline gap-2">
+          <span className="flex min-w-0 flex-1 items-baseline gap-0.5">
+            <span
+              id={clientNameId}
+              className={cn(
+                "min-w-0 truncate font-mohave text-[13px]",
+                isUnread
+                  ? "font-semibold text-text"
+                  : "font-normal text-text-mute",
+              )}
+            >
+              {thread.clientName}
+            </span>
+            {hasUnknownSender && (
+              <span
+                data-testid="thread-row-unknown-sender"
+                aria-label={t("row.unknownSender", "Unconfirmed sender")}
+                title={t("row.unknownSender", "Unconfirmed sender")}
+                className="shrink-0 font-mono text-[11px] text-text-3"
+              >
+                ?
+              </span>
+            )}
+          </span>
+          {isUnread && (
+            <span
+              data-testid="thread-row-new-badge"
+              className="shrink-0 rounded-[2px] border border-line-hi bg-transparent px-1 font-mono text-[11px] uppercase tracking-[0.10em] text-text"
+              style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
+            >
+              {t("row.newBadge", "NEW")}
+            </span>
+          )}
+          {thread.messageCount > 1 && (
+            <span
+              className="shrink-0 font-mono text-[11px] text-text-mute"
+              style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
+            >
+              · {thread.messageCount}
+            </span>
+          )}
+          {showStateTag && (
+            <StateTag
+              tone={thread.state.tone}
+              variant="bare"
+              prefix={thread.state.prefix}
+              value={thread.state.value}
+              onDismiss={tagDismiss}
+              dismissLabel={t(
+                "row.dismissAwaitingReply",
+                "Mark no reply needed",
+              )}
+            />
+          )}
+          {showTrailingTime && (
+            <span
+              className={cn(
+                "shrink-0 font-mono text-[11px]",
+                isUnread ? "text-text-3" : "text-text-mute",
+              )}
+              style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
+            >
+              {formatRelativeTime(thread.ts, now)}
+            </span>
+          )}
+          {showQuickActions && (
+            <span
+              data-testid="thread-row-quick-actions"
+              className={cn(
+                "pointer-events-auto ml-0.5 flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                "group-hover:opacity-100 group-focus-within:opacity-100",
+              )}
+            >
+              {onMarkReadChange && (
+                <button
+                  type="button"
+                  aria-label={markReadLabel}
+                  title={markReadLabel}
+                  className={quickButtonClass}
+                  onClick={(event) => {
+                    stopQuickAction(event);
+                    onMarkReadChange(thread.id, isUnread);
+                  }}
+                >
+                  {isUnread ? (
+                    <MailOpen aria-hidden className="h-3 w-3" strokeWidth={1.5} />
+                  ) : (
+                    <Mail aria-hidden className="h-3 w-3" strokeWidth={1.5} />
+                  )}
+                </button>
+              )}
+              {onArchive && (
+                <button
+                  type="button"
+                  aria-label={archiveLabel}
+                  title={archiveLabel}
+                  className={quickButtonClass}
+                  onClick={(event) => {
+                    stopQuickAction(event);
+                    onArchive(thread.id);
+                  }}
+                >
+                  <Archive aria-hidden className="h-3 w-3" strokeWidth={1.5} />
+                </button>
+              )}
+            </span>
+          )}
+        </div>
+
+        {/* Subject line */}
+        <div
+          id={subjectId}
           className={cn(
-            "shrink-0 font-mono text-[11px]",
+            "mt-0.5 truncate font-mohave text-[13px]",
+            isUnread ? "font-medium text-text" : "font-normal text-text-mute",
+          )}
+        >
+          {thread.subject || ""}
+        </div>
+
+        {/* Snippet line with optional draft prefix — prefers AI summary over raw snippet */}
+        <div
+          className={cn(
+            "mt-0.5 truncate font-mohave text-[12px] leading-[1.4]",
             isUnread ? "text-text-3" : "text-text-mute",
           )}
-          style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
         >
-          {formatRelativeTime(thread.ts, now)}
-        </span>
-      </div>
-
-      {/* Subject line */}
-      <div
-        className={cn(
-          "mt-0.5 truncate font-mohave text-[13px] tracking-[-0.003em]",
-          isUnread ? "font-medium text-text" : "font-normal text-text-2",
-        )}
-      >
-        {thread.subject || ""}
-      </div>
-
-      {/* Snippet line with optional draft prefix — prefers AI summary over raw snippet */}
-      <div className="mt-0.5 truncate font-mohave text-[12px] leading-[1.4] text-text-3">
-        {isAiDraft && (
-          <span className="mr-1.5 font-cakemono text-[11px] font-light uppercase tracking-[0.16em] text-agent">
-            {t("row.claudeDraftPrefix", "// CLAUDE DRAFT ·")}
-          </span>
-        )}
-        {!isAiDraft && hasUserDraft && (
-          <span className="mr-1.5 font-cakemono text-[11px] font-light uppercase tracking-[0.16em] text-text-3">
-            {t("row.draftPrefix", "DRAFT ·")}
-          </span>
-        )}
-        {thread.aiSummary ?? thread.snippet}
-      </div>
-
-      {/* Bottom signal row — attachments / quotes / invoices / new senders only */}
-      {showSignalRow && (
-        <div className="mt-1.5 flex items-center gap-1.5">
-          <span className="ml-auto flex items-center gap-1 text-text-mute">
-            {thread.labels.includes("FROM_NEW_SENDER") && (
-              <UserPlus
-                aria-hidden
-                className="h-[14px] w-[14px]"
-                strokeWidth={1.5}
-              />
-            )}
-            {thread.labels.includes("HAS_ATTACHMENT") && (
-              <Paperclip
-                aria-hidden
-                className="h-[14px] w-[14px]"
-                strokeWidth={1.5}
-              />
-            )}
-            {thread.labels.includes("HAS_QUOTE") && (
-              <DollarSign
-                aria-hidden
-                className="h-[14px] w-[14px]"
-                strokeWidth={1.5}
-              />
-            )}
-            {thread.labels.includes("HAS_INVOICE") && (
-              <Receipt
-                aria-hidden
-                className="h-[14px] w-[14px]"
-                strokeWidth={1.5}
-              />
-            )}
-          </span>
+          {isAiDraft && (
+            <span className="mr-1.5 font-cakemono text-[11px] font-light uppercase tracking-[0.16em] text-agent">
+              {t("row.phaseCDraftPrefix", "// PHASE C DRAFT ·")}
+            </span>
+          )}
+          {!isAiDraft && hasUserDraft && (
+            <span className="mr-1.5 font-cakemono text-[11px] font-light uppercase tracking-[0.16em] text-text-3">
+              {t("row.draftPrefix", "DRAFT ·")}
+            </span>
+          )}
+          {snippetText}
         </div>
-      )}
-    </button>
+
+        {/* Bottom signal row — attachments / quotes / invoices only */}
+        {showSignalRow && (
+          <div className="mt-1 flex items-center gap-1.5">
+            <span
+              className="ml-auto flex items-center gap-1 text-text-mute"
+            >
+              {thread.labels.includes("HAS_ATTACHMENT") && (
+                <Paperclip
+                  aria-hidden
+                  className="h-[14px] w-[14px]"
+                  strokeWidth={1.5}
+                />
+              )}
+              {thread.labels.includes("HAS_QUOTE") && (
+                <DollarSign
+                  aria-hidden
+                  className="h-[14px] w-[14px]"
+                  strokeWidth={1.5}
+                />
+              )}
+              {thread.labels.includes("HAS_INVOICE") && (
+                <Receipt
+                  aria-hidden
+                  className="h-[14px] w-[14px]"
+                  strokeWidth={1.5}
+                />
+              )}
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

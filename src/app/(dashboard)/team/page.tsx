@@ -218,7 +218,7 @@ function RoleSelector({
   return (
     <>
       <div className="fixed inset-0 z-40" onClick={onClose} />
-      <div className="absolute right-0 top-full mt-[4px] w-[200px] bg-glass glass-surface backdrop-blur-xl border border-[rgba(255,255,255,0.2)] rounded z-50 animate-scale-in overflow-hidden">
+      <div className="absolute right-0 top-full mt-[4px] w-[200px] bg-glass glass-surface backdrop-blur-xl border border-[rgba(255,255,255,0.2)] rounded z-50 motion-safe:animate-anchored-in overflow-hidden">
         <div className="px-1.5 py-[6px] border-b border-border-subtle">
           <span className="font-mono text-micro text-text-mute uppercase tracking-widest">
             {t("team.changeRole")}
@@ -370,7 +370,7 @@ function TeamMemberCard({
                     className="fixed inset-0 z-40"
                     onClick={() => setMenuOpen(false)}
                   />
-                  <div className="absolute right-0 top-full mt-[4px] w-[180px] bg-glass glass-surface backdrop-blur-xl border border-[rgba(255,255,255,0.2)] rounded z-50 animate-scale-in overflow-hidden">
+                  <div className="absolute right-0 top-full mt-[4px] w-[180px] bg-glass glass-surface backdrop-blur-xl border border-[rgba(255,255,255,0.2)] rounded z-50 motion-safe:animate-anchored-in overflow-hidden">
                     <button
                       onClick={() => {
                         setShowRoleSelector(true);

@@ -181,7 +181,7 @@ export function CalendarToolbar({ events, t }: CalendarToolbarProps) {
   }
 
   return (
-    <div className="flex items-center gap-3 px-1 shrink-0">
+    <div className="flex max-w-full min-w-0 items-center gap-3 overflow-x-auto overflow-y-visible px-1 pb-1 shrink-0 scrollbar-hide">
       {/* T15 — // UNSCHEDULED [N] chip toggles the tray */}
       <button
         type="button"

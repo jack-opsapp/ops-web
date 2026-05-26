@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { Trash2, Info } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { cn } from "@/lib/utils/cn";
+import { useDictionary } from "@/i18n/client";
 import { usePreferencesStore } from "@/stores/preferences-store";
 import { WidgetCardFlip } from "./widgets/shared/widget-card-flip";
 import type { WidgetSize, WidgetTypeId } from "@/lib/types/dashboard-widgets";
@@ -60,6 +61,7 @@ export function WidgetShell({
   entryStyle,
   children,
 }: WidgetShellProps) {
+  const { t } = useDictionary("dashboard");
   const updateWidgetInstance = usePreferencesStore((s) => s.updateWidgetInstance);
   const removeWidgetInstance = usePreferencesStore((s) => s.removeWidgetInstance);
 
@@ -78,6 +80,10 @@ export function WidgetShell({
   const isSpacer = typeId === "spacer";
   const [isFlipped, setIsFlipped] = useState(false);
   const hasMultipleSizes = !isSpacer && entry && entry.supportedSizes.length > 1;
+  const widgetLabel = entry?.label ?? typeId;
+  const customizeLabel = isSpacer
+    ? `${t("widgets.customize.spacerWidget", "Spacer widget")}. ${t("widgets.customize.dragReposition", "Drag to reposition.")}`
+    : `${widgetLabel} ${t("widgets.customize.widget", "widget")}, ${t("widgets.customize.size", "size")} ${WIDGET_SIZE_LABELS[size]}. ${t("widgets.customize.dragReorder", "Drag to reorder.")}`;
 
   // Spacer uses custom grid spans from config instead of preset size classes
   const spacerColSpan = isSpacer ? ((config?.colSpan as number) ?? 2) : undefined;
@@ -138,6 +144,7 @@ export function WidgetShell({
       data-widget-type={typeId}
       data-widget-size={size}
       {...(isCustomizing ? { ...attributes, ...listeners } : {})}
+      {...(isCustomizing ? { "aria-label": customizeLabel } : {})}
     >
       {/* Frosted backdrop — blocks map bleed-through for all real widgets */}
       {!isSpacer && (
@@ -213,6 +220,7 @@ export function WidgetShell({
                   <button
                     key={s}
                     onClick={() => updateWidgetInstance(instanceId, { size: s })}
+                    aria-label={`${t("widgets.customize.set", "Set")} ${entry.label} ${t("widgets.customize.widgetSizeTo", "widget size to")} ${WIDGET_SIZE_LABELS[s]}`}
                     className={cn(
                       "px-[8px] py-[2px] rounded-sm font-mono text-micro border transition-all duration-150",
                       isSelected

@@ -7,15 +7,15 @@
  * Spec § 5.1 (plan Phase E1):
  *   - Trigger: chevron-prefixed JetBrains Mono uppercase 11 with hairline
  *     border. Disabled (mute, no border, no chevron) when no other threads.
- *   - Popover: glass-dense, 12px radius (inherited from .glass-dense), anchored
+ *   - Popover: transparent hairline surface, 12px radius, anchored
  *     to the trigger's right edge, ~340px wide. Header SlashLabel + thread
- *     rows. Click row → router.push(`/inbox/{id}`) + close popover.
+ *     rows. Click row opens the thread and closes the popover.
  *
  * Data feed: parent (E2 wiring in inbox-route.tsx) pre-computes the
  * ThreadPickerThread[] via useClientThreads + computeStateTag.
  */
 
-import { useState } from "react";
+import { useState, type MouseEvent } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -24,6 +24,10 @@ import { cn } from "@/lib/utils/cn";
 import { StateTag } from "./state-tag";
 import { SlashLabel } from "./voice/slash-label";
 import type { StateTagResult } from "@/lib/inbox/format-wait";
+import {
+  inboxThreadHref,
+  shouldHandleInPlaceThreadNavigation,
+} from "./inbox-navigation";
 
 export interface ThreadPickerThread {
   id: string;
@@ -39,6 +43,7 @@ export interface ThreadPickerProps {
   currentThreadId: string | null;
   /** Client display name for the popover header label. */
   clientName: string;
+  onSelectThread?: (threadId: string) => void;
   /** Optional className for the trigger wrapper. */
   className?: string;
 }
@@ -47,6 +52,7 @@ export function ThreadPicker({
   threads,
   currentThreadId,
   clientName,
+  onSelectThread,
   className,
 }: ThreadPickerProps) {
   const { t } = useDictionary("inbox");
@@ -55,8 +61,14 @@ export function ThreadPicker({
 
   const count = threads.length;
 
-  function handleRowClick(threadId: string) {
-    router.push(`/inbox/${threadId}`);
+  function handleRowClick(e: MouseEvent<HTMLAnchorElement>, threadId: string) {
+    if (!shouldHandleInPlaceThreadNavigation(e)) return;
+    e.preventDefault();
+    if (onSelectThread) {
+      onSelectThread(threadId);
+    } else {
+      router.push(inboxThreadHref(threadId));
+    }
     setOpen(false);
   }
 
@@ -69,19 +81,26 @@ export function ThreadPicker({
           className,
         )}
       >
-        {t("picker.triggerNone", "· 0 OTHER THREADS")}
+        {t("picker.triggerNone", "0 OTHER THREADS")}
       </span>
     );
   }
 
   // The chevron is rendered separately via Lucide so it can flip on expand;
   // the dictionary string carries only the count + label.
-  const triggerLabel = t("picker.trigger", "{count} OTHER THREADS").replace(
-    "{count}",
-    String(count),
-  );
+  const triggerLabel = t(
+    count === 1 ? "picker.triggerOne" : "picker.trigger",
+    count === 1 ? "1 OTHER THREAD" : "{count} OTHER THREADS",
+  ).replace("{count}", String(count));
 
-  const ariaLabel = `Show ${count} other threads with ${clientName}`;
+  const ariaLabel = t(
+    count === 1 ? "picker.ariaLabelOne" : "picker.ariaLabel",
+    count === 1
+      ? "Show 1 other thread with {client}"
+      : "Show {count} other threads with {client}",
+  )
+    .replace("{count}", String(count))
+    .replace("{client}", clientName);
 
   const headerLabel = t("picker.header", "// THREADS WITH {client} · {count}")
     .replace("{client}", clientName)
@@ -94,11 +113,11 @@ export function ThreadPicker({
           type="button"
           aria-label={ariaLabel}
           className={cn(
-            "inline-flex h-[26px] items-center gap-1 rounded-chip border px-1.5 py-0.5",
+            "inline-flex shrink-0 items-center gap-1 rounded-chip border px-1.5 py-[2px]",
             "font-mono uppercase tracking-[0.10em] text-[11px] text-text-2",
-            "border-[rgba(255,255,255,0.10)]",
+            "border-line",
             "transition-colors",
-            "hover:border-[rgba(255,255,255,0.20)] hover:text-text",
+            "hover:border-line-hi hover:text-text",
             "focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black",
             className,
           )}
@@ -158,17 +177,16 @@ export function ThreadPicker({
             }
 
             return (
-              <button
+              <a
                 key={thread.id}
-                type="button"
+                href={inboxThreadHref(thread.id)}
                 data-thread-row
-                onClick={() => handleRowClick(thread.id)}
-                aria-label={thread.subject}
+                onClick={(e) => handleRowClick(e, thread.id)}
                 className={cn(
-                  "flex w-full items-center justify-between gap-2 rounded-chip px-2 py-2 text-left",
+                  "flex w-full items-center justify-between gap-2 rounded-chip px-2 py-1.5 text-left",
                   "transition-colors",
-                  "hover:bg-[rgba(255,255,255,0.04)]",
-                  "focus-visible:outline-none focus-visible:bg-[rgba(255,255,255,0.04)]",
+                  "hover:text-text",
+                  "focus-visible:outline-none",
                 )}
               >
                 <span
@@ -185,7 +203,7 @@ export function ThreadPicker({
                   prefix={thread.state.prefix}
                   value={thread.state.value}
                 />
-              </button>
+              </a>
             );
           })}
         </div>

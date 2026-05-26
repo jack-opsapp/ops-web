@@ -2,6 +2,7 @@
  * OPS Web — Inbox Drafts
  *
  * GET    /api/inbox/drafts?scope=own|company
+ * POST   /api/inbox/drafts                    — create-or-update a provider draft
  * DELETE /api/inbox/drafts?source=provider|ai&id=...&connectionId=...
  *
  * Merges two sources into one list:
@@ -220,6 +221,119 @@ export async function GET(request: NextRequest) {
   );
 
   return NextResponse.json({ drafts: kept });
+}
+
+// ─── POST — create or update a provider draft ───────────────────────────────
+//
+// Body shape:
+//   {
+//     connectionId: string,    // mailbox the draft should land in
+//     to: string,              // recipient (bare addr or RFC 5322 mailbox)
+//     subject: string,
+//     body: string,
+//     providerThreadId?: string, // pin reply-drafts to a conversation
+//     draftId?: string,        // present → updateDraft; absent → createDraft
+//   }
+//
+// Returns: { ok: true, draftId, source: "provider" } — caller stores the
+// draftId locally so subsequent saves PATCH the same row instead of creating
+// duplicates.
+//
+// Permission gate: `inbox.view` (anyone who can see the inbox can stash a
+// draft into their own provider). The connection's company_id is verified
+// against the caller's company.
+
+interface SaveDraftBody {
+  connectionId?: string;
+  to?: string;
+  subject?: string;
+  body?: string;
+  providerThreadId?: string | null;
+  draftId?: string | null;
+}
+
+export async function POST(request: NextRequest) {
+  const authUser = await verifyAdminAuth(request);
+  if (!authUser) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const user = await findUserByAuth(authUser.uid, authUser.email, "id, company_id");
+  if (!user) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+  const userId = user.id as string;
+  const companyId = user.company_id as string;
+
+  const canView = await checkPermissionById(userId, "inbox.view");
+  if (!canView) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const payload = (await request.json().catch(() => null)) as SaveDraftBody | null;
+  if (!payload || typeof payload !== "object") {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  const { connectionId, to, subject, body, providerThreadId, draftId } = payload;
+  if (!connectionId || typeof connectionId !== "string") {
+    return NextResponse.json(
+      { error: "connectionId is required" },
+      { status: 400 }
+    );
+  }
+  if (typeof to !== "string" || typeof subject !== "string" || typeof body !== "string") {
+    return NextResponse.json(
+      { error: "to, subject, and body are required strings" },
+      { status: 400 }
+    );
+  }
+
+  const supabase = getServiceRoleClient();
+  const conn = await runWithSupabase(supabase, () =>
+    EmailService.getConnection(connectionId)
+  );
+  if (!conn) {
+    return NextResponse.json({ error: "Connection not found" }, { status: 404 });
+  }
+  if (conn.companyId !== companyId) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  try {
+    const provider = EmailService.getProvider(conn);
+    if (draftId) {
+      await provider.updateDraft(
+        draftId,
+        to,
+        subject,
+        body,
+        providerThreadId ?? undefined,
+      );
+      return NextResponse.json({
+        ok: true,
+        draftId,
+        source: "provider" as const,
+      });
+    }
+    const newId = await provider.createDraft(
+      to,
+      subject,
+      body,
+      providerThreadId ?? undefined,
+    );
+    return NextResponse.json({
+      ok: true,
+      draftId: newId,
+      source: "provider" as const,
+    });
+  } catch (err) {
+    console.error("[/api/inbox/drafts] save failed:", err);
+    return NextResponse.json(
+      { error: `Save failed: ${(err as Error).message}` },
+      { status: 500 }
+    );
+  }
 }
 
 // ─── DELETE — discard a draft ────────────────────────────────────────────────

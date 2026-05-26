@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * RecategorizeMenu — popover with all 13 primary categories + optional
+ * RecategorizeMenu — popover with all 12 primary categories + optional
  * "Tell Phase C why" note. Fires the `recategorize` mutation, shows an
  * undo toast, and (on undo) reverses the change via another recategorize
  * call back to the original category.
@@ -11,8 +11,11 @@
  */
 
 import { useCallback, useMemo, useState } from "react";
-import { Sparkles } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
 import {
@@ -40,9 +43,7 @@ interface RecategorizeMenuProps {
 // Hotkey letters mirror the first letter of the category, with collisions
 // resolved deterministically. Rendered as a subtle [K] hint on the right.
 const CATEGORY_HOTKEYS: Record<EmailThreadCategory, string> = {
-  CUSTOMER: "U",
-  LEAD: "L",
-  CLIENT: "C",
+  CUSTOMER: "C",
   VENDOR: "V",
   SUBTRADE: "S",
   PLATFORM_BID: "B",
@@ -95,13 +96,13 @@ export function RecategorizeMenu({
         {
           onSuccess: () => {
             enqueueUndoToast({
-              message: t("toast.recategorizedTactic", "SYS :: MOVED TO {category}").replace(
-                "{category}",
-                categoryLabel(next),
-              ),
+              message: t(
+                "toast.recategorizedTactic",
+                "SYS :: MOVED TO {category}"
+              ).replace("{category}", categoryLabel(next)),
               detail: t(
                 "toast.recategorizedDetail",
-                "[—] phase c will learn from this correction.",
+                "[—] phase c will learn from this correction."
               ),
               onUndo: () => {
                 recategorize.mutate({ threadId, toCategory: currentCategory });
@@ -109,14 +110,12 @@ export function RecategorizeMenu({
             });
           },
           onError: () => {
-            toast.error(
-              t("recategorize.error", "Failed to reclassify thread"),
-            );
+            toast.error(t("recategorize.error", "Failed to reclassify thread"));
           },
-        },
+        }
       );
     },
-    [note, recategorize, threadId, currentCategory, setOpen, t],
+    [note, recategorize, threadId, currentCategory, setOpen, t]
   );
 
   const handleKeyDown = useCallback(
@@ -142,41 +141,37 @@ export function RecategorizeMenu({
       <PopoverContent
         align={align}
         sideOffset={6}
-        className="w-[280px] p-0"
+        className="w-[316px] overflow-hidden p-0"
         onOpenAutoFocus={(e) => e.preventDefault()}
         onKeyDown={handleKeyDown}
       >
         {/* Header */}
-        <div className="px-3 pt-2.5 pb-2 border-b border-line">
+        <div className="border-b border-line px-1.5 py-1">
           <SlashLabel
             label={t("modal.recat.title", "// RECATEGORIZE")}
             size="md"
           />
-          <p className="font-mono text-[11px] text-text-3 mt-1.5 leading-relaxed">
-            {t(
-              "modal.recat.body",
-              "[—] move this thread to a different group",
-            )}
+          <p className="mt-0.5 font-mono text-micro leading-snug text-text-3">
+            {t("modal.recat.body", "[—] move this thread to a different group")}
           </p>
         </div>
 
         {/* Category list */}
-        <div className="py-1 max-h-[360px] overflow-y-auto scrollbar-hide">
+        <div className="scrollbar-hide max-h-[320px] overflow-y-auto py-0.5">
           {categories.map((cat) => (
             <button
               key={cat}
               type="button"
               onClick={() => commit(cat)}
               className={cn(
-                "flex items-center gap-2 w-full px-3 py-1.5 text-left",
-                "hover:bg-inbox-elev/40 transition-colors duration-150",
-                "focus:outline-none focus:bg-inbox-elev/60",
+                "grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-1 px-1.5 py-0.5 text-left",
+                "transition-colors duration-150",
+                "hover:text-text focus-visible:outline-none"
               )}
             >
-              <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-text-2">
+              <span className="min-w-0 truncate font-mono text-micro uppercase tracking-wider text-text-2">
                 {categoryLabel(cat)}
               </span>
-              <span className="flex-1" />
               <KeyHint
                 variant="inline"
                 keys={CATEGORY_HOTKEYS[cat]}
@@ -186,22 +181,17 @@ export function RecategorizeMenu({
           ))}
         </div>
 
-        {/* "Tell Phase C why" note — Cake lavender authority label */}
-        <div className="px-3 py-2 border-t border-line">
+        <div className="border-t border-line px-1.5 py-1">
           <label
             htmlFor={`recat-note-${threadId}`}
-            className="flex items-center gap-1.5 mb-1"
+            className="mb-0.5 flex items-center"
           >
-            <Sparkles
-              className="w-[14px] h-[14px] text-agent-hi"
-              strokeWidth={1.5}
-            />
             <SlashLabel
               label={t(
-                "modal.recat.phaseCNote",
-                "// PHASE C NOTE — OPTIONAL",
+                "modal.recat.noteTitle",
+                "// CLASSIFIER NOTE — OPTIONAL"
               )}
-              tone="agent"
+              tone="text-3"
             />
           </label>
           <textarea
@@ -211,13 +201,12 @@ export function RecategorizeMenu({
             rows={2}
             placeholder={t(
               "recategorize.notePlaceholder",
-              "This domain is always a vendor…",
+              "This domain is always a vendor…"
             )}
             className={cn(
-              "w-full resize-none rounded-[2.5px] px-2 py-1.5",
-              "bg-inbox-bg-deep border border-line",
-              "font-mohave text-[13px] text-text placeholder:text-text-3",
-              "focus:outline-none focus:border-line-hi",
+              "w-full resize-none rounded border border-line bg-transparent px-1 py-0.5",
+              "font-mohave text-caption-sm text-text placeholder:text-text-3",
+              "focus:border-line-hi focus:outline-none"
             )}
           />
         </div>

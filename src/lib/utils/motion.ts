@@ -644,6 +644,25 @@ export const sparklineVariants: Variants = {
 // ─── Inbox redesign variants ────────────────────────────────────────────────
 
 /**
+ * Floating `// YOUR TURN` badge — top-center chip that mounts above the
+ * detail-pane message list whenever the active thread classifies as
+ * YOUR_MOVE. Drops in from -8px on the y-axis with a 200ms opacity fade;
+ * exits the reverse way at 150ms. Single design-system easing.
+ */
+export const floatingBadgeVariants: Variants = {
+  hidden: { opacity: 0, y: -8 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.2, ease: EASE_SMOOTH } },
+  exit: { opacity: 0, y: -8, transition: { duration: 0.15, ease: EASE_SMOOTH } },
+};
+
+/** Reduced-motion fallback — opacity only, no translate. */
+export const floatingBadgeVariantsReduced: Variants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { duration: 0.15, ease: EASE_SMOOTH } },
+  exit: { opacity: 0, transition: { duration: 0.12, ease: EASE_SMOOTH } },
+};
+
+/**
  * 180ms width slide for the right context rail. Used at <1280 (overlay
  * drawer) and at >=1280 when the rail is toggled docked/closed.
  */

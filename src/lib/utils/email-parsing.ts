@@ -321,11 +321,16 @@ const QUOTE_MARKERS = [
  * Strip quoted reply content from an email body.
  * Returns only the NEW content from this specific message.
  */
-export function stripQuotedContent(body: string): string {
+export function stripQuotedContent(body: string, subject = ""): string {
   if (!body) return body;
 
   // Normalize line endings — Gmail/M365 APIs may return \r\n
   const normalized = body.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  const contactFormDisplay = extractContactFormSubmissionDisplayText(
+    subject,
+    normalized
+  );
+  if (contactFormDisplay) return contactFormDisplay;
 
   let earliest = normalized.length;
 
@@ -492,7 +497,7 @@ export function isForwardMarker(subject: string, bodyText: string): boolean {
   return false;
 }
 
-// ─── Forwarded-sender extraction ───────────────────────────────────────────
+// ─── Contact-form / forwarded-sender extraction ────────────────────────────
 //
 // When the operator forwards a lead from one of their own mailboxes (e.g.
 // victoria@canprodeckandrail.com auto-forwards to canprojack@gmail.com), the
@@ -534,7 +539,6 @@ function parseDisplayNameFromHeaderLine(line: string): string | null {
 
 const FORM_SUBMISSION_SUBJECT_RE =
   /\b(?:got a new submission|new form entry|new contact form|new submission|form submission|new inquiry|new lead|contact us form|quote request|free quote form)\b/i;
-
 const FORM_SUBMISSION_BODY_MARKERS = [
   /\bsubmission summary\b/i,
   /\bsite visitor just submitted your form\b/i,
@@ -561,6 +565,10 @@ const CONTACT_FORM_SUBMITTED_EMAIL_LABELS = [
   "e-mail address",
   "your email",
 ];
+const CONTACT_FORM_EMAIL_LABELS = [
+  ...CONTACT_FORM_SUBMITTED_EMAIL_LABELS,
+  "reply-to",
+];
 const CONTACT_FORM_PHONE_LABELS = [
   "phone",
   "phone number",
@@ -580,17 +588,19 @@ const CONTACT_FORM_MESSAGE_LABELS = [
   "details",
   "inquiry",
 ];
-const CONTACT_FORM_STOP_LABELS = [
+const CONTACT_FORM_FIELD_LABELS = [
   ...CONTACT_FORM_NAME_LABELS,
   ...CONTACT_FORM_FIRST_NAME_LABELS,
   ...CONTACT_FORM_LAST_NAME_LABELS,
-  ...CONTACT_FORM_SUBMITTED_EMAIL_LABELS,
-  "reply-to",
+  ...CONTACT_FORM_EMAIL_LABELS,
   ...CONTACT_FORM_PHONE_LABELS,
   ...CONTACT_FORM_MESSAGE_LABELS,
   "address",
   "company",
   "subject",
+];
+const CONTACT_FORM_STOP_LABELS = [
+  ...CONTACT_FORM_FIELD_LABELS,
   "view submissions",
   "if you think this submission is suspicious",
   "this email was sent as a notification from this site",
@@ -601,6 +611,24 @@ export interface ContactFormSubmissionIdentity {
   email: string;
   phone: string | null;
   message: string | null;
+}
+
+export interface ContactFormSubmissionDiagnostics {
+  identity: ContactFormSubmissionIdentity;
+  warnings: string[];
+}
+
+export const CONTACT_FORM_PHONE_SANITIZED_WARNING =
+  "Phone field sanitized before proposed write";
+export const CONTACT_FORM_PHONE_DROPPED_WARNING =
+  "Phone field dropped before proposed write";
+
+export interface EffectiveSenderIdentity {
+  email: string;
+  source: "contact_form" | "forwarded" | "from_header";
+  name?: string | null;
+  phone?: string | null;
+  message?: string | null;
 }
 
 function normalizeFormSubmissionText(raw: string): string {
@@ -619,6 +647,22 @@ function normalizeFormSubmissionText(raw: string): string {
     .replace(/[^\S\n]+/g, " ");
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function orderedContactFormLabels(labels: string[]): string[] {
+  return [...labels].sort((a, b) => b.length - a.length);
+}
+
+function lineStartsWithLabel(line: string, labels: string[]): boolean {
+  const trimmed = line.trim();
+  return orderedContactFormLabels(labels).some((label) => {
+    const labelRe = new RegExp(`^${escapeRegExp(label)}(?:\\s*:|\\s*$)`, "i");
+    return labelRe.test(trimmed);
+  });
+}
+
 function cleanContactFormValue(value: string | null): string | null {
   if (!value) return null;
   const cleaned = value
@@ -631,20 +675,40 @@ function cleanContactFormValue(value: string | null): string | null {
   return cleaned || null;
 }
 
-function orderedContactFormLabels(labels: string[]): string[] {
-  return [...labels].sort((a, b) => b.length - a.length);
+const CONTACT_FORM_PHONE_TOKEN_RE = /\+?\d[\d\s().-]{5,}\d/g;
+
+function normalizePhoneToken(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
 }
 
-function contactFormLabelRe(label: string): RegExp {
-  const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(`^${escaped}\\s*:?\\s*(.*)$`, "i");
+function digitCount(value: string): number {
+  return value.replace(/\D/g, "").length;
 }
 
-function lineStartsWithContactFormLabel(line: string, labels: string[]): boolean {
-  const trimmed = line.trim();
-  return orderedContactFormLabels(labels).some((label) =>
-    contactFormLabelRe(label).test(trimmed)
-  );
+export function sanitizeContactFormPhoneValue(
+  value: string | null | undefined
+): {
+  phone: string | null;
+  warning: string | null;
+} {
+  const raw = cleanContactFormValue(value ?? null);
+  if (!raw) return { phone: null, warning: null };
+
+  for (const match of raw.matchAll(CONTACT_FORM_PHONE_TOKEN_RE)) {
+    const token = normalizePhoneToken(match[0]);
+    const digits = digitCount(token);
+    if (digits >= 7 && digits <= 15) {
+      return {
+        phone: token,
+        warning: token === raw ? null : CONTACT_FORM_PHONE_SANITIZED_WARNING,
+      };
+    }
+  }
+
+  return {
+    phone: null,
+    warning: CONTACT_FORM_PHONE_DROPPED_WARNING,
+  };
 }
 
 function extractFormField(text: string, labels: string[]): string | null {
@@ -652,9 +716,9 @@ function extractFormField(text: string, labels: string[]): string | null {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
     if (!line) continue;
-
     for (const label of orderedContactFormLabels(labels)) {
-      const match = line.match(contactFormLabelRe(label));
+      const labelRe = new RegExp(`^${escapeRegExp(label)}\\s*:?\\s*(.*)$`, "i");
+      const match = line.match(labelRe);
       if (!match) continue;
 
       const inline = cleanContactFormValue(match[1] ?? "");
@@ -667,7 +731,7 @@ function extractFormField(text: string, labels: string[]): string | null {
           if (collected.length > 0) collected.push("");
           continue;
         }
-        if (lineStartsWithContactFormLabel(next, CONTACT_FORM_STOP_LABELS)) break;
+        if (lineStartsWithLabel(next, CONTACT_FORM_STOP_LABELS)) break;
         collected.push(next);
       }
       return cleanContactFormValue(collected.join("\n"));
@@ -679,6 +743,136 @@ function extractFormField(text: string, labels: string[]): string | null {
 function looksLikeContactFormSubmission(subject: string, body: string): boolean {
   if (FORM_SUBMISSION_SUBJECT_RE.test(subject ?? "")) return true;
   return FORM_SUBMISSION_BODY_MARKERS.some((marker) => marker.test(body));
+}
+
+const CONTACT_FORM_DISPLAY_START_MARKERS = [
+  /^\s*submission summary\s*:?\s*$/i,
+  /^\s*message details\s*:?\s*$/i,
+  /^\s*form details\s*:?\s*$/i,
+  /^\s*submitted information\s*:?\s*$/i,
+  /^\s*new contact form submission\s*:?\s*$/i,
+];
+
+const CONTACT_FORM_PLATFORM_INTRO_RE =
+  /\b(?:site visitor just submitted your form|submitted your form|new contact form submission|contact form submission)\b/i;
+
+const CONTACT_FORM_FOOTER_RE =
+  /^\s*(?:view submissions|if you think this submission is suspicious|this email was sent as a notification from this site|manage notifications|unsubscribe|wix\.com|sent from wix|reply directly to this email)\b/i;
+
+const FORWARDED_HEADER_RE =
+  /^\s*(?:begin forwarded message|[-]{5,}\s*forwarded message\s*[-]{5,})\s*:?\s*$/i;
+
+const FORWARDED_METADATA_RE =
+  /^\s*(?:from|date|sent|to|cc|bcc|reply-to|subject)\s*:/i;
+
+function lineIsContactFormDisplayStart(line: string): boolean {
+  return CONTACT_FORM_DISPLAY_START_MARKERS.some((marker) => marker.test(line));
+}
+
+function findContactFormDisplayStart(lines: string[]): number {
+  const explicit = lines.findIndex(lineIsContactFormDisplayStart);
+  if (explicit >= 0) return explicit + 1;
+
+  const platformIntro = lines.findIndex((line) =>
+    CONTACT_FORM_PLATFORM_INTRO_RE.test(line)
+  );
+  if (platformIntro >= 0) return platformIntro + 1;
+
+  const forwarded = lines.findIndex((line) => FORWARDED_HEADER_RE.test(line));
+  return forwarded >= 0 ? forwarded + 1 : 0;
+}
+
+function compactDisplayLines(lines: string[]): string {
+  const compacted: string[] = [];
+  for (const line of lines) {
+    if (line.length === 0) {
+      if (compacted.length > 0 && compacted[compacted.length - 1] !== "") {
+        compacted.push("");
+      }
+      continue;
+    }
+    compacted.push(line);
+  }
+
+  while (compacted[0] === "") compacted.shift();
+  while (compacted[compacted.length - 1] === "") compacted.pop();
+  return compacted.join("\n").trim();
+}
+
+function normalizeContactFormPreview(value: string): string {
+  return value
+    .replace(/\s+/g, " ")
+    .replace(/\s+([.,;:!?])/g, "$1")
+    .trim();
+}
+
+/**
+ * Extract only the submitted form fields from a contact-form notification or
+ * forwarded notification. This is the display/source-of-truth path for inbox
+ * detail, snippets, and classifier inputs; wrapper signatures and platform
+ * footers are intentionally removed.
+ */
+export function extractContactFormSubmissionDisplayText(
+  subject: string,
+  bodyText: string
+): string | null {
+  if (!bodyText) return null;
+  const body = normalizeFormSubmissionText(bodyText);
+  if (!looksLikeContactFormSubmission(subject ?? "", body)) return null;
+
+  const lines = body.split("\n").map((line) => line.trimEnd());
+  let start = findContactFormDisplayStart(lines);
+  for (let i = start; i < lines.length; i++) {
+    if (lineIsContactFormDisplayStart(lines[i])) {
+      start = i + 1;
+      break;
+    }
+  }
+
+  const displayLines: string[] = [];
+  let hasFormField = false;
+
+  for (const rawLine of lines.slice(start)) {
+    const line = rawLine.trim();
+
+    if (CONTACT_FORM_FOOTER_RE.test(line)) {
+      if (displayLines.length > 0) break;
+      continue;
+    }
+    if (!line) {
+      displayLines.push("");
+      continue;
+    }
+    if (lineIsContactFormDisplayStart(line)) continue;
+    if (CONTACT_FORM_PLATFORM_INTRO_RE.test(line)) continue;
+    if (!hasFormField && FORWARDED_HEADER_RE.test(line)) continue;
+    if (!hasFormField && FORWARDED_METADATA_RE.test(line)) continue;
+
+    if (lineStartsWithLabel(line, CONTACT_FORM_FIELD_LABELS)) {
+      hasFormField = true;
+    }
+    displayLines.push(line);
+  }
+
+  const display = compactDisplayLines(displayLines);
+  if (!display || !hasFormField) return null;
+  return display;
+}
+
+export function extractContactFormSubmissionPreviewText(
+  subject: string,
+  bodyText: string
+): string | null {
+  const identity = extractContactFormSubmission(subject, bodyText);
+  const message = normalizeContactFormPreview(identity?.message ?? "");
+  if (message) {
+    const name = normalizeContactFormPreview(identity?.name ?? "");
+    return name ? `${name}: ${message}` : message;
+  }
+
+  const display = extractContactFormSubmissionDisplayText(subject, bodyText);
+  if (!display) return null;
+  return normalizeContactFormPreview(display);
 }
 
 function isPlatformOrSystemEmail(email: string): boolean {
@@ -701,8 +895,7 @@ function isPlatformOrSystemEmail(email: string): boolean {
 }
 
 function extractHeaderLine(text: string, header: string): string | null {
-  const escaped = header.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const re = new RegExp(`^>?\\s*${escaped}\\s*:\\s*(.+)$`, "im");
+  const re = new RegExp(`^>?\\s*${escapeRegExp(header)}\\s*:\\s*(.+)$`, "im");
   return text.match(re)?.[1]?.trim() ?? null;
 }
 
@@ -710,14 +903,29 @@ function localPartName(email: string): string {
   return email
     .split("@")[0]
     .replace(/[._-]+/g, " ")
-    .replace(/\b\w/g, (char) => char.toUpperCase())
+    .replace(/\b\w/g, (c) => c.toUpperCase())
     .trim();
 }
 
+/**
+ * Extract the real submitter from common website/contact-form notification
+ * bodies. Handles Wix-style forwarded notifications (`Reply-To:` plus a
+ * "Submission summary" block) and simpler label/value bodies from WordPress,
+ * Squarespace, Jotform, Typeform, and custom forms.
+ */
 export function extractContactFormSubmission(
   subject: string,
-  bodyText: string
+  bodyText: string,
 ): ContactFormSubmissionIdentity | null {
+  return (
+    extractContactFormSubmissionDiagnostics(subject, bodyText)?.identity ?? null
+  );
+}
+
+export function extractContactFormSubmissionDiagnostics(
+  subject: string,
+  bodyText: string,
+): ContactFormSubmissionDiagnostics | null {
   if (!bodyText) return null;
   const body = normalizeFormSubmissionText(bodyText);
   if (!looksLikeContactFormSubmission(subject ?? "", body)) return null;
@@ -726,38 +934,42 @@ export function extractContactFormSubmission(
   const replyToLine = extractHeaderLine(body, "Reply-To");
   const replyToEmail = replyToLine ? parseAddressFromHeaderLine(replyToLine) : null;
   const fieldEmail = emailField ? parseAddressFromHeaderLine(emailField) : null;
-  let email = fieldEmail ?? replyToEmail ?? null;
 
+  let email = fieldEmail ?? replyToEmail ?? null;
   if (!email) {
     const candidates = Array.from(
       body.matchAll(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/g),
-      (match) => match[0].toLowerCase()
+      (match) => match[0].toLowerCase(),
     ).filter((candidate) => !isPlatformOrSystemEmail(candidate));
     email = candidates[0] ?? null;
   }
-
   if (!email || isPlatformOrSystemEmail(email)) return null;
 
   const firstName = extractFormField(body, CONTACT_FORM_FIRST_NAME_LABELS);
   const lastName = extractFormField(body, CONTACT_FORM_LAST_NAME_LABELS);
   const fullName = extractFormField(body, CONTACT_FORM_NAME_LABELS);
-  const replyToName = replyToLine
-    ? parseDisplayNameFromHeaderLine(replyToLine)
-    : null;
+  const replyToName = replyToLine ? parseDisplayNameFromHeaderLine(replyToLine) : null;
   const name =
     cleanContactFormValue(fullName) ??
     cleanContactFormValue([firstName, lastName].filter(Boolean).join(" ")) ??
     cleanContactFormValue(replyToName) ??
     localPartName(email) ??
     null;
+  const phoneSanitization = sanitizeContactFormPhoneValue(
+    extractFormField(body, CONTACT_FORM_PHONE_LABELS)
+  );
+  const warnings = phoneSanitization.warning ? [phoneSanitization.warning] : [];
 
   return {
-    name,
-    email,
-    phone: cleanContactFormValue(extractFormField(body, CONTACT_FORM_PHONE_LABELS)),
-    message: cleanContactFormValue(
-      extractFormField(body, CONTACT_FORM_MESSAGE_LABELS)
-    ),
+    identity: {
+      name,
+      email,
+      phone: phoneSanitization.phone,
+      message: cleanContactFormValue(
+        extractFormField(body, CONTACT_FORM_MESSAGE_LABELS)
+      ),
+    },
+    warnings,
   };
 }
 
@@ -839,8 +1051,22 @@ export function resolveEffectiveSenderEmail(params: {
   subject: string;
   bodyText: string;
   connectionEmail: string | null;
-}): { email: string; source: "forwarded" | "from_header" } {
+}): EffectiveSenderIdentity {
   const headerEmail = extractEmailAddress(params.fromHeader).toLowerCase();
+  const form = extractContactFormSubmission(
+    params.subject ?? "",
+    params.bodyText ?? "",
+  );
+  if (form && form.email !== params.connectionEmail?.toLowerCase()) {
+    return {
+      email: form.email,
+      source: "contact_form",
+      name: form.name,
+      phone: form.phone,
+      message: form.message,
+    };
+  }
+
   const fwd = extractForwardedSender(params.subject ?? "", params.bodyText ?? "");
   if (fwd && fwd !== params.connectionEmail?.toLowerCase()) {
     return { email: fwd, source: "forwarded" };

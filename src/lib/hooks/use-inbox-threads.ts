@@ -17,6 +17,7 @@ import {
   useMutation,
   useQuery,
   useQueryClient,
+  type QueryClient,
 } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/api/query-client";
 import type {
@@ -27,10 +28,10 @@ import type {
   EmailThreadCategory,
   EmailThreadLabel,
   InboxDraftRow,
-  InboxRail,
   InboxScope,
   PhaseC,
 } from "@/lib/types/email-thread";
+import { type RailFilter } from "@/lib/inbox/rail-predicates";
 
 // Re-export so consumers can import alongside the other inbox wire types.
 export type { PhaseC, AgentBlockingQuestion } from "@/lib/types/email-thread";
@@ -238,6 +239,53 @@ export interface InboxThreadsPage {
   nextCursor: string | null;
 }
 
+type InboxThreadsInfiniteCache = {
+  pages: Array<{
+    threads: InboxThreadRow[];
+    nextCursor: string | null;
+  }>;
+  pageParams?: unknown;
+};
+
+function isInboxThreadsInfiniteCache(
+  value: unknown,
+): value is InboxThreadsInfiniteCache {
+  return (
+    !!value &&
+    typeof value === "object" &&
+    Array.isArray((value as { pages?: unknown }).pages)
+  );
+}
+
+function withoutAwaitingReply(
+  labels: EmailThreadLabel[],
+): EmailThreadLabel[] {
+  return labels.includes("AWAITING_REPLY")
+    ? labels.filter((label) => label !== "AWAITING_REPLY")
+    : labels;
+}
+
+function updateInboxThreadListCaches(
+  qc: QueryClient,
+  mapRow: (row: InboxThreadRow) => InboxThreadRow,
+) {
+  const entries = qc.getQueriesData({
+    queryKey: queryKeys.inbox.threadsAll(),
+  });
+  for (const [queryKey] of entries) {
+    qc.setQueryData(queryKey, (old: unknown) => {
+      if (!isInboxThreadsInfiniteCache(old)) return old;
+      return {
+        ...old,
+        pages: old.pages.map((page) => ({
+          ...page,
+          threads: page.threads.map(mapRow),
+        })),
+      };
+    });
+  }
+}
+
 // ─── Auth helper ─────────────────────────────────────────────────────────────
 
 async function authHeaders(): Promise<HeadersInit> {
@@ -251,7 +299,7 @@ async function authHeaders(): Promise<HeadersInit> {
 
 export interface UseInboxThreadsParams {
   scope: InboxScope;
-  filter: InboxRail;
+  filter: RailFilter;
   category?: EmailThreadCategory;
   search?: string;
   /**
@@ -296,7 +344,7 @@ async function fetchThreadDetail(threadId: string): Promise<InboxThreadDetail> {
 
 async function fetchUnreadCount(): Promise<number> {
   const headers = await authHeaders();
-  const res = await fetch(`/api/inbox/threads?scope=own&filter=needs_reply&limit=50`, {
+  const res = await fetch(`/api/inbox/threads?scope=own&filter=ALL&limit=50`, {
     headers,
   });
   if (!res.ok) return 0;
@@ -308,7 +356,9 @@ async function fetchUnreadCount(): Promise<number> {
 
 /**
  * Badge-ready unread count across the user's own inbox. Summed from the
- * first page of the `needs_reply` rail. Refreshes every 60s.
+ * first page of the ALL rail. Unread is visual-only state; reply debt stays
+ * with `AWAITING_REPLY` and row-level state, not top-level rail membership.
+ * Refreshes every 60s.
  */
 export function useInboxUnreadCount() {
   return useQuery({
@@ -358,7 +408,15 @@ export function useInboxThread(threadId: string | null) {
 
 interface ActionArgs {
   threadId: string;
-  action: "archive" | "unarchive" | "snooze" | "unsnooze" | "recategorize" | "markRead";
+  action:
+    | "archive"
+    | "unarchive"
+    | "snooze"
+    | "unsnooze"
+    | "recategorize"
+    | "markRead"
+    | "dismissAwaitingReply"
+    | "restoreAwaitingReply";
   until?: string;
   toCategory?: EmailThreadCategory;
   note?: string;
@@ -379,6 +437,8 @@ export interface ActionResponse {
   linkedOpportunity?: ArchiveLinkedOpportunity;
   /** archive (needsConfirmation): other open threads on the same opportunity. */
   siblingThreads?: ArchiveSiblingThread[];
+  /** dismissAwaitingReply: the thread's new label array after AWAITING_REPLY is cleared. */
+  labels?: EmailThreadLabel[];
 }
 
 async function runThreadAction(args: ActionArgs): Promise<ActionResponse> {
@@ -543,6 +603,67 @@ export function useInboxDrafts(scope: InboxScope) {
 }
 
 /**
+ * Auto-save a provider draft. First call (no `draftId`) hits POST /api/inbox/drafts
+ * and provisions a new row in the connection's Drafts folder; subsequent calls
+ * pass back the returned id so the same row is updated in-place. The composer
+ * debounces calls — see `inbox-route.tsx`.
+ *
+ * Returns the canonical `draftId` so the caller can stash it for the next tick.
+ * Errors are surfaced but do not retry — auto-save is best-effort; if the
+ * provider is unreachable the user can still send (which uses a different code
+ * path) or copy their text out. The hook intentionally does NOT invalidate the
+ * drafts query on every save — that would refetch the entire merged list on
+ * every keystroke pause. Invalidation only fires on the FIRST save (when the
+ * row is newly created and needs to surface in the switcher).
+ */
+export interface SaveDraftArgs {
+  connectionId: string;
+  to: string;
+  subject: string;
+  body: string;
+  providerThreadId: string | null;
+  /** Existing provider draft id; omit on the first save for a thread. */
+  draftId: string | null;
+}
+
+export interface SaveDraftResponse {
+  ok: true;
+  draftId: string;
+  source: "provider";
+}
+
+export function useSaveDraft() {
+  const qc = useQueryClient();
+  return useMutation<SaveDraftResponse, Error, SaveDraftArgs>({
+    mutationFn: async (args) => {
+      const headers = {
+        ...(await authHeaders()),
+        "Content-Type": "application/json",
+      };
+      const res = await fetch(`/api/inbox/drafts`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(args),
+      });
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({}));
+        throw new Error(e.error || `save failed (${res.status})`);
+      }
+      return (await res.json()) as SaveDraftResponse;
+    },
+    onSuccess: (_res, args) => {
+      // Only refresh the drafts list when a brand-new row is created — the
+      // switcher needs it to appear. In-place updates don't change the list
+      // shape so refetching would be pure noise.
+      if (!args.draftId) {
+        qc.invalidateQueries({ queryKey: queryKeys.inbox.drafts("own") });
+        qc.invalidateQueries({ queryKey: queryKeys.inbox.drafts("company") });
+      }
+    },
+  });
+}
+
+/**
  * Discard a draft. Source decides routing: provider → provider.deleteDraft;
  * ai → ai_draft_history.status='discarded'. Invalidates the drafts query so
  * the row drops from the UI immediately.
@@ -612,6 +733,55 @@ export function useResolveCommitment() {
       if (!res.ok) {
         const e = await res.json().catch(() => ({}));
         throw new Error(e.error || `resolve failed (${res.status})`);
+      }
+    },
+    onMutate: async (args) => {
+      await qc.cancelQueries({ queryKey: queryKeys.inbox.threadsAll() });
+      await qc.cancelQueries({
+        queryKey: queryKeys.inbox.threadDetail(args.threadId),
+      });
+
+      const listSnapshot = qc.getQueriesData({
+        queryKey: queryKeys.inbox.threadsAll(),
+      });
+      const detailKey = queryKeys.inbox.threadDetail(args.threadId);
+      const detailSnapshot = qc.getQueryData(detailKey);
+
+      if (args.resolvedAt !== null) {
+        updateInboxThreadListCaches(qc, (row) => {
+          if (row.id !== args.threadId || row.nextCommitmentId !== args.id) {
+            return row;
+          }
+          return {
+            ...row,
+            hasUnresolvedCommitments: false,
+            nextCommitmentDueAt: null,
+            nextCommitmentId: null,
+          };
+        });
+
+        qc.setQueryData(detailKey, (old: unknown) => {
+          if (!old || typeof old !== "object") return old;
+          const detail = old as InboxThreadDetail;
+          return {
+            ...detail,
+            commitments: detail.commitments.filter(
+              (commitment) => commitment.id !== args.id,
+            ),
+          };
+        });
+      }
+
+      return { listSnapshot, detailKey, detailSnapshot };
+    },
+    onError: (_err, _args, ctx) => {
+      if (ctx?.listSnapshot) {
+        for (const [key, value] of ctx.listSnapshot) {
+          qc.setQueryData(key, value);
+        }
+      }
+      if (ctx?.detailKey) {
+        qc.setQueryData(ctx.detailKey, ctx.detailSnapshot);
       }
     },
     onSuccess: (_res, args) => {
@@ -708,9 +878,190 @@ export function useThreadActions() {
         action: "markRead",
         isRead: args.isRead,
       }),
+    onMutate: async (args) => {
+      await qc.cancelQueries({ queryKey: queryKeys.inbox.threadsAll() });
+      await qc.cancelQueries({
+        queryKey: queryKeys.inbox.threadDetail(args.threadId),
+      });
+
+      const listSnapshot = qc.getQueriesData({
+        queryKey: queryKeys.inbox.threadsAll(),
+      });
+      const detailKey = queryKeys.inbox.threadDetail(args.threadId);
+      const detailSnapshot = qc.getQueryData(detailKey);
+      const nextUnreadCount = args.isRead ? 0 : 1;
+
+      qc.setQueriesData(
+        { queryKey: queryKeys.inbox.threadsAll() },
+        (old: unknown) => {
+          if (!old || typeof old !== "object") return old;
+          const data = old as {
+            pages?: Array<{
+              threads: InboxThreadRow[];
+              nextCursor: string | null;
+            }>;
+            pageParams?: unknown;
+          };
+          if (!Array.isArray(data.pages)) return old;
+          return {
+            ...data,
+            pages: data.pages.map((page) => ({
+              ...page,
+              threads: page.threads.map((t) =>
+                t.id === args.threadId
+                  ? { ...t, unreadCount: nextUnreadCount }
+                  : t,
+              ),
+            })),
+          };
+        },
+      );
+
+      qc.setQueryData(detailKey, (old: unknown) => {
+        if (!old || typeof old !== "object") return old;
+        const detail = old as InboxThreadDetail;
+        return {
+          ...detail,
+          thread: {
+            ...detail.thread,
+            unreadCount: nextUnreadCount,
+          },
+          messages: detail.messages.map((message) => ({
+            ...message,
+            isRead: args.isRead,
+          })),
+        };
+      });
+
+      return { listSnapshot, detailKey, detailSnapshot };
+    },
+    onError: (_err, _args, ctx) => {
+      if (ctx?.listSnapshot) {
+        for (const [key, value] of ctx.listSnapshot) {
+          qc.setQueryData(key, value);
+        }
+      }
+      if (ctx?.detailKey) {
+        qc.setQueryData(ctx.detailKey, ctx.detailSnapshot);
+      }
+    },
     onSuccess: (_res, args) => {
       invalidateLists();
       invalidateDetail(args.threadId);
+    },
+  });
+
+  /**
+   * Clear the AWAITING_REPLY label on a thread — the hover-X affordance on
+   * the YOURS state-tag. Optimistically removes the label from every page
+   * in the threads infinite cache so the chip flips from YOURS → FYI without
+   * waiting for the refetch. On error, rolls back the optimistic update.
+   *
+   * onSuccess invalidates the lists for a real refresh; the optimistic
+   * update is purely a perceived-latency improvement.
+   */
+  const dismissAwaitingReply = useMutation({
+    mutationFn: (threadId: string) =>
+      runThreadAction({ threadId, action: "dismissAwaitingReply" }),
+    onMutate: async (threadId) => {
+      // Cancel any in-flight refetch so it doesn't clobber the optimistic
+      // mutation before the server response lands.
+      await qc.cancelQueries({ queryKey: queryKeys.inbox.threadsAll() });
+      const snapshot = qc.getQueriesData({
+        queryKey: queryKeys.inbox.threadsAll(),
+      });
+
+      // Strip AWAITING_REPLY from the matching row across every cached page
+      // of every list query (own/company × every filter). We treat the cache
+      // as opaque structurally and only touch the labels array on the row.
+      qc.setQueriesData(
+        { queryKey: queryKeys.inbox.threadsAll() },
+        (old: unknown) => {
+          if (!old || typeof old !== "object") return old;
+          const data = old as {
+            pages?: Array<{ threads: InboxThreadRow[]; nextCursor: string | null }>;
+            pageParams?: unknown;
+          };
+          if (!Array.isArray(data.pages)) return old;
+          return {
+            ...data,
+            pages: data.pages.map((page) => ({
+              ...page,
+              threads: page.threads.map((t) =>
+                t.id === threadId
+                  ? { ...t, labels: t.labels.filter((l) => l !== "AWAITING_REPLY") }
+                  : t,
+              ),
+            })),
+          };
+        },
+      );
+
+      return { snapshot };
+    },
+    onError: (_err, _threadId, ctx) => {
+      // Roll back every cache entry we touched.
+      if (ctx?.snapshot) {
+        for (const [key, value] of ctx.snapshot) {
+          qc.setQueryData(key, value);
+        }
+      }
+    },
+    onSuccess: (_res, threadId) => {
+      invalidateLists();
+      invalidateDetail(threadId);
+    },
+  });
+
+  /**
+   * Undo path for `dismissAwaitingReply`. Re-adds AWAITING_REPLY to the
+   * thread's labels. Optimistically writes the cache so the YOURS chip
+   * reappears immediately; rolls back on error.
+   */
+  const restoreAwaitingReply = useMutation({
+    mutationFn: (threadId: string) =>
+      runThreadAction({ threadId, action: "restoreAwaitingReply" }),
+    onMutate: async (threadId) => {
+      await qc.cancelQueries({ queryKey: queryKeys.inbox.threadsAll() });
+      const snapshot = qc.getQueriesData({
+        queryKey: queryKeys.inbox.threadsAll(),
+      });
+
+      qc.setQueriesData(
+        { queryKey: queryKeys.inbox.threadsAll() },
+        (old: unknown) => {
+          if (!old || typeof old !== "object") return old;
+          const data = old as {
+            pages?: Array<{ threads: InboxThreadRow[]; nextCursor: string | null }>;
+            pageParams?: unknown;
+          };
+          if (!Array.isArray(data.pages)) return old;
+          return {
+            ...data,
+            pages: data.pages.map((page) => ({
+              ...page,
+              threads: page.threads.map((t) =>
+                t.id === threadId && !t.labels.includes("AWAITING_REPLY")
+                  ? { ...t, labels: [...t.labels, "AWAITING_REPLY" as EmailThreadLabel] }
+                  : t,
+              ),
+            })),
+          };
+        },
+      );
+
+      return { snapshot };
+    },
+    onError: (_err, _threadId, ctx) => {
+      if (ctx?.snapshot) {
+        for (const [key, value] of ctx.snapshot) {
+          qc.setQueryData(key, value);
+        }
+      }
+    },
+    onSuccess: (_res, threadId) => {
+      invalidateLists();
+      invalidateDetail(threadId);
     },
   });
 
@@ -760,6 +1111,8 @@ export function useThreadActions() {
     unsnooze,
     recategorize,
     markRead,
+    dismissAwaitingReply,
+    restoreAwaitingReply,
     setWritebackPreference,
     setLeadArchivePreference,
     archiveBatch,
@@ -844,6 +1197,16 @@ export interface SendReplyArgs {
   format?: "markdown" | "text";
 }
 
+export interface SendReplyResponse {
+  ok?: true;
+  messageId: string;
+  threadId: string;
+  from?: string;
+  sentAt?: string;
+  labels?: EmailThreadLabel[];
+  latestDirection?: "inbound" | "outbound" | null;
+}
+
 export function useSendReply() {
   const qc = useQueryClient();
   return useMutation({
@@ -851,7 +1214,7 @@ export function useSendReply() {
       userId: string;
       companyId: string;
       payload: SendReplyArgs;
-    }) => {
+    }): Promise<SendReplyResponse> => {
       const headers = {
         ...(await authHeaders()),
         "Content-Type": "application/json",
@@ -876,9 +1239,49 @@ export function useSendReply() {
         const e = await res.json().catch(() => ({}));
         throw new Error(e.error || `send failed (${res.status})`);
       }
-      return res.json() as Promise<{ messageId: string; threadId: string }>;
+      return res.json() as Promise<SendReplyResponse>;
     },
-    onSuccess: (_res, args) => {
+    onSuccess: (res, args) => {
+      if ((res.latestDirection ?? "outbound") !== "outbound") {
+        qc.invalidateQueries({
+          queryKey: queryKeys.inbox.threadDetail(args.payload.threadId),
+        });
+        qc.invalidateQueries({ queryKey: queryKeys.inbox.threadsAll() });
+        qc.invalidateQueries({ queryKey: queryKeys.inbox.drafts("own") });
+        return;
+      }
+      const sentAt = res.sentAt ?? new Date().toISOString();
+      const latestSnippet = args.payload.body.trim().slice(0, 400);
+      const applyOutboundState = (row: InboxThreadRow): InboxThreadRow => {
+        if (row.id !== args.payload.threadId) return row;
+        return {
+          ...row,
+          labels: withoutAwaitingReply(res.labels ?? row.labels),
+          lastMessageAt: sentAt,
+          messageCount: row.messageCount + 1,
+          latestDirection: "outbound",
+          latestSnippet: latestSnippet || row.latestSnippet,
+          latestSenderEmail: res.from ?? row.latestSenderEmail,
+        };
+      };
+
+      updateInboxThreadListCaches(qc, applyOutboundState);
+      qc.setQueryData(
+        queryKeys.inbox.threadDetail(args.payload.threadId),
+        (old: unknown) => {
+          if (!old || typeof old !== "object") return old;
+          const detail = old as InboxThreadDetail;
+          return {
+            ...detail,
+            thread: {
+              ...detail.thread,
+              labels: withoutAwaitingReply(res.labels ?? detail.thread.labels),
+              latestDirection: "outbound",
+              messageCount: detail.thread.messageCount + 1,
+            },
+          };
+        },
+      );
       qc.invalidateQueries({ queryKey: queryKeys.inbox.threadDetail(args.payload.threadId) });
       qc.invalidateQueries({ queryKey: queryKeys.inbox.threadsAll() });
       qc.invalidateQueries({ queryKey: queryKeys.inbox.drafts("own") });

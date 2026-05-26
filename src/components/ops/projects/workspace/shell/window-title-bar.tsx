@@ -71,13 +71,13 @@ export function WindowTitleBar({
       data-testid="workspace-title-bar"
       onPointerDown={onPointerDown}
       // Geometry from spec: 9px top / 14px sides / 10px bottom; bottom
-      // hairline at 10% white alpha; subtle gradient drop so the bar
-      // separates from the body.
+      // hairline at 10% white alpha. The parent shell injects the
+      // dense-glass fill so the title chrome has the same frosted
+      // material as the workspace body.
       className={cn(
-        "select-none cursor-grab",
+        "relative select-none cursor-grab overflow-hidden",
         "px-[14px] pt-[9px] pb-[10px]",
         "border-b border-[var(--line)]",
-        "bg-[linear-gradient(180deg,var(--surface-hover),transparent)]",
         className,
       )}
     >
@@ -107,7 +107,8 @@ export function WindowTitleBar({
         {/* Crumb — `// PROJECT · JX-4821` */}
         <div className="flex items-center gap-[8px] min-w-0">
           <Mono size={10} color="text-3" className="whitespace-nowrap">
-            // {crumbLabel}
+            {"// "}
+            {crumbLabel}
           </Mono>
           <Mono size={10} color="text-2" className="whitespace-nowrap">
             {projectIdLabel}

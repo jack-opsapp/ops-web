@@ -316,9 +316,15 @@ export default function CalendarPage() {
   );
 
   return (
-    <div className="flex flex-col h-full gap-3" data-calendar-motion-scope>
-      <MetricsHeader variant="compact" tabId="calendar" title="Schedule" metrics={calendarMetrics} isLoading={calendarMetricsLoading} />
-      <div className="flex flex-col flex-1 min-h-0 gap-1.5">
+    <div className="flex flex-col h-full min-w-0 overflow-hidden gap-3" data-calendar-motion-scope>
+      <MetricsHeader
+        variant="compact"
+        tabId="calendar"
+        title="Schedule"
+        metrics={calendarMetrics}
+        isLoading={calendarMetricsLoading}
+      />
+      <div className="flex flex-col flex-1 min-h-0 min-w-0 gap-1.5">
       <CalendarHeader t={t} />
       <CalendarToolbar events={events} t={t} />
 
@@ -326,7 +332,7 @@ export default function CalendarPage() {
           unscheduled tray, project drawer, and continuous-scroll calendar
           panels all share one drag surface. */}
       <CalendarDndShell>
-      <div className="flex flex-1 min-h-0 gap-1.5">
+      <div className="flex flex-1 min-h-0 min-w-0 gap-1.5">
         {/* Filter sidebar (left) — hidden on mobile */}
         {!isMobile && <FilterSidebar />}
 

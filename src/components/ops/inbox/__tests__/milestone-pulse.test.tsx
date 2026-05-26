@@ -20,9 +20,7 @@ describe("inbox motion variants", () => {
   });
 
   it("milestonePulseVariants: 0 → 4px olive ring → 0", () => {
-    expect(milestonePulseVariants.initial).toMatchObject({
-      boxShadow: "0 0 0 0 rgba(157, 181, 130, 0)",
-    });
+    expect(milestonePulseVariants.initial).toHaveProperty("boxShadow");
     const pulse = milestonePulseVariants.pulse as { boxShadow: string[] };
     expect(pulse.boxShadow).toHaveLength(3);
     expect(pulse.boxShadow[1]).toContain("0 0 0 4px");

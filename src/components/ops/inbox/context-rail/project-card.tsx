@@ -104,12 +104,12 @@ export function ProjectCard({
   const total = project.tasks.length;
 
   return (
-    <article className="overflow-hidden rounded-[5px] border border-line bg-inbox-panel">
+    <article className="overflow-hidden rounded-[5px] border border-line bg-transparent">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="flex w-full gap-2.5 px-3 py-2.5 text-left hover:bg-inbox-elev/60"
+        className="flex w-full gap-2.5 px-3 py-2.5 text-left hover:text-text"
       >
         <span className="mt-1 shrink-0 text-text-3">
           {open ? (
@@ -119,7 +119,7 @@ export function ProjectCard({
           )}
         </span>
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <span className="truncate font-mohave text-[12px] leading-tight tracking-[-0.003em] text-text">
+          <span className="truncate font-mohave text-[12px] leading-tight text-text">
             {project.title}
           </span>
           <div className="flex items-center gap-2.5">
@@ -143,7 +143,7 @@ export function ProjectCard({
       </button>
 
       {open && (
-        <div className="border-t border-line bg-inbox-bg px-3 pb-3">
+        <div className="border-t border-line bg-transparent px-3 pb-3">
           {/* Stage / dates / lead — wrapped chips with muted label prefixes */}
           <div className="flex flex-wrap gap-x-3.5 gap-y-1 pt-2.5 font-mono text-[11px] tracking-[0.18em] text-text-3">
             <Detail label="Stage" value={dashOrEmpty(project.stage)} />
@@ -231,7 +231,7 @@ export function ProjectCard({
           {/* Open project */}
           <a
             href={`?project=${project.id}&thread=${threadId}`}
-            className="mt-3 inline-flex h-[26px] items-center gap-1.5 rounded-[2.5px] border border-line bg-transparent px-2.5 font-mohave text-[11px] tracking-normal text-text-2 hover:bg-inbox-elev hover:text-text"
+            className="mt-3 inline-flex h-6 items-center gap-1.5 rounded-[2.5px] border border-line bg-transparent px-2.5 font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-text-2 hover:border-line-hi hover:text-text"
           >
             <ExternalLink aria-hidden className="h-3.5 w-3.5" strokeWidth={1.5} />
             {t("project.openProject", "Open project")}
@@ -356,7 +356,7 @@ function LedgerRow({
   const Icon = icon === "invoice" ? Receipt : FileText;
   const tone = ledgerStatusToneSafe(meta);
   return (
-    <li className="flex items-center gap-2 rounded-chip border border-line bg-inbox-panel px-2 py-1.5">
+    <li className="flex items-center gap-2 rounded-chip border border-line bg-transparent px-2 py-1.5">
       <Icon
         aria-hidden
         className="h-3.5 w-3.5 shrink-0 text-text-3"

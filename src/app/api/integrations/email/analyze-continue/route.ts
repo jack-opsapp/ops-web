@@ -510,7 +510,10 @@ async function runPhaseB(
         to: m.to,
         date: m.date.toISOString(),
         direction: (safe(m.from).includes(ownerEmailLower) ? 'outbound' : 'inbound') as 'inbound' | 'outbound',
-        body: stripQuotedContent(m.bodyText || m.snippet || ''),
+        body: stripQuotedContent(
+          m.bodyText || m.snippet || '',
+          lead.emails[0]?.subject || ''
+        ),
       })),
     });
     extractionThreadIds.push(lead.threadId);
