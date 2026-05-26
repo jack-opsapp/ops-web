@@ -43,6 +43,26 @@ const getAuthToken = async (): Promise<string | null> => {
   return user ? await user.getIdToken() : null;
 };
 
+/**
+ * Read the `returnTo` query param off the current URL and only return it when
+ * it is safe to navigate to without phishing risk. Safe = same-origin relative
+ * path (starts with `/` and not `//`, no scheme, no host). Wired in to support
+ * the SPEC no-company buyer flow (SPEC/07_ROLLOUT.md § 13B): SPEC's
+ * `/api/spec/create-checkout-session` 409s with `redirectTo='/setup?returnTo=/spec?tier=X'`
+ * so the buyer is dropped into /setup and returned to ops-site after the
+ * company step completes.
+ */
+const readSafeReturnTo = (): string | null => {
+  if (typeof window === "undefined") return null;
+  const raw = new URLSearchParams(window.location.search).get("returnTo");
+  if (!raw) return null;
+  // Only same-origin relative paths. Reject protocol-relative ("//evil.example"),
+  // absolute schemes ("http://..."), and anything that could escape the origin.
+  if (raw.length < 2 || raw[0] !== "/" || raw[1] === "/") return null;
+  if (/^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(raw)) return null;
+  return raw;
+};
+
 // ─── Page ───────────────────────────────────────────────────────────────────
 
 export default function SetupPage() {
@@ -287,6 +307,15 @@ export default function SetupPage() {
       }
     } catch {
       // Non-blocking
+    }
+    // SPEC no-company buyer flow (SPEC/07_ROLLOUT.md § 13B): if /setup was
+    // entered with a returnTo query param pointing back into ops-site (or
+    // another OPS-owned same-origin path), honor it instead of continuing to
+    // starfield. The buyer can come back to /setup later to finish onboarding.
+    const safeReturnTo = readSafeReturnTo();
+    if (safeReturnTo) {
+      window.location.assign(safeReturnTo);
+      return;
     }
     setPhase("starfield");
   }, [completeStep, setPhase, companyName, industries, companySize, companyAge, weatherDependent]);
