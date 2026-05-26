@@ -69,7 +69,7 @@ export const PipelineSpineColumn = memo(function PipelineSpineColumn({
   const stageColor = OPPORTUNITY_STAGE_COLORS[stage];
   const { setNodeRef, isOver } = useDroppable({
     id: `focused-stage-${stage}`,
-    data: { stage, mode: "focused" },
+    data: { stage, mode: "focused", focusedDropIntent: "stage-target" },
     disabled: false,
   });
   const count = opportunities.length;

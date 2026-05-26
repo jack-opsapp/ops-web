@@ -58,7 +58,7 @@ function BulkButton({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "inline-flex h-8 shrink-0 items-center gap-1 rounded-[5px] border border-border px-2",
+        "inline-flex h-[32px] shrink-0 items-center gap-1 rounded-[5px] border border-border px-2",
         "font-cakemono text-[12px] font-light uppercase text-text-2 transition-colors",
         "hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
         "disabled:pointer-events-none disabled:opacity-40",
@@ -184,10 +184,10 @@ export function ProjectsBulkBar({
   if (selectedCount === 0) return null;
 
   return (
-    <div className="glass-dense sticky bottom-0 z-[1500] flex h-12 w-full items-center overflow-visible !rounded-none border-x-0 border-b-0 px-3 py-2 [&::before]:!rounded-none">
-      <div className="flex h-8 min-w-0 flex-1 items-center gap-2">
+    <div className="glass-dense absolute bottom-3 left-1/2 z-[1500] flex h-[48px] max-w-[calc(100%-24px)] -translate-x-1/2 items-center overflow-visible rounded-modal border border-border px-3 py-2">
+      <div className="flex h-[32px] min-w-0 items-center gap-2">
         <div className="mr-1 flex min-w-[112px] shrink-0 items-center gap-2 font-mono text-micro uppercase tracking-wider text-text">
-          <Check className="h-3.5 w-3.5 text-text-3" strokeWidth={1.5} />
+          <Check className="h-[14px] w-[14px] text-text-3" strokeWidth={1.5} />
           <span>{selectedCountLabel}</span>
         </div>
 
@@ -197,7 +197,7 @@ export function ProjectsBulkBar({
             value={status}
             disabled={disabled}
             onChange={(event) => setStatus(event.target.value as ProjectStatus)}
-            className="h-8 shrink-0 rounded-[5px] border border-border bg-surface-input px-2 font-mono text-micro uppercase text-text-2 outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ops-accent disabled:opacity-40"
+            className="h-[32px] shrink-0 rounded-[5px] border border-border bg-surface-input px-2 font-mono text-micro uppercase text-text-2 outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ops-accent disabled:opacity-40"
           >
             {STATUS_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
@@ -209,11 +209,11 @@ export function ProjectsBulkBar({
             disabled={disabled}
             onClick={() => runAction(t("table.bulk.changeStatus"), () => bulkActions.updateStatus(status))}
           >
-            <Check className="h-3.5 w-3.5" strokeWidth={1.5} />
+            <Check className="h-[14px] w-[14px]" strokeWidth={1.5} />
             {t("table.bulk.changeStatus")}
           </BulkButton>
 
-          <div className="h-6 w-px shrink-0 bg-border-subtle" />
+          <div className="h-6 w-px shrink-0 bg-border" />
 
           <input
             type="date"
@@ -221,7 +221,7 @@ export function ProjectsBulkBar({
             value={dueDate}
             disabled={disabled}
             onChange={(event) => setDueDate(event.target.value)}
-            className="h-8 w-[132px] shrink-0 rounded-[5px] border border-border bg-surface-input px-2 font-mono text-micro uppercase text-text-2 outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ops-accent disabled:opacity-40"
+            className="h-[32px] w-[132px] shrink-0 rounded-[5px] border border-border bg-surface-input px-2 font-mono text-micro uppercase text-text-2 outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ops-accent disabled:opacity-40"
           />
           <BulkButton
             disabled={disabled}
@@ -231,12 +231,12 @@ export function ProjectsBulkBar({
               )
             }
           >
-            <CalendarDays className="h-3.5 w-3.5" strokeWidth={1.5} />
+            <CalendarDays className="h-[14px] w-[14px]" strokeWidth={1.5} />
             {t("table.bulk.setDueDate")}
           </BulkButton>
 
           <BulkButton disabled={disabled} onClick={() => setAssignOpen((open) => !open)}>
-            <Users className="h-3.5 w-3.5" strokeWidth={1.5} />
+            <Users className="h-[14px] w-[14px]" strokeWidth={1.5} />
             {t("table.bulk.assignTo")}
           </BulkButton>
 
@@ -246,13 +246,13 @@ export function ProjectsBulkBar({
               runAction(t("table.bulk.archive"), () => bulkActions.updateStatus(ProjectStatus.Archived))
             }
           >
-            <Archive className="h-3.5 w-3.5" strokeWidth={1.5} />
+            <Archive className="h-[14px] w-[14px]" strokeWidth={1.5} />
             {t("table.bulk.archive")}
           </BulkButton>
         </div>
 
         <BulkButton className="border-transparent text-text-mute" disabled={bulkActions.isRunning} onClick={onClearSelection}>
-          <X className="h-3.5 w-3.5" strokeWidth={1.5} />
+          <X className="h-[14px] w-[14px]" strokeWidth={1.5} />
           {t("table.bulk.clear")}
         </BulkButton>
       </div>
@@ -267,7 +267,7 @@ export function ProjectsBulkBar({
               setAssignUserId(event.target.value);
               setAssignFeedback(null);
             }}
-            className="h-8 min-w-[180px] rounded-[5px] border border-border bg-surface-input px-2 font-mono text-micro uppercase text-text-2 outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ops-accent disabled:opacity-40"
+            className="h-[32px] min-w-[180px] rounded-[5px] border border-border bg-surface-input px-2 font-mono text-micro uppercase text-text-2 outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ops-accent disabled:opacity-40"
           >
             <option value="">—</option>
             {(teamMembersQuery.data ?? []).map((member) => (
@@ -277,7 +277,7 @@ export function ProjectsBulkBar({
             ))}
           </select>
 
-          <label className="inline-flex h-8 shrink-0 items-center gap-2 rounded-[5px] border border-border px-2 font-mono text-micro uppercase text-text-2">
+          <label className="inline-flex h-[32px] shrink-0 items-center gap-2 rounded-[5px] border border-border px-2 font-mono text-micro uppercase text-text-2">
             <input
               type="checkbox"
               checked={assignAllActiveTasks}
@@ -286,13 +286,13 @@ export function ProjectsBulkBar({
                 setAssignAllActiveTasks(event.target.checked);
                 setAssignFeedback(null);
               }}
-              className="h-3.5 w-3.5 rounded-[3px] border border-border bg-surface-input accent-ops-accent"
+              className="h-[14px] w-[14px] rounded-[3px] border border-border bg-surface-input accent-ops-accent"
             />
             {t("table.bulk.assignAllActiveTasks")}
           </label>
 
           <BulkButton disabled={bulkActions.isRunning} onClick={handleAssign}>
-            <Users className="h-3.5 w-3.5" strokeWidth={1.5} />
+            <Users className="h-[14px] w-[14px]" strokeWidth={1.5} />
             {t("table.bulk.assignTo")}
           </BulkButton>
 
@@ -319,11 +319,11 @@ export function ProjectsBulkBar({
               void bulkActions.partialFailure?.retry();
             }}
           >
-            <RotateCw className="h-3.5 w-3.5" strokeWidth={1.5} />
+            <RotateCw className="h-[14px] w-[14px]" strokeWidth={1.5} />
             {t("table.bulk.retry")}
           </BulkButton>
           <BulkButton disabled={bulkActions.isRunning} onClick={() => bulkActions.partialFailure?.discard()}>
-            <X className="h-3.5 w-3.5" strokeWidth={1.5} />
+            <X className="h-[14px] w-[14px]" strokeWidth={1.5} />
             {t("table.bulk.discard")}
           </BulkButton>
         </div>

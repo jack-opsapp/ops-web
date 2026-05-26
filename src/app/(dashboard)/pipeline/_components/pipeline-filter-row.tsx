@@ -25,6 +25,7 @@ interface PipelineFilterRowProps {
   teamMembers: { id: string; firstName: string; lastName: string }[];
   onAddLead: () => void;
   canManage: boolean;
+  variant?: "surface" | "toolbar";
 }
 
 // ---------------------------------------------------------------------------
@@ -48,12 +49,14 @@ interface StageDropdownProps {
   value: OpportunityStage | "all";
   onChange: (stage: OpportunityStage | "all") => void;
   allStagesLabel: string;
+  variant?: "surface" | "toolbar";
 }
 
 function StageDropdown({
   value,
   onChange,
   allStagesLabel,
+  variant = "surface",
 }: StageDropdownProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -80,6 +83,7 @@ function StageDropdown({
 
   const activeDotColor =
     value !== "all" ? OPPORTUNITY_STAGE_COLORS[value] : undefined;
+  const isToolbar = variant === "toolbar";
 
   return (
     <div
@@ -92,24 +96,30 @@ function StageDropdown({
         type="button"
         onClick={() => setOpen((prev) => !prev)}
         className={cn(
-          "flex h-[30px] items-center gap-[6px] rounded border border-border bg-fill-neutral-dim px-[10px]",
-          "font-mono text-caption-sm text-text",
-          "cursor-pointer transition-colors hover:border-line-hi",
-          open && "border-line-hi"
+          "flex items-center gap-[5px] rounded-[4px] px-[8px] font-mono transition-colors",
+          isToolbar
+            ? "h-[26px] whitespace-nowrap uppercase leading-none tracking-[0.12em] [font-size:10px]"
+            : "h-[30px] border border-border bg-fill-neutral-dim text-caption-sm",
+          isToolbar
+            ? open || value !== "all"
+              ? "bg-white/[0.04] text-text hover:bg-white/[0.06]"
+              : "text-text-2 hover:bg-white/[0.04] hover:text-text"
+            : "border-border text-text hover:border-line-hi",
+          !isToolbar && open && "border-line-hi"
         )}
         aria-haspopup="listbox"
         aria-expanded={open}
       >
         {activeDotColor && (
           <span
-            className="h-[6px] w-[6px] shrink-0 rounded-full"
+            className="h-[5px] w-[5px] shrink-0 rounded-full"
             style={{ backgroundColor: activeDotColor }}
           />
         )}
         <span className="whitespace-nowrap">{labelText}</span>
         <ChevronDown
           className={cn(
-            "h-[12px] w-[12px] shrink-0 text-text-3 transition-transform duration-150",
+            "h-[10px] w-[10px] shrink-0 text-text-3 transition-transform duration-150",
             open && "rotate-180"
           )}
         />
@@ -178,6 +188,7 @@ interface AssigneeDropdownProps {
   onChange: (userId: string | "all") => void;
   teamMembers: { id: string; firstName: string; lastName: string }[];
   everyoneLabel: string;
+  variant?: "surface" | "toolbar";
 }
 
 function AssigneeDropdown({
@@ -185,6 +196,7 @@ function AssigneeDropdown({
   onChange,
   teamMembers,
   everyoneLabel,
+  variant = "surface",
 }: AssigneeDropdownProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -210,6 +222,7 @@ function AssigneeDropdown({
   const labelText = activeMember
     ? `${activeMember.firstName} ${activeMember.lastName}`
     : everyoneLabel;
+  const isToolbar = variant === "toolbar";
 
   return (
     <div
@@ -222,10 +235,16 @@ function AssigneeDropdown({
         type="button"
         onClick={() => setOpen((prev) => !prev)}
         className={cn(
-          "flex h-[30px] items-center gap-[6px] rounded border border-border bg-fill-neutral-dim px-[10px]",
-          "font-mono text-caption-sm text-text",
-          "cursor-pointer transition-colors hover:border-line-hi",
-          open && "border-line-hi"
+          "flex items-center gap-[5px] rounded-[4px] px-[8px] font-mono transition-colors",
+          isToolbar
+            ? "h-[26px] whitespace-nowrap uppercase leading-none tracking-[0.12em] [font-size:10px]"
+            : "h-[30px] border border-border bg-fill-neutral-dim text-caption-sm",
+          isToolbar
+            ? open || value !== "all"
+              ? "bg-white/[0.04] text-text hover:bg-white/[0.06]"
+              : "text-text-2 hover:bg-white/[0.04] hover:text-text"
+            : "border-border text-text hover:border-line-hi",
+          !isToolbar && open && "border-line-hi"
         )}
         aria-haspopup="listbox"
         aria-expanded={open}
@@ -233,7 +252,7 @@ function AssigneeDropdown({
         <span className="whitespace-nowrap">{labelText}</span>
         <ChevronDown
           className={cn(
-            "h-[12px] w-[12px] shrink-0 text-text-3 transition-transform duration-150",
+            "h-[10px] w-[10px] shrink-0 text-text-3 transition-transform duration-150",
             open && "rotate-180"
           )}
         />
@@ -302,15 +321,31 @@ export function PipelineFilterRow({
   teamMembers,
   onAddLead,
   canManage,
+  variant = "surface",
 }: PipelineFilterRowProps) {
   const { t } = useDictionary("pipeline");
   const searchPlaceholder = t("focused.search.placeholder");
+  const isToolbar = variant === "toolbar";
 
   return (
-    <div className="flex flex-wrap items-center gap-[8px]">
-      <label className="flex h-[30px] w-full min-w-[220px] items-center gap-[6px] rounded border border-border bg-fill-neutral-dim px-[10px] transition-colors focus-within:border-line-hi sm:w-[240px] sm:min-w-[240px]">
+    <div
+      className={cn(
+        "flex items-center",
+        isToolbar ? "min-w-max flex-nowrap gap-[10px]" : "flex-wrap gap-[8px]"
+      )}
+      data-pipeline-filter-row={variant}
+    >
+      <label
+        className={cn(
+          "flex items-center gap-[5px] rounded-[4px] px-[8px] transition-colors",
+          isToolbar
+            ? "h-[26px] w-[150px] min-w-[145px] bg-transparent focus-within:bg-white/[0.04]"
+            : "h-[30px] w-full min-w-[220px] border border-border bg-fill-neutral-dim focus-within:border-line-hi sm:w-[240px] sm:min-w-[240px]",
+          isToolbar && searchQuery.length > 0 && "bg-white/[0.04]"
+        )}
+      >
         <Search
-          className="h-[13px] w-[13px] shrink-0 text-text-3"
+          className="h-[11px] w-[11px] shrink-0 text-text-3"
           strokeWidth={1.5}
         />
         <input
@@ -319,16 +354,26 @@ export function PipelineFilterRow({
           onChange={(event) => onSearchChange(event.target.value)}
           placeholder={searchPlaceholder}
           aria-label={searchPlaceholder}
-          className="h-full min-w-0 flex-1 bg-transparent font-mono text-caption-sm text-text outline-none placeholder:text-text-3"
+          className={cn(
+            "h-full min-w-0 flex-1 bg-transparent font-mono text-text outline-none placeholder:text-text-3",
+            isToolbar
+              ? "uppercase leading-none tracking-[0.12em] [font-size:10px]"
+              : "text-caption-sm"
+          )}
         />
       </label>
+
+      {isToolbar && <ToolbarDivider />}
 
       {/* Stage filter */}
       <StageDropdown
         value={stageFilter}
         onChange={onStageFilterChange}
         allStagesLabel={t("filter.allStages")}
+        variant={variant}
       />
+
+      {isToolbar && <ToolbarDivider />}
 
       {/* Assignee filter */}
       <AssigneeDropdown
@@ -336,7 +381,10 @@ export function PipelineFilterRow({
         onChange={onAssigneeFilterChange}
         teamMembers={teamMembers}
         everyoneLabel={t("filter.everyone")}
+        variant={variant}
       />
+
+      {isToolbar && canManage && <ToolbarDivider />}
 
       {/* New Lead button */}
       {canManage && (
@@ -344,15 +392,25 @@ export function PipelineFilterRow({
           type="button"
           onClick={onAddLead}
           className={cn(
-            "flex h-[30px] shrink-0 items-center gap-[6px] rounded border border-ops-accent px-3",
-            "font-mono text-caption-sm uppercase text-ops-accent",
-            "cursor-pointer transition-colors hover:bg-ops-accent hover:text-background"
+            "flex shrink-0 items-center gap-[5px] rounded-[4px] border px-[8px] font-mono uppercase transition-colors",
+            isToolbar
+              ? "h-[26px] whitespace-nowrap border-ops-accent/45 bg-ops-accent/10 leading-none tracking-[0.12em] text-ops-accent hover:border-ops-accent/70 hover:bg-ops-accent/15 hover:text-text [font-size:10px]"
+              : "h-[30px] border-ops-accent text-caption-sm text-ops-accent hover:bg-ops-accent hover:text-background"
           )}
         >
-          <Plus className="h-[14px] w-[14px] shrink-0" strokeWidth={1.5} />
+          <Plus className="h-[11px] w-[11px] shrink-0" strokeWidth={1.5} />
           {t("newLead")}
         </button>
       )}
     </div>
+  );
+}
+
+function ToolbarDivider() {
+  return (
+    <div
+      aria-hidden="true"
+      className="h-[14px] w-px shrink-0 bg-border-subtle opacity-70"
+    />
   );
 }

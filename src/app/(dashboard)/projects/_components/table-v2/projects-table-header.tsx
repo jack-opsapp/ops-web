@@ -1,7 +1,8 @@
 "use client";
 
-import { ArrowDown, ArrowUp } from "lucide-react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { useDictionary } from "@/i18n/client";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils/cn";
 import type { ProjectTableColumnConfig, ProjectTableSort } from "@/lib/types/project-table";
 import type { ProjectTableColumnLayout, ProjectsTableMetrics } from "./projects-table";
@@ -11,11 +12,15 @@ export function ProjectsTableHeader({
   metrics,
   sorting,
   onSortChange,
+  allVisibleSelected,
+  onToggleSelectAllVisible,
 }: {
   columns: ProjectTableColumnLayout[];
   metrics: ProjectsTableMetrics;
   sorting: ProjectTableSort[];
   onSortChange: (column: ProjectTableColumnConfig) => void;
+  allVisibleSelected: boolean;
+  onToggleSelectAllVisible: () => void;
 }) {
   const { t } = useDictionary("projects");
   const activeSort = sorting[0];
@@ -29,7 +34,7 @@ export function ProjectsTableHeader({
           <div
             key={column.id}
             className={cn(
-              "flex shrink-0 items-center border-r border-border-subtle bg-background px-2",
+              "flex shrink-0 items-center border-r border-border bg-background px-[8px]",
               column.align === "right" && "justify-end",
               stickyLeft != null && "sticky z-30",
             )}
@@ -42,7 +47,15 @@ export function ProjectsTableHeader({
             }}
           >
             {column.id === "select" ? (
-              <span className="h-3.5 w-3.5 rounded-[3px] border border-border-subtle" />
+              <Checkbox
+                aria-label={t("table.column.select")}
+                checked={allVisibleSelected}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onToggleSelectAllVisible();
+                }}
+                className="rounded-[3px]"
+              />
             ) : (
               <button
                 type="button"
@@ -55,8 +68,12 @@ export function ProjectsTableHeader({
                 )}
               >
                 <span className="truncate">{t(column.labelKey)}</span>
-                {sorted === "asc" && <ArrowUp className="h-3 w-3 shrink-0" />}
-                {sorted === "desc" && <ArrowDown className="h-3 w-3 shrink-0" />}
+                {sorted === "asc" && (
+                  <ChevronUp className="h-[12px] w-[12px] shrink-0" strokeWidth={1.5} />
+                )}
+                {sorted === "desc" && (
+                  <ChevronDown className="h-[12px] w-[12px] shrink-0" strokeWidth={1.5} />
+                )}
               </button>
             )}
           </div>

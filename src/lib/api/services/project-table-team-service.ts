@@ -3,6 +3,7 @@ import {
   ProjectTableMutationError,
   normalizeProjectTableMutationError,
 } from "@/lib/api/services/project-table-service";
+import { normalizeImageUrl } from "@/lib/utils/image-url";
 
 export interface ProjectTableTeamMember {
   id: string;
@@ -39,7 +40,9 @@ function mapTeamMember(row: Record<string, unknown>): ProjectTableTeamMember {
     name: name || String(row.email ?? row.id),
     email: typeof row.email === "string" ? row.email : null,
     role: typeof row.role === "string" ? row.role : null,
-    profileImageUrl: typeof row.profile_image_url === "string" ? row.profile_image_url : null,
+    profileImageUrl: normalizeImageUrl(
+      typeof row.profile_image_url === "string" ? row.profile_image_url : null,
+    ),
     userColor: typeof row.user_color === "string" ? row.user_color : null,
   };
 }

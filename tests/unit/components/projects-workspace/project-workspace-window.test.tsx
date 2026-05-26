@@ -75,15 +75,26 @@ describe("<ProjectWorkspaceWindow>", () => {
     expect(screen.getByRole("button", { name: "EDIT" })).toBeInTheDocument();
   });
 
-  it("applies the dense glass surface and modal radius", () => {
+  it("applies the modal frame and frosted glass title/body materials", () => {
     render(
       <ProjectWorkspaceWindow {...BASE_PROPS}>
         <div />
       </ProjectWorkspaceWindow>,
     );
     const win = screen.getByTestId("project-workspace-window");
-    expect(win).toHaveClass("glass-dense");
     expect(win).toHaveClass("rounded-modal");
+    expect(win).toHaveClass("border-glass-border");
+    expect(win).toHaveClass("bg-transparent");
+
+    const titleBar = screen.getByTestId("workspace-title-bar");
+    expect(titleBar).toHaveClass("bg-[var(--glass-bg-dense)]");
+    expect(titleBar).toHaveClass("backdrop-blur-[var(--glass-blur)]");
+    expect(titleBar).toHaveClass("backdrop-saturate-[var(--glass-saturate)]");
+
+    const bodySlot = screen.getByTestId("workspace-body-slot");
+    expect(bodySlot).toHaveClass("bg-[var(--glass-bg-dense)]");
+    expect(bodySlot).toHaveClass("backdrop-blur-[var(--glass-blur)]");
+    expect(bodySlot).toHaveClass("backdrop-saturate-[var(--glass-saturate)]");
   });
 
   it("applies the position + size + zIndex from props", () => {
@@ -268,6 +279,9 @@ describe("<ProjectWorkspaceWindow>", () => {
     );
     expect(screen.getByTestId("rail")).toBeInTheDocument();
     expect(screen.getByTestId("body")).toBeInTheDocument();
+    expect(screen.getByTestId("workspace-right-rail-wrapper")).toHaveClass(
+      "bg-[var(--glass-bg-dense)]",
+    );
   });
 
   // Phase 12.3 — mode transition cross-fade.

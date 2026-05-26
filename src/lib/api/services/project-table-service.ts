@@ -89,6 +89,9 @@ function normalizeDirectValue(
   value: ProjectTableEditValue,
 ): string | null {
   if (value == null) return null;
+  if (columnId === "client" && typeof value === "object" && "clientId" in value) {
+    return value.clientId;
+  }
   const text = String(value).trim();
   if (columnId === "name" && text.length === 0) {
     throw new ProjectTableMutationError("Project name is required", "22023");

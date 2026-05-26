@@ -106,7 +106,12 @@ function TerminalItem({
   const stageColor = OPPORTUNITY_STAGE_COLORS[stage];
   const { setNodeRef, isOver } = useDroppable({
     id: `focused-terminal-${stage}`,
-    data: { stage, isTerminal: true, mode: "focused" },
+    data: {
+      stage,
+      isTerminal: true,
+      mode: "focused",
+      focusedDropIntent: "stage-target",
+    },
     disabled: false,
   });
   const count = opportunities.length;

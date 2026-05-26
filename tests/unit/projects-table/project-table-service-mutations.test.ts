@@ -52,6 +52,23 @@ describe("ProjectTableService mutations", () => {
     expect(mock.eqUpdatedAt).toHaveBeenCalledWith("updated_at", "2026-05-13T00:00:00Z");
   });
 
+  it("updates project client through the direct optimistic field path", async () => {
+    const mock = directUpdateSupabaseMock({
+      data: { updated_at: "2026-05-13T01:00:00Z" },
+      error: null,
+    });
+    vi.mocked(requireSupabase).mockReturnValue(mock as never);
+
+    await expect(ProjectTableService.updateProjectField({
+      projectId: "p-1",
+      columnId: "client",
+      value: { clientId: "client-2", clientName: "Maverick Projects" },
+      expectedUpdatedAt: "2026-05-13T00:00:00Z",
+    })).resolves.toEqual({ updatedAt: "2026-05-13T01:00:00Z" });
+
+    expect(mock.update).toHaveBeenCalledWith({ client_id: "client-2" });
+  });
+
   it("turns zero-row direct updates into conflict errors", async () => {
     const mock = directUpdateSupabaseMock({ data: null, error: null });
     vi.mocked(requireSupabase).mockReturnValue(mock as never);

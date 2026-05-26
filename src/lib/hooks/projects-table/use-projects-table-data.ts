@@ -46,6 +46,7 @@ export function useProjectsTableData(args: {
     initialPageParam: 0,
     getNextPageParam: (lastPage) => lastPage.nextPage,
     enabled: Boolean(companyId && userId && args.view),
+    placeholderData: (previousData) => previousData,
     staleTime: 30_000,
     refetchOnWindowFocus: true,
   });

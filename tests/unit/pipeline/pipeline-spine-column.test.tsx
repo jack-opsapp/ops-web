@@ -168,7 +168,11 @@ describe("<PipelineSpineColumn>", () => {
 
     expect(dndMocks.useDroppable).toHaveBeenCalledWith({
       id: `focused-stage-${OpportunityStage.Quoted}`,
-      data: { stage: OpportunityStage.Quoted, mode: "focused" },
+      data: {
+        stage: OpportunityStage.Quoted,
+        mode: "focused",
+        focusedDropIntent: "stage-target",
+      },
       disabled: false,
     });
   });

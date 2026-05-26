@@ -407,6 +407,19 @@ export function ProjectsTableShell() {
     [activeViewId, setActiveViewId, views],
   );
 
+  const handleInlineArchiveView = useCallback(
+    async (view: ProjectTableViewDefinition) => {
+      setViewSaveErrorKey(null);
+      try {
+        await viewActions.archiveView.mutateAsync({ viewId: view.id });
+        handleViewArchived(view.id);
+      } catch (error) {
+        setViewSaveErrorKey(viewPersistenceErrorCopyKey(error));
+      }
+    },
+    [handleViewArchived, viewActions.archiveView],
+  );
+
   let body = null;
   if (viewsQuery.isError) {
     body = <ProjectsViewState label={t("table.views.error")} />;
@@ -443,6 +456,7 @@ export function ProjectsTableShell() {
         }}
         hasNextPage={Boolean(tableQuery.hasNextPage)}
         isFetchingNextPage={tableQuery.isFetchingNextPage}
+        isRefreshing={tableQuery.isFetching && !tableQuery.isFetchingNextPage && !tableQuery.isLoading}
         onWheel={zoom.handleWheel}
         onBeginPinch={zoom.beginPinch}
         onUpdatePinch={zoom.updatePinch}
@@ -453,12 +467,15 @@ export function ProjectsTableShell() {
   }
 
   return (
-    <div className="glass-surface relative flex h-full min-h-0 flex-col overflow-hidden rounded-panel border border-border">
+    <div className="relative flex h-full min-h-0 flex-col overflow-hidden">
       <ProjectsViewTabs
         views={views}
         activeViewId={activeViewId}
         onViewChange={handleViewChange}
         onCreateView={() => setCreateDialogOpen(true)}
+        onArchiveView={(view) => {
+          void handleInlineArchiveView(view);
+        }}
         isLoading={viewsQuery.isLoading}
         isError={viewsQuery.isError}
       />
@@ -478,9 +495,9 @@ export function ProjectsTableShell() {
                   onClick={() => {
                     void persistPendingViewDefinition();
                   }}
-                  className="inline-flex h-7 items-center gap-1 rounded-[5px] border border-ops-accent px-2 font-cakemono text-[12px] font-light uppercase text-ops-accent transition-colors hover:bg-ops-accent hover:text-black focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent disabled:pointer-events-none disabled:opacity-40"
+                  className="inline-flex h-[28px] items-center gap-1 rounded-[5px] border border-ops-accent px-2 font-cakemono text-[12px] font-light uppercase text-ops-accent transition-colors hover:bg-ops-accent hover:text-black focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent disabled:pointer-events-none disabled:opacity-40"
                 >
-                  <Save className="h-3.5 w-3.5" />
+                  <Save className="h-[12px] w-[12px]" strokeWidth={1.5} />
                   {t("table.views.save")}
                 </button>
               ) : null}
@@ -496,6 +513,9 @@ export function ProjectsTableShell() {
                 errorKey={densityErrorKey}
                 onDensityChange={(density) => {
                   void zoom.setPreset(density);
+                }}
+                onZoomChange={(zoomLevel) => {
+                  void zoom.setZoomLevel(zoomLevel);
                 }}
               />
             </>
@@ -530,6 +550,10 @@ export function ProjectsTableShell() {
         onViewCreated={handleViewCreated}
       />
       {body}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 bottom-0 z-40 h-12 bg-gradient-to-b from-transparent via-background/70 to-background"
+      />
       {visibleSelectedCount > 0 ? (
         <ProjectsBulkBar
           visibleRows={tableQuery.rows}

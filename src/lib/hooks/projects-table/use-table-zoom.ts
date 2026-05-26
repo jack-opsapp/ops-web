@@ -217,6 +217,17 @@ export function useTableZoom(optionsOrInitialZoom: number | UseTableZoomOptions 
     [commitDensity],
   );
 
+  const commitZoomLevel = useCallback(
+    (zoomValue: number) => {
+      const nextZoom = clampTableZoom(zoomValue);
+      return commitDensity({
+        density: densityFromZoom(nextZoom),
+        zoomLevel: nextZoom,
+      });
+    },
+    [commitDensity],
+  );
+
   const commitNearestPreset = useCallback(
     (zoomValue: number) => {
       const nextDensity = densityFromZoom(zoomValue);
@@ -314,6 +325,7 @@ export function useTableZoom(optionsOrInitialZoom: number | UseTableZoomOptions 
     setZoom: setZoomLevel,
     metrics,
     setPreset: commitPreset,
+    setZoomLevel: commitZoomLevel,
     revertToSavedDensity,
     handleWheel,
     handleKeyDown,

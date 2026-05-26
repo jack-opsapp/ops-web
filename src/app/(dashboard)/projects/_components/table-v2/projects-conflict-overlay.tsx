@@ -26,6 +26,10 @@ function isProjectStatus(value: ProjectTableEditValue): value is ProjectStatus {
   return Object.values(ProjectStatus).includes(value as ProjectStatus);
 }
 
+function isClientValue(value: ProjectTableEditValue): value is { clientId: string | null; clientName: string | null } {
+  return value !== null && typeof value === "object" && "clientName" in value;
+}
+
 function formatConflictValue({
   columnId,
   value,
@@ -43,6 +47,10 @@ function formatConflictValue({
 
   if (columnId === "start_date" || columnId === "end_date") {
     return formatDate(typeof value === "string" ? value : null);
+  }
+
+  if (columnId === "client") {
+    return isClientValue(value) ? value.clientName || EMPTY_VALUE : String(value || EMPTY_VALUE);
   }
 
   return String(value) || EMPTY_VALUE;

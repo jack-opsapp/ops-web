@@ -72,6 +72,30 @@ describe("ProjectTableTeamService", () => {
     expect(mock.isDeletedAt).toHaveBeenCalledWith("deleted_at", null);
   });
 
+  it("normalizes legacy protocol-relative team member image urls", async () => {
+    const mock = teamMembersQueryMock({
+      data: [
+        {
+          id: "user-1",
+          first_name: "Mara",
+          last_name: "Silva",
+          email: "mara@example.com",
+          role: "crew",
+          profile_image_url: "//21f8aef8a1eb969e43f8925ea58a2f93.cdn.bubble.io/avatar.png",
+          user_color: null,
+        },
+      ],
+      error: null,
+    });
+    vi.mocked(requireSupabase).mockReturnValue(mock as never);
+
+    await expect(ProjectTableTeamService.fetchCompanyTeamMembers("company-1")).resolves.toEqual([
+      expect.objectContaining({
+        profileImageUrl: "https://21f8aef8a1eb969e43f8925ea58a2f93.cdn.bubble.io/avatar.png",
+      }),
+    ]);
+  });
+
   it("reads non-deleted non-cancelled project tasks ordered by display order", async () => {
     const mock = projectTasksQueryMock({
       data: [

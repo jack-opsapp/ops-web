@@ -13,6 +13,16 @@ import { usePipelineModeStore } from "@/app/(dashboard)/pipeline/_components/pip
 import { PipelineFocusedShell } from "@/app/(dashboard)/pipeline/_components/pipeline-focused-shell";
 
 const mockDndState = vi.hoisted(() => ({ isDragging: false }));
+const dndKitMocks = vi.hoisted(() => ({
+  useDroppable: vi.fn(({ id }: { id: string }) => ({
+    setNodeRef: vi.fn(),
+    isOver: id === "focused-action-discard",
+  })),
+}));
+
+vi.mock("@dnd-kit/core", () => ({
+  useDroppable: dndKitMocks.useDroppable,
+}));
 
 vi.mock("framer-motion", () => ({
   motion: {
@@ -46,10 +56,12 @@ vi.mock(
       stage,
       focusedPanelId,
       focusedTabId,
+      opportunities,
     }: {
       stage: OpportunityStage;
       focusedPanelId: string;
       focusedTabId: string;
+      opportunities: Opportunity[];
     }) => (
       <section
         id={focusedPanelId}
@@ -57,7 +69,26 @@ vi.mock(
         aria-labelledby={focusedTabId}
         data-testid="focused-column"
         data-stage={stage}
-      />
+      >
+        {opportunities.map((opportunity) => (
+          <button
+            key={opportunity.id}
+            type="button"
+            data-opportunity-card-id={opportunity.id}
+          >
+            {opportunity.title}
+          </button>
+        ))}
+      </section>
+    ),
+  })
+);
+
+vi.mock(
+  "@/app/(dashboard)/pipeline/_components/pipeline-focused-detail-window",
+  () => ({
+    PipelineFocusedDetailWindow: () => (
+      <aside data-keyboard-scope="modal-or-menu" data-testid="detail-panel" />
     ),
   })
 );
@@ -205,6 +236,7 @@ function renderFocusedShell(opportunities: Opportunity[]) {
       onMarkWon={vi.fn()}
       onMarkLost={vi.fn()}
       onAdvanceStage={vi.fn()}
+      onMoveStage={vi.fn()}
       onAssign={vi.fn()}
       onScheduleFollowUp={vi.fn()}
       onDelete={vi.fn()}
@@ -225,6 +257,7 @@ describe("<PipelineFocusedShell>", () => {
   beforeEach(() => {
     localStorage.clear();
     mockDndState.isDragging = false;
+    dndKitMocks.useDroppable.mockClear();
     usePipelineModeStore.setState({
       mode: "focused",
       focusedStage: OpportunityStage.NewLead,
@@ -262,6 +295,115 @@ describe("<PipelineFocusedShell>", () => {
       "pipeline-focused-tab-new_lead"
     );
     expect(within(tablist).queryByRole("tabpanel")).not.toBeInTheDocument();
+  });
+
+  it("reveals archive and discard drop rails while dragging", () => {
+    mockDndState.isDragging = true;
+
+    renderFocusedShell([
+      makeOpportunity("opp-1", OpportunityStage.NewLead),
+      makeOpportunity("opp-2", OpportunityStage.Qualifying),
+    ]);
+
+    const dropZones = screen.getByTestId("pipeline-focused-action-drops");
+
+    expect(dropZones).toHaveAttribute("aria-hidden", "false");
+    expect(dropZones).toHaveClass("bottom-2");
+    expect(dropZones).toHaveClass("grid-cols-2");
+    expect(dropZones).toHaveClass("gap-2");
+    expect(dropZones).toHaveClass("h-[88px]");
+    expect(within(dropZones).getByText("Archive")).toBeInTheDocument();
+    expect(within(dropZones).getByText("Discard")).toBeInTheDocument();
+    expect(dndKitMocks.useDroppable).toHaveBeenCalledWith({
+      id: "focused-action-archive",
+      data: {
+        mode: "focused",
+        focusedDropIntent: "archive-target",
+      },
+      disabled: false,
+    });
+    expect(dndKitMocks.useDroppable).toHaveBeenCalledWith({
+      id: "focused-action-discard",
+      data: {
+        mode: "focused",
+        focusedDropIntent: "discard-target",
+      },
+      disabled: false,
+    });
+  });
+
+  it("opens focused detail without splitting or collapsing the focused list", () => {
+    usePipelineModeStore.setState({
+      detailPanelOpportunityId: "opp-1",
+    });
+
+    renderFocusedShell([
+      makeOpportunity("opp-1", OpportunityStage.NewLead),
+      makeOpportunity("opp-2", OpportunityStage.NewLead),
+    ]);
+
+    const focusedColumn = screen.getByTestId("focused-column");
+    const detailPanel = screen.getByTestId("detail-panel");
+    const focusedFrame = focusedColumn.parentElement;
+
+    expect(focusedFrame).toHaveClass("min-w-[460px]");
+    expect(focusedFrame?.className).not.toContain("w-[840px]");
+    expect(focusedFrame?.className).not.toContain("basis-1/2");
+    expect(focusedFrame?.contains(detailPanel)).toBe(false);
+  });
+
+  it("keeps focused action drop rails registered but hidden until dragging", () => {
+    renderFocusedShell([
+      makeOpportunity("opp-1", OpportunityStage.NewLead),
+      makeOpportunity("opp-2", OpportunityStage.Qualifying),
+    ]);
+
+    expect(screen.getByTestId("pipeline-focused-action-drops")).toHaveAttribute(
+      "aria-hidden",
+      "true"
+    );
+    expect(dndKitMocks.useDroppable).toHaveBeenCalledWith({
+      id: "focused-action-archive",
+      data: {
+        mode: "focused",
+        focusedDropIntent: "archive-target",
+      },
+      disabled: false,
+    });
+    expect(dndKitMocks.useDroppable).toHaveBeenCalledWith({
+      id: "focused-action-discard",
+      data: {
+        mode: "focused",
+        focusedDropIntent: "discard-target",
+      },
+      disabled: false,
+    });
+  });
+
+  it("uses panel radius and the focused stage color on the active list title", () => {
+    renderFocusedShell([
+      makeOpportunity("opp-1", OpportunityStage.NewLead),
+      makeOpportunity("opp-2", OpportunityStage.Qualifying),
+    ]);
+
+    const selectedTab = screen.getByRole("tab", { selected: true });
+
+    expect(selectedTab).toHaveClass("rounded-panel");
+    expect(selectedTab).toHaveClass("focus-visible:outline-none");
+    expect(selectedTab).not.toHaveClass("focus-visible:outline-ops-accent");
+    expect(selectedTab).toHaveStyle({
+      borderColor: "rgba(143, 154, 163, 0.38)",
+      borderRadius: "10px",
+    });
+    expect(selectedTab.getAttribute("style")).toContain(
+      "rgba(143, 154, 163, 0.16)"
+    );
+    expect(
+      selectedTab.querySelectorAll("[data-focused-stage-accent]")
+    ).toHaveLength(2);
+    expect(
+      selectedTab.querySelector('[data-focused-stage-accent="rail"]')
+    ).not.toBeInTheDocument();
   });
 
   it.each([OpportunityStage.Won, OpportunityStage.Lost])(
@@ -411,15 +553,20 @@ describe("<PipelineFocusedShell>", () => {
     );
   });
 
-  it("toggles mode with V and closes the detail panel with Escape", () => {
+  it("toggles mode with V and closes the detail panel with Escape", async () => {
     usePipelineModeStore.setState({
       detailPanelOpportunityId: "opp-1",
     });
 
     renderFocusedShell([makeOpportunity("opp-1", OpportunityStage.NewLead)]);
+    const origin = screen.getByRole("button", { name: "Lead opp-1" });
+    origin.focus();
 
     fireEvent.keyDown(window, { key: "Escape" });
     expect(usePipelineModeStore.getState().detailPanelOpportunityId).toBeNull();
+    await waitFor(() => {
+      expect(document.activeElement).toBe(origin);
+    });
 
     fireEvent.keyDown(window, { key: "v" });
     expect(usePipelineModeStore.getState().mode).toBe("spatial");
@@ -541,17 +688,24 @@ describe("<PipelineFocusedShell>", () => {
     );
   });
 
-  it("uses horizontal wheel intent to advance focused stages", () => {
+  it("lets horizontal wheel intent pass through for browser navigation", () => {
     const { container } = renderFocusedShell([
       makeOpportunity("opp-1", OpportunityStage.NewLead),
       makeOpportunity("opp-2", OpportunityStage.Qualifying),
     ]);
+    const event = new WheelEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      deltaX: 80,
+      deltaY: 8,
+    });
 
-    fireEvent.wheel(getShellElement(container), { deltaX: 80, deltaY: 8 });
+    getShellElement(container).dispatchEvent(event);
 
     expect(usePipelineModeStore.getState().focusedStage).toBe(
-      OpportunityStage.Qualifying
+      OpportunityStage.NewLead
     );
+    expect(event.defaultPrevented).toBe(false);
   });
 
   it("lets vertical wheel intent scroll the focused card list", () => {
@@ -567,26 +721,28 @@ describe("<PipelineFocusedShell>", () => {
     );
   });
 
-  it("uses Shift+wheel as a mouse fallback for stage navigation", () => {
+  it("lets Shift+wheel pass through instead of using it for stage navigation", () => {
     const { container } = renderFocusedShell([
       makeOpportunity("opp-1", OpportunityStage.NewLead),
       makeOpportunity("opp-2", OpportunityStage.Qualifying),
     ]);
-
-    fireEvent.wheel(getShellElement(container), {
+    const event = new WheelEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
       deltaX: 0,
       deltaY: 80,
       shiftKey: true,
     });
 
+    getShellElement(container).dispatchEvent(event);
+
     expect(usePipelineModeStore.getState().focusedStage).toBe(
-      OpportunityStage.Qualifying
+      OpportunityStage.NewLead
     );
+    expect(event.defaultPrevented).toBe(false);
   });
 
-  it("debounces wheel stage commits by 150ms", () => {
-    const nowSpy = vi.spyOn(Date, "now");
-    nowSpy.mockReturnValue(1000);
+  it("ignores repeated horizontal wheel gestures for stage navigation", () => {
     const { container } = renderFocusedShell([
       makeOpportunity("opp-1", OpportunityStage.NewLead),
       makeOpportunity("opp-2", OpportunityStage.Qualifying),
@@ -595,37 +751,33 @@ describe("<PipelineFocusedShell>", () => {
     const shell = getShellElement(container);
 
     fireEvent.wheel(shell, { deltaX: 80, deltaY: 4 });
-    expect(usePipelineModeStore.getState().focusedStage).toBe(
-      OpportunityStage.Qualifying
-    );
-
-    nowSpy.mockReturnValue(1149);
     fireEvent.wheel(shell, { deltaX: 80, deltaY: 4 });
-    expect(usePipelineModeStore.getState().focusedStage).toBe(
-      OpportunityStage.Qualifying
-    );
-
-    nowSpy.mockReturnValue(1150);
     fireEvent.wheel(shell, { deltaX: 80, deltaY: 4 });
-    expect(usePipelineModeStore.getState().focusedStage).toBe(
-      OpportunityStage.Quoting
-    );
 
-    nowSpy.mockRestore();
+    expect(usePipelineModeStore.getState().focusedStage).toBe(
+      OpportunityStage.NewLead
+    );
   });
 
-  it("suppresses wheel stage navigation while dragging", () => {
+  it("does not consume horizontal wheel gestures while dragging", () => {
     mockDndState.isDragging = true;
     const { container } = renderFocusedShell([
       makeOpportunity("opp-1", OpportunityStage.NewLead),
       makeOpportunity("opp-2", OpportunityStage.Qualifying),
     ]);
+    const event = new WheelEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      deltaX: 80,
+      deltaY: 4,
+    });
 
-    fireEvent.wheel(getShellElement(container), { deltaX: 80, deltaY: 4 });
+    getShellElement(container).dispatchEvent(event);
 
     expect(usePipelineModeStore.getState().focusedStage).toBe(
       OpportunityStage.NewLead
     );
+    expect(event.defaultPrevented).toBe(false);
   });
 
   it("switches to spatial mode when focused pinch-out crosses the virtual zoom threshold", () => {
@@ -690,6 +842,7 @@ describe("<PipelineFocusedShell>", () => {
         onMarkWon={vi.fn()}
         onMarkLost={vi.fn()}
         onAdvanceStage={vi.fn()}
+        onMoveStage={vi.fn()}
         onAssign={vi.fn()}
         onScheduleFollowUp={vi.fn()}
         onDelete={vi.fn()}

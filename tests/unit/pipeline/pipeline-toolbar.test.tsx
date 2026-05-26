@@ -50,14 +50,16 @@ describe("pipeline toolbars", () => {
     });
   });
 
-  it("renders an obvious focused toolbar mode toggle", () => {
+  it("renders a monochrome focused toolbar mode toggle", () => {
     render(<PipelineFocusedToolbar />);
 
     const modeButton = screen.getByRole("button", {
       name: /\[ MODE: SPATIAL ▸ \]/,
     });
 
-    expect(modeButton).toHaveClass("border-ops-accent");
+    expect(modeButton).toHaveClass("h-[26px]", "bg-transparent", "text-text");
+    expect(modeButton).not.toHaveClass("border-line");
+    expect(modeButton).not.toHaveClass("bg-surface-active");
 
     fireEvent.click(modeButton);
 

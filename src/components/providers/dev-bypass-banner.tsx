@@ -10,6 +10,8 @@
  */
 
 import { useEffect, useState } from "react";
+import { OpsMark } from "@/components/brand";
+import { cn } from "@/lib/utils/cn";
 import {
   fetchBypassMeta,
   isDevBypassEnabled,
@@ -20,6 +22,7 @@ import {
 export function DevBypassBanner() {
   const [meta, setMeta] = useState<BypassMetaResponse | null>(null);
   const [switching, setSwitching] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     if (!isDevBypassEnabled()) return;
@@ -42,80 +45,90 @@ export function DevBypassBanner() {
 
   return (
     <div
-      className="fixed left-3 bottom-3 select-none"
-      style={{ zIndex: 9999 }}
+      data-dev-bypass-banner
+      data-dev-bypass-expanded={expanded ? "true" : "false"}
+      className="fixed bottom-[12px] left-[12px] select-none"
+      style={{ zIndex: 2147483647 }}
     >
+      {expanded && (
+        <div
+          data-dev-bypass-controls
+          className="glass-dense absolute bottom-[calc(100%+8px)] left-0 flex h-[40px] max-w-[calc(100vw-24px)] items-center gap-[4px] overflow-x-auto rounded-[10px] border border-line p-[4px] font-mono uppercase [&::before]:rounded-[10px]"
+          style={{
+            fontSize: 10,
+            letterSpacing: "0.16em",
+            fontFeatureSettings: '"tnum" 1, "zero" 1',
+          }}
+        >
+          <span className="shrink-0 px-[6px] text-text-3">
+            {"// DEV BYPASS"}
+          </span>
+
+          {meta ? (
+            <div className="flex items-center gap-[4px]">
+              {meta.available.map((u) => {
+                const active = u.key === meta.key;
+                return (
+                  <button
+                    key={u.key}
+                    type="button"
+                    onClick={() => handleSwitch(u.key)}
+                    disabled={switching || active}
+                    title={u.email}
+                    className={cn(
+                      "h-[24px] rounded-[3px] border px-[6px] font-mono uppercase tracking-wider transition-colors",
+                      active
+                        ? "border-line-hi bg-surface-active text-text"
+                        : "border-transparent text-text-3 hover:bg-surface-hover hover:text-text",
+                      switching && !active && "opacity-40"
+                    )}
+                    style={{
+                      fontFamily: "var(--font-mono), monospace",
+                      fontSize: 10,
+                      letterSpacing: "0.12em",
+                      cursor: active || switching ? "default" : "pointer",
+                    }}
+                  >
+                    {u.label}
+                  </button>
+                );
+              })}
+              <span
+                className="ml-[4px] max-w-[240px] truncate text-text-mute"
+                style={{ letterSpacing: "0.06em" }}
+              >
+                · {meta.email}
+              </span>
+            </div>
+          ) : (
+            <span className="shrink-0 px-[6px] text-text-3">activating…</span>
+          )}
+        </div>
+      )}
+
       <div
-        className="flex items-center gap-2 px-2 py-1 font-mono uppercase"
+        className="glass-dense flex items-center gap-[4px] rounded-[10px] border border-line p-[4px] font-mono uppercase [&::before]:rounded-[10px]"
         style={{
-          background: "rgba(18, 18, 20, 0.78)",
-          backdropFilter: "blur(28px) saturate(1.3)",
-          WebkitBackdropFilter: "blur(28px) saturate(1.3)",
-          border: "1px solid rgba(196, 168, 104, 0.35)",
-          borderRadius: 4,
           fontSize: 10,
           letterSpacing: "0.16em",
           fontFeatureSettings: '"tnum" 1, "zero" 1',
         }}
       >
-        <span style={{ color: "#C4A868" }}>{"// DEV BYPASS"}</span>
-
-        {meta ? (
-          <div className="flex items-center gap-1">
-            {meta.available.map((u) => {
-              const active = u.key === meta.key;
-              return (
-                <button
-                  key={u.key}
-                  type="button"
-                  onClick={() => handleSwitch(u.key)}
-                  disabled={switching || active}
-                  title={u.email}
-                  className="px-1.5 py-[2px] uppercase tracking-wider transition-colors"
-                  style={{
-                    fontFamily: "var(--font-mono), monospace",
-                    fontSize: 10,
-                    letterSpacing: "0.12em",
-                    color: active ? "var(--text)" : "var(--text-3)",
-                    background: active
-                      ? "rgba(196, 168, 104, 0.18)"
-                      : "transparent",
-                    border: active
-                      ? "1px solid rgba(196, 168, 104, 0.35)"
-                      : "1px solid transparent",
-                    borderRadius: 2,
-                    cursor: active || switching ? "default" : "pointer",
-                    opacity: switching && !active ? 0.4 : 1,
-                  }}
-                  onMouseEnter={(e) => {
-                    if (active || switching) return;
-                    (e.currentTarget as HTMLElement).style.color =
-                      "var(--text-2)";
-                    (e.currentTarget as HTMLElement).style.background =
-                      "rgba(255,255,255,0.04)";
-                  }}
-                  onMouseLeave={(e) => {
-                    if (active || switching) return;
-                    (e.currentTarget as HTMLElement).style.color =
-                      "var(--text-3)";
-                    (e.currentTarget as HTMLElement).style.background =
-                      "transparent";
-                  }}
-                >
-                  {u.label}
-                </button>
-              );
-            })}
-            <span
-              className="ml-1"
-              style={{ color: "var(--text-mute)", letterSpacing: "0.06em" }}
-            >
-              · {meta.email}
-            </span>
-          </div>
-        ) : (
-          <span style={{ color: "var(--text-3)" }}>activating…</span>
-        )}
+        <button
+          type="button"
+          data-dev-bypass-toggle
+          aria-label="// DEV BYPASS"
+          aria-expanded={expanded}
+          className={cn(
+            "flex h-[32px] w-[32px] items-center justify-center rounded-[5px] border transition-colors",
+            expanded
+              ? "border-line-hi bg-surface-active text-text"
+              : "border-transparent text-text-3 hover:bg-surface-hover hover:text-text"
+          )}
+          onClick={() => setExpanded((current) => !current)}
+        >
+          <OpsMark title="" className="h-[17px] w-[10px]" />
+        </button>
       </div>
     </div>
   );

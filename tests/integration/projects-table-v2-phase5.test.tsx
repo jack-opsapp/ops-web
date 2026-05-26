@@ -18,6 +18,7 @@ const dictionary: Record<string, string> = {
   "table.density.compact": "Compact",
   "table.density.comfortable": "Comfortable",
   "table.density.spacious": "Spacious",
+  "table.density.zoom": "Zoom",
   "table.density.errorPermissionDenied": "Permission required to save density.",
   "table.density.errorGeneric": "Density update failed.",
   "table.column.select": "Select",
@@ -253,8 +254,8 @@ function latestTableDataCall() {
 }
 
 function getSelectInput(container: HTMLElement, rowId: string) {
-  const input = container.querySelector<HTMLInputElement>(
-    `[data-project-table-row-id="${rowId}"][data-project-table-column-id="select"] input[type="checkbox"]`,
+  const input = container.querySelector<HTMLButtonElement>(
+    `[data-project-table-row-id="${rowId}"][data-project-table-column-id="select"] [role="checkbox"]`,
   );
   if (!input) throw new Error(`Missing select input for ${rowId}`);
   return input;
@@ -739,7 +740,7 @@ describe("Projects table v2 saved-view management", () => {
         definition: { density: "compact", zoomLevel: 0.85 },
       });
     });
-    expect(screen.getByText("85%")).toBeInTheDocument();
+    expect(screen.getByLabelText(dictionary["table.density.zoom"])).toHaveValue("85");
 
     await user.click(screen.getByRole("button", { name: dictionary["table.density.spacious"] }));
     await waitFor(() => {
@@ -748,7 +749,7 @@ describe("Projects table v2 saved-view management", () => {
         definition: { density: "spacious", zoomLevel: 1.25 },
       });
     });
-    expect(screen.getByText("125%")).toBeInTheDocument();
+    expect(screen.getByLabelText(dictionary["table.density.zoom"])).toHaveValue("125");
 
     await user.click(screen.getByRole("button", { name: dictionary["table.density.comfortable"] }));
     await waitFor(() => {
@@ -757,7 +758,24 @@ describe("Projects table v2 saved-view management", () => {
         definition: { density: "comfortable", zoomLevel: 1 },
       });
     });
-    expect(screen.getByText("100%")).toBeInTheDocument();
+    expect(screen.getByLabelText(dictionary["table.density.zoom"])).toHaveValue("100");
+  });
+
+  it("persists an editable numeric zoom percentage", async () => {
+    const user = userEvent.setup();
+    renderShell();
+
+    const zoomInput = screen.getByLabelText(dictionary["table.density.zoom"]);
+    await user.clear(zoomInput);
+    await user.type(zoomInput, "112{enter}");
+
+    await waitFor(() => {
+      expect(updateViewDefinition).toHaveBeenLastCalledWith({
+        viewId: "view-active",
+        definition: { density: "comfortable", zoomLevel: 1.12 },
+      });
+    });
+    expect(zoomInput).toHaveValue("112");
   });
 
   it("reverts density and shows dictionary copy when the active-view save is denied", async () => {
@@ -768,7 +786,7 @@ describe("Projects table v2 saved-view management", () => {
     await user.click(screen.getByRole("button", { name: dictionary["table.density.compact"] }));
 
     expect(await screen.findByText(dictionary["table.density.errorPermissionDenied"])).toBeInTheDocument();
-    expect(screen.getByText("100%")).toBeInTheDocument();
+    expect(screen.getByLabelText(dictionary["table.density.zoom"])).toHaveValue("100");
     expect(screen.getByRole("button", { name: dictionary["table.density.comfortable"] })).toHaveAttribute(
       "aria-pressed",
       "true",

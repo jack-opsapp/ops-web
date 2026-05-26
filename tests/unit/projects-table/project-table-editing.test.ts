@@ -14,8 +14,8 @@ const baseRow: ProjectTableRow = {
   title: "Deck rebuild",
   status: ProjectStatus.Accepted,
   rawStatus: "accepted",
-  clientId: null,
-  clientName: null,
+  clientId: "client-1",
+  clientName: "Riley Home",
   clientEmail: null,
   clientPhone: null,
   address: "12 Site Rd",
@@ -43,6 +43,7 @@ describe("project table editing contracts", () => {
     expect(PROJECT_TABLE_EDITABLE_COLUMN_IDS).toEqual([
       "name",
       "status",
+      "client",
       "address",
       "start_date",
       "end_date",
@@ -58,6 +59,10 @@ describe("project table editing contracts", () => {
     expect(getProjectTableEditValue(baseRow, "start_date")).toBe("2026-05-20");
     expect(getProjectTableEditValue(baseRow, "end_date")).toBe(null);
     expect(getProjectTableEditValue(baseRow, "status")).toBe(ProjectStatus.Accepted);
+    expect(getProjectTableEditValue(baseRow, "client")).toEqual({
+      clientId: "client-1",
+      clientName: "Riley Home",
+    });
   });
 
   it("serializes TS project statuses to lowercase DB values", () => {

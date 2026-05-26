@@ -6,6 +6,7 @@ import { ProjectTableService } from "@/lib/api/services/project-table-service";
 import { ProjectStatus } from "@/lib/types/models";
 import {
   getProjectTableEditValue,
+  type ProjectTableClientEditValue,
   type ProjectTableBulkOperation,
   type ProjectTableDirectEditColumnId,
   type ProjectTableEditableColumnId,
@@ -205,6 +206,22 @@ function isProjectStatus(value: unknown): value is ProjectStatus {
   return Object.values(ProjectStatus).includes(value as ProjectStatus);
 }
 
+function isClientEditValue(value: unknown): value is ProjectTableClientEditValue {
+  return value !== null && typeof value === "object" && "clientId" in value;
+}
+
+function clientIdFromEditValue(value: ProjectTableEditValue): string | null {
+  if (value == null) return null;
+  if (isClientEditValue(value)) return value.clientId;
+  const text = String(value).trim();
+  return text.length === 0 ? null : text;
+}
+
+function clientNameFromEditValue(value: ProjectTableEditValue): string | null {
+  if (!isClientEditValue(value)) return null;
+  return value.clientName;
+}
+
 function applyEditValue(
   row: ProjectTableRow,
   columnId: ProjectTableEditableColumnId,
@@ -214,6 +231,13 @@ function applyEditValue(
   switch (columnId) {
     case "name":
       return { ...row, title: value == null ? "" : String(value), updatedAt };
+    case "client":
+      return {
+        ...row,
+        clientId: clientIdFromEditValue(value),
+        clientName: clientNameFromEditValue(value),
+        updatedAt,
+      };
     case "address":
       return { ...row, address: value == null ? null : String(value), updatedAt };
     case "start_date":
@@ -258,6 +282,9 @@ function applyBulkUndoValue(
 }
 
 function valuesEqual(left: ProjectTableEditValue, right: ProjectTableEditValue) {
+  if (isClientEditValue(left) || isClientEditValue(right)) {
+    return clientIdFromEditValue(left) === clientIdFromEditValue(right);
+  }
   return left === right;
 }
 

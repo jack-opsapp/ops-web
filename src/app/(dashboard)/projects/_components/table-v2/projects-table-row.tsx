@@ -1,8 +1,9 @@
 "use client";
 
-import { ChevronRight } from "lucide-react";
+import { Pencil } from "lucide-react";
 import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
 import { useDictionary } from "@/i18n/client";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils/cn";
 import type { ProjectTableSaveState } from "@/lib/hooks/projects-table/use-cell-edit";
 import type {
@@ -27,6 +28,7 @@ import { CellRelation } from "./cells/cell-relation";
 import { CellStatus } from "./cells/cell-status";
 import { CellTeam } from "./cells/cell-team";
 import { CellText } from "./cells/cell-text";
+import { EditableCellClient } from "./cells/editable-cell-client";
 import { EditableCellDate } from "./cells/editable-cell-date";
 import { EditableCellStatus } from "./cells/editable-cell-status";
 import { EditableCellText } from "./cells/editable-cell-text";
@@ -137,15 +139,11 @@ export function ProjectsTableRow({
 }) {
   const { t } = useDictionary("projects");
 
-  const handleSelect = (event: MouseEvent<HTMLInputElement>) => {
+  const handleSelect = (event: MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
     onToggleRow(row.id, event.shiftKey ? "range" : "toggle");
   };
 
-  const handleOpenProject = (event: MouseEvent<HTMLButtonElement>) => {
-    event.stopPropagation();
-    onOpenProject(row.id);
-  };
   const isEditingRow = editingCell?.rowId === row.id;
 
   const renderCell = (column: ProjectTableColumnConfig): ReactNode => {
@@ -159,6 +157,25 @@ export function ProjectsTableRow({
 
     switch (editableColumnId) {
       case "name":
+        if (!isEditing) {
+          return (
+            <div className="group/name relative flex h-full w-full min-w-0 items-center pr-7">
+              <CellText value={row.title} className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap" />
+              <button
+                type="button"
+                aria-label={t("table.cell.name.edit").replace("{name}", row.title)}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  beginEdit();
+                }}
+                onKeyDown={(event) => event.stopPropagation()}
+                className="absolute right-0 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-[5px] text-text-3 opacity-0 outline-none transition-colors hover:bg-surface-hover hover:text-text-2 focus-visible:opacity-100 focus-visible:ring-1 focus-visible:ring-ops-accent group-hover/name:opacity-100"
+              >
+                <Pencil className="h-[12px] w-[12px]" strokeWidth={1.5} />
+              </button>
+            </div>
+          );
+        }
         return (
           <EditableCellText
             value={row.title}
@@ -207,6 +224,18 @@ export function ProjectsTableRow({
             onCommit={(status) => commit(status)}
           />
         );
+      case "client":
+        return (
+          <EditableCellClient
+            clientId={row.clientId}
+            clientName={row.clientName}
+            saveState={saveState}
+            editing={isEditing}
+            onBeginEdit={beginEdit}
+            onCancelEdit={onCancelEdit}
+            onCommit={commit}
+          />
+        );
     }
   };
 
@@ -246,18 +275,22 @@ export function ProjectsTableRow({
             onClick={() => {
               if (column.id === "select") return;
               setActiveCell({ rowId: row.id, columnId: column.id });
+              if (isEditingCell) return;
+              if (column.id === "name") {
+                onOpenProject(row.id);
+                return;
+              }
               if (isProjectTableEditableColumn(column.id)) {
                 onBeginEdit(row.id, column.id);
               }
             }}
             className={cn(
-              "relative flex min-w-0 shrink-0 items-center border-b border-r border-border-subtle px-2 outline-none",
+              "relative flex min-w-0 shrink-0 items-center border-b border-r border-border px-[8px] outline-none",
               column.align === "right" && "justify-end",
               stickyLeft != null && "sticky z-10 bg-background",
               selected && stickyLeft != null && "bg-surface-active",
               isActiveCell && "bg-surface-active focus-visible:ring-1 focus-visible:ring-ops-accent",
               isEditingCell && "z-[120]",
-              column.id === "name" && "gap-1 pl-1",
             )}
             style={{
               width,
@@ -268,26 +301,14 @@ export function ProjectsTableRow({
             }}
           >
             {column.id === "select" ? (
-              <input
-                type="checkbox"
+              <Checkbox
+                aria-label={t("table.column.select")}
                 checked={selected}
-                readOnly
                 onClick={handleSelect}
-                className="h-3.5 w-3.5 rounded-[3px] border border-border bg-surface-input accent-ops-accent"
+                className="rounded-[3px]"
               />
             ) : (
               <>
-                {column.id === "name" ? (
-                  <button
-                    type="button"
-                    aria-label={`${t("detail.project")}: ${row.title}`}
-                    onClick={handleOpenProject}
-                    onKeyDown={(event) => event.stopPropagation()}
-                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-[5px] text-text-3 opacity-0 outline-none transition-colors hover:bg-surface-hover hover:text-text-2 focus-visible:opacity-100 focus-visible:ring-1 focus-visible:ring-ops-accent group-hover:opacity-100"
-                  >
-                    <ChevronRight className="h-3.5 w-3.5" strokeWidth={1.5} />
-                  </button>
-                ) : null}
                 <div className="min-w-0 flex-1">{renderCell(column)}</div>
               </>
             )}

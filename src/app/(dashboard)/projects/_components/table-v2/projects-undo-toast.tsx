@@ -10,6 +10,7 @@ const UNDO_DISMISS_DELAY_MS = 10_000;
 const COLUMN_LABEL_KEYS = {
   name: "table.column.name",
   status: "table.column.status",
+  client: "table.column.client",
   address: "table.column.address",
   start_date: "table.column.startDate",
   end_date: "table.column.endDate",

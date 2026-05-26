@@ -15,6 +15,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyAuthToken } from "@/lib/firebase/admin-verify";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { parseDate } from "@/lib/supabase/helpers";
+import { normalizeImageUrl } from "@/lib/utils/image-url";
 import { sendOneSignalPush } from "@/lib/notifications/onesignal";
 import { buildMemberJoinedCopy } from "@/lib/notifications/notification-copy";
 import type {
@@ -43,7 +44,7 @@ function mapUserFromDb(row: Record<string, unknown>): User {
     lastName: row.last_name as string,
     email: (row.email as string) ?? null,
     phone: (row.phone as string) ?? null,
-    profileImageURL: (row.profile_image_url as string) ?? null,
+    profileImageURL: normalizeImageUrl((row.profile_image_url as string) ?? null),
     role: (row.role as UserRole) ?? UserRoleEnum.Unassigned,
     companyId: (row.company_id as string) ?? null,
     userType: (row.user_type as User["userType"]) ?? null,
@@ -75,7 +76,7 @@ function mapCompanyFromDb(row: Record<string, unknown>): Company {
   return {
     id: row.id as string,
     name: row.name as string,
-    logoURL: (row.logo_url as string) ?? null,
+    logoURL: normalizeImageUrl((row.logo_url as string) ?? null),
     externalId: (row.external_id as string) ?? null,
     companyCode: (row.company_code as string) ?? null,
     companyDescription: (row.description as string) ?? null,

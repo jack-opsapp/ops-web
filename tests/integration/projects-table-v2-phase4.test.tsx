@@ -305,8 +305,8 @@ function renderProjectsTable(queryClient = makeQueryClient()) {
 }
 
 function getSelectInput(container: HTMLElement, rowId: string) {
-  const input = container.querySelector<HTMLInputElement>(
-    `[data-project-table-row-id="${rowId}"][data-project-table-column-id="select"] input[type="checkbox"]`,
+  const input = container.querySelector<HTMLButtonElement>(
+    `[data-project-table-row-id="${rowId}"][data-project-table-column-id="select"] [role="checkbox"]`,
   );
   if (!input) throw new Error(`Missing select input for ${rowId}`);
   return input;

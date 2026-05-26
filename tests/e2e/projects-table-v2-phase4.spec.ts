@@ -78,7 +78,7 @@ function tableCell(page: Page, rowId: string, columnId: string) {
 }
 
 function tableCheckbox(page: Page, rowId: string) {
-  return tableCell(page, rowId, "select").locator('input[type="checkbox"]');
+  return tableCell(page, rowId, "select").getByRole("checkbox");
 }
 
 function photoDialog(page: Page, index: number) {

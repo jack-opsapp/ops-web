@@ -100,6 +100,7 @@ describe("<PipelineTerminalStack>", () => {
         stage: OpportunityStage.Won,
         isTerminal: true,
         mode: "focused",
+        focusedDropIntent: "stage-target",
       },
       disabled: false,
     });
@@ -109,6 +110,7 @@ describe("<PipelineTerminalStack>", () => {
         stage: OpportunityStage.Lost,
         isTerminal: true,
         mode: "focused",
+        focusedDropIntent: "stage-target",
       },
       disabled: false,
     });

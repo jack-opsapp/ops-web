@@ -3,6 +3,8 @@
 import { memo, useMemo } from "react";
 import { useDictionary } from "@/i18n/client";
 import {
+  getDaysInStage,
+  getStageDisplayName,
   type Opportunity,
   OpportunityStage,
   OPPORTUNITY_STAGE_COLORS,
@@ -18,6 +20,7 @@ type FocusedColumnActionHandlers = {
   onDiscard: (id: string) => void;
   onMarkWon: (opportunity: Opportunity) => void;
   onMarkLost: (opportunity: Opportunity) => void;
+  onMoveStage: (id: string, stage: OpportunityStage) => void;
   onAssign: (id: string) => void;
   onScheduleFollowUp: (id: string) => void;
 };
@@ -36,6 +39,8 @@ export interface PipelineFocusedColumnProps extends FocusedColumnActionHandlers 
   onAddLead: () => void;
   onClearFilters: () => void;
 }
+
+const FOCUSED_LIST_END_PADDING = "pb-[360px]";
 
 export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
   stage,
@@ -57,6 +62,7 @@ export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
   onDiscard,
   onMarkWon,
   onMarkLost,
+  onMoveStage,
   onAssign,
   onScheduleFollowUp,
 }: PipelineFocusedColumnProps) {
@@ -68,6 +74,12 @@ export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
     () => calculateBatchStaleness(opportunities),
     [opportunities]
   );
+  const oldestDaysInStage = useMemo(() => {
+    if (opportunities.length === 0) return null;
+    return Math.max(
+      ...opportunities.map((opportunity) => getDaysInStage(opportunity))
+    );
+  }, [opportunities]);
   const emptyTitle = filtersActive
     ? t("focused.filteredEmpty.title", "// NO MATCHES FOR FILTERS")
     : t("focused.empty.title", "// NO LEADS");
@@ -75,6 +87,27 @@ export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
     ? t("focused.filteredEmpty.action", "[CLEAR FILTERS]")
     : t("focused.empty.action", "[+ ADD LEAD]");
   const emptyActionHandler = filtersActive ? onClearFilters : onAddLead;
+  const cardLabel = t(
+    opportunities.length === 1
+      ? "focused.listSummary.cardSingular"
+      : "focused.listSummary.cardPlural",
+    opportunities.length === 1 ? "CARD" : "CARDS"
+  );
+  const oldestValue =
+    oldestDaysInStage === null
+      ? t("focused.listSummary.oldestEmpty", "-")
+      : t("focused.listSummary.ageDays", "{count}D").replace(
+          "{count}",
+          String(oldestDaysInStage)
+        );
+  const listSummary = t(
+    "focused.listSummary.text",
+    "{count} {cardLabel} IN {stage} STAGE, OLDEST {oldest}"
+  )
+    .replace("{count}", String(opportunities.length))
+    .replace("{cardLabel}", cardLabel)
+    .replace("{stage}", getStageDisplayName(stage).toUpperCase())
+    .replace("{oldest}", oldestValue);
 
   return (
     <section
@@ -82,13 +115,13 @@ export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
       role="tabpanel"
       aria-labelledby={focusedTabId}
       aria-busy={isLoading ? true : undefined}
-      className="scrollbar-hide h-full min-h-0 overflow-y-auto pt-[188px]"
+      className="scrollbar-hide h-full min-h-0 overflow-y-auto scroll-pb-[360px] pt-[188px]"
     >
       {isError ? (
         <div
           role="alert"
           data-testid="pipeline-focused-error"
-          className="flex min-h-full flex-col items-start gap-3 pb-[44px] pt-[24px]"
+          className={`flex min-h-full flex-col items-start gap-3 ${FOCUSED_LIST_END_PADDING} pt-[24px]`}
         >
           <p className="font-mono text-caption-sm uppercase text-text">
             {t("focused.error.title", "// PIPELINE UNREACHABLE")}
@@ -104,13 +137,17 @@ export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
           </button>
         </div>
       ) : isLoading ? (
-        <div className="flex min-h-full flex-col gap-2 pb-[44px]">
+        <div
+          className={`flex min-h-full flex-col gap-2 ${FOCUSED_LIST_END_PADDING}`}
+        >
           {[0, 1, 2].map((index) => (
             <FocusedLoadingCard key={index} stageColor={stageColor} />
           ))}
         </div>
       ) : opportunities.length > 0 ? (
-        <div className="flex min-h-full flex-col gap-2 pb-[44px]">
+        <div
+          className={`flex min-h-full flex-col gap-2 ${FOCUSED_LIST_END_PADDING}`}
+        >
           {opportunities.map((opportunity) => {
             const clientName =
               clientNameMap.get(opportunity.clientId ?? "") ??
@@ -134,14 +171,20 @@ export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
                 onDiscard={() => onDiscard(opportunity.id)}
                 onMarkWon={() => onMarkWon(opportunity)}
                 onMarkLost={() => onMarkLost(opportunity)}
+                onMoveStage={(_, targetStage) =>
+                  onMoveStage(opportunity.id, targetStage)
+                }
                 onAssign={() => onAssign(opportunity.id)}
                 onScheduleFollowUp={() => onScheduleFollowUp(opportunity.id)}
               />
             );
           })}
+          <FocusedListSummary summary={listSummary} stageColor={stageColor} />
         </div>
       ) : (
-        <div className="flex min-h-full flex-col items-start gap-3 pb-[44px] pt-[24px]">
+        <div
+          className={`flex min-h-full flex-col items-start gap-3 ${FOCUSED_LIST_END_PADDING} pt-[24px]`}
+        >
           <p className="font-mono text-caption-sm uppercase text-text">
             {emptyTitle}
           </p>
@@ -152,11 +195,34 @@ export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
           >
             {emptyAction}
           </button>
+          <FocusedListSummary summary={listSummary} stageColor={stageColor} />
         </div>
       )}
     </section>
   );
 });
+
+function FocusedListSummary({
+  summary,
+  stageColor,
+}: {
+  summary: string;
+  stageColor: string;
+}) {
+  return (
+    <div
+      data-testid="pipeline-focused-list-summary"
+      className="mt-3 flex w-full items-center gap-2 border-t border-border-subtle pt-3 font-mono text-[11px] uppercase tabular-nums text-text-mute"
+    >
+      <span
+        aria-hidden="true"
+        className="h-px w-6 shrink-0"
+        style={{ backgroundColor: stageColor, opacity: 0.55 }}
+      />
+      <span>{summary}</span>
+    </div>
+  );
+}
 
 function FocusedLoadingCard({ stageColor }: { stageColor: string }) {
   return (

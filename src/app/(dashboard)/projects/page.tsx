@@ -815,8 +815,11 @@ export default function ProjectsPage() {
 
       {/* ── Spreadsheet — alternative view ── */}
       {viewMode === "spreadsheet" && projectsTableV2Enabled && (
-        <div className="absolute inset-0 top-[156px] bottom-0 px-3 overflow-hidden flex flex-col">
-          <ProjectsTableShell />
+        <div className="absolute inset-0 flex flex-col overflow-hidden p-3">
+          <MetricsHeader variant="compact" tabId="projects" title="Projects" metrics={projectMetrics ?? []} />
+          <div className="mt-2 min-h-0 flex-1">
+            <ProjectsTableShell />
+          </div>
         </div>
       )}
 
@@ -846,51 +849,53 @@ export default function ProjectsPage() {
       )}
 
       {/* ── Page HUD — metrics + toolbar float on top of canvas ── */}
-      <div className="absolute top-[62px] left-0 right-0 z-[2] pointer-events-none">
-        <div className="pointer-events-auto">
-          <MetricsHeader variant="compact" tabId="projects" title="Projects" metrics={projectMetrics ?? []} />
-        </div>
-        <div className="pointer-events-auto px-3 py-1.5">
-          <div className="inline-flex max-w-full overflow-x-auto overscroll-x-contain py-[2px] rounded-[4px] border border-[rgba(255,255,255,0.08)]"
-            style={{
-              background: "rgba(10, 10, 10, 0.50)",
-              backdropFilter: "blur(12px) saturate(1.1)",
-              WebkitBackdropFilter: "blur(12px) saturate(1.1)",
-            }}
-          >
-            <ProjectFloatingToolbar
-              searchQuery={searchQuery}
-              onSearchChange={setSearchQuery}
-              teamMembers={teamMemberList}
-              clients={clientList}
-              selectedMemberId={selectedMemberId}
-              onMemberFilterChange={setSelectedMemberId}
-              selectedClientId={selectedClientId}
-              onClientFilterChange={setSelectedClientId}
-              canViewAccounting={canViewAccounting}
-              canManage={canManage}
-              canDelete={canDelete}
-              viewMode={viewMode}
-              onViewModeChange={setViewMode}
-              onArchivedToggle={viewMode === "canvas"
-                ? () => useProjectCanvasStore.getState().toggleArchiveTray()
-                : () => setSpreadsheetStatusFilter((prev) => prev === "archived" ? "active" : "archived")
-              }
-              isArchivedActive={viewMode === "canvas"
-                ? useProjectCanvasStore.getState().isArchiveTrayOpen
-                : spreadsheetStatusFilter === "archived"
-              }
-              onClosedToggle={() => setSpreadsheetStatusFilter((prev) => prev === "closed" ? "active" : "closed")}
-              isClosedActive={spreadsheetStatusFilter === "closed"}
-              selectedCount={spreadsheetSelectedIds.size}
-              onBulkChangeStatus={handleSpreadsheetBulkChangeStatus}
-              onBulkArchive={handleSpreadsheetBulkArchive}
-              onBulkDelete={handleSpreadsheetBulkDelete}
-              onBulkClear={() => setSpreadsheetSelectedIds(new Set())}
-            />
+      {(viewMode === "canvas" || !projectsTableV2Enabled) && (
+        <div className="absolute top-[62px] left-0 right-0 z-[2] pointer-events-none">
+          <div className="pointer-events-auto">
+            <MetricsHeader variant="compact" tabId="projects" title="Projects" metrics={projectMetrics ?? []} />
+          </div>
+          <div className="pointer-events-auto px-3 py-1.5">
+            <div className="inline-flex max-w-full overflow-x-auto overscroll-x-contain py-[2px] rounded-[4px] border border-[rgba(255,255,255,0.08)]"
+              style={{
+                background: "rgba(10, 10, 10, 0.50)",
+                backdropFilter: "blur(12px) saturate(1.1)",
+                WebkitBackdropFilter: "blur(12px) saturate(1.1)",
+              }}
+            >
+              <ProjectFloatingToolbar
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
+                teamMembers={teamMemberList}
+                clients={clientList}
+                selectedMemberId={selectedMemberId}
+                onMemberFilterChange={setSelectedMemberId}
+                selectedClientId={selectedClientId}
+                onClientFilterChange={setSelectedClientId}
+                canViewAccounting={canViewAccounting}
+                canManage={canManage}
+                canDelete={canDelete}
+                viewMode={viewMode}
+                onViewModeChange={setViewMode}
+                onArchivedToggle={viewMode === "canvas"
+                  ? () => useProjectCanvasStore.getState().toggleArchiveTray()
+                  : () => setSpreadsheetStatusFilter((prev) => prev === "archived" ? "active" : "archived")
+                }
+                isArchivedActive={viewMode === "canvas"
+                  ? useProjectCanvasStore.getState().isArchiveTrayOpen
+                  : spreadsheetStatusFilter === "archived"
+                }
+                onClosedToggle={() => setSpreadsheetStatusFilter((prev) => prev === "closed" ? "active" : "closed")}
+                isClosedActive={spreadsheetStatusFilter === "closed"}
+                selectedCount={spreadsheetSelectedIds.size}
+                onBulkChangeStatus={handleSpreadsheetBulkChangeStatus}
+                onBulkArchive={handleSpreadsheetBulkArchive}
+                onBulkDelete={handleSpreadsheetBulkDelete}
+                onBulkClear={() => setSpreadsheetSelectedIds(new Set())}
+              />
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Drag confirmation dialog */}
       <ProjectDragConfirmation

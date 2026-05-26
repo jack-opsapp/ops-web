@@ -28,7 +28,7 @@ export function PipelineFocusedToolbar({
 
   return (
     <motion.div
-      className="flex items-center gap-1 px-[6px]"
+      className="flex items-center gap-[8px]"
       initial="hidden"
       animate="visible"
       variants={variants}
@@ -36,11 +36,11 @@ export function PipelineFocusedToolbar({
       {reviewCount > 0 && onReviewEmails && (
         <>
           <ToolbarAction onClick={onReviewEmails}>
-            <Mail className="h-[13px] w-[13px]" strokeWidth={1.5} />
-            <span className="font-mono text-micro uppercase tracking-wider">
+            <Mail className="h-[11px] w-[11px]" strokeWidth={1.5} />
+            <span className="font-mono uppercase leading-none tracking-[0.12em] [font-size:10px]">
               {t("gmail.reviewEmails")}
             </span>
-            <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-chip border border-line-hi bg-surface-active px-1 font-mono text-micro text-text">
+            <span className="inline-flex h-[14px] min-w-[14px] items-center justify-center rounded-chip border border-line-hi bg-surface-active px-1 font-mono leading-none text-text [font-size:9px]">
               {reviewCount > 99 ? "99+" : reviewCount}
             </span>
           </ToolbarAction>
@@ -49,8 +49,8 @@ export function PipelineFocusedToolbar({
       )}
 
       <ToolbarAction onClick={toggleMode} isModeToggle>
-        <Maximize2 className="h-[13px] w-[13px]" strokeWidth={1.5} />
-        <span className="font-mono text-micro uppercase tracking-wider">
+        <Maximize2 className="h-[11px] w-[11px]" strokeWidth={1.5} />
+        <span className="font-mono uppercase leading-none tracking-[0.12em] [font-size:10px]">
           {t("focused.modeButton.spatial")}
         </span>
       </ToolbarAction>
@@ -74,12 +74,10 @@ function ToolbarAction({
       type="button"
       data-pipeline-mode-toggle={isModeToggle ? "true" : undefined}
       className={cn(
-        "flex h-[30px] items-center gap-[5px] rounded border px-2 transition-colors duration-150",
-        isModeToggle
-          ? "border-ops-accent text-ops-accent hover:bg-ops-accent hover:text-background"
-          : isActive
-            ? "border-line-hi bg-surface-active text-text"
-            : "border-transparent text-text-3 hover:bg-surface-hover hover:text-text"
+        "flex h-[26px] shrink-0 items-center gap-[4px] whitespace-nowrap rounded-[4px] px-[8px] transition-colors duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent",
+        isModeToggle || isActive
+          ? "bg-transparent text-text hover:bg-white/[0.04]"
+          : "text-text-2 hover:bg-white/[0.04] hover:text-text"
       )}
       onClick={onClick}
     >
@@ -89,5 +87,5 @@ function ToolbarAction({
 }
 
 function Divider() {
-  return <div className="h-[18px] w-px bg-border-subtle" />;
+  return <div className="h-[16px] w-px bg-border-subtle" />;
 }

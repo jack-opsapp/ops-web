@@ -4,20 +4,22 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { OpportunityStage } from "@/lib/types/pipeline";
 import {
   PipelineDndProvider,
+  pipelineCollisionDetection,
   pipelineKeyboardCoordinates,
 } from "@/app/(dashboard)/pipeline/_components/pipeline-dnd-provider";
 
 const dndMocks = vi.hoisted(() => {
   const PointerSensor = function PointerSensor() {};
   const KeyboardSensor = function KeyboardSensor() {};
+  type MockCollision = { id: string };
 
   return {
     PointerSensor,
     KeyboardSensor,
     useSensor: vi.fn((sensor, options) => ({ sensor, options })),
     useSensors: vi.fn((...sensors) => sensors),
-    pointerWithin: vi.fn(() => []),
-    closestCenter: vi.fn(() => []),
+    pointerWithin: vi.fn((): MockCollision[] => []),
+    closestCenter: vi.fn((): MockCollision[] => []),
   };
 });
 
@@ -58,6 +60,18 @@ function makeKeyboardEvent(code: string) {
     code,
     preventDefault: vi.fn(),
   } as unknown as KeyboardEvent;
+}
+
+function makeCollisionArgs(
+  mode: "focused" | "spatial"
+): Parameters<typeof pipelineCollisionDetection>[0] {
+  return {
+    active: {
+      data: {
+        current: { mode },
+      },
+    },
+  } as unknown as Parameters<typeof pipelineCollisionDetection>[0];
 }
 
 function makeKeyboardArgs({
@@ -192,6 +206,26 @@ describe("<PipelineDndProvider>", () => {
         scrollBehavior: "auto",
       }
     );
+  });
+
+  it("uses pointer-only collisions for focused card drags", () => {
+    dndMocks.pointerWithin.mockReturnValueOnce([]);
+    dndMocks.closestCenter.mockReturnValueOnce([{ id: "nearest-stage" }]);
+
+    expect(pipelineCollisionDetection(makeCollisionArgs("focused"))).toEqual(
+      []
+    );
+    expect(dndMocks.closestCenter).not.toHaveBeenCalled();
+  });
+
+  it("keeps closest-center fallback for spatial card drags", () => {
+    dndMocks.pointerWithin.mockReturnValueOnce([]);
+    dndMocks.closestCenter.mockReturnValueOnce([{ id: "nearest-stage" }]);
+
+    expect(pipelineCollisionDetection(makeCollisionArgs("spatial"))).toEqual([
+      { id: "nearest-stage" },
+    ]);
+    expect(dndMocks.closestCenter).toHaveBeenCalled();
   });
 
   it("maps focused keyboard drag to the next logical stage target", () => {

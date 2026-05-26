@@ -248,9 +248,9 @@ export function ProjectsViewSettingsMenu({
             setMenuErrorKey(null);
             setOpen((value) => !value);
           }}
-          className="inline-flex h-7 w-7 items-center justify-center rounded-[5px] border border-border text-text-3 transition-colors hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
+          className="inline-flex h-[28px] w-[28px] items-center justify-center rounded-[5px] border border-border text-text-3 transition-colors hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
         >
-          <MoreVertical className="h-4 w-4" />
+          <MoreVertical className="h-[14px] w-[14px]" strokeWidth={1.5} />
         </button>
 
         {open ? (

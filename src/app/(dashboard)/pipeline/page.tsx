@@ -86,6 +86,7 @@ import { calculateCanvasLayout } from "./_components/spatial-layout-engine";
 import { calculateBatchStaleness } from "./_components/spatial-staleness";
 import { PipelineDndProvider } from "./_components/pipeline-dnd-provider";
 import { PipelineDetailPanel } from "./_components/pipeline-detail-panel";
+import { PipelineFocusedDragOverlay } from "./_components/pipeline-focused-drag-overlay";
 import { PipelineFocusedShell } from "./_components/pipeline-focused-shell";
 import { PipelineFocusedToolbar } from "./_components/pipeline-focused-toolbar";
 import { PipelineFilterRow } from "./_components/pipeline-filter-row";
@@ -1538,6 +1539,14 @@ export default function PipelinePage() {
     [handleMoveStage]
   );
 
+  /** Discard — direct stage move, no confirmation dialog needed */
+  const handleDiscard = useCallback(
+    (opportunityId: string) => {
+      handleMoveStage(opportunityId, OpportunityStage.Discarded);
+    },
+    [handleMoveStage]
+  );
+
   const setFocusedDragLiveMessage = useCallback((message: string) => {
     setFocusedDragAnnouncement((current) =>
       current === message ? current : message
@@ -1572,6 +1581,22 @@ export default function PipelinePage() {
       if (mode !== "focused") return;
 
       const data = event.over?.data.current as PipelineDropData | undefined;
+      if (
+        data?.mode === "focused" &&
+        data.focusedDropIntent === "archive-target"
+      ) {
+        setFocusedDragLiveMessage(t("actions.archive"));
+        return;
+      }
+
+      if (
+        data?.mode === "focused" &&
+        data.focusedDropIntent === "discard-target"
+      ) {
+        setFocusedDragLiveMessage(t("actions.discard"));
+        return;
+      }
+
       if (data?.mode !== "focused" || !data.stage) {
         setFocusedDragLiveMessage("");
         return;
@@ -1601,7 +1626,15 @@ export default function PipelinePage() {
       });
 
       if (mode === "focused") {
-        if (drop.type === "focused-stage") {
+        if (drop.type === "focused-action") {
+          if (drop.action === "archive") {
+            handleArchive(drop.opportunityId);
+            setFocusedDragLiveMessage(t("actions.archived"));
+          } else {
+            handleDiscard(drop.opportunityId);
+            setFocusedDragLiveMessage(t("actions.discard"));
+          }
+        } else if (drop.type === "focused-stage") {
           const opportunity = filteredOpportunities.find(
             (o) => o.id === draggedId
           );
@@ -1660,6 +1693,8 @@ export default function PipelinePage() {
     },
     [
       filteredOpportunities,
+      handleArchive,
+      handleDiscard,
       handleMarkLost,
       handleMarkWon,
       handleMoveStage,
@@ -1680,14 +1715,6 @@ export default function PipelinePage() {
       useSpatialCanvasStore.getState().endDrag();
     },
     [mode, setFocusedDragLiveMessage, t]
-  );
-
-  /** Discard — direct stage move, no confirmation dialog needed */
-  const handleDiscard = useCallback(
-    (opportunityId: string) => {
-      handleMoveStage(opportunityId, OpportunityStage.Discarded);
-    },
-    [handleMoveStage]
   );
 
   /** Confirm Won/Lost transition */
@@ -1910,6 +1937,21 @@ export default function PipelinePage() {
     modeTransition &&
       "pointer-events-none [&_[data-pipeline-transition-card]]:opacity-0"
   );
+  const focusedActiveOpportunity =
+    mode === "focused" && activeDragId
+      ? (filteredOpportunities.find(
+          (opportunity) => opportunity.id === activeDragId
+        ) ?? null)
+      : null;
+  const focusedActiveClientName = focusedActiveOpportunity
+    ? (clientNameMap.get(focusedActiveOpportunity.clientId ?? "") ??
+      focusedActiveOpportunity.contactName ??
+      t("card.unknown"))
+    : "";
+  const focusedActiveStaleness = focusedActiveOpportunity
+    ? (transitionStalenessMap.get(focusedActiveOpportunity.id) ?? 1)
+    : 1;
+  const isFocusedDesktop = !isMobile && mode === "focused";
   const handleModeTransitionComplete = () => {
     setModeTransition(null);
   };
@@ -1962,6 +2004,7 @@ export default function PipelinePage() {
                   onMarkWon={handleMarkWon}
                   onMarkLost={handleMarkLost}
                   onAdvanceStage={handleAdvanceStage}
+                  onMoveStage={handleMoveStage}
                   onAssign={handleAssign}
                   onScheduleFollowUp={handleScheduleFollowUp}
                   onDelete={(id) => deleteMutation.mutate(id)}
@@ -2004,6 +2047,13 @@ export default function PipelinePage() {
                 onComplete={handleModeTransitionComplete}
               />
             )}
+            {mode === "focused" && (
+              <PipelineFocusedDragOverlay
+                activeOpportunity={focusedActiveOpportunity}
+                clientName={focusedActiveClientName}
+                stalenessOpacity={focusedActiveStaleness}
+              />
+            )}
           </PipelineDndProvider>
         )}
       </div>
@@ -2029,7 +2079,7 @@ export default function PipelinePage() {
             </div>
           </div>
         )}
-        {!isMobile && (
+        {!isMobile && mode !== "focused" && (
           <div className="pointer-events-auto px-3 pb-1">
             <div className="inline-flex w-fit rounded-chip border border-border-subtle bg-glass-subtle px-1.5 py-1 backdrop-blur-[12px] backdrop-saturate-[1.1]">
               <PipelineFilterRow
@@ -2047,10 +2097,24 @@ export default function PipelinePage() {
           </div>
         )}
         {/* Banners */}
-        <div className="pointer-events-auto flex flex-col gap-1 px-3">
+        <div
+          className={cn(
+            "pointer-events-auto flex flex-col gap-1 px-3",
+            isFocusedDesktop &&
+              "fixed bottom-[54px] left-[84px] z-[9997] w-[min(560px,calc(100vw-108px))] px-0"
+          )}
+        >
           {gmailConnections.length === 0 && !gmailBannerDismissed && (
-            <div className="flex animate-fade-in items-center gap-2 rounded-chip border border-ops-accent/20 bg-ops-accent/10 px-2 py-1.5">
-              <div className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded bg-ops-accent/15">
+            <div
+              className="glass-dense flex animate-fade-in items-center gap-2 rounded-panel border px-2 py-1.5 [&::before]:rounded-panel"
+              style={{
+                background: "var(--surface-glass-dense)",
+                backdropFilter: "blur(28px) saturate(1.3)",
+                WebkitBackdropFilter: "blur(28px) saturate(1.3)",
+                borderColor: "rgba(111, 148, 176, 0.26)",
+              }}
+            >
+              <div className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-[5px] border border-ops-accent/20 bg-ops-accent/10">
                 <Mail className="h-[16px] w-[16px] text-ops-accent" />
               </div>
               <div className="min-w-0 flex-1">
@@ -2114,18 +2178,42 @@ export default function PipelinePage() {
       </div>
 
       {!isMobile && mode === "focused" && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[3] flex justify-center px-3">
-          <div className="scrollbar-hide pointer-events-auto inline-flex max-w-full overflow-x-auto rounded-chip border border-border-subtle bg-glass-subtle py-[2px] backdrop-blur-[12px] backdrop-saturate-[1.1]">
+        <div
+          className="pointer-events-none fixed bottom-[12px] left-[84px] right-[12px] z-[9998] flex justify-start"
+        >
+          <div
+            className="glass-dense scrollbar-hide pointer-events-auto inline-flex max-w-full items-center gap-[3px] overflow-x-auto rounded-[10px] border px-[3px] py-[3px] [&::before]:rounded-[10px]"
+            style={{
+              background: "var(--surface-glass-dense)",
+              backdropFilter: "blur(28px) saturate(1.3)",
+              WebkitBackdropFilter: "blur(28px) saturate(1.3)",
+              borderColor: "var(--glass-border)",
+              borderRadius: "10px",
+            }}
+          >
             <PipelineFocusedToolbar
               reviewCount={reviewCount}
               onReviewEmails={() => setReviewPanelOpen(true)}
+            />
+            <div className="mx-[3px] h-[16px] w-px shrink-0 bg-border-subtle" />
+            <PipelineFilterRow
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              stageFilter={stageFilter}
+              onStageFilterChange={setStageFilter}
+              assigneeFilter={assigneeFilter}
+              onAssigneeFilterChange={setAssigneeFilter}
+              teamMembers={teamMembers}
+              onAddLead={gatedOpenCreate}
+              canManage={canManage}
+              variant="toolbar"
             />
           </div>
         </div>
       )}
 
       {!isMobile && mode === "focused" && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[2] h-10 bg-gradient-to-t from-background via-background/60 to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[30] h-12 bg-gradient-to-t from-background via-background/60 to-transparent" />
       )}
 
       {!isMobile && mode === "spatial" && detailPanelOpportunity && (

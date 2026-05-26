@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
   type RefObject,
+  type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
@@ -42,7 +43,7 @@ import { PipelineDetailPhotosTab } from "./pipeline-detail-photos-tab";
 import { PipelineDetailTabBar } from "./pipeline-detail-tab-bar";
 import { PipelineDetailTimelineTab } from "./pipeline-detail-timeline-tab";
 
-type DetailPanelActionHandlers = {
+export type DetailPanelActionHandlers = {
   onAdvanceStage: (opportunity: Opportunity) => void;
   onMarkWon: (opportunity: Opportunity) => void;
   onMarkLost: (opportunity: Opportunity) => void;
@@ -73,20 +74,6 @@ const REDUCED_MOTION_DURATION = 0.001;
 const DRAWER_WIDTH = 420;
 const FOCUSABLE_SELECTOR =
   'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
-
-function useIsCompactDesktop() {
-  const [isCompact, setIsCompact] = useState(false);
-
-  useEffect(() => {
-    const media = window.matchMedia("(min-width: 900px) and (max-width: 1279px)");
-    const sync = () => setIsCompact(media.matches);
-    sync();
-    media.addEventListener("change", sync);
-    return () => media.removeEventListener("change", sync);
-  }, []);
-
-  return isCompact;
-}
 
 function readBounds(element: HTMLElement | null): Bounds | null {
   if (!element) return null;
@@ -134,12 +121,11 @@ export const PipelineDetailPanel = memo(function PipelineDetailPanel({
   );
   const activeTab = usePipelineModeStore((s) => s.detailPanelActiveTab);
   const closeDetailPanel = usePipelineModeStore((s) => s.closeDetailPanel);
-  const isCompactDesktop = useIsCompactDesktop();
   const [mounted, setMounted] = useState(false);
   const [bounds, setBounds] = useState<Bounds | null>(null);
   const panelRef = useRef<HTMLElement | null>(null);
 
-  const shouldUseDrawer = mode === "spatial" || isCompactDesktop;
+  const shouldUsePortal = mode === "spatial" || mode === "focused";
   const activeOrigin = originatingOpportunityId ?? detailPanelOpportunityId;
 
   const restoreFocus = useCallback(() => {
@@ -156,7 +142,7 @@ export const PipelineDetailPanel = memo(function PipelineDetailPanel({
   }, []);
 
   useLayoutEffect(() => {
-    if (!shouldUseDrawer) return;
+    if (!shouldUsePortal) return;
 
     const syncBounds = () => {
       setBounds(readBounds(scopeRef.current));
@@ -170,10 +156,10 @@ export const PipelineDetailPanel = memo(function PipelineDetailPanel({
       window.removeEventListener("resize", syncBounds);
       window.removeEventListener("scroll", syncBounds, true);
     };
-  }, [scopeRef, shouldUseDrawer]);
+  }, [scopeRef, shouldUsePortal]);
 
   useEffect(() => {
-    if (shouldUseDrawer && (!mounted || !bounds)) return;
+    if (shouldUsePortal && (!mounted || !bounds)) return;
 
     requestAnimationFrame(() => {
       const panel = panelRef.current;
@@ -182,17 +168,13 @@ export const PipelineDetailPanel = memo(function PipelineDetailPanel({
       const focusable = panel.querySelector<HTMLElement>(FOCUSABLE_SELECTOR);
       (focusable ?? panel).focus({ preventScroll: true });
     });
-  }, [
-    bounds,
-    detailPanelOpportunityId,
-    mounted,
-    shouldUseDrawer,
-  ]);
+  }, [bounds, detailPanelOpportunityId, mounted, shouldUsePortal]);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
       event.preventDefault();
+      event.stopPropagation();
       handleClose();
     }
 
@@ -217,14 +199,17 @@ export const PipelineDetailPanel = memo(function PipelineDetailPanel({
     />
   );
 
-  if (!shouldUseDrawer) {
+  if (!shouldUsePortal) {
     return (
       <motion.div
         layout={!reduced}
         initial={reduced ? { opacity: 0 } : { opacity: 0, x: 12 }}
         animate={{ opacity: 1, x: 0 }}
         exit={reduced ? { opacity: 0 } : { opacity: 0, x: 12 }}
-        transition={{ duration: reduced ? REDUCED_MOTION_DURATION : 0.24, ease: EASE_SMOOTH }}
+        transition={{
+          duration: reduced ? REDUCED_MOTION_DURATION : 0.24,
+          ease: EASE_SMOOTH,
+        }}
         className="h-full min-h-0 w-full"
       >
         {panel}
@@ -259,7 +244,10 @@ export const PipelineDetailPanel = memo(function PipelineDetailPanel({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        transition={{ duration: reduced ? REDUCED_MOTION_DURATION : 0.24, ease: EASE_SMOOTH }}
+        transition={{
+          duration: reduced ? REDUCED_MOTION_DURATION : 0.24,
+          ease: EASE_SMOOTH,
+        }}
         onClick={handleClose}
       />
       <motion.aside
@@ -269,7 +257,10 @@ export const PipelineDetailPanel = memo(function PipelineDetailPanel({
         initial={reduced ? { opacity: 0 } : { x: 420 }}
         animate={reduced ? { opacity: 1 } : { x: 0 }}
         exit={reduced ? { opacity: 0 } : { x: 420 }}
-        transition={{ duration: reduced ? REDUCED_MOTION_DURATION : 0.24, ease: EASE_SMOOTH }}
+        transition={{
+          duration: reduced ? REDUCED_MOTION_DURATION : 0.24,
+          ease: EASE_SMOOTH,
+        }}
       >
         {panel}
       </motion.aside>
@@ -287,19 +278,22 @@ type PanelSurfaceProps = DetailPanelActionHandlers & {
 };
 
 const PanelSurface = memo(
-  forwardRef<HTMLElement, PanelSurfaceProps>(function PanelSurface({
-    opportunity,
-    canManage,
-    activeTab,
-    className,
-    onClose,
-    onAdvanceStage,
-    onMarkWon,
-    onMarkLost,
-    onArchive,
-    onDiscard,
-    onDelete,
-  }, ref) {
+  forwardRef<HTMLElement, PanelSurfaceProps>(function PanelSurface(
+    {
+      opportunity,
+      canManage,
+      activeTab,
+      className,
+      onClose,
+      onAdvanceStage,
+      onMarkWon,
+      onMarkLost,
+      onArchive,
+      onDiscard,
+      onDelete,
+    },
+    ref
+  ) {
     const { t } = useDictionary("pipeline");
 
     return (
@@ -325,32 +319,60 @@ const PanelSurface = memo(
           onDelete={onDelete}
         />
 
-        <PipelineDetailNextSteps
-          opportunityId={opportunity.id}
-          opportunity={opportunity}
-        />
-        <PipelineDetailTabBar />
-
-        <div
-          data-keyboard-scope="modal-or-menu"
-          className="min-h-0 flex-1 overflow-y-auto p-3 scrollbar-hide"
-        >
-          {activeTab === "correspondence" && (
-            <PipelineDetailCorrespondenceTab opportunityId={opportunity.id} />
-          )}
-          {activeTab === "timeline" && (
-            <PipelineDetailTimelineTab opportunityId={opportunity.id} />
-          )}
-          {activeTab === "photos" && (
-            <PipelineDetailPhotosTab opportunityId={opportunity.id} />
-          )}
-        </div>
+        <PipelineDetailBody opportunity={opportunity} activeTab={activeTab} />
       </section>
     );
   })
 );
 
 PanelSurface.displayName = "PanelSurface";
+
+export function PipelineDetailBody({
+  opportunity,
+  activeTab,
+  withRegion = false,
+  headerSlot,
+}: {
+  opportunity: Opportunity;
+  activeTab: DetailTabId;
+  withRegion?: boolean;
+  headerSlot?: ReactNode;
+}) {
+  const { t } = useDictionary("pipeline");
+
+  return (
+    <div
+      role={withRegion ? "region" : undefined}
+      aria-label={
+        withRegion
+          ? t("focused.detailPanel.label", "Deal detail panel")
+          : undefined
+      }
+      data-keyboard-scope="modal-or-menu"
+      tabIndex={withRegion ? -1 : undefined}
+      className="flex h-full min-h-0 flex-col"
+    >
+      {headerSlot}
+      <PipelineDetailNextSteps
+        opportunityId={opportunity.id}
+        opportunity={opportunity}
+      />
+      <PipelineDetailTabBar />
+
+      <div className="scrollbar-hide min-h-0 flex-1 overflow-y-auto p-3">
+        {activeTab === "correspondence" && (
+          <PipelineDetailCorrespondenceTab opportunityId={opportunity.id} />
+        )}
+        {activeTab === "timeline" && (
+          <PipelineDetailTimelineTab opportunityId={opportunity.id} />
+        )}
+        {activeTab === "photos" && (
+          <PipelineDetailPhotosTab opportunityId={opportunity.id} />
+        )}
+      </div>
+    </div>
+  );
+}
 
 const PipelineDetailHeader = memo(function PipelineDetailHeader({
   opportunity,
@@ -368,8 +390,6 @@ const PipelineDetailHeader = memo(function PipelineDetailHeader({
   onClose: () => void;
 } & DetailPanelActionHandlers) {
   const { t } = useDictionary("pipeline");
-  const [showActions, setShowActions] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
 
   const stageName = getStageDisplayName(opportunity.stage);
   const stageColor =
@@ -383,25 +403,7 @@ const PipelineDetailHeader = memo(function PipelineDetailHeader({
     opportunity.title && opportunity.title !== displayName
       ? `${displayName} — ${opportunity.title}`
       : displayName;
-  const active = isActiveStage(opportunity.stage);
   const daysInStage = getDaysInStage(opportunity);
-
-  useEffect(() => {
-    if (!showActions) return;
-
-    function handlePointerDown(event: MouseEvent) {
-      if (menuRef.current?.contains(event.target as Node)) return;
-      setShowActions(false);
-    }
-
-    document.addEventListener("mousedown", handlePointerDown);
-    return () => document.removeEventListener("mousedown", handlePointerDown);
-  }, [showActions]);
-
-  const runAction = useCallback((callback: () => void) => {
-    setShowActions(false);
-    callback();
-  }, []);
 
   return (
     <header className="relative shrink-0 border-b border-border-subtle px-3 py-2">
@@ -461,59 +463,15 @@ const PipelineDetailHeader = memo(function PipelineDetailHeader({
 
         <div className="flex shrink-0 items-center gap-1">
           {canManage && (
-            <div ref={menuRef} className="relative">
-              <button
-                type="button"
-                aria-label={t("detail.stageActions")}
-                aria-expanded={showActions}
-                onClick={() => setShowActions((current) => !current)}
-                className="flex h-7 w-7 items-center justify-center rounded text-text-3 transition-colors hover:bg-surface-hover hover:text-text-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
-              >
-                <MoreHorizontal className="h-4 w-4" />
-              </button>
-
-              {showActions && (
-                <div
-                  data-keyboard-scope="modal-or-menu"
-                  className="glass-dense absolute right-0 top-full z-10 mt-1 min-w-[168px] rounded-modal border border-border p-1"
-                >
-                  {active && (
-                    <ActionItem
-                      icon={ChevronRight}
-                      label={t("detail.advance")}
-                      onClick={() => runAction(() => onAdvanceStage(opportunity))}
-                    />
-                  )}
-                  <ActionItem
-                    icon={Trophy}
-                    label={t("detail.won")}
-                    onClick={() => runAction(() => onMarkWon(opportunity))}
-                  />
-                  <ActionItem
-                    icon={XCircle}
-                    label={t("detail.lost")}
-                    onClick={() => runAction(() => onMarkLost(opportunity))}
-                  />
-                  <ActionItem
-                    icon={XCircle}
-                    label={t("actions.discard")}
-                    onClick={() => runAction(() => onDiscard(opportunity.id))}
-                  />
-                  <div className="my-0.5 border-t border-border-subtle" />
-                  <ActionItem
-                    icon={Archive}
-                    label={t("actions.archive")}
-                    onClick={() => runAction(() => onArchive(opportunity.id))}
-                  />
-                  <ActionItem
-                    icon={Trash2}
-                    label={t("actions.delete")}
-                    destructive
-                    onClick={() => runAction(() => onDelete(opportunity.id))}
-                  />
-                </div>
-              )}
-            </div>
+            <PipelineDetailActionMenu
+              opportunity={opportunity}
+              onAdvanceStage={onAdvanceStage}
+              onMarkWon={onMarkWon}
+              onMarkLost={onMarkLost}
+              onArchive={onArchive}
+              onDiscard={onDiscard}
+              onDelete={onDelete}
+            />
           )}
 
           <button
@@ -533,6 +491,96 @@ const PipelineDetailHeader = memo(function PipelineDetailHeader({
         </p>
       )}
     </header>
+  );
+});
+
+export const PipelineDetailActionMenu = memo(function PipelineDetailActionMenu({
+  opportunity,
+  onAdvanceStage,
+  onMarkWon,
+  onMarkLost,
+  onArchive,
+  onDiscard,
+  onDelete,
+}: {
+  opportunity: Opportunity;
+} & DetailPanelActionHandlers) {
+  const { t } = useDictionary("pipeline");
+  const [showActions, setShowActions] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const active = isActiveStage(opportunity.stage);
+
+  useEffect(() => {
+    if (!showActions) return;
+
+    function handlePointerDown(event: MouseEvent) {
+      if (menuRef.current?.contains(event.target as Node)) return;
+      setShowActions(false);
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, [showActions]);
+
+  const runAction = useCallback((callback: () => void) => {
+    setShowActions(false);
+    callback();
+  }, []);
+
+  return (
+    <div ref={menuRef} className="relative">
+      <button
+        type="button"
+        aria-label={t("detail.stageActions")}
+        aria-expanded={showActions}
+        onClick={() => setShowActions((current) => !current)}
+        className="flex h-7 w-7 items-center justify-center rounded text-text-3 transition-colors hover:bg-surface-hover hover:text-text-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
+      >
+        <MoreHorizontal className="h-4 w-4" />
+      </button>
+
+      {showActions && (
+        <div
+          data-keyboard-scope="modal-or-menu"
+          className="glass-dense absolute right-0 top-full z-10 mt-1 min-w-[168px] rounded-modal border border-border p-1"
+        >
+          {active && (
+            <ActionItem
+              icon={ChevronRight}
+              label={t("detail.advance")}
+              onClick={() => runAction(() => onAdvanceStage(opportunity))}
+            />
+          )}
+          <ActionItem
+            icon={Trophy}
+            label={t("detail.won")}
+            onClick={() => runAction(() => onMarkWon(opportunity))}
+          />
+          <ActionItem
+            icon={XCircle}
+            label={t("detail.lost")}
+            onClick={() => runAction(() => onMarkLost(opportunity))}
+          />
+          <ActionItem
+            icon={XCircle}
+            label={t("actions.discard")}
+            onClick={() => runAction(() => onDiscard(opportunity.id))}
+          />
+          <div className="my-0.5 border-t border-border-subtle" />
+          <ActionItem
+            icon={Archive}
+            label={t("actions.archive")}
+            onClick={() => runAction(() => onArchive(opportunity.id))}
+          />
+          <ActionItem
+            icon={Trash2}
+            label={t("actions.delete")}
+            destructive
+            onClick={() => runAction(() => onDelete(opportunity.id))}
+          />
+        </div>
+      )}
+    </div>
   );
 });
 

@@ -1,15 +1,14 @@
 import React, { useRef } from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  type Opportunity,
-  OpportunityStage,
-} from "@/lib/types/pipeline";
+import { type Opportunity, OpportunityStage } from "@/lib/types/pipeline";
 import { usePipelineModeStore } from "@/app/(dashboard)/pipeline/_components/pipeline-mode-store";
 import { PipelineDetailPanel } from "@/app/(dashboard)/pipeline/_components/pipeline-detail-panel";
 
 vi.mock("framer-motion", () => ({
-  AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  AnimatePresence: ({ children }: { children: React.ReactNode }) => (
+    <>{children}</>
+  ),
   motion: {
     div: ({
       children,
@@ -38,7 +37,25 @@ vi.mock("framer-motion", () => ({
 
 vi.mock("@/i18n/client", () => ({
   useDictionary: () => ({
-    t: (key: string, fallback?: string) => fallback ?? key,
+    t: (key: string, fallback?: string) => {
+      const translations: Record<string, string> = {
+        "detail.advance": "Advance",
+        "detail.daysInStage": "d",
+        "detail.lost": "Lost",
+        "detail.noContact": "No contact",
+        "detail.stageActions": "Stage actions",
+        "detail.tabCorrespondence": "Correspondence",
+        "detail.tabPhotos": "Photos",
+        "detail.tabTimeline": "Timeline",
+        "detail.unknown": "Unknown",
+        "detail.won": "Won",
+        "actions.archive": "Archive",
+        "actions.delete": "Delete",
+        "actions.discard": "Discard",
+      };
+
+      return translations[key] ?? fallback ?? key;
+    },
   }),
 }));
 
@@ -66,13 +83,6 @@ vi.mock(
 );
 
 vi.mock(
-  "@/app/(dashboard)/pipeline/_components/pipeline-detail-tab-bar",
-  () => ({
-    PipelineDetailTabBar: () => null,
-  })
-);
-
-vi.mock(
   "@/app/(dashboard)/pipeline/_components/pipeline-detail-timeline-tab",
   () => ({
     PipelineDetailTimelineTab: () => <div />,
@@ -80,6 +90,30 @@ vi.mock(
 );
 
 const NOW = new Date("2026-05-12T12:00:00.000Z");
+
+function makeRect({
+  top,
+  left,
+  width,
+  height,
+}: {
+  top: number;
+  left: number;
+  width: number;
+  height: number;
+}): DOMRect {
+  return {
+    x: left,
+    y: top,
+    top,
+    left,
+    right: left + width,
+    bottom: top + height,
+    width,
+    height,
+    toJSON: () => ({}),
+  } as DOMRect;
+}
 
 function makeOpportunity(): Opportunity {
   return {
@@ -129,24 +163,43 @@ function makeOpportunity(): Opportunity {
   };
 }
 
-function Harness() {
-  const scopeRef = useRef<HTMLDivElement>(null);
+function Harness({
+  canManage = false,
+  scopeBounds = { top: 80, left: 72, width: 1000, height: 720 },
+}: {
+  canManage?: boolean;
+  scopeBounds?: { top: number; left: number; width: number; height: number };
+}) {
+  const detailPanelOpportunityId = usePipelineModeStore(
+    (state) => state.detailPanelOpportunityId
+  );
+  const scopeRef = useRef<HTMLElement | null>(null);
+  if (!scopeRef.current) {
+    scopeRef.current = document.createElement("div");
+  }
+  scopeRef.current.getBoundingClientRect = () => makeRect(scopeBounds);
 
   return (
-    <div ref={scopeRef} data-testid="pipeline-scope">
-      <PipelineDetailPanel
-        opportunity={makeOpportunity()}
-        canManage={false}
-        originatingOpportunityId="opp-1"
-        scopeRef={scopeRef}
-        onAdvanceStage={vi.fn()}
-        onMarkWon={vi.fn()}
-        onMarkLost={vi.fn()}
-        onArchive={vi.fn()}
-        onDiscard={vi.fn()}
-        onDelete={vi.fn()}
-      />
-    </div>
+    <>
+      <button type="button" data-opportunity-card-id="opp-1">
+        Origin card
+      </button>
+      <div data-testid="pipeline-scope" />
+      {detailPanelOpportunityId ? (
+        <PipelineDetailPanel
+          opportunity={makeOpportunity()}
+          canManage={canManage}
+          originatingOpportunityId="opp-1"
+          scopeRef={scopeRef}
+          onAdvanceStage={vi.fn()}
+          onMarkWon={vi.fn()}
+          onMarkLost={vi.fn()}
+          onArchive={vi.fn()}
+          onDiscard={vi.fn()}
+          onDelete={vi.fn()}
+        />
+      ) : null}
+    </>
   );
 }
 
@@ -164,7 +217,7 @@ describe("<PipelineDetailPanel>", () => {
     }));
     localStorage.clear();
     usePipelineModeStore.setState({
-      mode: "focused",
+      mode: "spatial",
       focusedStage: OpportunityStage.Quoted,
       detailPanelOpportunityId: "opp-1",
       detailPanelActiveTab: "correspondence",
@@ -173,7 +226,7 @@ describe("<PipelineDetailPanel>", () => {
     });
   });
 
-  it("moves focus inside the compact drawer after the portal mounts", async () => {
+  it("moves focus inside the spatial drawer after the portal mounts", async () => {
     render(<Harness />);
 
     const panel = await screen.findByRole("region", {
@@ -182,6 +235,63 @@ describe("<PipelineDetailPanel>", () => {
 
     await waitFor(() => {
       expect(panel).toContainElement(document.activeElement as HTMLElement);
+    });
+  });
+
+  it("renders spatial detail as a portaled drawer outside the scope", async () => {
+    render(
+      <Harness scopeBounds={{ top: 80, left: 72, width: 1180, height: 780 }} />
+    );
+
+    const panel = await screen.findByRole("region", {
+      name: "Deal detail panel",
+    });
+    const drawer = panel.closest("aside");
+
+    expect(drawer).toHaveClass("fixed");
+    expect(drawer).not.toHaveAttribute("data-pipeline-detail-surface");
+    expect(panel.closest("[data-testid='pipeline-scope']")).toBeNull();
+  });
+
+  it("keeps detail actions and tabs available inside the surface", async () => {
+    render(<Harness canManage />);
+
+    expect(
+      await screen.findByRole("button", { name: "Correspondence" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Timeline" })
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Photos" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Stage actions" }));
+
+    expect(screen.getByRole("button", { name: "Advance" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Won" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Lost" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Archive" })).toBeInTheDocument();
+  });
+
+  it("closes on Escape and restores focus to the originating card", async () => {
+    render(<Harness />);
+
+    const panel = await screen.findByRole("region", {
+      name: "Deal detail panel",
+    });
+
+    await waitFor(() => {
+      expect(panel).toContainElement(document.activeElement as HTMLElement);
+    });
+
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    await waitFor(() => {
+      expect(
+        usePipelineModeStore.getState().detailPanelOpportunityId
+      ).toBeNull();
+      expect(document.activeElement).toBe(
+        screen.getByRole("button", { name: "Origin card" })
+      );
     });
   });
 });

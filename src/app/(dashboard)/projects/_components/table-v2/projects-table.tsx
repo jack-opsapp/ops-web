@@ -2,6 +2,7 @@
 
 import {
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -83,6 +84,7 @@ export function ProjectsTable({
   fetchNextPage,
   hasNextPage,
   isFetchingNextPage,
+  isRefreshing,
   saveStates,
   onCommitCell,
   onUndoLatest,
@@ -105,6 +107,7 @@ export function ProjectsTable({
   fetchNextPage: () => void;
   hasNextPage: boolean;
   isFetchingNextPage: boolean;
+  isRefreshing?: boolean;
   saveStates: Map<string, ProjectTableSaveState>;
   onCommitCell: (
     row: ProjectTableRow,
@@ -122,6 +125,7 @@ export function ProjectsTable({
   const { t } = useDictionary("projects");
   const scrollRef = useRef<HTMLDivElement>(null);
   const [, setOpenActionRowId] = useState<string | null>(null);
+  const [containerWidth, setContainerWidth] = useState(0);
   const openProjectWindow = useWindowStore((s) => s.openProjectWindow);
 
   const visibleColumns = useMemo(() => getVisibleColumns(view), [view]);
@@ -141,17 +145,40 @@ export function ProjectsTable({
     onClearSelection,
   });
 
+  useEffect(() => {
+    const element = scrollRef.current;
+    if (!element) return;
+
+    const updateWidth = () => setContainerWidth(element.clientWidth);
+    updateWidth();
+
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", updateWidth);
+      return () => window.removeEventListener("resize", updateWidth);
+    }
+
+    const observer = new ResizeObserver(updateWidth);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
   const columnLayouts = useMemo<ProjectTableColumnLayout[]>(() => {
+    const baseWidths = visibleColumns.map((column) => getColumnWidth(column, metrics.columnScale));
+    const baseTotalWidth = baseWidths.reduce((sum, width) => sum + width, 0);
+    const stretchIndex = baseWidths.length - 1;
+    const extraWidth = Math.max(0, containerWidth - baseTotalWidth);
     let stickyOffset = 0;
-    return visibleColumns.map((column) => {
-      const width = getColumnWidth(column, metrics.columnScale);
+
+    return visibleColumns.map((column, index) => {
+      const width = baseWidths[index] + (index === stretchIndex ? extraWidth : 0);
       const stickyLeft = column.frozen ? stickyOffset : null;
       if (column.frozen) stickyOffset += width;
       return { column, width, stickyLeft };
     });
-  }, [metrics.columnScale, visibleColumns]);
+  }, [containerWidth, metrics.columnScale, visibleColumns]);
 
   const totalWidth = useMemo(() => columnLayouts.reduce((sum, item) => sum + item.width, 0), [columnLayouts]);
+  const allVisibleSelected = rows.length > 0 && rows.every((row) => selectedIds.has(row.id));
 
   const tableColumns = useMemo<ColumnDef<ProjectTableRow>[]>(
     () =>
@@ -194,6 +221,14 @@ export function ProjectsTable({
     },
     [onSortingChange, sorting],
   );
+
+  const handleToggleSelectAllVisible = useCallback(() => {
+    if (allVisibleSelected) {
+      onClearSelection();
+      return;
+    }
+    onSelectAllVisible();
+  }, [allVisibleSelected, onClearSelection, onSelectAllVisible]);
 
   const handleScroll = useCallback(() => {
     setOpenActionRowId(null);
@@ -280,19 +315,31 @@ export function ProjectsTable({
       onTouchCancel={handleTouchEnd}
       className="min-h-0 flex-1 overflow-auto"
     >
-      <div style={{ width: totalWidth, minWidth: "100%" }}>
+      <div style={{ width: totalWidth }}>
         <ProjectsTableHeader
           columns={columnLayouts}
           metrics={metrics}
           sorting={sorting}
           onSortChange={handleSortChange}
+          allVisibleSelected={allVisibleSelected}
+          onToggleSelectAllVisible={handleToggleSelectAllVisible}
         />
+        {isRefreshing ? (
+          <div
+            aria-hidden="true"
+            className="sticky z-40 h-0 overflow-visible"
+            style={{ top: metrics.headerHeight, width: totalWidth }}
+          >
+            <div className="h-px overflow-hidden bg-fill-neutral-dim">
+              <div className="h-full w-full animate-pulse bg-gradient-to-r from-transparent via-text-2/40 to-transparent" />
+            </div>
+          </div>
+        ) : null}
         <div
           className="relative"
           style={{
             height: rowVirtualizer.getTotalSize(),
             width: totalWidth,
-            minWidth: "100%",
           }}
         >
           {rowVirtualizer.getVirtualItems().map((virtualRow) => {
@@ -322,6 +369,11 @@ export function ProjectsTable({
             );
           })}
         </div>
+        <div
+          aria-hidden="true"
+          className="h-12 bg-gradient-to-b from-transparent via-background/70 to-background"
+          style={{ width: totalWidth }}
+        />
       </div>
     </div>
   );

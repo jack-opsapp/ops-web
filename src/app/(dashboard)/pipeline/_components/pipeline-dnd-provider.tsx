@@ -48,8 +48,14 @@ const PipelineDndStateContext = createContext<PipelineDndState>({
   mode: "focused",
 });
 
-const pipelineCollisionDetection: CollisionDetection = (args) => {
+export const pipelineCollisionDetection: CollisionDetection = (args) => {
   const pointerCollisions = pointerWithin(args);
+  const activeData = args.active.data.current as PipelineDraggableData | undefined;
+
+  if (activeData?.mode === "focused") {
+    return pointerCollisions;
+  }
+
   return pointerCollisions.length > 0 ? pointerCollisions : closestCenter(args);
 };
 

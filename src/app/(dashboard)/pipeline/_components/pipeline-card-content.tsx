@@ -35,12 +35,14 @@ export interface PipelineCardContentProps
   stageColor: string;
   stalenessOpacity: number;
   density: PipelineCardDensity;
+  surfaceVariant?: "default" | "focused";
   canManage?: boolean;
   isSelected?: boolean;
   isHovered?: boolean;
   isExpanded?: boolean;
   openDetailLabel?: string;
   leadingAccessory?: React.ReactNode;
+  quickStageActions?: React.ReactNode;
   children?: React.ReactNode;
 }
 
@@ -58,12 +60,14 @@ export const PipelineCardContent = memo(function PipelineCardContent({
   stageColor,
   stalenessOpacity,
   density,
+  surfaceVariant = "default",
   canManage = false,
   isSelected = false,
   isHovered = false,
   isExpanded = false,
   openDetailLabel,
   leadingAccessory,
+  quickStageActions,
   onLogCall = noop,
   onLogText = noop,
   onAddNote = noop,
@@ -126,9 +130,13 @@ export const PipelineCardContent = memo(function PipelineCardContent({
   const activeSurface = isHovered || isExpanded;
   const clampedStaleness = Math.max(0, Math.min(1, stalenessOpacity));
   const staleSurfaceOpacity = activeSurface ? 0 : (1 - clampedStaleness) * 0.28;
+  const isFocusedSurface = surfaceVariant === "focused";
   const stageBorderColor = activeSurface
     ? stageColor
     : withHexAlpha(stageColor, 0.45 + clampedStaleness * 0.55);
+  const focusedStageWash = activeSurface
+    ? withHexAlpha(stageColor, 0.1)
+    : withHexAlpha(stageColor, 0.055);
   const lastCorrespondence = [
     opportunity.lastInboundAt,
     opportunity.lastOutboundAt,
@@ -138,14 +146,35 @@ export const PipelineCardContent = memo(function PipelineCardContent({
 
   return (
     <div
+      data-pipeline-card-shell={isFocusedSurface ? "focused" : undefined}
       className={cn(
-        "glass-surface relative w-full overflow-hidden rounded-panel",
+        "glass-surface relative w-full overflow-hidden rounded-panel [&::before]:rounded-panel",
         !reduced && "transition-[border-color] duration-150"
       )}
       style={{
-        borderLeft: `4px solid ${stageBorderColor}`,
+        background: isFocusedSurface
+          ? `linear-gradient(180deg, ${focusedStageWash} 0%, var(--surface-glass) 34%, var(--surface-glass) 100%)`
+          : undefined,
+        borderLeft: isFocusedSurface
+          ? undefined
+          : `4px solid ${stageBorderColor}`,
+        borderColor: isFocusedSurface
+          ? activeSurface
+            ? "rgba(255,255,255,0.18)"
+            : "rgba(255,255,255,0.10)"
+          : undefined,
       }}
     >
+      {isFocusedSurface ? (
+        <span
+          aria-hidden="true"
+          data-pipeline-card-stage-accent=""
+          className="pointer-events-none absolute left-2 right-2 top-0 z-[1] h-px"
+          style={{
+            background: `linear-gradient(90deg, transparent 0%, ${withHexAlpha(stageColor, activeSurface ? 0.8 : 0.48)} 16%, ${withHexAlpha(stageColor, activeSurface ? 0.42 : 0.18)} 52%, transparent 100%)`,
+          }}
+        />
+      ) : null}
       <div
         aria-hidden="true"
         className={cn(
@@ -165,7 +194,9 @@ export const PipelineCardContent = memo(function PipelineCardContent({
         <div
           className={cn(
             "flex min-w-0 flex-1 flex-col gap-1 p-2",
-            leadingAccessory ? "pl-1" : "pl-3"
+            isFocusedSurface && "gap-1.5 px-2.5 py-2.5",
+            leadingAccessory ? "pl-1" : "pl-3",
+            isFocusedSurface && leadingAccessory && "pl-1.5"
           )}
         >
           <button
@@ -197,7 +228,7 @@ export const PipelineCardContent = memo(function PipelineCardContent({
             <div className="grid grid-cols-3 gap-1 border-t border-line pt-1">
               <Metric label={stageName} value={`${daysInStage}d`} />
               <Metric
-                label={t("spatial.emailCount").replace(
+                label={t("spatial.emailCount", "{count} emails").replace(
                   "{count}",
                   String(opportunity.correspondenceCount)
                 )}
@@ -208,7 +239,10 @@ export const PipelineCardContent = memo(function PipelineCardContent({
                 }
               />
               <Metric
-                label={t("card.followUpDate").replace("{date}", "")}
+                label={t("card.followUpDate", "Follow up {date}").replace(
+                  "{date}",
+                  ""
+                )}
                 value={
                   opportunity.nextFollowUpAt
                     ? formatTimeAgo(opportunity.nextFollowUpAt)
@@ -222,6 +256,7 @@ export const PipelineCardContent = memo(function PipelineCardContent({
             opportunityId={opportunity.id}
             stage={opportunity.stage}
             canManage={canManage}
+            stageActions={quickStageActions}
             onLogCall={onLogCall}
             onLogText={onLogText}
             onAddNote={onAddNote}

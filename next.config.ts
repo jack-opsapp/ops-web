@@ -25,6 +25,14 @@ const baseNextConfig: NextConfig = {
         protocol: "https",
         hostname: "lh3.googleusercontent.com",
       },
+      // Legacy Bubble-hosted logos and profile images. Some existing rows
+      // still store protocol-relative URLs; service mappers normalize them
+      // to https before they reach next/image.
+      {
+        protocol: "https",
+        hostname: "**.cdn.bubble.io",
+        pathname: "/**",
+      },
       // Supabase Storage — legacy company logos and user uploads that haven't
       // migrated to S3 yet. Scoped to the public storage path so a misconfigured
       // auth-endpoint URL can't be proxied through the image optimizer.

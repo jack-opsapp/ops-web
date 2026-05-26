@@ -84,6 +84,26 @@ describe("<PipelineFilterRow>", () => {
     expect(onSearchChange).toHaveBeenLastCalledWith("deck");
   });
 
+  it("renders the focused toolbar variant as one restrained toolbar row", () => {
+    renderFilterRow({ variant: "toolbar" });
+
+    const row = screen
+      .getByRole("searchbox", { name: "search pipeline..." })
+      .closest("[data-pipeline-filter-row]");
+    const addLead = screen.getByRole("button", { name: /New Lead/ });
+
+    expect(row).toHaveAttribute("data-pipeline-filter-row", "toolbar");
+    expect(row).toHaveClass("flex-nowrap");
+    expect(addLead).toHaveClass(
+      "h-[26px]",
+      "[font-size:10px]",
+      "border-ops-accent/45",
+      "bg-ops-accent/10"
+    );
+    expect(addLead).not.toHaveClass("bg-surface-active");
+    expect(addLead).not.toHaveClass("bg-white/[0.04]");
+  });
+
   it("scopes dropdown triggers and surfaces out of global keyboard navigation", async () => {
     const user = userEvent.setup();
     renderFilterRow();

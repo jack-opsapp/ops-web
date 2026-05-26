@@ -34,6 +34,7 @@ describe("resolvePipelineDragEnd", () => {
         dropData: {
           mode: "focused",
           stage: OpportunityStage.FollowUp,
+          focusedDropIntent: "stage-target",
         },
       })
     ).toEqual({
@@ -42,6 +43,54 @@ describe("resolvePipelineDragEnd", () => {
       stage: OpportunityStage.FollowUp,
       isTerminal: false,
     });
+  });
+
+  it("resolves focused archive and discard action drops", () => {
+    expect(
+      resolvePipelineDragEnd({
+        mode: "focused",
+        draggedId: "opp-1",
+        selectedCardIds: new Set(),
+        dropData: {
+          mode: "focused",
+          focusedDropIntent: "archive-target",
+        },
+      })
+    ).toEqual({
+      type: "focused-action",
+      opportunityId: "opp-1",
+      action: "archive",
+    });
+
+    expect(
+      resolvePipelineDragEnd({
+        mode: "focused",
+        draggedId: "opp-2",
+        selectedCardIds: new Set(),
+        dropData: {
+          mode: "focused",
+          focusedDropIntent: "discard-target",
+        },
+      })
+    ).toEqual({
+      type: "focused-action",
+      opportunityId: "opp-2",
+      action: "discard",
+    });
+  });
+
+  it("cancels focused stage-looking drops without explicit drop intent", () => {
+    expect(
+      resolvePipelineDragEnd({
+        mode: "focused",
+        draggedId: "opp-1",
+        selectedCardIds: new Set(),
+        dropData: {
+          mode: "focused",
+          stage: OpportunityStage.FollowUp,
+        },
+      })
+    ).toEqual({ type: "cancel" });
   });
 
   it("resolves selected spatial batch drops against the stage target", () => {

@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  OPPORTUNITY_STAGE_COLORS,
   type Opportunity,
   OpportunityStage,
 } from "@/lib/types/pipeline";
@@ -53,6 +54,10 @@ vi.mock("@/i18n/client", () => ({
         "actions.addNote": "Add note",
         "actions.more": "More",
         "actions.notePlaceholder": "Note",
+        "card.advanceStage": "Move to {stage}",
+        "card.retreatStage": "Back to {stage}",
+        "card.stageMenu": "Stage",
+        "card.stageMenuLabel": "Choose stage",
         "spatial.confirm": "Confirm",
       };
 
@@ -111,14 +116,23 @@ function makeOpportunity(): Opportunity {
   };
 }
 
-function renderFocusedCard() {
+function renderFocusedCard({
+  canManage = true,
+  onMoveStage = vi.fn(),
+}: {
+  canManage?: boolean;
+  onMoveStage?: (
+    opportunity: Opportunity,
+    stage: OpportunityStage
+  ) => void;
+} = {}) {
   return render(
     <PipelineFocusedCard
       opportunity={makeOpportunity()}
       clientName="North Shore Decks"
       stageColor="#8F9AA3"
       stalenessOpacity={1}
-      canManage={true}
+      canManage={canManage}
       onLogCall={vi.fn()}
       onLogText={vi.fn()}
       onAddNote={vi.fn()}
@@ -128,6 +142,7 @@ function renderFocusedCard() {
       onMarkLost={vi.fn()}
       onAssign={vi.fn()}
       onScheduleFollowUp={vi.fn()}
+      onMoveStage={onMoveStage}
     />
   );
 }
@@ -178,5 +193,89 @@ describe("<PipelineFocusedCard>", () => {
 
     fireEvent.pointerDown(dragActivator);
     expect(dndMocks.pointerDown).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders focused quick reassign buttons without opening detail", () => {
+    const onMoveStage = vi.fn();
+    renderFocusedCard({ onMoveStage });
+
+    const advance = screen.getByRole("button", {
+      name: "Move to Follow-Up",
+    });
+
+    expect(advance).toHaveTextContent("Follow-Up");
+    expect(advance.getAttribute("style")).toContain(
+      OPPORTUNITY_STAGE_COLORS[OpportunityStage.FollowUp]
+    );
+    expect(advance).toHaveClass("border-line", "bg-transparent", "text-text-3");
+    expect(advance.className).toContain("hover:border-[var(--target-stage)]");
+
+    fireEvent.click(advance);
+
+    expect(onMoveStage).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "opp-1" }),
+      OpportunityStage.FollowUp
+    );
+    expect(usePipelineModeStore.getState().detailPanelOpportunityId).toBeNull();
+  });
+
+  it("opens a focused stage menu and moves to the picked status", () => {
+    const onMoveStage = vi.fn();
+    renderFocusedCard({ onMoveStage });
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Choose stage",
+      })
+    );
+
+    expect(
+      screen.getByRole("menu", {
+        name: "Choose stage",
+      })
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("menuitem", {
+        name: "Move to Negotiation",
+      })
+    );
+
+    expect(onMoveStage).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "opp-1" }),
+      OpportunityStage.Negotiation
+    );
+    expect(usePipelineModeStore.getState().detailPanelOpportunityId).toBeNull();
+  });
+
+  it("uses the OPS focused card shell without a heavy left rail", () => {
+    const { container } = renderFocusedCard();
+    const shell = container.querySelector(
+      '[data-pipeline-card-shell="focused"]'
+    );
+
+    expect(shell).toHaveClass("rounded-panel");
+    expect(shell?.getAttribute("style")).not.toContain("4px solid");
+    expect(
+      shell?.querySelector("[data-pipeline-card-stage-accent]")
+    ).toBeInTheDocument();
+  });
+
+  it("disables focused quick reassign buttons without manage permission", () => {
+    const onMoveStage = vi.fn();
+    renderFocusedCard({ canManage: false, onMoveStage });
+
+    const advance = screen.getByRole("button", {
+      name: "Move to Follow-Up",
+    });
+
+    expect(advance).toBeDisabled();
+    expect(
+      screen.getByRole("button", {
+        name: "Choose stage",
+      })
+    ).toBeDisabled();
+    fireEvent.click(advance);
+    expect(onMoveStage).not.toHaveBeenCalled();
   });
 });

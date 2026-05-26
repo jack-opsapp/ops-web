@@ -9,8 +9,11 @@ import {
   useMemo,
   useRef,
   type CSSProperties,
+  type ReactNode,
 } from "react";
+import { useDroppable } from "@dnd-kit/core";
 import { motion, useReducedMotion } from "framer-motion";
+import { Archive, Trash2 } from "lucide-react";
 import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
 import {
@@ -27,7 +30,7 @@ import type { SortOption } from "./pipeline-mode-types";
 import { usePipelineModeStore } from "./pipeline-mode-store";
 import { usePipelineDndState } from "./pipeline-dnd-provider";
 import { PipelineFocusedColumn } from "./pipeline-focused-column";
-import { PipelineDetailPanel } from "./pipeline-detail-panel";
+import { PipelineFocusedDetailWindow } from "./pipeline-focused-detail-window";
 import { PipelineSpineColumn } from "./pipeline-spine-column";
 import { PipelineTerminalStack } from "./pipeline-terminal-stack";
 
@@ -40,6 +43,7 @@ type FocusedShellActionHandlers = {
   onMarkWon: (opportunity: Opportunity) => void;
   onMarkLost: (opportunity: Opportunity) => void;
   onAdvanceStage: (opportunity: Opportunity) => void;
+  onMoveStage: (id: string, stage: OpportunityStage) => void;
   onAssign: (id: string) => void;
   onScheduleFollowUp: (id: string) => void;
   onDelete: (id: string) => void;
@@ -69,16 +73,38 @@ const ACTIVE_STAGE_ORDER = PIPELINE_STAGES_DEFAULT.map(
 const TERMINAL_STAGE_ORDER = [OpportunityStage.Won, OpportunityStage.Lost];
 const SNAP_DURATION_MS = 280;
 const SNAP_EASING = "cubic-bezier(0.22, 1, 0.36, 1)";
-const SNAP_DEBOUNCE_MS = 150;
 const PINCH_ZOOM_SENSITIVITY = 0.005;
 const FOCUSED_PINCH_MIN_ZOOM = 0.5;
 const FOCUSED_PINCH_SPATIAL_THRESHOLD = 0.6;
 const REDUCED_MOTION_DURATION = 0.001;
 const SPINE_RAIL_CHROME = "h-full pt-[112px] pb-0";
+const ACTION_DROP_ZONE_BASE =
+  "group relative h-full min-w-0 overflow-hidden text-left transition-[color,opacity] duration-[120ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none";
+const ACTION_DROP_SILHOUETTE_COUNT = 24;
 const NUMBER_STYLE: CSSProperties = {
   fontVariantNumeric: "tabular-nums",
   fontFeatureSettings: '"tnum" 1, "zero" 1',
 };
+
+function hexToRgbChannels(hex: string): string | null {
+  const normalized = hex.replace("#", "").trim();
+  const expanded =
+    normalized.length === 3
+      ? normalized
+          .split("")
+          .map((char) => `${char}${char}`)
+          .join("")
+      : normalized;
+
+  if (!/^[0-9a-fA-F]{6}$/.test(expanded)) return null;
+
+  const value = Number.parseInt(expanded, 16);
+  const red = (value >> 16) & 255;
+  const green = (value >> 8) & 255;
+  const blue = value & 255;
+
+  return `${red}, ${green}, ${blue}`;
+}
 
 function sortOpportunities(
   opportunities: Opportunity[],
@@ -140,6 +166,21 @@ function hasNavigationModifier(event: KeyboardEvent): boolean {
   );
 }
 
+function escapeAttributeValue(value: string): string {
+  return value.replace(/["\\]/g, "\\$&");
+}
+
+function focusOpportunityCard(opportunityId: string | null) {
+  if (!opportunityId) return;
+
+  requestAnimationFrame(() => {
+    const target = document.querySelector<HTMLElement>(
+      `[data-opportunity-card-id="${escapeAttributeValue(opportunityId)}"]`
+    );
+    target?.focus({ preventScroll: true });
+  });
+}
+
 export function PipelineFocusedShell({
   opportunities,
   clientNameMap,
@@ -160,6 +201,7 @@ export function PipelineFocusedShell({
   onMarkWon,
   onMarkLost,
   onAdvanceStage,
+  onMoveStage,
   onAssign,
   onScheduleFollowUp,
   onDelete,
@@ -187,7 +229,6 @@ export function PipelineFocusedShell({
   const focusedColumnRef = useRef<HTMLDivElement>(null);
   const pendingFlipRectRef = useRef<DOMRect | null>(null);
   const stageSyncedDetailIdRef = useRef<string | null>(null);
-  const lastSnapAtRef = useRef(0);
   const virtualZoomRef = useRef(1);
   const animationRef = useRef<Animation | null>(null);
   const pendingTabFocusRef = useRef<OpportunityStage | null>(null);
@@ -321,6 +362,7 @@ export function PipelineFocusedShell({
       if (event.key === "Escape") {
         if (detailPanelOpportunityId) {
           event.preventDefault();
+          focusOpportunityCard(detailPanelOpportunityId);
           closeDetailPanel();
         }
         return;
@@ -380,22 +422,10 @@ export function PipelineFocusedShell({
         return;
       }
 
-      const horizontalIntent = Math.abs(event.deltaX) > Math.abs(event.deltaY);
-      const shiftedWheelIntent =
-        event.shiftKey && Math.abs(event.deltaY) > 0 && event.deltaX === 0;
-
-      if (!horizontalIntent && !shiftedWheelIntent) return;
-      if (isDragging) return;
-
-      const now = Date.now();
-      if (now - lastSnapAtRef.current < SNAP_DEBOUNCE_MS) return;
-      lastSnapAtRef.current = now;
-      event.preventDefault();
-
-      const delta = horizontalIntent ? event.deltaX : event.deltaY;
-      snapByDirection(delta > 0 ? 1 : -1);
+      // Let native horizontal wheel gestures pass through so browser/page
+      // swipe navigation remains available on trackpads.
     },
-    [isDragging, setMode, snapByDirection]
+    [isDragging, setMode]
   );
 
   useEffect(() => {
@@ -423,9 +453,8 @@ export function PipelineFocusedShell({
   const wonOpportunities = opportunitiesByStage.get(OpportunityStage.Won) ?? [];
   const lostOpportunities =
     opportunitiesByStage.get(OpportunityStage.Lost) ?? [];
-  const isTerminalFocusedStage = TERMINAL_STAGE_ORDER.includes(
-    safeFocusedStage
-  );
+  const isTerminalFocusedStage =
+    TERMINAL_STAGE_ORDER.includes(safeFocusedStage);
   const focusedHeaderTabId = `pipeline-focused-tab-${safeFocusedStage}`;
   const selectedFocusedTabId = isTerminalFocusedStage
     ? `pipeline-terminal-tab-${safeFocusedStage}`
@@ -434,36 +463,18 @@ export function PipelineFocusedShell({
   const renderFocusedHeader = (isTab: boolean) => (
     <div
       role="presentation"
-      className={cn(
-        "pointer-events-none z-[3] col-start-2 row-start-1 min-h-0 min-w-[460px]",
-        detailOpenInFocusedStage &&
-          "min-[1280px]:w-[840px] min-[1280px]:shrink-0"
-      )}
+      className="pointer-events-none z-[3] col-start-2 row-start-1 min-h-0 min-w-[460px]"
     >
-      <div className="flex h-full min-h-0 gap-2">
-        <div
-          className={cn(
-            "pointer-events-none relative min-h-0 min-w-0 flex-1",
-            detailOpenInFocusedStage &&
-              "min-[1280px]:shrink-0 min-[1280px]:grow-0 min-[1280px]:basis-1/2"
-          )}
-        >
-          <FocusedStageTab
-            ref={isTab ? registerFocusedTab(safeFocusedStage) : undefined}
-            stage={safeFocusedStage}
-            opportunities={focusedOpportunities}
-            isLoading={opportunitiesLoading || isOpportunitiesError}
-            isTab={isTab}
-            tabId={focusedHeaderTabId}
-            panelId={focusedPanelId}
-          />
-        </div>
-        {detailOpenInFocusedStage && (
-          <div
-            role="presentation"
-            className="pointer-events-none hidden min-h-0 min-w-0 min-[1280px]:block min-[1280px]:shrink-0 min-[1280px]:basis-1/2"
-          />
-        )}
+      <div className="pointer-events-none relative h-full min-h-0 min-w-0">
+        <FocusedStageTab
+          ref={isTab ? registerFocusedTab(safeFocusedStage) : undefined}
+          stage={safeFocusedStage}
+          opportunities={focusedOpportunities}
+          isLoading={opportunitiesLoading || isOpportunitiesError}
+          isTab={isTab}
+          tabId={focusedHeaderTabId}
+          panelId={focusedPanelId}
+        />
       </div>
     </div>
   );
@@ -593,63 +604,194 @@ export function PipelineFocusedShell({
             duration: reduced ? REDUCED_MOTION_DURATION : 0.24,
             ease: [0.22, 1, 0.36, 1],
           }}
+          className="z-[1] col-start-2 row-start-1 min-h-0 min-w-[460px]"
+        >
+          <PipelineFocusedColumn
+            stage={safeFocusedStage}
+            opportunities={focusedOpportunities}
+            clientNameMap={clientNameMap}
+            canManage={canManage}
+            filtersActive={filtersActive}
+            focusedTabId={selectedFocusedTabId}
+            focusedPanelId={focusedPanelId}
+            isLoading={opportunitiesLoading}
+            isError={isOpportunitiesError}
+            onRetry={onRetryOpportunities}
+            onAddLead={onAddLead}
+            onClearFilters={onClearFilters}
+            onLogCall={onLogCall}
+            onLogText={onLogText}
+            onAddNote={onAddNote}
+            onArchive={onArchive}
+            onDiscard={onDiscard}
+            onMarkWon={onMarkWon}
+            onMarkLost={onMarkLost}
+            onMoveStage={onMoveStage}
+            onAssign={onAssign}
+            onScheduleFollowUp={onScheduleFollowUp}
+          />
+        </motion.div>
+      </div>
+
+      {detailOpportunity && detailOpenInFocusedStage && (
+        <PipelineFocusedDetailWindow
+          opportunity={detailOpportunity}
+          canManage={canManage}
+          originatingOpportunityId={detailPanelOpportunityId}
+          onAdvanceStage={onAdvanceStage}
+          onMarkWon={onMarkWon}
+          onMarkLost={onMarkLost}
+          onArchive={onArchive}
+          onDiscard={onDiscard}
+          onDelete={onDelete}
+        />
+      )}
+
+      <FocusedActionDropZones canManage={canManage} isDragging={isDragging} />
+    </div>
+  );
+}
+
+function FocusedActionDropZones({
+  canManage,
+  isDragging,
+}: {
+  canManage: boolean;
+  isDragging: boolean;
+}) {
+  const { t } = useDictionary("pipeline");
+  const isVisible = canManage && isDragging;
+
+  return (
+    <div
+      data-testid="pipeline-focused-action-drops"
+      aria-hidden={!isVisible}
+      className={cn(
+        "fixed bottom-2 left-[84px] right-3 z-[9999] grid h-[88px] grid-cols-2 gap-2 overflow-visible",
+        "transition-opacity duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+        isVisible
+          ? "pointer-events-auto opacity-100"
+          : "pointer-events-none opacity-0"
+      )}
+    >
+      <FocusedActionDropTarget
+        intent="archive-target"
+        label={t("actions.archive", "Archive")}
+        icon={<Archive className="h-[15px] w-[15px]" strokeWidth={1.5} />}
+        disabled={!canManage}
+      />
+      <FocusedActionDropTarget
+        intent="discard-target"
+        label={t("actions.discard", "Discard")}
+        icon={<Trash2 className="h-[15px] w-[15px]" strokeWidth={1.5} />}
+        destructive
+        disabled={!canManage}
+      />
+    </div>
+  );
+}
+
+function FocusedActionDropTarget({
+  intent,
+  label,
+  icon,
+  destructive = false,
+  disabled,
+}: {
+  intent: "archive-target" | "discard-target";
+  label: string;
+  icon: ReactNode;
+  destructive?: boolean;
+  disabled: boolean;
+}) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `focused-action-${intent === "archive-target" ? "archive" : "discard"}`,
+    data: {
+      mode: "focused",
+      focusedDropIntent: intent,
+    },
+    disabled,
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      role="region"
+      aria-label={label}
+      data-testid={`pipeline-focused-${intent === "archive-target" ? "archive" : "discard"}-drop`}
+      style={{
+        color: isOver ? "var(--text)" : undefined,
+      }}
+      className={cn(
+        ACTION_DROP_ZONE_BASE,
+        isOver ? "text-text" : "text-text-3"
+      )}
+    >
+      <div
+        aria-hidden="true"
+        className="absolute inset-x-0 bottom-0 h-[52px] rounded-panel border border-line bg-[var(--surface-glass-dense)] backdrop-blur-[28px] backdrop-saturate-[1.3] transition-[border-color] duration-[120ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
+        style={{
+          borderColor: isOver
+            ? destructive
+              ? "rgba(147, 50, 26, 0.58)"
+              : "rgba(143, 154, 163, 0.46)"
+            : "var(--glass-border)",
+        }}
+      />
+      <div
+        aria-hidden="true"
+        className="absolute inset-x-0 bottom-0 h-[52px] rounded-panel transition-opacity duration-[120ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
+        style={{
+          backgroundColor: destructive
+            ? "rgba(147, 50, 26, 0.16)"
+            : "rgba(143, 154, 163, 0.14)",
+          opacity: isOver ? 1 : 0,
+        }}
+      />
+      <div
+        aria-hidden="true"
+        className="absolute inset-x-1.5 bottom-[51px] h-px transition-opacity duration-[120ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
+        style={{
+          background: `linear-gradient(90deg, transparent, ${
+            destructive ? "#93321A" : "#8F9AA3"
+          }, transparent)`,
+          opacity: isOver ? 0.86 : 0.32,
+        }}
+      />
+      <div
+        aria-hidden="true"
+        className="absolute inset-x-0 bottom-0 h-[52px] rounded-panel bg-gradient-to-b from-white/[0.035] to-transparent"
+      />
+      <div className="absolute inset-x-0 bottom-0 z-[1] flex h-[52px] min-w-0 items-center justify-center gap-3 px-6">
+        <span
+          aria-hidden="true"
           className={cn(
-            "z-[1] col-start-2 row-start-1 min-h-0 min-w-[460px]",
-            detailOpenInFocusedStage &&
-              "min-[1280px]:w-[840px] min-[1280px]:shrink-0"
+            "flex h-4 w-4 shrink-0 items-center justify-center transition-colors duration-[120ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+            destructive && isOver ? "text-rose" : "text-text-3"
           )}
         >
-          <div className="flex h-full min-h-0 gap-2">
-            <div
-              className={cn(
-                "min-h-0 min-w-0 flex-1",
-                detailOpenInFocusedStage &&
-                  "min-[1280px]:shrink-0 min-[1280px]:grow-0 min-[1280px]:basis-1/2"
-              )}
-            >
-              <PipelineFocusedColumn
-                stage={safeFocusedStage}
-                opportunities={focusedOpportunities}
-                clientNameMap={clientNameMap}
-                canManage={canManage}
-                filtersActive={filtersActive}
-                focusedTabId={selectedFocusedTabId}
-                focusedPanelId={focusedPanelId}
-                isLoading={opportunitiesLoading}
-                isError={isOpportunitiesError}
-                onRetry={onRetryOpportunities}
-                onAddLead={onAddLead}
-                onClearFilters={onClearFilters}
-                onLogCall={onLogCall}
-                onLogText={onLogText}
-                onAddNote={onAddNote}
-                onArchive={onArchive}
-                onDiscard={onDiscard}
-                onMarkWon={onMarkWon}
-                onMarkLost={onMarkLost}
-                onAssign={onAssign}
-                onScheduleFollowUp={onScheduleFollowUp}
+          {icon}
+        </span>
+        <span className="font-cakemono text-caption-sm font-light uppercase leading-none">
+          {label}
+        </span>
+        <div
+          className="hidden w-[168px] gap-[2px] min-[1120px]:flex"
+          aria-hidden="true"
+        >
+          {Array.from({ length: ACTION_DROP_SILHOUETTE_COUNT }).map(
+            (_, index) => (
+              <span
+                key={index}
+                className="h-1.5 flex-1 rounded-bar"
+                style={{
+                  backgroundColor: destructive ? "#93321A" : "#8F9AA3",
+                  opacity: isOver ? 0.72 : 0.18,
+                }}
               />
-            </div>
-
-            {detailOpportunity && detailOpenInFocusedStage && (
-              <div className="hidden min-h-0 min-w-0 min-[1280px]:block min-[1280px]:shrink-0 min-[1280px]:basis-1/2">
-                <PipelineDetailPanel
-                  opportunity={detailOpportunity}
-                  canManage={canManage}
-                  originatingOpportunityId={detailPanelOpportunityId}
-                  scopeRef={shellRef}
-                  onAdvanceStage={onAdvanceStage}
-                  onMarkWon={onMarkWon}
-                  onMarkLost={onMarkLost}
-                  onArchive={onArchive}
-                  onDiscard={onDiscard}
-                  onDelete={onDelete}
-                />
-              </div>
-            )}
-          </div>
-        </motion.div>
+            )
+          )}
+        </div>
       </div>
     </div>
   );
@@ -674,6 +816,10 @@ const FocusedStageTab = memo(
     const stageColor =
       OPPORTUNITY_STAGE_COLORS[stage] ??
       OPPORTUNITY_STAGE_COLORS[OpportunityStage.NewLead];
+    const stageRgb =
+      hexToRgbChannels(stageColor) ??
+      hexToRgbChannels(OPPORTUNITY_STAGE_COLORS[OpportunityStage.NewLead]) ??
+      "143, 154, 163";
     const totalEstimatedValue = useMemo(
       () =>
         opportunities.reduce(
@@ -704,24 +850,37 @@ const FocusedStageTab = memo(
       : {
           "aria-hidden": true,
         };
+    const stageHeaderStyle: CSSProperties = {
+      background: `linear-gradient(90deg, rgba(${stageRgb}, 0.16) 0%, rgba(${stageRgb}, 0.08) 30%, var(--surface-glass-dense) 68%)`,
+      backdropFilter: "blur(var(--glass-blur)) saturate(var(--glass-saturate))",
+      WebkitBackdropFilter:
+        "blur(var(--glass-blur)) saturate(var(--glass-saturate))",
+      borderColor: `rgba(${stageRgb}, 0.38)`,
+      borderRadius: "10px",
+    };
 
     return (
       <div
         ref={ref}
         {...tabProps}
-        className="glass-dense pointer-events-auto absolute left-0 right-0 top-[112px] isolate z-[2] min-h-[52px] cursor-default overflow-hidden px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
-        style={{
-          background: "var(--surface-glass-dense)",
-          backdropFilter:
-            "blur(var(--glass-blur)) saturate(var(--glass-saturate))",
-          WebkitBackdropFilter:
-            "blur(var(--glass-blur)) saturate(var(--glass-saturate))",
-        }}
+        className="glass-dense pointer-events-auto absolute left-0 right-0 top-[112px] isolate z-[2] min-h-[52px] cursor-default overflow-hidden rounded-panel border px-3 py-2 outline-none focus:outline-none focus-visible:outline-none [&::before]:rounded-panel"
+        style={stageHeaderStyle}
       >
         <span
           aria-hidden="true"
-          className="absolute bottom-2 left-0 top-2 w-[2px]"
-          style={{ backgroundColor: stageColor }}
+          data-focused-stage-accent="top"
+          className="absolute left-0 right-0 top-0 h-px"
+          style={{
+            background: `linear-gradient(90deg, rgba(${stageRgb}, 0.8), rgba(${stageRgb}, 0) 55%)`,
+          }}
+        />
+        <span
+          aria-hidden="true"
+          data-focused-stage-accent="bottom"
+          className="absolute bottom-0 left-0 right-0 h-px"
+          style={{
+            background: `linear-gradient(90deg, rgba(${stageRgb}, 0.34), rgba(${stageRgb}, 0) 45%)`,
+          }}
         />
 
         <div className="relative z-[1] flex min-h-[36px] items-center justify-between gap-4">

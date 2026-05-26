@@ -15,6 +15,12 @@ vi.mock("@/i18n/client", () => ({
         "focused.empty.action": "[+ ADD LEAD]",
         "focused.filteredEmpty.title": "// NO MATCHES FOR FILTERS",
         "focused.filteredEmpty.action": "[CLEAR FILTERS]",
+        "focused.listSummary.text":
+          "{count} {cardLabel} IN {stage} STAGE, OLDEST {oldest}",
+        "focused.listSummary.cardSingular": "CARD",
+        "focused.listSummary.cardPlural": "CARDS",
+        "focused.listSummary.ageDays": "{count}D",
+        "focused.listSummary.oldestEmpty": "—",
         "card.unknown": "Unknown",
       };
 
@@ -31,7 +37,10 @@ vi.mock("@/app/(dashboard)/pipeline/_components/pipeline-focused-card", () => ({
 
 const NOW = new Date("2026-05-12T12:00:00.000Z");
 
-function makeOpportunity(id: string): Opportunity {
+function makeOpportunity(
+  id: string,
+  overrides: Partial<Opportunity> = {}
+): Opportunity {
   return {
     id,
     companyId: "company-1",
@@ -76,6 +85,7 @@ function makeOpportunity(id: string): Opportunity {
     updatedAt: NOW,
     deletedAt: null,
     archivedAt: null,
+    ...overrides,
   };
 }
 
@@ -100,6 +110,7 @@ function renderColumn(
       onDiscard={vi.fn()}
       onMarkWon={vi.fn()}
       onMarkLost={vi.fn()}
+      onMoveStage={vi.fn()}
       onAssign={vi.fn()}
       onScheduleFollowUp={vi.fn()}
       {...overrides}
@@ -145,5 +156,32 @@ describe("<PipelineFocusedColumn>", () => {
       screen.queryByTestId("pipeline-focused-loading-card")
     ).not.toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("renders the end-of-list summary with two-card scroll runway", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-14T12:00:00.000Z"));
+
+    try {
+      renderColumn({
+        opportunities: [
+          makeOpportunity("opp-1", {
+            stageEnteredAt: new Date("2026-05-13T12:00:00.000Z"),
+          }),
+          makeOpportunity("opp-2", {
+            stageEnteredAt: new Date("2026-05-10T12:00:00.000Z"),
+          }),
+        ],
+      });
+
+      expect(screen.getByRole("tabpanel").className).toContain(
+        "scroll-pb-[360px]"
+      );
+      expect(screen.getByTestId("pipeline-focused-list-summary")).toHaveTextContent(
+        "2 CARDS IN NEW LEAD STAGE, OLDEST 4D"
+      );
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

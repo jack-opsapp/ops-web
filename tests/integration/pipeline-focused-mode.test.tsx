@@ -212,6 +212,7 @@ function PipelineFocusedModeHarness() {
         mode: "focused",
         stage,
         isTerminal,
+        focusedDropIntent: "stage-target",
       } satisfies PipelineDropData,
     });
 
@@ -257,6 +258,7 @@ function PipelineFocusedModeHarness() {
             moveFocusedOpportunity(opportunity.id, OpportunityStage.Lost)
           }
           onAdvanceStage={vi.fn()}
+          onMoveStage={moveFocusedOpportunity}
           onAssign={vi.fn()}
           onScheduleFollowUp={vi.fn()}
           onDelete={vi.fn()}

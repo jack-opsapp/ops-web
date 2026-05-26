@@ -61,6 +61,11 @@ const dictionary: Record<string, string> = {
   "table.conflict.useTheirs": "Use current",
   "table.conflict.cancel": "Cancel",
   "table.conflict.close": "Close",
+  "table.cell.client.title": "// CLIENT",
+  "table.cell.client.triggerLabel": "Client",
+  "table.cell.client.search": "Search clients...",
+  "table.cell.client.empty": "No clients found.",
+  "table.cell.name.edit": "Edit project name: {name}",
   "detail.project": "Project",
   "status.rfq": "RFQ",
   "status.estimated": "Estimated",
@@ -191,6 +196,19 @@ vi.mock("@/lib/hooks/projects-table/use-projects-table-data", () => ({
   }),
 }));
 
+vi.mock("@/lib/hooks/use-clients", () => ({
+  useClients: () => ({
+    data: {
+      clients: [
+        { id: "client-1", name: "Riley Home" },
+        { id: "client-2", name: "Maverick Projects" },
+      ],
+    },
+    isLoading: false,
+    isError: false,
+  }),
+}));
+
 function makeQueryClient() {
   return new QueryClient({
     defaultOptions: {
@@ -222,24 +240,26 @@ describe("Projects table v2 edit core", () => {
     cellEditState.conflict = null;
   });
 
-  it("clicking a name cell opens inline edit instead of the project window", async () => {
+  it("clicking a name cell opens the project window", async () => {
     const user = userEvent.setup();
     renderShell();
 
     await user.click(screen.getByText("Deck rebuild"));
 
-    expect(screen.getByDisplayValue("Deck rebuild")).toBeInTheDocument();
-    expect(openProjectWindow).not.toHaveBeenCalled();
+    expect(openProjectWindow).toHaveBeenCalledWith({ projectId: "p-1", mode: "viewing" });
+    expect(screen.queryByDisplayValue("Deck rebuild")).not.toBeInTheDocument();
   });
 
-  it("the hover detail chevron opens the project window in viewing mode", async () => {
+  it("reveals a right-edge edit button for inline name editing", async () => {
     const user = userEvent.setup();
     renderShell();
 
     await user.hover(screen.getByText("Deck rebuild"));
-    await user.click(screen.getByRole("button", { name: "Project: Deck rebuild" }));
+    expect(screen.queryByRole("button", { name: "Project: Deck rebuild" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Edit project name: Deck rebuild" }));
 
-    expect(openProjectWindow).toHaveBeenCalledWith({ projectId: "p-1", mode: "viewing" });
+    expect(screen.getByDisplayValue("Deck rebuild")).toBeInTheDocument();
+    expect(openProjectWindow).not.toHaveBeenCalled();
   });
 
   it("saving a text edit calls commitEdit and shows the saved value", async () => {
@@ -251,7 +271,8 @@ describe("Projects table v2 edit core", () => {
     });
 
     const { rerender } = renderShell();
-    await user.click(screen.getByText("Deck rebuild"));
+    await user.hover(screen.getByText("Deck rebuild"));
+    await user.click(screen.getByRole("button", { name: "Edit project name: Deck rebuild" }));
 
     const input = screen.getByDisplayValue("Deck rebuild");
     await user.clear(input);
@@ -271,7 +292,8 @@ describe("Projects table v2 edit core", () => {
     const user = userEvent.setup();
     renderShell();
 
-    await user.click(screen.getByText("Deck rebuild"));
+    await user.hover(screen.getByText("Deck rebuild"));
+    await user.click(screen.getByRole("button", { name: "Edit project name: Deck rebuild" }));
     const input = screen.getByDisplayValue("Deck rebuild");
     await user.clear(input);
     await user.type(input, "Bad draft");
@@ -286,7 +308,8 @@ describe("Projects table v2 edit core", () => {
     const user = userEvent.setup();
     renderShell();
 
-    await user.click(screen.getByText("Deck rebuild"));
+    await user.hover(screen.getByText("Deck rebuild"));
+    await user.click(screen.getByRole("button", { name: "Edit project name: Deck rebuild" }));
     const input = screen.getByDisplayValue("Deck rebuild");
 
     await waitFor(() => expect(input).toHaveFocus());
@@ -315,6 +338,24 @@ describe("Projects table v2 edit core", () => {
 
     await waitFor(() =>
       expect(commitEditMock).toHaveBeenCalledWith(expect.objectContaining({ id: "p-1" }), "status", ProjectStatus.Completed),
+    );
+  });
+
+  it("clicking the client cell reassigns the project client", async () => {
+    const user = userEvent.setup();
+    renderShell();
+
+    await user.click(screen.getByText("Riley Home"));
+
+    const dialog = screen.getByRole("dialog", { name: "// CLIENT" });
+    await user.click(within(dialog).getByRole("option", { name: "Maverick Projects" }));
+
+    await waitFor(() =>
+      expect(commitEditMock).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "p-1" }),
+        "client",
+        { clientId: "client-2", clientName: "Maverick Projects" },
+      ),
     );
   });
 
