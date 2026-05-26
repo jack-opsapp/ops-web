@@ -1,0 +1,31 @@
+import { TestModeToggle } from "./test-mode-toggle";
+import { RefreshBoardButton } from "./refresh-board-button";
+
+interface SpecPageHeaderProps {
+  testMode: boolean;
+  snapshotRefreshedAt: string | null;
+}
+
+export function SpecPageHeader({ testMode, snapshotRefreshedAt }: SpecPageHeaderProps) {
+  return (
+    <header className="flex items-end justify-between border-b border-white/[0.08] px-8 py-6">
+      <div>
+        <h1 className="font-cakemono text-2xl font-light uppercase leading-none text-[#EDEDED]">
+          <span aria-hidden="true" className="mr-2 font-mono text-[#6A6A6A]">
+            {"//"}
+          </span>
+          SPEC OPERATIONS
+        </h1>
+        <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-[#6A6A6A]">
+          <span className="text-[#3A3A3A]">[</span>
+          {testMode ? "TEST + LIVE ROWS" : "LIVE ROWS ONLY"}
+          <span className="text-[#3A3A3A]">]</span>
+        </p>
+      </div>
+      <div className="flex items-center gap-4">
+        <TestModeToggle enabled={testMode} />
+        <RefreshBoardButton initialRefreshedAt={snapshotRefreshedAt} />
+      </div>
+    </header>
+  );
+}
