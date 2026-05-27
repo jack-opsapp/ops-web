@@ -34,15 +34,34 @@ import {
   type SlowestProject,
   type SpecAcceptanceEventType,
   type SpecChangeOrderStatus,
+  type SpecChangeOrderRow,
+  type SpecChangeOrderType,
+  type SpecChangeOrdersTab,
   type SpecCommunicationChannel,
   type SpecCommunicationDirection,
+  type SpecCommunicationRow,
+  type SpecCommunicationsTab,
+  type SpecEmailTemplateOption,
+  type SpecEntitlementDisabledReason,
+  type SpecEntitlementRow,
+  type SpecEntitlementsTab,
   type SpecFeatureStatus,
   type SpecHoldType,
   type SpecIntakeFile,
   type SpecIntakeTab,
+  type SpecInternalNoteRow,
+  type SpecNotesTab,
+  SPEC_ENTITLEMENT_TERMINAL_REASONS,
   type SpecMilestoneBreakdown,
   type SpecMilestoneRow,
   type SpecMilestonesTab,
+  type SpecSatisfactionHeatMapCell,
+  type SpecSatisfactionMilestone,
+  type SpecSatisfactionRatingRow,
+  type SpecSatisfactionTab,
+  type SpecSupportTicketRow,
+  type SpecTicketPhase,
+  type SpecTicketsTab,
   type SpecOverviewSnapshot,
   type SpecOverviewTab,
   type SpecOwnerApprovalQueueRow,
@@ -2161,6 +2180,17 @@ export async function getProjectDetail(
     userLinks,
   });
 
+  // Tabs 6-11 (F.2.b). Load in parallel — none depend on each other.
+  const [changeOrdersTab, satisfactionTab, ticketsTab, communicationsTab, entitlementsTab, notesTab] =
+    await Promise.all([
+      loadChangeOrdersTab(projectId, ofTier(row.tier)),
+      loadSatisfactionTab(projectId),
+      loadTicketsTab(projectId),
+      loadCommunicationsTab(projectId, row, userLinks),
+      loadEntitlementsTab(projectId, row.linked_company_id),
+      loadNotesTab(projectId, userLinks),
+    ]);
+
   return {
     header: buildHeader(row),
     overview,
@@ -2168,6 +2198,12 @@ export async function getProjectDetail(
     intake,
     scope: scopeTab,
     milestones,
+    changeOrders: changeOrdersTab,
+    satisfaction: satisfactionTab,
+    tickets: ticketsTab,
+    communications: communicationsTab,
+    entitlements: entitlementsTab,
+    notes: notesTab,
   };
 }
 
@@ -2658,4 +2694,421 @@ async function loadOwnerApprovalCompanies(
   return new Map(
     (data ?? []).map((r) => [r.id as string, (r.name as string | null) ?? null]),
   );
+}
+
+// ─── Project detail tabs 6-11 (F.2.b) ────────────────────────────────────────
+
+// Tab 6 — Change orders
+
+interface ChangeOrderFullRow {
+  id: string;
+  title: string;
+  description: string;
+  change_type: SpecChangeOrderType;
+  status: SpecChangeOrderStatus;
+  estimated_hours: number | null;
+  hourly_rate_cents: number | null;
+  fixed_price_cents: number | null;
+  delivery_impact_days: number | null;
+  final_cost_cents: number | null;
+  stripe_invoice_id: string | null;
+  acceptance_event_id: string | null;
+  proposed_at: string | null;
+  approved_at: string | null;
+  declined_at: string | null;
+  completed_at: string | null;
+  invoiced_at: string | null;
+  paid_at: string | null;
+}
+
+async function loadChangeOrdersTab(projectId: string, tier: SpecTier): Promise<SpecChangeOrdersTab> {
+  const { data, error } = await db()
+    .from("spec_change_orders")
+    .select(
+      "id, title, description, change_type, status, estimated_hours, hourly_rate_cents, fixed_price_cents, delivery_impact_days, final_cost_cents, stripe_invoice_id, acceptance_event_id, proposed_at, approved_at, declined_at, completed_at, invoiced_at, paid_at",
+    )
+    .eq("spec_project_id", projectId)
+    .order("proposed_at", { ascending: false });
+  if (error) {
+    console.error("[loadChangeOrdersTab] failed:", error.message);
+  }
+
+  const raw = (data ?? []) as ChangeOrderFullRow[];
+  const rows: SpecChangeOrderRow[] = raw.map((r) => ({
+    id: r.id,
+    title: r.title,
+    description: r.description,
+    changeType: r.change_type,
+    status: r.status,
+    estimatedHours: r.estimated_hours,
+    hourlyRateCents: r.hourly_rate_cents ?? 22500,
+    fixedPriceCents: r.fixed_price_cents,
+    deliveryImpactDays: r.delivery_impact_days ?? 0,
+    finalCostCents: r.final_cost_cents,
+    stripeInvoiceId: r.stripe_invoice_id,
+    acceptanceEventId: r.acceptance_event_id,
+    proposedAt: r.proposed_at,
+    approvedAt: r.approved_at,
+    declinedAt: r.declined_at,
+    completedAt: r.completed_at,
+    invoicedAt: r.invoiced_at,
+    paidAt: r.paid_at,
+  }));
+
+  // Polish-hours budget: pull from spec_capacity. Used hours = sum of
+  // estimated_hours across change orders of type 'polish_budget' that have
+  // landed in the workflow (approved or beyond — not still proposed).
+  const { data: capRow } = await db()
+    .from("spec_capacity")
+    .select("polish_hours_budget")
+    .eq("tier", tier)
+    .maybeSingle();
+  const polishHoursBudget = Number((capRow as { polish_hours_budget: number } | null)?.polish_hours_budget ?? 0);
+
+  const polishHoursUsed = rows
+    .filter((r) => r.changeType === "polish_budget")
+    .filter((r) => r.status !== "proposed" && r.status !== "customer_declined")
+    .reduce((acc, r) => acc + Number(r.estimatedHours ?? 0), 0);
+
+  return {
+    rows,
+    polishHoursBudget,
+    polishHoursUsed,
+    defaultHourlyRateCents: 22500, // $225 CAD/hr, locked in 01_BUSINESS_MODEL.md § 6
+  };
+}
+
+// Tab 7 — Satisfaction ratings + heat map
+
+interface SatisfactionFullRow {
+  id: string;
+  milestone: string;
+  feature_name: string;
+  rating: number;
+  notes: string | null;
+  submitted_at: string | null;
+}
+
+async function loadSatisfactionTab(projectId: string): Promise<SpecSatisfactionTab> {
+  const { data, error } = await db()
+    .from("spec_satisfaction_ratings")
+    .select("id, milestone, feature_name, rating, notes, submitted_at")
+    .eq("spec_project_id", projectId)
+    .order("submitted_at", { ascending: false });
+  if (error) {
+    console.error("[loadSatisfactionTab] failed:", error.message);
+  }
+
+  const raw = (data ?? []) as SatisfactionFullRow[];
+  const rows: SpecSatisfactionRatingRow[] = raw
+    .filter((r) => r.milestone === "midpoint" || r.milestone === "delivery")
+    .map((r) => ({
+      id: r.id,
+      milestone: r.milestone as SpecSatisfactionMilestone,
+      featureName: r.feature_name,
+      rating: r.rating,
+      notes: r.notes,
+      submittedAt: r.submitted_at,
+    }));
+
+  // Heat map: features × midpoint/delivery. For duplicate ratings of the same
+  // (feature, milestone) tuple, prefer the LATEST submitted_at value. Stored
+  // rows are descending by submitted_at, so first-write-wins is correct here.
+  const cellMap = new Map<string, { midpoint: number | null; delivery: number | null }>();
+  for (const r of rows) {
+    if (!cellMap.has(r.featureName)) {
+      cellMap.set(r.featureName, { midpoint: null, delivery: null });
+    }
+    const cell = cellMap.get(r.featureName)!;
+    if (r.milestone === "midpoint" && cell.midpoint === null) cell.midpoint = r.rating;
+    if (r.milestone === "delivery" && cell.delivery === null) cell.delivery = r.rating;
+  }
+  const heatMap: SpecSatisfactionHeatMapCell[] = Array.from(cellMap.entries())
+    .map(([featureName, cell]) => ({ featureName, ...cell }))
+    .sort((a, b) => a.featureName.localeCompare(b.featureName));
+
+  return { rows, heatMap };
+}
+
+// Tab 8 — Support tickets
+
+interface SupportTicketFullRow {
+  id: string;
+  phase: SpecTicketPhase;
+  title: string;
+  description: string;
+  severity: SpecTicketSeverity;
+  customer_classification: SpecTicketSeverity | null;
+  is_in_scope: boolean | null;
+  status: SpecTicketStatus;
+  linked_change_order_id: string | null;
+  opened_at: string | null;
+  responded_at: string | null;
+  resolved_at: string | null;
+}
+
+async function loadTicketsTab(projectId: string): Promise<SpecTicketsTab> {
+  const { data, error } = await db()
+    .from("spec_support_tickets")
+    .select(
+      "id, phase, title, description, severity, customer_classification, is_in_scope, status, linked_change_order_id, opened_at, responded_at, resolved_at",
+    )
+    .eq("spec_project_id", projectId)
+    .order("opened_at", { ascending: false });
+  if (error) {
+    console.error("[loadTicketsTab] failed:", error.message);
+  }
+
+  const raw = (data ?? []) as SupportTicketFullRow[];
+  const rows: SpecSupportTicketRow[] = raw.map((r) => ({
+    id: r.id,
+    phase: r.phase,
+    title: r.title,
+    description: r.description,
+    severity: r.severity,
+    customerClassification: r.customer_classification,
+    isInScope: r.is_in_scope,
+    status: r.status,
+    linkedChangeOrderId: r.linked_change_order_id,
+    openedAt: r.opened_at,
+    respondedAt: r.responded_at,
+    resolvedAt: r.resolved_at,
+  }));
+
+  return { rows };
+}
+
+// Tab 9 — Communications
+
+interface CommunicationFullRow {
+  id: string;
+  direction: SpecCommunicationDirection;
+  channel: SpecCommunicationChannel;
+  summary: string;
+  body: string | null;
+  occurred_at: string | null;
+  logged_by_user_id: string | null;
+}
+
+/**
+ * SPEC email templates currently registered in `src/lib/email/constants.ts`.
+ * Hard-coded here (not read from the constants file directly) to keep the
+ * data layer free of UI-config noise. Each entry is the canonical template_id
+ * Stage H's outbox cron looks up; the label is the operator-facing dropdown
+ * text.
+ */
+const SPEC_TEMPLATE_OPTIONS: readonly SpecEmailTemplateOption[] = [
+  { templateId: "spec.owner_approval_required", label: "OWNER APPROVAL REQUIRED" },
+  { templateId: "spec.owner_approval_granted", label: "OWNER APPROVAL GRANTED" },
+  { templateId: "spec.owner_approval_declined", label: "OWNER APPROVAL DECLINED" },
+  { templateId: "spec.deposit_confirmed", label: "DEPOSIT CONFIRMED" },
+  { templateId: "spec.quebec_rejected_post_stripe", label: "QUEBEC REJECTED · POST STRIPE" },
+  { templateId: "spec.intake_reminder_1", label: "INTAKE REMINDER 1" },
+  { templateId: "spec.intake_reminder_2", label: "INTAKE REMINDER 2" },
+  { templateId: "spec.intake_reminder_3", label: "INTAKE REMINDER 3" },
+  { templateId: "spec.intake_completed_customer", label: "INTAKE COMPLETED · CUSTOMER" },
+  { templateId: "spec.intake_completed_no_discovery_1", label: "NO DISCOVERY BOOKED · 1" },
+  { templateId: "spec.intake_completed_no_discovery_2", label: "NO DISCOVERY BOOKED · 2" },
+  { templateId: "spec.intake_completed_no_discovery_3", label: "NO DISCOVERY BOOKED · 3" },
+  { templateId: "spec.scope_doc_ready", label: "SCOPE DOC READY" },
+  { templateId: "spec.scope_doc_signed_customer", label: "SCOPE DOC SIGNED · CUSTOMER" },
+  { templateId: "spec.p2_invoice", label: "P2 INVOICE" },
+  { templateId: "spec.p3_invoice", label: "P3 INVOICE" },
+  { templateId: "spec.p4_invoice", label: "P4 INVOICE" },
+  { templateId: "spec.support_window_open", label: "SUPPORT WINDOW OPEN" },
+  { templateId: "spec.refund_processed", label: "REFUND PROCESSED" },
+  { templateId: "spec.refund_denied", label: "REFUND DENIED" },
+] as const;
+
+async function loadCommunicationsTab(
+  projectId: string,
+  row: ProjectDetailRow,
+  userLinks: Map<string, SpecUserLink>,
+): Promise<SpecCommunicationsTab> {
+  const { data, error } = await db()
+    .from("spec_communications")
+    .select("id, direction, channel, summary, body, occurred_at, logged_by_user_id")
+    .eq("spec_project_id", projectId)
+    .order("occurred_at", { ascending: false });
+  if (error) {
+    console.error("[loadCommunicationsTab] failed:", error.message);
+  }
+
+  const raw = (data ?? []) as CommunicationFullRow[];
+
+  // Resolve any actor labels we don't already have cached.
+  const missingActors = Array.from(
+    new Set(
+      raw
+        .map((r) => r.logged_by_user_id)
+        .filter((id): id is string => !!id && !userLinks.has(id)),
+    ),
+  );
+  if (missingActors.length > 0) {
+    const extras = await loadUserLinks(missingActors);
+    for (const [k, v] of extras) userLinks.set(k, v);
+  }
+
+  const rows: SpecCommunicationRow[] = raw.map((r) => {
+    const actor = r.logged_by_user_id ? userLinks.get(r.logged_by_user_id) : null;
+    return {
+      id: r.id,
+      direction: r.direction,
+      channel: r.channel,
+      summary: r.summary,
+      body: r.body,
+      occurredAt: r.occurred_at,
+      loggedByUserId: r.logged_by_user_id,
+      loggedByLabel: actor?.name ?? actor?.email ?? null,
+    };
+  });
+
+  return {
+    rows,
+    emailTemplates: [...SPEC_TEMPLATE_OPTIONS],
+    customerEmail: row.customer_email,
+    buyerUserId: row.buyer_user_id ?? null,
+  };
+}
+
+// Tab 10 — Entitlements
+
+interface EntitlementFullRow {
+  id: string;
+  module_key: string;
+  enabled: boolean;
+  disabled_reason: SpecEntitlementDisabledReason | null;
+  stripe_subscription_item_id: string | null;
+  multiplier: number;
+  surcharge_cents: number | null;
+  entitled_at: string | null;
+  enabled_at: string | null;
+  disabled_at: string | null;
+  updated_at: string | null;
+}
+
+async function loadEntitlementsTab(
+  projectId: string,
+  companyId: string | null,
+): Promise<SpecEntitlementsTab> {
+  const { data, error } = await db()
+    .from("spec_module_entitlements")
+    .select(
+      "id, module_key, enabled, disabled_reason, stripe_subscription_item_id, multiplier, surcharge_cents, entitled_at, enabled_at, disabled_at, updated_at",
+    )
+    .eq("spec_project_id", projectId)
+    .order("module_key", { ascending: true });
+  if (error) {
+    console.error("[loadEntitlementsTab] failed:", error.message);
+  }
+
+  const raw = (data ?? []) as EntitlementFullRow[];
+  const rows: SpecEntitlementRow[] = raw.map((r) => {
+    const reason = r.disabled_reason;
+    const canReEnable =
+      reason !== null && !SPEC_ENTITLEMENT_TERMINAL_REASONS.includes(reason);
+    return {
+      id: r.id,
+      moduleKey: r.module_key,
+      enabled: !!r.enabled,
+      disabledReason: reason,
+      stripeSubscriptionItemId: r.stripe_subscription_item_id,
+      multiplier: Number(r.multiplier ?? 1),
+      surchargeCents: Number(r.surcharge_cents ?? 0),
+      entitledAt: r.entitled_at,
+      enabledAt: r.enabled_at,
+      disabledAt: r.disabled_at,
+      updatedAt: r.updated_at,
+      canReEnable,
+    };
+  });
+
+  return { rows, companyId };
+}
+
+// Tab 11 — Notes
+
+interface InternalNoteFullRow {
+  id: string;
+  body: string;
+  created_at: string;
+  created_by_user_id: string;
+}
+
+async function loadNotesTab(
+  projectId: string,
+  userLinks: Map<string, SpecUserLink>,
+): Promise<SpecNotesTab> {
+  const { data, error } = await db()
+    .from("spec_internal_notes")
+    .select("id, body, created_at, created_by_user_id")
+    .eq("spec_project_id", projectId)
+    .order("created_at", { ascending: false });
+  if (error) {
+    console.error("[loadNotesTab] failed:", error.message);
+  }
+
+  const raw = (data ?? []) as InternalNoteFullRow[];
+
+  const missingAuthors = Array.from(
+    new Set(raw.map((r) => r.created_by_user_id).filter((id) => !userLinks.has(id))),
+  );
+  if (missingAuthors.length > 0) {
+    const extras = await loadUserLinks(missingAuthors);
+    for (const [k, v] of extras) userLinks.set(k, v);
+  }
+
+  const rows: SpecInternalNoteRow[] = raw.map((r) => {
+    const actor = userLinks.get(r.created_by_user_id);
+    return {
+      id: r.id,
+      body: r.body,
+      createdAt: r.created_at,
+      createdByUserId: r.created_by_user_id,
+      createdByLabel: actor?.name ?? actor?.email ?? null,
+    };
+  });
+
+  return { rows };
+}
+
+/**
+ * Helper exposed for server actions (`toggle-entitlement`, `escalate-ticket`,
+ * etc.) that need to re-validate a row exists for this project before mutating.
+ * Returns the project row or null. Operator gate is enforced at the action
+ * layer; this is a thin read.
+ */
+export async function loadSpecProjectMinimal(
+  projectId: string,
+): Promise<{
+  id: string;
+  status: SpecProjectStatus;
+  tier: SpecTier;
+  customer_email: string;
+  customer_name: string | null;
+  buyer_user_id: string;
+  linked_company_id: string | null;
+  is_test: boolean;
+} | null> {
+  const { data, error } = await db()
+    .from("spec_projects")
+    .select(
+      "id, status, tier, customer_email, customer_name, buyer_user_id, linked_company_id, is_test",
+    )
+    .eq("id", projectId)
+    .maybeSingle();
+  if (error || !data) {
+    if (error) console.error("[loadSpecProjectMinimal] failed:", error.message);
+    return null;
+  }
+  return {
+    id: data.id as string,
+    status: data.status as SpecProjectStatus,
+    tier: ofTier(data.tier as string | null),
+    customer_email: data.customer_email as string,
+    customer_name: (data.customer_name as string | null) ?? null,
+    buyer_user_id: data.buyer_user_id as string,
+    linked_company_id: (data.linked_company_id as string | null) ?? null,
+    is_test: !!data.is_test,
+  };
 }

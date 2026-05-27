@@ -6,7 +6,12 @@ import { TimelineTab } from "./TimelineTab";
 import { IntakeTab } from "./IntakeTab";
 import { ScopeTab } from "./ScopeTab";
 import { MilestonesTab } from "./MilestonesTab";
-import { DeferredTab } from "./DeferredTab";
+import { ChangeOrdersTab } from "./ChangeOrdersTab";
+import { SatisfactionTab } from "./SatisfactionTab";
+import { TicketsTab } from "./TicketsTab";
+import { CommunicationsTab } from "./CommunicationsTab";
+import { EntitlementsTab } from "./EntitlementsTab";
+import { NotesTab } from "./NotesTab";
 
 interface ProjectDetailProps {
   snapshot: SpecProjectDetailSnapshot;
@@ -38,12 +43,12 @@ const TABS: TabDef[] = [
   { key: "intake", label: "INTAKE", deferred: false },
   { key: "scope", label: "SCOPE DOC", deferred: false },
   { key: "milestones", label: "MILESTONES", deferred: false },
-  { key: "change_orders", label: "CHANGE ORDERS", deferred: true },
-  { key: "satisfaction", label: "SATISFACTION", deferred: true },
-  { key: "tickets", label: "TICKETS", deferred: true },
-  { key: "comms", label: "COMMS", deferred: true },
-  { key: "entitlements", label: "ENTITLEMENTS", deferred: true },
-  { key: "notes", label: "NOTES", deferred: true },
+  { key: "change_orders", label: "CHANGE ORDERS", deferred: false },
+  { key: "satisfaction", label: "SATISFACTION", deferred: false },
+  { key: "tickets", label: "TICKETS", deferred: false },
+  { key: "comms", label: "COMMS", deferred: false },
+  { key: "entitlements", label: "ENTITLEMENTS", deferred: false },
+  { key: "notes", label: "NOTES", deferred: false },
 ];
 
 export function ProjectDetail({ snapshot, activeTab }: ProjectDetailProps) {
@@ -60,23 +65,19 @@ export function ProjectDetail({ snapshot, activeTab }: ProjectDetailProps) {
           <MilestonesTab data={snapshot.milestones} projectId={snapshot.header.id} />
         )}
         {activeTab === "change_orders" && (
-          <DeferredTab label="CHANGE ORDERS" rationale="Ships in sub-chip F.2.b — change orders proposal, customer-acceptance link, polish-budget tracking." />
+          <ChangeOrdersTab data={snapshot.changeOrders} projectId={snapshot.header.id} />
         )}
-        {activeTab === "satisfaction" && (
-          <DeferredTab label="SATISFACTION" rationale="Ships in sub-chip F.2.b — per-feature midpoint/delivery ratings, heat-map render." />
-        )}
+        {activeTab === "satisfaction" && <SatisfactionTab data={snapshot.satisfaction} />}
         {activeTab === "tickets" && (
-          <DeferredTab label="TICKETS" rationale="Ships in sub-chip F.2.b — open ticket triage, severity reclass, escalate-to-change-order." />
+          <TicketsTab data={snapshot.tickets} projectId={snapshot.header.id} />
         )}
         {activeTab === "comms" && (
-          <DeferredTab label="COMMS" rationale="Ships in sub-chip F.2.b — inbound/outbound email log, manual call/video entries, template send." />
+          <CommunicationsTab data={snapshot.communications} projectId={snapshot.header.id} />
         )}
         {activeTab === "entitlements" && (
-          <DeferredTab label="ENTITLEMENTS" rationale="Ships in sub-chip F.2.b — module on/off toggles with reason codes, used in dispute/refund/non-payment flows." />
+          <EntitlementsTab data={snapshot.entitlements} projectId={snapshot.header.id} />
         )}
-        {activeTab === "notes" && (
-          <DeferredTab label="NOTES" rationale="Ships in sub-chip F.2.b — internal markdown notes with timestamped revisions." />
-        )}
+        {activeTab === "notes" && <NotesTab data={snapshot.notes} projectId={snapshot.header.id} />}
       </div>
     </div>
   );
@@ -99,23 +100,10 @@ function TabStrip({ activeTab, projectId }: { activeTab: TabKey; projectId: stri
                 aria-current={isActive ? "page" : undefined}
                 className={[
                   "group relative flex items-center gap-2 px-4 py-3 font-mono text-[11px] uppercase tracking-[0.16em] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]",
-                  isActive
-                    ? "text-[#EDEDED]"
-                    : tab.deferred
-                      ? "text-[#6A6A6A] hover:text-[#8A8A8A]"
-                      : "text-[#8A8A8A] hover:text-[#EDEDED]",
+                  isActive ? "text-[#EDEDED]" : "text-[#8A8A8A] hover:text-[#EDEDED]",
                 ].join(" ")}
               >
                 <span>{tab.label}</span>
-                {tab.deferred && (
-                  <span
-                    aria-label="deferred to F.2.b"
-                    title="Ships in F.2.b"
-                    className="rounded-[3px] border border-white/[0.10] px-1 py-px text-[9px] uppercase tracking-[0.18em] text-[#6A6A6A]"
-                  >
-                    F.2.b
-                  </span>
-                )}
                 {isActive && (
                   <span
                     aria-hidden="true"

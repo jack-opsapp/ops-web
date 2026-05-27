@@ -109,3 +109,14 @@ export function statusLabel(status: string): string {
 export function tierLabel(tier: string): string {
   return tier.toUpperCase();
 }
+
+export function formatHours(hours: number | null | undefined, fractionDigits = 1): string {
+  if (hours == null || !Number.isFinite(hours)) return "—";
+  return hours.toFixed(fractionDigits);
+}
+
+/** Half-hour bucketing per § 6 — minor changes billed at $225/hr, nearest 30 min. */
+export function bucketHalfHour(hours: number): number {
+  if (!Number.isFinite(hours)) return 0;
+  return Math.max(0, Math.round(hours * 2) / 2);
+}

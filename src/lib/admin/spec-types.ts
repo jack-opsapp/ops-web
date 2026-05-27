@@ -460,6 +460,169 @@ export interface SpecMilestonesTab {
   rows: SpecMilestoneRow[];
 }
 
+// ─── Tab 6: Change orders (F.2.b) ────────────────────────────────────────────
+
+export interface SpecChangeOrderRow {
+  id: string;
+  title: string;
+  description: string;
+  changeType: SpecChangeOrderType;
+  status: SpecChangeOrderStatus;
+  estimatedHours: number | null;
+  hourlyRateCents: number;
+  fixedPriceCents: number | null;
+  deliveryImpactDays: number;
+  finalCostCents: number | null;
+  stripeInvoiceId: string | null;
+  acceptanceEventId: string | null;
+  proposedAt: string | null;
+  approvedAt: string | null;
+  declinedAt: string | null;
+  completedAt: string | null;
+  invoicedAt: string | null;
+  paidAt: string | null;
+}
+
+export interface SpecChangeOrdersTab {
+  rows: SpecChangeOrderRow[];
+  /** Polish hours pulled from spec_capacity[tier].polish_hours_budget. */
+  polishHoursBudget: number;
+  /** Polish hours used to date — sum of change orders with `change_type='polish_budget'`. */
+  polishHoursUsed: number;
+  /** Default $225/hr (CAD) — pulled from spec_change_orders.hourly_rate_cents default. */
+  defaultHourlyRateCents: number;
+}
+
+// ─── Tab 7: Satisfaction ratings (F.2.b) ─────────────────────────────────────
+
+export type SpecSatisfactionMilestone = "midpoint" | "delivery";
+
+export interface SpecSatisfactionRatingRow {
+  id: string;
+  milestone: SpecSatisfactionMilestone;
+  featureName: string;
+  rating: number; // 1-5
+  notes: string | null;
+  submittedAt: string | null;
+}
+
+export interface SpecSatisfactionHeatMapCell {
+  featureName: string;
+  midpoint: number | null;
+  delivery: number | null;
+}
+
+export interface SpecSatisfactionTab {
+  rows: SpecSatisfactionRatingRow[];
+  /** Feature × milestone grid — one row per distinct feature_name across all ratings. */
+  heatMap: SpecSatisfactionHeatMapCell[];
+}
+
+// ─── Tab 8: Support tickets (F.2.b) ──────────────────────────────────────────
+
+export interface SpecSupportTicketRow {
+  id: string;
+  phase: SpecTicketPhase;
+  title: string;
+  description: string;
+  severity: SpecTicketSeverity;
+  customerClassification: SpecTicketSeverity | null;
+  isInScope: boolean | null;
+  status: SpecTicketStatus;
+  linkedChangeOrderId: string | null;
+  openedAt: string | null;
+  respondedAt: string | null;
+  resolvedAt: string | null;
+}
+
+export interface SpecTicketsTab {
+  rows: SpecSupportTicketRow[];
+}
+
+// ─── Tab 9: Communications (F.2.b) ───────────────────────────────────────────
+
+export interface SpecCommunicationRow {
+  id: string;
+  direction: SpecCommunicationDirection;
+  channel: SpecCommunicationChannel;
+  summary: string;
+  body: string | null;
+  occurredAt: string | null;
+  loggedByUserId: string | null;
+  loggedByLabel: string | null;
+}
+
+export interface SpecEmailTemplateOption {
+  templateId: string;       // e.g. "spec.scope_doc_ready"
+  label: string;            // tactical label for the dropdown
+}
+
+export interface SpecCommunicationsTab {
+  rows: SpecCommunicationRow[];
+  /** All `spec.*` keys registered in src/lib/email/constants.ts SPEC block. */
+  emailTemplates: SpecEmailTemplateOption[];
+  /** The customer's primary email — pre-populated in the send-template form. */
+  customerEmail: string;
+  /** Buyer user id — needed for the outbox `recipient_user_id`. */
+  buyerUserId: string | null;
+}
+
+// ─── Tab 10: Entitlements (F.2.b) ────────────────────────────────────────────
+
+export type SpecEntitlementDisabledReason =
+  | "non_payment"
+  | "dispute"
+  | "refunded"
+  | "subscription_lapse"
+  | "customer_request"
+  | "ops_decision"
+  | "not_yet_delivered";
+
+/** disabled_reasons an operator action can clear (i.e. allow re-enable). */
+export const SPEC_ENTITLEMENT_CLEARABLE_REASONS: readonly SpecEntitlementDisabledReason[] =
+  ["non_payment", "dispute", "customer_request", "ops_decision", "not_yet_delivered"];
+
+/** disabled_reasons that are terminal — operator must NOT re-enable. */
+export const SPEC_ENTITLEMENT_TERMINAL_REASONS: readonly SpecEntitlementDisabledReason[] =
+  ["refunded", "subscription_lapse"];
+
+export interface SpecEntitlementRow {
+  id: string;
+  moduleKey: string;
+  enabled: boolean;
+  disabledReason: SpecEntitlementDisabledReason | null;
+  stripeSubscriptionItemId: string | null;
+  multiplier: number;
+  surchargeCents: number;
+  entitledAt: string | null;
+  enabledAt: string | null;
+  disabledAt: string | null;
+  updatedAt: string | null;
+  /** Derived — `false` when `disabled_reason` ∈ TERMINAL_REASONS. */
+  canReEnable: boolean;
+}
+
+export interface SpecEntitlementsTab {
+  rows: SpecEntitlementRow[];
+  /** linked_company_id from the parent project — needed for cross-engagement entitlement audits. */
+  companyId: string | null;
+}
+
+// ─── Tab 11: Notes (F.2.b) ───────────────────────────────────────────────────
+
+export interface SpecInternalNoteRow {
+  id: string;
+  body: string;
+  createdAt: string;
+  createdByUserId: string;
+  createdByLabel: string | null;
+}
+
+export interface SpecNotesTab {
+  /** Most-recent first — the head row is the "current" note; prior rows are the revision log. */
+  rows: SpecInternalNoteRow[];
+}
+
 // ─── Composed project-detail snapshot ────────────────────────────────────────
 
 export interface SpecProjectDetailSnapshot {
@@ -469,6 +632,12 @@ export interface SpecProjectDetailSnapshot {
   intake: SpecIntakeTab;
   scope: SpecScopeTab;
   milestones: SpecMilestonesTab;
+  changeOrders: SpecChangeOrdersTab;
+  satisfaction: SpecSatisfactionTab;
+  tickets: SpecTicketsTab;
+  communications: SpecCommunicationsTab;
+  entitlements: SpecEntitlementsTab;
+  notes: SpecNotesTab;
 }
 
 // ─── Tier pricing (locked 25 / 25 / 25 / 25 across all tiers) ───────────────
