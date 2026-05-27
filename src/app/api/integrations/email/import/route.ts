@@ -23,6 +23,7 @@ import {
   applyCanonicalLeadEnrichment,
   leadEnrichmentFactsFromImport,
 } from "@/lib/email/lead-enrichment";
+import { findOpportunityRelationshipMatch } from "@/lib/email/opportunity-relationship-matching";
 import {
   logInvalidProviderEmailIds,
   validateProviderEmailIds,
@@ -404,6 +405,25 @@ async function runImport(
       const stage = stageMap[lead.stage] || OpportunityStage.NewLead;
       const isTerminal = stage === OpportunityStage.Won || stage === OpportunityStage.Lost || stage === OpportunityStage.Discarded;
 
+      const relationshipDecision = await findOpportunityRelationshipMatch({
+        supabase,
+        companyId,
+        connectionId,
+        providerThreadId,
+        clientId,
+        facts: {
+          contactName: enrichmentFacts.contactName,
+          contactEmail: enrichmentFacts.contactEmail,
+          contactPhone: enrichmentFacts.contactPhone,
+          address: enrichmentFacts.address,
+          description: enrichmentFacts.description,
+          subject: lead.title ?? lead.description ?? null,
+          providerThreadId,
+          sourcePlatform: enrichmentFacts.sourcePlatform,
+          phaseCEnabled: false,
+        },
+      });
+
       // Check for existing open opportunity for this client
       const { data: existingOpps } = await supabase
         .from("opportunities")
@@ -423,7 +443,15 @@ async function runImport(
 
       let opportunityId: string;
 
-      if (existingOpps && existingOpps.length > 0) {
+      if (relationshipDecision.action === "link") {
+        opportunityId = relationshipDecision.opportunityId;
+        await applyCanonicalLeadEnrichment({
+          supabase,
+          opportunityId,
+          clientId: relationshipDecision.clientId ?? clientId,
+          facts: enrichmentFacts,
+        });
+      } else if (existingOpps && existingOpps.length > 0) {
         opportunityId = existingOpps[0].id;
         await applyCanonicalLeadEnrichment({
           supabase,

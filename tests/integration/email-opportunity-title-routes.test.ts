@@ -117,6 +117,10 @@ function makeImportSupabaseDouble(state: ImportState) {
       return this;
     }
 
+    order() {
+      return this;
+    }
+
     limit() {
       return this;
     }

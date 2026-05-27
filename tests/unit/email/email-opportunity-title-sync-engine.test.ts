@@ -80,7 +80,9 @@ import { SyncEngine } from "@/lib/api/services/sync-engine";
 
 interface SupabaseState {
   clients: Array<Record<string, unknown>>;
+  subClients?: Array<Record<string, unknown>>;
   opportunities: Array<Record<string, unknown>>;
+  projects?: Array<Record<string, unknown>>;
   threadLinks: Array<Record<string, unknown>>;
   activities: Array<Record<string, unknown>>;
   rpcCalls?: Array<{ name: string; params: Record<string, unknown> }>;
@@ -155,6 +157,16 @@ function makeSupabaseDouble(state: SupabaseState) {
     update(payload: Record<string, unknown>) {
       this.action = "update";
       this.payload = payload;
+      if (this.table === "opportunities") {
+        const id = this.filters.get("id");
+        const row = state.opportunities.find((opp) => opp.id === id);
+        if (row) Object.assign(row, payload);
+      }
+      if (this.table === "clients") {
+        const id = this.filters.get("id");
+        const row = state.clients.find((client) => client.id === id);
+        if (row) Object.assign(row, payload);
+      }
       return this;
     }
 
@@ -189,6 +201,12 @@ function makeSupabaseDouble(state: SupabaseState) {
         const client = state.clients.find((row) => row.id === id) ?? null;
         return { data: client, error: null };
       }
+      if (this.table === "opportunities") {
+        return { data: (this.result().data as unknown[] | null)?.[0] ?? null, error: null };
+      }
+      if (this.table === "projects") {
+        return { data: (this.result().data as unknown[] | null)?.[0] ?? null, error: null };
+      }
       return { data: null, error: null };
     }
 
@@ -198,15 +216,78 @@ function makeSupabaseDouble(state: SupabaseState) {
       }
 
       if (this.table === "clients" && this.action === "select") {
-        const email = String(this.filters.get("email") ?? "").toLowerCase();
-        const match = state.clients.filter(
-          (client) => String(client.email).toLowerCase() === email
-        );
+        const match = state.clients.filter((client) => {
+          for (const [column, value] of this.filters.entries()) {
+            if (column === "deleted_at") continue;
+            if (
+              String(client[column] ?? "").toLowerCase() !==
+              String(value ?? "").toLowerCase()
+            ) {
+              return false;
+            }
+          }
+          return true;
+        });
+        return { data: match, error: null };
+      }
+
+      if (this.table === "sub_clients" && this.action === "select") {
+        const match = (state.subClients ?? []).filter((subClient) => {
+          for (const [column, value] of this.filters.entries()) {
+            if (column === "deleted_at") continue;
+            if (
+              String(subClient[column] ?? "").toLowerCase() !==
+              String(value ?? "").toLowerCase()
+            ) {
+              return false;
+            }
+          }
+          return true;
+        });
         return { data: match, error: null };
       }
 
       if (this.table === "opportunities" && this.action === "select") {
-        return { data: [], error: null };
+        const match = state.opportunities.filter((opportunity) => {
+          for (const [column, value] of this.filters.entries()) {
+            if (column === "deleted_at" && value === null) {
+              if (opportunity.deleted_at) return false;
+              continue;
+            }
+            if (column === "archived_at" && value === null) {
+              if (opportunity.archived_at) return false;
+              continue;
+            }
+            if (column.includes(":")) continue;
+            if (
+              String(opportunity[column] ?? "").toLowerCase() !==
+              String(value ?? "").toLowerCase()
+            ) {
+              return false;
+            }
+          }
+          return true;
+        });
+        return { data: match, error: null };
+      }
+
+      if (this.table === "projects" && this.action === "select") {
+        const match = (state.projects ?? []).filter((project) => {
+          for (const [column, value] of this.filters.entries()) {
+            if (column === "deleted_at" && value === null) {
+              if (project.deleted_at) return false;
+              continue;
+            }
+            if (
+              String(project[column] ?? "").toLowerCase() !==
+              String(value ?? "").toLowerCase()
+            ) {
+              return false;
+            }
+          }
+          return true;
+        });
+        return { data: match, error: null };
       }
 
       if (
@@ -494,6 +575,98 @@ describe("SyncEngine email opportunity title generation", () => {
         opportunityId: "opp-1",
       })
     );
+  });
+
+  it("links a new provider thread to an existing active opportunity when parsed customer address matches", async () => {
+    const state: SupabaseState = {
+      clients: [
+        {
+          id: "client-john",
+          company_id: "company-1",
+          name: "John Carter",
+          email: "john@example.com",
+          phone_number: null,
+          address: "18 Cedar Road, Victoria BC",
+        },
+      ],
+      opportunities: [
+        {
+          id: "opp-john-active",
+          company_id: "company-1",
+          client_id: "client-john",
+          title: "John Carter - Deck rebuild",
+          stage: "follow_up",
+          archived_at: null,
+          deleted_at: null,
+          contact_name: "John Carter",
+          contact_email: "john@example.com",
+          contact_phone: null,
+          address: "18 Cedar Road, Victoria BC",
+          description: "Replace the back deck and railing.",
+          source_email_id: "thread-john-original",
+          created_at: "2026-05-19T17:00:00.000Z",
+          updated_at: "2026-05-20T17:00:00.000Z",
+        },
+      ],
+      threadLinks: [],
+      activities: [],
+      rpcCalls: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+    getConnectionMock.mockResolvedValue(baseConnection());
+    getProviderMock.mockReturnValue({
+      fetchNewEmailsSince: vi.fn(async () => ({
+        emails: [
+          baseEmail({
+            id: "msg-mary-address",
+            threadId: "thread-mary-new",
+            from: "Canpro Deck and Rail <notifications@wix-forms.com>",
+            fromName: "Canpro Deck and Rail",
+            to: ["jackson@canprodeckandrail.com"],
+            subject: "Contact Us 3 got a new submission",
+            bodyText: contactFormBody
+              .replaceAll("Marcel Mercier", "Mary Carter")
+              .replaceAll("marcel.mercier@example.com", "mary.carter@example.com")
+              .replaceAll("Mercier Holdings", "Mary Carter")
+              .replaceAll("1220 Wharf Street, Victoria BC", "18 Cedar Road, Victoria BC"),
+            labelIds: ["INBOX"],
+          }),
+        ],
+        nextSyncToken: "sync-token-2",
+      })),
+      fetchSentEmailsSince: vi.fn(async () => ({
+        emails: [],
+        nextSyncToken: "sync-token-2",
+      })),
+    });
+    matchMock.mockResolvedValue({ action: "create_new", clientId: null });
+
+    await SyncEngine.runSync("connection-1");
+
+    expect(state.opportunities).toHaveLength(1);
+    expect(state.threadLinks).toEqual([
+      expect.objectContaining({
+        opportunity_id: "opp-john-active",
+        thread_id: "thread-mary-new",
+        connection_id: "connection-1",
+      }),
+    ]);
+    expect(state.activities[0]).toMatchObject({
+      email_message_id: "msg-mary-address",
+      email_thread_id: "thread-mary-new",
+      opportunity_id: "opp-john-active",
+      from_email: "mary.carter@example.com",
+    });
+    expect(state.rpcCalls).toEqual([
+      {
+        name: "increment_opportunity_correspondence",
+        params: expect.objectContaining({
+          p_opportunity_id: "opp-john-active",
+          p_is_inbound: true,
+        }),
+      },
+    ]);
   });
 
   it("quarantines provider-backed inbound email with a blank provider thread id before lifecycle writes", async () => {

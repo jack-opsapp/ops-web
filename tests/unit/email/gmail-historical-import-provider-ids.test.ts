@@ -418,7 +418,13 @@ describe("Gmail historical import provider id guard", () => {
       }),
     ]);
     expect(state.emailThreadWrites).toHaveLength(0);
-    expect(state.threadLinkWrites).toHaveLength(0);
+    expect(state.threadLinkWrites).toEqual([
+      expect.objectContaining({
+        opportunity_id: "opp-1",
+        thread_id: "thread-valid",
+        connection_id: "connection-1",
+      }),
+    ]);
     expect(console.warn).not.toHaveBeenCalled();
   });
 });

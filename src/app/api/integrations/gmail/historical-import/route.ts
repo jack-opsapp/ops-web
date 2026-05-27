@@ -301,6 +301,7 @@ export async function POST(request: NextRequest) {
             msgId,
             token,
             companyId,
+            connectionId,
             syncFilters,
             blocklist,
             supabase
@@ -560,6 +561,7 @@ async function processMessage(
   msgId: string,
   token: string,
   companyId: string,
+  connectionId: string,
   syncFilters: GmailSyncFilters,
   blocklist: { domains: Set<string>; keywords: string[] },
   supabase: ReturnType<typeof requireSupabase>
@@ -680,6 +682,15 @@ async function processMessage(
         extractionSource: "historical_metadata",
       }),
     });
+
+    await supabase.from("opportunity_email_threads").upsert(
+      {
+        opportunity_id: opportunityId,
+        thread_id: providerThreadId,
+        connection_id: connectionId,
+      },
+      { onConflict: "thread_id,connection_id", ignoreDuplicates: true }
+    );
   }
 
   // Create activity
