@@ -565,12 +565,6 @@ export interface SpecRefundQueueRow {
 
 // ─── Owner-approvals queue (F.3) ─────────────────────────────────────────────
 
-export type SpecOwnerApprovalStatus =
-  | "pending"
-  | "approved"
-  | "declined"
-  | "expired";
-
 export interface SpecOwnerApprovalQueueRow {
   id: string;
   specProjectId: string;

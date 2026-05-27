@@ -2227,6 +2227,8 @@ export async function getMilestoneFireability(
     hasExistingPayment: !!existing,
   });
   return { ...result, row };
+}
+
 // ─── Refund queue (F.3) ──────────────────────────────────────────────────────
 
 interface RefundRequestRowRaw {
