@@ -17,6 +17,7 @@ import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
 import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 import { EmailService } from "@/lib/api/services/email-service";
 import { EmailThreadService } from "@/lib/api/services/email-thread-service";
+import { OpportunityLifecycleService } from "@/lib/api/services/opportunity-lifecycle-service";
 import { markdownToEmailHtml } from "@/lib/utils/markdown-to-email-html";
 import { extractEmailAddress } from "@/lib/utils/email-parsing";
 import {
@@ -256,7 +257,7 @@ export async function POST(request: NextRequest) {
     // (body_text, to_emails, cc_emails) that the Activity type omits.
     // body_text stores the original markdown (for in-app display).
     // content stores a plain-text snippet (first 500 chars of source text).
-    await supabase.from("activities").insert({
+    const { data: insertedActivity } = await supabase.from("activities").insert({
       company_id: companyId,
       type: "email",
       subject,
@@ -278,6 +279,32 @@ export async function POST(request: NextRequest) {
       // pending_auto_sends. Manual sends omit this. Requires migration
       // 20260508120000_activities_draft_history_link.sql to be applied.
       draft_history_id: draftHistoryId || null,
+    }).select("id").single();
+
+    await OpportunityLifecycleService.recordCorrespondenceEvent({
+      supabase,
+      companyId,
+      opportunityId: opportunityId || null,
+      activityId:
+        ((insertedActivity as Record<string, unknown> | null)?.id as string | null) ??
+        null,
+      connectionId: connection.id,
+      providerThreadId,
+      providerMessageId,
+      requireProviderMessageId: true,
+      direction: "outbound",
+      occurredAt: sentAt,
+      source: "email_send",
+      fromEmail: connection.email,
+      fromName: connection.email,
+      toEmails: to,
+      ccEmails: cc || [],
+      subject,
+      bodyText: emailBody,
+      connectionEmail: connection.email,
+      companyDomains: connection.syncFilters?.companyDomains ?? [],
+      userEmailAddresses: connection.syncFilters?.userEmailAddresses ?? [],
+      knownPlatformSenders: connection.syncFilters?.knownPlatformSenders ?? [],
     });
 
     const { threadRow } = await EmailThreadService.upsertFromEmail({

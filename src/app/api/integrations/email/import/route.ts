@@ -18,6 +18,7 @@ import { runWithSupabase } from "@/lib/supabase/helpers";
 import { EmailService } from "@/lib/api/services/email-service";
 import { ClientService } from "@/lib/api/services/client-service";
 import { OpportunityService } from "@/lib/api/services/opportunity-service";
+import { OpportunityLifecycleService } from "@/lib/api/services/opportunity-lifecycle-service";
 import { buildEmailOpportunityTitle } from "@/lib/email/opportunity-title";
 import {
   applyCanonicalLeadEnrichment,
@@ -581,7 +582,7 @@ async function runImport(
         .limit(1);
 
       if (!existingActivity || existingActivity.length === 0) {
-        await OpportunityService.createActivity({
+        const activity = await OpportunityService.createActivity({
           companyId,
           opportunityId,
           clientId,
@@ -598,6 +599,32 @@ async function runImport(
           isRead: true,
           fromEmail: lead.clientEmail,
           createdBy: null,
+        });
+        await OpportunityLifecycleService.recordCorrespondenceEvent({
+          supabase,
+          companyId,
+          opportunityId,
+          activityId: activity.id,
+          connectionId,
+          providerThreadId,
+          providerMessageId: null,
+          requireProviderMessageId: false,
+          direction: "inbound",
+          occurredAt: lead.lastMessageDate
+            ? new Date(lead.lastMessageDate)
+            : new Date(),
+          source: "email_import",
+          fromEmail: lead.clientEmail,
+          fromName: lead.clientName,
+          toEmails: [connection.email],
+          ccEmails: [],
+          subject: lead.description || "Imported from email pipeline",
+          bodyText: lead.description ?? null,
+          connectionEmail: connection.email,
+          companyDomains: payload.syncProfile?.companyDomains ?? [],
+          userEmailAddresses: payload.syncProfile?.userEmailAddresses ?? [],
+          knownPlatformSenders: payload.syncProfile?.knownPlatformSenders ?? [],
+          contactEmail: lead.clientEmail,
         });
         result.activitiesLogged++;
       }
