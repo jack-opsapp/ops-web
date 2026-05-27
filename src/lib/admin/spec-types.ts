@@ -83,6 +83,31 @@ export interface CapacityRow {
   snapshotRefreshedAt: string | null;
 }
 
+/**
+ * Full spec_capacity row for the editor at /admin/spec/capacity.
+ * Mirrors every editable column in `public.spec_capacity` (the read-only
+ * overview projection uses `CapacityRow` above; this carries the raw config
+ * the editor mutates). Cents are stored as integers; the form converts to
+ * dollars for display + back on save.
+ */
+export interface CapacityEditRow {
+  tier: SpecTier;
+  slotCeiling: number;
+  discoveryDaysMin: number;
+  discoveryDaysMax: number;
+  buildDaysMin: number;
+  buildDaysMax: number;
+  supportWindowDays: number;
+  subscriptionMultiplierEstimate: number; // numeric(4,2)
+  retainerMonthlyCents: number;
+  polishHoursBudget: number; // numeric(4,2), 0.5 increments
+  isAcceptingBookings: boolean;
+  manualNextStartOverride: string | null; // YYYY-MM-DD
+  publicNote: string | null;
+  adminNotes: string | null;
+  updatedAt: string | null;
+}
+
 // ─── Kanban ──────────────────────────────────────────────────────────────────
 
 export const KANBAN_COLUMNS: SpecProjectStatus[] = [
