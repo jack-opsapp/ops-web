@@ -178,3 +178,292 @@ export interface SpecOverviewSnapshot {
   snapshotRefreshedAt: string | null;
   testMode: boolean;
 }
+
+// ─── Project detail (F.2.a) ──────────────────────────────────────────────────
+//
+// Additive type surface for `/admin/spec/[id]`. Designed to be loaded once per
+// page render (server-side) and threaded into the tab subtrees. None of these
+// shapes are exposed to customer clients — operator-only.
+
+export type SpecAcceptanceEventType =
+  | "tos_accepted"
+  | "owner_purchase_approved"
+  | "scope_signoff"
+  | "midpoint_accepted"
+  | "delivery_accepted"
+  | "change_order_accepted";
+
+export type SpecChangeOrderType =
+  | "minor_hourly"
+  | "major_fixed"
+  | "polish_budget"
+  | "platform_compat_rebuild"
+  | "tier_upgrade";
+
+export type SpecChangeOrderStatus =
+  | "proposed"
+  | "customer_approved"
+  | "customer_declined"
+  | "in_progress"
+  | "completed"
+  | "paid";
+
+export type SpecFeatureStatus = "pending" | "passing" | "failing";
+
+export type SpecCommunicationDirection = "outbound" | "inbound";
+
+export type SpecCommunicationChannel =
+  | "email"
+  | "admin_note"
+  | "call_log"
+  | "video_message"
+  | "system";
+
+export type SpecTicketSeverity = "critical" | "high" | "cosmetic_enhancement";
+export type SpecTicketStatus = "open" | "in_progress" | "resolved" | "escalated_to_change_order";
+export type SpecTicketPhase = "support" | "retainer" | "ad_hoc";
+
+export type SpecOwnerApprovalStatus = "pending" | "approved" | "declined" | "expired";
+
+// ─── Identity links ──────────────────────────────────────────────────────────
+
+export interface SpecUserLink {
+  id: string;
+  email: string | null;
+  name: string | null;
+}
+
+export interface SpecCompanyLink {
+  id: string;
+  name: string | null;
+}
+
+// ─── Header projection ───────────────────────────────────────────────────────
+
+export interface SpecProjectHeader {
+  id: string;
+  tier: SpecTier;
+  originalTier: SpecTier | null;
+  status: SpecProjectStatus;
+  isTest: boolean;
+  customerLabel: string;
+}
+
+// ─── Tab 1: Overview ─────────────────────────────────────────────────────────
+
+export interface SpecAttributionSnapshot {
+  utmSource: string | null;
+  utmMedium: string | null;
+  utmCampaign: string | null;
+  utmContent: string | null;
+  utmTerm: string | null;
+  gclid: string | null;
+  fbclid: string | null;
+  landingUrl: string | null;
+  firstTouchAt: string | null;
+}
+
+export interface SpecHoldState {
+  holdType: SpecHoldType;
+  priorStatus: SpecProjectStatus | null;
+  onHoldAt: string | null;
+  onHoldExpiresAt: string | null;
+  onHoldReason: string | null;
+}
+
+export interface SpecMilestoneBreakdown {
+  milestone: SpecPaymentMilestone;
+  amountCents: number;
+  status: SpecPaymentStatus;
+}
+
+export interface SpecFinancialSummary {
+  totalCommittedCents: number;
+  totalPaidCents: number;
+  pendingCents: number;
+  overdueCents: number;
+  refundedCents: number;
+  polishHoursUsed: number;
+  polishHoursBudget: number;
+  perMilestone: SpecMilestoneBreakdown[];
+}
+
+export interface SpecOverviewTab {
+  customer: {
+    name: string | null;
+    email: string;
+    phone: string | null;
+    gstNumber: string | null;
+  };
+  buyer: SpecUserLink | null;
+  accountHolder: SpecUserLink | null;
+  buyerIsAccountHolder: boolean;
+  company: SpecCompanyLink | null;
+  lastStatusChangeAt: string | null;
+  keyDates: {
+    depositPaidAt: string | null;
+    scopeDocSignedAt: string | null;
+    buildStartedAt: string | null;
+    walkthroughCompletedAt: string | null;
+    supportWindowEndsAt: string | null;
+  };
+  holdState: SpecHoldState | null;
+  financial: SpecFinancialSummary;
+  estimatedCompletionDate: string | null;
+  attribution: SpecAttributionSnapshot;
+}
+
+// ─── Tab 2: Timeline ─────────────────────────────────────────────────────────
+
+export type SpecTimelineEventKind =
+  | "status_change"
+  | "acceptance"
+  | "communication"
+  | "payment"
+  | "change_order"
+  | "scope_document"
+  | "satisfaction_rating"
+  | "support_ticket"
+  | "system";
+
+export type SpecTimelineFilter =
+  | "all"
+  | "comms"
+  | "money"
+  | "status"
+  | "tickets"
+  | "acceptance";
+
+export interface SpecTimelineEvent {
+  id: string;
+  kind: SpecTimelineEventKind;
+  occurredAt: string;
+  actorLabel: string | null;
+  summary: string;
+  detail: string | null;
+  // Per-kind metadata (rendered as small tactical pills underneath the summary).
+  meta?: {
+    eventType?: SpecAcceptanceEventType;
+    signatureMethod?: string | null;
+    payloadHash?: string | null;
+    milestone?: SpecPaymentMilestone;
+    paymentStatus?: SpecPaymentStatus;
+    amountCents?: number;
+    channel?: SpecCommunicationChannel;
+    direction?: SpecCommunicationDirection;
+    changeOrderStatus?: SpecChangeOrderStatus;
+    scopeDocVersion?: number;
+    scopeDocAction?: "drafted" | "sent" | "superseded";
+    rating?: number;
+    featureName?: string;
+    ticketStatus?: SpecTicketStatus;
+    ticketSeverity?: SpecTicketSeverity;
+    isPathBAcceptancePair?: boolean;
+  };
+}
+
+// ─── Tab 3: Intake responses ─────────────────────────────────────────────────
+
+export interface SpecIntakeFile {
+  path: string;          // Storage path (relative to bucket `spec-intake/{id}/...`)
+  filename: string;
+  contentType: string | null;
+  sizeBytes: number | null;
+  uploadedAt: string | null;
+  signedUrl?: string | null;
+}
+
+export interface SpecIntakeTab {
+  submittedAt: string | null;
+  responses: Record<string, unknown> | null;
+  files: SpecIntakeFile[];
+  regulatedWorkflowFlaggedAt: string | null;
+  regulatedWorkflowFlags: Record<string, unknown> | null;
+}
+
+// ─── Tab 4: Scope doc ────────────────────────────────────────────────────────
+
+export interface SpecScopeDocumentRow {
+  id: string;
+  version: number;
+  contentHash: string;
+  externalUrl: string | null;
+  draftedAt: string;
+  sentAt: string | null;
+  supersededAt: string | null;
+  isCurrent: boolean;
+}
+
+export interface SpecScopeFeatureRow {
+  id: string;
+  featureName: string;
+  acceptanceCriteria: string;
+  status: SpecFeatureStatus;
+  verifiedAt: string | null;
+  failureNotes: string | null;
+}
+
+export interface SpecScopeTab {
+  versions: SpecScopeDocumentRow[];
+  current: {
+    id: string;
+    version: number;
+    contentJson: Record<string, unknown> | null;
+    externalUrl: string | null;
+    features: SpecScopeFeatureRow[];
+  } | null;
+}
+
+// ─── Tab 5: Milestones ───────────────────────────────────────────────────────
+
+export interface SpecMilestoneRow {
+  id: string | null;             // null when no spec_payments row yet
+  milestone: SpecPaymentMilestone;
+  label: string;                 // "P1" | "P2" | "P3" | "P4"
+  status: SpecPaymentStatus | "not_yet_fired";
+  amountCents: number;           // canonical tier-derived amount (25% of total)
+  invoicedAt: string | null;
+  paidAt: string | null;
+  dueDate: string | null;
+  stripeInvoiceId: string | null;
+  fireable: boolean;             // P2/P3/P4 only; true when prereq met + no row
+  fireBlockedReason: string | null;
+}
+
+export interface SpecMilestonesTab {
+  tierTotalCents: number;
+  rows: SpecMilestoneRow[];
+}
+
+// ─── Composed project-detail snapshot ────────────────────────────────────────
+
+export interface SpecProjectDetailSnapshot {
+  header: SpecProjectHeader;
+  overview: SpecOverviewTab;
+  timeline: SpecTimelineEvent[];
+  intake: SpecIntakeTab;
+  scope: SpecScopeTab;
+  milestones: SpecMilestonesTab;
+}
+
+// ─── Tier pricing (locked 25 / 25 / 25 / 25 across all tiers) ───────────────
+
+export const SPEC_TIER_TOTAL_CENTS: Record<SpecTier, number> = {
+  setup: 300_000,
+  build: 850_000,
+  enterprise: 1_800_000,
+};
+
+export const SPEC_MILESTONE_LABELS: Record<SpecPaymentMilestone, string> = {
+  deposit: "P1",
+  scope_signoff: "P2",
+  midpoint: "P3",
+  delivery: "P4",
+};
+
+export const SPEC_MILESTONE_ORDER: SpecPaymentMilestone[] = [
+  "deposit",
+  "scope_signoff",
+  "midpoint",
+  "delivery",
+];
