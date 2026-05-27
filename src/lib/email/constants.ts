@@ -82,4 +82,6 @@ export const KIND_TO_LIST: Record<string, string> = {
   "spec.support_window_open": "global",
   "spec.refund_processed": "global",
   "spec.refund_denied": "global",
+  "spec.entitlement_disabled": "global",
+  "spec.entitlement_enabled": "global",
 };

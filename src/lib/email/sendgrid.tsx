@@ -76,6 +76,11 @@ import {
   type SpecRefundBreakdownRow,
 } from "./react/templates/SpecRefundProcessed";
 import { SpecRefundDenied } from "./react/templates/SpecRefundDenied";
+import {
+  SpecEntitlementDisabled,
+  type SpecEntitlementDisabledReason,
+} from "./react/templates/SpecEntitlementDisabled";
+import { SpecEntitlementEnabled } from "./react/templates/SpecEntitlementEnabled";
 
 import { DISPATCH, GATE, FIELD_NOTES, portalSender, type Sender } from "./senders";
 import type { AdBriefing } from "@/lib/admin/briefing-types";
@@ -2237,6 +2242,102 @@ export async function sendSpecRefundDenied(params: {
     list: compliance.list,
     headers: compliance.headers,
     metadata: { ...params.metadata, tier: params.tier, companyName: params.companyName },
+    userId: params.userId ?? undefined,
+  });
+}
+
+export async function sendSpecEntitlementDisabled(params: {
+  email: string;
+  customerName: string;
+  moduleKey: string;
+  moduleLabel: string;
+  disabledReason: SpecEntitlementDisabledReason;
+  tier?: SpecTier;
+  restoreInstructionsUrl?: string | null;
+  contactEmail?: string;
+  userId?: string | null;
+  metadata?: Record<string, unknown>;
+}): Promise<GatedSendResult> {
+  const compliance = buildComplianceHeaders({
+    email: params.email,
+    kind: "spec.entitlement_disabled",
+  });
+  const html = await render(
+    <SpecEntitlementDisabled
+      customerName={params.customerName}
+      moduleKey={params.moduleKey}
+      moduleLabel={params.moduleLabel}
+      disabledReason={params.disabledReason}
+      tier={params.tier}
+      restoreInstructionsUrl={params.restoreInstructionsUrl ?? null}
+      contactEmail={params.contactEmail}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+      list={compliance.list}
+    />,
+  );
+  return gatedSend({
+    to: params.email,
+    from: DISPATCH,
+    replyTo: DISPATCH.email,
+    subject: `SPEC ACCESS PAUSED — ${params.moduleLabel}`,
+    html,
+    emailType: "spec.entitlement_disabled",
+    list: compliance.list,
+    headers: compliance.headers,
+    metadata: {
+      ...params.metadata,
+      moduleKey: params.moduleKey,
+      disabledReason: params.disabledReason,
+      tier: params.tier,
+    },
+    userId: params.userId ?? undefined,
+  });
+}
+
+export async function sendSpecEntitlementEnabled(params: {
+  email: string;
+  customerName: string;
+  moduleKey: string;
+  moduleLabel: string;
+  previousDisabledReason?: SpecEntitlementDisabledReason | null;
+  tier?: SpecTier;
+  loginUrl: string;
+  contactEmail?: string;
+  userId?: string | null;
+  metadata?: Record<string, unknown>;
+}): Promise<GatedSendResult> {
+  const compliance = buildComplianceHeaders({
+    email: params.email,
+    kind: "spec.entitlement_enabled",
+  });
+  const html = await render(
+    <SpecEntitlementEnabled
+      customerName={params.customerName}
+      moduleKey={params.moduleKey}
+      moduleLabel={params.moduleLabel}
+      previousDisabledReason={params.previousDisabledReason ?? null}
+      tier={params.tier}
+      loginUrl={params.loginUrl}
+      contactEmail={params.contactEmail}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+      list={compliance.list}
+    />,
+  );
+  return gatedSend({
+    to: params.email,
+    from: DISPATCH,
+    replyTo: DISPATCH.email,
+    subject: `SPEC ACCESS RESTORED — ${params.moduleLabel}`,
+    html,
+    emailType: "spec.entitlement_enabled",
+    list: compliance.list,
+    headers: compliance.headers,
+    metadata: {
+      ...params.metadata,
+      moduleKey: params.moduleKey,
+      previousDisabledReason: params.previousDisabledReason ?? null,
+      tier: params.tier,
+    },
     userId: params.userId ?? undefined,
   });
 }
