@@ -38,6 +38,8 @@ import * as SpecP4InvoiceMod from "./react/templates/SpecP4Invoice";
 import * as SpecSupportWindowOpenMod from "./react/templates/SpecSupportWindowOpen";
 import * as SpecRefundProcessedMod from "./react/templates/SpecRefundProcessed";
 import * as SpecRefundDeniedMod from "./react/templates/SpecRefundDenied";
+import * as SpecEntitlementDisabledMod from "./react/templates/SpecEntitlementDisabled";
+import * as SpecEntitlementEnabledMod from "./react/templates/SpecEntitlementEnabled";
 
 export interface TemplateRegistryEntry {
   templateId: string;
@@ -345,6 +347,22 @@ export const TEMPLATE_REGISTRY: TemplateRegistryEntry[] = [
     Component: SpecRefundDeniedMod.SpecRefundDenied,
     previewProps: SpecRefundDeniedMod.previewProps,
     sourcePath: "src/lib/email/react/templates/SpecRefundDenied.tsx",
+  },
+  {
+    templateId: "spec.entitlement_disabled",
+    displayName: "SPEC — Entitlement Disabled",
+    defaultSubject: "SPEC ACCESS PAUSED",
+    Component: SpecEntitlementDisabledMod.SpecEntitlementDisabled,
+    previewProps: SpecEntitlementDisabledMod.previewProps,
+    sourcePath: "src/lib/email/react/templates/SpecEntitlementDisabled.tsx",
+  },
+  {
+    templateId: "spec.entitlement_enabled",
+    displayName: "SPEC — Entitlement Enabled",
+    defaultSubject: "SPEC ACCESS RESTORED",
+    Component: SpecEntitlementEnabledMod.SpecEntitlementEnabled,
+    previewProps: SpecEntitlementEnabledMod.previewProps,
+    sourcePath: "src/lib/email/react/templates/SpecEntitlementEnabled.tsx",
   },
 ];
 
