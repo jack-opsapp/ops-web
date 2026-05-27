@@ -172,6 +172,7 @@ export {
   useOpportunity,
   useCreateOpportunity,
   useUpdateOpportunity,
+  useAttachClientToOpportunity,
   useMoveOpportunityStage,
   useDeleteOpportunity,
   useArchiveOpportunity,

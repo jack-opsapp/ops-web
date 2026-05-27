@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Mail, Phone } from "lucide-react";
+import { Mail, MapPin, Phone } from "lucide-react";
 import { useDictionary } from "@/i18n/client";
 import { useWindowStore } from "@/stores/window-store";
 import { ProjectWorkspaceWindow } from "@/components/ops/projects/workspace/shell/project-workspace-window";
@@ -239,9 +239,11 @@ export function PipelineFocusedDetailWindow({
 }
 
 function buildSubtitle(opportunity: Opportunity, fallback: string): string {
-  const parts = [opportunity.contactPhone, opportunity.contactEmail].filter(
-    Boolean
-  );
+  const parts = [
+    opportunity.address,
+    opportunity.contactPhone,
+    opportunity.contactEmail,
+  ].filter(Boolean);
 
   return parts.length > 0 ? parts.join(" · ") : fallback;
 }
@@ -253,7 +255,11 @@ function PipelineDetailContactStrip({
 }) {
   const { t } = useDictionary("pipeline");
 
-  if (!opportunity.contactPhone && !opportunity.contactEmail) {
+  if (
+    !opportunity.address &&
+    !opportunity.contactPhone &&
+    !opportunity.contactEmail
+  ) {
     return (
       <div className="border-b border-border-subtle px-3 py-2 font-mono text-micro text-text-mute">
         {t("detail.noContact")}
@@ -263,6 +269,12 @@ function PipelineDetailContactStrip({
 
   return (
     <div className="flex min-h-[34px] flex-wrap items-center gap-2 border-b border-border-subtle px-3 py-2">
+      {opportunity.address && (
+        <div className="flex min-w-0 items-center gap-1 font-mono text-micro text-text-3">
+          <MapPin className="h-2.5 w-2.5 shrink-0" />
+          <span className="truncate">{opportunity.address}</span>
+        </div>
+      )}
       {opportunity.contactPhone && (
         <a
           href={`tel:${opportunity.contactPhone}`}

@@ -148,11 +148,17 @@ export function useUpdateOpportunity() {
       await queryClient.cancelQueries({
         queryKey: queryKeys.opportunities.detail(id),
       });
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.opportunities.lists(),
+      });
 
       // Snapshot the previous value
       const previousOpportunity = queryClient.getQueryData<Opportunity>(
         queryKeys.opportunities.detail(id)
       );
+      const previousLists = queryClient.getQueriesData<Opportunity[]>({
+        queryKey: queryKeys.opportunities.lists(),
+      });
 
       // Optimistically update the detail cache
       if (previousOpportunity) {
@@ -162,7 +168,17 @@ export function useUpdateOpportunity() {
         });
       }
 
-      return { previousOpportunity };
+      queryClient.setQueriesData<Opportunity[]>(
+        { queryKey: queryKeys.opportunities.lists() },
+        (old) => {
+          if (!old) return old;
+          return old.map((opportunity) =>
+            opportunity.id === id ? { ...opportunity, ...data } : opportunity
+          );
+        }
+      );
+
+      return { previousOpportunity, previousLists };
     },
 
     onError: (_err, { id }, context) => {
@@ -173,12 +189,97 @@ export function useUpdateOpportunity() {
           context.previousOpportunity
         );
       }
+      if (context?.previousLists) {
+        for (const [queryKey, data] of context.previousLists) {
+          queryClient.setQueryData(queryKey, data);
+        }
+      }
     },
 
     onSettled: (_data, _error, { id }) => {
       // Always refetch after error or success
       queryClient.invalidateQueries({
         queryKey: queryKeys.opportunities.detail(id),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.opportunities.lists(),
+      });
+    },
+  });
+}
+
+/**
+ * Attach an existing client to an opportunity.
+ *
+ * Uses the service helper instead of a raw opportunity update so linked
+ * estimates without a client inherit the selected client too.
+ */
+export function useAttachClientToOpportunity() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      opportunityId,
+      clientId,
+    }: {
+      opportunityId: string;
+      clientId: string;
+    }) => OpportunityService.attachClientToOpportunity(opportunityId, clientId),
+
+    onMutate: async ({ opportunityId, clientId }) => {
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.opportunities.detail(opportunityId),
+      });
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.opportunities.lists(),
+      });
+
+      const previousDetail = queryClient.getQueryData<Opportunity>(
+        queryKeys.opportunities.detail(opportunityId)
+      );
+      const previousLists = queryClient.getQueriesData<Opportunity[]>({
+        queryKey: queryKeys.opportunities.lists(),
+      });
+
+      if (previousDetail) {
+        queryClient.setQueryData(queryKeys.opportunities.detail(opportunityId), {
+          ...previousDetail,
+          clientId,
+        });
+      }
+
+      queryClient.setQueriesData<Opportunity[]>(
+        { queryKey: queryKeys.opportunities.lists() },
+        (old) => {
+          if (!old) return old;
+          return old.map((opportunity) =>
+            opportunity.id === opportunityId
+              ? { ...opportunity, clientId }
+              : opportunity
+          );
+        }
+      );
+
+      return { previousDetail, previousLists };
+    },
+
+    onError: (_err, { opportunityId }, context) => {
+      if (context?.previousDetail) {
+        queryClient.setQueryData(
+          queryKeys.opportunities.detail(opportunityId),
+          context.previousDetail
+        );
+      }
+      if (context?.previousLists) {
+        for (const [queryKey, data] of context.previousLists) {
+          queryClient.setQueryData(queryKey, data);
+        }
+      }
+    },
+
+    onSettled: (_data, _error, { opportunityId }) => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.opportunities.detail(opportunityId),
       });
       queryClient.invalidateQueries({
         queryKey: queryKeys.opportunities.lists(),

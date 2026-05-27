@@ -127,9 +127,9 @@ function makeOpportunity(): Opportunity {
     lostReason: null,
     lostNotes: null,
     quoteDeliveryMethod: null,
-    address: null,
-    latitude: null,
-    longitude: null,
+    address: "42 Lonsdale Ave",
+    latitude: 49.313,
+    longitude: -123.082,
     sourceEmailId: null,
     correspondenceCount: 0,
     outboundCount: 0,
@@ -257,6 +257,14 @@ describe("<PipelineFocusedDetailWindow>", () => {
     expect(
       within(windowShell).getByRole("button", { name: "Archive" })
     ).toBeInTheDocument();
+  });
+
+  it("surfaces the job site in the workspace header and contact strip", async () => {
+    renderWindow();
+
+    const windowShell = await screen.findByTestId("project-workspace-window");
+
+    expect(within(windowShell).getAllByText("42 Lonsdale Ave").length).toBeGreaterThan(0);
   });
 
   it("closes on Escape and restores focus to the originating card", async () => {

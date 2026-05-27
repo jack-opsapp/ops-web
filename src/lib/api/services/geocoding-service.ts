@@ -20,6 +20,11 @@ export interface GeocodingResult {
   longitude: number;
 }
 
+export interface GeocodingProximity {
+  latitude: number;
+  longitude: number;
+}
+
 interface MapboxV6Feature {
   id?: string;
   type?: string;
@@ -51,7 +56,11 @@ export const GeocodingService = {
    */
   async forwardGeocode(
     query: string,
-    options: { signal?: AbortSignal; limit?: number } = {},
+    options: {
+      signal?: AbortSignal;
+      limit?: number;
+      proximity?: GeocodingProximity;
+    } = {},
   ): Promise<GeocodingResult[]> {
     const trimmed = query.trim();
     if (!trimmed) return [];
@@ -66,6 +75,12 @@ export const GeocodingService = {
     url.searchParams.set("access_token", token);
     url.searchParams.set("limit", String(options.limit ?? 5));
     url.searchParams.set("language", "en");
+    if (options.proximity) {
+      url.searchParams.set(
+        "proximity",
+        `${options.proximity.longitude},${options.proximity.latitude}`,
+      );
+    }
 
     const res = await fetch(url.toString(), { signal: options.signal });
     if (!res.ok) {

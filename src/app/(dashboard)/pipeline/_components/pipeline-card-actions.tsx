@@ -274,6 +274,7 @@ function ActionIcon({
       onClick={onClick}
       disabled={disabled}
       title={label}
+      aria-label={label}
       className={cn(
         "p-[5px] rounded-panel transition-colors duration-150 cursor-pointer",
         isActive
