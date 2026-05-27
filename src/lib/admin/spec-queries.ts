@@ -17,6 +17,7 @@
 
 import { unstable_cache } from "next/cache";
 import { getAdminSupabase } from "@/lib/supabase/admin-client";
+import { GUARANTEE_REFUND_WINDOW_DAYS } from "@/lib/spec/constants";
 import {
   KANBAN_COLUMNS,
   type CapacityRow,
@@ -30,8 +31,16 @@ import {
   type SlowestProject,
   type SpecHoldType,
   type SpecOverviewSnapshot,
+  type SpecOwnerApprovalQueueRow,
+  type SpecOwnerApprovalStatus,
+  type SpecPaymentMilestone,
   type SpecPaymentStatus,
   type SpecProjectStatus,
+  type SpecRefundEligibility,
+  type SpecRefundPaymentSummary,
+  type SpecRefundQueueRow,
+  type SpecRefundRequestSource,
+  type SpecRefundRequestStatus,
   type SpecTier,
   type TodayItem,
   type TodaySection,
@@ -1224,4 +1233,435 @@ export async function getOverviewSnapshot(testMode: boolean): Promise<SpecOvervi
     snapshotRefreshedAt: capacity.refreshedAt,
     testMode,
   };
+}
+
+// ─── Refund queue (F.3) ──────────────────────────────────────────────────────
+
+interface RefundRequestRowRaw {
+  id: string;
+  spec_project_id: string;
+  request_source: SpecRefundRequestSource;
+  customer_reason_text: string | null;
+  requested_at: string;
+  processed_at: string | null;
+  processed_by_user_id: string | null;
+  is_goodwill: boolean | null;
+  is_guarantee_invocation: boolean | null;
+  status: SpecRefundRequestStatus;
+  is_test: boolean;
+  total_refund_cents: number | null;
+  refund_breakdown: unknown;
+  stripe_refund_ids: unknown;
+  denied_at?: string | null;
+  denial_reason_text?: string | null;
+  denied_by_user_id?: string | null;
+}
+
+interface RefundProjectRowRaw {
+  id: string;
+  tier: string;
+  status: SpecProjectStatus;
+  customer_name: string | null;
+  customer_email: string;
+  walkthrough_completed_at: string | null;
+}
+
+interface RefundPaymentRowRaw {
+  id: string;
+  spec_project_id: string;
+  milestone: SpecPaymentMilestone;
+  status: SpecPaymentStatus;
+  total_cents: number;
+  amount_refunded_cents: number | null;
+  stripe_payment_intent_id: string | null;
+  stripe_invoice_id: string | null;
+  paid_at: string | null;
+  invoiced_at: string | null;
+  due_date: string | null;
+}
+
+async function loadRefundRequests(
+  statuses: readonly SpecRefundRequestStatus[],
+  testMode: boolean,
+): Promise<RefundRequestRowRaw[]> {
+  const query = db()
+    .from("spec_refund_requests")
+    .select(
+      "id, spec_project_id, request_source, customer_reason_text, requested_at, processed_at, processed_by_user_id, is_goodwill, is_guarantee_invocation, status, is_test, total_refund_cents, refund_breakdown, stripe_refund_ids, denied_at, denial_reason_text, denied_by_user_id",
+    )
+    .in("status", statuses as string[])
+    .order("requested_at", { ascending: true });
+  const { data, error } = (await applyTestModeFilter(
+    query as unknown as Filterable,
+    testMode,
+  )) as unknown as {
+    data: RefundRequestRowRaw[] | null;
+    error: { message: string } | null;
+  };
+  if (error) {
+    console.error("[loadRefundRequests] failed:", error.message);
+    return [];
+  }
+  return data ?? [];
+}
+
+async function loadRefundProjects(
+  projectIds: string[],
+): Promise<Map<string, RefundProjectRowRaw>> {
+  if (projectIds.length === 0) return new Map();
+  const { data, error } = await db()
+    .from("spec_projects")
+    .select(
+      "id, tier, status, customer_name, customer_email, walkthrough_completed_at",
+    )
+    .in("id", projectIds);
+  if (error) {
+    console.error("[loadRefundProjects] failed:", error.message);
+    return new Map();
+  }
+  return new Map(
+    (data ?? []).map((row) => [
+      (row as RefundProjectRowRaw).id,
+      row as RefundProjectRowRaw,
+    ]),
+  );
+}
+
+async function loadRefundPayments(
+  projectIds: string[],
+): Promise<Map<string, RefundPaymentRowRaw[]>> {
+  if (projectIds.length === 0) return new Map();
+  const { data, error } = await db()
+    .from("spec_payments")
+    .select(
+      "id, spec_project_id, milestone, status, total_cents, amount_refunded_cents, stripe_payment_intent_id, stripe_invoice_id, paid_at, invoiced_at, due_date",
+    )
+    .in("spec_project_id", projectIds);
+  if (error) {
+    console.error("[loadRefundPayments] failed:", error.message);
+    return new Map();
+  }
+  const out = new Map<string, RefundPaymentRowRaw[]>();
+  for (const row of data ?? []) {
+    const pid = (row as RefundPaymentRowRaw).spec_project_id;
+    if (!out.has(pid)) out.set(pid, []);
+    out.get(pid)!.push(row as RefundPaymentRowRaw);
+  }
+  return out;
+}
+
+function toPaymentSummary(row: RefundPaymentRowRaw): SpecRefundPaymentSummary {
+  return {
+    id: row.id,
+    milestone: row.milestone,
+    status: row.status,
+    totalCents: row.total_cents,
+    amountRefundedCents: row.amount_refunded_cents,
+    stripePaymentIntentId: row.stripe_payment_intent_id,
+    stripeInvoiceId: row.stripe_invoice_id,
+    paidAt: row.paid_at,
+    invoicedAt: row.invoiced_at,
+    dueDate: row.due_date,
+  };
+}
+
+function computeEligibility(
+  project: RefundProjectRowRaw | undefined,
+  payments: RefundPaymentRowRaw[],
+  guaranteeAlreadyInvoked: boolean,
+): SpecRefundEligibility {
+  const nowMs = Date.now();
+  let withinGuarantee = false;
+  let daysSince: number | null = null;
+  if (project?.walkthrough_completed_at) {
+    const ms = nowMs - new Date(project.walkthrough_completed_at).getTime();
+    daysSince = Math.floor(ms / DAY);
+    withinGuarantee = ms <= GUARANTEE_REFUND_WINDOW_DAYS * DAY;
+  }
+  const hasDispute = payments.some((p) => p.status === "disputed");
+  // `non_payment` is a `disabled_reason` on `spec_module_entitlements` set when
+  // the customer's invoice ages past the grace window. Surfacing that signal
+  // here means flagging projects with an overdue payment row — a sufficient
+  // approximation for the queue chip (the full check happens in the actual
+  // entitlement record, but the queue UI uses the payment-status proxy to keep
+  // the read narrow).
+  const hasNonPaymentDisable = payments.some((p) => p.status === "overdue");
+
+  return {
+    withinGuaranteeWindow: withinGuarantee,
+    daysSinceWalkthrough: daysSince,
+    hasActiveDispute: hasDispute,
+    hasNonPaymentDisable,
+    // Material-breach is operator-judgment; the queue shows a slot for it but
+    // surfaces it as `false` by default. The deny-refund action lets Jackson
+    // attach a denial reason explaining the breach if applicable.
+    materialBreachFlag: false,
+    guaranteeAlreadyInvoked,
+  };
+}
+
+function ageLabel(iso: string): string {
+  return ageLabelFromIso(iso).ageLabel;
+}
+
+async function buildRefundQueueRows(
+  statuses: readonly SpecRefundRequestStatus[],
+  testMode: boolean,
+): Promise<SpecRefundQueueRow[]> {
+  const refunds = await loadRefundRequests(statuses, testMode);
+  if (refunds.length === 0) return [];
+
+  const projectIds = Array.from(new Set(refunds.map((r) => r.spec_project_id)));
+  const [projects, paymentsByProject] = await Promise.all([
+    loadRefundProjects(projectIds),
+    loadRefundPayments(projectIds),
+  ]);
+
+  // For each project, find any other refund row with `is_guarantee_invocation = true`
+  // already in a non-rejected status — used in the eligibility chip.
+  const guaranteeAlreadyByProject = new Map<string, boolean>();
+  for (const r of refunds) {
+    if (!r.is_guarantee_invocation) continue;
+    if (r.status === "denied" || r.status === "failed") continue;
+    guaranteeAlreadyByProject.set(r.spec_project_id, true);
+  }
+
+  return refunds.map((r) => {
+    const project = projects.get(r.spec_project_id);
+    const projectPayments = paymentsByProject.get(r.spec_project_id) ?? [];
+    const eligibility = computeEligibility(
+      project,
+      projectPayments,
+      // The CURRENT row's own status doesn't count toward "already invoked".
+      r.status === "denied" || r.status === "failed"
+        ? false
+        : (guaranteeAlreadyByProject.get(r.spec_project_id) ?? false) &&
+            !!r.is_guarantee_invocation === false,
+    );
+
+    return {
+      id: r.id,
+      specProjectId: r.spec_project_id,
+      requestSource: r.request_source,
+      isGuaranteeInvocation: !!r.is_guarantee_invocation,
+      isGoodwill: !!r.is_goodwill,
+      status: r.status,
+      customerReasonText: r.customer_reason_text,
+      requestedAt: r.requested_at,
+      requestedAgeLabel: ageLabel(r.requested_at),
+      processedAt: r.processed_at,
+      processedByUserId: r.processed_by_user_id,
+      isTest: r.is_test,
+      totalRefundCents: r.total_refund_cents,
+      projectTier: ofTier(project?.tier),
+      projectStatus: project?.status ?? "deposit_paid",
+      customerName: project?.customer_name ?? null,
+      customerEmail: project?.customer_email ?? "",
+      walkthroughCompletedAt: project?.walkthrough_completed_at ?? null,
+      payments: projectPayments.map(toPaymentSummary),
+      eligibility,
+    };
+  });
+}
+
+export async function getPendingRefundRequests(
+  testMode: boolean,
+): Promise<SpecRefundQueueRow[]> {
+  return buildRefundQueueRows(["pending"], testMode);
+}
+
+export async function getProcessedRefundRequests(
+  testMode: boolean,
+  limit = 25,
+): Promise<SpecRefundQueueRow[]> {
+  const rows = await buildRefundQueueRows(
+    ["processed", "partial", "denied", "failed"],
+    testMode,
+  );
+  // Most-recent first for the processed-history rail.
+  return rows
+    .sort((a, b) => {
+      const aMs = a.processedAt ? new Date(a.processedAt).getTime() : 0;
+      const bMs = b.processedAt ? new Date(b.processedAt).getTime() : 0;
+      return bMs - aMs;
+    })
+    .slice(0, limit);
+}
+
+export interface SpecRefundDetail extends SpecRefundQueueRow {
+  refundBreakdown: unknown;
+  stripeRefundIds: unknown;
+  deniedAt: string | null;
+  denialReasonText: string | null;
+  deniedByUserId: string | null;
+}
+
+export async function getRefundRequestDetail(
+  refundRequestId: string,
+): Promise<SpecRefundDetail | null> {
+  const { data: refund, error } = await db()
+    .from("spec_refund_requests")
+    .select(
+      "id, spec_project_id, request_source, customer_reason_text, requested_at, processed_at, processed_by_user_id, is_goodwill, is_guarantee_invocation, status, is_test, total_refund_cents, refund_breakdown, stripe_refund_ids, denied_at, denial_reason_text, denied_by_user_id",
+    )
+    .eq("id", refundRequestId)
+    .maybeSingle();
+  if (error || !refund) {
+    if (error) console.error("[getRefundRequestDetail] failed:", error.message);
+    return null;
+  }
+  const r = refund as RefundRequestRowRaw;
+  const [projects, paymentsByProject] = await Promise.all([
+    loadRefundProjects([r.spec_project_id]),
+    loadRefundPayments([r.spec_project_id]),
+  ]);
+  const project = projects.get(r.spec_project_id);
+  const projectPayments = paymentsByProject.get(r.spec_project_id) ?? [];
+  const eligibility = computeEligibility(project, projectPayments, false);
+
+  return {
+    id: r.id,
+    specProjectId: r.spec_project_id,
+    requestSource: r.request_source,
+    isGuaranteeInvocation: !!r.is_guarantee_invocation,
+    isGoodwill: !!r.is_goodwill,
+    status: r.status,
+    customerReasonText: r.customer_reason_text,
+    requestedAt: r.requested_at,
+    requestedAgeLabel: ageLabel(r.requested_at),
+    processedAt: r.processed_at,
+    processedByUserId: r.processed_by_user_id,
+    isTest: r.is_test,
+    totalRefundCents: r.total_refund_cents,
+    projectTier: ofTier(project?.tier),
+    projectStatus: project?.status ?? "deposit_paid",
+    customerName: project?.customer_name ?? null,
+    customerEmail: project?.customer_email ?? "",
+    walkthroughCompletedAt: project?.walkthrough_completed_at ?? null,
+    payments: projectPayments.map(toPaymentSummary),
+    eligibility,
+    refundBreakdown: r.refund_breakdown ?? null,
+    stripeRefundIds: r.stripe_refund_ids ?? null,
+    deniedAt: r.denied_at ?? null,
+    denialReasonText: r.denial_reason_text ?? null,
+    deniedByUserId: r.denied_by_user_id ?? null,
+  };
+}
+
+// ─── Owner approval queue (F.3) ──────────────────────────────────────────────
+
+interface OwnerApprovalRowRaw {
+  id: string;
+  spec_project_id: string;
+  buyer_user_id: string;
+  account_holder_user_id: string;
+  linked_company_id: string;
+  tier: string;
+  approved_total_cents: number;
+  approved_deposit_cents: number;
+  requested_at: string;
+  status: SpecOwnerApprovalStatus;
+  is_test: boolean;
+}
+
+export async function getPendingOwnerApprovals(
+  testMode: boolean,
+): Promise<SpecOwnerApprovalQueueRow[]> {
+  const query = db()
+    .from("spec_owner_approval_requests")
+    .select(
+      "id, spec_project_id, buyer_user_id, account_holder_user_id, linked_company_id, tier, approved_total_cents, approved_deposit_cents, requested_at, status, is_test",
+    )
+    .eq("status", "pending")
+    .order("requested_at", { ascending: true });
+  const { data, error } = (await applyTestModeFilter(
+    query as unknown as Filterable,
+    testMode,
+  )) as unknown as {
+    data: OwnerApprovalRowRaw[] | null;
+    error: { message: string } | null;
+  };
+  if (error) {
+    console.error("[getPendingOwnerApprovals] failed:", error.message);
+    return [];
+  }
+  const rows = data ?? [];
+  if (rows.length === 0) return [];
+
+  const userIds = Array.from(
+    new Set(rows.flatMap((r) => [r.buyer_user_id, r.account_holder_user_id])),
+  );
+  const companyIds = Array.from(new Set(rows.map((r) => r.linked_company_id)));
+
+  const [users, companies] = await Promise.all([
+    loadOwnerApprovalUsers(userIds),
+    loadOwnerApprovalCompanies(companyIds),
+  ]);
+
+  return rows.map((r) => {
+    const ageInfo = ageLabelFromIso(r.requested_at);
+    const buyer = users.get(r.buyer_user_id);
+    const accountHolder = users.get(r.account_holder_user_id);
+    const company = companies.get(r.linked_company_id);
+    return {
+      id: r.id,
+      specProjectId: r.spec_project_id,
+      status: r.status,
+      tier: ofTier(r.tier),
+      approvedTotalCents: r.approved_total_cents,
+      approvedDepositCents: r.approved_deposit_cents,
+      requestedAt: r.requested_at,
+      ageLabel: ageInfo.ageLabel,
+      ageMinutes: ageInfo.ageMinutes,
+      isTest: r.is_test,
+      buyerUserId: r.buyer_user_id,
+      buyerName: buyer?.name ?? null,
+      buyerEmail: buyer?.email ?? null,
+      accountHolderUserId: r.account_holder_user_id,
+      accountHolderName: accountHolder?.name ?? null,
+      accountHolderEmail: accountHolder?.email ?? null,
+      companyId: r.linked_company_id,
+      companyName: company ?? null,
+    };
+  });
+}
+
+async function loadOwnerApprovalUsers(
+  userIds: string[],
+): Promise<Map<string, { name: string | null; email: string | null }>> {
+  if (userIds.length === 0) return new Map();
+  const { data, error } = await db()
+    .from("users")
+    .select("id, email, name")
+    .in("id", userIds);
+  if (error) {
+    console.error("[loadOwnerApprovalUsers] failed:", error.message);
+    return new Map();
+  }
+  return new Map(
+    (data ?? []).map((r) => [
+      r.id as string,
+      {
+        name: (r.name as string | null) ?? null,
+        email: (r.email as string | null) ?? null,
+      },
+    ]),
+  );
+}
+
+async function loadOwnerApprovalCompanies(
+  companyIds: string[],
+): Promise<Map<string, string | null>> {
+  if (companyIds.length === 0) return new Map();
+  const { data, error } = await db()
+    .from("companies")
+    .select("id, name")
+    .in("id", companyIds);
+  if (error) {
+    console.error("[loadOwnerApprovalCompanies] failed:", error.message);
+    return new Map();
+  }
+  return new Map(
+    (data ?? []).map((r) => [r.id as string, (r.name as string | null) ?? null]),
+  );
 }
