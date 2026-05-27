@@ -6,14 +6,18 @@ const {
   shouldFilterMock,
   matchMock,
   fetchOpportunitiesMock,
+  createOpportunityMock,
   createActivityMock,
+  relationshipMatchMock,
 } = vi.hoisted(() => ({
   getServiceRoleClientMock: vi.fn(),
   buildBlocklistMock: vi.fn(),
   shouldFilterMock: vi.fn(),
   matchMock: vi.fn(),
   fetchOpportunitiesMock: vi.fn(),
+  createOpportunityMock: vi.fn(),
   createActivityMock: vi.fn(),
+  relationshipMatchMock: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server-client", () => ({
@@ -43,9 +47,13 @@ vi.mock("@/lib/api/services/client-service", () => ({
 vi.mock("@/lib/api/services/opportunity-service", () => ({
   OpportunityService: {
     fetchOpportunities: fetchOpportunitiesMock,
-    createOpportunity: vi.fn(),
+    createOpportunity: createOpportunityMock,
     createActivity: createActivityMock,
   },
+}));
+
+vi.mock("@/lib/email/opportunity-relationship-matching", () => ({
+  findOpportunityRelationshipMatch: relationshipMatchMock,
 }));
 
 import { POST } from "@/app/api/integrations/gmail/historical-import/route";
@@ -311,8 +319,19 @@ describe("Gmail historical import provider id guard", () => {
     });
     fetchOpportunitiesMock.mockReset();
     fetchOpportunitiesMock.mockResolvedValue([{ id: "opp-1" }]);
+    createOpportunityMock.mockReset();
+    createOpportunityMock.mockResolvedValue({ id: "opp-created" });
     createActivityMock.mockReset();
     createActivityMock.mockResolvedValue({ id: "activity-1" });
+    relationshipMatchMock.mockReset();
+    relationshipMatchMock.mockResolvedValue({
+      action: "link",
+      opportunityId: "opp-1",
+      clientId: "client-1",
+      confidence: "exact_contact_email",
+      reason: "Exact contact email matched an active opportunity",
+      evidence: ["email:kara.beach@example.com"],
+    });
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
   });
 
@@ -426,5 +445,102 @@ describe("Gmail historical import provider id guard", () => {
       }),
     ]);
     expect(console.warn).not.toHaveBeenCalled();
+  });
+
+  it("uses P3 relationship matching create_new for historical existing-client messages instead of reusing an open opportunity", async () => {
+    relationshipMatchMock.mockResolvedValueOnce({
+      action: "create_new",
+      reason: "No deterministic opportunity relationship signal met the P3 confidence bar",
+      suggestedOpportunityId: "opp-open",
+      evidence: [],
+    });
+    fetchOpportunitiesMock.mockResolvedValueOnce([{ id: "opp-open" }]);
+    createOpportunityMock.mockResolvedValueOnce({ id: "opp-new" });
+
+    const { response, state } = await runHistoricalImport([
+      {
+        id: "msg-new-job",
+        threadId: "thread-new-job",
+        from: "Mara Hill <mara.hill@example.com>",
+        subject: "Need a new estimate",
+        snippet: "Can you quote a front gate at 455 New Road?",
+      },
+    ]);
+
+    expect(response.status).toBe(200);
+    expect(relationshipMatchMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        companyId: "company-1",
+        connectionId: "connection-1",
+        providerThreadId: "thread-new-job",
+        clientId: "client-1",
+      })
+    );
+    expect(createOpportunityMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        companyId: "company-1",
+        clientId: "client-1",
+        contactName: "Mara Hill",
+        contactEmail: "mara.hill@example.com",
+        sourceEmailId: "thread-new-job",
+      })
+    );
+    expect(createActivityMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        opportunityId: "opp-new",
+        clientId: "client-1",
+        emailThreadId: "thread-new-job",
+        emailMessageId: "msg-new-job",
+      })
+    );
+    expect(state.threadLinkWrites).toEqual([
+      expect.objectContaining({
+        opportunity_id: "opp-new",
+        thread_id: "thread-new-job",
+        connection_id: "connection-1",
+      }),
+    ]);
+    expect(state.threadLinkWrites[0].opportunity_id).not.toBe("opp-open");
+  });
+
+  it("persists opportunity_email_threads when P3 relationship matching links a historical provider thread", async () => {
+    relationshipMatchMock.mockResolvedValueOnce({
+      action: "link",
+      opportunityId: "opp-linked",
+      clientId: "client-1",
+      confidence: "exact_contact_email",
+      reason: "Exact contact email matched an active opportunity",
+      evidence: ["email:kara.beach@example.com"],
+    });
+
+    const { response, state } = await runHistoricalImport([
+      {
+        id: "msg-linked",
+        threadId: "thread-linked",
+      },
+    ]);
+
+    expect(response.status).toBe(200);
+    expect(relationshipMatchMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        providerThreadId: "thread-linked",
+        clientId: "client-1",
+      })
+    );
+    expect(createActivityMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        opportunityId: "opp-linked",
+        clientId: "client-1",
+        emailThreadId: "thread-linked",
+        emailMessageId: "msg-linked",
+      })
+    );
+    expect(state.threadLinkWrites).toEqual([
+      expect.objectContaining({
+        opportunity_id: "opp-linked",
+        thread_id: "thread-linked",
+        connection_id: "connection-1",
+      }),
+    ]);
   });
 });

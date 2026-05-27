@@ -423,23 +423,33 @@ async function runImport(
           phaseCEnabled: false,
         },
       });
+      const relationshipDecisionRequiresNewOpportunity =
+        relationshipDecision.action === "create_new";
 
-      // Check for existing open opportunity for this client
-      const { data: existingOpps } = await supabase
-        .from("opportunities")
-        .select("id")
-        .eq("company_id", companyId)
-        .eq("client_id", clientId)
-        .in("stage", [
-          "new_lead",
-          "qualifying",
-          "quoting",
-          "quoted",
-          "follow_up",
-          "negotiation",
-        ])
-        .is("deleted_at", null)
-        .limit(1);
+      let existingOpps: Array<{ id: string }> | null = null;
+      if (
+        relationshipDecision.action !== "link" &&
+        !relationshipDecisionRequiresNewOpportunity
+      ) {
+        // Check for existing open opportunity for this client only when P3 has
+        // not explicitly rejected client-level reuse for this provider thread.
+        const { data } = await supabase
+          .from("opportunities")
+          .select("id")
+          .eq("company_id", companyId)
+          .eq("client_id", clientId)
+          .in("stage", [
+            "new_lead",
+            "qualifying",
+            "quoting",
+            "quoted",
+            "follow_up",
+            "negotiation",
+          ])
+          .is("deleted_at", null)
+          .limit(1);
+        existingOpps = (data ?? null) as Array<{ id: string }> | null;
+      }
 
       let opportunityId: string;
 

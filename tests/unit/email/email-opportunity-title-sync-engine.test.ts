@@ -669,6 +669,100 @@ describe("SyncEngine email opportunity title generation", () => {
     ]);
   });
 
+  it("creates a separate opportunity when P3 relationship matching rejects client-level reuse", async () => {
+    const state: SupabaseState = {
+      clients: [
+        {
+          id: "client-existing",
+          company_id: "company-1",
+          name: "Kara Beach",
+          email: "kara.beach@example.com",
+          phone_number: null,
+          address: "22 Original Road, Victoria BC",
+        },
+      ],
+      opportunities: [
+        {
+          id: "opp-open",
+          company_id: "company-1",
+          client_id: "client-existing",
+          title: "Kara Beach - Original deck",
+          stage: "follow_up",
+          archived_at: null,
+          deleted_at: null,
+          contact_name: "Kara Beach",
+          contact_email: "kara.beach@example.com",
+          contact_phone: null,
+          address: "22 Original Road, Victoria BC",
+          description: "Original deck repair.",
+          source_email_id: "thread-original",
+          created_at: "2026-05-19T17:00:00.000Z",
+          updated_at: "2026-05-20T17:00:00.000Z",
+        },
+      ],
+      threadLinks: [],
+      activities: [],
+      rpcCalls: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+    getConnectionMock.mockResolvedValue(baseConnection());
+    getProviderMock.mockReturnValue({
+      fetchNewEmailsSince: vi.fn(async () => ({
+        emails: [
+          baseEmail({
+            id: "msg-new-job",
+            threadId: "thread-new-job",
+            from: "Mara Hill <mara.hill@example.com>",
+            fromName: "Mara Hill",
+            to: ["jackson@canprodeckandrail.com"],
+            subject: "Need an estimate",
+            bodyText: "Can you quote a front gate at 455 New Road?",
+            labelIds: ["INBOX"],
+          }),
+        ],
+        nextSyncToken: "sync-token-2",
+      })),
+      fetchSentEmailsSince: vi.fn(async () => ({
+        emails: [],
+        nextSyncToken: "sync-token-2",
+      })),
+    });
+    matchMock.mockResolvedValue({
+      action: "link",
+      clientId: "client-existing",
+      confidence: "exact",
+    });
+
+    await SyncEngine.runSync("connection-1");
+
+    expect(state.opportunities).toHaveLength(2);
+    const createdOpportunity = state.opportunities.find(
+      (opportunity) => opportunity.id !== "opp-open"
+    );
+    expect(createdOpportunity).toMatchObject({
+      client_id: "client-existing",
+      contact_name: "Mara Hill",
+      contact_email: "mara.hill@example.com",
+      source_email_id: "thread-new-job",
+      source: "email",
+    });
+    expect(state.threadLinks).toEqual([
+      expect.objectContaining({
+        opportunity_id: createdOpportunity?.id,
+        thread_id: "thread-new-job",
+        connection_id: "connection-1",
+      }),
+    ]);
+    expect(state.activities[0]).toMatchObject({
+      email_message_id: "msg-new-job",
+      email_thread_id: "thread-new-job",
+      opportunity_id: createdOpportunity?.id,
+      from_email: "mara.hill@example.com",
+    });
+    expect(state.threadLinks[0].opportunity_id).not.toBe("opp-open");
+  });
+
   it("quarantines provider-backed inbound email with a blank provider thread id before lifecycle writes", async () => {
     const state: SupabaseState = {
       clients: [],
