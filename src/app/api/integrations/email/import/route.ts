@@ -20,6 +20,10 @@ import { ClientService } from "@/lib/api/services/client-service";
 import { OpportunityService } from "@/lib/api/services/opportunity-service";
 import { buildEmailOpportunityTitle } from "@/lib/email/opportunity-title";
 import {
+  logInvalidProviderEmailIds,
+  validateProviderEmailIds,
+} from "@/lib/email/provider-email-ids";
+import {
   ActivityType,
   OpportunityStage,
   OpportunitySource,
@@ -202,6 +206,9 @@ async function runImport(
   const mergeMap = new Map<string, string>();
   // Track lead.id → opportunityId for post-import image extraction
   const oppMap = new Map<string, string>();
+  // Track lead.id → normalized provider thread id. Import activities are
+  // synthetic, but thread/link/image extraction still require real thread ids.
+  const threadIdMap = new Map<string, string>();
 
   // Sort leads so merge targets (primary leads) appear before dependents.
   // Leads without mergeWithLeadId come first, followed by leads that merge into others.
@@ -221,6 +228,29 @@ async function runImport(
         console.log(`[email-import] DISCARD: Skipping lead "${lead.clientName}" (${lead.clientEmail})`);
         continue;
       }
+
+      const providerIds = validateProviderEmailIds({
+        boundary: "import_synthetic_activity",
+        providerThreadId: lead.threadId,
+        providerMessageId: null,
+        requireMessageId: false,
+      });
+
+      if (!providerIds.ok) {
+        logInvalidProviderEmailIds(providerIds, {
+          companyId,
+          connectionId,
+          leadId: lead.id,
+          clientEmail: lead.clientEmail,
+        });
+        result.errors.push(
+          `Skipped ${lead.clientEmail}: blank provider thread id`
+        );
+        continue;
+      }
+
+      const providerThreadId = providerIds.providerThreadId;
+      threadIdMap.set(lead.id, providerThreadId);
 
       // Use local variables to avoid mutating the payload object
       let effectiveAction = lead.action;
@@ -470,7 +500,7 @@ async function runImport(
       await supabase.from("opportunity_email_threads").upsert(
         {
           opportunity_id: opportunityId,
-          thread_id: lead.threadId,
+          thread_id: providerThreadId,
           connection_id: connectionId,
         },
         { onConflict: "thread_id,connection_id", ignoreDuplicates: true }
@@ -482,7 +512,7 @@ async function runImport(
         .select("id")
         .eq("company_id", companyId)
         .eq("opportunity_id", opportunityId)
-        .eq("email_thread_id", lead.threadId)
+        .eq("email_thread_id", providerThreadId)
         .eq("type", "email")
         .limit(1);
 
@@ -499,7 +529,8 @@ async function runImport(
           outcome: null,
           direction: "inbound",
           durationMinutes: null,
-          emailThreadId: lead.threadId,
+          emailThreadId: providerThreadId,
+          emailMessageId: null,
           isRead: true,
           fromEmail: lead.clientEmail,
           createdBy: null,
@@ -510,12 +541,12 @@ async function runImport(
       // Apply label to thread
       if (labelId) {
         try {
-          await provider.applyLabel(lead.threadId, labelId);
+          await provider.applyLabel(providerThreadId, labelId);
           result.labelsApplied++;
         } catch (labelErr) {
           // Non-fatal
           console.error(
-            `[email-import] Failed to apply label to thread ${lead.threadId}:`,
+            `[email-import] Failed to apply label to thread ${providerThreadId}:`,
             labelErr
           );
         }
@@ -549,7 +580,7 @@ async function runImport(
     const existing = oppThreadMap.get(oppId);
     const threadIds = lead.mergeWithLeadId
       ? lead.mergeWithLeadId.split(",").filter(Boolean)
-      : [lead.threadId];
+      : [threadIdMap.get(lead.id) ?? lead.threadId];
 
     const senderEmails = new Set<string>();
     if (lead.clientEmail) senderEmails.add(lead.clientEmail.toLowerCase().trim());

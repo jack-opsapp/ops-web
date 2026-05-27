@@ -19,6 +19,10 @@ import { EmailService } from "@/lib/api/services/email-service";
 import { EmailThreadService } from "@/lib/api/services/email-thread-service";
 import { markdownToEmailHtml } from "@/lib/utils/markdown-to-email-html";
 import { extractEmailAddress } from "@/lib/utils/email-parsing";
+import {
+  logInvalidProviderEmailIds,
+  validateProviderEmailIds,
+} from "@/lib/email/provider-email-ids";
 import { getSubscriptionInfo } from "@/lib/subscription";
 import {
   SubscriptionPlan,
@@ -223,6 +227,29 @@ export async function POST(request: NextRequest) {
       threadId,
     });
     const sentAt = new Date();
+    const providerIds = validateProviderEmailIds({
+      boundary: "email_send_provider_result",
+      providerThreadId: sendResult.threadId,
+      providerMessageId: sendResult.messageId,
+      requireMessageId: true,
+    });
+
+    if (!providerIds.ok) {
+      logInvalidProviderEmailIds(providerIds, {
+        companyId,
+        connectionId: connection.id,
+        opportunityId: opportunityId || null,
+        userId,
+        subject,
+      });
+      return NextResponse.json(
+        { error: "EMAIL_SEND_INVALID_PROVIDER_IDS" },
+        { status: 502 }
+      );
+    }
+
+    const providerMessageId = providerIds.providerMessageId!;
+    const providerThreadId = providerIds.providerThreadId;
 
     // ── Create outbound activity ──────────────────────────────────────────
     // Uses direct insert (like sync-engine) to populate extended fields
@@ -235,8 +262,8 @@ export async function POST(request: NextRequest) {
       subject,
       content: emailBody.substring(0, 500),
       body_text: emailBody,
-      email_message_id: sendResult.messageId,
-      email_thread_id: sendResult.threadId,
+      email_message_id: providerMessageId,
+      email_thread_id: providerThreadId,
       opportunity_id: opportunityId || null,
       direction: "outbound",
       from_email: connection.email,
@@ -256,10 +283,10 @@ export async function POST(request: NextRequest) {
     const { threadRow } = await EmailThreadService.upsertFromEmail({
       companyId,
       connectionId: connection.id,
-      providerThreadId: sendResult.threadId,
+      providerThreadId,
       email: {
-        id: sendResult.messageId,
-        threadId: sendResult.threadId,
+        id: providerMessageId,
+        threadId: providerThreadId,
         from: connection.email,
         fromName: connection.email,
         to,
@@ -314,22 +341,20 @@ export async function POST(request: NextRequest) {
       }
 
       // Link thread → opportunity if not already linked
-      if (sendResult.threadId) {
-        await supabase.from("opportunity_email_threads").upsert(
-          {
-            opportunity_id: opportunityId,
-            thread_id: sendResult.threadId,
-            connection_id: connection.id,
-          },
-          { onConflict: "thread_id,connection_id", ignoreDuplicates: true }
-        );
-      }
+      await supabase.from("opportunity_email_threads").upsert(
+        {
+          opportunity_id: opportunityId,
+          thread_id: providerThreadId,
+          connection_id: connection.id,
+        },
+        { onConflict: "thread_id,connection_id", ignoreDuplicates: true }
+      );
     }
 
     // ── Apply OPS Pipeline label ──────────────────────────────────────────
-    if (connection.opsLabelId && sendResult.threadId) {
+    if (connection.opsLabelId) {
       try {
-        await provider.applyLabel(sendResult.threadId, connection.opsLabelId);
+        await provider.applyLabel(providerThreadId, connection.opsLabelId);
       } catch (labelErr) {
         // Non-fatal — label application failure shouldn't block send
         console.error("[email-send] Failed to apply label:", labelErr);
@@ -338,8 +363,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       ok: true,
-      messageId: sendResult.messageId,
-      threadId: sendResult.threadId,
+      messageId: providerMessageId,
+      threadId: providerThreadId,
       from: connection.email,
       sentAt: sentAt.toISOString(),
       labels,

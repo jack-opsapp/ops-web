@@ -14,6 +14,12 @@ import { EmailMatchingServiceV2 } from "@/lib/api/services/email-matching-servic
 import { ClientService } from "@/lib/api/services/client-service";
 import { OpportunityService } from "@/lib/api/services/opportunity-service";
 import {
+  logInvalidProviderEmailIds,
+  normalizeProviderEmailId,
+  validateProviderEmailIds,
+  type ProviderEmailIdValidationResult,
+} from "@/lib/email/provider-email-ids";
+import {
   ActivityType,
   OpportunityStage,
   OpportunitySource,
@@ -113,6 +119,28 @@ const BATCH_DELAY_MS = 200;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function normalizeHistoricalImportMessageId(
+  msgId: string,
+  companyId: string
+): string | null {
+  const providerMessageId = normalizeProviderEmailId(msgId);
+  if (providerMessageId) return providerMessageId;
+
+  const validation: Extract<ProviderEmailIdValidationResult, { ok: false }> = {
+    ok: false,
+    boundary: "gmail_historical_import_message_fetch",
+    providerThreadId: null,
+    providerMessageId: null,
+    reasons: ["blank_provider_message_id"],
+  };
+
+  logInvalidProviderEmailIds(validation, {
+    companyId,
+    rawProviderMessageId: msgId,
+  });
+  return null;
 }
 
 // ─── Route Handler ───────────────────────────────────────────────────────────
@@ -532,23 +560,26 @@ async function processMessage(
   blocklist: { domains: Set<string>; keywords: string[] },
   supabase: ReturnType<typeof requireSupabase>
 ): Promise<{ matched: boolean; needsReview: boolean } | null> {
+  const providerMessageId = normalizeHistoricalImportMessageId(msgId, companyId);
+  if (!providerMessageId) return null;
+
   // Dedup: check if we already have this message
   const { data: existing } = await supabase
     .from("activities")
     .select("id")
-    .eq("email_message_id", msgId)
+    .eq("email_message_id", providerMessageId)
     .limit(1);
 
   if ((existing ?? []).length > 0) return null;
 
   // Fetch message metadata
   const msgResp = await fetch(
-    `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msgId}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Subject`,
+    `https://gmail.googleapis.com/gmail/v1/users/me/messages/${providerMessageId}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Subject`,
     { headers: { Authorization: `Bearer ${token}` } }
   );
 
   if (!msgResp.ok) {
-    throw new Error(`Failed to fetch message ${msgId}: ${msgResp.status}`);
+    throw new Error(`Failed to fetch message ${providerMessageId}: ${msgResp.status}`);
   }
 
   const msg: GmailMessage = await msgResp.json();
@@ -561,6 +592,24 @@ async function processMessage(
 
   // Extract email address from "Name <email>" format
   const fromEmail = (from.match(/<(.+?)>/) ?? [, from])[1]?.toLowerCase() ?? "";
+
+  const providerIds = validateProviderEmailIds({
+    boundary: "gmail_historical_import_activity",
+    providerThreadId: threadId,
+    providerMessageId,
+    requireMessageId: true,
+  });
+
+  if (!providerIds.ok) {
+    logInvalidProviderEmailIds(providerIds, {
+      companyId,
+      subject,
+      fromEmail: fromEmail || null,
+    });
+    return null;
+  }
+
+  const providerThreadId = providerIds.providerThreadId;
 
   // Noise filter: skip automated/marketing emails
   if (EmailFilterService.shouldFilter(fromEmail, subject, blocklist, syncFilters, msg.labelIds, msg.snippet)) {
@@ -580,7 +629,7 @@ async function processMessage(
     companyId,
     fromEmail,
     {
-      threadId: threadId ?? undefined,
+      threadId: providerThreadId,
       name: fromName,
     }
   );
@@ -629,8 +678,8 @@ async function processMessage(
     direction,
     durationMinutes: null,
     attachments: [],
-    emailThreadId: threadId,
-    emailMessageId: msgId,
+    emailThreadId: providerThreadId,
+    emailMessageId: providerMessageId,
     isRead: !!clientId,
     fromEmail: fromEmail || null,
     createdBy: null,

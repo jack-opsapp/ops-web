@@ -83,6 +83,7 @@ interface SupabaseState {
   opportunities: Array<Record<string, unknown>>;
   threadLinks: Array<Record<string, unknown>>;
   activities: Array<Record<string, unknown>>;
+  rpcCalls?: Array<{ name: string; params: Record<string, unknown> }>;
 }
 
 function makeSupabaseDouble(state: SupabaseState) {
@@ -240,7 +241,23 @@ function makeSupabaseDouble(state: SupabaseState) {
     from(table: string) {
       return new Query(table);
     },
-    rpc: vi.fn(async () => ({ data: null, error: null })),
+    rpc: vi.fn(async (name: string, params: Record<string, unknown>) => {
+      state.rpcCalls?.push({ name, params });
+      return {
+        data: [
+          {
+            correspondence_count: 2,
+            inbound_count: 2,
+            outbound_count: 0,
+            stage: "new_lead",
+            stage_manually_set: false,
+            last_inbound_at: "2026-05-20T17:00:00.000Z",
+            last_outbound_at: null,
+          },
+        ],
+        error: null,
+      };
+    }),
   };
 }
 
@@ -332,6 +349,7 @@ describe("SyncEngine email opportunity title generation", () => {
       newLeadsClassified: 0,
     });
     evaluateStagesWithSummaryMock.mockResolvedValue([]);
+    upsertFromEmailMock.mockReset();
     upsertFromEmailMock.mockResolvedValue({
       isNew: false,
       threadRow: {
@@ -414,6 +432,188 @@ describe("SyncEngine email opportunity title generation", () => {
     expect(state.opportunities[0].title).toBe("Marcel Mercier — Email Inquiry");
     expect(state.opportunities[0].title).not.toContain("Canpro");
     expect(state.opportunities[0].title).not.toContain("notifications");
+    expect(matchMock).toHaveBeenCalledWith(
+      "company-1",
+      "marcel.mercier@example.com",
+      expect.objectContaining({
+        threadId: "thread-form-1",
+        name: "Marcel Mercier",
+        connectionId: "connection-1",
+      })
+    );
+    expect(state.activities[0]).toMatchObject({
+      email_message_id: "msg-form-1",
+      email_thread_id: "thread-form-1",
+      from_email: "marcel.mercier@example.com",
+      opportunity_id: "opp-1",
+    });
+    expect(upsertFromEmailMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        providerThreadId: "thread-form-1",
+        email: expect.objectContaining({
+          from: "Marcel Mercier <marcel.mercier@example.com>",
+          fromName: "Marcel Mercier",
+          threadId: "thread-form-1",
+        }),
+        opportunityId: "opp-1",
+      })
+    );
+  });
+
+  it("quarantines provider-backed inbound email with a blank provider thread id before lifecycle writes", async () => {
+    const state: SupabaseState = {
+      clients: [],
+      opportunities: [],
+      threadLinks: [],
+      activities: [],
+      rpcCalls: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+    getConnectionMock.mockResolvedValue(baseConnection());
+    getProviderMock.mockReturnValue({
+      fetchNewEmailsSince: vi.fn(async () => ({
+        emails: [
+          baseEmail({
+            id: "msg-blank-thread",
+            threadId: "   ",
+            from: "Kara Beach <kara.beach@example.com>",
+            fromName: "Kara Beach",
+            to: ["jackson@canprodeckandrail.com"],
+            subject: "Canpro Deck and Rail Estimate",
+            labelIds: ["INBOX"],
+          }),
+        ],
+        nextSyncToken: "sync-token-2",
+      })),
+      fetchSentEmailsSince: vi.fn(async () => ({
+        emails: [],
+        nextSyncToken: "sync-token-2",
+      })),
+    });
+    matchMock.mockResolvedValue({ action: "create_new", clientId: null });
+
+    const result = await SyncEngine.runSync("connection-1");
+
+    expect(state.clients).toHaveLength(0);
+    expect(state.opportunities).toHaveLength(0);
+    expect(state.threadLinks).toHaveLength(0);
+    expect(state.activities).toHaveLength(0);
+    expect(state.rpcCalls).toHaveLength(0);
+    expect(upsertFromEmailMock).not.toHaveBeenCalled();
+    expect(result.invalidProviderEmails).toBe(1);
+  });
+
+  it("quarantines provider-backed email with a blank provider message id before activity and count writes", async () => {
+    const state: SupabaseState = {
+      clients: [],
+      opportunities: [],
+      threadLinks: [
+        {
+          opportunity_id: "opp-linked",
+          thread_id: "thread-linked",
+          connection_id: "connection-1",
+        },
+      ],
+      activities: [],
+      rpcCalls: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+    getConnectionMock.mockResolvedValue(baseConnection());
+    getProviderMock.mockReturnValue({
+      fetchNewEmailsSince: vi.fn(async () => ({
+        emails: [
+          baseEmail({
+            id: " ",
+            threadId: "thread-linked",
+            from: "Kara Beach <kara.beach@example.com>",
+            fromName: "Kara Beach",
+            to: ["jackson@canprodeckandrail.com"],
+            subject: "Deck quote follow-up",
+            labelIds: ["INBOX"],
+          }),
+        ],
+        nextSyncToken: "sync-token-2",
+      })),
+      fetchSentEmailsSince: vi.fn(async () => ({
+        emails: [],
+        nextSyncToken: "sync-token-2",
+      })),
+    });
+
+    const result = await SyncEngine.runSync("connection-1");
+
+    expect(state.threadLinks).toHaveLength(1);
+    expect(state.activities).toHaveLength(0);
+    expect(state.rpcCalls).toHaveLength(0);
+    expect(upsertFromEmailMock).not.toHaveBeenCalled();
+    expect(result.invalidProviderEmails).toBe(1);
+  });
+
+  it("continues valid linked-thread processing after provider id guardrails", async () => {
+    const state: SupabaseState = {
+      clients: [],
+      opportunities: [],
+      threadLinks: [
+        {
+          opportunity_id: "opp-linked",
+          thread_id: "thread-linked",
+          connection_id: "connection-1",
+        },
+      ],
+      activities: [],
+      rpcCalls: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+    getConnectionMock.mockResolvedValue(baseConnection());
+    getProviderMock.mockReturnValue({
+      fetchNewEmailsSince: vi.fn(async () => ({
+        emails: [
+          baseEmail({
+            id: "msg-linked",
+            threadId: "thread-linked",
+            from: "Kara Beach <kara.beach@example.com>",
+            fromName: "Kara Beach",
+            to: ["jackson@canprodeckandrail.com"],
+            subject: "Deck quote follow-up",
+            labelIds: ["INBOX"],
+          }),
+        ],
+        nextSyncToken: "sync-token-2",
+      })),
+      fetchSentEmailsSince: vi.fn(async () => ({
+        emails: [],
+        nextSyncToken: "sync-token-2",
+      })),
+    });
+
+    const result = await SyncEngine.runSync("connection-1");
+
+    expect(state.activities).toHaveLength(1);
+    expect(state.activities[0]).toMatchObject({
+      email_message_id: "msg-linked",
+      email_thread_id: "thread-linked",
+      opportunity_id: "opp-linked",
+    });
+    expect(state.rpcCalls).toEqual([
+      {
+        name: "increment_opportunity_correspondence",
+        params: expect.objectContaining({
+          p_opportunity_id: "opp-linked",
+          p_is_inbound: true,
+        }),
+      },
+    ]);
+    expect(upsertFromEmailMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        providerThreadId: "thread-linked",
+        opportunityId: "opp-linked",
+      })
+    );
+    expect(result.matched).toBe(1);
+    expect(result.activitiesCreated).toBe(1);
   });
 
   it("keeps valid inbound customer sender titles stable", async () => {

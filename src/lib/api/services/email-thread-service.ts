@@ -55,6 +55,7 @@ import {
   stripQuotedContent,
   resolveEffectiveSenderEmail,
 } from "@/lib/utils/email-parsing";
+import { assertValidProviderEmailIds } from "@/lib/email/provider-email-ids";
 import type { NormalizedEmail } from "./email-provider";
 
 // ─── Sender-name resolution ──────────────────────────────────────────────────
@@ -735,7 +736,19 @@ export const EmailThreadService = {
     params: UpsertFromEmailParams
   ): Promise<UpsertFromEmailResult> {
     const supabase = requireSupabase();
-    const { companyId, connectionId, providerThreadId, email, direction } = params;
+    const { companyId, connectionId, direction } = params;
+    const providerIds = assertValidProviderEmailIds({
+      boundary: "email_thread_upsert",
+      providerThreadId: params.providerThreadId,
+      providerMessageId: params.email.id,
+      requireMessageId: true,
+    });
+    const providerThreadId = providerIds.providerThreadId;
+    const email: NormalizedEmail = {
+      ...params.email,
+      id: providerIds.providerMessageId!,
+      threadId: providerThreadId,
+    };
 
     // Check existing row
     const { data: existing, error: existingError } = await supabase

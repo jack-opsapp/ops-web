@@ -257,4 +257,36 @@ describe("EmailThreadService.upsertFromEmail contact-form sender identity", () =
       client_id: "client-david",
     });
   });
+
+  it("rejects provider thread cache writes with blank provider identifiers", async () => {
+    const state: SupabaseDoubleState = {
+      connectionEmail: "office@example-contractors.com",
+      clients: [],
+      insertedThreads: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+    await expect(
+      EmailThreadService.upsertFromEmail({
+        companyId: "company-1",
+        connectionId: "connection-1",
+        providerThreadId: " ",
+        direction: "inbound",
+        email: baseEmail({
+          id: " ",
+          threadId: " ",
+          from: "David Riddell <david@example.net>",
+          fromName: "David Riddell",
+          to: ["office@example-contractors.com"],
+          subject: "Deck quote request",
+          snippet: "Can you quote my deck replacement?",
+          bodyText: "Can you quote my deck replacement?",
+        }),
+      })
+    ).rejects.toMatchObject({
+      code: "invalid_provider_email_identifiers",
+    });
+
+    expect(state.insertedThreads).toHaveLength(0);
+  });
 });
