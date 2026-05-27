@@ -40,6 +40,9 @@ import * as SpecRefundProcessedMod from "./react/templates/SpecRefundProcessed";
 import * as SpecRefundDeniedMod from "./react/templates/SpecRefundDenied";
 import * as SpecEntitlementDisabledMod from "./react/templates/SpecEntitlementDisabled";
 import * as SpecEntitlementEnabledMod from "./react/templates/SpecEntitlementEnabled";
+import * as SpecOwnerApprovalExpiredBuyerMod from "./react/templates/SpecOwnerApprovalExpiredBuyer";
+import * as SpecOwnerApprovalExpiredOwnerMod from "./react/templates/SpecOwnerApprovalExpiredOwner";
+import * as SpecHoldExpiredCustomerRequestedMod from "./react/templates/SpecHoldExpiredCustomerRequested";
 
 export interface TemplateRegistryEntry {
   templateId: string;
@@ -363,6 +366,28 @@ export const TEMPLATE_REGISTRY: TemplateRegistryEntry[] = [
     Component: SpecEntitlementEnabledMod.SpecEntitlementEnabled,
     previewProps: SpecEntitlementEnabledMod.previewProps,
     sourcePath: "src/lib/email/react/templates/SpecEntitlementEnabled.tsx",
+    templateId: "spec.owner_approval_expired_buyer",
+    displayName: "SPEC — Owner Approval Expired (Buyer)",
+    defaultSubject: "SPEC REQUEST EXPIRED",
+    Component: SpecOwnerApprovalExpiredBuyerMod.SpecOwnerApprovalExpiredBuyer,
+    previewProps: SpecOwnerApprovalExpiredBuyerMod.previewProps,
+    sourcePath: "src/lib/email/react/templates/SpecOwnerApprovalExpiredBuyer.tsx",
+  },
+  {
+    templateId: "spec.owner_approval_expired_owner",
+    displayName: "SPEC — Owner Approval Expired (Owner)",
+    defaultSubject: "SPEC REQUEST EXPIRED",
+    Component: SpecOwnerApprovalExpiredOwnerMod.SpecOwnerApprovalExpiredOwner,
+    previewProps: SpecOwnerApprovalExpiredOwnerMod.previewProps,
+    sourcePath: "src/lib/email/react/templates/SpecOwnerApprovalExpiredOwner.tsx",
+  },
+  {
+    templateId: "spec.hold_expired_customer_requested",
+    displayName: "SPEC — Hold Expired (Customer Requested)",
+    defaultSubject: "SPEC ENGAGEMENT STALLED — 90-DAY PAUSE EXPIRED",
+    Component: SpecHoldExpiredCustomerRequestedMod.SpecHoldExpiredCustomerRequested,
+    previewProps: SpecHoldExpiredCustomerRequestedMod.previewProps,
+    sourcePath: "src/lib/email/react/templates/SpecHoldExpiredCustomerRequested.tsx",
   },
 ];
 
