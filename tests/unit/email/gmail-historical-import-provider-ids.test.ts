@@ -54,6 +54,7 @@ interface HistoricalImportState {
   activityMetadataUpdates: Array<Record<string, unknown>>;
   emailThreadWrites: Array<Record<string, unknown>>;
   threadLinkWrites: Array<Record<string, unknown>>;
+  opportunityUpdates: Array<Record<string, unknown>>;
   jobUpdates: Array<Record<string, unknown>>;
 }
 
@@ -79,6 +80,7 @@ function makeSupabaseDouble(state: HistoricalImportState) {
   class Query {
     private action: "select" | "insert" | "update" | "upsert" = "select";
     private payload: Record<string, unknown> | null = null;
+    private filters = new Map<string, unknown>();
 
     constructor(private readonly table: string) {}
 
@@ -86,7 +88,8 @@ function makeSupabaseDouble(state: HistoricalImportState) {
       return this;
     }
 
-    eq() {
+    eq(column: string, value: unknown) {
+      this.filters.set(column, value);
       return this;
     }
 
@@ -118,6 +121,7 @@ function makeSupabaseDouble(state: HistoricalImportState) {
       this.payload = payload;
       if (this.table === "gmail_import_jobs") state.jobUpdates.push(payload);
       if (this.table === "activities") state.activityMetadataUpdates.push(payload);
+      if (this.table === "opportunities") state.opportunityUpdates.push(payload);
       return this;
     }
 
@@ -151,6 +155,40 @@ function makeSupabaseDouble(state: HistoricalImportState) {
       if (this.table === "gmail_import_jobs" && this.action === "insert") {
         return {
           data: { id: "job-1", ...this.payload },
+          error: null,
+        };
+      }
+
+      return { data: null, error: null };
+    }
+
+    async maybeSingle() {
+      if (this.table === "opportunities") {
+        return {
+          data: {
+            client_id: "client-1",
+            contact_name: null,
+            contact_email: null,
+            contact_phone: null,
+            address: null,
+            estimated_value: null,
+            detected_value: null,
+            description: null,
+            source: null,
+            source_email_id: null,
+          },
+          error: null,
+        };
+      }
+
+      if (this.table === "clients") {
+        return {
+          data: {
+            name: null,
+            email: null,
+            phone_number: null,
+            address: null,
+          },
           error: null,
         };
       }
@@ -238,6 +276,7 @@ async function runHistoricalImport(messages: GmailMessageFixture[]) {
     activityMetadataUpdates: [],
     emailThreadWrites: [],
     threadLinkWrites: [],
+    opportunityUpdates: [],
     jobUpdates: [],
   };
 
@@ -297,6 +336,7 @@ describe("Gmail historical import provider id guard", () => {
     expect(state.activityMetadataUpdates).toHaveLength(0);
     expect(state.emailThreadWrites).toHaveLength(0);
     expect(state.threadLinkWrites).toHaveLength(0);
+    expect(state.opportunityUpdates).toHaveLength(0);
     expect(console.warn).toHaveBeenCalledWith(
       "[provider-email-ids] rejected email lifecycle write",
       expect.objectContaining({
@@ -329,6 +369,7 @@ describe("Gmail historical import provider id guard", () => {
     expect(state.activityMetadataUpdates).toHaveLength(0);
     expect(state.emailThreadWrites).toHaveLength(0);
     expect(state.threadLinkWrites).toHaveLength(0);
+    expect(state.opportunityUpdates).toHaveLength(0);
     expect(console.warn).toHaveBeenCalledWith(
       "[provider-email-ids] rejected email lifecycle write",
       expect.objectContaining({
@@ -367,6 +408,15 @@ describe("Gmail historical import provider id guard", () => {
       })
     );
     expect(state.activityMetadataUpdates).toHaveLength(1);
+    expect(state.opportunityUpdates).toEqual([
+      expect.objectContaining({
+        contact_name: "Kara Beach",
+        contact_email: "kara.beach@example.com",
+        description: "Following up on the deck quote.",
+        source_email_id: "thread-valid",
+        source: "email",
+      }),
+    ]);
     expect(state.emailThreadWrites).toHaveLength(0);
     expect(state.threadLinkWrites).toHaveLength(0);
     expect(console.warn).not.toHaveBeenCalled();

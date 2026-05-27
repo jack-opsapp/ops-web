@@ -588,6 +588,32 @@ const CONTACT_FORM_MESSAGE_LABELS = [
   "details",
   "inquiry",
 ];
+const CONTACT_FORM_ADDRESS_LABELS = [
+  "address",
+  "project address",
+  "site address",
+  "service address",
+  "property address",
+  "location",
+  "job location",
+];
+const CONTACT_FORM_COMPANY_LABELS = [
+  "company",
+  "company name",
+  "business",
+  "business name",
+  "organization",
+  "organisation",
+];
+const CONTACT_FORM_ESTIMATED_VALUE_LABELS = [
+  "budget",
+  "project budget",
+  "estimated budget",
+  "estimated value",
+  "estimate value",
+  "approximate budget",
+  "approx budget",
+];
 const CONTACT_FORM_FIELD_LABELS = [
   ...CONTACT_FORM_NAME_LABELS,
   ...CONTACT_FORM_FIRST_NAME_LABELS,
@@ -595,8 +621,9 @@ const CONTACT_FORM_FIELD_LABELS = [
   ...CONTACT_FORM_EMAIL_LABELS,
   ...CONTACT_FORM_PHONE_LABELS,
   ...CONTACT_FORM_MESSAGE_LABELS,
-  "address",
-  "company",
+  ...CONTACT_FORM_ADDRESS_LABELS,
+  ...CONTACT_FORM_COMPANY_LABELS,
+  ...CONTACT_FORM_ESTIMATED_VALUE_LABELS,
   "subject",
 ];
 const CONTACT_FORM_STOP_LABELS = [
@@ -611,6 +638,9 @@ export interface ContactFormSubmissionIdentity {
   email: string;
   phone: string | null;
   message: string | null;
+  address?: string | null;
+  company?: string | null;
+  estimatedValue?: number | null;
 }
 
 export interface ContactFormSubmissionDiagnostics {
@@ -683,6 +713,24 @@ function normalizePhoneToken(value: string): string {
 
 function digitCount(value: string): number {
   return value.replace(/\D/g, "").length;
+}
+
+export function parseContactFormEstimatedValue(
+  value: string | null | undefined
+): number | null {
+  const raw = cleanContactFormValue(value ?? null);
+  if (!raw) return null;
+
+  const compact = raw.replace(/,/g, "");
+  const match = compact.match(/(?:\$|cad|usd)?\s*(\d+(?:\.\d+)?)\s*([kKmM])?/);
+  if (!match) return null;
+
+  const amount = Number(match[1]);
+  if (!Number.isFinite(amount) || amount <= 0) return null;
+
+  const suffix = match[2]?.toLowerCase();
+  const multiplier = suffix === "m" ? 1_000_000 : suffix === "k" ? 1_000 : 1;
+  return Math.round(amount * multiplier);
 }
 
 export function sanitizeContactFormPhoneValue(
@@ -967,6 +1015,15 @@ export function extractContactFormSubmissionDiagnostics(
       phone: phoneSanitization.phone,
       message: cleanContactFormValue(
         extractFormField(body, CONTACT_FORM_MESSAGE_LABELS)
+      ),
+      address: cleanContactFormValue(
+        extractFormField(body, CONTACT_FORM_ADDRESS_LABELS)
+      ),
+      company: cleanContactFormValue(
+        extractFormField(body, CONTACT_FORM_COMPANY_LABELS)
+      ),
+      estimatedValue: parseContactFormEstimatedValue(
+        extractFormField(body, CONTACT_FORM_ESTIMATED_VALUE_LABELS)
       ),
     },
     warnings,

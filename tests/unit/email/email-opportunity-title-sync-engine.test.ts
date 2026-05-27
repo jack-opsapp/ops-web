@@ -327,11 +327,20 @@ Submission summary:
 Full Name:
 Marcel Mercier
 
+Company:
+Mercier Holdings
+
 Phone:
 12505388340
 
 Email:
 marcel.mercier@example.com
+
+Address:
+1220 Wharf Street, Victoria BC
+
+Budget:
+$18,500
 
 How can we help?:
 We need someone to renovate and replace two roof decks.`;
@@ -390,6 +399,16 @@ describe("SyncEngine email opportunity title generation", () => {
 
     expect(state.opportunities).toHaveLength(1);
     expect(state.opportunities[0].title).toBe("Kara Beach — Estimate");
+    expect(state.opportunities[0]).toMatchObject({
+      contact_name: "Kara Beach",
+      contact_email: "kara.beach@example.com",
+      source_email_id: "thread-1",
+      source: "email",
+    });
+    expect(state.clients[0]).toMatchObject({
+      name: "Kara Beach",
+      email: "kara.beach@example.com",
+    });
     expect(state.opportunities[0].title).not.toContain("Jackson Sweet");
   });
 
@@ -430,6 +449,23 @@ describe("SyncEngine email opportunity title generation", () => {
 
     expect(state.opportunities).toHaveLength(1);
     expect(state.opportunities[0].title).toBe("Marcel Mercier — Email Inquiry");
+    expect(state.opportunities[0]).toMatchObject({
+      contact_name: "Marcel Mercier",
+      contact_email: "marcel.mercier@example.com",
+      contact_phone: "12505388340",
+      address: "1220 Wharf Street, Victoria BC",
+      estimated_value: 18500,
+      detected_value: 18500,
+      description: "We need someone to renovate and replace two roof decks.",
+      source_email_id: "thread-form-1",
+      source: "email",
+    });
+    expect(state.clients[0]).toMatchObject({
+      name: "Mercier Holdings",
+      email: "marcel.mercier@example.com",
+      phone_number: "12505388340",
+      address: "1220 Wharf Street, Victoria BC",
+    });
     expect(state.opportunities[0].title).not.toContain("Canpro");
     expect(state.opportunities[0].title).not.toContain("notifications");
     expect(matchMock).toHaveBeenCalledWith(

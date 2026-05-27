@@ -14,6 +14,10 @@ import { EmailMatchingServiceV2 } from "@/lib/api/services/email-matching-servic
 import { ClientService } from "@/lib/api/services/client-service";
 import { OpportunityService } from "@/lib/api/services/opportunity-service";
 import {
+  applyCanonicalLeadEnrichment,
+  leadEnrichmentFactsFromImport,
+} from "@/lib/email/lead-enrichment";
+import {
   logInvalidProviderEmailIds,
   normalizeProviderEmailId,
   validateProviderEmailIds,
@@ -660,6 +664,22 @@ async function processMessage(
       ],
     });
     opportunityId = opps[0]?.id ?? null;
+  }
+
+  if (opportunityId) {
+    await applyCanonicalLeadEnrichment({
+      supabase,
+      opportunityId,
+      clientId,
+      facts: leadEnrichmentFactsFromImport({
+        contactName: fromName,
+        contactEmail: fromEmail,
+        description: msg.snippet ?? null,
+        providerThreadId,
+        providerMessageId,
+        extractionSource: "historical_metadata",
+      }),
+    });
   }
 
   // Create activity

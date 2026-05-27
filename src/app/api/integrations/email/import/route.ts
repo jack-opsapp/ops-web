@@ -20,6 +20,10 @@ import { ClientService } from "@/lib/api/services/client-service";
 import { OpportunityService } from "@/lib/api/services/opportunity-service";
 import { buildEmailOpportunityTitle } from "@/lib/email/opportunity-title";
 import {
+  applyCanonicalLeadEnrichment,
+  leadEnrichmentFactsFromImport,
+} from "@/lib/email/lead-enrichment";
+import {
   logInvalidProviderEmailIds,
   validateProviderEmailIds,
 } from "@/lib/email/provider-email-ids";
@@ -251,6 +255,17 @@ async function runImport(
 
       const providerThreadId = providerIds.providerThreadId;
       threadIdMap.set(lead.id, providerThreadId);
+      const enrichmentFacts = leadEnrichmentFactsFromImport({
+        contactName: lead.clientName,
+        contactEmail: lead.clientEmail,
+        contactPhone: lead.clientPhone,
+        address: lead.clientAddress,
+        estimatedValue: lead.estimatedValue,
+        description: lead.description,
+        providerThreadId,
+        providerMessageId: null,
+        extractionSource: "import_payload",
+      });
 
       // Use local variables to avoid mutating the payload object
       let effectiveAction = lead.action;
@@ -289,11 +304,13 @@ async function runImport(
             if (lead.clientName) updates.name = lead.clientName;
             if (lead.clientEmail) updates.email = lead.clientEmail;
             if (lead.clientPhone) updates.phone_number = lead.clientPhone;
+            if (lead.clientAddress) updates.address = lead.clientAddress;
           } else {
             // fill_blanks (default)
             if (!existingClient.name && lead.clientName) updates.name = lead.clientName;
             if (!existingClient.email && lead.clientEmail) updates.email = lead.clientEmail;
             if (!existingClient.phone_number && lead.clientPhone) updates.phone_number = lead.clientPhone;
+            if (!existingClient.address && lead.clientAddress) updates.address = lead.clientAddress;
           }
 
           if (Object.keys(updates).length > 0) {
@@ -362,6 +379,7 @@ async function runImport(
             companyId,
             email: lead.clientEmail.toLowerCase(),
             phoneNumber: lead.clientPhone || null,
+            address: lead.clientAddress || null,
           });
           clientId = newClient.id;
           result.clientsCreated++;
@@ -407,6 +425,12 @@ async function runImport(
 
       if (existingOpps && existingOpps.length > 0) {
         opportunityId = existingOpps[0].id;
+        await applyCanonicalLeadEnrichment({
+          supabase,
+          opportunityId,
+          clientId,
+          facts: enrichmentFacts,
+        });
       } else {
         const inboundCount = Math.max(0, (lead.correspondenceCount || 0) - (lead.outboundCount || 0));
         const lastMessageDate = lead.lastMessageDate ? new Date(lead.lastMessageDate) : null;
@@ -434,6 +458,7 @@ async function runImport(
           projectId: null,
           lostReason: null,
           lostNotes: null,
+          sourceEmailId: providerThreadId,
           quoteDeliveryMethod: null,
           address: lead.clientAddress || null,
           latitude: null,
@@ -455,6 +480,7 @@ async function runImport(
         if (lastMessageDate) patches.stage_entered_at = lastMessageDate.toISOString();
         // ai_summary → the AI-generated description from the classifier
         if (lead.description) patches.ai_summary = lead.description;
+        if (lead.estimatedValue) patches.detected_value = lead.estimatedValue;
 
         if (Object.keys(patches).length > 0) {
           await supabase

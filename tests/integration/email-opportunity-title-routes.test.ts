@@ -341,7 +341,21 @@ describe("email opportunity title route writes", () => {
     expect(payload.title).toBe("Kara Beach — Estimate");
     expect(payload.title).not.toBe("Canpro Deck and Rail Estimate");
     expect(payload.title).not.toContain("details");
+    expect(payload).toMatchObject({
+      contactName: "Kara Beach",
+      contactEmail: "kara.beach@example.com",
+      address: "123 Cedar Street",
+      sourceEmailId: "thread-1",
+      source: "email",
+    });
     expect(payload.description).toBe(aiSummary);
+    expect(createClientMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "Kara Beach",
+        email: "kara.beach@example.com",
+        address: "123 Cedar Street",
+      })
+    );
     expect(state.opportunityPatches[0]).toMatchObject({
       ai_summary: aiSummary,
     });
