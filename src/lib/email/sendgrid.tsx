@@ -76,6 +76,9 @@ import {
   type SpecRefundBreakdownRow,
 } from "./react/templates/SpecRefundProcessed";
 import { SpecRefundDenied } from "./react/templates/SpecRefundDenied";
+import { SpecOwnerApprovalExpiredBuyer } from "./react/templates/SpecOwnerApprovalExpiredBuyer";
+import { SpecOwnerApprovalExpiredOwner } from "./react/templates/SpecOwnerApprovalExpiredOwner";
+import { SpecHoldExpiredCustomerRequested } from "./react/templates/SpecHoldExpiredCustomerRequested";
 
 import { DISPATCH, GATE, FIELD_NOTES, portalSender, type Sender } from "./senders";
 import type { AdBriefing } from "@/lib/admin/briefing-types";
@@ -2237,6 +2240,134 @@ export async function sendSpecRefundDenied(params: {
     list: compliance.list,
     headers: compliance.headers,
     metadata: { ...params.metadata, tier: params.tier, companyName: params.companyName },
+    userId: params.userId ?? undefined,
+  });
+}
+
+export async function sendSpecOwnerApprovalExpiredBuyer(params: {
+  email: string;
+  buyerName: string;
+  accountHolderName: string;
+  companyName: string;
+  tier: SpecTier;
+  originalRequestedAt: string;
+  retryUrl: string;
+  userId?: string | null;
+  metadata?: Record<string, unknown>;
+}): Promise<GatedSendResult> {
+  const compliance = buildComplianceHeaders({
+    email: params.email,
+    kind: "spec.owner_approval_expired_buyer",
+  });
+  const html = await render(
+    <SpecOwnerApprovalExpiredBuyer
+      buyerName={params.buyerName}
+      accountHolderName={params.accountHolderName}
+      companyName={params.companyName}
+      tier={params.tier}
+      originalRequestedAt={params.originalRequestedAt}
+      retryUrl={params.retryUrl}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+      list={compliance.list}
+    />,
+  );
+  return gatedSend({
+    to: params.email,
+    from: DISPATCH,
+    replyTo: DISPATCH.email,
+    subject: `SPEC REQUEST EXPIRED — ${params.tier}`,
+    html,
+    emailType: "spec.owner_approval_expired_buyer",
+    list: compliance.list,
+    headers: compliance.headers,
+    metadata: { ...params.metadata, tier: params.tier, companyName: params.companyName },
+    userId: params.userId ?? undefined,
+  });
+}
+
+export async function sendSpecOwnerApprovalExpiredOwner(params: {
+  email: string;
+  accountHolderName: string;
+  buyerName: string;
+  companyName: string;
+  tier: SpecTier;
+  originalRequestedAt: string;
+  userId?: string | null;
+  metadata?: Record<string, unknown>;
+}): Promise<GatedSendResult> {
+  const compliance = buildComplianceHeaders({
+    email: params.email,
+    kind: "spec.owner_approval_expired_owner",
+  });
+  const html = await render(
+    <SpecOwnerApprovalExpiredOwner
+      accountHolderName={params.accountHolderName}
+      buyerName={params.buyerName}
+      companyName={params.companyName}
+      tier={params.tier}
+      originalRequestedAt={params.originalRequestedAt}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+      list={compliance.list}
+    />,
+  );
+  return gatedSend({
+    to: params.email,
+    from: DISPATCH,
+    replyTo: DISPATCH.email,
+    subject: `SPEC REQUEST EXPIRED — ${params.buyerName} was not approved`,
+    html,
+    emailType: "spec.owner_approval_expired_owner",
+    list: compliance.list,
+    headers: compliance.headers,
+    metadata: {
+      ...params.metadata,
+      tier: params.tier,
+      buyerName: params.buyerName,
+      companyName: params.companyName,
+    },
+    userId: params.userId ?? undefined,
+  });
+}
+
+export async function sendSpecHoldExpiredCustomerRequested(params: {
+  email: string;
+  customerName: string;
+  tier: SpecTier;
+  holdEnteredAt: string;
+  priorStatus: string;
+  contactEmail?: string;
+  userId?: string | null;
+  metadata?: Record<string, unknown>;
+}): Promise<GatedSendResult> {
+  const compliance = buildComplianceHeaders({
+    email: params.email,
+    kind: "spec.hold_expired_customer_requested",
+  });
+  const html = await render(
+    <SpecHoldExpiredCustomerRequested
+      customerName={params.customerName}
+      tier={params.tier}
+      holdEnteredAt={params.holdEnteredAt}
+      priorStatus={params.priorStatus}
+      contactEmail={params.contactEmail}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+      list={compliance.list}
+    />,
+  );
+  return gatedSend({
+    to: params.email,
+    from: DISPATCH,
+    replyTo: DISPATCH.email,
+    subject: `SPEC ENGAGEMENT STALLED — 90-DAY PAUSE EXPIRED`,
+    html,
+    emailType: "spec.hold_expired_customer_requested",
+    list: compliance.list,
+    headers: compliance.headers,
+    metadata: {
+      ...params.metadata,
+      tier: params.tier,
+      priorStatus: params.priorStatus,
+    },
     userId: params.userId ?? undefined,
   });
 }
