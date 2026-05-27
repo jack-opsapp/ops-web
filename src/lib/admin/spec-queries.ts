@@ -19,6 +19,9 @@ import { unstable_cache } from "next/cache";
 import { getAdminSupabase } from "@/lib/supabase/admin-client";
 import {
   KANBAN_COLUMNS,
+  SPEC_MILESTONE_LABELS,
+  SPEC_MILESTONE_ORDER,
+  SPEC_TIER_TOTAL_CENTS,
   type CapacityRow,
   type CycleTimeRow,
   type KanbanCard,
@@ -28,11 +31,32 @@ import {
   type RevenuePoint,
   type RevenueSummary,
   type SlowestProject,
+  type SpecAcceptanceEventType,
+  type SpecChangeOrderStatus,
+  type SpecCommunicationChannel,
+  type SpecCommunicationDirection,
+  type SpecFeatureStatus,
   type SpecHoldType,
+  type SpecIntakeFile,
+  type SpecIntakeTab,
+  type SpecMilestoneBreakdown,
+  type SpecMilestoneRow,
+  type SpecMilestonesTab,
   type SpecOverviewSnapshot,
+  type SpecOverviewTab,
+  type SpecPaymentMilestone,
   type SpecPaymentStatus,
+  type SpecProjectDetailSnapshot,
+  type SpecProjectHeader,
   type SpecProjectStatus,
+  type SpecScopeDocumentRow,
+  type SpecScopeFeatureRow,
+  type SpecScopeTab,
+  type SpecTicketSeverity,
+  type SpecTicketStatus,
   type SpecTier,
+  type SpecTimelineEvent,
+  type SpecUserLink,
   type TodayItem,
   type TodaySection,
   type VelocityRow,
@@ -1224,4 +1248,975 @@ export async function getOverviewSnapshot(testMode: boolean): Promise<SpecOvervi
     snapshotRefreshedAt: capacity.refreshedAt,
     testMode,
   };
+}
+
+// ─── Project detail (F.2.a) ──────────────────────────────────────────────────
+//
+// One render of `/admin/spec/[id]` loads the entire snapshot in one server
+// pass — no per-tab waterfalls. The operator gate is enforced by the route
+// layout; these queries assume an authorized caller.
+
+interface ProjectDetailRow {
+  id: string;
+  tier: SpecTier;
+  original_tier: SpecTier | null;
+  status: SpecProjectStatus;
+  is_test: boolean;
+  buyer_user_id: string;
+  account_holder_user_id: string | null;
+  linked_company_id: string | null;
+  customer_email: string;
+  customer_name: string | null;
+  customer_phone: string | null;
+  customer_gst_number: string | null;
+  hold_type: SpecHoldType | null;
+  prior_status: SpecProjectStatus | null;
+  on_hold_at: string | null;
+  on_hold_expires_at: string | null;
+  on_hold_reason: string | null;
+  deposit_paid_at: string | null;
+  intake_completed_at: string | null;
+  intake_files: unknown;
+  intake_responses: Record<string, unknown> | null;
+  regulated_workflow_flagged_at: string | null;
+  regulated_workflow_flags: Record<string, unknown> | null;
+  scope_doc_signed_at: string | null;
+  build_started_at: string | null;
+  walkthrough_completed_at: string | null;
+  support_window_ends_at: string | null;
+  estimated_completion_date: string | null;
+  polish_hours_budget: number | null;
+  polish_hours_used: number | null;
+  attribution: Record<string, unknown> | null;
+  updated_at: string | null;
+  created_at: string | null;
+  // status-anchor mirrors used to derive "last status change"
+  owner_approval_requested_at: string | null;
+  discovery_started_at: string | null;
+  retainer_started_at: string | null;
+  completed_at: string | null;
+  cancelled_at: string | null;
+  refunded_at: string | null;
+  stalled_at: string | null;
+}
+
+function projectLabelFor(row: { customer_name: string | null; customer_email: string }): string {
+  return row.customer_name?.trim() || row.customer_email;
+}
+
+function projectCustomerLabel(row: ProjectDetailRow): string {
+  return projectLabelFor(row);
+}
+
+/**
+ * Load the raw `spec_projects` row. Returns null if not found (operator should
+ * 404). Cached briefly per id; the page already opts out of route-segment
+ * caching via `dynamic = "force-dynamic"` for true-time financials.
+ */
+async function loadProjectRow(id: string): Promise<ProjectDetailRow | null> {
+  const { data, error } = await db()
+    .from("spec_projects")
+    .select(
+      "id, tier, original_tier, status, is_test, buyer_user_id, account_holder_user_id, linked_company_id, customer_email, customer_name, customer_phone, customer_gst_number, hold_type, prior_status, on_hold_at, on_hold_expires_at, on_hold_reason, deposit_paid_at, intake_completed_at, intake_files, intake_responses, regulated_workflow_flagged_at, regulated_workflow_flags, scope_doc_signed_at, build_started_at, walkthrough_completed_at, support_window_ends_at, estimated_completion_date, polish_hours_budget, polish_hours_used, attribution, updated_at, created_at, owner_approval_requested_at, discovery_started_at, retainer_started_at, completed_at, cancelled_at, refunded_at, stalled_at",
+    )
+    .eq("id", id)
+    .maybeSingle();
+  if (error) {
+    console.error("[loadProjectRow] failed:", error.message);
+    return null;
+  }
+  return (data as ProjectDetailRow | null) ?? null;
+}
+
+interface UserLookupRow {
+  id: string;
+  email: string | null;
+  full_name?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+}
+
+async function loadUserLinks(userIds: string[]): Promise<Map<string, SpecUserLink>> {
+  const filtered = Array.from(new Set(userIds.filter((id): id is string => Boolean(id))));
+  if (filtered.length === 0) return new Map();
+  const { data } = await db()
+    .from("users")
+    .select("id, email, full_name, first_name, last_name")
+    .in("id", filtered);
+  const map = new Map<string, SpecUserLink>();
+  for (const r of (data ?? []) as UserLookupRow[]) {
+    const name =
+      r.full_name?.trim() ||
+      [r.first_name, r.last_name].filter(Boolean).join(" ").trim() ||
+      null;
+    map.set(r.id, { id: r.id, email: r.email ?? null, name });
+  }
+  return map;
+}
+
+async function loadCompanyLink(companyId: string | null): Promise<{ id: string; name: string | null } | null> {
+  if (!companyId) return null;
+  const { data } = await db()
+    .from("companies")
+    .select("id, name")
+    .eq("id", companyId)
+    .maybeSingle();
+  if (!data) return null;
+  return { id: data.id as string, name: (data.name as string | null) ?? null };
+}
+
+interface PaymentDetailRow {
+  id: string;
+  milestone: SpecPaymentMilestone;
+  amount_cents: number;
+  total_cents: number;
+  status: SpecPaymentStatus;
+  invoiced_at: string | null;
+  paid_at: string | null;
+  due_date: string | null;
+  stripe_invoice_id: string | null;
+  amount_refunded_cents: number | null;
+  refunded_at: string | null;
+  voided_at: string | null;
+  marked_uncollectible_at: string | null;
+  created_at: string | null;
+}
+
+async function loadProjectPayments(projectId: string): Promise<PaymentDetailRow[]> {
+  const { data } = await db()
+    .from("spec_payments")
+    .select(
+      "id, milestone, amount_cents, total_cents, status, invoiced_at, paid_at, due_date, stripe_invoice_id, amount_refunded_cents, refunded_at, voided_at, marked_uncollectible_at, created_at",
+    )
+    .eq("spec_project_id", projectId)
+    .order("created_at", { ascending: true });
+  return (data ?? []) as PaymentDetailRow[];
+}
+
+interface AcceptanceDetailRow {
+  id: string;
+  event_type: SpecAcceptanceEventType;
+  accepted_by_user_id: string;
+  accepted_at: string;
+  signature_method: string | null;
+  payload_hash: string | null;
+  scope_document_id: string | null;
+}
+
+async function loadAcceptanceEventsForProject(projectId: string): Promise<AcceptanceDetailRow[]> {
+  const { data } = await db()
+    .from("spec_acceptance_events")
+    .select(
+      "id, event_type, accepted_by_user_id, accepted_at, signature_method, payload_hash, scope_document_id",
+    )
+    .eq("spec_project_id", projectId)
+    .order("accepted_at", { ascending: true });
+  return (data ?? []) as AcceptanceDetailRow[];
+}
+
+interface CommunicationDetailRow {
+  id: string;
+  direction: SpecCommunicationDirection;
+  channel: SpecCommunicationChannel;
+  summary: string;
+  body: string | null;
+  occurred_at: string | null;
+  logged_by_user_id: string | null;
+}
+
+async function loadCommunicationsForProject(projectId: string): Promise<CommunicationDetailRow[]> {
+  const { data } = await db()
+    .from("spec_communications")
+    .select("id, direction, channel, summary, body, occurred_at, logged_by_user_id")
+    .eq("spec_project_id", projectId)
+    .order("occurred_at", { ascending: true });
+  return (data ?? []) as CommunicationDetailRow[];
+}
+
+interface ScopeDocumentDetailRow {
+  id: string;
+  version: number;
+  content_hash: string;
+  content_json: Record<string, unknown> | null;
+  external_url: string | null;
+  drafted_at: string;
+  sent_at: string | null;
+  superseded_at: string | null;
+}
+
+async function loadScopeDocumentsForProject(projectId: string): Promise<ScopeDocumentDetailRow[]> {
+  const { data } = await db()
+    .from("spec_scope_documents")
+    .select("id, version, content_hash, content_json, external_url, drafted_at, sent_at, superseded_at")
+    .eq("spec_project_id", projectId)
+    .order("version", { ascending: false });
+  return (data ?? []) as ScopeDocumentDetailRow[];
+}
+
+interface FeatureAcceptanceDetailRow {
+  id: string;
+  feature_name: string;
+  acceptance_criteria: string;
+  status: SpecFeatureStatus;
+  verified_at: string | null;
+  failure_notes: string | null;
+  scope_document_id: string;
+}
+
+async function loadFeatureAcceptanceForScope(scopeId: string): Promise<FeatureAcceptanceDetailRow[]> {
+  const { data } = await db()
+    .from("spec_feature_acceptance")
+    .select(
+      "id, feature_name, acceptance_criteria, status, verified_at, failure_notes, scope_document_id",
+    )
+    .eq("scope_document_id", scopeId)
+    .order("feature_name", { ascending: true });
+  return (data ?? []) as FeatureAcceptanceDetailRow[];
+}
+
+interface ChangeOrderDetailRow {
+  id: string;
+  title: string;
+  description: string;
+  status: SpecChangeOrderStatus;
+  proposed_at: string | null;
+  approved_at: string | null;
+  declined_at: string | null;
+  completed_at: string | null;
+  paid_at: string | null;
+  fixed_price_cents: number | null;
+  final_cost_cents: number | null;
+  delivery_impact_days: number | null;
+}
+
+async function loadChangeOrdersForProject(projectId: string): Promise<ChangeOrderDetailRow[]> {
+  const { data } = await db()
+    .from("spec_change_orders")
+    .select(
+      "id, title, description, status, proposed_at, approved_at, declined_at, completed_at, paid_at, fixed_price_cents, final_cost_cents, delivery_impact_days",
+    )
+    .eq("spec_project_id", projectId)
+    .order("proposed_at", { ascending: true });
+  return (data ?? []) as ChangeOrderDetailRow[];
+}
+
+interface SatisfactionRatingDetailRow {
+  id: string;
+  milestone: string;
+  feature_name: string;
+  rating: number;
+  notes: string | null;
+  submitted_at: string | null;
+}
+
+async function loadSatisfactionRatingsForProject(projectId: string): Promise<SatisfactionRatingDetailRow[]> {
+  const { data } = await db()
+    .from("spec_satisfaction_ratings")
+    .select("id, milestone, feature_name, rating, notes, submitted_at")
+    .eq("spec_project_id", projectId)
+    .order("submitted_at", { ascending: true });
+  return (data ?? []) as SatisfactionRatingDetailRow[];
+}
+
+interface SupportTicketDetailRow {
+  id: string;
+  title: string;
+  severity: SpecTicketSeverity;
+  status: SpecTicketStatus;
+  opened_at: string | null;
+  resolved_at: string | null;
+  phase: string;
+}
+
+async function loadSupportTicketsForProject(projectId: string): Promise<SupportTicketDetailRow[]> {
+  const { data } = await db()
+    .from("spec_support_tickets")
+    .select("id, title, severity, status, opened_at, resolved_at, phase")
+    .eq("spec_project_id", projectId)
+    .order("opened_at", { ascending: true });
+  return (data ?? []) as SupportTicketDetailRow[];
+}
+
+// ─── Composers ──────────────────────────────────────────────────────────────
+
+function buildHeader(row: ProjectDetailRow): SpecProjectHeader {
+  return {
+    id: row.id,
+    tier: row.tier,
+    originalTier: row.original_tier,
+    status: row.status,
+    isTest: !!row.is_test,
+    customerLabel: projectCustomerLabel(row),
+  };
+}
+
+function readAttribution(raw: Record<string, unknown> | null): SpecOverviewTab["attribution"] {
+  const get = (k: string): string | null => {
+    const v = raw?.[k];
+    return typeof v === "string" && v.length > 0 ? v : null;
+  };
+  return {
+    utmSource: get("utm_source"),
+    utmMedium: get("utm_medium"),
+    utmCampaign: get("utm_campaign"),
+    utmContent: get("utm_content"),
+    utmTerm: get("utm_term"),
+    gclid: get("gclid"),
+    fbclid: get("fbclid"),
+    landingUrl: get("landing_url"),
+    firstTouchAt: get("first_touch_at"),
+  };
+}
+
+function lastStatusChangeIso(row: ProjectDetailRow): string | null {
+  // Pick the most recent status-anchor stamp. Mirrors statusAnchorMs() but in
+  // ISO form for surface display.
+  const candidates: Array<string | null> = [
+    row.refunded_at,
+    row.cancelled_at,
+    row.completed_at,
+    row.stalled_at,
+    row.on_hold_at,
+    row.walkthrough_completed_at,
+    row.build_started_at,
+    row.scope_doc_signed_at,
+    row.discovery_started_at,
+    row.intake_completed_at,
+    row.deposit_paid_at,
+    row.owner_approval_requested_at,
+    row.created_at,
+  ];
+  for (const c of candidates) {
+    if (c) return c;
+  }
+  return null;
+}
+
+function buildOverviewTab(
+  row: ProjectDetailRow,
+  payments: PaymentDetailRow[],
+  buyerLink: SpecUserLink | null,
+  accountHolderLink: SpecUserLink | null,
+  company: { id: string; name: string | null } | null,
+): SpecOverviewTab {
+  const totalCommittedCents = payments
+    .filter((p) => p.status !== "refunded" && p.status !== "voided")
+    .reduce((sum, p) => sum + (p.total_cents ?? 0), 0);
+  const totalPaidCents = payments
+    .filter((p) => p.status === "paid" || p.status === "partially_refunded")
+    .reduce((sum, p) => sum + ((p.total_cents ?? 0) - (p.amount_refunded_cents ?? 0)), 0);
+  const pendingCents = payments
+    .filter((p) => p.status === "invoiced")
+    .reduce((sum, p) => sum + (p.total_cents ?? 0), 0);
+  const overdueCents = payments
+    .filter((p) => p.status === "overdue")
+    .reduce((sum, p) => sum + (p.total_cents ?? 0), 0);
+  const refundedCents = payments.reduce((sum, p) => sum + (p.amount_refunded_cents ?? 0), 0);
+
+  const perMilestone: SpecMilestoneBreakdown[] = payments.map((p) => ({
+    milestone: p.milestone,
+    amountCents: p.total_cents ?? 0,
+    status: p.status,
+  }));
+
+  const buyerId = row.buyer_user_id;
+  const accountHolderId = row.account_holder_user_id;
+  const buyerIsAccountHolder = Boolean(
+    accountHolderId && buyerId && accountHolderId === buyerId,
+  );
+
+  return {
+    customer: {
+      name: row.customer_name,
+      email: row.customer_email,
+      phone: row.customer_phone,
+      gstNumber: row.customer_gst_number,
+    },
+    buyer: buyerLink,
+    accountHolder: accountHolderLink,
+    buyerIsAccountHolder,
+    company,
+    lastStatusChangeAt: lastStatusChangeIso(row),
+    keyDates: {
+      depositPaidAt: row.deposit_paid_at,
+      scopeDocSignedAt: row.scope_doc_signed_at,
+      buildStartedAt: row.build_started_at,
+      walkthroughCompletedAt: row.walkthrough_completed_at,
+      supportWindowEndsAt: row.support_window_ends_at,
+    },
+    holdState:
+      row.status === "on_hold" || row.status === "stalled_on_hold"
+        ? row.hold_type
+          ? {
+              holdType: row.hold_type,
+              priorStatus: row.prior_status,
+              onHoldAt: row.on_hold_at,
+              onHoldExpiresAt: row.on_hold_expires_at,
+              onHoldReason: row.on_hold_reason,
+            }
+          : null
+        : null,
+    financial: {
+      totalCommittedCents,
+      totalPaidCents,
+      pendingCents,
+      overdueCents,
+      refundedCents,
+      polishHoursUsed: Number(row.polish_hours_used ?? 0),
+      polishHoursBudget: Number(row.polish_hours_budget ?? 0),
+      perMilestone,
+    },
+    estimatedCompletionDate: row.estimated_completion_date,
+    attribution: readAttribution(row.attribution),
+  };
+}
+
+function buildIntakeTab(row: ProjectDetailRow): SpecIntakeTab {
+  const files: SpecIntakeFile[] = [];
+  const raw = row.intake_files;
+  if (Array.isArray(raw)) {
+    for (const entry of raw) {
+      if (!entry || typeof entry !== "object") continue;
+      const e = entry as Record<string, unknown>;
+      const path = typeof e.path === "string" ? e.path : typeof e.storage_path === "string" ? e.storage_path : null;
+      const filename =
+        typeof e.filename === "string"
+          ? e.filename
+          : typeof e.name === "string"
+            ? e.name
+            : path
+              ? path.split("/").pop() ?? path
+              : null;
+      if (!path || !filename) continue;
+      files.push({
+        path,
+        filename,
+        contentType: typeof e.content_type === "string" ? e.content_type : null,
+        sizeBytes:
+          typeof e.size_bytes === "number"
+            ? e.size_bytes
+            : typeof e.size === "number"
+              ? e.size
+              : null,
+        uploadedAt: typeof e.uploaded_at === "string" ? e.uploaded_at : null,
+      });
+    }
+  }
+  return {
+    submittedAt: row.intake_completed_at,
+    responses: row.intake_responses,
+    files,
+    regulatedWorkflowFlaggedAt: row.regulated_workflow_flagged_at,
+    regulatedWorkflowFlags: row.regulated_workflow_flags,
+  };
+}
+
+async function buildScopeTab(
+  projectId: string,
+  scopeDocs: ScopeDocumentDetailRow[],
+): Promise<SpecScopeTab> {
+  if (scopeDocs.length === 0) {
+    return { versions: [], current: null };
+  }
+  // `loadScopeDocumentsForProject` returns desc by version, so [0] is the latest
+  // version. Current is the latest version with no `superseded_at`; fall back to
+  // the highest version if every row is somehow marked superseded.
+  const current = scopeDocs.find((d) => !d.superseded_at) ?? scopeDocs[0];
+
+  const versions: SpecScopeDocumentRow[] = scopeDocs.map((d) => ({
+    id: d.id,
+    version: d.version,
+    contentHash: d.content_hash,
+    externalUrl: d.external_url,
+    draftedAt: d.drafted_at,
+    sentAt: d.sent_at,
+    supersededAt: d.superseded_at,
+    isCurrent: d.id === current.id,
+  }));
+
+  // Suppress no-await lint by referencing the projectId in a comment-like way.
+  void projectId;
+
+  const features = await loadFeatureAcceptanceForScope(current.id);
+  return {
+    versions,
+    current: {
+      id: current.id,
+      version: current.version,
+      contentJson: current.content_json,
+      externalUrl: current.external_url,
+      features: features.map<SpecScopeFeatureRow>((f) => ({
+        id: f.id,
+        featureName: f.feature_name,
+        acceptanceCriteria: f.acceptance_criteria,
+        status: f.status,
+        verifiedAt: f.verified_at,
+        failureNotes: f.failure_notes,
+      })),
+    },
+  };
+}
+
+function fireableReason(params: {
+  milestone: SpecPaymentMilestone;
+  row: ProjectDetailRow;
+  acceptanceTypes: Set<SpecAcceptanceEventType>;
+  hasExistingPayment: boolean;
+}): { fireable: boolean; reason: string | null } {
+  const { milestone, row, acceptanceTypes, hasExistingPayment } = params;
+  if (milestone === "deposit") {
+    // P1 is fired by the Stripe webhook on `checkout.session.completed`. The
+    // operator never fires it by hand from this surface.
+    return { fireable: false, reason: "P1 fires automatically via Stripe webhook" };
+  }
+  if (hasExistingPayment) {
+    return { fireable: false, reason: "Already invoiced" };
+  }
+  if (milestone === "scope_signoff") {
+    if (!acceptanceTypes.has("scope_signoff")) {
+      return { fireable: false, reason: "Awaiting customer scope sign-off" };
+    }
+    return { fireable: true, reason: null };
+  }
+  if (milestone === "midpoint") {
+    if (!acceptanceTypes.has("midpoint_accepted")) {
+      return { fireable: false, reason: "Awaiting customer midpoint acceptance" };
+    }
+    return { fireable: true, reason: null };
+  }
+  if (milestone === "delivery") {
+    if (!row.walkthrough_completed_at) {
+      return { fireable: false, reason: "Walkthrough not yet stamped" };
+    }
+    if (!acceptanceTypes.has("delivery_accepted")) {
+      return { fireable: false, reason: "Awaiting customer delivery acceptance" };
+    }
+    return { fireable: true, reason: null };
+  }
+  return { fireable: false, reason: null };
+}
+
+function buildMilestonesTab(
+  row: ProjectDetailRow,
+  payments: PaymentDetailRow[],
+  acceptanceEvents: AcceptanceDetailRow[],
+): SpecMilestonesTab {
+  const tierTotalCents = SPEC_TIER_TOTAL_CENTS[row.tier];
+  const perMilestoneAmount = Math.round(tierTotalCents / 4);
+  const paymentsByMilestone = new Map<SpecPaymentMilestone, PaymentDetailRow>();
+  for (const p of payments) paymentsByMilestone.set(p.milestone, p);
+  const acceptanceTypes = new Set<SpecAcceptanceEventType>(acceptanceEvents.map((e) => e.event_type));
+
+  const rows: SpecMilestoneRow[] = SPEC_MILESTONE_ORDER.map((milestone) => {
+    const existing = paymentsByMilestone.get(milestone);
+    const fireStatus = fireableReason({
+      milestone,
+      row,
+      acceptanceTypes,
+      hasExistingPayment: !!existing,
+    });
+    return {
+      id: existing?.id ?? null,
+      milestone,
+      label: SPEC_MILESTONE_LABELS[milestone],
+      status: existing ? existing.status : "not_yet_fired",
+      amountCents: existing?.total_cents ?? perMilestoneAmount,
+      invoicedAt: existing?.invoiced_at ?? null,
+      paidAt: existing?.paid_at ?? null,
+      dueDate: existing?.due_date ?? null,
+      stripeInvoiceId: existing?.stripe_invoice_id ?? null,
+      fireable: fireStatus.fireable,
+      fireBlockedReason: fireStatus.reason,
+    };
+  });
+
+  return { tierTotalCents, rows };
+}
+
+// ─── Timeline composition ────────────────────────────────────────────────────
+
+const ACCEPTANCE_LABEL: Record<SpecAcceptanceEventType, string> = {
+  tos_accepted: "ToS accepted by buyer",
+  owner_purchase_approved: "Owner approved purchase",
+  scope_signoff: "Scope doc signed",
+  midpoint_accepted: "Midpoint accepted",
+  delivery_accepted: "Delivery accepted",
+  change_order_accepted: "Change order accepted",
+};
+
+const PAYMENT_STATUS_VERB: Partial<Record<SpecPaymentStatus, string>> = {
+  invoiced: "invoiced",
+  paid: "paid",
+  overdue: "overdue",
+  refunded: "refunded",
+  partially_refunded: "partially refunded",
+  voided: "voided",
+  disputed: "disputed",
+  uncollectible: "marked uncollectible",
+};
+
+const PAYMENT_STATUS_ANCHORS: Array<{
+  status: SpecPaymentStatus;
+  field: keyof PaymentDetailRow;
+}> = [
+  { status: "invoiced", field: "invoiced_at" },
+  { status: "paid", field: "paid_at" },
+  { status: "refunded", field: "refunded_at" },
+  { status: "voided", field: "voided_at" },
+  { status: "uncollectible", field: "marked_uncollectible_at" },
+];
+
+function buildTimelineEvents(params: {
+  row: ProjectDetailRow;
+  payments: PaymentDetailRow[];
+  acceptance: AcceptanceDetailRow[];
+  comms: CommunicationDetailRow[];
+  scope: ScopeDocumentDetailRow[];
+  changeOrders: ChangeOrderDetailRow[];
+  ratings: SatisfactionRatingDetailRow[];
+  tickets: SupportTicketDetailRow[];
+  userLinks: Map<string, SpecUserLink>;
+}): SpecTimelineEvent[] {
+  const events: SpecTimelineEvent[] = [];
+
+  // Status / lifecycle stamps from the project row.
+  const lifecycleStamps: Array<{
+    iso: string | null;
+    summary: string;
+    detail?: string | null;
+  }> = [
+    { iso: params.row.created_at, summary: "Project created" },
+    { iso: params.row.owner_approval_requested_at, summary: "Owner approval requested" },
+    { iso: params.row.deposit_paid_at, summary: "Deposit paid" },
+    { iso: params.row.intake_completed_at, summary: "Intake completed" },
+    { iso: params.row.regulated_workflow_flagged_at, summary: "Regulated workflow flagged at intake" },
+    { iso: params.row.scope_doc_signed_at, summary: "Scope doc signed (mirrored on project)" },
+    { iso: params.row.build_started_at, summary: "Build started" },
+    { iso: params.row.walkthrough_completed_at, summary: "Walkthrough completed — support window opens" },
+    { iso: params.row.support_window_ends_at, summary: "Support window ends (projected)" },
+    { iso: params.row.retainer_started_at, summary: "Retainer started" },
+    { iso: params.row.on_hold_at, summary: "Engagement placed on hold" },
+    { iso: params.row.completed_at, summary: "Engagement completed" },
+    { iso: params.row.cancelled_at, summary: "Engagement cancelled" },
+    { iso: params.row.refunded_at, summary: "Refund processed" },
+    { iso: params.row.stalled_at, summary: "Engagement stalled" },
+  ];
+  for (const stamp of lifecycleStamps) {
+    if (!stamp.iso) continue;
+    events.push({
+      id: `lifecycle:${stamp.summary}:${stamp.iso}`,
+      kind: "status_change",
+      occurredAt: stamp.iso,
+      actorLabel: "SYS",
+      summary: stamp.summary,
+      detail: stamp.detail ?? null,
+    });
+  }
+
+  // Acceptance events.
+  // Path B engagements carry both owner_purchase_approved (account_holder) and
+  // tos_accepted (buyer) — mark both with isPathBAcceptancePair so the UI can
+  // surface them as a paired evidence row.
+  const hasOwnerApproval = params.acceptance.some((a) => a.event_type === "owner_purchase_approved");
+  const hasTosAccepted = params.acceptance.some((a) => a.event_type === "tos_accepted");
+  const isPathB = hasOwnerApproval && hasTosAccepted;
+  for (const a of params.acceptance) {
+    const actor = params.userLinks.get(a.accepted_by_user_id);
+    events.push({
+      id: `acceptance:${a.id}`,
+      kind: "acceptance",
+      occurredAt: a.accepted_at,
+      actorLabel: actor?.name ?? actor?.email ?? "Customer",
+      summary: ACCEPTANCE_LABEL[a.event_type],
+      detail: null,
+      meta: {
+        eventType: a.event_type,
+        signatureMethod: a.signature_method,
+        payloadHash: a.payload_hash,
+        isPathBAcceptancePair:
+          isPathB &&
+          (a.event_type === "owner_purchase_approved" || a.event_type === "tos_accepted"),
+      },
+    });
+  }
+
+  // Communications.
+  for (const c of params.comms) {
+    if (!c.occurred_at) continue;
+    const actor = c.logged_by_user_id ? params.userLinks.get(c.logged_by_user_id) : null;
+    const actorLabel =
+      c.channel === "system"
+        ? "SYS"
+        : c.direction === "inbound"
+          ? "Customer"
+          : (actor?.name ?? actor?.email ?? "Operator");
+    events.push({
+      id: `comm:${c.id}`,
+      kind: "communication",
+      occurredAt: c.occurred_at,
+      actorLabel,
+      summary: c.summary,
+      detail: c.body ?? null,
+      meta: {
+        channel: c.channel,
+        direction: c.direction,
+      },
+    });
+  }
+
+  // Payments — emit one row per state transition (invoiced → paid → refunded/etc.).
+  for (const p of params.payments) {
+    for (const anchor of PAYMENT_STATUS_ANCHORS) {
+      const ts = p[anchor.field];
+      if (typeof ts !== "string" || !ts) continue;
+      // Only emit anchors that map to states this row has actually been in.
+      // E.g. a paid row also passed through invoiced; the invoiced_at anchor
+      // remains populated and surfaces in the timeline. We do not emit
+      // unrelated states (e.g. voided on a paid row will have voided_at null).
+      const verb = PAYMENT_STATUS_VERB[anchor.status];
+      if (!verb) continue;
+      events.push({
+        id: `payment:${p.id}:${anchor.status}`,
+        kind: "payment",
+        occurredAt: ts,
+        actorLabel: "SYS",
+        summary: `${SPEC_MILESTONE_LABELS[p.milestone]} ${verb}`,
+        detail: null,
+        meta: {
+          milestone: p.milestone,
+          paymentStatus: anchor.status,
+          amountCents: p.total_cents,
+        },
+      });
+    }
+  }
+
+  // Change orders.
+  for (const co of params.changeOrders) {
+    const stamps: Array<{
+      iso: string | null;
+      label: string;
+      status: SpecChangeOrderStatus;
+    }> = [
+      { iso: co.proposed_at, label: "proposed", status: "proposed" },
+      { iso: co.approved_at, label: "approved", status: "customer_approved" },
+      { iso: co.declined_at, label: "declined", status: "customer_declined" },
+      { iso: co.completed_at, label: "completed", status: "completed" },
+      { iso: co.paid_at, label: "paid", status: "paid" },
+    ];
+    for (const s of stamps) {
+      if (!s.iso) continue;
+      events.push({
+        id: `change_order:${co.id}:${s.label}`,
+        kind: "change_order",
+        occurredAt: s.iso,
+        actorLabel: "SYS",
+        summary: `Change order ${s.label} — ${co.title}`,
+        detail: s.label === "proposed" ? co.description : null,
+        meta: {
+          changeOrderStatus: s.status,
+          amountCents: co.final_cost_cents ?? co.fixed_price_cents ?? undefined,
+        },
+      });
+    }
+  }
+
+  // Scope document versions.
+  for (const d of params.scope) {
+    const stamps: Array<{
+      iso: string | null;
+      action: "drafted" | "sent" | "superseded";
+      label: string;
+    }> = [
+      { iso: d.drafted_at, action: "drafted", label: "drafted" },
+      { iso: d.sent_at, action: "sent", label: "sent to customer" },
+      { iso: d.superseded_at, action: "superseded", label: "superseded by new version" },
+    ];
+    for (const s of stamps) {
+      if (!s.iso) continue;
+      events.push({
+        id: `scope:${d.id}:${s.action}`,
+        kind: "scope_document",
+        occurredAt: s.iso,
+        actorLabel: "SYS",
+        summary: `Scope doc v${d.version} ${s.label}`,
+        detail: null,
+        meta: {
+          scopeDocVersion: d.version,
+          scopeDocAction: s.action,
+        },
+      });
+    }
+  }
+
+  // Satisfaction ratings.
+  for (const r of params.ratings) {
+    if (!r.submitted_at) continue;
+    events.push({
+      id: `rating:${r.id}`,
+      kind: "satisfaction_rating",
+      occurredAt: r.submitted_at,
+      actorLabel: "Customer",
+      summary: `Rated "${r.feature_name}" ${r.rating}/5 (${r.milestone})`,
+      detail: r.notes,
+      meta: { rating: r.rating, featureName: r.feature_name },
+    });
+  }
+
+  // Support tickets — open and resolved.
+  for (const t of params.tickets) {
+    if (t.opened_at) {
+      events.push({
+        id: `ticket:${t.id}:open`,
+        kind: "support_ticket",
+        occurredAt: t.opened_at,
+        actorLabel: "Customer",
+        summary: `Ticket opened — ${t.title}`,
+        detail: null,
+        meta: { ticketStatus: t.status, ticketSeverity: t.severity },
+      });
+    }
+    if (t.resolved_at) {
+      events.push({
+        id: `ticket:${t.id}:resolved`,
+        kind: "support_ticket",
+        occurredAt: t.resolved_at,
+        actorLabel: "Operator",
+        summary: `Ticket resolved — ${t.title}`,
+        detail: null,
+        meta: { ticketStatus: "resolved", ticketSeverity: t.severity },
+      });
+    }
+  }
+
+  // Sort ascending (oldest first) for the chronological log render; the UI may
+  // reverse for newest-first if desired.
+  events.sort((a, b) => new Date(a.occurredAt).getTime() - new Date(b.occurredAt).getTime());
+
+  return events;
+}
+
+/**
+ * Top-level loader. Returns null when the project doesn't exist (operator
+ * surface should 404). When `testMode === false`, we still allow loading a
+ * test row by id (operator landed via a direct link) but the header surfaces
+ * the test badge.
+ */
+export async function getProjectDetail(
+  projectId: string,
+): Promise<SpecProjectDetailSnapshot | null> {
+  const row = await loadProjectRow(projectId);
+  if (!row) return null;
+
+  const [payments, acceptance, comms, scope, changeOrders, ratings, tickets, userLinks, company] =
+    await Promise.all([
+      loadProjectPayments(projectId),
+      loadAcceptanceEventsForProject(projectId),
+      loadCommunicationsForProject(projectId),
+      loadScopeDocumentsForProject(projectId),
+      loadChangeOrdersForProject(projectId),
+      loadSatisfactionRatingsForProject(projectId),
+      loadSupportTicketsForProject(projectId),
+      loadUserLinks([row.buyer_user_id, row.account_holder_user_id].filter(Boolean) as string[]),
+      loadCompanyLink(row.linked_company_id),
+    ]);
+
+  // Also resolve any additional actors referenced in acceptance/comms rows so
+  // the timeline can render meaningful actor labels.
+  const extraIds = new Set<string>();
+  for (const a of acceptance) extraIds.add(a.accepted_by_user_id);
+  for (const c of comms) if (c.logged_by_user_id) extraIds.add(c.logged_by_user_id);
+  const missing = Array.from(extraIds).filter((id) => !userLinks.has(id));
+  if (missing.length > 0) {
+    const extras = await loadUserLinks(missing);
+    for (const [k, v] of extras) userLinks.set(k, v);
+  }
+
+  const buyerLink = userLinks.get(row.buyer_user_id) ?? null;
+  const accountHolderLink = row.account_holder_user_id
+    ? (userLinks.get(row.account_holder_user_id) ?? null)
+    : null;
+
+  const overview = buildOverviewTab(row, payments, buyerLink, accountHolderLink, company);
+  const intake = buildIntakeTab(row);
+  const scopeTab = await buildScopeTab(projectId, scope);
+  const milestones = buildMilestonesTab(row, payments, acceptance);
+  const timeline = buildTimelineEvents({
+    row,
+    payments,
+    acceptance,
+    comms,
+    scope,
+    changeOrders,
+    ratings,
+    tickets,
+    userLinks,
+  });
+
+  return {
+    header: buildHeader(row),
+    overview,
+    timeline,
+    intake,
+    scope: scopeTab,
+    milestones,
+  };
+}
+
+/**
+ * Issue short-lived signed URLs for every intake file, returning a new
+ * `SpecIntakeTab` with `signedUrl` populated. Called from the page when the
+ * user lands on the Intake tab so signed URLs are fresh on every render. The
+ * Storage bucket is private; URLs are 5-minute TTL.
+ */
+export async function withIntakeSignedUrls(
+  intake: SpecIntakeTab,
+  projectId: string,
+): Promise<SpecIntakeTab> {
+  if (intake.files.length === 0) return intake;
+  const supabase = db();
+  const paths = intake.files.map((f) => {
+    // Defensive: bible specifies storage layout `spec-intake/{project_id}/...`.
+    // If the stored path is just the filename, prefix with the project id; if
+    // it already includes the project id prefix, leave it alone.
+    if (f.path.startsWith(`${projectId}/`)) return f.path;
+    if (f.path.includes("/")) return f.path;
+    return `${projectId}/${f.path}`;
+  });
+  const { data, error } = await supabase.storage
+    .from("spec-intake")
+    .createSignedUrls(paths, 300);
+  if (error || !data) {
+    console.error("[withIntakeSignedUrls] failed:", error?.message);
+    return intake;
+  }
+  const filesWithUrls: SpecIntakeFile[] = intake.files.map((f, i) => ({
+    ...f,
+    signedUrl: data[i]?.signedUrl ?? null,
+  }));
+  return { ...intake, files: filesWithUrls };
+}
+
+/**
+ * Used by the fire-milestone server action to re-derive whether a milestone is
+ * fireable, in case the snapshot is stale by the time the operator clicks. The
+ * function is also exported so the UI can disable buttons consistently.
+ */
+export async function getMilestoneFireability(
+  projectId: string,
+  milestone: SpecPaymentMilestone,
+): Promise<{ fireable: boolean; reason: string | null; row: ProjectDetailRow | null }> {
+  const row = await loadProjectRow(projectId);
+  if (!row) return { fireable: false, reason: "Project not found", row: null };
+  const payments = await loadProjectPayments(projectId);
+  const acceptance = await loadAcceptanceEventsForProject(projectId);
+  const acceptanceTypes = new Set<SpecAcceptanceEventType>(acceptance.map((a) => a.event_type));
+  const existing = payments.find((p) => p.milestone === milestone);
+  const result = fireableReason({
+    milestone,
+    row,
+    acceptanceTypes,
+    hasExistingPayment: !!existing,
+  });
+  return { ...result, row };
 }
