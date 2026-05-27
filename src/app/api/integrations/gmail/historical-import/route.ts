@@ -13,6 +13,7 @@ import { EmailFilterService } from "@/lib/api/services/email-filter-service";
 import { EmailMatchingServiceV2 } from "@/lib/api/services/email-matching-service-v2";
 import { ClientService } from "@/lib/api/services/client-service";
 import { OpportunityService } from "@/lib/api/services/opportunity-service";
+import { OpportunityLifecycleService } from "@/lib/api/services/opportunity-lifecycle-service";
 import {
   applyCanonicalLeadEnrichment,
   leadEnrichmentFactsFromImport,
@@ -147,6 +148,11 @@ function normalizeHistoricalImportMessageId(
     rawProviderMessageId: msgId,
   });
   return null;
+}
+
+function internalDomainsForConnection(email: string): string[] {
+  const domain = email.split("@")[1]?.trim().toLowerCase();
+  return domain ? [domain] : [];
 }
 
 // ─── Route Handler ───────────────────────────────────────────────────────────
@@ -306,6 +312,7 @@ export async function POST(request: NextRequest) {
             token,
             companyId,
             connectionId,
+            conn.email,
             syncFilters,
             blocklist,
             supabase
@@ -566,6 +573,7 @@ async function processMessage(
   token: string,
   companyId: string,
   connectionId: string,
+  connectionEmail: string,
   syncFilters: GmailSyncFilters,
   blocklist: { domains: Set<string>; keywords: string[] },
   supabase: ReturnType<typeof requireSupabase>
@@ -770,6 +778,32 @@ async function processMessage(
     isRead: !!clientId,
     fromEmail: fromEmail || null,
     createdBy: null,
+  });
+
+  await OpportunityLifecycleService.recordCorrespondenceEvent({
+    supabase,
+    companyId,
+    opportunityId,
+    activityId: activity.id,
+    connectionId,
+    providerThreadId,
+    providerMessageId,
+    requireProviderMessageId: true,
+    direction,
+    occurredAt: new Date(),
+    source: "gmail_historical_import",
+    fromEmail: fromEmail || null,
+    fromName,
+    toEmails: [to],
+    ccEmails: [],
+    subject,
+    bodyText: msg.snippet ?? null,
+    labels: msg.labelIds ?? [],
+    connectionEmail,
+    companyDomains: internalDomainsForConnection(connectionEmail),
+    userEmailAddresses: connectionEmail ? [connectionEmail] : [],
+    knownPlatformSenders: [],
+    contactEmail: fromEmail || null,
   });
 
   // Update matching metadata columns. V2 returns `suggestedClientId`

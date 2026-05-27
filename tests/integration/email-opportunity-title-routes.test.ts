@@ -94,6 +94,8 @@ interface ImportState {
   opportunityPatches: Array<Record<string, unknown>>;
   threadLinks: Array<Record<string, unknown>>;
   notifications: Array<Record<string, unknown>>;
+  correspondenceEvents?: Array<Record<string, unknown>>;
+  lifecycleStateUpserts?: Array<Record<string, unknown>>;
   opportunities?: Array<Record<string, unknown>>;
 }
 
@@ -136,6 +138,14 @@ function makeImportSupabaseDouble(state: ImportState) {
       this.action = "insert";
       this.payload = payload;
       if (this.table === "notifications") state.notifications.push(payload);
+      if (this.table === "opportunity_correspondence_events") {
+        const row = {
+          id: `event-${(state.correspondenceEvents ?? []).length + 1}`,
+          ...payload,
+        };
+        state.correspondenceEvents ??= [];
+        state.correspondenceEvents.push(row);
+      }
       return this;
     }
 
@@ -153,6 +163,10 @@ function makeImportSupabaseDouble(state: ImportState) {
       this.payload = payload;
       if (this.table === "opportunity_email_threads")
         state.threadLinks.push(payload);
+      if (this.table === "opportunity_lifecycle_state") {
+        state.lifecycleStateUpserts ??= [];
+        state.lifecycleStateUpserts.push(payload);
+      }
       return this;
     }
 
@@ -173,11 +187,18 @@ function makeImportSupabaseDouble(state: ImportState) {
       return { data: null, error: null };
     }
 
+    async maybeSingle() {
+      return { data: null, error: null };
+    }
+
     private result() {
       if (this.table === "clients") return { data: [], error: null };
       if (this.table === "opportunities")
         return { data: state.opportunities ?? [], error: null };
       if (this.table === "activities") return { data: [], error: null };
+      if (this.table === "opportunity_correspondence_events") {
+        return { data: state.correspondenceEvents ?? [], error: null };
+      }
       return { data: null, error: null };
     }
 
@@ -293,6 +314,7 @@ describe("email opportunity title route writes", () => {
       opportunityPatches: [],
       threadLinks: [],
       notifications: [],
+      correspondenceEvents: [],
     };
     getServiceRoleClientMock.mockReturnValue(makeImportSupabaseDouble(state));
     getConnectionMock.mockResolvedValue({
@@ -378,6 +400,86 @@ describe("email opportunity title route writes", () => {
     expect(state.opportunityPatches[0]).toMatchObject({
       ai_summary: aiSummary,
     });
+    expect(state.correspondenceEvents).toEqual([
+      expect.objectContaining({
+        company_id: "company-1",
+        opportunity_id: "opp-kara",
+        provider_thread_id: "thread-1",
+        provider_message_id: null,
+        direction: "inbound",
+        party_role: "customer",
+        is_meaningful: true,
+        source: "email_import",
+      }),
+    ]);
+  });
+
+  it("skips import lifecycle events when provider thread ids are invalid", async () => {
+    const state: ImportState = {
+      jobUpdates: [],
+      opportunityPatches: [],
+      threadLinks: [],
+      notifications: [],
+      correspondenceEvents: [],
+    };
+    getServiceRoleClientMock.mockReturnValue(makeImportSupabaseDouble(state));
+    getConnectionMock.mockResolvedValue({
+      id: "connection-1",
+      companyId: "company-1",
+      email: "jackson@canprodeckandrail.com",
+      syncFilters: {},
+      opsLabelId: null,
+    });
+    getProviderMock.mockReturnValue({
+      listLabels: vi.fn(async () => []),
+      createLabel: vi.fn(),
+      applyLabel: vi.fn(async () => undefined),
+    });
+
+    const response = await importPOST(
+      makeJsonRequest("https://ops.test/api/integrations/email/import", {
+        connectionId: "connection-1",
+        companyId: "company-1",
+        leads: [
+          {
+            id: "lead-blank-thread",
+            threadId: "   ",
+            clientName: "Kara Beach",
+            clientEmail: "kara.beach@example.com",
+            clientPhone: null,
+            clientAddress: "123 Cedar Street",
+            description: "Deck quote request.",
+            stage: "new_lead",
+            estimatedValue: null,
+            correspondenceCount: 1,
+            outboundCount: 0,
+            lastMessageDate: "2026-05-20T17:00:00.000Z",
+            existingClientId: null,
+            action: "create_new",
+            mergeWithLeadId: null,
+            title: "Need an estimate",
+            actualCloseDate: null,
+          },
+        ],
+        syncProfile: {
+          estimateSubjectPatterns: ["estimate"],
+          companyDomains: ["canprodeckandrail.com"],
+          teamForwarders: [],
+          knownPlatformSenders: [],
+          formSubjectPatterns: [],
+          userEmailAddresses: ["jackson@canprodeckandrail.com"],
+          aiClassificationThreshold: 0.75,
+        },
+      }) as never
+    );
+
+    expect(response.status).toBe(200);
+    await flushAfterCallbacks();
+
+    expect(createOpportunityMock).not.toHaveBeenCalled();
+    expect(createActivityMock).not.toHaveBeenCalled();
+    expect(state.threadLinks).toHaveLength(0);
+    expect(state.correspondenceEvents).toHaveLength(0);
   });
 
   it("falls back to email identity when imported lead names are company or summary text", async () => {
