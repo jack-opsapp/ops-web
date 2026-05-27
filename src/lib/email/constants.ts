@@ -57,4 +57,29 @@ export const KIND_TO_LIST: Record<string, string> = {
   pmf_daily_digest: "global",
   pmf_weekly_digest: "global",
   inbox_connection_down: "global",
+  // SPEC engagement templates (Phase 1) — all operational/transactional;
+  // unsubscribe from these only via the global list (which kills everything),
+  // since the recipient asking to silence transactional notices is asking us
+  // to stop entirely. Retainer offers and other commercial SPEC sends arrive
+  // in Phase 2 and will carry per-list values then.
+  "spec.owner_approval_required": "global",
+  "spec.owner_approval_granted": "global",
+  "spec.owner_approval_declined": "global",
+  "spec.deposit_confirmed": "global",
+  "spec.quebec_rejected_post_stripe": "global",
+  "spec.intake_reminder_1": "global",
+  "spec.intake_reminder_2": "global",
+  "spec.intake_reminder_3": "global",
+  "spec.intake_completed_customer": "global",
+  "spec.intake_completed_no_discovery_1": "global",
+  "spec.intake_completed_no_discovery_2": "global",
+  "spec.intake_completed_no_discovery_3": "global",
+  "spec.scope_doc_ready": "global",
+  "spec.scope_doc_signed_customer": "global",
+  "spec.p2_invoice": "global",
+  "spec.p3_invoice": "global",
+  "spec.p4_invoice": "global",
+  "spec.support_window_open": "global",
+  "spec.refund_processed": "global",
+  "spec.refund_denied": "global",
 };
