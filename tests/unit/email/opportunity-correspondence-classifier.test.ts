@@ -52,12 +52,35 @@ describe("opportunity correspondence classifier", () => {
         fromName: "Wix Forms",
         submitterEmail: "marcel.mercier@example.com",
         subject: "Contact Us 3 got a new submission",
+        bodyText: [
+          "Submission summary",
+          "Name: Marcel Mercier",
+          "Email: marcel.mercier@example.com",
+          "Message: Can you quote my deck repair?",
+        ].join("\n"),
       })
     ).toMatchObject({
       partyRole: "customer",
       isMeaningful: true,
       customerEmail: "marcel.mercier@example.com",
       noiseReason: null,
+    });
+  });
+
+  it("does not promote provider platform inbound to customer because the opportunity has a contact email", () => {
+    expect(
+      classifyOpportunityCorrespondence({
+        ...baseInput,
+        fromEmail: "notifications@wix-forms.com",
+        fromName: "Wix Forms",
+        subject: "Contact Us 3 got a new submission",
+        contactEmail: "real.customer@example.net",
+      })
+    ).toMatchObject({
+      partyRole: "provider",
+      isMeaningful: false,
+      noiseReason: "provider_noise",
+      customerEmail: null,
     });
   });
 

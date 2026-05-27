@@ -1,5 +1,8 @@
 import { matchPlatform } from "@/lib/api/services/known-platforms";
-import { extractEmailAddress } from "@/lib/utils/email-parsing";
+import {
+  extractContactFormSubmission,
+  extractEmailAddress,
+} from "@/lib/utils/email-parsing";
 
 export type OpportunityCorrespondenceDirection = "inbound" | "outbound";
 
@@ -186,6 +189,19 @@ function duplicateProviderMessage(
   return false;
 }
 
+function parsedContactFormSubmitterEmail(
+  input: OpportunityCorrespondenceClassifierInput,
+  submitterEmail: string | null,
+  subject: string,
+  bodyText: string
+): string | null {
+  if (!submitterEmail) return null;
+  const parsedSubmitter = normalizeEmail(
+    extractContactFormSubmission(subject, bodyText)?.email
+  );
+  return parsedSubmitter === submitterEmail ? submitterEmail : null;
+}
+
 export function classifyOpportunityCorrespondence(
   input: OpportunityCorrespondenceClassifierInput
 ): OpportunityCorrespondenceClassification {
@@ -195,7 +211,6 @@ export function classifyOpportunityCorrespondence(
   const subject = input.subject ?? "";
   const bodyText = input.bodyText ?? "";
   const submitterEmail = normalizeEmail(input.submitterEmail);
-  const contactEmail = normalizeEmail(input.contactEmail);
 
   if (!providerThreadId) {
     return {
@@ -238,14 +253,25 @@ export function classifyOpportunityCorrespondence(
   }
 
   if (input.direction === "inbound") {
-    const customerEmail = submitterEmail ?? contactEmail ?? fromEmail;
-    if (customerEmail && !isInternalEmail(customerEmail, input) && !isProviderAddress(customerEmail, input)) {
+    const contactFormSubmitterEmail = parsedContactFormSubmitterEmail(
+      input,
+      submitterEmail,
+      subject,
+      bodyText
+    );
+
+    if (
+      contactFormSubmitterEmail &&
+      !isInternalEmail(contactFormSubmitterEmail, input) &&
+      !isProviderAddress(contactFormSubmitterEmail, input) &&
+      !isSystemAddress(contactFormSubmitterEmail)
+    ) {
       return {
         direction: "inbound",
         partyRole: "customer",
         isMeaningful: true,
         noiseReason: null,
-        customerEmail,
+        customerEmail: contactFormSubmitterEmail,
       };
     }
 
@@ -266,6 +292,16 @@ export function classifyOpportunityCorrespondence(
         isMeaningful: false,
         noiseReason: "internal_system",
         customerEmail: null,
+      };
+    }
+
+    if (fromEmail) {
+      return {
+        direction: "inbound",
+        partyRole: "customer",
+        isMeaningful: true,
+        noiseReason: null,
+        customerEmail: fromEmail,
       };
     }
   }
