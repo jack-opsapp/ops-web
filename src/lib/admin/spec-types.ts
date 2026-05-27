@@ -467,3 +467,104 @@ export const SPEC_MILESTONE_ORDER: SpecPaymentMilestone[] = [
   "midpoint",
   "delivery",
 ];
+// ─── Refund queue (F.3) ──────────────────────────────────────────────────────
+
+export type SpecRefundRequestStatus =
+  | "pending"
+  | "processed"
+  | "partial"
+  | "failed"
+  | "denied";
+
+export type SpecRefundRequestSource = "customer_initiated" | "stripe_dispute";
+
+/** One `spec_payments` row narrowed for the refund-breakdown preview + processor. */
+export interface SpecRefundPaymentSummary {
+  id: string;
+  milestone: SpecPaymentMilestone;
+  status: SpecPaymentStatus;
+  totalCents: number;
+  amountRefundedCents: number | null;
+  stripePaymentIntentId: string | null;
+  stripeInvoiceId: string | null;
+  paidAt: string | null;
+  invoicedAt: string | null;
+  dueDate: string | null;
+}
+
+/**
+ * Server-computed eligibility chips rendered next to each refund row. Each
+ * boolean is a yes/no chip the operator sees before approving.
+ */
+export interface SpecRefundEligibility {
+  withinGuaranteeWindow: boolean;
+  daysSinceWalkthrough: number | null;
+  hasActiveDispute: boolean;
+  hasNonPaymentDisable: boolean;
+  materialBreachFlag: boolean;
+  guaranteeAlreadyInvoked: boolean;
+}
+
+/**
+ * A row on `/admin/spec/refunds`. Pending + processed refunds share the same
+ * card layout; processed rows additionally expose the executed breakdown.
+ */
+export interface SpecRefundQueueRow {
+  id: string;
+  specProjectId: string;
+  requestSource: SpecRefundRequestSource;
+  isGuaranteeInvocation: boolean;
+  isGoodwill: boolean;
+  status: SpecRefundRequestStatus;
+  customerReasonText: string | null;
+  requestedAt: string;
+  requestedAgeLabel: string;
+  processedAt: string | null;
+  processedByUserId: string | null;
+  isTest: boolean;
+  totalRefundCents: number | null;
+
+  // Customer + project
+  projectTier: SpecTier;
+  projectStatus: SpecProjectStatus;
+  customerName: string | null;
+  customerEmail: string;
+  walkthroughCompletedAt: string | null;
+
+  // Per-milestone payments for breakdown preview.
+  payments: SpecRefundPaymentSummary[];
+
+  // Eligibility chips.
+  eligibility: SpecRefundEligibility;
+}
+
+// ─── Owner-approvals queue (F.3) ─────────────────────────────────────────────
+
+export type SpecOwnerApprovalStatus =
+  | "pending"
+  | "approved"
+  | "declined"
+  | "expired";
+
+export interface SpecOwnerApprovalQueueRow {
+  id: string;
+  specProjectId: string;
+  status: SpecOwnerApprovalStatus;
+  tier: SpecTier;
+  approvedTotalCents: number;
+  approvedDepositCents: number;
+  requestedAt: string;
+  ageLabel: string;
+  ageMinutes: number;
+  isTest: boolean;
+
+  // Buyer + account_holder identity for the queue view.
+  buyerUserId: string;
+  buyerName: string | null;
+  buyerEmail: string | null;
+  accountHolderUserId: string;
+  accountHolderName: string | null;
+  accountHolderEmail: string | null;
+  companyId: string;
+  companyName: string | null;
+}
