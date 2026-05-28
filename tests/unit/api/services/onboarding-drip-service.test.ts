@@ -569,3 +569,105 @@ describe("OnboardingDripService.processLostYouCandidate", () => {
     expect(result.reason).toContain("recent activity");
   });
 });
+
+describe("OnboardingDripService.processAll", () => {
+  function buildAllDb(opts: {
+    candidates: Array<{
+      id: string;
+      account_holder_id: string;
+      admin_ids: string[];
+      deleted_at: string | null;
+      subscription_status: string;
+      created_at: string;
+      latitude: number | null;
+      longitude: number | null;
+    }>;
+    retryCandidates?: any[];
+  }) {
+    function from(table: string) {
+      if (table === "companies") {
+        const chain: any = {
+          select: () => chain,
+          gte: () => chain,
+          is: async () => ({ data: opts.candidates, error: null }),
+        };
+        return chain;
+      }
+      if (table === "onboarding_email_log") {
+        // Retry sweep candidate query (status IN ... lt attempts ... gt expires ... lt updated_at ... limit)
+        const chain: any = {
+          select: () => chain,
+          in: () => chain,
+          lt: () => chain,
+          gt: () => chain,
+          limit: async () => ({ data: opts.retryCandidates ?? [], error: null }),
+        };
+        return chain;
+      }
+      if (table === "users") {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({ data: null, error: null }),
+            }),
+          }),
+        };
+      }
+      // Other tables (activity counts, email_log) — no-op
+      const chain: any = {
+        select: () => chain,
+        eq: () => chain,
+        gte: () => chain,
+        is: () => chain,
+        in: async () => ({ data: [], error: null }),
+        order: () => chain,
+        limit: async () => ({ data: [], error: null }),
+        then: (resolve: any) => resolve({ count: 0, error: null }),
+      };
+      return chain;
+    }
+    return { db: { from } as unknown as SupabaseClient };
+  }
+
+  it("returns zero counters when no candidates", async () => {
+    const { db } = buildAllDb({ candidates: [] });
+    const result = await OnboardingDripService.processAll(db, new Date("2026-05-27T16:00:00Z"));
+    expect(result.scanned).toBe(0);
+    expect(result.calendar_processed).toBe(0);
+    expect(result.lost_you_fired).toBe(0);
+    expect(result.retried).toBe(0);
+  });
+
+  it("scans candidate companies even when localHour gate excludes them", async () => {
+    // UTC 16:00; for a UTC company (lat null,lng null → falls back to America/Los_Angeles which is 9am PDT), localHour is 9.
+    // But the test uses lat=null/lng=null which fallback to America/Los_Angeles (TZ-aware: 9am PT in May = 16:00 UTC).
+    // For Eastern operator (lat 40, lon -75): 16:00 UTC = 12pm EDT → localHour !== 9, gate excludes them.
+    const { db } = buildAllDb({
+      candidates: [
+        {
+          id: "c-east",
+          account_holder_id: "u-east",
+          admin_ids: ["u-east"],
+          deleted_at: null,
+          subscription_status: "active",
+          created_at: new Date("2026-05-26T16:00:00Z").toISOString(),
+          latitude: 40,
+          longitude: -75,
+        },
+      ],
+    });
+    const result = await OnboardingDripService.processAll(db, new Date("2026-05-27T16:00:00Z"));
+    expect(result.scanned).toBe(1);
+    expect(result.calendar_processed).toBe(0);
+    expect(result.lost_you_fired).toBe(0);
+  });
+
+  it("always sweeps retries regardless of localHour", async () => {
+    const { db } = buildAllDb({
+      candidates: [],
+      retryCandidates: [],
+    });
+    const result = await OnboardingDripService.processAll(db, new Date("2026-05-27T03:00:00Z"));
+    expect(typeof result.retried).toBe("number");
+  });
+});

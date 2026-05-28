@@ -753,4 +753,76 @@ export const OnboardingDripService = {
     });
     return { fired: result.status === "sent" || result.status === "reconciled" };
   },
+
+  /**
+   * Top-level cron orchestrator (spec §9). Queries every company that
+   * signed up within the last 15 days (UTC tolerance buffer — operators
+   * at the 14d boundary in their local timezone could still be inside the
+   * 15d UTC window), then for each company:
+   *
+   *   1. Gates by `computeOperatorLocalHour === 9` using the operator's
+   *      detected timezone. The cron is invoked hourly, but only the run
+   *      that lands at the operator's local 9am dispatches calendar +
+   *      lost_you sends. This keeps emails landing during business hours
+   *      across every North American timezone.
+   *   2. Runs `processCompany` (calendar-driven day_1/3/4/8/14 dispatch).
+   *   3. Runs `processLostYouCandidate` (behavior-triggered re-engagement).
+   *
+   * Retries are timezone-agnostic — the in-flight 5-minute gate and 24h
+   * expiry already protect them — so `processRetries` is invoked once
+   * per cron tick regardless of the localHour gate.
+   *
+   * Returned counters:
+   *   - scanned: total companies returned by the candidate query
+   *   - calendar_processed: # of slots successfully sent across all companies
+   *   - lost_you_fired: # of lost_you sends that fired
+   *   - retried: # of retry rows reconciled or re-dispatched
+   */
+  async processAll(
+    db: SupabaseClient,
+    now: Date = new Date(),
+  ): Promise<{ scanned: number; calendar_processed: number; lost_you_fired: number; retried: number }> {
+    const fifteenDaysAgo = new Date(now.getTime() - 15 * 86400_000).toISOString();
+
+    const { data: candidates } = await db
+      .from("companies")
+      .select(
+        "id, account_holder_id, admin_ids, deleted_at, subscription_status, created_at, latitude, longitude",
+      )
+      .gte("created_at", fifteenDaysAgo)
+      .is("deleted_at", null);
+
+    let calendar = 0;
+    let lost = 0;
+    for (const company of (candidates ?? []) as Array<{
+      id: string;
+      account_holder_id: string | null;
+      admin_ids: string[] | null;
+      deleted_at: string | null;
+      subscription_status: string;
+      created_at: string;
+      latitude: number | null;
+      longitude: number | null;
+    }>) {
+      const tz = detectCompanyTimezone(company.latitude, company.longitude);
+      const localHour = computeOperatorLocalHour(now, tz);
+      if (localHour !== 9) continue;
+      const r1 = await this.processCompany(db, company, now);
+      calendar += r1.processed;
+      const r2 = await this.processLostYouCandidate(db, company, now);
+      if (r2.fired) lost++;
+    }
+
+    // Always sweep retries regardless of local time — retries are
+    // timezone-agnostic; they only care about the 5-min in-flight gate
+    // and the 24h day_slot_expires_at window.
+    const r3 = await this.processRetries(db, now);
+
+    return {
+      scanned: candidates?.length ?? 0,
+      calendar_processed: calendar,
+      lost_you_fired: lost,
+      retried: r3.retried,
+    };
+  },
 };
