@@ -85,6 +85,8 @@ interface SupabaseState {
   projects?: Array<Record<string, unknown>>;
   threadLinks: Array<Record<string, unknown>>;
   activities: Array<Record<string, unknown>>;
+  correspondenceEvents?: Array<Record<string, unknown>>;
+  lifecycleStateUpserts?: Array<Record<string, unknown>>;
   rpcCalls?: Array<{ name: string; params: Record<string, unknown> }>;
 }
 
@@ -151,6 +153,14 @@ function makeSupabaseDouble(state: SupabaseState) {
           ...payload,
         });
       }
+      if (this.table === "opportunity_correspondence_events") {
+        const row = {
+          id: `event-${(state.correspondenceEvents ?? []).length + 1}`,
+          ...payload,
+        };
+        state.correspondenceEvents ??= [];
+        state.correspondenceEvents.push(row);
+      }
       return this;
     }
 
@@ -175,6 +185,10 @@ function makeSupabaseDouble(state: SupabaseState) {
       this.payload = payload;
       if (this.table === "opportunity_email_threads") {
         state.threadLinks.push(payload);
+      }
+      if (this.table === "opportunity_lifecycle_state") {
+        state.lifecycleStateUpserts ??= [];
+        state.lifecycleStateUpserts.push(payload);
       }
       return this;
     }
@@ -213,6 +227,24 @@ function makeSupabaseDouble(state: SupabaseState) {
     private result() {
       if (this.table === "activities" && this.action === "select") {
         return { data: [], error: null };
+      }
+
+      if (
+        this.table === "opportunity_correspondence_events" &&
+        this.action === "select"
+      ) {
+        const match = (state.correspondenceEvents ?? []).filter((event) => {
+          for (const [column, value] of this.filters.entries()) {
+            if (
+              String(event[column] ?? "").toLowerCase() !==
+              String(value ?? "").toLowerCase()
+            ) {
+              return false;
+            }
+          }
+          return true;
+        });
+        return { data: match, error: null };
       }
 
       if (this.table === "clients" && this.action === "select") {
@@ -769,6 +801,7 @@ describe("SyncEngine email opportunity title generation", () => {
       opportunities: [],
       threadLinks: [],
       activities: [],
+      correspondenceEvents: [],
       rpcCalls: [],
     };
     setSupabaseOverride(makeSupabaseDouble(state) as never);
@@ -802,6 +835,7 @@ describe("SyncEngine email opportunity title generation", () => {
     expect(state.opportunities).toHaveLength(0);
     expect(state.threadLinks).toHaveLength(0);
     expect(state.activities).toHaveLength(0);
+    expect(state.correspondenceEvents).toHaveLength(0);
     expect(state.rpcCalls).toHaveLength(0);
     expect(upsertFromEmailMock).not.toHaveBeenCalled();
     expect(result.invalidProviderEmails).toBe(1);
@@ -819,6 +853,7 @@ describe("SyncEngine email opportunity title generation", () => {
         },
       ],
       activities: [],
+      correspondenceEvents: [],
       rpcCalls: [],
     };
     setSupabaseOverride(makeSupabaseDouble(state) as never);
@@ -849,6 +884,7 @@ describe("SyncEngine email opportunity title generation", () => {
 
     expect(state.threadLinks).toHaveLength(1);
     expect(state.activities).toHaveLength(0);
+    expect(state.correspondenceEvents).toHaveLength(0);
     expect(state.rpcCalls).toHaveLength(0);
     expect(upsertFromEmailMock).not.toHaveBeenCalled();
     expect(result.invalidProviderEmails).toBe(1);
@@ -866,6 +902,7 @@ describe("SyncEngine email opportunity title generation", () => {
         },
       ],
       activities: [],
+      correspondenceEvents: [],
       rpcCalls: [],
     };
     setSupabaseOverride(makeSupabaseDouble(state) as never);
@@ -895,6 +932,20 @@ describe("SyncEngine email opportunity title generation", () => {
     const result = await SyncEngine.runSync("connection-1");
 
     expect(state.activities).toHaveLength(1);
+    expect(state.correspondenceEvents).toEqual([
+      expect.objectContaining({
+        company_id: "company-1",
+        opportunity_id: "opp-linked",
+        connection_id: "connection-1",
+        provider_thread_id: "thread-linked",
+        provider_message_id: "msg-linked",
+        direction: "inbound",
+        party_role: "customer",
+        is_meaningful: true,
+        noise_reason: null,
+        source: "sync_activity",
+      }),
+    ]);
     expect(state.activities[0]).toMatchObject({
       email_message_id: "msg-linked",
       email_thread_id: "thread-linked",

@@ -18,6 +18,7 @@ import { AIDraftService } from "./ai-draft-service";
 import { AutonomyMilestoneService } from "./autonomy-milestone-service";
 import { maybeSuggestProject } from "./project-suggestion-service";
 import { EmailThreadService } from "./email-thread-service";
+import { OpportunityLifecycleService } from "./opportunity-lifecycle-service";
 import {
   buildEmailOpportunityTitle,
   identityCandidateFromMailbox,
@@ -511,7 +512,10 @@ async function createActivity(
     threadId: validation.providerThreadId,
   };
   const supabase = requireSupabase();
-  await supabase.from("activities").insert({
+  const fromEmail = extractSenderEmail(normalizedEmail.from);
+  const toEmails = normalizedEmail.to.map(extractSenderEmail);
+  const ccEmails = normalizedEmail.cc.map(extractSenderEmail);
+  const { data: insertedActivity } = await supabase.from("activities").insert({
     company_id: connection.companyId,
     type: "email",
     subject: normalizedEmail.subject,
@@ -521,15 +525,43 @@ async function createActivity(
     email_thread_id: normalizedEmail.threadId,
     opportunity_id: opportunityId,
     direction,
-    from_email: extractSenderEmail(normalizedEmail.from),
-    to_emails: normalizedEmail.to.map(extractSenderEmail),
-    cc_emails: normalizedEmail.cc.map(extractSenderEmail),
+    from_email: fromEmail,
+    to_emails: toEmails,
+    cc_emails: ccEmails,
     has_attachments: normalizedEmail.hasAttachments,
     attachment_count: normalizedEmail.hasAttachments ? 1 : 0, // provider doesn't give exact count yet
     match_needs_review: extra?.matchNeedsReview || false,
     suggested_client_id: extra?.suggestedClientId || null,
     match_confidence: extra?.matchConfidence || "pattern",
     is_read: !extra?.matchNeedsReview,
+  }).select("id").single();
+
+  const profile = connection.syncFilters as Partial<SyncProfile> | null;
+  await OpportunityLifecycleService.recordCorrespondenceEvent({
+    supabase,
+    companyId: connection.companyId,
+    opportunityId,
+    activityId:
+      ((insertedActivity as Record<string, unknown> | null)?.id as string | null) ??
+      null,
+    connectionId: connection.id,
+    providerThreadId: normalizedEmail.threadId,
+    providerMessageId: normalizedEmail.id,
+    requireProviderMessageId: true,
+    direction,
+    occurredAt: normalizedEmail.date,
+    source: "sync_activity",
+    fromEmail,
+    fromName: normalizedEmail.fromName,
+    toEmails,
+    ccEmails,
+    subject: normalizedEmail.subject,
+    bodyText: normalizedEmail.bodyText,
+    labels: normalizedEmail.labelIds,
+    connectionEmail: connection.email,
+    companyDomains: profile?.companyDomains ?? [],
+    userEmailAddresses: profile?.userEmailAddresses ?? [],
+    knownPlatformSenders: profile?.knownPlatformSenders ?? [],
   });
 
   // ── Inbox v2: Sync-step 7.5 — upsert email_threads row + classify ──────

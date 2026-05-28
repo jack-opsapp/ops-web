@@ -63,6 +63,37 @@ import { Day1NoProject } from "./react/templates/onboarding/Day1NoProject";
 import { Day1HasProject } from "./react/templates/onboarding/Day1HasProject";
 import { Day4NoNotification } from "./react/templates/onboarding/Day4NoNotification";
 import { Day4HasNotification } from "./react/templates/onboarding/Day4HasNotification";
+import { SpecOwnerApprovalRequired } from "./react/templates/SpecOwnerApprovalRequired";
+import { SpecOwnerApprovalGranted } from "./react/templates/SpecOwnerApprovalGranted";
+import { SpecOwnerApprovalDeclined } from "./react/templates/SpecOwnerApprovalDeclined";
+import { SpecDepositConfirmed } from "./react/templates/SpecDepositConfirmed";
+import { SpecQuebecRejectedPostStripe } from "./react/templates/SpecQuebecRejectedPostStripe";
+import { SpecIntakeReminder1 } from "./react/templates/SpecIntakeReminder1";
+import { SpecIntakeReminder2 } from "./react/templates/SpecIntakeReminder2";
+import { SpecIntakeReminder3 } from "./react/templates/SpecIntakeReminder3";
+import { SpecIntakeCompletedCustomer } from "./react/templates/SpecIntakeCompletedCustomer";
+import { SpecIntakeCompletedNoDiscovery1 } from "./react/templates/SpecIntakeCompletedNoDiscovery1";
+import { SpecIntakeCompletedNoDiscovery2 } from "./react/templates/SpecIntakeCompletedNoDiscovery2";
+import { SpecIntakeCompletedNoDiscovery3 } from "./react/templates/SpecIntakeCompletedNoDiscovery3";
+import { SpecScopeDocReady } from "./react/templates/SpecScopeDocReady";
+import { SpecScopeDocSignedCustomer } from "./react/templates/SpecScopeDocSignedCustomer";
+import { SpecP2Invoice } from "./react/templates/SpecP2Invoice";
+import { SpecP3Invoice } from "./react/templates/SpecP3Invoice";
+import { SpecP4Invoice } from "./react/templates/SpecP4Invoice";
+import { SpecSupportWindowOpen } from "./react/templates/SpecSupportWindowOpen";
+import {
+  SpecRefundProcessed,
+  type SpecRefundBreakdownRow,
+} from "./react/templates/SpecRefundProcessed";
+import { SpecRefundDenied } from "./react/templates/SpecRefundDenied";
+import {
+  SpecEntitlementDisabled,
+  type SpecEntitlementDisabledReason,
+} from "./react/templates/SpecEntitlementDisabled";
+import { SpecEntitlementEnabled } from "./react/templates/SpecEntitlementEnabled";
+import { SpecOwnerApprovalExpiredBuyer } from "./react/templates/SpecOwnerApprovalExpiredBuyer";
+import { SpecOwnerApprovalExpiredOwner } from "./react/templates/SpecOwnerApprovalExpiredOwner";
+import { SpecHoldExpiredCustomerRequested } from "./react/templates/SpecHoldExpiredCustomerRequested";
 
 import { DISPATCH, GATE, FIELD_NOTES, JACK, portalSender, type Sender } from "./senders";
 import type { AdBriefing } from "@/lib/admin/briefing-types";
@@ -1729,3 +1760,1057 @@ export async function sendEmail(params: {
     list: "global",
   });
 }
+
+// ─── SPEC engagement (Phase 1 — OPS Dispatch) ──────────────────────────────
+//
+// Operational/transactional notices for the SPEC custom-software engagement
+// lifecycle. Per CASL these are required service messages and stay on the
+// `global` list. Retainer offers and other CEM-class SPEC sends ship in
+// Phase 2 with their own per-list values and unsubscribe machinery.
+
+export type SpecTier = "Setup" | "Build" | "Enterprise";
+
+export async function sendSpecOwnerApprovalRequired(params: {
+  email: string;
+  accountHolderName: string;
+  buyerName: string;
+  buyerEmail: string;
+  companyName: string;
+  tier: SpecTier;
+  depositAmountFormatted: string;
+  totalAmountFormatted: string;
+  approveUrl: string;
+  declineUrl: string;
+  expiresInHoursFormatted: string;
+  userId?: string | null;
+  metadata?: Record<string, unknown>;
+}): Promise<GatedSendResult> {
+  const compliance = buildComplianceHeaders({
+    email: params.email,
+    kind: "spec.owner_approval_required",
+  });
+  const html = await render(
+    <SpecOwnerApprovalRequired
+      accountHolderName={params.accountHolderName}
+      buyerName={params.buyerName}
+      buyerEmail={params.buyerEmail}
+      companyName={params.companyName}
+      tier={params.tier}
+      depositAmountFormatted={params.depositAmountFormatted}
+      totalAmountFormatted={params.totalAmountFormatted}
+      approveUrl={params.approveUrl}
+      declineUrl={params.declineUrl}
+      expiresInHoursFormatted={params.expiresInHoursFormatted}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+      list={compliance.list}
+    />,
+  );
+  return gatedSend({
+    to: params.email,
+    from: DISPATCH,
+    replyTo: DISPATCH.email,
+    subject: `SPEC APPROVAL REQUESTED — ${params.buyerName}`,
+    html,
+    emailType: "spec.owner_approval_required",
+    list: compliance.list,
+    headers: compliance.headers,
+    metadata: { ...params.metadata, tier: params.tier, companyName: params.companyName },
+    userId: params.userId ?? undefined,
+  });
+}
+
+export async function sendSpecOwnerApprovalGranted(params: {
+  email: string;
+  buyerName: string;
+  accountHolderName: string;
+  companyName: string;
+  tier: SpecTier;
+  depositAmountFormatted: string;
+  checkoutUrl: string;
+  expiresAtFormatted: string;
+  userId?: string | null;
+  metadata?: Record<string, unknown>;
+}): Promise<GatedSendResult> {
+  const compliance = buildComplianceHeaders({
+    email: params.email,
+    kind: "spec.owner_approval_granted",
+  });
+  const html = await render(
+    <SpecOwnerApprovalGranted
+      buyerName={params.buyerName}
+      accountHolderName={params.accountHolderName}
+      companyName={params.companyName}
+      tier={params.tier}
+      depositAmountFormatted={params.depositAmountFormatted}
+      checkoutUrl={params.checkoutUrl}
+      expiresAtFormatted={params.expiresAtFormatted}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+      list={compliance.list}
+    />,
+  );
+  return gatedSend({
+    to: params.email,
+    from: DISPATCH,
+    replyTo: DISPATCH.email,
+    subject: `SPEC APPROVED — COMPLETE PAYMENT`,
+    html,
+    emailType: "spec.owner_approval_granted",
+    list: compliance.list,
+    headers: compliance.headers,
+    metadata: { ...params.metadata, tier: params.tier, companyName: params.companyName },
+    userId: params.userId ?? undefined,
+  });
+}
+
+export async function sendSpecOwnerApprovalDeclined(params: {
+  email: string;
+  buyerName: string;
+  accountHolderName: string;
+  companyName: string;
+  tier: SpecTier;
+  userId?: string | null;
+  metadata?: Record<string, unknown>;
+}): Promise<GatedSendResult> {
+  const compliance = buildComplianceHeaders({
+    email: params.email,
+    kind: "spec.owner_approval_declined",
+  });
+  const html = await render(
+    <SpecOwnerApprovalDeclined
+      buyerName={params.buyerName}
+      accountHolderName={params.accountHolderName}
+      companyName={params.companyName}
+      tier={params.tier}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+      list={compliance.list}
+    />,
+  );
+  return gatedSend({
+    to: params.email,
+    from: DISPATCH,
+    replyTo: DISPATCH.email,
+    subject: `SPEC PURCHASE DECLINED`,
+    html,
+    emailType: "spec.owner_approval_declined",
+    list: compliance.list,
+    headers: compliance.headers,
+    metadata: { ...params.metadata, tier: params.tier, companyName: params.companyName },
+    userId: params.userId ?? undefined,
+  });
+}
+
+export async function sendSpecDepositConfirmed(params: {
+  email: string;
+  buyerName: string;
+  companyName: string;
+  tier: SpecTier;
+  depositAmountFormatted: string;
+  totalAmountFormatted: string;
+  paidAtFormatted: string;
+  stripeReceiptUrl: string;
+  intakeUrl: string;
+  userId?: string | null;
+  metadata?: Record<string, unknown>;
+}): Promise<GatedSendResult> {
+  const compliance = buildComplianceHeaders({
+    email: params.email,
+    kind: "spec.deposit_confirmed",
+  });
+  const html = await render(
+    <SpecDepositConfirmed
+      buyerName={params.buyerName}
+      companyName={params.companyName}
+      tier={params.tier}
+      depositAmountFormatted={params.depositAmountFormatted}
+      totalAmountFormatted={params.totalAmountFormatted}
+      paidAtFormatted={params.paidAtFormatted}
+      stripeReceiptUrl={params.stripeReceiptUrl}
+      intakeUrl={params.intakeUrl}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+      list={compliance.list}
+    />,
+  );
+  return gatedSend({
+    to: params.email,
+    from: DISPATCH,
+    replyTo: DISPATCH.email,
+    subject: `SPEC DEPOSIT RECEIVED — ${params.tier.toUpperCase()}`,
+    html,
+    emailType: "spec.deposit_confirmed",
+    list: compliance.list,
+    headers: compliance.headers,
+    metadata: { ...params.metadata, tier: params.tier, companyName: params.companyName },
+    userId: params.userId ?? undefined,
+  });
+}
+
+export async function sendSpecQuebecRejectedPostStripe(params: {
+  email: string;
+  buyerName: string;
+  amountRefundedFormatted: string;
+  refundedAtFormatted: string;
+  stripeRefundReceiptUrl: string;
+  userId?: string | null;
+  metadata?: Record<string, unknown>;
+}): Promise<GatedSendResult> {
+  const compliance = buildComplianceHeaders({
+    email: params.email,
+    kind: "spec.quebec_rejected_post_stripe",
+  });
+  const html = await render(
+    <SpecQuebecRejectedPostStripe
+      buyerName={params.buyerName}
+      amountRefundedFormatted={params.amountRefundedFormatted}
+      refundedAtFormatted={params.refundedAtFormatted}
+      stripeRefundReceiptUrl={params.stripeRefundReceiptUrl}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+      list={compliance.list}
+    />,
+  );
+  return gatedSend({
+    to: params.email,
+    from: DISPATCH,
+    replyTo: DISPATCH.email,
+    subject: `SPEC PURCHASE CANCELLED — FULL REFUND ISSUED`,
+    html,
+    emailType: "spec.quebec_rejected_post_stripe",
+    list: compliance.list,
+    headers: compliance.headers,
+    metadata: { ...params.metadata, amountRefundedFormatted: params.amountRefundedFormatted },
+    userId: params.userId ?? undefined,
+  });
+}
+
+export async function sendSpecIntakeReminder1(params: {
+  email: string;
+  buyerName: string;
+  companyName: string;
+  intakeUrl: string;
+  daysSinceDepositFormatted: string;
+  userId?: string | null;
+  metadata?: Record<string, unknown>;
+}): Promise<GatedSendResult> {
+  const compliance = buildComplianceHeaders({
+    email: params.email,
+    kind: "spec.intake_reminder_1",
+  });
+  const html = await render(
+    <SpecIntakeReminder1
+      buyerName={params.buyerName}
+      companyName={params.companyName}
+      intakeUrl={params.intakeUrl}
+      daysSinceDepositFormatted={params.daysSinceDepositFormatted}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+      list={compliance.list}
+    />,
+  );
+  return gatedSend({
+    to: params.email,
+    from: DISPATCH,
+    replyTo: DISPATCH.email,
+    subject: `SPEC INTAKE WAITING`,
+    html,
+    emailType: "spec.intake_reminder_1",
+    list: compliance.list,
+    headers: compliance.headers,
+    metadata: { ...params.metadata, companyName: params.companyName },
+    userId: params.userId ?? undefined,
+  });
+}
+
+export async function sendSpecIntakeReminder2(params: {
+  email: string;
+  buyerName: string;
+  companyName: string;
+  intakeUrl: string;
+  userId?: string | null;
+  metadata?: Record<string, unknown>;
+}): Promise<GatedSendResult> {
+  const compliance = buildComplianceHeaders({
+    email: params.email,
+    kind: "spec.intake_reminder_2",
+  });
+  const html = await render(
+    <SpecIntakeReminder2
+      buyerName={params.buyerName}
+      companyName={params.companyName}
+      intakeUrl={params.intakeUrl}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+      list={compliance.list}
+    />,
+  );
+  return gatedSend({
+    to: params.email,
+    from: DISPATCH,
+    replyTo: DISPATCH.email,
+    subject: `SPEC PAUSED`,
+    html,
+    emailType: "spec.intake_reminder_2",
+    list: compliance.list,
+    headers: compliance.headers,
+    metadata: { ...params.metadata, companyName: params.companyName },
+    userId: params.userId ?? undefined,
+  });
+}
+
+export async function sendSpecIntakeReminder3(params: {
+  email: string;
+  buyerName: string;
+  companyName: string;
+  intakeUrl: string;
+  userId?: string | null;
+  metadata?: Record<string, unknown>;
+}): Promise<GatedSendResult> {
+  const compliance = buildComplianceHeaders({
+    email: params.email,
+    kind: "spec.intake_reminder_3",
+  });
+  const html = await render(
+    <SpecIntakeReminder3
+      buyerName={params.buyerName}
+      companyName={params.companyName}
+      intakeUrl={params.intakeUrl}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+      list={compliance.list}
+    />,
+  );
+  return gatedSend({
+    to: params.email,
+    from: DISPATCH,
+    replyTo: DISPATCH.email,
+    subject: `SPEC — FINAL CHECK-IN`,
+    html,
+    emailType: "spec.intake_reminder_3",
+    list: compliance.list,
+    headers: compliance.headers,
+    metadata: { ...params.metadata, companyName: params.companyName },
+    userId: params.userId ?? undefined,
+  });
+}
+
+export async function sendSpecIntakeCompletedCustomer(params: {
+  email: string;
+  buyerName: string;
+  companyName: string;
+  submittedAtFormatted: string;
+  calendlyUrl: string;
+  userId?: string | null;
+  metadata?: Record<string, unknown>;
+}): Promise<GatedSendResult> {
+  const compliance = buildComplianceHeaders({
+    email: params.email,
+    kind: "spec.intake_completed_customer",
+  });
+  const html = await render(
+    <SpecIntakeCompletedCustomer
+      buyerName={params.buyerName}
+      companyName={params.companyName}
+      submittedAtFormatted={params.submittedAtFormatted}
+      calendlyUrl={params.calendlyUrl}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+      list={compliance.list}
+    />,
+  );
+  return gatedSend({
+    to: params.email,
+    from: DISPATCH,
+    replyTo: DISPATCH.email,
+    subject: `INTAKE RECEIVED — BOOK DISCOVERY`,
+    html,
+    emailType: "spec.intake_completed_customer",
+    list: compliance.list,
+    headers: compliance.headers,
+    metadata: { ...params.metadata, companyName: params.companyName },
+    userId: params.userId ?? undefined,
+  });
+}
+
+export async function sendSpecIntakeCompletedNoDiscovery1(params: {
+  email: string;
+  buyerName: string;
+  companyName: string;
+  calendlyUrl: string;
+  userId?: string | null;
+  metadata?: Record<string, unknown>;
+}): Promise<GatedSendResult> {
+  const compliance = buildComplianceHeaders({
+    email: params.email,
+    kind: "spec.intake_completed_no_discovery_1",
+  });
+  const html = await render(
+    <SpecIntakeCompletedNoDiscovery1
+      buyerName={params.buyerName}
+      companyName={params.companyName}
+      calendlyUrl={params.calendlyUrl}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+      list={compliance.list}
+    />,
+  );
+  return gatedSend({
+    to: params.email,
+    from: DISPATCH,
+    replyTo: DISPATCH.email,
+    subject: `BOOK YOUR DISCOVERY SESSION`,
+    html,
+    emailType: "spec.intake_completed_no_discovery_1",
+    list: compliance.list,
+    headers: compliance.headers,
+    metadata: { ...params.metadata, companyName: params.companyName },
+    userId: params.userId ?? undefined,
+  });
+}
+
+export async function sendSpecIntakeCompletedNoDiscovery2(params: {
+  email: string;
+  buyerName: string;
+  companyName: string;
+  calendlyUrl: string;
+  userId?: string | null;
+  metadata?: Record<string, unknown>;
+}): Promise<GatedSendResult> {
+  const compliance = buildComplianceHeaders({
+    email: params.email,
+    kind: "spec.intake_completed_no_discovery_2",
+  });
+  const html = await render(
+    <SpecIntakeCompletedNoDiscovery2
+      buyerName={params.buyerName}
+      companyName={params.companyName}
+      calendlyUrl={params.calendlyUrl}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+      list={compliance.list}
+    />,
+  );
+  return gatedSend({
+    to: params.email,
+    from: DISPATCH,
+    replyTo: DISPATCH.email,
+    subject: `SPEC PAUSED`,
+    html,
+    emailType: "spec.intake_completed_no_discovery_2",
+    list: compliance.list,
+    headers: compliance.headers,
+    metadata: { ...params.metadata, companyName: params.companyName },
+    userId: params.userId ?? undefined,
+  });
+}
+
+export async function sendSpecIntakeCompletedNoDiscovery3(params: {
+  email: string;
+  buyerName: string;
+  companyName: string;
+  calendlyUrl: string;
+  userId?: string | null;
+  metadata?: Record<string, unknown>;
+}): Promise<GatedSendResult> {
+  const compliance = buildComplianceHeaders({
+    email: params.email,
+    kind: "spec.intake_completed_no_discovery_3",
+  });
+  const html = await render(
+    <SpecIntakeCompletedNoDiscovery3
+      buyerName={params.buyerName}
+      companyName={params.companyName}
+      calendlyUrl={params.calendlyUrl}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+      list={compliance.list}
+    />,
+  );
+  return gatedSend({
+    to: params.email,
+    from: DISPATCH,
+    replyTo: DISPATCH.email,
+    subject: `SPEC — FINAL CHECK-IN`,
+    html,
+    emailType: "spec.intake_completed_no_discovery_3",
+    list: compliance.list,
+    headers: compliance.headers,
+    metadata: { ...params.metadata, companyName: params.companyName },
+    userId: params.userId ?? undefined,
+  });
+}
+
+export async function sendSpecScopeDocReady(params: {
+  email: string;
+  buyerName: string;
+  companyName: string;
+  tier: SpecTier;
+  featureCountFormatted: string;
+  estimatedDeliveryWindowFormatted: string;
+  subscriptionMultiplierFormatted: string;
+  scopeUrl: string;
+  p2AmountFormatted: string;
+  userId?: string | null;
+  metadata?: Record<string, unknown>;
+}): Promise<GatedSendResult> {
+  const compliance = buildComplianceHeaders({
+    email: params.email,
+    kind: "spec.scope_doc_ready",
+  });
+  const html = await render(
+    <SpecScopeDocReady
+      buyerName={params.buyerName}
+      companyName={params.companyName}
+      tier={params.tier}
+      featureCountFormatted={params.featureCountFormatted}
+      estimatedDeliveryWindowFormatted={params.estimatedDeliveryWindowFormatted}
+      subscriptionMultiplierFormatted={params.subscriptionMultiplierFormatted}
+      scopeUrl={params.scopeUrl}
+      p2AmountFormatted={params.p2AmountFormatted}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+      list={compliance.list}
+    />,
+  );
+  return gatedSend({
+    to: params.email,
+    from: DISPATCH,
+    replyTo: DISPATCH.email,
+    subject: `SCOPE READY FOR SIGN-OFF`,
+    html,
+    emailType: "spec.scope_doc_ready",
+    list: compliance.list,
+    headers: compliance.headers,
+    metadata: { ...params.metadata, tier: params.tier, companyName: params.companyName },
+    userId: params.userId ?? undefined,
+  });
+}
+
+export async function sendSpecScopeDocSignedCustomer(params: {
+  email: string;
+  buyerName: string;
+  companyName: string;
+  tier: SpecTier;
+  signedAtFormatted: string;
+  estimatedDeliveryWindowFormatted: string;
+  subscriptionMultiplierFormatted: string;
+  p2AmountFormatted: string;
+  p2DueDateFormatted: string;
+  userId?: string | null;
+  metadata?: Record<string, unknown>;
+}): Promise<GatedSendResult> {
+  const compliance = buildComplianceHeaders({
+    email: params.email,
+    kind: "spec.scope_doc_signed_customer",
+  });
+  const html = await render(
+    <SpecScopeDocSignedCustomer
+      buyerName={params.buyerName}
+      companyName={params.companyName}
+      tier={params.tier}
+      signedAtFormatted={params.signedAtFormatted}
+      estimatedDeliveryWindowFormatted={params.estimatedDeliveryWindowFormatted}
+      subscriptionMultiplierFormatted={params.subscriptionMultiplierFormatted}
+      p2AmountFormatted={params.p2AmountFormatted}
+      p2DueDateFormatted={params.p2DueDateFormatted}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+      list={compliance.list}
+    />,
+  );
+  return gatedSend({
+    to: params.email,
+    from: DISPATCH,
+    replyTo: DISPATCH.email,
+    subject: `SCOPE LOCKED — P2 INCOMING`,
+    html,
+    emailType: "spec.scope_doc_signed_customer",
+    list: compliance.list,
+    headers: compliance.headers,
+    metadata: { ...params.metadata, tier: params.tier, companyName: params.companyName },
+    userId: params.userId ?? undefined,
+  });
+}
+
+export async function sendSpecP2Invoice(params: {
+  email: string;
+  buyerName: string;
+  companyName: string;
+  tier: SpecTier;
+  amountFormatted: string;
+  invoiceNumber: string;
+  dueDateFormatted: string;
+  stripeInvoiceUrl: string;
+  userId?: string | null;
+  metadata?: Record<string, unknown>;
+}): Promise<GatedSendResult> {
+  const compliance = buildComplianceHeaders({
+    email: params.email,
+    kind: "spec.p2_invoice",
+  });
+  const html = await render(
+    <SpecP2Invoice
+      buyerName={params.buyerName}
+      companyName={params.companyName}
+      tier={params.tier}
+      amountFormatted={params.amountFormatted}
+      invoiceNumber={params.invoiceNumber}
+      dueDateFormatted={params.dueDateFormatted}
+      stripeInvoiceUrl={params.stripeInvoiceUrl}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+      list={compliance.list}
+    />,
+  );
+  return gatedSend({
+    to: params.email,
+    from: DISPATCH,
+    replyTo: DISPATCH.email,
+    subject: `P2 INVOICE — ${params.amountFormatted}`,
+    html,
+    emailType: "spec.p2_invoice",
+    list: compliance.list,
+    headers: compliance.headers,
+    metadata: { ...params.metadata, invoiceNumber: params.invoiceNumber, tier: params.tier },
+    userId: params.userId ?? undefined,
+  });
+}
+
+export async function sendSpecP3Invoice(params: {
+  email: string;
+  buyerName: string;
+  companyName: string;
+  tier: SpecTier;
+  amountFormatted: string;
+  invoiceNumber: string;
+  dueDateFormatted: string;
+  stripeInvoiceUrl: string;
+  userId?: string | null;
+  metadata?: Record<string, unknown>;
+}): Promise<GatedSendResult> {
+  const compliance = buildComplianceHeaders({
+    email: params.email,
+    kind: "spec.p3_invoice",
+  });
+  const html = await render(
+    <SpecP3Invoice
+      buyerName={params.buyerName}
+      companyName={params.companyName}
+      tier={params.tier}
+      amountFormatted={params.amountFormatted}
+      invoiceNumber={params.invoiceNumber}
+      dueDateFormatted={params.dueDateFormatted}
+      stripeInvoiceUrl={params.stripeInvoiceUrl}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+      list={compliance.list}
+    />,
+  );
+  return gatedSend({
+    to: params.email,
+    from: DISPATCH,
+    replyTo: DISPATCH.email,
+    subject: `P3 INVOICE — ${params.amountFormatted}`,
+    html,
+    emailType: "spec.p3_invoice",
+    list: compliance.list,
+    headers: compliance.headers,
+    metadata: { ...params.metadata, invoiceNumber: params.invoiceNumber, tier: params.tier },
+    userId: params.userId ?? undefined,
+  });
+}
+
+export async function sendSpecP4Invoice(params: {
+  email: string;
+  buyerName: string;
+  companyName: string;
+  tier: SpecTier;
+  amountFormatted: string;
+  invoiceNumber: string;
+  dueDateFormatted: string;
+  walkthroughDateFormatted: string;
+  guaranteeEndsFormatted: string;
+  stripeInvoiceUrl: string;
+  userId?: string | null;
+  metadata?: Record<string, unknown>;
+}): Promise<GatedSendResult> {
+  const compliance = buildComplianceHeaders({
+    email: params.email,
+    kind: "spec.p4_invoice",
+  });
+  const html = await render(
+    <SpecP4Invoice
+      buyerName={params.buyerName}
+      companyName={params.companyName}
+      tier={params.tier}
+      amountFormatted={params.amountFormatted}
+      invoiceNumber={params.invoiceNumber}
+      dueDateFormatted={params.dueDateFormatted}
+      walkthroughDateFormatted={params.walkthroughDateFormatted}
+      guaranteeEndsFormatted={params.guaranteeEndsFormatted}
+      stripeInvoiceUrl={params.stripeInvoiceUrl}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+      list={compliance.list}
+    />,
+  );
+  return gatedSend({
+    to: params.email,
+    from: DISPATCH,
+    replyTo: DISPATCH.email,
+    subject: `P4 INVOICE — ${params.amountFormatted}`,
+    html,
+    emailType: "spec.p4_invoice",
+    list: compliance.list,
+    headers: compliance.headers,
+    metadata: { ...params.metadata, invoiceNumber: params.invoiceNumber, tier: params.tier },
+    userId: params.userId ?? undefined,
+  });
+}
+
+export async function sendSpecSupportWindowOpen(params: {
+  email: string;
+  buyerName: string;
+  companyName: string;
+  tier: SpecTier;
+  supportWindowDaysFormatted: string;
+  walkthroughDateFormatted: string;
+  supportEndsFormatted: string;
+  guaranteeEndsFormatted: string;
+  ticketUrl: string;
+  userId?: string | null;
+  metadata?: Record<string, unknown>;
+}): Promise<GatedSendResult> {
+  const compliance = buildComplianceHeaders({
+    email: params.email,
+    kind: "spec.support_window_open",
+  });
+  const html = await render(
+    <SpecSupportWindowOpen
+      buyerName={params.buyerName}
+      companyName={params.companyName}
+      tier={params.tier}
+      supportWindowDaysFormatted={params.supportWindowDaysFormatted}
+      walkthroughDateFormatted={params.walkthroughDateFormatted}
+      supportEndsFormatted={params.supportEndsFormatted}
+      guaranteeEndsFormatted={params.guaranteeEndsFormatted}
+      ticketUrl={params.ticketUrl}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+      list={compliance.list}
+    />,
+  );
+  return gatedSend({
+    to: params.email,
+    from: DISPATCH,
+    replyTo: DISPATCH.email,
+    subject: `SUPPORT WINDOW OPEN`,
+    html,
+    emailType: "spec.support_window_open",
+    list: compliance.list,
+    headers: compliance.headers,
+    metadata: { ...params.metadata, tier: params.tier, companyName: params.companyName },
+    userId: params.userId ?? undefined,
+  });
+}
+
+export async function sendSpecRefundProcessed(params: {
+  email: string;
+  buyerName: string;
+  companyName: string;
+  tier: SpecTier;
+  totalRefundedFormatted: string;
+  processedAtFormatted: string;
+  isGuaranteeInvocation: boolean;
+  breakdown: SpecRefundBreakdownRow[];
+  feedbackUrl?: string;
+  userId?: string | null;
+  metadata?: Record<string, unknown>;
+}): Promise<GatedSendResult> {
+  const compliance = buildComplianceHeaders({
+    email: params.email,
+    kind: "spec.refund_processed",
+  });
+  const html = await render(
+    <SpecRefundProcessed
+      buyerName={params.buyerName}
+      companyName={params.companyName}
+      tier={params.tier}
+      totalRefundedFormatted={params.totalRefundedFormatted}
+      processedAtFormatted={params.processedAtFormatted}
+      isGuaranteeInvocation={params.isGuaranteeInvocation}
+      breakdown={params.breakdown}
+      feedbackUrl={params.feedbackUrl}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+      list={compliance.list}
+    />,
+  );
+  return gatedSend({
+    to: params.email,
+    from: DISPATCH,
+    replyTo: DISPATCH.email,
+    subject: `REFUND PROCESSED`,
+    html,
+    emailType: "spec.refund_processed",
+    list: compliance.list,
+    headers: compliance.headers,
+    metadata: {
+      ...params.metadata,
+      tier: params.tier,
+      totalRefundedFormatted: params.totalRefundedFormatted,
+      isGuaranteeInvocation: params.isGuaranteeInvocation,
+    },
+    userId: params.userId ?? undefined,
+  });
+}
+
+export async function sendSpecRefundDenied(params: {
+  email: string;
+  buyerName: string;
+  companyName: string;
+  tier: SpecTier;
+  decidedAtFormatted: string;
+  denialReason: string;
+  userId?: string | null;
+  metadata?: Record<string, unknown>;
+}): Promise<GatedSendResult> {
+  const compliance = buildComplianceHeaders({
+    email: params.email,
+    kind: "spec.refund_denied",
+  });
+  const html = await render(
+    <SpecRefundDenied
+      buyerName={params.buyerName}
+      companyName={params.companyName}
+      tier={params.tier}
+      decidedAtFormatted={params.decidedAtFormatted}
+      denialReason={params.denialReason}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+      list={compliance.list}
+    />,
+  );
+  return gatedSend({
+    to: params.email,
+    from: DISPATCH,
+    replyTo: DISPATCH.email,
+    subject: `REFUND REQUEST DENIED`,
+    html,
+    emailType: "spec.refund_denied",
+    list: compliance.list,
+    headers: compliance.headers,
+    metadata: { ...params.metadata, tier: params.tier, companyName: params.companyName },
+    userId: params.userId ?? undefined,
+  });
+}
+
+export async function sendSpecEntitlementDisabled(params: {
+  email: string;
+  customerName: string;
+  moduleKey: string;
+  moduleLabel: string;
+  disabledReason: SpecEntitlementDisabledReason;
+  tier?: SpecTier;
+  restoreInstructionsUrl?: string | null;
+  contactEmail?: string;
+  userId?: string | null;
+  metadata?: Record<string, unknown>;
+}): Promise<GatedSendResult> {
+  const compliance = buildComplianceHeaders({
+    email: params.email,
+    kind: "spec.entitlement_disabled",
+  });
+  const html = await render(
+    <SpecEntitlementDisabled
+      customerName={params.customerName}
+      moduleKey={params.moduleKey}
+      moduleLabel={params.moduleLabel}
+      disabledReason={params.disabledReason}
+      tier={params.tier}
+      restoreInstructionsUrl={params.restoreInstructionsUrl ?? null}
+      contactEmail={params.contactEmail}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+      list={compliance.list}
+    />,
+  );
+  return gatedSend({
+    to: params.email,
+    from: DISPATCH,
+    replyTo: DISPATCH.email,
+    subject: `SPEC ACCESS PAUSED — ${params.moduleLabel}`,
+    html,
+    emailType: "spec.entitlement_disabled",
+    list: compliance.list,
+    headers: compliance.headers,
+    metadata: {
+      ...params.metadata,
+      moduleKey: params.moduleKey,
+      disabledReason: params.disabledReason,
+      tier: params.tier,
+    },
+    userId: params.userId ?? undefined,
+  });
+}
+
+export async function sendSpecEntitlementEnabled(params: {
+  email: string;
+  customerName: string;
+  moduleKey: string;
+  moduleLabel: string;
+  previousDisabledReason?: SpecEntitlementDisabledReason | null;
+  tier?: SpecTier;
+  loginUrl: string;
+  contactEmail?: string;
+  userId?: string | null;
+  metadata?: Record<string, unknown>;
+}): Promise<GatedSendResult> {
+  const compliance = buildComplianceHeaders({
+    email: params.email,
+    kind: "spec.entitlement_enabled",
+  });
+  const html = await render(
+    <SpecEntitlementEnabled
+      customerName={params.customerName}
+      moduleKey={params.moduleKey}
+      moduleLabel={params.moduleLabel}
+      previousDisabledReason={params.previousDisabledReason ?? null}
+      tier={params.tier}
+      loginUrl={params.loginUrl}
+      contactEmail={params.contactEmail}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+      list={compliance.list}
+    />,
+  );
+  return gatedSend({
+    to: params.email,
+    from: DISPATCH,
+    replyTo: DISPATCH.email,
+    subject: `SPEC ACCESS RESTORED — ${params.moduleLabel}`,
+    html,
+    emailType: "spec.entitlement_enabled",
+    list: compliance.list,
+    headers: compliance.headers,
+    metadata: {
+      ...params.metadata,
+      moduleKey: params.moduleKey,
+      previousDisabledReason: params.previousDisabledReason ?? null,
+      tier: params.tier,
+    },
+    userId: params.userId ?? undefined,
+  });
+}
+
+export async function sendSpecOwnerApprovalExpiredBuyer(params: {
+  email: string;
+  buyerName: string;
+  accountHolderName: string;
+  companyName: string;
+  tier: SpecTier;
+  originalRequestedAt: string;
+  retryUrl: string;
+  userId?: string | null;
+  metadata?: Record<string, unknown>;
+}): Promise<GatedSendResult> {
+  const compliance = buildComplianceHeaders({
+    email: params.email,
+    kind: "spec.owner_approval_expired_buyer",
+  });
+  const html = await render(
+    <SpecOwnerApprovalExpiredBuyer
+      buyerName={params.buyerName}
+      accountHolderName={params.accountHolderName}
+      companyName={params.companyName}
+      tier={params.tier}
+      originalRequestedAt={params.originalRequestedAt}
+      retryUrl={params.retryUrl}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+      list={compliance.list}
+    />,
+  );
+  return gatedSend({
+    to: params.email,
+    from: DISPATCH,
+    replyTo: DISPATCH.email,
+    subject: `SPEC REQUEST EXPIRED — ${params.tier}`,
+    html,
+    emailType: "spec.owner_approval_expired_buyer",
+    list: compliance.list,
+    headers: compliance.headers,
+    metadata: { ...params.metadata, tier: params.tier, companyName: params.companyName },
+    userId: params.userId ?? undefined,
+  });
+}
+
+export async function sendSpecOwnerApprovalExpiredOwner(params: {
+  email: string;
+  accountHolderName: string;
+  buyerName: string;
+  companyName: string;
+  tier: SpecTier;
+  originalRequestedAt: string;
+  userId?: string | null;
+  metadata?: Record<string, unknown>;
+}): Promise<GatedSendResult> {
+  const compliance = buildComplianceHeaders({
+    email: params.email,
+    kind: "spec.owner_approval_expired_owner",
+  });
+  const html = await render(
+    <SpecOwnerApprovalExpiredOwner
+      accountHolderName={params.accountHolderName}
+      buyerName={params.buyerName}
+      companyName={params.companyName}
+      tier={params.tier}
+      originalRequestedAt={params.originalRequestedAt}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+      list={compliance.list}
+    />,
+  );
+  return gatedSend({
+    to: params.email,
+    from: DISPATCH,
+    replyTo: DISPATCH.email,
+    subject: `SPEC REQUEST EXPIRED — ${params.buyerName} was not approved`,
+    html,
+    emailType: "spec.owner_approval_expired_owner",
+    list: compliance.list,
+    headers: compliance.headers,
+    metadata: {
+      ...params.metadata,
+      tier: params.tier,
+      buyerName: params.buyerName,
+      companyName: params.companyName,
+    },
+    userId: params.userId ?? undefined,
+  });
+}
+
+export async function sendSpecHoldExpiredCustomerRequested(params: {
+  email: string;
+  customerName: string;
+  tier: SpecTier;
+  holdEnteredAt: string;
+  priorStatus: string;
+  contactEmail?: string;
+  userId?: string | null;
+  metadata?: Record<string, unknown>;
+}): Promise<GatedSendResult> {
+  const compliance = buildComplianceHeaders({
+    email: params.email,
+    kind: "spec.hold_expired_customer_requested",
+  });
+  const html = await render(
+    <SpecHoldExpiredCustomerRequested
+      customerName={params.customerName}
+      tier={params.tier}
+      holdEnteredAt={params.holdEnteredAt}
+      priorStatus={params.priorStatus}
+      contactEmail={params.contactEmail}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+      list={compliance.list}
+    />,
+  );
+  return gatedSend({
+    to: params.email,
+    from: DISPATCH,
+    replyTo: DISPATCH.email,
+    subject: `SPEC ENGAGEMENT STALLED — 90-DAY PAUSE EXPIRED`,
+    html,
+    emailType: "spec.hold_expired_customer_requested",
+    list: compliance.list,
+    headers: compliance.headers,
+    metadata: {
+      ...params.metadata,
+      tier: params.tier,
+      priorStatus: params.priorStatus,
+    },
+    userId: params.userId ?? undefined,
+  });
+}
+
+// Re-export the row type so SPEC call sites in Stage C/D can import it
+// alongside the sendSpec* functions.
+export type { SpecRefundBreakdownRow } from "./react/templates/SpecRefundProcessed";

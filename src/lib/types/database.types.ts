@@ -1947,6 +1947,7 @@ export type Database = {
           console_logs: Json | null
           created_at: string | null
           custom_metadata: Json | null
+          dedupe_key: string | null
           description: string
           device_model: string | null
           fix_branch: string | null
@@ -1958,6 +1959,7 @@ export type Database = {
           free_ram_mb: number | null
           human_review_reason: string | null
           id: string
+          last_reported_at: string
           network_log: Json | null
           network_type: string | null
           os_name: string | null
@@ -1974,6 +1976,7 @@ export type Database = {
           screenshot_url: string | null
           state_snapshot: Json | null
           status: string | null
+          times_reported: number
           updated_at: string | null
           url: string | null
           viewport_height: number | null
@@ -1994,6 +1997,7 @@ export type Database = {
           console_logs?: Json | null
           created_at?: string | null
           custom_metadata?: Json | null
+          dedupe_key?: string | null
           description: string
           device_model?: string | null
           fix_branch?: string | null
@@ -2005,6 +2009,7 @@ export type Database = {
           free_ram_mb?: number | null
           human_review_reason?: string | null
           id?: string
+          last_reported_at?: string
           network_log?: Json | null
           network_type?: string | null
           os_name?: string | null
@@ -2021,6 +2026,7 @@ export type Database = {
           screenshot_url?: string | null
           state_snapshot?: Json | null
           status?: string | null
+          times_reported?: number
           updated_at?: string | null
           url?: string | null
           viewport_height?: number | null
@@ -2041,6 +2047,7 @@ export type Database = {
           console_logs?: Json | null
           created_at?: string | null
           custom_metadata?: Json | null
+          dedupe_key?: string | null
           description?: string
           device_model?: string | null
           fix_branch?: string | null
@@ -2052,6 +2059,7 @@ export type Database = {
           free_ram_mb?: number | null
           human_review_reason?: string | null
           id?: string
+          last_reported_at?: string
           network_log?: Json | null
           network_type?: string | null
           os_name?: string | null
@@ -2068,6 +2076,7 @@ export type Database = {
           screenshot_url?: string | null
           state_snapshot?: Json | null
           status?: string | null
+          times_reported?: number
           updated_at?: string | null
           url?: string | null
           viewport_height?: number | null
@@ -2426,21 +2435,30 @@ export type Database = {
       }
       catalog_option_values: {
         Row: {
+          created_at: string
+          deleted_at: string | null
           id: string
           option_id: string
           sort_order: number
+          updated_at: string
           value: string
         }
         Insert: {
+          created_at?: string
+          deleted_at?: string | null
           id?: string
           option_id: string
           sort_order?: number
+          updated_at?: string
           value: string
         }
         Update: {
+          created_at?: string
+          deleted_at?: string | null
           id?: string
           option_id?: string
           sort_order?: number
+          updated_at?: string
           value?: string
         }
         Relationships: [
@@ -2457,23 +2475,29 @@ export type Database = {
         Row: {
           catalog_item_id: string
           created_at: string
+          deleted_at: string | null
           id: string
           name: string
           sort_order: number
+          updated_at: string
         }
         Insert: {
           catalog_item_id: string
           created_at?: string
+          deleted_at?: string | null
           id?: string
           name: string
           sort_order?: number
+          updated_at?: string
         }
         Update: {
           catalog_item_id?: string
           created_at?: string
+          deleted_at?: string | null
           id?: string
           name?: string
           sort_order?: number
+          updated_at?: string
         }
         Relationships: [
           {
@@ -2610,6 +2634,148 @@ export type Database = {
           },
         ]
       }
+      catalog_product_option_mappings: {
+        Row: {
+          catalog_item_id: string
+          catalog_option_id: string
+          catalog_option_value_id: string | null
+          company_id: string
+          created_at: string
+          deleted_at: string | null
+          id: string
+          mapping_kind: string
+          product_id: string
+          product_option_id: string
+          product_option_value_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          catalog_item_id: string
+          catalog_option_id: string
+          catalog_option_value_id?: string | null
+          company_id: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          mapping_kind?: string
+          product_id: string
+          product_option_id: string
+          product_option_value_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          catalog_item_id?: string
+          catalog_option_id?: string
+          catalog_option_value_id?: string | null
+          company_id?: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          mapping_kind?: string
+          product_id?: string
+          product_option_id?: string
+          product_option_value_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_product_option_mappings_catalog_item_id_fkey"
+            columns: ["catalog_item_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_product_option_mappings_catalog_option_id_fkey"
+            columns: ["catalog_option_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_options"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_product_option_mappings_catalog_option_value_id_fkey"
+            columns: ["catalog_option_value_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_option_values"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_product_option_mappings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_product_option_mappings_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_product_option_mappings_product_option_id_fkey"
+            columns: ["product_option_id"]
+            isOneToOne: false
+            referencedRelation: "product_options"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_product_option_mappings_product_option_value_id_fkey"
+            columns: ["product_option_value_id"]
+            isOneToOne: false
+            referencedRelation: "product_option_values"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      catalog_setup_save_requests: {
+        Row: {
+          company_id: string
+          completed_at: string | null
+          created_at: string
+          error: Json | null
+          id: string
+          idempotency_key: string
+          request_hash: string
+          response: Json | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          completed_at?: string | null
+          created_at?: string
+          error?: Json | null
+          id?: string
+          idempotency_key: string
+          request_hash: string
+          response?: Json | null
+          status: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          completed_at?: string | null
+          created_at?: string
+          error?: Json | null
+          id?: string
+          idempotency_key?: string
+          request_hash?: string
+          response?: Json | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_setup_save_requests_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       catalog_snapshot_items: {
         Row: {
           description: string | null
@@ -2727,6 +2893,205 @@ export type Database = {
           },
         ]
       }
+      catalog_stock_unit_events: {
+        Row: {
+          catalog_stock_unit_id: string
+          catalog_variant_id: string
+          company_id: string
+          created_at: string
+          created_by: string | null
+          event_type: string
+          from_status: string | null
+          id: string
+          marker: string | null
+          notes: string | null
+          payload: Json
+          quantity_delta: number | null
+          related_catalog_stock_unit_id: string | null
+          remaining_length_delta: number | null
+          to_status: string | null
+        }
+        Insert: {
+          catalog_stock_unit_id: string
+          catalog_variant_id: string
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          event_type: string
+          from_status?: string | null
+          id?: string
+          marker?: string | null
+          notes?: string | null
+          payload?: Json
+          quantity_delta?: number | null
+          related_catalog_stock_unit_id?: string | null
+          remaining_length_delta?: number | null
+          to_status?: string | null
+        }
+        Update: {
+          catalog_stock_unit_id?: string
+          catalog_variant_id?: string
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          event_type?: string
+          from_status?: string | null
+          id?: string
+          marker?: string | null
+          notes?: string | null
+          payload?: Json
+          quantity_delta?: number | null
+          related_catalog_stock_unit_id?: string | null
+          remaining_length_delta?: number | null
+          to_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_stock_unit_events_catalog_stock_unit_id_fkey"
+            columns: ["catalog_stock_unit_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_stock_units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_stock_unit_events_catalog_variant_id_fkey"
+            columns: ["catalog_variant_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_variants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_stock_unit_events_catalog_variant_id_fkey"
+            columns: ["catalog_variant_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_item_tags"
+            referencedColumns: ["item_id"]
+          },
+          {
+            foreignKeyName: "catalog_stock_unit_events_catalog_variant_id_fkey"
+            columns: ["catalog_variant_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_stock_unit_events_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_stock_unit_events_related_catalog_stock_unit_id_fkey"
+            columns: ["related_catalog_stock_unit_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_stock_units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      catalog_stock_units: {
+        Row: {
+          catalog_variant_id: string
+          company_id: string
+          created_at: string
+          deleted_at: string | null
+          id: string
+          label: string | null
+          length_unit: string | null
+          location: string | null
+          lot_code: string | null
+          notes: string | null
+          original_length_value: number | null
+          quantity_value: number
+          remaining_length_value: number | null
+          source_order_item_id: string | null
+          status: string
+          unit_kind: string
+          updated_at: string
+          width_unit: string | null
+          width_value: number | null
+        }
+        Insert: {
+          catalog_variant_id: string
+          company_id: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          label?: string | null
+          length_unit?: string | null
+          location?: string | null
+          lot_code?: string | null
+          notes?: string | null
+          original_length_value?: number | null
+          quantity_value?: number
+          remaining_length_value?: number | null
+          source_order_item_id?: string | null
+          status?: string
+          unit_kind?: string
+          updated_at?: string
+          width_unit?: string | null
+          width_value?: number | null
+        }
+        Update: {
+          catalog_variant_id?: string
+          company_id?: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          label?: string | null
+          length_unit?: string | null
+          location?: string | null
+          lot_code?: string | null
+          notes?: string | null
+          original_length_value?: number | null
+          quantity_value?: number
+          remaining_length_value?: number | null
+          source_order_item_id?: string | null
+          status?: string
+          unit_kind?: string
+          updated_at?: string
+          width_unit?: string | null
+          width_value?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_stock_units_catalog_variant_id_fkey"
+            columns: ["catalog_variant_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_variants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_stock_units_catalog_variant_id_fkey"
+            columns: ["catalog_variant_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_item_tags"
+            referencedColumns: ["item_id"]
+          },
+          {
+            foreignKeyName: "catalog_stock_units_catalog_variant_id_fkey"
+            columns: ["catalog_variant_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_stock_units_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_stock_units_source_order_item_id_fkey"
+            columns: ["source_order_item_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_order_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       catalog_tags: {
         Row: {
           company_id: string
@@ -2817,15 +3182,27 @@ export type Database = {
       }
       catalog_variant_option_values: {
         Row: {
+          created_at: string
+          deleted_at: string | null
+          id: string
           option_value_id: string
+          updated_at: string
           variant_id: string
         }
         Insert: {
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
           option_value_id: string
+          updated_at?: string
           variant_id: string
         }
         Update: {
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
           option_value_id?: string
+          updated_at?: string
           variant_id?: string
         }
         Relationships: [
@@ -3442,6 +3819,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      conversion_event_outbox: {
+        Row: {
+          attempts: number
+          created_at: string
+          event_name: string
+          id: string
+          last_attempt_at: string | null
+          last_error: string | null
+          payload: Json
+          sent_at: string | null
+          status: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          event_name: string
+          id?: string
+          last_attempt_at?: string | null
+          last_error?: string | null
+          payload: Json
+          sent_at?: string | null
+          status?: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          event_name?: string
+          id?: string
+          last_attempt_at?: string | null
+          last_error?: string | null
+          payload?: Json
+          sent_at?: string | null
+          status?: string
+        }
+        Relationships: []
       }
       course_bundles: {
         Row: {
@@ -6078,6 +6491,56 @@ export type Database = {
           },
         ]
       }
+      lead_lifecycle_settings: {
+        Row: {
+          auto_archive_enabled: boolean
+          auto_lost_enabled: boolean
+          company_id: string
+          created_at: string
+          follow_up_after_days: number
+          follow_up_template_body: string
+          follow_up_template_subject: string
+          inbound_unreplied_lost_days: number
+          no_correspondence_archive_days: number
+          second_follow_up_archive_after_days: number
+          updated_at: string
+        }
+        Insert: {
+          auto_archive_enabled?: boolean
+          auto_lost_enabled?: boolean
+          company_id: string
+          created_at?: string
+          follow_up_after_days?: number
+          follow_up_template_body?: string
+          follow_up_template_subject?: string
+          inbound_unreplied_lost_days?: number
+          no_correspondence_archive_days?: number
+          second_follow_up_archive_after_days?: number
+          updated_at?: string
+        }
+        Update: {
+          auto_archive_enabled?: boolean
+          auto_lost_enabled?: boolean
+          company_id?: string
+          created_at?: string
+          follow_up_after_days?: number
+          follow_up_template_body?: string
+          follow_up_template_subject?: string
+          inbound_unreplied_lost_days?: number
+          no_correspondence_archive_days?: number
+          second_follow_up_archive_after_days?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_lifecycle_settings_company_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lesson_progress: {
         Row: {
           completed_at: string | null
@@ -7007,6 +7470,104 @@ export type Database = {
           },
         ]
       }
+      opportunity_correspondence_events: {
+        Row: {
+          activity_id: string | null
+          cc_emails: string[]
+          company_id: string
+          connection_id: string | null
+          created_at: string
+          direction: string
+          from_email: string | null
+          id: string
+          is_meaningful: boolean
+          linked_contact_id: string | null
+          linked_contact_kind: string | null
+          noise_reason: string | null
+          occurred_at: string
+          opportunity_id: string
+          party_role: string
+          provider_message_id: string | null
+          provider_thread_id: string
+          source: string
+          subject: string | null
+          to_emails: string[]
+        }
+        Insert: {
+          activity_id?: string | null
+          cc_emails?: string[]
+          company_id: string
+          connection_id?: string | null
+          created_at?: string
+          direction: string
+          from_email?: string | null
+          id?: string
+          is_meaningful: boolean
+          linked_contact_id?: string | null
+          linked_contact_kind?: string | null
+          noise_reason?: string | null
+          occurred_at: string
+          opportunity_id: string
+          party_role: string
+          provider_message_id?: string | null
+          provider_thread_id: string
+          source: string
+          subject?: string | null
+          to_emails?: string[]
+        }
+        Update: {
+          activity_id?: string | null
+          cc_emails?: string[]
+          company_id?: string
+          connection_id?: string | null
+          created_at?: string
+          direction?: string
+          from_email?: string | null
+          id?: string
+          is_meaningful?: boolean
+          linked_contact_id?: string | null
+          linked_contact_kind?: string | null
+          noise_reason?: string | null
+          occurred_at?: string
+          opportunity_id?: string
+          party_role?: string
+          provider_message_id?: string | null
+          provider_thread_id?: string
+          source?: string
+          subject?: string | null
+          to_emails?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opportunity_correspondence_events_activity_company_fkey"
+            columns: ["company_id", "activity_id"]
+            isOneToOne: false
+            referencedRelation: "activities"
+            referencedColumns: ["company_id", "id"]
+          },
+          {
+            foreignKeyName: "opportunity_correspondence_events_company_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunity_correspondence_events_connection_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "email_connections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunity_correspondence_events_opportunity_company_fkey"
+            columns: ["company_id", "opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["company_id", "id"]
+          },
+        ]
+      }
       opportunity_email_threads: {
         Row: {
           connection_id: string | null
@@ -7043,6 +7604,201 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "opportunities"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      opportunity_follow_up_drafts: {
+        Row: {
+          ai_draft_history_id: string | null
+          company_id: string
+          connection_id: string | null
+          created_at: string
+          created_by: string | null
+          current_body: string | null
+          discarded_at: string | null
+          edited_at: string | null
+          edited_by: string | null
+          final_sent_body: string | null
+          id: string
+          opportunity_id: string
+          origin: string
+          original_body: string
+          provider_draft_id: string | null
+          provider_thread_id: string | null
+          sent_at: string | null
+          sequence_number: number | null
+          source_event_id: string | null
+          status: string
+          subject: string
+          superseded_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          ai_draft_history_id?: string | null
+          company_id: string
+          connection_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          current_body?: string | null
+          discarded_at?: string | null
+          edited_at?: string | null
+          edited_by?: string | null
+          final_sent_body?: string | null
+          id?: string
+          opportunity_id: string
+          origin: string
+          original_body: string
+          provider_draft_id?: string | null
+          provider_thread_id?: string | null
+          sent_at?: string | null
+          sequence_number?: number | null
+          source_event_id?: string | null
+          status?: string
+          subject?: string
+          superseded_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ai_draft_history_id?: string | null
+          company_id?: string
+          connection_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          current_body?: string | null
+          discarded_at?: string | null
+          edited_at?: string | null
+          edited_by?: string | null
+          final_sent_body?: string | null
+          id?: string
+          opportunity_id?: string
+          origin?: string
+          original_body?: string
+          provider_draft_id?: string | null
+          provider_thread_id?: string | null
+          sent_at?: string | null
+          sequence_number?: number | null
+          source_event_id?: string | null
+          status?: string
+          subject?: string
+          superseded_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opportunity_follow_up_drafts_ai_draft_history_company_fkey"
+            columns: ["company_id", "ai_draft_history_id"]
+            isOneToOne: false
+            referencedRelation: "ai_draft_history"
+            referencedColumns: ["company_id", "id"]
+          },
+          {
+            foreignKeyName: "opportunity_follow_up_drafts_company_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunity_follow_up_drafts_connection_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "email_connections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunity_follow_up_drafts_created_by_company_fkey"
+            columns: ["company_id", "created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["company_id", "id"]
+          },
+          {
+            foreignKeyName: "opportunity_follow_up_drafts_edited_by_company_fkey"
+            columns: ["company_id", "edited_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["company_id", "id"]
+          },
+          {
+            foreignKeyName: "opportunity_follow_up_drafts_opportunity_company_fkey"
+            columns: ["company_id", "opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["company_id", "id"]
+          },
+          {
+            foreignKeyName: "opportunity_follow_up_drafts_source_event_company_fkey"
+            columns: ["company_id", "source_event_id"]
+            isOneToOne: false
+            referencedRelation: "opportunity_correspondence_events"
+            referencedColumns: ["company_id", "id"]
+          },
+        ]
+      }
+      opportunity_lifecycle_state: {
+        Row: {
+          company_id: string
+          last_meaningful_at: string | null
+          last_meaningful_direction: string | null
+          last_meaningful_event_id: string | null
+          operator_follow_up_miss_at: string | null
+          opportunity_id: string
+          protected_until: string | null
+          second_follow_up_sent_at: string | null
+          stale_status: string | null
+          stale_status_at: string | null
+          unanswered_follow_up_count: number
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          last_meaningful_at?: string | null
+          last_meaningful_direction?: string | null
+          last_meaningful_event_id?: string | null
+          operator_follow_up_miss_at?: string | null
+          opportunity_id: string
+          protected_until?: string | null
+          second_follow_up_sent_at?: string | null
+          stale_status?: string | null
+          stale_status_at?: string | null
+          unanswered_follow_up_count?: number
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          last_meaningful_at?: string | null
+          last_meaningful_direction?: string | null
+          last_meaningful_event_id?: string | null
+          operator_follow_up_miss_at?: string | null
+          opportunity_id?: string
+          protected_until?: string | null
+          second_follow_up_sent_at?: string | null
+          stale_status?: string | null
+          stale_status_at?: string | null
+          unanswered_follow_up_count?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opportunity_lifecycle_state_company_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunity_lifecycle_state_last_meaningful_event_company_fkey"
+            columns: ["company_id", "last_meaningful_event_id"]
+            isOneToOne: false
+            referencedRelation: "opportunity_correspondence_events"
+            referencedColumns: ["company_id", "id"]
+          },
+          {
+            foreignKeyName: "opportunity_lifecycle_state_opportunity_company_fkey"
+            columns: ["company_id", "opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["company_id", "id"]
           },
         ]
       }
@@ -7762,33 +8518,42 @@ export type Database = {
           bundle_product_id: string
           child_product_id: string
           company_id: string
+          compatibility_selector: Json | null
           created_at: string
           deleted_at: string | null
           display_order: number
           id: string
           quantity: number
+          relationship_kind: string
+          suggestion_reason: string | null
           updated_at: string
         }
         Insert: {
           bundle_product_id: string
           child_product_id: string
           company_id: string
+          compatibility_selector?: Json | null
           created_at?: string
           deleted_at?: string | null
           display_order?: number
           id?: string
           quantity?: number
+          relationship_kind?: string
+          suggestion_reason?: string | null
           updated_at?: string
         }
         Update: {
           bundle_product_id?: string
           child_product_id?: string
           company_id?: string
+          compatibility_selector?: Json | null
           created_at?: string
           deleted_at?: string | null
           display_order?: number
           id?: string
           quantity?: number
+          relationship_kind?: string
+          suggestion_reason?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -7819,6 +8584,7 @@ export type Database = {
         Row: {
           catalog_item_id: string | null
           catalog_variant_id: string | null
+          deleted_at: string | null
           id: string
           inventory_item_id: string | null
           notes: string | null
@@ -7826,11 +8592,13 @@ export type Database = {
           quantity_per_unit: number
           scaled_by_option_id: string | null
           unit_id: string | null
+          updated_at: string
           variant_selector: Json | null
         }
         Insert: {
           catalog_item_id?: string | null
           catalog_variant_id?: string | null
+          deleted_at?: string | null
           id?: string
           inventory_item_id?: string | null
           notes?: string | null
@@ -7838,11 +8606,13 @@ export type Database = {
           quantity_per_unit: number
           scaled_by_option_id?: string | null
           unit_id?: string | null
+          updated_at?: string
           variant_selector?: Json | null
         }
         Update: {
           catalog_item_id?: string | null
           catalog_variant_id?: string | null
+          deleted_at?: string | null
           id?: string
           inventory_item_id?: string | null
           notes?: string | null
@@ -7850,6 +8620,7 @@ export type Database = {
           quantity_per_unit?: number
           scaled_by_option_id?: string | null
           unit_id?: string | null
+          updated_at?: string
           variant_selector?: Json | null
         }
         Relationships: [
@@ -7913,21 +8684,30 @@ export type Database = {
       }
       product_option_values: {
         Row: {
+          created_at: string
+          deleted_at: string | null
           id: string
           option_id: string
           sort_order: number
+          updated_at: string
           value: string
         }
         Insert: {
+          created_at?: string
+          deleted_at?: string | null
           id?: string
           option_id: string
           sort_order?: number
+          updated_at?: string
           value: string
         }
         Update: {
+          created_at?: string
+          deleted_at?: string | null
           id?: string
           option_id?: string
           sort_order?: number
+          updated_at?: string
           value?: string
         }
         Relationships: [
@@ -7946,6 +8726,7 @@ export type Database = {
           affects_recipe: boolean
           created_at: string
           default_value: string | null
+          deleted_at: string | null
           id: string
           kind: string
           name: string
@@ -7953,12 +8734,14 @@ export type Database = {
           product_id: string
           required: boolean
           sort_order: number
+          updated_at: string
         }
         Insert: {
           affects_price?: boolean
           affects_recipe?: boolean
           created_at?: string
           default_value?: string | null
+          deleted_at?: string | null
           id?: string
           kind: string
           name: string
@@ -7966,12 +8749,14 @@ export type Database = {
           product_id: string
           required?: boolean
           sort_order?: number
+          updated_at?: string
         }
         Update: {
           affects_price?: boolean
           affects_recipe?: boolean
           created_at?: string
           default_value?: string | null
+          deleted_at?: string | null
           id?: string
           kind?: string
           name?: string
@@ -7979,6 +8764,7 @@ export type Database = {
           product_id?: string
           required?: boolean
           sort_order?: number
+          updated_at?: string
         }
         Relationships: [
           {
@@ -7994,6 +8780,7 @@ export type Database = {
         Row: {
           amount: number
           created_at: string
+          deleted_at: string | null
           id: string
           modifier_kind: string
           option_id: string
@@ -8001,10 +8788,12 @@ export type Database = {
           trigger_int_max: number | null
           trigger_int_min: number | null
           trigger_value_id: string | null
+          updated_at: string
         }
         Insert: {
           amount: number
           created_at?: string
+          deleted_at?: string | null
           id?: string
           modifier_kind: string
           option_id: string
@@ -8012,10 +8801,12 @@ export type Database = {
           trigger_int_max?: number | null
           trigger_int_min?: number | null
           trigger_value_id?: string | null
+          updated_at?: string
         }
         Update: {
           amount?: number
           created_at?: string
+          deleted_at?: string | null
           id?: string
           modifier_kind?: string
           option_id?: string
@@ -8023,6 +8814,7 @@ export type Database = {
           trigger_int_max?: number | null
           trigger_int_min?: number | null
           trigger_value_id?: string | null
+          updated_at?: string
         }
         Relationships: [
           {
@@ -8262,7 +9054,6 @@ export type Database = {
           note: string | null
           photo_url: string
           project_id: string
-          rendered_photo_url: string | null
           updated_at: string | null
         }
         Insert: {
@@ -8276,7 +9067,6 @@ export type Database = {
           note?: string | null
           photo_url: string
           project_id: string
-          rendered_photo_url?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -8290,7 +9080,6 @@ export type Database = {
           note?: string | null
           photo_url?: string
           project_id?: string
-          rendered_photo_url?: string | null
           updated_at?: string | null
         }
         Relationships: []
@@ -8304,7 +9093,6 @@ export type Database = {
           id: string
           is_client_visible: boolean
           project_id: string
-          rendered_url: string | null
           site_visit_id: string | null
           source: Database["public"]["Enums"]["photo_source"]
           taken_at: string | null
@@ -8320,7 +9108,6 @@ export type Database = {
           id?: string
           is_client_visible?: boolean
           project_id: string
-          rendered_url?: string | null
           site_visit_id?: string | null
           source?: Database["public"]["Enums"]["photo_source"]
           taken_at?: string | null
@@ -8336,7 +9123,6 @@ export type Database = {
           id?: string
           is_client_visible?: boolean
           project_id?: string
-          rendered_url?: string | null
           site_visit_id?: string | null
           source?: Database["public"]["Enums"]["photo_source"]
           taken_at?: string | null
@@ -8618,6 +9404,9 @@ export type Database = {
           title: string
           trade: string | null
           updated_at: string | null
+          vinyl_order_status: string | null
+          vinyl_ordered_at: string | null
+          vinyl_ordered_by: string | null
           visibility: string | null
         }
         Insert: {
@@ -8645,6 +9434,9 @@ export type Database = {
           title: string
           trade?: string | null
           updated_at?: string | null
+          vinyl_order_status?: string | null
+          vinyl_ordered_at?: string | null
+          vinyl_ordered_by?: string | null
           visibility?: string | null
         }
         Update: {
@@ -8672,6 +9464,9 @@ export type Database = {
           title?: string
           trade?: string | null
           updated_at?: string | null
+          vinyl_order_status?: string | null
+          vinyl_ordered_at?: string | null
+          vinyl_ordered_by?: string | null
           visibility?: string | null
         }
         Relationships: [
@@ -9638,6 +10433,1389 @@ export type Database = {
             columns: ["project_ref"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      spec_acceptance_events: {
+        Row: {
+          accepted_at: string
+          accepted_by_user_id: string
+          accepted_ip: string | null
+          accepted_user_agent: string | null
+          event_type: string
+          id: string
+          is_test: boolean
+          payload_hash: string | null
+          scope_document_id: string | null
+          signature_evidence_url: string | null
+          signature_method: string | null
+          spec_project_id: string
+        }
+        Insert: {
+          accepted_at?: string
+          accepted_by_user_id: string
+          accepted_ip?: string | null
+          accepted_user_agent?: string | null
+          event_type: string
+          id?: string
+          is_test?: boolean
+          payload_hash?: string | null
+          scope_document_id?: string | null
+          signature_evidence_url?: string | null
+          signature_method?: string | null
+          spec_project_id: string
+        }
+        Update: {
+          accepted_at?: string
+          accepted_by_user_id?: string
+          accepted_ip?: string | null
+          accepted_user_agent?: string | null
+          event_type?: string
+          id?: string
+          is_test?: boolean
+          payload_hash?: string | null
+          scope_document_id?: string | null
+          signature_evidence_url?: string | null
+          signature_method?: string | null
+          spec_project_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "spec_acceptance_events_accepted_by_user_id_fkey"
+            columns: ["accepted_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "spec_acceptance_events_scope_document_id_fkey"
+            columns: ["scope_document_id"]
+            isOneToOne: false
+            referencedRelation: "spec_scope_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "spec_acceptance_events_spec_project_id_fkey"
+            columns: ["spec_project_id"]
+            isOneToOne: false
+            referencedRelation: "spec_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      spec_blocked_buyers: {
+        Row: {
+          blocked_at: string | null
+          blocked_by_user_id: string | null
+          blocked_reason: string
+          email: string
+          id: string
+          stripe_customer_id: string | null
+          unblocked_at: string | null
+        }
+        Insert: {
+          blocked_at?: string | null
+          blocked_by_user_id?: string | null
+          blocked_reason: string
+          email: string
+          id?: string
+          stripe_customer_id?: string | null
+          unblocked_at?: string | null
+        }
+        Update: {
+          blocked_at?: string | null
+          blocked_by_user_id?: string | null
+          blocked_reason?: string
+          email?: string
+          id?: string
+          stripe_customer_id?: string | null
+          unblocked_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "spec_blocked_buyers_blocked_by_user_id_fkey"
+            columns: ["blocked_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      spec_capacity: {
+        Row: {
+          admin_notes: string | null
+          build_days_max: number
+          build_days_min: number
+          discovery_days_max: number
+          discovery_days_min: number
+          is_accepting_bookings: boolean
+          manual_next_start_override: string | null
+          polish_hours_budget: number
+          public_note: string | null
+          retainer_monthly_cents: number
+          slot_ceiling: number
+          subscription_multiplier_estimate: number
+          support_window_days: number
+          tier: string
+          total_price_cents: number
+          updated_at: string | null
+        }
+        Insert: {
+          admin_notes?: string | null
+          build_days_max: number
+          build_days_min: number
+          discovery_days_max: number
+          discovery_days_min: number
+          is_accepting_bookings?: boolean
+          manual_next_start_override?: string | null
+          polish_hours_budget: number
+          public_note?: string | null
+          retainer_monthly_cents: number
+          slot_ceiling: number
+          subscription_multiplier_estimate: number
+          support_window_days: number
+          tier: string
+          total_price_cents: number
+          updated_at?: string | null
+        }
+        Update: {
+          admin_notes?: string | null
+          build_days_max?: number
+          build_days_min?: number
+          discovery_days_max?: number
+          discovery_days_min?: number
+          is_accepting_bookings?: boolean
+          manual_next_start_override?: string | null
+          polish_hours_budget?: number
+          public_note?: string | null
+          retainer_monthly_cents?: number
+          slot_ceiling?: number
+          subscription_multiplier_estimate?: number
+          support_window_days?: number
+          tier?: string
+          total_price_cents?: number
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      spec_change_orders: {
+        Row: {
+          acceptance_event_id: string | null
+          approved_at: string | null
+          change_type: Database["public"]["Enums"]["spec_change_order_type"]
+          completed_at: string | null
+          declined_at: string | null
+          delivery_impact_days: number | null
+          description: string
+          estimated_hours: number | null
+          final_cost_cents: number | null
+          fixed_price_cents: number | null
+          hourly_rate_cents: number | null
+          id: string
+          invoiced_at: string | null
+          is_test: boolean
+          paid_at: string | null
+          proposed_at: string | null
+          spec_project_id: string
+          status: Database["public"]["Enums"]["spec_change_order_status"]
+          stripe_invoice_id: string | null
+          title: string
+        }
+        Insert: {
+          acceptance_event_id?: string | null
+          approved_at?: string | null
+          change_type: Database["public"]["Enums"]["spec_change_order_type"]
+          completed_at?: string | null
+          declined_at?: string | null
+          delivery_impact_days?: number | null
+          description: string
+          estimated_hours?: number | null
+          final_cost_cents?: number | null
+          fixed_price_cents?: number | null
+          hourly_rate_cents?: number | null
+          id?: string
+          invoiced_at?: string | null
+          is_test?: boolean
+          paid_at?: string | null
+          proposed_at?: string | null
+          spec_project_id: string
+          status?: Database["public"]["Enums"]["spec_change_order_status"]
+          stripe_invoice_id?: string | null
+          title: string
+        }
+        Update: {
+          acceptance_event_id?: string | null
+          approved_at?: string | null
+          change_type?: Database["public"]["Enums"]["spec_change_order_type"]
+          completed_at?: string | null
+          declined_at?: string | null
+          delivery_impact_days?: number | null
+          description?: string
+          estimated_hours?: number | null
+          final_cost_cents?: number | null
+          fixed_price_cents?: number | null
+          hourly_rate_cents?: number | null
+          id?: string
+          invoiced_at?: string | null
+          is_test?: boolean
+          paid_at?: string | null
+          proposed_at?: string | null
+          spec_project_id?: string
+          status?: Database["public"]["Enums"]["spec_change_order_status"]
+          stripe_invoice_id?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "spec_change_orders_acceptance_event_id_fkey"
+            columns: ["acceptance_event_id"]
+            isOneToOne: false
+            referencedRelation: "spec_acceptance_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "spec_change_orders_spec_project_id_fkey"
+            columns: ["spec_project_id"]
+            isOneToOne: false
+            referencedRelation: "spec_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      spec_communications: {
+        Row: {
+          body: string | null
+          channel: string
+          direction: string
+          id: string
+          is_test: boolean
+          logged_by_user_id: string | null
+          occurred_at: string | null
+          spec_project_id: string
+          summary: string
+        }
+        Insert: {
+          body?: string | null
+          channel: string
+          direction: string
+          id?: string
+          is_test?: boolean
+          logged_by_user_id?: string | null
+          occurred_at?: string | null
+          spec_project_id: string
+          summary: string
+        }
+        Update: {
+          body?: string | null
+          channel?: string
+          direction?: string
+          id?: string
+          is_test?: boolean
+          logged_by_user_id?: string | null
+          occurred_at?: string | null
+          spec_project_id?: string
+          summary?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "spec_communications_logged_by_user_id_fkey"
+            columns: ["logged_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "spec_communications_spec_project_id_fkey"
+            columns: ["spec_project_id"]
+            isOneToOne: false
+            referencedRelation: "spec_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      spec_email_outbox: {
+        Row: {
+          attempts: number
+          created_at: string
+          id: string
+          is_test: boolean
+          last_attempt_at: string | null
+          last_error: string | null
+          payload: Json
+          recipient_email: string
+          recipient_user_id: string | null
+          sent_at: string | null
+          spec_project_id: string | null
+          status: string
+          template_id: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          id?: string
+          is_test?: boolean
+          last_attempt_at?: string | null
+          last_error?: string | null
+          payload?: Json
+          recipient_email: string
+          recipient_user_id?: string | null
+          sent_at?: string | null
+          spec_project_id?: string | null
+          status?: string
+          template_id: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          id?: string
+          is_test?: boolean
+          last_attempt_at?: string | null
+          last_error?: string | null
+          payload?: Json
+          recipient_email?: string
+          recipient_user_id?: string | null
+          sent_at?: string | null
+          spec_project_id?: string | null
+          status?: string
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "spec_email_outbox_recipient_user_id_fkey"
+            columns: ["recipient_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "spec_email_outbox_spec_project_id_fkey"
+            columns: ["spec_project_id"]
+            isOneToOne: false
+            referencedRelation: "spec_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      spec_feature_acceptance: {
+        Row: {
+          acceptance_criteria: string
+          failure_notes: string | null
+          feature_name: string
+          id: string
+          is_test: boolean
+          scope_document_id: string
+          spec_project_id: string
+          status: Database["public"]["Enums"]["spec_feature_status"]
+          verified_at: string | null
+          verified_by_user_id: string | null
+        }
+        Insert: {
+          acceptance_criteria: string
+          failure_notes?: string | null
+          feature_name: string
+          id?: string
+          is_test?: boolean
+          scope_document_id: string
+          spec_project_id: string
+          status?: Database["public"]["Enums"]["spec_feature_status"]
+          verified_at?: string | null
+          verified_by_user_id?: string | null
+        }
+        Update: {
+          acceptance_criteria?: string
+          failure_notes?: string | null
+          feature_name?: string
+          id?: string
+          is_test?: boolean
+          scope_document_id?: string
+          spec_project_id?: string
+          status?: Database["public"]["Enums"]["spec_feature_status"]
+          verified_at?: string | null
+          verified_by_user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "spec_feature_acceptance_scope_document_id_fkey"
+            columns: ["scope_document_id"]
+            isOneToOne: false
+            referencedRelation: "spec_scope_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "spec_feature_acceptance_spec_project_id_fkey"
+            columns: ["spec_project_id"]
+            isOneToOne: false
+            referencedRelation: "spec_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "spec_feature_acceptance_verified_by_user_id_fkey"
+            columns: ["verified_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      spec_internal_notes: {
+        Row: {
+          body: string
+          created_at: string
+          created_by_user_id: string
+          id: string
+          is_test: boolean
+          spec_project_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          created_by_user_id: string
+          id?: string
+          is_test?: boolean
+          spec_project_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          created_by_user_id?: string
+          id?: string
+          is_test?: boolean
+          spec_project_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "spec_internal_notes_created_by_user_id_fkey"
+            columns: ["created_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "spec_internal_notes_spec_project_id_fkey"
+            columns: ["spec_project_id"]
+            isOneToOne: false
+            referencedRelation: "spec_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      spec_module_entitlements: {
+        Row: {
+          company_id: string
+          disabled_at: string | null
+          disabled_reason: string | null
+          enabled: boolean
+          enabled_at: string | null
+          entitled_at: string | null
+          id: string
+          is_test: boolean
+          module_key: string
+          multiplier: number
+          spec_project_id: string
+          stripe_subscription_item_id: string | null
+          surcharge_cents: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          company_id: string
+          disabled_at?: string | null
+          disabled_reason?: string | null
+          enabled?: boolean
+          enabled_at?: string | null
+          entitled_at?: string | null
+          id?: string
+          is_test?: boolean
+          module_key: string
+          multiplier: number
+          spec_project_id: string
+          stripe_subscription_item_id?: string | null
+          surcharge_cents?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          company_id?: string
+          disabled_at?: string | null
+          disabled_reason?: string | null
+          enabled?: boolean
+          enabled_at?: string | null
+          entitled_at?: string | null
+          id?: string
+          is_test?: boolean
+          module_key?: string
+          multiplier?: number
+          spec_project_id?: string
+          stripe_subscription_item_id?: string | null
+          surcharge_cents?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "spec_module_entitlements_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "spec_module_entitlements_spec_project_id_fkey"
+            columns: ["spec_project_id"]
+            isOneToOne: false
+            referencedRelation: "spec_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      spec_owner_approval_requests: {
+        Row: {
+          account_holder_user_id: string
+          approval_token_hash: string | null
+          approved_deposit_cents: number
+          approved_tos_version_hash: string | null
+          approved_total_cents: number
+          buyer_checkout_expires_at: string | null
+          buyer_checkout_token_hash: string | null
+          buyer_user_id: string
+          decided_at: string | null
+          decided_ip: string | null
+          decided_user_agent: string | null
+          expires_at: string | null
+          id: string
+          is_test: boolean
+          linked_company_id: string
+          requested_at: string | null
+          spec_project_id: string
+          status: Database["public"]["Enums"]["spec_owner_approval_status"]
+          tier: string
+        }
+        Insert: {
+          account_holder_user_id: string
+          approval_token_hash?: string | null
+          approved_deposit_cents: number
+          approved_tos_version_hash?: string | null
+          approved_total_cents: number
+          buyer_checkout_expires_at?: string | null
+          buyer_checkout_token_hash?: string | null
+          buyer_user_id: string
+          decided_at?: string | null
+          decided_ip?: string | null
+          decided_user_agent?: string | null
+          expires_at?: string | null
+          id?: string
+          is_test?: boolean
+          linked_company_id: string
+          requested_at?: string | null
+          spec_project_id: string
+          status?: Database["public"]["Enums"]["spec_owner_approval_status"]
+          tier: string
+        }
+        Update: {
+          account_holder_user_id?: string
+          approval_token_hash?: string | null
+          approved_deposit_cents?: number
+          approved_tos_version_hash?: string | null
+          approved_total_cents?: number
+          buyer_checkout_expires_at?: string | null
+          buyer_checkout_token_hash?: string | null
+          buyer_user_id?: string
+          decided_at?: string | null
+          decided_ip?: string | null
+          decided_user_agent?: string | null
+          expires_at?: string | null
+          id?: string
+          is_test?: boolean
+          linked_company_id?: string
+          requested_at?: string | null
+          spec_project_id?: string
+          status?: Database["public"]["Enums"]["spec_owner_approval_status"]
+          tier?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "spec_owner_approval_requests_account_holder_user_id_fkey"
+            columns: ["account_holder_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "spec_owner_approval_requests_buyer_user_id_fkey"
+            columns: ["buyer_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "spec_owner_approval_requests_linked_company_id_fkey"
+            columns: ["linked_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "spec_owner_approval_requests_spec_project_id_fkey"
+            columns: ["spec_project_id"]
+            isOneToOne: false
+            referencedRelation: "spec_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      spec_payments: {
+        Row: {
+          amount_cents: number
+          amount_refunded_cents: number | null
+          created_at: string | null
+          credit_note_stripe_id: string | null
+          due_date: string | null
+          id: string
+          invoiced_at: string | null
+          is_test: boolean
+          marked_uncollectible_at: string | null
+          milestone: Database["public"]["Enums"]["spec_payment_milestone"]
+          overdue_at: string | null
+          paid_at: string | null
+          refunded_at: string | null
+          spec_project_id: string
+          status: Database["public"]["Enums"]["spec_payment_status"]
+          stripe_invoice_id: string | null
+          stripe_payment_intent_id: string | null
+          tax_cents: number | null
+          total_cents: number
+          voided_at: string | null
+        }
+        Insert: {
+          amount_cents: number
+          amount_refunded_cents?: number | null
+          created_at?: string | null
+          credit_note_stripe_id?: string | null
+          due_date?: string | null
+          id?: string
+          invoiced_at?: string | null
+          is_test?: boolean
+          marked_uncollectible_at?: string | null
+          milestone: Database["public"]["Enums"]["spec_payment_milestone"]
+          overdue_at?: string | null
+          paid_at?: string | null
+          refunded_at?: string | null
+          spec_project_id: string
+          status?: Database["public"]["Enums"]["spec_payment_status"]
+          stripe_invoice_id?: string | null
+          stripe_payment_intent_id?: string | null
+          tax_cents?: number | null
+          total_cents: number
+          voided_at?: string | null
+        }
+        Update: {
+          amount_cents?: number
+          amount_refunded_cents?: number | null
+          created_at?: string | null
+          credit_note_stripe_id?: string | null
+          due_date?: string | null
+          id?: string
+          invoiced_at?: string | null
+          is_test?: boolean
+          marked_uncollectible_at?: string | null
+          milestone?: Database["public"]["Enums"]["spec_payment_milestone"]
+          overdue_at?: string | null
+          paid_at?: string | null
+          refunded_at?: string | null
+          spec_project_id?: string
+          status?: Database["public"]["Enums"]["spec_payment_status"]
+          stripe_invoice_id?: string | null
+          stripe_payment_intent_id?: string | null
+          tax_cents?: number | null
+          total_cents?: number
+          voided_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "spec_payments_spec_project_id_fkey"
+            columns: ["spec_project_id"]
+            isOneToOne: false
+            referencedRelation: "spec_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      spec_projects: {
+        Row: {
+          account_holder_user_id: string | null
+          attribution: Json | null
+          billing_address_line1: string | null
+          billing_address_line2: string | null
+          billing_city: string | null
+          billing_country: string | null
+          billing_postal_code: string | null
+          billing_province: string | null
+          build_started_at: string | null
+          buyer_user_id: string
+          cancellation_reason: string | null
+          cancelled_at: string | null
+          checkout_token_expires_at: string | null
+          checkout_token_issued_at: string | null
+          company_provisioned_at: string | null
+          completed_at: string | null
+          created_at: string | null
+          customer_email: string
+          customer_gst_number: string | null
+          customer_name: string | null
+          customer_phone: string | null
+          deposit_paid_at: string | null
+          discovery_scheduled_at: string | null
+          discovery_started_at: string | null
+          estimated_completion_date: string | null
+          forfeit_at: string | null
+          hold_type: Database["public"]["Enums"]["spec_hold_type"] | null
+          id: string
+          intake_completed_at: string | null
+          intake_files: Json
+          intake_no_discovery_reminder_count: number
+          intake_reminder_count: number
+          intake_responses: Json | null
+          intake_sent_at: string | null
+          intake_token_hash: string | null
+          intake_token_issued_at: string | null
+          is_test: boolean
+          last_communication_at: string | null
+          last_intake_no_discovery_reminder_at: string | null
+          last_intake_reminder_at: string | null
+          linked_company_id: string | null
+          locked_module_surcharge_cents: number | null
+          locked_subscription_multiplier: number | null
+          midpoint_accepted_at: string | null
+          midpoint_demo_at: string | null
+          no_show_count: number | null
+          notes: string | null
+          on_hold_at: string | null
+          on_hold_expires_at: string | null
+          on_hold_reason: string | null
+          ops_blocked_review_reminder_sent_at: string | null
+          original_tier: string | null
+          owner_approval_requested_at: string | null
+          owner_approved_at: string | null
+          owner_declined_at: string | null
+          polish_hours_budget: number | null
+          polish_hours_used: number | null
+          prior_status:
+            | Database["public"]["Enums"]["spec_project_status"]
+            | null
+          quebec_eligibility_attested_at: string | null
+          quebec_eligibility_payload: Json | null
+          referrer_email: string | null
+          refunded_at: string | null
+          regulated_workflow_flagged_at: string | null
+          regulated_workflow_flags: Json | null
+          resume_requested_at: string | null
+          resumed_at: string | null
+          retainer_started_at: string | null
+          scope_doc_drafted_at: string | null
+          scope_doc_sent_at: string | null
+          scope_doc_signed_at: string | null
+          scope_doc_url: string | null
+          stalled_at: string | null
+          stalled_reason: string | null
+          status: Database["public"]["Enums"]["spec_project_status"]
+          stripe_customer_id: string | null
+          stripe_session_id: string | null
+          subscription_first_bill_at: string | null
+          subscription_locked_at: string | null
+          subscription_renegotiate_at: string | null
+          support_window_ends_at: string | null
+          tier: string
+          tier_upgraded_at: string | null
+          tos_accepted_at: string | null
+          tos_accepted_ip: string | null
+          tos_version_accepted: string | null
+          updated_at: string | null
+          walkthrough_completed_at: string | null
+          walkthrough_recording_url: string | null
+        }
+        Insert: {
+          account_holder_user_id?: string | null
+          attribution?: Json | null
+          billing_address_line1?: string | null
+          billing_address_line2?: string | null
+          billing_city?: string | null
+          billing_country?: string | null
+          billing_postal_code?: string | null
+          billing_province?: string | null
+          build_started_at?: string | null
+          buyer_user_id: string
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          checkout_token_expires_at?: string | null
+          checkout_token_issued_at?: string | null
+          company_provisioned_at?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          customer_email: string
+          customer_gst_number?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          deposit_paid_at?: string | null
+          discovery_scheduled_at?: string | null
+          discovery_started_at?: string | null
+          estimated_completion_date?: string | null
+          forfeit_at?: string | null
+          hold_type?: Database["public"]["Enums"]["spec_hold_type"] | null
+          id?: string
+          intake_completed_at?: string | null
+          intake_files?: Json
+          intake_no_discovery_reminder_count?: number
+          intake_reminder_count?: number
+          intake_responses?: Json | null
+          intake_sent_at?: string | null
+          intake_token_hash?: string | null
+          intake_token_issued_at?: string | null
+          is_test?: boolean
+          last_communication_at?: string | null
+          last_intake_no_discovery_reminder_at?: string | null
+          last_intake_reminder_at?: string | null
+          linked_company_id?: string | null
+          locked_module_surcharge_cents?: number | null
+          locked_subscription_multiplier?: number | null
+          midpoint_accepted_at?: string | null
+          midpoint_demo_at?: string | null
+          no_show_count?: number | null
+          notes?: string | null
+          on_hold_at?: string | null
+          on_hold_expires_at?: string | null
+          on_hold_reason?: string | null
+          ops_blocked_review_reminder_sent_at?: string | null
+          original_tier?: string | null
+          owner_approval_requested_at?: string | null
+          owner_approved_at?: string | null
+          owner_declined_at?: string | null
+          polish_hours_budget?: number | null
+          polish_hours_used?: number | null
+          prior_status?:
+            | Database["public"]["Enums"]["spec_project_status"]
+            | null
+          quebec_eligibility_attested_at?: string | null
+          quebec_eligibility_payload?: Json | null
+          referrer_email?: string | null
+          refunded_at?: string | null
+          regulated_workflow_flagged_at?: string | null
+          regulated_workflow_flags?: Json | null
+          resume_requested_at?: string | null
+          resumed_at?: string | null
+          retainer_started_at?: string | null
+          scope_doc_drafted_at?: string | null
+          scope_doc_sent_at?: string | null
+          scope_doc_signed_at?: string | null
+          scope_doc_url?: string | null
+          stalled_at?: string | null
+          stalled_reason?: string | null
+          status: Database["public"]["Enums"]["spec_project_status"]
+          stripe_customer_id?: string | null
+          stripe_session_id?: string | null
+          subscription_first_bill_at?: string | null
+          subscription_locked_at?: string | null
+          subscription_renegotiate_at?: string | null
+          support_window_ends_at?: string | null
+          tier: string
+          tier_upgraded_at?: string | null
+          tos_accepted_at?: string | null
+          tos_accepted_ip?: string | null
+          tos_version_accepted?: string | null
+          updated_at?: string | null
+          walkthrough_completed_at?: string | null
+          walkthrough_recording_url?: string | null
+        }
+        Update: {
+          account_holder_user_id?: string | null
+          attribution?: Json | null
+          billing_address_line1?: string | null
+          billing_address_line2?: string | null
+          billing_city?: string | null
+          billing_country?: string | null
+          billing_postal_code?: string | null
+          billing_province?: string | null
+          build_started_at?: string | null
+          buyer_user_id?: string
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          checkout_token_expires_at?: string | null
+          checkout_token_issued_at?: string | null
+          company_provisioned_at?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          customer_email?: string
+          customer_gst_number?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          deposit_paid_at?: string | null
+          discovery_scheduled_at?: string | null
+          discovery_started_at?: string | null
+          estimated_completion_date?: string | null
+          forfeit_at?: string | null
+          hold_type?: Database["public"]["Enums"]["spec_hold_type"] | null
+          id?: string
+          intake_completed_at?: string | null
+          intake_files?: Json
+          intake_no_discovery_reminder_count?: number
+          intake_reminder_count?: number
+          intake_responses?: Json | null
+          intake_sent_at?: string | null
+          intake_token_hash?: string | null
+          intake_token_issued_at?: string | null
+          is_test?: boolean
+          last_communication_at?: string | null
+          last_intake_no_discovery_reminder_at?: string | null
+          last_intake_reminder_at?: string | null
+          linked_company_id?: string | null
+          locked_module_surcharge_cents?: number | null
+          locked_subscription_multiplier?: number | null
+          midpoint_accepted_at?: string | null
+          midpoint_demo_at?: string | null
+          no_show_count?: number | null
+          notes?: string | null
+          on_hold_at?: string | null
+          on_hold_expires_at?: string | null
+          on_hold_reason?: string | null
+          ops_blocked_review_reminder_sent_at?: string | null
+          original_tier?: string | null
+          owner_approval_requested_at?: string | null
+          owner_approved_at?: string | null
+          owner_declined_at?: string | null
+          polish_hours_budget?: number | null
+          polish_hours_used?: number | null
+          prior_status?:
+            | Database["public"]["Enums"]["spec_project_status"]
+            | null
+          quebec_eligibility_attested_at?: string | null
+          quebec_eligibility_payload?: Json | null
+          referrer_email?: string | null
+          refunded_at?: string | null
+          regulated_workflow_flagged_at?: string | null
+          regulated_workflow_flags?: Json | null
+          resume_requested_at?: string | null
+          resumed_at?: string | null
+          retainer_started_at?: string | null
+          scope_doc_drafted_at?: string | null
+          scope_doc_sent_at?: string | null
+          scope_doc_signed_at?: string | null
+          scope_doc_url?: string | null
+          stalled_at?: string | null
+          stalled_reason?: string | null
+          status?: Database["public"]["Enums"]["spec_project_status"]
+          stripe_customer_id?: string | null
+          stripe_session_id?: string | null
+          subscription_first_bill_at?: string | null
+          subscription_locked_at?: string | null
+          subscription_renegotiate_at?: string | null
+          support_window_ends_at?: string | null
+          tier?: string
+          tier_upgraded_at?: string | null
+          tos_accepted_at?: string | null
+          tos_accepted_ip?: string | null
+          tos_version_accepted?: string | null
+          updated_at?: string | null
+          walkthrough_completed_at?: string | null
+          walkthrough_recording_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "spec_projects_account_holder_user_id_fkey"
+            columns: ["account_holder_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "spec_projects_buyer_user_id_fkey"
+            columns: ["buyer_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "spec_projects_linked_company_id_fkey"
+            columns: ["linked_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      spec_public_board_snapshot: {
+        Row: {
+          data: Json
+          id: boolean
+          refreshed_at: string
+        }
+        Insert: {
+          data: Json
+          id?: boolean
+          refreshed_at?: string
+        }
+        Update: {
+          data?: Json
+          id?: boolean
+          refreshed_at?: string
+        }
+        Relationships: []
+      }
+      spec_referrals: {
+        Row: {
+          bounty_cents: number | null
+          eligible_at: string | null
+          forfeited_at: string | null
+          held_reason: string | null
+          id: string
+          is_test: boolean
+          paid_at: string | null
+          referrer_email: string
+          referrer_name: string | null
+          referrer_stripe_account_id: string | null
+          related_entity_flag: boolean | null
+          related_entity_notes: string | null
+          self_referral_flag: boolean | null
+          spec_project_id: string
+          status: Database["public"]["Enums"]["spec_referral_status"]
+          stripe_transfer_id: string | null
+          t4a_required: boolean | null
+        }
+        Insert: {
+          bounty_cents?: number | null
+          eligible_at?: string | null
+          forfeited_at?: string | null
+          held_reason?: string | null
+          id?: string
+          is_test?: boolean
+          paid_at?: string | null
+          referrer_email: string
+          referrer_name?: string | null
+          referrer_stripe_account_id?: string | null
+          related_entity_flag?: boolean | null
+          related_entity_notes?: string | null
+          self_referral_flag?: boolean | null
+          spec_project_id: string
+          status?: Database["public"]["Enums"]["spec_referral_status"]
+          stripe_transfer_id?: string | null
+          t4a_required?: boolean | null
+        }
+        Update: {
+          bounty_cents?: number | null
+          eligible_at?: string | null
+          forfeited_at?: string | null
+          held_reason?: string | null
+          id?: string
+          is_test?: boolean
+          paid_at?: string | null
+          referrer_email?: string
+          referrer_name?: string | null
+          referrer_stripe_account_id?: string | null
+          related_entity_flag?: boolean | null
+          related_entity_notes?: string | null
+          self_referral_flag?: boolean | null
+          spec_project_id?: string
+          status?: Database["public"]["Enums"]["spec_referral_status"]
+          stripe_transfer_id?: string | null
+          t4a_required?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "spec_referrals_spec_project_id_fkey"
+            columns: ["spec_project_id"]
+            isOneToOne: false
+            referencedRelation: "spec_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      spec_refund_requests: {
+        Row: {
+          customer_reason_text: string | null
+          denial_reason_text: string | null
+          denied_at: string | null
+          denied_by_user_id: string | null
+          id: string
+          internal_note: string | null
+          is_goodwill: boolean | null
+          is_guarantee_invocation: boolean | null
+          is_test: boolean
+          processed_at: string | null
+          processed_by_user_id: string | null
+          refund_breakdown: Json | null
+          request_source: Database["public"]["Enums"]["spec_refund_source"]
+          requested_at: string | null
+          spec_project_id: string
+          status: Database["public"]["Enums"]["spec_refund_status"]
+          stripe_refund_ids: Json | null
+          total_refund_cents: number | null
+        }
+        Insert: {
+          customer_reason_text?: string | null
+          denial_reason_text?: string | null
+          denied_at?: string | null
+          denied_by_user_id?: string | null
+          id?: string
+          internal_note?: string | null
+          is_goodwill?: boolean | null
+          is_guarantee_invocation?: boolean | null
+          is_test?: boolean
+          processed_at?: string | null
+          processed_by_user_id?: string | null
+          refund_breakdown?: Json | null
+          request_source: Database["public"]["Enums"]["spec_refund_source"]
+          requested_at?: string | null
+          spec_project_id: string
+          status?: Database["public"]["Enums"]["spec_refund_status"]
+          stripe_refund_ids?: Json | null
+          total_refund_cents?: number | null
+        }
+        Update: {
+          customer_reason_text?: string | null
+          denial_reason_text?: string | null
+          denied_at?: string | null
+          denied_by_user_id?: string | null
+          id?: string
+          internal_note?: string | null
+          is_goodwill?: boolean | null
+          is_guarantee_invocation?: boolean | null
+          is_test?: boolean
+          processed_at?: string | null
+          processed_by_user_id?: string | null
+          refund_breakdown?: Json | null
+          request_source?: Database["public"]["Enums"]["spec_refund_source"]
+          requested_at?: string | null
+          spec_project_id?: string
+          status?: Database["public"]["Enums"]["spec_refund_status"]
+          stripe_refund_ids?: Json | null
+          total_refund_cents?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "spec_refund_requests_denied_by_user_id_fkey"
+            columns: ["denied_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "spec_refund_requests_processed_by_user_id_fkey"
+            columns: ["processed_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "spec_refund_requests_spec_project_id_fkey"
+            columns: ["spec_project_id"]
+            isOneToOne: false
+            referencedRelation: "spec_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      spec_retainers: {
+        Row: {
+          cancellation_reason: string | null
+          cancelled_at: string | null
+          id: string
+          is_test: boolean
+          monthly_amount_cents: number
+          paused_at: string | null
+          spec_project_id: string
+          started_at: string
+          status: Database["public"]["Enums"]["spec_retainer_status"]
+          stripe_subscription_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          id?: string
+          is_test?: boolean
+          monthly_amount_cents: number
+          paused_at?: string | null
+          spec_project_id: string
+          started_at: string
+          status?: Database["public"]["Enums"]["spec_retainer_status"]
+          stripe_subscription_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          id?: string
+          is_test?: boolean
+          monthly_amount_cents?: number
+          paused_at?: string | null
+          spec_project_id?: string
+          started_at?: string
+          status?: Database["public"]["Enums"]["spec_retainer_status"]
+          stripe_subscription_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "spec_retainers_spec_project_id_fkey"
+            columns: ["spec_project_id"]
+            isOneToOne: false
+            referencedRelation: "spec_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      spec_satisfaction_ratings: {
+        Row: {
+          feature_name: string
+          id: string
+          is_test: boolean
+          milestone: string
+          notes: string | null
+          rating: number
+          spec_project_id: string
+          submitted_at: string | null
+        }
+        Insert: {
+          feature_name: string
+          id?: string
+          is_test?: boolean
+          milestone: string
+          notes?: string | null
+          rating: number
+          spec_project_id: string
+          submitted_at?: string | null
+        }
+        Update: {
+          feature_name?: string
+          id?: string
+          is_test?: boolean
+          milestone?: string
+          notes?: string | null
+          rating?: number
+          spec_project_id?: string
+          submitted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "spec_satisfaction_ratings_spec_project_id_fkey"
+            columns: ["spec_project_id"]
+            isOneToOne: false
+            referencedRelation: "spec_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      spec_scope_documents: {
+        Row: {
+          content_hash: string
+          content_json: Json
+          drafted_at: string
+          external_url: string | null
+          id: string
+          is_test: boolean
+          sent_at: string | null
+          spec_project_id: string
+          superseded_at: string | null
+          version: number
+        }
+        Insert: {
+          content_hash: string
+          content_json: Json
+          drafted_at?: string
+          external_url?: string | null
+          id?: string
+          is_test?: boolean
+          sent_at?: string | null
+          spec_project_id: string
+          superseded_at?: string | null
+          version: number
+        }
+        Update: {
+          content_hash?: string
+          content_json?: Json
+          drafted_at?: string
+          external_url?: string | null
+          id?: string
+          is_test?: boolean
+          sent_at?: string | null
+          spec_project_id?: string
+          superseded_at?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "spec_scope_documents_spec_project_id_fkey"
+            columns: ["spec_project_id"]
+            isOneToOne: false
+            referencedRelation: "spec_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      spec_support_tickets: {
+        Row: {
+          customer_classification:
+            | Database["public"]["Enums"]["spec_ticket_severity"]
+            | null
+          description: string
+          id: string
+          is_in_scope: boolean | null
+          is_test: boolean
+          linked_change_order_id: string | null
+          opened_at: string | null
+          phase: Database["public"]["Enums"]["spec_ticket_phase"]
+          resolved_at: string | null
+          responded_at: string | null
+          severity: Database["public"]["Enums"]["spec_ticket_severity"]
+          spec_project_id: string
+          status: Database["public"]["Enums"]["spec_ticket_status"]
+          title: string
+        }
+        Insert: {
+          customer_classification?:
+            | Database["public"]["Enums"]["spec_ticket_severity"]
+            | null
+          description: string
+          id?: string
+          is_in_scope?: boolean | null
+          is_test?: boolean
+          linked_change_order_id?: string | null
+          opened_at?: string | null
+          phase?: Database["public"]["Enums"]["spec_ticket_phase"]
+          resolved_at?: string | null
+          responded_at?: string | null
+          severity: Database["public"]["Enums"]["spec_ticket_severity"]
+          spec_project_id: string
+          status?: Database["public"]["Enums"]["spec_ticket_status"]
+          title: string
+        }
+        Update: {
+          customer_classification?:
+            | Database["public"]["Enums"]["spec_ticket_severity"]
+            | null
+          description?: string
+          id?: string
+          is_in_scope?: boolean | null
+          is_test?: boolean
+          linked_change_order_id?: string | null
+          opened_at?: string | null
+          phase?: Database["public"]["Enums"]["spec_ticket_phase"]
+          resolved_at?: string | null
+          responded_at?: string | null
+          severity?: Database["public"]["Enums"]["spec_ticket_severity"]
+          spec_project_id?: string
+          status?: Database["public"]["Enums"]["spec_ticket_status"]
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "spec_support_tickets_linked_change_order_id_fkey"
+            columns: ["linked_change_order_id"]
+            isOneToOne: false
+            referencedRelation: "spec_change_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "spec_support_tickets_spec_project_id_fkey"
+            columns: ["spec_project_id"]
+            isOneToOne: false
+            referencedRelation: "spec_projects"
             referencedColumns: ["id"]
           },
         ]
@@ -11405,6 +13583,14 @@ export type Database = {
         Args: { p_company_id: string; p_payload: Json }
         Returns: Json
       }
+      catalog_setup_save: {
+        Args: {
+          p_company_id: string
+          p_idempotency_key: string
+          p_payload: Json
+        }
+        Returns: Json
+      }
       change_project_status: {
         Args: {
           p_expected_updated_at: string
@@ -11442,6 +13628,16 @@ export type Database = {
       }
       convert_estimate_to_invoice: {
         Args: { p_due_date?: string; p_estimate_id: string }
+        Returns: string
+      }
+      convert_lead_to_project: {
+        Args: {
+          p_actual_value: number
+          p_address: string
+          p_opportunity_id: string
+          p_title: string
+          p_user_id: string
+        }
         Returns: string
       }
       count_distinct_users: {
@@ -11880,6 +14076,43 @@ export type Database = {
         Args: { p_batch_id: string }
         Returns: number
       }
+      record_auto_bug:
+        | {
+            Args: {
+              p_app_version: string
+              p_build_number: string
+              p_category: string
+              p_device_model: string
+              p_error_code: string
+              p_metadata: Json
+              p_network_type: string
+              p_os_version: string
+              p_priority: string
+              p_screen: string
+              p_summary: string
+              p_suspected_file: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_app_version: string
+              p_build_number: string
+              p_category: string
+              p_device_model: string
+              p_error_code: string
+              p_fire_count?: number
+              p_metadata: Json
+              p_network_type: string
+              p_os_version: string
+              p_priority: string
+              p_screen: string
+              p_summary: string
+              p_suspected_file: string
+            }
+            Returns: Json
+          }
+      refresh_spec_board_snapshot: { Args: never; Returns: undefined }
       release_phase_c_lock: {
         Args: { p_holder: string; p_job_id: string }
         Returns: undefined
@@ -12119,6 +14352,78 @@ export type Database = {
         | "deck_design"
       quiz_question_type: "multiple_choice" | "scenario" | "true_false"
       site_visit_status: "scheduled" | "in_progress" | "completed" | "cancelled"
+      spec_change_order_status:
+        | "proposed"
+        | "customer_approved"
+        | "customer_declined"
+        | "in_progress"
+        | "completed"
+        | "paid"
+      spec_change_order_type:
+        | "minor_hourly"
+        | "major_fixed"
+        | "polish_budget"
+        | "platform_compat_rebuild"
+        | "tier_upgrade"
+      spec_feature_status: "pending" | "passing" | "failing"
+      spec_hold_type: "customer_requested" | "ops_blocked"
+      spec_owner_approval_status:
+        | "pending"
+        | "approved"
+        | "declined"
+        | "expired"
+      spec_payment_milestone:
+        | "deposit"
+        | "scope_signoff"
+        | "midpoint"
+        | "delivery"
+      spec_payment_status:
+        | "pending"
+        | "invoiced"
+        | "paid"
+        | "overdue"
+        | "disputed"
+        | "refunded"
+        | "partially_refunded"
+        | "voided"
+        | "uncollectible"
+      spec_project_status:
+        | "awaiting_owner_approval"
+        | "awaiting_deposit"
+        | "deposit_paid"
+        | "discovery"
+        | "building"
+        | "on_hold"
+        | "stalled_on_hold"
+        | "support"
+        | "on_retainer"
+        | "completed"
+        | "stalled"
+        | "cancelled"
+        | "refunded"
+      spec_referral_status:
+        | "pending"
+        | "eligible"
+        | "kyc_required"
+        | "review"
+        | "paid"
+        | "forfeited"
+        | "held"
+      spec_refund_source: "customer_initiated" | "stripe_dispute"
+      spec_refund_status:
+        | "pending"
+        | "processed"
+        | "partial"
+        | "failed"
+        | "denied"
+      spec_retainer_status: "active" | "paused" | "cancelled"
+      spec_ticket_phase: "support" | "retainer" | "ad_hoc"
+      spec_ticket_severity: "critical" | "high" | "cosmetic_enhancement"
+      spec_ticket_status:
+        | "open"
+        | "in_progress"
+        | "resolved"
+        | "escalated_to_change_order"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -12301,6 +14606,87 @@ export const Constants = {
       ],
       quiz_question_type: ["multiple_choice", "scenario", "true_false"],
       site_visit_status: ["scheduled", "in_progress", "completed", "cancelled"],
+      spec_change_order_status: [
+        "proposed",
+        "customer_approved",
+        "customer_declined",
+        "in_progress",
+        "completed",
+        "paid",
+      ],
+      spec_change_order_type: [
+        "minor_hourly",
+        "major_fixed",
+        "polish_budget",
+        "platform_compat_rebuild",
+        "tier_upgrade",
+      ],
+      spec_feature_status: ["pending", "passing", "failing"],
+      spec_hold_type: ["customer_requested", "ops_blocked"],
+      spec_owner_approval_status: [
+        "pending",
+        "approved",
+        "declined",
+        "expired",
+      ],
+      spec_payment_milestone: [
+        "deposit",
+        "scope_signoff",
+        "midpoint",
+        "delivery",
+      ],
+      spec_payment_status: [
+        "pending",
+        "invoiced",
+        "paid",
+        "overdue",
+        "disputed",
+        "refunded",
+        "partially_refunded",
+        "voided",
+        "uncollectible",
+      ],
+      spec_project_status: [
+        "awaiting_owner_approval",
+        "awaiting_deposit",
+        "deposit_paid",
+        "discovery",
+        "building",
+        "on_hold",
+        "stalled_on_hold",
+        "support",
+        "on_retainer",
+        "completed",
+        "stalled",
+        "cancelled",
+        "refunded",
+      ],
+      spec_referral_status: [
+        "pending",
+        "eligible",
+        "kyc_required",
+        "review",
+        "paid",
+        "forfeited",
+        "held",
+      ],
+      spec_refund_source: ["customer_initiated", "stripe_dispute"],
+      spec_refund_status: [
+        "pending",
+        "processed",
+        "partial",
+        "failed",
+        "denied",
+      ],
+      spec_retainer_status: ["active", "paused", "cancelled"],
+      spec_ticket_phase: ["support", "retainer", "ad_hoc"],
+      spec_ticket_severity: ["critical", "high", "cosmetic_enhancement"],
+      spec_ticket_status: [
+        "open",
+        "in_progress",
+        "resolved",
+        "escalated_to_change_order",
+      ],
     },
   },
 } as const
