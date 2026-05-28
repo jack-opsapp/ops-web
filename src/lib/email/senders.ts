@@ -1,10 +1,11 @@
 /**
  * OPS Email Sender Identities
  *
- * Four buckets, each with a clear job:
+ * Five buckets, each with a clear job:
  * - DISPATCH  — product, team, beta, trial, billing, ads briefing
  * - GATE      — security, auth, password, email verification
  * - FIELD_NOTES — newsletter, long-form content
+ * - JACK     — founder personal emails (onboarding drip Days 0/3/8/14 + Lost You)
  * - PORTAL    — whitelabel portal emails (uses env SENDGRID_FROM_EMAIL
  *                with per-company `name` override)
  *
@@ -31,6 +32,16 @@ export const GATE: Sender = {
 export const FIELD_NOTES: Sender = {
   email: "field@opsapp.co",
   name: "OPS Field Notes",
+};
+
+/**
+ * Founder-direct sender bucket — used by the onboarding drip's personal
+ * emails (Day 0/3/8/14 + Lost You). Operationally part of the dispatch
+ * bucket for pause-killswitch purposes (see resolveEmailBucket).
+ */
+export const JACK: Sender = {
+  email: "jack@opsapp.co",
+  name: "Jack Sweet",
 };
 
 /**
