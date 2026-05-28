@@ -57,4 +57,17 @@ export const KIND_TO_LIST: Record<string, string> = {
   pmf_daily_digest: "global",
   pmf_weekly_digest: "global",
   inbox_connection_down: "global",
+  // Onboarding drip — see specs/2026-05-27-onboarding-drip-design.md §6.
+  // All on 'global' suppression list per decision log #7: founder-drip
+  // unsubscribe = full opt-out signal.
+  onboarding_day_0_welcome: "global",
+  onboarding_day_1_no_project: "global",
+  onboarding_day_1_has_project: "global",
+  onboarding_day_3_inbox: "global",
+  onboarding_day_4_no_notification: "global",
+  onboarding_day_4_has_notification: "global",
+  onboarding_day_8_estimates: "global",
+  onboarding_day_14_quiet: "global",
+  onboarding_day_14_active: "global",
+  onboarding_lost_you: "global",
 };
