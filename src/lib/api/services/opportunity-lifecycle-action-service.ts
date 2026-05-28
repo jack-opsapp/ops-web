@@ -60,6 +60,7 @@ export type DraftOperation =
   | "created"
   | "skipped_existing_open_template"
   | "skipped_missing_source_event"
+  | "skipped_lifecycle_state_failed"
   | "skipped_insert_failed";
 
 export type NotificationOperation =
@@ -102,8 +103,13 @@ const DESTRUCTIVE_ACTIONS = new Set<OpportunityLifecycleDecisionAction>([
   "reactivate_on_related_inbound",
 ]);
 
-const TEMPLATE_STALE_STATUS = "template_follow_up_drafted";
-const OPERATOR_MISS_STALE_STATUS = "operator_follow_up_miss";
+type OpportunityLifecycleStaleStatus =
+  | "follow_up_draft_due"
+  | "operator_follow_up_miss";
+
+const TEMPLATE_STALE_STATUS: OpportunityLifecycleStaleStatus = "follow_up_draft_due";
+const OPERATOR_MISS_STALE_STATUS: OpportunityLifecycleStaleStatus =
+  "operator_follow_up_miss";
 const NOTIFICATION_TYPE = "leads_waiting";
 
 function modeOf(mode: OpportunityLifecycleExecutionMode | undefined) {
@@ -214,7 +220,7 @@ async function nextTemplateSequence(input: OpportunityLifecycleActionInput): Pro
 
 async function upsertLifecycleState(
   input: OpportunityLifecycleActionInput,
-  staleStatus: string
+  staleStatus: OpportunityLifecycleStaleStatus
 ): Promise<LifecycleStateOperation> {
   const mode = modeOf(input.mode);
   if (mode === "dry-run") return "would_update";
@@ -313,6 +319,19 @@ async function createTemplateFollowUpDraft(
 
   const body = renderFollowUpBody(input);
   const sequence = await nextTemplateSequence(input);
+  const lifecycleState = await upsertLifecycleState(input, TEMPLATE_STALE_STATUS);
+  if (lifecycleState === "skipped_update_failed") {
+    return {
+      applied: false,
+      operations: {
+        draft: "skipped_lifecycle_state_failed",
+        notification: "not_applicable",
+        lifecycleState,
+        supersededDrafts: 0,
+      },
+    };
+  }
+
   const { error } = await input.supabase.from("opportunity_follow_up_drafts").insert({
     company_id: input.companyId,
     opportunity_id: input.opportunityId,
@@ -330,12 +349,9 @@ async function createTemplateFollowUpDraft(
     created_by: null,
     edited_by: null,
   });
-  const lifecycleState = error
-    ? "not_applicable"
-    : await upsertLifecycleState(input, TEMPLATE_STALE_STATUS);
 
   return {
-    applied: !error && lifecycleState !== "skipped_update_failed",
+    applied: !error,
     operations: {
       draft: error ? "skipped_insert_failed" : "created",
       notification: "not_applicable",

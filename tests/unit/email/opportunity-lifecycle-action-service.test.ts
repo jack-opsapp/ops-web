@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_LEAD_LIFECYCLE_SETTINGS,
@@ -22,6 +23,36 @@ interface TableState {
   notifications: Array<Record<string, unknown>>;
 }
 
+interface SupabaseDoubleOptions {
+  failLifecycleStateUpsert?: boolean;
+}
+
+const P4_MIGRATION_SQL = readFileSync(
+  "supabase/migrations/20260527140000_lead_lifecycle_p4_foundation.sql",
+  "utf8"
+);
+const STALE_STATUS_CHECK_SQL = P4_MIGRATION_SQL.match(
+  /stale_status text check \([\s\S]*?\),\n  stale_status_at/
+)?.[0];
+
+if (!STALE_STATUS_CHECK_SQL) {
+  throw new Error("Could not find opportunity_lifecycle_state.stale_status constraint");
+}
+
+const MIGRATION_ALLOWED_STALE_STATUSES = new Set(
+  [...STALE_STATUS_CHECK_SQL.matchAll(/'([^']+)'/g)].map((match) => match[1])
+);
+
+function assertMigrationAllowedStaleStatus(payload: Record<string, unknown>) {
+  const staleStatus = payload.stale_status;
+  if (staleStatus == null) return;
+  if (!MIGRATION_ALLOWED_STALE_STATUSES.has(String(staleStatus))) {
+    throw new Error(
+      `stale_status '${String(staleStatus)}' is not allowed by the P4 migration`
+    );
+  }
+}
+
 function makeDecision(
   action: OpportunityLifecycleDecision["action"],
   evidence: Record<string, unknown> = {}
@@ -43,7 +74,7 @@ function matches(row: Record<string, unknown>, filters: Map<string, unknown>): b
   return true;
 }
 
-function makeSupabaseDouble(state: TableState) {
+function makeSupabaseDouble(state: TableState, options: SupabaseDoubleOptions = {}) {
   class Query {
     private filters = new Map<string, unknown>();
     private updatePayload: Record<string, unknown> | null = null;
@@ -93,6 +124,19 @@ function makeSupabaseDouble(state: TableState) {
     }
 
     upsert(payload: Record<string, unknown>) {
+      if (this.table === "opportunity_lifecycle_state") {
+        assertMigrationAllowedStaleStatus(payload);
+        if (options.failLifecycleStateUpsert) {
+          return {
+            then: (onfulfilled: (value: unknown) => unknown) =>
+              Promise.resolve({
+                data: null,
+                error: { message: "constraint failed" },
+              }).then(onfulfilled),
+          };
+        }
+      }
+
       const rows = state[this.table];
       const existing = rows.find((row) => row.opportunity_id === payload.opportunity_id);
       if (existing) {
@@ -161,10 +205,11 @@ function makeInput(
     opportunity_follow_up_drafts: [],
     opportunity_lifecycle_state: [],
     notifications: [],
-  }
+  },
+  options: SupabaseDoubleOptions = {}
 ): OpportunityLifecycleActionInput {
   return {
-    supabase: makeSupabaseDouble(state),
+    supabase: makeSupabaseDouble(state, options),
     mode: "apply",
     companyId: "company-1",
     opportunityId: "opp-1",
@@ -230,8 +275,26 @@ describe("opportunity lifecycle action service", () => {
     ]);
     expect(state.opportunity_lifecycle_state[0]).toMatchObject({
       opportunity_id: "opp-1",
-      stale_status: "template_follow_up_drafted",
+      stale_status: "follow_up_draft_due",
     });
+  });
+
+  it("does not insert a template draft when lifecycle state cannot be persisted", async () => {
+    const state: TableState = {
+      opportunity_follow_up_drafts: [],
+      opportunity_lifecycle_state: [],
+      notifications: [],
+    };
+
+    const result = await executeOpportunityLifecycleAction(
+      makeInput({}, state, { failLifecycleStateUpsert: true })
+    );
+
+    expect(result.applied).toBe(false);
+    expect(result.operations.lifecycleState).toBe("skipped_update_failed");
+    expect(result.operations.draft).toBe("skipped_lifecycle_state_failed");
+    expect(state.opportunity_follow_up_drafts).toHaveLength(0);
+    expect(state.opportunity_lifecycle_state).toHaveLength(0);
   });
 
   it("does not duplicate an existing open template draft on repeated execution", async () => {
@@ -358,7 +421,7 @@ describe("opportunity lifecycle action service", () => {
         {
           opportunity_id: "opp-1",
           company_id: "company-1",
-          stale_status: "template_follow_up_drafted",
+          stale_status: "follow_up_draft_due",
           stale_status_at: "2026-05-24T18:00:00.000Z",
           operator_follow_up_miss_at: "2026-05-24T18:00:00.000Z",
         },

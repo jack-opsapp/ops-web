@@ -493,10 +493,19 @@ async function main() {
 
   const generatedAt = new Date().toISOString();
   const actionCounts = countByAction(decisions);
+  const p4CorrespondenceEventsConsidered = [...eventsByOpportunity.values()].reduce(
+    (sum, rows) => sum + rows.length,
+    0
+  );
   const meaningfulEventCount = [...eventsByOpportunity.values()].reduce(
     (sum, rows) => sum + rows.filter((row) => row.is_meaningful).length,
     0
   );
+  const opportunitiesWithP4Events = eventsByOpportunity.size;
+  const opportunitiesWithoutP4Events = opportunities.length - opportunitiesWithP4Events;
+  const candidateRowsWithoutP4Events = executionRows.filter(
+    (row) => !eventsByOpportunity.has(row.opportunity.id)
+  ).length;
 
   const lines = [
     "# Lead Lifecycle P4-8 Non-Destructive Action Dry Run",
@@ -506,6 +515,7 @@ async function main() {
     `Mode: ${MODE}`,
     "",
     `Production data writes: ${MODE === "apply" ? "non-destructive P4 rows only" : "no"}.`,
+    `Apply mode: ${MODE === "apply" ? "yes" : "no"}.`,
     "Provider drafts created: no.",
     "Emails sent: no.",
     "Archive/lost execution: not started.",
@@ -517,13 +527,20 @@ async function main() {
     `- App env directory: \`${ENV_DIR}\``,
     `- Company filter: \`${COMPANY_ID ?? "all"}\``,
     `- Active opportunity cap: ${MAX_OPPORTUNITIES}`,
-    "- Candidate source: `opportunity_correspondence_events` P4 rows only.",
+    "- Candidate source: active opportunities scanned first; P4 correspondence rows augment the evaluator when present.",
+    `- P4 correspondence events considered: ${p4CorrespondenceEventsConsidered}`,
+    `- Active opportunities with P4 correspondence rows: ${opportunitiesWithP4Events}`,
+    `- Active opportunities without P4 correspondence rows: ${opportunitiesWithoutP4Events}`,
+    `- Candidate execution rows from active opportunities without P4 rows: ${candidateRowsWithoutP4Events}`,
+    p4CorrespondenceEventsConsidered === 0
+      ? "- No P4 correspondence rows were used because the table returned zero rows."
+      : "- P4 correspondence rows were used only for opportunities that had matching P4 rows.",
     "- Apply flag: `--apply-non-destructive-p4-actions`.",
     "",
     "## Summary",
     "",
     `- Opportunities scanned: ${opportunities.length}`,
-    `- P4 correspondence events considered: ${[...eventsByOpportunity.values()].reduce((sum, rows) => sum + rows.length, 0)}`,
+    `- P4 correspondence events considered: ${p4CorrespondenceEventsConsidered}`,
     `- Meaningful P4 events considered: ${meaningfulEventCount}`,
     `- Candidates: ${candidates}`,
     `- Drafts to create: ${draftsToCreate}`,
