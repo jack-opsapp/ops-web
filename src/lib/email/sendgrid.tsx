@@ -59,6 +59,10 @@ import { Day8Estimates } from "./react/templates/onboarding/Day8Estimates";
 import { Day14Quiet } from "./react/templates/onboarding/Day14Quiet";
 import { Day14Active } from "./react/templates/onboarding/Day14Active";
 import { LostYou } from "./react/templates/onboarding/LostYou";
+import { Day1NoProject } from "./react/templates/onboarding/Day1NoProject";
+import { Day1HasProject } from "./react/templates/onboarding/Day1HasProject";
+import { Day4NoNotification } from "./react/templates/onboarding/Day4NoNotification";
+import { Day4HasNotification } from "./react/templates/onboarding/Day4HasNotification";
 
 import { DISPATCH, GATE, FIELD_NOTES, JACK, portalSender, type Sender } from "./senders";
 import type { AdBriefing } from "@/lib/admin/briefing-types";
@@ -1395,6 +1399,125 @@ export async function sendOnboardingLostYou(params: {
       daysSinceSignup: params.daysSinceSignup,
       daysSinceLastActivity: params.daysSinceLastActivity,
     },
+    customArgs: { onboarding_email_log_id: params.onboardingEmailLogId },
+  });
+}
+
+// ─── Onboarding Drip — Dispatch-persona (tactical HTML, OPS voice) ─────────
+//
+// Day 1 and Day 4 branches send `from: DISPATCH` (the tactical brand voice)
+// but `replyTo: JACK.email` so any operator reply lands in Jack's inbox.
+// All four pass metadata + customArgs.onboarding_email_log_id for
+// reconciliation + webhook attribution. Per spec §3 v3.1.
+
+export async function sendOnboardingDay1NoProject(params: {
+  email: string;
+  ctaUrl: string;
+  onboardingEmailLogId: string;
+}): Promise<GatedSendResult> {
+  const compliance = buildComplianceHeaders({
+    email: params.email,
+    kind: "onboarding_day_1_no_project",
+  });
+  const html = await render(
+    <Day1NoProject ctaUrl={params.ctaUrl} unsubscribeUrl={compliance.unsubscribeUrl} />,
+  );
+  return gatedSend({
+    to: params.email,
+    from: DISPATCH,
+    replyTo: JACK.email,
+    subject: "the move that gets OPS working",
+    html,
+    emailType: "onboarding_day_1_no_project",
+    list: compliance.list,
+    headers: compliance.headers,
+    metadata: { onboarding_email_log_id: params.onboardingEmailLogId },
+    customArgs: { onboarding_email_log_id: params.onboardingEmailLogId },
+  });
+}
+
+export async function sendOnboardingDay1HasProject(params: {
+  email: string;
+  projectCount: number;
+  ctaUrl: string;
+  onboardingEmailLogId: string;
+}): Promise<GatedSendResult> {
+  const compliance = buildComplianceHeaders({
+    email: params.email,
+    kind: "onboarding_day_1_has_project",
+  });
+  const html = await render(
+    <Day1HasProject
+      projectCount={params.projectCount}
+      ctaUrl={params.ctaUrl}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+    />,
+  );
+  return gatedSend({
+    to: params.email,
+    from: DISPATCH,
+    replyTo: JACK.email,
+    subject: "you're moving",
+    html,
+    emailType: "onboarding_day_1_has_project",
+    list: compliance.list,
+    headers: compliance.headers,
+    metadata: {
+      onboarding_email_log_id: params.onboardingEmailLogId,
+      projectCount: params.projectCount,
+    },
+    customArgs: { onboarding_email_log_id: params.onboardingEmailLogId },
+  });
+}
+
+export async function sendOnboardingDay4NoNotification(params: {
+  email: string;
+  ctaUrl: string;
+  onboardingEmailLogId: string;
+}): Promise<GatedSendResult> {
+  const compliance = buildComplianceHeaders({
+    email: params.email,
+    kind: "onboarding_day_4_no_notification",
+  });
+  const html = await render(
+    <Day4NoNotification ctaUrl={params.ctaUrl} unsubscribeUrl={compliance.unsubscribeUrl} />,
+  );
+  return gatedSend({
+    to: params.email,
+    from: DISPATCH,
+    replyTo: JACK.email,
+    subject: "the notification you're working toward",
+    html,
+    emailType: "onboarding_day_4_no_notification",
+    list: compliance.list,
+    headers: compliance.headers,
+    metadata: { onboarding_email_log_id: params.onboardingEmailLogId },
+    customArgs: { onboarding_email_log_id: params.onboardingEmailLogId },
+  });
+}
+
+export async function sendOnboardingDay4HasNotification(params: {
+  email: string;
+  ctaUrl: string;
+  onboardingEmailLogId: string;
+}): Promise<GatedSendResult> {
+  const compliance = buildComplianceHeaders({
+    email: params.email,
+    kind: "onboarding_day_4_has_notification",
+  });
+  const html = await render(
+    <Day4HasNotification ctaUrl={params.ctaUrl} unsubscribeUrl={compliance.unsubscribeUrl} />,
+  );
+  return gatedSend({
+    to: params.email,
+    from: DISPATCH,
+    replyTo: JACK.email,
+    subject: "you've heard the ping",
+    html,
+    emailType: "onboarding_day_4_has_notification",
+    list: compliance.list,
+    headers: compliance.headers,
+    metadata: { onboarding_email_log_id: params.onboardingEmailLogId },
     customArgs: { onboarding_email_log_id: params.onboardingEmailLogId },
   });
 }
