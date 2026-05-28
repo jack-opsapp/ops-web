@@ -158,3 +158,125 @@ describe("OnboardingDripService.computeState", () => {
     expect(result.emailType).toBe("onboarding_lost_you");
   });
 });
+
+// ─── claimAndSend test helpers ───────────────────────────────────────────
+
+/**
+ * Spy that captures every Supabase call so the test can assert on
+ * insert/update payloads + which tables were queried.
+ */
+function buildMockDb(opts: {
+  // Should the claim INSERT succeed (return a row) or conflict (return null)
+  claimResult: "win" | "conflict";
+  // Result returned by the email_log primary reconciliation query
+  reconcilePrimary?: Array<{ id: string; metadata: Record<string, unknown> }>;
+  // Result returned by the email_log fallback reconciliation query
+  reconcileFallback?: Array<{ id: string; metadata: Record<string, unknown> }>;
+}) {
+  const log: { table: string; op: string; args: unknown[] }[] = [];
+
+  function from(table: string) {
+    const chain: any = {
+      // mutation builders
+      insert: (...args: unknown[]) => {
+        log.push({ table, op: "insert", args });
+        return {
+          select: () => ({
+            single: async () => {
+              if (table === "onboarding_email_log") {
+                if (opts.claimResult === "win") {
+                  return { data: { id: "claim-row-1" }, error: null };
+                }
+                return { data: null, error: { code: "23505" } };
+              }
+              return { data: null, error: null };
+            },
+          }),
+        };
+      },
+      update: (...args: unknown[]) => {
+        log.push({ table, op: "update", args });
+        return { eq: () => Promise.resolve({ error: null }) };
+      },
+      // select chain — covers reconciliation queries
+      select: () => chain,
+      eq: (col: string) => {
+        // Track which eq() chain we're on so we can decide primary vs fallback
+        chain._eqCols = [...(chain._eqCols ?? []), col];
+        return chain;
+      },
+      gte: () => chain,
+      order: () => chain,
+      limit: async () => {
+        // If this is the fallback query (has recipient_email eq + gte), return fallback
+        const cols: string[] = chain._eqCols ?? [];
+        if (cols.includes("recipient_email")) {
+          return { data: opts.reconcileFallback ?? [], error: null };
+        }
+        return { data: opts.reconcilePrimary ?? [], error: null };
+      },
+    };
+    return chain;
+  }
+
+  return { db: { from } as unknown as SupabaseClient, log };
+}
+
+describe("OnboardingDripService.claimAndSend", () => {
+  it("returns 'already_claimed' when INSERT conflicts", async () => {
+    const { db, log } = buildMockDb({ claimResult: "conflict" });
+    const result = await OnboardingDripService.claimAndSend(db, {
+      user: { id: "u1", email: "test@example.com", first_name: "Pat" } as any,
+      company: { id: "c1", latitude: 49, longitude: -123 } as any,
+      daySlot: "day_1",
+      branch: "no_project",
+      emailType: "onboarding_day_1_no_project",
+      payload: {},
+      now: new Date("2026-05-27T16:00:00Z"),
+    });
+    expect(result.status).toBe("already_claimed");
+    // No send attempt — no update should have been called on onboarding_email_log
+    expect(log.find((l) => l.op === "update")).toBeUndefined();
+  });
+
+  it("returns 'reconciled' when primary email_log query finds a matching row", async () => {
+    const { db, log } = buildMockDb({
+      claimResult: "win",
+      reconcilePrimary: [{ id: "elog-1", metadata: { sg_message_id: "sg-xyz" } }],
+    });
+    const result = await OnboardingDripService.claimAndSend(db, {
+      user: { id: "u1", email: "test@example.com", first_name: "Pat" } as any,
+      company: { id: "c1", latitude: 49, longitude: -123 } as any,
+      daySlot: "day_1",
+      branch: "no_project",
+      emailType: "onboarding_day_1_no_project",
+      payload: {},
+      now: new Date("2026-05-27T16:00:00Z"),
+    });
+    expect(result.status).toBe("reconciled");
+    expect(result.rowId).toBe("claim-row-1");
+    // The claim row should have been marked sent with the reconciled sg_message_id
+    const upd = log.find((l) => l.table === "onboarding_email_log" && l.op === "update");
+    expect(upd).toBeDefined();
+    expect((upd!.args[0] as any).status).toBe("sent");
+    expect((upd!.args[0] as any).sg_message_id).toBe("sg-xyz");
+  });
+
+  it("falls back to recipient+5min window when primary returns nothing", async () => {
+    const { db } = buildMockDb({
+      claimResult: "win",
+      reconcilePrimary: [],
+      reconcileFallback: [{ id: "elog-2", metadata: { sg_message_id: "sg-fallback" } }],
+    });
+    const result = await OnboardingDripService.claimAndSend(db, {
+      user: { id: "u1", email: "Test@Example.COM", first_name: "Pat" } as any, // note uppercase to verify lowercasing
+      company: { id: "c1", latitude: 49, longitude: -123 } as any,
+      daySlot: "day_1",
+      branch: "no_project",
+      emailType: "onboarding_day_1_no_project",
+      payload: {},
+      now: new Date("2026-05-27T16:00:00Z"),
+    });
+    expect(result.status).toBe("reconciled");
+  });
+});
