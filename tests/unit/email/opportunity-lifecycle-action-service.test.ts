@@ -28,6 +28,7 @@ interface TableState {
 interface SupabaseDoubleOptions {
   failLifecycleStateUpsert?: boolean;
   failGuardedActionRpc?: boolean;
+  guardedActionRpcData?: Record<string, unknown>;
 }
 
 const P4_MIGRATION_SQL = readFileSync(
@@ -229,7 +230,7 @@ function makeSupabaseDouble(state: TableState, options: SupabaseDoubleOptions = 
         };
       }
       return {
-        data: {
+        data: options.guardedActionRpcData ?? {
           applied: true,
           audit_status: "recorded",
           opportunity_status: "updated",
@@ -1041,6 +1042,168 @@ describe("opportunity lifecycle action service", () => {
     expect(result.skippedReason).toBe("audit_insert_failed");
     expect(state.opportunities?.[0].archived_at).toBeNull();
     expect(state.opportunity_lifecycle_action_audit).toHaveLength(0);
+  });
+
+  it("treats duplicate applied RPC responses as skipped rather than applied", async () => {
+    const state: TableState = {
+      opportunity_follow_up_drafts: [],
+      opportunity_lifecycle_state: [],
+      notifications: [],
+      opportunities: [
+        {
+          id: "opp-1",
+          company_id: "company-1",
+          stage: "follow_up",
+          archived_at: null,
+          deleted_at: null,
+          project_id: null,
+          project_ref: null,
+        },
+      ],
+      opportunity_lifecycle_action_audit: [],
+    };
+
+    const result = await executeOpportunityLifecycleAction(
+      makeInput(
+        {
+          decision: makeDecision("archive_no_meaningful_correspondence"),
+          approvedActionKey: "opp-1:archive_no_meaningful_correspondence:approved",
+          opportunity: {
+            id: "opp-1",
+            companyId: "company-1",
+            stage: "follow_up",
+            archivedAt: null,
+            deletedAt: null,
+            projectId: null,
+            projectRef: null,
+          },
+        } as Partial<OpportunityLifecycleActionInput> & Record<string, unknown>,
+        state,
+        {
+          guardedActionRpcData: {
+            applied: false,
+            audit_id: "audit-duplicate",
+            guard_reason: "duplicate_applied_action",
+            error_code: "duplicate_applied_action",
+            error_message: "Approved guarded action key has already been applied.",
+          },
+        }
+      )
+    );
+
+    expect(result.applied).toBe(false);
+    expect(result.skippedReason).toBe("duplicate_applied_action");
+    expect(result.guardReason).toBe("duplicate_applied_action");
+    expect(result.errorCode).toBe("duplicate_applied_action");
+    expect(result.errorMessage).toBe(
+      "Approved guarded action key has already been applied."
+    );
+    expect(result.operations.opportunity).toBe("skipped_duplicate_applied_action");
+    expect(result.operations.audit).toBe("recorded");
+  });
+
+  it("treats terminal/protected RPC guard responses as skipped rather than applied", async () => {
+    const state: TableState = {
+      opportunity_follow_up_drafts: [],
+      opportunity_lifecycle_state: [],
+      notifications: [],
+      opportunities: [
+        {
+          id: "opp-1",
+          company_id: "company-1",
+          stage: "follow_up",
+          archived_at: null,
+          deleted_at: null,
+          project_id: null,
+          project_ref: null,
+        },
+      ],
+      opportunity_lifecycle_action_audit: [],
+    };
+
+    const result = await executeOpportunityLifecycleAction(
+      makeInput(
+        {
+          decision: makeDecision("archive_after_two_unanswered_followups"),
+          approvedActionKey: "opp-1:archive_after_two_unanswered_followups:approved",
+          opportunity: {
+            id: "opp-1",
+            companyId: "company-1",
+            stage: "follow_up",
+            archivedAt: null,
+            deletedAt: null,
+            projectId: null,
+            projectRef: null,
+          },
+        } as Partial<OpportunityLifecycleActionInput> & Record<string, unknown>,
+        state,
+        {
+          guardedActionRpcData: {
+            applied: false,
+            audit_id: "audit-terminal",
+            guard_reason: "terminal_or_protected_stage",
+            error_code: "terminal_or_protected_stage",
+          },
+        }
+      )
+    );
+
+    expect(result.applied).toBe(false);
+    expect(result.skippedReason).toBe("terminal_or_protected_stage");
+    expect(result.operations.opportunity).toBe("skipped_terminal_or_protected_stage");
+    expect(result.operations.audit).toBe("recorded");
+  });
+
+  it("treats disallowed lost-stage RPC guard responses as skipped rather than applied", async () => {
+    const state: TableState = {
+      opportunity_follow_up_drafts: [],
+      opportunity_lifecycle_state: [],
+      notifications: [],
+      opportunities: [
+        {
+          id: "opp-1",
+          company_id: "company-1",
+          stage: "quoted",
+          archived_at: null,
+          deleted_at: null,
+          project_id: null,
+          project_ref: null,
+        },
+      ],
+      opportunity_lifecycle_action_audit: [],
+    };
+
+    const result = await executeOpportunityLifecycleAction(
+      makeInput(
+        {
+          decision: makeDecision("move_to_lost_operator_no_response"),
+          approvedActionKey: "opp-1:move_to_lost_operator_no_response:approved",
+          opportunity: {
+            id: "opp-1",
+            companyId: "company-1",
+            stage: "quoted",
+            archivedAt: null,
+            deletedAt: null,
+            projectId: null,
+            projectRef: null,
+          },
+        } as Partial<OpportunityLifecycleActionInput> & Record<string, unknown>,
+        state,
+        {
+          guardedActionRpcData: {
+            applied: false,
+            audit_id: "audit-lost-stage",
+            guard_reason: "lost_stage_not_allowed",
+            error_code: "lost_stage_not_allowed",
+          },
+        }
+      )
+    );
+
+    expect(result.applied).toBe(false);
+    expect(result.skippedReason).toBe("lost_stage_not_allowed");
+    expect(result.operations.opportunity).toBe("skipped_lost_stage_not_allowed");
+    expect(result.operations.audit).toBe("recorded");
   });
 
   it("skips reactivation for terminal, deleted, and unrelated inbound rows", async () => {
