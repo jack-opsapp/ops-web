@@ -195,7 +195,7 @@ function FloatingWindows() {
 }
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { needsWebSetup, needsEmployeeOnboarding } = useSetupGate();
+  const { needsWebSetup, needsEmployeeOnboarding, onboardingRoute } = useSetupGate();
   const router = useRouter();
   const pathname = usePathname();
   const needsOnboarding = needsEmployeeOnboarding || needsWebSetup;
@@ -203,14 +203,13 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const fullHeightMode = resolveFullHeightMode(pathname);
   const isFullHeight = fullHeightMode !== null;
 
-  // Redirect to the appropriate onboarding flow if incomplete.
+  // Redirect to the appropriate onboarding flow if incomplete. A company-less
+  // user lands on /account-type (decision screen), never straight into /setup.
   useEffect(() => {
-    if (needsEmployeeOnboarding) {
-      router.push("/employee-setup");
-    } else if (needsWebSetup) {
-      router.push("/setup");
+    if (onboardingRoute) {
+      router.push(onboardingRoute);
     }
-  }, [needsEmployeeOnboarding, needsWebSetup, router]);
+  }, [onboardingRoute, router]);
 
   // Block all dashboard rendering while onboarding is needed.
   if (needsOnboarding) {

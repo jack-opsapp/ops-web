@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuthStore } from "@/lib/store/auth-store";
+import { useSetupGate } from "@/hooks/useSetupGate";
 import { AuthProvider } from "@/components/providers/auth-provider";
 import { useDictionary } from "@/i18n/client";
 import { OpsLockup, LogoLoader } from "@/components/brand";
@@ -26,6 +27,7 @@ function AuthRouteGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const { isAuthenticated, isLoading } = useAuthStore();
+  const { onboardingRoute } = useSetupGate();
   const { t } = useDictionary("auth");
 
   const isAllowedWhenAuthenticated = authenticatedAllowedRoutes.some(
@@ -38,11 +40,16 @@ function AuthRouteGate({ children }: { children: React.ReactNode }) {
 
   const isFullScreen = pathname === "/account-type";
 
+  // An authenticated user who lands on a non-allowed (auth) route (e.g. /login,
+  // /register) is forwarded to where they actually belong. For a not-yet-
+  // onboarded user that's their onboarding step (/account-type for company-less
+  // signups), matching the destination the register/login pages push to — so
+  // the two never race to different routes. Completed users go to /dashboard.
   useEffect(() => {
     if (!isLoading && isAuthenticated && !isAllowedWhenAuthenticated) {
-      router.replace("/dashboard");
+      router.replace(onboardingRoute ?? "/dashboard");
     }
-  }, [isLoading, isAuthenticated, isAllowedWhenAuthenticated, router]);
+  }, [isLoading, isAuthenticated, isAllowedWhenAuthenticated, onboardingRoute, router]);
 
   if (isLoading) {
     return (
