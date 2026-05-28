@@ -179,6 +179,13 @@ export async function renderTemplate(
   if (!entry) return null;
   const Component = entry.Component;
   const html = await renderEmail(React.createElement(Component, props), { pretty: false });
-  const text = await renderEmail(React.createElement(Component, props), { plainText: true });
+  // Disable html-to-text wordwrap (default 80 cols) so load-bearing phrases
+  // like "I read every reply" or "it's my personal inbox" don't get split
+  // across a hard newline mid-phrase. Email clients handle their own visual
+  // wrapping; we should ship one line per paragraph and let them lay it out.
+  const text = await renderEmail(React.createElement(Component, props), {
+    plainText: true,
+    htmlToTextOptions: { wordwrap: false },
+  });
   return { html, text };
 }

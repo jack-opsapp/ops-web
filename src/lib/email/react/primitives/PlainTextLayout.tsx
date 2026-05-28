@@ -9,10 +9,20 @@ import { FounderFooter } from "./FounderFooter";
  * NO branded chrome. The whole point is that the email looks like a
  * real personal email Jack typed, not a templated send.
  *
- * Children should be plain text (or simple <Text> blocks). Newlines
- * are preserved via white-space: pre-wrap.
+ * Splits the body on \n\n into separate <Text> blocks so each
+ * paragraph renders as a distinct block in both HTML and plain-text
+ * outputs. (A single <Text> wrapper collapses to one paragraph in
+ * plain-text mode, which then word-wraps at 80 cols and can split
+ * load-bearing phrases — see commit fixing PlainTextLayout 1.0.0.)
  *
- * @template-version 1.0.0
+ * Children should be a single string of paragraphs separated by \n\n,
+ * OR a sequence of React children that flatten to such a string.
+ * Templates compose like:
+ *   <>{greeting}{"\n\n"}Body line one.{"\n\n"}Body line two.</>
+ * which flattens to: ["Hey there Pat,", "\n\n", "Body line one.", ...].
+ * Non-string children are skipped during normalization.
+ *
+ * @template-version 1.1.0
  */
 export function PlainTextLayout({
   children,
@@ -21,6 +31,11 @@ export function PlainTextLayout({
   children: React.ReactNode;
   unsubscribeUrl: string;
 }) {
+  const text = React.Children.toArray(children)
+    .map((child) => (typeof child === "string" ? child : ""))
+    .join("");
+  const paragraphs = text.split(/\n\n+/).filter((p) => p.length > 0);
+
   return (
     <Html>
       <Head />
@@ -40,17 +55,20 @@ export function PlainTextLayout({
             padding: "32px 24px",
           }}
         >
-          <Text
-            style={{
-              fontSize: "15px",
-              lineHeight: "22px",
-              color: "#1a1a1a",
-              margin: 0,
-              whiteSpace: "pre-wrap",
-            }}
-          >
-            {children}
-          </Text>
+          {paragraphs.map((paragraph, i) => (
+            <Text
+              key={i}
+              style={{
+                fontSize: "15px",
+                lineHeight: "22px",
+                color: "#1a1a1a",
+                margin: i === 0 ? "0 0 16px 0" : "16px 0",
+                whiteSpace: "pre-wrap",
+              }}
+            >
+              {paragraph}
+            </Text>
+          ))}
           <FounderFooter unsubscribeUrl={unsubscribeUrl} />
         </Container>
       </Body>

@@ -26,9 +26,13 @@ describe("Day0Welcome", () => {
   });
 
   it("includes the personal-inbox close (load-bearing)", async () => {
+    // Use the production render path (renderTemplate from template-registry)
+    // which disables html-to-text wordwrap. Direct render({ plainText: true })
+    // wordwraps at 80 cols and can split load-bearing phrases mid-line.
     const text = await render(<Day0Welcome {...previewProps} />, {
       plainText: true,
-    });
+      htmlToTextOptions: { wordwrap: false },
+    } as Parameters<typeof render>[1]);
     expect(text).toContain("it's my personal inbox");
   });
 });

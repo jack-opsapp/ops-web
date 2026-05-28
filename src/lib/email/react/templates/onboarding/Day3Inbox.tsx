@@ -34,7 +34,7 @@ export function Day3Inbox({ firstName, unsubscribeUrl }: Day3InboxProps) {
       {"\n\n"}
       Then OPS tracks every lead from "first email" to "job won" to "invoice paid." You see what your cost per won job is, by source. You see which ads are paying back. You make decisions on numbers instead of gut.
       {"\n\n"}
-      Connecting your inbox takes about two minutes. Hit reply if you want to tell me what your inbox chaos looks like right now —<br />I read every reply.
+      Connecting your inbox takes about two minutes. Hit reply if you want to tell me what your inbox chaos looks like right now — I read every reply.
       {"\n\n"}
       — Jack
     </PlainTextLayout>
