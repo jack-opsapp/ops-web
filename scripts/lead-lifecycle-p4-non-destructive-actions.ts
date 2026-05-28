@@ -60,8 +60,6 @@ const DEFAULT_OUTPUT =
   `/Users/jacksonsweet/Projects/OPS/docs/data-cleanup/lead-lifecycle-p4-12-guarded-actions-dry-run-${today}.md`;
 
 const GUARDED_ACTIONS = new Set<OpportunityLifecycleDecision["action"]>([
-  "create_follow_up_draft",
-  "operator_follow_up_miss",
   "archive_after_two_unanswered_followups",
   "archive_no_meaningful_correspondence",
   "move_to_lost_operator_no_response",
@@ -181,6 +179,16 @@ interface UserRow {
   company_id: string | null;
   is_company_admin: boolean | null;
   is_active: boolean | null;
+}
+
+interface ProductionSnapshot {
+  totalOpportunities: number;
+  archivedCount: number;
+  lostCount: number;
+  operatorNoResponseLostCount: number;
+  maxUpdatedAt: string | null;
+  scannedNonDeletedOpportunities: number;
+  capturedAt: string;
 }
 
 interface ApprovedActionRow {
@@ -465,6 +473,72 @@ async function fetchOperators(companyIds: string[]): Promise<Map<string, string 
   return operatorByCompany;
 }
 
+type OpportunityCountFilter =
+  | "all"
+  | "archived"
+  | "lost"
+  | "operator_no_response_lost";
+
+async function countOpportunities(filter: OpportunityCountFilter): Promise<number> {
+  let query = sb.from("opportunities").select("id", {
+    count: "exact",
+    head: true,
+  });
+
+  if (filter === "archived") {
+    query = query.not("archived_at", "is", null);
+  } else if (filter === "lost") {
+    query = query.eq("stage", "lost");
+  } else if (filter === "operator_no_response_lost") {
+    query = query.eq("stage", "lost").eq("lost_reason", "operator_no_response");
+  }
+
+  const { count, error } = await query;
+  if (error) throw new Error(`opportunities ${filter} count failed: ${error.message}`);
+  return count ?? 0;
+}
+
+async function fetchMaxOpportunityUpdatedAt(): Promise<string | null> {
+  const { data, error } = await sb
+    .from("opportunities")
+    .select("updated_at")
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    throw new Error(`opportunities max updated_at query failed: ${error.message}`);
+  }
+  return (data as { updated_at?: string | null } | null)?.updated_at ?? null;
+}
+
+async function fetchProductionSnapshot(
+  scannedNonDeletedOpportunities: number
+): Promise<ProductionSnapshot> {
+  const [
+    totalOpportunities,
+    archivedCount,
+    lostCount,
+    operatorNoResponseLostCount,
+    maxUpdatedAt,
+  ] = await Promise.all([
+    countOpportunities("all"),
+    countOpportunities("archived"),
+    countOpportunities("lost"),
+    countOpportunities("operator_no_response_lost"),
+    fetchMaxOpportunityUpdatedAt(),
+  ]);
+
+  return {
+    totalOpportunities,
+    archivedCount,
+    lostCount,
+    operatorNoResponseLostCount,
+    maxUpdatedAt,
+    scannedNonDeletedOpportunities,
+    capturedAt: new Date().toISOString(),
+  };
+}
+
 function countByAction(decisions: OpportunityLifecycleDecision[]): Map<string, number> {
   const counts = new Map<string, number>();
   for (const decision of decisions) {
@@ -483,6 +557,7 @@ async function main() {
   await assertApplySchemaReady();
   const approvedActions = await loadApprovedActions();
   const opportunities = await fetchOpportunities(approvedActions);
+  const preRunSnapshot = await fetchProductionSnapshot(opportunities.length);
   const opportunityIds = opportunities.map((row) => row.id);
   const companyIds = unique(opportunities.map((row) => row.company_id));
   const [eventsByOpportunity, lifecycleStates, settingsByCompany, operators] =
@@ -754,6 +829,7 @@ async function main() {
     action: row.decision.action,
     approvedActionKey: defaultApprovedActionKey(row.opportunity.id, row.decision.action),
   }));
+  const postRunSnapshot = await fetchProductionSnapshot(opportunities.length);
 
   const lines = [
     "# Lead Lifecycle P4-12 Guarded Action Dry Run",
@@ -762,8 +838,11 @@ async function main() {
     `Evaluator clock: ${NOW.toISOString()}`,
     `Mode: ${MODE}`,
     "",
-    `Production data writes: ${MODE === "apply" ? "approved guarded P4 rows only" : "no"}.`,
-    `Apply mode: ${MODE === "apply" ? "yes" : "no"}.`,
+    MODE === "apply"
+      ? "Production data writes: approved guarded P4 rows only."
+      : "Production data writes: no.",
+    MODE === "apply" ? "Apply mode: yes." : "Apply mode: no.",
+    "Migration applied: no.",
     "Provider drafts created: no.",
     "Emails sent: no.",
     `Archive/lost/reactivation execution: ${MODE === "apply" ? "approved rows only" : "not run; dry-run plan only"}.`,
@@ -776,6 +855,7 @@ async function main() {
     `- Opportunity scan cap: ${MAX_OPPORTUNITIES}`,
     `- Approved actions file: \`${APPROVED_ACTIONS_FILE ?? "none"}\``,
     "- Candidate source: non-deleted opportunities scanned first; exact approved opportunity ids are included even when outside the scan cap.",
+    "- Total opportunities means every row in `public.opportunities`; scanned non-deleted opportunities means the evaluator input set after `deleted_at IS NULL`, scan cap, and exact approved-id inclusion.",
     `- P4 correspondence events considered: ${p4CorrespondenceEventsConsidered}`,
     `- Opportunities with P4 correspondence rows: ${opportunitiesWithP4Events}`,
     `- Opportunities without P4 correspondence rows: ${opportunitiesWithoutP4Events}`,
@@ -803,6 +883,23 @@ async function main() {
     `- Drafts to supersede: ${draftsToSupersede}`,
     `- Skipped because already exists: ${skippedAlreadyExists}`,
     `- Skipped by guard: ${skippedGuarded}`,
+    "",
+    "## Production Snapshot Proof",
+    "",
+    `- Pre-run captured: ${preRunSnapshot.capturedAt}`,
+    `- Post-run captured: ${postRunSnapshot.capturedAt}`,
+    `- Pre-run total opportunities: ${preRunSnapshot.totalOpportunities}`,
+    `- Post-run total opportunities: ${postRunSnapshot.totalOpportunities}`,
+    `- Scanned non-deleted opportunities: ${preRunSnapshot.scannedNonDeletedOpportunities}`,
+    "",
+    "| Metric | Pre-run | Post-run |",
+    "| --- | ---: | ---: |",
+    `| total opportunities | ${preRunSnapshot.totalOpportunities} | ${postRunSnapshot.totalOpportunities} |`,
+    `| archived count | ${preRunSnapshot.archivedCount} | ${postRunSnapshot.archivedCount} |`,
+    `| lost count | ${preRunSnapshot.lostCount} | ${postRunSnapshot.lostCount} |`,
+    `| operator_no_response lost count | ${preRunSnapshot.operatorNoResponseLostCount} | ${postRunSnapshot.operatorNoResponseLostCount} |`,
+    `| max updated_at | ${md(preRunSnapshot.maxUpdatedAt)} | ${md(postRunSnapshot.maxUpdatedAt)} |`,
+    `| scanned non-deleted opportunities | ${preRunSnapshot.scannedNonDeletedOpportunities} | ${postRunSnapshot.scannedNonDeletedOpportunities} |`,
     "",
     "## Decisions By Action",
     "",
@@ -859,14 +956,12 @@ async function main() {
     "",
     "## Execution Boundary",
     "",
-    "- The executor can insert `opportunity_follow_up_drafts` rows with `origin = 'template_follow_up'`.",
-    "- The executor can insert persistent `notifications` rows using the existing `leads_waiting` type because a dedicated lead-lifecycle notification type is not present.",
-    "- The executor can upsert stale markers in `opportunity_lifecycle_state`.",
-    "- The executor can supersede stale open template follow-up drafts when meaningful inbound handling runs.",
+    "- P4-12 guarded apply can execute only archive, lost, and related-inbound reactivation decisions.",
+    "- P4-8 non-destructive actions remain outside this apply whitelist.",
     "- Archive actions set only `opportunities.archived_at`.",
-    "- Lost actions set only `stage`, `lost_reason`, `lost_notes`, `actual_close_date`, and `updated_at` on beyond-qualified stages.",
+    "- Lost actions set only `stage`, `lost_reason`, `lost_notes`, and `actual_close_date` on beyond-qualified stages.",
     "- Reactivation clears only `opportunities.archived_at` when the approved action still has a related meaningful inbound.",
-    "- Every applied archive/lost/reactivation attempt records before/after values in `opportunity_lifecycle_action_audit` after the additive migration is live.",
+    "- Apply mode calls `execute_opportunity_lifecycle_guarded_action` so audit and opportunity mutation share one database transaction after the additive migration is live.",
     "- The executor does not call provider draft APIs, provider send APIs, archive routes, lost routes, or unarchive/reactivation routes.",
     "- P5/P6 are out of scope.",
   ];

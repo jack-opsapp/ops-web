@@ -7,6 +7,10 @@ import type {
 
 interface ActionSupabaseLike {
   from: (table: string) => any;
+  rpc?: (
+    fn: string,
+    args: Record<string, unknown>
+  ) => PromiseLike<{ data?: unknown; error?: { message?: string } | null }>;
 }
 
 export type OpportunityLifecycleExecutionMode = "dry-run" | "apply";
@@ -560,21 +564,63 @@ function stageOf(opportunity: OpportunityLifecycleActionOpportunity): string {
   return opportunity.stage?.trim().toLowerCase() ?? "";
 }
 
-function dbOpportunityValues(
-  opportunity: OpportunityLifecycleActionOpportunity
-): Record<string, unknown> {
-  return {
-    stage: opportunity.stage ?? null,
-    archived_at: opportunity.archivedAt ? iso(opportunity.archivedAt) : null,
-    deleted_at: opportunity.deletedAt ? iso(opportunity.deletedAt) : null,
-    project_id: normalizedText(opportunity.projectId ?? null),
-    project_ref: normalizedText(opportunity.projectRef ?? null),
-    lost_reason: opportunity.lostReason ?? null,
-    lost_notes: opportunity.lostNotes ?? null,
-    actual_close_date: opportunity.actualCloseDate
-      ? dateOnly(opportunity.actualCloseDate)
-      : null,
-  };
+function opportunityMutationValues(
+  input: OpportunityLifecycleActionInput
+): {
+  beforeValues: Record<string, unknown>;
+  afterValues: Record<string, unknown>;
+} {
+  const opportunity = input.opportunity;
+  if (!opportunity) {
+    return { beforeValues: {}, afterValues: {} };
+  }
+
+  const now = input.now ?? new Date();
+  const action = input.decision.action;
+  if (
+    action === "archive_after_two_unanswered_followups" ||
+    action === "archive_no_meaningful_correspondence"
+  ) {
+    const beforeValues = {
+      archived_at: opportunity.archivedAt ? iso(opportunity.archivedAt) : null,
+    };
+    return {
+      beforeValues,
+      afterValues: { archived_at: now.toISOString() },
+    };
+  }
+
+  if (action === "move_to_lost_operator_no_response") {
+    const beforeValues = {
+      stage: opportunity.stage ?? null,
+      lost_reason: opportunity.lostReason ?? null,
+      lost_notes: opportunity.lostNotes ?? null,
+      actual_close_date: opportunity.actualCloseDate
+        ? dateOnly(opportunity.actualCloseDate)
+        : null,
+    };
+    return {
+      beforeValues,
+      afterValues: {
+        stage: "lost",
+        lost_reason: "operator_no_response",
+        lost_notes: LOST_OPERATOR_NO_RESPONSE_NOTES,
+        actual_close_date: dateOnly(now),
+      },
+    };
+  }
+
+  if (action === "reactivate_on_related_inbound") {
+    const beforeValues = {
+      archived_at: opportunity.archivedAt ? iso(opportunity.archivedAt) : null,
+    };
+    return {
+      beforeValues,
+      afterValues: { archived_at: null },
+    };
+  }
+
+  return { beforeValues: {}, afterValues: {} };
 }
 
 function approvedActionKey(input: OpportunityLifecycleActionInput): string | null {
@@ -606,33 +652,6 @@ function opportunityOperationForAction(
     return mode === "dry-run" ? "would_reactivate" : "reactivated";
   }
   return "not_applicable";
-}
-
-function proposedOpportunityValues(
-  input: OpportunityLifecycleActionInput,
-  beforeValues: Record<string, unknown>
-): Record<string, unknown> {
-  const now = input.now ?? new Date();
-  const action = input.decision.action;
-  if (
-    action === "archive_after_two_unanswered_followups" ||
-    action === "archive_no_meaningful_correspondence"
-  ) {
-    return { ...beforeValues, archived_at: now.toISOString() };
-  }
-  if (action === "move_to_lost_operator_no_response") {
-    return {
-      ...beforeValues,
-      stage: "lost",
-      lost_reason: "operator_no_response",
-      lost_notes: LOST_OPERATOR_NO_RESPONSE_NOTES,
-      actual_close_date: dateOnly(now),
-    };
-  }
-  if (action === "reactivate_on_related_inbound") {
-    return { ...beforeValues, archived_at: null };
-  }
-  return beforeValues;
 }
 
 function guardDestructiveOpportunityAction(
@@ -739,6 +758,8 @@ async function recordActionAudit(input: {
   guardReason: OpportunityLifecycleActionSkipReason | null;
   beforeValues: Record<string, unknown>;
   afterValues: Record<string, unknown>;
+  errorCode?: string | null;
+  errorMessage?: string | null;
 }): Promise<AuditOperation> {
   const mode = modeOf(input.actionInput.mode);
   if (mode === "dry-run") return "would_record";
@@ -762,80 +783,52 @@ async function recordActionAudit(input: {
         ? iso(input.actionInput.approvedAt)
         : null,
       run_id: normalizedText(input.actionInput.runId ?? null),
+      error_code: normalizedText(input.errorCode ?? null),
+      error_message: normalizedText(input.errorMessage ?? null),
+      runner: "ops-web",
     });
 
   return error ? "skipped_insert_failed" : "recorded";
 }
 
-async function updateOpportunityForDestructiveAction(
+async function executeGuardedOpportunityActionRpc(
   input: OpportunityLifecycleActionInput,
+  beforeValues: Record<string, unknown>,
   afterValues: Record<string, unknown>
-): Promise<boolean> {
+): Promise<{ applied: boolean; audit: AuditOperation }> {
   const opportunity = input.opportunity;
-  if (!opportunity) return false;
-
-  const now = (input.now ?? new Date()).toISOString();
-  const action = input.decision.action;
-  let payload: Record<string, unknown>;
-  let query: any;
-
-  if (
-    action === "archive_after_two_unanswered_followups" ||
-    action === "archive_no_meaningful_correspondence"
-  ) {
-    payload = {
-      archived_at: afterValues.archived_at,
-      updated_at: now,
-    };
-    query = input.supabase
-      .from("opportunities")
-      .update(payload)
-      .eq("company_id", input.companyId)
-      .eq("id", input.opportunityId)
-      .eq("stage", opportunity.stage)
-      .is("archived_at", null)
-      .is("deleted_at", null)
-      .is("project_id", null)
-      .is("project_ref", null);
-  } else if (action === "move_to_lost_operator_no_response") {
-    payload = {
-      stage: "lost",
-      lost_reason: "operator_no_response",
-      lost_notes: LOST_OPERATOR_NO_RESPONSE_NOTES,
-      actual_close_date: afterValues.actual_close_date,
-      updated_at: now,
-    };
-    query = input.supabase
-      .from("opportunities")
-      .update(payload)
-      .eq("company_id", input.companyId)
-      .eq("id", input.opportunityId)
-      .eq("stage", opportunity.stage)
-      .is("archived_at", null)
-      .is("deleted_at", null)
-      .is("project_id", null)
-      .is("project_ref", null);
-  } else if (action === "reactivate_on_related_inbound") {
-    payload = {
-      archived_at: null,
-      updated_at: now,
-    };
-    query = input.supabase
-      .from("opportunities")
-      .update(payload)
-      .eq("company_id", input.companyId)
-      .eq("id", input.opportunityId)
-      .eq("stage", opportunity.stage)
-      .eq("archived_at", iso(opportunity.archivedAt as string | Date))
-      .is("deleted_at", null)
-      .is("project_id", null)
-      .is("project_ref", null);
-  } else {
-    return false;
+  if (!opportunity || !input.supabase.rpc) {
+    return { applied: false, audit: "skipped_insert_failed" };
   }
 
-  const { data, error } = await query.select("id").maybeSingle();
-  return !error && Boolean(data);
+  const { error } = await input.supabase.rpc(
+    "execute_opportunity_lifecycle_guarded_action",
+    {
+      p_company_id: input.companyId,
+      p_opportunity_id: input.opportunityId,
+      p_action: input.decision.action,
+      p_approved_action_key: approvedActionKey(input),
+      p_expected_stage: opportunity.stage ?? null,
+      p_expected_archived_at: opportunity.archivedAt
+        ? iso(opportunity.archivedAt)
+        : null,
+      p_expected_deleted_at: opportunity.deletedAt ? iso(opportunity.deletedAt) : null,
+      p_expected_project_id: normalizedText(opportunity.projectId ?? null),
+      p_expected_project_ref: normalizedText(opportunity.projectRef ?? null),
+      p_before_values: beforeValues,
+      p_after_values: afterValues,
+      p_decision_reason: input.decision.reason,
+      p_decision_evidence: input.decision.evidence,
+      p_approved_by: normalizedText(input.approvedBy ?? null),
+      p_approved_at: input.approvedAt ? iso(input.approvedAt) : null,
+      p_run_id: normalizedText(input.runId ?? null),
+      p_runner: "ops-web",
+    }
+  );
+
+  return error
+    ? { applied: false, audit: "skipped_insert_failed" }
+    : { applied: true, audit: "recorded" };
 }
 
 async function executeDestructiveOpportunityAction(
@@ -851,8 +844,7 @@ async function executeDestructiveOpportunityAction(
   >
 > {
   const mode = modeOf(input.mode);
-  const beforeValues = input.opportunity ? dbOpportunityValues(input.opportunity) : {};
-  const afterValues = proposedOpportunityValues(input, beforeValues);
+  const { beforeValues, afterValues } = opportunityMutationValues(input);
   const baseOperations = {
     draft: "not_applicable" as DraftOperation,
     notification: "not_applicable" as NotificationOperation,
@@ -868,6 +860,7 @@ async function executeDestructiveOpportunityAction(
       guardReason: guard.reason,
       beforeValues,
       afterValues: beforeValues,
+      errorCode: guard.reason,
     });
     return {
       applied: false,
@@ -889,6 +882,7 @@ async function executeDestructiveOpportunityAction(
       guardReason: "missing_approval",
       beforeValues,
       afterValues: beforeValues,
+      errorCode: "missing_approval",
     });
     return {
       applied: false,
@@ -930,45 +924,36 @@ async function executeDestructiveOpportunityAction(
     };
   }
 
-  const updated = await updateOpportunityForDestructiveAction(input, afterValues);
-  if (!updated) {
-    const audit = await recordActionAudit({
-      actionInput: input,
-      status: "failed",
-      guardReason: "opportunity_update_failed",
-      beforeValues,
-      afterValues: beforeValues,
-    });
+  const rpcResult = await executeGuardedOpportunityActionRpc(
+    input,
+    beforeValues,
+    afterValues
+  );
+  if (!rpcResult.applied) {
     return {
       applied: false,
-      skippedReason: "opportunity_update_failed",
+      skippedReason:
+        rpcResult.audit === "skipped_insert_failed"
+          ? "audit_insert_failed"
+          : "opportunity_update_failed",
       beforeValues,
       afterValues: beforeValues,
       operations: {
         ...baseOperations,
         opportunity: "skipped_update_failed",
-        audit,
+        audit: rpcResult.audit,
       },
     };
   }
 
-  const audit = await recordActionAudit({
-    actionInput: input,
-    status: "applied",
-    guardReason: null,
-    beforeValues,
-    afterValues,
-  });
-
   return {
-    applied: audit !== "skipped_insert_failed",
-    skippedReason: audit === "skipped_insert_failed" ? "audit_insert_failed" : undefined,
+    applied: true,
     beforeValues,
     afterValues,
     operations: {
       ...baseOperations,
       opportunity: opportunityOperationForAction(input.decision.action, mode),
-      audit,
+      audit: rpcResult.audit,
     },
   };
 }

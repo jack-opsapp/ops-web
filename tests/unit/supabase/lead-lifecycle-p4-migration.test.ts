@@ -84,11 +84,33 @@ describe("lead lifecycle P4 foundation migration", () => {
     expect(sql).toContain("before_values jsonb not null");
     expect(sql).toContain("after_values jsonb not null");
     expect(sql).toContain("guard_reason text");
+    expect(sql).toContain("error_code text");
+    expect(sql).toContain("error_message text");
+    expect(sql).toContain("runner text");
     expect(sql).toContain("approved_action_key text");
     expect(sql).toContain("opportunity_lifecycle_action_audit_applied_action_uidx");
     expect(sql).toContain("where status = 'applied'");
     expect(sql).toContain("opportunity_lifecycle_action_audit_opportunity_company_fkey");
     expect(sql).toContain("enable row level security");
     expect(sql).not.toMatch(/for all\s+to authenticated/i);
+  });
+
+  it("adds an atomic guarded action RPC that writes audit and opportunity mutation together", () => {
+    const sql = guardedExecutionMigrationSql();
+
+    expect(sql).toContain(
+      "create or replace function public.execute_opportunity_lifecycle_guarded_action"
+    );
+    expect(sql).toContain("returns jsonb");
+    expect(sql).toContain("language plpgsql");
+    expect(sql).toContain("security definer");
+    expect(sql).toContain("set search_path = ''");
+    expect(sql).toContain("for update");
+    expect(sql).toContain("insert into public.opportunity_lifecycle_action_audit");
+    expect(sql).toContain("update public.opportunities");
+    expect(sql).toContain("jsonb_object_keys(coalesce(p_after_values");
+    expect(sql).toContain("revoke execute on function public.execute_opportunity_lifecycle_guarded_action");
+    expect(sql).toContain("grant execute on function public.execute_opportunity_lifecycle_guarded_action");
+    expect(sql).not.toContain("updated_at =");
   });
 });
