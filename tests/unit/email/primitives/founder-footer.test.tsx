@@ -23,6 +23,6 @@ describe("FounderFooter", () => {
       <FounderFooter unsubscribeUrl="https://x.test" />,
       { plainText: true },
     );
-    expect(text).toMatch(/OPS LTD\..*Victoria, BC.*Unsubscribe/s);
+    expect(text).toMatch(/OPS LTD\.[\s\S]*Victoria, BC[\s\S]*Unsubscribe/);
   });
 });
