@@ -1,3 +1,4 @@
+// @template-version: 1.0.0
 import * as React from "react";
 import {
   Html, Head, Body, Container, Section, Text, Button,
