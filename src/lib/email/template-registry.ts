@@ -366,6 +366,8 @@ export const TEMPLATE_REGISTRY: TemplateRegistryEntry[] = [
     Component: SpecEntitlementEnabledMod.SpecEntitlementEnabled,
     previewProps: SpecEntitlementEnabledMod.previewProps,
     sourcePath: "src/lib/email/react/templates/SpecEntitlementEnabled.tsx",
+  },
+  {
     templateId: "spec.owner_approval_expired_buyer",
     displayName: "SPEC — Owner Approval Expired (Buyer)",
     defaultSubject: "SPEC REQUEST EXPIRED",
