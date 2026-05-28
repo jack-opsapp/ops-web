@@ -53,6 +53,20 @@ export function resolveEmailBucket(kind: string): BucketName {
     case "portal_magic_link":
     case "portal_questions_reminder":
       return "portal";
+    // Onboarding drip — Jack-persona and Dispatch-persona both ride the
+    // dispatch bucket for pause-killswitch purposes. Explicit cases for
+    // greppability.
+    case "onboarding_day_0_welcome":
+    case "onboarding_day_1_no_project":
+    case "onboarding_day_1_has_project":
+    case "onboarding_day_3_inbox":
+    case "onboarding_day_4_no_notification":
+    case "onboarding_day_4_has_notification":
+    case "onboarding_day_8_estimates":
+    case "onboarding_day_14_quiet":
+    case "onboarding_day_14_active":
+    case "onboarding_lost_you":
+      return "dispatch";
     default:
       return "dispatch";
   }
