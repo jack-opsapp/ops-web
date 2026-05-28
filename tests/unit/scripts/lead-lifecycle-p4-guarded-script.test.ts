@@ -42,4 +42,14 @@ describe("lead lifecycle P4-12 guarded action script", () => {
     expect(source).toContain("Migration applied: no.");
     expect(source).toContain("Production data writes: no.");
   });
+
+  it("renders projected audit rows and legacy evidence boundaries in the dry-run artifact", () => {
+    const source = scriptSource();
+
+    expect(source).toContain("## Dry-Run Projected Audit Rows");
+    expect(source).toContain("projectOpportunityLifecycleActionAuditRow");
+    expect(source).toContain("dry_run_projected_apply_not_approved");
+    expect(source).toContain("legacyBackfillPlan");
+    expect(source).toContain("Empty P4 proof tables are not treated as no meaningful legacy correspondence.");
+  });
 });

@@ -126,6 +126,51 @@ export type AuditOperation =
   | "recorded"
   | "skipped_insert_failed";
 
+export type OpportunityLifecycleActionAuditStatus =
+  | "skipped"
+  | "applied"
+  | "failed";
+
+export interface ProjectOpportunityLifecycleActionAuditRowInput {
+  companyId: string;
+  opportunityId: string;
+  action: OpportunityLifecycleDecisionAction;
+  approvedActionKey?: string | null;
+  executionMode: OpportunityLifecycleExecutionMode;
+  status: OpportunityLifecycleActionAuditStatus;
+  guardReason?: string | null;
+  beforeValues: Record<string, unknown>;
+  afterValues: Record<string, unknown>;
+  decisionReason?: string | null;
+  decisionEvidence?: Record<string, unknown> | null;
+  approvedBy?: string | null;
+  approvedAt?: string | Date | null;
+  runId?: string | null;
+  errorCode?: string | null;
+  errorMessage?: string | null;
+}
+
+export interface ProjectedOpportunityLifecycleActionAuditRow {
+  company_id: string;
+  opportunity_id: string;
+  action: OpportunityLifecycleDecisionAction;
+  approved_action_key: string | null;
+  execution_mode: OpportunityLifecycleExecutionMode;
+  status: OpportunityLifecycleActionAuditStatus;
+  guard_reason: string | null;
+  before_values: Record<string, unknown>;
+  after_values: Record<string, unknown>;
+  decision_reason: string | null;
+  decision_evidence: Record<string, unknown>;
+  approved_by: string | null;
+  approved_at: string | null;
+  run_id: string | null;
+  error_code: string | null;
+  error_message: string | null;
+  runner: "ops-web";
+  approval_status: "dry_run_projection_not_approved" | "reviewed_apply_input";
+}
+
 export type OpportunityLifecycleActionSkipReason =
   | "no_action"
   | "ignored_decision"
@@ -639,6 +684,34 @@ function opportunityMutationValues(
 
 function approvedActionKey(input: OpportunityLifecycleActionInput): string | null {
   return normalizedText(input.approvedActionKey ?? null);
+}
+
+export function projectOpportunityLifecycleActionAuditRow(
+  input: ProjectOpportunityLifecycleActionAuditRowInput
+): ProjectedOpportunityLifecycleActionAuditRow {
+  return {
+    company_id: input.companyId,
+    opportunity_id: input.opportunityId,
+    action: input.action,
+    approved_action_key: normalizedText(input.approvedActionKey ?? null),
+    execution_mode: input.executionMode,
+    status: input.status,
+    guard_reason: normalizedText(input.guardReason ?? null),
+    before_values: input.beforeValues,
+    after_values: input.afterValues,
+    decision_reason: normalizedText(input.decisionReason ?? null),
+    decision_evidence: recordValue(input.decisionEvidence ?? {}),
+    approved_by: normalizedText(input.approvedBy ?? null),
+    approved_at: input.approvedAt ? iso(input.approvedAt) : null,
+    run_id: normalizedText(input.runId ?? null),
+    error_code: normalizedText(input.errorCode ?? null),
+    error_message: normalizedText(input.errorMessage ?? null),
+    runner: "ops-web",
+    approval_status:
+      input.executionMode === "dry-run"
+        ? "dry_run_projection_not_approved"
+        : "reviewed_apply_input",
+  };
 }
 
 function isRelatedMeaningfulInbound(input: OpportunityLifecycleActionInput): boolean {

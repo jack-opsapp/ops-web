@@ -17,10 +17,22 @@ import { loadEnvConfig } from "@next/env";
 import { createClient } from "@supabase/supabase-js";
 import {
   executeOpportunityLifecycleAction,
+  projectOpportunityLifecycleActionAuditRow,
   resetStaleLifecycleAfterMeaningfulInbound,
   type OpportunityLifecycleActionState,
   type OpportunityLifecycleExecutionMode,
+  type ProjectedOpportunityLifecycleActionAuditRow,
 } from "../src/lib/api/services/opportunity-lifecycle-action-service";
+import {
+  planLegacyCorrespondenceBackfill,
+  type LegacyBackfillActivityRow,
+  type LegacyBackfillEmailConnectionRow,
+  type LegacyBackfillEmailThreadRow,
+  type LegacyBackfillExistingEventRow,
+  type LegacyBackfillOpportunityRow,
+  type LegacyBackfillOpportunityThreadLinkRow,
+  type LegacyBackfillPlannedEventRow,
+} from "../src/lib/email/opportunity-legacy-correspondence-backfill";
 import {
   DEFAULT_LEAD_LIFECYCLE_SETTINGS,
   evaluateOpportunityLifecycle,
@@ -57,7 +69,7 @@ function vancouverDateKey(value: Date): string {
 
 const today = vancouverDateKey(new Date());
 const DEFAULT_OUTPUT =
-  `/Users/jacksonsweet/Projects/OPS/docs/data-cleanup/lead-lifecycle-p4-12-guarded-actions-dry-run-${today}.md`;
+  `/Users/jacksonsweet/Projects/OPS/docs/data-cleanup/lead-lifecycle-p4-22-guarded-actions-after-backfill-dry-run-${today}.md`;
 
 const GUARDED_ACTIONS = new Set<OpportunityLifecycleDecision["action"]>([
   "archive_after_two_unanswered_followups",
@@ -77,6 +89,11 @@ const MAX_OPPORTUNITIES =
   maxOpportunitiesArgIdx >= 0
     ? Number.parseInt(process.argv[maxOpportunitiesArgIdx + 1], 10)
     : 2000;
+const maxActivitiesArgIdx = process.argv.indexOf("--max-activities");
+const MAX_ACTIVITIES =
+  maxActivitiesArgIdx >= 0
+    ? Number.parseInt(process.argv[maxActivitiesArgIdx + 1], 10)
+    : 30000;
 const nowArgIdx = process.argv.indexOf("--now");
 const NOW =
   nowArgIdx >= 0 ? new Date(process.argv[nowArgIdx + 1]) : new Date();
@@ -93,6 +110,11 @@ if (!OUTPUT_PATH) {
 
 if (!Number.isFinite(MAX_OPPORTUNITIES) || MAX_OPPORTUNITIES <= 0) {
   console.error("--max-opportunities must be a positive integer");
+  process.exit(1);
+}
+
+if (!Number.isFinite(MAX_ACTIVITIES) || MAX_ACTIVITIES <= 0) {
+  console.error("--max-activities must be a positive integer");
   process.exit(1);
 }
 
@@ -113,7 +135,7 @@ if (APPLY && !APPROVED_ACTIONS_FILE) {
   process.exit(1);
 }
 
-interface OpportunityRow {
+interface OpportunityRow extends LegacyBackfillOpportunityRow {
   id: string;
   company_id: string;
   title: string | null;
@@ -124,25 +146,38 @@ interface OpportunityRow {
   project_ref: string | null;
   created_at: string | null;
   stage_entered_at: string | null;
+  contact_email: string | null;
   contact_name: string | null;
+  source: string | null;
   lost_reason: string | null;
   lost_notes: string | null;
   actual_close_date: string | null;
   updated_at: string | null;
 }
 
-interface CorrespondenceEventRow {
+interface CorrespondenceEventRow extends LegacyBackfillExistingEventRow {
   id: string;
   company_id: string;
   opportunity_id: string;
+  activity_id: string | null;
   connection_id: string | null;
   provider_thread_id: string | null;
+  provider_message_id: string | null;
   direction: "inbound" | "outbound";
-  is_meaningful: boolean;
-  occurred_at: string;
   party_role: string | null;
+  is_meaningful: boolean;
+  noise_reason: string | null;
+  occurred_at: string;
   linked_contact_kind: string | null;
+  linked_contact_id: string | null;
+  source: string;
+  subject: string | null;
+  from_email: string | null;
+  to_emails: string[] | null;
+  cc_emails: string[] | null;
 }
+
+type EvaluatorEventRow = CorrespondenceEventRow | LegacyBackfillPlannedEventRow;
 
 interface LifecycleStateRow {
   opportunity_id: string;
@@ -187,6 +222,11 @@ interface ProductionSnapshot {
   lostCount: number;
   operatorNoResponseLostCount: number;
   maxUpdatedAt: string | null;
+  correspondenceEventsCount: number;
+  lifecycleStateCount: number;
+  lifecycleSettingsCount: number;
+  auditTableExists: boolean;
+  guardedRpcExists: boolean;
   scannedNonDeletedOpportunities: number;
   capturedAt: string;
 }
@@ -314,7 +354,7 @@ function lifecycleStateFromRow(
   };
 }
 
-function eventForEvaluator(row: CorrespondenceEventRow): OpportunityLifecycleMeaningfulEvent {
+function eventForEvaluator(row: EvaluatorEventRow): OpportunityLifecycleMeaningfulEvent {
   return {
     id: row.id,
     direction: row.direction,
@@ -326,8 +366,8 @@ function eventForEvaluator(row: CorrespondenceEventRow): OpportunityLifecycleMea
 }
 
 function latestMeaningfulEvent(
-  rows: CorrespondenceEventRow[]
-): CorrespondenceEventRow | null {
+  rows: EvaluatorEventRow[]
+): EvaluatorEventRow | null {
   return [...rows]
     .filter((row) => row.is_meaningful)
     .sort(
@@ -342,7 +382,7 @@ async function fetchOpportunities(
   let query = sb
     .from("opportunities")
     .select(
-      "id, company_id, title, stage, archived_at, deleted_at, project_id, project_ref, created_at, stage_entered_at, contact_name, lost_reason, lost_notes, actual_close_date, updated_at"
+      "id, company_id, title, stage, archived_at, deleted_at, project_id, project_ref, created_at, stage_entered_at, contact_email, contact_name, source, lost_reason, lost_notes, actual_close_date, updated_at"
     )
     .is("deleted_at", null)
     .order("updated_at", { ascending: false })
@@ -361,7 +401,7 @@ async function fetchOpportunities(
     let approvedQuery = sb
       .from("opportunities")
       .select(
-        "id, company_id, title, stage, archived_at, deleted_at, project_id, project_ref, created_at, stage_entered_at, contact_name, lost_reason, lost_notes, actual_close_date, updated_at"
+        "id, company_id, title, stage, archived_at, deleted_at, project_id, project_ref, created_at, stage_entered_at, contact_email, contact_name, source, lost_reason, lost_notes, actual_close_date, updated_at"
       )
       .in("id", ids);
     if (COMPANY_ID) approvedQuery = approvedQuery.eq("company_id", COMPANY_ID);
@@ -385,7 +425,7 @@ async function fetchEvents(
     const { data, error } = await sb
       .from("opportunity_correspondence_events")
       .select(
-        "id, company_id, opportunity_id, connection_id, provider_thread_id, direction, is_meaningful, occurred_at, party_role, linked_contact_kind"
+        "id, company_id, opportunity_id, activity_id, connection_id, provider_thread_id, provider_message_id, direction, party_role, is_meaningful, noise_reason, occurred_at, linked_contact_kind, linked_contact_id, source, subject, from_email, to_emails, cc_emails"
       )
       .in("opportunity_id", ids)
       .order("occurred_at", { ascending: true });
@@ -400,6 +440,83 @@ async function fetchEvents(
     byOpportunity.set(row.opportunity_id, list);
   }
   return byOpportunity;
+}
+
+async function fetchLegacyActivities(
+  opportunityIds: string[]
+): Promise<LegacyBackfillActivityRow[]> {
+  const rows: LegacyBackfillActivityRow[] = [];
+  const pageSize = 1000;
+  for (const ids of chunk(opportunityIds, 250)) {
+    for (let from = 0; rows.length < MAX_ACTIVITIES; from += pageSize) {
+      const remaining = MAX_ACTIVITIES - rows.length;
+      const to = from + Math.min(pageSize, remaining) - 1;
+      const { data, error } = await sb
+        .from("activities")
+        .select(
+          "id, company_id, opportunity_id, type, email_thread_id, email_message_id, subject, content, body_text, from_email, to_emails, cc_emails, direction, created_at, outcome"
+        )
+        .in("opportunity_id", ids)
+        .order("created_at", { ascending: true })
+        .range(from, to);
+
+      if (error) throw new Error(`legacy activities query failed: ${error.message}`);
+      const page = (data ?? []) as LegacyBackfillActivityRow[];
+      rows.push(...page);
+      if (page.length < pageSize) break;
+    }
+    if (rows.length >= MAX_ACTIVITIES) break;
+  }
+  return rows;
+}
+
+async function fetchLegacyThreads(
+  providerThreadIds: string[]
+): Promise<LegacyBackfillEmailThreadRow[]> {
+  const rows: LegacyBackfillEmailThreadRow[] = [];
+  for (const ids of chunk(providerThreadIds, 500)) {
+    const { data, error } = await sb
+      .from("email_threads")
+      .select(
+        "company_id, opportunity_id, connection_id, provider_thread_id, labels, primary_category"
+      )
+      .in("provider_thread_id", ids);
+    if (error) throw new Error(`legacy email_threads query failed: ${error.message}`);
+    rows.push(...((data ?? []) as LegacyBackfillEmailThreadRow[]));
+  }
+  return rows;
+}
+
+async function fetchLegacyOpportunityThreadLinks(
+  providerThreadIds: string[]
+): Promise<LegacyBackfillOpportunityThreadLinkRow[]> {
+  const rows: LegacyBackfillOpportunityThreadLinkRow[] = [];
+  for (const ids of chunk(providerThreadIds, 500)) {
+    const { data, error } = await sb
+      .from("opportunity_email_threads")
+      .select("opportunity_id, thread_id, connection_id")
+      .in("thread_id", ids);
+    if (error) {
+      throw new Error(`legacy opportunity_email_threads query failed: ${error.message}`);
+    }
+    rows.push(...((data ?? []) as LegacyBackfillOpportunityThreadLinkRow[]));
+  }
+  return rows;
+}
+
+async function fetchLegacyConnections(
+  connectionIds: string[]
+): Promise<LegacyBackfillEmailConnectionRow[]> {
+  const rows: LegacyBackfillEmailConnectionRow[] = [];
+  for (const ids of chunk(connectionIds, 500)) {
+    const { data, error } = await sb
+      .from("email_connections")
+      .select("id, company_id, email, sync_filters")
+      .in("id", ids);
+    if (error) throw new Error(`legacy email_connections query failed: ${error.message}`);
+    rows.push(...((data ?? []) as LegacyBackfillEmailConnectionRow[]));
+  }
+  return rows;
 }
 
 async function fetchLifecycleStates(
@@ -520,13 +637,37 @@ async function fetchProductionSnapshot(
     lostCount,
     operatorNoResponseLostCount,
     maxUpdatedAt,
+    correspondenceEvents,
+    lifecycleState,
+    lifecycleSettings,
+    auditProbe,
   ] = await Promise.all([
     countOpportunities("all"),
     countOpportunities("archived"),
     countOpportunities("lost"),
     countOpportunities("operator_no_response_lost"),
     fetchMaxOpportunityUpdatedAt(),
+    sb
+      .from("opportunity_correspondence_events")
+      .select("id", { count: "exact", head: true }),
+    sb
+      .from("opportunity_lifecycle_state")
+      .select("opportunity_id", { count: "exact", head: true }),
+    sb
+      .from("lead_lifecycle_settings")
+      .select("company_id", { count: "exact", head: true }),
+    sb
+      .from("opportunity_lifecycle_action_audit")
+      .select("id", { count: "exact", head: true }),
   ]);
+
+  for (const [label, result] of [
+    ["opportunity_correspondence_events", correspondenceEvents],
+    ["opportunity_lifecycle_state", lifecycleState],
+    ["lead_lifecycle_settings", lifecycleSettings],
+  ] as const) {
+    if (result.error) throw new Error(`${label} count failed: ${result.error.message}`);
+  }
 
   return {
     totalOpportunities,
@@ -534,6 +675,11 @@ async function fetchProductionSnapshot(
     lostCount,
     operatorNoResponseLostCount,
     maxUpdatedAt,
+    correspondenceEventsCount: correspondenceEvents.count ?? 0,
+    lifecycleStateCount: lifecycleState.count ?? 0,
+    lifecycleSettingsCount: lifecycleSettings.count ?? 0,
+    auditTableExists: !auditProbe.error && typeof auditProbe.count === "number",
+    guardedRpcExists: false,
     scannedNonDeletedOpportunities,
     capturedAt: new Date().toISOString(),
   };
@@ -567,6 +713,40 @@ async function main() {
       fetchSettings(companyIds),
       fetchOperators(companyIds),
     ]);
+  const existingEvents = [...eventsByOpportunity.values()].flat();
+  const legacyActivities = await fetchLegacyActivities(opportunityIds);
+  const legacyProviderThreadIds = unique(
+    legacyActivities.map((row) => row.email_thread_id)
+  );
+  const [legacyThreads, legacyThreadLinks] = await Promise.all([
+    fetchLegacyThreads(legacyProviderThreadIds),
+    fetchLegacyOpportunityThreadLinks(legacyProviderThreadIds),
+  ]);
+  const legacyConnections = await fetchLegacyConnections(
+    unique(legacyThreads.map((row) => row.connection_id))
+  );
+  const legacyBackfillPlan = planLegacyCorrespondenceBackfill({
+    opportunities,
+    activities: legacyActivities,
+    threads: legacyThreads,
+    opportunityThreadLinks: legacyThreadLinks,
+    connections: legacyConnections,
+    existingEvents,
+    now: NOW,
+  });
+  const plannedEventsByOpportunity = new Map<string, LegacyBackfillPlannedEventRow[]>();
+  for (const event of legacyBackfillPlan.plannedEvents) {
+    const rows = plannedEventsByOpportunity.get(event.opportunity_id) ?? [];
+    rows.push(event);
+    plannedEventsByOpportunity.set(event.opportunity_id, rows);
+  }
+  const mergedEventsByOpportunity = new Map<string, EvaluatorEventRow[]>();
+  for (const opportunity of opportunities) {
+    mergedEventsByOpportunity.set(opportunity.id, [
+      ...(eventsByOpportunity.get(opportunity.id) ?? []),
+      ...(plannedEventsByOpportunity.get(opportunity.id) ?? []),
+    ]);
+  }
 
   const decisions: OpportunityLifecycleDecision[] = [];
   const executionRows: Array<{
@@ -581,6 +761,9 @@ async function main() {
     skippedReason: string | null;
     beforeValues: Record<string, unknown> | null;
     afterValues: Record<string, unknown> | null;
+    auditRow: ProjectedOpportunityLifecycleActionAuditRow | null;
+    legacyEvidenceCount: number;
+    latestEventSource: string | null;
   }> = [];
   const missingApprovedRows: ApprovedActionRow[] = [];
   const mismatchApprovedRows: Array<{
@@ -600,7 +783,7 @@ async function main() {
   let auditRowsToRecord = 0;
 
   for (const opportunity of opportunities) {
-    const eventRows = eventsByOpportunity.get(opportunity.id) ?? [];
+    const eventRows = mergedEventsByOpportunity.get(opportunity.id) ?? [];
     const meaningfulEvents = eventRows
       .filter((row) => row.is_meaningful)
       .map(eventForEvaluator);
@@ -716,6 +899,38 @@ async function main() {
         runId: `${today}:${MODE}`,
         now: NOW,
       });
+      const auditRow =
+        execution.operations.audit === "would_record" ||
+        execution.operations.audit === "recorded"
+          ? projectOpportunityLifecycleActionAuditRow({
+              companyId: opportunity.company_id,
+              opportunityId: opportunity.id,
+              action: executionDecision.action,
+              approvedActionKey:
+                item.approvedAction?.approvedActionKey ??
+                defaultApprovedActionKey(opportunity.id, executionDecision.action),
+              executionMode: MODE,
+              status:
+                MODE === "dry-run"
+                  ? "skipped"
+                  : execution.applied
+                    ? "applied"
+                    : "skipped",
+              guardReason:
+                MODE === "dry-run" && !execution.skippedReason
+                  ? "dry_run_projected_apply_not_approved"
+                  : (execution.guardReason ?? execution.skippedReason ?? null),
+              beforeValues: execution.beforeValues ?? {},
+              afterValues: execution.afterValues ?? {},
+              decisionReason: executionDecision.reason,
+              decisionEvidence: executionDecision.evidence,
+              approvedBy: item.approvedAction?.approvedBy ?? null,
+              approvedAt: item.approvedAction?.approvedAt ?? null,
+              runId: `${today}:${MODE}`,
+              errorCode: execution.errorCode ?? null,
+              errorMessage: execution.errorMessage ?? null,
+            })
+          : null;
 
       if (
         execution.operations.draft === "would_create" ||
@@ -775,6 +990,9 @@ async function main() {
         skippedReason: execution.skippedReason ?? null,
         beforeValues: execution.beforeValues ?? null,
         afterValues: execution.afterValues ?? null,
+        auditRow,
+        legacyEvidenceCount: plannedEventsByOpportunity.get(opportunity.id)?.length ?? 0,
+        latestEventSource: latestEvent?.source ?? null,
       });
     }
   }
@@ -787,7 +1005,9 @@ async function main() {
   }
 
   for (const opportunity of opportunities) {
-    const latestEvent = latestMeaningfulEvent(eventsByOpportunity.get(opportunity.id) ?? []);
+    const latestEvent = latestMeaningfulEvent(
+      mergedEventsByOpportunity.get(opportunity.id) ?? []
+    );
     if (!latestEvent || latestEvent.direction !== "inbound") continue;
     const reset = await resetStaleLifecycleAfterMeaningfulInbound({
       supabase: sb,
@@ -811,10 +1031,21 @@ async function main() {
     (sum, rows) => sum + rows.filter((row) => row.is_meaningful).length,
     0
   );
+  const plannedLegacyMeaningfulEventCount = legacyBackfillPlan.plannedEvents.filter(
+    (row) => row.is_meaningful
+  ).length;
+  const totalMeaningfulEventCount = [...mergedEventsByOpportunity.values()].reduce(
+    (sum, rows) => sum + rows.filter((row) => row.is_meaningful).length,
+    0
+  );
   const opportunitiesWithP4Events = eventsByOpportunity.size;
   const opportunitiesWithoutP4Events = opportunities.length - opportunitiesWithP4Events;
+  const opportunitiesWithPlannedLegacyEvents = plannedEventsByOpportunity.size;
   const candidateRowsWithoutP4Events = executionRows.filter(
     (row) => !eventsByOpportunity.has(row.opportunity.id)
+  ).length;
+  const candidateRowsWithLegacyEvidence = executionRows.filter(
+    (row) => row.legacyEvidenceCount > 0
   ).length;
   const mutationRows = executionRows.filter(
     (row) =>
@@ -829,10 +1060,13 @@ async function main() {
     action: row.decision.action,
     approvedActionKey: defaultApprovedActionKey(row.opportunity.id, row.decision.action),
   }));
+  const projectedAuditRows = executionRows
+    .map((row) => row.auditRow)
+    .filter((row): row is ProjectedOpportunityLifecycleActionAuditRow => Boolean(row));
   const postRunSnapshot = await fetchProductionSnapshot(opportunities.length);
 
   const lines = [
-    "# Lead Lifecycle P4-12 Guarded Action Dry Run",
+    "# Lead Lifecycle P4-22 Guarded Actions After Backfill Dry Run",
     "",
     `Generated: ${generatedAt}`,
     `Evaluator clock: ${NOW.toISOString()}`,
@@ -853,16 +1087,22 @@ async function main() {
     `- App env directory: \`${ENV_DIR}\``,
     `- Company filter: \`${COMPANY_ID ?? "all"}\``,
     `- Opportunity scan cap: ${MAX_OPPORTUNITIES}`,
+    `- Activity scan cap: ${MAX_ACTIVITIES}`,
     `- Approved actions file: \`${APPROVED_ACTIONS_FILE ?? "none"}\``,
     "- Candidate source: non-deleted opportunities scanned first; exact approved opportunity ids are included even when outside the scan cap.",
     "- Total opportunities means every row in `public.opportunities`; scanned non-deleted opportunities means the evaluator input set after `deleted_at IS NULL`, scan cap, and exact approved-id inclusion.",
     `- P4 correspondence events considered: ${p4CorrespondenceEventsConsidered}`,
+    `- Planned legacy correspondence events considered: ${legacyBackfillPlan.plannedEvents.length}`,
     `- Opportunities with P4 correspondence rows: ${opportunitiesWithP4Events}`,
+    `- Opportunities with planned legacy correspondence rows: ${opportunitiesWithPlannedLegacyEvents}`,
     `- Opportunities without P4 correspondence rows: ${opportunitiesWithoutP4Events}`,
     `- Candidate execution rows without P4 rows: ${candidateRowsWithoutP4Events}`,
+    `- Candidate execution rows with planned legacy evidence: ${candidateRowsWithLegacyEvidence}`,
+    "- Empty P4 proof tables are not treated as no meaningful legacy correspondence.",
     p4CorrespondenceEventsConsidered === 0
       ? "- No P4 correspondence rows were used because the table returned zero rows."
       : "- P4 correspondence rows were used only for opportunities that had matching P4 rows.",
+    "- Legacy evidence is activity/opportunity scoped and does not rewrite thread or opportunity relationships.",
     "- Apply flag: `--apply-guarded-p4-actions`.",
     "- Apply approval gate: `--approved-actions-file <json>` is required and each approved row must match the current evaluator action before execution.",
     "",
@@ -874,12 +1114,15 @@ async function main() {
     `- Approved actions skipped because current evaluator changed: ${mismatchApprovedRows.length}`,
     `- P4 correspondence events considered: ${p4CorrespondenceEventsConsidered}`,
     `- Meaningful P4 events considered: ${meaningfulEventCount}`,
+    `- Planned legacy meaningful events considered: ${plannedLegacyMeaningfulEventCount}`,
+    `- Total meaningful events considered after legacy evidence: ${totalMeaningfulEventCount}`,
     `- Candidates: ${candidates}`,
     `- Drafts to create: ${draftsToCreate}`,
     `- Notifications to create: ${notificationsToCreate}`,
     `- Lifecycle states to update: ${lifecycleStatesToUpdate}`,
     `- Opportunity rows to mutate: ${opportunityMutations}`,
     `- Audit rows to record: ${auditRowsToRecord}`,
+    `- Dry-run projected audit rows rendered: ${projectedAuditRows.length}`,
     `- Drafts to supersede: ${draftsToSupersede}`,
     `- Skipped because already exists: ${skippedAlreadyExists}`,
     `- Skipped by guard: ${skippedGuarded}`,
@@ -899,6 +1142,11 @@ async function main() {
     `| lost count | ${preRunSnapshot.lostCount} | ${postRunSnapshot.lostCount} |`,
     `| operator_no_response lost count | ${preRunSnapshot.operatorNoResponseLostCount} | ${postRunSnapshot.operatorNoResponseLostCount} |`,
     `| max updated_at | ${md(preRunSnapshot.maxUpdatedAt)} | ${md(postRunSnapshot.maxUpdatedAt)} |`,
+    `| opportunity_correspondence_events | ${preRunSnapshot.correspondenceEventsCount} | ${postRunSnapshot.correspondenceEventsCount} |`,
+    `| opportunity_lifecycle_state | ${preRunSnapshot.lifecycleStateCount} | ${postRunSnapshot.lifecycleStateCount} |`,
+    `| lead_lifecycle_settings | ${preRunSnapshot.lifecycleSettingsCount} | ${postRunSnapshot.lifecycleSettingsCount} |`,
+    `| action audit table exists | ${preRunSnapshot.auditTableExists} | ${postRunSnapshot.auditTableExists} |`,
+    `| guarded RPC exists | ${preRunSnapshot.guardedRpcExists} | ${postRunSnapshot.guardedRpcExists} |`,
     `| scanned non-deleted opportunities | ${preRunSnapshot.scannedNonDeletedOpportunities} | ${postRunSnapshot.scannedNonDeletedOpportunities} |`,
     "",
     "## Decisions By Action",
@@ -907,12 +1155,47 @@ async function main() {
     "| --- | ---: |",
     ...renderCounts(actionCounts),
     "",
+    "## Legacy Backfill Evidence Considered",
+    "",
+    "| Metric | Count |",
+    "| --- | ---: |",
+    `| legacy activities scanned | ${legacyActivities.length} |`,
+    `| legacy email threads scanned | ${legacyThreads.length} |`,
+    `| legacy opportunity thread links scanned | ${legacyThreadLinks.length} |`,
+    `| legacy connections scanned | ${legacyConnections.length} |`,
+    `| planned opportunity_correspondence_events rows | ${legacyBackfillPlan.plannedEvents.length} |`,
+    `| planned opportunity_lifecycle_state rows | ${legacyBackfillPlan.lifecycleStateRows.length} |`,
+    `| skipped legacy evidence rows | ${legacyBackfillPlan.skippedEvidence.length} |`,
+    "",
+    "| Source | Count |",
+    "| --- | ---: |",
+    ...renderCounts(
+      legacyBackfillPlan.plannedEvents.reduce((counts, row) => {
+        counts.set(row.source, (counts.get(row.source) ?? 0) + 1);
+        return counts;
+      }, new Map<string, number>())
+    ),
+    "",
+    "## Planned Legacy Correspondence Rows",
+    "",
+    "| Source | Opportunity ID | Activity ID | Direction | Party | Occurred at | Confidence | Boundary | Reason |",
+    "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+    ...legacyBackfillPlan.plannedEvents.slice(0, 150).map((row) => {
+      return `| ${md(row.source)} | ${md(row.opportunity_id)} | ${md(row.activity_id)} | ${md(row.direction)} | ${md(row.party_role)} | ${md(row.occurred_at)} | ${md(row.confidence)} | ${md(row.source_boundary)} | ${md(row.reason)} |`;
+    }),
+    legacyBackfillPlan.plannedEvents.length > 150
+      ? `\nOnly the first 150 of ${legacyBackfillPlan.plannedEvents.length} planned legacy correspondence rows are listed.`
+      : "",
+    legacyBackfillPlan.plannedEvents.length === 0
+      ? "| - | - | - | - | - | - | - | - | - |"
+      : "",
+    "",
     "## Candidate Actions",
     "",
-    "| Action | Opportunity | Stage | Archived | Project | Draft | Notification | State | Opportunity | Audit | Skip reason |",
-    "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+    "| Action | Opportunity | Stage | Archived | Project | Latest event source | Legacy evidence | Draft | Notification | State | Opportunity | Audit | Skip reason |",
+    "| --- | --- | --- | --- | --- | --- | ---: | --- | --- | --- | --- | --- | --- |",
     ...executionRows.slice(0, 100).map((row) => {
-      return `| ${md(row.decision.action)} | ${md(row.opportunity.title ?? row.opportunity.id)} (${md(row.opportunity.id)}) | ${md(row.opportunity.stage)} | ${md(row.opportunity.archived_at)} | ${md(row.opportunity.project_id ?? row.opportunity.project_ref)} | ${md(row.draft)} | ${md(row.notification)} | ${md(row.lifecycleState)} | ${md(row.opportunityOperation)} | ${md(row.audit)} | ${md(row.skippedReason)} |`;
+      return `| ${md(row.decision.action)} | ${md(row.opportunity.title ?? row.opportunity.id)} (${md(row.opportunity.id)}) | ${md(row.opportunity.stage)} | ${md(row.opportunity.archived_at)} | ${md(row.opportunity.project_id ?? row.opportunity.project_ref)} | ${md(row.latestEventSource)} | ${row.legacyEvidenceCount} | ${md(row.draft)} | ${md(row.notification)} | ${md(row.lifecycleState)} | ${md(row.opportunityOperation)} | ${md(row.audit)} | ${md(row.skippedReason)} |`;
     }),
     executionRows.length > 100
       ? `\nOnly the first 100 of ${executionRows.length} candidate execution rows are listed.`
@@ -926,6 +1209,14 @@ async function main() {
       return `| ${md(row.decision.action)} | ${md(row.opportunity.id)} | ${jsonCell(row.beforeValues)} | ${jsonCell(row.afterValues)} |`;
     }),
     mutationRows.length === 0 ? "| - | - | - | - |" : "",
+    "",
+    "## Dry-Run Projected Audit Rows",
+    "",
+    "These rows are projected audit payloads only. They are not approvals, were not inserted, and use `approval_status: dry_run_projection_not_approved`.",
+    "",
+    "```json",
+    JSON.stringify(projectedAuditRows, null, 2),
+    "```",
     "",
     "## Skipped Guarded Actions",
     "",
