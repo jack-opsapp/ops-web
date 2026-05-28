@@ -18,6 +18,16 @@ import * as PortalMagicLinkMod from "./react/templates/PortalMagicLink";
 import * as PortalQuestionsReminderMod from "./react/templates/PortalQuestionsReminder";
 import * as BlogNewsletterMod from "./react/templates/BlogNewsletter";
 import * as FieldNotesNewsletterMod from "./react/templates/FieldNotesNewsletter";
+import * as Day0WelcomeMod from "./react/templates/onboarding/Day0Welcome";
+import * as Day1NoProjectMod from "./react/templates/onboarding/Day1NoProject";
+import * as Day1HasProjectMod from "./react/templates/onboarding/Day1HasProject";
+import * as Day3InboxMod from "./react/templates/onboarding/Day3Inbox";
+import * as Day4NoNotificationMod from "./react/templates/onboarding/Day4NoNotification";
+import * as Day4HasNotificationMod from "./react/templates/onboarding/Day4HasNotification";
+import * as Day8EstimatesMod from "./react/templates/onboarding/Day8Estimates";
+import * as Day14QuietMod from "./react/templates/onboarding/Day14Quiet";
+import * as Day14ActiveMod from "./react/templates/onboarding/Day14Active";
+import * as LostYouMod from "./react/templates/onboarding/LostYou";
 import * as SpecOwnerApprovalRequiredMod from "./react/templates/SpecOwnerApprovalRequired";
 import * as SpecOwnerApprovalGrantedMod from "./react/templates/SpecOwnerApprovalGranted";
 import * as SpecOwnerApprovalDeclinedMod from "./react/templates/SpecOwnerApprovalDeclined";
@@ -189,6 +199,86 @@ export const TEMPLATE_REGISTRY: TemplateRegistryEntry[] = [
     Component: FieldNotesNewsletterMod.FieldNotesNewsletter,
     previewProps: FieldNotesNewsletterMod.previewProps,
     sourcePath: "src/lib/email/react/templates/FieldNotesNewsletter.tsx",
+  },
+  {
+    templateId: "onboarding_day_0_welcome",
+    displayName: "Onboarding — Day 0 Founder Welcome",
+    defaultSubject: "quick question",
+    Component: Day0WelcomeMod.Day0Welcome,
+    previewProps: Day0WelcomeMod.previewProps,
+    sourcePath: "src/lib/email/react/templates/onboarding/Day0Welcome.tsx",
+  },
+  {
+    templateId: "onboarding_day_1_no_project",
+    displayName: "Onboarding — Day 1A No Project",
+    defaultSubject: "the move that gets OPS working",
+    Component: Day1NoProjectMod.Day1NoProject,
+    previewProps: Day1NoProjectMod.previewProps,
+    sourcePath: "src/lib/email/react/templates/onboarding/Day1NoProject.tsx",
+  },
+  {
+    templateId: "onboarding_day_1_has_project",
+    displayName: "Onboarding — Day 1B Has Project",
+    defaultSubject: "you're moving",
+    Component: Day1HasProjectMod.Day1HasProject,
+    previewProps: Day1HasProjectMod.previewProps,
+    sourcePath: "src/lib/email/react/templates/onboarding/Day1HasProject.tsx",
+  },
+  {
+    templateId: "onboarding_day_3_inbox",
+    displayName: "Onboarding — Day 3 Inbox (Jack)",
+    defaultSubject: "the part of OPS I'm most proud of",
+    Component: Day3InboxMod.Day3Inbox,
+    previewProps: Day3InboxMod.previewProps,
+    sourcePath: "src/lib/email/react/templates/onboarding/Day3Inbox.tsx",
+  },
+  {
+    templateId: "onboarding_day_4_no_notification",
+    displayName: "Onboarding — Day 4A No Notification",
+    defaultSubject: "the notification you're working toward",
+    Component: Day4NoNotificationMod.Day4NoNotification,
+    previewProps: Day4NoNotificationMod.previewProps,
+    sourcePath: "src/lib/email/react/templates/onboarding/Day4NoNotification.tsx",
+  },
+  {
+    templateId: "onboarding_day_4_has_notification",
+    displayName: "Onboarding — Day 4B Has Notification",
+    defaultSubject: "you've heard the ping",
+    Component: Day4HasNotificationMod.Day4HasNotification,
+    previewProps: Day4HasNotificationMod.previewProps,
+    sourcePath: "src/lib/email/react/templates/onboarding/Day4HasNotification.tsx",
+  },
+  {
+    templateId: "onboarding_day_8_estimates",
+    displayName: "Onboarding — Day 8 Estimates (Jack)",
+    defaultSubject: "how your customers see your estimates",
+    Component: Day8EstimatesMod.Day8Estimates,
+    previewProps: Day8EstimatesMod.previewProps,
+    sourcePath: "src/lib/email/react/templates/onboarding/Day8Estimates.tsx",
+  },
+  {
+    templateId: "onboarding_day_14_quiet",
+    displayName: "Onboarding — Day 14 Quiet (Jack)",
+    defaultSubject: "is OPS slotting in or in the way?",
+    Component: Day14QuietMod.Day14Quiet,
+    previewProps: Day14QuietMod.previewProps,
+    sourcePath: "src/lib/email/react/templates/onboarding/Day14Quiet.tsx",
+  },
+  {
+    templateId: "onboarding_day_14_active",
+    displayName: "Onboarding — Day 14 Active (Jack)",
+    defaultSubject: "you're 14 days in",
+    Component: Day14ActiveMod.Day14Active,
+    previewProps: Day14ActiveMod.previewProps,
+    sourcePath: "src/lib/email/react/templates/onboarding/Day14Active.tsx",
+  },
+  {
+    templateId: "onboarding_lost_you",
+    displayName: "Onboarding — Lost You (re-engagement)",
+    defaultSubject: "lost you?",
+    Component: LostYouMod.LostYou,
+    previewProps: LostYouMod.previewProps,
+    sourcePath: "src/lib/email/react/templates/onboarding/LostYou.tsx",
   },
   // ─── SPEC engagement templates (Phase 1) ───────────────────────────────────
   {
@@ -405,6 +495,13 @@ export async function renderTemplate(
   if (!entry) return null;
   const Component = entry.Component;
   const html = await renderEmail(React.createElement(Component, props), { pretty: false });
-  const text = await renderEmail(React.createElement(Component, props), { plainText: true });
+  // Disable html-to-text wordwrap (default 80 cols) so load-bearing phrases
+  // like "I read every reply" or "it's my personal inbox" don't get split
+  // across a hard newline mid-phrase. Email clients handle their own visual
+  // wrapping; we should ship one line per paragraph and let them lay it out.
+  const text = await renderEmail(React.createElement(Component, props), {
+    plainText: true,
+    htmlToTextOptions: { wordwrap: false },
+  });
   return { html, text };
 }

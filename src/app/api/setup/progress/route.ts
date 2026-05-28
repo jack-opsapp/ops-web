@@ -158,6 +158,71 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
             is_company_admin: true,
           })
           .eq("id", userId);
+
+        // Day 0 founder welcome — fire-and-forget after company creation.
+        // Per spec §3 + decision log #25/#26: only fire when the inserting
+        // user IS the new company's account_holder (which is always true here
+        // because we set `account_holder_id: userId` on the INSERT above) and
+        // when the operator email isn't on the internal allowlist.
+        // Failure does NOT roll back signup; cron will retry up to 3 times
+        // within day_slot_expires_at if the async fails.
+        const operatorEmail = (userRow.email as string | null | undefined) ?? null;
+        const INTERNAL_DOMAINS = ["@opsapp.co", "@anthropic.com"];
+        const isInternal =
+          operatorEmail
+            ? INTERNAL_DOMAINS.some((d) => operatorEmail.toLowerCase().endsWith(d))
+            : true;
+
+        if (!isInternal && operatorEmail) {
+          void (async () => {
+            try {
+              const expires = new Date(Date.now() + 24 * 60 * 60_000).toISOString();
+              const { data: logRow, error: insertError } = await db
+                .from("onboarding_email_log")
+                .insert({
+                  user_id: userId,
+                  company_id: companyId,
+                  day_slot: "day_0",
+                  branch: null,
+                  email_type: "onboarding_day_0_welcome",
+                  status: "pending",
+                  attempts: 0,
+                  day_slot_expires_at: expires,
+                })
+                .select("id")
+                .single();
+
+              if (insertError || !logRow) {
+                // Unique-violation = sibling already claimed; not an error.
+                if (insertError && insertError.code !== "23505") {
+                  console.error("[onboarding-day0] claim INSERT failed:", insertError);
+                }
+                return;
+              }
+
+              const { sendOnboardingDay0Welcome } = await import("@/lib/email/sendgrid");
+              const result = await sendOnboardingDay0Welcome({
+                email: operatorEmail,
+                firstName: (userRow.first_name as string | null | undefined) ?? null,
+                onboardingEmailLogId: logRow.id as string,
+              });
+
+              const update: Record<string, unknown> =
+                result.status === "sent"
+                  ? {
+                      status: "sent",
+                      sent_at: new Date().toISOString(),
+                      sg_message_id: result.messageId,
+                    }
+                  : result.status === "suppression_skipped"
+                    ? { status: "skipped" }
+                    : { status: "pending" };
+              await db.from("onboarding_email_log").update(update).eq("id", logRow.id);
+            } catch (err) {
+              console.error("[onboarding-day0] async dispatch failed:", err);
+            }
+          })();
+        }
       }
     }
 

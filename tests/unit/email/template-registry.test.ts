@@ -6,8 +6,8 @@ import {
 } from "@/lib/email/template-registry";
 
 describe("template-registry", () => {
-  it("has 17 entries", () => {
-    expect(TEMPLATE_REGISTRY.length).toBe(17);
+  it("has 52 entries", () => {
+    expect(TEMPLATE_REGISTRY.length).toBe(52);
   });
 
   it("every entry has required fields", () => {
