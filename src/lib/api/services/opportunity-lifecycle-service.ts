@@ -7,6 +7,7 @@ import {
   logInvalidProviderEmailIds,
   validateProviderEmailIds,
 } from "@/lib/email/provider-email-ids";
+import { resetStaleLifecycleAfterMeaningfulInbound } from "./opportunity-lifecycle-action-service";
 
 interface LifecycleSupabaseLike {
   // New P4 tables are not present in generated Supabase types until the schema
@@ -112,6 +113,18 @@ async function updateLifecycleStateAfterMeaningfulEvent(
   );
   if (currentAt && new Date(currentAt) > new Date(occurredAt)) return;
 
+  if (input.direction === "inbound") {
+    await resetStaleLifecycleAfterMeaningfulInbound({
+      supabase: input.supabase,
+      companyId: input.companyId,
+      opportunityId: input.opportunityId,
+      eventId,
+      occurredAt,
+      mode: "apply",
+    });
+    return;
+  }
+
   const row: Record<string, unknown> = {
     opportunity_id: input.opportunityId,
     company_id: input.companyId,
@@ -122,12 +135,6 @@ async function updateLifecycleStateAfterMeaningfulEvent(
     stale_status_at: null,
     updated_at: new Date().toISOString(),
   };
-
-  if (input.direction === "inbound") {
-    row.unanswered_follow_up_count = 0;
-    row.second_follow_up_sent_at = null;
-    row.operator_follow_up_miss_at = null;
-  }
 
   await input.supabase
     .from("opportunity_lifecycle_state")
