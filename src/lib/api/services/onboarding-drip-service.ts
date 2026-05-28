@@ -528,4 +528,137 @@ export const OnboardingDripService = {
     }
     return result;
   },
+
+  /**
+   * Retry sweep per spec §3. Picks up onboarding_email_log rows that are
+   * still pending or failed and re-attempts the send. Three gates must
+   * all pass for a row to be eligible:
+   *
+   *   1. attempts < 3 — max three total attempts before giving up
+   *   2. now() < day_slot_expires_at — haven't blown past the retry window
+   *   3. updated_at < now() - 5 minutes — in-flight gate to prevent racing
+   *      a concurrent async Day 0 dispatch that just claimed the row
+   *
+   * For each candidate: re-fetch operator + company, reconcile against
+   * email_log (covers the case where a prior attempt actually sent but
+   * didn't update the claim row), then either mark sent (if reconciled)
+   * or call dispatchTypedSender and update status. Mirrors the post-claim
+   * path of claimAndSend.
+   *
+   * Notes on attempts accounting:
+   *   - 'sent' increments attempts (records the work done)
+   *   - 'paused_skipped' does NOT increment attempts — pause is operator-
+   *     initiated and reversible, so we shouldn't burn retries on it
+   *   - 'suppression_skipped' is terminal (status=skipped); never retried
+   */
+  async processRetries(db: SupabaseClient, now: Date): Promise<{ retried: number }> {
+    const fiveMinAgo = new Date(now.getTime() - 5 * 60_000).toISOString();
+    const { data: candidates } = await db
+      .from("onboarding_email_log")
+      .select("id, user_id, company_id, day_slot, branch, email_type, attempts")
+      .in("status", ["pending", "failed"])
+      .lt("attempts", 3)
+      .gt("day_slot_expires_at", now.toISOString())
+      .lt("updated_at", fiveMinAgo)
+      .limit(100);
+
+    let retried = 0;
+    for (const row of (candidates ?? []) as Array<{
+      id: string;
+      user_id: string;
+      company_id: string;
+      day_slot: string;
+      branch: string | null;
+      email_type: string;
+      attempts: number;
+    }>) {
+      // Re-fetch operator + company so the typed sender can dispatch.
+      const { data: operator } = await db
+        .from("users")
+        .select("id, email, first_name, deleted_at")
+        .eq("id", row.user_id)
+        .maybeSingle();
+
+      if (!operator || operator.deleted_at || !operator.email) {
+        // Operator vanished mid-flight — leave the row alone; expiry will clean up.
+        continue;
+      }
+
+      const { data: company } = await db
+        .from("companies")
+        .select("id, latitude, longitude")
+        .eq("id", row.company_id)
+        .maybeSingle();
+
+      if (!company) continue;
+
+      // Reconcile against email_log first. If a prior attempt actually
+      // landed (but the claim row wasn't updated due to crash/timeout),
+      // we mark the row sent without re-dispatching.
+      const reconciled = await reconcileAgainstEmailLog(db, {
+        userId: row.user_id,
+        emailType: row.email_type,
+        recipientEmail: operator.email,
+        claimRowId: row.id,
+        createdAt: now,
+      });
+
+      if (reconciled) {
+        await db
+          .from("onboarding_email_log")
+          .update({
+            status: "sent",
+            sent_at: new Date().toISOString(),
+            sg_message_id: reconciled.sgMessageId,
+          })
+          .eq("id", row.id);
+        retried++;
+        continue;
+      }
+
+      // Dispatch the typed sender (mirrors claimAndSend post-claim logic).
+      // payload is empty here — recomputing computeState would yield
+      // slightly different stats (best-effort accepted; retry sends rare).
+      const sendResult = await dispatchTypedSender(
+        {
+          user: operator as { id: string; email: string; first_name: string | null },
+          company: company as { id: string; latitude: number | null; longitude: number | null },
+          daySlot: row.day_slot as DaySlot,
+          branch: row.branch as Branch,
+          emailType: row.email_type,
+          payload: {},
+          now,
+        },
+        row.id,
+      );
+
+      if (sendResult.status === "sent") {
+        await db
+          .from("onboarding_email_log")
+          .update({
+            status: "sent",
+            sent_at: new Date().toISOString(),
+            sg_message_id: sendResult.messageId,
+            attempts: row.attempts + 1,
+          })
+          .eq("id", row.id);
+        retried++;
+      } else if (sendResult.status === "paused_skipped") {
+        // Re-pend without attempt increment — pause is reversible and
+        // operator-initiated, so we shouldn't burn retries on it.
+        await db
+          .from("onboarding_email_log")
+          .update({ status: "pending" })
+          .eq("id", row.id);
+      } else if (sendResult.status === "suppression_skipped") {
+        // Suppression is terminal — recipient explicitly opted out.
+        await db
+          .from("onboarding_email_log")
+          .update({ status: "skipped" })
+          .eq("id", row.id);
+      }
+    }
+
+    return { retried };
+  },
 };
