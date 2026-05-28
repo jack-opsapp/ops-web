@@ -142,6 +142,7 @@ export type OpportunityLifecycleActionSkipReason =
   | "lost_stage_not_allowed"
   | "missing_related_inbound"
   | "duplicate_applied_action"
+  | "snapshot_mismatch"
   | "opportunity_update_failed"
   | "audit_insert_failed";
 
@@ -151,6 +152,9 @@ export interface OpportunityLifecycleActionResult {
   opportunityId: string;
   applied: boolean;
   skippedReason?: OpportunityLifecycleActionSkipReason;
+  guardReason?: string;
+  errorCode?: string | null;
+  errorMessage?: string | null;
   beforeValues?: Record<string, unknown>;
   afterValues?: Record<string, unknown>;
   operations: {
@@ -211,6 +215,16 @@ function iso(value: Date | string): string {
 function normalizedText(value: string | null | undefined): string | null {
   const normalized = value?.trim();
   return normalized ? normalized : null;
+}
+
+function recordValue(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function textValue(value: unknown): string | null {
+  return typeof value === "string" ? normalizedText(value) : null;
 }
 
 function firstName(value: string | null | undefined): string {
@@ -795,13 +809,26 @@ async function executeGuardedOpportunityActionRpc(
   input: OpportunityLifecycleActionInput,
   beforeValues: Record<string, unknown>,
   afterValues: Record<string, unknown>
-): Promise<{ applied: boolean; audit: AuditOperation }> {
+): Promise<{
+  applied: boolean;
+  audit: AuditOperation;
+  skippedReason?: OpportunityLifecycleActionSkipReason;
+  guardReason?: string;
+  opportunityOperation?: OpportunityMutationOperation;
+  errorCode?: string | null;
+  errorMessage?: string | null;
+}> {
   const opportunity = input.opportunity;
   if (!opportunity || !input.supabase.rpc) {
-    return { applied: false, audit: "skipped_insert_failed" };
+    return {
+      applied: false,
+      audit: "skipped_insert_failed",
+      skippedReason: "audit_insert_failed",
+      opportunityOperation: "skipped_update_failed",
+    };
   }
 
-  const { error } = await input.supabase.rpc(
+  const { data, error } = await input.supabase.rpc(
     "execute_opportunity_lifecycle_guarded_action",
     {
       p_company_id: input.companyId,
@@ -826,9 +853,96 @@ async function executeGuardedOpportunityActionRpc(
     }
   );
 
-  return error
-    ? { applied: false, audit: "skipped_insert_failed" }
-    : { applied: true, audit: "recorded" };
+  if (error) {
+    return {
+      applied: false,
+      audit: "skipped_insert_failed",
+      skippedReason: "audit_insert_failed",
+      opportunityOperation: "skipped_update_failed",
+      errorMessage: normalizedText(error.message ?? null),
+    };
+  }
+
+  const payload = recordValue(data);
+  if (payload.applied !== true) {
+    const guardReason =
+      textValue(payload.guard_reason) ??
+      textValue(payload.error_code) ??
+      "opportunity_update_failed";
+
+    return {
+      applied: false,
+      audit: "recorded",
+      skippedReason: skipReasonForRpcGuardReason(guardReason),
+      guardReason,
+      opportunityOperation: opportunityOperationForRpcGuardReason(guardReason),
+      errorCode: textValue(payload.error_code) ?? guardReason,
+      errorMessage: textValue(payload.error_message),
+    };
+  }
+
+  return { applied: true, audit: "recorded" };
+}
+
+function skipReasonForRpcGuardReason(
+  guardReason: string
+): OpportunityLifecycleActionSkipReason {
+  switch (guardReason) {
+    case "missing_opportunity_snapshot":
+      return "missing_opportunity_snapshot";
+    case "duplicate_applied_action":
+      return "duplicate_applied_action";
+    case "terminal_or_protected_stage":
+      return "terminal_or_protected_stage";
+    case "deleted_opportunity":
+      return "deleted_opportunity";
+    case "converted_or_project_linked":
+      return "converted_or_project_linked";
+    case "lost_stage_not_allowed":
+      return "lost_stage_not_allowed";
+    case "missing_related_inbound":
+      return "missing_related_inbound";
+    case "already_archived":
+      return "already_archived";
+    case "not_archived":
+      return "not_archived";
+    case "missing_approval":
+      return "missing_approval";
+    case "snapshot_mismatch":
+    case "opportunity_snapshot_mismatch":
+      return "snapshot_mismatch";
+    default:
+      return "opportunity_update_failed";
+  }
+}
+
+function opportunityOperationForRpcGuardReason(
+  guardReason: string
+): OpportunityMutationOperation {
+  switch (guardReason) {
+    case "missing_opportunity_snapshot":
+      return "skipped_missing_opportunity";
+    case "duplicate_applied_action":
+      return "skipped_duplicate_applied_action";
+    case "terminal_or_protected_stage":
+      return "skipped_terminal_or_protected_stage";
+    case "deleted_opportunity":
+      return "skipped_deleted";
+    case "converted_or_project_linked":
+      return "skipped_converted_or_project_linked";
+    case "lost_stage_not_allowed":
+      return "skipped_lost_stage_not_allowed";
+    case "missing_related_inbound":
+      return "skipped_missing_related_inbound";
+    case "already_archived":
+      return "skipped_already_archived";
+    case "not_archived":
+      return "skipped_not_archived";
+    case "missing_approval":
+      return "skipped_missing_approval";
+    default:
+      return "skipped_update_failed";
+  }
 }
 
 async function executeDestructiveOpportunityAction(
@@ -839,6 +953,9 @@ async function executeDestructiveOpportunityAction(
     | "operations"
     | "applied"
     | "skippedReason"
+    | "guardReason"
+    | "errorCode"
+    | "errorMessage"
     | "beforeValues"
     | "afterValues"
   >
@@ -933,14 +1050,18 @@ async function executeDestructiveOpportunityAction(
     return {
       applied: false,
       skippedReason:
-        rpcResult.audit === "skipped_insert_failed"
+        rpcResult.skippedReason ??
+        (rpcResult.audit === "skipped_insert_failed"
           ? "audit_insert_failed"
-          : "opportunity_update_failed",
+          : "opportunity_update_failed"),
+      guardReason: rpcResult.guardReason,
+      errorCode: rpcResult.errorCode,
+      errorMessage: rpcResult.errorMessage,
       beforeValues,
       afterValues: beforeValues,
       operations: {
         ...baseOperations,
-        opportunity: "skipped_update_failed",
+        opportunity: rpcResult.opportunityOperation ?? "skipped_update_failed",
         audit: rpcResult.audit,
       },
     };

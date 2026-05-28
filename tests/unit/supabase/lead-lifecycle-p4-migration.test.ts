@@ -113,4 +113,36 @@ describe("lead lifecycle P4 foundation migration", () => {
     expect(sql).toContain("grant execute on function public.execute_opportunity_lifecycle_guarded_action");
     expect(sql).not.toContain("updated_at =");
   });
+
+  it("keeps the guarded destructive action RPC service-role only", () => {
+    const sql = guardedExecutionMigrationSql();
+
+    expect(sql).toMatch(
+      /revoke\s+execute\s+on\s+function\s+public\.execute_opportunity_lifecycle_guarded_action[\s\S]*?\)\s+from\s+authenticated\s*;/i
+    );
+    expect(sql).toMatch(
+      /revoke\s+execute\s+on\s+function\s+public\.execute_opportunity_lifecycle_guarded_action[\s\S]*?\)\s+from\s+public\s*;/i
+    );
+    expect(sql).toMatch(
+      /grant\s+execute\s+on\s+function\s+public\.execute_opportunity_lifecycle_guarded_action[\s\S]*?\)\s+to\s+service_role\s*;/i
+    );
+    expect(sql).not.toMatch(
+      /grant\s+execute\s+on\s+function\s+public\.execute_opportunity_lifecycle_guarded_action[\s\S]*?\)\s+to\s+authenticated\s*;/i
+    );
+  });
+
+  it("computes guarded action before/after audit payloads on the server", () => {
+    const sql = guardedExecutionMigrationSql();
+
+    expect(sql).toContain("v_before_values jsonb");
+    expect(sql).toContain("v_after_values jsonb");
+    expect(sql).toContain("v_expected_before_values jsonb");
+    expect(sql).toContain("v_expected_after_values jsonb");
+    expect(sql).toContain("v_before_values := jsonb_build_object");
+    expect(sql).toContain("v_after_values := jsonb_build_object");
+    expect(sql).toContain("'snapshot_mismatch'");
+    expect(sql).not.toMatch(
+      /'applied'[\s\S]{0,240}p_before_values[\s\S]{0,240}p_after_values/i
+    );
+  });
 });
