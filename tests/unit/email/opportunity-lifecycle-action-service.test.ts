@@ -27,6 +27,7 @@ interface TableState {
 
 interface SupabaseDoubleOptions {
   failLifecycleStateUpsert?: boolean;
+  failGuardedActionRpc?: boolean;
 }
 
 const P4_MIGRATION_SQL = readFileSync(
@@ -77,6 +78,8 @@ function matches(row: Record<string, unknown>, filters: Map<string, unknown>): b
 }
 
 function makeSupabaseDouble(state: TableState, options: SupabaseDoubleOptions = {}) {
+  const rpcCalls: Array<{ fn: string; args: Record<string, unknown> }> = [];
+
   class Query {
     private filters = new Map<string, unknown>();
     private nullFilters = new Set<string>();
@@ -216,6 +219,24 @@ function makeSupabaseDouble(state: TableState, options: SupabaseDoubleOptions = 
   }
 
   return {
+    rpcCalls,
+    async rpc(fn: string, args: Record<string, unknown>) {
+      rpcCalls.push({ fn, args });
+      if (options.failGuardedActionRpc) {
+        return {
+          data: null,
+          error: { message: "audit insert failed" },
+        };
+      }
+      return {
+        data: {
+          applied: true,
+          audit_status: "recorded",
+          opportunity_status: "updated",
+        },
+        error: null,
+      };
+    },
     from(table: string) {
       return new Query(table as keyof TableState);
     },
@@ -501,51 +522,113 @@ describe("opportunity lifecycle action service", () => {
       opportunity_lifecycle_action_audit: [],
     };
 
-    const result = await executeOpportunityLifecycleAction(
-      makeInput(
-        {
-          decision: makeDecision("archive_after_two_unanswered_followups"),
-          now: new Date("2026-05-27T18:00:00.000Z"),
-          approvedActionKey:
-            "opp-1:archive_after_two_unanswered_followups:approved",
-          opportunity: {
-            id: "opp-1",
-            companyId: "company-1",
-            stage: "follow_up",
-            archivedAt: null,
-            deletedAt: null,
-            projectId: null,
-            projectRef: null,
-            lostReason: null,
-            lostNotes: null,
-            actualCloseDate: null,
-          },
-        } as Partial<OpportunityLifecycleActionInput> & Record<string, unknown>,
-        state
-      )
+    const input = makeInput(
+      {
+        decision: makeDecision("archive_after_two_unanswered_followups"),
+        now: new Date("2026-05-27T18:00:00.000Z"),
+        approvedActionKey: "opp-1:archive_after_two_unanswered_followups:approved",
+        opportunity: {
+          id: "opp-1",
+          companyId: "company-1",
+          stage: "follow_up",
+          archivedAt: null,
+          deletedAt: null,
+          projectId: null,
+          projectRef: null,
+          lostReason: null,
+          lostNotes: null,
+          actualCloseDate: null,
+        },
+      } as Partial<OpportunityLifecycleActionInput> & Record<string, unknown>,
+      state
     );
+
+    const result = await executeOpportunityLifecycleAction(input);
 
     expect(result.applied).toBe(true);
     expect(result.operations.opportunity).toBe("archived");
     expect(state.opportunities?.[0]).toMatchObject({
       stage: "follow_up",
+      archived_at: null,
+      lost_reason: null,
+      lost_notes: null,
+      actual_close_date: null,
+    });
+    const rpcCall = (input.supabase as ReturnType<typeof makeSupabaseDouble>).rpcCalls[0];
+    expect(rpcCall.fn).toBe("execute_opportunity_lifecycle_guarded_action");
+    expect(rpcCall.args.p_before_values).toEqual({ archived_at: null });
+    expect(rpcCall.args.p_after_values).toEqual({
       archived_at: "2026-05-27T18:00:00.000Z",
+    });
+    expect(JSON.stringify(rpcCall.args)).not.toContain("updated_at");
+    expect(state.opportunity_lifecycle_action_audit).toHaveLength(0);
+  });
+
+  it("uses the atomic RPC boundary and exact archived_at payload for archive apply", async () => {
+    const state: TableState = {
+      opportunity_follow_up_drafts: [],
+      opportunity_lifecycle_state: [],
+      notifications: [],
+      opportunities: [
+        {
+          id: "opp-1",
+          company_id: "company-1",
+          stage: "follow_up",
+          archived_at: null,
+          deleted_at: null,
+          project_id: null,
+          project_ref: null,
+          lost_reason: null,
+          lost_notes: null,
+          actual_close_date: null,
+        },
+      ],
+      opportunity_lifecycle_action_audit: [],
+    };
+    const input = makeInput(
+      {
+        decision: makeDecision("archive_after_two_unanswered_followups"),
+        now: new Date("2026-05-27T18:00:00.000Z"),
+        approvedActionKey: "opp-1:archive_after_two_unanswered_followups:approved",
+        opportunity: {
+          id: "opp-1",
+          companyId: "company-1",
+          stage: "follow_up",
+          archivedAt: null,
+          deletedAt: null,
+          projectId: null,
+          projectRef: null,
+          lostReason: null,
+          lostNotes: null,
+          actualCloseDate: null,
+        },
+      } as Partial<OpportunityLifecycleActionInput> & Record<string, unknown>,
+      state
+    );
+
+    const result = await executeOpportunityLifecycleAction(input);
+
+    const rpcCall = (input.supabase as ReturnType<typeof makeSupabaseDouble>).rpcCalls[0];
+    expect(result.applied).toBe(true);
+    expect(result.beforeValues).toEqual({ archived_at: null });
+    expect(result.afterValues).toEqual({
+      archived_at: "2026-05-27T18:00:00.000Z",
+    });
+    expect(rpcCall.fn).toBe("execute_opportunity_lifecycle_guarded_action");
+    expect(rpcCall.args.p_action).toBe("archive_after_two_unanswered_followups");
+    expect(rpcCall.args.p_before_values).toEqual(result.beforeValues);
+    expect(rpcCall.args.p_after_values).toEqual(result.afterValues);
+    expect(JSON.stringify(rpcCall.args)).not.toContain("updated_at");
+    expect(state.opportunities?.[0]).toMatchObject({
+      stage: "follow_up",
+      archived_at: null,
       lost_reason: null,
       lost_notes: null,
       actual_close_date: null,
     });
     expect(state.opportunity_follow_up_drafts).toHaveLength(0);
     expect(state.notifications).toHaveLength(0);
-    expect(state.opportunity_lifecycle_action_audit).toEqual([
-      expect.objectContaining({
-        action: "archive_after_two_unanswered_followups",
-        status: "applied",
-        before_values: expect.objectContaining({ archived_at: null }),
-        after_values: expect.objectContaining({
-          archived_at: "2026-05-27T18:00:00.000Z",
-        }),
-      }),
-    ]);
+    expect(state.opportunity_lifecycle_action_audit).toHaveLength(0);
   });
 
   it("does not archive the same opportunity twice", async () => {
@@ -600,7 +683,7 @@ describe("opportunity lifecycle action service", () => {
 
     expect(first.operations.opportunity).toBe("archived");
     expect(second.operations.opportunity).toBe("skipped_already_archived");
-    expect(state.opportunities?.[0].archived_at).toBe("2026-05-27T18:00:00.000Z");
+    expect(state.opportunities?.[0].archived_at).toBeNull();
   });
 
   it("marks beyond-qualified operator no-response opportunities lost", async () => {
@@ -651,14 +734,78 @@ describe("opportunity lifecycle action service", () => {
     );
 
     expect(result.operations.opportunity).toBe("moved_to_lost");
-    expect(state.opportunities?.[0]).toMatchObject({
+    expect(result.beforeValues).toEqual({
+      stage: "quoted",
+      lost_reason: null,
+      lost_notes: null,
+      actual_close_date: null,
+    });
+    expect(result.afterValues).toEqual({
       stage: "lost",
       lost_reason: "operator_no_response",
       lost_notes:
         "Guarded lifecycle approval: customer inbound went unanswered past the no-response window.",
       actual_close_date: "2026-05-27",
+    });
+    expect(state.opportunities?.[0]).toMatchObject({
+      stage: "quoted",
+      lost_reason: null,
+      lost_notes: null,
+      actual_close_date: null,
       archived_at: null,
     });
+  });
+
+  it("uses exact lost-field before/after values and no updated_at for lost apply", async () => {
+    const state: TableState = {
+      opportunity_follow_up_drafts: [],
+      opportunity_lifecycle_state: [],
+      notifications: [],
+      opportunities: [],
+      opportunity_lifecycle_action_audit: [],
+    };
+    const input = makeInput(
+      {
+        decision: makeDecision("move_to_lost_operator_no_response", {
+          latestEventId: "event-in-1",
+        }),
+        now: new Date("2026-05-27T18:00:00.000Z"),
+        approvedActionKey: "opp-1:move_to_lost_operator_no_response:approved",
+        opportunity: {
+          id: "opp-1",
+          companyId: "company-1",
+          stage: "quoted",
+          archivedAt: null,
+          deletedAt: null,
+          projectId: null,
+          projectRef: null,
+          lostReason: null,
+          lostNotes: null,
+          actualCloseDate: null,
+        },
+      } as Partial<OpportunityLifecycleActionInput> & Record<string, unknown>,
+      state
+    );
+
+    const result = await executeOpportunityLifecycleAction(input);
+
+    const rpcCall = (input.supabase as ReturnType<typeof makeSupabaseDouble>).rpcCalls[0];
+    expect(result.beforeValues).toEqual({
+      stage: "quoted",
+      lost_reason: null,
+      lost_notes: null,
+      actual_close_date: null,
+    });
+    expect(result.afterValues).toEqual({
+      stage: "lost",
+      lost_reason: "operator_no_response",
+      lost_notes:
+        "Guarded lifecycle approval: customer inbound went unanswered past the no-response window.",
+      actual_close_date: "2026-05-27",
+    });
+    expect(rpcCall.args.p_before_values).toEqual(result.beforeValues);
+    expect(rpcCall.args.p_after_values).toEqual(result.afterValues);
+    expect(JSON.stringify(rpcCall.args)).not.toContain("updated_at");
   });
 
   it("skips operator no-response lost for new_lead and qualifying", async () => {
@@ -800,47 +947,100 @@ describe("opportunity lifecycle action service", () => {
       opportunity_lifecycle_action_audit: [],
     };
 
-    const result = await executeOpportunityLifecycleAction(
-      makeInput(
-        {
-          decision: makeDecision("reactivate_on_related_inbound", {
-            latestEventId: "event-in-1",
-          }),
-          latestMeaningfulEvent: {
-            id: "event-in-1",
-            direction: "inbound",
-            isMeaningful: true,
-            occurredAt: "2026-05-27T17:00:00.000Z",
-            providerThreadId: "thread-2",
-            linkedContactKind: "related_contact",
-          },
-          now: new Date("2026-05-27T18:00:00.000Z"),
-          approvedActionKey: "opp-1:reactivate_on_related_inbound:approved",
-          opportunity: {
-            id: "opp-1",
-            companyId: "company-1",
-            stage: "follow_up",
-            archivedAt: "2026-05-20T18:00:00.000Z",
-            deletedAt: null,
-            projectId: null,
-            projectRef: null,
-            lostReason: null,
-            lostNotes: null,
-            actualCloseDate: null,
-          },
-        } as Partial<OpportunityLifecycleActionInput> & Record<string, unknown>,
-        state
-      )
+    const input = makeInput(
+      {
+        decision: makeDecision("reactivate_on_related_inbound", {
+          latestEventId: "event-in-1",
+        }),
+        latestMeaningfulEvent: {
+          id: "event-in-1",
+          direction: "inbound",
+          isMeaningful: true,
+          occurredAt: "2026-05-27T17:00:00.000Z",
+          providerThreadId: "thread-2",
+          linkedContactKind: "related_contact",
+        },
+        now: new Date("2026-05-27T18:00:00.000Z"),
+        approvedActionKey: "opp-1:reactivate_on_related_inbound:approved",
+        opportunity: {
+          id: "opp-1",
+          companyId: "company-1",
+          stage: "follow_up",
+          archivedAt: "2026-05-20T18:00:00.000Z",
+          deletedAt: null,
+          projectId: null,
+          projectRef: null,
+          lostReason: null,
+          lostNotes: null,
+          actualCloseDate: null,
+        },
+      } as Partial<OpportunityLifecycleActionInput> & Record<string, unknown>,
+      state
     );
 
+    const result = await executeOpportunityLifecycleAction(input);
+
     expect(result.operations.opportunity).toBe("reactivated");
+    expect(result.beforeValues).toEqual({
+      archived_at: "2026-05-20T18:00:00.000Z",
+    });
+    expect(result.afterValues).toEqual({ archived_at: null });
+    const rpcCall = (input.supabase as ReturnType<typeof makeSupabaseDouble>).rpcCalls[0];
+    expect(rpcCall.args.p_before_values).toEqual(result.beforeValues);
+    expect(rpcCall.args.p_after_values).toEqual(result.afterValues);
+    expect(JSON.stringify(rpcCall.args)).not.toContain("updated_at");
     expect(state.opportunities?.[0]).toMatchObject({
       stage: "follow_up",
-      archived_at: null,
+      archived_at: "2026-05-20T18:00:00.000Z",
       lost_reason: null,
       lost_notes: null,
       actual_close_date: null,
     });
+  });
+
+  it("does not leave an opportunity mutation when the atomic audit RPC fails", async () => {
+    const state: TableState = {
+      opportunity_follow_up_drafts: [],
+      opportunity_lifecycle_state: [],
+      notifications: [],
+      opportunities: [
+        {
+          id: "opp-1",
+          company_id: "company-1",
+          stage: "follow_up",
+          archived_at: null,
+          deleted_at: null,
+          project_id: null,
+          project_ref: null,
+        },
+      ],
+      opportunity_lifecycle_action_audit: [],
+    };
+
+    const result = await executeOpportunityLifecycleAction(
+      makeInput(
+        {
+          decision: makeDecision("archive_no_meaningful_correspondence"),
+          approvedActionKey: "opp-1:archive_no_meaningful_correspondence:approved",
+          opportunity: {
+            id: "opp-1",
+            companyId: "company-1",
+            stage: "follow_up",
+            archivedAt: null,
+            deletedAt: null,
+            projectId: null,
+            projectRef: null,
+          },
+        } as Partial<OpportunityLifecycleActionInput> & Record<string, unknown>,
+        state,
+        { failGuardedActionRpc: true }
+      )
+    );
+
+    expect(result.applied).toBe(false);
+    expect(result.skippedReason).toBe("audit_insert_failed");
+    expect(state.opportunities?.[0].archived_at).toBeNull();
+    expect(state.opportunity_lifecycle_action_audit).toHaveLength(0);
   });
 
   it("skips reactivation for terminal, deleted, and unrelated inbound rows", async () => {
