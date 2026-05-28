@@ -21,6 +21,8 @@ interface TableState {
   opportunity_follow_up_drafts: Array<Record<string, unknown>>;
   opportunity_lifecycle_state: Array<Record<string, unknown>>;
   notifications: Array<Record<string, unknown>>;
+  opportunities?: Array<Record<string, unknown>>;
+  opportunity_lifecycle_action_audit?: Array<Record<string, unknown>>;
 }
 
 interface SupabaseDoubleOptions {
@@ -77,10 +79,19 @@ function matches(row: Record<string, unknown>, filters: Map<string, unknown>): b
 function makeSupabaseDouble(state: TableState, options: SupabaseDoubleOptions = {}) {
   class Query {
     private filters = new Map<string, unknown>();
+    private nullFilters = new Set<string>();
     private updatePayload: Record<string, unknown> | null = null;
     private limitCount: number | null = null;
 
     constructor(private readonly table: keyof TableState) {}
+
+    private rows(): Array<Record<string, unknown>> {
+      const existing = state[this.table];
+      if (existing) return existing;
+      const rows: Array<Record<string, unknown>> = [];
+      state[this.table] = rows;
+      return rows;
+    }
 
     select() {
       return this;
@@ -92,7 +103,11 @@ function makeSupabaseDouble(state: TableState, options: SupabaseDoubleOptions = 
     }
 
     is(column: string, value: unknown) {
-      this.filters.set(column, value);
+      if (value === null) {
+        this.nullFilters.add(column);
+      } else {
+        this.filters.set(column, value);
+      }
       return this;
     }
 
@@ -106,8 +121,9 @@ function makeSupabaseDouble(state: TableState, options: SupabaseDoubleOptions = 
     }
 
     insert(payload: Record<string, unknown>) {
-      const row = { id: `${this.table}-${state[this.table].length + 1}`, ...payload };
-      state[this.table].push(row);
+      const rows = this.rows();
+      const row = { id: `${this.table}-${rows.length + 1}`, ...payload };
+      rows.push(row);
       return {
         select: () => ({
           single: async () => ({ data: row, error: null }),
@@ -137,7 +153,7 @@ function makeSupabaseDouble(state: TableState, options: SupabaseDoubleOptions = 
         }
       }
 
-      const rows = state[this.table];
+      const rows = this.rows();
       const existing = rows.find((row) => row.opportunity_id === payload.opportunity_id);
       if (existing) {
         Object.assign(existing, payload);
@@ -151,29 +167,36 @@ function makeSupabaseDouble(state: TableState, options: SupabaseDoubleOptions = 
     }
 
     async maybeSingle() {
-      const row = state[this.table].find((candidate) =>
-        matches(candidate, this.filters)
-      );
+      const rows = this.rows().filter((candidate) => this.matches(candidate));
+      this.applyUpdate();
+      const row = rows[0];
       return { data: row ?? null, error: null };
     }
 
     async single() {
-      const row = state[this.table].find((candidate) =>
-        matches(candidate, this.filters)
-      );
+      const rows = this.rows().filter((candidate) => this.matches(candidate));
+      this.applyUpdate();
+      const row = rows[0];
       return { data: row ?? null, error: null };
+    }
+
+    private matches(row: Record<string, unknown>) {
+      return (
+        matches(row, this.filters) &&
+        [...this.nullFilters].every((column) => row[column] == null)
+      );
     }
 
     private applyUpdate() {
       if (!this.updatePayload) return;
-      for (const row of state[this.table]) {
-        if (matches(row, this.filters)) Object.assign(row, this.updatePayload);
+      for (const row of this.rows()) {
+        if (this.matches(row)) Object.assign(row, this.updatePayload);
       }
     }
 
     private result() {
+      const rows = this.rows().filter((row) => this.matches(row));
       this.applyUpdate();
-      const rows = state[this.table].filter((row) => matches(row, this.filters));
       return {
         data: this.limitCount === 1 ? rows.slice(0, 1) : rows,
         error: null,
@@ -456,28 +479,548 @@ describe("opportunity lifecycle action service", () => {
     });
   });
 
-  it("skips destructive lifecycle decisions in P4-8", async () => {
+  it("archives a stale opportunity by setting archived_at only", async () => {
     const state: TableState = {
       opportunity_follow_up_drafts: [],
       opportunity_lifecycle_state: [],
       notifications: [],
+      opportunities: [
+        {
+          id: "opp-1",
+          company_id: "company-1",
+          stage: "follow_up",
+          archived_at: null,
+          deleted_at: null,
+          project_id: null,
+          project_ref: null,
+          lost_reason: null,
+          lost_notes: null,
+          actual_close_date: null,
+        },
+      ],
+      opportunity_lifecycle_action_audit: [],
     };
 
-    for (const action of [
-      "archive_after_two_unanswered_followups",
-      "archive_no_meaningful_correspondence",
-      "move_to_lost_operator_no_response",
-      "reactivate_on_related_inbound",
-    ] satisfies OpportunityLifecycleDecision["action"][]) {
-      const result = await executeOpportunityLifecycleAction(
-        makeInput({ decision: makeDecision(action) }, state)
-      );
-      expect(result.skippedReason).toBe("destructive_action_not_allowed");
-    }
+    const result = await executeOpportunityLifecycleAction(
+      makeInput(
+        {
+          decision: makeDecision("archive_after_two_unanswered_followups"),
+          now: new Date("2026-05-27T18:00:00.000Z"),
+          approvedActionKey:
+            "opp-1:archive_after_two_unanswered_followups:approved",
+          opportunity: {
+            id: "opp-1",
+            companyId: "company-1",
+            stage: "follow_up",
+            archivedAt: null,
+            deletedAt: null,
+            projectId: null,
+            projectRef: null,
+            lostReason: null,
+            lostNotes: null,
+            actualCloseDate: null,
+          },
+        } as Partial<OpportunityLifecycleActionInput> & Record<string, unknown>,
+        state
+      )
+    );
 
+    expect(result.applied).toBe(true);
+    expect(result.operations.opportunity).toBe("archived");
+    expect(state.opportunities?.[0]).toMatchObject({
+      stage: "follow_up",
+      archived_at: "2026-05-27T18:00:00.000Z",
+      lost_reason: null,
+      lost_notes: null,
+      actual_close_date: null,
+    });
     expect(state.opportunity_follow_up_drafts).toHaveLength(0);
-    expect(state.opportunity_lifecycle_state).toHaveLength(0);
     expect(state.notifications).toHaveLength(0);
+    expect(state.opportunity_lifecycle_action_audit).toEqual([
+      expect.objectContaining({
+        action: "archive_after_two_unanswered_followups",
+        status: "applied",
+        before_values: expect.objectContaining({ archived_at: null }),
+        after_values: expect.objectContaining({
+          archived_at: "2026-05-27T18:00:00.000Z",
+        }),
+      }),
+    ]);
+  });
+
+  it("does not archive the same opportunity twice", async () => {
+    const state: TableState = {
+      opportunity_follow_up_drafts: [],
+      opportunity_lifecycle_state: [],
+      notifications: [],
+      opportunities: [
+        {
+          id: "opp-1",
+          company_id: "company-1",
+          stage: "follow_up",
+          archived_at: null,
+          deleted_at: null,
+          project_id: null,
+          project_ref: null,
+        },
+      ],
+      opportunity_lifecycle_action_audit: [],
+    };
+    const input = makeInput(
+      {
+        decision: makeDecision("archive_no_meaningful_correspondence"),
+        now: new Date("2026-05-27T18:00:00.000Z"),
+        approvedActionKey: "opp-1:archive_no_meaningful_correspondence:approved",
+        opportunity: {
+          id: "opp-1",
+          companyId: "company-1",
+          stage: "follow_up",
+          archivedAt: null,
+          deletedAt: null,
+          projectId: null,
+          projectRef: null,
+        },
+      } as Partial<OpportunityLifecycleActionInput> & Record<string, unknown>,
+      state
+    );
+
+    const first = await executeOpportunityLifecycleAction(input);
+    const second = await executeOpportunityLifecycleAction({
+      ...input,
+      opportunity: {
+        id: "opp-1",
+        companyId: "company-1",
+        stage: "follow_up",
+        archivedAt: "2026-05-27T18:00:00.000Z",
+        deletedAt: null,
+        projectId: null,
+        projectRef: null,
+      },
+    } as OpportunityLifecycleActionInput & Record<string, unknown>);
+
+    expect(first.operations.opportunity).toBe("archived");
+    expect(second.operations.opportunity).toBe("skipped_already_archived");
+    expect(state.opportunities?.[0].archived_at).toBe("2026-05-27T18:00:00.000Z");
+  });
+
+  it("marks beyond-qualified operator no-response opportunities lost", async () => {
+    const state: TableState = {
+      opportunity_follow_up_drafts: [],
+      opportunity_lifecycle_state: [],
+      notifications: [],
+      opportunities: [
+        {
+          id: "opp-1",
+          company_id: "company-1",
+          stage: "quoted",
+          archived_at: null,
+          deleted_at: null,
+          project_id: null,
+          project_ref: null,
+          lost_reason: null,
+          lost_notes: null,
+          actual_close_date: null,
+        },
+      ],
+      opportunity_lifecycle_action_audit: [],
+    };
+
+    const result = await executeOpportunityLifecycleAction(
+      makeInput(
+        {
+          decision: makeDecision("move_to_lost_operator_no_response", {
+            latestEventId: "event-in-1",
+          }),
+          now: new Date("2026-05-27T18:00:00.000Z"),
+          approvedActionKey: "opp-1:move_to_lost_operator_no_response:approved",
+          opportunity: {
+            id: "opp-1",
+            companyId: "company-1",
+            stage: "quoted",
+            archivedAt: null,
+            deletedAt: null,
+            projectId: null,
+            projectRef: null,
+            lostReason: null,
+            lostNotes: null,
+            actualCloseDate: null,
+          },
+        } as Partial<OpportunityLifecycleActionInput> & Record<string, unknown>,
+        state
+      )
+    );
+
+    expect(result.operations.opportunity).toBe("moved_to_lost");
+    expect(state.opportunities?.[0]).toMatchObject({
+      stage: "lost",
+      lost_reason: "operator_no_response",
+      lost_notes:
+        "Guarded lifecycle approval: customer inbound went unanswered past the no-response window.",
+      actual_close_date: "2026-05-27",
+      archived_at: null,
+    });
+  });
+
+  it("skips operator no-response lost for new_lead and qualifying", async () => {
+    for (const stage of ["new_lead", "qualifying"]) {
+      const state: TableState = {
+        opportunity_follow_up_drafts: [],
+        opportunity_lifecycle_state: [],
+        notifications: [],
+        opportunities: [
+          {
+            id: "opp-1",
+            company_id: "company-1",
+            stage,
+            archived_at: null,
+            deleted_at: null,
+            project_id: null,
+            project_ref: null,
+          },
+        ],
+        opportunity_lifecycle_action_audit: [],
+      };
+
+      const result = await executeOpportunityLifecycleAction(
+        makeInput(
+          {
+            decision: makeDecision("move_to_lost_operator_no_response"),
+            approvedActionKey: "opp-1:move_to_lost_operator_no_response:approved",
+            opportunity: {
+              id: "opp-1",
+              companyId: "company-1",
+              stage,
+              archivedAt: null,
+              deletedAt: null,
+              projectId: null,
+              projectRef: null,
+            },
+          } as Partial<OpportunityLifecycleActionInput> & Record<string, unknown>,
+          state
+        )
+      );
+
+      expect(result.applied).toBe(false);
+      expect(result.skippedReason).toBe("lost_stage_not_allowed");
+      expect(state.opportunities?.[0].stage).toBe(stage);
+    }
+  });
+
+  it("skips terminal, deleted, and converted/project-linked destructive mutations", async () => {
+    const cases: Array<{
+      stage: string;
+      skippedReason: string;
+      deletedAt?: string;
+      projectId?: string;
+      projectRef?: string;
+    }> = [
+      { stage: "won", skippedReason: "terminal_or_protected_stage" },
+      { stage: "lost", skippedReason: "terminal_or_protected_stage" },
+      { stage: "discarded", skippedReason: "terminal_or_protected_stage" },
+      {
+        stage: "follow_up",
+        deletedAt: "2026-05-20T18:00:00.000Z",
+        skippedReason: "deleted_opportunity",
+      },
+      {
+        stage: "follow_up",
+        projectId: "project-1",
+        skippedReason: "converted_or_project_linked",
+      },
+      {
+        stage: "follow_up",
+        projectRef: "project-ref-1",
+        skippedReason: "converted_or_project_linked",
+      },
+    ];
+
+    for (const item of cases) {
+      const state: TableState = {
+        opportunity_follow_up_drafts: [],
+        opportunity_lifecycle_state: [],
+        notifications: [],
+        opportunities: [
+          {
+            id: "opp-1",
+            company_id: "company-1",
+            stage: item.stage,
+            archived_at: null,
+            deleted_at: item.deletedAt ?? null,
+            project_id: item.projectId ?? null,
+            project_ref: item.projectRef ?? null,
+          },
+        ],
+        opportunity_lifecycle_action_audit: [],
+      };
+
+      const result = await executeOpportunityLifecycleAction(
+        makeInput(
+          {
+            decision: makeDecision("archive_no_meaningful_correspondence"),
+            approvedActionKey: "opp-1:archive_no_meaningful_correspondence:approved",
+            opportunity: {
+              id: "opp-1",
+              companyId: "company-1",
+              stage: item.stage,
+              archivedAt: null,
+              deletedAt: item.deletedAt ?? null,
+              projectId: item.projectId ?? null,
+              projectRef: item.projectRef ?? null,
+            },
+          } as Partial<OpportunityLifecycleActionInput> & Record<string, unknown>,
+          state
+        )
+      );
+
+      expect(result.applied).toBe(false);
+      expect(result.skippedReason).toBe(item.skippedReason);
+      expect(state.opportunities?.[0].archived_at).toBeNull();
+    }
+  });
+
+  it("reactivates by clearing archived_at only when a related meaningful inbound exists", async () => {
+    const state: TableState = {
+      opportunity_follow_up_drafts: [],
+      opportunity_lifecycle_state: [],
+      notifications: [],
+      opportunities: [
+        {
+          id: "opp-1",
+          company_id: "company-1",
+          stage: "follow_up",
+          archived_at: "2026-05-20T18:00:00.000Z",
+          deleted_at: null,
+          project_id: null,
+          project_ref: null,
+          lost_reason: null,
+          lost_notes: null,
+          actual_close_date: null,
+        },
+      ],
+      opportunity_lifecycle_action_audit: [],
+    };
+
+    const result = await executeOpportunityLifecycleAction(
+      makeInput(
+        {
+          decision: makeDecision("reactivate_on_related_inbound", {
+            latestEventId: "event-in-1",
+          }),
+          latestMeaningfulEvent: {
+            id: "event-in-1",
+            direction: "inbound",
+            isMeaningful: true,
+            occurredAt: "2026-05-27T17:00:00.000Z",
+            providerThreadId: "thread-2",
+            linkedContactKind: "related_contact",
+          },
+          now: new Date("2026-05-27T18:00:00.000Z"),
+          approvedActionKey: "opp-1:reactivate_on_related_inbound:approved",
+          opportunity: {
+            id: "opp-1",
+            companyId: "company-1",
+            stage: "follow_up",
+            archivedAt: "2026-05-20T18:00:00.000Z",
+            deletedAt: null,
+            projectId: null,
+            projectRef: null,
+            lostReason: null,
+            lostNotes: null,
+            actualCloseDate: null,
+          },
+        } as Partial<OpportunityLifecycleActionInput> & Record<string, unknown>,
+        state
+      )
+    );
+
+    expect(result.operations.opportunity).toBe("reactivated");
+    expect(state.opportunities?.[0]).toMatchObject({
+      stage: "follow_up",
+      archived_at: null,
+      lost_reason: null,
+      lost_notes: null,
+      actual_close_date: null,
+    });
+  });
+
+  it("skips reactivation for terminal, deleted, and unrelated inbound rows", async () => {
+    const cases: Array<{
+      stage: string;
+      archivedAt: string;
+      skippedReason: string;
+      linkedContactKind: string;
+      deletedAt?: string;
+    }> = [
+      {
+        stage: "won",
+        archivedAt: "2026-05-20T18:00:00.000Z",
+        skippedReason: "terminal_or_protected_stage",
+        linkedContactKind: "related_contact",
+      },
+      {
+        stage: "lost",
+        archivedAt: "2026-05-20T18:00:00.000Z",
+        skippedReason: "terminal_or_protected_stage",
+        linkedContactKind: "related_contact",
+      },
+      {
+        stage: "discarded",
+        archivedAt: "2026-05-20T18:00:00.000Z",
+        skippedReason: "terminal_or_protected_stage",
+        linkedContactKind: "related_contact",
+      },
+      {
+        stage: "follow_up",
+        archivedAt: "2026-05-20T18:00:00.000Z",
+        deletedAt: "2026-05-25T18:00:00.000Z",
+        skippedReason: "deleted_opportunity",
+        linkedContactKind: "related_contact",
+      },
+      {
+        stage: "follow_up",
+        archivedAt: "2026-05-20T18:00:00.000Z",
+        skippedReason: "missing_related_inbound",
+        linkedContactKind: "customer",
+      },
+    ];
+
+    for (const item of cases) {
+      const state: TableState = {
+        opportunity_follow_up_drafts: [],
+        opportunity_lifecycle_state: [],
+        notifications: [],
+        opportunities: [
+          {
+            id: "opp-1",
+            company_id: "company-1",
+            stage: item.stage,
+            archived_at: item.archivedAt,
+            deleted_at: item.deletedAt ?? null,
+            project_id: null,
+            project_ref: null,
+          },
+        ],
+        opportunity_lifecycle_action_audit: [],
+      };
+
+      const result = await executeOpportunityLifecycleAction(
+        makeInput(
+          {
+            decision: makeDecision("reactivate_on_related_inbound"),
+            latestMeaningfulEvent: {
+              id: "event-in-1",
+              direction: "inbound",
+              isMeaningful: true,
+              occurredAt: "2026-05-27T17:00:00.000Z",
+              providerThreadId: "thread-2",
+              linkedContactKind: item.linkedContactKind,
+            },
+            approvedActionKey: "opp-1:reactivate_on_related_inbound:approved",
+            opportunity: {
+              id: "opp-1",
+              companyId: "company-1",
+              stage: item.stage,
+              archivedAt: item.archivedAt,
+              deletedAt: item.deletedAt ?? null,
+              projectId: null,
+              projectRef: null,
+            },
+          } as Partial<OpportunityLifecycleActionInput> & Record<string, unknown>,
+          state
+        )
+      );
+
+      expect(result.applied).toBe(false);
+      expect(result.skippedReason).toBe(item.skippedReason);
+      expect(state.opportunities?.[0].archived_at).toBe(item.archivedAt);
+    }
+  });
+
+  it("dry-run destructive execution reports planned mutation without writing", async () => {
+    const state: TableState = {
+      opportunity_follow_up_drafts: [],
+      opportunity_lifecycle_state: [],
+      notifications: [],
+      opportunities: [
+        {
+          id: "opp-1",
+          company_id: "company-1",
+          stage: "follow_up",
+          archived_at: null,
+          deleted_at: null,
+          project_id: null,
+          project_ref: null,
+        },
+      ],
+      opportunity_lifecycle_action_audit: [],
+    };
+
+    const result = await executeOpportunityLifecycleAction(
+      makeInput(
+        {
+          mode: "dry-run",
+          decision: makeDecision("archive_no_meaningful_correspondence"),
+          opportunity: {
+            id: "opp-1",
+            companyId: "company-1",
+            stage: "follow_up",
+            archivedAt: null,
+            deletedAt: null,
+            projectId: null,
+            projectRef: null,
+          },
+        } as Partial<OpportunityLifecycleActionInput> & Record<string, unknown>,
+        state
+      )
+    );
+
+    expect(result.applied).toBe(false);
+    expect(result.operations.opportunity).toBe("would_archive");
+    expect(result.operations.audit).toBe("would_record");
+    expect(state.opportunities?.[0].archived_at).toBeNull();
+    expect(state.opportunity_lifecycle_action_audit).toHaveLength(0);
+  });
+
+  it("requires an exact approved action key before destructive apply", async () => {
+    const state: TableState = {
+      opportunity_follow_up_drafts: [],
+      opportunity_lifecycle_state: [],
+      notifications: [],
+      opportunities: [
+        {
+          id: "opp-1",
+          company_id: "company-1",
+          stage: "follow_up",
+          archived_at: null,
+          deleted_at: null,
+          project_id: null,
+          project_ref: null,
+        },
+      ],
+      opportunity_lifecycle_action_audit: [],
+    };
+
+    const result = await executeOpportunityLifecycleAction(
+      makeInput(
+        {
+          decision: makeDecision("archive_no_meaningful_correspondence"),
+          opportunity: {
+            id: "opp-1",
+            companyId: "company-1",
+            stage: "follow_up",
+            archivedAt: null,
+            deletedAt: null,
+            projectId: null,
+            projectRef: null,
+          },
+        } as Partial<OpportunityLifecycleActionInput> & Record<string, unknown>,
+        state
+      )
+    );
+
+    expect(result.applied).toBe(false);
+    expect(result.skippedReason).toBe("missing_approval");
+    expect(state.opportunities?.[0].archived_at).toBeNull();
   });
 
   it("does not call provider draft or send APIs", async () => {

@@ -18,6 +18,7 @@ export interface OpportunityLifecycleActionEvent {
   occurredAt: string | Date;
   connectionId?: string | null;
   providerThreadId?: string | null;
+  linkedContactKind?: string | null;
 }
 
 export interface OpportunityLifecycleActionState
@@ -26,6 +27,19 @@ export interface OpportunityLifecycleActionState
   lastMeaningfulDirection?: "inbound" | "outbound" | string | null;
   staleStatus?: string | null;
   staleStatusAt?: string | Date | null;
+}
+
+export interface OpportunityLifecycleActionOpportunity {
+  id: string;
+  companyId: string;
+  stage: string | null;
+  archivedAt?: string | Date | null;
+  deletedAt?: string | Date | null;
+  projectId?: string | null;
+  projectRef?: string | null;
+  lostReason?: string | null;
+  lostNotes?: string | null;
+  actualCloseDate?: string | Date | null;
 }
 
 export interface OpportunityLifecycleActionInput {
@@ -41,6 +55,11 @@ export interface OpportunityLifecycleActionInput {
   operatorUserId?: string | null;
   contactName?: string | null;
   companyName?: string | null;
+  opportunity?: OpportunityLifecycleActionOpportunity | null;
+  approvedActionKey?: string | null;
+  approvedBy?: string | null;
+  approvedAt?: string | Date | null;
+  runId?: string | null;
   now?: Date;
 }
 
@@ -77,21 +96,65 @@ export type LifecycleStateOperation =
   | "updated"
   | "skipped_update_failed";
 
+export type OpportunityMutationOperation =
+  | "not_applicable"
+  | "would_archive"
+  | "archived"
+  | "would_move_to_lost"
+  | "moved_to_lost"
+  | "would_reactivate"
+  | "reactivated"
+  | "skipped_missing_opportunity"
+  | "skipped_missing_approval"
+  | "skipped_already_archived"
+  | "skipped_not_archived"
+  | "skipped_terminal_or_protected_stage"
+  | "skipped_deleted"
+  | "skipped_converted_or_project_linked"
+  | "skipped_lost_stage_not_allowed"
+  | "skipped_missing_related_inbound"
+  | "skipped_duplicate_applied_action"
+  | "skipped_update_failed";
+
+export type AuditOperation =
+  | "not_applicable"
+  | "would_record"
+  | "recorded"
+  | "skipped_insert_failed";
+
+export type OpportunityLifecycleActionSkipReason =
+  | "no_action"
+  | "ignored_decision"
+  | "destructive_action_not_allowed"
+  | "missing_source_event"
+  | "missing_operator"
+  | "missing_opportunity_snapshot"
+  | "missing_approval"
+  | "terminal_or_protected_stage"
+  | "deleted_opportunity"
+  | "converted_or_project_linked"
+  | "already_archived"
+  | "not_archived"
+  | "lost_stage_not_allowed"
+  | "missing_related_inbound"
+  | "duplicate_applied_action"
+  | "opportunity_update_failed"
+  | "audit_insert_failed";
+
 export interface OpportunityLifecycleActionResult {
   mode: OpportunityLifecycleExecutionMode;
   action: OpportunityLifecycleDecisionAction;
   opportunityId: string;
   applied: boolean;
-  skippedReason?:
-    | "no_action"
-    | "ignored_decision"
-    | "destructive_action_not_allowed"
-    | "missing_source_event"
-    | "missing_operator";
+  skippedReason?: OpportunityLifecycleActionSkipReason;
+  beforeValues?: Record<string, unknown>;
+  afterValues?: Record<string, unknown>;
   operations: {
     draft: DraftOperation;
     notification: NotificationOperation;
     lifecycleState: LifecycleStateOperation;
+    opportunity: OpportunityMutationOperation;
+    audit: AuditOperation;
     supersededDrafts: number;
   };
 }
@@ -111,6 +174,27 @@ const TEMPLATE_STALE_STATUS: OpportunityLifecycleStaleStatus = "follow_up_draft_
 const OPERATOR_MISS_STALE_STATUS: OpportunityLifecycleStaleStatus =
   "operator_follow_up_miss";
 const NOTIFICATION_TYPE = "leads_waiting";
+const TERMINAL_OR_PROTECTED_STAGES = new Set([
+  "won",
+  "lost",
+  "discarded",
+  "deleted",
+  "converted",
+  "merged",
+  "disqualified",
+]);
+const OPERATOR_NO_RESPONSE_LOST_STAGES = new Set([
+  "quoting",
+  "quoted",
+  "follow_up",
+  "negotiation",
+]);
+const RELATED_INBOUND_KINDS = new Set([
+  "related_contact",
+  "high_confidence_related_contact",
+]);
+const LOST_OPERATOR_NO_RESPONSE_NOTES =
+  "Guarded lifecycle approval: customer inbound went unanswered past the no-response window.";
 
 function modeOf(mode: OpportunityLifecycleExecutionMode | undefined) {
   return mode ?? "dry-run";
@@ -286,6 +370,8 @@ async function createTemplateFollowUpDraft(
         draft: "skipped_existing_open_template",
         notification: "not_applicable",
         lifecycleState,
+        opportunity: "not_applicable",
+        audit: "not_applicable",
         supersededDrafts: 0,
       },
     };
@@ -300,6 +386,8 @@ async function createTemplateFollowUpDraft(
         draft: "skipped_missing_source_event",
         notification: "not_applicable",
         lifecycleState: "not_applicable",
+        opportunity: "not_applicable",
+        audit: "not_applicable",
         supersededDrafts: 0,
       },
     };
@@ -312,6 +400,8 @@ async function createTemplateFollowUpDraft(
         draft: "would_create",
         notification: "not_applicable",
         lifecycleState: "would_update",
+        opportunity: "not_applicable",
+        audit: "not_applicable",
         supersededDrafts: 0,
       },
     };
@@ -327,6 +417,8 @@ async function createTemplateFollowUpDraft(
         draft: "skipped_lifecycle_state_failed",
         notification: "not_applicable",
         lifecycleState,
+        opportunity: "not_applicable",
+        audit: "not_applicable",
         supersededDrafts: 0,
       },
     };
@@ -356,6 +448,8 @@ async function createTemplateFollowUpDraft(
       draft: error ? "skipped_insert_failed" : "created",
       notification: "not_applicable",
       lifecycleState,
+      opportunity: "not_applicable",
+      audit: "not_applicable",
       supersededDrafts: 0,
     },
   };
@@ -391,6 +485,8 @@ async function createOperatorFollowUpMissNotification(
         draft: "not_applicable",
         notification: "skipped_missing_operator",
         lifecycleState: "not_applicable",
+        opportunity: "not_applicable",
+        audit: "not_applicable",
         supersededDrafts: 0,
       },
     };
@@ -405,6 +501,8 @@ async function createOperatorFollowUpMissNotification(
         draft: "not_applicable",
         notification: "skipped_existing_unread",
         lifecycleState,
+        opportunity: "not_applicable",
+        audit: "not_applicable",
         supersededDrafts: 0,
       },
     };
@@ -417,6 +515,8 @@ async function createOperatorFollowUpMissNotification(
         draft: "not_applicable",
         notification: "would_create",
         lifecycleState: "would_update",
+        opportunity: "not_applicable",
+        audit: "not_applicable",
         supersededDrafts: 0,
       },
     };
@@ -445,7 +545,430 @@ async function createOperatorFollowUpMissNotification(
       draft: "not_applicable",
       notification: error ? "skipped_insert_failed" : "created",
       lifecycleState,
+      opportunity: "not_applicable",
+      audit: "not_applicable",
       supersededDrafts: 0,
+    },
+  };
+}
+
+function dateOnly(value: Date | string): string {
+  return iso(value).slice(0, 10);
+}
+
+function stageOf(opportunity: OpportunityLifecycleActionOpportunity): string {
+  return opportunity.stage?.trim().toLowerCase() ?? "";
+}
+
+function dbOpportunityValues(
+  opportunity: OpportunityLifecycleActionOpportunity
+): Record<string, unknown> {
+  return {
+    stage: opportunity.stage ?? null,
+    archived_at: opportunity.archivedAt ? iso(opportunity.archivedAt) : null,
+    deleted_at: opportunity.deletedAt ? iso(opportunity.deletedAt) : null,
+    project_id: normalizedText(opportunity.projectId ?? null),
+    project_ref: normalizedText(opportunity.projectRef ?? null),
+    lost_reason: opportunity.lostReason ?? null,
+    lost_notes: opportunity.lostNotes ?? null,
+    actual_close_date: opportunity.actualCloseDate
+      ? dateOnly(opportunity.actualCloseDate)
+      : null,
+  };
+}
+
+function approvedActionKey(input: OpportunityLifecycleActionInput): string | null {
+  return normalizedText(input.approvedActionKey ?? null);
+}
+
+function isRelatedMeaningfulInbound(input: OpportunityLifecycleActionInput): boolean {
+  const event = input.latestMeaningfulEvent;
+  if (!event || event.direction !== "inbound" || !event.isMeaningful) return false;
+  return RELATED_INBOUND_KINDS.has(
+    event.linkedContactKind?.trim().toLowerCase() ?? ""
+  );
+}
+
+function opportunityOperationForAction(
+  action: OpportunityLifecycleDecisionAction,
+  mode: OpportunityLifecycleExecutionMode
+): OpportunityMutationOperation {
+  if (
+    action === "archive_after_two_unanswered_followups" ||
+    action === "archive_no_meaningful_correspondence"
+  ) {
+    return mode === "dry-run" ? "would_archive" : "archived";
+  }
+  if (action === "move_to_lost_operator_no_response") {
+    return mode === "dry-run" ? "would_move_to_lost" : "moved_to_lost";
+  }
+  if (action === "reactivate_on_related_inbound") {
+    return mode === "dry-run" ? "would_reactivate" : "reactivated";
+  }
+  return "not_applicable";
+}
+
+function proposedOpportunityValues(
+  input: OpportunityLifecycleActionInput,
+  beforeValues: Record<string, unknown>
+): Record<string, unknown> {
+  const now = input.now ?? new Date();
+  const action = input.decision.action;
+  if (
+    action === "archive_after_two_unanswered_followups" ||
+    action === "archive_no_meaningful_correspondence"
+  ) {
+    return { ...beforeValues, archived_at: now.toISOString() };
+  }
+  if (action === "move_to_lost_operator_no_response") {
+    return {
+      ...beforeValues,
+      stage: "lost",
+      lost_reason: "operator_no_response",
+      lost_notes: LOST_OPERATOR_NO_RESPONSE_NOTES,
+      actual_close_date: dateOnly(now),
+    };
+  }
+  if (action === "reactivate_on_related_inbound") {
+    return { ...beforeValues, archived_at: null };
+  }
+  return beforeValues;
+}
+
+function guardDestructiveOpportunityAction(
+  input: OpportunityLifecycleActionInput
+): {
+  reason: OpportunityLifecycleActionSkipReason;
+  operation: OpportunityMutationOperation;
+} | null {
+  const opportunity = input.opportunity;
+  if (!opportunity) {
+    return {
+      reason: "missing_opportunity_snapshot",
+      operation: "skipped_missing_opportunity",
+    };
+  }
+
+  const action = input.decision.action;
+  const stage = stageOf(opportunity);
+  if (TERMINAL_OR_PROTECTED_STAGES.has(stage)) {
+    return {
+      reason: "terminal_or_protected_stage",
+      operation: "skipped_terminal_or_protected_stage",
+    };
+  }
+
+  if (opportunity.deletedAt) {
+    return {
+      reason: "deleted_opportunity",
+      operation: "skipped_deleted",
+    };
+  }
+
+  if (
+    normalizedText(opportunity.projectId ?? null) ||
+    normalizedText(opportunity.projectRef ?? null)
+  ) {
+    return {
+      reason: "converted_or_project_linked",
+      operation: "skipped_converted_or_project_linked",
+    };
+  }
+
+  if (
+    (action === "archive_after_two_unanswered_followups" ||
+      action === "archive_no_meaningful_correspondence" ||
+      action === "move_to_lost_operator_no_response") &&
+    opportunity.archivedAt
+  ) {
+    return {
+      reason: "already_archived",
+      operation: "skipped_already_archived",
+    };
+  }
+
+  if (action === "move_to_lost_operator_no_response") {
+    if (!OPERATOR_NO_RESPONSE_LOST_STAGES.has(stage)) {
+      return {
+        reason: "lost_stage_not_allowed",
+        operation: "skipped_lost_stage_not_allowed",
+      };
+    }
+  }
+
+  if (action === "reactivate_on_related_inbound") {
+    if (!opportunity.archivedAt) {
+      return {
+        reason: "not_archived",
+        operation: "skipped_not_archived",
+      };
+    }
+    if (!isRelatedMeaningfulInbound(input)) {
+      return {
+        reason: "missing_related_inbound",
+        operation: "skipped_missing_related_inbound",
+      };
+    }
+  }
+
+  return null;
+}
+
+async function findAppliedActionAudit(
+  input: OpportunityLifecycleActionInput
+): Promise<Record<string, unknown> | null> {
+  const key = approvedActionKey(input);
+  if (!key) return null;
+  const rows = await fetchRows(
+    input.supabase
+      .from("opportunity_lifecycle_action_audit")
+      .select("id")
+      .eq("company_id", input.companyId)
+      .eq("opportunity_id", input.opportunityId)
+      .eq("action", input.decision.action)
+      .eq("approved_action_key", key)
+      .eq("status", "applied")
+      .limit(1)
+  );
+  return (rows[0] as Record<string, unknown> | undefined) ?? null;
+}
+
+async function recordActionAudit(input: {
+  actionInput: OpportunityLifecycleActionInput;
+  status: "skipped" | "applied" | "failed";
+  guardReason: OpportunityLifecycleActionSkipReason | null;
+  beforeValues: Record<string, unknown>;
+  afterValues: Record<string, unknown>;
+}): Promise<AuditOperation> {
+  const mode = modeOf(input.actionInput.mode);
+  if (mode === "dry-run") return "would_record";
+
+  const { error } = await input.actionInput.supabase
+    .from("opportunity_lifecycle_action_audit")
+    .insert({
+      company_id: input.actionInput.companyId,
+      opportunity_id: input.actionInput.opportunityId,
+      action: input.actionInput.decision.action,
+      approved_action_key: approvedActionKey(input.actionInput),
+      execution_mode: mode,
+      status: input.status,
+      guard_reason: input.guardReason,
+      before_values: input.beforeValues,
+      after_values: input.afterValues,
+      decision_reason: input.actionInput.decision.reason,
+      decision_evidence: input.actionInput.decision.evidence,
+      approved_by: normalizedText(input.actionInput.approvedBy ?? null),
+      approved_at: input.actionInput.approvedAt
+        ? iso(input.actionInput.approvedAt)
+        : null,
+      run_id: normalizedText(input.actionInput.runId ?? null),
+    });
+
+  return error ? "skipped_insert_failed" : "recorded";
+}
+
+async function updateOpportunityForDestructiveAction(
+  input: OpportunityLifecycleActionInput,
+  afterValues: Record<string, unknown>
+): Promise<boolean> {
+  const opportunity = input.opportunity;
+  if (!opportunity) return false;
+
+  const now = (input.now ?? new Date()).toISOString();
+  const action = input.decision.action;
+  let payload: Record<string, unknown>;
+  let query: any;
+
+  if (
+    action === "archive_after_two_unanswered_followups" ||
+    action === "archive_no_meaningful_correspondence"
+  ) {
+    payload = {
+      archived_at: afterValues.archived_at,
+      updated_at: now,
+    };
+    query = input.supabase
+      .from("opportunities")
+      .update(payload)
+      .eq("company_id", input.companyId)
+      .eq("id", input.opportunityId)
+      .eq("stage", opportunity.stage)
+      .is("archived_at", null)
+      .is("deleted_at", null)
+      .is("project_id", null)
+      .is("project_ref", null);
+  } else if (action === "move_to_lost_operator_no_response") {
+    payload = {
+      stage: "lost",
+      lost_reason: "operator_no_response",
+      lost_notes: LOST_OPERATOR_NO_RESPONSE_NOTES,
+      actual_close_date: afterValues.actual_close_date,
+      updated_at: now,
+    };
+    query = input.supabase
+      .from("opportunities")
+      .update(payload)
+      .eq("company_id", input.companyId)
+      .eq("id", input.opportunityId)
+      .eq("stage", opportunity.stage)
+      .is("archived_at", null)
+      .is("deleted_at", null)
+      .is("project_id", null)
+      .is("project_ref", null);
+  } else if (action === "reactivate_on_related_inbound") {
+    payload = {
+      archived_at: null,
+      updated_at: now,
+    };
+    query = input.supabase
+      .from("opportunities")
+      .update(payload)
+      .eq("company_id", input.companyId)
+      .eq("id", input.opportunityId)
+      .eq("stage", opportunity.stage)
+      .eq("archived_at", iso(opportunity.archivedAt as string | Date))
+      .is("deleted_at", null)
+      .is("project_id", null)
+      .is("project_ref", null);
+  } else {
+    return false;
+  }
+
+  const { data, error } = await query.select("id").maybeSingle();
+  return !error && Boolean(data);
+}
+
+async function executeDestructiveOpportunityAction(
+  input: OpportunityLifecycleActionInput
+): Promise<
+  Pick<
+    OpportunityLifecycleActionResult,
+    | "operations"
+    | "applied"
+    | "skippedReason"
+    | "beforeValues"
+    | "afterValues"
+  >
+> {
+  const mode = modeOf(input.mode);
+  const beforeValues = input.opportunity ? dbOpportunityValues(input.opportunity) : {};
+  const afterValues = proposedOpportunityValues(input, beforeValues);
+  const baseOperations = {
+    draft: "not_applicable" as DraftOperation,
+    notification: "not_applicable" as NotificationOperation,
+    lifecycleState: "not_applicable" as LifecycleStateOperation,
+    supersededDrafts: 0,
+  };
+
+  const guard = guardDestructiveOpportunityAction(input);
+  if (guard) {
+    const audit = await recordActionAudit({
+      actionInput: input,
+      status: "skipped",
+      guardReason: guard.reason,
+      beforeValues,
+      afterValues: beforeValues,
+    });
+    return {
+      applied: false,
+      skippedReason: guard.reason,
+      beforeValues,
+      afterValues: beforeValues,
+      operations: {
+        ...baseOperations,
+        opportunity: guard.operation,
+        audit,
+      },
+    };
+  }
+
+  if (mode === "apply" && !approvedActionKey(input)) {
+    const audit = await recordActionAudit({
+      actionInput: input,
+      status: "skipped",
+      guardReason: "missing_approval",
+      beforeValues,
+      afterValues: beforeValues,
+    });
+    return {
+      applied: false,
+      skippedReason: "missing_approval",
+      beforeValues,
+      afterValues: beforeValues,
+      operations: {
+        ...baseOperations,
+        opportunity: "skipped_missing_approval",
+        audit,
+      },
+    };
+  }
+
+  if (mode === "apply" && (await findAppliedActionAudit(input))) {
+    return {
+      applied: false,
+      skippedReason: "duplicate_applied_action",
+      beforeValues,
+      afterValues: beforeValues,
+      operations: {
+        ...baseOperations,
+        opportunity: "skipped_duplicate_applied_action",
+        audit: "not_applicable",
+      },
+    };
+  }
+
+  if (mode === "dry-run") {
+    return {
+      applied: false,
+      beforeValues,
+      afterValues,
+      operations: {
+        ...baseOperations,
+        opportunity: opportunityOperationForAction(input.decision.action, mode),
+        audit: "would_record",
+      },
+    };
+  }
+
+  const updated = await updateOpportunityForDestructiveAction(input, afterValues);
+  if (!updated) {
+    const audit = await recordActionAudit({
+      actionInput: input,
+      status: "failed",
+      guardReason: "opportunity_update_failed",
+      beforeValues,
+      afterValues: beforeValues,
+    });
+    return {
+      applied: false,
+      skippedReason: "opportunity_update_failed",
+      beforeValues,
+      afterValues: beforeValues,
+      operations: {
+        ...baseOperations,
+        opportunity: "skipped_update_failed",
+        audit,
+      },
+    };
+  }
+
+  const audit = await recordActionAudit({
+    actionInput: input,
+    status: "applied",
+    guardReason: null,
+    beforeValues,
+    afterValues,
+  });
+
+  return {
+    applied: audit !== "skipped_insert_failed",
+    skippedReason: audit === "skipped_insert_failed" ? "audit_insert_failed" : undefined,
+    beforeValues,
+    afterValues,
+    operations: {
+      ...baseOperations,
+      opportunity: opportunityOperationForAction(input.decision.action, mode),
+      audit,
     },
   };
 }
@@ -469,6 +992,8 @@ export async function executeOpportunityLifecycleAction(
         draft: "not_applicable",
         notification: "not_applicable",
         lifecycleState: "not_applicable",
+        opportunity: "not_applicable",
+        audit: "not_applicable",
         supersededDrafts: 0,
       },
     };
@@ -483,22 +1008,18 @@ export async function executeOpportunityLifecycleAction(
         draft: "not_applicable",
         notification: "not_applicable",
         lifecycleState: "not_applicable",
+        opportunity: "not_applicable",
+        audit: "not_applicable",
         supersededDrafts: 0,
       },
     };
   }
 
   if (DESTRUCTIVE_ACTIONS.has(input.decision.action)) {
+    const result = await executeDestructiveOpportunityAction(input);
     return {
       ...base,
-      applied: false,
-      skippedReason: "destructive_action_not_allowed",
-      operations: {
-        draft: "not_applicable",
-        notification: "not_applicable",
-        lifecycleState: "not_applicable",
-        supersededDrafts: 0,
-      },
+      ...result,
     };
   }
 
