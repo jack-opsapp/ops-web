@@ -280,3 +280,97 @@ describe("OnboardingDripService.claimAndSend", () => {
     expect(result.status).toBe("reconciled");
   });
 });
+
+describe("OnboardingDripService.processCompany kill switches", () => {
+  /**
+   * Mock supabase that responds to .from("users").select("id, email, ...").eq("id", ...).maybeSingle()
+   * to return either a found operator or null. Used to test kill switches.
+   */
+  function dbForOperator(operator: { id: string; email: string; first_name: string | null; deleted_at: string | null } | null) {
+    return {
+      from(table: string) {
+        if (table === "users") {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: async () => ({ data: operator, error: null }),
+              }),
+            }),
+          };
+        }
+        return { from: () => ({}) };
+      },
+    } as unknown as SupabaseClient;
+  }
+
+  it("skips when company.deleted_at is set", async () => {
+    const result = await OnboardingDripService.processCompany(
+      dbForOperator(null),
+      { id: "c1", deleted_at: "2026-01-01T00:00:00Z", subscription_status: "active", account_holder_id: "u1", admin_ids: ["u1"], created_at: new Date(Date.now() - 86400_000).toISOString(), latitude: null, longitude: null } as any,
+      new Date(),
+    );
+    expect(result.processed).toBe(0);
+    expect(result.skipped[0]?.reason).toContain("deleted");
+  });
+
+  it("skips when subscription_status is 'cancelled'", async () => {
+    const result = await OnboardingDripService.processCompany(
+      dbForOperator(null),
+      { id: "c1", deleted_at: null, subscription_status: "cancelled", account_holder_id: "u1", admin_ids: ["u1"], created_at: new Date(Date.now() - 86400_000).toISOString(), latitude: null, longitude: null } as any,
+      new Date(),
+    );
+    expect(result.processed).toBe(0);
+    expect(result.skipped[0]?.reason).toContain("cancelled");
+  });
+
+  it("skips when subscription_status is 'expired'", async () => {
+    const result = await OnboardingDripService.processCompany(
+      dbForOperator(null),
+      { id: "c1", deleted_at: null, subscription_status: "expired", account_holder_id: "u1", admin_ids: ["u1"], created_at: new Date(Date.now() - 86400_000).toISOString(), latitude: null, longitude: null } as any,
+      new Date(),
+    );
+    expect(result.processed).toBe(0);
+    expect(result.skipped[0]?.reason).toContain("expired");
+  });
+
+  it("skips when no account_holder_id", async () => {
+    const result = await OnboardingDripService.processCompany(
+      dbForOperator(null),
+      { id: "c1", deleted_at: null, subscription_status: "active", account_holder_id: null, admin_ids: [], created_at: new Date(Date.now() - 86400_000).toISOString(), latitude: null, longitude: null } as any,
+      new Date(),
+    );
+    expect(result.processed).toBe(0);
+    expect(result.skipped[0]?.reason).toContain("account_holder_id");
+  });
+
+  it("skips when account_holder email matches @opsapp.co (internal allowlist)", async () => {
+    const result = await OnboardingDripService.processCompany(
+      dbForOperator({ id: "u1", email: "founder@opsapp.co", first_name: "Jack", deleted_at: null }),
+      { id: "c1", deleted_at: null, subscription_status: "active", account_holder_id: "u1", admin_ids: ["u1"], created_at: new Date(Date.now() - 86400_000).toISOString(), latitude: null, longitude: null } as any,
+      new Date(),
+    );
+    expect(result.processed).toBe(0);
+    expect(result.skipped[0]?.reason).toContain("internal");
+  });
+
+  it("skips when operator is deleted", async () => {
+    const result = await OnboardingDripService.processCompany(
+      dbForOperator({ id: "u1", email: "test@example.com", first_name: "Pat", deleted_at: "2026-01-01T00:00:00Z" }),
+      { id: "c1", deleted_at: null, subscription_status: "active", account_holder_id: "u1", admin_ids: ["u1"], created_at: new Date(Date.now() - 86400_000).toISOString(), latitude: null, longitude: null } as any,
+      new Date(),
+    );
+    expect(result.processed).toBe(0);
+    expect(result.skipped[0]?.reason).toContain("operator");
+  });
+
+  it("returns empty processed when company age does not match any day slot", async () => {
+    // age = 2 days; not in [1, 3, 4, 8, 14]
+    const ageDays = 2;
+    const result = await OnboardingDripService.processCompany(
+      dbForOperator({ id: "u1", email: "test@example.com", first_name: "Pat", deleted_at: null }),
+      { id: "c1", deleted_at: null, subscription_status: "active", account_holder_id: "u1", admin_ids: ["u1"], created_at: new Date(Date.now() - ageDays * 86400_000).toISOString(), latitude: null, longitude: null } as any,
+      new Date(),
+    );
+    expect(result.processed).toBe(0);
+  });
+});

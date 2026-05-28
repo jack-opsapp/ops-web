@@ -432,4 +432,100 @@ export const OnboardingDripService = {
     // covering exactly the three statuses above.
     return { status: "failed", rowId: (claimed as { id: string }).id };
   },
+
+  /**
+   * Per-company orchestrator. Runs kill-switch checks, resolves the
+   * account_holder operator, computes which day slot(s) apply based on
+   * company age (whole days since created_at), then dispatches each
+   * applicable slot through computeState → claimAndSend.
+   *
+   * Kill switches (spec §4):
+   *   - company.deleted_at set
+   *   - subscription_status ∈ {cancelled, expired, paused}
+   *   - account_holder_id missing
+   *   - operator missing/deleted/no email
+   *   - internal email domain (@opsapp.co for staff, @anthropic.com for testing)
+   *
+   * Day-slot eligibility is age-driven: a company that signed up N whole
+   * days ago is eligible for day_N if N ∈ {1, 3, 4, 8, 14}. Day 0 lives
+   * in the signup webhook (immediate), not the cron. The lost_you slot
+   * is event-triggered elsewhere, not age-driven.
+   */
+  async processCompany(
+    db: SupabaseClient,
+    company: {
+      id: string;
+      deleted_at: string | null;
+      subscription_status: string;
+      account_holder_id: string | null;
+      admin_ids: string[] | null;
+      created_at: string;
+      latitude: number | null;
+      longitude: number | null;
+    },
+    now: Date,
+  ): Promise<{ processed: number; skipped: { reason: string }[] }> {
+    const result = { processed: 0, skipped: [] as { reason: string }[] };
+
+    // Kill switches
+    if (company.deleted_at) {
+      result.skipped.push({ reason: "company deleted" });
+      return result;
+    }
+    if (["cancelled", "expired", "paused"].includes(company.subscription_status)) {
+      result.skipped.push({ reason: `subscription ${company.subscription_status}` });
+      return result;
+    }
+    if (!company.account_holder_id) {
+      result.skipped.push({ reason: "no account_holder_id" });
+      return result;
+    }
+
+    // Resolve operator
+    const { data: operator } = await db
+      .from("users")
+      .select("id, email, first_name, deleted_at, onboarding_completed")
+      .eq("id", company.account_holder_id)
+      .maybeSingle();
+
+    if (!operator || operator.deleted_at || !operator.email) {
+      result.skipped.push({ reason: "no active operator" });
+      return result;
+    }
+
+    // Internal-domain allowlist — staff + testing inbox never receive the drip
+    const INTERNAL_DOMAINS = ["@opsapp.co", "@anthropic.com"];
+    if (INTERNAL_DOMAINS.some((d) => operator.email.toLowerCase().endsWith(d))) {
+      result.skipped.push({ reason: "internal email domain" });
+      return result;
+    }
+
+    // Compute eligible day slots based on company age (rounded down to whole days)
+    const ageDays = Math.floor(
+      (now.getTime() - new Date(company.created_at).getTime()) / 86400_000,
+    );
+    const eligibleSlots: DaySlot[] = [];
+    if (ageDays === 1) eligibleSlots.push("day_1");
+    if (ageDays === 3) eligibleSlots.push("day_3");
+    if (ageDays === 4) eligibleSlots.push("day_4");
+    if (ageDays === 8) eligibleSlots.push("day_8");
+    if (ageDays === 14) eligibleSlots.push("day_14");
+
+    for (const daySlot of eligibleSlots) {
+      const state = await this.computeState(db, operator as any, company, daySlot);
+      const sendResult = await this.claimAndSend(db, {
+        user: operator as { id: string; email: string; first_name: string | null },
+        company,
+        daySlot,
+        branch: state.branch,
+        emailType: state.emailType,
+        payload: state.payload,
+        now,
+      });
+      if (sendResult.status === "sent" || sendResult.status === "reconciled") {
+        result.processed++;
+      }
+    }
+    return result;
+  },
 };
