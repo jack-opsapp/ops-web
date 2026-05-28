@@ -6,9 +6,17 @@ const migrationPath = path.join(
   process.cwd(),
   "supabase/migrations/20260527140000_lead_lifecycle_p4_foundation.sql"
 );
+const guardedExecutionMigrationPath = path.join(
+  process.cwd(),
+  "supabase/migrations/20260527210000_lead_lifecycle_p4_guarded_action_audit.sql"
+);
 
 function migrationSql(): string {
   return readFileSync(migrationPath, "utf8");
+}
+
+function guardedExecutionMigrationSql(): string {
+  return readFileSync(guardedExecutionMigrationPath, "utf8");
 }
 
 describe("lead lifecycle P4 foundation migration", () => {
@@ -66,6 +74,21 @@ describe("lead lifecycle P4 foundation migration", () => {
     expect(sql).toContain("drop policy if exists opportunity_follow_up_drafts_company_all");
     expect(sql).toContain("drop policy if exists opportunity_lifecycle_state_company_all");
     expect(sql).toContain("drop policy if exists lead_lifecycle_settings_company_all");
+    expect(sql).not.toMatch(/for all\s+to authenticated/i);
+  });
+
+  it("adds an auditable, additive table for guarded destructive action attempts", () => {
+    const sql = guardedExecutionMigrationSql();
+
+    expect(sql).toContain("create table if not exists public.opportunity_lifecycle_action_audit");
+    expect(sql).toContain("before_values jsonb not null");
+    expect(sql).toContain("after_values jsonb not null");
+    expect(sql).toContain("guard_reason text");
+    expect(sql).toContain("approved_action_key text");
+    expect(sql).toContain("opportunity_lifecycle_action_audit_applied_action_uidx");
+    expect(sql).toContain("where status = 'applied'");
+    expect(sql).toContain("opportunity_lifecycle_action_audit_opportunity_company_fkey");
+    expect(sql).toContain("enable row level security");
     expect(sql).not.toMatch(/for all\s+to authenticated/i);
   });
 });
