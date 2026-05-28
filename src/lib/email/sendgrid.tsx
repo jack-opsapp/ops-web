@@ -53,8 +53,14 @@ import { PortalInvoiceReady } from "./react/templates/PortalInvoiceReady";
 import { PortalQuestionsReminder } from "./react/templates/PortalQuestionsReminder";
 import { DataSetupRequest } from "./react/templates/DataSetupRequest";
 import { PrioritySupportActivated } from "./react/templates/PrioritySupportActivated";
+import { Day0Welcome } from "./react/templates/onboarding/Day0Welcome";
+import { Day3Inbox } from "./react/templates/onboarding/Day3Inbox";
+import { Day8Estimates } from "./react/templates/onboarding/Day8Estimates";
+import { Day14Quiet } from "./react/templates/onboarding/Day14Quiet";
+import { Day14Active } from "./react/templates/onboarding/Day14Active";
+import { LostYou } from "./react/templates/onboarding/LostYou";
 
-import { DISPATCH, GATE, FIELD_NOTES, portalSender, type Sender } from "./senders";
+import { DISPATCH, GATE, FIELD_NOTES, JACK, portalSender, type Sender } from "./senders";
 import type { AdBriefing } from "@/lib/admin/briefing-types";
 import { isSuppressed, filterSuppressed } from "./suppressions";
 import { getActivePauseScope } from "./pause";
@@ -144,6 +150,13 @@ async function gatedSend(params: {
    * opens / clicks / bounces back to the originating campaign.
    */
   campaignId?: string | null;
+  /**
+   * Extra string key/values to merge into SendGrid `customArgs`. Used for
+   * webhook attribution beyond email_type / campaign_id / user_id (e.g.
+   * onboarding_email_log_id so opens / clicks tie back to the source row).
+   * Merged AFTER the built-in args, so callers can override if needed.
+   */
+  customArgs?: Record<string, string>;
 }): Promise<GatedSendResult> {
   ensureInitialized();
   const lower = params.to.trim().toLowerCase();
@@ -198,6 +211,7 @@ async function gatedSend(params: {
   if (params.campaignId) customArgs.campaign_id = params.campaignId;
   if (params.userId) customArgs.user_id = params.userId;
   customArgs.email_type = params.emailType;
+  if (params.customArgs) Object.assign(customArgs, params.customArgs);
 
   const [response] = await sgMail.send({
     to: params.to,
@@ -1181,6 +1195,207 @@ export async function sendTrialExpiryReengagement(params: {
     list: compliance.list,
     headers: compliance.headers,
     metadata: { companyName: params.companyName, daysSinceExpiry: params.daysSinceExpiry },
+  });
+}
+
+// ─── Onboarding Drip — Jack-persona (plain text, founder voice) ────────────
+//
+// All six senders pass `metadata: { onboarding_email_log_id }` into gatedSend
+// so the partial-success reconciliation in OnboardingDripService can match
+// email_log rows back to onboarding_email_log rows. Per spec §3 v3.1.
+// They also pass `customArgs: { onboarding_email_log_id }` so SendGrid event
+// webhooks can attribute opens / clicks back to the source onboarding row.
+
+export async function sendOnboardingDay0Welcome(params: {
+  email: string;
+  firstName: string | null;
+  onboardingEmailLogId: string;
+}): Promise<GatedSendResult> {
+  const compliance = buildComplianceHeaders({
+    email: params.email,
+    kind: "onboarding_day_0_welcome",
+  });
+  const html = await render(
+    <Day0Welcome
+      firstName={params.firstName}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+    />,
+  );
+  return gatedSend({
+    to: params.email,
+    from: JACK,
+    replyTo: JACK.email,
+    subject: "quick question",
+    html,
+    emailType: "onboarding_day_0_welcome",
+    list: compliance.list,
+    headers: compliance.headers,
+    metadata: { onboarding_email_log_id: params.onboardingEmailLogId },
+    customArgs: { onboarding_email_log_id: params.onboardingEmailLogId },
+  });
+}
+
+export async function sendOnboardingDay3Inbox(params: {
+  email: string;
+  firstName: string | null;
+  onboardingEmailLogId: string;
+}): Promise<GatedSendResult> {
+  const compliance = buildComplianceHeaders({
+    email: params.email,
+    kind: "onboarding_day_3_inbox",
+  });
+  const html = await render(
+    <Day3Inbox
+      firstName={params.firstName}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+    />,
+  );
+  return gatedSend({
+    to: params.email,
+    from: JACK,
+    replyTo: JACK.email,
+    subject: "the part of OPS I'm most proud of",
+    html,
+    emailType: "onboarding_day_3_inbox",
+    list: compliance.list,
+    headers: compliance.headers,
+    metadata: { onboarding_email_log_id: params.onboardingEmailLogId },
+    customArgs: { onboarding_email_log_id: params.onboardingEmailLogId },
+  });
+}
+
+export async function sendOnboardingDay8Estimates(params: {
+  email: string;
+  firstName: string | null;
+  onboardingEmailLogId: string;
+}): Promise<GatedSendResult> {
+  const compliance = buildComplianceHeaders({
+    email: params.email,
+    kind: "onboarding_day_8_estimates",
+  });
+  const html = await render(
+    <Day8Estimates
+      firstName={params.firstName}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+    />,
+  );
+  return gatedSend({
+    to: params.email,
+    from: JACK,
+    replyTo: JACK.email,
+    subject: "how your customers see your estimates",
+    html,
+    emailType: "onboarding_day_8_estimates",
+    list: compliance.list,
+    headers: compliance.headers,
+    metadata: { onboarding_email_log_id: params.onboardingEmailLogId },
+    customArgs: { onboarding_email_log_id: params.onboardingEmailLogId },
+  });
+}
+
+export async function sendOnboardingDay14Quiet(params: {
+  email: string;
+  firstName: string | null;
+  onboardingEmailLogId: string;
+}): Promise<GatedSendResult> {
+  const compliance = buildComplianceHeaders({
+    email: params.email,
+    kind: "onboarding_day_14_quiet",
+  });
+  const html = await render(
+    <Day14Quiet
+      firstName={params.firstName}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+    />,
+  );
+  return gatedSend({
+    to: params.email,
+    from: JACK,
+    replyTo: JACK.email,
+    subject: "is OPS slotting in or in the way?",
+    html,
+    emailType: "onboarding_day_14_quiet",
+    list: compliance.list,
+    headers: compliance.headers,
+    metadata: { onboarding_email_log_id: params.onboardingEmailLogId },
+    customArgs: { onboarding_email_log_id: params.onboardingEmailLogId },
+  });
+}
+
+export async function sendOnboardingDay14Active(params: {
+  email: string;
+  firstName: string | null;
+  projectCount: number;
+  taskCount: number;
+  notificationCount: number;
+  onboardingEmailLogId: string;
+}): Promise<GatedSendResult> {
+  const compliance = buildComplianceHeaders({
+    email: params.email,
+    kind: "onboarding_day_14_active",
+  });
+  const html = await render(
+    <Day14Active
+      firstName={params.firstName}
+      projectCount={params.projectCount}
+      taskCount={params.taskCount}
+      notificationCount={params.notificationCount}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+    />,
+  );
+  return gatedSend({
+    to: params.email,
+    from: JACK,
+    replyTo: JACK.email,
+    subject: "you're 14 days in",
+    html,
+    emailType: "onboarding_day_14_active",
+    list: compliance.list,
+    headers: compliance.headers,
+    metadata: {
+      onboarding_email_log_id: params.onboardingEmailLogId,
+      projectCount: params.projectCount,
+      taskCount: params.taskCount,
+      notificationCount: params.notificationCount,
+    },
+    customArgs: { onboarding_email_log_id: params.onboardingEmailLogId },
+  });
+}
+
+export async function sendOnboardingLostYou(params: {
+  email: string;
+  firstName: string | null;
+  daysSinceSignup: number;
+  daysSinceLastActivity: number;
+  onboardingEmailLogId: string;
+}): Promise<GatedSendResult> {
+  const compliance = buildComplianceHeaders({
+    email: params.email,
+    kind: "onboarding_lost_you",
+  });
+  const html = await render(
+    <LostYou
+      firstName={params.firstName}
+      daysSinceSignup={params.daysSinceSignup}
+      daysSinceLastActivity={params.daysSinceLastActivity}
+      unsubscribeUrl={compliance.unsubscribeUrl}
+    />,
+  );
+  return gatedSend({
+    to: params.email,
+    from: JACK,
+    replyTo: JACK.email,
+    subject: "lost you?",
+    html,
+    emailType: "onboarding_lost_you",
+    list: compliance.list,
+    headers: compliance.headers,
+    metadata: {
+      onboarding_email_log_id: params.onboardingEmailLogId,
+      daysSinceSignup: params.daysSinceSignup,
+      daysSinceLastActivity: params.daysSinceLastActivity,
+    },
+    customArgs: { onboarding_email_log_id: params.onboardingEmailLogId },
   });
 }
 
