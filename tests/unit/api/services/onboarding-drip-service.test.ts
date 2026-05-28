@@ -431,3 +431,141 @@ describe("OnboardingDripService.processRetries", () => {
     expect(result.retried).toBeGreaterThanOrEqual(0);
   });
 });
+
+describe("OnboardingDripService.processLostYouCandidate", () => {
+  function dbForLostYou(opts: {
+    operator?: { id: string; email: string; first_name: string | null; deleted_at: string | null } | null;
+    existingDay14OrLost?: Array<{ day_slot: string }>;
+    activityCounts?: Record<string, number>;
+    claimSucceeds?: boolean;
+  }) {
+    const log: { table: string; op: string; args: unknown[] }[] = [];
+
+    function from(table: string) {
+      if (table === "users") {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({ data: opts.operator ?? null, error: null }),
+            }),
+          }),
+        };
+      }
+      if (table === "onboarding_email_log") {
+        return {
+          select: () => ({
+            eq: () => ({
+              in: async () => ({ data: opts.existingDay14OrLost ?? [], error: null }),
+            }),
+          }),
+          insert: () => ({
+            select: () => ({
+              single: async () =>
+                opts.claimSucceeds === false
+                  ? { data: null, error: { code: "23505" } }
+                  : { data: { id: "lost-claim-1" }, error: null },
+            }),
+          }),
+          update: (...args: unknown[]) => {
+            log.push({ table, op: "update", args });
+            return { eq: () => Promise.resolve({ error: null }) };
+          },
+        };
+      }
+      if (table === "email_log") {
+        // No prior sends — reconciliation returns empty
+        const chain: any = {
+          select: () => chain,
+          eq: () => chain,
+          gte: () => chain,
+          order: () => chain,
+          limit: async () => ({ data: [], error: null }),
+        };
+        return chain;
+      }
+      // Activity tables — return count
+      const v = opts.activityCounts?.[table] ?? 0;
+      const chain: any = {
+        select: () => chain,
+        eq: () => chain,
+        gte: () => chain,
+        then: (resolve: any) => resolve({ count: v, error: null }),
+      };
+      return chain;
+    }
+
+    return { db: { from } as unknown as SupabaseClient, log };
+  }
+
+  it("does not fire when company.deleted_at is set", async () => {
+    const { db } = dbForLostYou({});
+    const result = await OnboardingDripService.processLostYouCandidate(
+      db,
+      { id: "c1", deleted_at: "2026-01-01T00:00:00Z", subscription_status: "active", account_holder_id: "u1", created_at: new Date(Date.now() - 8 * 86400_000).toISOString(), latitude: null, longitude: null } as any,
+      new Date(),
+    );
+    expect(result.fired).toBe(false);
+    expect(result.reason).toContain("deleted");
+  });
+
+  it("does not fire when subscription_status is cancelled/expired/paused", async () => {
+    const { db } = dbForLostYou({});
+    const result = await OnboardingDripService.processLostYouCandidate(
+      db,
+      { id: "c1", deleted_at: null, subscription_status: "cancelled", account_holder_id: "u1", created_at: new Date(Date.now() - 8 * 86400_000).toISOString(), latitude: null, longitude: null } as any,
+      new Date(),
+    );
+    expect(result.fired).toBe(false);
+    expect(result.reason).toContain("subscription");
+  });
+
+  it("does not fire when company age is < 1 day", async () => {
+    const { db } = dbForLostYou({});
+    const result = await OnboardingDripService.processLostYouCandidate(
+      db,
+      { id: "c1", deleted_at: null, subscription_status: "active", account_holder_id: "u1", created_at: new Date().toISOString(), latitude: null, longitude: null } as any,
+      new Date(),
+    );
+    expect(result.fired).toBe(false);
+    expect(result.reason).toContain("window");
+  });
+
+  it("does not fire when company age is > 14 days", async () => {
+    const { db } = dbForLostYou({});
+    const result = await OnboardingDripService.processLostYouCandidate(
+      db,
+      { id: "c1", deleted_at: null, subscription_status: "active", account_holder_id: "u1", created_at: new Date(Date.now() - 20 * 86400_000).toISOString(), latitude: null, longitude: null } as any,
+      new Date(),
+    );
+    expect(result.fired).toBe(false);
+    expect(result.reason).toContain("window");
+  });
+
+  it("does not fire when Day 14 has already been sent", async () => {
+    const { db } = dbForLostYou({
+      operator: { id: "u1", email: "test@example.com", first_name: "Pat", deleted_at: null },
+      existingDay14OrLost: [{ day_slot: "day_14" }],
+    });
+    const result = await OnboardingDripService.processLostYouCandidate(
+      db,
+      { id: "c1", deleted_at: null, subscription_status: "active", account_holder_id: "u1", created_at: new Date(Date.now() - 8 * 86400_000).toISOString(), latitude: null, longitude: null } as any,
+      new Date(),
+    );
+    expect(result.fired).toBe(false);
+    expect(result.reason).toContain("already sent");
+  });
+
+  it("does not fire when any activity in last 6 days", async () => {
+    const { db } = dbForLostYou({
+      operator: { id: "u1", email: "test@example.com", first_name: "Pat", deleted_at: null },
+      activityCounts: { projects: 1 },
+    });
+    const result = await OnboardingDripService.processLostYouCandidate(
+      db,
+      { id: "c1", deleted_at: null, subscription_status: "active", account_holder_id: "u1", created_at: new Date(Date.now() - 8 * 86400_000).toISOString(), latitude: null, longitude: null } as any,
+      new Date(),
+    );
+    expect(result.fired).toBe(false);
+    expect(result.reason).toContain("recent activity");
+  });
+});

@@ -661,4 +661,96 @@ export const OnboardingDripService = {
 
     return { retried };
   },
+
+  /**
+   * Behavior-triggered re-engagement send (spec §7). Fires once per trial
+   * when the operator has had zero activity for 6+ consecutive calendar
+   * days between Day 1 and Day 14. All five conditions must hold: kill
+   * switches clear, age in [1, 14], neither Day 14 nor Lost You already
+   * sent, zero activity across the 6 tables in the last 6 days, operator
+   * still active.
+   */
+  async processLostYouCandidate(
+    db: SupabaseClient,
+    company: {
+      id: string;
+      account_holder_id: string | null;
+      created_at: string;
+      latitude: number | null;
+      longitude: number | null;
+      subscription_status: string;
+      deleted_at: string | null;
+    },
+    now: Date,
+  ): Promise<{ fired: boolean; reason?: string }> {
+    if (company.deleted_at) return { fired: false, reason: "deleted" };
+    if (["cancelled", "expired", "paused"].includes(company.subscription_status)) {
+      return { fired: false, reason: `subscription ${company.subscription_status}` };
+    }
+    if (!company.account_holder_id) {
+      return { fired: false, reason: "no account_holder_id" };
+    }
+
+    const ageDays = Math.floor(
+      (now.getTime() - new Date(company.created_at).getTime()) / 86400_000,
+    );
+    if (ageDays < 1 || ageDays > 14) {
+      return { fired: false, reason: "outside window" };
+    }
+
+    const { data: existing } = await db
+      .from("onboarding_email_log")
+      .select("day_slot")
+      .eq("company_id", company.id)
+      .in("day_slot", ["day_14", "lost_you"]);
+    if ((existing ?? []).length > 0) {
+      return { fired: false, reason: "day_14 or lost_you already sent" };
+    }
+
+    const sixDaysAgo = new Date(now.getTime() - 6 * 86400_000).toISOString();
+    const tables = [
+      "projects",
+      "project_tasks",
+      "clients",
+      "opportunities",
+      "estimates",
+      "invoices",
+    ] as const;
+    const checks = await Promise.all(
+      tables.map(async (t) => {
+        const { count } = await db
+          .from(t)
+          .select("id", { count: "exact", head: true })
+          .eq("company_id", company.id)
+          .gte("updated_at", sixDaysAgo);
+        return count ?? 0;
+      }),
+    );
+    const totalRecent = checks.reduce((a, b) => a + b, 0);
+    if (totalRecent > 0) return { fired: false, reason: "recent activity" };
+
+    const { data: operator } = await db
+      .from("users")
+      .select("id, email, first_name, deleted_at")
+      .eq("id", company.account_holder_id)
+      .maybeSingle();
+
+    if (!operator || operator.deleted_at || !operator.email) {
+      return { fired: false, reason: "no operator" };
+    }
+
+    const result = await this.claimAndSend(db, {
+      user: operator as { id: string; email: string; first_name: string | null },
+      company,
+      daySlot: "lost_you",
+      branch: null,
+      emailType: "onboarding_lost_you",
+      payload: {
+        daysSinceSignup: ageDays,
+        daysSinceLastActivity: 6,
+      },
+      now,
+    });
+    return { fired: result.status === "sent" || result.status === "reconciled" };
+  },
 };
