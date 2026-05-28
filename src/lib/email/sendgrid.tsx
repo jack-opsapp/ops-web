@@ -1245,6 +1245,7 @@ export async function sendOnboardingDay0Welcome(params: {
   email: string;
   firstName: string | null;
   onboardingEmailLogId: string;
+  userId?: string | null;
 }): Promise<GatedSendResult> {
   const compliance = buildComplianceHeaders({
     email: params.email,
@@ -1263,6 +1264,7 @@ export async function sendOnboardingDay0Welcome(params: {
     subject: "quick question",
     html,
     emailType: "onboarding_day_0_welcome",
+    userId: params.userId ?? undefined,
     list: compliance.list,
     headers: compliance.headers,
     metadata: { onboarding_email_log_id: params.onboardingEmailLogId },
@@ -1274,6 +1276,7 @@ export async function sendOnboardingDay3Inbox(params: {
   email: string;
   firstName: string | null;
   onboardingEmailLogId: string;
+  userId?: string | null;
 }): Promise<GatedSendResult> {
   const compliance = buildComplianceHeaders({
     email: params.email,
@@ -1292,6 +1295,7 @@ export async function sendOnboardingDay3Inbox(params: {
     subject: "the part of OPS I'm most proud of",
     html,
     emailType: "onboarding_day_3_inbox",
+    userId: params.userId ?? undefined,
     list: compliance.list,
     headers: compliance.headers,
     metadata: { onboarding_email_log_id: params.onboardingEmailLogId },
@@ -1303,6 +1307,7 @@ export async function sendOnboardingDay8Estimates(params: {
   email: string;
   firstName: string | null;
   onboardingEmailLogId: string;
+  userId?: string | null;
 }): Promise<GatedSendResult> {
   const compliance = buildComplianceHeaders({
     email: params.email,
@@ -1321,6 +1326,7 @@ export async function sendOnboardingDay8Estimates(params: {
     subject: "how your customers see your estimates",
     html,
     emailType: "onboarding_day_8_estimates",
+    userId: params.userId ?? undefined,
     list: compliance.list,
     headers: compliance.headers,
     metadata: { onboarding_email_log_id: params.onboardingEmailLogId },
@@ -1332,6 +1338,7 @@ export async function sendOnboardingDay14Quiet(params: {
   email: string;
   firstName: string | null;
   onboardingEmailLogId: string;
+  userId?: string | null;
 }): Promise<GatedSendResult> {
   const compliance = buildComplianceHeaders({
     email: params.email,
@@ -1350,6 +1357,7 @@ export async function sendOnboardingDay14Quiet(params: {
     subject: "is OPS slotting in or in the way?",
     html,
     emailType: "onboarding_day_14_quiet",
+    userId: params.userId ?? undefined,
     list: compliance.list,
     headers: compliance.headers,
     metadata: { onboarding_email_log_id: params.onboardingEmailLogId },
@@ -1364,6 +1372,7 @@ export async function sendOnboardingDay14Active(params: {
   taskCount: number;
   notificationCount: number;
   onboardingEmailLogId: string;
+  userId?: string | null;
 }): Promise<GatedSendResult> {
   const compliance = buildComplianceHeaders({
     email: params.email,
@@ -1385,6 +1394,7 @@ export async function sendOnboardingDay14Active(params: {
     subject: "you're 14 days in",
     html,
     emailType: "onboarding_day_14_active",
+    userId: params.userId ?? undefined,
     list: compliance.list,
     headers: compliance.headers,
     metadata: {
@@ -1403,6 +1413,7 @@ export async function sendOnboardingLostYou(params: {
   daysSinceSignup: number;
   daysSinceLastActivity: number;
   onboardingEmailLogId: string;
+  userId?: string | null;
 }): Promise<GatedSendResult> {
   const compliance = buildComplianceHeaders({
     email: params.email,
@@ -1423,6 +1434,7 @@ export async function sendOnboardingLostYou(params: {
     subject: "lost you?",
     html,
     emailType: "onboarding_lost_you",
+    userId: params.userId ?? undefined,
     list: compliance.list,
     headers: compliance.headers,
     metadata: {
@@ -1445,6 +1457,7 @@ export async function sendOnboardingDay1NoProject(params: {
   email: string;
   ctaUrl: string;
   onboardingEmailLogId: string;
+  userId?: string | null;
 }): Promise<GatedSendResult> {
   const compliance = buildComplianceHeaders({
     email: params.email,
@@ -1460,6 +1473,7 @@ export async function sendOnboardingDay1NoProject(params: {
     subject: "the move that gets OPS working",
     html,
     emailType: "onboarding_day_1_no_project",
+    userId: params.userId ?? undefined,
     list: compliance.list,
     headers: compliance.headers,
     metadata: { onboarding_email_log_id: params.onboardingEmailLogId },
@@ -1472,6 +1486,7 @@ export async function sendOnboardingDay1HasProject(params: {
   projectCount: number;
   ctaUrl: string;
   onboardingEmailLogId: string;
+  userId?: string | null;
 }): Promise<GatedSendResult> {
   const compliance = buildComplianceHeaders({
     email: params.email,
@@ -1491,6 +1506,7 @@ export async function sendOnboardingDay1HasProject(params: {
     subject: "you're moving",
     html,
     emailType: "onboarding_day_1_has_project",
+    userId: params.userId ?? undefined,
     list: compliance.list,
     headers: compliance.headers,
     metadata: {
@@ -1505,6 +1521,7 @@ export async function sendOnboardingDay4NoNotification(params: {
   email: string;
   ctaUrl: string;
   onboardingEmailLogId: string;
+  userId?: string | null;
 }): Promise<GatedSendResult> {
   const compliance = buildComplianceHeaders({
     email: params.email,
@@ -1520,6 +1537,7 @@ export async function sendOnboardingDay4NoNotification(params: {
     subject: "the notification you're working toward",
     html,
     emailType: "onboarding_day_4_no_notification",
+    userId: params.userId ?? undefined,
     list: compliance.list,
     headers: compliance.headers,
     metadata: { onboarding_email_log_id: params.onboardingEmailLogId },
@@ -1531,6 +1549,7 @@ export async function sendOnboardingDay4HasNotification(params: {
   email: string;
   ctaUrl: string;
   onboardingEmailLogId: string;
+  userId?: string | null;
 }): Promise<GatedSendResult> {
   const compliance = buildComplianceHeaders({
     email: params.email,
@@ -1546,6 +1565,7 @@ export async function sendOnboardingDay4HasNotification(params: {
     subject: "you've heard the ping",
     html,
     emailType: "onboarding_day_4_has_notification",
+    userId: params.userId ?? undefined,
     list: compliance.list,
     headers: compliance.headers,
     metadata: { onboarding_email_log_id: params.onboardingEmailLogId },

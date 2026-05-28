@@ -65,6 +65,22 @@ describe("Jack-persona onboarding senders", () => {
     expect(call.customArgs.onboarding_email_log_id).toBe("log-uuid-123");
   });
 
+  it("threads userId through to gatedSend — regression for qa_bug 41db7c3b (email_log.user_id was null, breaking reconciliation)", async () => {
+    const { sendOnboardingDay0Welcome } = await import("@/lib/email/sendgrid");
+    await sendOnboardingDay0Welcome({
+      email: "test@example.com",
+      firstName: "Pat",
+      onboardingEmailLogId: "log-uuid-123",
+      userId: "user-uuid-789",
+    });
+    const call = (sgMail.send as any).mock.calls[0][0];
+    // gatedSend writes params.userId into BOTH customArgs.user_id and email_log.user_id.
+    // Before this fix the onboarding senders never accepted/passed userId, so
+    // email_log.user_id was null and reconcileAgainstEmailLog (.eq("user_id", ...))
+    // could never match. Asserting customArgs.user_id proves userId reaches gatedSend.
+    expect(call.customArgs.user_id).toBe("user-uuid-789");
+  });
+
   it("sendOnboardingDay3Inbox has subject 'the part of OPS I'm most proud of'", async () => {
     const { sendOnboardingDay3Inbox } = await import("@/lib/email/sendgrid");
     await sendOnboardingDay3Inbox({

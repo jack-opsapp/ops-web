@@ -205,6 +205,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
                 email: operatorEmail,
                 firstName: (userRow.first_name as string | null | undefined) ?? null,
                 onboardingEmailLogId: logRow.id as string,
+                userId,
               });
 
               const update: Record<string, unknown> =

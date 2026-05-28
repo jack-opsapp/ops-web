@@ -144,6 +144,7 @@ async function dispatchTypedSender(
     email: params.user.email,
     firstName: params.user.first_name,
     onboardingEmailLogId,
+    userId: params.user.id,
   };
   switch (params.emailType) {
     case "onboarding_day_0_welcome":
@@ -153,6 +154,7 @@ async function dispatchTypedSender(
         email: params.user.email,
         ctaUrl: `${process.env.NEXT_PUBLIC_APP_URL}/projects/new`,
         onboardingEmailLogId,
+        userId: params.user.id,
       });
     case "onboarding_day_1_has_project":
       return sendOnboardingDay1HasProject({
@@ -160,6 +162,7 @@ async function dispatchTypedSender(
         projectCount: (params.payload.projectCount as number) ?? 1,
         ctaUrl: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`,
         onboardingEmailLogId,
+        userId: params.user.id,
       });
     case "onboarding_day_3_inbox":
       return sendOnboardingDay3Inbox(baseArgs);
@@ -168,12 +171,14 @@ async function dispatchTypedSender(
         email: params.user.email,
         ctaUrl: `${process.env.NEXT_PUBLIC_APP_URL}/settings/team`,
         onboardingEmailLogId,
+        userId: params.user.id,
       });
     case "onboarding_day_4_has_notification":
       return sendOnboardingDay4HasNotification({
         email: params.user.email,
         ctaUrl: `${process.env.NEXT_PUBLIC_APP_URL}/projects?filter=recurring`,
         onboardingEmailLogId,
+        userId: params.user.id,
       });
     case "onboarding_day_8_estimates":
       return sendOnboardingDay8Estimates(baseArgs);
@@ -187,6 +192,7 @@ async function dispatchTypedSender(
         taskCount: (params.payload.taskCount as number) ?? 0,
         notificationCount: (params.payload.notificationCount as number) ?? 0,
         onboardingEmailLogId,
+        userId: params.user.id,
       });
     case "onboarding_lost_you":
       return sendOnboardingLostYou({
@@ -195,6 +201,7 @@ async function dispatchTypedSender(
         daysSinceSignup: (params.payload.daysSinceSignup as number) ?? 0,
         daysSinceLastActivity: (params.payload.daysSinceLastActivity as number) ?? 0,
         onboardingEmailLogId,
+        userId: params.user.id,
       });
     default:
       throw new Error(`Unknown emailType: ${params.emailType}`);
