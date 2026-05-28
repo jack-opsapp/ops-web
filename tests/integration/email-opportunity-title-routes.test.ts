@@ -11,6 +11,7 @@ const {
   softDeleteClientMock,
   createOpportunityMock,
   createActivityMock,
+  relationshipMatchMock,
 } = vi.hoisted(() => ({
   afterCallbacks: [] as Array<() => unknown | Promise<unknown>>,
   getServiceRoleClientMock: vi.fn(),
@@ -22,6 +23,7 @@ const {
   softDeleteClientMock: vi.fn(),
   createOpportunityMock: vi.fn(),
   createActivityMock: vi.fn(),
+  relationshipMatchMock: vi.fn(),
 }));
 
 vi.mock("next/server", async () => {
@@ -65,6 +67,10 @@ vi.mock("@/lib/api/services/opportunity-service", () => ({
   },
 }));
 
+vi.mock("@/lib/email/opportunity-relationship-matching", () => ({
+  findOpportunityRelationshipMatch: relationshipMatchMock,
+}));
+
 import { POST as importPOST } from "@/app/api/integrations/email/import/route";
 import { POST as webhookPOST } from "@/app/api/integrations/email-webhook/route";
 
@@ -88,6 +94,9 @@ interface ImportState {
   opportunityPatches: Array<Record<string, unknown>>;
   threadLinks: Array<Record<string, unknown>>;
   notifications: Array<Record<string, unknown>>;
+  correspondenceEvents?: Array<Record<string, unknown>>;
+  lifecycleStateUpserts?: Array<Record<string, unknown>>;
+  opportunities?: Array<Record<string, unknown>>;
 }
 
 function makeImportSupabaseDouble(state: ImportState) {
@@ -117,6 +126,10 @@ function makeImportSupabaseDouble(state: ImportState) {
       return this;
     }
 
+    order() {
+      return this;
+    }
+
     limit() {
       return this;
     }
@@ -125,6 +138,14 @@ function makeImportSupabaseDouble(state: ImportState) {
       this.action = "insert";
       this.payload = payload;
       if (this.table === "notifications") state.notifications.push(payload);
+      if (this.table === "opportunity_correspondence_events") {
+        const row = {
+          id: `event-${(state.correspondenceEvents ?? []).length + 1}`,
+          ...payload,
+        };
+        state.correspondenceEvents ??= [];
+        state.correspondenceEvents.push(row);
+      }
       return this;
     }
 
@@ -142,6 +163,10 @@ function makeImportSupabaseDouble(state: ImportState) {
       this.payload = payload;
       if (this.table === "opportunity_email_threads")
         state.threadLinks.push(payload);
+      if (this.table === "opportunity_lifecycle_state") {
+        state.lifecycleStateUpserts ??= [];
+        state.lifecycleStateUpserts.push(payload);
+      }
       return this;
     }
 
@@ -162,10 +187,18 @@ function makeImportSupabaseDouble(state: ImportState) {
       return { data: null, error: null };
     }
 
+    async maybeSingle() {
+      return { data: null, error: null };
+    }
+
     private result() {
       if (this.table === "clients") return { data: [], error: null };
-      if (this.table === "opportunities") return { data: [], error: null };
+      if (this.table === "opportunities")
+        return { data: state.opportunities ?? [], error: null };
       if (this.table === "activities") return { data: [], error: null };
+      if (this.table === "opportunity_correspondence_events") {
+        return { data: state.correspondenceEvents ?? [], error: null };
+      }
       return { data: null, error: null };
     }
 
@@ -258,6 +291,13 @@ describe("email opportunity title route writes", () => {
     softDeleteClientMock.mockReset();
     createOpportunityMock.mockReset();
     createActivityMock.mockReset();
+    relationshipMatchMock.mockReset();
+    relationshipMatchMock.mockResolvedValue({
+      action: "create_new",
+      reason: "No deterministic relationship signal met the P3 bar",
+      suggestedOpportunityId: null,
+      evidence: [],
+    });
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => new Response("", { status: 200 }))
@@ -274,6 +314,7 @@ describe("email opportunity title route writes", () => {
       opportunityPatches: [],
       threadLinks: [],
       notifications: [],
+      correspondenceEvents: [],
     };
     getServiceRoleClientMock.mockReturnValue(makeImportSupabaseDouble(state));
     getConnectionMock.mockResolvedValue({
@@ -341,10 +382,104 @@ describe("email opportunity title route writes", () => {
     expect(payload.title).toBe("Kara Beach — Estimate");
     expect(payload.title).not.toBe("Canpro Deck and Rail Estimate");
     expect(payload.title).not.toContain("details");
+    expect(payload).toMatchObject({
+      contactName: "Kara Beach",
+      contactEmail: "kara.beach@example.com",
+      address: "123 Cedar Street",
+      sourceEmailId: "thread-1",
+      source: "email",
+    });
     expect(payload.description).toBe(aiSummary);
+    expect(createClientMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "Kara Beach",
+        email: "kara.beach@example.com",
+        address: "123 Cedar Street",
+      })
+    );
     expect(state.opportunityPatches[0]).toMatchObject({
       ai_summary: aiSummary,
     });
+    expect(state.correspondenceEvents).toEqual([
+      expect.objectContaining({
+        company_id: "company-1",
+        opportunity_id: "opp-kara",
+        provider_thread_id: "thread-1",
+        provider_message_id: null,
+        direction: "inbound",
+        party_role: "customer",
+        is_meaningful: true,
+        source: "email_import",
+      }),
+    ]);
+  });
+
+  it("skips import lifecycle events when provider thread ids are invalid", async () => {
+    const state: ImportState = {
+      jobUpdates: [],
+      opportunityPatches: [],
+      threadLinks: [],
+      notifications: [],
+      correspondenceEvents: [],
+    };
+    getServiceRoleClientMock.mockReturnValue(makeImportSupabaseDouble(state));
+    getConnectionMock.mockResolvedValue({
+      id: "connection-1",
+      companyId: "company-1",
+      email: "jackson@canprodeckandrail.com",
+      syncFilters: {},
+      opsLabelId: null,
+    });
+    getProviderMock.mockReturnValue({
+      listLabels: vi.fn(async () => []),
+      createLabel: vi.fn(),
+      applyLabel: vi.fn(async () => undefined),
+    });
+
+    const response = await importPOST(
+      makeJsonRequest("https://ops.test/api/integrations/email/import", {
+        connectionId: "connection-1",
+        companyId: "company-1",
+        leads: [
+          {
+            id: "lead-blank-thread",
+            threadId: "   ",
+            clientName: "Kara Beach",
+            clientEmail: "kara.beach@example.com",
+            clientPhone: null,
+            clientAddress: "123 Cedar Street",
+            description: "Deck quote request.",
+            stage: "new_lead",
+            estimatedValue: null,
+            correspondenceCount: 1,
+            outboundCount: 0,
+            lastMessageDate: "2026-05-20T17:00:00.000Z",
+            existingClientId: null,
+            action: "create_new",
+            mergeWithLeadId: null,
+            title: "Need an estimate",
+            actualCloseDate: null,
+          },
+        ],
+        syncProfile: {
+          estimateSubjectPatterns: ["estimate"],
+          companyDomains: ["canprodeckandrail.com"],
+          teamForwarders: [],
+          knownPlatformSenders: [],
+          formSubjectPatterns: [],
+          userEmailAddresses: ["jackson@canprodeckandrail.com"],
+          aiClassificationThreshold: 0.75,
+        },
+      }) as never
+    );
+
+    expect(response.status).toBe(200);
+    await flushAfterCallbacks();
+
+    expect(createOpportunityMock).not.toHaveBeenCalled();
+    expect(createActivityMock).not.toHaveBeenCalled();
+    expect(state.threadLinks).toHaveLength(0);
+    expect(state.correspondenceEvents).toHaveLength(0);
   });
 
   it("falls back to email identity when imported lead names are company or summary text", async () => {
@@ -419,6 +554,110 @@ describe("email opportunity title route writes", () => {
     expect(payload.title).toBe("Kara Beach — Estimate");
     expect(payload.title).not.toContain("Canpro");
     expect(payload.title).not.toContain("summary");
+  });
+
+  it("creates a separate import lead when P3 relationship matching returns create_new for an existing client", async () => {
+    const state: ImportState = {
+      jobUpdates: [],
+      opportunityPatches: [],
+      threadLinks: [],
+      notifications: [],
+      opportunities: [
+        {
+          id: "opp-open",
+          company_id: "company-1",
+          client_id: "client-existing",
+          stage: "follow_up",
+          deleted_at: null,
+        },
+      ],
+    };
+    getServiceRoleClientMock.mockReturnValue(makeImportSupabaseDouble(state));
+    getConnectionMock.mockResolvedValue({
+      id: "connection-1",
+      companyId: "company-1",
+      email: "jackson@canprodeckandrail.com",
+      syncFilters: {},
+      opsLabelId: null,
+    });
+    getProviderMock.mockReturnValue({
+      listLabels: vi.fn(async () => [{ id: "label-1", name: "OPS Pipeline" }]),
+      createLabel: vi.fn(),
+      applyLabel: vi.fn(async () => undefined),
+    });
+    createOpportunityMock.mockResolvedValue({ id: "opp-new" });
+    createActivityMock.mockResolvedValue({ id: "activity-new" });
+
+    const response = await importPOST(
+      makeJsonRequest("https://ops.test/api/integrations/email/import", {
+        connectionId: "connection-1",
+        companyId: "company-1",
+        leads: [
+          {
+            id: "lead-new-job",
+            threadId: "thread-new-job",
+            clientName: "Mara Hill",
+            clientEmail: "mara.hill@example.com",
+            clientPhone: null,
+            clientAddress: "455 New Road",
+            description: "Front gate quote request.",
+            stage: "new_lead",
+            estimatedValue: null,
+            correspondenceCount: 1,
+            outboundCount: 0,
+            lastMessageDate: "2026-05-20T17:00:00.000Z",
+            existingClientId: "client-existing",
+            action: "link",
+            mergeWithLeadId: null,
+            title: "Need an estimate",
+            actualCloseDate: null,
+          },
+        ],
+        syncProfile: {
+          estimateSubjectPatterns: ["estimate"],
+          companyDomains: ["canprodeckandrail.com"],
+          teamForwarders: [],
+          knownPlatformSenders: [],
+          formSubjectPatterns: [],
+          userEmailAddresses: ["jackson@canprodeckandrail.com"],
+          aiClassificationThreshold: 0.75,
+        },
+      }) as never
+    );
+
+    expect(response.status).toBe(200);
+    await flushAfterCallbacks();
+
+    expect(relationshipMatchMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        clientId: "client-existing",
+        providerThreadId: "thread-new-job",
+      })
+    );
+    expect(createOpportunityMock).toHaveBeenCalledOnce();
+    expect(createOpportunityMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        clientId: "client-existing",
+        contactName: "Mara Hill",
+        contactEmail: "mara.hill@example.com",
+        sourceEmailId: "thread-new-job",
+      })
+    );
+    expect(state.threadLinks).toEqual([
+      expect.objectContaining({
+        opportunity_id: "opp-new",
+        thread_id: "thread-new-job",
+        connection_id: "connection-1",
+      }),
+    ]);
+    expect(createActivityMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        opportunityId: "opp-new",
+        clientId: "client-existing",
+        emailThreadId: "thread-new-job",
+      })
+    );
+    expect(state.threadLinks[0].opportunity_id).not.toBe("opp-open");
   });
 
   it("creates webhook opportunity titles from sender identity, never the email subject", async () => {

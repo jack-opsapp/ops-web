@@ -80,9 +80,14 @@ import { SyncEngine } from "@/lib/api/services/sync-engine";
 
 interface SupabaseState {
   clients: Array<Record<string, unknown>>;
+  subClients?: Array<Record<string, unknown>>;
   opportunities: Array<Record<string, unknown>>;
+  projects?: Array<Record<string, unknown>>;
   threadLinks: Array<Record<string, unknown>>;
   activities: Array<Record<string, unknown>>;
+  correspondenceEvents?: Array<Record<string, unknown>>;
+  lifecycleStateUpserts?: Array<Record<string, unknown>>;
+  rpcCalls?: Array<{ name: string; params: Record<string, unknown> }>;
 }
 
 function makeSupabaseDouble(state: SupabaseState) {
@@ -148,12 +153,30 @@ function makeSupabaseDouble(state: SupabaseState) {
           ...payload,
         });
       }
+      if (this.table === "opportunity_correspondence_events") {
+        const row = {
+          id: `event-${(state.correspondenceEvents ?? []).length + 1}`,
+          ...payload,
+        };
+        state.correspondenceEvents ??= [];
+        state.correspondenceEvents.push(row);
+      }
       return this;
     }
 
     update(payload: Record<string, unknown>) {
       this.action = "update";
       this.payload = payload;
+      if (this.table === "opportunities") {
+        const id = this.filters.get("id");
+        const row = state.opportunities.find((opp) => opp.id === id);
+        if (row) Object.assign(row, payload);
+      }
+      if (this.table === "clients") {
+        const id = this.filters.get("id");
+        const row = state.clients.find((client) => client.id === id);
+        if (row) Object.assign(row, payload);
+      }
       return this;
     }
 
@@ -162,6 +185,10 @@ function makeSupabaseDouble(state: SupabaseState) {
       this.payload = payload;
       if (this.table === "opportunity_email_threads") {
         state.threadLinks.push(payload);
+      }
+      if (this.table === "opportunity_lifecycle_state") {
+        state.lifecycleStateUpserts ??= [];
+        state.lifecycleStateUpserts.push(payload);
       }
       return this;
     }
@@ -188,6 +215,12 @@ function makeSupabaseDouble(state: SupabaseState) {
         const client = state.clients.find((row) => row.id === id) ?? null;
         return { data: client, error: null };
       }
+      if (this.table === "opportunities") {
+        return { data: (this.result().data as unknown[] | null)?.[0] ?? null, error: null };
+      }
+      if (this.table === "projects") {
+        return { data: (this.result().data as unknown[] | null)?.[0] ?? null, error: null };
+      }
       return { data: null, error: null };
     }
 
@@ -196,16 +229,97 @@ function makeSupabaseDouble(state: SupabaseState) {
         return { data: [], error: null };
       }
 
+      if (
+        this.table === "opportunity_correspondence_events" &&
+        this.action === "select"
+      ) {
+        const match = (state.correspondenceEvents ?? []).filter((event) => {
+          for (const [column, value] of this.filters.entries()) {
+            if (
+              String(event[column] ?? "").toLowerCase() !==
+              String(value ?? "").toLowerCase()
+            ) {
+              return false;
+            }
+          }
+          return true;
+        });
+        return { data: match, error: null };
+      }
+
       if (this.table === "clients" && this.action === "select") {
-        const email = String(this.filters.get("email") ?? "").toLowerCase();
-        const match = state.clients.filter(
-          (client) => String(client.email).toLowerCase() === email
-        );
+        const match = state.clients.filter((client) => {
+          for (const [column, value] of this.filters.entries()) {
+            if (column === "deleted_at") continue;
+            if (
+              String(client[column] ?? "").toLowerCase() !==
+              String(value ?? "").toLowerCase()
+            ) {
+              return false;
+            }
+          }
+          return true;
+        });
+        return { data: match, error: null };
+      }
+
+      if (this.table === "sub_clients" && this.action === "select") {
+        const match = (state.subClients ?? []).filter((subClient) => {
+          for (const [column, value] of this.filters.entries()) {
+            if (column === "deleted_at") continue;
+            if (
+              String(subClient[column] ?? "").toLowerCase() !==
+              String(value ?? "").toLowerCase()
+            ) {
+              return false;
+            }
+          }
+          return true;
+        });
         return { data: match, error: null };
       }
 
       if (this.table === "opportunities" && this.action === "select") {
-        return { data: [], error: null };
+        const match = state.opportunities.filter((opportunity) => {
+          for (const [column, value] of this.filters.entries()) {
+            if (column === "deleted_at" && value === null) {
+              if (opportunity.deleted_at) return false;
+              continue;
+            }
+            if (column === "archived_at" && value === null) {
+              if (opportunity.archived_at) return false;
+              continue;
+            }
+            if (column.includes(":")) continue;
+            if (
+              String(opportunity[column] ?? "").toLowerCase() !==
+              String(value ?? "").toLowerCase()
+            ) {
+              return false;
+            }
+          }
+          return true;
+        });
+        return { data: match, error: null };
+      }
+
+      if (this.table === "projects" && this.action === "select") {
+        const match = (state.projects ?? []).filter((project) => {
+          for (const [column, value] of this.filters.entries()) {
+            if (column === "deleted_at" && value === null) {
+              if (project.deleted_at) return false;
+              continue;
+            }
+            if (
+              String(project[column] ?? "").toLowerCase() !==
+              String(value ?? "").toLowerCase()
+            ) {
+              return false;
+            }
+          }
+          return true;
+        });
+        return { data: match, error: null };
       }
 
       if (
@@ -240,7 +354,23 @@ function makeSupabaseDouble(state: SupabaseState) {
     from(table: string) {
       return new Query(table);
     },
-    rpc: vi.fn(async () => ({ data: null, error: null })),
+    rpc: vi.fn(async (name: string, params: Record<string, unknown>) => {
+      state.rpcCalls?.push({ name, params });
+      return {
+        data: [
+          {
+            correspondence_count: 2,
+            inbound_count: 2,
+            outbound_count: 0,
+            stage: "new_lead",
+            stage_manually_set: false,
+            last_inbound_at: "2026-05-20T17:00:00.000Z",
+            last_outbound_at: null,
+          },
+        ],
+        error: null,
+      };
+    }),
   };
 }
 
@@ -310,11 +440,20 @@ Submission summary:
 Full Name:
 Marcel Mercier
 
+Company:
+Mercier Holdings
+
 Phone:
 12505388340
 
 Email:
 marcel.mercier@example.com
+
+Address:
+1220 Wharf Street, Victoria BC
+
+Budget:
+$18,500
 
 How can we help?:
 We need someone to renovate and replace two roof decks.`;
@@ -332,6 +471,7 @@ describe("SyncEngine email opportunity title generation", () => {
       newLeadsClassified: 0,
     });
     evaluateStagesWithSummaryMock.mockResolvedValue([]);
+    upsertFromEmailMock.mockReset();
     upsertFromEmailMock.mockResolvedValue({
       isNew: false,
       threadRow: {
@@ -372,6 +512,16 @@ describe("SyncEngine email opportunity title generation", () => {
 
     expect(state.opportunities).toHaveLength(1);
     expect(state.opportunities[0].title).toBe("Kara Beach — Estimate");
+    expect(state.opportunities[0]).toMatchObject({
+      contact_name: "Kara Beach",
+      contact_email: "kara.beach@example.com",
+      source_email_id: "thread-1",
+      source: "email",
+    });
+    expect(state.clients[0]).toMatchObject({
+      name: "Kara Beach",
+      email: "kara.beach@example.com",
+    });
     expect(state.opportunities[0].title).not.toContain("Jackson Sweet");
   });
 
@@ -412,8 +562,412 @@ describe("SyncEngine email opportunity title generation", () => {
 
     expect(state.opportunities).toHaveLength(1);
     expect(state.opportunities[0].title).toBe("Marcel Mercier — Email Inquiry");
+    expect(state.opportunities[0]).toMatchObject({
+      contact_name: "Marcel Mercier",
+      contact_email: "marcel.mercier@example.com",
+      contact_phone: "12505388340",
+      address: "1220 Wharf Street, Victoria BC",
+      estimated_value: 18500,
+      detected_value: 18500,
+      description: "We need someone to renovate and replace two roof decks.",
+      source_email_id: "thread-form-1",
+      source: "email",
+    });
+    expect(state.clients[0]).toMatchObject({
+      name: "Mercier Holdings",
+      email: "marcel.mercier@example.com",
+      phone_number: "12505388340",
+      address: "1220 Wharf Street, Victoria BC",
+    });
     expect(state.opportunities[0].title).not.toContain("Canpro");
     expect(state.opportunities[0].title).not.toContain("notifications");
+    expect(matchMock).toHaveBeenCalledWith(
+      "company-1",
+      "marcel.mercier@example.com",
+      expect.objectContaining({
+        threadId: "thread-form-1",
+        name: "Marcel Mercier",
+        connectionId: "connection-1",
+      })
+    );
+    expect(state.activities[0]).toMatchObject({
+      email_message_id: "msg-form-1",
+      email_thread_id: "thread-form-1",
+      from_email: "marcel.mercier@example.com",
+      opportunity_id: "opp-1",
+    });
+    expect(upsertFromEmailMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        providerThreadId: "thread-form-1",
+        email: expect.objectContaining({
+          from: "Marcel Mercier <marcel.mercier@example.com>",
+          fromName: "Marcel Mercier",
+          threadId: "thread-form-1",
+        }),
+        opportunityId: "opp-1",
+      })
+    );
+  });
+
+  it("links a new provider thread to an existing active opportunity when parsed customer address matches", async () => {
+    const state: SupabaseState = {
+      clients: [
+        {
+          id: "client-john",
+          company_id: "company-1",
+          name: "John Carter",
+          email: "john@example.com",
+          phone_number: null,
+          address: "18 Cedar Road, Victoria BC",
+        },
+      ],
+      opportunities: [
+        {
+          id: "opp-john-active",
+          company_id: "company-1",
+          client_id: "client-john",
+          title: "John Carter - Deck rebuild",
+          stage: "follow_up",
+          archived_at: null,
+          deleted_at: null,
+          contact_name: "John Carter",
+          contact_email: "john@example.com",
+          contact_phone: null,
+          address: "18 Cedar Road, Victoria BC",
+          description: "Replace the back deck and railing.",
+          source_email_id: "thread-john-original",
+          created_at: "2026-05-19T17:00:00.000Z",
+          updated_at: "2026-05-20T17:00:00.000Z",
+        },
+      ],
+      threadLinks: [],
+      activities: [],
+      rpcCalls: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+    getConnectionMock.mockResolvedValue(baseConnection());
+    getProviderMock.mockReturnValue({
+      fetchNewEmailsSince: vi.fn(async () => ({
+        emails: [
+          baseEmail({
+            id: "msg-mary-address",
+            threadId: "thread-mary-new",
+            from: "Canpro Deck and Rail <notifications@wix-forms.com>",
+            fromName: "Canpro Deck and Rail",
+            to: ["jackson@canprodeckandrail.com"],
+            subject: "Contact Us 3 got a new submission",
+            bodyText: contactFormBody
+              .replaceAll("Marcel Mercier", "Mary Carter")
+              .replaceAll("marcel.mercier@example.com", "mary.carter@example.com")
+              .replaceAll("Mercier Holdings", "Mary Carter")
+              .replaceAll("1220 Wharf Street, Victoria BC", "18 Cedar Road, Victoria BC"),
+            labelIds: ["INBOX"],
+          }),
+        ],
+        nextSyncToken: "sync-token-2",
+      })),
+      fetchSentEmailsSince: vi.fn(async () => ({
+        emails: [],
+        nextSyncToken: "sync-token-2",
+      })),
+    });
+    matchMock.mockResolvedValue({ action: "create_new", clientId: null });
+
+    await SyncEngine.runSync("connection-1");
+
+    expect(state.opportunities).toHaveLength(1);
+    expect(state.threadLinks).toEqual([
+      expect.objectContaining({
+        opportunity_id: "opp-john-active",
+        thread_id: "thread-mary-new",
+        connection_id: "connection-1",
+      }),
+    ]);
+    expect(state.activities[0]).toMatchObject({
+      email_message_id: "msg-mary-address",
+      email_thread_id: "thread-mary-new",
+      opportunity_id: "opp-john-active",
+      from_email: "mary.carter@example.com",
+    });
+    expect(state.rpcCalls).toEqual([
+      {
+        name: "increment_opportunity_correspondence",
+        params: expect.objectContaining({
+          p_opportunity_id: "opp-john-active",
+          p_is_inbound: true,
+        }),
+      },
+    ]);
+  });
+
+  it("creates a separate opportunity when P3 relationship matching rejects client-level reuse", async () => {
+    const state: SupabaseState = {
+      clients: [
+        {
+          id: "client-existing",
+          company_id: "company-1",
+          name: "Kara Beach",
+          email: "kara.beach@example.com",
+          phone_number: null,
+          address: "22 Original Road, Victoria BC",
+        },
+      ],
+      opportunities: [
+        {
+          id: "opp-open",
+          company_id: "company-1",
+          client_id: "client-existing",
+          title: "Kara Beach - Original deck",
+          stage: "follow_up",
+          archived_at: null,
+          deleted_at: null,
+          contact_name: "Kara Beach",
+          contact_email: "kara.beach@example.com",
+          contact_phone: null,
+          address: "22 Original Road, Victoria BC",
+          description: "Original deck repair.",
+          source_email_id: "thread-original",
+          created_at: "2026-05-19T17:00:00.000Z",
+          updated_at: "2026-05-20T17:00:00.000Z",
+        },
+      ],
+      threadLinks: [],
+      activities: [],
+      rpcCalls: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+    getConnectionMock.mockResolvedValue(baseConnection());
+    getProviderMock.mockReturnValue({
+      fetchNewEmailsSince: vi.fn(async () => ({
+        emails: [
+          baseEmail({
+            id: "msg-new-job",
+            threadId: "thread-new-job",
+            from: "Mara Hill <mara.hill@example.com>",
+            fromName: "Mara Hill",
+            to: ["jackson@canprodeckandrail.com"],
+            subject: "Need an estimate",
+            bodyText: "Can you quote a front gate at 455 New Road?",
+            labelIds: ["INBOX"],
+          }),
+        ],
+        nextSyncToken: "sync-token-2",
+      })),
+      fetchSentEmailsSince: vi.fn(async () => ({
+        emails: [],
+        nextSyncToken: "sync-token-2",
+      })),
+    });
+    matchMock.mockResolvedValue({
+      action: "link",
+      clientId: "client-existing",
+      confidence: "exact",
+    });
+
+    await SyncEngine.runSync("connection-1");
+
+    expect(state.opportunities).toHaveLength(2);
+    const createdOpportunity = state.opportunities.find(
+      (opportunity) => opportunity.id !== "opp-open"
+    );
+    expect(createdOpportunity).toMatchObject({
+      client_id: "client-existing",
+      contact_name: "Mara Hill",
+      contact_email: "mara.hill@example.com",
+      source_email_id: "thread-new-job",
+      source: "email",
+    });
+    expect(state.threadLinks).toEqual([
+      expect.objectContaining({
+        opportunity_id: createdOpportunity?.id,
+        thread_id: "thread-new-job",
+        connection_id: "connection-1",
+      }),
+    ]);
+    expect(state.activities[0]).toMatchObject({
+      email_message_id: "msg-new-job",
+      email_thread_id: "thread-new-job",
+      opportunity_id: createdOpportunity?.id,
+      from_email: "mara.hill@example.com",
+    });
+    expect(state.threadLinks[0].opportunity_id).not.toBe("opp-open");
+  });
+
+  it("quarantines provider-backed inbound email with a blank provider thread id before lifecycle writes", async () => {
+    const state: SupabaseState = {
+      clients: [],
+      opportunities: [],
+      threadLinks: [],
+      activities: [],
+      correspondenceEvents: [],
+      rpcCalls: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+    getConnectionMock.mockResolvedValue(baseConnection());
+    getProviderMock.mockReturnValue({
+      fetchNewEmailsSince: vi.fn(async () => ({
+        emails: [
+          baseEmail({
+            id: "msg-blank-thread",
+            threadId: "   ",
+            from: "Kara Beach <kara.beach@example.com>",
+            fromName: "Kara Beach",
+            to: ["jackson@canprodeckandrail.com"],
+            subject: "Canpro Deck and Rail Estimate",
+            labelIds: ["INBOX"],
+          }),
+        ],
+        nextSyncToken: "sync-token-2",
+      })),
+      fetchSentEmailsSince: vi.fn(async () => ({
+        emails: [],
+        nextSyncToken: "sync-token-2",
+      })),
+    });
+    matchMock.mockResolvedValue({ action: "create_new", clientId: null });
+
+    const result = await SyncEngine.runSync("connection-1");
+
+    expect(state.clients).toHaveLength(0);
+    expect(state.opportunities).toHaveLength(0);
+    expect(state.threadLinks).toHaveLength(0);
+    expect(state.activities).toHaveLength(0);
+    expect(state.correspondenceEvents).toHaveLength(0);
+    expect(state.rpcCalls).toHaveLength(0);
+    expect(upsertFromEmailMock).not.toHaveBeenCalled();
+    expect(result.invalidProviderEmails).toBe(1);
+  });
+
+  it("quarantines provider-backed email with a blank provider message id before activity and count writes", async () => {
+    const state: SupabaseState = {
+      clients: [],
+      opportunities: [],
+      threadLinks: [
+        {
+          opportunity_id: "opp-linked",
+          thread_id: "thread-linked",
+          connection_id: "connection-1",
+        },
+      ],
+      activities: [],
+      correspondenceEvents: [],
+      rpcCalls: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+    getConnectionMock.mockResolvedValue(baseConnection());
+    getProviderMock.mockReturnValue({
+      fetchNewEmailsSince: vi.fn(async () => ({
+        emails: [
+          baseEmail({
+            id: " ",
+            threadId: "thread-linked",
+            from: "Kara Beach <kara.beach@example.com>",
+            fromName: "Kara Beach",
+            to: ["jackson@canprodeckandrail.com"],
+            subject: "Deck quote follow-up",
+            labelIds: ["INBOX"],
+          }),
+        ],
+        nextSyncToken: "sync-token-2",
+      })),
+      fetchSentEmailsSince: vi.fn(async () => ({
+        emails: [],
+        nextSyncToken: "sync-token-2",
+      })),
+    });
+
+    const result = await SyncEngine.runSync("connection-1");
+
+    expect(state.threadLinks).toHaveLength(1);
+    expect(state.activities).toHaveLength(0);
+    expect(state.correspondenceEvents).toHaveLength(0);
+    expect(state.rpcCalls).toHaveLength(0);
+    expect(upsertFromEmailMock).not.toHaveBeenCalled();
+    expect(result.invalidProviderEmails).toBe(1);
+  });
+
+  it("continues valid linked-thread processing after provider id guardrails", async () => {
+    const state: SupabaseState = {
+      clients: [],
+      opportunities: [],
+      threadLinks: [
+        {
+          opportunity_id: "opp-linked",
+          thread_id: "thread-linked",
+          connection_id: "connection-1",
+        },
+      ],
+      activities: [],
+      correspondenceEvents: [],
+      rpcCalls: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+    getConnectionMock.mockResolvedValue(baseConnection());
+    getProviderMock.mockReturnValue({
+      fetchNewEmailsSince: vi.fn(async () => ({
+        emails: [
+          baseEmail({
+            id: "msg-linked",
+            threadId: "thread-linked",
+            from: "Kara Beach <kara.beach@example.com>",
+            fromName: "Kara Beach",
+            to: ["jackson@canprodeckandrail.com"],
+            subject: "Deck quote follow-up",
+            labelIds: ["INBOX"],
+          }),
+        ],
+        nextSyncToken: "sync-token-2",
+      })),
+      fetchSentEmailsSince: vi.fn(async () => ({
+        emails: [],
+        nextSyncToken: "sync-token-2",
+      })),
+    });
+
+    const result = await SyncEngine.runSync("connection-1");
+
+    expect(state.activities).toHaveLength(1);
+    expect(state.correspondenceEvents).toEqual([
+      expect.objectContaining({
+        company_id: "company-1",
+        opportunity_id: "opp-linked",
+        connection_id: "connection-1",
+        provider_thread_id: "thread-linked",
+        provider_message_id: "msg-linked",
+        direction: "inbound",
+        party_role: "customer",
+        is_meaningful: true,
+        noise_reason: null,
+        source: "sync_activity",
+      }),
+    ]);
+    expect(state.activities[0]).toMatchObject({
+      email_message_id: "msg-linked",
+      email_thread_id: "thread-linked",
+      opportunity_id: "opp-linked",
+    });
+    expect(state.rpcCalls).toEqual([
+      {
+        name: "increment_opportunity_correspondence",
+        params: expect.objectContaining({
+          p_opportunity_id: "opp-linked",
+          p_is_inbound: true,
+        }),
+      },
+    ]);
+    expect(upsertFromEmailMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        providerThreadId: "thread-linked",
+        opportunityId: "opp-linked",
+      })
+    );
+    expect(result.matched).toBe(1);
+    expect(result.activitiesCreated).toBe(1);
   });
 
   it("keeps valid inbound customer sender titles stable", async () => {

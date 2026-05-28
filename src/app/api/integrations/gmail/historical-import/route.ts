@@ -13,6 +13,19 @@ import { EmailFilterService } from "@/lib/api/services/email-filter-service";
 import { EmailMatchingServiceV2 } from "@/lib/api/services/email-matching-service-v2";
 import { ClientService } from "@/lib/api/services/client-service";
 import { OpportunityService } from "@/lib/api/services/opportunity-service";
+import { OpportunityLifecycleService } from "@/lib/api/services/opportunity-lifecycle-service";
+import {
+  applyCanonicalLeadEnrichment,
+  leadEnrichmentFactsFromImport,
+} from "@/lib/email/lead-enrichment";
+import { buildEmailOpportunityTitle } from "@/lib/email/opportunity-title";
+import { findOpportunityRelationshipMatch } from "@/lib/email/opportunity-relationship-matching";
+import {
+  logInvalidProviderEmailIds,
+  normalizeProviderEmailId,
+  validateProviderEmailIds,
+  type ProviderEmailIdValidationResult,
+} from "@/lib/email/provider-email-ids";
 import {
   ActivityType,
   OpportunityStage,
@@ -113,6 +126,33 @@ const BATCH_DELAY_MS = 200;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function normalizeHistoricalImportMessageId(
+  msgId: string,
+  companyId: string
+): string | null {
+  const providerMessageId = normalizeProviderEmailId(msgId);
+  if (providerMessageId) return providerMessageId;
+
+  const validation: Extract<ProviderEmailIdValidationResult, { ok: false }> = {
+    ok: false,
+    boundary: "gmail_historical_import_message_fetch",
+    providerThreadId: null,
+    providerMessageId: null,
+    reasons: ["blank_provider_message_id"],
+  };
+
+  logInvalidProviderEmailIds(validation, {
+    companyId,
+    rawProviderMessageId: msgId,
+  });
+  return null;
+}
+
+function internalDomainsForConnection(email: string): string[] {
+  const domain = email.split("@")[1]?.trim().toLowerCase();
+  return domain ? [domain] : [];
 }
 
 // ─── Route Handler ───────────────────────────────────────────────────────────
@@ -259,6 +299,8 @@ export async function POST(request: NextRequest) {
     let matched = 0;
     let unmatched = 0;
     let needsReview = 0;
+    let clientsCreated = 0;
+    let leadsCreated = 0;
 
     for (let i = 0; i < allMessageIds.length; i += BATCH_SIZE) {
       const batch = allMessageIds.slice(i, i + BATCH_SIZE);
@@ -269,6 +311,8 @@ export async function POST(request: NextRequest) {
             msgId,
             token,
             companyId,
+            connectionId,
+            conn.email,
             syncFilters,
             blocklist,
             supabase
@@ -289,6 +333,9 @@ export async function POST(request: NextRequest) {
           if (result.needsReview) {
             needsReview++;
           }
+          if (result.leadCreated) {
+            leadsCreated++;
+          }
         } catch {
           processed++;
           // Skip individual message failures
@@ -308,9 +355,6 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Create clients & leads from approved contacts ─────────────────────
-    let clientsCreated = 0;
-    let leadsCreated = 0;
-
     if (approvedContacts.length > 0) {
       // eslint-disable-next-line no-console
       console.log(
@@ -528,27 +572,32 @@ async function processMessage(
   msgId: string,
   token: string,
   companyId: string,
+  connectionId: string,
+  connectionEmail: string,
   syncFilters: GmailSyncFilters,
   blocklist: { domains: Set<string>; keywords: string[] },
   supabase: ReturnType<typeof requireSupabase>
-): Promise<{ matched: boolean; needsReview: boolean } | null> {
+): Promise<{ matched: boolean; needsReview: boolean; leadCreated: boolean } | null> {
+  const providerMessageId = normalizeHistoricalImportMessageId(msgId, companyId);
+  if (!providerMessageId) return null;
+
   // Dedup: check if we already have this message
   const { data: existing } = await supabase
     .from("activities")
     .select("id")
-    .eq("email_message_id", msgId)
+    .eq("email_message_id", providerMessageId)
     .limit(1);
 
   if ((existing ?? []).length > 0) return null;
 
   // Fetch message metadata
   const msgResp = await fetch(
-    `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msgId}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Subject`,
+    `https://gmail.googleapis.com/gmail/v1/users/me/messages/${providerMessageId}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Subject`,
     { headers: { Authorization: `Bearer ${token}` } }
   );
 
   if (!msgResp.ok) {
-    throw new Error(`Failed to fetch message ${msgId}: ${msgResp.status}`);
+    throw new Error(`Failed to fetch message ${providerMessageId}: ${msgResp.status}`);
   }
 
   const msg: GmailMessage = await msgResp.json();
@@ -561,6 +610,24 @@ async function processMessage(
 
   // Extract email address from "Name <email>" format
   const fromEmail = (from.match(/<(.+?)>/) ?? [, from])[1]?.toLowerCase() ?? "";
+
+  const providerIds = validateProviderEmailIds({
+    boundary: "gmail_historical_import_activity",
+    providerThreadId: threadId,
+    providerMessageId,
+    requireMessageId: true,
+  });
+
+  if (!providerIds.ok) {
+    logInvalidProviderEmailIds(providerIds, {
+      companyId,
+      subject,
+      fromEmail: fromEmail || null,
+    });
+    return null;
+  }
+
+  const providerThreadId = providerIds.providerThreadId;
 
   // Noise filter: skip automated/marketing emails
   if (EmailFilterService.shouldFilter(fromEmail, subject, blocklist, syncFilters, msg.labelIds, msg.snippet)) {
@@ -580,12 +647,13 @@ async function processMessage(
     companyId,
     fromEmail,
     {
-      threadId: threadId ?? undefined,
+      threadId: providerThreadId,
       name: fromName,
     }
   );
 
   const clientId = matchResult.clientId;
+  let activityClientId = clientId;
 
   // Determine direction. V2's `confidence: 'unmatched'` is the only signal
   // that this is a brand-new sender we couldn't place — treat those as
@@ -596,28 +664,104 @@ async function processMessage(
       : "outbound"
     : "inbound";
 
-  // Find open opportunity for matched client
+  const enrichmentFacts = leadEnrichmentFactsFromImport({
+    contactName: fromName,
+    contactEmail: fromEmail,
+    description: msg.snippet ?? null,
+    providerThreadId,
+    providerMessageId,
+    extractionSource: "historical_metadata",
+  });
+
   let opportunityId: string | null = null;
-  if (clientId) {
-    const opps = await OpportunityService.fetchOpportunities(companyId, {
+  let leadCreated = false;
+
+  const relationshipDecision = await findOpportunityRelationshipMatch({
+    supabase,
+    companyId,
+    connectionId,
+    providerThreadId,
+    clientId,
+    facts: {
+      contactName: fromName,
+      contactEmail: fromEmail,
+      contactPhone: null,
+      address: null,
+      description: msg.snippet ?? null,
+      subject,
+      providerThreadId,
+      sourcePlatform: null,
+      phaseCEnabled: false,
+    },
+  });
+
+  if (relationshipDecision.action === "link") {
+    opportunityId = relationshipDecision.opportunityId;
+    activityClientId = relationshipDecision.clientId ?? clientId;
+  } else if (clientId) {
+    const opportunity = await OpportunityService.createOpportunity({
+      companyId,
       clientId,
-      stages: [
-        OpportunityStage.NewLead,
-        OpportunityStage.Qualifying,
-        OpportunityStage.Quoting,
-        OpportunityStage.Quoted,
-        OpportunityStage.FollowUp,
-        OpportunityStage.Negotiation,
-      ],
+      title: buildEmailOpportunityTitle({
+        kind: "email_inquiry",
+        candidates: [
+          {
+            source: "inbound_sender",
+            name: fromName,
+            email: fromEmail,
+          },
+        ],
+      }),
+      stage: OpportunityStage.NewLead,
+      source: OpportunitySource.Email,
+      contactName: fromName || null,
+      contactEmail: fromEmail || null,
+      contactPhone: null,
+      description: msg.snippet ?? null,
+      assignedTo: null,
+      priority: null,
+      estimatedValue: null,
+      actualValue: null,
+      winProbability: 20,
+      expectedCloseDate: null,
+      actualCloseDate: null,
+      projectId: null,
+      lostReason: null,
+      lostNotes: null,
+      sourceEmailId: providerThreadId,
+      quoteDeliveryMethod: null,
+      address: null,
+      latitude: null,
+      longitude: null,
+      tags: ["email-import", "historical-import"],
     });
-    opportunityId = opps[0]?.id ?? null;
+    opportunityId = opportunity.id;
+    leadCreated = true;
+  }
+
+  if (opportunityId) {
+    await applyCanonicalLeadEnrichment({
+      supabase,
+      opportunityId,
+      clientId: activityClientId,
+      facts: enrichmentFacts,
+    });
+
+    await supabase.from("opportunity_email_threads").upsert(
+      {
+        opportunity_id: opportunityId,
+        thread_id: providerThreadId,
+        connection_id: connectionId,
+      },
+      { onConflict: "thread_id,connection_id", ignoreDuplicates: true }
+    );
   }
 
   // Create activity
   const activity = await OpportunityService.createActivity({
     companyId,
     opportunityId,
-    clientId,
+    clientId: activityClientId,
     estimateId: null,
     invoiceId: null,
     projectId: null,
@@ -629,11 +773,37 @@ async function processMessage(
     direction,
     durationMinutes: null,
     attachments: [],
-    emailThreadId: threadId,
-    emailMessageId: msgId,
+    emailThreadId: providerThreadId,
+    emailMessageId: providerMessageId,
     isRead: !!clientId,
     fromEmail: fromEmail || null,
     createdBy: null,
+  });
+
+  await OpportunityLifecycleService.recordCorrespondenceEvent({
+    supabase,
+    companyId,
+    opportunityId,
+    activityId: activity.id,
+    connectionId,
+    providerThreadId,
+    providerMessageId,
+    requireProviderMessageId: true,
+    direction,
+    occurredAt: new Date(),
+    source: "gmail_historical_import",
+    fromEmail: fromEmail || null,
+    fromName,
+    toEmails: [to],
+    ccEmails: [],
+    subject,
+    bodyText: msg.snippet ?? null,
+    labels: msg.labelIds ?? [],
+    connectionEmail,
+    companyDomains: internalDomainsForConnection(connectionEmail),
+    userEmailAddresses: connectionEmail ? [connectionEmail] : [],
+    knownPlatformSenders: [],
+    contactEmail: fromEmail || null,
   });
 
   // Update matching metadata columns. V2 returns `suggestedClientId`
@@ -647,10 +817,11 @@ async function processMessage(
     })
     .eq("id", activity.id);
 
-  const isMatched = matchResult.confidence !== "unmatched";
+  const isMatched = Boolean(opportunityId) || matchResult.confidence !== "unmatched";
 
   return {
     matched: isMatched,
     needsReview: matchResult.needsReview,
+    leadCreated,
   };
 }

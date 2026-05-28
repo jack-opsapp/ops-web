@@ -1,10 +1,12 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   OPPORTUNITY_STAGE_COLORS,
   type Opportunity,
   OpportunityStage,
 } from "@/lib/types/pipeline";
+import type { Client } from "@/lib/types/models";
 import { usePipelineModeStore } from "@/app/(dashboard)/pipeline/_components/pipeline-mode-store";
 import { PipelineFocusedCard } from "@/app/(dashboard)/pipeline/_components/pipeline-focused-card";
 
@@ -48,6 +50,19 @@ vi.mock("@/i18n/client", () => ({
         "focused.openDetail.label": "Open deal details",
         "spatial.emailCount": "{count} emails",
         "card.followUpDate": "Follow up {date}",
+        "card.titleEditLabel": "Edit deal title: {title}",
+        "card.titleInputLabel": "Deal title",
+        "card.clientLinkLabel": "Link client: {client}",
+        "card.clientEmpty": "NO CLIENT",
+        "card.clientCurrent": "CURRENT CLIENT",
+        "card.clientSearchLabel": "Search clients",
+        "card.clientSearchPlaceholder": "Search clients...",
+        "card.clientCreate": "Create client",
+        "card.clientCreateNew": "CREATE NEW CLIENT",
+        "card.clientCreateHint": "TYPE NAME TO CREATE",
+        "card.clientNoMatches": "No client match",
+        "card.addressLabel": "Edit site address",
+        "card.addressEmpty": "NO ADDRESS",
         "actions.logCall": "Log call",
         "actions.logText": "Log text",
         "actions.openDetail": "Open detail",
@@ -64,6 +79,20 @@ vi.mock("@/i18n/client", () => ({
       return translations[key] ?? fallback ?? key;
     },
   }),
+}));
+
+vi.mock("@/lib/api/services/geocoding-service", () => ({
+  GeocodingService: {
+    forwardGeocode: vi.fn(async () => [
+      {
+        id: "address-1",
+        fullAddress: "1234 Industrial Way, Vancouver, BC",
+        shortAddress: "1234 Industrial Way",
+        latitude: 49.2827,
+        longitude: -123.1207,
+      },
+    ]),
+  },
 }));
 
 const NOW = new Date("2026-05-12T12:00:00.000Z");
@@ -116,34 +145,99 @@ function makeOpportunity(): Opportunity {
   };
 }
 
+function makeClients(): Client[] {
+  return [
+    {
+      id: "client-1",
+      name: "North Shore Decks",
+      email: "north@example.com",
+      phoneNumber: "778-555-0101",
+      address: "101 Marine Dr",
+      latitude: 49.318,
+      longitude: -123.089,
+      profileImageURL: null,
+      notes: null,
+      companyId: "company-1",
+      lastSyncedAt: null,
+      needsSync: false,
+      createdAt: NOW,
+      deletedAt: null,
+    },
+    {
+      id: "client-2",
+      name: "Cedar Rail Co",
+      email: "cedar@example.com",
+      phoneNumber: null,
+      address: null,
+      latitude: null,
+      longitude: null,
+      profileImageURL: null,
+      notes: null,
+      companyId: "company-1",
+      lastSyncedAt: null,
+      needsSync: false,
+      createdAt: NOW,
+      deletedAt: null,
+    },
+  ];
+}
+
 function renderFocusedCard({
   canManage = true,
+  opportunity = makeOpportunity(),
+  clientName = "North Shore Decks",
+  clients = makeClients(),
   onMoveStage = vi.fn(),
+  onTitleSave = vi.fn(),
+  onLinkClient = vi.fn(),
+  onCreateAndLinkClient = vi.fn(),
+  onAddressSave = vi.fn(),
 }: {
   canManage?: boolean;
+  opportunity?: Opportunity;
+  clientName?: string;
+  clients?: Client[];
   onMoveStage?: (
     opportunity: Opportunity,
     stage: OpportunityStage
   ) => void;
+  onTitleSave?: (opportunity: Opportunity, title: string) => void;
+  onLinkClient?: (opportunity: Opportunity, clientId: string) => void;
+  onCreateAndLinkClient?: (opportunity: Opportunity, clientName: string) => void;
+  onAddressSave?: (
+    opportunity: Opportunity,
+    selection: { address: string; latitude: number; longitude: number }
+  ) => void;
 } = {}) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+
   return render(
-    <PipelineFocusedCard
-      opportunity={makeOpportunity()}
-      clientName="North Shore Decks"
-      stageColor="#8F9AA3"
-      stalenessOpacity={1}
-      canManage={canManage}
-      onLogCall={vi.fn()}
-      onLogText={vi.fn()}
-      onAddNote={vi.fn()}
-      onArchive={vi.fn()}
-      onDiscard={vi.fn()}
-      onMarkWon={vi.fn()}
-      onMarkLost={vi.fn()}
-      onAssign={vi.fn()}
-      onScheduleFollowUp={vi.fn()}
-      onMoveStage={onMoveStage}
-    />
+    <QueryClientProvider client={queryClient}>
+      <PipelineFocusedCard
+        opportunity={opportunity}
+        clientName={clientName}
+        clients={clients}
+        stageColor="#8F9AA3"
+        stalenessOpacity={1}
+        canManage={canManage}
+        onLogCall={vi.fn()}
+        onLogText={vi.fn()}
+        onAddNote={vi.fn()}
+        onArchive={vi.fn()}
+        onDiscard={vi.fn()}
+        onMarkWon={vi.fn()}
+        onMarkLost={vi.fn()}
+        onAssign={vi.fn()}
+        onScheduleFollowUp={vi.fn()}
+        onMoveStage={onMoveStage}
+        onTitleSave={onTitleSave}
+        onLinkClient={onLinkClient}
+        onCreateAndLinkClient={onCreateAndLinkClient}
+        onAddressSave={onAddressSave}
+      />
+    </QueryClientProvider>
   );
 }
 
@@ -176,23 +270,214 @@ describe("<PipelineFocusedCard>", () => {
     expect(dndMocks.setActivatorNodeRef).toHaveBeenCalled();
   });
 
-  it("keeps drag listeners off the open-detail body target", () => {
+  it("does not open detail when the card body title is clicked", () => {
     renderFocusedCard();
 
     const dragActivator = screen.getByRole("button", {
       name: "Drag card to another stage",
     });
-    const openDetailBody = screen.getByRole("button", {
-      name: "Open deal details: Deck rebuild",
+    const titleButton = screen.getByRole("button", {
+      name: "Edit deal title: Deck rebuild",
     });
 
-    expect(openDetailBody).not.toHaveAttribute("data-dnd-activator");
+    expect(titleButton).not.toHaveAttribute("data-dnd-activator");
 
-    fireEvent.pointerDown(openDetailBody);
+    fireEvent.pointerDown(titleButton);
     expect(dndMocks.pointerDown).not.toHaveBeenCalled();
+
+    fireEvent.click(titleButton);
+    expect(usePipelineModeStore.getState().detailPanelOpportunityId).toBeNull();
 
     fireEvent.pointerDown(dragActivator);
     expect(dndMocks.pointerDown).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens detail only from the explicit toolbar details action", () => {
+    renderFocusedCard();
+
+    fireEvent.click(screen.getByRole("button", { name: "Open detail" }));
+
+    expect(usePipelineModeStore.getState().detailPanelOpportunityId).toBe(
+      "opp-1"
+    );
+  });
+
+  it("saves and cancels inline title edits from the title control", () => {
+    const onTitleSave = vi.fn();
+    renderFocusedCard({ onTitleSave });
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Edit deal title: Deck rebuild",
+      })
+    );
+    const titleInput = screen.getByRole("textbox", { name: "Deal title" });
+    fireEvent.change(titleInput, { target: { value: "Deck rebuild phase 2" } });
+    fireEvent.keyDown(titleInput, { key: "Enter" });
+
+    expect(onTitleSave).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "opp-1" }),
+      "Deck rebuild phase 2"
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Edit deal title: Deck rebuild",
+      })
+    );
+    fireEvent.change(screen.getByRole("textbox", { name: "Deal title" }), {
+      target: { value: "Cancelled title" },
+    });
+    fireEvent.keyDown(screen.getByRole("textbox", { name: "Deal title" }), {
+      key: "Escape",
+    });
+
+    expect(onTitleSave).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens the client linker from the client name and links existing clients", () => {
+    const onLinkClient = vi.fn();
+    renderFocusedCard({ onLinkClient });
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Link client: North Shore Decks",
+      })
+    );
+
+    expect(
+      screen.getByRole("combobox", { name: "Search clients" })
+    ).toBeInTheDocument();
+    expect(
+      document.querySelector("[data-pipeline-client-linker-popover]")
+    ).toHaveClass("fixed", "glass-dense");
+    const popover = document.querySelector(
+      "[data-pipeline-client-linker-popover]"
+    ) as HTMLElement;
+    expect(popover.firstElementChild).toHaveTextContent("CURRENT CLIENT");
+    expect(within(popover).getByText("North Shore Decks")).toBeInTheDocument();
+    expect(
+      within(popover).queryByRole("option", { name: "North Shore Decks" })
+    ).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Search clients" }), {
+      target: { value: "cedar" },
+    });
+    fireEvent.click(screen.getByRole("option", { name: "Cedar Rail Co" }));
+
+    expect(onLinkClient).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "opp-1" }),
+      "client-2"
+    );
+    expect(usePipelineModeStore.getState().detailPanelOpportunityId).toBeNull();
+  });
+
+  it("shows an unlinked client empty state and pins create new at the top", () => {
+    const onCreateAndLinkClient = vi.fn();
+    const unlinkedOpportunity = {
+      ...makeOpportunity(),
+      clientId: null,
+      contactName: null,
+    };
+    renderFocusedCard({
+      opportunity: unlinkedOpportunity,
+      clientName: "Unknown Contact",
+      onCreateAndLinkClient,
+    });
+
+    const trigger = screen.getByRole("button", {
+      name: "Link client: NO CLIENT",
+    });
+    expect(trigger).toHaveTextContent("NO CLIENT");
+
+    fireEvent.click(trigger);
+
+    const popover = document.querySelector(
+      "[data-pipeline-client-linker-popover]"
+    ) as HTMLElement;
+    expect(popover.firstElementChild).toHaveTextContent("CREATE NEW CLIENT");
+    expect(within(popover).getByText("TYPE NAME TO CREATE")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Search clients" }), {
+      target: { value: "Harbour Fence" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Create client Harbour Fence" })
+    );
+
+    expect(onCreateAndLinkClient).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "opp-1" }),
+      "Harbour Fence"
+    );
+    expect(usePipelineModeStore.getState().detailPanelOpportunityId).toBeNull();
+  });
+
+  it("creates and links a client from the linker when no match exists", () => {
+    const onCreateAndLinkClient = vi.fn();
+    renderFocusedCard({ onCreateAndLinkClient });
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Link client: North Shore Decks",
+      })
+    );
+    fireEvent.change(screen.getByRole("combobox", { name: "Search clients" }), {
+      target: { value: "Harbour Fence" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Create client Harbour Fence" })
+    );
+
+    expect(onCreateAndLinkClient).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "opp-1" }),
+      "Harbour Fence"
+    );
+    expect(usePipelineModeStore.getState().detailPanelOpportunityId).toBeNull();
+  });
+
+  it("opens the inline site address autocomplete from the empty address state", () => {
+    renderFocusedCard();
+
+    expect(screen.getByText("NO ADDRESS")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit site address" }));
+
+    const input = screen.getByRole("combobox", {
+      name: "Edit site address",
+    });
+    expect(input).toBeInTheDocument();
+    expect(input).toHaveClass("font-mohave", "text-body-sm");
+    expect(input.getAttribute("style")).toContain("background: transparent");
+    expect(input.getAttribute("style")).toContain(
+      "border-bottom: 1px solid hsl(var(--border))"
+    );
+    expect(
+      document.querySelector("[data-pipeline-address-popover]")
+    ).not.toBeInTheDocument();
+    expect(usePipelineModeStore.getState().detailPanelOpportunityId).toBeNull();
+  });
+
+  it("keeps address suggestions portaled outside the clipped card", async () => {
+    renderFocusedCard();
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit site address" }));
+    await act(async () => {
+      fireEvent.change(
+        screen.getByRole("combobox", { name: "Edit site address" }),
+        {
+          target: { value: "1234 industrial" },
+        }
+      );
+      await new Promise((resolve) => window.setTimeout(resolve, 350));
+    });
+
+    await act(async () => {
+      await vi.waitFor(() => {
+        expect(screen.getByRole("listbox")).toHaveClass("fixed");
+        expect(screen.getByRole("option", { name: /1234 industrial way/i }))
+          .toBeInTheDocument();
+      });
+    });
   });
 
   it("renders focused quick reassign buttons without opening detail", () => {

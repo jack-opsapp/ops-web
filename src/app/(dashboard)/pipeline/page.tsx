@@ -29,7 +29,9 @@ import {
   useTeamMembers,
   useMoveOpportunityStage,
   useUpdateOpportunity,
+  useAttachClientToOpportunity,
   useCreateOpportunity,
+  useCreateClient,
   useCreateActivity,
   useArchiveOpportunity,
   useUnarchiveOpportunity,
@@ -1135,7 +1137,9 @@ export default function PipelinePage() {
   // ── Mutations ─────────────────────────────────────────────────────────
   const moveStage = useMoveOpportunityStage();
   const updateOpportunity = useUpdateOpportunity();
+  const attachClient = useAttachClientToOpportunity();
   const createOpportunity = useCreateOpportunity();
+  const createClientMutation = useCreateClient();
   const createActivity = useCreateActivity();
   const archiveMutation = useArchiveOpportunity();
   const unarchiveMutation = useUnarchiveOpportunity();
@@ -1823,6 +1827,103 @@ export default function PipelinePage() {
     usePipelineModeStore.getState().openDetailPanel(opp.id);
   }, []);
 
+  const handleTitleSave = useCallback(
+    (opportunity: Opportunity, title: string) => {
+      if (!can("pipeline.manage")) return;
+      updateOpportunity.mutate(
+        { id: opportunity.id, data: { title } },
+        {
+          onError: (error) => {
+            toast.error(t("toast.failedUpdate"), {
+              description:
+                error instanceof Error
+                  ? error.message
+                  : t("toast.errorOccurred"),
+            });
+          },
+        }
+      );
+    },
+    [can, t, updateOpportunity]
+  );
+
+  const handleLinkClient = useCallback(
+    (opportunity: Opportunity, clientId: string) => {
+      if (!can("pipeline.manage")) return;
+      attachClient.mutate(
+        { opportunityId: opportunity.id, clientId },
+        {
+          onError: (error) => {
+            toast.error(t("toast.failedUpdate"), {
+              description:
+                error instanceof Error
+                  ? error.message
+                  : t("toast.errorOccurred"),
+            });
+          },
+        }
+      );
+    },
+    [attachClient, can, t]
+  );
+
+  const handleCreateAndLinkClient = useCallback(
+    async (opportunity: Opportunity, clientName: string) => {
+      if (!can("pipeline.manage") || !company?.id) return;
+
+      try {
+        const client = await createClientMutation.mutateAsync({
+          name: clientName,
+          email: opportunity.contactEmail,
+          phoneNumber: opportunity.contactPhone,
+          address: opportunity.address,
+          companyId: company.id,
+        });
+
+        await attachClient.mutateAsync({
+          opportunityId: opportunity.id,
+          clientId: client.id,
+        });
+      } catch (error) {
+        toast.error(t("toast.failedUpdate"), {
+          description:
+            error instanceof Error ? error.message : t("toast.errorOccurred"),
+        });
+      }
+    },
+    [attachClient, can, company?.id, createClientMutation, t]
+  );
+
+  const handleAddressSave = useCallback(
+    (
+      opportunity: Opportunity,
+      selection: { address: string; latitude: number; longitude: number }
+    ) => {
+      if (!can("pipeline.manage")) return;
+      updateOpportunity.mutate(
+        {
+          id: opportunity.id,
+          data: {
+            address: selection.address,
+            latitude: selection.latitude,
+            longitude: selection.longitude,
+          },
+        },
+        {
+          onError: (error) => {
+            toast.error(t("toast.failedUpdate"), {
+              description:
+                error instanceof Error
+                  ? error.message
+                  : t("toast.errorOccurred"),
+            });
+          },
+        }
+      );
+    },
+    [can, t, updateOpportunity]
+  );
+
   /** Handle quick advance: move to next stage */
   const handleAdvanceStage = useCallback(
     (opportunity: Opportunity) => {
@@ -1982,6 +2083,7 @@ export default function PipelinePage() {
               {mode === "focused" ? (
                 <PipelineFocusedShell
                   opportunities={filteredOpportunities}
+                  clients={clientsData?.clients ?? []}
                   clientNameMap={clientNameMap}
                   canManage={canManage}
                   filtersActive={filtersActive}
@@ -2008,6 +2110,10 @@ export default function PipelinePage() {
                   onAssign={handleAssign}
                   onScheduleFollowUp={handleScheduleFollowUp}
                   onDelete={(id) => deleteMutation.mutate(id)}
+                  onTitleSave={handleTitleSave}
+                  onLinkClient={handleLinkClient}
+                  onCreateAndLinkClient={handleCreateAndLinkClient}
+                  onAddressSave={handleAddressSave}
                 />
               ) : (
                 <SpatialCanvasDesktop

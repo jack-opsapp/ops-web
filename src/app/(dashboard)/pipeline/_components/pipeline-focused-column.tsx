@@ -9,8 +9,10 @@ import {
   OpportunityStage,
   OPPORTUNITY_STAGE_COLORS,
 } from "@/lib/types/pipeline";
+import type { Client } from "@/lib/types/models";
 import { calculateBatchStaleness } from "./spatial-staleness";
 import { PipelineFocusedCard } from "./pipeline-focused-card";
+import type { PipelineCardEditHandlers } from "./pipeline-card-content";
 
 type FocusedColumnActionHandlers = {
   onLogCall: (id: string) => void;
@@ -23,11 +25,12 @@ type FocusedColumnActionHandlers = {
   onMoveStage: (id: string, stage: OpportunityStage) => void;
   onAssign: (id: string) => void;
   onScheduleFollowUp: (id: string) => void;
-};
+} & Partial<PipelineCardEditHandlers>;
 
 export interface PipelineFocusedColumnProps extends FocusedColumnActionHandlers {
   stage: OpportunityStage;
   opportunities: Opportunity[];
+  clients?: Client[];
   clientNameMap: Map<string, string>;
   canManage: boolean;
   filtersActive: boolean;
@@ -45,6 +48,7 @@ const FOCUSED_LIST_END_PADDING = "pb-[360px]";
 export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
   stage,
   opportunities,
+  clients = [],
   clientNameMap,
   canManage,
   filtersActive,
@@ -65,6 +69,10 @@ export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
   onMoveStage,
   onAssign,
   onScheduleFollowUp,
+  onTitleSave,
+  onLinkClient,
+  onCreateAndLinkClient,
+  onAddressSave,
 }: PipelineFocusedColumnProps) {
   const { t } = useDictionary("pipeline");
   const stageColor =
@@ -161,6 +169,7 @@ export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
                 key={opportunity.id}
                 opportunity={opportunity}
                 clientName={clientName}
+                clients={clients}
                 stageColor={cardStageColor}
                 stalenessOpacity={stalenessMap.get(opportunity.id) ?? 1}
                 canManage={canManage}
@@ -176,6 +185,10 @@ export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
                 }
                 onAssign={() => onAssign(opportunity.id)}
                 onScheduleFollowUp={() => onScheduleFollowUp(opportunity.id)}
+                onTitleSave={onTitleSave}
+                onLinkClient={onLinkClient}
+                onCreateAndLinkClient={onCreateAndLinkClient}
+                onAddressSave={onAddressSave}
               />
             );
           })}

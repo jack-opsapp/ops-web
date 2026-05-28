@@ -20,16 +20,20 @@ import {
   getActiveStages,
   getStageDisplayName,
 } from "@/lib/types/pipeline";
+import type { Client } from "@/lib/types/models";
 import { usePipelineModeStore } from "./pipeline-mode-store";
 import {
   PipelineCardContent,
   type PipelineCardActionHandlers,
+  type PipelineCardEditHandlers,
 } from "./pipeline-card-content";
 
 interface PipelineFocusedCardProps
-  extends Omit<PipelineCardActionHandlers, "onOpenDetail"> {
+  extends Omit<PipelineCardActionHandlers, "onOpenDetail">,
+    Partial<PipelineCardEditHandlers> {
   opportunity: Opportunity;
   clientName: string;
+  clients?: Client[];
   stageColor: string;
   stalenessOpacity: number;
   canManage: boolean;
@@ -39,6 +43,7 @@ interface PipelineFocusedCardProps
 export const PipelineFocusedCard = memo(function PipelineFocusedCard({
   opportunity,
   clientName,
+  clients = [],
   stageColor,
   stalenessOpacity,
   canManage,
@@ -52,6 +57,10 @@ export const PipelineFocusedCard = memo(function PipelineFocusedCard({
   onAssign,
   onScheduleFollowUp,
   onMoveStage,
+  onTitleSave,
+  onLinkClient,
+  onCreateAndLinkClient,
+  onAddressSave,
 }: PipelineFocusedCardProps) {
   const { t } = useDictionary("pipeline");
   const {
@@ -89,6 +98,7 @@ export const PipelineFocusedCard = memo(function PipelineFocusedCard({
         <PipelineCardContent
           opportunity={opportunity}
           clientName={clientName}
+          clients={clients}
           stageColor={stageColor}
           stalenessOpacity={stalenessOpacity}
           density="comfortable"
@@ -106,6 +116,10 @@ export const PipelineFocusedCard = memo(function PipelineFocusedCard({
           onAssign={onAssign}
           onScheduleFollowUp={onScheduleFollowUp}
           onOpenDetail={openDetailPanel}
+          onTitleSave={onTitleSave}
+          onLinkClient={onLinkClient}
+          onCreateAndLinkClient={onCreateAndLinkClient}
+          onAddressSave={onAddressSave}
           quickStageActions={
             <FocusedQuickStageActions
               currentStage={opportunity.stage}

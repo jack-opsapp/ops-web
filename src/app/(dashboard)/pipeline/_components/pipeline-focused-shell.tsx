@@ -26,6 +26,7 @@ import {
   isActiveStage,
   getStageDisplayName,
 } from "@/lib/types/pipeline";
+import type { Client } from "@/lib/types/models";
 import type { SortOption } from "./pipeline-mode-types";
 import { usePipelineModeStore } from "./pipeline-mode-store";
 import { usePipelineDndState } from "./pipeline-dnd-provider";
@@ -33,6 +34,7 @@ import { PipelineFocusedColumn } from "./pipeline-focused-column";
 import { PipelineFocusedDetailWindow } from "./pipeline-focused-detail-window";
 import { PipelineSpineColumn } from "./pipeline-spine-column";
 import { PipelineTerminalStack } from "./pipeline-terminal-stack";
+import type { PipelineCardEditHandlers } from "./pipeline-card-content";
 
 type FocusedShellActionHandlers = {
   onLogCall: (id: string) => void;
@@ -47,10 +49,11 @@ type FocusedShellActionHandlers = {
   onAssign: (id: string) => void;
   onScheduleFollowUp: (id: string) => void;
   onDelete: (id: string) => void;
-};
+} & Partial<PipelineCardEditHandlers>;
 
 export interface PipelineFocusedShellProps extends FocusedShellActionHandlers {
   opportunities: Opportunity[];
+  clients?: Client[];
   clientNameMap: Map<string, string>;
   canManage: boolean;
   filtersActive: boolean;
@@ -183,6 +186,7 @@ function focusOpportunityCard(opportunityId: string | null) {
 
 export function PipelineFocusedShell({
   opportunities,
+  clients = [],
   clientNameMap,
   canManage,
   filtersActive,
@@ -205,6 +209,10 @@ export function PipelineFocusedShell({
   onAssign,
   onScheduleFollowUp,
   onDelete,
+  onTitleSave,
+  onLinkClient,
+  onCreateAndLinkClient,
+  onAddressSave,
 }: PipelineFocusedShellProps) {
   const { t } = useDictionary("pipeline");
   const reduced = useReducedMotion();
@@ -609,6 +617,7 @@ export function PipelineFocusedShell({
           <PipelineFocusedColumn
             stage={safeFocusedStage}
             opportunities={focusedOpportunities}
+            clients={clients}
             clientNameMap={clientNameMap}
             canManage={canManage}
             filtersActive={filtersActive}
@@ -629,6 +638,10 @@ export function PipelineFocusedShell({
             onMoveStage={onMoveStage}
             onAssign={onAssign}
             onScheduleFollowUp={onScheduleFollowUp}
+            onTitleSave={onTitleSave}
+            onLinkClient={onLinkClient}
+            onCreateAndLinkClient={onCreateAndLinkClient}
+            onAddressSave={onAddressSave}
           />
         </motion.div>
       </div>
