@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toast";
 import { SignOutOverlay } from "@/components/ops/sign-out-overlay";
 import { UtmCaptureEffect } from "@/components/pmf/utm-capture-effect";
 import { DevBypassBanner } from "@/components/providers/dev-bypass-banner";
+import GoogleAnalytics from "@/components/layout/GoogleAnalytics";
 import { getLocale } from "@/i18n/server";
 
 export const metadata: Metadata = {
@@ -83,6 +84,7 @@ export default async function RootLayout({
           <UtmCaptureEffect />
           <DevBypassBanner />
         </Providers>
+        <GoogleAnalytics />
       </body>
     </html>
   );
