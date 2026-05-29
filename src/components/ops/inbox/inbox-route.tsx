@@ -341,14 +341,24 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
     threads.find((row) => row.id === selectedThreadId)?.providerThreadId ??
     null;
 
-  // Drafts scoped to the current thread (provider thread id match).
+  // Drafts scoped to the current thread. Provider/AI drafts match by provider
+  // thread id; local lifecycle drafts can also navigate by internal inbox id
+  // or opportunity id when the provider thread could not be resolved.
   const allDrafts = draftsQuery.data ?? [];
   const threadDrafts = useMemo(
-    () =>
-      providerThreadId
-        ? allDrafts.filter((d) => d.threadId === providerThreadId)
-        : [],
-    [allDrafts, providerThreadId]
+    () => {
+      const opportunityId = detail?.thread.opportunityId ?? null;
+      return allDrafts.filter((draft) => {
+        if (draft.inboxThreadId && draft.inboxThreadId === selectedThreadId) {
+          return true;
+        }
+        if (providerThreadId && draft.threadId === providerThreadId) {
+          return true;
+        }
+        return Boolean(opportunityId && draft.opportunityId === opportunityId);
+      });
+    },
+    [allDrafts, detail?.thread.opportunityId, providerThreadId, selectedThreadId]
   );
   const activeDraft = useMemo(
     () => threadDrafts.find((d) => d.id === activeDraftId) ?? null,
@@ -363,6 +373,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
   }, [activeDraftId, threadDrafts]);
 
   const isAgentDraft = activeDraft?.source === "ai";
+  const isLifecycleDraft = activeDraft?.source === "lifecycle";
   const isPristineDraft =
     activeDraft !== null && composerValue === activeDraft.bodyText;
 
@@ -435,12 +446,12 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
     }
   }, [selectedThreadId]);
 
-  // Seed the auto-save draft id from the currently-active provider draft so
-  // subsequent edits update the existing row rather than creating a new one
-  // alongside it. AI drafts deliberately do NOT seed — they live on a
-  // different table and aren't routable through the provider update path.
+  // Seed the auto-save draft id from the currently-active provider or local
+  // lifecycle draft so subsequent edits update the existing row rather than
+  // creating another draft. AI drafts deliberately do NOT seed — they live on
+  // a different table and aren't editable through this route.
   useEffect(() => {
-    if (activeDraft?.source === "provider") {
+    if (activeDraft?.source === "provider" || activeDraft?.source === "lifecycle") {
       autoSaveDraftIdRef.current = activeDraft.id;
       lastSavedBodyRef.current = activeDraft.bodyText;
     }
@@ -451,6 +462,28 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
     if (!composerValue.trim()) return;
     if (isAgentDraft && isPristineDraft) return;
     if (composerValue === lastSavedBodyRef.current) return;
+
+    if (isLifecycleDraft && activeDraft) {
+      const handle = window.setTimeout(() => {
+        const valueAtFire = composerValue;
+        saveDraft.mutate(
+          {
+            source: "lifecycle",
+            draftId: activeDraft.id,
+            subject: activeDraft.subject,
+            body: valueAtFire,
+          },
+          {
+            onSuccess: () => {
+              autoSaveDraftIdRef.current = activeDraft.id;
+              lastSavedBodyRef.current = valueAtFire;
+            },
+          }
+        );
+      }, AUTOSAVE_DELAY_MS);
+
+      return () => window.clearTimeout(handle);
+    }
 
     // Detail wire shape doesn't expose connectionId — only the list row does.
     // Fall back gracefully when the row isn't in the current page (deep-link
@@ -501,7 +534,9 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
     selectedThreadId,
     detail,
     isAgentDraft,
+    isLifecycleDraft,
     isPristineDraft,
+    activeDraft,
     providerThreadId,
     threads,
   ]);
@@ -542,6 +577,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
       threadDrafts.map((draft) => ({
         id: draft.id,
         source: draft.source,
+        subject: draft.subject,
         body: draft.bodyText,
         fromEmail: draft.fromEmail,
         updatedAt: draft.updatedAt,

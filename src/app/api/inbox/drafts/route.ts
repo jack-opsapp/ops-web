@@ -8,6 +8,8 @@
  * Merges two sources into one list:
  *   - `ai_draft_history` rows with status='drafted'  (OPS AI-generated drafts)
  *   - provider Drafts folder (Gmail `/drafts`, M365 Drafts mailFolder)
+ *   - `opportunity_follow_up_drafts` rows with origin='template_follow_up'
+ *     and status='drafted' (local lifecycle drafts, no provider draft)
  *
  * Dedupe rule: when both an AI draft and a provider draft reference the same
  * thread, the AI draft wins. Rationale: the user is almost certainly editing
@@ -33,11 +35,22 @@ import type {
   InboxDraftRow,
   InboxScope,
 } from "@/lib/types/email-thread";
+import { DEFAULT_FOLLOW_UP_TEMPLATE_SUBJECT } from "@/lib/email/opportunity-lifecycle-evaluator";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 function parseScope(raw: string | null): InboxScope {
   return raw === "company" ? "company" : "own";
+}
+
+function nonEmptyText(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function threadMapKey(connectionId: string | null, providerThreadId: string | null) {
+  return `${connectionId ?? ""}:${providerThreadId ?? ""}`;
 }
 
 // ─── GET — list merged drafts ───────────────────────────────────────────────
@@ -175,6 +188,90 @@ export async function GET(request: NextRequest) {
     };
   });
 
+  // ── Fetch local lifecycle drafts ────────────────────────────────────────
+  // P5 lifecycle drafts deliberately stay local until an operator edits/sends
+  // through the inbox. They must not create or update provider draft rows.
+  const lifecycleQuery = supabase
+    .from("opportunity_follow_up_drafts")
+    .select(
+      "id, opportunity_id, connection_id, provider_thread_id, subject, original_body, current_body, edited_at, updated_at, created_at"
+    )
+    .eq("company_id", companyId)
+    .eq("origin", "template_follow_up")
+    .eq("status", "drafted")
+    .order("updated_at", { ascending: false })
+    .limit(200);
+
+  const { data: lifecycleRows, error: lifecycleErr } = await lifecycleQuery;
+  if (lifecycleErr) {
+    console.error(
+      "[/api/inbox/drafts] opportunity_follow_up_drafts query failed:",
+      lifecycleErr
+    );
+  }
+
+  const connectionById = new Map(connections.map((conn) => [conn.id, conn]));
+  const scopedLifecycleRows = (lifecycleRows ?? []).filter((row) => {
+    const rowConnectionId = nonEmptyText(row.connection_id);
+    return !rowConnectionId || connectionById.has(rowConnectionId);
+  });
+  const providerThreadIds = Array.from(
+    new Set(
+      scopedLifecycleRows
+        .map((row) => nonEmptyText(row.provider_thread_id))
+        .filter((value): value is string => value !== null)
+    )
+  );
+
+  const threadByProvider = new Map<string, string>();
+  if (providerThreadIds.length > 0) {
+    const { data: threadRows, error: threadErr } = await supabase
+      .from("email_threads")
+      .select("id, connection_id, provider_thread_id")
+      .eq("company_id", companyId)
+      .in("provider_thread_id", providerThreadIds);
+    if (threadErr) {
+      console.error("[/api/inbox/drafts] email_threads query failed:", threadErr);
+    } else {
+      for (const row of threadRows ?? []) {
+        const providerThreadId = nonEmptyText(row.provider_thread_id);
+        const connectionId = nonEmptyText(row.connection_id);
+        const id = nonEmptyText(row.id);
+        if (providerThreadId && id) {
+          threadByProvider.set(threadMapKey(connectionId, providerThreadId), id);
+        }
+      }
+    }
+  }
+
+  const lifecycleDrafts: InboxDraftRow[] = scopedLifecycleRows.map((row) => {
+    const connectionId = nonEmptyText(row.connection_id);
+    const providerThreadId = nonEmptyText(row.provider_thread_id);
+    const conn = connectionId ? connectionById.get(connectionId) : null;
+    return {
+      source: "lifecycle",
+      id: row.id as string,
+      threadId: providerThreadId,
+      inboxThreadId:
+        threadByProvider.get(threadMapKey(connectionId, providerThreadId)) ?? null,
+      opportunityId: nonEmptyText(row.opportunity_id),
+      connectionId,
+      fromEmail: conn?.email ?? "",
+      to: [],
+      cc: [],
+      subject: nonEmptyText(row.subject) ?? DEFAULT_FOLLOW_UP_TEMPLATE_SUBJECT,
+      bodyText:
+        nonEmptyText(row.current_body) ??
+        nonEmptyText(row.original_body) ??
+        "",
+      updatedAt:
+        nonEmptyText(row.edited_at) ??
+        nonEmptyText(row.updated_at) ??
+        nonEmptyText(row.created_at) ??
+        new Date().toISOString(),
+    };
+  });
+
   // ── Merge + dedupe ───────────────────────────────────────────────────────
   // Dedupe by threadId: for each thread with competing AI + provider drafts,
   // render whichever was edited most recently. Previously AI unconditionally
@@ -199,6 +296,9 @@ export async function GET(request: NextRequest) {
   // Standalones — always keep.
   for (const d of aiDrafts) if (!d.threadId) kept.push(d);
   for (const d of providerDrafts) if (!d.threadId) kept.push(d);
+  // Lifecycle drafts are local operator work and must not be hidden by
+  // provider/Phase C dedupe. They are independently editable/discardable.
+  for (const d of lifecycleDrafts) kept.push(d);
   // Per-thread: newer updatedAt wins. If only one side has a row, it wins
   // trivially.
   for (const tid of contestedThreads) {
@@ -244,6 +344,7 @@ export async function GET(request: NextRequest) {
 // against the caller's company.
 
 interface SaveDraftBody {
+  source?: "provider" | "lifecycle";
   connectionId?: string;
   to?: string;
   subject?: string;
@@ -275,7 +376,63 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { connectionId, to, subject, body, providerThreadId, draftId } = payload;
+  const { connectionId, to, subject, body, providerThreadId, draftId, source } =
+    payload;
+
+  if (source === "lifecycle") {
+    if (!draftId || typeof draftId !== "string") {
+      return NextResponse.json(
+        { error: "draftId is required for lifecycle drafts" },
+        { status: 400 }
+      );
+    }
+    if (typeof body !== "string") {
+      return NextResponse.json(
+        { error: "body is required for lifecycle drafts" },
+        { status: 400 }
+      );
+    }
+
+    const supabase = getServiceRoleClient();
+    const { data: existing, error: existingErr } = await supabase
+      .from("opportunity_follow_up_drafts")
+      .select("id")
+      .eq("id", draftId)
+      .eq("company_id", companyId)
+      .eq("origin", "template_follow_up")
+      .eq("status", "drafted")
+      .single();
+    if (existingErr || !existing) {
+      return NextResponse.json({ error: "Draft not found" }, { status: 404 });
+    }
+
+    const now = new Date().toISOString();
+    const { error } = await supabase
+      .from("opportunity_follow_up_drafts")
+      .update({
+        subject: nonEmptyText(subject) ?? DEFAULT_FOLLOW_UP_TEMPLATE_SUBJECT,
+        current_body: body,
+        edited_by: userId,
+        edited_at: now,
+        updated_at: now,
+      })
+      .eq("id", draftId)
+      .eq("company_id", companyId)
+      .eq("origin", "template_follow_up")
+      .eq("status", "drafted");
+
+    if (error) {
+      console.error("[/api/inbox/drafts] lifecycle save failed:", error);
+      return NextResponse.json({ error: "Save failed" }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      ok: true,
+      draftId,
+      source: "lifecycle" as const,
+    });
+  }
+
   if (!connectionId || typeof connectionId !== "string") {
     return NextResponse.json(
       { error: "connectionId is required" },
@@ -361,7 +518,7 @@ export async function DELETE(request: NextRequest) {
   const id = searchParams.get("id");
   const connectionId = searchParams.get("connectionId");
 
-  if (!id || (source !== "provider" && source !== "ai")) {
+  if (!id || (source !== "provider" && source !== "ai" && source !== "lifecycle")) {
     return NextResponse.json(
       { error: "Missing or invalid source/id" },
       { status: 400 }
@@ -369,6 +526,45 @@ export async function DELETE(request: NextRequest) {
   }
 
   const supabase = getServiceRoleClient();
+
+  if (source === "lifecycle") {
+    const { data: row, error } = await supabase
+      .from("opportunity_follow_up_drafts")
+      .select("id, company_id")
+      .eq("id", id)
+      .eq("origin", "template_follow_up")
+      .eq("status", "drafted")
+      .single();
+    if (error || !row) {
+      return NextResponse.json({ error: "Draft not found" }, { status: 404 });
+    }
+    if (row.company_id !== companyId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const now = new Date().toISOString();
+    const { error: updErr } = await supabase
+      .from("opportunity_follow_up_drafts")
+      .update({
+        status: "discarded",
+        discarded_at: now,
+        edited_by: userId,
+        edited_at: now,
+        updated_at: now,
+      })
+      .eq("id", id)
+      .eq("company_id", companyId)
+      .eq("origin", "template_follow_up")
+      .eq("status", "drafted");
+    if (updErr) {
+      console.error("[/api/inbox/drafts] lifecycle discard failed:", updErr);
+      return NextResponse.json(
+        { error: "Discard failed" },
+        { status: 500 }
+      );
+    }
+    return NextResponse.json({ ok: true });
+  }
 
   if (source === "ai") {
     // Scope check — the row must belong to the caller's company.

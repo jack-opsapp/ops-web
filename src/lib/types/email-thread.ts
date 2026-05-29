@@ -110,7 +110,7 @@ import type { RailFilter } from "@/lib/inbox/rail-predicates";
 // + `id` are what the DELETE endpoint round-trips to find the underlying
 // record (provider API vs. ai_draft_history row).
 
-export type DraftSource = "provider" | "ai";
+export type DraftSource = "provider" | "ai" | "lifecycle";
 
 export interface InboxDraftRow {
   source: DraftSource;
@@ -121,6 +121,14 @@ export interface InboxDraftRow {
    * thread to reply to).
    */
   threadId: string | null;
+  /**
+   * Internal `email_threads.id` when OPS can resolve the provider thread id.
+   * Lifecycle drafts are local rows, so this is the value the inbox should
+   * navigate to while `threadId` remains the provider thread id for matching.
+   */
+  inboxThreadId?: string | null;
+  /** Linked opportunity for local lifecycle drafts. */
+  opportunityId?: string | null;
   /**
    * Connection id for provider drafts; AI drafts may also carry one when
    * the AI was scoped to a specific mailbox. Required by the discard path

@@ -617,19 +617,20 @@ export function useInboxDrafts(scope: InboxScope) {
  * row is newly created and needs to surface in the switcher).
  */
 export interface SaveDraftArgs {
-  connectionId: string;
-  to: string;
+  source?: "provider" | "lifecycle";
+  connectionId?: string;
+  to?: string;
   subject: string;
   body: string;
-  providerThreadId: string | null;
-  /** Existing provider draft id; omit on the first save for a thread. */
+  providerThreadId?: string | null;
+  /** Existing provider/local draft id; omit on the first provider save. */
   draftId: string | null;
 }
 
 export interface SaveDraftResponse {
   ok: true;
   draftId: string;
-  source: "provider";
+  source: "provider" | "lifecycle";
 }
 
 export function useSaveDraft() {
@@ -652,10 +653,10 @@ export function useSaveDraft() {
       return (await res.json()) as SaveDraftResponse;
     },
     onSuccess: (_res, args) => {
-      // Only refresh the drafts list when a brand-new row is created — the
-      // switcher needs it to appear. In-place updates don't change the list
-      // shape so refetching would be pure noise.
-      if (!args.draftId) {
+      // Refresh lifecycle drafts after edits so the local row stays current
+      // in the chip and inline draft bubble. Provider in-place autosaves skip
+      // this to avoid refetching the provider list on every debounce tick.
+      if (args.source === "lifecycle" || !args.draftId) {
         qc.invalidateQueries({ queryKey: queryKeys.inbox.drafts("own") });
         qc.invalidateQueries({ queryKey: queryKeys.inbox.drafts("company") });
       }

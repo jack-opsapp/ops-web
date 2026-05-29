@@ -98,6 +98,7 @@ export function DraftsChip({ scope, onOpenThread }: DraftsChipProps) {
           {drafts.map((draft) => {
             const subject = draft.subject.trim() || t("detail.untitled", "(no subject)");
             const peopleLabel = draft.to.join(", ") || draft.fromEmail;
+            const targetThreadId = draft.inboxThreadId ?? draft.threadId;
             return (
               <div
                 key={`${draft.source}-${draft.id}`}
@@ -106,12 +107,12 @@ export function DraftsChip({ scope, onOpenThread }: DraftsChipProps) {
                 <button
                   type="button"
                   onClick={() => {
-                    if (draft.threadId) {
-                      onOpenThread(draft.threadId);
+                    if (targetThreadId) {
+                      onOpenThread(targetThreadId);
                       setOpen(false);
                     }
                   }}
-                  disabled={!draft.threadId}
+                  disabled={!targetThreadId}
                   className="flex-1 min-w-0 text-left disabled:cursor-default"
                 >
                   <div className="font-mohave text-body-sm text-text truncate">
@@ -122,7 +123,7 @@ export function DraftsChip({ scope, onOpenThread }: DraftsChipProps) {
                     {" · "}
                     {formatRelative(draft.updatedAt, now)}
                     {" · "}
-                    {draft.source === "ai" ? "PHASE C" : "YOURS"}
+                    {draftSourceLabel(draft.source, t)}
                   </div>
                 </button>
                 <button
@@ -145,4 +146,13 @@ export function DraftsChip({ scope, onOpenThread }: DraftsChipProps) {
       </PopoverContent>
     </Popover>
   );
+}
+
+function draftSourceLabel(
+  source: "provider" | "ai" | "lifecycle",
+  t: (key: string, fallback: string) => string,
+): string {
+  if (source === "ai") return t("draftsPanel.phaseC", "PHASE C");
+  if (source === "lifecycle") return t("draftsPanel.lifecycle", "LIFECYCLE");
+  return t("draftsPanel.provider", "YOURS");
 }

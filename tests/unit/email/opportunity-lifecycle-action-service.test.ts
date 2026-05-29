@@ -21,6 +21,7 @@ interface TableState {
   opportunity_follow_up_drafts: Array<Record<string, unknown>>;
   opportunity_lifecycle_state: Array<Record<string, unknown>>;
   notifications: Array<Record<string, unknown>>;
+  email_threads?: Array<Record<string, unknown>>;
   opportunities?: Array<Record<string, unknown>>;
   opportunity_lifecycle_action_audit?: Array<Record<string, unknown>>;
 }
@@ -411,6 +412,14 @@ describe("opportunity lifecycle action service", () => {
     const state: TableState = {
       opportunity_follow_up_drafts: [],
       opportunity_lifecycle_state: [],
+      email_threads: [
+        {
+          id: "thread-internal-1",
+          company_id: "company-1",
+          connection_id: "connection-1",
+          provider_thread_id: "thread-1",
+        },
+      ],
       notifications: [],
     };
     const input = makeInput(
@@ -444,7 +453,7 @@ describe("opportunity lifecycle action service", () => {
         persistent: true,
         is_read: false,
         dedupe_key: "lead_lifecycle:operator_follow_up_miss:opp-1",
-        action_url: "/inbox/thread-1",
+        action_url: "/inbox/thread-internal-1",
         action_label: "Open thread",
       }),
     ]);
@@ -452,6 +461,79 @@ describe("opportunity lifecycle action service", () => {
       opportunity_id: "opp-1",
       operator_follow_up_miss_at: "2026-05-27T18:00:00.000Z",
       stale_status: "operator_follow_up_miss",
+    });
+  });
+
+  it("keeps an internal inbox thread id when the lifecycle event already carries one", async () => {
+    const state: TableState = {
+      opportunity_follow_up_drafts: [],
+      opportunity_lifecycle_state: [],
+      email_threads: [
+        {
+          id: "11111111-1111-4111-8111-111111111111",
+          company_id: "company-1",
+          connection_id: "connection-1",
+          provider_thread_id: "provider-thread-1",
+        },
+      ],
+      notifications: [],
+    };
+
+    await executeOpportunityLifecycleAction(
+      makeInput(
+        {
+          decision: makeDecision("operator_follow_up_miss", {
+            latestEventId: "event-in-1",
+          }),
+          latestMeaningfulEvent: {
+            id: "event-in-1",
+            direction: "inbound",
+            isMeaningful: true,
+            occurredAt: "2026-05-27T17:00:00.000Z",
+            connectionId: "connection-1",
+            providerThreadId: "11111111-1111-4111-8111-111111111111",
+          },
+        },
+        state
+      )
+    );
+
+    expect(state.notifications[0]).toMatchObject({
+      action_url: "/inbox/11111111-1111-4111-8111-111111111111",
+      action_label: "Open thread",
+    });
+  });
+
+  it("routes synthetic legacy lifecycle notification contexts to the pipeline opportunity detail", async () => {
+    const state: TableState = {
+      opportunity_follow_up_drafts: [],
+      opportunity_lifecycle_state: [],
+      email_threads: [],
+      notifications: [],
+    };
+
+    await executeOpportunityLifecycleAction(
+      makeInput(
+        {
+          decision: makeDecision("operator_follow_up_miss", {
+            latestEventId: "legacy-activity:activity-1",
+          }),
+          latestMeaningfulEvent: {
+            id: "legacy-activity:activity-1",
+            direction: "inbound",
+            isMeaningful: true,
+            occurredAt: "2026-05-27T17:00:00.000Z",
+            connectionId: "connection-1",
+            providerThreadId: "legacy-activity:activity-1",
+          },
+        },
+        state
+      )
+    );
+
+    expect(state.notifications[0]).toMatchObject({
+      action_url: "/pipeline?opportunityId=opp-1",
+      action_label: "Open opportunity",
     });
   });
 
@@ -528,7 +610,17 @@ describe("opportunity lifecycle action service", () => {
           operator_follow_up_miss_at: "2026-05-24T18:00:00.000Z",
         },
       ],
-      notifications: [],
+      notifications: [
+        {
+          id: "notification-1",
+          company_id: "company-1",
+          type: "leads_waiting",
+          dedupe_key: "lead_lifecycle:operator_follow_up_miss:opp-1",
+          is_read: false,
+          persistent: true,
+          resolved_at: null,
+        },
+      ],
     };
 
     const result = await resetStaleLifecycleAfterMeaningfulInbound({
@@ -556,6 +648,11 @@ describe("opportunity lifecycle action service", () => {
       stale_status_at: null,
       operator_follow_up_miss_at: null,
     });
+    expect(state.notifications[0]).toMatchObject({
+      is_read: true,
+      resolved_at: "2026-05-27T18:01:00.000Z",
+    });
+    expect(result.operations.notificationsResolved).toBe(1);
   });
 
   it("archives a stale opportunity by setting archived_at only", async () => {

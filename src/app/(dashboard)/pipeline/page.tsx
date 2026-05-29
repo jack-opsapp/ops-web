@@ -1014,6 +1014,7 @@ export default function PipelinePage() {
     (state) => state.closeDetailPanel
   );
   const previousModeRef = useRef(mode);
+  const openedUrlOpportunityRef = useRef<string | null>(null);
   const pipelineScopeRef = useRef<HTMLDivElement>(null);
   const pendingModeTransitionRef = useRef<PendingModeTransition | null>(null);
   const transitionSequenceRef = useRef(0);
@@ -1171,6 +1172,22 @@ export default function PipelinePage() {
     if (!opportunities) return [];
     return opportunities.filter((o) => !o.deletedAt && !o.archivedAt);
   }, [opportunities]);
+
+  useEffect(() => {
+    const opportunityId = searchParams.get("opportunityId");
+    if (!opportunityId || openedUrlOpportunityRef.current === opportunityId) {
+      return;
+    }
+    const target = activeOpportunities.find((opp) => opp.id === opportunityId);
+    if (!target) return;
+
+    openedUrlOpportunityRef.current = opportunityId;
+    setSearchQuery("");
+    setStageFilter("all");
+    setAssigneeFilter("all");
+    setOriginatingOpportunityId(opportunityId);
+    usePipelineModeStore.getState().openDetailPanel(opportunityId);
+  }, [activeOpportunities, searchParams]);
 
   // ── Filtered opportunities ────────────────────────────────────────────
   const filteredOpportunities = useMemo(() => {

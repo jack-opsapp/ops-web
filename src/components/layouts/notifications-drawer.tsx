@@ -148,13 +148,13 @@ export function NotificationsDrawer() {
 
   const handleAction = (n: AppNotification) => {
     if (n.type === "duplicates_found") {
-      if (!n.persistent) dismissMutation.mutate(n.id);
+      dismissMutation.mutate(n.id);
       openDuplicateSheet();
       close(EDGE_TAB_ID);
       return;
     }
     if (n.actionUrl) {
-      if (!n.persistent) dismissMutation.mutate(n.id);
+      dismissMutation.mutate(n.id);
       router.push(n.actionUrl);
       close(EDGE_TAB_ID);
     }

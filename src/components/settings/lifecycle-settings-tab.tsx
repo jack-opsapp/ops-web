@@ -1,62 +1,129 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { Save, Loader2, RotateCcw } from "lucide-react";
-import { useAuthStore } from "@/lib/store/auth-store";
+import { useCallback, useEffect, useState } from "react";
+import { Loader2, RotateCcw, Save } from "lucide-react";
 import { toast } from "sonner";
 import { useDictionary } from "@/i18n/client";
+import { useAuthStore } from "@/lib/store/auth-store";
+import { cn } from "@/lib/utils/cn";
+import {
+  DEFAULT_FOLLOW_UP_TEMPLATE_BODY,
+  DEFAULT_FOLLOW_UP_TEMPLATE_SUBJECT,
+} from "@/lib/email/opportunity-lifecycle-evaluator";
 
-// ─── Types ──────────────────────────────────────────────────────────────────
-
-interface LifecycleConfig {
-  status_update_frequency_days: number;
-  overdue_threshold_days: number;
-  archive_after_days: number;
-  stage_task_overrides: Record<string, string[]>;
+interface LeadLifecycleConfig {
+  follow_up_after_days: number;
+  second_follow_up_archive_after_days: number;
+  no_correspondence_archive_days: number;
+  inbound_unreplied_lost_days: number;
+  follow_up_template_subject: string;
+  follow_up_template_body: string;
+  auto_archive_enabled: boolean;
+  auto_lost_enabled: boolean;
 }
 
-const DEFAULT_CONFIG: LifecycleConfig = {
-  status_update_frequency_days: 7,
-  overdue_threshold_days: 1,
-  archive_after_days: 30,
-  stage_task_overrides: {},
+const DEFAULT_CONFIG: LeadLifecycleConfig = {
+  follow_up_after_days: 7,
+  second_follow_up_archive_after_days: 7,
+  no_correspondence_archive_days: 14,
+  inbound_unreplied_lost_days: 30,
+  follow_up_template_subject: DEFAULT_FOLLOW_UP_TEMPLATE_SUBJECT,
+  follow_up_template_body: DEFAULT_FOLLOW_UP_TEMPLATE_BODY,
+  auto_archive_enabled: true,
+  auto_lost_enabled: true,
 };
 
-const FREQUENCY_OPTIONS = [
-  { value: 0, labelKey: "lifecycle.frequency.off" },
-  { value: 7, labelKey: "lifecycle.frequency.weekly" },
-  { value: 14, labelKey: "lifecycle.frequency.biweekly" },
-  { value: 30, labelKey: "lifecycle.frequency.monthly" },
+type NumericKey =
+  | "follow_up_after_days"
+  | "second_follow_up_archive_after_days"
+  | "no_correspondence_archive_days"
+  | "inbound_unreplied_lost_days";
+
+const NUMERIC_FIELDS: Array<{
+  key: NumericKey;
+  label: string;
+  helper: string;
+}> = [
+  {
+    key: "follow_up_after_days",
+    label: "Draft follow-up after",
+    helper: "Creates the local follow-up draft when outbound goes unanswered.",
+  },
+  {
+    key: "second_follow_up_archive_after_days",
+    label: "Second follow-up archive window",
+    helper: "Marks a lead ready for reviewed archive after two unanswered follow-ups.",
+  },
+  {
+    key: "no_correspondence_archive_days",
+    label: "No-correspondence archive window",
+    helper: "Marks untouched leads ready for reviewed archive.",
+  },
+  {
+    key: "inbound_unreplied_lost_days",
+    label: "Inbound no-response lost window",
+    helper: "Marks unanswered inbound leads ready for reviewed lost handling.",
+  },
 ];
 
-const STAGE_TRANSITIONS = [
-  { key: "rfq→estimated", labelKey: "lifecycle.stage.rfqToEstimated" },
-  { key: "estimated→accepted", labelKey: "lifecycle.stage.estimatedToAccepted" },
-  { key: "accepted→in_progress", labelKey: "lifecycle.stage.acceptedToInProgress" },
-  { key: "in_progress→completed", labelKey: "lifecycle.stage.inProgressToCompleted" },
-  { key: "completed→closed", labelKey: "lifecycle.stage.completedToClosed" },
-];
-
-// ─── Component ──────────────────────────────────────────────────────────────
+function normalizeConfig(value: unknown): LeadLifecycleConfig {
+  const source =
+    value && typeof value === "object" ? (value as Partial<LeadLifecycleConfig>) : {};
+  const positiveInteger = (next: unknown, fallback: number) => {
+    const parsed = Number.parseInt(String(next ?? ""), 10);
+    return Number.isFinite(parsed) ? Math.max(1, parsed) : fallback;
+  };
+  return {
+    ...DEFAULT_CONFIG,
+    ...source,
+    follow_up_after_days: positiveInteger(
+      source.follow_up_after_days,
+      DEFAULT_CONFIG.follow_up_after_days
+    ),
+    second_follow_up_archive_after_days: positiveInteger(
+      source.second_follow_up_archive_after_days,
+      DEFAULT_CONFIG.second_follow_up_archive_after_days
+    ),
+    no_correspondence_archive_days: positiveInteger(
+      source.no_correspondence_archive_days,
+      DEFAULT_CONFIG.no_correspondence_archive_days
+    ),
+    inbound_unreplied_lost_days: positiveInteger(
+      source.inbound_unreplied_lost_days,
+      DEFAULT_CONFIG.inbound_unreplied_lost_days
+    ),
+    follow_up_template_subject:
+      source.follow_up_template_subject?.trim() ||
+      DEFAULT_CONFIG.follow_up_template_subject,
+    follow_up_template_body:
+      source.follow_up_template_body?.trim() ||
+      DEFAULT_CONFIG.follow_up_template_body,
+    auto_archive_enabled:
+      typeof source.auto_archive_enabled === "boolean"
+        ? source.auto_archive_enabled
+        : DEFAULT_CONFIG.auto_archive_enabled,
+    auto_lost_enabled:
+      typeof source.auto_lost_enabled === "boolean"
+        ? source.auto_lost_enabled
+        : DEFAULT_CONFIG.auto_lost_enabled,
+  };
+}
 
 export function LifecycleSettingsTab() {
   const { t } = useDictionary("settings");
   const { company } = useAuthStore();
   const companyId = company?.id ?? "";
-
-  const [config, setConfig] = useState<LifecycleConfig>(DEFAULT_CONFIG);
+  const [config, setConfig] = useState<LeadLifecycleConfig>(DEFAULT_CONFIG);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
 
-  // ── Load settings ─────────────────────────────────────────────────────
   const loadSettings = useCallback(async () => {
     if (!companyId) return;
     setLoading(true);
     try {
       const { getIdToken } = await import("@/lib/firebase/auth");
       const idToken = await getIdToken();
-
       const res = await fetch(
         `/api/settings/lifecycle?companyId=${companyId}`,
         {
@@ -64,31 +131,33 @@ export function LifecycleSettingsTab() {
         }
       );
 
-      if (res.ok) {
-        const data = await res.json();
-        if (data.config) {
-          setConfig({ ...DEFAULT_CONFIG, ...data.config });
-        }
-      }
+      if (!res.ok) throw new Error("load failed");
+      const data = await res.json();
+      setConfig(normalizeConfig(data.config));
+      setDirty(false);
     } catch {
-      // Use defaults on error
+      toast.error(t("lifecycle.toast.loadFailed", "SYS :: SETTINGS LOAD FAILED"));
+      setConfig(DEFAULT_CONFIG);
     } finally {
       setLoading(false);
     }
-  }, [companyId]);
+  }, [companyId, t]);
 
   useEffect(() => {
-    loadSettings();
+    void loadSettings();
   }, [loadSettings]);
 
-  // ── Save settings ─────────────────────────────────────────────────────
+  function updateConfig(partial: Partial<LeadLifecycleConfig>) {
+    setConfig((prev) => ({ ...prev, ...partial }));
+    setDirty(true);
+  }
+
   async function handleSave() {
     if (!companyId) return;
     setSaving(true);
     try {
       const { getIdToken } = await import("@/lib/firebase/auth");
       const idToken = await getIdToken();
-
       const res = await fetch("/api/settings/lifecycle", {
         method: "PUT",
         headers: {
@@ -97,279 +166,246 @@ export function LifecycleSettingsTab() {
         },
         body: JSON.stringify({ companyId, config }),
       });
-
-      if (!res.ok) {
-        throw new Error("Failed to save settings");
-      }
-
+      if (!res.ok) throw new Error("save failed");
+      const data = await res.json();
+      setConfig(normalizeConfig(data.config));
       setDirty(false);
-      toast.success(t("lifecycle.toast.saved"));
+      toast.success(t("lifecycle.toast.saved", "SYS :: SETTINGS SAVED"));
     } catch {
-      toast.error(t("lifecycle.toast.saveFailed"));
+      toast.error(t("lifecycle.toast.saveFailed", "SYS :: SETTINGS SAVE FAILED"));
     } finally {
       setSaving(false);
     }
   }
 
-  function updateConfig(partial: Partial<LifecycleConfig>) {
-    setConfig((prev) => ({ ...prev, ...partial }));
-    setDirty(true);
-  }
-
-  function handleStageTaskChange(
-    transitionKey: string,
-    taskIndex: number,
-    value: string
-  ) {
-    const current = config.stage_task_overrides[transitionKey] ?? [];
-    const updated = [...current];
-    updated[taskIndex] = value;
-    updateConfig({
-      stage_task_overrides: {
-        ...config.stage_task_overrides,
-        [transitionKey]: updated.filter(Boolean),
-      },
-    });
-  }
-
-  function addStageTask(transitionKey: string) {
-    const current = config.stage_task_overrides[transitionKey] ?? [];
-    updateConfig({
-      stage_task_overrides: {
-        ...config.stage_task_overrides,
-        [transitionKey]: [...current, ""],
-      },
-    });
-  }
-
-  function removeStageTask(transitionKey: string, taskIndex: number) {
-    const current = config.stage_task_overrides[transitionKey] ?? [];
-    updateConfig({
-      stage_task_overrides: {
-        ...config.stage_task_overrides,
-        [transitionKey]: current.filter((_, i) => i !== taskIndex),
-      },
-    });
-  }
-
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16">
-        <Loader2 className="w-[20px] h-[20px] text-text-3 animate-spin" />
+        <Loader2
+          className="h-5 w-5 animate-spin text-text-3"
+          strokeWidth={1.5}
+        />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 max-w-[640px]">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div className="max-w-[720px] space-y-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 className="font-mohave text-body-lg text-text uppercase">
-            {t("lifecycle.title")}
+          <h3 className="font-mohave text-body-lg uppercase text-text">
+            {t("lifecycle.title", "Lead lifecycle")}
           </h3>
-          <p className="font-mono text-[12px] text-text-3 mt-0.5">
-            [{t("lifecycle.subtitle")}]
+          <p className="mt-0.5 font-mono text-[12px] text-text-3">
+            [{t("lifecycle.subtitle", "local drafts, rail alerts, reviewed exits")}]
           </p>
         </div>
-        {dirty && (
+        <div className="flex items-center gap-2">
           <button
-            onClick={handleSave}
-            disabled={saving}
-            className="flex items-center gap-2 min-h-[56px] px-4 rounded-[4px] bg-[rgba(111, 148, 176,0.15)] text-[#6F94B0] font-mohave text-body-sm uppercase hover:bg-[rgba(111, 148, 176,0.25)] transition-colors disabled:opacity-50"
+            type="button"
+            onClick={() => {
+              setConfig(DEFAULT_CONFIG);
+              setDirty(true);
+            }}
+            className="inline-flex min-h-[44px] items-center gap-2 rounded-[4px] border border-line bg-transparent px-3 font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-text-2 transition-colors hover:border-line-hi hover:text-text"
           >
-            {saving ? (
-              <Loader2 className="w-[14px] h-[14px] animate-spin" />
-            ) : (
-              <Save className="w-[14px] h-[14px]" />
-            )}
-            {t("lifecycle.save")}
+            <RotateCcw className="h-3.5 w-3.5" strokeWidth={1.5} />
+            {t("lifecycle.resetDefaults", "RESET")}
           </button>
-        )}
+          {dirty && (
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className="inline-flex min-h-[44px] items-center gap-2 rounded-[4px] border border-ops-accent bg-transparent px-3 font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-ops-accent transition-colors hover:bg-ops-accent hover:text-black disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {saving ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />
+              ) : (
+                <Save className="h-3.5 w-3.5" strokeWidth={1.5} />
+              )}
+              {t("lifecycle.save", "SAVE")}
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Status Update Frequency */}
-      <div className="rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] saturate-[1.2] p-4">
-        <span className="font-mono text-[11px] text-text-3 uppercase block mb-2">
-          [{t("lifecycle.statusUpdates")}]
-        </span>
-        <p className="font-mono text-[12px] text-text-2 mb-3">
-          {t("lifecycle.statusUpdatesDesc")}
-        </p>
-        <div className="flex gap-2 flex-wrap">
-          {FREQUENCY_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              onClick={() =>
-                updateConfig({ status_update_frequency_days: opt.value })
+      <section className="space-y-3 rounded-[8px] border border-line bg-transparent p-4">
+        <SectionHeader
+          label={t("lifecycle.windowsLabel", "Windows")}
+          body={t(
+            "lifecycle.windowsBody",
+            "Days are positive integers. Destructive exits still require guarded approval."
+          )}
+        />
+        <div className="grid gap-3 md:grid-cols-2">
+          {NUMERIC_FIELDS.map((field) => (
+            <NumericField
+              key={field.key}
+              label={t(`lifecycle.${field.key}.label`, field.label)}
+              helper={t(`lifecycle.${field.key}.helper`, field.helper)}
+              value={config[field.key]}
+              dayLabel={t("lifecycle.days", "DAYS")}
+              onChange={(value) =>
+                updateConfig({ [field.key]: value } as Partial<LeadLifecycleConfig>)
               }
-              className={`min-h-[56px] px-4 rounded-[4px] font-mohave text-body-sm uppercase transition-colors ${
-                config.status_update_frequency_days === opt.value
-                  ? "bg-[rgba(111, 148, 176,0.15)] text-[#6F94B0] border border-[#6F94B0]"
-                  : "bg-[rgba(255,255,255,0.03)] text-text-2 border border-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.16)]"
-              }`}
-            >
-              {t(opt.labelKey)}
-            </button>
+            />
           ))}
         </div>
-      </div>
+      </section>
 
-      {/* Overdue Task Detection */}
-      <div className="rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] saturate-[1.2] p-4">
-        <span className="font-mono text-[11px] text-text-3 uppercase block mb-2">
-          [{t("lifecycle.overdueDetection")}]
-        </span>
-        <p className="font-mono text-[12px] text-text-2 mb-3">
-          {t("lifecycle.overdueDetectionDesc")}
-        </p>
-        <div className="flex items-center gap-3">
-          <span className="font-mono text-[12px] text-text-2">
-            {t("lifecycle.flagAfter")}
+      <section className="space-y-3 rounded-[8px] border border-line bg-transparent p-4">
+        <SectionHeader
+          label={t("lifecycle.automationLabel", "Automation")}
+          body={t(
+            "lifecycle.automationBody",
+            "These toggles decide whether reviewed archive/lost candidates are produced."
+          )}
+        />
+        <div className="grid gap-3 md:grid-cols-2">
+          <ToggleRow
+            label={t("lifecycle.autoArchive", "Auto-archive candidates")}
+            checked={config.auto_archive_enabled}
+            onLabel={t("lifecycle.toggleOn", "ON")}
+            offLabel={t("lifecycle.toggleOff", "OFF")}
+            onChange={(checked) => updateConfig({ auto_archive_enabled: checked })}
+          />
+          <ToggleRow
+            label={t("lifecycle.autoLost", "Lost candidates")}
+            checked={config.auto_lost_enabled}
+            onLabel={t("lifecycle.toggleOn", "ON")}
+            offLabel={t("lifecycle.toggleOff", "OFF")}
+            onChange={(checked) => updateConfig({ auto_lost_enabled: checked })}
+          />
+        </div>
+      </section>
+
+      <section className="space-y-3 rounded-[8px] border border-line bg-transparent p-4">
+        <SectionHeader
+          label={t("lifecycle.templateLabel", "Template")}
+          body={t(
+            "lifecycle.templateBody",
+            "Local inbox draft only. No provider draft is created here."
+          )}
+        />
+        <label className="block space-y-1.5">
+          <span className="font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-text-3">
+            {t("lifecycle.subject", "Subject")}
           </span>
           <input
-            type="number"
-            min={0}
-            max={30}
-            value={config.overdue_threshold_days}
-            onChange={(e) =>
-              updateConfig({
-                overdue_threshold_days: Math.max(
-                  0,
-                  parseInt(e.target.value) || 0
-                ),
-              })
+            value={config.follow_up_template_subject}
+            onChange={(event) =>
+              updateConfig({ follow_up_template_subject: event.target.value })
             }
-            className="w-[80px] min-h-[56px] font-mohave text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[4px] px-3 text-text text-center outline-none focus:border-[rgba(255,255,255,0.3)] [color-scheme:dark]"
+            className="min-h-[44px] w-full rounded-[4px] border border-line bg-transparent px-3 font-mohave text-body-sm text-text outline-none transition-colors placeholder:text-text-mute focus:border-ops-accent"
           />
-          <span className="font-mono text-[12px] text-text-2">
-            {t("lifecycle.days")}
+        </label>
+        <label className="block space-y-1.5">
+          <span className="font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-text-3">
+            {t("lifecycle.body", "Body")}
           </span>
-          {config.overdue_threshold_days === 0 && (
-            <span className="font-mono text-[11px] text-text-3">
-              ({t("lifecycle.disabled")})
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Auto-Archive */}
-      <div className="rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] saturate-[1.2] p-4">
-        <span className="font-mono text-[11px] text-text-3 uppercase block mb-2">
-          [{t("lifecycle.autoArchive")}]
-        </span>
-        <p className="font-mono text-[12px] text-text-2 mb-3">
-          {t("lifecycle.autoArchiveDesc")}
-        </p>
-        <div className="flex items-center gap-3">
-          <span className="font-mono text-[12px] text-text-2">
-            {t("lifecycle.archiveAfter")}
-          </span>
-          <input
-            type="number"
-            min={0}
-            max={365}
-            value={config.archive_after_days}
-            onChange={(e) =>
-              updateConfig({
-                archive_after_days: Math.max(
-                  0,
-                  parseInt(e.target.value) || 0
-                ),
-              })
+          <textarea
+            value={config.follow_up_template_body}
+            onChange={(event) =>
+              updateConfig({ follow_up_template_body: event.target.value })
             }
-            className="w-[80px] min-h-[56px] font-mohave text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[4px] px-3 text-text text-center outline-none focus:border-[rgba(255,255,255,0.3)] [color-scheme:dark]"
+            rows={5}
+            className="min-h-[132px] w-full resize-y rounded-[4px] border border-line bg-transparent px-3 py-2 font-mohave text-body-sm leading-relaxed text-text outline-none transition-colors placeholder:text-text-mute focus:border-ops-accent"
           />
-          <span className="font-mono text-[12px] text-text-2">
-            {t("lifecycle.daysAfterCompletion")}
-          </span>
-          {config.archive_after_days === 0 && (
-            <span className="font-mono text-[11px] text-text-3">
-              ({t("lifecycle.disabled")})
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Stage-to-Task Mapping */}
-      <div className="rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] saturate-[1.2] p-4">
-        <div className="flex items-center justify-between mb-2">
-          <span className="font-mono text-[11px] text-text-3 uppercase">
-            [{t("lifecycle.stageTaskMapping")}]
-          </span>
-          <button
-            onClick={() => updateConfig({ stage_task_overrides: {} })}
-            className="flex items-center gap-1 font-mono text-[11px] text-text-3 hover:text-text-2 transition-colors min-h-[56px] min-w-[56px] justify-center -my-4"
-            title={t("lifecycle.resetDefaults")}
-          >
-            <RotateCcw className="w-[12px] h-[12px]" />
-            {t("lifecycle.resetDefaults")}
-          </button>
-        </div>
-        <p className="font-mono text-[12px] text-text-2 mb-4">
-          {t("lifecycle.stageTaskMappingDesc")}
-        </p>
-
-        <div className="space-y-4">
-          {STAGE_TRANSITIONS.map(({ key, labelKey }) => {
-            const tasks =
-              config.stage_task_overrides[key] ?? [];
-            const hasOverrides = tasks.length > 0;
-
-            return (
-              <div
-                key={key}
-                className="border-t border-[rgba(255,255,255,0.04)] pt-3 first:border-t-0 first:pt-0"
-              >
-                <span className="font-mohave text-body-sm text-text uppercase block mb-2">
-                  {t(labelKey)}
-                </span>
-                {hasOverrides ? (
-                  <div className="space-y-1.5">
-                    {tasks.map((task, i) => (
-                      <div key={i} className="flex items-center gap-2">
-                        <input
-                          type="text"
-                          value={task}
-                          onChange={(e) =>
-                            handleStageTaskChange(key, i, e.target.value)
-                          }
-                          placeholder={t("lifecycle.taskNamePlaceholder")}
-                          className="flex-1 min-h-[56px] font-mono text-[12px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[4px] px-3 text-text outline-none focus:border-[rgba(255,255,255,0.3)] placeholder:text-text-mute"
-                        />
-                        <button
-                          onClick={() => removeStageTask(key, i)}
-                          className="min-h-[56px] min-w-[56px] flex items-center justify-center text-text-3 hover:text-[#93321A] transition-colors"
-                        >
-                          &times;
-                        </button>
-                      </div>
-                    ))}
-                    <button
-                      onClick={() => addStageTask(key)}
-                      className="font-mono text-[11px] text-text-3 hover:text-text-2 transition-colors min-h-[56px]"
-                    >
-                      + {t("lifecycle.addTask")}
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-[11px] text-text-3">
-                      {t("lifecycle.usingDefaults")}
-                    </span>
-                    <button
-                      onClick={() => addStageTask(key)}
-                      className="font-mono text-[11px] text-text-2 hover:text-text transition-colors min-h-[56px]"
-                    >
-                      {t("lifecycle.customize")}
-                    </button>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
+        </label>
+      </section>
     </div>
+  );
+}
+
+function SectionHeader({ label, body }: { label: string; body: string }) {
+  return (
+    <div>
+      <span className="block font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-text-3">
+        [{label}]
+      </span>
+      <p className="mt-1 font-mono text-[12px] leading-relaxed text-text-2">
+        {body}
+      </p>
+    </div>
+  );
+}
+
+function NumericField({
+  label,
+  helper,
+  value,
+  dayLabel,
+  onChange,
+}: {
+  label: string;
+  helper: string;
+  value: number;
+  dayLabel: string;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <label className="block rounded-[6px] border border-line bg-transparent p-3">
+      <span className="block font-mohave text-body-sm uppercase text-text">
+        {label}
+      </span>
+      <span className="mt-1 block min-h-[34px] font-mono text-[11px] leading-relaxed text-text-3">
+        {helper}
+      </span>
+      <div className="mt-3 flex items-center gap-2">
+        <input
+          type="number"
+          min={1}
+          value={value}
+          onChange={(event) =>
+            onChange(Math.max(1, Number.parseInt(event.target.value, 10) || 1))
+          }
+          className="h-11 w-[88px] rounded-[4px] border border-line bg-transparent px-3 text-center font-mono text-[13px] text-text outline-none transition-colors focus:border-ops-accent [color-scheme:dark]"
+          style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
+        />
+        <span className="font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-text-3">
+          {dayLabel}
+        </span>
+      </div>
+    </label>
+  );
+}
+
+function ToggleRow({
+  label,
+  checked,
+  onLabel,
+  offLabel,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onLabel: string;
+  offLabel: string;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className={cn(
+        "flex min-h-[56px] items-center justify-between rounded-[6px] border bg-transparent px-3 text-left transition-colors",
+        checked
+          ? "border-ops-accent text-text"
+          : "border-line text-text-2 hover:border-line-hi"
+      )}
+    >
+      <span className="font-mohave text-body-sm uppercase">{label}</span>
+      <span
+        className={cn(
+          "font-cakemono text-[11px] font-light uppercase tracking-[0.14em]",
+          checked ? "text-ops-accent" : "text-text-3"
+        )}
+      >
+        {checked ? onLabel : offLabel}
+      </span>
+    </button>
   );
 }

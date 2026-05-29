@@ -6,12 +6,17 @@ import { NotificationsDrawer } from "@/components/layouts/notifications-drawer";
 import { useEdgeTabStore } from "@/stores/edge-tab-store";
 import type { AppNotification } from "@/lib/api/services/notification-service";
 
+const { dismissMutationMock, routerPushMock } = vi.hoisted(() => ({
+  dismissMutationMock: vi.fn(),
+  routerPushMock: vi.fn(),
+}));
+
 vi.mock("@/i18n/client", () => ({
   useDictionary: () => ({ t: (k: string) => k }),
 }));
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push: routerPushMock }),
 }));
 
 const mockNotifs: AppNotification[] = [
@@ -64,7 +69,7 @@ const mockNotifs: AppNotification[] = [
 
 vi.mock("@/lib/hooks/use-notifications", () => ({
   useNotifications: () => ({ data: mockNotifs }),
-  useDismissNotification: () => ({ mutate: vi.fn(), isPending: false }),
+  useDismissNotification: () => ({ mutate: dismissMutationMock, isPending: false }),
   useDismissAllNotifications: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
@@ -81,6 +86,8 @@ const wrap = (ui: React.ReactNode) => {
 describe("<NotificationsDrawer>", () => {
   beforeEach(() => {
     useEdgeTabStore.setState({ activeTab: null });
+    dismissMutationMock.mockClear();
+    routerPushMock.mockClear();
   });
 
   it("renders nothing when activeTab !== 'notifications'", () => {
@@ -157,5 +164,17 @@ describe("<NotificationsDrawer>", () => {
     expect(screen.getByText("Role needed")).toBeInTheDocument();
     expect(screen.getByText("Marcus mentioned you")).toBeInTheDocument();
     expect(screen.getByText("Gmail sync complete")).toBeInTheDocument();
+  });
+
+  it("resolves a persistent notification when its action opens a route", async () => {
+    useEdgeTabStore.setState({ activeTab: "notifications" });
+    const user = userEvent.setup();
+    wrap(<NotificationsDrawer />);
+
+    await user.click(screen.getByText("Role needed"));
+    await user.click(screen.getByRole("button", { name: /ASSIGN/i }));
+
+    expect(dismissMutationMock).toHaveBeenCalledWith("n1");
+    expect(routerPushMock).toHaveBeenCalledWith("/dashboard?openProject=00247&mode=view");
   });
 });
