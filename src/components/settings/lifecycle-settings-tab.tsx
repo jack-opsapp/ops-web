@@ -230,7 +230,7 @@ export function LifecycleSettingsTab() {
         </div>
       </div>
 
-      <section className="space-y-3 rounded-[8px] border border-line bg-transparent p-4">
+      <section className="space-y-3 rounded-[10px] border border-line bg-transparent p-4">
         <SectionHeader
           label={t("lifecycle.windowsLabel", "Windows")}
           body={t(
@@ -254,7 +254,7 @@ export function LifecycleSettingsTab() {
         </div>
       </section>
 
-      <section className="space-y-3 rounded-[8px] border border-line bg-transparent p-4">
+      <section className="space-y-3 rounded-[10px] border border-line bg-transparent p-4">
         <SectionHeader
           label={t("lifecycle.automationLabel", "Automation")}
           body={t(
@@ -280,7 +280,7 @@ export function LifecycleSettingsTab() {
         </div>
       </section>
 
-      <section className="space-y-3 rounded-[8px] border border-line bg-transparent p-4">
+      <section className="space-y-3 rounded-[10px] border border-line bg-transparent p-4">
         <SectionHeader
           label={t("lifecycle.templateLabel", "Template")}
           body={t(
@@ -297,7 +297,7 @@ export function LifecycleSettingsTab() {
             onChange={(event) =>
               updateConfig({ follow_up_template_subject: event.target.value })
             }
-            className="w-full min-h-[36px] rounded-[5px] border border-line bg-transparent px-3 py-1.5 font-mohave text-body-sm text-text outline-none transition-colors placeholder:text-text-mute focus:border-ops-accent"
+            className="w-full min-h-[36px] rounded-[5px] border border-line bg-transparent px-3 py-1.5 font-mohave text-body-sm text-text outline-none transition-colors placeholder:text-text-mute focus:border-[rgba(255,255,255,0.20)]"
           />
         </label>
         <label className="block space-y-1.5">
@@ -310,7 +310,7 @@ export function LifecycleSettingsTab() {
               updateConfig({ follow_up_template_body: event.target.value })
             }
             rows={5}
-            className="min-h-[132px] w-full resize-y rounded-[5px] border border-line bg-transparent px-3 py-2 font-mohave text-body-sm leading-relaxed text-text outline-none transition-colors placeholder:text-text-mute focus:border-ops-accent"
+            className="min-h-[132px] w-full resize-y rounded-[5px] border border-line bg-transparent px-3 py-2 font-mohave text-body-sm leading-relaxed text-text outline-none transition-colors placeholder:text-text-mute focus:border-[rgba(255,255,255,0.20)]"
           />
         </label>
       </section>
@@ -345,7 +345,7 @@ function NumericField({
   onChange: (value: number) => void;
 }) {
   return (
-    <label className="block rounded-[6px] border border-line bg-transparent p-3">
+    <label className="block rounded-[5px] border border-line bg-transparent p-3">
       <span className="block font-mohave text-body-sm uppercase text-text">
         {label}
       </span>
@@ -360,7 +360,7 @@ function NumericField({
           onChange={(event) =>
             onChange(Math.max(1, Number.parseInt(event.target.value, 10) || 1))
           }
-          className="w-[88px] min-h-[36px] rounded-[5px] border border-line bg-transparent px-3 py-1.5 text-center font-mono text-[13px] text-text outline-none transition-colors focus:border-ops-accent [color-scheme:dark]"
+          className="w-[88px] min-h-[36px] rounded-[5px] border border-line bg-transparent px-3 py-1.5 text-center font-mono text-[13px] text-text outline-none transition-colors focus:border-[rgba(255,255,255,0.20)] [color-scheme:dark]"
           style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
         />
         <span className="font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-text-3">
@@ -391,7 +391,7 @@ function ToggleRow({
       aria-checked={checked}
       onClick={() => onChange(!checked)}
       className={cn(
-        "flex items-center justify-between rounded-[6px] border bg-transparent px-3 py-2 text-left transition-colors",
+        "flex items-center justify-between rounded-[5px] border bg-transparent px-3 py-2 text-left transition-colors",
         checked
           ? "border-ops-accent text-text"
           : "border-line text-text-2 hover:border-line-hi"
