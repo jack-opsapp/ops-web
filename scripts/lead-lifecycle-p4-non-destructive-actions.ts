@@ -1,13 +1,16 @@
 /*
- * Lead Lifecycle P4 guarded action executor.
+ * Lead Lifecycle local action executor.
  *
- * Default mode is dry-run. Apply mode requires an exact reviewed
- * opportunity/action approval list. It never sends email or creates provider
- * drafts.
+ * Default mode is a P5 non-destructive dry-run. Non-destructive apply writes
+ * only local drafts, lifecycle state, default settings, and operator rail
+ * notifications. Guarded P4 destructive apply still requires an exact reviewed
+ * opportunity/action approval list. This script never sends email or creates
+ * provider drafts.
  *
  * Usage:
  *   npx tsx scripts/lead-lifecycle-p4-non-destructive-actions.ts
  *   npx tsx scripts/lead-lifecycle-p4-non-destructive-actions.ts --company-id <uuid>
+ *   npx tsx scripts/lead-lifecycle-p4-non-destructive-actions.ts --apply-non-destructive-p4-actions
  *   npx tsx scripts/lead-lifecycle-p4-non-destructive-actions.ts --apply-guarded-p4-actions --approved-actions-file <json>
  */
 
@@ -72,7 +75,14 @@ function vancouverDateKey(value: Date): string {
 
 const today = vancouverDateKey(new Date());
 const DEFAULT_OUTPUT =
-  `/Users/jacksonsweet/Projects/OPS/docs/data-cleanup/lead-lifecycle-p4-22-guarded-actions-after-backfill-dry-run-${today}.md`;
+  `/Users/jacksonsweet/Projects/OPS/docs/data-cleanup/lead-lifecycle-p5-1-non-destructive-dry-run-${today}.md`;
+
+type ActionScope = "non_destructive" | "guarded";
+
+const NON_DESTRUCTIVE_ACTIONS = new Set<OpportunityLifecycleDecision["action"]>([
+  "create_follow_up_draft",
+  "operator_follow_up_miss",
+]);
 
 const GUARDED_ACTIONS = new Set<OpportunityLifecycleDecision["action"]>([
   "archive_after_two_unanswered_followups",
@@ -116,8 +126,13 @@ const NOW =
 const approvedActionsFileArgIdx = process.argv.indexOf("--approved-actions-file");
 const APPROVED_ACTIONS_FILE =
   approvedActionsFileArgIdx >= 0 ? process.argv[approvedActionsFileArgIdx + 1] : null;
-const APPLY = process.argv.includes("--apply-guarded-p4-actions");
-const MODE: OpportunityLifecycleExecutionMode = APPLY ? "apply" : "dry-run";
+const APPLY_GUARDED = process.argv.includes("--apply-guarded-p4-actions");
+const APPLY_NON_DESTRUCTIVE = process.argv.includes(
+  "--apply-non-destructive-p4-actions"
+);
+const ACTION_SCOPE: ActionScope = APPLY_GUARDED ? "guarded" : "non_destructive";
+const MODE: OpportunityLifecycleExecutionMode =
+  APPLY_GUARDED || APPLY_NON_DESTRUCTIVE ? "apply" : "dry-run";
 const GUARDED_RPC_EXISTS_OVERRIDE =
   process.env.LEAD_LIFECYCLE_GUARDED_RPC_EXISTS;
 
@@ -141,15 +156,20 @@ if (Number.isNaN(NOW.getTime())) {
   process.exit(1);
 }
 
-if (process.argv.includes("--apply-non-destructive-p4-actions")) {
+if (APPLY_GUARDED && APPLY_NON_DESTRUCTIVE) {
   console.error(
-    "Use --apply-guarded-p4-actions with --approved-actions-file for P4 guarded execution."
+    "--apply-guarded-p4-actions and --apply-non-destructive-p4-actions are mutually exclusive"
   );
   process.exit(1);
 }
 
-if (APPLY && !APPROVED_ACTIONS_FILE) {
+if (APPLY_GUARDED && !APPROVED_ACTIONS_FILE) {
   console.error("--apply-guarded-p4-actions requires --approved-actions-file <json>");
+  process.exit(1);
+}
+
+if (!APPLY_GUARDED && APPROVED_ACTIONS_FILE) {
+  console.error("--approved-actions-file is only valid with --apply-guarded-p4-actions");
   process.exit(1);
 }
 
@@ -242,12 +262,32 @@ interface ProductionSnapshot {
   operatorNoResponseLostCount: number;
   maxUpdatedAt: string | null;
   correspondenceEventsCount: number;
+  followUpDraftsCount: number;
   lifecycleStateCount: number;
   lifecycleSettingsCount: number;
+  operatorMissNotificationCount: number;
   auditTableExists: boolean;
   guardedRpcExists: boolean;
   scannedNonDeletedOpportunities: number;
   capturedAt: string;
+}
+
+interface DraftStatusCountRow {
+  origin: string | null;
+  status: string | null;
+  count: number;
+}
+
+interface DefaultSettingsResult {
+  operation:
+    | "not_applicable"
+    | "would_insert"
+    | "inserted"
+    | "skipped_existing"
+    | "skipped_insert_failed";
+  companyIds: string[];
+  insertedCompanyIds: string[];
+  errorMessage?: string | null;
 }
 
 interface ApprovedActionRow {
@@ -332,7 +372,7 @@ async function loadApprovedActions(): Promise<Map<string, ApprovedActionRow>> {
 }
 
 async function assertApplySchemaReady() {
-  if (!APPLY) return;
+  if (!APPLY_GUARDED) return;
   const { error } = await sb
     .from("opportunity_lifecycle_action_audit")
     .select("id")
@@ -354,6 +394,24 @@ function settingsFromRow(row: SettingsRow): LeadLifecycleSettings {
     followUpTemplateBody: row.follow_up_template_body,
     autoArchiveEnabled: row.auto_archive_enabled,
     autoLostEnabled: row.auto_lost_enabled,
+  };
+}
+
+function defaultSettingsInsertRow(companyId: string): SettingsRow {
+  return {
+    company_id: companyId,
+    follow_up_after_days: DEFAULT_LEAD_LIFECYCLE_SETTINGS.followUpAfterDays,
+    second_follow_up_archive_after_days:
+      DEFAULT_LEAD_LIFECYCLE_SETTINGS.secondFollowUpArchiveAfterDays,
+    no_correspondence_archive_days:
+      DEFAULT_LEAD_LIFECYCLE_SETTINGS.noCorrespondenceArchiveDays,
+    inbound_unreplied_lost_days:
+      DEFAULT_LEAD_LIFECYCLE_SETTINGS.inboundUnrepliedLostDays,
+    follow_up_template_subject:
+      DEFAULT_LEAD_LIFECYCLE_SETTINGS.followUpTemplateSubject,
+    follow_up_template_body: DEFAULT_LEAD_LIFECYCLE_SETTINGS.followUpTemplateBody,
+    auto_archive_enabled: DEFAULT_LEAD_LIFECYCLE_SETTINGS.autoArchiveEnabled,
+    auto_lost_enabled: DEFAULT_LEAD_LIFECYCLE_SETTINGS.autoLostEnabled,
   };
 }
 
@@ -440,7 +498,7 @@ async function fetchEvents(
   opportunityIds: string[]
 ): Promise<Map<string, CorrespondenceEventRow[]>> {
   const rows: CorrespondenceEventRow[] = [];
-  for (const ids of chunk(opportunityIds, 500)) {
+  for (const ids of chunk(opportunityIds, 100)) {
     const { data, error } = await sb
       .from("opportunity_correspondence_events")
       .select(
@@ -466,7 +524,7 @@ async function fetchLegacyActivities(
 ): Promise<LegacyBackfillActivityRow[]> {
   const rows: LegacyBackfillActivityRow[] = [];
   const pageSize = 1000;
-  for (const ids of chunk(opportunityIds, 250)) {
+  for (const ids of chunk(opportunityIds, 100)) {
     for (let from = 0; rows.length < MAX_ACTIVITIES; from += pageSize) {
       const remaining = MAX_ACTIVITIES - rows.length;
       const to = from + Math.min(pageSize, remaining) - 1;
@@ -493,7 +551,7 @@ async function fetchLegacyThreads(
   providerThreadIds: string[]
 ): Promise<LegacyBackfillEmailThreadRow[]> {
   const rows: LegacyBackfillEmailThreadRow[] = [];
-  for (const ids of chunk(providerThreadIds, 500)) {
+  for (const ids of chunk(providerThreadIds, 100)) {
     const { data, error } = await sb
       .from("email_threads")
       .select(
@@ -510,7 +568,7 @@ async function fetchLegacyOpportunityThreadLinks(
   opportunityIds: string[]
 ): Promise<LegacyBackfillOpportunityThreadLinkRow[]> {
   const rows: LegacyBackfillOpportunityThreadLinkRow[] = [];
-  for (const ids of chunk(opportunityIds, 500)) {
+  for (const ids of chunk(opportunityIds, 100)) {
     const { data, error } = await sb
       .from("opportunity_email_threads")
       .select("opportunity_id, thread_id, connection_id")
@@ -549,7 +607,7 @@ async function fetchLegacyConnections(
   connectionIds: string[]
 ): Promise<LegacyBackfillEmailConnectionRow[]> {
   const rows: LegacyBackfillEmailConnectionRow[] = [];
-  for (const ids of chunk(connectionIds, 500)) {
+  for (const ids of chunk(connectionIds, 100)) {
     const { data, error } = await sb
       .from("email_connections")
       .select("id, company_id, email, sync_filters")
@@ -564,7 +622,7 @@ async function fetchLifecycleStates(
   opportunityIds: string[]
 ): Promise<Map<string, LifecycleStateRow>> {
   const rows: LifecycleStateRow[] = [];
-  for (const ids of chunk(opportunityIds, 500)) {
+  for (const ids of chunk(opportunityIds, 100)) {
     const { data, error } = await sb
       .from("opportunity_lifecycle_state")
       .select(
@@ -592,6 +650,66 @@ async function fetchSettings(
   return new Map(
     ((data ?? []) as SettingsRow[]).map((row) => [row.company_id, settingsFromRow(row)])
   );
+}
+
+async function ensureDefaultSettings(
+  companyIds: string[],
+  existingSettings: Map<string, LeadLifecycleSettings>
+): Promise<DefaultSettingsResult> {
+  const missingCompanyIds = companyIds.filter(
+    (companyId) => !existingSettings.has(companyId)
+  );
+  if (missingCompanyIds.length === 0) {
+    return {
+      operation: "skipped_existing",
+      companyIds: [],
+      insertedCompanyIds: [],
+    };
+  }
+
+  if (MODE === "dry-run") {
+    return {
+      operation: "would_insert",
+      companyIds: missingCompanyIds,
+      insertedCompanyIds: [],
+    };
+  }
+
+  if (ACTION_SCOPE !== "non_destructive") {
+    return {
+      operation: "not_applicable",
+      companyIds: missingCompanyIds,
+      insertedCompanyIds: [],
+    };
+  }
+
+  const rows = missingCompanyIds.map(defaultSettingsInsertRow);
+  const { data, error } = await sb
+    .from("lead_lifecycle_settings")
+    .upsert(rows, { onConflict: "company_id", ignoreDuplicates: true })
+    .select("company_id");
+
+  if (error) {
+    return {
+      operation: "skipped_insert_failed",
+      companyIds: missingCompanyIds,
+      insertedCompanyIds: [],
+      errorMessage: error.message,
+    };
+  }
+
+  const insertedCompanyIds = ((data ?? []) as Array<{ company_id: string }>).map(
+    (row) => row.company_id
+  );
+  for (const companyId of missingCompanyIds) {
+    existingSettings.set(companyId, DEFAULT_LEAD_LIFECYCLE_SETTINGS);
+  }
+
+  return {
+    operation: "inserted",
+    companyIds: missingCompanyIds,
+    insertedCompanyIds,
+  };
 }
 
 async function fetchOperators(companyIds: string[]): Promise<Map<string, string | null>> {
@@ -679,8 +797,10 @@ async function fetchProductionSnapshot(
     operatorNoResponseLostCount,
     maxUpdatedAt,
     correspondenceEvents,
+    followUpDrafts,
     lifecycleState,
     lifecycleSettings,
+    operatorMissNotifications,
     auditProbe,
   ] = await Promise.all([
     countOpportunities("all"),
@@ -692,11 +812,19 @@ async function fetchProductionSnapshot(
       .from("opportunity_correspondence_events")
       .select("id", { count: "exact", head: true }),
     sb
+      .from("opportunity_follow_up_drafts")
+      .select("id", { count: "exact", head: true }),
+    sb
       .from("opportunity_lifecycle_state")
       .select("opportunity_id", { count: "exact", head: true }),
     sb
       .from("lead_lifecycle_settings")
       .select("company_id", { count: "exact", head: true }),
+    sb
+      .from("notifications")
+      .select("id", { count: "exact", head: true })
+      .eq("type", "leads_waiting")
+      .like("dedupe_key", "lead_lifecycle:operator_follow_up_miss:%"),
     sb
       .from("opportunity_lifecycle_action_audit")
       .select("id", { count: "exact", head: true }),
@@ -704,8 +832,10 @@ async function fetchProductionSnapshot(
 
   for (const [label, result] of [
     ["opportunity_correspondence_events", correspondenceEvents],
+    ["opportunity_follow_up_drafts", followUpDrafts],
     ["opportunity_lifecycle_state", lifecycleState],
     ["lead_lifecycle_settings", lifecycleSettings],
+    ["notifications", operatorMissNotifications],
   ] as const) {
     if (result.error) throw new Error(`${label} count failed: ${result.error.message}`);
   }
@@ -717,8 +847,10 @@ async function fetchProductionSnapshot(
     operatorNoResponseLostCount,
     maxUpdatedAt,
     correspondenceEventsCount: correspondenceEvents.count ?? 0,
+    followUpDraftsCount: followUpDrafts.count ?? 0,
     lifecycleStateCount: lifecycleState.count ?? 0,
     lifecycleSettingsCount: lifecycleSettings.count ?? 0,
+    operatorMissNotificationCount: operatorMissNotifications.count ?? 0,
     auditTableExists: !auditProbe.error && typeof auditProbe.count === "number",
     guardedRpcExists: await fetchGuardedRpcExists(),
     scannedNonDeletedOpportunities,
@@ -740,10 +872,38 @@ function renderCounts(counts: Map<string, number>): string[] {
     .map(([key, count]) => `| ${md(key)} | ${count} |`);
 }
 
+async function fetchDraftStatusCounts(): Promise<DraftStatusCountRow[]> {
+  const { data, error } = await sb
+    .from("opportunity_follow_up_drafts")
+    .select("origin, status");
+  if (error) {
+    throw new Error(`opportunity_follow_up_drafts status query failed: ${error.message}`);
+  }
+
+  const counts = new Map<string, DraftStatusCountRow>();
+  for (const row of (data ?? []) as Array<{ origin: string | null; status: string | null }>) {
+    const key = `${row.origin ?? ""}::${row.status ?? ""}`;
+    const existing = counts.get(key) ?? {
+      origin: row.origin,
+      status: row.status,
+      count: 0,
+    };
+    existing.count += 1;
+    counts.set(key, existing);
+  }
+
+  return [...counts.values()].sort((a, b) =>
+    `${a.origin ?? ""}:${a.status ?? ""}`.localeCompare(
+      `${b.origin ?? ""}:${b.status ?? ""}`
+    )
+  );
+}
+
 async function main() {
   await assertApplySchemaReady();
   const approvedActions = await loadApprovedActions();
   const opportunities = await fetchOpportunities(approvedActions);
+  const preRunDraftStatusCounts = await fetchDraftStatusCounts();
   const preRunSnapshot = await fetchProductionSnapshot(opportunities.length);
   const opportunityIds = opportunities.map((row) => row.id);
   const companyIds = unique(opportunities.map((row) => row.company_id));
@@ -754,6 +914,21 @@ async function main() {
       fetchSettings(companyIds),
       fetchOperators(companyIds),
     ]);
+  const defaultSettingsResult = await ensureDefaultSettings(
+    companyIds,
+    settingsByCompany
+  );
+  if (
+    MODE === "apply" &&
+    ACTION_SCOPE === "non_destructive" &&
+    defaultSettingsResult.operation === "skipped_insert_failed"
+  ) {
+    throw new Error(
+      `lead_lifecycle_settings default insert failed: ${
+        defaultSettingsResult.errorMessage ?? "unknown error"
+      }`
+    );
+  }
   const existingEvents = [...eventsByOpportunity.values()].flat();
   const legacyActivities = await fetchLegacyActivities(opportunityIds);
   const legacyThreadLinks = await fetchLegacyOpportunityThreadLinks(opportunityIds);
@@ -824,6 +999,7 @@ async function main() {
     beforeValues: Record<string, unknown> | null;
     afterValues: Record<string, unknown> | null;
     auditRow: ProjectedOpportunityLifecycleActionAuditRow | null;
+    insertedIds: Record<string, string | undefined> | null;
     legacyEvidenceCount: number;
     latestEventSource: string | null;
   }> = [];
@@ -839,6 +1015,16 @@ async function main() {
     action: OpportunityLifecycleDecision["action"];
     skippedEvidence: LegacyBackfillSkippedEvidence[];
   }> = [];
+  const destructiveSkippedRows: Array<{
+    opportunity: OpportunityRow;
+    decision: OpportunityLifecycleDecision;
+  }> = [];
+  const supersededDraftRows: Array<{
+    opportunity: OpportunityRow;
+    latestEvent: EvaluatorEventRow;
+    operation: string;
+    supersededDrafts: number;
+  }> = [];
 
   let candidates = 0;
   let draftsToCreate = 0;
@@ -847,6 +1033,7 @@ async function main() {
   let draftsToSupersede = 0;
   let skippedAlreadyExists = 0;
   let skippedGuarded = 0;
+  let destructiveDecisionsSkipped = 0;
   let opportunityMutations = 0;
   let auditRowsToRecord = 0;
 
@@ -879,22 +1066,44 @@ async function main() {
     const approvedForOpportunity = [...approvedActions.values()].filter(
       (row) => row.opportunityId === opportunity.id
     );
-    const executionPlan =
-      MODE === "apply"
-        ? approvedForOpportunity.map((approvedAction) => ({
-            decision,
-            approvedAction,
-          }))
-        : decision.action === "no_action" || decision.ignored
-          ? []
-          : [{ decision, approvedAction: null }];
+    const executionPlan = (() => {
+      if (ACTION_SCOPE === "guarded") {
+        return MODE === "apply"
+          ? approvedForOpportunity.map((approvedAction) => ({
+              decision,
+              approvedAction,
+            }))
+          : decision.action === "no_action" || decision.ignored
+            ? []
+            : [{ decision, approvedAction: null }];
+      }
+
+      if (decision.action === "no_action" || decision.ignored) return [];
+      if (NON_DESTRUCTIVE_ACTIONS.has(decision.action)) {
+        return [{ decision, approvedAction: null }];
+      }
+      if (GUARDED_ACTIONS.has(decision.action)) {
+        destructiveSkippedRows.push({ opportunity, decision });
+        destructiveDecisionsSkipped += 1;
+      }
+      return [];
+    })();
 
     for (const item of executionPlan) {
       const plannedAction = item.approvedAction?.action ?? item.decision.action;
-      if (!GUARDED_ACTIONS.has(plannedAction)) continue;
+      if (ACTION_SCOPE === "guarded" && !GUARDED_ACTIONS.has(plannedAction)) {
+        continue;
+      }
+      if (
+        ACTION_SCOPE === "non_destructive" &&
+        !NON_DESTRUCTIVE_ACTIONS.has(plannedAction)
+      ) {
+        continue;
+      }
       const blockingLegacyEvidence =
         blockingLegacyEvidenceByOpportunity.get(opportunity.id) ?? [];
       if (
+        ACTION_SCOPE === "guarded" &&
         LEGACY_EVIDENCE_CLEAN_ACTIONS.has(plannedAction) &&
         blockingLegacyEvidence.length > 0
       ) {
@@ -1074,6 +1283,7 @@ async function main() {
         beforeValues: execution.beforeValues ?? null,
         afterValues: execution.afterValues ?? null,
         auditRow,
+        insertedIds: execution.insertedIds ?? null,
         legacyEvidenceCount: plannedEventsByOpportunity.get(opportunity.id)?.length ?? 0,
         latestEventSource: latestEvent?.source ?? null,
       });
@@ -1092,7 +1302,7 @@ async function main() {
       mergedEventsByOpportunity.get(opportunity.id) ?? []
     );
     if (!latestEvent || latestEvent.direction !== "inbound") continue;
-    const reset = await resetStaleLifecycleAfterMeaningfulInbound({
+    const projectedReset = await resetStaleLifecycleAfterMeaningfulInbound({
       supabase: sb,
       mode: "dry-run",
       companyId: opportunity.company_id,
@@ -1101,7 +1311,34 @@ async function main() {
       occurredAt: latestEvent.occurred_at,
       now: NOW,
     });
+    if (projectedReset.operations.supersededDrafts === 0) continue;
+
+    const reset =
+      MODE === "apply" && ACTION_SCOPE === "non_destructive"
+        ? await resetStaleLifecycleAfterMeaningfulInbound({
+            supabase: sb,
+            mode: "apply",
+            companyId: opportunity.company_id,
+            opportunityId: opportunity.id,
+            eventId: latestEvent.id,
+            occurredAt: latestEvent.occurred_at,
+            now: NOW,
+          })
+        : projectedReset;
+
     draftsToSupersede += reset.operations.supersededDrafts;
+    if (
+      reset.operations.lifecycleState === "would_update" ||
+      reset.operations.lifecycleState === "updated"
+    ) {
+      lifecycleStatesToUpdate += 1;
+    }
+    supersededDraftRows.push({
+      opportunity,
+      latestEvent,
+      operation: reset.operations.lifecycleState,
+      supersededDrafts: reset.operations.supersededDrafts,
+    });
   }
 
   const generatedAt = new Date().toISOString();
@@ -1146,23 +1383,37 @@ async function main() {
   const projectedAuditRows = executionRows
     .map((row) => row.auditRow)
     .filter((row): row is ProjectedOpportunityLifecycleActionAuditRow => Boolean(row));
+  const postRunDraftStatusCounts = await fetchDraftStatusCounts();
   const postRunSnapshot = await fetchProductionSnapshot(opportunities.length);
+  const artifactTitle =
+    ACTION_SCOPE === "non_destructive"
+      ? "# Lead Lifecycle P5 Non-Destructive Actions"
+      : "# Lead Lifecycle P4 Guarded Actions After Backfill Dry Run";
+  const productionWriteLine =
+    MODE === "dry-run"
+      ? "Production data writes: no."
+      : ACTION_SCOPE === "non_destructive"
+        ? "Production data writes: non-destructive local lifecycle rows only."
+        : "Production data writes: approved guarded P4 rows only.";
+  const destructiveExecutionLine =
+    ACTION_SCOPE === "non_destructive"
+      ? "Archive/lost/reactivation execution: not run; destructive decisions skipped."
+      : `Archive/lost/reactivation execution: ${MODE === "apply" ? "approved rows only" : "not run; dry-run plan only"}.`;
 
   const lines = [
-    "# Lead Lifecycle P4 Guarded Actions After Backfill Dry Run",
+    artifactTitle,
     "",
     `Generated: ${generatedAt}`,
     `Evaluator clock: ${NOW.toISOString()}`,
     `Mode: ${MODE}`,
+    `Action scope: ${ACTION_SCOPE}`,
     "",
-    MODE === "apply"
-      ? "Production data writes: approved guarded P4 rows only."
-      : "Production data writes: no.",
+    productionWriteLine,
     MODE === "apply" ? "Apply mode: yes." : "Apply mode: no.",
     "Migration applied: no.",
     "Provider drafts created: no.",
     "Emails sent: no.",
-    `Archive/lost/reactivation execution: ${MODE === "apply" ? "approved rows only" : "not run; dry-run plan only"}.`,
+    destructiveExecutionLine,
     `Artifact write: ${OUTPUT_PATH}`,
     "",
     "## Scope",
@@ -1172,6 +1423,8 @@ async function main() {
     `- Opportunity scan cap: ${MAX_OPPORTUNITIES}`,
     `- Activity scan cap: ${MAX_ACTIVITIES}`,
     `- Approved actions file: \`${APPROVED_ACTIONS_FILE ?? "none"}\``,
+    `- Non-destructive apply flag: ${APPLY_NON_DESTRUCTIVE ? "present" : "absent"}`,
+    `- Guarded apply flag: ${APPLY_GUARDED ? "present" : "absent"}`,
     "- Candidate source: non-deleted opportunities scanned first; exact approved opportunity ids are included even when outside the scan cap.",
     "- Total opportunities means every row in `public.opportunities`; scanned non-deleted opportunities means the evaluator input set after `deleted_at IS NULL`, scan cap, and exact approved-id inclusion.",
     `- P4 correspondence events considered: ${p4CorrespondenceEventsConsidered}`,
@@ -1187,8 +1440,12 @@ async function main() {
       : "- P4 correspondence rows were used only for opportunities that had matching P4 rows.",
     "- Legacy evidence is activity/thread/opportunity scoped and does not rewrite thread or opportunity relationships.",
     "- Guarded archive/lost candidates require clean legacy evidence: unresolved `ambiguous_legacy_evidence`, `relationship_mismatch`, `missing_provider_id`, or `missing_created_at` rows block mutation output.",
-    "- Apply flag: `--apply-guarded-p4-actions`.",
-    "- Apply approval gate: `--approved-actions-file <json>` is required and each approved row must match the current evaluator action before execution.",
+    ACTION_SCOPE === "guarded"
+      ? "- Apply flag: `--apply-guarded-p4-actions`."
+      : "- Apply flag: `--apply-non-destructive-p4-actions`.",
+    ACTION_SCOPE === "guarded"
+      ? "- Apply approval gate: `--approved-actions-file <json>` is required and each approved row must match the current evaluator action before execution."
+      : "- Apply approval gate: dry-run must be clean; guarded approval JSON is not accepted in this scope.",
     "",
     "## Summary",
     "",
@@ -1204,6 +1461,8 @@ async function main() {
     `- Guarded candidates blocked by unresolved legacy evidence: ${legacyBlockedRows.length}`,
     `- Drafts to create: ${draftsToCreate}`,
     `- Notifications to create: ${notificationsToCreate}`,
+    `- Default settings to insert: ${defaultSettingsResult.companyIds.length}`,
+    `- Default settings inserted: ${defaultSettingsResult.insertedCompanyIds.length}`,
     `- Lifecycle states to update: ${lifecycleStatesToUpdate}`,
     `- Opportunity rows to mutate: ${opportunityMutations}`,
     `- Audit rows to record: ${auditRowsToRecord}`,
@@ -1211,6 +1470,7 @@ async function main() {
     `- Drafts to supersede: ${draftsToSupersede}`,
     `- Skipped because already exists: ${skippedAlreadyExists}`,
     `- Skipped by guard: ${skippedGuarded}`,
+    `- Destructive decisions skipped: ${destructiveDecisionsSkipped}`,
     "",
     "## Production Snapshot Proof",
     "",
@@ -1228,8 +1488,10 @@ async function main() {
     `| operator_no_response lost count | ${preRunSnapshot.operatorNoResponseLostCount} | ${postRunSnapshot.operatorNoResponseLostCount} |`,
     `| max updated_at | ${md(preRunSnapshot.maxUpdatedAt)} | ${md(postRunSnapshot.maxUpdatedAt)} |`,
     `| opportunity_correspondence_events | ${preRunSnapshot.correspondenceEventsCount} | ${postRunSnapshot.correspondenceEventsCount} |`,
+    `| opportunity_follow_up_drafts | ${preRunSnapshot.followUpDraftsCount} | ${postRunSnapshot.followUpDraftsCount} |`,
     `| opportunity_lifecycle_state | ${preRunSnapshot.lifecycleStateCount} | ${postRunSnapshot.lifecycleStateCount} |`,
     `| lead_lifecycle_settings | ${preRunSnapshot.lifecycleSettingsCount} | ${postRunSnapshot.lifecycleSettingsCount} |`,
+    `| operator follow-up-miss notifications | ${preRunSnapshot.operatorMissNotificationCount} | ${postRunSnapshot.operatorMissNotificationCount} |`,
     `| action audit table exists | ${preRunSnapshot.auditTableExists} | ${postRunSnapshot.auditTableExists} |`,
     `| guarded RPC exists | ${preRunSnapshot.guardedRpcExists} | ${postRunSnapshot.guardedRpcExists} |`,
     `| scanned non-deleted opportunities | ${preRunSnapshot.scannedNonDeletedOpportunities} | ${postRunSnapshot.scannedNonDeletedOpportunities} |`,
@@ -1239,6 +1501,133 @@ async function main() {
     "| Action | Count |",
     "| --- | ---: |",
     ...renderCounts(actionCounts),
+    "",
+    "## Template follow-up drafts to create",
+    "",
+    "| Opportunity | Stage | Latest event source | Draft operation | State operation | Inserted draft id |",
+    "| --- | --- | --- | --- | --- | --- |",
+    ...executionRows
+      .filter((row) => row.decision.action === "create_follow_up_draft")
+      .map((row) => {
+        return `| ${md(row.opportunity.title ?? row.opportunity.id)} (${md(row.opportunity.id)}) | ${md(row.opportunity.stage)} | ${md(row.latestEventSource)} | ${md(row.draft)} | ${md(row.lifecycleState)} | ${md(row.insertedIds?.draftId)} |`;
+      }),
+    executionRows.filter((row) => row.decision.action === "create_follow_up_draft")
+      .length === 0
+      ? "| - | - | - | - | - | - |"
+      : "",
+    "",
+    "## Operator notifications to create",
+    "",
+    "| Opportunity | Stage | Latest event source | Notification operation | State operation | Inserted notification id |",
+    "| --- | --- | --- | --- | --- | --- |",
+    ...executionRows
+      .filter((row) => row.decision.action === "operator_follow_up_miss")
+      .map((row) => {
+        return `| ${md(row.opportunity.title ?? row.opportunity.id)} (${md(row.opportunity.id)}) | ${md(row.opportunity.stage)} | ${md(row.latestEventSource)} | ${md(row.notification)} | ${md(row.lifecycleState)} | ${md(row.insertedIds?.notificationId)} |`;
+      }),
+    executionRows.filter((row) => row.decision.action === "operator_follow_up_miss")
+      .length === 0
+      ? "| - | - | - | - | - | - |"
+      : "",
+    "",
+    "## Default settings to insert",
+    "",
+    `Operation: ${defaultSettingsResult.operation}`,
+    "",
+    "| Company ID | Inserted |",
+    "| --- | --- |",
+    ...defaultSettingsResult.companyIds.map((companyId) => {
+      return `| ${md(companyId)} | ${defaultSettingsResult.insertedCompanyIds.includes(companyId) ? "yes" : MODE === "dry-run" ? "dry-run" : "no"} |`;
+    }),
+    defaultSettingsResult.companyIds.length === 0 ? "| - | - |" : "",
+    defaultSettingsResult.errorMessage
+      ? `\nSettings insert error: ${md(defaultSettingsResult.errorMessage)}`
+      : "",
+    "",
+    "## Drafts to supersede due to meaningful inbound",
+    "",
+    "| Opportunity | Latest inbound event | Operation | Drafts superseded |",
+    "| --- | --- | --- | ---: |",
+    ...supersededDraftRows.map((row) => {
+      return `| ${md(row.opportunity.title ?? row.opportunity.id)} (${md(row.opportunity.id)}) | ${md(row.latestEvent.id)} | ${md(row.operation)} | ${row.supersededDrafts} |`;
+    }),
+    supersededDraftRows.length === 0 ? "| - | - | - | 0 |" : "",
+    "",
+    "## Already-existing/idempotent skips",
+    "",
+    "| Action | Opportunity ID | Draft | Notification | Opportunity | Skip reason |",
+    "| --- | --- | --- | --- | --- | --- |",
+    ...executionRows
+      .filter(
+        (row) =>
+          row.draft === "skipped_existing_open_template" ||
+          row.notification === "skipped_existing_unread" ||
+          row.opportunityOperation === "skipped_duplicate_applied_action"
+      )
+      .map((row) => {
+        return `| ${md(row.decision.action)} | ${md(row.opportunity.id)} | ${md(row.draft)} | ${md(row.notification)} | ${md(row.opportunityOperation)} | ${md(row.skippedReason)} |`;
+      }),
+    skippedAlreadyExists === 0 ? "| - | - | - | - | - | - |" : "",
+    "",
+    "## Destructive decisions skipped",
+    "",
+    "| Action | Opportunity | Stage | Reason |",
+    "| --- | --- | --- | --- |",
+    ...destructiveSkippedRows.map((row) => {
+      return `| ${md(row.decision.action)} | ${md(row.opportunity.title ?? row.opportunity.id)} (${md(row.opportunity.id)}) | ${md(row.opportunity.stage)} | non_destructive_scope |`;
+    }),
+    destructiveSkippedRows.length === 0 ? "| - | - | - | - |" : "",
+    "",
+    "## Follow-up draft counts by origin/status",
+    "",
+    "| Origin | Status | Pre-run | Post-run |",
+    "| --- | --- | ---: | ---: |",
+    ...Array.from(
+      new Set([
+        ...preRunDraftStatusCounts.map((row) => `${row.origin ?? ""}::${row.status ?? ""}`),
+        ...postRunDraftStatusCounts.map((row) => `${row.origin ?? ""}::${row.status ?? ""}`),
+      ])
+    )
+      .sort()
+      .map((key) => {
+        const [origin, status] = key.split("::");
+        const pre =
+          preRunDraftStatusCounts.find(
+            (row) => (row.origin ?? "") === origin && (row.status ?? "") === status
+          )?.count ?? 0;
+        const post =
+          postRunDraftStatusCounts.find(
+            (row) => (row.origin ?? "") === origin && (row.status ?? "") === status
+          )?.count ?? 0;
+        return `| ${md(origin)} | ${md(status)} | ${pre} | ${post} |`;
+      }),
+    preRunDraftStatusCounts.length === 0 && postRunDraftStatusCounts.length === 0
+      ? "| - | - | 0 | 0 |"
+      : "",
+    "",
+    "## Inserted row ids",
+    "",
+    "```json",
+    JSON.stringify(
+      {
+        lead_lifecycle_settings: defaultSettingsResult.insertedCompanyIds,
+        opportunity_follow_up_drafts: executionRows
+          .map((row) => row.insertedIds?.draftId)
+          .filter(Boolean),
+        notifications: executionRows
+          .map((row) => row.insertedIds?.notificationId)
+          .filter(Boolean),
+        lifecycle_state_opportunity_ids: executionRows
+          .filter((row) => row.lifecycleState === "updated")
+          .map((row) => row.opportunity.id),
+        superseded_draft_opportunity_ids: supersededDraftRows
+          .filter((row) => row.operation === "updated")
+          .map((row) => row.opportunity.id),
+      },
+      null,
+      2
+    ),
+    "```",
     "",
     "## Legacy Backfill Evidence Considered",
     "",
@@ -1343,7 +1732,9 @@ async function main() {
     "",
     "## Required Approval Section",
     "",
-    "Production apply is blocked until this dry-run artifact is reviewed and the exact approved opportunity/action list is supplied as JSON via `--approved-actions-file`.",
+    ACTION_SCOPE === "guarded"
+      ? "Production apply is blocked until this dry-run artifact is reviewed and the exact approved opportunity/action list is supplied as JSON via `--approved-actions-file`."
+      : "Guarded approval JSON is not accepted for P5 non-destructive apply. Apply uses `--apply-non-destructive-p4-actions` and remains limited to local drafts, lifecycle state, settings defaults, and persistent rail notifications.",
     "",
     "```json",
     JSON.stringify(requiredApprovalRows, null, 2),
@@ -1351,14 +1742,22 @@ async function main() {
     "",
     "## Execution Boundary",
     "",
-    "- P4-12 guarded apply can execute only archive, lost, and related-inbound reactivation decisions.",
-    "- P4-8 non-destructive actions remain outside this apply whitelist.",
+    ACTION_SCOPE === "guarded"
+      ? "- P4-12 guarded apply can execute only archive, lost, and related-inbound reactivation decisions."
+      : "- P5 non-destructive apply can execute only template follow-up drafts, operator follow-up-miss notifications, lifecycle-state updates, inbound supersedes, and default settings inserts.",
+    ACTION_SCOPE === "guarded"
+      ? "- P4-8 non-destructive actions remain outside this apply whitelist."
+      : "- Archive, lost, and reactivation decisions are skipped in this scope.",
     "- Archive actions set only `opportunities.archived_at`.",
     "- Lost actions set only `stage`, `lost_reason`, `lost_notes`, and `actual_close_date` on beyond-qualified stages.",
     "- Reactivation clears only `opportunities.archived_at` when the approved action still has a related meaningful inbound.",
-    "- Apply mode calls `execute_opportunity_lifecycle_guarded_action` so audit and opportunity mutation share one database transaction after the additive migration is live.",
+    ACTION_SCOPE === "guarded"
+      ? "- Apply mode calls `execute_opportunity_lifecycle_guarded_action` so audit and opportunity mutation share one database transaction after the additive migration is live."
+      : "- Apply mode does not call `execute_opportunity_lifecycle_guarded_action` and does not write action-audit rows.",
     "- The executor does not call provider draft APIs, provider send APIs, archive routes, lost routes, or unarchive/reactivation routes.",
-    "- P5/P6 are out of scope.",
+    ACTION_SCOPE === "guarded"
+      ? "- P5/P6 are out of scope."
+      : "- P6 is out of scope.",
   ];
 
   await mkdir(path.dirname(OUTPUT_PATH), { recursive: true });
@@ -1368,7 +1767,10 @@ async function main() {
   console.log(`Candidates: ${candidates}`);
   console.log(`Drafts to create: ${draftsToCreate}`);
   console.log(`Notifications to create: ${notificationsToCreate}`);
+  console.log(`Default settings to insert: ${defaultSettingsResult.companyIds.length}`);
+  console.log(`Lifecycle states to update: ${lifecycleStatesToUpdate}`);
   console.log(`Opportunity rows to mutate: ${opportunityMutations}`);
+  console.log(`Destructive decisions skipped: ${destructiveDecisionsSkipped}`);
 }
 
 main().catch((error) => {

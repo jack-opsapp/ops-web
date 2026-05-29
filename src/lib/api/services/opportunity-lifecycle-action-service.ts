@@ -98,6 +98,7 @@ export type LifecycleStateOperation =
   | "not_applicable"
   | "would_update"
   | "updated"
+  | "skipped_existing_state"
   | "skipped_update_failed";
 
 export type OpportunityMutationOperation =
@@ -209,6 +210,10 @@ export interface OpportunityLifecycleActionResult {
     opportunity: OpportunityMutationOperation;
     audit: AuditOperation;
     supersededDrafts: number;
+  };
+  insertedIds?: {
+    draftId?: string;
+    notificationId?: string;
   };
 }
 
@@ -326,6 +331,10 @@ function notificationBody(input: OpportunityLifecycleActionInput): string {
   return `Customer replied on ${title}. OPS has not answered.`;
 }
 
+function operatorMissDedupeKey(input: OpportunityLifecycleActionInput): string {
+  return `lead_lifecycle:operator_follow_up_miss:${input.opportunityId}`;
+}
+
 async function fetchRows(
   query: PromiseLike<{ data?: unknown[] | null; error?: unknown }>
 ): Promise<unknown[]> {
@@ -370,10 +379,25 @@ async function upsertLifecycleState(
   staleStatus: OpportunityLifecycleStaleStatus
 ): Promise<LifecycleStateOperation> {
   const mode = modeOf(input.mode);
+  const state = input.lifecycleState;
+  const event = input.latestMeaningfulEvent ?? null;
+  const lastMeaningfulEventId =
+    normalizedText(state?.lastMeaningfulEventId ?? null) ??
+    normalizedText(event?.id ?? null);
+  const lastMeaningfulDirection =
+    normalizedText(state?.lastMeaningfulDirection ?? null) ??
+    normalizedText(event?.direction ?? null);
+  const stateAlreadyMatches =
+    state?.staleStatus === staleStatus &&
+    (!lastMeaningfulEventId ||
+      normalizedText(state.lastMeaningfulEventId ?? null) === lastMeaningfulEventId) &&
+    (!lastMeaningfulDirection ||
+      normalizedText(state.lastMeaningfulDirection ?? null) === lastMeaningfulDirection);
+
+  if (stateAlreadyMatches) return "skipped_existing_state";
   if (mode === "dry-run") return "would_update";
 
   const now = (input.now ?? new Date()).toISOString();
-  const event = input.latestMeaningfulEvent ?? null;
   const row: Record<string, unknown> = {
     opportunity_id: input.opportunityId,
     company_id: input.companyId,
@@ -385,18 +409,12 @@ async function upsertLifecycleState(
     updated_at: now,
   };
 
-  const lastMeaningfulEventId =
-    normalizedText(input.lifecycleState?.lastMeaningfulEventId ?? null) ??
-    normalizedText(event?.id ?? null);
   if (lastMeaningfulEventId) row.last_meaningful_event_id = lastMeaningfulEventId;
 
   const lastMeaningfulAt =
     input.lifecycleState?.lastMeaningfulAt ?? event?.occurredAt ?? null;
   if (lastMeaningfulAt) row.last_meaningful_at = iso(lastMeaningfulAt);
 
-  const lastMeaningfulDirection =
-    normalizedText(input.lifecycleState?.lastMeaningfulDirection ?? null) ??
-    normalizedText(event?.direction ?? null);
   if (lastMeaningfulDirection) row.last_meaningful_direction = lastMeaningfulDirection;
 
   row.unanswered_follow_up_count = Number(
@@ -422,7 +440,12 @@ async function upsertLifecycleState(
 
 async function createTemplateFollowUpDraft(
   input: OpportunityLifecycleActionInput
-): Promise<Pick<OpportunityLifecycleActionResult, "operations" | "applied" | "skippedReason">> {
+): Promise<
+  Pick<
+    OpportunityLifecycleActionResult,
+    "operations" | "applied" | "skippedReason" | "insertedIds"
+  >
+> {
   const mode = modeOf(input.mode);
   const existing = await findOpenTemplateDraft(input);
   if (existing) {
@@ -487,23 +510,28 @@ async function createTemplateFollowUpDraft(
     };
   }
 
-  const { error } = await input.supabase.from("opportunity_follow_up_drafts").insert({
-    company_id: input.companyId,
-    opportunity_id: input.opportunityId,
-    connection_id: input.latestMeaningfulEvent?.connectionId ?? null,
-    provider_thread_id: input.latestMeaningfulEvent?.providerThreadId ?? null,
-    source_event_id: sourceEventId,
-    origin: "template_follow_up",
-    sequence_number: sequence,
-    subject: input.settings.followUpTemplateSubject ?? "",
-    original_body: body,
-    current_body: body,
-    status: "drafted",
-    provider_draft_id: null,
-    ai_draft_history_id: null,
-    created_by: null,
-    edited_by: null,
-  });
+  const { data, error } = await input.supabase
+    .from("opportunity_follow_up_drafts")
+    .insert({
+      company_id: input.companyId,
+      opportunity_id: input.opportunityId,
+      connection_id: input.latestMeaningfulEvent?.connectionId ?? null,
+      provider_thread_id: input.latestMeaningfulEvent?.providerThreadId ?? null,
+      source_event_id: sourceEventId,
+      origin: "template_follow_up",
+      sequence_number: sequence,
+      subject: input.settings.followUpTemplateSubject ?? "",
+      original_body: body,
+      current_body: body,
+      status: "drafted",
+      provider_draft_id: null,
+      ai_draft_history_id: null,
+      created_by: null,
+      edited_by: null,
+    })
+    .select("id")
+    .single();
+  const draftId = textValue(recordValue(data).id);
 
   return {
     applied: !error,
@@ -515,6 +543,7 @@ async function createTemplateFollowUpDraft(
       audit: "not_applicable",
       supersededDrafts: 0,
     },
+    insertedIds: !error && draftId ? { draftId } : undefined,
   };
 }
 
@@ -529,8 +558,9 @@ async function findExistingOperatorMissNotification(
       .eq("user_id", input.operatorUserId)
       .eq("company_id", input.companyId)
       .eq("type", NOTIFICATION_TYPE)
-      .eq("title", notificationTitle(input))
+      .eq("dedupe_key", operatorMissDedupeKey(input))
       .eq("is_read", false)
+      .is("resolved_at", null)
       .limit(1)
   );
   return (rows[0] as Record<string, unknown> | undefined) ?? null;
@@ -538,7 +568,12 @@ async function findExistingOperatorMissNotification(
 
 async function createOperatorFollowUpMissNotification(
   input: OpportunityLifecycleActionInput
-): Promise<Pick<OpportunityLifecycleActionResult, "operations" | "applied" | "skippedReason">> {
+): Promise<
+  Pick<
+    OpportunityLifecycleActionResult,
+    "operations" | "applied" | "skippedReason" | "insertedIds"
+  >
+> {
   const mode = modeOf(input.mode);
   if (!input.operatorUserId) {
     return {
@@ -585,19 +620,26 @@ async function createOperatorFollowUpMissNotification(
     };
   }
 
-  const { error } = await input.supabase.from("notifications").insert({
-    user_id: input.operatorUserId,
-    company_id: input.companyId,
-    type: NOTIFICATION_TYPE,
-    title: notificationTitle(input),
-    body: notificationBody(input),
-    is_read: false,
-    persistent: true,
-    action_url: actionUrlFor(input),
-    action_label: actionLabelFor(input),
-    project_id: null,
-    note_id: null,
-  });
+  const { data, error } = await input.supabase
+    .from("notifications")
+    .insert({
+      user_id: input.operatorUserId,
+      company_id: input.companyId,
+      type: NOTIFICATION_TYPE,
+      title: notificationTitle(input),
+      body: notificationBody(input),
+      is_read: false,
+      persistent: true,
+      action_url: actionUrlFor(input),
+      action_label: actionLabelFor(input),
+      project_id: null,
+      note_id: null,
+      dedupe_key: operatorMissDedupeKey(input),
+      resolved_at: null,
+    })
+    .select("id")
+    .single();
+  const notificationId = textValue(recordValue(data).id);
   const lifecycleState = error
     ? "not_applicable"
     : await upsertLifecycleState(input, OPERATOR_MISS_STALE_STATUS);
@@ -612,6 +654,7 @@ async function createOperatorFollowUpMissNotification(
       audit: "not_applicable",
       supersededDrafts: 0,
     },
+    insertedIds: !error && notificationId ? { notificationId } : undefined,
   };
 }
 

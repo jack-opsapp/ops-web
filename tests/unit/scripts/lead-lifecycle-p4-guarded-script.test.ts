@@ -39,6 +39,32 @@ describe("lead lifecycle P4-12 guarded action script", () => {
     expect(block).not.toContain("operator_follow_up_miss");
   });
 
+  it("supports a separate P5 non-destructive apply flag without guarded approvals", () => {
+    const source = scriptSource();
+
+    expect(source).toContain("--apply-non-destructive-p4-actions");
+    expect(source).toContain("NON_DESTRUCTIVE_ACTIONS");
+    expect(source).toContain("create_follow_up_draft");
+    expect(source).toContain("operator_follow_up_miss");
+    expect(source).not.toContain(
+      "Use --apply-guarded-p4-actions with --approved-actions-file for P4 guarded execution."
+    );
+  });
+
+  it("renders P5 non-destructive artifact sections for drafts, notifications, settings, supersedes, and skips", () => {
+    const source = scriptSource();
+
+    expect(source).toContain("Lead Lifecycle P5 Non-Destructive Actions");
+    expect(source).toContain("Template follow-up drafts to create");
+    expect(source).toContain("Operator notifications to create");
+    expect(source).toContain("Default settings to insert");
+    expect(source).toContain("Drafts to supersede due to meaningful inbound");
+    expect(source).toContain("Already-existing/idempotent skips");
+    expect(source).toContain("Destructive decisions skipped");
+    expect(source).toContain("Provider drafts created: no.");
+    expect(source).toContain("Emails sent: no.");
+  });
+
   it("renders total-vs-scanned production snapshot proof in the dry-run artifact", () => {
     const source = scriptSource();
 
