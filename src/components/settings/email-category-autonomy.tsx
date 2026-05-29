@@ -235,7 +235,7 @@ export function EmailCategoryAutonomy({
             <div key={cat.profileType}>
               <div
                 className={cn(
-                  "flex items-center justify-between px-3 py-2 min-h-[56px]",
+                  "flex items-center justify-between px-3 py-2 min-h-[36px]",
                   index > 0 && "border-t border-[rgba(255,255,255,0.04)]"
                 )}
               >
@@ -266,7 +266,7 @@ export function EmailCategoryAutonomy({
                     }
                     disabled={isSaving}
                     className={cn(
-                      "appearance-none pl-2 pr-6 py-1 rounded-[4px] bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] font-mohave text-caption-sm text-text-2 outline-none focus:border-[rgba(111, 148, 176,0.4)] transition-colors cursor-pointer min-w-[130px]",
+                      "appearance-none pl-2 pr-6 py-1 min-h-[36px] rounded-[5px] bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] font-mohave text-caption-sm text-text-2 outline-none focus:border-[rgba(255,255,255,0.20)] transition-colors cursor-pointer min-w-[130px]",
                       isSaving && "opacity-50"
                     )}
                   >
@@ -550,10 +550,10 @@ function PrimaryCategoryAutonomy({
                   }
                   disabled={isSaving || filtered.length <= 1}
                   className={cn(
-                    "appearance-none pl-2 pr-6 py-1 rounded-[4px]",
+                    "appearance-none pl-2 pr-6 py-1 min-h-[36px] rounded-[5px]",
                     "bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)]",
                     "font-mohave text-caption-sm text-text-2 outline-none",
-                    "focus:border-[rgba(111,148,176,0.4)] transition-colors cursor-pointer min-w-[150px]",
+                    "focus:border-[rgba(255,255,255,0.20)] transition-colors cursor-pointer min-w-[150px]",
                     isSaving && "opacity-50"
                   )}
                 >

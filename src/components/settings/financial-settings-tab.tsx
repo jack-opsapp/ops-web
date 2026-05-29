@@ -122,7 +122,7 @@ export function FinancialSettingsTab() {
         <button
           onClick={handleSave}
           disabled={!dirty || saving}
-          className="flex items-center gap-2 px-4 min-h-[56px] rounded-[8px] border font-mohave text-[14px] uppercase tracking-wider transition-colors duration-150"
+          className="flex items-center gap-2 px-4 min-h-[36px] rounded-[5px] border font-mohave text-[14px] uppercase tracking-wider transition-colors duration-150"
           style={{
             backgroundColor: dirty ? "#6F94B0" : "transparent",
             borderColor: dirty ? "#6F94B0" : "rgba(255,255,255,0.08)",
@@ -142,7 +142,7 @@ export function FinancialSettingsTab() {
 
       {/* Enable/disable toggle */}
       <div className="rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2] p-4">
-        <label className="flex items-center justify-between min-h-[56px] cursor-pointer">
+        <label className="flex items-center justify-between min-h-[36px] cursor-pointer">
           <span className="font-mohave text-[14px] text-text">
             {t("financial.settings.enableDigest")}
           </span>
@@ -271,7 +271,7 @@ function ThresholdInput({
   onChange: (value: number) => void;
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 min-h-[56px]">
+    <div className="flex items-center justify-between gap-4 min-h-[36px]">
       <span className="font-mohave text-[13px] text-text-2 flex-1">
         {label}
       </span>
@@ -285,7 +285,7 @@ function ThresholdInput({
             const v = Math.max(min, Math.min(max, Number(e.target.value) || min));
             onChange(v);
           }}
-          className="w-[72px] h-[56px] px-3 rounded-[4px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] font-mono text-[13px] text-text text-right outline-none focus:border-[#6F94B0] transition-colors duration-150"
+          className="w-[72px] min-h-[36px] px-3 rounded-[5px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] font-mono text-[13px] text-text text-right outline-none focus:border-[rgba(255,255,255,0.20)] transition-colors duration-150"
         />
         <span className="font-mono text-[11px] text-text-3 min-w-[60px]">
           {suffix}

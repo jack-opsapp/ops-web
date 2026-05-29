@@ -153,7 +153,7 @@ export function ScheduleSettingsTab() {
         <button
           onClick={handleSave}
           disabled={!dirty || saving}
-          className="flex items-center gap-2 px-4 min-h-[56px] rounded-[8px] border font-mohave text-[14px] uppercase tracking-wider transition-colors duration-150"
+          className="flex items-center gap-2 px-4 min-h-[36px] rounded-[5px] border font-mohave text-[14px] uppercase tracking-wider transition-colors duration-150"
           style={{
             backgroundColor: dirty ? "#6F94B0" : "transparent",
             borderColor: dirty ? "#6F94B0" : "rgba(255,255,255,0.08)",
@@ -180,7 +180,7 @@ export function ScheduleSettingsTab() {
 
       {/* Optimization window */}
       <div className="rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2] p-4">
-        <div className="flex items-center justify-between min-h-[56px]">
+        <div className="flex items-center justify-between min-h-[36px]">
           <span className="font-mohave text-[13px] text-text-2">
             {t("settings.optimizationWindow")}
           </span>
@@ -195,7 +195,7 @@ export function ScheduleSettingsTab() {
                 const v = Math.max(1, Math.min(7, Number(e.target.value) || 2));
                 update({ optimization_window_days: v });
               }}
-              className="w-[72px] h-[56px] px-3 rounded-[4px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] font-mono text-[13px] text-text text-right outline-none focus:border-[rgba(255,255,255,0.24)] transition-colors duration-150"
+              className="w-[72px] min-h-[36px] px-3 rounded-[5px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] font-mono text-[13px] text-text text-right outline-none focus:border-[rgba(255,255,255,0.20)] transition-colors duration-150"
             />
             <span className="font-mono text-[11px] text-text-3 min-w-[60px]">
               {t("settings.optimizationWindowSuffix")}
@@ -238,7 +238,7 @@ export function ScheduleSettingsTab() {
         {settings.weather_awareness && (
           <>
             {/* Climate zone */}
-            <div className="flex items-center justify-between min-h-[56px]">
+            <div className="flex items-center justify-between min-h-[36px]">
               <span className="font-mohave text-[13px] text-text-2">
                 {t("settings.climateZone")}
               </span>
@@ -249,7 +249,7 @@ export function ScheduleSettingsTab() {
                     climate_zone: e.target.value as "northern" | "southern" | "auto",
                   })
                 }
-                className="h-[56px] px-3 rounded-[4px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] font-mohave text-[13px] text-text outline-none focus:border-[rgba(255,255,255,0.24)] transition-colors duration-150 [color-scheme:dark]"
+                className="min-h-[36px] px-3 rounded-[5px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] font-mohave text-[13px] text-text outline-none focus:border-[rgba(255,255,255,0.20)] transition-colors duration-150 [color-scheme:dark]"
               >
                 <option value="auto">{t("settings.climateZone.auto")}</option>
                 <option value="northern">{t("settings.climateZone.northern")}</option>
@@ -278,7 +278,7 @@ export function ScheduleSettingsTab() {
                         key={tt.id}
                         onClick={() => toggleOutdoorTaskType(tt.id)}
                         aria-pressed={isSelected}
-                        className="flex items-center gap-1.5 px-3 min-h-[56px] rounded-[4px] border transition-colors duration-150"
+                        className="flex items-center gap-1.5 px-3 min-h-[36px] rounded-[5px] border transition-colors duration-150"
                         style={{
                           backgroundColor: isSelected
                             ? "rgba(255,255,255,0.06)"
@@ -324,7 +324,7 @@ function ToggleRow({
 }) {
   return (
     <div className="rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2] p-4">
-      <label className="flex items-center justify-between min-h-[56px] cursor-pointer">
+      <label className="flex items-center justify-between min-h-[36px] cursor-pointer">
         <span className="font-mohave text-[14px] text-text">
           {label}
         </span>
@@ -348,7 +348,7 @@ function ToggleRowInline({
   onChange: (value: boolean) => void;
 }) {
   return (
-    <label className="flex items-center justify-between min-h-[56px] cursor-pointer">
+    <label className="flex items-center justify-between min-h-[36px] cursor-pointer">
       <div>
         <span className="font-mohave text-[13px] text-text block">
           {label}
