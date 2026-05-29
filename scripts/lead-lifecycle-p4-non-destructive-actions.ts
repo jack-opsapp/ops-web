@@ -32,6 +32,8 @@ import {
   type LegacyBackfillOpportunityRow,
   type LegacyBackfillOpportunityThreadLinkRow,
   type LegacyBackfillPlannedEventRow,
+  type LegacyBackfillSkipReason,
+  type LegacyBackfillSkippedEvidence,
 } from "../src/lib/email/opportunity-legacy-correspondence-backfill";
 import {
   DEFAULT_LEAD_LIFECYCLE_SETTINGS,
@@ -76,6 +78,19 @@ const GUARDED_ACTIONS = new Set<OpportunityLifecycleDecision["action"]>([
   "archive_no_meaningful_correspondence",
   "move_to_lost_operator_no_response",
   "reactivate_on_related_inbound",
+]);
+
+const LEGACY_EVIDENCE_CLEAN_ACTIONS = new Set<OpportunityLifecycleDecision["action"]>([
+  "archive_after_two_unanswered_followups",
+  "archive_no_meaningful_correspondence",
+  "move_to_lost_operator_no_response",
+]);
+
+const BLOCKING_LEGACY_EVIDENCE_SKIP_REASONS = new Set<LegacyBackfillSkipReason>([
+  "ambiguous_legacy_evidence",
+  "relationship_mismatch",
+  "missing_provider_id",
+  "missing_created_at",
 ]);
 
 const companyIdArgIdx = process.argv.indexOf("--company-id");
@@ -478,7 +493,7 @@ async function fetchLegacyThreads(
     const { data, error } = await sb
       .from("email_threads")
       .select(
-        "company_id, opportunity_id, connection_id, provider_thread_id, labels, primary_category"
+        "company_id, opportunity_id, connection_id, provider_thread_id, labels, primary_category, subject, participants, first_message_at, last_message_at, message_count, latest_direction, latest_sender_email, latest_sender_name, latest_snippet"
       )
       .in("provider_thread_id", ids);
     if (error) throw new Error(`legacy email_threads query failed: ${error.message}`);
@@ -488,20 +503,39 @@ async function fetchLegacyThreads(
 }
 
 async function fetchLegacyOpportunityThreadLinks(
-  providerThreadIds: string[]
+  opportunityIds: string[]
 ): Promise<LegacyBackfillOpportunityThreadLinkRow[]> {
   const rows: LegacyBackfillOpportunityThreadLinkRow[] = [];
-  for (const ids of chunk(providerThreadIds, 500)) {
+  for (const ids of chunk(opportunityIds, 500)) {
     const { data, error } = await sb
       .from("opportunity_email_threads")
       .select("opportunity_id, thread_id, connection_id")
-      .in("thread_id", ids);
+      .in("opportunity_id", ids);
     if (error) {
       throw new Error(`legacy opportunity_email_threads query failed: ${error.message}`);
     }
     rows.push(...((data ?? []) as LegacyBackfillOpportunityThreadLinkRow[]));
   }
   return rows;
+}
+
+async function fetchGuardedRpcExists(): Promise<boolean> {
+  const pgProcProbe = await sb
+    .schema("pg_catalog")
+    .from("pg_proc")
+    .select("proname")
+    .eq("proname", "execute_opportunity_lifecycle_guarded_action")
+    .limit(1);
+  if (!pgProcProbe.error) return (pgProcProbe.data ?? []).length > 0;
+
+  const routineProbe = await sb
+    .schema("information_schema")
+    .from("routines")
+    .select("routine_name")
+    .eq("routine_schema", "public")
+    .eq("routine_name", "execute_opportunity_lifecycle_guarded_action")
+    .limit(1);
+  return !routineProbe.error && (routineProbe.data ?? []).length > 0;
 }
 
 async function fetchLegacyConnections(
@@ -679,7 +713,7 @@ async function fetchProductionSnapshot(
     lifecycleStateCount: lifecycleState.count ?? 0,
     lifecycleSettingsCount: lifecycleSettings.count ?? 0,
     auditTableExists: !auditProbe.error && typeof auditProbe.count === "number",
-    guardedRpcExists: false,
+    guardedRpcExists: await fetchGuardedRpcExists(),
     scannedNonDeletedOpportunities,
     capturedAt: new Date().toISOString(),
   };
@@ -715,13 +749,12 @@ async function main() {
     ]);
   const existingEvents = [...eventsByOpportunity.values()].flat();
   const legacyActivities = await fetchLegacyActivities(opportunityIds);
-  const legacyProviderThreadIds = unique(
-    legacyActivities.map((row) => row.email_thread_id)
-  );
-  const [legacyThreads, legacyThreadLinks] = await Promise.all([
-    fetchLegacyThreads(legacyProviderThreadIds),
-    fetchLegacyOpportunityThreadLinks(legacyProviderThreadIds),
+  const legacyThreadLinks = await fetchLegacyOpportunityThreadLinks(opportunityIds);
+  const legacyProviderThreadIds = unique([
+    ...legacyActivities.map((row) => row.email_thread_id),
+    ...legacyThreadLinks.map((row) => row.thread_id),
   ]);
+  const legacyThreads = await fetchLegacyThreads(legacyProviderThreadIds);
   const legacyConnections = await fetchLegacyConnections(
     unique(legacyThreads.map((row) => row.connection_id))
   );
@@ -739,6 +772,21 @@ async function main() {
     const rows = plannedEventsByOpportunity.get(event.opportunity_id) ?? [];
     rows.push(event);
     plannedEventsByOpportunity.set(event.opportunity_id, rows);
+  }
+  const blockingLegacyEvidenceByOpportunity = new Map<
+    string,
+    LegacyBackfillSkippedEvidence[]
+  >();
+  for (const skipped of legacyBackfillPlan.skippedEvidence) {
+    if (
+      !skipped.opportunityId ||
+      !BLOCKING_LEGACY_EVIDENCE_SKIP_REASONS.has(skipped.reason)
+    ) {
+      continue;
+    }
+    const rows = blockingLegacyEvidenceByOpportunity.get(skipped.opportunityId) ?? [];
+    rows.push(skipped);
+    blockingLegacyEvidenceByOpportunity.set(skipped.opportunityId, rows);
   }
   const mergedEventsByOpportunity = new Map<string, EvaluatorEventRow[]>();
   for (const opportunity of opportunities) {
@@ -770,6 +818,12 @@ async function main() {
     opportunity: OpportunityRow;
     approvedAction: ApprovedActionRow;
     currentDecision: OpportunityLifecycleDecision;
+  }> = [];
+  const legacyBlockedRows: Array<{
+    opportunity: OpportunityRow;
+    decision: OpportunityLifecycleDecision;
+    action: OpportunityLifecycleDecision["action"];
+    skippedEvidence: LegacyBackfillSkippedEvidence[];
   }> = [];
 
   let candidates = 0;
@@ -824,6 +878,21 @@ async function main() {
     for (const item of executionPlan) {
       const plannedAction = item.approvedAction?.action ?? item.decision.action;
       if (!GUARDED_ACTIONS.has(plannedAction)) continue;
+      const blockingLegacyEvidence =
+        blockingLegacyEvidenceByOpportunity.get(opportunity.id) ?? [];
+      if (
+        LEGACY_EVIDENCE_CLEAN_ACTIONS.has(plannedAction) &&
+        blockingLegacyEvidence.length > 0
+      ) {
+        legacyBlockedRows.push({
+          opportunity,
+          decision: item.decision,
+          action: plannedAction,
+          skippedEvidence: blockingLegacyEvidence,
+        });
+        skippedGuarded += 1;
+        continue;
+      }
 
       if (
         MODE === "apply" &&
@@ -1102,7 +1171,8 @@ async function main() {
     p4CorrespondenceEventsConsidered === 0
       ? "- No P4 correspondence rows were used because the table returned zero rows."
       : "- P4 correspondence rows were used only for opportunities that had matching P4 rows.",
-    "- Legacy evidence is activity/opportunity scoped and does not rewrite thread or opportunity relationships.",
+    "- Legacy evidence is activity/thread/opportunity scoped and does not rewrite thread or opportunity relationships.",
+    "- Guarded archive/lost candidates require clean legacy evidence: unresolved `ambiguous_legacy_evidence`, `relationship_mismatch`, `missing_provider_id`, or `missing_created_at` rows block mutation output.",
     "- Apply flag: `--apply-guarded-p4-actions`.",
     "- Apply approval gate: `--approved-actions-file <json>` is required and each approved row must match the current evaluator action before execution.",
     "",
@@ -1117,6 +1187,7 @@ async function main() {
     `- Planned legacy meaningful events considered: ${plannedLegacyMeaningfulEventCount}`,
     `- Total meaningful events considered after legacy evidence: ${totalMeaningfulEventCount}`,
     `- Candidates: ${candidates}`,
+    `- Guarded candidates blocked by unresolved legacy evidence: ${legacyBlockedRows.length}`,
     `- Drafts to create: ${draftsToCreate}`,
     `- Notifications to create: ${notificationsToCreate}`,
     `- Lifecycle states to update: ${lifecycleStatesToUpdate}`,
@@ -1190,6 +1261,21 @@ async function main() {
       ? "| - | - | - | - | - | - | - | - | - |"
       : "",
     "",
+    "## Legacy Evidence Blocked Guarded Candidates",
+    "",
+    "| Action | Opportunity | Stage | Blocking rows | Blocking evidence sample |",
+    "| --- | --- | --- | ---: | --- |",
+    ...legacyBlockedRows.map((row) => {
+      const evidenceSample = row.skippedEvidence.slice(0, 5).map((item) => ({
+        sourceId: item.sourceId,
+        sourceBoundary: item.sourceBoundary,
+        reason: item.reason,
+        detail: item.detail,
+      }));
+      return `| ${md(row.action)} | ${md(row.opportunity.title ?? row.opportunity.id)} (${md(row.opportunity.id)}) | ${md(row.opportunity.stage)} | ${row.skippedEvidence.length} | ${jsonCell(evidenceSample)} |`;
+    }),
+    legacyBlockedRows.length === 0 ? "| - | - | - | - | - |" : "",
+    "",
     "## Candidate Actions",
     "",
     "| Action | Opportunity | Stage | Archived | Project | Latest event source | Legacy evidence | Draft | Notification | State | Opportunity | Audit | Skip reason |",
@@ -1225,6 +1311,9 @@ async function main() {
     ...skippedRows.map((row) => {
       return `| ${md(row.decision.action)} | ${md(row.opportunity.id)} | ${md(row.opportunityOperation)} | ${md(row.skippedReason)} | ${jsonCell(row.beforeValues)} | ${jsonCell(row.afterValues)} |`;
     }),
+    ...legacyBlockedRows.map((row) => {
+      return `| ${md(row.action)} | ${md(row.opportunity.id)} | skipped_unresolved_legacy_evidence | unresolved_legacy_evidence:${md(row.skippedEvidence.map((item) => item.reason).join(","))} | ${jsonCell({ stage: row.opportunity.stage, archived_at: row.opportunity.archived_at, deleted_at: row.opportunity.deleted_at, project_id: row.opportunity.project_id, project_ref: row.opportunity.project_ref })} | - |`;
+    }),
     ...mismatchApprovedRows.map((row) => {
       return `| ${md(row.approvedAction.action)} | ${md(row.opportunity.id)} | skipped_current_decision_mismatch | current_decision_mismatch:${md(row.currentDecision.action)} | ${jsonCell({ stage: row.opportunity.stage, archived_at: row.opportunity.archived_at, deleted_at: row.opportunity.deleted_at, project_id: row.opportunity.project_id, project_ref: row.opportunity.project_ref })} | - |`;
     }),
@@ -1232,6 +1321,7 @@ async function main() {
       return `| ${md(row.action)} | ${md(row.opportunityId)} | skipped_missing_live_row | missing_live_row | - | - |`;
     }),
     skippedRows.length === 0 &&
+    legacyBlockedRows.length === 0 &&
     mismatchApprovedRows.length === 0 &&
     missingApprovedRows.length === 0
       ? "| - | - | - | - | - | - |"

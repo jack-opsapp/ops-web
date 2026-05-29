@@ -6,9 +6,17 @@ const scriptPath = path.join(
   process.cwd(),
   "scripts/lead-lifecycle-p4-non-destructive-actions.ts"
 );
+const legacyBackfillScriptPath = path.join(
+  process.cwd(),
+  "scripts/lead-lifecycle-p4-legacy-correspondence-backfill.ts"
+);
 
 function scriptSource(): string {
   return readFileSync(scriptPath, "utf8");
+}
+
+function legacyBackfillScriptSource(): string {
+  return readFileSync(legacyBackfillScriptPath, "utf8");
 }
 
 function guardedActionsBlock(): string {
@@ -51,5 +59,23 @@ describe("lead lifecycle P4-12 guarded action script", () => {
     expect(source).toContain("dry_run_projected_apply_not_approved");
     expect(source).toContain("legacyBackfillPlan");
     expect(source).toContain("Empty P4 proof tables are not treated as no meaningful legacy correspondence.");
+  });
+
+  it("blocks guarded archive/lost output when legacy evidence is unresolved", () => {
+    const source = scriptSource();
+
+    expect(source).toContain("BLOCKING_LEGACY_EVIDENCE_SKIP_REASONS");
+    expect(source).toContain("LEGACY_EVIDENCE_CLEAN_ACTIONS");
+    expect(source).toContain("## Legacy Evidence Blocked Guarded Candidates");
+    expect(source).toContain("skipped_unresolved_legacy_evidence");
+    expect(source).toContain("Guarded candidates blocked by unresolved legacy evidence");
+  });
+
+  it("queries pg_proc instead of hardcoding guarded RPC absence", () => {
+    for (const source of [scriptSource(), legacyBackfillScriptSource()]) {
+      expect(source).toContain("pg_proc");
+      expect(source).toContain("execute_opportunity_lifecycle_guarded_action");
+      expect(source).not.toContain("guardedRpcExists: false");
+    }
   });
 });

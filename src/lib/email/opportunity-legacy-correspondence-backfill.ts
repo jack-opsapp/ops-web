@@ -4,6 +4,7 @@ import {
   type OpportunityCorrespondenceNoiseReason,
   type OpportunityCorrespondencePartyRole,
 } from "@/lib/email/opportunity-correspondence-classifier";
+import { matchPlatform } from "@/lib/api/services/known-platforms";
 import {
   extractContactFormSubmission,
   extractEmailAddress,
@@ -50,6 +51,15 @@ export interface LegacyBackfillEmailThreadRow {
   provider_thread_id: string;
   labels: string[] | null;
   primary_category: string | null;
+  subject?: string | null;
+  participants?: string[] | null;
+  first_message_at?: string | null;
+  last_message_at?: string | null;
+  message_count?: number | null;
+  latest_direction?: string | null;
+  latest_sender_email?: string | null;
+  latest_sender_name?: string | null;
+  latest_snippet?: string | null;
 }
 
 export interface LegacyBackfillOpportunityThreadLinkRow {
@@ -122,6 +132,8 @@ export type LegacyBackfillSkipReason =
   | "duplicate_activity_id"
   | "duplicate_planned_provider_message_id"
   | "duplicate_existing_provider_message_id"
+  | "duplicate_planned_provider_thread_id"
+  | "duplicate_existing_provider_thread_id"
   | "duplicate_existing_activity_id"
   | "relationship_mismatch"
   | "provider_noise"
@@ -159,6 +171,22 @@ const ZERO_CONNECTION_ID = "00000000-0000-0000-0000-000000000000";
 const RFQ_RE = /\b(?:rfq|request for quote|quote request|estimate request)\b/i;
 const FORM_RE = /\b(?:form inquiry|website form|web form|contact form|wix|submitted|submission)\b/i;
 const FOLLOW_UP_RE = /\b(?:quote|estimate|proposal|follow(?: |-)?up|following up)\b/i;
+const SYSTEM_LOCAL_PARTS = new Set([
+  "admin",
+  "contact",
+  "hello",
+  "info",
+  "mail",
+  "mailer-daemon",
+  "no-reply",
+  "noreply",
+  "notifications",
+  "office",
+  "postmaster",
+  "sales",
+  "support",
+  "team",
+]);
 
 function normalizedText(value: string | null | undefined): string | null {
   const normalized = value?.trim();
@@ -180,13 +208,69 @@ function stringList(value: unknown): string[] {
     : [];
 }
 
+function emailDomain(email: string | null): string {
+  return email?.split("@")[1]?.toLowerCase().trim() ?? "";
+}
+
+function emailLocalPart(email: string | null): string {
+  return email?.split("@")[0]?.toLowerCase().trim() ?? "";
+}
+
+function isInternalOrSystemParticipant(
+  email: string,
+  connection: LegacyBackfillEmailConnectionRow | undefined
+): boolean {
+  if (SYSTEM_LOCAL_PARTS.has(emailLocalPart(email))) return true;
+  if (matchPlatform(email)) return true;
+  const connectionEmail = normalizedEmail(connection?.email);
+  if (connectionEmail && connectionEmail === email) return true;
+  const filters = connection?.sync_filters ?? {};
+  const userEmails = stringList(filters.userEmailAddresses).map((value) =>
+    normalizedEmail(value)
+  );
+  if (userEmails.includes(email)) return true;
+  const companyDomains = new Set(
+    stringList(filters.companyDomains).map((value) => value.trim().toLowerCase())
+  );
+  const domain = emailDomain(email);
+  return Boolean(domain && companyDomains.has(domain));
+}
+
+function firstExternalParticipantEmail(
+  thread: LegacyBackfillEmailThreadRow,
+  connection: LegacyBackfillEmailConnectionRow | undefined
+): string | null {
+  for (const participant of stringList(thread.participants)) {
+    const email = normalizedEmail(participant);
+    if (!email) continue;
+    if (isInternalOrSystemParticipant(email, connection)) continue;
+    return email;
+  }
+  return null;
+}
+
 function directionOf(value: string | null | undefined): OpportunityCorrespondenceDirection | null {
   if (value === "inbound" || value === "outbound") return value;
   return null;
 }
 
+function threadEvidenceOccurredAt(
+  thread: LegacyBackfillEmailThreadRow
+): string | null {
+  return (
+    normalizedText(thread.last_message_at) ??
+    normalizedText(thread.first_message_at)
+  );
+}
+
 function sourceKeyForActivity(activity: LegacyBackfillActivityRow): string {
   return `activity:${activity.id}`;
+}
+
+function sourceKeyForThreadLink(
+  link: LegacyBackfillOpportunityThreadLinkRow
+): string {
+  return `thread:${link.opportunity_id}:${link.connection_id ?? ZERO_CONNECTION_ID}:${link.thread_id}`;
 }
 
 function sourceKeyForOpportunity(opportunity: LegacyBackfillOpportunityRow): string {
@@ -213,12 +297,32 @@ function providerMessageKey(
   return `${companyId}:${connectionId ?? ZERO_CONNECTION_ID}:${messageId}`;
 }
 
+function providerThreadKey(
+  companyId: string,
+  opportunityId: string,
+  connectionId: string | null | undefined,
+  providerThreadId: string | null | undefined
+): string | null {
+  const threadId = normalizedText(providerThreadId);
+  if (!threadId) return null;
+  return `${companyId}:${opportunityId}:${connectionId ?? ZERO_CONNECTION_ID}:${threadId}`;
+}
+
 function threadMapKey(companyId: string, providerThreadId: string): string {
   return `${companyId}:${providerThreadId}`;
 }
 
 function linkMapKey(connectionId: string | null | undefined, threadId: string): string {
   return `${connectionId ?? ZERO_CONNECTION_ID}:${threadId}`;
+}
+
+function sourceBoundaryForProviderEvidence(
+  connectionId: string | null | undefined,
+  providerMessageId: string | null | undefined
+): string {
+  return normalizedText(connectionId) && normalizedText(providerMessageId)
+    ? "provider_message_id"
+    : "provider_thread_id";
 }
 
 function bodyFor(activity: LegacyBackfillActivityRow): string {
@@ -454,6 +558,25 @@ function plannedEventForEmailActivity(input: {
   const submitterEmail = parsedSubmitterEmail(activity);
   const connectionFilters = connection?.sync_filters ?? {};
 
+  if (
+    providerThreadId &&
+    thread &&
+    !providerMessageId &&
+    directionOf(thread.latest_direction) &&
+    threadEvidenceOccurredAt(thread)
+  ) {
+    return plannedEventForThreadEvidence({
+      opportunity,
+      thread,
+      connection,
+      connectionId: thread.connection_id ?? null,
+      activityId: activity.id,
+      sourceKey: sourceKeyForActivity(activity),
+      reason:
+        "Provider-backed legacy activity reconciled to linked email thread truth.",
+    });
+  }
+
   if (providerThreadId) {
     const classification = classifyOpportunityCorrespondence({
       direction,
@@ -498,8 +621,14 @@ function plannedEventForEmailActivity(input: {
       toEmails: activity.to_emails,
       ccEmails: activity.cc_emails,
       sourceKey: sourceKeyForActivity(activity),
-      sourceBoundary: thread?.connection_id ? "provider_message_id" : "provider_thread_id",
-      confidence: confidenceFor(source, true),
+      sourceBoundary: sourceBoundaryForProviderEvidence(
+        thread?.connection_id,
+        providerMessageId
+      ),
+      confidence: confidenceFor(
+        sourceBoundaryForProviderEvidence(thread?.connection_id, providerMessageId),
+        true
+      ),
       reason: "Provider-backed legacy email activity classified as meaningful.",
     });
   }
@@ -587,6 +716,115 @@ function plannedEventForEmailActivity(input: {
   }
 
   return null;
+}
+
+function plannedEventForThreadEvidence(input: {
+  opportunity: LegacyBackfillOpportunityRow;
+  thread: LegacyBackfillEmailThreadRow;
+  connection: LegacyBackfillEmailConnectionRow | undefined;
+  connectionId: string | null;
+  activityId: string | null;
+  sourceKey: string;
+  reason: string;
+}): LegacyBackfillPlannedEventRow | null {
+  const { opportunity, thread, connection } = input;
+  const direction = directionOf(thread.latest_direction);
+  const occurredAt = threadEvidenceOccurredAt(thread);
+  if (!direction || !occurredAt) return null;
+
+  const subject = thread.subject ?? "";
+  const bodyText = thread.latest_snippet ?? "";
+  const externalParticipant = firstExternalParticipantEmail(thread, connection);
+  const fromEmail =
+    direction === "inbound"
+      ? (normalizedEmail(thread.latest_sender_email) ?? externalParticipant)
+      : normalizedEmail(thread.latest_sender_email);
+  const toEmails =
+    direction === "outbound" && externalParticipant ? [externalParticipant] : [];
+  const isFormThread = FORM_RE.test(`${subject} ${bodyText}`);
+  const parsedSubmissionEmail = normalizedEmail(
+    extractContactFormSubmission(subject, bodyText)?.email
+  );
+  const submitterEmail =
+    parsedSubmissionEmail ?? (isFormThread ? externalParticipant : null);
+
+  let classification = classifyOpportunityCorrespondence({
+    direction,
+    providerThreadId: thread.provider_thread_id,
+    providerMessageId: null,
+    existingProviderMessageIds: [],
+    fromEmail,
+    toEmails,
+    ccEmails: [],
+    subject,
+    bodyText,
+    labels: thread.labels,
+    threadCategory: thread.primary_category,
+    connectionEmail: connection?.email,
+    companyDomains: stringList(connection?.sync_filters?.companyDomains),
+    userEmailAddresses: stringList(connection?.sync_filters?.userEmailAddresses),
+    knownPlatformSenders: ["notifications@wix-forms.com"],
+    contactEmail: opportunity.contact_email,
+    submitterEmail,
+  });
+
+  if (
+    !classification.isMeaningful &&
+    direction === "inbound" &&
+    isFormThread &&
+    (parsedSubmissionEmail || externalParticipant)
+  ) {
+    classification = {
+      direction: "inbound",
+      partyRole: "customer",
+      isMeaningful: true,
+      noiseReason: null,
+      customerEmail: parsedSubmissionEmail ?? externalParticipant,
+    };
+  }
+
+  if (!classification.isMeaningful) return null;
+
+  return plannedEvent({
+    opportunity,
+    activityId: input.activityId,
+    connectionId: input.connectionId,
+    providerThreadId: thread.provider_thread_id,
+    providerMessageId: null,
+    direction,
+    partyRole: classification.partyRole,
+    noiseReason: classification.noiseReason,
+    occurredAt,
+    linkedContactKind: classification.partyRole === "customer" ? "customer" : null,
+    source: isFormThread ? "legacy_thread_contact_form" : "legacy_thread_email",
+    subject: thread.subject ?? null,
+    fromEmail: direction === "inbound" ? classification.customerEmail : fromEmail,
+    toEmails,
+    ccEmails: [],
+    sourceKey: input.sourceKey,
+    sourceBoundary: "provider_thread_id",
+    confidence: "medium",
+    reason: input.reason,
+  });
+}
+
+function plannedEventForThreadLink(input: {
+  link: LegacyBackfillOpportunityThreadLinkRow;
+  opportunity: LegacyBackfillOpportunityRow;
+  thread: LegacyBackfillEmailThreadRow;
+  connection: LegacyBackfillEmailConnectionRow | undefined;
+}): LegacyBackfillPlannedEventRow | null {
+  const { link, opportunity, thread, connection } = input;
+  return plannedEventForThreadEvidence({
+    opportunity,
+    thread,
+    connection,
+    connectionId: link.connection_id ?? thread.connection_id ?? null,
+    activityId: null,
+    sourceKey: sourceKeyForThreadLink(link),
+    reason:
+      "Linked legacy email thread has deterministic correspondence evidence without an activity row.",
+  });
 }
 
 function opportunityFallbackEvent(
@@ -735,6 +973,12 @@ export function planLegacyCorrespondenceBackfill(
       thread,
     ])
   );
+  const threadByConnectionAndProvider = new Map(
+    input.threads.map((thread) => [
+      linkMapKey(thread.connection_id, thread.provider_thread_id),
+      thread,
+    ])
+  );
   const linksByThread = new Map<string, LegacyBackfillOpportunityThreadLinkRow[]>();
   for (const link of input.opportunityThreadLinks) {
     const rows = linksByThread.get(linkMapKey(link.connection_id, link.thread_id)) ?? [];
@@ -751,6 +995,19 @@ export function planLegacyCorrespondenceBackfill(
     input.existingEvents
       .map((event) =>
         providerMessageKey(event.company_id, event.connection_id, event.provider_message_id)
+      )
+      .filter((value): value is string => Boolean(value))
+  );
+  const existingProviderThreadKeys = new Set(
+    input.existingEvents
+      .filter((event) => !normalizedText(event.provider_message_id))
+      .map((event) =>
+        providerThreadKey(
+          event.company_id,
+          event.opportunity_id,
+          event.connection_id,
+          event.provider_thread_id
+        )
       )
       .filter((value): value is string => Boolean(value))
   );
@@ -898,6 +1155,128 @@ export function planLegacyCorrespondenceBackfill(
       existingProviderMessageKeys,
       plannedProviderMessageKeys,
     });
+  }
+
+  const plannedProviderThreadKeys = new Set(
+    plannedEvents
+      .filter((event) => !normalizedText(event.provider_message_id))
+      .map((event) =>
+        providerThreadKey(
+          event.company_id,
+          event.opportunity_id,
+          event.connection_id,
+          event.provider_thread_id
+        )
+      )
+      .filter((value): value is string => Boolean(value))
+  );
+
+  for (const link of input.opportunityThreadLinks) {
+    const opportunity = opportunitiesById.get(link.opportunity_id);
+    if (!opportunity) {
+      addSkip(
+        skippedEvidence,
+        link.thread_id,
+        link.opportunity_id,
+        "provider_thread_id",
+        "missing_opportunity",
+        "Legacy thread link is not attached to a scanned opportunity."
+      );
+      continue;
+    }
+
+    const thread =
+      threadByConnectionAndProvider.get(linkMapKey(link.connection_id, link.thread_id)) ??
+      threadByCompanyAndProvider.get(threadMapKey(opportunity.company_id, link.thread_id));
+    if (!thread) {
+      addSkip(
+        skippedEvidence,
+        link.thread_id,
+        opportunity.id,
+        "provider_thread_id",
+        "ambiguous_legacy_evidence",
+        "Legacy thread link has no matching email_threads row."
+      );
+      continue;
+    }
+
+    if (
+      thread.company_id !== opportunity.company_id ||
+      (thread.opportunity_id && thread.opportunity_id !== opportunity.id) ||
+      (link.connection_id && thread.connection_id && link.connection_id !== thread.connection_id)
+    ) {
+      addSkip(
+        skippedEvidence,
+        sourceKeyForThreadLink(link),
+        opportunity.id,
+        "provider_thread_id",
+        "relationship_mismatch",
+        "Linked legacy email thread belongs to a different company, opportunity, or connection."
+      );
+      continue;
+    }
+
+    const connectionId = link.connection_id ?? thread.connection_id ?? null;
+    const threadKey = providerThreadKey(
+      opportunity.company_id,
+      opportunity.id,
+      connectionId,
+      link.thread_id
+    );
+    if (threadKey && existingProviderThreadKeys.has(threadKey)) {
+      addSkip(
+        skippedEvidence,
+        sourceKeyForThreadLink(link),
+        opportunity.id,
+        "provider_thread_id",
+        "duplicate_existing_provider_thread_id",
+        "A P4 correspondence event already references this linked provider thread."
+      );
+      continue;
+    }
+    if (threadKey && plannedProviderThreadKeys.has(threadKey)) {
+      addSkip(
+        skippedEvidence,
+        sourceKeyForThreadLink(link),
+        opportunity.id,
+        "provider_thread_id",
+        "duplicate_planned_provider_thread_id",
+        "This dry-run already planned activity evidence for this linked provider thread."
+      );
+      continue;
+    }
+
+    const event = plannedEventForThreadLink({
+      link,
+      opportunity,
+      thread,
+      connection: connectionId ? connectionsById.get(connectionId) : undefined,
+    });
+    if (!event) {
+      addSkip(
+        skippedEvidence,
+        sourceKeyForThreadLink(link),
+        opportunity.id,
+        "provider_thread_id",
+        "ambiguous_legacy_evidence",
+        "Linked legacy email thread did not meet deterministic meaningful-correspondence rules."
+      );
+      continue;
+    }
+
+    const beforeCount = plannedEvents.length;
+    addPlannedEvent({
+      event,
+      plannedEvents,
+      skippedEvidence,
+      existingActivityIds,
+      plannedActivityIds,
+      existingProviderMessageKeys,
+      plannedProviderMessageKeys,
+    });
+    if (plannedEvents.length > beforeCount && threadKey) {
+      plannedProviderThreadKeys.add(threadKey);
+    }
   }
 
   const existingEventsByOpportunity = new Map<string, LegacyBackfillExistingEventRow[]>();

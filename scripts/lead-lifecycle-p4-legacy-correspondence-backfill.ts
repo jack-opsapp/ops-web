@@ -170,7 +170,7 @@ async function fetchThreads(
     const { data, error } = await sb
       .from("email_threads")
       .select(
-        "company_id, opportunity_id, connection_id, provider_thread_id, labels, primary_category"
+        "company_id, opportunity_id, connection_id, provider_thread_id, labels, primary_category, subject, participants, first_message_at, last_message_at, message_count, latest_direction, latest_sender_email, latest_sender_name, latest_snippet"
       )
       .in("provider_thread_id", ids);
     if (error) throw new Error(`email_threads query failed: ${error.message}`);
@@ -180,18 +180,37 @@ async function fetchThreads(
 }
 
 async function fetchOpportunityThreadLinks(
-  providerThreadIds: string[]
+  opportunityIds: string[]
 ): Promise<LegacyBackfillOpportunityThreadLinkRow[]> {
   const rows: LegacyBackfillOpportunityThreadLinkRow[] = [];
-  for (const ids of chunk(providerThreadIds, 500)) {
+  for (const ids of chunk(opportunityIds, 500)) {
     const { data, error } = await sb
       .from("opportunity_email_threads")
       .select("opportunity_id, thread_id, connection_id")
-      .in("thread_id", ids);
+      .in("opportunity_id", ids);
     if (error) throw new Error(`opportunity_email_threads query failed: ${error.message}`);
     rows.push(...((data ?? []) as LegacyBackfillOpportunityThreadLinkRow[]));
   }
   return rows;
+}
+
+async function fetchGuardedRpcExists(): Promise<boolean> {
+  const pgProcProbe = await sb
+    .schema("pg_catalog")
+    .from("pg_proc")
+    .select("proname")
+    .eq("proname", "execute_opportunity_lifecycle_guarded_action")
+    .limit(1);
+  if (!pgProcProbe.error) return (pgProcProbe.data ?? []).length > 0;
+
+  const routineProbe = await sb
+    .schema("information_schema")
+    .from("routines")
+    .select("routine_name")
+    .eq("routine_schema", "public")
+    .eq("routine_name", "execute_opportunity_lifecycle_guarded_action")
+    .limit(1);
+  return !routineProbe.error && (routineProbe.data ?? []).length > 0;
 }
 
 async function fetchConnections(
@@ -277,7 +296,7 @@ async function fetchProductionSnapshot(): Promise<ProductionSnapshot> {
   const auditProbe = await sb
     .from("opportunity_lifecycle_action_audit")
     .select("id", { count: "exact", head: true });
-  const rpcExists = false;
+  const rpcExists = await fetchGuardedRpcExists();
 
   return {
     capturedAt: new Date().toISOString(),
@@ -299,10 +318,13 @@ async function main() {
   const opportunities = await fetchOpportunities();
   const opportunityIds = opportunities.map((row) => row.id);
   const activities = await fetchActivities(opportunityIds);
-  const providerThreadIds = unique(activities.map((row) => row.email_thread_id));
-  const [threads, opportunityThreadLinks, existingEvents] = await Promise.all([
+  const opportunityThreadLinks = await fetchOpportunityThreadLinks(opportunityIds);
+  const providerThreadIds = unique([
+    ...activities.map((row) => row.email_thread_id),
+    ...opportunityThreadLinks.map((row) => row.thread_id),
+  ]);
+  const [threads, existingEvents] = await Promise.all([
     fetchThreads(providerThreadIds),
-    fetchOpportunityThreadLinks(providerThreadIds),
     fetchExistingEvents(opportunityIds),
   ]);
   const connections = await fetchConnections(
@@ -354,6 +376,7 @@ async function main() {
     "- Sources: `activities`, `email_threads`, `opportunity_email_threads`, `email_connections`, existing P4 proof rows, and deterministic opportunity source/title fallback.",
     "- Empty P4 proof tables are not treated as no meaningful legacy correspondence.",
     "- Provider-backed rows still require real provider thread ids; non-provider legacy evidence is activity/opportunity scoped with a synthetic legacy boundary in the projected row.",
+    "- Linked `opportunity_email_threads` rows are first-class legacy evidence even when no activity rows exist.",
     "- P3 relationship boundaries are respected; thread evidence linked to a different opportunity is skipped.",
     "",
     "## Production Snapshot Proof",
