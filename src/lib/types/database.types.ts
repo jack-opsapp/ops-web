@@ -227,6 +227,67 @@ export type Database = {
           },
         ]
       }
+      accept_estimate_to_job_requests: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string
+          error_code: string | null
+          estimate_id: string
+          id: string
+          idempotency_key: string
+          response: Json | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by: string
+          error_code?: string | null
+          estimate_id: string
+          id?: string
+          idempotency_key: string
+          response?: Json | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string
+          error_code?: string | null
+          estimate_id?: string
+          id?: string
+          idempotency_key?: string
+          response?: Json | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accept_estimate_to_job_requests_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accept_estimate_to_job_requests_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accept_estimate_to_job_requests_estimate_id_fkey"
+            columns: ["estimate_id"]
+            isOneToOne: false
+            referencedRelation: "estimates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       accounting_category_mappings: {
         Row: {
           company_id: string
@@ -3734,6 +3795,51 @@ export type Database = {
           },
         ]
       }
+      company_inventory_settings: {
+        Row: {
+          company_id: string
+          created_at: string
+          disabled_at: string | null
+          enabled_at: string | null
+          inventory_mode: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          disabled_at?: string | null
+          enabled_at?: string | null
+          inventory_mode?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          disabled_at?: string | null
+          enabled_at?: string | null
+          inventory_mode?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_inventory_settings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_inventory_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       company_settings: {
         Row: {
           auto_generate_tasks: boolean
@@ -7177,6 +7283,7 @@ export type Database = {
           body: string
           company_id: string
           created_at: string
+          dedupe_key: string | null
           deep_link_type: string | null
           expense_id: string | null
           id: string
@@ -7184,6 +7291,9 @@ export type Database = {
           note_id: string | null
           persistent: boolean | null
           project_id: string | null
+          resolution_reason: string | null
+          resolved_at: string | null
+          resolved_by: string | null
           title: string
           type: string
           user_id: string
@@ -7195,6 +7305,7 @@ export type Database = {
           body: string
           company_id: string
           created_at?: string
+          dedupe_key?: string | null
           deep_link_type?: string | null
           expense_id?: string | null
           id?: string
@@ -7202,6 +7313,9 @@ export type Database = {
           note_id?: string | null
           persistent?: boolean | null
           project_id?: string | null
+          resolution_reason?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
           title: string
           type?: string
           user_id: string
@@ -7213,6 +7327,7 @@ export type Database = {
           body?: string
           company_id?: string
           created_at?: string
+          dedupe_key?: string | null
           deep_link_type?: string | null
           expense_id?: string | null
           id?: string
@@ -7220,11 +7335,22 @@ export type Database = {
           note_id?: string | null
           persistent?: boolean | null
           project_id?: string | null
+          resolution_reason?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
           title?: string
           type?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "notifications_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       onboarding_analytics: {
         Row: {
@@ -7264,6 +7390,72 @@ export type Database = {
           variant?: string | null
         }
         Relationships: []
+      }
+      onboarding_email_log: {
+        Row: {
+          attempts: number
+          branch: string | null
+          company_id: string
+          created_at: string
+          day_slot: string
+          day_slot_expires_at: string
+          email_type: string
+          id: string
+          last_error: string | null
+          sent_at: string | null
+          sg_message_id: string | null
+          status: Database["public"]["Enums"]["onboarding_email_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          branch?: string | null
+          company_id: string
+          created_at?: string
+          day_slot: string
+          day_slot_expires_at: string
+          email_type: string
+          id?: string
+          last_error?: string | null
+          sent_at?: string | null
+          sg_message_id?: string | null
+          status?: Database["public"]["Enums"]["onboarding_email_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          branch?: string | null
+          company_id?: string
+          created_at?: string
+          day_slot?: string
+          day_slot_expires_at?: string
+          email_type?: string
+          id?: string
+          last_error?: string | null
+          sent_at?: string | null
+          sg_message_id?: string | null
+          status?: Database["public"]["Enums"]["onboarding_email_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "onboarding_email_log_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "onboarding_email_log_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       onboarding_events: {
         Row: {
@@ -7731,6 +7923,87 @@ export type Database = {
             columns: ["company_id", "source_event_id"]
             isOneToOne: false
             referencedRelation: "opportunity_correspondence_events"
+            referencedColumns: ["company_id", "id"]
+          },
+        ]
+      }
+      opportunity_lifecycle_action_audit: {
+        Row: {
+          action: string
+          after_values: Json
+          approved_action_key: string | null
+          approved_at: string | null
+          approved_by: string | null
+          before_values: Json
+          company_id: string
+          created_at: string
+          decision_evidence: Json
+          decision_reason: string | null
+          error_code: string | null
+          error_message: string | null
+          execution_mode: string
+          guard_reason: string | null
+          id: string
+          opportunity_id: string
+          run_id: string | null
+          runner: string | null
+          status: string
+        }
+        Insert: {
+          action: string
+          after_values?: Json
+          approved_action_key?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          before_values?: Json
+          company_id: string
+          created_at?: string
+          decision_evidence?: Json
+          decision_reason?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          execution_mode: string
+          guard_reason?: string | null
+          id?: string
+          opportunity_id: string
+          run_id?: string | null
+          runner?: string | null
+          status: string
+        }
+        Update: {
+          action?: string
+          after_values?: Json
+          approved_action_key?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          before_values?: Json
+          company_id?: string
+          created_at?: string
+          decision_evidence?: Json
+          decision_reason?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          execution_mode?: string
+          guard_reason?: string | null
+          id?: string
+          opportunity_id?: string
+          run_id?: string | null
+          runner?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opportunity_lifecycle_action_audit_company_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunity_lifecycle_action_audit_opportunity_company_fkey"
+            columns: ["company_id", "opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
             referencedColumns: ["company_id", "id"]
           },
         ]
@@ -8990,6 +9263,398 @@ export type Database = {
             columns: ["task_type_ref"]
             isOneToOne: false
             referencedRelation: "task_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_material_demands: {
+        Row: {
+          available_quantity_at_booking: number | null
+          catalog_variant_id: string | null
+          company_id: string
+          created_at: string
+          deleted_at: string | null
+          demand_key: string
+          estimate_id: string | null
+          id: string
+          line_item_id: string | null
+          product_id: string | null
+          product_material_id: string | null
+          project_id: string
+          projected_overrun_quantity: number
+          required_quantity: number
+          resolver_payload: Json
+          source: string
+          status: string
+          task_id: string | null
+          unit_id: string | null
+          updated_at: string
+          warning_payload: Json
+        }
+        Insert: {
+          available_quantity_at_booking?: number | null
+          catalog_variant_id?: string | null
+          company_id: string
+          created_at?: string
+          deleted_at?: string | null
+          demand_key: string
+          estimate_id?: string | null
+          id?: string
+          line_item_id?: string | null
+          product_id?: string | null
+          product_material_id?: string | null
+          project_id: string
+          projected_overrun_quantity?: number
+          required_quantity: number
+          resolver_payload?: Json
+          source?: string
+          status?: string
+          task_id?: string | null
+          unit_id?: string | null
+          updated_at?: string
+          warning_payload?: Json
+        }
+        Update: {
+          available_quantity_at_booking?: number | null
+          catalog_variant_id?: string | null
+          company_id?: string
+          created_at?: string
+          deleted_at?: string | null
+          demand_key?: string
+          estimate_id?: string | null
+          id?: string
+          line_item_id?: string | null
+          product_id?: string | null
+          product_material_id?: string | null
+          project_id?: string
+          projected_overrun_quantity?: number
+          required_quantity?: number
+          resolver_payload?: Json
+          source?: string
+          status?: string
+          task_id?: string | null
+          unit_id?: string | null
+          updated_at?: string
+          warning_payload?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_material_demands_catalog_variant_id_fkey"
+            columns: ["catalog_variant_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_variants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_material_demands_catalog_variant_id_fkey"
+            columns: ["catalog_variant_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_item_tags"
+            referencedColumns: ["item_id"]
+          },
+          {
+            foreignKeyName: "project_material_demands_catalog_variant_id_fkey"
+            columns: ["catalog_variant_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_material_demands_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_material_demands_estimate_id_fkey"
+            columns: ["estimate_id"]
+            isOneToOne: false
+            referencedRelation: "estimates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_material_demands_line_item_id_fkey"
+            columns: ["line_item_id"]
+            isOneToOne: false
+            referencedRelation: "line_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_material_demands_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_material_demands_product_material_id_fkey"
+            columns: ["product_material_id"]
+            isOneToOne: false
+            referencedRelation: "product_materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_material_demands_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "project_table_rows"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_material_demands_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_material_demands_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "project_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_material_demands_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_material_demands_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_material_snapshot_items: {
+        Row: {
+          allocation_id: string | null
+          catalog_stock_unit_id: string | null
+          catalog_variant_id: string | null
+          company_id: string
+          created_at: string
+          demand_id: string | null
+          id: string
+          inventory_deduction_id: string | null
+          projected_overrun_quantity: number
+          quantity: number
+          snapshot_id: string
+          source_event_id: string | null
+          stock_unit_snapshot: Json
+          task_material_id: string | null
+          unit_id: string | null
+        }
+        Insert: {
+          allocation_id?: string | null
+          catalog_stock_unit_id?: string | null
+          catalog_variant_id?: string | null
+          company_id: string
+          created_at?: string
+          demand_id?: string | null
+          id?: string
+          inventory_deduction_id?: string | null
+          projected_overrun_quantity?: number
+          quantity?: number
+          snapshot_id: string
+          source_event_id?: string | null
+          stock_unit_snapshot?: Json
+          task_material_id?: string | null
+          unit_id?: string | null
+        }
+        Update: {
+          allocation_id?: string | null
+          catalog_stock_unit_id?: string | null
+          catalog_variant_id?: string | null
+          company_id?: string
+          created_at?: string
+          demand_id?: string | null
+          id?: string
+          inventory_deduction_id?: string | null
+          projected_overrun_quantity?: number
+          quantity?: number
+          snapshot_id?: string
+          source_event_id?: string | null
+          stock_unit_snapshot?: Json
+          task_material_id?: string | null
+          unit_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_material_snapshot_items_allocation_id_fkey"
+            columns: ["allocation_id"]
+            isOneToOne: false
+            referencedRelation: "task_material_allocations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_material_snapshot_items_catalog_stock_unit_id_fkey"
+            columns: ["catalog_stock_unit_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_stock_units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_material_snapshot_items_catalog_variant_id_fkey"
+            columns: ["catalog_variant_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_variants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_material_snapshot_items_catalog_variant_id_fkey"
+            columns: ["catalog_variant_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_item_tags"
+            referencedColumns: ["item_id"]
+          },
+          {
+            foreignKeyName: "project_material_snapshot_items_catalog_variant_id_fkey"
+            columns: ["catalog_variant_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_material_snapshot_items_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_material_snapshot_items_demand_id_fkey"
+            columns: ["demand_id"]
+            isOneToOne: false
+            referencedRelation: "project_material_demands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_material_snapshot_items_inventory_deduction_id_fkey"
+            columns: ["inventory_deduction_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_deductions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_material_snapshot_items_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "project_material_snapshots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_material_snapshot_items_source_event_id_fkey"
+            columns: ["source_event_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_stock_unit_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_material_snapshot_items_task_material_id_fkey"
+            columns: ["task_material_id"]
+            isOneToOne: false
+            referencedRelation: "task_materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_material_snapshot_items_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_material_snapshot_items_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_material_snapshots: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          estimate_id: string | null
+          id: string
+          notes: string | null
+          payload: Json
+          project_id: string
+          snapshot_kind: string
+          task_id: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          estimate_id?: string | null
+          id?: string
+          notes?: string | null
+          payload?: Json
+          project_id: string
+          snapshot_kind: string
+          task_id?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          estimate_id?: string | null
+          id?: string
+          notes?: string | null
+          payload?: Json
+          project_id?: string
+          snapshot_kind?: string
+          task_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_material_snapshots_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_material_snapshots_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_material_snapshots_estimate_id_fkey"
+            columns: ["estimate_id"]
+            isOneToOne: false
+            referencedRelation: "estimates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_material_snapshots_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "project_table_rows"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_material_snapshots_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_material_snapshots_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "project_tasks"
             referencedColumns: ["id"]
           },
         ]
@@ -11966,6 +12631,120 @@ export type Database = {
           },
         ]
       }
+      task_material_allocations: {
+        Row: {
+          allocated_quantity: number
+          allocation_key: string
+          allocation_status: string
+          catalog_stock_unit_id: string | null
+          catalog_variant_id: string | null
+          company_id: string
+          consumed_quantity: number
+          created_at: string
+          deleted_at: string | null
+          demand_id: string | null
+          id: string
+          inventory_deduction_id: string | null
+          overrun_quantity: number
+          stock_unit_snapshot: Json
+          task_material_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          allocated_quantity?: number
+          allocation_key: string
+          allocation_status?: string
+          catalog_stock_unit_id?: string | null
+          catalog_variant_id?: string | null
+          company_id: string
+          consumed_quantity?: number
+          created_at?: string
+          deleted_at?: string | null
+          demand_id?: string | null
+          id?: string
+          inventory_deduction_id?: string | null
+          overrun_quantity?: number
+          stock_unit_snapshot?: Json
+          task_material_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          allocated_quantity?: number
+          allocation_key?: string
+          allocation_status?: string
+          catalog_stock_unit_id?: string | null
+          catalog_variant_id?: string | null
+          company_id?: string
+          consumed_quantity?: number
+          created_at?: string
+          deleted_at?: string | null
+          demand_id?: string | null
+          id?: string
+          inventory_deduction_id?: string | null
+          overrun_quantity?: number
+          stock_unit_snapshot?: Json
+          task_material_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_material_allocations_catalog_stock_unit_id_fkey"
+            columns: ["catalog_stock_unit_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_stock_units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_material_allocations_catalog_variant_id_fkey"
+            columns: ["catalog_variant_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_variants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_material_allocations_catalog_variant_id_fkey"
+            columns: ["catalog_variant_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_item_tags"
+            referencedColumns: ["item_id"]
+          },
+          {
+            foreignKeyName: "task_material_allocations_catalog_variant_id_fkey"
+            columns: ["catalog_variant_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_material_allocations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_material_allocations_demand_id_fkey"
+            columns: ["demand_id"]
+            isOneToOne: false
+            referencedRelation: "project_material_demands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_material_allocations_inventory_deduction_id_fkey"
+            columns: ["inventory_deduction_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_deductions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_material_allocations_task_material_id_fkey"
+            columns: ["task_material_id"]
+            isOneToOne: false
+            referencedRelation: "task_materials"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       task_materials: {
         Row: {
           catalog_variant_id: string | null
@@ -13520,6 +14299,10 @@ export type Database = {
       }
     }
     Functions: {
+      accept_estimate_to_job: {
+        Args: { p_estimate_id: string; p_idempotency_key: string }
+        Returns: Json
+      }
       acquire_phase_c_lock: {
         Args: { p_holder: string; p_job_id: string; p_lease_seconds?: number }
         Returns: boolean
@@ -13737,6 +14520,28 @@ export type Database = {
           bounce_pct: number
           domain: string
         }[]
+      }
+      execute_opportunity_lifecycle_guarded_action: {
+        Args: {
+          p_action: string
+          p_after_values: Json
+          p_approved_action_key: string
+          p_approved_at?: string
+          p_approved_by?: string
+          p_before_values: Json
+          p_company_id: string
+          p_decision_evidence?: Json
+          p_decision_reason?: string
+          p_expected_archived_at: string
+          p_expected_deleted_at: string
+          p_expected_project_id: string
+          p_expected_project_ref: string
+          p_expected_stage: string
+          p_opportunity_id: string
+          p_run_id?: string
+          p_runner?: string
+        }
+        Returns: Json
       }
       fire_due_task_reminders: { Args: never; Returns: number }
       generate_product_sku: {
@@ -14203,6 +15008,10 @@ export type Database = {
         }
         Returns: string[]
       }
+      set_company_inventory_mode: {
+        Args: { p_company_id: string; p_inventory_mode: string }
+        Returns: Json
+      }
       share_project_table_view: {
         Args: { p_view_id: string }
         Returns: {
@@ -14343,6 +15152,7 @@ export type Database = {
       enrollment_status: "active" | "completed" | "expired" | "purchased"
       gmail_connection_type: "company" | "individual"
       lesson_progress_status: "not_started" | "in_progress" | "completed"
+      onboarding_email_status: "pending" | "sent" | "failed" | "skipped"
       photo_source:
         | "site_visit"
         | "in_progress"
@@ -14596,6 +15406,7 @@ export const Constants = {
       enrollment_status: ["active", "completed", "expired", "purchased"],
       gmail_connection_type: ["company", "individual"],
       lesson_progress_status: ["not_started", "in_progress", "completed"],
+      onboarding_email_status: ["pending", "sent", "failed", "skipped"],
       photo_source: [
         "site_visit",
         "in_progress",
