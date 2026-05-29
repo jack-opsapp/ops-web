@@ -37,7 +37,7 @@ function SelectorButton({
       aria-pressed={selected}
       className={cn(
         "px-2 py-1.5 rounded-sm border transition-all duration-150 whitespace-nowrap cursor-pointer text-center",
-        "font-mohave text-body-sm uppercase min-h-[56px] min-w-[56px] flex-1",
+        "font-mohave text-body-sm uppercase min-h-[36px] min-w-[56px] flex-1",
         selected
           ? "bg-[rgba(255,255,255,0.10)] border-[rgba(255,255,255,0.30)] text-text"
           : "bg-transparent border-[rgba(255,255,255,0.08)] text-text-3 hover:border-[rgba(255,255,255,0.18)] hover:text-text-2"
@@ -168,7 +168,7 @@ function IndustryDropdown({
         className={cn(
           "w-full flex items-center justify-between",
           "bg-surface-input text-text font-mohave text-body",
-          "px-2 py-1.5 rounded-sm min-h-[56px]",
+          "px-2 py-1.5 rounded-sm min-h-[36px]",
           "border border-[rgba(255,255,255,0.08)]",
           "transition-all duration-150",
           "focus:border-[rgba(255,255,255,0.20)] focus:outline-none",
@@ -226,7 +226,7 @@ function IndustryDropdown({
                 aria-activedescendant={
                   highlightedIndex >= 0 ? `industry-option-${highlightedIndex}` : undefined
                 }
-                className="w-full bg-surface-input text-text font-mohave text-body-sm pl-8 pr-1.5 py-1.5 rounded-sm border border-[rgba(255,255,255,0.08)] focus:border-[rgba(255,255,255,0.20)] focus:outline-none placeholder:text-text-mute placeholder:font-mono min-h-[48px]"
+                className="w-full bg-surface-input text-text font-mohave text-body-sm pl-8 pr-1.5 py-1.5 rounded-sm border border-[rgba(255,255,255,0.08)] focus:border-[rgba(255,255,255,0.20)] focus:outline-none placeholder:text-text-mute placeholder:font-mono min-h-[36px]"
               />
             </div>
           </div>
@@ -251,7 +251,7 @@ function IndustryDropdown({
                   aria-selected={isSelected}
                   onClick={() => toggleOption(ind)}
                   className={cn(
-                    "w-full flex items-center justify-between px-2 py-1.5 text-left min-h-[56px]",
+                    "w-full flex items-center justify-between px-2 py-1.5 text-left min-h-[36px]",
                     "font-mohave text-body-sm transition-colors border-b border-[rgba(255,255,255,0.04)]",
                     isSelected
                       ? "bg-[rgba(255,255,255,0.08)] text-text"

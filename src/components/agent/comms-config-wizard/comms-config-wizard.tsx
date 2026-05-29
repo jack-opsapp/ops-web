@@ -396,7 +396,7 @@ export function CommsConfigWizard() {
               onClick={handleBack}
               disabled={step === 1}
               className={cn(
-                "flex items-center gap-2 min-h-[56px] px-5 rounded-[8px]",
+                "flex items-center gap-2 min-h-[36px] px-5 rounded-[5px]",
                 "border border-[rgba(255,255,255,0.12)] bg-transparent",
                 "font-mohave text-[14px] text-text-2 uppercase tracking-[0.04em]",
                 "transition-colors duration-150 motion-reduce:transition-none",
@@ -411,7 +411,7 @@ export function CommsConfigWizard() {
               type="button"
               onClick={handleNext}
               className={cn(
-                "flex items-center gap-2 min-h-[56px] px-5 rounded-[8px]",
+                "flex items-center gap-2 min-h-[36px] px-5 rounded-[5px]",
                 "border border-[#6F94B0] bg-ops-accent",
                 "font-mohave text-[14px] text-text uppercase tracking-[0.04em]",
                 "transition-colors duration-150 motion-reduce:transition-none",
@@ -525,7 +525,7 @@ function StepWelcome({ t, onBegin }: { t: T; onBegin: () => void }) {
           type="button"
           onClick={onBegin}
           className={cn(
-            "flex items-center gap-2 min-h-[56px] px-6 rounded-[8px]",
+            "flex items-center gap-2 min-h-[36px] px-6 rounded-[5px]",
             "border border-[#6F94B0] bg-ops-accent",
             "font-mohave text-[14px] text-text uppercase tracking-[0.04em]",
             "transition-colors duration-150 motion-reduce:transition-none",
@@ -1031,7 +1031,7 @@ function StepInvoiceCover({
                 onChange={(e) =>
                   onChange({ threshold: Math.max(0, Number(e.target.value) || 0) })
                 }
-                className="flex-1 min-h-[48px] px-3 rounded-[4px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] font-mono text-[14px] text-text outline-none focus:border-[#6F94B0] transition-colors motion-reduce:transition-none"
+                className="flex-1 min-h-[36px] px-3 rounded-[5px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] font-mono text-[14px] text-text outline-none focus:border-[rgba(255,255,255,0.20)] transition-colors motion-reduce:transition-none"
               />
             </div>
             <div className="font-mono text-[11px] text-text-3 mt-2">
@@ -1315,7 +1315,7 @@ function StepSummary({
         {rows.map((row) => (
           <div
             key={row.labelKey}
-            className="flex items-center justify-between gap-3 min-h-[56px] px-4 rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2]"
+            className="flex items-center justify-between gap-3 min-h-[36px] px-4 rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2]"
           >
             <div className="flex items-center gap-2">
               <Check className="w-[14px] h-[14px] text-text-2" />
@@ -1340,7 +1340,7 @@ function StepSummary({
           onClick={onOpenSettings}
           disabled={saving}
           className={cn(
-            "flex-1 min-h-[56px] px-5 rounded-[8px]",
+            "flex-1 min-h-[36px] px-5 rounded-[5px]",
             "border border-[rgba(255,255,255,0.12)] bg-transparent",
             "font-mohave text-[14px] text-text-2 uppercase tracking-[0.04em]",
             "transition-colors duration-150 motion-reduce:transition-none",
@@ -1355,7 +1355,7 @@ function StepSummary({
           onClick={onFinish}
           disabled={saving}
           className={cn(
-            "flex-1 flex items-center justify-center gap-2 min-h-[56px] px-5 rounded-[8px]",
+            "flex-1 flex items-center justify-center gap-2 min-h-[36px] px-5 rounded-[5px]",
             "border border-[#6F94B0] bg-ops-accent",
             "font-mohave text-[14px] text-text uppercase tracking-[0.04em]",
             "transition-colors duration-150 motion-reduce:transition-none",
