@@ -272,19 +272,36 @@ async function fetchOpportunities(
   eligibleCompanyIds: Set<string>,
   maxOpportunities: number
 ): Promise<OpportunityRow[]> {
-  const { data } = await supabase
-    .from("opportunities")
-    .select(
-      "id, company_id, title, stage, archived_at, deleted_at, project_id, project_ref, created_at, stage_entered_at, contact_name, updated_at"
-    )
-    .is("deleted_at", null)
-    .in("company_id", Array.from(eligibleCompanyIds))
-    .order("updated_at", { ascending: false })
-    .limit(maxOpportunities);
+  // Chunk the eligible-company filter the same way every other fetch in this
+  // file does (CHUNK=100). A single unbounded `.in("company_id", [...])` would
+  // exceed PostgREST's URL/statement limits as the eligible-company set grows;
+  // chunking keeps each request bounded. We over-fetch up to `maxOpportunities`
+  // per chunk, merge, re-sort by updated_at desc, then apply the global cap so
+  // the run-wide ceiling still holds regardless of company count.
+  const merged: OpportunityRow[] = [];
+  for (const ids of chunk(Array.from(eligibleCompanyIds), CHUNK)) {
+    if (ids.length === 0) continue;
+    const { data } = await supabase
+      .from("opportunities")
+      .select(
+        "id, company_id, title, stage, archived_at, deleted_at, project_id, project_ref, created_at, stage_entered_at, contact_name, updated_at"
+      )
+      .is("deleted_at", null)
+      .in("company_id", ids)
+      .order("updated_at", { ascending: false })
+      .limit(maxOpportunities);
+    for (const row of (data ?? []) as OpportunityRow[]) {
+      if (eligibleCompanyIds.has(row.company_id)) merged.push(row);
+    }
+  }
 
-  return ((data ?? []) as OpportunityRow[]).filter((row) =>
-    eligibleCompanyIds.has(row.company_id)
-  );
+  merged.sort((a, b) => {
+    const at = a.updated_at ? new Date(a.updated_at).getTime() : 0;
+    const bt = b.updated_at ? new Date(b.updated_at).getTime() : 0;
+    return bt - at;
+  });
+
+  return merged.slice(0, maxOpportunities);
 }
 
 async function fetchEvents(
@@ -605,14 +622,34 @@ export async function runLeadLifecycleCron(
 
     // Non-destructive supersede: when a meaningful inbound is the latest event
     // and there is a stale open template-follow-up draft outstanding, supersede
-    // it and reset lifecycle state. Mirrors the manual script exactly — the
-    // supersede is gated on a projected `supersededDrafts > 0` so it only fires
-    // when there is an actual open draft to close, never merely because the
-    // latest event is inbound (otherwise it would race the operator-miss
-    // notification this same pass may have just created). Local-only and safe
-    // for fragmented opportunities.
+    // it and reset lifecycle state. Mirrors the manual script — gated on a
+    // projected `supersededDrafts > 0` so it only fires when there is an actual
+    // open draft to close.
+    //
+    // CRITICAL idempotency guard: this pass must NOT run when the current
+    // decision is one where the OPERATOR still owes the reply
+    // (`operator_follow_up_miss` / `move_to_lost_operator_no_response`). Those
+    // decisions fire on exactly the same `latestEvent.direction === "inbound"`
+    // condition the supersede keys on, but they mean the opposite thing — the
+    // customer reached out and OPS has not yet replied, so the operator must be
+    // alerted (a persistent `leads_waiting` notification), NOT have the inbound
+    // treated as the customer re-engaging after an OPS follow-up. If we let the
+    // supersede run on this pass it would call
+    // `resetStaleLifecycleAfterMeaningfulInbound(apply)`, which resolves
+    // (is_read=true, resolved_at=now) every unread/unresolved operator-miss
+    // notification for the opp — INCLUDING the one this same loop iteration just
+    // created — so the operator never sees it and the dedupe guard (which only
+    // matches unread+unresolved rows) lets the next run insert a fresh duplicate
+    // forever. The two paths are mutually exclusive by construction, so we skip
+    // the supersede whenever the decision is operator-owes-reply. The supersede
+    // is intended only for the case where the inbound represents the customer
+    // re-engaging on a thread OPS had already followed up on (i.e. there is an
+    // open template draft AND the decision is not an operator-miss/lost).
     const latestEvent = latestMeaningfulEvent(eventRows);
-    if (latestEvent && latestEvent.direction === "inbound") {
+    const operatorOwesReply =
+      decision.action === "operator_follow_up_miss" ||
+      decision.action === "move_to_lost_operator_no_response";
+    if (latestEvent && latestEvent.direction === "inbound" && !operatorOwesReply) {
       try {
         const projected = await resetStaleLifecycleAfterMeaningfulInbound({
           supabase,
