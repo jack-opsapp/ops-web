@@ -207,7 +207,7 @@ export function LifecycleSettingsTab() {
               setConfig(DEFAULT_CONFIG);
               setDirty(true);
             }}
-            className="inline-flex items-center gap-2 rounded-[4px] border border-line bg-transparent px-3 py-1.5 font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-text-2 transition-colors hover:border-line-hi hover:text-text"
+            className="inline-flex min-h-[36px] items-center gap-2 rounded-[5px] border border-line bg-transparent px-4 font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-text-2 transition-colors hover:border-line-hi hover:text-text"
           >
             <RotateCcw className="h-3.5 w-3.5" strokeWidth={1.5} />
             {t("lifecycle.resetDefaults", "RESET")}
@@ -217,7 +217,7 @@ export function LifecycleSettingsTab() {
               type="button"
               onClick={handleSave}
               disabled={saving}
-              className="inline-flex items-center gap-2 rounded-[4px] border border-ops-accent bg-transparent px-3 py-1.5 font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-ops-accent transition-colors hover:bg-ops-accent hover:text-black disabled:cursor-not-allowed disabled:opacity-40"
+              className="inline-flex min-h-[36px] items-center gap-2 rounded-[5px] border border-ops-accent bg-transparent px-4 font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-ops-accent transition-colors hover:bg-ops-accent hover:text-black disabled:cursor-not-allowed disabled:opacity-40"
             >
               {saving ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />
@@ -297,7 +297,7 @@ export function LifecycleSettingsTab() {
             onChange={(event) =>
               updateConfig({ follow_up_template_subject: event.target.value })
             }
-            className="w-full rounded-[4px] border border-line bg-transparent px-3 py-1.5 font-mohave text-body-sm text-text outline-none transition-colors placeholder:text-text-mute focus:border-ops-accent"
+            className="w-full min-h-[36px] rounded-[5px] border border-line bg-transparent px-3 py-1.5 font-mohave text-body-sm text-text outline-none transition-colors placeholder:text-text-mute focus:border-ops-accent"
           />
         </label>
         <label className="block space-y-1.5">
@@ -310,7 +310,7 @@ export function LifecycleSettingsTab() {
               updateConfig({ follow_up_template_body: event.target.value })
             }
             rows={5}
-            className="min-h-[132px] w-full resize-y rounded-[4px] border border-line bg-transparent px-3 py-2 font-mohave text-body-sm leading-relaxed text-text outline-none transition-colors placeholder:text-text-mute focus:border-ops-accent"
+            className="min-h-[132px] w-full resize-y rounded-[5px] border border-line bg-transparent px-3 py-2 font-mohave text-body-sm leading-relaxed text-text outline-none transition-colors placeholder:text-text-mute focus:border-ops-accent"
           />
         </label>
       </section>
@@ -360,7 +360,7 @@ function NumericField({
           onChange={(event) =>
             onChange(Math.max(1, Number.parseInt(event.target.value, 10) || 1))
           }
-          className="w-[88px] rounded-[4px] border border-line bg-transparent px-3 py-1.5 text-center font-mono text-[13px] text-text outline-none transition-colors focus:border-ops-accent [color-scheme:dark]"
+          className="w-[88px] min-h-[36px] rounded-[5px] border border-line bg-transparent px-3 py-1.5 text-center font-mono text-[13px] text-text outline-none transition-colors focus:border-ops-accent [color-scheme:dark]"
           style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
         />
         <span className="font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-text-3">
