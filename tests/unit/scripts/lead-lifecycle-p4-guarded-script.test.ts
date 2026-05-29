@@ -78,4 +78,12 @@ describe("lead lifecycle P4-12 guarded action script", () => {
       expect(source).not.toContain("guardedRpcExists: false");
     }
   });
+
+  it("renders source-boundary breakdowns in the legacy backfill artifact", () => {
+    const source = legacyBackfillScriptSource();
+
+    expect(source).toContain("## Planned Events By Source Boundary");
+    expect(source).toContain("## Skipped Evidence By Source Boundary");
+    expect(source).toContain("renderSourceBoundaryCounts");
+  });
 });

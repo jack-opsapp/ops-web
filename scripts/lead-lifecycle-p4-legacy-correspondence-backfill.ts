@@ -119,6 +119,18 @@ function renderCounts(counts: Map<string, number>): string[] {
     .map(([key, count]) => `| ${md(key)} | ${count} |`);
 }
 
+function renderSourceBoundaryCounts(
+  counts: Map<string, { source: string; boundary: string; count: number }>
+): string[] {
+  return [...counts.values()]
+    .sort((a, b) => {
+      const sourceCompare = a.source.localeCompare(b.source);
+      if (sourceCompare !== 0) return sourceCompare;
+      return a.boundary.localeCompare(b.boundary);
+    })
+    .map((row) => `| ${md(row.source)} | ${md(row.boundary)} | ${row.count} |`);
+}
+
 async function fetchOpportunities(): Promise<LegacyBackfillOpportunityRow[]> {
   let query = sb
     .from("opportunities")
@@ -345,10 +357,30 @@ async function main() {
     counts.set(row.source, (counts.get(row.source) ?? 0) + 1);
     return counts;
   }, new Map<string, number>());
+  const plannedEventsBySourceBoundary = plan.plannedEvents.reduce((counts, row) => {
+    const key = `${row.source}\0${row.source_boundary}`;
+    const existing = counts.get(key);
+    counts.set(key, {
+      source: row.source,
+      boundary: row.source_boundary,
+      count: (existing?.count ?? 0) + 1,
+    });
+    return counts;
+  }, new Map<string, { source: string; boundary: string; count: number }>());
   const skipsByReason = plan.skippedEvidence.reduce((counts, row) => {
     counts.set(row.reason, (counts.get(row.reason) ?? 0) + 1);
     return counts;
   }, new Map<string, number>());
+  const skippedEvidenceBySourceBoundary = plan.skippedEvidence.reduce((counts, row) => {
+    const key = `${row.reason}\0${row.sourceBoundary}`;
+    const existing = counts.get(key);
+    counts.set(key, {
+      source: row.reason,
+      boundary: row.sourceBoundary,
+      count: (existing?.count ?? 0) + 1,
+    });
+    return counts;
+  }, new Map<string, { source: string; boundary: string; count: number }>());
   const generatedAt = new Date().toISOString();
 
   const lines = [
@@ -410,12 +442,26 @@ async function main() {
     ...renderCounts(eventsBySource),
     eventsBySource.size === 0 ? "| - | 0 |" : "",
     "",
+    "## Planned Events By Source Boundary",
+    "",
+    "| Source | Boundary | Count |",
+    "| --- | --- | ---: |",
+    ...renderSourceBoundaryCounts(plannedEventsBySourceBoundary),
+    plannedEventsBySourceBoundary.size === 0 ? "| - | - | 0 |" : "",
+    "",
     "## Skipped Evidence By Reason",
     "",
     "| Reason | Count |",
     "| --- | ---: |",
     ...renderCounts(skipsByReason),
     skipsByReason.size === 0 ? "| - | 0 |" : "",
+    "",
+    "## Skipped Evidence By Source Boundary",
+    "",
+    "| Reason | Boundary | Count |",
+    "| --- | --- | ---: |",
+    ...renderSourceBoundaryCounts(skippedEvidenceBySourceBoundary),
+    skippedEvidenceBySourceBoundary.size === 0 ? "| - | - | 0 |" : "",
     "",
     "## opportunity_correspondence_events Rows That Would Be Created",
     "",
