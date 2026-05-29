@@ -157,6 +157,16 @@ describe("/api/cron/lead-lifecycle — auth", () => {
     const res = await GET(buildRequest("Bearer wrong"));
     expect(res.status).toBe(401);
   });
+
+  it("returns 500 when CRON_SECRET is unset", async () => {
+    // The route refuses to run when the deploy is misconfigured (no secret) so
+    // an unauthenticated caller can never reach the sweep.
+    delete process.env.CRON_SECRET;
+    supabaseFromMock.mockImplementation(() => makeChain({}));
+    const res = await GET(buildRequest("Bearer anything"));
+    expect(res.status).toBe(500);
+    expect(supabaseFromMock).not.toHaveBeenCalled();
+  });
 });
 
 // ─── Non-destructive auto-exec ───────────────────────────────────────────────
@@ -670,6 +680,202 @@ describe("/api/cron/lead-lifecycle — idempotency", () => {
     expect(body.notificationsSkippedExisting).toBe(1);
     expect(draftInserts).toHaveLength(0);
     expect(notificationInserts).toHaveLength(0);
+    expect(supabaseRpcMock).not.toHaveBeenCalled();
+  });
+
+  it("two consecutive runs on an inbound-latest opp WITH an open template draft produce exactly one notification insert (supersede must not resolve the same-pass operator-miss)", async () => {
+    // ── Regression for the duplicate-operator-miss-notification blocker ──
+    //
+    // The opp's latest meaningful event is INBOUND and it ALSO has a pre-existing
+    // open template_follow_up draft. That combination is exactly the dangerous
+    // overlap: `operator_follow_up_miss` fires (operator owes the reply) AND the
+    // inbound-supersede gate (supersededDrafts > 0) is satisfied (an open draft
+    // exists). If the cron lets the supersede run on this pass it resolves the
+    // operator-miss notification just inserted this same iteration, the dedupe
+    // guard (unread + unresolved only) then misses it, and the next run inserts a
+    // fresh duplicate forever.
+    //
+    // We drive a STATEFUL in-memory notification store across two real runs and
+    // assert: total inserts == 1, and the surviving notification stays
+    // unread/unresolved (the operator can actually see it).
+    type Notif = {
+      id: string;
+      dedupe_key: string;
+      is_read: boolean;
+      resolved_at: string | null;
+    };
+    const notifStore: Notif[] = [];
+    const notifInsertLog: unknown[] = [];
+    let supersedeNotifUpdates = 0;
+    let notifSeq = 0;
+
+    // The opp has an OPEN template draft (drives the supersede gate) for the
+    // whole test — the supersede should never actually run because the decision
+    // is operator_follow_up_miss.
+    const openDraftRows = [{ id: "open-draft-1" }];
+
+    supabaseFromMock.mockImplementation((table: string) => {
+      if (table === "opportunity_correspondence_events") {
+        const chain = makeChain({ selectResult: () => ({ data: [], error: null }) });
+        chain.then = (resolve: any) => {
+          const likeFilter = chain.filters.find((f: any) => f[0] === "like");
+          if (likeFilter) return resolve({ data: [], error: null });
+          const inFilter = chain.filters.find(
+            (f: any) => f[0] === "in" && f[1] === "opportunity_id"
+          );
+          const ids = (inFilter?.[2] as string[]) ?? [];
+          const events: unknown[] = [];
+          if (ids.includes(INBOUND_OPP)) {
+            events.push({
+              id: "evt-in",
+              opportunity_id: INBOUND_OPP,
+              connection_id: null,
+              provider_thread_id: null,
+              direction: "inbound",
+              party_role: "customer",
+              is_meaningful: true,
+              occurred_at: LONG_AGO,
+              linked_contact_kind: null,
+            });
+          }
+          return resolve({ data: events, error: null });
+        };
+        return chain;
+      }
+      switch (table) {
+        case "lead_lifecycle_settings":
+          return makeChain({
+            selectResult: (filters) =>
+              filters.some((f) => f[0] === "in" && f[1] === "company_id")
+                ? { data: [], error: null }
+                : { data: [{ company_id: COMPANY_ID }], error: null },
+          });
+        case "email_connections":
+          return makeChain({ selectResult: () => ({ data: [], error: null }) });
+        case "opportunities":
+          return makeChain({
+            selectResult: () => ({
+              data: [
+                {
+                  id: INBOUND_OPP,
+                  company_id: COMPANY_ID,
+                  title: "Deck job",
+                  stage: "qualifying",
+                  archived_at: null,
+                  deleted_at: null,
+                  project_id: null,
+                  project_ref: null,
+                  created_at: LONG_AGO,
+                  stage_entered_at: LONG_AGO,
+                  contact_name: "Sam",
+                  updated_at: LONG_AGO,
+                },
+              ],
+              error: null,
+            }),
+          });
+        case "opportunity_lifecycle_state":
+          return makeChain({ selectResult: () => ({ data: [], error: null }) });
+        case "companies":
+          return makeChain({
+            selectResult: () => ({
+              data: [{ id: COMPANY_ID, admin_ids: [OPERATOR_ID] }],
+              error: null,
+            }),
+          });
+        case "users":
+          return makeChain({ selectResult: () => ({ data: [], error: null }) });
+        case "activities":
+          return makeChain({ selectResult: () => ({ data: [], error: null }) });
+        case "opportunity_follow_up_drafts":
+          // An open template draft already exists (drives the supersede gate).
+          // No insert path is exercised on the operator-miss decision.
+          return makeChain({
+            selectResult: () => ({ data: openDraftRows, error: null }),
+          });
+        case "notifications": {
+          // Stateful store. SELECT honours the unread + unresolved filters that
+          // both the dedupe guard and the supersede precondition apply. INSERT
+          // appends a live (unread/unresolved) row. UPDATE (only reached by the
+          // supersede) flips matching rows to read/resolved — this MUST NOT
+          // happen for the same-pass notification, so we count it.
+          const chain = makeChain({
+            onInsert: (payload) => {
+              notifInsertLog.push(payload);
+              const row: Notif = {
+                id: `notif-${++notifSeq}`,
+                dedupe_key: (payload as any).dedupe_key,
+                is_read: false,
+                resolved_at: null,
+              };
+              notifStore.push(row);
+              return { data: { id: row.id }, error: null };
+            },
+            onUpdate: () => {
+              // Supersede resolve path. Flip every live row (matches the
+              // is_read=false / resolved_at IS NULL filter) to resolved.
+              supersedeNotifUpdates += 1;
+              for (const n of notifStore) {
+                if (!n.is_read && n.resolved_at === null) {
+                  n.is_read = true;
+                  n.resolved_at = new Date().toISOString();
+                }
+              }
+            },
+          });
+          // Reads return only unread + unresolved rows (the guard/precondition
+          // filter), matching the action-service queries. The dedupe guard
+          // (`findExistingOperatorMissNotification`) terminates in `.limit(1)`;
+          // the supersede precondition select is awaited directly (thenable).
+          // Both must observe the live store, so override both terminals.
+          const liveRows = () =>
+            notifStore
+              .filter((n) => !n.is_read && n.resolved_at === null)
+              .map((n) => ({ id: n.id }));
+          chain.then = (resolve: any) =>
+            resolve({ data: liveRows(), error: null });
+          chain.limit = async () => ({ data: liveRows(), error: null });
+          return chain;
+        }
+        case "email_threads":
+          return makeChain({ selectResult: () => ({ data: [], error: null }) });
+        default:
+          return makeChain({ selectResult: () => ({ data: [], error: null }) });
+      }
+    });
+
+    // ── Run 1 ──────────────────────────────────────────────────────────────
+    const res1 = await GET(buildRequest("Bearer test-secret"));
+    expect(res1.status).toBe(200);
+    const body1 = await res1.json();
+    expect(body1.ok).toBe(true);
+    expect(body1.notificationsCreated).toBe(1);
+    // The supersede must NOT have run (decision is operator_follow_up_miss).
+    expect(body1.draftsSuperseded).toBe(0);
+    expect(supersedeNotifUpdates).toBe(0);
+    // The freshly-created notification is still live (operator can see it).
+    expect(notifStore).toHaveLength(1);
+    expect(notifStore[0].is_read).toBe(false);
+    expect(notifStore[0].resolved_at).toBeNull();
+
+    // ── Run 2 ──────────────────────────────────────────────────────────────
+    const res2 = await GET(buildRequest("Bearer test-secret"));
+    expect(res2.status).toBe(200);
+    const body2 = await res2.json();
+    expect(body2.ok).toBe(true);
+    // Dedupe guard sees the still-live notification → no second insert.
+    expect(body2.notificationsCreated).toBe(0);
+    expect(body2.notificationsSkippedExisting).toBe(1);
+    expect(body2.draftsSuperseded).toBe(0);
+
+    // ── Cross-run invariants ────────────────────────────────────────────────
+    // Exactly one notification insert total across both runs (the blocker
+    // produced one per run).
+    expect(notifInsertLog).toHaveLength(1);
+    expect(notifStore).toHaveLength(1);
+    // The supersede never resolved the operator-miss notification.
+    expect(supersedeNotifUpdates).toBe(0);
+    expect(notifStore[0].resolved_at).toBeNull();
     expect(supabaseRpcMock).not.toHaveBeenCalled();
   });
 });
