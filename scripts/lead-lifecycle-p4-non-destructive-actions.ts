@@ -29,6 +29,7 @@ import {
   type LegacyBackfillEmailConnectionRow,
   type LegacyBackfillEmailThreadRow,
   type LegacyBackfillExistingEventRow,
+  type LegacyBackfillExistingLifecycleStateRow,
   type LegacyBackfillOpportunityRow,
   type LegacyBackfillOpportunityThreadLinkRow,
   type LegacyBackfillPlannedEventRow,
@@ -117,6 +118,8 @@ const APPROVED_ACTIONS_FILE =
   approvedActionsFileArgIdx >= 0 ? process.argv[approvedActionsFileArgIdx + 1] : null;
 const APPLY = process.argv.includes("--apply-guarded-p4-actions");
 const MODE: OpportunityLifecycleExecutionMode = APPLY ? "apply" : "dry-run";
+const GUARDED_RPC_EXISTS_OVERRIDE =
+  process.env.LEAD_LIFECYCLE_GUARDED_RPC_EXISTS;
 
 if (!OUTPUT_PATH) {
   console.error("--output must not be blank");
@@ -205,6 +208,7 @@ interface LifecycleStateRow {
   operator_follow_up_miss_at: string | null;
   stale_status: string | null;
   stale_status_at: string | null;
+  protected_until: string | null;
 }
 
 interface SettingsRow {
@@ -520,6 +524,9 @@ async function fetchLegacyOpportunityThreadLinks(
 }
 
 async function fetchGuardedRpcExists(): Promise<boolean> {
+  if (GUARDED_RPC_EXISTS_OVERRIDE === "true") return true;
+  if (GUARDED_RPC_EXISTS_OVERRIDE === "false") return false;
+
   const pgProcProbe = await sb
     .schema("pg_catalog")
     .from("pg_proc")
@@ -561,7 +568,7 @@ async function fetchLifecycleStates(
     const { data, error } = await sb
       .from("opportunity_lifecycle_state")
       .select(
-        "opportunity_id, company_id, last_meaningful_event_id, last_meaningful_at, last_meaningful_direction, unanswered_follow_up_count, second_follow_up_sent_at, operator_follow_up_miss_at, stale_status, stale_status_at"
+        "opportunity_id, company_id, last_meaningful_event_id, last_meaningful_at, last_meaningful_direction, unanswered_follow_up_count, second_follow_up_sent_at, operator_follow_up_miss_at, stale_status, stale_status_at, protected_until"
       )
       .in("opportunity_id", ids);
     if (error) throw new Error(`opportunity_lifecycle_state query failed: ${error.message}`);
@@ -758,6 +765,12 @@ async function main() {
   const legacyConnections = await fetchLegacyConnections(
     unique(legacyThreads.map((row) => row.connection_id))
   );
+  const existingLifecycleStates: LegacyBackfillExistingLifecycleStateRow[] = [
+    ...lifecycleStates.values(),
+  ].map((row) => ({
+    ...row,
+    unanswered_follow_up_count: row.unanswered_follow_up_count ?? 0,
+  }));
   const legacyBackfillPlan = planLegacyCorrespondenceBackfill({
     opportunities,
     activities: legacyActivities,
@@ -765,6 +778,7 @@ async function main() {
     opportunityThreadLinks: legacyThreadLinks,
     connections: legacyConnections,
     existingEvents,
+    existingLifecycleStates,
     now: NOW,
   });
   const plannedEventsByOpportunity = new Map<string, LegacyBackfillPlannedEventRow[]>();
@@ -1135,7 +1149,7 @@ async function main() {
   const postRunSnapshot = await fetchProductionSnapshot(opportunities.length);
 
   const lines = [
-    "# Lead Lifecycle P4-22 Guarded Actions After Backfill Dry Run",
+    "# Lead Lifecycle P4 Guarded Actions After Backfill Dry Run",
     "",
     `Generated: ${generatedAt}`,
     `Evaluator clock: ${NOW.toISOString()}`,
