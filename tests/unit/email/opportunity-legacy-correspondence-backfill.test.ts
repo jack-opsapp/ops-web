@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   planLegacyCorrespondenceBackfill,
   type LegacyBackfillActivityRow,
+  type LegacyBackfillExistingEventRow,
+  type LegacyBackfillExistingLifecycleStateRow,
   type LegacyBackfillOpportunityRow,
 } from "@/lib/email/opportunity-legacy-correspondence-backfill";
 
@@ -43,6 +45,52 @@ function activity(
     direction: "inbound",
     created_at: "2026-04-01T16:05:00.000Z",
     outcome: null,
+    ...patch,
+  };
+}
+
+function existingEvent(
+  patch: Partial<LegacyBackfillExistingEventRow> = {}
+): LegacyBackfillExistingEventRow {
+  return {
+    id: "55555555-5555-4555-8555-555555555555",
+    company_id: companyId,
+    opportunity_id: opportunityId,
+    activity_id: null,
+    connection_id: "44444444-4444-4444-8444-444444444444",
+    provider_thread_id: "thread-1",
+    provider_message_id: "message-1",
+    direction: "inbound",
+    party_role: "customer",
+    is_meaningful: true,
+    noise_reason: null,
+    occurred_at: "2026-04-01T16:05:00.000Z",
+    linked_contact_kind: "customer",
+    linked_contact_id: null,
+    source: "email_sync",
+    subject: "Deck quote",
+    from_email: "kara.beach@example.com",
+    to_emails: ["jackson@canprodeckandrail.com"],
+    cc_emails: [],
+    ...patch,
+  };
+}
+
+function existingLifecycleState(
+  patch: Partial<LegacyBackfillExistingLifecycleStateRow> = {}
+): LegacyBackfillExistingLifecycleStateRow {
+  return {
+    opportunity_id: opportunityId,
+    company_id: companyId,
+    last_meaningful_event_id: "55555555-5555-4555-8555-555555555555",
+    last_meaningful_at: "2026-04-01 16:05:00+00",
+    last_meaningful_direction: "inbound",
+    unanswered_follow_up_count: 0,
+    second_follow_up_sent_at: null,
+    operator_follow_up_miss_at: null,
+    stale_status: null,
+    stale_status_at: null,
+    protected_until: null,
     ...patch,
   };
 }
@@ -698,5 +746,48 @@ describe("legacy correspondence backfill planner", () => {
         reason: "relationship_mismatch",
       })
     );
+  });
+
+  it("does not plan an idempotent lifecycle-state upsert when current state already matches the latest meaningful event", () => {
+    const plan = planLegacyCorrespondenceBackfill({
+      opportunities: [baseOpportunity],
+      activities: [],
+      threads: [],
+      opportunityThreadLinks: [],
+      connections: [],
+      existingEvents: [existingEvent()],
+      existingLifecycleStates: [existingLifecycleState()],
+      now: new Date("2026-05-28T20:00:00.000Z"),
+    });
+
+    expect(plan.plannedEvents).toHaveLength(0);
+    expect(plan.lifecycleStateRows).toHaveLength(0);
+  });
+
+  it("plans a lifecycle-state upsert when current state points at older proof", () => {
+    const plan = planLegacyCorrespondenceBackfill({
+      opportunities: [baseOpportunity],
+      activities: [],
+      threads: [],
+      opportunityThreadLinks: [],
+      connections: [],
+      existingEvents: [existingEvent()],
+      existingLifecycleStates: [
+        existingLifecycleState({
+          last_meaningful_event_id: "66666666-6666-4666-8666-666666666666",
+          last_meaningful_at: "2026-03-31T16:05:00.000Z",
+        }),
+      ],
+      now: new Date("2026-05-28T20:00:00.000Z"),
+    });
+
+    expect(plan.plannedEvents).toHaveLength(0);
+    expect(plan.lifecycleStateRows).toHaveLength(1);
+    expect(plan.lifecycleStateRows[0]).toMatchObject({
+      opportunity_id: opportunityId,
+      last_meaningful_event_id: "55555555-5555-4555-8555-555555555555",
+      last_meaningful_at: "2026-04-01T16:05:00.000Z",
+      last_meaningful_direction: "inbound",
+    });
   });
 });

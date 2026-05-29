@@ -86,4 +86,31 @@ describe("lead lifecycle P4-12 guarded action script", () => {
     expect(source).toContain("## Skipped Evidence By Source Boundary");
     expect(source).toContain("renderSourceBoundaryCounts");
   });
+
+  it("keeps legacy correspondence apply mode scoped to proof/state tables", () => {
+    const source = legacyBackfillScriptSource();
+
+    expect(source).toContain("--apply-legacy-correspondence-backfill");
+    expect(source).toContain('from("opportunity_correspondence_events").insert');
+    expect(source).toContain('from("opportunity_lifecycle_state")');
+    expect(source).toContain(".upsert(rows, { onConflict: \"opportunity_id\" })");
+    expect(source).toContain("assertNoExistingEventConflicts");
+    expect(source).toContain("assertUniquePlannedEvents");
+    expect(source).not.toContain('from("opportunities").update');
+    expect(source).not.toContain('from("opportunities").upsert');
+    expect(source).not.toContain('from("clients").insert');
+    expect(source).not.toContain('from("clients").update');
+    expect(source).not.toContain('from("clients").upsert');
+    expect(source).not.toContain('from("activities").insert');
+    expect(source).not.toContain('from("activities").update');
+    expect(source).not.toContain('from("activities").upsert');
+    expect(source).not.toContain('from("email_threads").insert');
+    expect(source).not.toContain('from("email_threads").update');
+    expect(source).not.toContain('from("email_threads").upsert');
+    expect(source).not.toContain('from("notifications").insert');
+    expect(source).not.toContain('from("notifications").update');
+    expect(source).not.toContain('from("notifications").upsert');
+    expect(source).not.toContain("--approved-actions-file");
+    expect(source).not.toContain("--apply-guarded-p4-actions");
+  });
 });

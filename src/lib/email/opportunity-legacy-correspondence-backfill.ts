@@ -97,6 +97,20 @@ export interface LegacyBackfillExistingEventRow {
   cc_emails: string[] | null;
 }
 
+export interface LegacyBackfillExistingLifecycleStateRow {
+  opportunity_id: string;
+  company_id: string;
+  last_meaningful_event_id: string | null;
+  last_meaningful_at: string | null;
+  last_meaningful_direction: string | null;
+  unanswered_follow_up_count: number;
+  second_follow_up_sent_at: string | null;
+  operator_follow_up_miss_at: string | null;
+  stale_status: string | null;
+  stale_status_at: string | null;
+  protected_until: string | null;
+}
+
 export type LegacyBackfillConfidence = "high" | "medium";
 
 export interface LegacyBackfillPlannedEventRow
@@ -120,6 +134,7 @@ export interface LegacyBackfillLifecycleStateRow {
   operator_follow_up_miss_at: null;
   stale_status: null;
   stale_status_at: null;
+  protected_until: null;
   updated_at: string;
   source_boundary: string;
   reason: string;
@@ -157,6 +172,7 @@ export interface LegacyBackfillPlanInput {
   opportunityThreadLinks: LegacyBackfillOpportunityThreadLinkRow[];
   connections: LegacyBackfillEmailConnectionRow[];
   existingEvents: LegacyBackfillExistingEventRow[];
+  existingLifecycleStates?: LegacyBackfillExistingLifecycleStateRow[];
   now: Date;
 }
 
@@ -961,6 +977,36 @@ function latestMeaningfulEvent(
     )[0];
 }
 
+function sameInstant(
+  left: string | null | undefined,
+  right: string | null | undefined
+): boolean {
+  if (!left && !right) return true;
+  if (!left || !right) return false;
+  const leftTime = new Date(left).getTime();
+  const rightTime = new Date(right).getTime();
+  return Number.isFinite(leftTime) && leftTime === rightTime;
+}
+
+function lifecycleStateMatchesDesired(
+  existing: LegacyBackfillExistingLifecycleStateRow | undefined,
+  desired: LegacyBackfillLifecycleStateRow
+): boolean {
+  if (!existing) return false;
+  return (
+    existing.company_id === desired.company_id &&
+    existing.last_meaningful_event_id === desired.last_meaningful_event_id &&
+    sameInstant(existing.last_meaningful_at, desired.last_meaningful_at) &&
+    existing.last_meaningful_direction === desired.last_meaningful_direction &&
+    existing.unanswered_follow_up_count === desired.unanswered_follow_up_count &&
+    existing.second_follow_up_sent_at === desired.second_follow_up_sent_at &&
+    existing.operator_follow_up_miss_at === desired.operator_follow_up_miss_at &&
+    existing.stale_status === desired.stale_status &&
+    existing.stale_status_at === desired.stale_status_at &&
+    existing.protected_until === desired.protected_until
+  );
+}
+
 export function planLegacyCorrespondenceBackfill(
   input: LegacyBackfillPlanInput
 ): LegacyBackfillPlan {
@@ -986,6 +1032,12 @@ export function planLegacyCorrespondenceBackfill(
     linksByThread.set(linkMapKey(link.connection_id, link.thread_id), rows);
   }
   const connectionsById = new Map(input.connections.map((connection) => [connection.id, connection]));
+  const existingLifecycleStateByOpportunity = new Map(
+    (input.existingLifecycleStates ?? []).map((state) => [
+      state.opportunity_id,
+      state,
+    ])
+  );
   const existingActivityIds = new Set(
     input.existingEvents
       .map((event) => normalizedText(event.activity_id))
@@ -1327,7 +1379,7 @@ export function planLegacyCorrespondenceBackfill(
     const latest = latestMeaningfulEvent(events);
     if (!latest) continue;
     const planned = "projected_event_id" in latest ? latest : null;
-    lifecycleStateRows.push({
+    const desiredState: LegacyBackfillLifecycleStateRow = {
       opportunity_id: opportunityId,
       company_id: latest.company_id,
       last_meaningful_event_id: planned?.projected_event_id ?? latest.id,
@@ -1338,10 +1390,19 @@ export function planLegacyCorrespondenceBackfill(
       operator_follow_up_miss_at: null,
       stale_status: null,
       stale_status_at: null,
+      protected_until: null,
       updated_at: input.now.toISOString(),
       source_boundary: planned?.source_boundary ?? "existing_p4_event",
       reason: planned?.reason ?? "Existing P4 correspondence event is already present.",
-    });
+    };
+    if (
+      !lifecycleStateMatchesDesired(
+        existingLifecycleStateByOpportunity.get(opportunityId),
+        desiredState
+      )
+    ) {
+      lifecycleStateRows.push(desiredState);
+    }
   }
 
   return {

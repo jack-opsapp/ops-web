@@ -1,12 +1,12 @@
 /*
- * Lead Lifecycle P4 legacy correspondence backfill dry-run.
+ * Lead Lifecycle P4 legacy correspondence backfill dry-run/apply.
  *
- * Read-only against Supabase. It plans the correspondence/state rows that a
- * separately reviewed backfill apply path would insert or upsert. It does not
- * mutate opportunities, lifecycle tables, drafts, notifications, providers, or
- * email.
+ * Dry-run is read-only against Supabase. Apply mode is intentionally narrow:
+ * it writes only opportunity_correspondence_events and opportunity_lifecycle_state.
+ * It does not mutate opportunities, drafts, notifications, providers, or email.
  */
 
+import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { loadEnvConfig } from "@next/env";
@@ -17,8 +17,11 @@ import {
   type LegacyBackfillEmailConnectionRow,
   type LegacyBackfillEmailThreadRow,
   type LegacyBackfillExistingEventRow,
+  type LegacyBackfillExistingLifecycleStateRow,
   type LegacyBackfillOpportunityRow,
   type LegacyBackfillOpportunityThreadLinkRow,
+  type LegacyBackfillPlan,
+  type LegacyBackfillPlannedEventRow,
 } from "../src/lib/email/opportunity-legacy-correspondence-backfill";
 
 const ENV_DIR = process.env.OPS_WEB_ENV_DIR || process.cwd();
@@ -58,6 +61,11 @@ const MAX_ACTIVITIES =
 const nowArgIdx = process.argv.indexOf("--now");
 const NOW =
   nowArgIdx >= 0 ? new Date(process.argv[nowArgIdx + 1]) : new Date();
+const APPLY = process.argv.includes("--apply-legacy-correspondence-backfill");
+const GUARDED_RPC_EXISTS_OVERRIDE =
+  process.env.LEAD_LIFECYCLE_GUARDED_RPC_EXISTS;
+
+const ZERO_CONNECTION_ID = "00000000-0000-0000-0000-000000000000";
 
 if (!OUTPUT_PATH) {
   console.error("--output must not be blank");
@@ -92,12 +100,89 @@ interface ProductionSnapshot {
   guardedRpcExists: boolean;
 }
 
+interface BackfillApplyResult {
+  ran: boolean;
+  insertedCorrespondenceEvents: number;
+  upsertedLifecycleStateRows: number;
+}
+
+interface CorrespondenceEventConflictRow {
+  id: string;
+  company_id: string;
+  opportunity_id: string;
+  activity_id: string | null;
+  connection_id: string | null;
+  provider_thread_id: string | null;
+  provider_message_id: string | null;
+}
+
 function chunk<T>(values: T[], size: number): T[][] {
   const chunks: T[][] = [];
   for (let i = 0; i < values.length; i += size) {
     chunks.push(values.slice(i, i + size));
   }
   return chunks;
+}
+
+function connectionKey(value: string | null | undefined): string {
+  return value ?? ZERO_CONNECTION_ID;
+}
+
+function sourceEventPlaceholder(sourceKey: string): string {
+  return `{{event_id:${sourceKey}}}`;
+}
+
+function providerMessageKey(event: {
+  company_id: string;
+  connection_id: string | null | undefined;
+  provider_message_id: string | null | undefined;
+}): string | null {
+  return event.provider_message_id
+    ? `${event.company_id}:${connectionKey(event.connection_id)}:${event.provider_message_id}`
+    : null;
+}
+
+function providerThreadKey(event: {
+  company_id: string;
+  opportunity_id: string;
+  connection_id: string | null | undefined;
+  provider_thread_id: string | null | undefined;
+  provider_message_id?: string | null;
+}): string | null {
+  return event.provider_thread_id && !event.provider_message_id
+    ? `${event.company_id}:${event.opportunity_id}:${connectionKey(event.connection_id)}:${event.provider_thread_id}`
+    : null;
+}
+
+function assertUniquePlannedEvents(events: LegacyBackfillPlannedEventRow[]) {
+  const seenActivityIds = new Set<string>();
+  const seenProviderMessages = new Set<string>();
+  const seenProviderThreads = new Set<string>();
+
+  for (const event of events) {
+    if (event.activity_id) {
+      if (seenActivityIds.has(event.activity_id)) {
+        throw new Error(`duplicate planned activity_id: ${event.activity_id}`);
+      }
+      seenActivityIds.add(event.activity_id);
+    }
+
+    const messageKey = providerMessageKey(event);
+    if (messageKey) {
+      if (seenProviderMessages.has(messageKey)) {
+        throw new Error(`duplicate planned provider_message_id: ${messageKey}`);
+      }
+      seenProviderMessages.add(messageKey);
+    }
+
+    const threadKey = providerThreadKey(event);
+    if (threadKey) {
+      if (seenProviderThreads.has(threadKey)) {
+        throw new Error(`duplicate planned provider_thread_id: ${threadKey}`);
+      }
+      seenProviderThreads.add(threadKey);
+    }
+  }
 }
 
 function unique(values: Array<string | null | undefined>): string[] {
@@ -207,6 +292,9 @@ async function fetchOpportunityThreadLinks(
 }
 
 async function fetchGuardedRpcExists(): Promise<boolean> {
+  if (GUARDED_RPC_EXISTS_OVERRIDE === "true") return true;
+  if (GUARDED_RPC_EXISTS_OVERRIDE === "false") return false;
+
   const pgProcProbe = await sb
     .schema("pg_catalog")
     .from("pg_proc")
@@ -253,6 +341,23 @@ async function fetchExistingEvents(
       .in("opportunity_id", ids);
     if (error) throw new Error(`opportunity_correspondence_events query failed: ${error.message}`);
     rows.push(...((data ?? []) as LegacyBackfillExistingEventRow[]));
+  }
+  return rows;
+}
+
+async function fetchExistingLifecycleStates(
+  opportunityIds: string[]
+): Promise<LegacyBackfillExistingLifecycleStateRow[]> {
+  const rows: LegacyBackfillExistingLifecycleStateRow[] = [];
+  for (const ids of chunk(opportunityIds, 500)) {
+    const { data, error } = await sb
+      .from("opportunity_lifecycle_state")
+      .select(
+        "opportunity_id, company_id, last_meaningful_event_id, last_meaningful_at, last_meaningful_direction, unanswered_follow_up_count, second_follow_up_sent_at, operator_follow_up_miss_at, stale_status, stale_status_at, protected_until"
+      )
+      .in("opportunity_id", ids);
+    if (error) throw new Error(`opportunity_lifecycle_state query failed: ${error.message}`);
+    rows.push(...((data ?? []) as LegacyBackfillExistingLifecycleStateRow[]));
   }
   return rows;
 }
@@ -325,6 +430,206 @@ async function fetchProductionSnapshot(): Promise<ProductionSnapshot> {
   };
 }
 
+async function assertNoExistingEventConflicts(
+  plannedEvents: LegacyBackfillPlannedEventRow[]
+) {
+  const activityIds = unique(plannedEvents.map((event) => event.activity_id));
+  const providerMessageIds = unique(
+    plannedEvents.map((event) => event.provider_message_id)
+  );
+  const providerThreadIds = unique(
+    plannedEvents
+      .filter((event) => !event.provider_message_id)
+      .map((event) => event.provider_thread_id)
+  );
+
+  if (activityIds.length > 0) {
+    const { data, error } = await sb
+      .from("opportunity_correspondence_events")
+      .select(
+        "id, company_id, opportunity_id, activity_id, connection_id, provider_thread_id, provider_message_id"
+      )
+      .in("activity_id", activityIds);
+    if (error) throw new Error(`activity duplicate guard failed: ${error.message}`);
+    if ((data ?? []).length > 0) {
+      throw new Error(
+        `apply blocked: ${data?.length ?? 0} existing P4 events already reference planned activity ids`
+      );
+    }
+  }
+
+  if (providerMessageIds.length > 0) {
+    const plannedKeys = new Set(
+      plannedEvents
+        .map(providerMessageKey)
+        .filter((value): value is string => Boolean(value))
+    );
+    const { data, error } = await sb
+      .from("opportunity_correspondence_events")
+      .select(
+        "id, company_id, opportunity_id, activity_id, connection_id, provider_thread_id, provider_message_id"
+      )
+      .in("provider_message_id", providerMessageIds);
+    if (error) {
+      throw new Error(`provider message duplicate guard failed: ${error.message}`);
+    }
+    const conflicts = ((data ?? []) as CorrespondenceEventConflictRow[]).filter((row) => {
+      return Boolean(providerMessageKey(row) && plannedKeys.has(providerMessageKey(row)!));
+    });
+    if (conflicts.length > 0) {
+      throw new Error(
+        `apply blocked: ${conflicts.length} existing P4 events already reference planned provider message ids`
+      );
+    }
+  }
+
+  if (providerThreadIds.length > 0) {
+    const plannedKeys = new Set(
+      plannedEvents
+        .map(providerThreadKey)
+        .filter((value): value is string => Boolean(value))
+    );
+    const { data, error } = await sb
+      .from("opportunity_correspondence_events")
+      .select(
+        "id, company_id, opportunity_id, activity_id, connection_id, provider_thread_id, provider_message_id"
+      )
+      .in("provider_thread_id", providerThreadIds)
+      .is("provider_message_id", null);
+    if (error) {
+      throw new Error(`provider thread duplicate guard failed: ${error.message}`);
+    }
+    const conflicts = ((data ?? []) as CorrespondenceEventConflictRow[]).filter((row) => {
+      return Boolean(providerThreadKey(row) && plannedKeys.has(providerThreadKey(row)!));
+    });
+    if (conflicts.length > 0) {
+      throw new Error(
+        `apply blocked: ${conflicts.length} existing P4 events already reference planned provider thread ids`
+      );
+    }
+  }
+}
+
+function eventInsertRows(
+  plannedEvents: LegacyBackfillPlannedEventRow[],
+  eventIdsBySourceKey: Map<string, string>
+) {
+  return plannedEvents.map((event) => {
+    const id = eventIdsBySourceKey.get(event.source_key);
+    if (!id) throw new Error(`missing generated event id for ${event.source_key}`);
+    return {
+      id,
+      company_id: event.company_id,
+      opportunity_id: event.opportunity_id,
+      activity_id: event.activity_id,
+      connection_id: event.connection_id,
+      provider_thread_id: event.provider_thread_id,
+      provider_message_id: event.provider_message_id,
+      direction: event.direction,
+      party_role: event.party_role,
+      is_meaningful: event.is_meaningful,
+      noise_reason: event.noise_reason,
+      occurred_at: event.occurred_at,
+      linked_contact_kind: event.linked_contact_kind,
+      linked_contact_id: event.linked_contact_id,
+      source: event.source,
+      subject: event.subject,
+      from_email: event.from_email,
+      to_emails: event.to_emails ?? [],
+      cc_emails: event.cc_emails ?? [],
+    };
+  });
+}
+
+function resolveLifecycleEventId(
+  eventId: string,
+  eventIdsBySourceKey: Map<string, string>
+): string {
+  for (const sourceKey of eventIdsBySourceKey.keys()) {
+    if (eventId === sourceEventPlaceholder(sourceKey)) {
+      const resolved = eventIdsBySourceKey.get(sourceKey);
+      if (!resolved) break;
+      return resolved;
+    }
+  }
+  if (eventId.startsWith("{{event_id:")) {
+    throw new Error(`missing generated event id for lifecycle state: ${eventId}`);
+  }
+  return eventId;
+}
+
+function lifecycleStateUpsertRows(
+  plan: LegacyBackfillPlan,
+  eventIdsBySourceKey: Map<string, string>
+) {
+  return plan.lifecycleStateRows.map((row) => ({
+    opportunity_id: row.opportunity_id,
+    company_id: row.company_id,
+    last_meaningful_event_id: resolveLifecycleEventId(
+      row.last_meaningful_event_id,
+      eventIdsBySourceKey
+    ),
+    last_meaningful_at: row.last_meaningful_at,
+    last_meaningful_direction: row.last_meaningful_direction,
+    unanswered_follow_up_count: row.unanswered_follow_up_count,
+    second_follow_up_sent_at: row.second_follow_up_sent_at,
+    operator_follow_up_miss_at: row.operator_follow_up_miss_at,
+    stale_status: row.stale_status,
+    stale_status_at: row.stale_status_at,
+    protected_until: row.protected_until,
+    updated_at: row.updated_at,
+  }));
+}
+
+async function applyLegacyBackfill(
+  plan: LegacyBackfillPlan
+): Promise<BackfillApplyResult> {
+  if (!APPLY) {
+    return {
+      ran: false,
+      insertedCorrespondenceEvents: 0,
+      upsertedLifecycleStateRows: 0,
+    };
+  }
+
+  if (plan.opportunityMutationCount !== 0) {
+    throw new Error(
+      `apply blocked: planner reported ${plan.opportunityMutationCount} opportunity mutations`
+    );
+  }
+
+  assertUniquePlannedEvents(plan.plannedEvents);
+  await assertNoExistingEventConflicts(plan.plannedEvents);
+
+  const eventIdsBySourceKey = new Map(
+    plan.plannedEvents.map((event) => [event.source_key, randomUUID()])
+  );
+  const eventRows = eventInsertRows(plan.plannedEvents, eventIdsBySourceKey);
+  const stateRows = lifecycleStateUpsertRows(plan, eventIdsBySourceKey);
+
+  for (const rows of chunk(eventRows, 200)) {
+    const { error } = await sb.from("opportunity_correspondence_events").insert(rows);
+    if (error) {
+      throw new Error(`opportunity_correspondence_events insert failed: ${error.message}`);
+    }
+  }
+
+  for (const rows of chunk(stateRows, 200)) {
+    const { error } = await sb
+      .from("opportunity_lifecycle_state")
+      .upsert(rows, { onConflict: "opportunity_id" });
+    if (error) {
+      throw new Error(`opportunity_lifecycle_state upsert failed: ${error.message}`);
+    }
+  }
+
+  return {
+    ran: true,
+    insertedCorrespondenceEvents: eventRows.length,
+    upsertedLifecycleStateRows: stateRows.length,
+  };
+}
+
 async function main() {
   const preRunSnapshot = await fetchProductionSnapshot();
   const opportunities = await fetchOpportunities();
@@ -335,9 +640,10 @@ async function main() {
     ...activities.map((row) => row.email_thread_id),
     ...opportunityThreadLinks.map((row) => row.thread_id),
   ]);
-  const [threads, existingEvents] = await Promise.all([
+  const [threads, existingEvents, existingLifecycleStates] = await Promise.all([
     fetchThreads(providerThreadIds),
     fetchExistingEvents(opportunityIds),
+    fetchExistingLifecycleStates(opportunityIds),
   ]);
   const connections = await fetchConnections(
     unique(threads.map((row) => row.connection_id))
@@ -349,8 +655,10 @@ async function main() {
     opportunityThreadLinks,
     connections,
     existingEvents,
+    existingLifecycleStates,
     now: NOW,
   });
+  const applyResult = await applyLegacyBackfill(plan);
   const postRunSnapshot = await fetchProductionSnapshot();
 
   const eventsBySource = plan.plannedEvents.reduce((counts, row) => {
@@ -384,13 +692,17 @@ async function main() {
   const generatedAt = new Date().toISOString();
 
   const lines = [
-    "# Lead Lifecycle P4-22 Legacy Correspondence Backfill Dry Run",
+    APPLY
+      ? "# Lead Lifecycle P4 Legacy Correspondence Backfill Apply"
+      : "# Lead Lifecycle P4 Legacy Correspondence Backfill Dry Run",
     "",
     `Generated: ${generatedAt}`,
     `Evaluator clock: ${NOW.toISOString()}`,
     "",
-    "Production lifecycle data writes: no.",
-    "Backfill apply run: no.",
+    APPLY
+      ? "Production lifecycle data writes: yes; `opportunity_correspondence_events` and `opportunity_lifecycle_state` only."
+      : "Production lifecycle data writes: no.",
+    `Backfill apply run: ${applyResult.ran ? "yes" : "no"}.`,
     "Destructive apply mode run: no.",
     "Migration applied: no.",
     "Emails sent: no.",
@@ -434,6 +746,14 @@ async function main() {
     `- Planned opportunity_lifecycle_state rows: ${plan.lifecycleStateRows.length}`,
     `- Skipped legacy evidence rows: ${plan.skippedEvidence.length}`,
     `- Opportunity rows to mutate: ${plan.opportunityMutationCount}`,
+    "",
+    "## Apply Result",
+    "",
+    `- Apply mode: ${applyResult.ran ? "yes" : "no"}`,
+    `- Inserted opportunity_correspondence_events rows: ${applyResult.insertedCorrespondenceEvents}`,
+    `- Upserted opportunity_lifecycle_state rows: ${applyResult.upsertedLifecycleStateRows}`,
+    "- Opportunity business-state writes: 0",
+    "- Other production tables written: 0",
     "",
     "## Planned Events By Source",
     "",
@@ -503,8 +823,12 @@ async function main() {
     "",
     "## Boundary",
     "",
-    "- This was a dry-run only.",
-    "- No P4 rows were inserted or updated.",
+    applyResult.ran
+      ? "- This ran the approved non-destructive legacy correspondence backfill apply path."
+      : "- This was a dry-run only.",
+    applyResult.ran
+      ? "- P4 proof/state writes were limited to `opportunity_correspondence_events` inserts and `opportunity_lifecycle_state` upserts."
+      : "- No P4 rows were inserted or updated.",
     "- No opportunities were archived, marked lost, reactivated, or otherwise mutated.",
     "- No drafts, notifications, provider drafts, or emails were created.",
   ];
@@ -514,6 +838,9 @@ async function main() {
   console.log(`Wrote ${OUTPUT_PATH}`);
   console.log(`Planned events: ${plan.plannedEvents.length}`);
   console.log(`Planned lifecycle rows: ${plan.lifecycleStateRows.length}`);
+  console.log(`Apply mode: ${applyResult.ran ? "yes" : "no"}`);
+  console.log(`Inserted correspondence events: ${applyResult.insertedCorrespondenceEvents}`);
+  console.log(`Upserted lifecycle states: ${applyResult.upsertedLifecycleStateRows}`);
 }
 
 main().catch((error) => {
