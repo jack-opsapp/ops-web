@@ -56,12 +56,12 @@ export function useResolveLink() {
   return useMutation<
     { ok: true; result: { activitiesRepointed: number; targetTitle: string | null } },
     Error,
-    { providerThreadId: string; targetOpportunityId: string }
+    { providerThreadId: string; targetOpportunityId: string; kind: ReviewItemKind }
   >({
-    mutationFn: async ({ providerThreadId, targetOpportunityId }) => {
+    mutationFn: async ({ providerThreadId, targetOpportunityId, kind }) => {
       const res = await authedFetch(
         `/api/data-review/${encodeURIComponent(providerThreadId)}/link`,
-        { method: "POST", body: JSON.stringify({ targetOpportunityId }) }
+        { method: "POST", body: JSON.stringify({ targetOpportunityId, kind }) }
       );
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -84,12 +84,12 @@ export function useQuarantineItem() {
   return useMutation<
     { ok: true; result: { activitiesQuarantined: number; subject: string | null } },
     Error,
-    { providerThreadId: string }
+    { providerThreadId: string; kind: ReviewItemKind }
   >({
-    mutationFn: async ({ providerThreadId }) => {
+    mutationFn: async ({ providerThreadId, kind }) => {
       const res = await authedFetch(
         `/api/data-review/${encodeURIComponent(providerThreadId)}/quarantine`,
-        { method: "POST" }
+        { method: "POST", body: JSON.stringify({ kind }) }
       );
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));

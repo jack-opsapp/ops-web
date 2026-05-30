@@ -34,19 +34,34 @@ function fmtInt(n: number): string {
   return new Intl.NumberFormat("en-US").format(n);
 }
 
-function relativeDate(iso: string | null): string {
+/** Localized relative-date formatter. `t` resolves the data-review namespace. */
+function relativeDate(
+  iso: string | null,
+  t: (key: string, fallback?: string) => string
+): string {
   if (!iso) return "—";
   const then = new Date(iso).getTime();
   if (Number.isNaN(then)) return "—";
   const diff = Date.now() - then;
   const day = 86_400_000;
   const days = Math.floor(diff / day);
-  if (days <= 0) return "today";
-  if (days === 1) return "1d ago";
-  if (days < 30) return `${days}d ago`;
+  if (days <= 0) return t("queue.relative.today", "today");
+  if (days === 1) return t("queue.relative.dayAgo", "1d ago");
+  if (days < 30)
+    return t("queue.relative.daysAgo", "{count}d ago").replace(
+      "{count}",
+      String(days)
+    );
   const months = Math.floor(days / 30);
-  if (months < 12) return `${months}mo ago`;
-  return `${Math.floor(months / 12)}y ago`;
+  if (months < 12)
+    return t("queue.relative.monthsAgo", "{count}mo ago").replace(
+      "{count}",
+      String(months)
+    );
+  return t("queue.relative.yearsAgo", "{count}y ago").replace(
+    "{count}",
+    String(Math.floor(months / 12))
+  );
 }
 
 export function DataReviewQueue() {
@@ -278,7 +293,7 @@ function QueueRow({
         </td>
         <td className="py-3 pr-3">
           <span className="font-mono text-[11px] tabular-nums text-text-3">
-            {relativeDate(item.lastActivityAt)}
+            {relativeDate(item.lastActivityAt, t)}
           </span>
         </td>
         <td className="py-3 pr-3 max-w-[280px]">
@@ -320,7 +335,10 @@ function QueueRow({
               type="button"
               disabled={inFlight}
               onClick={() =>
-                quarantine.mutate({ providerThreadId: item.providerThreadId })
+                quarantine.mutate({
+                  providerThreadId: item.providerThreadId,
+                  kind: item.kind,
+                })
               }
               title={t("queue.quarantineHint", "mark reviewed · stays quarantined")}
               className="font-mono text-[11px] uppercase tracking-[0.1em] min-h-[36px] inline-flex items-center px-3 rounded-[5px] border border-line text-text-3 hover:text-text-2 hover:border-border-medium transition-colors duration-150 disabled:opacity-40"
@@ -343,7 +361,11 @@ function QueueRow({
               onCancel={() => setLinkOpen(false)}
               onConfirm={(targetOpportunityId) =>
                 resolveLink.mutate(
-                  { providerThreadId: item.providerThreadId, targetOpportunityId },
+                  {
+                    providerThreadId: item.providerThreadId,
+                    targetOpportunityId,
+                    kind: item.kind,
+                  },
                   { onSuccess: () => setLinkOpen(false) }
                 )
               }
@@ -515,13 +537,13 @@ function TypeTag({
 }) {
   if (kind === "split") {
     return (
-      <span className="inline-flex items-center rounded-chip border border-[rgba(196,168,104,0.30)] bg-[rgba(196,168,104,0.12)] px-2 py-[3px] font-mono text-[11px] uppercase tracking-[0.12em] text-tan">
+      <span className="inline-flex items-center rounded-chip border border-tan-line bg-tan-soft px-2 py-[3px] font-mono text-[11px] uppercase tracking-[0.12em] text-tan">
         {t("queue.tag.split", "SPLIT")}
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center rounded-chip border border-[rgba(181,130,137,0.30)] bg-[rgba(181,130,137,0.12)] px-2 py-[3px] font-mono text-[11px] uppercase tracking-[0.12em] text-rose">
+    <span className="inline-flex items-center rounded-chip border border-rose-line bg-rose-soft px-2 py-[3px] font-mono text-[11px] uppercase tracking-[0.12em] text-rose">
       {t("queue.tag.terminal", "TERMINAL")}
     </span>
   );

@@ -19,6 +19,8 @@ import { checkPermissionById } from "@/lib/supabase/check-permission";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
 import { LeadDataReviewService } from "@/lib/api/services/lead-data-review-service";
+import type { ReviewItemKind } from "@/lib/api/services/lead-data-review-service";
+import { renderForCompany } from "@/i18n/server-render";
 
 export async function POST(
   request: NextRequest,
@@ -49,21 +51,50 @@ export async function POST(
     );
   }
 
+  // Optional body carries the item kind so terminal_live (cache-only, no owning
+  // activities) resolves gracefully instead of erroring. Default to "split".
+  let itemKind: ReviewItemKind = "split";
+  try {
+    const body = await request.json();
+    if ((body as { kind?: unknown })?.kind === "terminal_live") {
+      itemKind = "terminal_live";
+    }
+  } catch {
+    // No body is fine — keep the "split" default.
+  }
+
   const db = getServiceRoleClient();
   setSupabaseOverride(db);
 
   try {
-    const result = await LeadDataReviewService.quarantineThread(providerThreadId);
+    const result = await LeadDataReviewService.quarantineThread(
+      providerThreadId,
+      itemKind
+    );
 
+    // Standard dismissible rail notification — localized, purpose-named type.
     const companyId = user.company_id as string | null;
     if (companyId) {
       const subjectLabel = result.subject?.trim() || "thread";
+      const [title, notifBody] = await Promise.all([
+        renderForCompany(
+          companyId,
+          "data-review",
+          "queue.notif.quarantinedTitle",
+          { subject: subjectLabel }
+        ),
+        renderForCompany(
+          companyId,
+          "data-review",
+          "queue.notif.quarantinedBody"
+        ),
+      ]);
       await db.from("notifications").insert({
         user_id: user.id as string,
         company_id: companyId,
-        type: "duplicates_found",
-        title: `QUARANTINED · ${subjectLabel}`,
-        body: "item left quarantined",
+        type: "data_review_resolved",
+        title,
+        body: notifBody,
         is_read: false,
         persistent: false,
         dedupe_key: `data_review:quarantine:${providerThreadId}`,

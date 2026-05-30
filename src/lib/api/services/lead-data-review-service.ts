@@ -483,22 +483,60 @@ export const LeadDataReviewService = {
   },
 
   /**
-   * Re-point a split provider thread's activities onto the operator-chosen
-   * owning opportunity. The confident re-point the auto-pass refused — now
-   * operator-authorized. Guarded server-side:
-   *   - the target must be one of the thread's current owners (no fabrication);
-   *   - the target must be the SAME client as every owner (never move
-   *     correspondence across customers — enforced even for an authorized
-   *     operator);
-   *   - only activities NOT already on the target are updated (idempotent).
-   * Aligns the canonical join + cache rows to the target where present.
+   * Resolve a queue item by linking its correspondence to the operator-chosen
+   * owning opportunity. Behavior branches on `kind`:
+   *
+   *   - "split"         — re-point the split provider thread's activities onto
+   *     the target (the confident re-point the auto-pass refused). Guarded:
+   *       · the target must be one of the thread's current owners (no fabrication);
+   *       · the target must be the SAME client as every owner (never move
+   *         correspondence across customers — enforced even for an authorized
+   *         operator);
+   *       · only activities NOT already on the target are updated (idempotent).
+   *     Aligns the cache row to the target afterward.
+   *   - "terminal_live" — the row is a NULL-canonical `email_threads` cache row
+   *     with NO owning activities; the resolving action ALIGNS the cache to the
+   *     terminal owner (sets `email_threads.opportunity_id`). No activity
+   *     re-point happens (there is nothing to re-point), and the single-client
+   *     guard is satisfied by construction (the singular join already names the
+   *     one owner). This is the "align the cache to the terminal owner" path the
+   *     design (§2/§3) specifies.
    */
   async linkThread(
     providerThreadId: string,
-    targetOpportunityId: string
+    targetOpportunityId: string,
+    kind: ReviewItemKind = "split"
   ): Promise<LinkThreadResult> {
-    assertWriteAllowed("activities", "opportunity_id");
     const sb = requireSupabase();
+
+    // ── terminal_live: cache-only row, no owning activities ──────────────────
+    // Align the cache to the operator-confirmed terminal owner. There are no
+    // activities to re-point, so the activity-driven owner guards do not apply;
+    // we still confirm the target exists and is not hidden before aligning.
+    if (kind === "terminal_live") {
+      const meta = await fetchOppMeta([targetOpportunityId]);
+      const target = meta.get(targetOpportunityId);
+      if (!target) throw new Error("Target opportunity not found");
+      if (isHidden(target)) {
+        throw new Error("REFUSED: target opportunity is archived/deleted");
+      }
+      assertWriteAllowed("email_threads", "opportunity_id");
+      const { error } = await sb
+        .from("email_threads")
+        .update({ opportunity_id: targetOpportunityId })
+        .eq("provider_thread_id", providerThreadId)
+        .is("opportunity_id", null); // idempotency guard — only align NULL rows
+      if (error) throw new Error(error.message);
+      return {
+        providerThreadId,
+        targetOpportunityId,
+        targetTitle: target.title,
+        activitiesRepointed: 0,
+      };
+    }
+
+    // ── split: re-point the thread's activities onto the chosen owner ─────────
+    assertWriteAllowed("activities", "opportunity_id");
 
     // Re-derive the thread's owners from live data (never trust the client).
     const { data: actData, error: actErr } = await sb
@@ -578,9 +616,9 @@ export const LeadDataReviewService = {
    * no rows deleted. Idempotent: a thread already on its `legacy:` id no-ops.
    */
   async quarantineThread(
-    providerThreadId: string
+    providerThreadId: string,
+    kind: ReviewItemKind = "split"
   ): Promise<QuarantineThreadResult> {
-    assertWriteAllowed("activities", "email_thread_id");
     const sb = requireSupabase();
 
     if (providerThreadId.startsWith("legacy")) {
@@ -594,9 +632,23 @@ export const LeadDataReviewService = {
       .eq("email_thread_id", providerThreadId);
     if (actErr) throw new Error(actErr.message);
     const activities = (actData ?? []) as Array<{ id: string; subject: string }>;
+
+    // terminal_live items are NULL-canonical cache rows with no owning
+    // activities. Leaving the cache unset IS the quarantined state — there is
+    // nothing to re-point onto a `legacy:` marker. Resolve gracefully (the item
+    // is acknowledged-and-left-as-is) instead of throwing "no activities".
     if (activities.length === 0) {
+      if (kind === "terminal_live") {
+        return {
+          providerThreadId,
+          subject: null,
+          activitiesQuarantined: 0,
+        };
+      }
       throw new Error("No activities found for this provider thread");
     }
+
+    assertWriteAllowed("activities", "email_thread_id");
 
     const marker = quarantineThreadId(providerThreadId);
     const subject = activities[0]?.subject ?? null;

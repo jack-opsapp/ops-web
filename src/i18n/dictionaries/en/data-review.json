@@ -21,6 +21,11 @@
   "queue.spread.opps": "{count} opps",
   "queue.spread.oppsOne": "1 opp",
   "queue.spread.terminal": "{count} terminal",
+  "queue.relative.today": "today",
+  "queue.relative.dayAgo": "1d ago",
+  "queue.relative.daysAgo": "{count}d ago",
+  "queue.relative.monthsAgo": "{count}mo ago",
+  "queue.relative.yearsAgo": "{count}y ago",
   "queue.action.open": "OPEN OPPORTUNITY",
   "queue.action.linkTo": "LINK TO…",
   "queue.action.quarantine": "QUARANTINE",
@@ -41,6 +46,9 @@
   "queue.detail.terminalFlag": "TERMINAL",
   "queue.detail.hiddenFlag": "HIDDEN",
   "queue.detail.linkPrompt": "// SELECT THE CANONICAL OWNER",
-  "queue.notif.linkedTitle": "LINK RESOLVED",
-  "queue.notif.quarantinedTitle": "QUARANTINED"
+  "queue.notif.linkedTitle": "LINK RESOLVED · {{subject}}",
+  "queue.notif.linkedBody": "{{count}} activities re-pointed to {{subject}}",
+  "queue.notif.quarantinedTitle": "QUARANTINED · {{subject}}",
+  "queue.notif.quarantinedBody": "item left quarantined",
+  "queue.notif.actionLabel": "VIEW"
 }
