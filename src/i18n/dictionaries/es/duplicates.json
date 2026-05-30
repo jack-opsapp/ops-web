@@ -72,7 +72,7 @@
   "conflict.confirm": "// CONFIRMAR FUSIÓN",
   "conflict.back": "// ATRÁS",
   "conflict.gateHint": "[resuelve todos los conflictos para continuar]",
-  "conflict.reversible": "el registro absorbido se integra en {winner}",
+  "conflict.reversible": "el registro absorbido se fusiona en {winner}",
   "conflict.scanning": "SYS :: ESCANEANDO CAMPOS",
   "conflict.error": "// ERROR — FUSIÓN FALLIDA",
   "conflict.blocked": "// FUSIÓN BLOQUEADA",
