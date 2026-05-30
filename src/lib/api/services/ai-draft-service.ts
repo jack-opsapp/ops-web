@@ -22,25 +22,23 @@ function getOpenAI() {
 }
 
 /**
- * P4-D deferral flag.
+ * Lifecycle-draft learning switch.
  *
- * The lifecycle-draft learning hook (`recordLifecycleDraftOutcome`) is built
- * and tested, but its only correct trigger — the operator-send transition of
- * an opportunity_follow_up_draft to status='sent' + final_sent_body — is owned
- * by P3 and does not exist in this worktree yet (grep: 0 writers of
- * final_sent_body). We NEVER auto-send email, so the hook must not fire on any
- * autonomous path.
- *
- * Until the P3 send-transition lands, this flag stays false and the
- * send-transition call site (P3) must check it before invoking the hook:
+ * Gates the lifecycle-draft learning hook (`recordLifecycleDraftOutcome`),
+ * whose only correct trigger is the operator-send transition of an
+ * opportunity_follow_up_draft to status='sent' + final_sent_body. We NEVER
+ * auto-send email, so the hook must not fire on any autonomous path — it is
+ * invoked exclusively from the operator-send transition behind this flag:
  *
  *   if (LIFECYCLE_LEARNING_ENABLED) {
  *     await AIDraftService.recordLifecycleDraftOutcome(draftId, companyId, userId, finalBody, finalSubject);
  *   }
  *
- * Flip to true in the same change that lands the P3 operator-send transition.
+ * Enabled at go-live: the operator-send transition now exists and ships in
+ * this deploy, so the edit-learning pipeline activates on operator sends.
+ * analyzeEditWithGPT only fires on >threshold-edited sends — negligible cost.
  */
-export const LIFECYCLE_LEARNING_ENABLED = false;
+export const LIFECYCLE_LEARNING_ENABLED = true;
 
 // ─── Output Sanitization ────────────────────────────────────────────────────
 
