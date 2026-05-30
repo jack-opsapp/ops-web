@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.1"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       ab_config: {
@@ -3549,6 +3524,7 @@ export type Database = {
           id: string
           latitude: number | null
           longitude: number | null
+          merged_into_client_id: string | null
           name: string
           notes: string | null
           phone_number: string | null
@@ -3568,6 +3544,7 @@ export type Database = {
           id?: string
           latitude?: number | null
           longitude?: number | null
+          merged_into_client_id?: string | null
           name: string
           notes?: string | null
           phone_number?: string | null
@@ -3587,6 +3564,7 @@ export type Database = {
           id?: string
           latitude?: number | null
           longitude?: number | null
+          merged_into_client_id?: string | null
           name?: string
           notes?: string | null
           phone_number?: string | null
@@ -3602,6 +3580,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clients_merged_into_client_id_fkey"
+            columns: ["merged_into_client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
             referencedColumns: ["id"]
           },
         ]
@@ -4475,6 +4460,7 @@ export type Database = {
           entity_b_id: string
           entity_type: string
           id: string
+          migration_manifest: Json
           resolved_at: string | null
           resolved_by: string | null
           signals: Json
@@ -4489,6 +4475,7 @@ export type Database = {
           entity_b_id: string
           entity_type: string
           id?: string
+          migration_manifest?: Json
           resolved_at?: string | null
           resolved_by?: string | null
           signals?: Json
@@ -4503,6 +4490,7 @@ export type Database = {
           entity_b_id?: string
           entity_type?: string
           id?: string
+          migration_manifest?: Json
           resolved_at?: string | null
           resolved_by?: string | null
           signals?: Json
@@ -6615,6 +6603,85 @@ export type Database = {
           },
         ]
       }
+      lead_field_provenance: {
+        Row: {
+          actor_user_id: string | null
+          company_id: string
+          confidence: number | null
+          confirmed_at: string | null
+          confirmed_by: string | null
+          created_at: string
+          entity_id: string
+          entity_type: string
+          extracted_at: string
+          field_name: string
+          id: string
+          provider_message_id: string | null
+          provider_thread_id: string | null
+          source: string
+          updated_at: string
+          value_snapshot: string | null
+        }
+        Insert: {
+          actor_user_id?: string | null
+          company_id: string
+          confidence?: number | null
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          extracted_at?: string
+          field_name: string
+          id?: string
+          provider_message_id?: string | null
+          provider_thread_id?: string | null
+          source: string
+          updated_at?: string
+          value_snapshot?: string | null
+        }
+        Update: {
+          actor_user_id?: string | null
+          company_id?: string
+          confidence?: number | null
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          extracted_at?: string
+          field_name?: string
+          id?: string
+          provider_message_id?: string | null
+          provider_thread_id?: string | null
+          source?: string
+          updated_at?: string
+          value_snapshot?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_field_provenance_actor_user_fkey"
+            columns: ["actor_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_field_provenance_company_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_field_provenance_confirmed_by_fkey"
+            columns: ["confirmed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_lifecycle_settings: {
         Row: {
           auto_archive_enabled: boolean
@@ -7542,6 +7609,7 @@ export type Database = {
           longitude: number | null
           lost_notes: string | null
           lost_reason: string | null
+          merged_into_opportunity_id: string | null
           next_follow_up_at: string | null
           outbound_count: number
           priority: string | null
@@ -7550,6 +7618,8 @@ export type Database = {
           quote_delivery_method: string | null
           source: string | null
           source_email_id: string | null
+          source_message_id: string | null
+          source_metadata: Json | null
           stage: string
           stage_entered_at: string
           stage_manually_set: boolean
@@ -7591,6 +7661,7 @@ export type Database = {
           longitude?: number | null
           lost_notes?: string | null
           lost_reason?: string | null
+          merged_into_opportunity_id?: string | null
           next_follow_up_at?: string | null
           outbound_count?: number
           priority?: string | null
@@ -7599,6 +7670,8 @@ export type Database = {
           quote_delivery_method?: string | null
           source?: string | null
           source_email_id?: string | null
+          source_message_id?: string | null
+          source_metadata?: Json | null
           stage?: string
           stage_entered_at?: string
           stage_manually_set?: boolean
@@ -7640,6 +7713,7 @@ export type Database = {
           longitude?: number | null
           lost_notes?: string | null
           lost_reason?: string | null
+          merged_into_opportunity_id?: string | null
           next_follow_up_at?: string | null
           outbound_count?: number
           priority?: string | null
@@ -7648,6 +7722,8 @@ export type Database = {
           quote_delivery_method?: string | null
           source?: string | null
           source_email_id?: string | null
+          source_message_id?: string | null
+          source_metadata?: Json | null
           stage?: string
           stage_entered_at?: string
           stage_manually_set?: boolean
@@ -7662,6 +7738,13 @@ export type Database = {
             columns: ["client_ref"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunities_merged_into_opportunity_id_fkey"
+            columns: ["merged_into_opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
             referencedColumns: ["id"]
           },
           {
@@ -7775,6 +7858,107 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "opportunities"
             referencedColumns: ["company_id", "id"]
+          },
+        ]
+      }
+      opportunity_dispositions: {
+        Row: {
+          company_id: string
+          converted_project_ref: string | null
+          created_at: string
+          decided_by: string | null
+          decided_via: string
+          disposition: string
+          evidence: Json
+          id: string
+          merged_into_opportunity_id: string | null
+          opportunity_id: string
+          reason_code: string | null
+          reason_notes: string | null
+          superseded_at: string | null
+          superseded_by: string | null
+        }
+        Insert: {
+          company_id: string
+          converted_project_ref?: string | null
+          created_at?: string
+          decided_by?: string | null
+          decided_via: string
+          disposition: string
+          evidence?: Json
+          id?: string
+          merged_into_opportunity_id?: string | null
+          opportunity_id: string
+          reason_code?: string | null
+          reason_notes?: string | null
+          superseded_at?: string | null
+          superseded_by?: string | null
+        }
+        Update: {
+          company_id?: string
+          converted_project_ref?: string | null
+          created_at?: string
+          decided_by?: string | null
+          decided_via?: string
+          disposition?: string
+          evidence?: Json
+          id?: string
+          merged_into_opportunity_id?: string | null
+          opportunity_id?: string
+          reason_code?: string | null
+          reason_notes?: string | null
+          superseded_at?: string | null
+          superseded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opportunity_dispositions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunity_dispositions_company_opp_fk"
+            columns: ["company_id", "opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["company_id", "id"]
+          },
+          {
+            foreignKeyName: "opportunity_dispositions_converted_project_ref_fkey"
+            columns: ["converted_project_ref"]
+            isOneToOne: false
+            referencedRelation: "project_table_rows"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunity_dispositions_converted_project_ref_fkey"
+            columns: ["converted_project_ref"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunity_dispositions_merged_into_opportunity_id_fkey"
+            columns: ["merged_into_opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunity_dispositions_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunity_dispositions_superseded_by_fkey"
+            columns: ["superseded_by"]
+            isOneToOne: false
+            referencedRelation: "opportunity_dispositions"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -8090,6 +8274,81 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "opportunities"
             referencedColumns: ["company_id", "id"]
+          },
+        ]
+      }
+      opportunity_merges: {
+        Row: {
+          company_id: string
+          created_at: string
+          entity_type: string
+          error_code: string | null
+          error_message: string | null
+          field_fill: Json
+          field_overrides: Json
+          guard_reason: string | null
+          id: string
+          loser_id: string
+          manifest: Json
+          merge_key: string
+          resolved_by: string | null
+          review_id: string | null
+          run_id: string | null
+          status: string
+          winner_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          entity_type: string
+          error_code?: string | null
+          error_message?: string | null
+          field_fill?: Json
+          field_overrides?: Json
+          guard_reason?: string | null
+          id?: string
+          loser_id: string
+          manifest?: Json
+          merge_key: string
+          resolved_by?: string | null
+          review_id?: string | null
+          run_id?: string | null
+          status: string
+          winner_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          entity_type?: string
+          error_code?: string | null
+          error_message?: string | null
+          field_fill?: Json
+          field_overrides?: Json
+          guard_reason?: string | null
+          id?: string
+          loser_id?: string
+          manifest?: Json
+          merge_key?: string
+          resolved_by?: string | null
+          review_id?: string | null
+          run_id?: string | null
+          status?: string
+          winner_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opportunity_merges_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunity_merges_review_id_fkey"
+            columns: ["review_id"]
+            isOneToOne: false
+            referencedRelation: "duplicate_reviews"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -10075,12 +10334,16 @@ export type Database = {
           description: string | null
           duration: number | null
           end_date: string | null
+          estimated_value: number | null
           id: string
           latitude: number | null
           longitude: number | null
           notes: string | null
           opportunity_id: string | null
+          opportunity_ref: string | null
+          platform_metadata: Json | null
           project_images: string[] | null
+          source: string | null
           start_date: string | null
           status: string
           team_member_ids: string[] | null
@@ -10105,12 +10368,16 @@ export type Database = {
           description?: string | null
           duration?: number | null
           end_date?: string | null
+          estimated_value?: number | null
           id?: string
           latitude?: number | null
           longitude?: number | null
           notes?: string | null
           opportunity_id?: string | null
+          opportunity_ref?: string | null
+          platform_metadata?: Json | null
           project_images?: string[] | null
+          source?: string | null
           start_date?: string | null
           status?: string
           team_member_ids?: string[] | null
@@ -10135,12 +10402,16 @@ export type Database = {
           description?: string | null
           duration?: number | null
           end_date?: string | null
+          estimated_value?: number | null
           id?: string
           latitude?: number | null
           longitude?: number | null
           notes?: string | null
           opportunity_id?: string | null
+          opportunity_ref?: string | null
+          platform_metadata?: Json | null
           project_images?: string[] | null
+          source?: string | null
           start_date?: string | null
           status?: string
           team_member_ids?: string[] | null
@@ -10165,6 +10436,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_opportunity_ref_fkey"
+            columns: ["opportunity_ref"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
             referencedColumns: ["id"]
           },
         ]
@@ -12763,6 +13041,67 @@ export type Database = {
           },
         ]
       }
+      task_material_consumption_requests: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          idempotency_key: string
+          request_hash: string
+          response: Json
+          status: string
+          task_id: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          idempotency_key: string
+          request_hash: string
+          response?: Json
+          status?: string
+          task_id: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          idempotency_key?: string
+          request_hash?: string
+          response?: Json
+          status?: string
+          task_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_material_consumption_requests_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_material_consumption_requests_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_material_consumption_requests_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "project_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       task_materials: {
         Row: {
           catalog_variant_id: string | null
@@ -14317,6 +14656,38 @@ export type Database = {
       }
     }
     Functions: {
+      _record_client_merge_skip: {
+        Args: {
+          p_company_id: string
+          p_confirmed_overrides: Json
+          p_error_message: string
+          p_field_fill: Json
+          p_guard_reason: string
+          p_loser_id: string
+          p_merge_key: string
+          p_resolved_by: string
+          p_review_id: string
+          p_run_id: string
+          p_winner_id: string
+        }
+        Returns: Json
+      }
+      _record_opportunity_merge_skip: {
+        Args: {
+          p_company_id: string
+          p_confirmed_overrides: Json
+          p_error_message: string
+          p_field_fill: Json
+          p_guard_reason: string
+          p_loser_id: string
+          p_merge_key: string
+          p_resolved_by: string
+          p_review_id: string
+          p_run_id: string
+          p_winner_id: string
+        }
+        Returns: Json
+      }
       accept_estimate_to_job: {
         Args: { p_estimate_id: string; p_idempotency_key: string }
         Returns: Json
@@ -14417,6 +14788,14 @@ export type Database = {
           retry_count: number
           template_payload: Json
         }[]
+      }
+      complete_project_task: {
+        Args: {
+          p_idempotency_key: string
+          p_material_adjustments?: Json
+          p_task_id: string
+        }
+        Returns: Json
       }
       compute_reminder_fires_at: {
         Args: {
@@ -14539,6 +14918,22 @@ export type Database = {
           domain: string
         }[]
       }
+      execute_client_merge_guarded: {
+        Args: {
+          p_company_id: string
+          p_confirmed_overrides?: Json
+          p_expected_loser_updated_at?: string
+          p_expected_winner_updated_at?: string
+          p_field_fill?: Json
+          p_loser_id: string
+          p_merge_key: string
+          p_resolved_by?: string
+          p_review_id?: string
+          p_run_id?: string
+          p_winner_id: string
+        }
+        Returns: Json
+      }
       execute_opportunity_lifecycle_guarded_action: {
         Args: {
           p_action: string
@@ -14558,6 +14953,33 @@ export type Database = {
           p_opportunity_id: string
           p_run_id?: string
           p_runner?: string
+        }
+        Returns: Json
+      }
+      execute_opportunity_merge_guarded: {
+        Args: {
+          p_company_id: string
+          p_confirmed_overrides?: Json
+          p_expected_loser_stage?: string
+          p_expected_winner_stage?: string
+          p_field_fill?: Json
+          p_loser_id: string
+          p_merge_key: string
+          p_resolved_by?: string
+          p_review_id?: string
+          p_run_id?: string
+          p_winner_id: string
+        }
+        Returns: Json
+      }
+      execute_opportunity_project_conversion_guarded: {
+        Args: {
+          p_company_id: string
+          p_decided_by?: string
+          p_evidence?: Json
+          p_expected_stage?: string
+          p_opportunity_id: string
+          p_project_id: string
         }
         Returns: Json
       }
@@ -14825,6 +15247,7 @@ export type Database = {
           longitude: number | null
           lost_notes: string | null
           lost_reason: string | null
+          merged_into_opportunity_id: string | null
           next_follow_up_at: string | null
           outbound_count: number
           priority: string | null
@@ -14833,6 +15256,8 @@ export type Database = {
           quote_delivery_method: string | null
           source: string | null
           source_email_id: string | null
+          source_message_id: string | null
+          source_metadata: Json | null
           stage: string
           stage_entered_at: string
           stage_manually_set: boolean
@@ -15377,9 +15802,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       assessment_type: ["quiz", "assignment", "test"],
