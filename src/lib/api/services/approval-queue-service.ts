@@ -175,18 +175,41 @@ async function executeAction(
 async function executeCreateProject(
   action: AgentAction
 ): Promise<Record<string, unknown>> {
-  const supabase = requireSupabase();
   const data = action.actionData as unknown as CreateProjectActionData;
 
-  const projectId = await ProjectService.createProject({
-    title: data.title,
-    companyId: action.companyId,
-    clientId: data.client_id ?? undefined,
-    address: data.address ?? undefined,
-    notes: data.scope ?? undefined,
-    status: ProjectStatus.RFQ,
-    opportunityId: data.source_opportunity_id ?? undefined,
-  });
+  let projectId: string;
+
+  if (data.source_opportunity_id) {
+    // P6: an AI-proposed project that originates from an opportunity is a
+    // CONVERSION. Route it through the single canonical conversion service so
+    // it writes the full four-column link contract (project_ref +
+    // opportunity_ref + both legacy mirrors), re-links estimates, and records
+    // a disposition('converted_to_project') — atomically, via the guarded RPC.
+    // This replaces the old bespoke create + wrong-column (project_id only)
+    // write that produced the historical drift. Idempotent: if the opportunity
+    // is already converted, the existing project is returned (no duplicate).
+    const { ProjectConversionService } = await import(
+      "./project-conversion-service"
+    );
+    const result = await ProjectConversionService.convertOpportunityToProject({
+      opportunityId: data.source_opportunity_id,
+      companyId: action.companyId,
+      decidedBy: action.userId,
+      sourcePath: "approval_queue",
+      notesSeed: data.scope ?? null,
+    });
+    projectId = result.projectId;
+  } else {
+    // No source opportunity — a standalone AI project proposal. Plain create.
+    projectId = await ProjectService.createProject({
+      title: data.title,
+      companyId: action.companyId,
+      clientId: data.client_id ?? undefined,
+      address: data.address ?? undefined,
+      notes: data.scope ?? undefined,
+      status: ProjectStatus.RFQ,
+    });
+  }
 
   // Create suggested tasks
   if (data.suggested_tasks?.length) {
@@ -205,13 +228,10 @@ async function executeCreateProject(
     }
   }
 
-  // Link project back to opportunity if one exists
-  if (data.source_opportunity_id) {
-    await supabase
-      .from("opportunities")
-      .update({ project_id: projectId })
-      .eq("id", data.source_opportunity_id);
-  }
+  // NOTE: the opportunity ↔ project link is written transactionally by
+  // ProjectConversionService above (the full four-column contract). The old
+  // bespoke `opportunities.project_id`-only write was removed — it was the
+  // root cause of the project_id-vs-project_ref drift.
 
   // P2.4: Fire-and-forget — suggest individual tasks for the new project
   // Runs asynchronously so it doesn't block the approval flow

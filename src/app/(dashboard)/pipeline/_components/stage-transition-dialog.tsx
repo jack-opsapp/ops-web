@@ -46,7 +46,6 @@ function WonContent({
   const [actualValue, setActualValue] = useState(
     opportunity.estimatedValue?.toString() ?? ""
   );
-  const [convertToProject, setConvertToProject] = useState(false);
 
   const handleConfirm = () => {
     const value = actualValue ? parseFloat(actualValue) : undefined;
@@ -96,19 +95,11 @@ function WonContent({
           </div>
         </div>
 
-        {/* Convert to project checkbox */}
-        <label className="flex items-center gap-1.5 cursor-pointer group">
-          <input
-            type="checkbox"
-            checked={convertToProject}
-            onChange={(e) => setConvertToProject(e.target.checked)}
-            className="w-[14px] h-[14px] rounded border-border bg-surface-input accent-text-2"
-          />
-          <span className="font-mono text-[11px] text-text-2 group-hover:text-text transition-colors">
-            {t("transition.convertToProject")}
-          </span>
-          <span className="font-mono text-micro text-text-mute">{t("transition.comingSoon")}</span>
-        </label>
+        {/* Conversion is automatic on win — no opt-in. Tell the operator what
+            marking this deal won will do. */}
+        <p className="font-mono text-[11px] text-text-3 leading-snug">
+          {t("transition.autoConvertNote")}
+        </p>
       </div>
 
       <DialogFooter>

@@ -29,6 +29,7 @@ import {
   useTeamMembers,
   useMoveOpportunityStage,
   useUpdateOpportunity,
+  useConvertOpportunityToProject,
   useAttachClientToOpportunity,
   useCreateOpportunity,
   useCreateClient,
@@ -1138,6 +1139,7 @@ export default function PipelinePage() {
   // ── Mutations ─────────────────────────────────────────────────────────
   const moveStage = useMoveOpportunityStage();
   const updateOpportunity = useUpdateOpportunity();
+  const convertOpportunity = useConvertOpportunityToProject();
   const attachClient = useAttachClientToOpportunity();
   const createOpportunity = useCreateOpportunity();
   const createClientMutation = useCreateClient();
@@ -1777,13 +1779,38 @@ export default function PipelinePage() {
               updateOpportunity.mutate({ id, data: updateData });
             }
 
-            const toastMsg =
-              stage === OpportunityStage.Won
-                ? t("toast.dealMarkedWon")
-                : t("toast.dealMarkedLost");
-            toast.success(toastMsg, {
-              description: transitionOpportunity.title,
-            });
+            if (stage === OpportunityStage.Won) {
+              // P6: winning a deal AUTOMATICALLY converts it into a linked
+              // project. The conversion is idempotent server-side (re-winning
+              // never mints a second project), runs through the guarded RPC,
+              // and leaves the opportunity at stage='won' (the preserved sales
+              // record). The success toast reflects both outcomes.
+              convertOpportunity.mutate(
+                {
+                  id,
+                  actualValue: data.actualValue,
+                  expectedStage: OpportunityStage.Won,
+                },
+                {
+                  onSuccess: () => {
+                    toast.success(t("toast.dealWonProjectCreated"), {
+                      description: transitionOpportunity.title,
+                    });
+                  },
+                  onError: () => {
+                    // The deal IS won (stage move already committed); only the
+                    // project creation failed. Surface the partial state.
+                    toast.error(t("toast.failedConvertProject"), {
+                      description: transitionOpportunity.title,
+                    });
+                  },
+                }
+              );
+            } else {
+              toast.success(t("toast.dealMarkedLost"), {
+                description: transitionOpportunity.title,
+              });
+            }
 
             pushUndo({
               label: `${clientName} → ${toStage}`,
@@ -1816,6 +1843,7 @@ export default function PipelinePage() {
       transitionOpportunity,
       moveStage,
       updateOpportunity,
+      convertOpportunity,
       currentUser,
       can,
       t,

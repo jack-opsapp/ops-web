@@ -776,32 +776,13 @@ export const OpportunityService = {
     return mapOpportunityFromDb(updated as Record<string, unknown>);
   },
 
-  /**
-   * Attach a project to an opportunity and sync the estimate's project_id.
-   */
-  async attachProjectToOpportunity(
-    opportunityId: string,
-    projectId: string
-  ): Promise<Opportunity> {
-    const supabase = requireSupabase();
-
-    const { data: updated, error } = await supabase
-      .from("opportunities")
-      .update({ project_id: projectId })
-      .eq("id", opportunityId)
-      .select()
-      .single();
-
-    if (error) throw new Error(`Failed to attach project to opportunity: ${error.message}`);
-
-    // Also update linked estimates
-    await supabase
-      .from("estimates")
-      .update({ project_id: projectId })
-      .eq("opportunity_id", opportunityId);
-
-    return mapOpportunityFromDb(updated as Record<string, unknown>);
-  },
+  // NOTE (P6): the dead `attachProjectToOpportunity` was removed. It wrote the
+  // wrong link columns (opportunities.project_id only — never the FK-backed
+  // project_ref — and the dead estimates.project_id text column), which was the
+  // mechanism behind the historical project_id-vs-project_ref drift. The
+  // opportunity ↔ project link is now written ONLY through the guarded RPC in
+  // ProjectConversionService, which writes the full four-column contract
+  // atomically. No service should write these link columns directly.
 
   // ─── Stage Transitions ────────────────────────────────────────────────────
 

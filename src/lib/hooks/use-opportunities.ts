@@ -625,3 +625,65 @@ export function useLogInboundActivity() {
     },
   };
 }
+
+// ─── P6: Opportunity → Project Conversion ─────────────────────────────────────
+
+export interface ConvertOpportunityResponse {
+  ok: boolean;
+  converted: boolean;
+  alreadyConverted: boolean;
+  projectId: string;
+  opportunityId: string;
+  dispositionId?: string;
+  relinkedEstimates?: number;
+}
+
+/**
+ * Convert a won opportunity into a linked project (P6). Calls the guarded,
+ * service-role conversion route. Winning a deal AUTOMATICALLY converts it — the
+ * pipeline page fires this after the won stage move succeeds. Idempotent: the
+ * route short-circuits when the opportunity is already linked, so re-winning
+ * never mints a second project. Invalidates project + opportunity caches so the
+ * new project and the opportunity's project link surface immediately.
+ */
+export function useConvertOpportunityToProject() {
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    ConvertOpportunityResponse,
+    Error,
+    { id: string; actualValue?: number; expectedStage?: string }
+  >({
+    mutationFn: async ({ id, actualValue, expectedStage }) => {
+      const { getIdToken } = await import("@/lib/firebase/auth");
+      const idToken = await getIdToken();
+      if (!idToken) throw new Error("Not authenticated");
+
+      const res = await fetch(`/api/opportunities/${id}/convert`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({
+          actualValue,
+          expectedStage,
+        }),
+      });
+
+      if (!res.ok) {
+        const body = await res
+          .json()
+          .catch(() => ({ error: res.statusText }));
+        throw new Error(body.error || `Conversion failed: ${res.status}`);
+      }
+
+      return res.json();
+    },
+
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.all });
+    },
+  });
+}
