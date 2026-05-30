@@ -11,6 +11,8 @@
   "card.merge": "Merge",
   "card.confidence.high": "High",
   "card.confidence.medium": "Medium",
+  "card.statusDuplicate": "Duplicate",
+  "card.statusUnique": "Unique",
   "card.matchSignals": "Match Signals",
   "card.mergedResult": "Merged Result",
   "card.selectWinner": "Select the record to keep",
@@ -73,5 +75,9 @@
   "conflict.reversible": "absorbed record is folded into {winner}",
   "conflict.scanning": "SYS :: SCANNING FIELDS",
   "conflict.error": "// ERROR — MERGE FAILED",
-  "conflict.blocked": "// MERGE BLOCKED"
+  "conflict.blocked": "// MERGE BLOCKED",
+  "conflict.successTitle": "MERGED · {{title}}",
+  "conflict.successBodyOne": "{{absorbed}} record absorbed · {{resolved}} field reconciled",
+  "conflict.successBodyMany": "{{absorbed}} records absorbed · {{resolved}} fields reconciled",
+  "conflict.successAction": "VIEW"
 }

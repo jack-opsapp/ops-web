@@ -11,6 +11,8 @@
   "card.merge": "Fusionar",
   "card.confidence.high": "Alta",
   "card.confidence.medium": "Media",
+  "card.statusDuplicate": "Duplicado",
+  "card.statusUnique": "Único",
   "card.matchSignals": "Señales de Coincidencia",
   "card.mergedResult": "Resultado Fusionado",
   "card.selectWinner": "Selecciona el registro a mantener",
@@ -73,5 +75,9 @@
   "conflict.reversible": "el registro absorbido se integra en {winner}",
   "conflict.scanning": "SYS :: ESCANEANDO CAMPOS",
   "conflict.error": "// ERROR — FUSIÓN FALLIDA",
-  "conflict.blocked": "// FUSIÓN BLOQUEADA"
+  "conflict.blocked": "// FUSIÓN BLOQUEADA",
+  "conflict.successTitle": "FUSIONADO · {{title}}",
+  "conflict.successBodyOne": "{{absorbed}} registro absorbido · {{resolved}} campo reconciliado",
+  "conflict.successBodyMany": "{{absorbed}} registros absorbidos · {{resolved}} campos reconciliados",
+  "conflict.successAction": "VER"
 }

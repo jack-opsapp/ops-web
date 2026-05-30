@@ -80,29 +80,29 @@ function ValueCard({
       role="radio"
       aria-checked={selected}
       onClick={onSelect}
-      className={`flex flex-col gap-1 rounded-[5px] border px-3 py-2 text-left transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-transparent ${
+      className={`flex flex-col gap-1 rounded border px-3 py-2 text-left transition-colors duration-150 focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-transparent ${
         selected
-          ? "border-white/40 bg-white/[0.08]"
-          : "border-white/15 bg-white/[0.02] hover:border-white/30 hover:bg-white/[0.05]"
+          ? "border-border-medium bg-surface-active"
+          : "border-line bg-surface-input hover:border-border-medium hover:bg-surface-hover"
       }`}
     >
-      <span className="flex items-center gap-1.5 font-mono text-micro uppercase tracking-wider text-white/40">
+      <span className="flex items-center gap-1.5 font-mono text-micro uppercase tracking-wider text-text-3">
         {selected ? (
-          <CircleDot className="h-[16px] w-[16px] shrink-0 text-white/70" aria-hidden />
+          <CircleDot className="h-[16px] w-[16px] shrink-0 text-text-2" aria-hidden />
         ) : (
-          <Circle className="h-[16px] w-[16px] shrink-0 text-white/25" aria-hidden />
+          <Circle className="h-[16px] w-[16px] shrink-0 text-text-mute" aria-hidden />
         )}
         {optionLabel}
       </span>
       <span
         className={`truncate ${
           isNumeric ? "font-mono" : "font-mohave"
-        } text-[13px] text-white/85`}
+        } text-[13px] text-text`}
         title={display}
       >
         {display}
       </span>
-      <span className="truncate font-mono text-micro text-white/30">{provenance}</span>
+      <span className="truncate font-mono text-micro text-text-mute">{provenance}</span>
     </button>
   );
 }
@@ -130,12 +130,12 @@ function ConflictRow({
 }) {
   const { t } = useDictionary("duplicates");
   return (
-    <div className="flex flex-col gap-2 border-t border-white/8 py-4 first:border-t-0">
+    <div className="flex flex-col gap-2 border-t border-line py-4 first:border-t-0">
       <div className="flex items-center justify-between gap-2">
-        <span className="font-mono text-micro uppercase tracking-wider text-white/40">
+        <span className="font-mono text-micro uppercase tracking-wider text-text-3">
           {`// ${fieldLabel}`}
         </span>
-        <span className="rounded-[4px] border border-[rgba(181,130,137,0.30)] bg-[rgba(181,130,137,0.12)] px-1.5 py-0.5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#B58289]">
+        <span className="rounded-chip border border-rose-line bg-rose-soft px-1.5 py-0.5 font-mono text-[11px] uppercase tracking-[0.12em] text-rose">
           {t("conflict.tag")}
         </span>
       </div>
@@ -170,12 +170,12 @@ function ConflictRow({
 function ScanningState({ label }: { label: string }) {
   return (
     <div className="flex flex-col gap-4 py-6">
-      <span className="font-mono text-[13px] text-white/40">{label}</span>
+      <span className="font-mono text-[13px] text-text-3">{label}</span>
       <div className="flex flex-col gap-3">
         {[0, 1, 2].map((i) => (
           <div
             key={i}
-            className="h-[72px] animate-pulse rounded-[5px] bg-white/[0.06] motion-reduce:animate-none"
+            className="h-[72px] animate-pulse rounded bg-fill-neutral-dim motion-reduce:animate-none"
           />
         ))}
       </div>
@@ -247,29 +247,29 @@ export function MergeConflictStep({
       {/* Step indicator */}
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <span className="font-mono text-micro uppercase tracking-wider text-white/40">
+          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
             {t("conflict.step")}
           </span>
-          <span className="font-mono text-micro uppercase tracking-wider text-white/30">
+          <span className="font-mono text-micro uppercase tracking-wider text-text-mute">
             [{countLabel}]
           </span>
         </div>
-        <div className="h-[2px] w-full overflow-hidden rounded-full bg-white/5">
+        <div className="h-[2px] w-full overflow-hidden rounded-full bg-surface-hover">
           <div className="h-full w-full bg-text-2" />
         </div>
       </div>
 
       {/* Winner banner */}
-      <div className="flex items-center justify-between gap-3 rounded-panel border border-white/8 bg-white/[0.03] p-3">
+      <div className="flex items-center justify-between gap-3 rounded-panel border border-line bg-surface-hover-subtle p-3">
         <div className="flex min-w-0 flex-col gap-0.5">
-          <span className="font-mono text-micro uppercase tracking-wider text-white/30">
+          <span className="font-mono text-micro uppercase tracking-wider text-text-mute">
             {t("conflict.keeping")}
           </span>
-          <span className="truncate font-mohave text-[14px] text-white/90">
+          <span className="truncate font-mohave text-[14px] text-text">
             {winnerTitle}
           </span>
         </div>
-        <span className="shrink-0 rounded-[4px] border border-white/10 bg-white/5 px-1.5 py-0.5 font-mono text-[11px] uppercase tracking-[0.12em] text-white/60">
+        <span className="shrink-0 rounded-chip border border-line bg-surface-hover px-1.5 py-0.5 font-mono text-[11px] uppercase tracking-[0.12em] text-text-2">
           {t("conflict.winnerTag")}
         </span>
       </div>
@@ -278,8 +278,8 @@ export function MergeConflictStep({
       {isLoadingConflicts ? (
         <ScanningState label={t("conflict.scanning")} />
       ) : conflictsError ? (
-        <div className="rounded-[5px] border border-[rgba(181,130,137,0.30)] bg-[rgba(181,130,137,0.08)] p-3">
-          <span className="font-mono text-micro text-[#B58289]">
+        <div className="rounded border border-rose-line bg-rose-soft p-3">
+          <span className="font-mono text-micro text-rose">
             {t("conflict.error")} · {conflictsError.message}
           </span>
         </div>
@@ -309,17 +309,17 @@ export function MergeConflictStep({
       )}
 
       {/* Footer */}
-      <div className="sticky bottom-0 flex flex-col gap-2 border-t border-white/8 bg-transparent pt-3">
+      <div className="sticky bottom-0 flex flex-col gap-2 border-t border-line bg-transparent pt-3">
         {mergeError && (
-          <span className="font-mono text-micro text-[#B58289]">
+          <span className="font-mono text-micro text-rose">
             {t("conflict.error")} · {mergeError.message}
           </span>
         )}
-        <span className="font-mono text-micro text-[#B58289]/70">
+        <span className="font-mono text-micro text-text-mute">
           {fill(t("conflict.reversible"), { winner: winnerTitle })}
         </span>
         <div className="flex items-center justify-between gap-3">
-          <span className="font-mono text-micro text-white/30">
+          <span className="font-mono text-micro text-text-mute">
             {!resolved ? t("conflict.gateHint") : ""}
           </span>
           <div className="flex items-center gap-2">
@@ -327,7 +327,7 @@ export function MergeConflictStep({
               type="button"
               onClick={onBack}
               disabled={isMerging}
-              className="rounded-[5px] border border-white/8 bg-white/5 px-4 font-cakemono text-[14px] font-light uppercase leading-[36px] text-white/40 transition-colors duration-150 hover:text-white/60 disabled:opacity-40"
+              className="rounded border border-line bg-surface-hover px-4 font-cakemono text-[14px] font-light uppercase leading-[36px] text-text-3 transition-colors duration-150 hover:text-text-2 disabled:opacity-40"
             >
               {t("conflict.back")}
             </button>
@@ -335,7 +335,7 @@ export function MergeConflictStep({
               type="button"
               onClick={handleConfirm}
               disabled={!resolved || isMerging}
-              className="rounded-[5px] border border-ops-accent px-4 font-cakemono text-[14px] font-light uppercase leading-[36px] text-ops-accent transition-colors duration-150 hover:bg-ops-accent hover:text-black disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-ops-accent"
+              className="rounded border border-ops-accent px-4 font-cakemono text-[14px] font-light uppercase leading-[36px] text-ops-accent transition-colors duration-150 hover:bg-ops-accent hover:text-black disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-ops-accent"
             >
               {isMerging ? t("merging") : t("conflict.confirm")}
             </button>

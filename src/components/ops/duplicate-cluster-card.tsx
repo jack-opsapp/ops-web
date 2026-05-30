@@ -613,10 +613,10 @@ export function DuplicateClusterCard({
       {/* Signal badges */}
       <div className="flex flex-wrap items-center gap-1.5">
         <span
-          className={`rounded-[2px] px-2 py-0.5 font-mono text-micro uppercase tracking-wider ${
+          className={`rounded-chip border px-2 py-0.5 font-mono text-micro uppercase tracking-wider ${
             cluster.confidence === "high"
-              ? "bg-red-500/20 text-red-400"
-              : "bg-amber-500/20 text-amber-400"
+              ? "border-rose-line bg-rose-soft text-rose"
+              : "border-tan-line bg-tan-soft text-tan"
           }`}
         >
           {t(`card.confidence.${cluster.confidence}`)}
@@ -624,7 +624,7 @@ export function DuplicateClusterCard({
         {cluster.signals.map((s, i) => (
           <span
             key={i}
-            className="rounded-[2px] bg-white/5 px-2 py-0.5 font-mono text-micro text-white/40"
+            className="rounded-chip bg-surface-hover px-2 py-0.5 font-mono text-micro text-text-3"
           >
             {t(`signals.${s.type}`) || s.type}
           </span>
@@ -642,21 +642,19 @@ export function DuplicateClusterCard({
           return (
             <div
               key={entity.id}
-              className={`relative min-w-0 rounded-panel border bg-white/[0.03] p-3 transition-colors duration-300 ${
-                isDuplicate
-                  ? "border-[#93321A]/30"
-                  : "border-[#A5B368]/30"
+              className={`relative min-w-0 rounded-panel border bg-surface-hover-subtle p-3 transition-colors duration-300 ${
+                isDuplicate ? "border-rose-line" : "border-olive-line"
               }`}
             >
               {/* Status badge — top right */}
               <span
-                className={`absolute right-2 top-2 rounded-[2px] px-[6px] py-[1px] font-mono text-micro uppercase tracking-wider transition-colors duration-300 ${
+                className={`absolute right-2 top-2 rounded-chip px-[6px] py-[1px] font-mono text-micro uppercase tracking-wider transition-colors duration-300 ${
                   isDuplicate
-                    ? "bg-[#93321A]/15 text-[#93321A]"
-                    : "bg-[#A5B368]/15 text-[#A5B368]"
+                    ? "bg-rose-soft text-rose"
+                    : "bg-olive-soft text-olive"
                 }`}
               >
-                {isDuplicate ? "Duplicate" : "Unique"}
+                {isDuplicate ? t("card.statusDuplicate") : t("card.statusUnique")}
               </span>
 
               <InteractiveEntityCard
@@ -677,7 +675,7 @@ export function DuplicateClusterCard({
           type="button"
           onClick={handleMerge}
           disabled={isMerging}
-          className="flex-1 rounded-panel bg-[rgba(255,255,255,0.08)] px-4 py-2.5 font-mohave text-[14px] font-medium text-text-2 transition-colors duration-150 hover:bg-[rgba(255,255,255,0.12)] disabled:opacity-40"
+          className="flex-1 rounded border border-ops-accent px-4 font-cakemono text-[14px] font-light uppercase leading-[36px] text-ops-accent transition-colors duration-150 hover:bg-ops-accent hover:text-black disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-ops-accent"
         >
           {isMerging ? t("merging") : t("clusterCard.resolveAndMerge")}
         </button>
@@ -685,7 +683,7 @@ export function DuplicateClusterCard({
           type="button"
           onClick={handleDismiss}
           disabled={isMerging}
-          className="rounded-panel border border-white/8 bg-white/5 px-4 py-2.5 font-mohave text-[14px] text-white/40 transition-colors duration-150 hover:bg-white/10 hover:text-white/60 disabled:opacity-40"
+          className="rounded border border-line bg-surface-hover px-4 font-cakemono text-[14px] font-light uppercase leading-[36px] text-text-3 transition-colors duration-150 hover:text-text-2 disabled:opacity-40"
         >
           {t("card.dismiss")}
         </button>
