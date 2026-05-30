@@ -48,6 +48,23 @@ const VALUE_LABEL_RE =
 const PHONE_LABEL_RE = /\b(?:phone|tel|telephone|mobile|cell|call|contact (?:number|no))\b/i;
 const PHONE_TOKEN_RE = /\(?\+?\d[\d\s().\-]{6,}\d/g;
 
+// Lines that are almost always a company footer / list-management boilerplate
+// rather than a customer job-site address. We refuse to harvest an address from
+// any line that smells like one of these, so a sender's own footer or an
+// unsubscribe block never fills the customer address field.
+const FOOTER_LINE_RE =
+  /\b(?:unsubscribe|opt[\s-]?out|manage (?:your )?preferences|view (?:this|in) browser|privacy policy|all rights reserved|©|\(c\)|reg\.?(?:istered)? office|head office|mailing address|return address|no longer wish to receive|update your (?:email )?preferences)\b/i;
+
+// A currency figure that fills a blank value should look like a real job/quote
+// amount. The unlabelled-currency fallback only fires when the surrounding text
+// carries one of these intent words, killing marketing ("save up to $5,000") and
+// receipt ("order total: $1,299") false positives.
+const VALUE_CONTEXT_RE =
+  /\b(?:quote|quoted|estimate|estimated|budget|project|job|scope|proposal|bid|cost(?:s|ing)?|invoice for the (?:work|job|project)|to complete|labou?r and materials?|all[\s-]?in)\b/i;
+
+// Below this, a figure is almost certainly a fee/tax/line-item, not a job value.
+const ESTIMATED_VALUE_FLOOR = 100;
+
 function digitCount(value: string): number {
   return value.replace(/\D/g, "").length;
 }
@@ -90,20 +107,24 @@ export function extractAddressFromBody(
     }
   }
 
-  // 2) A street-number + street-suffix line.
+  // 2) A street-number + street-suffix line — skip footer/unsubscribe lines so
+  //    a sender's own office address or list-management block is not harvested
+  //    as the customer's job-site address.
   for (const line of lines) {
     if (line.length > 200) continue;
     if (/@/.test(line) || /^https?:\/\//i.test(line)) continue;
+    if (FOOTER_LINE_RE.test(line)) continue;
     if (STREET_LINE_RE.test(line)) {
       return cleanLine(line);
     }
   }
 
   // 3) A line containing a postal/ZIP code (and at least one word + a number,
-    //    to avoid matching a lone 5-digit invoice number).
+  //    to avoid matching a lone 5-digit invoice number) — same footer guard.
   for (const line of lines) {
     if (line.length > 200) continue;
     if (/@/.test(line) || /^https?:\/\//i.test(line)) continue;
+    if (FOOTER_LINE_RE.test(line)) continue;
     if (CA_POSTAL_RE.test(line)) {
       return cleanLine(line);
     }
@@ -133,18 +154,25 @@ export function extractEstimatedValueFromBody(
   if (!body) return null;
   const text = body.replace(/ /g, " ");
 
-  // 1) Explicit budget/value label.
+  // 1) Explicit budget/value label — the label itself is the intent signal, so
+  //    this path stands alone.
   const labelled = text.match(VALUE_LABEL_RE);
   if (labelled) {
     const value = figureToNumber(labelled[1], labelled[2]);
-    if (value != null) return value;
+    if (value != null && value >= ESTIMATED_VALUE_FLOOR) return value;
   }
 
-  // 2) Currency-prefixed figure anywhere in the body.
-  const currency = text.match(CURRENCY_FIGURE_RE);
-  if (currency) {
-    const value = figureToNumber(currency[1], currency[2]);
-    if (value != null) return value;
+  // 2) Currency-prefixed figure anywhere in the body — only trusted when the
+  //    body also carries job/quote intent. Without that gate, marketing copy
+  //    ("save up to $5,000") and receipts ("order total: $1,299") would harvest
+  //    a bogus value into the blank field. A sub-$100 figure is treated as a
+  //    fee/tax line item, not a job value, and rejected.
+  if (VALUE_CONTEXT_RE.test(text)) {
+    const currency = text.match(CURRENCY_FIGURE_RE);
+    if (currency) {
+      const value = figureToNumber(currency[1], currency[2]);
+      if (value != null && value >= ESTIMATED_VALUE_FLOOR) return value;
+    }
   }
 
   return null;

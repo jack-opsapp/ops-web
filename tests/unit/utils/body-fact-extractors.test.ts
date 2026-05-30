@@ -46,6 +46,30 @@ describe("body-fact-extractors — address", () => {
     expect(extractAddressFromBody("Address: me@example.com")).toBeNull();
   });
 
+  it("does not harvest an address from an unsubscribe footer", () => {
+    const body = [
+      "Hi, hope you're well.",
+      "Unsubscribe | 100 King Street West, Toronto ON M5X 1A9",
+    ].join("\n");
+    expect(extractAddressFromBody(body)).toBeNull();
+  });
+
+  it("does not harvest the sender's own registered-office footer", () => {
+    const body = [
+      "Thanks for reaching out.",
+      "Registered office: 450 Industrial Way, Calgary AB T2P 1J9",
+      "All rights reserved.",
+    ].join("\n");
+    expect(extractAddressFromBody(body)).toBeNull();
+  });
+
+  it("still honors an explicit address label even on a busy line", () => {
+    // An explicit "Site address:" is stated intent — we trust it over the
+    // footer heuristic.
+    const body = "Site address: 12 Birch Lane, Duncan BC V9L 2P3";
+    expect(extractAddressFromBody(body)).toBe("12 Birch Lane, Duncan BC V9L 2P3");
+  });
+
   it("returns null for empty input", () => {
     expect(extractAddressFromBody(null)).toBeNull();
     expect(extractAddressFromBody("")).toBeNull();
@@ -65,10 +89,10 @@ describe("body-fact-extractors — estimated value", () => {
     );
   });
 
-  it("extracts a CAD-prefixed figure", () => {
-    expect(extractEstimatedValueFromBody("Total CAD 9800 incl tax")).toBe(
-      9800
-    );
+  it("extracts a CAD-prefixed figure when job context is present", () => {
+    expect(
+      extractEstimatedValueFromBody("Quote for the job: CAD 9800 incl tax")
+    ).toBe(9800);
   });
 
   it("returns null for a bare number with no currency or label (no false positive)", () => {
@@ -80,6 +104,28 @@ describe("body-fact-extractors — estimated value", () => {
   it("returns null for a date or phone-shaped number", () => {
     expect(extractEstimatedValueFromBody("Call me on 250 538 8340")).toBeNull();
     expect(extractEstimatedValueFromBody("Meeting on 2026-06-01")).toBeNull();
+  });
+
+  it("rejects a marketing dollar figure with no job/quote context", () => {
+    expect(extractEstimatedValueFromBody("Save up to $5,000 this spring!")).toBeNull();
+  });
+
+  it("rejects a receipt-style 'order total' figure", () => {
+    expect(
+      extractEstimatedValueFromBody("Thanks for your purchase. Order total: $1,299.")
+    ).toBeNull();
+  });
+
+  it("rejects a sub-$100 fee/line-item figure even with context", () => {
+    expect(
+      extractEstimatedValueFromBody("Your quote includes a $0.50 service fee.")
+    ).toBeNull();
+  });
+
+  it("extracts a large but in-range job value", () => {
+    expect(
+      extractEstimatedValueFromBody("Project budget: $2,500,000 for the build.")
+    ).toBe(2_500_000);
   });
 
   it("returns null for empty input", () => {
