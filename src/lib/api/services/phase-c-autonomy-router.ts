@@ -24,7 +24,7 @@
 import { requireSupabase } from "@/lib/supabase/helpers";
 import { AutonomyMilestoneService } from "./autonomy-milestone-service";
 import { AutoSendService } from "./auto-send-service";
-import { AIDraftService } from "./ai-draft-service";
+import { AIDraftService, type AIDraftResult } from "./ai-draft-service";
 import { EmailThreadService } from "./email-thread-service";
 import { PhaseCCategoryAutonomy } from "./phase-c-category-autonomy-service";
 import type {
@@ -86,6 +86,82 @@ async function resolveConnectionOwner(
 
 function isThreadActionable(thread: EmailThread): boolean {
   return thread.archivedAt === null && thread.snoozedUntil === null;
+}
+
+/**
+ * P4-C: create the first-class `origin='phase_c'` local draft paired with the
+ * just-generated ai_draft_history row.
+ *
+ * Coexistence rules (bible §10, line 1797): phase_c drafts NEVER supersede an
+ * operator or template_follow_up draft — those are independent origins that
+ * coexist. The one-open-template unique index only covers
+ * `origin='template_follow_up'`, so phase_c rows never collide with it.
+ *
+ * To avoid an unbounded pile of open phase_c drafts on a chatty thread, we
+ * supersede the prior OPEN phase_c draft on the SAME opportunity+thread before
+ * inserting the new one (mirroring template behavior, using status
+ * 'superseded'). Operator/template drafts are untouched.
+ */
+async function createPhaseCPairedDraft(
+  thread: EmailThread,
+  userId: string,
+  draft: AIDraftResult
+): Promise<void> {
+  const supabase = requireSupabase();
+  const now = new Date().toISOString();
+
+  // Supersede a prior open phase_c draft on the same opportunity+thread.
+  // Scoped strictly to origin='phase_c' so operator/template drafts can never
+  // be retired by this path.
+  let supersedeQuery = supabase
+    .from("opportunity_follow_up_drafts")
+    .update({ status: "superseded", superseded_at: now, updated_at: now })
+    .eq("company_id", thread.companyId)
+    .eq("opportunity_id", thread.opportunityId as string)
+    .eq("origin", "phase_c")
+    .eq("status", "drafted");
+  supersedeQuery = thread.providerThreadId
+    ? supersedeQuery.eq("provider_thread_id", thread.providerThreadId)
+    : supersedeQuery.is("provider_thread_id", null);
+  const { error: supErr } = await supersedeQuery;
+  if (supErr) {
+    console.error(
+      "[phase-c-router] phase_c supersede failed (continuing):",
+      supErr.message
+    );
+  }
+
+  // If the bridged ai_draft_history row already produced a paired phase_c
+  // draft (idempotency on reclassify re-fire), don't double-insert.
+  const { data: existing } = await supabase
+    .from("opportunity_follow_up_drafts")
+    .select("id")
+    .eq("company_id", thread.companyId)
+    .eq("ai_draft_history_id", draft.draftHistoryId)
+    .maybeSingle();
+  if (existing) return;
+
+  const { error: insErr } = await supabase
+    .from("opportunity_follow_up_drafts")
+    .insert({
+      company_id: thread.companyId,
+      opportunity_id: thread.opportunityId as string,
+      connection_id: thread.connectionId,
+      provider_thread_id: thread.providerThreadId,
+      origin: "phase_c",
+      status: "drafted",
+      subject: draft.subject ?? "",
+      original_body: draft.draft,
+      ai_draft_history_id: draft.draftHistoryId,
+      created_by: userId,
+      created_at: now,
+      updated_at: now,
+    });
+  if (insErr) {
+    // Surface as a thrown error so the caller logs it (non-fatal at the
+    // doAutoDraft boundary — the ai_draft_history row already exists).
+    throw new Error(`phase_c paired draft insert failed: ${insErr.message}`);
+  }
 }
 
 // ─── Router ──────────────────────────────────────────────────────────────────
@@ -199,6 +275,9 @@ export const PhaseCAutonomyRouter = {
       profileTypeOverride: PhaseCCategoryAutonomy.profileTypesFor(
         thread.primaryCategory
       )[0],
+      // P4-B: stamp ai_draft_history.origin so the Phase C auto-drafts are
+      // distinguishable from operator/compose drafts.
+      origin: "phase_c",
     });
 
     if (!draft.available) {
@@ -220,6 +299,24 @@ export const PhaseCAutonomyRouter = {
         effectiveLevel: effective,
         detail: draft.reason ?? "draft unavailable",
       };
+    }
+
+    // P4-C: create the paired first-class local draft row so the phase_c
+    // auto-draft is visible in the unified draft model (/api/inbox/drafts)
+    // alongside template/operator drafts, with durable provenance bridged to
+    // ai_draft_history via ai_draft_history_id. Best-effort: a failure here
+    // must not turn a successful generate into an error — the ai_draft_history
+    // row already exists and the draft is usable.
+    if (draft.draftHistoryId && thread.opportunityId) {
+      try {
+        await createPhaseCPairedDraft(thread, userId, draft);
+      } catch (err) {
+        console.error(
+          "[phase-c-router] paired phase_c draft creation failed (non-fatal):",
+          thread.id,
+          err instanceof Error ? err.message : err
+        );
+      }
     }
 
     return {
@@ -311,6 +408,23 @@ export const PhaseCAutonomyRouter = {
     thread: EmailThread,
     effective: EmailThreadAutonomyLevel
   ): Promise<RouterResult> {
+    // P4-E hard refuse: CUSTOMER threads must NEVER auto-archive. auto_archive
+    // is not in allowedLevelsFor('CUSTOMER'), so this should be unreachable —
+    // but a stale stored config or a future routing change must not silently
+    // archive a customer conversation. Fail safe to a no-op.
+    if (thread.primaryCategory === "CUSTOMER") {
+      console.error(
+        "[phase-c-router] refused auto_archive for CUSTOMER thread",
+        thread.id
+      );
+      return {
+        outcome: "error",
+        category: thread.primaryCategory,
+        effectiveLevel: effective,
+        detail: "auto_archive refused for CUSTOMER category",
+      };
+    }
+
     const result = await EmailThreadService.archive({ threadId: thread.id });
     if ("needsPreference" in result) {
       // Preference unresolved — fall through to OPS-only archive.

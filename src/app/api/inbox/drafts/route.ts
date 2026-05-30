@@ -191,13 +191,16 @@ export async function GET(request: NextRequest) {
   // ── Fetch local lifecycle drafts ────────────────────────────────────────
   // P5 lifecycle drafts deliberately stay local until an operator edits/sends
   // through the inbox. They must not create or update provider draft rows.
+  // P4-C: surface phase_c auto-drafts alongside template_follow_up drafts.
+  // Both are local lifecycle drafts the operator reviews in the inbox; phase_c
+  // rows carry an ai_draft_history_id bridge to their generated provenance.
   const lifecycleQuery = supabase
     .from("opportunity_follow_up_drafts")
     .select(
       "id, opportunity_id, connection_id, provider_thread_id, subject, original_body, current_body, edited_at, updated_at, created_at"
     )
     .eq("company_id", companyId)
-    .eq("origin", "template_follow_up")
+    .in("origin", ["template_follow_up", "phase_c"])
     .eq("status", "drafted")
     .order("updated_at", { ascending: false })
     .limit(200);
@@ -393,13 +396,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // P4-C: phase_c auto-drafts are editable through the same path as
+    // template_follow_up drafts — both are local lifecycle drafts.
+    const LIFECYCLE_ORIGINS = ["template_follow_up", "phase_c"];
     const supabase = getServiceRoleClient();
     const { data: existing, error: existingErr } = await supabase
       .from("opportunity_follow_up_drafts")
       .select("id")
       .eq("id", draftId)
       .eq("company_id", companyId)
-      .eq("origin", "template_follow_up")
+      .in("origin", LIFECYCLE_ORIGINS)
       .eq("status", "drafted")
       .single();
     if (existingErr || !existing) {
@@ -418,7 +424,7 @@ export async function POST(request: NextRequest) {
       })
       .eq("id", draftId)
       .eq("company_id", companyId)
-      .eq("origin", "template_follow_up")
+      .in("origin", LIFECYCLE_ORIGINS)
       .eq("status", "drafted");
 
     if (error) {
@@ -528,11 +534,14 @@ export async function DELETE(request: NextRequest) {
   const supabase = getServiceRoleClient();
 
   if (source === "lifecycle") {
+    // P4-C: phase_c auto-drafts are discardable through the same path as
+    // template_follow_up drafts.
+    const LIFECYCLE_ORIGINS = ["template_follow_up", "phase_c"];
     const { data: row, error } = await supabase
       .from("opportunity_follow_up_drafts")
       .select("id, company_id")
       .eq("id", id)
-      .eq("origin", "template_follow_up")
+      .in("origin", LIFECYCLE_ORIGINS)
       .eq("status", "drafted")
       .single();
     if (error || !row) {
@@ -554,7 +563,7 @@ export async function DELETE(request: NextRequest) {
       })
       .eq("id", id)
       .eq("company_id", companyId)
-      .eq("origin", "template_follow_up")
+      .in("origin", LIFECYCLE_ORIGINS)
       .eq("status", "drafted");
     if (updErr) {
       console.error("[/api/inbox/drafts] lifecycle discard failed:", updErr);
@@ -580,12 +589,12 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // `updated_at` column doesn't exist on this table (see GET path note)
-    // so we only flip `status`. The discard timestamp isn't critical —
-    // downstream learning reads status + created_at only.
+    // P4-B: stamp discarded_at now that the column exists. (`updated_at`
+    // still doesn't exist on this table — see GET path note — but the
+    // dedicated discard timestamp is now first-class provenance.)
     const { error: updErr } = await supabase
       .from("ai_draft_history")
-      .update({ status: "discarded" })
+      .update({ status: "discarded", discarded_at: new Date().toISOString() })
       .eq("id", id);
     if (updErr) {
       console.error("[/api/inbox/drafts] ai discard failed:", updErr);
