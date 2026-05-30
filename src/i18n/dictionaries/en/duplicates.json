@@ -56,5 +56,22 @@
   "card.add": "Add",
   "merging": "Merging...",
   "merged": "Merged successfully",
-  "dismissed": "Dismissed"
+  "dismissed": "Dismissed",
+  "clusterCard.resolveAndMerge": "// RESOLVE & MERGE",
+  "conflict.step": "RESOLVE · STEP 2 / 2",
+  "conflict.count": "{count} CONFLICTS",
+  "conflict.keeping": "KEEPING",
+  "conflict.winnerTag": "WINNER",
+  "conflict.keepWinner": "KEEP WINNER",
+  "conflict.useAbsorbed": "USE ABSORBED",
+  "conflict.fromWinner": "[winner]",
+  "conflict.fromAbsorbed": "[absorbed · {name}]",
+  "conflict.tag": "CONFLICT",
+  "conflict.confirm": "// CONFIRM MERGE",
+  "conflict.back": "// BACK",
+  "conflict.gateHint": "[resolve all conflicts to continue]",
+  "conflict.reversible": "absorbed record is folded into {winner}",
+  "conflict.scanning": "SYS :: SCANNING FIELDS",
+  "conflict.error": "// ERROR — MERGE FAILED",
+  "conflict.blocked": "// MERGE BLOCKED"
 }
