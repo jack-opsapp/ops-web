@@ -156,15 +156,34 @@ describe("DataReviewQueue", () => {
     fireEvent.click(screen.getByRole("radio", { name: /Deck — Smith/ }));
     fireEvent.click(screen.getByRole("button", { name: "// CONFIRM LINK" }));
     expect(resolveMutate).toHaveBeenCalledWith(
-      { providerThreadId: "T-split", targetOpportunityId: "opp-live" },
+      { providerThreadId: "T-split", targetOpportunityId: "opp-live", kind: "split" },
       expect.objectContaining({ onSuccess: expect.any(Function) })
     );
   });
 
-  it("QUARANTINE calls useQuarantineItem with the provider thread id", () => {
+  it("QUARANTINE calls useQuarantineItem with the provider thread id + kind", () => {
     render(<DataReviewQueue />);
     fireEvent.click(screen.getAllByRole("button", { name: "QUARANTINE" })[0]);
-    expect(quarantineMutate).toHaveBeenCalledWith({ providerThreadId: "T-split" });
+    expect(quarantineMutate).toHaveBeenCalledWith({
+      providerThreadId: "T-split",
+      kind: "split",
+    });
+  });
+
+  it("a terminal_live LINK-TO carries kind:'terminal_live' (cache-align path)", () => {
+    render(<DataReviewQueue />);
+    fireEvent.click(screen.getByRole("button", { name: "TERMINAL/LIVE" }));
+    fireEvent.click(screen.getByRole("button", { name: "LINK TO…" }));
+    fireEvent.click(screen.getByRole("radio", { name: /Patio — Jones/ }));
+    fireEvent.click(screen.getByRole("button", { name: "// CONFIRM LINK" }));
+    expect(resolveMutate).toHaveBeenCalledWith(
+      {
+        providerThreadId: "T-term",
+        targetOpportunityId: "opp-won",
+        kind: "terminal_live",
+      },
+      expect.objectContaining({ onSuccess: expect.any(Function) })
+    );
   });
 
   it("renders the empty state when there are no actionable items", () => {

@@ -214,6 +214,58 @@ describe("linkThread — guarded re-point", () => {
     ).rejects.toThrow(/not an owner/);
   });
 
+  it("terminal_live: aligns the NULL-canonical cache row to the terminal owner (no activities, no throw)", async () => {
+    // terminal_live items have NO owning activities — the prior implementation
+    // threw "No activities found"; the resolving action must align the cache.
+    const fake = makeFake({
+      activities: { rows: [] },
+      opportunities: {
+        rows: [
+          { id: OPP_TERMINAL, title: "Patio — Jones", stage: "won", archived_at: null, deleted_at: null, client_id: "client-jones", clients: { name: "Jones" } },
+        ],
+      },
+      email_threads: {
+        rows: [
+          { id: "et-1", provider_thread_id: "T-term", connection_id: "conn-1", opportunity_id: null, subject: "Patio thread", created_at: "2026-05-01T00:00:00Z" },
+        ],
+      },
+    });
+    requireSupabaseMock.mockReturnValue(fake.client);
+
+    const res = await LeadDataReviewService.linkThread(
+      "T-term",
+      OPP_TERMINAL,
+      "terminal_live"
+    );
+    expect(res.activitiesRepointed).toBe(0);
+    expect(res.targetTitle).toBe("Patio — Jones");
+    // The only write is to email_threads.opportunity_id — the cache align.
+    expect(fake.updates).toHaveLength(1);
+    expect(fake.updates[0].table).toBe("email_threads");
+    expect(fake.updates[0].payload.opportunity_id).toBe(OPP_TERMINAL);
+  });
+
+  it("terminal_live: REFUSES aligning the cache to an archived/deleted target", async () => {
+    const fake = makeFake({
+      activities: { rows: [] },
+      opportunities: {
+        rows: [
+          { id: OPP_TERMINAL, title: "Hidden", stage: "won", archived_at: "2026-01-01T00:00:00Z", deleted_at: null, client_id: "client-jones", clients: { name: "Jones" } },
+        ],
+      },
+      email_threads: {
+        rows: [
+          { id: "et-1", provider_thread_id: "T-term", connection_id: "conn-1", opportunity_id: null, subject: "Patio", created_at: "2026-05-01T00:00:00Z" },
+        ],
+      },
+    });
+    requireSupabaseMock.mockReturnValue(fake.client);
+    await expect(
+      LeadDataReviewService.linkThread("T-term", OPP_TERMINAL, "terminal_live")
+    ).rejects.toThrow(/archived\/deleted/);
+    expect(fake.updates).toHaveLength(0);
+  });
+
   it("REFUSES a cross-client re-point (single-client guard)", async () => {
     const fake = makeFake({
       activities: {
@@ -263,6 +315,24 @@ describe("quarantineThread", () => {
     await expect(
       LeadDataReviewService.quarantineThread("legacy:already")
     ).rejects.toThrow(/already quarantined/);
+  });
+
+  it("split: throws when there are no owning activities", async () => {
+    requireSupabaseMock.mockReturnValue(makeFake({ activities: { rows: [] } }).client);
+    await expect(
+      LeadDataReviewService.quarantineThread("T-empty", "split")
+    ).rejects.toThrow(/No activities found/);
+  });
+
+  it("terminal_live: no-ops gracefully when there are no owning activities", async () => {
+    const fake = makeFake({ activities: { rows: [] } });
+    requireSupabaseMock.mockReturnValue(fake.client);
+    const res = await LeadDataReviewService.quarantineThread(
+      "T-term",
+      "terminal_live"
+    );
+    expect(res.activitiesQuarantined).toBe(0);
+    expect(fake.updates).toHaveLength(0);
   });
 });
 

@@ -123,15 +123,35 @@ describe("POST /api/data-review/[id]/link", () => {
     expect(linkThreadMock).not.toHaveBeenCalled();
   });
 
-  it("calls linkThread(id, target) and inserts a dismissible notification", async () => {
+  it("calls linkThread(id, target, kind) and inserts a dismissible notification", async () => {
     const res = await LINK(postReq({ targetOpportunityId: "opp-1" }), params("T"));
     expect(res.status).toBe(200);
-    expect(linkThreadMock).toHaveBeenCalledWith("T", "opp-1");
+    // Defaults to the split path when no kind is supplied.
+    expect(linkThreadMock).toHaveBeenCalledWith("T", "opp-1", "split");
     expect(fromMock).toHaveBeenCalledWith("notifications");
     const payload = insertMock.mock.calls[0][0];
     expect(payload.persistent).toBe(false);
+    // Purpose-named outcome type (not the borrowed duplicates_found).
+    expect(payload.type).toBe("data_review_resolved");
     expect(payload.title).toContain("LINK RESOLVED");
+    // Action label is UPPERCASE authority, resolved from the dictionary.
+    expect(payload.action_label).toBe("VIEW");
     expect(payload.company_id).toBe("co-1");
+  });
+
+  it("forwards the terminal_live kind through to the service", async () => {
+    // For terminal_live items the URL [id] is the provider thread id; the
+    // service aligns the cache row keyed on it.
+    const res = await LINK(
+      postReq({ targetOpportunityId: "opp-1", kind: "terminal_live" }),
+      params("provider-thread-x")
+    );
+    expect(res.status).toBe(200);
+    expect(linkThreadMock).toHaveBeenCalledWith(
+      "provider-thread-x",
+      "opp-1",
+      "terminal_live"
+    );
   });
 });
 
@@ -143,12 +163,19 @@ describe("POST /api/data-review/[id]/quarantine", () => {
     expect(quarantineThreadMock).not.toHaveBeenCalled();
   });
 
-  it("calls quarantineThread(id) and inserts a dismissible notification", async () => {
+  it("calls quarantineThread(id, kind) and inserts a dismissible notification", async () => {
     const res = await QUARANTINE(postReq({}), params("T"));
     expect(res.status).toBe(200);
-    expect(quarantineThreadMock).toHaveBeenCalledWith("T");
+    expect(quarantineThreadMock).toHaveBeenCalledWith("T", "split");
     const payload = insertMock.mock.calls[0][0];
     expect(payload.persistent).toBe(false);
+    expect(payload.type).toBe("data_review_resolved");
     expect(payload.title).toContain("QUARANTINED");
+  });
+
+  it("forwards the terminal_live kind to quarantineThread", async () => {
+    const res = await QUARANTINE(postReq({ kind: "terminal_live" }), params("T"));
+    expect(res.status).toBe(200);
+    expect(quarantineThreadMock).toHaveBeenCalledWith("T", "terminal_live");
   });
 });

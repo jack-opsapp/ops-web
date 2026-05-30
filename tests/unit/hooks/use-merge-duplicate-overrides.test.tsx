@@ -80,6 +80,30 @@ describe("useMergeDuplicate — confirmedOverrides wiring", () => {
     expect(body.additionalReviewIds).toEqual(["r-2"]);
     expect(body.confirmedOverrides).toEqual({ "loser-1": { contact_email: "b@y.com" } });
   });
+
+  it("forwards success-notification display fields to the merge route", async () => {
+    fetchMock.mockResolvedValue({ ok: true, json: async () => ({ ok: true }) });
+    const { result } = renderHook(() => useMergeDuplicate(), { wrapper });
+
+    result.current.mutate({
+      reviewIds: ["r-1"],
+      winnerId: "w-1",
+      confirmedOverrides: {},
+      winnerTitle: "Deck — Smith",
+      absorbedCount: 1,
+      resolvedCount: 2,
+      notificationActionUrl: "/dashboard?openProject=w-1&mode=view",
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    const body = lastBody();
+    expect(body.winnerTitle).toBe("Deck — Smith");
+    expect(body.absorbedCount).toBe(1);
+    expect(body.resolvedCount).toBe(2);
+    expect(body.notificationActionUrl).toBe(
+      "/dashboard?openProject=w-1&mode=view"
+    );
+  });
 });
 
 describe("useMergeConflicts", () => {

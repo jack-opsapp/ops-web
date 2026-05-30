@@ -20,6 +20,8 @@ const {
   mergeClusterMock,
   dismissPairMock,
   applyEntityEditsMock,
+  insertMock,
+  fromMock,
 } = vi.hoisted(() => ({
   checkPermMock: vi.fn(),
   findUserMock: vi.fn(),
@@ -28,9 +30,18 @@ const {
   mergeClusterMock: vi.fn(async () => {}),
   dismissPairMock: vi.fn(async () => {}),
   applyEntityEditsMock: vi.fn(async () => {}),
+  insertMock: vi.fn(async () => ({ error: null })),
+  fromMock: vi.fn(),
 }));
 
-vi.mock("@/lib/supabase/server-client", () => ({ getServiceRoleClient: () => ({}) }));
+vi.mock("@/lib/supabase/server-client", () => ({
+  getServiceRoleClient: () => ({
+    from: (...args: unknown[]) => {
+      fromMock(...args);
+      return { insert: insertMock };
+    },
+  }),
+}));
 vi.mock("@/lib/supabase/helpers", () => ({ setSupabaseOverride: vi.fn() }));
 vi.mock("@/lib/firebase/admin-verify", () => ({ verifyAdminAuth: verifyAuthMock }));
 vi.mock("@/lib/supabase/find-user-by-auth", () => ({ findUserByAuth: findUserMock }));
@@ -87,6 +98,38 @@ describe("merge route — pipeline.manage gate", () => {
     checkPermMock.mockResolvedValue(true);
     await MERGE(req({ winnerId: "w-1", fieldOverrides: { address: "1 St" } }), params);
     expect(mergeEntitiesMock).toHaveBeenCalledWith("review-1", "w-1", "user-1", { address: "1 St" });
+  });
+
+  it("fires a dismissible duplicates_merged notification when display fields are supplied", async () => {
+    checkPermMock.mockResolvedValue(true);
+    const res = await MERGE(
+      req({
+        winnerId: "w-1",
+        winnerTitle: "Deck — Smith",
+        absorbedCount: 1,
+        resolvedCount: 2,
+        notificationActionUrl: "/dashboard?openProject=w-1&mode=view",
+      }),
+      params
+    );
+    expect(res.status).toBe(200);
+    expect(fromMock).toHaveBeenCalledWith("notifications");
+    const payload = (insertMock.mock.calls[0] as unknown[])[0] as Record<
+      string,
+      unknown
+    >;
+    expect(payload.type).toBe("duplicates_merged");
+    expect(payload.persistent).toBe(false);
+    expect(payload.title).toContain("MERGED");
+    expect(payload.action_label).toBe("VIEW");
+    expect(payload.action_url).toBe("/dashboard?openProject=w-1&mode=view");
+  });
+
+  it("skips the notification when display fields are absent (merge still 200)", async () => {
+    checkPermMock.mockResolvedValue(true);
+    const res = await MERGE(req({ winnerId: "w-1" }), params);
+    expect(res.status).toBe(200);
+    expect(fromMock).not.toHaveBeenCalled();
   });
 });
 
