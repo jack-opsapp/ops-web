@@ -39,6 +39,20 @@ describe("LostYou", () => {
     expect(html).not.toContain("1 days");
   });
 
+  it("uses 'a day ago' (not '1 days ago') when daysSinceSignup === 1", async () => {
+    const html = await render(
+      <LostYou
+        firstName="Pat"
+        daysSinceSignup={1}
+        daysSinceLastActivity={1}
+        unsubscribeUrl="https://x.test"
+      />,
+      PLAIN,
+    );
+    expect(html).toContain("signed up for OPS a day ago");
+    expect(html).not.toContain("OPS 1 days ago");
+  });
+
   it("does NOT include 'That's a real signal' or 'Noticed...' (v3 CRM-flavored cuts)", async () => {
     const html = await render(<LostYou {...previewProps} />, PLAIN);
     expect(html).not.toContain("That's a real signal");

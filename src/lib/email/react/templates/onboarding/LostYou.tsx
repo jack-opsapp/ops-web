@@ -29,9 +29,9 @@ export function LostYou({
   unsubscribeUrl,
 }: LostYouProps) {
   const greeting = firstName ? `Hey ${firstName},` : "Hey there,";
-  const gapLine = `You signed up for OPS ${daysSinceSignup} days ago and haven't been back in ${formatDays(
-    daysSinceLastActivity,
-  )}.`;
+  const gapLine = `You signed up for OPS ${formatDays(
+    daysSinceSignup,
+  )} ago and haven't been back in ${formatDays(daysSinceLastActivity)}.`;
   return (
     <PlainTextLayout unsubscribeUrl={unsubscribeUrl}>
       {greeting}

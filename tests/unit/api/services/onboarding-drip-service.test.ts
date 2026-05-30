@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { computeOperatorLocalHour, OnboardingDripService } from "@/lib/api/services/onboarding-drip-service";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -436,7 +436,8 @@ describe("OnboardingDripService.processLostYouCandidate", () => {
   function dbForLostYou(opts: {
     operator?: { id: string; email: string; first_name: string | null; deleted_at: string | null } | null;
     existingDay14OrLost?: Array<{ day_slot: string }>;
-    activityCounts?: Record<string, number>;
+    /** ISO timestamp of the most recent activity per table (latest updated_at). */
+    activityDates?: Record<string, string>;
     claimSucceeds?: boolean;
   }) {
     const log: { table: string; op: string; args: unknown[] }[] = [];
@@ -483,13 +484,17 @@ describe("OnboardingDripService.processLostYouCandidate", () => {
         };
         return chain;
       }
-      // Activity tables — return count
-      const v = opts.activityCounts?.[table] ?? 0;
+      // Activity tables — return the latest updated_at row (or none).
+      const iso = opts.activityDates?.[table] ?? null;
       const chain: any = {
         select: () => chain,
         eq: () => chain,
-        gte: () => chain,
-        then: (resolve: any) => resolve({ count: v, error: null }),
+        order: () => chain,
+        limit: () => chain,
+        maybeSingle: async () => ({
+          data: iso ? { updated_at: iso } : null,
+          error: null,
+        }),
       };
       return chain;
     }
@@ -558,7 +563,7 @@ describe("OnboardingDripService.processLostYouCandidate", () => {
   it("does not fire when any activity in last 6 days", async () => {
     const { db } = dbForLostYou({
       operator: { id: "u1", email: "test@example.com", first_name: "Pat", deleted_at: null },
-      activityCounts: { projects: 1 },
+      activityDates: { projects: new Date(Date.now() - 2 * 86400_000).toISOString() },
     });
     const result = await OnboardingDripService.processLostYouCandidate(
       db,
@@ -567,6 +572,68 @@ describe("OnboardingDripService.processLostYouCandidate", () => {
     );
     expect(result.fired).toBe(false);
     expect(result.reason).toContain("recent activity");
+  });
+
+  // Regression: the live bug. A 1-day-old account with zero activity used to
+  // fire and tell the operator "signed up 1 days ago, haven't been back in 6
+  // days" — impossible. The lower age bound now blocks it.
+  it("does not fire for a 1-day-old account with zero activity", async () => {
+    const { db } = dbForLostYou({
+      operator: { id: "u1", email: "test@example.com", first_name: "Pat", deleted_at: null },
+    });
+    const result = await OnboardingDripService.processLostYouCandidate(
+      db,
+      { id: "c1", deleted_at: null, subscription_status: "active", account_holder_id: "u1", created_at: new Date(Date.now() - 1 * 86400_000).toISOString(), latitude: null, longitude: null } as any,
+      new Date(),
+    );
+    expect(result.fired).toBe(false);
+    expect(result.reason).toContain("window");
+  });
+
+  it("fires with daysSinceLastActivity computed from the most recent activity", async () => {
+    const spy = vi
+      .spyOn(OnboardingDripService, "claimAndSend")
+      .mockResolvedValue({ status: "sent" } as any);
+    const { db } = dbForLostYou({
+      operator: { id: "u1", email: "test@example.com", first_name: "Pat", deleted_at: null },
+      activityDates: { projects: new Date(Date.now() - 7 * 86400_000).toISOString() },
+    });
+    const result = await OnboardingDripService.processLostYouCandidate(
+      db,
+      { id: "c1", deleted_at: null, subscription_status: "active", account_holder_id: "u1", created_at: new Date(Date.now() - 10 * 86400_000).toISOString(), latitude: null, longitude: null } as any,
+      new Date(),
+    );
+    expect(result.fired).toBe(true);
+    expect(spy).toHaveBeenCalledWith(
+      db,
+      expect.objectContaining({
+        daySlot: "lost_you",
+        payload: { daysSinceSignup: 10, daysSinceLastActivity: 7 },
+      }),
+    );
+    spy.mockRestore();
+  });
+
+  it("measures silence from signup when the operator never created anything", async () => {
+    const spy = vi
+      .spyOn(OnboardingDripService, "claimAndSend")
+      .mockResolvedValue({ status: "sent" } as any);
+    const { db } = dbForLostYou({
+      operator: { id: "u1", email: "test@example.com", first_name: "Pat", deleted_at: null },
+    });
+    const result = await OnboardingDripService.processLostYouCandidate(
+      db,
+      { id: "c1", deleted_at: null, subscription_status: "active", account_holder_id: "u1", created_at: new Date(Date.now() - 8 * 86400_000).toISOString(), latitude: null, longitude: null } as any,
+      new Date(),
+    );
+    expect(result.fired).toBe(true);
+    expect(spy).toHaveBeenCalledWith(
+      db,
+      expect.objectContaining({
+        payload: { daysSinceSignup: 8, daysSinceLastActivity: 8 },
+      }),
+    );
+    spy.mockRestore();
   });
 });
 
@@ -613,7 +680,7 @@ describe("OnboardingDripService.processAll", () => {
           }),
         };
       }
-      // Other tables (activity counts, email_log) — no-op
+      // Other tables (activity, email_log) — no-op
       const chain: any = {
         select: () => chain,
         eq: () => chain,
@@ -622,6 +689,7 @@ describe("OnboardingDripService.processAll", () => {
         in: async () => ({ data: [], error: null }),
         order: () => chain,
         limit: async () => ({ data: [], error: null }),
+        maybeSingle: async () => ({ data: null, error: null }),
         then: (resolve: any) => resolve({ count: 0, error: null }),
       };
       return chain;

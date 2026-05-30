@@ -671,11 +671,18 @@ export const OnboardingDripService = {
 
   /**
    * Behavior-triggered re-engagement send (spec §7). Fires once per trial
-   * when the operator has had zero activity for 6+ consecutive calendar
-   * days between Day 1 and Day 14. All five conditions must hold: kill
-   * switches clear, age in [1, 14], neither Day 14 nor Lost You already
-   * sent, zero activity across the 6 tables in the last 6 days, operator
-   * still active.
+   * when the operator has gone silent for {@link MIN_INACTIVITY_DAYS}+
+   * consecutive calendar days, somewhere between that age and Day 14. All
+   * conditions must hold: kill switches clear, age in
+   * [MIN_INACTIVITY_DAYS, 14], neither Day 14 nor Lost You already sent,
+   * the real gap since the operator's last activity (or signup, if they
+   * never did anything) is at least MIN_INACTIVITY_DAYS, operator still
+   * active.
+   *
+   * The copy asserts both "signed up N days ago" and "haven't been back in
+   * M days", so M is computed from the most recent activity timestamp (not
+   * hardcoded) and the lower age bound guarantees M is physically possible
+   * — we never tell a 1-day-old operator they've been gone six days.
    */
   async processLostYouCandidate(
     db: SupabaseClient,
@@ -698,10 +705,16 @@ export const OnboardingDripService = {
       return { fired: false, reason: "no account_holder_id" };
     }
 
+    const DAY_MS = 86400_000;
+    // A genuine "haven't been back in N days" can only exist once the
+    // account is at least N days old. Guard the lower bound with the same
+    // threshold we require for the silence gap below so the two claims in
+    // the copy can never contradict each other.
+    const MIN_INACTIVITY_DAYS = 6;
     const ageDays = Math.floor(
-      (now.getTime() - new Date(company.created_at).getTime()) / 86400_000,
+      (now.getTime() - new Date(company.created_at).getTime()) / DAY_MS,
     );
-    if (ageDays < 1 || ageDays > 14) {
+    if (ageDays < MIN_INACTIVITY_DAYS || ageDays > 14) {
       return { fired: false, reason: "outside window" };
     }
 
@@ -714,7 +727,6 @@ export const OnboardingDripService = {
       return { fired: false, reason: "day_14 or lost_you already sent" };
     }
 
-    const sixDaysAgo = new Date(now.getTime() - 6 * 86400_000).toISOString();
     const tables = [
       "projects",
       "project_tasks",
@@ -723,18 +735,35 @@ export const OnboardingDripService = {
       "estimates",
       "invoices",
     ] as const;
-    const checks = await Promise.all(
+    // Most recent activity timestamp across every operator-owned table.
+    const latestActivityPerTable = await Promise.all(
       tables.map(async (t) => {
-        const { count } = await db
+        const { data } = await db
           .from(t)
-          .select("id", { count: "exact", head: true })
+          .select("updated_at")
           .eq("company_id", company.id)
-          .gte("updated_at", sixDaysAgo);
-        return count ?? 0;
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        return data?.updated_at ? new Date(data.updated_at).getTime() : null;
       }),
     );
-    const totalRecent = checks.reduce((a, b) => a + b, 0);
-    if (totalRecent > 0) return { fired: false, reason: "recent activity" };
+    const lastActivityMs = latestActivityPerTable.reduce<number | null>(
+      (max, ts) => (ts !== null && (max === null || ts > max) ? ts : max),
+      null,
+    );
+    // "Haven't been back" is measured from the last real activity, or from
+    // signup when the operator never did anything after the welcome. Either
+    // way the reference is on/after created_at, so the gap can never exceed
+    // ageDays and the two day-counts in the copy stay consistent.
+    const inactivitySinceMs =
+      lastActivityMs ?? new Date(company.created_at).getTime();
+    const daysSinceLastActivity = Math.floor(
+      (now.getTime() - inactivitySinceMs) / DAY_MS,
+    );
+    if (daysSinceLastActivity < MIN_INACTIVITY_DAYS) {
+      return { fired: false, reason: "recent activity" };
+    }
 
     const { data: operator } = await db
       .from("users")
@@ -754,7 +783,7 @@ export const OnboardingDripService = {
       emailType: "onboarding_lost_you",
       payload: {
         daysSinceSignup: ageDays,
-        daysSinceLastActivity: 6,
+        daysSinceLastActivity,
       },
       now,
     });
