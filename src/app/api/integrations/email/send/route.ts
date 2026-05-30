@@ -18,6 +18,10 @@ import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 import { EmailService } from "@/lib/api/services/email-service";
 import { EmailThreadService } from "@/lib/api/services/email-thread-service";
 import { OpportunityLifecycleService } from "@/lib/api/services/opportunity-lifecycle-service";
+import {
+  AIDraftService,
+  LIFECYCLE_LEARNING_ENABLED,
+} from "@/lib/api/services/ai-draft-service";
 import { markdownToEmailHtml } from "@/lib/utils/markdown-to-email-html";
 import { extractEmailAddress } from "@/lib/utils/email-parsing";
 import {
@@ -71,6 +75,123 @@ function mapSubscriptionRow(row: Record<string, unknown>): CompanySubscriptionFi
   };
 }
 
+// Lifecycle drafts that surface in the operator inbox and are sent by hand.
+// Mirrors the origin allowlist in /api/inbox/drafts.
+const LIFECYCLE_DRAFT_ORIGINS = ["template_follow_up", "phase_c"] as const;
+
+type SendSupabaseClient = ReturnType<typeof getServiceRoleClient>;
+
+/**
+ * Mark a lifecycle follow-up draft sent and run the P4-D learning pipeline.
+ *
+ * Resolution: prefer an explicit `followUpDraftId` (the precise, unambiguous
+ * signal). Failing that, resolve the *single* still-`drafted` lifecycle draft
+ * for this (opportunity, provider thread) pair — the universal signals every
+ * operator send already carries. If the thread/opportunity pair maps to more
+ * than one open draft we do nothing (ambiguous → no guess, no wrong learning).
+ *
+ * Idempotent: the status flip is conditioned on `status = 'drafted'`, so a
+ * draft already `sent` updates zero rows and we skip the learning call. A
+ * second send of the same draft therefore re-processes nothing.
+ *
+ * Operator-only: the caller gates this behind `!isInternalCaller`; this helper
+ * is never reached on the auto-send/cron path.
+ */
+async function handleLifecycleDraftSendTransition(args: {
+  supabase: SendSupabaseClient;
+  companyId: string;
+  userId: string;
+  followUpDraftId: string | null;
+  opportunityId: string | null;
+  providerThreadId: string | null;
+  finalBody: string;
+  finalSubject: string;
+}): Promise<void> {
+  const {
+    supabase,
+    companyId,
+    userId,
+    followUpDraftId,
+    opportunityId,
+    providerThreadId,
+    finalBody,
+    finalSubject,
+  } = args;
+
+  // ── Resolve the draft this send corresponds to ───────────────────────────
+  let draftId: string | null = null;
+
+  if (followUpDraftId) {
+    const { data } = await supabase
+      .from("opportunity_follow_up_drafts")
+      .select("id, status")
+      .eq("id", followUpDraftId)
+      .eq("company_id", companyId)
+      .in("origin", LIFECYCLE_DRAFT_ORIGINS as unknown as string[])
+      .maybeSingle();
+    // Only a still-open draft is eligible. An already-sent / discarded row is
+    // a no-op (idempotency + abandoned drafts never learn).
+    if (data && (data as { status: string }).status === "drafted") {
+      draftId = (data as { id: string }).id;
+    } else {
+      return;
+    }
+  } else if (opportunityId && providerThreadId) {
+    // Fallback: the (opportunity, thread) pair must map to exactly one open
+    // lifecycle draft. Zero → not a lifecycle send. More than one → ambiguous,
+    // so we refuse to guess.
+    const { data: candidates } = await supabase
+      .from("opportunity_follow_up_drafts")
+      .select("id")
+      .eq("company_id", companyId)
+      .eq("opportunity_id", opportunityId)
+      .eq("provider_thread_id", providerThreadId)
+      .in("origin", LIFECYCLE_DRAFT_ORIGINS as unknown as string[])
+      .eq("status", "drafted");
+    if (!candidates || candidates.length !== 1) return;
+    draftId = (candidates[0] as { id: string }).id;
+  } else {
+    return;
+  }
+
+  // ── Flip the draft to sent (idempotent) ──────────────────────────────────
+  // The `status = 'drafted'` filter is the idempotency guard: a re-send of an
+  // already-sent draft updates nothing, so we never re-record or re-learn.
+  const now = new Date().toISOString();
+  const { data: updatedRows } = await supabase
+    .from("opportunity_follow_up_drafts")
+    .update({
+      status: "sent",
+      final_sent_body: finalBody,
+      subject: finalSubject,
+      sent_at: now,
+      edited_by: userId,
+      updated_at: now,
+    })
+    .eq("id", draftId)
+    .eq("company_id", companyId)
+    .eq("status", "drafted")
+    .select("id");
+
+  // Lost the race / already sent → another path beat us here; do not learn.
+  if (!updatedRows || updatedRows.length === 0) return;
+
+  // ── Learning (gated) ──────────────────────────────────────────────────────
+  // LIFECYCLE_LEARNING_ENABLED is the documented go-live switch: now that the
+  // send-transition exists, flipping that flag to true (in ai-draft-service.ts)
+  // turns lifecycle-draft learning on. recordLifecycleDraftOutcome already
+  // learns only from SENT drafts and only on >threshold edits.
+  if (LIFECYCLE_LEARNING_ENABLED) {
+    await AIDraftService.recordLifecycleDraftOutcome(
+      draftId,
+      companyId,
+      userId,
+      finalBody,
+      finalSubject
+    );
+  }
+}
+
 export async function POST(request: NextRequest) {
   const supabase = getServiceRoleClient();
   setSupabaseOverride(supabase);
@@ -106,6 +227,7 @@ export async function POST(request: NextRequest) {
       inReplyTo,
       threadId,
       draftHistoryId,
+      followUpDraftId,
     } = payload;
 
     // ── Validate required fields ──────────────────────────────────────────
@@ -385,6 +507,38 @@ export async function POST(request: NextRequest) {
       } catch (labelErr) {
         // Non-fatal — label application failure shouldn't block send
         console.error("[email-send] Failed to apply label:", labelErr);
+      }
+    }
+
+    // ── Lifecycle follow-up draft send-transition (operator-only) ─────────
+    // When this send corresponds to a lifecycle follow-up draft
+    // (opportunity_follow_up_drafts, origin template_follow_up | phase_c), mark
+    // that draft sent and feed the operator's final body/subject into the P4-D
+    // learning pipeline. This is the ONLY correct trigger for lifecycle-draft
+    // learning — the real operator-send path. It must NEVER fire on an
+    // autonomous path: the auto-send cron authenticates with CRON_SECRET
+    // (isInternalCaller === true), and we skip the whole block for it. We never
+    // auto-send email, so no system path can reach this.
+    if (!isInternalCaller) {
+      try {
+        await handleLifecycleDraftSendTransition({
+          supabase,
+          companyId,
+          userId,
+          followUpDraftId:
+            typeof followUpDraftId === "string" ? followUpDraftId : null,
+          opportunityId: opportunityId || null,
+          providerThreadId,
+          finalBody: emailBody,
+          finalSubject: subject,
+        });
+      } catch (lifecycleErr) {
+        // Non-fatal — the email already sent successfully. A learning-pipeline
+        // failure must not surface as a send failure to the operator.
+        console.error(
+          "[email-send] lifecycle send-transition failed:",
+          lifecycleErr
+        );
       }
     }
 
