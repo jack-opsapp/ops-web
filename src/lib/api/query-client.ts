@@ -508,6 +508,12 @@ export const queryKeys = {
     pending: (companyId: string) =>
       ["duplicateReviews", "pending", companyId] as const,
   },
+
+  // Data Review Queue (P1 DW2 link-integrity residual — admin surface)
+  dataReview: {
+    all: ["dataReview"] as const,
+    queue: () => ["dataReview", "queue"] as const,
+  },
 } as const;
 
 // ─── Query Client ─────────────────────────────────────────────────────────────
