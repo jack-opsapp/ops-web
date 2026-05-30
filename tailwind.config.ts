@@ -149,6 +149,18 @@ const config: Config = {
         tan: "#C4A868",
         rose: "#B58289",
         brick: "#93321A",
+        // Earth-tone soft fills / hairline borders — bound to the canonical
+        // CSS variables in globals.css so callers write `bg-rose-soft`,
+        // `border-rose-line`, `bg-tan-soft`, `border-tan-line` instead of
+        // inlining the rgba literals. Mirrors the spec v2 earth-tone soft/line
+        // ladder (12% fill / 30% border).
+        "olive-soft": "var(--olive-soft)",
+        "olive-line": "var(--olive-line)",
+        "tan-soft": "var(--tan-soft)",
+        "tan-line": "var(--tan-line)",
+        "rose-soft": "var(--rose-soft)",
+        "rose-line": "var(--rose-line)",
+        "brick-line": "var(--brick-line)",
         // Top-level alias for the spec v2 `text.mute` token so callers can use
         // it as a background or border (e.g. status pips that need the muted
         // gray fill: `bg-text-mute`). Mirrors text.mute exactly.
@@ -337,6 +349,16 @@ const config: Config = {
       // === Backdrop Blur ===
       backdropBlur: {
         xs: "2px",
+      },
+
+      // === Transition Easing ===
+      // The single OPS motion curve. Setting it as the DEFAULT means every
+      // `transition-*` utility (and bare `transition`) inherits the OPS curve
+      // app-wide instead of Tailwind's stock cubic-bezier(0.4,0,0.2,1).
+      // Honors "one easing curve everywhere" (DESIGN.md § motion).
+      transitionTimingFunction: {
+        DEFAULT: "cubic-bezier(0.22, 1, 0.36, 1)",
+        smooth: "cubic-bezier(0.22, 1, 0.36, 1)",
       },
     },
   },
