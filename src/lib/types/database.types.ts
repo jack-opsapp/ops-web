@@ -1197,15 +1197,21 @@ export type Database = {
           company_id: string
           connection_id: string | null
           created_at: string
+          discarded_at: string | null
           edit_distance: number | null
+          edited_at: string | null
           final_version: string | null
           id: string
           opportunity_id: string | null
+          origin: string | null
           original_draft: string
           profile_type: string
           sent_at: string | null
           sent_without_changes: boolean | null
+          source_message_id: string | null
           status: string
+          subject: string | null
+          subject_source: string | null
           thread_id: string | null
           user_id: string
         }
@@ -1214,15 +1220,21 @@ export type Database = {
           company_id: string
           connection_id?: string | null
           created_at?: string
+          discarded_at?: string | null
           edit_distance?: number | null
+          edited_at?: string | null
           final_version?: string | null
           id?: string
           opportunity_id?: string | null
+          origin?: string | null
           original_draft: string
           profile_type?: string
           sent_at?: string | null
           sent_without_changes?: boolean | null
+          source_message_id?: string | null
           status?: string
+          subject?: string | null
+          subject_source?: string | null
           thread_id?: string | null
           user_id: string
         }
@@ -1231,15 +1243,21 @@ export type Database = {
           company_id?: string
           connection_id?: string | null
           created_at?: string
+          discarded_at?: string | null
           edit_distance?: number | null
+          edited_at?: string | null
           final_version?: string | null
           id?: string
           opportunity_id?: string | null
+          origin?: string | null
           original_draft?: string
           profile_type?: string
           sent_at?: string | null
           sent_without_changes?: boolean | null
+          source_message_id?: string | null
           status?: string
+          subject?: string | null
+          subject_source?: string | null
           thread_id?: string | null
           user_id?: string
         }
