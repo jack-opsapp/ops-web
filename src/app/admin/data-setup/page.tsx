@@ -4,6 +4,7 @@ import {
   computeQueueStats,
 } from "@/lib/admin/data-setup-queries";
 import { DataSetupQueue } from "./_components/data-setup-queue";
+import { DataReviewQueue } from "./_components/data-review-queue";
 
 export const dynamic = "force-dynamic";
 
@@ -32,8 +33,9 @@ export default async function DataSetupPage() {
         title="Data Setup"
         caption={`${stats.pending} pending · ${stats.scheduled} scheduled · ${stats.inProgress} in progress · ${stats.completed} completed this month`}
       />
-      <div className="p-8">
+      <div className="flex flex-col gap-6 p-8">
         <DataSetupQueue initialRows={rows} initialStats={stats} />
+        <DataReviewQueue />
       </div>
     </div>
   );
