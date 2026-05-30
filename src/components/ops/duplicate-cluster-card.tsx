@@ -507,10 +507,14 @@ interface DuplicateClusterCardProps {
     signals: { type: string; detail: string }[];
   };
   entityType: DuplicateEntityType;
-  onMerge: (
+  /**
+   * Hand control to the sheet's two-step machine: it detects conflicts and
+   * either advances to the RESOLVE step or merges immediately (zero-conflict).
+   * The winner is the auto-picked best entity (most non-null fields).
+   */
+  onResolveAndMerge: (
     reviewIds: string[],
     winnerId: string,
-    fieldOverrides: Record<string, unknown>,
     entityEdits: Record<string, Record<string, unknown>>,
     entityType: DuplicateEntityType
   ) => void;
@@ -525,7 +529,7 @@ interface DuplicateClusterCardProps {
 export function DuplicateClusterCard({
   cluster,
   entityType,
-  onMerge,
+  onResolveAndMerge,
   onDismiss,
   isMerging,
 }: DuplicateClusterCardProps) {
@@ -597,8 +601,8 @@ export function DuplicateClusterCard({
 
   const handleMerge = useCallback(() => {
     const winnerId = pickBestEntity(cluster.entities);
-    onMerge(cluster.reviewIds, winnerId, {}, edits, entityType);
-  }, [cluster.entities, cluster.reviewIds, edits, entityType, onMerge]);
+    onResolveAndMerge(cluster.reviewIds, winnerId, edits, entityType);
+  }, [cluster.entities, cluster.reviewIds, edits, entityType, onResolveAndMerge]);
 
   const handleDismiss = useCallback(() => {
     onDismiss(cluster.reviewIds, edits, entityType);
@@ -675,7 +679,7 @@ export function DuplicateClusterCard({
           disabled={isMerging}
           className="flex-1 rounded-panel bg-[rgba(255,255,255,0.08)] px-4 py-2.5 font-mohave text-[14px] font-medium text-text-2 transition-colors duration-150 hover:bg-[rgba(255,255,255,0.12)] disabled:opacity-40"
         >
-          {isMerging ? t("merging") : t("card.merge")}
+          {isMerging ? t("merging") : t("clusterCard.resolveAndMerge")}
         </button>
         <button
           type="button"
