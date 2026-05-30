@@ -217,6 +217,130 @@ describe("lead lifecycle enrichment decisions", () => {
     expect(facts.providerMessageId).toBe("provider-message-1");
   });
 
+  it("fills address and value from an ordinary inbound body (Tier A)", () => {
+    const facts = leadEnrichmentFactsFromEmail({
+      email: baseEmail({
+        from: "Kara Beach <kara.beach@example.com>",
+        fromName: "Kara Beach",
+        subject: "Deck quote request",
+        bodyText:
+          "Hi, we'd like a quote on a new deck.\nProject Address: 1220 Wharf Street, Victoria BC V8W 1T8\nBudget: $18,500\nPhone: 250 538 8340",
+        bodyTextClean:
+          "Hi, we'd like a quote on a new deck.\nProject Address: 1220 Wharf Street, Victoria BC V8W 1T8\nBudget: $18,500\nPhone: 250 538 8340",
+      }),
+      direction: "inbound",
+      connection: baseConnection(),
+      profile: syncProfile,
+    });
+
+    expect(facts.address).toBe("1220 Wharf Street, Victoria BC V8W 1T8");
+    expect(facts.estimatedValue).toBe(18500);
+    expect(facts.contactPhone).toBe("250 538 8340");
+    // Identity still comes from the safe header sender, not from_email.
+    expect(facts.contactEmail).toBe("kara.beach@example.com");
+
+    const updates = buildLeadEnrichmentUpdates({
+      existingOpportunity: {
+        contact_name: null,
+        contact_email: null,
+        contact_phone: null,
+        address: null,
+        estimated_value: null,
+        detected_value: null,
+        description: null,
+        source: null,
+        source_email_id: null,
+      },
+      facts,
+    });
+    expect(updates.opportunity).toMatchObject({
+      address: "1220 Wharf Street, Victoria BC V8W 1T8",
+      estimated_value: 18500,
+      detected_value: 18500,
+      contact_phone: "250 538 8340",
+    });
+  });
+
+  it("does not extract facts when the inbound body has no clear signal", () => {
+    const facts = leadEnrichmentFactsFromEmail({
+      email: baseEmail({
+        from: "Kara Beach <kara.beach@example.com>",
+        fromName: "Kara Beach",
+        bodyText:
+          "Hi, I saw your work on a neighbour's place and would love a rough idea. Thanks!",
+        bodyTextClean:
+          "Hi, I saw your work on a neighbour's place and would love a rough idea. Thanks!",
+      }),
+      direction: "inbound",
+      connection: baseConnection(),
+      profile: syncProfile,
+    });
+    expect(facts.address).toBeNull();
+    expect(facts.estimatedValue).toBeNull();
+    expect(facts.contactPhone).toBeNull();
+  });
+
+  it("never overwrites an operator-set address with a body-extracted one", () => {
+    const facts = leadEnrichmentFactsFromEmail({
+      email: baseEmail({
+        from: "Kara Beach <kara.beach@example.com>",
+        fromName: "Kara Beach",
+        bodyText: "New job at 99 Different Road, Sidney BC V8L 1A1 for $25,000.",
+        bodyTextClean:
+          "New job at 99 Different Road, Sidney BC V8L 1A1 for $25,000.",
+      }),
+      direction: "inbound",
+      connection: baseConnection(),
+      profile: syncProfile,
+    });
+    // The body did yield an address/value fact...
+    expect(facts.address).toBeTruthy();
+    expect(facts.estimatedValue).toBe(25000);
+
+    // ...but the canonical gate discards it because the operator already set one.
+    const updates = buildLeadEnrichmentUpdates({
+      existingOpportunity: {
+        contact_name: "Kara Beach",
+        contact_email: "kara.beach@example.com",
+        contact_phone: "555-111-2222",
+        address: "10 Operator Entered Road",
+        estimated_value: 42000,
+        detected_value: 41000,
+        description: "Operator scope",
+        source: "referral",
+        source_email_id: "existing-thread",
+      },
+      facts,
+    });
+    expect(updates.opportunity.address).toBeUndefined();
+    expect(updates.opportunity.estimated_value).toBeUndefined();
+  });
+
+  it("ignores the company's own from_email even when the body carries facts", () => {
+    // Inbound email whose header sender is the company's own connection address
+    // (e.g. a forwarded form). safeCustomerEmail must reject it as identity, but
+    // the body facts (address/value) must still be extracted.
+    const facts = leadEnrichmentFactsFromEmail({
+      email: baseEmail({
+        from: "Operator <office@example-contractors.com>",
+        fromName: "Operator",
+        bodyText:
+          "Forwarded inquiry.\nProject Address: 1220 Wharf Street, Victoria BC V8W 1T8\nBudget: $18,500",
+        bodyTextClean:
+          "Forwarded inquiry.\nProject Address: 1220 Wharf Street, Victoria BC V8W 1T8\nBudget: $18,500",
+      }),
+      direction: "inbound",
+      connection: baseConnection(),
+      profile: syncProfile,
+    });
+    // from_email is the company's own — never promoted to customer identity.
+    expect(facts.contactEmail).toBeNull();
+    expect(facts.contactName).toBeNull();
+    // But non-identity body facts are still extracted.
+    expect(facts.address).toBe("1220 Wharf Street, Victoria BC V8W 1T8");
+    expect(facts.estimatedValue).toBe(18500);
+  });
+
   it("documents schema gaps instead of inventing hidden provenance storage", () => {
     expect(getLeadEnrichmentSchemaGaps()).toEqual(
       expect.arrayContaining([

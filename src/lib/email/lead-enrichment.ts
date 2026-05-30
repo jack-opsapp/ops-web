@@ -8,6 +8,11 @@ import {
   extractEmailAddress,
   type ContactFormSubmissionIdentity,
 } from "@/lib/utils/email-parsing";
+import {
+  extractAddressFromBody,
+  extractEstimatedValueFromBody,
+  extractPhoneFromBody,
+} from "@/lib/utils/body-fact-extractors";
 
 type OpportunitySourceValue =
   | "referral"
@@ -312,13 +317,18 @@ export function leadEnrichmentFactsFromEmail(
 
   if (direction === "outbound") {
     const recipient = externalRecipient(email, connection, profile);
+    // Outbound quote bodies frequently carry a dollar figure and the job-site
+    // address. Scan the body for those non-identity facts only. We deliberately
+    // do NOT scan for phone here — a phone in an outbound body is almost always
+    // the operator's own number, never the customer's.
+    const outboundBody = email.bodyTextClean || email.bodyText || email.snippet;
     return {
       contactName: recipient?.name ?? null,
       companyName: null,
       contactEmail: recipient?.email ?? null,
       contactPhone: null,
-      address: null,
-      estimatedValue: null,
+      address: extractAddressFromBody(outboundBody),
+      estimatedValue: extractEstimatedValueFromBody(outboundBody),
       description: null,
       source: "email",
       sourcePlatform: null,
@@ -334,13 +344,18 @@ export function leadEnrichmentFactsFromEmail(
       localPartToName(customerEmail)
     : null;
 
+  // Conservative body-text scan for non-identity facts. These never set
+  // identity (name/email); they only fill address/value/phone holes. The body
+  // is the message content, not the header sender — from_email is never used.
+  const inboundBody = email.bodyTextClean || email.bodyText || email.snippet;
+
   return {
     contactName: customerName,
     companyName: null,
     contactEmail: customerEmail,
-    contactPhone: null,
-    address: null,
-    estimatedValue: null,
+    contactPhone: extractPhoneFromBody(inboundBody),
+    address: extractAddressFromBody(inboundBody),
+    estimatedValue: extractEstimatedValueFromBody(inboundBody),
     description: cleanMultilineText(email.bodyText || email.snippet),
     source: "email",
     sourcePlatform: platform?.platformName ?? null,
