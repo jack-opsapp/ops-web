@@ -30,8 +30,27 @@ import {
 
 // ─── Similar-thread discovery ────────────────────────────────────────────────
 
-const SIMILAR_CAP = 50; // upper bound on threads we'll reclassify per correction
+const SIMILAR_CAP = 50; // upper bound on candidate threads we GATHER per correction
 const CONFIDENCE_CEILING = 0.85; // only revisit threads below this confidence
+
+/**
+ * P4-E — hard cap on the number of threads we actually RECLASSIFY per
+ * correction.
+ *
+ * Each reclassify is an `EmailThreadService.classifyAndUpdate` call, which can
+ * invoke the LLM classifier AND (since P4-A) the Phase C autonomy router. The
+ * candidate-gather cap (SIMILAR_CAP=50) bounded the query size but NOT the
+ * fan-out cost: a single correction could trigger up to 50 LLM reclassification
+ * calls plus 50 router fires. That is the only material AI-cost amplification
+ * in the Phase C path.
+ *
+ * We cap the actual fan-out at 10 reclassifications per correction. The
+ * remaining candidates simply pick up the new learned-rule prior the next time
+ * they're classified by the normal sync path — no correctness is lost, only
+ * the eager fan-out is bounded. At ~$0.002–0.004 per classify call this caps
+ * worst-case spend per correction to a few cents instead of ~10–20×.
+ */
+const MAX_RECLASSIFY_PER_CORRECTION = 10;
 
 /**
  * Apply a recent correction to similar threads in the inbox. Similarity is
@@ -76,7 +95,10 @@ async function applyCorrectionToSimilar(
   const seen = new Set<string>([correction.threadId]); // skip the source thread
 
   if (correction.senderDomain) {
-    const { data: domainMatches } = await supabase
+    // Exact-sender match (same email address). NOTE: this is an exact-email
+    // `.eq`, NOT a domain match despite living under the senderDomain guard —
+    // the domain-level match is the ilike fallback immediately below.
+    const { data: exactSenderMatches } = await supabase
       .from("email_threads")
       .select("*")
       .eq("company_id", correction.companyId)
@@ -85,7 +107,7 @@ async function applyCorrectionToSimilar(
       .lt("category_confidence", CONFIDENCE_CEILING)
       .limit(SIMILAR_CAP);
 
-    for (const row of domainMatches ?? []) {
+    for (const row of exactSenderMatches ?? []) {
       const thread = mapEmailThreadFromDb(row);
       if (!seen.has(thread.id)) {
         similar.push(thread);
@@ -93,7 +115,7 @@ async function applyCorrectionToSimilar(
       }
     }
 
-    // Also look by domain (latest_sender_email might not match but domain does)
+    // Domain-level match (latest_sender_email might differ but domain matches).
     if (similar.length < SIMILAR_CAP) {
       const { data: domainFallback } = await supabase
         .from("email_threads")
@@ -135,9 +157,22 @@ async function applyCorrectionToSimilar(
     }
   }
 
-  // Reclassify — serial + small delay to avoid rate-limit spike
+  // Reclassify — serial + small delay to avoid rate-limit spike.
+  // P4-E: hard-cap the fan-out at MAX_RECLASSIFY_PER_CORRECTION so one
+  // correction cannot trigger an unbounded burst of LLM classify + router
+  // calls. Candidates beyond the cap pick up the new learned-rule prior on
+  // their next normal-sync classification.
+  const toReclassify = similar.slice(0, MAX_RECLASSIFY_PER_CORRECTION);
+  if (similar.length > MAX_RECLASSIFY_PER_CORRECTION) {
+    console.log(
+      "[phase-c-learning] correction %s: capping fan-out at %d (of %d candidates)",
+      correctionId,
+      MAX_RECLASSIFY_PER_CORRECTION,
+      similar.length
+    );
+  }
   let reclassified = 0;
-  for (const thread of similar) {
+  for (const thread of toReclassify) {
     try {
       await EmailThreadService.classifyAndUpdate(thread);
       reclassified += 1;
