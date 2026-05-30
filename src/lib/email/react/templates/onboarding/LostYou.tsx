@@ -1,14 +1,15 @@
-// @template-version: 1.0.0
+// @template-version: 1.1.0
 import * as React from "react";
 import { PlainTextLayout } from "@/lib/email/react/primitives/PlainTextLayout";
 
 /**
- * Behavior-triggered re-engagement send. Fires once per trial when
- * the operator has had zero activity for 6+ consecutive calendar days
- * between Day 1 and Day 14. Sent from JACK. Body copy is canonical
- * per spec §7.
+ * Behavior-triggered re-engagement send. Fires once per trial when the
+ * operator has gone silent for 6+ consecutive calendar days, between
+ * that age and Day 14. Sent from JACK. daysSinceSignup and
+ * daysSinceLastActivity are both computed (never hardcoded) and run
+ * through formatDays for pluralization.
  *
- * @template-version 1.0.0
+ * @template-version 1.1.0
  */
 export interface LostYouProps {
   firstName: string | null;
@@ -29,22 +30,24 @@ export function LostYou({
   unsubscribeUrl,
 }: LostYouProps) {
   const greeting = firstName ? `Hey ${firstName},` : "Hey there,";
-  const gapLine = `You signed up for OPS ${formatDays(
+  const gapLine = `You signed up ${formatDays(
     daysSinceSignup,
-  )} ago and haven't been back in ${formatDays(daysSinceLastActivity)}.`;
+  )} ago, then dropped off. It's been ${formatDays(daysSinceLastActivity)}.`;
   return (
     <PlainTextLayout unsubscribeUrl={unsubscribeUrl}>
       {greeting}
       {"\n\n"}
-      Jack here.
+      Jack here — I built OPS.
       {"\n\n"}
       {gapLine}
       {"\n\n"}
-      That's a long enough gap that I want to ask straight: is something stopping you, or is the timing just wrong?
+      I'm not here to nag. I want the real reason: did something trip you up, or is the timing just off?
       {"\n\n"}
-      If setup tripped you up, I can usually point you at the move that gets you unstuck. If OPS isn't the right fit, no hard feelings — I'd just want to know what you were looking for.
+      If you got stuck, tell me where. I've seen most of the walls operators hit in the first two weeks, and there's usually one move that clears it.
       {"\n\n"}
-      Hit reply with one sentence. Goes to my inbox.
+      If OPS isn't the fit, no hard feelings — just tell me what you were hoping it'd do.
+      {"\n\n"}
+      You can reply here, this is my personal email.
       {"\n\n"}
       — Jack
     </PlainTextLayout>

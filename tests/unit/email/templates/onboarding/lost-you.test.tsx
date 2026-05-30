@@ -7,8 +7,9 @@ const PLAIN = { plainText: true, htmlToTextOptions: { wordwrap: false } } as con
 describe("LostYou", () => {
   it("renders with previewProps", async () => {
     const html = await render(<LostYou {...previewProps} />, PLAIN);
-    expect(html).toContain("Jack here.");
-    expect(html).toContain("haven't been back in");
+    expect(html).toContain("Jack here");
+    expect(html).toContain("then dropped off");
+    expect(html).toContain("this is my personal email");
   });
 
   it("substitutes days since signup and days since last activity", async () => {
@@ -21,8 +22,8 @@ describe("LostYou", () => {
       />,
       PLAIN,
     );
-    expect(html).toContain("You signed up for OPS 9 days ago");
-    expect(html).toContain("haven't been back in 6 days");
+    expect(html).toContain("You signed up 9 days ago");
+    expect(html).toContain("It's been 6 days");
   });
 
   it("uses 'a day' (not '1 days') when daysSinceLastActivity === 1", async () => {
@@ -35,7 +36,7 @@ describe("LostYou", () => {
       />,
       PLAIN,
     );
-    expect(html).toContain("haven't been back in a day");
+    expect(html).toContain("It's been a day");
     expect(html).not.toContain("1 days");
   });
 
@@ -49,8 +50,8 @@ describe("LostYou", () => {
       />,
       PLAIN,
     );
-    expect(html).toContain("signed up for OPS a day ago");
-    expect(html).not.toContain("OPS 1 days ago");
+    expect(html).toContain("You signed up a day ago");
+    expect(html).not.toContain("1 days");
   });
 
   it("does NOT include 'That's a real signal' or 'Noticed...' (v3 CRM-flavored cuts)", async () => {
