@@ -35,6 +35,30 @@ interface PendingMerge {
   entityType: DuplicateEntityType;
 }
 
+/** First non-blank title-ish field on the winner entity (for the rail copy). */
+const TITLE_FIELDS = ["title", "name", "contact_name", "custom_title"] as const;
+function winnerDisplayTitle(cluster: DuplicateCluster, winnerId: string): string {
+  const entity = cluster.entities.find((e) => e.id === winnerId);
+  if (entity) {
+    for (const f of TITLE_FIELDS) {
+      const v = entity.data[f];
+      if (typeof v === "string" && v.trim()) return v.trim();
+    }
+  }
+  return "record";
+}
+
+/** Deep-link to the surviving record, by entity type (project→workspace). */
+function winnerActionUrl(
+  entityType: DuplicateEntityType,
+  winnerId: string
+): string | undefined {
+  if (entityType === "project") {
+    return `/dashboard?openProject=${winnerId}&mode=view`;
+  }
+  return undefined;
+}
+
 export function DuplicateReviewSheet() {
   const { open, closeSheet } = useDuplicateReviewStore();
   const { data, isLoading } = useDuplicateReviews();
@@ -87,7 +111,20 @@ export function DuplicateReviewSheet() {
 
   /** Fire the actual merge with operator-confirmed overrides (if any). */
   const submitMerge = useCallback(
-    (merge: PendingMerge, confirmedOverrides: ConfirmedOverrides) => {
+    (
+      merge: PendingMerge,
+      confirmedOverrides: ConfirmedOverrides,
+      resolvedCount: number,
+      cluster: DuplicateCluster | null
+    ) => {
+      // Display-only data for the success rail notification (fired server-side).
+      const winnerTitle = cluster
+        ? winnerDisplayTitle(cluster, merge.winnerId)
+        : "record";
+      const absorbedCount = cluster
+        ? Math.max(cluster.entities.length - 1, 1)
+        : 1;
+
       mergeMutation.mutate(
         {
           reviewIds: merge.reviewIds,
@@ -97,6 +134,10 @@ export function DuplicateReviewSheet() {
             Object.keys(merge.entityEdits).length > 0 ? merge.entityEdits : undefined,
           entityType:
             Object.keys(merge.entityEdits).length > 0 ? merge.entityType : undefined,
+          winnerTitle,
+          absorbedCount,
+          resolvedCount,
+          notificationActionUrl: winnerActionUrl(merge.entityType, merge.winnerId),
         },
         {
           onSuccess: () => {
@@ -131,7 +172,8 @@ export function DuplicateReviewSheet() {
               setStep("resolve");
             } else {
               // No conflicts to reconcile — merge immediately, no empty screen.
-              submitMerge(merge, {});
+              // Zero conflicts → zero fields reconciled.
+              submitMerge(merge, {}, 0, current);
             }
           },
           onError: () => {
@@ -141,15 +183,21 @@ export function DuplicateReviewSheet() {
         }
       );
     },
-    [conflictsMutation, submitMerge]
+    [conflictsMutation, submitMerge, current]
   );
 
   const handleConfirmFromResolve = useCallback(
-    ({ confirmedOverrides }: { confirmedOverrides: ConfirmedOverrides; resolvedCount: number }) => {
+    ({
+      confirmedOverrides,
+      resolvedCount,
+    }: {
+      confirmedOverrides: ConfirmedOverrides;
+      resolvedCount: number;
+    }) => {
       if (!pending) return;
-      submitMerge(pending, confirmedOverrides);
+      submitMerge(pending, confirmedOverrides, resolvedCount, current);
     },
-    [pending, submitMerge]
+    [pending, submitMerge, current]
   );
 
   const handleDismiss = useCallback(

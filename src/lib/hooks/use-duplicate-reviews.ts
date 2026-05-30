@@ -286,6 +286,10 @@ export function useMergeDuplicate() {
       confirmedOverrides,
       entityEdits,
       entityType,
+      winnerTitle,
+      absorbedCount,
+      resolvedCount,
+      notificationActionUrl,
     }: {
       reviewIds: string[];
       winnerId: string;
@@ -298,6 +302,12 @@ export function useMergeDuplicate() {
       confirmedOverrides?: ConfirmedOverrides;
       entityEdits?: Record<string, Record<string, unknown>>;
       entityType?: DuplicateEntityType;
+      /** Display-only fields for the success rail notification (resolved here,
+       * on the client, which holds the cluster + selection state). */
+      winnerTitle?: string;
+      absorbedCount?: number;
+      resolvedCount?: number;
+      notificationActionUrl?: string;
     }) => {
       const primaryReviewId = reviewIds[0];
       const additionalReviewIds = reviewIds.slice(1);
@@ -318,6 +328,10 @@ export function useMergeDuplicate() {
               ? entityEdits
               : undefined,
           entityType: entityEdits && Object.keys(entityEdits).length > 0 ? entityType : undefined,
+          winnerTitle,
+          absorbedCount,
+          resolvedCount,
+          notificationActionUrl,
         }),
       });
       if (!res.ok) {

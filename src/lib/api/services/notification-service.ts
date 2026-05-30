@@ -17,6 +17,8 @@ export type NotificationType =
   | "expense_submitted"
   | "expense_approved"
   | "duplicates_found"
+  | "duplicates_merged"
+  | "data_review_resolved"
   | "ai_milestone"
   | "agent_suggestion"
   | "trial_expiry"
