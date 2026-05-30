@@ -89,6 +89,88 @@ function isThreadActionable(thread: EmailThread): boolean {
 }
 
 /**
+ * P4-A cost guard: has Phase C already auto-drafted a reply for the LATEST
+ * inbound message on this thread?
+ *
+ * `auto_draft` means "one draft per genuinely-new inbound message", NOT "one
+ * draft per re-sync". sync-engine flags `needsClassify=true` for EVERY inbound
+ * on a non-manually-set thread, and the inbound-reuse path also fires the
+ * router — so without this guard a thread that re-syncs / gets reclassified
+ * while its latest message is still inbound would re-invoke the draft LLM each
+ * time. We pin idempotency to the provider message id the draft replies to:
+ * the latest inbound activity's `email_message_id`, recorded on the bridged
+ * `ai_draft_history.source_message_id`.
+ *
+ * Returns the latest inbound provider message id when a fresh draft IS needed,
+ * or `null` when an open phase_c draft already covers that message (caller
+ * short-circuits before the LLM call). A null latest-inbound id (provider gave
+ * us no message id) also returns "needs draft" — we can't dedup what we can't
+ * key, and the paired-draft idempotency check still guards the DB insert.
+ */
+async function latestInboundNeedsDraft(
+  thread: EmailThread
+): Promise<{ needsDraft: boolean; sourceMessageId: string | null }> {
+  const supabase = requireSupabase();
+
+  // The provider message id of the most recent inbound message on the thread.
+  const { data: latest } = await supabase
+    .from("activities")
+    .select("email_message_id")
+    .eq("company_id", thread.companyId)
+    .eq("email_thread_id", thread.providerThreadId)
+    .eq("type", "email")
+    .eq("direction", "inbound")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const sourceMessageId =
+    (latest?.email_message_id as string | null) ?? null;
+
+  // Can't dedup without a stable message key — let the draft proceed (the
+  // paired-draft insert is still idempotent on the bridge id).
+  if (!sourceMessageId || !thread.opportunityId) {
+    return { needsDraft: true, sourceMessageId };
+  }
+
+  // Is there already an OPEN phase_c draft bridged to an ai_draft_history row
+  // whose source_message_id is this exact inbound message? Two cheap reads:
+  // open phase_c bridges for this opportunity+thread, then match the message.
+  let openQuery = supabase
+    .from("opportunity_follow_up_drafts")
+    .select("ai_draft_history_id")
+    .eq("company_id", thread.companyId)
+    .eq("opportunity_id", thread.opportunityId)
+    .eq("origin", "phase_c")
+    .eq("status", "drafted")
+    .not("ai_draft_history_id", "is", null);
+  openQuery = thread.providerThreadId
+    ? openQuery.eq("provider_thread_id", thread.providerThreadId)
+    : openQuery.is("provider_thread_id", null);
+  const { data: openDrafts } = await openQuery;
+
+  const bridgeIds = (openDrafts ?? [])
+    .map((d) => d.ai_draft_history_id as string | null)
+    .filter((id): id is string => !!id);
+
+  if (bridgeIds.length === 0) {
+    return { needsDraft: true, sourceMessageId };
+  }
+
+  const { data: matching } = await supabase
+    .from("ai_draft_history")
+    .select("id")
+    .eq("company_id", thread.companyId)
+    .in("id", bridgeIds)
+    .eq("source_message_id", sourceMessageId)
+    .limit(1)
+    .maybeSingle();
+
+  // A matching open draft already covers this inbound message → no new LLM.
+  return { needsDraft: !matching, sourceMessageId };
+}
+
+/**
  * P4-C: create the first-class `origin='phase_c'` local draft paired with the
  * just-generated ai_draft_history row.
  *
@@ -263,6 +345,19 @@ export const PhaseCAutonomyRouter = {
         outcome: "noop_not_inbound",
         category: thread.primaryCategory,
         effectiveLevel: effective,
+      };
+    }
+
+    // P4-A cost guard: short-circuit BEFORE the draft LLM if we already
+    // auto-drafted for this exact inbound message. Prevents one-draft-per-resync
+    // from re-invoking the model on a thread whose latest message is unchanged.
+    const { needsDraft } = await latestInboundNeedsDraft(thread);
+    if (!needsDraft) {
+      return {
+        outcome: "auto_drafted",
+        category: thread.primaryCategory,
+        effectiveLevel: effective,
+        detail: "existing phase_c draft covers latest inbound (no re-draft)",
       };
     }
 
