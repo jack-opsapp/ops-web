@@ -14,6 +14,7 @@ import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
 import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
 import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
+import { checkPermissionById } from "@/lib/supabase/check-permission";
 import { AIDraftService } from "@/lib/api/services/ai-draft-service";
 
 export const maxDuration = 30;
@@ -31,19 +32,20 @@ export async function POST(request: NextRequest) {
     const user = await findUserByAuth(
       authUser.uid,
       authUser.email,
-      "id, company_id, role"
+      "id, company_id"
     );
     if (!user) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Only admin/owner users may record draft feedback — this writes to
-    // the writing profile training data, and crew/operator users must not
-    // be able to corrupt it.
-    const role = (user.role as string) ?? "unassigned";
-    if (!["admin", "owner"].includes(role)) {
+    // Recording draft feedback writes to writing-profile training data, so it
+    // is gated on the granular `inbox.send` permission (the same capability
+    // that lets a user send the draft whose outcome this records) — never on
+    // a coarse role check. Admins/account-holders bypass inside has_permission.
+    const canRecord = await checkPermissionById(user.id as string, "inbox.send");
+    if (!canRecord) {
       return NextResponse.json(
-        { error: "Admin or owner access required for this action" },
+        { error: "You don't have permission to record draft feedback" },
         { status: 403 }
       );
     }
