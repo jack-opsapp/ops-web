@@ -83,6 +83,7 @@ const CLIENT_FK_GRAPH: Coverage[] = [
   { table: "email_threads", column: "client_id", kind: "repoint" },
   { table: "task_recurrences", column: "client_id", kind: "repoint" },
   { table: "client_product_overrides", column: "client_id", kind: "repoint" },
+  { table: "follow_ups", column: "client_id", kind: "repoint" },
   { table: "activities", column: "client_id", kind: "repoint" },
   { table: "activities", column: "suggested_client_id", kind: "repoint" },
   { table: "payments", column: "client_id", kind: "repoint" },
@@ -291,6 +292,64 @@ describe("P5 merge RPCs — transactional + guarded shape", () => {
     }
   });
 
+  it("pre-dedupes pending reviews so the cascade re-point cannot hit the unique pair index", () => {
+    // duplicate_reviews has a NON-partial unique on
+    // (company_id, entity_type, entity_a_id, entity_b_id). A loser-paired review
+    // re-pointed onto a pair the winner already holds would raise a unique
+    // violation and abort a LEGITIMATE merge. Both RPCs must DELETE such
+    // would-collide loser rows BEFORE the cascade UPDATE.
+    const sql = mergeSql();
+    for (const fn of [
+      "public.execute_opportunity_merge_guarded",
+      "public.execute_client_merge_guarded",
+    ]) {
+      const body = functionBody(sql, fn);
+      // a pre-dedupe delete keyed on an EXISTS over the re-pointed ordered pair
+      const preDedupeIdx = body.search(
+        /delete from public\.duplicate_reviews lo[\s\S]*?exists \(\s*select 1 from public\.duplicate_reviews ex[\s\S]*?ex\.entity_a_id = least\(p_winner_id/i
+      );
+      const cascadeUpdateIdx = body.search(
+        /update public\.duplicate_reviews\s+set entity_a_id = least\(p_winner_id/i
+      );
+      expect(preDedupeIdx, `${fn}: missing pre-dedupe of colliding pending reviews`).toBeGreaterThanOrEqual(0);
+      expect(cascadeUpdateIdx, `${fn}: missing cascade re-point`).toBeGreaterThanOrEqual(0);
+      expect(
+        preDedupeIdx,
+        `${fn}: pre-dedupe DELETE must run BEFORE the cascade UPDATE`
+      ).toBeLessThan(cascadeUpdateIdx);
+    }
+  });
+
+  it("opportunity_email_threads dedupe matches the DB's NULL-distinct semantics (no over-delete)", () => {
+    // The DB unique on (thread_id, connection_id) is a STANDARD btree: NULL is
+    // distinct, so loser rows with a NULL connection_id must be RE-POINTED, not
+    // deleted. The delete must guard on connection_id IS NOT NULL + plain
+    // equality, never `is not distinct from` over connection_id.
+    const body = functionBody(mergeSql(), "public.execute_opportunity_merge_guarded");
+    const del = body.match(/delete from public\.opportunity_email_threads loser[\s\S]*?get diagnostics v_deleted_dupes/i)?.[0] ?? "";
+    expect(del).toMatch(/loser\.connection_id is not null/i);
+    expect(del).toMatch(/win\.connection_id = loser\.connection_id/i);
+    expect(del).not.toMatch(/connection_id is not distinct from/i);
+  });
+
+  it("idempotency short-circuit precedes the soft-deleted guards (documented retry contract)", () => {
+    // A same-key retry of an applied merge must return duplicate_applied_merge,
+    // NOT loser_deleted — so the idempotency lookup must come BEFORE the
+    // winner/loser deleted_at guards.
+    const sql = mergeSql();
+    for (const fn of [
+      "public.execute_opportunity_merge_guarded",
+      "public.execute_client_merge_guarded",
+    ]) {
+      const body = functionBody(sql, fn);
+      const idemIdx = body.indexOf("duplicate_applied_merge");
+      const loserDeletedIdx = body.indexOf("'loser_deleted'");
+      expect(idemIdx).toBeGreaterThanOrEqual(0);
+      expect(loserDeletedIdx).toBeGreaterThanOrEqual(0);
+      expect(idemIdx, `${fn}: idempotency must precede loser_deleted guard`).toBeLessThan(loserDeletedIdx);
+    }
+  });
+
   it("keeps both merge RPCs service-role only", () => {
     const sql = mergeSql();
     for (const fn of [
@@ -347,7 +406,9 @@ describe("P5 merge RPCs — COMPLETE FK / no-orphan coverage (table-driven regre
 
   it("opportunity_email_threads de-dupes on (thread_id, connection_id) before re-pointing", () => {
     const body = functionBody(mergeSql(), "public.execute_opportunity_merge_guarded");
-    expect(body).toMatch(/delete from public\.opportunity_email_threads[\s\S]*?thread_id is not distinct from[\s\S]*?connection_id is not distinct from/i);
+    // thread_id collision uses NULL-equal semantics; connection_id mirrors the
+    // DB's STANDARD-btree NULL-distinct semantics (guarded non-null + equality).
+    expect(body).toMatch(/delete from public\.opportunity_email_threads[\s\S]*?thread_id is not distinct from[\s\S]*?connection_id = loser\.connection_id/i);
     expect(body).toMatch(/jsonb_build_object\('repointed', v_repointed, 'deleted_dupes', v_deleted_dupes\)/i);
   });
 
@@ -372,6 +433,148 @@ describe("P5 merge RPCs — COMPLETE FK / no-orphan coverage (table-driven regre
       assertRepoint(body, table, "client_ref", "p_winner_id");
       assertRepoint(body, table, "client_id", "p_winner_id");
     }
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AUTHORITATIVE FK-graph regression lock (design §5.1).
+//
+// The it.each suites above lock against REMOVING coverage of a listed table.
+// This suite is the other half: it pins the AUTHORITATIVE reference graph
+// (enforced FKs to opportunities/clients + the curated unenforced mirror
+// columns whose live values actually match the target id, verified read-only
+// against ijeekuhbatykdomumfjx on 2026-05-29) and FAILS if the coverage graph
+// (CLIENT_FK_GRAPH / OPPORTUNITY_FK_GRAPH, which the RPC body is checked
+// against) is missing any authoritative reference. A child FK added to the DB
+// without RPC coverage therefore breaks CI the moment its column is added to
+// the authoritative set, which is co-located with this lock and with the
+// operator-runnable live SQL contract at
+// `tests/sql/lead-lifecycle-p5-fk-coverage-contract.sql` (which re-derives the
+// same set from pg_constraint live, for the apply gate).
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Enforced FKs (pg_constraint, contype='f') referencing opportunities(id) or
+// opportunities(company_id,id), verified live 2026-05-29.
+const AUTHORITATIVE_OPPORTUNITY_REFS = new Set<string>([
+  "activities.opportunity_id",
+  "ai_draft_history.opportunity_id",
+  "email_threads.opportunity_id",
+  "estimates.opportunity_id",
+  "follow_ups.opportunity_id",
+  "invoices.opportunity_id",
+  "opportunity_correspondence_events.opportunity_id",
+  "opportunity_email_threads.opportunity_id",
+  "opportunity_follow_up_drafts.opportunity_id",
+  "opportunity_lifecycle_action_audit.opportunity_id",
+  "opportunity_lifecycle_state.opportunity_id",
+  "pending_auto_sends.opportunity_id",
+  "site_visits.opportunity_id",
+  "stage_transitions.opportunity_id",
+  // Unenforced TEXT back-link (no FK) — verified live to hold opportunities.id.
+  "projects.opportunity_id",
+]);
+
+// Enforced FKs to clients(id) + curated unenforced mirror columns whose live
+// values match clients.id (verified 2026-05-29). Portal auth columns are
+// referenced but REVOKE-only, listed separately.
+const AUTHORITATIVE_CLIENT_REFS = new Set<string>([
+  // enforced *_ref FKs
+  "estimates.client_ref",
+  "invoices.client_ref",
+  "opportunities.client_ref",
+  "site_visits.client_ref",
+  // enforced *_id FKs
+  "client_product_overrides.client_id",
+  "email_threads.client_id",
+  "projects.client_id",
+  "sub_clients.client_id",
+  "task_recurrences.client_id",
+  // unenforced uuid/text mirrors that hold clients.id
+  "opportunities.client_id",
+  "estimates.client_id",
+  "invoices.client_id",
+  "activities.client_id",
+  "activities.suggested_client_id",
+  "payments.client_id",
+  "project_table_rows.client_id",
+  "follow_ups.client_id",
+  "site_visits.client_id", // TEXT mirror
+  "portal_messages.client_id", // TEXT — re-pointed (history), Q6
+]);
+// Auth artifacts: referenced but REVOKED, never re-pointed (Q6).
+const AUTHORITATIVE_CLIENT_REVOKE_REFS = new Set<string>([
+  "portal_tokens.client_id",
+  "portal_sessions.client_id",
+]);
+// Named like a client ref but verified live to NOT hold clients.id values
+// (portal/answer correlation ids / auth). Asserted out-of-scope EXPLICITLY so
+// the lock can never silently ignore a client_id-named column.
+const OUT_OF_SCOPE_CLIENT_NAMED = new Set<string>([
+  "line_item_answers.client_id",
+  "users.client_id",
+]);
+
+describe("P5 merge RPCs — authoritative FK-graph coverage (no silent omission)", () => {
+  it("OPPORTUNITY_FK_GRAPH covers every authoritative opportunity reference", () => {
+    const covered = new Set(
+      OPPORTUNITY_FK_GRAPH.map((c) => `${c.table}.${c.column}`)
+    );
+    const missing = [...AUTHORITATIVE_OPPORTUNITY_REFS].filter(
+      (ref) => !covered.has(ref)
+    );
+    expect(
+      missing,
+      `opportunity references with NO RPC coverage: ${missing.join(", ")}`
+    ).toEqual([]);
+  });
+
+  it("CLIENT_FK_GRAPH covers every authoritative client reference (repoint + revoke)", () => {
+    const covered = new Set(
+      CLIENT_FK_GRAPH.map((c) => `${c.table}.${c.column}`)
+    );
+    const expected = new Set<string>([
+      ...AUTHORITATIVE_CLIENT_REFS,
+      ...AUTHORITATIVE_CLIENT_REVOKE_REFS,
+    ]);
+    const missing = [...expected].filter((ref) => !covered.has(ref));
+    expect(
+      missing,
+      `client references with NO RPC coverage: ${missing.join(", ")}`
+    ).toEqual([]);
+  });
+
+  it("revoke-only client refs are classified revoke, never re-point", () => {
+    for (const ref of AUTHORITATIVE_CLIENT_REVOKE_REFS) {
+      const entry = CLIENT_FK_GRAPH.find((c) => `${c.table}.${c.column}` === ref);
+      expect(entry, `${ref} missing from CLIENT_FK_GRAPH`).toBeDefined();
+      expect(entry!.kind, `${ref} must be revoke, not re-point`).toBe("revoke");
+    }
+  });
+
+  it("out-of-scope client_id-named columns are explicitly excluded (not silently ignored)", () => {
+    const covered = new Set(
+      CLIENT_FK_GRAPH.map((c) => `${c.table}.${c.column}`)
+    );
+    for (const ref of OUT_OF_SCOPE_CLIENT_NAMED) {
+      // These hold no clients.id values (verified live); they must NOT be
+      // re-pointed by the client merge, and the exclusion is asserted here so a
+      // reviewer sees the intentional classification.
+      expect(
+        covered.has(ref),
+        `${ref} is out-of-scope (non-client values) and must not be in the graph`
+      ).toBe(false);
+    }
+  });
+
+  it("the coverage graph contains NO reference outside the authoritative set (no phantom coverage)", () => {
+    const authoritative = new Set<string>([
+      ...AUTHORITATIVE_CLIENT_REFS,
+      ...AUTHORITATIVE_CLIENT_REVOKE_REFS,
+    ]);
+    const extra = CLIENT_FK_GRAPH.map((c) => `${c.table}.${c.column}`).filter(
+      (ref) => !authoritative.has(ref)
+    );
+    expect(extra, `coverage graph lists non-authoritative refs: ${extra.join(", ")}`).toEqual([]);
   });
 });
 

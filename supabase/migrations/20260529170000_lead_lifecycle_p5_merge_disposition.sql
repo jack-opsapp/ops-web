@@ -282,20 +282,12 @@ begin
       'missing_loser', 'Loser opportunity not found in company scope.');
   end if;
 
-  if v_winner.deleted_at is not null then
-    return public._record_opportunity_merge_skip(
-      p_company_id, p_winner_id, p_loser_id, p_merge_key, p_review_id,
-      p_field_fill, p_confirmed_overrides, p_resolved_by, p_run_id,
-      'winner_deleted', 'Winner opportunity is already soft-deleted.');
-  end if;
-  if v_loser.deleted_at is not null then
-    return public._record_opportunity_merge_skip(
-      p_company_id, p_winner_id, p_loser_id, p_merge_key, p_review_id,
-      p_field_fill, p_confirmed_overrides, p_resolved_by, p_run_id,
-      'loser_deleted', 'Loser opportunity is already soft-deleted.');
-  end if;
-
-  -- ── Step 3: idempotency ──
+  -- ── Step 3: idempotency (BEFORE the soft-deleted guards) ──
+  -- A same-key retry of an already-applied merge must short-circuit with the
+  -- documented 'duplicate_applied_merge' contract — not 'loser_deleted' (the
+  -- loser is soft-deleted precisely because the prior run applied). Placing the
+  -- idempotency lookup first keeps the retry data-safe AND audit-accurate.
+  -- 'loser_deleted'/'winner_deleted' remain the guard for an UNRELATED key.
   select id into v_existing_merge
     from public.opportunity_merges
    where merge_key = p_merge_key
@@ -310,6 +302,19 @@ begin
       'loser_id', p_loser_id,
       'guard_reason', 'duplicate_applied_merge',
       'error_code', 'duplicate_applied_merge');
+  end if;
+
+  if v_winner.deleted_at is not null then
+    return public._record_opportunity_merge_skip(
+      p_company_id, p_winner_id, p_loser_id, p_merge_key, p_review_id,
+      p_field_fill, p_confirmed_overrides, p_resolved_by, p_run_id,
+      'winner_deleted', 'Winner opportunity is already soft-deleted.');
+  end if;
+  if v_loser.deleted_at is not null then
+    return public._record_opportunity_merge_skip(
+      p_company_id, p_winner_id, p_loser_id, p_merge_key, p_review_id,
+      p_field_fill, p_confirmed_overrides, p_resolved_by, p_run_id,
+      'loser_deleted', 'Loser opportunity is already soft-deleted.');
   end if;
 
   -- ── Step 4: snapshot guard ──
@@ -480,13 +485,23 @@ begin
   -- then re-point the remainder. This join table has NO company_id column;
   -- scope is enforced via opportunity_id (both ids were validated under
   -- p_company_id above).
+  --
+  -- NULL semantics MUST mirror the DB unique index. The index
+  -- opportunity_email_threads_thread_id_connection_id_key is a STANDARD btree:
+  -- NULL is DISTINCT, so two rows sharing thread_id with NULL connection_id do
+  -- NOT collide and both are legal. We therefore treat rows as colliding only
+  -- when BOTH connection_ids are non-null and equal; a loser row with a NULL
+  -- connection_id is re-pointed (not deleted), exactly as the index permits —
+  -- otherwise the loser's distinct row metadata would be silently lost.
   delete from public.opportunity_email_threads loser
    where loser.opportunity_id = p_loser_id
+     and loser.connection_id is not null
      and exists (
        select 1 from public.opportunity_email_threads win
         where win.opportunity_id = p_winner_id
           and win.thread_id is not distinct from loser.thread_id
-          and win.connection_id is not distinct from loser.connection_id
+          and win.connection_id is not null
+          and win.connection_id = loser.connection_id
      );
   get diagnostics v_deleted_dupes = row_count;
 
@@ -633,6 +648,31 @@ begin
      and status = 'pending'
      and (entity_a_id = p_loser_id or entity_b_id = p_loser_id)
      and (entity_a_id = p_winner_id or entity_b_id = p_winner_id);
+
+  -- Pre-dedupe before the re-point: duplicate_reviews has a NON-partial unique
+  -- on (company_id, entity_type, entity_a_id, entity_b_id). A loser-paired
+  -- pending review (loser, X) that would re-point to (winner, X) must not collide
+  -- with a pre-existing pending review already pairing (winner, X) — otherwise
+  -- the UPDATE below raises a unique violation and aborts a legitimate merge.
+  -- Drop the loser-paired duplicates (the winner already has the review against X);
+  -- the surviving (winner, X) row is kept untouched.
+  delete from public.duplicate_reviews lo
+   where lo.company_id = p_company_id
+     and lo.entity_type = 'opportunity'
+     and lo.status = 'pending'
+     and (lo.entity_a_id = p_loser_id or lo.entity_b_id = p_loser_id)
+     and not (lo.entity_a_id = p_winner_id or lo.entity_b_id = p_winner_id)
+     and exists (
+       select 1 from public.duplicate_reviews ex
+        where ex.company_id = p_company_id
+          and ex.entity_type = 'opportunity'
+          and ex.status = 'pending'
+          and ex.id <> lo.id
+          and ex.entity_a_id = least(p_winner_id,
+                case when lo.entity_a_id = p_loser_id then lo.entity_b_id else lo.entity_a_id end)
+          and ex.entity_b_id = greatest(p_winner_id,
+                case when lo.entity_a_id = p_loser_id then lo.entity_b_id else lo.entity_a_id end)
+     );
 
   -- Remaining pending reviews: replace loser with winner, keep ordered pair.
   update public.duplicate_reviews
@@ -807,6 +847,18 @@ begin
       'missing_loser', 'Loser client not found in company scope.');
   end if;
 
+  -- ── Step 3: idempotency (BEFORE the soft-deleted guards; see opportunity RPC) ──
+  select id into v_existing_merge
+    from public.opportunity_merges
+   where merge_key = p_merge_key and loser_id = p_loser_id and status = 'applied'
+   limit 1;
+  if v_existing_merge is not null then
+    return jsonb_build_object(
+      'applied', false, 'merge_id', v_existing_merge,
+      'winner_id', p_winner_id, 'loser_id', p_loser_id,
+      'guard_reason', 'duplicate_applied_merge', 'error_code', 'duplicate_applied_merge');
+  end if;
+
   if v_winner.deleted_at is not null then
     return public._record_client_merge_skip(
       p_company_id, p_winner_id, p_loser_id, p_merge_key, p_review_id,
@@ -818,18 +870,6 @@ begin
       p_company_id, p_winner_id, p_loser_id, p_merge_key, p_review_id,
       p_field_fill, p_confirmed_overrides, p_resolved_by, p_run_id,
       'loser_deleted', 'Loser client is already soft-deleted.');
-  end if;
-
-  -- ── Step 3: idempotency ──
-  select id into v_existing_merge
-    from public.opportunity_merges
-   where merge_key = p_merge_key and loser_id = p_loser_id and status = 'applied'
-   limit 1;
-  if v_existing_merge is not null then
-    return jsonb_build_object(
-      'applied', false, 'merge_id', v_existing_merge,
-      'winner_id', p_winner_id, 'loser_id', p_loser_id,
-      'guard_reason', 'duplicate_applied_merge', 'error_code', 'duplicate_applied_merge');
   end if;
 
   -- ── Step 4: snapshot guard (deleted_at + updated_at) ──
@@ -991,6 +1031,14 @@ begin
   get diagnostics v_n = row_count;
   v_manifest := v_manifest || jsonb_build_object('task_recurrences', v_n);
 
+  -- follow_ups.client_id (unenforced uuid mirror; no FK ⇒ a soft-deleted loser
+  -- fires no SET NULL/CASCADE, so a left-behind row is a hard orphan — the same
+  -- mechanism as the activities.client_id orphans this build eliminates).
+  update public.follow_ups set client_id = p_winner_id
+   where client_id = p_loser_id and company_id = p_company_id;
+  get diagnostics v_n = row_count;
+  v_manifest := v_manifest || jsonb_build_object('follow_ups', v_n);
+
   -- client_product_overrides.client_id (enforced FK).
   update public.client_product_overrides set client_id = p_winner_id
    where client_id = p_loser_id and company_id = p_company_id;
@@ -1096,6 +1144,29 @@ begin
    where company_id = p_company_id and entity_type = 'client' and status = 'pending'
      and (entity_a_id = p_loser_id or entity_b_id = p_loser_id)
      and (entity_a_id = p_winner_id or entity_b_id = p_winner_id);
+
+  -- Pre-dedupe before the re-point (see the opportunity RPC for the rationale):
+  -- duplicate_reviews has a NON-partial unique on
+  -- (company_id, entity_type, entity_a_id, entity_b_id); a loser-paired review
+  -- whose re-pointed pair already exists for the winner must be dropped, not
+  -- re-pointed, or the UPDATE raises a unique violation and aborts the merge.
+  delete from public.duplicate_reviews lo
+   where lo.company_id = p_company_id
+     and lo.entity_type = 'client'
+     and lo.status = 'pending'
+     and (lo.entity_a_id = p_loser_id or lo.entity_b_id = p_loser_id)
+     and not (lo.entity_a_id = p_winner_id or lo.entity_b_id = p_winner_id)
+     and exists (
+       select 1 from public.duplicate_reviews ex
+        where ex.company_id = p_company_id
+          and ex.entity_type = 'client'
+          and ex.status = 'pending'
+          and ex.id <> lo.id
+          and ex.entity_a_id = least(p_winner_id,
+                case when lo.entity_a_id = p_loser_id then lo.entity_b_id else lo.entity_a_id end)
+          and ex.entity_b_id = greatest(p_winner_id,
+                case when lo.entity_a_id = p_loser_id then lo.entity_b_id else lo.entity_a_id end)
+     );
 
   update public.duplicate_reviews
      set entity_a_id = least(p_winner_id,
