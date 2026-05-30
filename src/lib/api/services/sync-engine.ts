@@ -3,6 +3,7 @@
 // Implements the 12-step flow from spec Section 4C.
 
 import { after } from "next/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireSupabase } from "@/lib/supabase/helpers";
 import { EmailService } from "./email-service";
 import { EmailMatchingServiceV2 } from "./email-matching-service-v2";
@@ -925,6 +926,63 @@ async function markConnectionNeedsReconnect(
   }
 }
 
+// ─── Import-shell reconciliation ───────────────────────────────────────────
+
+/**
+ * Reconcile a wizard-import shell activity against a freshly-synced provider
+ * message on the same thread.
+ *
+ * The wizard import (`/api/integrations/email/import`) creates "shell"
+ * activities with a deterministic synthetic message id of the form
+ * `import:<threadId>:<seq>` because it has no real Gmail message id. Steady
+ * sync dedupes on the exact `email_message_id`, so those synthetic shells are
+ * invisible to it — a re-sync of an imported thread would otherwise create a
+ * duplicate activity for correspondence the import already captured.
+ *
+ * This promotes the oldest still-synthetic shell on the thread to the real
+ * provider message id and reports the reconciliation, so the caller skips
+ * creating a new row. It only ever touches the `import:<threadId>:%` synthetic
+ * form, never a real-id activity, and each promotion writes a unique real id —
+ * respecting the partial unique index `activities_email_message_id_unique`.
+ *
+ * Returns true when a shell was reconciled (caller must NOT create a new row),
+ * false otherwise.
+ */
+async function reconcileImportShell(
+  supabase: SupabaseClient,
+  threadId: string,
+  realMessageId: string
+): Promise<boolean> {
+  const { data: importShells } = await supabase
+    .from("activities")
+    .select("id")
+    .eq("email_thread_id", threadId)
+    .like("email_message_id", `import:${threadId}:%`)
+    .order("created_at", { ascending: true })
+    .limit(1);
+
+  if (!importShells || importShells.length === 0) return false;
+
+  const { error } = await supabase
+    .from("activities")
+    .update({ email_message_id: realMessageId })
+    .eq("id", importShells[0].id);
+
+  if (error) {
+    // A unique-violation here means the real id already exists on another row
+    // (it was synced into a different activity). The exact-id dedup upstream
+    // already handles that case, so treat the shell as un-reconciled and let
+    // the caller proceed; do not duplicate or crash the sync loop.
+    console.error(
+      "[sync-engine] Failed to reconcile import shell (non-fatal):",
+      error.message
+    );
+    return false;
+  }
+
+  return true;
+}
+
 // ─── Inbound / Outbound Processors ─────────────────────────────────────────
 
 /** Returns true if the email was unmatched (no pattern, no thread link). */
@@ -954,6 +1012,21 @@ async function processInboundEmail(
     .limit(1);
 
   if (existing && existing.length > 0) return false;
+
+  // Reconcile a wizard-import shell on the same provider thread before
+  // creating a fresh activity. Wizard imports mint synthetic message ids of
+  // the form `import:<threadId>:<seq>` (see email/import/route.ts); those
+  // shells carry no real Gmail message id, so the exact-id dedup above can
+  // never match them. Without reconciliation a re-sync of an imported thread
+  // would create a duplicate activity for correspondence the import already
+  // recorded. Promote the oldest unreconciled shell to this real message id
+  // instead. Guarded to the synthetic form so a real-id activity is never
+  // touched. The partial unique index activities_email_message_id_unique is
+  // respected: each promotion writes a real, unique id and frees the synthetic
+  // one.
+  if (await reconcileImportShell(supabase, email.threadId, email.id)) {
+    return false;
+  }
 
   const {
     email: effectiveEmail,
@@ -1274,6 +1347,14 @@ async function processSentEmail(
     .limit(1);
 
   if (existing && existing.length > 0) return;
+
+  // Reconcile a wizard-import shell before minting a fresh sent activity, for
+  // the same reason as inbound: import shells carry synthetic ids and are
+  // invisible to the exact-id dedup. Promote the oldest shell on this thread
+  // to the real message id rather than duplicating the row.
+  if (await reconcileImportShell(supabase, email.threadId, email.id)) {
+    return;
+  }
 
   // Thread inheritance for sent mail
   const { data: threadLink } = await supabase

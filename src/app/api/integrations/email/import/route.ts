@@ -462,6 +462,15 @@ async function runImport(
           clientId: relationshipDecision.clientId ?? clientId,
           facts: enrichmentFacts,
         });
+        // Stamp provenance on the reused opportunity. The create branch sets
+        // source_email_id, but link / existing-open-opp do not — so a re-used
+        // opp dropped its email provenance. Fill-blank only: never overwrite an
+        // existing source_email_id with this import's thread id.
+        await supabase
+          .from("opportunities")
+          .update({ source_email_id: providerThreadId })
+          .eq("id", opportunityId)
+          .is("source_email_id", null);
       } else if (existingOpps && existingOpps.length > 0) {
         opportunityId = existingOpps[0].id;
         await applyCanonicalLeadEnrichment({
@@ -470,6 +479,11 @@ async function runImport(
           clientId,
           facts: enrichmentFacts,
         });
+        await supabase
+          .from("opportunities")
+          .update({ source_email_id: providerThreadId })
+          .eq("id", opportunityId)
+          .is("source_email_id", null);
       } else {
         const inboundCount = Math.max(0, (lead.correspondenceCount || 0) - (lead.outboundCount || 0));
         const lastMessageDate = lead.lastMessageDate ? new Date(lead.lastMessageDate) : null;
@@ -582,6 +596,26 @@ async function runImport(
         .limit(1);
 
       if (!existingActivity || existingActivity.length === 0) {
+        // Mint a deterministic synthetic provider message id for the import
+        // shell instead of NULL. The wizard import has no real Gmail message id,
+        // but a NULL message id is invisible to steady-sync's dedupe (which keys
+        // on `email_message_id`), so a later re-sync of the same thread would
+        // re-create the imported correspondence as duplicate activities. The
+        // synthetic form `import:<threadId>:<seq>` gives each shell a stable,
+        // dedupe-able identity. `activities_email_message_id_unique` is a global
+        // partial unique index over non-null values, so the id MUST be unique
+        // per activity — the per-thread sequence count is the discriminator,
+        // and counting existing email activities on the thread keeps a second
+        // wizard run idempotent against the first.
+        const { data: priorThreadActivities } = await supabase
+          .from("activities")
+          .select("id")
+          .eq("company_id", companyId)
+          .eq("email_thread_id", providerThreadId)
+          .eq("type", "email");
+        const syntheticSeq = (priorThreadActivities ?? []).length;
+        const syntheticMessageId = `import:${providerThreadId}:${syntheticSeq}`;
+
         const activity = await OpportunityService.createActivity({
           companyId,
           opportunityId,
@@ -595,7 +629,7 @@ async function runImport(
           direction: "inbound",
           durationMinutes: null,
           emailThreadId: providerThreadId,
-          emailMessageId: null,
+          emailMessageId: syntheticMessageId,
           isRead: true,
           fromEmail: lead.clientEmail,
           createdBy: null,
@@ -607,7 +641,7 @@ async function runImport(
           activityId: activity.id,
           connectionId,
           providerThreadId,
-          providerMessageId: null,
+          providerMessageId: syntheticMessageId,
           requireProviderMessageId: false,
           direction: "inbound",
           occurredAt: lead.lastMessageDate

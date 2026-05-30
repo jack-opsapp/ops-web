@@ -112,6 +112,11 @@ function makeSupabaseDouble(state: SupabaseState) {
       return this;
     }
 
+    like(column: string, value: unknown) {
+      this.filters.set(`${column}:like`, value);
+      return this;
+    }
+
     is(column: string, value: unknown) {
       this.filters.set(column, value);
       return this;
@@ -225,8 +230,37 @@ function makeSupabaseDouble(state: SupabaseState) {
     }
 
     private result() {
+      if (this.table === "activities" && this.action === "update") {
+        const id = this.filters.get("id");
+        const row = state.activities.find((activity) => activity.id === id);
+        if (row && this.payload) Object.assign(row, this.payload);
+        return { data: null, error: null };
+      }
+
       if (this.table === "activities" && this.action === "select") {
-        return { data: [], error: null };
+        const match = state.activities.filter((activity) => {
+          for (const [column, value] of this.filters.entries()) {
+            if (column.endsWith(":like")) {
+              const col = column.slice(0, -":like".length);
+              const pattern = String(value ?? "");
+              const prefix = pattern.endsWith("%")
+                ? pattern.slice(0, -1)
+                : pattern;
+              if (!String(activity[col] ?? "").startsWith(prefix)) {
+                return false;
+              }
+              continue;
+            }
+            if (
+              String(activity[column] ?? "").toLowerCase() !==
+              String(value ?? "").toLowerCase()
+            ) {
+              return false;
+            }
+          }
+          return true;
+        });
+        return { data: match, error: null };
       }
 
       if (
@@ -968,6 +1002,73 @@ describe("SyncEngine email opportunity title generation", () => {
     );
     expect(result.matched).toBe(1);
     expect(result.activitiesCreated).toBe(1);
+  });
+
+  it("reconciles a wizard-import shell instead of duplicating it on re-sync", async () => {
+    const state: SupabaseState = {
+      clients: [],
+      opportunities: [],
+      threadLinks: [
+        {
+          opportunity_id: "opp-imported",
+          thread_id: "thread-imported",
+          connection_id: "connection-1",
+        },
+      ],
+      // A wizard-import shell already exists on this thread with a synthetic
+      // message id and no real Gmail id. Steady-sync's exact-id dedupe cannot
+      // see it, so without reconciliation the synced message would duplicate it.
+      activities: [
+        {
+          id: "activity-shell",
+          company_id: "company-1",
+          type: "email",
+          email_thread_id: "thread-imported",
+          email_message_id: "import:thread-imported:0",
+          opportunity_id: "opp-imported",
+          created_at: "2026-05-19T00:00:00.000Z",
+        },
+      ],
+      correspondenceEvents: [],
+      rpcCalls: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+    getConnectionMock.mockResolvedValue(baseConnection());
+    getProviderMock.mockReturnValue({
+      fetchNewEmailsSince: vi.fn(async () => ({
+        emails: [
+          baseEmail({
+            id: "msg-real-1",
+            threadId: "thread-imported",
+            from: "Kara Beach <kara.beach@example.com>",
+            fromName: "Kara Beach",
+            to: ["jackson@canprodeckandrail.com"],
+            subject: "Deck quote follow-up",
+            labelIds: ["INBOX"],
+          }),
+        ],
+        nextSyncToken: "sync-token-2",
+      })),
+      fetchSentEmailsSince: vi.fn(async () => ({
+        emails: [],
+        nextSyncToken: "sync-token-2",
+      })),
+    });
+
+    const result = await SyncEngine.runSync("connection-1");
+
+    // The shell was promoted to the real message id — no new activity row.
+    expect(state.activities).toHaveLength(1);
+    expect(state.activities[0]).toMatchObject({
+      id: "activity-shell",
+      email_message_id: "msg-real-1",
+      email_thread_id: "thread-imported",
+      opportunity_id: "opp-imported",
+    });
+    // No fresh correspondence event minted for the reconciled message.
+    expect(state.correspondenceEvents).toHaveLength(0);
+    expect(result.activitiesCreated).toBe(0);
   });
 
   it("keeps valid inbound customer sender titles stable", async () => {
