@@ -1994,6 +1994,7 @@ export const SyncEngine = {
                 contactName: classified.clientName,
                 contactEmail: classified.clientEmail,
                 contactPhone: classified.clientPhone,
+                address: classified.address,
                 estimatedValue: classified.estimatedValue,
                 description: classified.description,
                 providerThreadId: classifiedEmail.threadId,

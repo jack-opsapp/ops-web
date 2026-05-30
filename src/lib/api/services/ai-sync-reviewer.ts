@@ -20,6 +20,7 @@ export interface AIClassifiedLead {
   clientName: string;
   clientEmail: string;
   clientPhone: string | null;
+  address: string | null;
   description: string;
   stage: string;
   estimatedValue: number | null;
@@ -96,6 +97,9 @@ export const AISyncReviewer = {
         to: e.to,
         subject: e.subject,
         snippet: e.snippet,
+        // Pass the cleaned body so the classifier can recover address/scope;
+        // it is capped to 1500 chars inside classifySingleBatch.
+        body: e.bodyTextClean || e.bodyText || e.snippet,
         date: e.date.toISOString(),
         direction: e.to.some((t) => t.includes(connection.email))
           ? ("outbound" as const)
@@ -124,6 +128,7 @@ export const AISyncReviewer = {
           clientName: c.client.name,
           clientEmail: c.client.email,
           clientPhone: c.client.phone,
+          address: c.client.address ?? null,
           description: c.client.description,
           stage: c.stage || "new_lead",
           estimatedValue: c.estimatedValue,
