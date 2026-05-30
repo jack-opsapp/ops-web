@@ -181,13 +181,20 @@ describe("P6 conversion RPC — transactional + guarded shape", () => {
     expect(body).toMatch(/and project_ref is null/i);
   });
 
-  it("re-links estimates via the FK-backed project_ref only (never the dead text project_id)", () => {
+  it("re-links estimates via the FK-backed project_ref AND mirrors the legacy text project_id", () => {
     const body = functionBody(sql(), FN);
+    // The web EstimateService.fetchEstimates filters a project's estimates by
+    // the legacy text column (query.eq("project_id", projectId)), so the mirror
+    // is REQUIRED — without it converted estimates vanish from the project's
+    // Estimates tab (Design Risk 6: a live reader keys off estimates.project_id).
+    // The text column has no FK, so the uuid-as-text mirror is additive/iOS-safe.
     expect(body).toMatch(
-      /update public\.estimates\s+set project_ref = p_project_id\s+where opportunity_id = p_opportunity_id/i
+      /update public\.estimates\s+set project_ref = p_project_id,\s*project_id\s*=\s*p_project_id::text\s+where opportunity_id = p_opportunity_id/i
     );
-    // must NOT write the dead legacy estimates.project_id text column.
-    expect(body).not.toMatch(/update public\.estimates\s+set project_id/i);
+    // Re-link is scoped to the source opportunity's estimates within the tenant.
+    expect(body).toMatch(
+      /where opportunity_id = p_opportunity_id\s+and company_id = p_company_id/i
+    );
   });
 
   it("supersedes prior active disposition then inserts converted_to_project / project_conversion", () => {

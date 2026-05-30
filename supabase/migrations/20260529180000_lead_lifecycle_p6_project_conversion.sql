@@ -24,6 +24,22 @@
 --   * NO NOT NULL / CHECK tightening / rename / type change / column drop on any
 --     existing projects column.
 --
+-- ┌──────────────────────────────────────────────────────────────────────────┐
+-- │ APPLY-ORDER DEPENDENCY (HARD REQUIREMENT — read before applying):          │
+-- │   This migration's RPC INSERTs into public.opportunity_dispositions with   │
+-- │   disposition='converted_to_project', decided_via='project_conversion' and │
+-- │   converted_project_ref — ALL of which are created by the P5 migration     │
+-- │   20260529170000 (and 20260529170100). This file's CREATE FUNCTION will    │
+-- │   succeed even if P5 is absent (plpgsql bodies are not validated at create │
+-- │   time), but EVERY conversion would then fail at runtime on the disposition│
+-- │   INSERT — and because the RPC is one transaction it rolls back cleanly (no │
+-- │   half-conversion, no orphan link), so a win silently creates no project.  │
+-- │   The lexicographic version order (170000 < 170100 < 180000) makes a normal│
+-- │   `supabase db push` of the whole batch correct; do NOT apply 180000 alone.│
+-- │   After applying, regenerate database.types.ts (the conversion service     │
+-- │   intentionally references the RPC by string until the types are present). │
+-- └──────────────────────────────────────────────────────────────────────────┘
+--
 -- Ordered AFTER 20260529170000 (P5 disposition migration — opportunity_dispositions
 -- table, disposition 'converted_to_project', decided_via 'project_conversion',
 -- converted_project_ref column) and 20260529170100 (lifecycle disposition ext).
@@ -201,10 +217,19 @@ begin
       using errcode = 'P0002';
   end if;
 
-  -- ── Step 7: re-link estimates to the new project (FK-backed column only) ──
-  -- The legacy estimates.project_id TEXT column is dead — do NOT propagate it.
+  -- ── Step 7: re-link estimates to the new project ──
+  -- Write the FK-backed estimates.project_ref (canonical) AND mirror the legacy
+  -- estimates.project_id TEXT column. The web EstimateService resolves a
+  -- project's estimates by querying estimates.project_id (text) — see
+  -- estimate-service.ts fetchEstimates(): query.eq("project_id", projectId).
+  -- If we wrote only project_ref, converted estimates would silently vanish
+  -- from the project workspace's Estimates tab. The text column has no FK and
+  -- accepts the uuid-as-text mirror exactly like projects.opportunity_id, so the
+  -- write is additive and iOS-safe. (Design Risk 6: a live reader DOES key off
+  -- estimates.project_id — verified — therefore mirror it.)
   update public.estimates
-     set project_ref = p_project_id
+     set project_ref = p_project_id,
+         project_id  = p_project_id::text
    where opportunity_id = p_opportunity_id
      and company_id = p_company_id;
   get diagnostics v_relinked = row_count;
