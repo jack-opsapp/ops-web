@@ -101,6 +101,79 @@ const CHUNK = 100;
  */
 const LEGACY_THREAD_PREFIX = "legacy%";
 
+/**
+ * Operator review notifications reuse the established lead-lifecycle persistent
+ * notification type (`leads_waiting`) — the same family the action-service uses
+ * for operator-follow-up-miss alerts — so a dry-run destructive candidate shows
+ * up in the rail with the rest of the lead-lifecycle work awaiting the operator.
+ * No dedicated review type exists, so we reuse the proven one rather than
+ * introduce a parallel surface.
+ */
+const REVIEW_NOTIFICATION_TYPE = "leads_waiting";
+const REVIEW_NOTIFICATION_ACTION_LABEL = "Review";
+
+function shortId(value: string): string {
+  return value.slice(0, 8);
+}
+
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value
+  );
+}
+
+function isSyntheticThreadContext(value: string): boolean {
+  return value.includes(":");
+}
+
+/**
+ * dedupe_key for a destructive review notification. Keyed on
+ * `(opportunityId, decisionAction)` so each distinct proposed disposition is
+ * deduped independently and re-runs do not stack duplicates. Mirrors the
+ * action-service's `lead_lifecycle:operator_follow_up_miss:<id>` family.
+ */
+function destructiveReviewDedupeKey(
+  opportunityId: string,
+  action: OpportunityLifecycleDecisionAction
+): string {
+  return `lead_lifecycle:destructive_candidate:${opportunityId}:${action}`;
+}
+
+/** Title + body copy per proposed disposition (ops-copywriter, OPS voice). */
+function destructiveReviewCopy(
+  action: OpportunityLifecycleDecisionAction,
+  opportunityTitle: string | null
+): { title: string; body: string } {
+  const leadLabel = opportunityTitle?.trim() || "lead";
+  switch (action) {
+    case "archive_after_two_unanswered_followups":
+      return {
+        title: `REVIEW // archive lead — ${leadLabel}`,
+        body: "Two follow-ups went unanswered. Proposed: archive. Review before it moves.",
+      };
+    case "archive_no_meaningful_correspondence":
+      return {
+        title: `REVIEW // archive lead — ${leadLabel}`,
+        body: "No meaningful correspondence on this lead. Proposed: archive. Review before it moves.",
+      };
+    case "move_to_lost_operator_no_response":
+      return {
+        title: `REVIEW // mark lost — ${leadLabel}`,
+        body: "Customer reached out and went unanswered past the window. Proposed: mark lost. Review before it moves.",
+      };
+    case "reactivate_on_related_inbound":
+      return {
+        title: `REVIEW // reactivate lead — ${leadLabel}`,
+        body: "A related message landed on this archived lead. Proposed: reactivate. Review before it moves.",
+      };
+    default:
+      return {
+        title: `REVIEW // ${leadLabel}`,
+        body: "A proposed lead-lifecycle action is awaiting your review.",
+      };
+  }
+}
+
 export interface DestructiveCandidate {
   opportunityId: string;
   companyId: string;
@@ -123,6 +196,12 @@ export interface LeadLifecycleCronResult {
   draftsSuperseded: number;
   destructiveDryRun: number;
   destructiveSkippedFragmented: number;
+  /** Review notifications inserted for dry-run destructive candidates. */
+  destructiveReviewNotificationsCreated: number;
+  /** Review notifications skipped because an unread/unresolved one already exists. */
+  destructiveReviewNotificationsSkippedExisting: number;
+  /** Review notifications skipped because no operator could be resolved for the company. */
+  destructiveReviewNotificationsSkippedMissingOperator: number;
   nonDestructiveSkipped: number;
   errors: number;
   /** Capped sample of destructive candidates for the structured log. */
@@ -454,6 +533,143 @@ async function fetchFragmentedOpportunityIds(
   return fragmented;
 }
 
+interface ReviewActionTarget {
+  actionUrl: string;
+  actionLabel: string;
+}
+
+function pipelineReviewTarget(opportunityId: string): ReviewActionTarget {
+  return {
+    actionUrl: `/pipeline?opportunityId=${encodeURIComponent(opportunityId)}`,
+    actionLabel: REVIEW_NOTIFICATION_ACTION_LABEL,
+  };
+}
+
+/**
+ * Resolve the action target for a review notification using the SAME logic as
+ * the action-service's `notificationActionTarget`: if the candidate's latest
+ * meaningful event carries a provider/internal thread id that resolves to an
+ * internal `email_threads` row, deep-link to `/inbox/<thread.id>`; otherwise
+ * fall back to `/pipeline?opportunityId=<id>`. Synthetic (`legacy:`-style)
+ * thread contexts never resolve to a real inbox thread.
+ */
+async function resolveReviewActionTarget(
+  supabase: CronSupabaseLike,
+  companyId: string,
+  opportunityId: string,
+  latestEvent: CorrespondenceEventRow | null
+): Promise<ReviewActionTarget> {
+  const fallback = pipelineReviewTarget(opportunityId);
+  const threadId = latestEvent?.provider_thread_id?.trim();
+  if (!threadId) return fallback;
+
+  const connectionId = latestEvent?.connection_id?.trim() || null;
+
+  if (isUuid(threadId)) {
+    let byIdQuery = supabase
+      .from("email_threads")
+      .select("id")
+      .eq("company_id", companyId)
+      .eq("id", threadId);
+    if (connectionId) byIdQuery = byIdQuery.eq("connection_id", connectionId);
+    const { data: byIdData } = await byIdQuery.limit(1);
+    const byId = (byIdData?.[0] as { id?: string } | undefined)?.id;
+    if (byId) {
+      return { actionUrl: `/inbox/${encodeURIComponent(byId)}`, actionLabel: REVIEW_NOTIFICATION_ACTION_LABEL };
+    }
+  }
+
+  if (isSyntheticThreadContext(threadId)) return fallback;
+
+  let byProviderQuery = supabase
+    .from("email_threads")
+    .select("id")
+    .eq("company_id", companyId)
+    .eq("provider_thread_id", threadId);
+  if (connectionId) byProviderQuery = byProviderQuery.eq("connection_id", connectionId);
+  const { data: byProviderData } = await byProviderQuery.limit(1);
+  const byProvider = (byProviderData?.[0] as { id?: string } | undefined)?.id;
+  if (byProvider) {
+    return { actionUrl: `/inbox/${encodeURIComponent(byProvider)}`, actionLabel: REVIEW_NOTIFICATION_ACTION_LABEL };
+  }
+
+  return fallback;
+}
+
+type ReviewNotificationOutcome =
+  | "created"
+  | "skipped_existing"
+  | "skipped_missing_operator"
+  | "skipped_insert_failed";
+
+/**
+ * Insert a deduped, persistent operator review notification for a dry-run
+ * destructive candidate. Mirrors the action-service operator-miss guard: an
+ * existing UNREAD + UNRESOLVED notification with the same dedupe_key short-
+ * circuits the insert, so a second cron run inserts 0. This ONLY inserts a
+ * notification row — it never mutates the opportunity, calls the guarded RPC,
+ * sends email, or creates a draft.
+ */
+async function emitDestructiveReviewNotification(
+  supabase: CronSupabaseLike,
+  args: {
+    operatorUserId: string | null;
+    companyId: string;
+    opportunityId: string;
+    opportunityTitle: string | null;
+    action: OpportunityLifecycleDecisionAction;
+    latestEvent: CorrespondenceEventRow | null;
+  }
+): Promise<ReviewNotificationOutcome> {
+  if (!args.operatorUserId) return "skipped_missing_operator";
+
+  const dedupeKey = destructiveReviewDedupeKey(args.opportunityId, args.action);
+
+  const { data: existingData } = await supabase
+    .from("notifications")
+    .select("id")
+    .eq("user_id", args.operatorUserId)
+    .eq("company_id", args.companyId)
+    .eq("type", REVIEW_NOTIFICATION_TYPE)
+    .eq("dedupe_key", dedupeKey)
+    .eq("is_read", false)
+    .is("resolved_at", null)
+    .limit(1);
+  if (Array.isArray(existingData) && existingData.length > 0) {
+    return "skipped_existing";
+  }
+
+  const target = await resolveReviewActionTarget(
+    supabase,
+    args.companyId,
+    args.opportunityId,
+    args.latestEvent
+  );
+  const copy = destructiveReviewCopy(args.action, args.opportunityTitle);
+
+  const { error } = await supabase
+    .from("notifications")
+    .insert({
+      user_id: args.operatorUserId,
+      company_id: args.companyId,
+      type: REVIEW_NOTIFICATION_TYPE,
+      title: copy.title,
+      body: copy.body,
+      is_read: false,
+      persistent: true,
+      action_url: target.actionUrl,
+      action_label: target.actionLabel,
+      project_id: null,
+      note_id: null,
+      dedupe_key: dedupeKey,
+      resolved_at: null,
+    })
+    .select("id")
+    .single();
+
+  return error ? "skipped_insert_failed" : "created";
+}
+
 export async function runLeadLifecycleCron(
   input: LeadLifecycleCronInput
 ): Promise<LeadLifecycleCronResult> {
@@ -473,6 +689,9 @@ export async function runLeadLifecycleCron(
     draftsSuperseded: 0,
     destructiveDryRun: 0,
     destructiveSkippedFragmented: 0,
+    destructiveReviewNotificationsCreated: 0,
+    destructiveReviewNotificationsSkippedExisting: 0,
+    destructiveReviewNotificationsSkippedMissingOperator: 0,
     nonDestructiveSkipped: 0,
     errors: 0,
     destructiveCandidates: [],
@@ -607,6 +826,31 @@ export async function runLeadLifecycleCron(
         result.destructiveSkippedFragmented += 1;
       } else {
         result.destructiveDryRun += 1;
+        // Surface the proposed (never-executed) disposition in the operator
+        // rail for review. INSERT-only and idempotent: a deduped persistent
+        // notification keyed on (opportunityId, action). No opportunity
+        // mutation, no guarded RPC, no email, no draft.
+        try {
+          const outcome = await emitDestructiveReviewNotification(supabase, {
+            operatorUserId: operators.get(opportunity.company_id) ?? null,
+            companyId: opportunity.company_id,
+            opportunityId: opportunity.id,
+            opportunityTitle: opportunity.title,
+            action: decision.action,
+            latestEvent: latestMeaningfulEvent(eventRows),
+          });
+          if (outcome === "created") {
+            result.destructiveReviewNotificationsCreated += 1;
+          } else if (outcome === "skipped_existing") {
+            result.destructiveReviewNotificationsSkippedExisting += 1;
+          } else if (outcome === "skipped_missing_operator") {
+            result.destructiveReviewNotificationsSkippedMissingOperator += 1;
+          } else {
+            result.errors += 1;
+          }
+        } catch {
+          result.errors += 1;
+        }
       }
       if (result.destructiveCandidates.length < DESTRUCTIVE_CANDIDATE_LOG_CAP) {
         result.destructiveCandidates.push({

@@ -65,6 +65,12 @@ export async function GET(request: NextRequest) {
         draftsSuperseded: result.draftsSuperseded,
         destructiveDryRun: result.destructiveDryRun,
         destructiveSkippedFragmented: result.destructiveSkippedFragmented,
+        destructiveReviewNotificationsCreated:
+          result.destructiveReviewNotificationsCreated,
+        destructiveReviewNotificationsSkippedExisting:
+          result.destructiveReviewNotificationsSkippedExisting,
+        destructiveReviewNotificationsSkippedMissingOperator:
+          result.destructiveReviewNotificationsSkippedMissingOperator,
         nonDestructiveSkipped: result.nonDestructiveSkipped,
         errors: result.errors,
         destructiveCandidates: result.destructiveCandidates,

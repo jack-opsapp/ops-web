@@ -348,6 +348,8 @@ describe("/api/cron/lead-lifecycle — destructive dry-run only", () => {
   function destructiveHandlers(opts: {
     fragmented: boolean;
     draftInserts: unknown[];
+    notificationInserts?: unknown[];
+    existingReviewNotification?: boolean;
   }) {
     return (table: string) => {
       if (table === "opportunity_correspondence_events") {
@@ -446,17 +448,30 @@ describe("/api/cron/lead-lifecycle — destructive dry-run only", () => {
             },
           });
         case "notifications":
-          return makeChain({ selectResult: () => ({ data: [], error: null }) });
+          // SELECT is the dedupe guard (unread + unresolved by dedupe_key).
+          // Return an existing row only when the test asks for the idempotent
+          // state; otherwise none, so the review insert fires.
+          return makeChain({
+            selectResult: () =>
+              opts.existingReviewNotification
+                ? { data: [{ id: "existing-review" }], error: null }
+                : { data: [], error: null },
+            onInsert: (payload) => {
+              opts.notificationInserts?.push(payload);
+              return { data: { id: "review-notif-1" }, error: null };
+            },
+          });
         default:
           return makeChain({ selectResult: () => ({ data: [], error: null }) });
       }
     };
   }
 
-  it("surfaces a destructive decision as a dry-run candidate and never calls the guarded RPC", async () => {
+  it("surfaces a destructive decision as a dry-run candidate, emits exactly one review notification, and never calls the guarded RPC", async () => {
     const draftInserts: unknown[] = [];
+    const notificationInserts: unknown[] = [];
     supabaseFromMock.mockImplementation(
-      destructiveHandlers({ fragmented: false, draftInserts })
+      destructiveHandlers({ fragmented: false, draftInserts, notificationInserts })
     );
 
     // The destructive opp's inbound event 60 days ago in a beyond-qualified
@@ -476,16 +491,70 @@ describe("/api/cron/lead-lifecycle — destructive dry-run only", () => {
       "move_to_lost_operator_no_response"
     );
 
+    // Exactly one persistent, deduped review notification surfaced for the
+    // operator, with the destructive-candidate dedupe key + pipeline fallback
+    // action target (no provider thread id on the event → /pipeline).
+    expect(body.destructiveReviewNotificationsCreated).toBe(1);
+    expect(body.destructiveReviewNotificationsSkippedExisting).toBe(0);
+    expect(notificationInserts).toHaveLength(1);
+    const review = notificationInserts[0] as any;
+    expect(review.type).toBe("leads_waiting");
+    expect(review.persistent).toBe(true);
+    expect(review.is_read).toBe(false);
+    expect(review.resolved_at).toBeNull();
+    expect(review.dedupe_key).toBe(
+      `lead_lifecycle:destructive_candidate:${DESTRUCTIVE_OPP}:move_to_lost_operator_no_response`
+    );
+    expect(review.action_url).toBe(
+      `/pipeline?opportunityId=${DESTRUCTIVE_OPP}`
+    );
+    expect(review.action_label).toBe("Review");
+    expect(typeof review.title).toBe("string");
+    expect(review.title.length).toBeGreaterThan(0);
+    expect(typeof review.body).toBe("string");
+    expect(review.body.length).toBeGreaterThan(0);
+
     // No opportunity mutation, no draft, no guarded RPC.
     expect(draftInserts).toHaveLength(0);
     expect(supabaseRpcMock).not.toHaveBeenCalled();
   });
 
-  it("flags a destructive decision on a fragmented opportunity as skipped-fragmented", async () => {
+  it("inserts 0 review notifications on a second run (dedupe guard short-circuits)", async () => {
     const draftInserts: unknown[] = [];
+    const notificationInserts: unknown[] = [];
+    // Second-run state: an unread/unresolved review notification already exists
+    // for this candidate → dedupe guard short-circuits → no insert.
+    supabaseFromMock.mockImplementation(
+      destructiveHandlers({
+        fragmented: false,
+        draftInserts,
+        notificationInserts,
+        existingReviewNotification: true,
+      })
+    );
+
+    const res = await GET(buildRequest("Bearer test-secret"));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+
+    expect(body.ok).toBe(true);
+    expect(body.destructiveDryRun).toBe(1);
+    expect(body.destructiveReviewNotificationsCreated).toBe(0);
+    expect(body.destructiveReviewNotificationsSkippedExisting).toBe(1);
+    expect(notificationInserts).toHaveLength(0);
+    expect(supabaseRpcMock).not.toHaveBeenCalled();
+  });
+
+  it("flags a destructive decision on a fragmented opportunity as skipped-fragmented and emits no review notification", async () => {
+    const draftInserts: unknown[] = [];
+    const notificationInserts: unknown[] = [];
     // Reuse the destructive event for the fragmented opp id.
     supabaseFromMock.mockImplementation((table: string) => {
-      const base = destructiveHandlers({ fragmented: true, draftInserts })(table);
+      const base = destructiveHandlers({
+        fragmented: true,
+        draftInserts,
+        notificationInserts,
+      })(table);
       if (table === "opportunity_correspondence_events") {
         base.then = (resolve: any) => {
           const likeFilter = base.filters.find((f: any) => f[0] === "like");
@@ -523,6 +592,10 @@ describe("/api/cron/lead-lifecycle — destructive dry-run only", () => {
     expect(body.destructiveDryRun).toBe(0);
     expect(body.destructiveSkippedFragmented).toBe(1);
     expect(body.destructiveCandidates[0].status).toBe("skipped-fragmented");
+
+    // Quarantined candidates are not actionable → no review notification.
+    expect(body.destructiveReviewNotificationsCreated).toBe(0);
+    expect(notificationInserts).toHaveLength(0);
 
     expect(draftInserts).toHaveLength(0);
     expect(supabaseRpcMock).not.toHaveBeenCalled();
