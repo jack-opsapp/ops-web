@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
 import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
+import { checkPermissionById } from "@/lib/supabase/check-permission";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
 import { DuplicateDetectionService } from "@/lib/api/services/duplicate-detection-service";
@@ -29,8 +30,25 @@ export async function POST(
     return NextResponse.json({ error: "User not found" }, { status: 401 });
   }
 
+  // Granular permission — never filter by role. Merging duplicates mutates
+  // pipeline records, so it is gated on the pipeline.manage permission.
+  const allowed = await checkPermissionById(user.id as string, "pipeline.manage");
+  if (!allowed) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const body = await request.json();
-  const { winnerId, fieldOverrides, additionalReviewIds, entityEdits, entityType } = body;
+  const {
+    winnerId,
+    // `confirmedOverrides` is the operator-confirmed overwrite of non-blank
+    // winner fields (Q2). `fieldOverrides` is accepted as a legacy alias.
+    confirmedOverrides,
+    fieldOverrides,
+    additionalReviewIds,
+    entityEdits,
+    entityType,
+  } = body;
+  const overrides = confirmedOverrides ?? fieldOverrides;
 
   if (!winnerId || typeof winnerId !== "string") {
     return NextResponse.json(
@@ -58,14 +76,14 @@ export async function POST(
         allReviewIds,
         winnerId,
         user.id as string,
-        fieldOverrides
+        overrides
       );
     } else {
       await DuplicateDetectionService.mergeEntities(
         reviewId,
         winnerId,
         user.id as string,
-        fieldOverrides
+        overrides
       );
     }
     return NextResponse.json({ ok: true });
