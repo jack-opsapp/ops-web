@@ -1104,8 +1104,13 @@ ${opportunityContext ? `\nContext:\n${opportunityContext}` : ""}`;
       .update(sentUpdate)
       .eq("id", draftHistoryId);
 
-    // Feed changes back into writing profile learning (per profile type)
-    if (enrichedChanges.length > 0) {
+    // Feed changes back into writing profile learning (per profile type).
+    // Skip when the ONLY edit is a subject change: per the product decision
+    // subject edits never promote the voice profile (learnFromEdits has no
+    // 'subject' branch), so calling it for a subject-only edit is a wasted DB
+    // round-trip that can never mutate the profile. Subject deltas remain
+    // recorded in changes_made above for analytics.
+    if (enrichedChanges.some((c) => c.type !== "subject")) {
       await this.learnFromEdits(companyId, userId, enrichedChanges, effectiveProfileType);
     }
 

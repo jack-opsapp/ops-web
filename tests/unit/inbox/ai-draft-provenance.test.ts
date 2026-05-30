@@ -58,6 +58,7 @@ interface DbState {
   updates: Array<{ table: string; payload: Record<string, unknown>; filters: Record<string, unknown> }>;
   inserts: Array<{ table: string; payload: Record<string, unknown> }>;
   learnSentDrafts: Array<{ changes_made: unknown }>; // rows returned to learnFromEdits
+  learnFromEditsReads: number; // count of learnFromEdits' recent-sent-drafts query
 }
 
 let db: DbState;
@@ -125,6 +126,9 @@ vi.mock("@/lib/supabase/helpers", async () => {
         return;
       }
       if (table === "ai_draft_history") {
+        // This awaited (non-single) select is learnFromEdits reading the last
+        // 20 sent drafts. Count it so tests can assert it was/wasn't issued.
+        db.learnFromEditsReads += 1;
         resolve({ data: db.learnSentDrafts, error: null });
         return;
       }
@@ -152,6 +156,7 @@ function freshDb(): DbState {
     updates: [],
     inserts: [],
     learnSentDrafts: [],
+    learnFromEditsReads: 0,
   };
 }
 
@@ -230,6 +235,46 @@ describe("P4-B — recordDraftOutcome provenance stamping", () => {
     expect(sentUpd?.payload.sent_without_changes).toBe(false);
     // No writing-profile update was attempted/promoted.
     expect(db.updates.some((u) => u.table === "agent_writing_profiles")).toBe(false);
+  });
+
+  it("skips the learnFromEdits read for a subject-ONLY edit (subject never promotes the profile)", async () => {
+    db.aiDraftHistory.set("d6", {
+      original_draft: "Same body",
+      profile_type: "client_followup",
+      subject: "Re: Quote",
+    });
+    await AIDraftService.recordDraftOutcome(
+      "d6",
+      "co-1",
+      "u-1",
+      "sent",
+      "Same body", // body unchanged
+      "client_followup",
+      "Re: Different subject" // subject changed → recorded, but no learning
+    );
+    // The subject delta is still recorded on the row...
+    const sentUpd = db.updates.find((u) => u.table === "ai_draft_history");
+    expect(sentUpd?.payload.subject_source).toBe("operator");
+    // ...but learnFromEdits' recent-sent-drafts query was NOT issued.
+    expect(db.learnFromEditsReads).toBe(0);
+  });
+
+  it("DOES run learnFromEdits when the body changed (alongside any subject edit)", async () => {
+    db.aiDraftHistory.set("d7", {
+      original_draft: "Original body text here",
+      profile_type: "general",
+      subject: "Re: Quote",
+    });
+    await AIDraftService.recordDraftOutcome(
+      "d7",
+      "co-1",
+      "u-1",
+      "sent",
+      "Completely different body content now", // body changed
+      "general",
+      "Re: Also changed"
+    );
+    expect(db.learnFromEditsReads).toBeGreaterThan(0);
   });
 
   it("does not flip sent_without_changes false when nothing changed", async () => {
