@@ -144,6 +144,8 @@ describe("lead lifecycle enrichment decisions", () => {
         description: "Operator-entered scope",
         source: "referral",
         source_email_id: "provider-thread-existing",
+        source_message_id: "provider-message-existing",
+        source_metadata: { platform_name: "HomeStars" },
       },
       existingClient: {
         name: "Kara Beach Contracting",
@@ -341,14 +343,14 @@ describe("lead lifecycle enrichment decisions", () => {
     expect(facts.estimatedValue).toBe(18500);
   });
 
-  it("documents schema gaps instead of inventing hidden provenance storage", () => {
-    expect(getLeadEnrichmentSchemaGaps()).toEqual(
-      expect.arrayContaining([
-        expect.stringContaining("company_name"),
-        expect.stringContaining("field-level provenance"),
-        expect.stringContaining("source platform"),
-        expect.stringContaining("provider message id"),
-      ])
+  it("documents only the remaining (deferred company_name) schema gap", () => {
+    const gaps = getLeadEnrichmentSchemaGaps();
+    // P2 closed provenance, source platform metadata, and the provider
+    // message-id pointer. Only the product-gated company_name split remains.
+    expect(gaps).toEqual(
+      expect.arrayContaining([expect.stringContaining("company_name")])
     );
+    expect(gaps.some((g) => /field-level provenance/.test(g))).toBe(false);
+    expect(gaps.some((g) => /provider message id/.test(g))).toBe(false);
   });
 });

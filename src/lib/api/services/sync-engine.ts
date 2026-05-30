@@ -420,6 +420,7 @@ async function getOrCreateOpportunity(
         opportunityId: existing[0].id,
         clientId,
         facts: titleOptions.enrichmentFacts,
+        companyId,
       });
     }
     return existing[0].id;
@@ -1060,6 +1061,7 @@ async function processInboundEmail(
       supabase,
       opportunityId: threadLink[0].opportunity_id,
       facts: inboundEnrichmentFacts,
+      companyId: connection.companyId,
     });
     await updateCorrespondenceCounts(
       threadLink[0].opportunity_id,
@@ -1141,6 +1143,7 @@ async function processInboundEmail(
         opportunityId: oppId,
         clientId: relationshipDecision.clientId ?? matchResult.clientId,
         facts: inboundEnrichmentFacts,
+        companyId: connection.companyId,
       });
       await updateCorrespondenceCounts(
         oppId,
@@ -1259,6 +1262,7 @@ async function processInboundEmail(
           opportunityId: oppId,
           clientId: matchedClientId,
           facts: inboundEnrichmentFacts,
+          companyId: connection.companyId,
         });
       } else {
         await updateCorrespondenceCounts(
@@ -1381,6 +1385,7 @@ async function processSentEmail(
         connection,
         profile,
       }),
+      companyId: connection.companyId,
     });
     await updateCorrespondenceCounts(
       threadLink[0].opportunity_id,
