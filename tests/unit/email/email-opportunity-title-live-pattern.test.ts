@@ -96,6 +96,11 @@ function makeSupabaseDouble(state: SupabaseState) {
       return this;
     }
 
+    like(column: string, value: unknown) {
+      this.filters.set(`${column}:like`, value);
+      return this;
+    }
+
     is(column: string, value: unknown) {
       this.filters.set(column, value);
       return this;
