@@ -26,6 +26,7 @@ export type Namespace =
   | 'import-wizard'
   | 'projects-canvas'
   | 'duplicates'
+  | 'data-review'
   | 'autonomy'
   | 'agent-queue'
   | 'scheduling'
