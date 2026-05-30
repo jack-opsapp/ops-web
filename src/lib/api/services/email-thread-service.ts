@@ -1110,7 +1110,14 @@ export const EmailThreadService = {
         );
         return threadRow;
       }
-      return mapEmailThreadFromDb(detUpdated);
+      const mappedInternal = mapEmailThreadFromDb(detUpdated);
+      // P4-A: fire the Phase C router uniformly. INTERNAL is unmapped in the
+      // autonomy config so this no-ops in practice, but routing it here keeps
+      // the firing path uniform and future-proofs an INTERNAL autonomy level.
+      // No notification on INTERNAL (fireThreadNotifications is LLM-path only
+      // and INTERNAL never warrants a page).
+      firePhaseCRouter(mappedInternal);
+      return mappedInternal;
     }
 
     // ── Deterministic CUSTOMER classification ──────────────────────────
@@ -1169,10 +1176,21 @@ export const EmailThreadService = {
           return threadRow;
         }
 
-        // Match the INTERNAL bypass: no notification hook, no Phase C
-        // autonomy router. Both fire only on the LLM path today; expanding
-        // them to deterministic categories is a separate change.
-        return mapEmailThreadFromDb(custUpdated);
+        const mappedCustomer = mapEmailThreadFromDb(custUpdated);
+
+        // P4-A: fire the Phase C router uniformly. CUSTOMER at `auto_draft`
+        // (the only level Canpro enabled) was silently inert here before —
+        // the deterministic branch always wins for opportunity-linked threads,
+        // so auto_draft never ran on first classification. Now it does.
+        firePhaseCRouter(mappedCustomer);
+
+        // Notification hook — parity with the LLM path. Fires on CUSTOMER
+        // transitions for inbound threads (the "new lead landed" page).
+        fireThreadNotifications(threadRow, mappedCustomer).catch((err) =>
+          console.error("[thread-notify] hook failed (non-fatal):", err)
+        );
+
+        return mappedCustomer;
       }
     }
 
@@ -1225,23 +1243,9 @@ export const EmailThreadService = {
 
     const mappedUpdated = mapEmailThreadFromDb(updated);
 
-    // Phase C post-classification hook — fire-and-forget. Classification
-    // must never be blocked by routing issues (draft generation can be slow).
-    import("./phase-c-autonomy-router")
-      .then(({ PhaseCAutonomyRouter }) => PhaseCAutonomyRouter.route(mappedUpdated))
-      .then((result) => {
-        if (result.outcome !== "noop_off" && result.outcome !== "noop_draft_on_request") {
-          console.log(
-            "[phase-c-router] thread=%s outcome=%s level=%s",
-            mappedUpdated.id,
-            result.outcome,
-            result.effectiveLevel
-          );
-        }
-      })
-      .catch((err) =>
-        console.error("[phase-c-router] post-classify route failed:", err)
-      );
+    // P4-A: Phase C post-classification hook — fire-and-forget via the shared
+    // helper so the LLM path and the deterministic paths fire identically.
+    firePhaseCRouter(mappedUpdated);
 
     // Notification hook — fire-and-forget. Only fires on category TRANSITIONS
     // (LEAD/PLATFORM_BID that wasn't LEAD/PLATFORM_BID before) or on a newly
@@ -2073,6 +2077,43 @@ export type { RailFilter, InboxScope } from "@/lib/types/email-thread";
 // Addressed to the connection owner (email_connections.user_id). Uses
 // NotificationService.create — the DB-level dedup index ignores repeat titles
 // in the same company+user while unread, so we don't spam.
+
+/**
+ * Phase C post-classification hook — fire-and-forget.
+ *
+ * P4-A: classification must fire the autonomy router *uniformly*, regardless
+ * of which classification path produced the category. Before P4-A the router
+ * only ran on the LLM path; the deterministic INTERNAL and CUSTOMER branches
+ * early-returned without ever invoking it, so CUSTOMER `auto_draft` (the only
+ * level Canpro has enabled) was silently inert on first deterministic
+ * classification. This helper is now called before every return in
+ * `classifyAndUpdate`.
+ *
+ * Fire-and-forget by contract: classification must never be blocked by a
+ * routing error (draft generation can be slow and the router is defensive).
+ * The router itself no-ops for INTERNAL (unmapped category → 'off'), so this
+ * is safe to call on the deterministic-INTERNAL path without notifying.
+ */
+function firePhaseCRouter(thread: EmailThread): void {
+  import("./phase-c-autonomy-router")
+    .then(({ PhaseCAutonomyRouter }) => PhaseCAutonomyRouter.route(thread))
+    .then((result) => {
+      if (
+        result.outcome !== "noop_off" &&
+        result.outcome !== "noop_draft_on_request"
+      ) {
+        console.log(
+          "[phase-c-router] thread=%s outcome=%s level=%s",
+          thread.id,
+          result.outcome,
+          result.effectiveLevel
+        );
+      }
+    })
+    .catch((err) =>
+      console.error("[phase-c-router] post-classify route failed:", err)
+    );
+}
 
 async function fireThreadNotifications(
   previous: EmailThread,
