@@ -110,6 +110,12 @@ function mapProjectFromDb(raw: unknown): import("@/lib/types/models").Project | 
     companyId: r.company_id as string,
     clientId: (r.client_id as string) ?? null,
     opportunityId: (r.opportunity_id as string) ?? null,
+    opportunityRef: (r.opportunity_ref as string) ?? null,
+    estimatedValue:
+      r.estimated_value != null ? Number(r.estimated_value) : null,
+    source: (r.source as string) ?? null,
+    platformMetadata:
+      (r.platform_metadata as Record<string, unknown>) ?? null,
     allDay: (r.all_day as boolean) ?? true,
     teamMemberIds: (r.team_member_ids as string[]) ?? [],
     projectDescription: (r.project_description as string) ?? null,

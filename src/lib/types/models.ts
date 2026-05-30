@@ -251,6 +251,14 @@ export interface Project {
   companyId: string;
   clientId: string | null;
   opportunityId: string | null;
+  // P6 normalized uuid back-link to opportunities (FK). Additive; iOS adopts it
+  // post-release. The legacy text `opportunityId` is kept and mirrored.
+  opportunityRef: string | null;
+  // P6 conversion-payload columns (additive, nullable). Carried from the source
+  // opportunity on conversion via fill-blank semantics.
+  estimatedValue: number | null;
+  source: string | null;
+  platformMetadata: Record<string, unknown> | null;
   allDay: boolean;
   teamMemberIds: string[];
   projectDescription: string | null;
