@@ -24,6 +24,8 @@ export interface AIClassifiedLead {
   description: string;
   stage: string;
   estimatedValue: number | null;
+  /** Model-reported classification confidence (0..1) for provenance. */
+  confidence: number;
 }
 
 export interface AIReviewResult {
@@ -132,6 +134,7 @@ export const AISyncReviewer = {
           description: c.client.description,
           stage: c.stage || "new_lead",
           estimatedValue: c.estimatedValue,
+          confidence: c.confidence,
         };
       })
       .filter((l): l is AIClassifiedLead => l !== null);

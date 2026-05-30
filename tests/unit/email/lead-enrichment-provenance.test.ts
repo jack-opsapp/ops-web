@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   applyCanonicalLeadEnrichment,
   buildLeadEnrichmentUpdates,
+  provenanceConfidenceForFacts,
   provenanceConfidenceForSource,
   provenanceSourceForFacts,
 } from "@/lib/email/lead-enrichment";
@@ -87,6 +88,12 @@ describe("provenance source + confidence mapping", () => {
     ).toBe("import");
   });
 
+  it("maps ai_classified to source='ai'", () => {
+    expect(
+      provenanceSourceForFacts({ extractionSource: "ai_classified" })
+    ).toBe("ai");
+  });
+
   it("resolves to operator when an actor is present", () => {
     expect(
       provenanceSourceForFacts(
@@ -102,6 +109,37 @@ describe("provenance source + confidence mapping", () => {
     expect(provenanceConfidenceForSource("import")).toBe(0.8);
     expect(provenanceConfidenceForSource("inbound")).toBe(0.6);
     expect(provenanceConfidenceForSource("outbound")).toBe(0.5);
+    expect(provenanceConfidenceForSource("ai")).toBeNull();
+  });
+
+  it("uses the model confidence for ai-classified facts (clamped 0..1)", () => {
+    expect(
+      provenanceConfidenceForFacts(
+        { extractionSource: "ai_classified", aiConfidence: 0.83 },
+        "ai"
+      )
+    ).toBe(0.83);
+    // Clamp out-of-range model values.
+    expect(
+      provenanceConfidenceForFacts(
+        { extractionSource: "ai_classified", aiConfidence: 1.4 },
+        "ai"
+      )
+    ).toBe(1);
+    // Missing confidence falls back to null.
+    expect(
+      provenanceConfidenceForFacts(
+        { extractionSource: "ai_classified", aiConfidence: null },
+        "ai"
+      )
+    ).toBeNull();
+    // Non-ai sources ignore aiConfidence and use the per-source convention.
+    expect(
+      provenanceConfidenceForFacts(
+        { extractionSource: "inbound_sender", aiConfidence: 0.2 },
+        "inbound"
+      )
+    ).toBe(0.6);
   });
 });
 
@@ -286,6 +324,88 @@ describe("applyCanonicalLeadEnrichment provenance writes", () => {
 
     // Nothing was filled, so no provenance rows are upserted.
     expect(upserts).toHaveLength(0);
+  });
+
+  it("writes source='ai' with the model confidence on AI-classified facts", async () => {
+    const upserts: UpsertCall[] = [];
+    const supabase = fakeSupabase({
+      opportunityRow: {
+        client_id: null,
+        contact_name: null,
+        address: null,
+        estimated_value: null,
+        detected_value: null,
+        description: null,
+        source: null,
+        source_email_id: null,
+        source_message_id: null,
+        source_metadata: null,
+      },
+      upserts,
+    });
+
+    await applyCanonicalLeadEnrichment({
+      supabase,
+      opportunityId: "opp-1",
+      facts: inboundFacts({
+        extractionSource: "ai_classified",
+        aiConfidence: 0.91,
+      }),
+      companyId: "company-1",
+    });
+
+    const rows = upserts[0].rows;
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) {
+      expect(row.source).toBe("ai");
+      expect(row.confidence).toBe(0.91);
+    }
+  });
+
+  it("degrades gracefully when the provenance table is missing (no throw)", async () => {
+    const supabase = {
+      from(table: string) {
+        if (table === "lead_field_provenance") {
+          return {
+            upsert: async () => {
+              throw new Error('relation "lead_field_provenance" does not exist');
+            },
+          };
+        }
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: {
+                  client_id: null,
+                  contact_name: null,
+                  address: null,
+                  estimated_value: null,
+                  detected_value: null,
+                  description: null,
+                  source: null,
+                  source_email_id: null,
+                  source_message_id: null,
+                  source_metadata: null,
+                },
+                error: null,
+              }),
+            }),
+          }),
+          update: () => ({ eq: async () => ({ error: null }) }),
+        };
+      },
+    };
+
+    // Must resolve, not reject, even though the provenance upsert throws.
+    await expect(
+      applyCanonicalLeadEnrichment({
+        supabase,
+        opportunityId: "opp-1",
+        facts: inboundFacts(),
+        companyId: "company-1",
+      })
+    ).resolves.toBeDefined();
   });
 
   it("skips provenance entirely when companyId is absent", async () => {

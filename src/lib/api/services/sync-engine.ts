@@ -33,6 +33,7 @@ import {
   buildNewOpportunityEnrichmentFields,
   leadEnrichmentFactsFromEmail,
   leadEnrichmentFactsFromImport,
+  writeFieldProvenance,
   type LeadEnrichmentFacts,
 } from "@/lib/email/lead-enrichment";
 import {
@@ -270,18 +271,42 @@ async function createClient(
   const enrichmentFields = enrichmentFacts
     ? buildNewClientEnrichmentFields(enrichmentFacts)
     : {};
+  const insertedClient = {
+    company_id: companyId,
+    name: senderName,
+    email: enrichmentFacts?.contactEmail ?? senderEmail ?? null,
+    phone_number: enrichmentFacts?.contactPhone ?? submitter?.phone ?? null,
+    ...enrichmentFields,
+  };
   const { data } = await supabase
     .from("clients")
-    .insert({
-      company_id: companyId,
-      name: senderName,
-      email: enrichmentFacts?.contactEmail ?? senderEmail ?? null,
-      phone_number: enrichmentFacts?.contactPhone ?? submitter?.phone ?? null,
-      ...enrichmentFields,
-    })
+    .insert(insertedClient)
     .select("id")
     .single();
-  return data!.id;
+  const clientId = data!.id as string;
+
+  // Record provenance for the customer facts this insert established. A fresh
+  // insert cannot clobber anything, but the dossier/audit feature needs a row
+  // for new leads, not only for reuse/link branches.
+  if (enrichmentFacts) {
+    const clientUpdates: Record<string, unknown> = {};
+    if (enrichmentFacts.companyName ?? enrichmentFacts.contactName) {
+      clientUpdates.name = enrichmentFacts.companyName ?? enrichmentFacts.contactName;
+    }
+    if (enrichmentFacts.contactEmail) clientUpdates.email = enrichmentFacts.contactEmail;
+    if (enrichmentFacts.contactPhone) clientUpdates.phone_number = enrichmentFacts.contactPhone;
+    if (enrichmentFacts.address) clientUpdates.address = enrichmentFacts.address;
+    await writeFieldProvenance({
+      supabase,
+      companyId,
+      opportunityId: null,
+      clientId,
+      opportunityUpdates: {},
+      clientUpdates,
+      facts: enrichmentFacts,
+    });
+  }
+  return clientId;
 }
 
 async function createSubClient(
@@ -354,6 +379,9 @@ async function createOpportunity(
     senderCandidate,
     clientCandidate,
   ].filter(Boolean) as EmailOpportunityIdentityCandidate[];
+  const opportunityEnrichmentFields = titleOptions.enrichmentFacts
+    ? buildNewOpportunityEnrichmentFields(titleOptions.enrichmentFacts)
+    : {};
   const { data } = await supabase
     .from("opportunities")
     .insert({
@@ -366,9 +394,7 @@ async function createOpportunity(
       }),
       stage,
       source: "email",
-      ...(titleOptions.enrichmentFacts
-        ? buildNewOpportunityEnrichmentFields(titleOptions.enrichmentFacts)
-        : {}),
+      ...opportunityEnrichmentFields,
       correspondence_count: 1,
       outbound_count: isOutbound ? 1 : 0,
       inbound_count: isOutbound ? 0 : 1,
@@ -380,10 +406,28 @@ async function createOpportunity(
     .select("id")
     .single();
 
+  const opportunityId = data!.id as string;
+
+  // Record provenance for the customer facts this insert established, so new
+  // leads (the majority) carry a dossier/audit trail — not only the
+  // reuse/link/thread-inherit branches that flow through
+  // applyCanonicalLeadEnrichment. A fresh insert cannot overwrite anything.
+  if (titleOptions.enrichmentFacts) {
+    await writeFieldProvenance({
+      supabase,
+      companyId,
+      opportunityId,
+      clientId: null,
+      opportunityUpdates: opportunityEnrichmentFields,
+      clientUpdates: {},
+      facts: titleOptions.enrichmentFacts,
+    });
+  }
+
   // Phase C observability: log lead creation so the heartbeat cron has a
   // signal of end-to-end ingestion success, not just webhook delivery.
   console.log("[email-ingest] lead-created", {
-    leadId: data!.id,
+    leadId: opportunityId,
     companyId,
     clientId,
     stage,
@@ -391,7 +435,7 @@ async function createOpportunity(
     msToCreate: Date.now() - startedAt,
   });
 
-  return data!.id;
+  return opportunityId;
 }
 
 async function getOrCreateOpportunity(
@@ -2004,7 +2048,10 @@ export const SyncEngine = {
                 description: classified.description,
                 providerThreadId: classifiedEmail.threadId,
                 providerMessageId: classifiedEmail.id,
-                extractionSource: "historical_metadata",
+                // Steady-sync AI classifier output is genuinely model-derived;
+                // record it as source='ai' carrying the model's own confidence.
+                extractionSource: "ai_classified",
+                aiConfidence: classified.confidence,
               });
 
               let clientId: string;
