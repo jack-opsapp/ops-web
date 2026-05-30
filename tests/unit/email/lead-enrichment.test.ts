@@ -343,6 +343,73 @@ describe("lead lifecycle enrichment decisions", () => {
     expect(facts.estimatedValue).toBe(18500);
   });
 
+  it("rejects an out-of-range body value so it never fills estimated_value", () => {
+    // A spam/marketing figure beyond numeric(12) must not fill the blank value
+    // (and would otherwise throw a numeric overflow on write).
+    const facts = leadEnrichmentFactsFromEmail({
+      email: baseEmail({
+        from: "Kara Beach <kara.beach@example.com>",
+        fromName: "Kara Beach",
+        bodyText: "Project budget: $5,000,000,000,000 for the build.",
+        bodyTextClean: "Project budget: $5,000,000,000,000 for the build.",
+      }),
+      direction: "inbound",
+      connection: baseConnection(),
+      profile: syncProfile,
+    });
+    // Extractor surfaced a raw figure, but the fact builder rejected it.
+    expect(facts.estimatedValue).toBeNull();
+
+    const updates = buildLeadEnrichmentUpdates({
+      existingOpportunity: {
+        contact_name: "Kara Beach",
+        contact_email: "kara.beach@example.com",
+        address: "10 Operator Road",
+        estimated_value: null,
+        detected_value: null,
+        description: "scope",
+        source: "referral",
+        source_email_id: "existing-thread",
+      },
+      facts,
+    });
+    expect(updates.opportunity.estimated_value).toBeUndefined();
+    expect(updates.opportunity.detected_value).toBeUndefined();
+  });
+
+  it("fills estimated_value but skips the integer detected_value mirror when above the int ceiling", () => {
+    // 3,000,000,000 is a valid numeric(12) amount but overflows the 4-byte
+    // detected_value integer; the mirror must be skipped, the numeric write kept.
+    const facts = leadEnrichmentFactsFromEmail({
+      email: baseEmail({
+        from: "Kara Beach <kara.beach@example.com>",
+        fromName: "Kara Beach",
+        bodyText: "Project budget: $3,000,000,000 for the development.",
+        bodyTextClean: "Project budget: $3,000,000,000 for the development.",
+      }),
+      direction: "inbound",
+      connection: baseConnection(),
+      profile: syncProfile,
+    });
+    expect(facts.estimatedValue).toBe(3_000_000_000);
+
+    const updates = buildLeadEnrichmentUpdates({
+      existingOpportunity: {
+        contact_name: "Kara Beach",
+        contact_email: "kara.beach@example.com",
+        address: "10 Operator Road",
+        estimated_value: null,
+        detected_value: null,
+        description: "scope",
+        source: "referral",
+        source_email_id: "existing-thread",
+      },
+      facts,
+    });
+    expect(updates.opportunity.estimated_value).toBe(3_000_000_000);
+    expect(updates.opportunity.detected_value).toBeUndefined();
+  });
+
   it("documents only the remaining (deferred company_name) schema gap", () => {
     const gaps = getLeadEnrichmentSchemaGaps();
     // P2 closed provenance, source platform metadata, and the provider

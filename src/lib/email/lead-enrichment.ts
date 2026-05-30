@@ -42,7 +42,14 @@ export interface LeadEnrichmentFacts {
     | "inbound_sender"
     | "outbound_recipient"
     | "import_payload"
-    | "historical_metadata";
+    | "historical_metadata"
+    | "ai_classified";
+  /**
+   * Model-reported confidence (0..1). Populated only for AI-classified facts
+   * (extractionSource === 'ai_classified'); used as the provenance confidence
+   * for source='ai'. Null/undefined for every other source.
+   */
+  aiConfidence?: number | null;
 }
 
 export interface ExistingOpportunityForEnrichment {
@@ -90,8 +97,10 @@ interface LeadEnrichmentFromImportInput {
   description?: string | null;
   providerThreadId?: string | null;
   providerMessageId?: string | null;
-  extractionSource: "import_payload" | "historical_metadata";
+  extractionSource: "import_payload" | "historical_metadata" | "ai_classified";
   sourcePlatform?: string | null;
+  /** Model confidence for AI-classified facts; ignored otherwise. */
+  aiConfidence?: number | null;
 }
 
 interface ApplyCanonicalLeadEnrichmentInput {
@@ -304,11 +313,26 @@ function isBlankJson(value: Record<string, unknown> | null | undefined): boolean
   return Object.keys(value).length === 0;
 }
 
+// opportunities.estimated_value is numeric(12) — total of 12 digits, no scale,
+// so the largest storable whole-dollar amount is 999,999,999,999. A figure above
+// that (spam/marketing "$5,000,000,000", concatenated digits, a runaway k/m
+// suffix) is not a real trades quote and must be rejected rather than risk a
+// Postgres "numeric field overflow".
+const ESTIMATED_VALUE_MAX = 999_999_999_999;
+// opportunities.detected_value is a 4-byte integer; its ceiling is below the
+// numeric(12) ceiling, so a value that is valid for estimated_value can still
+// overflow the detected_value mirror. The mirror is skipped above this bound.
+const DETECTED_VALUE_MAX = 2_147_483_647;
+
 function validEstimatedValue(value: number | null | undefined): number | null {
   if (value == null) return null;
   const number = Number(value);
   if (!Number.isFinite(number) || number <= 0) return null;
-  return Math.round(number);
+  const rounded = Math.round(number);
+  // Reject out-of-range figures outright so a junk amount cannot fill a blank
+  // estimated_value and then block a later legitimate extraction.
+  if (rounded > ESTIMATED_VALUE_MAX) return null;
+  return rounded;
 }
 
 export function getLeadEnrichmentSchemaGaps(): string[] {
@@ -332,6 +356,8 @@ export function provenanceSourceForFacts(
       return "inbound";
     case "outbound_recipient":
       return "outbound";
+    case "ai_classified":
+      return "ai";
     case "import_payload":
     case "historical_metadata":
       return "import";
@@ -507,7 +533,9 @@ export function leadEnrichmentFactsFromEmail(
       contactEmail: recipient?.email ?? null,
       contactPhone: null,
       address: extractAddressFromBody(outboundBody),
-      estimatedValue: extractEstimatedValueFromBody(outboundBody),
+      estimatedValue: validEstimatedValue(
+        extractEstimatedValueFromBody(outboundBody)
+      ),
       description: null,
       source: "email",
       sourcePlatform: null,
@@ -534,7 +562,9 @@ export function leadEnrichmentFactsFromEmail(
     contactEmail: customerEmail,
     contactPhone: extractPhoneFromBody(inboundBody),
     address: extractAddressFromBody(inboundBody),
-    estimatedValue: extractEstimatedValueFromBody(inboundBody),
+    estimatedValue: validEstimatedValue(
+      extractEstimatedValueFromBody(inboundBody)
+    ),
     description: cleanMultilineText(email.bodyText || email.snippet),
     source: "email",
     sourcePlatform: platform?.platformName ?? null,
@@ -562,7 +592,25 @@ export function leadEnrichmentFactsFromImport(
     providerThreadId: cleanText(input.providerThreadId),
     providerMessageId: cleanText(input.providerMessageId),
     extractionSource: input.extractionSource,
+    aiConfidence: input.aiConfidence ?? null,
   };
+}
+
+/**
+ * Resolve the provenance confidence for a write. For AI-classified facts the
+ * model's own confidence is authoritative (clamped to 0..1); every other source
+ * uses the documented per-source convention.
+ */
+export function provenanceConfidenceForFacts(
+  facts: Pick<LeadEnrichmentFacts, "extractionSource" | "aiConfidence">,
+  source: LeadFieldProvenanceSource
+): number | null {
+  if (source === "ai") {
+    const c = facts.aiConfidence;
+    if (c == null || !Number.isFinite(c)) return null;
+    return Math.min(1, Math.max(0, c));
+  }
+  return provenanceConfidenceForSource(source);
 }
 
 export function buildLeadEnrichmentUpdates(input: {
@@ -593,8 +641,12 @@ export function buildLeadEnrichmentUpdates(input: {
     ) {
       opportunity.estimated_value = facts.estimatedValue;
     }
+    // detected_value is a 4-byte integer; only mirror when the value fits, so a
+    // large-but-valid estimated_value never overflows the integer column (which
+    // would fail the entire opportunity write).
     if (
       facts.estimatedValue != null &&
+      facts.estimatedValue <= DETECTED_VALUE_MAX &&
       isWeakNumber(existingOpportunity.detected_value)
     ) {
       opportunity.detected_value = facts.estimatedValue;
@@ -696,37 +748,66 @@ export async function applyCanonicalLeadEnrichment({
 }: ApplyCanonicalLeadEnrichmentInput): Promise<LeadEnrichmentUpdateDecision> {
   if (!opportunityId) return { opportunity: {}, client: {} };
 
-  const opportunityQuery = (
-    supabase.from("opportunities") as {
-      select: (columns: string) => {
-        eq: (column: string, value: string) => {
-          maybeSingle: () => Promise<{
-            data: (ExistingOpportunityForEnrichment & { client_id?: string | null }) | null;
-            error?: unknown;
-          }>;
-        };
-      };
-    }
-  )
-    .select(
-      [
-        "client_id",
-        "contact_name",
-        "contact_email",
-        "contact_phone",
-        "address",
-        "estimated_value",
-        "detected_value",
-        "description",
-        "source",
-        "source_email_id",
-        "source_message_id",
-        "source_metadata",
-      ].join(", ")
-    )
-    .eq("id", opportunityId);
+  // Base columns that have always existed. The two trailing columns
+  // (source_message_id, source_metadata) are additive (P2 migration); if that
+  // migration has not been applied in this environment the wider select errors,
+  // so we fall back to the base columns rather than failing the whole write.
+  const BASE_OPPORTUNITY_COLUMNS = [
+    "client_id",
+    "contact_name",
+    "contact_email",
+    "contact_phone",
+    "address",
+    "estimated_value",
+    "detected_value",
+    "description",
+    "source",
+    "source_email_id",
+  ];
+  const ADDITIVE_OPPORTUNITY_COLUMNS = ["source_message_id", "source_metadata"];
 
-  const { data: opportunityRow } = await opportunityQuery.maybeSingle();
+  const selectOpportunity = (columns: string[]) =>
+    (
+      supabase.from("opportunities") as {
+        select: (columns: string) => {
+          eq: (column: string, value: string) => {
+            maybeSingle: () => Promise<{
+              data:
+                | (ExistingOpportunityForEnrichment & {
+                    client_id?: string | null;
+                  })
+                | null;
+              error?: unknown;
+            }>;
+          };
+        };
+      }
+    )
+      .select(columns.join(", "))
+      .eq("id", opportunityId)
+      .maybeSingle();
+
+  let opportunityRow:
+    | (ExistingOpportunityForEnrichment & { client_id?: string | null })
+    | null = null;
+  {
+    const wide = await selectOpportunity([
+      ...BASE_OPPORTUNITY_COLUMNS,
+      ...ADDITIVE_OPPORTUNITY_COLUMNS,
+    ]);
+    if (wide.error) {
+      // Likely the additive columns are absent (migration not yet applied).
+      // Retry with the base columns so enrichment still fills the legacy fields.
+      console.warn(
+        "[lead-enrichment] additive opportunity columns unavailable; falling back",
+        wide.error
+      );
+      const base = await selectOpportunity(BASE_OPPORTUNITY_COLUMNS);
+      opportunityRow = base.data ?? null;
+    } else {
+      opportunityRow = wide.data ?? null;
+    }
+  }
   const resolvedClientId = clientId ?? opportunityRow?.client_id ?? null;
 
   let clientRow: ExistingClientForEnrichment | null = null;
@@ -784,34 +865,72 @@ export async function applyCanonicalLeadEnrichment({
   // same field refreshes rather than duplicates. Skipped when companyId is
   // absent (provenance is company-scoped).
   if (companyId) {
-    const source = provenanceSourceForFacts(facts, actorUserId);
-    const confidence = provenanceConfidenceForSource(source);
-    const rows = buildProvenanceRows({
+    await writeFieldProvenance({
+      supabase,
       companyId,
       opportunityId,
       clientId: resolvedClientId,
       opportunityUpdates: updates.opportunity,
       clientUpdates: updates.client,
       facts,
-      source,
-      confidence,
       actorUserId: actorUserId ?? null,
-      now: new Date().toISOString(),
     });
-
-    if (rows.length > 0) {
-      await (
-        supabase.from("lead_field_provenance") as {
-          upsert: (
-            payload: Record<string, unknown>[],
-            options: { onConflict: string }
-          ) => Promise<unknown>;
-        }
-      ).upsert(rows as unknown as Record<string, unknown>[], {
-        onConflict: "company_id,entity_type,entity_id,field_name",
-      });
-    }
   }
 
   return updates;
+}
+
+/**
+ * Emit field-level provenance for a set of writes. One row per (company, entity,
+ * field), upserted on the unique key so re-running refreshes rather than
+ * duplicates. Used both by the canonical enrichment choke point (for
+ * reuse/link/thread-inherit branches) and by the create-new path (so freshly
+ * inserted leads also get provenance). Degrades gracefully — a missing relation
+ * (migration not yet applied) is logged and skipped, never throwing into the
+ * surrounding write.
+ */
+export async function writeFieldProvenance(params: {
+  supabase: { from: (table: string) => unknown };
+  companyId: string;
+  opportunityId: string | null;
+  clientId: string | null;
+  opportunityUpdates: Record<string, unknown>;
+  clientUpdates: Record<string, unknown>;
+  facts: LeadEnrichmentFacts;
+  actorUserId?: string | null;
+}): Promise<void> {
+  const source = provenanceSourceForFacts(params.facts, params.actorUserId);
+  const confidence = provenanceConfidenceForFacts(params.facts, source);
+  const rows = buildProvenanceRows({
+    companyId: params.companyId,
+    opportunityId: params.opportunityId,
+    clientId: params.clientId,
+    opportunityUpdates: params.opportunityUpdates,
+    clientUpdates: params.clientUpdates,
+    facts: params.facts,
+    source,
+    confidence,
+    actorUserId: params.actorUserId ?? null,
+    now: new Date().toISOString(),
+  });
+
+  if (rows.length === 0) return;
+
+  try {
+    await (
+      params.supabase.from("lead_field_provenance") as {
+        upsert: (
+          payload: Record<string, unknown>[],
+          options: { onConflict: string }
+        ) => Promise<{ error?: unknown }>;
+      }
+    ).upsert(rows as unknown as Record<string, unknown>[], {
+      onConflict: "company_id,entity_type,entity_id,field_name",
+    });
+  } catch (error) {
+    // The provenance table is additive and may not yet exist in an environment
+    // where the migration has not been applied. Provenance is an audit side
+    // effect — never fail the canonical lead write because of it.
+    console.warn("[lead-enrichment] provenance upsert skipped", error);
+  }
 }
