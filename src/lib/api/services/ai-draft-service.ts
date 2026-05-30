@@ -21,6 +21,25 @@ function getOpenAI() {
   return getDraftingOpenAI();
 }
 
+/**
+ * Lifecycle-draft learning switch.
+ *
+ * Gates the lifecycle-draft learning hook (`recordLifecycleDraftOutcome`),
+ * whose only correct trigger is the operator-send transition of an
+ * opportunity_follow_up_draft to status='sent' + final_sent_body. We NEVER
+ * auto-send email, so the hook must not fire on any autonomous path — it is
+ * invoked exclusively from the operator-send transition behind this flag:
+ *
+ *   if (LIFECYCLE_LEARNING_ENABLED) {
+ *     await AIDraftService.recordLifecycleDraftOutcome(draftId, companyId, userId, finalBody, finalSubject);
+ *   }
+ *
+ * Enabled at go-live: the operator-send transition now exists and ships in
+ * this deploy, so the edit-learning pipeline activates on operator sends.
+ * analyzeEditWithGPT only fires on >threshold-edited sends — negligible cost.
+ */
+export const LIFECYCLE_LEARNING_ENABLED = true;
+
 // ─── Output Sanitization ────────────────────────────────────────────────────
 
 /**
@@ -98,6 +117,13 @@ export interface AIDraftRequest {
   userInstruction?: string;
   /** Explicit profile type override — bypasses heuristic detection */
   profileTypeOverride?: string;
+  /**
+   * P4-B: draft origin, mirrors opportunity_follow_up_drafts.origin vocab
+   * ('operator' | 'template_follow_up' | 'phase_c' | 'system_handoff').
+   * Persisted to ai_draft_history.origin. Callers: the Phase C router passes
+   * 'phase_c'; the compose path passes 'operator'. Omitted → NULL (legacy).
+   */
+  origin?: "operator" | "template_follow_up" | "phase_c" | "system_handoff";
 }
 
 export interface AIDraftResult {
@@ -108,6 +134,18 @@ export interface AIDraftResult {
   available: boolean;
   reason?: string;
   profileType?: string;
+  /**
+   * P4-B/P4-C: the subject line derived for this draft (Re: <thread subject>
+   * for replies). Surfaced so the Phase C router can populate the paired
+   * opportunity_follow_up_drafts row's subject.
+   */
+  subject?: string;
+  /**
+   * P4-B: the provider message id of the inbound message this draft replies
+   * to (from the latest inbound activity). Persisted to
+   * ai_draft_history.source_message_id.
+   */
+  sourceMessageId?: string | null;
   /**
    * True when the empty-response fallback path successfully escalated to
    * the operator (formulated a question + wrote it to
@@ -188,9 +226,23 @@ export function editDistance(a: string, b: string): number {
  */
 export function detectChanges(
   original: string,
-  edited: string
+  edited: string,
+  subjects?: { original: string; edited: string }
 ): Array<{ type: string; from: string; to: string }> {
   const changes: Array<{ type: string; from: string; to: string }> = [];
+
+  // P4-B: subject delta. RECORDED for visibility/analytics only — the
+  // product decision is that operator subject edits do NOT auto-promote the
+  // voice profile (learnFromEdits has no 'subject' branch, so this type is
+  // intentionally inert in promotion). Subject lines are short and
+  // high-variance; promoting them would be noisy.
+  if (subjects) {
+    const o = subjects.original.trim();
+    const e = subjects.edited.trim();
+    if (o !== e) {
+      changes.push({ type: "subject", from: o, to: e });
+    }
+  }
 
   // Detect greeting changes
   const origGreeting = original.split("\n")[0]?.trim() ?? "";
@@ -473,12 +525,13 @@ export const AIDraftService = {
       subject: string;
       body_text: string;
       created_at: string;
+      email_message_id: string | null;
     }> = [];
 
     if (threadId) {
       const { data: messages } = await supabase
         .from("activities")
-        .select("direction, from_email, subject, body_text, created_at")
+        .select("direction, from_email, subject, body_text, created_at, email_message_id")
         .eq("company_id", companyId)
         .eq("email_thread_id", threadId)
         .eq("type", "email")
@@ -882,6 +935,22 @@ ${opportunityContext ? `\nContext:\n${opportunityContext}` : ""}`;
       };
     }
 
+    // ── Derive subject + source message provenance (P4-B) ──────────────
+    // Subject: reply to the latest inbound's subject (Re: …), else fall back
+    // to the thread's first subject. Source message id: the provider message
+    // id of the latest inbound activity — the message this draft replies to.
+    const replySource = threadMessages
+      .filter((m) => m.direction === "inbound")
+      .pop();
+    const baseSubject =
+      replySource?.subject || threadMessages[0]?.subject || "";
+    const derivedSubject = baseSubject
+      ? baseSubject.toLowerCase().startsWith("re:")
+        ? baseSubject
+        : `Re: ${baseSubject}`
+      : "";
+    const sourceMessageId = replySource?.email_message_id ?? null;
+
     // ── Store in ai_draft_history ──────────────────────────────────────
     const { data: historyRow } = await supabase
       .from("ai_draft_history")
@@ -894,6 +963,11 @@ ${opportunityContext ? `\nContext:\n${opportunityContext}` : ""}`;
         original_draft: draft,
         profile_type: profileType,
         status: "drafted",
+        // P4-B provenance columns (additive, nullable).
+        subject: derivedSubject || null,
+        subject_source: derivedSubject ? "generated" : null,
+        source_message_id: sourceMessageId,
+        origin: req.origin ?? null,
       })
       .select("id")
       .single();
@@ -905,6 +979,8 @@ ${opportunityContext ? `\nContext:\n${opportunityContext}` : ""}`;
       sources,
       available: true,
       profileType,
+      subject: derivedSubject || undefined,
+      sourceMessageId,
     };
   },
 
@@ -917,16 +993,24 @@ ${opportunityContext ? `\nContext:\n${opportunityContext}` : ""}`;
     draftHistoryId: string,
     companyId: string,
     userId: string,
-    outcome: "sent" | "discarded",
+    outcome: "sent" | "discarded" | "superseded",
     finalVersion?: string,
-    profileType: string = "general"
+    profileType: string = "general",
+    /**
+     * P4-B/P4-D: the operator-edited subject at send time. When provided and
+     * different from the stored subject, a `subject` change is RECORDED in
+     * changes_made and subject_source flips to 'operator'. Per the product
+     * decision, subject edits never auto-promote the voice profile.
+     */
+    finalSubject?: string
   ): Promise<void> {
     const supabase = requireSupabase();
+    const now = new Date().toISOString();
 
-    // Fetch original draft and its profile type
+    // Fetch original draft, its profile type, and stored subject
     const { data: history } = await supabase
       .from("ai_draft_history")
-      .select("original_draft, profile_type")
+      .select("original_draft, profile_type, subject")
       .eq("id", draftHistoryId)
       .eq("company_id", companyId)
       .single();
@@ -934,13 +1018,17 @@ ${opportunityContext ? `\nContext:\n${opportunityContext}` : ""}`;
     if (!history) return;
 
     const original = history.original_draft as string;
+    const storedSubject = (history.subject as string | null) ?? "";
     // Use stored profile_type from when the draft was generated
     const effectiveProfileType = (history.profile_type as string) || profileType;
 
-    if (outcome === "discarded") {
+    if (outcome === "discarded" || outcome === "superseded") {
+      // P4-B: stamp discarded_at on both discard and supersede (a draft
+      // retired by a newer one is, for provenance purposes, discarded with a
+      // distinct status).
       await supabase
         .from("ai_draft_history")
-        .update({ status: "discarded" })
+        .update({ status: outcome, discarded_at: now })
         .eq("id", draftHistoryId);
       return;
     }
@@ -948,13 +1036,27 @@ ${opportunityContext ? `\nContext:\n${opportunityContext}` : ""}`;
     // outcome === "sent"
     const final = finalVersion || original;
     const distance = editDistance(original, final);
-    const noChanges = original.trim() === final.trim();
-    const changes = noChanges ? [] : detectChanges(original, final);
+    const bodyUnchanged = original.trim() === final.trim();
+    const subjectEdited =
+      finalSubject !== undefined &&
+      finalSubject.trim() !== storedSubject.trim();
+    const noChanges = bodyUnchanged && !subjectEdited;
+    const changes = noChanges
+      ? []
+      : detectChanges(
+          original,
+          final,
+          finalSubject !== undefined
+            ? { original: storedSubject, edited: finalSubject }
+            : undefined
+        );
 
-    // GPT-based analysis for significant edits (>10% words changed)
+    // GPT-based analysis for significant BODY edits (>10% words changed).
+    // Gated on body change only — a subject-only edit must not trigger an LLM
+    // call (it would diff two identical bodies and burn tokens for nothing).
     const origWordCount = original.split(/\s+/).length || 1;
     let gptAnalysis: Awaited<ReturnType<typeof analyzeEditWithGPT>> = null;
-    if (!noChanges && distance / origWordCount > 0.1) {
+    if (!bodyUnchanged && distance / origWordCount > 0.1) {
       gptAnalysis = await analyzeEditWithGPT(original, final);
     }
 
@@ -975,20 +1077,38 @@ ${opportunityContext ? `\nContext:\n${opportunityContext}` : ""}`;
       }
     }
 
+    const sentUpdate: Record<string, unknown> = {
+      final_version: final,
+      edit_distance: distance,
+      changes_made: enrichedChanges,
+      sent_without_changes: noChanges,
+      status: "sent",
+      sent_at: now,
+    };
+    // P4-B: stamp edited_at when the operator changed anything (body or
+    // subject) before sending.
+    if (!noChanges) {
+      sentUpdate.edited_at = now;
+    }
+    // P4-B/P4-D: record the operator's final subject. subject_source flips to
+    // 'operator' on an edit (RECORDED only — never promotes the profile).
+    if (subjectEdited) {
+      sentUpdate.subject = finalSubject;
+      sentUpdate.subject_source = "operator";
+    }
+
     await supabase
       .from("ai_draft_history")
-      .update({
-        final_version: final,
-        edit_distance: distance,
-        changes_made: enrichedChanges,
-        sent_without_changes: noChanges,
-        status: "sent",
-        sent_at: new Date().toISOString(),
-      })
+      .update(sentUpdate)
       .eq("id", draftHistoryId);
 
-    // Feed changes back into writing profile learning (per profile type)
-    if (enrichedChanges.length > 0) {
+    // Feed changes back into writing profile learning (per profile type).
+    // Skip when the ONLY edit is a subject change: per the product decision
+    // subject edits never promote the voice profile (learnFromEdits has no
+    // 'subject' branch), so calling it for a subject-only edit is a wasted DB
+    // round-trip that can never mutate the profile. Subject deltas remain
+    // recorded in changes_made above for analytics.
+    if (enrichedChanges.some((c) => c.type !== "subject")) {
       await this.learnFromEdits(companyId, userId, enrichedChanges, effectiveProfileType);
     }
 
@@ -1032,6 +1152,108 @@ ${opportunityContext ? `\nContext:\n${opportunityContext}` : ""}`;
     } catch {
       // Non-fatal — milestone check is supplementary
     }
+  },
+
+  /**
+   * P4-D — learn from an operator-SENT lifecycle (template_follow_up / phase_c)
+   * draft.
+   *
+   * Trigger contract: this MUST be called ONLY on the operator-send path of a
+   * lifecycle draft — the moment the draft transitions to status='sent' with
+   * a final_sent_body. We NEVER auto-send email, so this never fires on an
+   * autonomous path. Learning happens only from SENT drafts, never from
+   * abandoned/discarded ones (bible §10 line 1809).
+   *
+   * The lifecycle-draft send-transition itself (flipping
+   * opportunity_follow_up_drafts to status='sent' + final_sent_body) is owned
+   * by P3 and does NOT yet exist in this worktree (no code writes
+   * final_sent_body; grep confirms 0 call sites). Therefore this method is
+   * built complete but its invocation is DEFERRED behind
+   * LIFECYCLE_LEARNING_ENABLED until the P3 send-transition lands and calls it.
+   * When P3 lands, the send-transition site calls this with the operator's
+   * final body + subject; no further change to this method is needed.
+   *
+   * Bridging: template_follow_up drafts have ai_draft_history_id IS NULL
+   * today (they were never AI-generated). To run the existing delta+learn
+   * pipeline we create a bridging ai_draft_history row (origin='template_
+   * follow_up') whose original_draft is the draft's original_body, link it
+   * back via ai_draft_history_id, then delegate to recordDraftOutcome. phase_c
+   * drafts already carry a bridge from creation, so we reuse it.
+   *
+   * Subject edits: RECORDED (recordDraftOutcome stamps subject_source=
+   * 'operator' + a 'subject' change) but NEVER auto-promote the voice profile.
+   */
+  async recordLifecycleDraftOutcome(
+    followUpDraftId: string,
+    companyId: string,
+    userId: string,
+    finalBody: string,
+    finalSubject?: string
+  ): Promise<void> {
+    const supabase = requireSupabase();
+
+    // Resolve the lifecycle draft. Must be a real, company-scoped row.
+    const { data: draftRow } = await supabase
+      .from("opportunity_follow_up_drafts")
+      .select(
+        "id, company_id, opportunity_id, connection_id, provider_thread_id, origin, subject, original_body, ai_draft_history_id"
+      )
+      .eq("id", followUpDraftId)
+      .eq("company_id", companyId)
+      .maybeSingle();
+
+    if (!draftRow) return;
+
+    let bridgeId = (draftRow.ai_draft_history_id as string | null) ?? null;
+
+    // Create a bridging ai_draft_history row for never-AI-generated template
+    // drafts so the delta+learn pipeline has a row to record against.
+    if (!bridgeId) {
+      const originalBody = (draftRow.original_body as string) ?? "";
+      const { data: bridge } = await supabase
+        .from("ai_draft_history")
+        .insert({
+          company_id: companyId,
+          user_id: userId,
+          opportunity_id: (draftRow.opportunity_id as string | null) ?? null,
+          connection_id: (draftRow.connection_id as string | null) ?? null,
+          thread_id: (draftRow.provider_thread_id as string | null) ?? null,
+          original_draft: originalBody,
+          profile_type: "client_followup",
+          status: "drafted",
+          subject: (draftRow.subject as string | null) ?? null,
+          subject_source: draftRow.subject ? "generated" : null,
+          origin: (draftRow.origin as string | null) ?? "template_follow_up",
+        })
+        .select("id")
+        .single();
+
+      bridgeId = (bridge?.id as string | undefined) ?? null;
+      if (!bridgeId) return;
+
+      // Link the bridge back onto the lifecycle draft so the relationship is
+      // durable (and idempotent on a retry).
+      await supabase
+        .from("opportunity_follow_up_drafts")
+        .update({ ai_draft_history_id: bridgeId })
+        .eq("id", followUpDraftId)
+        .eq("company_id", companyId);
+    }
+
+    // Delegate to the existing pipeline. recordDraftOutcome computes the
+    // generated-vs-sent delta against the bridge's original_draft, runs the
+    // GPT analysis gate, flips the bridge to 'sent', and calls
+    // learnFromEdits(..., 'client_followup'). The bridge's stored profile_type
+    // ('client_followup') is what learnFromEdits scopes to.
+    await this.recordDraftOutcome(
+      bridgeId,
+      companyId,
+      userId,
+      "sent",
+      finalBody,
+      "client_followup",
+      finalSubject
+    );
   },
 
   /**

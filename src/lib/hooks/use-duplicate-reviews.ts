@@ -8,6 +8,8 @@ import type {
   DuplicateEntityType,
   DuplicateConfidence,
   DuplicateSignal,
+  FieldConflict,
+  MergeReconciliation,
 } from "../api/services/duplicate-detection-service";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -38,6 +40,32 @@ export interface GroupedClusters {
   task: DuplicateCluster[];
   total: number;
 }
+
+/** Shape returned by POST /api/duplicates/conflicts. */
+export interface MergeConflictsResult {
+  entityType: DuplicateEntityType;
+  perLoser: Array<{ loserId: string; reconciliation: MergeReconciliation }>;
+}
+
+export type { FieldConflict };
+
+/**
+ * Per-loser operator selections for the RESOLVE step. For each loser, a map of
+ * field → which side the operator chose to keep.
+ */
+export type ConflictSelections = Record<
+  string,
+  Record<string, "winner" | "loser">
+>;
+
+/**
+ * The shape forwarded to the merge route as `confirmedOverrides`.
+ *  - Single-loser clusters: a flat field→value map (the `mergeEntities` path).
+ *  - Multi-loser clusters: keyed per loser id (the `mergeCluster` path).
+ */
+export type ConfirmedOverrides =
+  | Record<string, unknown>
+  | Record<string, Record<string, unknown>>;
 
 // Keep old type for backward compatibility if needed elsewhere
 export interface GroupedReviews {
@@ -218,6 +246,33 @@ export function useDuplicateReviews() {
   });
 }
 
+// ─── Conflict-Detection Mutation ────────────────────────────────────────────
+
+/**
+ * Fetch the per-loser merge conflicts for a chosen winner. Implemented as a
+ * mutation rather than a query: it runs on demand (operator presses
+ * RESOLVE & MERGE), takes the winner as input, and must not auto-refetch on
+ * focus/mount. Returns `{ entityType, perLoser }`; `perLoser` is empty for
+ * project/task (no conflict gate) and for opportunity/client clusters that
+ * differ only by fill-blank fields.
+ */
+export function useMergeConflicts() {
+  return useMutation<MergeConflictsResult, Error, { reviewIds: string[]; winnerId: string }>({
+    mutationFn: async ({ reviewIds, winnerId }) => {
+      const res = await fetch("/api/duplicates/conflicts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reviewIds, winnerId }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to detect merge conflicts");
+      }
+      return (await res.json()) as MergeConflictsResult;
+    },
+  });
+}
+
 // ─── Merge Mutation (cluster-aware) ─────────────────────────────────────────
 
 export function useMergeDuplicate() {
@@ -228,25 +283,44 @@ export function useMergeDuplicate() {
     mutationFn: async ({
       reviewIds,
       winnerId,
-      fieldOverrides,
+      confirmedOverrides,
       entityEdits,
       entityType,
+      winnerTitle,
+      absorbedCount,
+      resolvedCount,
+      notificationActionUrl,
     }: {
       reviewIds: string[];
       winnerId: string;
-      fieldOverrides?: Record<string, unknown>;
+      /**
+       * Operator-confirmed per-field overrides (Q2). Flat (field→value) for a
+       * single-loser cluster, or keyed per loser id for a multi-loser cluster —
+       * the merge RPC accepts both shapes. Omitted/empty means the merge applies
+       * only the server-side fill-blank set.
+       */
+      confirmedOverrides?: ConfirmedOverrides;
       entityEdits?: Record<string, Record<string, unknown>>;
       entityType?: DuplicateEntityType;
+      /** Display-only fields for the success rail notification (resolved here,
+       * on the client, which holds the cluster + selection state). */
+      winnerTitle?: string;
+      absorbedCount?: number;
+      resolvedCount?: number;
+      notificationActionUrl?: string;
     }) => {
       const primaryReviewId = reviewIds[0];
       const additionalReviewIds = reviewIds.slice(1);
+
+      const hasOverrides =
+        confirmedOverrides && Object.keys(confirmedOverrides).length > 0;
 
       const res = await fetch(`/api/duplicates/${primaryReviewId}/merge`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           winnerId,
-          fieldOverrides,
+          confirmedOverrides: hasOverrides ? confirmedOverrides : undefined,
           additionalReviewIds:
             additionalReviewIds.length > 0 ? additionalReviewIds : undefined,
           entityEdits:
@@ -254,6 +328,10 @@ export function useMergeDuplicate() {
               ? entityEdits
               : undefined,
           entityType: entityEdits && Object.keys(entityEdits).length > 0 ? entityType : undefined,
+          winnerTitle,
+          absorbedCount,
+          resolvedCount,
+          notificationActionUrl,
         }),
       });
       if (!res.ok) {

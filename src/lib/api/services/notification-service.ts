@@ -17,6 +17,8 @@ export type NotificationType =
   | "expense_submitted"
   | "expense_approved"
   | "duplicates_found"
+  | "duplicates_merged"
+  | "data_review_resolved"
   | "ai_milestone"
   | "agent_suggestion"
   | "trial_expiry"
@@ -138,7 +140,8 @@ export const NotificationService = {
       .eq("user_id", userId)
       .eq("company_id", companyId)
       .eq("is_read", false)
-      .order("created_at", { ascending: true })
+      .order("persistent", { ascending: false })
+      .order("created_at", { ascending: false })
       .limit(50);
 
     if (error) throw error;
@@ -149,7 +152,7 @@ export const NotificationService = {
     const supabase = requireSupabase();
     const { error } = await supabase
       .from("notifications")
-      .update({ is_read: true })
+      .update({ is_read: true, resolved_at: new Date().toISOString() })
       .eq("id", notificationId);
     if (error) throw error;
   },
@@ -158,7 +161,7 @@ export const NotificationService = {
     const supabase = requireSupabase();
     const { error } = await supabase
       .from("notifications")
-      .update({ is_read: true })
+      .update({ is_read: true, resolved_at: new Date().toISOString() })
       .eq("user_id", userId)
       .eq("company_id", companyId)
       .eq("is_read", false);
@@ -169,7 +172,7 @@ export const NotificationService = {
     const supabase = requireSupabase();
     const { error } = await supabase
       .from("notifications")
-      .update({ is_read: true })
+      .update({ is_read: true, resolved_at: new Date().toISOString() })
       .eq("user_id", userId)
       .eq("company_id", companyId)
       .eq("is_read", false)

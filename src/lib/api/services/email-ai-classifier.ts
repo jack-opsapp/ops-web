@@ -55,6 +55,12 @@ export interface ClassificationInput {
   to: string[];
   subject: string;
   snippet: string;
+  /**
+   * Full (or near-full) message body when available. Preferred over `snippet`
+   * for classification so the model can recover the job-site address and
+   * scope. Falls back to `snippet` when absent.
+   */
+  body?: string;
   date: string;
   direction: 'inbound' | 'outbound';
 }
@@ -69,6 +75,7 @@ export interface ClassificationResult {
     name: string;
     email: string;
     phone: string | null;
+    address: string | null;
     description: string;
   } | null;
   duplicateOf: string[];
@@ -560,7 +567,8 @@ For each email, determine:
   Use "lost" ONLY with CLEAR EVIDENCE — client declined, chose another contractor, or 60+ days of follow-ups with no response.
   When in doubt, choose an active stage ("quoted", "follow_up").
 - val: estimated dollar value if pricing is mentioned. null otherwise.
-- client: { name, email, phone, desc } if lead. Extract from email content. null otherwise.
+- client: { name, email, phone, addr, desc } if lead. Extract from email content. null otherwise.
+  addr: the customer's job-site or service address if one appears in the body (street + city, or a postal/ZIP code). null if no address is present. Do NOT invent or infer an address from an email domain.
 - dupes: array of other email IDs in this batch that appear to be from the same client/project
 - flag: OMIT this field. Use the stage field directly ("won" or "lost") instead.
 
@@ -572,7 +580,9 @@ RESPOND WITH A JSON OBJECT: { "results": [...] }. No explanation. Minimize outpu
         from: e.from,
         to: e.to,
         subj: e.subject,
-        snip: e.snippet.slice(0, 200),
+        // Use the full body when available (capped at 1500 chars) so the model
+        // can recover the job-site address and scope; fall back to snippet.
+        snip: (e.body || e.snippet || '').slice(0, 1500),
         date: e.date,
         dir: e.direction,
       }))
@@ -599,13 +609,36 @@ RESPOND WITH A JSON OBJECT: { "results": [...] }. No explanation. Minimize outpu
         const rawFlag = (r.flag as string) || (r.terminalFlag as string) || null;
         const { stage, terminalFlag } = sanitizeStageAndFlag(rawStage, rawFlag);
 
+        const rawClient = r.client as
+          | (Record<string, unknown> & {
+              name?: string;
+              email?: string;
+              phone?: string | null;
+              addr?: string | null;
+              address?: string | null;
+              description?: string;
+            })
+          | null;
+        const client: ClassificationResult['client'] = rawClient
+          ? {
+              name: (rawClient.name as string) || '',
+              email: (rawClient.email as string) || '',
+              phone: (rawClient.phone as string | null) ?? null,
+              address:
+                (rawClient.addr as string | null) ??
+                (rawClient.address as string | null) ??
+                null,
+              description: (rawClient.description as string) || '',
+            }
+          : null;
+
         return {
           id: r.id as string,
           verdict: ((r.verdict as string) || 'skip') as ClassificationResult['verdict'],
           confidence: (r.confidence as number) || (r.c as number) || 0,
           stage: r.verdict === 'lead' ? stage : null,
           estimatedValue: (r.val as number) || (r.estimatedValue as number) || null,
-          client: (r.client as ClassificationResult['client']) || null,
+          client,
           duplicateOf: (r.dupes as string[]) || (r.duplicateOf as string[]) || [],
           terminalFlag,
         };

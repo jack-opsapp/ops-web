@@ -95,6 +95,47 @@ function backfillFields(
   return updates;
 }
 
+/** A blank value is null/undefined/empty-after-trim. Mirrors the SQL re-validation. */
+function isBlank(value: unknown): boolean {
+  if (value === null || value === undefined) return true;
+  if (typeof value === "string") return value.trim().length === 0;
+  return false;
+}
+
+export interface FieldConflict {
+  field: string;
+  winnerValue: unknown;
+  loserValue: unknown;
+}
+
+/**
+ * Detect per-field conflicts for a single winner/loser pair: fields where BOTH
+ * sides are non-blank and differ (Q2). These are NOT auto-resolved — the
+ * service surfaces them so a future UI can ask the operator to choose, and only
+ * an operator-confirmed choice (passed as `p_confirmed_overrides`) is applied
+ * by the RPC. Fill-blank (winner blank, loser non-blank) is auto and is NOT a
+ * conflict. The RPC re-validates and applies fill-blank server-side; this is
+ * the read-side mirror used to populate the merge UI.
+ */
+function detectFieldConflicts(
+  winner: Record<string, unknown>,
+  loser: Record<string, unknown>,
+  fields: string[]
+): FieldConflict[] {
+  const conflicts: FieldConflict[] = [];
+  for (const field of fields) {
+    const w = winner[field];
+    const l = loser[field];
+    if (isBlank(w) || isBlank(l)) continue; // fill-blank or nothing — not a conflict
+    const wStr = String(w).trim();
+    const lStr = String(l).trim();
+    if (wStr !== lStr) {
+      conflicts.push({ field, winnerValue: w, loserValue: l });
+    }
+  }
+  return conflicts;
+}
+
 // ─── Client Scanning ─────────────────────────────────────────────────────────
 
 interface ClientRow {
@@ -621,7 +662,26 @@ async function scanCompany(companyId: string): Promise<number> {
 
 // ─── Smart Merge ─────────────────────────────────────────────────────────────
 
-const MERGE_FIELDS: Record<DuplicateEntityType, string[]> = {
+const ENTITY_TABLES: Record<DuplicateEntityType, string> = {
+  client: "clients",
+  opportunity: "opportunities",
+  project: "projects",
+  task: "project_tasks",
+};
+
+/**
+ * Map of entity type → guarded merge RPC name. Only opportunity + client have
+ * transactional, complete-FK-coverage RPCs (P5). project + task merges are out
+ * of P5 scope and keep the legacy in-process re-point path until separately
+ * hardened (see legacyMergeProjectOrTask).
+ */
+const MERGE_RPC: Partial<Record<DuplicateEntityType, string>> = {
+  opportunity: "execute_opportunity_merge_guarded",
+  client: "execute_client_merge_guarded",
+};
+
+/** Fields the guarded merge RPC accepts in p_field_fill / p_confirmed_overrides. */
+const RPC_RECONCILE_FIELDS: Record<"client" | "opportunity", string[]> = {
   client: [
     "email",
     "phone_number",
@@ -631,42 +691,21 @@ const MERGE_FIELDS: Record<DuplicateEntityType, string[]> = {
     "profile_image_url",
     "notes",
   ],
+  // contact_name is included (the gap map flagged it was omitted from MERGE_FIELDS).
   opportunity: [
+    "contact_name",
     "contact_email",
     "contact_phone",
     "description",
     "estimated_value",
     "address",
   ],
-  project: ["address", "latitude", "longitude", "notes", "description"],
-  task: ["task_notes", "custom_title"],
 };
 
-const ENTITY_TABLES: Record<DuplicateEntityType, string> = {
-  client: "clients",
-  opportunity: "opportunities",
-  project: "projects",
-  task: "project_tasks",
-};
-
-const RELATIONSHIP_MAP: Record<
-  DuplicateEntityType,
+const LEGACY_RELATIONSHIP_MAP: Record<
+  "project" | "task",
   { table: string; fkColumn: string }[]
 > = {
-  client: [
-    { table: "projects", fkColumn: "client_id" },
-    { table: "sub_clients", fkColumn: "client_id" },
-    { table: "opportunities", fkColumn: "client_id" },
-    { table: "estimates", fkColumn: "client_id" },
-    { table: "invoices", fkColumn: "client_id" },
-  ],
-  opportunity: [
-    { table: "activities", fkColumn: "opportunity_id" },
-    { table: "follow_ups", fkColumn: "opportunity_id" },
-    { table: "stage_transitions", fkColumn: "opportunity_id" },
-    { table: "estimates", fkColumn: "opportunity_id" },
-    { table: "opportunity_email_threads", fkColumn: "opportunity_id" },
-  ],
   project: [
     { table: "project_tasks", fkColumn: "project_id" },
     { table: "estimates", fkColumn: "project_id" },
@@ -677,34 +716,268 @@ const RELATIONSHIP_MAP: Record<
   task: [], // Tasks are leaf entities — no child relationships
 };
 
+export interface MergeReconciliation {
+  /** Fields to auto-fill on the winner from the loser (winner blank). */
+  fieldFill: Record<string, unknown>;
+  /** Non-blank-differing fields requiring an operator choice (Q2). */
+  conflicts: FieldConflict[];
+}
+
+/**
+ * Compute the fill-blank set and the conflict set for a winner/loser pair.
+ * Fill-blank is the server-applied auto path (re-validated in SQL); conflicts
+ * are surfaced to the UI and only applied via operator-confirmed overrides.
+ */
+function computeReconciliation(
+  winner: Record<string, unknown>,
+  loser: Record<string, unknown>,
+  entityType: "client" | "opportunity"
+): MergeReconciliation {
+  const fields = RPC_RECONCILE_FIELDS[entityType];
+  return {
+    fieldFill: backfillFields(winner, loser, fields),
+    conflicts: detectFieldConflicts(winner, loser, fields),
+  };
+}
+
+interface GuardedMergeResult {
+  applied: boolean;
+  merge_id?: string;
+  winner_id?: string;
+  loser_id?: string;
+  guard_reason?: string;
+  error_code?: string;
+  error_message?: string;
+  manifest?: Record<string, unknown>;
+  disposition_id?: string;
+}
+
+/**
+ * Run one guarded merge RPC for a single loser. Each call is its own
+ * transaction with its own merge_key. The RPC re-points the complete FK graph,
+ * de-dupes, soft-deletes the loser, writes the disposition + audit + manifest,
+ * and cascades pending reviews in-transaction. Throws on a hard RPC error so a
+ * cluster loop surfaces the failure (losers already merged stay merged — each
+ * was atomic).
+ */
+async function runGuardedMerge(params: {
+  entityType: "client" | "opportunity";
+  companyId: string;
+  winnerId: string;
+  loserId: string;
+  mergeKey: string;
+  reviewId: string | null;
+  resolvedBy: string;
+  expectedWinnerStage?: string | null;
+  expectedLoserStage?: string | null;
+  expectedWinnerUpdatedAt?: string | null;
+  expectedLoserUpdatedAt?: string | null;
+  fieldFill: Record<string, unknown>;
+  confirmedOverrides: Record<string, unknown>;
+  runId?: string | null;
+}): Promise<GuardedMergeResult> {
+  const supabase = requireSupabase();
+  const rpc = MERGE_RPC[params.entityType]!;
+
+  const args =
+    params.entityType === "opportunity"
+      ? {
+          p_company_id: params.companyId,
+          p_winner_id: params.winnerId,
+          p_loser_id: params.loserId,
+          p_merge_key: params.mergeKey,
+          p_review_id: params.reviewId,
+          p_expected_winner_stage: params.expectedWinnerStage ?? null,
+          p_expected_loser_stage: params.expectedLoserStage ?? null,
+          p_field_fill: params.fieldFill,
+          p_confirmed_overrides: params.confirmedOverrides,
+          p_resolved_by: params.resolvedBy,
+          p_run_id: params.runId ?? null,
+        }
+      : {
+          p_company_id: params.companyId,
+          p_winner_id: params.winnerId,
+          p_loser_id: params.loserId,
+          p_merge_key: params.mergeKey,
+          p_review_id: params.reviewId,
+          p_expected_winner_updated_at: params.expectedWinnerUpdatedAt ?? null,
+          p_expected_loser_updated_at: params.expectedLoserUpdatedAt ?? null,
+          p_field_fill: params.fieldFill,
+          p_confirmed_overrides: params.confirmedOverrides,
+          p_resolved_by: params.resolvedBy,
+          p_run_id: params.runId ?? null,
+        };
+
+  const { data, error } = await supabase.rpc(rpc, args);
+  if (error) {
+    throw new Error(
+      `Guarded merge ${rpc} failed for loser ${params.loserId}: ${error.message}`
+    );
+  }
+  return (data ?? {}) as GuardedMergeResult;
+}
+
+/**
+ * Public conflict-detection helper used by the merge UI. For the given review
+ * (or cluster), fetch the winner + each loser and return the auto fill-blank
+ * map plus the conflicts that require an explicit operator choice. Does NOT
+ * mutate anything. opportunity + client only.
+ */
+async function detectMergeConflicts(
+  reviewIds: string[],
+  winnerId: string
+): Promise<{
+  entityType: DuplicateEntityType;
+  perLoser: Array<{ loserId: string; reconciliation: MergeReconciliation }>;
+}> {
+  const supabase = requireSupabase();
+  if (reviewIds.length === 0) {
+    throw new Error("No review IDs provided for conflict detection");
+  }
+
+  const { data: reviews, error } = await supabase
+    .from("duplicate_reviews")
+    .select("*")
+    .in("id", reviewIds);
+  if (error || !reviews || reviews.length === 0) {
+    throw new Error("Could not fetch reviews for conflict detection");
+  }
+
+  const entityType = reviews[0].entity_type as DuplicateEntityType;
+  if (entityType !== "opportunity" && entityType !== "client") {
+    return { entityType, perLoser: [] };
+  }
+
+  const table = ENTITY_TABLES[entityType];
+  const loserIds = new Set<string>();
+  for (const r of reviews) {
+    loserIds.add(r.entity_a_id as string);
+    loserIds.add(r.entity_b_id as string);
+  }
+  loserIds.delete(winnerId);
+
+  const { data: winnerRow } = await supabase
+    .from(table)
+    .select("*")
+    .eq("id", winnerId)
+    .single();
+  if (!winnerRow) {
+    throw new Error(`Winner ${winnerId} not found for conflict detection`);
+  }
+
+  const perLoser: Array<{ loserId: string; reconciliation: MergeReconciliation }> = [];
+  for (const loserId of loserIds) {
+    const { data: loserRow } = await supabase
+      .from(table)
+      .select("*")
+      .eq("id", loserId)
+      .single();
+    if (!loserRow) continue;
+    perLoser.push({
+      loserId,
+      reconciliation: computeReconciliation(
+        winnerRow as Record<string, unknown>,
+        loserRow as Record<string, unknown>,
+        entityType
+      ),
+    });
+  }
+
+  return { entityType, perLoser };
+}
+
+/**
+ * Legacy in-process merge for project + task (out of P5 scope — kept until
+ * separately hardened). Mirrors the prior re-point-then-soft-delete behavior.
+ */
+async function legacyMergeProjectOrTask(
+  entityType: "project" | "task",
+  companyId: string,
+  winnerId: string,
+  loserIds: string[]
+): Promise<void> {
+  const supabase = requireSupabase();
+  const table = ENTITY_TABLES[entityType];
+  for (const loserId of loserIds) {
+    for (const rel of LEGACY_RELATIONSHIP_MAP[entityType]) {
+      const { error: relErr } = await supabase
+        .from(rel.table)
+        .update({ [rel.fkColumn]: winnerId })
+        .eq(rel.fkColumn, loserId);
+      if (relErr) {
+        console.error(
+          `[DuplicateDetection] Legacy merge: failed to reassign ${rel.table}.${rel.fkColumn} for loser ${loserId}:`,
+          relErr.message
+        );
+      }
+    }
+    const { error: deleteErr } = await supabase
+      .from(table)
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", loserId);
+    if (deleteErr) {
+      console.error(
+        `[DuplicateDetection] Legacy merge: failed to soft-delete loser ${loserId}:`,
+        deleteErr.message
+      );
+    }
+  }
+  // Mark the cluster reviews resolved + cascade is handled by the caller.
+}
+
+/**
+ * Merge a single duplicate review's loser into its winner.
+ *
+ * For opportunity + client this is now a thin wrapper over the guarded merge
+ * RPC: one transaction, complete FK re-point, de-dupe, soft-delete + pointer,
+ * disposition('merged'), manifest, in-transaction review cascade. Fill-blank is
+ * computed here and re-validated server-side; `confirmedOverrides` carries only
+ * operator-chosen overwrites of non-blank winner fields (Q2). For project/task
+ * it falls back to the legacy path.
+ */
 async function mergeEntities(
   reviewId: string,
   winnerId: string,
   resolvedBy: string,
-  fieldOverrides?: Record<string, unknown>,
+  confirmedOverrides?: Record<string, unknown>,
   additionalReviewIds?: string[]
-): Promise<void> {
+): Promise<GuardedMergeResult | void> {
+  if (additionalReviewIds && additionalReviewIds.length > 0) {
+    return mergeCluster(
+      [reviewId, ...additionalReviewIds],
+      winnerId,
+      resolvedBy,
+      confirmedOverrides
+    );
+  }
+
   const supabase = requireSupabase();
 
-  // 1. Fetch the review record
   const { data: review, error: fetchErr } = await supabase
     .from("duplicate_reviews")
     .select("*")
     .eq("id", reviewId)
     .single();
-
   if (fetchErr || !review) {
     throw new Error(`Review ${reviewId} not found`);
   }
 
   const entityType = review.entity_type as DuplicateEntityType;
+  const companyId = review.company_id as string;
   const loserId =
-    winnerId === review.entity_a_id
-      ? review.entity_b_id
-      : review.entity_a_id;
-  const table = ENTITY_TABLES[entityType];
+    winnerId === review.entity_a_id ? review.entity_b_id : review.entity_a_id;
 
-  // 2. Fetch both entities
+  if (entityType === "project" || entityType === "task") {
+    await legacyMergeProjectOrTask(entityType, companyId, winnerId, [loserId]);
+    await markReviewsMerged(supabase, [reviewId], winnerId, resolvedBy);
+    await cascadePendingReviews(supabase, companyId, entityType, [loserId], winnerId, [
+      reviewId,
+    ]);
+    await resolveNotificationIfEmpty(companyId);
+    return;
+  }
+
+  const table = ENTITY_TABLES[entityType];
   const { data: winnerRow } = await supabase
     .from(table)
     .select("*")
@@ -715,171 +988,82 @@ async function mergeEntities(
     .select("*")
     .eq("id", loserId)
     .single();
-
   if (!winnerRow || !loserRow) {
     throw new Error(
       `Could not fetch entities for merge: winner=${winnerId}, loser=${loserId}`
     );
   }
 
-  // 3. Apply field overrides if provided, otherwise backfill missing fields
-  if (fieldOverrides && Object.keys(fieldOverrides).length > 0) {
-    const { error: updateErr } = await supabase
-      .from(table)
-      .update(fieldOverrides)
-      .eq("id", winnerId);
-    if (updateErr) {
-      console.error(
-        `[DuplicateDetection] Failed to apply field overrides:`,
-        updateErr.message
-      );
-    }
-  } else {
-    const updates = backfillFields(
-      winnerRow as Record<string, unknown>,
-      loserRow as Record<string, unknown>,
-      MERGE_FIELDS[entityType]
-    );
-    if (Object.keys(updates).length > 0) {
-      const { error: updateErr } = await supabase
-        .from(table)
-        .update(updates)
-        .eq("id", winnerId);
-      if (updateErr) {
-        console.error(
-          `[DuplicateDetection] Failed to backfill fields:`,
-          updateErr.message
-        );
-      }
-    }
-  }
+  const { fieldFill } = computeReconciliation(
+    winnerRow as Record<string, unknown>,
+    loserRow as Record<string, unknown>,
+    entityType
+  );
 
-  // 4. Reassign relationships
-  for (const rel of RELATIONSHIP_MAP[entityType]) {
-    const { error: relErr } = await supabase
-      .from(rel.table)
-      .update({ [rel.fkColumn]: winnerId })
-      .eq(rel.fkColumn, loserId);
-    if (relErr) {
-      console.error(
-        `[DuplicateDetection] Failed to reassign ${rel.table}.${rel.fkColumn}:`,
-        relErr.message
-      );
-    }
-  }
-
-  // 5. Soft-delete loser
-  const { error: deleteErr } = await supabase
-    .from(table)
-    .update({ deleted_at: new Date().toISOString() })
-    .eq("id", loserId);
-  if (deleteErr) {
-    console.error(
-      `[DuplicateDetection] Failed to soft-delete loser:`,
-      deleteErr.message
-    );
-  }
-
-  // 6. Update review record
-  const { error: reviewErr } = await supabase
-    .from("duplicate_reviews")
-    .update({
-      status: "merged",
-      winner_id: winnerId,
-      resolved_by: resolvedBy,
-      resolved_at: new Date().toISOString(),
-    })
-    .eq("id", reviewId);
-  if (reviewErr) {
-    console.error(
-      `[DuplicateDetection] Failed to update review:`,
-      reviewErr.message
-    );
-  }
-
-  // 6b. Also mark additional reviews as merged (cluster merge)
-  if (additionalReviewIds && additionalReviewIds.length > 0) {
-    const { error: additionalErr } = await supabase
-      .from("duplicate_reviews")
-      .update({
-        status: "merged",
-        winner_id: winnerId,
-        resolved_by: resolvedBy,
-        resolved_at: new Date().toISOString(),
-      })
-      .in("id", additionalReviewIds);
-    if (additionalErr) {
-      console.error(
-        `[DuplicateDetection] Failed to mark additional reviews as merged:`,
-        additionalErr.message
-      );
-    }
-  }
-
-  // 7. Cascade: replace loser in other pending reviews
-  const { data: affectedReviews } = await supabase
-    .from("duplicate_reviews")
-    .select("id, entity_a_id, entity_b_id")
-    .eq("company_id", review.company_id)
-    .eq("entity_type", entityType)
-    .eq("status", "pending")
-    .neq("id", reviewId)
-    .or(`entity_a_id.eq.${loserId},entity_b_id.eq.${loserId}`);
-
-  for (const affected of affectedReviews ?? []) {
-    const otherSide =
-      affected.entity_a_id === loserId
-        ? affected.entity_b_id
-        : affected.entity_a_id;
-
-    if (otherSide === winnerId) {
-      // Would become self-reference — delete
-      await supabase
-        .from("duplicate_reviews")
-        .delete()
-        .eq("id", affected.id);
-    } else {
-      // Replace loser with winner, maintaining ordered pair
-      const [newA, newB] = orderedPair(winnerId, otherSide);
-      await supabase
-        .from("duplicate_reviews")
-        .update({ entity_a_id: newA, entity_b_id: newB })
-        .eq("id", affected.id);
-    }
-  }
-
-  // 8. Auto-resolve notification if no pending reviews remain
-  await resolveNotificationIfEmpty(review.company_id as string);
+  return runGuardedMerge({
+    entityType,
+    companyId,
+    winnerId,
+    loserId,
+    mergeKey: `${reviewId}:${loserId}`,
+    reviewId,
+    resolvedBy,
+    expectedWinnerStage:
+      entityType === "opportunity"
+        ? ((winnerRow as Record<string, unknown>).stage as string)
+        : null,
+    expectedLoserStage:
+      entityType === "opportunity"
+        ? ((loserRow as Record<string, unknown>).stage as string)
+        : null,
+    expectedWinnerUpdatedAt:
+      entityType === "client"
+        ? ((winnerRow as Record<string, unknown>).updated_at as string)
+        : null,
+    expectedLoserUpdatedAt:
+      entityType === "client"
+        ? ((loserRow as Record<string, unknown>).updated_at as string)
+        : null,
+    fieldFill,
+    confirmedOverrides: confirmedOverrides ?? {},
+  }).then(async (result) => {
+    await resolveNotificationIfEmpty(companyId);
+    return result;
+  });
 }
 
 // ─── Cluster Merge ──────────────────────────────────────────────────────────
 
+/**
+ * Merge a cluster: every entity that isn't the winner is a loser. Each loser is
+ * merged by its own guarded RPC call (its own merge_key + transaction). A
+ * failure on loser N leaves losers 1..N-1 fully merged (each atomic) and
+ * surfaces the error — no half-merged loser is reachable. project/task fall
+ * back to the legacy path.
+ */
 async function mergeCluster(
   reviewIds: string[],
   winnerId: string,
   resolvedBy: string,
-  fieldOverrides?: Record<string, unknown>
+  confirmedOverridesByLoser?: Record<string, unknown> | Record<string, Record<string, unknown>>
 ): Promise<void> {
   const supabase = requireSupabase();
-
   if (reviewIds.length === 0) {
     throw new Error("No review IDs provided for cluster merge");
   }
 
-  // 1. Fetch all reviews
   const { data: reviews, error: fetchErr } = await supabase
     .from("duplicate_reviews")
     .select("*")
     .in("id", reviewIds);
-
   if (fetchErr || !reviews || reviews.length === 0) {
     throw new Error("Could not fetch reviews for cluster merge");
   }
 
   const entityType = reviews[0].entity_type as DuplicateEntityType;
+  const companyId = reviews[0].company_id as string;
   const table = ENTITY_TABLES[entityType];
 
-  // 2. Collect all unique entity IDs — everything that isn't the winner is a loser
   const allEntityIds = new Set<string>();
   for (const r of reviews) {
     allEntityIds.add(r.entity_a_id as string);
@@ -887,54 +1071,105 @@ async function mergeCluster(
   }
   allEntityIds.delete(winnerId);
   const loserIds = Array.from(allEntityIds);
-
   if (loserIds.length === 0) {
     throw new Error("No losers found in cluster merge — winnerId not in reviews");
   }
 
-  // 3. Apply field overrides to winner if provided
-  if (fieldOverrides && Object.keys(fieldOverrides).length > 0) {
-    const { error: updateErr } = await supabase
-      .from(table)
-      .update(fieldOverrides)
-      .eq("id", winnerId);
-    if (updateErr) {
-      console.error(
-        `[DuplicateDetection] Cluster merge: failed to apply field overrides:`,
-        updateErr.message
-      );
-    }
+  if (entityType === "project" || entityType === "task") {
+    await legacyMergeProjectOrTask(entityType, companyId, winnerId, loserIds);
+    await markReviewsMerged(supabase, reviewIds, winnerId, resolvedBy);
+    await cascadePendingReviews(
+      supabase,
+      companyId,
+      entityType,
+      loserIds,
+      winnerId,
+      reviewIds
+    );
+    await resolveNotificationIfEmpty(companyId);
+    return;
   }
 
-  // 4. For each loser: reassign relationships, then soft-delete
+  // Per-loser confirmed overrides: accept either a flat map (applied to every
+  // loser) or a per-loser keyed map. The keyed form is the UI-driven shape.
+  function overridesFor(loserId: string): Record<string, unknown> {
+    if (!confirmedOverridesByLoser) return {};
+    const keyed = confirmedOverridesByLoser as Record<string, Record<string, unknown>>;
+    if (keyed[loserId] && typeof keyed[loserId] === "object") {
+      return keyed[loserId];
+    }
+    // Flat map fallback — only treat as flat if no key looks like a loser id.
+    if (!loserIds.some((id) => id in confirmedOverridesByLoser)) {
+      return confirmedOverridesByLoser as Record<string, unknown>;
+    }
+    return {};
+  }
+
+  // Fetch the winner once.
+  const { data: winnerRow } = await supabase
+    .from(table)
+    .select("*")
+    .eq("id", winnerId)
+    .single();
+  if (!winnerRow) {
+    throw new Error(`Winner ${winnerId} not found for cluster merge`);
+  }
+
   for (const loserId of loserIds) {
-    for (const rel of RELATIONSHIP_MAP[entityType]) {
-      const { error: relErr } = await supabase
-        .from(rel.table)
-        .update({ [rel.fkColumn]: winnerId })
-        .eq(rel.fkColumn, loserId);
-      if (relErr) {
-        console.error(
-          `[DuplicateDetection] Cluster merge: failed to reassign ${rel.table}.${rel.fkColumn} for loser ${loserId}:`,
-          relErr.message
-        );
-      }
-    }
-
-    const { error: deleteErr } = await supabase
+    const { data: loserRow } = await supabase
       .from(table)
-      .update({ deleted_at: new Date().toISOString() })
-      .eq("id", loserId);
-    if (deleteErr) {
-      console.error(
-        `[DuplicateDetection] Cluster merge: failed to soft-delete loser ${loserId}:`,
-        deleteErr.message
-      );
-    }
+      .select("*")
+      .eq("id", loserId)
+      .single();
+    if (!loserRow) continue; // already merged away / missing — skip
+
+    const { fieldFill } = computeReconciliation(
+      winnerRow as Record<string, unknown>,
+      loserRow as Record<string, unknown>,
+      entityType as "client" | "opportunity"
+    );
+
+    // Re-read the winner stage/updated_at fresh each iteration is unnecessary —
+    // the snapshot guard is on the loser too, and each merge is atomic. We pass
+    // the loser's own snapshot; winner snapshot uses the cluster-start value.
+    await runGuardedMerge({
+      entityType: entityType as "client" | "opportunity",
+      companyId,
+      winnerId,
+      loserId,
+      mergeKey: `${reviewIds[0]}:${loserId}`,
+      reviewId: reviews.find(
+        (r) => r.entity_a_id === loserId || r.entity_b_id === loserId
+      )?.id as string ?? null,
+      resolvedBy,
+      expectedLoserStage:
+        entityType === "opportunity"
+          ? ((loserRow as Record<string, unknown>).stage as string)
+          : null,
+      expectedLoserUpdatedAt:
+        entityType === "client"
+          ? ((loserRow as Record<string, unknown>).updated_at as string)
+          : null,
+      fieldFill,
+      confirmedOverrides: overridesFor(loserId),
+    });
   }
 
-  // 5. Mark all reviews as merged
-  const { error: reviewErr } = await supabase
+  // Mark any cluster reviews that the RPC didn't already resolve (e.g. reviews
+  // not driving a specific loser merge) as merged.
+  await markReviewsMerged(supabase, reviewIds, winnerId, resolvedBy);
+  await resolveNotificationIfEmpty(companyId);
+}
+
+// ─── Review bookkeeping helpers (legacy project/task path + cluster cleanup) ──
+
+async function markReviewsMerged(
+  supabase: ReturnType<typeof requireSupabase>,
+  reviewIds: string[],
+  winnerId: string,
+  resolvedBy: string
+): Promise<void> {
+  const { error } = await supabase
     .from("duplicate_reviews")
     .update({
       status: "merged",
@@ -943,15 +1178,22 @@ async function mergeCluster(
       resolved_at: new Date().toISOString(),
     })
     .in("id", reviewIds);
-  if (reviewErr) {
+  if (error) {
     console.error(
-      `[DuplicateDetection] Cluster merge: failed to mark reviews as merged:`,
-      reviewErr.message
+      `[DuplicateDetection] Failed to mark reviews as merged:`,
+      error.message
     );
   }
+}
 
-  // 6. Cascade: clean up any remaining pending reviews referencing losers
-  const companyId = reviews[0].company_id as string;
+async function cascadePendingReviews(
+  supabase: ReturnType<typeof requireSupabase>,
+  companyId: string,
+  entityType: DuplicateEntityType,
+  loserIds: string[],
+  winnerId: string,
+  alreadyResolvedIds: string[]
+): Promise<void> {
   for (const loserId of loserIds) {
     const { data: affectedReviews } = await supabase
       .from("duplicate_reviews")
@@ -962,22 +1204,15 @@ async function mergeCluster(
       .or(`entity_a_id.eq.${loserId},entity_b_id.eq.${loserId}`);
 
     for (const affected of affectedReviews ?? []) {
-      // Skip reviews we already marked as merged
-      if (reviewIds.includes(affected.id)) continue;
-
+      if (alreadyResolvedIds.includes(affected.id)) continue;
       const otherSide =
         affected.entity_a_id === loserId
           ? affected.entity_b_id
           : affected.entity_a_id;
 
       if (otherSide === winnerId || loserIds.includes(otherSide)) {
-        // Would become self-reference or reference another loser — delete
-        await supabase
-          .from("duplicate_reviews")
-          .delete()
-          .eq("id", affected.id);
+        await supabase.from("duplicate_reviews").delete().eq("id", affected.id);
       } else {
-        // Replace loser with winner, maintaining ordered pair
         const [newA, newB] = orderedPair(winnerId, otherSide);
         await supabase
           .from("duplicate_reviews")
@@ -986,9 +1221,6 @@ async function mergeCluster(
       }
     }
   }
-
-  // 7. Auto-resolve notification if no pending reviews remain
-  await resolveNotificationIfEmpty(companyId);
 }
 
 // ─── Dismiss ─────────────────────────────────────────────────────────────────
@@ -1099,6 +1331,7 @@ export const DuplicateDetectionService = {
   mergeCluster,
   dismissPair,
   applyEntityEdits,
+  detectMergeConflicts,
 
   // Exposed for unit testing
   _scanClients: scanClients,
@@ -1107,4 +1340,7 @@ export const DuplicateDetectionService = {
   _scanTasks: scanTasks,
   _datesOverlap: datesOverlap,
   _backfillFields: backfillFields,
+  _detectFieldConflicts: detectFieldConflicts,
+  _computeReconciliation: computeReconciliation,
+  _isBlank: isBlank,
 };

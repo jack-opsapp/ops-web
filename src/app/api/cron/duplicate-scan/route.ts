@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
+import { checkPermissionById } from "@/lib/supabase/check-permission";
 import { getSubscriptionInfo } from "@/lib/subscription";
 import { DuplicateDetectionService } from "@/lib/api/services/duplicate-detection-service";
 import { NotificationService } from "@/lib/api/services/notification-service";
@@ -82,16 +83,24 @@ export async function GET(request: NextRequest) {
         );
         results.push({ companyId: row.id as string, newDuplicates });
 
-        // Send notifications if new duplicates found
+        // Send notifications if new duplicates found.
+        // Recipients are resolved by granular permission (NEVER by role):
+        // only users who hold pipeline.manage — the permission required to act
+        // on a duplicate review — receive the notification.
         if (newDuplicates > 0) {
           const { data: users } = await supabase
             .from("users")
             .select("id")
             .eq("company_id", row.id)
-            .in("role", ["admin", "owner", "office"])
             .is("deleted_at", null);
 
           for (const user of users ?? []) {
+            const canManage = await checkPermissionById(
+              user.id as string,
+              "pipeline.manage"
+            );
+            if (!canManage) continue;
+
             await NotificationService.create({
               userId: user.id as string,
               companyId: row.id as string,

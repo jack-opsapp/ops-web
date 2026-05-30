@@ -174,6 +174,7 @@ export {
   useUpdateOpportunity,
   useAttachClientToOpportunity,
   useMoveOpportunityStage,
+  useConvertOpportunityToProject,
   useDeleteOpportunity,
   useArchiveOpportunity,
   useUnarchiveOpportunity,
@@ -354,10 +355,15 @@ export {
 export {
   useDuplicateReviews,
   useMergeDuplicate,
+  useMergeConflicts,
   useDismissDuplicate,
   type DuplicateCluster,
   type GroupedClusters,
   type EnrichedEntity,
+  type MergeConflictsResult,
+  type ConflictSelections,
+  type ConfirmedOverrides,
+  type FieldConflict,
 } from "./use-duplicate-reviews";
 
 // Metrics

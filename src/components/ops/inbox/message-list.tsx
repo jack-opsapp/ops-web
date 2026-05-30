@@ -56,6 +56,7 @@ export interface InlinePhotoEntry {
 export interface RenderableDraft {
   id: string;
   source: DraftSource;
+  subject?: string;
   body: string;
   fromEmail: string;
   updatedAt: string;
@@ -345,6 +346,11 @@ function DraftBubble({
             )}
           </div>
 
+          {(selectedDraft.subject ?? "").trim().length > 0 && (
+            <p className="mb-1 font-cakemono text-[11px] font-light uppercase tracking-[0.12em] text-text-3">
+              {selectedDraft.subject}
+            </p>
+          )}
           <p className="whitespace-pre-wrap break-words">{selectedDraft.body}</p>
 
           {(onEditDraft || onSendDraft) && (
@@ -395,6 +401,7 @@ function draftSourceLabel(
   t: (key: string, fallback: string) => string,
 ): string {
   if (source === "ai") return t("draftBubble.phaseC", "PHASE C");
+  if (source === "lifecycle") return t("draftBubble.lifecycle", "LIFECYCLE");
   return t("draftBubble.provider", "YOURS");
 }
 

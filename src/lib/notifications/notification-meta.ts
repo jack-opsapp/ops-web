@@ -52,6 +52,8 @@ export const NOTIF_TYPE_META: Record<NotificationType, NotificationMeta> = {
   expense_submitted: { label: "EXPENSE", icon: "receipt", tone: "attn" },
   expense_approved: { label: "EXP", icon: "receipt-text", tone: "ambient" },
   duplicates_found: { label: "DUPES", icon: "copy", tone: "critical" },
+  duplicates_merged: { label: "MERGED", icon: "check-circle-2", tone: "ambient" },
+  data_review_resolved: { label: "DATA REVIEW", icon: "list-checks", tone: "ambient" },
   ai_milestone: { label: "AI", icon: "sparkle", tone: "accent" },
   agent_suggestion: { label: "AGENT", icon: "bot", tone: "accent" },
   // AlarmClock in lucide 0.468 — ClockAlert (0.475+) preferred long-term; upgrade when lucide-react is bumped.

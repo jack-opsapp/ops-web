@@ -64,13 +64,14 @@ export interface OpportunityLifecycleDecision {
 
 export const DEFAULT_FOLLOW_UP_TEMPLATE_BODY =
   "Hey there {{first_name}}, just following up on this as I didn't see anything back from you.";
+export const DEFAULT_FOLLOW_UP_TEMPLATE_SUBJECT = "Following up";
 
 export const DEFAULT_LEAD_LIFECYCLE_SETTINGS: LeadLifecycleSettings = {
   followUpAfterDays: 7,
   secondFollowUpArchiveAfterDays: 7,
   noCorrespondenceArchiveDays: 14,
   inboundUnrepliedLostDays: 30,
-  followUpTemplateSubject: "",
+  followUpTemplateSubject: DEFAULT_FOLLOW_UP_TEMPLATE_SUBJECT,
   followUpTemplateBody: DEFAULT_FOLLOW_UP_TEMPLATE_BODY,
   autoArchiveEnabled: true,
   autoLostEnabled: true,

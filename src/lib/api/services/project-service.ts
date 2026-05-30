@@ -74,6 +74,12 @@ function mapFromDb(row: Record<string, unknown>): Project {
     trade: parseProjectTrade(row.trade),
     visibility: parseProjectVisibility(row.visibility),
     opportunityId: (row.opportunity_id as string) ?? null,
+    opportunityRef: (row.opportunity_ref as string) ?? null,
+    estimatedValue:
+      row.estimated_value != null ? Number(row.estimated_value) : null,
+    source: (row.source as string) ?? null,
+    platformMetadata:
+      (row.platform_metadata as Record<string, unknown>) ?? null,
     createdAt: parseDate(row.created_at),
     lastSyncedAt: null,
     needsSync: false,
@@ -104,6 +110,11 @@ function mapToDb(data: Partial<Project>): Record<string, unknown> {
   if (data.trade !== undefined) row.trade = data.trade;
   if (data.visibility !== undefined) row.visibility = data.visibility;
   if (data.opportunityId !== undefined) row.opportunity_id = data.opportunityId;
+  if (data.opportunityRef !== undefined) row.opportunity_ref = data.opportunityRef;
+  if (data.estimatedValue !== undefined) row.estimated_value = data.estimatedValue;
+  if (data.source !== undefined) row.source = data.source;
+  if (data.platformMetadata !== undefined)
+    row.platform_metadata = data.platformMetadata;
   return row;
 }
 

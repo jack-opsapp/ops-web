@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
 import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
+import { checkPermissionById } from "@/lib/supabase/check-permission";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
 import { DuplicateDetectionService } from "@/lib/api/services/duplicate-detection-service";
@@ -26,6 +27,13 @@ export async function POST(
   const user = await findUserByAuth(auth.uid, auth.email);
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 401 });
+  }
+
+  // Granular permission — never filter by role. Dismissing a duplicate review
+  // is a pipeline-management action.
+  const allowed = await checkPermissionById(user.id as string, "pipeline.manage");
+  if (!allowed) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   // Parse optional body

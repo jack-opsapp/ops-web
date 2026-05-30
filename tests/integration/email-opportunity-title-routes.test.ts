@@ -74,6 +74,15 @@ vi.mock("@/lib/email/opportunity-relationship-matching", () => ({
 import { POST as importPOST } from "@/app/api/integrations/email/import/route";
 import { POST as webhookPOST } from "@/app/api/integrations/email-webhook/route";
 
+describe("retired inbound email webhook", () => {
+  it("returns 410 Gone and writes nothing", async () => {
+    const response = await webhookPOST();
+    expect(response.status).toBe(410);
+    const body = (await response.json()) as { error?: string };
+    expect(body.error).toContain("retired");
+  });
+});
+
 async function flushAfterCallbacks() {
   while (afterCallbacks.length > 0) {
     const callback = afterCallbacks.shift()!;
@@ -221,64 +230,6 @@ function makeImportSupabaseDouble(state: ImportState) {
   };
 }
 
-function makeWebhookSupabaseDouble(
-  inserted: Array<Record<string, unknown>>,
-  company: Record<string, unknown> = { id: "company-1" }
-) {
-  class Query {
-    private action: "select" | "insert" = "select";
-    private payload: Record<string, unknown> | null = null;
-
-    constructor(private readonly table: string) {}
-
-    select() {
-      return this;
-    }
-
-    or() {
-      return this;
-    }
-
-    limit() {
-      return this;
-    }
-
-    insert(payload: Record<string, unknown>) {
-      this.action = "insert";
-      this.payload = payload;
-      if (this.table === "opportunities") inserted.push(payload);
-      return this;
-    }
-
-    private result() {
-      if (this.table === "companies") {
-        return { data: [company], error: null };
-      }
-      if (this.table === "opportunities" && this.action === "insert") {
-        return { data: this.payload, error: null };
-      }
-      return { data: null, error: null };
-    }
-
-    then<TResult1 = unknown, TResult2 = never>(
-      onfulfilled?:
-        | ((value: unknown) => TResult1 | PromiseLike<TResult1>)
-        | null,
-      onrejected?:
-        | ((reason: unknown) => TResult2 | PromiseLike<TResult2>)
-        | null
-    ) {
-      return Promise.resolve(this.result()).then(onfulfilled, onrejected);
-    }
-  }
-
-  return {
-    from(table: string) {
-      return new Query(table);
-    },
-  };
-}
-
 describe("email opportunity title route writes", () => {
   beforeEach(() => {
     afterCallbacks.length = 0;
@@ -400,12 +351,22 @@ describe("email opportunity title route writes", () => {
     expect(state.opportunityPatches[0]).toMatchObject({
       ai_summary: aiSummary,
     });
+    // The import shell must carry a deterministic synthetic provider message id
+    // (`import:<threadId>:<seq>`), never null — otherwise steady-sync's
+    // email_message_id dedupe is blind to it and re-creates the activity.
+    expect(createActivityMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        opportunityId: "opp-kara",
+        emailThreadId: "thread-1",
+        emailMessageId: "import:thread-1:0",
+      })
+    );
     expect(state.correspondenceEvents).toEqual([
       expect.objectContaining({
         company_id: "company-1",
         opportunity_id: "opp-kara",
         provider_thread_id: "thread-1",
-        provider_message_id: null,
+        provider_message_id: "import:thread-1:0",
         direction: "inbound",
         party_role: "customer",
         is_meaningful: true,
@@ -658,56 +619,5 @@ describe("email opportunity title route writes", () => {
       })
     );
     expect(state.threadLinks[0].opportunity_id).not.toBe("opp-open");
-  });
-
-  it("creates webhook opportunity titles from sender identity, never the email subject", async () => {
-    const inserted: Array<Record<string, unknown>> = [];
-    getServiceRoleClientMock.mockReturnValue(
-      makeWebhookSupabaseDouble(inserted)
-    );
-
-    const response = await webhookPOST(
-      makeJsonRequest("https://ops.test/api/integrations/email-webhook", {
-        to: "leads-company@inbound.opsapp.co",
-        from: "marcel.mercier@example.com",
-        fromName: "Marcel Mercier",
-        subject: "Canpro Deck and Rail Estimate",
-        body: "We need roof deck work quoted.",
-      }) as never
-    );
-
-    expect(response.status).toBe(200);
-    expect(inserted).toHaveLength(1);
-    expect(inserted[0].title).toBe("Marcel Mercier — Email Inquiry");
-    expect(inserted[0].title).not.toBe("Canpro Deck and Rail Estimate");
-    expect(inserted[0].description).toBe("We need roof deck work quoted.");
-  });
-
-  it("filters company identity in webhook titles instead of using the subject", async () => {
-    const inserted: Array<Record<string, unknown>> = [];
-    getServiceRoleClientMock.mockReturnValue(
-      makeWebhookSupabaseDouble(inserted, {
-        id: "company-1",
-        name: "North Ridge Exteriors",
-        email: "operator@north-ridge.test",
-        website: "https://north-ridge.test",
-      })
-    );
-
-    const response = await webhookPOST(
-      makeJsonRequest("https://ops.test/api/integrations/email-webhook", {
-        to: "leads-company@inbound.opsapp.co",
-        from: "North Ridge Exteriors <hello@north-ridge.test>",
-        fromName: "North Ridge Exteriors",
-        subject: "Mara Hill deck estimate",
-        body: "Forwarded lead without a reliable submitter identity.",
-      }) as never
-    );
-
-    expect(response.status).toBe(200);
-    expect(inserted).toHaveLength(1);
-    expect(inserted[0].title).toBe("New Lead — Email Inquiry");
-    expect(inserted[0].title).not.toContain("North Ridge");
-    expect(inserted[0].title).not.toContain("Mara Hill");
   });
 });

@@ -4,6 +4,7 @@ import type {
   OpportunityLifecycleDecisionAction,
   OpportunityLifecycleStateInput,
 } from "@/lib/email/opportunity-lifecycle-evaluator";
+import { DEFAULT_FOLLOW_UP_TEMPLATE_SUBJECT } from "@/lib/email/opportunity-lifecycle-evaluator";
 
 interface ActionSupabaseLike {
   from: (table: string) => any;
@@ -98,6 +99,7 @@ export type LifecycleStateOperation =
   | "not_applicable"
   | "would_update"
   | "updated"
+  | "skipped_existing_state"
   | "skipped_update_failed";
 
 export type OpportunityMutationOperation =
@@ -210,6 +212,10 @@ export interface OpportunityLifecycleActionResult {
     audit: AuditOperation;
     supersededDrafts: number;
   };
+  insertedIds?: {
+    draftId?: string;
+    notificationId?: string;
+  };
 }
 
 const DESTRUCTIVE_ACTIONS = new Set<OpportunityLifecycleDecisionAction>([
@@ -302,15 +308,77 @@ function latestSourceEventId(input: OpportunityLifecycleActionInput): string | n
   );
 }
 
-function actionUrlFor(input: OpportunityLifecycleActionInput): string {
-  const threadId = normalizedText(input.latestMeaningfulEvent?.providerThreadId ?? null);
-  return threadId ? `/inbox/${encodeURIComponent(threadId)}` : "/pipeline";
+function pipelineOpportunityUrl(opportunityId: string): string {
+  return `/pipeline?opportunityId=${encodeURIComponent(opportunityId)}`;
 }
 
-function actionLabelFor(input: OpportunityLifecycleActionInput): string {
-  return normalizedText(input.latestMeaningfulEvent?.providerThreadId ?? null)
-    ? "Open thread"
-    : "Open pipeline";
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value
+  );
+}
+
+function isSyntheticThreadContext(value: string): boolean {
+  return value.includes(":");
+}
+
+interface NotificationActionTarget {
+  actionUrl: string;
+  actionLabel: string;
+}
+
+function inboxActionTarget(threadId: string): NotificationActionTarget {
+  return {
+    actionUrl: `/inbox/${encodeURIComponent(threadId)}`,
+    actionLabel: "Open thread",
+  };
+}
+
+function pipelineActionTarget(input: OpportunityLifecycleActionInput): NotificationActionTarget {
+  return {
+    actionUrl: pipelineOpportunityUrl(input.opportunityId),
+    actionLabel: "Open opportunity",
+  };
+}
+
+async function resolveInboxThreadId(
+  input: OpportunityLifecycleActionInput,
+  providerOrInternalThreadId: string
+): Promise<string | null> {
+  const connectionId = normalizedText(input.latestMeaningfulEvent?.connectionId ?? null);
+
+  if (isUuid(providerOrInternalThreadId)) {
+    let byIdQuery = input.supabase
+      .from("email_threads")
+      .select("id")
+      .eq("company_id", input.companyId)
+      .eq("id", providerOrInternalThreadId);
+    if (connectionId) byIdQuery = byIdQuery.eq("connection_id", connectionId);
+    const byIdRows = await fetchRows(byIdQuery.limit(1));
+    const byId = textValue(recordValue(byIdRows[0]).id);
+    if (byId) return byId;
+  }
+
+  if (isSyntheticThreadContext(providerOrInternalThreadId)) return null;
+
+  let byProviderQuery = input.supabase
+    .from("email_threads")
+    .select("id")
+    .eq("company_id", input.companyId)
+    .eq("provider_thread_id", providerOrInternalThreadId);
+  if (connectionId) byProviderQuery = byProviderQuery.eq("connection_id", connectionId);
+  const byProviderRows = await fetchRows(byProviderQuery.limit(1));
+  return textValue(recordValue(byProviderRows[0]).id);
+}
+
+async function notificationActionTarget(
+  input: OpportunityLifecycleActionInput
+): Promise<NotificationActionTarget> {
+  const threadId = normalizedText(input.latestMeaningfulEvent?.providerThreadId ?? null);
+  if (!threadId) return pipelineActionTarget(input);
+
+  const inboxThreadId = await resolveInboxThreadId(input, threadId);
+  return inboxThreadId ? inboxActionTarget(inboxThreadId) : pipelineActionTarget(input);
 }
 
 function shortId(value: string): string {
@@ -324,6 +392,10 @@ function notificationTitle(input: OpportunityLifecycleActionInput): string {
 function notificationBody(input: OpportunityLifecycleActionInput): string {
   const title = normalizedText(input.opportunityTitle) ?? "This lead";
   return `Customer replied on ${title}. OPS has not answered.`;
+}
+
+function operatorMissDedupeKey(input: OpportunityLifecycleActionInput): string {
+  return `lead_lifecycle:operator_follow_up_miss:${input.opportunityId}`;
 }
 
 async function fetchRows(
@@ -370,10 +442,25 @@ async function upsertLifecycleState(
   staleStatus: OpportunityLifecycleStaleStatus
 ): Promise<LifecycleStateOperation> {
   const mode = modeOf(input.mode);
+  const state = input.lifecycleState;
+  const event = input.latestMeaningfulEvent ?? null;
+  const lastMeaningfulEventId =
+    normalizedText(state?.lastMeaningfulEventId ?? null) ??
+    normalizedText(event?.id ?? null);
+  const lastMeaningfulDirection =
+    normalizedText(state?.lastMeaningfulDirection ?? null) ??
+    normalizedText(event?.direction ?? null);
+  const stateAlreadyMatches =
+    state?.staleStatus === staleStatus &&
+    (!lastMeaningfulEventId ||
+      normalizedText(state.lastMeaningfulEventId ?? null) === lastMeaningfulEventId) &&
+    (!lastMeaningfulDirection ||
+      normalizedText(state.lastMeaningfulDirection ?? null) === lastMeaningfulDirection);
+
+  if (stateAlreadyMatches) return "skipped_existing_state";
   if (mode === "dry-run") return "would_update";
 
   const now = (input.now ?? new Date()).toISOString();
-  const event = input.latestMeaningfulEvent ?? null;
   const row: Record<string, unknown> = {
     opportunity_id: input.opportunityId,
     company_id: input.companyId,
@@ -385,18 +472,12 @@ async function upsertLifecycleState(
     updated_at: now,
   };
 
-  const lastMeaningfulEventId =
-    normalizedText(input.lifecycleState?.lastMeaningfulEventId ?? null) ??
-    normalizedText(event?.id ?? null);
   if (lastMeaningfulEventId) row.last_meaningful_event_id = lastMeaningfulEventId;
 
   const lastMeaningfulAt =
     input.lifecycleState?.lastMeaningfulAt ?? event?.occurredAt ?? null;
   if (lastMeaningfulAt) row.last_meaningful_at = iso(lastMeaningfulAt);
 
-  const lastMeaningfulDirection =
-    normalizedText(input.lifecycleState?.lastMeaningfulDirection ?? null) ??
-    normalizedText(event?.direction ?? null);
   if (lastMeaningfulDirection) row.last_meaningful_direction = lastMeaningfulDirection;
 
   row.unanswered_follow_up_count = Number(
@@ -422,7 +503,12 @@ async function upsertLifecycleState(
 
 async function createTemplateFollowUpDraft(
   input: OpportunityLifecycleActionInput
-): Promise<Pick<OpportunityLifecycleActionResult, "operations" | "applied" | "skippedReason">> {
+): Promise<
+  Pick<
+    OpportunityLifecycleActionResult,
+    "operations" | "applied" | "skippedReason" | "insertedIds"
+  >
+> {
   const mode = modeOf(input.mode);
   const existing = await findOpenTemplateDraft(input);
   if (existing) {
@@ -472,6 +558,9 @@ async function createTemplateFollowUpDraft(
 
   const body = renderFollowUpBody(input);
   const sequence = await nextTemplateSequence(input);
+  const subject =
+    normalizedText(input.settings.followUpTemplateSubject) ??
+    DEFAULT_FOLLOW_UP_TEMPLATE_SUBJECT;
   const lifecycleState = await upsertLifecycleState(input, TEMPLATE_STALE_STATUS);
   if (lifecycleState === "skipped_update_failed") {
     return {
@@ -487,23 +576,28 @@ async function createTemplateFollowUpDraft(
     };
   }
 
-  const { error } = await input.supabase.from("opportunity_follow_up_drafts").insert({
-    company_id: input.companyId,
-    opportunity_id: input.opportunityId,
-    connection_id: input.latestMeaningfulEvent?.connectionId ?? null,
-    provider_thread_id: input.latestMeaningfulEvent?.providerThreadId ?? null,
-    source_event_id: sourceEventId,
-    origin: "template_follow_up",
-    sequence_number: sequence,
-    subject: input.settings.followUpTemplateSubject ?? "",
-    original_body: body,
-    current_body: body,
-    status: "drafted",
-    provider_draft_id: null,
-    ai_draft_history_id: null,
-    created_by: null,
-    edited_by: null,
-  });
+  const { data, error } = await input.supabase
+    .from("opportunity_follow_up_drafts")
+    .insert({
+      company_id: input.companyId,
+      opportunity_id: input.opportunityId,
+      connection_id: input.latestMeaningfulEvent?.connectionId ?? null,
+      provider_thread_id: input.latestMeaningfulEvent?.providerThreadId ?? null,
+      source_event_id: sourceEventId,
+      origin: "template_follow_up",
+      sequence_number: sequence,
+      subject,
+      original_body: body,
+      current_body: body,
+      status: "drafted",
+      provider_draft_id: null,
+      ai_draft_history_id: null,
+      created_by: null,
+      edited_by: null,
+    })
+    .select("id")
+    .single();
+  const draftId = textValue(recordValue(data).id);
 
   return {
     applied: !error,
@@ -515,6 +609,7 @@ async function createTemplateFollowUpDraft(
       audit: "not_applicable",
       supersededDrafts: 0,
     },
+    insertedIds: !error && draftId ? { draftId } : undefined,
   };
 }
 
@@ -529,8 +624,9 @@ async function findExistingOperatorMissNotification(
       .eq("user_id", input.operatorUserId)
       .eq("company_id", input.companyId)
       .eq("type", NOTIFICATION_TYPE)
-      .eq("title", notificationTitle(input))
+      .eq("dedupe_key", operatorMissDedupeKey(input))
       .eq("is_read", false)
+      .is("resolved_at", null)
       .limit(1)
   );
   return (rows[0] as Record<string, unknown> | undefined) ?? null;
@@ -538,7 +634,12 @@ async function findExistingOperatorMissNotification(
 
 async function createOperatorFollowUpMissNotification(
   input: OpportunityLifecycleActionInput
-): Promise<Pick<OpportunityLifecycleActionResult, "operations" | "applied" | "skippedReason">> {
+): Promise<
+  Pick<
+    OpportunityLifecycleActionResult,
+    "operations" | "applied" | "skippedReason" | "insertedIds"
+  >
+> {
   const mode = modeOf(input.mode);
   if (!input.operatorUserId) {
     return {
@@ -585,19 +686,27 @@ async function createOperatorFollowUpMissNotification(
     };
   }
 
-  const { error } = await input.supabase.from("notifications").insert({
-    user_id: input.operatorUserId,
-    company_id: input.companyId,
-    type: NOTIFICATION_TYPE,
-    title: notificationTitle(input),
-    body: notificationBody(input),
-    is_read: false,
-    persistent: true,
-    action_url: actionUrlFor(input),
-    action_label: actionLabelFor(input),
-    project_id: null,
-    note_id: null,
-  });
+  const actionTarget = await notificationActionTarget(input);
+  const { data, error } = await input.supabase
+    .from("notifications")
+    .insert({
+      user_id: input.operatorUserId,
+      company_id: input.companyId,
+      type: NOTIFICATION_TYPE,
+      title: notificationTitle(input),
+      body: notificationBody(input),
+      is_read: false,
+      persistent: true,
+      action_url: actionTarget.actionUrl,
+      action_label: actionTarget.actionLabel,
+      project_id: null,
+      note_id: null,
+      dedupe_key: operatorMissDedupeKey(input),
+      resolved_at: null,
+    })
+    .select("id")
+    .single();
+  const notificationId = textValue(recordValue(data).id);
   const lifecycleState = error
     ? "not_applicable"
     : await upsertLifecycleState(input, OPERATOR_MISS_STALE_STATUS);
@@ -612,6 +721,7 @@ async function createOperatorFollowUpMissNotification(
       audit: "not_applicable",
       supersededDrafts: 0,
     },
+    insertedIds: !error && notificationId ? { notificationId } : undefined,
   };
 }
 
@@ -1221,6 +1331,7 @@ export async function resetStaleLifecycleAfterMeaningfulInbound(
   operations: {
     lifecycleState: LifecycleStateOperation;
     supersededDrafts: number;
+    notificationsResolved: number;
   };
 }> {
   const mode = modeOf(input.mode);
@@ -1234,6 +1345,16 @@ export async function resetStaleLifecycleAfterMeaningfulInbound(
       .eq("origin", "template_follow_up")
       .eq("status", "drafted")
   );
+  const openLifecycleNotifications = await fetchRows(
+    input.supabase
+      .from("notifications")
+      .select("id")
+      .eq("company_id", input.companyId)
+      .eq("type", NOTIFICATION_TYPE)
+      .eq("dedupe_key", `lead_lifecycle:operator_follow_up_miss:${input.opportunityId}`)
+      .eq("is_read", false)
+      .is("resolved_at", null)
+  );
 
   if (mode === "dry-run") {
     return {
@@ -1242,6 +1363,7 @@ export async function resetStaleLifecycleAfterMeaningfulInbound(
       operations: {
         lifecycleState: "would_update",
         supersededDrafts: openTemplateDrafts.length,
+        notificationsResolved: openLifecycleNotifications.length,
       },
     };
   }
@@ -1257,6 +1379,23 @@ export async function resetStaleLifecycleAfterMeaningfulInbound(
         updated_at: now,
       })
       .eq("id", id);
+  }
+
+  if (openLifecycleNotifications.length > 0) {
+    await input.supabase
+      .from("notifications")
+      .update({
+        is_read: true,
+        resolved_at: now,
+      })
+      .eq("company_id", input.companyId)
+      .eq("type", NOTIFICATION_TYPE)
+      .eq(
+        "dedupe_key",
+        `lead_lifecycle:operator_follow_up_miss:${input.opportunityId}`
+      )
+      .eq("is_read", false)
+      .is("resolved_at", null);
   }
 
   const { error } = await input.supabase
@@ -1284,6 +1423,7 @@ export async function resetStaleLifecycleAfterMeaningfulInbound(
     operations: {
       lifecycleState: error ? "skipped_update_failed" : "updated",
       supersededDrafts: openTemplateDrafts.length,
+      notificationsResolved: openLifecycleNotifications.length,
     },
   };
 }

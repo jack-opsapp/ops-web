@@ -162,6 +162,10 @@
     {
       "path": "/api/cron/onboarding-drip",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/lead-lifecycle",
+      "schedule": "0 13 * * *"
     }
   ]
 }
