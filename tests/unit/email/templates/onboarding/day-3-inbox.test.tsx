@@ -24,9 +24,15 @@ describe("Day3Inbox", () => {
     expect(html).toContain("Data is power.");
   });
 
-  it("includes 'I read every reply' verbatim", async () => {
+  it("includes 'I read every message' verbatim", async () => {
     const text = await render(<Day3Inbox {...previewProps} />, { plainText: true });
-    expect(text).toContain("I read every reply");
+    expect(text).toContain("I read every message");
+  });
+
+  it("closing CTA offers setup help (not 'inbox chaos')", async () => {
+    const text = await render(<Day3Inbox {...previewProps} />, { plainText: true });
+    expect(text).toContain("Having trouble getting it set up?");
+    expect(text).not.toContain("inbox chaos");
   });
 
   it("uses 'sub-trade emails' (not 'sub emails' — v3 clarification)", async () => {

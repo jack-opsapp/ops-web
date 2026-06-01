@@ -1,12 +1,12 @@
-// @template-version: 1.0.0
+// @template-version: 1.1.0
 import * as React from "react";
 import { PlainTextLayout } from "@/lib/email/react/primitives/PlainTextLayout";
 
 /**
- * Day 3 — Inbox → lead, founder voice. Sent from JACK. Body copy is
- * canonical per spec §6.
+ * Day 3 — Inbox → lead, founder voice. Sent from JACK. Closing CTA
+ * offers setup help with a concrete reason to reply.
  *
- * @template-version 1.0.0
+ * @template-version 1.1.0
  */
 export interface Day3InboxProps {
   firstName: string | null;
@@ -35,7 +35,7 @@ export function Day3Inbox({ firstName, unsubscribeUrl }: Day3InboxProps) {
       {"\n\n"}
       Then OPS tracks every lead from "first email" to "job won" to "invoice paid." You see what your cost per won job is, by source. You see which ads are paying back. You make decisions on numbers instead of gut.
       {"\n\n"}
-      Connecting your inbox takes about two minutes. Hit reply if you want to tell me what your inbox chaos looks like right now — I read every reply.
+      Connecting your inbox takes about two minutes. Having trouble getting it set up? Reply to this email — I read every message.
       {"\n\n"}
       — Jack
     </PlainTextLayout>
