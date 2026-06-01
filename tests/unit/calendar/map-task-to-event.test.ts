@@ -162,10 +162,15 @@ describe("mapTaskToInternalEvent", () => {
       expect(event?.typeLabel).toBe("Site Visit");
     });
 
-    it("typeLabel falls back to 'Task' when taskType is null", () => {
+    it("typeLabel falls back to 'Unmapped type' when taskType is null", () => {
+      // bug-d789ff9a (011d6bbd) deliberately replaced the generic "Task"
+      // fallback with the explicit "Unmapped type" label, routed through
+      // cleanTaskTypeLabel() so a null taskType — or a UUID-like / blank
+      // taskType.display — surfaces the same tactical badge instead of
+      // leaking a meaningless value into the calendar UI.
       const task = makeTask({ taskType: null });
       const event = mapTaskToInternalEvent(task);
-      expect(event?.typeLabel).toBe("Task");
+      expect(event?.typeLabel).toBe("Unmapped type");
     });
   });
 
