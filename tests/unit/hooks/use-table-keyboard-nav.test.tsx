@@ -161,7 +161,7 @@ describe("useTableKeyboardNav", () => {
   });
 
   it("begins edit on enter only when the active column is editable", () => {
-    const { result } = renderNav({ columns: columns(["name", "client"]) });
+    const { result } = renderNav({ columns: columns(["name", "next_task"]) });
 
     act(() => {
       result.current.setActiveCell({ rowId: "p-1", columnId: "name" });
@@ -175,11 +175,11 @@ describe("useTableKeyboardNav", () => {
 
     act(() => {
       result.current.cancelEdit();
-      result.current.setActiveCell({ rowId: "p-1", columnId: "client" });
+      result.current.setActiveCell({ rowId: "p-1", columnId: "next_task" });
     });
     const readOnlyEnter = keyEvent("Enter");
     act(() => {
-      result.current.handleCellKeyDown("p-1", "client", readOnlyEnter);
+      result.current.handleCellKeyDown("p-1", "next_task", readOnlyEnter);
     });
     expect(result.current.editingCell).toBeNull();
     expect(readOnlyEnter.preventDefault).not.toHaveBeenCalled();
