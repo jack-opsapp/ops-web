@@ -9,25 +9,24 @@ describe("Day14Quiet", () => {
       htmlToTextOptions: { wordwrap: false },
     });
     expect(html).toContain("Jack here.");
-    expect(html).toContain("Day 14. You're halfway through your trial");
-    expect(html).toContain("quiet on your account");
+    expect(html).toContain("Two weeks in, and it's gone quiet on your end.");
   });
 
-  it("uses first-person 'I want to know' (not 'Jack wants to know' third-person)", async () => {
+  it("uses first-person 'I'd like to know' (not 'Jack wants to know' third-person)", async () => {
     const html = await render(<Day14Quiet {...previewProps} />, {
       plainText: true,
       htmlToTextOptions: { wordwrap: false },
     });
-    expect(html).toContain("I want to know");
+    expect(html).toContain("I'd like to know");
     expect(html).not.toContain("Jack wants to know");
   });
 
-  it("includes the binary slotting-in vs in-the-way framing", async () => {
+  it("includes the 'isn't the fit' framing", async () => {
     const html = await render(<Day14Quiet {...previewProps} />, {
       plainText: true,
       htmlToTextOptions: { wordwrap: false },
     });
-    expect(html).toContain("OPS didn't fit how you run things");
+    expect(html).toContain("OPS isn't the fit");
   });
 
   it("degrades when firstName is null", async () => {

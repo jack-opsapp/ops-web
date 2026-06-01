@@ -134,7 +134,7 @@ describe("OnboardingDripService.computeState", () => {
     expect(result.emailType).toBe("onboarding_day_14_quiet");
   });
 
-  it("day_14 returns active branch when activity in last 7d, payload has counts", async () => {
+  it("day_14 returns active branch when activity in last 7d (no per-account counts in payload)", async () => {
     const db = mockSupabaseCounts({
       projects: 2, project_tasks: 5, clients: 1, opportunities: 0, estimates: 1, invoices: 0,
       notifications: 3,
@@ -144,9 +144,7 @@ describe("OnboardingDripService.computeState", () => {
     const result = await OnboardingDripService.computeState(db, user, company, "day_14");
     expect(result.branch).toBe("active");
     expect(result.emailType).toBe("onboarding_day_14_active");
-    expect(result.payload.projectCount).toBe(2);
-    expect(result.payload.taskCount).toBe(5);
-    expect(result.payload.notificationCount).toBe(3);
+    expect(result.payload).toEqual({});
   });
 
   it("lost_you returns null branch + lost_you emailType", async () => {

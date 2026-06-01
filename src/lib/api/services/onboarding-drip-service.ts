@@ -188,9 +188,6 @@ async function dispatchTypedSender(
       return sendOnboardingDay14Active({
         email: params.user.email,
         firstName: params.user.first_name,
-        projectCount: (params.payload.projectCount as number) ?? 0,
-        taskCount: (params.payload.taskCount as number) ?? 0,
-        notificationCount: (params.payload.notificationCount as number) ?? 0,
         onboardingEmailLogId,
         userId: params.user.id,
       });
@@ -305,20 +302,7 @@ export const OnboardingDripService = {
         );
         const totalActivity = checks.reduce((a, b) => a + b, 0);
         if (totalActivity > 0) {
-          const [proj, task, notif] = await Promise.all([
-            db.from("projects").select("id", { count: "exact", head: true }).eq("company_id", company.id).is("deleted_at", null),
-            db.from("project_tasks").select("id", { count: "exact", head: true }).eq("company_id", company.id).is("deleted_at", null),
-            db.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("type", "task_completed"),
-          ]);
-          return {
-            branch: "active",
-            emailType: "onboarding_day_14_active",
-            payload: {
-              projectCount: proj.count ?? 0,
-              taskCount: task.count ?? 0,
-              notificationCount: notif.count ?? 0,
-            },
-          };
+          return { branch: "active", emailType: "onboarding_day_14_active", payload: {} };
         }
         return { branch: "quiet", emailType: "onboarding_day_14_quiet", payload: {} };
       }

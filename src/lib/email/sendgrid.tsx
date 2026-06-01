@@ -1368,9 +1368,6 @@ export async function sendOnboardingDay14Quiet(params: {
 export async function sendOnboardingDay14Active(params: {
   email: string;
   firstName: string | null;
-  projectCount: number;
-  taskCount: number;
-  notificationCount: number;
   onboardingEmailLogId: string;
   userId?: string | null;
 }): Promise<GatedSendResult> {
@@ -1381,9 +1378,6 @@ export async function sendOnboardingDay14Active(params: {
   const html = await render(
     <Day14Active
       firstName={params.firstName}
-      projectCount={params.projectCount}
-      taskCount={params.taskCount}
-      notificationCount={params.notificationCount}
       unsubscribeUrl={compliance.unsubscribeUrl}
     />,
   );
@@ -1399,9 +1393,6 @@ export async function sendOnboardingDay14Active(params: {
     headers: compliance.headers,
     metadata: {
       onboarding_email_log_id: params.onboardingEmailLogId,
-      projectCount: params.projectCount,
-      taskCount: params.taskCount,
-      notificationCount: params.notificationCount,
     },
     customArgs: { onboarding_email_log_id: params.onboardingEmailLogId },
   });

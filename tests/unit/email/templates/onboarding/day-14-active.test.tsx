@@ -5,65 +5,35 @@ import { Day14Active, previewProps } from "@/lib/email/react/templates/onboardin
 const PLAIN = { plainText: true, htmlToTextOptions: { wordwrap: false } } as const;
 
 describe("Day14Active", () => {
-  it("renders stats line when sum >= 5", async () => {
-    const html = await render(
-      <Day14Active
-        firstName="Pat"
-        projectCount={3}
-        taskCount={7}
-        notificationCount={2}
-        unsubscribeUrl="https://x.test"
-      />,
-      PLAIN,
-    );
-    expect(html).toContain("Day 14. You're running OPS — 3 projects, 7 tasks assigned, 2 completion notifications");
+  it("renders with previewProps", async () => {
+    const html = await render(<Day14Active {...previewProps} />, PLAIN);
+    expect(html).toContain("Jack here.");
+    expect(html).toContain("Two weeks in, and you've been putting OPS to work.");
   });
 
-  it("renders pluralization correctly (1 project, 1 task, 3 notifications)", async () => {
+  it("renders the two-question structure", async () => {
     const html = await render(
-      <Day14Active
-        firstName="Pat"
-        projectCount={1}
-        taskCount={1}
-        notificationCount={3}
-        unsubscribeUrl="https://x.test"
-      />,
+      <Day14Active firstName="Pat" unsubscribeUrl="https://x.test" />,
       PLAIN,
     );
-    // sum is 5, so stats line renders. Singular for 1, plural for 3.
-    expect(html).toMatch(/1 project,/);
-    expect(html).toMatch(/1 task /);
-    expect(html).toMatch(/3 completion notifications/);
+    expect(html).toContain("What's working better than you figured it would?");
+    expect(html).toContain("What's getting in your way?");
+    expect(html).toContain("Reply here — comes straight to me");
   });
 
-  it("suppresses stats line when sum < 5 (renders no-stats variant)", async () => {
-    const html = await render(
-      <Day14Active
-        firstName="Pat"
-        projectCount={1}
-        taskCount={2}
-        notificationCount={1}
-        unsubscribeUrl="https://x.test"
-      />,
-      PLAIN,
-    );
-    expect(html).toContain("Day 14. You're moving in OPS.");
+  it("does NOT leak per-account counts (no surveillance-y stats line)", async () => {
+    const html = await render(<Day14Active {...previewProps} />, PLAIN);
     expect(html).not.toContain("projects,");
     expect(html).not.toContain("tasks assigned");
+    expect(html).not.toContain("completion notification");
+    expect(html).not.toContain("landed on your phone");
   });
 
-  it("renders the two-question structure in both variants", async () => {
-    const lowStatsHtml = await render(
-      <Day14Active firstName="Pat" projectCount={0} taskCount={1} notificationCount={0} unsubscribeUrl="https://x.test" />,
+  it("degrades when firstName is null", async () => {
+    const html = await render(
+      <Day14Active firstName={null} unsubscribeUrl="https://x.test" />,
       PLAIN,
     );
-    const highStatsHtml = await render(
-      <Day14Active firstName="Pat" projectCount={5} taskCount={10} notificationCount={2} unsubscribeUrl="https://x.test" />,
-      PLAIN,
-    );
-    for (const html of [lowStatsHtml, highStatsHtml]) {
-      expect(html).toContain("What's working that you didn't expect");
-      expect(html).toContain("What's broken, missing, or in the way");
-    }
+    expect(html).toContain("Hey there,");
   });
 });

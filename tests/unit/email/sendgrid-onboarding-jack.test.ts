@@ -92,17 +92,15 @@ describe("Jack-persona onboarding senders", () => {
     expect(call.subject).toBe("the part of OPS I'm most proud of");
   });
 
-  it("sendOnboardingDay14Active includes the three stat counts in the rendered html", async () => {
+  it("sendOnboardingDay14Active renders the ambiguous two-question prompt (no per-account counts)", async () => {
     const { sendOnboardingDay14Active } = await import("@/lib/email/sendgrid");
     await sendOnboardingDay14Active({
       email: "test@example.com",
       firstName: "Pat",
-      projectCount: 3,
-      taskCount: 8,
-      notificationCount: 2,
       onboardingEmailLogId: "log-uuid-789",
     });
     const call = (sgMail.send as any).mock.calls[0][0];
-    expect(call.html).toContain("3 projects, 8 tasks");
+    expect(call.html).toContain("putting OPS to work");
+    expect(call.html).not.toContain("tasks assigned");
   });
 });

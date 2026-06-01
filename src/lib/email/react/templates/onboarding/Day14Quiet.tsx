@@ -1,13 +1,12 @@
-// @template-version: 1.0.0
+// @template-version: 1.1.0
 import * as React from "react";
 import { PlainTextLayout } from "@/lib/email/react/primitives/PlainTextLayout";
 
 /**
  * Day 14 Branch A — fires when the operator has had zero activity in
  * the last 7 days. Sent from JACK (changed v3 from Dispatch).
- * Body copy is canonical per spec §6.
  *
- * @template-version 1.0.0
+ * @template-version 1.1.0
  */
 export interface Day14QuietProps {
   firstName: string | null;
@@ -22,13 +21,13 @@ export function Day14Quiet({ firstName, unsubscribeUrl }: Day14QuietProps) {
       {"\n\n"}
       Jack here.
       {"\n\n"}
-      Day 14. You're halfway through your trial and it's been quiet on your account.
+      Two weeks in, and it's gone quiet on your end.
       {"\n\n"}
-      Could be a lot of things — you've been busy on actual work, something tripped you up during setup, OPS didn't fit how you run things, the timing's wrong, you forgot about it. No judgment either way.
+      Could be anything — you've been buried in actual work, setup tripped you up, OPS isn't the fit, or it just slipped your mind. I'm not going to bug you about it.
       {"\n\n"}
-      But I want to know which one it is. Hit reply on this email — goes to my inbox. One sentence is enough.
+      But I'd like to know which one. Reply here — comes straight to me. One sentence does it.
       {"\n\n"}
-      If something specifically didn't work, tell me. If you forgot about it, tell me that too. The product gets better when operators tell me what's grinding their gears.
+      If something didn't work, tell me what. If you forgot it existed, tell me that. I built OPS for guys actually on the job, and it only gets better when they tell me where it's short.
       {"\n\n"}
       — Jack
     </PlainTextLayout>
