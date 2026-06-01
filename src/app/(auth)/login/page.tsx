@@ -128,7 +128,7 @@ function LoginForm() {
       } else if (code === "auth/operation-not-allowed") {
         message = `${provider === "google" ? "Google" : "Apple"} ${t("login.error.operationNotAllowed")}`;
       } else if (code === "auth/popup-blocked") {
-        message = "Popup blocked — allow popups for this site to sign in.";
+        message = t("login.error.popupBlocked");
       } else {
         message = err instanceof Error ? err.message : t("login.error.providerFailed");
       }
@@ -183,7 +183,7 @@ function LoginForm() {
         // Firebase account exists but no users row — sign out to prevent
         // AuthProvider from auto-creating a user row on the next auth state change
         await signOut().catch(() => {});
-        setError("No account found for this email. Please sign up first.");
+        setError(t("login.error.noAccount"));
       } else if (message.includes("INVALID_LOGIN_CREDENTIALS") || message.includes("invalid") || message.includes("auth/invalid-credential")) {
         setError(t("login.error.invalidCredentials"));
       } else if (message.includes("too-many-requests") || message.includes("429")) {
@@ -341,8 +341,9 @@ function LoginForm() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="text-text-3 hover:text-text-2 transition-colors"
-                  tabIndex={-1}
+                  className="flex items-center justify-center min-w-[44px] min-h-[44px] -my-2 -mr-2 text-text-3 hover:text-text-2 transition-colors"
+                  aria-label={showPassword ? t("passwordToggle.hide") : t("passwordToggle.show")}
+                  aria-pressed={showPassword}
                 >
                   {showPassword ? (
                     <EyeOff className="w-[16px] h-[16px]" />

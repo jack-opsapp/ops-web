@@ -4,8 +4,30 @@ import { useEffect, useState } from "react";
 import { useReducedMotion } from "framer-motion";
 import type { EdgeTabProps, EdgeTabAccent } from "./edge-tab.types";
 import { useEdgeTabStore } from "@/stores/edge-tab-store";
+import { useSidebarStore } from "@/stores/sidebar-store";
 
-const TAB_WIDTH = 28;
+// Touch-friendly width on phones (≥44px tap target per WCAG 2.5.5);
+// compact width on desktop to preserve rail aesthetic. Switch via the
+// EDGE_TAB_MOBILE_BREAKPOINT match. Kept in sync with the wordmark
+// font size — both bump on mobile so the rail stays legible.
+const TAB_WIDTH_DESKTOP = 28;
+const TAB_WIDTH_MOBILE = 44;
+const WORDMARK_FONT_DESKTOP = 11;
+const WORDMARK_FONT_MOBILE = 12;
+const EDGE_TAB_MOBILE_BREAKPOINT = "(max-width: 767px)";
+
+function useEdgeTabMobile(): boolean {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia(EDGE_TAB_MOBILE_BREAKPOINT);
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+  return isMobile;
+}
 const DEFAULT_REST_HEIGHT = 180;
 const DEFAULT_DRAWER_WIDTH = 360;
 const DEFAULT_RAIL_TOP = 72;
@@ -55,6 +77,14 @@ export function EdgeTab({
 }: EdgeTabProps) {
   const [hovered, setHovered] = useState(false);
   const reducedMotion = useReducedMotion();
+  const isMobile = useEdgeTabMobile();
+  const TAB_WIDTH = isMobile ? TAB_WIDTH_MOBILE : TAB_WIDTH_DESKTOP;
+  const wordmarkFontSize = isMobile ? WORDMARK_FONT_MOBILE : WORDMARK_FONT_DESKTOP;
+  // Hide the right-edge rail entirely while the mobile sidebar drawer is
+  // open — they share the same z-band and competing layers create
+  // ambiguous touch targets on phones. (Bug 637c9aef.)
+  const sidebarMobileOpen = useSidebarStore((s) => s.isMobileOpen);
+  const hiddenForSidebar = isMobile && sidebarMobileOpen;
 
   // ─── Sibling-push translation (bug 85da1e52) ──────────────────────────────
   //
@@ -172,6 +202,10 @@ export function EdgeTab({
   // a static `right: drawerWidth` would push the tab off-screen. Use the
   // same min() clamp so the tab + drawer stay flush regardless of viewport.
   const drawerRightOpen = `min(${drawerWidth}px, calc(100vw - ${TAB_WIDTH + 8}px))`;
+
+  if (hiddenForSidebar) {
+    return null;
+  }
 
   return (
     <div
@@ -345,7 +379,7 @@ export function EdgeTab({
             writingMode: "vertical-rl",
             transform: "rotate(180deg)",
             fontFamily: "var(--font-mono)",
-            fontSize: 9,
+            fontSize: wordmarkFontSize,
             color: "var(--text-2)",
             letterSpacing: "0.18em",
             textTransform: "uppercase",
@@ -387,7 +421,7 @@ export function EdgeTab({
               <span
                 style={{
                   fontFamily: "var(--font-mono)",
-                  fontSize: 9,
+                  fontSize: 11,
                   color: "var(--text-2)",
                   padding: "2px 5px",
                   minWidth: 14,

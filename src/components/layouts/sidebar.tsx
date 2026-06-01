@@ -316,7 +316,7 @@ export function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto py-1 px-1 space-y-[2px]">
+      <nav className="flex-1 min-h-0 overflow-y-auto py-1 px-1 space-y-[2px]">
         {navItems.map((entry, i) => {
           if (entry === "divider") {
             return (
