@@ -18,6 +18,9 @@ export const FEATURE_FLAG_ROUTES: Record<string, string[]> = {
   // (migration 20260424000000). phase_c now gates /calibration.
   phase_c: ["/calibration"],
   deck_builder: ["/deck-builder"],
+  // Per-company dark-launch flag (admin_feature_overrides, not feature_flags).
+  // Gated here so fail-closed fallback suppresses it when the API call fails.
+  inbox_ui: ["/inbox"],
 };
 
 // ─── Permission Mapping ──────────────────────────────────────────────────────
@@ -57,6 +60,8 @@ export const FEATURE_FLAG_PERMISSIONS: Record<string, string[]> = {
   deck_builder: ["deck_builder.view", "deck_builder.create", "deck_builder.edit"],
   projects_table_v2: [],
   pipeline_table_view: [],
+  // inbox_ui: per-company dark-launch (no RBAC permissions beyond nav visibility)
+  inbox_ui: [],
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

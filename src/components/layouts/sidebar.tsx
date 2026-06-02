@@ -184,6 +184,10 @@ export function Sidebar() {
   const can = usePermissionStore((s) => s.can);
   const permissionsReady = usePermissionStore(selectPermissionsReady);
   const isPermissionUnlocked = useFeatureFlagsStore((s) => s.isPermissionUnlocked);
+  const canAccessFeature = useFeatureFlagsStore((s) => s.canAccessFeature);
+  // inbox_ui is a per-company dark-launch flag — only call the unread hook
+  // when the feature is actually enabled for this company (fail-closed).
+  const inboxEnabled = canAccessFeature("inbox_ui");
   const [accessModalOpen, setAccessModalOpen] = useState(false);
   const [accessModalFeature, setAccessModalFeature] = useState<{ label: string; slug: string } | null>(null);
   const { data: requestedSlugs, refetch: refetchRequests } = useFeatureAccessRequests(currentUser?.id);
@@ -212,6 +216,11 @@ export function Sidebar() {
     if (!permissionsReady) return allNavItems;
 
     const mapped = allNavItems.map((entry) => {
+      // inbox_ui dark-launch gate — completely remove from nav when off.
+      // Checked before badge injection so useInboxUnreadCount is never surfaced.
+      if (entry !== "divider" && entry.href === "/inbox" && !inboxEnabled) {
+        return null;
+      }
       // Inject unread badge for inbox
       if (entry !== "divider" && entry.href === "/inbox" && inboxUnreadCount > 0) {
         entry = { ...entry, badge: inboxUnreadCount };
@@ -240,7 +249,7 @@ export function Sidebar() {
       if (i === 0 || i === arr.length - 1) return false;
       return arr[i - 1] !== "divider";
     });
-  }, [allNavItems, can, permissionsReady, isPermissionUnlocked, inboxUnreadCount, agentQueuePendingCount]);
+  }, [allNavItems, can, permissionsReady, isPermissionUnlocked, inboxEnabled, inboxUnreadCount, agentQueuePendingCount]);
 
   const handleSignOut = useCallback(() => {
     beginSignOut(currentUser?.firstName || "", currentUser?.lastName || "");

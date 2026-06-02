@@ -32,6 +32,7 @@ import { useDictionary } from "@/i18n/client";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { requireSupabase } from "@/lib/supabase/helpers";
 import { isCompact, WT } from "@/lib/widget-tokens";
+import { useFeatureFlagsStore } from "@/lib/store/feature-flags-store";
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 
@@ -219,6 +220,8 @@ export function InboxLeadsWidget({ size, config: _config }: InboxLeadsWidgetProp
   const ref = useRef<HTMLDivElement>(null);
   const isVisible = useWidgetIntersection(ref);
   const _reducedMotion = useReducedMotion();
+  // When inbox_ui is off for this company, CTA points to /pipeline instead.
+  const inboxEnabled = useFeatureFlagsStore((s) => s.canAccessFeature("inbox_ui"));
 
   const { data, isLoading } = useQuery({
     queryKey: ["inbox-leads-widget", company?.id ?? ""],
@@ -228,8 +231,8 @@ export function InboxLeadsWidget({ size, config: _config }: InboxLeadsWidgetProp
   });
 
   const navigate = useCallback(() => {
-    router.push("/inbox?category=LEAD&filter=needs_reply");
-  }, [router]);
+    router.push(inboxEnabled ? "/inbox?category=LEAD&filter=needs_reply" : "/pipeline");
+  }, [router, inboxEnabled]);
 
   const unread = data?.unreadCount ?? 0;
   const weekly = data?.totalLastWeek ?? 0;
