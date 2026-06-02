@@ -42,8 +42,9 @@ import { usePermissionStore } from "@/lib/store/permissions-store";
 import { cn } from "@/lib/utils/cn";
 import { formatEnumLabel } from "@/lib/utils/format";
 import { ExpenseReviewDashboard } from "@/components/expenses/expense-review-dashboard";
+import { QuickBooksImportTab } from "@/components/accounting/qbo/quickbooks-import-tab";
 
-type TabValue = "dashboard" | "expenses" | "integrations";
+type TabValue = "dashboard" | "expenses" | "integrations" | "import";
 
 // ─── Provider Info ──────────────────────────────────────────────────────────
 
@@ -346,7 +347,11 @@ export default function AccountingPage() {
   const searchParams = useSearchParams();
   const initialTab = (searchParams.get("tab") as TabValue) || "dashboard";
   const [activeTab, setActiveTab] = useState<TabValue>(
-    initialTab === "expenses" || initialTab === "integrations" ? initialTab : "dashboard"
+    initialTab === "expenses" ||
+      initialTab === "integrations" ||
+      initialTab === "import"
+      ? initialTab
+      : "dashboard"
   );
   const { company } = useAuthStore();
   const can = usePermissionStore((s) => s.can);
@@ -472,6 +477,7 @@ export default function AccountingPage() {
       { value: "dashboard", label: t("tabs.dashboard"), show: true },
       { value: "expenses", label: t("tabs.expenses"), show: can("expenses.approve") },
       { value: "integrations", label: t("tabs.integrations"), show: can("accounting.manage_connections") },
+      { value: "import", label: t("tabs.import"), show: can("accounting.manage_connections") },
     ];
     return all.filter((tab) => tab.show);
   }, [t, can]);
@@ -715,6 +721,9 @@ export default function AccountingPage() {
           </Card>
         </div>
       )}
+
+      {/* QuickBooks Import Tab */}
+      {activeTab === "import" && <QuickBooksImportTab />}
     </div>
   );
 }
