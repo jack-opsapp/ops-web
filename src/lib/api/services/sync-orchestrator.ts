@@ -28,13 +28,17 @@ async function syncQuickBooks(
   supabase: SupabaseClient,
   companyId: string,
   connectionId: string,
-  lastSyncAt: string | null
+  lastSyncAt: string | null,
+  syncDirection: "pull_only" | "push_only" | "bidirectional"
 ): Promise<SyncResult[]> {
   const { accessToken, realmId } = await AccountingTokenService.getValidToken(supabase, connectionId);
   if (!realmId) throw new Error("QuickBooks realmId not found on connection");
 
   const results: SyncResult[] = [];
+  const canPush = syncDirection !== "pull_only";
+  const canPull = syncDirection !== "push_only";
 
+  if (canPush) {
   // ── Push Clients ────────────────────────────────────────────────────────
   {
     const errors: string[] = [];
@@ -164,7 +168,9 @@ async function syncQuickBooks(
     }
     results.push({ entityType: "payment", direction: "push", count, errors });
   }
+  } // end canPush
 
+  if (canPull) {
   // ── Pull Clients (upsert into local DB) ───────────────────────────────
   {
     const errors: string[] = [];
@@ -230,6 +236,7 @@ async function syncQuickBooks(
       results.push({ entityType: "invoice", direction: "pull", count: 0, errors });
     }
   }
+  } // end canPull
 
   return results;
 }
@@ -240,11 +247,15 @@ async function syncSage(
   supabase: SupabaseClient,
   companyId: string,
   connectionId: string,
-  lastSyncAt: string | null
+  lastSyncAt: string | null,
+  syncDirection: "pull_only" | "push_only" | "bidirectional"
 ): Promise<SyncResult[]> {
   const { accessToken } = await AccountingTokenService.getValidToken(supabase, connectionId);
   const results: SyncResult[] = [];
+  const canPush = syncDirection !== "pull_only";
+  const canPull = syncDirection !== "push_only";
 
+  if (canPush) {
   // ── Push Clients ────────────────────────────────────────────────────────
   {
     const errors: string[] = [];
@@ -374,7 +385,9 @@ async function syncSage(
     }
     results.push({ entityType: "payment", direction: "push", count, errors });
   }
+  } // end canPush
 
+  if (canPull) {
   // ── Pull Clients (upsert into local DB) ───────────────────────────────
   {
     const errors: string[] = [];
@@ -440,6 +453,7 @@ async function syncSage(
       results.push({ entityType: "invoice", direction: "pull", count: 0, errors });
     }
   }
+  } // end canPull
 
   return results;
 }
@@ -453,12 +467,31 @@ export async function runSyncForConnection(
   connectionId: string,
   lastSyncAt: string | null
 ): Promise<{ success: boolean; results: SyncResult[]; message: string }> {
+  // Read-only safety rail: the connection's direction mode decides which
+  // halves of the engine may run. A 'pull_only' connection can NEVER reach a
+  // push* method; 'push_only' can never reach a pull*. Loaded here so the
+  // public signature is unchanged and every caller is automatically guarded.
+  const { data: conn, error: connErr } = await supabase
+    .from("accounting_connections")
+    .select("sync_direction")
+    .eq("id", connectionId)
+    .single();
+
+  if (connErr || !conn) {
+    throw new Error(`Connection ${connectionId} not found for direction check`);
+  }
+
+  const syncDirection = (conn.sync_direction ?? "pull_only") as
+    | "pull_only"
+    | "push_only"
+    | "bidirectional";
+
   let results: SyncResult[];
 
   if (provider === "quickbooks") {
-    results = await syncQuickBooks(supabase, companyId, connectionId, lastSyncAt);
+    results = await syncQuickBooks(supabase, companyId, connectionId, lastSyncAt, syncDirection);
   } else if (provider === "sage") {
-    results = await syncSage(supabase, companyId, connectionId, lastSyncAt);
+    results = await syncSage(supabase, companyId, connectionId, lastSyncAt, syncDirection);
   } else {
     throw new Error(`Unsupported provider: ${provider}`);
   }
