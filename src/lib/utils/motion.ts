@@ -287,54 +287,28 @@ export const pipelineCardEntryVariantsReduced: Variants = {
   visible: { opacity: 1, transition: { duration: 0.15 } },
 };
 
-// ── Spatial canvas animations ──
-
-/** Card hover metrics — float in below card */
-export const spatialHoverMetricsVariants: Variants = {
-  hidden: { opacity: 0, y: -4 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.15, ease: EASE_SMOOTH } },
-  exit: { opacity: 0, transition: { duration: 0.1, ease: EASE_SMOOTH } },
-};
-
-export const spatialHoverMetricsVariantsReduced: Variants = {
-  hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { duration: 0.1 } },
-  exit: { opacity: 0, transition: { duration: 0.1 } },
-};
+// ── Floating toolbar + tray animations ──
 
 /** Archive tray — slide in from right */
-export const spatialArchiveTrayVariants: Variants = {
+export const archiveTrayVariants: Variants = {
   hidden: { x: 280 },
   visible: { x: 0, transition: { duration: 0.25, ease: EASE_SMOOTH } },
   exit: { x: 280, transition: { duration: 0.2, ease: EASE_SMOOTH } },
 };
 
-export const spatialArchiveTrayVariantsReduced: Variants = {
+export const archiveTrayVariantsReduced: Variants = {
   hidden: { opacity: 0 },
   visible: { opacity: 1, transition: { duration: 0.15 } },
   exit: { opacity: 0, transition: { duration: 0.15 } },
 };
 
-/** Context menu — scale in from click point */
-export const spatialContextMenuVariants: Variants = {
-  hidden: { opacity: 0, scale: 0.95, y: -4 },
-  visible: { opacity: 1, scale: 1, y: 0, transition: { duration: 0.12, ease: EASE_SMOOTH } },
-  exit: { opacity: 0, scale: 0.95, y: -4, transition: { duration: 0.08, ease: EASE_SMOOTH } },
-};
-
-export const spatialContextMenuVariantsReduced: Variants = {
-  hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { duration: 0.1 } },
-  exit: { opacity: 0, transition: { duration: 0.08 } },
-};
-
 /** Floating toolbar — fade in */
-export const spatialToolbarVariants: Variants = {
+export const toolbarVariants: Variants = {
   hidden: { opacity: 0, y: -8 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.2, ease: EASE_SMOOTH } },
 };
 
-export const spatialToolbarVariantsReduced: Variants = {
+export const toolbarVariantsReduced: Variants = {
   hidden: { opacity: 0 },
   visible: { opacity: 1, transition: { duration: 0.15 } },
 };

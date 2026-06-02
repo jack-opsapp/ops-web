@@ -10,7 +10,7 @@ import {
   OPPORTUNITY_STAGE_COLORS,
 } from "@/lib/types/pipeline";
 import type { Client } from "@/lib/types/models";
-import { calculateBatchStaleness } from "./spatial-staleness";
+import { calculateBatchStaleness } from "./pipeline-staleness";
 import { PipelineFocusedCard } from "./pipeline-focused-card";
 import type { PipelineCardEditHandlers } from "./pipeline-card-content";
 

@@ -8352,6 +8352,87 @@ export type Database = {
           },
         ]
       }
+      opportunity_views: {
+        Row: {
+          columns: Json
+          company_id: string
+          created_at: string
+          created_by: string | null
+          density: string
+          description: string | null
+          filters: Json
+          icon: string | null
+          id: string
+          is_archived: boolean
+          is_default: boolean
+          name: string
+          owner_id: string
+          owner_type: string
+          permission_key: string | null
+          sort: Json
+          sort_position: number
+          updated_at: string
+          zoom_level: number
+        }
+        Insert: {
+          columns: Json
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          density?: string
+          description?: string | null
+          filters: Json
+          icon?: string | null
+          id?: string
+          is_archived?: boolean
+          is_default?: boolean
+          name: string
+          owner_id: string
+          owner_type: string
+          permission_key?: string | null
+          sort: Json
+          sort_position?: number
+          updated_at?: string
+          zoom_level?: number
+        }
+        Update: {
+          columns?: Json
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          density?: string
+          description?: string | null
+          filters?: Json
+          icon?: string | null
+          id?: string
+          is_archived?: boolean
+          is_default?: boolean
+          name?: string
+          owner_id?: string
+          owner_type?: string
+          permission_key?: string | null
+          sort?: Json
+          sort_position?: number
+          updated_at?: string
+          zoom_level?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opportunity_views_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunity_views_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ops_contacts: {
         Row: {
           bubble_id: string | null
@@ -14696,6 +14777,36 @@ export type Database = {
         Args: { p_holder: string; p_job_id: string; p_lease_seconds?: number }
         Returns: boolean
       }
+      archive_opportunity_table_view: {
+        Args: { p_view_id: string }
+        Returns: {
+          columns: Json
+          company_id: string
+          created_at: string
+          created_by: string | null
+          density: string
+          description: string | null
+          filters: Json
+          icon: string | null
+          id: string
+          is_archived: boolean
+          is_default: boolean
+          name: string
+          owner_id: string
+          owner_type: string
+          permission_key: string | null
+          sort: Json
+          sort_position: number
+          updated_at: string
+          zoom_level: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "opportunity_views"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       archive_project_table_view: {
         Args: { p_view_id: string }
         Returns: {
@@ -14849,6 +14960,36 @@ export type Database = {
           p_title: string
         }
         Returns: Json
+      }
+      create_opportunity_table_view: {
+        Args: { p_definition: Json; p_name: string; p_source_view_id: string }
+        Returns: {
+          columns: Json
+          company_id: string
+          created_at: string
+          created_by: string | null
+          density: string
+          description: string | null
+          filters: Json
+          icon: string | null
+          id: string
+          is_archived: boolean
+          is_default: boolean
+          name: string
+          owner_id: string
+          owner_type: string
+          permission_key: string | null
+          sort: Json
+          sort_position: number
+          updated_at: string
+          zoom_level: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "opportunity_views"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       create_project_table_view: {
         Args: { p_definition: Json; p_name: string; p_source_view_id: string }
@@ -15378,6 +15519,36 @@ export type Database = {
         Args: { p_company_id: string; p_user_id: string }
         Returns: undefined
       }
+      rename_opportunity_table_view: {
+        Args: { p_name: string; p_view_id: string }
+        Returns: {
+          columns: Json
+          company_id: string
+          created_at: string
+          created_by: string | null
+          density: string
+          description: string | null
+          filters: Json
+          icon: string | null
+          id: string
+          is_archived: boolean
+          is_default: boolean
+          name: string
+          owner_id: string
+          owner_type: string
+          permission_key: string | null
+          sort: Json
+          sort_position: number
+          updated_at: string
+          zoom_level: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "opportunity_views"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       rename_project_table_view: {
         Args: { p_name: string; p_view_id: string }
         Returns: {
@@ -15404,6 +15575,36 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "project_views"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      reset_opportunity_table_view: {
+        Args: { p_view_id: string }
+        Returns: {
+          columns: Json
+          company_id: string
+          created_at: string
+          created_by: string | null
+          density: string
+          description: string | null
+          filters: Json
+          icon: string | null
+          id: string
+          is_archived: boolean
+          is_default: boolean
+          name: string
+          owner_id: string
+          owner_type: string
+          permission_key: string | null
+          sort: Json
+          sort_position: number
+          updated_at: string
+          zoom_level: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "opportunity_views"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -15454,6 +15655,36 @@ export type Database = {
       set_company_inventory_mode: {
         Args: { p_company_id: string; p_inventory_mode: string }
         Returns: Json
+      }
+      share_opportunity_table_view: {
+        Args: { p_view_id: string }
+        Returns: {
+          columns: Json
+          company_id: string
+          created_at: string
+          created_by: string | null
+          density: string
+          description: string | null
+          filters: Json
+          icon: string | null
+          id: string
+          is_archived: boolean
+          is_default: boolean
+          name: string
+          owner_id: string
+          owner_type: string
+          permission_key: string | null
+          sort: Json
+          sort_position: number
+          updated_at: string
+          zoom_level: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "opportunity_views"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       share_project_table_view: {
         Args: { p_view_id: string }
@@ -15516,6 +15747,36 @@ export type Database = {
           active: boolean
           jobname: string
         }[]
+      }
+      update_opportunity_table_view_definition: {
+        Args: { p_definition: Json; p_view_id: string }
+        Returns: {
+          columns: Json
+          company_id: string
+          created_at: string
+          created_by: string | null
+          density: string
+          description: string | null
+          filters: Json
+          icon: string | null
+          id: string
+          is_archived: boolean
+          is_default: boolean
+          name: string
+          owner_id: string
+          owner_type: string
+          permission_key: string | null
+          sort: Json
+          sort_position: number
+          updated_at: string
+          zoom_level: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "opportunity_views"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       update_project_table_view_definition: {
         Args: { p_definition: Json; p_view_id: string }

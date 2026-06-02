@@ -63,7 +63,7 @@ function makeKeyboardEvent(code: string) {
 }
 
 function makeCollisionArgs(
-  mode: "focused" | "spatial"
+  mode: "focused" | "table"
 ): Parameters<typeof pipelineCollisionDetection>[0] {
   return {
     active: {
@@ -80,7 +80,7 @@ function makeKeyboardArgs({
   overStage = null,
   droppables,
 }: {
-  mode?: "focused" | "spatial";
+  mode?: "focused" | "table";
   sourceStage?: OpportunityStage;
   overStage?: OpportunityStage | null;
   droppables: Array<{
@@ -218,11 +218,11 @@ describe("<PipelineDndProvider>", () => {
     expect(dndMocks.closestCenter).not.toHaveBeenCalled();
   });
 
-  it("keeps closest-center fallback for spatial card drags", () => {
+  it("keeps closest-center fallback for non-focused card drags", () => {
     dndMocks.pointerWithin.mockReturnValueOnce([]);
     dndMocks.closestCenter.mockReturnValueOnce([{ id: "nearest-stage" }]);
 
-    expect(pipelineCollisionDetection(makeCollisionArgs("spatial"))).toEqual([
+    expect(pipelineCollisionDetection(makeCollisionArgs("table"))).toEqual([
       { id: "nearest-stage" },
     ]);
     expect(dndMocks.closestCenter).toHaveBeenCalled();
@@ -286,7 +286,7 @@ describe("<PipelineDndProvider>", () => {
   it("delegates non-focused keyboard movement to dnd-kit sortable coordinates", () => {
     const event = makeKeyboardEvent("ArrowRight");
     const args = makeKeyboardArgs({
-      mode: "spatial",
+      mode: "table",
       droppables: [
         {
           id: "stage-follow-up",

@@ -156,6 +156,7 @@ const pipelineModule: PermissionModule = {
     { id: "pipeline.view", label: "View pipeline", scopes: ["all"] },
     { id: "pipeline.manage", label: "Manage opportunities", scopes: ["all", "own"] },
     { id: "pipeline.configure_stages", label: "Configure stages", scopes: ["all"] },
+    { id: "pipeline.manage_views", label: "Manage shared pipeline views", scopes: ["all"] },
   ],
 };
 

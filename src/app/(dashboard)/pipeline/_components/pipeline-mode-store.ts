@@ -56,6 +56,40 @@ const mapReviver = (_key: string, value: unknown) => {
   return value;
 };
 
+/**
+ * Persist migration for {@link usePipelineModeStore}.
+ *
+ * Runs against the already-rehydrated state — the storage reviver
+ * ({@link mapReviver}) has reconstructed `stageSortOverrides` into a `Map` by
+ * the time Zustand hands the state to `migrate`. Coerces the retired
+ * `"spatial"` mode to `"focused"` and passes every other persisted field
+ * through untouched (including the `Map`, which is never stringified here).
+ *
+ * Defensive against missing or malformed payloads: never throws, and falls
+ * back to a minimal `{ mode: "focused" }` so the store's own defaults fill in
+ * the rest of the state.
+ *
+ * @param persistedState The rehydrated, partialized state read from storage.
+ * @param _version The persisted schema version. Unused — coercion keys off the
+ *   value of `mode`, not the version number, so any prior version is handled.
+ */
+export function migratePipelineModeState(
+  persistedState: unknown,
+  _version: number
+): Partial<PipelineModeState> {
+  if (persistedState === null || typeof persistedState !== "object") {
+    return { mode: "focused" };
+  }
+
+  const state = persistedState as Partial<PipelineModeState>;
+
+  if (state.mode === ("spatial" as PipelineMode)) {
+    return { ...state, mode: "focused" };
+  }
+
+  return state;
+}
+
 export const usePipelineModeStore = create<Store>()(
   persist(
     (set) => ({
@@ -73,8 +107,8 @@ export const usePipelineModeStore = create<Store>()(
       toggleMode: () =>
         set((state) => ({
           mode: (() => {
-            const nextMode =
-              state.mode === "focused" ? "spatial" : "focused";
+            const nextMode: PipelineMode =
+              state.mode === "focused" ? "table" : "focused";
             dispatchModeWillChange(state.mode, nextMode);
             return nextMode;
           })(),
@@ -96,11 +130,13 @@ export const usePipelineModeStore = create<Store>()(
         set({ sortBy: "value", stageSortOverrides: new Map() }),
     }),
     {
-      name: "opsPipeline:v3",
+      name: "opsPipeline:v4",
+      version: 4,
       storage: createJSONStorage(() => localStorage, {
         replacer: mapReplacer,
         reviver: mapReviver,
       }),
+      migrate: migratePipelineModeState,
       partialize: (state) => ({
         mode: state.mode,
         focusedStage: state.focusedStage,

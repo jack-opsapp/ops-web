@@ -12,6 +12,7 @@ type NotificationEventType =
   | "project_assigned"
   | "project_status_change"
   | "project_archived"
+  | "lead_converted"
   | "task_assigned"
   | "task_completed"
   | "schedule_change"
@@ -143,6 +144,46 @@ export function dispatchProjectStatusChange(params: {
     actionLabel: "View Project",
     pushData: {
       type: "projectStatusChange",
+      projectId: params.projectId,
+      screen: "projectDetails",
+    },
+  });
+}
+
+/**
+ * Notify the deal's stakeholders that a won opportunity has been converted
+ * into a project. Converting a deal creates a real cross-surface artifact (a
+ * new project the team now works), so the stakeholders other than the actor
+ * should see it land — this is the one pipeline-table event that warrants a
+ * rail notification (self-initiated bulk stage moves / bulk edits do not:
+ * the actor already has the toast + undo in front of them).
+ *
+ * `recipientUserIds` should already exclude the actor (the dispatch route also
+ * filters the caller out server-side as a backstop). When empty — e.g. an
+ * unassigned deal or one assigned to the actor — `dispatch` no-ops, so the
+ * actor is never notified about their own conversion.
+ */
+export function dispatchLeadConverted(params: {
+  projectId: string;
+  dealName: string;
+  convertedByName: string;
+  recipientUserIds: string[];
+  companyId: string;
+}): void {
+  dispatch({
+    eventType: "lead_converted",
+    recipientIds: params.recipientUserIds,
+    // Terse rail voice: a fixed, scannable event label (the deal name lives in
+    // the body, so the title stays a stable label rather than a long
+    // interpolated string), and a body that names who converted which deal.
+    companyId: params.companyId,
+    title: "Deal converted to project",
+    body: `${params.convertedByName} converted ${params.dealName} to a project.`,
+    projectId: params.projectId,
+    actionUrl: `/dashboard?openProject=${params.projectId}&mode=view`,
+    actionLabel: "View Project",
+    pushData: {
+      type: "leadConverted",
       projectId: params.projectId,
       screen: "projectDetails",
     },

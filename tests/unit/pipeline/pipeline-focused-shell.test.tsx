@@ -569,7 +569,7 @@ describe("<PipelineFocusedShell>", () => {
     });
 
     fireEvent.keyDown(window, { key: "v" });
-    expect(usePipelineModeStore.getState().mode).toBe("spatial");
+    expect(usePipelineModeStore.getState().mode).toBe("table");
   });
 
   it("snaps focusedStage to the loaded detail opportunity stage", async () => {
@@ -778,19 +778,6 @@ describe("<PipelineFocusedShell>", () => {
       OpportunityStage.NewLead
     );
     expect(event.defaultPrevented).toBe(false);
-  });
-
-  it("switches to spatial mode when focused pinch-out crosses the virtual zoom threshold", () => {
-    const { container } = renderFocusedShell([
-      makeOpportunity("opp-1", OpportunityStage.NewLead),
-    ]);
-
-    fireEvent.wheel(getShellElement(container), {
-      ctrlKey: true,
-      deltaY: 81,
-    });
-
-    expect(usePipelineModeStore.getState().mode).toBe("spatial");
   });
 
   it("does not consume focused ctrl+wheel pinch-in gestures", () => {

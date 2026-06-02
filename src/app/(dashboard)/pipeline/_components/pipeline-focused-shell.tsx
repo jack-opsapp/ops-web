@@ -76,9 +76,6 @@ const ACTIVE_STAGE_ORDER = PIPELINE_STAGES_DEFAULT.map(
 const TERMINAL_STAGE_ORDER = [OpportunityStage.Won, OpportunityStage.Lost];
 const SNAP_DURATION_MS = 280;
 const SNAP_EASING = "cubic-bezier(0.22, 1, 0.36, 1)";
-const PINCH_ZOOM_SENSITIVITY = 0.005;
-const FOCUSED_PINCH_MIN_ZOOM = 0.5;
-const FOCUSED_PINCH_SPATIAL_THRESHOLD = 0.6;
 const REDUCED_MOTION_DURATION = 0.001;
 const SPINE_RAIL_CHROME = "h-full pt-[112px] pb-0";
 const ACTION_DROP_ZONE_BASE =
@@ -230,14 +227,12 @@ export function PipelineFocusedShell({
   const closeDetailPanel = usePipelineModeStore(
     (state) => state.closeDetailPanel
   );
-  const setMode = usePipelineModeStore((state) => state.setMode);
   const toggleMode = usePipelineModeStore((state) => state.toggleMode);
   const { isDragging } = usePipelineDndState();
   const shellRef = useRef<HTMLDivElement>(null);
   const focusedColumnRef = useRef<HTMLDivElement>(null);
   const pendingFlipRectRef = useRef<DOMRect | null>(null);
   const stageSyncedDetailIdRef = useRef<string | null>(null);
-  const virtualZoomRef = useRef(1);
   const animationRef = useRef<Animation | null>(null);
   const pendingTabFocusRef = useRef<OpportunityStage | null>(null);
   const focusedStageTabRefs = useRef(new Map<OpportunityStage, HTMLElement>());
@@ -410,39 +405,6 @@ export function PipelineFocusedShell({
     snapToStage,
     toggleMode,
   ]);
-
-  const handleWheel = useCallback(
-    (event: WheelEvent) => {
-      if (event.ctrlKey && event.deltaY > 0) {
-        if (isDragging) return;
-
-        event.preventDefault();
-        const delta = -event.deltaY * PINCH_ZOOM_SENSITIVITY;
-        virtualZoomRef.current = Math.max(
-          FOCUSED_PINCH_MIN_ZOOM,
-          Math.min(1, virtualZoomRef.current + delta)
-        );
-
-        if (virtualZoomRef.current <= FOCUSED_PINCH_SPATIAL_THRESHOLD) {
-          virtualZoomRef.current = 1;
-          setMode("spatial");
-        }
-        return;
-      }
-
-      // Let native horizontal wheel gestures pass through so browser/page
-      // swipe navigation remains available on trackpads.
-    },
-    [isDragging, setMode]
-  );
-
-  useEffect(() => {
-    const shell = shellRef.current;
-    if (!shell) return;
-
-    shell.addEventListener("wheel", handleWheel, { passive: false });
-    return () => shell.removeEventListener("wheel", handleWheel);
-  }, [handleWheel]);
 
   const leftStages = ACTIVE_STAGE_ORDER.filter(
     (stage) => ACTIVE_STAGE_ORDER.indexOf(stage) < focusedIndex

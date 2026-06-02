@@ -5,8 +5,8 @@ import { motion, useReducedMotion } from "framer-motion";
 import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
 import {
-  spatialToolbarVariants,
-  spatialToolbarVariantsReduced,
+  toolbarVariants,
+  toolbarVariantsReduced,
 } from "@/lib/utils/motion";
 import { usePipelineModeStore } from "./pipeline-mode-store";
 
@@ -22,8 +22,8 @@ export function PipelineFocusedToolbar({
   const { t } = useDictionary("pipeline");
   const reduced = useReducedMotion();
   const variants = reduced
-    ? spatialToolbarVariantsReduced
-    : spatialToolbarVariants;
+    ? toolbarVariantsReduced
+    : toolbarVariants;
   const toggleMode = usePipelineModeStore((state) => state.toggleMode);
 
   return (
@@ -51,7 +51,7 @@ export function PipelineFocusedToolbar({
       <ToolbarAction onClick={toggleMode} isModeToggle>
         <Maximize2 className="h-[11px] w-[11px]" strokeWidth={1.5} />
         <span className="font-mono uppercase leading-none tracking-[0.12em] [font-size:10px]">
-          {t("focused.modeButton.spatial")}
+          {t("focused.modeButton.table")}
         </span>
       </ToolbarAction>
     </motion.div>

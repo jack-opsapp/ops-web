@@ -9,8 +9,8 @@ import { useProjectCanvasStore, type ProjectSortOption } from "./project-canvas-
 import { ProjectStatus, PROJECT_STATUS_COLORS } from "@/lib/types/models";
 import { getProjectStatusDisplayName } from "./project-stage-stack";
 import {
-  spatialToolbarVariants,
-  spatialToolbarVariantsReduced,
+  toolbarVariants,
+  toolbarVariantsReduced,
 } from "@/lib/utils/motion";
 
 // ── Types ──
@@ -78,7 +78,7 @@ export function ProjectFloatingToolbar({
 }: ProjectFloatingToolbarProps) {
   const { t } = useDictionary("projects-canvas");
   const reduced = useReducedMotion();
-  const variants = reduced ? spatialToolbarVariantsReduced : spatialToolbarVariants;
+  const variants = reduced ? toolbarVariantsReduced : toolbarVariants;
 
   const sortBy = useProjectCanvasStore((s) => s.sortBy);
   const setSortBy = useProjectCanvasStore((s) => s.setSortBy);

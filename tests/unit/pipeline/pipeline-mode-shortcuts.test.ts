@@ -38,7 +38,7 @@ describe("pipeline mode shortcuts", () => {
   beforeEach(() => {
     localStorage.clear();
     usePipelineModeStore.setState({
-      mode: "spatial",
+      mode: "table",
       focusedStage: OpportunityStage.NewLead,
       detailPanelOpportunityId: null,
       detailPanelActiveTab: "correspondence",
@@ -102,6 +102,6 @@ describe("pipeline mode shortcuts", () => {
 
     fireEvent.keyDown(window, { key: "v" });
 
-    expect(usePipelineModeStore.getState().mode).toBe("spatial");
+    expect(usePipelineModeStore.getState().mode).toBe("table");
   });
 });

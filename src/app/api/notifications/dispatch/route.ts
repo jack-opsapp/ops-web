@@ -26,6 +26,7 @@ type NotificationEventType =
   | "project_assigned"
   | "project_status_change"
   | "project_archived"
+  | "lead_converted"
   | "task_assigned"
   | "task_completed"
   | "schedule_change"
@@ -69,6 +70,7 @@ const CHANNEL_PREF_KEY: Record<NotificationEventType, string> = {
   project_assigned: "project_updates",
   project_status_change: "project_updates",
   project_archived: "project_updates",
+  lead_converted: "project_updates",
   task_assigned: "task_assigned",
   task_completed: "task_completed",
   schedule_change: "schedule_changes",
@@ -85,6 +87,7 @@ const INAPP_TYPE: Record<NotificationEventType, string> = {
   project_assigned: "project_assigned",
   project_status_change: "project_status_change",
   project_archived: "project_archived",
+  lead_converted: "lead_converted",
   task_assigned: "task_assigned",
   task_completed: "task_completed",
   schedule_change: "schedule_change",

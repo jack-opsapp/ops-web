@@ -278,7 +278,7 @@ export const PipelineCardContent = memo(function PipelineCardContent({
             <div className="grid grid-cols-3 gap-1 border-t border-line pt-1">
               <Metric label={stageName} value={`${daysInStage}d`} />
               <Metric
-                label={t("spatial.emailCount", "{count} emails").replace(
+                label={t("card.emailCount", "{count} emails").replace(
                   "{count}",
                   String(opportunity.correspondenceCount)
                 )}

@@ -29,9 +29,9 @@ describe("pipeline-mode-store", () => {
     expect(state.detailPanelActiveTab).toBe("correspondence");
   });
 
-  it("toggleMode flips focused and spatial", () => {
+  it("toggleMode flips focused and table", () => {
     act(() => usePipelineModeStore.getState().toggleMode());
-    expect(usePipelineModeStore.getState().mode).toBe("spatial");
+    expect(usePipelineModeStore.getState().mode).toBe("table");
 
     act(() => usePipelineModeStore.getState().toggleMode());
     expect(usePipelineModeStore.getState().mode).toBe("focused");
@@ -42,12 +42,12 @@ describe("pipeline-mode-store", () => {
       expect(usePipelineModeStore.getState().mode).toBe("focused");
       expect((event as CustomEvent).detail).toEqual({
         from: "focused",
-        to: "spatial",
+        to: "table",
       });
     });
     window.addEventListener(PIPELINE_MODE_WILL_CHANGE_EVENT, listener);
 
-    act(() => usePipelineModeStore.getState().setMode("spatial"));
+    act(() => usePipelineModeStore.getState().setMode("table"));
 
     expect(listener).toHaveBeenCalledTimes(1);
     window.removeEventListener(PIPELINE_MODE_WILL_CHANGE_EVENT, listener);
@@ -104,7 +104,7 @@ describe("pipeline-mode-store", () => {
       usePipelineModeStore.getState().setDetailPanelActiveTab("photos");
     });
 
-    const raw = localStorage.getItem("opsPipeline:v3");
+    const raw = localStorage.getItem("opsPipeline:v4");
     expect(raw).not.toBeNull();
 
     const parsed = JSON.parse(raw!);

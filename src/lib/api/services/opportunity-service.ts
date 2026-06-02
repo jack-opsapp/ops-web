@@ -19,10 +19,12 @@ import type {
   FollowUp,
   CreateFollowUp,
   StageTransition,
+  PipelineStageConfig,
 } from "@/lib/types/pipeline";
 import {
   OpportunityStage,
   FollowUpStatus,
+  FollowUpType,
   PIPELINE_STAGES_DEFAULT,
 } from "@/lib/types/pipeline";
 
@@ -127,7 +129,7 @@ function mapOpportunityFromDb(row: Record<string, unknown>): Opportunity {
  * Only includes keys that are present in the source object.
  */
 function mapOpportunityToDb(
-  data: Partial<CreateOpportunity>
+  data: Partial<CreateOpportunity> & { nextFollowUpAt?: Date | string | null }
 ): Record<string, unknown> {
   const row: Record<string, unknown> = {};
 
@@ -165,6 +167,16 @@ function mapOpportunityToDb(
       ? data.actualCloseDate instanceof Date
         ? data.actualCloseDate.toISOString()
         : data.actualCloseDate
+      : null;
+  }
+  // Denormalized next-follow-up timestamp. Normally server-derived, but
+  // update flows (e.g. the pipeline table inline edit) may set it directly;
+  // the column has no trigger maintaining it, so a direct write is authoritative.
+  if (data.nextFollowUpAt !== undefined) {
+    row.next_follow_up_at = data.nextFollowUpAt
+      ? data.nextFollowUpAt instanceof Date
+        ? data.nextFollowUpAt.toISOString()
+        : data.nextFollowUpAt
       : null;
   }
 
@@ -363,6 +375,38 @@ function mapStageTransitionFromDb(row: Record<string, unknown>): StageTransition
   };
 }
 
+/**
+ * Convert a snake_case `pipeline_stage_configs` row into a camelCase
+ * PipelineStageConfig object.
+ *
+ * The DB columns `default_win_probability`, `stale_threshold_days`, and the
+ * three `is_*` flags are nullable, but the model fields are not. We coalesce to
+ * the table's own column defaults (win probability 10, stale threshold 7, flags
+ * false) so a malformed/partial row still produces a valid config rather than
+ * propagating nulls into the weighted-forecast / rotting math.
+ */
+export function mapStageConfigRow(row: Record<string, unknown>): PipelineStageConfig {
+  return {
+    id: row.id as string,
+    companyId: row.company_id as string,
+    name: row.name as string,
+    slug: row.slug as string,
+    color: row.color as string,
+    icon: (row.icon as string) ?? null,
+    sortOrder: Number(row.sort_order ?? 0),
+    isDefault: (row.is_default as boolean) ?? false,
+    isWonStage: (row.is_won_stage as boolean) ?? false,
+    isLostStage: (row.is_lost_stage as boolean) ?? false,
+    defaultWinProbability: Number(row.default_win_probability ?? 10),
+    autoFollowUpDays:
+      row.auto_follow_up_days != null ? Number(row.auto_follow_up_days) : null,
+    autoFollowUpType: (row.auto_follow_up_type as FollowUpType) ?? null,
+    staleThresholdDays: Number(row.stale_threshold_days ?? 7),
+    createdAt: parseDate(row.created_at),
+    deletedAt: parseDate(row.deleted_at),
+  };
+}
+
 // ─── Opportunity Service ──────────────────────────────────────────────────────
 
 export const OpportunityService = {
@@ -482,7 +526,9 @@ export const OpportunityService = {
 
     // Strip the id field if present – it should not be sent as a column update
     const { id: _id, ...rest } = data as Record<string, unknown>;
-    const row = mapOpportunityToDb(rest as Partial<CreateOpportunity>);
+    const row = mapOpportunityToDb(
+      rest as Partial<CreateOpportunity> & { nextFollowUpAt?: Date | string | null },
+    );
 
     const { data: updated, error } = await supabase
       .from("opportunities")
@@ -809,6 +855,38 @@ export const OpportunityService = {
 
     return (data ?? []).map((row) =>
       mapStageTransitionFromDb(row as Record<string, unknown>)
+    );
+  },
+
+  // ─── Stage Configs ────────────────────────────────────────────────────────
+
+  /**
+   * Fetch the per-company pipeline stage configurations.
+   *
+   * Returns every non-deleted stage config for the company, ordered by
+   * sort_order ascending. A company with no config rows yet returns `[]` — the
+   * pipeline table falls back to PIPELINE_STAGES_DEFAULT in that case. Powers
+   * the table's weighted-forecast (default_win_probability) and rotting
+   * (stale_threshold_days) signals.
+   */
+  async fetchStageConfigs(companyId: string): Promise<PipelineStageConfig[]> {
+    const supabase = requireSupabase();
+
+    const { data, error } = await supabase
+      .from("pipeline_stage_configs")
+      .select("*")
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .order("sort_order", { ascending: true });
+
+    if (error) {
+      throw new Error(
+        `Failed to fetch stage configs for company ${companyId}: ${error.message}`
+      );
+    }
+
+    return (data ?? []).map((row) =>
+      mapStageConfigRow(row as Record<string, unknown>)
     );
   },
 };
