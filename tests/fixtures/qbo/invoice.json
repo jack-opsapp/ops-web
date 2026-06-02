@@ -1,0 +1,60 @@
+[
+  {
+    "Id": "130",
+    "DocNumber": "1037",
+    "CustomerRef": { "value": "58", "name": "Cool Cars" },
+    "TxnDate": "2026-04-01",
+    "DueDate": "2026-05-01",
+    "TotalAmt": 362.07,
+    "Balance": 362.07,
+    "LinkedTxn": [{ "TxnId": "98", "TxnType": "Estimate" }],
+    "TxnTaxDetail": {
+      "TotalTax": 26.82,
+      "TaxLine": [
+        { "Amount": 26.82, "TaxLineDetail": { "TaxPercent": 8, "PercentBased": true } }
+      ]
+    },
+    "Line": [
+      {
+        "Id": "1",
+        "LineNum": 1,
+        "Description": "Rock Fountain",
+        "Amount": 275.0,
+        "DetailType": "SalesItemLineDetail",
+        "SalesItemLineDetail": {
+          "ItemRef": { "value": "5", "name": "Rock Fountain" },
+          "Qty": 1,
+          "UnitPrice": 275.0,
+          "TaxCodeRef": { "value": "TAX" }
+        }
+      },
+      {
+        "Id": "2",
+        "LineNum": 2,
+        "Description": "Pump Hours",
+        "Amount": 47.5,
+        "DetailType": "SalesItemLineDetail",
+        "SalesItemLineDetail": {
+          "ItemRef": { "value": "11", "name": "Pump" },
+          "Qty": 9.5,
+          "UnitPrice": 5.0,
+          "TaxCodeRef": { "value": "NON" }
+        }
+      },
+      {
+        "Amount": 335.25,
+        "DetailType": "SubTotalLineDetail",
+        "SubTotalLineDetail": {}
+      }
+    ]
+  },
+  {
+    "Id": "131",
+    "DocNumber": "1038",
+    "CustomerRef": { "value": "58" },
+    "TxnDate": "2026-04-02",
+    "TotalAmt": 0,
+    "Balance": 0,
+    "Line": []
+  }
+]

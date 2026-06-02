@@ -1,0 +1,20 @@
+[
+  {
+    "Id": "58",
+    "DisplayName": "Cool Cars",
+    "PrimaryEmailAddr": { "Address": "cool_cars@intuit.com" },
+    "PrimaryPhone": { "FreeFormNumber": "(415) 555-9933" },
+    "BillAddr": {
+      "Line1": "65 Ocean Dr.",
+      "City": "Half Moon Bay",
+      "CountrySubDivisionCode": "CA",
+      "PostalCode": "94213"
+    },
+    "Active": true
+  },
+  {
+    "Id": "12",
+    "DisplayName": "Diego Rodriguez",
+    "Active": false
+  }
+]

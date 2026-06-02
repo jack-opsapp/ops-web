@@ -1,0 +1,21 @@
+[
+  {
+    "Id": "200",
+    "CustomerRef": { "value": "58" },
+    "TxnDate": "2026-04-15",
+    "TotalAmt": 500.0,
+    "UnappliedAmt": 137.93,
+    "PaymentRefNum": "CHK-8841",
+    "PaymentMethodRef": { "value": "1", "name": "Check" },
+    "Line": [
+      {
+        "Amount": 362.07,
+        "LinkedTxn": [{ "TxnId": "130", "TxnType": "Invoice" }]
+      },
+      {
+        "Amount": 0.0,
+        "LinkedTxn": [{ "TxnId": "131", "TxnType": "Invoice" }]
+      }
+    ]
+  }
+]

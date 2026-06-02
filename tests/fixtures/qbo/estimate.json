@@ -1,0 +1,41 @@
+[
+  {
+    "Id": "98",
+    "DocNumber": "1001",
+    "CustomerRef": { "value": "58" },
+    "TxnDate": "2026-03-10",
+    "ExpirationDate": "2026-04-10",
+    "TxnStatus": "Accepted",
+    "TotalAmt": 362.07,
+    "TxnTaxDetail": {
+      "TotalTax": 26.82,
+      "TaxLine": [{ "Amount": 26.82, "TaxLineDetail": { "TaxPercent": 8 } }]
+    },
+    "Line": [
+      {
+        "Id": "1",
+        "LineNum": 1,
+        "Amount": 335.25,
+        "DetailType": "GroupLineDetail",
+        "GroupLineDetail": {
+          "Line": [
+            {
+              "Id": "1a",
+              "LineNum": 1,
+              "Description": "Garden Install",
+              "Amount": 335.25,
+              "DetailType": "SalesItemLineDetail",
+              "SalesItemLineDetail": {
+                "ItemRef": { "value": "19", "name": "Installation" },
+                "Qty": 3.5,
+                "UnitPrice": 95.7857,
+                "TaxCodeRef": { "value": "TAX" }
+              }
+            }
+          ]
+        }
+      },
+      { "Amount": 335.25, "DetailType": "SubTotalLineDetail", "SubTotalLineDetail": {} }
+    ]
+  }
+]
