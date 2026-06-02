@@ -100,7 +100,7 @@ describe("qbo-import types", () => {
     expect(match.proposedAction).toBe("link");
   });
 
-  it("QboImportReview aggregates the run, matches, counts, and reconciliation totals", () => {
+  it("QboImportReview aggregates the run, matches, match/staged counts, and reconciliation totals", () => {
     const review: QboImportReview = {
       run: {
         id: "r1", companyId: "co", provider: "quickbooks", status: "staged",
@@ -108,18 +108,23 @@ describe("qbo-import types", () => {
         createdBy: null, createdAt: new Date(), finishedAt: null,
       },
       matches: [],
-      counts: {
-        customers: 12, customersLink: 8, customersCreate: 3, customersSkip: 0,
-        customersNeedsReview: 1, estimates: 5, invoices: 20, lineItems: 60,
+      matchCounts: { link: 8, create: 3, skip: 0, needs_review: 1 },
+      stagedCounts: {
+        customers: 12, estimates: 5, invoices: 20, lineItems: 60,
         payments: 18, orphanPayments: 1, skippedInvoices: 2,
       },
       reconciliation: {
-        quickbooks: { openArTotal: 12345.67, openInvoiceCount: 9, collected24mo: 89000, customerCount: 12 },
-        ops: { openArTotal: 12345.67, openInvoiceCount: 9, collected24mo: 89000, customerCount: 12 },
+        qbOpenAr: 12345.67,
+        opsToBeOpenAr: 12345.67,
+        openInvoiceCount: 9,
+        collectedInWindow: 89000,
+        customerCount: 12,
+        arMatched: true,
       },
     };
     expectType<QboImportReview>(review);
     expectType<QboImportReviewViaPipeline>(review);
-    expect(review.reconciliation.quickbooks.openArTotal).toBe(review.reconciliation.ops.openArTotal);
+    expect(review.reconciliation.qbOpenAr).toBe(review.reconciliation.opsToBeOpenAr);
+    expect(review.reconciliation.arMatched).toBe(true);
   });
 });

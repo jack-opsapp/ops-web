@@ -166,43 +166,55 @@ export interface QboCustomerMatch {
   decidedClientId: string | null;
 }
 
-// ─── Review aggregate (returned to the review UI) ──────────────────────────--
+// ─── Review aggregate (returned by getImportReview → review UI) ──────────────
 
-/** Per-action and per-entity counts surfaced in the review screen. */
-export interface QboImportCounts {
+/** Per-action customer counts shown in the review header. */
+export interface QboMatchCounts {
+  link: number;
+  create: number;
+  skip: number;
+  needs_review: number;
+}
+
+/** Staged record counts surfaced in the review UI. */
+export interface QboStagedCounts {
   customers: number;
-  customersLink: number;
-  customersCreate: number;
-  customersSkip: number;
-  customersNeedsReview: number;
   estimates: number;
   invoices: number;
   lineItems: number;
   payments: number;
-  /** Payments with no linked pulled invoice (deposits/retainers). */
+  /** Payment rows whose linked invoice was not pulled (deposits/retainers). */
   orphanPayments: number;
-  /** Voided / zero-total invoices skipped + flagged. */
+  /** Invoices skipped because voided or zero-total. */
   skippedInvoices: number;
 }
 
-/** A single side (QuickBooks or OPS) of the reconciliation strip. */
-export interface QboReconciliationSide {
-  openArTotal: number;
-  openInvoiceCount: number;
-  collected24mo: number;
-  customerCount: number;
-}
-
+/**
+ * QUICKBOOKS-vs-OPS reconciliation totals. Because CanPro has 0 live invoices
+ * pre-apply, "opsToBe" mirrors the QB-authoritative staged values; the strip
+ * turns green when QB === opsToBe to the cent.
+ */
 export interface QboReconciliation {
-  quickbooks: QboReconciliationSide;
-  ops: QboReconciliationSide;
+  /** Sum of staged invoice `balance` for non-skipped invoices (QB open A/R). */
+  qbOpenAr: number;
+  /** What OPS A/R will become after apply (== qbOpenAr; QB is authoritative). */
+  opsToBeOpenAr: number;
+  /** Count of non-skipped staged invoices with balance > 0. */
+  openInvoiceCount: number;
+  /** Sum of staged payment `amount` (applied lines only) in the pull window. */
+  collectedInWindow: number;
+  /** Distinct staged customers. */
+  customerCount: number;
+  /** True when qbOpenAr === opsToBeOpenAr (rounded to cents). */
+  arMatched: boolean;
 }
 
-/** Aggregate payload returned to the review UI for a run. */
+/** Aggregate payload the review screen renders. */
 export interface QboImportReview {
   run: QboImportRun;
   matches: QboCustomerMatch[];
-  counts: QboImportCounts;
+  matchCounts: QboMatchCounts;
+  stagedCounts: QboStagedCounts;
   reconciliation: QboReconciliation;
 }
 
