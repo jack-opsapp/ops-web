@@ -465,33 +465,41 @@ export async function runSyncForConnection(
   companyId: string,
   provider: string,
   connectionId: string,
-  lastSyncAt: string | null
+  lastSyncAt: string | null,
+  syncDirection?: "pull_only" | "push_only" | "bidirectional"
 ): Promise<{ success: boolean; results: SyncResult[]; message: string }> {
-  // Read-only safety rail: the connection's direction mode decides which
-  // halves of the engine may run. A 'pull_only' connection can NEVER reach a
-  // push* method; 'push_only' can never reach a pull*. Loaded here so the
-  // public signature is unchanged and every caller is automatically guarded.
-  const { data: conn, error: connErr } = await supabase
-    .from("accounting_connections")
-    .select("sync_direction")
-    .eq("id", connectionId)
-    .single();
+  // ── Direction guard (read-only safety core, contract §6) ──────────────────
+  // pull_only  → never push to the provider.
+  // push_only  → never pull from the provider.
+  //
+  // The direction can be supplied explicitly by the caller (e.g. the
+  // /api/sync route reads it off the connection and passes it through). When
+  // it is omitted, fall back to loading it from the connection row so the
+  // legacy 5-arg call sites (cron) stay guarded without any change.
+  let direction = syncDirection;
+  if (!direction) {
+    const { data: conn, error: connErr } = await supabase
+      .from("accounting_connections")
+      .select("sync_direction")
+      .eq("id", connectionId)
+      .single();
 
-  if (connErr || !conn) {
-    throw new Error(`Connection ${connectionId} not found for direction check`);
+    if (connErr || !conn) {
+      throw new Error(`Connection ${connectionId} not found for direction check`);
+    }
+
+    direction = (conn.sync_direction ?? "pull_only") as
+      | "pull_only"
+      | "push_only"
+      | "bidirectional";
   }
-
-  const syncDirection = (conn.sync_direction ?? "pull_only") as
-    | "pull_only"
-    | "push_only"
-    | "bidirectional";
 
   let results: SyncResult[];
 
   if (provider === "quickbooks") {
-    results = await syncQuickBooks(supabase, companyId, connectionId, lastSyncAt, syncDirection);
+    results = await syncQuickBooks(supabase, companyId, connectionId, lastSyncAt, direction);
   } else if (provider === "sage") {
-    results = await syncSage(supabase, companyId, connectionId, lastSyncAt, syncDirection);
+    results = await syncSage(supabase, companyId, connectionId, lastSyncAt, direction);
   } else {
     throw new Error(`Unsupported provider: ${provider}`);
   }
