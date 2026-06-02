@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
 
     const { data: connection, error: connError } = await supabase
       .from("accounting_connections")
-      .select("id, is_connected, last_sync_at")
+      .select("id, is_connected, last_sync_at, sync_direction")
       .eq("company_id", companyId)
       .eq("provider", provider)
       .single();
@@ -76,8 +76,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (connection.sync_direction === "pull_only") {
+      return NextResponse.json(
+        {
+          error:
+            "This connection is read-only (pull_only). Use the QuickBooks Import flow instead.",
+        },
+        { status: 409 }
+      );
+    }
+
     try {
-      const result = await runSyncForConnection(supabase, companyId, provider, connection.id, connection.last_sync_at);
+      const result = await runSyncForConnection(
+        supabase,
+        companyId,
+        provider,
+        connection.id,
+        connection.last_sync_at,
+        (connection.sync_direction as "pull_only" | "push_only" | "bidirectional") ?? "bidirectional"
+      );
       return NextResponse.json({
         success: result.success,
         status: result.results.some((r) => r.errors.length > 0) ? "partial" : "success",
