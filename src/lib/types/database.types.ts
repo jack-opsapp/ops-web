@@ -1177,6 +1177,7 @@ export type Database = {
           edited_at: string | null
           final_version: string | null
           id: string
+          mailbox_draft_id: string | null
           opportunity_id: string | null
           origin: string | null
           original_draft: string
@@ -1200,6 +1201,7 @@ export type Database = {
           edited_at?: string | null
           final_version?: string | null
           id?: string
+          mailbox_draft_id?: string | null
           opportunity_id?: string | null
           origin?: string | null
           original_draft: string
@@ -1223,6 +1225,7 @@ export type Database = {
           edited_at?: string | null
           final_version?: string | null
           id?: string
+          mailbox_draft_id?: string | null
           opportunity_id?: string | null
           origin?: string | null
           original_draft?: string
