@@ -73,6 +73,44 @@ export const AdminFeatureOverrideService = {
   },
 
   /**
+   * Generic per-company feature gate (non-AI flags like `inbox_ui`).
+   * Reads admin_feature_overrides via the service-role client (no RLS).
+   */
+  async isFeatureEnabled(companyId: string, featureKey: string): Promise<boolean> {
+    const supabase = getServiceRoleClient();
+    const { data } = await supabase
+      .from("admin_feature_overrides")
+      .select("enabled")
+      .eq("company_id", companyId)
+      .eq("feature_key", featureKey)
+      .maybeSingle();
+    return data?.enabled === true;
+  },
+
+  /**
+   * Set a generic per-company feature override (no phase_c wizard side-effects).
+   */
+  async setFeatureOverride(
+    companyId: string,
+    featureKey: string,
+    enabled: boolean,
+    adminUserId: string
+  ): Promise<void> {
+    const supabase = getServiceRoleClient();
+    const { error } = await supabase.from("admin_feature_overrides").upsert(
+      {
+        company_id: companyId,
+        feature_key: featureKey,
+        enabled,
+        enabled_by: adminUserId,
+        enabled_at: enabled ? new Date().toISOString() : null,
+      },
+      { onConflict: "company_id,feature_key" }
+    );
+    if (error) throw new Error(`Failed to set feature override: ${error.message}`);
+  },
+
+  /**
    * Toggle an AI feature for a company (admin only).
    *
    * When phase_c transitions from disabled → enabled for the first time
