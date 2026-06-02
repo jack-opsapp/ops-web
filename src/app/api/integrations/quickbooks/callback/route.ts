@@ -109,7 +109,8 @@ export async function GET(request: NextRequest) {
         ).toISOString(),
         realm_id: realmId,
         is_connected: true,
-        sync_enabled: true,
+        sync_enabled: false, // read-only validation phase: no auto-sync
+        sync_direction: "pull_only", // hard read-only mode (contract §6.3)
         webhook_verifier_token: null, // Clear CSRF token
         updated_at: new Date().toISOString(),
       })
