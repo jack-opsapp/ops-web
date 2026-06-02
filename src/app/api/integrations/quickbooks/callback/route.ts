@@ -8,11 +8,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { getAppUrl } from "@/lib/utils/app-url";
-
-const QB_CLIENT_ID = process.env.QB_CLIENT_ID;
-const QB_CLIENT_SECRET = process.env.QB_CLIENT_SECRET;
-const QB_REDIRECT_URI =
-  process.env.QB_REDIRECT_URI ?? `${getAppUrl()}/api/integrations/quickbooks/callback`;
+import {
+  getQuickBooksConfig,
+  type QuickBooksConfig,
+} from "@/lib/api/services/quickbooks-config";
 
 const INTUIT_TOKEN_URL =
   "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer";
@@ -37,7 +36,18 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  if (!QB_CLIENT_ID || !QB_CLIENT_SECRET) {
+  // Resolve QuickBooks credentials from the single shared config helper. This
+  // reads process.env lazily (at request time, not module load) and throws loud
+  // on a half-configured environment — so a real production company file can
+  // never be connected against missing creds or a silent sandbox fallback.
+  let config: QuickBooksConfig;
+  try {
+    config = getQuickBooksConfig();
+  } catch (configError) {
+    console.error(
+      "QuickBooks not configured:",
+      configError instanceof Error ? configError.message : configError
+    );
     return NextResponse.redirect(
       `${getAppUrl()}/accounting?status=error&message=not_configured`
     );
@@ -71,7 +81,7 @@ export async function GET(request: NextRequest) {
   try {
     // Exchange authorization code for tokens
     const basicAuth = Buffer.from(
-      `${QB_CLIENT_ID}:${QB_CLIENT_SECRET}`
+      `${config.clientId}:${config.clientSecret}`
     ).toString("base64");
 
     const tokenResponse = await fetch(INTUIT_TOKEN_URL, {
@@ -84,7 +94,7 @@ export async function GET(request: NextRequest) {
       body: new URLSearchParams({
         grant_type: "authorization_code",
         code,
-        redirect_uri: QB_REDIRECT_URI,
+        redirect_uri: config.redirectUri,
       }),
     });
 
