@@ -23,6 +23,34 @@ export type { SyncProfile } from "./email-connection";
 export type { OpportunityEmailThread } from "./email-connection";
 export type { AdminFeatureOverride } from "./email-connection";
 
+// Re-export QuickBooks import (read-only sync) types (./qbo-import.ts)
+// NOTE: `MatchConfidence` is already declared in this module for the email-CRM
+// surface (values: exact/domain/phone/manual/unmatched), so the QBO match types
+// `MatchBasis`/`MatchConfidence` are re-exported under `Qbo*`-prefixed aliases
+// to avoid a name collision. QBO code imports these directly from
+// `@/lib/types/qbo-import`; the aliases keep them reachable via pipeline.ts too.
+export type {
+  QboImportRunStatus,
+  QboImportRun,
+  QboStagedCustomer,
+  QboStagedEstimate,
+  QboStagedInvoice,
+  QboStagedLineItem,
+  QboStagedPaymentLine,
+  QboStagedPayment,
+  MatchBasis as QboMatchBasis,
+  MatchConfidence as QboMatchConfidence,
+  MatchAction,
+  QboMatchCandidate,
+  QboCustomerMatch,
+  QboImportCounts,
+  QboReconciliationSide,
+  QboReconciliation,
+  QboImportReview,
+  QboApplyDecision,
+} from "./qbo-import";
+export { MATCH_ACTIONS } from "./qbo-import";
+
 // ─── Enums ────────────────────────────────────────────────────────────────────
 
 /** Pipeline opportunity stage */
