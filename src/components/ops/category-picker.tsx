@@ -91,7 +91,7 @@ export function CategoryPicker({
           aria-label={selected ? `Category: ${selected.name}` : placeholder}
           className={cn(
             "flex items-center justify-between gap-2 w-full",
-            "min-h-[44px] px-2 py-1.5 rounded-[5px]",
+            "min-h-[36px] px-2 py-1.5 rounded-[5px]",
             "bg-fill-neutral-dim border border-border",
             "font-mohave text-body text-left",
             "transition-colors duration-150",

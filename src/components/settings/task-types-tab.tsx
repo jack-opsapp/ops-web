@@ -217,14 +217,14 @@ function TaskTemplatesSection({ taskType }: { taskType: TaskType }) {
                   <Input
                     value={editTitle}
                     onChange={(e) => setEditTitle(e.target.value)}
-                    className="flex-1 h-[56px]"
+                    className="flex-1"
                     autoFocus
                   />
                   <Input
                     value={editHours}
                     onChange={(e) => setEditHours(e.target.value)}
                     placeholder={t("taskTypes.hrs")}
-                    className="w-[72px] h-[56px]"
+                    className="w-[72px]"
                     type="number"
                     step="0.5"
                   />
@@ -279,14 +279,14 @@ function TaskTemplatesSection({ taskType }: { taskType: TaskType }) {
           value={newTitle}
           onChange={(e) => setNewTitle(e.target.value)}
           placeholder={t("taskTypes.templatePlaceholder")}
-          className="flex-1 h-[56px]"
+          className="flex-1"
           onKeyDown={(e) => { if (e.key === "Enter") handleAdd(); }}
         />
         <Input
           value={newHours}
           onChange={(e) => setNewHours(e.target.value)}
           placeholder="hrs"
-          className="w-[72px] h-[56px]"
+          className="w-[72px]"
           type="number"
           step="0.5"
         />

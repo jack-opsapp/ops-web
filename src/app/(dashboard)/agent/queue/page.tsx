@@ -205,7 +205,7 @@ export default function AgentQueuePage() {
     <button
       onClick={onClick}
       className={cn(
-        "min-h-[56px] px-3 rounded-[4px] font-mohave text-[12px] uppercase transition-colors whitespace-nowrap flex items-center",
+        "min-h-[36px] px-3 rounded-[5px] font-mohave text-[12px] uppercase transition-colors whitespace-nowrap flex items-center",
         active
           ? "bg-[rgba(111, 148, 176,0.15)] text-[#6F94B0]"
           : "bg-[rgba(255,255,255,0.03)] text-text-3 hover:text-text-2 hover:bg-[rgba(255,255,255,0.06)]"
@@ -271,7 +271,7 @@ export default function AgentQueuePage() {
         <div className="flex items-center">
           <button
             onClick={handleSelectAll}
-            className="flex items-center gap-1.5 text-text-3 hover:text-text-2 transition-colors min-h-[56px] px-2"
+            className="flex items-center gap-1.5 text-text-3 hover:text-text-2 transition-colors min-h-[36px] px-2"
           >
             {allSelected ? (
               <CheckSquare className="w-[16px] h-[16px]" />
@@ -344,14 +344,14 @@ export default function AgentQueuePage() {
               <button
                 onClick={handleBulkApprove}
                 disabled={bulkApproveMutation.isPending}
-                className="min-h-[56px] px-6 rounded-[4px] bg-[rgba(111, 148, 176,0.15)] text-[#6F94B0] font-mohave text-body-sm uppercase hover:bg-[rgba(111, 148, 176,0.25)] transition-colors disabled:opacity-50"
+                className="min-h-[36px] px-6 rounded-[5px] bg-[rgba(111, 148, 176,0.15)] text-[#6F94B0] font-mohave text-body-sm uppercase hover:bg-[rgba(111, 148, 176,0.25)] transition-colors disabled:opacity-50"
               >
                 {t("action.bulkApprove")}
               </button>
               <button
                 onClick={() => setBulkRejectOpen(true)}
                 disabled={bulkRejectMutation.isPending}
-                className="min-h-[56px] px-6 rounded-[4px] bg-[rgba(147,50,26,0.10)] text-[#93321A] font-mohave text-body-sm uppercase hover:bg-[rgba(147,50,26,0.20)] transition-colors disabled:opacity-50"
+                className="min-h-[36px] px-6 rounded-[5px] bg-[rgba(147,50,26,0.10)] text-[#93321A] font-mohave text-body-sm uppercase hover:bg-[rgba(147,50,26,0.20)] transition-colors disabled:opacity-50"
               >
                 {t("action.bulkReject")}
               </button>

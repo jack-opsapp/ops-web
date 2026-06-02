@@ -130,7 +130,7 @@ function RelationshipSelect({
         className={cn(
           "w-full flex items-center justify-between",
           "bg-surface-input text-text font-mohave text-body",
-          "px-2 py-1.5 rounded-sm min-h-[56px]",
+          "px-2 py-1.5 rounded-sm min-h-[36px]",
           "border border-[rgba(255,255,255,0.08)]",
           "transition-all duration-150",
           "focus:border-[rgba(255,255,255,0.20)] focus:outline-none",
@@ -157,7 +157,7 @@ function RelationshipSelect({
                 setOpen(false);
               }}
               className={cn(
-                "w-full text-left px-2 min-h-[56px] flex items-center",
+                "w-full text-left px-2 min-h-[36px] flex items-center",
                 "font-mohave text-body-sm transition-colors border-b border-[rgba(255,255,255,0.04)]",
                 value === r
                   ? "bg-[rgba(255,255,255,0.08)] text-text"
@@ -474,7 +474,7 @@ export default function EmployeeSetupPage() {
 
               <div className="space-y-0">
                 {/* Push notifications row */}
-                <div className="flex items-center justify-between min-h-[56px] border-b border-[rgba(255,255,255,0.08)]">
+                <div className="flex items-center justify-between min-h-[36px] border-b border-[rgba(255,255,255,0.08)]">
                   <div>
                     <p className="font-mohave text-body text-text">
                       PUSH NOTIFICATIONS
@@ -496,7 +496,7 @@ export default function EmployeeSetupPage() {
                 </div>
 
                 {/* Email notifications row */}
-                <div className="flex items-center justify-between min-h-[56px]">
+                <div className="flex items-center justify-between min-h-[36px]">
                   <div>
                     <p className="font-mohave text-body text-text">
                       EMAIL NOTIFICATIONS
@@ -526,7 +526,7 @@ export default function EmployeeSetupPage() {
           <button
             onClick={handleBack}
             disabled={currentStep === 0 || isSaving}
-            className="flex items-center gap-0.5 font-mohave text-body-sm uppercase text-text-2 hover:text-text disabled:opacity-0 disabled:pointer-events-none transition-all duration-150 min-h-[56px]"
+            className="flex items-center gap-0.5 font-mohave text-body-sm uppercase text-text-2 hover:text-text disabled:opacity-0 disabled:pointer-events-none transition-all duration-150 min-h-[36px]"
           >
             <ArrowLeft className="w-4 h-4" />
             Back
@@ -535,7 +535,7 @@ export default function EmployeeSetupPage() {
           <button
             onClick={handleNext}
             disabled={!isStepValid() || isSaving}
-            className="flex items-center gap-0.5 font-mohave text-button uppercase bg-ops-accent text-text px-3 min-h-[56px] rounded-sm border border-ops-accent hover:bg-ops-accent-hover disabled:opacity-40 disabled:pointer-events-none transition-all duration-150"
+            className="flex items-center gap-0.5 font-mohave text-button uppercase bg-ops-accent text-text px-3 min-h-[36px] rounded-sm border border-ops-accent hover:bg-ops-accent-hover disabled:opacity-40 disabled:pointer-events-none transition-all duration-150"
           >
             {isSaving ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -559,7 +559,7 @@ export default function EmployeeSetupPage() {
         <button
           onClick={handleLogout}
           aria-label="Log out"
-          className="flex items-center gap-1 font-mohave text-caption-sm text-text-mute uppercase tracking-[0.08em] hover:text-text-3 transition-colors min-h-[44px]"
+          className="flex items-center gap-1 font-mohave text-caption-sm text-text-mute uppercase tracking-[0.08em] hover:text-text-3 transition-colors min-h-[36px]"
         >
           <LogOut className="w-3 h-3" />
           Log out

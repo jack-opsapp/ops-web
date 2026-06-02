@@ -274,7 +274,7 @@ export function FeatureFlagsTab() {
           {companies.map((company) => (
             <div
               key={company.id}
-              className="grid grid-cols-2 px-6 items-center h-14 border-b border-white/[0.05] last:border-0 cursor-pointer hover:bg-white/[0.02] transition-colors"
+              className="grid grid-cols-2 px-6 items-center min-h-[36px] border-b border-white/[0.05] last:border-0 cursor-pointer hover:bg-white/[0.02] transition-colors"
               onClick={() => selectCompany(company)}
             >
               <span className="font-mohave text-[14px] text-[#EDEDED]">{company.name}</span>
@@ -393,7 +393,7 @@ function UserPermissionRow({
   const available = knownPermissions.filter((p) => !perms.includes(p));
 
   return (
-    <div className="grid grid-cols-[1fr_1fr_1fr_2fr] px-6 items-center min-h-[56px] py-3 border-b border-white/[0.05] last:border-0">
+    <div className="grid grid-cols-[1fr_1fr_1fr_2fr] px-6 items-center min-h-[36px] py-3 border-b border-white/[0.05] last:border-0">
       <span className="font-mohave text-[14px] text-[#EDEDED]">
         {user.first_name} {user.last_name}
       </span>
