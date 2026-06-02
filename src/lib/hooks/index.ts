@@ -195,6 +195,7 @@ export {
   useTriggerSync,
   useSyncHistory,
 } from "./use-accounting";
+export * from "./use-qbo-import";
 
 // Task Templates
 export {

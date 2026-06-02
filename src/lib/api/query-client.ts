@@ -178,6 +178,10 @@ export const queryKeys = {
       [...queryKeys.accounting.all, "connections", companyId] as const,
     syncHistory: (companyId: string) =>
       [...queryKeys.accounting.all, "syncHistory", companyId] as const,
+    importRun: (companyId: string) =>
+      [...queryKeys.accounting.all, "importRun", companyId] as const,
+    importReview: (runId: string) =>
+      [...queryKeys.accounting.all, "importReview", runId] as const,
   },
 
   // Task Templates
