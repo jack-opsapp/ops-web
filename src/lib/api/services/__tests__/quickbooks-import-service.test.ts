@@ -5,7 +5,6 @@ import estimates from "../../../../../tests/fixtures/qbo/estimate.json";
 import payments from "../../../../../tests/fixtures/qbo/payment.json";
 
 const COMPANY_ID = "a612edc0-5c18-4c4d-af97-55b9410dd077";
-const RUN_ID = "run-1";
 
 // ── Mock the pull service (A1) so no network happens ───────────────────────
 const pullInstance = {
@@ -101,16 +100,18 @@ function makeSupabase() {
 import { QuickBooksImportService } from "../quickbooks-import-service";
 
 let supabase: ReturnType<typeof makeSupabase>;
+let svc: QuickBooksImportService;
 
 beforeEach(() => {
   vi.clearAllMocks();
   pullInstance.qbWriteCalls = 0;
   supabase = makeSupabase();
+  svc = new QuickBooksImportService(supabase);
 });
 
 describe("QuickBooksImportService.startImportRun", () => {
   it("creates a pending run scoped to the company", async () => {
-    const run = await QuickBooksImportService.startImportRun(supabase, COMPANY_ID);
+    const run = await svc.startImportRun(COMPANY_ID);
     expect(run.status).toBe("pending");
     expect(supabase._tables.qbo_import_runs).toHaveLength(1);
     expect(supabase._tables.qbo_import_runs[0].company_id).toBe(COMPANY_ID);
@@ -119,8 +120,8 @@ describe("QuickBooksImportService.startImportRun", () => {
 
 describe("QuickBooksImportService.pullAndStage", () => {
   it("stages customers/invoices/estimates/lines/payments and keeps qb_write_calls at 0", async () => {
-    const run = await QuickBooksImportService.startImportRun(supabase, COMPANY_ID);
-    await QuickBooksImportService.pullAndStage(supabase, run.id);
+    const run = await svc.startImportRun(COMPANY_ID);
+    await svc.pullAndStage(run.id);
 
     const t = supabase._tables;
     expect(t.qbo_staging_customers.length).toBe(2);
@@ -138,9 +139,9 @@ describe("QuickBooksImportService.pullAndStage", () => {
 
 describe("QuickBooksImportService.computeCustomerMatches", () => {
   it("writes one match row per staged customer (email link for Cool Cars)", async () => {
-    const run = await QuickBooksImportService.startImportRun(supabase, COMPANY_ID);
-    await QuickBooksImportService.pullAndStage(supabase, run.id);
-    await QuickBooksImportService.computeCustomerMatches(supabase, run.id);
+    const run = await svc.startImportRun(COMPANY_ID);
+    await svc.pullAndStage(run.id);
+    await svc.computeCustomerMatches(run.id);
 
     const matches = supabase._tables.qbo_customer_matches;
     expect(matches.length).toBe(2);
@@ -155,11 +156,11 @@ describe("QuickBooksImportService.computeCustomerMatches", () => {
 
 describe("QuickBooksImportService.getImportReview", () => {
   it("returns the aggregate with reconciliation + counts", async () => {
-    const run = await QuickBooksImportService.startImportRun(supabase, COMPANY_ID);
-    await QuickBooksImportService.pullAndStage(supabase, run.id);
-    await QuickBooksImportService.computeCustomerMatches(supabase, run.id);
+    const run = await svc.startImportRun(COMPANY_ID);
+    await svc.pullAndStage(run.id);
+    await svc.computeCustomerMatches(run.id);
 
-    const review = await QuickBooksImportService.getImportReview(supabase, run.id);
+    const review = await svc.getImportReview(run.id);
     expect(review.run.id).toBe(run.id);
     expect(review.matches.length).toBe(2);
     expect(review.matchCounts.link).toBe(1);
@@ -170,13 +171,5 @@ describe("QuickBooksImportService.getImportReview", () => {
     expect(review.reconciliation.openInvoiceCount).toBe(1);
     expect(review.reconciliation.collectedInWindow).toBe(362.07);
     expect(review.reconciliation.arMatched).toBe(true);
-  });
-});
-
-describe("applyImport (A3 boundary)", () => {
-  it("throws — implemented in phase A3", async () => {
-    await expect(
-      QuickBooksImportService.applyImport(supabase, RUN_ID, [])
-    ).rejects.toThrow(/A3/);
   });
 });
