@@ -218,11 +218,30 @@ export interface QboImportReview {
   reconciliation: QboReconciliation;
 }
 
-/** One owner decision applied at apply-time. */
+// ─── A3: Apply engine input/output ──────────────────────────────────────────
+
+/**
+ * Owner's per-customer decision passed from the review UI to applyImport.
+ * `client_id` is required when action === "link" (the existing client to
+ * attach qb_id to); optional otherwise. For "create" it is ignored.
+ */
 export interface QboApplyDecision {
-  customerQbId: string;
+  customer_qb_id: string;
   action: MatchAction;
-  clientId?: string;
+  client_id?: string;
+}
+
+/** Per-entity counts returned by applyImport. qb_write_calls MUST be 0. */
+export interface QboApplyResult {
+  clientsLinked: number;
+  clientsCreated: number;
+  clientsSkipped: number;
+  estimatesUpserted: number;
+  invoicesUpserted: number;
+  lineItemsInserted: number;
+  paymentsUpserted: number;
+  invoicesReconciled: number;
+  qb_write_calls: number;
 }
 
 // ─── Pull layer (Phase A1) ─────────────────────────────────────────────────--

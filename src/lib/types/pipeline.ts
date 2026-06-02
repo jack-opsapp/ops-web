@@ -48,6 +48,7 @@ export type {
   QboReconciliation,
   QboImportReview,
   QboApplyDecision,
+  QboApplyResult,
 } from "./qbo-import";
 export { MATCH_ACTIONS } from "./qbo-import";
 
