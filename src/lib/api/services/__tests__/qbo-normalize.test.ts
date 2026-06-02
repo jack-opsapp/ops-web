@@ -89,7 +89,7 @@ describe("normalizeInvoice", () => {
     expect(open.staging.tax_amount).toBe(26.82);
     expect(open.staging.tax_rate).toBe(8);
     expect(open.staging.balance).toBe(362.07);
-    expect(open.staging.derived_status).toBe("past_due"); // DueDate 2026-05-01 > TODAY → not past; check next
+    expect(open.staging.derived_status).toBe("awaiting_payment"); // full balance, DueDate 2026-05-01 > TODAY 2026-04-20 → not past due
     expect(open.skipped).toBe(false);
 
     const zero = normalizeInvoice(invoices[1], TODAY);
@@ -133,7 +133,7 @@ describe("normalizeEstimate", () => {
   it("maps headers and flattened lines", () => {
     const e = normalizeEstimate(estimates[0], TODAY);
     expect(e.staging.qb_id).toBe("98");
-    expect(e.staging.estimate_number).toBe("1001");
+    expect(e.staging.doc_number).toBe("1001");
     expect(e.staging.txn_status).toBe("approved");
     expect(e.staging.expiration_date).toBe("2026-04-10");
     expect(e.lines).toHaveLength(1);
