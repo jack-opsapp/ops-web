@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { getAppUrl } from "@/lib/utils/app-url";
+import { defaultAutoSendSettings } from "@/lib/api/services/mailbox-draft-helpers";
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -89,7 +90,9 @@ export async function GET(request: NextRequest) {
       // Non-critical — email is nice to have
     }
 
-    // Store in email_connections table
+    // Store in email_connections table. This is always a new connection
+    // (raw INSERT — no upsert), so it's safe to seed auto-draft defaults
+    // unconditionally. Reconnects use a separate flow that calls UPDATE.
     const supabase = getServiceRoleClient();
     const { error: insertError } = await supabase
       .from("email_connections")
@@ -107,6 +110,7 @@ export async function GET(request: NextRequest) {
         sync_enabled: true,
         sync_interval_minutes: 60,
         status: "setup_incomplete",
+        auto_send_settings: defaultAutoSendSettings(),
       });
 
     if (insertError) {

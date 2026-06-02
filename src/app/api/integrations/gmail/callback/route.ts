@@ -13,6 +13,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { getAppUrl } from "@/lib/utils/app-url";
+import { defaultAutoSendSettings } from "@/lib/api/services/mailbox-draft-helpers";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_GMAIL_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_GMAIL_CLIENT_SECRET;
@@ -154,25 +155,44 @@ export async function GET(request: NextRequest) {
     // status. We write status='setup_incomplete' because the wizard has
     // additional steps (pattern detection, filter config, activate). The
     // activate endpoint flips it to 'active' when the user finishes.
+    //
+    // Auto-draft defaults are seeded only on a genuinely new connection —
+    // reconnects must preserve whatever settings the user has already
+    // configured, so we check existence before upserting.
     const supabase = getServiceRoleClient();
+
+    const { data: existingRow } = await supabase
+      .from("email_connections")
+      .select("id, auto_send_settings")
+      .eq("company_id", state.companyId)
+      .eq("email", gmailEmail)
+      .maybeSingle();
+
+    const isNewConnection = !existingRow;
+
+    const upsertPayload: Record<string, unknown> = {
+      company_id: state.companyId,
+      user_id: state.userId,
+      type: state.type,
+      provider: "gmail",
+      status: "setup_incomplete",
+      email: gmailEmail,
+      access_token: tokens.access_token || "",
+      refresh_token: tokens.refresh_token || "",
+      expires_at: new Date(Date.now() + (tokens.expires_in || 3600) * 1000).toISOString(),
+      sync_enabled: true,
+      updated_at: new Date().toISOString(),
+    };
+
+    // Only seed defaults on initial creation — never overwrite a reconnect's
+    // existing settings (user may have customised them via the settings UI).
+    if (isNewConnection) {
+      upsertPayload.auto_send_settings = defaultAutoSendSettings();
+    }
+
     const { error: upsertError } = await supabase
       .from("email_connections")
-      .upsert(
-        {
-          company_id: state.companyId,
-          user_id: state.userId,
-          type: state.type,
-          provider: "gmail",
-          status: "setup_incomplete",
-          email: gmailEmail,
-          access_token: tokens.access_token || "",
-          refresh_token: tokens.refresh_token || "",
-          expires_at: new Date(Date.now() + (tokens.expires_in || 3600) * 1000).toISOString(),
-          sync_enabled: true,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "company_id,email" }
-      );
+      .upsert(upsertPayload, { onConflict: "company_id,email" });
 
     if (upsertError) {
       console.error("Failed to store Gmail tokens:", upsertError.message);
