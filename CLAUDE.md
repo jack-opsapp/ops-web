@@ -223,3 +223,4 @@ Variables consumed by the main product surfaces (dashboards, modals, maps, geoco
 | Name | Purpose |
 |------|---------|
 | `NEXT_PUBLIC_MAPBOX_TOKEN` | Mapbox GL JS public access token. Required for the project workspace map (compact + expanded states) and address autocomplete. Free tier covers 50k map loads + 100k geocoding requests per month. URL allowlist recommended at `account.mapbox.com/access-tokens/` — currently unrestricted (accepted risk). |
+| `INBOX_AUTO_SEND_ENABLED` | Master switch for the auto-send cron (`/api/cron/auto-send`). Unset or any value other than `"true"` → cron no-ops immediately after auth, returning `{ skipped: true }` (the launch default; nothing auto-sends). Set to `"true"` only once a supervision UI exists for reviewing the agent's outbound sends. |

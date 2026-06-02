@@ -29,6 +29,16 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Inbox dark-launch: auto-send is disabled for launch (never send unsupervised).
+  // Fail-closed — the cron no-ops unless explicitly enabled. Re-enable only when
+  // there is a supervision UI for the agent's outbound sends.
+  if (process.env.INBOX_AUTO_SEND_ENABLED !== "true") {
+    console.log(
+      "[cron/auto-send] skipped — auto-send disabled for launch (INBOX_AUTO_SEND_ENABLED!=true)"
+    );
+    return NextResponse.json({ ok: true, skipped: true, reason: "auto_send_disabled" });
+  }
+
   const supabase = getServiceRoleClient();
   setSupabaseOverride(supabase);
 
