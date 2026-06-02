@@ -13,7 +13,6 @@ export const FEATURE_FLAG_ROUTES: Record<string, string[]> = {
   accounting: ["/accounting", "/estimates", "/invoices"],
   products: ["/products"],
   inventory: ["/inventory"],
-  portal: ["/inbox"],
   // ai_email_review removed 2026-04-24 — collapsed into phase_c
   // (migration 20260424000000). phase_c now gates /calibration.
   phase_c: ["/calibration"],
