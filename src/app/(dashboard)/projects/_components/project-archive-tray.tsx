@@ -7,8 +7,8 @@ import type { Project } from "@/lib/types/models";
 import { formatCurrency } from "@/lib/utils/format";
 import { useProjectCanvasStore } from "./project-canvas-store";
 import {
-  spatialArchiveTrayVariants,
-  spatialArchiveTrayVariantsReduced,
+  archiveTrayVariants,
+  archiveTrayVariantsReduced,
 } from "@/lib/utils/motion";
 
 // ── Types ──
@@ -38,8 +38,8 @@ export function ProjectArchiveTray({
   const toggle = useProjectCanvasStore((s) => s.toggleArchiveTray);
 
   const variants = reduced
-    ? spatialArchiveTrayVariantsReduced
-    : spatialArchiveTrayVariants;
+    ? archiveTrayVariantsReduced
+    : archiveTrayVariants;
 
   return (
     <AnimatePresence>

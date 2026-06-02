@@ -209,7 +209,7 @@ export {
   isValid,
 };
 
-// ── Pipeline date helpers (used by spatial canvas cards) ──
+// ── Pipeline date helpers (used by pipeline cards) ──
 
 /** Check if a date is today (date-only comparison) */
 export function isDateToday(date: Date | null): boolean {

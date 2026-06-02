@@ -234,7 +234,7 @@ export function PipelineCardActions({
           />
           <button
             type="button"
-            aria-label={t("spatial.confirm", "Confirm")}
+            aria-label={t("card.confirm", "Confirm")}
             onClick={(e) => {
               e.stopPropagation();
               if (!noteValue.trim()) return;

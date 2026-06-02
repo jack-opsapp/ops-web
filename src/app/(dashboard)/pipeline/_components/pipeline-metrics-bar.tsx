@@ -18,8 +18,8 @@ import {
 
 // Pipeline summary semantics:
 // - The headline "pipeline value" is the SUM OF RAW estimatedValue across active
-//   deals. This matches what each stage column shows in its header
-//   (`spatial-stage-stack.tsx`), so summary == sum of stages by construction.
+//   deals. This matches what each stage column shows in its header, so summary ==
+//   sum of stages by construction.
 // - The probability-weighted total (estimatedValue * winProbability) is shown
 //   as a secondary "[forecast]" line beneath the headline so users still see
 //   the expected-revenue figure without it silently replacing the visible total.

@@ -48,7 +48,7 @@ vi.mock("@/i18n/client", () => ({
       const translations: Record<string, string> = {
         "focused.dragHandle.label": "Drag card to another stage",
         "focused.openDetail.label": "Open deal details",
-        "spatial.emailCount": "{count} emails",
+        "card.emailCount": "{count} emails",
         "card.followUpDate": "Follow up {date}",
         "card.titleEditLabel": "Edit deal title: {title}",
         "card.titleInputLabel": "Deal title",
@@ -73,7 +73,7 @@ vi.mock("@/i18n/client", () => ({
         "card.retreatStage": "Back to {stage}",
         "card.stageMenu": "Stage",
         "card.stageMenuLabel": "Choose stage",
-        "spatial.confirm": "Confirm",
+        "card.confirm": "Confirm",
       };
 
       return translations[key] ?? fallback ?? key;

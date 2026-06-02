@@ -1252,8 +1252,19 @@ export type CreateAccountingConnection = Omit<
 
 export type UpdateAccountingConnection = Partial<CreateAccountingConnection> & { id: string };
 
-/** Update type - all fields optional except id */
-export type UpdateOpportunity = Partial<CreateOpportunity> & { id: string };
+/**
+ * Update type - all fields optional except id.
+ *
+ * `nextFollowUpAt` is re-added here even though `CreateOpportunity` omits it:
+ * at create time the next follow-up is server-derived, but updates legitimately
+ * set it directly (e.g. inline edit in the pipeline table). The column
+ * `opportunities.next_follow_up_at` is a plain, writable timestamptz with no
+ * trigger/function maintaining it, so a direct write is safe and authoritative.
+ */
+export type UpdateOpportunity = Partial<CreateOpportunity> & {
+  id: string;
+  nextFollowUpAt?: Date | null;
+};
 export type UpdateEstimate = Partial<CreateEstimate> & { id: string };
 export type UpdateInvoice = Partial<CreateInvoice> & { id: string };
 export type UpdateLineItem = Partial<CreateLineItem> & { id: string };

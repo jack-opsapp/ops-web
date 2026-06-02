@@ -27,12 +27,6 @@ export type PipelineDragEndResolution =
       opportunityId: string;
       stage: OpportunityStage;
       isTerminal: boolean;
-    }
-  | {
-      type: "spatial-stage";
-      opportunityIds: string[];
-      stage: OpportunityStage;
-      isTerminal: boolean;
     };
 
 type ResolvePipelineDragEndInput = {
@@ -45,57 +39,45 @@ type ResolvePipelineDragEndInput = {
 export function resolvePipelineDragEnd({
   mode,
   draggedId,
-  selectedCardIds,
   dropData,
 }: ResolvePipelineDragEndInput): PipelineDragEndResolution {
-  if (mode === "focused") {
-    if (
-      dropData?.mode === "focused" &&
-      dropData.focusedDropIntent === "archive-target"
-    ) {
-      return {
-        type: "focused-action",
-        opportunityId: draggedId,
-        action: "archive",
-      };
-    }
+  if (mode !== "focused") {
+    return { type: "cancel" };
+  }
 
-    if (
-      dropData?.mode === "focused" &&
-      dropData.focusedDropIntent === "discard-target"
-    ) {
-      return {
-        type: "focused-action",
-        opportunityId: draggedId,
-        action: "discard",
-      };
-    }
-
-    if (
-      dropData?.mode !== "focused" ||
-      dropData.focusedDropIntent !== "stage-target" ||
-      !dropData.stage
-    ) {
-      return { type: "cancel" };
-    }
-
+  if (
+    dropData?.mode === "focused" &&
+    dropData.focusedDropIntent === "archive-target"
+  ) {
     return {
-      type: "focused-stage",
+      type: "focused-action",
       opportunityId: draggedId,
-      stage: dropData.stage,
-      isTerminal: Boolean(dropData.isTerminal),
+      action: "archive",
     };
   }
 
-  if (!dropData?.stage) {
+  if (
+    dropData?.mode === "focused" &&
+    dropData.focusedDropIntent === "discard-target"
+  ) {
+    return {
+      type: "focused-action",
+      opportunityId: draggedId,
+      action: "discard",
+    };
+  }
+
+  if (
+    dropData?.mode !== "focused" ||
+    dropData.focusedDropIntent !== "stage-target" ||
+    !dropData.stage
+  ) {
     return { type: "cancel" };
   }
 
   return {
-    type: "spatial-stage",
-    opportunityIds: selectedCardIds.has(draggedId)
-      ? Array.from(selectedCardIds)
-      : [draggedId],
+    type: "focused-stage",
+    opportunityId: draggedId,
     stage: dropData.stage,
     isTerminal: Boolean(dropData.isTerminal),
   };

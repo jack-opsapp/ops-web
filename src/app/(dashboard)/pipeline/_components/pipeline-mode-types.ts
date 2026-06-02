@@ -1,6 +1,6 @@
 import type { OpportunityStage } from "@/lib/types/pipeline";
 
-export type PipelineMode = "focused" | "spatial";
+export type PipelineMode = "focused" | "table";
 export type SortOption = "value" | "name" | "date" | "days_in_stage";
 export type DetailTabId = "correspondence" | "timeline" | "photos";
 

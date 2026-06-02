@@ -264,7 +264,7 @@ function PipelineFocusedModeHarness() {
           onDelete={vi.fn()}
         />
       ) : (
-        <div data-testid="spatial-mode">spatial mode</div>
+        <div data-testid="table-mode">table mode</div>
       )}
       <button
         type="button"
@@ -305,7 +305,7 @@ describe("pipeline focused mode integration", () => {
     });
   });
 
-  it("preserves filter and search state across focused/spatial mode toggle", async () => {
+  it("preserves filter and search state across focused/table mode toggle", async () => {
     const user = userEvent.setup();
     render(<PipelineFocusedModeHarness />);
 
@@ -319,7 +319,7 @@ describe("pipeline focused mode integration", () => {
     fireEvent.keyDown(window, { key: "v" });
 
     await waitFor(() => {
-      expect(screen.getByTestId("spatial-mode")).toBeInTheDocument();
+      expect(screen.getByTestId("table-mode")).toBeInTheDocument();
     });
     expect(
       screen.getByRole("searchbox", { name: "search pipeline..." })

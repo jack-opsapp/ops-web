@@ -11,6 +11,7 @@ export type NotificationType =
   | "leads_waiting"
   | "system"
   | "project_assigned"
+  | "lead_converted"
   | "task_assigned"
   | "task_completed"
   | "schedule_change"

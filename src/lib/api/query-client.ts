@@ -49,6 +49,10 @@ export const queryKeys = {
       [...queryKeys.opportunities.all, "followUps", opportunityId] as const,
     stageTransitions: (opportunityId: string) =>
       [...queryKeys.opportunities.all, "stageTransitions", opportunityId] as const,
+    stageConfigs: (companyId: string) =>
+      [...queryKeys.opportunities.all, "stageConfigs", companyId] as const,
+    tableViews: (companyId: string, userId: string) =>
+      [...queryKeys.opportunities.all, "tableViews", companyId, userId] as const,
   },
 
   // Tasks

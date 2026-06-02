@@ -125,7 +125,7 @@ export const PipelineDetailPanel = memo(function PipelineDetailPanel({
   const [bounds, setBounds] = useState<Bounds | null>(null);
   const panelRef = useRef<HTMLElement | null>(null);
 
-  const shouldUsePortal = mode === "spatial" || mode === "focused";
+  const shouldUsePortal = mode === "focused";
   const activeOrigin = originatingOpportunityId ?? detailPanelOpportunityId;
 
   const restoreFocus = useCallback(() => {

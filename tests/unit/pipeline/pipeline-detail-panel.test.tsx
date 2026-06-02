@@ -217,7 +217,7 @@ describe("<PipelineDetailPanel>", () => {
     }));
     localStorage.clear();
     usePipelineModeStore.setState({
-      mode: "spatial",
+      mode: "focused",
       focusedStage: OpportunityStage.Quoted,
       detailPanelOpportunityId: "opp-1",
       detailPanelActiveTab: "correspondence",
@@ -226,7 +226,7 @@ describe("<PipelineDetailPanel>", () => {
     });
   });
 
-  it("moves focus inside the spatial drawer after the portal mounts", async () => {
+  it("moves focus inside the focused drawer after the portal mounts", async () => {
     render(<Harness />);
 
     const panel = await screen.findByRole("region", {
@@ -238,7 +238,7 @@ describe("<PipelineDetailPanel>", () => {
     });
   });
 
-  it("renders spatial detail as a portaled drawer outside the scope", async () => {
+  it("renders focused detail as a portaled drawer outside the scope", async () => {
     render(
       <Harness scopeBounds={{ top: 80, left: 72, width: 1180, height: 780 }} />
     );
