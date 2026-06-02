@@ -81,6 +81,7 @@ export async function GET(
     company: { id: company.id, name: company.name },
     features: {
       phase_c: overrideMap.phase_c || { enabled: false, enabledBy: null, enabledAt: null },
+      inbox_ui: overrideMap.inbox_ui || { enabled: false, enabledBy: null, enabledAt: null },
     },
     memory: {
       facts: stats.factsCount,
@@ -105,12 +106,23 @@ export async function PATCH(
   const { companyId } = await params;
   const body = await req.json();
 
-  const validFeatures: Array<"phase_c"> = ["phase_c"];
-  const updates: Array<{ feature: "phase_c"; enabled: boolean }> = [];
+  // Features that route through setOverride (has phase_c wizard side-effects)
+  const setOverrideFeatures: Array<"phase_c"> = ["phase_c"];
+  // Features that route through the generic setFeatureOverride (no side-effects)
+  const genericFeatures: Array<"inbox_ui"> = ["inbox_ui"];
 
-  for (const feature of validFeatures) {
+  type SetOverrideUpdate = { feature: "phase_c"; enabled: boolean; kind: "setOverride" };
+  type GenericUpdate = { feature: "inbox_ui"; enabled: boolean; kind: "generic" };
+  const updates: Array<SetOverrideUpdate | GenericUpdate> = [];
+
+  for (const feature of setOverrideFeatures) {
     if (feature in body) {
-      updates.push({ feature, enabled: !!body[feature] });
+      updates.push({ feature, enabled: !!body[feature], kind: "setOverride" });
+    }
+  }
+  for (const feature of genericFeatures) {
+    if (feature in body) {
+      updates.push({ feature, enabled: !!body[feature], kind: "generic" });
     }
   }
 
@@ -128,24 +140,35 @@ export async function PATCH(
   setSupabaseOverride(getServiceRoleClient());
 
   try {
-    // Route through AdminFeatureOverrideService.setOverride so the
-    // disabled→enabled transition fires the guidance notification that
-    // tells the company's admins to run the AI Setup wizard. A raw
-    // db.upsert (the prior implementation) silently skipped that
-    // side effect — and that's exactly why admin-toggled phase_c
-    // customers never saw any onboarding prompt.
     for (const u of updates) {
       try {
-        await AdminFeatureOverrideService.setOverride(
-          companyId,
-          u.feature,
-          u.enabled,
-          // setOverride stamps enabled_by with this value. Admin routes
-          // authenticate via Firebase so we pass the email rather than a
-          // real uuid — the column is TEXT in prod so either works for
-          // audit purposes.
-          admin.email || "admin"
-        );
+        if (u.kind === "setOverride") {
+          // Route through AdminFeatureOverrideService.setOverride so the
+          // disabled→enabled transition fires the guidance notification that
+          // tells the company's admins to run the AI Setup wizard. A raw
+          // db.upsert (the prior implementation) silently skipped that
+          // side effect — and that's exactly why admin-toggled phase_c
+          // customers never saw any onboarding prompt.
+          await AdminFeatureOverrideService.setOverride(
+            companyId,
+            u.feature,
+            u.enabled,
+            // setOverride stamps enabled_by with this value. Admin routes
+            // authenticate via Firebase so we pass the email rather than a
+            // real uuid — the column is TEXT in prod so either works for
+            // audit purposes.
+            admin.email || "admin"
+          );
+        } else {
+          // Generic flags (e.g. inbox_ui) have no wizard side-effects — use
+          // the simpler setter that only upserts the override row.
+          await AdminFeatureOverrideService.setFeatureOverride(
+            companyId,
+            u.feature,
+            u.enabled,
+            admin.email || "admin"
+          );
+        }
       } catch (err) {
         const message = err instanceof Error ? err.message : "Unknown error";
         return NextResponse.json({ error: message }, { status: 500 });
@@ -155,5 +178,5 @@ export async function PATCH(
     setSupabaseOverride(null);
   }
 
-  return NextResponse.json({ ok: true, updated: updates });
+  return NextResponse.json({ ok: true, updated: updates.map((u) => ({ feature: u.feature, enabled: u.enabled })) });
 }

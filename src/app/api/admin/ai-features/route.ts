@@ -54,6 +54,10 @@ export const GET = withAdmin(async (req) => {
       enabled: false,
       enabledAt: null,
     },
+    inboxUi: overrideMap[c.id]?.inbox_ui || {
+      enabled: false,
+      enabledAt: null,
+    },
   }));
 
   return NextResponse.json(result);
