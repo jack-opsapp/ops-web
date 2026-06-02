@@ -106,8 +106,7 @@ export class QuickBooksPullService {
   private async paginate(baseSql: string, entityKey: string): Promise<Array<Record<string, unknown>>> {
     const out: Array<Record<string, unknown>> = [];
     let startPosition = 1; // QBO STARTPOSITION is 1-based
-    // eslint-disable-next-line no-constant-condition
-    while (true) {
+    for (;;) {
       const sql = `${baseSql} STARTPOSITION ${startPosition} MAXRESULTS ${PAGE_SIZE}`;
       const qr = await this.qboQuery(sql);
       const rows = (qr[entityKey] as Array<Record<string, unknown>> | undefined) ?? [];
