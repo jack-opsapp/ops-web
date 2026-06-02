@@ -25,6 +25,8 @@ export function defaultAutoSendSettings(): {
  *  Single source of truth — later tasks (push, reconciliation, notifications)
  *  import this rather than hardcoding status strings. */
 export type AiDraftStatus =
+  | "drafted"
+  | "sent"
   | "auto_drafted"
   | "sent_from_mailbox"
   | "discarded_in_mailbox"

@@ -16,9 +16,19 @@ interface DraftResponse {
   sources: string[];
   available: boolean;
   reason?: string;
+  draftHistoryId?: string;
+  mailboxSaved?: boolean;
+  mailboxDraftId?: string | null;
+  provider?: "gmail" | "microsoft365";
 }
 
+type CopyState = "idle" | "copied";
+
 const EASE_SMOOTH: [number, number, number, number] = [0.22, 1, 0.36, 1];
+
+function mailboxLabel(provider?: "gmail" | "microsoft365"): string {
+  return provider === "microsoft365" ? "Outlook" : "Gmail";
+}
 
 export function DraftReplyButton({
   opportunityId,
@@ -29,7 +39,7 @@ export function DraftReplyButton({
   const [draftResult, setDraftResult] = useState<DraftResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [copyState, setCopyState] = useState<CopyState>("idle");
 
   // Check availability on mount
   useEffect(() => {
@@ -60,6 +70,7 @@ export function DraftReplyButton({
   const generateDraft = async () => {
     setLoading(true);
     setShowModal(true);
+    setCopyState("idle");
     try {
       const res = await fetch("/api/integrations/email/draft", {
         method: "POST",
@@ -83,9 +94,11 @@ export function DraftReplyButton({
   const copyDraft = async () => {
     if (!draftResult?.draft) return;
     await navigator.clipboard.writeText(draftResult.draft);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setCopyState("copied");
+    setTimeout(() => setCopyState("idle"), 2000);
   };
+
+  const mailboxName = mailboxLabel(draftResult?.provider);
 
   return (
     <>
@@ -181,6 +194,19 @@ export function DraftReplyButton({
                         ))}
                       </div>
                     )}
+
+                    {/* Mailbox save status */}
+                    {draftResult.mailboxSaved === true && (
+                      <div className="flex items-center gap-1.5 font-mono text-[11px] text-[#B5B5B5]">
+                        <Check className="w-3 h-3 text-[#9DB582] shrink-0" />
+                        {`Saved to your ${mailboxName} drafts.`}
+                      </div>
+                    )}
+                    {draftResult.mailboxSaved === false && (
+                      <div className="font-mono text-[11px] text-[#B5B5B5]">
+                        {`Couldn't reach ${mailboxName}. Copy it instead.`}
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="py-4 font-mohave text-sm text-[#999]">
@@ -194,9 +220,9 @@ export function DraftReplyButton({
                 <div className="flex items-center justify-end gap-2 p-4 border-t border-white/10">
                   <button
                     onClick={copyDraft}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono uppercase tracking-wider rounded border border-white/10 text-white hover:bg-white/5 transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono uppercase tracking-wider rounded border border-white/10 text-[#B5B5B5] hover:text-white hover:bg-white/5 transition-colors"
                   >
-                    {copied ? (
+                    {copyState === "copied" ? (
                       <>
                         <Check className="w-3 h-3 text-[#9DB582]" />
                         Copied
@@ -204,7 +230,7 @@ export function DraftReplyButton({
                     ) : (
                       <>
                         <Copy className="w-3 h-3" />
-                        Copy to Clipboard
+                        Copy
                       </>
                     )}
                   </button>
