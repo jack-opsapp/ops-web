@@ -212,3 +212,19 @@ export interface QboApplyDecision {
   action: MatchAction;
   clientId?: string;
 }
+
+// ─── Pull layer (Phase A1) ─────────────────────────────────────────────────--
+
+/** A raw QuickBooks Online record as returned by the pull service (untyped passthrough). */
+export type QboRawRecord = Record<string, unknown>;
+
+/** Aggregate of one full read-only pull, plus the safety counter (must be 0). */
+export interface QboPullResult {
+  customers: QboRawRecord[];
+  invoices: QboRawRecord[];
+  estimates: QboRawRecord[];
+  payments: QboRawRecord[];
+  items: QboRawRecord[];
+  /** Number of non-GET requests issued during the pull. MUST be 0 (spec §6.5). */
+  qbWriteCalls: number;
+}

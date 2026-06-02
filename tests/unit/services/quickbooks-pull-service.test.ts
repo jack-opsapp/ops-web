@@ -1,6 +1,7 @@
 // tests/unit/services/quickbooks-pull-service.test.ts
 import { describe, it, expect, vi } from "vitest";
 import { QuickBooksPullService } from "@/lib/api/services/quickbooks-pull-service";
+import type { QboPullResult } from "@/lib/types/qbo-import";
 
 describe("QuickBooksPullService — host selection", () => {
   it("uses the production host only when QB_ENVIRONMENT==='production'", () => {
@@ -278,5 +279,30 @@ describe("QuickBooksPullService — error surface", () => {
     const svc = new QuickBooksPullService("r", "t", "production", fetchSpy as unknown as typeof fetch);
     await expect(svc.pullCustomers()).rejects.toThrow("QuickBooks pull error (401): unauthorized");
     expect(svc.qbWriteCalls).toBe(0);
+  });
+});
+
+describe("QuickBooksPullService — pullAll aggregate", () => {
+  it("pullAll returns every entity array plus the write-call counter", async () => {
+    const { fetchSpy } = makeQboFetch({
+      single: {
+        Customer: [SANDBOX_CUSTOMER],
+        Invoice: [SANDBOX_INVOICE_RECENT],
+        Invoice_open: [],
+        Estimate: [SANDBOX_ESTIMATE],
+        Payment: [SANDBOX_PAYMENT],
+        Item: [SANDBOX_ITEM],
+      },
+    });
+    const svc = new QuickBooksPullService("r", "t", "production", fetchSpy as unknown as typeof fetch);
+
+    const result: QboPullResult = await svc.pullAll("2022-06-01");
+
+    expect(result.customers).toHaveLength(1);
+    expect(result.invoices).toHaveLength(1);
+    expect(result.estimates).toHaveLength(1);
+    expect(result.payments).toHaveLength(1);
+    expect(result.items).toHaveLength(1);
+    expect(result.qbWriteCalls).toBe(0);
   });
 });

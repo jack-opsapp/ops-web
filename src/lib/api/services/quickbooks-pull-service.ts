@@ -12,6 +12,8 @@
  * No minorversion is sent. Pagination via STARTPOSITION/MAXRESULTS.
  */
 
+import type { QboRawRecord, QboPullResult } from "@/lib/types/qbo-import";
+
 const QBO_PRODUCTION_HOST = "https://quickbooks.api.intuit.com";
 const QBO_SANDBOX_HOST = "https://sandbox-quickbooks.api.intuit.com";
 
@@ -118,11 +120,11 @@ export class QuickBooksPullService {
 
   // ── Pull methods (implemented in A1.2) ───────────────────────────────────
 
-  async pullCustomers(): Promise<Array<Record<string, unknown>>> {
+  async pullCustomers(): Promise<QboRawRecord[]> {
     return this.paginate("SELECT * FROM Customer", "Customer");
   }
 
-  async pullInvoices(cutoffISO: string): Promise<Array<Record<string, unknown>>> {
+  async pullInvoices(cutoffISO: string): Promise<QboRawRecord[]> {
     const cutoff = assertCutoff(cutoffISO);
     // Window = (last 24mo by TxnDate) UNION (any still-open by Balance),
     // deduped by Id. QBO has no UNION, so issue two queries and merge.
@@ -137,18 +139,32 @@ export class QuickBooksPullService {
     return dedupeById([...recent, ...open]);
   }
 
-  async pullEstimates(cutoffISO: string): Promise<Array<Record<string, unknown>>> {
+  async pullEstimates(cutoffISO: string): Promise<QboRawRecord[]> {
     const cutoff = assertCutoff(cutoffISO);
     return this.paginate(`SELECT * FROM Estimate WHERE TxnDate >= '${cutoff}'`, "Estimate");
   }
 
-  async pullPayments(cutoffISO: string): Promise<Array<Record<string, unknown>>> {
+  async pullPayments(cutoffISO: string): Promise<QboRawRecord[]> {
     const cutoff = assertCutoff(cutoffISO);
     return this.paginate(`SELECT * FROM Payment WHERE TxnDate >= '${cutoff}'`, "Payment");
   }
 
-  async pullItems(): Promise<Array<Record<string, unknown>>> {
+  async pullItems(): Promise<QboRawRecord[]> {
     return this.paginate("SELECT * FROM Item", "Item");
+  }
+
+  /**
+   * Run a full read-only pull in dependency-neutral order and return every
+   * entity array plus the GET-only write-call counter for the import run.
+   */
+  async pullAll(cutoffISO: string): Promise<QboPullResult> {
+    const cutoff = assertCutoff(cutoffISO);
+    const customers = await this.pullCustomers();
+    const invoices = await this.pullInvoices(cutoff);
+    const estimates = await this.pullEstimates(cutoff);
+    const payments = await this.pullPayments(cutoff);
+    const items = await this.pullItems();
+    return { customers, invoices, estimates, payments, items, qbWriteCalls: this.qbWriteCalls };
   }
 }
 
