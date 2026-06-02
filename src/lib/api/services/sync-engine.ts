@@ -21,6 +21,7 @@ import {
   type MailboxDraftRow,
 } from "./mailbox-draft-helpers";
 import { AutonomyMilestoneService } from "./autonomy-milestone-service";
+import { reconcilePendingMailboxDrafts } from "./draft-reconciliation";
 import { maybeSuggestProject } from "./project-suggestion-service";
 import { EmailThreadService } from "./email-thread-service";
 import { OpportunityLifecycleService } from "./opportunity-lifecycle-service";
@@ -1448,6 +1449,16 @@ async function processSentEmail(
 
     // Memory/profile learning fires below for ALL outbound emails
     await learnFromOutboundEmail(email, connection);
+
+    // Task 5: Reconcile pending mailbox drafts now that the outbound activity
+    // is persisted. Fire-and-forget — must not block or throw from the sync loop.
+    reconcilePendingMailboxDrafts({
+      connection,
+      providerThreadId: email.threadId,
+      supabase,
+    }).catch((err) =>
+      console.error("[sync-engine] reconcilePendingMailboxDrafts error (non-fatal):", err)
+    );
     return;
   }
 
@@ -1579,6 +1590,18 @@ async function processSentEmail(
   // Emails that matched an estimate pattern above already created activities;
   // emails that matched nothing are still valuable learning signals.
   await learnFromOutboundEmail(email, connection);
+
+  // Task 5: Reconcile pending mailbox drafts after activities are persisted.
+  // Fires for the safety-net path (new-external-address sends and estimate
+  // pattern matches that didn't hit the thread-linked early-return above).
+  // Fire-and-forget — must not block or throw from the sync loop.
+  reconcilePendingMailboxDrafts({
+    connection,
+    providerThreadId: email.threadId,
+    supabase,
+  }).catch((err) =>
+    console.error("[sync-engine] reconcilePendingMailboxDrafts error (non-fatal):", err)
+  );
 }
 
 /**
