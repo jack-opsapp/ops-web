@@ -497,4 +497,55 @@ describe("reconcilePendingMailboxDrafts", () => {
 
     expect(recordDraftOutcomeMock).not.toHaveBeenCalled();
   });
+
+  // ── new-thread (forwarded contact-form) reconciliation contract ─────────────
+
+  it("new-thread (contact-form): reconciles to sent_from_mailbox when the user sends on the minted thread", async () => {
+    // A contact-form auto-draft is placed on a NEW client thread (not the
+    // forwarder's). placeNewThreadDraft stamps ai_draft_history.thread_id with
+    // that minted thread and links it, so when the user sends, processSentEmail
+    // records an outbound activity on the SAME thread. This locks the invariant
+    // that the learning loop then classifies the send as "used" — without the
+    // new thread_id + link, the send would be invisible here and the draft would
+    // rot to discarded_in_mailbox after the TTL, poisoning Phase C learning.
+    const draftRow = makePendingDraftRow({
+      thread_id: "client-thread-1",
+      mailbox_draft_id: "pd-new",
+      profile_type: "general",
+    });
+    const state: DbState = {
+      aiDraftHistory: [draftRow],
+      activities: [
+        makeOutboundActivity({
+          email_thread_id: "client-thread-1",
+          body_text:
+            "Thanks for reaching out. Happy to help with your deck — free for a call this week?",
+        }),
+      ],
+    };
+
+    // Draft gone from the mailbox → user sent it.
+    getProviderMock.mockReturnValue({
+      listDrafts: vi.fn().mockResolvedValue([]),
+    });
+
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+    const supabase = requireSupabase();
+
+    await reconcilePendingMailboxDrafts({
+      connection: makeConnection(),
+      providerThreadId: "client-thread-1",
+      supabase,
+    });
+
+    expect(recordDraftOutcomeMock).toHaveBeenCalledWith(
+      "draft-row-1",
+      "company-1",
+      "user-1",
+      "sent",
+      expect.any(String),
+      "general"
+    );
+    expect(draftRow.status).toBe("sent_from_mailbox");
+  });
 });
