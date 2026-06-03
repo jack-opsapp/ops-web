@@ -96,7 +96,7 @@ export const usePipelineModeStore = create<Store>()(
       mode: "focused",
       focusedStage: OpportunityStage.NewLead,
       detailPanelOpportunityId: null,
-      detailPanelActiveTab: "correspondence",
+      detailPanelActiveTab: "overview",
       sortBy: "value",
       stageSortOverrides: new Map(),
       setMode: (mode) =>
