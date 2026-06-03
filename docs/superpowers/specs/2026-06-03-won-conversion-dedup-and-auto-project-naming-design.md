@@ -251,7 +251,13 @@ Port `normalizeAddress` / `normalizeTitle` from `src/lib/utils/name-normalizatio
 - **`project-conversion-service.ts`:** call the unified RPC; remove bare-project pre-create + orphan-cleanup dance (the RPC is atomic). Add `getConversionPreflight()` + `linkOpportunityToExistingProject()`.
 - **`use-opportunities.ts`:** preflight query before opening the Won dialog; `convert` and `linkExisting` mutations.
 - **Enriched Won dialog (`stage-transition-dialog.tsx`):** final value (as today) **+** auto-name display (`Name: 1240 W 6th Ave` with a quiet *rename* escape hatch that sets `title_is_auto=false`) **+** address prefill (editable, Mapbox autocomplete) **+** when preflight returns candidates/other-projects: a compact list with **Link** (per row) vs **Create new** — mirroring iOS's DUPLICATE-EXISTS / CLIENT-HAS-OTHERS states. All copy via `ops-copywriter`; styling via `ops-design-system` (glass-dense modal, accent on the single primary CTA, mono numerics).
-- **Project create form (FAB → create):** blank name field ⇒ `title_is_auto=true`; typed name ⇒ `false`. Add the `DUPLICATE NAME` warning for hand-set collisions.
+- **Manual project create/edit form** (`project-edit-create-body.tsx`, FAB → create): the name field becomes **optional** — the same auto-naming applies, driven by the *same DB trigger* (manual create is a plain `projects` insert, so no extra logic).
+  - **Zod:** `title` drops `.min(1)` in creating mode (keep `.max(200)`); `titleRequired` retired. Submit is allowed with a blank name.
+  - **Blank name ⇒ `title_is_auto=true`**; the trigger names it (street line → `{Client}'s Project` → `New project`). The field renders a **live auto-name preview** (placeholder showing the street line forming from the entered address) so the operator sees the name without typing — no setup, invisible.
+  - **Typed name ⇒ `title_is_auto=false`** (frozen); add the `DUPLICATE NAME` warning for hand-set collisions (iOS parity).
+  - **Editing mode symmetry:** clearing the name field reverts the project to auto (`title_is_auto=true`, trigger refills from address); typing one sets it custom again.
+  - **Reliability:** this surface only accepts geocoded Mapbox-autocomplete addresses (address always travels with lat/lon), so the street-line parse and the map pin are both reliable on created projects.
+  - **Service plumbing:** `ProjectService.createProject` / `updateProject` + `mapToDb` carry `title_is_auto`; `title` becomes optional on the create input (DB `title` stays NOT NULL — the BEFORE-INSERT trigger fills it before the constraint check).
 - **Notifications:** keep the "Project created" rail notification on create; on link-existing, no new-project notification (the project already existed).
 - **Permissions:** `pipeline.manage` for convert/link; preflight same. No role filtering.
 
@@ -295,6 +301,7 @@ Per the low-tenant authorization (Canpro + Maverick only; direct prod migrations
 - **Integration:** unified RPC create path (links + estimates text-mirror + tasks + photos + disposition + stage transition + geocode carry); idempotency; snapshot mismatch; link-existing branch; shim mapping. Trigger: insert auto-name, address-change self-heal, flag-flip freeze, silence (no activity row).
 - **Preflight:** existing-linked, high/medium candidates, other-client-projects, suggested_name.
 - **E2E (web):** Won dialog — clean create (auto-name from address), no-address create (`{Client}'s Project`) then add address → rename self-heals, DUPLICATE-EXISTS link, CLIENT-HAS-OTHERS link-vs-create, hand-set duplicate warning.
+- **E2E (web), manual create:** submit the project form with a **blank name** (was previously blocked) → project auto-named from address; blank name + no address → `New project`; add address later → name self-heals; clearing a custom name in editing mode reverts to auto.
 
 ## 10. Bible updates (same session)
 - `09_FINANCIAL_SYSTEM.md` — replace the "web has no `LeadConversionService` equivalent" note (now stale); document the unified `convert_opportunity_to_project` + `get_conversion_preflight` + the shim.
