@@ -40,6 +40,26 @@ function resolveEnvironment(raw: string | undefined): QuickBooksEnvironment {
 }
 
 /**
+ * Resolve the active environment (production vs sandbox) — the SINGLE source of
+ * truth for that decision. Fail-safe: anything other than an explicit
+ * "production" resolves to sandbox; an explicit invalid value is a hard error.
+ *
+ * Credential-free on purpose: host selection must not require QB_CLIENT_ID /
+ * QB_CLIENT_SECRET to be set, so the pull path can pick the right host even in
+ * environments (e.g. tests) where only the connection token is available.
+ */
+export function getQuickBooksEnvironment(): QuickBooksEnvironment {
+  return resolveEnvironment(process.env.QB_ENVIRONMENT);
+}
+
+/** Intuit Accounting API base host for the active environment (single source). */
+export function getQuickBooksApiBaseHost(): string {
+  return getQuickBooksEnvironment() === "production"
+    ? PRODUCTION_API_HOST
+    : SANDBOX_API_HOST;
+}
+
+/**
  * Resolve and validate the QuickBooks config. Throws on any missing required
  * value so misconfiguration surfaces immediately rather than at OAuth-exchange
  * or first-pull time.
@@ -67,6 +87,7 @@ export function getQuickBooksConfig(): QuickBooksConfig {
     clientSecret,
     redirectUri,
     environment,
+    // Derived from the same single source as getQuickBooksApiBaseHost().
     apiBaseHost:
       environment === "production" ? PRODUCTION_API_HOST : SANDBOX_API_HOST,
   };
