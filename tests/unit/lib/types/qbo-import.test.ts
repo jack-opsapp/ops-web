@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, expectTypeOf } from "vitest";
 import {
   MATCH_ACTIONS,
   type MatchAction,
@@ -10,6 +10,8 @@ import {
   type QboStagedPayment,
   type QboCustomerMatch,
   type QboImportReview,
+  type QboApplyResult,
+  type QboStagedCounts,
 } from "@/lib/types/qbo-import";
 // Re-export surface must also resolve from pipeline.ts.
 import type { QboImportReview as QboImportReviewViaPipeline } from "@/lib/types/pipeline";
@@ -51,6 +53,7 @@ describe("qbo-import types", () => {
     const customer: QboStagedCustomer = {
       id: "c1", runId: "r1", companyId: "co", qbId: "1",
       displayName: "Acme", email: null, phone: null, address: null,
+      companyName: null, contactName: null, contactTitle: null, parentQbId: null, isJob: false,
       active: true, raw: {}, createdAt: new Date(),
     };
     const estimate: QboStagedEstimate = {
@@ -92,6 +95,7 @@ describe("qbo-import types", () => {
     const match: QboCustomerMatch = {
       id: "m1", runId: "r1", companyId: "co", customerQbId: "1",
       displayName: "Sonnenschein Family Store",
+      companyName: null, contactName: null,
       proposedAction: "link", matchedClientId: "client-1",
       matchBasis: "email", confidence: "high",
       candidates: [{ clientId: "client-1", name: "Acme", basis: "email", score: 1 }],
@@ -113,6 +117,7 @@ describe("qbo-import types", () => {
       stagedCounts: {
         customers: 12, estimates: 5, invoices: 20, lineItems: 60,
         payments: 18, orphanPayments: 1, skippedInvoices: 2,
+        subClientsToCreate: 0, jobsDetected: 0,
       },
       reconciliation: {
         qbOpenAr: 12345.67,
@@ -127,5 +132,26 @@ describe("qbo-import types", () => {
     expectType<QboImportReviewViaPipeline>(review);
     expect(review.reconciliation.qbOpenAr).toBe(review.reconciliation.opsToBeOpenAr);
     expect(review.reconciliation.arMatched).toBe(true);
+  });
+});
+
+describe("qbo-import types — company/sub-client extensions", () => {
+  it("QboStagedCustomer carries company/contact/job fields", () => {
+    expectTypeOf<QboStagedCustomer>().toHaveProperty("companyName");
+    expectTypeOf<QboStagedCustomer>().toHaveProperty("contactName");
+    expectTypeOf<QboStagedCustomer>().toHaveProperty("contactTitle");
+    expectTypeOf<QboStagedCustomer>().toHaveProperty("parentQbId");
+    expectTypeOf<QboStagedCustomer>().toHaveProperty("isJob");
+  });
+  it("QboApplyResult counts sub-clients", () => {
+    expectTypeOf<QboApplyResult>().toHaveProperty("subClientsCreated");
+  });
+  it("QboStagedCounts surfaces sub-clients + jobs", () => {
+    expectTypeOf<QboStagedCounts>().toHaveProperty("subClientsToCreate");
+    expectTypeOf<QboStagedCounts>().toHaveProperty("jobsDetected");
+  });
+  it("QboCustomerMatch carries companyName + contactName for the review label", () => {
+    expectTypeOf<QboCustomerMatch>().toHaveProperty("companyName");
+    expectTypeOf<QboCustomerMatch>().toHaveProperty("contactName");
   });
 });
