@@ -14,6 +14,7 @@ import {
   ProviderAuthError,
   ProviderScopeError,
   SyncTokenExpiredError,
+  type CreateNewThreadDraftResult,
   type EmailAttachmentMeta,
   type EmailProviderInterface,
   type ImageAttachmentMeta,
@@ -487,6 +488,23 @@ export class GmailProvider implements EmailProviderInterface {
     });
     const data = await res.json();
     return data.id;
+  }
+
+  async createNewThreadDraft(
+    to: string,
+    subject: string,
+    body: string
+  ): Promise<CreateNewThreadDraftResult> {
+    const raw = this.buildRawEmail(to, subject, body);
+    // No threadId → Gmail mints a fresh thread for the draft message. The
+    // drafts.create response carries that thread id at message.threadId.
+    const res = await this.gmailFetch("/drafts", {
+      method: "POST",
+      body: JSON.stringify({ message: { raw } }),
+    });
+    const data = await res.json();
+    const message = (data.message ?? {}) as { threadId?: string };
+    return { draftId: data.id as string, threadId: message.threadId ?? null };
   }
 
   async updateDraft(

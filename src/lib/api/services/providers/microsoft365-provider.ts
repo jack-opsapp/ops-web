@@ -13,6 +13,7 @@ import {
   ProviderAuthError,
   ProviderScopeError,
   SyncTokenExpiredError,
+  type CreateNewThreadDraftResult,
   type EmailAttachmentMeta,
   type EmailProviderInterface,
   type ImageAttachmentMeta,
@@ -569,6 +570,28 @@ export class Microsoft365Provider implements EmailProviderInterface {
       body: JSON.stringify(message),
     });
     return data.id as string;
+  }
+
+  async createNewThreadDraft(
+    to: string,
+    subject: string,
+    body: string
+  ): Promise<CreateNewThreadDraftResult> {
+    // No conversationId → Graph mints a fresh conversation for the draft. The
+    // created message resource carries that conversation id at conversationId.
+    const message: Record<string, unknown> = {
+      subject,
+      body: { contentType: "text", content: body },
+      toRecipients: [{ emailAddress: { address: to } }],
+    };
+    const data = await this.graphFetch("/me/messages", {
+      method: "POST",
+      body: JSON.stringify(message),
+    });
+    return {
+      draftId: data.id as string,
+      threadId: (data.conversationId as string) ?? null,
+    };
   }
 
   async updateDraft(

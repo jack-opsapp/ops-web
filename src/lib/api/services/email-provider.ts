@@ -175,6 +175,16 @@ export interface NormalizedDraft {
   updatedAt: Date;
 }
 
+/** Result of placing a fresh-outreach draft that starts a NEW provider thread.
+ *  `threadId` is the provider thread the draft message was minted into (Gmail
+ *  message.threadId / M365 conversationId). Captured so the learning loop can
+ *  track the client's eventual reply (ai_draft_history.thread_id). Null only if
+ *  the provider response omitted it. */
+export interface CreateNewThreadDraftResult {
+  draftId: string;
+  threadId: string | null;
+}
+
 // ─── Provider Interface ──────────────────────────────────────────────────────
 
 export interface EmailProviderInterface {
@@ -273,6 +283,20 @@ export interface EmailProviderInterface {
     body: string,
     threadId?: string
   ): Promise<string>;
+
+  /**
+   * Place a draft that begins a NEW conversation (no parent thread). Unlike
+   * `createDraft`, the caller passes no threadId — the provider assigns a fresh
+   * thread and we return its id alongside the draft id. Used for first-contact
+   * outreach to a client whose only inbound correspondence is a forwarded
+   * contact-form submission (the form lives on the forwarder's thread, not the
+   * client's).
+   */
+  createNewThreadDraft(
+    to: string,
+    subject: string,
+    body: string
+  ): Promise<CreateNewThreadDraftResult>;
 
   /**
    * Replace the contents of an existing provider draft. Used by the inbox
