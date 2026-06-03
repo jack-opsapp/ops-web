@@ -75,6 +75,7 @@ const projectsModule: PermissionModule = {
     { id: "projects.delete", label: "Delete projects", scopes: ["all"] },
     { id: "projects.archive", label: "Archive projects", scopes: ["all"] },
     { id: "projects.assign_team", label: "Assign team members", scopes: ["all"] },
+    { id: "projects.manage_views", label: "Manage shared project views", scopes: ["all"] },
   ],
 };
 
