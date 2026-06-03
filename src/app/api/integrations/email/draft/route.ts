@@ -17,6 +17,11 @@ import {
   pickExistingMailboxDraft,
   type MailboxDraftRow,
 } from "@/lib/api/services/mailbox-draft-helpers";
+import {
+  placeNewThreadDraft,
+  CONTACT_FORM_OUTREACH_SUBJECT,
+} from "@/lib/api/services/mailbox-draft-push";
+import { extractContactFormSubmission } from "@/lib/utils/email-parsing";
 
 export const maxDuration = 300;
 
@@ -128,10 +133,11 @@ export async function POST(request: NextRequest) {
         .eq("id", opportunityId)
         .single();
 
-      // Get the last inbound activity to build a reply subject
+      // Get the last inbound activity to build a reply subject (body_text lets
+      // us detect a forwarded contact-form submission).
       const { data: lastActivity } = await supabase
         .from("activities")
-        .select("subject, email_thread_id")
+        .select("subject, email_thread_id, body_text")
         .eq("opportunity_id", opportunityId)
         .eq("type", "email")
         .eq("direction", "inbound")
@@ -147,6 +153,50 @@ export async function POST(request: NextRequest) {
         ? clientRecord[0]
         : clientRecord;
       const clientEmail = clientObj?.email;
+
+      // Forwarded contact-form lead → fresh first reply on a NEW thread to the
+      // actual client, not a "Re:" glued to the forwarder's thread. Detect from
+      // the latest inbound activity body; if matched, ignore the forwarder
+      // thread entirely and place a clean new-thread outreach (shared helper
+      // also links the thread + tracks thread_id for reconciliation).
+      const contactFormSubmitter = extractContactFormSubmission(
+        (lastActivity?.[0]?.subject as string) ?? "",
+        (lastActivity?.[0]?.body_text as string) ?? ""
+      );
+      if (contactFormSubmitter && draftResult.draftHistoryId) {
+        const to = contactFormSubmitter.email || clientEmail;
+        if (!to) {
+          return NextResponse.json({
+            draft: draftResult.draft,
+            confidence: draftResult.confidence,
+            sources: draftResult.sources,
+            available: true,
+            draftHistoryId: draftResult.draftHistoryId,
+            mailboxSaved: false,
+            reason: "No client email to address draft to",
+          });
+        }
+        const placed = await placeNewThreadDraft({
+          provider,
+          connectionId: connection.id,
+          opportunityId,
+          draftHistoryId: draftResult.draftHistoryId,
+          to,
+          subject: CONTACT_FORM_OUTREACH_SUBJECT,
+          body: draftResult.draft,
+        });
+        return NextResponse.json({
+          draft: draftResult.draft,
+          confidence: draftResult.confidence,
+          sources: draftResult.sources,
+          available: true,
+          draftHistoryId: draftResult.draftHistoryId,
+          mailboxSaved: true,
+          mailboxDraftId: placed.mailboxDraftId,
+          provider: connection.provider,
+        });
+      }
+
       const rawSubject =
         (lastActivity?.[0]?.subject as string) ||
         (opp?.title as string) ||
