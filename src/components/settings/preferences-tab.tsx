@@ -137,7 +137,7 @@ function LifecycleSettings() {
               max={30}
               value={followUpDays}
               onChange={(e) => handleFollowUpDays(e.target.value)}
-              className="w-[64px] h-[56px] text-center"
+              className="w-[64px] text-center"
             />
             <span className="font-mohave text-body-sm text-text-3">{t("preferences.days")}</span>
           </div>

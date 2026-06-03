@@ -158,7 +158,7 @@ export function ClientCommsSettingsTab() {
           type="button"
           onClick={() => router.push("/agent/comms-config")}
           className={cn(
-            "flex items-center gap-2 min-h-[56px] px-5 rounded-[8px]",
+            "flex items-center gap-2 min-h-[36px] px-5 rounded-[5px]",
             "border border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.08)]",
             "font-mohave text-[14px] text-text uppercase tracking-[0.04em]",
             "transition-colors duration-150 motion-reduce:transition-none",
@@ -194,7 +194,7 @@ export function ClientCommsSettingsTab() {
                   )
                 }
                 className={cn(
-                  "min-h-[44px] px-4 rounded-[4px]",
+                  "min-h-[36px] px-4 rounded-[5px]",
                   "border border-[rgba(255,255,255,0.12)] bg-transparent",
                   "font-mohave text-[12px] text-text-2 uppercase tracking-[0.06em]",
                   "transition-colors duration-150 motion-reduce:transition-none",

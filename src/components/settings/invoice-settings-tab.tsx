@@ -172,7 +172,7 @@ export function InvoiceSettingsTab() {
           onClick={handleSave}
           disabled={!dirty || saving}
           className={`
-            flex items-center gap-2 px-4 rounded-[4px] font-mohave text-body-sm uppercase transition-colors min-h-[56px]
+            flex items-center gap-2 px-4 rounded-[5px] font-mohave text-body-sm uppercase transition-colors min-h-[36px]
             ${dirty
               ? "bg-[rgba(111, 148, 176,0.15)] text-[#6F94B0] hover:bg-[rgba(111, 148, 176,0.25)]"
               : "bg-[rgba(255,255,255,0.03)] text-text-mute cursor-not-allowed"
@@ -202,7 +202,7 @@ export function InvoiceSettingsTab() {
               key={opt.value}
               onClick={() => updateConfig({ default_payment_terms: opt.value })}
               className={`
-                px-4 rounded-[4px] font-mohave text-body-sm transition-colors min-h-[56px]
+                px-4 rounded-[5px] font-mohave text-body-sm transition-colors min-h-[36px]
                 ${config.default_payment_terms === opt.value
                   ? "bg-[rgba(111, 148, 176,0.15)] text-[#6F94B0] border border-[#6F94B0]"
                   : "bg-[rgba(255,255,255,0.03)] text-text-2 border border-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.16)]"
@@ -238,7 +238,7 @@ export function InvoiceSettingsTab() {
             min={0}
             max={100}
             step={0.01}
-            className="w-[120px] font-mono text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[4px] px-3 py-2 text-text outline-none focus:border-[rgba(255,255,255,0.3)] min-h-[56px] text-right [color-scheme:dark]"
+            className="w-[120px] font-mono text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[5px] px-3 py-2 text-text outline-none focus:border-[rgba(255,255,255,0.20)] min-h-[36px] text-right [color-scheme:dark]"
           />
           <span className="font-mono text-[13px] text-text-3">%</span>
         </div>
@@ -267,7 +267,7 @@ export function InvoiceSettingsTab() {
             }
             min={0}
             step={100}
-            className="w-[160px] font-mono text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[4px] px-3 py-2 text-text outline-none focus:border-[rgba(255,255,255,0.3)] min-h-[56px] text-right [color-scheme:dark]"
+            className="w-[160px] font-mono text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[5px] px-3 py-2 text-text outline-none focus:border-[rgba(255,255,255,0.20)] min-h-[36px] text-right [color-scheme:dark]"
           />
         </div>
       </div>
@@ -342,7 +342,7 @@ export function InvoiceSettingsTab() {
                         }
                         min={1}
                         max={365}
-                        className="w-[80px] font-mono text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[4px] px-3 py-2 text-text outline-none focus:border-[rgba(255,255,255,0.3)] min-h-[56px] text-right [color-scheme:dark]"
+                        className="w-[80px] font-mono text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[5px] px-3 py-2 text-text outline-none focus:border-[rgba(255,255,255,0.20)] min-h-[36px] text-right [color-scheme:dark]"
                       />
                       <span className="font-mono text-[12px] text-text-3">
                         {t("invoiceSettings.days")}
@@ -364,7 +364,7 @@ export function InvoiceSettingsTab() {
                     key={n}
                     onClick={() => updateReminder({ max_reminders: n })}
                     className={`
-                      w-[56px] rounded-[4px] font-mono text-body-sm transition-colors min-h-[56px]
+                      w-[56px] rounded-[5px] font-mono text-body-sm transition-colors min-h-[36px]
                       ${reminder.max_reminders === n
                         ? "bg-[rgba(111, 148, 176,0.15)] text-[#6F94B0] border border-[#6F94B0]"
                         : "bg-[rgba(255,255,255,0.03)] text-text-2 border border-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.16)]"
@@ -407,7 +407,7 @@ export function InvoiceSettingsTab() {
                   }
                   min={0}
                   max={100}
-                  className="w-[80px] font-mono text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[4px] px-3 py-2 text-text outline-none focus:border-[rgba(255,255,255,0.3)] min-h-[56px] text-right [color-scheme:dark]"
+                  className="w-[80px] font-mono text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[5px] px-3 py-2 text-text outline-none focus:border-[rgba(255,255,255,0.20)] min-h-[36px] text-right [color-scheme:dark]"
                 />
                 <span className="font-mono text-[13px] text-text-3">
                   {t("invoiceSettings.lateThresholdSuffix")}

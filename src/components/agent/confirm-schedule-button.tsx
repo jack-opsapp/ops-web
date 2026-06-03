@@ -169,7 +169,7 @@ export function ConfirmScheduleButton({
         onClick={handleUnconfirm}
         disabled={busy}
         className={cn(
-          "flex items-center gap-3 min-h-[56px] px-4 rounded-[8px]",
+          "flex items-center gap-3 min-h-[36px] px-4 rounded-[5px]",
           "border border-[rgba(255,255,255,0.12)]",
           "bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2]",
           "transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]",
@@ -201,7 +201,7 @@ export function ConfirmScheduleButton({
     return (
       <div
         className={cn(
-          "flex items-center gap-3 min-h-[56px] px-4 rounded-[8px]",
+          "flex items-center gap-3 min-h-[36px] px-4 rounded-[5px]",
           "border border-[rgba(255,255,255,0.08)]",
           "bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2]",
           className
@@ -230,7 +230,7 @@ export function ConfirmScheduleButton({
       onClick={handleConfirm}
       disabled={busy}
       className={cn(
-        "flex items-center gap-3 min-h-[56px] px-4 rounded-[8px]",
+        "flex items-center gap-3 min-h-[36px] px-4 rounded-[5px]",
         "border border-[#6F94B0]",
         "bg-[rgba(111, 148, 176,0.08)]",
         "transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]",

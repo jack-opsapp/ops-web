@@ -1424,13 +1424,13 @@ export const ActionCard = memo(function ActionCard({
             <div className="flex items-center gap-1">
               <button
                 onClick={handleApproveWithEdits}
-                className="min-h-[56px] px-4 rounded-[4px] bg-[rgba(111, 148, 176,0.15)] text-[#6F94B0] font-mohave text-body-sm uppercase hover:bg-[rgba(111, 148, 176,0.25)] transition-colors"
+                className="min-h-[36px] px-4 rounded-[5px] bg-[rgba(111, 148, 176,0.15)] text-[#6F94B0] font-mohave text-body-sm uppercase hover:bg-[rgba(111, 148, 176,0.25)] transition-colors"
               >
                 {isFinancialInsight ? t("financial.action.acknowledge") : t("action.approve")}
               </button>
               <button
                 onClick={() => onReject(action.id)}
-                className="min-h-[56px] px-4 rounded-[4px] bg-[rgba(147,50,26,0.10)] text-[#93321A] font-mohave text-body-sm uppercase hover:bg-[rgba(147,50,26,0.20)] transition-colors"
+                className="min-h-[36px] px-4 rounded-[5px] bg-[rgba(147,50,26,0.10)] text-[#93321A] font-mohave text-body-sm uppercase hover:bg-[rgba(147,50,26,0.20)] transition-colors"
               >
                 {isFinancialInsight ? t("financial.action.dismiss") : t("action.reject")}
               </button>
@@ -1499,7 +1499,7 @@ export const ActionCard = memo(function ActionCard({
                                 setEditingAssignment(false);
                               }}
                               className={cn(
-                                "w-full text-left px-2.5 py-2 rounded-[4px] flex items-center justify-between gap-2 transition-colors min-h-[56px]",
+                                "w-full text-left px-2.5 py-2 rounded-[5px] flex items-center justify-between gap-2 transition-colors min-h-[36px]",
                                 member.id === selectedMemberId
                                   ? "bg-[rgba(255,255,255,0.06)] text-text"
                                   : "hover:bg-[rgba(255,255,255,0.03)] text-text"
@@ -1582,7 +1582,7 @@ export const ActionCard = memo(function ActionCard({
                               type="date"
                               value={editStartDate}
                               onChange={(e) => setEditStartDate(e.target.value)}
-                              className="font-mohave text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[4px] px-2.5 py-1.5 text-text outline-none focus:border-[rgba(255,255,255,0.3)] min-h-[56px] [color-scheme:dark]"
+                              className="font-mohave text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[5px] px-2.5 py-1.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] min-h-[36px] [color-scheme:dark]"
                             />
                           </div>
                           <div>
@@ -1593,7 +1593,7 @@ export const ActionCard = memo(function ActionCard({
                               type="date"
                               value={editEndDate}
                               onChange={(e) => setEditEndDate(e.target.value)}
-                              className="font-mohave text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[4px] px-2.5 py-1.5 text-text outline-none focus:border-[rgba(255,255,255,0.3)] min-h-[56px] [color-scheme:dark]"
+                              className="font-mohave text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[5px] px-2.5 py-1.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] min-h-[36px] [color-scheme:dark]"
                             />
                           </div>
                           {/* Fix 5: 56dp Done button */}
@@ -1648,7 +1648,7 @@ export const ActionCard = memo(function ActionCard({
                           value={draftText}
                           onChange={(e) => setDraftText(e.target.value)}
                           rows={8}
-                          className="w-full font-mono text-[12px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[4px] px-3 py-2.5 text-text outline-none focus:border-[rgba(255,255,255,0.3)] resize-y min-h-[120px] [color-scheme:dark]"
+                          className="w-full font-mono text-[12px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[5px] px-3 py-2.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] resize-y min-h-[120px] [color-scheme:dark]"
                         />
                       ) : (
                         <p className="font-mono text-[12px] text-text-2 mt-0.5 whitespace-pre-wrap line-clamp-6">
@@ -1704,7 +1704,7 @@ export const ActionCard = memo(function ActionCard({
                                 setEditingAssignment(false);
                               }}
                               className={cn(
-                                "w-full text-left px-2.5 py-2 rounded-[4px] flex items-center justify-between gap-2 transition-colors min-h-[56px]",
+                                "w-full text-left px-2.5 py-2 rounded-[5px] flex items-center justify-between gap-2 transition-colors min-h-[36px]",
                                 member.id === reassignMemberId
                                   ? "bg-[rgba(255,255,255,0.06)] text-text"
                                   : "hover:bg-[rgba(255,255,255,0.03)] text-text"
@@ -1771,7 +1771,7 @@ export const ActionCard = memo(function ActionCard({
                               type="date"
                               value={reassignStartDate}
                               onChange={(e) => setReassignStartDate(e.target.value)}
-                              className="font-mohave text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[4px] px-2.5 py-1.5 text-text outline-none focus:border-[rgba(255,255,255,0.3)] min-h-[56px] [color-scheme:dark]"
+                              className="font-mohave text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[5px] px-2.5 py-1.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] min-h-[36px] [color-scheme:dark]"
                             />
                           </div>
                           <div>
@@ -1782,7 +1782,7 @@ export const ActionCard = memo(function ActionCard({
                               type="date"
                               value={reassignEndDate}
                               onChange={(e) => setReassignEndDate(e.target.value)}
-                              className="font-mohave text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[4px] px-2.5 py-1.5 text-text outline-none focus:border-[rgba(255,255,255,0.3)] min-h-[56px] [color-scheme:dark]"
+                              className="font-mohave text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[5px] px-2.5 py-1.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] min-h-[36px] [color-scheme:dark]"
                             />
                           </div>
                           <button
@@ -1934,7 +1934,7 @@ export const ActionCard = memo(function ActionCard({
                                       updated[idx] = { ...updated[idx], name: e.target.value };
                                       setInvoiceLineItems(updated);
                                     }}
-                                    className="font-mono text-[12px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[4px] px-2 py-1 text-text outline-none focus:border-[rgba(255,255,255,0.3)] min-h-[56px]"
+                                    className="font-mono text-[12px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[5px] px-2 py-1 text-text outline-none focus:border-[rgba(255,255,255,0.20)] min-h-[36px]"
                                   />
                                   <input
                                     type="number"
@@ -1944,7 +1944,7 @@ export const ActionCard = memo(function ActionCard({
                                       updated[idx] = { ...updated[idx], quantity: Number(e.target.value) || 0 };
                                       setInvoiceLineItems(updated);
                                     }}
-                                    className="font-mono text-[12px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[4px] px-2 py-1 text-text outline-none focus:border-[rgba(255,255,255,0.3)] text-right min-h-[56px] [color-scheme:dark]"
+                                    className="font-mono text-[12px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[5px] px-2 py-1 text-text outline-none focus:border-[rgba(255,255,255,0.20)] text-right min-h-[36px] [color-scheme:dark]"
                                     min={0}
                                     step="any"
                                   />
@@ -1956,7 +1956,7 @@ export const ActionCard = memo(function ActionCard({
                                       updated[idx] = { ...updated[idx], unit_price: Number(e.target.value) || 0 };
                                       setInvoiceLineItems(updated);
                                     }}
-                                    className="font-mono text-[12px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[4px] px-2 py-1 text-text outline-none focus:border-[rgba(255,255,255,0.3)] text-right min-h-[56px] [color-scheme:dark]"
+                                    className="font-mono text-[12px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[5px] px-2 py-1 text-text outline-none focus:border-[rgba(255,255,255,0.20)] text-right min-h-[36px] [color-scheme:dark]"
                                     min={0}
                                     step="0.01"
                                   />
@@ -1969,7 +1969,7 @@ export const ActionCard = memo(function ActionCard({
                                         const updated = invoiceLineItems.filter((_, i) => i !== idx);
                                         setInvoiceLineItems(updated);
                                       }}
-                                      className="min-w-[56px] min-h-[56px] flex items-center justify-center text-text-3 hover:text-[#93321A] transition-colors"
+                                      className="min-w-[36px] min-h-[36px] flex items-center justify-center text-text-3 hover:text-[#93321A] transition-colors"
                                     >
                                       <Trash2 className="w-[12px] h-[12px]" />
                                     </button>
@@ -2015,7 +2015,7 @@ export const ActionCard = memo(function ActionCard({
                                 },
                               ]);
                             }}
-                            className="w-full flex items-center justify-center gap-1 px-3 py-2 border-t border-[rgba(255,255,255,0.06)] text-text-3 hover:text-text-2 transition-colors min-h-[56px]"
+                            className="w-full flex items-center justify-center gap-1 px-3 py-2 border-t border-[rgba(255,255,255,0.06)] text-text-3 hover:text-text-2 transition-colors min-h-[36px]"
                           >
                             <Plus className="w-[12px] h-[12px]" />
                             <span className="font-mono text-[11px]">{t("invoice.addLine")}</span>
@@ -2084,7 +2084,7 @@ export const ActionCard = memo(function ActionCard({
                           <select
                             value={invoicePaymentTerms}
                             onChange={(e) => setInvoicePaymentTerms(e.target.value)}
-                            className="font-mohave text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[4px] px-2.5 py-1.5 text-text outline-none focus:border-[rgba(255,255,255,0.3)] min-h-[56px] [color-scheme:dark]"
+                            className="font-mohave text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[5px] px-2.5 py-1.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] min-h-[36px] [color-scheme:dark]"
                           >
                             <option value="NET-15">NET-15</option>
                             <option value="NET-30">NET-30</option>
@@ -2106,7 +2106,7 @@ export const ActionCard = memo(function ActionCard({
                             type="date"
                             value={invoiceDueDate}
                             onChange={(e) => setInvoiceDueDate(e.target.value)}
-                            className="font-mohave text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[4px] px-2.5 py-1.5 text-text outline-none focus:border-[rgba(255,255,255,0.3)] min-h-[56px] [color-scheme:dark]"
+                            className="font-mohave text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[5px] px-2.5 py-1.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] min-h-[36px] [color-scheme:dark]"
                           />
                         ) : (
                           <span className="font-mohave text-body-sm text-text">
@@ -2189,7 +2189,7 @@ export const ActionCard = memo(function ActionCard({
                           value={invoiceEmailDraft}
                           onChange={(e) => setInvoiceEmailDraft(e.target.value)}
                           rows={8}
-                          className="w-full font-mono text-[12px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[4px] px-3 py-2.5 text-text outline-none focus:border-[rgba(255,255,255,0.3)] resize-y min-h-[120px] [color-scheme:dark]"
+                          className="w-full font-mono text-[12px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[5px] px-3 py-2.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] resize-y min-h-[120px] [color-scheme:dark]"
                         />
                       ) : (
                         <p className="font-mono text-[12px] text-text-2 mt-0.5 whitespace-pre-wrap line-clamp-6">
@@ -2304,7 +2304,7 @@ export const ActionCard = memo(function ActionCard({
                           value={reminderDraft}
                           onChange={(e) => setReminderDraft(e.target.value)}
                           rows={8}
-                          className="w-full font-mono text-[12px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[4px] px-3 py-2.5 text-text outline-none focus:border-[rgba(255,255,255,0.3)] resize-y min-h-[120px] [color-scheme:dark]"
+                          className="w-full font-mono text-[12px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[5px] px-3 py-2.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] resize-y min-h-[120px] [color-scheme:dark]"
                         />
                       ) : (
                         <p className="font-mono text-[12px] text-text-2 mt-0.5 whitespace-pre-wrap line-clamp-6">
@@ -2563,7 +2563,7 @@ export const ActionCard = memo(function ActionCard({
                                     setEditingAssignment(false);
                                   }}
                                   className={cn(
-                                    "w-full text-left px-2.5 py-2 rounded-[4px] flex items-center justify-between gap-2 transition-colors min-h-[56px]",
+                                    "w-full text-left px-2.5 py-2 rounded-[5px] flex items-center justify-between gap-2 transition-colors min-h-[36px]",
                                     member.id === rescheduleMemberId
                                       ? "bg-[rgba(255,255,255,0.06)] text-text"
                                       : "hover:bg-[rgba(255,255,255,0.03)] text-text"
@@ -2751,7 +2751,7 @@ export const ActionCard = memo(function ActionCard({
                         type="text"
                         value={appointmentSubject}
                         onChange={(e) => setAppointmentSubject(e.target.value)}
-                        className="w-full font-mohave text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[4px] px-3 py-2 text-text outline-none focus:border-[rgba(255,255,255,0.3)] min-h-[56px]"
+                        className="w-full font-mohave text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[5px] px-3 py-2 text-text outline-none focus:border-[rgba(255,255,255,0.20)] min-h-[36px]"
                       />
                     </div>
 
@@ -2777,7 +2777,7 @@ export const ActionCard = memo(function ActionCard({
                           value={appointmentDraft}
                           onChange={(e) => setAppointmentDraft(e.target.value)}
                           rows={8}
-                          className="w-full font-mono text-[12px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[4px] px-3 py-2.5 text-text outline-none focus:border-[rgba(255,255,255,0.3)] resize-y min-h-[120px] [color-scheme:dark]"
+                          className="w-full font-mono text-[12px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[5px] px-3 py-2.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] resize-y min-h-[120px] [color-scheme:dark]"
                         />
                       ) : (
                         <p className="font-mono text-[12px] text-text-2 mt-0.5 whitespace-pre-wrap line-clamp-6">
@@ -2884,7 +2884,7 @@ export const ActionCard = memo(function ActionCard({
                         type="text"
                         value={dayBeforeSubject}
                         onChange={(e) => setDayBeforeSubject(e.target.value)}
-                        className="w-full font-mohave text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[4px] px-3 py-2 text-text outline-none focus:border-[rgba(255,255,255,0.3)] min-h-[56px]"
+                        className="w-full font-mohave text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[5px] px-3 py-2 text-text outline-none focus:border-[rgba(255,255,255,0.20)] min-h-[36px]"
                       />
                     </div>
 
@@ -2910,7 +2910,7 @@ export const ActionCard = memo(function ActionCard({
                           value={dayBeforeDraft}
                           onChange={(e) => setDayBeforeDraft(e.target.value)}
                           rows={8}
-                          className="w-full font-mono text-[12px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[4px] px-3 py-2.5 text-text outline-none focus:border-[rgba(255,255,255,0.3)] resize-y min-h-[120px] [color-scheme:dark]"
+                          className="w-full font-mono text-[12px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[5px] px-3 py-2.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] resize-y min-h-[120px] [color-scheme:dark]"
                         />
                       ) : (
                         <p className="font-mono text-[12px] text-text-2 mt-0.5 whitespace-pre-wrap line-clamp-6">
@@ -2984,7 +2984,7 @@ export const ActionCard = memo(function ActionCard({
                                 key={idx}
                                 onClick={() => setSelectedAlternativeIndex(idx)}
                                 className={cn(
-                                  "w-full text-left px-3 py-2 rounded-[4px] flex items-center gap-3 transition-colors min-h-[56px]",
+                                  "w-full text-left px-3 py-2 rounded-[5px] flex items-center gap-3 transition-colors min-h-[36px]",
                                   isSelected
                                     ? "bg-[rgba(111, 148, 176,0.12)] border border-[rgba(111, 148, 176,0.5)]"
                                     : "bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.04)]"
@@ -3038,7 +3038,7 @@ export const ActionCard = memo(function ActionCard({
                         type="text"
                         value={rescheduleRequestSubject}
                         onChange={(e) => setRescheduleRequestSubject(e.target.value)}
-                        className="w-full font-mohave text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[4px] px-3 py-2 text-text outline-none focus:border-[rgba(255,255,255,0.3)] min-h-[56px]"
+                        className="w-full font-mohave text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[5px] px-3 py-2 text-text outline-none focus:border-[rgba(255,255,255,0.20)] min-h-[36px]"
                       />
                     </div>
 
@@ -3066,7 +3066,7 @@ export const ActionCard = memo(function ActionCard({
                             setRescheduleRequestReply(e.target.value)
                           }
                           rows={8}
-                          className="w-full font-mono text-[12px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[4px] px-3 py-2.5 text-text outline-none focus:border-[rgba(255,255,255,0.3)] resize-y min-h-[120px] [color-scheme:dark]"
+                          className="w-full font-mono text-[12px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[5px] px-3 py-2.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] resize-y min-h-[120px] [color-scheme:dark]"
                         />
                       ) : (
                         <p className="font-mono text-[12px] text-text-2 mt-0.5 whitespace-pre-wrap line-clamp-6">
@@ -3174,7 +3174,7 @@ export const ActionCard = memo(function ActionCard({
                         type="text"
                         value={subcontractorSubject}
                         onChange={(e) => setSubcontractorSubject(e.target.value)}
-                        className="w-full font-mohave text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[4px] px-3 py-2 text-text outline-none focus:border-[rgba(255,255,255,0.3)] min-h-[56px]"
+                        className="w-full font-mohave text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[5px] px-3 py-2 text-text outline-none focus:border-[rgba(255,255,255,0.20)] min-h-[36px]"
                       />
                     </div>
 
@@ -3200,7 +3200,7 @@ export const ActionCard = memo(function ActionCard({
                           value={subcontractorDraft}
                           onChange={(e) => setSubcontractorDraft(e.target.value)}
                           rows={8}
-                          className="w-full font-mono text-[12px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[4px] px-3 py-2.5 text-text outline-none focus:border-[rgba(255,255,255,0.3)] resize-y min-h-[120px] [color-scheme:dark]"
+                          className="w-full font-mono text-[12px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[5px] px-3 py-2.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] resize-y min-h-[120px] [color-scheme:dark]"
                         />
                       ) : (
                         <p className="font-mono text-[12px] text-text-2 mt-0.5 whitespace-pre-wrap line-clamp-6">

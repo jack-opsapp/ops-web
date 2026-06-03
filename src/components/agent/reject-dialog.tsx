@@ -41,17 +41,17 @@ export function RejectDialog({ open, onClose, onConfirm, t }: RejectDialogProps)
           placeholder={t("reject.placeholder")}
           rows={3}
           className={cn(
-            "w-full px-3 py-2 rounded-[4px] resize-none",
+            "w-full px-3 py-2 rounded-[5px] resize-none",
             "bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)]",
             "font-mono text-[13px] text-text placeholder:text-text-mute",
-            "focus:outline-none focus:border-[#6F94B0] transition-colors"
+            "focus:outline-none focus:border-[rgba(255,255,255,0.20)] transition-colors"
           )}
         />
 
         <AlertDialogFooter>
           <AlertDialogCancel
             onClick={onClose}
-            className="min-h-[56px] px-4 font-mohave text-body-sm text-text-2 uppercase"
+            className="min-h-[36px] px-4 font-mohave text-body-sm text-text-2 uppercase"
           >
             {t("reject.cancel")}
           </AlertDialogCancel>
@@ -60,7 +60,7 @@ export function RejectDialog({ open, onClose, onConfirm, t }: RejectDialogProps)
               onConfirm(notes.trim() || undefined);
               setNotes("");
             }}
-            className="min-h-[56px] px-4 bg-[rgba(147,50,26,0.15)] text-[#93321A] font-mohave text-body-sm uppercase hover:bg-[rgba(147,50,26,0.25)]"
+            className="min-h-[36px] px-4 bg-[rgba(147,50,26,0.15)] text-[#93321A] font-mohave text-body-sm uppercase hover:bg-[rgba(147,50,26,0.25)]"
           >
             {t("reject.confirm")}
           </AlertDialogAction>

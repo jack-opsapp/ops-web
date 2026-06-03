@@ -70,7 +70,7 @@ function CollapsibleSection({
     <div className="rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2]">
       <button
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between p-4 min-h-[56px] text-left"
+        className="w-full flex items-center justify-between p-4 min-h-[36px] text-left"
       >
         <h3 className="font-mohave text-[13px] text-text-3 uppercase tracking-wider">
           {title}

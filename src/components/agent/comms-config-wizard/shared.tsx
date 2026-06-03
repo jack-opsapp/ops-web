@@ -79,7 +79,7 @@ export function OptionCard({
       onClick={locked || disabled ? undefined : onSelect}
       disabled={locked || disabled}
       className={cn(
-        "w-full text-left min-h-[56px] p-4 rounded-[8px]",
+        "w-full text-left min-h-[36px] p-4 rounded-[5px]",
         "border-l-[3px]",
         "border-t border-r border-b",
         "backdrop-blur-[20px] backdrop-saturate-[1.2]",
@@ -151,7 +151,7 @@ export function Toggle({
       aria-checked={checked}
       onClick={() => onChange(!checked)}
       className={cn(
-        "w-full flex items-center justify-between gap-3 min-h-[56px] p-4 rounded-[8px]",
+        "w-full flex items-center justify-between gap-3 min-h-[36px] p-4 rounded-[5px]",
         "border border-[rgba(255,255,255,0.08)]",
         "bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2]",
         "transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]",
@@ -281,10 +281,10 @@ export function StepDropdown<T extends string | number>({
           if (match) onChange(match.value);
         }}
         className={cn(
-          "w-full min-h-[56px] px-3 rounded-[4px]",
+          "w-full min-h-[36px] px-3 rounded-[5px]",
           "border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)]",
           "font-mohave text-[14px] text-text uppercase tracking-[0.04em]",
-          "outline-none focus:border-[#6F94B0] transition-colors",
+          "outline-none focus:border-[rgba(255,255,255,0.20)] transition-colors",
           "motion-reduce:transition-none"
         )}
       >

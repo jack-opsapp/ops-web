@@ -48,10 +48,14 @@ const buttonVariants = cva(
         ],
       },
       size: {
-        default: "h-7 px-3 py-1.5",
-        sm: "h-[44px] px-2 py-1 text-button-sm",
-        lg: "h-8 px-4 py-2 text-body-lg",
-        icon: "h-7 w-7 p-0",
+        // DESIGN.md spec: buttons are min-height 36px / padding 9px 16px / radius 5px.
+        // `default` is the spec value (h-9 = 36px, px-4 = 16px). `sm`/`lg` are
+        // unspecified-but-coherent derivations on a 32/36/40 ladder — never the
+        // 44px touch-target value (OPS-Web is mouse-driven; there is no touch here).
+        default: "h-9 px-4",
+        sm: "h-8 px-3 text-button-sm",
+        lg: "h-10 px-5 text-body-lg",
+        icon: "h-9 w-9 p-0",
       },
     },
     defaultVariants: {
