@@ -17,6 +17,17 @@ vi.mock("@/lib/api/services/accounting-token-service", () => ({
 type Row = Record<string, any>;
 function round2(n: number) { return Math.round((n + Number.EPSILON) * 100) / 100; }
 
+// Live tables the apply engine upserts on (company_id, qb_id). Prod has NO
+// unique index on that pair yet, so PostgREST .upsert({onConflict:"company_id,
+// qb_id"}) would 42P10 without one — the double throws if the conflict key is
+// absent so the tests would have caught C1.
+const QB_CONFLICT_TABLES = new Set(["clients", "estimates", "invoices", "payments"]);
+// NOT NULL columns with no DB default — sending null throws (would have caught C3).
+const NOT_NULL_COLUMNS: Record<string, string[]> = {
+  invoices: ["due_date", "invoice_number"],
+  estimates: ["estimate_number"],
+};
+
 /**
  * In-memory Supabase double. Tables are arrays of rows. Supports the exact
  * builder calls applyImport uses: from().select().eq()....maybeSingle(),
@@ -69,8 +80,21 @@ function makeSupabase() {
       then(resolve: any) { return Promise.resolve({ data: api._match(), error: null }).then(resolve); },
       async upsert(payload: Row | Row[], opts?: { onConflict?: string }) {
         const list = Array.isArray(payload) ? payload : [payload];
+        // C1: live tables upserted on (company_id, qb_id) REQUIRE that exact
+        // conflict target — without a matching unique index PostgREST 42P10s.
+        if (QB_CONFLICT_TABLES.has(table) && opts?.onConflict !== "company_id,qb_id") {
+          throw new Error(
+            `42P10: ${table}.upsert requires onConflict "company_id,qb_id" (got "${opts?.onConflict ?? "<none>"}")`
+          );
+        }
         const keys = (opts?.onConflict ?? "id").split(",");
         for (const incoming of list) {
+          // C3: enforce NOT NULL columns that have no DB default.
+          for (const col of NOT_NULL_COLUMNS[table] ?? []) {
+            if (incoming[col] === null || incoming[col] === undefined) {
+              throw new Error(`null value in column "${col}" of relation "${table}" violates not-null constraint`);
+            }
+          }
           const existing = db[table].find((r) => keys.every((k) => r[k] === incoming[k]));
           if (existing) {
             // Real upsert keys on the conflict target; the row keeps its
@@ -114,16 +138,19 @@ function makeSupabase() {
         };
       },
       update(patch: Row) {
-        return {
-          eq(col: string, val: any) {
-            for (const r of db[table]) if (r[col] === val) Object.assign(r, patch);
-            return Promise.resolve({ data: null, error: null });
-          },
-          in(col: string, vals: any[]) {
-            for (const r of db[table]) if (vals.includes(r[col])) Object.assign(r, patch);
-            return Promise.resolve({ data: null, error: null });
-          },
+        // Chainable eq()/in() that accumulates filters and applies on await
+        // (supports company-scoped multi-eq updates, e.g. .eq(id).eq(company)).
+        const upFilters: Array<(r: Row) => boolean> = [];
+        const apply = () => {
+          for (const r of db[table]) if (upFilters.every((f) => f(r))) Object.assign(r, patch);
+          return { data: null, error: null };
         };
+        const chain: any = {
+          eq(col: string, val: any) { upFilters.push((r) => r[col] === val); return chain; },
+          in(col: string, vals: any[]) { upFilters.push((r) => vals.includes(r[col])); return chain; },
+          then(resolve: any) { return Promise.resolve(apply()).then(resolve); },
+        };
+        return chain;
       },
     };
     return api;
@@ -204,6 +231,29 @@ describe("QuickBooksImportService.applyImport", () => {
     expect(c.email).toBe("billing@acme.test");
     expect(c.phone_number).toBe("555-9999");
     expect(supabase.__db.clients).toHaveLength(1);  // no new client created
+  });
+
+  it("C2: a voided/zero-total (derived_status='skipped') invoice is never written", async () => {
+    // Flag the staged invoice as skipped (as normalizeInvoice does for void /
+    // zero-total). Its line items + payment line reference it, so nothing
+    // dependent should land either.
+    supabase.__db.qbo_staging_invoices[0].derived_status = "skipped";
+    const { QuickBooksImportService } = await import("@/lib/api/services/quickbooks-import-service");
+    const svc = new QuickBooksImportService(supabase);
+    const result = await svc.applyImport(RUN_ID, decisions);
+
+    // Customer + estimate still apply; the skipped invoice does not.
+    expect(result.clientsCreated).toBe(1);
+    expect(result.estimatesUpserted).toBe(1);
+    expect(result.invoicesUpserted).toBe(0);
+    expect(result.invoicesReconciled).toBe(0);
+    expect(supabase.__db.invoices).toHaveLength(0);
+
+    // No invoice-parented line items, and the payment line had nowhere to land.
+    const invoiceLines = supabase.__db.line_items.filter((l: any) => l.invoice_id);
+    expect(invoiceLines).toHaveLength(0);
+    expect(result.paymentsUpserted).toBe(0);
+    expect(supabase.__db.payments).toHaveLength(0);
   });
 
   it("skip decision drops the customer and its dependent invoice/lines/payments", async () => {

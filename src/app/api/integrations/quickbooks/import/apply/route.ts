@@ -16,7 +16,28 @@ import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
 import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 import { checkPermissionById } from "@/lib/supabase/check-permission";
 import { QuickBooksImportService } from "@/lib/api/services/quickbooks-import-service";
-import type { QboApplyDecision } from "@/lib/types/qbo-import";
+import { MATCH_ACTIONS, type QboApplyDecision, type MatchAction } from "@/lib/types/qbo-import";
+
+const MATCH_ACTION_SET = new Set<string>(MATCH_ACTIONS);
+
+/**
+ * Shape-validate a single review decision. Each entry must carry a string
+ * `customer_qb_id`, an `action` in the MatchAction union, and (optionally) a
+ * string `client_id`. A malformed entry rejects the whole request with 400 so
+ * the apply engine never runs against garbage decisions.
+ */
+function validateDecision(raw: unknown): QboApplyDecision | null {
+  if (typeof raw !== "object" || raw === null) return null;
+  const d = raw as Record<string, unknown>;
+  if (typeof d.customer_qb_id !== "string" || d.customer_qb_id.length === 0) return null;
+  if (typeof d.action !== "string" || !MATCH_ACTION_SET.has(d.action)) return null;
+  if (d.client_id !== undefined && typeof d.client_id !== "string") return null;
+  return {
+    customer_qb_id: d.customer_qb_id,
+    action: d.action as MatchAction,
+    ...(typeof d.client_id === "string" ? { client_id: d.client_id } : {}),
+  };
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -35,7 +56,19 @@ export async function POST(request: NextRequest) {
     if (!Array.isArray(body?.decisions)) {
       return NextResponse.json({ error: "decisions must be an array" }, { status: 400 });
     }
-    const decisions = body.decisions as QboApplyDecision[];
+    // Shape-validate every decision before touching the apply engine. One bad
+    // entry rejects the whole request (no partial-trust applies).
+    const decisions: QboApplyDecision[] = [];
+    for (const raw of body.decisions) {
+      const decision = validateDecision(raw);
+      if (!decision) {
+        return NextResponse.json(
+          { error: "Each decision must be { customer_qb_id: string, action: link|create|skip|needs_review, client_id?: string }" },
+          { status: 400 }
+        );
+      }
+      decisions.push(decision);
+    }
 
     const user = await findUserByAuth(authUser.uid, authUser.email, "id, company_id");
     if (!user) {
