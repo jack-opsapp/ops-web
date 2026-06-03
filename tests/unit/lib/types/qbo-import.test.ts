@@ -91,6 +91,7 @@ describe("qbo-import types", () => {
   it("QboCustomerMatch carries proposal + owner decision fields", () => {
     const match: QboCustomerMatch = {
       id: "m1", runId: "r1", companyId: "co", customerQbId: "1",
+      displayName: "Sonnenschein Family Store",
       proposedAction: "link", matchedClientId: "client-1",
       matchBasis: "email", confidence: "high",
       candidates: [{ clientId: "client-1", name: "Acme", basis: "email", score: 1 }],

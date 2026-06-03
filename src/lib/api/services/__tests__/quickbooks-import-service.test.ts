@@ -205,5 +205,21 @@ describe("QuickBooksImportService.getImportReview", () => {
     expect(review.reconciliation.openInvoiceCount).toBe(1);
     expect(review.reconciliation.collectedInWindow).toBe(362.07);
     expect(review.reconciliation.arMatched).toBe(true);
+
+    // Regression: getImportReview previously cast raw snake_case rows straight
+    // to QboCustomerMatch (`as unknown as`), so customerQbId/proposedAction were
+    // undefined and the review table rendered blank rows. Assert the matches are
+    // mapped to camelCase AND carry the QB customer's display name joined from
+    // staging.
+    review.matches.forEach((m) => {
+      expect(m.customerQbId).toBeTruthy();
+      expect(m.displayName).toBeTruthy();
+    });
+    const cool = review.matches.find((m) => m.customerQbId === "58");
+    expect(cool?.proposedAction).toBe("link");
+    const stagedCool = supabase._tables.qbo_staging_customers.find(
+      (c) => c.qb_id === "58"
+    );
+    expect(cool?.displayName).toBe(stagedCool?.display_name);
   });
 });
