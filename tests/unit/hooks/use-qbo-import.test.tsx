@@ -85,7 +85,7 @@ describe("useImportReview", () => {
 });
 
 describe("useApplyImport", () => {
-  it("POSTs decisions then fires an apply notification", async () => {
+  it("POSTs decisions and does NOT fire a client-side notification (server owns it)", async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
       json: async () => ({ applied: { customers: 3, invoices: 5, payments: 2, estimates: 1, lineItems: 12 } }),
@@ -102,13 +102,9 @@ describe("useApplyImport", () => {
       runId: "run-1",
       decisions: [{ customer_qb_id: "QB1", action: "link", client_id: "c-1" }],
     });
-    await waitFor(() => expect(notify).toHaveBeenCalledTimes(1));
-    expect(notify).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: "system",
-        actionUrl: "/accounting?tab=dashboard",
-        persistent: false,
-      })
-    );
+    // The apply API route inserts the `accounting_import_complete` rail
+    // notification server-side; the hook must NOT double-notify client-side.
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(notify).not.toHaveBeenCalled();
   });
 });

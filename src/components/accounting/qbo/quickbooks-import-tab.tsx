@@ -7,12 +7,14 @@ import {
   ShieldCheck,
   ShieldAlert,
   AlertCircle,
+  Link2Off,
 } from "lucide-react";
 import { useDictionary } from "@/i18n/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils/cn";
 import { useAuthStore } from "@/lib/store/auth-store";
+import { useAccountingConnections } from "@/lib/hooks/use-accounting";
 import {
   useStartImport,
   useImportReview,
@@ -21,6 +23,18 @@ import {
 } from "@/lib/hooks/use-qbo-import";
 import { ReconciliationStrip } from "./reconciliation-strip";
 import { CustomerMatchTable, type RowDecision } from "./customer-match-table";
+
+/** Format an ISO/Date pull timestamp as a local HH:MM (tabular, 24h). */
+function formatPulledTime(value: Date | string | null | undefined): string | null {
+  if (!value) return null;
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleTimeString(undefined, {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
 
 function RecordStat({ label, value }: { label: string; value: number }) {
   return (
@@ -44,6 +58,12 @@ export function QuickBooksImportTab() {
   const startImport = useStartImport();
   const applyImport = useApplyImport();
   const { data: review, isLoading, isError } = useImportReview(runId);
+
+  // Connection status for the run header (I6). The owner connects QuickBooks on
+  // the Integrations tab; until then the Import tab shows a not-connected state.
+  const { data: connections } = useAccountingConnections();
+  const qbConnection = connections?.find((c) => c.provider === "quickbooks");
+  const isConnected = qbConnection?.isConnected ?? false;
 
   const handlePull = async () => {
     if (!companyId) return;
@@ -88,6 +108,22 @@ export function QuickBooksImportTab() {
   const matchCounts = review?.matchCounts;
   const applied = review?.run.status === "applied";
 
+  // Customer counts from the operator's RESOLVED decisions, not the server's
+  // proposed matchCounts — so action overrides (link/create/skip/needs_review)
+  // are reflected in both the confirm copy and the post-apply total (I5).
+  const decisionCounts = useMemo(() => {
+    const c = { link: 0, create: 0, skip: 0, needs_review: 0 };
+    for (const d of applyDecisions) c[d.action] += 1;
+    return c;
+  }, [applyDecisions]);
+
+  // Customers actually written to OPS = link + create (skip excluded).
+  const customersToWrite = decisionCounts.link + decisionCounts.create;
+
+  // APPLY is blocked while ANY customer is still unresolved (needs_review):
+  // the operator must resolve each to link / create / skip first (I7).
+  const hasUnresolved = decisionCounts.needs_review > 0;
+
   return (
     <div className="space-y-3">
       {/* Run header */}
@@ -105,7 +141,7 @@ export function QuickBooksImportTab() {
             variant="default"
             size="sm"
             onClick={handlePull}
-            disabled={startImport.isPending || !companyId}
+            disabled={startImport.isPending || !companyId || !isConnected}
             className="gap-1"
           >
             {startImport.isPending ? (
@@ -115,6 +151,41 @@ export function QuickBooksImportTab() {
             )}
             {startImport.isPending ? t("qbo.pulling") : t("qbo.pull")}
           </Button>
+        </div>
+
+        {/* Connection status + last-pulled time (I6) */}
+        <div
+          data-testid="qbo-connection-status"
+          className={cn(
+            "flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-caption-sm tabular-nums",
+            isConnected ? "text-status-success" : "text-text-mute"
+          )}
+        >
+          <span className="flex items-center gap-1.5">
+            <span
+              className={cn(
+                "inline-block w-[6px] h-[6px] rounded-full",
+                isConnected ? "bg-status-success" : "bg-text-mute"
+              )}
+            />
+            <span className="uppercase tracking-wider text-micro">
+              {isConnected
+                ? t("integrations.connected")
+                : t("integrations.notConnected")}
+            </span>
+          </span>
+          {review && (
+            <span className="flex items-center gap-1.5 text-text-3">
+              <span className="uppercase tracking-wider text-micro text-text-mute">
+                {t("qbo.lastPulled")}
+              </span>
+              <span>
+                {formatPulledTime(
+                  review.run.finishedAt ?? review.run.createdAt
+                ) ?? t("qbo.never")}
+              </span>
+            </span>
+          )}
         </div>
 
         {review && (
@@ -142,8 +213,20 @@ export function QuickBooksImportTab() {
         )}
       </Card>
 
-      {/* Empty / loading / error */}
-      {!applyRunId && !review && !startImport.isPending && (
+      {/* Not-connected empty state (I6) */}
+      {!isConnected && !review && !startImport.isPending && (
+        <Card variant="default" className="p-3">
+          <p className="font-mohave text-body text-text uppercase tracking-wider">
+            {t("qbo.notConnected")}
+          </p>
+          <p className="font-mono text-caption-sm text-text-mute mt-1">
+            {t("qbo.connectFirst")}
+          </p>
+        </Card>
+      )}
+
+      {/* No-run empty state (connected, nothing pulled yet) */}
+      {isConnected && !applyRunId && !review && !startImport.isPending && (
         <Card variant="default" className="p-3">
           <p className="font-mohave text-body text-text uppercase tracking-wider">
             {t("qbo.empty.noRun")}
@@ -223,17 +306,28 @@ export function QuickBooksImportTab() {
           <Card variant="default" className="p-3 space-y-2">
             <p className="font-mono text-caption-sm text-text-3">
               {t("qbo.applyConfirm", {
-                customers: matchCounts.link + matchCounts.create,
+                customers: customersToWrite,
                 invoices: stagedCounts.invoices,
                 payments: stagedCounts.payments,
               })}
             </p>
+            {hasUnresolved && !applied && (
+              <p
+                data-testid="qbo-needs-review-hint"
+                className="flex items-center gap-1.5 font-mono text-caption-sm text-[#C4A868]"
+              >
+                <Link2Off className="w-[12px] h-[12px]" />
+                {t("qbo.needsReviewBlock", {
+                  count: decisionCounts.needs_review,
+                })}
+              </p>
+            )}
             <div className="flex items-center gap-1.5">
               <Button
                 variant="primary"
                 size="sm"
                 onClick={handleApply}
-                disabled={applyImport.isPending || applied}
+                disabled={applyImport.isPending || applied || hasUnresolved}
                 className="gap-1"
               >
                 {applyImport.isPending && (
@@ -249,8 +343,7 @@ export function QuickBooksImportTab() {
                       stagedCounts.invoices +
                       stagedCounts.payments +
                       stagedCounts.lineItems +
-                      matchCounts.link +
-                      matchCounts.create,
+                      customersToWrite,
                   })}
                 </span>
               )}

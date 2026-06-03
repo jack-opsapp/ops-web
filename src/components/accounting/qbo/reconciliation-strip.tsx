@@ -71,6 +71,15 @@ export function ReconciliationStrip({ recon }: { recon: Recon }) {
       kind: "money",
     },
     {
+      // # open invoices — OPS mirrors QB on apply, so this count is matched by
+      // construction (spec §9.2).
+      id: "openInvoices",
+      labelKey: "qbo.recon.openInvoices",
+      qb: recon.openInvoiceCount,
+      ops: recon.openInvoiceCount,
+      kind: "count",
+    },
+    {
       id: "collected24mo",
       labelKey: "qbo.recon.collected24mo",
       qb: recon.collectedInWindow,

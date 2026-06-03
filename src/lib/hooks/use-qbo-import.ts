@@ -11,8 +11,6 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "../api/query-client";
-import { useCreateNotification } from "./use-notifications";
-import { useDictionary } from "@/i18n/client";
 import type {
   MatchAction,
   QboImportReview,
@@ -102,12 +100,10 @@ export function useImportReview(runId: string | null) {
   });
 }
 
-// ─── Apply approved decisions, then fire the notification-rail event ──────────
+// ─── Apply approved decisions ─────────────────────────────────────────────────
 
 export function useApplyImport() {
   const queryClient = useQueryClient();
-  const notify = useCreateNotification();
-  const { t } = useDictionary("accounting");
 
   return useMutation({
     mutationFn: async ({
@@ -130,23 +126,10 @@ export function useApplyImport() {
       }
       return res.json();
     },
-    onSuccess: (data, { runId }) => {
-      const a = data.applied;
-      const total =
-        a.customers + a.estimates + a.invoices + a.payments + a.lineItems;
-
-      // Notification-rail event (read-only import landed). No QB-specific
-      // NotificationType exists in the DB enum, so use the generic 'system'
-      // type; the web Books/A-R surface is the click-through target.
-      notify({
-        type: "system",
-        title: t("qbo.notify.title"),
-        body: t("qbo.notify.body", { count: total }),
-        actionUrl: "/accounting?tab=dashboard",
-        actionLabel: t("qbo.notify.action"),
-        persistent: false,
-      });
-
+    onSuccess: (_data, { runId }) => {
+      // The apply API route owns the notification-rail event: it inserts the
+      // `accounting_import_complete` notification server-side on success. We do
+      // NOT fire a second client-side notify() here (would double-notify).
       queryClient.invalidateQueries({
         queryKey: queryKeys.accounting.importReview(runId),
       });

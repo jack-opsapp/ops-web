@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // NOTE: the fixture below is reconciled to the A0-owned `QboImportReview` type
 // (the plan's A4.5 draft predates the canonical type and referenced a
@@ -19,6 +19,14 @@ vi.mock("@/lib/hooks/use-qbo-import", () => ({
   useStartImport: () => ({ mutateAsync: startMutate, isPending: false }),
   useImportReview: () => ({ data: reviewData, isLoading: false, isError: false }),
   useApplyImport: () => ({ mutateAsync: applyMutate, isPending: false }),
+}));
+// Default: QuickBooks connected. A `null` override drives the not-connected
+// path. `applyImport.isPending` is always false in this suite.
+let connected = true;
+vi.mock("@/lib/hooks/use-accounting", () => ({
+  useAccountingConnections: () => ({
+    data: [{ provider: "quickbooks", isConnected: connected }],
+  }),
 }));
 vi.mock("@/lib/store/auth-store", () => ({
   useAuthStore: () => ({ company: { id: "a612edc0-5c18-4c4d-af97-55b9410dd077" } }),
@@ -84,12 +92,73 @@ const review = {
   },
 };
 
+// A review whose single customer match is still flagged needs_review (the
+// operator has not yet resolved it to link/create/skip). Drives the I7 gate.
+const reviewNeedsReview = {
+  ...review,
+  matches: [
+    {
+      id: "m2",
+      runId: "run-1",
+      companyId: "co",
+      customerQbId: "QB2",
+      proposedAction: "needs_review",
+      matchedClientId: null,
+      matchBasis: "name_fuzzy",
+      confidence: "low",
+      candidates: [{ clientId: "c-9", name: "Maybe Co", basis: "name_fuzzy", score: 0.6 }],
+      decidedAction: null,
+      decidedClientId: null,
+    },
+  ],
+  matchCounts: { link: 0, create: 0, skip: 0, needs_review: 1 },
+};
+
 describe("QuickBooksImportTab", () => {
+  beforeEach(() => {
+    connected = true;
+    reviewData = undefined;
+  });
+
   it("shows the empty state with a pull CTA when there is no run", () => {
     reviewData = undefined;
     render(<QuickBooksImportTab />);
     expect(screen.getByText("qbo.empty.noRun")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /qbo.pull/ })).toBeInTheDocument();
+  });
+
+  it("shows the not-connected state and disables pull when QuickBooks is not connected", () => {
+    connected = false;
+    reviewData = undefined;
+    render(<QuickBooksImportTab />);
+    expect(screen.getByText("qbo.notConnected")).toBeInTheDocument();
+    expect(screen.getByText("qbo.connectFirst")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /qbo.pull/ })).toBeDisabled();
+  });
+
+  it("renders connection status + last-pulled in the run header", () => {
+    reviewData = review;
+    render(<QuickBooksImportTab />);
+    expect(screen.getByTestId("qbo-connection-status").textContent).toContain(
+      "integrations.connected"
+    );
+    expect(screen.getByTestId("qbo-connection-status").textContent).toContain(
+      "qbo.lastPulled"
+    );
+  });
+
+  it("disables APPLY while a customer is still needs_review, then enables it once resolved", () => {
+    reviewData = reviewNeedsReview;
+    render(<QuickBooksImportTab />);
+    // Unresolved needs_review → APPLY blocked + hint shown.
+    expect(screen.getByRole("button", { name: /qbo.apply.all/ })).toBeDisabled();
+    expect(screen.getByTestId("qbo-needs-review-hint")).toBeInTheDocument();
+    // Operator resolves the row to skip → APPLY enabled, hint gone.
+    fireEvent.change(screen.getByTestId("match-action-QB2"), {
+      target: { value: "skip" },
+    });
+    expect(screen.getByRole("button", { name: /qbo.apply.all/ })).toBeEnabled();
+    expect(screen.queryByTestId("qbo-needs-review-hint")).not.toBeInTheDocument();
   });
 
   it("starts a pull when the CTA is clicked", async () => {
