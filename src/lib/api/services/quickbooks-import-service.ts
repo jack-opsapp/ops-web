@@ -26,7 +26,10 @@ import {
   normalizeInvoice,
   normalizeEstimate,
   splitPaymentLines,
+  deriveInvoiceStatus,
+  mapEstimateStatus,
 } from "./qbo-normalize";
+import { getQuickBooksEnvironment } from "./quickbooks-config";
 import {
   resolveCustomerMatch,
   type ExistingClient,
@@ -48,7 +51,6 @@ import type {
   QboApplyResult,
 } from "@/lib/types/qbo-import";
 
-const QB_ENVIRONMENT = (process.env.QB_ENVIRONMENT as "production" | "sandbox") ?? "production";
 const FUZZY_THRESHOLD = 0.6;
 const HISTORY_MONTHS = 24;
 
@@ -154,7 +156,15 @@ export class QuickBooksImportService {
       );
       if (!realmId) throw new Error("QuickBooks realmId not found on connection");
 
-      const pull = new QuickBooksPullService(realmId, accessToken, QB_ENVIRONMENT);
+      // I3: getQuickBooksEnvironment() is the single source for prod-vs-sandbox
+      // (fail-safe to sandbox unless QB_ENVIRONMENT === 'production'). The pull
+      // service derives the same host (getQuickBooksApiBaseHost()) from this
+      // value, so there is exactly one decision point — no inline env read here.
+      const pull = new QuickBooksPullService(
+        realmId,
+        accessToken,
+        getQuickBooksEnvironment()
+      );
       const now = new Date();
 
       const [rawCustomers, rawInvoices, rawEstimates, rawPayments] = await Promise.all([
@@ -449,33 +459,6 @@ export class QuickBooksImportService {
   }
 
   /**
-   * Derive OPS invoice status from QB Balance / Total / DueDate.
-   * Voided / zero-total invoices are filtered upstream (never staged as live).
-   */
-  private deriveInvoiceStatus(total: number, balance: number, dueDate: string | null): string {
-    if (balance <= 0) return "paid";
-    if (balance < total) return "partially_paid";
-    if (dueDate) {
-      const today = new Date().toISOString().slice(0, 10);
-      if (dueDate < today) return "past_due";
-    }
-    return "awaiting_payment";
-  }
-
-  private mapEstimateStatus(txnStatus: string | null, expirationDate: string | null): string {
-    const today = new Date().toISOString().slice(0, 10);
-    switch (txnStatus) {
-      case "Accepted": return "approved";
-      case "Closed":   return "converted";
-      case "Rejected": return "declined";
-      case "Pending":
-      default:
-        if (expirationDate && expirationDate < today) return "expired";
-        return "sent";
-    }
-  }
-
-  /**
    * Apply a staged import run into live tables, in the locked transactional
    * order (contract §8). Idempotent on (company_id, qb_id). Issues ZERO calls
    * to QuickBooks — operates entirely on staged rows.
@@ -511,6 +494,12 @@ export class QuickBooksImportService {
       paymentsUpserted: 0, invoicesReconciled: 0, qb_write_calls: 0,
     };
 
+    // Single `now` for all date-derived status (canonical fns take a Date).
+    const now = new Date();
+    // Non-fatal warnings (I8 subtotal divergence, C4 cross-tenant link, etc.)
+    // surfaced on the run's totals.error summary without blocking the apply.
+    const warnings: string[] = [];
+
     const decisionByQbId = new Map(decisions.map((d) => [d.customer_qb_id, d]));
     // customer_qb_id → resolved OPS client_id (null === skipped)
     const clientIdByCustomerQbId = new Map<string, string | null>();
@@ -533,8 +522,30 @@ export class QuickBooksImportService {
           result.clientsSkipped++;
           continue;
         }
+        // C4: the link target MUST belong to this company. Verify ownership
+        // before writing — a decision referencing another tenant's client id
+        // is treated as a skip and recorded as an error on the run.
+        const { data: target } = await sb
+          .from("clients")
+          .select("id")
+          .eq("id", clientId)
+          .eq("company_id", companyId)
+          .maybeSingle();
+        if (!target?.id) {
+          warnings.push(
+            `Link rejected for customer ${cust.qb_id}: client ${clientId} does not belong to company ${companyId}`
+          );
+          clientIdByCustomerQbId.set(cust.qb_id as string, null);
+          result.clientsSkipped++;
+          continue;
+        }
         // Link writes ONLY qb_id — never overwrite name/email/phone/address.
-        await sb.from("clients").update({ qb_id: cust.qb_id }).eq("id", clientId);
+        // Company-scoped (C4): never touch a row outside the caller's tenant.
+        await sb
+          .from("clients")
+          .update({ qb_id: cust.qb_id })
+          .eq("id", clientId)
+          .eq("company_id", companyId);
         clientIdByCustomerQbId.set(cust.qb_id as string, clientId);
         result.clientsLinked++;
         continue;
@@ -575,33 +586,51 @@ export class QuickBooksImportService {
     }
 
     // ── STEP 2: Estimate + invoice HEADERS (QB-authoritative totals) ────────
+    // Sum of staged line `amount` per parent qb_id, for the I8 divergence guard.
+    const lineAmountByParent = new Map<string, number>();
+    for (const line of stagedLines ?? []) {
+      const key = `${line.parent_type}:${line.parent_qb_id}`;
+      lineAmountByParent.set(key, (lineAmountByParent.get(key) ?? 0) + Number(line.amount ?? 0));
+    }
+
     const estimateIdByQbId = new Map<string, string>();
     for (const est of stagedEstimates ?? []) {
       const clientId = clientIdByCustomerQbId.get(est.customer_qb_id as string);
       if (!clientId) continue; // customer skipped → drop estimate
 
-      const status = this.mapEstimateStatus(
+      const status = mapEstimateStatus(
         est.txn_status as string | null,
-        est.expiration_date as string | null
+        est.expiration_date as string | null,
+        now
       );
+      // C3: estimate_number/subtotal/tax_amount/total are NOT NULL.
+      const estimateNumber = (est.doc_number as string | null) ?? `QB-${est.qb_id}`;
+      const subtotal = Number(est.subtotal ?? 0);
+      // I8: warn (non-fatal) if Σ line amounts diverge from the header subtotal.
+      const lineSum = round2(lineAmountByParent.get(`estimate:${est.qb_id}`) ?? 0);
+      if (round2(subtotal) !== lineSum) {
+        warnings.push(
+          `Estimate ${est.qb_id} subtotal divergence: Σ lines ${lineSum} ≠ subtotal ${round2(subtotal)}`
+        );
+      }
       const estId = crypto.randomUUID();
-      await sb.from("estimates").upsert(
-        {
-          id: estId,
-          company_id: companyId,
-          qb_id: est.qb_id,
-          client_id: clientId,
-          estimate_number: est.doc_number ?? null,
-          subtotal: est.subtotal ?? null,
-          tax_rate: est.tax_rate ?? null,
-          tax_amount: est.tax_amount ?? null,
-          total: est.total ?? null,
-          status,
-          issue_date: est.txn_date ?? null,
-          expiration_date: est.expiration_date ?? null,
-        },
-        { onConflict: "company_id,qb_id" }
-      );
+      const estimateRow: Record<string, unknown> = {
+        id: estId,
+        company_id: companyId,
+        qb_id: est.qb_id,
+        client_id: clientId,
+        estimate_number: estimateNumber,
+        subtotal,
+        tax_rate: est.tax_rate ?? null,
+        tax_amount: Number(est.tax_amount ?? 0),
+        total: Number(est.total ?? 0),
+        status,
+        expiration_date: est.expiration_date ?? null,
+      };
+      // issue_date is NOT NULL DEFAULT CURRENT_DATE: send the QB txn_date, or
+      // omit the key entirely so the default applies — never send null (C3).
+      if (est.txn_date) estimateRow.issue_date = est.txn_date;
+      await sb.from("estimates").upsert(estimateRow, { onConflict: "company_id,qb_id" });
       const { data: row } = await sb
         .from("estimates").select("id")
         .eq("company_id", companyId).eq("qb_id", est.qb_id).maybeSingle();
@@ -612,35 +641,53 @@ export class QuickBooksImportService {
 
     const invoiceIdByQbId = new Map<string, string>();
     for (const inv of stagedInvoices ?? []) {
+      // C2: voided / zero-total invoices were staged for the review report but
+      // are NEVER applied — skip header upsert, line items, and reconcile.
+      if (inv.derived_status === "skipped") continue;
+
       const clientId = clientIdByCustomerQbId.get(inv.customer_qb_id as string);
       if (!clientId) continue; // customer skipped → drop invoice
 
       const total = Number(inv.total ?? 0);
       const balance = Number(inv.balance ?? 0);
-      const status = this.deriveInvoiceStatus(total, balance, inv.due_date as string | null);
+      // Canonical signature is (balance, total, dueDate, now). due_date is
+      // NOT NULL in OPS — fall back to the issue date when QB omits it (C3).
+      const dueDate = (inv.due_date as string | null) ?? (inv.txn_date as string | null);
+      const status = deriveInvoiceStatus(balance, total, dueDate, now);
       const estimateId = inv.estimate_qb_id
         ? estimateIdByQbId.get(inv.estimate_qb_id as string) ?? null
         : null;
 
+      // C3: invoice_number/due_date/subtotal/tax_amount/total are NOT NULL.
+      const invoiceNumber = (inv.doc_number as string | null) ?? `QB-${inv.qb_id}`;
+      const subtotal = Number(inv.subtotal ?? 0);
+      // I8: warn (non-fatal) if Σ line amounts diverge from the header subtotal.
+      const lineSum = round2(lineAmountByParent.get(`invoice:${inv.qb_id}`) ?? 0);
+      if (round2(subtotal) !== lineSum) {
+        warnings.push(
+          `Invoice ${inv.qb_id} subtotal divergence: Σ lines ${lineSum} ≠ subtotal ${round2(subtotal)}`
+        );
+      }
+
       const invId = crypto.randomUUID();
-      await sb.from("invoices").upsert(
-        {
-          id: invId,
-          company_id: companyId,
-          qb_id: inv.qb_id,
-          client_id: clientId,
-          estimate_id: estimateId,
-          invoice_number: inv.doc_number ?? null,
-          subtotal: inv.subtotal ?? null,
-          tax_rate: inv.tax_rate ?? null,
-          tax_amount: inv.tax_amount ?? null,
-          total: inv.total ?? null,
-          status, // provisional; reconciled in STEP 5
-          issue_date: inv.txn_date ?? null,
-          due_date: inv.due_date ?? null,
-        },
-        { onConflict: "company_id,qb_id" }
-      );
+      const invoiceRow: Record<string, unknown> = {
+        id: invId,
+        company_id: companyId,
+        qb_id: inv.qb_id,
+        client_id: clientId,
+        estimate_id: estimateId,
+        invoice_number: invoiceNumber,
+        subtotal,
+        tax_rate: inv.tax_rate ?? null,
+        tax_amount: Number(inv.tax_amount ?? 0),
+        total,
+        status, // provisional; reconciled in STEP 5
+        due_date: dueDate, // never null (C3)
+      };
+      // issue_date is NOT NULL DEFAULT CURRENT_DATE: send the QB txn_date, or
+      // omit the key entirely so the default applies — never send null (C3).
+      if (inv.txn_date) invoiceRow.issue_date = inv.txn_date;
+      await sb.from("invoices").upsert(invoiceRow, { onConflict: "company_id,qb_id" });
       const { data: row } = await sb
         .from("invoices").select("id")
         .eq("company_id", companyId).eq("qb_id", inv.qb_id).maybeSingle();
@@ -725,12 +772,16 @@ export class QuickBooksImportService {
 
     // ── STEP 5: Reconcile invoices to QB-authoritative Balance ─────────────
     for (const inv of stagedInvoices ?? []) {
+      // C2: never reconcile a skipped (voided/zero-total) invoice — and they
+      // were never upserted, so they have no invoiceIdByQbId entry anyway.
+      if (inv.derived_status === "skipped") continue;
       const invoiceId = invoiceIdByQbId.get(inv.qb_id as string);
       if (!invoiceId) continue;
       const total = Number(inv.total ?? 0);
       const balance = Number(inv.balance ?? 0);
       const amountPaid = round2(total - balance);
-      const status = this.deriveInvoiceStatus(total, balance, inv.due_date as string | null);
+      const dueDate = (inv.due_date as string | null) ?? (inv.txn_date as string | null);
+      const status = deriveInvoiceStatus(balance, total, dueDate, now);
       await sb.from("invoices").update({
         amount_paid: amountPaid,
         balance_due: balance,
@@ -743,6 +794,9 @@ export class QuickBooksImportService {
     await sb.from("qbo_import_runs").update({
       status: "applied",
       totals: result as unknown as Record<string, number>,
+      // I8/C4: non-fatal warnings (subtotal divergence, rejected links) are
+      // surfaced on the run's error summary without failing the apply.
+      error: warnings.length ? warnings.join("; ") : null,
       finished_at: new Date().toISOString(),
     }).eq("id", runId);
 
