@@ -79,6 +79,40 @@ function mapRun(row: Record<string, unknown>): QboImportRun {
   };
 }
 
+/**
+ * Map a raw qbo_customer_matches row (snake_case) to the camelCase
+ * QboCustomerMatch the review UI consumes, joining the QB customer's
+ * display_name (the matches table doesn't carry it) and normalizing the
+ * candidates jsonb (stored as client_id/similarity) to clientId/score.
+ */
+function mapCustomerMatch(
+  r: Record<string, unknown>,
+  displayNameByQbId: Map<string, string | null>
+): QboCustomerMatch {
+  const rawCandidates = (r.candidates as Record<string, unknown>[] | null) ?? [];
+  return {
+    id: r.id as string,
+    runId: r.run_id as string,
+    companyId: r.company_id as string,
+    customerQbId: r.customer_qb_id as string,
+    displayName: displayNameByQbId.get(r.customer_qb_id as string) ?? null,
+    proposedAction: r.proposed_action as QboCustomerMatch["proposedAction"],
+    matchedClientId: (r.matched_client_id as string | null) ?? null,
+    matchBasis: (r.match_basis as QboCustomerMatch["matchBasis"]) ?? null,
+    confidence: (r.confidence as QboCustomerMatch["confidence"]) ?? null,
+    candidates: rawCandidates.map((c) => ({
+      clientId: (c.client_id ?? c.clientId) as string,
+      name: (c.name as string | null) ?? null,
+      basis: (c.basis ??
+        r.match_basis ??
+        "none") as QboCustomerMatch["candidates"][number]["basis"],
+      score: Number(c.score ?? c.similarity ?? 0),
+    })),
+    decidedAction: (r.decided_action as QboCustomerMatch["decidedAction"]) ?? null,
+    decidedClientId: (r.decided_client_id as string | null) ?? null,
+  };
+}
+
 function cutoffISODate(): string {
   const d = new Date();
   d.setMonth(d.getMonth() - HISTORY_MONTHS);
@@ -486,19 +520,30 @@ export class QuickBooksImportService {
       sb.from("qbo_staging_invoices").select("*").eq("run_id", runId),
       sb.from("qbo_staging_payments").select("*").eq("run_id", runId),
       sb.from("qbo_staging_estimates").select("qb_id").eq("run_id", runId),
-      sb.from("qbo_staging_customers").select("qb_id").eq("run_id", runId),
+      sb.from("qbo_staging_customers").select("qb_id, display_name").eq("run_id", runId),
       sb.from("qbo_staging_line_items").select("id").eq("run_id", runId),
     ]);
 
-    const matches = (matchData ?? []) as unknown as QboCustomerMatch[];
+    const rawMatches = (matchData ?? []) as Record<string, unknown>[];
     const invoices = (invoiceData ?? []) as unknown as QboStagedInvoice[];
     const payments = (paymentData ?? []) as unknown as QboStagedPayment[];
-    const customerCount = (customerData ?? []).length;
+    const customerRows = (customerData ?? []) as Record<string, unknown>[];
+    const customerCount = customerRows.length;
+
+    // Join each match to its QB customer display_name and map snake_case ->
+    // camelCase for the UI. buildMatchCounts reads the raw snake rows, so it is
+    // fed rawMatches (unchanged behaviour).
+    const displayNameByQbId = new Map<string, string | null>(
+      customerRows.map((c) => [c.qb_id as string, (c.display_name as string) ?? null])
+    );
+    const matches: QboCustomerMatch[] = rawMatches.map((r) =>
+      mapCustomerMatch(r, displayNameByQbId)
+    );
 
     return {
       run,
       matches,
-      matchCounts: buildMatchCounts(matches),
+      matchCounts: buildMatchCounts(rawMatches as unknown as QboCustomerMatch[]),
       stagedCounts: buildStagedCounts({
         customers: customerCount,
         estimates: (estimateData ?? []).length,

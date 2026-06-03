@@ -34,17 +34,13 @@ function resolveDecision(
 }
 
 /**
- * The QB customer's display label. The `qbo_customer_matches` row carries no
- * display name, so we resolve it from the candidate the row points at
- * (decided/proposed client first, then the highest-ranked candidate), falling
- * back to the QB customer id so every row is always identifiable.
+ * The QB customer's display label — the QuickBooks DisplayName carried on the
+ * match, falling back to the QB customer id so every row is always
+ * identifiable. (The matched OPS client, if any, is shown separately in the
+ * OPS-client column, not here.)
  */
-function resolveName(m: QboCustomerMatch, decision: RowDecision): string {
-  const targetId = decision.client_id ?? m.matchedClientId ?? null;
-  const matched =
-    (targetId && m.candidates.find((c) => c.clientId === targetId)) ||
-    m.candidates[0];
-  return matched?.name ?? m.customerQbId;
+function resolveName(m: QboCustomerMatch): string {
+  return m.displayName ?? m.customerQbId;
 }
 
 function candidateLabel(c: QboMatchCandidate): string {
@@ -97,7 +93,7 @@ export function CustomerMatchTable({
                 className="border-b border-border last:border-0 hover:bg-[rgba(255,255,255,0.02)]"
               >
                 <td className="px-1.5 py-1 font-mono text-caption text-text-2 truncate max-w-[220px]">
-                  {resolveName(m, decision)}
+                  {resolveName(m)}
                 </td>
                 <td
                   data-testid={`match-basis-${m.customerQbId}`}

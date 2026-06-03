@@ -157,6 +157,8 @@ export interface QboCustomerMatch {
   runId: string;
   companyId: string;
   customerQbId: string;
+  /** QB customer DisplayName (joined from staging) — what the review table shows. */
+  displayName: string | null;
   proposedAction: MatchAction;
   matchedClientId: string | null;
   matchBasis: MatchBasis | null;

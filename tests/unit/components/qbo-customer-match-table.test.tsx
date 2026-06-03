@@ -8,17 +8,16 @@ vi.mock("@/i18n/client", () => ({
 import { CustomerMatchTable } from "@/components/accounting/qbo/customer-match-table";
 import type { QboCustomerMatch } from "@/lib/types/qbo-import";
 
-// NOTE: shape reconciled to the A0-owned `QboCustomerMatch` type (the plan's
-// A4.4 draft predates the canonical type and referenced a non-existent
-// `displayName` / candidate `{ email, similarity }`). The real row carries no
-// display name, so the name column falls back to the matched/first candidate
-// name (or the QB id), and candidates use `{ clientId, name, basis, score }`.
+// QboCustomerMatch carries displayName (the QB customer's DisplayName, joined
+// from staging by getImportReview). The name column renders displayName; the
+// matched/candidate OPS client is shown separately in the OPS-client column.
 const matches: QboCustomerMatch[] = [
   {
     id: "m1",
     runId: "run-1",
     companyId: "co",
     customerQbId: "QB1",
+    displayName: "Sonnenschein Family Store",
     proposedAction: "link",
     matchedClientId: "c-1",
     matchBasis: "email",
@@ -32,6 +31,7 @@ const matches: QboCustomerMatch[] = [
     runId: "run-1",
     companyId: "co",
     customerQbId: "QB2",
+    displayName: "Adwin Ko",
     proposedAction: "create",
     matchedClientId: null,
     matchBasis: "none",
@@ -47,10 +47,10 @@ describe("CustomerMatchTable", () => {
     render(
       <CustomerMatchTable matches={matches} decisions={{}} onDecisionChange={vi.fn()} />
     );
-    // QB1 resolves its name from the matched candidate; QB2 (no candidate) falls
-    // back to its QB id.
-    expect(screen.getByText("Acme Decks")).toBeInTheDocument();
-    expect(screen.getByText("QB2")).toBeInTheDocument();
+    // The name column shows the QB customer's DisplayName (not the matched
+    // OPS client, which appears in the OPS-client picker).
+    expect(screen.getByText("Sonnenschein Family Store")).toBeInTheDocument();
+    expect(screen.getByText("Adwin Ko")).toBeInTheDocument();
     expect(screen.getByTestId("match-confidence-QB1").textContent).toContain(
       "qbo.confidence.high"
     );
