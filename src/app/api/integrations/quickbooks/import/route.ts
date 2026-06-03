@@ -67,15 +67,17 @@ export async function POST(request: NextRequest) {
       await service.pullAndStage(run.id);
       await service.computeCustomerMatches(run.id);
       return NextResponse.json({ runId: run.id });
-    } catch (err) {
-      console.error("[qbo-import] pull/stage failed:", err);
+    } catch {
+      // Do not log the caught error — its message can carry the raw QuickBooks
+      // error body (the pull service interpolates the upstream response text).
+      console.error("[qbo-import] pull/stage step failed");
       return NextResponse.json(
-        { error: `Import failed: ${(err as Error).message}` },
+        { error: "Import failed" },
         { status: 500 }
       );
     }
-  } catch (err) {
-    console.error("[qbo-import] POST error:", err);
+  } catch {
+    console.error("[qbo-import] POST error");
     return NextResponse.json({ error: "Failed to start import" }, { status: 500 });
   }
 }
@@ -115,9 +117,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    return NextResponse.json(review);
-  } catch (err) {
-    console.error("[qbo-import] GET error:", err);
+    // Staged QuickBooks customer/financial data — never cache it anywhere
+    // (browser, CDN, shared proxy). Always re-fetch from the origin.
+    return NextResponse.json(review, {
+      headers: { "Cache-Control": "no-store" },
+    });
+  } catch {
+    console.error("[qbo-import] GET error");
     return NextResponse.json({ error: "Failed to load import review" }, { status: 500 });
   }
 }
