@@ -15,6 +15,7 @@ import {
 import {
   encryptToken,
   encryptNullable,
+  realmIdLookup,
 } from "@/lib/api/services/token-cipher";
 
 const INTUIT_TOKEN_URL =
@@ -127,6 +128,10 @@ export async function GET(request: NextRequest) {
           Date.now() + (tokens.expires_in || 3600) * 1000
         ).toISOString(),
         realm_id: encryptNullable(realmId),
+        // Deterministic routing hash of the PLAINTEXT realmId. realm_id itself is
+        // encrypted (random IV per write) and so cannot be matched by a WHERE
+        // clause; inbound Intuit webhooks route to this connection via this hash.
+        realm_id_lookup: realmIdLookup(realmId),
         is_connected: true,
         sync_enabled: false, // read-only validation phase: no auto-sync
         sync_direction: "pull_only", // hard read-only mode (contract §6.3)
