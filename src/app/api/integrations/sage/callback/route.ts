@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { getAppUrl } from "@/lib/utils/app-url";
+import { encryptToken } from "@/lib/api/services/token-cipher";
 
 const SAGE_CLIENT_ID = process.env.SAGE_CLIENT_ID;
 const SAGE_CLIENT_SECRET = process.env.SAGE_CLIENT_SECRET;
@@ -84,8 +85,10 @@ export async function GET(request: NextRequest) {
     });
 
     if (!tokenResponse.ok) {
-      const errorData = await tokenResponse.text();
-      console.error("Sage token exchange failed:", errorData);
+      // Never log the raw Sage error body (may echo credentials/tokens).
+      console.error(
+        `Sage token exchange failed (HTTP ${tokenResponse.status})`
+      );
       return NextResponse.redirect(
         `${getAppUrl()}/accounting?status=error&message=token_exchange_failed`
       );
@@ -96,12 +99,12 @@ export async function GET(request: NextRequest) {
     // Sage access tokens expire after 5 minutes (300s)
     const expiresIn = tokens.expires_in || 300;
 
-    // Store tokens in accounting_connections
+    // Store tokens in accounting_connections — encrypted at rest.
     const { error: upsertError } = await supabase
       .from("accounting_connections")
       .update({
-        access_token: tokens.access_token,
-        refresh_token: tokens.refresh_token,
+        access_token: encryptToken(tokens.access_token),
+        refresh_token: encryptToken(tokens.refresh_token),
         token_expires_at: new Date(
           Date.now() + expiresIn * 1000
         ).toISOString(),
@@ -123,8 +126,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(
       `${getAppUrl()}/accounting?connected=sage`
     );
-  } catch (err) {
-    console.error("Sage OAuth callback error:", err);
+  } catch {
+    // Do not log the caught error — it can carry the token exchange payload.
+    console.error("Sage OAuth callback error (token exchange step)");
     return NextResponse.redirect(
       `${getAppUrl()}/accounting?status=error&message=unexpected_error`
     );

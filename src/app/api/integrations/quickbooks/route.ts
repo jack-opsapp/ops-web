@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { getAppUrl } from "@/lib/utils/app-url";
+import { decryptToken } from "@/lib/api/services/token-cipher";
 import crypto from "crypto";
 
 const QB_CLIENT_ID = process.env.QB_CLIENT_ID?.trim();
@@ -103,8 +104,13 @@ export async function DELETE(request: NextRequest) {
       .eq("provider", "quickbooks")
       .single();
 
-    // Attempt to revoke token at Intuit
-    if (connection?.access_token && QB_CLIENT_ID && QB_CLIENT_SECRET) {
+    // Attempt to revoke token at Intuit. The stored value is encrypted at
+    // rest — decrypt before sending to the revoke endpoint. Prefer the refresh
+    // token (Intuit revokes the whole grant from either token).
+    const revokeToken =
+      decryptToken(connection?.refresh_token) ??
+      decryptToken(connection?.access_token);
+    if (revokeToken && QB_CLIENT_ID && QB_CLIENT_SECRET) {
       try {
         await fetch(INTUIT_REVOKE_URL, {
           method: "POST",
@@ -112,7 +118,7 @@ export async function DELETE(request: NextRequest) {
             "Content-Type": "application/json",
             Authorization: `Basic ${Buffer.from(`${QB_CLIENT_ID}:${QB_CLIENT_SECRET}`).toString("base64")}`,
           },
-          body: JSON.stringify({ token: connection.access_token }),
+          body: JSON.stringify({ token: revokeToken }),
         });
       } catch {
         // Non-critical — continue with local disconnect

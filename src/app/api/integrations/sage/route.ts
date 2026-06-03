@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { getAppUrl } from "@/lib/utils/app-url";
+import { decryptToken } from "@/lib/api/services/token-cipher";
 import crypto from "crypto";
 
 const SAGE_CLIENT_ID = process.env.SAGE_CLIENT_ID?.trim();
@@ -102,14 +103,16 @@ export async function DELETE(request: NextRequest) {
       .eq("provider", "sage")
       .single();
 
-    // Attempt to revoke refresh token at Sage
-    if (connection?.refresh_token && SAGE_CLIENT_ID && SAGE_CLIENT_SECRET) {
+    // Attempt to revoke refresh token at Sage. The stored value is encrypted
+    // at rest — decrypt before sending to the revoke endpoint.
+    const sageRefreshToken = decryptToken(connection?.refresh_token);
+    if (sageRefreshToken && SAGE_CLIENT_ID && SAGE_CLIENT_SECRET) {
       try {
         await fetch(SAGE_REVOKE_URL, {
           method: "POST",
           headers: { "Content-Type": "application/x-www-form-urlencoded" },
           body: new URLSearchParams({
-            token: connection.refresh_token,
+            token: sageRefreshToken,
             client_id: SAGE_CLIENT_ID,
             client_secret: SAGE_CLIENT_SECRET,
           }),
