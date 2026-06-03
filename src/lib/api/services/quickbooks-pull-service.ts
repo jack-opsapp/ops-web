@@ -30,6 +30,16 @@ function assertCutoff(cutoff: string): string {
   return cutoff;
 }
 
+// QBO entity ids are bare positive integers. fetchEntityById interpolates the id
+// into a query, so anything but digits is rejected (SQL-injection guard).
+const ENTITY_ID_RE = /^\d+$/;
+
+// Allowlisted single-record entities the webhook receiver can fetch. The entity
+// name is interpolated into the FROM clause, so it is restricted to this exact
+// set rather than validated by regex — no caller-controlled string ever reaches
+// the query string.
+const FETCHABLE_ENTITIES = new Set(["Customer", "Invoice", "Payment", "Estimate"]);
+
 export class QuickBooksPullService {
   readonly realmId: string;
   private readonly accessToken: string;
@@ -150,6 +160,30 @@ export class QuickBooksPullService {
 
   async pullItems(): Promise<QboRawRecord[]> {
     return this.paginate("SELECT * FROM Item", "Item");
+  }
+
+  /**
+   * Fetch a SINGLE entity by its QBO Id (read-only, GET only). Used by the
+   * inbound webhook receiver to pull the one record an Intuit change event names.
+   *
+   * Both interpolated values are guarded:
+   *   - `entityType` must be one of FETCHABLE_ENTITIES (no regex — an exact
+   *     allowlist), so no caller-controlled string ever reaches the FROM clause.
+   *   - `id` must match /^\d+$/ (a bare positive integer), the QBO id shape —
+   *     anything else throws BEFORE any request is issued (SQL-injection guard).
+   *
+   * Returns the single matching record, or null if QBO returns no rows.
+   */
+  async fetchEntityById(entityType: string, id: string): Promise<QboRawRecord | null> {
+    if (!FETCHABLE_ENTITIES.has(entityType)) {
+      throw new Error(`Unsupported QuickBooks entity type: ${entityType}`);
+    }
+    if (typeof id !== "string" || !ENTITY_ID_RE.test(id)) {
+      throw new Error(`Invalid QuickBooks entity id (expected digits only): ${id}`);
+    }
+    const qr = await this.qboQuery(`SELECT * FROM ${entityType} WHERE Id = '${id}'`);
+    const rows = (qr[entityType] as Array<Record<string, unknown>> | undefined) ?? [];
+    return rows[0] ?? null;
   }
 
   /**
