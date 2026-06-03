@@ -28,6 +28,12 @@ process.env.NEXT_PUBLIC_FIREBASE_APP_ID ??= "1:0:web:test";
 // QuickBooks/Sage tokens needs one. A deterministic 32-byte test key (base64).
 process.env.QB_TOKEN_ENC_KEY ??= Buffer.alloc(32, 7).toString("base64");
 
+// Intuit webhook Verifier Token. The QuickBooks webhook receiver fails closed
+// (HTTP 500) when this is unset, so signature-verification tests need a stable
+// value to sign requests against. Tests that exercise the "verifier unset → 500"
+// path delete this within the test and restore it afterward.
+process.env.QB_WEBHOOK_VERIFIER_TOKEN ??= "test-qb-webhook-verifier-token";
+
 import "@testing-library/jest-dom/vitest";
 import { server } from "./mocks/server";
 import { beforeAll, afterEach, afterAll, vi } from "vitest";
