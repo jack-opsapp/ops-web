@@ -23,6 +23,17 @@ process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ??= "test.appspot.com";
 process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID ??= "0";
 process.env.NEXT_PUBLIC_FIREBASE_APP_ID ??= "1:0:web:test";
 
+// AES-256 key for the accounting OAuth token cipher (token-cipher.ts). It
+// fails closed without a key, so every test that exercises encrypt/decrypt of
+// QuickBooks/Sage tokens needs one. A deterministic 32-byte test key (base64).
+process.env.QB_TOKEN_ENC_KEY ??= Buffer.alloc(32, 7).toString("base64");
+
+// Intuit webhook Verifier Token. The QuickBooks webhook receiver fails closed
+// (HTTP 500) when this is unset, so signature-verification tests need a stable
+// value to sign requests against. Tests that exercise the "verifier unset → 500"
+// path delete this within the test and restore it afterward.
+process.env.QB_WEBHOOK_VERIFIER_TOKEN ??= "test-qb-webhook-verifier-token";
+
 import "@testing-library/jest-dom/vitest";
 import { server } from "./mocks/server";
 import { beforeAll, afterEach, afterAll, vi } from "vitest";

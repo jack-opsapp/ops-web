@@ -101,10 +101,12 @@ export async function POST(request: NextRequest) {
     let applied;
     try {
       applied = await service.applyImport(runId, decisions);
-    } catch (err) {
-      console.error("[qbo-import-apply] applyImport failed:", err);
+    } catch {
+      // Do not log the caught error — apply operates on staged QuickBooks data
+      // and the message can carry it. Record only that the step failed.
+      console.error("[qbo-import-apply] applyImport step failed");
       return NextResponse.json(
-        { error: `Apply failed: ${(err as Error).message}` },
+        { error: "Apply failed" },
         { status: 500 }
       );
     }
@@ -132,9 +134,14 @@ export async function POST(request: NextRequest) {
       console.error("[qbo-import-apply] notification insert failed (non-fatal):", notifyErr);
     }
 
-    return NextResponse.json({ applied });
-  } catch (err) {
-    console.error("[qbo-import-apply] POST error:", err);
+    // Response reflects what was written to OPS from staged QuickBooks data —
+    // never cache it (browser, CDN, shared proxy).
+    return NextResponse.json(
+      { applied },
+      { headers: { "Cache-Control": "no-store" } }
+    );
+  } catch {
+    console.error("[qbo-import-apply] POST error");
     return NextResponse.json({ error: "Failed to apply import" }, { status: 500 });
   }
 }

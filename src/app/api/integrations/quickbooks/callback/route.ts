@@ -12,6 +12,11 @@ import {
   getQuickBooksConfig,
   type QuickBooksConfig,
 } from "@/lib/api/services/quickbooks-config";
+import {
+  encryptToken,
+  encryptNullable,
+  realmIdLookup,
+} from "@/lib/api/services/token-cipher";
 
 const INTUIT_TOKEN_URL =
   "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer";
@@ -99,8 +104,10 @@ export async function GET(request: NextRequest) {
     });
 
     if (!tokenResponse.ok) {
-      const errorData = await tokenResponse.text();
-      console.error("QB token exchange failed:", errorData);
+      // Never log the raw Intuit error body (may echo credentials/tokens).
+      console.error(
+        `QB token exchange failed (HTTP ${tokenResponse.status})`
+      );
       return NextResponse.redirect(
         `${getAppUrl()}/accounting?status=error&message=token_exchange_failed`
       );
@@ -108,16 +115,23 @@ export async function GET(request: NextRequest) {
 
     const tokens = await tokenResponse.json();
 
-    // Store tokens in accounting_connections
+    // Store tokens in accounting_connections — encrypted at rest (Intuit
+    // security requirement: OAuth secrets must be AES-encrypted). The cipher
+    // fails closed if QB_TOKEN_ENC_KEY is missing, so a misconfigured deploy
+    // can never silently persist plaintext.
     const { error: upsertError } = await supabase
       .from("accounting_connections")
       .update({
-        access_token: tokens.access_token,
-        refresh_token: tokens.refresh_token,
+        access_token: encryptToken(tokens.access_token),
+        refresh_token: encryptToken(tokens.refresh_token),
         token_expires_at: new Date(
           Date.now() + (tokens.expires_in || 3600) * 1000
         ).toISOString(),
-        realm_id: realmId,
+        realm_id: encryptNullable(realmId),
+        // Deterministic routing hash of the PLAINTEXT realmId. realm_id itself is
+        // encrypted (random IV per write) and so cannot be matched by a WHERE
+        // clause; inbound Intuit webhooks route to this connection via this hash.
+        realm_id_lookup: realmIdLookup(realmId),
         is_connected: true,
         sync_enabled: false, // read-only validation phase: no auto-sync
         sync_direction: "pull_only", // hard read-only mode (contract §6.3)
@@ -137,8 +151,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(
       `${getAppUrl()}/accounting?connected=quickbooks`
     );
-  } catch (err) {
-    console.error("QuickBooks OAuth callback error:", err);
+  } catch {
+    // Do not log the caught error — it can carry the token exchange payload.
+    console.error("QuickBooks OAuth callback error (token exchange step)");
     return NextResponse.redirect(
       `${getAppUrl()}/accounting?status=error&message=unexpected_error`
     );

@@ -10,6 +10,9 @@
 
 type QbRecord = Record<string, unknown>;
 
+/** Public alias for a raw QB JSON record (exported for callers that pass records through). */
+export type QbRecordLike = QbRecord;
+
 // ─── Small typed views into the QB JSON ─────────────────────────────────────
 
 interface QbBillAddr {

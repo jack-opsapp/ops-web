@@ -10,6 +10,7 @@
  * callback tried to write. We stub global fetch for the Intuit token exchange.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { isEncrypted, decryptToken } from "@/lib/api/services/token-cipher";
 
 process.env.QB_CLIENT_ID = "AB_test_client_id";
 process.env.QB_CLIENT_SECRET = "test_client_secret";
@@ -76,14 +77,28 @@ describe("QuickBooks OAuth callback — pull_only landing", () => {
     expect(res.status).toBe(307);
     expect(res.headers.get("location")).toContain("connected=quickbooks");
 
-    // The token-storing update must carry the read-only mode.
+    // The token-storing update is the one that flips is_connected=true.
     const tokenUpdate = updateCalls.find(
-      (c) => c.payload.access_token === "qb_access_token",
+      (c) => c.payload.is_connected === true,
     );
     expect(tokenUpdate).toBeDefined();
     expect(tokenUpdate!.payload.sync_direction).toBe("pull_only");
     expect(tokenUpdate!.payload.sync_enabled).toBe(false);
     expect(tokenUpdate!.payload.is_connected).toBe(true);
-    expect(tokenUpdate!.payload.realm_id).toBe("9999999999");
+
+    // Tokens + realm id must be ENCRYPTED at rest (Intuit security req) —
+    // never the raw plaintext from the token exchange.
+    const accessToken = tokenUpdate!.payload.access_token as string;
+    const refreshToken = tokenUpdate!.payload.refresh_token as string;
+    const realmId = tokenUpdate!.payload.realm_id as string;
+    expect(isEncrypted(accessToken)).toBe(true);
+    expect(isEncrypted(refreshToken)).toBe(true);
+    expect(isEncrypted(realmId)).toBe(true);
+    expect(accessToken).not.toBe("qb_access_token");
+    expect(realmId).not.toBe("9999999999");
+    // …and round-trip back to the original plaintext.
+    expect(decryptToken(accessToken)).toBe("qb_access_token");
+    expect(decryptToken(refreshToken)).toBe("qb_refresh_token");
+    expect(decryptToken(realmId)).toBe("9999999999");
   });
 });

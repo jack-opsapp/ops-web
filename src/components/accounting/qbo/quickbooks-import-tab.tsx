@@ -8,13 +8,18 @@ import {
   ShieldAlert,
   AlertCircle,
   Link2Off,
+  Link2,
 } from "lucide-react";
 import { useDictionary } from "@/i18n/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils/cn";
 import { useAuthStore } from "@/lib/store/auth-store";
-import { useAccountingConnections } from "@/lib/hooks/use-accounting";
+import {
+  useAccountingConnections,
+  useInitiateOAuth,
+} from "@/lib/hooks/use-accounting";
+import { AccountingProvider } from "@/lib/types/pipeline";
 import {
   useStartImport,
   useImportReview,
@@ -64,6 +69,16 @@ export function QuickBooksImportTab() {
   const { data: connections } = useAccountingConnections();
   const qbConnection = connections?.find((c) => c.provider === "quickbooks");
   const isConnected = qbConnection?.isConnected ?? false;
+  // A connection row that exists but is no longer connected means the token
+  // expired or was revoked (invalid_grant flips is_connected=false): the
+  // operator must re-run OAuth. Distinguish that from "never connected".
+  const needsReconnect = !!qbConnection && !isConnected;
+
+  const initiateOAuth = useInitiateOAuth();
+  const handleReconnect = () => {
+    if (!companyId) return;
+    initiateOAuth.mutate({ companyId, provider: AccountingProvider.QuickBooks });
+  };
 
   const handlePull = async () => {
     if (!companyId) return;
@@ -213,8 +228,35 @@ export function QuickBooksImportTab() {
         )}
       </Card>
 
-      {/* Not-connected empty state (I6) */}
-      {!isConnected && !review && !startImport.isPending && (
+      {/* Reconnect prompt (token expired / revoked → is_connected=false on an
+          existing connection). Shows a direct CTA instead of pull controls. */}
+      {needsReconnect && !review && !startImport.isPending && (
+        <Card
+          variant="default"
+          className="p-3 space-y-2"
+          data-testid="qbo-reconnect-prompt"
+        >
+          <p className="font-mohave text-body text-text uppercase tracking-wider">
+            {t("qbo.reconnectTitle")}
+          </p>
+          <p className="font-mono text-caption-sm text-text-mute">
+            {t("qbo.reconnectPrompt")}
+          </p>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={handleReconnect}
+            disabled={initiateOAuth.isPending || !companyId}
+            className="gap-1"
+          >
+            <Link2 className="w-[14px] h-[14px]" />
+            {t("qbo.reconnect")}
+          </Button>
+        </Card>
+      )}
+
+      {/* Never-connected empty state (I6) */}
+      {!isConnected && !needsReconnect && !review && !startImport.isPending && (
         <Card variant="default" className="p-3">
           <p className="font-mohave text-body text-text uppercase tracking-wider">
             {t("qbo.notConnected")}

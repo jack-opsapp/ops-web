@@ -89,6 +89,19 @@ function round2(n: number): number {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 
+/**
+ * True if a thrown pull error indicates an HTTP 401 / unauthorized. The pull
+ * service throws `Error("QuickBooks pull error (401): …")`; we also tolerate a
+ * `.status` field or a plain "unauthorized" message.
+ */
+function isUnauthorizedError(err: unknown): boolean {
+  if (!err) return false;
+  const status = (err as { status?: number }).status;
+  if (status === 401) return true;
+  const msg = err instanceof Error ? err.message : String(err);
+  return /\(401\)/.test(msg) || /unauthorized/i.test(msg);
+}
+
 export class QuickBooksImportService {
   private supabase: SupabaseClient;
 
@@ -151,30 +164,61 @@ export class QuickBooksImportService {
     await this.setRun(runId, { status: "pulling" });
 
     try {
-      const { accessToken, realmId } = await AccountingTokenService.getValidToken(
-        sb,
-        conn.id as string
-      );
-      if (!realmId) throw new Error("QuickBooks realmId not found on connection");
+      const connId = conn.id as string;
 
-      // I3: getQuickBooksEnvironment() is the single source for prod-vs-sandbox
-      // (fail-safe to sandbox unless QB_ENVIRONMENT === 'production'). The pull
-      // service derives the same host (getQuickBooksApiBaseHost()) from this
-      // value, so there is exactly one decision point — no inline env read here.
-      const pull = new QuickBooksPullService(
-        realmId,
-        accessToken,
-        getQuickBooksEnvironment()
-      );
+      // Build a pull service from a freshly-resolved token. Used for the
+      // initial attempt and (on a 401) the single re-auth retry below.
+      const buildPull = async (): Promise<QuickBooksPullService> => {
+        const { accessToken, realmId } = await AccountingTokenService.getValidToken(
+          sb,
+          connId
+        );
+        if (!realmId) throw new Error("QuickBooks realmId not found on connection");
+        // I3: getQuickBooksEnvironment() is the single source for prod-vs-sandbox
+        // (fail-safe to sandbox unless QB_ENVIRONMENT === 'production'). The pull
+        // service derives the same host (getQuickBooksApiBaseHost()) from this
+        // value, so there is exactly one decision point — no inline env read here.
+        return new QuickBooksPullService(
+          realmId,
+          accessToken,
+          getQuickBooksEnvironment()
+        );
+      };
+
+      // Run every pull against a pull service. Extracted so a 401 mid-pull can
+      // re-run the whole batch once with a refreshed token (the access token
+      // may have expired between getValidToken and the request).
+      const runPulls = (svc: QuickBooksPullService) =>
+        Promise.all([
+          svc.pullCustomers(),
+          svc.pullInvoices(cutoff),
+          svc.pullEstimates(cutoff),
+          svc.pullPayments(cutoff),
+          svc.pullItems(),
+        ]);
+
+      let pull = await buildPull();
       const now = new Date();
 
-      const [rawCustomers, rawInvoices, rawEstimates, rawPayments, rawItems] = await Promise.all([
-        pull.pullCustomers(),
-        pull.pullInvoices(cutoff),
-        pull.pullEstimates(cutoff),
-        pull.pullPayments(cutoff),
-        pull.pullItems(),
-      ]);
+      let pulled: Awaited<ReturnType<typeof runPulls>>;
+      try {
+        pulled = await runPulls(pull);
+      } catch (pullErr) {
+        // Refresh-and-retry ONCE on a 401: force a fresh token, rebuild the
+        // pull service against it, and re-run the batch. Any non-401 (or a
+        // second 401) propagates and fails the run.
+        if (!isUnauthorizedError(pullErr)) throw pullErr;
+        // Expire the stored token so getValidToken performs a real refresh on
+        // the retry — a 401 means the current access token is no longer valid
+        // even though it had not yet reached its recorded expiry.
+        await sb
+          .from("accounting_connections")
+          .update({ token_expires_at: new Date(0).toISOString() })
+          .eq("id", connId);
+        pull = await buildPull();
+        pulled = await runPulls(pull);
+      }
+      const [rawCustomers, rawInvoices, rawEstimates, rawPayments, rawItems] = pulled;
 
       // Item.Id → Item.Type catalog. Resolves each sales line's ItemRef.value
       // so applyImport can classify the line (Inventory/NonInventory → MATERIAL,
