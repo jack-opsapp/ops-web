@@ -22,7 +22,7 @@
  * Never expose the key or this module to the client bundle.
  */
 
-import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 
 const VERSION = "enc:v1";
 const ALGO = "aes-256-gcm";
@@ -110,4 +110,24 @@ export function decryptToken(stored: string | null | undefined): string | null {
 export function encryptNullable(value: string | null | undefined): string | null {
   if (value === null || value === undefined || value === "") return null;
   return encryptToken(value);
+}
+
+/**
+ * Deterministic, non-reversible routing hash for a QuickBooks realm id.
+ *
+ * `accounting_connections.realm_id` is AES-encrypted at rest (a fresh random IV
+ * per write), so it CANNOT be queried directly — two encryptions of the same
+ * realm id produce different ciphertext. Inbound Intuit webhooks carry a
+ * plaintext `realmId` and must route to the right connection, so we persist a
+ * second column `realm_id_lookup` = `realmIdLookup(realmId)` and look connections
+ * up by it.
+ *
+ * Plain SHA-256 (no salt) is intentional and sufficient: the realm id is an
+ * opaque Intuit company identifier, not a secret credential, and the hash only
+ * has to be deterministic + collision-resistant for routing. A salt or HMAC
+ * would defeat the goal (we need the SAME hash from the webhook receiver and the
+ * OAuth callback without sharing extra state). Returns lowercase hex.
+ */
+export function realmIdLookup(realmId: string): string {
+  return createHash("sha256").update(realmId, "utf8").digest("hex");
 }
