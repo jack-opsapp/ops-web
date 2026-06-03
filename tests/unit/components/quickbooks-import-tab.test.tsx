@@ -20,13 +20,19 @@ vi.mock("@/lib/hooks/use-qbo-import", () => ({
   useImportReview: () => ({ data: reviewData, isLoading: false, isError: false }),
   useApplyImport: () => ({ mutateAsync: applyMutate, isPending: false }),
 }));
-// Default: QuickBooks connected. A `null` override drives the not-connected
-// path. `applyImport.isPending` is always false in this suite.
+// Default: QuickBooks connected. Toggle `connected`/`hasConnectionRow` to drive
+// the connected / reconnect / never-connected paths. `applyImport.isPending` is
+// always false in this suite.
 let connected = true;
+let hasConnectionRow = true;
+const initiateMutate = vi.fn();
 vi.mock("@/lib/hooks/use-accounting", () => ({
   useAccountingConnections: () => ({
-    data: [{ provider: "quickbooks", isConnected: connected }],
+    data: hasConnectionRow
+      ? [{ provider: "quickbooks", isConnected: connected }]
+      : [],
   }),
+  useInitiateOAuth: () => ({ mutate: initiateMutate, isPending: false }),
 }));
 vi.mock("@/lib/store/auth-store", () => ({
   useAuthStore: () => ({ company: { id: "a612edc0-5c18-4c4d-af97-55b9410dd077" } }),
@@ -117,7 +123,9 @@ const reviewNeedsReview = {
 describe("QuickBooksImportTab", () => {
   beforeEach(() => {
     connected = true;
+    hasConnectionRow = true;
     reviewData = undefined;
+    initiateMutate.mockClear();
   });
 
   it("shows the empty state with a pull CTA when there is no run", () => {
@@ -127,13 +135,33 @@ describe("QuickBooksImportTab", () => {
     expect(screen.getByRole("button", { name: /qbo.pull/ })).toBeInTheDocument();
   });
 
-  it("shows the not-connected state and disables pull when QuickBooks is not connected", () => {
+  it("shows the never-connected state and disables pull when no connection exists", () => {
     connected = false;
+    hasConnectionRow = false; // no connection row at all → never connected
     reviewData = undefined;
     render(<QuickBooksImportTab />);
     expect(screen.getByText("qbo.notConnected")).toBeInTheDocument();
     expect(screen.getByText("qbo.connectFirst")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /qbo.pull/ })).toBeDisabled();
+    expect(screen.queryByTestId("qbo-reconnect-prompt")).not.toBeInTheDocument();
+  });
+
+  it("shows the Reconnect prompt when a connection exists but is_connected is false", () => {
+    connected = false;
+    hasConnectionRow = true; // connection row present, but disconnected
+    reviewData = undefined;
+    render(<QuickBooksImportTab />);
+    expect(screen.getByTestId("qbo-reconnect-prompt")).toBeInTheDocument();
+    expect(screen.getByText("qbo.reconnectTitle")).toBeInTheDocument();
+    // Pull is disabled; the never-connected prompt is NOT shown.
+    expect(screen.getByRole("button", { name: /qbo.pull/ })).toBeDisabled();
+    expect(screen.queryByText("qbo.connectFirst")).not.toBeInTheDocument();
+    // Reconnect CTA kicks off OAuth re-initiation.
+    fireEvent.click(screen.getByRole("button", { name: /qbo.reconnect/ }));
+    expect(initiateMutate).toHaveBeenCalledWith({
+      companyId: "a612edc0-5c18-4c4d-af97-55b9410dd077",
+      provider: "quickbooks",
+    });
   });
 
   it("renders connection status + last-pulled in the run header", () => {
