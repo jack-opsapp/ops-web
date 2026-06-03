@@ -43,6 +43,11 @@ export interface StagedLine extends StagedLineCore {
 export interface StagedCustomerRow {
   qb_id: string;
   display_name: string | null;
+  company_name: string | null;
+  contact_name: string | null;
+  contact_title: string | null;
+  parent_qb_id: string | null;
+  is_job: boolean;
   email: string | null;
   phone: string | null;
   address: string | null;
@@ -142,14 +147,95 @@ export function joinBillAddr(addr: QbBillAddr | undefined): string | null {
 export function normalizeCustomer(raw: QbRecord): StagedCustomerRow {
   const email = (raw.PrimaryEmailAddr as { Address?: string } | undefined)?.Address;
   const phone = (raw.PrimaryPhone as { FreeFormNumber?: string } | undefined)?.FreeFormNumber;
+  const companyName = str(raw.CompanyName);
+  const displayName = str(raw.DisplayName);
+  const given = str(raw.GivenName);
+  const family = str(raw.FamilyName);
+  const personName = [given, family].filter((p): p is string => !!p).join(" ");
+  // A QB Job/sub-customer carries the "Parent:Child" path in DisplayName (e.g.
+  // "Acme:Kitchen") and is RECORDED but not acted on (Decision 3) — it must
+  // never yield a contact. So: never use the DisplayName fallback for a Job, and
+  // never when DisplayName looks like a job path (contains ':').
+  const isJob = raw.Job === true;
+  // Contact = the person. Fall back to DisplayName only when it carries a real
+  // person (differs from the company name, not a job path), so a company with no
+  // contact person — and every Job — yields null (no junk sub-client).
+  const contactName =
+    personName.length > 0
+      ? personName
+      : !isJob && displayName && displayName !== companyName && !displayName.includes(":")
+        ? displayName
+        : null;
+  const parentRef = (raw.ParentRef as { value?: string } | undefined)?.value;
   return {
     qb_id: String(raw.Id),
-    display_name: str(raw.DisplayName),
+    display_name: displayName,
+    company_name: companyName,
+    contact_name: contactName,
+    // QB Customer has no contact job-title — `Title` is a salutation (Mr./Mrs.).
+    // We deliberately do NOT import it into sub_clients.title (a job-role field).
+    contact_title: null,
+    parent_qb_id: str(parentRef),
+    is_job: isJob,
     email: str(email),
     phone: str(phone),
     address: joinBillAddr(raw.BillAddr as QbBillAddr | undefined),
     active: raw.Active !== false, // QB defaults active when absent
     raw,
+  };
+}
+
+/** Subset of a normalized/staged customer the apply helpers need. */
+export interface CustomerShape {
+  company_name: string | null;
+  contact_name: string | null;
+  display_name: string | null;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
+  is_job?: boolean | null;
+}
+
+/**
+ * The `clients` row fields for a QB customer. Company-type → name = CompanyName,
+ * and when a contact person exists the email/phone live on the sub_client (null
+ * here); a contact-less company keeps them. Individuals are unchanged. BillAddr
+ * stays on the billing entity either way.
+ */
+export function clientFieldsFromCustomer(c: CustomerShape): {
+  name: string;
+  email: string | null;
+  phone_number: string | null;
+  address: string | null;
+} {
+  const isCompany = !!c.company_name;
+  const hasContact = isCompany && !!c.contact_name && c.is_job !== true;
+  return {
+    name: isCompany ? (c.company_name as string) : (c.display_name ?? "QuickBooks customer"),
+    email: hasContact ? null : (c.email ?? null),
+    phone_number: hasContact ? null : (c.phone ?? null),
+    address: c.address ?? null,
+  };
+}
+
+/**
+ * The `sub_clients` contact row for a QB customer, or null when none is created:
+ * individuals (no CompanyName), contact-less companies, and QB Jobs (Decision 3).
+ */
+export function subClientFieldsFromCustomer(c: CustomerShape): {
+  name: string;
+  title: string | null;
+  email: string | null;
+  phone_number: string | null;
+  address: string | null;
+} | null {
+  if (!c.company_name || !c.contact_name || c.is_job === true) return null;
+  return {
+    name: c.contact_name,
+    title: null, // QB has no contact job-title (Title is a salutation) — deliberately null.
+    email: c.email ?? null,
+    phone_number: c.phone ?? null,
+    address: c.address ?? null,
   };
 }
 
