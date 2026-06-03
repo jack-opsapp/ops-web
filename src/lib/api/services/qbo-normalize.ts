@@ -152,15 +152,40 @@ export function normalizeCustomer(raw: QbRecord): StagedCustomerRow {
 
 // ─── Line items ─────────────────────────────────────────────────────────────
 
-function mapSalesLine(line: QbRecord): StagedLineCore {
+/**
+ * Map of QB Item.Id → Item.Type (e.g. "Inventory", "NonInventory", "Service"),
+ * built from the QB Item catalog pull. Used to resolve each sales line's
+ * ItemRef.value to its source item type so applyImport can classify the OPS
+ * line as MATERIAL (Inventory/NonInventory) vs OTHER (everything else).
+ */
+export type ItemTypeMap = Map<string, string>;
+
+/** Build an Item.Id → Item.Type map from raw QB Item catalog records. */
+export function buildItemTypeMap(rawItems: unknown): ItemTypeMap {
+  const arr = Array.isArray(rawItems) ? (rawItems as QbRecord[]) : [];
+  const map: ItemTypeMap = new Map();
+  for (const item of arr) {
+    const id = str(item.Id);
+    const type = str(item.Type);
+    if (id && type) map.set(id, type);
+  }
+  return map;
+}
+
+function mapSalesLine(line: QbRecord, itemTypes?: ItemTypeMap): StagedLineCore {
   const detail = (line.SalesItemLineDetail as QbRecord) ?? {};
-  const itemRef = detail.ItemRef as { name?: string } | undefined;
+  const itemRef = detail.ItemRef as { name?: string; value?: string } | undefined;
   const description = str(line.Description);
   const name = description ?? str(itemRef?.name) ?? "Line item";
   const qty = num(detail.Qty) ?? 1;
   const unitPrice = num(detail.UnitPrice) ?? 0;
   const amount = num(line.Amount) ?? cents(qty * unitPrice);
   const taxCode = (detail.TaxCodeRef as { value?: string } | undefined)?.value;
+  // Resolve the line's ItemRef.value → QB Item.Type via the catalog map. Null
+  // when no map is supplied or the item is unknown — applyImport maps null and
+  // every non-(Inventory|NonInventory) type to OTHER.
+  const itemRefValue = str(itemRef?.value);
+  const itemType = itemRefValue ? itemTypes?.get(itemRefValue) ?? null : null;
   return {
     name,
     description,
@@ -168,7 +193,7 @@ function mapSalesLine(line: QbRecord): StagedLineCore {
     unit_price: unitPrice,
     amount: cents(amount),
     is_taxable: !!taxCode && taxCode !== "NON",
-    qb_item_type: str(itemRef?.name) ? null : null, // Item.Type resolved later via pullItems; default null
+    qb_item_type: itemType,
     qb_line_id: str(line.Id),
     sort_order: num(line.LineNum) ?? 0,
   };
@@ -176,18 +201,19 @@ function mapSalesLine(line: QbRecord): StagedLineCore {
 
 /**
  * Keep only SalesItemLineDetail lines. Skip SubTotal / Discount / DescriptionOnly.
- * Flatten GroupLineDetail.Line[] recursively.
+ * Flatten GroupLineDetail.Line[] recursively. `itemTypes` resolves each line's
+ * ItemRef.value → QB Item.Type (Inventory/NonInventory → MATERIAL downstream).
  */
-export function flattenSalesLines(lines: unknown): StagedLineCore[] {
+export function flattenSalesLines(lines: unknown, itemTypes?: ItemTypeMap): StagedLineCore[] {
   const arr = Array.isArray(lines) ? (lines as QbRecord[]) : [];
   const out: StagedLineCore[] = [];
   for (const line of arr) {
     const detailType = line.DetailType;
     if (detailType === "SalesItemLineDetail") {
-      out.push(mapSalesLine(line));
+      out.push(mapSalesLine(line, itemTypes));
     } else if (detailType === "GroupLineDetail") {
       const nested = (line.GroupLineDetail as { Line?: unknown } | undefined)?.Line;
-      out.push(...flattenSalesLines(nested));
+      out.push(...flattenSalesLines(nested, itemTypes));
     }
     // SubTotalLineDetail / DiscountLineDetail / DescriptionOnly → skip
   }
@@ -243,7 +269,7 @@ function linkedEstimateId(raw: QbRecord): string | null {
   return est?.TxnId ? String(est.TxnId) : null;
 }
 
-export function normalizeInvoice(raw: QbRecord, now: Date): NormalizedInvoice {
+export function normalizeInvoice(raw: QbRecord, now: Date, itemTypes?: ItemTypeMap): NormalizedInvoice {
   const total = num(raw.TotalAmt) ?? 0;
   const balance = num(raw.Balance) ?? 0;
   const isVoid = String((raw as { PrivateNote?: string }).PrivateNote ?? "").toLowerCase().includes("voided")
@@ -269,7 +295,7 @@ export function normalizeInvoice(raw: QbRecord, now: Date): NormalizedInvoice {
     raw,
   };
 
-  const lines = skipped ? [] : attachParent(flattenSalesLines(raw.Line), "invoice", qbId);
+  const lines = skipped ? [] : attachParent(flattenSalesLines(raw.Line, itemTypes), "invoice", qbId);
   return {
     staging,
     lines,
@@ -302,7 +328,7 @@ export function mapEstimateStatus(
   }
 }
 
-export function normalizeEstimate(raw: QbRecord, now: Date): NormalizedEstimate {
+export function normalizeEstimate(raw: QbRecord, now: Date, itemTypes?: ItemTypeMap): NormalizedEstimate {
   const { taxAmount, taxRate } = taxFromTxnDetail(raw);
   const expiration = str(raw.ExpirationDate);
   const qbId = String(raw.Id);
@@ -319,7 +345,7 @@ export function normalizeEstimate(raw: QbRecord, now: Date): NormalizedEstimate 
     total: num(raw.TotalAmt),
     raw,
   };
-  return { staging, lines: attachParent(flattenSalesLines(raw.Line), "estimate", qbId) };
+  return { staging, lines: attachParent(flattenSalesLines(raw.Line, itemTypes), "estimate", qbId) };
 }
 
 // ─── Payment ──────────────────────────────────────────────────────────────────

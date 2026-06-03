@@ -8,6 +8,7 @@ import {
   normalizeInvoice,
   normalizeEstimate,
   flattenSalesLines,
+  buildItemTypeMap,
   splitPaymentLines,
   deriveInvoiceStatus,
   mapEstimateStatus,
@@ -74,6 +75,57 @@ describe("flattenSalesLines", () => {
     expect(lines[1].quantity).toBe(9.5);
     expect(lines[1].unit_price).toBe(5);
     expect(lines[1].amount).toBe(47.5);
+  });
+});
+
+describe("buildItemTypeMap", () => {
+  it("maps QB Item.Id → Item.Type, skipping records missing Id or Type", () => {
+    const map = buildItemTypeMap([
+      { Id: "5", Type: "Inventory", Name: "Rock Fountain" },
+      { Id: "11", Type: "NonInventory", Name: "Pump" },
+      { Id: "19", Type: "Service", Name: "Installation" },
+      { Id: "20" }, // no Type → skipped
+      { Type: "Inventory" }, // no Id → skipped
+    ]);
+    expect(map.get("5")).toBe("Inventory");
+    expect(map.get("11")).toBe("NonInventory");
+    expect(map.get("19")).toBe("Service");
+    expect(map.has("20")).toBe(false);
+    expect(map.size).toBe(3);
+  });
+
+  it("returns an empty map for non-array / empty input", () => {
+    expect(buildItemTypeMap(undefined).size).toBe(0);
+    expect(buildItemTypeMap([]).size).toBe(0);
+  });
+});
+
+describe("flattenSalesLines item-type resolution", () => {
+  it("resolves each line's ItemRef.value → QB Item.Type via the catalog map", () => {
+    // Invoice 130: line 1 ItemRef.value "5", line 2 ItemRef.value "11".
+    const itemTypes = buildItemTypeMap([
+      { Id: "5", Type: "Inventory" },
+      { Id: "11", Type: "Service" },
+    ]);
+    const lines = flattenSalesLines((invoices[0] as { Line: unknown[] }).Line, itemTypes);
+    expect(lines[0].qb_item_type).toBe("Inventory"); // Rock Fountain → ItemRef 5
+    expect(lines[1].qb_item_type).toBe("Service"); // Pump → ItemRef 11
+  });
+
+  it("resolves ItemRef.value inside a nested GroupLineDetail line", () => {
+    // Estimate 98: the single sales line lives under GroupLineDetail, ItemRef.value "19".
+    const itemTypes = buildItemTypeMap([{ Id: "19", Type: "NonInventory" }]);
+    const lines = flattenSalesLines((estimates[0] as { Line: unknown[] }).Line, itemTypes);
+    expect(lines).toHaveLength(1);
+    expect(lines[0].qb_item_type).toBe("NonInventory");
+  });
+
+  it("yields null qb_item_type when the item is unknown or no map is supplied", () => {
+    expect(flattenSalesLines((invoices[0] as { Line: unknown[] }).Line)[0].qb_item_type).toBeNull();
+    const partial = buildItemTypeMap([{ Id: "5", Type: "Inventory" }]);
+    const lines = flattenSalesLines((invoices[0] as { Line: unknown[] }).Line, partial);
+    expect(lines[0].qb_item_type).toBe("Inventory"); // known
+    expect(lines[1].qb_item_type).toBeNull(); // ItemRef 11 not in map
   });
 });
 

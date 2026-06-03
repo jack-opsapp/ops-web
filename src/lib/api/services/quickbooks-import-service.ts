@@ -28,6 +28,7 @@ import {
   splitPaymentLines,
   deriveInvoiceStatus,
   mapEstimateStatus,
+  buildItemTypeMap,
 } from "./qbo-normalize";
 import { getQuickBooksEnvironment } from "./quickbooks-config";
 import {
@@ -167,12 +168,19 @@ export class QuickBooksImportService {
       );
       const now = new Date();
 
-      const [rawCustomers, rawInvoices, rawEstimates, rawPayments] = await Promise.all([
+      const [rawCustomers, rawInvoices, rawEstimates, rawPayments, rawItems] = await Promise.all([
         pull.pullCustomers(),
         pull.pullInvoices(cutoff),
         pull.pullEstimates(cutoff),
         pull.pullPayments(cutoff),
+        pull.pullItems(),
       ]);
+
+      // Item.Id → Item.Type catalog. Resolves each sales line's ItemRef.value
+      // so applyImport can classify the line (Inventory/NonInventory → MATERIAL,
+      // every other type → OTHER). Without this map, qb_item_type stays null and
+      // every line lands as OTHER — the locked MATERIAL decision would be dead.
+      const itemTypes = buildItemTypeMap(rawItems);
 
       // ── Customers ──────────────────────────────────────────────────────
       const customerRows = rawCustomers.map((c) => {
@@ -199,7 +207,7 @@ export class QuickBooksImportService {
       const estimateRows: Record<string, unknown>[] = [];
       const lineRows: Record<string, unknown>[] = [];
       for (const e of rawEstimates) {
-        const norm = normalizeEstimate(e, now);
+        const norm = normalizeEstimate(e, now, itemTypes);
         estimateRows.push({
           run_id: runId,
           company_id: companyId,
@@ -243,7 +251,7 @@ export class QuickBooksImportService {
       const invoiceRows: Record<string, unknown>[] = [];
       let skippedInvoiceCount = 0;
       for (const inv of rawInvoices) {
-        const norm = normalizeInvoice(inv, now);
+        const norm = normalizeInvoice(inv, now, itemTypes);
         if (norm.skipped) skippedInvoiceCount += 1;
         invoiceRows.push({
           run_id: runId,

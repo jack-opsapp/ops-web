@@ -190,6 +190,14 @@ describe("QuickBooksImportService.applyImport", () => {
     const sumLineTotal = round2(invLines.reduce((s: number, l: any) => s + Number(l.line_total), 0));
     expect(sumLineTotal).toBe(Number(inv.subtotal)); // 335.25
 
+    // Locked decision: qb_item_type Inventory/NonInventory → MATERIAL, else OTHER.
+    // Staged fixture lines carry NonInventory ("Cedar deck boards") and Service
+    // ("Labor"); the resolved values must drive the OPS line `type`.
+    const cedar = invLines.find((l: any) => l.name === "Cedar deck boards"); // NonInventory
+    const labor = invLines.find((l: any) => l.name === "Labor"); // Service
+    expect(cedar.type).toBe("MATERIAL");
+    expect(labor.type).toBe("OTHER");
+
     // Payment applied + trigger recomputed amount_paid to 200
     expect(result.paymentsUpserted).toBe(1);
     expect(supabase.__db.payments[0].amount).toBe(200);

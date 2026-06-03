@@ -137,6 +137,40 @@ describe("QuickBooksImportService.pullAndStage", () => {
   });
 });
 
+describe("QuickBooksImportService.pullAndStage item-type resolution", () => {
+  it("resolves ItemRef.value → QB Item.Type so staged lines carry real qb_item_type", async () => {
+    // Realistic Item catalog: invoice 130 lines reference ItemRef 5 (Inventory)
+    // and 11 (Service); estimate 98's nested line references ItemRef 19
+    // (NonInventory). These flow through pullItems → buildItemTypeMap → staging.
+    pullInstance.pullItems.mockResolvedValueOnce([
+      { Id: "5", Type: "Inventory", Name: "Rock Fountain" },
+      { Id: "11", Type: "Service", Name: "Pump" },
+      { Id: "19", Type: "NonInventory", Name: "Installation" },
+    ]);
+
+    const run = await svc.startImportRun(COMPANY_ID);
+    await svc.pullAndStage(run.id);
+
+    const staged = supabase._tables.qbo_staging_line_items;
+    // Resolution is NOT hand-set on the staged row — it comes from the catalog.
+    const rockFountain = staged.find((l) => l.name === "Rock Fountain");
+    const pump = staged.find((l) => l.name === "Pump Hours"); // Description, not ItemRef.name
+    const install = staged.find((l) => l.name === "Garden Install");
+    expect(rockFountain?.qb_item_type).toBe("Inventory"); // → MATERIAL at apply
+    expect(pump?.qb_item_type).toBe("Service"); // → OTHER at apply
+    expect(install?.qb_item_type).toBe("NonInventory"); // → MATERIAL at apply
+  });
+
+  it("leaves qb_item_type null (→ OTHER) when the Item catalog is empty", async () => {
+    pullInstance.pullItems.mockResolvedValueOnce([]);
+    const run = await svc.startImportRun(COMPANY_ID);
+    await svc.pullAndStage(run.id);
+    const staged = supabase._tables.qbo_staging_line_items;
+    expect(staged.length).toBeGreaterThan(0);
+    expect(staged.every((l) => l.qb_item_type === null)).toBe(true);
+  });
+});
+
 describe("QuickBooksImportService.computeCustomerMatches", () => {
   it("writes one match row per staged customer (email link for Cool Cars)", async () => {
     const run = await svc.startImportRun(COMPANY_ID);
