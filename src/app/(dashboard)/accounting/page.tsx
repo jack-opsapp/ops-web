@@ -188,9 +188,10 @@ function ConnectionCard({
         </div>
       </div>
 
-      {/* Connection details */}
+      {/* Connection details — never surface the QuickBooks realm id (customer-
+          identifying info; Intuit security req). Status only. */}
       {isConnected && connection && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1 border-t border-border">
+        <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border">
           <div>
             <span className="font-mono text-micro text-text-mute uppercase tracking-wider block">
               {t("integrations.lastSynced")}
@@ -212,14 +213,6 @@ function ConnectionCard({
             </span>
             <span className="font-mono text-data-sm text-text-2">
               {connection.syncEnabled ? t("integrations.enabled") : t("integrations.disabled")}
-            </span>
-          </div>
-          <div>
-            <span className="font-mono text-micro text-text-mute uppercase tracking-wider block">
-              {t("integrations.realmId")}
-            </span>
-            <span className="font-mono text-data-sm text-text-2 truncate block">
-              {connection.realmId || "—"}
             </span>
           </div>
         </div>

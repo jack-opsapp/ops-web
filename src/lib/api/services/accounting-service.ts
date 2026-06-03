@@ -20,14 +20,18 @@ function mapConnectionFromDb(
     id: row.id as string,
     companyId: row.company_id as string,
     provider: row.provider as AccountingProvider,
-    accessToken: (row.access_token as string) ?? null,
-    refreshToken: (row.refresh_token as string) ?? null,
+    // OAuth secrets (access_token / refresh_token) and the customer-identifying
+    // realm_id are NEVER read into the client bundle (Intuit security req):
+    // they are encrypted at rest and only the server decrypts them. The client
+    // model carries `null` so the UI can never render or leak them.
+    accessToken: null,
+    refreshToken: null,
     tokenExpiresAt: parseDate(row.token_expires_at),
-    realmId: (row.realm_id as string) ?? null,
+    realmId: null,
     isConnected: (row.is_connected as boolean) ?? false,
     lastSyncAt: parseDate(row.last_sync_at),
     syncEnabled: (row.sync_enabled as boolean) ?? false,
-    webhookVerifierToken: (row.webhook_verifier_token as string) ?? null,
+    webhookVerifierToken: null,
     createdAt: parseDate(row.created_at),
     updatedAt: parseDate(row.updated_at),
   };
@@ -39,9 +43,13 @@ export const AccountingService = {
   async getConnections(companyId: string): Promise<AccountingConnection[]> {
     const supabase = requireSupabase();
 
+    // Select only non-secret columns. Never pull access_token / refresh_token /
+    // realm_id / webhook_verifier_token into the client (Intuit security req).
     const { data, error } = await supabase
       .from("accounting_connections")
-      .select("*")
+      .select(
+        "id, company_id, provider, token_expires_at, is_connected, last_sync_at, sync_enabled, created_at, updated_at"
+      )
       .eq("company_id", companyId);
 
     if (error)
