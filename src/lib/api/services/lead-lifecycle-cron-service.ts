@@ -21,11 +21,24 @@
  *
  *   - DESTRUCTIVE decisions (`archive_after_two_unanswered_followups`,
  *     `archive_no_meaningful_correspondence`, `move_to_lost_operator_no_response`,
- *     `reactivate_on_related_inbound`) are NEVER executed. The cron does not
- *     call `executeOpportunityLifecycleAction` for these at all, so the guarded
- *     RPC `execute_opportunity_lifecycle_guarded_action` can never be invoked
- *     from the schedule. They are surfaced as DRY-RUN candidates only, for
- *     operator review.
+ *     `reactivate_on_related_inbound`) AUTO-EXECUTE only when the owning company
+ *     has opted in via its lifecycle settings — `auto_archive_enabled` gates the
+ *     two archive actions and the reactivate action (reactivate is the inverse
+ *     of archive: a lead the cron auto-archived that then gets a meaningful
+ *     related inbound is auto-restored under the same opt-in), and
+ *     `auto_lost_enabled` gates `move_to_lost_operator_no_response`. When opted
+ *     in, the cron calls `executeOpportunityLifecycleAction({ mode: "apply" })`,
+ *     which enforces every structural guard (terminal/protected stage, deleted,
+ *     converted/project-linked, already-archived, lost-stage allow-list,
+ *     related-inbound requirement, snapshot mismatch), writes the audit row, and
+ *     fires the guarded RPC `execute_opportunity_lifecycle_guarded_action`. The
+ *     cron supplies the opportunity snapshot + a deterministic per-day approval
+ *     key (`<opportunityId>:<action>:<YYYY-MM-DD>`) so the action-service's
+ *     apply-mode approval + duplicate-applied guards are satisfied and re-runs in
+ *     the same day cannot double-apply. When the company has NOT opted in, the
+ *     destructive decision is surfaced as a DRY-RUN candidate only (a deduped
+ *     persistent operator review notification) and never applied — the guarded
+ *     RPC is not called for that opportunity.
  *
  *   - Meaningful inbound supersede (`resetStaleLifecycleAfterMeaningfulInbound`)
  *     is non-destructive (it supersedes local drafts + resolves local
@@ -88,6 +101,57 @@ const DESTRUCTIVE_ACTIONS = new Set<OpportunityLifecycleDecisionAction>([
 
 const DEFAULT_MAX_OPPORTUNITIES = 2000;
 const CHUNK = 100;
+
+/**
+ * Per-company opt-in gate for auto-executing a destructive disposition. The
+ * action-service applies these structurally but does NOT consult the
+ * per-company `auto_archive_enabled` / `auto_lost_enabled` flags, so the cron
+ * owns that policy decision here:
+ *   - both archive actions AND `reactivate_on_related_inbound` are gated on
+ *     `autoArchiveEnabled`. Reactivate is the inverse of archive — a lead the
+ *     cron auto-archived that then receives a meaningful related inbound is
+ *     auto-restored under the same opt-in, so the operator who enabled
+ *     auto-archive never loses a re-engaged lead to a stale archive.
+ *   - `move_to_lost_operator_no_response` is gated on `autoLostEnabled`.
+ * Any other action is never auto-executed by this gate.
+ */
+function destructiveActionAutoEnabled(
+  action: OpportunityLifecycleDecisionAction,
+  settings: LeadLifecycleSettings
+): boolean {
+  switch (action) {
+    case "archive_after_two_unanswered_followups":
+    case "archive_no_meaningful_correspondence":
+    case "reactivate_on_related_inbound":
+      return settings.autoArchiveEnabled;
+    case "move_to_lost_operator_no_response":
+      return settings.autoLostEnabled;
+    default:
+      return false;
+  }
+}
+
+/**
+ * Deterministic approval key for an auto-executed destructive disposition,
+ * mirroring the manual operator script's `defaultApprovedActionKey`
+ * (`<opportunityId>:<action>:<YYYY-MM-DD>`). Two roles:
+ *   1. It is non-null, so the action-service's apply-mode `missing_approval`
+ *      guard passes (the cron, gated on the company opt-in, IS the approver).
+ *   2. It is stable within a UTC day, so the action-service's
+ *      `duplicate_applied_action` guard short-circuits a second run on the same
+ *      day even though the structural state already changed — belt-and-braces
+ *      idempotency on top of the structural guards (e.g. already-archived).
+ * Keyed on the cron's own `now` so a single run uses one day boundary for every
+ * opportunity it touches.
+ */
+function destructiveApprovalKey(
+  opportunityId: string,
+  action: OpportunityLifecycleDecisionAction,
+  now: Date
+): string {
+  const day = now.toISOString().slice(0, 10);
+  return `${opportunityId}:${action}:${day}`;
+}
 
 /**
  * Prefix family for synthetic / quarantined thread ids produced by the DW1
@@ -179,8 +243,12 @@ export interface DestructiveCandidate {
   companyId: string;
   action: OpportunityLifecycleDecisionAction;
   reason: string;
-  /** "dry-run" = actionable for operator review; "skipped-fragmented" = quarantined. */
-  status: "dry-run" | "skipped-fragmented";
+  /**
+   * "applied" = the destructive disposition was auto-executed (company opted in);
+   * "dry-run" = surfaced for operator review (company not opted in);
+   * "skipped-fragmented" = quarantined, never acted on.
+   */
+  status: "applied" | "dry-run" | "skipped-fragmented";
   evidence: Record<string, unknown>;
 }
 
@@ -196,6 +264,20 @@ export interface LeadLifecycleCronResult {
   draftsSuperseded: number;
   destructiveDryRun: number;
   destructiveSkippedFragmented: number;
+  /** Destructive dispositions auto-executed (company opted in): archived. */
+  destructiveArchived: number;
+  /** Destructive dispositions auto-executed (company opted in): moved to lost. */
+  destructiveMovedToLost: number;
+  /** Destructive dispositions auto-executed (company opted in): reactivated. */
+  destructiveReactivated: number;
+  /**
+   * Auto-execution attempts that the action-service's structural guards
+   * declined (terminal/protected stage, already-archived, snapshot mismatch,
+   * converted/linked, lost-stage not allowed, missing related inbound, etc.) —
+   * i.e. an `opportunity` op of any non-failure `skipped_*`. Not an error: the
+   * guard fired exactly as designed and the opportunity was left untouched.
+   */
+  destructiveExecutionSkippedGuarded: number;
   /** Review notifications inserted for dry-run destructive candidates. */
   destructiveReviewNotificationsCreated: number;
   /** Review notifications skipped because an unread/unresolved one already exists. */
@@ -220,6 +302,12 @@ interface OpportunityRow {
   created_at: string | null;
   stage_entered_at: string | null;
   contact_name: string | null;
+  // Lost-disposition audit context, only read for the move-to-lost beforeValues.
+  // Mirrors the manual operator script's opportunity snapshot so the audit row
+  // the action-service writes is byte-for-byte the same shape as a manual apply.
+  lost_reason: string | null;
+  lost_notes: string | null;
+  actual_close_date: string | null;
   updated_at: string | null;
 }
 
@@ -363,7 +451,7 @@ async function fetchOpportunities(
     const { data } = await supabase
       .from("opportunities")
       .select(
-        "id, company_id, title, stage, archived_at, deleted_at, project_id, project_ref, created_at, stage_entered_at, contact_name, updated_at"
+        "id, company_id, title, stage, archived_at, deleted_at, project_id, project_ref, created_at, stage_entered_at, contact_name, lost_reason, lost_notes, actual_close_date, updated_at"
       )
       .is("deleted_at", null)
       .in("company_id", ids)
@@ -689,6 +777,10 @@ export async function runLeadLifecycleCron(
     draftsSuperseded: 0,
     destructiveDryRun: 0,
     destructiveSkippedFragmented: 0,
+    destructiveArchived: 0,
+    destructiveMovedToLost: 0,
+    destructiveReactivated: 0,
+    destructiveExecutionSkippedGuarded: 0,
     destructiveReviewNotificationsCreated: 0,
     destructiveReviewNotificationsSkippedExisting: 0,
     destructiveReviewNotificationsSkippedMissingOperator: 0,
@@ -815,21 +907,103 @@ export async function runLeadLifecycleCron(
         result.errors += 1;
       }
     } else if (DESTRUCTIVE_ACTIONS.has(decision.action)) {
-      // DRY-RUN candidates only. The cron NEVER calls
-      // executeOpportunityLifecycleAction for destructive actions, so the
-      // guarded RPC can never fire from the schedule.
+      // Three mutually-exclusive sub-cases:
+      //   1. fragmented  → quarantined, never acted on (no execute, no notify).
+      //   2. auto-enabled → company opted in → APPLY the disposition via the
+      //      action-service (guarded RPC fires; every structural guard enforced).
+      //   3. else        → not opted in → surface a dry-run review notification
+      //      only (the prior behaviour); the guarded RPC is never called.
+      let status: DestructiveCandidate["status"];
       const fragmented = fragmentedIds.has(opportunity.id);
-      const status: DestructiveCandidate["status"] = fragmented
-        ? "skipped-fragmented"
-        : "dry-run";
       if (fragmented) {
+        status = "skipped-fragmented";
         result.destructiveSkippedFragmented += 1;
+      } else if (destructiveActionAutoEnabled(decision.action, settings)) {
+        // AUTO-EXECUTE. Same argument shape as the non-destructive branch, plus
+        // the two fields the destructive apply path additionally requires:
+        //   - `opportunity` snapshot: without it the action-service guards with
+        //     `missing_opportunity_snapshot` and never touches the row.
+        //   - `approvedActionKey`: a deterministic per-day key so the apply-mode
+        //     `missing_approval` guard passes (the cron is the approver, gated
+        //     on the company opt-in) and a same-day re-run hits the
+        //     `duplicate_applied_action` guard instead of re-applying.
+        // The action-service still independently enforces terminal/protected
+        // stage, deleted, converted/linked, already-archived, lost-stage
+        // allow-list, related-inbound, and snapshot-mismatch guards.
+        status = "applied";
+        const latestEvent = latestMeaningfulEvent(eventRows);
+        try {
+          const execution = await executeOpportunityLifecycleAction({
+            supabase,
+            mode: "apply",
+            companyId: opportunity.company_id,
+            opportunityId: opportunity.id,
+            opportunityTitle: opportunity.title,
+            decision,
+            lifecycleState,
+            settings,
+            latestMeaningfulEvent: latestEvent
+              ? {
+                  id: latestEvent.id,
+                  direction: latestEvent.direction,
+                  isMeaningful: latestEvent.is_meaningful,
+                  occurredAt: latestEvent.occurred_at,
+                  connectionId: latestEvent.connection_id,
+                  providerThreadId: latestEvent.provider_thread_id,
+                  linkedContactKind: latestEvent.linked_contact_kind,
+                }
+              : null,
+            operatorUserId: operators.get(opportunity.company_id) ?? null,
+            contactName: opportunity.contact_name,
+            opportunity: {
+              id: opportunity.id,
+              companyId: opportunity.company_id,
+              stage: opportunity.stage,
+              archivedAt: opportunity.archived_at,
+              deletedAt: opportunity.deleted_at,
+              projectId: opportunity.project_id,
+              projectRef: opportunity.project_ref,
+              lostReason: opportunity.lost_reason,
+              lostNotes: opportunity.lost_notes,
+              actualCloseDate: opportunity.actual_close_date,
+            },
+            approvedActionKey: destructiveApprovalKey(
+              opportunity.id,
+              decision.action,
+              now
+            ),
+            runId: `cron:${now.toISOString()}`,
+            now,
+          });
+
+          const op = execution.operations.opportunity;
+          if (op === "archived") {
+            result.destructiveArchived += 1;
+          } else if (op === "moved_to_lost") {
+            result.destructiveMovedToLost += 1;
+          } else if (op === "reactivated") {
+            result.destructiveReactivated += 1;
+          } else if (op === "skipped_update_failed") {
+            // The mutation/audit write itself failed (RPC error, missing
+            // snapshot/approval, or audit insert failure) — a real error.
+            result.errors += 1;
+          } else if (op.startsWith("skipped_")) {
+            // A structural guard declined the action by design — not an error.
+            result.destructiveExecutionSkippedGuarded += 1;
+          }
+          if (execution.operations.lifecycleState === "updated") {
+            result.lifecycleStatesUpdated += 1;
+          }
+        } catch {
+          result.errors += 1;
+        }
       } else {
+        // DRY-RUN. Company has not opted in. Surface the proposed (never-
+        // executed) disposition in the operator rail for review. INSERT-only and
+        // idempotent: a deduped persistent notification keyed on (opportunityId,
+        // action). No opportunity mutation, no guarded RPC, no email, no draft.
+        status = "dry-run";
         result.destructiveDryRun += 1;
-        // Surface the proposed (never-executed) disposition in the operator
-        // rail for review. INSERT-only and idempotent: a deduped persistent
-        // notification keyed on (opportunityId, action). No opportunity
-        // mutation, no guarded RPC, no email, no draft.
         try {
           const outcome = await emitDestructiveReviewNotification(supabase, {
             operatorUserId: operators.get(opportunity.company_id) ?? null,

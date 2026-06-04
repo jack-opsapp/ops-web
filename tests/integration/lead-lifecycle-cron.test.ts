@@ -14,8 +14,11 @@
  *
  * The Supabase client is mocked at the chain level. Each table gets a handler
  * that returns a chainable builder; terminal `insert(...).select().single()`
- * captures the inserted row so the test can assert on writes. The mock also
- * exposes `.rpc` so we can assert it is never invoked.
+ * captures the inserted row so the test can assert on writes. `.rpc` is the
+ * guarded-action entrypoint (`execute_opportunity_lifecycle_guarded_action`):
+ * dry-run paths assert it is never invoked; auto-exec paths mock its result
+ * (`{ applied: true }` → applied, `{ applied: false, guard_reason }` → declined)
+ * and assert it is called exactly once.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
@@ -23,7 +26,15 @@ import { NextRequest } from "next/server";
 // ─── Supabase mock ───────────────────────────────────────────────────────────
 
 const supabaseFromMock = vi.fn();
-const supabaseRpcMock = vi.fn(async () => ({ data: null, error: null }));
+// Loosely typed so individual tests can drive the guarded RPC's result via
+// mockResolvedValueOnce (data carries `applied`/`guard_reason`) and inspect
+// `mock.calls`. Default: a benign no-op result.
+const supabaseRpcMock = vi.fn(
+  async (..._args: unknown[]): Promise<{ data: unknown; error: unknown }> => ({
+    data: null,
+    error: null,
+  })
+);
 
 vi.mock("@/lib/supabase/server-client", () => ({
   getServiceRoleClient: () => ({ from: supabaseFromMock, rpc: supabaseRpcMock }),
@@ -342,14 +353,51 @@ describe("/api/cron/lead-lifecycle — non-destructive auto-exec", () => {
   });
 });
 
-// ─── Destructive → dry-run only ─────────────────────────────────────────────
+// ─── Destructive auto-exec (opted in) + dry-run fallback (not opted in) ───────
 
-describe("/api/cron/lead-lifecycle — destructive dry-run only", () => {
+// The full lead_lifecycle_settings row the evaluator + cron consume. Defaults
+// mirror DEFAULT_LEAD_LIFECYCLE_SETTINGS (both auto flags ON). A test can flip a
+// flag to drive the not-opted-in fallback. NB: the evaluator itself gates the
+// archive/lost DECISIONS on these flags (archive flag off → no archive decision;
+// lost flag off → operator_follow_up_miss instead of move_to_lost), so the
+// only destructive action that still reaches the cron with its flag OFF is
+// reactivate_on_related_inbound — the cron-level gate is what routes that to
+// dry-run. The archive/lost flags acting at the cron layer are belt-and-braces.
+function settingsRow(overrides?: {
+  auto_archive_enabled?: boolean;
+  auto_lost_enabled?: boolean;
+}) {
+  return {
+    company_id: COMPANY_ID,
+    follow_up_after_days: 7,
+    second_follow_up_archive_after_days: 7,
+    no_correspondence_archive_days: 30,
+    inbound_unreplied_lost_days: 30,
+    follow_up_template_subject: "Following up",
+    follow_up_template_body: "Hi {{first_name}}, following up.",
+    auto_archive_enabled: overrides?.auto_archive_enabled ?? true,
+    auto_lost_enabled: overrides?.auto_lost_enabled ?? true,
+  };
+}
+
+describe("/api/cron/lead-lifecycle — destructive auto-exec + dry-run fallback", () => {
   function destructiveHandlers(opts: {
     fragmented: boolean;
     draftInserts: unknown[];
     notificationInserts?: unknown[];
     existingReviewNotification?: boolean;
+    // When true, the opportunity is archived AND its latest meaningful inbound
+    // is a related-contact message → the evaluator yields
+    // `reactivate_on_related_inbound` (ungated by the auto flags). Pair with
+    // settings `{ auto_archive_enabled: false }` to exercise the dry-run
+    // fallback: a destructive decision the company has NOT opted into executing.
+    reactivate?: boolean;
+    // When provided, the settings fetch (.in company_id) returns this row,
+    // overriding the engine defaults. Omitted → defaults (both flags ON).
+    settings?: { auto_archive_enabled?: boolean; auto_lost_enabled?: boolean };
+    // Captures inserts into the guarded-action audit table (the RPC writes the
+    // real audit, but the duplicate-applied SELECT hits this table first).
+    auditInserts?: unknown[];
   }) {
     return (table: string) => {
       if (table === "opportunity_correspondence_events") {
@@ -367,10 +415,12 @@ describe("/api/cron/lead-lifecycle — destructive dry-run only", () => {
           const ids = (inFilter?.[2] as string[]) ?? [];
           const events: unknown[] = [];
           // An inbound meaningful event 60 days ago in a beyond-qualified stage
-          // → move_to_lost_operator_no_response (destructive).
+          // → move_to_lost_operator_no_response (destructive). When `reactivate`,
+          // the same inbound is flagged as a related-contact message landing on
+          // an archived opp → reactivate_on_related_inbound instead.
           if (ids.includes(DESTRUCTIVE_OPP)) {
             events.push({
-              id: "evt-dx",
+              id: opts.reactivate ? "evt-react" : "evt-dx",
               opportunity_id: DESTRUCTIVE_OPP,
               connection_id: null,
               provider_thread_id: null,
@@ -378,7 +428,7 @@ describe("/api/cron/lead-lifecycle — destructive dry-run only", () => {
               party_role: "customer",
               is_meaningful: true,
               occurred_at: LONG_AGO,
-              linked_contact_kind: null,
+              linked_contact_kind: opts.reactivate ? "related_contact" : null,
             });
           }
           return resolve({ data: events, error: null });
@@ -388,12 +438,15 @@ describe("/api/cron/lead-lifecycle — destructive dry-run only", () => {
       switch (table) {
         case "lead_lifecycle_settings":
           // Eligibility probe (no .in filter) → return the eligible company id.
-          // Settings fetch (.in company_id) → return [] so engine defaults apply
-          // (autoArchiveEnabled + autoLostEnabled = true).
+          // Settings fetch (.in company_id) → return the configured row, or []
+          // so engine defaults apply (autoArchiveEnabled + autoLostEnabled = true).
           return makeChain({
             selectResult: (filters) =>
               filters.some((f) => f[0] === "in" && f[1] === "company_id")
-                ? { data: [], error: null }
+                ? {
+                    data: opts.settings ? [settingsRow(opts.settings)] : [],
+                    error: null,
+                  }
                 : { data: [{ company_id: COMPANY_ID }], error: null },
           });
         case "email_connections":
@@ -407,13 +460,17 @@ describe("/api/cron/lead-lifecycle — destructive dry-run only", () => {
                   company_id: COMPANY_ID,
                   title: "Old quote",
                   stage: "quoted",
-                  archived_at: null,
+                  // Reactivate requires an already-archived opportunity.
+                  archived_at: opts.reactivate ? LONG_AGO : null,
                   deleted_at: null,
                   project_id: null,
                   project_ref: null,
                   created_at: LONG_AGO,
                   stage_entered_at: LONG_AGO,
                   contact_name: "Lee",
+                  lost_reason: null,
+                  lost_notes: null,
+                  actual_close_date: null,
                   updated_at: LONG_AGO,
                 },
               ],
@@ -422,6 +479,15 @@ describe("/api/cron/lead-lifecycle — destructive dry-run only", () => {
           });
         case "opportunity_lifecycle_state":
           return makeChain({ selectResult: () => ({ data: [], error: null }) });
+        case "opportunity_lifecycle_action_audit":
+          // Duplicate-applied guard SELECT → no prior applied row.
+          return makeChain({
+            selectResult: () => ({ data: [], error: null }),
+            onInsert: (payload) => {
+              opts.auditInserts?.push(payload);
+              return { data: { id: "audit-x" }, error: null };
+            },
+          });
         case "companies":
           return makeChain({
             selectResult: () => ({
@@ -467,69 +533,100 @@ describe("/api/cron/lead-lifecycle — destructive dry-run only", () => {
     };
   }
 
-  it("surfaces a destructive decision as a dry-run candidate, emits exactly one review notification, and never calls the guarded RPC", async () => {
+  it("auto-executes a destructive disposition (company opted in) through the guarded RPC and counts it as moved-to-lost", async () => {
     const draftInserts: unknown[] = [];
     const notificationInserts: unknown[] = [];
     supabaseFromMock.mockImplementation(
       destructiveHandlers({ fragmented: false, draftInserts, notificationInserts })
     );
+    // Company opted in (engine defaults: autoLostEnabled = true). The cron now
+    // calls the guarded RPC, which applies the disposition server-side. Mock a
+    // successful apply ({ applied: true }) — exactly one call is expected.
+    supabaseRpcMock.mockResolvedValueOnce({ data: { applied: true }, error: null });
 
-    // The destructive opp's inbound event 60 days ago in a beyond-qualified
-    // stage feeds INBOUND_OPP's logic; reuse DESTRUCTIVE_OPP id. The events
-    // handler keys on DESTRUCTIVE_OPP, but the opportunities row above uses it
-    // only when not fragmented — align the event id.
     const res = await GET(buildRequest("Bearer test-secret"));
     expect(res.status).toBe(200);
     const body = await res.json();
 
     expect(body.ok).toBe(true);
-    expect(body.destructiveDryRun).toBe(1);
+    expect(body.destructiveMovedToLost).toBe(1);
+    expect(body.destructiveArchived).toBe(0);
+    expect(body.destructiveReactivated).toBe(0);
+    expect(body.destructiveExecutionSkippedGuarded).toBe(0);
+    expect(body.destructiveDryRun).toBe(0);
     expect(body.destructiveSkippedFragmented).toBe(0);
+    expect(body.errors).toBe(0);
+
     expect(body.destructiveCandidates).toHaveLength(1);
-    expect(body.destructiveCandidates[0].status).toBe("dry-run");
+    expect(body.destructiveCandidates[0].status).toBe("applied");
     expect(body.destructiveCandidates[0].action).toBe(
       "move_to_lost_operator_no_response"
     );
 
-    // Exactly one persistent, deduped review notification surfaced for the
-    // operator, with the destructive-candidate dedupe key + pipeline fallback
-    // action target (no provider thread id on the event → /pipeline).
-    expect(body.destructiveReviewNotificationsCreated).toBe(1);
-    expect(body.destructiveReviewNotificationsSkippedExisting).toBe(0);
-    expect(notificationInserts).toHaveLength(1);
-    const review = notificationInserts[0] as any;
-    expect(review.type).toBe("leads_waiting");
-    expect(review.persistent).toBe(true);
-    expect(review.is_read).toBe(false);
-    expect(review.resolved_at).toBeNull();
-    expect(review.dedupe_key).toBe(
-      `lead_lifecycle:destructive_candidate:${DESTRUCTIVE_OPP}:move_to_lost_operator_no_response`
+    // The guarded RPC was invoked exactly once, with the disposition action and
+    // a deterministic per-day approval key (so a same-day re-run dedupes on the
+    // duplicate_applied_action guard instead of re-applying).
+    expect(supabaseRpcMock).toHaveBeenCalledTimes(1);
+    const rpcCall = supabaseRpcMock.mock.calls[0];
+    const rpcName = rpcCall[0] as string;
+    const rpcArgs = rpcCall[1] as Record<string, unknown>;
+    expect(rpcName).toBe("execute_opportunity_lifecycle_guarded_action");
+    expect(rpcArgs.p_action).toBe("move_to_lost_operator_no_response");
+    expect(rpcArgs.p_company_id).toBe(COMPANY_ID);
+    expect(rpcArgs.p_opportunity_id).toBe(DESTRUCTIVE_OPP);
+    expect(rpcArgs.p_approved_action_key).toContain(
+      `${DESTRUCTIVE_OPP}:move_to_lost_operator_no_response`
     );
-    expect(review.action_url).toBe(
-      `/pipeline?opportunityId=${DESTRUCTIVE_OPP}`
-    );
-    expect(review.action_label).toBe("Review");
-    expect(typeof review.title).toBe("string");
-    expect(review.title.length).toBeGreaterThan(0);
-    expect(typeof review.body).toBe("string");
-    expect(review.body.length).toBeGreaterThan(0);
 
-    // No opportunity mutation, no draft, no guarded RPC.
+    // Auto-exec path surfaces no operator review notification and writes no draft.
+    expect(body.destructiveReviewNotificationsCreated).toBe(0);
+    expect(notificationInserts).toHaveLength(0);
     expect(draftInserts).toHaveLength(0);
-    expect(supabaseRpcMock).not.toHaveBeenCalled();
   });
 
-  it("inserts 0 review notifications on a second run (dedupe guard short-circuits)", async () => {
+  it("counts a guard-declined apply (e.g. duplicate_applied_action on a same-day re-run) as skipped-guarded, not an error", async () => {
     const draftInserts: unknown[] = [];
     const notificationInserts: unknown[] = [];
-    // Second-run state: an unread/unresolved review notification already exists
-    // for this candidate → dedupe guard short-circuits → no insert.
+    supabaseFromMock.mockImplementation(
+      destructiveHandlers({ fragmented: false, draftInserts, notificationInserts })
+    );
+    // The guarded RPC declines by design — e.g. the per-day approval key was
+    // already applied on an earlier run today, so the duplicate_applied_action
+    // guard short-circuits. A structural decline is idempotency, not failure:
+    // it must increment destructiveExecutionSkippedGuarded, never errors.
+    supabaseRpcMock.mockResolvedValueOnce({
+      data: { applied: false, guard_reason: "duplicate_applied_action" },
+      error: null,
+    });
+
+    const res = await GET(buildRequest("Bearer test-secret"));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+
+    expect(body.ok).toBe(true);
+    expect(body.destructiveExecutionSkippedGuarded).toBe(1);
+    expect(body.destructiveMovedToLost).toBe(0);
+    expect(body.destructiveDryRun).toBe(0);
+    expect(body.errors).toBe(0);
+    expect(supabaseRpcMock).toHaveBeenCalledTimes(1);
+    expect(notificationInserts).toHaveLength(0);
+  });
+
+  it("dry-runs a destructive disposition when the company has NOT opted in (reactivate with auto-archive off): one review notification, never the RPC", async () => {
+    const draftInserts: unknown[] = [];
+    const notificationInserts: unknown[] = [];
+    // An archived opp receives a related-contact meaningful inbound → the
+    // evaluator yields reactivate_on_related_inbound (ungated by the flags).
+    // With auto-archive OFF the company has not opted into auto-exec, so the
+    // cron takes the dry-run fallback: surface for the operator, never mutate,
+    // never call the RPC.
     supabaseFromMock.mockImplementation(
       destructiveHandlers({
         fragmented: false,
+        reactivate: true,
         draftInserts,
         notificationInserts,
-        existingReviewNotification: true,
+        settings: { auto_archive_enabled: false, auto_lost_enabled: false },
       })
     );
 
@@ -539,9 +636,32 @@ describe("/api/cron/lead-lifecycle — destructive dry-run only", () => {
 
     expect(body.ok).toBe(true);
     expect(body.destructiveDryRun).toBe(1);
-    expect(body.destructiveReviewNotificationsCreated).toBe(0);
-    expect(body.destructiveReviewNotificationsSkippedExisting).toBe(1);
-    expect(notificationInserts).toHaveLength(0);
+    expect(body.destructiveReactivated).toBe(0);
+    expect(body.destructiveExecutionSkippedGuarded).toBe(0);
+    expect(body.errors).toBe(0);
+
+    expect(body.destructiveCandidates).toHaveLength(1);
+    expect(body.destructiveCandidates[0].status).toBe("dry-run");
+    expect(body.destructiveCandidates[0].action).toBe(
+      "reactivate_on_related_inbound"
+    );
+
+    // Exactly one persistent, deduped operator review notification with the
+    // destructive-candidate dedupe key + pipeline fallback target. No RPC, no draft.
+    expect(body.destructiveReviewNotificationsCreated).toBe(1);
+    expect(body.destructiveReviewNotificationsSkippedExisting).toBe(0);
+    expect(notificationInserts).toHaveLength(1);
+    const review = notificationInserts[0] as any;
+    expect(review.type).toBe("leads_waiting");
+    expect(review.persistent).toBe(true);
+    expect(review.is_read).toBe(false);
+    expect(review.resolved_at).toBeNull();
+    expect(review.dedupe_key).toBe(
+      `lead_lifecycle:destructive_candidate:${DESTRUCTIVE_OPP}:reactivate_on_related_inbound`
+    );
+    expect(review.action_url).toBe(`/pipeline?opportunityId=${DESTRUCTIVE_OPP}`);
+    expect(review.action_label).toBe("Review");
+    expect(draftInserts).toHaveLength(0);
     expect(supabaseRpcMock).not.toHaveBeenCalled();
   });
 
