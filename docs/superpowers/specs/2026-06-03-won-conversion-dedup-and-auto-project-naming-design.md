@@ -141,18 +141,23 @@ $$;
 
 ### 4.6 Naming trigger
 
-`BEFORE INSERT OR UPDATE ON public.projects FOR EACH ROW`, runs only when:
-- `NEW.title_is_auto = true`, **and**
-- `TG_OP = 'INSERT'`, or `NEW.address IS DISTINCT FROM OLD.address`, or `NEW.client_id IS DISTINCT FROM OLD.client_id`, or the flag just flipped to auto.
+`BEFORE INSERT OR UPDATE ON public.projects FOR EACH ROW`. The rule is **enforce-always while auto**, not "run on address change":
 
-Logic:
+- Fires its body whenever `NEW.title_is_auto = true`. It then **always** sets `NEW.title` to the derived value — on every insert and every update, regardless of what column changed.
+- This deliberately makes `title` **fully authoritative-by-derivation while the flag is true.** A caller that writes a bare `title` to an auto project (an iOS sync push, a stray `UPDATE projects SET title=…`) **cannot make it stick** — the trigger overwrites it back to the derived name. The *only* way to set a custom title is to write `title_is_auto = false` **in the same statement** as the new title (then the body is skipped and the typed title persists). To revert to auto: set `title_is_auto = true` (optionally null the title) and the next write re-derives.
+
+Logic (when `NEW.title_is_auto = true`):
 1. `v_client_name := (SELECT name FROM clients WHERE id = NEW.client_id)` when `client_id` set.
 2. `v_base := private.derive_project_name(NEW.address, v_client_name)`.
-3. Collision: if any non-deleted project in `NEW.company_id` (excluding `NEW.id`) has `title = v_base`, find the lowest `N ≥ 2` such that `v_base || ' #' || N` is free; else use `v_base`.
+3. Collision: among **other** non-deleted projects in `NEW.company_id` (i.e. `id <> NEW.id`, `deleted_at IS NULL`), if any has `title = v_base`, pick the lowest `N ≥ 2` such that `v_base || ' #' || N` is unused by another row; else use `v_base`.
 4. `NEW.title := <resolved>`.
 
+Because step 3 excludes the row itself, **re-derivation is idempotent and stable**: editing an address typo on a project already holding `… #2` keeps it `#2` (its own suffix is "free" to it), it does not climb to `#3`.
+
 - **Silent:** the trigger only sets `title`. It writes **no** `project_notes` activity row and dispatches **no** notification. Auto-renames are invisible; only the operator's address edit is the meaningful event.
-- **Concurrency:** at current tenancy (2 active companies) suffix races are negligible. A `pg_advisory_xact_lock(hashtext(company_id || base))` guard is specced as a hardening follow-up, not a blocker; the daily dedup-scan is the backstop.
+- **Trigger ordering:** name it `projects_autoname_biud` so it sorts **before** the existing `update_projects_timestamp` (both `BEFORE`; Postgres fires BEFORE triggers alphabetically). They don't touch the same columns, but deterministic order avoids surprises.
+- **Index:** add `CREATE INDEX projects_company_title_active ON projects (company_id, title) WHERE deleted_at IS NULL` so the per-write collision scan stays O(log n). At current tenancy the enforce-always recompute is trivially cheap; the index keeps it cheap at scale.
+- **Concurrency:** at current tenancy (2 active companies) suffix races are negligible. A `pg_advisory_xact_lock(hashtext(company_id || base))` guard is specced as a hardening follow-up, not a blocker; the daily dedup-scan is the backstop for any rare same-`#N` race.
 
 ---
 
@@ -208,34 +213,45 @@ convert_opportunity_to_project(
   p_title_override    text     DEFAULT NULL,    -- operator typed a name → hand-set
   p_link_to_project_id uuid    DEFAULT NULL,    -- link existing instead of create
   p_source_path       text     DEFAULT NULL,    -- 'won_dialog' | 'approval_queue' | 'ios'
+  p_win_opportunity   boolean  DEFAULT true,    -- false = create/link project WITHOUT winning
+  p_project_status    text     DEFAULT NULL,    -- null → 'accepted' if winning else 'rfq'
   p_evidence          jsonb    DEFAULT '{}'
 ) RETURNS jsonb
 ```
+
+> **Why `p_win_opportunity` / `p_project_status` exist (verified, not theoretical):** the approval-queue path (`approval-queue-service.executeCreateProject`, `sourcePath:'approval_queue'`) creates a project at **`rfq`** and **does not win the opportunity** — the old guarded RPC never touched `stage`. And the estimate-approval path (`useApproveEstimateForOpportunity.advanceToWon`) moves an opp to **won without converting**, so the convert RPC is routinely called on an **already-won** opp. Hard-coding `stage='won'` would (a) wrongly force-win approval-queue projects and (b) write a **second** `stage_transitions` row for already-won deals. Both are regressions; the params + the idempotent stage logic in step 12 prevent them. Defaults: `won_dialog`/`ios` ⇒ `win=true, status='accepted'`; `approval_queue` ⇒ `win=false, status='rfq'`.
 
 **Transaction steps**
 1. **Auth:** `service_role` ⇒ trust `p_company_id`; else company from JWT must match, and `private.current_user_has_permission('pipeline.manage','all')`. (Superset of both RPCs' auth — supports web's service-role API route *and* iOS's direct user-JWT call.)
 2. **Lock** opportunity `FOR UPDATE`; not found ⇒ `P0002`; `deleted_at` set ⇒ error.
 3. **Idempotency:** `project_ref` already set ⇒ return `{converted:false, already_converted:true, project_id: project_ref}`.
 4. **Snapshot guard:** `p_expected_stage` provided and `stage <> p_expected_stage` ⇒ `{converted:false, guard_reason:'snapshot_mismatch'}`.
-5. **Branch — link existing** (`p_link_to_project_id` provided): validate it's a non-deleted project in scope; skip insert; go to step 7 using it as the project.
-6. **Branch — create** (default): `INSERT INTO projects` with
+5. **Resolve status:** `v_status := COALESCE(p_project_status, CASE WHEN p_win_opportunity THEN 'accepted' ELSE 'rfq' END)`.
+6. **Branch — link existing** (`p_link_to_project_id` provided): validate it's a non-deleted project in scope `FOR UPDATE`; **do not** overwrite its status/title; use it as the project; skip to step 8.
+7. **Branch — create** (default): `INSERT INTO projects` with
    - `title_is_auto := (p_title_override IS NULL)`, `title := COALESCE(p_title_override, 'New project')` *(trigger overwrites when auto)*
    - `address`, **`latitude`, `longitude`** (← fixes the dropped-geocode gap), `client_id`, `company_id`
    - `opportunity_id` (text mirror), `opportunity_ref` (uuid)
-   - `status := 'accepted'`, `source`, `estimated_value := COALESCE(p_actual_value, opp.actual_value, opp.estimated_value)`, `platform_metadata`, `created_by := p_decided_by`
+   - `status := v_status`, `source`, `estimated_value := COALESCE(p_actual_value, opp.actual_value, opp.estimated_value)`, `platform_metadata`, `notes := p_notes`, `created_by := p_decided_by` *(column is nullable — system/no-user conversions are fine)*
    - The **naming trigger** fires here and sets the final auto name (street line / fallback / `#N`).
-7. **Four-column link contract** on the opportunity: `project_ref` + `project_id` (uuid), guarded `WHERE project_ref IS NULL` (defence-in-depth vs concurrent win).
-8. **Re-link estimates:** `project_ref` (uuid) **and** `project_id` (text mirror) `WHERE opportunity_id = opp` — the web `EstimateService` reads `estimates.project_id` (text), so the mirror is mandatory (per the guarded RPC's documented Design Risk 6).
-9. **Materialize tasks:** LABOR `line_items` of the opp's estimates → `project_tasks` (carried verbatim from `convert_lead_to_project`: `task_type_id`, `custom_title`, `source_line_item_id`, `source_estimate_id`, duration/color from `task_types`). *On link-existing, only when the target project has no tasks yet — avoid double-materializing.*
-10. **Attach photos:** non-deleted `site_visits.photos[]` for the opp → `project_photos` (`source='site_visit'`, `site_visit_id` back-link, `uploaded_by = sv.created_by`, `is_client_visible=false`). *Link-existing: same no-duplicate guard.*
-11. **Disposition:** supersede prior active dispositions; insert `'converted_to_project'` with `converted_project_ref` + evidence (`source_path`, `actual_value`, `relinked_estimates`, `linked_existing`).
-12. **Update opportunity:** `stage='won'`, `stage_entered_at=now()`, `stage_manually_set=true`, `actual_value`, `actual_close_date`.
-13. **Stage transition:** insert `(from_stage, 'won', duration_in_stage)`.
-14. **Return** `{converted, project_id, already_converted:false, disposition_id, relinked_estimates, materialized_tasks, attached_photos, linked_existing}`.
+8. **Four-column link contract** on the opportunity: `project_ref` + `project_id` (uuid), guarded `WHERE project_ref IS NULL` (defence-in-depth vs concurrent win).
+9. **Re-link estimates:** `project_ref` (uuid) **and** `project_id` (text mirror) `WHERE opportunity_id = opp` — the web `EstimateService` reads `estimates.project_id` (text), so the mirror is mandatory (per the guarded RPC's documented Design Risk 6).
+10. **Materialize tasks (dedup by source):** LABOR `line_items` of the opp's estimates → `project_tasks` (`task_type_id`, `custom_title`, `source_line_item_id`, `source_estimate_id`, duration/color from `task_types`), **only for line items not already a task on this project** (`NOT EXISTS (… project_tasks WHERE project_id=v_project AND source_line_item_id = li.id::text)`). This is correct for both create (none exist) and link-existing (don't re-add already-materialized items).
+11. **Attach photos (dedup by source):** non-deleted `site_visits.photos[]` for the opp → `project_photos` (`source='site_visit'`, `site_visit_id` back-link, `uploaded_by = sv.created_by`, `is_client_visible=false`), **only for `(site_visit_id, url)` pairs not already attached** to this project.
+12. **Win the opportunity (idempotent)** — only when `p_win_opportunity`:
+    - always set `actual_value := COALESCE(p_actual_value, actual_value)`;
+    - **only if `stage <> 'won'`**: set `stage='won'`, `stage_entered_at=now()`, `stage_manually_set=true`, `actual_close_date=now()::date`, **and** insert one `stage_transitions (from_stage, 'won', duration_in_stage)`. If the opp is **already won** (estimate-approval path), skip the stage write and the transition row — no duplicate.
+    - when `p_win_opportunity=false` (approval_queue): leave `stage` untouched entirely.
+13. **Disposition:** supersede prior active dispositions; insert `'converted_to_project'` with `converted_project_ref` + evidence (`source_path`, `actual_value`, `relinked_estimates`, `linked_existing`, `won`).
+14. **Return** `{converted, project_id, already_converted:false, disposition_id, relinked_estimates, materialized_tasks, attached_photos, linked_existing, won}`.
 
-### 6.1 SQL normalizers (single source of truth)
+### 6.1 SQL normalizers (single source of truth) — and a strengthening
 
 Port `normalizeAddress` / `normalizeTitle` from `src/lib/utils/name-normalization.ts` into `private.normalize_address()` / `private.normalize_title()`. The preflight uses them. **The web TS matcher and the daily `duplicate-detection-service` are refactored to call these via RPC (or are covered by shared test vectors)** so there is exactly one normalization definition. *(If converging the daily scan proves large, it may land as an immediate fast-follow PR — but the preflight and scan must agree on day one via shared test vectors.)*
+
+**Strengthen address normalization (verified gap).** The current `normalizeAddress` only lowercases, strips unit patterns + trailing periods, and collapses whitespace — it does **not** canonicalize directionals or street-type abbreviations, so `1240 W 6th Ave` and `1240 West 6th Avenue` normalize *differently* and would **not** be flagged as the same site. Since most addresses come from the same Mapbox autocomplete (already-canonical), this mostly bites manually-typed addresses — but it directly undermines the dedup goal. The SQL port adds a canonicalization pass: directionals (`w`↔`west`, `n`/`north`, `ne`/`northeast`, …) and common street types (`ave`/`avenue`, `st`/`street`, `rd`/`road`, `blvd`, `dr`, `cres`, `hwy`, …) folded to one canonical token. The TS matcher is updated in lockstep (shared vectors) so the nightly scan and the convert-time preflight agree.
+
+**Placeholder titles are matching-invisible.** `private.normalize_title()` returns empty for the auto placeholders (`New project`, `{Client}'s Project` in either language) so two unnamed projects never produce a false `same_title` signal in either the preflight or the nightly scan.
 
 ### 6.2 RPC transition / shim
 
@@ -249,7 +265,9 @@ Port `normalizeAddress` / `normalizeTitle` from `src/lib/utils/name-normalizatio
 
 ### 7.1 Web (ships now)
 - **`project-conversion-service.ts`:** call the unified RPC; remove bare-project pre-create + orphan-cleanup dance (the RPC is atomic). Add `getConversionPreflight()` + `linkOpportunityToExistingProject()`.
-- **`use-opportunities.ts`:** preflight query before opening the Won dialog; `convert` and `linkExisting` mutations.
+- **`use-opportunities.ts`:** preflight query before opening the Won dialog; `convert` + `linkExisting` mutations.
+  - **Single atomic win+convert.** Today the pipeline does `moveStage(won)` *then* fires `/convert` (two calls; the RPC didn't win the opp). The unified RPC wins **and** converts in one transaction, so the Won-dialog confirm calls **only** `convert` — the separate `moveStage(won)` is removed for the converting path. (Optimistic UI still flips the card to won locally.) This deletes the double-`stage_transitions` risk (edge #17) by construction.
+  - **Convert an already-won deal.** Because estimate-approval (`advanceToWon`) wins without converting, won-but-unconverted opps exist. The same Won dialog must be reachable for them (a `// CONVERT` affordance on won/unconverted cards + the won column) — it calls `convert` with the opp already at `won`; step 12's idempotent guard means no second transition. This closes the latent "won on web but never became a project" gap.
 - **Enriched Won dialog (`stage-transition-dialog.tsx`):** final value (as today) **+** auto-name display (`Name: 1240 W 6th Ave` with a quiet *rename* escape hatch that sets `title_is_auto=false`) **+** address prefill (editable, Mapbox autocomplete) **+** when preflight returns candidates/other-projects: a compact list with **Link** (per row) vs **Create new** — mirroring iOS's DUPLICATE-EXISTS / CLIENT-HAS-OTHERS states. All copy via `ops-copywriter`; styling via `ops-design-system` (glass-dense modal, accent on the single primary CTA, mono numerics).
 - **Manual project create/edit form** (`project-edit-create-body.tsx`, FAB → create): the name field becomes **optional** — the same auto-naming applies, driven by the *same DB trigger* (manual create is a plain `projects` insert, so no extra logic).
   - **Zod:** `title` drops `.min(1)` in creating mode (keep `.max(200)`); `titleRequired` retired. Submit is allowed with a blank name.
@@ -273,25 +291,50 @@ Per the low-tenant authorization (Canpro + Maverick only; direct prod migrations
 1. **DB migration (additive, safe):** add `title_is_auto` (default `false`), `derive_project_name`, normalizers, naming trigger, preflight RPC, unified convert RPC, shim over `convert_lead_to_project`. Recon read-only first; sentinel-rollback tested on a scratch row; explicit go-ahead before applying.
 2. **Backfill:** existing projects → `title_is_auto = false` (column default already does this). **No existing name changes.** *(Optional, deferred, opt-in only: a guarded backfill that flips to `true` for projects whose `title` already equals their derived address name — left out of v1 to guarantee zero surprise renames.)*
 3. **Web deploy:** switch to unified RPC + enriched dialog. (ops-web auto-deploy is OFF — production deploy is manual.)
-4. **Drop** `execute_opportunity_project_conversion_guarded` once web is live and verified.
+4. **Drop** `execute_opportunity_project_conversion_guarded` once web is live and verified — confirmed safe: **0 DB dependents, single TS caller** (`project-conversion-service.ts`), which switches in step 3. Regenerate `database.types.ts` after.
 5. **iOS:** ship the preflight + unified-RPC adoption in the next release; retire the shim after old-RPC traffic hits zero.
 
 ---
 
 ## 8. Edge cases & risks
 
+### 8.1 Naming / trigger
 | # | Case | Handling |
 |---|---|---|
 | 1 | Operator-typed name clobbered by trigger | Impossible — `title_is_auto` defaults `false`; trigger only touches auto names. |
-| 2 | iOS in the field unaware of the flag | Inserts default to `false` ⇒ manual ⇒ untouched. Shim routes old converts through unified logic without a release. |
-| 3 | Two unnamed projects, same client, no address | Both `{Client}'s Project` → `#2`. Self-heal when addresses arrive; dedup-scan backstop. |
-| 4 | Placeholder names polluting dedup | `normalize_title` treats `New project` / `{Client}'s Project` as empty ⇒ no false `same_title` matches. |
-| 5 | Same address, genuinely different jobs (repeat customer) | Operator sees the candidate, chooses **Create new** ⇒ `#2` disambiguates names. |
-| 6 | Suffix race under concurrency | Negligible at current tenancy; advisory-lock hardening specced; dedup-scan catches stragglers. |
-| 7 | Estimate text-mirror omitted | Unified RPC writes both `project_ref` and `project_id` (text) — web Estimates tab keys off the text column. |
-| 8 | Geocode lost on convert | Unified RPC carries `latitude`/`longitude` from the opportunity. |
-| 9 | Link-existing double-materializes tasks/photos | Guard: only materialize when the target project has none. |
-| 10 | Address re-parse on a weird format | Non-comma address falls back to whole string; operator can rename (freezes). |
+| 2 | iOS in the field unaware of the flag | Inserts default `false` ⇒ manual ⇒ untouched. Shim routes old converts through unified logic without a release. |
+| 3 | **Stray `title` write on an auto project** (iOS sync push, ad-hoc `UPDATE`) | Enforce-always trigger (§4.6) overwrites it back to the derived name. Custom title requires `title_is_auto=false` in the *same* statement. |
+| 4 | Two unnamed projects, same client, no address | Both `{Client}'s Project` → `#2`. Self-heal when addresses arrive; dedup-scan backstop. |
+| 5 | Placeholder names polluting dedup | `normalize_title` returns empty for `New project` / `{Client}'s Project` (both langs) ⇒ no false `same_title`. |
+| 6 | Same address, genuinely different jobs (repeat customer) | Operator picks **Create new** ⇒ silent `#2` disambiguates. |
+| 7 | Re-derivation climbing the suffix (`#2`→`#3` on every edit) | Collision scan excludes self ⇒ idempotent/stable (§4.6). |
+| 8 | `#N` race under concurrency | Negligible at 2 tenants; advisory-lock hardening specced; dedup-scan backstop. |
+| 9 | Soft-deleted project frees its name | Collision scan filters `deleted_at IS NULL`; a restored project may then collide — accepted, re-derivable. |
+| 10 | Trigger ordering vs `update_projects_timestamp` | Name it `projects_autoname_biud` (sorts first); no column overlap. |
+| 11 | Per-write recompute cost | `projects (company_id, title) WHERE deleted_at IS NULL` index; cheap at any scale. |
+| 12 | Weird/non-comma address | Street-line parse falls back to whole string; operator can rename. |
+| 13 | Client name possessive (`Williams`, `Acme Inc.`) | Copy finalized by `ops-copywriter`; derive uses a single rule, operator can always rename. |
+| 14 | Offline iOS guesses a local name, server assigns different `#N` | Server value is authoritative on sync; brief transient label only. |
+
+### 8.2 Convert transaction
+| # | Case | Handling |
+|---|---|---|
+| 15 | **Approval-queue must not win the opp** | `p_win_opportunity=false`, `status='rfq'` — `stage` untouched (§6 step 12). |
+| 16 | **Already-won opp converted later** (estimate-approval `advanceToWon`) | Step 12 sets stage/transition *only if `stage<>'won'`* ⇒ no duplicate `stage_transitions`. |
+| 17 | Double-fire: separate `moveStage(won)` + convert | Won dialog calls the unified RPC **directly** (wins+converts atomically); the old two-step is removed (§7.1). |
+| 18 | Idempotent re-win race | `project_ref` pre-check + `FOR UPDATE` + `WHERE project_ref IS NULL` guard ⇒ `already_converted`, no 2nd project. |
+| 19 | Snapshot drift (stage changed under operator) | `p_expected_stage` guard ⇒ `snapshot_mismatch`, nothing written. |
+| 20 | Opp deleted between dialog open and convert | `deleted_at` check ⇒ error; UI surfaces it. |
+| 21 | Link-existing to a project deleted concurrently | Validated `FOR UPDATE` in scope; not found ⇒ error. |
+| 22 | Link-existing re-materializes tasks/photos | Dedup by `source_line_item_id` / `(site_visit_id,url)` (§6 steps 10–11) — not "project has none". |
+| 23 | Link-existing overwriting the target's status/name | Explicitly **not** touched (§6 step 6); only links + relinks + dispositions. |
+| 24 | Estimate text-mirror omitted | RPC writes both `project_ref` and `project_id` (text); web Estimates tab keys off text. |
+| 25 | Geocode lost on convert | RPC carries `latitude`/`longitude` from the opportunity. |
+| 26 | `created_by` null (system/no-user convert) | Column is **nullable** (verified) ⇒ fine. |
+| 27 | Dropping `execute_..._guarded` | **0 DB dependents, 1 TS caller** (verified) ⇒ safe to drop after web ships + types regen. |
+
+### 8.3 Open decision
+- **Win-without-project escape hatch.** iOS has `markWonNoProject` (win the deal, never create a project — e.g. service calls that don't warrant a project). Web currently always converts on win. The enriched dialog's **Link existing** covers "don't create a *new* one," but there is no "win, create *nothing*." **Decision needed:** add a web "win without a project" option (full iOS parity) or keep convert mandatory on web? Spec assumes *mandatory convert with link-existing*, pending your call.
 
 ---
 
