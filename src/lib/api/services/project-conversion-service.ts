@@ -35,12 +35,11 @@
 import { requireSupabase } from "@/lib/supabase/helpers";
 import { NotificationService } from "./notification-service";
 
-// The unified RPCs are not yet in the generated database types (the post-drop
-// regen lands in the cleanup phase). Hold the names in `string`-typed consts so
-// the calls resolve to the loosely-typed `rpc` overload — mirrors the merge
-// service's `supabase.rpc(rpc, args)` pattern.
-const CONVERSION_RPC: string = "convert_opportunity_to_project";
-const PREFLIGHT_RPC: string = "get_conversion_preflight";
+// Literal names so the calls resolve to the typed `rpc` overload — args and
+// return are checked against the generated database types (regenerated after the
+// legacy guarded RPC was dropped).
+const CONVERSION_RPC = "convert_opportunity_to_project";
+const PREFLIGHT_RPC = "get_conversion_preflight";
 
 export type ConversionSourcePath = "won_dialog" | "approval_queue";
 
