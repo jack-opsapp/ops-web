@@ -37,9 +37,22 @@ import { toast } from "sonner";
 interface CreateEstimateFormProps {
   onSuccess?: () => void;
   onCancel?: () => void;
+  /**
+   * Link the created estimate to this opportunity (deal-scoped creation from
+   * the pipeline lead-detail Overview tab). Writes `opportunity_id` so the
+   * estimate surfaces in `useEstimates({ opportunityId })` for that deal.
+   */
+  opportunityId?: string;
+  /** Pre-select this client (e.g. the deal's linked client). */
+  clientId?: string;
 }
 
-export function CreateEstimateForm({ onSuccess, onCancel }: CreateEstimateFormProps) {
+export function CreateEstimateForm({
+  onSuccess,
+  onCancel,
+  opportunityId,
+  clientId: defaultClientId,
+}: CreateEstimateFormProps) {
   const { t } = useDictionary("pipeline");
   const { company } = useAuthStore();
   const companyId = company?.id ?? "";
@@ -64,8 +77,8 @@ export function CreateEstimateForm({ onSuccess, onCancel }: CreateEstimateFormPr
     }
   }, [setupComplete]);
 
-  // Form state
-  const [clientId, setClientId] = useState("");
+  // Form state — clientId pre-fills from the deal's client on a scoped open.
+  const [clientId, setClientId] = useState(defaultClientId ?? "");
   const [projectId, setProjectId] = useState("");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [expirationDate, setExpirationDate] = useState("");
@@ -112,6 +125,8 @@ export function CreateEstimateForm({ onSuccess, onCancel }: CreateEstimateFormPr
 
     const formData: Partial<CreateEstimate> & { companyId: string } = {
       companyId,
+      // Link to the deal when scoped (Overview tab); null on the bare FAB open.
+      opportunityId: opportunityId ?? null,
       clientId: clientId || undefined,
       projectId: projectId || null,
       issueDate: date ? new Date(date) : new Date(),
@@ -263,6 +278,28 @@ export function CreateEstimateForm({ onSuccess, onCancel }: CreateEstimateFormPr
       />
     </>
   );
+}
+
+// ─── Window-metadata defaults ────────────────────────────────────────────────
+
+/**
+ * Derive {@link CreateEstimateForm} defaults from a floating-window's metadata
+ * bag. Deal-scoped opens (the pipeline lead-detail Overview tab) stash
+ * `{ opportunityId, clientId }` on the `create-estimate` window metadata; the
+ * FAB opens it bare. Each field is string-guarded so a malformed metadata bag
+ * degrades gracefully to an unscoped (general) estimate rather than throwing.
+ */
+export function createEstimateDefaultsFromMeta(
+  metadata?: Record<string, unknown>,
+): Pick<CreateEstimateFormProps, "opportunityId" | "clientId"> {
+  return {
+    opportunityId:
+      typeof metadata?.opportunityId === "string"
+        ? metadata.opportunityId
+        : undefined,
+    clientId:
+      typeof metadata?.clientId === "string" ? metadata.clientId : undefined,
+  };
 }
 
 // ─── Modal Component (thin wrapper) ──────────────────────────────────────────
