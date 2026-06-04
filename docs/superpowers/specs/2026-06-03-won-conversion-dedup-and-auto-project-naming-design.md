@@ -333,8 +333,9 @@ Per the low-tenant authorization (Canpro + Maverick only; direct prod migrations
 | 26 | `created_by` null (system/no-user convert) | Column is **nullable** (verified) ⇒ fine. |
 | 27 | Dropping `execute_..._guarded` | **0 DB dependents, 1 TS caller** (verified) ⇒ safe to drop after web ships + types regen. |
 
-### 8.3 Open decision
-- **Win-without-project escape hatch.** iOS has `markWonNoProject` (win the deal, never create a project — e.g. service calls that don't warrant a project). Web currently always converts on win. The enriched dialog's **Link existing** covers "don't create a *new* one," but there is no "win, create *nothing*." **Decision needed:** add a web "win without a project" option (full iOS parity) or keep convert mandatory on web? Spec assumes *mandatory convert with link-existing*, pending your call.
+### 8.3 Resolved decisions (2026-06-03)
+- **Win-without-project: NOT added.** Web convert stays **mandatory** on win — **Link existing** covers "no *new* project," and creating-or-linking a project is the intended outcome of a win. iOS's `markWonNoProject` is left as an accepted, minor iOS-only affordance; web does not mirror it. (Additive dialog option later if it proves needed.)
+- **Create-form name field: removed by default.** No name field in the create form — address-primary + `// NAME · auto` preview + collapsed `rename` (UI plan §A).
 
 ---
 

@@ -99,8 +99,8 @@
 
 ---
 
-## G. Open questions for you
+## G. Resolved decisions (2026-06-03)
 
-1. **Name field on create — remove vs collapse?** Plan assumes **remove from default layout** with a `rename` disclosure (your "user doesn't touch the name unless they explicitly want to"). Confirm you want it fully gone by default, not just optional-but-visible.
-2. **Win-without-project** (spec §8.3): should the Won dialog offer "win, create nothing" (iOS `markWonNoProject` parity), or is convert mandatory on web (link-existing covers "no *new* project")?
-3. **Auto-name preview prominence:** a quiet `// NAME · …` line (recommended, invisible-help) vs a more explicit read-only "Project name" row. Lean minimal?
+1. **Name field on create — REMOVED by default.** No name field in the create layout; address is primary, `// NAME · auto` preview, collapsed `rename` for the rare custom name (§A). Not just optional-but-visible — gone by default.
+2. **Win-without-project — NOT added.** Convert is mandatory on win; **Link existing** covers the no-new-project case. No `markWonNoProject` parity on web (spec §8.3).
+3. **Auto-name preview — minimal.** A quiet `// NAME · …` line (invisible-help), not a prominent "Project name" row.
