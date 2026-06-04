@@ -1,0 +1,16 @@
+{
+  "search": "Buscar",
+  "noResults": "Sin coincidencias",
+  "clear": "Borrar búsqueda",
+  "loading": "Cargando",
+  "viewOnly": "Solo lectura",
+  "conflict": "Doble reserva · {project} · {when}",
+
+  "category.search": "Buscar categorías",
+  "category.create": "Nueva categoría",
+  "category.empty": "Sin categorías",
+
+  "unit.search": "Buscar unidades",
+  "unit.create": "Nueva unidad",
+  "unit.empty": "Sin unidades"
+}
