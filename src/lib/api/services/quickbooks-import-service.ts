@@ -440,7 +440,7 @@ export class QuickBooksImportService {
 
     const { data: staged } = await sb
       .from("qbo_staging_customers")
-      .select("qb_id, display_name, email, phone")
+      .select("qb_id, display_name, company_name, email, phone")
       .eq("run_id", runId);
 
     const { data: existing } = await sb
@@ -460,6 +460,10 @@ export class QuickBooksImportService {
     const matchRows: Record<string, unknown>[] = [];
     for (const row of (staged ?? []) as Record<string, unknown>[]) {
       const displayName = (row.display_name as string) ?? null;
+      const companyName = (row.company_name as string) ?? null;
+      // Match on the company name for company-type customers (so they attach to
+      // existing company clients); fall back to the display name for individuals.
+      const matchName = companyName ?? displayName;
       const email = (row.email as string) ?? null;
 
       // Pre-check email/name so we only hit the fuzzy RPC when needed.
@@ -467,10 +471,10 @@ export class QuickBooksImportService {
         !!email &&
         activeClients.some((c) => (c.email ?? "").trim().toLowerCase() === email.trim().toLowerCase());
       let fuzzy: FuzzyCandidate[] = [];
-      if (!hasEmailHit && displayName) {
+      if (!hasEmailHit && matchName) {
         const { data: candidates } = await sb.rpc("qbo_match_customer_candidates", {
           p_company_id: companyId,
-          p_name: displayName,
+          p_name: matchName,
           p_threshold: FUZZY_THRESHOLD,
         });
         fuzzy = ((candidates as FuzzyCandidate[]) ?? []).map((c) => ({
@@ -483,7 +487,7 @@ export class QuickBooksImportService {
       }
 
       const result = resolveCustomerMatch(
-        { qb_id: row.qb_id as string, display_name: displayName, email, phone: (row.phone as string) ?? null },
+        { qb_id: row.qb_id as string, display_name: matchName, email, phone: (row.phone as string) ?? null },
         activeClients,
         fuzzy
       );
