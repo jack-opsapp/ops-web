@@ -18,6 +18,8 @@ const matches: QboCustomerMatch[] = [
     companyId: "co",
     customerQbId: "QB1",
     displayName: "Sonnenschein Family Store",
+    companyName: null,
+    contactName: null,
     proposedAction: "link",
     matchedClientId: "c-1",
     matchBasis: "email",
@@ -32,6 +34,8 @@ const matches: QboCustomerMatch[] = [
     companyId: "co",
     customerQbId: "QB2",
     displayName: "Adwin Ko",
+    companyName: null,
+    contactName: null,
     proposedAction: "create",
     matchedClientId: null,
     matchBasis: "none",
@@ -42,7 +46,45 @@ const matches: QboCustomerMatch[] = [
   },
 ];
 
+// A company-type match: CompanyName + a contact person. proposedAction is
+// "create" (NOT needs_review), so the disabled needs_review option is absent.
+const companyMatch: QboCustomerMatch = {
+  id: "m3",
+  runId: "run-1",
+  companyId: "co",
+  customerQbId: "QB-CO",
+  displayName: "Acme Corp",
+  companyName: "Acme Corp",
+  contactName: "John Smith",
+  proposedAction: "create",
+  matchedClientId: null,
+  matchBasis: "none",
+  confidence: null,
+  candidates: [],
+  decidedAction: null,
+  decidedClientId: null,
+};
+
 describe("CustomerMatchTable", () => {
+  it("does not offer needs_review as a selectable action", () => {
+    render(
+      <CustomerMatchTable matches={[companyMatch]} decisions={{}} onDecisionChange={vi.fn()} />
+    );
+    const select = screen.getByTestId("match-action-QB-CO");
+    const values = Array.from(select.querySelectorAll("option")).map(
+      (o) => (o as HTMLOptionElement).value
+    );
+    expect(values).toEqual(["link", "create", "skip"]);
+  });
+
+  it("shows the contact name as a sub-line for company customers", () => {
+    render(
+      <CustomerMatchTable matches={[companyMatch]} decisions={{}} onDecisionChange={vi.fn()} />
+    );
+    expect(screen.getByText("Acme Corp")).toBeInTheDocument();
+    expect(screen.getByText(/John Smith/)).toBeInTheDocument();
+  });
+
   it("renders one row per match with confidence + basis", () => {
     render(
       <CustomerMatchTable matches={matches} decisions={{}} onDecisionChange={vi.fn()} />

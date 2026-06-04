@@ -331,6 +331,11 @@ export function QuickBooksImportTab() {
                 value={stagedCounts.orphanPayments}
               />
             </div>
+            {stagedCounts.jobsDetected > 0 && (
+              <p className="font-mono text-caption-sm text-text-3">
+                {t("qbo.jobsDetected", { count: stagedCounts.jobsDetected })}
+              </p>
+            )}
           </Card>
 
           <Card variant="default" className="p-3 space-y-2">

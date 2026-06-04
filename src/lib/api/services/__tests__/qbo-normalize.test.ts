@@ -13,6 +13,8 @@ import {
   deriveInvoiceStatus,
   mapEstimateStatus,
   joinBillAddr,
+  clientFieldsFromCustomer,
+  subClientFieldsFromCustomer,
 } from "../qbo-normalize";
 
 const TODAY = new Date("2026-04-20T00:00:00Z");
@@ -206,5 +208,76 @@ describe("splitPaymentLines", () => {
     expect(rows.payment_method).toBe("Check");
     expect(rows.total_amt).toBe(500);
     expect(rows.customer_qb_id).toBe("58");
+  });
+});
+
+describe("normalizeCustomer — company + contact split", () => {
+  it("splits a company customer with a person contact", () => {
+    const row = normalizeCustomer({
+      Id: "42",
+      DisplayName: "Acme Corp",
+      CompanyName: "Acme Corp",
+      GivenName: "John",
+      FamilyName: "Smith",
+      Title: "Mr",
+      PrimaryEmailAddr: { Address: "john@acme.com" },
+      PrimaryPhone: { FreeFormNumber: "555-0100" },
+      BillAddr: { Line1: "1 Main St", City: "Reno", CountrySubDivisionCode: "NV", PostalCode: "89501" },
+    });
+    expect(row.company_name).toBe("Acme Corp");
+    expect(row.contact_name).toBe("John Smith");
+    expect(row.contact_title).toBeNull(); // QB Title is a salutation; deliberately skipped
+    expect(row.email).toBe("john@acme.com");
+    expect(row.phone).toBe("555-0100");
+    expect(row.address).toBe("1 Main St, Reno, NV 89501");
+    expect(row.is_job).toBe(false);
+    expect(row.parent_qb_id).toBeNull();
+  });
+
+  it("treats a CompanyName-only customer (no person) as having no contact", () => {
+    const row = normalizeCustomer({ Id: "7", DisplayName: "Globex", CompanyName: "Globex" });
+    expect(row.company_name).toBe("Globex");
+    expect(row.contact_name).toBeNull(); // DisplayName === CompanyName → no person
+  });
+
+  it("keeps an individual flat (no company_name, no contact)", () => {
+    const row = normalizeCustomer({ Id: "9", DisplayName: "Jane Doe", GivenName: "Jane", FamilyName: "Doe" });
+    expect(row.company_name).toBeNull();
+    expect(row.contact_name).toBe("Jane Doe");
+    // For an individual the apply step ignores contact_name (no company_name) — kept for reference only.
+  });
+
+  it("captures QB job hierarchy without acting on it", () => {
+    const row = normalizeCustomer({
+      Id: "100", DisplayName: "Acme:Kitchen", CompanyName: "Acme", Job: true,
+      ParentRef: { value: "42" }, GivenName: "", FamilyName: "",
+    });
+    expect(row.is_job).toBe(true);
+    expect(row.parent_qb_id).toBe("42");
+    // Decision 3: a Job is recorded, never acted on — no contact derived from
+    // the "Parent:Child" DisplayName, so STEP 1b creates no junk sub_client.
+    expect(row.contact_name).toBeNull();
+  });
+});
+
+describe("clientFieldsFromCustomer / subClientFieldsFromCustomer", () => {
+  const company = { company_name: "Acme", contact_name: "John Smith", display_name: "Acme", email: "j@acme.com", phone: "555", address: "1 St", is_job: false };
+  it("company+contact → CompanyName client, contact holds email/phone", () => {
+    expect(clientFieldsFromCustomer(company)).toEqual({ name: "Acme", email: null, phone_number: null, address: "1 St" });
+    expect(subClientFieldsFromCustomer(company)).toEqual({ name: "John Smith", title: null, email: "j@acme.com", phone_number: "555", address: "1 St" });
+  });
+  it("contact-less company → email/phone stay on the client, no sub_client", () => {
+    const c = { ...company, contact_name: null };
+    expect(clientFieldsFromCustomer(c)).toEqual({ name: "Acme", email: "j@acme.com", phone_number: "555", address: "1 St" });
+    expect(subClientFieldsFromCustomer(c)).toBeNull();
+  });
+  it("individual → DisplayName client, no sub_client", () => {
+    const c = { company_name: null, contact_name: "Jane Doe", display_name: "Jane Doe", email: "jane@x.com", phone: "1", address: null, is_job: false };
+    expect(clientFieldsFromCustomer(c).name).toBe("Jane Doe");
+    expect(clientFieldsFromCustomer(c).email).toBe("jane@x.com");
+    expect(subClientFieldsFromCustomer(c)).toBeNull();
+  });
+  it("QB Job → no sub_client even with company+contact", () => {
+    expect(subClientFieldsFromCustomer({ ...company, is_job: true })).toBeNull();
   });
 });

@@ -28,6 +28,7 @@ describe("QBO apply type contract", () => {
       clientsLinked: 1,
       clientsCreated: 2,
       clientsSkipped: 0,
+      subClientsCreated: 0,
       estimatesUpserted: 3,
       invoicesUpserted: 4,
       lineItemsInserted: 10,

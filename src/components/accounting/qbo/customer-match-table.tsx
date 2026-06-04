@@ -13,7 +13,10 @@ export interface RowDecision {
   client_id?: string;
 }
 
-const ACTIONS: MatchAction[] = ["link", "create", "skip", "needs_review"];
+// needs_review is a SYSTEM-proposed state (ambiguous match), never a user choice —
+// the operator must resolve it to link/create/skip. It shows as the current value
+// (disabled) when proposed, but is not an option the operator can pick.
+const SELECTABLE_ACTIONS: MatchAction[] = ["link", "create", "skip"];
 
 const CONFIDENCE_COLOR: Record<string, string> = {
   high: "text-status-success",
@@ -31,16 +34,6 @@ function resolveDecision(
       client_id: m.matchedClientId ?? undefined,
     }
   );
-}
-
-/**
- * The QB customer's display label — the QuickBooks DisplayName carried on the
- * match, falling back to the QB customer id so every row is always
- * identifiable. (The matched OPS client, if any, is shown separately in the
- * OPS-client column, not here.)
- */
-function resolveName(m: QboCustomerMatch): string {
-  return m.displayName ?? m.customerQbId;
 }
 
 function candidateLabel(c: QboMatchCandidate): string {
@@ -92,8 +85,16 @@ export function CustomerMatchTable({
                 key={m.customerQbId}
                 className="border-b border-border last:border-0 hover:bg-[rgba(255,255,255,0.02)]"
               >
-                <td className="px-1.5 py-1 font-mono text-caption text-text-2 truncate max-w-[220px]">
-                  {resolveName(m)}
+                <td className="px-1.5 py-1 max-w-[220px]">
+                  <div className="font-mono text-caption text-text-2 truncate">
+                    {m.companyName ?? m.displayName ?? m.customerQbId}
+                  </div>
+                  {m.companyName && m.contactName && (
+                    <div className="font-mono text-caption-sm text-text-3 truncate">
+                      <span className="text-text-mute">{t("qbo.customers.contactLabel")} </span>
+                      {m.contactName}
+                    </div>
+                  )}
                 </td>
                 <td
                   data-testid={`match-basis-${m.customerQbId}`}
@@ -126,7 +127,12 @@ export function CustomerMatchTable({
                     }
                     className="h-[36px] rounded-btn bg-[rgba(255,255,255,0.04)] border border-border px-2 font-mono text-caption text-text-2 focus:border-ops-accent focus:outline-none"
                   >
-                    {ACTIONS.map((a) => (
+                    {decision.action === "needs_review" && (
+                      <option value="needs_review" disabled>
+                        {t("qbo.action.needs_review")}
+                      </option>
+                    )}
+                    {SELECTABLE_ACTIONS.map((a) => (
                       <option key={a} value={a}>
                         {t(`qbo.action.${a}`)}
                       </option>

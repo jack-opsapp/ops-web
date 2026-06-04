@@ -204,7 +204,8 @@ describe("QuickBooksImportTab", () => {
     reviewData = review;
     render(<QuickBooksImportTab />);
     expect(screen.getByTestId("recon-row-openAr")).toBeInTheDocument();
-    expect(screen.getByText("Acme")).toBeInTheDocument();
+    // Candidate option renders "Acme · 100%" (name + score), so match on substring.
+    expect(screen.getByText(/Acme/)).toBeInTheDocument();
     expect(screen.getByTestId("match-action-QB1")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /qbo.apply.all/ }));
     await waitFor(() =>

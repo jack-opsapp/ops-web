@@ -31,6 +31,8 @@ const REQUIRED_QBO_KEYS = [
   "qbo.customers.basis",
   "qbo.customers.confidence",
   "qbo.customers.match",
+  "qbo.customers.contactLabel",
+  "qbo.jobsDetected",
   "qbo.action.link",
   "qbo.action.create",
   "qbo.action.skip",

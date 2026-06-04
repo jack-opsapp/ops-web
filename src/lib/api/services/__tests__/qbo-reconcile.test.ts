@@ -41,11 +41,25 @@ describe("buildReconciliation", () => {
 describe("buildStagedCounts", () => {
   it("counts entities, orphan payments, and skipped invoices", () => {
     const c = buildStagedCounts({
-      customers: 5, estimates: 2, invoices, lineItems: 7, payments,
+      customers: 5, estimates: 2, invoices, lineItems: 7, payments, customerRows: [],
     });
     expect(c.invoices).toBe(3);
     expect(c.skippedInvoices).toBe(1);
     expect(c.orphanPayments).toBe(1);
     expect(c.lineItems).toBe(7);
+  });
+
+  it("counts sub-clients to create (excluding jobs) and jobs detected", () => {
+    const c = buildStagedCounts({
+      customers: 4, estimates: 0, invoices: [], lineItems: 0, payments: [],
+      customerRows: [
+        { qb_id: "42", company_name: "Acme", contact_name: "John Smith", is_job: false },
+        { qb_id: "7", company_name: "Globex", contact_name: null, is_job: false },
+        { qb_id: "9", company_name: null, contact_name: "Jane Doe", is_job: false },
+        { qb_id: "100", company_name: "Acme", contact_name: "Bob", is_job: true },
+      ],
+    });
+    expect(c.subClientsToCreate).toBe(1); // only 42 (7 no contact, 9 individual, 100 is a Job)
+    expect(c.jobsDetected).toBe(1); // 100
   });
 });

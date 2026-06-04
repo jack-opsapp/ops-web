@@ -21,7 +21,7 @@ function round2(n: number) { return Math.round((n + Number.EPSILON) * 100) / 100
 // unique index on that pair yet, so PostgREST .upsert({onConflict:"company_id,
 // qb_id"}) would 42P10 without one — the double throws if the conflict key is
 // absent so the tests would have caught C1.
-const QB_CONFLICT_TABLES = new Set(["clients", "estimates", "invoices", "payments"]);
+const QB_CONFLICT_TABLES = new Set(["clients", "estimates", "invoices", "payments", "sub_clients"]);
 // NOT NULL columns with no DB default — sending null throws (would have caught C3).
 const NOT_NULL_COLUMNS: Record<string, string[]> = {
   invoices: ["due_date", "invoice_number"],
@@ -45,6 +45,7 @@ function makeSupabase() {
     qbo_staging_payments: structuredClone(stagedPayments),
     qbo_customer_matches: structuredClone(customerMatches),
     clients: [],
+    sub_clients: [],
     estimates: [],
     invoices: [],
     line_items: [],
@@ -274,5 +275,90 @@ describe("QuickBooksImportService.applyImport", () => {
     expect(supabase.__db.invoices).toHaveLength(0);
     expect(supabase.__db.line_items).toHaveLength(0);
     expect(supabase.__db.payments).toHaveLength(0);
+  });
+});
+
+describe("applyImport — company → client + contact → sub_client", () => {
+  let supabase: any;
+  // Seed a staged QB customer (snake columns as qbo_staging_customers stores them).
+  function seedCustomer(over: Row) {
+    supabase.__db.qbo_staging_customers.push({
+      id: `sc-${over.qb_id}`, run_id: RUN_ID, company_id: TEMP_COMPANY_ID,
+      display_name: null, company_name: null, contact_name: null, contact_title: null,
+      parent_qb_id: null, is_job: false, email: null, phone: null, address: null,
+      active: true, raw: {}, ...over,
+    });
+  }
+  async function apply(decisions: Array<{ customer_qb_id: string; action: string; client_id?: string }>) {
+    const { QuickBooksImportService } = await import("@/lib/api/services/quickbooks-import-service");
+    return new QuickBooksImportService(supabase).applyImport(RUN_ID, decisions as any);
+  }
+  beforeEach(() => {
+    supabase = makeSupabase();
+    // Remove the fixture's QB-CUST-1 staged customer so only seeded rows apply.
+    supabase.__db.qbo_staging_customers.length = 0;
+  });
+
+  it("creates a parent client (name=CompanyName) and one sub_client contact", async () => {
+    seedCustomer({
+      qb_id: "42", display_name: "Acme Corp", company_name: "Acme Corp", contact_name: "John Smith",
+      email: "john@acme.com", phone: "555", address: "1 Main St, Reno, NV 89501",
+    });
+    const res = await apply([{ customer_qb_id: "42", action: "create" }]);
+    const client = supabase.__db.clients.find((c: Row) => c.qb_id === "42");
+    expect(client.name).toBe("Acme Corp");
+    expect(client.email).toBeNull();
+    expect(client.phone_number).toBeNull();
+    expect(client.address).toBe("1 Main St, Reno, NV 89501");
+    const sub = supabase.__db.sub_clients.find((s: Row) => s.qb_id === "42");
+    expect(sub.client_id).toBe(client.id);
+    expect(sub.name).toBe("John Smith");
+    expect(sub.email).toBe("john@acme.com");
+    expect(sub.phone_number).toBe("555");
+    expect(res.subClientsCreated).toBe(1);
+  });
+
+  it("creates a sub_client under a LINKED existing client without overwriting it", async () => {
+    supabase.__db.clients.push({
+      id: "C1", company_id: TEMP_COMPANY_ID, name: "Acme Corp", email: "existing@acme.com",
+      phone_number: null, address: null, deleted_at: null, merged_into_client_id: null,
+    });
+    seedCustomer({
+      qb_id: "42", display_name: "Acme Corp", company_name: "Acme Corp", contact_name: "John Smith",
+      email: "john@acme.com", phone: "555",
+    });
+    await apply([{ customer_qb_id: "42", action: "link", client_id: "C1" }]);
+    const sub = supabase.__db.sub_clients.find((s: Row) => s.qb_id === "42");
+    expect(sub.client_id).toBe("C1");
+    const client = supabase.__db.clients.find((c: Row) => c.id === "C1");
+    expect(client.name).toBe("Acme Corp");
+    expect(client.email).toBe("existing@acme.com"); // link never overwrites
+  });
+
+  it("is idempotent — re-apply does not duplicate the sub_client", async () => {
+    seedCustomer({ qb_id: "42", display_name: "Acme Corp", company_name: "Acme Corp", contact_name: "John Smith", email: "john@acme.com" });
+    await apply([{ customer_qb_id: "42", action: "create" }]);
+    await apply([{ customer_qb_id: "42", action: "create" }]);
+    expect(supabase.__db.sub_clients.filter((s: Row) => s.qb_id === "42").length).toBe(1);
+  });
+
+  it("does NOT create a sub_client for an individual (no CompanyName)", async () => {
+    seedCustomer({ qb_id: "9", display_name: "Jane Doe", contact_name: "Jane Doe", email: "jane@doe.com" });
+    const res = await apply([{ customer_qb_id: "9", action: "create" }]);
+    expect(supabase.__db.sub_clients.some((s: Row) => s.qb_id === "9")).toBe(false);
+    const client = supabase.__db.clients.find((c: Row) => c.qb_id === "9");
+    expect(client.name).toBe("Jane Doe");
+    expect(client.email).toBe("jane@doe.com");
+    expect(res.subClientsCreated).toBe(0);
+  });
+
+  it("does NOT create a sub_client for a company with no contact person", async () => {
+    seedCustomer({ qb_id: "7", display_name: "Globex", company_name: "Globex", email: "info@globex.com" });
+    const res = await apply([{ customer_qb_id: "7", action: "create" }]);
+    expect(supabase.__db.sub_clients.some((s: Row) => s.qb_id === "7")).toBe(false);
+    const client = supabase.__db.clients.find((c: Row) => c.qb_id === "7");
+    expect(client.name).toBe("Globex");
+    expect(client.email).toBe("info@globex.com");
+    expect(res.subClientsCreated).toBe(0);
   });
 });

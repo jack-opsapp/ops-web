@@ -83,6 +83,8 @@ export function buildStagedCounts(args: {
   invoices: QboStagedInvoice[];
   lineItems: number;
   payments: QboStagedPayment[];
+  // Raw staged customer rows (snake) — only for the sub-client / jobs counts.
+  customerRows: Record<string, unknown>[];
 }): QboStagedCounts {
   const invoiceRows = args.invoices as unknown as InvoiceRowView[];
   const paymentRows = args.payments as unknown as PaymentRowView[];
@@ -90,6 +92,11 @@ export function buildStagedCounts(args: {
   const orphanPayments = paymentRows.filter(
     (p) => !Array.isArray(p.applied_lines) || p.applied_lines.length === 0
   ).length;
+  // Company-type customers with a contact, EXCLUDING QB Jobs (Decision 3).
+  const subClientsToCreate = args.customerRows.filter(
+    (c) => !!c.company_name && !!c.contact_name && c.is_job !== true
+  ).length;
+  const jobsDetected = args.customerRows.filter((c) => c.is_job === true).length;
   return {
     customers: args.customers,
     estimates: args.estimates,
@@ -98,5 +105,7 @@ export function buildStagedCounts(args: {
     payments: args.payments.length,
     orphanPayments,
     skippedInvoices,
+    subClientsToCreate,
+    jobsDetected,
   };
 }

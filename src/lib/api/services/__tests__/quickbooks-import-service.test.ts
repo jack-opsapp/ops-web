@@ -135,6 +135,32 @@ describe("QuickBooksImportService.pullAndStage", () => {
     expect(finished.status).toBe("staged");
     expect(finished.qb_write_calls).toBe(0);
   });
+
+  it("stages CompanyName / contact / job fields onto qbo_staging_customers", async () => {
+    // Override the pull double for this test only — do NOT touch the shared fixture
+    // (its assertions are pinned to 2 customers).
+    pullInstance.pullCustomers.mockResolvedValueOnce([
+      {
+        Id: "42",
+        DisplayName: "Acme Corp",
+        CompanyName: "Acme Corp",
+        GivenName: "John",
+        FamilyName: "Smith",
+        PrimaryEmailAddr: { Address: "john@acme.com" },
+        PrimaryPhone: { FreeFormNumber: "555-0100" },
+        BillAddr: { Line1: "1 Main St", City: "Reno", CountrySubDivisionCode: "NV", PostalCode: "89501" },
+        Active: true,
+      },
+    ]);
+    const run = await svc.startImportRun(COMPANY_ID);
+    await svc.pullAndStage(run.id);
+    const row = supabase._tables.qbo_staging_customers.find((r) => r.qb_id === "42");
+    expect(row).toBeDefined();
+    expect(row!.company_name).toBe("Acme Corp");
+    expect(row!.contact_name).toBe("John Smith");
+    expect(row!.parent_qb_id).toBeNull();
+    expect(row!.is_job).toBe(false);
+  });
 });
 
 describe("QuickBooksImportService.pullAndStage item-type resolution", () => {
@@ -185,6 +211,26 @@ describe("QuickBooksImportService.computeCustomerMatches", () => {
     expect(cool?.matched_client_id).toBe("client-cool");
     const diego = matches.find((m) => m.customer_qb_id === "12");
     expect(diego?.proposed_action).toBe("create");
+  });
+
+  it("matches a company customer to an existing client by CompanyName, not DisplayName", async () => {
+    // Existing OPS client named "Acme Corp".
+    supabase._tables.clients.push({
+      id: "acme", company_id: COMPANY_ID, name: "Acme Corp",
+      email: null, phone_number: null, deleted_at: null, merged_into_client_id: null,
+    });
+    // One company customer whose DisplayName ("Acme Corp:HQ") differs from CompanyName
+    // ("Acme Corp") → match must use CompanyName → propose link by name_exact.
+    pullInstance.pullCustomers.mockResolvedValueOnce([
+      { Id: "42", DisplayName: "Acme Corp:HQ", CompanyName: "Acme Corp" },
+    ]);
+    const run = await svc.startImportRun(COMPANY_ID);
+    await svc.pullAndStage(run.id);
+    await svc.computeCustomerMatches(run.id);
+    const match = supabase._tables.qbo_customer_matches.find((m) => m.customer_qb_id === "42");
+    expect(match?.proposed_action).toBe("link");
+    expect(match?.match_basis).toBe("name_exact");
+    expect(match?.matched_client_id).toBe("acme");
   });
 });
 

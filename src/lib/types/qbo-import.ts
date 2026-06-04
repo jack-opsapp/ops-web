@@ -51,6 +51,11 @@ export interface QboStagedCustomer {
   email: string | null;
   phone: string | null;
   address: string | null;
+  companyName: string | null;
+  contactName: string | null;
+  contactTitle: string | null;
+  parentQbId: string | null;
+  isJob: boolean | null;
   active: boolean | null;
   raw: Record<string, unknown> | null;
   createdAt: Date | null;
@@ -159,6 +164,10 @@ export interface QboCustomerMatch {
   customerQbId: string;
   /** QB customer DisplayName (joined from staging) — what the review table shows. */
   displayName: string | null;
+  /** QB CompanyName (when present) — preferred label + the name used for matching. */
+  companyName: string | null;
+  /** QB contact person name (when present) — shown as the sub-line in review. */
+  contactName: string | null;
   proposedAction: MatchAction;
   matchedClientId: string | null;
   matchBasis: MatchBasis | null;
@@ -189,6 +198,10 @@ export interface QboStagedCounts {
   orphanPayments: number;
   /** Invoices skipped because voided or zero-total. */
   skippedInvoices: number;
+  /** Company-type staged customers that will produce a sub_client contact. */
+  subClientsToCreate: number;
+  /** Staged customers flagged as a QB Job/sub-customer (recorded, not acted on). */
+  jobsDetected: number;
 }
 
 /**
@@ -238,6 +251,7 @@ export interface QboApplyResult {
   clientsLinked: number;
   clientsCreated: number;
   clientsSkipped: number;
+  subClientsCreated: number;
   estimatesUpserted: number;
   invoicesUpserted: number;
   lineItemsInserted: number;

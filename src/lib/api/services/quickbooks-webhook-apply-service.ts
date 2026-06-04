@@ -31,6 +31,8 @@ import {
   splitPaymentLines,
   deriveInvoiceStatus,
   mapEstimateStatus,
+  clientFieldsFromCustomer,
+  subClientFieldsFromCustomer,
   type QbRecordLike,
 } from "./qbo-normalize";
 
@@ -150,7 +152,10 @@ export class QuickBooksWebhookApplyService {
   }
 
   // ── Customer ────────────────────────────────────────────────────────────
-  // Upsert by (company_id, qb_id). Mapping mirrors applyImport STEP 1 "create".
+  // Upsert by (company_id, qb_id). Client + contact field shaping is shared with
+  // applyImport via clientFieldsFromCustomer / subClientFieldsFromCustomer in
+  // qbo-normalize — the single source of truth. This parity is load-bearing: a
+  // webhook-applied customer MUST match the same customer applied in a batch run.
 
   private async applyCustomer(
     connection: ConnectionRow,
@@ -162,15 +167,30 @@ export class QuickBooksWebhookApplyService {
       {
         company_id: connection.company_id,
         qb_id: n.qb_id,
-        name: n.display_name ?? "QuickBooks customer",
-        email: n.email ?? null,
-        phone_number: n.phone ?? null,
-        address: n.address ?? null,
+        ...clientFieldsFromCustomer(n),
       },
       { onConflict: "company_id,qb_id" }
     );
     if (error) {
       return { status: "error", logEntityType: "client", qbId, detail: "client upsert failed" };
+    }
+
+    // Company-type customers also get a contact sub_client (parity with
+    // applyImport STEP 1b). Null for individuals, contact-less companies, and Jobs.
+    const subFields = subClientFieldsFromCustomer(n);
+    if (subFields) {
+      const { data: clientRow } = await this.supabase
+        .from("clients").select("id")
+        .eq("company_id", connection.company_id).eq("qb_id", n.qb_id).maybeSingle();
+      if (clientRow?.id) {
+        const { error: subErr } = await this.supabase.from("sub_clients").upsert(
+          { company_id: connection.company_id, client_id: clientRow.id as string, qb_id: n.qb_id, ...subFields },
+          { onConflict: "company_id,qb_id" }
+        );
+        if (subErr) {
+          return { status: "error", logEntityType: "client", qbId, detail: "sub_client upsert failed" };
+        }
+      }
     }
     return { status: "success", logEntityType: "client", qbId, detail: null };
   }

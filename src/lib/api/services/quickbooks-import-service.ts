@@ -29,6 +29,9 @@ import {
   deriveInvoiceStatus,
   mapEstimateStatus,
   buildItemTypeMap,
+  clientFieldsFromCustomer,
+  subClientFieldsFromCustomer,
+  type CustomerShape,
 } from "./qbo-normalize";
 import { getQuickBooksEnvironment } from "./quickbooks-config";
 import {
@@ -87,15 +90,21 @@ function mapRun(row: Record<string, unknown>): QboImportRun {
  */
 function mapCustomerMatch(
   r: Record<string, unknown>,
-  displayNameByQbId: Map<string, string | null>
+  stagingByQbId: Map<string, Record<string, unknown>>
 ): QboCustomerMatch {
   const rawCandidates = (r.candidates as Record<string, unknown>[] | null) ?? [];
+  const staging = stagingByQbId.get(r.customer_qb_id as string);
+  const companyName = (staging?.company_name as string | null) ?? null;
+  const contactName = (staging?.contact_name as string | null) ?? null;
   return {
     id: r.id as string,
     runId: r.run_id as string,
     companyId: r.company_id as string,
     customerQbId: r.customer_qb_id as string,
-    displayName: displayNameByQbId.get(r.customer_qb_id as string) ?? null,
+    // Prefer the company name as the review label; fall back to display name.
+    displayName: companyName ?? (staging?.display_name as string | null) ?? null,
+    companyName,
+    contactName,
     proposedAction: r.proposed_action as QboCustomerMatch["proposedAction"],
     matchedClientId: (r.matched_client_id as string | null) ?? null,
     matchBasis: (r.match_basis as QboCustomerMatch["matchBasis"]) ?? null,
@@ -268,6 +277,11 @@ export class QuickBooksImportService {
           company_id: companyId,
           qb_id: n.qb_id,
           display_name: n.display_name,
+          company_name: n.company_name,
+          contact_name: n.contact_name,
+          contact_title: n.contact_title,
+          parent_qb_id: n.parent_qb_id,
+          is_job: n.is_job,
           email: n.email,
           phone: n.phone,
           address: n.address,
@@ -435,7 +449,7 @@ export class QuickBooksImportService {
 
     const { data: staged } = await sb
       .from("qbo_staging_customers")
-      .select("qb_id, display_name, email, phone")
+      .select("qb_id, display_name, company_name, email, phone")
       .eq("run_id", runId);
 
     const { data: existing } = await sb
@@ -455,6 +469,10 @@ export class QuickBooksImportService {
     const matchRows: Record<string, unknown>[] = [];
     for (const row of (staged ?? []) as Record<string, unknown>[]) {
       const displayName = (row.display_name as string) ?? null;
+      const companyName = (row.company_name as string) ?? null;
+      // Match on the company name for company-type customers (so they attach to
+      // existing company clients); fall back to the display name for individuals.
+      const matchName = companyName ?? displayName;
       const email = (row.email as string) ?? null;
 
       // Pre-check email/name so we only hit the fuzzy RPC when needed.
@@ -462,10 +480,10 @@ export class QuickBooksImportService {
         !!email &&
         activeClients.some((c) => (c.email ?? "").trim().toLowerCase() === email.trim().toLowerCase());
       let fuzzy: FuzzyCandidate[] = [];
-      if (!hasEmailHit && displayName) {
+      if (!hasEmailHit && matchName) {
         const { data: candidates } = await sb.rpc("qbo_match_customer_candidates", {
           p_company_id: companyId,
-          p_name: displayName,
+          p_name: matchName,
           p_threshold: FUZZY_THRESHOLD,
         });
         fuzzy = ((candidates as FuzzyCandidate[]) ?? []).map((c) => ({
@@ -478,7 +496,7 @@ export class QuickBooksImportService {
       }
 
       const result = resolveCustomerMatch(
-        { qb_id: row.qb_id as string, display_name: displayName, email, phone: (row.phone as string) ?? null },
+        { qb_id: row.qb_id as string, display_name: matchName, email, phone: (row.phone as string) ?? null },
         activeClients,
         fuzzy
       );
@@ -520,7 +538,9 @@ export class QuickBooksImportService {
       sb.from("qbo_staging_invoices").select("*").eq("run_id", runId),
       sb.from("qbo_staging_payments").select("*").eq("run_id", runId),
       sb.from("qbo_staging_estimates").select("qb_id").eq("run_id", runId),
-      sb.from("qbo_staging_customers").select("qb_id, display_name").eq("run_id", runId),
+      sb.from("qbo_staging_customers")
+        .select("qb_id, display_name, company_name, contact_name, is_job")
+        .eq("run_id", runId),
       sb.from("qbo_staging_line_items").select("id").eq("run_id", runId),
     ]);
 
@@ -530,14 +550,14 @@ export class QuickBooksImportService {
     const customerRows = (customerData ?? []) as Record<string, unknown>[];
     const customerCount = customerRows.length;
 
-    // Join each match to its QB customer display_name and map snake_case ->
-    // camelCase for the UI. buildMatchCounts reads the raw snake rows, so it is
-    // fed rawMatches (unchanged behaviour).
-    const displayNameByQbId = new Map<string, string | null>(
-      customerRows.map((c) => [c.qb_id as string, (c.display_name as string) ?? null])
+    // Join each match to its full staged QB customer row (for the company/contact
+    // label + the displayName preference) and map snake_case -> camelCase for the
+    // UI. buildMatchCounts reads the raw snake rows, so it is fed rawMatches.
+    const stagingByQbId = new Map<string, Record<string, unknown>>(
+      customerRows.map((c) => [c.qb_id as string, c])
     );
     const matches: QboCustomerMatch[] = rawMatches.map((r) =>
-      mapCustomerMatch(r, displayNameByQbId)
+      mapCustomerMatch(r, stagingByQbId)
     );
 
     return {
@@ -550,6 +570,7 @@ export class QuickBooksImportService {
         invoices,
         lineItems: (lineData ?? []).length,
         payments,
+        customerRows,
       }),
       reconciliation: buildReconciliation(invoices, payments, customerCount),
     };
@@ -586,7 +607,7 @@ export class QuickBooksImportService {
       .from("qbo_staging_payments").select("*").eq("run_id", runId);
 
     const result: QboApplyResult = {
-      clientsLinked: 0, clientsCreated: 0, clientsSkipped: 0,
+      clientsLinked: 0, clientsCreated: 0, clientsSkipped: 0, subClientsCreated: 0,
       estimatesUpserted: 0, invoicesUpserted: 0, lineItemsInserted: 0,
       paymentsUpserted: 0, invoicesReconciled: 0, qb_write_calls: 0,
     };
@@ -600,6 +621,19 @@ export class QuickBooksImportService {
     const decisionByQbId = new Map(decisions.map((d) => [d.customer_qb_id, d]));
     // customer_qb_id → resolved OPS client_id (null === skipped)
     const clientIdByCustomerQbId = new Map<string, string | null>();
+
+    // Staged row (snake) → CustomerShape for the shared field-shaping helpers
+    // (clientFieldsFromCustomer / subClientFieldsFromCustomer) — the SAME helpers
+    // the webhook applyCustomer uses, so both apply paths emit identical rows.
+    const toShape = (cust: Record<string, unknown>): CustomerShape => ({
+      company_name: (cust.company_name as string) ?? null,
+      contact_name: (cust.contact_name as string) ?? null,
+      display_name: (cust.display_name as string) ?? null,
+      email: (cust.email as string) ?? null,
+      phone: (cust.phone as string) ?? null,
+      address: (cust.address as string) ?? null,
+      is_job: (cust.is_job as boolean) ?? null,
+    });
 
     // ── STEP 1: Clients (link / create / skip) ─────────────────────────────
     for (const cust of stagedCustomers ?? []) {
@@ -662,16 +696,14 @@ export class QuickBooksImportService {
         continue;
       }
 
+      // Company-aware field shaping — SAME helper the webhook path uses (Task 6B).
       const newId = crypto.randomUUID();
       await sb.from("clients").upsert(
         {
           id: newId,
           company_id: companyId,
           qb_id: cust.qb_id,
-          name: cust.display_name ?? "QuickBooks customer",
-          email: cust.email ?? null,
-          phone_number: cust.phone ?? null,
-          address: cust.address ?? null,
+          ...clientFieldsFromCustomer(toShape(cust)),
         },
         { onConflict: "company_id,qb_id" }
       );
@@ -680,6 +712,23 @@ export class QuickBooksImportService {
         .eq("company_id", companyId).eq("qb_id", cust.qb_id).maybeSingle();
       clientIdByCustomerQbId.set(cust.qb_id as string, (created?.id as string) ?? newId);
       result.clientsCreated++;
+    }
+
+    // ── STEP 1b: Contact sub-clients for company-type customers ────────────
+    // One sub_client per QB customer with a CompanyName + a contact person.
+    // Keyed (company_id, qb_id) so re-import upserts in place. Runs for both
+    // linked and created parents; skipped/needs_review customers have a null
+    // clientId and are ignored. subClientFieldsFromCustomer returns null for
+    // individuals, contact-less companies, and QB Jobs (Decision 3).
+    for (const cust of stagedCustomers ?? []) {
+      const clientId = clientIdByCustomerQbId.get(cust.qb_id as string);
+      const fields = subClientFieldsFromCustomer(toShape(cust));
+      if (!clientId || !fields) continue;
+      await sb.from("sub_clients").upsert(
+        { company_id: companyId, client_id: clientId, qb_id: cust.qb_id, ...fields },
+        { onConflict: "company_id,qb_id" }
+      );
+      result.subClientsCreated++;
     }
 
     // ── STEP 2: Estimate + invoice HEADERS (QB-authoritative totals) ────────
