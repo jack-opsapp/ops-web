@@ -19,6 +19,7 @@ const {
   createFirstTaskMock,
   useProjectTableTeamMock,
   teamState,
+  teamConflictsState,
   authState,
   fetchProjectPhotosMock,
   uploadProjectPhotoMock,
@@ -41,6 +42,16 @@ const {
     assignedMembers: [] as Array<Record<string, unknown>>,
     availableMembers: [] as Array<Record<string, unknown>>,
     tasks: [] as Array<Record<string, unknown>>,
+  },
+  teamConflictsState: {
+    data: [] as Array<{
+      date: Date;
+      memberName: string;
+      memberId: string;
+      projectTitle: string;
+      projectId: string;
+      taskColor: string;
+    }>,
   },
   authState: {
     company: { id: "co-1" },
@@ -113,6 +124,7 @@ const dictionary: Record<string, string> = {
   "table.cell.team.readOnly": "// READ-ONLY - no team permission",
   "table.cell.team.error": "// TEAM UPDATE FAILED",
   "table.cell.team.emptyAvailable": "No active crew available.",
+  conflict: "Double-booked · {project} · {when}",
   "table.cell.photos.title": "// PHOTOS - {project}",
   "table.cell.photos.triggerLabel": "Photos - {project} - {count}",
   "table.cell.photos.drop": "Drop photos here",
@@ -392,6 +404,10 @@ vi.mock("@/i18n/client", () => ({
   }),
 }));
 
+vi.mock("@/lib/hooks/use-team-conflicts", () => ({
+  useTeamScheduleConflicts: () => ({ data: teamConflictsState.data }),
+}));
+
 vi.mock("@/lib/store/auth-store", () => ({
   useAuthStore: (selector?: (state: typeof authState) => unknown) =>
     selector ? selector(authState) : authState,
@@ -529,6 +545,7 @@ describe("Projects table v2 Phase 4 team cell", () => {
   beforeEach(() => {
     rows = createRows();
     resetTeamState();
+    teamConflictsState.data = [];
     openProjectWindow.mockReset();
     assignTeamMemberMock.mockReset();
     removeTeamMemberMock.mockReset();
@@ -683,6 +700,25 @@ describe("Projects table v2 Phase 4 team cell", () => {
     await waitFor(() =>
       expect(screen.queryByRole("dialog", { name: "// TEAM - Deck rebuild" })).not.toBeInTheDocument(),
     );
+  });
+
+  it("shows an inline conflict advisory for a double-booked member", async () => {
+    const user = userEvent.setup();
+    teamConflictsState.data = [
+      {
+        date: new Date("2026-06-09T00:00:00Z"),
+        memberName: "Owen Vale",
+        memberId: "u-2",
+        projectTitle: "Cedar & Main",
+        projectId: "p-9",
+        taskColor: "#000000",
+      },
+    ];
+
+    renderProjectsTable();
+
+    await user.click(screen.getByRole("button", { name: "Team - Deck rebuild - 1 assigned" }));
+    expect(await screen.findByText(/double-booked · cedar & main/i)).toBeInTheDocument();
   });
 });
 

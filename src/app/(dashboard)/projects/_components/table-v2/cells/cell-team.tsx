@@ -6,6 +6,7 @@ import { EntityPicker } from "@/components/ui/entity-picker";
 import { UserAvatar } from "@/components/ops/user-avatar";
 import { useDictionary } from "@/i18n/client";
 import { useProjectTableTeam } from "@/lib/hooks/projects-table/use-project-table-team";
+import { useTeamScheduleConflicts } from "@/lib/hooks/use-team-conflicts";
 import { ProjectTableMutationError } from "@/lib/api/services/project-table-service";
 import type {
   ProjectTableTaskOption,
@@ -38,14 +39,18 @@ function isAssignableTask(task: ProjectTableTaskOption) {
   return status !== "completed" && status !== "cancelled";
 }
 
+function formatConflictWhen(date: Date) {
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
 function is42501(error: unknown) {
   return (
-    error instanceof ProjectTableMutationError && error.code === "42501"
-  ) ||
+    (error instanceof ProjectTableMutationError && error.code === "42501") ||
     (typeof error === "object" &&
       error !== null &&
       "code" in error &&
-      (error as { code?: string }).code === "42501");
+      (error as { code?: string }).code === "42501")
+  );
 }
 
 /**
@@ -56,7 +61,8 @@ function is42501(error: unknown) {
  * assigns them to every active task ("on the job"); unchecking removes them from
  * all. Optimistic, no Apply. When the project has no active task there is nothing
  * to assign to, so the list is read-only with a notice. A denied write (RLS
- * 42501) surfaces inline.
+ * 42501) surfaces inline. Members already booked on another project in the
+ * window get an inline advisory (not a hard block).
  */
 export function CellTeam({
   row,
@@ -67,6 +73,7 @@ export function CellTeam({
 }) {
   const { t } = useDictionary("projects");
   const { t: tp } = useDictionary("picker");
+  const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const { teamMembersQuery, tasksQuery, assignedMembers, assignTeamMember, removeTeamMember } =
@@ -78,6 +85,28 @@ export function CellTeam({
     [tasksQuery.data],
   );
   const hasActiveTasks = activeTaskIds.length > 0;
+
+  // Schedule-conflict advisory — members booked on another project in the
+  // window. Fetched only while the picker is open (excludes this project).
+  const memberNameMap = useMemo(
+    () => new Map(members.map((member) => [member.id, member.name])),
+    [members],
+  );
+  const { data: conflicts = [] } = useTeamScheduleConflicts(
+    members.map((member) => member.id),
+    row.id,
+    memberNameMap,
+    open,
+  );
+  const conflictByMember = useMemo(() => {
+    const map = new Map<string, { projectTitle: string; date: Date }>();
+    for (const conflict of conflicts) {
+      if (!map.has(conflict.memberId)) {
+        map.set(conflict.memberId, { projectTitle: conflict.projectTitle, date: conflict.date });
+      }
+    }
+    return map;
+  }, [conflicts]);
 
   const assignedCount = row.teamMemberIds.length;
   const triggerLabel = formatText(t("table.cell.team.triggerLabel"), {
@@ -103,6 +132,15 @@ export function CellTeam({
     } catch (err) {
       setError(is42501(err) ? t("table.cell.team.readOnly") : t("table.cell.team.error"));
     }
+  }
+
+  function conflictFor(id: string) {
+    const conflict = conflictByMember.get(id);
+    if (!conflict) return null;
+    return formatText(tp("conflict"), {
+      project: conflict.projectTitle,
+      when: formatConflictWhen(conflict.date),
+    });
   }
 
   const trigger = (
@@ -146,6 +184,8 @@ export function CellTeam({
     <EntityPicker<ProjectTableTeamMember>
       multiple
       trigger={trigger}
+      open={open}
+      onOpenChange={setOpen}
       label={title}
       items={members}
       value={row.teamMemberIds}
@@ -153,6 +193,7 @@ export function CellTeam({
       getId={(member) => member.id}
       getLabel={(member) => member.name}
       getAvatar={(member) => ({ name: member.name, imageUrl: member.profileImageUrl })}
+      conflictFor={conflictFor}
       searchPlaceholder={t("table.cell.team.search")}
       clearLabel={tp("clear")}
       emptyLabel={t("table.cell.team.emptyAvailable")}
