@@ -147,6 +147,7 @@ function Harness({
             onCellKeyDown={handleCellKeyDown}
             onCommitCell={onCommitCell}
             onRequestStageChange={vi.fn()}
+            onRequestConvertAlreadyWon={vi.fn()}
           />
         ))}
       </div>

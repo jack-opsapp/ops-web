@@ -45,6 +45,7 @@ interface PipelineMobileProps {
   onDiscard: (opportunityId: string) => void;
   onMarkWon: (opportunity: Opportunity) => void;
   onMarkLost: (opportunity: Opportunity) => void;
+  onConvert: (opportunity: Opportunity) => void;
   onOpenDetail: (opportunity: Opportunity) => void;
   onAssign: (opportunityId: string) => void;
   onScheduleFollowUp: (opportunityId: string) => void;
@@ -88,6 +89,7 @@ interface SwipeableCardProps {
   onDiscard: () => void;
   onMarkWon: () => void;
   onMarkLost: () => void;
+  onConvert?: () => void;
   onOpenDetail: () => void;
   onAssign: () => void;
   onScheduleFollowUp: () => void;
@@ -111,6 +113,7 @@ function SwipeableCard({
   onDiscard,
   onMarkWon,
   onMarkLost,
+  onConvert,
   onOpenDetail,
   onAssign,
   onScheduleFollowUp,
@@ -226,6 +229,7 @@ function SwipeableCard({
           onDiscard={onDiscard}
           onMarkWon={onMarkWon}
           onMarkLost={onMarkLost}
+          onConvert={onConvert}
           onOpenDetail={onOpenDetail}
           onAssign={onAssign}
           onScheduleFollowUp={onScheduleFollowUp}
@@ -254,6 +258,7 @@ export function PipelineMobile({
   onDiscard,
   onMarkWon,
   onMarkLost,
+  onConvert,
   onOpenDetail,
   onAssign,
   onScheduleFollowUp,
@@ -374,6 +379,11 @@ export function PipelineMobile({
                     onDiscard={() => onDiscard(opp.id)}
                     onMarkWon={() => onMarkWon(opp)}
                     onMarkLost={() => onMarkLost(opp)}
+                    onConvert={
+                      opp.stage === OpportunityStage.Won && !opp.projectId
+                        ? () => onConvert(opp)
+                        : undefined
+                    }
                     onOpenDetail={() => onOpenDetail(opp)}
                     onAssign={() => onAssign(opp.id)}
                     onScheduleFollowUp={() => onScheduleFollowUp(opp.id)}

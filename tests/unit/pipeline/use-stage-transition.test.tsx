@@ -220,6 +220,31 @@ describe("useStageTransition — Won (single atomic win+convert)", () => {
     expect(toastError).toHaveBeenCalled();
   });
 
+  it("requestConvertAlreadyWon opens the Won dialog for an already-won opp (bypasses the same-stage no-op)", () => {
+    const opp = makeOpp({ stage: OpportunityStage.Won, projectId: null });
+    const { result } = renderHook(() =>
+      useStageTransition({ opportunities: [opp] }),
+    );
+
+    // requestStageChange no-ops on the same stage — the dialog never opens.
+    act(() => result.current.requestStageChange(opp.id, OpportunityStage.Won));
+    expect(result.current.dialogType).toBeNull();
+
+    // The dedicated entry opens the same Won dialog.
+    act(() => result.current.requestConvertAlreadyWon(opp.id));
+    expect(result.current.dialogType).toBe("won");
+    expect(result.current.dialogOpportunity).toBe(opp);
+
+    // Confirm converts with expectedStage='won' — RPC step-12 writes no 2nd
+    // transition.
+    act(() => result.current.confirmTransition({ actualValue: 5000 }));
+    expect(convertMutate).toHaveBeenCalledTimes(1);
+    expect(convertMutate.mock.calls[0]![0]).toMatchObject({
+      id: opp.id,
+      expectedStage: OpportunityStage.Won,
+    });
+  });
+
   it("onAddressChange persists the corrected address to the opportunity", () => {
     const opp = makeOpp();
     const { result } = renderHook(() =>

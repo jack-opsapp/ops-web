@@ -408,6 +408,7 @@ export function PipelineTableShell() {
   }, [opportunities]);
   const {
     requestStageChange,
+    requestConvertAlreadyWon,
     dialogType,
     dialogOpportunity,
     preflight,
@@ -669,6 +670,7 @@ export function PipelineTableShell() {
         onCellKeyDown={handleCellKeyDown}
         onCommitCell={handleCommitCell}
         onRequestStageChange={requestStageChange}
+        onRequestConvertAlreadyWon={requestConvertAlreadyWon}
       />
     );
   }

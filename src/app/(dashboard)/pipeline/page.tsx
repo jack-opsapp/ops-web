@@ -359,6 +359,7 @@ export default function PipelinePage() {
   // direct (toast + undo); Won/Lost open the terminal dialog rendered below.
   const {
     requestStageChange,
+    requestConvertAlreadyWon,
     dialogType,
     dialogOpportunity,
     preflight,
@@ -557,6 +558,14 @@ export default function PipelinePage() {
       handleMoveStage(opportunity.id, OpportunityStage.Lost);
     },
     [handleMoveStage]
+  );
+
+  /** Convert an already-won, unconverted deal — opens the Won dialog directly */
+  const handleConvertAlreadyWon = useCallback(
+    (opportunity: Opportunity) => {
+      requestConvertAlreadyWon(opportunity.id);
+    },
+    [requestConvertAlreadyWon]
   );
 
   /** Discard — direct stage move, no confirmation dialog needed */
@@ -880,6 +889,7 @@ export default function PipelinePage() {
     onDiscard: handleDiscard,
     onMarkWon: handleMarkWon,
     onMarkLost: handleMarkLost,
+    onConvert: handleConvertAlreadyWon,
     onOpenDetail: handleOpenDetail,
     onAssign: handleAssign,
     onScheduleFollowUp: handleScheduleFollowUp,
@@ -980,6 +990,7 @@ export default function PipelinePage() {
                       onDiscard={handleDiscard}
                       onMarkWon={handleMarkWon}
                       onMarkLost={handleMarkLost}
+                      onConvert={handleConvertAlreadyWon}
                       onAdvanceStage={handleAdvanceStage}
                       onMoveStage={handleMoveStage}
                       onAssign={handleAssign}

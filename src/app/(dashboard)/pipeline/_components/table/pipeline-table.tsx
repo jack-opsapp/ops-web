@@ -96,6 +96,7 @@ export function PipelineTable({
   onCellKeyDown,
   onCommitCell,
   onRequestStageChange,
+  onRequestConvertAlreadyWon,
 }: {
   rows: PipelineTableRowModel[];
   sorting: PipelineTableSort[];
@@ -138,6 +139,7 @@ export function PipelineTable({
     value: PipelineTableEditValue,
   ) => void;
   onRequestStageChange: (rowId: string, next: OpportunityStage) => void;
+  onRequestConvertAlreadyWon: (rowId: string) => void;
 }) {
   const { t } = useDictionary("pipeline");
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -363,6 +365,7 @@ export function PipelineTable({
                 onCellKeyDown={onCellKeyDown}
                 onCommitCell={onCommitCell}
                 onRequestStageChange={onRequestStageChange}
+                onRequestConvertAlreadyWon={onRequestConvertAlreadyWon}
               />
             );
           })}

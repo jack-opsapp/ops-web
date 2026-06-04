@@ -235,6 +235,7 @@ function renderFocusedShell(opportunities: Opportunity[]) {
       onDiscard={vi.fn()}
       onMarkWon={vi.fn()}
       onMarkLost={vi.fn()}
+      onConvert={vi.fn()}
       onAdvanceStage={vi.fn()}
       onMoveStage={vi.fn()}
       onAssign={vi.fn()}
@@ -828,6 +829,7 @@ describe("<PipelineFocusedShell>", () => {
         onDiscard={vi.fn()}
         onMarkWon={vi.fn()}
         onMarkLost={vi.fn()}
+        onConvert={vi.fn()}
         onAdvanceStage={vi.fn()}
         onMoveStage={vi.fn()}
         onAssign={vi.fn()}

@@ -257,6 +257,7 @@ function PipelineFocusedModeHarness() {
           onMarkLost={(opportunity) =>
             moveFocusedOpportunity(opportunity.id, OpportunityStage.Lost)
           }
+          onConvert={vi.fn()}
           onAdvanceStage={vi.fn()}
           onMoveStage={moveFocusedOpportunity}
           onAssign={vi.fn()}

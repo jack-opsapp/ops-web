@@ -71,6 +71,13 @@ export interface UseStageTransitionResult {
    * terminal-transition dialog; every other stage moves directly (toast + undo).
    */
   requestStageChange: (id: string, newStage: OpportunityStage) => void;
+  /**
+   * Open the Won dialog for an ALREADY-won, unconverted opportunity (e.g. won
+   * via estimate approval, never converted). Bypasses `requestStageChange`'s
+   * same-stage no-op so the convert can run; the unified RPC's step-12 guard
+   * means re-winning writes no second stage_transition.
+   */
+  requestConvertAlreadyWon: (id: string) => void;
   /** The terminal-transition dialog kind, or `null` when closed. */
   dialogType: "won" | "lost" | null;
   /** The opportunity the dialog is collecting details for, or `null`. */
@@ -403,6 +410,24 @@ export function useStageTransition({
     [transitionOpportunity, updateOpportunity]
   );
 
+  /**
+   * Open the Won dialog directly for an already-won, unconverted opportunity.
+   * `requestStageChange(id, 'won')` no-ops when the opp is already won, so this
+   * dedicated entry bypasses that guard. confirmTransition then runs convert
+   * with expectedStage='won' (the opp's current stage) — idempotent server-side.
+   */
+  const requestConvertAlreadyWon = useCallback(
+    (id: string) => {
+      if (!can("pipeline.manage")) return;
+      const opp = opportunities.find((o) => o.id === id);
+      if (!opp) return;
+      setTransitionOpportunity(opp);
+      setTransitionType("won");
+      setPendingStageMove({ id, stage: OpportunityStage.Won });
+    },
+    [opportunities, can]
+  );
+
   /** Cancel Won/Lost transition */
   const cancelTransition = useCallback(() => {
     resetDialog();
@@ -410,6 +435,7 @@ export function useStageTransition({
 
   return {
     requestStageChange,
+    requestConvertAlreadyWon,
     dialogType: transitionType,
     dialogOpportunity: transitionOpportunity,
     preflight: preflightQuery.data,
