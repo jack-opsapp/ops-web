@@ -34,7 +34,23 @@ process.env.QB_TOKEN_ENC_KEY ??= Buffer.alloc(32, 7).toString("base64");
 // path delete this within the test and restore it afterward.
 process.env.QB_WEBHOOK_VERIFIER_TOKEN ??= "test-qb-webhook-verifier-token";
 
+// jest-dom matchers — registered in two parts so they work BOTH at runtime and
+// at the type level under a git worktree whose `node_modules` is symlinked to
+// the parent checkout:
+//   1. The "/vitest" entry supplies the `declare module "vitest"` type
+//      augmentation (so `toBeInTheDocument`, `toHaveClass`, … are typed). Its
+//      own runtime `expect.extend` binds the copy of Vitest resolved INSIDE
+//      node_modules — under the worktree symlink that's a DIFFERENT instance
+//      than the test runtime, so on its own the matchers never reach the tests
+//      ("Invalid Chai property").
+//   2. We therefore ALSO extend the `expect` this source-tree module resolves —
+//      the SAME instance the tests use — so the matchers actually register.
+// Both run in the primary checkout too (the second extend is then a harmless
+// no-op on the already-correct instance).
 import "@testing-library/jest-dom/vitest";
+import { expect } from "vitest";
+import * as jestDomMatchers from "@testing-library/jest-dom/matchers";
+expect.extend(jestDomMatchers);
 import { server } from "./mocks/server";
 import { beforeAll, afterEach, afterAll, vi } from "vitest";
 

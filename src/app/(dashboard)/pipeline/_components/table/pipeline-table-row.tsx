@@ -9,7 +9,7 @@ import type {
   PipelineTableActiveCell,
   PipelineTableEditingCell,
 } from "@/lib/hooks/pipeline-table/use-pipeline-table-keyboard-nav";
-import type { OpportunityStage } from "@/lib/types/pipeline";
+import { OpportunityStage } from "@/lib/types/pipeline";
 import {
   isCloseOverdue,
   isFollowUpOverdue,
@@ -54,6 +54,7 @@ function renderReadOnlyCell(
   row: PipelineTableRowModel,
   column: PipelineTableColumnConfig,
   onRequestStageChange: (rowId: string, next: OpportunityStage) => void,
+  onRequestConvertAlreadyWon: (rowId: string) => void,
   canManage: boolean,
 ): ReactNode {
   switch (column.id) {
@@ -64,6 +65,10 @@ function renderReadOnlyCell(
         <CellStageAction
           stage={row.stage}
           canManage={canManage}
+          wonUnconverted={
+            row.stage === OpportunityStage.Won && !row.projectId
+          }
+          onConvert={() => onRequestConvertAlreadyWon(row.id)}
           onSelectStage={(next) => onRequestStageChange(row.id, next)}
         />
       );
@@ -129,6 +134,7 @@ export function PipelineTableRow({
   onCellKeyDown,
   onCommitCell,
   onRequestStageChange,
+  onRequestConvertAlreadyWon,
 }: {
   row: PipelineTableRowModel;
   columns: PipelineTableColumnLayout[];
@@ -158,6 +164,7 @@ export function PipelineTableRow({
     value: PipelineTableEditValue,
   ) => void;
   onRequestStageChange: (rowId: string, next: OpportunityStage) => void;
+  onRequestConvertAlreadyWon: (rowId: string) => void;
 }) {
   const { t } = useDictionary("pipeline");
 
@@ -363,6 +370,7 @@ export function PipelineTableRow({
                       row,
                       column,
                       onRequestStageChange,
+                      onRequestConvertAlreadyWon,
                       canManage,
                     )}
               </div>

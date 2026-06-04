@@ -157,6 +157,7 @@ function renderRow(
           onCellKeyDown={NOOP}
           onCommitCell={NOOP}
           onRequestStageChange={NOOP}
+          onRequestConvertAlreadyWon={NOOP}
           {...props}
         />
       </div>

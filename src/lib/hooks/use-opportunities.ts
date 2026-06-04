@@ -13,6 +13,9 @@ import {
 } from "@tanstack/react-query";
 import { queryKeys } from "../api/query-client";
 import { OpportunityService, type FetchOpportunitiesOptions } from "../api/services";
+// Type-only — erased at build time, so the server-only conversion service is
+// never pulled into the client bundle. The route returns this exact shape.
+import type { ConversionPreflight } from "../api/services/project-conversion-service";
 import type {
   Opportunity,
   CreateOpportunity,
@@ -626,7 +629,7 @@ export function useLogInboundActivity() {
   };
 }
 
-// ─── P6: Opportunity → Project Conversion ─────────────────────────────────────
+// ─── Won → Project Conversion (dedup + auto-naming) ───────────────────────────
 
 export interface ConvertOpportunityResponse {
   ok: boolean;
@@ -636,15 +639,66 @@ export interface ConvertOpportunityResponse {
   opportunityId: string;
   dispositionId?: string;
   relinkedEstimates?: number;
+  /** Number of LABOR line items materialized into project_tasks. */
+  materializedTasks?: number;
+  /** Number of site-visit photos attached to the project. */
+  attachedPhotos?: number;
+  /** True when an existing project was linked rather than a new one created. */
+  linkedExisting?: boolean;
+  /** True when this call moved the opportunity to `won` (+ a stage transition). */
+  won?: boolean;
 }
 
 /**
- * Convert a won opportunity into a linked project (P6). Calls the guarded,
- * service-role conversion route. Winning a deal AUTOMATICALLY converts it — the
- * pipeline page fires this after the won stage move succeeds. Idempotent: the
- * route short-circuits when the opportunity is already linked, so re-winning
- * never mints a second project. Invalidates project + opportunity caches so the
- * new project and the opportunity's project link surface immediately.
+ * Read-only conversion preflight for the Won dialog — surfaces an already-linked
+ * project, likely-duplicate candidates, the client's other projects, and the
+ * auto-name preview, so the operator can "link instead of create". Gated on
+ * `pipeline.manage`; fetched via the service-role route (the browser client
+ * runs as anon and can't call the RPC directly). Pass `undefined` to keep it
+ * disabled until a deal is actually being won.
+ */
+export function useConversionPreflight(
+  opportunityId: string | undefined,
+  queryOptions?: Partial<UseQueryOptions<ConversionPreflight>>
+) {
+  const canManage = usePermissionStore((s) => s.can("pipeline.manage"));
+
+  return useQuery<ConversionPreflight>({
+    queryKey: queryKeys.opportunities.conversionPreflight(opportunityId ?? ""),
+    queryFn: async () => {
+      const { getIdToken } = await import("@/lib/firebase/auth");
+      const idToken = await getIdToken();
+      if (!idToken) throw new Error("Not authenticated");
+
+      const res = await fetch(
+        `/api/opportunities/${opportunityId}/preflight`,
+        { headers: { Authorization: `Bearer ${idToken}` } }
+      );
+
+      if (!res.ok) {
+        const body = await res
+          .json()
+          .catch(() => ({ error: res.statusText }));
+        throw new Error(body.error || `Preflight failed: ${res.status}`);
+      }
+
+      return res.json();
+    },
+    enabled: !!opportunityId && canManage,
+    // The dialog opens on a fresh deal — keep it briefly fresh, but don't
+    // cache stale dedup state across separate win attempts.
+    staleTime: 30_000,
+    ...queryOptions,
+  });
+}
+
+/**
+ * Win a deal and convert it into a NEW linked project in one atomic step. The
+ * unified RPC wins + converts in a single transaction, so the Won dialog calls
+ * ONLY this (no separate stage move) — which removes the double-stage-transition
+ * risk by construction. Idempotent: re-winning never mints a second project.
+ * `titleOverride` carries an operator-typed name from the rename escape hatch
+ * (omit it for auto-naming). Invalidates project + opportunity caches.
  */
 export function useConvertOpportunityToProject() {
   const queryClient = useQueryClient();
@@ -652,9 +706,14 @@ export function useConvertOpportunityToProject() {
   return useMutation<
     ConvertOpportunityResponse,
     Error,
-    { id: string; actualValue?: number; expectedStage?: string }
+    {
+      id: string;
+      actualValue?: number;
+      expectedStage?: string;
+      titleOverride?: string | null;
+    }
   >({
-    mutationFn: async ({ id, actualValue, expectedStage }) => {
+    mutationFn: async ({ id, actualValue, expectedStage, titleOverride }) => {
       const { getIdToken } = await import("@/lib/firebase/auth");
       const idToken = await getIdToken();
       if (!idToken) throw new Error("Not authenticated");
@@ -668,6 +727,7 @@ export function useConvertOpportunityToProject() {
         body: JSON.stringify({
           actualValue,
           expectedStage,
+          titleOverride,
         }),
       });
 
@@ -676,6 +736,56 @@ export function useConvertOpportunityToProject() {
           .json()
           .catch(() => ({ error: res.statusText }));
         throw new Error(body.error || `Conversion failed: ${res.status}`);
+      }
+
+      return res.json();
+    },
+
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.all });
+    },
+  });
+}
+
+/**
+ * Win a deal by LINKING it to an existing project (a dedup candidate the
+ * operator chose) instead of creating a new one. No new project, no "project
+ * created" notification — the target's status/title are untouched; the RPC
+ * writes only the link contract, estimate relink, task/photo dedup, and
+ * disposition. Same idempotency guarantees as the convert path.
+ */
+export function useLinkOpportunityToExistingProject() {
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    ConvertOpportunityResponse,
+    Error,
+    { id: string; projectId: string; actualValue?: number; expectedStage?: string }
+  >({
+    mutationFn: async ({ id, projectId, actualValue, expectedStage }) => {
+      const { getIdToken } = await import("@/lib/firebase/auth");
+      const idToken = await getIdToken();
+      if (!idToken) throw new Error("Not authenticated");
+
+      const res = await fetch(`/api/opportunities/${id}/convert`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({
+          actualValue,
+          expectedStage,
+          linkToProjectId: projectId,
+        }),
+      });
+
+      if (!res.ok) {
+        const body = await res
+          .json()
+          .catch(() => ({ error: res.statusText }));
+        throw new Error(body.error || `Link failed: ${res.status}`);
       }
 
       return res.json();

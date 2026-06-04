@@ -22,13 +22,23 @@ vi.mock("framer-motion", async () => {
 });
 
 vi.mock("@/i18n/client", () => ({
-  useDictionary: () => ({ t: (k: string) => k }),
+  useDictionary: () => ({
+    t: (k: string, fb?: string) => (typeof fb === "string" ? fb : k),
+    dict: {},
+  }),
 }));
 
 const mockClients = vi.fn();
 
 vi.mock("@/lib/hooks/use-clients", () => ({
   useClients: () => mockClients(),
+}));
+
+// Used by the auto-name section's non-blocking DUPLICATE NAME check.
+vi.mock("@/lib/hooks/use-projects", () => ({
+  useProjects: () => ({
+    data: { projects: [{ id: "p-other", title: "Existing Name" }] },
+  }),
 }));
 
 // Mock AddressAutocomplete — its full behaviour is exercised in the
@@ -45,6 +55,13 @@ vi.mock(
       onChange: (sel: { address: string; latitude: number; longitude: number }) => void;
     }) => (
       <div data-testid="address-autocomplete-stub" data-value={value}>
+        <input
+          data-testid="identity-address-input"
+          value={value}
+          onChange={(e) =>
+            onChange({ address: e.target.value, latitude: 1, longitude: 2 })
+          }
+        />
         <button
           type="button"
           data-testid="address-autocomplete-pick"
@@ -73,7 +90,8 @@ const { IdentityTab } = await import(
 // toggle the Trade label between [optional] and *required.
 const TRADE_VALUES = ["roofing", "hvac", "plumbing"] as const;
 const baseSchema = z.object({
-  title: z.string().min(1).max(200),
+  title: z.string().max(200).optional(),
+  titleIsAuto: z.boolean(),
   clientId: z.string().nullable(),
   address: z.string().nullable(),
   latitude: z.number().nullable(),
@@ -93,8 +111,10 @@ const creatingSchema = baseSchema.extend({
 
 interface HarnessProps {
   mode?: "editing" | "creating";
+  projectId?: string | null;
   defaults?: Partial<{
     title: string;
+    titleIsAuto: boolean;
     clientId: string | null;
     address: string | null;
     latitude: number | null;
@@ -108,11 +128,18 @@ interface HarnessProps {
   onSubmit?: (values: Record<string, unknown>) => void;
 }
 
-function Harness({ mode = "editing", defaults, onValuesChange, onSubmit }: HarnessProps) {
+function Harness({
+  mode = "editing",
+  projectId = null,
+  defaults,
+  onValuesChange,
+  onSubmit,
+}: HarnessProps) {
   const form = useForm({
     resolver: zodResolver(mode === "creating" ? creatingSchema : baseSchema),
     defaultValues: {
       title: "",
+      titleIsAuto: true,
       clientId: null,
       address: null,
       latitude: null,
@@ -138,7 +165,7 @@ function Harness({ mode = "editing", defaults, onValuesChange, onSubmit }: Harne
   return (
     <FormProvider {...form}>
       <form onSubmit={handleSubmit}>
-        <IdentityTab mode={mode} />
+        <IdentityTab mode={mode} projectId={projectId} />
         <button type="submit" data-testid="harness-submit">
           submit
         </button>
@@ -169,22 +196,135 @@ describe("<IdentityTab>", () => {
     expect(screen.getByText("identity.section")).toBeInTheDocument();
   });
 
-  it("renders the project name input with the form's title value", () => {
-    render(<Harness defaults={{ title: "Acme HQ Reroof" }} />);
-    // The PROJECT NAME label is now resolved via t("identity.title.label").
-    // The mock turns that into the key string, so byLabelText must match
-    // the key — the regex anchors to the end so the rose `*` doesn't fight.
-    const input = screen.getByLabelText(/identity\.title\.label/i) as HTMLInputElement;
-    expect(input.value).toBe("Acme HQ Reroof");
+  // ── Auto-name section (Phase 3.4) ──────────────────────────────────────
+
+  it("creating: hides the name input and previews the auto name from the address", () => {
+    render(
+      <Harness
+        mode="creating"
+        defaults={{ address: "1240 W 6th Ave, Vancouver, BC" }}
+      />,
+    );
+    expect(screen.queryByTestId("identity-name-input")).not.toBeInTheDocument();
+    expect(screen.getByTestId("identity-name-preview")).toHaveTextContent(
+      "1240 W 6th Ave",
+    );
   });
 
-  it("writes typed input back to the form's title field", async () => {
+  it("creating: the auto-name preview tracks the edited address", async () => {
+    render(<Harness mode="creating" defaults={{ address: "" }} />);
+    await userEvent.type(
+      screen.getByTestId("identity-address-input"),
+      "88 Elm St, Burnaby",
+    );
+    expect(screen.getByTestId("identity-name-preview")).toHaveTextContent(
+      "88 Elm St",
+    );
+  });
+
+  it("creating: falls back to {client}'s Project, then New project, without an address", () => {
+    // Unmount between cases — RHF defaultValues only seed on first mount, so a
+    // rerender wouldn't pick up the new clientId.
+    const { unmount } = render(
+      <Harness mode="creating" defaults={{ address: null, clientId: "c1" }} />,
+    );
+    expect(screen.getByTestId("identity-name-preview")).toHaveTextContent(
+      "Acme Construction's Project",
+    );
+    unmount();
+
+    render(
+      <Harness mode="creating" defaults={{ address: null, clientId: null }} />,
+    );
+    expect(screen.getByTestId("identity-name-preview")).toHaveTextContent(
+      "New project",
+    );
+  });
+
+  it("creating: rename reveals the input and flips titleIsAuto off", async () => {
     const onValuesChange = vi.fn();
-    render(<Harness onValuesChange={onValuesChange} />);
-    const input = screen.getByLabelText(/identity\.title\.label/i);
-    await userEvent.type(input, "New Project");
+    render(
+      <Harness
+        mode="creating"
+        defaults={{ address: "12 Oak Rd" }}
+        onValuesChange={onValuesChange}
+      />,
+    );
+    await userEvent.click(screen.getByTestId("identity-name-rename"));
+    await userEvent.type(
+      screen.getByTestId("identity-name-input"),
+      "Custom job",
+    );
     const last = onValuesChange.mock.calls.at(-1)?.[0];
-    expect(last?.title).toBe("New Project");
+    expect(last?.titleIsAuto).toBe(false);
+    expect(last?.title).toBe("Custom job");
+  });
+
+  it("editing: a custom name is editable and 'use address' reverts to auto", async () => {
+    const onValuesChange = vi.fn();
+    render(
+      <Harness
+        mode="editing"
+        projectId="self"
+        defaults={{
+          title: "Custom job",
+          titleIsAuto: false,
+          address: "12 Oak Rd",
+        }}
+        onValuesChange={onValuesChange}
+      />,
+    );
+    expect(screen.getByTestId("identity-name-input")).toHaveValue("Custom job");
+    await userEvent.click(screen.getByTestId("identity-name-use-address"));
+    const last = onValuesChange.mock.calls.at(-1)?.[0];
+    expect(last?.titleIsAuto).toBe(true);
+    expect(screen.getByTestId("identity-name-preview")).toHaveTextContent(
+      "12 Oak Rd",
+    );
+  });
+
+  it("editing: clearing a custom name reverts to auto", async () => {
+    const onValuesChange = vi.fn();
+    render(
+      <Harness
+        mode="editing"
+        projectId="self"
+        defaults={{
+          title: "Custom job",
+          titleIsAuto: false,
+          address: "12 Oak Rd",
+        }}
+        onValuesChange={onValuesChange}
+      />,
+    );
+    await userEvent.clear(screen.getByTestId("identity-name-input"));
+    const last = onValuesChange.mock.calls.at(-1)?.[0];
+    expect(last?.titleIsAuto).toBe(true);
+  });
+
+  it("warns (non-blocking) when a hand-set name collides with another project", () => {
+    render(
+      <Harness
+        mode="creating"
+        defaults={{ title: "Existing Name", titleIsAuto: false }}
+      />,
+    );
+    expect(
+      screen.getByTestId("identity-name-duplicate-warning"),
+    ).toBeInTheDocument();
+  });
+
+  it("does not warn when the colliding name is the project's own (editing)", () => {
+    render(
+      <Harness
+        mode="editing"
+        projectId="p-other"
+        defaults={{ title: "Existing Name", titleIsAuto: false }}
+      />,
+    );
+    expect(
+      screen.queryByTestId("identity-name-duplicate-warning"),
+    ).not.toBeInTheDocument();
   });
 
   it("shows the 'no client linked' state when clientId is null", () => {

@@ -45,6 +45,8 @@ interface PipelineCardProps {
   onOpenDetail: () => void;
   onAssign: () => void;
   onScheduleFollowUp: () => void;
+  /** Convert an already-won, unconverted deal — opens the Won dialog directly. */
+  onConvert?: () => void;
   canManage: boolean;
   isDragging?: boolean;
   isOverlay?: boolean;
@@ -128,6 +130,7 @@ export function PipelineCard({
   onOpenDetail,
   onAssign,
   onScheduleFollowUp,
+  onConvert,
   canManage,
   isDragging = false,
   isOverlay = false,
@@ -437,6 +440,7 @@ export function PipelineCard({
                   onAssign={onAssign}
                   onScheduleFollowUp={onScheduleFollowUp}
                   onOpenDetail={onOpenDetail}
+                  onConvert={onConvert}
                 />
               </motion.div>
 

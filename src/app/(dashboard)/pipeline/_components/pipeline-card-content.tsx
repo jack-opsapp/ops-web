@@ -41,6 +41,8 @@ export type PipelineCardActionHandlers = {
   onAssign: () => void;
   onScheduleFollowUp: () => void;
   onOpenDetail: () => void;
+  /** Convert an already-won, unconverted deal — opens the Won dialog directly. */
+  onConvert?: () => void;
 };
 
 export type PipelineCardEditHandlers = {
@@ -115,6 +117,7 @@ export const PipelineCardContent = memo(function PipelineCardContent({
   onAssign = noop,
   onScheduleFollowUp = noop,
   onOpenDetail = noop,
+  onConvert,
   onTitleSave,
   onLinkClient,
   onCreateAndLinkClient,
@@ -317,6 +320,7 @@ export const PipelineCardContent = memo(function PipelineCardContent({
             onAssign={onAssign}
             onScheduleFollowUp={onScheduleFollowUp}
             onOpenDetail={onOpenDetail}
+            onConvert={onConvert}
           />
         </div>
       </div>

@@ -15,6 +15,7 @@ import {
   Ban,
   Archive,
   Send,
+  FolderInput,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
@@ -35,6 +36,12 @@ interface PipelineCardActionsProps {
   onAssign: () => void;
   onScheduleFollowUp: () => void;
   onOpenDetail: () => void;
+  /**
+   * Convert an already-won, unconverted deal — opens the Won dialog directly.
+   * Only the parent of a won + unlinked card passes this; its presence is what
+   * surfaces the `// Convert` entry.
+   */
+  onConvert?: () => void;
 }
 
 export function PipelineCardActions({
@@ -52,6 +59,7 @@ export function PipelineCardActions({
   onAssign,
   onScheduleFollowUp,
   onOpenDetail,
+  onConvert,
 }: PipelineCardActionsProps) {
   const { t } = useDictionary("pipeline");
 
@@ -206,6 +214,17 @@ export function PipelineCardActions({
                   />
                 </>
               )}
+              {stage === OpportunityStage.Won && onConvert && (
+                <>
+                  <div className="my-[2px] border-t border-[rgba(255,255,255,0.06)]" />
+                  <DropdownItem
+                    icon={<FolderInput size={13} />}
+                    label={t("actions.convert", "Convert")}
+                    onClick={(e) => handleDropdownAction(e, onConvert)}
+                    testId="card-action-convert"
+                  />
+                </>
+              )}
               <div className="my-[2px] border-t border-[rgba(255,255,255,0.06)]" />
               <DropdownItem
                 icon={<Archive size={13} />}
@@ -353,14 +372,17 @@ function DropdownItem({
   icon,
   label,
   onClick,
+  testId,
 }: {
   icon: React.ReactNode;
   label: string;
   onClick: (e: React.MouseEvent) => void;
+  testId?: string;
 }) {
   return (
     <button
       type="button"
+      data-testid={testId}
       onClick={onClick}
       className="flex items-center gap-[8px] w-full px-[8px] py-[5px] font-mohave text-caption-sm text-text-2 hover:bg-[rgba(255,255,255,0.06)] rounded-panel transition-colors cursor-pointer"
     >

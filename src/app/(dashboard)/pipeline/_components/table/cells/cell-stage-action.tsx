@@ -50,10 +50,16 @@ export function CellStageAction({
   stage,
   onSelectStage,
   canManage,
+  wonUnconverted = false,
+  onConvert,
 }: {
   stage: OpportunityStageType;
   onSelectStage: (next: OpportunityStageType) => void;
   canManage: boolean;
+  /** This row is `won` but has no linked project yet — offer `// CONVERT`. */
+  wonUnconverted?: boolean;
+  /** Opens the Won dialog to convert the already-won row (no re-win). */
+  onConvert?: () => void;
 }) {
   const { t } = useDictionary("pipeline");
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -105,6 +111,7 @@ export function CellStageAction({
     >
       <button
         type="button"
+        data-testid="cell-stage-trigger"
         aria-label={triggerLabel}
         aria-haspopup="listbox"
         aria-expanded={open}
@@ -148,6 +155,29 @@ export function CellStageAction({
               </button>
             );
           })}
+
+          {wonUnconverted && onConvert ? (
+            <>
+              <div className="my-1 border-t border-border" />
+              <button
+                type="button"
+                data-testid="cell-stage-convert"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setOpen(false);
+                  onConvert();
+                }}
+                className="flex w-full min-w-0 items-center gap-[6px] rounded-chip px-2 py-1.5 text-left font-mono text-micro uppercase tracking-wider text-text-2 transition-colors hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
+              >
+                <span aria-hidden="true" className="text-text-mute">
+                  {"//"}
+                </span>
+                <span className="truncate">
+                  {t("table.cell.stage.convert", "Convert")}
+                </span>
+              </button>
+            </>
+          ) : null}
         </div>
       ) : null}
     </div>

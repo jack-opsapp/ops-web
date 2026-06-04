@@ -44,6 +44,7 @@ type FocusedShellActionHandlers = {
   onDiscard: (id: string) => void;
   onMarkWon: (opportunity: Opportunity) => void;
   onMarkLost: (opportunity: Opportunity) => void;
+  onConvert: (opportunity: Opportunity) => void;
   onAdvanceStage: (opportunity: Opportunity) => void;
   onMoveStage: (id: string, stage: OpportunityStage) => void;
   onAssign: (id: string) => void;
@@ -201,6 +202,7 @@ export function PipelineFocusedShell({
   onDiscard,
   onMarkWon,
   onMarkLost,
+  onConvert,
   onAdvanceStage,
   onMoveStage,
   onAssign,
@@ -597,6 +599,7 @@ export function PipelineFocusedShell({
             onDiscard={onDiscard}
             onMarkWon={onMarkWon}
             onMarkLost={onMarkLost}
+            onConvert={onConvert}
             onMoveStage={onMoveStage}
             onAssign={onAssign}
             onScheduleFollowUp={onScheduleFollowUp}

@@ -54,6 +54,7 @@ export const PipelineFocusedCard = memo(function PipelineFocusedCard({
   onDiscard,
   onMarkWon,
   onMarkLost,
+  onConvert,
   onAssign,
   onScheduleFollowUp,
   onMoveStage,
@@ -113,6 +114,7 @@ export const PipelineFocusedCard = memo(function PipelineFocusedCard({
           onDiscard={onDiscard}
           onMarkWon={onMarkWon}
           onMarkLost={onMarkLost}
+          onConvert={onConvert}
           onAssign={onAssign}
           onScheduleFollowUp={onScheduleFollowUp}
           onOpenDetail={openDetailPanel}

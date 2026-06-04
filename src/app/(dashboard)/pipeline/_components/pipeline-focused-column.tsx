@@ -22,6 +22,7 @@ type FocusedColumnActionHandlers = {
   onDiscard: (id: string) => void;
   onMarkWon: (opportunity: Opportunity) => void;
   onMarkLost: (opportunity: Opportunity) => void;
+  onConvert?: (opportunity: Opportunity) => void;
   onMoveStage: (id: string, stage: OpportunityStage) => void;
   onAssign: (id: string) => void;
   onScheduleFollowUp: (id: string) => void;
@@ -66,6 +67,7 @@ export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
   onDiscard,
   onMarkWon,
   onMarkLost,
+  onConvert,
   onMoveStage,
   onAssign,
   onScheduleFollowUp,
@@ -180,6 +182,12 @@ export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
                 onDiscard={() => onDiscard(opportunity.id)}
                 onMarkWon={() => onMarkWon(opportunity)}
                 onMarkLost={() => onMarkLost(opportunity)}
+                onConvert={
+                  opportunity.stage === OpportunityStage.Won &&
+                  !opportunity.projectId
+                    ? () => onConvert?.(opportunity)
+                    : undefined
+                }
                 onMoveStage={(_, targetStage) =>
                   onMoveStage(opportunity.id, targetStage)
                 }

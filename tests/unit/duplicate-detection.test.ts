@@ -178,6 +178,34 @@ describe("scanProjects", () => {
     const pairs = _scanProjects(projects);
     expect(pairs).toHaveLength(0);
   });
+
+  // ── Phase 4.2: the daily scan inherits the SQL-aligned normalizers ──
+  // These prove the scan consumes the converged normalizeAddress/normalizeTitle
+  // so it can never drift from the convert-time preflight (spec §6.1).
+
+  it("flags same-client projects whose addresses differ only by directional/street-type spelling", () => {
+    const projects = [
+      { id: "aaa", title: "Phase 1", client_id: "client1", address: "1240 W 6th Ave" },
+      { id: "bbb", title: "Phase 2", client_id: "client1", address: "1240 West 6th Avenue" },
+    ];
+    const pairs = _scanProjects(projects);
+    expect(pairs).toHaveLength(1);
+    expect(pairs[0].confidence).toBe("high");
+    expect(pairs[0].signals).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "same_address" }),
+      ])
+    );
+  });
+
+  it("does not flag two placeholder-named projects (auto names are matching-invisible)", () => {
+    const projects = [
+      { id: "aaa", title: "New project", client_id: "client1", address: null },
+      { id: "bbb", title: "New project", client_id: "client1", address: null },
+    ];
+    const pairs = _scanProjects(projects);
+    expect(pairs).toHaveLength(0);
+  });
 });
 
 // ─── Task Scanning ───────────────────────────────────────────────────────────

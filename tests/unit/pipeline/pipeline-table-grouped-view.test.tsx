@@ -189,6 +189,7 @@ function renderTable(
       onCellKeyDown={NOOP}
       onCommitCell={NOOP}
       onRequestStageChange={NOOP}
+      onRequestConvertAlreadyWon={NOOP}
       {...props}
     />,
   );

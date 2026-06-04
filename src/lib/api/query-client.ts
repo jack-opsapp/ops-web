@@ -53,6 +53,8 @@ export const queryKeys = {
       [...queryKeys.opportunities.all, "stageConfigs", companyId] as const,
     tableViews: (companyId: string, userId: string) =>
       [...queryKeys.opportunities.all, "tableViews", companyId, userId] as const,
+    conversionPreflight: (opportunityId: string) =>
+      [...queryKeys.opportunities.all, "conversionPreflight", opportunityId] as const,
   },
 
   // Tasks

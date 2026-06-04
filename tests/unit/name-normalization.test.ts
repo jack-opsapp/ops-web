@@ -44,39 +44,86 @@ describe("normalizePhone", () => {
   });
 });
 
+// ─── SQL-parity vectors ──────────────────────────────────────────────────────
+// These vectors are the single source of truth shared with the SQL normalizers
+// `private.normalize_address` / `private.normalize_title` (won-conversion
+// migration 20260603020000). Every expected value was captured by running the
+// SQL function against prod (read-only). The TS and SQL implementations MUST
+// agree token-for-token so the convert-time preflight and the nightly
+// duplicate scan can never drift (spec §6.1). When you change one, change the
+// other and re-verify these vectors against `private.normalize_address`.
+
+// [input, expected] — directionals (w↔west, ne↔northeast, …) and street types
+// (ave↔avenue, st↔street, rd↔road, blvd, dr, cres, hwy, pl, ct, ln, …) fold to
+// one canonical token; unit/suite/apt + everything after is stripped; periods
+// and commas become separators; case + whitespace normalized.
+const ADDRESS_VECTORS: ReadonlyArray<readonly [string, string]> = [
+  ["1240 W 6th Ave", "1240 west 6th avenue"],
+  ["1240 West 6th Avenue", "1240 west 6th avenue"],
+  ["123 Main Street", "123 main street"],
+  ["123 Main St, Suite 200", "123 main street"],
+  ["123 Main St Unit 4B", "123 main street"],
+  ["123 Main St Apt. 5", "123 main street"],
+  ["123 Main St #12", "123 main street"],
+  ["123 Main St.", "123 main street"],
+  ["", ""],
+  ["456 Oak Ave", "456 oak avenue"],
+  ["789 N Pine Rd", "789 north pine road"],
+  ["789 North Pine Road", "789 north pine road"],
+  ["10 NE 2nd Blvd", "10 northeast 2nd boulevard"],
+  ["10 northeast 2nd boulevard", "10 northeast 2nd boulevard"],
+  ["100 SW Marine Dr", "100 southwest marine drive"],
+  ["22 Côte-des-Neiges, Montréal, QC", "22 côte-des-neiges montréal qc"],
+  ["500 Boul René-Lévesque, Montreal", "500 boulevard rené-lévesque montreal"],
+];
+
+// [input, expected] — email prefixes (RE:/FW:/FWD:) and "New Project -"/"Job:"
+// filler stripped; auto-name placeholders ("New project", "proyecto nuevo",
+// "{Client}'s Project") collapse to "" so two unnamed projects never produce a
+// false same_title signal (spec §6.1, edge #5).
+const TITLE_VECTORS: ReadonlyArray<readonly [string, string]> = [
+  ["New project", ""],
+  ["proyecto nuevo", ""],
+  ["Acme's Project", ""],
+  ["Williams's Project", ""],
+  ["Smith's project", ""],
+  ["RE: Deck Renovation", "deck renovation"],
+  ["Fwd: RE: Roof Repair", "roof repair"],
+  ["New Project - Deck Build", "deck build"],
+  ["Job: Kitchen Remodel", "kitchen remodel"],
+  ["  Deck Renovation  ", "deck renovation"],
+  ["", ""],
+  ["A Real Project Name", "a real project name"],
+];
+
 describe("normalizeAddress", () => {
-  it("lowercases and normalizes whitespace", () => {
-    expect(normalizeAddress("123 Main Street")).toBe("123 main street");
-  });
+  it.each(ADDRESS_VECTORS)(
+    "normalizes %j → %j (SQL parity)",
+    (input, expected) => {
+      expect(normalizeAddress(input)).toBe(expected);
+    }
+  );
 
-  it("strips unit/suite/apt designators", () => {
-    expect(normalizeAddress("123 Main St, Suite 200")).toBe("123 main st");
-    expect(normalizeAddress("123 Main St Unit 4B")).toBe("123 main st");
-    expect(normalizeAddress("123 Main St Apt. 5")).toBe("123 main st");
-    expect(normalizeAddress("123 Main St #12")).toBe("123 main st");
-  });
-
-  it("strips trailing periods", () => {
-    expect(normalizeAddress("123 Main St.")).toBe("123 main st");
-  });
-
-  it("handles empty input", () => {
-    expect(normalizeAddress("")).toBe("");
+  it("treats directional + street-type variants as the same canonical address", () => {
+    expect(normalizeAddress("1240 W 6th Ave")).toBe(
+      normalizeAddress("1240 West 6th Avenue")
+    );
+    expect(normalizeAddress("789 N Pine Rd")).toBe(
+      normalizeAddress("789 North Pine Road")
+    );
   });
 });
 
 describe("normalizeTitle", () => {
-  it("strips email prefixes", () => {
-    expect(normalizeTitle("RE: Deck Renovation")).toBe("deck renovation");
-    expect(normalizeTitle("Fwd: RE: Roof Repair")).toBe("roof repair");
-  });
+  it.each(TITLE_VECTORS)(
+    "normalizes %j → %j (SQL parity)",
+    (input, expected) => {
+      expect(normalizeTitle(input)).toBe(expected);
+    }
+  );
 
-  it("strips common trade filler words", () => {
-    expect(normalizeTitle("New Project - Deck Build")).toBe("deck build");
-    expect(normalizeTitle("Job: Kitchen Remodel")).toBe("kitchen remodel");
-  });
-
-  it("lowercases and trims", () => {
-    expect(normalizeTitle("  Deck Renovation  ")).toBe("deck renovation");
+  it("makes auto-name placeholders matching-invisible", () => {
+    expect(normalizeTitle("New project")).toBe("");
+    expect(normalizeTitle("Acme's Project")).toBe("");
   });
 });

@@ -57,6 +57,7 @@ function mapFromDb(row: Record<string, unknown>): Project {
   return {
     id: row.id as string,
     title: row.title as string,
+    titleIsAuto: (row.title_is_auto as boolean) ?? false,
     address: (row.address as string) ?? null,
     latitude: (row.latitude as number) ?? null,
     longitude: (row.longitude as number) ?? null,
@@ -91,6 +92,7 @@ function mapFromDb(row: Record<string, unknown>): Project {
 function mapToDb(data: Partial<Project>): Record<string, unknown> {
   const row: Record<string, unknown> = {};
   if (data.title !== undefined) row.title = data.title;
+  if (data.titleIsAuto !== undefined) row.title_is_auto = data.titleIsAuto;
   if (data.address !== undefined) row.address = data.address;
   if (data.latitude !== undefined) row.latitude = data.latitude;
   if (data.longitude !== undefined) row.longitude = data.longitude;
@@ -260,9 +262,14 @@ export const ProjectService = {
 
   /**
    * Create a new project.
+   *
+   * `title` is optional: when omitted (with `titleIsAuto: true`), the
+   * BEFORE-INSERT projects_autoname trigger derives the NOT NULL title from the
+   * address before the constraint is checked. Callers that set a hand-typed
+   * name pass `title` + `titleIsAuto: false` (or omit the flag — DB default).
    */
   async createProject(
-    data: Partial<Project> & { title: string; companyId: string }
+    data: Partial<Project> & { companyId: string }
   ): Promise<string> {
     const supabase = requireSupabase();
     const row = mapToDb(data);

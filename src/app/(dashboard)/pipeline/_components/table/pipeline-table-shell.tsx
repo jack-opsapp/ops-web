@@ -408,9 +408,13 @@ export function PipelineTableShell() {
   }, [opportunities]);
   const {
     requestStageChange,
+    requestConvertAlreadyWon,
     dialogType,
     dialogOpportunity,
+    preflight,
+    preflightLoading,
     confirmTransition,
+    onAddressChange,
     cancelTransition,
   } = useStageTransition({ opportunities: activeOpportunities });
 
@@ -666,6 +670,7 @@ export function PipelineTableShell() {
         onCellKeyDown={handleCellKeyDown}
         onCommitCell={handleCommitCell}
         onRequestStageChange={requestStageChange}
+        onRequestConvertAlreadyWon={requestConvertAlreadyWon}
       />
     );
   }
@@ -777,7 +782,10 @@ export function PipelineTableShell() {
       <StageTransitionDialog
         type={dialogType}
         opportunity={dialogOpportunity}
+        preflight={preflight}
+        preflightLoading={preflightLoading}
         onConfirm={confirmTransition}
+        onAddressChange={onAddressChange}
         onCancel={cancelTransition}
       />
       {/* Bulk-actions bar — floats over the table once rows are selected.

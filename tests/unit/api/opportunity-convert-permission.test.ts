@@ -11,7 +11,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { checkPermMock, findUserMock, verifyAuthMock, convertMock } =
+const { checkPermMock, findUserMock, verifyAuthMock, convertMock, linkMock } =
   vi.hoisted(() => ({
     checkPermMock: vi.fn(),
     findUserMock: vi.fn(),
@@ -23,6 +23,13 @@ const { checkPermMock, findUserMock, verifyAuthMock, convertMock } =
       opportunityId: "opp-1",
       dispositionId: "disp-1",
       relinkedEstimates: 2,
+    })),
+    linkMock: vi.fn(async () => ({
+      converted: true,
+      alreadyConverted: false,
+      projectId: "existing-proj",
+      opportunityId: "opp-1",
+      linkedExisting: true,
     })),
   }));
 
@@ -36,7 +43,10 @@ vi.mock("@/lib/supabase/check-permission", () => ({
   checkPermissionById: checkPermMock,
 }));
 vi.mock("@/lib/api/services/project-conversion-service", () => ({
-  ProjectConversionService: { convertOpportunityToProject: convertMock },
+  ProjectConversionService: {
+    convertOpportunityToProject: convertMock,
+    linkOpportunityToExistingProject: linkMock,
+  },
 }));
 
 import { POST } from "@/app/api/opportunities/[id]/convert/route";
@@ -83,7 +93,39 @@ describe("convert route — pipeline.manage gate", () => {
       actualValue: 1500,
       expectedStage: "won",
       notesSeed: null,
+      titleOverride: null,
     });
+    expect(linkMock).not.toHaveBeenCalled();
+  });
+
+  it("forwards an operator-typed name as titleOverride", async () => {
+    checkPermMock.mockResolvedValue(true);
+    const res = await POST(req({ titleOverride: "Custom name" }), params);
+    expect(res.status).toBe(200);
+    expect(convertMock).toHaveBeenCalledWith(
+      expect.objectContaining({ titleOverride: "Custom name" })
+    );
+  });
+
+  it("routes to linkOpportunityToExistingProject when linkToProjectId is present (no create)", async () => {
+    checkPermMock.mockResolvedValue(true);
+    const res = await POST(
+      req({ linkToProjectId: "existing-proj", actualValue: 800 }),
+      params
+    );
+    expect(res.status).toBe(200);
+    expect(linkMock).toHaveBeenCalledWith({
+      opportunityId: "opp-1",
+      companyId: "co-1",
+      decidedBy: "user-1",
+      sourcePath: "won_dialog",
+      actualValue: 800,
+      expectedStage: null,
+      notesSeed: null,
+      linkToProjectId: "existing-proj",
+    });
+    // the create path must NOT fire when linking an existing project.
+    expect(convertMock).not.toHaveBeenCalled();
   });
 
   it("tolerates a missing body (conversion still proceeds with defaults)", async () => {

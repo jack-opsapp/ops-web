@@ -74,15 +74,14 @@ const TRADE_VALUES = ["roofing", "hvac", "plumbing"] as const;
 // Schema is a factory because Zod messages need to land in the active
 // locale — the body resolves the t() function and re-builds the schema
 // on locale change via useMemo.
-function buildEditingSchema(messages: {
-  titleRequired: string;
-  titleTooLong: string;
-}) {
+function buildEditingSchema(messages: { titleTooLong: string }) {
   return z.object({
-    title: z
-      .string()
-      .min(1, messages.titleRequired)
-      .max(200, messages.titleTooLong),
+    // Title is OPTIONAL on both surfaces now: blank ⇒ auto-named from the
+    // address by the DB trigger (titleIsAuto=true). Only `titleTooLong` survives
+    // as a guard; `titleRequired` is retired from the create + edit paths.
+    title: z.string().max(200, messages.titleTooLong).optional(),
+    /** True ⇒ the name auto-tracks the address; false ⇒ a hand-typed name. */
+    titleIsAuto: z.boolean(),
     clientId: z.string().nullable(),
     address: z.string().nullable(),
     latitude: z.number().nullable(),
@@ -97,7 +96,6 @@ function buildEditingSchema(messages: {
 }
 
 function buildCreatingSchema(messages: {
-  titleRequired: string;
   titleTooLong: string;
   tradeRequired: string;
 }) {
@@ -114,6 +112,9 @@ export type ProjectEditCreateFormValues = z.infer<
 
 const EMPTY_DEFAULTS: ProjectEditCreateFormValues = {
   title: "",
+  // New projects auto-name from their address by default — the operator never
+  // types a name unless they open `rename`.
+  titleIsAuto: true,
   clientId: null,
   address: null,
   latitude: null,
@@ -137,6 +138,21 @@ function fromIsoDate(value: string): Date | null {
   if (!value) return null;
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+/**
+ * Collapse the form's (title, titleIsAuto) into what the DB expects. The name
+ * is auto when the operator left it on auto OR cleared a custom name; otherwise
+ * the typed name is frozen. When auto, `title` is omitted so the BEFORE-write
+ * trigger derives it from the address.
+ */
+function resolveTitleFields(values: ProjectEditCreateFormValues): {
+  title: string | undefined;
+  titleIsAuto: boolean;
+} {
+  const typed = values.title?.trim() ?? "";
+  const isAuto = values.titleIsAuto || typed === "";
+  return { title: isAuto ? undefined : typed, titleIsAuto: isAuto };
 }
 
 function PermissionDeniedState() {
@@ -197,6 +213,7 @@ export function ProjectEditCreateBody({
     if (!isEditing || !project) return EMPTY_DEFAULTS;
     return {
       title: project.title ?? "",
+      titleIsAuto: project.titleIsAuto ?? false,
       clientId: project.clientId ?? null,
       address: project.address ?? null,
       latitude: project.latitude ?? null,
@@ -213,7 +230,6 @@ export function ProjectEditCreateBody({
 
   const schema = React.useMemo(() => {
     const messages = {
-      titleRequired: t("editCreate.errors.titleRequired"),
       titleTooLong: t("editCreate.errors.titleTooLong"),
       tradeRequired: t("identity.trade.required"),
     };
@@ -253,12 +269,19 @@ export function ProjectEditCreateBody({
   );
 
   const handleSubmit = form.handleSubmit(async (values) => {
+    // Resolve the name into the (title, titleIsAuto) the DB expects: auto when
+    // the operator left it on auto OR cleared a custom name; otherwise the typed
+    // name is frozen (titleIsAuto=false). When auto, `title` is omitted so the
+    // trigger derives it from the address.
+    const { title, titleIsAuto } = resolveTitleFields(values);
+
     if (isEditing) {
       if (!projectId) return;
       await mutations.saveProject.mutateAsync({
         projectId,
         patch: {
-          title: values.title,
+          title,
+          titleIsAuto,
           clientId: values.clientId,
           address: values.address,
           latitude: values.latitude,
@@ -276,7 +299,8 @@ export function ProjectEditCreateBody({
     }
 
     const created = await mutations.createProject.mutateAsync({
-      title: values.title,
+      title,
+      titleIsAuto,
       clientId: values.clientId,
       address: values.address,
       latitude: values.latitude,
@@ -327,6 +351,14 @@ export function ProjectEditCreateBody({
               type="text"
               data-testid="project-edit-create-body-test-trade"
               {...form.register("trade")}
+              style={{ position: "absolute", left: -9999, width: 1, height: 1 }}
+              aria-hidden="true"
+              tabIndex={-1}
+            />
+            <input
+              type="checkbox"
+              data-testid="project-edit-create-body-test-title-is-auto"
+              {...form.register("titleIsAuto")}
               style={{ position: "absolute", left: -9999, width: 1, height: 1 }}
               aria-hidden="true"
               tabIndex={-1}
