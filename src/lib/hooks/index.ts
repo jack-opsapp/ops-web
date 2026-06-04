@@ -192,6 +192,7 @@ export {
   useInitiateOAuth,
   useDisconnectProvider,
   useUpdateSyncEnabled,
+  useUpdateSyncMode,
   useTriggerSync,
   useSyncHistory,
 } from "./use-accounting";
