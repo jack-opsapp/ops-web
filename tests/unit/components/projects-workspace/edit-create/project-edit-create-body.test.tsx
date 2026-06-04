@@ -223,6 +223,12 @@ describe("<ProjectEditCreateBody>", () => {
     ) as HTMLInputElement;
     await userEvent.clear(titleProbe);
     await userEvent.type(titleProbe, "New Project");
+    // A hand-typed name is custom — flip titleIsAuto off (it defaults true in
+    // creating mode) so the typed title is kept verbatim.
+    const autoProbe = screen.getByTestId(
+      "project-edit-create-body-test-title-is-auto",
+    ) as HTMLInputElement;
+    await userEvent.click(autoProbe);
     // Creating mode requires trade — seed via the hidden test probe.
     const tradeProbe = screen.getByTestId(
       "project-edit-create-body-test-trade",
@@ -235,6 +241,7 @@ describe("<ProjectEditCreateBody>", () => {
     await waitFor(() => expect(createMutate).toHaveBeenCalledTimes(1));
     const arg = createMutate.mock.calls[0]![0];
     expect(arg.title).toBe("New Project");
+    expect(arg.titleIsAuto).toBe(false);
     expect(arg.trade).toBe("hvac");
     expect(arg.visibility).toBe("all");
 
@@ -302,21 +309,34 @@ describe("<ProjectEditCreateBody>", () => {
     });
   });
 
-  it("rejects submit when the title is blank in creating mode", async () => {
+  it("accepts a blank title in creating mode and auto-names the project", async () => {
+    // The create-form name field is gone: a blank title is the common path —
+    // the project auto-names from its address (titleIsAuto=true), so submit
+    // must succeed without a typed name.
+    const onSaved = vi.fn();
     render(
       <ProjectEditCreateBody
         mode="creating"
         projectId={null}
         tab="identity"
         formId={FORM_ID}
+        onSaved={onSaved}
       />,
     );
+    // Trade is still required up front; leave the title blank.
+    const tradeProbe = screen.getByTestId(
+      "project-edit-create-body-test-trade",
+    ) as HTMLInputElement;
+    await userEvent.clear(tradeProbe);
+    await userEvent.type(tradeProbe, "roofing");
+
     const form = screen.getByTestId("project-edit-create-form");
     form.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
 
-    // Blank title fails the form validation — neither mutation runs.
-    await new Promise((r) => setTimeout(r, 20));
-    expect(createMutate).not.toHaveBeenCalled();
+    await waitFor(() => expect(createMutate).toHaveBeenCalledTimes(1));
+    const arg = createMutate.mock.calls[0]![0];
+    expect(arg.titleIsAuto).toBe(true);
+    expect(arg.title == null || arg.title === "").toBe(true);
     expect(saveMutate).not.toHaveBeenCalled();
   });
 });

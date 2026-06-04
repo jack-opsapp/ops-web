@@ -1,9 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { Controller, useFormContext } from "react-hook-form";
+import { Controller, useFormContext, useWatch } from "react-hook-form";
 import { Search, Check } from "lucide-react";
 import { useClients } from "@/lib/hooks/use-clients";
+import { useProjects } from "@/lib/hooks/use-projects";
+import { deriveStreetLine } from "@/lib/utils/derive-project-name";
 import type { Client } from "@/lib/types/models";
 import { Section } from "@/components/ops/projects/workspace/atoms/section";
 import { Stack } from "@/components/ops/projects/workspace/atoms/stack";
@@ -215,9 +217,11 @@ export interface IdentityTabProps {
    *  requires a category up front, editing leaves NULL trades alone for
    *  legacy projects. */
   mode: EditCreateMode;
+  /** Current project id (editing) — excluded from the duplicate-name check. */
+  projectId?: string | null;
 }
 
-export function IdentityTab({ mode }: IdentityTabProps) {
+export function IdentityTab({ mode, projectId = null }: IdentityTabProps) {
   const { t } = useDictionary("project-workspace");
   const {
     register,
@@ -240,18 +244,9 @@ export function IdentityTab({ mode }: IdentityTabProps) {
     <Stack gap={3} data-testid="identity-tab">
       <Section title={t("identity.section")}>
         <Stack gap={2}>
-          <Field
-            label={t("identity.title.label")}
-            required
-            error={errors.title?.message}
-          >
-            <TextInput
-              {...register("title")}
-              placeholder={t("identity.title.placeholder")}
-              autoComplete="off"
-              spellCheck={false}
-            />
-          </Field>
+          {/* Address-primary, auto-named: the operator never types a name —
+              SITE ADDRESS leads and the name tracks it (see NameAddressSection). */}
+          <NameAddressSection projectId={projectId} />
 
           <FieldRow
             gap={2}
@@ -294,29 +289,6 @@ export function IdentityTab({ mode }: IdentityTabProps) {
               )}
             />
           </FieldRow>
-
-          <Field
-            label={t("identity.address.label")}
-            optional
-            hint={t("identity.address.hint")}
-          >
-            <Controller
-              control={control}
-              name="address"
-              render={({ field }) => (
-                <AddressAutocomplete
-                  value={field.value ?? ""}
-                  onChange={(sel) => {
-                    field.onChange(sel.address);
-                    // Coordinates land alongside the address — set both via
-                    // the imperative form API so a single picker action
-                    // updates address + lat + lon atomically.
-                    formSetValueRef.current?.(sel.latitude, sel.longitude);
-                  }}
-                />
-              )}
-            />
-          </Field>
 
           <Field
             label={t("identity.description.label")}
@@ -371,5 +343,165 @@ function SetValueBinder() {
     };
   }, [setValue]);
   return null;
+}
+
+// ─── NameAddressSection ──────────────────────────────────────────────────────
+//
+// The auto-named create/edit surface. SITE ADDRESS is the primary input; the
+// project name is a live preview of the value the BEFORE-write trigger will
+// store (street line → `{Client}'s Project` → "New project") while the name is
+// auto. A quiet `rename` reveals the input and freezes the name
+// (titleIsAuto=false). In editing, a custom name offers `use address` to revert
+// to auto, and clearing it reverts too. A hand-set name that collides with
+// another project shows a non-blocking DUPLICATE NAME warning (iOS parity).
+
+function NameAddressSection({ projectId }: { projectId: string | null }) {
+  const { t } = useDictionary("project-workspace");
+  const { control, register, setValue } =
+    useFormContext<ProjectEditCreateFormValues>();
+  const { data: clientsData } = useClients();
+  const { data: projectsData } = useProjects();
+
+  const titleIsAuto = useWatch({ control, name: "titleIsAuto" });
+  const title = useWatch({ control, name: "title" });
+  const address = useWatch({ control, name: "address" });
+  const clientId = useWatch({ control, name: "clientId" });
+
+  const clientName = React.useMemo(() => {
+    if (!clientId) return null;
+    return clientsData?.clients?.find((c) => c.id === clientId)?.name ?? null;
+  }, [clientId, clientsData]);
+
+  // Mirrors private.derive_project_name: street line first, then the client
+  // fallback, then the placeholder — exactly what the trigger will store.
+  const preview = React.useMemo(() => {
+    const street = deriveStreetLine(address);
+    if (street) return street;
+    if (clientName)
+      return t("editCreate.clientProject", "{client}'s Project").replace(
+        "{client}",
+        clientName,
+      );
+    return t("editCreate.newProjectName", "New project");
+  }, [address, clientName, t]);
+
+  const duplicateName = React.useMemo(() => {
+    if (titleIsAuto) return false;
+    const typed = (title ?? "").trim().toLowerCase();
+    if (!typed) return false;
+    return (projectsData?.projects ?? []).some(
+      (p) =>
+        p.id !== projectId && (p.title ?? "").trim().toLowerCase() === typed,
+    );
+  }, [titleIsAuto, title, projectsData, projectId]);
+
+  return (
+    <Stack gap={2}>
+      {/* SITE ADDRESS — primary input */}
+      <Field
+        label={t("identity.address.label")}
+        optional
+        hint={t("identity.address.hint")}
+      >
+        <Controller
+          control={control}
+          name="address"
+          render={({ field }) => (
+            <AddressAutocomplete
+              value={field.value ?? ""}
+              onChange={(sel) => {
+                field.onChange(sel.address);
+                // Coordinates land alongside the address — write both via the
+                // imperative form API so one picker action updates all three.
+                formSetValueRef.current?.(sel.latitude, sel.longitude);
+              }}
+            />
+          )}
+        />
+      </Field>
+
+      {/* NAME — auto preview + rename, or editable name + use-address */}
+      {titleIsAuto ? (
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-baseline gap-1">
+            <Mono size={11} color="mute" caseSensitive>
+              {"//"}
+            </Mono>
+            <Mono size={11} color="text-3">
+              {t("editCreate.nameAutoPreview", "Name")}
+            </Mono>
+            <Mono size={11} color="mute" caseSensitive>
+              ·
+            </Mono>
+            <Mono
+              size={11}
+              color="text"
+              caseSensitive
+              className="truncate"
+              data-testid="identity-name-preview"
+            >
+              {preview}
+            </Mono>
+          </div>
+          <button
+            type="button"
+            data-testid="identity-name-rename"
+            onClick={() =>
+              setValue("titleIsAuto", false, { shouldDirty: true })
+            }
+            className="shrink-0 font-mono text-[11px] lowercase tracking-[0.14em] text-text-3 transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:text-text-2"
+          >
+            {t("editCreate.rename", "rename")}
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-1">
+          <div className="flex items-center justify-between gap-2">
+            <Mono size={11} color="text-3">
+              {t("identity.title.label")}
+            </Mono>
+            <button
+              type="button"
+              data-testid="identity-name-use-address"
+              onClick={() => {
+                setValue("title", "", { shouldDirty: true });
+                setValue("titleIsAuto", true, { shouldDirty: true });
+              }}
+              className="shrink-0 font-mono text-[11px] lowercase tracking-[0.14em] text-text-3 transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:text-text-2"
+            >
+              {t("editCreate.useAddress", "use address")}
+            </button>
+          </div>
+          <TextInput
+            data-testid="identity-name-input"
+            placeholder={preview}
+            autoComplete="off"
+            spellCheck={false}
+            {...register("title", {
+              onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+                // Clearing a custom name reverts to auto (trigger refills it).
+                if (e.target.value.trim() === "") {
+                  setValue("titleIsAuto", true, { shouldDirty: true });
+                }
+              },
+            })}
+          />
+          {duplicateName && (
+            <Mono
+              size={11}
+              color="tan"
+              caseSensitive
+              data-testid="identity-name-duplicate-warning"
+            >
+              {t(
+                "editCreate.duplicateNameWarning",
+                "Another project already uses this name.",
+              )}
+            </Mono>
+          )}
+        </div>
+      )}
+    </Stack>
+  );
 }
 

@@ -56,8 +56,15 @@ function invalidateProjectQueries(
 // ─── Inputs ───────────────────────────────────────────────────────────────────
 
 export interface CreateProjectInput {
-  /** Required core fields */
-  title: string;
+  /**
+   * Project name. OPTIONAL — when omitted (with `titleIsAuto: true`) the
+   * BEFORE-INSERT autoname trigger derives the NOT NULL title from the address
+   * (street line → `{Client}'s Project` → "New project"). Pass a value only for
+   * a hand-typed name (with `titleIsAuto: false`).
+   */
+  title?: string;
+  /** True ⇒ the name is auto-managed (pointer to address); false ⇒ hand-set. */
+  titleIsAuto?: boolean;
   /** Optional fields — every Project field except id/companyId/createdAt is fair game */
   clientId?: string | null;
   teamMemberIds?: string[];
@@ -108,8 +115,12 @@ export function useProjectMutations(projectId: string | null) {
       if (!currentUser?.id) throw new Error("No authenticated user");
 
       const teamMemberIds = input.teamMemberIds ?? [];
+      // Auto-named when no hand-typed title is supplied — the trigger derives
+      // the NOT NULL title from the address before the constraint is checked.
+      const titleIsAuto = input.titleIsAuto ?? input.title == null;
       const newProjectId = await ProjectService.createProject({
         title: input.title,
+        titleIsAuto,
         companyId: company.id,
         clientId: input.clientId ?? null,
         teamMemberIds,
@@ -131,7 +142,9 @@ export function useProjectMutations(projectId: string | null) {
         companyId: company.id,
         authorId: currentUser.id,
         eventKind: "project_created",
-        content: `Project created: ${input.title}`,
+        // The trigger owns the auto name, so the timeline row stays generic
+        // unless the operator hand-typed one.
+        content: input.title ? `Project created: ${input.title}` : "Project created",
         contentMetadata: {},
       };
       await ProjectNoteService.createSystemEvent(eventInput);
@@ -139,13 +152,13 @@ export function useProjectMutations(projectId: string | null) {
       if (teamMemberIds.length > 0) {
         dispatchProjectAssignment({
           projectId: newProjectId,
-          projectTitle: input.title,
+          projectTitle: input.title ?? "New project",
           newMemberIds: teamMemberIds,
           companyId: company.id,
         });
       }
 
-      return { id: newProjectId, title: input.title };
+      return { id: newProjectId, title: input.title ?? "" };
     },
     onSuccess: (created) => {
       invalidateProjectQueries(queryClient, created.id);
