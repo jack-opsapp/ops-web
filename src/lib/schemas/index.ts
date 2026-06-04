@@ -263,10 +263,10 @@ export const opsContactSchema = z.object({
 
 /** Create project form */
 export const createProjectSchema = z.object({
-  title: z
-    .string()
-    .min(1, "Project name is required")
-    .max(200, "Project name too long"),
+  // Optional: the project is auto-named from its address by the DB trigger when
+  // no name is typed (title_is_auto). A typed name freezes it (title_is_auto
+  // false). Blank/absent is allowed; only the length cap remains.
+  title: z.string().max(200, "Project name too long").optional(),
   address: z.string().optional().nullable(),
   startDate: z.date().optional().nullable(),
   endDate: z.date().optional().nullable(),

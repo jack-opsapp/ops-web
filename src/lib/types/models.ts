@@ -240,6 +240,10 @@ export type ProjectTrade = "roofing" | "hvac" | "plumbing";
 export interface Project {
   id: string;
   title: string;
+  // When true, `title` is auto-managed by the projects_autoname trigger (a
+  // pointer to `address`). When false/absent, the name is hand-set and frozen.
+  // Additive + nullable-equivalent (DB default false) → iOS-safe.
+  titleIsAuto?: boolean;
   address: string | null;
   latitude: number | null;
   longitude: number | null;
