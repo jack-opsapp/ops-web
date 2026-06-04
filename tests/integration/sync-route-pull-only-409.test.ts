@@ -28,6 +28,7 @@ function post(body: unknown) {
 describe("POST /api/sync direction gate", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.unstubAllEnvs(); // default: ACCOUNTING_WRITE_ENABLED unset → push kill-switch ON
     verifyAdminAuth.mockResolvedValue({ uid: "fb-1", email: "o@x.test" });
     findUserByAuth.mockResolvedValue({ id: "user-1", company_id: CO });
     runSyncForConnection.mockResolvedValue({ success: true, results: [], message: "ok" });
@@ -44,7 +45,19 @@ describe("POST /api/sync direction gate", () => {
     expect(runSyncForConnection).not.toHaveBeenCalled();
   });
 
-  it("runs and forwards sync_direction for bidirectional", async () => {
+  it("409 (kill-switch) when bidirectional but ACCOUNTING_WRITE_ENABLED is unset", async () => {
+    connSingle.mockResolvedValue({
+      data: { id: "conn-1", is_connected: true, last_sync_at: null, sync_direction: "bidirectional" },
+      error: null,
+    });
+    const { POST } = await import("@/app/api/sync/route");
+    const res = await POST(post({ companyId: CO, provider: "quickbooks" }));
+    expect(res.status).toBe(409); // full CRUD selected, but writes are gated off
+    expect(runSyncForConnection).not.toHaveBeenCalled();
+  });
+
+  it("runs and forwards sync_direction for bidirectional when writes are enabled", async () => {
+    vi.stubEnv("ACCOUNTING_WRITE_ENABLED", "true");
     connSingle.mockResolvedValue({
       data: { id: "conn-1", is_connected: true, last_sync_at: null, sync_direction: "bidirectional" },
       error: null,

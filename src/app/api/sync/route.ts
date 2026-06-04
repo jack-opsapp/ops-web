@@ -86,6 +86,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Hard kill-switch: even a bidirectional/push_only connection cannot write to
+    // the provider until the outbound sync engine is built + validated and
+    // ACCOUNTING_WRITE_ENABLED is explicitly set. Default (unset) → push gated,
+    // so selecting "full CRUD" in settings records the choice without yet
+    // pushing anything to the customer's real books.
+    if (process.env.ACCOUNTING_WRITE_ENABLED !== "true") {
+      return NextResponse.json(
+        {
+          error:
+            "Two-way sync to your accounting provider isn't enabled yet — this connection currently imports only.",
+        },
+        { status: 409 }
+      );
+    }
+
     try {
       const result = await runSyncForConnection(
         supabase,

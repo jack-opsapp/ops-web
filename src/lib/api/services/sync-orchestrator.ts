@@ -35,7 +35,11 @@ async function syncQuickBooks(
   if (!realmId) throw new Error("QuickBooks realmId not found on connection");
 
   const results: SyncResult[] = [];
-  const canPush = syncDirection !== "pull_only";
+  // Hard kill-switch: pushing to the provider also requires ACCOUNTING_WRITE_ENABLED
+  // (default off) so a "full CRUD" connection can't write to real books until the
+  // outbound engine is built + validated. canPull is unaffected (read stays on).
+  const canPush =
+    syncDirection !== "pull_only" && process.env.ACCOUNTING_WRITE_ENABLED === "true";
   const canPull = syncDirection !== "push_only";
 
   if (canPush) {
@@ -252,7 +256,11 @@ async function syncSage(
 ): Promise<SyncResult[]> {
   const { accessToken } = await AccountingTokenService.getValidToken(supabase, connectionId);
   const results: SyncResult[] = [];
-  const canPush = syncDirection !== "pull_only";
+  // Hard kill-switch: pushing to the provider also requires ACCOUNTING_WRITE_ENABLED
+  // (default off) so a "full CRUD" connection can't write to real books until the
+  // outbound engine is built + validated. canPull is unaffected (read stays on).
+  const canPush =
+    syncDirection !== "pull_only" && process.env.ACCOUNTING_WRITE_ENABLED === "true";
   const canPull = syncDirection !== "push_only";
 
   if (canPush) {
