@@ -35,7 +35,7 @@ const NOT_NULL_COLUMNS: Record<string, string[]> = {
  * from().update(patch).eq(). The payments insert path recomputes the parent
  * invoice exactly like trg_payment_balance -> update_invoice_balance().
  */
-function makeSupabase() {
+function makeSupabase(inject: { failUpsertOn?: string } = {}) {
   const db: Record<string, Row[]> = {
     qbo_import_runs: [{ id: RUN_ID, company_id: TEMP_COMPANY_ID, status: "staged", qb_write_calls: 0, totals: {} }],
     qbo_staging_customers: structuredClone(stagedCustomers),
@@ -80,6 +80,11 @@ function makeSupabase() {
       async single() { const m = api._match(); return { data: m[0] ?? null, error: m.length ? null : { message: "no rows" } }; },
       then(resolve: any) { return Promise.resolve({ data: api._match(), error: null }).then(resolve); },
       async upsert(payload: Row | Row[], opts?: { onConflict?: string }) {
+        // Simulate a DB write rejection (e.g. 42P10) surfaced by supabase-js as
+        // { error } rather than a throw — to verify applyImport fails loudly.
+        if (inject.failUpsertOn === table) {
+          return { data: null, error: { message: `injected write failure on ${table}`, code: "42P10" } };
+        }
         const list = Array.isArray(payload) ? payload : [payload];
         // C1: live tables upserted on (company_id, qb_id) REQUIRE that exact
         // conflict target — without a matching unique index PostgREST 42P10s.
@@ -275,6 +280,19 @@ describe("QuickBooksImportService.applyImport", () => {
     expect(supabase.__db.invoices).toHaveLength(0);
     expect(supabase.__db.line_items).toHaveLength(0);
     expect(supabase.__db.payments).toHaveLength(0);
+  });
+
+  it("aborts the run (status=error) and throws when a live-table write fails — no false success", async () => {
+    // Regression for the prod 42P10 bug: a failed upsert must NOT be swallowed
+    // and reported as a successful 'applied' run. Inject a write failure on the
+    // clients upsert (decisions create QB-CUST-1 → clients.create runs).
+    const sb = makeSupabase({ failUpsertOn: "clients" });
+    const { QuickBooksImportService } = await import("@/lib/api/services/quickbooks-import-service");
+    const svc = new QuickBooksImportService(sb);
+    await expect(svc.applyImport(RUN_ID, decisions)).rejects.toThrow(/clients\.create/);
+    const run = sb.__db.qbo_import_runs.find((r: Row) => r.id === RUN_ID);
+    expect(run.status).toBe("error"); // never 'applied'
+    expect(sb.__db.clients.filter((c: Row) => c.qb_id).length).toBe(0);
   });
 });
 
