@@ -255,3 +255,25 @@
 - Atomic conventional commits as each task lands. No AI attribution. Stage files by name (never `git add -A`) — the shared tree has parallel WIP.
 - No `git push` without explicit user permission.
 - TDD where behavior is testable (selection, keyboard, commit, states); visual/token correctness verified via `audit-design-system` + the playground.
+
+---
+
+## Migration status
+
+**Branch:** `feat/picker-system` (worktree off clean `main`). **Gates green at checkpoint:** `tsc --noEmit` 0; picker (9) + entity-picker (6) unit suites; projects-table phase4 (20) + phase5 (19) + edit-core (11) integration suites.
+
+### Converted (committed)
+- **Primitive family** — `Picker` / `PickerContent` / `PickerSearch` / `PickerList` / `PickerEmpty` / `PickerGroup` / `PickerItem` / `PickerFooterAction` (`src/components/ui/picker/`). Radix Popover + cmdk, tokenized, tested.
+- **`EntityPicker`** (`src/components/ui/entity-picker.tsx`) — search + single/multi + avatars + sub-label + none-option + create-action + conflict advisory + read-only/error. Tested.
+- **Team cell** (`cell-team.tsx`) — rebuilt as `EntityPicker multiple`; assign-to-all-active-tasks / remove-all; no-tasks notice; RLS-42501 inline; **inline schedule-conflict advisory** via `useTeamScheduleConflicts`. The ~510-line two-panel is gone.
+- **Per-task team picker** — NOTE: `badge-popover.tsx`'s `MiniTeamPickerPopover` is **not yet** routed through EntityPicker (still bespoke; tokenize in a follow-up).
+- **Client cell** (`editable-cell-client.tsx`) — rebuilt as `EntityPicker single + noneOption`; portaled; controlled-edit contract preserved.
+- **Tokens / scaffold** — `popover.tsx` base z-index → `z-dropdown`; `picker` i18n namespace (en + es); `.interface-design/system.md` touch-target line clarified (web is cursor-driven). z-index utilities (`z-dropdown`) already existed in `globals.css` — no Tailwind config change needed.
+
+### Not yet converted (still on bespoke pickers)
+- **Concrete pickers to build:** `EnumPicker`, `SegmentedControl`, `DatetimePicker`.
+- **Entity cluster:** pipeline assignee (`editable-cell-assignee.tsx`), category (`category-picker.tsx`, + i18n), unit (`unit-picker.tsx`, + i18n).
+- **Enum/datetime/specialized:** project status (`editable-cell-status.tsx` → EnumPicker), `segmented-picker.tsx` → SegmentedControl, `snooze-picker.tsx` / `repeat-picker.tsx` / `badge-popover.tsx` MiniCalendar → DatetimePicker, `color-picker-popover.tsx`, `thread-picker.tsx`.
+- **Base tokenization fixes:** `select.tsx` (raw rgba borders, `z-[60]`), `command.tsx` (raw rgba selected bg + `#B5B5B5` inset), `dropdown-menu.tsx` (`z-50`).
+- **Dev playground:** `/dev/playground` borderless-canvas element gallery (not started).
+- **Docs:** canonical picker pattern into `ops-design-system/project/DESIGN.md` + `ops-software-bible/05_DESIGN_SYSTEM.md` (not started).
