@@ -22,7 +22,7 @@
  */
 
 import * as React from "react";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, within, fireEvent } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import * as jestDomMatchers from "@testing-library/jest-dom/matchers";
 
@@ -102,6 +102,22 @@ vi.mock(
 vi.mock("@/components/ops/site-visit/create-site-visit-modal", () => ({
   CreateSiteVisitModal: ({ open }: { open: boolean }) =>
     open ? <div data-testid="create-site-visit-modal" /> : null,
+}));
+
+// Permission gate for the Linked → New estimate action. Default: allow every
+// permission; per-test overrides reassign `canMock`.
+let canMock: (permission: string) => boolean = () => true;
+vi.mock("@/lib/store/permissions-store", () => ({
+  usePermissionStore: (selector: (s: { can: (p: string) => boolean }) => unknown) =>
+    selector({ can: (p: string) => canMock(p) }),
+}));
+
+// The New-estimate action opens the global create-estimate floating window —
+// capture the opener so we can assert the deal-scoped metadata it carries.
+const openWindowMock = vi.fn();
+vi.mock("@/stores/window-store", () => ({
+  useWindowStore: (selector: (s: { openWindow: typeof openWindowMock }) => unknown) =>
+    selector({ openWindow: openWindowMock }),
 }));
 
 import { PipelineDetailOverviewTab } from "@/app/(dashboard)/pipeline/_components/pipeline-detail-overview-tab";
@@ -249,6 +265,7 @@ function makeClient(overrides: Partial<Client> = {}): Client {
 // Default every hook to an empty/quiet state; individual tests override.
 beforeEach(() => {
   vi.clearAllMocks();
+  canMock = () => true;
   useEstimatesMock.mockReturnValue({ data: undefined, isLoading: false });
   useSiteVisitsMock.mockReturnValue({ data: undefined, isLoading: false });
   useClientMock.mockReturnValue({ data: undefined, isLoading: false });
@@ -460,5 +477,50 @@ describe("PipelineDetailOverviewTab — Contact", () => {
     expect(
       within(contact).queryByRole("button", { name: /attach client/i }),
     ).toBeNull();
+  });
+});
+
+// ─── Linked: New estimate affordance ──────────────────────────────────────────
+
+describe("PipelineDetailOverviewTab — New estimate action", () => {
+  it("renders a New estimate action in the Linked estimates section when estimates.create is allowed", () => {
+    canMock = (p) => p === "estimates.create";
+    render(
+      <PipelineDetailOverviewTab opportunity={makeOpportunity()} canManage />,
+    );
+    const linked = screen.getByTestId("overview-linked");
+    expect(
+      within(linked).getByRole("button", { name: /new estimate/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("hides the New estimate action when estimates.create is denied", () => {
+    canMock = () => false;
+    render(
+      <PipelineDetailOverviewTab opportunity={makeOpportunity()} canManage />,
+    );
+    const linked = screen.getByTestId("overview-linked");
+    expect(
+      within(linked).queryByRole("button", { name: /new estimate/i }),
+    ).toBeNull();
+  });
+
+  it("opens a deal-scoped create-estimate window carrying the opportunity id + client id", () => {
+    canMock = (p) => p === "estimates.create";
+    const opp = makeOpportunity({ id: "opp-77", clientId: "client-5" });
+    render(<PipelineDetailOverviewTab opportunity={opp} canManage />);
+
+    const linked = screen.getByTestId("overview-linked");
+    fireEvent.click(
+      within(linked).getByRole("button", { name: /new estimate/i }),
+    );
+
+    expect(openWindowMock).toHaveBeenCalledTimes(1);
+    const [arg] = openWindowMock.mock.calls[0];
+    expect(arg).toMatchObject({
+      id: "create-estimate:opp-77",
+      type: "create-estimate",
+      metadata: { opportunityId: "opp-77", clientId: "client-5" },
+    });
   });
 });

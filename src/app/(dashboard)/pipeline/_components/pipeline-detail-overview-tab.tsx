@@ -51,6 +51,8 @@ import { useEstimates } from "@/lib/hooks/use-estimates";
 import { useSiteVisits } from "@/lib/hooks/use-site-visits";
 import { useClient, useClients } from "@/lib/hooks/use-clients";
 import { useAttachClientToOpportunity } from "@/lib/hooks/use-opportunities";
+import { usePermissionStore } from "@/lib/store/permissions-store";
+import { useWindowStore } from "@/stores/window-store";
 import {
   EstimateStatus,
   SiteVisitStatus,
@@ -583,6 +585,10 @@ function LinkedSection({
   canManage: boolean;
 }) {
   const { t } = useDictionary("pipeline");
+  // Creating an estimate is governed by `estimates.create` — independent of the
+  // pipeline `canManage` gate (a user may quote without managing the deal).
+  const canCreateEstimate = usePermissionStore((s) => s.can("estimates.create"));
+  const openWindow = useWindowStore((s) => s.openWindow);
   const estimatesQuery = useEstimates({ opportunityId: opportunity.id });
   const siteVisitsQuery = useSiteVisits({ opportunityId: opportunity.id });
   const [scheduling, setScheduling] = useState(false);
@@ -596,9 +602,33 @@ function LinkedSection({
         <Stack gap={2}>
           {/* ── Estimates ─────────────────────────────────────────────── */}
           <Stack gap={1}>
-            <Mono color="text-3" size={11}>
-              {t("overview.estimates", "Estimates")}
-            </Mono>
+            <Inline justify="between">
+              <Mono color="text-3" size={11}>
+                {t("overview.estimates", "Estimates")}
+              </Mono>
+              {canCreateEstimate ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    openWindow({
+                      // Deal-scoped window id → its own pre-filled instance,
+                      // distinct from the FAB's general "create-estimate".
+                      id: `create-estimate:${opportunity.id}`,
+                      title: t("overview.newEstimate", "New estimate"),
+                      type: "create-estimate",
+                      metadata: {
+                        opportunityId: opportunity.id,
+                        clientId: opportunity.clientId,
+                      },
+                    })
+                  }
+                  className="inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.14em] text-text-3 transition-colors duration-150 hover:text-text-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
+                >
+                  <Plus className="h-2.5 w-2.5" strokeWidth={2} />
+                  {t("overview.newEstimate", "New estimate")}
+                </button>
+              ) : null}
+            </Inline>
             {estimates.length === 0 ? (
               <div data-testid="overview-estimates-empty">
                 <Mono color="text-3" size={11}>
