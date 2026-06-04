@@ -29,6 +29,9 @@ import {
   deriveInvoiceStatus,
   mapEstimateStatus,
   buildItemTypeMap,
+  clientFieldsFromCustomer,
+  subClientFieldsFromCustomer,
+  type CustomerShape,
 } from "./qbo-normalize";
 import { getQuickBooksEnvironment } from "./quickbooks-config";
 import {
@@ -595,7 +598,7 @@ export class QuickBooksImportService {
       .from("qbo_staging_payments").select("*").eq("run_id", runId);
 
     const result: QboApplyResult = {
-      clientsLinked: 0, clientsCreated: 0, clientsSkipped: 0,
+      clientsLinked: 0, clientsCreated: 0, clientsSkipped: 0, subClientsCreated: 0,
       estimatesUpserted: 0, invoicesUpserted: 0, lineItemsInserted: 0,
       paymentsUpserted: 0, invoicesReconciled: 0, qb_write_calls: 0,
     };
@@ -609,6 +612,19 @@ export class QuickBooksImportService {
     const decisionByQbId = new Map(decisions.map((d) => [d.customer_qb_id, d]));
     // customer_qb_id → resolved OPS client_id (null === skipped)
     const clientIdByCustomerQbId = new Map<string, string | null>();
+
+    // Staged row (snake) → CustomerShape for the shared field-shaping helpers
+    // (clientFieldsFromCustomer / subClientFieldsFromCustomer) — the SAME helpers
+    // the webhook applyCustomer uses, so both apply paths emit identical rows.
+    const toShape = (cust: Record<string, unknown>): CustomerShape => ({
+      company_name: (cust.company_name as string) ?? null,
+      contact_name: (cust.contact_name as string) ?? null,
+      display_name: (cust.display_name as string) ?? null,
+      email: (cust.email as string) ?? null,
+      phone: (cust.phone as string) ?? null,
+      address: (cust.address as string) ?? null,
+      is_job: (cust.is_job as boolean) ?? null,
+    });
 
     // ── STEP 1: Clients (link / create / skip) ─────────────────────────────
     for (const cust of stagedCustomers ?? []) {
@@ -671,16 +687,14 @@ export class QuickBooksImportService {
         continue;
       }
 
+      // Company-aware field shaping — SAME helper the webhook path uses (Task 6B).
       const newId = crypto.randomUUID();
       await sb.from("clients").upsert(
         {
           id: newId,
           company_id: companyId,
           qb_id: cust.qb_id,
-          name: cust.display_name ?? "QuickBooks customer",
-          email: cust.email ?? null,
-          phone_number: cust.phone ?? null,
-          address: cust.address ?? null,
+          ...clientFieldsFromCustomer(toShape(cust)),
         },
         { onConflict: "company_id,qb_id" }
       );
@@ -689,6 +703,23 @@ export class QuickBooksImportService {
         .eq("company_id", companyId).eq("qb_id", cust.qb_id).maybeSingle();
       clientIdByCustomerQbId.set(cust.qb_id as string, (created?.id as string) ?? newId);
       result.clientsCreated++;
+    }
+
+    // ── STEP 1b: Contact sub-clients for company-type customers ────────────
+    // One sub_client per QB customer with a CompanyName + a contact person.
+    // Keyed (company_id, qb_id) so re-import upserts in place. Runs for both
+    // linked and created parents; skipped/needs_review customers have a null
+    // clientId and are ignored. subClientFieldsFromCustomer returns null for
+    // individuals, contact-less companies, and QB Jobs (Decision 3).
+    for (const cust of stagedCustomers ?? []) {
+      const clientId = clientIdByCustomerQbId.get(cust.qb_id as string);
+      const fields = subClientFieldsFromCustomer(toShape(cust));
+      if (!clientId || !fields) continue;
+      await sb.from("sub_clients").upsert(
+        { company_id: companyId, client_id: clientId, qb_id: cust.qb_id, ...fields },
+        { onConflict: "company_id,qb_id" }
+      );
+      result.subClientsCreated++;
     }
 
     // ── STEP 2: Estimate + invoice HEADERS (QB-authoritative totals) ────────
