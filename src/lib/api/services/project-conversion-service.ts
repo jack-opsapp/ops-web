@@ -1,41 +1,46 @@
 /**
- * OPS Web — Project Conversion Service (Lead Lifecycle P6)
+ * OPS Web — Project Conversion Service (Won-Conversion Unification)
  *
  * The single, canonical path that converts a won opportunity into an
- * operational project. Both entry points route through here so the link
- * contract, payload, disposition, and idempotency can never diverge:
+ * operational project. Three entry points route through here so the link
+ * contract, payload, dedup, disposition, and idempotency can never diverge:
  *
- *   1. The pipeline "Mark as Won" flow — winning a deal AUTOMATICALLY converts
- *      it (POST /api/opportunities/[id]/convert, fired after the won stage move).
- *   2. The AI approval-queue `create_project` action — the operator approving
- *      the queue item is the explicit confirmation.
+ *   1. The pipeline "Mark as Won" flow — winning a deal converts it in one
+ *      atomic transaction (POST /api/opportunities/[id]/convert).
+ *   2. The same flow's "link existing" branch — the operator picks a
+ *      duplicate candidate instead of creating a new project.
+ *   3. The AI approval-queue `create_project` action — the operator approving
+ *      the queue item is the explicit confirmation. It creates the project
+ *      WITHOUT winning the opportunity (stage is left untouched).
  *
- * The conversion is performed by the guarded SECURITY DEFINER RPC
- * `execute_opportunity_project_conversion_guarded`, which writes the full
- * four-column link contract + estimates re-link + disposition row in ONE
- * transaction (rolls back on any error — no half-conversion is reachable).
+ * The conversion is performed entirely by the unified SECURITY DEFINER RPC
+ * `convert_opportunity_to_project`, which — in ONE transaction — wins the
+ * opportunity (idempotently), creates OR links the project, carries lat/long,
+ * writes the four-column link contract, re-links estimates (both ref + text
+ * mirror), materializes LABOR line items into tasks, attaches site-visit
+ * photos, and records a `converted_to_project` disposition. It rolls back on
+ * any error — no half-conversion and no orphan project is reachable, so the
+ * old bare-project pre-create + orphan-cleanup dance is gone.
  *
- * The opportunity STAYS at stage='won' and is NOT archived — it is the
- * preserved sales / attribution record, linked to the project via project_ref.
- * The project is the operational record.
+ * `get_conversion_preflight` is the read-only companion: it surfaces an
+ * already-linked project, likely-duplicate candidates, the client's other
+ * projects, and the auto-name preview — so the Won dialog can offer "link
+ * instead of create" before anything is written.
  *
- * Service-role only: the RPC is granted to service_role exclusively, so this
- * service must run in a server context whose Supabase client carries the
- * service role (see /api/opportunities/[id]/convert and the approval queue).
+ * Service-role only: both RPCs run in a server context whose Supabase client
+ * carries the service role (see /api/opportunities/[id]/convert + /preflight
+ * and the approval queue).
  */
 
 import { requireSupabase } from "@/lib/supabase/helpers";
-import { ProjectService } from "./project-service";
 import { NotificationService } from "./notification-service";
-import { ProjectStatus } from "@/lib/types/models";
 
-// The guarded conversion RPC is granted to service_role only. Held in a
-// `string`-typed const so the call resolves to the loosely-typed rpc overload
-// (the function is not yet in the generated database types — the migration is
-// applied by the operator alongside the P5 migrations). Mirrors the merge
+// The unified RPCs are not yet in the generated database types (the post-drop
+// regen lands in the cleanup phase). Hold the names in `string`-typed consts so
+// the calls resolve to the loosely-typed `rpc` overload — mirrors the merge
 // service's `supabase.rpc(rpc, args)` pattern.
-const CONVERSION_RPC: string =
-  "execute_opportunity_project_conversion_guarded";
+const CONVERSION_RPC: string = "convert_opportunity_to_project";
+const PREFLIGHT_RPC: string = "get_conversion_preflight";
 
 export type ConversionSourcePath = "won_dialog" | "approval_queue";
 
@@ -47,16 +52,14 @@ export interface ConvertOpportunityParams {
   /** Which surface triggered the conversion (recorded in the disposition). */
   sourcePath: ConversionSourcePath;
   /**
-   * Final deal value from the Won dialog, if the operator entered one. Takes
-   * precedence over the opportunity's stored values for the project's
-   * estimated_value. When omitted, value precedence is actual_value ??
-   * estimated_value.
+   * Final deal value from the Won dialog, if the operator entered one. The RPC
+   * applies precedence p_actual_value ?? actual_value ?? estimated_value.
    */
   actualValue?: number | null;
   /**
-   * Snapshot guard — the stage the caller saw. If the live stage no longer
-   * matches, the RPC short-circuits (snapshot_mismatch) and converts nothing.
-   * The won-dialog path passes 'won'.
+   * Snapshot guard — the stage the caller saw when the dialog opened. If the
+   * live stage no longer matches, the RPC short-circuits (snapshot_mismatch)
+   * and converts nothing.
    */
   expectedStage?: string | null;
   /**
@@ -64,183 +67,263 @@ export interface ConvertOpportunityParams {
    * Carried only to `notes` (never invented elsewhere).
    */
   notesSeed?: string | null;
+  /**
+   * An operator-typed name (the Won dialog / create-form "rename" escape
+   * hatch). Present ⇒ the project is hand-set (title_is_auto=false). Absent ⇒
+   * the naming trigger auto-names from the address.
+   */
+  titleOverride?: string | null;
+}
+
+export interface LinkOpportunityToProjectParams
+  extends ConvertOpportunityParams {
+  /** Existing project to adopt — no NEW project is created. */
+  linkToProjectId: string;
 }
 
 export interface ConvertOpportunityResult {
-  /** True if THIS call created + linked the project. */
+  /** True if THIS call performed the conversion (created or linked + won). */
   converted: boolean;
   /** Always the linked project id (existing one when already converted). */
   projectId: string;
   opportunityId: string;
-  /** Set when this call wrote the disposition row. */
-  dispositionId?: string;
-  /** Number of estimates re-pointed to the new project. */
-  relinkedEstimates?: number;
   /** True when the opportunity was already converted (idempotent no-op). */
   alreadyConverted: boolean;
+  /** Set when this call wrote the disposition row. */
+  dispositionId?: string;
+  /** Number of estimates re-pointed to the project. */
+  relinkedEstimates?: number;
+  /** Number of LABOR line items materialized into project_tasks. */
+  materializedTasks?: number;
+  /** Number of site-visit photos attached to the project. */
+  attachedPhotos?: number;
+  /** True when an existing project was linked rather than a new one created. */
+  linkedExisting?: boolean;
+  /** True when this call moved the opportunity to `won` (+ a stage transition). */
+  won?: boolean;
 }
 
-interface GuardedConversionResult {
+// ─── Preflight (read-only dedup + auto-name preview) ──────────────────────────
+
+export interface ConversionPreflightCandidate {
+  projectId: string;
+  title: string;
+  address: string | null;
+  /** high = same client + address; medium = same address, other/unknown client. */
+  confidence: "high" | "medium";
+  signals: string[];
+}
+
+export interface ConversionPreflightOtherProject {
+  projectId: string;
+  title: string;
+  address: string | null;
+  status: string;
+}
+
+export interface ConversionPreflight {
+  /** Set when this opportunity has already been converted. */
+  existingLinkedProject: { id: string; title: string } | null;
+  /** Likely-the-same-job projects to offer "link instead of create". */
+  duplicateCandidates: ConversionPreflightCandidate[];
+  /** The client's other projects (informational — CLIENT-HAS-OTHERS). */
+  otherClientProjects: ConversionPreflightOtherProject[];
+  /** derive_project_name() preview (street line / client fallback / placeholder). */
+  suggestedName: string;
+}
+
+// ─── Raw RPC payloads ─────────────────────────────────────────────────────────
+
+interface UnifiedConversionResult {
   converted: boolean;
-  project_id: string;
+  already_converted: boolean;
+  project_id?: string;
   opportunity_id?: string;
   disposition_id?: string;
   relinked_estimates?: number;
+  materialized_tasks?: number;
+  attached_photos?: number;
+  linked_existing?: boolean;
+  won?: boolean;
   guard_reason?: string;
-  requested_project_id?: string;
+}
+
+interface RawPreflight {
+  existing_linked_project?: { id: string; title: string } | null;
+  duplicate_candidates?: Array<{
+    project_id: string;
+    title: string;
+    address: string | null;
+    confidence: "high" | "medium";
+    signals: string[];
+  }>;
+  other_client_projects?: Array<{
+    project_id: string;
+    title: string;
+    address: string | null;
+    status: string;
+  }>;
+  suggested_name?: string;
+}
+
+/**
+ * Run the unified convert RPC and normalize its result. `linkToProjectId` set
+ * ⇒ link an existing project (no new one); null ⇒ create. Win is derived from
+ * the source path: won_dialog wins the opportunity atomically; approval_queue
+ * creates the project WITHOUT touching the opportunity's stage.
+ */
+async function runConversion(
+  params: ConvertOpportunityParams,
+  linkToProjectId: string | null
+): Promise<ConvertOpportunityResult> {
+  const supabase = requireSupabase();
+  const winOpportunity = params.sourcePath === "won_dialog";
+
+  const { data, error } = await supabase.rpc(CONVERSION_RPC, {
+    p_company_id: params.companyId,
+    p_opportunity_id: params.opportunityId,
+    p_actual_value: params.actualValue ?? null,
+    p_expected_stage: params.expectedStage ?? null,
+    p_decided_by: params.decidedBy ?? null,
+    p_notes: params.notesSeed ?? null,
+    p_title_override: params.titleOverride ?? null,
+    p_link_to_project_id: linkToProjectId,
+    p_source_path: params.sourcePath,
+    p_win_opportunity: winOpportunity,
+  });
+
+  if (error) {
+    throw new Error(`Project conversion RPC failed: ${error.message}`);
+  }
+
+  const result = (data ?? {}) as UnifiedConversionResult;
+
+  // Snapshot guard — the opportunity changed underneath the operator.
+  if (!result.converted && result.guard_reason === "snapshot_mismatch") {
+    throw new Error(
+      "Opportunity changed before conversion completed — please retry"
+    );
+  }
+
+  // Idempotent no-op — the opportunity is already linked to a project.
+  if (!result.converted && result.already_converted) {
+    return {
+      converted: false,
+      alreadyConverted: true,
+      projectId: (result.project_id as string) ?? "",
+      opportunityId: params.opportunityId,
+    };
+  }
+
+  return {
+    converted: result.converted,
+    alreadyConverted: false,
+    projectId: (result.project_id as string) ?? "",
+    opportunityId: params.opportunityId,
+    dispositionId: result.disposition_id,
+    relinkedEstimates: result.relinked_estimates,
+    materializedTasks: result.materialized_tasks,
+    attachedPhotos: result.attached_photos,
+    linkedExisting: result.linked_existing,
+    won: result.won,
+  };
 }
 
 export const ProjectConversionService = {
   /**
-   * Convert a won opportunity into a linked project. Idempotent: if the
-   * opportunity is already linked (project_ref set), this is a no-op that
-   * returns the existing project — never a second project.
+   * Convert a won opportunity into a NEW linked project. Idempotent: an
+   * already-linked opportunity returns the existing project (never a second
+   * one). On a real creation, fires the "Project created" rail notification.
    */
   async convertOpportunityToProject(
     params: ConvertOpportunityParams
   ): Promise<ConvertOpportunityResult> {
-    const supabase = requireSupabase();
+    const result = await runConversion(params, null);
 
-    // ── Step 1: read the canonical opportunity row (raw columns) ──
-    const { data: oppRow, error: oppErr } = await supabase
-      .from("opportunities")
-      .select(
-        "id, company_id, title, client_id, address, description, " +
-          "estimated_value, actual_value, source, source_email_id, " +
-          "stage, project_ref, deleted_at"
-      )
-      .eq("id", params.opportunityId)
-      .eq("company_id", params.companyId)
-      .single();
+    // Rail notification on a genuine NEW-project creation only — never on the
+    // idempotent no-op, and never on link-existing (handled separately, which
+    // does not notify because the project already existed).
+    if (result.converted && !result.linkedExisting && params.decidedBy) {
+      const supabase = requireSupabase();
+      const { data: oppRow } = await supabase
+        .from("opportunities")
+        .select("title")
+        .eq("id", params.opportunityId)
+        .eq("company_id", params.companyId)
+        .maybeSingle();
+      const oppTitle = (oppRow?.title as string) ?? "an opportunity";
 
-    if (oppErr || !oppRow) {
-      throw new Error(
-        `Opportunity ${params.opportunityId} not found for conversion`
-      );
-    }
-    const opp = oppRow as unknown as Record<string, unknown>;
-
-    // ── Step 2: pre-check idempotency BEFORE creating any project ──
-    // Avoids minting an orphan when the opportunity is already converted.
-    if (opp.project_ref) {
-      return {
-        converted: false,
-        alreadyConverted: true,
-        projectId: opp.project_ref as string,
-        opportunityId: params.opportunityId,
-      };
-    }
-
-    // ── Step 3: build the project payload (canonical fill-forward) ──
-    // Value precedence: operator-entered actualValue (Won dialog) ??
-    // opportunity.actual_value ?? opportunity.estimated_value. Never invent.
-    const carriedValue =
-      params.actualValue ??
-      (opp.actual_value != null ? Number(opp.actual_value) : null) ??
-      (opp.estimated_value != null ? Number(opp.estimated_value) : null);
-
-    // platform_metadata seeds from { source, source_email_id } until P2 lands
-    // opportunities.source_metadata. Only set when at least one value exists —
-    // never write an all-null object.
-    const platformMetadata =
-      opp.source || opp.source_email_id
-        ? {
-            source: (opp.source as string) ?? null,
-            source_email_id: (opp.source_email_id as string) ?? null,
-          }
-        : null;
-
-    // Won-dialog conversion lands the project at `accepted` (bible §10:
-    // won → Project Accepted). Approval-queue proposals land at `rfq`.
-    const status =
-      params.sourcePath === "won_dialog"
-        ? ProjectStatus.Accepted
-        : ProjectStatus.RFQ;
-
-    const projectId = await ProjectService.createProject({
-      title: (opp.title as string) ?? "Untitled project",
-      companyId: params.companyId,
-      clientId: (opp.client_id as string) ?? null,
-      address: (opp.address as string) ?? null,
-      projectDescription: (opp.description as string) ?? null,
-      notes: params.notesSeed ?? null,
-      status,
-      estimatedValue: carriedValue,
-      source: (opp.source as string) ?? null,
-      platformMetadata,
-      // Mirrors are written authoritatively by the RPC inside the transaction;
-      // we leave the link columns unset on the bare insert so the RPC is the
-      // single source of truth for the four-column contract.
-    });
-
-    // ── Step 4: guarded conversion RPC (atomic link + relink + disposition) ──
-    const { data, error } = await supabase.rpc(CONVERSION_RPC, {
-      p_company_id: params.companyId,
-      p_opportunity_id: params.opportunityId,
-      p_project_id: projectId,
-      p_expected_stage: params.expectedStage ?? null,
-      p_decided_by: params.decidedBy ?? null,
-      p_evidence: {
-        source_path: params.sourcePath,
-        actual_value: carriedValue,
-      },
-    });
-
-    if (error) {
-      // The link transaction failed and rolled back — the bare project we just
-      // created is an orphan. Soft-delete it so a failed conversion leaves no
-      // unlinked project behind, then surface the error.
-      await ProjectService.deleteProject(projectId).catch(() => {});
-      throw new Error(`Project conversion RPC failed: ${error.message}`);
-    }
-
-    const result = (data ?? {}) as GuardedConversionResult;
-
-    // ── Step 5: handle the idempotency race ──
-    // Another converter won between our pre-check and the RPC's lock. Our
-    // freshly-created project is the loser's orphan — soft-delete it and return
-    // the existing linked project.
-    if (!result.converted && result.guard_reason === "already_converted") {
-      await ProjectService.deleteProject(projectId).catch(() => {});
-      return {
-        converted: false,
-        alreadyConverted: true,
-        projectId: result.project_id,
-        opportunityId: params.opportunityId,
-      };
-    }
-
-    // Snapshot mismatch — the opportunity changed underneath the operator.
-    // Roll our orphan back and surface a clear error to the caller.
-    if (!result.converted && result.guard_reason === "snapshot_mismatch") {
-      await ProjectService.deleteProject(projectId).catch(() => {});
-      throw new Error(
-        "Opportunity changed before conversion completed — please retry"
-      );
-    }
-
-    // ── Step 6: rail notification (standard, click-through to the project) ──
-    if (result.converted && params.decidedBy) {
       await NotificationService.create({
         userId: params.decidedBy,
         companyId: params.companyId,
         type: "mention",
         title: "Project created",
-        body: `Created from ${(opp.title as string) ?? "an opportunity"}`,
+        body: `Created from ${oppTitle}`,
         persistent: false,
-        actionUrl: `/dashboard?openProject=${projectId}&mode=view`,
+        actionUrl: `/dashboard?openProject=${result.projectId}&mode=view`,
         actionLabel: "View Project",
-        projectId,
+        projectId: result.projectId,
       });
     }
 
+    return result;
+  },
+
+  /**
+   * Win a deal by LINKING it to an existing project instead of creating a new
+   * one (the Won dialog's "link" branch / dedup candidate selection). No new
+   * project, no "project created" notification — the target's status/title are
+   * untouched; only the link contract, estimate relink, task/photo dedup, and
+   * disposition are written.
+   */
+  async linkOpportunityToExistingProject(
+    params: LinkOpportunityToProjectParams
+  ): Promise<ConvertOpportunityResult> {
+    return runConversion(params, params.linkToProjectId);
+  },
+
+  /**
+   * Read-only conversion preflight: existing link, duplicate candidates, the
+   * client's other projects, and the auto-name preview. Drives the enriched
+   * Won dialog's dedup states before any write.
+   */
+  async getConversionPreflight(
+    opportunityId: string,
+    companyId?: string | null
+  ): Promise<ConversionPreflight> {
+    const supabase = requireSupabase();
+    const { data, error } = await supabase.rpc(PREFLIGHT_RPC, {
+      p_opportunity_id: opportunityId,
+      p_company_id: companyId ?? null,
+    });
+
+    if (error) {
+      throw new Error(`Conversion preflight failed: ${error.message}`);
+    }
+
+    const raw = (data ?? {}) as RawPreflight;
+
     return {
-      converted: result.converted,
-      alreadyConverted: false,
-      projectId: result.project_id ?? projectId,
-      opportunityId: params.opportunityId,
-      dispositionId: result.disposition_id,
-      relinkedEstimates: result.relinked_estimates,
+      existingLinkedProject: raw.existing_linked_project
+        ? {
+            id: raw.existing_linked_project.id,
+            title: raw.existing_linked_project.title,
+          }
+        : null,
+      duplicateCandidates: (raw.duplicate_candidates ?? []).map((c) => ({
+        projectId: c.project_id,
+        title: c.title,
+        address: c.address ?? null,
+        confidence: c.confidence,
+        signals: c.signals ?? [],
+      })),
+      otherClientProjects: (raw.other_client_projects ?? []).map((p) => ({
+        projectId: p.project_id,
+        title: p.title,
+        address: p.address ?? null,
+        status: p.status,
+      })),
+      suggestedName: raw.suggested_name ?? "",
     };
   },
 };
