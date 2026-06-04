@@ -795,6 +795,10 @@ export interface AccountingConnection {
   isConnected: boolean;
   lastSyncAt: Date | null;
   syncEnabled: boolean;
+  /** "pull_only" = read-only import; "bidirectional" = full CRUD two-way sync. */
+  syncDirection: "pull_only" | "push_only" | "bidirectional";
+  /** When full CRUD: whether an OPS soft-delete also voids the provider record. */
+  propagateDeletes: boolean;
   webhookVerifierToken: string | null;
   createdAt: Date | null;
   updatedAt: Date | null;

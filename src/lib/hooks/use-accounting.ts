@@ -84,6 +84,35 @@ export function useUpdateSyncEnabled() {
   });
 }
 
+export function useUpdateSyncMode() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      companyId,
+      provider,
+      syncDirection,
+      propagateDeletes,
+    }: {
+      companyId: string;
+      provider: AccountingProvider;
+      syncDirection: "pull_only" | "bidirectional";
+      propagateDeletes: boolean;
+    }) =>
+      AccountingService.updateSyncMode(
+        companyId,
+        provider,
+        syncDirection,
+        propagateDeletes
+      ),
+    onSuccess: (_data, { companyId }) => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.accounting.connections(companyId),
+      });
+    },
+  });
+}
+
 export function useTriggerSync() {
   const queryClient = useQueryClient();
 

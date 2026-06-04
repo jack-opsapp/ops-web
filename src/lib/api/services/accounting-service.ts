@@ -31,6 +31,9 @@ function mapConnectionFromDb(
     isConnected: (row.is_connected as boolean) ?? false,
     lastSyncAt: parseDate(row.last_sync_at),
     syncEnabled: (row.sync_enabled as boolean) ?? false,
+    syncDirection:
+      (row.sync_direction as "pull_only" | "push_only" | "bidirectional") ?? "pull_only",
+    propagateDeletes: (row.propagate_deletes as boolean) ?? false,
     webhookVerifierToken: null,
     createdAt: parseDate(row.created_at),
     updatedAt: parseDate(row.updated_at),
@@ -48,7 +51,7 @@ export const AccountingService = {
     const { data, error } = await supabase
       .from("accounting_connections")
       .select(
-        "id, company_id, provider, token_expires_at, is_connected, last_sync_at, sync_enabled, created_at, updated_at"
+        "id, company_id, provider, token_expires_at, is_connected, last_sync_at, sync_enabled, sync_direction, propagate_deletes, created_at, updated_at"
       )
       .eq("company_id", companyId);
 
@@ -102,6 +105,35 @@ export const AccountingService = {
       .eq("company_id", companyId)
       .eq("provider", provider);
     if (error) throw new Error(`Failed to update sync enabled: ${error.message}`);
+  },
+
+  /**
+   * Set the connection's sync mode (read-only ↔ full CRUD) + delete-propagation.
+   * Goes through a service-role API route — the client cannot write
+   * accounting_connections directly (RLS). Selecting "bidirectional" records the
+   * choice but does not start pushing (env ACCOUNTING_WRITE_ENABLED gates writes).
+   */
+  async updateSyncMode(
+    companyId: string,
+    provider: AccountingProvider,
+    syncDirection: "pull_only" | "bidirectional",
+    propagateDeletes: boolean
+  ): Promise<{ writesEnabled: boolean }> {
+    const { getIdToken } = await import("@/lib/firebase/auth");
+    const idToken = await getIdToken();
+    const response = await fetch("/api/integrations/accounting/sync-mode", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+      },
+      body: JSON.stringify({ companyId, provider, syncDirection, propagateDeletes }),
+    });
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => null);
+      throw new Error(errorBody?.error || "Failed to update sync mode");
+    }
+    return response.json();
   },
 
   async triggerSync(
