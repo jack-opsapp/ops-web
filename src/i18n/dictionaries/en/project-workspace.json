@@ -144,6 +144,12 @@
   "editCreate.accessDenied.title": "// ACCESS DENIED",
   "editCreate.accessDenied.body": "You don't have permission to modify this project.",
   "editCreate.loading": "Loading…",
+  "editCreate.nameAutoPreview": "Name",
+  "editCreate.rename": "rename",
+  "editCreate.useAddress": "use address",
+  "editCreate.duplicateNameWarning": "Another project already uses this name.",
+  "editCreate.newProjectName": "New project",
+  "editCreate.clientProject": "{client}'s Project",
   "editCreate.errors.titleRequired": "Project name is required",
   "editCreate.errors.titleTooLong": "Name too long",
 
