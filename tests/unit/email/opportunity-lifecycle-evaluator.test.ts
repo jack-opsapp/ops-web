@@ -115,25 +115,49 @@ describe("opportunity lifecycle evaluator dry-run decisions", () => {
     });
   });
 
-  it("moves unreplied inbound beyond qualified to lost after thirty days", () => {
-    expect(
-      evaluateOpportunityLifecycle({
-        opportunity: opportunity({ stage: "negotiation" }),
-        lifecycleState: null,
-        meaningfulEvents: [
-          event({
-            direction: "inbound",
-            partyRole: "customer",
-            occurredAt: "2026-04-20T18:00:00.000Z",
-          }),
-        ],
-        settings,
-        now,
-      })
-    ).toMatchObject({
-      action: "move_to_lost_operator_no_response",
+  it("archives unreplied inbound past the no-response window — archive-first (lost/discard deferred to phase C)", () => {
+    const decision = evaluateOpportunityLifecycle({
+      opportunity: opportunity({ stage: "negotiation" }),
+      lifecycleState: null,
+      meaningfulEvents: [
+        event({
+          direction: "inbound",
+          partyRole: "customer",
+          occurredAt: "2026-04-20T18:00:00.000Z",
+        }),
+      ],
+      settings,
+      now,
+    });
+    expect(decision).toMatchObject({
+      action: "archive_operator_no_response",
       dryRun: true,
     });
+    // A beyond-qualified archive is the strong lost candidate phase C will
+    // reclassify — the evidence flag preserves that signal.
+    expect((decision.evidence as { beyondQualified?: boolean }).beyondQualified).toBe(true);
+  });
+
+  it("archives an unreplied inbound in an early stage too — the 'forgot to follow up' lead, no beyond-qualified gate", () => {
+    const decision = evaluateOpportunityLifecycle({
+      opportunity: opportunity({ stage: "new_lead" }),
+      lifecycleState: null,
+      meaningfulEvents: [
+        event({
+          direction: "inbound",
+          partyRole: "customer",
+          occurredAt: "2026-04-20T18:00:00.000Z",
+        }),
+      ],
+      settings,
+      now,
+    });
+    expect(decision).toMatchObject({
+      action: "archive_operator_no_response",
+      dryRun: true,
+    });
+    // Early-stage archive → more likely a cold/forgotten lead than a lost deal.
+    expect((decision.evidence as { beyondQualified?: boolean }).beyondQualified).toBe(false);
   });
 
   it("ignores terminal and protected opportunities", () => {

@@ -23,13 +23,16 @@ export const dynamic = "force-dynamic";
  * structured run summary and logs a single result line for Vercel
  * observability.
  *
- * Boundary: AUTO-EXECUTES only the non-destructive actions (local template
+ * Boundary: ALWAYS auto-executes the non-destructive actions (local template
  * follow-up draft + operator follow-up-miss notification + lifecycle-state
  * updates + inbound supersede), all idempotent via the open-template unique
  * index and the notification dedupe_key. DESTRUCTIVE decisions (archive / lost
- * / reactivate) are surfaced as dry-run candidates only and never applied — the
- * guarded RPC is never called from this route. No emails, no provider drafts,
- * no provider sends.
+ * / reactivate) auto-execute ONLY for companies that have opted in via their
+ * lifecycle settings (`auto_archive_enabled` gates archive + reactivate,
+ * `auto_lost_enabled` gates move-to-lost); the guarded RPC fires for those and
+ * every structural guard is enforced by the action-service. Companies that have
+ * not opted in get a dry-run review notification instead and are never mutated.
+ * No emails, no provider drafts, no provider sends.
  */
 export async function GET(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
@@ -65,6 +68,11 @@ export async function GET(request: NextRequest) {
         draftsSuperseded: result.draftsSuperseded,
         destructiveDryRun: result.destructiveDryRun,
         destructiveSkippedFragmented: result.destructiveSkippedFragmented,
+        destructiveArchived: result.destructiveArchived,
+        destructiveMovedToLost: result.destructiveMovedToLost,
+        destructiveReactivated: result.destructiveReactivated,
+        destructiveExecutionSkippedGuarded:
+          result.destructiveExecutionSkippedGuarded,
         destructiveReviewNotificationsCreated:
           result.destructiveReviewNotificationsCreated,
         destructiveReviewNotificationsSkippedExisting:
