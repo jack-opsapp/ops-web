@@ -129,6 +129,8 @@
   "qbo.customers.basis": "COINCIDENCIA",
   "qbo.customers.confidence": "CONFIANZA",
   "qbo.customers.match": "CLIENTE OPS",
+  "qbo.customers.contactLabel": "Contacto:",
+  "qbo.jobsDetected": "{count} trabajos de QuickBooks importados como clientes separados — la vinculación de proyectos llega pronto.",
   "qbo.action.link": "Vincular",
   "qbo.action.create": "Crear",
   "qbo.action.skip": "Omitir",
