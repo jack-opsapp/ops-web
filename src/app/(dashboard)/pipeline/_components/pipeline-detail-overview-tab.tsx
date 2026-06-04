@@ -567,15 +567,17 @@ function siteVisitChipVariant(status: SiteVisitStatus): ChipVariant {
 }
 
 /**
- * Everything attached to the deal: estimates (gated on `estimates.view` — the
- * hook returns `undefined` data when denied), the converted project (display +
- * open only — conversion is owned by the won-deal flow, NOT here), and site
+ * Everything attached to the deal: estimates (list gated on `estimates.view` —
+ * the hook returns `undefined` data when denied), the converted project (display
+ * + open only — conversion is owned by the won-deal flow, NOT here), and site
  * visits (with a wired **Schedule** affordance via {@link CreateSiteVisitModal}).
  *
- * No **New estimate** action is rendered: the only estimate-creation surface in
- * OPS-Web (`CreateEstimateForm`, mounted globally in `dashboard-layout`) cannot
- * be scoped to an opportunity/client, so wiring it would mint a disconnected
- * estimate. Per the build contract we omit the action rather than ship a stub.
+ * A **New estimate** action (gated on `estimates.create`) opens the global
+ * `CreateEstimateForm` floating window scoped to this deal — a dedicated
+ * `create-estimate:<oppId>` window carrying `{ opportunityId, clientId }`
+ * metadata — so the drafted estimate writes `opportunity_id` and surfaces back
+ * in `useEstimates({ opportunityId })`. (The form is now opportunity-aware via
+ * `createEstimateDefaultsFromMeta`; it previously could not be scoped.)
  */
 function LinkedSection({
   opportunity,
