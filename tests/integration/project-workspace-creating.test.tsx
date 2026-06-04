@@ -144,7 +144,7 @@ describe("Project workspace — creating mode integration", () => {
     expect(titleInput.value).toBe("");
   });
 
-  it("rejects submit when the title is empty (creating-mode required gate)", async () => {
+  it("rejects submit when the required trade is missing (creating-mode gate)", async () => {
     renderContainer();
     await screen.findByTestId("identity-tab-stub");
 
@@ -153,12 +153,41 @@ describe("Project workspace — creating mode integration", () => {
       fireEvent.click(createBtn);
     });
 
-    // Required-field gate fires inside react-hook-form's resolver — the
-    // mutation must NOT be called.
+    // Title is OPTIONAL now (blank ⇒ auto-named from the address). Trade is the
+    // sole creating-mode required field — its gate fires inside react-hook-form's
+    // resolver, so the mutation must NOT be called.
     expect(createProjectMutateAsync).not.toHaveBeenCalled();
   });
 
-  it("calls createProject + flips to viewing when required fields are filled", async () => {
+  it("auto-names by default — submits titleIsAuto=true with no title when only the required trade is set", async () => {
+    renderContainer();
+
+    const tradeInput = (await screen.findByTestId(
+      "project-edit-create-body-test-trade",
+    )) as HTMLInputElement;
+
+    // The operator never types a name in the common path — the DB trigger
+    // derives it from the address (titleIsAuto=true, title omitted).
+    fireEvent.change(tradeInput, { target: { value: "roofing" } });
+
+    const createBtn = screen.getByRole("button", { name: "footer.create" });
+    await act(async () => {
+      fireEvent.click(createBtn);
+    });
+
+    await waitFor(() => {
+      expect(createProjectMutateAsync).toHaveBeenCalledTimes(1);
+    });
+    expect(createProjectMutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: undefined,
+        titleIsAuto: true,
+        trade: "roofing",
+      }),
+    );
+  });
+
+  it("freezes a hand-typed name when the operator opens rename (titleIsAuto=false)", async () => {
     renderContainer();
 
     const titleInput = (await screen.findByTestId(
@@ -167,7 +196,13 @@ describe("Project workspace — creating mode integration", () => {
     const tradeInput = (await screen.findByTestId(
       "project-edit-create-body-test-trade",
     )) as HTMLInputElement;
+    const autoToggle = (await screen.findByTestId(
+      "project-edit-create-body-test-title-is-auto",
+    )) as HTMLInputElement;
 
+    // Opening `rename` clears titleIsAuto; the typed name is then kept verbatim.
+    expect(autoToggle.checked).toBe(true); // auto by default
+    fireEvent.click(autoToggle); // → titleIsAuto = false
     fireEvent.change(titleInput, { target: { value: "New build — corner lot" } });
     fireEvent.change(tradeInput, { target: { value: "roofing" } });
 
@@ -182,6 +217,7 @@ describe("Project workspace — creating mode integration", () => {
     expect(createProjectMutateAsync).toHaveBeenCalledWith(
       expect.objectContaining({
         title: "New build — corner lot",
+        titleIsAuto: false,
         trade: "roofing",
       }),
     );
