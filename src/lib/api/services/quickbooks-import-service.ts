@@ -145,6 +145,25 @@ function isUnauthorizedError(err: unknown): boolean {
   return /\(401\)/.test(msg) || /unauthorized/i.test(msg);
 }
 
+/**
+ * Throw on a Supabase write error. The apply path previously did
+ * `await sb.from(...).upsert(...)` without inspecting the result, so a failed
+ * write (e.g. 42P10 against a partial-only ON CONFLICT arbiter) was swallowed
+ * and the run still reported `applied` with inflated totals — silent data loss.
+ * Every apply write now routes through this so a failure aborts the run loudly.
+ */
+function assertNoWriteError(
+  res: { error: { message?: string; code?: string } | null },
+  ctx: string
+): void {
+  if (res.error) {
+    const e = res.error;
+    throw new Error(
+      `QBO apply write failed [${ctx}]${e.code ? ` (${e.code})` : ""}: ${e.message ?? JSON.stringify(e)}`
+    );
+  }
+}
+
 export class QuickBooksImportService {
   private supabase: SupabaseClient;
 
@@ -594,6 +613,32 @@ export class QuickBooksImportService {
 
     await sb.from("qbo_import_runs").update({ status: "applying" }).eq("id", runId);
 
+    try {
+      return await this.applyStagedRows(sb, runId, companyId, decisions);
+    } catch (err) {
+      // A write failed mid-apply — mark the run errored. Never leave it stuck
+      // in 'applying', and never let a failed write masquerade as 'applied'.
+      const msg = err instanceof Error ? err.message : String(err);
+      await sb
+        .from("qbo_import_runs")
+        .update({ status: "error", error: msg, finished_at: new Date().toISOString() })
+        .eq("id", runId);
+      throw err;
+    }
+  }
+
+  /**
+   * Apply a staged run's rows into the live tables (STEP 1–5). Split out of
+   * applyImport so the latter can wrap it in a run-level error guard. Every
+   * write is checked via assertNoWriteError, so a failed upsert/insert/update
+   * aborts the run loudly instead of being swallowed and reported as success.
+   */
+  private async applyStagedRows(
+    sb: SupabaseClient,
+    runId: string,
+    companyId: string,
+    decisions: QboApplyDecision[]
+  ): Promise<QboApplyResult> {
     // ── Load all staged rows for this run ──────────────────────────────────
     const { data: stagedCustomers } = await sb
       .from("qbo_staging_customers").select("*").eq("run_id", runId);
@@ -672,11 +717,14 @@ export class QuickBooksImportService {
         }
         // Link writes ONLY qb_id — never overwrite name/email/phone/address.
         // Company-scoped (C4): never touch a row outside the caller's tenant.
-        await sb
-          .from("clients")
-          .update({ qb_id: cust.qb_id })
-          .eq("id", clientId)
-          .eq("company_id", companyId);
+        assertNoWriteError(
+          await sb
+            .from("clients")
+            .update({ qb_id: cust.qb_id })
+            .eq("id", clientId)
+            .eq("company_id", companyId),
+          "clients.link"
+        );
         clientIdByCustomerQbId.set(cust.qb_id as string, clientId);
         result.clientsLinked++;
         continue;
@@ -698,14 +746,17 @@ export class QuickBooksImportService {
 
       // Company-aware field shaping — SAME helper the webhook path uses (Task 6B).
       const newId = crypto.randomUUID();
-      await sb.from("clients").upsert(
-        {
-          id: newId,
-          company_id: companyId,
-          qb_id: cust.qb_id,
-          ...clientFieldsFromCustomer(toShape(cust)),
-        },
-        { onConflict: "company_id,qb_id" }
+      assertNoWriteError(
+        await sb.from("clients").upsert(
+          {
+            id: newId,
+            company_id: companyId,
+            qb_id: cust.qb_id,
+            ...clientFieldsFromCustomer(toShape(cust)),
+          },
+          { onConflict: "company_id,qb_id" }
+        ),
+        "clients.create"
       );
       const { data: created } = await sb
         .from("clients").select("id")
@@ -724,9 +775,12 @@ export class QuickBooksImportService {
       const clientId = clientIdByCustomerQbId.get(cust.qb_id as string);
       const fields = subClientFieldsFromCustomer(toShape(cust));
       if (!clientId || !fields) continue;
-      await sb.from("sub_clients").upsert(
-        { company_id: companyId, client_id: clientId, qb_id: cust.qb_id, ...fields },
-        { onConflict: "company_id,qb_id" }
+      assertNoWriteError(
+        await sb.from("sub_clients").upsert(
+          { company_id: companyId, client_id: clientId, qb_id: cust.qb_id, ...fields },
+          { onConflict: "company_id,qb_id" }
+        ),
+        "sub_clients.upsert"
       );
       result.subClientsCreated++;
     }
@@ -776,7 +830,10 @@ export class QuickBooksImportService {
       // issue_date is NOT NULL DEFAULT CURRENT_DATE: send the QB txn_date, or
       // omit the key entirely so the default applies — never send null (C3).
       if (est.txn_date) estimateRow.issue_date = est.txn_date;
-      await sb.from("estimates").upsert(estimateRow, { onConflict: "company_id,qb_id" });
+      assertNoWriteError(
+        await sb.from("estimates").upsert(estimateRow, { onConflict: "company_id,qb_id" }),
+        "estimates.upsert"
+      );
       const { data: row } = await sb
         .from("estimates").select("id")
         .eq("company_id", companyId).eq("qb_id", est.qb_id).maybeSingle();
@@ -833,7 +890,10 @@ export class QuickBooksImportService {
       // issue_date is NOT NULL DEFAULT CURRENT_DATE: send the QB txn_date, or
       // omit the key entirely so the default applies — never send null (C3).
       if (inv.txn_date) invoiceRow.issue_date = inv.txn_date;
-      await sb.from("invoices").upsert(invoiceRow, { onConflict: "company_id,qb_id" });
+      assertNoWriteError(
+        await sb.from("invoices").upsert(invoiceRow, { onConflict: "company_id,qb_id" }),
+        "invoices.upsert"
+      );
       const { data: row } = await sb
         .from("invoices").select("id")
         .eq("company_id", companyId).eq("qb_id", inv.qb_id).maybeSingle();
@@ -847,10 +907,16 @@ export class QuickBooksImportService {
     const appliedInvoiceIds = [...invoiceIdByQbId.values()];
     const appliedEstimateIds = [...estimateIdByQbId.values()];
     if (appliedInvoiceIds.length) {
-      await sb.from("line_items").delete().in("invoice_id", appliedInvoiceIds);
+      assertNoWriteError(
+        await sb.from("line_items").delete().in("invoice_id", appliedInvoiceIds),
+        "line_items.delete.invoice"
+      );
     }
     if (appliedEstimateIds.length) {
-      await sb.from("line_items").delete().in("estimate_id", appliedEstimateIds);
+      assertNoWriteError(
+        await sb.from("line_items").delete().in("estimate_id", appliedEstimateIds),
+        "line_items.delete.estimate"
+      );
     }
 
     for (const line of stagedLines ?? []) {
@@ -868,21 +934,24 @@ export class QuickBooksImportService {
       const opsType =
         itemType === "Inventory" || itemType === "NonInventory" ? "MATERIAL" : "OTHER";
 
-      await sb.from("line_items").insert({
-        company_id: companyId,
-        estimate_id: parentEstimateId,
-        invoice_id: parentInvoiceId,
-        product_id: null,
-        name: line.name ?? "Line item",
-        description: line.description ?? null,
-        quantity: line.quantity ?? 1,
-        unit: null,
-        unit_price: line.unit_price ?? 0,
-        // line_total intentionally omitted — GENERATED column.
-        is_taxable: line.is_taxable ?? false,
-        sort_order: line.sort_order ?? 0,
-        type: opsType,
-      });
+      assertNoWriteError(
+        await sb.from("line_items").insert({
+          company_id: companyId,
+          estimate_id: parentEstimateId,
+          invoice_id: parentInvoiceId,
+          product_id: null,
+          name: line.name ?? "Line item",
+          description: line.description ?? null,
+          quantity: line.quantity ?? 1,
+          unit: null,
+          unit_price: line.unit_price ?? 0,
+          // line_total intentionally omitted — GENERATED column.
+          is_taxable: line.is_taxable ?? false,
+          sort_order: line.sort_order ?? 0,
+          type: opsType,
+        }),
+        "line_items.insert"
+      );
       result.lineItemsInserted++;
     }
 
@@ -899,18 +968,21 @@ export class QuickBooksImportService {
         const invoiceId = invoiceIdByQbId.get(l.invoice_qb_id) ?? null;
         if (!invoiceId) continue; // payment line references a dropped/absent invoice
         const compositeQbId = `${pmt.qb_id}:${l.invoice_qb_id}`;
-        await sb.from("payments").upsert(
-          {
-            company_id: companyId,
-            qb_id: compositeQbId,
-            invoice_id: invoiceId,
-            client_id: clientId,
-            amount: l.amount,
-            payment_date: pmt.txn_date ?? null,
-            reference_number: l.reference_number ?? null,
-            payment_method: null,
-          },
-          { onConflict: "company_id,qb_id" }
+        assertNoWriteError(
+          await sb.from("payments").upsert(
+            {
+              company_id: companyId,
+              qb_id: compositeQbId,
+              invoice_id: invoiceId,
+              client_id: clientId,
+              amount: l.amount,
+              payment_date: pmt.txn_date ?? null,
+              reference_number: l.reference_number ?? null,
+              payment_method: null,
+            },
+            { onConflict: "company_id,qb_id" }
+          ),
+          "payments.upsert"
         );
         result.paymentsUpserted++;
       }
@@ -928,12 +1000,15 @@ export class QuickBooksImportService {
       const amountPaid = round2(total - balance);
       const dueDate = (inv.due_date as string | null) ?? (inv.txn_date as string | null);
       const status = deriveInvoiceStatus(balance, total, dueDate, now);
-      await sb.from("invoices").update({
-        amount_paid: amountPaid,
-        balance_due: balance,
-        status,
-        paid_at: balance <= 0 ? new Date().toISOString() : null,
-      }).eq("id", invoiceId);
+      assertNoWriteError(
+        await sb.from("invoices").update({
+          amount_paid: amountPaid,
+          balance_due: balance,
+          status,
+          paid_at: balance <= 0 ? new Date().toISOString() : null,
+        }).eq("id", invoiceId),
+        "invoices.reconcile"
+      );
       result.invoicesReconciled++;
     }
 
