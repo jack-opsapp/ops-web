@@ -9,40 +9,51 @@
  * A stage change is NEVER a silent write — it always carries side effects:
  *   - Active-stage moves go straight through `moveStage.mutate` with a success
  *     toast and an undo entry that restores the prior stage.
- *   - Won / Lost are terminal: they open the {@link StageTransitionDialog} to
- *     collect the close reason / actual value, and only persist on confirm
- *     (stage move + `updateOpportunity` with the captured fields), with an undo
- *     entry. Winning additionally fires the P6 auto-convert
- *     (`useConvertOpportunityToProject`) so the won deal mints its linked
- *     project — for BOTH the board and the table through this one path; Lost
- *     shows a marked-lost toast.
+ *   - Lost is terminal: it opens the {@link StageTransitionDialog} to collect
+ *     the close reason, and only persists on confirm (stage move +
+ *     `updateOpportunity` with the captured fields), with an undo entry.
+ *   - Won is terminal AND converting: the dialog is preflight-driven (dedup +
+ *     auto-name). On confirm the win+convert is ONE atomic action — the unified
+ *     `convert_opportunity_to_project` RPC wins the deal AND mints/links its
+ *     project in a single transaction, so we call ONLY `convert` (no separate
+ *     `moveStage(won)`), which removes the historical double-`stage_transitions`
+ *     risk by construction. The snapshot guard is the PRE-win stage captured at
+ *     dialog-open. The card flips to won optimistically (the convert hook has no
+ *     onMutate); a failed convert rolls back by invalidating opportunities. If
+ *     the operator picks a dedup candidate we `linkExisting` instead of create;
+ *     if the deal is already linked, "Open project" just deep-links to it.
  *
- * This mirrors the logic that previously lived inline in `pipeline/page.tsx`
- * (`handleMoveStage`, `handleTransitionConfirm`, `handleTransitionCancel`, plus
- * the `transitionType` / `transitionOpportunity` / `pendingStageMove` state),
- * including the P6 auto-convert-on-Won. The permission gate (`pipeline.manage`),
- * the same-stage no-op, the Won→dialog / Lost→dialog routing, and the undo
- * `inverseFn` are preserved exactly so the board and table never drift.
+ * The permission gate (`pipeline.manage`), the same-stage no-op, the
+ * Won→dialog / Lost→dialog routing, and the undo `inverseFn` are preserved so
+ * the board and table never drift.
  */
 
 import { useCallback, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { useDictionary } from "@/i18n/client";
 import { toast } from "@/components/ui/toast";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import { useUndoStore } from "@/stores/undo-store";
+import { queryKeys } from "@/lib/api/query-client";
 import {
   useClients,
+  useConversionPreflight,
   useConvertOpportunityToProject,
+  useLinkOpportunityToExistingProject,
   useMoveOpportunityStage,
   useUpdateOpportunity,
 } from "@/lib/hooks";
+import type { ConversionPreflight } from "@/lib/api/services/project-conversion-service";
+import type { AddressSelection } from "@/components/ops/projects/workspace/inputs/address-autocomplete";
 import {
   type Opportunity,
   OpportunityStage,
   getStageDisplayName,
   formatCurrency,
 } from "@/lib/types/pipeline";
+import type { StageTransitionConfirmData } from "./stage-transition-dialog";
 
 export interface UseStageTransitionArgs {
   /**
@@ -64,12 +75,18 @@ export interface UseStageTransitionResult {
   dialogType: "won" | "lost" | null;
   /** The opportunity the dialog is collecting details for, or `null`. */
   dialogOpportunity: Opportunity | null;
+  /** Dedup + auto-name preflight for the open Won dialog (undefined otherwise). */
+  preflight: ConversionPreflight | undefined;
+  /** True while the Won dialog's preflight query is in flight. */
+  preflightLoading: boolean;
   /** Confirm the pending terminal transition with the dialog's captured fields. */
-  confirmTransition: (data: {
-    actualValue?: number;
-    lostReason?: string;
-    lostNotes?: string;
-  }) => void;
+  confirmTransition: (data: StageTransitionConfirmData) => void;
+  /**
+   * Persist a corrected site address (picked in the Won dialog) onto the
+   * opportunity so the unified convert RPC — which reads `opp.address` — names
+   * the project from the address the operator just confirmed.
+   */
+  onAddressChange: (selection: AddressSelection) => void;
   /** Dismiss the dialog without persisting the pending transition. */
   cancelTransition: () => void;
 }
@@ -78,6 +95,8 @@ export function useStageTransition({
   opportunities,
 }: UseStageTransitionArgs): UseStageTransitionResult {
   const { t } = useDictionary("pipeline");
+  const router = useRouter();
+  const queryClient = useQueryClient();
   const { currentUser } = useAuthStore();
   const can = usePermissionStore((s) => s.can);
   const pushUndo = useUndoStore((s) => s.pushUndo);
@@ -85,6 +104,7 @@ export function useStageTransition({
   const moveStage = useMoveOpportunityStage();
   const updateOpportunity = useUpdateOpportunity();
   const convertToProject = useConvertOpportunityToProject();
+  const linkToExisting = useLinkOpportunityToExistingProject();
 
   const { data: clientsData } = useClients();
 
@@ -108,6 +128,18 @@ export function useStageTransition({
     id: string;
     stage: OpportunityStage;
   } | null>(null);
+
+  // Dedup + auto-name preflight — fetched only while the Won dialog is open, so
+  // the operator can link an existing project instead of minting a duplicate.
+  const preflightQuery = useConversionPreflight(
+    transitionType === "won" ? transitionOpportunity?.id : undefined
+  );
+
+  const resetDialog = useCallback(() => {
+    setTransitionType(null);
+    setTransitionOpportunity(null);
+    setPendingStageMove(null);
+  }, []);
 
   /** Handle stage move from drag-and-drop, advance button, menu, or table cell */
   const requestStageChange = useCallback(
@@ -180,16 +212,13 @@ export function useStageTransition({
 
   /** Confirm Won/Lost transition */
   const confirmTransition = useCallback(
-    (data: {
-      actualValue?: number;
-      lostReason?: string;
-      lostNotes?: string;
-    }) => {
+    (data: StageTransitionConfirmData) => {
       if (!can("pipeline.manage")) return;
       if (!pendingStageMove || !transitionOpportunity) return;
 
       const { id, stage } = pendingStageMove;
-
+      // The stage captured at dialog-open — the snapshot guard for convert and
+      // the target the undo entry restores to.
       const previousStage = transitionOpportunity.stage;
       const clientName =
         clientNameMap.get(transitionOpportunity.clientId ?? "") ??
@@ -197,7 +226,97 @@ export function useStageTransition({
         transitionOpportunity.title ??
         "";
       const toStage = getStageDisplayName(stage);
+      const oppTitle = transitionOpportunity.title;
 
+      // ── existing_linked: the deal already has a project — open it, no write ──
+      if (data.openProjectId) {
+        router.push(`/dashboard?openProject=${data.openProjectId}&mode=view`);
+        resetDialog();
+        return;
+      }
+
+      // ── Won: ONE atomic win+convert (or link-existing) ──
+      if (stage === OpportunityStage.Won) {
+        // The convert/link hooks have no onMutate, so flip the card to won
+        // locally for instant feedback (mirrors useMoveOpportunityStage). The
+        // hooks' onSettled reconciles against the server; a failed convert
+        // additionally invalidates here to revert the flip.
+        queryClient.cancelQueries({ queryKey: queryKeys.opportunities.lists() });
+        queryClient.setQueriesData<Opportunity[]>(
+          { queryKey: queryKeys.opportunities.lists() },
+          (old) =>
+            old
+              ? old.map((o) =>
+                  o.id === id
+                    ? { ...o, stage: OpportunityStage.Won, stageEnteredAt: new Date() }
+                    : o
+                )
+              : old
+        );
+
+        const onConvertError = () => {
+          queryClient.invalidateQueries({
+            queryKey: queryKeys.opportunities.all,
+          });
+          toast.error(t("toast.failedConvertProject"), {
+            description: oppTitle,
+          });
+        };
+
+        if (data.linkToProjectId) {
+          linkToExisting.mutate(
+            {
+              id,
+              projectId: data.linkToProjectId,
+              actualValue: data.actualValue,
+              expectedStage: previousStage,
+            },
+            {
+              onSuccess: () =>
+                toast.success(
+                  t(
+                    "toast.dealWonProjectLinked",
+                    "Deal won. Linked to existing project."
+                  ),
+                  { description: oppTitle }
+                ),
+              onError: onConvertError,
+            }
+          );
+        } else {
+          convertToProject.mutate(
+            {
+              id,
+              actualValue: data.actualValue,
+              expectedStage: previousStage,
+              titleOverride: data.titleOverride,
+            },
+            {
+              onSuccess: () =>
+                toast.success(t("toast.dealWonProjectCreated"), {
+                  description: oppTitle,
+                }),
+              onError: onConvertError,
+            }
+          );
+        }
+
+        pushUndo({
+          label: `${clientName} → ${toStage}`,
+          inverseFn: async () => {
+            await moveStage.mutateAsync({
+              id,
+              stage: previousStage,
+              userId: currentUser?.id,
+            });
+          },
+        });
+
+        resetDialog();
+        return;
+      }
+
+      // ── Lost: unchanged — move stage, record reason/notes, toast + undo ──
       moveStage.mutate(
         { id, stage, userId: currentUser?.id },
         {
@@ -217,38 +336,9 @@ export function useStageTransition({
               updateOpportunity.mutate({ id, data: updateData });
             }
 
-            if (stage === OpportunityStage.Won) {
-              // P6: winning a deal AUTOMATICALLY converts it into a linked
-              // project. The conversion is idempotent server-side (re-winning
-              // never mints a second project), runs through the guarded route,
-              // and leaves the opportunity at stage='won' (the preserved sales
-              // record). On success the toast reflects the new project; on
-              // failure the deal is still won (the stage move already committed)
-              // and only the project creation is surfaced as failed.
-              convertToProject.mutate(
-                {
-                  id,
-                  actualValue: data.actualValue,
-                  expectedStage: OpportunityStage.Won,
-                },
-                {
-                  onSuccess: () => {
-                    toast.success(t("toast.dealWonProjectCreated"), {
-                      description: transitionOpportunity.title,
-                    });
-                  },
-                  onError: () => {
-                    toast.error(t("toast.failedConvertProject"), {
-                      description: transitionOpportunity.title,
-                    });
-                  },
-                }
-              );
-            } else {
-              toast.success(t("toast.dealMarkedLost"), {
-                description: transitionOpportunity.title,
-              });
-            }
+            toast.success(t("toast.dealMarkedLost"), {
+              description: oppTitle,
+            });
 
             pushUndo({
               label: `${clientName} → ${toStage}`,
@@ -272,9 +362,7 @@ export function useStageTransition({
         }
       );
 
-      setTransitionType(null);
-      setTransitionOpportunity(null);
-      setPendingStageMove(null);
+      resetDialog();
     },
     [
       pendingStageMove,
@@ -282,6 +370,10 @@ export function useStageTransition({
       moveStage,
       updateOpportunity,
       convertToProject,
+      linkToExisting,
+      queryClient,
+      router,
+      resetDialog,
       currentUser,
       can,
       t,
@@ -290,18 +382,40 @@ export function useStageTransition({
     ]
   );
 
+  /**
+   * Persist the operator's corrected site address onto the open opportunity.
+   * The autocomplete only fires this on an explicit geocoded pick, so the
+   * address always travels with lat/lon — keeping the map pin and the
+   * street-line auto name both reliable.
+   */
+  const onAddressChange = useCallback(
+    (selection: AddressSelection) => {
+      if (!transitionOpportunity) return;
+      updateOpportunity.mutate({
+        id: transitionOpportunity.id,
+        data: {
+          address: selection.address,
+          latitude: selection.latitude,
+          longitude: selection.longitude,
+        },
+      });
+    },
+    [transitionOpportunity, updateOpportunity]
+  );
+
   /** Cancel Won/Lost transition */
   const cancelTransition = useCallback(() => {
-    setTransitionType(null);
-    setTransitionOpportunity(null);
-    setPendingStageMove(null);
-  }, []);
+    resetDialog();
+  }, [resetDialog]);
 
   return {
     requestStageChange,
     dialogType: transitionType,
     dialogOpportunity: transitionOpportunity,
+    preflight: preflightQuery.data,
+    preflightLoading: preflightQuery.isLoading,
     confirmTransition,
+    onAddressChange,
     cancelTransition,
   };
 }

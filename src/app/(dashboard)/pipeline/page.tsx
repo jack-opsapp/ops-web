@@ -361,7 +361,10 @@ export default function PipelinePage() {
     requestStageChange,
     dialogType,
     dialogOpportunity,
+    preflight,
+    preflightLoading,
     confirmTransition,
+    onAddressChange,
     cancelTransition,
   } = useStageTransition({ opportunities: activeOpportunities });
 
@@ -1141,7 +1144,10 @@ export default function PipelinePage() {
       <StageTransitionDialog
         type={dialogType}
         opportunity={dialogOpportunity}
+        preflight={preflight}
+        preflightLoading={preflightLoading}
         onConfirm={confirmTransition}
+        onAddressChange={onAddressChange}
         onCancel={cancelTransition}
       />
 

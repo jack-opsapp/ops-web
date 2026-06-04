@@ -174,6 +174,8 @@ export {
   useUpdateOpportunity,
   useAttachClientToOpportunity,
   useConvertOpportunityToProject,
+  useLinkOpportunityToExistingProject,
+  useConversionPreflight,
   useMoveOpportunityStage,
   useDeleteOpportunity,
   useArchiveOpportunity,
