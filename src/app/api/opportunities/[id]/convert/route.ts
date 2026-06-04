@@ -10,7 +10,16 @@
  * The opportunity STAYS at stage='won' (not archived) — it is the preserved
  * sales record, linked to the new project via project_ref.
  *
- * Body: { actualValue?: number, expectedStage?: string, notesSeed?: string }
+ * Body: {
+ *   actualValue?: number,        // final deal value
+ *   expectedStage?: string,      // snapshot guard
+ *   notesSeed?: string,          // approval-queue scope seed
+ *   titleOverride?: string,      // operator-typed name (rename) → hand-set
+ *   linkToProjectId?: string,    // link an existing project instead of creating
+ * }
+ *
+ * When `linkToProjectId` is present the route LINKS the deal to that existing
+ * project (no new project is created); otherwise it creates a new one.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -69,20 +78,38 @@ export async function POST(
     typeof body.expectedStage === "string" ? body.expectedStage : null;
   const notesSeed =
     typeof body.notesSeed === "string" ? body.notesSeed : null;
+  const titleOverride =
+    typeof body.titleOverride === "string" ? body.titleOverride : null;
+  const linkToProjectId =
+    typeof body.linkToProjectId === "string" ? body.linkToProjectId : null;
 
   const db = getServiceRoleClient();
   setSupabaseOverride(db);
 
   try {
-    const result = await ProjectConversionService.convertOpportunityToProject({
-      opportunityId,
-      companyId,
-      decidedBy: user.id as string,
-      sourcePath: "won_dialog",
-      actualValue,
-      expectedStage,
-      notesSeed,
-    });
+    // Link-existing branch: adopt the chosen project (no new one is created),
+    // still winning the deal. Create branch: mint + auto-name a new project.
+    const result = linkToProjectId
+      ? await ProjectConversionService.linkOpportunityToExistingProject({
+          opportunityId,
+          companyId,
+          decidedBy: user.id as string,
+          sourcePath: "won_dialog",
+          actualValue,
+          expectedStage,
+          notesSeed,
+          linkToProjectId,
+        })
+      : await ProjectConversionService.convertOpportunityToProject({
+          opportunityId,
+          companyId,
+          decidedBy: user.id as string,
+          sourcePath: "won_dialog",
+          actualValue,
+          expectedStage,
+          notesSeed,
+          titleOverride,
+        });
 
     return NextResponse.json({ ok: true, ...result });
   } catch (err) {
