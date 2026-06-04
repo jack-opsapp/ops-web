@@ -221,6 +221,7 @@ export interface OpportunityLifecycleActionResult {
 const DESTRUCTIVE_ACTIONS = new Set<OpportunityLifecycleDecisionAction>([
   "archive_after_two_unanswered_followups",
   "archive_no_meaningful_correspondence",
+  "archive_operator_no_response",
   "move_to_lost_operator_no_response",
   "reactivate_on_related_inbound",
 ]);
@@ -748,7 +749,8 @@ function opportunityMutationValues(
   const action = input.decision.action;
   if (
     action === "archive_after_two_unanswered_followups" ||
-    action === "archive_no_meaningful_correspondence"
+    action === "archive_no_meaningful_correspondence" ||
+    action === "archive_operator_no_response"
   ) {
     const beforeValues = {
       archived_at: opportunity.archivedAt ? iso(opportunity.archivedAt) : null,
@@ -838,7 +840,8 @@ function opportunityOperationForAction(
 ): OpportunityMutationOperation {
   if (
     action === "archive_after_two_unanswered_followups" ||
-    action === "archive_no_meaningful_correspondence"
+    action === "archive_no_meaningful_correspondence" ||
+    action === "archive_operator_no_response"
   ) {
     return mode === "dry-run" ? "would_archive" : "archived";
   }
@@ -894,6 +897,7 @@ function guardDestructiveOpportunityAction(
   if (
     (action === "archive_after_two_unanswered_followups" ||
       action === "archive_no_meaningful_correspondence" ||
+      action === "archive_operator_no_response" ||
       action === "move_to_lost_operator_no_response") &&
     opportunity.archivedAt
   ) {

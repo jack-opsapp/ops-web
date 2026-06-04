@@ -841,6 +841,55 @@ describe("opportunity lifecycle action service", () => {
     expect(state.opportunities?.[0].archived_at).toBeNull();
   });
 
+  it("archives an operator-no-response lead at an early stage (archive-first, not stage-gated like lost)", async () => {
+    // Doug-class lead: an unanswered inbound still sitting in new_lead. The
+    // archive-first action archives it; move_to_lost would have been
+    // skipped_lost_stage_not_allowed for this stage.
+    const state: TableState = {
+      opportunity_follow_up_drafts: [],
+      opportunity_lifecycle_state: [],
+      notifications: [],
+      opportunities: [
+        {
+          id: "opp-1",
+          company_id: "company-1",
+          stage: "new_lead",
+          archived_at: null,
+          deleted_at: null,
+          project_id: null,
+          project_ref: null,
+          lost_reason: null,
+          lost_notes: null,
+          actual_close_date: null,
+        },
+      ],
+      opportunity_lifecycle_action_audit: [],
+    };
+
+    const result = await executeOpportunityLifecycleAction(
+      makeInput(
+        {
+          decision: makeDecision("archive_operator_no_response"),
+          now: new Date("2026-05-27T18:00:00.000Z"),
+          approvedActionKey: "opp-1:archive_operator_no_response:approved",
+          opportunity: {
+            id: "opp-1",
+            companyId: "company-1",
+            stage: "new_lead",
+            archivedAt: null,
+            deletedAt: null,
+            projectId: null,
+            projectRef: null,
+          },
+        } as Partial<OpportunityLifecycleActionInput> & Record<string, unknown>,
+        state
+      )
+    );
+
+    // Routes through the archive branch (archived, not moved_to_lost / skipped).
+    expect(result.operations.opportunity).toBe("archived");
+  });
+
   it("marks beyond-qualified operator no-response opportunities lost", async () => {
     const state: TableState = {
       opportunity_follow_up_drafts: [],

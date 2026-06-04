@@ -51,8 +51,12 @@ const INBOUND_OPP = "44444444-4444-4444-4444-444444444444";
 const DESTRUCTIVE_OPP = "55555555-5555-5555-5555-555555555555";
 const FRAGMENTED_OPP = "66666666-6666-6666-6666-666666666666";
 
-// 60 days ago — well past the 7-day follow-up + 30-day lost thresholds.
+// 60 days ago — well past the 7-day follow-up + 30-day no-response thresholds.
 const LONG_AGO = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString();
+// 10 days ago — an unanswered inbound the operator still owes a reply (past the
+// follow-up nudge window, but under the 30-day archive window). Drives
+// `operator_follow_up_miss` without tipping into archive-first auto-cleanup.
+const RECENT_INBOUND = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString();
 
 function buildRequest(authHeader?: string): NextRequest {
   const headers = new Headers();
@@ -233,7 +237,9 @@ describe("/api/cron/lead-lifecycle — non-destructive auto-exec", () => {
               direction: "inbound",
               party_role: "customer",
               is_meaningful: true,
-              occurred_at: LONG_AGO,
+              // Recent (10d) → operator_follow_up_miss nudge, NOT archive-first
+              // auto-cleanup (which kicks in at the 30-day no-response window).
+              occurred_at: RECENT_INBOUND,
               linked_contact_kind: null,
             });
           }
@@ -414,10 +420,10 @@ describe("/api/cron/lead-lifecycle — destructive auto-exec + dry-run fallback"
           );
           const ids = (inFilter?.[2] as string[]) ?? [];
           const events: unknown[] = [];
-          // An inbound meaningful event 60 days ago in a beyond-qualified stage
-          // → move_to_lost_operator_no_response (destructive). When `reactivate`,
-          // the same inbound is flagged as a related-contact message landing on
-          // an archived opp → reactivate_on_related_inbound instead.
+          // An inbound meaningful event 60 days ago (past the 30-day no-response
+          // window) → archive_operator_no_response (archive-first destructive).
+          // When `reactivate`, the same inbound is flagged as a related-contact
+          // message landing on an archived opp → reactivate_on_related_inbound.
           if (ids.includes(DESTRUCTIVE_OPP)) {
             events.push({
               id: opts.reactivate ? "evt-react" : "evt-dx",
@@ -533,15 +539,16 @@ describe("/api/cron/lead-lifecycle — destructive auto-exec + dry-run fallback"
     };
   }
 
-  it("auto-executes a destructive disposition (company opted in) through the guarded RPC and counts it as moved-to-lost", async () => {
+  it("auto-executes a destructive disposition (company opted in) through the guarded RPC and counts it as archived", async () => {
     const draftInserts: unknown[] = [];
     const notificationInserts: unknown[] = [];
     supabaseFromMock.mockImplementation(
       destructiveHandlers({ fragmented: false, draftInserts, notificationInserts })
     );
-    // Company opted in (engine defaults: autoLostEnabled = true). The cron now
-    // calls the guarded RPC, which applies the disposition server-side. Mock a
-    // successful apply ({ applied: true }) — exactly one call is expected.
+    // Company opted in (engine defaults: autoArchiveEnabled = true). Under the
+    // archive-first policy a stale unanswered inbound is ARCHIVED, not moved to
+    // lost. The cron calls the guarded RPC, which applies the disposition
+    // server-side. Mock a successful apply ({ applied: true }) — one call.
     supabaseRpcMock.mockResolvedValueOnce({ data: { applied: true }, error: null });
 
     const res = await GET(buildRequest("Bearer test-secret"));
@@ -549,8 +556,8 @@ describe("/api/cron/lead-lifecycle — destructive auto-exec + dry-run fallback"
     const body = await res.json();
 
     expect(body.ok).toBe(true);
-    expect(body.destructiveMovedToLost).toBe(1);
-    expect(body.destructiveArchived).toBe(0);
+    expect(body.destructiveArchived).toBe(1);
+    expect(body.destructiveMovedToLost).toBe(0);
     expect(body.destructiveReactivated).toBe(0);
     expect(body.destructiveExecutionSkippedGuarded).toBe(0);
     expect(body.destructiveDryRun).toBe(0);
@@ -560,7 +567,7 @@ describe("/api/cron/lead-lifecycle — destructive auto-exec + dry-run fallback"
     expect(body.destructiveCandidates).toHaveLength(1);
     expect(body.destructiveCandidates[0].status).toBe("applied");
     expect(body.destructiveCandidates[0].action).toBe(
-      "move_to_lost_operator_no_response"
+      "archive_operator_no_response"
     );
 
     // The guarded RPC was invoked exactly once, with the disposition action and
@@ -571,11 +578,11 @@ describe("/api/cron/lead-lifecycle — destructive auto-exec + dry-run fallback"
     const rpcName = rpcCall[0] as string;
     const rpcArgs = rpcCall[1] as Record<string, unknown>;
     expect(rpcName).toBe("execute_opportunity_lifecycle_guarded_action");
-    expect(rpcArgs.p_action).toBe("move_to_lost_operator_no_response");
+    expect(rpcArgs.p_action).toBe("archive_operator_no_response");
     expect(rpcArgs.p_company_id).toBe(COMPANY_ID);
     expect(rpcArgs.p_opportunity_id).toBe(DESTRUCTIVE_OPP);
     expect(rpcArgs.p_approved_action_key).toContain(
-      `${DESTRUCTIVE_OPP}:move_to_lost_operator_no_response`
+      `${DESTRUCTIVE_OPP}:archive_operator_no_response`
     );
 
     // Auto-exec path surfaces no operator review notification and writes no draft.
@@ -762,7 +769,9 @@ describe("/api/cron/lead-lifecycle — idempotency", () => {
               direction: "inbound",
               party_role: "customer",
               is_meaningful: true,
-              occurred_at: LONG_AGO,
+              // Recent (10d) → operator_follow_up_miss nudge, NOT archive-first
+              // auto-cleanup (which kicks in at the 30-day no-response window).
+              occurred_at: RECENT_INBOUND,
               linked_contact_kind: null,
             });
           }
@@ -927,7 +936,9 @@ describe("/api/cron/lead-lifecycle — idempotency", () => {
               direction: "inbound",
               party_role: "customer",
               is_meaningful: true,
-              occurred_at: LONG_AGO,
+              // Recent (10d) → operator_follow_up_miss nudge, NOT archive-first
+              // auto-cleanup (which kicks in at the 30-day no-response window).
+              occurred_at: RECENT_INBOUND,
               linked_contact_kind: null,
             });
           }

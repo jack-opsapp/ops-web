@@ -95,6 +95,7 @@ const NON_DESTRUCTIVE_ACTIONS = new Set<OpportunityLifecycleDecisionAction>([
 const DESTRUCTIVE_ACTIONS = new Set<OpportunityLifecycleDecisionAction>([
   "archive_after_two_unanswered_followups",
   "archive_no_meaningful_correspondence",
+  "archive_operator_no_response",
   "move_to_lost_operator_no_response",
   "reactivate_on_related_inbound",
 ]);
@@ -107,12 +108,17 @@ const CHUNK = 100;
  * action-service applies these structurally but does NOT consult the
  * per-company `auto_archive_enabled` / `auto_lost_enabled` flags, so the cron
  * owns that policy decision here:
- *   - both archive actions AND `reactivate_on_related_inbound` are gated on
- *     `autoArchiveEnabled`. Reactivate is the inverse of archive — a lead the
- *     cron auto-archived that then receives a meaningful related inbound is
- *     auto-restored under the same opt-in, so the operator who enabled
- *     auto-archive never loses a re-engaged lead to a stale archive.
- *   - `move_to_lost_operator_no_response` is gated on `autoLostEnabled`.
+ *   - all three archive actions (`archive_after_two_unanswered_followups`,
+ *     `archive_no_meaningful_correspondence`, `archive_operator_no_response`)
+ *     AND `reactivate_on_related_inbound` are gated on `autoArchiveEnabled`.
+ *     Reactivate is the inverse of archive — a lead the cron auto-archived that
+ *     then receives a meaningful related inbound is auto-restored under the same
+ *     opt-in, so the operator who enabled auto-archive never loses a re-engaged
+ *     lead to a stale archive.
+ *   - `move_to_lost_operator_no_response` is gated on `autoLostEnabled`. The
+ *     evaluator no longer produces it under the archive-first policy (lost
+ *     classification is deferred to phase C), but the gate stays correct for
+ *     when phase C re-enables it.
  * Any other action is never auto-executed by this gate.
  */
 function destructiveActionAutoEnabled(
@@ -122,6 +128,7 @@ function destructiveActionAutoEnabled(
   switch (action) {
     case "archive_after_two_unanswered_followups":
     case "archive_no_meaningful_correspondence":
+    case "archive_operator_no_response":
     case "reactivate_on_related_inbound":
       return settings.autoArchiveEnabled;
     case "move_to_lost_operator_no_response":
@@ -219,6 +226,11 @@ function destructiveReviewCopy(
       return {
         title: `REVIEW // archive lead — ${leadLabel}`,
         body: "No meaningful correspondence on this lead. Proposed: archive. Review before it moves.",
+      };
+    case "archive_operator_no_response":
+      return {
+        title: `REVIEW // archive lead — ${leadLabel}`,
+        body: "Customer reached out and went unanswered past the window. Proposed: archive. Review before it moves.",
       };
     case "move_to_lost_operator_no_response":
       return {

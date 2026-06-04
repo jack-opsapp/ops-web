@@ -2,6 +2,7 @@ export type OpportunityLifecycleDecisionAction =
   | "create_follow_up_draft"
   | "archive_after_two_unanswered_followups"
   | "archive_no_meaningful_correspondence"
+  | "archive_operator_no_response"
   | "operator_follow_up_miss"
   | "move_to_lost_operator_no_response"
   | "reactivate_on_related_inbound"
@@ -276,19 +277,30 @@ export function evaluateOpportunityLifecycle(
 
   if (latestEvent.direction === "inbound") {
     const daysUnreplied = daysBetween(latestAt, now);
+    // ARCHIVE-FIRST auto-cleanup. A meaningful customer inbound that OPS never
+    // answered, gone stale past the no-response window, is ARCHIVED — for every
+    // active stage, not only beyond-qualified ones. We deliberately do NOT
+    // auto-mark these "lost": archiving is reversible and judgment-free, and a
+    // later related inbound auto-reactivates the lead. Classifying the final
+    // disposition (lost vs. archived vs. discarded) is deferred to phase C's
+    // intelligent determination — the `beyondQualified` evidence flag preserves
+    // the signal it will use (a beyond-qualified archive is a strong lost
+    // candidate; an early-stage one is more likely a cold/forgotten lead).
+    // `move_to_lost_operator_no_response` is intentionally no longer produced
+    // here; its executor + audit path remain intact for phase C to drive.
     if (
-      input.settings.autoLostEnabled &&
-      daysUnreplied >= input.settings.inboundUnrepliedLostDays &&
-      BEYOND_QUALIFIED_STAGES.has(stage)
+      input.settings.autoArchiveEnabled &&
+      daysUnreplied >= input.settings.inboundUnrepliedLostDays
     ) {
       return decision(
         input,
-        "move_to_lost_operator_no_response",
-        "Meaningful inbound is unreplied past the lost threshold beyond qualified.",
+        "archive_operator_no_response",
+        "Meaningful inbound went unanswered past the no-response window — archiving (lost/discard classification deferred to phase C).",
         {
           latestEventId: latestEvent.id,
           daysUnreplied,
-          lostReason: "operator_no_response",
+          archiveReason: "operator_no_response",
+          beyondQualified: BEYOND_QUALIFIED_STAGES.has(stage),
         }
       );
     }
