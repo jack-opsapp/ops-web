@@ -90,15 +90,21 @@ function mapRun(row: Record<string, unknown>): QboImportRun {
  */
 function mapCustomerMatch(
   r: Record<string, unknown>,
-  displayNameByQbId: Map<string, string | null>
+  stagingByQbId: Map<string, Record<string, unknown>>
 ): QboCustomerMatch {
   const rawCandidates = (r.candidates as Record<string, unknown>[] | null) ?? [];
+  const staging = stagingByQbId.get(r.customer_qb_id as string);
+  const companyName = (staging?.company_name as string | null) ?? null;
+  const contactName = (staging?.contact_name as string | null) ?? null;
   return {
     id: r.id as string,
     runId: r.run_id as string,
     companyId: r.company_id as string,
     customerQbId: r.customer_qb_id as string,
-    displayName: displayNameByQbId.get(r.customer_qb_id as string) ?? null,
+    // Prefer the company name as the review label; fall back to display name.
+    displayName: companyName ?? (staging?.display_name as string | null) ?? null,
+    companyName,
+    contactName,
     proposedAction: r.proposed_action as QboCustomerMatch["proposedAction"],
     matchedClientId: (r.matched_client_id as string | null) ?? null,
     matchBasis: (r.match_basis as QboCustomerMatch["matchBasis"]) ?? null,
@@ -532,7 +538,9 @@ export class QuickBooksImportService {
       sb.from("qbo_staging_invoices").select("*").eq("run_id", runId),
       sb.from("qbo_staging_payments").select("*").eq("run_id", runId),
       sb.from("qbo_staging_estimates").select("qb_id").eq("run_id", runId),
-      sb.from("qbo_staging_customers").select("qb_id, display_name").eq("run_id", runId),
+      sb.from("qbo_staging_customers")
+        .select("qb_id, display_name, company_name, contact_name, is_job")
+        .eq("run_id", runId),
       sb.from("qbo_staging_line_items").select("id").eq("run_id", runId),
     ]);
 
@@ -542,14 +550,14 @@ export class QuickBooksImportService {
     const customerRows = (customerData ?? []) as Record<string, unknown>[];
     const customerCount = customerRows.length;
 
-    // Join each match to its QB customer display_name and map snake_case ->
-    // camelCase for the UI. buildMatchCounts reads the raw snake rows, so it is
-    // fed rawMatches (unchanged behaviour).
-    const displayNameByQbId = new Map<string, string | null>(
-      customerRows.map((c) => [c.qb_id as string, (c.display_name as string) ?? null])
+    // Join each match to its full staged QB customer row (for the company/contact
+    // label + the displayName preference) and map snake_case -> camelCase for the
+    // UI. buildMatchCounts reads the raw snake rows, so it is fed rawMatches.
+    const stagingByQbId = new Map<string, Record<string, unknown>>(
+      customerRows.map((c) => [c.qb_id as string, c])
     );
     const matches: QboCustomerMatch[] = rawMatches.map((r) =>
-      mapCustomerMatch(r, displayNameByQbId)
+      mapCustomerMatch(r, stagingByQbId)
     );
 
     return {
@@ -562,6 +570,7 @@ export class QuickBooksImportService {
         invoices,
         lineItems: (lineData ?? []).length,
         payments,
+        customerRows,
       }),
       reconciliation: buildReconciliation(invoices, payments, customerCount),
     };
