@@ -202,6 +202,39 @@ describe("QuickBooksWebhookApplyService.applyEntity — Customer", () => {
       phone_number: "(650) 555-3311",
     });
   });
+
+  it("a company-customer webhook creates a CompanyName client + a contact sub_client", async () => {
+    const { client, captured } = makeSupabase({});
+    fetchEntityById.mockResolvedValue({
+      Id: "42", DisplayName: "Acme Corp", CompanyName: "Acme Corp",
+      GivenName: "John", FamilyName: "Smith",
+      PrimaryEmailAddr: { Address: "john@acme.com" }, PrimaryPhone: { FreeFormNumber: "555" },
+    });
+    const svc = new QuickBooksWebhookApplyService(client as never);
+    const result = await svc.applyEntity(CONN, "Customer", "42", "Update");
+    expect(result.status).toBe("success");
+
+    const clientUpsert = captured.upserts.find((u) => u.table === "clients");
+    expect(clientUpsert!.row).toMatchObject({ qb_id: "42", name: "Acme Corp", email: null, phone_number: null });
+
+    const subUpsert = captured.upserts.find((u) => u.table === "sub_clients");
+    expect(subUpsert).toBeDefined();
+    expect(subUpsert!.onConflict).toBe("company_id,qb_id");
+    expect(subUpsert!.row).toMatchObject({ qb_id: "42", name: "John Smith", email: "john@acme.com", phone_number: "555" });
+  });
+
+  it("an individual webhook stays flat (no sub_client)", async () => {
+    const { client, captured } = makeSupabase({});
+    fetchEntityById.mockResolvedValue({
+      Id: "9", DisplayName: "Jane Doe", GivenName: "Jane", FamilyName: "Doe",
+      PrimaryEmailAddr: { Address: "jane@doe.com" },
+    });
+    const svc = new QuickBooksWebhookApplyService(client as never);
+    await svc.applyEntity(CONN, "Customer", "9", "Update");
+    const clientUpsert = captured.upserts.find((u) => u.table === "clients");
+    expect(clientUpsert!.row).toMatchObject({ qb_id: "9", name: "Jane Doe", email: "jane@doe.com" });
+    expect(captured.upserts.some((u) => u.table === "sub_clients")).toBe(false);
+  });
 });
 
 describe("QuickBooksWebhookApplyService.applyEntity — Delete / Void (soft)", () => {
