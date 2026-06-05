@@ -1570,11 +1570,11 @@ Extend the route by adding a local `processQueueRow` function that:
 - Uses `qbo-push-mappers.ts`.
 - Calls `QuickBooksWriteService`.
 - Writes returned `qbId` into the OPS row when it was a create.
-- Calls `set_config('ops.sync_source', 'quickbooks', true)` before writing returned `qb_id`.
+- Suppresses the target OPS row with `suppress_accounting_sync(...)` before writing returned `qb_id` when the write happens through JS/Supabase REST.
 - Records `accounting_sync_events`.
 - Marks row succeeded, retryable, blocked, or needs_review.
 
-Implementation pattern inside the service-role transaction:
+Transaction-local source markers are valid only inside the same DB transaction/RPC that performs the write:
 
 ```ts
 await supabase.rpc("set_config", {
@@ -1584,17 +1584,17 @@ await supabase.rpc("set_config", {
 });
 ```
 
-If that RPC does not exist in Supabase, add a migration helper function:
+JS service-role code that performs separate Supabase REST writes must not rely on the transaction-local marker. It must create a persisted suppression row for the concrete OPS entity before the write:
 
-```sql
-create or replace function public.set_ops_sync_source(p_source text)
-returns void
-language sql
-security definer
-set search_path = public, pg_temp
-as $$
-  select set_config('ops.sync_source', p_source, true);
-$$;
+```ts
+await supabase.rpc("suppress_accounting_sync", {
+  p_company_id: companyId,
+  p_provider: "quickbooks",
+  p_entity_type: "invoice",
+  p_entity_id: invoiceId,
+  p_source: "quickbooks",
+  p_ttl_seconds: 600,
+});
 ```
 
 - [ ] **Step 5: Add dependency-blocking tests**
@@ -1719,10 +1719,17 @@ describe("QuickBooksReconcileService", () => {
 In `src/lib/api/services/quickbooks-webhook-apply-service.ts`:
 
 - Import `AccountingSyncAuditService`.
-- Set the source marker before each OPS write:
+- Suppress the concrete OPS entity before each JS/Supabase REST write:
 
 ```ts
-await supabase.rpc("set_ops_sync_source", { p_source: "quickbooks" });
+await supabase.rpc("suppress_accounting_sync", {
+  p_company_id: companyId,
+  p_provider: "quickbooks",
+  p_entity_type: entityType,
+  p_entity_id: opsId,
+  p_source: "quickbooks",
+  p_ttl_seconds: 600,
+});
 ```
 
 - On successful apply, record:

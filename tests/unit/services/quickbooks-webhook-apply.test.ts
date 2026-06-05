@@ -62,7 +62,7 @@ function makeSupabase(opts: {
         builder.upsert = async (row: Record<string, unknown>, cfg?: { onConflict?: string }) => {
           captured.upserts.push({ table, row, onConflict: cfg?.onConflict });
           // Mimic the row now existing so the post-upsert maybeSingle resolves.
-          resolvedAfterUpsert[table] = `${table}-id`;
+          resolvedAfterUpsert[table] = (row.id as string | undefined) ?? `${table}-id`;
           return { error: null };
         };
         builder.insert = async (row: Record<string, unknown>) => {
@@ -133,10 +133,6 @@ describe("QuickBooksWebhookApplyService.applyEntity — Invoice", () => {
 
     expect(result.status).toBe("success");
     expect(result.logEntityType).toBe("invoice");
-    expect(captured.rpcs).toContainEqual({
-      fn: "set_ops_sync_source",
-      args: { p_source: "quickbooks" },
-    });
 
     const invoiceUpsert = captured.upserts.find((u) => u.table === "invoices");
     expect(invoiceUpsert).toBeDefined();
@@ -149,6 +145,17 @@ describe("QuickBooksWebhookApplyService.applyEntity — Invoice", () => {
       total: 362.07,
       due_date: "2024-10-01",
     });
+    expect(captured.rpcs).toContainEqual({
+      fn: "suppress_accounting_sync",
+      args: expect.objectContaining({
+        p_company_id: CO,
+        p_provider: "quickbooks",
+        p_entity_type: "invoice",
+        p_entity_id: invoiceUpsert!.row.id,
+        p_source: "quickbooks",
+      }),
+    });
+    expect(captured.rpcs.some((c) => c.fn === "set_ops_sync_source")).toBe(false);
     // line_total must NEVER be inserted (GENERATED column).
     const lineInsert = captured.inserts.find((i) => i.table === "line_items");
     expect(lineInsert).toBeDefined();

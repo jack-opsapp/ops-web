@@ -185,12 +185,21 @@ export class QuickBooksImportService {
     await this.supabase.from("qbo_import_runs").update(patch).eq("id", runId);
   }
 
-  private async markQuickBooksSyncSource(): Promise<void> {
-    const { error } = await this.supabase.rpc("set_ops_sync_source", {
+  private async suppressAccountingSync(
+    companyId: string,
+    entityType: "customer" | "invoice" | "estimate" | "payment",
+    entityId: string
+  ): Promise<void> {
+    const { error } = await this.supabase.rpc("suppress_accounting_sync", {
+      p_company_id: companyId,
+      p_provider: "quickbooks",
+      p_entity_type: entityType,
+      p_entity_id: entityId,
       p_source: "quickbooks",
+      p_ttl_seconds: 600,
     });
     if (error) {
-      throw new Error(`Failed to set QuickBooks sync source marker: ${error.message}`);
+      throw new Error(`Failed to suppress QuickBooks accounting sync: ${error.message}`);
     }
   }
 
@@ -620,7 +629,6 @@ export class QuickBooksImportService {
     if (!run) throw new Error(`Import run not found: ${runId}`);
     const companyId = run.company_id as string;
 
-    await this.markQuickBooksSyncSource();
     await sb.from("qbo_import_runs").update({ status: "applying" }).eq("id", runId);
 
     try {
@@ -727,6 +735,7 @@ export class QuickBooksImportService {
         }
         // Link writes ONLY qb_id — never overwrite name/email/phone/address.
         // Company-scoped (C4): never touch a row outside the caller's tenant.
+        await this.suppressAccountingSync(companyId, "customer", clientId);
         assertNoWriteError(
           await sb
             .from("clients")
@@ -756,6 +765,7 @@ export class QuickBooksImportService {
 
       // Company-aware field shaping — SAME helper the webhook path uses (Task 6B).
       const newId = crypto.randomUUID();
+      await this.suppressAccountingSync(companyId, "customer", newId);
       assertNoWriteError(
         await sb.from("clients").upsert(
           {
@@ -785,9 +795,17 @@ export class QuickBooksImportService {
       const clientId = clientIdByCustomerQbId.get(cust.qb_id as string);
       const fields = subClientFieldsFromCustomer(toShape(cust));
       if (!clientId || !fields) continue;
+      const { data: existingSubClient } = await sb
+        .from("sub_clients")
+        .select("id")
+        .eq("company_id", companyId)
+        .eq("qb_id", cust.qb_id)
+        .maybeSingle();
+      const subClientId = (existingSubClient?.id as string | undefined) ?? crypto.randomUUID();
+      await this.suppressAccountingSync(companyId, "customer", subClientId);
       assertNoWriteError(
         await sb.from("sub_clients").upsert(
-          { company_id: companyId, client_id: clientId, qb_id: cust.qb_id, ...fields },
+          { id: subClientId, company_id: companyId, client_id: clientId, qb_id: cust.qb_id, ...fields },
           { onConflict: "company_id,qb_id" }
         ),
         "sub_clients.upsert"
@@ -823,7 +841,13 @@ export class QuickBooksImportService {
           `Estimate ${est.qb_id} subtotal divergence: Σ lines ${lineSum} ≠ subtotal ${round2(subtotal)}`
         );
       }
-      const estId = crypto.randomUUID();
+      const { data: existingEstimate } = await sb
+        .from("estimates")
+        .select("id")
+        .eq("company_id", companyId)
+        .eq("qb_id", est.qb_id)
+        .maybeSingle();
+      const estId = (existingEstimate?.id as string | undefined) ?? crypto.randomUUID();
       const estimateRow: Record<string, unknown> = {
         id: estId,
         company_id: companyId,
@@ -840,6 +864,7 @@ export class QuickBooksImportService {
       // issue_date is NOT NULL DEFAULT CURRENT_DATE: send the QB txn_date, or
       // omit the key entirely so the default applies — never send null (C3).
       if (est.txn_date) estimateRow.issue_date = est.txn_date;
+      await this.suppressAccountingSync(companyId, "estimate", estId);
       assertNoWriteError(
         await sb.from("estimates").upsert(estimateRow, { onConflict: "company_id,qb_id" }),
         "estimates.upsert"
@@ -882,7 +907,13 @@ export class QuickBooksImportService {
         );
       }
 
-      const invId = crypto.randomUUID();
+      const { data: existingInvoice } = await sb
+        .from("invoices")
+        .select("id")
+        .eq("company_id", companyId)
+        .eq("qb_id", inv.qb_id)
+        .maybeSingle();
+      const invId = (existingInvoice?.id as string | undefined) ?? crypto.randomUUID();
       const invoiceRow: Record<string, unknown> = {
         id: invId,
         company_id: companyId,
@@ -900,6 +931,7 @@ export class QuickBooksImportService {
       // issue_date is NOT NULL DEFAULT CURRENT_DATE: send the QB txn_date, or
       // omit the key entirely so the default applies — never send null (C3).
       if (inv.txn_date) invoiceRow.issue_date = inv.txn_date;
+      await this.suppressAccountingSync(companyId, "invoice", invId);
       assertNoWriteError(
         await sb.from("invoices").upsert(invoiceRow, { onConflict: "company_id,qb_id" }),
         "invoices.upsert"
@@ -917,12 +949,18 @@ export class QuickBooksImportService {
     const appliedInvoiceIds = [...invoiceIdByQbId.values()];
     const appliedEstimateIds = [...estimateIdByQbId.values()];
     if (appliedInvoiceIds.length) {
+      for (const invoiceId of appliedInvoiceIds) {
+        await this.suppressAccountingSync(companyId, "invoice", invoiceId);
+      }
       assertNoWriteError(
         await sb.from("line_items").delete().in("invoice_id", appliedInvoiceIds),
         "line_items.delete.invoice"
       );
     }
     if (appliedEstimateIds.length) {
+      for (const estimateId of appliedEstimateIds) {
+        await this.suppressAccountingSync(companyId, "estimate", estimateId);
+      }
       assertNoWriteError(
         await sb.from("line_items").delete().in("estimate_id", appliedEstimateIds),
         "line_items.delete.estimate"
@@ -978,9 +1016,19 @@ export class QuickBooksImportService {
         const invoiceId = invoiceIdByQbId.get(l.invoice_qb_id) ?? null;
         if (!invoiceId) continue; // payment line references a dropped/absent invoice
         const compositeQbId = `${pmt.qb_id}:${l.invoice_qb_id}`;
+        await this.suppressAccountingSync(companyId, "invoice", invoiceId);
+        const { data: existingPayment } = await sb
+          .from("payments")
+          .select("id")
+          .eq("company_id", companyId)
+          .eq("qb_id", compositeQbId)
+          .maybeSingle();
+        const paymentId = (existingPayment?.id as string | undefined) ?? crypto.randomUUID();
+        await this.suppressAccountingSync(companyId, "payment", paymentId);
         assertNoWriteError(
           await sb.from("payments").upsert(
             {
+              id: paymentId,
               company_id: companyId,
               qb_id: compositeQbId,
               invoice_id: invoiceId,
@@ -1010,6 +1058,7 @@ export class QuickBooksImportService {
       const amountPaid = round2(total - balance);
       const dueDate = (inv.due_date as string | null) ?? (inv.txn_date as string | null);
       const status = deriveInvoiceStatus(balance, total, dueDate, now);
+      await this.suppressAccountingSync(companyId, "invoice", invoiceId);
       assertNoWriteError(
         await sb.from("invoices").update({
           amount_paid: amountPaid,

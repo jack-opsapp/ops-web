@@ -304,7 +304,12 @@ Trigger rules:
 - For `line_items`, enqueue parent invoice/estimate update.
 - For deleted or soft-deleted rows, enqueue delete behavior based on entity and connection settings.
 
-Echo-loop prevention uses a transaction-local source marker. Service-role inbound apply paths must call `set_config('ops.sync_source', 'quickbooks', true)` inside the transaction before updating OPS rows. Queue triggers must read `current_setting('ops.sync_source', true)` and skip outbound enqueue when the value is `quickbooks`. Do not add sync-source columns to iOS-synced tables in P2.
+Echo-loop prevention has two gates:
+
+- DB transaction/RPC apply paths may use the transaction-local `ops.sync_source` marker. Queue triggers read `current_setting('ops.sync_source', true)` and skip outbound enqueue when the value is `quickbooks`.
+- JS service-role apply paths that write through Supabase REST must use persisted rows in `accounting_sync_suppressions` via `suppress_accounting_sync(...)` before each OPS row mutation. A standalone Supabase RPC call to set `ops.sync_source` does not protect later REST writes because those writes run in separate transactions.
+
+Do not add sync-source columns to iOS-synced tables in P2.
 
 ### Audit Tables
 

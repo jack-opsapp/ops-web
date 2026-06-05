@@ -62,8 +62,26 @@ create table if not exists public.accounting_sync_events (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.accounting_sync_suppressions (
+  id uuid primary key default gen_random_uuid(),
+  company_id uuid not null,
+  provider text not null default 'quickbooks' check (provider in ('quickbooks')),
+  entity_type text not null check (entity_type in ('customer', 'invoice', 'estimate', 'payment')),
+  entity_id uuid not null,
+  source text not null default 'quickbooks' check (source in ('quickbooks')),
+  expires_at timestamptz not null default (now() + interval '10 minutes'),
+  created_at timestamptz not null default now()
+);
+
+create unique index if not exists accounting_sync_suppressions_active_uniq
+  on public.accounting_sync_suppressions (company_id, provider, entity_type, entity_id, source);
+
+create index if not exists accounting_sync_suppressions_expires_idx
+  on public.accounting_sync_suppressions (expires_at);
+
 alter table public.accounting_sync_queue enable row level security;
 alter table public.accounting_sync_events enable row level security;
+alter table public.accounting_sync_suppressions enable row level security;
 
 drop policy if exists accounting_sync_queue_service_role_only on public.accounting_sync_queue;
 create policy accounting_sync_queue_service_role_only
@@ -76,6 +94,14 @@ create policy accounting_sync_queue_service_role_only
 drop policy if exists accounting_sync_events_service_role_only on public.accounting_sync_events;
 create policy accounting_sync_events_service_role_only
   on public.accounting_sync_events
+  for all
+  to service_role
+  using (true)
+  with check (true);
+
+drop policy if exists accounting_sync_suppressions_service_role_only on public.accounting_sync_suppressions;
+create policy accounting_sync_suppressions_service_role_only
+  on public.accounting_sync_suppressions
   for all
   to service_role
   using (true)
@@ -226,6 +252,49 @@ $$;
 revoke all on function public.retry_accounting_sync_queue(uuid, text, text, timestamptz) from public, anon, authenticated;
 grant execute on function public.retry_accounting_sync_queue(uuid, text, text, timestamptz) to service_role;
 
+create or replace function public.suppress_accounting_sync(
+  p_company_id uuid,
+  p_provider text,
+  p_entity_type text,
+  p_entity_id uuid,
+  p_source text default 'quickbooks',
+  p_ttl_seconds integer default 600
+)
+returns void
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  delete from public.accounting_sync_suppressions
+  where expires_at <= now();
+
+  insert into public.accounting_sync_suppressions (
+    company_id,
+    provider,
+    entity_type,
+    entity_id,
+    source,
+    expires_at
+  )
+  values (
+    p_company_id,
+    p_provider,
+    p_entity_type,
+    p_entity_id,
+    p_source,
+    now() + make_interval(secs => greatest(1, least(coalesce(p_ttl_seconds, 600), 3600)))
+  )
+  on conflict (company_id, provider, entity_type, entity_id, source)
+  do update
+    set expires_at = excluded.expires_at,
+        created_at = now();
+end;
+$$;
+
+revoke all on function public.suppress_accounting_sync(uuid, text, text, uuid, text, integer) from public, anon, authenticated;
+grant execute on function public.suppress_accounting_sync(uuid, text, text, uuid, text, integer) to service_role;
+
 create or replace function public.set_ops_sync_source(p_source text)
 returns void
 language plpgsql
@@ -281,20 +350,6 @@ begin
 
   v_source_updated_at := nullif(coalesce(v_row_json->>'updated_at', v_row_json->>'created_at'), '')::timestamptz;
 
-  select id, propagate_deletes
-  into v_connection_id, v_propagate_deletes
-  from public.accounting_connections
-  where company_id = v_company_id::text
-    and provider = 'quickbooks'
-    and is_connected = true
-    and sync_direction <> 'pull_only'
-  order by updated_at desc nulls last
-  limit 1;
-
-  if v_connection_id is null then
-    return coalesce(new, old);
-  end if;
-
   v_entity_type := case tg_table_name
     when 'clients' then 'customer'
     when 'sub_clients' then 'customer'
@@ -318,6 +373,33 @@ begin
   end;
 
   if v_entity_type is null or v_entity_id is null then
+    return coalesce(new, old);
+  end if;
+
+  if exists (
+    select 1
+    from public.accounting_sync_suppressions s
+    where s.company_id = v_company_id
+      and s.provider = 'quickbooks'
+      and s.entity_type = v_entity_type
+      and s.entity_id = v_entity_id
+      and s.source = 'quickbooks'
+      and s.expires_at > now()
+  ) then
+    return coalesce(new, old);
+  end if;
+
+  select id, propagate_deletes
+  into v_connection_id, v_propagate_deletes
+  from public.accounting_connections
+  where company_id = v_company_id::text
+    and provider = 'quickbooks'
+    and is_connected = true
+    and sync_direction <> 'pull_only'
+  order by updated_at desc nulls last
+  limit 1;
+
+  if v_connection_id is null then
     return coalesce(new, old);
   end if;
 
@@ -502,12 +584,20 @@ begin
     raise exception 'qbo_p2_sync_queue_sentinel: events table missing';
   end if;
 
+  if not exists (select 1 from information_schema.tables where table_schema = 'public' and table_name = 'accounting_sync_suppressions') then
+    raise exception 'qbo_p2_sync_queue_sentinel: suppressions table missing';
+  end if;
+
   if not exists (select 1 from pg_proc where pronamespace = 'public'::regnamespace and proname = 'claim_accounting_sync_queue') then
     raise exception 'qbo_p2_sync_queue_sentinel: claim rpc missing';
   end if;
 
   if not exists (select 1 from pg_proc where pronamespace = 'public'::regnamespace and proname = 'retry_accounting_sync_queue') then
     raise exception 'qbo_p2_sync_queue_sentinel: retry rpc missing';
+  end if;
+
+  if not exists (select 1 from pg_proc where pronamespace = 'public'::regnamespace and proname = 'suppress_accounting_sync') then
+    raise exception 'qbo_p2_sync_queue_sentinel: suppress rpc missing';
   end if;
 
   if not exists (select 1 from pg_proc where pronamespace = 'public'::regnamespace and proname = 'set_ops_sync_source') then

@@ -18,6 +18,7 @@ describe("QBO P2 sync queue migration", () => {
   it("creates queue and event tables with uuid company ids", () => {
     expect(sql).toContain("create table if not exists public.accounting_sync_queue");
     expect(sql).toContain("create table if not exists public.accounting_sync_events");
+    expect(sql).toContain("create table if not exists public.accounting_sync_suppressions");
     expect(sql).toContain("company_id uuid not null");
     expect(sql).toContain("connection_id uuid");
   });
@@ -32,9 +33,10 @@ describe("QBO P2 sync queue migration", () => {
   });
 
   it("uses pending-only conflict coalescing so claimed rows cannot be mutated by newer OPS changes", () => {
+    const queueInsertStart = sql.indexOf("insert into public.accounting_sync_queue");
     const conflictClause = sql.slice(
-      sql.indexOf("on conflict (company_id, provider, entity_type, entity_id, operation, idempotency_key)"),
-      sql.indexOf("do update")
+      sql.indexOf("on conflict (company_id, provider, entity_type, entity_id, operation, idempotency_key)", queueInsertStart),
+      sql.indexOf("do update", queueInsertStart)
     );
     expect(conflictClause).toContain("where status = 'pending'");
     expect(conflictClause).not.toContain("claimed");
@@ -71,16 +73,43 @@ describe("QBO P2 sync queue migration", () => {
     expect(sql).toContain("grant execute on function public.retry_accounting_sync_queue(uuid, text, text, timestamptz) to service_role");
   });
 
-  it("adds a service-role helper for marking inbound QuickBooks writes", () => {
+  it("adds a persisted suppression gate for JS service inbound writes", () => {
+    expect(sql).toContain("create table if not exists public.accounting_sync_suppressions");
+    expect(sql).toContain("accounting_sync_suppressions_active_uniq");
+    expect(sql).toContain("on public.accounting_sync_suppressions (company_id, provider, entity_type, entity_id, source)");
+    expect(sql).toContain("accounting_sync_suppressions_expires_idx");
+    expect(sql).toContain("alter table public.accounting_sync_suppressions enable row level security");
+    expect(sql).toContain("create policy accounting_sync_suppressions_service_role_only");
+    expect(sql).toContain("create or replace function public.suppress_accounting_sync");
+    expect(sql).toContain("delete from public.accounting_sync_suppressions");
+    expect(sql).toContain("where expires_at <= now()");
+    expect(sql).toContain("make_interval(secs => greatest(1, least(coalesce(p_ttl_seconds, 600), 3600)))");
+    expect(sql).toContain("revoke all on function public.suppress_accounting_sync(uuid, text, text, uuid, text, integer) from public, anon, authenticated");
+    expect(sql).toContain("grant execute on function public.suppress_accounting_sync(uuid, text, text, uuid, text, integer) to service_role");
+  });
+
+  it("does not present the transaction-local source marker as REST-write protection", () => {
     expect(sql).toContain("create or replace function public.set_ops_sync_source");
     expect(sql).toContain("perform set_config('ops.sync_source', p_source, true)");
-    expect(sql).toContain("revoke all on function public.set_ops_sync_source(text) from public, anon, authenticated");
-    expect(sql).toContain("grant execute on function public.set_ops_sync_source(text) to service_role");
   });
 
   it("uses a transaction-local QuickBooks source marker to prevent echo loops", () => {
     expect(sql).toContain("current_setting('ops.sync_source', true)");
     expect(sql).toContain("= 'quickbooks'");
+  });
+
+  it("checks persisted suppressions after deriving the target entity", () => {
+    const suppressionCheck = sql.slice(
+      sql.indexOf("from public.accounting_sync_suppressions s"),
+      sql.indexOf("select id, propagate_deletes")
+    );
+    expect(suppressionCheck).toContain("s.company_id = v_company_id");
+    expect(suppressionCheck).toContain("s.provider = 'quickbooks'");
+    expect(suppressionCheck).toContain("s.entity_type = v_entity_type");
+    expect(suppressionCheck).toContain("s.entity_id = v_entity_id");
+    expect(suppressionCheck).toContain("s.source = 'quickbooks'");
+    expect(suppressionCheck).toContain("s.expires_at > now()");
+    expect(suppressionCheck).toContain("return coalesce(new, old)");
   });
 
   it("installs triggers for every OPS write surface", () => {
@@ -137,6 +166,7 @@ describe("QBO P2 sync queue migration", () => {
   it("keeps queue and event writes server-side", () => {
     expect(sql).toContain("alter table public.accounting_sync_queue enable row level security");
     expect(sql).toContain("alter table public.accounting_sync_events enable row level security");
+    expect(sql).toContain("alter table public.accounting_sync_suppressions enable row level security");
     expect(sql).toContain("to service_role");
     expect(sql).not.toMatch(/for insert\s+to authenticated/i);
     expect(sql).not.toMatch(/for update\s+to authenticated/i);
