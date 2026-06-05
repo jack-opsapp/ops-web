@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AccountingSyncProvider, AccountingSyncQueueRow } from "./accounting-sync-queue-types";
 
 type QueueDbRow = Record<string, unknown>;
+type WorkerGuard = { workerId?: string };
 
 function stringOrNull(value: unknown): string | null {
   return value === null || value === undefined || value === "" ? null : String(value);
@@ -63,58 +64,92 @@ export class AccountingSyncQueueService {
     return ((data ?? []) as QueueDbRow[]).map(mapQueueRow);
   }
 
-  async markSucceeded(id: string, input: { externalId?: string | null }): Promise<void> {
-    await this.updateQueueRow(id, {
-      status: "succeeded",
-      external_id: input.externalId ?? null,
-      locked_at: null,
-      locked_by: null,
-      last_error: null,
-      updated_at: new Date().toISOString(),
-    });
+  async markSucceeded(id: string, input: { externalId?: string | null; workerId?: string }): Promise<void> {
+    await this.updateQueueRow(
+      id,
+      {
+        status: "succeeded",
+        external_id: input.externalId ?? null,
+        locked_at: null,
+        locked_by: null,
+        last_error: null,
+        updated_at: new Date().toISOString(),
+      },
+      { workerId: input.workerId }
+    );
   }
 
-  async scheduleRetry(row: AccountingSyncQueueRow, errorMessage: string): Promise<void> {
+  async scheduleRetry(row: AccountingSyncQueueRow, errorMessage: string, guard: WorkerGuard = {}): Promise<void> {
     const exhausted = row.attempts >= row.maxAttempts;
     const runAfter = exhausted
       ? row.runAfter
       : new Date(Date.now() + retryDelaySeconds(row.attempts) * 1000).toISOString();
 
-    await this.updateQueueRow(row.id, {
-      status: exhausted ? "blocked" : "pending",
-      run_after: runAfter,
-      locked_at: null,
-      locked_by: null,
-      last_error: errorMessage,
-      updated_at: new Date().toISOString(),
-    });
+    await this.updateQueueRow(
+      row.id,
+      {
+        status: exhausted ? "blocked" : "pending",
+        run_after: runAfter,
+        locked_at: null,
+        locked_by: null,
+        last_error: errorMessage,
+        updated_at: new Date().toISOString(),
+      },
+      guard
+    );
   }
 
-  async markBlocked(id: string, errorMessage: string): Promise<void> {
-    await this.updateQueueRow(id, {
-      status: "blocked",
-      locked_at: null,
-      locked_by: null,
-      last_error: errorMessage,
-      updated_at: new Date().toISOString(),
-    });
+  async markBlocked(id: string, errorMessage: string, guard: WorkerGuard = {}): Promise<void> {
+    await this.updateQueueRow(
+      id,
+      {
+        status: "blocked",
+        locked_at: null,
+        locked_by: null,
+        last_error: errorMessage,
+        updated_at: new Date().toISOString(),
+      },
+      guard
+    );
   }
 
-  async markNeedsReview(id: string, errorMessage: string): Promise<void> {
-    await this.updateQueueRow(id, {
-      status: "needs_review",
-      locked_at: null,
-      locked_by: null,
-      last_error: errorMessage,
-      updated_at: new Date().toISOString(),
-    });
+  async markNeedsReview(id: string, errorMessage: string, guard: WorkerGuard = {}): Promise<void> {
+    await this.updateQueueRow(
+      id,
+      {
+        status: "needs_review",
+        locked_at: null,
+        locked_by: null,
+        last_error: errorMessage,
+        updated_at: new Date().toISOString(),
+      },
+      guard
+    );
   }
 
-  private async updateQueueRow(id: string, patch: Record<string, unknown>): Promise<void> {
-    const { error } = await this.supabase.from("accounting_sync_queue").update(patch).eq("id", id);
+  private async updateQueueRow(id: string, patch: Record<string, unknown>, guard: WorkerGuard = {}): Promise<void> {
+    const query = this.supabase.from("accounting_sync_queue").update(patch).eq("id", id);
+
+    if (!guard.workerId) {
+      const { error } = await query;
+      if (error) {
+        throw error;
+      }
+      return;
+    }
+
+    const { data, error } = await query
+      .eq("status", "claimed")
+      .eq("locked_by", guard.workerId)
+      .select("id")
+      .maybeSingle();
 
     if (error) {
       throw error;
+    }
+
+    if (!data) {
+      throw new Error("Accounting sync queue update lost ownership");
     }
   }
 }

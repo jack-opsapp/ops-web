@@ -1,7 +1,31 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AccountingSyncAuditInput, AccountingSyncSnapshot } from "./accounting-sync-queue-types";
 
-const BLOCKED_SNAPSHOT_KEYS = new Set(["access_token", "refresh_token", "realm_id", "authorization"]);
+const BLOCKED_SNAPSHOT_KEYS = new Set([
+  "access_token",
+  "refresh_token",
+  "realm_id",
+  "accesstoken",
+  "refreshtoken",
+  "client_secret",
+  "clientsecret",
+  "webhook_verifier_token",
+  "webhookverifiertoken",
+  "id_token",
+  "idtoken",
+  "authorization",
+]);
+
+function isBlockedSnapshotKey(key: string): boolean {
+  const normalized = key.toLowerCase();
+  return (
+    BLOCKED_SNAPSHOT_KEYS.has(normalized) ||
+    normalized.includes("token") ||
+    normalized.includes("secret") ||
+    normalized.includes("password") ||
+    normalized.includes("verifier")
+  );
+}
 
 function sanitizeSnapshotValue(value: unknown): unknown {
   if (Array.isArray(value)) {
@@ -14,7 +38,7 @@ function sanitizeSnapshotValue(value: unknown): unknown {
 
   return Object.fromEntries(
     Object.entries(value as Record<string, unknown>)
-      .filter(([key]) => !BLOCKED_SNAPSHOT_KEYS.has(key.toLowerCase()))
+      .filter(([key]) => !isBlockedSnapshotKey(key))
       .map(([key, nestedValue]) => [key, sanitizeSnapshotValue(nestedValue)])
   );
 }

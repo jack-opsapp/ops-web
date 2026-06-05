@@ -16,6 +16,20 @@ function clientMock() {
   return { rpc, from, update, eq };
 }
 
+function guardedClientMock(result: { data: { id: string } | null; error: unknown }) {
+  const eq = vi.fn();
+  const maybeSingle = vi.fn(() => Promise.resolve(result));
+  const select = vi.fn(() => ({ maybeSingle }));
+  const update = vi.fn(() => {
+    const builder = { eq, select };
+    eq.mockReturnValue(builder);
+    return builder;
+  });
+  const from = vi.fn(() => ({ update }));
+
+  return { from, update, eq, select, maybeSingle };
+}
+
 function queueRow(overrides: Partial<AccountingSyncQueueRow> = {}): AccountingSyncQueueRow {
   return {
     id: "q-1",
@@ -29,7 +43,7 @@ function queueRow(overrides: Partial<AccountingSyncQueueRow> = {}): AccountingSy
     sourceTable: "invoices",
     sourceAction: "update",
     sourceUpdatedAt: "2026-06-05T10:00:00.000Z",
-    idempotencyKey: "invoices:2873266e-8d86-47e4-819b-7e570084f06f",
+    idempotencyKey: "invoice:2873266e-8d86-47e4-819b-7e570084f06f",
     status: "claimed",
     attempts: 2,
     maxAttempts: 5,
@@ -61,7 +75,7 @@ describe("AccountingSyncQueueService", () => {
           source_table: "invoices",
           source_action: "update",
           source_updated_at: "2026-06-05T10:00:00.000Z",
-          idempotency_key: "invoices:2873266e-8d86-47e4-819b-7e570084f06f",
+          idempotency_key: "invoice:2873266e-8d86-47e4-819b-7e570084f06f",
           status: "claimed",
           attempts: 1,
           max_attempts: 5,
@@ -94,7 +108,7 @@ describe("AccountingSyncQueueService", () => {
         entityId: "2873266e-8d86-47e4-819b-7e570084f06f",
         externalId: "123",
         sourceTable: "invoices",
-        idempotencyKey: "invoices:2873266e-8d86-47e4-819b-7e570084f06f",
+        idempotencyKey: "invoice:2873266e-8d86-47e4-819b-7e570084f06f",
         maxAttempts: 5,
         lockedBy: "w-1",
         payloadSnapshot: { source: "trigger" },
@@ -185,5 +199,38 @@ describe("AccountingSyncQueueService", () => {
         locked_by: null,
       })
     );
+  });
+
+  it("guards worker-owned success updates by claimed status and lock owner", async () => {
+    const db = guardedClientMock({ data: { id: "q-1" }, error: null });
+    const service = new AccountingSyncQueueService(db as never);
+
+    await service.markSucceeded("q-1", { externalId: "123", workerId: "worker-1" });
+
+    expect(db.eq).toHaveBeenCalledWith("id", "q-1");
+    expect(db.eq).toHaveBeenCalledWith("status", "claimed");
+    expect(db.eq).toHaveBeenCalledWith("locked_by", "worker-1");
+    expect(db.select).toHaveBeenCalledWith("id");
+    expect(db.maybeSingle).toHaveBeenCalled();
+  });
+
+  it("throws when a worker-owned update no-ops because the claim is stale", async () => {
+    const db = guardedClientMock({ data: null, error: null });
+    const service = new AccountingSyncQueueService(db as never);
+
+    await expect(service.markBlocked("q-1", "stale worker", { workerId: "worker-1" })).rejects.toThrow(
+      "Accounting sync queue update lost ownership"
+    );
+  });
+
+  it("guards retry updates by worker ownership when a worker id is supplied", async () => {
+    const db = guardedClientMock({ data: { id: "q-1" }, error: null });
+    const service = new AccountingSyncQueueService(db as never);
+
+    await service.scheduleRetry(queueRow({ lockedBy: "worker-1" }), "rate limited", { workerId: "worker-1" });
+
+    expect(db.update).toHaveBeenCalledWith(expect.objectContaining({ status: "pending" }));
+    expect(db.eq).toHaveBeenCalledWith("status", "claimed");
+    expect(db.eq).toHaveBeenCalledWith("locked_by", "worker-1");
   });
 });

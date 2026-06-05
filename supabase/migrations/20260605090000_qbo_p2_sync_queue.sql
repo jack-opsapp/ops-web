@@ -34,7 +34,7 @@ create unique index if not exists accounting_sync_queue_active_uniq
     operation,
     idempotency_key
   )
-  where status in ('pending', 'claimed');
+  where status = 'pending';
 
 create index if not exists accounting_sync_queue_due_idx
   on public.accounting_sync_queue (provider, status, run_after, created_at)
@@ -92,6 +92,10 @@ security definer
 set search_path = public, pg_temp
 as $$
 begin
+  if coalesce(p_limit, 25) <= 0 then
+    return;
+  end if;
+
   return query
   with due as (
     select id
@@ -101,7 +105,7 @@ begin
       and run_after <= now()
     order by run_after asc, created_at asc
     for update skip locked
-    limit greatest(1, least(coalesce(p_limit, 25), 100))
+    limit least(coalesce(p_limit, 25), 100)
   )
   update public.accounting_sync_queue q
   set status = 'claimed',
@@ -125,12 +129,12 @@ security definer
 set search_path = public, pg_temp
 as $$
 declare
-  v_row record;
   v_row_json jsonb;
   v_old_json jsonb := '{}'::jsonb;
   v_new_json jsonb := '{}'::jsonb;
   v_company_id uuid;
   v_connection_id uuid;
+  v_propagate_deletes boolean := false;
   v_entity_type text;
   v_entity_id uuid;
   v_external_id text;
@@ -143,13 +147,6 @@ begin
     return coalesce(new, old);
   end if;
 
-  if tg_op = 'DELETE' then
-    v_row := old;
-  else
-    v_row := new;
-  end if;
-
-  v_row_json := to_jsonb(v_row);
   if tg_op in ('INSERT', 'UPDATE') then
     v_new_json := to_jsonb(new);
   end if;
@@ -157,15 +154,17 @@ begin
     v_old_json := to_jsonb(old);
   end if;
 
+  v_row_json := case when tg_op = 'DELETE' then v_old_json else v_new_json end;
+
   v_company_id := nullif(v_row_json->>'company_id', '')::uuid;
   if v_company_id is null then
     return coalesce(new, old);
   end if;
 
-  v_source_updated_at := nullif(coalesce(to_jsonb(v_row)->>'updated_at', to_jsonb(v_row)->>'created_at'), '')::timestamptz;
+  v_source_updated_at := nullif(coalesce(v_row_json->>'updated_at', v_row_json->>'created_at'), '')::timestamptz;
 
-  select id
-  into v_connection_id
+  select id, propagate_deletes
+  into v_connection_id, v_propagate_deletes
   from public.accounting_connections
   where company_id = v_company_id::text
     and provider = 'quickbooks'
@@ -185,8 +184,8 @@ begin
     when 'estimates' then 'estimate'
     when 'payments' then 'payment'
     when 'line_items' then case
-      when v_row.invoice_id is not null then 'invoice'
-      when v_row.estimate_id is not null then 'estimate'
+      when nullif(v_row_json->>'invoice_id', '') is not null then 'invoice'
+      when nullif(v_row_json->>'estimate_id', '') is not null then 'estimate'
       else null
     end
     else null
@@ -217,23 +216,23 @@ begin
     where id = v_entity_id
       and company_id = v_company_id;
   else
-    v_external_id := nullif(to_jsonb(v_row)->>'qb_id', '');
+    v_external_id := nullif(v_row_json->>'qb_id', '');
   end if;
 
   v_source_action := lower(tg_op);
   v_operation := case
     when tg_op = 'UPDATE'
       and tg_table_name in ('clients', 'sub_clients')
-      and to_jsonb(new)->>'deleted_at' is not null
-      and to_jsonb(old)->>'deleted_at' is null then 'inactivate'
+      and v_new_json->>'deleted_at' is not null
+      and v_old_json->>'deleted_at' is null then 'inactivate'
     when tg_op = 'UPDATE'
       and tg_table_name in ('invoices', 'estimates')
-      and to_jsonb(new)->>'deleted_at' is not null
-      and to_jsonb(old)->>'deleted_at' is null then 'void'
+      and v_new_json->>'deleted_at' is not null
+      and v_old_json->>'deleted_at' is null then 'void'
     when tg_op = 'UPDATE'
       and tg_table_name = 'payments'
-      and to_jsonb(new)->>'voided_at' is not null
-      and to_jsonb(old)->>'voided_at' is null then 'void'
+      and v_new_json->>'voided_at' is not null
+      and v_old_json->>'voided_at' is null then 'void'
     when tg_op = 'INSERT' and v_external_id is null then 'create'
     when tg_op = 'INSERT' then 'update'
     else 'update'
@@ -243,9 +242,48 @@ begin
     v_source_action := case when v_operation = 'void' then 'void' else 'soft_delete' end;
   end if;
 
+  if v_operation in ('inactivate', 'void') and not v_propagate_deletes then
+    insert into public.accounting_sync_events (
+      company_id,
+      connection_id,
+      provider,
+      direction,
+      entity_type,
+      entity_id,
+      external_id,
+      operation,
+      status,
+      source,
+      ops_updated_at,
+      decision,
+      before_snapshot,
+      after_snapshot,
+      error
+    )
+    values (
+      v_company_id,
+      v_connection_id,
+      'quickbooks',
+      'system',
+      v_entity_type,
+      v_entity_id::text,
+      v_external_id,
+      v_operation,
+      'skipped',
+      'trigger',
+      v_source_updated_at,
+      'skipped',
+      v_old_json,
+      v_new_json,
+      'propagate_deletes=false; outbound delete/void skipped'
+    );
+
+    return coalesce(new, old);
+  end if;
+
   if tg_op = 'UPDATE' and tg_table_name <> 'line_items' then
-    if coalesce(to_jsonb(old)->>'qb_id', '') is distinct from coalesce(to_jsonb(new)->>'qb_id', '')
-      and (to_jsonb(old) - 'qb_id' - 'updated_at') = (to_jsonb(new) - 'qb_id' - 'updated_at')
+    if coalesce(v_old_json->>'qb_id', '') is distinct from coalesce(v_new_json->>'qb_id', '')
+      and (v_old_json - 'qb_id' - 'updated_at') = (v_new_json - 'qb_id' - 'updated_at')
     then
       return new;
     end if;
@@ -287,11 +325,11 @@ begin
     tg_table_name,
     v_source_action,
     v_source_updated_at,
-    concat(tg_table_name, ':', v_entity_id::text),
+    concat(v_entity_type, ':', v_entity_id::text),
     v_payload
   )
   on conflict (company_id, provider, entity_type, entity_id, operation, idempotency_key)
-  where status in ('pending', 'claimed')
+  where status = 'pending'
   do update
     set external_id = excluded.external_id,
         source_updated_at = excluded.source_updated_at,
