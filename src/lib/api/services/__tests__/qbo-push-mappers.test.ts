@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import invoiceLineItems from "../../../../../tests/fixtures/qbo/push/invoice-line-items.json";
 import {
   assertQboRef,
   mapClientToQboCustomer,
@@ -115,17 +116,7 @@ describe("QBO push mappers", () => {
         dueDate: "2026-06-20",
       },
       client: { id: "client-1", qbId: "44", name: "Maverick Projects" },
-      lineItems: [
-        {
-          id: "line-1",
-          name: "",
-          description: "Field work",
-          quantity: 2,
-          unitPrice: 62.5,
-          amount: 125,
-          qbItemId: null,
-        },
-      ],
+      lineItems: invoiceLineItems,
     });
 
     expect(payload.Line).toEqual([

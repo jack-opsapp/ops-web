@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+import customerCreateResponse from "../../../../../tests/fixtures/qbo/push/customer-create-response.json";
 import { QuickBooksWriteService } from "../quickbooks-write-service";
 
 function okResponse(body: Record<string, unknown>) {
@@ -18,17 +19,19 @@ function failResponse(status: number, body: string) {
   } as Response;
 }
 
+async function rejectedMessage(action: () => Promise<unknown>): Promise<string> {
+  try {
+    await action();
+  } catch (error) {
+    expect(error).toBeInstanceOf(Error);
+    return (error as Error).message;
+  }
+  throw new Error("Expected action to reject");
+}
+
 describe("QuickBooksWriteService", () => {
   it("posts Customer create to the sandbox host and increments write count", async () => {
-    const fetchImpl = vi.fn().mockResolvedValue(
-      okResponse({
-        Customer: {
-          Id: "123",
-          SyncToken: "0",
-          MetaData: { LastUpdatedTime: "2026-06-05T10:00:00Z" },
-        },
-      }),
-    );
+    const fetchImpl = vi.fn().mockResolvedValue(okResponse(customerCreateResponse));
     const service = new QuickBooksWriteService({
       realmId: "462081636529",
       accessToken: "token",
@@ -138,12 +141,29 @@ describe("QuickBooksWriteService", () => {
       fetchImpl: vi.fn().mockResolvedValue(okResponse({ Customer: {} })),
     });
 
-    await expect(service.create("Customer", { DisplayName: "Bad" })).rejects.toThrow(
-      "QuickBooks response missing Customer.Id",
+    const message = await rejectedMessage(() =>
+      service.create("Customer", { DisplayName: "Bad" }),
     );
-    await expect(service.create("Customer", { DisplayName: "Bad" })).rejects.not.toThrow(
-      "sensitive-token",
+
+    expect(message).toBe("QuickBooks response missing Customer.Id");
+    expect(message).not.toContain("sensitive-token");
+  });
+
+  it("throws a token-free error when the provider response omits the entity body", async () => {
+    const service = new QuickBooksWriteService({
+      realmId: "462081636529",
+      accessToken: "sensitive-token",
+      environment: "sandbox",
+      fetchImpl: vi.fn().mockResolvedValue(okResponse({})),
+    });
+
+    const message = await rejectedMessage(() =>
+      service.create("Customer", { DisplayName: "Bad" }),
     );
+
+    expect(message).toBe("QuickBooks response missing Customer body");
+    expect(message).not.toContain("sensitive-token");
+    expect(message).not.toContain("{}");
   });
 
   it("surfaces HTTP write failures with status only", async () => {
@@ -156,11 +176,12 @@ describe("QuickBooksWriteService", () => {
         .mockResolvedValue(failResponse(400, "provider body with sensitive detail")),
     });
 
-    await expect(service.create("Customer", { DisplayName: "Bad" })).rejects.toThrow(
-      "QuickBooks write failed: 400",
+    const message = await rejectedMessage(() =>
+      service.create("Customer", { DisplayName: "Bad" }),
     );
-    await expect(service.create("Customer", { DisplayName: "Bad" })).rejects.not.toThrow(
-      "provider body",
-    );
+
+    expect(message).toBe("QuickBooks write failed: 400");
+    expect(message).not.toContain("provider body");
+    expect(message).not.toContain("sensitive-token");
   });
 });
