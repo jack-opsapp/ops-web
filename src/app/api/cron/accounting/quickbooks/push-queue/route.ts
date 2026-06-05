@@ -151,6 +151,10 @@ function classifyError(error: unknown): { kind: FailureKind; message: string } {
     return { kind: "needs_review", message: "QuickBooks connection not found" };
   }
 
+  if (message === "Invalid QuickBooks id" || message.startsWith("Invalid QuickBooks ")) {
+    return { kind: "blocked", message };
+  }
+
   return { kind: "retry", message };
 }
 
@@ -285,6 +289,33 @@ function assertSupportedOperation(row: AccountingSyncQueueRow): void {
 
   if (row.operation === "delete_soft" && row.entityType !== "customer") {
     needsReview(`QuickBooks ${row.entityType} delete_soft requires operator review`);
+  }
+}
+
+async function assertConnectionWritable(
+  supabase: SupabaseClient,
+  row: AccountingSyncQueueRow,
+): Promise<void> {
+  const connection = await maybeSingle(supabase, "accounting_connections", [
+    ["id", row.connectionId],
+    ["company_id", row.companyId],
+    ["provider", "quickbooks"],
+  ]);
+
+  if (!connection) {
+    needsReview("QuickBooks connection not found");
+  }
+
+  if (connection.is_connected !== true) {
+    needsReview("QuickBooks connection is disconnected");
+  }
+
+  if (connection.sync_enabled === false) {
+    needsReview("QuickBooks connection sync is disabled");
+  }
+
+  if (connection.sync_direction === "pull_only") {
+    needsReview("QuickBooks connection is pull_only; outbound writes are disabled");
   }
 }
 
@@ -542,7 +573,7 @@ async function suppressThenWriteQbId(
   });
 
   if (suppressError) {
-    needsReview(`QuickBooks create succeeded but sync suppression failed: ${suppressError.message}`);
+    throw new Error(`QuickBooks create succeeded but sync suppression failed: ${suppressError.message}`);
   }
 
   const { error: updateError } = await supabase
@@ -552,8 +583,28 @@ async function suppressThenWriteQbId(
     .eq("company_id", row.companyId);
 
   if (updateError) {
-    needsReview(`QuickBooks create succeeded but OPS qb_id writeback failed: ${updateError.message}`);
+    throw new Error(`QuickBooks create succeeded but OPS qb_id writeback failed: ${updateError.message}`);
   }
+}
+
+async function performProviderWrite(input: {
+  row: AccountingSyncQueueRow;
+  prepared: PreparedPush;
+  writeService: QuickBooksWriteService;
+}): Promise<QuickBooksWriteResult> {
+  const { row, prepared, writeService } = input;
+
+  if (row.operation === "create" && !prepared.existingQbId) {
+    return writeService.create(prepared.qboEntity, prepared.payload);
+  }
+
+  if (!prepared.existingQbId) {
+    deterministicBlock(
+      `QuickBooks ${row.entityType} ${row.operation} requires an existing qb_id or queue external_id`,
+    );
+  }
+
+  return writeService.update(prepared.qboEntity, prepared.payload);
 }
 
 function auditBase(row: AccountingSyncQueueRow): Omit<AccountingSyncAuditInput, "status" | "source"> {
@@ -616,6 +667,43 @@ async function recordFailure(
   });
 }
 
+async function recordFailureBestEffort(
+  audit: AccountingSyncAuditService,
+  row: AccountingSyncQueueRow,
+  kind: FailureKind,
+  message: string,
+): Promise<void> {
+  try {
+    await recordFailure(audit, row, kind, message);
+  } catch {
+    // Queue state is the durable recovery path; audit cannot block it.
+  }
+}
+
+async function markPostProviderFinalizationFailed(input: {
+  supabase: SupabaseClient;
+  queue: AccountingSyncQueueService;
+  audit: AccountingSyncAuditService;
+  row: AccountingSyncQueueRow;
+  workerId: string;
+  qbId: string;
+  message: string;
+}): Promise<boolean> {
+  const { supabase, queue, audit, row, workerId, qbId, message } = input;
+
+  await recordFailureBestEffort(audit, row, "needs_review", message);
+
+  let notificationCreated = false;
+  try {
+    await queue.markNeedsReview(row.id, message, { workerId, externalId: qbId });
+    notificationCreated = await createReviewNotification(supabase, row, "needs_review");
+  } catch {
+    // Provider write already succeeded. Never schedule retry from this path.
+  }
+
+  return notificationCreated;
+}
+
 function firstAdminId(adminIds: unknown): string | null {
   if (Array.isArray(adminIds)) {
     return cleanString(adminIds[0]);
@@ -676,6 +764,7 @@ async function processQueueRow(input: {
   const { supabase, queue, audit, row, workerId } = input;
 
   try {
+    await assertConnectionWritable(supabase, row);
     const { accessToken, realmId } = await AccountingTokenService.getValidToken(supabase, row.connectionId);
     if (!cleanString(accessToken)) needsReview("QuickBooks access token missing");
     if (!cleanString(realmId)) needsReview("QuickBooks realm id missing");
@@ -686,16 +775,37 @@ async function processQueueRow(input: {
       environment: getQuickBooksEnvironment(),
     });
     const prepared = await preparePush(supabase, row, writeService);
-    const result = prepared.existingQbId
-      ? await writeService.update(prepared.qboEntity, prepared.payload)
-      : await writeService.create(prepared.qboEntity, prepared.payload);
+    const result = await performProviderWrite({ row, prepared, writeService });
 
-    if (!prepared.existingQbId && cleanString(result.qbId)) {
-      await suppressThenWriteQbId(supabase, row, prepared, result.qbId);
+    try {
+      if (!prepared.existingQbId && cleanString(result.qbId)) {
+        await suppressThenWriteQbId(supabase, row, prepared, result.qbId);
+      }
+
+      await recordSuccess(audit, row, prepared, result);
+      await queue.markSucceeded(row.id, { externalId: result.qbId, workerId });
+    } catch (finalizationError) {
+      const message = `QuickBooks write succeeded but worker finalization failed: ${errorMessage(finalizationError)}`;
+      const notificationCreated = await markPostProviderFinalizationFailed({
+        supabase,
+        queue,
+        audit,
+        row,
+        workerId,
+        qbId: result.qbId,
+        message,
+      });
+
+      return {
+        queueId: row.id,
+        entityType: row.entityType,
+        entityId: row.entityId,
+        status: "needs_review",
+        externalId: result.qbId,
+        error: message,
+        notificationCreated,
+      };
     }
-
-    await recordSuccess(audit, row, prepared, result);
-    await queue.markSucceeded(row.id, { externalId: result.qbId, workerId });
 
     return {
       queueId: row.id,
@@ -706,7 +816,7 @@ async function processQueueRow(input: {
     };
   } catch (error) {
     const classified = classifyError(error);
-    await recordFailure(audit, row, classified.kind, classified.message);
+    await recordFailureBestEffort(audit, row, classified.kind, classified.message);
 
     if (classified.kind === "retry") {
       await queue.scheduleRetry(row, classified.message, { workerId });

@@ -3,6 +3,7 @@ import type { AccountingSyncProvider, AccountingSyncQueueRow } from "./accountin
 
 type QueueDbRow = Record<string, unknown>;
 type WorkerGuard = { workerId: string };
+type TerminalGuard = WorkerGuard & { externalId?: string | null };
 
 function stringOrNull(value: unknown): string | null {
   return value === null || value === undefined || value === "" ? null : String(value);
@@ -129,16 +130,22 @@ export class AccountingSyncQueueService {
     );
   }
 
-  async markNeedsReview(id: string, errorMessage: string, guard: WorkerGuard): Promise<void> {
+  async markNeedsReview(id: string, errorMessage: string, guard: TerminalGuard): Promise<void> {
+    const patch: Record<string, unknown> = {
+      status: "needs_review",
+      locked_at: null,
+      locked_by: null,
+      last_error: errorMessage,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (guard.externalId !== undefined) {
+      patch.external_id = guard.externalId;
+    }
+
     await this.updateQueueRow(
       id,
-      {
-        status: "needs_review",
-        locked_at: null,
-        locked_by: null,
-        last_error: errorMessage,
-        updated_at: new Date().toISOString(),
-      },
+      patch,
       guard
     );
   }

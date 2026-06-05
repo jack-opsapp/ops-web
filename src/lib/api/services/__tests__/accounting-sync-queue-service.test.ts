@@ -286,6 +286,28 @@ describe("AccountingSyncQueueService", () => {
     expect(db.eq).toHaveBeenCalledWith("locked_by", "worker-1");
   });
 
+  it("marks a row as needing review while preserving the accepted QuickBooks id", async () => {
+    const db = guardedClientMock({ data: { id: "q-1" }, error: null });
+    const service = new AccountingSyncQueueService(db as never);
+
+    await service.markNeedsReview("q-1", "local finalization failed", {
+      workerId: "worker-1",
+      externalId: "123",
+    });
+
+    expect(db.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "needs_review",
+        external_id: "123",
+        last_error: "local finalization failed",
+        locked_at: null,
+        locked_by: null,
+      })
+    );
+    expect(db.eq).toHaveBeenCalledWith("status", "claimed");
+    expect(db.eq).toHaveBeenCalledWith("locked_by", "worker-1");
+  });
+
   it("guards worker-owned success updates by claimed status and lock owner", async () => {
     const db = guardedClientMock({ data: { id: "q-1" }, error: null });
     const service = new AccountingSyncQueueService(db as never);
