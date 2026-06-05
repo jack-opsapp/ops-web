@@ -8,6 +8,10 @@ const BLOCKED_SNAPSHOT_KEYS = new Set([
   "webhookverifiertoken",
   "idtoken",
   "authorization",
+  "apikey",
+  "xapikey",
+  "bearertoken",
+  "privatekey",
 ]);
 
 function isBlockedSnapshotKey(key: string): boolean {

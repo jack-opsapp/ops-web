@@ -165,6 +165,27 @@ describe("AccountingSyncQueueService", () => {
     expect(db.eq).toHaveBeenCalledWith("locked_by", "worker-1");
   });
 
+  it("marks a row succeeded without clearing an existing external id when omitted", async () => {
+    const db = guardedClientMock({ data: { id: "q-1" }, error: null });
+    const service = new AccountingSyncQueueService(db as never);
+
+    await service.markSucceeded("q-1", { workerId: "worker-1" });
+
+    const updateCalls = db.update.mock.calls as unknown as Array<[Record<string, unknown>]>;
+    const patch = updateCalls[0][0];
+    expect(patch).toEqual(
+      expect.objectContaining({
+        status: "succeeded",
+        locked_at: null,
+        locked_by: null,
+        last_error: null,
+      })
+    );
+    expect(patch).not.toHaveProperty("external_id");
+    expect(db.eq).toHaveBeenCalledWith("status", "claimed");
+    expect(db.eq).toHaveBeenCalledWith("locked_by", "worker-1");
+  });
+
   it("schedules retry through the retry RPC with exponential backoff", async () => {
     const db = clientMock();
     db.rpc.mockResolvedValue({ data: queueDbRow(), error: null });

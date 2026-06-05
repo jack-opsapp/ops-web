@@ -38,6 +38,16 @@ describe("AccountingSyncAuditService", () => {
         clientSecret: "raw-client-secret",
         webhookVerifierToken: "raw-verifier",
         webhook_verifier_token: "raw-snake-verifier",
+        apiKey: "raw-api-key",
+        api_key: "raw-snake-api-key",
+        "x-api-key": "raw-header-api-key",
+        xApiKey: "raw-camel-header-api-key",
+        bearerToken: "raw-bearer-token",
+        bearer_token: "raw-snake-bearer-token",
+        privateKey: "raw-private-key",
+        private_key: "raw-snake-private-key",
+        publicKey: "public-key-metadata",
+        public_key: "public-snake-key-metadata",
         nested: { refresh_token: "raw-refresh", safeTokenizedLabel: "kept-label" },
       },
       afterSnapshot: {
@@ -75,6 +85,8 @@ describe("AccountingSyncAuditService", () => {
           total: 10,
           SyncToken: "7",
           sync_token: "8",
+          publicKey: "public-key-metadata",
+          public_key: "public-snake-key-metadata",
           nested: { safeTokenizedLabel: "kept-label" },
         },
         after_snapshot: {
@@ -86,7 +98,7 @@ describe("AccountingSyncAuditService", () => {
       })
     );
     expect(JSON.stringify(insertedPayload)).not.toMatch(
-      /raw-access|raw-camel-access|raw-client-secret|raw-verifier|raw-snake-verifier|raw-refresh|raw-id-token|raw-password|raw-passphrase|raw-secret|Bearer raw-token/i
+      /raw-access|raw-camel-access|raw-client-secret|raw-verifier|raw-snake-verifier|raw-api-key|raw-snake-api-key|raw-header-api-key|raw-camel-header-api-key|raw-bearer-token|raw-snake-bearer-token|raw-private-key|raw-snake-private-key|raw-refresh|raw-id-token|raw-password|raw-passphrase|raw-secret|Bearer raw-token/i
     );
   });
 });

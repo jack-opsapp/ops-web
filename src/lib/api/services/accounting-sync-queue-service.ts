@@ -65,16 +65,21 @@ export class AccountingSyncQueueService {
   }
 
   async markSucceeded(id: string, input: { externalId?: string | null; workerId: string }): Promise<void> {
+    const patch: Record<string, unknown> = {
+      status: "succeeded",
+      locked_at: null,
+      locked_by: null,
+      last_error: null,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (input.externalId !== undefined) {
+      patch.external_id = input.externalId;
+    }
+
     await this.updateQueueRow(
       id,
-      {
-        status: "succeeded",
-        external_id: input.externalId ?? null,
-        locked_at: null,
-        locked_by: null,
-        last_error: null,
-        updated_at: new Date().toISOString(),
-      },
+      patch,
       { workerId: input.workerId }
     );
   }

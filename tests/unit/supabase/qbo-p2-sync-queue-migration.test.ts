@@ -52,8 +52,33 @@ describe("QBO P2 sync queue migration", () => {
     expect(sql).toContain("for update skip locked");
     expect(sql).toContain("if coalesce(p_limit, 25) <= 0 then");
     expect(sql).toContain("return;");
-    expect(sql).toContain("revoke all on function public.claim_accounting_sync_queue(text, integer, text) from public, anon, authenticated");
-    expect(sql).toContain("grant execute on function public.claim_accounting_sync_queue(text, integer, text) to service_role");
+    expect(sql).toContain("p_stale_after_seconds integer default 900");
+    expect(sql).toContain("revoke all on function public.claim_accounting_sync_queue(text, integer, text, integer) from public, anon, authenticated");
+    expect(sql).toContain("grant execute on function public.claim_accounting_sync_queue(text, integer, text, integer) to service_role");
+  });
+
+  it("recovers stale claimed rows before selecting due pending work", () => {
+    const claimRpc = sql.slice(
+      sql.indexOf("create or replace function public.claim_accounting_sync_queue"),
+      sql.indexOf("revoke all on function public.claim_accounting_sync_queue")
+    );
+    expect(claimRpc).toContain("p_stale_after_seconds integer default 900");
+    expect(claimRpc).toContain("v_stale_after_seconds");
+    expect(claimRpc).toContain("status = 'claimed'");
+    expect(claimRpc).toContain("locked_at < now() - make_interval");
+    expect(claimRpc).toContain("for update skip locked");
+    expect(claimRpc).toContain("and pending.idempotency_key = v_stale.idempotency_key");
+    expect(claimRpc).toContain("and pending.status = 'pending'");
+    expect(claimRpc).toContain("and pending.created_at > v_stale.created_at");
+    expect(claimRpc).toContain("set status = 'cancelled'");
+    expect(claimRpc).toContain("stale claim superseded by newer pending queue row");
+    expect(claimRpc).toContain("set status = 'pending'");
+    expect(claimRpc).toContain("run_after = now()");
+    expect(claimRpc).toContain("stale claim recovered");
+    expect(claimRpc).toContain("insert into public.accounting_sync_events");
+    expect(claimRpc).toContain("'system'");
+    expect(claimRpc).toContain("'retry'");
+    expect(claimRpc).toContain("'skipped'");
   });
 
   it("adds a service-role retry RPC that cancels superseded claimed rows", () => {

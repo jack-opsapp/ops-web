@@ -52,7 +52,7 @@ create table if not exists public.accounting_sync_events (
   external_id text null,
   operation text not null check (operation in ('create', 'update', 'void', 'inactivate', 'delete_soft', 'link', 'reconcile')),
   status text not null check (status in ('succeeded', 'failed', 'blocked', 'needs_review', 'skipped')),
-  source text not null check (source in ('trigger', 'worker', 'webhook', 'reconcile', 'operator')),
+  source text not null check (source in ('trigger', 'worker', 'webhook', 'reconcile', 'operator', 'system')),
   ops_updated_at timestamptz null,
   qb_updated_at timestamptz null,
   decision text null check (decision is null or decision in ('ops_won', 'qb_won', 'skipped', 'needs_review', 'retry', 'blocked')),
@@ -110,17 +110,148 @@ create policy accounting_sync_suppressions_service_role_only
 create or replace function public.claim_accounting_sync_queue(
   p_provider text default 'quickbooks',
   p_limit integer default 25,
-  p_worker_id text default 'qbo-worker'
+  p_worker_id text default 'qbo-worker',
+  p_stale_after_seconds integer default 900
 )
 returns setof public.accounting_sync_queue
 language plpgsql
 security definer
 set search_path = public, pg_temp
 as $$
+declare
+  v_stale public.accounting_sync_queue;
+  v_existing_pending_id uuid;
+  v_stale_after_seconds integer := greatest(1, least(coalesce(p_stale_after_seconds, 900), 86400));
+  v_error text;
 begin
   if coalesce(p_limit, 25) <= 0 then
     return;
   end if;
+
+  for v_stale in
+    select *
+    from public.accounting_sync_queue
+    where provider = p_provider
+      and status = 'claimed'
+      and locked_at is not null
+      and locked_at < now() - make_interval(secs => v_stale_after_seconds)
+    order by locked_at asc, created_at asc
+    for update skip locked
+  loop
+    select pending.id
+    into v_existing_pending_id
+    from public.accounting_sync_queue pending
+    where pending.company_id = v_stale.company_id
+      and pending.provider = v_stale.provider
+      and pending.entity_type = v_stale.entity_type
+      and pending.entity_id = v_stale.entity_id
+      and pending.operation = v_stale.operation
+      and pending.idempotency_key = v_stale.idempotency_key
+      and pending.status = 'pending'
+      and pending.id <> v_stale.id
+      and pending.created_at > v_stale.created_at
+    order by pending.created_at desc
+    limit 1;
+
+    if v_existing_pending_id is not null then
+      v_error := 'stale claim superseded by newer pending queue row ' || v_existing_pending_id::text;
+
+      update public.accounting_sync_queue
+      set status = 'cancelled',
+          locked_at = null,
+          locked_by = null,
+          last_error = concat_ws('; ', nullif(v_stale.last_error, ''), v_error),
+          updated_at = now()
+      where id = v_stale.id;
+
+      insert into public.accounting_sync_events (
+        queue_id,
+        company_id,
+        connection_id,
+        provider,
+        direction,
+        entity_type,
+        entity_id,
+        external_id,
+        operation,
+        status,
+        source,
+        decision,
+        before_snapshot,
+        after_snapshot,
+        error
+      )
+      values (
+        v_stale.id,
+        v_stale.company_id,
+        v_stale.connection_id,
+        v_stale.provider,
+        'system',
+        v_stale.entity_type,
+        v_stale.entity_id::text,
+        v_stale.external_id,
+        v_stale.operation,
+        'skipped',
+        'system',
+        'skipped',
+        to_jsonb(v_stale),
+        jsonb_build_object(
+          'status', 'cancelled',
+          'supersededQueueId', v_existing_pending_id
+        ),
+        v_error
+      );
+    else
+      v_error := 'stale claim recovered';
+
+      update public.accounting_sync_queue
+      set status = 'pending',
+          run_after = now(),
+          locked_at = null,
+          locked_by = null,
+          last_error = concat_ws('; ', nullif(v_stale.last_error, ''), v_error),
+          updated_at = now()
+      where id = v_stale.id;
+
+      insert into public.accounting_sync_events (
+        queue_id,
+        company_id,
+        connection_id,
+        provider,
+        direction,
+        entity_type,
+        entity_id,
+        external_id,
+        operation,
+        status,
+        source,
+        decision,
+        before_snapshot,
+        after_snapshot,
+        error
+      )
+      values (
+        v_stale.id,
+        v_stale.company_id,
+        v_stale.connection_id,
+        v_stale.provider,
+        'system',
+        v_stale.entity_type,
+        v_stale.entity_id::text,
+        v_stale.external_id,
+        v_stale.operation,
+        'skipped',
+        'system',
+        'retry',
+        to_jsonb(v_stale),
+        jsonb_build_object(
+          'status', 'pending',
+          'runAfter', now()
+        ),
+        v_error
+      );
+    end if;
+  end loop;
 
   return query
   with due as (
@@ -145,8 +276,8 @@ begin
 end;
 $$;
 
-revoke all on function public.claim_accounting_sync_queue(text, integer, text) from public, anon, authenticated;
-grant execute on function public.claim_accounting_sync_queue(text, integer, text) to service_role;
+revoke all on function public.claim_accounting_sync_queue(text, integer, text, integer) from public, anon, authenticated;
+grant execute on function public.claim_accounting_sync_queue(text, integer, text, integer) to service_role;
 
 create or replace function public.retry_accounting_sync_queue(
   p_queue_id uuid,

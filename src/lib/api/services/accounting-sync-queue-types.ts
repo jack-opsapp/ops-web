@@ -40,7 +40,7 @@ export type AccountingSyncDecision =
 
 export type AccountingSyncAuditStatus = "succeeded" | "failed" | "blocked" | "needs_review" | "skipped";
 
-export type AccountingSyncAuditSource = "trigger" | "worker" | "webhook" | "reconcile" | "operator";
+export type AccountingSyncAuditSource = "trigger" | "worker" | "webhook" | "reconcile" | "operator" | "system";
 
 export type AccountingSyncSnapshot = Record<string, unknown>;
 
