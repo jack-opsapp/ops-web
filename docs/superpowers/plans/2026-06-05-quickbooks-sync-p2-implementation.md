@@ -281,7 +281,7 @@ describe("QBO P2 sync queue migration", () => {
     expect(sql).toContain("check (operation in ('create', 'update', 'void', 'inactivate', 'delete_soft', 'link', 'reconcile'))");
     expect(sql).toContain("check (status in ('pending', 'claimed', 'succeeded', 'failed', 'blocked', 'needs_review', 'cancelled'))");
     expect(sql).toContain("accounting_sync_queue_active_uniq");
-    expect(sql).toContain("where status in ('pending', 'claimed')");
+    expect(sql).toContain("where status = 'pending'");
   });
 
   it("adds a service-role claim RPC using skip locked", () => {
@@ -362,7 +362,7 @@ create unique index if not exists accounting_sync_queue_active_uniq
     operation,
     idempotency_key
   )
-  where status in ('pending', 'claimed');
+  where status = 'pending';
 
 create index if not exists accounting_sync_queue_due_idx
   on public.accounting_sync_queue (provider, status, run_after, created_at)
@@ -582,7 +582,7 @@ begin
     v_payload
   )
   on conflict (company_id, provider, entity_type, entity_id, operation, idempotency_key)
-  where status in ('pending', 'claimed')
+  where status = 'pending'
   do update
     set source_updated_at = excluded.source_updated_at,
         payload_snapshot = excluded.payload_snapshot,

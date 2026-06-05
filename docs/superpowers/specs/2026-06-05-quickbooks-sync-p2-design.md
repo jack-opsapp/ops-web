@@ -256,7 +256,7 @@ Status values:
 - `needs_review`
 - `cancelled`
 
-Terminal statuses are `succeeded`, `failed`, `blocked`, `needs_review`, and `cancelled`. Active coalescing applies only to `pending` and `claimed`.
+Terminal statuses are `succeeded`, `failed`, `blocked`, `needs_review`, and `cancelled`. Active coalescing applies only to `pending` rows. Claimed rows must not be mutated by later trigger writes because the worker already holds an in-memory copy; a later change to the same OPS entity must create a separate pending row or version so it cannot be lost when the stale claimed row completes.
 
 Operation values:
 
@@ -279,8 +279,9 @@ Line items are not queued as independent QuickBooks records. A line item trigger
 
 Idempotency:
 
-- Unique active key on `(company_id, provider, entity_type, entity_id, operation, idempotency_key)` where status is not terminal.
-- Multiple updates to the same record before a worker runs should coalesce into one pending row when safe.
+- Unique active key on `(company_id, provider, entity_type, entity_id, operation, idempotency_key)` where status is `pending`.
+- Multiple updates to the same record before a worker claims the row should coalesce into one pending row when safe.
+- Updates after a worker has claimed a row must create a new pending row/version rather than mutating the claimed row.
 - The worker should always refetch current OPS state before writing to QB. The queue snapshot is diagnostic, not authoritative.
 
 ### Trigger Coverage
