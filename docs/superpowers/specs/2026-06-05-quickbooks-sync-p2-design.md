@@ -93,7 +93,7 @@ The UI must make accounting sync feel controlled, not configurable. A business o
 
 ### UX Principle
 
-The customer-facing surface must be Apple-like: very few visible controls, no mode selector, no exposed toggles for normal operation, and no technical dashboard by default. The main QuickBooks surface is a status panel. Buttons only appear when an action is required. Advanced controls live in settings/admin/developer surfaces behind permissions.
+The customer-facing surface must be Apple-like: very few visible controls, no mode selector, no exposed toggles for normal operation, and no technical dashboard by default. The main QuickBooks surface is a status panel. Primary buttons only appear when an action is required. Low-prominence admin actions such as `DISCONNECT` and `ADVANCED` may sit in Settings, behind permissions, without competing with the sync status.
 
 ### Surfaces
 
@@ -114,7 +114,7 @@ P2 moves accounting integration setup out of `/accounting` and into Settings.
 
 Do not create a separate accounting command page in P2. Do not create a new `/accounting` integration tab. The visual design must use OPS-Web Settings patterns, especially the existing Settings group/sub-tab structure.
 
-The normal customer Settings state should be a single accounting-sync panel, not a dashboard grid. If no provider is connected, show one `CONNECT ACCOUNTING SOFTWARE` action that opens provider selection. If QuickBooks is connected, the panel shows QuickBooks as the active provider and suppresses Sage as an equal parallel choice. Realm IDs, encrypted identifiers, auto-sync flags, write gates, queue depths, and disconnect/sync-now controls are not visible in the primary panel.
+The normal customer Settings state should be a single accounting-sync panel, not a dashboard grid. If no provider is connected, show one `CONNECT ACCOUNTING SOFTWARE` action that opens provider selection. If QuickBooks is connected, the panel shows QuickBooks as the active provider and suppresses Sage as an equal parallel choice. Realm IDs, encrypted identifiers, auto-sync flags, write gates, queue depths, and sync-now controls are not visible in the primary panel. A low-prominence `DISCONNECT` action is allowed for admins and must require destructive confirmation before it changes anything.
 
 ### Customer-Facing States
 
@@ -533,6 +533,7 @@ Required visible data in the primary Settings panel:
 - Connected QuickBooks company.
 - Last successful sync.
 - Current required action, if any.
+- Low-prominence `DISCONNECT` action for admins, with destructive confirmation.
 - One quiet secondary link for advanced/admin settings when permission allows.
 - Conflict/review count only when non-zero.
 - Failed/retry count only when non-zero.
@@ -546,7 +547,7 @@ Required hidden or subordinate data:
 - Last reconcile.
 - Last token refresh.
 - Propagate deletes state, visible only in setup/admin context.
-- Disconnect, pause, manual sync, and retry controls outside the main customer card unless the current state requires that exact action.
+- Pause, manual sync, and retry controls outside the main customer card unless the current state requires that exact action.
 
 Forbidden in the primary Settings panel:
 
@@ -637,7 +638,7 @@ Gate 1: Product intent approval.
 
 - Customer-facing QuickBooks is full two-way sync by default.
 - Read-only is developer/sandbox tooling, not a customer product mode.
-- Healthy sync shows status, not controls. Actions appear only when setup, reconnect, retry, resume, or conflict review is required.
+- Healthy sync shows status first. Only quiet admin actions such as `DISCONNECT` and `ADVANCED` can remain visible; primary actions appear only when setup, reconnect, retry, resume, or conflict review is required.
 - Integration setup lives under Settings. The Accounting page has no `Integrations` sub-tab.
 - The visible Settings design is a single clear hierarchy, not a multi-card diagnostics dashboard.
 
