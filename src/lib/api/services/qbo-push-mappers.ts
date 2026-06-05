@@ -5,6 +5,7 @@ export interface OpsClientForQbo {
   phoneNumber?: string | null;
   address?: string | null;
   qbId?: string | null;
+  syncToken?: string | null;
 }
 
 export interface OpsContactForQbo {
@@ -59,6 +60,11 @@ export interface OpsInvoiceLinkForQbo {
   balanceDue?: number | string | null;
 }
 
+export interface QboFallbackServiceItemRef {
+  qbItemId: string;
+  name: string;
+}
+
 type QboPayload = Record<string, unknown>;
 
 const DEFAULT_SERVICE_ITEM_NAME = "OPS Service";
@@ -109,20 +115,40 @@ function addDefined(
   if (value !== undefined) payload[key] = value;
 }
 
-function maybeRef(
+function qboRef(
   value: string | null | undefined,
   label: string,
-): { value: string } | undefined {
-  const cleaned = cleanString(value);
-  if (!cleaned) return undefined;
-  return { value: assertQboRef(cleaned, label) };
+  name?: string | null,
+): { value: string; name?: string } {
+  const ref: { value: string; name?: string } = {
+    value: assertQboRef(value, label),
+  };
+  const cleanedName = cleanString(name);
+  if (cleanedName) ref.name = cleanedName;
+  return ref;
+}
+
+function fallbackItemRef(
+  fallback: QboFallbackServiceItemRef | null | undefined,
+): { value: string; name: string } {
+  const name = cleanString(fallback?.name) ?? DEFAULT_SERVICE_ITEM_NAME;
+  return {
+    value: assertQboRef(
+      fallback?.qbItemId,
+      "QuickBooks fallback service item link",
+    ),
+    name,
+  };
 }
 
 function lineName(line: OpsLineItemForQbo): string {
   return cleanString(line.name) ?? cleanString(line.description) ?? DEFAULT_SERVICE_ITEM_NAME;
 }
 
-function mapSalesLine(line: OpsLineItemForQbo): QboPayload {
+function mapSalesLine(
+  line: OpsLineItemForQbo,
+  fallback: QboFallbackServiceItemRef | null | undefined,
+): QboPayload {
   const quantity = cleanQuantity(line.quantity);
   const unitPrice =
     line.unitPrice !== null && line.unitPrice !== undefined && line.unitPrice !== ""
@@ -137,9 +163,9 @@ function mapSalesLine(line: OpsLineItemForQbo): QboPayload {
       ? cleanAmount(line.amount, "line item amount")
       : cleanAmount(unitPrice * quantity, "line item amount");
   const name = lineName(line);
-  const itemRef = maybeRef(line.qbItemId, "QuickBooks item link") ?? {
-    name: DEFAULT_SERVICE_ITEM_NAME,
-  };
+  const itemRef = cleanString(line.qbItemId)
+    ? qboRef(line.qbItemId, "QuickBooks item link", cleanString(line.name))
+    : fallbackItemRef(fallback);
 
   return {
     DetailType: "SalesItemLineDetail",
@@ -160,9 +186,9 @@ function addUpdateFields(
   const qbId = cleanString(entity.qbId);
   if (!qbId) return;
   payload.Id = assertQboRef(qbId, "QuickBooks entity link");
-  if (entity.syncToken !== null && entity.syncToken !== undefined) {
-    payload.SyncToken = String(entity.syncToken);
-  }
+  const syncToken = cleanString(entity.syncToken);
+  if (!syncToken) throw new Error("QuickBooks entity SyncToken required");
+  payload.SyncToken = syncToken;
 }
 
 export function assertQboRef(
@@ -206,12 +232,15 @@ export function mapInvoiceToQboInvoice(input: {
   invoice: OpsInvoiceForQbo;
   client: Pick<OpsClientForQbo, "id" | "name" | "qbId">;
   lineItems: OpsLineItemForQbo[];
+  fallbackServiceItem?: QboFallbackServiceItemRef | null;
 }): QboPayload {
   const payload: QboPayload = {
     CustomerRef: {
       value: assertQboRef(input.client.qbId, "QuickBooks customer link"),
     },
-    Line: input.lineItems.map(mapSalesLine),
+    Line: input.lineItems.map((line) =>
+      mapSalesLine(line, input.fallbackServiceItem),
+    ),
   };
 
   addDefined(payload, "DocNumber", cleanString(input.invoice.docNumber));
@@ -226,12 +255,15 @@ export function mapEstimateToQboEstimate(input: {
   estimate: OpsEstimateForQbo;
   client: Pick<OpsClientForQbo, "id" | "name" | "qbId">;
   lineItems: OpsLineItemForQbo[];
+  fallbackServiceItem?: QboFallbackServiceItemRef | null;
 }): QboPayload {
   const payload: QboPayload = {
     CustomerRef: {
       value: assertQboRef(input.client.qbId, "QuickBooks customer link"),
     },
-    Line: input.lineItems.map(mapSalesLine),
+    Line: input.lineItems.map((line) =>
+      mapSalesLine(line, input.fallbackServiceItem),
+    ),
   };
 
   addDefined(payload, "DocNumber", cleanString(input.estimate.docNumber));

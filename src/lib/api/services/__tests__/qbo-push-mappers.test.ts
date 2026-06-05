@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import fallbackServiceItem from "../../../../../tests/fixtures/qbo/push/fallback-service-item.json";
 import invoiceLineItems from "../../../../../tests/fixtures/qbo/push/invoice-line-items.json";
 import {
   assertQboRef,
@@ -19,6 +20,7 @@ describe("QBO push mappers", () => {
         phoneNumber: "778-555-0100",
         address: "12 Yard Rd",
         qbId: null,
+        syncToken: null,
       },
       primaryContact: {
         firstName: "Alex",
@@ -48,6 +50,7 @@ describe("QBO push mappers", () => {
         phoneNumber: " ",
         address: null,
         qbId: null,
+        syncToken: null,
       },
       primaryContact: {
         firstName: "Alex",
@@ -117,6 +120,7 @@ describe("QBO push mappers", () => {
       },
       client: { id: "client-1", qbId: "44", name: "Maverick Projects" },
       lineItems: invoiceLineItems,
+      fallbackServiceItem,
     });
 
     expect(payload.Line).toEqual([
@@ -125,12 +129,113 @@ describe("QBO push mappers", () => {
         Description: "Field work",
         Amount: 125,
         SalesItemLineDetail: expect.objectContaining({
-          ItemRef: { name: "OPS Service" },
+          ItemRef: { value: "1", name: "OPS Service" },
           Qty: 2,
           UnitPrice: 62.5,
         }),
       }),
     ]);
+  });
+
+  it("blocks invoice fallback lines when no concrete service item ref is available", () => {
+    expect(() =>
+      mapInvoiceToQboInvoice({
+        invoice: {
+          id: "inv-1",
+          qbId: null,
+          docNumber: "INV-1",
+          total: 125,
+          issueDate: "2026-06-05",
+          dueDate: "2026-06-20",
+        },
+        client: { id: "client-1", qbId: "44", name: "Maverick Projects" },
+        lineItems: invoiceLineItems,
+      }),
+    ).toThrow("QuickBooks fallback service item link required");
+  });
+
+  it("uses the concrete fallback service item ref for estimate lines", () => {
+    const payload = mapEstimateToQboEstimate({
+      estimate: {
+        id: "est-1",
+        qbId: null,
+        docNumber: "EST-1",
+        total: 125,
+        issueDate: "2026-06-05",
+        expirationDate: "2026-07-05",
+      },
+      client: { id: "client-1", qbId: "44", name: "Maverick Projects" },
+      lineItems: invoiceLineItems,
+      fallbackServiceItem,
+    });
+
+    expect(payload.Line).toEqual([
+      expect.objectContaining({
+        SalesItemLineDetail: expect.objectContaining({
+          ItemRef: { value: "1", name: "OPS Service" },
+        }),
+      }),
+    ]);
+  });
+
+  it("requires SyncToken when mapping a linked customer update", () => {
+    expect(() =>
+      mapClientToQboCustomer({
+        client: {
+          id: "client-1",
+          name: "Maverick Projects",
+          qbId: "44",
+          syncToken: "",
+        },
+      }),
+    ).toThrow("QuickBooks entity SyncToken required");
+
+    expect(
+      mapClientToQboCustomer({
+        client: {
+          id: "client-1",
+          name: "Maverick Projects",
+          qbId: "44",
+          syncToken: "3",
+        },
+      }),
+    ).toEqual(expect.objectContaining({ Id: "44", SyncToken: "3" }));
+  });
+
+  it("requires and includes SyncToken when mapping a linked invoice update", () => {
+    expect(() =>
+      mapInvoiceToQboInvoice({
+        invoice: {
+          id: "inv-1",
+          qbId: "90",
+          syncToken: null,
+          docNumber: "INV-1",
+          total: 125,
+          issueDate: "2026-06-05",
+          dueDate: "2026-06-20",
+        },
+        client: { id: "client-1", qbId: "44", name: "Maverick Projects" },
+        lineItems: invoiceLineItems,
+        fallbackServiceItem,
+      }),
+    ).toThrow("QuickBooks entity SyncToken required");
+
+    expect(
+      mapInvoiceToQboInvoice({
+        invoice: {
+          id: "inv-1",
+          qbId: "90",
+          syncToken: "5",
+          docNumber: "INV-1",
+          total: 125,
+          issueDate: "2026-06-05",
+          dueDate: "2026-06-20",
+        },
+        client: { id: "client-1", qbId: "44", name: "Maverick Projects" },
+        lineItems: invoiceLineItems,
+        fallbackServiceItem,
+      }),
+    ).toEqual(expect.objectContaining({ Id: "90", SyncToken: "5" }));
   });
 
   it("maps a payment to a linked QuickBooks invoice", () => {

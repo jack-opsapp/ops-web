@@ -33,6 +33,19 @@ function assertQboId(id: string): void {
   if (!/^\d+$/.test(id)) throw new Error("Invalid QuickBooks id");
 }
 
+function requireUpdatePayload(payload: Record<string, unknown>): void {
+  const id = payload.Id;
+  if (typeof id !== "string" || id.trim() === "") {
+    throw new Error("QuickBooks update Id required");
+  }
+  assertQboId(id.trim());
+
+  const syncToken = payload.SyncToken;
+  if (typeof syncToken !== "string" || syncToken.trim() === "") {
+    throw new Error("QuickBooks update SyncToken required");
+  }
+}
+
 function entityUrl(input: QuickBooksWriteServiceInput, entity: QboWriteEntity) {
   return `${hostFor(input.environment)}/v3/company/${input.realmId}/${ENTITY_PATH[entity]}?minorversion=75`;
 }
@@ -106,6 +119,7 @@ export class QuickBooksWriteService {
     entity: QboWriteEntity,
     payload: Record<string, unknown>,
   ): Promise<QuickBooksWriteResult> {
+    requireUpdatePayload(payload);
     return this.post(entity, payload);
   }
 
