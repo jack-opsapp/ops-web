@@ -482,13 +482,14 @@ describe("POST /api/cron/accounting/quickbooks/push-queue", () => {
       Customer: { Id: "123", SyncToken: "4", MetaData: { LastUpdatedTime: "2026-06-05T10:00:00Z" } },
     });
     writeUpdate.mockResolvedValueOnce({ qbId: "123", syncToken: "5", metaUpdatedAt: "2026-06-05T10:02:00Z" });
+    let suppressBeforeWritebackAtMarkSucceeded = false;
+    let clientLinkedAtMarkSucceeded = false;
     markSucceeded.mockImplementationOnce(async () => {
       const suppressIndex = state.calls.findIndex((call) => call.method === "rpc:suppress_accounting_sync");
       const updateIndex = state.calls.findIndex((call) => call.table === "clients" && call.method === "update");
 
-      expect(suppressIndex).toBeGreaterThanOrEqual(0);
-      expect(updateIndex).toBeGreaterThan(suppressIndex);
-      expect(state.clients[0].qb_id).toBe("123");
+      suppressBeforeWritebackAtMarkSucceeded = suppressIndex >= 0 && updateIndex > suppressIndex;
+      clientLinkedAtMarkSucceeded = state.clients[0].qb_id === "123";
     });
     state.clients.push({
       id: CUSTOMER_ID,
@@ -515,6 +516,8 @@ describe("POST /api/cron/accounting/quickbooks/push-queue", () => {
     );
     expect(writeCreate).not.toHaveBeenCalled();
     expect(state.clients[0].qb_id).toBe("123");
+    expect(suppressBeforeWritebackAtMarkSucceeded).toBe(true);
+    expect(clientLinkedAtMarkSucceeded).toBe(true);
     expect(markSucceeded).toHaveBeenCalledWith("q-1", { externalId: "123", workerId: expect.any(String) });
   });
 
