@@ -1,4 +1,4 @@
-# QuickBooks Sync P2 - Full CRUD Engine + Operator UX Design
+# QuickBooks Sync P2 - Full Sync Engine + Minimal Customer UX Design
 
 Date: 2026-06-05
 Project: `ops-web`
@@ -11,7 +11,7 @@ Production customer status: CanPro QuickBooks OAuth is blocked until a QuickBook
 
 P2 is a QuickBooks-only implementation target. The architecture preserves the existing provider boundary where it already exists (`accounting_connections.provider`, token service, shared connection UI), but agents must not spend P2 building generic Sage abstractions. Sage remains supported by the legacy connection layer and expense edge-function path, but the new full CRUD engine is proven against QuickBooks first.
 
-The build is contract-first. Backend and UX are planned together before any implementation agent starts. The operator must be able to see what the engine is doing, why it is paused, what failed, what can be retried, what changed source-of-truth, and whether OPS is safe to write to QuickBooks.
+The build is contract-first. Backend and UX are planned together before any implementation agent starts. The customer-facing promise is simple: OPS and QuickBooks stay in sync both ways. Customers should not choose between read-only and full CRUD as product modes. Read-only is a developer/sandbox safety posture, or at most a small degraded setup state. The operator must be able to see whether sync is connected, active, paused, retryable, or waiting for conflict review.
 
 ## Existing Base
 
@@ -21,13 +21,13 @@ The shipped base on `origin/main` has:
 - `accounting_connections.sync_direction`, default `pull_only`.
 - `accounting_connections.propagate_deletes`, default `false`.
 - Production write kill-switch: outbound writes require `ACCOUNTING_WRITE_ENABLED === "true"`.
-- Read-only QuickBooks Pull -> Stage -> Review -> Apply.
+- Developer/sandbox QuickBooks Pull -> Stage -> Review -> Apply.
 - Company/customer mapping: QuickBooks company -> `clients`, QuickBooks contact -> `sub_clients`.
 - Partial unique `(company_id, qb_id)` indexes on `clients`, `sub_clients`, `invoices`, `estimates`, and `payments`.
 - Signed inbound QuickBooks webhook that fetches changed records by GET and applies them into OPS without writing to QuickBooks.
 - Review UI under `/accounting`, with dictionary-backed copy and permission gates.
 
-The shipped read-only path is not replaced. P2 adds the outbound queue engine, reconcile loop, operator health UI, and sandbox proof needed before any production write enablement.
+The shipped read-only path is not replaced, but P2 must treat it as developer/sandbox tooling rather than the primary customer experience. P2 adds the outbound queue engine, reconcile loop, customer-facing sync health UI, and sandbox proof needed before any production write enablement.
 
 ## Hard Safety Rules
 
@@ -55,7 +55,7 @@ P2 builds full continuous two-way sync for QuickBooks:
 - Last-write-wins by timestamp with audit for every overwrite.
 - OPS soft-delete always. QuickBooks propagation only when `propagate_deletes = true`.
 - Retry/backoff with poison-record isolation.
-- Operator-facing health, audit, queue, conflict, retry, pause, and enablement UI.
+- Customer-facing connected/syncing/paused/retry/conflict UI, plus developer-facing audit, queue, write-gate, and sandbox diagnostics.
 - Maverick sandbox validation that proves create/update/void/reconcile behavior end to end.
 
 ## Non-Goals
@@ -67,73 +67,91 @@ P2 builds full continuous two-way sync for QuickBooks:
 - Payroll, purchase orders, vendors, inventory sync, deposits, tax-code configuration, or bank feeds.
 - Production write enablement.
 
-## Operator UX Contract
+## Customer and Operator UX Contract
 
-The UI must make accounting sync feel controlled, not magical. A business owner should know whether OPS is importing, writing, paused, waiting for review, or blocked.
+The UI must make accounting sync feel controlled, not configurable. A business owner should know whether QuickBooks is connected, syncing, paused, needs retry, needs reconnect, or needs conflict review. They should not have to understand read-only mode, write gates, queue depth, webhooks, worker state, or sync modes. The product should feel intentionally built for them: healthy sync is quiet, broken sync asks for one clear action.
+
+### UX Principle
+
+The customer-facing surface must be Apple-like: very few visible controls, no mode selector, no exposed toggles for normal operation, and no technical dashboard by default. The main QuickBooks surface is a status panel. Buttons only appear when an action is required. Advanced controls live in settings/admin/developer surfaces behind permissions.
 
 ### Surfaces
 
 P2 adds or extends these `/accounting` surfaces:
 
 - `// INTEGRATIONS`
-  Connection, environment, mode, write gate, and enablement status.
+  Customer-facing connection and sync status. No customer-facing read-only/full-CRUD selector.
 - `// QUICKBOOKS IMPORT`
-  Existing read-only import remains available.
+  Existing staged import remains available for developer/sandbox validation and initial setup where needed. In the customer-facing product it is hidden, permission-gated, or visually subordinate.
 - `// SYNC HEALTH`
-  Queue state, last worker run, blocked writes, retry counts, and webhook/reconcile freshness.
+  Customer-facing summary first: active, paused, retry available, reconnect required, or review required. Developer diagnostics can show queue state, worker runs, write gate, retry counts, and webhook/reconcile freshness.
 - `// AUDIT LOG`
-  Per-record change trail with source, direction, before/after summary, QB id, OPS id, and result.
+  Admin/developer surface for per-record change trail with source, direction, before/after summary, QB id, OPS id, and result. Not part of the default customer view.
 - `// CONFLICTS`
-  Records where timestamps, linkage, or delete behavior require operator review.
+  Appears only when records need review. Hidden when count is zero.
 
 These ship as tabs in the existing accounting page. Do not create a separate accounting command page in P2. The visual design must use OPS-Web tokens and existing product UI patterns.
 
-### Required States
+### Customer-Facing States
 
 | State | Meaning | UI behavior |
 |---|---|---|
-| `read_only` | Connection imports only | Show current safe state. Full CRUD CTA disabled or gated by explicit confirmation. |
-| `write_gate_off` | `sync_direction = bidirectional` but env kill-switch off | Show `SYS :: WRITE GATE OFF`; no push action available. |
-| `initial_reconcile_required` | Bidirectional requested, but initial link/reconcile not complete | Show blocking checklist. No outbound queue drain. |
-| `active` | Queue drains and webhook/reconcile operate normally | Show queue depth, last run, last successful write, last inbound event. |
-| `paused_by_operator` | Operator paused sync | Queue records accumulate, no outbound writes. |
-| `paused_by_system` | Token, env, schema, or repeated failure blocks progress | Show reason, affected entity, and next action. |
-| `retrying` | Failed item is inside retry window | Show next retry time and attempt count. |
-| `needs_review` | Conflict or unsafe delete requires operator decision | Show record diff and source-of-truth recommendation. |
-| `verified` | Latest sandbox or company proof passed | Show last verification timestamp and counts. |
+| `connected` | QuickBooks account is linked and ready | Show `CONNECTED` and the connected company. |
+| `sync_active` | OPS and QuickBooks are syncing both ways | Show `SYNC ACTIVE`, last sync time, and no primary action. |
+| `setup_incomplete` | Connection exists but link/reconcile/setup is not complete | Show blocking checklist and next setup action. Do not present this as read-only mode. |
+| `paused` | Sync was paused from settings/admin or by system policy | Show `SYNC PAUSED` and a single next action. Pause control itself is not prominent on the main surface. |
+| `retry_available` | A failed operation can be retried by the customer | Show exact failed record and one `RETRY` action. Hidden when there is nothing retryable. |
+| `reconnect_required` | Token/auth failure requires QuickBooks reconnect | Show one `RECONNECT QUICKBOOKS` action. |
+| `needs_review` | Conflict or unsafe delete requires customer decision | Show one `REVIEW CONFLICTS` action and the count. Detailed diff opens only after click. |
+| `verified` | Latest sandbox or company proof passed | Show last verification timestamp and counts in admin/developer context. |
+
+### Internal Safety States
+
+| State | Meaning | UI behavior |
+|---|---|---|
+| `developer_read_only` | Developer/sandbox import path only | Hide from normal customer flow. If visible, label `DEV :: READ-ONLY` and keep it subordinate. |
+| `write_gate_off` | `sync_direction = bidirectional` but env kill-switch off | Internal diagnostic: `SYS :: WRITE GATE OFF`; no push action available. |
+| `initial_reconcile_required` | Full sync requested, but initial link/reconcile not complete | Drives customer `setup_incomplete`; no outbound queue drain. |
+| `paused_by_system` | Token, env, schema, or repeated failure blocks progress | Drives customer `reconnect_required`, `retry_available`, or `needs_review` depending on reason. |
+| `retrying` | Failed item is inside retry window | Internal diagnostic with next retry time and attempt count. |
 
 ### Operator Copy
 
 All user-facing text must live in `src/i18n/dictionaries/{en,es}/accounting.json`. OPS voice:
 
 - Page title: `// QUICKBOOKS SYNC`
-- Safe import state: `READ-ONLY`
-- Write-gate state: `SYS :: WRITE GATE OFF`
+- Normal state: `SYNC ACTIVE`
+- Connected state: `CONNECTED`
+- Setup state: `SETUP INCOMPLETE`
+- Developer-only import state: `DEV :: READ-ONLY`
+- Internal write-gate state: `SYS :: WRITE GATE OFF`
 - Active state: `SYNC ACTIVE`
 - Blocking state: `REVIEW REQUIRED`
-- Retry action: `RETRY`
-- Pause action: `PAUSE SYNC`
-- Resume action: `RESUME SYNC`
-- Enable action: `ENABLE FULL CRUD`
+- Retry action, only when needed: `RETRY`
+- Pause action, settings/admin only: `PAUSE SYNC`
+- Resume action, only when paused: `RESUME SYNC`
+- Reconnect action, only on auth failure: `RECONNECT QUICKBOOKS`
+- Conflict action, only when conflicts exist: `REVIEW CONFLICTS`
+- Enable action, internal/admin only: `ARM FULL SYNC`
 - Destructive confirmation: `DESTRUCTIVE. NO UNDO.`
 
 No emoji. No exclamation points. Numbers are mono, formatted, and never raw.
 
-### Enable Full CRUD Flow
+### Customer Enablement Flow
 
-The enablement flow is deliberately staged:
+The customer does not select read-only or full CRUD. Connecting QuickBooks means the product promise is full two-way sync after setup checks pass. The enablement flow is deliberately staged behind that simple promise:
 
 1. Operator chooses QuickBooks connection.
 2. UI verifies permission `accounting.manage_connections`.
 3. UI shows checklist:
    - QuickBooks connected.
-   - Read-only import applied or initial link/reconcile complete.
+   - Initial link/reconcile complete.
    - Queue schema active.
-   - Write gate status.
    - Sandbox proof status if environment is non-production.
-4. Operator selects mode `Full CRUD`.
-5. Operator chooses `propagate_deletes` on or off.
-6. Operator confirms the exact behavior:
+   - Internal write gate status for developers/admins only.
+4. System arms full sync when setup passes.
+5. Delete propagation is configured during setup/admin review, not shown as a daily customer toggle.
+6. Operator confirms the exact behavior when changing destructive sync behavior:
    - OPS changes will write to QuickBooks.
    - QuickBooks changes will overwrite OPS when QB is newer.
    - OPS deletes are soft in OPS.
@@ -142,7 +160,7 @@ The enablement flow is deliberately staged:
 7. Route records `sync_direction = bidirectional`, `propagate_deletes`, and creates an `initial_reconcile_required` gate if link state is incomplete.
 8. Outbound worker still requires `ACCOUNTING_WRITE_ENABLED === "true"`.
 
-In production, a missing env write gate keeps the connection non-writing even if the UI records full CRUD preference.
+In production, a missing env write gate keeps the connection non-writing even if the UI records bidirectional sync. The customer-facing UI should show setup incomplete, paused, retry, reconnect, or review states; it should not frame this as a customer-selected read-only mode.
 
 ## Backend Architecture
 
@@ -447,7 +465,7 @@ Propagation:
 Access:
 
 - `/accounting` requires `accounting.view` and accounting feature flag.
-- Import, integrations, sync-mode, retries, pause/resume, and conflict decisions require `accounting.manage_connections`.
+- Import, integrations, sync behavior changes, retries, pause/resume, and conflict decisions require `accounting.manage_connections`.
 - Queue drain and reconcile routes are service-role and cron-secret gated.
 - Webhook remains unauthenticated at middleware level but signature-verified and fail-closed.
 
@@ -486,9 +504,12 @@ Recommended components:
 
 Required visible data:
 
-- Current mode.
-- Write gate state.
-- Queue depth by status.
+- Customer sync status.
+- Connected QuickBooks company.
+- Last successful sync.
+- Current required action, if any.
+- Developer-only write gate state.
+- Developer-only queue depth by status.
 - Last outbound write.
 - Last inbound webhook.
 - Last reconcile.
@@ -496,7 +517,7 @@ Required visible data:
 - Failed row count.
 - Retry exhaustion count.
 - Conflict count.
-- Propagate deletes state.
+- Propagate deletes state, visible only in setup/admin context.
 
 ## Testing Strategy
 
@@ -520,7 +541,7 @@ Integration tests:
 - Worker pauses on invalid_grant.
 - Webhook writes audit events and avoids retry storms.
 - Reconcile produces expected wins/conflicts.
-- UI renders every required operator state.
+- UI renders every required customer-facing state and internal diagnostic state.
 
 Sandbox tests:
 
@@ -567,12 +588,16 @@ Each agent prompt must include:
 - Requirement to report exact files changed, commands run, pass/fail results, and unresolved risks.
 - Ban on production env changes.
 - Ban on QuickBooks production writes.
+- Ban on customer-facing read-only/full-CRUD mode selectors.
+- Ban on exposing healthy-sync controls on the main customer surface.
 
 ## Review Gates
 
-Gate 1: Spec approval.
+Gate 1: Product intent approval.
 
-- This document accepted by user.
+- Customer-facing QuickBooks is full two-way sync by default.
+- Read-only is developer/sandbox tooling, not a customer product mode.
+- Healthy sync shows status, not controls. Actions appear only when setup, reconnect, retry, resume, or conflict review is required.
 
 Gate 2: Implementation plan approval.
 
@@ -623,6 +648,7 @@ Gate 8: Production decision.
 - Payment mapping depends on invoice linkage.
 - QuickBooks Jobs remain out of P2 scope and can still appear in customer data.
 - UI can give false confidence if health states are not sourced from real queue/audit data.
+- UI can overwhelm customers if developer read-only/write-gate/queue controls are presented as normal product choices.
 - Production and sandbox QuickBooks envs are global per deployment; never flip production to sandbox for testing.
 
 ## Acceptance Criteria
@@ -630,7 +656,8 @@ Gate 8: Production decision.
 P2 is accepted when:
 
 - Full CRUD engine is implemented behind the write gate.
-- Operator UI shows real sync health, queue, conflicts, retry, and audit state.
+- Customer UI shows real connected/syncing/paused/retry/reconnect/conflict state with minimal visible controls.
+- Developer/admin diagnostics show real queue, write-gate, audit, and sandbox state.
 - Maverick sandbox proves OPS -> QB and QB -> OPS create/update/void/reconcile flows.
 - No duplicate QB-linked records appear in OPS.
 - No duplicate OPS-created records appear in QB during repeated runs.
