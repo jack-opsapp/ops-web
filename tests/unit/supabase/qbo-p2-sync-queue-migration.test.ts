@@ -54,6 +54,30 @@ describe("QBO P2 sync queue migration", () => {
     expect(sql).toContain("grant execute on function public.claim_accounting_sync_queue(text, integer, text) to service_role");
   });
 
+  it("adds a service-role retry RPC that cancels superseded claimed rows", () => {
+    expect(sql).toContain("create or replace function public.retry_accounting_sync_queue");
+    expect(sql).toContain("where id = p_queue_id");
+    expect(sql).toContain("and status = 'claimed'");
+    expect(sql).toContain("and locked_by = p_worker_id");
+    expect(sql).toContain("for update");
+    expect(sql).toContain("and status = 'pending'");
+    expect(sql).toContain("and id <> v_row.id");
+    expect(sql).toContain("and idempotency_key = v_row.idempotency_key");
+    expect(sql).toContain("set status = 'cancelled'");
+    expect(sql).toContain("superseded by newer pending queue row");
+    expect(sql).toContain("exception when unique_violation then");
+    expect(sql).toContain("set status = 'pending'");
+    expect(sql).toContain("revoke all on function public.retry_accounting_sync_queue(uuid, text, text, timestamptz) from public, anon, authenticated");
+    expect(sql).toContain("grant execute on function public.retry_accounting_sync_queue(uuid, text, text, timestamptz) to service_role");
+  });
+
+  it("adds a service-role helper for marking inbound QuickBooks writes", () => {
+    expect(sql).toContain("create or replace function public.set_ops_sync_source");
+    expect(sql).toContain("perform set_config('ops.sync_source', p_source, true)");
+    expect(sql).toContain("revoke all on function public.set_ops_sync_source(text) from public, anon, authenticated");
+    expect(sql).toContain("grant execute on function public.set_ops_sync_source(text) to service_role");
+  });
+
   it("uses a transaction-local QuickBooks source marker to prevent echo loops", () => {
     expect(sql).toContain("current_setting('ops.sync_source', true)");
     expect(sql).toContain("= 'quickbooks'");
@@ -64,6 +88,8 @@ describe("QBO P2 sync queue migration", () => {
       expect(sql).toContain(`trg_accounting_sync_queue_${table}`);
       expect(sql).toContain(`on public.${table}`);
     }
+    expect(sql).toContain("create trigger trg_accounting_sync_queue_line_items");
+    expect(sql).toContain("after insert or update or delete on public.line_items");
   });
 
   it("handles line items through parent invoices or estimates", () => {

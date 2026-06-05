@@ -104,6 +104,15 @@ export class QuickBooksWebhookApplyService {
     return new QuickBooksPullService(realmId, accessToken, getQuickBooksEnvironment());
   }
 
+  private async markQuickBooksSyncSource(): Promise<void> {
+    const { error } = await this.supabase.rpc("set_ops_sync_source", {
+      p_source: "quickbooks",
+    });
+    if (error) {
+      throw new Error(`Failed to set QuickBooks sync source marker: ${error.message}`);
+    }
+  }
+
   /**
    * Fetch + apply a single entity for a connection. Never throws for a
    * per-entity failure that the route should swallow — instead returns an
@@ -117,6 +126,7 @@ export class QuickBooksWebhookApplyService {
     operation: QboOperation
   ): Promise<ApplyEntityResult> {
     const logEntityType = logEntityTypeFor(entity);
+    await this.markQuickBooksSyncSource();
 
     // Delete / Void — soft-handle without a QB fetch (the record may be gone).
     if (operation === "Delete" || operation === "Void") {

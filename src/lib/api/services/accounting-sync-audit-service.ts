@@ -2,28 +2,24 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AccountingSyncAuditInput, AccountingSyncSnapshot } from "./accounting-sync-queue-types";
 
 const BLOCKED_SNAPSHOT_KEYS = new Set([
-  "access_token",
-  "refresh_token",
-  "realm_id",
   "accesstoken",
   "refreshtoken",
-  "client_secret",
   "clientsecret",
-  "webhook_verifier_token",
   "webhookverifiertoken",
-  "id_token",
   "idtoken",
   "authorization",
 ]);
 
 function isBlockedSnapshotKey(key: string): boolean {
-  const normalized = key.toLowerCase();
+  const normalized = key.replace(/[^a-z0-9]/gi, "").toLowerCase();
   return (
     BLOCKED_SNAPSHOT_KEYS.has(normalized) ||
-    normalized.includes("token") ||
-    normalized.includes("secret") ||
-    normalized.includes("password") ||
-    normalized.includes("verifier")
+    normalized === "password" ||
+    normalized.endsWith("password") ||
+    normalized === "passphrase" ||
+    normalized.endsWith("passphrase") ||
+    normalized === "secret" ||
+    normalized.endsWith("secret")
   );
 }
 

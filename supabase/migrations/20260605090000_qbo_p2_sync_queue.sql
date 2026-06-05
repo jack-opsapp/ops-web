@@ -122,6 +122,124 @@ $$;
 revoke all on function public.claim_accounting_sync_queue(text, integer, text) from public, anon, authenticated;
 grant execute on function public.claim_accounting_sync_queue(text, integer, text) to service_role;
 
+create or replace function public.retry_accounting_sync_queue(
+  p_queue_id uuid,
+  p_worker_id text,
+  p_error text,
+  p_run_after timestamptz default null
+)
+returns public.accounting_sync_queue
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_row public.accounting_sync_queue;
+  v_existing_pending_id uuid;
+begin
+  select *
+  into v_row
+  from public.accounting_sync_queue
+  where id = p_queue_id
+    and status = 'claimed'
+    and locked_by = p_worker_id
+  for update;
+
+  if not found then
+    raise exception 'retry_accounting_sync_queue: claimed row not found or lock owner mismatch';
+  end if;
+
+  select id
+  into v_existing_pending_id
+  from public.accounting_sync_queue
+  where company_id = v_row.company_id
+    and provider = v_row.provider
+    and entity_type = v_row.entity_type
+    and entity_id = v_row.entity_id
+    and operation = v_row.operation
+    and idempotency_key = v_row.idempotency_key
+    and status = 'pending'
+    and id <> v_row.id
+  order by created_at desc
+  limit 1;
+
+  if v_existing_pending_id is not null then
+    update public.accounting_sync_queue
+    set status = 'cancelled',
+        locked_at = null,
+        locked_by = null,
+        last_error = concat_ws(
+          '; ',
+          nullif(p_error, ''),
+          'superseded by newer pending queue row ' || v_existing_pending_id::text
+        ),
+        updated_at = now()
+    where id = v_row.id
+    returning * into v_row;
+
+    return v_row;
+  end if;
+
+  begin
+    update public.accounting_sync_queue
+    set status = 'pending',
+        run_after = coalesce(p_run_after, now()),
+        locked_at = null,
+        locked_by = null,
+        last_error = p_error,
+        updated_at = now()
+    where id = v_row.id
+    returning * into v_row;
+  exception when unique_violation then
+    select id
+    into v_existing_pending_id
+    from public.accounting_sync_queue
+    where company_id = v_row.company_id
+      and provider = v_row.provider
+      and entity_type = v_row.entity_type
+      and entity_id = v_row.entity_id
+      and operation = v_row.operation
+      and idempotency_key = v_row.idempotency_key
+      and status = 'pending'
+      and id <> v_row.id
+    order by created_at desc
+    limit 1;
+
+    update public.accounting_sync_queue
+    set status = 'cancelled',
+        locked_at = null,
+        locked_by = null,
+        last_error = concat_ws(
+          '; ',
+          nullif(p_error, ''),
+          'superseded by newer pending queue row ' || coalesce(v_existing_pending_id::text, 'unknown')
+        ),
+        updated_at = now()
+    where id = v_row.id
+    returning * into v_row;
+  end;
+
+  return v_row;
+end;
+$$;
+
+revoke all on function public.retry_accounting_sync_queue(uuid, text, text, timestamptz) from public, anon, authenticated;
+grant execute on function public.retry_accounting_sync_queue(uuid, text, text, timestamptz) to service_role;
+
+create or replace function public.set_ops_sync_source(p_source text)
+returns void
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  perform set_config('ops.sync_source', p_source, true);
+end;
+$$;
+
+revoke all on function public.set_ops_sync_source(text) from public, anon, authenticated;
+grant execute on function public.set_ops_sync_source(text) to service_role;
+
 create or replace function public.enqueue_accounting_sync()
 returns trigger
 language plpgsql
@@ -371,7 +489,7 @@ create trigger trg_accounting_sync_queue_payments
 
 drop trigger if exists trg_accounting_sync_queue_line_items on public.line_items;
 create trigger trg_accounting_sync_queue_line_items
-  after insert or update on public.line_items
+  after insert or update or delete on public.line_items
   for each row execute function public.enqueue_accounting_sync();
 
 do $$
@@ -386,6 +504,14 @@ begin
 
   if not exists (select 1 from pg_proc where pronamespace = 'public'::regnamespace and proname = 'claim_accounting_sync_queue') then
     raise exception 'qbo_p2_sync_queue_sentinel: claim rpc missing';
+  end if;
+
+  if not exists (select 1 from pg_proc where pronamespace = 'public'::regnamespace and proname = 'retry_accounting_sync_queue') then
+    raise exception 'qbo_p2_sync_queue_sentinel: retry rpc missing';
+  end if;
+
+  if not exists (select 1 from pg_proc where pronamespace = 'public'::regnamespace and proname = 'set_ops_sync_source') then
+    raise exception 'qbo_p2_sync_queue_sentinel: sync source helper missing';
   end if;
 end $$;
 

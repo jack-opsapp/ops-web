@@ -33,19 +33,24 @@ interface Captured {
   inserts: Array<{ table: string; row: Record<string, unknown> }>;
   updates: Array<{ table: string; patch: Record<string, unknown> }>;
   deletes: Array<{ table: string }>;
+  rpcs: Array<{ fn: string; args: Record<string, unknown> }>;
 }
 
 function makeSupabase(opts: {
   // table -> resolved id for maybeSingle on (company_id, qb_id) lookups
   existingIds?: Record<string, string>;
 }) {
-  const captured: Captured = { upserts: [], inserts: [], updates: [], deletes: [] };
+  const captured: Captured = { upserts: [], inserts: [], updates: [], deletes: [], rpcs: [] };
   const existingIds = opts.existingIds ?? {};
   // After an upsert, subsequent maybeSingle should resolve a fresh id.
   const resolvedAfterUpsert: Record<string, string> = {};
 
   function client() {
     return {
+      rpc(fn: string, args: Record<string, unknown>) {
+        captured.rpcs.push({ fn, args });
+        return Promise.resolve({ data: null, error: null });
+      },
       from(table: string) {
         const builder: Record<string, unknown> = {};
         builder.select = () => builder;
@@ -128,6 +133,10 @@ describe("QuickBooksWebhookApplyService.applyEntity — Invoice", () => {
 
     expect(result.status).toBe("success");
     expect(result.logEntityType).toBe("invoice");
+    expect(captured.rpcs).toContainEqual({
+      fn: "set_ops_sync_source",
+      args: { p_source: "quickbooks" },
+    });
 
     const invoiceUpsert = captured.upserts.find((u) => u.table === "invoices");
     expect(invoiceUpsert).toBeDefined();

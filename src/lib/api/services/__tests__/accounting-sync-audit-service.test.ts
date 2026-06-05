@@ -31,20 +31,25 @@ describe("AccountingSyncAuditService", () => {
       decision: "ops_won",
       beforeSnapshot: {
         total: 10,
+        SyncToken: "7",
+        sync_token: "8",
         access_token: "raw-access",
         accessToken: "raw-camel-access",
         clientSecret: "raw-client-secret",
         webhookVerifierToken: "raw-verifier",
-        nested: { refresh_token: "raw-refresh" },
+        webhook_verifier_token: "raw-snake-verifier",
+        nested: { refresh_token: "raw-refresh", safeTokenizedLabel: "kept-label" },
       },
       afterSnapshot: {
         total: 12,
-        realm_id: "raw-realm",
-        safeTokenizedLabel: "remove this because token appears in the key",
+        realm_id: "realm-1",
+        safeTokenizedLabel: "kept because tokenized is not a credential key",
         headers: {
           authorization: "Bearer raw-token",
           idToken: "raw-id-token",
           password: "raw-password",
+          apiPassphrase: "raw-passphrase",
+          sharedSecret: "raw-secret",
           displayName: "kept",
         },
       },
@@ -66,12 +71,22 @@ describe("AccountingSyncAuditService", () => {
         status: "succeeded",
         source: "worker",
         decision: "ops_won",
-        before_snapshot: { total: 10, nested: {} },
-        after_snapshot: { total: 12, headers: { displayName: "kept" } },
+        before_snapshot: {
+          total: 10,
+          SyncToken: "7",
+          sync_token: "8",
+          nested: { safeTokenizedLabel: "kept-label" },
+        },
+        after_snapshot: {
+          total: 12,
+          realm_id: "realm-1",
+          safeTokenizedLabel: "kept because tokenized is not a credential key",
+          headers: { displayName: "kept" },
+        },
       })
     );
     expect(JSON.stringify(insertedPayload)).not.toMatch(
-      /access_token|accessToken|refresh_token|refreshToken|realm_id|idToken|authorization|verifier|secret|password|Bearer|raw-token/i
+      /raw-access|raw-camel-access|raw-client-secret|raw-verifier|raw-snake-verifier|raw-refresh|raw-id-token|raw-password|raw-passphrase|raw-secret|Bearer raw-token/i
     );
   });
 });

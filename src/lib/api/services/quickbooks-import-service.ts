@@ -185,6 +185,15 @@ export class QuickBooksImportService {
     await this.supabase.from("qbo_import_runs").update(patch).eq("id", runId);
   }
 
+  private async markQuickBooksSyncSource(): Promise<void> {
+    const { error } = await this.supabase.rpc("set_ops_sync_source", {
+      p_source: "quickbooks",
+    });
+    if (error) {
+      throw new Error(`Failed to set QuickBooks sync source marker: ${error.message}`);
+    }
+  }
+
   /** Create a pending run for the company. */
   async startImportRun(companyId: string): Promise<QboImportRun> {
     const { data, error } = await this.supabase
@@ -611,6 +620,7 @@ export class QuickBooksImportService {
     if (!run) throw new Error(`Import run not found: ${runId}`);
     const companyId = run.company_id as string;
 
+    await this.markQuickBooksSyncSource();
     await sb.from("qbo_import_runs").update({ status: "applying" }).eq("id", runId);
 
     try {

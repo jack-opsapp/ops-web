@@ -44,6 +44,7 @@ function makeSupabase() {
         phone_number: null, deleted_at: null, merged_into_client_id: null },
     ],
   };
+  const rpcCalls: Array<{ fn: string; args: Row }> = [];
 
   function from(table: string) {
     const rows = tables[table] ?? (tables[table] = []);
@@ -89,12 +90,16 @@ function makeSupabase() {
     return api;
   }
 
-  function rpc(_fn: string, _args: Row) {
+  function rpc(fn: string, args: Row) {
+    rpcCalls.push({ fn, args });
     // No fuzzy candidates by default in this fixture set.
     return Promise.resolve({ data: [], error: null });
   }
 
-  return { from, rpc, _tables: tables } as unknown as import("@supabase/supabase-js").SupabaseClient & { _tables: Record<string, Row[]> };
+  return { from, rpc, _tables: tables, _rpcCalls: rpcCalls } as unknown as import("@supabase/supabase-js").SupabaseClient & {
+    _tables: Record<string, Row[]>;
+    _rpcCalls: Array<{ fn: string; args: Row }>;
+  };
 }
 
 import { QuickBooksImportService } from "../quickbooks-import-service";
@@ -267,5 +272,18 @@ describe("QuickBooksImportService.getImportReview", () => {
       (c) => c.qb_id === "58"
     );
     expect(cool?.displayName).toBe(stagedCool?.display_name);
+  });
+});
+
+describe("QuickBooksImportService.applyImport", () => {
+  it("marks inbound QuickBooks writes before applying staged rows", async () => {
+    const run = await svc.startImportRun(COMPANY_ID);
+
+    await svc.applyImport(run.id, []);
+
+    expect(supabase._rpcCalls).toContainEqual({
+      fn: "set_ops_sync_source",
+      args: { p_source: "quickbooks" },
+    });
   });
 });
