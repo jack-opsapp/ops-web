@@ -29,6 +29,26 @@ The shipped base on `origin/main` has:
 
 The shipped read-only path is not replaced, but P2 must treat it as developer/sandbox tooling rather than the primary customer experience. P2 adds the outbound queue engine, reconcile loop, customer-facing sync health UI, and sandbox proof needed before any production write enablement.
 
+## Supabase Bug-Report Intake
+
+These live Supabase bug reports are part of the P2 source of truth. Any implementation or review prompt must call them out explicitly and must not accept a diff that contradicts them.
+
+| Bug report | Priority | Surface | P2 impact |
+|---|---:|---|---|
+| `11fbc17a-b3b9-426e-a4ee-7131783357d7` | urgent | `accounting/quickbooks-import` | Critical backend gate: `Apply to OPS` can report success while persisting almost nothing. P2 cannot validate full sync until apply/import persistence is proven against live tables and failures are not swallowed. |
+| `41c2ac6f-220d-46b2-aa70-5a7ca58f723b` | medium | `accounting/integrations` | Product UX gate: replace separate QuickBooks/Sage customer cards with one `Integrate accounting software` entry point and a provider picker. Providers are mutually exclusive for one company. |
+| `1cb041b0-8ac9-4d83-a116-8425eee2e1c2` | high | `accounting/quickbooks-import` | Design gate: the QBO import/review UI needs a full OPS design-system redesign. Generic tables/selects are not acceptable for the customer or setup review surface. |
+| `363f16d7-135b-4a15-a513-0f7d7f0a7783` | medium | `accounting/quickbooks-import` | Reliability gate: QuickBooks token refresh can fail with HTTP 401 before later succeeding. P2 needs atomic/single-flight refresh, invalid-grant handling, and a clear reconnect path. |
+| `d56a1ff8-6b98-4df3-8a1d-de37c1c46faa` | medium | `accounting/quickbooks-import` | UX/operations gate: long apply/sync actions need progress or background-job behavior plus notifications. A frozen button is not acceptable. |
+| `d58d63e2-2098-49ed-bc0d-a4d59e853319` | medium | `accounting/quickbooks-import` | Review gate: rows blocking apply must be visually marked where the operator acts. |
+| `7dd3a9e0-809f-46c3-b3d3-c6b5c5ab5d43` | medium | `accounting/quickbooks-import` | Review gate: exact matches must not render misleading `0%` confidence. Show exact match basis or omit the suffix. |
+| `eb70d803-11fb-4b69-ae41-090cf10c3c9c` | high | `accounting/quickbooks-integrations` | Security/RLS gate: connection-status reads and sync writes need server-route or non-secret view hardening, not fragile direct client access to privileged rows. |
+| `7600a1a2-566b-4d11-82a9-db72e966ee85` | high | `settings/accounting` | Security gate: token encryption and removal of realm/token material from client reads/UI must stay verified before customer-facing rollout. |
+| `627229af-5e98-40fd-ab22-d02cf4b06a49` | medium | `accounting/quickbooks-integration` | Coverage gate: SalesReceipt, CreditMemo, and RefundReceipt are known revenue-completeness gaps. P2 must either include them or document why they remain out of scope for this phase. |
+| `f8e17be9-93c3-48d4-b0e7-c5d6974eb0d6` | high | `accounting/integrations` | Scope note: the shipped read-only/full-CRUD settings toggle is plumbing, not the customer experience. Customer-facing UI must not present read-only/full-CRUD as a normal choice. |
+
+The relevant QA tracker item `1b893220-2aaf-4e32-8fd7-9acf1b9a84ac` also remains a cross-cutting gate: RLS remediation for `accounting_*` must be verified against a running app session before P2 is called production-ready.
+
 ## Hard Safety Rules
 
 - Production `ACCOUNTING_WRITE_ENABLED` stays absent or false until P2 is built, reviewed, and Maverick sandbox validation passes.
@@ -80,7 +100,7 @@ The customer-facing surface must be Apple-like: very few visible controls, no mo
 P2 adds or extends these `/accounting` surfaces:
 
 - `// INTEGRATIONS`
-  Customer-facing connection and sync status. No customer-facing read-only/full-CRUD selector.
+  Customer-facing connection and sync status. This stays inside the existing accounting page structure: page title/subtitle, tab strip, compact card grid, sync history/exception modules. No separate command deck. No customer-facing read-only/full-CRUD selector.
 - `// QUICKBOOKS IMPORT`
   Existing staged import remains available for developer/sandbox validation and initial setup where needed. In the customer-facing product it is hidden, permission-gated, or visually subordinate.
 - `// SYNC HEALTH`
@@ -91,6 +111,8 @@ P2 adds or extends these `/accounting` surfaces:
   Appears only when records need review. Hidden when count is zero.
 
 These ship as tabs in the existing accounting page. Do not create a separate accounting command page in P2. The visual design must use OPS-Web tokens and existing product UI patterns.
+
+The normal customer integration state should be one compact accounting-sync card, not two provider cards. If no provider is connected, show one `INTEGRATE ACCOUNTING SOFTWARE` action that opens provider selection. If QuickBooks is connected, the card shows QuickBooks as the active provider and suppresses Sage as an equal parallel choice. Realm IDs, encrypted identifiers, auto-sync flags, write gates, queue depths, and disconnect/sync-now controls are not visible in the main card.
 
 ### Customer-Facing States
 
@@ -508,16 +530,19 @@ Required visible data:
 - Connected QuickBooks company.
 - Last successful sync.
 - Current required action, if any.
+- Conflict/review count when non-zero.
+- Failed/retry count when non-zero.
+
+Required hidden or subordinate data:
+
 - Developer-only write gate state.
 - Developer-only queue depth by status.
 - Last outbound write.
 - Last inbound webhook.
 - Last reconcile.
 - Last token refresh.
-- Failed row count.
-- Retry exhaustion count.
-- Conflict count.
 - Propagate deletes state, visible only in setup/admin context.
+- Disconnect, pause, manual sync, and retry controls outside the main customer card unless the current state requires that exact action.
 
 ## Testing Strategy
 
@@ -598,6 +623,7 @@ Gate 1: Product intent approval.
 - Customer-facing QuickBooks is full two-way sync by default.
 - Read-only is developer/sandbox tooling, not a customer product mode.
 - Healthy sync shows status, not controls. Actions appear only when setup, reconnect, retry, resume, or conflict review is required.
+- The visible `/accounting?tab=integrations` design matches the existing OpsWeb accounting page structure and resolves the Supabase bug-report intake above.
 
 Gate 2: Implementation plan approval.
 
