@@ -56,6 +56,7 @@ interface MockState {
   line_items: Row[];
   companies: Row[];
   notifications: Row[];
+  updateErrors: Record<string, string>;
   calls: Array<{ table?: string; method: string; args: unknown[] }>;
 }
 
@@ -81,6 +82,7 @@ function makeState(overrides: Partial<MockState> = {}): MockState {
     line_items: [],
     companies: [{ id: COMPANY_ID, admin_ids: [ADMIN_ID] }],
     notifications: [],
+    updateErrors: {},
     calls: [],
     ...overrides,
   };
@@ -167,6 +169,9 @@ function makeBuilder(table: string) {
     then: (resolve: (value: unknown) => unknown, reject?: (reason: unknown) => unknown) => {
       const result = (() => {
         if (mode === "update" && patch) {
+          const updateError = state.updateErrors[table];
+          if (updateError) return { data: null, error: { message: updateError } };
+
           for (const row of rowsFor(table)) {
             if (matchesFilters(row, filters)) Object.assign(row, patch);
           }
@@ -245,7 +250,20 @@ async function loadPost() {
 describe("POST /api/cron/accounting/quickbooks/push-queue", () => {
   beforeEach(() => {
     vi.resetModules();
-    vi.clearAllMocks();
+    for (const mock of [
+      claimDue,
+      markSucceeded,
+      scheduleRetry,
+      markBlocked,
+      markNeedsReview,
+      record,
+      getValidToken,
+      writeCreate,
+      writeUpdate,
+      writeFetchCurrent,
+    ]) {
+      mock.mockReset();
+    }
     state = makeState();
     process.env.CRON_SECRET = "cron-secret";
     process.env.ACCOUNTING_WRITE_ENABLED = "false";
@@ -448,6 +466,106 @@ describe("POST /api/cron/accounting/quickbooks/push-queue", () => {
     );
   });
 
+  it("uses the queued external id to update a re-entered customer create without local qb_id", async () => {
+    process.env.ACCOUNTING_WRITE_ENABLED = "true";
+    claimDue.mockResolvedValue([
+      queueRow({
+        entityType: "customer",
+        entityId: CUSTOMER_ID,
+        operation: "create",
+        externalId: "123",
+        sourceTable: "clients",
+        idempotencyKey: `customer:${CUSTOMER_ID}`,
+      }),
+    ]);
+    writeFetchCurrent.mockResolvedValueOnce({
+      Customer: { Id: "123", SyncToken: "4", MetaData: { LastUpdatedTime: "2026-06-05T10:00:00Z" } },
+    });
+    writeUpdate.mockResolvedValueOnce({ qbId: "123", syncToken: "5", metaUpdatedAt: "2026-06-05T10:02:00Z" });
+    state.clients.push({
+      id: CUSTOMER_ID,
+      company_id: COMPANY_ID,
+      name: "Maverick Projects",
+      email: "office@maverick.test",
+      phone_number: "778-555-0100",
+      qb_id: null,
+      updated_at: "2026-06-05T10:00:00.000Z",
+    });
+
+    const POST = await loadPost();
+    const res = await POST(authorizedRequest());
+
+    expect(res.status).toBe(200);
+    expect(writeFetchCurrent).toHaveBeenCalledWith("Customer", "123");
+    expect(writeUpdate).toHaveBeenCalledWith(
+      "Customer",
+      expect.objectContaining({
+        Id: "123",
+        SyncToken: "4",
+        DisplayName: "Maverick Projects",
+      }),
+    );
+    expect(writeCreate).not.toHaveBeenCalled();
+    expect(markSucceeded).toHaveBeenCalledWith("q-1", { externalId: "123", workerId: expect.any(String) });
+  });
+
+  it("uses the earliest sub-client as the customer primary contact", async () => {
+    process.env.ACCOUNTING_WRITE_ENABLED = "true";
+    claimDue.mockResolvedValue([
+      queueRow({
+        entityType: "customer",
+        entityId: CUSTOMER_ID,
+        operation: "create",
+        sourceTable: "clients",
+        idempotencyKey: `customer:${CUSTOMER_ID}`,
+      }),
+    ]);
+    state.clients.push({
+      id: CUSTOMER_ID,
+      company_id: COMPANY_ID,
+      name: "Maverick Projects",
+      email: "office@maverick.test",
+      phone_number: "778-555-0100",
+      qb_id: null,
+      updated_at: "2026-06-05T10:00:00.000Z",
+    });
+    state.sub_clients.push({
+      id: "contact-late",
+      company_id: COMPANY_ID,
+      client_id: CUSTOMER_ID,
+      name: "Late Contact",
+      email: "late@maverick.test",
+      phone_number: "778-555-0999",
+      created_at: "2026-06-05T11:00:00.000Z",
+    });
+    state.sub_clients.push({
+      id: "contact-early",
+      company_id: COMPANY_ID,
+      client_id: CUSTOMER_ID,
+      name: "Early Contact",
+      email: "early@maverick.test",
+      phone_number: "778-555-0111",
+      created_at: "2026-06-05T09:00:00.000Z",
+    });
+
+    const POST = await loadPost();
+    const res = await POST(authorizedRequest());
+
+    expect(res.status).toBe(200);
+    expect(writeCreate).toHaveBeenCalledWith(
+      "Customer",
+      expect.objectContaining({
+        PrimaryEmailAddr: { Address: "early@maverick.test" },
+        PrimaryPhone: { FreeFormNumber: "778-555-0111" },
+      }),
+    );
+    expect(state.calls).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ table: "sub_clients", method: "order", args: ["created_at", { ascending: true }] }),
+      ]),
+    );
+  });
+
   it("does not schedule retry when success audit fails after QBO create succeeds", async () => {
     process.env.ACCOUNTING_WRITE_ENABLED = "true";
     claimDue.mockResolvedValue([
@@ -543,6 +661,40 @@ describe("POST /api/cron/accounting/quickbooks/push-queue", () => {
     expect(markNeedsReview).toHaveBeenCalledWith(
       "q-1",
       "QuickBooks write succeeded but worker finalization failed: QuickBooks create succeeded but sync suppression failed: suppress failed",
+      expect.objectContaining({ externalId: "123" }),
+    );
+  });
+
+  it("does not schedule retry when qb_id writeback update fails after QBO create succeeds", async () => {
+    process.env.ACCOUNTING_WRITE_ENABLED = "true";
+    claimDue.mockResolvedValue([
+      queueRow({
+        entityType: "customer",
+        entityId: CUSTOMER_ID,
+        operation: "create",
+        sourceTable: "clients",
+        idempotencyKey: `customer:${CUSTOMER_ID}`,
+      }),
+    ]);
+    state.clients.push({
+      id: CUSTOMER_ID,
+      company_id: COMPANY_ID,
+      name: "Maverick Projects",
+      qb_id: null,
+      updated_at: "2026-06-05T10:00:00.000Z",
+    });
+    state.updateErrors.clients = "client qb_id update failed";
+
+    const POST = await loadPost();
+    const res = await POST(authorizedRequest());
+
+    expect(res.status).toBe(200);
+    expect(writeCreate).toHaveBeenCalledTimes(1);
+    expect(state.clients[0].qb_id).toBeNull();
+    expect(scheduleRetry).not.toHaveBeenCalled();
+    expect(markNeedsReview).toHaveBeenCalledWith(
+      "q-1",
+      "QuickBooks write succeeded but worker finalization failed: QuickBooks create succeeded but OPS qb_id writeback failed: client qb_id update failed",
       expect.objectContaining({ externalId: "123" }),
     );
   });

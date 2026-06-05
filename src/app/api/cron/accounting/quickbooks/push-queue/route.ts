@@ -335,10 +335,10 @@ async function prepareCustomerPush(
     ["company_id", row.companyId],
   ], "created_at");
   const entity = "Customer";
-  const existingQbId = cleanString(client.qb_id);
+  const existingQbId = cleanString(client.qb_id) ?? cleanString(row.externalId);
   const current = await currentQboState(writeService, entity, existingQbId);
   const payload = mapClientToQboCustomer({
-    client: mapClient(client, current.syncToken),
+    client: mapClient({ ...client, qb_id: existingQbId }, current.syncToken),
     primaryContact: mapContact(contactRows[0] ?? null),
   });
 
