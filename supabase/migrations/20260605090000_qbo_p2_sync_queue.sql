@@ -204,52 +204,117 @@ begin
     else
       v_error := 'stale claim recovered';
 
-      update public.accounting_sync_queue
-      set status = 'pending',
-          run_after = now(),
-          locked_at = null,
-          locked_by = null,
-          last_error = concat_ws('; ', nullif(v_stale.last_error, ''), v_error),
-          updated_at = now()
-      where id = v_stale.id;
+      begin
+        update public.accounting_sync_queue
+        set status = 'pending',
+            run_after = now(),
+            locked_at = null,
+            locked_by = null,
+            last_error = concat_ws('; ', nullif(v_stale.last_error, ''), v_error),
+            updated_at = now()
+        where id = v_stale.id;
 
-      insert into public.accounting_sync_events (
-        queue_id,
-        company_id,
-        connection_id,
-        provider,
-        direction,
-        entity_type,
-        entity_id,
-        external_id,
-        operation,
-        status,
-        source,
-        decision,
-        before_snapshot,
-        after_snapshot,
-        error
-      )
-      values (
-        v_stale.id,
-        v_stale.company_id,
-        v_stale.connection_id,
-        v_stale.provider,
-        'system',
-        v_stale.entity_type,
-        v_stale.entity_id::text,
-        v_stale.external_id,
-        v_stale.operation,
-        'skipped',
-        'system',
-        'retry',
-        to_jsonb(v_stale),
-        jsonb_build_object(
-          'status', 'pending',
-          'runAfter', now()
-        ),
-        v_error
-      );
+        insert into public.accounting_sync_events (
+          queue_id,
+          company_id,
+          connection_id,
+          provider,
+          direction,
+          entity_type,
+          entity_id,
+          external_id,
+          operation,
+          status,
+          source,
+          decision,
+          before_snapshot,
+          after_snapshot,
+          error
+        )
+        values (
+          v_stale.id,
+          v_stale.company_id,
+          v_stale.connection_id,
+          v_stale.provider,
+          'system',
+          v_stale.entity_type,
+          v_stale.entity_id::text,
+          v_stale.external_id,
+          v_stale.operation,
+          'skipped',
+          'system',
+          'retry',
+          to_jsonb(v_stale),
+          jsonb_build_object(
+            'status', 'pending',
+            'runAfter', now()
+          ),
+          v_error
+        );
+      exception when unique_violation then
+        select pending.id
+        into v_existing_pending_id
+        from public.accounting_sync_queue pending
+        where pending.company_id = v_stale.company_id
+          and pending.provider = v_stale.provider
+          and pending.entity_type = v_stale.entity_type
+          and pending.entity_id = v_stale.entity_id
+          and pending.operation = v_stale.operation
+          and pending.idempotency_key = v_stale.idempotency_key
+          and pending.status = 'pending'
+          and pending.id <> v_stale.id
+          and pending.created_at > v_stale.created_at
+        order by pending.created_at desc
+        limit 1;
+
+        v_error := 'stale claim superseded by newer pending queue row ' || coalesce(v_existing_pending_id::text, 'unknown');
+
+        update public.accounting_sync_queue
+        set status = 'cancelled',
+            locked_at = null,
+            locked_by = null,
+            last_error = concat_ws('; ', nullif(v_stale.last_error, ''), v_error),
+            updated_at = now()
+        where id = v_stale.id;
+
+        insert into public.accounting_sync_events (
+          queue_id,
+          company_id,
+          connection_id,
+          provider,
+          direction,
+          entity_type,
+          entity_id,
+          external_id,
+          operation,
+          status,
+          source,
+          decision,
+          before_snapshot,
+          after_snapshot,
+          error
+        )
+        values (
+          v_stale.id,
+          v_stale.company_id,
+          v_stale.connection_id,
+          v_stale.provider,
+          'system',
+          v_stale.entity_type,
+          v_stale.entity_id::text,
+          v_stale.external_id,
+          v_stale.operation,
+          'skipped',
+          'system',
+          'skipped',
+          to_jsonb(v_stale),
+          jsonb_build_object(
+            'status', 'cancelled',
+            'supersededQueueId', v_existing_pending_id
+          ),
+          v_error
+        );
+      end;
     end if;
   end loop;
 

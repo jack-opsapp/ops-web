@@ -75,6 +75,8 @@ describe("QBO P2 sync queue migration", () => {
     expect(claimRpc).toContain("set status = 'pending'");
     expect(claimRpc).toContain("run_after = now()");
     expect(claimRpc).toContain("stale claim recovered");
+    expect(claimRpc).toContain("exception when unique_violation then");
+    expect(claimRpc).toContain("coalesce(v_existing_pending_id::text, 'unknown')");
     expect(claimRpc).toContain("insert into public.accounting_sync_events");
     expect(claimRpc).toContain("'system'");
     expect(claimRpc).toContain("'retry'");
