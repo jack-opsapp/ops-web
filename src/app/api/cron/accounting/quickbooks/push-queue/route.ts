@@ -50,6 +50,7 @@ interface PreparedPush {
   qboEntity: QboWriteEntity;
   payload: Record<string, unknown>;
   existingQbId: string | null;
+  localQbIdMissing: boolean;
   opsUpdatedAt: string | null;
   qbUpdatedAt: string | null;
 }
@@ -335,7 +336,8 @@ async function prepareCustomerPush(
     ["company_id", row.companyId],
   ], "created_at");
   const entity = "Customer";
-  const existingQbId = cleanString(client.qb_id) ?? cleanString(row.externalId);
+  const localQbId = cleanString(client.qb_id);
+  const existingQbId = localQbId ?? cleanString(row.externalId);
   const current = await currentQboState(writeService, entity, existingQbId);
   const payload = mapClientToQboCustomer({
     client: mapClient({ ...client, qb_id: existingQbId }, current.syncToken),
@@ -351,6 +353,7 @@ async function prepareCustomerPush(
     qboEntity: entity,
     payload,
     existingQbId,
+    localQbIdMissing: !localQbId,
     opsUpdatedAt: cleanString(client.updated_at),
     qbUpdatedAt: current.qbUpdatedAt,
   };
@@ -380,7 +383,8 @@ async function prepareInvoicePush(
     ["company_id", row.companyId],
   ], "sort_order")).map(mapLineItem);
   const entity = "Invoice";
-  const existingQbId = cleanString(invoice.qb_id) ?? cleanString(row.externalId);
+  const localQbId = cleanString(invoice.qb_id);
+  const existingQbId = localQbId ?? cleanString(row.externalId);
   const current = await currentQboState(writeService, entity, existingQbId);
 
   try {
@@ -406,6 +410,7 @@ async function prepareInvoicePush(
         fallbackServiceItem: fallbackServiceItem(),
       }),
       existingQbId,
+      localQbIdMissing: !localQbId,
       opsUpdatedAt: cleanString(invoice.updated_at),
       qbUpdatedAt: current.qbUpdatedAt,
     };
@@ -438,7 +443,8 @@ async function prepareEstimatePush(
     ["company_id", row.companyId],
   ], "sort_order")).map(mapLineItem);
   const entity = "Estimate";
-  const existingQbId = cleanString(estimate.qb_id) ?? cleanString(row.externalId);
+  const localQbId = cleanString(estimate.qb_id);
+  const existingQbId = localQbId ?? cleanString(row.externalId);
   const current = await currentQboState(writeService, entity, existingQbId);
 
   try {
@@ -464,6 +470,7 @@ async function prepareEstimatePush(
         fallbackServiceItem: fallbackServiceItem(),
       }),
       existingQbId,
+      localQbIdMissing: !localQbId,
       opsUpdatedAt: cleanString(estimate.updated_at),
       qbUpdatedAt: current.qbUpdatedAt,
     };
@@ -507,7 +514,8 @@ async function preparePaymentPush(
   }
 
   const entity = "Payment";
-  const existingQbId = cleanString(payment.qb_id) ?? cleanString(row.externalId);
+  const localQbId = cleanString(payment.qb_id);
+  const existingQbId = localQbId ?? cleanString(row.externalId);
   const current = await currentQboState(writeService, entity, existingQbId);
 
   try {
@@ -530,6 +538,7 @@ async function preparePaymentPush(
         invoice: invoiceLink,
       }),
       existingQbId,
+      localQbIdMissing: !localQbId,
       opsUpdatedAt: cleanString(payment.created_at),
       qbUpdatedAt: current.qbUpdatedAt,
     };
@@ -573,7 +582,7 @@ async function suppressThenWriteQbId(
   });
 
   if (suppressError) {
-    throw new Error(`QuickBooks create succeeded but sync suppression failed: ${suppressError.message}`);
+    throw new Error(`sync suppression failed: ${suppressError.message}`);
   }
 
   const { error: updateError } = await supabase
@@ -583,7 +592,7 @@ async function suppressThenWriteQbId(
     .eq("company_id", row.companyId);
 
   if (updateError) {
-    throw new Error(`QuickBooks create succeeded but OPS qb_id writeback failed: ${updateError.message}`);
+    throw new Error(`OPS qb_id writeback failed: ${updateError.message}`);
   }
 }
 
@@ -778,7 +787,7 @@ async function processQueueRow(input: {
     const result = await performProviderWrite({ row, prepared, writeService });
 
     try {
-      if (!prepared.existingQbId && cleanString(result.qbId)) {
+      if (prepared.localQbIdMissing && cleanString(result.qbId)) {
         await suppressThenWriteQbId(supabase, row, prepared, result.qbId);
       }
 

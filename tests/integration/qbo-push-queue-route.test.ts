@@ -482,6 +482,14 @@ describe("POST /api/cron/accounting/quickbooks/push-queue", () => {
       Customer: { Id: "123", SyncToken: "4", MetaData: { LastUpdatedTime: "2026-06-05T10:00:00Z" } },
     });
     writeUpdate.mockResolvedValueOnce({ qbId: "123", syncToken: "5", metaUpdatedAt: "2026-06-05T10:02:00Z" });
+    markSucceeded.mockImplementationOnce(async () => {
+      const suppressIndex = state.calls.findIndex((call) => call.method === "rpc:suppress_accounting_sync");
+      const updateIndex = state.calls.findIndex((call) => call.table === "clients" && call.method === "update");
+
+      expect(suppressIndex).toBeGreaterThanOrEqual(0);
+      expect(updateIndex).toBeGreaterThan(suppressIndex);
+      expect(state.clients[0].qb_id).toBe("123");
+    });
     state.clients.push({
       id: CUSTOMER_ID,
       company_id: COMPANY_ID,
@@ -506,6 +514,7 @@ describe("POST /api/cron/accounting/quickbooks/push-queue", () => {
       }),
     );
     expect(writeCreate).not.toHaveBeenCalled();
+    expect(state.clients[0].qb_id).toBe("123");
     expect(markSucceeded).toHaveBeenCalledWith("q-1", { externalId: "123", workerId: expect.any(String) });
   });
 
@@ -660,7 +669,7 @@ describe("POST /api/cron/accounting/quickbooks/push-queue", () => {
     expect(scheduleRetry).not.toHaveBeenCalled();
     expect(markNeedsReview).toHaveBeenCalledWith(
       "q-1",
-      "QuickBooks write succeeded but worker finalization failed: QuickBooks create succeeded but sync suppression failed: suppress failed",
+      "QuickBooks write succeeded but worker finalization failed: sync suppression failed: suppress failed",
       expect.objectContaining({ externalId: "123" }),
     );
   });
@@ -694,7 +703,7 @@ describe("POST /api/cron/accounting/quickbooks/push-queue", () => {
     expect(scheduleRetry).not.toHaveBeenCalled();
     expect(markNeedsReview).toHaveBeenCalledWith(
       "q-1",
-      "QuickBooks write succeeded but worker finalization failed: QuickBooks create succeeded but OPS qb_id writeback failed: client qb_id update failed",
+      "QuickBooks write succeeded but worker finalization failed: OPS qb_id writeback failed: client qb_id update failed",
       expect.objectContaining({ externalId: "123" }),
     );
   });
