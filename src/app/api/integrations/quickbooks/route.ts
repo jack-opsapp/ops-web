@@ -7,17 +7,28 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
+import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
+import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
+import { checkPermissionById } from "@/lib/supabase/check-permission";
 import { decryptToken } from "@/lib/api/services/token-cipher";
 import {
   getQuickBooksConfig,
   getQuickBooksConfigForEnvironment,
   getQuickBooksProviderEnvironment,
+  type QuickBooksEnvironment,
 } from "@/lib/api/services/quickbooks-config";
 import crypto from "crypto";
 
 const INTUIT_AUTH_URL = "https://appcenter.intuit.com/connect/oauth2";
 const INTUIT_REVOKE_URL =
   "https://developer.api.intuit.com/v2/oauth2/tokens/revoke";
+
+function parseProviderEnvironment(
+  value: unknown
+): QuickBooksEnvironment | null {
+  if (value === undefined || value === null || value === "") return null;
+  return value === "production" || value === "sandbox" ? value : null;
+}
 
 // ─── POST: Initiate OAuth ──────────────────────────────────────────────────────
 
@@ -77,8 +88,16 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
+    const authUser = await verifyAdminAuth(request);
+    if (!authUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await request.json();
     const companyId = body.companyId as string | undefined;
+    const requestedProviderEnvironment = parseProviderEnvironment(
+      body.providerEnvironment
+    );
 
     if (!companyId) {
       return NextResponse.json(
@@ -86,9 +105,38 @@ export async function DELETE(request: NextRequest) {
         { status: 400 }
       );
     }
+    if (
+      body.providerEnvironment !== undefined &&
+      requestedProviderEnvironment === null
+    ) {
+      return NextResponse.json(
+        { error: 'providerEnvironment must be "production" or "sandbox"' },
+        { status: 400 }
+      );
+    }
+
+    const user = await findUserByAuth(
+      authUser.uid,
+      authUser.email,
+      "id, company_id"
+    );
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+    if ((user.company_id as string) !== companyId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    const allowed = await checkPermissionById(
+      user.id as string,
+      "accounting.manage_connections"
+    );
+    if (!allowed) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
     const supabase = getServiceRoleClient();
-    const providerEnvironment = getQuickBooksProviderEnvironment();
+    const providerEnvironment =
+      requestedProviderEnvironment ?? getQuickBooksProviderEnvironment();
     const config = (() => {
       try {
         return getQuickBooksConfigForEnvironment(providerEnvironment);
@@ -128,7 +176,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Clear tokens and mark disconnected
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("accounting_connections")
       .update({
         access_token: null,
@@ -142,7 +190,9 @@ export async function DELETE(request: NextRequest) {
       })
       .eq("company_id", companyId)
       .eq("provider", "quickbooks")
-      .eq("provider_environment", providerEnvironment);
+      .eq("provider_environment", providerEnvironment)
+      .select("id")
+      .maybeSingle();
 
     if (error) {
       console.error("Failed to disconnect QuickBooks:", error.message);
@@ -151,8 +201,14 @@ export async function DELETE(request: NextRequest) {
         { status: 500 }
       );
     }
+    if (!data) {
+      return NextResponse.json(
+        { error: `No quickbooks ${providerEnvironment} connection found` },
+        { status: 404 }
+      );
+    }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, providerEnvironment });
   } catch (err) {
     console.error("QuickBooks disconnect error:", err);
     return NextResponse.json(

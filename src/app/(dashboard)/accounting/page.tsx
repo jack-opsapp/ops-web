@@ -372,8 +372,12 @@ export default function AccountingPage() {
   const triggerSync = useTriggerSync();
 
   // Find connections by provider
-  const qbConnection = connections.find((c) => c.provider === AccountingProvider.QuickBooks);
-  const sageConnection = connections.find((c) => c.provider === AccountingProvider.Sage);
+  const qbConnection =
+    connections.find((c) => c.provider === AccountingProvider.QuickBooks && c.isConnected) ??
+    connections.find((c) => c.provider === AccountingProvider.QuickBooks);
+  const sageConnection =
+    connections.find((c) => c.provider === AccountingProvider.Sage && c.isConnected) ??
+    connections.find((c) => c.provider === AccountingProvider.Sage);
 
   // ─── Dashboard Metrics ──────────────────────────────────────────────────────
 
@@ -453,9 +457,12 @@ export default function AccountingPage() {
     initiateOAuth.mutate({ companyId, provider });
   };
 
-  const handleDisconnect = (provider: AccountingProvider) => {
+  const handleDisconnect = (
+    provider: AccountingProvider,
+    providerEnvironment?: "production" | "sandbox"
+  ) => {
     if (!companyId) return;
-    disconnectProvider.mutate({ companyId, provider });
+    disconnectProvider.mutate({ companyId, provider, providerEnvironment });
   };
 
   const handleSync = (provider: AccountingProvider) => {
@@ -630,7 +637,12 @@ export default function AccountingPage() {
               provider={AccountingProvider.QuickBooks}
               connection={qbConnection}
               onConnect={() => handleConnect(AccountingProvider.QuickBooks)}
-              onDisconnect={() => handleDisconnect(AccountingProvider.QuickBooks)}
+              onDisconnect={() =>
+                handleDisconnect(
+                  AccountingProvider.QuickBooks,
+                  qbConnection?.providerEnvironment
+                )
+              }
               onSync={() => handleSync(AccountingProvider.QuickBooks)}
               isSyncing={
                 triggerSync.isPending &&
@@ -642,7 +654,12 @@ export default function AccountingPage() {
               provider={AccountingProvider.Sage}
               connection={sageConnection}
               onConnect={() => handleConnect(AccountingProvider.Sage)}
-              onDisconnect={() => handleDisconnect(AccountingProvider.Sage)}
+              onDisconnect={() =>
+                handleDisconnect(
+                  AccountingProvider.Sage,
+                  sageConnection?.providerEnvironment
+                )
+              }
               onSync={() => handleSync(AccountingProvider.Sage)}
               isSyncing={
                 triggerSync.isPending &&

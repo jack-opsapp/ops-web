@@ -51,10 +51,17 @@ export function useDisconnectProvider() {
     mutationFn: ({
       companyId,
       provider,
+      providerEnvironment,
     }: {
       companyId: string;
       provider: AccountingProvider;
-    }) => AccountingService.disconnectProvider(companyId, provider),
+      providerEnvironment?: "production" | "sandbox";
+    }) =>
+      AccountingService.disconnectProvider(
+        companyId,
+        provider,
+        providerEnvironment
+      ),
     onSuccess: (_data, { companyId }) => {
       queryClient.invalidateQueries({
         queryKey: queryKeys.accounting.connections(companyId),

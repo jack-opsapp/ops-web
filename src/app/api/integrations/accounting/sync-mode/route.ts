@@ -10,11 +10,9 @@
  * accounting_connections as the anon role but cannot write it (RLS). Gated by
  * the accounting.manage_connections permission.
  *
- * Selecting "bidirectional" (full CRUD) RECORDS the choice but does NOT start
- * pushing to the provider: the push path is hard-gated by env
- * ACCOUNTING_WRITE_ENABLED (default off) until the outbound sync engine is built
- * and validated. `writesEnabled` is returned so the UI can explain the gated
- * state.
+ * Selecting "bidirectional" (full CRUD) allows provider writes only when the
+ * hard gate ACCOUNTING_WRITE_ENABLED=true is also set. `writesEnabled` is
+ * returned so the UI can explain the gated state.
  */
 
 import { NextRequest, NextResponse } from "next/server";

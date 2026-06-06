@@ -45,7 +45,9 @@ function ProviderCard({ provider, label }: { provider: AccountingProvider; label
   const triggerSync = useTriggerSync();
   const [confirmFullCrud, setConfirmFullCrud] = useState(false);
 
-  const connection = connections?.find((c) => c.provider === provider);
+  const connection =
+    connections?.find((c) => c.provider === provider && c.isConnected) ??
+    connections?.find((c) => c.provider === provider);
   const isConnected = connection?.isConnected ?? false;
   const isFullCrud = connection?.syncDirection === "bidirectional";
   const propagateDeletes = connection?.propagateDeletes ?? false;
@@ -235,7 +237,11 @@ function ProviderCard({ provider, label }: { provider: AccountingProvider; label
                 onClick={() => {
                   if (!can("accounting.manage_connections")) return;
                   disconnect.mutate(
-                    { companyId, provider },
+                    {
+                      companyId,
+                      provider,
+                      providerEnvironment: connection?.providerEnvironment,
+                    },
                     {
                       onSuccess: () => toast.success(t("accounting.toast.disconnected")),
                       onError: (err) => toast.error(t("accounting.toast.disconnectFailed"), { description: err.message }),

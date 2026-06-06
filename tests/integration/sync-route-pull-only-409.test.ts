@@ -14,7 +14,13 @@ vi.mock("@/lib/api/services/sync-orchestrator", () => ({
 vi.mock("@/lib/supabase/server-client", () => ({
   getServiceRoleClient: () => ({
     from: () => ({
-      select: () => ({ eq: () => ({ eq: () => ({ single: () => connSingle() }) }) }),
+      select: () => {
+        const chain = {
+          eq: () => chain,
+          single: () => connSingle(),
+        };
+        return chain;
+      },
       insert: () => Promise.resolve({ error: null }),
     }),
   }),

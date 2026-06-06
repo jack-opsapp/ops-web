@@ -627,7 +627,7 @@
   "accounting.syncModeDesc": "Read-only pulls from your accounting software. Full CRUD keeps both in sync.",
   "accounting.modeReadOnly": "Read-only",
   "accounting.modeFullCrud": "Full CRUD",
-  "accounting.fullCrudWarning": "Full CRUD lets OPS write to your real accounting books — create, update, and optionally void records. The two-way engine isn't live yet, so enabling this only records your choice; nothing is pushed until it ships.",
+  "accounting.fullCrudWarning": "Full CRUD lets OPS write to the connected QuickBooks file. OPS can create and update records; voids only run when delete propagation is enabled.",
   "accounting.fullCrudConfirm": "Enable full CRUD",
   "accounting.cancel": "Cancel",
   "accounting.propagateDeletes": "Propagate deletes",

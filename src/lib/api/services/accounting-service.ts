@@ -86,13 +86,27 @@ export const AccountingService = {
 
   async disconnectProvider(
     companyId: string,
-    provider: AccountingProvider
+    provider: AccountingProvider,
+    providerEnvironment?: "production" | "sandbox"
   ): Promise<void> {
-    await fetch(`/api/integrations/${provider}`, {
+    const { getIdToken } = await import("@/lib/firebase/auth");
+    const idToken = await getIdToken();
+    const response = await fetch(`/api/integrations/${provider}`, {
       method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ companyId }),
+      headers: {
+        "Content-Type": "application/json",
+        ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+      },
+      body: JSON.stringify({
+        companyId,
+        ...(providerEnvironment ? { providerEnvironment } : {}),
+      }),
     });
+
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => null);
+      throw new Error(errorBody?.error || `Failed to disconnect ${provider}`);
+    }
   },
 
   async updateSyncEnabled(
@@ -121,7 +135,7 @@ export const AccountingService = {
    * Set the connection's sync mode (read-only ↔ full CRUD) + delete-propagation.
    * Goes through a service-role API route — the client cannot write
    * accounting_connections directly (RLS). Selecting "bidirectional" records the
-   * choice but does not start pushing (env ACCOUNTING_WRITE_ENABLED gates writes).
+   * choice; provider writes still require ACCOUNTING_WRITE_ENABLED=true.
    */
   async updateSyncMode(
     companyId: string,
