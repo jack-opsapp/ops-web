@@ -5,6 +5,7 @@ const verifyAdminAuth = vi.fn();
 const findUserByAuth = vi.fn();
 const checkPermissionById = vi.fn();
 const updateCall = vi.fn();
+const eqCall = vi.fn();
 const maybeSingle = vi.fn();
 
 vi.mock("@/lib/firebase/admin-verify", () => ({ verifyAdminAuth: (r: unknown) => verifyAdminAuth(r) }));
@@ -15,7 +16,14 @@ vi.mock("@/lib/supabase/server-client", () => ({
     from: () => ({
       update: (patch: Record<string, unknown>) => {
         updateCall(patch);
-        return { eq: () => ({ eq: () => ({ select: () => ({ maybeSingle: () => maybeSingle() }) }) }) };
+        const chain = {
+          eq: (column: string, value: unknown) => {
+            eqCall(column, value);
+            return chain;
+          },
+          select: () => ({ maybeSingle: () => maybeSingle() }),
+        };
+        return chain;
       },
     }),
   }),
@@ -35,6 +43,8 @@ async function route() {
 describe("POST /api/integrations/accounting/sync-mode", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    process.env.QB_ENVIRONMENT = "production";
+    delete process.env.QB_ACTIVE_PROFILE;
     verifyAdminAuth.mockResolvedValue({ uid: "fb-1", email: "o@x.test" });
     findUserByAuth.mockResolvedValue({ id: "user-1", company_id: CO });
     checkPermissionById.mockResolvedValue(true);
@@ -81,6 +91,7 @@ describe("POST /api/integrations/accounting/sync-mode", () => {
     expect(updateCall).toHaveBeenCalledWith(
       expect.objectContaining({ sync_direction: "bidirectional", propagate_deletes: true })
     );
+    expect(eqCall).toHaveBeenCalledWith("provider_environment", "production");
   });
 
   it("forces propagate_deletes=false when read-only (no writes at all)", async () => {

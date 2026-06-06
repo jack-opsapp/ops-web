@@ -33,23 +33,31 @@ interface Captured {
   inserts: Array<{ table: string; row: Record<string, unknown> }>;
   updates: Array<{ table: string; patch: Record<string, unknown> }>;
   deletes: Array<{ table: string }>;
+  rpcs: Array<{ fn: string; args: Record<string, unknown> }>;
 }
 
 function makeSupabase(opts: {
   // table -> resolved id for maybeSingle on (company_id, qb_id) lookups
   existingIds?: Record<string, string>;
+  rows?: Record<string, Array<Record<string, unknown>>>;
 }) {
-  const captured: Captured = { upserts: [], inserts: [], updates: [], deletes: [] };
+  const captured: Captured = { upserts: [], inserts: [], updates: [], deletes: [], rpcs: [] };
   const existingIds = opts.existingIds ?? {};
+  const rows = opts.rows ?? {};
   // After an upsert, subsequent maybeSingle should resolve a fresh id.
   const resolvedAfterUpsert: Record<string, string> = {};
 
   function client() {
     return {
+      rpc(fn: string, args: Record<string, unknown>) {
+        captured.rpcs.push({ fn, args });
+        return Promise.resolve({ data: null, error: null });
+      },
       from(table: string) {
         const builder: Record<string, unknown> = {};
         builder.select = () => builder;
         builder.eq = () => builder;
+        builder.limit = () => builder;
         builder.maybeSingle = async () => {
           const id = existingIds[table] ?? resolvedAfterUpsert[table];
           return { data: id ? { id } : null, error: null };
@@ -57,7 +65,7 @@ function makeSupabase(opts: {
         builder.upsert = async (row: Record<string, unknown>, cfg?: { onConflict?: string }) => {
           captured.upserts.push({ table, row, onConflict: cfg?.onConflict });
           // Mimic the row now existing so the post-upsert maybeSingle resolves.
-          resolvedAfterUpsert[table] = `${table}-id`;
+          resolvedAfterUpsert[table] = (row.id as string | undefined) ?? `${table}-id`;
           return { error: null };
         };
         builder.insert = async (row: Record<string, unknown>) => {
@@ -72,6 +80,10 @@ function makeSupabase(opts: {
           captured.deletes.push({ table });
           return { eq: () => ({ error: null }) };
         };
+        builder.then = (
+          resolve: (value: { data: Array<Record<string, unknown>>; error: null }) => unknown,
+          reject?: (reason: unknown) => unknown
+        ) => Promise.resolve({ data: rows[table] ?? [], error: null }).then(resolve, reject);
         return builder;
       },
     };
@@ -111,6 +123,30 @@ const SANDBOX_CUSTOMER = {
   Active: true,
 };
 
+const SANDBOX_ACCEPTED_ESTIMATE = {
+  Id: "99",
+  DocNumber: "1001",
+  CustomerRef: { value: "1", name: "Amy's Bird Sanctuary" },
+  TxnDate: "2024-09-01",
+  ExpirationDate: "2024-10-01",
+  TxnStatus: "Accepted",
+  TotalAmt: 500,
+  Line: [
+    {
+      Id: "1",
+      LineNum: 1,
+      Description: "Install rail",
+      Amount: 500,
+      DetailType: "SalesItemLineDetail",
+      SalesItemLineDetail: {
+        ItemRef: { value: "7", name: "Install rail" },
+        Qty: 2,
+        UnitPrice: 250,
+      },
+    },
+  ],
+};
+
 describe("QuickBooksWebhookApplyService.applyEntity — Invoice", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -140,6 +176,17 @@ describe("QuickBooksWebhookApplyService.applyEntity — Invoice", () => {
       total: 362.07,
       due_date: "2024-10-01",
     });
+    expect(captured.rpcs).toContainEqual({
+      fn: "suppress_accounting_sync",
+      args: expect.objectContaining({
+        p_company_id: CO,
+        p_provider: "quickbooks",
+        p_entity_type: "invoice",
+        p_entity_id: invoiceUpsert!.row.id,
+        p_source: "quickbooks",
+      }),
+    });
+    expect(captured.rpcs.some((c) => c.fn === "set_ops_sync_source")).toBe(false);
     // line_total must NEVER be inserted (GENERATED column).
     const lineInsert = captured.inserts.find((i) => i.table === "line_items");
     expect(lineInsert).toBeDefined();
@@ -234,6 +281,88 @@ describe("QuickBooksWebhookApplyService.applyEntity — Customer", () => {
     const clientUpsert = captured.upserts.find((u) => u.table === "clients");
     expect(clientUpsert!.row).toMatchObject({ qb_id: "9", name: "Jane Doe", email: "jane@doe.com" });
     expect(captured.upserts.some((u) => u.table === "sub_clients")).toBe(false);
+  });
+});
+
+describe("QuickBooksWebhookApplyService.applyEntity — Estimate", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    qbWriteCalls.value = 0;
+    getValidToken.mockResolvedValue({ accessToken: "tok", realmId: "4620816365" });
+  });
+
+  it("accepted QBO estimates call the acceptance bridge after the estimate is persisted", async () => {
+    const { client, captured } = makeSupabase({
+      existingIds: { clients: "client-1", estimates: "estimate-99" },
+    });
+    fetchEntityById.mockResolvedValue(SANDBOX_ACCEPTED_ESTIMATE);
+    const svc = new QuickBooksWebhookApplyService(client as never);
+    const result = await svc.applyEntity(CONN, "Estimate", "99", "Update");
+
+    expect(result.status).toBe("needs_review");
+    expect(result.detail).toBe("empty_bridge_response");
+    const estimateUpsert = captured.upserts.find((u) => u.table === "estimates");
+    expect(estimateUpsert).toBeDefined();
+    expect(estimateUpsert!.row).toMatchObject({
+      company_id: CO,
+      qb_id: "99",
+      client_id: "client-1",
+      estimate_number: "1001",
+      status: "approved",
+    });
+    expect(captured.inserts.find((i) => i.table === "line_items")?.row).toMatchObject({
+      estimate_id: "estimate-99",
+      name: "Install rail",
+      quantity: 2,
+      unit_price: 250,
+      type: "LABOR",
+    });
+    expect(captured.rpcs).toContainEqual({
+      fn: "accept_estimate_to_job_from_quickbooks",
+      args: {
+        p_company_id: CO,
+        p_connection_id: CONN.id,
+        p_estimate_id: "estimate-99",
+        p_qb_estimate_id: "99",
+        p_idempotency_key: "qbo:estimate:accepted:conn-1:99",
+      },
+    });
+    expect(result.afterSnapshot).toEqual(
+      expect.objectContaining({
+        estimateStatus: "approved",
+        quickbooksTxnStatus: "Accepted",
+        lineItemWriteMode: "replaced",
+        acceptance: expect.objectContaining({ status: "needs_review" }),
+      })
+    );
+  });
+
+  it("preserves existing linked estimate lines before accepting a QBO estimate", async () => {
+    const { client, captured } = makeSupabase({
+      existingIds: { clients: "client-1", estimates: "estimate-99" },
+      rows: {
+        line_items: [
+          {
+            id: "line-1",
+            task_type_ref: "task-type-1",
+            task_type_id: null,
+            product_id: "product-1",
+            unit_id: null,
+          },
+        ],
+      },
+    });
+    fetchEntityById.mockResolvedValue(SANDBOX_ACCEPTED_ESTIMATE);
+    const svc = new QuickBooksWebhookApplyService(client as never);
+    const result = await svc.applyEntity(CONN, "Estimate", "99", "Update");
+
+    expect(captured.deletes.some((entry) => entry.table === "line_items")).toBe(false);
+    expect(captured.inserts.some((entry) => entry.table === "line_items")).toBe(false);
+    expect(result.afterSnapshot).toEqual(
+      expect.objectContaining({
+        lineItemWriteMode: "preserved_existing_linked_lines",
+      })
+    );
   });
 });
 

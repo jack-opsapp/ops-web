@@ -788,6 +788,7 @@ export interface AccountingConnection {
   id: string;
   companyId: string;
   provider: AccountingProvider;
+  providerEnvironment: "production" | "sandbox";
   accessToken: string | null;
   refreshToken: string | null;
   tokenExpiresAt: Date | null;

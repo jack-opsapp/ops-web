@@ -22,6 +22,7 @@ import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
 import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 import { checkPermissionById } from "@/lib/supabase/check-permission";
+import { getQuickBooksProviderEnvironment } from "@/lib/api/services/quickbooks-config";
 
 const VALID_DIRECTIONS = new Set(["pull_only", "bidirectional"]);
 
@@ -67,6 +68,8 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = getServiceRoleClient();
+    const providerEnvironment =
+      provider === "quickbooks" ? getQuickBooksProviderEnvironment() : "production";
 
     const patch: Record<string, unknown> = {
       sync_direction: syncDirection,
@@ -85,6 +88,7 @@ export async function POST(request: NextRequest) {
       .update(patch)
       .eq("company_id", companyId)
       .eq("provider", provider)
+      .eq("provider_environment", providerEnvironment)
       .select("id")
       .maybeSingle();
 

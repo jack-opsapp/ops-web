@@ -27,21 +27,24 @@ const updateCalls: Array<{ payload: Record<string, unknown> }> = [];
 vi.mock("@/lib/supabase/server-client", () => ({
   getServiceRoleClient: () => ({
     from: () => ({
-      select: () => ({
-        eq: () => ({
-          eq: () => ({
-            single: async () => ({
-              data: { webhook_verifier_token: STATE },
-              error: null,
-            }),
+      select: () => {
+        const builder = {
+          eq: () => builder,
+          single: async () => ({
+            data: { webhook_verifier_token: STATE },
+            error: null,
           }),
-        }),
-      }),
+        };
+        return builder;
+      },
       update: (payload: Record<string, unknown>) => {
         updateCalls.push({ payload });
-        return {
-          eq: () => ({ eq: async () => ({ error: null }) }),
+        const builder = {
+          eq: () => builder,
+          then: (resolve: (value: { error: null }) => unknown) =>
+            Promise.resolve({ error: null }).then(resolve),
         };
+        return builder;
       },
     }),
   }),

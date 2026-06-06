@@ -5,7 +5,13 @@
  * All methods accept a pre-validated access token and realmId.
  */
 
-const QB_API_BASE = "https://quickbooks.api.intuit.com/v3/company";
+import type { QuickBooksEnvironment } from "./quickbooks-config";
+
+function apiBase(environment: QuickBooksEnvironment): string {
+  return environment === "production"
+    ? "https://quickbooks.api.intuit.com/v3/company"
+    : "https://sandbox-quickbooks.api.intuit.com/v3/company";
+}
 
 // ISO 8601 timestamp pattern — only allow safe characters for query interpolation
 const ISO_TIMESTAMP_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
@@ -22,10 +28,11 @@ function sanitizeTimestamp(since: string): string {
 async function qbFetch(
   token: string,
   realmId: string,
+  environment: QuickBooksEnvironment,
   path: string,
   options?: RequestInit
 ): Promise<unknown> {
-  const url = `${QB_API_BASE}/${realmId}${path}`;
+  const url = `${apiBase(environment)}/${realmId}${path}`;
   const response = await fetch(url, {
     ...options,
     headers: {
@@ -88,7 +95,7 @@ interface QBPaymentData {
 export const QuickBooksSyncService = {
   // ─── Push ─────────────────────────────────────────────────────────────────
 
-  async pushClient(token: string, realmId: string, data: QBClientData): Promise<{ qbId: string }> {
+  async pushClient(token: string, realmId: string, environment: QuickBooksEnvironment, data: QBClientData): Promise<{ qbId: string }> {
     const qbBody: Record<string, unknown> = {
       DisplayName: data.displayName,
       CompanyName: data.companyName,
@@ -107,12 +114,12 @@ export const QuickBooksSyncService = {
 
     if (data.qbId) {
       // Update — need to fetch SyncToken first
-      const existing = await qbFetch(token, realmId, `/customer/${data.qbId}`) as { Customer: { SyncToken: string } };
+      const existing = await qbFetch(token, realmId, environment, `/customer/${data.qbId}`) as { Customer: { SyncToken: string } };
       qbBody.Id = data.qbId;
       qbBody.SyncToken = existing.Customer.SyncToken;
     }
 
-    const result = await qbFetch(token, realmId, "/customer", {
+    const result = await qbFetch(token, realmId, environment, "/customer", {
       method: "POST",
       body: JSON.stringify(qbBody),
     }) as { Customer: { Id: string } };
@@ -120,7 +127,7 @@ export const QuickBooksSyncService = {
     return { qbId: result.Customer.Id };
   },
 
-  async pushInvoice(token: string, realmId: string, data: QBInvoiceData): Promise<{ qbId: string }> {
+  async pushInvoice(token: string, realmId: string, environment: QuickBooksEnvironment, data: QBInvoiceData): Promise<{ qbId: string }> {
     const qbBody: Record<string, unknown> = {
       CustomerRef: { value: data.customerRef },
       Line: data.lineItems.map((item) => ({
@@ -136,12 +143,12 @@ export const QuickBooksSyncService = {
     };
 
     if (data.qbId) {
-      const existing = await qbFetch(token, realmId, `/invoice/${data.qbId}`) as { Invoice: { SyncToken: string } };
+      const existing = await qbFetch(token, realmId, environment, `/invoice/${data.qbId}`) as { Invoice: { SyncToken: string } };
       qbBody.Id = data.qbId;
       qbBody.SyncToken = existing.Invoice.SyncToken;
     }
 
-    const result = await qbFetch(token, realmId, "/invoice", {
+    const result = await qbFetch(token, realmId, environment, "/invoice", {
       method: "POST",
       body: JSON.stringify(qbBody),
     }) as { Invoice: { Id: string } };
@@ -149,7 +156,7 @@ export const QuickBooksSyncService = {
     return { qbId: result.Invoice.Id };
   },
 
-  async pushEstimate(token: string, realmId: string, data: QBEstimateData): Promise<{ qbId: string }> {
+  async pushEstimate(token: string, realmId: string, environment: QuickBooksEnvironment, data: QBEstimateData): Promise<{ qbId: string }> {
     const qbBody: Record<string, unknown> = {
       CustomerRef: { value: data.customerRef },
       Line: data.lineItems.map((item) => ({
@@ -165,12 +172,12 @@ export const QuickBooksSyncService = {
     };
 
     if (data.qbId) {
-      const existing = await qbFetch(token, realmId, `/estimate/${data.qbId}`) as { Estimate: { SyncToken: string } };
+      const existing = await qbFetch(token, realmId, environment, `/estimate/${data.qbId}`) as { Estimate: { SyncToken: string } };
       qbBody.Id = data.qbId;
       qbBody.SyncToken = existing.Estimate.SyncToken;
     }
 
-    const result = await qbFetch(token, realmId, "/estimate", {
+    const result = await qbFetch(token, realmId, environment, "/estimate", {
       method: "POST",
       body: JSON.stringify(qbBody),
     }) as { Estimate: { Id: string } };
@@ -178,7 +185,7 @@ export const QuickBooksSyncService = {
     return { qbId: result.Estimate.Id };
   },
 
-  async pushPayment(token: string, realmId: string, data: QBPaymentData): Promise<{ qbId: string }> {
+  async pushPayment(token: string, realmId: string, environment: QuickBooksEnvironment, data: QBPaymentData): Promise<{ qbId: string }> {
     const qbBody: Record<string, unknown> = {
       CustomerRef: { value: data.customerRef },
       TotalAmt: data.totalAmount,
@@ -193,12 +200,12 @@ export const QuickBooksSyncService = {
     }
 
     if (data.qbId) {
-      const existing = await qbFetch(token, realmId, `/payment/${data.qbId}`) as { Payment: { SyncToken: string } };
+      const existing = await qbFetch(token, realmId, environment, `/payment/${data.qbId}`) as { Payment: { SyncToken: string } };
       qbBody.Id = data.qbId;
       qbBody.SyncToken = existing.Payment.SyncToken;
     }
 
-    const result = await qbFetch(token, realmId, "/payment", {
+    const result = await qbFetch(token, realmId, environment, "/payment", {
       method: "POST",
       body: JSON.stringify(qbBody),
     }) as { Payment: { Id: string } };
@@ -211,6 +218,7 @@ export const QuickBooksSyncService = {
   async pullClients(
     token: string,
     realmId: string,
+    environment: QuickBooksEnvironment,
     since?: string
   ): Promise<Array<{ qbId: string; displayName: string; email?: string; phone?: string }>> {
     let query = "SELECT * FROM Customer";
@@ -219,7 +227,7 @@ export const QuickBooksSyncService = {
     }
     query += " MAXRESULTS 1000";
 
-    const result = await qbFetch(token, realmId, `/query?query=${encodeURIComponent(query)}`) as {
+    const result = await qbFetch(token, realmId, environment, `/query?query=${encodeURIComponent(query)}`) as {
       QueryResponse: { Customer?: Array<Record<string, unknown>> };
     };
 
@@ -234,6 +242,7 @@ export const QuickBooksSyncService = {
   async pullInvoices(
     token: string,
     realmId: string,
+    environment: QuickBooksEnvironment,
     since?: string
   ): Promise<Array<{ qbId: string; customerRef: string; totalAmount: number; dueDate?: string; status?: string }>> {
     let query = "SELECT * FROM Invoice";
@@ -242,7 +251,7 @@ export const QuickBooksSyncService = {
     }
     query += " MAXRESULTS 1000";
 
-    const result = await qbFetch(token, realmId, `/query?query=${encodeURIComponent(query)}`) as {
+    const result = await qbFetch(token, realmId, environment, `/query?query=${encodeURIComponent(query)}`) as {
       QueryResponse: { Invoice?: Array<Record<string, unknown>> };
     };
 

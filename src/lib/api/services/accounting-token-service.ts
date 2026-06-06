@@ -15,9 +15,11 @@ import {
   encryptToken,
   decryptToken,
 } from "./token-cipher";
+import {
+  getQuickBooksConfigForEnvironment,
+  type QuickBooksEnvironment,
+} from "./quickbooks-config";
 
-const QB_CLIENT_ID = process.env.QB_CLIENT_ID ?? "";
-const QB_CLIENT_SECRET = process.env.QB_CLIENT_SECRET ?? "";
 const SAGE_CLIENT_ID = process.env.SAGE_CLIENT_ID ?? "";
 const SAGE_CLIENT_SECRET = process.env.SAGE_CLIENT_SECRET ?? "";
 
@@ -33,6 +35,7 @@ const RETRY_DELAY_MS = 500;
 interface TokenResult {
   accessToken: string;
   realmId: string | null;
+  providerEnvironment: QuickBooksEnvironment;
 }
 
 /**
@@ -105,9 +108,11 @@ async function markReconnectRequired(
 async function refreshQuickBooksToken(
   supabase: SupabaseClient,
   connectionId: string,
-  refreshToken: string
+  refreshToken: string,
+  providerEnvironment: QuickBooksEnvironment,
 ): Promise<string> {
-  const basicAuth = Buffer.from(`${QB_CLIENT_ID}:${QB_CLIENT_SECRET}`).toString("base64");
+  const config = getQuickBooksConfigForEnvironment(providerEnvironment);
+  const basicAuth = Buffer.from(`${config.clientId}:${config.clientSecret}`).toString("base64");
 
   const doFetch = () =>
     fetch(INTUIT_TOKEN_URL, {
@@ -243,7 +248,7 @@ export const AccountingTokenService = {
   ): Promise<TokenResult> {
     const { data: conn, error } = await supabase
       .from("accounting_connections")
-      .select("id, provider, access_token, refresh_token, token_expires_at, realm_id")
+      .select("id, provider, provider_environment, access_token, refresh_token, token_expires_at, realm_id")
       .eq("id", connectionId)
       .single();
 
@@ -261,7 +266,14 @@ export const AccountingTokenService = {
 
     if (isExpired && refreshToken) {
       if (conn.provider === "quickbooks") {
-        accessToken = await refreshQuickBooksToken(supabase, connectionId, refreshToken);
+        const providerEnvironment =
+          conn.provider_environment === "sandbox" ? "sandbox" : "production";
+        accessToken = await refreshQuickBooksToken(
+          supabase,
+          connectionId,
+          refreshToken,
+          providerEnvironment,
+        );
       } else if (conn.provider === "sage") {
         accessToken = await refreshSageToken(supabase, connectionId, refreshToken);
       }
@@ -270,6 +282,8 @@ export const AccountingTokenService = {
     return {
       accessToken,
       realmId: decryptToken(conn.realm_id as string | null),
+      providerEnvironment:
+        conn.provider_environment === "sandbox" ? "sandbox" : "production",
     };
   },
 };

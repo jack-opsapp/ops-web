@@ -6,11 +6,22 @@ const updateCapture = vi.fn();
 vi.mock("@/lib/supabase/server-client", () => ({
   getServiceRoleClient: () => ({
     from: () => ({
-      select: () => ({ eq: () => ({ eq: () => ({ single: () =>
-        Promise.resolve({ data: { webhook_verifier_token: "CO:abc" }, error: null }) }) }) }),
+      select: () => {
+        const builder = {
+          eq: () => builder,
+          single: () =>
+            Promise.resolve({ data: { webhook_verifier_token: "CO:abc" }, error: null }),
+        };
+        return builder;
+      },
       update: (payload: unknown) => {
         updateCapture(payload);
-        return { eq: () => ({ eq: () => Promise.resolve({ error: null }) }) };
+        const builder = {
+          eq: () => builder,
+          then: (resolve: (value: { error: null }) => unknown) =>
+            Promise.resolve({ error: null }).then(resolve),
+        };
+        return builder;
       },
     }),
   }),
@@ -22,6 +33,8 @@ describe("QuickBooks OAuth callback defaults to pull_only", () => {
     vi.clearAllMocks();
     process.env.QB_CLIENT_ID = "cid";
     process.env.QB_CLIENT_SECRET = "secret";
+    process.env.QB_ENVIRONMENT = "production";
+    delete process.env.QB_ACTIVE_PROFILE;
     vi.stubGlobal("fetch", vi.fn(async () => ({
       ok: true,
       json: async () => ({ access_token: "at", refresh_token: "rt", expires_in: 3600 }),

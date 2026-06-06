@@ -16,7 +16,9 @@ export interface QuickBooksConfig {
   clientId: string;
   clientSecret: string;
   redirectUri: string;
+  webhookVerifierToken: string | null;
   environment: QuickBooksEnvironment;
+  providerEnvironment: QuickBooksEnvironment;
   /** Intuit Accounting API base host, chosen by environment. */
   apiBaseHost: string;
 }
@@ -27,7 +29,10 @@ const SANDBOX_API_HOST = "https://sandbox-quickbooks.api.intuit.com";
 const DEFAULT_REDIRECT_URI =
   "https://app.opsapp.co/api/integrations/quickbooks/callback";
 
-function resolveEnvironment(raw: string | undefined): QuickBooksEnvironment {
+function resolveEnvironment(
+  raw: string | undefined,
+  sourceName = "QB_ENVIRONMENT",
+): QuickBooksEnvironment {
   // Unset → sandbox (dev safety). An explicit invalid value is a hard error.
   if (raw === undefined || raw.trim() === "") return "sandbox";
   const value = raw.trim().toLowerCase();
@@ -35,8 +40,30 @@ function resolveEnvironment(raw: string | undefined): QuickBooksEnvironment {
     return value as QuickBooksEnvironment;
   }
   throw new Error(
-    `QB_ENVIRONMENT is set to an invalid value "${raw}". Expected "production" or "sandbox".`,
+    `${sourceName} is set to an invalid value "${raw}". Expected "production" or "sandbox".`,
   );
+}
+
+function trimEnv(name: string): string | undefined {
+  const value = process.env[name]?.trim();
+  return value ? value : undefined;
+}
+
+function activeProfileSource(): { name: string; value: string | undefined } {
+  const activeProfile = trimEnv("QB_ACTIVE_PROFILE");
+  if (activeProfile !== undefined) {
+    return { name: "QB_ACTIVE_PROFILE", value: activeProfile };
+  }
+  const defaultProfile = trimEnv("QB_ACTIVE_PROFILE_DEFAULT");
+  if (defaultProfile !== undefined) {
+    return { name: "QB_ACTIVE_PROFILE_DEFAULT", value: defaultProfile };
+  }
+  return { name: "QB_ENVIRONMENT", value: trimEnv("QB_ENVIRONMENT") };
+}
+
+export function getQuickBooksProviderEnvironment(): QuickBooksEnvironment {
+  const source = activeProfileSource();
+  return resolveEnvironment(source.value, source.name);
 }
 
 /**
@@ -49,12 +76,14 @@ function resolveEnvironment(raw: string | undefined): QuickBooksEnvironment {
  * environments (e.g. tests) where only the connection token is available.
  */
 export function getQuickBooksEnvironment(): QuickBooksEnvironment {
-  return resolveEnvironment(process.env.QB_ENVIRONMENT);
+  return getQuickBooksProviderEnvironment();
 }
 
 /** Intuit Accounting API base host for the active environment (single source). */
-export function getQuickBooksApiBaseHost(): string {
-  return getQuickBooksEnvironment() === "production"
+export function getQuickBooksApiBaseHost(
+  environment: QuickBooksEnvironment = getQuickBooksEnvironment(),
+): string {
+  return environment === "production"
     ? PRODUCTION_API_HOST
     : SANDBOX_API_HOST;
 }
@@ -65,20 +94,50 @@ export function getQuickBooksApiBaseHost(): string {
  * or first-pull time.
  */
 export function getQuickBooksConfig(): QuickBooksConfig {
-  const clientId = process.env.QB_CLIENT_ID?.trim();
-  const clientSecret = process.env.QB_CLIENT_SECRET?.trim();
+  return getQuickBooksConfigForEnvironment(getQuickBooksProviderEnvironment());
+}
+
+export function getQuickBooksWebhookVerifierTokenForEnvironment(
+  providerEnvironment: QuickBooksEnvironment,
+): string | null {
+  return (
+    (providerEnvironment === "sandbox"
+      ? trimEnv("QB_SANDBOX_WEBHOOK_VERIFIER_TOKEN")
+      : undefined) ??
+    trimEnv("QB_WEBHOOK_VERIFIER_TOKEN") ??
+    null
+  );
+}
+
+export function getQuickBooksConfigForEnvironment(
+  providerEnvironment: QuickBooksEnvironment,
+): QuickBooksConfig {
+  const isSandbox = providerEnvironment === "sandbox";
+  const clientId = isSandbox
+    ? trimEnv("QB_SANDBOX_CLIENT_ID")
+    : trimEnv("QB_CLIENT_ID");
+  const clientSecret = isSandbox
+    ? trimEnv("QB_SANDBOX_CLIENT_SECRET")
+    : trimEnv("QB_CLIENT_SECRET");
   const redirectUri =
-    process.env.QB_REDIRECT_URI?.trim() || DEFAULT_REDIRECT_URI;
-  const environment = resolveEnvironment(process.env.QB_ENVIRONMENT);
+    (isSandbox ? trimEnv("QB_SANDBOX_REDIRECT_URI") : undefined) ??
+    trimEnv("QB_REDIRECT_URI") ??
+    DEFAULT_REDIRECT_URI;
+  const webhookVerifierToken =
+    getQuickBooksWebhookVerifierTokenForEnvironment(providerEnvironment);
 
   if (!clientId) {
     throw new Error(
-      "QB_CLIENT_ID is missing. QuickBooks integration is not configured.",
+      `${
+        isSandbox ? "QB_SANDBOX_CLIENT_ID" : "QB_CLIENT_ID"
+      } is missing. QuickBooks integration is not configured.`,
     );
   }
   if (!clientSecret) {
     throw new Error(
-      "QB_CLIENT_SECRET is missing. QuickBooks integration is not configured.",
+      `${
+        isSandbox ? "QB_SANDBOX_CLIENT_SECRET" : "QB_CLIENT_SECRET"
+      } is missing. QuickBooks integration is not configured.`,
     );
   }
 
@@ -86,9 +145,10 @@ export function getQuickBooksConfig(): QuickBooksConfig {
     clientId,
     clientSecret,
     redirectUri,
-    environment,
+    webhookVerifierToken,
+    environment: providerEnvironment,
+    providerEnvironment,
     // Derived from the same single source as getQuickBooksApiBaseHost().
-    apiBaseHost:
-      environment === "production" ? PRODUCTION_API_HOST : SANDBOX_API_HOST,
+    apiBaseHost: getQuickBooksApiBaseHost(providerEnvironment),
   };
 }

@@ -20,6 +20,8 @@ function mapConnectionFromDb(
     id: row.id as string,
     companyId: row.company_id as string,
     provider: row.provider as AccountingProvider,
+    providerEnvironment:
+      row.provider_environment === "sandbox" ? "sandbox" : "production",
     // OAuth secrets (access_token / refresh_token) and the customer-identifying
     // realm_id are NEVER read into the client bundle (Intuit security req):
     // they are encrypted at rest and only the server decrypts them. The client
@@ -51,7 +53,7 @@ export const AccountingService = {
     const { data, error } = await supabase
       .from("accounting_connections")
       .select(
-        "id, company_id, provider, token_expires_at, is_connected, last_sync_at, sync_enabled, sync_direction, propagate_deletes, created_at, updated_at"
+        "id, company_id, provider, provider_environment, token_expires_at, is_connected, last_sync_at, sync_enabled, sync_direction, propagate_deletes, created_at, updated_at"
       )
       .eq("company_id", companyId);
 
@@ -98,13 +100,21 @@ export const AccountingService = {
     provider: AccountingProvider,
     syncEnabled: boolean
   ): Promise<void> {
-    const supabase = requireSupabase();
-    const { error } = await supabase
-      .from("accounting_connections")
-      .update({ sync_enabled: syncEnabled, updated_at: new Date().toISOString() })
-      .eq("company_id", companyId)
-      .eq("provider", provider);
-    if (error) throw new Error(`Failed to update sync enabled: ${error.message}`);
+    const { getIdToken } = await import("@/lib/firebase/auth");
+    const idToken = await getIdToken();
+    const response = await fetch("/api/integrations/accounting/sync-enabled", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+      },
+      body: JSON.stringify({ companyId, provider, syncEnabled }),
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => null);
+      throw new Error(errorBody?.error || "Failed to update sync enabled");
+    }
   },
 
   /**

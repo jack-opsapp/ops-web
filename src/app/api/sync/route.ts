@@ -13,6 +13,7 @@ import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
 import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 import { runSyncForConnection } from "@/lib/api/services/sync-orchestrator";
+import { getQuickBooksProviderEnvironment } from "@/lib/api/services/quickbooks-config";
 
 // ─── Auth Helper ──────────────────────────────────────────────────────────────
 
@@ -49,6 +50,8 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = getServiceRoleClient();
+    const providerEnvironment =
+      provider === "quickbooks" ? getQuickBooksProviderEnvironment() : "production";
 
     const hasAccess = await verifyCompanyAccess(authUser.uid, authUser.email, companyId);
     if (!hasAccess) {
@@ -60,6 +63,7 @@ export async function POST(request: NextRequest) {
       .select("id, is_connected, last_sync_at, sync_direction")
       .eq("company_id", companyId)
       .eq("provider", provider)
+      .eq("provider_environment", providerEnvironment)
       .single();
 
     if (connError || !connection) {

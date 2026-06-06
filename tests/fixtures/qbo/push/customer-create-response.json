@@ -1,0 +1,9 @@
+{
+  "Customer": {
+    "Id": "123",
+    "SyncToken": "0",
+    "MetaData": {
+      "LastUpdatedTime": "2026-06-05T10:00:00Z"
+    }
+  }
+}

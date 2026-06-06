@@ -8,7 +8,8 @@
  * import run records it and a non-zero value fails the run (spec §6.5).
  *
  * All methods accept a pre-validated access token + realmId (resolve via
- * AccountingTokenService.getValidToken). Host is selected by QB_ENVIRONMENT.
+ * AccountingTokenService.getValidToken). Host is selected by the connection's
+ * QuickBooks provider environment.
  * No minorversion is sent. Pagination via STARTPOSITION/MAXRESULTS.
  */
 
@@ -50,10 +51,8 @@ export class QuickBooksPullService {
   /**
    * @param realmId      QBO company realm id.
    * @param accessToken  Valid OAuth access token (already refreshed).
-   * @param environment  process.env.QB_ENVIRONMENT — 'production' selects the
-   *                     production host; anything else (incl. unset/'sandbox')
-   *                     selects the sandbox host (matches the existing OAuth
-   *                     route default).
+   * @param environment  QuickBooks provider environment. 'production' selects
+   *                     the production host; anything else selects sandbox.
    * @param fetchImpl    Injectable fetch (defaults to global fetch) — tests
    *                     pass a spy to assert GET-only behavior.
    */

@@ -21,7 +21,11 @@ vi.mock("../quickbooks-pull-service", () => ({
 
 vi.mock("../accounting-token-service", () => ({
   AccountingTokenService: {
-    getValidToken: vi.fn().mockResolvedValue({ accessToken: "tok", realmId: "realm-1" }),
+    getValidToken: vi.fn().mockResolvedValue({
+      accessToken: "tok",
+      realmId: "realm-1",
+      providerEnvironment: "production",
+    }),
   },
 }));
 
@@ -30,7 +34,14 @@ type Row = Record<string, unknown>;
 function makeSupabase() {
   const tables: Record<string, Row[]> = {
     accounting_connections: [
-      { id: "conn-1", company_id: COMPANY_ID, provider: "quickbooks", realm_id: "realm-1", is_connected: true },
+      {
+        id: "conn-1",
+        company_id: COMPANY_ID,
+        provider: "quickbooks",
+        provider_environment: "production",
+        realm_id: "realm-1",
+        is_connected: true,
+      },
     ],
     qbo_import_runs: [],
     qbo_staging_customers: [],
@@ -43,7 +54,13 @@ function makeSupabase() {
       { id: "client-cool", company_id: COMPANY_ID, name: "Cool Cars", email: "cool_cars@intuit.com",
         phone_number: null, deleted_at: null, merged_into_client_id: null },
     ],
+    sub_clients: [],
+    invoices: [],
+    estimates: [],
+    payments: [],
+    line_items: [],
   };
+  const rpcCalls: Array<{ fn: string; args: Row }> = [];
 
   function from(table: string) {
     const rows = tables[table] ?? (tables[table] = []);
@@ -64,7 +81,14 @@ function makeSupabase() {
       },
       upsert: (payload: Row | Row[]) => {
         const items = Array.isArray(payload) ? payload : [payload];
-        tables[table].push(...items);
+        for (const it of items) {
+          const key = it.qb_id ? rows.find((r) => r.company_id === it.company_id && r.qb_id === it.qb_id) : null;
+          if (key) {
+            Object.assign(key, it);
+          } else {
+            tables[table].push({ id: it.id ?? `${table}-${tables[table].length + 1}`, ...it });
+          }
+        }
         return Promise.resolve({ data: null, error: null });
       },
       update: (patch: Row) => ({
@@ -79,6 +103,16 @@ function makeSupabase() {
         const r = rows.filter((row) => filters.every((f) => f(row)))[0] ?? null;
         return Promise.resolve({ data: r, error: r ? null : { message: "not found" } });
       },
+      delete: () => ({
+        in: (col: string, vals: unknown[]) => {
+          tables[table] = tables[table].filter((r) => !vals.includes(r[col]));
+          return Promise.resolve({ data: null, error: null });
+        },
+        eq: (col: string, val: unknown) => {
+          tables[table] = tables[table].filter((r) => r[col] !== val);
+          return Promise.resolve({ data: null, error: null });
+        },
+      }),
       maybeSingle: () => {
         const r = rows.filter((row) => filters.every((f) => f(row)))[0] ?? null;
         return Promise.resolve({ data: r, error: null });
@@ -89,12 +123,16 @@ function makeSupabase() {
     return api;
   }
 
-  function rpc(_fn: string, _args: Row) {
+  function rpc(fn: string, args: Row) {
+    rpcCalls.push({ fn, args });
     // No fuzzy candidates by default in this fixture set.
     return Promise.resolve({ data: [], error: null });
   }
 
-  return { from, rpc, _tables: tables } as unknown as import("@supabase/supabase-js").SupabaseClient & { _tables: Record<string, Row[]> };
+  return { from, rpc, _tables: tables, _rpcCalls: rpcCalls } as unknown as import("@supabase/supabase-js").SupabaseClient & {
+    _tables: Record<string, Row[]>;
+    _rpcCalls: Array<{ fn: string; args: Row }>;
+  };
 }
 
 import { QuickBooksImportService } from "../quickbooks-import-service";
@@ -104,6 +142,8 @@ let svc: QuickBooksImportService;
 
 beforeEach(() => {
   vi.clearAllMocks();
+  process.env.QB_ENVIRONMENT = "production";
+  delete process.env.QB_ACTIVE_PROFILE;
   pullInstance.qbWriteCalls = 0;
   supabase = makeSupabase();
   svc = new QuickBooksImportService(supabase);
@@ -267,5 +307,103 @@ describe("QuickBooksImportService.getImportReview", () => {
       (c) => c.qb_id === "58"
     );
     expect(cool?.displayName).toBe(stagedCool?.display_name);
+  });
+});
+
+describe("QuickBooksImportService.applyImport", () => {
+  it("uses persisted per-entity suppressions before applying staged QuickBooks rows", async () => {
+    const run = await svc.startImportRun(COMPANY_ID);
+    supabase._tables.qbo_staging_customers.push({
+      run_id: run.id,
+      qb_id: "cust-1",
+      display_name: "Acme",
+      company_name: null,
+      contact_name: null,
+      email: "acme@example.com",
+      phone: null,
+      address: null,
+      is_job: false,
+    });
+    supabase._tables.qbo_staging_invoices.push({
+      run_id: run.id,
+      qb_id: "inv-1",
+      customer_qb_id: "cust-1",
+      doc_number: "1001",
+      txn_date: "2026-06-01",
+      due_date: "2026-06-15",
+      subtotal: 100,
+      tax_rate: null,
+      tax_amount: 0,
+      total: 100,
+      balance: 0,
+      derived_status: "open",
+      estimate_qb_id: null,
+    });
+    supabase._tables.qbo_staging_line_items.push({
+      run_id: run.id,
+      parent_type: "invoice",
+      parent_qb_id: "inv-1",
+      name: "Labor",
+      description: null,
+      quantity: 1,
+      unit_price: 100,
+      amount: 100,
+      is_taxable: false,
+      qb_item_type: "Service",
+      sort_order: 1,
+    });
+    supabase._tables.qbo_staging_payments.push({
+      run_id: run.id,
+      qb_id: "pay-1",
+      customer_qb_id: "cust-1",
+      txn_date: "2026-06-03",
+      applied_lines: [{ invoice_qb_id: "inv-1", amount: 100, reference_number: "P-1" }],
+    });
+
+    await svc.applyImport(run.id, [{ customer_qb_id: "cust-1", action: "create" }]);
+
+    const suppressions = supabase._rpcCalls.filter((c) => c.fn === "suppress_accounting_sync");
+    const clientId = supabase._tables.clients.find((c) => c.qb_id === "cust-1")?.id;
+    const invoiceId = supabase._tables.invoices.find((i) => i.qb_id === "inv-1")?.id;
+    const paymentId = supabase._tables.payments.find((p) => p.qb_id === "pay-1:inv-1")?.id;
+
+    expect(clientId).toBeTruthy();
+    expect(invoiceId).toBeTruthy();
+    expect(paymentId).toBeTruthy();
+    expect(suppressions).toEqual(
+      expect.arrayContaining([
+        {
+          fn: "suppress_accounting_sync",
+          args: expect.objectContaining({
+            p_company_id: COMPANY_ID,
+            p_provider: "quickbooks",
+            p_entity_type: "customer",
+            p_entity_id: clientId,
+            p_source: "quickbooks",
+          }),
+        },
+        {
+          fn: "suppress_accounting_sync",
+          args: expect.objectContaining({
+            p_company_id: COMPANY_ID,
+            p_provider: "quickbooks",
+            p_entity_type: "invoice",
+            p_entity_id: invoiceId,
+            p_source: "quickbooks",
+          }),
+        },
+        {
+          fn: "suppress_accounting_sync",
+          args: expect.objectContaining({
+            p_company_id: COMPANY_ID,
+            p_provider: "quickbooks",
+            p_entity_type: "payment",
+            p_entity_id: paymentId,
+            p_source: "quickbooks",
+          }),
+        },
+      ])
+    );
+    expect(supabase._rpcCalls.some((c) => c.fn === "set_ops_sync_source")).toBe(false);
   });
 });
