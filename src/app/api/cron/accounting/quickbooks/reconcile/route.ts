@@ -14,7 +14,7 @@ import {
   type QboEntityName,
 } from "@/lib/api/services/quickbooks-webhook-apply-service";
 import { AccountingTokenService } from "@/lib/api/services/accounting-token-service";
-import { getQuickBooksEnvironment } from "@/lib/api/services/quickbooks-config";
+import { getQuickBooksProviderEnvironment } from "@/lib/api/services/quickbooks-config";
 import { QuickBooksPullService } from "@/lib/api/services/quickbooks-pull-service";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 
@@ -100,10 +100,12 @@ function qboEntityFor(entityType: AccountingSyncEntityType): QboEntityName {
 }
 
 async function selectConnections(supabase: SupabaseClient): Promise<ConnectionRow[]> {
+  const providerEnvironment = getQuickBooksProviderEnvironment();
   const { data, error } = await supabase
     .from("accounting_connections")
     .select("id, company_id, last_sync_at")
     .eq("provider", PROVIDER)
+    .eq("provider_environment", providerEnvironment)
     .eq("is_connected", true)
     .eq("sync_enabled", true)
     .eq("sync_direction", "bidirectional")
@@ -297,7 +299,7 @@ async function fetchCurrentQbUpdatedAt(
   connection: ConnectionRow,
   record: LinkedRecord,
 ): Promise<string | null> {
-  const { accessToken, realmId } = await AccountingTokenService.getValidToken(
+  const { accessToken, realmId, providerEnvironment } = await AccountingTokenService.getValidToken(
     supabase,
     connection.id,
   );
@@ -305,7 +307,7 @@ async function fetchCurrentQbUpdatedAt(
     throw new Error("QuickBooks realmId not found on connection");
   }
 
-  const pull = new QuickBooksPullService(realmId, accessToken, getQuickBooksEnvironment());
+  const pull = new QuickBooksPullService(realmId, accessToken, providerEnvironment);
   const qbRecord = await pull.fetchEntityById(qboEntityFor(record.entityType), record.externalId);
   if (pull.qbWriteCalls !== 0) {
     throw new Error(`Read-only violation: QB write calls = ${pull.qbWriteCalls}`);

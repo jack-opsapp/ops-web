@@ -21,7 +21,11 @@ vi.mock("../quickbooks-pull-service", () => ({
 
 vi.mock("../accounting-token-service", () => ({
   AccountingTokenService: {
-    getValidToken: vi.fn().mockResolvedValue({ accessToken: "tok", realmId: "realm-1" }),
+    getValidToken: vi.fn().mockResolvedValue({
+      accessToken: "tok",
+      realmId: "realm-1",
+      providerEnvironment: "production",
+    }),
   },
 }));
 
@@ -30,7 +34,14 @@ type Row = Record<string, unknown>;
 function makeSupabase() {
   const tables: Record<string, Row[]> = {
     accounting_connections: [
-      { id: "conn-1", company_id: COMPANY_ID, provider: "quickbooks", realm_id: "realm-1", is_connected: true },
+      {
+        id: "conn-1",
+        company_id: COMPANY_ID,
+        provider: "quickbooks",
+        provider_environment: "production",
+        realm_id: "realm-1",
+        is_connected: true,
+      },
     ],
     qbo_import_runs: [],
     qbo_staging_customers: [],
@@ -131,6 +142,8 @@ let svc: QuickBooksImportService;
 
 beforeEach(() => {
   vi.clearAllMocks();
+  process.env.QB_ENVIRONMENT = "production";
+  delete process.env.QB_ACTIVE_PROFILE;
   pullInstance.qbWriteCalls = 0;
   supabase = makeSupabase();
   svc = new QuickBooksImportService(supabase);

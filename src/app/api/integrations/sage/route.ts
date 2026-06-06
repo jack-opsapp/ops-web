@@ -53,10 +53,11 @@ export async function POST(request: NextRequest) {
       {
         company_id: companyId,
         provider: "sage",
+        provider_environment: "production",
         webhook_verifier_token: stateToken,
         updated_at: new Date().toISOString(),
       },
-      { onConflict: "company_id,provider" }
+      { onConflict: "company_id,provider,provider_environment" }
     );
 
     const params = new URLSearchParams({
@@ -101,6 +102,7 @@ export async function DELETE(request: NextRequest) {
       .select("refresh_token")
       .eq("company_id", companyId)
       .eq("provider", "sage")
+      .eq("provider_environment", "production")
       .single();
 
     // Attempt to revoke refresh token at Sage. The stored value is encrypted
@@ -134,7 +136,8 @@ export async function DELETE(request: NextRequest) {
         updated_at: new Date().toISOString(),
       })
       .eq("company_id", companyId)
-      .eq("provider", "sage");
+      .eq("provider", "sage")
+      .eq("provider_environment", "production");
 
     if (error) {
       console.error("Failed to disconnect Sage:", error.message);

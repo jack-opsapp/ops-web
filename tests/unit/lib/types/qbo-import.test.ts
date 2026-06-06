@@ -36,6 +36,7 @@ describe("qbo-import types", () => {
       id: "r1",
       companyId: "a612edc0-5c18-4c4d-af97-55b9410dd077",
       provider: "quickbooks",
+      providerEnvironment: "production",
       status: "staged",
       historyCutoff: "2024-06-01",
       qbWriteCalls: 0,
@@ -109,7 +110,7 @@ describe("qbo-import types", () => {
     const review: QboImportReview = {
       run: {
         id: "r1", companyId: "co", provider: "quickbooks", status: "staged",
-        historyCutoff: "2024-06-01", qbWriteCalls: 0, totals: {}, error: null,
+        providerEnvironment: "production", historyCutoff: "2024-06-01", qbWriteCalls: 0, totals: {}, error: null,
         createdBy: null, createdAt: new Date(), finishedAt: null,
       },
       matches: [],

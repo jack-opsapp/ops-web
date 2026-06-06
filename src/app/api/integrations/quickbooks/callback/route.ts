@@ -10,7 +10,10 @@ import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { getAppUrl } from "@/lib/utils/app-url";
 import {
   getQuickBooksConfig,
+  getQuickBooksConfigForEnvironment,
+  getQuickBooksProviderEnvironment,
   type QuickBooksConfig,
+  type QuickBooksEnvironment,
 } from "@/lib/api/services/quickbooks-config";
 import {
   encryptToken,
@@ -41,13 +44,28 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Resolve QuickBooks credentials from the single shared config helper. This
-  // reads process.env lazily (at request time, not module load) and throws loud
-  // on a half-configured environment — so a real production company file can
-  // never be connected against missing creds or a silent sandbox fallback.
+  // Parse state. New state is companyId:providerEnvironment:randomHex; legacy
+  // state was companyId:randomHex and falls back to the active profile.
+  const colonIdx = state.indexOf(":");
+  if (colonIdx < 1) {
+    return NextResponse.redirect(
+      `${getAppUrl()}/accounting?status=error&message=invalid_state`
+    );
+  }
+  const companyId = state.substring(0, colonIdx);
+  const secondPart = state.substring(colonIdx + 1).split(":", 1)[0];
+  const providerEnvironment: QuickBooksEnvironment =
+    secondPart === "production" || secondPart === "sandbox"
+      ? secondPart
+      : getQuickBooksProviderEnvironment();
+
+  // Resolve QuickBooks credentials from the profile carried in OAuth state so a
+  // mid-flow switch cannot store sandbox tokens under the production connection.
   let config: QuickBooksConfig;
   try {
-    config = getQuickBooksConfig();
+    config = secondPart === "production" || secondPart === "sandbox"
+      ? getQuickBooksConfigForEnvironment(providerEnvironment)
+      : getQuickBooksConfig();
   } catch (configError) {
     console.error(
       "QuickBooks not configured:",
@@ -58,15 +76,6 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Parse state: companyId:randomHex
-  const colonIdx = state.indexOf(":");
-  if (colonIdx < 1) {
-    return NextResponse.redirect(
-      `${getAppUrl()}/accounting?status=error&message=invalid_state`
-    );
-  }
-  const companyId = state.substring(0, colonIdx);
-
   const supabase = getServiceRoleClient();
 
   // CSRF check: verify state token matches what we stored
@@ -75,6 +84,7 @@ export async function GET(request: NextRequest) {
     .select("webhook_verifier_token")
     .eq("company_id", companyId)
     .eq("provider", "quickbooks")
+    .eq("provider_environment", providerEnvironment)
     .single();
 
   if (!existing || existing.webhook_verifier_token !== state) {
@@ -132,6 +142,7 @@ export async function GET(request: NextRequest) {
         // encrypted (random IV per write) and so cannot be matched by a WHERE
         // clause; inbound Intuit webhooks route to this connection via this hash.
         realm_id_lookup: realmIdLookup(realmId),
+        provider_environment: providerEnvironment,
         is_connected: true,
         sync_enabled: false, // read-only validation phase: no auto-sync
         sync_direction: "pull_only", // hard read-only mode (contract §6.3)
@@ -139,7 +150,8 @@ export async function GET(request: NextRequest) {
         updated_at: new Date().toISOString(),
       })
       .eq("company_id", companyId)
-      .eq("provider", "quickbooks");
+      .eq("provider", "quickbooks")
+      .eq("provider_environment", providerEnvironment);
 
     if (upsertError) {
       console.error("Failed to store QB tokens:", upsertError.message);

@@ -31,7 +31,8 @@ async function syncQuickBooks(
   lastSyncAt: string | null,
   syncDirection: "pull_only" | "push_only" | "bidirectional"
 ): Promise<SyncResult[]> {
-  const { accessToken, realmId } = await AccountingTokenService.getValidToken(supabase, connectionId);
+  const { accessToken, realmId, providerEnvironment } =
+    await AccountingTokenService.getValidToken(supabase, connectionId);
   if (!realmId) throw new Error("QuickBooks realmId not found on connection");
 
   const results: SyncResult[] = [];
@@ -55,7 +56,7 @@ async function syncQuickBooks(
     let count = 0;
     for (const client of clients ?? []) {
       try {
-        const { qbId } = await QuickBooksSyncService.pushClient(accessToken, realmId, {
+        const { qbId } = await QuickBooksSyncService.pushClient(accessToken, realmId, providerEnvironment, {
           displayName: client.name,
           email: client.email ?? undefined,
           phone: client.phone ?? undefined,
@@ -87,7 +88,7 @@ async function syncQuickBooks(
       const clientQbId = Array.isArray(clientJoin) ? clientJoin[0]?.qb_id : clientJoin?.qb_id;
       if (!clientQbId) continue;
       try {
-        const { qbId } = await QuickBooksSyncService.pushInvoice(accessToken, realmId, {
+        const { qbId } = await QuickBooksSyncService.pushInvoice(accessToken, realmId, providerEnvironment, {
           customerRef: clientQbId,
           lineItems: [{ description: "Invoice sync", amount: inv.total ?? 0 }],
           dueDate: inv.due_date ?? undefined,
@@ -119,7 +120,7 @@ async function syncQuickBooks(
       const clientQbId = Array.isArray(clientJoin) ? clientJoin[0]?.qb_id : clientJoin?.qb_id;
       if (!clientQbId) continue;
       try {
-        const { qbId } = await QuickBooksSyncService.pushEstimate(accessToken, realmId, {
+        const { qbId } = await QuickBooksSyncService.pushEstimate(accessToken, realmId, providerEnvironment, {
           customerRef: clientQbId,
           lineItems: [{ description: "Estimate sync", amount: est.total ?? 0 }],
           expirationDate: est.expiry_date ?? undefined,
@@ -155,7 +156,7 @@ async function syncQuickBooks(
         ? (Array.isArray(invoiceJoin) ? invoiceJoin[0]?.qb_id : invoiceJoin?.qb_id)
         : undefined;
       try {
-        const { qbId } = await QuickBooksSyncService.pushPayment(accessToken, realmId, {
+        const { qbId } = await QuickBooksSyncService.pushPayment(accessToken, realmId, providerEnvironment, {
           customerRef: clientQbId,
           totalAmount: pmt.amount ?? 0,
           paymentDate: pmt.payment_date ?? undefined,
@@ -179,7 +180,12 @@ async function syncQuickBooks(
   {
     const errors: string[] = [];
     try {
-      const pulled = await QuickBooksSyncService.pullClients(accessToken, realmId, lastSyncAt ?? undefined);
+      const pulled = await QuickBooksSyncService.pullClients(
+        accessToken,
+        realmId,
+        providerEnvironment,
+        lastSyncAt ?? undefined,
+      );
       let count = 0;
       for (const c of pulled) {
         try {
@@ -205,7 +211,12 @@ async function syncQuickBooks(
   {
     const errors: string[] = [];
     try {
-      const pulled = await QuickBooksSyncService.pullInvoices(accessToken, realmId, lastSyncAt ?? undefined);
+      const pulled = await QuickBooksSyncService.pullInvoices(
+        accessToken,
+        realmId,
+        providerEnvironment,
+        lastSyncAt ?? undefined,
+      );
       let count = 0;
       for (const inv of pulled) {
         try {

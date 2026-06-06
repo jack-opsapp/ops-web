@@ -33,7 +33,10 @@ import {
   subClientFieldsFromCustomer,
   type CustomerShape,
 } from "./qbo-normalize";
-import { getQuickBooksEnvironment } from "./quickbooks-config";
+import {
+  getQuickBooksProviderEnvironment,
+  type QuickBooksEnvironment,
+} from "./quickbooks-config";
 import {
   resolveCustomerMatch,
   type ExistingClient,
@@ -71,6 +74,8 @@ function mapRun(row: Record<string, unknown>): QboImportRun {
     id: row.id as string,
     companyId: row.company_id as string,
     provider: row.provider as string,
+    providerEnvironment:
+      (row.provider_environment as QuickBooksEnvironment | null) ?? "production",
     status: row.status as QboImportRun["status"],
     historyCutoff: (row.history_cutoff as string) ?? null,
     qbWriteCalls: (row.qb_write_calls as number) ?? 0,
@@ -205,11 +210,13 @@ export class QuickBooksImportService {
 
   /** Create a pending run for the company. */
   async startImportRun(companyId: string): Promise<QboImportRun> {
+    const providerEnvironment = getQuickBooksProviderEnvironment();
     const { data, error } = await this.supabase
       .from("qbo_import_runs")
       .insert({
         company_id: companyId,
         provider: "quickbooks",
+        provider_environment: providerEnvironment,
         status: "pending",
         history_cutoff: cutoffISODate(),
         qb_write_calls: 0,
@@ -230,6 +237,8 @@ export class QuickBooksImportService {
     const sb = this.supabase;
     const runRow = await this.getRun(runId);
     const companyId = runRow.company_id as string;
+    const providerEnvironment =
+      runRow.provider_environment === "sandbox" ? "sandbox" : "production";
     const cutoff = (runRow.history_cutoff as string) ?? cutoffISODate();
 
     // Resolve the connection + a valid token (refreshes if needed).
@@ -238,6 +247,7 @@ export class QuickBooksImportService {
       .select("id, realm_id")
       .eq("company_id", companyId)
       .eq("provider", "quickbooks")
+      .eq("provider_environment", providerEnvironment)
       .single();
     if (connErr || !conn) throw new Error(`No QuickBooks connection for company ${companyId}`);
 
@@ -249,19 +259,15 @@ export class QuickBooksImportService {
       // Build a pull service from a freshly-resolved token. Used for the
       // initial attempt and (on a 401) the single re-auth retry below.
       const buildPull = async (): Promise<QuickBooksPullService> => {
-        const { accessToken, realmId } = await AccountingTokenService.getValidToken(
+        const { accessToken, realmId, providerEnvironment: tokenEnvironment } = await AccountingTokenService.getValidToken(
           sb,
           connId
         );
         if (!realmId) throw new Error("QuickBooks realmId not found on connection");
-        // I3: getQuickBooksEnvironment() is the single source for prod-vs-sandbox
-        // (fail-safe to sandbox unless QB_ENVIRONMENT === 'production'). The pull
-        // service derives the same host (getQuickBooksApiBaseHost()) from this
-        // value, so there is exactly one decision point — no inline env read here.
         return new QuickBooksPullService(
           realmId,
           accessToken,
-          getQuickBooksEnvironment()
+          tokenEnvironment
         );
       };
 

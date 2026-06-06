@@ -15,6 +15,7 @@ import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
 import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 import { checkPermissionById } from "@/lib/supabase/check-permission";
 import { QuickBooksImportService } from "@/lib/api/services/quickbooks-import-service";
+import { getQuickBooksProviderEnvironment } from "@/lib/api/services/quickbooks-config";
 
 const PROVIDER = "quickbooks";
 
@@ -47,11 +48,13 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = getServiceRoleClient();
+    const providerEnvironment = getQuickBooksProviderEnvironment();
     const { data: connection, error: connError } = await supabase
       .from("accounting_connections")
       .select("id, is_connected")
       .eq("company_id", companyId)
       .eq("provider", PROVIDER)
+      .eq("provider_environment", providerEnvironment)
       .single();
 
     if (connError || !connection) {

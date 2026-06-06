@@ -23,7 +23,6 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { AccountingTokenService } from "./accounting-token-service";
 import { QuickBooksPullService } from "./quickbooks-pull-service";
-import { getQuickBooksEnvironment } from "./quickbooks-config";
 import {
   normalizeCustomer,
   normalizeInvoice,
@@ -111,14 +110,14 @@ export class QuickBooksWebhookApplyService {
 
   /** Build a GET-only pull service from a freshly-resolved (decrypted) token. */
   private async buildPull(connectionId: string): Promise<QuickBooksPullService> {
-    const { accessToken, realmId } = await AccountingTokenService.getValidToken(
+    const { accessToken, realmId, providerEnvironment } = await AccountingTokenService.getValidToken(
       this.supabase,
       connectionId
     );
     if (!realmId) {
       throw new Error("QuickBooks realmId not found on connection");
     }
-    return new QuickBooksPullService(realmId, accessToken, getQuickBooksEnvironment());
+    return new QuickBooksPullService(realmId, accessToken, providerEnvironment);
   }
 
   private async suppressAccountingSync(

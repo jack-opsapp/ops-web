@@ -7,15 +7,13 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
-import { getAppUrl } from "@/lib/utils/app-url";
 import { decryptToken } from "@/lib/api/services/token-cipher";
+import {
+  getQuickBooksConfig,
+  getQuickBooksConfigForEnvironment,
+  getQuickBooksProviderEnvironment,
+} from "@/lib/api/services/quickbooks-config";
 import crypto from "crypto";
-
-const QB_CLIENT_ID = process.env.QB_CLIENT_ID?.trim();
-const QB_CLIENT_SECRET = process.env.QB_CLIENT_SECRET?.trim();
-const QB_ENVIRONMENT = process.env.QB_ENVIRONMENT?.trim() ?? "sandbox";
-const QB_REDIRECT_URI =
-  process.env.QB_REDIRECT_URI?.trim() ?? `${getAppUrl()}/api/integrations/quickbooks/callback`;
 
 const INTUIT_AUTH_URL = "https://appcenter.intuit.com/connect/oauth2";
 const INTUIT_REVOKE_URL =
@@ -35,18 +33,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!QB_CLIENT_ID) {
-      return NextResponse.json(
-        {
-          error:
-            "QuickBooks integration not configured. QB_CLIENT_ID is missing.",
-        },
-        { status: 500 }
-      );
-    }
+    const config = getQuickBooksConfig();
 
-    // Generate CSRF state token: companyId:randomHex
-    const stateToken = `${companyId}:${crypto.randomBytes(16).toString("hex")}`;
+    // Generate CSRF state token: companyId:providerEnvironment:randomHex.
+    // The environment in state makes the callback stable even if the active
+    // profile switch changes while the Intuit OAuth window is open.
+    const stateToken = `${companyId}:${config.providerEnvironment}:${crypto.randomBytes(16).toString("hex")}`;
 
     // Store state token temporarily in the connection row for CSRF validation
     const supabase = getServiceRoleClient();
@@ -54,15 +46,16 @@ export async function POST(request: NextRequest) {
       {
         company_id: companyId,
         provider: "quickbooks",
+        provider_environment: config.providerEnvironment,
         webhook_verifier_token: stateToken,
         updated_at: new Date().toISOString(),
       },
-      { onConflict: "company_id,provider" }
+      { onConflict: "company_id,provider,provider_environment" }
     );
 
     const params = new URLSearchParams({
-      client_id: QB_CLIENT_ID,
-      redirect_uri: QB_REDIRECT_URI,
+      client_id: config.clientId,
+      redirect_uri: config.redirectUri,
       response_type: "code",
       scope: "com.intuit.quickbooks.accounting",
       state: stateToken,
@@ -95,6 +88,14 @@ export async function DELETE(request: NextRequest) {
     }
 
     const supabase = getServiceRoleClient();
+    const providerEnvironment = getQuickBooksProviderEnvironment();
+    const config = (() => {
+      try {
+        return getQuickBooksConfigForEnvironment(providerEnvironment);
+      } catch {
+        return null;
+      }
+    })();
 
     // Fetch current connection to revoke token
     const { data: connection } = await supabase
@@ -102,6 +103,7 @@ export async function DELETE(request: NextRequest) {
       .select("access_token, refresh_token")
       .eq("company_id", companyId)
       .eq("provider", "quickbooks")
+      .eq("provider_environment", providerEnvironment)
       .single();
 
     // Attempt to revoke token at Intuit. The stored value is encrypted at
@@ -110,13 +112,13 @@ export async function DELETE(request: NextRequest) {
     const revokeToken =
       decryptToken(connection?.refresh_token) ??
       decryptToken(connection?.access_token);
-    if (revokeToken && QB_CLIENT_ID && QB_CLIENT_SECRET) {
+    if (revokeToken && config) {
       try {
         await fetch(INTUIT_REVOKE_URL, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Basic ${Buffer.from(`${QB_CLIENT_ID}:${QB_CLIENT_SECRET}`).toString("base64")}`,
+            Authorization: `Basic ${Buffer.from(`${config.clientId}:${config.clientSecret}`).toString("base64")}`,
           },
           body: JSON.stringify({ token: revokeToken }),
         });
@@ -133,12 +135,14 @@ export async function DELETE(request: NextRequest) {
         refresh_token: null,
         token_expires_at: null,
         realm_id: null,
+        realm_id_lookup: null,
         is_connected: false,
         sync_enabled: false,
         updated_at: new Date().toISOString(),
       })
       .eq("company_id", companyId)
-      .eq("provider", "quickbooks");
+      .eq("provider", "quickbooks")
+      .eq("provider_environment", providerEnvironment);
 
     if (error) {
       console.error("Failed to disconnect QuickBooks:", error.message);

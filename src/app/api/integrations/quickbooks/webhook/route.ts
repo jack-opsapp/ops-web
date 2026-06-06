@@ -31,6 +31,10 @@ import { NextResponse } from "next/server";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { realmIdLookup } from "@/lib/api/services/token-cipher";
+import {
+  getQuickBooksProviderEnvironment,
+  getQuickBooksWebhookVerifierTokenForEnvironment,
+} from "@/lib/api/services/quickbooks-config";
 import { AccountingSyncAuditService } from "@/lib/api/services/accounting-sync-audit-service";
 import type {
   AccountingSyncAuditInput,
@@ -207,7 +211,19 @@ export async function POST(request: Request): Promise<Response> {
   const raw = await request.text();
 
   // ── 2. Verify the verifier is configured (FAIL CLOSED) ──────────────────────
-  const verifier = process.env.QB_WEBHOOK_VERIFIER_TOKEN;
+  const providerEnvironment = getQuickBooksProviderEnvironment();
+  let verifier: string | null;
+  try {
+    verifier = getQuickBooksWebhookVerifierTokenForEnvironment(providerEnvironment);
+  } catch (err) {
+    console.error(
+      `[qbo-webhook] QuickBooks config unavailable: ${safeText(err) ?? "unknown error"}`
+    );
+    return NextResponse.json(
+      { error: "Webhook verifier not configured" },
+      { status: 500, headers: NO_STORE }
+    );
+  }
   if (!verifier || verifier.trim() === "") {
     console.error("[qbo-webhook] webhook verifier not configured");
     return NextResponse.json(
@@ -251,6 +267,7 @@ export async function POST(request: Request): Promise<Response> {
       .select("id, company_id")
       .eq("realm_id_lookup", realmIdLookup(realmId))
       .eq("provider", PROVIDER)
+      .eq("provider_environment", providerEnvironment)
       .eq("is_connected", true)
       .eq("sync_enabled", true)
       .maybeSingle();

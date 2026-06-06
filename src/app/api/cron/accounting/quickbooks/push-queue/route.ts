@@ -12,7 +12,6 @@ import {
   AccountingTokenService,
   ReconnectRequiredError,
 } from "@/lib/api/services/accounting-token-service";
-import { getQuickBooksEnvironment } from "@/lib/api/services/quickbooks-config";
 import {
   mapClientToQboCustomer,
   mapEstimateToQboEstimate,
@@ -774,14 +773,15 @@ async function processQueueRow(input: {
 
   try {
     await assertConnectionWritable(supabase, row);
-    const { accessToken, realmId } = await AccountingTokenService.getValidToken(supabase, row.connectionId);
+    const { accessToken, realmId, providerEnvironment } =
+      await AccountingTokenService.getValidToken(supabase, row.connectionId);
     if (!cleanString(accessToken)) needsReview("QuickBooks access token missing");
     if (!cleanString(realmId)) needsReview("QuickBooks realm id missing");
 
     const writeService = new QuickBooksWriteService({
       realmId: stringValue(realmId),
       accessToken: stringValue(accessToken),
-      environment: getQuickBooksEnvironment(),
+      environment: providerEnvironment,
     });
     const prepared = await preparePush(supabase, row, writeService);
     const result = await performProviderWrite({ row, prepared, writeService });

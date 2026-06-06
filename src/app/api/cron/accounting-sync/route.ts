@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { runSyncForConnection } from "@/lib/api/services/sync-orchestrator";
+import { getQuickBooksProviderEnvironment } from "@/lib/api/services/quickbooks-config";
 
 export async function GET(request: NextRequest) {
   // Verify cron secret — fail-closed: reject if secret is missing or doesn't match
@@ -21,11 +22,12 @@ export async function GET(request: NextRequest) {
   }
 
   const supabase = getServiceRoleClient();
+  const quickBooksProviderEnvironment = getQuickBooksProviderEnvironment();
 
   // Find all enabled connections
   const { data: connections, error } = await supabase
     .from("accounting_connections")
-    .select("id, company_id, provider, last_sync_at")
+    .select("id, company_id, provider, provider_environment, last_sync_at")
     .eq("is_connected", true)
     .eq("sync_enabled", true);
 
@@ -34,13 +36,19 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Failed to fetch connections" }, { status: 500 });
   }
 
-  if (!connections || connections.length === 0) {
+  const activeConnections = (connections ?? []).filter(
+    (conn) =>
+      conn.provider !== "quickbooks" ||
+      conn.provider_environment === quickBooksProviderEnvironment
+  );
+
+  if (activeConnections.length === 0) {
     return NextResponse.json({ message: "No active connections to sync", synced: 0 });
   }
 
   const results: Array<{ companyId: string; provider: string; status: string }> = [];
 
-  for (const conn of connections) {
+  for (const conn of activeConnections) {
     try {
       const syncResult = await runSyncForConnection(
         supabase,

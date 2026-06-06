@@ -311,6 +311,7 @@ export type Database = {
           last_sync_at: string | null
           propagate_deletes: boolean
           provider: string
+          provider_environment: string
           realm_id: string | null
           realm_id_lookup: string | null
           refresh_token: string | null
@@ -329,6 +330,7 @@ export type Database = {
           last_sync_at?: string | null
           propagate_deletes?: boolean
           provider: string
+          provider_environment?: string
           realm_id?: string | null
           realm_id_lookup?: string | null
           refresh_token?: string | null
@@ -347,6 +349,7 @@ export type Database = {
           last_sync_at?: string | null
           propagate_deletes?: boolean
           provider?: string
+          provider_environment?: string
           realm_id?: string | null
           realm_id_lookup?: string | null
           refresh_token?: string | null
@@ -10851,6 +10854,7 @@ export type Database = {
           history_cutoff: string | null
           id: string
           provider: string
+          provider_environment: string
           qb_write_calls: number
           status: string
           totals: Json
@@ -10864,6 +10868,7 @@ export type Database = {
           history_cutoff?: string | null
           id?: string
           provider?: string
+          provider_environment?: string
           qb_write_calls?: number
           status?: string
           totals?: Json
@@ -10877,6 +10882,7 @@ export type Database = {
           history_cutoff?: string | null
           id?: string
           provider?: string
+          provider_environment?: string
           qb_write_calls?: number
           status?: string
           totals?: Json

@@ -59,6 +59,7 @@ export async function GET(request: NextRequest) {
     .select("webhook_verifier_token")
     .eq("company_id", companyId)
     .eq("provider", "sage")
+    .eq("provider_environment", "production")
     .single();
 
   if (!existing || existing.webhook_verifier_token !== state) {
@@ -114,7 +115,8 @@ export async function GET(request: NextRequest) {
         updated_at: new Date().toISOString(),
       })
       .eq("company_id", companyId)
-      .eq("provider", "sage");
+      .eq("provider", "sage")
+      .eq("provider_environment", "production");
 
     if (upsertError) {
       console.error("Failed to store Sage tokens:", upsertError.message);

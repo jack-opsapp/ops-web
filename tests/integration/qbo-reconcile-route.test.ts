@@ -125,6 +125,8 @@ describe("POST /api/cron/accounting/quickbooks/reconcile", () => {
     vi.clearAllMocks();
     qbWriteCalls.value = 0;
     process.env.CRON_SECRET = "cron-secret";
+    process.env.QB_ENVIRONMENT = "production";
+    delete process.env.QB_ACTIVE_PROFILE;
     delete process.env.ACCOUNTING_WRITE_ENABLED;
     state = {
       accounting_connections: [
@@ -132,6 +134,7 @@ describe("POST /api/cron/accounting/quickbooks/reconcile", () => {
           id: CONNECTION_ID,
           company_id: COMPANY_ID,
           provider: "quickbooks",
+          provider_environment: "production",
           is_connected: true,
           sync_enabled: true,
           sync_direction: "bidirectional",
@@ -165,7 +168,11 @@ describe("POST /api/cron/accounting/quickbooks/reconcile", () => {
       accounting_sync_queue: [],
     };
     auditRecord.mockResolvedValue("evt-new");
-    getValidToken.mockResolvedValue({ accessToken: "tok", realmId: "realm-1" });
+    getValidToken.mockResolvedValue({
+      accessToken: "tok",
+      realmId: "realm-1",
+      providerEnvironment: "production",
+    });
     fetchEntityById.mockResolvedValue({
       Id: "130",
       MetaData: { LastUpdatedTime: "2026-06-05T10:01:00.000Z" },

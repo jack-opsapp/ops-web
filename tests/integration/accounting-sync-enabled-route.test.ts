@@ -1,4 +1,4 @@
-// tests/integration/accounting-sync-mode-route.test.ts
+// tests/integration/accounting-sync-enabled-route.test.ts
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const verifyAdminAuth = vi.fn();
@@ -31,20 +31,19 @@ vi.mock("@/lib/supabase/server-client", () => ({
 
 const CO = "a612edc0-5c18-4c4d-af97-55b9410dd077";
 function post(body: unknown) {
-  return new Request("http://localhost/api/integrations/accounting/sync-mode", {
+  return new Request("http://localhost/api/integrations/accounting/sync-enabled", {
     method: "POST",
     body: JSON.stringify(body),
   }) as never;
 }
 async function route() {
-  return (await import("@/app/api/integrations/accounting/sync-mode/route")).POST;
+  return (await import("@/app/api/integrations/accounting/sync-enabled/route")).POST;
 }
 
-describe("POST /api/integrations/accounting/sync-mode", () => {
+describe("POST /api/integrations/accounting/sync-enabled", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    process.env.QB_ENVIRONMENT = "production";
-    delete process.env.QB_ACTIVE_PROFILE;
+    process.env.QB_ACTIVE_PROFILE = "sandbox";
     verifyAdminAuth.mockResolvedValue({ uid: "fb-1", email: "o@x.test" });
     findUserByAuth.mockResolvedValue({ id: "user-1", company_id: CO });
     checkPermissionById.mockResolvedValue(true);
@@ -54,14 +53,14 @@ describe("POST /api/integrations/accounting/sync-mode", () => {
   it("401 without auth", async () => {
     verifyAdminAuth.mockResolvedValue(null);
     const POST = await route();
-    const res = await POST(post({ companyId: CO, provider: "quickbooks", syncDirection: "bidirectional" }));
+    const res = await POST(post({ companyId: CO, provider: "quickbooks", syncEnabled: true }));
     expect(res.status).toBe(401);
     expect(updateCall).not.toHaveBeenCalled();
   });
 
-  it("400 for an invalid syncDirection (e.g. push_only)", async () => {
+  it("400 when syncEnabled is not a boolean", async () => {
     const POST = await route();
-    const res = await POST(post({ companyId: CO, provider: "quickbooks", syncDirection: "push_only" }));
+    const res = await POST(post({ companyId: CO, provider: "quickbooks", syncEnabled: "true" }));
     expect(res.status).toBe(400);
     expect(updateCall).not.toHaveBeenCalled();
   });
@@ -69,7 +68,7 @@ describe("POST /api/integrations/accounting/sync-mode", () => {
   it("403 for a different company", async () => {
     findUserByAuth.mockResolvedValue({ id: "user-1", company_id: "other-co" });
     const POST = await route();
-    const res = await POST(post({ companyId: CO, provider: "quickbooks", syncDirection: "bidirectional" }));
+    const res = await POST(post({ companyId: CO, provider: "quickbooks", syncEnabled: true }));
     expect(res.status).toBe(403);
     expect(updateCall).not.toHaveBeenCalled();
   });
@@ -77,38 +76,30 @@ describe("POST /api/integrations/accounting/sync-mode", () => {
   it("403 without accounting.manage_connections", async () => {
     checkPermissionById.mockResolvedValue(false);
     const POST = await route();
-    const res = await POST(post({ companyId: CO, provider: "quickbooks", syncDirection: "bidirectional" }));
+    const res = await POST(post({ companyId: CO, provider: "quickbooks", syncEnabled: true }));
     expect(res.status).toBe(403);
     expect(updateCall).not.toHaveBeenCalled();
   });
 
-  it("persists bidirectional + propagateDeletes", async () => {
+  it("updates the active QuickBooks provider environment only", async () => {
     const POST = await route();
-    const res = await POST(
-      post({ companyId: CO, provider: "quickbooks", syncDirection: "bidirectional", propagateDeletes: true })
-    );
-    expect(res.status).toBe(200);
-    expect(updateCall).toHaveBeenCalledWith(
-      expect.objectContaining({ sync_direction: "bidirectional", propagate_deletes: true })
-    );
-    expect(eqCall).toHaveBeenCalledWith("provider_environment", "production");
-  });
+    const res = await POST(post({ companyId: CO, provider: "quickbooks", syncEnabled: true }));
+    const body = await res.json();
 
-  it("forces propagate_deletes=false when read-only (no writes at all)", async () => {
-    const POST = await route();
-    const res = await POST(
-      post({ companyId: CO, provider: "quickbooks", syncDirection: "pull_only", propagateDeletes: true })
-    );
     expect(res.status).toBe(200);
+    expect(body.providerEnvironment).toBe("sandbox");
     expect(updateCall).toHaveBeenCalledWith(
-      expect.objectContaining({ sync_direction: "pull_only", propagate_deletes: false })
+      expect.objectContaining({ sync_enabled: true, updated_at: expect.any(String) })
     );
+    expect(eqCall).toHaveBeenCalledWith("company_id", CO);
+    expect(eqCall).toHaveBeenCalledWith("provider", "quickbooks");
+    expect(eqCall).toHaveBeenCalledWith("provider_environment", "sandbox");
   });
 
   it("404 when no connection matches", async () => {
     maybeSingle.mockResolvedValue({ data: null, error: null });
     const POST = await route();
-    const res = await POST(post({ companyId: CO, provider: "quickbooks", syncDirection: "bidirectional" }));
+    const res = await POST(post({ companyId: CO, provider: "quickbooks", syncEnabled: false }));
     expect(res.status).toBe(404);
   });
 });

@@ -27,6 +27,7 @@ export interface QboImportRun {
   id: string;
   companyId: string;
   provider: string;
+  providerEnvironment: "production" | "sandbox";
   status: QboImportRunStatus;
   /** Trailing-history cutoff date used for the pull window (ISO date). */
   historyCutoff: string | null;
