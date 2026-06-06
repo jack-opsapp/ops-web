@@ -208,6 +208,7 @@ QuickBooks webhook
   -> fetch changed QB entity by GET
   -> compare timestamps
   -> apply or flag conflict
+  -> if Estimate becomes accepted, run accepted-estimate lifecycle bridge
   -> audit row
 
 Reconcile cron
@@ -310,6 +311,20 @@ Echo-loop prevention has two gates:
 - JS service-role apply paths that write through Supabase REST must use persisted rows in `accounting_sync_suppressions` via `suppress_accounting_sync(...)` before each OPS row mutation. A standalone Supabase RPC call to set `ops.sync_source` does not protect later REST writes because those writes run in separate transactions.
 
 Do not add sync-source columns to iOS-synced tables in P2.
+
+### QuickBooks Estimate Acceptance
+
+QuickBooks Estimate acceptance is a business lifecycle event, not a plain field update. When an inbound webhook or reconcile pass sees a linked QuickBooks Estimate with `TxnStatus = Accepted`, OPS must treat that as estimate acceptance:
+
+- Update the OPS estimate to accepted/approved only after the QuickBooks record is fetched and mapped.
+- Move the linked opportunity/lead to `won`.
+- Reuse an already-linked project when one exists; otherwise create the lead-backed project through the accepted-estimate conversion contract.
+- Materialize accepted estimate line-item links into project tasks, preserving `source_estimate_id` and `source_line_item_id` so later task, inventory, and audit flows can trace back to the accepted estimate.
+- Persist the Phase 6 material booking projection for tracked-inventory companies. This creates projected demand/allocation evidence only; physical stock deduction still happens later through `complete_project_task`.
+- Preserve existing idempotency: repeated QuickBooks webhooks for the same accepted estimate must not create duplicate projects, duplicate tasks, or duplicate material demand rows.
+- Record an `accounting_sync_events` row with `direction = 'qb_to_ops'`, `source = 'webhook'` or `source = 'reconcile'`, `entity_type = 'estimate'`, `operation = 'update'`, and a snapshot of the acceptance bridge result.
+
+Do not implement this by directly setting `opportunities.stage = 'won'` from TypeScript. The existing Phase 6 acceptance work proved that estimate acceptance has to be a transaction spanning project/task sync, mapping warnings, and material-demand projection. The webhook service must call a dedicated integration-safe acceptance bridge that derives the acting OPS user from company-owned data, validates the QuickBooks connection and estimate linkage, and either runs the same acceptance contract or records `needs_review` when the actor/linkage cannot be proven.
 
 ### Audit Tables
 

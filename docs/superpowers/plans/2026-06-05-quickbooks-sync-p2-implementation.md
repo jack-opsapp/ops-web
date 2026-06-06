@@ -1658,11 +1658,36 @@ Expected: commit created.
 
 - Modify: `src/app/api/integrations/quickbooks/webhook/route.ts`
 - Modify: `src/lib/api/services/quickbooks-webhook-apply-service.ts`
+- Create: `src/lib/api/services/quickbooks-estimate-acceptance-service.ts`
 - Create: `src/lib/api/services/quickbooks-reconcile-service.ts`
 - Create: `src/app/api/cron/accounting/quickbooks/reconcile/route.ts`
+- Create: `supabase/migrations/20260605110000_qbo_inbound_estimate_acceptance_bridge.sql`
 - Modify: `tests/integration/qbo-webhook-route.test.ts`
+- Create: `tests/unit/services/quickbooks-estimate-acceptance-service.test.ts`
 - Create: `tests/unit/services/quickbooks-reconcile-service.test.ts`
+- Create: `tests/unit/supabase/qbo-inbound-estimate-acceptance-bridge-migration.test.ts`
 - Create: `tests/integration/qbo-reconcile-route.test.ts`
+
+### Task 5 Acceptance Amendment
+
+Inbound QuickBooks Estimate acceptance is in scope for Task 5. Do not treat `TxnStatus = Accepted` as a plain estimate status update. When the webhook or reconcile path sees a linked QBO Estimate become accepted, OPS must run the accepted-estimate lifecycle contract:
+
+- The linked OPS estimate becomes approved/accepted.
+- The linked opportunity moves to `won`.
+- An existing linked project is reused or a project is created.
+- LABOR line items become project tasks with `source_estimate_id` and `source_line_item_id` preserved.
+- Tracked-inventory companies get Phase 6 booking projection rows in `project_material_demands` / `task_material_allocations`; physical stock deduction still waits for `complete_project_task`.
+- Replays are idempotent and must not duplicate project, task, or demand rows.
+
+Implementation must not service-role-update these tables ad hoc from the webhook route. Add an integration-safe acceptance bridge in SQL, grant it only to `service_role`, and call it from a focused TypeScript service. The bridge must validate:
+
+- The `accounting_connections` row is QuickBooks, connected, `sync_enabled = true`, and not `push_only`.
+- The estimate belongs to the connection company and has the expected `qb_id`.
+- The estimate is linked to an opportunity.
+- The acting OPS user is derived from company-owned data: prefer `companies.account_holder_id`, then the first active company admin. Never accept an actor from QuickBooks payloads or route input.
+- If no safe actor/linkage exists, return a structured `needs_review` result and record audit; do not partially convert.
+
+The migration may either introduce actor-aware private helpers or a single bridge wrapper, but it must preserve the existing Phase 6 acceptance invariants from `public.accept_estimate_to_job`: idempotent request tracking, project/task sync, booking projection, mapping warnings, overrun warnings, and no physical stock deduction.
 
 - [ ] **Step 1: Add webhook audit tests**
 
@@ -1754,6 +1779,144 @@ await audit.record({
 
 - On poison record failure, record a failed audit event and keep the route response `200`.
 
+- [ ] **Step 3A: Add inbound accepted-estimate bridge tests**
+
+Create `tests/unit/services/quickbooks-estimate-acceptance-service.test.ts`:
+
+```ts
+import { describe, expect, it, vi } from "vitest";
+import { QuickBooksEstimateAcceptanceService } from "@/lib/api/services/quickbooks-estimate-acceptance-service";
+
+describe("QuickBooksEstimateAcceptanceService", () => {
+  it("calls the service-role bridge when a QBO estimate is accepted", async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: {
+        status: "succeeded",
+        estimate_id: "est-1",
+        project_id: "proj-1",
+        opportunity_id: "opp-1",
+        project_task_result: { project_task_count: 2 },
+        booking_projection_result: { booking_persistence_performed: true, demand_ids: ["demand-1"] },
+      },
+      error: null,
+    });
+    const service = new QuickBooksEstimateAcceptanceService({ rpc } as never);
+
+    const result = await service.acceptFromQuickBooks({
+      companyId: "7a88c7d6-d4e3-49be-9d21-0a989e0f3222",
+      connectionId: "91d98e28-36ec-4060-b047-3cb5cc342a12",
+      estimateId: "est-1",
+      qbEstimateId: "99",
+      qbUpdatedAt: "2026-06-05T11:00:00Z",
+    });
+
+    expect(rpc).toHaveBeenCalledWith("accept_estimate_to_job_from_quickbooks", {
+      p_company_id: "7a88c7d6-d4e3-49be-9d21-0a989e0f3222",
+      p_connection_id: "91d98e28-36ec-4060-b047-3cb5cc342a12",
+      p_estimate_id: "est-1",
+      p_qb_estimate_id: "99",
+      p_idempotency_key: "qbo:estimate:accepted:91d98e28-36ec-4060-b047-3cb5cc342a12:99",
+    });
+    expect(result.status).toBe("succeeded");
+  });
+
+  it("returns needs_review without throwing when the bridge cannot prove actor or linkage", async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: { status: "needs_review", reason: "integration_acceptance_actor_not_found" },
+      error: null,
+    });
+    const service = new QuickBooksEstimateAcceptanceService({ rpc } as never);
+
+    await expect(service.acceptFromQuickBooks({
+      companyId: "7a88c7d6-d4e3-49be-9d21-0a989e0f3222",
+      connectionId: "91d98e28-36ec-4060-b047-3cb5cc342a12",
+      estimateId: "est-1",
+      qbEstimateId: "99",
+      qbUpdatedAt: null,
+    })).resolves.toEqual(expect.objectContaining({ status: "needs_review" }));
+  });
+});
+```
+
+- [ ] **Step 3B: Add migration contract test for the acceptance bridge**
+
+Create `tests/unit/supabase/qbo-inbound-estimate-acceptance-bridge-migration.test.ts` for `20260605110000_qbo_inbound_estimate_acceptance_bridge.sql` that asserts:
+
+```ts
+expect(sql).toContain("create or replace function public.accept_estimate_to_job_from_quickbooks");
+expect(sql).toContain("grant execute on function public.accept_estimate_to_job_from_quickbooks");
+expect(sql).toContain("to service_role");
+expect(sql).toContain("revoke all on function public.accept_estimate_to_job_from_quickbooks");
+expect(sql).toContain("account_holder_id");
+expect(sql).toContain("admin_ids");
+expect(sql).toContain("accept_estimate_to_job_requests");
+expect(sql).toContain("private.sync_accepted_estimate_project_tasks");
+expect(sql).toContain("private.persist_estimate_material_booking_projection");
+expect(sql).toContain("physical stock deduction");
+```
+
+- [ ] **Step 3C: Implement `quickbooks-estimate-acceptance-service.ts`**
+
+Create a focused service that calls only the SQL bridge:
+
+```ts
+export interface QuickBooksEstimateAcceptanceInput {
+  companyId: string;
+  connectionId: string;
+  estimateId: string;
+  qbEstimateId: string;
+  qbUpdatedAt: string | null;
+}
+
+export interface QuickBooksEstimateAcceptanceResult {
+  status: "succeeded" | "needs_review" | "skipped";
+  reason?: string | null;
+  projectId?: string | null;
+  opportunityId?: string | null;
+  response?: Record<string, unknown>;
+}
+
+export class QuickBooksEstimateAcceptanceService {
+  constructor(private readonly supabase: { rpc: (name: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }> }) {}
+
+  async acceptFromQuickBooks(input: QuickBooksEstimateAcceptanceInput): Promise<QuickBooksEstimateAcceptanceResult> {
+    const { data, error } = await this.supabase.rpc("accept_estimate_to_job_from_quickbooks", {
+      p_company_id: input.companyId,
+      p_connection_id: input.connectionId,
+      p_estimate_id: input.estimateId,
+      p_qb_estimate_id: input.qbEstimateId,
+      p_idempotency_key: `qbo:estimate:accepted:${input.connectionId}:${input.qbEstimateId}`,
+    });
+    if (error) throw new Error(`QuickBooks estimate acceptance bridge failed: ${error.message}`);
+    return (data ?? { status: "needs_review", reason: "empty_bridge_response" }) as QuickBooksEstimateAcceptanceResult;
+  }
+}
+```
+
+- [ ] **Step 3D: Implement SQL bridge**
+
+Create `supabase/migrations/20260605110000_qbo_inbound_estimate_acceptance_bridge.sql`.
+
+Minimum contract:
+
+- transaction-wrapped and sentinel-guarded.
+- `public.accept_estimate_to_job_from_quickbooks(p_company_id uuid, p_connection_id uuid, p_estimate_id uuid, p_qb_estimate_id text, p_idempotency_key text) returns jsonb`
+- `security definer`, `set search_path = public, private, pg_temp`
+- grant execute to `service_role` only.
+- validate QuickBooks connection, company, `sync_enabled`, and not `push_only`.
+- validate estimate company, `qb_id`, and `opportunity_id`.
+- derive actor from company-owned data: `companies.account_holder_id`, then active admin from `companies.admin_ids`.
+- if no actor is available, return `jsonb_build_object('status','needs_review','reason','integration_acceptance_actor_not_found')`.
+- run the same acceptance-side work as `public.accept_estimate_to_job`: request idempotency row, `private.sync_accepted_estimate_project_tasks`, `private.persist_estimate_material_booking_projection`, `private.persist_catalog_mapping_notifications_from_missing_mappings`.
+- return the existing response shape plus `status = 'succeeded'`, `source = 'quickbooks_webhook'`, `qb_estimate_id`, and `idempotent_replay`.
+- explicitly do not call `complete_project_task` and do not write physical stock deductions.
+
+- [ ] **Step 3E: Trigger the acceptance bridge from webhook estimate apply**
+
+When `QuickBooksWebhookApplyService.applyEstimate(...)` maps a fetched estimate to `status = "approved"` from `TxnStatus = Accepted`, call `QuickBooksEstimateAcceptanceService.acceptFromQuickBooks(...)` after the estimate and line items have been persisted and echo suppression is in place.
+
+Return the acceptance bridge result in `ApplyEntityResult.afterSnapshot` or equivalent so the webhook route records it in `accounting_sync_events`. If the bridge returns `needs_review`, the webhook still returns `200` but the audit event must be `status = "needs_review"` with `decision = "needs_review"`.
+
 - [ ] **Step 4: Implement reconcile service**
 
 Create `src/lib/api/services/quickbooks-reconcile-service.ts`:
@@ -1836,6 +1999,9 @@ Run:
 
 ```bash
 npm test -- tests/integration/qbo-webhook-route.test.ts tests/unit/services/quickbooks-reconcile-service.test.ts tests/integration/qbo-reconcile-route.test.ts
+npm test -- tests/unit/services/quickbooks-estimate-acceptance-service.test.ts tests/unit/supabase/qbo-inbound-estimate-acceptance-bridge-migration.test.ts
+npm run type-check
+git diff --check
 ```
 
 Expected: PASS.
@@ -1845,7 +2011,7 @@ Expected: PASS.
 Run:
 
 ```bash
-git add src/app/api/integrations/quickbooks/webhook/route.ts src/lib/api/services/quickbooks-webhook-apply-service.ts src/lib/api/services/quickbooks-reconcile-service.ts src/app/api/cron/accounting/quickbooks/reconcile/route.ts tests/integration/qbo-webhook-route.test.ts tests/unit/services/quickbooks-reconcile-service.test.ts tests/integration/qbo-reconcile-route.test.ts
+git add src/app/api/integrations/quickbooks/webhook/route.ts src/lib/api/services/quickbooks-webhook-apply-service.ts src/lib/api/services/quickbooks-estimate-acceptance-service.ts src/lib/api/services/quickbooks-reconcile-service.ts src/app/api/cron/accounting/quickbooks/reconcile/route.ts supabase/migrations/20260605110000_qbo_inbound_estimate_acceptance_bridge.sql tests/integration/qbo-webhook-route.test.ts tests/unit/services/quickbooks-estimate-acceptance-service.test.ts tests/unit/services/quickbooks-reconcile-service.test.ts tests/unit/supabase/qbo-inbound-estimate-acceptance-bridge-migration.test.ts tests/integration/qbo-reconcile-route.test.ts
 git commit -m "feat(qbo): audit webhook and reconcile sync"
 ```
 

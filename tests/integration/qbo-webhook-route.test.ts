@@ -8,8 +8,10 @@ import { realmIdLookup } from "@/lib/api/services/token-cipher";
 // route's verify + route + dispatch logic is exercised in isolation.
 
 const connMaybeSingle = vi.fn();
+const connectionEq = vi.fn();
 const syncLogInsert = vi.fn();
 const applyEntity = vi.fn();
+const recordAuditEvent = vi.fn();
 
 // A minimal service-role client double: `from(table)` returns a chainable query
 // builder. accounting_connections lookups resolve via connMaybeSingle;
@@ -20,7 +22,10 @@ function makeSupabase() {
       if (table === "accounting_connections") {
         const builder = {
           select: () => builder,
-          eq: () => builder,
+          eq: (column: string, value: unknown) => {
+            connectionEq(column, value);
+            return builder;
+          },
           maybeSingle: () => connMaybeSingle(),
         };
         return builder;
@@ -40,6 +45,12 @@ vi.mock("@/lib/supabase/server-client", () => ({
 vi.mock("@/lib/api/services/quickbooks-webhook-apply-service", () => ({
   QuickBooksWebhookApplyService: class {
     applyEntity = (...a: unknown[]) => applyEntity(...a);
+  },
+}));
+
+vi.mock("@/lib/api/services/accounting-sync-audit-service", () => ({
+  AccountingSyncAuditService: class {
+    record = (...a: unknown[]) => recordAuditEvent(...a);
   },
 }));
 
@@ -91,9 +102,11 @@ describe("POST /api/integrations/quickbooks/webhook — signature verification",
       status: "success",
       logEntityType: "invoice",
       qbId: "130",
+      entityId: "invoice-130",
       detail: null,
     });
     syncLogInsert.mockResolvedValue({ error: null });
+    recordAuditEvent.mockResolvedValue("audit-1");
   });
 
   it("accepts a request with the correct HMAC and dispatches the entity (200)", async () => {
@@ -112,7 +125,20 @@ describe("POST /api/integrations/quickbooks/webhook — signature verification",
     expect(name).toBe("Invoice");
     expect(id).toBe("130");
     expect(operation).toBe("Update");
+    expect(connectionEq).toHaveBeenCalledWith("sync_enabled", true);
     expect(syncLogInsert).toHaveBeenCalledTimes(1);
+    expect(recordAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        direction: "qb_to_ops",
+        source: "webhook",
+        decision: "qb_won",
+        entityType: "invoice",
+        entityId: "invoice-130",
+        externalId: "130",
+        operation: "update",
+        status: "succeeded",
+      }),
+    );
   });
 
   it("rejects a WRONG signature (401) and processes nothing", async () => {
@@ -171,6 +197,7 @@ describe("POST /api/integrations/quickbooks/webhook — realm routing", () => {
       detail: null,
     });
     syncLogInsert.mockResolvedValue({ error: null });
+    recordAuditEvent.mockResolvedValue("audit-1");
   });
 
   it("processes a notification whose realm maps to a connected company", async () => {
@@ -206,6 +233,7 @@ describe("POST /api/integrations/quickbooks/webhook — entity dispatch", () => 
     process.env.QB_WEBHOOK_VERIFIER_TOKEN = VERIFIER;
     connMaybeSingle.mockResolvedValue({ data: { id: "conn-1", company_id: CO }, error: null });
     syncLogInsert.mockResolvedValue({ error: null });
+    recordAuditEvent.mockResolvedValue("audit-1");
   });
 
   it("dispatches a Customer Update to the apply service", async () => {
@@ -243,5 +271,81 @@ describe("POST /api/integrations/quickbooks/webhook — entity dispatch", () => 
     // The failure was logged as an error row, not surfaced as a non-2xx.
     expect(syncLogInsert).toHaveBeenCalledTimes(1);
     expect(syncLogInsert.mock.calls[0][0]).toMatchObject({ status: "error", external_id: "130" });
+    expect(recordAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        direction: "qb_to_ops",
+        entityType: "invoice",
+        externalId: "130",
+        status: "failed",
+        source: "webhook",
+        decision: "needs_review",
+      }),
+    );
+  });
+
+  it("records qb_to_ops audit events and still returns 200 for a poison entity", async () => {
+    applyEntity.mockRejectedValueOnce(new Error("bad invoice"));
+    const body = buildBody([{ name: "Invoice", id: "99", operation: "Update" }]);
+    const POST = await loadPost();
+    const res = await POST(req(body, sign(body)));
+
+    expect(res.status).toBe(200);
+    expect(recordAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        direction: "qb_to_ops",
+        entityType: "invoice",
+        externalId: "99",
+        status: "failed",
+        source: "webhook",
+      }),
+    );
+  });
+
+  it("records accepted estimate bridge needs_review without failing the webhook", async () => {
+    applyEntity.mockResolvedValueOnce({
+      status: "needs_review",
+      logEntityType: "estimate",
+      qbId: "99",
+      entityId: "estimate-99",
+      detail: "integration_acceptance_actor_not_found",
+      afterSnapshot: {
+        estimateStatus: "approved",
+        quickbooksTxnStatus: "Accepted",
+        acceptance: {
+          status: "needs_review",
+          reason: "integration_acceptance_actor_not_found",
+        },
+      },
+    });
+    const body = buildBody([{ name: "Estimate", id: "99", operation: "Update" }]);
+    const POST = await loadPost();
+    const res = await POST(req(body, sign(body)));
+
+    expect(res.status).toBe(200);
+    expect(recordAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        direction: "qb_to_ops",
+        entityType: "estimate",
+        entityId: "estimate-99",
+        externalId: "99",
+        status: "needs_review",
+        decision: "needs_review",
+        error: "integration_acceptance_actor_not_found",
+        afterSnapshot: expect.objectContaining({
+          acceptance: expect.objectContaining({
+            status: "needs_review",
+            reason: "integration_acceptance_actor_not_found",
+          }),
+        }),
+      }),
+    );
+    expect(syncLogInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        entity_type: "estimate",
+        entity_id: "estimate-99",
+        external_id: "99",
+        status: "error",
+      }),
+    );
   });
 });

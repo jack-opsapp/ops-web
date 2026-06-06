@@ -31,8 +31,15 @@ import { NextResponse } from "next/server";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { realmIdLookup } from "@/lib/api/services/token-cipher";
+import { AccountingSyncAuditService } from "@/lib/api/services/accounting-sync-audit-service";
+import type {
+  AccountingSyncAuditInput,
+  AccountingSyncEntityType,
+  AccountingSyncOperation,
+} from "@/lib/api/services/accounting-sync-queue-types";
 import {
   QuickBooksWebhookApplyService,
+  type ApplyEntityResult,
   type QboEntityName,
   type QboOperation,
 } from "@/lib/api/services/quickbooks-webhook-apply-service";
@@ -76,6 +83,95 @@ function signatureMatches(rawBody: string, header: string, verifier: string): bo
   const b = Buffer.from(expected, "utf8");
   if (a.length !== b.length) return false;
   return timingSafeEqual(a, b);
+}
+
+function entityTypeFor(entity: QboEntityName): AccountingSyncEntityType {
+  switch (entity) {
+    case "Customer":
+      return "customer";
+    case "Invoice":
+      return "invoice";
+    case "Payment":
+      return "payment";
+    case "Estimate":
+      return "estimate";
+  }
+}
+
+function operationFor(operation: QboOperation): AccountingSyncOperation {
+  switch (operation) {
+    case "Create":
+      return "create";
+    case "Delete":
+      return "delete_soft";
+    case "Void":
+      return "void";
+    case "Update":
+    case "Emailed":
+    case "Merge":
+      return "update";
+  }
+}
+
+function safeText(input: unknown): string | null {
+  const raw =
+    input instanceof Error
+      ? input.message
+      : typeof input === "string"
+        ? input
+        : input === null || input === undefined
+          ? null
+          : String(input);
+  if (!raw) return null;
+
+  return raw
+    .replace(/bearer\s+[A-Za-z0-9._~+/=-]+/gi, "Bearer [redacted]")
+    .replace(/authorization:\s*[^,\n\r]+/gi, "authorization: [redacted]")
+    .replace(/access[_-]?token["'\s:=]+[^"',\s}]+/gi, "access_token=[redacted]")
+    .replace(/refresh[_-]?token["'\s:=]+[^"',\s}]+/gi, "refresh_token=[redacted]")
+    .slice(0, 500);
+}
+
+async function recordAuditBestEffort(
+  audit: AccountingSyncAuditService,
+  input: AccountingSyncAuditInput
+): Promise<void> {
+  try {
+    await audit.record(input);
+  } catch (err) {
+    console.error(`[qbo-webhook] accounting sync audit failed: ${safeText(err) ?? "unknown error"}`);
+  }
+}
+
+function auditStatusFor(result: ApplyEntityResult): AccountingSyncAuditInput["status"] {
+  switch (result.status) {
+    case "success":
+      return "succeeded";
+    case "skipped":
+      return "skipped";
+    case "needs_review":
+      return "needs_review";
+    case "error":
+      return "failed";
+  }
+}
+
+function auditDecisionFor(result: ApplyEntityResult): AccountingSyncAuditInput["decision"] {
+  switch (result.status) {
+    case "success":
+      return "qb_won";
+    case "skipped":
+      return "skipped";
+    case "needs_review":
+    case "error":
+      return "needs_review";
+  }
+}
+
+function legacySyncStatusFor(result: ApplyEntityResult): "success" | "error" | "skipped" {
+  if (result.status === "success") return "success";
+  if (result.status === "skipped") return "skipped";
+  return "error";
 }
 
 /** Write a per-entity audit row to accounting_sync_log. Never throws. */
@@ -142,6 +238,7 @@ export async function POST(request: Request): Promise<Response> {
 
   const supabase = getServiceRoleClient();
   const applyService = new QuickBooksWebhookApplyService(supabase);
+  const audit = new AccountingSyncAuditService(supabase);
   let processed = 0;
 
   for (const notification of notifications) {
@@ -155,6 +252,7 @@ export async function POST(request: Request): Promise<Response> {
       .eq("realm_id_lookup", realmIdLookup(realmId))
       .eq("provider", PROVIDER)
       .eq("is_connected", true)
+      .eq("sync_enabled", true)
       .maybeSingle();
 
     if (!connection) {
@@ -173,12 +271,37 @@ export async function POST(request: Request): Promise<Response> {
       try {
         const result = await applyService.applyEntity(conn, name, id, operation);
         processed += 1;
+        const status = auditStatusFor(result);
+        await recordAuditBestEffort(audit, {
+          companyId: conn.company_id,
+          connectionId: conn.id,
+          provider: PROVIDER,
+          direction: "qb_to_ops",
+          entityType: entityTypeFor(name),
+          entityId: result.entityId ?? null,
+          externalId: result.qbId,
+          operation: operationFor(operation),
+          status,
+          source: "webhook",
+          decision: auditDecisionFor(result),
+          qbUpdatedAt: entity.lastUpdated ?? result.qbUpdatedAt ?? null,
+          afterSnapshot: {
+            operation,
+            status: result.status,
+            detail: safeText(result.detail),
+            ...(result.afterSnapshot ?? {}),
+          },
+          error:
+            result.status === "error" || result.status === "needs_review"
+              ? safeText(result.detail)
+              : null,
+        });
         await logSync(supabase, {
           company_id: conn.company_id,
           entity_type: result.logEntityType,
-          entity_id: null,
+          entity_id: result.entityId ?? null,
           external_id: result.qbId,
-          status: result.status,
+          status: legacySyncStatusFor(result),
           details: result.detail,
         });
       } catch (err) {
@@ -186,9 +309,28 @@ export async function POST(request: Request): Promise<Response> {
         // non-2xx → infinite retries for one poison record). Log + continue.
         console.error(
           `[qbo-webhook] apply failed for ${name} ${id} (${operation}): ${
-            err instanceof Error ? err.message : "unknown error"
+            safeText(err) ?? "unknown error"
           }`
         );
+        await recordAuditBestEffort(audit, {
+          companyId: conn.company_id,
+          connectionId: conn.id,
+          provider: PROVIDER,
+          direction: "qb_to_ops",
+          entityType: entityTypeFor(name),
+          entityId: null,
+          externalId: id,
+          operation: operationFor(operation),
+          status: "failed",
+          source: "webhook",
+          decision: "needs_review",
+          qbUpdatedAt: entity.lastUpdated ?? null,
+          afterSnapshot: {
+            operation,
+            status: "failed",
+          },
+          error: safeText(err) ?? "apply threw",
+        });
         await logSync(supabase, {
           company_id: conn.company_id,
           entity_type:
