@@ -96,9 +96,36 @@ function qbMetaUpdatedAt(record: QbRecordLike): string | null {
   return typeof value === "string" && value.trim() ? value : null;
 }
 
+function qboEntityTypeFor(entity: QboEntityName): "customer" | "invoice" | "payment" | "estimate" {
+  switch (entity) {
+    case "Customer":
+      return "customer";
+    case "Invoice":
+      return "invoice";
+    case "Payment":
+      return "payment";
+    case "Estimate":
+      return "estimate";
+  }
+}
+
+function sameQboInstant(a: string | null | undefined, b: string | null | undefined): boolean {
+  if (!a || !b) return false;
+  const aMs = Date.parse(a);
+  const bMs = Date.parse(b);
+  if (!Number.isFinite(aMs) || !Number.isFinite(bMs)) return false;
+  return Math.abs(aMs - bMs) <= 1000;
+}
+
 interface ConnectionRow {
   id: string;
   company_id: string;
+}
+
+interface OutboundEchoMatch {
+  eventId: string;
+  entityId: string | null;
+  qbUpdatedAt: string | null;
 }
 
 export class QuickBooksWebhookApplyService {
@@ -138,6 +165,45 @@ export class QuickBooksWebhookApplyService {
     }
   }
 
+  private async findOutboundEcho(
+    connection: ConnectionRow,
+    entity: QboEntityName,
+    qbId: string,
+    record: QbRecordLike
+  ): Promise<OutboundEchoMatch | null> {
+    const qbUpdatedAt = qbMetaUpdatedAt(record);
+    if (!qbUpdatedAt) return null;
+
+    const since = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+    const { data, error } = await this.supabase
+      .from("accounting_sync_events")
+      .select("id, entity_id, qb_updated_at")
+      .eq("company_id", connection.company_id)
+      .eq("connection_id", connection.id)
+      .eq("provider", "quickbooks")
+      .eq("direction", "ops_to_qb")
+      .eq("entity_type", qboEntityTypeFor(entity))
+      .eq("external_id", qbId)
+      .eq("status", "succeeded")
+      .eq("source", "worker")
+      .gte("created_at", since)
+      .order("created_at", { ascending: false })
+      .limit(5);
+
+    if (error) return null;
+
+    const match = ((data ?? []) as Array<Record<string, unknown>>).find((row) =>
+      sameQboInstant(row.qb_updated_at as string | null | undefined, qbUpdatedAt)
+    );
+    if (!match) return null;
+
+    return {
+      eventId: String(match.id),
+      entityId: typeof match.entity_id === "string" ? match.entity_id : null,
+      qbUpdatedAt,
+    };
+  }
+
   /**
    * Fetch + apply a single entity for a connection. Never throws for a
    * per-entity failure that the route should swallow — instead returns an
@@ -171,6 +237,19 @@ export class QuickBooksWebhookApplyService {
     }
     if (!record) {
       return { status: "skipped", logEntityType, qbId, detail: "record not found in QuickBooks" };
+    }
+
+    const outboundEcho = await this.findOutboundEcho(connection, entity, qbId, record);
+    if (outboundEcho) {
+      return {
+        status: "skipped",
+        logEntityType,
+        qbId,
+        entityId: outboundEcho.entityId,
+        qbUpdatedAt: outboundEcho.qbUpdatedAt,
+        detail: "outbound echo skipped",
+        afterSnapshot: { echoEventId: outboundEcho.eventId },
+      };
     }
 
     switch (entity) {

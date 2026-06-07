@@ -57,9 +57,11 @@ function makeSupabase(opts: {
         const builder: Record<string, unknown> = {};
         builder.select = () => builder;
         builder.eq = () => builder;
+        builder.gte = () => builder;
         builder.or = () => builder;
         builder.is = () => builder;
         builder.limit = () => builder;
+        builder.order = () => builder;
         builder.maybeSingle = async () => {
           const id = existingIds[table] ?? resolvedAfterUpsert[table];
           return { data: id ? { id } : null, error: null };
@@ -250,6 +252,37 @@ describe("QuickBooksWebhookApplyService.applyEntity — Customer", () => {
       email: "Birds@Intuit.com",
       phone_number: "(650) 555-3311",
     });
+  });
+
+  it("skips customer webhooks that echo a just-recorded OPS-to-QBO write", async () => {
+    const { client, captured } = makeSupabase({
+      rows: {
+        accounting_sync_events: [
+          {
+            id: "evt-outbound-1",
+            entity_id: "client-1",
+            qb_updated_at: "2024-09-01T12:00:00.000Z",
+          },
+        ],
+      },
+    });
+    fetchEntityById.mockResolvedValue({
+      ...SANDBOX_CUSTOMER,
+      MetaData: { LastUpdatedTime: "2024-09-01T05:00:00-07:00" },
+    });
+
+    const svc = new QuickBooksWebhookApplyService(client as never);
+    const result = await svc.applyEntity(CONN, "Customer", "1", "Update");
+
+    expect(result).toMatchObject({
+      status: "skipped",
+      logEntityType: "client",
+      entityId: "client-1",
+      detail: "outbound echo skipped",
+      afterSnapshot: { echoEventId: "evt-outbound-1" },
+    });
+    expect(captured.upserts).toEqual([]);
+    expect(captured.rpcs).toEqual([]);
   });
 
   it("a company-customer webhook creates a CompanyName client + a contact sub_client", async () => {
