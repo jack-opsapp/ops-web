@@ -884,6 +884,35 @@ async function createReviewNotification(
   }
 }
 
+async function resolveReviewNotifications(
+  supabase: SupabaseClient,
+  row: AccountingSyncQueueRow,
+): Promise<void> {
+  const now = new Date().toISOString();
+  const keys = [
+    `qbo-sync:${row.companyId}:${row.entityType}:${row.entityId}:blocked`,
+    `qbo-sync:${row.companyId}:${row.entityType}:${row.entityId}:needs_review`,
+  ];
+
+  for (const dedupeKey of keys) {
+    try {
+      const { error } = await supabase
+        .from("notifications")
+        .update({ is_read: true, resolved_at: now })
+        .eq("company_id", row.companyId)
+        .eq("dedupe_key", dedupeKey)
+        .eq("is_read", false)
+        .is("resolved_at", null);
+
+      if (error) {
+        console.error("[qbo-push] review notification resolve failed:", error);
+      }
+    } catch (error) {
+      console.error("[qbo-push] review notification resolve failed:", error);
+    }
+  }
+}
+
 async function processQueueRow(input: {
   supabase: SupabaseClient;
   queue: AccountingSyncQueueService;
@@ -916,6 +945,7 @@ async function processQueueRow(input: {
 
       await recordSuccess(audit, row, prepared, result);
       await queue.markSucceeded(row.id, { externalId: result.qbId, workerId });
+      await resolveReviewNotifications(supabase, row);
     } catch (finalizationError) {
       const message = `QuickBooks write succeeded but worker finalization failed: ${errorMessage(finalizationError)}`;
       const notificationCreated = await markPostProviderFinalizationFailed({

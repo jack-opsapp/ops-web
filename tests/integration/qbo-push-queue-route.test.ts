@@ -923,6 +923,75 @@ describe("POST /api/cron/accounting/quickbooks/push-queue", () => {
     expect(markSucceeded).toHaveBeenCalledWith("q-1", { externalId: "90", workerId: expect.any(String) });
   });
 
+  it("resolves stale QuickBooks review notifications after a later successful write for the same entity", async () => {
+    process.env.ACCOUNTING_WRITE_ENABLED = "true";
+    process.env.QBO_FALLBACK_SERVICE_ITEM_ID = "1";
+    claimDue.mockResolvedValue([
+      queueRow({
+        operation: "update",
+        externalId: "90",
+      }),
+    ]);
+    state.notifications.push(
+      {
+        id: "n-blocked",
+        company_id: COMPANY_ID,
+        is_read: false,
+        resolved_at: null,
+        dedupe_key: `qbo-sync:${COMPANY_ID}:invoice:${INVOICE_ID}:blocked`,
+      },
+      {
+        id: "n-review",
+        company_id: COMPANY_ID,
+        is_read: false,
+        resolved_at: null,
+        dedupe_key: `qbo-sync:${COMPANY_ID}:invoice:${INVOICE_ID}:needs_review`,
+      },
+      {
+        id: "n-other",
+        company_id: COMPANY_ID,
+        is_read: false,
+        resolved_at: null,
+        dedupe_key: `qbo-sync:${COMPANY_ID}:payment:payment-1:needs_review`,
+      },
+    );
+    state.invoices.push({
+      id: INVOICE_ID,
+      company_id: COMPANY_ID,
+      client_id: CUSTOMER_ID,
+      invoice_number: "INV-1001",
+      total: 125,
+      issue_date: "2026-06-05",
+      due_date: "2026-06-20",
+      qb_id: "90",
+      updated_at: "2026-06-05T10:00:00.000Z",
+    });
+    state.clients.push({ id: CUSTOMER_ID, company_id: COMPANY_ID, name: "Maverick Projects", qb_id: "44" });
+    state.line_items.push({
+      id: "line-1",
+      company_id: COMPANY_ID,
+      invoice_id: INVOICE_ID,
+      name: "Field work",
+      quantity: 2,
+      unit_price: 62.5,
+      line_total: 125,
+    });
+
+    const POST = await loadPost();
+    const res = await POST(authorizedRequest());
+
+    expect(res.status).toBe(200);
+    expect(state.notifications.find((row) => row.id === "n-blocked")).toEqual(
+      expect.objectContaining({ is_read: true, resolved_at: expect.any(String) }),
+    );
+    expect(state.notifications.find((row) => row.id === "n-review")).toEqual(
+      expect.objectContaining({ is_read: true, resolved_at: expect.any(String) }),
+    );
+    expect(state.notifications.find((row) => row.id === "n-other")).toEqual(
+      expect.objectContaining({ is_read: false, resolved_at: null }),
+    );
+  });
+
   it("uses the sandbox fallback service item for sandbox invoice creates", async () => {
     process.env.ACCOUNTING_WRITE_ENABLED = "true";
     process.env.QBO_FALLBACK_SERVICE_ITEM_ID = "1";
