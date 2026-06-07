@@ -444,7 +444,7 @@ describe("POST /api/cron/accounting/quickbooks/push-queue", () => {
     expect(scheduleRetry).not.toHaveBeenCalled();
   });
 
-  it("writes a returned customer qb_id only after suppressing the concrete OPS entity", async () => {
+  it("writes a returned customer qb_id without creating a broad sync suppression", async () => {
     process.env.ACCOUNTING_WRITE_ENABLED = "true";
     claimDue.mockResolvedValue([
       queueRow({
@@ -473,8 +473,8 @@ describe("POST /api/cron/accounting/quickbooks/push-queue", () => {
     expect(writeCreate).toHaveBeenCalledWith("Customer", expect.objectContaining({ DisplayName: "Maverick Projects" }));
     const suppressIndex = state.calls.findIndex((call) => call.method === "rpc:suppress_accounting_sync");
     const updateIndex = state.calls.findIndex((call) => call.table === "clients" && call.method === "update");
-    expect(suppressIndex).toBeGreaterThanOrEqual(0);
-    expect(updateIndex).toBeGreaterThan(suppressIndex);
+    expect(suppressIndex).toBe(-1);
+    expect(updateIndex).toBeGreaterThanOrEqual(0);
     expect(state.clients[0].qb_id).toBe("123");
     expect(markSucceeded).toHaveBeenCalledWith("q-1", { externalId: "123", workerId: expect.any(String) });
     expect(record).toHaveBeenCalledWith(
@@ -498,13 +498,12 @@ describe("POST /api/cron/accounting/quickbooks/push-queue", () => {
       Customer: { Id: "123", SyncToken: "4", MetaData: { LastUpdatedTime: "2026-06-05T10:00:00Z" } },
     });
     writeUpdate.mockResolvedValueOnce({ qbId: "123", syncToken: "5", metaUpdatedAt: "2026-06-05T10:02:00Z" });
-    let suppressBeforeWritebackAtMarkSucceeded = false;
+    let suppressCalledAtMarkSucceeded = false;
     let clientLinkedAtMarkSucceeded = false;
     markSucceeded.mockImplementationOnce(async () => {
       const suppressIndex = state.calls.findIndex((call) => call.method === "rpc:suppress_accounting_sync");
-      const updateIndex = state.calls.findIndex((call) => call.table === "clients" && call.method === "update");
 
-      suppressBeforeWritebackAtMarkSucceeded = suppressIndex >= 0 && updateIndex > suppressIndex;
+      suppressCalledAtMarkSucceeded = suppressIndex >= 0;
       clientLinkedAtMarkSucceeded = state.clients[0].qb_id === "123";
     });
     state.clients.push({
@@ -532,7 +531,7 @@ describe("POST /api/cron/accounting/quickbooks/push-queue", () => {
     );
     expect(writeCreate).not.toHaveBeenCalled();
     expect(state.clients[0].qb_id).toBe("123");
-    expect(suppressBeforeWritebackAtMarkSucceeded).toBe(true);
+    expect(suppressCalledAtMarkSucceeded).toBe(false);
     expect(clientLinkedAtMarkSucceeded).toBe(true);
     expect(markSucceeded).toHaveBeenCalledWith("q-1", { externalId: "123", workerId: expect.any(String) });
   });
@@ -702,39 +701,6 @@ describe("POST /api/cron/accounting/quickbooks/push-queue", () => {
         locked_by: null,
         last_error: "QuickBooks write succeeded but worker finalization failed: claim owner lost",
       }),
-    );
-  });
-
-  it("does not schedule retry when suppression/writeback fails after QBO create succeeds", async () => {
-    process.env.ACCOUNTING_WRITE_ENABLED = "true";
-    claimDue.mockResolvedValue([
-      queueRow({
-        entityType: "customer",
-        entityId: CUSTOMER_ID,
-        operation: "create",
-        sourceTable: "clients",
-        idempotencyKey: `customer:${CUSTOMER_ID}`,
-      }),
-    ]);
-    state.clients.push({
-      id: CUSTOMER_ID,
-      company_id: COMPANY_ID,
-      name: "Maverick Projects",
-      qb_id: null,
-      updated_at: "2026-06-05T10:00:00.000Z",
-    });
-    state.accounting_connections[0].force_suppress_error = true;
-
-    const POST = await loadPost();
-    const res = await POST(authorizedRequest());
-
-    expect(res.status).toBe(200);
-    expect(writeCreate).toHaveBeenCalledTimes(1);
-    expect(scheduleRetry).not.toHaveBeenCalled();
-    expect(markNeedsReview).toHaveBeenCalledWith(
-      "q-1",
-      "QuickBooks write succeeded but worker finalization failed: sync suppression failed: suppress failed",
-      expect.objectContaining({ externalId: "123" }),
     );
   });
 

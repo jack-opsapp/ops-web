@@ -683,25 +683,12 @@ async function preparePush(
   }
 }
 
-async function suppressThenWriteQbId(
+async function writeQbId(
   supabase: SupabaseClient,
   row: AccountingSyncQueueRow,
   prepared: PreparedPush,
   qbId: string,
 ): Promise<void> {
-  const { error: suppressError } = await supabase.rpc("suppress_accounting_sync", {
-    p_company_id: row.companyId,
-    p_provider: "quickbooks",
-    p_entity_type: row.entityType,
-    p_entity_id: row.entityId,
-    p_source: "quickbooks",
-    p_ttl_seconds: 600,
-  });
-
-  if (suppressError) {
-    throw new Error(`sync suppression failed: ${suppressError.message}`);
-  }
-
   const { error: updateError } = await supabase
     .from(prepared.table)
     .update({ qb_id: qbId })
@@ -960,7 +947,7 @@ async function processQueueRow(input: {
 
     try {
       if (prepared.localQbIdMissing && cleanString(result.qbId)) {
-        await suppressThenWriteQbId(supabase, row, prepared, result.qbId);
+        await writeQbId(supabase, row, prepared, result.qbId);
       }
 
       await recordSuccess(audit, row, prepared, result);
