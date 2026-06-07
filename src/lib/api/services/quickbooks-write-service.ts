@@ -50,6 +50,16 @@ function entityUrl(input: QuickBooksWriteServiceInput, entity: QboWriteEntity) {
   return `${hostFor(input.environment)}/v3/company/${input.realmId}/${ENTITY_PATH[entity]}?minorversion=75`;
 }
 
+function voidUrl(input: QuickBooksWriteServiceInput, entity: QboWriteEntity) {
+  if (entity === "Invoice") {
+    return `${hostFor(input.environment)}/v3/company/${input.realmId}/${ENTITY_PATH[entity]}?operation=void&minorversion=75`;
+  }
+  if (entity === "Payment") {
+    return `${hostFor(input.environment)}/v3/company/${input.realmId}/${ENTITY_PATH[entity]}?operation=update&include=void&minorversion=75`;
+  }
+  throw new Error(`QuickBooks ${entity} void is not supported`);
+}
+
 function currentUrl(
   input: QuickBooksWriteServiceInput,
   entity: QboWriteEntity,
@@ -165,6 +175,17 @@ export class QuickBooksWriteService {
     return this.post(entity, payload);
   }
 
+  async void(
+    entity: QboWriteEntity,
+    payload: Record<string, unknown>,
+  ): Promise<QuickBooksWriteResult> {
+    requireUpdatePayload(payload);
+    if (entity === "Payment" && payload.sparse !== true) {
+      throw new Error("QuickBooks Payment void sparse=true required");
+    }
+    return this.post(entity, payload, voidUrl(this.input, entity));
+  }
+
   async fetchCurrent(
     entity: QboWriteEntity,
     id: string,
@@ -190,10 +211,11 @@ export class QuickBooksWriteService {
   private async post(
     entity: QboWriteEntity,
     payload: Record<string, unknown>,
+    url = entityUrl(this.input, entity),
   ): Promise<QuickBooksWriteResult> {
     const fetchImpl = this.input.fetchImpl ?? fetch;
     this.writeCalls += 1;
-    const response = await fetchImpl(entityUrl(this.input, entity), {
+    const response = await fetchImpl(url, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${this.input.accessToken}`,

@@ -312,7 +312,7 @@ function assertSupportedOperation(row: AccountingSyncQueueRow): void {
     needsReview(`QuickBooks outbound ${row.operation} operation requires operator review`);
   }
 
-  if (row.operation === "void") {
+  if (row.operation === "void" && row.entityType !== "invoice" && row.entityType !== "payment") {
     needsReview(`QuickBooks ${row.entityType} void requires operator review`);
   }
 
@@ -399,6 +399,27 @@ async function prepareInvoicePush(
   ]);
   if (!invoice) deterministicBlock("OPS invoice row not found");
 
+  const entity = "Invoice";
+  const localQbId = cleanString(invoice.qb_id);
+  const existingQbId = localQbId ?? cleanString(row.externalId);
+
+  if (row.operation === "void") {
+    if (!existingQbId) {
+      deterministicBlock("QuickBooks invoice void requires an existing qb_id or queue external_id");
+    }
+    const current = await currentQboState(writeService, entity, existingQbId);
+    if (!current.syncToken) deterministicBlock("QuickBooks Invoice SyncToken required");
+    return {
+      table: "invoices",
+      qboEntity: entity,
+      payload: { Id: existingQbId, SyncToken: current.syncToken },
+      existingQbId,
+      localQbIdMissing: !localQbId,
+      opsUpdatedAt: cleanString(invoice.updated_at),
+      qbUpdatedAt: current.qbUpdatedAt,
+    };
+  }
+
   const clientId = invoiceClientId(invoice);
   if (!clientId) deterministicBlock("OPS invoice client link missing");
   const client = await maybeSingle(supabase, "clients", [
@@ -411,9 +432,7 @@ async function prepareInvoicePush(
     ["invoice_id", row.entityId],
     ["company_id", row.companyId],
   ], "sort_order")).map(mapLineItem);
-  const entity = "Invoice";
-  const localQbId = cleanString(invoice.qb_id);
-  const existingQbId = localQbId ?? cleanString(row.externalId);
+
   const current = await currentQboState(writeService, entity, existingQbId);
 
   try {
@@ -520,6 +539,27 @@ async function preparePaymentPush(
   ]);
   if (!payment) deterministicBlock("OPS payment row not found");
 
+  const entity = "Payment";
+  const localQbId = cleanString(payment.qb_id);
+  const existingQbId = localQbId ?? cleanString(row.externalId);
+
+  if (row.operation === "void") {
+    if (!existingQbId) {
+      deterministicBlock("QuickBooks payment void requires an existing qb_id or queue external_id");
+    }
+    const current = await currentQboState(writeService, entity, existingQbId);
+    if (!current.syncToken) deterministicBlock("QuickBooks Payment SyncToken required");
+    return {
+      table: "payments",
+      qboEntity: entity,
+      payload: { Id: existingQbId, SyncToken: current.syncToken, sparse: true },
+      existingQbId,
+      localQbIdMissing: !localQbId,
+      opsUpdatedAt: cleanString(payment.voided_at ?? payment.updated_at ?? payment.created_at),
+      qbUpdatedAt: current.qbUpdatedAt,
+    };
+  }
+
   const clientId = cleanString(payment.client_id);
   if (!clientId) deterministicBlock("OPS payment customer link missing");
   const client = await maybeSingle(supabase, "clients", [
@@ -543,9 +583,6 @@ async function preparePaymentPush(
     };
   }
 
-  const entity = "Payment";
-  const localQbId = cleanString(payment.qb_id);
-  const existingQbId = localQbId ?? cleanString(row.externalId);
   const current = await currentQboState(writeService, entity, existingQbId);
 
   try {
@@ -642,6 +679,10 @@ async function performProviderWrite(input: {
     deterministicBlock(
       `QuickBooks ${row.entityType} ${row.operation} requires an existing qb_id or queue external_id`,
     );
+  }
+
+  if (row.operation === "void") {
+    return writeService.void(prepared.qboEntity, prepared.payload);
   }
 
   return writeService.update(prepared.qboEntity, prepared.payload);
@@ -804,6 +845,7 @@ async function processQueueRow(input: {
   const { supabase, queue, audit, row, workerId } = input;
 
   try {
+    assertSupportedOperation(row);
     await assertConnectionWritable(supabase, row);
     const { accessToken, realmId, providerEnvironment } =
       await AccountingTokenService.getValidToken(supabase, row.connectionId);

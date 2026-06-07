@@ -223,6 +223,78 @@ describe("QuickBooksWriteService", () => {
     expect(service.writeCalls).toBe(1);
   });
 
+  it("posts Invoice voids to operation=void with the minimum payload", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      okResponse({
+        Invoice: {
+          Id: "90",
+          SyncToken: "6",
+          MetaData: { LastUpdatedTime: "2026-06-05T10:00:00Z" },
+        },
+      }),
+    );
+    const service = new QuickBooksWriteService({
+      realmId: "462081636529",
+      accessToken: "token",
+      environment: "sandbox",
+      fetchImpl,
+    });
+
+    await service.void("Invoice", { Id: "90", SyncToken: "5" });
+
+    expect(fetchImpl).toHaveBeenCalledWith(
+      "https://sandbox-quickbooks.api.intuit.com/v3/company/462081636529/invoice?operation=void&minorversion=75",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ Id: "90", SyncToken: "5" }),
+      }),
+    );
+  });
+
+  it("posts Payment voids as sparse update include=void", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      okResponse({
+        Payment: {
+          Id: "77",
+          SyncToken: "2",
+          MetaData: { LastUpdatedTime: "2026-06-05T10:00:00Z" },
+        },
+      }),
+    );
+    const service = new QuickBooksWriteService({
+      realmId: "462081636529",
+      accessToken: "token",
+      environment: "sandbox",
+      fetchImpl,
+    });
+
+    await service.void("Payment", { Id: "77", SyncToken: "1", sparse: true });
+
+    expect(fetchImpl).toHaveBeenCalledWith(
+      "https://sandbox-quickbooks.api.intuit.com/v3/company/462081636529/payment?operation=update&include=void&minorversion=75",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ Id: "77", SyncToken: "1", sparse: true }),
+      }),
+    );
+  });
+
+  it("rejects Payment voids without sparse=true before making a write call", async () => {
+    const fetchImpl = vi.fn();
+    const service = new QuickBooksWriteService({
+      realmId: "462081636529",
+      accessToken: "token",
+      environment: "sandbox",
+      fetchImpl,
+    });
+
+    await expect(service.void("Payment", { Id: "77", SyncToken: "1" })).rejects.toThrow(
+      "QuickBooks Payment void sparse=true required",
+    );
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(service.writeCalls).toBe(0);
+  });
+
   it("throws a token-free error when the provider response omits the entity body or id", async () => {
     const service = new QuickBooksWriteService({
       realmId: "462081636529",

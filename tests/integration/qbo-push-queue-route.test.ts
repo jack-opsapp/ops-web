@@ -11,6 +11,7 @@ const record = vi.fn();
 const getValidToken = vi.fn();
 const writeCreate = vi.fn();
 const writeUpdate = vi.fn();
+const writeVoid = vi.fn();
 const writeFetchCurrent = vi.fn();
 
 vi.mock("@/lib/api/services/accounting-sync-queue-service", () => ({
@@ -40,6 +41,7 @@ vi.mock("@/lib/api/services/quickbooks-write-service", () => ({
   QuickBooksWriteService: vi.fn(() => ({
     create: writeCreate,
     update: writeUpdate,
+    void: writeVoid,
     fetchCurrent: writeFetchCurrent,
   })),
 }));
@@ -260,6 +262,7 @@ describe("POST /api/cron/accounting/quickbooks/push-queue", () => {
       getValidToken,
       writeCreate,
       writeUpdate,
+      writeVoid,
       writeFetchCurrent,
     ]) {
       mock.mockReset();
@@ -284,6 +287,7 @@ describe("POST /api/cron/accounting/quickbooks/push-queue", () => {
     getValidToken.mockResolvedValue({ accessToken: "access-token", realmId: "462081636529" });
     writeCreate.mockResolvedValue({ qbId: "123", syncToken: "0", metaUpdatedAt: "2026-06-05T10:01:00Z" });
     writeUpdate.mockResolvedValue({ qbId: "90", syncToken: "6", metaUpdatedAt: "2026-06-05T10:02:00Z" });
+    writeVoid.mockResolvedValue({ qbId: "90", syncToken: "6", metaUpdatedAt: "2026-06-05T10:02:00Z" });
     writeFetchCurrent.mockResolvedValue({
       Invoice: { Id: "90", SyncToken: "5", MetaData: { LastUpdatedTime: "2026-06-05T10:00:00Z" } },
     });
@@ -969,6 +973,94 @@ describe("POST /api/cron/accounting/quickbooks/push-queue", () => {
       }),
     );
     expect(markSucceeded).toHaveBeenCalledWith("q-1", { externalId: "123", workerId: expect.any(String) });
+  });
+
+  it("voids linked invoices with the current SyncToken and does not require customer or line data", async () => {
+    process.env.ACCOUNTING_WRITE_ENABLED = "true";
+    claimDue.mockResolvedValue([
+      queueRow({
+        operation: "void",
+        externalId: "90",
+      }),
+    ]);
+    state.invoices.push({
+      id: INVOICE_ID,
+      company_id: COMPANY_ID,
+      invoice_number: "INV-1001",
+      qb_id: "90",
+      updated_at: "2026-06-05T10:00:00.000Z",
+    });
+
+    const POST = await loadPost();
+    const res = await POST(authorizedRequest());
+
+    expect(res.status).toBe(200);
+    expect(writeFetchCurrent).toHaveBeenCalledWith("Invoice", "90");
+    expect(writeVoid).toHaveBeenCalledWith("Invoice", { Id: "90", SyncToken: "5" });
+    expect(writeCreate).not.toHaveBeenCalled();
+    expect(writeUpdate).not.toHaveBeenCalled();
+    expect(markSucceeded).toHaveBeenCalledWith("q-1", { externalId: "90", workerId: expect.any(String) });
+  });
+
+  it("voids linked payments as sparse QuickBooks void updates", async () => {
+    process.env.ACCOUNTING_WRITE_ENABLED = "true";
+    claimDue.mockResolvedValue([
+      queueRow({
+        entityType: "payment",
+        entityId: "payment-1",
+        operation: "void",
+        sourceTable: "payments",
+        idempotencyKey: "payment:payment-1:void",
+        externalId: "77",
+      }),
+    ]);
+    writeFetchCurrent.mockResolvedValueOnce({
+      Payment: { Id: "77", SyncToken: "1", MetaData: { LastUpdatedTime: "2026-06-05T10:00:00Z" } },
+    });
+    writeVoid.mockResolvedValueOnce({ qbId: "77", syncToken: "2", metaUpdatedAt: "2026-06-05T10:02:00Z" });
+    state.payments.push({
+      id: "payment-1",
+      company_id: COMPANY_ID,
+      amount: 25,
+      qb_id: "77",
+      voided_at: "2026-06-05T10:00:00.000Z",
+      created_at: "2026-06-05T09:00:00.000Z",
+    });
+
+    const POST = await loadPost();
+    const res = await POST(authorizedRequest());
+
+    expect(res.status).toBe(200);
+    expect(writeFetchCurrent).toHaveBeenCalledWith("Payment", "77");
+    expect(writeVoid).toHaveBeenCalledWith("Payment", { Id: "77", SyncToken: "1", sparse: true });
+    expect(writeCreate).not.toHaveBeenCalled();
+    expect(writeUpdate).not.toHaveBeenCalled();
+    expect(markSucceeded).toHaveBeenCalledWith("q-1", { externalId: "77", workerId: expect.any(String) });
+  });
+
+  it("keeps unsupported QuickBooks estimate voids in operator review", async () => {
+    process.env.ACCOUNTING_WRITE_ENABLED = "true";
+    claimDue.mockResolvedValue([
+      queueRow({
+        entityType: "estimate",
+        entityId: "estimate-1",
+        operation: "void",
+        sourceTable: "estimates",
+        idempotencyKey: "estimate:estimate-1:void",
+      }),
+    ]);
+
+    const POST = await loadPost();
+    const res = await POST(authorizedRequest());
+
+    expect(res.status).toBe(200);
+    expect(getValidToken).not.toHaveBeenCalled();
+    expect(writeVoid).not.toHaveBeenCalled();
+    expect(markNeedsReview).toHaveBeenCalledWith(
+      "q-1",
+      "QuickBooks estimate void requires operator review",
+      expect.anything(),
+    );
   });
 });
 
