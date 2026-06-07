@@ -633,6 +633,10 @@
   "accounting.propagateDeletes": "Propagate deletes",
   "accounting.propagateDeletesDesc": "When you delete a record in OPS, void it in your accounting software too.",
   "accounting.toast.syncModeUpdated": "Sync mode updated",
+  "accounting.syncIssuesTitle": "QB ATTENTION",
+  "accounting.syncIssuesDesc": "These records need review before sync continues.",
+  "accounting.issueBlocked": "BLOCKED",
+  "accounting.issueNeedsReview": "REVIEW",
 
   "expenses.reviewFrequency": "Review Frequency",
   "expenses.daily": "Daily",

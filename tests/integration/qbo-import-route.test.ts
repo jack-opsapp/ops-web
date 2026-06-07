@@ -14,9 +14,14 @@ vi.mock("@/lib/firebase/admin-verify", () => ({ verifyAdminAuth: (r: unknown) =>
 vi.mock("@/lib/supabase/find-user-by-auth", () => ({ findUserByAuth: (...a: unknown[]) => findUserByAuth(...a) }));
 vi.mock("@/lib/supabase/check-permission", () => ({ checkPermissionById: (...a: unknown[]) => checkPermissionById(...a) }));
 vi.mock("@/lib/supabase/server-client", () => ({
-  getServiceRoleClient: () => ({
-    from: () => ({ select: () => ({ eq: () => ({ eq: () => ({ single: () => connSingle() }) }) }) }),
-  }),
+  getServiceRoleClient: () => {
+    const chain: any = {
+      select: () => chain,
+      eq: () => chain,
+      single: () => connSingle(),
+    };
+    return { from: () => chain };
+  },
 }));
 vi.mock("@/lib/api/services/quickbooks-import-service", () => ({
   QuickBooksImportService: class {

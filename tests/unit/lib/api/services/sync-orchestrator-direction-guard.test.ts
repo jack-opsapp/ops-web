@@ -91,15 +91,17 @@ describe("runSyncForConnection direction guard", () => {
     expect(pullInvoices).not.toHaveBeenCalled();
   });
 
-  it("runs both halves for a bidirectional connection (legacy behavior preserved)", async () => {
+  it("does not emit QuickBooks push results for a bidirectional connection", async () => {
+    vi.stubEnv("ACCOUNTING_WRITE_ENABLED", "true");
     const supabase = makeSupabaseStub("bidirectional");
-    await runSyncForConnection(
+    const result = await runSyncForConnection(
       supabase,
       "a612edc0-5c18-4c4d-af97-55b9410dd077",
       "quickbooks",
       "conn-1",
       null
     );
+    expect(result.results.some((r) => r.direction === "push")).toBe(false);
     expect(pullClients).toHaveBeenCalledTimes(1);
     expect(pullInvoices).toHaveBeenCalledTimes(1);
   });

@@ -36,11 +36,11 @@ async function syncQuickBooks(
   if (!realmId) throw new Error("QuickBooks realmId not found on connection");
 
   const results: SyncResult[] = [];
-  // Hard kill-switch: pushing to the provider also requires
-  // ACCOUNTING_WRITE_ENABLED=true. Default/unset keeps all writes disabled.
-  // canPull is unaffected (read stays on).
-  const canPush =
-    syncDirection !== "pull_only" && process.env.ACCOUNTING_WRITE_ENABLED === "true";
+  // QuickBooks writes are owned by the accounting_sync_queue worker. This
+  // legacy orchestrator may still be used by older read paths, but it must
+  // never push QuickBooks writes directly or it bypasses queue idempotency,
+  // finalization, notifications, and accounting_sync_events.
+  const canPush = false;
   const canPull = syncDirection !== "push_only";
 
   if (canPush) {

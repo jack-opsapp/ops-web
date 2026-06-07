@@ -51,6 +51,7 @@ function makeSupabase(inject: { failUpsertOn?: string } = {}) {
     line_items: [],
     payments: [],
     notifications: [],
+    accounting_sync_suppressions: [],
   };
   let seq = 0;
   const uid = (p: string) => `${p}-${++seq}`;
@@ -161,7 +162,17 @@ function makeSupabase(inject: { failUpsertOn?: string } = {}) {
     };
     return api;
   }
-  return { from: (t: string) => builder(t), __db: db } as any;
+  return {
+    from: (t: string) => builder(t),
+    async rpc(name: string, args: Row) {
+      if (name !== "suppress_accounting_sync") {
+        return { data: null, error: { message: `unexpected rpc ${name}` } };
+      }
+      db.accounting_sync_suppressions.push({ id: uid("suppression"), ...args });
+      return { data: null, error: null };
+    },
+    __db: db,
+  } as any;
 }
 
 describe("QuickBooksImportService.applyImport", () => {
@@ -216,6 +227,16 @@ describe("QuickBooksImportService.applyImport", () => {
 
     // Read-only guarantee
     expect(result.qb_write_calls).toBe(0);
+
+    // Applying QB data into OPS must suppress outbound echo writes for every
+    // live entity touched by the import window.
+    const suppressions = supabase.__db.accounting_sync_suppressions;
+    expect(suppressions.length).toBeGreaterThan(0);
+    expect(suppressions.every((s: Row) => s.p_provider === "quickbooks")).toBe(true);
+    expect(suppressions.every((s: Row) => s.p_ttl_seconds === 600)).toBe(true);
+    expect(suppressions.map((s: Row) => s.p_entity_type)).toEqual(
+      expect.arrayContaining(["customer", "estimate", "invoice", "payment"])
+    );
   });
 
   it("is idempotent — second apply produces no duplicate clients/invoices/lines", async () => {

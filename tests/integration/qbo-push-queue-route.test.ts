@@ -58,6 +58,7 @@ interface MockState {
   line_items: Row[];
   companies: Row[];
   notifications: Row[];
+  accounting_sync_queue: Row[];
   updateErrors: Record<string, string>;
   calls: Array<{ table?: string; method: string; args: unknown[] }>;
 }
@@ -84,6 +85,7 @@ function makeState(overrides: Partial<MockState> = {}): MockState {
     line_items: [],
     companies: [{ id: COMPANY_ID, admin_ids: [ADMIN_ID] }],
     notifications: [],
+    accounting_sync_queue: [],
     updateErrors: {},
     calls: [],
     ...overrides,
@@ -655,6 +657,51 @@ describe("POST /api/cron/accounting/quickbooks/push-queue", () => {
       "q-1",
       "QuickBooks write succeeded but worker finalization failed: claim owner lost",
       expect.objectContaining({ externalId: "123" }),
+    );
+  });
+
+  it("makes a direct terminal queue update when markNeedsReview also fails after QBO create succeeds", async () => {
+    process.env.ACCOUNTING_WRITE_ENABLED = "true";
+    const row = queueRow({
+      entityType: "customer",
+      entityId: CUSTOMER_ID,
+      operation: "create",
+      sourceTable: "clients",
+      idempotencyKey: `customer:${CUSTOMER_ID}`,
+      lockedBy: "worker-1",
+    });
+    claimDue.mockResolvedValue([row]);
+    markSucceeded.mockRejectedValueOnce(new Error("claim owner lost"));
+    markNeedsReview.mockRejectedValueOnce(new Error("needs review update failed"));
+    state.accounting_sync_queue.push({
+      id: row.id,
+      status: "claimed",
+      locked_by: row.lockedBy,
+      external_id: null,
+      last_error: null,
+    });
+    state.clients.push({
+      id: CUSTOMER_ID,
+      company_id: COMPANY_ID,
+      name: "Maverick Projects",
+      qb_id: null,
+      updated_at: "2026-06-05T10:00:00.000Z",
+    });
+
+    const POST = await loadPost();
+    const res = await POST(authorizedRequest());
+
+    expect(res.status).toBe(200);
+    expect(writeCreate).toHaveBeenCalledTimes(1);
+    expect(scheduleRetry).not.toHaveBeenCalled();
+    expect(state.accounting_sync_queue[0]).toEqual(
+      expect.objectContaining({
+        status: "needs_review",
+        external_id: "123",
+        locked_at: null,
+        locked_by: null,
+        last_error: "QuickBooks write succeeded but worker finalization failed: claim owner lost",
+      }),
     );
   });
 

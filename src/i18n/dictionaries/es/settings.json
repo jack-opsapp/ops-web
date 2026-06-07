@@ -633,6 +633,10 @@
   "accounting.propagateDeletes": "Propagar eliminaciones",
   "accounting.propagateDeletesDesc": "Cuando eliminas un registro en OPS, también anularlo en tu software de contabilidad.",
   "accounting.toast.syncModeUpdated": "Modo de sincronización actualizado",
+  "accounting.syncIssuesTitle": "ATENCIÓN QB",
+  "accounting.syncIssuesDesc": "Estos registros necesitan revisión antes de continuar la sincronización.",
+  "accounting.issueBlocked": "BLOQUEADO",
+  "accounting.issueNeedsReview": "REVISAR",
 
   "expenses.reviewFrequency": "Frecuencia de revisión",
   "expenses.daily": "Diario",

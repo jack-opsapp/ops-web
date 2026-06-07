@@ -197,6 +197,7 @@ export {
   useUpdateSyncMode,
   useTriggerSync,
   useSyncHistory,
+  useAccountingSyncIssues,
 } from "./use-accounting";
 export * from "./use-qbo-import";
 
