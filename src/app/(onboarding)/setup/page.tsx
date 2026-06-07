@@ -23,6 +23,7 @@ import {
   trackStarfieldLaunched,
   trackStarfieldExited,
 } from "@/lib/analytics/analytics";
+import { analyticsService } from "@/lib/analytics/analytics-service";
 import { useSetupStore, STARFIELD_QUESTIONS } from "@/stores/setup-store";
 import { usePreferencesStore } from "@/stores/preferences-store";
 import { OpsLockup, LogoLoader } from "@/components/brand";
@@ -61,6 +62,13 @@ const readSafeReturnTo = (): string | null => {
   if (raw.length < 2 || raw[0] !== "/" || raw[1] === "/") return null;
   if (/^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(raw)) return null;
   return raw;
+};
+
+const readSetupSource = (): "direct" | "spec" => {
+  if (typeof window === "undefined") return "direct";
+  return new URLSearchParams(window.location.search).get("source") === "spec"
+    ? "spec"
+    : "direct";
 };
 
 // ─── Page ───────────────────────────────────────────────────────────────────
@@ -249,6 +257,12 @@ export default function SetupPage() {
   useEffect(() => {
     setupStartRef.current = Date.now();
     trackSetupStarted("direct");
+    if (readSetupSource() === "spec") {
+      analyticsService.track("lifecycle", "spec_default_ops_signup_started", {
+        source: "spec",
+        continue_to: readSafeReturnTo() ?? "/dashboard",
+      });
+    }
   }, []);
 
   // Fire step_viewed when phase changes (identity / company / starfield)
@@ -344,6 +358,20 @@ export default function SetupPage() {
     trackSetupStepSkipped(phase, "button");
     const totalDuration = Date.now() - setupStartRef.current;
     trackSetupCompleted("skipped", [], totalDuration);
+    if (readSetupSource() === "spec") {
+      analyticsService.track("lifecycle", "spec_default_ops_signup_completed", {
+        source: "spec",
+        method: "skipped",
+        steps_completed: [],
+        total_duration_ms: totalDuration,
+        continue_to: readSafeReturnTo() ?? "/dashboard",
+      });
+      try {
+        await analyticsService.flush();
+      } catch {
+        // Non-blocking
+      }
+    }
     try {
       const token = await getAuthToken();
       if (token) {
@@ -478,6 +506,20 @@ export default function SetupPage() {
     const method = stepsCompleted.length >= 3 ? "full" : "partial";
     const totalDuration = Date.now() - setupStartRef.current;
     trackSetupCompleted(method, stepsCompleted, totalDuration);
+    if (readSetupSource() === "spec") {
+      analyticsService.track("lifecycle", "spec_default_ops_signup_completed", {
+        source: "spec",
+        method,
+        steps_completed: stepsCompleted,
+        total_duration_ms: totalDuration,
+        continue_to: readSafeReturnTo() ?? "/dashboard",
+      });
+      try {
+        await analyticsService.flush();
+      } catch {
+        // Non-blocking
+      }
+    }
 
     // 6. Clean up persisted setup store and navigate
     resetSetupStore();
