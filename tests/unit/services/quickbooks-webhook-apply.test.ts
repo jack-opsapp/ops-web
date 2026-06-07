@@ -458,4 +458,37 @@ describe("QuickBooksWebhookApplyService.applyEntity — Delete / Void (soft)", (
     const upd = captured.updates.find((u) => u.table === "payments");
     expect(upd!.patch).toHaveProperty("voided_at");
   });
+
+  it("skips Payment Void webhooks that echo a just-recorded OPS-to-QBO void", async () => {
+    const { client, captured } = makeSupabase({
+      rows: {
+        accounting_sync_events: [
+          {
+            id: "evt-payment-void",
+            entity_id: "payment-1",
+            operation: "void",
+          },
+        ],
+        payments: [
+          {
+            id: "payment-1",
+            invoice_id: "invoice-1",
+          },
+        ],
+      },
+    });
+    const svc = new QuickBooksWebhookApplyService(client as never);
+    const result = await svc.applyEntity(CONN, "Payment", "77", "Void");
+
+    expect(result).toMatchObject({
+      status: "skipped",
+      logEntityType: "payment",
+      entityId: "payment-1",
+      detail: "outbound void echo skipped",
+      afterSnapshot: { echoEventId: "evt-payment-void" },
+    });
+    expect(fetchEntityById).not.toHaveBeenCalled();
+    expect(captured.rpcs).toEqual([]);
+    expect(captured.updates).toEqual([]);
+  });
 });

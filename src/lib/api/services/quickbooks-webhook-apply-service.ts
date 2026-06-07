@@ -204,6 +204,46 @@ export class QuickBooksWebhookApplyService {
     };
   }
 
+  private async findOutboundDeleteOrVoidEcho(
+    connection: ConnectionRow,
+    entity: QboEntityName,
+    qbId: string,
+    operation: QboOperation
+  ): Promise<OutboundEchoMatch | null> {
+    const operationCandidates =
+      operation === "Void"
+        ? new Set(["void"])
+        : new Set(["delete_soft", "inactivate", "void"]);
+    const since = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+    const { data, error } = await this.supabase
+      .from("accounting_sync_events")
+      .select("id, entity_id, operation")
+      .eq("company_id", connection.company_id)
+      .eq("connection_id", connection.id)
+      .eq("provider", "quickbooks")
+      .eq("direction", "ops_to_qb")
+      .eq("entity_type", qboEntityTypeFor(entity))
+      .eq("external_id", qbId)
+      .eq("status", "succeeded")
+      .eq("source", "worker")
+      .gte("created_at", since)
+      .order("created_at", { ascending: false })
+      .limit(5);
+
+    if (error) return null;
+
+    const match = ((data ?? []) as Array<Record<string, unknown>>).find((row) =>
+      operationCandidates.has(String(row.operation))
+    );
+    if (!match) return null;
+
+    return {
+      eventId: String(match.id),
+      entityId: typeof match.entity_id === "string" ? match.entity_id : null,
+      qbUpdatedAt: null,
+    };
+  }
+
   /**
    * Fetch + apply a single entity for a connection. Never throws for a
    * per-entity failure that the route should swallow — instead returns an
@@ -220,6 +260,17 @@ export class QuickBooksWebhookApplyService {
 
     // Delete / Void — soft-handle without a QB fetch (the record may be gone).
     if (operation === "Delete" || operation === "Void") {
+      const outboundEcho = await this.findOutboundDeleteOrVoidEcho(connection, entity, qbId, operation);
+      if (outboundEcho) {
+        return {
+          status: "skipped",
+          logEntityType,
+          qbId,
+          entityId: outboundEcho.entityId,
+          detail: `outbound ${operation.toLowerCase()} echo skipped`,
+          afterSnapshot: { echoEventId: outboundEcho.eventId },
+        };
+      }
       return this.applyDeleteOrVoid(connection, entity, qbId, logEntityType, operation);
     }
 
