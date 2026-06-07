@@ -57,6 +57,8 @@ function makeSupabase(opts: {
         const builder: Record<string, unknown> = {};
         builder.select = () => builder;
         builder.eq = () => builder;
+        builder.or = () => builder;
+        builder.is = () => builder;
         builder.limit = () => builder;
         builder.maybeSingle = async () => {
           const id = existingIds[table] ?? resolvedAfterUpsert[table];
@@ -74,7 +76,7 @@ function makeSupabase(opts: {
         };
         builder.update = (patch: Record<string, unknown>) => {
           captured.updates.push({ table, patch });
-          return { eq: () => ({ eq: () => ({ error: null }), error: null }) };
+          return builder;
         };
         builder.delete = () => {
           captured.deletes.push({ table });
@@ -391,5 +393,36 @@ describe("QuickBooksWebhookApplyService.applyEntity — Delete / Void (soft)", (
     expect(fetchEntityById).not.toHaveBeenCalled();
     const upd = captured.updates.find((u) => u.table === "clients");
     expect(upd!.patch).toHaveProperty("deleted_at");
+  });
+
+  it("Void on a Payment marks matching OPS payments voided and suppresses invoice echo", async () => {
+    const { client, captured } = makeSupabase({
+      rows: {
+        payments: [
+          {
+            id: "payment-1",
+            invoice_id: "invoice-1",
+          },
+        ],
+      },
+    });
+    const svc = new QuickBooksWebhookApplyService(client as never);
+    const result = await svc.applyEntity(CONN, "Payment", "77", "Void");
+
+    expect(result.status).toBe("success");
+    expect(fetchEntityById).not.toHaveBeenCalled();
+    expect(result.afterSnapshot).toEqual({ voidedPayments: 1 });
+    expect(captured.rpcs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          args: expect.objectContaining({ p_entity_type: "payment", p_entity_id: "payment-1" }),
+        }),
+        expect.objectContaining({
+          args: expect.objectContaining({ p_entity_type: "invoice", p_entity_id: "invoice-1" }),
+        }),
+      ])
+    );
+    const upd = captured.updates.find((u) => u.table === "payments");
+    expect(upd!.patch).toHaveProperty("voided_at");
   });
 });

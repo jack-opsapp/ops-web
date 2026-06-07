@@ -797,8 +797,54 @@ export class QuickBooksWebhookApplyService {
       return { status: "success", logEntityType, qbId, entityId: (client?.id as string | undefined) ?? null, detail: `client ${operation.toLowerCase()}` };
     }
 
-    // Estimate / Payment deletion has no unambiguous soft-state in OPS — skip+log
-    // rather than guess (a hard delete could orphan linked records).
+    if (entity === "Payment") {
+      const { data: payments, error: lookupError } = await this.supabase
+        .from("payments")
+        .select("id, invoice_id")
+        .eq("company_id", connection.company_id)
+        .or(`qb_id.eq.${qbId},qb_id.like.${qbId}:%`);
+
+      if (lookupError) {
+        return { status: "error", logEntityType, qbId, detail: `${operation.toLowerCase()} lookup failed` };
+      }
+
+      const rows = (payments ?? []) as Array<{ id?: string; invoice_id?: string | null }>;
+      if (rows.length === 0) {
+        return { status: "skipped", logEntityType, qbId, detail: "payment not found in OPS" };
+      }
+
+      for (const payment of rows) {
+        if (payment.id) {
+          await this.suppressAccountingSync(connection.company_id, "payment", payment.id);
+        }
+        if (payment.invoice_id) {
+          await this.suppressAccountingSync(connection.company_id, "invoice", payment.invoice_id);
+        }
+      }
+
+      const { error } = await this.supabase
+        .from("payments")
+        .update({ voided_at: new Date().toISOString() })
+        .eq("company_id", connection.company_id)
+        .or(`qb_id.eq.${qbId},qb_id.like.${qbId}:%`)
+        .is("voided_at", null);
+
+      if (error) {
+        return { status: "error", logEntityType, qbId, entityId: rows[0]?.id ?? null, detail: `${operation.toLowerCase()} failed` };
+      }
+
+      return {
+        status: "success",
+        logEntityType,
+        qbId,
+        entityId: rows[0]?.id ?? null,
+        afterSnapshot: { voidedPayments: rows.length },
+        detail: `payment ${operation.toLowerCase()}`,
+      };
+    }
+
+    // Estimate deletion has no unambiguous soft-state in OPS — skip+log rather
+    // than guess (a hard delete could orphan linked records).
     return {
       status: "skipped",
       logEntityType,
