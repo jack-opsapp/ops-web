@@ -246,14 +246,43 @@ function mapLineItem(row: DbRow): OpsLineItemForQbo {
   };
 }
 
-function fallbackServiceItem(): QboFallbackServiceItemRef | null {
-  const qbItemId =
-    cleanString(process.env.QBO_FALLBACK_SERVICE_ITEM_ID) ??
-    cleanString(process.env.QB_FALLBACK_SERVICE_ITEM_ID);
+function normalizedProviderEnvironment(environment: string | null | undefined): "production" | "sandbox" {
+  return cleanString(environment)?.toLowerCase() === "production" ? "production" : "sandbox";
+}
+
+function environmentFallbackEnvNames(environment: "production" | "sandbox", suffix: "ID" | "NAME"): string[] {
+  if (environment === "sandbox") {
+    return [
+      `QBO_SANDBOX_FALLBACK_SERVICE_ITEM_${suffix}`,
+      `QB_SANDBOX_FALLBACK_SERVICE_ITEM_${suffix}`,
+      `QBO_FALLBACK_SERVICE_ITEM_${suffix}`,
+      `QB_FALLBACK_SERVICE_ITEM_${suffix}`,
+    ];
+  }
+
+  return [
+    `QBO_FALLBACK_SERVICE_ITEM_${suffix}`,
+    `QB_FALLBACK_SERVICE_ITEM_${suffix}`,
+    `QBO_PRODUCTION_FALLBACK_SERVICE_ITEM_${suffix}`,
+    `QB_PRODUCTION_FALLBACK_SERVICE_ITEM_${suffix}`,
+  ];
+}
+
+function firstConfiguredEnv(names: string[]): string | null {
+  for (const name of names) {
+    const value = cleanString(process.env[name]);
+    if (value) return value;
+  }
+  return null;
+}
+
+function fallbackServiceItem(environment: string | null | undefined): QboFallbackServiceItemRef | null {
+  const providerEnvironment = normalizedProviderEnvironment(environment);
+  const qbItemId = firstConfiguredEnv(environmentFallbackEnvNames(providerEnvironment, "ID"));
   if (!qbItemId) return null;
   return {
     qbItemId,
-    name: cleanString(process.env.QBO_FALLBACK_SERVICE_ITEM_NAME) ?? "OPS Service",
+    name: firstConfiguredEnv(environmentFallbackEnvNames(providerEnvironment, "NAME")) ?? "OPS Service",
   };
 }
 
@@ -362,6 +391,7 @@ async function prepareInvoicePush(
   supabase: SupabaseClient,
   row: AccountingSyncQueueRow,
   writeService: QuickBooksWriteService,
+  providerEnvironment: string | null | undefined,
 ): Promise<PreparedPush> {
   const invoice = await maybeSingle(supabase, "invoices", [
     ["id", row.entityId],
@@ -406,7 +436,7 @@ async function prepareInvoicePush(
           qbId: cleanString(client.qb_id),
         },
         lineItems,
-        fallbackServiceItem: fallbackServiceItem(),
+        fallbackServiceItem: fallbackServiceItem(providerEnvironment),
       }),
       existingQbId,
       localQbIdMissing: !localQbId,
@@ -422,6 +452,7 @@ async function prepareEstimatePush(
   supabase: SupabaseClient,
   row: AccountingSyncQueueRow,
   writeService: QuickBooksWriteService,
+  providerEnvironment: string | null | undefined,
 ): Promise<PreparedPush> {
   const estimate = await maybeSingle(supabase, "estimates", [
     ["id", row.entityId],
@@ -466,7 +497,7 @@ async function prepareEstimatePush(
           qbId: cleanString(client.qb_id),
         },
         lineItems,
-        fallbackServiceItem: fallbackServiceItem(),
+        fallbackServiceItem: fallbackServiceItem(providerEnvironment),
       }),
       existingQbId,
       localQbIdMissing: !localQbId,
@@ -550,6 +581,7 @@ async function preparePush(
   supabase: SupabaseClient,
   row: AccountingSyncQueueRow,
   writeService: QuickBooksWriteService,
+  providerEnvironment: string | null | undefined,
 ): Promise<PreparedPush> {
   assertSupportedOperation(row);
 
@@ -557,9 +589,9 @@ async function preparePush(
     case "customer":
       return prepareCustomerPush(supabase, row, writeService);
     case "invoice":
-      return prepareInvoicePush(supabase, row, writeService);
+      return prepareInvoicePush(supabase, row, writeService, providerEnvironment);
     case "estimate":
-      return prepareEstimatePush(supabase, row, writeService);
+      return prepareEstimatePush(supabase, row, writeService, providerEnvironment);
     case "payment":
       return preparePaymentPush(supabase, row, writeService);
   }
@@ -783,7 +815,7 @@ async function processQueueRow(input: {
       accessToken: stringValue(accessToken),
       environment: providerEnvironment,
     });
-    const prepared = await preparePush(supabase, row, writeService);
+    const prepared = await preparePush(supabase, row, writeService, providerEnvironment);
     const result = await performProviderWrite({ row, prepared, writeService });
 
     try {

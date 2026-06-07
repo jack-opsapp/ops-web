@@ -94,6 +94,19 @@ describe("POST /api/integrations/accounting/sync-mode", () => {
     expect(eqCall).toHaveBeenCalledWith("provider_environment", "production");
   });
 
+  it("defaults full CRUD to propagate_deletes=true when the client omits the flag", async () => {
+    const POST = await route();
+    const res = await POST(post({ companyId: CO, provider: "quickbooks", syncDirection: "bidirectional" }));
+
+    expect(res.status).toBe(200);
+    expect(updateCall).toHaveBeenCalledWith(
+      expect.objectContaining({ sync_direction: "bidirectional", propagate_deletes: true })
+    );
+    await expect(res.json()).resolves.toEqual(
+      expect.objectContaining({ syncDirection: "bidirectional", propagateDeletes: true })
+    );
+  });
+
   it("forces propagate_deletes=false when read-only (no writes at all)", async () => {
     const POST = await route();
     const res = await POST(

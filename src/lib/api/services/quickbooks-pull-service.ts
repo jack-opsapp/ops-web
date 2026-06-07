@@ -180,7 +180,8 @@ export class QuickBooksPullService {
     if (typeof id !== "string" || !ENTITY_ID_RE.test(id)) {
       throw new Error(`Invalid QuickBooks entity id (expected digits only): ${id}`);
     }
-    const qr = await this.qboQuery(`SELECT * FROM ${entityType} WHERE Id = '${id}'`);
+    const activeFilter = entityType === "Customer" ? " AND Active IN (true, false)" : "";
+    const qr = await this.qboQuery(`SELECT * FROM ${entityType} WHERE Id = '${id}'${activeFilter}`);
     const rows = (qr[entityType] as Array<Record<string, unknown>> | undefined) ?? [];
     return rows[0] ?? null;
   }

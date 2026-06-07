@@ -72,14 +72,13 @@ export async function POST(request: NextRequest) {
     const patch: Record<string, unknown> = {
       sync_direction: syncDirection,
       updated_at: new Date().toISOString(),
+      propagate_deletes:
+        syncDirection === "pull_only"
+          ? false
+          : typeof propagateDeletes === "boolean"
+            ? propagateDeletes
+            : true,
     };
-    if (typeof propagateDeletes === "boolean") {
-      patch.propagate_deletes = propagateDeletes;
-    }
-    // Read-only can never propagate deletes — there are no writes at all.
-    if (syncDirection === "pull_only") {
-      patch.propagate_deletes = false;
-    }
 
     const { data, error } = await supabase
       .from("accounting_connections")
@@ -103,7 +102,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       syncDirection,
-      propagateDeletes: patch.propagate_deletes ?? false,
+      propagateDeletes: patch.propagate_deletes,
       writesEnabled: process.env.ACCOUNTING_WRITE_ENABLED === "true",
     });
   } catch (err) {

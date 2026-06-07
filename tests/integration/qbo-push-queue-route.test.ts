@@ -270,6 +270,16 @@ describe("POST /api/cron/accounting/quickbooks/push-queue", () => {
     process.env.QB_ENVIRONMENT = "sandbox";
     delete process.env.QBO_FALLBACK_SERVICE_ITEM_ID;
     delete process.env.QBO_FALLBACK_SERVICE_ITEM_NAME;
+    delete process.env.QB_FALLBACK_SERVICE_ITEM_ID;
+    delete process.env.QB_FALLBACK_SERVICE_ITEM_NAME;
+    delete process.env.QBO_SANDBOX_FALLBACK_SERVICE_ITEM_ID;
+    delete process.env.QBO_SANDBOX_FALLBACK_SERVICE_ITEM_NAME;
+    delete process.env.QB_SANDBOX_FALLBACK_SERVICE_ITEM_ID;
+    delete process.env.QB_SANDBOX_FALLBACK_SERVICE_ITEM_NAME;
+    delete process.env.QBO_PRODUCTION_FALLBACK_SERVICE_ITEM_ID;
+    delete process.env.QBO_PRODUCTION_FALLBACK_SERVICE_ITEM_NAME;
+    delete process.env.QB_PRODUCTION_FALLBACK_SERVICE_ITEM_ID;
+    delete process.env.QB_PRODUCTION_FALLBACK_SERVICE_ITEM_NAME;
     claimDue.mockResolvedValue([]);
     getValidToken.mockResolvedValue({ accessToken: "access-token", realmId: "462081636529" });
     writeCreate.mockResolvedValue({ qbId: "123", syncToken: "0", metaUpdatedAt: "2026-06-05T10:01:00Z" });
@@ -907,6 +917,58 @@ describe("POST /api/cron/accounting/quickbooks/push-queue", () => {
     );
     expect(writeCreate).not.toHaveBeenCalled();
     expect(markSucceeded).toHaveBeenCalledWith("q-1", { externalId: "90", workerId: expect.any(String) });
+  });
+
+  it("uses the sandbox fallback service item for sandbox invoice creates", async () => {
+    process.env.ACCOUNTING_WRITE_ENABLED = "true";
+    process.env.QBO_FALLBACK_SERVICE_ITEM_ID = "1";
+    process.env.QBO_SANDBOX_FALLBACK_SERVICE_ITEM_ID = "18";
+    process.env.QBO_SANDBOX_FALLBACK_SERVICE_ITEM_NAME = "General services:Venue Rental";
+    getValidToken.mockResolvedValueOnce({
+      accessToken: "access-token",
+      realmId: "462081636529",
+      providerEnvironment: "sandbox",
+    });
+    claimDue.mockResolvedValue([queueRow()]);
+    state.invoices.push({
+      id: INVOICE_ID,
+      company_id: COMPANY_ID,
+      client_id: CUSTOMER_ID,
+      invoice_number: "INV-1001",
+      total: 125,
+      issue_date: "2026-06-05",
+      due_date: "2026-06-20",
+      qb_id: null,
+      updated_at: "2026-06-05T10:00:00.000Z",
+    });
+    state.clients.push({ id: CUSTOMER_ID, company_id: COMPANY_ID, name: "Maverick Projects", qb_id: "44" });
+    state.line_items.push({
+      id: "line-1",
+      company_id: COMPANY_ID,
+      invoice_id: INVOICE_ID,
+      name: "Field work",
+      quantity: 2,
+      unit_price: 62.5,
+      line_total: 125,
+    });
+
+    const POST = await loadPost();
+    const res = await POST(authorizedRequest());
+
+    expect(res.status).toBe(200);
+    expect(writeCreate).toHaveBeenCalledWith(
+      "Invoice",
+      expect.objectContaining({
+        Line: [
+          expect.objectContaining({
+            SalesItemLineDetail: expect.objectContaining({
+              ItemRef: { value: "18", name: "General services:Venue Rental" },
+            }),
+          }),
+        ],
+      }),
+    );
+    expect(markSucceeded).toHaveBeenCalledWith("q-1", { externalId: "123", workerId: expect.any(String) });
   });
 });
 
