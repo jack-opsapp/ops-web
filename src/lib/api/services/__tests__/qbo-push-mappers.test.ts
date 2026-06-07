@@ -266,4 +266,21 @@ describe("QBO push mappers", () => {
       }),
     );
   });
+
+  it("caps payment reference numbers at QuickBooks' doc_num limit", () => {
+    const payload = mapPaymentToQboPayment({
+      payment: {
+        id: "pay-1",
+        amount: 125,
+        paymentDate: "2026-06-05",
+        referenceNumber: "OPS-QB-PAY-123456789012",
+        qbId: null,
+      },
+      client: { id: "client-1", qbId: "44" },
+      invoice: { id: "inv-1", qbId: "90", balanceDue: 125 },
+    });
+
+    expect(payload.PaymentRefNum).toBe("OPS-QB-PAY-1234567890");
+    expect(String(payload.PaymentRefNum)).toHaveLength(21);
+  });
 });

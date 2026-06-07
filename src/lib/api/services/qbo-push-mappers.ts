@@ -68,6 +68,7 @@ export interface QboFallbackServiceItemRef {
 type QboPayload = Record<string, unknown>;
 
 const DEFAULT_SERVICE_ITEM_NAME = "OPS Service";
+const QBO_PAYMENT_REF_MAX_LENGTH = 21;
 
 function cleanString(value: string | null | undefined): string | undefined {
   if (value === null || value === undefined) return undefined;
@@ -82,6 +83,14 @@ function cleanDate(value: string | Date | null | undefined): string | undefined 
     return value.toISOString().slice(0, 10);
   }
   return cleanString(value);
+}
+
+function qboLimitedString(
+  value: string | null | undefined,
+  maxLength: number,
+): string | undefined {
+  const cleaned = cleanString(value);
+  return cleaned ? cleaned.slice(0, maxLength) : undefined;
 }
 
 function cleanAmount(
@@ -288,7 +297,11 @@ export function mapPaymentToQboPayment(input: {
   };
 
   addDefined(payload, "TxnDate", cleanDate(input.payment.paymentDate));
-  addDefined(payload, "PaymentRefNum", cleanString(input.payment.referenceNumber));
+  addDefined(
+    payload,
+    "PaymentRefNum",
+    qboLimitedString(input.payment.referenceNumber, QBO_PAYMENT_REF_MAX_LENGTH),
+  );
 
   if (input.invoice) {
     payload.Line = [
