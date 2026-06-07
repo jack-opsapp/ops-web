@@ -8,6 +8,8 @@ import type { SearchTermData } from "@/lib/analytics/google-ads-types";
 
 const COLUMNS = [
   { key: "searchTerm", label: "Search Term" },
+  { key: "campaignName", label: "Campaign" },
+  { key: "adGroupName", label: "Ad Group" },
   { key: "impressions", label: "Impr." },
   { key: "clicks", label: "Clicks" },
   { key: "cost", label: "Cost" },
@@ -42,10 +44,12 @@ export function SearchTermsTable({ searchTerms }: SearchTermsTableProps) {
           <tbody>
             {sorted(searchTerms).map((t, i) => (
               <tr
-                key={`${t.searchTerm}-${i}`}
+                key={`${t.searchTerm}-${t.campaignName}-${t.adGroupName ?? "none"}-${i}`}
                 className="border-b border-white/[0.08] hover:bg-white/[0.02] transition-colors duration-100"
               >
                 <td className="py-3 pr-3 font-mohave text-[14px] text-[#EDEDED]">{t.searchTerm}</td>
+                <td className="py-3 pr-3 font-mohave text-[14px] text-[#A0A0A0]">{t.campaignName}</td>
+                <td className="py-3 pr-3 font-mohave text-[14px] text-[#A0A0A0]">{t.adGroupName ?? "—"}</td>
                 <td className="py-3 pr-3 font-mohave text-[14px] text-[#A0A0A0] tabular-nums">{t.impressions.toLocaleString()}</td>
                 <td className="py-3 pr-3 font-mohave text-[14px] text-[#A0A0A0] tabular-nums">{t.clicks.toLocaleString()}</td>
                 <td className="py-3 pr-3 font-mohave text-[14px] text-[#EDEDED] tabular-nums">${t.cost.toFixed(2)}</td>

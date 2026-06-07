@@ -39,6 +39,8 @@ export interface KeywordPerformance {
 
 export interface SearchTermData {
   searchTerm: string;
+  campaignName: string;
+  adGroupName: string | null;
   impressions: number;
   clicks: number;
   cost: number;             // dollars
