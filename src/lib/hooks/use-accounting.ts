@@ -152,3 +152,14 @@ export function useSyncHistory() {
     enabled: !!companyId,
   });
 }
+
+export function useAccountingSyncIssues() {
+  const { company } = useAuthStore();
+  const companyId = company?.id ?? "";
+
+  return useQuery({
+    queryKey: queryKeys.accounting.syncIssues(companyId),
+    queryFn: () => AccountingService.getSyncIssues(companyId),
+    enabled: !!companyId,
+  });
+}

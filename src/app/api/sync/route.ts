@@ -103,6 +103,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (provider === "quickbooks") {
+      return NextResponse.json(
+        {
+          success: true,
+          status: "queue_managed",
+          message:
+            "QuickBooks writes are processed by the accounting queue. Pending OPS changes will be synced by the queue worker.",
+          results: [],
+        },
+        { status: 202 }
+      );
+    }
+
     try {
       const result = await runSyncForConnection(
         supabase,

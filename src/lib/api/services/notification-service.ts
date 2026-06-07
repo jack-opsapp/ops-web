@@ -27,7 +27,8 @@ export type NotificationType =
   | "task_review_stack"
   | "unscheduled_review_stack"
   | "projects_needing_tasks"
-  | "accounting_import_complete";
+  | "accounting_import_complete"
+  | "accounting_sync";
 
 export interface AppNotification {
   id: string;

@@ -62,7 +62,7 @@ describe("POST /api/sync direction gate", () => {
     expect(runSyncForConnection).not.toHaveBeenCalled();
   });
 
-  it("runs and forwards sync_direction for bidirectional when writes are enabled", async () => {
+  it("does not run the legacy QuickBooks sync orchestrator when full CRUD is enabled", async () => {
     vi.stubEnv("ACCOUNTING_WRITE_ENABLED", "true");
     connSingle.mockResolvedValue({
       data: { id: "conn-1", is_connected: true, last_sync_at: null, sync_direction: "bidirectional" },
@@ -70,9 +70,13 @@ describe("POST /api/sync direction gate", () => {
     });
     const { POST } = await import("@/app/api/sync/route");
     const res = await POST(post({ companyId: CO, provider: "quickbooks" }));
-    expect(res.status).toBe(200);
-    expect(runSyncForConnection).toHaveBeenCalledWith(
-      expect.anything(), CO, "quickbooks", "conn-1", null, "bidirectional"
+    await expect(res.json()).resolves.toEqual(
+      expect.objectContaining({
+        success: true,
+        status: "queue_managed",
+      })
     );
+    expect(res.status).toBe(202);
+    expect(runSyncForConnection).not.toHaveBeenCalled();
   });
 });

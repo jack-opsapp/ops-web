@@ -45,12 +45,13 @@ describe("runSyncForConnection pull_only guard", () => {
     expect(pullClients).toHaveBeenCalled(); // pulls still run
   });
 
-  it("bidirectional still pushes (backwards compatible)", async () => {
+  it("bidirectional QuickBooks sync is pull-only inside the legacy orchestrator", async () => {
+    vi.stubEnv("ACCOUNTING_WRITE_ENABLED", "true");
     const { runSyncForConnection } = await import("@/lib/api/services/sync-orchestrator");
     const sb = fakeSupabase();
-    await runSyncForConnection(sb, "co-1", "quickbooks", "conn-1", null, "bidirectional");
-    // No client rows returned, so pushClient body loop doesn't run, but the
-    // push *section* executed (no throw). Pull still runs.
+    const result = await runSyncForConnection(sb, "co-1", "quickbooks", "conn-1", null, "bidirectional");
+    expect(pushClient).not.toHaveBeenCalled();
+    expect(result.results.some((r) => r.direction === "push")).toBe(false);
     expect(pullClients).toHaveBeenCalled();
   });
 });

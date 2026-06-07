@@ -66,6 +66,7 @@ export const NOTIF_TYPE_META: Record<NotificationType, NotificationMeta> = {
   email_sync_complete: { label: "INBOX", icon: "inbox", tone: "accent" },
   projects_needing_tasks: { label: "PLAN", icon: "list-checks", tone: "attn" },
   accounting_import_complete: { label: "BOOKS", icon: "receipt-text", tone: "accent" },
+  accounting_sync: { label: "QB SYNC", icon: "receipt-text", tone: "critical" },
 };
 
 export const toneRank: Record<NotificationTone, number> = {

@@ -13,6 +13,7 @@ import {
   useUpdateSyncMode,
   useTriggerSync,
   useSyncHistory,
+  useAccountingSyncIssues,
 } from "@/lib/hooks";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { toast } from "sonner";
@@ -31,6 +32,12 @@ const STATUS_COLORS: Record<string, string> = {
   partial: "text-yellow-400",
   error: "text-red-400",
 };
+
+function issueStatusLabel(status: string, t: (key: string) => string): string {
+  return status === "blocked"
+    ? t("accounting.issueBlocked")
+    : t("accounting.issueNeedsReview");
+}
 
 function ProviderCard({ provider, label }: { provider: AccountingProvider; label: string }) {
   const { t } = useDictionary("settings");
@@ -314,9 +321,64 @@ function SyncHistoryCard() {
   );
 }
 
+function SyncIssuesCard() {
+  const { t } = useDictionary("settings");
+  const { data: issues, isLoading } = useAccountingSyncIssues();
+
+  if (!isLoading && (!issues || issues.length === 0)) return null;
+
+  return (
+    <Card className="lg:col-span-2 border-red-400/30">
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <AlertTriangle className="w-[16px] h-[16px] text-red-400" />
+          <CardTitle>{t("accounting.syncIssuesTitle")}</CardTitle>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="flex items-center justify-center py-4">
+            <Loader2 className="w-[20px] h-[20px] text-text-2 animate-spin" />
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <p className="font-mono text-[11px] text-text-mute">{t("accounting.syncIssuesDesc")}</p>
+            <div className="space-y-1.5">
+              {(issues ?? []).map((issue) => {
+                const recordRef = issue.externalId ? `QB ${issue.externalId}` : issue.entityId.slice(0, 8);
+                return (
+                  <div key={issue.id} className="border border-border rounded-panel p-2.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-mono text-micro text-red-300">
+                        {issueStatusLabel(issue.status, t)}
+                      </span>
+                      <span className="font-mono text-micro text-text-3">
+                        {issue.entityType.toUpperCase()} · {issue.operation.toUpperCase()} · {recordRef}
+                      </span>
+                      <span className="ml-auto font-mono text-micro text-text-mute">
+                        {issue.updatedAt.toLocaleString()}
+                      </span>
+                    </div>
+                    {issue.lastError && (
+                      <p className="mt-1 font-mono text-[11px] leading-snug text-text-2">
+                        {issue.lastError}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export function AccountingTab() {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+      <SyncIssuesCard />
       <ProviderCard provider={AccountingProvider.QuickBooks} label="QuickBooks" />
       <ProviderCard provider={AccountingProvider.Sage} label="Sage" />
       <SyncHistoryCard />

@@ -23,6 +23,28 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+describe("AccountingService.initiateOAuth", () => {
+  it("sends the Firebase token to the OAuth initiation route", async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ authUrl: "https://appcenter.intuit.test/connect" }),
+    });
+
+    await AccountingService.initiateOAuth(
+      "a612edc0-5c18-4c4d-af97-55b9410dd077",
+      AccountingProvider.QuickBooks
+    );
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/integrations/quickbooks");
+    expect(init.method).toBe("POST");
+    expect(init.headers.Authorization).toBe("Bearer test-jwt");
+    expect(JSON.parse(init.body)).toEqual({
+      companyId: "a612edc0-5c18-4c4d-af97-55b9410dd077",
+    });
+  });
+});
+
 describe("AccountingService.disconnectProvider", () => {
   it("sends the selected provider environment to the disconnect route", async () => {
     fetchMock.mockResolvedValueOnce({

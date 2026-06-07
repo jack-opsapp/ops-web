@@ -42,6 +42,32 @@ function mapConnectionFromDb(
   };
 }
 
+export interface AccountingSyncIssue {
+  id: string;
+  entityType: "customer" | "invoice" | "estimate" | "payment";
+  entityId: string;
+  externalId: string | null;
+  operation: "create" | "update" | "void" | "inactivate" | "delete_soft" | "link" | "reconcile";
+  status: "blocked" | "needs_review";
+  lastError: string | null;
+  updatedAt: Date;
+}
+
+function mapSyncIssue(row: Record<string, unknown>): AccountingSyncIssue {
+  const updatedAt = parseDate(row.updatedAt as string | null | undefined) ?? new Date(0);
+
+  return {
+    id: String(row.id),
+    entityType: row.entityType as AccountingSyncIssue["entityType"],
+    entityId: String(row.entityId),
+    externalId: (row.externalId as string | null) ?? null,
+    operation: row.operation as AccountingSyncIssue["operation"],
+    status: row.status as AccountingSyncIssue["status"],
+    lastError: (row.lastError as string | null) ?? null,
+    updatedAt,
+  };
+}
+
 // ─── Service ──────────────────────────────────────────────────────────────────
 
 export const AccountingService = {
@@ -68,9 +94,14 @@ export const AccountingService = {
     companyId: string,
     provider: AccountingProvider
   ): Promise<{ authUrl: string }> {
+    const { getIdToken } = await import("@/lib/firebase/auth");
+    const idToken = await getIdToken();
     const response = await fetch(`/api/integrations/${provider}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+      },
       body: JSON.stringify({ companyId }),
     });
 
@@ -200,5 +231,21 @@ export const AccountingService = {
     });
     if (!response.ok) return [];
     return response.json();
+  },
+
+  async getSyncIssues(companyId: string): Promise<AccountingSyncIssue[]> {
+    const { getIdToken } = await import("@/lib/firebase/auth");
+    const idToken = await getIdToken();
+    const response = await fetch(
+      `/api/integrations/accounting/sync-issues?companyId=${companyId}`,
+      {
+        headers: {
+          ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+        },
+      }
+    );
+    if (!response.ok) return [];
+    const body = await response.json().catch(() => ({ issues: [] }));
+    return ((body.issues ?? []) as Record<string, unknown>[]).map(mapSyncIssue);
   },
 };

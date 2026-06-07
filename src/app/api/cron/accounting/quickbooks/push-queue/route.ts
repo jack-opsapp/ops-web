@@ -820,15 +820,35 @@ async function markPostProviderFinalizationFailed(input: {
   message: string;
 }): Promise<boolean> {
   const { supabase, queue, audit, row, workerId, qbId, message } = input;
+  const terminalWorkerId = row.lockedBy || workerId;
 
   await recordFailureBestEffort(audit, row, "needs_review", message);
 
   let notificationCreated = false;
   try {
-    await queue.markNeedsReview(row.id, message, { workerId, externalId: qbId });
+    await queue.markNeedsReview(row.id, message, { workerId: terminalWorkerId, externalId: qbId });
     notificationCreated = await createReviewNotification(supabase, row, "needs_review");
   } catch {
-    // Provider write already succeeded. Never schedule retry from this path.
+    // Provider write already succeeded. Make one direct, ownership-guarded
+    // terminal-state attempt before returning; stale-claim recovery must not
+    // turn an accepted provider write into a second create/update attempt.
+    try {
+      await supabase
+        .from("accounting_sync_queue")
+        .update({
+          status: "needs_review",
+          external_id: qbId,
+          locked_at: null,
+          locked_by: null,
+          last_error: message,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", row.id)
+        .eq("status", "claimed")
+        .eq("locked_by", terminalWorkerId);
+    } catch {
+      // Provider write already succeeded. Never schedule retry from this path.
+    }
   }
 
   return notificationCreated;

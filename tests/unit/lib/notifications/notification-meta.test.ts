@@ -12,23 +12,30 @@ const ALL_TYPES: NotificationType[] = [
   "role_needed",
   "pipeline_complete",
   "gmail_sync",
+  "email_sync_complete",
   "intel_available",
   "setup_prompt",
   "leads_waiting",
   "system",
   "project_assigned",
+  "lead_converted",
   "task_assigned",
   "task_completed",
   "schedule_change",
   "expense_submitted",
   "expense_approved",
   "duplicates_found",
+  "duplicates_merged",
+  "data_review_resolved",
   "ai_milestone",
   "agent_suggestion",
   "trial_expiry",
   "payment_review_stack",
   "task_review_stack",
   "unscheduled_review_stack",
+  "projects_needing_tasks",
+  "accounting_import_complete",
+  "accounting_sync",
 ];
 
 describe("notification-meta", () => {
@@ -42,10 +49,11 @@ describe("notification-meta", () => {
     }
   });
 
-  it("assigns role_needed, duplicates_found, trial_expiry to critical tone", () => {
+  it("assigns role_needed, duplicates_found, trial_expiry, accounting_sync to critical tone", () => {
     expect(NOTIF_TYPE_META.role_needed.tone).toBe("critical");
     expect(NOTIF_TYPE_META.duplicates_found.tone).toBe("critical");
     expect(NOTIF_TYPE_META.trial_expiry.tone).toBe("critical");
+    expect(NOTIF_TYPE_META.accounting_sync.tone).toBe("critical");
   });
 
   it("assigns mention, intel, leads, schedule_change, expense_submitted to attn", () => {

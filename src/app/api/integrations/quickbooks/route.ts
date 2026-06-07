@@ -34,6 +34,11 @@ function parseProviderEnvironment(
 
 export async function POST(request: NextRequest) {
   try {
+    const authUser = await verifyAdminAuth(request);
+    if (!authUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await request.json();
     const companyId = body.companyId as string | undefined;
 
@@ -42,6 +47,25 @@ export async function POST(request: NextRequest) {
         { error: "companyId is required" },
         { status: 400 }
       );
+    }
+
+    const user = await findUserByAuth(
+      authUser.uid,
+      authUser.email,
+      "id, company_id"
+    );
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+    if ((user.company_id as string) !== companyId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    const allowed = await checkPermissionById(
+      user.id as string,
+      "accounting.manage_connections"
+    );
+    if (!allowed) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const config = getQuickBooksConfig();
