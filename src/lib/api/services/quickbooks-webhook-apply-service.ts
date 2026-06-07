@@ -128,6 +128,32 @@ interface OutboundEchoMatch {
   qbUpdatedAt: string | null;
 }
 
+type QboMappedTable = "clients" | "sub_clients" | "estimates" | "invoices" | "payments";
+
+type SupabaseWriteError = {
+  code?: string;
+  message?: string;
+  details?: string;
+  hint?: string;
+};
+
+function withoutId(row: Record<string, unknown>): Record<string, unknown> {
+  const next = { ...row };
+  delete next.id;
+  return next;
+}
+
+function isUniqueConstraintError(error: SupabaseWriteError | null | undefined): boolean {
+  if (!error) return false;
+  if (error.code === "23505") return true;
+  const message = error.message?.toLowerCase() ?? "";
+  return message.includes("duplicate key") || message.includes("unique constraint");
+}
+
+function qboPaymentCompositeId(paymentQbId: string, invoiceQbId: string): string {
+  return `${paymentQbId}:${invoiceQbId}`;
+}
+
 export class QuickBooksWebhookApplyService {
   private supabase: SupabaseClient;
 
@@ -163,6 +189,173 @@ export class QuickBooksWebhookApplyService {
     if (error) {
       throw new Error(`Failed to suppress QuickBooks accounting sync: ${error.message}`);
     }
+  }
+
+  private async resolveQboMappedRowId(
+    table: QboMappedTable,
+    companyId: string,
+    qbId: string
+  ): Promise<string | null> {
+    const { data, error } = await this.supabase
+      .from(table)
+      .select("id")
+      .eq("company_id", companyId)
+      .eq("qb_id", qbId)
+      .maybeSingle();
+    if (error) {
+      throw new Error(`QuickBooks ${table} id lookup failed: ${error.message}`);
+    }
+    return typeof data?.id === "string" ? data.id : null;
+  }
+
+  /**
+   * Persist a QuickBooks-mapped row without ever mutating its primary key.
+   *
+   * PostgREST `.upsert(..., { onConflict: "company_id,qb_id" })` updates every
+   * supplied column on conflict, including `id`. Under duplicate webhooks, one
+   * request can insert a parent while another conflict-upsert changes that
+   * parent's primary key before child line/payment writes land. Financial rows
+   * need stable parent IDs, so this path uses insert-first and falls back to a
+   * normal update that deliberately excludes `id`.
+   */
+  private async persistQboMappedRow(args: {
+    table: QboMappedTable;
+    row: Record<string, unknown>;
+    existingId: string | null;
+    syncEntityType: "customer" | "invoice" | "estimate" | "payment";
+  }): Promise<{ id: string; error: SupabaseWriteError | null }> {
+    const companyId = String(args.row.company_id ?? "");
+    const qbId = String(args.row.qb_id ?? "");
+    const generatedId = String(args.row.id ?? "");
+    if (!companyId || !qbId || !generatedId) {
+      return { id: generatedId, error: { message: "missing QuickBooks row identity" } };
+    }
+
+    const patch = withoutId(args.row);
+    if (args.existingId) {
+      await this.suppressAccountingSync(companyId, args.syncEntityType, args.existingId);
+      const { error } = await this.supabase
+        .from(args.table)
+        .update(patch)
+        .eq("company_id", companyId)
+        .eq("qb_id", qbId);
+      return { id: args.existingId, error: error as SupabaseWriteError | null };
+    }
+
+    await this.suppressAccountingSync(companyId, args.syncEntityType, generatedId);
+    const { error: insertError } = await this.supabase.from(args.table).insert(args.row);
+    if (!insertError) {
+      return { id: generatedId, error: null };
+    }
+    if (!isUniqueConstraintError(insertError as SupabaseWriteError)) {
+      return { id: generatedId, error: insertError as SupabaseWriteError };
+    }
+
+    const raceWinnerId = await this.resolveQboMappedRowId(args.table, companyId, qbId);
+    if (!raceWinnerId) {
+      return {
+        id: generatedId,
+        error: { message: "QuickBooks duplicate row id was not resolved after insert conflict" },
+      };
+    }
+
+    await this.suppressAccountingSync(companyId, args.syncEntityType, raceWinnerId);
+    const { error: updateError } = await this.supabase
+      .from(args.table)
+      .update(patch)
+      .eq("company_id", companyId)
+      .eq("qb_id", qbId);
+    return { id: raceWinnerId, error: updateError as SupabaseWriteError | null };
+  }
+
+  private async findExistingPaymentLine(
+    companyId: string,
+    rawPaymentQbId: string,
+    invoiceQbId: string,
+    invoiceId: string
+  ): Promise<{ id: string; qb_id: string | null } | null> {
+    const compositeQbId = qboPaymentCompositeId(rawPaymentQbId, invoiceQbId);
+    const { data: composite, error: compositeError } = await this.supabase
+      .from("payments")
+      .select("id, qb_id")
+      .eq("company_id", companyId)
+      .eq("qb_id", compositeQbId)
+      .maybeSingle();
+    if (compositeError) {
+      throw new Error(`QuickBooks payment lookup failed: ${compositeError.message}`);
+    }
+    if (composite?.id) {
+      return { id: composite.id as string, qb_id: (composite.qb_id as string | null) ?? null };
+    }
+
+    const { data: legacy, error: legacyError } = await this.supabase
+      .from("payments")
+      .select("id, qb_id")
+      .eq("company_id", companyId)
+      .eq("invoice_id", invoiceId)
+      .eq("qb_id", rawPaymentQbId)
+      .maybeSingle();
+    if (legacyError) {
+      throw new Error(`QuickBooks payment legacy lookup failed: ${legacyError.message}`);
+    }
+    if (!legacy?.id) return null;
+    return { id: legacy.id as string, qb_id: (legacy.qb_id as string | null) ?? null };
+  }
+
+  private async persistPaymentLine(args: {
+    companyId: string;
+    rawPaymentQbId: string;
+    invoiceQbId: string;
+    row: Record<string, unknown>;
+  }): Promise<{ id: string; error: SupabaseWriteError | null }> {
+    const compositeQbId = qboPaymentCompositeId(args.rawPaymentQbId, args.invoiceQbId);
+    const existing = await this.findExistingPaymentLine(
+      args.companyId,
+      args.rawPaymentQbId,
+      args.invoiceQbId,
+      String(args.row.invoice_id)
+    );
+    const row: Record<string, unknown> = { ...args.row, qb_id: compositeQbId };
+    const patch = withoutId(row);
+
+    if (existing) {
+      await this.suppressAccountingSync(args.companyId, "payment", existing.id);
+      const { error } = await this.supabase
+        .from("payments")
+        .update(patch)
+        .eq("id", existing.id)
+        .eq("company_id", args.companyId);
+      return { id: existing.id, error: error as SupabaseWriteError | null };
+    }
+
+    await this.suppressAccountingSync(args.companyId, "payment", String(row.id));
+    const { error: insertError } = await this.supabase.from("payments").insert(row);
+    if (!insertError) {
+      return { id: String(row.id), error: null };
+    }
+    if (!isUniqueConstraintError(insertError as SupabaseWriteError)) {
+      return { id: String(row.id), error: insertError as SupabaseWriteError };
+    }
+
+    const raceWinner = await this.findExistingPaymentLine(
+      args.companyId,
+      args.rawPaymentQbId,
+      args.invoiceQbId,
+      String(args.row.invoice_id)
+    );
+    if (!raceWinner) {
+      return {
+        id: String(row.id),
+        error: { message: "QuickBooks payment duplicate row id was not resolved after insert conflict" },
+      };
+    }
+    await this.suppressAccountingSync(args.companyId, "payment", raceWinner.id);
+    const { error: updateError } = await this.supabase
+      .from("payments")
+      .update(patch)
+      .eq("id", raceWinner.id)
+      .eq("company_id", args.companyId);
+    return { id: raceWinner.id, error: updateError as SupabaseWriteError | null };
   }
 
   private async findOutboundEcho(
@@ -333,18 +526,20 @@ export class QuickBooksWebhookApplyService {
       .eq("company_id", connection.company_id)
       .eq("qb_id", n.qb_id)
       .maybeSingle();
-    const clientId = (existingClient?.id as string | undefined) ?? crypto.randomUUID();
-    await this.suppressAccountingSync(connection.company_id, "customer", clientId);
-    const { error } = await this.supabase.from("clients").upsert(
-      {
-        id: clientId,
+    const clientIdForWrite = (existingClient?.id as string | undefined) ?? crypto.randomUUID();
+    const clientWrite = await this.persistQboMappedRow({
+      table: "clients",
+      existingId: (existingClient?.id as string | undefined) ?? null,
+      syncEntityType: "customer",
+      row: {
+        id: clientIdForWrite,
         company_id: connection.company_id,
         qb_id: n.qb_id,
         ...clientFieldsFromCustomer(n),
       },
-      { onConflict: "company_id,qb_id" }
-    );
-    if (error) {
+    });
+    const clientId = clientWrite.id;
+    if (clientWrite.error) {
       return { status: "error", logEntityType: "client", qbId, entityId: clientId, qbUpdatedAt: qbMetaUpdatedAt(record), detail: "client upsert failed" };
     }
 
@@ -352,31 +547,27 @@ export class QuickBooksWebhookApplyService {
     // applyImport STEP 1b). Null for individuals, contact-less companies, and Jobs.
     const subFields = subClientFieldsFromCustomer(n);
     if (subFields) {
-      const { data: clientRow } = await this.supabase
-        .from("clients").select("id")
-        .eq("company_id", connection.company_id).eq("qb_id", n.qb_id).maybeSingle();
-      if (clientRow?.id) {
-        const { data: existingSubClient } = await this.supabase
-          .from("sub_clients")
-          .select("id")
-          .eq("company_id", connection.company_id)
-          .eq("qb_id", n.qb_id)
-          .maybeSingle();
-        const subClientId = (existingSubClient?.id as string | undefined) ?? crypto.randomUUID();
-        await this.suppressAccountingSync(connection.company_id, "customer", subClientId);
-        const { error: subErr } = await this.supabase.from("sub_clients").upsert(
-          {
-            id: subClientId,
-            company_id: connection.company_id,
-            client_id: clientRow.id as string,
-            qb_id: n.qb_id,
-            ...subFields,
-          },
-          { onConflict: "company_id,qb_id" }
-        );
-        if (subErr) {
-          return { status: "error", logEntityType: "client", qbId, entityId: clientId, qbUpdatedAt: qbMetaUpdatedAt(record), detail: "sub_client upsert failed" };
-        }
+      const { data: existingSubClient } = await this.supabase
+        .from("sub_clients")
+        .select("id")
+        .eq("company_id", connection.company_id)
+        .eq("qb_id", n.qb_id)
+        .maybeSingle();
+      const subClientIdForWrite = (existingSubClient?.id as string | undefined) ?? crypto.randomUUID();
+      const subClientWrite = await this.persistQboMappedRow({
+        table: "sub_clients",
+        existingId: (existingSubClient?.id as string | undefined) ?? null,
+        syncEntityType: "customer",
+        row: {
+          id: subClientIdForWrite,
+          company_id: connection.company_id,
+          client_id: clientId,
+          qb_id: n.qb_id,
+          ...subFields,
+        },
+      });
+      if (subClientWrite.error) {
+        return { status: "error", logEntityType: "client", qbId, entityId: clientId, qbUpdatedAt: qbMetaUpdatedAt(record), detail: "sub_client upsert failed" };
       }
     }
     return { status: "success", logEntityType: "client", qbId, entityId: clientId, qbUpdatedAt: qbMetaUpdatedAt(record), detail: null };
@@ -466,21 +657,17 @@ export class QuickBooksWebhookApplyService {
     // issue_date is NOT NULL DEFAULT CURRENT_DATE — send txn_date or omit (never null).
     if (staging.txn_date) estimateRow.issue_date = staging.txn_date;
 
-    await this.suppressAccountingSync(connection.company_id, "estimate", estimateIdForWrite);
-    const { error: upsertErr } = await this.supabase
-      .from("estimates")
-      .upsert(estimateRow, { onConflict: "company_id,qb_id" });
-    if (upsertErr) {
+    const estimateWrite = await this.persistQboMappedRow({
+      table: "estimates",
+      row: estimateRow,
+      existingId: (existingEstimate?.id as string | undefined) ?? null,
+      syncEntityType: "estimate",
+    });
+    if (estimateWrite.error) {
       return { status: "error", logEntityType: "estimate", qbId, entityId: estimateIdForWrite, qbUpdatedAt: qbMetaUpdatedAt(record), detail: "estimate upsert failed" };
     }
 
-    const { data: row } = await this.supabase
-      .from("estimates")
-      .select("id")
-      .eq("company_id", connection.company_id)
-      .eq("qb_id", qbId)
-      .maybeSingle();
-    const estimateId = row?.id as string | undefined;
+    const estimateId = estimateWrite.id;
     let lineItemWriteMode: "replaced" | "preserved_existing_linked_lines" | "unresolved" =
       "unresolved";
     if (estimateId) {
@@ -636,21 +823,17 @@ export class QuickBooksWebhookApplyService {
     };
     if (staging.txn_date) invoiceRow.issue_date = staging.txn_date;
 
-    await this.suppressAccountingSync(connection.company_id, "invoice", invoiceIdForWrite);
-    const { error: upsertErr } = await this.supabase
-      .from("invoices")
-      .upsert(invoiceRow, { onConflict: "company_id,qb_id" });
-    if (upsertErr) {
+    const invoiceWrite = await this.persistQboMappedRow({
+      table: "invoices",
+      row: invoiceRow,
+      existingId: (existingInvoice?.id as string | undefined) ?? null,
+      syncEntityType: "invoice",
+    });
+    if (invoiceWrite.error) {
       return { status: "error", logEntityType: "invoice", qbId, entityId: invoiceIdForWrite, qbUpdatedAt: qbMetaUpdatedAt(record), detail: "invoice upsert failed" };
     }
 
-    const { data: row } = await this.supabase
-      .from("invoices")
-      .select("id")
-      .eq("company_id", connection.company_id)
-      .eq("qb_id", qbId)
-      .maybeSingle();
-    const invoiceId = row?.id as string | undefined;
+    const invoiceId = invoiceWrite.id;
     if (!invoiceId) {
       return { status: "error", logEntityType: "invoice", qbId, entityId: invoiceIdForWrite, qbUpdatedAt: qbMetaUpdatedAt(record), detail: "invoice id not resolved" };
     }
@@ -698,22 +881,14 @@ export class QuickBooksWebhookApplyService {
       const invoiceId = await this.ensureInvoice(connection, line.invoice_qb_id, pull);
       if (!invoiceId) continue;
 
-      const compositeQbId = `${qbId}:${line.invoice_qb_id}`;
       await this.suppressAccountingSync(connection.company_id, "invoice", invoiceId);
-      const { data: existingPayment } = await this.supabase
-        .from("payments")
-        .select("id")
-        .eq("company_id", connection.company_id)
-        .eq("qb_id", compositeQbId)
-        .maybeSingle();
-      const paymentId = (existingPayment?.id as string | undefined) ?? crypto.randomUUID();
-      firstPaymentId ??= paymentId;
-      await this.suppressAccountingSync(connection.company_id, "payment", paymentId);
-      const { error } = await this.supabase.from("payments").upsert(
-        {
-          id: paymentId,
+      const paymentWrite = await this.persistPaymentLine({
+        companyId: connection.company_id,
+        rawPaymentQbId: qbId,
+        invoiceQbId: line.invoice_qb_id,
+        row: {
+          id: crypto.randomUUID(),
           company_id: connection.company_id,
-          qb_id: compositeQbId,
           invoice_id: invoiceId,
           client_id: clientId,
           amount: line.amount,
@@ -721,10 +896,10 @@ export class QuickBooksWebhookApplyService {
           reference_number: line.reference_number ?? null,
           payment_method: split.payment_method ?? null,
         },
-        { onConflict: "company_id,qb_id" }
-      );
-      if (error) {
-        return { status: "error", logEntityType: "payment", qbId, entityId: paymentId, qbUpdatedAt: qbMetaUpdatedAt(record), detail: "payment upsert failed" };
+      });
+      firstPaymentId ??= paymentWrite.id;
+      if (paymentWrite.error) {
+        return { status: "error", logEntityType: "payment", qbId, entityId: paymentWrite.id, qbUpdatedAt: qbMetaUpdatedAt(record), detail: "payment upsert failed" };
       }
       applied += 1;
 
@@ -829,48 +1004,38 @@ export class QuickBooksWebhookApplyService {
   ): Promise<void> {
     if (parent.invoiceId) {
       await this.suppressAccountingSync(companyId, "invoice", parent.invoiceId);
-      const { error } = await this.supabase.from("line_items").delete().eq("invoice_id", parent.invoiceId);
-      if (error) {
-        throw new Error(`line item delete failed: ${error.message}`);
-      }
     } else if (parent.estimateId) {
       await this.suppressAccountingSync(companyId, "estimate", parent.estimateId);
-      const { error } = await this.supabase.from("line_items").delete().eq("estimate_id", parent.estimateId);
-      if (error) {
-        throw new Error(`line item delete failed: ${error.message}`);
-      }
+    } else {
+      throw new Error("line item replacement failed: parent missing");
     }
 
-    for (const line of lines) {
+    const pLines = lines.map((line) => {
       const opsType =
         line.qb_item_type === "Inventory" || line.qb_item_type === "NonInventory"
           ? "MATERIAL"
           : line.qb_item_type === "Service" || (!line.qb_item_type && Boolean(parent.estimateId))
             ? "LABOR"
           : "OTHER";
-      if (parent.invoiceId) {
-        await this.suppressAccountingSync(companyId, "invoice", parent.invoiceId);
-      } else if (parent.estimateId) {
-        await this.suppressAccountingSync(companyId, "estimate", parent.estimateId);
-      }
-      const { error } = await this.supabase.from("line_items").insert({
-        company_id: companyId,
-        estimate_id: parent.estimateId ?? null,
-        invoice_id: parent.invoiceId ?? null,
-        product_id: null,
+      return {
         name: line.name ?? "Line item",
         description: line.description ?? null,
         quantity: line.quantity ?? 1,
-        unit: null,
         unit_price: line.unit_price ?? 0,
-        // line_total intentionally omitted — GENERATED column.
         is_taxable: line.is_taxable ?? false,
         sort_order: line.sort_order ?? 0,
         type: opsType,
-      });
-      if (error) {
-        throw new Error(`line item insert failed: ${error.message}`);
-      }
+      };
+    });
+
+    const { error } = await this.supabase.rpc("replace_qbo_line_items_locked", {
+      p_company_id: companyId,
+      p_invoice_id: parent.invoiceId ?? null,
+      p_estimate_id: parent.estimateId ?? null,
+      p_lines: pLines,
+    });
+    if (error) {
+      throw new Error(`line item replacement failed: ${error.message}`);
     }
   }
 

@@ -50,6 +50,7 @@ interface PreparedPush {
   qboEntity: QboWriteEntity;
   payload: Record<string, unknown>;
   existingQbId: string | null;
+  paymentInvoiceQbId?: string | null;
   localQbIdMissing: boolean;
   opsUpdatedAt: string | null;
   qbUpdatedAt: string | null;
@@ -93,6 +94,16 @@ function stringValue(value: unknown): string {
 function numberOrString(value: unknown): number | string | null {
   if (typeof value === "number" || typeof value === "string") return value;
   return null;
+}
+
+function qboPaymentRawId(qbId: string | null): string | null {
+  if (!qbId) return null;
+  return qbId.split(":")[0] || null;
+}
+
+function qboPaymentCompositeId(paymentQbId: string, invoiceQbId: string | null | undefined): string {
+  const invoiceId = cleanString(invoiceQbId);
+  return invoiceId ? `${paymentQbId}:${invoiceId}` : paymentQbId;
 }
 
 function errorMessage(error: unknown): string {
@@ -590,7 +601,8 @@ async function preparePaymentPush(
 
   const entity = "Payment";
   const localQbId = cleanString(payment.qb_id);
-  const existingQbId = localQbId ?? cleanString(row.externalId);
+  const localRawQbId = qboPaymentRawId(localQbId);
+  const existingQbId = localRawQbId ?? qboPaymentRawId(cleanString(row.externalId));
 
   if (row.operation === "void") {
     if (!existingQbId) {
@@ -654,6 +666,7 @@ async function preparePaymentPush(
         invoice: invoiceLink,
       }),
       existingQbId,
+      paymentInvoiceQbId: invoiceLink?.qbId ?? null,
       localQbIdMissing: !localQbId,
       opsUpdatedAt: cleanString(payment.created_at),
       qbUpdatedAt: current.qbUpdatedAt,
@@ -689,9 +702,13 @@ async function writeQbId(
   prepared: PreparedPush,
   qbId: string,
 ): Promise<void> {
+  const localQbId =
+    row.entityType === "payment"
+      ? qboPaymentCompositeId(qbId, prepared.paymentInvoiceQbId)
+      : qbId;
   const { error: updateError } = await supabase
     .from(prepared.table)
-    .update({ qb_id: qbId })
+    .update({ qb_id: localQbId })
     .eq("id", row.entityId)
     .eq("company_id", row.companyId);
 

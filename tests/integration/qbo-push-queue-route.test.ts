@@ -1084,6 +1084,62 @@ describe("POST /api/cron/accounting/quickbooks/push-queue", () => {
     expect(markSucceeded).toHaveBeenCalledWith("q-1", { externalId: "90", workerId: expect.any(String) });
   });
 
+  it("creates linked payments and stores the canonical payment:invoice QuickBooks id", async () => {
+    process.env.ACCOUNTING_WRITE_ENABLED = "true";
+    claimDue.mockResolvedValue([
+      queueRow({
+        entityType: "payment",
+        entityId: "payment-1",
+        operation: "create",
+        sourceTable: "payments",
+        idempotencyKey: "payment:payment-1",
+      }),
+    ]);
+    writeCreate.mockResolvedValueOnce({ qbId: "77", syncToken: "0", metaUpdatedAt: "2026-06-05T10:02:00Z" });
+    state.clients.push({ id: CUSTOMER_ID, company_id: COMPANY_ID, name: "Maverick Projects", qb_id: "44" });
+    state.invoices.push({
+      id: INVOICE_ID,
+      company_id: COMPANY_ID,
+      client_id: CUSTOMER_ID,
+      invoice_number: "INV-1001",
+      total: 125,
+      balance_due: 100,
+      qb_id: "90",
+    });
+    state.payments.push({
+      id: "payment-1",
+      company_id: COMPANY_ID,
+      client_id: CUSTOMER_ID,
+      invoice_id: INVOICE_ID,
+      amount: 25,
+      qb_id: null,
+      payment_date: "2026-06-05",
+      reference_number: "CHK-77",
+      created_at: "2026-06-05T09:00:00.000Z",
+    });
+
+    const POST = await loadPost();
+    const res = await POST(authorizedRequest());
+
+    expect(res.status).toBe(200);
+    expect(writeCreate).toHaveBeenCalledWith(
+      "Payment",
+      expect.objectContaining({
+        CustomerRef: { value: "44" },
+        TotalAmt: 25,
+        PaymentRefNum: "CHK-77",
+        Line: [
+          expect.objectContaining({
+            Amount: 25,
+            LinkedTxn: [{ TxnId: "90", TxnType: "Invoice" }],
+          }),
+        ],
+      }),
+    );
+    expect(state.payments[0].qb_id).toBe("77:90");
+    expect(markSucceeded).toHaveBeenCalledWith("q-1", { externalId: "77", workerId: expect.any(String) });
+  });
+
   it("voids linked payments as sparse QuickBooks void updates", async () => {
     process.env.ACCOUNTING_WRITE_ENABLED = "true";
     claimDue.mockResolvedValue([
@@ -1104,7 +1160,7 @@ describe("POST /api/cron/accounting/quickbooks/push-queue", () => {
       id: "payment-1",
       company_id: COMPANY_ID,
       amount: 25,
-      qb_id: "77",
+      qb_id: "77:90",
       voided_at: "2026-06-05T10:00:00.000Z",
       created_at: "2026-06-05T09:00:00.000Z",
     });

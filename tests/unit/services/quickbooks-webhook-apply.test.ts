@@ -39,11 +39,19 @@ interface Captured {
 function makeSupabase(opts: {
   // table -> resolved id for maybeSingle on (company_id, qb_id) lookups
   existingIds?: Record<string, string>;
+  // table -> id that appears only after the first lookup, simulating a
+  // duplicate webhook winning the insert race between the initial lookup and
+  // the attempted write.
+  lateExistingIds?: Record<string, string>;
+  insertErrors?: Record<string, { code?: string; message: string }>;
   rows?: Record<string, Array<Record<string, unknown>>>;
 }) {
   const captured: Captured = { upserts: [], inserts: [], updates: [], deletes: [], rpcs: [] };
   const existingIds = opts.existingIds ?? {};
+  const lateExistingIds = opts.lateExistingIds ?? {};
+  const insertErrors = opts.insertErrors ?? {};
   const rows = opts.rows ?? {};
+  const maybeSingleCalls: Record<string, number> = {};
   // After an upsert, subsequent maybeSingle should resolve a fresh id.
   const resolvedAfterUpsert: Record<string, string> = {};
 
@@ -56,14 +64,29 @@ function makeSupabase(opts: {
       from(table: string) {
         const builder: Record<string, unknown> = {};
         builder.select = () => builder;
-        builder.eq = () => builder;
+        const filters: Array<(row: Record<string, unknown>) => boolean> = [];
+        builder.eq = (column: string, value: unknown) => {
+          filters.push((row) => row[column] === value);
+          return builder;
+        };
+        builder.in = (column: string, values: unknown[]) => {
+          filters.push((row) => values.includes(row[column]));
+          return builder;
+        };
         builder.gte = () => builder;
         builder.or = () => builder;
         builder.is = () => builder;
         builder.limit = () => builder;
         builder.order = () => builder;
         builder.maybeSingle = async () => {
-          const id = existingIds[table] ?? resolvedAfterUpsert[table];
+          const matched = (rows[table] ?? []).filter((row) => filters.every((fn) => fn(row)));
+          if (matched.length > 0) {
+            return { data: matched[0], error: null };
+          }
+          maybeSingleCalls[table] = (maybeSingleCalls[table] ?? 0) + 1;
+          const lateId =
+            maybeSingleCalls[table] > 1 ? lateExistingIds[table] : undefined;
+          const id = existingIds[table] ?? lateId ?? resolvedAfterUpsert[table];
           return { data: id ? { id } : null, error: null };
         };
         builder.upsert = async (row: Record<string, unknown>, cfg?: { onConflict?: string }) => {
@@ -74,6 +97,9 @@ function makeSupabase(opts: {
         };
         builder.insert = async (row: Record<string, unknown>) => {
           captured.inserts.push({ table, row });
+          if (insertErrors[table]) {
+            return { error: insertErrors[table] };
+          }
           return { error: null };
         };
         builder.update = (patch: Record<string, unknown>) => {
@@ -87,7 +113,11 @@ function makeSupabase(opts: {
         builder.then = (
           resolve: (value: { data: Array<Record<string, unknown>>; error: null }) => unknown,
           reject?: (reason: unknown) => unknown
-        ) => Promise.resolve({ data: rows[table] ?? [], error: null }).then(resolve, reject);
+        ) =>
+          Promise.resolve({
+            data: (rows[table] ?? []).filter((row) => filters.every((fn) => fn(row))),
+            error: null,
+          }).then(resolve, reject);
         return builder;
       },
     };
@@ -151,6 +181,21 @@ const SANDBOX_ACCEPTED_ESTIMATE = {
   ],
 };
 
+const SANDBOX_PAYMENT = {
+  Id: "77",
+  CustomerRef: { value: "1" },
+  TxnDate: "2024-09-02",
+  TotalAmt: 25,
+  PaymentRefNum: "CHK-77",
+  Line: [
+    {
+      Amount: 25,
+      LinkedTxn: [{ TxnId: "130", TxnType: "Invoice" }],
+      LineEx: { any: [{ name: "txnReferenceNumber", value: "1037" }] },
+    },
+  ],
+};
+
 describe("QuickBooksWebhookApplyService.applyEntity — Invoice", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -169,10 +214,10 @@ describe("QuickBooksWebhookApplyService.applyEntity — Invoice", () => {
     expect(result.status).toBe("success");
     expect(result.logEntityType).toBe("invoice");
 
-    const invoiceUpsert = captured.upserts.find((u) => u.table === "invoices");
-    expect(invoiceUpsert).toBeDefined();
-    expect(invoiceUpsert!.onConflict).toBe("company_id,qb_id");
-    expect(invoiceUpsert!.row).toMatchObject({
+    const invoiceInsert = captured.inserts.find((u) => u.table === "invoices");
+    expect(invoiceInsert).toBeDefined();
+    expect(captured.upserts.some((u) => u.table === "invoices")).toBe(false);
+    expect(invoiceInsert!.row).toMatchObject({
       company_id: CO,
       qb_id: "130",
       client_id: "client-1",
@@ -186,21 +231,57 @@ describe("QuickBooksWebhookApplyService.applyEntity — Invoice", () => {
         p_company_id: CO,
         p_provider: "quickbooks",
         p_entity_type: "invoice",
-        p_entity_id: invoiceUpsert!.row.id,
+        p_entity_id: invoiceInsert!.row.id,
         p_source: "quickbooks",
       }),
     });
     expect(captured.rpcs.some((c) => c.fn === "set_ops_sync_source")).toBe(false);
     // line_total must NEVER be inserted (GENERATED column).
-    const lineInsert = captured.inserts.find((i) => i.table === "line_items");
-    expect(lineInsert).toBeDefined();
-    expect(lineInsert!.row).not.toHaveProperty("line_total");
-    expect(lineInsert!.row).toMatchObject({ name: "Rock Fountain", unit_price: 275 });
+    const lineReplace = captured.rpcs.find((i) => i.fn === "replace_qbo_line_items_locked");
+    expect(lineReplace).toBeDefined();
+    expect(lineReplace!.args).toMatchObject({ p_company_id: CO });
+    expect(lineReplace!.args.p_lines).toEqual([
+      expect.objectContaining({ name: "Rock Fountain", unit_price: 275 }),
+    ]);
+    expect(JSON.stringify(lineReplace!.args.p_lines)).not.toContain("line_total");
 
     // STEP 5 reconcile to QB Balance: balance 0 → paid + amount_paid = total.
     const reconcile = captured.updates.find((u) => u.table === "invoices");
     expect(reconcile).toBeDefined();
     expect(reconcile!.patch).toMatchObject({ balance_due: 0, amount_paid: 362.07, status: "paid" });
+  });
+
+  it("keeps the invoice primary key stable when a duplicate webhook wins the insert race", async () => {
+    const { client, captured } = makeSupabase({
+      existingIds: { clients: "client-1" },
+      lateExistingIds: { invoices: "invoice-existing-after-race" },
+      insertErrors: {
+        invoices: { code: "23505", message: "duplicate key value violates unique constraint" },
+      },
+    });
+    fetchEntityById.mockResolvedValue(SANDBOX_INVOICE);
+
+    const svc = new QuickBooksWebhookApplyService(client as never);
+    const result = await svc.applyEntity(CONN, "Invoice", "130", "Create");
+
+    expect(result.status).toBe("success");
+    expect(result.entityId).toBe("invoice-existing-after-race");
+    expect(captured.upserts.some((u) => u.table === "invoices")).toBe(false);
+
+    const invoiceInsert = captured.inserts.find((i) => i.table === "invoices");
+    expect(invoiceInsert).toBeDefined();
+    expect(invoiceInsert!.row.id).not.toBe("invoice-existing-after-race");
+
+    const invoiceUpdate = captured.updates.find((u) => u.table === "invoices");
+    expect(invoiceUpdate).toBeDefined();
+    expect(invoiceUpdate!.patch).not.toHaveProperty("id");
+
+    const lineReplace = captured.rpcs.find((i) => i.fn === "replace_qbo_line_items_locked");
+    expect(lineReplace?.args).toMatchObject({
+      p_company_id: CO,
+      p_invoice_id: "invoice-existing-after-race",
+      p_estimate_id: null,
+    });
   });
 
   it("skips a zero-total / voided invoice (never applied)", async () => {
@@ -242,10 +323,10 @@ describe("QuickBooksWebhookApplyService.applyEntity — Customer", () => {
 
     expect(result.status).toBe("success");
     expect(result.logEntityType).toBe("client");
-    const clientUpsert = captured.upserts.find((u) => u.table === "clients");
-    expect(clientUpsert).toBeDefined();
-    expect(clientUpsert!.onConflict).toBe("company_id,qb_id");
-    expect(clientUpsert!.row).toMatchObject({
+    const clientInsert = captured.inserts.find((u) => u.table === "clients");
+    expect(clientInsert).toBeDefined();
+    expect(captured.upserts.some((u) => u.table === "clients")).toBe(false);
+    expect(clientInsert!.row).toMatchObject({
       company_id: CO,
       qb_id: "1",
       name: "Amy's Bird Sanctuary",
@@ -260,6 +341,14 @@ describe("QuickBooksWebhookApplyService.applyEntity — Customer", () => {
         accounting_sync_events: [
           {
             id: "evt-outbound-1",
+            company_id: CO,
+            connection_id: CONN.id,
+            provider: "quickbooks",
+            direction: "ops_to_qb",
+            entity_type: "customer",
+            external_id: "1",
+            status: "succeeded",
+            source: "worker",
             entity_id: "client-1",
             qb_updated_at: "2024-09-01T12:00:00.000Z",
           },
@@ -296,13 +385,13 @@ describe("QuickBooksWebhookApplyService.applyEntity — Customer", () => {
     const result = await svc.applyEntity(CONN, "Customer", "42", "Update");
     expect(result.status).toBe("success");
 
-    const clientUpsert = captured.upserts.find((u) => u.table === "clients");
-    expect(clientUpsert!.row).toMatchObject({ qb_id: "42", name: "Acme Corp", email: null, phone_number: null });
+    const clientInsert = captured.inserts.find((u) => u.table === "clients");
+    expect(clientInsert!.row).toMatchObject({ qb_id: "42", name: "Acme Corp", email: null, phone_number: null });
 
-    const subUpsert = captured.upserts.find((u) => u.table === "sub_clients");
-    expect(subUpsert).toBeDefined();
-    expect(subUpsert!.onConflict).toBe("company_id,qb_id");
-    expect(subUpsert!.row).toMatchObject({ qb_id: "42", name: "John Smith", email: "john@acme.com", phone_number: "555" });
+    const subInsert = captured.inserts.find((u) => u.table === "sub_clients");
+    expect(subInsert).toBeDefined();
+    expect(subInsert!.row).toMatchObject({ qb_id: "42", name: "John Smith", email: "john@acme.com", phone_number: "555" });
+    expect(captured.upserts.some((u) => u.table === "sub_clients")).toBe(false);
   });
 
   it("an individual webhook stays flat (no sub_client)", async () => {
@@ -313,8 +402,8 @@ describe("QuickBooksWebhookApplyService.applyEntity — Customer", () => {
     });
     const svc = new QuickBooksWebhookApplyService(client as never);
     await svc.applyEntity(CONN, "Customer", "9", "Update");
-    const clientUpsert = captured.upserts.find((u) => u.table === "clients");
-    expect(clientUpsert!.row).toMatchObject({ qb_id: "9", name: "Jane Doe", email: "jane@doe.com" });
+    const clientInsert = captured.inserts.find((u) => u.table === "clients");
+    expect(clientInsert!.row).toMatchObject({ qb_id: "9", name: "Jane Doe", email: "jane@doe.com" });
     expect(captured.upserts.some((u) => u.table === "sub_clients")).toBe(false);
   });
 });
@@ -336,21 +425,28 @@ describe("QuickBooksWebhookApplyService.applyEntity — Estimate", () => {
 
     expect(result.status).toBe("needs_review");
     expect(result.detail).toBe("empty_bridge_response");
-    const estimateUpsert = captured.upserts.find((u) => u.table === "estimates");
-    expect(estimateUpsert).toBeDefined();
-    expect(estimateUpsert!.row).toMatchObject({
+    const estimateUpdate = captured.updates.find((u) => u.table === "estimates");
+    expect(estimateUpdate).toBeDefined();
+    expect(estimateUpdate!.patch).not.toHaveProperty("id");
+    expect(estimateUpdate!.patch).toMatchObject({
       company_id: CO,
       qb_id: "99",
       client_id: "client-1",
       estimate_number: "1001",
       status: "approved",
     });
-    expect(captured.inserts.find((i) => i.table === "line_items")?.row).toMatchObject({
-      estimate_id: "estimate-99",
-      name: "Install rail",
-      quantity: 2,
-      unit_price: 250,
-      type: "LABOR",
+    expect(captured.rpcs.find((i) => i.fn === "replace_qbo_line_items_locked")?.args).toMatchObject({
+      p_company_id: CO,
+      p_estimate_id: "estimate-99",
+      p_invoice_id: null,
+      p_lines: [
+        expect.objectContaining({
+          name: "Install rail",
+          quantity: 2,
+          unit_price: 250,
+          type: "LABOR",
+        }),
+      ],
     });
     expect(captured.rpcs).toContainEqual({
       fn: "accept_estimate_to_job_from_quickbooks",
@@ -379,6 +475,8 @@ describe("QuickBooksWebhookApplyService.applyEntity — Estimate", () => {
         line_items: [
           {
             id: "line-1",
+            company_id: CO,
+            estimate_id: "estimate-99",
             task_type_ref: "task-type-1",
             task_type_id: null,
             product_id: "product-1",
@@ -393,11 +491,77 @@ describe("QuickBooksWebhookApplyService.applyEntity — Estimate", () => {
 
     expect(captured.deletes.some((entry) => entry.table === "line_items")).toBe(false);
     expect(captured.inserts.some((entry) => entry.table === "line_items")).toBe(false);
+    expect(captured.rpcs.some((entry) => entry.fn === "replace_qbo_line_items_locked")).toBe(false);
     expect(result.afterSnapshot).toEqual(
       expect.objectContaining({
         lineItemWriteMode: "preserved_existing_linked_lines",
       })
     );
+  });
+});
+
+describe("QuickBooksWebhookApplyService.applyEntity — Payment", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    qbWriteCalls.value = 0;
+    getValidToken.mockResolvedValue({ accessToken: "tok", realmId: "4620816365" });
+  });
+
+  it("updates a legacy raw payment row to the canonical payment:invoice id on delayed webhook replay", async () => {
+    const { client, captured } = makeSupabase({
+      existingIds: { clients: "client-1", invoices: "invoice-130" },
+      rows: {
+        payments: [
+          {
+            id: "payment-existing",
+            company_id: CO,
+            qb_id: "77",
+            invoice_id: "invoice-130",
+          },
+        ],
+      },
+    });
+    fetchEntityById.mockResolvedValue(SANDBOX_PAYMENT);
+    const svc = new QuickBooksWebhookApplyService(client as never);
+    const result = await svc.applyEntity(CONN, "Payment", "77", "Create");
+
+    expect(result.status).toBe("success");
+    expect(result.entityId).toBe("payment-existing");
+    expect(captured.inserts.some((entry) => entry.table === "payments")).toBe(false);
+    const paymentUpdate = captured.updates.find((entry) => entry.table === "payments");
+    expect(paymentUpdate?.patch).toMatchObject({
+      qb_id: "77:130",
+      invoice_id: "invoice-130",
+      amount: 25,
+    });
+    expect(paymentUpdate?.patch).not.toHaveProperty("id");
+  });
+
+  it("replays a duplicate linked payment webhook without creating a second payment", async () => {
+    const { client, captured } = makeSupabase({
+      existingIds: { clients: "client-1", invoices: "invoice-130" },
+      rows: {
+        payments: [
+          {
+            id: "payment-existing",
+            company_id: CO,
+            qb_id: "77:130",
+            invoice_id: "invoice-130",
+          },
+        ],
+      },
+    });
+    fetchEntityById.mockResolvedValue(SANDBOX_PAYMENT);
+    const svc = new QuickBooksWebhookApplyService(client as never);
+    const result = await svc.applyEntity(CONN, "Payment", "77", "Update");
+
+    expect(result.status).toBe("success");
+    expect(result.entityId).toBe("payment-existing");
+    expect(captured.inserts.some((entry) => entry.table === "payments")).toBe(false);
+    expect(captured.updates.find((entry) => entry.table === "payments")?.patch).toMatchObject({
+      qb_id: "77:130",
+      amount: 25,
+    });
   });
 });
 
@@ -434,6 +598,8 @@ describe("QuickBooksWebhookApplyService.applyEntity — Delete / Void (soft)", (
         payments: [
           {
             id: "payment-1",
+            company_id: CO,
+            qb_id: "77",
             invoice_id: "invoice-1",
           },
         ],
@@ -465,6 +631,14 @@ describe("QuickBooksWebhookApplyService.applyEntity — Delete / Void (soft)", (
         accounting_sync_events: [
           {
             id: "evt-payment-void",
+            company_id: CO,
+            connection_id: CONN.id,
+            provider: "quickbooks",
+            direction: "ops_to_qb",
+            entity_type: "payment",
+            external_id: "77",
+            status: "succeeded",
+            source: "worker",
             entity_id: "payment-1",
             operation: "void",
           },
@@ -472,6 +646,8 @@ describe("QuickBooksWebhookApplyService.applyEntity — Delete / Void (soft)", (
         payments: [
           {
             id: "payment-1",
+            company_id: CO,
+            qb_id: "77",
             invoice_id: "invoice-1",
           },
         ],

@@ -17,11 +17,6 @@ vi.mock("@/lib/api/services/accounting-token-service", () => ({
 type Row = Record<string, any>;
 function round2(n: number) { return Math.round((n + Number.EPSILON) * 100) / 100; }
 
-// Live tables the apply engine upserts on (company_id, qb_id). Prod has NO
-// unique index on that pair yet, so PostgREST .upsert({onConflict:"company_id,
-// qb_id"}) would 42P10 without one — the double throws if the conflict key is
-// absent so the tests would have caught C1.
-const QB_CONFLICT_TABLES = new Set(["clients", "estimates", "invoices", "payments", "sub_clients"]);
 // NOT NULL columns with no DB default — sending null throws (would have caught C3).
 const NOT_NULL_COLUMNS: Record<string, string[]> = {
   invoices: ["due_date", "invoice_number"],
@@ -35,7 +30,11 @@ const NOT_NULL_COLUMNS: Record<string, string[]> = {
  * from().update(patch).eq(). The payments insert path recomputes the parent
  * invoice exactly like trg_payment_balance -> update_invoice_balance().
  */
-function makeSupabase(inject: { failUpsertOn?: string } = {}) {
+function makeSupabase(inject: {
+  failUpsertOn?: string;
+  failInsertOn?: string;
+  lateExistingIds?: Record<string, string>;
+} = {}) {
   const db: Record<string, Row[]> = {
     qbo_import_runs: [{ id: RUN_ID, company_id: TEMP_COMPANY_ID, status: "staged", qb_write_calls: 0, totals: {} }],
     qbo_staging_customers: structuredClone(stagedCustomers),
@@ -55,6 +54,7 @@ function makeSupabase(inject: { failUpsertOn?: string } = {}) {
   };
   let seq = 0;
   const uid = (p: string) => `${p}-${++seq}`;
+  const maybeSingleCalls: Record<string, number> = {};
 
   function recomputeInvoiceBalance(invoiceId: string) {
     const inv = db.invoices.find((r) => r.id === invoiceId);
@@ -77,7 +77,16 @@ function makeSupabase(inject: { failUpsertOn?: string } = {}) {
       in(col: string, vals: any[]) { filters.push((r) => vals.includes(r[col])); return api; },
       order() { return api; },
       _match() { return rows.filter((r) => filters.every((f) => f(r))); },
-      async maybeSingle() { return { data: api._match()[0] ?? null, error: null }; },
+      async maybeSingle() {
+        maybeSingleCalls[table] = (maybeSingleCalls[table] ?? 0) + 1;
+        const lateId = inject.lateExistingIds?.[table];
+        if (lateId && maybeSingleCalls[table] > 1 && api._match().length === 0) {
+          const lateRow = { id: lateId, company_id: TEMP_COMPANY_ID, qb_id: "QB-INV-1" };
+          db[table].push(lateRow);
+          return { data: lateRow, error: null };
+        }
+        return { data: api._match()[0] ?? null, error: null };
+      },
       async single() { const m = api._match(); return { data: m[0] ?? null, error: m.length ? null : { message: "no rows" } }; },
       then(resolve: any) { return Promise.resolve({ data: api._match(), error: null }).then(resolve); },
       async upsert(payload: Row | Row[], opts?: { onConflict?: string }) {
@@ -87,12 +96,8 @@ function makeSupabase(inject: { failUpsertOn?: string } = {}) {
           return { data: null, error: { message: `injected write failure on ${table}`, code: "42P10" } };
         }
         const list = Array.isArray(payload) ? payload : [payload];
-        // C1: live tables upserted on (company_id, qb_id) REQUIRE that exact
-        // conflict target — without a matching unique index PostgREST 42P10s.
-        if (QB_CONFLICT_TABLES.has(table) && opts?.onConflict !== "company_id,qb_id") {
-          throw new Error(
-            `42P10: ${table}.upsert requires onConflict "company_id,qb_id" (got "${opts?.onConflict ?? "<none>"}")`
-          );
+        if (["clients", "estimates", "invoices", "payments", "sub_clients"].includes(table)) {
+          throw new Error(`${table}.upsert must not be used for live QBO rows because it can mutate id`);
         }
         const keys = (opts?.onConflict ?? "id").split(",");
         for (const incoming of list) {
@@ -115,6 +120,9 @@ function makeSupabase(inject: { failUpsertOn?: string } = {}) {
         return { data: list, error: null };
       },
       async insert(payload: Row | Row[]) {
+        if (inject.failInsertOn === table) {
+          return { data: null, error: { message: `injected insert failure on ${table}`, code: "23505" } };
+        }
         const list = Array.isArray(payload) ? payload : [payload];
         for (const incoming of list) {
           if (table === "line_items" && "line_total" in incoming) {
@@ -165,6 +173,31 @@ function makeSupabase(inject: { failUpsertOn?: string } = {}) {
   return {
     from: (t: string) => builder(t),
     async rpc(name: string, args: Row) {
+      if (name === "replace_qbo_line_items_locked") {
+        const parentKey = args.p_invoice_id ? "invoice_id" : "estimate_id";
+        const parentId = args.p_invoice_id ?? args.p_estimate_id;
+        db.line_items = db.line_items.filter((row) => row[parentKey] !== parentId);
+        for (const line of args.p_lines ?? []) {
+          const row: Row = {
+            id: uid("line_items"),
+            company_id: args.p_company_id,
+            estimate_id: args.p_estimate_id,
+            invoice_id: args.p_invoice_id,
+            product_id: null,
+            name: line.name ?? "Line item",
+            description: line.description ?? null,
+            quantity: line.quantity ?? 1,
+            unit: null,
+            unit_price: line.unit_price ?? 0,
+            is_taxable: line.is_taxable ?? false,
+            sort_order: line.sort_order ?? 0,
+            type: line.type ?? "OTHER",
+          };
+          row.line_total = round2(Number(row.quantity) * Number(row.unit_price));
+          db.line_items.push(row);
+        }
+        return { data: null, error: null };
+      }
       if (name !== "suppress_accounting_sync") {
         return { data: null, error: { message: `unexpected rpc ${name}` } };
       }
@@ -213,7 +246,7 @@ describe("QuickBooksImportService.applyImport", () => {
     const cedar = invLines.find((l: any) => l.name === "Cedar deck boards"); // NonInventory
     const labor = invLines.find((l: any) => l.name === "Labor"); // Service
     expect(cedar.type).toBe("MATERIAL");
-    expect(labor.type).toBe("OTHER");
+    expect(labor.type).toBe("LABOR");
 
     // Payment applied + trigger recomputed amount_paid to 200
     expect(result.paymentsUpserted).toBe(1);
@@ -247,8 +280,36 @@ describe("QuickBooksImportService.applyImport", () => {
     expect(supabase.__db.clients).toHaveLength(1);
     expect(supabase.__db.invoices).toHaveLength(1);
     expect(supabase.__db.estimates).toHaveLength(1);
-    expect(supabase.__db.line_items).toHaveLength(2); // delete-by-parent then reinsert
+    expect(supabase.__db.line_items).toHaveLength(2); // locked parent replacement
     expect(supabase.__db.payments).toHaveLength(1);
+  });
+
+  it("migrates a legacy raw payment qb_id to the canonical payment:invoice key without duplicating it", async () => {
+    const { QuickBooksImportService } = await import("@/lib/api/services/quickbooks-import-service");
+    const svc = new QuickBooksImportService(supabase);
+    await svc.applyImport(RUN_ID, decisions);
+
+    supabase.__db.payments[0].qb_id = "QB-PMT-1";
+    await svc.applyImport(RUN_ID, decisions);
+
+    expect(supabase.__db.payments).toHaveLength(1);
+    expect(supabase.__db.payments[0].qb_id).toBe("QB-PMT-1:QB-INV-1");
+    expect(supabase.__db.payments[0].amount).toBe(200);
+  });
+
+  it("keeps invoice primary keys stable when an import retry races an existing QBO row", async () => {
+    const sb = makeSupabase({
+      failInsertOn: "invoices",
+      lateExistingIds: { invoices: "invoice-existing-after-race" },
+    });
+    const { QuickBooksImportService } = await import("@/lib/api/services/quickbooks-import-service");
+    const svc = new QuickBooksImportService(sb);
+    const result = await svc.applyImport(RUN_ID, decisions);
+
+    expect(result.invoicesUpserted).toBe(1);
+    expect(sb.__db.invoices.some((inv: Row) => inv.id === "invoice-existing-after-race")).toBe(true);
+    expect(sb.__db.invoices.every((inv: Row) => inv.id === "invoice-existing-after-race")).toBe(true);
+    expect(sb.__db.line_items.every((line: Row) => line.invoice_id === "invoice-existing-after-race" || line.estimate_id)).toBe(true);
   });
 
   it("link decision writes ONLY qb_id onto the existing client", async () => {
@@ -304,10 +365,10 @@ describe("QuickBooksImportService.applyImport", () => {
   });
 
   it("aborts the run (status=error) and throws when a live-table write fails — no false success", async () => {
-    // Regression for the prod 42P10 bug: a failed upsert must NOT be swallowed
+    // Regression for the prod 42P10 bug: a failed write must NOT be swallowed
     // and reported as a successful 'applied' run. Inject a write failure on the
-    // clients upsert (decisions create QB-CUST-1 → clients.create runs).
-    const sb = makeSupabase({ failUpsertOn: "clients" });
+    // clients insert (decisions create QB-CUST-1 → clients.create runs).
+    const sb = makeSupabase({ failInsertOn: "clients" });
     const { QuickBooksImportService } = await import("@/lib/api/services/quickbooks-import-service");
     const svc = new QuickBooksImportService(sb);
     await expect(svc.applyImport(RUN_ID, decisions)).rejects.toThrow(/clients\.create/);

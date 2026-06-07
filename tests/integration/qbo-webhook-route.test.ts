@@ -126,6 +126,7 @@ describe("POST /api/integrations/quickbooks/webhook — signature verification",
     expect(id).toBe("130");
     expect(operation).toBe("Update");
     expect(connectionEq).toHaveBeenCalledWith("sync_enabled", true);
+    expect(connectionEq).toHaveBeenCalledWith("provider_environment", "sandbox");
     expect(syncLogInsert).toHaveBeenCalledTimes(1);
     expect(recordAuditEvent).toHaveBeenCalledWith(
       expect.objectContaining({
