@@ -112,6 +112,8 @@ describe("flattenSalesLines item-type resolution", () => {
     const lines = flattenSalesLines((invoices[0] as { Line: unknown[] }).Line, itemTypes);
     expect(lines[0].qb_item_type).toBe("Inventory"); // Rock Fountain → ItemRef 5
     expect(lines[1].qb_item_type).toBe("Service"); // Pump → ItemRef 11
+    expect(lines[0]).toMatchObject({ qb_item_id: "5", qb_item_name: "Rock Fountain" });
+    expect(lines[1]).toMatchObject({ qb_item_id: "11", qb_item_name: "Pump" });
   });
 
   it("resolves ItemRef.value inside a nested GroupLineDetail line", () => {
@@ -120,10 +122,13 @@ describe("flattenSalesLines item-type resolution", () => {
     const lines = flattenSalesLines((estimates[0] as { Line: unknown[] }).Line, itemTypes);
     expect(lines).toHaveLength(1);
     expect(lines[0].qb_item_type).toBe("NonInventory");
+    expect(lines[0]).toMatchObject({ qb_item_id: "19", qb_item_name: "Installation" });
   });
 
   it("yields null qb_item_type when the item is unknown or no map is supplied", () => {
-    expect(flattenSalesLines((invoices[0] as { Line: unknown[] }).Line)[0].qb_item_type).toBeNull();
+    const linesWithoutMap = flattenSalesLines((invoices[0] as { Line: unknown[] }).Line);
+    expect(linesWithoutMap[0].qb_item_type).toBeNull();
+    expect(linesWithoutMap[0]).toMatchObject({ qb_item_id: "5", qb_item_name: "Rock Fountain" });
     const partial = buildItemTypeMap([{ Id: "5", Type: "Inventory" }]);
     const lines = flattenSalesLines((invoices[0] as { Line: unknown[] }).Line, partial);
     expect(lines[0].qb_item_type).toBe("Inventory"); // known

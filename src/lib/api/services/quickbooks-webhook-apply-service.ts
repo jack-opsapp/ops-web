@@ -38,6 +38,12 @@ import {
   QuickBooksEstimateAcceptanceService,
   type QuickBooksEstimateAcceptanceResult,
 } from "./quickbooks-estimate-acceptance-service";
+import {
+  buildQboLineReplacementPayload,
+  formatQboItemMappingWarning,
+  getMissingQboItemMappings,
+  type MissingQboItemMapping,
+} from "./qbo-line-item-mapping-service";
 
 // QB entity names this service handles. Anything else (Item, Bill, Vendor, …)
 // is intentionally ignored by the webhook receiver.
@@ -206,6 +212,35 @@ export class QuickBooksWebhookApplyService {
       throw new Error(`QuickBooks ${table} id lookup failed: ${error.message}`);
     }
     return typeof data?.id === "string" ? data.id : null;
+  }
+
+  private async ensureQboEstimateOpportunity(args: {
+    companyId: string;
+    connectionId: string;
+    clientId: string;
+    qbEstimateId: string;
+    estimateId: string | null;
+    estimateNumber: string;
+    title: string | null;
+    total: number;
+  }): Promise<string> {
+    const { data, error } = await this.supabase.rpc("ensure_qbo_estimate_opportunity", {
+      p_company_id: args.companyId,
+      p_connection_id: args.connectionId,
+      p_client_id: args.clientId,
+      p_qb_estimate_id: args.qbEstimateId,
+      p_estimate_id: args.estimateId,
+      p_estimate_number: args.estimateNumber,
+      p_title: args.title,
+      p_total: args.total,
+    });
+    if (error) {
+      throw new Error(`QuickBooks estimate opportunity link failed: ${error.message}`);
+    }
+    if (typeof data !== "string" || data.trim() === "") {
+      throw new Error("QuickBooks estimate opportunity link failed: empty opportunity id");
+    }
+    return data;
   }
 
   /**
@@ -636,16 +671,30 @@ export class QuickBooksWebhookApplyService {
     const estimateNumber = staging.doc_number ?? `QB-${qbId}`;
     const { data: existingEstimate } = await this.supabase
       .from("estimates")
-      .select("id")
+      .select("id, opportunity_id")
       .eq("company_id", connection.company_id)
       .eq("qb_id", qbId)
       .maybeSingle();
     const estimateIdForWrite = (existingEstimate?.id as string | undefined) ?? crypto.randomUUID();
+    const existingOpportunityId = (existingEstimate?.opportunity_id as string | null | undefined) ?? null;
+    const opportunityId =
+      existingOpportunityId ??
+      (await this.ensureQboEstimateOpportunity({
+        companyId: connection.company_id,
+        connectionId: connection.id,
+        clientId,
+        qbEstimateId: qbId,
+        estimateId: (existingEstimate?.id as string | undefined) ?? null,
+        estimateNumber,
+        title: staging.doc_number ? `QuickBooks estimate ${staging.doc_number}` : null,
+        total: Number(staging.total ?? 0),
+      }));
     const estimateRow: Record<string, unknown> = {
       id: estimateIdForWrite,
       company_id: connection.company_id,
       qb_id: qbId,
       client_id: clientId,
+      opportunity_id: opportunityId,
       estimate_number: estimateNumber,
       subtotal: Number(staging.subtotal ?? 0),
       tax_rate: staging.tax_rate ?? null,
@@ -668,8 +717,22 @@ export class QuickBooksWebhookApplyService {
     }
 
     const estimateId = estimateWrite.id;
+    if (estimateId && !existingOpportunityId) {
+      await this.ensureQboEstimateOpportunity({
+        companyId: connection.company_id,
+        connectionId: connection.id,
+        clientId,
+        qbEstimateId: qbId,
+        estimateId,
+        estimateNumber,
+        title: staging.doc_number ? `QuickBooks estimate ${staging.doc_number}` : null,
+        total: Number(staging.total ?? 0),
+      });
+    }
+
     let lineItemWriteMode: "replaced" | "preserved_existing_linked_lines" | "unresolved" =
       "unresolved";
+    let missingQboItemMappings: MissingQboItemMapping[] = [];
     if (estimateId) {
       const preserveExistingLinkedLines =
         isAcceptedInQuickBooks &&
@@ -677,7 +740,13 @@ export class QuickBooksWebhookApplyService {
       if (preserveExistingLinkedLines) {
         lineItemWriteMode = "preserved_existing_linked_lines";
       } else {
-        await this.replaceLineItems(connection.company_id, { estimateId }, norm.lines);
+        const replacement = await this.replaceLineItems(
+          connection.company_id,
+          connection.id,
+          { estimateId },
+          norm.lines
+        );
+        missingQboItemMappings = replacement.missingQboItemMappings;
         lineItemWriteMode = "replaced";
       }
     }
@@ -713,7 +782,8 @@ export class QuickBooksWebhookApplyService {
         };
       }
 
-      const needsReview = acceptanceResult.status === "needs_review";
+      const missingMappingWarning = formatQboItemMappingWarning(missingQboItemMappings);
+      const needsReview = acceptanceResult.status === "needs_review" || missingQboItemMappings.length > 0;
       return {
         status: needsReview ? "needs_review" : "success",
         logEntityType: "estimate",
@@ -724,10 +794,11 @@ export class QuickBooksWebhookApplyService {
           estimateStatus: status,
           quickbooksTxnStatus: rawTxnStatus,
           lineItemWriteMode,
+          missingQboItemMappings,
           acceptance: acceptanceResult,
         },
         detail: needsReview
-          ? acceptanceResult.reason ?? "accepted estimate needs review"
+          ? acceptanceResult.reason ?? missingMappingWarning ?? "accepted estimate needs review"
           : null,
       };
     }
@@ -839,7 +910,7 @@ export class QuickBooksWebhookApplyService {
     }
 
     // STEP 3: replace line items (line_total is GENERATED — never inserted).
-    await this.replaceLineItems(connection.company_id, { invoiceId }, norm.lines);
+    await this.replaceLineItems(connection.company_id, connection.id, { invoiceId }, norm.lines);
 
     // STEP 5: reconcile to QB-authoritative Balance (parity with applyImport).
     const amountPaid = round2(total - balance);
@@ -991,6 +1062,7 @@ export class QuickBooksWebhookApplyService {
 
   private async replaceLineItems(
     companyId: string,
+    connectionId: string | null,
     parent: { invoiceId?: string; estimateId?: string },
     lines: Array<{
       name: string;
@@ -998,10 +1070,12 @@ export class QuickBooksWebhookApplyService {
       quantity: number;
       unit_price: number;
       is_taxable: boolean;
+      qb_item_id: string | null;
+      qb_item_name: string | null;
       qb_item_type: string | null;
       sort_order: number;
     }>
-  ): Promise<void> {
+  ): Promise<{ missingQboItemMappings: MissingQboItemMapping[] }> {
     if (parent.invoiceId) {
       await this.suppressAccountingSync(companyId, "invoice", parent.invoiceId);
     } else if (parent.estimateId) {
@@ -1010,23 +1084,14 @@ export class QuickBooksWebhookApplyService {
       throw new Error("line item replacement failed: parent missing");
     }
 
-    const pLines = lines.map((line) => {
-      const opsType =
-        line.qb_item_type === "Inventory" || line.qb_item_type === "NonInventory"
-          ? "MATERIAL"
-          : line.qb_item_type === "Service" || (!line.qb_item_type && Boolean(parent.estimateId))
-            ? "LABOR"
-          : "OTHER";
-      return {
-        name: line.name ?? "Line item",
-        description: line.description ?? null,
-        quantity: line.quantity ?? 1,
-        unit_price: line.unit_price ?? 0,
-        is_taxable: line.is_taxable ?? false,
-        sort_order: line.sort_order ?? 0,
-        type: opsType,
-      };
+    const pLines = await buildQboLineReplacementPayload({
+      supabase: this.supabase,
+      companyId,
+      connectionId,
+      parent,
+      lines,
     });
+    const missingQboItemMappings = getMissingQboItemMappings(pLines);
 
     const { error } = await this.supabase.rpc("replace_qbo_line_items_locked", {
       p_company_id: companyId,
@@ -1037,6 +1102,7 @@ export class QuickBooksWebhookApplyService {
     if (error) {
       throw new Error(`line item replacement failed: ${error.message}`);
     }
+    return { missingQboItemMappings };
   }
 
   // ── Delete / Void (soft handling) ────────────────────────────────────────────

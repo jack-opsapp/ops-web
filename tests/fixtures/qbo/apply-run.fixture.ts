@@ -35,14 +35,16 @@ export const stagedLineItems = [
     parent_type: "invoice", parent_qb_id: "QB-INV-1", qb_line_id: "1",
     name: "Cedar deck boards", description: "Cedar deck boards",
     quantity: 47.05, unit_price: 5, amount: 235.25,
-    is_taxable: true, qb_item_type: "NonInventory", sort_order: 0,
+    is_taxable: true, qb_item_id: "QB-ITEM-CEDAR", qb_item_name: "Cedar deck boards",
+    qb_item_type: "NonInventory", sort_order: 0,
   },
   {
     id: "sl-2", run_id: RUN_ID, company_id: TEMP_COMPANY_ID,
     parent_type: "invoice", parent_qb_id: "QB-INV-1", qb_line_id: "2",
     name: "Labor", description: "Install labor",
     quantity: 1, unit_price: 100, amount: 100,
-    is_taxable: true, qb_item_type: "Service", sort_order: 1,
+    is_taxable: true, qb_item_id: "QB-ITEM-LABOR", qb_item_name: "Labor",
+    qb_item_type: "Service", sort_order: 1,
   },
 ];
 

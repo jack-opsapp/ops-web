@@ -43,12 +43,14 @@ function makeSupabase(inject: {
     qbo_staging_line_items: structuredClone(stagedLineItems),
     qbo_staging_payments: structuredClone(stagedPayments),
     qbo_customer_matches: structuredClone(customerMatches),
+    qbo_item_product_mappings: [],
     clients: [],
     sub_clients: [],
     estimates: [],
     invoices: [],
     line_items: [],
     payments: [],
+    products: [],
     notifications: [],
     accounting_sync_suppressions: [],
   };
@@ -183,15 +185,21 @@ function makeSupabase(inject: {
             company_id: args.p_company_id,
             estimate_id: args.p_estimate_id,
             invoice_id: args.p_invoice_id,
-            product_id: null,
+            product_id: line.product_id ?? null,
             name: line.name ?? "Line item",
             description: line.description ?? null,
             quantity: line.quantity ?? 1,
-            unit: null,
+            unit: line.unit ?? null,
+            unit_id: line.unit_id ?? null,
             unit_price: line.unit_price ?? 0,
             is_taxable: line.is_taxable ?? false,
             sort_order: line.sort_order ?? 0,
             type: line.type ?? "OTHER",
+            task_type_ref: line.task_type_ref ?? null,
+            task_type_id: line.task_type_id ?? null,
+            resolved_unit_price: line.resolved_unit_price ?? null,
+            resolved_options_label: line.resolved_options_label ?? null,
+            configured_options: line.configured_options ?? null,
           };
           row.line_total = round2(Number(row.quantity) * Number(row.unit_price));
           db.line_items.push(row);
@@ -282,6 +290,47 @@ describe("QuickBooksImportService.applyImport", () => {
     expect(supabase.__db.estimates).toHaveLength(1);
     expect(supabase.__db.line_items).toHaveLength(2); // locked parent replacement
     expect(supabase.__db.payments).toHaveLength(1);
+  });
+
+  it("maps staged QBO ItemRef lines to OPS product, task type, and unit metadata", async () => {
+    supabase.__db.products.push({
+      id: "product-cedar",
+      company_id: TEMP_COMPANY_ID,
+      name: "Cedar deck boards",
+      type: "MATERIAL",
+      unit: "board",
+      unit_id: "unit-board",
+      task_type_ref: "task-type-decking",
+      task_type_id: "legacy-decking",
+      deleted_at: null,
+    });
+    supabase.__db.qbo_item_product_mappings.push({
+      id: "map-cedar",
+      company_id: TEMP_COMPANY_ID,
+      connection_id: null,
+      qb_item_id: "QB-ITEM-CEDAR",
+      qb_item_name: "Cedar deck boards",
+      qb_item_type: "NonInventory",
+      product_id: "product-cedar",
+      deleted_at: null,
+    });
+
+    const { QuickBooksImportService } = await import("@/lib/api/services/quickbooks-import-service");
+    const svc = new QuickBooksImportService(supabase);
+    await svc.applyImport(RUN_ID, decisions);
+
+    const inv = supabase.__db.invoices[0];
+    const cedar = supabase.__db.line_items.find(
+      (l: Row) => l.invoice_id === inv.id && l.name === "Cedar deck boards"
+    );
+    expect(cedar).toMatchObject({
+      product_id: "product-cedar",
+      task_type_ref: "task-type-decking",
+      task_type_id: "legacy-decking",
+      unit: "board",
+      unit_id: "unit-board",
+      type: "MATERIAL",
+    });
   });
 
   it("migrates a legacy raw payment qb_id to the canonical payment:invoice key without duplicating it", async () => {

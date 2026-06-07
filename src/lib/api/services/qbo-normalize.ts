@@ -30,6 +30,8 @@ export interface StagedLineCore {
   unit_price: number;
   amount: number;
   is_taxable: boolean;
+  qb_item_id: string | null;
+  qb_item_name: string | null;
   qb_item_type: string | null;
   qb_line_id: string | null;
   sort_order: number;
@@ -274,6 +276,7 @@ function mapSalesLine(line: QbRecord, itemTypes?: ItemTypeMap): StagedLineCore {
   // when no map is supplied or the item is unknown — applyImport maps null and
   // every non-(Inventory|NonInventory) type to OTHER.
   const itemRefValue = str(itemRef?.value);
+  const itemRefName = str(itemRef?.name);
   const itemType = itemRefValue ? itemTypes?.get(itemRefValue) ?? null : null;
   return {
     name,
@@ -282,6 +285,8 @@ function mapSalesLine(line: QbRecord, itemTypes?: ItemTypeMap): StagedLineCore {
     unit_price: unitPrice,
     amount: cents(amount),
     is_taxable: !!taxCode && taxCode !== "NON",
+    qb_item_id: itemRefValue,
+    qb_item_name: itemRefName,
     qb_item_type: itemType,
     qb_line_id: str(line.Id),
     sort_order: num(line.LineNum) ?? 0,

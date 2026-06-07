@@ -47,6 +47,11 @@ import {
   buildMatchCounts,
   buildStagedCounts,
 } from "./qbo-reconcile";
+import {
+  buildQboLineReplacementPayload,
+  formatQboItemMappingWarning,
+  getMissingQboItemMappings,
+} from "./qbo-line-item-mapping-service";
 import type {
   QboImportRun,
   QboImportReview,
@@ -397,8 +402,10 @@ export class QuickBooksImportService {
 
   private async replaceImportLineItems(
     companyId: string,
+    connectionId: string | null,
     parent: { invoiceId?: string; estimateId?: string },
-    lines: Array<Record<string, unknown>>
+    lines: Array<Record<string, unknown>>,
+    warnings?: string[]
   ): Promise<number> {
     if (parent.invoiceId) {
       await this.suppressAccountingSync(companyId, "invoice", parent.invoiceId);
@@ -408,24 +415,15 @@ export class QuickBooksImportService {
       throw new Error("QBO apply write failed [line_items.replace]: parent missing");
     }
 
-    const pLines = lines.map((line) => {
-      const itemType = line.qb_item_type as string | null;
-      const opsType =
-        itemType === "Inventory" || itemType === "NonInventory"
-          ? "MATERIAL"
-          : itemType === "Service" || (!itemType && Boolean(parent.estimateId))
-            ? "LABOR"
-            : "OTHER";
-      return {
-        name: line.name ?? "Line item",
-        description: line.description ?? null,
-        quantity: line.quantity ?? 1,
-        unit_price: line.unit_price ?? 0,
-        is_taxable: line.is_taxable ?? false,
-        sort_order: line.sort_order ?? 0,
-        type: opsType,
-      };
+    const pLines = await buildQboLineReplacementPayload({
+      supabase: this.supabase,
+      companyId,
+      connectionId,
+      parent,
+      lines,
     });
+    const warning = formatQboItemMappingWarning(getMissingQboItemMappings(pLines));
+    if (warning && warnings) warnings.push(warning);
 
     assertNoWriteError(
       await this.supabase.rpc("replace_qbo_line_items_locked", {
@@ -486,6 +484,7 @@ export class QuickBooksImportService {
 
     try {
       const connId = conn.id as string;
+      await this.setRun(runId, { connection_id: connId });
 
       // Build a pull service from a freshly-resolved token. Used for the
       // initial attempt and (on a 401) the single re-auth retry below.
@@ -602,6 +601,8 @@ export class QuickBooksImportService {
             unit_price: l.unit_price,
             amount: l.amount,
             is_taxable: l.is_taxable,
+            qb_item_id: l.qb_item_id,
+            qb_item_name: l.qb_item_name,
             qb_item_type: l.qb_item_type,
             sort_order: l.sort_order,
           });
@@ -649,6 +650,8 @@ export class QuickBooksImportService {
             unit_price: l.unit_price,
             amount: l.amount,
             is_taxable: l.is_taxable,
+            qb_item_id: l.qb_item_id,
+            qb_item_name: l.qb_item_name,
             qb_item_type: l.qb_item_type,
             sort_order: l.sort_order,
           });
@@ -861,16 +864,17 @@ export class QuickBooksImportService {
 
     const { data: run } = await sb
       .from("qbo_import_runs")
-      .select("id, company_id")
+      .select("id, company_id, connection_id")
       .eq("id", runId)
       .single();
     if (!run) throw new Error(`Import run not found: ${runId}`);
     const companyId = run.company_id as string;
+    const connectionId = (run.connection_id as string | null | undefined) ?? null;
 
     await sb.from("qbo_import_runs").update({ status: "applying" }).eq("id", runId);
 
     try {
-      return await this.applyStagedRows(sb, runId, companyId, decisions);
+      return await this.applyStagedRows(sb, runId, companyId, connectionId, decisions);
     } catch (err) {
       // A write failed mid-apply — mark the run errored. Never leave it stuck
       // in 'applying', and never let a failed write masquerade as 'applied'.
@@ -893,6 +897,7 @@ export class QuickBooksImportService {
     sb: SupabaseClient,
     runId: string,
     companyId: string,
+    connectionId: string | null,
     decisions: QboApplyDecision[]
   ): Promise<QboApplyResult> {
     // ── Load all staged rows for this run ──────────────────────────────────
@@ -1180,13 +1185,25 @@ export class QuickBooksImportService {
       const lines = (stagedLines ?? []).filter(
         (line) => line.parent_type === "invoice" && line.parent_qb_id === invoiceQbId
       ) as Array<Record<string, unknown>>;
-      result.lineItemsInserted += await this.replaceImportLineItems(companyId, { invoiceId }, lines);
+      result.lineItemsInserted += await this.replaceImportLineItems(
+        companyId,
+        connectionId,
+        { invoiceId },
+        lines,
+        warnings
+      );
     }
     for (const [estimateQbId, estimateId] of estimateIdByQbId) {
       const lines = (stagedLines ?? []).filter(
         (line) => line.parent_type === "estimate" && line.parent_qb_id === estimateQbId
       ) as Array<Record<string, unknown>>;
-      result.lineItemsInserted += await this.replaceImportLineItems(companyId, { estimateId }, lines);
+      result.lineItemsInserted += await this.replaceImportLineItems(
+        companyId,
+        connectionId,
+        { estimateId },
+        lines,
+        warnings
+      );
     }
 
     // ── STEP 4: Payments (one OPS row per linked invoice line) ─────────────

@@ -59,6 +59,9 @@ function makeSupabase(opts: {
     return {
       rpc(fn: string, args: Record<string, unknown>) {
         captured.rpcs.push({ fn, args });
+        if (fn === "ensure_qbo_estimate_opportunity") {
+          return Promise.resolve({ data: "opportunity-99", error: null });
+        }
         return Promise.resolve({ data: null, error: null });
       },
       from(table: string) {
@@ -432,8 +435,22 @@ describe("QuickBooksWebhookApplyService.applyEntity — Estimate", () => {
       company_id: CO,
       qb_id: "99",
       client_id: "client-1",
+      opportunity_id: "opportunity-99",
       estimate_number: "1001",
       status: "approved",
+    });
+    expect(captured.rpcs).toContainEqual({
+      fn: "ensure_qbo_estimate_opportunity",
+      args: {
+        p_company_id: CO,
+        p_connection_id: CONN.id,
+        p_client_id: "client-1",
+        p_qb_estimate_id: "99",
+        p_estimate_id: "estimate-99",
+        p_estimate_number: "1001",
+        p_title: "QuickBooks estimate 1001",
+        p_total: 500,
+      },
     });
     expect(captured.rpcs.find((i) => i.fn === "replace_qbo_line_items_locked")?.args).toMatchObject({
       p_company_id: CO,
@@ -463,7 +480,73 @@ describe("QuickBooksWebhookApplyService.applyEntity — Estimate", () => {
         estimateStatus: "approved",
         quickbooksTxnStatus: "Accepted",
         lineItemWriteMode: "replaced",
+        missingQboItemMappings: [
+          {
+            qb_item_id: "7",
+            qb_item_name: "Install rail",
+            line_name: "Install rail",
+          },
+        ],
         acceptance: expect.objectContaining({ status: "needs_review" }),
+      })
+    );
+  });
+
+  it("maps QBO estimate ItemRef lines to OPS product, task type, and unit before acceptance", async () => {
+    const { client, captured } = makeSupabase({
+      existingIds: { clients: "client-1", estimates: "estimate-99" },
+      rows: {
+        qbo_item_product_mappings: [
+          {
+            id: "qbo-map-1",
+            company_id: CO,
+            connection_id: CONN.id,
+            qb_item_id: "7",
+            qb_item_name: "Install rail",
+            qb_item_type: "Service",
+            product_id: "product-1",
+            deleted_at: null,
+          },
+        ],
+        products: [
+          {
+            id: "product-1",
+            company_id: CO,
+            name: "Install rail",
+            type: "LABOR",
+            task_type_ref: "task-type-1",
+            task_type_id: "legacy-task-type",
+            unit: "hour",
+            unit_id: "unit-1",
+            deleted_at: null,
+          },
+        ],
+      },
+    });
+    fetchEntityById.mockResolvedValue(SANDBOX_ACCEPTED_ESTIMATE);
+
+    const svc = new QuickBooksWebhookApplyService(client as never);
+    const result = await svc.applyEntity(CONN, "Estimate", "99", "Update");
+
+    expect(result.status).toBe("needs_review");
+    const lineReplace = captured.rpcs.find((i) => i.fn === "replace_qbo_line_items_locked");
+    expect(lineReplace).toBeDefined();
+    expect(lineReplace!.args.p_lines).toEqual([
+      expect.objectContaining({
+        name: "Install rail",
+        qb_item_id: "7",
+        qb_item_name: "Install rail",
+        product_id: "product-1",
+        task_type_ref: "task-type-1",
+        task_type_id: "legacy-task-type",
+        unit: "hour",
+        unit_id: "unit-1",
+        type: "LABOR",
+      }),
+    ]);
+    expect(result.afterSnapshot).toEqual(
+      expect.objectContaining({
+        missingQboItemMappings: [],
       })
     );
   });
