@@ -25,6 +25,7 @@ import {
   type OpsLineItemForQbo,
   type OpsPaymentForQbo,
   type QboFallbackServiceItemRef,
+  type QboTaxCodeRefs,
 } from "@/lib/api/services/qbo-push-mappers";
 import {
   QuickBooksWriteService,
@@ -243,6 +244,10 @@ function mapLineItem(row: DbRow): OpsLineItemForQbo {
     unitPrice: numberOrString(row.unit_price),
     amount: numberOrString(row.line_total ?? row.amount),
     qbItemId: cleanString(row.qb_item_id ?? row.qbo_item_id ?? row.qb_item_ref),
+    isTaxable:
+      row.is_taxable === null || row.is_taxable === undefined
+        ? null
+        : row.is_taxable === true,
   };
 }
 
@@ -284,6 +289,48 @@ function fallbackServiceItem(environment: string | null | undefined): QboFallbac
     qbItemId,
     name: firstConfiguredEnv(environmentFallbackEnvNames(providerEnvironment, "NAME")) ?? "OPS Service",
   };
+}
+
+function environmentTaxCodeEnvNames(
+  environment: "production" | "sandbox",
+  kind: "TAXABLE" | "NONTAXABLE",
+): string[] {
+  const aliases =
+    kind === "NONTAXABLE"
+      ? ["NONTAXABLE", "NON_TAXABLE"]
+      : ["TAXABLE"];
+
+  if (environment === "sandbox") {
+    return [
+      ...aliases.flatMap((alias) => [
+        `QBO_SANDBOX_TAX_CODE_${alias}_ID`,
+        `QB_SANDBOX_TAX_CODE_${alias}_ID`,
+      ]),
+      ...aliases.flatMap((alias) => [
+        `QBO_TAX_CODE_${alias}_ID`,
+        `QB_TAX_CODE_${alias}_ID`,
+      ]),
+    ];
+  }
+
+  return [
+    ...aliases.flatMap((alias) => [
+      `QBO_TAX_CODE_${alias}_ID`,
+      `QB_TAX_CODE_${alias}_ID`,
+    ]),
+    ...aliases.flatMap((alias) => [
+      `QBO_PRODUCTION_TAX_CODE_${alias}_ID`,
+      `QB_PRODUCTION_TAX_CODE_${alias}_ID`,
+    ]),
+  ];
+}
+
+function taxCodeRefs(environment: string | null | undefined): QboTaxCodeRefs | null {
+  const providerEnvironment = normalizedProviderEnvironment(environment);
+  const taxable = firstConfiguredEnv(environmentTaxCodeEnvNames(providerEnvironment, "TAXABLE"));
+  const nonTaxable = firstConfiguredEnv(environmentTaxCodeEnvNames(providerEnvironment, "NONTAXABLE"));
+  if (!taxable && !nonTaxable) return null;
+  return { taxable, nonTaxable };
 }
 
 function invoiceClientId(row: DbRow): string | null {
@@ -456,6 +503,7 @@ async function prepareInvoicePush(
         },
         lineItems,
         fallbackServiceItem: fallbackServiceItem(providerEnvironment),
+        taxCodeRefs: taxCodeRefs(providerEnvironment),
       }),
       existingQbId,
       localQbIdMissing: !localQbId,
@@ -517,6 +565,7 @@ async function prepareEstimatePush(
         },
         lineItems,
         fallbackServiceItem: fallbackServiceItem(providerEnvironment),
+        taxCodeRefs: taxCodeRefs(providerEnvironment),
       }),
       existingQbId,
       localQbIdMissing: !localQbId,

@@ -178,6 +178,56 @@ describe("QBO push mappers", () => {
     ]);
   });
 
+  it("adds a configured QuickBooks tax code to taxable sales lines", () => {
+    const payload = mapInvoiceToQboInvoice({
+      invoice: {
+        id: "inv-1",
+        qbId: null,
+        docNumber: "INV-1",
+        total: 125,
+        issueDate: "2026-06-05",
+        dueDate: "2026-06-20",
+      },
+      client: { id: "client-1", qbId: "44", name: "Maverick Projects" },
+      lineItems: [{ ...invoiceLineItems[0], isTaxable: true }],
+      fallbackServiceItem,
+      taxCodeRefs: { taxable: "5" },
+    });
+
+    expect(payload.Line).toEqual([
+      expect.objectContaining({
+        SalesItemLineDetail: expect.objectContaining({
+          TaxCodeRef: { value: "5" },
+        }),
+      }),
+    ]);
+  });
+
+  it("adds a configured QuickBooks non-tax code to non-taxable sales lines", () => {
+    const payload = mapEstimateToQboEstimate({
+      estimate: {
+        id: "est-1",
+        qbId: null,
+        docNumber: "EST-1",
+        total: 125,
+        issueDate: "2026-06-05",
+        expirationDate: "2026-07-05",
+      },
+      client: { id: "client-1", qbId: "44", name: "Maverick Projects" },
+      lineItems: [{ ...invoiceLineItems[0], isTaxable: false }],
+      fallbackServiceItem,
+      taxCodeRefs: { nonTaxable: "NON" },
+    });
+
+    expect(payload.Line).toEqual([
+      expect.objectContaining({
+        SalesItemLineDetail: expect.objectContaining({
+          TaxCodeRef: { value: "NON" },
+        }),
+      }),
+    ]);
+  });
+
   it("requires SyncToken when mapping a linked customer update", () => {
     expect(() =>
       mapClientToQboCustomer({
@@ -236,6 +286,44 @@ describe("QBO push mappers", () => {
         fallbackServiceItem,
       }),
     ).toEqual(expect.objectContaining({ Id: "90", SyncToken: "5" }));
+  });
+
+  it("caps invoice document numbers at QuickBooks' doc_num limit", () => {
+    const payload = mapInvoiceToQboInvoice({
+      invoice: {
+        id: "inv-1",
+        qbId: null,
+        docNumber: "OPS-QB-INV-123456789012",
+        total: 125,
+        issueDate: "2026-06-05",
+        dueDate: "2026-06-20",
+      },
+      client: { id: "client-1", qbId: "44", name: "Maverick Projects" },
+      lineItems: invoiceLineItems,
+      fallbackServiceItem,
+    });
+
+    expect(payload.DocNumber).toBe("OPS-QB-INV-1234567890");
+    expect(String(payload.DocNumber)).toHaveLength(21);
+  });
+
+  it("caps estimate document numbers at QuickBooks' doc_num limit", () => {
+    const payload = mapEstimateToQboEstimate({
+      estimate: {
+        id: "est-1",
+        qbId: null,
+        docNumber: "OPS-QB-EST-123456789012",
+        total: 125,
+        issueDate: "2026-06-05",
+        expirationDate: "2026-07-05",
+      },
+      client: { id: "client-1", qbId: "44", name: "Maverick Projects" },
+      lineItems: invoiceLineItems,
+      fallbackServiceItem,
+    });
+
+    expect(payload.DocNumber).toBe("OPS-QB-EST-1234567890");
+    expect(String(payload.DocNumber)).toHaveLength(21);
   });
 
   it("maps a payment to a linked QuickBooks invoice", () => {

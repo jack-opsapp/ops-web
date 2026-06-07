@@ -23,6 +23,7 @@ export interface OpsLineItemForQbo {
   unitPrice?: number | string | null;
   amount?: number | string | null;
   qbItemId?: string | null;
+  isTaxable?: boolean | null;
 }
 
 export interface OpsInvoiceForQbo {
@@ -65,10 +66,15 @@ export interface QboFallbackServiceItemRef {
   name: string;
 }
 
+export interface QboTaxCodeRefs {
+  taxable?: string | null;
+  nonTaxable?: string | null;
+}
+
 type QboPayload = Record<string, unknown>;
 
 const DEFAULT_SERVICE_ITEM_NAME = "OPS Service";
-const QBO_PAYMENT_REF_MAX_LENGTH = 21;
+const QBO_DOC_NUMBER_MAX_LENGTH = 21;
 
 function cleanString(value: string | null | undefined): string | undefined {
   if (value === null || value === undefined) return undefined;
@@ -154,9 +160,23 @@ function lineName(line: OpsLineItemForQbo): string {
   return cleanString(line.name) ?? cleanString(line.description) ?? DEFAULT_SERVICE_ITEM_NAME;
 }
 
+function taxCodeRefForLine(
+  line: OpsLineItemForQbo,
+  taxCodeRefs: QboTaxCodeRefs | null | undefined,
+): { value: string } | undefined {
+  const taxCode =
+    line.isTaxable === true
+      ? cleanString(taxCodeRefs?.taxable)
+      : line.isTaxable === false
+        ? cleanString(taxCodeRefs?.nonTaxable)
+        : undefined;
+  return taxCode ? { value: taxCode } : undefined;
+}
+
 function mapSalesLine(
   line: OpsLineItemForQbo,
   fallback: QboFallbackServiceItemRef | null | undefined,
+  taxCodeRefs?: QboTaxCodeRefs | null,
 ): QboPayload {
   const quantity = cleanQuantity(line.quantity);
   const unitPrice =
@@ -175,6 +195,7 @@ function mapSalesLine(
   const itemRef = cleanString(line.qbItemId)
     ? qboRef(line.qbItemId, "QuickBooks item link", cleanString(line.name))
     : fallbackItemRef(fallback);
+  const taxCodeRef = taxCodeRefForLine(line, taxCodeRefs);
 
   return {
     DetailType: "SalesItemLineDetail",
@@ -184,6 +205,7 @@ function mapSalesLine(
       ItemRef: itemRef,
       Qty: quantity,
       UnitPrice: cleanAmount(unitPrice, "line item unit price"),
+      ...(taxCodeRef ? { TaxCodeRef: taxCodeRef } : {}),
     },
   };
 }
@@ -242,17 +264,22 @@ export function mapInvoiceToQboInvoice(input: {
   client: Pick<OpsClientForQbo, "id" | "name" | "qbId">;
   lineItems: OpsLineItemForQbo[];
   fallbackServiceItem?: QboFallbackServiceItemRef | null;
+  taxCodeRefs?: QboTaxCodeRefs | null;
 }): QboPayload {
   const payload: QboPayload = {
     CustomerRef: {
       value: assertQboRef(input.client.qbId, "QuickBooks customer link"),
     },
     Line: input.lineItems.map((line) =>
-      mapSalesLine(line, input.fallbackServiceItem),
+      mapSalesLine(line, input.fallbackServiceItem, input.taxCodeRefs),
     ),
   };
 
-  addDefined(payload, "DocNumber", cleanString(input.invoice.docNumber));
+  addDefined(
+    payload,
+    "DocNumber",
+    qboLimitedString(input.invoice.docNumber, QBO_DOC_NUMBER_MAX_LENGTH),
+  );
   addDefined(payload, "TxnDate", cleanDate(input.invoice.issueDate));
   addDefined(payload, "DueDate", cleanDate(input.invoice.dueDate));
   addUpdateFields(payload, input.invoice);
@@ -265,17 +292,22 @@ export function mapEstimateToQboEstimate(input: {
   client: Pick<OpsClientForQbo, "id" | "name" | "qbId">;
   lineItems: OpsLineItemForQbo[];
   fallbackServiceItem?: QboFallbackServiceItemRef | null;
+  taxCodeRefs?: QboTaxCodeRefs | null;
 }): QboPayload {
   const payload: QboPayload = {
     CustomerRef: {
       value: assertQboRef(input.client.qbId, "QuickBooks customer link"),
     },
     Line: input.lineItems.map((line) =>
-      mapSalesLine(line, input.fallbackServiceItem),
+      mapSalesLine(line, input.fallbackServiceItem, input.taxCodeRefs),
     ),
   };
 
-  addDefined(payload, "DocNumber", cleanString(input.estimate.docNumber));
+  addDefined(
+    payload,
+    "DocNumber",
+    qboLimitedString(input.estimate.docNumber, QBO_DOC_NUMBER_MAX_LENGTH),
+  );
   addDefined(payload, "TxnDate", cleanDate(input.estimate.issueDate));
   addDefined(payload, "ExpirationDate", cleanDate(input.estimate.expirationDate));
   addUpdateFields(payload, input.estimate);
@@ -300,7 +332,7 @@ export function mapPaymentToQboPayment(input: {
   addDefined(
     payload,
     "PaymentRefNum",
-    qboLimitedString(input.payment.referenceNumber, QBO_PAYMENT_REF_MAX_LENGTH),
+    qboLimitedString(input.payment.referenceNumber, QBO_DOC_NUMBER_MAX_LENGTH),
   );
 
   if (input.invoice) {
