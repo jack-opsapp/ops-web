@@ -256,7 +256,42 @@ describe("QuickBooksWriteService", () => {
     expect(message).not.toContain("{}");
   });
 
-  it("surfaces HTTP write failures with status only", async () => {
+  it("surfaces sanitized QuickBooks Fault detail for HTTP write failures", async () => {
+    const service = new QuickBooksWriteService({
+      realmId: "462081636529",
+      accessToken: "sensitive-token",
+      environment: "sandbox",
+      fetchImpl: vi.fn().mockResolvedValue(
+        failResponse(
+          400,
+          JSON.stringify({
+            Fault: {
+              type: "ValidationFault",
+              Error: [
+                {
+                  code: "2500",
+                  Message: "Invalid Reference Id",
+                  Detail:
+                    "Something you're trying to use has been made inactive. Check the fields with accounts, customers, items, vendors or employees.",
+                },
+              ],
+            },
+          }),
+        ),
+      ),
+    });
+
+    const message = await rejectedMessage(() =>
+      service.create("Customer", { DisplayName: "Bad" }),
+    );
+
+    expect(message).toContain("QuickBooks write failed: 400");
+    expect(message).toContain("[2500] Invalid Reference Id");
+    expect(message).toContain("Something you're trying to use has been made inactive");
+    expect(message).not.toContain("sensitive-token");
+  });
+
+  it("does not echo unstructured provider error bodies", async () => {
     const service = new QuickBooksWriteService({
       realmId: "462081636529",
       accessToken: "sensitive-token",

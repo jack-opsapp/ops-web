@@ -69,6 +69,48 @@ function entityBody(
   return body as Record<string, unknown>;
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
+function cleanProviderText(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const cleaned = value.replace(/\s+/g, " ").trim();
+  return cleaned.length > 0 ? cleaned : null;
+}
+
+function truncateProviderText(value: string): string {
+  return value.length > 600 ? `${value.slice(0, 597)}...` : value;
+}
+
+function structuredProviderErrorSuffix(bodyText: string): string {
+  try {
+    const parsed = JSON.parse(bodyText) as unknown;
+    const fault = asRecord(asRecord(parsed)?.Fault);
+    const errors = fault?.Error;
+    if (!Array.isArray(errors)) return "";
+
+    const details = errors
+      .map((entry) => {
+        const error = asRecord(entry);
+        if (!error) return null;
+        const code = cleanProviderText(error.code);
+        const message = cleanProviderText(error.Message);
+        const detail = cleanProviderText(error.Detail);
+        const headline = code && message ? `[${code}] ${message}` : (message ?? (code ? `[${code}]` : null));
+        if (!headline && !detail) return null;
+        if (!detail || detail === message) return headline ?? detail;
+        return headline ? `${headline}: ${detail}` : detail;
+      })
+      .filter((detail): detail is string => Boolean(detail));
+
+    return details.length > 0 ? `: ${truncateProviderText(details.join("; "))}` : "";
+  } catch {
+    return "";
+  }
+}
+
 function normalizeWriteResult(
   raw: Record<string, unknown>,
   entity: QboWriteEntity,
@@ -138,7 +180,8 @@ export class QuickBooksWriteService {
     });
 
     if (!response.ok) {
-      throw new Error(`QuickBooks fetch failed: ${response.status}`);
+      const bodyText = await response.text();
+      throw new Error(`QuickBooks fetch failed: ${response.status}${structuredProviderErrorSuffix(bodyText)}`);
     }
 
     return (await response.json()) as Record<string, unknown>;
@@ -161,7 +204,8 @@ export class QuickBooksWriteService {
     });
 
     if (!response.ok) {
-      throw new Error(`QuickBooks write failed: ${response.status}`);
+      const bodyText = await response.text();
+      throw new Error(`QuickBooks write failed: ${response.status}${structuredProviderErrorSuffix(bodyText)}`);
     }
 
     const raw = (await response.json()) as Record<string, unknown>;
