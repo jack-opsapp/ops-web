@@ -159,7 +159,7 @@ function SummaryStrip({ payload }: { payload: SpecAnalyticsPayload }) {
       value: formatCount(summary.defaultOpsSignups),
       meta: "SETUP ATTRIBUTION",
       bar: clampPct(summary.defaultOpsSignups / Math.max(1, summary.payDepositClicks)),
-      tone: "#6F94B0",
+      tone: "rgba(255,255,255,0.14)", // --fill-neutral; accent is reserved for CTA/focus only
     },
     {
       label: "DEPOSIT REVENUE",
@@ -226,7 +226,7 @@ function MetricPanel({
         <div
           aria-hidden="true"
           style={{ width: `${bar}%`, backgroundColor: tone }}
-          className="h-full transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
+          className="h-full transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
         />
       </div>
     </div>
@@ -265,8 +265,8 @@ function FunnelSection({ steps }: { steps: SpecFunnelStep[] }) {
               <div className="mt-2 h-[3px] overflow-hidden rounded-[2px] bg-white/[0.06]">
                 <div
                   aria-hidden="true"
-                  style={{ width: `${clampPct(step.count / peak)}%`, backgroundColor: "#6F94B0" }}
-                  className="h-full transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
+                  style={{ width: `${clampPct(step.count / peak)}%`, backgroundColor: "rgba(255,255,255,0.14)" }}
+                  className="h-full transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
                 />
               </div>
               <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.12em] text-[#6A6A6A]">
@@ -525,6 +525,41 @@ function EventLedgerSection({ rows }: { rows: SpecEventLedgerRow[] }) {
   );
 }
 
+function SensitiveExport({ href }: { href: string }) {
+  const [armed, setArmed] = useState(false);
+
+  if (!armed) {
+    return (
+      <button
+        type="button"
+        onClick={() => setArmed(true)}
+        className="inline-flex h-11 items-center justify-center rounded-[5px] border border-[#B58289]/35 font-cakemono text-[13px] font-light uppercase text-[#B58289] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#B58289]/10"
+      >
+        EXPORT SENSITIVE
+      </button>
+    );
+  }
+
+  return (
+    <div className="grid gap-2">
+      <a
+        href={href}
+        onClick={() => setArmed(false)}
+        className="inline-flex h-11 items-center justify-center rounded-[5px] border border-[#B58289] bg-[#B58289]/15 font-cakemono text-[13px] font-light uppercase text-[#B58289] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#B58289]/25"
+      >
+        CONFIRM · UNREDACTED
+      </a>
+      <button
+        type="button"
+        onClick={() => setArmed(false)}
+        className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#6A6A6A] transition-colors duration-150 hover:text-[#8A8A8A]"
+      >
+        CANCEL
+      </button>
+    </div>
+  );
+}
+
 function ExportSection({
   exportHref,
   payload,
@@ -549,13 +584,11 @@ function ExportSection({
             >
               EXPORT REDACTED
             </a>
-            <a
-              href={`${exportHref}&mode=sensitive`}
-              className="inline-flex h-11 items-center justify-center rounded-[5px] border border-[#B58289]/35 font-cakemono text-[13px] font-light uppercase text-[#B58289] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#B58289]/10"
-            >
-              EXPORT SENSITIVE
-            </a>
+            <SensitiveExport href={`${exportHref}&mode=sensitive`} />
           </div>
+          <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.14em] text-[#6A6A6A]">
+            <span className="text-[#3A3A3A]">[</span> SENSITIVE EXPORT INCLUDES UNREDACTED CONTACT + FINANCIAL DATA <span className="text-[#3A3A3A]">]</span>
+          </p>
         </div>
 
         <div className="rounded-[10px] border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]">
