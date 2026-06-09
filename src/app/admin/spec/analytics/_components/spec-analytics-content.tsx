@@ -113,7 +113,7 @@ function DateField({
         type="date"
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="h-10 rounded-[5px] border border-white/[0.10] bg-white/[0.04] px-3 font-mono text-[12px] tabular-nums text-text outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0] focus:ring-1 focus:ring-[#6F94B0]"
+        className="h-10 rounded-[5px] border border-white/[0.10] bg-white/[0.04] px-3 font-mono text-[12px] tabular-nums text-text outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-ops-accent focus:ring-1 focus:ring-ops-accent"
       />
     </label>
   );

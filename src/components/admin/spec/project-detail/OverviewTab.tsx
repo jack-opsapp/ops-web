@@ -246,7 +246,7 @@ export function OverviewTab({ data, header }: OverviewTabProps) {
                 name="estimated_completion_date"
                 type="date"
                 defaultValue={formatIsoDate(data.estimatedCompletionDate) === "—" ? "" : formatIsoDate(data.estimatedCompletionDate)}
-                className="rounded-[5px] border border-white/[0.10] bg-black px-3 py-1.5 font-mono text-[12px] tabular-nums text-text outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
+                className="rounded-[5px] border border-white/[0.10] bg-black px-3 py-1.5 font-mono text-[12px] tabular-nums text-text outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-ops-accent"
               />
             </label>
             <button

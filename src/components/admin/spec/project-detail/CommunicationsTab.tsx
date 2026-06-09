@@ -169,7 +169,7 @@ function LogCommunicationForm({
             name="channel"
             defaultValue="call_log"
             required
-            className="w-full rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-text outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
+            className="w-full rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-text outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-ops-accent"
           >
             <option value="call_log">CALL LOG</option>
             <option value="video_message">VIDEO MESSAGE</option>
@@ -182,7 +182,7 @@ function LogCommunicationForm({
             name="direction"
             defaultValue="outbound"
             required
-            className="w-full rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-text outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
+            className="w-full rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-text outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-ops-accent"
           >
             <option value="outbound">OUTBOUND · we initiated</option>
             <option value="inbound">INBOUND · customer initiated</option>
@@ -197,7 +197,7 @@ function LogCommunicationForm({
           required
           maxLength={200}
           placeholder="One-line — what was discussed"
-          className="w-full rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] text-text outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
+          className="w-full rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] text-text outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-ops-accent"
         />
       </FieldRow>
 
@@ -206,7 +206,7 @@ function LogCommunicationForm({
           name="body"
           rows={3}
           placeholder="Optional details — decisions, follow-ups, next steps"
-          className="w-full rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] text-text outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
+          className="w-full rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] text-text outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-ops-accent"
         />
       </FieldRow>
 
@@ -252,7 +252,7 @@ function SendTemplateForm({
         <select
           name="template_id"
           required
-          className="w-full rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-text outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
+          className="w-full rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-text outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-ops-accent"
         >
           {templates.map((t) => (
             <option key={t.templateId} value={t.templateId}>
@@ -280,7 +280,7 @@ function SendTemplateForm({
             name="recipient_email_override"
             defaultValue={defaultRecipient}
             required
-            className="w-full rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] tabular-nums text-text outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
+            className="w-full rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] tabular-nums text-text outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-ops-accent"
           />
         )}
       </FieldRow>
@@ -290,7 +290,7 @@ function SendTemplateForm({
           name="operator_note"
           rows={3}
           placeholder="Optional — passed to the template renderer as `operator_note`"
-          className="w-full rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] text-text outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
+          className="w-full rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] text-text outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-ops-accent"
         />
       </FieldRow>
 

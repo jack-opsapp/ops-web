@@ -244,7 +244,7 @@ export function CapacityTierForm({ row }: CapacityTierFormProps) {
         <button
           type="submit"
           disabled={pending}
-          className={`inline-flex items-center gap-2 rounded-[5px] border border-[#6F94B0] bg-transparent px-4 py-[6px] font-mono text-[12px] uppercase tracking-[0.14em] text-[#6F94B0] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#6F94B0] hover:text-black focus-visible:outline focus-visible:outline-[1.5px] focus-visible:outline-[#6F94B0] focus-visible:outline-offset-2 disabled:opacity-50`}
+          className={`inline-flex items-center gap-2 rounded-[5px] border border-ops-accent bg-transparent px-4 py-[6px] font-mono text-[12px] uppercase tracking-[0.14em] text-ops-accent transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-ops-accent hover:text-black focus-visible:outline focus-visible:outline-[1.5px] focus-visible:outline-ops-accent focus-visible:outline-offset-2 disabled:opacity-50`}
         >
           {pending ? "SAVING…" : "SAVE"}
         </button>
@@ -306,7 +306,7 @@ function Field({
 const INPUT_BASE =
   "w-full rounded-[5px] border border-white/[0.10] bg-black/40 px-3 py-[7px] font-mono text-[13px] text-text tabular-nums " +
   "placeholder:text-text-mute " +
-  "focus:border-[#6F94B0] focus:outline-none " +
+  "focus:border-ops-accent focus:outline-none " +
   "transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]";
 
 function NumberInput(props: React.InputHTMLAttributes<HTMLInputElement>) {

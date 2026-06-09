@@ -81,7 +81,7 @@ export function OwnerApprovalRow({ approval }: OwnerApprovalRowProps) {
           <button
             type="submit"
             disabled={resendPending || cancelPending}
-            className={`inline-flex items-center gap-2 rounded-[5px] border border-[#6F94B0] px-4 py-[6px] font-mono text-[11px] uppercase tracking-[0.12em] text-[#6F94B0] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#6F94B0] hover:text-black ${resendPending ? "opacity-50" : ""}`}
+            className={`inline-flex items-center gap-2 rounded-[5px] border border-ops-accent px-4 py-[6px] font-mono text-[11px] uppercase tracking-[0.12em] text-ops-accent transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-ops-accent hover:text-black ${resendPending ? "opacity-50" : ""}`}
           >
             {resendPending ? "SENDING…" : "RESEND EMAIL"}
           </button>

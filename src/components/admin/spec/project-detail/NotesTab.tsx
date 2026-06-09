@@ -95,7 +95,7 @@ export function NotesTab({ data, projectId }: NotesTabProps) {
           onBlur={flushOnBlur}
           rows={14}
           placeholder="What you saw, what you decided, what comes next. Markdown supported — # headers, **bold**, `code`, lists."
-          className="mt-4 w-full resize-y rounded-[5px] border border-white/[0.10] bg-black px-4 py-3 font-mono text-[13px] leading-relaxed text-text outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
+          className="mt-4 w-full resize-y rounded-[5px] border border-white/[0.10] bg-black px-4 py-3 font-mono text-[13px] leading-relaxed text-text outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-ops-accent"
         />
       </section>
 

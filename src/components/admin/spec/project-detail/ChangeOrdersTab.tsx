@@ -246,7 +246,7 @@ function ChangeOrderWizard({
           required
           maxLength={200}
           placeholder="Concise title"
-          className="w-full rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] text-text outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
+          className="w-full rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] text-text outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-ops-accent"
         />
       </FieldRow>
 
@@ -256,7 +256,7 @@ function ChangeOrderWizard({
           required
           rows={3}
           placeholder="Scope, deliverables, acceptance criteria"
-          className="w-full rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] text-text outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
+          className="w-full rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] text-text outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-ops-accent"
         />
       </FieldRow>
 
@@ -270,7 +270,7 @@ function ChangeOrderWizard({
             step={0.5}
             required
             placeholder="0.5 – 3.5"
-            className="w-32 rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] tabular-nums text-text outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
+            className="w-32 rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] tabular-nums text-text outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-ops-accent"
           />
           <span className="ml-3 font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
             <span className="text-text-mute">[</span>
@@ -291,7 +291,7 @@ function ChangeOrderWizard({
               step={100}
               required
               placeholder="Cents (e.g. 75000 = $750)"
-              className="w-48 rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] tabular-nums text-text outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
+              className="w-48 rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] tabular-nums text-text outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-ops-accent"
             />
           </span>
         </FieldRow>
@@ -306,7 +306,7 @@ function ChangeOrderWizard({
             max={60}
             step={1}
             defaultValue={0}
-            className="w-24 rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] tabular-nums text-text outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
+            className="w-24 rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] tabular-nums text-text outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-ops-accent"
           />
           <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">DAYS ADDED</span>
         </span>

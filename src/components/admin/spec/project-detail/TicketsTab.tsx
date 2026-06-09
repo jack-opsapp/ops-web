@@ -225,7 +225,7 @@ function ReclassifyForm({
         <select
           name="new_severity"
           defaultValue={currentSeverity}
-          className="rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-text outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
+          className="rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-text outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-ops-accent"
         >
           {options.map((s) => (
             <option key={s} value={s}>
@@ -304,7 +304,7 @@ function NewTicketForm({ projectId, onCancel }: { projectId: string; onCancel: (
             name="severity"
             defaultValue="high"
             required
-            className="w-full rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-text outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
+            className="w-full rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-text outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-ops-accent"
           >
             <option value="critical">CRITICAL · blocks daily ops</option>
             <option value="high">HIGH · degrades workflow</option>
@@ -317,7 +317,7 @@ function NewTicketForm({ projectId, onCancel }: { projectId: string; onCancel: (
             name="phase"
             defaultValue="support"
             required
-            className="w-full rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-text outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
+            className="w-full rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-text outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-ops-accent"
           >
             <option value="support">SUPPORT · in support window</option>
             <option value="retainer">RETAINER · subscribed</option>
@@ -333,7 +333,7 @@ function NewTicketForm({ projectId, onCancel }: { projectId: string; onCancel: (
           required
           maxLength={200}
           placeholder="One-line summary"
-          className="w-full rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] text-text outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
+          className="w-full rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] text-text outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-ops-accent"
         />
       </FieldRow>
 
@@ -343,7 +343,7 @@ function NewTicketForm({ projectId, onCancel }: { projectId: string; onCancel: (
           required
           rows={4}
           placeholder="What happened, repro steps, expected vs actual"
-          className="w-full rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] text-text outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
+          className="w-full rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] text-text outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-ops-accent"
         />
       </FieldRow>
 

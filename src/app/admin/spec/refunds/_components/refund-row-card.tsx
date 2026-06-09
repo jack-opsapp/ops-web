@@ -177,14 +177,14 @@ export function RefundRowCard({ refund }: RefundRowCardProps) {
           rows={2}
           maxLength={4000}
           placeholder="Internal note (operator-only) — context for the dispute trail, attribution, etc."
-          className="w-full rounded-[5px] border border-white/[0.09] bg-black/40 px-3 py-2 font-mono text-[12px] text-text placeholder:text-text-mute focus:border-[#6F94B0] focus:outline-none"
+          className="w-full rounded-[5px] border border-white/[0.09] bg-black/40 px-3 py-2 font-mono text-[12px] text-text placeholder:text-text-mute focus:border-ops-accent focus:outline-none"
         />
 
         <div className="flex items-center gap-3">
           <button
             type="submit"
             disabled={processPending || denyPending || selectedMilestones.length === 0}
-            className={`inline-flex items-center gap-2 rounded-[5px] border border-[#6F94B0] px-4 py-[6px] font-mono text-[12px] uppercase tracking-[0.12em] text-[#6F94B0] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#6F94B0] hover:text-black focus-visible:outline focus-visible:outline-[1.5px] focus-visible:outline-[#6F94B0] focus-visible:outline-offset-2 ${processPending || denyPending ? "opacity-50" : ""}`}
+            className={`inline-flex items-center gap-2 rounded-[5px] border border-ops-accent px-4 py-[6px] font-mono text-[12px] uppercase tracking-[0.12em] text-ops-accent transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-ops-accent hover:text-black focus-visible:outline focus-visible:outline-[1.5px] focus-visible:outline-ops-accent focus-visible:outline-offset-2 ${processPending || denyPending ? "opacity-50" : ""}`}
           >
             {processPending ? "PROCESSING…" : "PROCESS REFUND"}
           </button>
@@ -241,7 +241,7 @@ export function RefundRowCard({ refund }: RefundRowCardProps) {
             rows={2}
             maxLength={4000}
             placeholder="Optional — operator context for the audit trail."
-            className="mt-2 w-full rounded-[5px] border border-white/[0.06] bg-black/40 px-3 py-2 font-mono text-[12px] text-text-2 placeholder:text-text-mute focus:border-[#6F94B0] focus:outline-none"
+            className="mt-2 w-full rounded-[5px] border border-white/[0.06] bg-black/40 px-3 py-2 font-mono text-[12px] text-text-2 placeholder:text-text-mute focus:border-ops-accent focus:outline-none"
           />
           <div className="mt-3 flex items-center gap-3">
             <button

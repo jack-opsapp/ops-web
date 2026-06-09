@@ -132,7 +132,7 @@ export function TimelineTab({ events }: TimelineTabProps) {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="// SEARCH"
-              className="w-44 rounded-[5px] border border-white/[0.10] bg-black px-3 py-1 font-mono text-[11px] text-text outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0] placeholder:text-text-mute"
+              className="w-44 rounded-[5px] border border-white/[0.10] bg-black px-3 py-1 font-mono text-[11px] text-text outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-ops-accent placeholder:text-text-mute"
             />
           </label>
         </div>
