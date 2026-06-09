@@ -607,7 +607,7 @@ export default function SetupPage() {
             <button
               onClick={handleLaunchFromStarfield}
               aria-label="Launch your personalized dashboard"
-              className="px-3 min-h-[36px] rounded-sm bg-ops-accent border border-ops-accent text-text font-mohave text-body-sm uppercase tracking-[0.08em] hover:bg-ops-accent-hover transition-colors"
+              className="px-3 min-h-[36px] rounded-sm bg-transparent border border-ops-accent text-ops-accent font-mohave text-body-sm uppercase tracking-[0.08em] hover:bg-ops-accent hover:text-black transition-colors"
             >
               Launch
             </button>
@@ -641,20 +641,9 @@ export default function SetupPage() {
                 <button
                   onClick={handleLaunchFromStarfield}
                   aria-label="Launch your personalized dashboard"
-                  className="group relative px-10 py-4 rounded-sm font-mohave text-[22px] uppercase tracking-[0.15em] text-text transition-all duration-300 overflow-hidden"
-                  style={{
-                    background: "rgba(111, 148, 176, 0.12)",
-                    border: "1px solid rgba(111, 148, 176, 0.4)",
-                    boxShadow: "0 0 40px rgba(111, 148, 176, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.05)",
-                  }}
+                  className="px-10 py-4 rounded-sm font-mohave text-[22px] uppercase tracking-[0.15em] bg-transparent text-ops-accent border border-ops-accent hover:bg-ops-accent hover:text-black transition-colors duration-300"
                 >
-                  <span className="relative z-10">LAUNCH</span>
-                  <div
-                    className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                    style={{
-                      background: "linear-gradient(135deg, rgba(111, 148, 176, 0.15), rgba(111, 148, 176, 0.05))",
-                    }}
-                  />
+                  LAUNCH
                 </button>
                 <p className="font-mono text-micro text-text-mute uppercase tracking-[0.1em]">
                   Your dashboard is ready
@@ -781,7 +770,7 @@ export default function SetupPage() {
           <button
             onClick={handleNext}
             aria-label={phase === "identity" ? "Continue to company information" : "Continue to questionnaire"}
-            className="flex items-center gap-0.5 font-mohave text-button uppercase bg-ops-accent text-text px-3 min-h-[36px] rounded-sm border border-ops-accent hover:bg-ops-accent-hover transition-all duration-150"
+            className="flex items-center gap-0.5 font-mohave text-button uppercase bg-transparent text-ops-accent px-3 min-h-[36px] rounded-sm border border-ops-accent hover:bg-ops-accent hover:text-black transition-all duration-150"
           >
             Next
             <ChevronRight className="w-4 h-4" aria-hidden="true" />
