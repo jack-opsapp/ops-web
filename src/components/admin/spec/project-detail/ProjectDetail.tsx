@@ -100,14 +100,14 @@ function TabStrip({ activeTab, projectId }: { activeTab: TabKey; projectId: stri
                 aria-current={isActive ? "page" : undefined}
                 className={[
                   "group relative flex items-center gap-2 px-4 py-3 font-mono text-[11px] uppercase tracking-[0.16em] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]",
-                  isActive ? "text-[#EDEDED]" : "text-[#8A8A8A] hover:text-[#EDEDED]",
+                  isActive ? "text-text" : "text-text-3 hover:text-text",
                 ].join(" ")}
               >
                 <span>{tab.label}</span>
                 {isActive && (
                   <span
                     aria-hidden="true"
-                    className="absolute inset-x-3 -bottom-px h-px bg-[#6F94B0]"
+                    className="absolute inset-x-3 -bottom-px h-px bg-text"
                   />
                 )}
               </Link>

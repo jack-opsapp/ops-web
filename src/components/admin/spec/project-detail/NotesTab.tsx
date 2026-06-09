@@ -70,11 +70,11 @@ export function NotesTab({ data, projectId }: NotesTabProps) {
     <div className="space-y-6">
       <section
         aria-label="Internal notes"
-        className="rounded-[10px] border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]"
+        className="glass-surface p-5"
       >
         <div className="flex flex-wrap items-baseline justify-between gap-3">
-          <h2 className="font-cakemono text-[14px] font-light uppercase leading-none text-[#EDEDED]">
-            <span aria-hidden="true" className="mr-2 font-mono text-[#6A6A6A]">
+          <h2 className="font-cakemono text-[14px] font-light uppercase leading-none text-text">
+            <span aria-hidden="true" className="mr-2 font-mono text-text-mute">
               {"//"}
             </span>
             INTERNAL NOTES
@@ -82,10 +82,10 @@ export function NotesTab({ data, projectId }: NotesTabProps) {
           <SaveIndicator state={state} error={errorRef.current} />
         </div>
 
-        <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.16em] text-[#6A6A6A]">
-          <span className="text-[#3A3A3A]">[</span>
+        <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
+          <span className="text-text-mute">[</span>
           OPERATOR-ONLY · NEVER VISIBLE TO CUSTOMER · MARKDOWN SUPPORTED · AUTOSAVES ON BLUR + EVERY 1 SEC
-          <span className="text-[#3A3A3A]">]</span>
+          <span className="text-text-mute">]</span>
         </p>
 
         <textarea
@@ -95,18 +95,18 @@ export function NotesTab({ data, projectId }: NotesTabProps) {
           onBlur={flushOnBlur}
           rows={14}
           placeholder="What you saw, what you decided, what comes next. Markdown supported — # headers, **bold**, `code`, lists."
-          className="mt-4 w-full resize-y rounded-[5px] border border-white/[0.10] bg-black px-4 py-3 font-mono text-[13px] leading-relaxed text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
+          className="mt-4 w-full resize-y rounded-[5px] border border-white/[0.10] bg-black px-4 py-3 font-mono text-[13px] leading-relaxed text-text outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
         />
       </section>
 
       {data.rows.length > 1 && (
         <section
           aria-label="Note revision history"
-          className="rounded-[10px] border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]"
+          className="glass-surface p-5"
         >
           <div className="flex items-center justify-between gap-3">
-            <h3 className="font-cakemono text-[12px] font-light uppercase leading-none text-[#EDEDED]">
-              <span aria-hidden="true" className="mr-2 font-mono text-[#6A6A6A]">
+            <h3 className="font-cakemono text-[12px] font-light uppercase leading-none text-text">
+              <span aria-hidden="true" className="mr-2 font-mono text-text-mute">
                 {"//"}
               </span>
               REVISIONS · {data.rows.length - 1}
@@ -114,7 +114,7 @@ export function NotesTab({ data, projectId }: NotesTabProps) {
             <button
               type="button"
               onClick={() => setShowHistory((v) => !v)}
-              className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#8A8A8A] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:text-[#EDEDED]"
+              className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-3 transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:text-text"
             >
               {showHistory ? "[HIDE]" : "[SHOW]"}
             </button>
@@ -137,14 +137,14 @@ function RevisionRow({ rev }: { rev: SpecInternalNoteRow }) {
   return (
     <li className="rounded-[5px] border border-white/[0.06] bg-black/40 p-3">
       <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-white/[0.04] pb-2">
-        <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#8A8A8A]">
+        <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-3">
           {rev.createdByLabel ?? "OPERATOR"}
         </span>
-        <span className="font-mono text-[10px] tabular-nums text-[#6A6A6A]">
+        <span className="font-mono text-[10px] tabular-nums text-text-mute">
           {formatDateTime(rev.createdAt)}
         </span>
       </div>
-      <pre className="mt-2 max-h-48 overflow-y-auto whitespace-pre-wrap font-mono text-[11px] leading-relaxed text-[#B5B5B5]">
+      <pre className="mt-2 max-h-48 overflow-y-auto whitespace-pre-wrap font-mono text-[11px] leading-relaxed text-text-2">
         {rev.body}
       </pre>
     </li>
@@ -157,30 +157,30 @@ function SaveIndicator({ state, error }: { state: SaveState; error: string | nul
   switch (state) {
     case "idle":
       label = "IDLE";
-      toneClass = "text-[#6A6A6A]";
+      toneClass = "text-text-mute";
       break;
     case "dirty":
       label = "UNSAVED";
-      toneClass = "text-[#C4A868]";
+      toneClass = "text-tan";
       break;
     case "saving":
       label = "SAVING…";
-      toneClass = "text-[#6F94B0]";
+      toneClass = "text-tan";
       break;
     case "saved":
       label = "SAVED";
-      toneClass = "text-[#9DB582]";
+      toneClass = "text-olive";
       break;
     case "error":
       label = error ? `ERROR · ${error}` : "ERROR";
-      toneClass = "text-[#B58289]";
+      toneClass = "text-rose";
       break;
   }
   return (
     <span className={`font-mono text-[10px] uppercase tracking-[0.16em] ${toneClass}`}>
-      <span className="text-[#3A3A3A]">[</span>
+      <span className="text-text-mute">[</span>
       {label}
-      <span className="text-[#3A3A3A]">]</span>
+      <span className="text-text-mute">]</span>
     </span>
   );
 }

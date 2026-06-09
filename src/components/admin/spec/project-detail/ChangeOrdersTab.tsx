@@ -24,12 +24,12 @@ const TYPE_LABEL: Record<SpecChangeOrderType, string> = {
 };
 
 const STATUS_TONE: Record<SpecChangeOrderStatus, string> = {
-  proposed: "text-[#C4A868] border-[#C4A868]/40",
-  customer_approved: "text-[#9DB582] border-[#9DB582]/40",
-  customer_declined: "text-[#B58289] border-[#B58289]/40",
-  in_progress: "text-[#6F94B0] border-[#6F94B0]/40",
-  completed: "text-[#9DB582] border-[#9DB582]/40",
-  paid: "text-[#9DB582] border-[#9DB582]/40",
+  proposed: "text-tan border-tan/40",
+  customer_approved: "text-olive border-olive/40",
+  customer_declined: "text-rose border-rose/40",
+  in_progress: "text-olive border-olive/40",
+  completed: "text-olive border-olive/40",
+  paid: "text-olive border-olive/40",
 };
 
 const STRIPE_DASHBOARD_BASE =
@@ -43,11 +43,11 @@ export function ChangeOrdersTab({ data, projectId }: ChangeOrdersTabProps) {
     <div className="space-y-6">
       <section
         aria-label="Change orders summary"
-        className="rounded-[10px] border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]"
+        className="glass-surface p-5"
       >
         <div className="flex flex-wrap items-baseline justify-between gap-3">
-          <h2 className="font-cakemono text-[14px] font-light uppercase leading-none text-[#EDEDED]">
-            <span aria-hidden="true" className="mr-2 font-mono text-[#6A6A6A]">
+          <h2 className="font-cakemono text-[14px] font-light uppercase leading-none text-text">
+            <span aria-hidden="true" className="mr-2 font-mono text-text-mute">
               {"//"}
             </span>
             CHANGE ORDERS
@@ -55,7 +55,7 @@ export function ChangeOrdersTab({ data, projectId }: ChangeOrdersTabProps) {
           <button
             type="button"
             onClick={() => setWizardOpen((v) => !v)}
-            className="rounded-[5px] border border-[#6F94B0] px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-[#6F94B0] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#6F94B0] hover:text-black"
+            className="rounded-[5px] border border-ops-accent px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-ops-accent transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-ops-accent hover:text-black"
           >
             {wizardOpen ? "CLOSE WIZARD" : "NEW CHANGE ORDER"}
           </button>
@@ -66,13 +66,13 @@ export function ChangeOrdersTab({ data, projectId }: ChangeOrdersTabProps) {
           <Kpi
             label="APPROVED"
             value={countByStatus(data.rows, "customer_approved") + countByStatus(data.rows, "in_progress")}
-            tone="text-[#9DB582]"
+            tone="text-olive"
           />
           <Kpi label="COMPLETED" value={countByStatus(data.rows, "completed") + countByStatus(data.rows, "paid")} />
           <Kpi
             label="POLISH HRS"
             value={`${formatHours(data.polishHoursUsed)} / ${formatHours(data.polishHoursBudget)}`}
-            tone={polishRemaining <= 0 ? "text-[#B58289]" : "text-[#EDEDED]"}
+            tone={polishRemaining <= 0 ? "text-rose" : "text-text"}
           />
         </div>
 
@@ -82,7 +82,7 @@ export function ChangeOrdersTab({ data, projectId }: ChangeOrdersTabProps) {
       {data.rows.length === 0 ? (
         <EmptyState />
       ) : (
-        <div className="overflow-x-auto rounded-[10px] border border-white/[0.10] bg-[rgba(18,18,20,0.58)] backdrop-blur-[28px]">
+        <div className="overflow-x-auto glass-surface">
           <table className="w-full min-w-[920px] border-collapse">
             <thead>
               <tr className="border-b border-white/[0.08] text-left">
@@ -106,10 +106,10 @@ export function ChangeOrdersTab({ data, projectId }: ChangeOrdersTabProps) {
         </div>
       )}
 
-      <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#6A6A6A]">
-        <span className="text-[#3A3A3A]">[</span>
+      <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
+        <span className="text-text-mute">[</span>
         MINOR HOURLY @ $225/HR · BUCKETED TO 30 MIN · ≥ 4H REQUIRES FIXED QUOTE
-        <span className="text-[#3A3A3A]">]</span>
+        <span className="text-text-mute">]</span>
       </p>
     </div>
   );
@@ -121,17 +121,17 @@ function ChangeOrderRow({ row }: { row: SpecChangeOrderRow }) {
   return (
     <tr className="border-b border-white/[0.04] last:border-b-0">
       <Td>
-        <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#6A6A6A]">
+        <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
           {TYPE_LABEL[row.changeType]}
         </span>
       </Td>
       <Td>
-        <span className="block max-w-[260px] truncate text-[13px] text-[#EDEDED]" title={row.title}>
+        <span className="block max-w-[260px] truncate text-[13px] text-text" title={row.title}>
           {row.title}
         </span>
         {row.description && (
           <span
-            className="mt-0.5 block max-w-[260px] truncate font-mono text-[10px] text-[#8A8A8A]"
+            className="mt-0.5 block max-w-[260px] truncate font-mono text-[10px] text-text-3"
             title={row.description}
           >
             {row.description}
@@ -146,29 +146,29 @@ function ChangeOrderRow({ row }: { row: SpecChangeOrderRow }) {
         </span>
       </Td>
       <Td align="right">
-        <span className="font-mono text-[12px] tabular-nums text-[#EDEDED]">
+        <span className="font-mono text-[12px] tabular-nums text-text">
           {row.estimatedHours != null ? `${formatHours(row.estimatedHours)}h` : "—"}
         </span>
       </Td>
       <Td align="right">
-        <span className="font-mono text-[12px] tabular-nums text-[#EDEDED]">
+        <span className="font-mono text-[12px] tabular-nums text-text">
           {finalCost != null ? formatCents(finalCost) : "—"}
         </span>
       </Td>
       <Td>
-        <span className="font-mono text-[11px] tabular-nums text-[#B5B5B5]">
+        <span className="font-mono text-[11px] tabular-nums text-text-2">
           {row.deliveryImpactDays > 0 ? `+${row.deliveryImpactDays}d` : "—"}
         </span>
       </Td>
       <Td>
-        <span className="font-mono text-[11px] tabular-nums text-[#B5B5B5]">
+        <span className="font-mono text-[11px] tabular-nums text-text-2">
           {formatDate(row.proposedAt)}
         </span>
       </Td>
       <Td>
         <span
           className={`font-mono text-[11px] tabular-nums ${
-            row.approvedAt ? "text-[#9DB582]" : row.declinedAt ? "text-[#B58289]" : "text-[#6A6A6A]"
+            row.approvedAt ? "text-olive" : row.declinedAt ? "text-rose" : "text-text-mute"
           }`}
         >
           {formatDate(acceptedAt)}
@@ -181,7 +181,7 @@ function ChangeOrderRow({ row }: { row: SpecChangeOrderRow }) {
             target="_blank"
             rel="noreferrer"
             title={row.stripeInvoiceId}
-            className="font-mono text-[11px] tabular-nums text-[#6F94B0] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:text-[#EDEDED]"
+            className="font-mono text-[11px] tabular-nums text-text-2 transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:text-text"
           >
             {row.stripeInvoiceId.length > 14
               ? `${row.stripeInvoiceId.slice(0, 14)}…`
@@ -189,7 +189,7 @@ function ChangeOrderRow({ row }: { row: SpecChangeOrderRow }) {
             ↗
           </a>
         ) : (
-          <span className="font-mono text-[11px] text-[#6A6A6A]">—</span>
+          <span className="font-mono text-[11px] text-text-mute">—</span>
         )}
       </Td>
     </tr>
@@ -246,7 +246,7 @@ function ChangeOrderWizard({
           required
           maxLength={200}
           placeholder="Concise title"
-          className="w-full rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
+          className="w-full rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] text-text outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
         />
       </FieldRow>
 
@@ -256,7 +256,7 @@ function ChangeOrderWizard({
           required
           rows={3}
           placeholder="Scope, deliverables, acceptance criteria"
-          className="w-full rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
+          className="w-full rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] text-text outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
         />
       </FieldRow>
 
@@ -270,12 +270,12 @@ function ChangeOrderWizard({
             step={0.5}
             required
             placeholder="0.5 – 3.5"
-            className="w-32 rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] tabular-nums text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
+            className="w-32 rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] tabular-nums text-text outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
           />
-          <span className="ml-3 font-mono text-[10px] uppercase tracking-[0.16em] text-[#6A6A6A]">
-            <span className="text-[#3A3A3A]">[</span>
+          <span className="ml-3 font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
+            <span className="text-text-mute">[</span>
             BUCKETED TO 30 MIN · ≥ 4H REQUIRES FIXED QUOTE
-            <span className="text-[#3A3A3A]">]</span>
+            <span className="text-text-mute">]</span>
           </span>
         </FieldRow>
       )}
@@ -283,7 +283,7 @@ function ChangeOrderWizard({
       {(changeType === "major_fixed" || changeType === "tier_upgrade") && (
         <FieldRow label="FIXED PRICE">
           <span className="inline-flex items-center gap-2">
-            <span className="font-mono text-[12px] text-[#6A6A6A]">$</span>
+            <span className="font-mono text-[12px] text-text-mute">$</span>
             <input
               type="number"
               name="fixed_price_cents"
@@ -291,7 +291,7 @@ function ChangeOrderWizard({
               step={100}
               required
               placeholder="Cents (e.g. 75000 = $750)"
-              className="w-48 rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] tabular-nums text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
+              className="w-48 rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] tabular-nums text-text outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
             />
           </span>
         </FieldRow>
@@ -306,30 +306,30 @@ function ChangeOrderWizard({
             max={60}
             step={1}
             defaultValue={0}
-            className="w-24 rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] tabular-nums text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
+            className="w-24 rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] tabular-nums text-text outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
           />
-          <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#6A6A6A]">DAYS ADDED</span>
+          <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">DAYS ADDED</span>
         </span>
       </FieldRow>
 
       <div className="flex items-center gap-3 pt-2">
         <button
           type="submit"
-          className="rounded-[5px] border border-[#6F94B0] px-4 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-[#6F94B0] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#6F94B0] hover:text-black"
+          className="rounded-[5px] border border-ops-accent px-4 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-ops-accent transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-ops-accent hover:text-black"
         >
           PROPOSE CHANGE ORDER
         </button>
         <button
           type="button"
           onClick={onCancel}
-          className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#8A8A8A] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:text-[#EDEDED]"
+          className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-3 transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:text-text"
         >
           CANCEL
         </button>
-        <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#6A6A6A]">
-          <span className="text-[#3A3A3A]">[</span>
+        <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
+          <span className="text-text-mute">[</span>
           CUSTOMER MUST ACCEPT BEFORE INVOICING
-          <span className="text-[#3A3A3A]">]</span>
+          <span className="text-text-mute">]</span>
         </span>
       </div>
     </form>
@@ -358,12 +358,12 @@ function RadioPill({
       onClick={() => onChange(value)}
       className={`flex min-w-[140px] flex-col items-start gap-0.5 rounded-[5px] border px-3 py-2 text-left transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] ${
         active
-          ? "border-[#6F94B0] bg-[#6F94B0]/10 text-[#EDEDED]"
-          : "border-white/[0.10] text-[#8A8A8A] hover:text-[#EDEDED]"
+          ? "border-white/[0.30] bg-white/[0.06] text-text"
+          : "border-white/[0.10] text-text-3 hover:text-text"
       }`}
     >
       <span className="font-mono text-[11px] uppercase tracking-[0.16em]">{label}</span>
-      <span className="font-mono text-[9px] uppercase tracking-[0.16em] text-[#6A6A6A]">{sub}</span>
+      <span className="font-mono text-[9px] uppercase tracking-[0.16em] text-text-mute">{sub}</span>
     </button>
   );
 }
@@ -371,10 +371,10 @@ function RadioPill({
 function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="flex flex-col gap-1.5">
-      <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#6A6A6A]">
-        <span className="text-[#3A3A3A]">[</span>
+      <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-mute">
+        <span className="text-text-mute">[</span>
         {label}
-        <span className="text-[#3A3A3A]">]</span>
+        <span className="text-text-mute">]</span>
       </span>
       {children}
     </label>
@@ -384,10 +384,10 @@ function FieldRow({ label, children }: { label: string; children: React.ReactNod
 function EmptyState() {
   return (
     <div className="rounded-[10px] border border-white/[0.08] bg-[rgba(18,18,20,0.40)] p-8 text-center backdrop-blur-[28px]">
-      <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[#8A8A8A]">
+      <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-3">
         — no change orders yet
       </p>
-      <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.16em] text-[#6A6A6A]">
+      <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
         propose one above. customer must accept before invoicing.
       </p>
     </div>
@@ -397,7 +397,7 @@ function EmptyState() {
 function Th({ children, align }: { children: React.ReactNode; align?: "right" }) {
   return (
     <th
-      className={`px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-[#6A6A6A] ${
+      className={`px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-text-mute ${
         align === "right" ? "text-right" : ""
       }`}
     >
@@ -417,8 +417,8 @@ function Td({ children, align }: { children: React.ReactNode; align?: "right" })
 function Kpi({ label, value, tone }: { label: string; value: string | number; tone?: string }) {
   return (
     <div>
-      <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#6A6A6A]">{label}</p>
-      <p className={`mt-1 font-mono text-[16px] tabular-nums leading-none ${tone ?? "text-[#EDEDED]"}`}>
+      <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-mute">{label}</p>
+      <p className={`mt-1 font-mono text-[16px] tabular-nums leading-none ${tone ?? "text-text"}`}>
         {value}
       </p>
     </div>

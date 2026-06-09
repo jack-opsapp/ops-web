@@ -12,20 +12,20 @@ export function DeferredTab({ label, rationale }: DeferredTabProps) {
   return (
     <section
       aria-label={`${label} (deferred)`}
-      className="rounded-[10px] border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-6 backdrop-blur-[28px]"
+      className="glass-surface p-6"
     >
-      <h2 className="font-cakemono text-[15px] font-light uppercase text-[#EDEDED]">
-        <span aria-hidden="true" className="mr-2 font-mono text-[#6A6A6A]">
+      <h2 className="font-cakemono text-[15px] font-light uppercase text-text">
+        <span aria-hidden="true" className="mr-2 font-mono text-text-mute">
           {"//"}
         </span>
         {label}
       </h2>
-      <p className="mt-3 font-mono text-[11px] uppercase tracking-[0.16em] text-[#8A8A8A]">
-        <span className="text-[#3A3A3A]">[</span>
+      <p className="mt-3 font-mono text-[11px] uppercase tracking-[0.16em] text-text-3">
+        <span className="text-text-mute">[</span>
         DEFERRED TO F.2.B
-        <span className="text-[#3A3A3A]">]</span>
+        <span className="text-text-mute">]</span>
       </p>
-      <p className="mt-4 max-w-[60ch] text-[13px] leading-relaxed text-[#B5B5B5]">
+      <p className="mt-4 max-w-[60ch] text-[13px] leading-relaxed text-text-2">
         {rationale}
       </p>
     </section>

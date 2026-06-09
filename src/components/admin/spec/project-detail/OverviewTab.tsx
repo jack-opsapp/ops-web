@@ -49,7 +49,7 @@ export function OverviewTab({ data, header }: OverviewTabProps) {
                 data.company ? (
                   <Link
                     href={`/admin/companies/${data.company.id}`}
-                    className="text-[#EDEDED] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:text-[#6F94B0]"
+                    className="text-text transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:text-text-2"
                   >
                     {data.company.name || data.company.id}
                   </Link>
@@ -70,7 +70,7 @@ export function OverviewTab({ data, header }: OverviewTabProps) {
                 data.lastStatusChangeAt ? (
                   <span>
                     {formatDate(data.lastStatusChangeAt)}{" "}
-                    <span className="text-[#6A6A6A]">· {formatRelative(data.lastStatusChangeAt)}</span>
+                    <span className="text-text-mute">· {formatRelative(data.lastStatusChangeAt)}</span>
                   </span>
                 ) : (
                   "—"
@@ -83,7 +83,7 @@ export function OverviewTab({ data, header }: OverviewTabProps) {
                 <span>
                   {header.tier.toUpperCase()}
                   {header.originalTier && header.originalTier !== header.tier && (
-                    <span className="ml-2 text-[#6A6A6A]">
+                    <span className="ml-2 text-text-mute">
                       · WAS {header.originalTier.toUpperCase()}
                     </span>
                   )}
@@ -132,7 +132,7 @@ export function OverviewTab({ data, header }: OverviewTabProps) {
                     href={data.attribution.landingUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="text-[#EDEDED] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:text-[#6F94B0]"
+                    className="text-text transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:text-text-2"
                   >
                     {data.attribution.landingUrl}
                   </a>
@@ -155,22 +155,22 @@ export function OverviewTab({ data, header }: OverviewTabProps) {
             <Kpi
               label="PAID"
               value={formatCents(data.financial.totalPaidCents)}
-              tone="text-[#9DB582]"
+              tone="text-olive"
             />
             <Kpi
               label="PENDING"
               value={formatCents(data.financial.pendingCents)}
-              tone="text-[#C4A868]"
+              tone="text-tan"
             />
             <Kpi
               label="OVERDUE"
               value={formatCents(data.financial.overdueCents)}
-              tone={data.financial.overdueCents > 0 ? "text-[#B58289]" : "text-[#8A8A8A]"}
+              tone={data.financial.overdueCents > 0 ? "text-rose" : "text-text-3"}
             />
             <Kpi
               label="REFUNDED"
               value={formatCents(data.financial.refundedCents)}
-              tone={data.financial.refundedCents > 0 ? "text-[#B58289]" : "text-[#8A8A8A]"}
+              tone={data.financial.refundedCents > 0 ? "text-rose" : "text-text-3"}
             />
             <Kpi
               label="POLISH HRS"
@@ -183,11 +183,11 @@ export function OverviewTab({ data, header }: OverviewTabProps) {
           </div>
 
           <div className="mt-5 border-t border-white/[0.06] pt-4">
-            <h3 className="mb-2 font-mono text-[10px] uppercase tracking-[0.18em] text-[#6A6A6A]">
+            <h3 className="mb-2 font-mono text-[10px] uppercase tracking-[0.18em] text-text-mute">
               MILESTONE BREAKDOWN
             </h3>
             {data.financial.perMilestone.length === 0 ? (
-              <p className="font-mono text-[12px] text-[#6A6A6A]">
+              <p className="font-mono text-[12px] text-text-mute">
                 — no milestones invoiced yet
               </p>
             ) : (
@@ -197,17 +197,17 @@ export function OverviewTab({ data, header }: OverviewTabProps) {
                     key={m.milestone}
                     className="flex items-center justify-between gap-3 border-b border-white/[0.04] py-1.5 last:border-b-0"
                   >
-                    <span className="flex items-center gap-2 text-[#B5B5B5]">
-                      <span className="text-[#6A6A6A]">
+                    <span className="flex items-center gap-2 text-text-2">
+                      <span className="text-text-mute">
                         {SPEC_MILESTONE_LABELS[m.milestone as SpecPaymentMilestone]}
                       </span>
-                      <span className="text-[#EDEDED]">{milestoneLabel(m.milestone)}</span>
+                      <span className="text-text">{milestoneLabel(m.milestone)}</span>
                     </span>
                     <span className="flex items-center gap-3">
-                      <span className="text-[#6A6A6A] uppercase tracking-[0.12em]">
+                      <span className="text-text-mute uppercase tracking-[0.12em]">
                         {statusLabel(m.status)}
                       </span>
-                      <span className="tabular-nums text-[#EDEDED]">
+                      <span className="tabular-nums text-text">
                         {formatCents(m.amountCents)}
                       </span>
                     </span>
@@ -238,27 +238,27 @@ export function OverviewTab({ data, header }: OverviewTabProps) {
           <form action={updateEta} className="flex flex-wrap items-center gap-3">
             <input type="hidden" name="project_id" value={header.id} />
             <label className="flex flex-col gap-1.5">
-              <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#6A6A6A]">
-                <span className="text-[#3A3A3A]">[</span>YYYY-MM-DD
-                <span className="text-[#3A3A3A]">]</span>
+              <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-mute">
+                <span className="text-text-mute">[</span>YYYY-MM-DD
+                <span className="text-text-mute">]</span>
               </span>
               <input
                 name="estimated_completion_date"
                 type="date"
                 defaultValue={formatIsoDate(data.estimatedCompletionDate) === "—" ? "" : formatIsoDate(data.estimatedCompletionDate)}
-                className="rounded-[5px] border border-white/[0.10] bg-black px-3 py-1.5 font-mono text-[12px] tabular-nums text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
+                className="rounded-[5px] border border-white/[0.10] bg-black px-3 py-1.5 font-mono text-[12px] tabular-nums text-text outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
               />
             </label>
             <button
               type="submit"
-              className="rounded-[5px] border border-[#6F94B0] px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.16em] text-[#6F94B0] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#6F94B0] hover:text-black"
+              className="rounded-[5px] border border-ops-accent px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.16em] text-ops-accent transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-ops-accent hover:text-black"
             >
               UPDATE ETA
             </button>
-            <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#6A6A6A]">
-              <span className="text-[#3A3A3A]">[</span>
+            <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
+              <span className="text-text-mute">[</span>
               CURRENT · {formatDate(data.estimatedCompletionDate)}
-              <span className="text-[#3A3A3A]">]</span>
+              <span className="text-text-mute">]</span>
             </span>
           </form>
         </Panel>
@@ -287,14 +287,14 @@ function Panel({
   tone?: "brick";
 }) {
   const borderClass =
-    tone === "brick" ? "border-[#B58289]/40" : "border-white/[0.10]";
+    tone === "brick" ? "border-rose/40" : "border-white/[0.10]";
   return (
     <section
       aria-label={title}
       className={`rounded-[10px] border ${borderClass} bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]`}
     >
-      <h2 className="mb-3 font-cakemono text-[14px] font-light uppercase leading-none text-[#EDEDED]">
-        <span aria-hidden="true" className="mr-2 font-mono text-[#6A6A6A]">
+      <h2 className="mb-3 font-cakemono text-[14px] font-light uppercase leading-none text-text">
+        <span aria-hidden="true" className="mr-2 font-mono text-text-mute">
           {"//"}
         </span>
         {title}
@@ -321,11 +321,11 @@ function Row({
 }) {
   return (
     <div className={`grid gap-2 py-2 ${long ? "" : "grid-cols-[140px,1fr]"}`}>
-      <dt className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#6A6A6A]">
+      <dt className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-mute">
         {label}
       </dt>
       <dd
-        className={`break-words text-[13px] text-[#EDEDED] ${mono ? "font-mono tabular-nums" : ""}`}
+        className={`break-words text-[13px] text-text ${mono ? "font-mono tabular-nums" : ""}`}
       >
         {value}
       </dd>
@@ -344,23 +344,23 @@ function IdentityRow({
 }) {
   return (
     <div className="grid grid-cols-[140px,1fr] gap-2 py-2">
-      <dt className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#6A6A6A]">
+      <dt className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-mute">
         {label}
       </dt>
-      <dd className="text-[13px] text-[#EDEDED]">
+      <dd className="text-[13px] text-text">
         {user ? (
           <span className="flex flex-col gap-0.5">
             <span>{user.name || user.email || user.id.slice(0, 8)}</span>
             {user.email && user.name && (
-              <span className="font-mono text-[11px] tabular-nums text-[#8A8A8A]">
+              <span className="font-mono text-[11px] tabular-nums text-text-3">
                 {user.email}
               </span>
             )}
             {note && (
-              <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#6A6A6A]">
-                <span className="text-[#3A3A3A]">[</span>
+              <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
+                <span className="text-text-mute">[</span>
                 {note}
-                <span className="text-[#3A3A3A]">]</span>
+                <span className="text-text-mute">]</span>
               </span>
             )}
           </span>
@@ -383,10 +383,10 @@ function Kpi({
 }) {
   return (
     <div>
-      <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#6A6A6A]">
+      <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-mute">
         {label}
       </p>
-      <p className={`mt-1 font-mono text-[16px] tabular-nums leading-none ${tone ?? "text-[#EDEDED]"}`}>
+      <p className={`mt-1 font-mono text-[16px] tabular-nums leading-none ${tone ?? "text-text"}`}>
         {value}
       </p>
     </div>

@@ -87,9 +87,9 @@ export function IntakeTab({ data }: IntakeTabProps) {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-[10px] border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]">
-        <h2 className="font-cakemono text-[14px] font-light uppercase leading-none text-[#EDEDED]">
-          <span aria-hidden="true" className="mr-2 font-mono text-[#6A6A6A]">
+      <div className="glass-surface p-5">
+        <h2 className="font-cakemono text-[14px] font-light uppercase leading-none text-text">
+          <span aria-hidden="true" className="mr-2 font-mono text-text-mute">
             {"//"}
           </span>
           INTAKE
@@ -101,7 +101,7 @@ export function IntakeTab({ data }: IntakeTabProps) {
             value={
               data.regulatedWorkflowFlaggedAt ? formatDateTime(data.regulatedWorkflowFlaggedAt) : "—"
             }
-            tone={data.regulatedWorkflowFlaggedAt ? "text-[#B58289]" : undefined}
+            tone={data.regulatedWorkflowFlaggedAt ? "text-rose" : undefined}
           />
           <Meta label="FILES" value={`${data.files.length}`} mono />
         </div>
@@ -110,25 +110,25 @@ export function IntakeTab({ data }: IntakeTabProps) {
       {data.regulatedWorkflowFlaggedAt && data.regulatedWorkflowFlags && (
         <section
           aria-label="Regulated workflow flags"
-          className="rounded-[10px] border border-[#B58289]/40 bg-[rgba(147,50,26,0.08)] p-5"
+          className="rounded-[10px] border border-rose/40 bg-[rgba(147,50,26,0.08)] p-5"
         >
-          <h3 className="font-cakemono text-[14px] font-light uppercase leading-none text-[#B58289]">
-            <span aria-hidden="true" className="mr-2 font-mono text-[#6A6A6A]">
+          <h3 className="font-cakemono text-[14px] font-light uppercase leading-none text-rose">
+            <span aria-hidden="true" className="mr-2 font-mono text-text-mute">
               {"//"}
             </span>
             REGULATED WORKFLOW FLAGS
           </h3>
-          <pre className="mt-3 overflow-x-auto rounded-[5px] border border-white/[0.06] bg-black/40 p-3 font-mono text-[11px] leading-relaxed text-[#EDEDED]">
+          <pre className="mt-3 overflow-x-auto rounded-[5px] border border-white/[0.06] bg-black/40 p-3 font-mono text-[11px] leading-relaxed text-text">
 {JSON.stringify(data.regulatedWorkflowFlags, null, 2)}
           </pre>
         </section>
       )}
 
       {!data.submittedAt && (
-        <p className="rounded-[10px] border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-6 font-mono text-[12px] uppercase tracking-[0.16em] text-[#6A6A6A] backdrop-blur-[28px]">
-          <span className="text-[#3A3A3A]">[</span>
+        <p className="glass-surface p-6 font-mono text-[12px] uppercase tracking-[0.16em] text-text-mute">
+          <span className="text-text-mute">[</span>
           INTAKE NOT YET SUBMITTED
-          <span className="text-[#3A3A3A]">]</span>
+          <span className="text-text-mute">]</span>
         </p>
       )}
 
@@ -167,23 +167,23 @@ export function IntakeTab({ data }: IntakeTabProps) {
 
       <section
         aria-label="Intake files"
-        className="rounded-[10px] border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]"
+        className="glass-surface p-5"
       >
-        <h3 className="mb-3 font-cakemono text-[14px] font-light uppercase leading-none text-[#EDEDED]">
-          <span aria-hidden="true" className="mr-2 font-mono text-[#6A6A6A]">
+        <h3 className="mb-3 font-cakemono text-[14px] font-light uppercase leading-none text-text">
+          <span aria-hidden="true" className="mr-2 font-mono text-text-mute">
             {"//"}
           </span>
           FILES
         </h3>
         {data.files.length === 0 ? (
-          <p className="font-mono text-[12px] text-[#6A6A6A]">— no files uploaded</p>
+          <p className="font-mono text-[12px] text-text-mute">— no files uploaded</p>
         ) : (
           <ul className="divide-y divide-white/[0.06]">
             {data.files.map((file) => (
               <li key={file.path} className="flex flex-wrap items-center justify-between gap-3 py-2">
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[13px] text-[#EDEDED]">{file.filename}</p>
-                  <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#6A6A6A]">
+                  <p className="truncate text-[13px] text-text">{file.filename}</p>
+                  <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
                     {file.contentType ?? "—"} · {formatBytes(file.sizeBytes)}{" "}
                     {file.uploadedAt ? `· ${formatDateTime(file.uploadedAt)}` : ""}
                   </p>
@@ -193,15 +193,15 @@ export function IntakeTab({ data }: IntakeTabProps) {
                     href={file.signedUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="rounded-[5px] border border-[#6F94B0] px-3 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-[#6F94B0] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#6F94B0] hover:text-black"
+                    className="rounded-[5px] border border-ops-accent px-3 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-ops-accent transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-ops-accent hover:text-black"
                   >
                     DOWNLOAD
                   </a>
                 ) : (
-                  <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#6A6A6A]">
-                    <span className="text-[#3A3A3A]">[</span>
+                  <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
+                    <span className="text-text-mute">[</span>
                     URL UNAVAILABLE
-                    <span className="text-[#3A3A3A]">]</span>
+                    <span className="text-text-mute">]</span>
                   </span>
                 )}
               </li>
@@ -217,10 +217,10 @@ function SectionPanel({ title, children }: { title: string; children: React.Reac
   return (
     <section
       aria-label={title}
-      className="rounded-[10px] border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]"
+      className="glass-surface p-5"
     >
-      <h3 className="mb-3 font-cakemono text-[14px] font-light uppercase leading-none text-[#EDEDED]">
-        <span aria-hidden="true" className="mr-2 font-mono text-[#6A6A6A]">
+      <h3 className="mb-3 font-cakemono text-[14px] font-light uppercase leading-none text-text">
+        <span aria-hidden="true" className="mr-2 font-mono text-text-mute">
           {"//"}
         </span>
         {title}
@@ -233,20 +233,20 @@ function SectionPanel({ title, children }: { title: string; children: React.Reac
 function FieldRow({ label, value }: { label: string; value: unknown }) {
   return (
     <div className="grid grid-cols-[160px,1fr] gap-3 py-2">
-      <dt className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#6A6A6A]">
+      <dt className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-mute">
         {label}
       </dt>
-      <dd className="text-[13px] leading-relaxed text-[#EDEDED]">{renderValue(value)}</dd>
+      <dd className="text-[13px] leading-relaxed text-text">{renderValue(value)}</dd>
     </div>
   );
 }
 
 function renderValue(value: unknown): React.ReactNode {
-  if (value == null || value === "") return <span className="text-[#6A6A6A]">—</span>;
+  if (value == null || value === "") return <span className="text-text-mute">—</span>;
   if (typeof value === "boolean") {
     return (
       <span
-        className={`font-mono text-[11px] uppercase tracking-[0.16em] ${value ? "text-[#9DB582]" : "text-[#B58289]"}`}
+        className={`font-mono text-[11px] uppercase tracking-[0.16em] ${value ? "text-olive" : "text-rose"}`}
       >
         {value ? "YES" : "NO"}
       </span>
@@ -256,12 +256,12 @@ function renderValue(value: unknown): React.ReactNode {
     return <span className="break-words">{String(value)}</span>;
   }
   if (Array.isArray(value)) {
-    if (value.length === 0) return <span className="text-[#6A6A6A]">—</span>;
+    if (value.length === 0) return <span className="text-text-mute">—</span>;
     return (
       <ul className="space-y-1">
         {value.map((item, i) => (
-          <li key={i} className="text-[12px] text-[#B5B5B5]">
-            <span className="mr-2 font-mono text-[10px] text-[#6A6A6A]">·</span>
+          <li key={i} className="text-[12px] text-text-2">
+            <span className="mr-2 font-mono text-[10px] text-text-mute">·</span>
             {typeof item === "string" || typeof item === "number" ? String(item) : JSON.stringify(item)}
           </li>
         ))}
@@ -270,19 +270,19 @@ function renderValue(value: unknown): React.ReactNode {
   }
   if (typeof value === "object") {
     return (
-      <pre className="overflow-x-auto rounded-[5px] border border-white/[0.06] bg-black/40 p-2 font-mono text-[11px] leading-relaxed text-[#EDEDED]">
+      <pre className="overflow-x-auto rounded-[5px] border border-white/[0.06] bg-black/40 p-2 font-mono text-[11px] leading-relaxed text-text">
 {JSON.stringify(value, null, 2)}
       </pre>
     );
   }
-  return <span className="text-[#6A6A6A]">—</span>;
+  return <span className="text-text-mute">—</span>;
 }
 
 function Meta({ label, value, tone, mono }: { label: string; value: string; tone?: string; mono?: boolean }) {
   return (
     <div className="flex items-center justify-between gap-2">
-      <span className="text-[#6A6A6A]">{label}</span>
-      <span className={`${tone ?? "text-[#EDEDED]"} ${mono ? "tabular-nums" : ""}`}>{value}</span>
+      <span className="text-text-mute">{label}</span>
+      <span className={`${tone ?? "text-text"} ${mono ? "tabular-nums" : ""}`}>{value}</span>
     </div>
   );
 }

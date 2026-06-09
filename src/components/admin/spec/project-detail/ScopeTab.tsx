@@ -23,33 +23,33 @@ export function ScopeTab({ data, projectId }: ScopeTabProps) {
                   className="flex flex-col gap-1 py-3"
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-mono text-[12px] tabular-nums text-[#EDEDED]">
+                    <span className="font-mono text-[12px] tabular-nums text-text">
                       V{v.version}
                     </span>
                     <span
                       className={[
                         "rounded-[4px] border px-1.5 py-px font-mono text-[10px] uppercase tracking-[0.16em]",
                         v.isCurrent
-                          ? "border-[#9DB582]/40 text-[#9DB582]"
-                          : "border-white/[0.08] text-[#6A6A6A]",
+                          ? "border-olive/40 text-olive"
+                          : "border-white/[0.08] text-text-mute",
                       ].join(" ")}
                     >
                       {v.isCurrent ? "CURRENT" : v.supersededAt ? "SUPERSEDED" : "DRAFT"}
                     </span>
                   </div>
-                  <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#6A6A6A]">
+                  <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
                     DRAFTED · {formatDate(v.draftedAt)}
                   </div>
-                  <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#6A6A6A]">
+                  <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
                     SENT · {v.sentAt ? formatDate(v.sentAt) : "—"}
                   </div>
                   {v.supersededAt && (
-                    <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#6A6A6A]">
+                    <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
                       SUPERSEDED · {formatDate(v.supersededAt)}
                     </div>
                   )}
                   <div
-                    className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#6A6A6A]"
+                    className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute"
                     title={v.contentHash}
                   >
                     HASH · {truncateHash(v.contentHash, 10)}
@@ -59,7 +59,7 @@ export function ScopeTab({ data, projectId }: ScopeTabProps) {
                       href={v.externalUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#6F94B0] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:text-[#EDEDED]"
+                      className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-2 transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:text-text"
                     >
                       OPEN EXTERNAL ↗
                     </a>
@@ -72,16 +72,16 @@ export function ScopeTab({ data, projectId }: ScopeTabProps) {
             <input type="hidden" name="project_id" value={projectId} />
             <button
               type="submit"
-              className="w-full rounded-[5px] border border-[#6F94B0] px-3 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-[#6F94B0] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#6F94B0] hover:text-black"
+              className="w-full rounded-[5px] border border-ops-accent px-3 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-ops-accent transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-ops-accent hover:text-black"
             >
               {data.current ? "NEW SCOPE REVISION" : "CREATE V1 DRAFT"}
             </button>
-            <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.16em] text-[#6A6A6A]">
-              <span className="text-[#3A3A3A]">[</span>
+            <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
+              <span className="text-text-mute">[</span>
               {data.current
                 ? `INCREMENTS VERSION · MARKS V${data.current.version} SUPERSEDED`
                 : "SEEDS THE FIRST SCOPE DOC"}
-              <span className="text-[#3A3A3A]">]</span>
+              <span className="text-text-mute">]</span>
             </p>
           </form>
         </Panel>
@@ -92,7 +92,7 @@ export function ScopeTab({ data, projectId }: ScopeTabProps) {
           <>
             <Panel title={`CURRENT — V${data.current.version}`}>
               {data.current.contentJson ? (
-                <pre className="overflow-x-auto rounded-[5px] border border-white/[0.06] bg-black/40 p-3 font-mono text-[11px] leading-relaxed text-[#EDEDED]">
+                <pre className="overflow-x-auto rounded-[5px] border border-white/[0.06] bg-black/40 p-3 font-mono text-[11px] leading-relaxed text-text">
 {JSON.stringify(data.current.contentJson, null, 2)}
                 </pre>
               ) : (
@@ -108,14 +108,14 @@ export function ScopeTab({ data, projectId }: ScopeTabProps) {
                   {data.current.features.map((f) => (
                     <li key={f.id} className="space-y-2 py-3">
                       <div className="flex flex-wrap items-baseline justify-between gap-3">
-                        <span className="text-[13px] text-[#EDEDED]">{f.featureName}</span>
+                        <span className="text-[13px] text-text">{f.featureName}</span>
                         <FeatureBadge status={f.status} />
                       </div>
-                      <p className="text-[12px] leading-relaxed text-[#B5B5B5]">
+                      <p className="text-[12px] leading-relaxed text-text-2">
                         {f.acceptanceCriteria}
                       </p>
                       {f.failureNotes && (
-                        <p className="rounded-[5px] border border-[#B58289]/30 bg-[rgba(147,50,26,0.06)] p-2 text-[11px] leading-relaxed text-[#B58289]">
+                        <p className="rounded-[5px] border border-rose/30 bg-[rgba(147,50,26,0.06)] p-2 text-[11px] leading-relaxed text-rose">
                           <span className="mr-1 font-mono uppercase tracking-[0.16em]">
                             FAIL ·
                           </span>
@@ -123,7 +123,7 @@ export function ScopeTab({ data, projectId }: ScopeTabProps) {
                         </p>
                       )}
                       {f.verifiedAt && (
-                        <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#6A6A6A]">
+                        <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
                           VERIFIED · {formatDateTime(f.verifiedAt)}
                         </p>
                       )}
@@ -172,10 +172,10 @@ export function ScopeTab({ data, projectId }: ScopeTabProps) {
 function FeatureBadge({ status }: { status: "pending" | "passing" | "failing" }) {
   const tone =
     status === "passing"
-      ? "text-[#9DB582] border-[#9DB582]/40"
+      ? "text-olive border-olive/40"
       : status === "failing"
-        ? "text-[#B58289] border-[#B58289]/40"
-        : "text-[#8A8A8A] border-white/[0.10]";
+        ? "text-rose border-rose/40"
+        : "text-text-3 border-white/[0.10]";
   return (
     <span
       className={`rounded-[4px] border px-1.5 py-px font-mono text-[10px] uppercase tracking-[0.16em] ${tone}`}
@@ -204,10 +204,10 @@ function FeatureControl({
     "rounded-[4px] border px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] disabled:cursor-not-allowed disabled:opacity-40";
   const toneCls =
     tone === "olive"
-      ? "border-[#9DB582]/40 text-[#9DB582] hover:bg-[#9DB582] hover:text-black"
+      ? "border-olive/40 text-olive hover:bg-olive hover:text-black"
       : tone === "brick"
-        ? "border-[#B58289]/40 text-[#B58289] hover:bg-[#B58289] hover:text-black"
-        : "border-white/[0.10] text-[#8A8A8A] hover:text-[#EDEDED]";
+        ? "border-rose/40 text-rose hover:bg-rose hover:text-black"
+        : "border-white/[0.10] text-text-3 hover:text-text";
   return (
     <form action={markFeature} className="inline-flex">
       <input type="hidden" name="project_id" value={projectId} />
@@ -224,10 +224,10 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
   return (
     <section
       aria-label={title}
-      className="rounded-[10px] border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]"
+      className="glass-surface p-5"
     >
-      <h2 className="mb-3 font-cakemono text-[14px] font-light uppercase leading-none text-[#EDEDED]">
-        <span aria-hidden="true" className="mr-2 font-mono text-[#6A6A6A]">
+      <h2 className="mb-3 font-cakemono text-[14px] font-light uppercase leading-none text-text">
+        <span aria-hidden="true" className="mr-2 font-mono text-text-mute">
           {"//"}
         </span>
         {title}
@@ -239,10 +239,10 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
 
 function EmptyState({ children }: { children: React.ReactNode }) {
   return (
-    <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-[#6A6A6A]">
-      <span className="text-[#3A3A3A]">[</span>
+    <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-text-mute">
+      <span className="text-text-mute">[</span>
       {children}
-      <span className="text-[#3A3A3A]">]</span>
+      <span className="text-text-mute">]</span>
     </p>
   );
 }
