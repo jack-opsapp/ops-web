@@ -327,6 +327,19 @@ export const TaskService = {
       query = query.order("display_order");
     }
 
+    // Stable pagination tiebreaker. The primary sort keys are non-unique —
+    // company-wide, `display_order` has 100+ ties (the vast majority of tasks
+    // sit at 0) and `start_date` repeats across every task scheduled on the same
+    // day. Postgres does not guarantee a consistent ordering of tied rows
+    // between separate page requests, so range()-based pagination silently skips
+    // or duplicates rows on page boundaries — tasks then vanish from the
+    // unscheduled tray and the calendar grid (intermittently, and worse as the
+    // table grows past each 100-row page). Appending the primary key forces a
+    // deterministic total order so every page is consistent. Applies to BOTH the
+    // sortField branch (e.g. fetchScheduledTasksForRange → start_date) and the
+    // default display_order branch (fetchAllTasks → the tray).
+    query = query.order("id");
+
     query = query.range(offset, offset + limit - 1);
 
     const { data, error, count } = await query;
