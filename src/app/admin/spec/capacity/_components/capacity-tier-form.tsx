@@ -48,7 +48,7 @@ export function CapacityTierForm({ row }: CapacityTierFormProps) {
   return (
     <form
       action={handleSubmit}
-      className="rounded-[10px] border border-white/[0.10] bg-[rgba(18,18,20,0.58)] backdrop-blur-[28px] backdrop-saturate-[1.3] p-6"
+      className="glass-surface p-6"
       aria-labelledby={`capacity-${row.tier}-heading`}
     >
       {/* Tier heading */}
@@ -56,20 +56,20 @@ export function CapacityTierForm({ row }: CapacityTierFormProps) {
         <div>
           <h2
             id={`capacity-${row.tier}-heading`}
-            className="font-cakemono text-[20px] font-light uppercase tracking-[0.04em] text-[#EDEDED]"
+            className="font-cakemono text-[20px] font-light uppercase tracking-[0.04em] text-text"
           >
             {row.tier}
           </h2>
-          <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.16em] text-[#6A6A6A]">
-            <span className="text-[#3A3A3A]">[</span>
+          <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
+            <span className="text-text-mute">[</span>
             {TIER_HINT[row.tier]}
-            <span className="text-[#3A3A3A]">]</span>
+            <span className="text-text-mute">]</span>
           </p>
         </div>
-        <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#6A6A6A]">
-          <span className="text-[#3A3A3A]">[</span>
+        <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-text-mute">
+          <span className="text-text-mute">[</span>
           UPDATED {formatUpdatedAt(row.updatedAt)}
-          <span className="text-[#3A3A3A]">]</span>
+          <span className="text-text-mute">]</span>
         </span>
       </header>
 
@@ -190,10 +190,10 @@ export function CapacityTierForm({ row }: CapacityTierFormProps) {
 
       {/* Public note */}
       <Section label="// PUBLIC NOTE">
-        <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[#6A6A6A]">
-          <span className="text-[#3A3A3A]">[</span>
+        <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.14em] text-text-mute">
+          <span className="text-text-mute">[</span>
           SURFACES ON /SPEC OPS BOARD · CUSTOMER-FACING · TERSE
-          <span className="text-[#3A3A3A]">]</span>
+          <span className="text-text-mute">]</span>
         </p>
         <TextArea
           name="public_note"
@@ -207,10 +207,10 @@ export function CapacityTierForm({ row }: CapacityTierFormProps) {
 
       {/* Admin notes */}
       <Section label="// ADMIN NOTES">
-        <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[#6A6A6A]">
-          <span className="text-[#3A3A3A]">[</span>
+        <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.14em] text-text-mute">
+          <span className="text-text-mute">[</span>
           PRIVATE · OPERATOR-ONLY
-          <span className="text-[#3A3A3A]">]</span>
+          <span className="text-text-mute">]</span>
         </p>
         <TextArea
           name="admin_notes"
@@ -225,19 +225,19 @@ export function CapacityTierForm({ row }: CapacityTierFormProps) {
       {/* Footer: save + status */}
       <footer className="mt-6 flex items-center justify-between border-t border-white/[0.06] pt-5">
         <div className="font-mono text-[10px] uppercase tracking-[0.14em]">
-          {pending && <span className="text-[#6A6A6A]">[SAVING…]</span>}
+          {pending && <span className="text-text-mute">[SAVING…]</span>}
           {success && (
-            <span className="text-[#9DB582]">
-              <span className="text-[#3A3A3A]">[</span>
+            <span className="text-olive">
+              <span className="text-text-mute">[</span>
               SAVED · BOARD REFRESHED
-              <span className="text-[#3A3A3A]">]</span>
+              <span className="text-text-mute">]</span>
             </span>
           )}
           {formError && (
-            <span className="text-[#B58289]">
-              <span className="text-[#3A3A3A]">[</span>
+            <span className="text-rose">
+              <span className="text-text-mute">[</span>
               ERR · {formError}
-              <span className="text-[#3A3A3A]">]</span>
+              <span className="text-text-mute">]</span>
             </span>
           )}
         </div>
@@ -258,7 +258,7 @@ export function CapacityTierForm({ row }: CapacityTierFormProps) {
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <section className="mb-6 last:mb-0">
-      <h3 className="mb-3 font-cakemono text-[12px] font-light uppercase tracking-[0.06em] text-[#8A8A8A]">
+      <h3 className="mb-3 font-cakemono text-[12px] font-light uppercase tracking-[0.06em] text-text-3">
         {label}
       </h3>
       <div className="space-y-4">{children}</div>
@@ -283,20 +283,20 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="block font-mono text-[10px] uppercase tracking-[0.18em] text-[#8A8A8A]">
+      <span className="block font-mono text-[10px] uppercase tracking-[0.18em] text-text-3">
         {label}
       </span>
       <div className="mt-1.5">{children}</div>
       {hint && !error ? (
-        <span className="mt-1 block font-mono text-[10px] uppercase tracking-[0.12em] text-[#6A6A6A]">
+        <span className="mt-1 block font-mono text-[10px] uppercase tracking-[0.12em] text-text-mute">
           {hint}
         </span>
       ) : null}
       {error ? (
-        <span className="mt-1 block font-mono text-[10px] uppercase tracking-[0.12em] text-[#B58289]">
-          <span className="text-[#3A3A3A]">[</span>
+        <span className="mt-1 block font-mono text-[10px] uppercase tracking-[0.12em] text-rose">
+          <span className="text-text-mute">[</span>
           {error}
-          <span className="text-[#3A3A3A]">]</span>
+          <span className="text-text-mute">]</span>
         </span>
       ) : null}
     </label>
@@ -304,8 +304,8 @@ function Field({
 }
 
 const INPUT_BASE =
-  "w-full rounded-[5px] border border-white/[0.10] bg-black/40 px-3 py-[7px] font-mono text-[13px] text-[#EDEDED] tabular-nums " +
-  "placeholder:text-[#3A3A3A] " +
+  "w-full rounded-[5px] border border-white/[0.10] bg-black/40 px-3 py-[7px] font-mono text-[13px] text-text tabular-nums " +
+  "placeholder:text-text-mute " +
   "focus:border-[#6F94B0] focus:outline-none " +
   "transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]";
 
@@ -318,7 +318,7 @@ function DollarInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
     <div className="relative">
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 font-mono text-[12px] text-[#6A6A6A]"
+        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 font-mono text-[12px] text-text-mute"
       >
         $
       </span>
@@ -349,10 +349,10 @@ function TextArea({
         {...props}
       />
       {error ? (
-        <span className="mt-1 block font-mono text-[10px] uppercase tracking-[0.12em] text-[#B58289]">
-          <span className="text-[#3A3A3A]">[</span>
+        <span className="mt-1 block font-mono text-[10px] uppercase tracking-[0.12em] text-rose">
+          <span className="text-text-mute">[</span>
           {error}
-          <span className="text-[#3A3A3A]">]</span>
+          <span className="text-text-mute">]</span>
         </span>
       ) : null}
     </div>
@@ -370,7 +370,7 @@ function Toggle({
 }) {
   return (
     <div className="flex flex-col">
-      <span className="block font-mono text-[10px] uppercase tracking-[0.18em] text-[#8A8A8A]">
+      <span className="block font-mono text-[10px] uppercase tracking-[0.18em] text-text-3">
         {label}
       </span>
       <button
@@ -379,15 +379,15 @@ function Toggle({
         aria-pressed={enabled}
         className={`mt-1.5 inline-flex h-[34px] items-center justify-between gap-3 rounded-[5px] border px-3 font-mono text-[11px] uppercase tracking-[0.14em] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] ${
           enabled
-            ? "border-[#9DB582]/40 bg-[#9DB582]/8 text-[#9DB582]"
-            : "border-[#93321A]/40 bg-[#93321A]/8 text-[#B58289]"
+            ? "border-olive/40 bg-olive/8 text-olive"
+            : "border-brick/40 bg-brick/8 text-rose"
         }`}
       >
         <span>{enabled ? "OPEN" : "CLOSED"}</span>
         <span
           aria-hidden="true"
           className={`inline-block h-[8px] w-[8px] rounded-full ${
-            enabled ? "bg-[#9DB582]" : "bg-[#B58289]"
+            enabled ? "bg-olive" : "bg-rose"
           }`}
         />
       </button>

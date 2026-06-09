@@ -46,9 +46,9 @@ export function RefreshBoardButton({ initialRefreshedAt }: RefreshBoardButtonPro
 
   return (
     <div className="flex items-center gap-3">
-      <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#6A6A6A]">
-        <span className="text-[#3A3A3A]">[</span>UPDATED {formatRefreshedAt(refreshedAt)}
-        <span className="text-[#3A3A3A]">]</span>
+      <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-mute">
+        <span className="text-text-mute">[</span>UPDATED {formatRefreshedAt(refreshedAt)}
+        <span className="text-text-mute">]</span>
       </span>
       <button
         type="button"
@@ -59,9 +59,9 @@ export function RefreshBoardButton({ initialRefreshedAt }: RefreshBoardButtonPro
         {pending ? "REFRESHING…" : "REFRESH BOARD"}
       </button>
       {error && (
-        <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-[#B58289]">
-          <span className="text-[#3A3A3A]">[</span>ERR · {error}
-          <span className="text-[#3A3A3A]">]</span>
+        <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-rose">
+          <span className="text-text-mute">[</span>ERR · {error}
+          <span className="text-text-mute">]</span>
         </span>
       )}
     </div>
