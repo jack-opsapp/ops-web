@@ -10,7 +10,7 @@ import {
   type RefundPaymentRow,
 } from "@/lib/spec/refund-breakdown";
 import type { SpecPaymentMilestone, SpecRefundPaymentSummary } from "@/lib/admin/spec-types";
-import { formatCents } from "../../_components/format";
+import { formatCents, formatCentsCompact } from "../../_components/format";
 
 interface RefundBreakdownPreviewProps {
   payments: SpecRefundPaymentSummary[];
@@ -79,7 +79,7 @@ export function RefundBreakdownPreview({
               <span className="text-text-mute">{"//"}</span> TOTAL CASH REFUND
             </td>
             <td className="pt-2 font-mono text-[11px] uppercase tracking-[0.12em] text-text-mute">
-              <span className="text-text-mute">[</span>void/cn ${(totals.totalNonCashAdjustmentCents / 100).toFixed(0)}<span className="text-text-mute">]</span>
+              <span className="text-text-mute">[</span>void/cn {formatCentsCompact(totals.totalNonCashAdjustmentCents)}<span className="text-text-mute">]</span>
             </td>
             <td className="pt-2 text-right font-mono text-[13px] tabular-nums text-text">
               {formatCents(totals.totalCashRefundCents)}

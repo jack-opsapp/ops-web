@@ -6,6 +6,13 @@ import {
 } from "../../_components/sortable-table-header";
 import type { SearchTermData } from "@/lib/analytics/google-ads-types";
 
+const CAD = new Intl.NumberFormat("en-CA", {
+  style: "currency",
+  currency: "CAD",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
 const COLUMNS = [
   { key: "searchTerm", label: "Search Term" },
   { key: "campaignName", label: "Campaign" },
@@ -50,10 +57,10 @@ export function SearchTermsTable({ searchTerms }: SearchTermsTableProps) {
                 <td className="py-3 pr-3 font-mohave text-[14px] text-[#EDEDED]">{t.searchTerm}</td>
                 <td className="py-3 pr-3 font-mohave text-[14px] text-[#A0A0A0]">{t.campaignName}</td>
                 <td className="py-3 pr-3 font-mohave text-[14px] text-[#A0A0A0]">{t.adGroupName ?? "—"}</td>
-                <td className="py-3 pr-3 font-mohave text-[14px] text-[#A0A0A0] tabular-nums">{t.impressions.toLocaleString()}</td>
-                <td className="py-3 pr-3 font-mohave text-[14px] text-[#A0A0A0] tabular-nums">{t.clicks.toLocaleString()}</td>
-                <td className="py-3 pr-3 font-mohave text-[14px] text-[#EDEDED] tabular-nums">${t.cost.toFixed(2)}</td>
-                <td className="py-3 pr-3 font-mohave text-[14px] text-[#A0A0A0] tabular-nums">{t.conversions.toFixed(1)}</td>
+                <td className="py-3 pr-3 font-mono text-[14px] text-[#A0A0A0] tabular-nums">{t.impressions.toLocaleString()}</td>
+                <td className="py-3 pr-3 font-mono text-[14px] text-[#A0A0A0] tabular-nums">{t.clicks.toLocaleString()}</td>
+                <td className="py-3 pr-3 font-mono text-[14px] text-[#EDEDED] tabular-nums">{CAD.format(t.cost)}</td>
+                <td className="py-3 pr-3 font-mono text-[14px] text-[#A0A0A0] tabular-nums">{t.conversions.toFixed(1)}</td>
               </tr>
             ))}
           </tbody>

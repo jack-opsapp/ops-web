@@ -6,6 +6,13 @@ import {
 } from "../../_components/sortable-table-header";
 import type { CampaignPerformance } from "@/lib/analytics/google-ads-types";
 
+const CAD = new Intl.NumberFormat("en-CA", {
+  style: "currency",
+  currency: "CAD",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
 const COLUMNS = [
   { key: "name", label: "Campaign" },
   { key: "status", label: "Status" },
@@ -60,12 +67,12 @@ export function CampaignTable({ campaigns }: CampaignTableProps) {
                     {c.status}
                   </span>
                 </td>
-                <td className="py-3 pr-3 font-mohave text-[14px] text-[#A0A0A0] tabular-nums">{c.impressions.toLocaleString()}</td>
-                <td className="py-3 pr-3 font-mohave text-[14px] text-[#A0A0A0] tabular-nums">{c.clicks.toLocaleString()}</td>
-                <td className="py-3 pr-3 font-mohave text-[14px] text-[#A0A0A0] tabular-nums">{(c.ctr * 100).toFixed(1)}%</td>
-                <td className="py-3 pr-3 font-mohave text-[14px] text-[#EDEDED] tabular-nums">${c.cost.toFixed(2)}</td>
-                <td className="py-3 pr-3 font-mohave text-[14px] text-[#A0A0A0] tabular-nums">{c.conversions.toFixed(1)}</td>
-                <td className="py-3 pr-3 font-mohave text-[14px] text-[#EDEDED] tabular-nums">${c.cpa.toFixed(2)}</td>
+                <td className="py-3 pr-3 font-mono text-[14px] text-[#A0A0A0] tabular-nums">{c.impressions.toLocaleString()}</td>
+                <td className="py-3 pr-3 font-mono text-[14px] text-[#A0A0A0] tabular-nums">{c.clicks.toLocaleString()}</td>
+                <td className="py-3 pr-3 font-mono text-[14px] text-[#A0A0A0] tabular-nums">{(c.ctr * 100).toFixed(1)}%</td>
+                <td className="py-3 pr-3 font-mono text-[14px] text-[#EDEDED] tabular-nums">{CAD.format(c.cost)}</td>
+                <td className="py-3 pr-3 font-mono text-[14px] text-[#A0A0A0] tabular-nums">{c.conversions.toFixed(1)}</td>
+                <td className="py-3 pr-3 font-mono text-[14px] text-[#EDEDED] tabular-nums">{CAD.format(c.cpa)}</td>
               </tr>
             ))}
           </tbody>
