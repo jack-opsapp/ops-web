@@ -265,6 +265,11 @@ export function IntegrationsTab() {
         title: "You have leads waiting",
         body: "Your inbox analysis found leads. Finish the import to add them to your pipeline.",
         persistent: true,
+        // Pre-import onboarding CTA — no opportunity entity exists yet, so this
+        // routes to the inbox/import surface (web follows action_url to the
+        // integrations settings; iOS routes on `inbox`) instead of landing in
+        // the legacy NULL-deep_link_type fallback. See bible §14.3.5.
+        deepLinkType: "inbox",
         actionUrl: "/settings?tab=integrations",
         actionLabel: "Continue Import",
       });
