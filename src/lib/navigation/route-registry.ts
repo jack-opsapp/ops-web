@@ -82,6 +82,9 @@ export interface RouteEntry {
   fullHeight?: FullHeightMode;
   /** P3 absorption schedule — documentation + the wave's swap checklist. */
   absorbedBy?: { phase: string; target: string };
+  /** Command-palette search aliases (English code-level hints — the
+   *  visible label stays i18n'd via labelKey). */
+  paletteKeywords?: string[];
 }
 
 // ─── Registry ────────────────────────────────────────────────────────────────
@@ -92,6 +95,7 @@ export const ROUTE_REGISTRY: readonly RouteEntry[] = [
     href: "/dashboard",
     icon: LayoutDashboard,
     labelKey: "nav.dashboard",
+    paletteKeywords: ["home", "overview", "stats"],
     nav: { order: 1, group: "command" },
   },
   {
@@ -99,6 +103,7 @@ export const ROUTE_REGISTRY: readonly RouteEntry[] = [
     href: "/projects",
     icon: FolderKanban,
     labelKey: "nav.projects",
+    paletteKeywords: ["jobs", "work"],
     nav: { order: 2, group: "command" },
     permission: "projects.view",
     fullHeight: "bleed",
@@ -108,6 +113,7 @@ export const ROUTE_REGISTRY: readonly RouteEntry[] = [
     href: "/map",
     icon: MapPin,
     labelKey: "nav.map",
+    paletteKeywords: ["locations", "tracking", "gps"],
     nav: { order: 3, group: "command" },
     permission: "map.view",
     fullHeight: "bleed",
@@ -118,6 +124,7 @@ export const ROUTE_REGISTRY: readonly RouteEntry[] = [
     href: "/schedule",
     icon: CalendarDays,
     labelKey: "nav.schedule",
+    paletteKeywords: ["calendar", "events", "dates"],
     nav: { order: 4, group: "command" },
     permission: "calendar.view",
     fullHeight: "padded",
@@ -127,6 +134,7 @@ export const ROUTE_REGISTRY: readonly RouteEntry[] = [
     href: "/pipeline",
     icon: GitBranch,
     labelKey: "nav.pipeline",
+    paletteKeywords: ["leads", "sales", "crm"],
     nav: { order: 5, group: "command" },
     permission: "pipeline.view",
     fullHeight: "padded",
@@ -136,6 +144,7 @@ export const ROUTE_REGISTRY: readonly RouteEntry[] = [
     href: "/estimates",
     icon: FileText,
     labelKey: "nav.estimates",
+    paletteKeywords: ["quotes", "proposals"],
     nav: { order: 6, group: "command" },
     permission: "estimates.view",
     absorbedBy: { phase: "3.1", target: "/books?segment=estimates" },
@@ -145,6 +154,7 @@ export const ROUTE_REGISTRY: readonly RouteEntry[] = [
     href: "/invoices",
     icon: Receipt,
     labelKey: "nav.invoices",
+    paletteKeywords: ["billing", "payments"],
     nav: { order: 7, group: "command" },
     permission: "invoices.view",
     absorbedBy: { phase: "3.1", target: "/books?segment=invoices" },
@@ -154,6 +164,7 @@ export const ROUTE_REGISTRY: readonly RouteEntry[] = [
     href: "/accounting",
     icon: Calculator,
     labelKey: "nav.accounting",
+    paletteKeywords: ["finance", "money", "quickbooks"],
     nav: { order: 8, group: "command" },
     permission: "accounting.view",
     absorbedBy: { phase: "3.1", target: "/books?segment=invoices&view=aging" },
@@ -163,6 +174,7 @@ export const ROUTE_REGISTRY: readonly RouteEntry[] = [
     href: "/products",
     icon: Package,
     labelKey: "nav.products",
+    paletteKeywords: ["catalog", "pricing"],
     nav: { order: 9, group: "command" },
     permission: "products.view",
     absorbedBy: { phase: "3.2", target: "/catalog?segment=products" },
@@ -172,6 +184,7 @@ export const ROUTE_REGISTRY: readonly RouteEntry[] = [
     href: "/inventory",
     icon: Boxes,
     labelKey: "nav.inventory",
+    paletteKeywords: ["stock", "items", "materials"],
     nav: { order: 10, group: "command" },
     permission: "inventory.view",
     absorbedBy: { phase: "3.2", target: "/catalog?segment=stock" },
@@ -181,6 +194,7 @@ export const ROUTE_REGISTRY: readonly RouteEntry[] = [
     href: "/clients",
     icon: Users,
     labelKey: "nav.clients",
+    paletteKeywords: ["customers", "contacts"],
     nav: { order: 11, group: "command" },
     permission: "clients.view",
   },
@@ -189,6 +203,7 @@ export const ROUTE_REGISTRY: readonly RouteEntry[] = [
     href: "/team",
     icon: UserCog,
     labelKey: "nav.team",
+    paletteKeywords: ["crew", "members", "staff"],
     nav: { order: 12, group: "command" },
     permission: "team.view",
     absorbedBy: { phase: "3.4", target: "/settings?section=team" },
@@ -200,6 +215,7 @@ export const ROUTE_REGISTRY: readonly RouteEntry[] = [
     href: "/calibration",
     icon: Radar,
     labelKey: "nav.calibration",
+    paletteKeywords: ["ai", "training", "corpus"],
     nav: { order: 20, group: "ops" },
     permission: "email.configure_ai",
     phaseCOnly: true,
@@ -209,6 +225,7 @@ export const ROUTE_REGISTRY: readonly RouteEntry[] = [
     href: "/agent/queue",
     icon: BrainCircuit,
     labelKey: "nav.agentQueue",
+    paletteKeywords: ["approvals", "ai", "queue"],
     nav: { order: 21, group: "ops" },
     permission: "pipeline.view",
     phaseCOnly: true,
@@ -219,6 +236,7 @@ export const ROUTE_REGISTRY: readonly RouteEntry[] = [
     href: "/settings",
     icon: Settings,
     labelKey: "nav.settings",
+    paletteKeywords: ["preferences", "profile", "account"],
     nav: { order: 22, group: "ops" },
   },
 
@@ -232,6 +250,7 @@ export const ROUTE_REGISTRY: readonly RouteEntry[] = [
     href: "/inbox",
     icon: Mail,
     labelKey: "nav.inbox",
+    paletteKeywords: ["email", "mail", "threads"],
     nav: false,
     permission: "pipeline.view",
     fullHeight: "padded",

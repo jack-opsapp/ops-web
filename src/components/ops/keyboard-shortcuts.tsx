@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { getNumberShortcutRoutes } from "@/lib/navigation/route-registry";
 import { useSidebarStore } from "@/stores/sidebar-store";
 
 /**
@@ -79,17 +80,9 @@ export function KeyboardShortcuts() {
       // Skip if any modifier is pressed (for number shortcuts)
       if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
 
-      // Number key navigation
-      const routes: Record<string, string> = {
-        "1": "/dashboard",
-        "2": "/projects",
-        "3": "/schedule",
-        "4": "/clients",
-        "5": "/team",
-        "6": "/map",
-        "7": "/pipeline",
-        "8": "/invoices",
-      };
+      // Number key navigation — derived from the route registry's nav
+      // order so the map can never drift from the sidebar or palette.
+      const routes = getNumberShortcutRoutes();
 
       if (routes[e.key]) {
         e.preventDefault();
