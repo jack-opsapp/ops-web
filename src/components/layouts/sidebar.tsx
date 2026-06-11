@@ -1,200 +1,219 @@
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { OpsMark } from "@/components/brand";
-import {
-  LayoutDashboard,
-  FolderKanban,
-  CalendarDays,
-  Users,
+/**
+ * Sidebar — the HUD rail (WEB OVERHAUL P2, rebuilt from scratch).
+ *
+ * Desktop: 72px instrument rail at rest → 240px glass-dense overlay on
+ * hover. Expansion waits 120ms of hover intent (mousing past the rail to
+ * reach content never flares it open) and collapses after an 80ms grace.
+ * Keyboard focus entering the rail expands it immediately.
+ *
+ * Mobile (<768px): slide-in drawer, always-expanded anatomy, scrim
+ * dismiss + Escape.
+ *
+ * Nav structure comes from the route registry — labels resolve through the
+ * `navigation` dictionary, visibility through RBAC (`can`), commercial
+ * feature flags (`isPermissionUnlocked` → dimmed request-access state),
+ * and the Phase C posture (`canAccessFeature("phase_c")` → entries render
+ * only for flagged companies, invisible to everyone else). The Inbox nav
+ * entry is gone (master plan §3 — UI shelved); its route survives for
+ * inbox_ui-flagged companies via the page's server gate + the registry's
+ * non-nav entry, reachable by URL and old notification links.
+ *
+ * Z (nav band): top bar 500 · mobile scrim 502 · sidebar 505.
+ */
 
-  UserCog,
-  MapPin,
-  GitBranch,
-  Mail,
-  FileText,
-  Receipt,
-  Package,
-  Boxes,
-  Calculator,
-  Radar,
-  BrainCircuit,
-  Settings,
-  LogOut,
-  Building2,
-  Globe,
-  GraduationCap,
-  Smartphone,
-} from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Building2 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
+import { OpsMark } from "@/components/brand";
 import { useSidebarStore } from "@/stores/sidebar-store";
 import { useAuthStore } from "@/lib/store/auth-store";
-import { usePermissionStore, selectPermissionsReady } from "@/lib/store/permissions-store";
-import { useFeatureFlagsStore } from "@/lib/store/feature-flags-store";
+import {
+  usePermissionStore,
+  selectPermissionsReady,
+} from "@/lib/store/permissions-store";
+import {
+  useFeatureFlagsStore,
+  selectFlagsReady,
+} from "@/lib/store/feature-flags-store";
 import { useCompany } from "@/lib/hooks";
-import { useSignOutStore } from "@/stores/signout-store";
 import { useDictionary } from "@/i18n/client";
-import { FeatureAccessModal } from "@/components/ops/feature-access-modal";
 import { useFeatureAccessRequests } from "@/lib/hooks/use-feature-access-requests";
-import { useInboxUnreadCount } from "@/lib/hooks/use-inbox-threads";
 import { useApprovalQueuePendingCount } from "@/lib/hooks/use-approval-queue";
 import { getSlugForPermission } from "@/lib/feature-flags/feature-flag-definitions";
 import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
+  getNavEntries,
+  isNavEntryActive,
+  type RouteEntry,
+  type NavGroup,
+} from "@/lib/navigation/route-registry";
+import { FeatureAccessModal } from "@/components/ops/feature-access-modal";
+import { OperatorMenu } from "./operator-menu";
+import packageJson from "../../../package.json";
 
-interface NavItem {
-  label: string;
-  href: string;
-  icon: React.ComponentType<{ className?: string }>;
-  /** Permission required to see this nav item (omit = always visible) */
-  permission?: string;
-  gated?: boolean;
-  /** Unread count badge */
-  badge?: number;
-}
+// Rail geometry — the 72px rest width is shared with dashboard-layout's
+// pl-[72px] content inset and md:left-[72px] top-bar offset.
+const RAIL_REST_PX = 72;
+const RAIL_EXPANDED_PX = 240;
+const MOBILE_DRAWER_PX = 280;
+const HOVER_INTENT_MS = 120;
+const HOVER_GRACE_MS = 80;
 
-type NavEntry = NavItem | "divider";
+// ─── Nav row ─────────────────────────────────────────────────────────────────
 
-function buildNavItems(t: (key: string) => string): NavEntry[] {
-  return [
-    { label: t("nav.dashboard"), href: "/dashboard", icon: LayoutDashboard },
-    "divider",
-    { label: t("nav.projects"), href: "/projects", icon: FolderKanban, permission: "projects.view" },
-    { label: t("nav.calendar"), href: "/schedule", icon: CalendarDays, permission: "calendar.view" },
-    { label: t("nav.clients"), href: "/clients", icon: Users, permission: "clients.view" },
-
-    { label: t("nav.team"), href: "/team", icon: UserCog, permission: "team.view" },
-    { label: t("nav.map"), href: "/map", icon: MapPin, permission: "map.view" },
-    "divider",
-    { label: t("nav.pipeline"), href: "/pipeline", icon: GitBranch, permission: "pipeline.view" },
-    { label: t("nav.inbox"), href: "/inbox", icon: Mail, permission: "pipeline.view" },
-    { label: t("nav.calibration"), href: "/calibration", icon: Radar, permission: "email.configure_ai" },
-    { label: t("nav.estimates"), href: "/estimates", icon: FileText, permission: "estimates.view" },
-    { label: t("nav.invoices"), href: "/invoices", icon: Receipt, permission: "invoices.view" },
-    "divider",
-    { label: t("nav.products"), href: "/products", icon: Package, permission: "products.view" },
-    { label: t("nav.inventory"), href: "/inventory", icon: Boxes, permission: "inventory.view" },
-    { label: t("nav.accounting"), href: "/accounting", icon: Calculator, permission: "accounting.view" },
-    "divider",
-    { label: t("nav.agentQueue"), href: "/agent/queue", icon: BrainCircuit, permission: "admin" },
-    "divider",
-    { label: t("nav.settings"), href: "/settings", icon: Settings },
-  ];
-}
-
-function NavItemButton({
-  item,
-  isActive,
-  isCollapsed,
-  isRequested,
-  onGatedClick,
-  onNavigate,
-}: {
-  item: NavItem;
+interface NavRowProps {
+  entry: RouteEntry;
+  expanded: boolean;
   isActive: boolean;
-  isCollapsed: boolean;
-  isRequested?: boolean;
-  onGatedClick?: () => void;
-  onNavigate?: () => void;
-}) {
-  const router = useRouter();
+  gated: boolean;
+  badgeCount?: number;
+  gatedTooltip?: string;
+  onSelect: () => void;
+}
 
-  const tooltipText = item.gated
-    ? isRequested
-      ? "Access requested \u2014 we\u2019ll be in touch"
-      : "In development"
-    : isCollapsed
-      ? item.label
-      : undefined;
+function NavRow({
+  entry,
+  expanded,
+  isActive,
+  gated,
+  badgeCount,
+  gatedTooltip,
+  onSelect,
+}: NavRowProps) {
+  const Icon = entry.icon;
+  const { t } = useDictionary("navigation");
 
   return (
     <button
-      onClick={() => {
-        if (item.gated && onGatedClick) {
-          onGatedClick();
-        } else if (!item.gated) {
-          router.push(item.href);
-          onNavigate?.();
-        }
-      }}
-      title={tooltipText}
+      type="button"
+      onClick={onSelect}
+      title={gated ? gatedTooltip : !expanded ? t(entry.labelKey) : undefined}
+      aria-current={isActive ? "page" : undefined}
       className={cn(
-        "group relative flex items-center w-full h-[36px] rounded-[6px] transition-colors duration-150",
-        isCollapsed ? "justify-center px-0" : "gap-1.5 px-1.5",
-        item.gated
-          ? "text-text-mute opacity-50 cursor-pointer hover:opacity-70"
-          : [
-              "text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.04)]",
-              isActive && "text-text",
-            ]
+        "group relative flex w-full items-center h-[36px] rounded-[6px]",
+        "transition-colors duration-150 ease-smooth motion-reduce:transition-none",
+        expanded ? "gap-3 px-[11px]" : "justify-center px-0",
+        gated
+          ? "text-text-mute opacity-50 hover:opacity-70 cursor-pointer"
+          : isActive
+            ? "text-text"
+            : "text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.04)]"
       )}
     >
-      {/* Active indicator — 2px text-2 bar (no accent per spec) */}
-      {isActive && !item.gated && (
+      {/* Active indicator — 2px text-2 bar at the rail edge. No accent on nav. */}
+      {isActive && !gated && (
         <span
           aria-hidden="true"
-          className="pointer-events-none absolute left-0 top-[6px] bottom-[6px] w-[2px] bg-text-2 rounded-[1px]"
+          className="pointer-events-none absolute -left-3.5 top-[6px] bottom-[6px] w-[2px] rounded-[1px] bg-text-2"
         />
       )}
-      <item.icon
+      <Icon
         className={cn(
-          "shrink-0 w-[20px] h-[20px] transition-colors",
-          item.gated
+          "h-[20px] w-[20px] shrink-0 transition-colors duration-150 motion-reduce:transition-none",
+          gated
             ? "text-text-mute"
             : isActive
               ? "text-text"
               : "text-text-3 group-hover:text-text-2"
         )}
       />
-      {!isCollapsed && (
-        <span className="font-mohave text-body-sm truncate uppercase">{item.label}</span>
+      {expanded && (
+        <span className="truncate font-cakemono font-light text-[13px] uppercase tracking-[0.02em]">
+          {t(entry.labelKey)}
+        </span>
       )}
-      {/* Unread badge */}
-      {item.badge !== undefined && item.badge > 0 && (
+      {badgeCount !== undefined && badgeCount > 0 && (
         <span
           className={cn(
-            "inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-full",
-            "font-mono text-micro leading-none bg-fill-neutral text-text",
-            isCollapsed && "absolute top-0 right-0"
+            "font-mono text-micro leading-none text-text-2 tabular-nums",
+            "rounded-[4px] bg-[rgba(255,255,255,0.08)] px-[5px] py-[2px]",
+            expanded ? "ml-auto" : "absolute right-[6px] top-[2px]"
           )}
         >
-          {item.badge > 99 ? "99+" : item.badge}
+          {badgeCount > 99 ? "99+" : badgeCount}
         </span>
       )}
     </button>
   );
 }
 
+// ─── Group section mark ──────────────────────────────────────────────────────
+
+function GroupMark({
+  group,
+  expanded,
+  first,
+}: {
+  group: NavGroup;
+  expanded: boolean;
+  first: boolean;
+}) {
+  const { t } = useDictionary("navigation");
+  if (!expanded) {
+    // At rest the group boundary reads as a hairline (no room for a label).
+    if (first) return null;
+    return (
+      <div
+        aria-hidden="true"
+        className="mx-1.5 my-2 h-px bg-[rgba(255,255,255,0.06)]"
+      />
+    );
+  }
+  return (
+    <div className="flex items-baseline gap-1 px-2 pb-1.5 pt-2.5">
+      <span
+        aria-hidden="true"
+        className="font-mono text-[10px] tracking-[0.16em] text-text-mute"
+      >
+        {"//"}
+      </span>
+      <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
+        {t(`group.${group}`)}
+      </span>
+    </div>
+  );
+}
+
+// ─── Sidebar ─────────────────────────────────────────────────────────────────
+
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { isHoverExpanded, setHoverExpanded, isMobileOpen, closeMobile } = useSidebarStore();
+  const { isHoverExpanded, setHoverExpanded, isMobileOpen, closeMobile } =
+    useSidebarStore();
   const currentUser = useAuthStore((s) => s.currentUser);
   const storeCompany = useAuthStore((s) => s.company);
   const { data: freshCompany } = useCompany();
   const company = freshCompany ?? storeCompany;
-  const beginSignOut = useSignOutStore((s) => s.begin);
-  const { t } = useDictionary("sidebar");
+  const { t } = useDictionary("navigation");
+
   const can = usePermissionStore((s) => s.can);
   const permissionsReady = usePermissionStore(selectPermissionsReady);
-  const isPermissionUnlocked = useFeatureFlagsStore((s) => s.isPermissionUnlocked);
+  const isPermissionUnlocked = useFeatureFlagsStore(
+    (s) => s.isPermissionUnlocked
+  );
   const canAccessFeature = useFeatureFlagsStore((s) => s.canAccessFeature);
-  // inbox_ui is a per-company dark-launch flag — only call the unread hook
-  // when the feature is actually enabled for this company (fail-closed).
-  const inboxEnabled = canAccessFeature("inbox_ui");
-  const [accessModalOpen, setAccessModalOpen] = useState(false);
-  const [accessModalFeature, setAccessModalFeature] = useState<{ label: string; slug: string } | null>(null);
-  const { data: requestedSlugs, refetch: refetchRequests } = useFeatureAccessRequests(currentUser?.id);
-  const { data: inboxUnreadCount = 0 } = useInboxUnreadCount();
-  const { data: agentQueuePendingCount = 0 } = useApprovalQueuePendingCount();
+  const flagsReady = useFeatureFlagsStore(selectFlagsReady);
 
-  // Mobile: detect viewport and derive effective collapsed state
+  // Phase C surfaces render only for flagged companies. Flags load async
+  // and unknown slugs default to accessible, so the readiness gate is what
+  // prevents a boot-time flash of Calibration/Agent Queue for everyone.
+  const phaseCVisible = flagsReady && canAccessFeature("phase_c");
+
+  const { data: agentQueuePendingCount = 0 } = useApprovalQueuePendingCount({
+    enabled: phaseCVisible,
+  });
+
+  const [accessModalFeature, setAccessModalFeature] = useState<{
+    label: string;
+    slug: string;
+  } | null>(null);
+  const { data: requestedSlugs, refetch: refetchRequests } =
+    useFeatureAccessRequests(currentUser?.id);
+
+  // ── Mobile detection ───────────────────────────────────────────────────
   const [isMobileView, setIsMobileView] = useState(false);
   useEffect(() => {
     const check = () => {
@@ -207,259 +226,270 @@ export function Sidebar() {
     return () => window.removeEventListener("resize", check);
   }, [closeMobile]);
 
-  // Desktop: collapsed at rest, expanded on hover (overlay, no content push)
-  // Mobile: always show expanded labels in the drawer
-  const effectiveCollapsed = isMobileView ? false : !isHoverExpanded;
-  const allNavItems = useMemo(() => buildNavItems(t), [t]);
+  // Escape closes the mobile drawer.
+  useEffect(() => {
+    if (!isMobileOpen) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") closeMobile();
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [isMobileOpen, closeMobile]);
 
-  const navItems = useMemo(() => {
-    if (!permissionsReady) return allNavItems;
+  // ── Hover intent (desktop) ─────────────────────────────────────────────
+  const expandTimer = useRef<number | null>(null);
+  const collapseTimer = useRef<number | null>(null);
+  const clearTimers = useCallback(() => {
+    if (expandTimer.current !== null) window.clearTimeout(expandTimer.current);
+    if (collapseTimer.current !== null)
+      window.clearTimeout(collapseTimer.current);
+    expandTimer.current = null;
+    collapseTimer.current = null;
+  }, []);
+  useEffect(() => clearTimers, [clearTimers]);
 
-    const mapped = allNavItems.map((entry) => {
-      // inbox_ui dark-launch gate — completely remove from nav when off.
-      // Checked before badge injection so useInboxUnreadCount is never surfaced.
-      if (entry !== "divider" && entry.href === "/inbox" && !inboxEnabled) {
-        return null;
+  const handleEnter = useCallback(() => {
+    if (isMobileView) return;
+    clearTimers();
+    expandTimer.current = window.setTimeout(
+      () => setHoverExpanded(true),
+      HOVER_INTENT_MS
+    );
+  }, [isMobileView, clearTimers, setHoverExpanded]);
+
+  const handleLeave = useCallback(() => {
+    if (isMobileView) return;
+    clearTimers();
+    collapseTimer.current = window.setTimeout(
+      () => setHoverExpanded(false),
+      HOVER_GRACE_MS
+    );
+  }, [isMobileView, clearTimers, setHoverExpanded]);
+
+  // Keyboard parity: focus entering the rail expands immediately; focus
+  // leaving collapses after the same grace as the pointer path.
+  const handleFocus = useCallback(() => {
+    if (isMobileView) return;
+    clearTimers();
+    setHoverExpanded(true);
+  }, [isMobileView, clearTimers, setHoverExpanded]);
+
+  const handleBlur = useCallback(
+    (e: React.FocusEvent<HTMLElement>) => {
+      if (isMobileView) return;
+      if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+      handleLeave();
+    },
+    [isMobileView, handleLeave]
+  );
+
+  const expanded = isMobileView ? true : isHoverExpanded;
+
+  // ── Nav rows (registry × live gates) ───────────────────────────────────
+  type Row =
+    | { kind: "mark"; group: NavGroup; first: boolean }
+    | { kind: "entry"; entry: RouteEntry; gated: boolean; badgeCount?: number };
+
+  const rows = useMemo<Row[]>(() => {
+    const out: Row[] = [];
+    let currentGroup: NavGroup | null = null;
+
+    for (const entry of getNavEntries()) {
+      if (entry.nav === false) continue;
+      if (entry.phaseCOnly && !phaseCVisible) continue;
+
+      let gated = false;
+      if (entry.permission) {
+        if (!isPermissionUnlocked(entry.permission)) {
+          // Commercial feature flag locked — visible but dimmed, click
+          // opens the request-access flow.
+          gated = true;
+        } else if (permissionsReady && !can(entry.permission)) {
+          // RBAC — hidden outright once permissions have resolved.
+          continue;
+        }
       }
-      // Inject unread badge for inbox
-      if (entry !== "divider" && entry.href === "/inbox" && inboxUnreadCount > 0) {
-        entry = { ...entry, badge: inboxUnreadCount };
-      }
-      // Inject pending count badge for agent queue
-      if (entry !== "divider" && entry.href === "/agent/queue" && agentQueuePendingCount > 0) {
-        entry = { ...entry, badge: agentQueuePendingCount };
-      }
-      if (entry === "divider") return entry;
-      if (!entry.permission) return entry;
 
-      // Feature flag check — if gated, keep visible but mark as gated
-      if (!isPermissionUnlocked(entry.permission)) {
-        return { ...entry, gated: true };
+      if (entry.nav.group !== currentGroup) {
+        out.push({
+          kind: "mark",
+          group: entry.nav.group,
+          first: currentGroup === null,
+        });
+        currentGroup = entry.nav.group;
       }
 
-      // RBAC permission check — hide if user lacks permission
-      if (!can(entry.permission)) return null;
+      out.push({
+        kind: "entry",
+        entry,
+        gated,
+        badgeCount:
+          entry.badge === "agentQueuePending" && agentQueuePendingCount > 0
+            ? agentQueuePendingCount
+            : undefined,
+      });
+    }
+    return out;
+  }, [
+    phaseCVisible,
+    isPermissionUnlocked,
+    permissionsReady,
+    can,
+    agentQueuePendingCount,
+  ]);
 
-      return entry;
-    }).filter((entry): entry is NavEntry => entry !== null);
-
-    // Clean up consecutive/leading/trailing dividers
-    return mapped.filter((entry, i, arr) => {
-      if (entry !== "divider") return true;
-      if (i === 0 || i === arr.length - 1) return false;
-      return arr[i - 1] !== "divider";
-    });
-  }, [allNavItems, can, permissionsReady, isPermissionUnlocked, inboxEnabled, inboxUnreadCount, agentQueuePendingCount]);
-
-  const handleSignOut = useCallback(() => {
-    beginSignOut(currentUser?.firstName || "", currentUser?.lastName || "");
-  }, [beginSignOut, currentUser]);
-
-  const isActive = (href: string) => {
-    if (href === "/dashboard") return pathname === "/dashboard";
-    return pathname.startsWith(href);
-  };
+  const handleSelect = useCallback(
+    (entry: RouteEntry, gated: boolean) => {
+      if (gated && entry.permission) {
+        const slug = getSlugForPermission(entry.permission);
+        if (slug) setAccessModalFeature({ label: t(entry.labelKey), slug });
+        return;
+      }
+      router.push(entry.href);
+      setHoverExpanded(false);
+      closeMobile();
+    },
+    [router, setHoverExpanded, closeMobile, t]
+  );
 
   return (
     <>
-      {/* Mobile backdrop */}
+      {/* Mobile scrim */}
       {isMobileOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-[44] md:hidden"
+          className="fixed inset-0 z-[502] bg-black/50 md:hidden"
           onClick={closeMobile}
           aria-hidden="true"
         />
       )}
+
       <aside
-        onMouseEnter={() => { if (!isMobileView) setHoverExpanded(true); }}
-        onMouseLeave={() => { if (!isMobileView) setHoverExpanded(false); }}
+        onMouseEnter={handleEnter}
+        onMouseLeave={handleLeave}
+        onFocusCapture={handleFocus}
+        onBlur={handleBlur}
         aria-hidden={isMobileView && !isMobileOpen ? "true" : undefined}
         className={cn(
-          "fixed left-0 top-0 h-screen z-[45]",
+          "fixed left-0 top-0 z-[505] flex h-screen flex-col",
           "border-r border-[rgba(255,255,255,0.06)]",
-          "flex flex-col transition-all duration-200 ease-out",
-          effectiveCollapsed ? "w-[72px]" : "w-[256px]",
-          // Mobile: off-screen by default, slide in when open. We pair the
-          // translate with invisible/pointer-events-none so the drawer is
-          // genuinely removed from interaction even if the transform fails
-          // to apply (some legacy mobile browsers / WebView rendering paths
-          // dropped the sidebar back into layout, which left it overlapping
-          // dashboard widgets at 390px).
-          isMobileOpen ? "translate-x-0" : "-translate-x-full",
-          isMobileOpen ? "visible pointer-events-auto" : "invisible pointer-events-none",
-          // Restore visibility/interaction at md+ regardless of mobile-open
-          // state so the desktop hover-rail keeps working.
+          "transition-[width,transform] duration-200 ease-smooth motion-reduce:transition-none",
+          // Mobile: off-canvas drawer. The visibility/pointer-events pair
+          // keeps the drawer genuinely inert when closed even if a legacy
+          // WebView drops the transform (drawer used to land back in layout
+          // and overlap dashboard widgets at 390px).
+          isMobileOpen
+            ? "translate-x-0 visible pointer-events-auto"
+            : "-translate-x-full invisible pointer-events-none",
           "md:translate-x-0 md:visible md:pointer-events-auto"
         )}
         style={{
+          width: isMobileView
+            ? MOBILE_DRAWER_PX
+            : expanded
+              ? RAIL_EXPANDED_PX
+              : RAIL_REST_PX,
           background: "var(--surface-glass-dense)",
           backdropFilter: "blur(28px) saturate(1.3)",
           WebkitBackdropFilter: "blur(28px) saturate(1.3)",
         }}
       >
-      {/* Company Branding */}
-      <div
-        className={cn(
-          "flex items-center h-[56px] border-b border-border shrink-0",
-          effectiveCollapsed ? "justify-center px-1" : "px-2 gap-1.5"
-        )}
-      >
-        <div className="shrink-0 w-[24px] h-[24px] rounded bg-[rgba(255,255,255,0.08)] flex items-center justify-center overflow-hidden">
-          {company?.logoURL ? (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img
-              src={company.logoURL}
-              alt={company.name || t("companyAlt")}
-              className="w-full h-full object-cover"
-              referrerPolicy="no-referrer"
-            />
-          ) : (
-            <Building2 className="w-[14px] h-[14px] text-text-3" />
-          )}
-        </div>
-        {!effectiveCollapsed && (
-          <span className="font-mohave text-body text-text truncate uppercase">
-            {company?.name || t("companyFallback")}
-          </span>
-        )}
-      </div>
-
-      {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto py-1 px-1 space-y-[2px]">
-        {navItems.map((entry, i) => {
-          if (entry === "divider") {
-            return (
-              <div key={`div-${i}`} className="my-1 mx-1.5 h-px bg-[rgba(255,255,255,0.06)]" />
-            );
-          }
-          const slug = entry.permission ? getSlugForPermission(entry.permission) : null;
-          const isRequested = slug ? requestedSlugs?.has(slug) ?? false : false;
-
-          return (
-            <NavItemButton
-              key={entry.href}
-              item={entry}
-              isActive={!entry.gated && isActive(entry.href)}
-              isCollapsed={effectiveCollapsed}
-              onNavigate={() => { setHoverExpanded(false); closeMobile(); }}
-              isRequested={isRequested}
-              onGatedClick={
-                entry.gated && slug
-                  ? () => {
-                      setAccessModalFeature({ label: entry.label, slug });
-                      setAccessModalOpen(true);
-                    }
-                  : undefined
-              }
-            />
-          );
-        })}
-      </nav>
-
-      {/* Collapse chevron removed — sidebar uses hover-to-expand in HUD mode */}
-
-      {/* Bottom Section */}
-      <div className="border-t border-border p-1 space-y-1 shrink-0">
-        {/* OPS Branding */}
+        {/* Company header */}
         <div
           className={cn(
-            "flex items-center rounded px-1.5 py-1",
-            effectiveCollapsed ? "justify-center" : "gap-1"
+            "flex h-[56px] shrink-0 items-center border-b border-[rgba(255,255,255,0.06)]",
+            expanded ? "gap-2.5 px-[20px]" : "justify-center px-0"
           )}
         >
-          <OpsMark
-            title=""
-            className="select-none shrink-0 h-4 w-auto opacity-40 text-text-mute"
-          />
-          <span
-            className={cn(
-              "font-mono text-micro text-text-mute select-none transition-opacity duration-200",
-              effectiveCollapsed ? "opacity-0 w-0 overflow-hidden" : "opacity-100 delay-150"
+          <div className="flex h-[28px] w-[28px] shrink-0 items-center justify-center overflow-hidden rounded-[5px] bg-[rgba(255,255,255,0.08)]">
+            {company?.logoURL ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={company.logoURL}
+                alt={company.name || t("company.logoAlt")}
+                className="h-full w-full object-cover"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <Building2 className="h-[16px] w-[16px] text-text-3" />
             )}
-          >
-            VERSION 02/16/2026
-          </span>
+          </div>
+          {expanded && (
+            <span className="truncate font-cakemono font-light text-[14px] uppercase text-text">
+              {company?.name || t("company.fallback")}
+            </span>
+          )}
         </div>
 
-        {/* User section — avatar dropdown */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              className={cn(
-                "flex items-center rounded bg-[rgba(255,255,255,0.03)] p-1 w-full",
-                "hover:bg-[rgba(255,255,255,0.06)] transition-colors cursor-pointer",
-                effectiveCollapsed ? "justify-center" : "gap-1.5"
-              )}
-            >
-              <div
-                className="shrink-0 w-[32px] h-[32px] rounded-full flex items-center justify-center overflow-hidden border-2 border-[rgba(255,255,255,0.18)]"
-              >
-                {currentUser?.profileImageURL ? (
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img
-                    src={currentUser.profileImageURL}
-                    alt={currentUser.firstName || t("userFallback")}
-                    className="w-full h-full object-cover"
-                    referrerPolicy="no-referrer"
-                  />
-                ) : (
-                  <span className="font-mohave text-body-sm text-text-2">
-                    {currentUser?.firstName?.charAt(0)?.toUpperCase() || currentUser?.email?.charAt(0)?.toUpperCase() || "U"}
-                  </span>
-                )}
+        {/* Navigation */}
+        <nav className="flex-1 overflow-y-auto overflow-x-hidden px-3.5 py-1.5 scrollbar-hide">
+          {rows.map((row, i) =>
+            row.kind === "mark" ? (
+              <GroupMark
+                key={`mark-${row.group}-${i}`}
+                group={row.group}
+                expanded={expanded}
+                first={row.first}
+              />
+            ) : (
+              <div key={row.entry.key} className="mb-[2px]">
+                <NavRow
+                  entry={row.entry}
+                  expanded={expanded}
+                  isActive={!row.gated && isNavEntryActive(row.entry, pathname)}
+                  gated={row.gated}
+                  badgeCount={row.badgeCount}
+                  gatedTooltip={
+                    row.gated && row.entry.permission
+                      ? requestedSlugs?.has(
+                          getSlugForPermission(row.entry.permission) ?? ""
+                        )
+                        ? t("gated.accessRequested")
+                        : t("gated.inDevelopment")
+                      : undefined
+                  }
+                  onSelect={() => handleSelect(row.entry, row.gated)}
+                />
               </div>
+            )
+          )}
+        </nav>
 
-              {!effectiveCollapsed && (
-                <div className="flex-1 min-w-0 text-left">
-                  <p className="font-mohave text-body-sm text-text truncate">
-                    {currentUser ? `${currentUser.firstName || ""} ${currentUser.lastName || ""}`.trim() || currentUser.email : t("userFallback")}
-                  </p>
-                </div>
-              )}
-            </button>
-          </DropdownMenuTrigger>
+        {/* Footer: brand + version, then the operator section */}
+        <div className="shrink-0 border-t border-[rgba(255,255,255,0.06)] p-3.5 pt-2.5">
+          <div
+            className={cn(
+              "flex items-center gap-2 pb-2",
+              expanded ? "px-2" : "justify-center px-0"
+            )}
+          >
+            <OpsMark
+              title=""
+              className="h-[14px] w-auto shrink-0 select-none text-text-mute opacity-50"
+            />
+            {expanded && (
+              <span className="select-none font-mono text-[10px] tracking-[0.14em] text-text-mute tabular-nums">
+                {t("version.prefix")}
+                {packageJson.version}
+              </span>
+            )}
+          </div>
+          <OperatorMenu expanded={expanded} />
+        </div>
+      </aside>
 
-          <DropdownMenuContent side="top" align={effectiveCollapsed ? "center" : "start"} sideOffset={8}>
-            <DropdownMenuItem onClick={() => router.push("/settings")}>
-              <Settings className="w-[16px] h-[16px] text-text-3" />
-              Settings
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => window.open("https://opsapp.co", "_blank")}>
-              <Globe className="w-[16px] h-[16px] text-text-3" />
-              OPS Website
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => window.open("https://learn.opsapp.co", "_blank")}>
-              <GraduationCap className="w-[16px] h-[16px] text-text-3" />
-              Courses
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => window.open("#", "_blank")}>
-              <Smartphone className="w-[16px] h-[16px] text-text-3" />
-              Download iOS App
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleSignOut} className="text-ops-error focus:text-ops-error">
-              <LogOut className="w-[16px] h-[16px]" />
-              Sign Out
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-
-      {/* Feature Access Request Modal */}
+      {/* Feature access request modal (gated entries) */}
       {accessModalFeature && (
         <FeatureAccessModal
-          open={accessModalOpen}
-          onClose={() => {
-            setAccessModalOpen(false);
-            setAccessModalFeature(null);
-          }}
+          open={accessModalFeature !== null}
+          onClose={() => setAccessModalFeature(null)}
           featureLabel={accessModalFeature.label}
           featureSlug={accessModalFeature.slug}
-          alreadyRequested={requestedSlugs?.has(accessModalFeature.slug) ?? false}
+          alreadyRequested={
+            requestedSlugs?.has(accessModalFeature.slug) ?? false
+          }
           onRequestSubmitted={() => refetchRequests()}
         />
       )}
-    </aside>
     </>
   );
 }

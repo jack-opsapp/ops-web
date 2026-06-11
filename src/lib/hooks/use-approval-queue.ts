@@ -90,12 +90,18 @@ export function useApprovalQueueStats() {
   });
 }
 
-export function useApprovalQueuePendingCount() {
+export function useApprovalQueuePendingCount(
+  options: { enabled?: boolean } = {},
+) {
   const { company } = useAuthStore();
   const companyId = company?.id ?? "";
   // Agent queue is a pipeline-level feature — gate by pipeline.view so
   // crew/operator users don't hit /api/agent/queue and earn 403s in the console.
   const canView = usePermissionStore((s) => s.can("pipeline.view"));
+  // Callers can gate further (the sidebar only polls when the company has
+  // the phase_c flag — non-Phase-C companies never see the badge, so they
+  // should not poll a 60s count for it either).
+  const callerEnabled = options.enabled ?? true;
 
   return useQuery<number>({
     queryKey: queryKeys.approvalQueue.pendingCount(companyId),
@@ -105,7 +111,7 @@ export function useApprovalQueuePendingCount() {
       );
       return data.count;
     },
-    enabled: !!companyId && canView,
+    enabled: !!companyId && canView && callerEnabled,
     refetchInterval: 60_000,
   });
 }

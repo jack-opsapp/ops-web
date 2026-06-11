@@ -1,41 +1,29 @@
 "use client";
 
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
 
+/**
+ * Shell sidebar state (WEB OVERHAUL P2).
+ *
+ * Desktop is a 72px HUD rail that hover-expands to a 240px overlay — both
+ * transient, nothing persists. Mobile (<768px) uses a slide-in drawer.
+ * The legacy isCollapsed/toggle/setCollapsed fields (pre-HUD pin/collapse
+ * era) had no consumers left outside the old sidebar and are gone.
+ */
 interface SidebarState {
-  /** Whether the sidebar is hover-expanded (transient, not persisted) */
+  /** Desktop rail is hover-expanded (transient). */
   isHoverExpanded: boolean;
-  /** Whether the mobile drawer is open */
+  /** Mobile drawer is open. */
   isMobileOpen: boolean;
   setHoverExpanded: (expanded: boolean) => void;
   openMobile: () => void;
   closeMobile: () => void;
-
-  // Legacy — kept for backward compatibility during migration.
-  // Components that read isCollapsed now always get true (sidebar is always collapsed at rest).
-  isCollapsed: boolean;
-  toggle: () => void;
-  setCollapsed: (collapsed: boolean) => void;
 }
 
-export const useSidebarStore = create<SidebarState>()(
-  persist(
-    (set) => ({
-      isHoverExpanded: false,
-      isMobileOpen: false,
-      setHoverExpanded: (isHoverExpanded) => set({ isHoverExpanded }),
-      openMobile: () => set({ isMobileOpen: true }),
-      closeMobile: () => set({ isMobileOpen: false }),
-
-      // Legacy — always collapsed in HUD mode
-      isCollapsed: true,
-      toggle: () => {},
-      setCollapsed: () => {},
-    }),
-    {
-      name: "ops-sidebar-state",
-      partialize: () => ({}), // Nothing to persist — sidebar is always collapsed at rest
-    }
-  )
-);
+export const useSidebarStore = create<SidebarState>()((set) => ({
+  isHoverExpanded: false,
+  isMobileOpen: false,
+  setHoverExpanded: (isHoverExpanded) => set({ isHoverExpanded }),
+  openMobile: () => set({ isMobileOpen: true }),
+  closeMobile: () => set({ isMobileOpen: false }),
+}));
