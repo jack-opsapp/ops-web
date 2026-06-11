@@ -6,18 +6,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   FolderKanban,
-  CalendarDays,
   Users,
-  UserCog,
-  MapPin,
   Settings,
   Plus,
   Search,
-
-  LayoutDashboard,
-  GitBranch,
-  Receipt,
-  Calculator,
   LogOut,
   Keyboard,
   RefreshCw,
