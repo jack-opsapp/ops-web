@@ -172,6 +172,7 @@ function LifecycleSettings() {
 
 function QuickActionsCard() {
   const { t } = useDictionary("settings");
+  const { t: tQuickActions } = useDictionary("quick-actions");
   const { currentUser, updateFabActions } = useAuthStore();
   const activeIds: string[] = currentUser?.fabActions ?? DEFAULT_ACTION_IDS;
 
@@ -212,7 +213,7 @@ function QuickActionsCard() {
             >
               <Icon className="w-[16px] h-[16px] text-text-2 shrink-0" />
               <span className="font-mohave text-[14px] text-text flex-1">
-                {action.label}
+                {tQuickActions(action.labelKey)}
               </span>
               <button
                 onClick={() => toggle(action.id)}

@@ -4,10 +4,12 @@ import { cn } from "@/lib/utils/cn";
 import { Card, CardContent } from "@/components/ui/card";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { ALL_ACTIONS, DEFAULT_ACTION_IDS } from "@/lib/constants/fab-actions";
+import { useDictionary } from "@/i18n/client";
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function QuickActionsTab() {
+  const { t } = useDictionary("quick-actions");
   const { currentUser, updateFabActions } = useAuthStore();
   const activeIds: string[] = currentUser?.fabActions ?? DEFAULT_ACTION_IDS;
 
@@ -49,7 +51,7 @@ export function QuickActionsTab() {
               >
                 <Icon className="w-[16px] h-[16px] text-text-2 shrink-0" />
                 <span className="font-mohave text-[14px] text-text flex-1">
-                  {action.label}
+                  {t(action.labelKey)}
                 </span>
                 <button
                   onClick={() => toggle(action.id)}
@@ -59,7 +61,7 @@ export function QuickActionsTab() {
                     "disabled:opacity-40 disabled:cursor-not-allowed",
                     isActive ? "bg-text-2" : "bg-fill-neutral-dim"
                   )}
-                  aria-label={isActive ? `Remove ${action.label}` : `Add ${action.label}`}
+                  aria-label={isActive ? `Remove ${t(action.labelKey)}` : `Add ${t(action.labelKey)}`}
                 >
                   <span
                     className={cn(

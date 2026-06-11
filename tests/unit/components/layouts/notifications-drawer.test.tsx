@@ -6,8 +6,9 @@ import { NotificationsDrawer } from "@/components/layouts/notifications-drawer";
 import { useEdgeTabStore } from "@/stores/edge-tab-store";
 import type { AppNotification } from "@/lib/api/services/notification-service";
 
-const { dismissMutationMock, routerPushMock } = vi.hoisted(() => ({
+const { dismissMutationMock, dismissAllMutationMock, routerPushMock } = vi.hoisted(() => ({
   dismissMutationMock: vi.fn(),
+  dismissAllMutationMock: vi.fn(),
   routerPushMock: vi.fn(),
 }));
 
@@ -70,7 +71,7 @@ const mockNotifs: AppNotification[] = [
 vi.mock("@/lib/hooks/use-notifications", () => ({
   useNotifications: () => ({ data: mockNotifs }),
   useDismissNotification: () => ({ mutate: dismissMutationMock, isPending: false }),
-  useDismissAllNotifications: () => ({ mutate: vi.fn(), isPending: false }),
+  useDismissAllNotifications: () => ({ mutate: dismissAllMutationMock, isPending: false }),
 }));
 
 vi.mock("@/stores/duplicate-review-store", () => ({
@@ -87,6 +88,7 @@ describe("<NotificationsDrawer>", () => {
   beforeEach(() => {
     useEdgeTabStore.setState({ activeTab: null });
     dismissMutationMock.mockClear();
+    dismissAllMutationMock.mockClear();
     routerPushMock.mockClear();
   });
 
@@ -154,19 +156,15 @@ describe("<NotificationsDrawer>", () => {
     expect(clearBtn).not.toBeDisabled();
   });
 
-  it("footer 'VIEW ALL →' resets filter to ALL", async () => {
+  it("footer CLEAR ALL dismisses all dismissible notifications", async () => {
     useEdgeTabStore.setState({ activeTab: "notifications" });
     const user = userEvent.setup();
     wrap(<NotificationsDrawer />);
-    await user.click(screen.getByRole("tab", { name: /filters\.critical/i }));
-    expect(screen.queryByText("Marcus mentioned you")).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /footer\.viewAll/i }));
-    expect(screen.getByText("Role needed")).toBeInTheDocument();
-    expect(screen.getByText("Marcus mentioned you")).toBeInTheDocument();
-    expect(screen.getByText("Gmail sync complete")).toBeInTheDocument();
+    await user.click(screen.getByLabelText(/drawer\.clearAllAriaLabel/i));
+    expect(dismissAllMutationMock).toHaveBeenCalledTimes(1);
   });
 
-  it("resolves a persistent notification when its action opens a route", async () => {
+  it("routes a persistent notification's action WITHOUT dismissing it", async () => {
     useEdgeTabStore.setState({ activeTab: "notifications" });
     const user = userEvent.setup();
     wrap(<NotificationsDrawer />);
@@ -174,7 +172,9 @@ describe("<NotificationsDrawer>", () => {
     await user.click(screen.getByText("Role needed"));
     await user.click(screen.getByRole("button", { name: /ASSIGN/i }));
 
-    expect(dismissMutationMock).toHaveBeenCalledWith("n1");
+    // Persistent notifications stay until resolved programmatically — the
+    // action click must not clear them.
+    expect(dismissMutationMock).not.toHaveBeenCalled();
     expect(routerPushMock).toHaveBeenCalledWith("/dashboard?openProject=00247&mode=view");
   });
 });

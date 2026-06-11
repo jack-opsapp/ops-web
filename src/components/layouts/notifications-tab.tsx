@@ -7,17 +7,15 @@ import { useEdgeTabStore } from "@/stores/edge-tab-store";
 import { resolveTone, toneRank } from "@/lib/notifications/notification-meta";
 import { useDictionary } from "@/i18n/client";
 import type { EdgeTabAccent } from "@/components/ui/edge-tab.types";
+import { EDGE_RAIL_STACK } from "@/components/ui/edge-rail-layout";
 
 const EDGE_TAB_ID = "notifications";
-// Combined-stack math: Notifications (180px) above gap (8px) above FAB (132px),
-// gap centered on drawer-area midpoint. Notif center = -4px - 90px = -94px.
-const STACK_OFFSET_NOTIF = -94;
+const RAIL = EDGE_RAIL_STACK.notifications;
 
 export function NotificationsTab() {
   const { t } = useDictionary("notifications");
   const { data: notifs = [] } = useNotifications();
   const open = useEdgeTabStore((s) => s.activeTab === EDGE_TAB_ID);
-  const anyActive = useEdgeTabStore((s) => s.activeTab !== null);
   const toggle = useEdgeTabStore((s) => s.toggle);
 
   const count = notifs.length;
@@ -38,8 +36,7 @@ export function NotificationsTab() {
 
   // Tinted glass — when an urgent or attention notification is outstanding,
   // wash the tab in a 0.12-alpha rose glaze so the rail picks up the
-  // semantic hue alongside the brighter accent stripe. Default = neutral.
-  // (Bug 82cc08e5.)
+  // semantic hue alongside the brighter accent stripe. (Bug 82cc08e5.)
   const tint = useMemo<"neutral" | "rose" | "accent">(() => {
     if (topTone === "critical" || topTone === "attn") return "rose";
     return "neutral";
@@ -68,16 +65,15 @@ export function NotificationsTab() {
       count={count}
       accent={accent}
       tint={tint}
-      restHeight={180}
-      drawerWidth={360}
-      stackOffset={STACK_OFFSET_NOTIF}
-      canHoverExpand={!anyActive || open}
+      height={RAIL.height}
+      drawerWidth={RAIL.drawerWidth}
+      stackOffset={RAIL.stackOffset}
       wordmark={t("tab.wordmarkClosed")}
       wordmarkOpen={t("tab.wordmarkOpen")}
       ariaLabel={t("tab.ariaLabel")}
       shortcut="N"
       tooltipTitle={t("tab.tooltipTitle")}
-      closedGlyphRotation={-90}
+      openGlyphRotation={0}
       renderGlyph={(isOpen) => (
         <svg
           width="14"

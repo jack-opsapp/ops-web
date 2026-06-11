@@ -1,7 +1,22 @@
 "use client";
 
+/**
+ * Notifications drawer (WEB OVERHAUL P2 recomposition).
+ *
+ * Panel-anchored 360×520 glass-dense drawer sharing the unified rail
+ * anatomy: `// TITLE` + count header, segmented tone filters, rows with
+ * hover-revealed actions, and a `SYS :: SYNC hh:mm` + CLEAR ALL footer.
+ *
+ * Removed dead chrome (approved in the P2 design): the disabled mute-all
+ * bell, the disabled row snooze, and the misleading VIEW ALL (it only
+ * reset the filter — the segmented strip is one tap away). CLEAR ALL
+ * moved from an icon in the header to a labeled footer action.
+ * Outside-click dismiss is owned by the global EdgeTabOutsideDismiss
+ * (data-edge-tab-drawer) — the drawer-local duplicate handler is gone.
+ * Action clicks only auto-dismiss non-persistent notifications.
+ */
+
 import { useState, useMemo, useEffect, useRef } from "react";
-import { BellOff, CheckCheck } from "lucide-react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import {
@@ -24,9 +39,19 @@ import {
 } from "@/lib/utils/motion";
 import { useDictionary } from "@/i18n/client";
 import type { AppNotification } from "@/lib/api/services/notification-service";
+import {
+  EDGE_RAIL_BOTTOM,
+  EDGE_RAIL_STACK,
+  EDGE_RAIL_TOP,
+  EDGE_Z_DRAWER,
+  getEdgeRailDrawerWidthStyle,
+  getEdgeRailHeightStyle,
+  getEdgeRailTopStyle,
+} from "@/components/ui/edge-rail-layout";
 
 type DrawerTone = "critical" | "attn" | "ambient";
 const EDGE_TAB_ID = "notifications";
+const RAIL = EDGE_RAIL_STACK.notifications;
 
 function bucketTone(n: AppNotification): DrawerTone {
   const raw = resolveTone(n.type);
@@ -44,7 +69,6 @@ export function NotificationsDrawer() {
   const openDuplicateSheet = useDuplicateReviewStore((s) => s.openSheet);
   const reducedMotion = useReducedMotion();
   const listRef = useRef<HTMLDivElement>(null);
-  const drawerRef = useRef<HTMLElement>(null);
 
   const [filter, setFilter] = useState<"all" | DrawerTone>("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -86,40 +110,6 @@ export function NotificationsDrawer() {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [open, close]);
 
-  // Outside-click dismiss (bug 5b653c30). Ignore clicks on:
-  //   - The drawer itself (drawerRef)
-  //   - The paired edge tab (`[data-edge-tab="notifications"]`)
-  //   - The Quick Actions tab (its toggle handler will close us — clicking
-  //     it should not double-close)
-  //   - Any portaled content the drawer owns (Radix popovers, dialogs) —
-  //     identified by `[data-edge-tab-detached]` or by lineage check via
-  //     `composedPath()` for Shadow DOM safety.
-  // Use `mousedown` (not click) capture so we beat any internal handlers.
-  useEffect(() => {
-    if (!open) return;
-    function handleOutsideMouseDown(e: MouseEvent) {
-      const target = e.target as Node | null;
-      if (!target) return;
-      const path = e.composedPath();
-
-      // 1. Click was inside the drawer body — keep open.
-      if (drawerRef.current && drawerRef.current.contains(target)) return;
-      if (drawerRef.current && path.includes(drawerRef.current)) return;
-
-      // 2. Click was on a tab button — let the tab's toggle handle state.
-      for (const node of path) {
-        if (!(node instanceof HTMLElement)) continue;
-        if (node.dataset?.edgeTab) return;
-        if (node.dataset?.edgeTabDetached === "true") return;
-      }
-
-      close(EDGE_TAB_ID);
-    }
-    document.addEventListener("mousedown", handleOutsideMouseDown, true);
-    return () =>
-      document.removeEventListener("mousedown", handleOutsideMouseDown, true);
-  }, [open, close]);
-
   const counts = useMemo(() => {
     const c = { critical: 0, attn: 0, ambient: 0 };
     for (const n of notifs) c[bucketTone(n)]++;
@@ -139,7 +129,9 @@ export function NotificationsDrawer() {
   const syncTime = useMemo(() => {
     if (!dataUpdatedAt) return "—:—";
     const d = new Date(dataUpdatedAt);
-    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    return `${String(d.getHours()).padStart(2, "0")}:${String(
+      d.getMinutes(),
+    ).padStart(2, "0")}`;
   }, [dataUpdatedAt]);
 
   const handleRowClick = (n: AppNotification) => {
@@ -148,13 +140,13 @@ export function NotificationsDrawer() {
 
   const handleAction = (n: AppNotification) => {
     if (n.type === "duplicates_found") {
-      dismissMutation.mutate(n.id);
+      if (!n.persistent) dismissMutation.mutate(n.id);
       openDuplicateSheet();
       close(EDGE_TAB_ID);
       return;
     }
     if (n.actionUrl) {
-      dismissMutation.mutate(n.id);
+      if (!n.persistent) dismissMutation.mutate(n.id);
       router.push(n.actionUrl);
       close(EDGE_TAB_ID);
     }
@@ -165,27 +157,19 @@ export function NotificationsDrawer() {
     setExpandedId((prev) => (prev === id ? null : prev));
   };
 
-  const handleViewAll = () => {
-    setFilter("all");
-    setExpandedId(null);
-    if (typeof listRef.current?.scrollTo === "function") {
-      listRef.current.scrollTo({
-        top: 0,
-        behavior: reducedMotion ? "auto" : "smooth",
-      });
-    }
-  };
-
   const variants = reducedMotion ? drawerVariantsReduced : drawerVariants;
+  const panelWidth = getEdgeRailDrawerWidthStyle(RAIL.drawerWidth);
 
-  const CHIPS = useMemo<Array<{
-    key: "all" | DrawerTone;
-    label: string;
-    color: string;
-    line: string;
-    soft: string;
-    count: number;
-  }>>(
+  const CHIPS = useMemo<
+    Array<{
+      key: "all" | DrawerTone;
+      label: string;
+      color: string;
+      line: string;
+      soft: string;
+      count: number;
+    }>
+  >(
     () => [
       {
         key: "all",
@@ -226,303 +210,302 @@ export function NotificationsDrawer() {
   return (
     <AnimatePresence mode="wait">
       {open && (
-        <motion.aside
-          ref={drawerRef}
-          key="notifications-drawer"
-          variants={variants}
-          initial="hidden"
-          animate="visible"
-          exit="exit"
-          role="complementary"
-          aria-label={t("drawer.ariaLabel")}
-          data-edge-tab-drawer="notifications"
+        <div
+          aria-hidden={false}
           style={{
             position: "fixed",
-            top: 72,
+            top: EDGE_RAIL_TOP,
             right: 0,
-            bottom: 16,
-            width: "min(360px, calc(100vw - 36px))",
-            display: "flex",
-            flexDirection: "column",
-            background: "var(--glass)",
-            backdropFilter: "blur(28px) saturate(1.3)",
-            WebkitBackdropFilter: "blur(28px) saturate(1.3)",
-            border: "1px solid var(--glass-border)",
-            borderRight: "none",
-            zIndex: 1500,
-            overflow: "hidden",
+            bottom: EDGE_RAIL_BOTTOM,
+            width: panelWidth,
+            maxWidth: "calc(100vw - 36px)",
+            pointerEvents: "none",
+            zIndex: EDGE_Z_DRAWER,
           }}
         >
-          <span
-            aria-hidden
+          <motion.aside
+            key="notifications-drawer"
+            variants={variants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            role="complementary"
+            aria-label={t("drawer.ariaLabel")}
+            data-edge-tab-drawer="notifications"
             style={{
               position: "absolute",
-              inset: 0,
-              pointerEvents: "none",
-              background: "linear-gradient(180deg, rgba(255,255,255,0.04), transparent 40%)",
-            }}
-          />
-
-          {/* Header */}
-          <div
-            style={{
+              top: getEdgeRailTopStyle(RAIL.drawerHeight, RAIL.stackOffset),
+              right: 0,
+              width: panelWidth,
+              maxWidth: "calc(100vw - 36px)",
+              height: getEdgeRailHeightStyle(RAIL.drawerHeight),
               display: "flex",
-              alignItems: "center",
-              padding: "12px 14px 10px",
-              borderBottom: "1px solid rgba(255,255,255,0.06)",
-              position: "relative",
+              flexDirection: "column",
+              background: "var(--glass-dense)",
+              backdropFilter: "blur(28px) saturate(1.3)",
+              WebkitBackdropFilter: "blur(28px) saturate(1.3)",
+              border: "1px solid var(--glass-border)",
+              borderRight: "none",
+              borderTopLeftRadius: 10,
+              borderBottomLeftRadius: 10,
+              pointerEvents: "auto",
+              overflow: "hidden",
             }}
           >
+            {/* Top-edge highlight gradient */}
             <span
+              aria-hidden
               style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: 10,
-                color: "var(--text-mute)",
-                letterSpacing: "0.16em",
+                position: "absolute",
+                inset: 0,
+                pointerEvents: "none",
+                background:
+                  "linear-gradient(180deg, rgba(255,255,255,0.04), transparent 40%)",
               }}
-            >
-              {"//"}
-            </span>
-            <span
-              style={{
-                fontFamily: "var(--font-cakemono)",
-                fontWeight: 300,
-                fontSize: 13,
-                color: "var(--text)",
-                textTransform: "uppercase",
-                letterSpacing: "0.08em",
-                marginLeft: 6,
-              }}
-            >
-              {t("drawer.title")}
-            </span>
-            <span
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: 11,
-                color: "var(--text-2)",
-                marginLeft: 8,
-                fontVariantNumeric: "tabular-nums",
-              }}
-            >
-              {notifs.length}
-            </span>
-            <div style={{ flex: 1 }} />
-            <button
-              type="button"
-              aria-label={t("drawer.muteAllAriaLabel")}
-              style={drawerIconBtnStyle}
-              title={t("row.snoozeTooltipComingSoon")}
-              disabled
-              aria-disabled
-            >
-              <BellOff size={12} />
-            </button>
-            <button
-              type="button"
-              aria-label={t("drawer.clearAllAriaLabel")}
-              disabled={!hasDismissible || dismissAllMutation.isPending}
-              onClick={() => dismissAllMutation.mutate()}
-              style={{
-                ...drawerIconBtnStyle,
-                opacity: !hasDismissible ? 0.4 : 1,
-                cursor: !hasDismissible ? "default" : "pointer",
-              }}
-            >
-              <CheckCheck size={12} />
-            </button>
-          </div>
+            />
 
-          {/* Filter chips */}
-          <div
-            role="tablist"
-            aria-label={t("filters.ariaLabel")}
-            style={{
-              display: "flex",
-              gap: 4,
-              padding: "8px 14px 10px",
-              borderBottom: "1px solid rgba(255,255,255,0.06)",
-              flexWrap: "wrap",
-            }}
-          >
-            {CHIPS.map((c) => {
-              const active = filter === c.key;
-              return (
-                <motion.button
-                  key={c.key}
-                  role="tab"
-                  aria-selected={active}
-                  aria-controls="notifications-drawer-list"
-                  onClick={() => handleFilterChange(c.key)}
-                  variants={reducedMotion ? undefined : chipVariants}
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: 10,
-                    letterSpacing: "0.12em",
-                    padding: "4px 8px",
-                    borderRadius: 4,
-                    cursor: "pointer",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 6,
-                    background: active ? c.soft : "rgba(255,255,255,0.02)",
-                    border: `1px solid ${active ? c.line : "rgba(255,255,255,0.08)"}`,
-                    color: active ? c.color : "var(--text-3)",
-                    transition: reducedMotion
-                      ? "none"
-                      : "background 160ms var(--ease-smooth), border-color 160ms var(--ease-smooth), color 160ms var(--ease-smooth)",
-                  }}
-                >
-                  {c.key !== "all" && (
-                    <span
-                      aria-hidden
-                      style={{
-                        width: 5,
-                        height: 5,
-                        borderRadius: 1,
-                        background: c.color,
-                        opacity: active ? 1 : 0.55,
-                        transition: reducedMotion
-                          ? "none"
-                          : "opacity 160ms var(--ease-smooth)",
-                      }}
-                    />
-                  )}
-                  {c.label}
-                  <span
+            {/* Header */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                padding: "12px 14px 10px",
+                borderBottom: "1px solid rgba(255,255,255,0.06)",
+                position: "relative",
+              }}
+            >
+              <span
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 10,
+                  color: "var(--text-mute)",
+                  letterSpacing: "0.16em",
+                }}
+              >
+                {"//"}
+              </span>
+              <span
+                style={{
+                  fontFamily: "var(--font-cakemono)",
+                  fontWeight: 300,
+                  fontSize: 13,
+                  color: "var(--text)",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.08em",
+                  marginLeft: 6,
+                }}
+              >
+                {t("drawer.title")}
+              </span>
+              <span
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 11,
+                  color: "var(--text-2)",
+                  marginLeft: 8,
+                  fontVariantNumeric: "tabular-nums",
+                }}
+              >
+                {notifs.length}
+              </span>
+            </div>
+
+            {/* Filter chips */}
+            <div
+              role="tablist"
+              aria-label={t("filters.ariaLabel")}
+              style={{
+                display: "flex",
+                gap: 4,
+                padding: "8px 14px 10px",
+                borderBottom: "1px solid rgba(255,255,255,0.06)",
+                flexWrap: "nowrap",
+                overflowX: "hidden",
+              }}
+            >
+              {CHIPS.map((c) => {
+                const active = filter === c.key;
+                return (
+                  <motion.button
+                    key={c.key}
+                    role="tab"
+                    aria-selected={active}
+                    aria-controls="notifications-drawer-list"
+                    onClick={() => handleFilterChange(c.key)}
+                    variants={reducedMotion ? undefined : chipVariants}
                     style={{
-                      color: active ? c.color : "var(--text-mute)",
-                      opacity: active ? 0.85 : 1,
-                      fontVariantNumeric: "tabular-nums",
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 10,
+                      letterSpacing: "0.12em",
+                      padding: "4px 8px",
+                      borderRadius: 4,
+                      cursor: "pointer",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      whiteSpace: "nowrap",
+                      background: active ? c.soft : "rgba(255,255,255,0.02)",
+                      border: `1px solid ${
+                        active ? c.line : "rgba(255,255,255,0.08)"
+                      }`,
+                      color: active ? c.color : "var(--text-3)",
                       transition: reducedMotion
                         ? "none"
-                        : "color 160ms var(--ease-smooth), opacity 160ms var(--ease-smooth)",
+                        : "background 160ms var(--ease-smooth), border-color 160ms var(--ease-smooth), color 160ms var(--ease-smooth)",
                     }}
                   >
-                    {c.count}
+                    {c.key !== "all" && (
+                      <span
+                        aria-hidden
+                        style={{
+                          width: 5,
+                          height: 5,
+                          borderRadius: 1,
+                          background: c.color,
+                          opacity: active ? 1 : 0.55,
+                          transition: reducedMotion
+                            ? "none"
+                            : "opacity 160ms var(--ease-smooth)",
+                        }}
+                      />
+                    )}
+                    {c.label}
+                    <span
+                      style={{
+                        color: active ? c.color : "var(--text-mute)",
+                        opacity: active ? 0.85 : 1,
+                        fontVariantNumeric: "tabular-nums",
+                        transition: reducedMotion
+                          ? "none"
+                          : "color 160ms var(--ease-smooth), opacity 160ms var(--ease-smooth)",
+                      }}
+                    >
+                      {c.count}
+                    </span>
+                  </motion.button>
+                );
+              })}
+            </div>
+
+            {/* Scrollable list */}
+            <div
+              id="notifications-drawer-list"
+              ref={listRef}
+              role="list"
+              onKeyDown={handleListKeyDown}
+              className="hide-scrollbar"
+              style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}
+            >
+              {visible.length === 0 && (
+                <div style={{ padding: 28, textAlign: "center" }}>
+                  <span
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 10,
+                      color: "var(--text-mute)",
+                      letterSpacing: "0.16em",
+                    }}
+                  >
+                    {filter === "all"
+                      ? t("empty.allClear")
+                      : t("empty.noneInBucket").replace(
+                          "{bucket}",
+                          CHIPS.find((c) => c.key === filter)?.label ?? "",
+                        )}
                   </span>
-                </motion.button>
-              );
-            })}
-          </div>
+                </div>
+              )}
+              {visible.map((n) => {
+                const meta = NOTIF_TYPE_META[n.type] ?? {
+                  label: n.type.toUpperCase(),
+                  icon: "circle",
+                  tone: "accent" as NotificationTone,
+                };
+                const tone = bucketTone(n);
+                return (
+                  <NotificationRow
+                    key={n.id}
+                    notification={n}
+                    meta={meta}
+                    tone={tone}
+                    expanded={expandedId === n.id}
+                    onRowClick={() => handleRowClick(n)}
+                    onAction={() => handleAction(n)}
+                    onDismiss={handleDismiss}
+                  />
+                );
+              })}
+              {visible.length > 0 && (
+                <div style={{ padding: "10px 14px", textAlign: "center" }}>
+                  <span
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 9,
+                      color: "var(--text-mute)",
+                      letterSpacing: "0.18em",
+                    }}
+                  >
+                    {t("list.eofMarker")}
+                  </span>
+                </div>
+              )}
+            </div>
 
-          {/* Scrollable list */}
-          <div
-            id="notifications-drawer-list"
-            ref={listRef}
-            role="list"
-            onKeyDown={handleListKeyDown}
-            className="hide-scrollbar"
-            style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}
-          >
-            {visible.length === 0 && (
-              <div style={{ padding: 28, textAlign: "center" }}>
-                <span
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: 10,
-                    color: "var(--text-mute)",
-                    letterSpacing: "0.16em",
-                  }}
-                >
-                  {filter === "all"
-                    ? t("empty.allClear")
-                    : t("empty.noneInBucket").replace(
-                        "{bucket}",
-                        CHIPS.find((c) => c.key === filter)?.label ?? "",
-                      )}
-                </span>
-              </div>
-            )}
-            {visible.map((n) => {
-              const meta = NOTIF_TYPE_META[n.type] ?? {
-                label: n.type.toUpperCase(),
-                icon: "circle",
-                tone: "accent" as NotificationTone,
-              };
-              const tone = bucketTone(n);
-              return (
-                <NotificationRow
-                  key={n.id}
-                  notification={n}
-                  meta={meta}
-                  tone={tone}
-                  expanded={expandedId === n.id}
-                  onRowClick={() => handleRowClick(n)}
-                  onAction={() => handleAction(n)}
-                  onDismiss={handleDismiss}
-                />
-              );
-            })}
-            {visible.length > 0 && (
-              <div style={{ padding: "10px 14px", textAlign: "center" }}>
-                <span
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: 9,
-                    color: "var(--text-mute)",
-                    letterSpacing: "0.18em",
-                  }}
-                >
-                  {t("list.eofMarker")}
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* Footer */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              padding: "8px 14px",
-              borderTop: "1px solid rgba(255,255,255,0.06)",
-            }}
-          >
-            <span
+            {/* Footer — SYS :: SYNC stamp + CLEAR ALL */}
+            <div
               style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: 10,
-                color: "var(--text-mute)",
-                letterSpacing: "0.14em",
+                display: "flex",
+                alignItems: "center",
+                padding: "9px 14px",
+                borderTop: "1px solid rgba(255,255,255,0.06)",
               }}
             >
-              {t("footer.lastSync").replace("{time}", syncTime)}
-            </span>
-            <div style={{ flex: 1 }} />
-            <button
-              type="button"
-              onClick={handleViewAll}
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: 10,
-                letterSpacing: "0.14em",
-                color: "var(--text-3)",
-                background: "transparent",
-                border: "none",
-                cursor: "pointer",
-                padding: 0,
-              }}
-            >
-              {t("footer.viewAll")}
-            </button>
-          </div>
-        </motion.aside>
+              <span
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 10,
+                  color: "var(--text-mute)",
+                  letterSpacing: "0.14em",
+                  fontVariantNumeric: "tabular-nums",
+                }}
+              >
+                {t("footer.lastSync").replace("{time}", syncTime)}
+              </span>
+              <div style={{ flex: 1 }} />
+              <button
+                type="button"
+                aria-label={t("drawer.clearAllAriaLabel")}
+                disabled={!hasDismissible || dismissAllMutation.isPending}
+                onClick={() => dismissAllMutation.mutate()}
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 10,
+                  letterSpacing: "0.14em",
+                  textTransform: "uppercase",
+                  color: "var(--text-3)",
+                  background: "transparent",
+                  border: "none",
+                  padding: 0,
+                  opacity: !hasDismissible ? 0.4 : 1,
+                  cursor: !hasDismissible ? "default" : "pointer",
+                  transition: reducedMotion
+                    ? "none"
+                    : "color 150ms var(--ease-smooth)",
+                }}
+                onMouseEnter={(e) => {
+                  if (hasDismissible)
+                    e.currentTarget.style.color = "var(--text)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = "var(--text-3)";
+                }}
+              >
+                {t("footer.clearAll")}
+              </button>
+            </div>
+          </motion.aside>
+        </div>
       )}
     </AnimatePresence>
   );
 }
-
-const drawerIconBtnStyle: React.CSSProperties = {
-  width: 22,
-  height: 22,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  borderRadius: 2.5,
-  border: "none",
-  background: "transparent",
-  color: "var(--text-3)",
-  cursor: "pointer",
-  marginLeft: 4,
-};

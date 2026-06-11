@@ -12,5 +12,15 @@
   "footer.customize": "CUSTOMIZE",
   "footer.customizeAriaLabel": "Customize quick actions",
 
-  "empty.noActions": "[ no actions available ]"
+  "empty.noActions": "[ no actions available ]",
+
+  "action.expense": "Add Expense",
+  "action.lead": "New Lead",
+  "action.estimate": "New Estimate",
+  "action.invoice": "New Invoice",
+  "action.client": "New Client",
+  "action.project": "New Project",
+  "action.task": "New Task",
+  "action.taskType": "New Task Type",
+  "action.inventoryItem": "New Item"
 }

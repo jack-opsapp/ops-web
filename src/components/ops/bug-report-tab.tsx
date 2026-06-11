@@ -10,28 +10,14 @@ import { useBugReportStore } from "@/stores/bug-report-store";
 
 export const EDGE_TAB_ID_BUG = "bug-report";
 
-// ─── Stack math (right rail) ───────────────────────────────────────────────
-// Notifications restHeight = 180, stackOffset = -94 (above mid).
-// QuickActions  restHeight = 132, stackOffset = +94 (below mid).
-// BugReport     restHeight = 100, stackOffset = +218 (below QA with 8px gap).
-//
-// Derivation:
-//   QA bottom edge at rest = +94 + 132/2 = +160
-//   Gap between QA and Bug = 8
-//   Bug top edge at rest    = +160 + 8 = +168
-//   Bug center at rest      = +168 + 100/2 = +218
-//
-// The +218 places the Bug tab 168px below the rail midpoint, with its 100px
-// rest height ending at +268 (still well above the railBottom default of 16
-// on viewports ≥ 600px; on shorter viewports the EdgeTab maxHeight clamp
-// keeps everything visible).
-export const STACK_OFFSET_BUG = 218;
-const REST_HEIGHT = 100;
-const DRAWER_WIDTH = 360;
-// Drawer panel is content-driven — power user sees full triage controls,
-// minimal user sees a single textarea + submit. Cap matches the right-rail
-// height budget on a 1280×800 viewport.
-const EXPANDED_HEIGHT = 520;
+// Rail geometry comes from the shared EDGE_RAIL_STACK (single source for
+// all three tabs — the per-file stack math this replaced had drifted from
+// the sibling tabs' real offsets). Re-exported for the drawer, which
+// anchors its panel on the same center.
+import { EDGE_RAIL_STACK } from "@/components/ui/edge-rail-layout";
+
+const RAIL = EDGE_RAIL_STACK.bugReport;
+export const STACK_OFFSET_BUG = RAIL.stackOffset;
 
 /**
  * Bug-report tab (bug b842f0ff). Lives at the BOTTOM of the right-rail edge
@@ -48,7 +34,6 @@ export function BugReportTab() {
   const { t } = useDictionary("common");
   const pathname = usePathname();
   const open = useEdgeTabStore((s) => s.activeTab === EDGE_TAB_ID_BUG);
-  const anyActive = useEdgeTabStore((s) => s.activeTab !== null);
   const toggle = useEdgeTabStore((s) => s.toggle);
 
   // Keyboard shortcut — backtick (`). Avoids letter collisions with the
@@ -95,11 +80,10 @@ export function BugReportTab() {
       open={open}
       onToggle={handleToggle}
       accent="ambient"
-      restHeight={REST_HEIGHT}
-      expandedHeight={EXPANDED_HEIGHT}
-      drawerWidth={DRAWER_WIDTH}
-      stackOffset={STACK_OFFSET_BUG}
-      canHoverExpand={!anyActive || open}
+      height={RAIL.height}
+      drawerWidth={RAIL.drawerWidth}
+      stackOffset={RAIL.stackOffset}
+      openGlyphRotation={0}
       wordmark={t("bugReport.tabWordmarkClosed") ?? "REPORT"}
       wordmarkOpen={t("bugReport.tabWordmarkOpen") ?? "CLOSE"}
       ariaLabel={t("bugReport.title") ?? "Report a bug"}

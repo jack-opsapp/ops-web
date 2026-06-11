@@ -1,6 +1,17 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+/**
+ * Quick Actions drawer (WEB OVERHAUL P2 restyle).
+ *
+ * Unified rail anatomy: 360px glass-dense panel, left corners radius 10,
+ * `// TITLE` header with the Q shortcut chip, content-driven height
+ * (computeQuickActionsPanelHeight, capped 452), CUSTOMIZE → footer.
+ * Outside-click dismiss is owned by the global EdgeTabOutsideDismiss
+ * (data-edge-tab-drawer + role=dialog checks cover the setup-interception
+ * modal) — the drawer-local duplicate handler is gone.
+ */
+
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { useEdgeTabStore } from "@/stores/edge-tab-store";
@@ -12,10 +23,7 @@ import {
 import { useWindowStore } from "@/stores/window-store";
 import { useSetupGate } from "@/hooks/useSetupGate";
 import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModal";
-import {
-  isWindowAction,
-  type FABAction,
-} from "@/lib/constants/fab-actions";
+import { isWindowAction, type FABAction } from "@/lib/constants/fab-actions";
 import {
   quickActionsDrawerVariants,
   quickActionsDrawerVariantsReduced,
@@ -23,18 +31,18 @@ import {
   quickActionsRowVariantsReduced,
 } from "@/lib/utils/motion";
 import { computeQuickActionsPanelHeight } from "./quick-actions-tab";
+import {
+  EDGE_RAIL_BOTTOM,
+  EDGE_RAIL_STACK,
+  EDGE_RAIL_TOP,
+  EDGE_Z_DRAWER,
+  getEdgeRailDrawerWidthStyle,
+  getEdgeRailHeightStyle,
+  getEdgeRailTopStyle,
+} from "@/components/ui/edge-rail-layout";
 
 const EDGE_TAB_ID = "quick-actions";
-
-// Panel sizing — width still 308px per Spec V1, but height now scales with
-// the visible action count (bug dd5659ed). Use the shared computation from
-// quick-actions-tab.tsx so the tab and panel stay aligned. The hard cap
-// (QA_MAX_PANEL_H = 452) preserves the original spec for users with long
-// custom action lists.
-const PANEL_W = 308;
-const STACK_OFFSET_QA = 94;
-const RAIL_TOP = 72;
-const RAIL_BOTTOM = 16;
+const RAIL = EDGE_RAIL_STACK.quickActions;
 
 export function QuickActionsDrawer() {
   const { t } = useDictionary("quick-actions");
@@ -53,12 +61,10 @@ export function QuickActionsDrawer() {
   // Setup gate — reused from the deleted FAB component
   const { isComplete, missingSteps } = useSetupGate();
   const [showInterception, setShowInterception] = useState(false);
-  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
+  const [pendingAction, setPendingAction] = useState<(() => void) | null>(
+    null,
+  );
   const [triggerAction, setTriggerActionState] = useState("projects");
-
-  // Drawer ref — used by the outside-click listener to ignore clicks
-  // landing inside the panel body. (Bug 5b653c30.)
-  const drawerRef = useRef<HTMLElement>(null);
 
   // Escape closes the drawer
   useEffect(() => {
@@ -72,39 +78,6 @@ export function QuickActionsDrawer() {
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [open, close]);
-
-  // Outside-click dismiss (bug 5b653c30). Mirrors notifications-drawer:
-  // ignore clicks on the drawer itself, on either edge tab, and on any
-  // detached portal content the drawer owns. The `SetupInterceptionModal`
-  // is a separate Radix-portaled dialog — clicks on it land outside the
-  // drawer node, so we explicitly skip the dismiss while it's mounted to
-  // avoid the modal's first interaction collapsing the drawer behind it.
-  useEffect(() => {
-    if (!open) return;
-    if (showInterception) return;
-    function handleOutsideMouseDown(e: MouseEvent) {
-      const target = e.target as Node | null;
-      if (!target) return;
-      const path = e.composedPath();
-
-      if (drawerRef.current && drawerRef.current.contains(target)) return;
-      if (drawerRef.current && path.includes(drawerRef.current)) return;
-
-      for (const node of path) {
-        if (!(node instanceof HTMLElement)) continue;
-        if (node.dataset?.edgeTab) return;
-        if (node.dataset?.edgeTabDetached === "true") return;
-        // Radix portals — used by the SetupInterceptionModal — sit at
-        // document.body. Skip them so the modal can interact freely.
-        if (node.getAttribute?.("role") === "dialog") return;
-      }
-
-      close(EDGE_TAB_ID);
-    }
-    document.addEventListener("mousedown", handleOutsideMouseDown, true);
-    return () =>
-      document.removeEventListener("mousedown", handleOutsideMouseDown, true);
-  }, [open, close, showInterception]);
 
   const gatedAction = useCallback(
     (run: () => void, triggerName: string) => {
@@ -133,7 +106,7 @@ export function QuickActionsDrawer() {
         } else {
           openWindow({
             id: action.target,
-            title: action.label,
+            title: t(action.labelKey),
             type: action.target,
           });
         }
@@ -156,16 +129,11 @@ export function QuickActionsDrawer() {
     ? quickActionsRowVariantsReduced
     : quickActionsRowVariants;
 
-  // Anchor the panel vertically: rail center is at (railTop + (vh - railTop - railBottom)/2);
-  // tab center sits at rail-center + STACK_OFFSET_QA; panel centers on tab center.
-  // Use absolute positioning with `top: calc(50% + offset)` inside a rail-anchored wrapper.
   if (!visible) return null;
 
   // Width clamp — keep the panel ≤ (viewport - 36px) on narrow screens so
-  // the drawer never extends past the viewport edge (bug edfdd057). Mirrors
-  // the notifications drawer pattern. The 36px reserve covers the tab's
-  // rounded outer edge (28px) + an 8px breathing margin.
-  const panelWidth = `min(${PANEL_W}px, calc(100vw - 36px))`;
+  // the drawer never extends past the viewport edge (bug edfdd057).
+  const panelWidth = getEdgeRailDrawerWidthStyle(RAIL.drawerWidth);
 
   return (
     <>
@@ -175,17 +143,16 @@ export function QuickActionsDrawer() {
             aria-hidden={false}
             style={{
               position: "fixed",
-              top: RAIL_TOP,
+              top: EDGE_RAIL_TOP,
               right: 0,
-              bottom: RAIL_BOTTOM,
+              bottom: EDGE_RAIL_BOTTOM,
               width: panelWidth,
               maxWidth: "calc(100vw - 36px)",
               pointerEvents: "none",
-              zIndex: 1500,
+              zIndex: EDGE_Z_DRAWER,
             }}
           >
             <motion.aside
-              ref={drawerRef}
               key="quick-actions-drawer"
               variants={variants}
               initial="hidden"
@@ -196,21 +163,22 @@ export function QuickActionsDrawer() {
               data-edge-tab-drawer="quick-actions"
               style={{
                 position: "absolute",
-                top: `calc(50% + ${STACK_OFFSET_QA - PANEL_H / 2}px)`,
+                top: getEdgeRailTopStyle(PANEL_H, RAIL.stackOffset),
                 right: 0,
                 width: panelWidth,
                 maxWidth: "calc(100vw - 36px)",
-                height: PANEL_H,
+                height: getEdgeRailHeightStyle(PANEL_H),
                 display: "flex",
                 flexDirection: "column",
-                background: "rgba(32, 34, 38, 0.92)",
+                background: "var(--glass-dense)",
                 backdropFilter: "blur(28px) saturate(1.3)",
                 WebkitBackdropFilter: "blur(28px) saturate(1.3)",
-                border: "1px solid rgba(255, 255, 255, 0.18)",
+                border: "1px solid var(--glass-border)",
                 borderRight: "none",
+                borderTopLeftRadius: 10,
+                borderBottomLeftRadius: 10,
                 pointerEvents: "auto",
                 overflow: "hidden",
-                boxShadow: "inset 0 1px 0 0 rgba(255,255,255,0.04)",
               }}
             >
               {/* Top-edge highlight gradient */}
@@ -230,7 +198,7 @@ export function QuickActionsDrawer() {
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  padding: "14px 16px 12px",
+                  padding: "12px 14px 10px",
                   borderBottom: "1px solid rgba(255,255,255,0.06)",
                   position: "relative",
                   zIndex: 1,
@@ -355,7 +323,7 @@ export function QuickActionsDrawer() {
                           whiteSpace: "nowrap",
                         }}
                       >
-                        {action.label}
+                        {t(action.labelKey)}
                       </span>
                       <span
                         aria-hidden
@@ -383,7 +351,7 @@ export function QuickActionsDrawer() {
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
-                  padding: "10px 16px",
+                  padding: "9px 14px",
                   borderTop: "1px solid rgba(255,255,255,0.06)",
                   borderLeft: "none",
                   borderRight: "none",

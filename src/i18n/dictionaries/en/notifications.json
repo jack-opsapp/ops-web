@@ -7,7 +7,6 @@
 
   "drawer.ariaLabel": "Notifications",
   "drawer.title": "NOTIFICATIONS",
-  "drawer.muteAllAriaLabel": "Mute all notifications",
   "drawer.clearAllAriaLabel": "Clear all dismissable notifications",
 
   "filters.ariaLabel": "Filter notifications by tone",
@@ -23,11 +22,9 @@
   "empty.error": "// SYS :: SYNC ERROR",
   "empty.retry": "RETRY",
 
-  "row.snooze": "SNOOZE",
-  "row.snoozeTooltipComingSoon": "Snooze coming soon",
   "row.dismiss": "DISMISS",
   "row.dismissAriaLabel": "Dismiss notification",
 
   "footer.lastSync": "LAST SYNC {time}",
-  "footer.viewAll": "VIEW ALL →"
+  "footer.clearAll": "CLEAR ALL"
 }

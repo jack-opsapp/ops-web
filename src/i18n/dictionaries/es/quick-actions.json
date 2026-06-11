@@ -13,5 +13,15 @@
   "footer.customize": "CUSTOMIZE",
   "footer.customizeAriaLabel": "Customize quick actions",
 
-  "empty.noActions": "[ no actions available ]"
+  "empty.noActions": "[ no actions available ]",
+
+  "action.expense": "Agregar gasto",
+  "action.lead": "Nuevo lead",
+  "action.estimate": "Nueva cotización",
+  "action.invoice": "Nueva factura",
+  "action.client": "Nuevo cliente",
+  "action.project": "Nuevo proyecto",
+  "action.task": "Nueva tarea",
+  "action.taskType": "Nuevo tipo de tarea",
+  "action.inventoryItem": "Nuevo artículo"
 }

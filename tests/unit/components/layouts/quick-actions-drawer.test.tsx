@@ -37,7 +37,7 @@ import type { FABAction } from "@/lib/constants/fab-actions";
 const mockActions: FABAction[] = [
   {
     id: "project",
-    label: "New Project",
+    labelKey: "action.project",
     hintCode: "PRJ",
     icon: () => <svg data-testid="ico-project" />,
     triggerAction: "projects",
@@ -46,7 +46,7 @@ const mockActions: FABAction[] = [
   } as FABAction,
   {
     id: "expense",
-    label: "Add Expense",
+    labelKey: "action.expense",
     hintCode: "EXP",
     icon: () => <svg data-testid="ico-expense" />,
     triggerAction: "expenses",
@@ -69,8 +69,8 @@ describe("<QuickActionsDrawer>", () => {
 
   it("renders all actions when open", () => {
     render(<QuickActionsDrawer />);
-    expect(screen.getByText("New Project")).toBeInTheDocument();
-    expect(screen.getByText("Add Expense")).toBeInTheDocument();
+    expect(screen.getByText("action.project")).toBeInTheDocument();
+    expect(screen.getByText("action.expense")).toBeInTheDocument();
     expect(screen.getByText("PRJ")).toBeInTheDocument();
     expect(screen.getByText("EXP")).toBeInTheDocument();
   });
@@ -78,18 +78,18 @@ describe("<QuickActionsDrawer>", () => {
   it("does not render when closed", () => {
     useEdgeTabStore.setState({ activeTab: null });
     render(<QuickActionsDrawer />);
-    expect(screen.queryByText("New Project")).not.toBeInTheDocument();
+    expect(screen.queryByText("action.project")).not.toBeInTheDocument();
   });
 
   it("clicking a window-handler action opens that window and closes drawer", async () => {
     const user = userEvent.setup();
     render(<QuickActionsDrawer />);
-    await user.click(screen.getByText("New Project"));
+    await user.click(screen.getByText("action.project"));
     expect(openWindowMock).toHaveBeenCalledWith(
       expect.objectContaining({
         id: "create-project",
         type: "create-project",
-        title: "New Project",
+        title: "action.project",
       }),
     );
     expect(useEdgeTabStore.getState().activeTab).toBeNull();
@@ -98,7 +98,7 @@ describe("<QuickActionsDrawer>", () => {
   it("clicking a route-handler action navigates and closes drawer", async () => {
     const user = userEvent.setup();
     render(<QuickActionsDrawer />);
-    await user.click(screen.getByText("Add Expense"));
+    await user.click(screen.getByText("action.expense"));
     expect(pushMock).toHaveBeenCalledWith("/accounting?tab=expenses");
     expect(useEdgeTabStore.getState().activeTab).toBeNull();
   });
@@ -122,7 +122,7 @@ describe("<QuickActionsDrawer>", () => {
     isCompleteValue = false;
     const user = userEvent.setup();
     render(<QuickActionsDrawer />);
-    await user.click(screen.getByText("New Project"));
+    await user.click(screen.getByText("action.project"));
     expect(screen.getByTestId("setup-modal")).toBeInTheDocument();
     // Drawer is NOT closed because action is gated
     expect(useEdgeTabStore.getState().activeTab).toBe("quick-actions");
