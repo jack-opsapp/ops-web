@@ -1,6 +1,6 @@
 # WEB OVERHAUL P2 — Shell Rebuild Design
 
-**Status:** Draft — awaiting Jackson's mockup approval before code
+**Status:** BUILT — approved 2026-06-11 (all §6 recommendations), implemented on this branch, verified in the running app. See §8 for build addenda.
 **Parent spec:** `docs/specs/2026-06-11-web-overhaul-master-plan.md` §5
 **Branch:** `feat/web-overhaul-p2-shell` (worktree off main `46fde6c5`)
 **Session:** WEB OVERHAUL - P2-1
@@ -300,3 +300,17 @@ Labels move to `quick-actions.json` (`action.expense` …) en + es.
 7. Schedule rename: dir move, middleware redirect, internal-link sweep, dictionaries.
 8. Z-index migration (nav band 500s), dead-code removal (`useInboxUnreadCount` from shell, sidebar legacy store fields), dictionary cleanup.
 9. Verify in running app (desktop + 390px), screenshot gallery, bible update, atomic commits throughout.
+
+---
+
+## 8. Build addenda (2026-06-11, post-approval)
+
+**Approved decisions (§6):** A — refined HUD rail · edge-tab hover-grow/sibling-push removed · iOS item FIXED with the live App Store URL (`apps.apple.com/us/app/ops-job-crew-management/id6746662078`, same one ops-site ships) · Calibration + Agent Queue both in the `// OPS` group for phase_c companies · clock kept.
+
+**phase_c gating — the §2 note became a build item.** Live verification exposed that prod has **no global `phase_c` row** in `feature_flags`; unknown slugs default to accessible, so `canAccessFeature("phase_c")` returned true for every company (a non-flagged test company rendered the Phase C nav). Fixed by extending the existing synthetic per-company mechanism in `/api/feature-flags` (the `inbox_ui` pattern): `phase_c` is now appended from `admin_feature_overrides` per company, carrying routes `/calibration` + `/agent` so reachability is company-gated too (in-place 404). No prod DB write was needed. Today exactly one company carries the override: Canpro Deck and Rail. Note the side effect (intended, per master plan §3 posture): other `canAccessFeature("phase_c")` consumers (integrations tab, confirm-schedule button) now read the company truth instead of failing open.
+
+**Parallel-session WIP discovery.** The primary OPS-Web checkout carries a sibling session's **uncommitted** edge-tab refactor (notifications/quick-actions/bug-report tabs + edge-tab.tsx/.types + an untracked `edge-rail-layout.ts` + tests — hover-height clamps, geometry-registry push fixes for bugs dd5659ed/85da1e52/edfdd057). That work implements the hover-grow/sibling-push choreography this P2 **deletes by approved decision** — it is superseded. Do not land that WIP after P2 merges; the viewport-clamp + content-driven-height behaviors it was fixing are carried forward in the rebuilt system (`getEdgeRailDrawerWidthStyle`, `computeQuickActionsPanelHeight`).
+
+**Dictionary deltas vs §4.4:** notification filter chips ship the approved compact codes (ALL/CRIT/ATTN/INFO) — the full words overflowed the 360px drawer with live data. `navigation.json` (en+es) is the new shared label namespace; `sidebar.json`'s nav keys remain for nothing and can be retired with the namespace cleanup in P4.
+
+**Verification (dev server, auth bypass, Maverick test company):** `/calendar?date=…&task=…` → 308 `/schedule` query-preserved · registry titles in top bar + browser tab · rail rest/hover/intent-delay · operator menu · Phase C entries absent for non-flagged company · notifications drawer with live rows + hover actions + CLEAR ALL · quick-actions drawer (Q) with i18n labels · 390px drawer + clamped tabs · 42 registry invariant tests + 52 shell component tests + 19 flags-API tests green; full unit suite green except one pre-existing main failure (`tests/unit/inbox/ai-draft-provenance.test.ts`, untouched by this branch).
