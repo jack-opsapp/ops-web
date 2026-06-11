@@ -1,5 +1,18 @@
 "use client";
 
+/**
+ * TopBar (WEB OVERHAUL P2 rebuild).
+ *
+ * Composition: [mobile hamburger] page title / breadcrumb trail — centered
+ * undo + ⌘K search — right sync indicator + clock.
+ *
+ * Page titles resolve through the route registry's i18n label keys (the
+ * old hardcoded English `routeTitles` map was the root cause of the
+ * sidebar-"Calendar" / top-bar-"Schedule" drift — it is gone). Nested
+ * routes render the breadcrumb trail from the breadcrumb store; the
+ * auto-generated parent crumb uses the same registry title.
+ */
+
 import {
   Search,
   RefreshCw,
@@ -20,40 +33,19 @@ import { useDictionary } from "@/i18n/client";
 import { useSidebarStore } from "@/stores/sidebar-store";
 import { useBreadcrumbStore } from "@/stores/breadcrumb-store";
 import { useUndoStore } from "@/stores/undo-store";
-
-// ── Route → title mapping ────────────────────────────────────────────────────
-
-const routeTitles: Record<string, string> = {
-  "/dashboard": "Dashboard",
-  "/projects": "Projects",
-  "/schedule": "Schedule",
-  "/clients": "Clients",
-
-  "/team": "Team",
-  "/map": "Map",
-  "/pipeline": "Pipeline",
-  "/inbox": "Inbox",
-  "/estimates": "Estimates",
-  "/products": "Products",
-  "/inventory": "Inventory",
-  "/invoices": "Invoices",
-  "/accounting": "Accounting",
-  "/settings": "Settings",
-};
-
-function getPageTitle(pathname: string): string {
-  // Exact match first
-  if (routeTitles[pathname]) return routeTitles[pathname];
-  // Match first segment for nested routes (e.g. /clients/abc → "Clients")
-  const firstSegment = "/" + pathname.split("/").filter(Boolean)[0];
-  return routeTitles[firstSegment] ?? "";
-}
+import { getTitleKeyForPath } from "@/lib/navigation/route-registry";
 
 // ── Sync indicator ───────────────────────────────────────────────────────────
 
 type SyncStatus = "synced" | "syncing" | "pending" | "offline";
 
-function SyncIndicator({ status, t }: { status: SyncStatus; t: (key: string) => string }) {
+function SyncIndicator({
+  status,
+  t,
+}: {
+  status: SyncStatus;
+  t: (key: string) => string;
+}) {
   const icon = {
     synced: <Check className="w-[14px] h-[14px] shrink-0" />,
     syncing: <RefreshCw className="w-[14px] h-[14px] shrink-0 animate-spin" />,
@@ -75,16 +67,54 @@ function SyncIndicator({ status, t }: { status: SyncStatus; t: (key: string) => 
         "font-mono text-[11px] tracking-wider",
         "bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)]",
         "border border-[rgba(255,255,255,0.06)]",
-        "transition-all duration-150",
+        "transition-all duration-150 ease-smooth motion-reduce:transition-none",
         status === "offline" ? "text-ops-error" : "text-text-3"
       )}
       title={label}
     >
-      <span className="max-w-0 overflow-hidden group-hover:max-w-[80px] group-hover:mr-[6px] transition-all duration-200 ease-out uppercase whitespace-nowrap">
+      <span className="max-w-0 overflow-hidden uppercase whitespace-nowrap transition-all duration-200 ease-smooth motion-reduce:transition-none group-hover:max-w-[80px] group-hover:mr-[6px]">
         {label}
       </span>
       {icon}
     </div>
+  );
+}
+
+// ── Clock ────────────────────────────────────────────────────────────────────
+
+/** Mission-deck clock — 24h HH:MM, minute tick, tabular mono. Mounts empty
+ *  and fills client-side so SSR HTML never carries a mismatched time. */
+function DeckClock() {
+  const [now, setNow] = useState<Date | null>(null);
+
+  useEffect(() => {
+    setNow(new Date());
+    // Align to the next minute boundary, then tick per minute.
+    let interval: number | undefined;
+    const msToNextMinute = 60_000 - (Date.now() % 60_000);
+    const align = window.setTimeout(() => {
+      setNow(new Date());
+      interval = window.setInterval(() => setNow(new Date()), 60_000);
+    }, msToNextMinute);
+    return () => {
+      window.clearTimeout(align);
+      if (interval !== undefined) window.clearInterval(interval);
+    };
+  }, []);
+
+  const text = now
+    ? `${String(now.getHours()).padStart(2, "0")}:${String(
+        now.getMinutes()
+      ).padStart(2, "0")}`
+    : "—:—";
+
+  return (
+    <span
+      suppressHydrationWarning
+      className="font-mono text-[11px] tracking-[0.08em] text-text-3 tabular-nums select-none"
+    >
+      {text}
+    </span>
   );
 }
 
@@ -93,6 +123,7 @@ function SyncIndicator({ status, t }: { status: SyncStatus; t: (key: string) => 
 export function TopBar() {
   const showShortcutHints = usePreferencesStore((s) => s.showShortcutHints);
   const { t } = useDictionary("topbar");
+  const { t: tNav } = useDictionary("navigation");
   const openMobile = useSidebarStore((s) => s.openMobile);
   const router = useRouter();
   const pathname = usePathname();
@@ -116,7 +147,12 @@ export function TopBar() {
       if ((e.metaKey || e.ctrlKey) && e.key === "z" && !e.shiftKey) {
         // Don't capture if user is typing in an input/textarea
         const tag = (e.target as HTMLElement)?.tagName;
-        if (tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement)?.isContentEditable) return;
+        if (
+          tag === "INPUT" ||
+          tag === "TEXTAREA" ||
+          (e.target as HTMLElement)?.isContentEditable
+        )
+          return;
 
         e.preventDefault();
         const store = useUndoStore.getState();
@@ -127,10 +163,11 @@ export function TopBar() {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // Build breadcrumb trail
+  // Build breadcrumb trail. Root titles come from the registry (i18n).
   const segments = pathname.split("/").filter(Boolean);
   const isNested = segments.length > 1;
-  const rootTitle = getPageTitle(pathname); // always resolves to parent title
+  const titleKey = getTitleKeyForPath(pathname);
+  const rootTitle = titleKey ? tNav(titleKey) : "";
   const parentRoute = "/" + segments[0];
 
   // Live sync status from TanStack Query + connectivity
@@ -156,7 +193,7 @@ export function TopBar() {
             "text-text-3 hover:text-text-2",
             "bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)]",
             "border border-[rgba(255,255,255,0.06)] hover:border-[rgba(255,255,255,0.14)]",
-            "transition-all duration-150"
+            "transition-all duration-150 ease-smooth motion-reduce:transition-none"
           )}
           aria-label={t("menu.ariaLabel")}
         >
@@ -170,7 +207,11 @@ export function TopBar() {
               /* Custom parent crumbs (set by detail pages) */
               parentCrumbs.map((crumb, i) => (
                 <div key={i} className="flex items-center gap-[6px]">
-                  {i > 0 && <span className="text-text-mute font-mono text-body-sm">/</span>}
+                  {i > 0 && (
+                    <span className="text-text-mute font-mono text-body-sm">
+                      /
+                    </span>
+                  )}
                   {crumb.href ? (
                     <button
                       onClick={() => router.push(crumb.href!)}
@@ -186,7 +227,7 @@ export function TopBar() {
                 </div>
               ))
             ) : (
-              /* Auto-generated: parent route title */
+              /* Auto-generated: parent route title from the registry */
               <button
                 onClick={() => router.push(parentRoute)}
                 className="font-mohave text-body-sm text-text-3 hover:text-text-2 transition-colors uppercase tracking-wider"
@@ -224,15 +265,16 @@ export function TopBar() {
                 "bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)]",
                 "border border-[rgba(255,255,255,0.06)]",
                 "text-text-3 hover:border-[rgba(255,255,255,0.14)] hover:text-text-2",
-                "transition-all duration-150 animate-fade-in",
+                "transition-all duration-150 ease-smooth motion-reduce:transition-none animate-fade-in",
                 isUndoing && "opacity-50 pointer-events-none"
               )}
               aria-label={t("undo.ariaLabel")}
             >
-              {isUndoing
-                ? <Loader2 className="w-[16px] h-[16px] animate-spin" />
-                : <Undo2 className="w-[16px] h-[16px]" />
-              }
+              {isUndoing ? (
+                <Loader2 className="w-[16px] h-[16px] animate-spin" />
+              ) : (
+                <Undo2 className="w-[16px] h-[16px]" />
+              )}
             </button>
             {/* Hover tooltip */}
             {isUndoHovered && !isUndoing && (
@@ -258,7 +300,7 @@ export function TopBar() {
             "bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)]",
             "border border-[rgba(255,255,255,0.06)]",
             "text-text-3 hover:border-[rgba(255,255,255,0.14)] hover:text-text-2",
-            "transition-all duration-150 cursor-pointer",
+            "transition-all duration-150 ease-smooth motion-reduce:transition-none cursor-pointer",
             "min-w-0 w-[140px] sm:w-[200px] shrink"
           )}
           onClick={() => {
@@ -273,7 +315,9 @@ export function TopBar() {
           aria-label={t("search.ariaLabel")}
         >
           <Search className="w-[16px] h-[16px] shrink-0" />
-          <span className="font-mohave text-body-sm hidden sm:inline">{t("search.placeholder")}</span>
+          <span className="font-mohave text-body-sm hidden sm:inline">
+            {t("search.placeholder")}
+          </span>
           {showShortcutHints && (
             <kbd className="ml-auto font-mono text-micro text-text-mute bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] rounded px-[5px] py-[1px] hidden sm:inline">
               {t("search.shortcut")}
@@ -282,9 +326,10 @@ export function TopBar() {
         </button>
       </div>
 
-      {/* Right: Sync */}
-      <div className="flex items-center gap-[6px] shrink-0">
+      {/* Right: Sync + clock */}
+      <div className="flex items-center gap-[10px] shrink-0">
         <SyncIndicator status={syncStatus} t={t} />
+        <DeckClock />
       </div>
     </header>
   );

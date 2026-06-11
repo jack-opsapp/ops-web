@@ -246,9 +246,10 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
 
       {/* ── HUD Overlays ── */}
 
-      {/* TopBar — fixed glass overlay, starts after sidebar */}
+      {/* TopBar — fixed glass overlay, starts after sidebar.
+          Z: nav band 500 (scrim 502, sidebar 505 — see route-registry.ts). */}
       <div
-        className="fixed left-0 right-0 top-0 z-10 h-[56px] md:left-[72px]"
+        className="fixed left-0 right-0 top-0 z-[500] h-[56px] md:left-[72px]"
         style={{
           background: "var(--surface-glass)",
           backdropFilter: "blur(28px) saturate(1.3)",
