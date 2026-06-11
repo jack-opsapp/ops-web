@@ -11,9 +11,9 @@
 
   "filters.ariaLabel": "Filter notifications by tone",
   "filters.all": "ALL",
-  "filters.critical": "CRITICAL",
-  "filters.attn": "ATTENTION",
-  "filters.ambient": "AMBIENT",
+  "filters.critical": "CRIT",
+  "filters.attn": "ATTN",
+  "filters.ambient": "INFO",
 
   "list.eofMarker": "[ EOF ]",
 

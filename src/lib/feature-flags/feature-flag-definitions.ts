@@ -14,8 +14,11 @@ export const FEATURE_FLAG_ROUTES: Record<string, string[]> = {
   products: ["/products"],
   inventory: ["/inventory"],
   // ai_email_review removed 2026-04-24 — collapsed into phase_c
-  // (migration 20260424000000). phase_c now gates /calibration.
-  phase_c: ["/calibration"],
+  // (migration 20260424000000). phase_c gates the Phase C operator
+  // surfaces: /calibration and the /agent queue (WEB OVERHAUL P2 —
+  // company-gated via the synthetic per-company flag from
+  // admin_feature_overrides, see /api/feature-flags).
+  phase_c: ["/calibration", "/agent"],
   deck_builder: ["/deck-builder"],
   // Per-company dark-launch flag (admin_feature_overrides, not feature_flags).
   // Gated here so fail-closed fallback suppresses it when the API call fails.

@@ -1,14 +1,19 @@
 /**
  * Integration test — GET /api/feature-flags
  *
- * Verifies that the route includes the `inbox_ui` per-company state in its
- * response, sourced from admin_feature_overrides via the service-role client.
+ * Verifies that the route includes the per-company synthetic flags
+ * (`inbox_ui`, `phase_c`) in its response, sourced from
+ * admin_feature_overrides via the service-role client. phase_c gates the
+ * Phase C operator surfaces (Calibration nav/route, /agent queue) — there
+ * is no global phase_c row and unknown slugs default to accessible in the
+ * client store, so this synthetic entry is what keeps those surfaces
+ * invisible to non-flagged companies (WEB OVERHAUL P2).
  *
  * What's mocked (external boundaries only):
  *   - verifyAdminAuth            → Firebase JWT verification
  *   - findUserByAuth             → Supabase user lookup (returns id + company_id)
  *   - getServiceRoleClient       → DB calls (feature_flags, feature_flag_overrides)
- *   - AdminFeatureOverrideService.isFeatureEnabled → per-company flag check
+ *   - AdminFeatureOverrideService.getOverrides → per-company override rows
  *
  * What's NOT mocked:
  *   - Route handler logic (the unit under test)
@@ -23,12 +28,12 @@ const {
   verifyAdminAuthMock,
   findUserByAuthMock,
   getServiceRoleClientMock,
-  isFeatureEnabledMock,
+  getOverridesMock,
 } = vi.hoisted(() => ({
   verifyAdminAuthMock: vi.fn(),
   findUserByAuthMock: vi.fn(),
   getServiceRoleClientMock: vi.fn(),
-  isFeatureEnabledMock: vi.fn(),
+  getOverridesMock: vi.fn(),
 }));
 
 vi.mock("@/lib/firebase/admin-verify", () => ({
@@ -45,7 +50,7 @@ vi.mock("@/lib/supabase/server-client", () => ({
 
 vi.mock("@/lib/api/services/admin-feature-override-service", () => ({
   AdminFeatureOverrideService: {
-    isFeatureEnabled: isFeatureEnabledMock,
+    getOverrides: getOverridesMock,
   },
 }));
 
@@ -67,6 +72,18 @@ function makeRequest(userId?: string): NextRequest {
     method: "GET",
     headers: { authorization: "Bearer test-token" },
   });
+}
+
+function override(featureKey: string, enabled: boolean) {
+  return {
+    id: `ovr-${featureKey}`,
+    companyId: TEST_COMPANY_ID,
+    featureKey,
+    enabled,
+    enabledBy: null,
+    enabledAt: null,
+    metadata: {},
+  };
 }
 
 /**
@@ -110,6 +127,9 @@ beforeEach(() => {
     company_id: TEST_COMPANY_ID,
   });
 
+  // Default: no per-company overrides
+  getOverridesMock.mockResolvedValue([]);
+
   // Default: one global flag in the feature_flags table
   getServiceRoleClientMock.mockReturnValue(
     makeDbDouble([{ slug: "pipeline", enabled: true, routes: ["/pipeline"], permissions: ["pipeline.view"] }])
@@ -118,11 +138,11 @@ beforeEach(() => {
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
-describe("GET /api/feature-flags — inbox_ui inclusion", () => {
-  it("includes inbox_ui with enabled: true when admin_feature_overrides returns true", async () => {
-    isFeatureEnabledMock.mockResolvedValue(true);
+describe("GET /api/feature-flags — per-company synthetic flags", () => {
+  it("includes inbox_ui enabled when the company override is on", async () => {
+    getOverridesMock.mockResolvedValue([override("inbox_ui", true)]);
 
-    const res = await GET(makeRequest(TEST_USER_ID) );
+    const res = await GET(makeRequest(TEST_USER_ID));
     expect(res.status).toBe(200);
 
     const body = await res.json();
@@ -134,10 +154,10 @@ describe("GET /api/feature-flags — inbox_ui inclusion", () => {
     expect(inboxFlag.routes).toContain("/inbox");
   });
 
-  it("includes inbox_ui with enabled: false when admin_feature_overrides returns false", async () => {
-    isFeatureEnabledMock.mockResolvedValue(false);
+  it("includes inbox_ui disabled when the company override is off or absent", async () => {
+    getOverridesMock.mockResolvedValue([override("inbox_ui", false)]);
 
-    const res = await GET(makeRequest(TEST_USER_ID) );
+    const res = await GET(makeRequest(TEST_USER_ID));
     expect(res.status).toBe(200);
 
     const body = await res.json();
@@ -147,38 +167,63 @@ describe("GET /api/feature-flags — inbox_ui inclusion", () => {
     expect(inboxFlag.enabled).toBe(false);
   });
 
-  it("includes inbox_ui with enabled: false (fail-closed) when the override check throws", async () => {
-    isFeatureEnabledMock.mockRejectedValue(new Error("DB timeout"));
+  it("includes phase_c enabled ONLY for companies with the override", async () => {
+    getOverridesMock.mockResolvedValue([override("phase_c", true)]);
 
-    const res = await GET(makeRequest(TEST_USER_ID) );
+    const res = await GET(makeRequest(TEST_USER_ID));
+    const body = await res.json();
+    const phaseC = body.find((f: { slug: string }) => f.slug === "phase_c");
+
+    expect(phaseC).toBeDefined();
+    expect(phaseC.enabled).toBe(true);
+    expect(phaseC.hasOverride).toBe(false);
+    // Reachability gating: Calibration + the agent queue routes ride the flag
+    expect(phaseC.routes).toContain("/calibration");
+    expect(phaseC.routes).toContain("/agent");
+    // The request-access dim state stays owned by the existing ai_email_*
+    // rows — the synthetic flag must not claim permissions.
+    expect(phaseC.permissions).toEqual([]);
+  });
+
+  it("includes phase_c disabled for companies without the override", async () => {
+    getOverridesMock.mockResolvedValue([]);
+
+    const res = await GET(makeRequest(TEST_USER_ID));
+    const body = await res.json();
+    const phaseC = body.find((f: { slug: string }) => f.slug === "phase_c");
+
+    expect(phaseC).toBeDefined();
+    expect(phaseC.enabled).toBe(false);
+  });
+
+  it("fails closed for BOTH synthetic flags when the override check throws", async () => {
+    getOverridesMock.mockRejectedValue(new Error("DB timeout"));
+
+    const res = await GET(makeRequest(TEST_USER_ID));
     expect(res.status).toBe(200);
 
     const body = await res.json();
     const inboxFlag = body.find((f: { slug: string }) => f.slug === "inbox_ui");
+    const phaseC = body.find((f: { slug: string }) => f.slug === "phase_c");
 
-    expect(inboxFlag).toBeDefined();
     expect(inboxFlag.enabled).toBe(false);
+    expect(phaseC.enabled).toBe(false);
   });
 
-  it("calls isFeatureEnabled with the resolved company_id (not the user id)", async () => {
-    isFeatureEnabledMock.mockResolvedValue(false);
-
-    await GET(makeRequest(TEST_USER_ID) );
-
-    expect(isFeatureEnabledMock).toHaveBeenCalledWith(TEST_COMPANY_ID, "inbox_ui");
+  it("calls getOverrides with the resolved company_id (not the user id)", async () => {
+    await GET(makeRequest(TEST_USER_ID));
+    expect(getOverridesMock).toHaveBeenCalledWith(TEST_COMPANY_ID);
   });
 
-  it("includes inbox_ui disabled when no userId param (JWT-resolved path)", async () => {
-    isFeatureEnabledMock.mockResolvedValue(false);
-
-    // No userId param — route resolves user from JWT
-    const res = await GET(makeRequest() );
+  it("includes both synthetic flags disabled when no userId param (JWT-resolved path)", async () => {
+    const res = await GET(makeRequest());
     expect(res.status).toBe(200);
 
     const body = await res.json();
     const inboxFlag = body.find((f: { slug: string }) => f.slug === "inbox_ui");
-    expect(inboxFlag).toBeDefined();
+    const phaseC = body.find((f: { slug: string }) => f.slug === "phase_c");
     expect(inboxFlag.enabled).toBe(false);
+    expect(phaseC.enabled).toBe(false);
   });
 
   it("returns 403 when userId param does not match JWT-resolved user", async () => {
@@ -187,25 +232,26 @@ describe("GET /api/feature-flags — inbox_ui inclusion", () => {
       company_id: TEST_COMPANY_ID,
     });
 
-    const res = await GET(makeRequest("someone-elses-id") );
+    const res = await GET(makeRequest("someone-elses-id"));
     expect(res.status).toBe(403);
   });
 
   it("returns 401 when auth fails", async () => {
     verifyAdminAuthMock.mockResolvedValue(null);
 
-    const res = await GET(makeRequest(TEST_USER_ID) );
+    const res = await GET(makeRequest(TEST_USER_ID));
     expect(res.status).toBe(401);
   });
 
-  it("also returns the standard global flags alongside inbox_ui", async () => {
-    isFeatureEnabledMock.mockResolvedValue(true);
+  it("also returns the standard global flags alongside the synthetic ones", async () => {
+    getOverridesMock.mockResolvedValue([override("inbox_ui", true)]);
 
-    const res = await GET(makeRequest(TEST_USER_ID) );
+    const res = await GET(makeRequest(TEST_USER_ID));
     const body = await res.json();
 
     const slugs = body.map((f: { slug: string }) => f.slug);
     expect(slugs).toContain("pipeline");
     expect(slugs).toContain("inbox_ui");
+    expect(slugs).toContain("phase_c");
   });
 });
