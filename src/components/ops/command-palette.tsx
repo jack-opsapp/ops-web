@@ -175,12 +175,12 @@ export function CommandPalette() {
       requiredPermission: "projects.view",
     },
     {
-      id: "nav-calendar",
-      label: "Calendar",
+      id: "nav-schedule",
+      label: "Schedule",
       icon: CalendarDays,
       shortcut: "3",
-      onSelect: () => navigate("/calendar"),
-      keywords: ["schedule", "events", "dates"],
+      onSelect: () => navigate("/schedule"),
+      keywords: ["calendar", "events", "dates"],
       requiredPermission: "calendar.view",
     },
     {

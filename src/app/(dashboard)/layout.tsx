@@ -17,7 +17,7 @@ import { useDictionary } from "@/i18n/client";
 /** Routes that require a specific permission to access. Omitted = always allowed. */
 const ROUTE_PERMISSIONS: Record<string, string> = {
   "/projects": "projects.view",
-  "/calendar": "calendar.view",
+  "/schedule": "calendar.view",
   "/clients": "clients.view",
 
   "/team": "team.view",

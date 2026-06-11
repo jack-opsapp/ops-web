@@ -1114,7 +1114,7 @@ async function executeRescheduleTasks(
           title: "Task assigned to you",
           body: `"${data.task_title}" has been assigned to you.`,
           persistent: false,
-          actionUrl: "/calendar",
+          actionUrl: "/schedule",
           actionLabel: "View Schedule",
         });
       } catch {

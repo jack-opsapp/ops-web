@@ -110,7 +110,7 @@ function getSourceUrl(contextSource: string | null, sourceId: string | null): st
     case "email_thread":
       return `/inbox?thread=${sourceId}`;
     case "schedule_gap":
-      return "/calendar";
+      return "/schedule";
     case "overdue_task":
       return `/projects?task=${sourceId}`;
     case "project_analysis":
@@ -140,7 +140,7 @@ function getSourceUrl(contextSource: string | null, sourceId: string | null): st
     case "payment_analysis":
       return `/clients/${sourceId.split(":")[0]}`;
     case "schedule_optimization":
-      return "/calendar";
+      return "/schedule";
     default:
       return null;
   }

@@ -659,7 +659,7 @@
   "taskPulse.upcoming": "Próximas",
   "taskPulse.openTasks": "Tareas Abiertas",
   "taskPulse.allClear": "Todo al día",
-  "taskPulse.viewCalendar": "Ver Calendario",
+  "taskPulse.viewCalendar": "Ver agenda",
 
   "receivablesAging.title": "Cuentas por Cobrar",
   "receivablesAging.outstanding": "Pendiente",
@@ -720,14 +720,14 @@
   "todaysSchedule.noEvents": "Sin eventos hoy",
   "todaysSchedule.moreToday": "más hoy",
   "todaysSchedule.tomorrow": "Mañana",
-  "todaysSchedule.viewCalendar": "Ver Calendario",
+  "todaysSchedule.viewCalendar": "Ver agenda",
   "todaysSchedule.eventsToday": "hoy",
 
   "crewBoard.title": "Equipo",
   "crewBoard.utilization": "Utilización",
   "crewBoard.tasks": "tareas",
   "crewBoard.noMembers": "SIN CREW ACTIVO",
-  "crewBoard.viewSchedule": "Ver Calendario",
+  "crewBoard.viewSchedule": "Ver agenda",
 
   "topClients.title": "Top Clientes",
   "topClients.noData": "Sin datos de clientes",
@@ -936,7 +936,7 @@
   "taskList.overdueCount": "Vencidas",
   "taskList.todayCount": "Hoy",
   "taskList.unscheduledCount": "Sin programar",
-  "taskList.viewCalendar": "Ver calendario",
+  "taskList.viewCalendar": "Ver agenda",
 
   "taskPulse.blocking": "Bloqueando",
   "taskPulse.dOverdue": "d vencida",

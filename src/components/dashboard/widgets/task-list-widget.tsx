@@ -228,7 +228,7 @@ export function TaskListWidget({
           {heroSection}
           <WidgetEmptyState
             message={t("taskList.emptyToday") ?? "No tasks scheduled today"}
-            cta={{ label: t("taskList.viewCalendar") ?? "View Calendar", onClick: () => onNavigate("/calendar") }}
+            cta={{ label: t("taskList.viewCalendar") ?? "View Calendar", onClick: () => onNavigate("/schedule") }}
             className="flex-1"
           />
         </div>
@@ -395,7 +395,7 @@ function TaskRow({
       layout={!reducedMotion}
       exit={reducedMotion ? { opacity: 0 } : { opacity: 0, height: 0, marginBottom: 0 }}
       transition={{ duration: reducedMotion ? 0.15 : 0.25, ease: [0.22, 1, 0.36, 1] }}
-      onClick={() => onNavigate(task.projectId ? `/projects/${task.projectId}` : "/calendar")}
+      onClick={() => onNavigate(task.projectId ? `/projects/${task.projectId}` : "/schedule")}
       className={cn(
         "flex items-center gap-1 px-1 py-2 rounded hover:bg-[rgba(255,255,255,0.04)] cursor-pointer transition-colors group",
         isDone && "opacity-40"

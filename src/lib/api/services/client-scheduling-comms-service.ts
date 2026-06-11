@@ -1839,7 +1839,7 @@ export const ClientSchedulingCommsService = {
             title: nTitle,
             body: nBody,
             persistent: false,
-            actionUrl: "/calendar",
+            actionUrl: "/schedule",
             actionLabel: nAction,
           });
         } catch (err) {

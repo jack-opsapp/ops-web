@@ -83,7 +83,7 @@ export function KeyboardShortcuts() {
       const routes: Record<string, string> = {
         "1": "/dashboard",
         "2": "/projects",
-        "3": "/calendar",
+        "3": "/schedule",
         "4": "/clients",
         "5": "/team",
         "6": "/map",

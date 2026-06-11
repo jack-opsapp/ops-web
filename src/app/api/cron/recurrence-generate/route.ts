@@ -214,7 +214,7 @@ async function processRecurrence(
           body: `${recurrence.title} on ${dateStr}`,
           is_read: false,
           persistent: false,
-          action_url: `/calendar?date=${dateStr}&task=${(insertedTask as { id: string }).id}`,
+          action_url: `/schedule?date=${dateStr}&task=${(insertedTask as { id: string }).id}`,
           action_label: "VIEW",
         }));
         const { error: notifErr } = await supabase

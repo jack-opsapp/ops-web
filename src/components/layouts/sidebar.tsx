@@ -66,7 +66,7 @@ function buildNavItems(t: (key: string) => string): NavEntry[] {
     { label: t("nav.dashboard"), href: "/dashboard", icon: LayoutDashboard },
     "divider",
     { label: t("nav.projects"), href: "/projects", icon: FolderKanban, permission: "projects.view" },
-    { label: t("nav.calendar"), href: "/calendar", icon: CalendarDays, permission: "calendar.view" },
+    { label: t("nav.calendar"), href: "/schedule", icon: CalendarDays, permission: "calendar.view" },
     { label: t("nav.clients"), href: "/clients", icon: Users, permission: "clients.view" },
 
     { label: t("nav.team"), href: "/team", icon: UserCog, permission: "team.view" },

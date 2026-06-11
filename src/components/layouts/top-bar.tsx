@@ -26,7 +26,7 @@ import { useUndoStore } from "@/stores/undo-store";
 const routeTitles: Record<string, string> = {
   "/dashboard": "Dashboard",
   "/projects": "Projects",
-  "/calendar": "Schedule",
+  "/schedule": "Schedule",
   "/clients": "Clients",
 
   "/team": "Team",
