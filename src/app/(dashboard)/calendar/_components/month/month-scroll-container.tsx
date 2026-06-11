@@ -154,13 +154,20 @@ function computeWeeklyPlacements(
   weekStarts: Date[],
   events: InternalCalendarEvent[],
   cellHeight: number,
-  level: DisplayLevel
+  level: DisplayLevel,
+  // Optional per-week max-slot override. When a row is expanded (bug
+  // 07492342) the operator requested a way to reach overflowed events so
+  // they can drag them — so the row grows tall enough to hold every event.
+  // The keys are `yyyy-MM-dd` of weekStart.
+  maxSlotsOverride?: Map<string, number>
 ): ProcessedWeek[] {
-  const maxSlots = getMaxSlots(cellHeight, level);
+  const defaultMaxSlots = getMaxSlots(cellHeight, level);
   const result: ProcessedWeek[] = [];
   const globalSlotMap = new Map<string, Map<number, number>>();
 
   weekStarts.forEach((weekStart, w) => {
+    const weekKey = format(weekStart, "yyyy-MM-dd");
+    const maxSlots = maxSlotsOverride?.get(weekKey) ?? defaultMaxSlots;
     const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
     const weekEnd = weekDays[6];
 
@@ -579,12 +586,19 @@ function MonthDayCell({
   isWeekend,
   overflow,
   onSelectDate,
+  onExpandRow,
 }: {
   day: Date;
   isCurrentDay: boolean;
   isWeekend: boolean;
   overflow: number;
   onSelectDate?: (date: Date) => void;
+  // Bug 07492342 — clicking "+N MORE" used to jump to the day view, which
+  // was the only way to reach the hidden events. Operators wanted to keep
+  // working in month view (especially to drag the hidden events). Now the
+  // overflow button expands its containing week row so every event becomes
+  // visible and draggable in place.
+  onExpandRow?: () => void;
 }) {
   const dayKey = format(day, "yyyy-MM-dd");
   const { setNodeRef, isOver } = useDroppable({
@@ -668,9 +682,17 @@ function MonthDayCell({
             padding: 0,
             zIndex: 2,
           }}
+          aria-label={`Expand row to show ${overflow} more event${overflow === 1 ? "" : "s"}`}
           onClick={(e) => {
             e.stopPropagation();
-            onSelectDate?.(day);
+            // Bug 07492342 — was `onSelectDate?.(day)` which navigated to the
+            // day view. Operators wanted to surface the hidden events without
+            // leaving month view so they can be dragged. Expand the row in
+            // place; if the parent didn't wire `onExpandRow` (defensive),
+            // fall back to the previous navigate behavior so the click is
+            // never a no-op.
+            if (onExpandRow) onExpandRow();
+            else onSelectDate?.(day);
           }}
         >
           +{overflow} MORE
@@ -783,6 +805,21 @@ export function MonthScrollContainer({
   const [cellHeight, setCellHeight] = useState(DEFAULT_CELL_HEIGHT);
   const displayLevel = getDisplayLevel(cellHeight);
 
+  // Bug 07492342 — set of week-start keys (yyyy-MM-dd) whose rows are
+  // currently expanded to show every event. Clicking "+N MORE" on a day
+  // toggles its week into this set; clicking "// COLLAPSE" removes it.
+  const [expandedWeeks, setExpandedWeeks] = useState<Set<string>>(
+    () => new Set()
+  );
+  const toggleWeekExpanded = useCallback((weekKey: string) => {
+    setExpandedWeeks((prev) => {
+      const next = new Set(prev);
+      if (next.has(weekKey)) next.delete(weekKey);
+      else next.add(weekKey);
+      return next;
+    });
+  }, []);
+
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const sectionRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const setSectionRef = useCallback(
@@ -813,10 +850,39 @@ export function MonthScrollContainer({
     [bufferStart, bufferEnd]
   );
 
+  // Bug 07492342 — for any week the operator expanded, lift its slot ceiling
+  // far above what the cell height would normally allow so every event in
+  // that week is placed (instead of being silently spilled into the
+  // overflow counter). We use the count of events overlapping the week as
+  // a safe upper bound on slots needed (since each event consumes at most
+  // one slot row across its span).
+  const expandedMaxSlots = useMemo(() => {
+    if (expandedWeeks.size === 0) return undefined;
+    const map = new Map<string, number>();
+    for (const weekStart of weekStarts) {
+      const weekKey = format(weekStart, "yyyy-MM-dd");
+      if (!expandedWeeks.has(weekKey)) continue;
+      const weekEnd = addDays(weekStart, 6);
+      const overlapping = events.filter(
+        (ev) => ev.startDate <= weekEnd && ev.endDate >= weekStart
+      ).length;
+      // +1 keeps the floor at >= 1 even on an empty expanded row (which
+      // shouldn't happen in practice but is cheap insurance).
+      map.set(weekKey, Math.max(1, overlapping) + 1);
+    }
+    return map;
+  }, [expandedWeeks, weekStarts, events]);
+
   const processedWeeks = useMemo(
     () =>
-      computeWeeklyPlacements(weekStarts, events, cellHeight, displayLevel),
-    [weekStarts, events, cellHeight, displayLevel]
+      computeWeeklyPlacements(
+        weekStarts,
+        events,
+        cellHeight,
+        displayLevel,
+        expandedMaxSlots
+      ),
+    [weekStarts, events, cellHeight, displayLevel, expandedMaxSlots]
   );
 
   const sections = useMemo(
@@ -1081,13 +1147,43 @@ export function MonthScrollContainer({
             {section.weeks.map((week) => {
               const weekKey = format(week.weekStart, "yyyy-MM-dd");
               const wIndex = processedWeeks.indexOf(week);
+              const isExpanded = expandedWeeks.has(weekKey);
+              // Bug 07492342 — when expanded, the row needs to hold every
+              // placement. The tallest occupied slot index dictates the
+              // row's vertical extent. We add the day-number gutter at the
+              // top and a footer band tall enough for the "// COLLAPSE"
+              // affordance so it doesn't sit on top of the last event.
+              let rowHeight = cellHeight;
+              if (isExpanded) {
+                let maxSlotEnd = 0;
+                for (const dayPlacements of week.placements) {
+                  for (const p of dayPlacements) {
+                    const end = p.slotIndex + p.slotsConsumed;
+                    if (end > maxSlotEnd) maxSlotEnd = end;
+                  }
+                }
+                const stackPx =
+                  maxSlotEnd > 0
+                    ? maxSlotEnd * (baseSlotHeight + SLOT_GAP)
+                    : 0;
+                const expandedHeight =
+                  DAY_NUMBER_HEIGHT + stackPx + MORE_ROW_HEIGHT + 8;
+                // Never shrink below the operator's chosen cellHeight — the
+                // expand action should only ever grow the row.
+                rowHeight = Math.max(cellHeight, expandedHeight);
+              }
               return (
-                <div
+                <motion.div
                   key={weekKey}
                   data-month-week-row
                   className="grid grid-cols-7 relative"
+                  // Animate the row height so the expansion reads as a
+                  // deliberate motion rather than a pop. Same easing curve
+                  // used everywhere else in OPS-Web (EASE_SMOOTH).
+                  animate={{ height: rowHeight }}
+                  transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
                   style={{
-                    height: cellHeight,
+                    height: rowHeight,
                     borderBottom: "1px solid rgba(255,255,255,0.10)",
                   }}
                 >
@@ -1099,8 +1195,34 @@ export function MonthScrollContainer({
                       isWeekend={dayIdx >= 5}
                       overflow={week.overflowByDay[dayIdx] ?? 0}
                       onSelectDate={onSelectDate}
+                      onExpandRow={() => toggleWeekExpanded(weekKey)}
                     />
                   ))}
+
+                  {isExpanded && (
+                    <button
+                      type="button"
+                      className="absolute font-mono uppercase cursor-pointer hover:underline"
+                      aria-label="Collapse expanded week row"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleWeekExpanded(weekKey);
+                      }}
+                      style={{
+                        bottom: 2,
+                        right: 6,
+                        fontSize: 10,
+                        letterSpacing: "0.15em",
+                        color: "#999999",
+                        background: "none",
+                        border: "none",
+                        padding: 0,
+                        zIndex: 5,
+                      }}
+                    >
+                      // COLLAPSE
+                    </button>
+                  )}
 
                   <div
                     className="absolute inset-0 pointer-events-none"
@@ -1187,7 +1309,7 @@ export function MonthScrollContainer({
                       })
                     )}
                   </div>
-                </div>
+                </motion.div>
               );
             })}
           </section>
