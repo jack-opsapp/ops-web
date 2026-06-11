@@ -1,7 +1,7 @@
 {
   "route.dashboard": "Dashboard",
   "route.projects": "Projects",
-  "route.calendar": "Calendar",
+  "route.calendar": "Schedule",
   "route.clients": "Clients",
 
   "route.team": "Team",

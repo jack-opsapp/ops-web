@@ -8,14 +8,13 @@
 
   "drawer.ariaLabel": "Notifications",
   "drawer.title": "NOTIFICATIONS",
-  "drawer.muteAllAriaLabel": "Mute all notifications",
   "drawer.clearAllAriaLabel": "Clear all dismissable notifications",
 
   "filters.ariaLabel": "Filter notifications by tone",
   "filters.all": "ALL",
-  "filters.critical": "CRITICAL",
-  "filters.attn": "ATTENTION",
-  "filters.ambient": "AMBIENT",
+  "filters.critical": "CRIT",
+  "filters.attn": "ATTN",
+  "filters.ambient": "INFO",
 
   "list.eofMarker": "[ EOF ]",
 
@@ -24,11 +23,9 @@
   "empty.error": "// SYS :: SYNC ERROR",
   "empty.retry": "RETRY",
 
-  "row.snooze": "SNOOZE",
-  "row.snoozeTooltipComingSoon": "Snooze coming soon",
   "row.dismiss": "DISMISS",
   "row.dismissAriaLabel": "Dismiss notification",
 
   "footer.lastSync": "LAST SYNC {time}",
-  "footer.viewAll": "VIEW ALL →"
+  "footer.clearAll": "CLEAR ALL"
 }

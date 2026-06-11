@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>OPS SHELL — MOBILE (390PX)</title>
+<link rel="stylesheet" href="./colors_and_type.css" />
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#050505; min-height:100vh; display:flex; align-items:center;
+    justify-content:center; gap:48px; padding:40px; }
+  .icon-14 { width:14px; height:14px; } .icon-16 { width:16px; height:16px; }
+  .icon-18 { width:18px; height:18px; }
+
+  .frame { width:390px; height:740px; position:relative; overflow:hidden;
+    background:var(--bg); border:1px solid rgba(255,255,255,0.14); border-radius:18px; }
+  .frame-label { position:absolute; left:50%; transform:translateX(-50%); bottom:-30px;
+    font-family:var(--font-mono); font-size:10px; letter-spacing:0.16em; color:var(--text-mute);
+    text-transform:uppercase; white-space:nowrap; }
+  .frame-wrap { position:relative; }
+
+  .canvas { position:absolute; inset:0; padding-top:56px;
+    background-image:radial-gradient(rgba(255,255,255,0.05) 1px, transparent 1px);
+    background-size:24px 24px; }
+  .ghost { position:relative; margin:14px 12px 0; background:var(--glass);
+    border:1px solid var(--glass-border); border-radius:10px; height:120px;
+    backdrop-filter:blur(28px) saturate(1.3); -webkit-backdrop-filter:blur(28px) saturate(1.3); }
+  .ghost::before { content:""; position:absolute; inset:0; border-radius:inherit;
+    background:linear-gradient(180deg, rgba(255,255,255,0.04), transparent 40%); pointer-events:none; }
+  .ghost .gt { padding:14px 16px 4px; font-family:var(--font-mono); font-size:11px;
+    letter-spacing:0.16em; color:var(--text-3); text-transform:uppercase; }
+  .ghost .gn { padding:0 16px; font-family:var(--font-mono); font-size:20px; font-weight:600;
+    color:var(--text); font-feature-settings:"tnum" 1,"zero" 1; }
+
+  .topbar { position:absolute; top:0; left:0; right:0; height:56px; z-index:500;
+    display:flex; align-items:center; gap:8px; padding:0 12px;
+    background:var(--glass); border-bottom:1px solid var(--glass-border);
+    backdrop-filter:blur(28px) saturate(1.3); -webkit-backdrop-filter:blur(28px) saturate(1.3); }
+  .chip { display:flex; align-items:center; justify-content:center; width:40px; height:40px;
+    background:rgba(10,10,10,0.25); border:1px solid rgba(255,255,255,0.06);
+    border-radius:4px; color:var(--text-3); }
+  .tb-title { font-family:var(--font-cakemono); font-weight:300; font-size:20px;
+    text-transform:uppercase; color:var(--text); }
+  .spacer { flex:1; }
+  .clock { font-family:var(--font-mono); font-size:11px; color:var(--text-3);
+    font-feature-settings:"tnum" 1; }
+
+  /* edge tabs clamped on mobile */
+  .etab { position:absolute; right:0; width:24px; z-index:1550;
+    background:var(--glass-dense); border:1px solid var(--glass-border); border-right:none;
+    border-radius:6px 0 0 6px; display:flex; flex-direction:column; align-items:center;
+    justify-content:center; gap:8px; color:var(--text);
+    backdrop-filter:blur(28px) saturate(1.3); -webkit-backdrop-filter:blur(28px) saturate(1.3); }
+  .etab .stripe { position:absolute; left:0; top:6px; bottom:6px; width:2px; }
+  .etab .cnt { font-family:var(--font-mono); font-size:10px;
+    writing-mode:vertical-rl; transform:rotate(180deg); font-feature-settings:"tnum" 1; }
+
+  /* drawer open state (frame 2) */
+  .scrim { position:absolute; inset:0; background:rgba(0,0,0,0.5); z-index:502; }
+  .drawer { position:absolute; left:0; top:0; bottom:0; width:280px; z-index:505;
+    display:flex; flex-direction:column;
+    background:var(--glass-dense); border-right:1px solid rgba(255,255,255,0.09);
+    backdrop-filter:blur(28px) saturate(1.3); -webkit-backdrop-filter:blur(28px) saturate(1.3); }
+  .co { display:flex; align-items:center; gap:10px; height:56px; padding:0 16px;
+    border-bottom:1px solid rgba(255,255,255,0.06); flex-shrink:0; }
+  .co-logo { width:26px; height:26px; border-radius:5px; background:rgba(255,255,255,0.08);
+    display:flex; align-items:center; justify-content:center; color:var(--text-3); }
+  .co-name { font-family:var(--font-cakemono); font-weight:300; font-size:13px;
+    text-transform:uppercase; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  nav.items { flex:1; overflow-y:auto; padding:6px 12px; }
+  .sect { font-family:var(--font-mono); font-size:10px; letter-spacing:0.16em;
+    text-transform:uppercase; color:var(--text-mute); padding:10px 8px 6px; }
+  .item { position:relative; display:flex; align-items:center; gap:12px; height:40px;
+    padding:0 10px; margin-bottom:1px; border-radius:6px; color:var(--text-3); }
+  .item.active { color:var(--text); }
+  .item.active::before { content:""; position:absolute; left:-12px; top:8px; bottom:8px;
+    width:2px; background:var(--text-2); border-radius:1px; }
+  .item .label { font-family:var(--font-cakemono); font-weight:300; font-size:13px;
+    text-transform:uppercase; }
+  .item .badge { margin-left:auto; font-family:var(--font-mono); font-size:10px;
+    color:var(--text-2); background:rgba(255,255,255,0.08); border-radius:4px; padding:1px 5px;
+    font-feature-settings:"tnum" 1; }
+  .foot { border-top:1px solid rgba(255,255,255,0.06); padding:8px 12px 12px; flex-shrink:0; }
+  .user { display:flex; align-items:center; gap:10px; padding:6px 7px; border-radius:6px;
+    background:rgba(255,255,255,0.03); }
+  .avatar { width:30px; height:30px; border-radius:50%; border:1.5px solid rgba(255,255,255,0.18);
+    display:flex; align-items:center; justify-content:center;
+    font-family:var(--font-mohave); font-size:13px; color:var(--text-2); }
+  .u-name { font-family:var(--font-mohave); font-size:14px; color:var(--text); line-height:1.15; }
+  .u-role { font-family:var(--font-mono); font-size:10px; letter-spacing:0.14em;
+    color:var(--text-3); text-transform:uppercase; }
+</style>
+</head>
+<body>
+
+<!-- frame 1: at rest -->
+<div class="frame-wrap">
+  <div class="frame">
+    <div class="canvas">
+      <div class="ghost"><div class="gt">// REVENUE — JUNE</div><div class="gn">$48,200</div></div>
+      <div class="ghost"><div class="gt">// ACTIVE PROJECTS</div><div class="gn">11</div></div>
+      <div class="ghost"><div class="gt">// CREW ON SITE</div><div class="gn">6</div></div>
+    </div>
+    <header class="topbar">
+      <div class="chip"><i data-lucide="menu" class="icon-18"></i></div>
+      <h1 class="tb-title">Dashboard</h1>
+      <div class="spacer"></div>
+      <div class="chip"><i data-lucide="search" class="icon-16"></i></div>
+      <div class="chip"><i data-lucide="check" class="icon-14"></i></div>
+    </header>
+    <div class="etab" style="top:140px; height:120px;">
+      <span class="stripe" style="background:var(--rose);"></span>
+      <i data-lucide="bell" style="width:13px;height:13px;"></i>
+      <span class="cnt">12</span>
+    </div>
+    <div class="etab" style="top:280px; height:100px;">
+      <span class="stripe" style="background:var(--ops-accent);"></span>
+      <i data-lucide="plus" style="width:13px;height:13px;"></i>
+    </div>
+  </div>
+  <span class="frame-label">390PX — AT REST</span>
+</div>
+
+<!-- frame 2: drawer open -->
+<div class="frame-wrap">
+  <div class="frame">
+    <div class="canvas">
+      <div class="ghost"><div class="gt">// REVENUE — JUNE</div><div class="gn">$48,200</div></div>
+      <div class="ghost"><div class="gt">// ACTIVE PROJECTS</div><div class="gn">11</div></div>
+    </div>
+    <header class="topbar">
+      <div class="chip"><i data-lucide="menu" class="icon-18"></i></div>
+      <h1 class="tb-title">Dashboard</h1>
+    </header>
+    <div class="scrim"></div>
+    <aside class="drawer">
+      <div class="co">
+        <div class="co-logo"><i data-lucide="building-2" class="icon-14"></i></div>
+        <span class="co-name">Canpro Window Clean…</span>
+      </div>
+      <nav class="items">
+        <div class="sect">// COMMAND</div>
+        <a class="item active"><i data-lucide="layout-dashboard" class="icon-18"></i><span class="label">Dashboard</span></a>
+        <a class="item"><i data-lucide="folder-kanban" class="icon-18"></i><span class="label">Projects</span></a>
+        <a class="item"><i data-lucide="map-pin" class="icon-18"></i><span class="label">Map</span></a>
+        <a class="item"><i data-lucide="calendar-days" class="icon-18"></i><span class="label">Schedule</span></a>
+        <a class="item"><i data-lucide="git-branch" class="icon-18"></i><span class="label">Pipeline</span></a>
+        <a class="item"><i data-lucide="file-text" class="icon-18"></i><span class="label">Estimates</span></a>
+        <a class="item"><i data-lucide="receipt" class="icon-18"></i><span class="label">Invoices</span></a>
+        <a class="item"><i data-lucide="calculator" class="icon-18"></i><span class="label">Accounting</span></a>
+        <a class="item"><i data-lucide="users" class="icon-18"></i><span class="label">Clients</span></a>
+        <div class="sect">// OPS</div>
+        <a class="item"><i data-lucide="brain-circuit" class="icon-18"></i><span class="label">Agent Queue</span><span class="badge">3</span></a>
+        <a class="item"><i data-lucide="settings" class="icon-18"></i><span class="label">Settings</span></a>
+      </nav>
+      <div class="foot">
+        <div class="user">
+          <div class="avatar">J</div>
+          <div>
+            <div class="u-name">Jackson Sweet</div>
+            <div class="u-role">Admin</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+  <span class="frame-label">390PX — DRAWER OPEN</span>
+</div>
+
+<script>lucide.createIcons();</script>
+</body>
+</html>

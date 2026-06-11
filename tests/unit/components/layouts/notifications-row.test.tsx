@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NotificationRow } from "@/components/layouts/notifications-row";
 import type { AppNotification } from "@/lib/api/services/notification-service";
@@ -46,9 +46,30 @@ describe("<NotificationRow>", () => {
     expect(screen.getByText(/^14m$/)).toBeInTheDocument();
   });
 
-  it("renders action-label hint when collapsed and not hovered", () => {
-    renderRow();
-    expect(screen.getByText("OPEN")).toBeInTheDocument();
+  it("reveals the action button and dismiss × on hover (collapsed)", async () => {
+    const onAction = vi.fn();
+    const user = userEvent.setup();
+    renderRow({ onAction });
+    // At rest the controls are hidden — the timestamp shows instead.
+    expect(screen.queryByRole("button", { name: /OPEN/i })).not.toBeInTheDocument();
+    expect(screen.getByText(/^14m$/)).toBeInTheDocument();
+    await user.hover(screen.getByText("Marcus mentioned you"));
+    // fireEvent: userEvent's pointer walk re-renders the row mid-sequence
+    // (hover state), detaching the freshly revealed button node.
+    fireEvent.click(screen.getByRole("button", { name: /OPEN/i }));
+    expect(onAction).toHaveBeenCalledTimes(1);
+    expect(
+      screen.getByRole("button", { name: /row\.dismissAriaLabel/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("does NOT reveal a hover dismiss for persistent notifications", async () => {
+    const user = userEvent.setup();
+    renderRow({ notification: { ...baseNotif, persistent: true } });
+    await user.hover(screen.getByText("Marcus mentioned you"));
+    expect(
+      screen.queryByRole("button", { name: /row\.dismissAriaLabel/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("does not render body or action buttons when collapsed", () => {
@@ -97,10 +118,9 @@ describe("<NotificationRow>", () => {
     expect(screen.queryByRole("button", { name: /row\.dismiss/i })).not.toBeInTheDocument();
   });
 
-  it("renders the snooze button as disabled", () => {
+  it("does not render a snooze control (cut until snooze ships)", () => {
     renderRow({ expanded: true });
-    const snooze = screen.getByRole("button", { name: /row\.snooze/i });
-    expect(snooze).toBeDisabled();
+    expect(screen.queryByText(/row\.snooze/i)).not.toBeInTheDocument();
   });
 
   it("translates i18n-keyed title via useDictionary('common')", () => {

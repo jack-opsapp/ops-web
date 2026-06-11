@@ -4,6 +4,7 @@ export type Namespace =
   | 'common'
   | 'auth'
   | 'auth-action'
+  | 'navigation'
   | 'sidebar'
   | 'topbar'
   | 'breadcrumbs'

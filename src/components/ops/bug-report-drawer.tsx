@@ -400,7 +400,7 @@ export function BugReportDrawer() {
             width: panelWidth,
             maxWidth: "calc(100vw - 36px)",
             pointerEvents: "none",
-            zIndex: 1500,
+            zIndex: 1550,
           }}
         >
           <motion.aside
@@ -423,14 +423,15 @@ export function BugReportDrawer() {
               maxHeight: `calc(100vh - ${RAIL_TOP + RAIL_BOTTOM}px)`,
               display: "flex",
               flexDirection: "column",
-              background: "rgba(32, 34, 38, 0.92)",
+              background: "var(--glass-dense)",
               backdropFilter: "blur(28px) saturate(1.3)",
               WebkitBackdropFilter: "blur(28px) saturate(1.3)",
-              border: "1px solid rgba(255, 255, 255, 0.18)",
+              border: "1px solid var(--glass-border)",
               borderRight: "none",
+              borderTopLeftRadius: 10,
+              borderBottomLeftRadius: 10,
               pointerEvents: "auto",
               overflow: "hidden",
-              boxShadow: "inset 0 1px 0 0 rgba(255,255,255,0.04)",
             }}
           >
             {/* Top-edge highlight gradient */}

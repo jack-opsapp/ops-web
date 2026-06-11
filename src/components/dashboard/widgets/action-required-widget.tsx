@@ -345,7 +345,7 @@ export function ActionRequiredWidget({
               {items.length}
             </span>
             <button
-              onClick={() => onNavigate("/calendar")}
+              onClick={() => onNavigate("/schedule")}
               className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors"
             >
               <ArrowUpRight className="w-[14px] h-[14px]" />
@@ -422,7 +422,7 @@ export function ActionRequiredWidget({
           <WidgetInlineAction
             icon={CalendarDays}
             actions={[
-              { icon: CalendarDays, label: t("actionRequired.openScheduler") ?? "Open Scheduler", onAction: () => onNavigate("/calendar") },
+              { icon: CalendarDays, label: t("actionRequired.openScheduler") ?? "Open Scheduler", onAction: () => onNavigate("/schedule") },
               { icon: Check, label: t("actionRequired.markComplete") ?? "Mark Complete", onAction: () => onNavigate(item.navigateTo) },
             ]}
           />

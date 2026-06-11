@@ -125,7 +125,7 @@ async function processCompany(companyId: string): Promise<Result> {
         title: "notification.autoConfirmedTasks.title",
         body: `${confirmedCount} task${confirmedCount === 1 ? "" : "s"} auto-confirmed`,
         persistent: false,
-        actionUrl: "/calendar",
+        actionUrl: "/schedule",
         actionLabel: "notification.autoConfirmedTasks.action",
       });
     } catch (err) {

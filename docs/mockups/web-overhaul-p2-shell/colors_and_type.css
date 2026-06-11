@@ -1,0 +1,280 @@
+/* OPS Design System — Colors & Type
+ * Source of truth: uploads/system.md v2 (2026-04-17).
+ * Supplemented with exact glass values from repo CLAUDE.md where aligned.
+ * Import this file first; everything else assumes these vars exist.
+ */
+
+/* -------------------------------------------------------------------------- */
+/* FONTS                                                                      */
+/* -------------------------------------------------------------------------- */
+
+/* Mohave + JetBrains Mono via Google Fonts. Cake Mono ships from /fonts. */
+@import url('https://fonts.googleapis.com/css2?family=Mohave:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@font-face {
+  font-family: "Cake Mono";
+  src: url("./fonts/CakeMono-Light.woff2") format("woff2"),
+       url("./fonts/CakeMono-Light.woff")  format("woff");
+  font-weight: 300; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Cake Mono";
+  src: url("./fonts/CakeMono-Regular.woff2") format("woff2"),
+       url("./fonts/CakeMono-Regular.woff")  format("woff");
+  font-weight: 400; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Cake Mono";
+  src: url("./fonts/CakeMono-Bold.woff2") format("woff2"),
+       url("./fonts/CakeMono-Bold.woff")  format("woff");
+  font-weight: 700; font-style: normal; font-display: swap;
+}
+
+:root {
+  --font-mohave: "Mohave", system-ui, sans-serif;
+  --font-mono:   "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-cakemono: "Cake Mono", "Mohave", system-ui, sans-serif;
+  --font-cakemono-tracking: 0em;
+
+  /* --- Backgrounds (pure black canvas) --- */
+  --bg:              #000000;
+  --bg-panel:        #0A0A0A;
+  --bg-card:         #191919;
+  --bg-elevated:     #1A1A1A;
+  --bg-input:        #111111;
+
+  /* Glass — canonical values from DESIGN.md */
+  --glass:              rgba(18, 18, 20, 0.58);
+  --glass-dense:        rgba(18, 18, 20, 0.78);
+  --glass-subtle:       rgba(18, 18, 20, 0.40);
+  --glass-border:       rgba(255, 255, 255, 0.09);
+
+  --surface-input:   rgba(255, 255, 255, 0.04);
+  --surface-hover:   rgba(255, 255, 255, 0.05);
+  --surface-active:  rgba(255, 255, 255, 0.08);
+
+  /* --- Text (v2 spec) --- */
+  --text:      #EDEDED;  /* 18.8:1  primary body, hero numbers, active nav */
+  --text-2:    #B5B5B5;  /* 10.3:1  secondary, ghost button, link, side icon */
+  --text-3:    #8A8A8A;  /*  5.4:1  labels, meta, subtitles, placeholder */
+  --text-mute: #6A6A6A;  /*  3.4:1  DECORATIVE ONLY — // slashes, separators */
+
+  /* --- Accent (PRIMARY CTA + FOCUS RING ONLY) --- */
+  --ops-accent: #6F94B0;   /* steel blue — v2 spec */
+  --ops-accent-hover: #7fa3bd;
+  --ops-accent-muted: rgba(111, 148, 176, 0.15);
+  --ops-amber:  #C4A868;
+
+  /* --- Agent / AI authorship (Phase C provenance) ---
+   * Use ONLY to denote AI/Phase-C–authored content: drafted-by badges,
+   * agent message rail bars, agent-action button glyphs, agent-summary highlights.
+   * Never on body text. Never as a button background. Never on semantic state.
+   * Sits outside earth-tone family (no semantic collision) and outside steel CTA. */
+  --ops-agent:      #8A7FB8;                 /* lavender — ~5.4:1 on #000, AA */
+  --ops-agent-soft: rgba(138, 127, 184, 0.10);
+  --ops-agent-line: rgba(138, 127, 184, 0.35);
+
+  /* --- Earth-tone semantic --- */
+  --olive: #9DB582;  /* success, completed, nominal, +delta */
+  --tan:   #C4A868;  /* attention, site visit, warning, expiring */
+  --rose:  #B58289;  /* error, overdue, cost */
+  --brick: #93321A;  /* destructive borders/dots ONLY — never text on black */
+
+  /* soft fills + lines for earth-tone tags */
+  --olive-soft: rgba(157, 181, 130, 0.12);
+  --olive-line: rgba(157, 181, 130, 0.30);
+  --tan-soft:   rgba(196, 168, 104, 0.12);
+  --tan-line:   rgba(196, 168, 104, 0.30);
+  --rose-soft:  rgba(181, 130, 137, 0.12);
+  --rose-line:  rgba(181, 130, 137, 0.30);
+  --brick-line: rgba(147, 50, 26, 0.50);
+
+  /* --- Financial --- */
+  --fin-revenue:     #C4A868;
+  --fin-profit:      #9DB582;
+  --fin-cost:        #B58289;
+  --fin-receivables: #D4A574;
+  --fin-overdue:     #93321A;
+
+  /* --- Borders (v2 spec — whisper-quiet) --- */
+  --line:         rgba(255, 255, 255, 0.10);
+
+  /* --- Neutral fills (non-interactive data) --- */
+  --fill-neutral:     rgba(255, 255, 255, 0.14);
+  --fill-neutral-dim: rgba(255, 255, 255, 0.06);
+
+  /* --- Radii (DESIGN.md canonical) --- */
+  --r-panel: 10px;  /* cards, widgets */
+  --r-modal: 12px;  /* modals, popovers, dropdowns */
+  --r-btn:   5px;   /* buttons, inputs */
+  --r-chip:  4px;   /* tags, badges */
+  --r-bar:   2px;   /* funnel / progress */
+  --r-item:  6px;   /* sidebar hover */
+
+  /* --- Spacing base unit --- */
+  --unit: 8px;
+
+  /* --- Shadows: NONE on dark backgrounds (DESIGN.md: depth = glass + hairlines only) --- */
+  /* --shadow-card, --shadow-elevated, --shadow-floating intentionally removed */
+
+  /* --- Motion --- */
+  --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);
+  --d-hover: 150ms;
+  --d-panel: 200ms;
+  --d-page:  250ms;
+  --d-stag:  300ms;
+  --d-flip:  350ms;
+  --d-count: 1000ms;
+}
+
+/* -------------------------------------------------------------------------- */
+/* BASE                                                                       */
+/* -------------------------------------------------------------------------- */
+
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-mohave);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.mono, code, kbd, samp, pre, [class*="font-mono"] {
+  font-family: var(--font-mono);
+  font-feature-settings: "tnum" 1, "zero" 1;
+}
+
+/* -------------------------------------------------------------------------- */
+/* TYPE ROLES — mirrors uploads/system.md v2 hierarchy                        */
+/* -------------------------------------------------------------------------- */
+
+.t-hero         { font-family: var(--font-mohave);   font-weight: 300; font-size: 80px; line-height: 1.0;  letter-spacing: -0.01em; color: var(--text); }
+
+.t-page-title   { font-family: var(--font-cakemono); font-weight: 300; font-size: 22px; letter-spacing: var(--font-cakemono-tracking); text-transform: uppercase; color: var(--text); }
+.t-display      { font-family: var(--font-cakemono); font-weight: 300; font-size: 30px; letter-spacing: var(--font-cakemono-tracking); text-transform: uppercase; color: var(--text); }
+.t-section      { font-family: var(--font-cakemono); font-weight: 300; font-size: 18px; letter-spacing: var(--font-cakemono-tracking); text-transform: uppercase; color: var(--text); }
+.t-btn          { font-family: var(--font-cakemono); font-weight: 300; font-size: 14px; letter-spacing: var(--font-cakemono-tracking); text-transform: uppercase; }
+.t-badge-cake   { font-family: var(--font-cakemono); font-weight: 300; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
+
+.t-panel-title  { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-3); }
+.t-category     { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; }
+.t-metadata     { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); font-feature-settings: "tnum" 1, "zero" 1; }
+.t-data-lg      { font-family: var(--font-mono); font-size: 20px; font-weight: 600; color: var(--text); font-feature-settings: "tnum" 1, "zero" 1; }
+.t-data         { font-family: var(--font-mono); font-size: 13px; color: var(--text); font-feature-settings: "tnum" 1, "zero" 1; }
+
+.t-body         { font-family: var(--font-mohave); font-size: 14px; color: var(--text); line-height: 1.45; }
+.t-body-2       { font-family: var(--font-mohave); font-size: 14px; color: var(--text-2); line-height: 1.45; }
+
+/* Tactical marks */
+.slash::before  { content: "// "; color: var(--text-mute); font-family: var(--font-mono); margin-right: 2px; }
+.bracket        { font-family: var(--font-mono); color: var(--text-3); }
+.bracket::before{ content: "["; }
+.bracket::after { content: "]"; }
+
+/* -------------------------------------------------------------------------- */
+/* SURFACES                                                                   */
+/* -------------------------------------------------------------------------- */
+
+.glass-surface {
+  position: relative;
+  background: var(--glass);
+  backdrop-filter: blur(28px) saturate(1.3);
+  -webkit-backdrop-filter: blur(28px) saturate(1.3);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-panel);
+}
+.glass-surface::before {
+  content: "";
+  position: absolute; inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(255,255,255,0.04), transparent 40%);
+  pointer-events: none;
+}
+
+.glass-dense {
+  position: relative;
+  background: var(--glass-dense);
+  backdrop-filter: blur(28px) saturate(1.3);
+  -webkit-backdrop-filter: blur(28px) saturate(1.3);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-modal);
+}
+.glass-dense::before {
+  content: "";
+  position: absolute; inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(255,255,255,0.03), transparent 35%);
+  pointer-events: none;
+}
+
+/* -------------------------------------------------------------------------- */
+/* BUTTONS                                                                    */
+/* -------------------------------------------------------------------------- */
+
+.btn {
+  font-family: var(--font-cakemono); font-weight: 300; font-size: 14px;
+  letter-spacing: var(--font-cakemono-tracking); text-transform: uppercase;
+  padding: 9px 16px; border-radius: var(--r-btn);
+  display: inline-flex; align-items: center; gap: 8px;
+  cursor: pointer; transition: background var(--d-hover) var(--ease-smooth),
+                               color var(--d-hover) var(--ease-smooth),
+                               border-color var(--d-hover) var(--ease-smooth);
+  min-height: 36px;
+}
+/* Primary — outlined at rest, fills on hover. Accent is a quiet promise, not a shout. */
+.btn-primary    { background: transparent; color: var(--ops-accent); border: 1px solid var(--ops-accent); }
+.btn-primary:hover { background: var(--ops-accent); color: #000; border-color: var(--ops-accent); }
+.btn-default    { background: rgba(255,255,255,0.07); color: var(--text-2); border: 1px solid var(--line); }
+.btn-default:hover { background: rgba(255,255,255,0.05); color: var(--text); }
+.btn-secondary  { background: transparent; color: var(--text-2); border: 1px solid var(--line); }
+.btn-secondary:hover { background: rgba(255,255,255,0.05); color: var(--text); }
+.btn-ghost      { background: transparent; color: var(--text-2); border: 1px solid transparent; }
+.btn-ghost:hover{ background: rgba(255,255,255,0.05); color: var(--text); }
+.btn-destructive{ background: var(--rose-soft); color: var(--rose); border: 1px solid var(--rose-line); }
+
+.btn:focus-visible { outline: 1.5px solid var(--ops-accent); outline-offset: 2px; }
+
+/* -------------------------------------------------------------------------- */
+/* INPUTS                                                                     */
+/* -------------------------------------------------------------------------- */
+
+.input {
+  background: var(--surface-input);
+  border: 1px solid var(--line);
+  border-radius: var(--r-btn);
+  color: var(--text);
+  font-family: var(--font-mohave); font-size: 14px;
+  padding: 8px 12px; min-height: 36px;
+  transition: border-color var(--d-hover) var(--ease-smooth);
+}
+.input::placeholder { color: var(--text-3); }
+.input:focus        { outline: none; border-color: rgba(255,255,255,0.20); }
+.input.error        { border-color: var(--rose); }
+
+/* -------------------------------------------------------------------------- */
+/* TAGS                                                                       */
+/* -------------------------------------------------------------------------- */
+
+.tag {
+  font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  padding: 2px 6px; border-radius: var(--r-chip);
+  border: 1px solid var(--line);
+  background: rgba(255,255,255,0.05); color: var(--text-2);
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.tag-olive { color: var(--olive); background: var(--olive-soft); border-color: var(--olive-line); }
+.tag-tan   { color: var(--tan);   background: var(--tan-soft);   border-color: var(--tan-line); }
+.tag-rose  { color: var(--rose);  background: var(--rose-soft);  border-color: var(--rose-line); }
+
+/* -------------------------------------------------------------------------- */
+/* KEY HINT                                                                   */
+/* -------------------------------------------------------------------------- */
+
+.kbd {
+  font-family: var(--font-mono); font-size: 11px; color: var(--text-2);
+  background: rgba(255,255,255,0.06); border: 1px solid var(--line);
+  border-radius: 3px; min-width: 20px; height: 20px; padding: 0 5px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-feature-settings: "tnum" 1, "zero" 1;
+}

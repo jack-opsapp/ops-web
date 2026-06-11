@@ -192,7 +192,7 @@ export function CrewBoardWidget({
               {animatedUtilization}%
             </span>
             <button
-              onClick={(e) => { e.stopPropagation(); onNavigate("/calendar"); }}
+              onClick={(e) => { e.stopPropagation(); onNavigate("/schedule"); }}
               className="p-0.5 rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors"
             >
               <ArrowUpRight className="w-2.5 h-2.5 text-text-mute" />
@@ -334,12 +334,12 @@ function CrewMemberRow({ m, i, isLg, isVisible, reducedMotion, onNavigate, t }: 
           <WidgetInlineAction
             icon={CalendarDays}
             actions={[
-              { icon: CalendarDays, label: t("crewBoard.assignTask") ?? "Assign Task", onAction: () => onNavigate("/calendar") },
-              { icon: ArrowUpRight, label: t("crewBoard.viewSchedule") ?? "View Schedule", onAction: () => onNavigate("/calendar") },
+              { icon: CalendarDays, label: t("crewBoard.assignTask") ?? "Assign Task", onAction: () => onNavigate("/schedule") },
+              { icon: ArrowUpRight, label: t("crewBoard.viewSchedule") ?? "View Schedule", onAction: () => onNavigate("/schedule") },
             ]}
           />
         ) : undefined}
-        onClick={() => onNavigate("/calendar")}
+        onClick={() => onNavigate("/schedule")}
       />
 
       {/* Utilization bar */}

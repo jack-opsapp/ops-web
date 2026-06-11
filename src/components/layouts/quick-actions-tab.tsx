@@ -4,22 +4,16 @@ import { useEffect, useMemo } from "react";
 import { EdgeTab } from "@/components/ui/edge-tab";
 import { useEdgeTabStore } from "@/stores/edge-tab-store";
 import { useDictionary } from "@/i18n/client";
-import {
-  useQuickActions,
-  useQuickActionsVisible,
-} from "@/lib/hooks/use-quick-actions";
+import { useQuickActionsVisible } from "@/lib/hooks/use-quick-actions";
 import { useNotifications } from "@/lib/hooks/use-notifications";
 import { useDuplicateReviewStore } from "@/stores/duplicate-review-store";
+import { EDGE_RAIL_STACK } from "@/components/ui/edge-rail-layout";
 
 const EDGE_TAB_ID = "quick-actions";
-// Combined-stack math: Notifications (180) above gap (8) above Quick Actions (132).
-// QA center sits +94 below the rail midpoint (mirror of notif at -94).
-const STACK_OFFSET_QA = 94;
-const REST_HEIGHT = 132;
-const DRAWER_WIDTH = 308;
+const RAIL = EDGE_RAIL_STACK.quickActions;
 
-// Quick-actions menu sizing — content-driven (bug dd5659ed). The panel
-// height grows with the action list rather than locking at 452.
+// Quick-actions DRAWER sizing — content-driven (bug dd5659ed): the panel
+// grows with the visible action list instead of locking at 452.
 //
 //   header  = 46px (12px py + 13px Cake Mono title row)
 //   row     = 36px each (8px py + 14px icon row + 6px padding)
@@ -27,8 +21,9 @@ const DRAWER_WIDTH = 308;
 //   footer  = 38px (CUSTOMIZE → row)
 //
 // Hard cap at 452 so very long action lists stay scrollable inside the
-// panel rather than running off-screen on small viewports. Matched
-// exactly in quick-actions-drawer.tsx (PANEL_H = computeMenuHeight(...)).
+// panel rather than running off-screen on small viewports. Consumed by
+// quick-actions-drawer.tsx (PANEL_H). The TAB no longer grows — fixed
+// heights per the P2 shell design (§4.4).
 export const QA_HEADER_H = 46;
 export const QA_FOOTER_H = 38;
 export const QA_ROW_H = 36;
@@ -45,7 +40,6 @@ export function QuickActionsTab() {
   const { t } = useDictionary("quick-actions");
   const visible = useQuickActionsVisible();
   const open = useEdgeTabStore((s) => s.activeTab === EDGE_TAB_ID);
-  const anyActive = useEdgeTabStore((s) => s.activeTab !== null);
   const toggle = useEdgeTabStore((s) => s.toggle);
 
   // Tinted glass — when there's a primary CTA queued in Quick Actions
@@ -64,15 +58,6 @@ export function QuickActionsTab() {
     if (hasReviewQueue || duplicateReviewOpen) return "accent";
     return "neutral";
   }, [notifs, duplicateReviewOpen]);
-
-  // Content-driven expanded height (bug dd5659ed) — the tab + panel grow
-  // exactly to fit the visible action list, never locking at 452. Capped
-  // at QA_MAX_PANEL_H so very long lists stay scrollable.
-  const actions = useQuickActions();
-  const expandedHeight = useMemo(
-    () => computeQuickActionsPanelHeight(actions.length),
-    [actions.length],
-  );
 
   // Keyboard shortcut: Q (no modifiers, not inside input/textarea/contenteditable)
   useEffect(() => {
@@ -98,17 +83,15 @@ export function QuickActionsTab() {
       onToggle={() => toggle(EDGE_TAB_ID)}
       accent="accent"
       tint={tint}
-      restHeight={REST_HEIGHT}
-      expandedHeight={expandedHeight}
-      drawerWidth={DRAWER_WIDTH}
-      stackOffset={STACK_OFFSET_QA}
-      canHoverExpand={!anyActive || open}
+      height={RAIL.height}
+      drawerWidth={RAIL.drawerWidth}
+      stackOffset={RAIL.stackOffset}
       wordmark={t("tab.wordmarkClosed")}
       wordmarkOpen={t("tab.wordmarkOpen")}
       ariaLabel={t("tab.ariaLabel")}
       shortcut="Q"
       tooltipTitle={t("tab.tooltipTitle")}
-      renderGlyph={(isOpen) => (
+      renderGlyph={() => (
         <svg
           width="14"
           height="14"

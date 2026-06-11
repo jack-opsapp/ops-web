@@ -173,7 +173,7 @@ export function TodaysScheduleWidget({
               {schedule.todayEvents.length}
             </span>
             <button
-              onClick={(e) => { e.stopPropagation(); onNavigate("/calendar"); }}
+              onClick={(e) => { e.stopPropagation(); onNavigate("/schedule"); }}
               className="p-0.5 rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors"
             >
               <ArrowUpRight className="w-2.5 h-2.5 text-text-mute" />
@@ -241,7 +241,7 @@ export function TodaysScheduleWidget({
                     }}
                     primary={event.title}
                     secondary={secondaryParts.join(" · ")}
-                    onClick={() => onNavigate("/calendar")}
+                    onClick={() => onNavigate("/schedule")}
                     index={i}
                     isVisible={isVisible}
                     reducedMotion={reducedMotion}

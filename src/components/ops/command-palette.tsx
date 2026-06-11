@@ -6,18 +6,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   FolderKanban,
-  CalendarDays,
   Users,
-  UserCog,
-  MapPin,
   Settings,
   Plus,
   Search,
-
-  LayoutDashboard,
-  GitBranch,
-  Receipt,
-  Calculator,
   LogOut,
   Keyboard,
   RefreshCw,
@@ -26,7 +18,15 @@ import {
 } from "lucide-react";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { usePermissionStore } from "@/lib/store/permissions-store";
-import { useFeatureFlagsStore } from "@/lib/store/feature-flags-store";
+import {
+  useFeatureFlagsStore,
+  selectFlagsReady,
+} from "@/lib/store/feature-flags-store";
+import {
+  getNavEntries,
+  getNumberShortcutRoutes,
+} from "@/lib/navigation/route-registry";
+import { useDictionary } from "@/i18n/client";
 import { useSignOutStore } from "@/stores/signout-store";
 import { useProjects } from "@/lib/hooks/use-projects";
 import { useClients } from "@/lib/hooks/use-clients";
@@ -61,6 +61,9 @@ export function CommandPalette() {
   const beginSignOut = useSignOutStore((s) => s.begin);
   const can = usePermissionStore((s) => s.can);
   const isPermissionUnlocked = useFeatureFlagsStore((s) => s.isPermissionUnlocked);
+  const canAccessFeature = useFeatureFlagsStore((s) => s.canAccessFeature);
+  const flagsReady = useFeatureFlagsStore(selectFlagsReady);
+  const { t: tNav } = useDictionary("navigation");
 
   // Entity data for search — scope-AGNOSTIC across the whole company so
   // the palette acts as a universal lookup. Bug ab3ace6e — the legacy
@@ -156,98 +159,31 @@ export function CommandPalette() {
     [router]
   );
 
-  const navigationActions: CommandAction[] = ([
-    {
-      id: "nav-dashboard",
-      label: "Dashboard",
-      icon: LayoutDashboard,
-      shortcut: "1",
-      onSelect: () => navigate("/dashboard"),
-      keywords: ["home", "overview", "stats"],
-    },
-    {
-      id: "nav-projects",
-      label: "Projects",
-      icon: FolderKanban,
-      shortcut: "2",
-      onSelect: () => navigate("/projects"),
-      keywords: ["jobs", "work"],
-      requiredPermission: "projects.view",
-    },
-    {
-      id: "nav-calendar",
-      label: "Calendar",
-      icon: CalendarDays,
-      shortcut: "3",
-      onSelect: () => navigate("/calendar"),
-      keywords: ["schedule", "events", "dates"],
-      requiredPermission: "calendar.view",
-    },
-    {
-      id: "nav-clients",
-      label: "Clients",
-      icon: Users,
-      shortcut: "4",
-      onSelect: () => navigate("/clients"),
-      keywords: ["customers", "contacts"],
-      requiredPermission: "clients.view",
-    },
-    {
-      id: "nav-team",
-      label: "Team",
-      icon: UserCog,
-      shortcut: "6",
-      onSelect: () => navigate("/team"),
-      keywords: ["crew", "members", "staff"],
-      requiredPermission: "team.view",
-    },
-    {
-      id: "nav-map",
-      label: "Map",
-      icon: MapPin,
-      shortcut: "7",
-      onSelect: () => navigate("/map"),
-      keywords: ["locations", "tracking", "gps"],
-      requiredPermission: "map.view",
-    },
-    {
-      id: "nav-pipeline",
-      label: "Pipeline",
-      icon: GitBranch,
-      shortcut: "8",
-      onSelect: () => navigate("/pipeline"),
-      keywords: ["leads", "sales", "crm"],
-      requiredPermission: "pipeline.view",
-    },
-    {
-      id: "nav-invoices",
-      label: "Invoices",
-      icon: Receipt,
-      shortcut: "9",
-      onSelect: () => navigate("/invoices"),
-      keywords: ["billing", "payments"],
-      requiredPermission: "invoices.view",
-    },
-    {
-      id: "nav-accounting",
-      label: "Accounting",
-      icon: Calculator,
-      onSelect: () => navigate("/accounting"),
-      keywords: ["finance", "money", "quickbooks"],
-      requiredPermission: "accounting.view",
-    },
-    {
-      id: "nav-settings",
-      label: "Settings",
-      icon: Settings,
-      onSelect: () => navigate("/settings"),
-      keywords: ["preferences", "profile", "account"],
-    },
-  ] as CommandAction[]).filter(
-    (a) =>
-      !a.requiredPermission ||
-      (isPermissionUnlocked(a.requiredPermission) && can(a.requiredPermission))
+  // Nav section derives from the route registry — labels through the
+  // navigation dictionary, displayed number shortcuts from the same map
+  // the keyboard handler uses (they had drifted apart), Phase C entries
+  // only for flagged companies, flag-locked entries hidden (the palette
+  // has no dimmed request-access state).
+  const numberShortcuts = getNumberShortcutRoutes();
+  const shortcutByHref: Record<string, string> = Object.fromEntries(
+    Object.entries(numberShortcuts).map(([num, href]) => [href, num])
   );
+  const navigationActions: CommandAction[] = getNavEntries()
+    .filter((entry) => !entry.phaseCOnly || (flagsReady && canAccessFeature("phase_c")))
+    .map((entry) => ({
+      id: `nav-${entry.key}`,
+      label: tNav(entry.labelKey),
+      icon: entry.icon,
+      shortcut: shortcutByHref[entry.href],
+      onSelect: () => navigate(entry.href),
+      keywords: entry.paletteKeywords,
+      requiredPermission: entry.permission,
+    }))
+    .filter(
+      (a) =>
+        !a.requiredPermission ||
+        (isPermissionUnlocked(a.requiredPermission) && can(a.requiredPermission))
+    );
 
   const quickActions: CommandAction[] = ([
     {

@@ -86,38 +86,60 @@ export async function GET(req: NextRequest) {
   }));
 
   // ── Per-company admin_feature_overrides ──────────────────────────────────
-  // Synthetic flag entries for features gated at the company level (not the
-  // global feature_flags table). Currently: inbox_ui.
-  // Fail-closed: if company_id is unknown or the DB call throws, inbox_ui
-  // defaults to disabled so the nav item stays hidden.
+  // Synthetic flag entries for features gated at the COMPANY level (the
+  // admin_feature_overrides table, not the global feature_flags table):
+  //
+  //   inbox_ui — Inbox dark-launch (master plan §3: UI shelved; the route
+  //              stays reachable only for flagged companies).
+  //   phase_c  — Phase C operator surfaces (WEB OVERHAUL P2). There is no
+  //              global phase_c row, and unknown slugs default to
+  //              accessible in the client store — so without this synthetic
+  //              entry, canAccessFeature("phase_c") was true for EVERY
+  //              company and the Calibration / Agent Queue nav + routes
+  //              would fail open. Carries /calibration and /agent so route
+  //              access is company-gated as well (in-place 404 otherwise).
+  //              Permissions stay [] — the email.configure_ai request-access
+  //              dim state keeps deriving from the existing ai_email_* flag
+  //              rows + per-user overrides, untouched.
+  //
+  // Fail-closed: if company_id is unknown or the DB call throws, both
+  // synthetic flags default to disabled.
+  let inboxUiEnabled = false;
+  let phaseCEnabled = false;
   if (resolvedCompanyId) {
-    let inboxUiEnabled = false;
     try {
-      inboxUiEnabled = await AdminFeatureOverrideService.isFeatureEnabled(
-        resolvedCompanyId,
-        "inbox_ui"
+      const companyOverrides =
+        await AdminFeatureOverrideService.getOverrides(resolvedCompanyId);
+      inboxUiEnabled = companyOverrides.some(
+        (o) => o.featureKey === "inbox_ui" && o.enabled
+      );
+      phaseCEnabled = companyOverrides.some(
+        (o) => o.featureKey === "phase_c" && o.enabled
       );
     } catch (err) {
-      console.error("[feature-flags] Failed to check inbox_ui override:", err);
+      console.error(
+        "[feature-flags] Failed to check company overrides:",
+        err
+      );
     }
+  }
 
-    result.push({
+  result.push(
+    {
       slug: "inbox_ui",
       enabled: inboxUiEnabled,
       hasOverride: false,
       routes: ["/inbox"],
       permissions: [],
-    });
-  } else {
-    // No company_id — push disabled so the store has the key (fail-closed)
-    result.push({
-      slug: "inbox_ui",
-      enabled: false,
+    },
+    {
+      slug: "phase_c",
+      enabled: phaseCEnabled,
       hasOverride: false,
-      routes: ["/inbox"],
+      routes: ["/calibration", "/agent"],
       permissions: [],
-    });
-  }
+    }
+  );
 
   return NextResponse.json(result);
 }

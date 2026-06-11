@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>OPS SHELL — VARIANT B · FIXED COMMAND SIDEBAR</title>
+<link rel="stylesheet" href="./colors_and_type.css" />
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { height:100%; overflow:hidden; }
+  body { background:var(--bg); }
+  .icon-14 { width:14px; height:14px; } .icon-16 { width:16px; height:16px; }
+  .icon-18 { width:18px; height:18px; }
+
+  .canvas {
+    position:fixed; inset:0; padding-left:184px; padding-top:56px;
+    background-image:radial-gradient(rgba(255,255,255,0.05) 1px, transparent 1px);
+    background-size:28px 28px;
+  }
+  .ghost-wrap { display:flex; gap:24px; padding:36px 44px; }
+  .ghost { position:relative; background:var(--glass); border:1px solid var(--glass-border);
+    border-radius:var(--r-panel); height:180px; flex:1;
+    backdrop-filter:blur(28px) saturate(1.3); -webkit-backdrop-filter:blur(28px) saturate(1.3); }
+  .ghost::before { content:""; position:absolute; inset:0; border-radius:inherit;
+    background:linear-gradient(180deg, rgba(255,255,255,0.04), transparent 40%); pointer-events:none; }
+  .ghost .gt { padding:18px 24px; font-family:var(--font-mono); font-size:11px;
+    letter-spacing:0.16em; color:var(--text-3); text-transform:uppercase; }
+  .ghost .gn { padding:0 24px; font-family:var(--font-mono); font-size:20px; font-weight:600;
+    color:var(--text); font-feature-settings:"tnum" 1,"zero" 1; }
+
+  .topbar {
+    position:fixed; top:0; left:184px; right:0; height:56px; z-index:500;
+    display:flex; align-items:center; gap:18px; padding:0 16px 0 20px;
+    background:var(--glass);
+    backdrop-filter:blur(28px) saturate(1.3); -webkit-backdrop-filter:blur(28px) saturate(1.3);
+    border-bottom:1px solid var(--glass-border);
+  }
+  .tb-title { font-family:var(--font-cakemono); font-weight:300; font-size:22px;
+    text-transform:uppercase; color:var(--text); }
+  .tb-center { display:flex; align-items:center; gap:6px; margin:0 auto; }
+  .chip { display:flex; align-items:center; gap:6px; height:40px; padding:0 12px;
+    background:rgba(10,10,10,0.25); border:1px solid rgba(255,255,255,0.06);
+    border-radius:4px; color:var(--text-3); cursor:pointer;
+    backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); }
+  .chip:hover { border-color:rgba(255,255,255,0.14); color:var(--text-2); }
+  .chip.sq { width:40px; justify-content:center; padding:0; }
+  .search { width:240px; font-family:var(--font-mohave); font-size:13px; }
+  .kbd-chip { font-family:var(--font-mono); font-size:11px; color:var(--text-mute);
+    background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.10);
+    border-radius:3px; padding:1px 5px; margin-left:auto; }
+  .tb-right { display:flex; align-items:center; gap:10px; }
+  .clock { font-family:var(--font-mono); font-size:11px; color:var(--text-3);
+    font-feature-settings:"tnum" 1,"zero" 1; letter-spacing:0.08em; }
+
+  /* fixed sidebar */
+  .side {
+    position:fixed; left:0; top:0; bottom:0; width:184px; z-index:505;
+    display:flex; flex-direction:column;
+    background:var(--glass-dense);
+    backdrop-filter:blur(28px) saturate(1.3); -webkit-backdrop-filter:blur(28px) saturate(1.3);
+    border-right:1px solid rgba(255,255,255,0.06);
+  }
+  .co { display:flex; align-items:center; gap:9px; height:56px; padding:0 14px;
+    border-bottom:1px solid rgba(255,255,255,0.06); flex-shrink:0; }
+  .co-logo { width:24px; height:24px; min-width:24px; border-radius:5px;
+    background:rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center;
+    color:var(--text-3); }
+  .co-name { font-family:var(--font-cakemono); font-weight:300; font-size:13px;
+    text-transform:uppercase; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+  nav.items { flex:1; overflow-y:auto; padding:6px 10px; scrollbar-width:none; }
+  nav.items::-webkit-scrollbar { display:none; }
+  .sect { font-family:var(--font-mono); font-size:10px; letter-spacing:0.16em;
+    text-transform:uppercase; color:var(--text-mute); padding:10px 8px 6px; white-space:nowrap; }
+  .item { position:relative; display:flex; align-items:center; gap:10px;
+    height:34px; padding:0 9px; margin-bottom:1px; border-radius:6px;
+    color:var(--text-3); cursor:pointer; text-decoration:none;
+    transition:color 150ms var(--ease-smooth), background 150ms var(--ease-smooth); }
+  .item:hover { color:var(--text); background:rgba(255,255,255,0.04); }
+  .item.active { color:var(--text); }
+  .item.active::before { content:""; position:absolute; left:-10px; top:6px; bottom:6px;
+    width:2px; background:var(--text-2); border-radius:1px; }
+  .item svg { min-width:18px; }
+  .item .label { font-family:var(--font-cakemono); font-weight:300; font-size:12px;
+    text-transform:uppercase; letter-spacing:0.03em; white-space:nowrap; }
+  .item .badge { margin-left:auto; font-family:var(--font-mono); font-size:10px;
+    color:var(--text-2); font-feature-settings:"tnum" 1,"zero" 1;
+    background:rgba(255,255,255,0.08); border-radius:4px; padding:1px 5px; }
+
+  .foot { border-top:1px solid rgba(255,255,255,0.06); padding:8px 10px 10px; flex-shrink:0; }
+  .ver { display:flex; align-items:center; gap:7px; padding:0 6px 8px; color:var(--text-mute); }
+  .ver svg { height:13px; width:auto; opacity:0.5; }
+  .ver span { font-family:var(--font-mono); font-size:10px; letter-spacing:0.14em; }
+  .user { display:flex; align-items:center; gap:9px; padding:5px 6px; border-radius:6px;
+    background:rgba(255,255,255,0.03); cursor:pointer; }
+  .user:hover { background:rgba(255,255,255,0.06); }
+  .avatar { width:28px; height:28px; min-width:28px; border-radius:50%;
+    border:1.5px solid rgba(255,255,255,0.18);
+    display:flex; align-items:center; justify-content:center;
+    font-family:var(--font-mohave); font-size:12px; color:var(--text-2); }
+  .u-meta { display:flex; flex-direction:column; overflow:hidden; }
+  .u-name { font-family:var(--font-mohave); font-size:13px; color:var(--text); line-height:1.15; white-space:nowrap; }
+  .u-role { font-family:var(--font-mono); font-size:9px; letter-spacing:0.14em;
+    color:var(--text-3); text-transform:uppercase; }
+
+  /* edge tabs (closed, fixed heights) */
+  .etab { position:fixed; right:0; width:28px; z-index:1550;
+    background:var(--glass-dense);
+    backdrop-filter:blur(28px) saturate(1.3); -webkit-backdrop-filter:blur(28px) saturate(1.3);
+    border:1px solid var(--glass-border); border-right:none; border-radius:6px 0 0 6px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;
+    cursor:pointer; color:var(--text); }
+  .etab:hover { background-color:rgba(28,30,34,0.85); }
+  .etab .stripe { position:absolute; left:0; top:8px; bottom:8px; width:2px; }
+  .etab .wm { writing-mode:vertical-rl; transform:rotate(180deg);
+    font-family:var(--font-cakemono); font-weight:300; font-size:11px;
+    letter-spacing:0.08em; text-transform:uppercase; color:var(--text-2); white-space:nowrap; }
+  .etab .cnt { font-family:var(--font-mono); font-size:11px; color:var(--text);
+    writing-mode:vertical-rl; transform:rotate(180deg); font-feature-settings:"tnum" 1,"zero" 1; }
+
+  .legend { position:fixed; bottom:10px; left:50%; transform:translateX(-50%);
+    font-family:var(--font-mono); font-size:10px; letter-spacing:0.14em;
+    color:var(--text-mute); z-index:50; }
+</style>
+</head>
+<body>
+
+<div class="canvas">
+  <div class="ghost-wrap">
+    <div class="ghost"><div class="gt">// REVENUE — JUNE</div><div class="gn">$48,200</div></div>
+    <div class="ghost"><div class="gt">// ACTIVE PROJECTS</div><div class="gn">11</div></div>
+    <div class="ghost"><div class="gt">// CREW ON SITE</div><div class="gn">6</div></div>
+  </div>
+</div>
+
+<header class="topbar">
+  <h1 class="tb-title">Dashboard</h1>
+  <div class="tb-center">
+    <div class="chip sq"><i data-lucide="undo-2" class="icon-16"></i></div>
+    <div class="chip search"><i data-lucide="search" class="icon-16"></i><span>Search…</span><span class="kbd-chip">⌘K</span></div>
+  </div>
+  <div class="tb-right">
+    <div class="chip sq"><i data-lucide="check" class="icon-14"></i></div>
+    <span class="clock">14:32</span>
+  </div>
+</header>
+
+<aside class="side">
+  <div class="co">
+    <div class="co-logo"><i data-lucide="building-2" class="icon-14"></i></div>
+    <span class="co-name">Canpro Window…</span>
+  </div>
+  <nav class="items">
+    <div class="sect">// COMMAND</div>
+    <a class="item active"><i data-lucide="layout-dashboard" class="icon-18"></i><span class="label">Dashboard</span></a>
+    <a class="item"><i data-lucide="folder-kanban" class="icon-18"></i><span class="label">Projects</span></a>
+    <a class="item"><i data-lucide="map-pin" class="icon-18"></i><span class="label">Map</span></a>
+    <a class="item"><i data-lucide="calendar-days" class="icon-18"></i><span class="label">Schedule</span></a>
+    <a class="item"><i data-lucide="git-branch" class="icon-18"></i><span class="label">Pipeline</span></a>
+    <a class="item"><i data-lucide="file-text" class="icon-18"></i><span class="label">Estimates</span></a>
+    <a class="item"><i data-lucide="receipt" class="icon-18"></i><span class="label">Invoices</span></a>
+    <a class="item"><i data-lucide="calculator" class="icon-18"></i><span class="label">Accounting</span></a>
+    <a class="item"><i data-lucide="package" class="icon-18"></i><span class="label">Products</span></a>
+    <a class="item"><i data-lucide="boxes" class="icon-18"></i><span class="label">Inventory</span></a>
+    <a class="item"><i data-lucide="users" class="icon-18"></i><span class="label">Clients</span></a>
+    <a class="item"><i data-lucide="user-cog" class="icon-18"></i><span class="label">Team</span></a>
+    <div class="sect">// OPS</div>
+    <a class="item"><i data-lucide="radar" class="icon-18"></i><span class="label">Calibration</span></a>
+    <a class="item"><i data-lucide="brain-circuit" class="icon-18"></i><span class="label">Agent Queue</span><span class="badge">3</span></a>
+    <a class="item"><i data-lucide="settings" class="icon-18"></i><span class="label">Settings</span></a>
+  </nav>
+  <div class="foot">
+    <div class="ver"><svg viewBox="0 0 2400 2400" fill="currentColor" aria-hidden="true"><path d="M1624.48,1228.51v-563.59l-375.6-187.86-281.73,140.87.16.08,469.34,234.72v469.62l187.78-93.89Z"/><path d="M1432.95,1775.53v-.08l-469.49-234.8-.13-469.56-187.52,93.93-.33,563.39.15.08,375.64,187.88,281.68-140.84Z"/></svg><span>V2.4.0</span></div>
+    <div class="user">
+      <div class="avatar">J</div>
+      <div class="u-meta">
+        <span class="u-name">Jackson Sweet</span>
+        <span class="u-role">Admin</span>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<div class="etab" style="top:calc(50% - 208px); height:164px;">
+  <span class="stripe" style="background:var(--rose);"></span>
+  <i data-lucide="bell" class="icon-14"></i>
+  <span class="cnt">12</span>
+  <span class="wm">Notifications</span>
+</div>
+<div class="etab" style="top:calc(50% - 36px); height:140px;">
+  <span class="stripe" style="background:var(--ops-accent);"></span>
+  <i data-lucide="plus" class="icon-14"></i>
+  <span class="wm">Quick Actions</span>
+</div>
+<div class="etab" style="top:calc(50% + 112px); height:96px;">
+  <span class="stripe" style="background:var(--text-mute);"></span>
+  <i data-lucide="bug" class="icon-14"></i>
+  <span class="wm">Report</span>
+</div>
+
+<div class="legend">[ VARIANT B — SIDEBAR ALWAYS 184PX · NO HOVER CHOREOGRAPHY ]</div>
+
+<script>lucide.createIcons();</script>
+</body>
+</html>

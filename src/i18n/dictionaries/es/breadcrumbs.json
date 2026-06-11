@@ -1,7 +1,7 @@
 {
   "route.dashboard": "Panel",
   "route.projects": "Proyectos",
-  "route.calendar": "Calendario",
+  "route.calendar": "Agenda",
   "route.clients": "Clientes",
 
   "route.team": "Equipo",

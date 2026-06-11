@@ -1,0 +1,42 @@
+{
+  "nav.dashboard": "Dashboard",
+  "nav.projects": "Projects",
+  "nav.map": "Map",
+  "nav.schedule": "Schedule",
+  "nav.pipeline": "Pipeline",
+  "nav.estimates": "Estimates",
+  "nav.invoices": "Invoices",
+  "nav.accounting": "Accounting",
+  "nav.products": "Products",
+  "nav.inventory": "Inventory",
+  "nav.clients": "Clients",
+  "nav.team": "Team",
+  "nav.calibration": "Calibration",
+  "nav.agentQueue": "Agent Queue",
+  "nav.settings": "Settings",
+  "nav.inbox": "Inbox",
+
+  "group.command": "Command",
+  "group.ops": "Ops",
+
+  "gated.inDevelopment": "In development",
+  "gated.accessRequested": "Access requested — we'll be in touch",
+
+  "company.fallback": "My Company",
+  "company.logoAlt": "Company",
+
+  "user.fallback": "User",
+  "user.menuAriaLabel": "Open operator menu",
+
+  "menu.operatorPrefix": "OPERATOR",
+  "menu.settings": "Settings",
+  "menu.website": "OPS Website",
+  "menu.courses": "Courses",
+  "menu.iosApp": "Get the iOS App",
+  "menu.signOut": "Sign Out",
+
+  "mobile.openAriaLabel": "Open navigation",
+  "mobile.closeAriaLabel": "Close navigation",
+
+  "version.prefix": "V"
+}

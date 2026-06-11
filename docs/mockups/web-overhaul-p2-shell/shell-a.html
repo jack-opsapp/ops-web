@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>OPS SHELL — VARIANT A · HUD RAIL</title>
+<link rel="stylesheet" href="./colors_and_type.css" />
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { height:100%; overflow:hidden; }
+  body { background:var(--bg); }
+
+  /* ── canvas placeholder ─────────────────────────────────────────── */
+  .canvas {
+    position:fixed; inset:0; padding-left:72px; padding-top:56px;
+    background-image:radial-gradient(rgba(255,255,255,0.05) 1px, transparent 1px);
+    background-size:28px 28px;
+  }
+  .ghost-wrap { display:flex; gap:24px; padding:36px 44px; }
+  .ghost {
+    position:relative; background:var(--glass); border:1px solid var(--glass-border);
+    border-radius:var(--r-panel); height:180px; flex:1;
+    backdrop-filter:blur(28px) saturate(1.3); -webkit-backdrop-filter:blur(28px) saturate(1.3);
+  }
+  .ghost::before { content:""; position:absolute; inset:0; border-radius:inherit;
+    background:linear-gradient(180deg, rgba(255,255,255,0.04), transparent 40%); pointer-events:none; }
+  .ghost .gt { padding:18px 24px; font-family:var(--font-mono); font-size:11px;
+    letter-spacing:0.16em; color:var(--text-3); text-transform:uppercase; }
+  .ghost .gn { padding:0 24px; font-family:var(--font-mono); font-size:20px; font-weight:600;
+    color:var(--text); font-feature-settings:"tnum" 1,"zero" 1; }
+
+  /* ── top bar ────────────────────────────────────────────────────── */
+  .topbar {
+    position:fixed; top:0; left:72px; right:0; height:56px; z-index:500;
+    display:flex; align-items:center; gap:18px; padding:0 16px 0 20px;
+    background:var(--glass);
+    backdrop-filter:blur(28px) saturate(1.3); -webkit-backdrop-filter:blur(28px) saturate(1.3);
+    border-bottom:1px solid var(--glass-border);
+  }
+  .tb-title { font-family:var(--font-cakemono); font-weight:300; font-size:22px;
+    text-transform:uppercase; color:var(--text); }
+  .tb-center { display:flex; align-items:center; gap:6px; margin:0 auto; }
+  .chip {
+    display:flex; align-items:center; gap:6px; height:40px; padding:0 12px;
+    background:rgba(10,10,10,0.25); border:1px solid rgba(255,255,255,0.06);
+    border-radius:4px; color:var(--text-3); cursor:pointer;
+    backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+    transition:border-color 150ms var(--ease-smooth), color 150ms var(--ease-smooth);
+  }
+  .chip:hover { border-color:rgba(255,255,255,0.14); color:var(--text-2); }
+  .chip.sq { width:40px; justify-content:center; padding:0; }
+  .search { width:240px; font-family:var(--font-mohave); font-size:13px; }
+  .search .kbd-chip { margin-left:auto; }
+  .kbd-chip { font-family:var(--font-mono); font-size:11px; color:var(--text-mute);
+    background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.10);
+    border-radius:3px; padding:1px 5px; }
+  .tb-right { display:flex; align-items:center; gap:10px; }
+  .clock { font-family:var(--font-mono); font-size:11px; color:var(--text-3);
+    font-feature-settings:"tnum" 1,"zero" 1; letter-spacing:0.08em; }
+  .icon-14 { width:14px; height:14px; } .icon-16 { width:16px; height:16px; }
+  .icon-20 { width:20px; height:20px; }
+
+  /* ── sidebar — HUD rail ─────────────────────────────────────────── */
+  .rail {
+    position:fixed; left:0; top:0; bottom:0; width:72px; z-index:505;
+    display:flex; flex-direction:column;
+    background:var(--glass-dense);
+    backdrop-filter:blur(28px) saturate(1.3); -webkit-backdrop-filter:blur(28px) saturate(1.3);
+    border-right:1px solid rgba(255,255,255,0.06);
+    transition:width 200ms var(--ease-smooth) 80ms;  /* leave: 80ms grace */
+    overflow:hidden;
+  }
+  .rail:hover { width:240px; transition-delay:120ms; }  /* hover intent */
+  .rail .label {
+    opacity:0; transform:translateX(4px); white-space:nowrap;
+    transition:opacity 160ms var(--ease-smooth) 0ms, transform 160ms var(--ease-smooth) 0ms;
+  }
+  .rail:hover .label { opacity:1; transform:translateX(0); transition-delay:160ms; }
+
+  .co { display:flex; align-items:center; gap:10px; height:56px; padding:0 20px;
+    border-bottom:1px solid rgba(255,255,255,0.06); flex-shrink:0; }
+  .co-logo { width:28px; height:28px; min-width:28px; border-radius:5px;
+    background:rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center;
+    color:var(--text-3); margin-left:1px; }
+  .co-name { font-family:var(--font-cakemono); font-weight:300; font-size:14px;
+    text-transform:uppercase; color:var(--text); overflow:hidden; text-overflow:ellipsis; }
+
+  nav.items { flex:1; overflow-y:auto; overflow-x:hidden; padding:8px 14px; scrollbar-width:none; }
+  nav.items::-webkit-scrollbar { display:none; }
+  .sect { font-family:var(--font-mono); font-size:10px; letter-spacing:0.16em;
+    text-transform:uppercase; color:var(--text-mute); padding:10px 8px 6px; height:28px; white-space:nowrap; }
+  .item {
+    position:relative; display:flex; align-items:center; gap:12px;
+    height:36px; padding:0 11px; margin-bottom:2px; border-radius:6px;
+    color:var(--text-3); cursor:pointer; text-decoration:none;
+    transition:color 150ms var(--ease-smooth), background 150ms var(--ease-smooth);
+  }
+  .item:hover { color:var(--text); background:rgba(255,255,255,0.04); }
+  .item.active { color:var(--text); }
+  .item.active::before { content:""; position:absolute; left:-14px; top:6px; bottom:6px;
+    width:2px; background:var(--text-2); border-radius:1px; }
+  .item svg { min-width:20px; }
+  .item .label { font-family:var(--font-cakemono); font-weight:300; font-size:13px;
+    text-transform:uppercase; letter-spacing:0.02em; }
+  .item .badge { margin-left:auto; font-family:var(--font-mono); font-size:10px;
+    color:var(--text-2); font-feature-settings:"tnum" 1,"zero" 1;
+    background:rgba(255,255,255,0.08); border-radius:4px; padding:1px 5px; }
+  .rail:not(:hover) .item .badge { position:absolute; top:2px; right:2px; padding:0 3px; }
+
+  .foot { border-top:1px solid rgba(255,255,255,0.06); padding:10px 14px 12px; flex-shrink:0; }
+  .ver { display:flex; align-items:center; gap:8px; padding:0 8px 8px; color:var(--text-mute); }
+  .ver svg { height:14px; width:auto; opacity:0.5; }
+  .ver span { font-family:var(--font-mono); font-size:10px; letter-spacing:0.14em; }
+  .user { display:flex; align-items:center; gap:10px; padding:6px 7px; border-radius:6px;
+    background:rgba(255,255,255,0.03); cursor:pointer;
+    transition:background 150ms var(--ease-smooth); }
+  .user:hover { background:rgba(255,255,255,0.06); }
+  .avatar { width:30px; height:30px; min-width:30px; border-radius:50%;
+    border:1.5px solid rgba(255,255,255,0.18);
+    display:flex; align-items:center; justify-content:center;
+    font-family:var(--font-mohave); font-size:13px; color:var(--text-2); }
+  .u-meta { display:flex; flex-direction:column; overflow:hidden; }
+  .u-name { font-family:var(--font-mohave); font-size:14px; color:var(--text); line-height:1.15; }
+  .u-role { font-family:var(--font-mono); font-size:10px; letter-spacing:0.14em;
+    color:var(--text-3); text-transform:uppercase; }
+
+  /* ── operator menu ──────────────────────────────────────────────── */
+  .opmenu {
+    position:fixed; left:14px; bottom:64px; width:248px; z-index:1000;
+    background:var(--glass-dense); border:1px solid var(--glass-border); border-radius:12px;
+    backdrop-filter:blur(28px) saturate(1.3); -webkit-backdrop-filter:blur(28px) saturate(1.3);
+    overflow:hidden; display:none;
+  }
+  .opmenu.open { display:block; animation:menuIn 200ms var(--ease-smooth); }
+  @keyframes menuIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+  .opmenu::before { content:""; position:absolute; inset:0;
+    background:linear-gradient(180deg, rgba(255,255,255,0.03), transparent 35%); pointer-events:none; }
+  .om-head { padding:14px 16px 12px; border-bottom:1px solid rgba(255,255,255,0.06); }
+  .om-op { font-family:var(--font-mono); font-size:11px; letter-spacing:0.14em;
+    text-transform:uppercase; color:var(--text-2); }
+  .om-op .sl { color:var(--text-mute); }
+  .om-mail { font-family:var(--font-mohave); font-size:12px; color:var(--text-3); margin-top:4px; }
+  .om-role { display:inline-flex; margin-top:8px; font-family:var(--font-mono); font-size:10px;
+    letter-spacing:0.12em; color:var(--text-2); background:rgba(255,255,255,0.05);
+    border:1px solid rgba(255,255,255,0.10); border-radius:4px; padding:2px 6px; }
+  .om-sec { padding:6px; }
+  .om-sec + .om-sec { border-top:1px solid rgba(255,255,255,0.06); }
+  .om-item { display:flex; align-items:center; gap:10px; height:36px; padding:0 10px;
+    border-radius:6px; color:var(--text-2); cursor:pointer;
+    font-family:var(--font-cakemono); font-weight:300; font-size:13px; text-transform:uppercase;
+    transition:background 150ms var(--ease-smooth), color 150ms var(--ease-smooth); }
+  .om-item:hover { background:rgba(255,255,255,0.05); color:var(--text); }
+  .om-item svg { color:var(--text-3); }
+  .om-item .ext { margin-left:auto; color:var(--text-mute); }
+  .om-item.danger { color:var(--rose); }
+  .om-item.danger svg { color:var(--rose); }
+  .om-item.danger:hover { background:var(--rose-soft); color:var(--rose); }
+
+  /* ── edge rail ──────────────────────────────────────────────────── */
+  .etab {
+    position:fixed; right:0; width:28px; z-index:1550;
+    background:var(--glass-dense);
+    backdrop-filter:blur(28px) saturate(1.3); -webkit-backdrop-filter:blur(28px) saturate(1.3);
+    border:1px solid var(--glass-border); border-right:none;
+    border-radius:6px 0 0 6px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;
+    cursor:pointer; color:var(--text);
+    transition:right 260ms var(--ease-smooth), background-color 150ms var(--ease-smooth);
+  }
+  .etab:hover { background-color:rgba(28,30,34,0.85); }
+  .etab .stripe { position:absolute; left:0; top:8; bottom:8; top:8px; bottom:8px; width:2px; }
+  .etab .wm { writing-mode:vertical-rl; transform:rotate(180deg);
+    font-family:var(--font-cakemono); font-weight:300; font-size:11px;
+    letter-spacing:0.08em; text-transform:uppercase; color:var(--text-2); white-space:nowrap; }
+  .etab .cnt { font-family:var(--font-mono); font-size:11px; color:var(--text);
+    writing-mode:vertical-rl; transform:rotate(180deg); font-feature-settings:"tnum" 1,"zero" 1; }
+  .etab svg { transition:transform 260ms var(--ease-smooth); }
+
+  /* drawer */
+  .drawer {
+    position:fixed; right:-360px; width:360px; z-index:1560;
+    background:var(--glass-dense);
+    backdrop-filter:blur(28px) saturate(1.3); -webkit-backdrop-filter:blur(28px) saturate(1.3);
+    border:1px solid var(--glass-border); border-right:none; border-radius:10px 0 0 10px;
+    display:flex; flex-direction:column; overflow:hidden;
+    transition:right 260ms var(--ease-smooth);
+  }
+  .drawer::before { content:""; position:absolute; inset:0; pointer-events:none;
+    background:linear-gradient(180deg, rgba(255,255,255,0.04), transparent 40%); }
+  .drawer.open { right:0; }
+  .dr-head { display:flex; align-items:center; padding:12px 14px 10px;
+    border-bottom:1px solid rgba(255,255,255,0.06); position:relative; }
+  .dr-head .sl { font-family:var(--font-mono); font-size:10px; color:var(--text-mute); letter-spacing:0.16em; }
+  .dr-head .ti { font-family:var(--font-cakemono); font-weight:300; font-size:13px;
+    color:var(--text); text-transform:uppercase; letter-spacing:0.08em; margin-left:6px; }
+  .dr-head .ct { font-family:var(--font-mono); font-size:11px; color:var(--text-2);
+    margin-left:8px; font-feature-settings:"tnum" 1; }
+  .dr-foot { display:flex; align-items:center; padding:9px 14px;
+    border-top:1px solid rgba(255,255,255,0.06); position:relative; }
+  .dr-foot .sys { font-family:var(--font-mono); font-size:10px; color:var(--text-mute); letter-spacing:0.14em; }
+  .dr-foot .act { margin-left:auto; font-family:var(--font-mono); font-size:10px;
+    letter-spacing:0.14em; color:var(--text-3); cursor:pointer; text-transform:uppercase;
+    transition:color 150ms var(--ease-smooth); }
+  .dr-foot .act:hover { color:var(--text); }
+
+  /* notifications internals */
+  .nf-filters { display:flex; gap:4px; padding:8px 14px 10px;
+    border-bottom:1px solid rgba(255,255,255,0.06); }
+  .nf-chip { display:inline-flex; align-items:center; gap:6px;
+    font-family:var(--font-mono); font-size:10px; letter-spacing:0.12em;
+    padding:4px 8px; border-radius:4px; cursor:pointer;
+    background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.08); color:var(--text-3); }
+  .nf-chip.on-all { background:rgba(255,255,255,0.08); border-color:rgba(255,255,255,0.18); color:var(--text); }
+  .nf-chip .dot { width:5px; height:5px; border-radius:1px; }
+  .nf-list { flex:1; overflow-y:auto; scrollbar-width:none; }
+  .nf-list::-webkit-scrollbar { display:none; }
+  .nrow { position:relative; padding:9px 14px; border-top:1px solid rgba(255,255,255,0.04); cursor:pointer; }
+  .nrow:hover { background:rgba(255,255,255,0.03); }
+  .nrow .bar { position:absolute; left:0; top:10px; bottom:10px; width:1px; opacity:0.45; }
+  .nrow .bar.persistent { width:2px; opacity:0.85; }
+  .nrow .l1 { display:flex; align-items:center; gap:8px; white-space:nowrap; }
+  .nicon { width:20px; height:20px; min-width:20px; border-radius:2.5px;
+    display:flex; align-items:center; justify-content:center;
+    background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.06); color:var(--text-3); }
+  .nrow .t { font-family:var(--font-mohave); font-size:13.5px; color:var(--text);
+    flex:1; overflow:hidden; text-overflow:ellipsis; }
+  .nrow .when { font-family:var(--font-mono); font-size:10px; color:var(--text-mute);
+    font-feature-settings:"tnum" 1; }
+  .nrow .quick {
+    font-family:var(--font-cakemono); font-weight:300; font-size:10px; letter-spacing:0.08em;
+    text-transform:uppercase; padding:3px 8px; border-radius:2.5px; cursor:pointer;
+    display:none; align-items:center; gap:4px;
+  }
+  .nrow:hover .quick { display:inline-flex; }
+  .nrow:hover .when { display:none; }
+  .nrow .x { display:none; color:var(--text-mute); cursor:pointer; }
+  .nrow:hover .x { display:inline-flex; }
+  .nrow .x:hover { color:var(--text-2); }
+  .eof { padding:10px 14px; text-align:center; font-family:var(--font-mono);
+    font-size:9px; color:var(--text-mute); letter-spacing:0.18em; }
+
+  /* quick actions internals */
+  .qa-list { flex:1; overflow-y:auto; padding:8px; scrollbar-width:none; }
+  .qa-row { display:flex; align-items:center; gap:10px; width:100%; padding:8px 10px;
+    border-radius:4px; color:var(--text-2); cursor:pointer; border:none; background:transparent;
+    transition:background 150ms var(--ease-smooth), color 150ms var(--ease-smooth); text-align:left; }
+  .qa-row:hover { background:rgba(255,255,255,0.05); color:var(--text); }
+  .qa-row svg { color:var(--text-3); min-width:14px; }
+  .qa-row .ql { font-family:var(--font-mohave); font-size:13px; flex:1; }
+  .qa-row .qh { font-family:var(--font-mono); font-size:9px; color:var(--text-mute); letter-spacing:0.12em; }
+
+  /* legend */
+  .legend { position:fixed; bottom:10px; left:50%; transform:translateX(-50%);
+    font-family:var(--font-mono); font-size:10px; letter-spacing:0.14em;
+    color:var(--text-mute); z-index:50; }
+</style>
+</head>
+<body>
+
+<!-- canvas -->
+<div class="canvas">
+  <div class="ghost-wrap">
+    <div class="ghost"><div class="gt">// REVENUE — JUNE</div><div class="gn">$48,200</div></div>
+    <div class="ghost"><div class="gt">// ACTIVE PROJECTS</div><div class="gn">11</div></div>
+    <div class="ghost"><div class="gt">// CREW ON SITE</div><div class="gn">6</div></div>
+  </div>
+</div>
+
+<!-- top bar -->
+<header class="topbar">
+  <h1 class="tb-title">Dashboard</h1>
+  <div class="tb-center">
+    <div class="chip sq" title='UNDO "ARCHIVE PROJECT" · ⌘Z'><i data-lucide="undo-2" class="icon-16"></i></div>
+    <div class="chip search"><i data-lucide="search" class="icon-16"></i><span>Search…</span><span class="kbd-chip">⌘K</span></div>
+  </div>
+  <div class="tb-right">
+    <div class="chip sq" title="SYNCED"><i data-lucide="check" class="icon-14"></i></div>
+    <span class="clock">14:32</span>
+  </div>
+</header>
+
+<!-- sidebar -->
+<aside class="rail">
+  <div class="co">
+    <div class="co-logo"><i data-lucide="building-2" class="icon-16"></i></div>
+    <span class="co-name label">Canpro Window Cleaning</span>
+  </div>
+  <nav class="items">
+    <div class="sect"><span class="label">// COMMAND</span></div>
+    <a class="item active"><i data-lucide="layout-dashboard" class="icon-20"></i><span class="label">Dashboard</span></a>
+    <a class="item"><i data-lucide="folder-kanban" class="icon-20"></i><span class="label">Projects</span></a>
+    <a class="item"><i data-lucide="map-pin" class="icon-20"></i><span class="label">Map</span></a>
+    <a class="item"><i data-lucide="calendar-days" class="icon-20"></i><span class="label">Schedule</span></a>
+    <a class="item"><i data-lucide="git-branch" class="icon-20"></i><span class="label">Pipeline</span></a>
+    <a class="item"><i data-lucide="file-text" class="icon-20"></i><span class="label">Estimates</span></a>
+    <a class="item"><i data-lucide="receipt" class="icon-20"></i><span class="label">Invoices</span></a>
+    <a class="item"><i data-lucide="calculator" class="icon-20"></i><span class="label">Accounting</span></a>
+    <a class="item"><i data-lucide="package" class="icon-20"></i><span class="label">Products</span></a>
+    <a class="item"><i data-lucide="boxes" class="icon-20"></i><span class="label">Inventory</span></a>
+    <a class="item"><i data-lucide="users" class="icon-20"></i><span class="label">Clients</span></a>
+    <a class="item"><i data-lucide="user-cog" class="icon-20"></i><span class="label">Team</span></a>
+    <div class="sect"><span class="label">// OPS</span></div>
+    <a class="item"><i data-lucide="radar" class="icon-20"></i><span class="label">Calibration</span></a>
+    <a class="item"><i data-lucide="brain-circuit" class="icon-20"></i><span class="label">Agent Queue</span><span class="badge">3</span></a>
+    <a class="item"><i data-lucide="settings" class="icon-20"></i><span class="label">Settings</span></a>
+  </nav>
+  <div class="foot">
+    <div class="ver"><svg viewBox="0 0 2400 2400" fill="currentColor" aria-hidden="true"><path d="M1624.48,1228.51v-563.59l-375.6-187.86-281.73,140.87.16.08,469.34,234.72v469.62l187.78-93.89Z"/><path d="M1432.95,1775.53v-.08l-469.49-234.8-.13-469.56-187.52,93.93-.33,563.39.15.08,375.64,187.88,281.68-140.84Z"/></svg><span class="label">V2.4.0</span></div>
+    <div class="user" onclick="document.getElementById('opmenu').classList.toggle('open'); event.stopPropagation();">
+      <div class="avatar">J</div>
+      <div class="u-meta label">
+        <span class="u-name">Jackson Sweet</span>
+        <span class="u-role">Admin</span>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<!-- operator menu -->
+<div class="opmenu" id="opmenu">
+  <div class="om-head">
+    <div class="om-op"><span class="sl">//</span> OPERATOR :: JACKSON</div>
+    <div class="om-mail">jackson@canpro.ca</div>
+    <span class="om-role">ADMIN</span>
+  </div>
+  <div class="om-sec">
+    <div class="om-item"><i data-lucide="settings" class="icon-16"></i>Settings</div>
+  </div>
+  <div class="om-sec">
+    <div class="om-item"><i data-lucide="globe" class="icon-16"></i>OPS Website<i data-lucide="arrow-up-right" class="icon-14 ext"></i></div>
+    <div class="om-item"><i data-lucide="graduation-cap" class="icon-16"></i>Courses<i data-lucide="arrow-up-right" class="icon-14 ext"></i></div>
+    <div class="om-item"><i data-lucide="smartphone" class="icon-16"></i>Get the iOS App<i data-lucide="arrow-up-right" class="icon-14 ext"></i></div>
+  </div>
+  <div class="om-sec">
+    <div class="om-item danger"><i data-lucide="log-out" class="icon-16"></i>Sign Out</div>
+  </div>
+</div>
+
+<!-- EDGE RAIL — fixed heights, no hover-grow. group: 164+8+140+8+96 = 416, centered -->
+<!-- notifications tab -->
+<div class="etab" id="tab-nf" style="top:calc(50% - 208px); height:164px;"
+     onclick="toggleDrawer('nf')">
+  <span class="stripe" style="background:var(--rose);"></span>
+  <i data-lucide="bell" class="icon-14" id="nf-glyph"></i>
+  <span class="cnt">12</span>
+  <span class="wm">Notifications</span>
+</div>
+<!-- quick actions tab -->
+<div class="etab" id="tab-qa" style="top:calc(50% - 36px); height:140px;"
+     onclick="toggleDrawer('qa')">
+  <span class="stripe" style="background:var(--ops-accent);"></span>
+  <i data-lucide="plus" class="icon-14"></i>
+  <span class="wm">Quick Actions</span>
+</div>
+<!-- report tab -->
+<div class="etab" style="top:calc(50% + 112px); height:96px;">
+  <span class="stripe" style="background:var(--text-mute);"></span>
+  <i data-lucide="bug" class="icon-14"></i>
+  <span class="wm">Report</span>
+</div>
+
+<!-- notifications drawer -->
+<div class="drawer" id="dr-nf" style="top:calc(50% - 260px); height:520px;">
+  <div class="dr-head">
+    <span class="sl">//</span><span class="ti">Notifications</span><span class="ct">12</span>
+  </div>
+  <div class="nf-filters">
+    <span class="nf-chip on-all">ALL <span style="color:var(--text-mute)">12</span></span>
+    <span class="nf-chip"><span class="dot" style="background:var(--rose)"></span>CRIT <span>2</span></span>
+    <span class="nf-chip"><span class="dot" style="background:var(--tan)"></span>ATTN <span>3</span></span>
+    <span class="nf-chip">INFO <span>7</span></span>
+  </div>
+  <div class="nf-list">
+    <div class="nrow">
+      <span class="bar persistent" style="background:var(--rose)"></span>
+      <div class="l1">
+        <span class="nicon" style="background:var(--rose-soft); border-color:var(--rose-line); color:var(--rose)"><i data-lucide="receipt" style="width:12px;height:12px"></i></span>
+        <span class="t">Invoice INV-00284 overdue · 14d</span>
+        <span class="quick" style="background:var(--rose-soft); border:1px solid var(--rose-line); color:var(--rose)">View →</span>
+        <span class="when">2h</span>
+      </div>
+    </div>
+    <div class="nrow">
+      <span class="bar" style="background:var(--tan)"></span>
+      <div class="l1">
+        <span class="nicon" style="background:var(--tan-soft); border-color:var(--tan-line); color:var(--tan)"><i data-lucide="copy" style="width:12px;height:12px"></i></span>
+        <span class="t">2 duplicate clients found</span>
+        <span class="quick" style="background:var(--tan-soft); border:1px solid var(--tan-line); color:var(--tan)">Review →</span>
+        <span class="when">3h</span>
+      </div>
+    </div>
+    <div class="nrow">
+      <div class="l1">
+        <span class="nicon"><i data-lucide="circle-dollar-sign" style="width:12px;height:12px"></i></span>
+        <span class="t">Payment received · $4,200</span>
+        <span class="quick" style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); color:var(--text)">Open →</span>
+        <span class="when">5h</span>
+        <i data-lucide="x" class="x" style="width:12px;height:12px"></i>
+      </div>
+    </div>
+    <div class="nrow">
+      <div class="l1">
+        <span class="nicon"><i data-lucide="file-check" style="width:12px;height:12px"></i></span>
+        <span class="t">Estimate EST-0112 accepted</span>
+        <span class="quick" style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); color:var(--text)">Open →</span>
+        <span class="when">1d</span>
+        <i data-lucide="x" class="x" style="width:12px;height:12px"></i>
+      </div>
+    </div>
+    <div class="nrow">
+      <div class="l1">
+        <span class="nicon"><i data-lucide="clipboard-list" style="width:12px;height:12px"></i></span>
+        <span class="t">Task review stack ready · 5 items</span>
+        <span class="quick" style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); color:var(--text)">Review →</span>
+        <span class="when">1d</span>
+        <i data-lucide="x" class="x" style="width:12px;height:12px"></i>
+      </div>
+    </div>
+    <div class="eof">—— EOF ——</div>
+  </div>
+  <div class="dr-foot">
+    <span class="sys">SYS :: SYNC 14:32</span>
+    <span class="act">Clear All</span>
+  </div>
+</div>
+
+<!-- quick actions drawer -->
+<div class="drawer" id="dr-qa" style="top:calc(50% - 215px); height:430px;">
+  <div class="dr-head">
+    <span class="sl">//</span><span class="ti">Quick Actions</span>
+    <span class="kbd-chip" style="margin-left:auto;">Q</span>
+  </div>
+  <div class="qa-list">
+    <button class="qa-row"><i data-lucide="receipt" class="icon-14"></i><span class="ql">Add Expense</span><span class="qh">EXP</span></button>
+    <button class="qa-row"><i data-lucide="trending-up" class="icon-14"></i><span class="ql">New Lead</span><span class="qh">LED</span></button>
+    <button class="qa-row"><i data-lucide="calculator" class="icon-14"></i><span class="ql">New Estimate</span><span class="qh">EST</span></button>
+    <button class="qa-row"><i data-lucide="file-text" class="icon-14"></i><span class="ql">New Invoice</span><span class="qh">INV</span></button>
+    <button class="qa-row"><i data-lucide="users" class="icon-14"></i><span class="ql">New Client</span><span class="qh">CLI</span></button>
+    <button class="qa-row"><i data-lucide="folder-kanban" class="icon-14"></i><span class="ql">New Project</span><span class="qh">PRJ</span></button>
+    <button class="qa-row"><i data-lucide="clipboard-list" class="icon-14"></i><span class="ql">New Task</span><span class="qh">TSK</span></button>
+    <button class="qa-row"><i data-lucide="tag" class="icon-14"></i><span class="ql">New Task Type</span><span class="qh">TTY</span></button>
+    <button class="qa-row"><i data-lucide="boxes" class="icon-14"></i><span class="ql">New Item</span><span class="qh">ITM</span></button>
+  </div>
+  <div class="dr-foot">
+    <span class="sys" style="text-transform:uppercase;">Customize</span>
+    <span class="act">→</span>
+  </div>
+</div>
+
+<div class="legend">[ HOVER THE RAIL · CLICK THE AVATAR · CLICK EDGE TABS ]</div>
+
+<script>
+  lucide.createIcons();
+  const TABS = {
+    nf: { tab: document.getElementById('tab-nf'), drawer: document.getElementById('dr-nf') },
+    qa: { tab: document.getElementById('tab-qa'), drawer: document.getElementById('dr-qa') },
+  };
+  let active = null;
+  function toggleDrawer(id) {
+    const next = active === id ? null : id;
+    for (const [k, v] of Object.entries(TABS)) {
+      const on = k === next;
+      v.drawer.classList.toggle('open', on);
+      v.tab.style.right = on ? '360px' : '0';
+      v.tab.style.zIndex = on ? '1570' : '1550';
+    }
+    active = next;
+  }
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.opmenu') && !e.target.closest('.user'))
+      document.getElementById('opmenu').classList.remove('open');
+    if (!e.target.closest('.etab') && !e.target.closest('.drawer') && active) toggleDrawer(active);
+  });
+</script>
+</body>
+</html>

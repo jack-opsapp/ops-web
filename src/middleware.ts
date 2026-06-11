@@ -8,7 +8,7 @@ const authRoutes = ["/login", "/register"];
 const protectedPrefixes = [
   "/dashboard",
   "/projects",
-  "/calendar",
+  "/schedule",
   "/clients",
 
   "/team",
@@ -61,6 +61,17 @@ export function middleware(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = basePath;
     url.search = query ? `?${query}` : "";
+    return NextResponse.redirect(url, 308);
+  }
+
+  // ─── Calendar → Schedule rename (308 permanent, query-preserving) ────────
+  // WEB OVERHAUL P2 (master plan §2): the surface is named Schedule
+  // everywhere. Old notification action_urls (/calendar?date=…&task=…) must
+  // keep resolving, so the search string carries through untouched. Covers
+  // /calendar and any sub-path.
+  if (pathname === "/calendar" || pathname.startsWith("/calendar/")) {
+    const url = request.nextUrl.clone();
+    url.pathname = pathname.replace(/^\/calendar/, "/schedule");
     return NextResponse.redirect(url, 308);
   }
 
