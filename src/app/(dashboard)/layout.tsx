@@ -11,39 +11,16 @@ import { DashboardLayout } from "@/components/layouts/dashboard-layout";
 import { LogoLoader } from "@/components/brand";
 import { LockoutOverlay } from "@/components/ops/lockout-overlay";
 import { useDictionary } from "@/i18n/client";
+import { getPermissionForPath } from "@/lib/navigation/route-registry";
 
 // ─── Route → Permission mapping ──────────────────────────────────────────────
-
-/** Routes that require a specific permission to access. Omitted = always allowed. */
-const ROUTE_PERMISSIONS: Record<string, string> = {
-  "/projects": "projects.view",
-  "/schedule": "calendar.view",
-  "/clients": "clients.view",
-
-  "/team": "team.view",
-  "/map": "map.view",
-  "/pipeline": "pipeline.view",
-  "/estimates": "estimates.view",
-  "/invoices": "invoices.view",
-  "/products": "products.view",
-  "/inventory": "inventory.view",
-  "/accounting": "accounting.view",
-  "/inbox": "pipeline.view",
-  "/intel": "pipeline.view",
-  "/calibration": "email.configure_ai",
-  "/agent": "pipeline.view",
-  // testing-grounds uses a per-user special permission check on the page itself
-};
-
-/** Check if the current pathname requires a permission the user doesn't have. */
-function getRequiredPermission(pathname: string): string | null {
-  for (const [route, permission] of Object.entries(ROUTE_PERMISSIONS)) {
-    if (pathname === route || pathname.startsWith(route + "/")) {
-      return permission;
-    }
-  }
-  return null;
-}
+//
+// Derived from the route registry (single source of truth). Routes without
+// a registry entry or permission are always allowed; testing-grounds runs a
+// per-user special permission check on the page itself. The retired /intel
+// entry is gone — middleware 308s /intel → /calibration before this gate
+// ever sees it.
+const getRequiredPermission = getPermissionForPath;
 
 // ─── Auth + Permission Gate ──────────────────────────────────────────────────
 

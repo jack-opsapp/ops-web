@@ -37,6 +37,7 @@ import { ExpenseReviewListPopover } from "@/components/ops/expense-review-list-p
 import { UnassignedRoleBanner } from "@/components/ops/unassigned-role-banner";
 import { useSetupGate } from "@/hooks/useSetupGate";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { getFullHeightMode as resolveFullHeightMode } from "@/lib/navigation/route-registry";
 
 // Leaflet map background + filter rail — client-only (no SSR)
 const DashboardMapBackground = dynamic(
@@ -68,24 +69,10 @@ const MapFilterRail = dynamic(
 // The inner wrapper applies `flex-1 min-h-0 flex flex-col` so children can
 // use `h-full` and `flex-1 min-h-0` without re-deriving viewport math.
 
-type FullHeightMode = "padded" | "bleed";
-
-const FULL_HEIGHT_ROUTES: Record<string, FullHeightMode> = {
-  "/inbox": "padded",
-  "/map": "bleed",
-  "/schedule": "padded",
-  "/pipeline": "padded",
-  "/projects": "bleed",
-  "/settings/integrations/ai-setup": "padded",
-};
-
-function resolveFullHeightMode(pathname: string): FullHeightMode | null {
-  if (pathname === "/projects/new") return null;
-  for (const [route, mode] of Object.entries(FULL_HEIGHT_ROUTES)) {
-    if (pathname === route || pathname.startsWith(route + "/")) return mode;
-  }
-  return null;
-}
+// Modes are declared on each route's registry entry (fullHeight) with
+// opt-outs in FULL_HEIGHT_EXCEPTIONS (/projects/new is a scrolling form).
+// The retired /settings/integrations/ai-setup entry is gone — middleware
+// 308s it to /calibration, so the page never renders.
 
 function ActionPromptsInitializer() {
   useActionPrompts();
