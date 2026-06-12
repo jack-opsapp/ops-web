@@ -388,6 +388,9 @@ export {
   useInboxMetrics,
 } from "./use-metrics";
 
+// Books (ledger instrument strip)
+export { useBooksLedger } from "./use-books";
+
 // Approval Queue (agent actions)
 export {
   useApprovalQueue,

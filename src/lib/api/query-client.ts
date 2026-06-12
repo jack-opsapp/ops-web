@@ -173,6 +173,13 @@ export const queryKeys = {
       [...queryKeys.metrics.all, tabId, companyId] as const,
   },
 
+  // Books (ledger instrument strip)
+  books: {
+    all: ["books"] as const,
+    ledger: (companyId: string, period: string) =>
+      [...queryKeys.books.all, "ledger", companyId, period] as const,
+  },
+
   // Accounting
   accounting: {
     all: ["accounting"] as const,
