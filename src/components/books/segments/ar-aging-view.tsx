@@ -191,7 +191,7 @@ export function ArAgingView({
               {topClients.map((client, idx) => (
                 <div
                   key={idx}
-                  className="flex items-center justify-between rounded px-1 py-[6px] hover:bg-[rgba(255,255,255,0.02)]"
+                  className="flex items-center justify-between rounded px-1 py-[6px] hover:bg-surface-hover-subtle"
                 >
                   <div className="flex min-w-0 items-center gap-1">
                     <span className="w-[16px] shrink-0 text-right font-mono text-micro text-text-mute tabular-nums">

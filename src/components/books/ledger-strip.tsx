@@ -134,7 +134,7 @@ function MarginMeter({ pct, animate }: { pct: number; animate: boolean }) {
         className="h-full rounded-[2px] bg-olive"
         style={{
           width: `${width}%`,
-          transition: animate ? "width 600ms cubic-bezier(0.22, 1, 0.36, 1)" : "none",
+          transition: animate ? "width 600ms var(--ease-smooth)" : "none",
         }}
       />
     </div>
@@ -172,7 +172,7 @@ function WeeklySparkline({ weeks }: { weeks: BooksLedger["weeklyNets"] }) {
     el.style.strokeDasharray = `${length}`;
     el.style.strokeDashoffset = `${length}`;
     el.getBoundingClientRect();
-    el.style.transition = "stroke-dashoffset 600ms cubic-bezier(0.22, 1, 0.36, 1)";
+    el.style.transition = "stroke-dashoffset 600ms var(--ease-smooth)";
     el.style.strokeDashoffset = "0";
   }, [points, reduced]);
 
@@ -221,7 +221,7 @@ function AgingRamp({ buckets, animate }: { buckets: BooksLedger["ar"]["buckets"]
             height: `${Math.max(v > 0 ? 8 : 4, (v / max) * 100)}%`,
             opacity: v > 0 ? 1 : 0.25,
             transition: animate
-              ? `height 500ms cubic-bezier(0.22, 1, 0.36, 1) ${i * 50}ms`
+              ? `height 500ms var(--ease-smooth) ${i * 50}ms`
               : "none",
           }}
         />
@@ -249,7 +249,7 @@ function DivergingBars({ bars, animate }: { bars: BooksLedger["jobs"]["bars"]; a
                   width: `${Math.max(widthPct, 2)}%`,
                   marginLeft: positive ? "50%" : `${50 - Math.max(widthPct, 2)}%`,
                   transition: animate
-                    ? `width 500ms cubic-bezier(0.22, 1, 0.36, 1) ${i * 50}ms`
+                    ? `width 500ms var(--ease-smooth) ${i * 50}ms`
                     : "none",
                 }}
                 title={`${b.title} ${fmtMoney(b.net, { signed: true })}`}

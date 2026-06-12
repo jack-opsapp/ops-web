@@ -395,6 +395,7 @@ export function EstimatesSegment({
                           disabled={generatingPdfId === estimate.id}
                           className="rounded p-[4px] text-text-3 transition-colors hover:bg-surface-active hover:text-text disabled:opacity-50"
                           title={t("estimates.actions.downloadPdf")}
+                          aria-label={t("estimates.actions.downloadPdf")}
                         >
                           {generatingPdfId === estimate.id ? (
                             <Loader2 className="h-[14px] w-[14px] animate-spin motion-reduce:animate-none" />
@@ -407,6 +408,7 @@ export function EstimatesSegment({
                             onClick={() => setSendingEstimate(estimate)}
                             className="rounded p-[4px] text-text-3 transition-colors hover:bg-surface-active hover:text-text"
                             title={t("estimates.actions.send")}
+                          aria-label={t("estimates.actions.send")}
                           >
                             <Send className="h-[14px] w-[14px]" />
                           </button>
@@ -418,6 +420,7 @@ export function EstimatesSegment({
                               onClick={() => convertToInvoice.mutate({ estimateId: estimate.id })}
                               className="rounded p-[4px] text-text-3 transition-colors hover:bg-olive-soft hover:text-olive"
                               title={t("estimates.actions.convertToInvoice")}
+                          aria-label={t("estimates.actions.convertToInvoice")}
                             >
                               <ArrowRightLeft className="h-[14px] w-[14px]" />
                             </button>
@@ -427,6 +430,7 @@ export function EstimatesSegment({
                             onClick={() => deleteEstimate.mutate(estimate.id)}
                             className="rounded p-[4px] text-text-mute transition-colors hover:bg-rose-soft hover:text-rose"
                             title={t("estimates.actions.delete")}
+                          aria-label={t("estimates.actions.delete")}
                           >
                             <Trash2 className="h-[14px] w-[14px]" />
                           </button>

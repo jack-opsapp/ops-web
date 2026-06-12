@@ -487,6 +487,7 @@ export function InvoicesSegment({
                             disabled={generatingPdfId === invoice.id}
                             className="rounded p-[4px] text-text-3 transition-colors hover:bg-surface-active hover:text-text disabled:opacity-50"
                             title={t("invoices.actions.downloadPdf")}
+                          aria-label={t("invoices.actions.downloadPdf")}
                           >
                             {generatingPdfId === invoice.id ? (
                               <Loader2 className="h-[14px] w-[14px] animate-spin motion-reduce:animate-none" />
@@ -499,6 +500,7 @@ export function InvoicesSegment({
                               onClick={() => sendInvoice.mutate(invoice.id)}
                               className="rounded p-[4px] text-text-3 transition-colors hover:bg-surface-active hover:text-text"
                               title={t("invoices.actions.send")}
+                          aria-label={t("invoices.actions.send")}
                             >
                               <Send className="h-[14px] w-[14px]" />
                             </button>
@@ -510,6 +512,7 @@ export function InvoicesSegment({
                                 onClick={() => setPaymentInvoice(invoice)}
                                 className="rounded p-[4px] text-text-3 transition-colors hover:bg-olive-soft hover:text-olive"
                                 title={t("invoices.actions.recordPayment")}
+                          aria-label={t("invoices.actions.recordPayment")}
                               >
                                 <DollarSign className="h-[14px] w-[14px]" />
                               </button>
@@ -521,6 +524,7 @@ export function InvoicesSegment({
                                 onClick={() => voidInvoice.mutate(invoice.id)}
                                 className="rounded p-[4px] text-text-mute transition-colors hover:bg-rose-soft hover:text-rose"
                                 title={t("invoices.actions.void")}
+                          aria-label={t("invoices.actions.void")}
                               >
                                 <Ban className="h-[14px] w-[14px]" />
                               </button>
@@ -530,6 +534,7 @@ export function InvoicesSegment({
                               onClick={() => deleteInvoice.mutate(invoice.id)}
                               className="rounded p-[4px] text-text-mute transition-colors hover:bg-rose-soft hover:text-rose"
                               title={t("invoices.actions.delete")}
+                          aria-label={t("invoices.actions.delete")}
                             >
                               <Trash2 className="h-[14px] w-[14px]" />
                             </button>

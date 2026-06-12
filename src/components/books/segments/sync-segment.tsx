@@ -188,7 +188,7 @@ function SyncHistoryRow({
     );
 
   return (
-    <div className="flex items-center gap-1.5 rounded px-1 py-[6px] hover:bg-[rgba(255,255,255,0.02)]">
+    <div className="flex items-center gap-1.5 rounded px-1 py-[6px] hover:bg-surface-hover-subtle">
       {statusIcon}
       <span className="flex-1 truncate font-mono text-micro uppercase tracking-[0.08em] text-text-2">
         {entry.provider} — {entry.status}
