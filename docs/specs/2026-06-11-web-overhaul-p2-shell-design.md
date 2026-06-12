@@ -314,3 +314,21 @@ Labels move to `quick-actions.json` (`action.expense` …) en + es.
 **Dictionary deltas vs §4.4:** notification filter chips ship the approved compact codes (ALL/CRIT/ATTN/INFO) — the full words overflowed the 360px drawer with live data. `navigation.json` (en+es) is the new shared label namespace; `sidebar.json`'s nav keys remain for nothing and can be retired with the namespace cleanup in P4.
 
 **Verification (dev server, auth bypass, Maverick test company):** `/calendar?date=…&task=…` → 308 `/schedule` query-preserved · registry titles in top bar + browser tab · rail rest/hover/intent-delay · operator menu · Phase C entries absent for non-flagged company · notifications drawer with live rows + hover actions + CLEAR ALL · quick-actions drawer (Q) with i18n labels · 390px drawer + clamped tabs · 42 registry invariant tests + 52 shell component tests + 19 flags-API tests green; full unit suite green except one pre-existing main failure (`tests/unit/inbox/ai-draft-provenance.test.ts`, untouched by this branch).
+
+---
+
+## 9. Revision — fixed instrument rail (2026-06-11, post-review)
+
+**Jackson rejected the shipped §8 rail on live review:** the hover-to-expand overlay read as jarring every time the cursor grazed the rail, and the result looked too close to the pre-P2 sidebar. Decision (made on inline mockups, option B): **the rail never expands.**
+
+**Shipped revision (`cc4f78a6`):**
+
+- Fixed 72px icon rail — no width animation, no overlay, nothing reflows. The hover-intent/grace timers and `isHoverExpanded` store state are deleted; `Cmd+B` (which toggled expansion) is retired.
+- Labels surface as a **portalled glass tooltip** anchored to the rail's right edge (90ms dwell, `role="tooltip"`, keyboard-focus parity, reduced-motion safe, suppressed on mobile where labels are inline). Replaces the native `title` tooltips.
+- Active row: centered 40px fill tile + the 2px `text-2` edge marker. Group boundaries render as short centered hairlines at rest (labels only in the mobile drawer).
+- Operator menu flies out `side="right"` from the avatar (was `side="top"`), since the rail has no expanded state to align with.
+- Mobile drawer unchanged: full labelled anatomy, `// group` marks, scrim + Escape.
+
+**Note for §8's "Sidebar model: A" record:** decision A is superseded by this revision — the approval-gate choice was re-opened after Jackson saw A in the running app. The mockup comparison file for this round lives in the session transcript (inline visualization), not `docs/mockups/`.
+
+**Worktree dev note (`cb80f3e5`):** Turbopack panics on the worktree's symlinked `node_modules` ("points out of the filesystem root"); `npm run dev:webpack` (plain `next dev`) added for worktree preview servers. Verified via the dev auth bypass on the overhaul worktree (port 3017): rail fixed at 72px, tooltip text/position correct, operator menu right-flyout, 390px drawer clean, `tsc` exit 0.
