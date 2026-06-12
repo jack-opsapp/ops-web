@@ -8,7 +8,8 @@
  */
 
 import { useMemo } from "react";
-import { useDictionary } from "@/i18n/client";
+import { useDictionary, useLocale } from "@/i18n/client";
+import { getDateLocale } from "@/i18n/date-utils";
 import { useAccountingMetrics } from "@/lib/hooks";
 import { InvoiceStatus, formatCurrency } from "@/lib/types/pipeline";
 import type { Invoice } from "@/lib/types/pipeline";
@@ -109,6 +110,8 @@ export function ArAgingView({
   const { t } = useDictionary("accounting");
   const { t: tb } = useDictionary("books");
   const { t: tp } = useDictionary("pipeline");
+  const { locale } = useLocale();
+  const numLocale = getDateLocale(locale);
   const { data: accountingMetrics = [] } = useAccountingMetrics();
 
   const aging = useMemo(() => calculateAgingBuckets(invoices), [invoices]);
@@ -150,8 +153,8 @@ export function ArAgingView({
     ];
     return entries
       .filter((e): e is [string, NonNullable<ReturnType<typeof find>>] => !!e[1])
-      .map(([label, m]) => ({ label, value: formatMetricValue(m), note: m.breakdown }));
-  }, [accountingMetrics, tb]);
+      .map(([label, m]) => ({ label, value: formatMetricValue(m, numLocale), note: m.breakdown }));
+  }, [accountingMetrics, tb, numLocale]);
 
   return (
     // Sibling glass panels sit 24px apart (DESIGN.md §7 panel gap).

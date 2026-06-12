@@ -24,7 +24,7 @@
   "ledger.avgMargin": "MARGEN PROM",
   "ledger.noData": "SIN DATOS",
   "ledger.retry": "REINTENTAR",
-  "ledger.error": "ERROR",
+  "ledger.error": "ERROR — LIBRO MAYOR NO DISPONIBLE",
   "period.30d": "30 DÍAS",
   "period.90d": "90 DÍAS",
   "period.6m": "6 MESES",

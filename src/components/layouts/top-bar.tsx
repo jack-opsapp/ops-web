@@ -34,6 +34,7 @@ import { useSidebarStore } from "@/stores/sidebar-store";
 import { useBreadcrumbStore } from "@/stores/breadcrumb-store";
 import { useUndoStore } from "@/stores/undo-store";
 import { getTitleKeyForPath } from "@/lib/navigation/route-registry";
+import { formatEnumLabel } from "@/lib/utils/format";
 
 // ── Sync indicator ───────────────────────────────────────────────────────────
 
@@ -169,6 +170,13 @@ export function TopBar() {
   const titleKey = getTitleKeyForPath(pathname);
   const rootTitle = titleKey ? tNav(titleKey) : "";
   const parentRoute = "/" + segments[0];
+  // Last-resort leaf fallback while the breadcrumb store hydrates — never
+  // print a raw slug/UUID as the page title (DESIGN.md §14: no raw data as
+  // display copy). IDs render as the `—` empty mark instead.
+  const leafSegment = segments[segments.length - 1] ?? "";
+  const leafFallback = /^[0-9a-f-]{20,}$/i.test(leafSegment)
+    ? "—"
+    : formatEnumLabel(leafSegment);
 
   // Live sync status from TanStack Query + connectivity
   const isOnline = useConnectivity();
@@ -239,7 +247,7 @@ export function TopBar() {
             )}
             <span className="text-text-mute font-mono text-micro">{"//"}</span>
             <span className="font-cakemono font-light text-heading text-text uppercase truncate">
-              {entityName || segments[segments.length - 1]}
+              {entityName || leafFallback}
             </span>
           </div>
         ) : (

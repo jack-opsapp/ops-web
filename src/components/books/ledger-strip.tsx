@@ -11,7 +11,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { animate } from "framer-motion";
-import { useDictionary } from "@/i18n/client";
+import { useDictionary, useLocale } from "@/i18n/client";
+import { getDateLocale } from "@/i18n/date-utils";
 import { useBooksLedger } from "@/lib/hooks";
 import type { BooksLedger, BooksPeriod } from "@/lib/api/services/books-service";
 import { useReducedMotion } from "@/components/dashboard/widgets/shared/use-reduced-motion";
@@ -20,10 +21,15 @@ import { cn } from "@/lib/utils/cn";
 
 // ─── Formatting ───────────────────────────────────────────────────────────────
 
-/** Whole-dollar display ("$48,210", "−$2,140"); `—` is the caller's empty. */
-function fmtMoney(value: number, { signed = false } = {}): string {
+/** Whole-dollar display ("$48,210", "−$2,140"); `—` is the caller's empty.
+ *  Locale-aware: figures follow the active app locale, never hardcoded. */
+function fmtMoney(
+  value: number,
+  locale: string,
+  { signed = false } = {},
+): string {
   const abs = Math.abs(value);
-  const body = new Intl.NumberFormat("en-US", {
+  const body = new Intl.NumberFormat(locale, {
     style: "currency",
     currency: "USD",
     maximumFractionDigits: 0,
@@ -229,7 +235,15 @@ function AgingRamp({ buckets, animate }: { buckets: BooksLedger["ar"]["buckets"]
   );
 }
 
-function DivergingBars({ bars, animate }: { bars: BooksLedger["jobs"]["bars"]; animate: boolean }) {
+function DivergingBars({
+  bars,
+  animate,
+  numLocale,
+}: {
+  bars: BooksLedger["jobs"]["bars"];
+  animate: boolean;
+  numLocale: string;
+}) {
   const max = Math.max(...bars.map((b) => Math.abs(b.net)), 1);
   return (
     <div className="my-[10px] flex h-[30px] flex-col justify-center gap-[4px]" aria-hidden>
@@ -251,7 +265,7 @@ function DivergingBars({ bars, animate }: { bars: BooksLedger["jobs"]["bars"]; a
                     ? `width 500ms var(--ease-smooth) ${i * 50}ms`
                     : "none",
                 }}
-                title={`${b.title} ${fmtMoney(b.net, { signed: true })}`}
+                title={`${b.title} ${fmtMoney(b.net, numLocale, { signed: true })}`}
               />
             </span>
           );
@@ -287,6 +301,8 @@ export interface LedgerStripProps {
 
 export function LedgerStrip({ period, onPeriodChange, onDrillOverdue, clientName }: LedgerStripProps) {
   const { t } = useDictionary("books");
+  const { locale } = useLocale();
+  const numLocale = getDateLocale(locale);
   const { data, isLoading, isError, refetch } = useBooksLedger(period);
   const reduced = useReducedMotion();
   const animate = !reduced;
@@ -336,15 +352,15 @@ export function LedgerStrip({ period, onPeriodChange, onDrillOverdue, clientName
               </span>
             }
           >
-            <TileHero>{fmtMoney(net)}</TileHero>
+            <TileHero>{fmtMoney(net, numLocale)}</TileHero>
             <MarginMeter pct={data.marginPct} animate={animate} />
             <TileSub>
               <span className="flex gap-[14px]">
                 <span className="text-olive">
-                  {t("ledger.in")}&nbsp;{fmtMoney(data.paymentsIn)}
+                  {t("ledger.in")}&nbsp;{fmtMoney(data.paymentsIn, numLocale)}
                 </span>
                 <span className="text-rose">
-                  {t("ledger.out")}&nbsp;{fmtMoney(data.expensesOut)}
+                  {t("ledger.out")}&nbsp;{fmtMoney(data.expensesOut, numLocale)}
                 </span>
               </span>
             </TileSub>
@@ -353,7 +369,7 @@ export function LedgerStrip({ period, onPeriodChange, onDrillOverdue, clientName
           {/* ── CASH FLOW ── */}
           <TileShell label={t("ledger.cashflow")}>
             <TileHero>
-              {data.weeklyNets.length === 0 ? "—" : fmtMoney(data.avgPerWeek, { signed: true })}
+              {data.weeklyNets.length === 0 ? "—" : fmtMoney(data.avgPerWeek, numLocale, { signed: true })}
               {data.weeklyNets.length > 0 && (
                 <span className="ml-0.5 text-micro text-text-3">
                   {t("ledger.avgWk")}
@@ -366,7 +382,7 @@ export function LedgerStrip({ period, onPeriodChange, onDrillOverdue, clientName
                 <>
                   {t("ledger.lowWk")}{" "}
                   <span className={data.lowWeek.net < 0 ? "text-rose" : "text-text-2"}>
-                    {fmtMoney(data.lowWeek.net, { signed: true })}
+                    {fmtMoney(data.lowWeek.net, numLocale, { signed: true })}
                   </span>
                   {" · "}
                   {t("ledger.weeks", { n: data.weeklyNets.length })}
@@ -383,11 +399,11 @@ export function LedgerStrip({ period, onPeriodChange, onDrillOverdue, clientName
             right={<ScopeBadge>{t("ledger.allOpen")}</ScopeBadge>}
             onClick={onDrillOverdue}
           >
-            <TileHero>{fmtMoney(arTotal)}</TileHero>
+            <TileHero>{fmtMoney(arTotal, numLocale)}</TileHero>
             <AgingRamp buckets={data.ar.buckets} animate={animate} />
             <TileSub>
               {t("ledger.overdue")}{" "}
-              <span className="text-rose">{fmtMoney(data.ar.overdueTotal)}</span>
+              <span className="text-rose">{fmtMoney(data.ar.overdueTotal, numLocale)}</span>
               {data.ar.topChase && clientName?.(data.ar.topChase.clientId) ? (
                 <>
                   {" · "}
@@ -408,7 +424,7 @@ export function LedgerStrip({ period, onPeriodChange, onDrillOverdue, clientName
                 {t("ledger.profitable")}
               </span>
             </TileHero>
-            <DivergingBars bars={data.jobs.bars} animate={animate} />
+            <DivergingBars bars={data.jobs.bars} animate={animate} numLocale={numLocale} />
             <TileSub>
               {t("ledger.avgMargin")}{" "}
               <span className="text-text-2">{fmtPct(data.jobs.avgMarginPct)}</span>

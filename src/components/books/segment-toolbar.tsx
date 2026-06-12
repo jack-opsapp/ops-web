@@ -143,11 +143,12 @@ const TONE_CLASS: Record<NonNullable<StatLineItem["tone"]>, string> = {
   tan: "text-tan",
 };
 
-/** Format a MetricsService column for the stat line (always mono, formatted). */
-export function formatMetricValue(metric: MetricColumnConfig): string {
+/** Format a MetricsService column for the stat line (always mono, formatted).
+ *  Locale-aware — callers pass the active BCP 47 locale (getDateLocale). */
+export function formatMetricValue(metric: MetricColumnConfig, locale: string): string {
   switch (metric.formatType) {
     case "currency":
-      return new Intl.NumberFormat("en-US", {
+      return new Intl.NumberFormat(locale, {
         style: "currency",
         currency: "USD",
         maximumFractionDigits: 0,
@@ -157,7 +158,7 @@ export function formatMetricValue(metric: MetricColumnConfig): string {
     case "days":
       return `${Math.round(metric.value)}D`;
     default:
-      return new Intl.NumberFormat("en-US").format(metric.value);
+      return new Intl.NumberFormat(locale).format(metric.value);
   }
 }
 

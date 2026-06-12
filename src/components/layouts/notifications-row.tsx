@@ -52,8 +52,10 @@ const TONE_SURFACE: Record<
   },
 };
 
+// Mono-tabular relative stamps — locale-neutral ("0m"/"5m"/"3h"/"2d"),
+// no hardcoded English words.
 function formatRel(min: number): string {
-  if (min < 1) return "now";
+  if (min < 1) return "0m";
   if (min < 60) return `${min}m`;
   if (min < 1440) return `${Math.floor(min / 60)}h`;
   return `${Math.floor(min / 1440)}d`;

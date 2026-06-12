@@ -178,6 +178,7 @@ function SyncHistoryRow({
   entry: { id: string; provider: string; status: string; timestamp: Date; details: string | null };
 }) {
   const { locale } = useLocale();
+  const { t } = useDictionary("accounting");
   const statusIcon =
     entry.status === "success" ? (
       <CheckCircle2 className="h-[12px] w-[12px] text-olive" />
@@ -191,7 +192,8 @@ function SyncHistoryRow({
     <div className="flex items-center gap-1.5 rounded px-1 py-[6px] hover:bg-surface-hover-subtle">
       {statusIcon}
       <span className="flex-1 truncate font-mono text-micro uppercase tracking-[0.08em] text-text-2">
-        {entry.provider} — {entry.status}
+        {t(`integrations.provider.${entry.provider}`, entry.provider)} —{" "}
+        {t(`integrations.status.${entry.status}`, entry.status)}
       </span>
       <span className="shrink-0 font-mono text-micro text-text-3 tabular-nums">
         {new Date(entry.timestamp).toLocaleDateString(getDateLocale(locale), {

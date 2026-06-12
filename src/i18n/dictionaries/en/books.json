@@ -24,7 +24,7 @@
   "ledger.avgMargin": "AVG MARGIN",
   "ledger.noData": "NO DATA",
   "ledger.retry": "RETRY",
-  "ledger.error": "ERROR",
+  "ledger.error": "ERROR — LEDGER UNAVAILABLE",
   "period.30d": "30 DAYS",
   "period.90d": "90 DAYS",
   "period.6m": "6 MONTHS",

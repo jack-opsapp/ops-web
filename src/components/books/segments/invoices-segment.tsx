@@ -144,6 +144,7 @@ export function InvoicesSegment({
   const { t } = useDictionary("pipeline");
   const { t: tb } = useDictionary("books");
   const { locale } = useLocale();
+  const numLocale = getDateLocale(locale);
   const { company } = useAuthStore();
   const companyId = company?.id ?? "";
   const can = usePermissionStore((s) => s.can);
@@ -267,13 +268,13 @@ export function InvoicesSegment({
     const pastDue = find("past");
     const collection = find("collection");
     const avgDays = find("days");
-    if (collected) items.push({ label: tb("stat.collected"), value: formatMetricValue(collected), tone: "olive" });
-    if (receivables) items.push({ label: tb("ledger.ar"), value: formatMetricValue(receivables) });
-    if (pastDue) items.push({ label: tb("ledger.overdue"), value: formatMetricValue(pastDue), tone: "rose" });
-    if (collection) items.push({ label: tb("stat.collectionRate"), value: formatMetricValue(collection) });
-    if (avgDays) items.push({ label: tb("stat.avgDays"), value: formatMetricValue(avgDays) });
+    if (collected) items.push({ label: tb("stat.collected"), value: formatMetricValue(collected, numLocale), tone: "olive" });
+    if (receivables) items.push({ label: tb("ledger.ar"), value: formatMetricValue(receivables, numLocale) });
+    if (pastDue) items.push({ label: tb("ledger.overdue"), value: formatMetricValue(pastDue, numLocale), tone: "rose" });
+    if (collection) items.push({ label: tb("stat.collectionRate"), value: formatMetricValue(collection, numLocale) });
+    if (avgDays) items.push({ label: tb("stat.avgDays"), value: formatMetricValue(avgDays, numLocale) });
     return items;
-  }, [invoiceMetrics, tb]);
+  }, [invoiceMetrics, tb, numLocale]);
 
   const workbar = (
     <div className="flex flex-wrap items-center justify-between gap-2">
@@ -359,13 +360,18 @@ export function InvoicesSegment({
           ))}
         </div>
       ) : filtered.length === 0 ? (
+        /* Empty state per DESIGN.md §2: state the fact (`0 INVOICES`), no
+           coach-marks — the always-visible NEW INVOICE button is the action. */
         <div className="flex flex-col items-start py-8">
           <Receipt className="mb-2 h-[32px] w-[32px] text-text-3" />
-          <h3 className="font-mohave text-body-lg text-text-2">
-            {searchQuery || statusFilter !== "all" ? t("invoices.empty.noMatch") : t("invoices.empty.none")}
-          </h3>
-          {!searchQuery && statusFilter === "all" && (
-            <p className="mt-0.5 font-mono text-caption text-text-3">{t("invoices.empty.helper")}</p>
+          {searchQuery || statusFilter !== "all" ? (
+            <h3 className="font-mohave text-body-lg text-text-2">
+              {t("invoices.empty.noMatch")}
+            </h3>
+          ) : (
+            <h3 className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
+              {t("invoices.empty.none")}
+            </h3>
           )}
           {!searchQuery && statusFilter === "all" && can("invoices.create") && (
             <Button className="mt-3 gap-[6px]" onClick={gatedOpenCreate}>

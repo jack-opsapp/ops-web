@@ -119,6 +119,7 @@ export function EstimatesSegment({
   const { t } = useDictionary("pipeline");
   const { t: tb } = useDictionary("books");
   const { locale } = useLocale();
+  const numLocale = getDateLocale(locale);
   const { company } = useAuthStore();
   const companyId = company?.id ?? "";
   const can = usePermissionStore((s) => s.can);
@@ -237,13 +238,13 @@ export function EstimatesSegment({
     const convert = find("conver");
     const sentMonth = find("sent");
     const avgEstimate = find("avg");
-    if (pending) items.push({ label: tb("stat.pending"), value: formatMetricValue(pending), tone: "tan" });
-    if (approval) items.push({ label: tb("stat.approval"), value: formatMetricValue(approval) });
-    if (convert) items.push({ label: tb("stat.convert"), value: formatMetricValue(convert) });
-    if (sentMonth) items.push({ label: tb("stat.sentMonth"), value: formatMetricValue(sentMonth) });
-    if (avgEstimate) items.push({ label: tb("stat.avgEstimate"), value: formatMetricValue(avgEstimate) });
+    if (pending) items.push({ label: tb("stat.pending"), value: formatMetricValue(pending, numLocale), tone: "tan" });
+    if (approval) items.push({ label: tb("stat.approval"), value: formatMetricValue(approval, numLocale) });
+    if (convert) items.push({ label: tb("stat.convert"), value: formatMetricValue(convert, numLocale) });
+    if (sentMonth) items.push({ label: tb("stat.sentMonth"), value: formatMetricValue(sentMonth, numLocale) });
+    if (avgEstimate) items.push({ label: tb("stat.avgEstimate"), value: formatMetricValue(avgEstimate, numLocale) });
     return items;
-  }, [estimateMetrics, tb]);
+  }, [estimateMetrics, tb, numLocale]);
 
   return (
     <div className="space-y-2">
@@ -298,13 +299,18 @@ export function EstimatesSegment({
           ))}
         </div>
       ) : filtered.length === 0 ? (
+        /* Empty state per DESIGN.md §2: state the fact (`0 ESTIMATES`), no
+           coach-marks — the always-visible NEW ESTIMATE button is the action. */
         <div className="flex flex-col items-start py-8">
           <FileText className="mb-2 h-[32px] w-[32px] text-text-3" />
-          <h3 className="font-mohave text-body-lg text-text-2">
-            {searchQuery || statusFilter !== "all" ? t("estimates.empty.noMatch") : t("estimates.empty.none")}
-          </h3>
-          {!searchQuery && statusFilter === "all" && (
-            <p className="mt-0.5 font-mono text-caption text-text-3">{t("estimates.empty.helper")}</p>
+          {searchQuery || statusFilter !== "all" ? (
+            <h3 className="font-mohave text-body-lg text-text-2">
+              {t("estimates.empty.noMatch")}
+            </h3>
+          ) : (
+            <h3 className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
+              {t("estimates.empty.none")}
+            </h3>
           )}
           {!searchQuery && statusFilter === "all" && can("estimates.create") && (
             <Button className="mt-3 gap-[6px]" onClick={gatedOpenCreate}>

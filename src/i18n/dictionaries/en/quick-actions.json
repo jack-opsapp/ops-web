@@ -14,13 +14,13 @@
 
   "empty.noActions": "[ no actions available ]",
 
-  "action.expense": "Add Expense",
-  "action.lead": "New Lead",
-  "action.estimate": "New Estimate",
-  "action.invoice": "New Invoice",
-  "action.client": "New Client",
-  "action.project": "New Project",
-  "action.task": "New Task",
-  "action.taskType": "New Task Type",
-  "action.inventoryItem": "New Item"
+  "action.expense": "Add expense",
+  "action.lead": "New lead",
+  "action.estimate": "New estimate",
+  "action.invoice": "New invoice",
+  "action.client": "New client",
+  "action.project": "New project",
+  "action.task": "New task",
+  "action.taskType": "New task type",
+  "action.inventoryItem": "New item"
 }

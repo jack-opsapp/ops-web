@@ -28,6 +28,13 @@ import {
 } from "@/lib/types/pipeline";
 import type { Invoice, Product, CreateInvoice, CreateLineItem } from "@/lib/types/pipeline";
 
+/** Dictionary key for a payment-terms enum value ("Due on Receipt" →
+ *  form.paymentTerms.due_on_receipt). Option values stay the stable enum;
+ *  only the labels localize. */
+function paymentTermKey(term: string): string {
+  return `form.paymentTerms.${term.toLowerCase().replace(/\s+/g, "_")}`;
+}
+
 /** Local helper — replaces the old models.calculateDueDate import */
 function calculateDueDate(issueDate: Date, terms: string): Date {
   const d = new Date(issueDate);
@@ -238,7 +245,7 @@ export function InvoiceFormModal({
             <div className="space-y-0.5">
               <label className="font-mono text-micro text-text-3 uppercase tracking-[0.16em]">{t("invoices.form.paymentTerms")}</label>
               <select value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)} className="w-full bg-surface-input border border-border rounded px-2 py-1.5 font-mohave text-body text-text">
-                {PAYMENT_TERMS_OPTIONS.map((term) => <option key={term} value={term}>{term}</option>)}
+                {PAYMENT_TERMS_OPTIONS.map((term) => <option key={term} value={term}>{t(paymentTermKey(term))}</option>)}
               </select>
             </div>
             <div className="space-y-0.5">
